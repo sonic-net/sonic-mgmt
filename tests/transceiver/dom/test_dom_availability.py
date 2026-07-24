@@ -4,16 +4,20 @@ import pytest
 
 from natsort import natsorted
 
+from tests.transceiver.attribute_parser.attribute_keys import DOM_ATTRIBUTES_KEY
+
 logger = logging.getLogger(__name__)
 
 
 def test_dom_data_availability_verification(
     dom_ports,
-    dom_port_context,
+    dom_non_primary_ports,
+    port_attributes_dict,
     dom_sensor_by_port,
+    dom_non_primary_sensor_by_port,
+    dom_sensor_read_errors,
     dom_availability_plan_by_port,
-    dom_freshness_failures,
-    dom_freshness_age_minutes,
+    dom_freshness_result,
     dom_now_utc,
 ):
     """Verify configured DOM sensor data is present and fresh in STATE_DB."""
@@ -23,8 +27,12 @@ def test_dom_data_availability_verification(
     checked_fields_by_port = {}
     freshness_age_by_port = {}
 
+    for read_error in dom_sensor_read_errors:
+        all_failures.append("STATE_DB read:\n  {}".format(read_error))
+        has_configured_checks = True
+
     for port in dom_ports:
-        dom_attrs = dom_port_context[port]["dom"]
+        dom_attrs = port_attributes_dict[port].get(DOM_ATTRIBUTES_KEY, {})
         sensor_data = dom_sensor_by_port.get(port, {})
         availability_plan = dom_availability_plan_by_port.get(port, {})
         expected_fields = availability_plan.get("expected_fields", [])
@@ -34,8 +42,9 @@ def test_dom_data_availability_verification(
         if max_age_min is not None or expected_fields or field_failures:
             has_configured_checks = True
 
-        field_failures.extend(dom_freshness_failures(sensor_data, max_age_min, now_utc))
-        freshness_age_min = dom_freshness_age_minutes(sensor_data, now_utc)
+        freshness_result = dom_freshness_result(sensor_data, max_age_min, now_utc)
+        field_failures.extend(freshness_result["failures"])
+        freshness_age_min = freshness_result["age_minutes"]
         freshness_age_by_port[port] = freshness_age_min
 
         if not sensor_data:
@@ -70,6 +79,20 @@ def test_dom_data_availability_verification(
             max_age_min if max_age_min is not None else "not-configured",
         )
 
+    for port in dom_non_primary_ports:
+        has_configured_checks = True
+        sensor_data = dom_non_primary_sensor_by_port.get(port, {})
+        if sensor_data:
+            all_failures.append(
+                "{}:\n  non-primary breakout subport unexpectedly has "
+                "TRANSCEIVER_DOM_SENSOR data".format(port)
+            )
+            continue
+        logger.debug(
+            "DOM availability PASS %s: non-primary breakout subport has no TRANSCEIVER_DOM_SENSOR data",
+            port,
+        )
+
     if not has_configured_checks:
         pytest.skip("No DOM availability checks configured from DOM_ATTRIBUTES")
 
@@ -89,5 +112,14 @@ def test_dom_data_availability_verification(
             port,
             checked_fields_by_port[port],
             "{:.2f}".format(freshness_age_min) if freshness_age_min is not None else "not-available",
-            dom_port_context[port]["dom"].get("data_max_age_min", "not-configured"),
+            port_attributes_dict[port].get(DOM_ATTRIBUTES_KEY, {}).get(
+                "data_max_age_min",
+                "not-configured",
+            ),
+        )
+
+    if dom_non_primary_ports:
+        logger.info(
+            "DOM availability validation passed: %d non-primary breakout subport(s) had no sensor data",
+            len(dom_non_primary_ports),
         )

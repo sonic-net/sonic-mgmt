@@ -28,6 +28,8 @@ be surfaced as a clean per-test failure.
 import ast
 import json
 import logging
+import re
+from datetime import datetime, timezone
 
 from tests.transceiver.common.cli_parser_helper import RC_FAILURE
 
@@ -36,6 +38,181 @@ logger = logging.getLogger(__name__)
 
 # sonic-db-cli database identifiers (the first positional arg to sonic-db-cli).
 STATE_DB = "STATE_DB"
+
+STATE_DB_UPDATE_TIME_FIELD = "last_update_time"
+STATE_DB_UPDATE_TIME_FUTURE_TOLERANCE_MIN = 0.1
+
+_FLOAT_PATTERN = re.compile(
+    r"[-+]?(?:inf(?:inity)?|\d*\.?\d+(?:[eE][-+]?\d+)?)",
+    re.IGNORECASE,
+)
+_EPOCH_PATTERN = re.compile(r"^\d+(?:\.\d+)?$")
+
+
+def parse_numeric(value):
+    """Parse the first numeric token from a DB value.
+
+    Supports regular floats plus ``inf`` / ``-inf`` forms such as ``-infdBm``.
+    Returns ``None`` for absent, N/A-like, or unparseable values.
+    """
+    if value is None:
+        return None
+
+    text = str(value).strip()
+    if not text or text.upper() in ("N/A", "NA", "NONE"):
+        return None
+
+    match = _FLOAT_PATTERN.search(text)
+    if not match:
+        return None
+
+    token = match.group(0).lower()
+    if token in ("inf", "+inf", "infinity", "+infinity"):
+        return float("inf")
+    if token in ("-inf", "-infinity"):
+        return float("-inf")
+
+    try:
+        return float(match.group(0))
+    except ValueError:
+        return None
+
+
+def parse_update_time(value):
+    """Parse a STATE_DB update timestamp into a timezone-aware UTC datetime."""
+    if value is None:
+        return None
+
+    raw = str(value).strip()
+    if not raw:
+        return None
+
+    if _EPOCH_PATTERN.match(raw):
+        numeric = parse_numeric(raw)
+        if numeric is not None:
+            epoch_sec = numeric / 1000.0 if numeric > 1e12 else numeric
+            try:
+                return datetime.fromtimestamp(epoch_sec, tz=timezone.utc)
+            except (OverflowError, OSError, ValueError):
+                pass
+
+    iso_text = raw.replace("Z", "+00:00")
+    try:
+        parsed = datetime.fromisoformat(iso_text)
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return parsed.astimezone(timezone.utc)
+    except ValueError:
+        pass
+
+    formats = (
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%d %H:%M:%S.%f",
+        "%Y-%m-%dT%H:%M:%S",
+        "%Y-%m-%dT%H:%M:%S.%f",
+        "%a %b %d %H:%M:%S %Y",
+    )
+    normalized_values = (raw, " ".join(raw.split()))
+    for text in normalized_values:
+        for fmt in formats:
+            try:
+                return datetime.strptime(text, fmt).replace(tzinfo=timezone.utc)
+            except ValueError:
+                continue
+
+    return None
+
+
+def resolve_port_namespace(duthost, port):
+    """Return the ASIC namespace for a logical port, or ``None`` on single-ASIC."""
+    try:
+        asic = duthost.get_port_asic_instance(port)
+        asic_index = getattr(asic, "asic_index", None)
+        if asic_index is None:
+            return None
+        return duthost.get_namespace_from_asic_id(asic_index) or None
+    except Exception as exc:
+        logger.debug("Could not resolve ASIC namespace for %s: %s", port, exc)
+        return None
+
+
+def state_db_update_time_age_minutes(
+    entry,
+    now_utc,
+    field=STATE_DB_UPDATE_TIME_FIELD,
+):
+    """Return ``field`` age in minutes for one STATE_DB hash, or ``None``."""
+    if not entry:
+        return None
+
+    parsed_time = parse_update_time(entry.get(field))
+    if parsed_time is None:
+        return None
+
+    return (now_utc - parsed_time).total_seconds() / 60.0
+
+
+def build_state_db_freshness_result(
+    entry,
+    max_age_min,
+    now_utc,
+    table_name="STATE_DB entry",
+    field=STATE_DB_UPDATE_TIME_FIELD,
+    max_age_label="data_max_age_min",
+    future_tolerance_min=STATE_DB_UPDATE_TIME_FUTURE_TOLERANCE_MIN,
+):
+    """Validate ``field`` freshness and return failures plus the computed age.
+
+    The timestamp is parsed once, and callers can use the returned age for
+    logging without re-parsing the same STATE_DB value.
+    """
+    result = {
+        "failures": [],
+        "age_minutes": state_db_update_time_age_minutes(entry, now_utc, field=field),
+    }
+
+    if max_age_min is None:
+        return result
+
+    if not entry:
+        result["failures"].append(
+            "missing {} data for {} freshness check".format(table_name, field)
+        )
+        return result
+
+    try:
+        max_age = float(max_age_min)
+    except (TypeError, ValueError):
+        result["failures"].append(
+            "invalid {}={!r}".format(max_age_label, max_age_min)
+        )
+        return result
+
+    age_minutes = result["age_minutes"]
+    if age_minutes is None:
+        result["failures"].append(
+            "{} missing or unparsable while data_max_age_min is configured".format(field)
+        )
+        return result
+
+    if age_minutes < -float(future_tolerance_min):
+        result["failures"].append(
+            "{} is in the future (age_min={:.2f}, tolerance_min={:.2f})".format(
+                field,
+                age_minutes,
+                float(future_tolerance_min),
+            )
+        )
+    elif age_minutes > max_age:
+        result["failures"].append(
+            "{} too old (age_min={:.2f}, limit={})".format(
+                field,
+                age_minutes,
+                max_age_min,
+            )
+        )
+
+    return result
 
 
 def parse_state_db_bool(value):

@@ -1,241 +1,52 @@
 import logging
-import re
 from datetime import datetime, timezone
 
 import pytest
 from natsort import natsorted
 
-from tests.transceiver.attribute_parser.attribute_keys import (
-    BASE_ATTRIBUTES_KEY,
-    DOM_ATTRIBUTES_KEY,
+from tests.transceiver.dom.dom_helpers import (
+    build_dom_availability_plan,
+    build_dom_freshness_result,
+    build_dom_polling_failures,
+    dom_enabled_ports_from_attrs,
+    dom_non_primary_ports_from_attrs,
+    read_dom_sensor_snapshots,
 )
-from tests.transceiver.common.db_helpers import hgetall_dict
 
 logger = logging.getLogger(__name__)
 
-STATE_DB = "STATE_DB"
-CONFIG_DB = "CONFIG_DB"
 
-STATE_DB_SENSOR_KEY_TEMPLATE = "TRANSCEIVER_DOM_SENSOR|{}"
-CONFIG_DB_PORT_KEY_TEMPLATE = "PORT|{}"
-
-OPERATIONAL_SUFFIX = "_operational_range"
-LANE_NUM_PLACEHOLDER = "LANE_NUM"
-
-DOM_POLLING_ENABLED_VALUES = ("", "enabled")
-DOM_POLLING_DISABLED_VALUE = "disabled"
-
-_FLOAT_PATTERN = re.compile(r"[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?")
-
-
-def parse_numeric(value):
-    """Parse the first floating-point number from a DOM DB value."""
-    if value is None:
-        return None
-
-    text = str(value).strip()
-    if not text or text.upper() in ("N/A", "NA", "NONE"):
-        return None
-
-    match = _FLOAT_PATTERN.search(text)
-    if not match:
-        return None
-
-    try:
-        return float(match.group(0))
-    except ValueError:
-        return None
-
-
-def parse_update_time(value):
-    """Parse a DOM update timestamp into a timezone-aware UTC datetime."""
-    if value is None:
-        return None
-
-    raw = str(value).strip()
-    if not raw:
-        return None
-
-    numeric = parse_numeric(raw)
-    if numeric is not None and raw.replace(".", "", 1).isdigit():
-        epoch_sec = numeric / 1000.0 if numeric > 1e12 else numeric
-        try:
-            return datetime.fromtimestamp(epoch_sec, tz=timezone.utc)
-        except (OverflowError, OSError, ValueError):
-            pass
-
-    iso_text = raw.replace("Z", "+00:00")
-    try:
-        parsed = datetime.fromisoformat(iso_text)
-        if parsed.tzinfo is None:
-            parsed = parsed.replace(tzinfo=timezone.utc)
-        return parsed.astimezone(timezone.utc)
-    except ValueError:
-        pass
-
-    formats = (
-        "%Y-%m-%d %H:%M:%S",
-        "%Y-%m-%d %H:%M:%S.%f",
-        "%Y-%m-%dT%H:%M:%S",
-        "%Y-%m-%dT%H:%M:%S.%f",
-        "%a %b %d %H:%M:%S %Y",
+@pytest.fixture(scope="session")
+def dom_ports(port_attributes_dict, lport_to_first_subport_mapping):
+    """Return DOM-capable primary subports in deterministic interface order."""
+    ports = dom_enabled_ports_from_attrs(
+        port_attributes_dict,
+        lport_to_first_subport_mapping,
     )
-    normalized_values = (raw, " ".join(raw.split()))
-    for text in normalized_values:
-        for fmt in formats:
-            try:
-                return datetime.strptime(text, fmt).replace(tzinfo=timezone.utc)
-            except ValueError:
-                continue
-
-    return None
+    if not ports:
+        pytest.skip("No primary subports with non-empty DOM_ATTRIBUTES found for DOM tests")
+    return ports
 
 
-def get_lane_count(base_attrs):
-    """Return media lane count, falling back to host lane count."""
-    media_lane_count = base_attrs.get("media_lane_count")
-    if isinstance(media_lane_count, int) and media_lane_count > 0:
-        return media_lane_count
-
-    host_lane_count = base_attrs.get("host_lane_count")
-    if isinstance(host_lane_count, int) and host_lane_count > 0:
-        return host_lane_count
-
-    return 0
-
-
-def expand_operational_fields(attr_name, lane_count):
-    """Expand one DOM operational attribute into STATE_DB sensor fields."""
-    base_name = attr_name[:-len(OPERATIONAL_SUFFIX)]
-    if LANE_NUM_PLACEHOLDER not in base_name:
-        return [base_name]
-
-    if lane_count <= 0:
-        return []
-
-    return [
-        base_name.replace(LANE_NUM_PLACEHOLDER, str(lane))
-        for lane in range(1, lane_count + 1)
-    ]
-
-
-def _port_namespace(duthost, port):
-    """Return the ASIC namespace for a logical port, or None on single-ASIC."""
-    try:
-        asic = duthost.get_port_asic_instance(port)
-        asic_index = getattr(asic, "asic_index", None)
-        if asic_index is None:
-            return None
-        return duthost.get_namespace_from_asic_id(asic_index) or None
-    except Exception as exc:
-        logger.debug("Could not resolve ASIC namespace for %s: %s", port, exc)
-        return None
-
-
-def _dom_enabled_ports_from_attrs(port_attributes_dict):
-    """Return ports with non-empty DOM attributes."""
-    ports = []
-    for port, attrs in port_attributes_dict.items():
-        dom_attrs = attrs.get(DOM_ATTRIBUTES_KEY, {})
-        if isinstance(dom_attrs, dict) and dom_attrs:
-            ports.append(port)
-    return natsorted(ports)
-
-
-def _build_dom_polling_failures(duthost, port_attributes_dict):
-    """Return DOM polling prerequisite failures for configured DOM ports."""
-    failures = []
-    for port in _dom_enabled_ports_from_attrs(port_attributes_dict):
-        namespace = _port_namespace(duthost, port)
-        port_config = hgetall_dict(
-            duthost,
-            CONFIG_DB,
-            CONFIG_DB_PORT_KEY_TEMPLATE.format(port),
-            namespace=namespace,
-        )
-        raw_value = port_config.get("dom_polling")
-        normalized = "" if raw_value is None else str(raw_value).strip().lower()
-
-        if normalized in DOM_POLLING_ENABLED_VALUES:
-            logger.debug(
-                "%s DOM polling is enabled: %s",
-                port,
-                raw_value if raw_value is not None else "<default-enabled>",
-            )
-            continue
-
-        if normalized == DOM_POLLING_DISABLED_VALUE:
-            failures.append("{} dom_polling is disabled".format(port))
-        else:
-            failures.append("{} dom_polling has unexpected value {!r}".format(port, raw_value))
-
-    return failures
-
-
-def _read_dom_sensor_snapshots(dom_ports, dom_db_reader):
-    """Read current DOM sensor STATE_DB hashes for all DOM ports."""
-    read_sensor = dom_db_reader["sensor"]
-    return {
-        port: read_sensor(port)
-        for port in dom_ports
-    }
-
-
-def _build_dom_freshness_failures(sensor_data, max_age_min, parse_dom_update_time, now_utc):
-    """Return DOM freshness assertion failures for one sensor snapshot."""
-    if max_age_min is None:
-        return []
-
-    if not sensor_data:
-        return ["missing TRANSCEIVER_DOM_SENSOR data for last_update_time freshness check"]
-
-    try:
-        max_age = float(max_age_min)
-    except (TypeError, ValueError):
-        return ["invalid data_max_age_min={!r} in DOM_ATTRIBUTES".format(max_age_min)]
-
-    parsed_time = parse_dom_update_time(sensor_data.get("last_update_time"))
-    if parsed_time is None:
-        return ["last_update_time missing or unparsable while data_max_age_min is configured"]
-
-    age_minutes = (now_utc - parsed_time).total_seconds() / 60.0
-    if age_minutes > max_age:
-        return [
-            "last_update_time too old (age_min={:.2f}, limit={})".format(
-                age_minutes,
-                max_age_min,
-            )
-        ]
-
-    return []
-
-
-def _dom_freshness_age_minutes(sensor_data, parse_dom_update_time, now_utc):
-    """Return last_update_time age in minutes, or None when unavailable."""
-    if not sensor_data:
-        return None
-
-    parsed_time = parse_dom_update_time(sensor_data.get("last_update_time"))
-    if parsed_time is None:
-        return None
-
-    return (now_utc - parsed_time).total_seconds() / 60.0
+@pytest.fixture(scope="session")
+def dom_non_primary_ports(port_attributes_dict, lport_to_first_subport_mapping):
+    """Return DOM-capable non-primary breakout subports."""
+    return dom_non_primary_ports_from_attrs(
+        port_attributes_dict,
+        lport_to_first_subport_mapping,
+    )
 
 
 @pytest.fixture(autouse=True, scope="session")
 def _dom_session_prerequisites(
     duthost,
-    port_attributes_dict,
+    dom_ports,
     presence_verified,
     gold_fw_verified,
     links_verified,
 ):
     """Opt DOM tests into shared prerequisite gates and DOM polling checks."""
-    dom_ports = _dom_enabled_ports_from_attrs(port_attributes_dict)
-    if not dom_ports:
-        pytest.skip("No ports with non-empty DOM_ATTRIBUTES found for DOM tests")
-
-    failures = _build_dom_polling_failures(duthost, port_attributes_dict)
+    failures = build_dom_polling_failures(duthost, dom_ports)
     if failures:
         pytest.skip("dom polling prerequisite failed - " + "; ".join(failures))
 
@@ -243,131 +54,58 @@ def _dom_session_prerequisites(
 
 
 @pytest.fixture(scope="module")
-def dom_port_context(port_attributes_dict):
-    """Return per-port base and DOM attributes for configured DOM ports."""
-    context = {}
-    for port, attrs in port_attributes_dict.items():
-        dom_attrs = attrs.get(DOM_ATTRIBUTES_KEY, {})
-        if not isinstance(dom_attrs, dict) or not dom_attrs:
-            continue
-        context[port] = {
-            "base": attrs.get(BASE_ATTRIBUTES_KEY, {}),
-            "dom": dom_attrs,
-        }
-
-    if not context:
-        pytest.skip("No ports with non-empty DOM_ATTRIBUTES found in port_attributes_dict")
-
-    return context
-
-
-@pytest.fixture(scope="module")
-def dom_ports(dom_port_context):
-    """Return DOM-enabled ports in deterministic interface order."""
-    return natsorted(dom_port_context.keys())
-
-
-@pytest.fixture(scope="module")
-def dom_availability_plan_by_port(dom_port_context):
+def dom_availability_plan_by_port(port_attributes_dict, dom_ports):
     """Return expected TC1 STATE_DB sensor fields and configuration errors."""
-    plan_by_port = {}
-    for port, context in dom_port_context.items():
-        dom_attrs = context["dom"]
-        lane_count = get_lane_count(context["base"])
-        expected_fields = set()
-        errors = []
-
-        for attr_name in sorted(dom_attrs):
-            if not attr_name.endswith(OPERATIONAL_SUFFIX):
-                continue
-            if LANE_NUM_PLACEHOLDER in attr_name and lane_count <= 0:
-                errors.append(
-                    "{} uses {} but {} has no media_lane_count/host_lane_count "
-                    "in {}".format(
-                        attr_name,
-                        LANE_NUM_PLACEHOLDER,
-                        port,
-                        BASE_ATTRIBUTES_KEY,
-                    )
-                )
-                continue
-            expected_fields.update(expand_operational_fields(attr_name, lane_count))
-
-        plan_by_port[port] = {
-            "expected_fields": sorted(expected_fields),
-            "errors": errors,
-        }
-
-    return plan_by_port
-
-
-@pytest.fixture(scope="module")
-def dom_db_reader(duthost):
-    """Return DOM STATE_DB reader helpers backed by common db_helpers."""
-    def _read_sensor(port):
-        namespace = _port_namespace(duthost, port)
-        return hgetall_dict(
-            duthost,
-            STATE_DB,
-            STATE_DB_SENSOR_KEY_TEMPLATE.format(port),
-            namespace=namespace,
-        )
-
-    return {
-        "sensor": _read_sensor,
-    }
+    return build_dom_availability_plan(port_attributes_dict, dom_ports)
 
 
 @pytest.fixture(autouse=True)
 def dom_per_test_snapshots(
+    duthost,
     dom_ports,
-    dom_db_reader,
+    dom_non_primary_ports,
 ):
     """Capture baseline DOM sensor snapshots for test-body validation."""
+    sensor_ports = natsorted(set(dom_ports) | set(dom_non_primary_ports))
+    sensor_by_port, sensor_read_errors = read_dom_sensor_snapshots(duthost, sensor_ports)
+
     return {
         "baseline": {
-            "sensor_by_port": _read_dom_sensor_snapshots(dom_ports, dom_db_reader),
+            "sensor_read_errors": sensor_read_errors,
+            "sensor_by_port": {
+                port: sensor_by_port.get(port, {})
+                for port in dom_ports
+            },
+            "non_primary_sensor_by_port": {
+                port: sensor_by_port.get(port, {})
+                for port in dom_non_primary_ports
+            },
         },
     }
 
 
 @pytest.fixture
 def dom_sensor_by_port(dom_per_test_snapshots):
-    """Return baseline TRANSCEIVER_DOM_SENSOR data captured for this test."""
+    """Return baseline TRANSCEIVER_DOM_SENSOR data for primary DOM ports."""
     return dom_per_test_snapshots["baseline"]["sensor_by_port"]
 
 
-@pytest.fixture(scope="module")
-def dom_freshness_failures(parse_dom_update_time):
-    """Return a callable that builds test-body DOM freshness failures."""
-    def _failures(sensor_data, max_age_min, now_utc):
-        return _build_dom_freshness_failures(
-            sensor_data,
-            max_age_min,
-            parse_dom_update_time,
-            now_utc,
-        )
+@pytest.fixture
+def dom_non_primary_sensor_by_port(dom_per_test_snapshots):
+    """Return baseline TRANSCEIVER_DOM_SENSOR data for non-primary DOM subports."""
+    return dom_per_test_snapshots["baseline"]["non_primary_sensor_by_port"]
 
-    return _failures
+
+@pytest.fixture
+def dom_sensor_read_errors(dom_per_test_snapshots):
+    """Return bulk STATE_DB read errors captured with the DOM sensor snapshot."""
+    return dom_per_test_snapshots["baseline"]["sensor_read_errors"]
 
 
 @pytest.fixture(scope="module")
-def dom_freshness_age_minutes(parse_dom_update_time):
-    """Return a callable that reports last_update_time age in minutes."""
-    def _age_minutes(sensor_data, now_utc):
-        return _dom_freshness_age_minutes(
-            sensor_data,
-            parse_dom_update_time,
-            now_utc,
-        )
-
-    return _age_minutes
-
-
-@pytest.fixture(scope="module")
-def parse_dom_update_time():
-    """Return the shared DOM last_update_time parser."""
-    return parse_update_time
+def dom_freshness_result():
+    """Return a callable that validates DOM freshness and reports age."""
+    return build_dom_freshness_result
 
 
 @pytest.fixture(scope="module")
