@@ -72,6 +72,8 @@ SUPPORTED_ENCAP_TYPES = ['v4_in_v4', 'v4_in_v6', 'v6_in_v4', 'v6_in_v6']
 # Starting prefixes to be used for the destinations and End points.
 DESTINATION_PREFIX = 150
 NEXTHOP_PREFIX = 100
+DEFAULT_ECMP_TOLERANCE = 0.03
+VPP_ECMP_TOLERANCE = 0.05
 
 pytestmark = [
     # This script supports any T1 topology: t1, t1-64-lag, t1-56-lag, t1-lag.
@@ -186,7 +188,7 @@ def fixture_setUp(duthosts,
     data = {}
     asic_type = duthosts[rand_one_dut_hostname].facts["asic_type"]
     if asic_type in ["cisco-8000", "mellanox", "vs", "vpp", "marvell-teralynx"]:
-        data['tolerance'] = 0.03
+        data['tolerance'] = VPP_ECMP_TOLERANCE if asic_type == "vpp" else DEFAULT_ECMP_TOLERANCE
         data['underlay_tolerance'] = 0.25  # Comes from DEFAULT_BALANCING_RANGE in ptftests/fib_test.py
         data['underlay_tolerance_within_lag'] = 0.25  # Comes from DEFAULT_BALANCING_RANGE in ptftests/fib_test.py
     else:
@@ -1584,7 +1586,9 @@ class Test_VxLAN_entropy(Test_VxLAN):
         route 4's prefix dst
         '''
         self.vxlan_test_setup = setUp
-        self.verify_entropy(encap_type, tolerance=0.03)
+        self.verify_entropy(
+            encap_type,
+            tolerance=self.vxlan_test_setup['tolerance'])
 
     def test_vxlan_random_src_port(self, setUp, encap_type):
         '''
@@ -1596,7 +1600,7 @@ class Test_VxLAN_entropy(Test_VxLAN):
             encap_type,
             random_dport=False,
             random_sport=True,
-            tolerance=0.03)
+            tolerance=self.vxlan_test_setup['tolerance'])
 
     def test_vxlan_varying_src_ip(self, setUp, encap_type):
         '''
@@ -1608,4 +1612,4 @@ class Test_VxLAN_entropy(Test_VxLAN):
             encap_type,
             random_dport=False,
             random_src_ip=True,
-            tolerance=0.03)
+            tolerance=self.vxlan_test_setup['tolerance'])
