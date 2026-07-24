@@ -60,7 +60,7 @@
   when:
     - fanout_sonic_version.asic_type is defined
     - "'broadcom' in fanout_sonic_version.asic_type"
-    
+
 - name: Detect Cisco Environment
   set_fact:
     is_cisco_env: >-
