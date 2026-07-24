@@ -161,15 +161,21 @@ def get_lldpctl_output(duthost):
     return resultDict
 
 
+def exclude_mgmt_interfaces(interfaces):
+    # LLDP_ENTRY_TABLE does not track the management interface (e.g. eth0), but
+    # `show lldp table` and lldpctl list it whenever the mgmt network has an
+    # LLDP-speaking neighbor. That neighbor ages in and out independently in each
+    # source, so leaving it in makes the membership comparison flap. Drop the
+    # management interface(s) rather than assuming every front-panel port is
+    # named "Ethernet*".
+    return [name for name in interfaces if not name.startswith("eth")]
+
+
 # Helper function to get show lldp table output
 def get_show_lldp_table_output(duthost):
     lines = duthost.shell("show lldp table")["stdout"].split("\n")[3:-2]
     interface_list = [line.split()[0] for line in lines]
-    # LLDP_ENTRY_TABLE only tracks front-panel Ethernet ports. `show lldp table`
-    # also lists the management interface (e.g. eth0) whenever the mgmt network
-    # has an LLDP-speaking neighbor, which would otherwise make the comparison
-    # against LLDP_ENTRY_TABLE flap, so drop non-front-panel interfaces here.
-    interface_list = [name for name in interface_list if name.startswith("Ethernet")]
+    interface_list = exclude_mgmt_interfaces(interface_list)
     # Deduplicate: in dualtor / physical fanout topologies, an uplink port may
     # have multiple LLDP neighbors (T1 switch + fanout), causing duplicate
     # interface entries.
@@ -188,7 +194,7 @@ def check_lldp_table_keys(duthost, db_instance):
     # Check if LLDP_ENTRY_TABLE keys match show lldp table output
     lldp_entry_keys = get_lldp_entry_keys(db_instance)
     show_lldp_table_int_list = get_show_lldp_table_output(duthost)
-    db_front_panel = {name for name in lldp_entry_keys if name.startswith("Ethernet")}
+    db_front_panel = set(exclude_mgmt_interfaces(lldp_entry_keys))
     return db_front_panel == set(show_lldp_table_int_list)
 
 
@@ -258,14 +264,13 @@ def assert_lldp_interfaces(
     """
     Assert that LLDP_ENTRY_TABLE keys match show lldp table output and lldpctl output
     """
-    # LLDP_ENTRY_TABLE only tracks front-panel Ethernet ports. The management
-    # interface (e.g. eth0) can show up in both `show lldp table` and lldpctl
-    # whenever the mgmt network has an LLDP-speaking neighbor, and it is not
-    # written to LLDP_ENTRY_TABLE by design. Scope every comparison to the set
-    # of front-panel Ethernet ports so a transient mgmt-port neighbor does not
-    # make the test flap.
-    db_set = {name for name in lldp_entry_keys if name.startswith("Ethernet")}
-    cli_set = {name for name in show_lldp_table_int_list if name.startswith("Ethernet")}
+    # The management interface (e.g. eth0) can show up in both `show lldp table`
+    # and lldpctl whenever the mgmt network has an LLDP-speaking neighbor, but it
+    # is not written to LLDP_ENTRY_TABLE by design. Drop the management interface
+    # from every source so a transient mgmt-port neighbor does not make the test
+    # flap.
+    db_set = set(exclude_mgmt_interfaces(lldp_entry_keys))
+    cli_set = set(exclude_mgmt_interfaces(show_lldp_table_int_list))
     pytest_assert(
         db_set == cli_set,
         "LLDP_ENTRY_TABLE keys do not match 'show lldp table' output. "
@@ -291,12 +296,10 @@ def assert_lldp_interfaces(
     # physical fanout testbeds, lists a front-panel port once per neighbor it
     # sees (the emulated topology peer AND the physical fanout switch), so the
     # same interface name can appear multiple times. LLDP_ENTRY_TABLE is keyed
-    # per front-panel interface (one entry per port), so compare the set of
-    # front-panel Ethernet ports rather than the raw, possibly-duplicated list.
-    lldpctl_front_panel_ports = {
-        name for name in lldpctl_interfaces if name.startswith("Ethernet")
-    }
-    db_port_set = {name for name in lldp_entry_keys if name.startswith("Ethernet")}
+    # per front-panel interface (one entry per port), so drop the management
+    # interface and compare sets rather than the raw, possibly-duplicated list.
+    lldpctl_front_panel_ports = set(exclude_mgmt_interfaces(lldpctl_interfaces))
+    db_port_set = set(exclude_mgmt_interfaces(lldp_entry_keys))
     pytest_assert(
         db_port_set == lldpctl_front_panel_ports,
         "LLDP_ENTRY_TABLE keys do not match lldpctl interface indexes. "
