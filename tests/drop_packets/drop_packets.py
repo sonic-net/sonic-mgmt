@@ -268,7 +268,7 @@ EOF
     yield
 
     duthost.command("rm {} {}".format(copp_trap_group_json, copp_trap_rule_json))
-    config_reload(duthost, safe_reload=True, ignore_loganalyzer=loganalyzer)
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True, ignore_loganalyzer=loganalyzer)
     if duthost.facts["asic_type"] == "vpp":
         # monit refreshes on a ~60s cycle, so wait one full cycle to let usage
         # settle and ensure monit's next refresh captures the steady-state
