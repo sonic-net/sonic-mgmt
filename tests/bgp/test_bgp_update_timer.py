@@ -63,7 +63,8 @@ NEIGHBOR_PORT1 = 11001
 WAIT_TIMEOUT = 120
 
 
-def _apply_outbound_route_filter(duthost, dut_asn, neighbor_ips, is_v6, namespace=DEFAULT_NAMESPACE):
+def _apply_outbound_route_filter(duthost, dut_asn, neighbor_ips, is_v6, namespace=DEFAULT_NAMESPACE,
+                                 apply_inbound=False):
     """Apply an outbound route-map to ExaBGP neighbors so the DUT only
     advertises the test prefixes (10.10.100.0/24 or fc00:10::/44) instead
     of the full routing table.  Without this, ExaBGP sessions flap on
@@ -87,11 +88,21 @@ def _apply_outbound_route_filter(duthost, dut_asn, neighbor_ips, is_v6, namespac
         "exit",
         "route-map {} deny 20".format(TEST_ROUTES_ROUTE_MAP),
         "exit",
-        "router bgp {}".format(dut_asn),
-        "address-family {} unicast".format("ipv6" if is_v6 else "ipv4"),
     ]
+    if apply_inbound:
+        # On BGP confederation topologies the DUT's inbound policy for the
+        # confed peer-group (e.g. AZNGHub) tags routes with the no-export
+        # community, which stops the DUT from re-advertising the test routes
+        # to the second ExaBGP neighbor. Add a permissive inbound route-map so
+        # the test routes are accepted without it.
+        vtysh_cmds.append("route-map {}_IN permit 10".format(TEST_ROUTES_ROUTE_MAP))
+        vtysh_cmds.append("exit")
+    vtysh_cmds.append("router bgp {}".format(dut_asn))
+    vtysh_cmds.append("address-family {} unicast".format("ipv6" if is_v6 else "ipv4"))
     for ip in neighbor_ips:
         vtysh_cmds.append("neighbor {} route-map {} out".format(ip, TEST_ROUTES_ROUTE_MAP))
+        if apply_inbound:
+            vtysh_cmds.append("neighbor {} route-map {}_IN in".format(ip, TEST_ROUTES_ROUTE_MAP))
     vtysh_cmds.append("exit")  # exit address-family
     vtysh_cmds.append("exit")  # exit router bgp
 
@@ -108,9 +119,14 @@ def _apply_outbound_route_filter(duthost, dut_asn, neighbor_ips, is_v6, namespac
         duthost.shell("vtysh {} -c 'clear {} {} soft out'".format(
             ns_option, clear_af, ip
         ))
+        if apply_inbound:
+            duthost.shell("vtysh {} -c 'clear {} {} soft in'".format(
+                ns_option, clear_af, ip
+            ))
 
 
-def _remove_outbound_route_filter(duthost, dut_asn, neighbor_ips, is_v6, namespace=DEFAULT_NAMESPACE):
+def _remove_outbound_route_filter(duthost, dut_asn, neighbor_ips, is_v6, namespace=DEFAULT_NAMESPACE,
+                                  apply_inbound=False):
     """Remove the outbound route-map and prefix-list added by
     _apply_outbound_route_filter."""
     ns_option = "-n {}".format(namespace) if namespace != DEFAULT_NAMESPACE else ""
@@ -122,9 +138,13 @@ def _remove_outbound_route_filter(duthost, dut_asn, neighbor_ips, is_v6, namespa
     ]
     for ip in neighbor_ips:
         vtysh_cmds.append("no neighbor {} route-map {} out".format(ip, TEST_ROUTES_ROUTE_MAP))
+        if apply_inbound:
+            vtysh_cmds.append("no neighbor {} route-map {}_IN in".format(ip, TEST_ROUTES_ROUTE_MAP))
     vtysh_cmds.append("exit")  # exit address-family
     vtysh_cmds.append("exit")  # exit router bgp
     vtysh_cmds.append("no route-map {}".format(TEST_ROUTES_ROUTE_MAP))
+    if apply_inbound:
+        vtysh_cmds.append("no route-map {}_IN".format(TEST_ROUTES_ROUTE_MAP))
     vtysh_cmds.append("no {} prefix-list {}".format("ipv6" if is_v6 else "ip", TEST_ROUTES_PREFIX_LIST))
 
     cmd = "vtysh {} {}".format(ns_option, " ".join("-c '{}'".format(c) for c in vtysh_cmds))
@@ -174,8 +194,13 @@ def common_setup_teardown(
     )
 
     dut_asn = mg_facts["minigraph_bgp_asn"]
+    # DUT local (member) FRR AS used for vtysh 'router bgp'. Under BGP
+    # confederation dut_asn is switched to the confederation ASN below for
+    # peering, but vtysh configuration must still use the member ASN.
+    dut_frr_asn = mg_facts["minigraph_bgp_asn"]
     is_v6_topo = is_ipv6_only_topology(tbinfo)
     confed_asn = duthost.get_bgp_confed_asn()
+    is_confed = confed_asn is not None
     use_vtysh = False
 
     dut_type = ""
@@ -276,7 +301,7 @@ def common_setup_teardown(
             "DUT did not exit TSA maintenance mode after TSB"
         )
 
-    yield bgp_neighbors, use_vtysh
+    yield bgp_neighbors, use_vtysh, dut_frr_asn, is_confed
 
     # Cleanup suppress-fib-pending config
     delete_tacacs_json = [
@@ -423,7 +448,7 @@ def test_bgp_update_timer_single_route(
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     is_v6_topo = is_ipv6_only_topology(tbinfo)
 
-    (n0, n1), _ = common_setup_teardown
+    (n0, n1), _, dut_frr_asn, is_confed = common_setup_teardown
     try:
         n0.start_session()
         n1.start_session()
@@ -446,7 +471,8 @@ def test_bgp_update_timer_single_route(
         # prefixes, preventing the DUT from flooding them with the full
         # routing table which causes session flapping (issue #22391)
         _apply_outbound_route_filter(
-            duthost, n0.peer_asn, [n0.ip, n1.ip], is_v6_topo, n0.namespace
+            duthost, dut_frr_asn, [n0.ip, n1.ip], is_v6_topo, n0.namespace,
+            apply_inbound=is_confed
         )
 
         announce_intervals = []
@@ -534,7 +560,8 @@ def test_bgp_update_timer_single_route(
         n0.stop_session()
         n1.stop_session()
         _remove_outbound_route_filter(
-            duthost, n0.peer_asn, [n0.ip, n1.ip], is_v6_topo, n0.namespace
+            duthost, dut_frr_asn, [n0.ip, n1.ip], is_v6_topo, n0.namespace,
+            apply_inbound=is_confed
         )
         for route in constants.routes:
             duthost.shell("ip route flush %s" % route["prefix"])
@@ -553,7 +580,7 @@ def test_bgp_update_timer_session_down(
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     is_v6_topo = is_ipv6_only_topology(tbinfo)
 
-    (n0, n1), use_vtysh = common_setup_teardown
+    (n0, n1), use_vtysh, dut_frr_asn, is_confed = common_setup_teardown
     try:
         n0.start_session()
         n1.start_session()
@@ -571,7 +598,8 @@ def test_bgp_update_timer_session_down(
         # prefixes, preventing the DUT from flooding them with the full
         # routing table which causes session flapping (issue #22391)
         _apply_outbound_route_filter(
-            duthost, n0.peer_asn, [n0.ip, n1.ip], is_v6_topo, n0.namespace
+            duthost, dut_frr_asn, [n0.ip, n1.ip], is_v6_topo, n0.namespace,
+            apply_inbound=is_confed
         )
 
         withdraw_intervals = []
@@ -644,7 +672,8 @@ def test_bgp_update_timer_session_down(
         n0.stop_session()
         n1.stop_session()
         _remove_outbound_route_filter(
-            duthost, n0.peer_asn, [n0.ip, n1.ip], is_v6_topo, n0.namespace
+            duthost, dut_frr_asn, [n0.ip, n1.ip], is_v6_topo, n0.namespace,
+            apply_inbound=is_confed
         )
         for route in constants.routes:
             duthost.shell("ip route flush %s" % route["prefix"])
