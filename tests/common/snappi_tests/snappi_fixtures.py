@@ -507,6 +507,34 @@ def is_pfc_enabled(duthosts, rand_one_dut_front_end_hostname):
     return False
 
 
+@pytest.fixture(scope="module")
+def rand_one_dut_snappi_portname_oper_up(conn_graph_facts, fanout_graph_facts,  # noqa: F811
+                                         rand_one_dut_hostname):
+    """
+    Return a random operationally-up DUT port that is wired to the Snappi chassis,
+    in 'dut_hostname|port_name' format.  This prevents the generic
+    rand_one_dut_portname_oper_up fixture from accidentally picking a port that is
+    not connected to the traffic generator, which would silently skip every test.
+    """
+    snappi_fanout = get_peer_snappi_chassis(conn_data=conn_graph_facts,
+                                            dut_hostname=rand_one_dut_hostname)
+    pytest_assert(snappi_fanout is not None,
+                  'No Snappi chassis found for DUT {}'.format(rand_one_dut_hostname))
+
+    snappi_fanout_id = list(fanout_graph_facts.keys()).index(snappi_fanout)
+    snappi_fanout_list = SnappiFanoutManager(fanout_graph_facts)
+    snappi_fanout_list.get_fanout_device_details(device_number=snappi_fanout_id)
+
+    snappi_ports = snappi_fanout_list.get_ports(peer_device=rand_one_dut_hostname)
+    snappi_port_names = [p['peer_port'] for p in snappi_ports]
+
+    pytest_assert(len(snappi_port_names) > 0,
+                  'No ports on DUT {} are connected to the Snappi chassis'.format(rand_one_dut_hostname))
+
+    chosen = random.choice(snappi_port_names)
+    return '{}|{}'.format(rand_one_dut_hostname, chosen)
+
+
 @pytest.fixture(scope="function")
 def snappi_testbed_config(conn_graph_facts, fanout_graph_facts,     # noqa: F811
                           duthosts, rand_one_dut_hostname, is_pfc_enabled,
