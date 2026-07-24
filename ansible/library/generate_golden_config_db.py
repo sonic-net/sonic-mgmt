@@ -1092,6 +1092,38 @@ class GenerateGoldenConfigDBModule(object):
             ori_config_db["DEVICE_METADATA"]["localhost"]["zebra_nexthop"] = zebra_nexthop
         return json.dumps(ori_config_db, indent=4)
 
+    def update_swss_zmq_config(self, config):
+        """Enable SWSS ZMQ on T2 and DRH topologies via SYSTEM_DEFAULTS|swss_zmq.
+
+        The knob drives both the northbound (fpmsyncd<->orchagent) and southbound
+        (orchagent<->syncd) route ZMQ channels, which run per ASIC. On multi-ASIC
+        platforms the entry must therefore land in each ASIC namespace's CONFIG_DB,
+        so it is injected under the per-namespace ``asicN`` keys of the golden
+        config. The ASIC count is autodetected because the golden config module is
+        not always invoked with a reliable ``num_asics`` value.
+
+        Applies to the T2 family (``t2``, ``ft2``, ``lt2``, ``t2_single_node``)
+        and the disaggregated Regional Hub family (``lrh``, ``urh``, ``drh``),
+        which are the route-scaling roles that rely on the ZMQ route datapath.
+        Chassis supervisors are excluded: they hold no BGP sessions and run no
+        per-ASIC route programming, so the ZMQ knob does not apply to them.
+        """
+        topo = self.topo_name
+        if not any(t in topo for t in ("t2", "lrh", "urh", "drh")):
+            return config
+        if device_info.is_supervisor():
+            return config
+        ori_config_db = json.loads(config)
+        zmq_value = {"swss_zmq": {"status": "enabled"}}
+        if multi_asic.is_multi_asic():
+            for asic in range(multi_asic.get_num_asics()):
+                ns = "asic{}".format(asic)
+                ori_config_db.setdefault(ns, {}).setdefault(
+                    "SYSTEM_DEFAULTS", {}).update(zmq_value)
+        else:
+            ori_config_db.setdefault("SYSTEM_DEFAULTS", {}).update(zmq_value)
+        return json.dumps(ori_config_db, indent=4)
+
     def generate_drh_golden_config_db(self):
         """
         Generate golden_config for disaggregated Regional Hub (LRH/URH) topologies.
@@ -1298,6 +1330,7 @@ class GenerateGoldenConfigDBModule(object):
 
         # update zebra_nexthop config from minigraph
         config = self.update_zebra_nexthop_config(config)
+        config = self.update_swss_zmq_config(config)
 
         # Rebuild PORT table from port_speeds + platform.json when port override is active
         if self.port_override_from_links:
