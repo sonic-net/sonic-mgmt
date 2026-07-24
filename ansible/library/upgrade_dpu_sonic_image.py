@@ -456,7 +456,8 @@ class UpgradeDpuSonicImageModule(object):
         """Return True if the DPU chassis module has a state transition in progress."""
         dpu_name = "DPU{}".format(dpu_index)
         cmd = 'sonic-db-cli STATE_DB HGET "CHASSIS_MODULE_TABLE|{}" transition_in_progress'.format(dpu_name)
-        rc, out, err = self.module.run_command(cmd)
+        with self._cli_lock:
+            rc, out, err = self.module.run_command(cmd)
         if rc != 0:
             self.log("WARNING: [DPU{}] Failed to read transition_in_progress (rc={}): {}".format(
                 dpu_index, rc, err.strip()))
@@ -486,14 +487,21 @@ class UpgradeDpuSonicImageModule(object):
         dpu_name = "DPU{}".format(dpu_index)
         self.log("[DPU{}] Step: Rebooting via chassis module shutdown/startup".format(dpu_index))
 
-        # A prior transition must have cleared or the shutdown CLI is a no-op (rc=0).
-        self.wait_for_module_transition_done(dpu_index)
+        # A prior transition must clear first or the shutdown CLI is a no-op (rc=0).
+        if not self.wait_for_module_transition_done(dpu_index):
+            self.log("WARNING: [DPU{}] Prior transition did not clear; aborting reboot".format(dpu_index))
+            return False
 
         with self._cli_lock:
             rc, out, err = self.module.run_command("config chassis modules shutdown {}".format(dpu_name))
         if rc != 0:
             self.log("WARNING: [DPU{}] shutdown failed (rc={}): stdout={} stderr={}".format(
                 dpu_index, rc, out.strip(), err.strip()))
+            return False
+        # shutdown returns rc=0 even when it no-ops mid-transition, so detect that here
+        if "transition is already in progress" in (out or "").lower():
+            self.log("WARNING: [DPU{}] shutdown ignored, transition still in progress: {}".format(
+                dpu_index, out.strip()))
             return False
 
         # Wait for the shutdown transition to clear (startup no-ops while a transition is in progress)
