@@ -1038,8 +1038,8 @@ def test_bgp_route_with_suppress(duthosts, enum_downstream_dut_hostname, enum_up
                                  request, loganalyzer):
     duthost = duthosts[enum_upstream_dut_hostname]
     asic_name = duthost.get_asic_name()
-    if vrf_type == USER_DEFINED_VRF and asic_name == 'th5':
-        pytest.xfail("vrf testing not supported on TH5")
+    if vrf_type == USER_DEFINED_VRF and asic_name in ("th5", "th6"):
+        pytest.xfail("vrf testing not supported on TH5/6")
 
     duthost_down = duthosts[enum_downstream_dut_hostname]
     duthost_up = duthosts[enum_upstream_dut_hostname]
