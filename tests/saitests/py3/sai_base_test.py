@@ -226,6 +226,53 @@ class ThriftInterface(BaseTest):
         else:
             sai_thrift_port_tx_disable(client, asic_type, port_list, target=target)
 
+    def apply_egress_shaper(self, dut_port, max_rate, burst=0):
+        """Program a port-level egress shaper on the DUT via CONFIG_DB so a
+        high-speed port does not overrun the fanout->PTF path when a queued
+        burst is released.
+
+        Creates a SCHEDULER (meter_type=bytes, pir=max_rate, pbs=burst) and binds
+        it to dut_port via PORT_QOS_MAP; orchagent programs the port scheduler
+        profile (SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID), leaving the per-queue
+        schedulers untouched. Applied while the port is up so the rate limiter is
+        armed before traffic is released.
+
+        No-op when max_rate is falsy or the platform is not Broadcom (the shaper
+        is validated only on Broadcom XGS/DNX; other vendors manage the port
+        scheduler differently). Rate/burst are bytes/sec and bytes; burst
+        defaults to ~1% of the rate. Pair with clear_egress_shaper() in a finally
+        block."""
+        if not max_rate or self.test_params.get('sonic_asic_type') != 'broadcom':
+            return
+        if not burst:
+            burst = max(max_rate // 100, 8192)
+        sched_name = "egress_shaper_{}".format(dut_port)
+        cmds = [
+            'sudo sonic-db-cli CONFIG_DB hset "SCHEDULER|{}" meter_type bytes pir {} pbs {}'.format(
+                sched_name, int(max_rate), int(burst)),
+            'sudo sonic-db-cli CONFIG_DB hset "PORT_QOS_MAP|{}" scheduler {}'.format(dut_port, sched_name),
+        ]
+        for cmd in cmds:
+            self.exec_cmd_on_dut(self.dst_server_ip, self.test_params['dut_username'],
+                                 self.test_params['dut_password'], cmd)
+        # Let orchagent program the port scheduler profile before traffic is released.
+        time.sleep(3)
+
+    def clear_egress_shaper(self, dut_port, max_rate):
+        """Remove the shaper applied by apply_egress_shaper(). No-op when max_rate
+        is falsy or the platform is not Broadcom, mirroring apply_egress_shaper()
+        so it is safe to call unconditionally in a finally block."""
+        if not max_rate or self.test_params.get('sonic_asic_type') != 'broadcom':
+            return
+        sched_name = "egress_shaper_{}".format(dut_port)
+        cmds = [
+            'sudo sonic-db-cli CONFIG_DB hdel "PORT_QOS_MAP|{}" scheduler'.format(dut_port),
+            'sudo sonic-db-cli CONFIG_DB del "SCHEDULER|{}"'.format(sched_name),
+        ]
+        for cmd in cmds:
+            self.exec_cmd_on_dut(self.dst_server_ip, self.test_params['dut_username'],
+                                 self.test_params['dut_password'], cmd)
+
     def get_dut_port(self, ptf_port):
         for port_group in interface_to_front_mapping.keys():
             if str(ptf_port) in interface_to_front_mapping[port_group].keys():

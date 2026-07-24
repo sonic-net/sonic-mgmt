@@ -2709,7 +2709,7 @@ class TestQosSai(QosSaiBase):
             ptfhost, testCase="sai_qos_tests.XonHysteresisTest",
             testParams=test_params)
 
-    @pytest.mark.parametrize("ecn", ["ecn_1", "ecn_2", "ecn_3", "ecn_4", "ecn_5"])
+    @pytest.mark.parametrize("ecn", ["ecn_1", "ecn_2", "ecn_3", "ecn_4", "ecn_5", "wred_drop"])
     def testQosSaiDscpEcn(
         self, ecn, duthosts, get_src_dst_asic_and_duts,
         ptfhost, dutTestParams, dutConfig, dutQosConfig, ecnLosslessProfile, enableECN,
@@ -2739,6 +2739,11 @@ class TestQosSai(QosSaiBase):
         if dutTestParams['hwsku'] in self.BREAKOUT_SKUS and 'backend' not in dutTestParams['topo']:
             qosConfig = dutQosConfig["param"][portSpeedCableLength]["breakout"]
         else:
+            # Some ECN variants (e.g. wred_drop) are only defined for certain
+            # platforms; skip the variant when this platform's params omit it
+            # instead of failing with a KeyError.
+            if ecn not in dutQosConfig["param"]:
+                pytest.skip("'{}' params not defined for this platform".format(ecn))
             qosConfig = dutQosConfig["param"][ecn]
 
         self.updateTestPortIdIp(dutConfig, get_src_dst_asic_and_duts)
@@ -2758,8 +2763,18 @@ class TestQosSai(QosSaiBase):
             "limit": qosConfig["limit"],
             "min_limit": qosConfig["min_limit"],
             "cell_size": qosConfig["cell_size"],
-            "hwsku": dutTestParams['hwsku']
+            "hwsku": dutTestParams['hwsku'],
         })
+        if "packet_size" in qosConfig:
+            testParams["packet_size"] = qosConfig["packet_size"]
+        for opt in ("marked_pkts_min", "marked_pkts_max", "egress_shaper_rate"):
+            if opt in qosConfig:
+                testParams[opt] = qosConfig[opt]
+        # Preserve the '-n asicX' namespace flag for the wredcounter reads on
+        # multi-ASIC DNX (mirrors populateArpEntries_T2); single-ASIC -> False.
+        testParams["dst_is_multi_asic"] = get_src_dst_asic_and_duts['dst_dut'].sonichost.is_multi_asic
+        if ecn == "wred_drop":
+            testParams["verify_wred_drops"] = True
 
         if "platform_asic" in dutTestParams["basicParams"]:
             testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
