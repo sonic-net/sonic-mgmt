@@ -162,12 +162,11 @@ def get_lldpctl_output(duthost):
 
 
 def exclude_mgmt_interfaces(interfaces):
-    # LLDP_ENTRY_TABLE does not track the management interface (e.g. eth0), but
-    # `show lldp table` and lldpctl list it whenever the mgmt network has an
-    # LLDP-speaking neighbor. That neighbor ages in and out independently in each
-    # source, so leaving it in makes the membership comparison flap. Drop the
-    # management interface(s) rather than assuming every front-panel port is
-    # named "Ethernet*".
+    # The management interface (e.g. eth0) can pick up a transient LLDP neighbor
+    # on the mgmt network that ages in and out independently in LLDP_ENTRY_TABLE,
+    # `show lldp table`, and lldpctl. Leaving it in makes the cross-source
+    # membership comparison flap, so drop the management interface(s) rather than
+    # assuming every front-panel port is named "Ethernet*".
     return [name for name in interfaces if not name.startswith("eth")]
 
 
@@ -438,11 +437,13 @@ def verify_each_interface_lldp_content(db_instance, interface, lldpctl_interface
             if list(iface.keys())[0].lower() == interface.lower()
         ]
         for candidate in matching_ifaces:
+            if not isinstance(candidate, dict):
+                continue
             if db_sys_name is not None and db_sys_name in candidate.get("chassis", {}):
                 lldpctl_interface = candidate
                 break
-        if lldpctl_interface is None and matching_ifaces:
-            lldpctl_interface = matching_ifaces[0]
+        if lldpctl_interface is None:
+            lldpctl_interface = next((c for c in matching_ifaces if isinstance(c, dict)), None)
     assert_lldp_entry_content(interface, entry_content, lldpctl_interface)
 
 
