@@ -8,6 +8,35 @@ except ImportError:
 from paramiko.ssh_exception import SSHException
 
 
+# Bootloader / autoboot prompts seen on the serial console across SONiC platforms.
+# Sending a Ctrl-C (or any interrupt key) while the console shows one of these traps
+# the DUT in the bootloader and aborts autoboot, so SONiC never boots and the device
+# becomes permanently unreachable -- e.g. Arista Aboot's "Press Control-C now to enter
+# Aboot shell", plus GRUB, U-Boot and ONIE equivalents. The console must never write
+# control characters while in this state.
+#
+# The tokens are deliberately specific to avoid false positives on ordinary SONiC
+# shell output: the real Aboot states are the autoboot prompt ("Press Control-C ...")
+# and the shell prompt ("Aboot#") -- a bare "Aboot" word is NOT used because image
+# filenames like "sonic-aboot-broadcom.swi" would match it (the hyphens form word
+# boundaries) and wrongly suppress the leftover-shell Ctrl-C recovery. The generic
+# boot-in-progress verbs are line-anchored (re.M) and the "Loading" verb is scoped to
+# kernel/ramdisk loads so shell strings like "reloading"/"Loading configuration" do
+# not match.
+BOOTLOADER_BANNER_RE = re.compile(
+    r"Press\s+Control[-\s]?C|"                    # Arista Aboot autoboot window
+    r"Aboot#|"                                    # Arista Aboot shell prompt
+    r"GNU\s+GRUB|grub\s*>|grub\s+rescue\s*>|"     # GRUB menu / shell
+    r"Hit\s+any\s+key\s+to\s+stop\s+autoboot|"    # U-Boot autoboot window
+    r"\bautoboot\b|"                              # generic autoboot countdown
+    r"ONIE:|"                                     # ONIE installer / rescue (anchored;
+                                                  # bare \bONIE\b matches "ONIE Version")
+    r"^\s*Booting\b|"                             # boot-in-progress (line-anchored)
+    r"^\s*Loading\s+(?:Linux|initrd|initial\s+ramdisk|kernel|vmlinuz)",  # kernel/ramdisk load
+    flags=re.I | re.M,
+)
+
+
 class SSHConsoleConn(BaseConsoleConn):
     def __init__(self, **kwargs):
         if "console_username" not in kwargs \
@@ -111,6 +140,12 @@ class SSHConsoleConn(BaseConsoleConn):
         shell command and the login never happens. Detect a leftover shell
         prompt and send "exit" to return to a clean login prompt so each
         console test is independent of the previous one's teardown.
+
+        Control characters (Ctrl-C / "exit") are only ever sent once a leftover
+        SONiC shell prompt has been positively identified. If the console is in
+        a bootloader / boot stage (Arista Aboot, GRUB, U-Boot, ONIE) this method
+        sends nothing and returns, because a Ctrl-C during the bootloader's
+        autoboot window would trap the DUT in the bootloader and abort autoboot.
         """
         shell_prompt_patterns = (
             r'admin@.*:.*[\$#]',
@@ -121,27 +156,48 @@ class SSHConsoleConn(BaseConsoleConn):
         delay_factor = max(self.select_delay_factor(delay_factor), 1)
         for _ in range(max_attempts):
             try:
-                # Send Ctrl-C first to abort any pending command or PS2 continuation left by a prior session.
-                self.write_channel("\x03")
-                time.sleep(0.5 * delay_factor)
-                self.write_channel(self.RETURN)
-                # Accumulate output so a lagging prompt is reliably observed.
+                # Passively read the console FIRST -- do not send anything yet. If
+                # the DUT is sitting in a bootloader "hit any key to stop autoboot"
+                # window, ANY keypress (including a bare CR) aborts autoboot and
+                # traps the DUT in the bootloader, so we must observe before nudging.
                 output = ""
                 for _ in range(4):
                     time.sleep(0.5 * delay_factor)
                     output += self.read_channel()
+                # Only if the console stayed silent do we nudge it with a bare CR
+                # (never Ctrl-C) to coax a login prompt to echo. A silent console is
+                # not an active autoboot window -- those continuously print a
+                # countdown -- so a single CR here is safe and cannot interrupt
+                # autoboot.
+                if not output.strip():
+                    self.write_channel(self.RETURN)
+                    for _ in range(4):
+                        time.sleep(0.5 * delay_factor)
+                        output += self.read_channel()
             except Exception as e:
                 self.logger.warning(f"Error probing console state: {e}")
+                return
+            # Never send Ctrl-C / keys while the DUT is in a bootloader or boot
+            # stage: on Arista Aboot the "Press Control-C now to enter Aboot shell"
+            # window would trap the DUT at the Aboot# shell and abort autoboot so
+            # SONiC never boots (the same applies to GRUB / U-Boot / ONIE).
+            if BOOTLOADER_BANNER_RE.search(output):
+                self.logger.warning(
+                    "Console is in a bootloader/boot stage; skipping login-prompt "
+                    "recovery to avoid trapping autoboot")
                 return
             # Already at a login prompt -> nothing to recover.
             if re.search(r"login:\s*$", output, flags=re.I | re.M):
                 return
-            # Logged-in shell left over from a previous session -> log out.
+            # Logged-in shell left over from a previous session -> abort any pending
+            # command with Ctrl-C, then log out to return to a clean login prompt.
             if any(re.search(p, output) for p in shell_prompt_patterns):
                 self.logger.warning(
-                    "Console is at a leftover shell prompt; sending 'exit' to "
-                    "return to the login prompt")
+                    "Console is at a leftover shell prompt; sending Ctrl-C + 'exit' "
+                    "to return to the login prompt")
                 try:
+                    self.write_channel("\x03")
+                    time.sleep(0.5 * delay_factor)
                     self.write_channel("exit" + self.RETURN)
                     time.sleep(1 * delay_factor)
                 except Exception as e:
