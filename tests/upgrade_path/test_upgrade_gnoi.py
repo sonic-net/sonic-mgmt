@@ -55,7 +55,7 @@ def test_upgrade_via_gnoi(
     )
 
     def upgrade_path_preboot_setup():
-        setup_upgrade_test(duthost, localhost, from_image, to_image, tbinfo,
+        setup_upgrade_test(request, duthost, localhost, from_image, to_image, tbinfo,
                            upgrade_type)
 
     perform_gnoi_upgrade(
