@@ -48,9 +48,15 @@ def dhcp_server_setup_teardown(duthost):
                          duthost, [get_dhcp_relay_type(duthost)]))
         if restore_state_flag:
             def remove_dhcp_server_container():
-                result = duthost.shell("docker rm {}".format(DHCP_SERVER_CONTAINER_NAME), module_ignore_errors=True)
-                if result['rc'] != 0 and "No such container" not in result.get('stderr', ''):
-                    raise RuntimeError("Failed to remove dhcp_server container: {}".format(result.get('stderr', '')))
+                result = duthost.shell("docker rm -f {}".format(DHCP_SERVER_CONTAINER_NAME), module_ignore_errors=True)
+                inspection = duthost.shell("docker inspect {}".format(DHCP_SERVER_CONTAINER_NAME),
+                                           module_ignore_errors=True)
+                if inspection['rc'] != 0 and "No such object" in inspection.get('stderr', ''):
+                    return
+                raise RuntimeError(
+                    "Failed to remove dhcp_server container: stdout={} stderr={} inspect_stdout={} inspect_stderr={}"
+                    .format(result.get('stdout', ''), result.get('stderr', ''),
+                            inspection.get('stdout', ''), inspection.get('stderr', '')))
 
             cleanup_step('remove dhcp_server container', remove_dhcp_server_container)
 
