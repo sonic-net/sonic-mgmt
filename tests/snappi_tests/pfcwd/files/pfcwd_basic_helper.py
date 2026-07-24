@@ -90,7 +90,10 @@ def run_pfcwd_basic_test(api,
         packet_aging(duthost, asic_value)
         start_pfcwd(duthost, asic_value)
         if is_nexthop_device(duthost):
-            orig_poll_interval_ms[duthost] = get_pfcwd_poll_interval(duthost, asic_value)
+            # Record only a restorable value; get_pfcwd_poll_interval may return None.
+            orig = get_pfcwd_poll_interval(duthost, asic_value)
+            if orig:
+                orig_poll_interval_ms[duthost] = orig
             update_pfc_poll_interval(duthost, PFCWD_POLL_INTERVAL_MS)
 
     # Must run after the setup loop above so the timers reflect what the DUT runs with.
