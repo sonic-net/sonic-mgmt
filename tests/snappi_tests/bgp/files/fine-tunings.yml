@@ -1,21 +1,40 @@
 baseline_config_db:
   config_db_wo_tuning: true
 
-north_zmq_ring_buffer:
+# swss_zmq replaced the removed DEVICE_METADATA.orch_northbond_route_zmq_enabled
+# leaf; enabled, it drives both northbound route ZMQ and southbound orch<->syncd ZMQ.
+swss_zmq_ring_buffer:
+  SYSTEM_DEFAULTS:
+    swss_zmq:
+      status: "enabled"
   DEVICE_METADATA:
     localhost:
-      orch_northbond_route_zmq_enabled: "true"
       ring_thread_enabled: "true"
 
-north_zmq:
-  DEVICE_METADATA:
-    localhost:
-      orch_northbond_route_zmq_enabled: "true"
+swss_zmq:
+  SYSTEM_DEFAULTS:
+    swss_zmq:
+      status: "enabled"
 
-non_north_zmq_optimized:
+# async_rec enables orchagent's -A async swss recorder (independent of swss_zmq).
+async_rec:
+  SYSTEM_DEFAULTS:
+    async_rec:
+      status: "enabled"
+
+swss_zmq_async_rec:
+  SYSTEM_DEFAULTS:
+    swss_zmq:
+      status: "enabled"
+    async_rec:
+      status: "enabled"
+
+non_swss_zmq_optimized:
+  SYSTEM_DEFAULTS:
+    swss_zmq:
+      status: "disabled"
   DEVICE_METADATA:
     localhost:
-      orch_northbond_route_zmq_enabled: "false"
       synchronous_mode: "enable"
       suppress-fib-pending: "disabled"
       nexthop_group: "enabled"
