@@ -1,5 +1,6 @@
 import logging
 import pytest
+import time
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.platform_api import chassis, psu
@@ -10,7 +11,13 @@ from .platform_api_test_base import PlatformApiTestBase
 from tests.common.utilities import skip_release_for_platform, wait_until
 from tests.platform_tests.api.conftest import skip_absent_psu
 from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service    # noqa: F401
-
+from tests.platform_tests.utils import (
+    daemon_start,
+    daemon_stop,
+    start_cpu_stress,
+    stop_cpu_stress,
+    is_pddf_supported_and_enabled,
+)
 
 ###################################################
 # TODO: Remove this after we transition to Python 3
@@ -308,6 +315,110 @@ class TestPsuApi(PlatformApiTestBase):
 
         if psus_skipped == self.num_psus:
             pytest.skip("skipped as all chassis psus' temperature sensor is not supported")
+
+        self.assert_expectations()
+
+    @pytest.mark.disable_loganalyzer
+    def test_load_sharing(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa: F811
+        """PSU load sharing test"""
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        skip_release_for_platform(duthost, ["202012", "201911", "201811"], ["arista"])
+
+        LOAD_BALANCE_TOLERANCE_FROM_AVERAGE_POWER = 0.20  # +/- 20% of max rated power
+        SAMPLE_WINDOW_FOR_AVERAGE_POWER_S = 0.5
+
+        def get_psu_max_power_ratings():
+            """Get max power rating for each PSU"""
+            psu_max_powers = {}
+            for psu_id in range(self.num_psus):
+                if skip_absent_psu(psu_id, platform_api_conn, self.psu_skip_list, logger):
+                    continue
+                name = psu.get_name(platform_api_conn, psu_id)
+                max_power = psu.get_maximum_supplied_power(platform_api_conn, psu_id)
+                if max_power is not None:
+                    logger.info(f"{name} max power rating: {max_power}W")
+                    psu_max_powers[name] = max_power
+                else:
+                    logger.warning(f"Failed to retrieve {name} max power rating")
+            return psu_max_powers
+
+        def get_psu_powers():
+            """Get power readings from all PSUs"""
+            psu_powers = {}
+            for psu_id in range(self.num_psus):
+                if skip_absent_psu(psu_id, platform_api_conn, self.psu_skip_list, logger):
+                    continue
+                name = psu.get_name(platform_api_conn, psu_id)
+                power = psu.get_power(platform_api_conn, psu_id)
+                if self.expect(power is not None, "Unable to retrieve PSU {} power".format(psu_id)):
+                    psu_powers[name] = power
+            return psu_powers
+
+        def get_average_power_per_psu():
+            sample_window_s = SAMPLE_WINDOW_FOR_AVERAGE_POWER_S
+            sample_interval_s = 0.02
+            num_samples = int(sample_window_s / sample_interval_s)
+
+            power_totals = {}
+            for _ in range(num_samples):
+                psu_powers = get_psu_powers()
+                for name, power in psu_powers.items():
+                    power_totals[name] = power_totals.get(name, 0.0) + power
+                time.sleep(sample_interval_s)
+
+            return {name: total / num_samples for name, total in power_totals.items()}
+
+        def check_load_sharing(psu_max_powers):
+            average_power_per_psu = get_average_power_per_psu()
+            average_power_all_psus = sum(average_power_per_psu.values()) / len(average_power_per_psu)
+
+            logger.info(f"Average power output of all Power Supplies: {average_power_all_psus: .2f}W")
+
+            for name, power in average_power_per_psu.items():
+                if name not in psu_max_powers:
+                    pytest.fail(f"No max power rating found for PSU '{name}'")
+                max_deviation = psu_max_powers[name] * LOAD_BALANCE_TOLERANCE_FROM_AVERAGE_POWER
+                logger.info(f"{name} Power: {power: .2f}W")
+                deviation = abs(power - average_power_all_psus)
+                logger.info(f"{name} power {power: .2f}W deviates {deviation: .2f}W from average")
+                logger.info(f"Allowable deviation from average: {max_deviation: .2f}W")
+                self.expect(
+                    deviation <= max_deviation,
+                    f"{name} power deviation of {deviation: .2f}W "
+                    f"exceeds allowable tolerance of {max_deviation: .2f}W",
+                )
+
+        psu_max_powers = get_psu_max_power_ratings()
+
+        logger.info("Nominal Operation Load Sharing Check")
+        check_load_sharing(psu_max_powers)
+
+        if not is_pddf_supported_and_enabled(duthost):
+            logger.info("Skipping increased load test - platform does not support PDDF")
+            self.assert_expectations()
+            return
+
+        logger.info("Increased Power Consumption Load Sharing Check")
+        logger.info("Increasing fan speed")
+        if not self.expect(daemon_stop(duthost, "thermalctld"), "Failed to stop thermalctld daemon"):
+            logger.warning("Skipping high load test - thermalctld could not be stopped")
+            self.assert_expectations()
+            return
+
+        TIME_TO_WAIT_FOR_FAN_SPEED_CHANGE_SEC = 5
+
+        try:
+            duthost.shell("sudo pddf_fanutil setspeed 100", module_ignore_errors=True)
+            logger.info("Increasing CPU Load")
+            max_stress_duration_s = (int)(TIME_TO_WAIT_FOR_FAN_SPEED_CHANGE_SEC+SAMPLE_WINDOW_FOR_AVERAGE_POWER_S) * 2
+            start_cpu_stress(duthost, max_stress_duration_s)
+            time.sleep(TIME_TO_WAIT_FOR_FAN_SPEED_CHANGE_SEC)
+
+            check_load_sharing(psu_max_powers)
+        finally:
+            stop_cpu_stress(duthost)
+            if not self.expect(daemon_start(duthost, "thermalctld"), "Failed to start thermalctld daemon"):
+                logger.warning("thermalctld could not be started after test")
 
         self.assert_expectations()
 
