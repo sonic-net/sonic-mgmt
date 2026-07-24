@@ -407,6 +407,14 @@ bgp/test_bgp_allow_list.py:
       - "platform in ['x86_64-8111_32eh_o-r0', 'x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
       - "'isolated' in topo_name"
 
+bgp/test_bgp_allow_list.py::.*\[frr_mgmt_framework:
+  regex: true
+  skip:
+    reason: "frrcfgd route-map model has no 'on-match next' continue-flow (sonic-buildimage#28482)"
+    conditions:
+      - https://github.com/sonic-net/sonic-buildimage/issues/28482
+
+
 bgp/test_bgp_bbr.py:
   skip:
     reason: "Only supported on t1 topo. But Cisco 8111 or 8122 T1(compute ai) platform is not supported. Not needed for isolated topo."
@@ -420,6 +428,14 @@ bgp/test_bgp_bbr.py:
     reason: "xfail for IPv6-only topologies, with issue it try to parse with IPv4 style"
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/20217 and '-v6-' in topo_name"
+
+bgp/test_bgp_bbr.py::test_bbr_enabled_dut_asn_in_aspath\[.*frr_mgmt_framework:
+  regex: true
+  skip:
+    reason: "frrcfgd route-map model has no 'on-match next' continue-flow (sonic-buildimage#28482)"
+    conditions:
+      - https://github.com/sonic-net/sonic-buildimage/issues/28482
+
 
 bgp/test_bgp_bbr.py::test_bbr_status_consistent_after_reload[enabled]:
   xfail:
@@ -444,6 +460,14 @@ bgp/test_bgp_dual_asn.py::test_bgp_dual_asn_v4:
     reason: "Skip for IPv6-only topologies"
     conditions:
       - "'-v6-' in topo_name"
+
+bgp/test_bgp_dual_asn.py::test_bgp_dual_asn_v4\[.*frr_mgmt_framework:
+  regex: true
+  skip:
+    reason: "frrcfgd under-renders listen-range peer-group attributes (sonic-buildimage#28482)"
+    conditions:
+      - https://github.com/sonic-net/sonic-buildimage/issues/28482
+
 
 bgp/test_bgp_gr_helper.py:
   skip:
@@ -543,6 +567,12 @@ bgp/test_bgp_router_id.py::test_bgp_router_id_set_ipv6:
     conditions:
       - "'t0-isolated-v6-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
+# NOTE: test_bgp_sentinel is NOT parametrized over frr_config_mode and is NOT gated here. BGP
+# sentinels is a bgpcfgd-only macro (expressible via generic peer-group/route-map tables) and is
+# intentionally unsupported in frr mode; the module runs in traditional (bgpcfgd) mode and skips
+# on a native-frrcfgd DUT via an autouse skip_module_if_frr_native() fixture (a by-design skip,
+# not an auto-lifting tracking issue). See sonic-buildimage#28482 ("Explicitly out of scope").
+
 bgp/test_bgp_sentinel.py::test_bgp_sentinel[IPv4:
   skip:
     reason: "Skip for IPv6-only topologies"
@@ -614,6 +644,14 @@ bgp/test_bgp_speaker.py::test_bgp_speaker_announce_routes_v6:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19917 and '-v6-' in topo_name"
 
+bgp/test_bgp_speaker.py::test_bgp_speaker_announce_routes_v6\[.*frr_mgmt_framework:
+  regex: true
+  skip:
+    reason: "frrcfgd does not apply 'no bgp ebgp-requires-policy' (sonic-buildimage#28482)"
+    conditions:
+      - https://github.com/sonic-net/sonic-buildimage/issues/28482
+
+
 bgp/test_bgp_speaker.py::test_bgp_speaker_bgp_sessions:
   xfail:
     reason: "xfail for IPv6-only topologies, is with it look for vlan_ipv4_entry"
@@ -625,6 +663,12 @@ bgp/test_bgp_stress_link_flap.py::test_bgp_stress_link_flap[all]:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
+
+# NOTE: the frr_mgmt_framework variants of test_bgp_stress_link_flap_with_monitor and
+# test_bgp_stress_link_flap_with_sentinel_and_monitor are NOT gated here. BGP monitors is a
+# legacy feature superseded by BMP and intentionally unsupported in frr mode; those tests skip
+# permanently in frr mode via an in-test skip_if_frr_mgmt_framework() call (a by-design skip,
+# not an auto-lifting tracking issue). See sonic-buildimage#28482 ("Explicitly out of scope").
 
 bgp/test_bgp_suppress_fib.py:
   skip:
@@ -725,11 +769,25 @@ bgp/test_bgpmon.py::test_bgpmon:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/20754 and '-v6-' in topo_name"
 
+# NOTE: test_bgpmon / test_bgpmon_v6 are NOT parametrized over frr_config_mode and are NOT
+# gated here. BGP monitors is a legacy feature superseded by BMP and intentionally unsupported
+# in frr mode; those modules run in traditional (bgpcfgd) mode and skip on a native-frrcfgd DUT
+# via an autouse skip_module_if_frr_native() fixture (a by-design skip, not an auto-lifting
+# tracking issue). See sonic-buildimage#28482 ("Explicitly out of scope").
+
 bgp/test_bgpmon_v6.py::test_bgpmon_no_ipv6_resolve_via_default:
   skip:
     reason: "Not applicable for passive bgpmon_v6 and UT2 does not use bgpmon_v6"
     conditions:
       - "platform in ['x86_64-arista_7280dr3am_36']"
+
+bgp/test_frr_set_src_route_map.py::.*\[frr_mgmt_framework:
+  regex: true
+  skip:
+    reason: "frrcfgd route-map model has no zebra 'set src' clause (sonic-buildimage#28482)"
+    conditions:
+      - https://github.com/sonic-net/sonic-buildimage/issues/28482
+
 
 bgp/test_startup_tsa_tsb_service.py::test_tsa_tsb_service_with_supervisor_abnormal_reboot:
   skip:
@@ -4055,7 +4113,6 @@ pc/test_po_cleanup.py::test_po_cleanup_after_reload:
     conditions:
       - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-buildimage/issues/20414 and asic_type in ['mellanox']"
 
-
 pc/test_po_update.py::test_po_update:
   skip:
     reason: "Skip test due to there is no portchannel or no portchannel member exists in current topology."
@@ -4369,7 +4426,6 @@ qos/test_buffer_traditional.py:
     conditions:
       - "asic_type not in ['mellanox', 'broadcom']"
       - "topo_type in ['m0', 'mx', 'm1', 'm2', 'm3']"
-
 
 qos/test_ecn_config.py:
   skip:
@@ -5143,7 +5199,6 @@ show_techsupport/test_techsupport.py::test_techsupport:
       - "asic_type in ['vs']"
       - "https://github.com/sonic-net/sonic-mgmt/issues/21690"
 
-
 #######################################
 #####        smartswitch          #####
 #######################################
@@ -5609,7 +5664,6 @@ tacacs/test_authorization.py::test_authorization_tacacs_and_local:
     reason: "Testcase ignored due to Github issue: https://github.com/sonic-net/sonic-mgmt/issues/11349"
     conditions:
       - https://github.com/sonic-net/sonic-mgmt/issues/11349
-
 
 tacacs/test_authorization.py::test_authorization_tacacs_only:
   xfail:

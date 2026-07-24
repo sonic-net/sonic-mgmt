@@ -441,7 +441,7 @@ def check_ptf_neighbours(ptfhost, neighbor_addrs, local_addrs):
 
 @pytest.mark.parametrize('dut_init_first', [True, False], ids=['dut_init_first', 'ptf_init_first'])
 @pytest.mark.parametrize('ipv6', [False, True], ids=['ipv4', 'ipv6'])
-def test_bfd_basic(request, gnmi_connection,
+def test_bfd_basic(frr_config_mode, request, gnmi_connection,
                    rand_selected_dut, ptfhost, tbinfo, ipv6, dut_init_first):
     duthost = rand_selected_dut
     bfd_session_cnt = int(request.config.getoption('--num_sessions'))
@@ -583,7 +583,7 @@ def test_bfd_basic(request, gnmi_connection,
 
 
 @pytest.mark.parametrize('ipv6', [False, True], ids=['ipv4', 'ipv6'])
-def test_bfd_scale(request, rand_selected_dut, ptfhost, tbinfo, ipv6):
+def test_bfd_scale(frr_config_mode, request, rand_selected_dut, ptfhost, tbinfo, ipv6):
     duthost = rand_selected_dut
     bfd_session_cnt = int(request.config.getoption('--num_sessions_scale'))
     local_addrs, prefix_len, neighbor_addrs, neighbor_devs, neighbor_interfaces = \
@@ -615,7 +615,7 @@ def test_bfd_scale(request, rand_selected_dut, ptfhost, tbinfo, ipv6):
 
 
 @pytest.mark.parametrize('ipv6', [False, True], ids=['ipv4', 'ipv6'])
-def test_bfd_multihop(request, rand_selected_dut, ptfhost, tbinfo,
+def test_bfd_multihop(frr_config_mode, request, rand_selected_dut, ptfhost, tbinfo,
                       toggle_all_simulator_ports_to_rand_selected_tor_m, ipv6):    # noqa:F811
     duthost = rand_selected_dut
 

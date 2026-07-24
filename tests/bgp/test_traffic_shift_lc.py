@@ -3,6 +3,7 @@ import re
 import threading
 
 import pytest
+from tests.common.fixtures.frr_config_mode import skip_module_if_frr_native
 from tests.common.devices.eos import EosHost
 from tests.bgp.bgp_helpers import remove_bgp_neighbors, restore_bgp_neighbors, initial_tsa_check_before_and_after_test
 from tests.common import config_reload
@@ -349,7 +350,8 @@ def test_tsa_tsb_with_config_reload(request, duthosts, nbrhosts, traffic_shift_c
 
 
 @pytest.mark.disable_loganalyzer
-def test_load_minigraph_with_traffic_shift_away(request, duthosts, nbrhosts, traffic_shift_community, tbinfo):
+def test_load_minigraph_with_traffic_shift_away(
+        request, duthosts, nbrhosts, traffic_shift_community, tbinfo):
     """
     Test load_minigraph --traffic-shift-away
     Verify all routes are announced to bgp monitor, and only loopback routes are announced to neighs
@@ -423,3 +425,8 @@ def test_load_minigraph_with_traffic_shift_away(request, duthosts, nbrhosts, tra
         verify_route_on_neighbors(frontend_nodes_per_hwsku, dut_nbrhosts, orig_v4_routes, orig_v6_routes)
         # Bring back the supervisor and line cards to the BGP operational normal state
         initial_tsa_check_before_and_after_test(duthosts)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _skip_bgp_device_global_in_frr_mgmt_framework(duthosts, rand_one_dut_hostname):
+    skip_module_if_frr_native(duthosts[rand_one_dut_hostname])

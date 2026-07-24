@@ -17,6 +17,7 @@ import logging
 import json
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.bgp import flatten_bgp_neighbors
 from tests.common.utilities import wait_until
 
 pytestmark = [
@@ -257,7 +258,7 @@ def _get_gr_restart_timer(duthost, bgp_neighbor_ips):
     return default_timer
 
 
-def test_bgp_gr_with_suppress_fib(duthosts, rand_one_dut_hostname, nbrhosts,
+def test_bgp_gr_with_suppress_fib(frr_config_mode, duthosts, rand_one_dut_hostname, nbrhosts,
                                   setup_bgp_graceful_restart, enable_suppress_fib, tbinfo):
     """
     Test BGP Graceful Restart works correctly when suppress-fib-pending is enabled.
@@ -277,7 +278,7 @@ def test_bgp_gr_with_suppress_fib(duthosts, rand_one_dut_hostname, nbrhosts,
     duthost = duthosts[rand_one_dut_hostname]
 
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-    bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
+    bgp_neighbors = flatten_bgp_neighbors(config_facts.get('BGP_NEIGHBOR', {}))
     bgp_neighbor_ips = list(bgp_neighbors.keys())
 
     if not bgp_neighbor_ips:
@@ -411,7 +412,7 @@ def test_bgp_gr_with_suppress_fib(duthosts, rand_one_dut_hostname, nbrhosts,
                 "All routes restored and programmed in FIB.")
 
 
-def test_bgp_gr_suppress_fib_neighbor_restart(duthosts, rand_one_dut_hostname, nbrhosts,
+def test_bgp_gr_suppress_fib_neighbor_restart(frr_config_mode, duthosts, rand_one_dut_hostname, nbrhosts,
                                               setup_bgp_graceful_restart, enable_suppress_fib,
                                               tbinfo):
     """
@@ -428,7 +429,7 @@ def test_bgp_gr_suppress_fib_neighbor_restart(duthosts, rand_one_dut_hostname, n
     duthost = duthosts[rand_one_dut_hostname]
 
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-    bgp_neighbors_config = config_facts.get('BGP_NEIGHBOR', {})
+    bgp_neighbors_config = flatten_bgp_neighbors(config_facts.get('BGP_NEIGHBOR', {}))
 
     # Find a neighbor to restart
     test_neighbor_name = None

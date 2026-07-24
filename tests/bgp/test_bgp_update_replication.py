@@ -277,6 +277,7 @@ def _check_rib_routes_withdrawn(duthost, is_ipv6, min_expected_rib):
 
 
 def test_bgp_update_replication(
+    frr_config_mode,
     duthosts,
     enum_rand_one_per_hwsku_frontend_hostname,
     tbinfo,

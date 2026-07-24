@@ -355,7 +355,8 @@ def _verify_config_file_forward(config_content, running_config):
     return missing
 
 
-def test_frr_config_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname, get_function_completeness_level):
+def test_frr_config_check(
+        frr_config_mode, duthosts, enum_rand_one_per_hwsku_frontend_hostname, get_function_completeness_level):
     """
     Test FRR configuration consistency
     1. Get current FRR running configuration using 'vtysh -c "show running"'
@@ -365,6 +366,15 @@ def test_frr_config_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname, g
     5. Repeat the comparison after config reload
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+    if duthost.get_frr_mgmt_framework_config():
+        pytest.skip("FRR management framework enabled — this test verifies the classic "
+                    "bgpcfgd frr.conf rendering path; frrcfgd generates FRR config "
+                    "differently (e.g. an 'address-family l2vpn evpn' stanza and a "
+                    "redundant 'local-as' that FRR does not echo into running-config), "
+                    "so the frr.conf<->running-config comparison is not meaningful here. "
+                    "Matches the skip in test_frr_large_config_load_stress.")
+
     logger.info("Starting FRR configuration check test on {}".format(duthost.hostname))
 
     # Get completeness level and set number of iterations
@@ -455,7 +465,7 @@ def test_frr_config_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname, g
 
 
 @pytest.mark.topology('t0', 't1', 't2', 'lrh', 'urh')
-def test_frr_large_config_load_stress(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+def test_frr_large_config_load_stress(frr_config_mode, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                                       get_function_completeness_level):
     """Stress test FRR config file loading with large configuration.
 

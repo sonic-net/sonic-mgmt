@@ -17,6 +17,7 @@ from bgp_helpers import BGP_SENTINEL_PORT_V4, BGP_SENTINEL_NAME_V4
 from bgp_helpers import BGP_SENTINEL_PORT_V6, BGP_SENTINEL_NAME_V6
 from bgp_helpers import BGPMON_TEMPLATE_FILE, BGPMON_CONFIG_FILE, BGP_MONITOR_NAME
 from tests.common.helpers.generators import generate_ip_through_default_route
+from tests.common.fixtures.frr_config_mode import skip_module_if_frr_native, FRR_BGPCFGD_ONLY_SENTINEL_REASON
 from netaddr import IPNetwork
 
 
@@ -24,6 +25,16 @@ pytestmark = [
     pytest.mark.topology('t1'),
     pytest.mark.device_type('vs'),
 ]
+
+
+# BGP sentinels is a bgpcfgd-only macro; frrcfgd intentionally does not implement it (see
+# FRR_BGPCFGD_ONLY_SENTINEL_REASON and sonic-buildimage#28482). This module is therefore not
+# parametrized over frr_config_mode -- it runs in traditional (bgpcfgd) mode and skips outright
+# on a native-frrcfgd DUT.
+@pytest.fixture(scope="module", autouse=True)
+def _skip_bgp_sentinel_in_frr_mgmt_framework(duthosts, rand_one_dut_hostname):
+    skip_module_if_frr_native(duthosts[rand_one_dut_hostname], FRR_BGPCFGD_ONLY_SENTINEL_REASON)
+
 
 BGP_SENTINEL_TMPL = '''\
 {

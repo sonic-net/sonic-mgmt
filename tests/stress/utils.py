@@ -1,7 +1,10 @@
+import logging
 import re
 import time
 
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
+
+logger = logging.getLogger(__name__)
 
 TOPO_FILENAME_TEMPLATE = 'topo_{}.yml'
 SHOW_BGP_SUMMARY_CMD = "show ip bgp summary"
@@ -14,8 +17,41 @@ LOOP_TIMES_LEVEL_MAP = {
 }
 
 
+CRM_READY_RETRIES = 3
+CRM_READY_RETRY_INTERVAL = 3
+
+
 def get_crm_resource_status(duthost, resource, status, namespace=DEFAULT_NAMESPACE):
-    return duthost.get_crm_resources(namespace).get("main_resources").get(resource).get(status)
+    # After a `config reload` (e.g. the frr_config_mode mode switch) CRM counters are wiped
+    # AND the polling interval reverts to the 300s default, so `crm show resources all` reads
+    # back an empty main-resources table until the next poll -- up to a full ~300s cycle, not
+    # a brief race. In this module the reads that feed assertions/logic run mid-test with CRM
+    # populated; only the informational teardown log lines hit the post-reload empty window.
+    # So retry briefly (to absorb any genuine sub-poll race), then return None with a clear
+    # warning rather than raising -- an informational read must not fail the run while CRM is
+    # merely repopulating. Real callers run when CRM is populated and get their value.
+    crm_resources = None
+    main_resources = None
+    for attempt in range(CRM_READY_RETRIES):
+        crm_resources = duthost.get_crm_resources(namespace)
+        main_resources = crm_resources.get("main_resources") if crm_resources else None
+        if main_resources:
+            break
+        if attempt < CRM_READY_RETRIES - 1:
+            time.sleep(CRM_READY_RETRY_INTERVAL)
+    if not main_resources:
+        logger.warning("get_crm_resource_status(%s/%s, ns=%s): CRM main_resources empty after "
+                       "%d attempts (CRM repopulating after a config reload); returning None. "
+                       "Raw get_crm_resources() -> %r", resource, status, namespace,
+                       CRM_READY_RETRIES, crm_resources)
+        return None
+    resource_entry = main_resources.get(resource)
+    if resource_entry is None:
+        logger.warning("get_crm_resource_status(%s/%s, ns=%s): resource %r absent from CRM "
+                       "main_resources; returning None. Available: %s",
+                       resource, status, namespace, resource, sorted(main_resources))
+        return None
+    return resource_entry.get(status)
 
 
 def check_queue_status(duthost, queue):
