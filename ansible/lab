@@ -17,6 +17,10 @@ all:
             sonic_msft_lc_100G:
             sonic_cisco_vs:
             sonic_vnut:
+            sonic_nvidia_smartswitch:
+            sonic_nvidia_dpu:
+            sonic_cisco_smartswitch:
+            sonic_amd_dpu:
         fanout:
           hosts:
             str-7260-10:
@@ -69,6 +73,14 @@ all:
           ansible_host: 10.255.0.180
         ptf_vms5-1:
           ansible_host: 10.255.0.183
+        ptf_keysight-nss01:
+          ansible_host: 172.17.0.1
+          ansible_port: 2222
+          ansible_ssh_pass: pass
+        ptf_keysight-css01:
+          ansible_host: 172.17.0.1
+          ansible_port: 2222
+          ansible_ssh_pass: pass
 
 sonic_sn2700_40:
   vars:
@@ -331,3 +343,68 @@ sonic_vnut:
       hwsku: Force10-S6000
       serial_port: 9105
       num_asics: 1
+
+# ─── Keysight SmartSwitch lab ────────────────────────────────────────────────
+
+# ── Nvidia SmartSwitch (SN4280, 4 DPUs) ──
+sonic_nvidia_smartswitch:
+  vars:
+    hwsku: Mellanox-SN4280-O28
+    iface_speed: 400000
+    ansible_ssh_user: admin
+    ansible_ssh_pass: pass
+    ansible_altpassword: pass
+  hosts:
+    keysight-nss01:
+      ansible_host: 10.36.78.150
+
+# ── Cisco SmartSwitch (8102-28FH-DPU-O, 8 DPUs) ──
+sonic_cisco_smartswitch:
+  vars:
+    hwsku: Cisco-8102-28FH-DPU-O
+    iface_speed: 400000
+    ansible_ssh_user: admin
+    ansible_ssh_pass: pass
+    ansible_altpassword: pass
+  hosts:
+    keysight-css01:
+      ansible_host: 10.36.77.121
+
+# DPU hosts are SONiC instances accessed via the midplane network.
+# The last octet of the midplane IP determines dpu_index: 169.254.200.N → dpu(N-1)
+# NAT port-forwarding must be enabled on the NPU before tests run:
+#   sudo sonic-dpu-mgmt-traffic.sh inbound -e --dpus all --ports 5021,5022,5023,5024
+
+# Nvidia DPUs (up to 4: dpu0..dpu3)
+sonic_nvidia_dpu:
+  vars:
+    ansible_ssh_user: admin
+    ansible_ssh_pass: pass
+    ansible_altpassword: pass
+  hosts:
+    keysight-nss01-dpu0:
+      ansible_host: 10.36.78.150    # NPU IP — DPU reached via NAT port-forward
+      ansible_ssh_port: 5021        # NPU NAT-forwards :5021 → DPU0 :22
+    keysight-nss01-dpu1:
+      ansible_host: 10.36.78.150    # NPU IP — DPU reached via NAT port-forward
+      ansible_ssh_port: 5022        # NPU NAT-forwards :5022 → DPU1 :22
+
+# AMD/Pensando DPUs in the Cisco 8102 (up to 8: dpu0..dpu7)
+sonic_amd_dpu:
+  vars:
+    ansible_ssh_user: admin
+    ansible_ssh_pass: pass
+    ansible_altpassword: pass
+  hosts:
+    keysight-css01-dpu0:
+      ansible_host: 10.36.77.121    # NPU IP — DPU reached via NAT port-forward
+      ansible_ssh_port: 5021        # NPU NAT-forwards :5021 → DPU0 :22
+
+# server_keysight must be a group (not a host) — the framework calls
+# im.groups.get("server_keysight") to discover the test-server host.
+server_keysight:
+  hosts:
+    sonic-mgmt-keysight:
+      ansible_host: 10.36.79.161
+      ansible_user: dash
+      ansible_ssh_pass: "pass"
