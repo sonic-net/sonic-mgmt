@@ -51,6 +51,8 @@ def _power_off_reboot_helper(kwargs, power_on_event=None):
     """
     pdu_ctrl = kwargs["pdu_ctrl"]
     all_outlets = kwargs["all_outlets"]
+    delay_time = kwargs["delay_time"]
+
     for outlet in all_outlets:
         logging.debug("turning off {}".format(outlet))
         pdu_ctrl.turn_off_outlet(outlet)
@@ -63,6 +65,8 @@ def _power_off_reboot_helper(kwargs, power_on_event=None):
     outlet_status = pdu_ctrl.get_outlet_status()
     for outlet in outlet_status:
         logging.debug("After turn off outlet, its status is {}".format(outlet))
+
+    time.sleep(delay_time)
 
     logging.info("Power on {}".format(all_outlets))
     for outlet in all_outlets:
