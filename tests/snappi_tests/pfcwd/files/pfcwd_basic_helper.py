@@ -2,7 +2,7 @@ import time
 from math import ceil
 import logging
 
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.broadcom_data import is_broadcom_device
 from tests.common.cisco_data import is_cisco_device
 from tests.common.nexthop_data import is_nexthop_device
@@ -10,8 +10,9 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_grap
 from tests.common.snappi_tests.snappi_helpers import get_dut_port_id                              # noqa: F401
 from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector, \
     get_pfcwd_timers, disable_packet_aging, enable_packet_aging, \
-    start_pfcwd, sec_to_nanosec, get_pfcwd_stats                             # noqa: F401
+    start_pfcwd, sec_to_nanosec, get_pfcwd_stats, get_pfcwd_poll_interval    # noqa: F401
 from tests.common.helpers.pfcwd_helper import update_pfc_poll_interval
+from tests.common.config_reload import pfcwd_feature_enabled
 from tests.common.snappi_tests.port import select_ports, select_tx_port                           # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp                                 # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
@@ -76,24 +77,27 @@ def run_pfcwd_basic_test(api,
     ingress_duthost = tx_port["duthost"]
     pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
 
-    # Fetch the pfcwd timers first: get_pfcwd_timers() skips the test when pfcwd is
-    # not configured, and by fetching before the loop below the skip path leaves no
-    # device-state side effects (packet aging untouched, pfcwd not started).
-    timers = get_pfcwd_timers(egress_duthost, dut_port, rx_port['asic_value'])
-    poll_interval_sec = timers['poll_interval']
-    detect_time_sec = timers['detection_time']
-    restore_time_sec = timers['restoration_time']
+    # Skip early, before touching the DUT, if pfcwd is neither running nor startable.
+    cfg = egress_duthost.get_running_config_facts()
+    pytest_require(bool(cfg.get('PFC_WD')) or pfcwd_feature_enabled(egress_duthost),
+                   "PFC watchdog cannot be started on {}; skipping".format(egress_duthost.hostname))
 
+    orig_poll_interval_ms = {}
     for duthost, asic_value in ((egress_duthost, rx_port['asic_value']),
                                 (ingress_duthost, tx_port['asic_value'])):
-        # Credit-watchdog aging of paused packets is a generic VOQ/DNX property, but
-        # disabling is scoped to Nexthop devices — the DNX SKUs this flow is validated
-        # on; other DNX platforms keep their existing packet-aging behavior.
+        # Disable packet aging only on Nexthop (VOQ/DNX) DUTs; others keep it enabled.
         packet_aging = disable_packet_aging if is_nexthop_device(duthost) else enable_packet_aging
         packet_aging(duthost, asic_value)
         start_pfcwd(duthost, asic_value)
         if is_nexthop_device(duthost):
+            orig_poll_interval_ms[duthost] = get_pfcwd_poll_interval(duthost, asic_value)
             update_pfc_poll_interval(duthost, PFCWD_POLL_INTERVAL_MS)
+
+    # Must run after the setup loop above so the timers reflect what the DUT runs with.
+    timers = get_pfcwd_timers(egress_duthost, dut_port, rx_port['asic_value'])
+    poll_interval_sec = timers['poll_interval']
+    detect_time_sec = timers['detection_time']
+    restore_time_sec = timers['restoration_time']
 
     ini_stats = {}
     for prio in prio_list:
@@ -187,6 +191,12 @@ def run_pfcwd_basic_test(api,
                      data_flow_min_loss_rate_list=[flow1_min_loss_rate, 0],
                      data_flow_max_loss_rate_list=[flow1_max_loss_rate, 0],
                      loss_packets=loss_packets)
+
+    # Restore the pre-test poll interval overridden above (runtime-only config).
+    for duthost, asic_value in ((egress_duthost, rx_port['asic_value']),
+                                (ingress_duthost, tx_port['asic_value'])):
+        if orig_poll_interval_ms.get(duthost):
+            update_pfc_poll_interval(duthost, orig_poll_interval_ms[duthost])
 
 
 def get_stats(duthost, port, prio):
