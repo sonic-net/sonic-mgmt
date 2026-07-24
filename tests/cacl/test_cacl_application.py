@@ -578,9 +578,7 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
                                    .format(v['IPv6Address'],
                                            docker_network['bridge']['IPv6Address']))
 
-        # Only dhcp_server forwards rsyslog to the host over docker0 (RELP
-        # tcp/2514); caclmgrd re-adds this INPUT ACCEPT on every rebuild while
-        # FEATURE|dhcp_server is enabled. Gate on that feature state.
+        # dhcp_server forwards rsyslog to the host over docker0 (tcp/2514); caclmgrd adds this ACCEPT when enabled
         feature_status, _ = duthost.get_feature_status()
         if feature_status.get("dhcp_server") == "enabled":
             iptables_rules.append(
