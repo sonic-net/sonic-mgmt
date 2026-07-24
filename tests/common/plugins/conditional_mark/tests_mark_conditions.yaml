@@ -3076,12 +3076,6 @@ gnmi/test_gnmi_stress.py::test_gnmi_latency_01:
     conditions:
       - "'bmc' in topo_type"
 
-gnmi/test_gnmic.py:
-  skip:
-    reason: "gnmic binary is being removed from docker-ptf to reduce attack surface"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/24328"
-
 gnmi/test_gnoi_killprocess.py:
   skip:
     reason: "Test noisy due to restart issue not relevant to GNOI. Disabling them to rewrite."
@@ -3102,6 +3096,96 @@ gnmi/test_gnoi_system_reboot.py::test_gnoi_system_reboot_warm:
       - "'isolated' in topo_name"
       - "release in ['202412']"
       - "'f2' in topo_name"
+
+gnmi/test_pygnmi_client.py::test_pygnmi_capabilities:
+  skip:
+    reason: "not applicable on BMC (no front-panel ports or COUNTERS_DB)"
+    conditions:
+      - "'bmc' in topo_type"
+
+gnmi/test_pygnmi_client.py::test_pygnmi_get_empty_paths_raises:
+  skip:
+    reason: "not applicable on BMC (no front-panel ports or COUNTERS_DB)"
+    conditions:
+      - "'bmc' in topo_type"
+
+gnmi/test_pygnmi_client.py::test_pygnmi_get_interface_counters:
+  skip:
+    reason: "native DB-path coverage is not namespace-aware on multi-ASIC/T2/BMC"
+    conditions_logical_operator: or
+    conditions:
+      - "'bmc' in topo_type"
+      - "is_multi_asic==True"
+      - "'t2' in topo_name"
+
+gnmi/test_pygnmi_client.py::test_pygnmi_get_interface_mtu:
+  skip:
+    reason: "native OpenConfig port coverage is not namespace-aware on multi-ASIC/T2/BMC"
+    conditions_logical_operator: or
+    conditions:
+      - "'bmc' in topo_type"
+      - "is_multi_asic==True"
+      - "'t2' in topo_name"
+
+gnmi/test_pygnmi_client.py::test_pygnmi_subscribe_early_break:
+  skip:
+    reason: "native subscription coverage is not namespace-aware on multi-ASIC/T2/BMC"
+    conditions_logical_operator: or
+    conditions:
+      - "'bmc' in topo_type"
+      - "is_multi_asic==True"
+      - "'t2' in topo_name"
+
+gnmi/test_pygnmi_client.py::test_pygnmi_subscribe_once:
+  skip:
+    reason: "native subscription coverage is not namespace-aware on multi-ASIC/T2/BMC"
+    conditions_logical_operator: or
+    conditions:
+      - "'bmc' in topo_type"
+      - "is_multi_asic==True"
+      - "'t2' in topo_name"
+
+gnmi/test_pygnmi_client.py::test_pygnmi_subscribe_poll:
+  skip:
+    reason: "native subscription coverage is not namespace-aware on multi-ASIC/T2/BMC"
+    conditions_logical_operator: or
+    conditions:
+      - "'bmc' in topo_type"
+      - "is_multi_asic==True"
+      - "'t2' in topo_name"
+
+gnmi/test_pygnmi_client.py::test_pygnmi_subscribe_sample_queue_counters:
+  skip:
+    reason: "native subscription coverage is not namespace-aware on multi-ASIC/T2/BMC"
+    conditions_logical_operator: or
+    conditions:
+      - "'bmc' in topo_type"
+      - "is_multi_asic==True"
+      - "'t2' in topo_name"
+
+gnmi/test_pygnmi_client.py::test_pygnmi_subscribe_stream_count:
+  skip:
+    reason: "native subscription coverage is not namespace-aware on multi-ASIC/T2/BMC"
+    conditions_logical_operator: or
+    conditions:
+      - "'bmc' in topo_type"
+      - "is_multi_asic==True"
+      - "'t2' in topo_name"
+
+gnmi/vrf_aware_tests/test_gnmi_configdb.py:
+  skip:
+    reason: "This feature is not supported for multi asic, T2, or BMC (no front panel ports/BGP neighbors)"
+    conditions_logical_operator: or
+    conditions:
+      - "'t2' in topo_name"
+      - "is_multi_asic==True"
+      - "'bmc' in topo_type"
+
+gnmi/vrf_aware_tests/test_gnmi_configdb.py::test_gnmi_configdb_full_01:
+  skip:
+    reason: "The test refers to a stale implementation of GNOI.System.Reboot."
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17436"
 
 ###############################################
 #####       golden_config_infra           #####
