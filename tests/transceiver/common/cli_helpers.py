@@ -34,6 +34,7 @@ transceiver test aggregates per-port failures into a single
 short-circuit that pattern.
 """
 from tests.transceiver.common.cli_parser_helper import (
+    parse_fwversion,
     parse_hexdump,
     parse_read_eeprom,
     RC_FAILURE,
@@ -64,6 +65,7 @@ SFPUTIL_SHOW_FWVERSION = "sfputil show fwversion"
 SFPUTIL_SHOW_PRESENCE = "sfputil show presence"
 SHOW_TRANSCEIVER_INFO = "show interfaces transceiver info"
 SHOW_TRANSCEIVER_PRESENCE = "show interfaces transceiver presence"
+CONFIG_INTERFACE_TRANSCEIVER_DOM = "config interface transceiver dom"
 
 # Max characters of stdout/stderr echoed into a failure message.  Some sfputil
 # errors dump the full 500+ port list, which would bury the failure summary in
@@ -184,6 +186,24 @@ def show_interfaces_transceiver_presence_cmd(port=None, namespace=None):
 # ──────────────────────────────────────────────────────────────────────
 
 
+def _error_detail(result):
+    """Build a truncated ``stdout: ...; stderr: ...`` detail from a command result.
+
+    sfputil (and the CDB python snippet) write error text to STDOUT on a
+    non-zero exit, so both streams are surfaced; each is truncated to
+    ``CLI_ERROR_DETAIL_MAX_CHARS`` because some sfputil errors dump the full
+    500+ port list.
+    """
+    stdout = " ".join(result.get("stdout_lines") or []).strip()
+    stderr = (result.get("stderr") or "").strip()
+    parts = []
+    if stdout:
+        parts.append(f"stdout: {stdout[:CLI_ERROR_DETAIL_MAX_CHARS]}")
+    if stderr:
+        parts.append(f"stderr: {stderr[:CLI_ERROR_DETAIL_MAX_CHARS]}")
+    return "; ".join(parts) if parts else "no stdout/stderr"
+
+
 def _run_and_parse(duthost, cmd, parser=None):
     """Shared run + rc + empty + parse pipeline.
 
@@ -216,15 +236,7 @@ def _run_and_parse(duthost, cmd, parser=None):
     """
     result = duthost.command(cmd, module_ignore_errors=True)
     if result.get("rc", RC_FAILURE) != 0:
-        stdout = " ".join(result.get("stdout_lines") or []).strip()
-        stderr = (result.get("stderr") or "").strip()
-        parts = []
-        if stdout:
-            parts.append(f"stdout: {stdout[:CLI_ERROR_DETAIL_MAX_CHARS]}")
-        if stderr:
-            parts.append(f"stderr: {stderr[:CLI_ERROR_DETAIL_MAX_CHARS]}")
-        detail = "; ".join(parts) if parts else "no stdout/stderr"
-        return None, f"{cmd} failed with rc={result.get('rc')} ({detail})"
+        return None, f"{cmd} failed with rc={result.get('rc')} ({_error_detail(result)})"
     stdout_lines = result.get("stdout_lines", [])
     if not stdout_lines:
         return None, f"{cmd} returned empty output"
@@ -267,18 +279,104 @@ def sfputil_read_eeprom(duthost, port, *, offset, size, page=None, wire_addr=Non
 
 
 def sfputil_show_fwversion(duthost, port):
-    """Run ``sfputil show fwversion <port>`` → ``(stdout_lines, err)``.
+    """Run ``sfputil show fwversion <port>`` → ``({field: value}, err)``.
 
-    Returns raw ``stdout_lines`` (``parser=None``) on purpose, not for lack of a
-    parseable format: the only caller today is the CDB background-mode stress
-    loop, which runs this command to exercise the CDB/I2C bus and only checks
-    ``err`` (command success) per iteration — it never reads the version fields.
-    Firmware-version *content* is validated separately via
-    ``show interfaces transceiver info`` (Active / Inactive Firmware), which is
-    already parsed by ``parse_eeprom``.  A structured fwversion parser can be
-    added here if/when a test needs to assert specific fields.
+    Output shape: ``{cli_field: value}`` via ``parse_fwversion`` — the
+    ``Key: Value`` block sfputil prints (``Active Firmware`` / ``Inactive
+    Firmware`` / ``Running Image`` / ``Committed Image`` / ``Image A/B
+    Version`` / ``Factory Image Version``).  ``Running Image`` and ``Committed
+    Image`` are bank letters (A/B); the firmware fields are version strings.
+
+    This is the only source of truth for running/committed bank state: those
+    fields are NOT exposed by ``show interfaces transceiver info`` (which
+    reports only ``Active Firmware`` / ``Inactive Firmware`` versions).
     """
-    return _run_and_parse(duthost, sfputil_show_fwversion_cmd(port))
+    return _run_and_parse(duthost, sfputil_show_fwversion_cmd(port), parse_fwversion)
+
+
+_CDB_FW_MGMT_FEATURE_BATCH_PYCODE = (
+    "import sonic_platform.platform as P\n"
+    "chassis = P.Platform().get_chassis()\n"
+    "for idx in {indices}:\n"
+    "    try:\n"
+    "        info = chassis.get_sfp(idx).get_xcvr_api().get_module_fw_mgmt_feature()['info']\n"
+    "        val = next((l.split()[-1] for l in info.splitlines() if 'Abort CMD102h supported' in l), 'UNKNOWN')\n"
+    "        print('%d %s' % (idx, val))\n"
+    "    except Exception as exc:\n"
+    "        print('%d ERROR %s' % (idx, ' '.join(str(exc).split())))\n"
+)
+
+
+def get_module_cdb_abort_support_map(duthost, physical_indices):
+    """Return ``{physical_index: (abort_supported, err)}``.
+
+    Each module's result is ``(True|False, None)`` on success, or
+    ``(None, "<error>")`` when that module raised, has no CDB, or its flag could
+    not be extracted.
+
+    ``physical_indices`` is an iterable of 1-based physical SFP indices (the
+    CONFIG_DB ``index`` field / ``get_physical_port_indices`` value), which is
+    what ``chassis.get_sfp()`` expects.
+    """
+    indices = []
+    for idx in physical_indices:
+        idx = int(idx)
+        if idx not in indices:
+            indices.append(idx)
+    if not indices:
+        return {}
+
+    pycode = _CDB_FW_MGMT_FEATURE_BATCH_PYCODE.format(indices=indices)
+    result = duthost.shell('python3 -c "{}"'.format(pycode), module_ignore_errors=True)
+    if result.get("rc", RC_FAILURE) != 0:
+        err = f"Get module firmware features failed with rc={result.get('rc')} ({_error_detail(result)})"
+        return {idx: (None, err) for idx in indices}
+
+    results = {}
+    for line in result.get("stdout_lines", []):
+        parts = line.strip().split(None, 2)
+        if len(parts) < 2 or not parts[0].isdigit():
+            continue
+        idx, token = int(parts[0]), parts[1]
+        if token == "ERROR":
+            detail = parts[2] if len(parts) > 2 else "unknown error"
+            results[idx] = (None, f"get_module_fw_mgmt_feature raised: {detail}")
+        elif token in ("True", "False"):
+            results[idx] = (token == "True", None)
+        else:
+            results[idx] = (None, "'Abort CMD102h supported' not found in reply")
+
+    for idx in indices:
+        results.setdefault(idx, (None, f"no get_module_fw_mgmt_feature output for physical index {idx}"))
+    return results
+
+
+def set_dom_polling(duthost, port, enable):
+    """Enable/disable DOM polling on ``port`` via the ``config`` CLI.
+
+    Runs ``config interface transceiver dom <port> (enable|disable)``.  The CLI
+    only accepts the first subport / non-breakout port.  Returns ``None`` on
+    success, or a short error string.
+    """
+    action = "enable" if enable else "disable"
+    cmd = f"{CONFIG_INTERFACE_TRANSCEIVER_DOM} {port} {action}"
+    result = duthost.shell(cmd, module_ignore_errors=True)
+    if result.get("rc", RC_FAILURE) != 0:
+        return f"{cmd} failed with rc={result.get('rc')} ({_error_detail(result)})"
+    return None
+
+
+def get_dom_polling(duthost, port):
+    """Return the CONFIG_DB ``dom_polling`` value for ``port``.
+
+    ``"disabled"`` when DOM polling is off; ``""`` or ``"enabled"`` when on
+    (default is on).  Returns ``None`` if the value could not be read.
+    """
+    cmd = f'sonic-db-cli CONFIG_DB HGET "PORT|{port}" dom_polling'
+    result = duthost.shell(cmd, module_ignore_errors=True)
+    if result.get("rc", RC_FAILURE) != 0:
+        return None
+    return (result.get("stdout") or "").strip()
 
 
 def show_interfaces_transceiver_info(duthost, port=None, namespace=None):

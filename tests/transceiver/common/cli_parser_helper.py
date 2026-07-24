@@ -18,6 +18,7 @@ __all__ = [
     "RC_FAILURE",
 
     # ── Public parsers ──────────────────────────────────────────────────────
+    "parse_fwversion",
     "parse_hexdump",
     "parse_presence",
     "parse_read_eeprom",
@@ -202,3 +203,29 @@ def parse_presence(output_lines):
             presence = match.group(2).strip()
             res[port] = presence
     return res
+
+
+def parse_fwversion(output_lines):
+    """Parse ``sfputil show fwversion <port>`` output into a ``{field: value}`` map.
+
+    Each line is split on the FIRST ``:`` only, so a value that itself contains
+    ``:`` is preserved verbatim.
+
+    Args:
+        output_lines: command stdout as a list of lines.
+
+    Returns:
+        dict mapping each field label to its value, e.g.
+        ``{"Image A Version": "1.2.3", "Image B Version": "4.5.6",
+        "Active Firmware": "1.2.3", "Inactive Firmware": "4.5.6",
+        "Running Image": "A", "Committed Image": "A"}``.
+    """
+    result = {}
+    for line in output_lines:
+        if ":" not in line:
+            continue
+        key, _, value = line.partition(":")
+        key = key.strip()
+        if key:
+            result[key] = value.strip()
+    return result
