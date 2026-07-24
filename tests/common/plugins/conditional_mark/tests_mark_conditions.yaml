@@ -6288,6 +6288,12 @@ vxlan/test_vxlan_vnet_bgp_subintf.py:
       - "'dualtor' in topo_name"
       - "(asic_type in ['cisco-8000']) and (release in ['202511'])"
 
+vxlan/test_vxlan_vnet_ping_tsa.py:
+  skip:
+    reason: "Skip for AI backend/isolated topologies, as vnet-ping feature is not used"
+    conditions:
+      - "'isolated' in topo_name"
+
 #######################################
 #####            wan              #####
 #######################################
