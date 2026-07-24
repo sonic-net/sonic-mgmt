@@ -548,7 +548,7 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
                         first_cleanup_error = cleanup_error
 
             for iface in uplink_interfaces:
-                cleanup_step('start {}'.format(iface),
+                cleanup_step('startup {}'.format(iface),
                              lambda iface=iface: duthost.shell('config interface startup {}'.format(iface)))
             cleanup_step('verify routes',
                          lambda: pytest_assert(
