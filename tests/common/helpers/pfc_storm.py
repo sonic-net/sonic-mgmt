@@ -17,7 +17,9 @@ logger = logging.getLogger(__name__)
 def get_chip_name_if_asic_pfc_storm_supported(fanout):
     hwSkuInfo = {
         "Arista DCS-7060DX5": "Tomahawk4",
+        "Arista-7060DX5": "Tomahawk4",
         "Arista DCS-7060PX5": "Tomahawk4",
+        "Arista-7060PX5": "Tomahawk4",
         "Arista DCS-7060X6": "Tomahawk5",
         "Arista-7060X6": "Tomahawk5",
         "Arista-7060X6-64PE-P32O64": "Tomahawk5",
@@ -159,10 +161,9 @@ class PFCStorm(object):
 
     def _get_eos_fanout_version(self):
         """
-        Get version info for eos fanout device
+        Get hwsku info for eos fanout device from inventory.
         """
-        cmd = 'Cli -c "show version"'
-        return self.peer_device.shell(cmd)['stdout_lines']
+        return [self.peer_info['hwsku']]
 
     def _get_sonic_fanout_hwsku(self):
         """
@@ -199,7 +200,8 @@ class PFCStorm(object):
                 dest=self._PFC_GEN_DIR[self.peer_device.os]
                 )
             if self.fanout_asic_type == 'mellanox':
-                cmd = f"docker cp {self._PFC_GEN_DIR[self.peer_device.os]}/{self.pfc_gen_file} syncd:/root/"
+                cmd = "docker cp {}/{} syncd:/root/".format(
+                    self._PFC_GEN_DIR[self.peer_device.os], self.pfc_gen_file)
                 self.peer_device.shell(cmd)
 
     def update_queue_index(self, q_idx):
