@@ -645,6 +645,113 @@ def check_for_crc_errors(api, snappi_extra_params):
                                 row['CRC Errors'], m_port['peer_port'], m_port['peer_device'], row['Port Name']))
 
 
+def _eth_matches_macsec_port(eth, static_macsec, port):
+    """Return True if an IxNetwork Ethernet/StaticMacsec endpoint matches a MACsec port."""
+    port_id = int(port['port_id'])
+    eth_name = str(eth.Name)
+    if re.match(r'Ethernet Port {}$'.format(port_id), eth_name):
+        return True
+    tgen_ip = port.get('ipAddress')
+    if tgen_ip:
+        try:
+            return static_macsec.SourceIp.Values[0] == tgen_ip
+        except (AttributeError, IndexError, TypeError):
+            pass
+    return False
+
+
+def _configure_macsec_dut_sci_macs(ixnet, multi_dut_ports):
+    """
+    Set DutSciMac on each TGEN MACsec endpoint to the interface MAC of the DUT or
+    line-card that owns the corresponding ingress MACsec port (port_id >= 1).
+    """
+    macsec_ports = [p for p in multi_dut_ports if int(p['port_id']) >= 1]
+    pytest_assert(macsec_ports, "No MACsec ports (port_id >= 1) found for DutSciMac configuration")
+
+    eths = ixnet.Topology.find().DeviceGroup.find().Ethernet.find()
+    for port in macsec_ports:
+        port_id = int(port['port_id'])
+        sci_mac = port['duthost'].get_dut_iface_mac(port['peer_port'])
+        pytest_assert(
+            sci_mac,
+            "dut_sci_mac not found for port_id {} peer_port {} on {}".format(
+                port_id, port['peer_port'], port['duthost'].hostname))
+        matched = False
+        for eth in eths:
+            static_macsec_list = eth.StaticMacsec.find()
+            if not static_macsec_list:
+                continue
+            static_macsec = static_macsec_list[0]
+            if not _eth_matches_macsec_port(eth, static_macsec, port):
+                continue
+            static_macsec.DutSciMac.Single(sci_mac)
+            matched = True
+            logger.info(
+                "Set DutSciMac to %s for port_id %s (%s on %s)",
+                sci_mac, port_id, port['peer_port'], port['duthost'].hostname)
+            break
+        pytest_assert(
+            matched,
+            "No TGEN MACsec endpoint found for port_id {} peer_port {} on {}".format(
+                port_id, port['peer_port'], port['duthost'].hostname))
+
+
+def _log_in_flight_tgen_stats(tgen_stats, data_flow_names):
+    """Log per-flow TX/RX frame counts and throughput from ``tgen_curr_stats`` output."""
+    rows = []
+    for flow_name in data_flow_names:
+        key = flow_name.replace(' ', '_').lower()
+        rows.append([
+            flow_name,
+            tgen_stats.get(key + '_tx_pkts', 'n/a'),
+            tgen_stats.get(key + '_rx_pkts', 'n/a'),
+            tgen_stats.get(key + '_txrate_Gbps', 'n/a'),
+            tgen_stats.get(key + '_rxrate_Gbps', 'n/a'),
+        ])
+    logger.info(
+        "In-flight traffic statistics for flows:\n%s",
+        tabulate(rows, headers=["Flow", "Tx", "Rx", "Tx Gbps", "Rx Gbps"], tablefmt="psql"),
+    )
+
+
+def _capture_in_flight_tgen_stats(api, all_flow_names, ptype):
+    """Sample in-flight TGEN statistics for downstream verification.
+
+    Non-MACsec: Snappi flow metric objects (``.name``, ``.frames_tx``, etc.).
+    MACsec: IxNetwork Flow Statistics rows from ``fetch_flow_metrics_for_macsec``.
+    """
+    if not ptype:
+        return fetch_snappi_flow_metrics(api, all_flow_names)
+    return fetch_flow_metrics_for_macsec(api).Rows
+
+
+def _log_in_flight_stats(api, in_flight_flow_metrics, data_flow_names, ptype, snappi_extra_params):
+    """Log in-flight traffic statistics (format depends on MACsec vs non-MACsec)."""
+    if not ptype:
+        traf_metrics = StatViewAssistant(
+            api._ixnetwork, 'Traffic Item Statistics').Rows
+        log_stats = tgen_curr_stats(traf_metrics, in_flight_flow_metrics, data_flow_names)
+        _log_in_flight_tgen_stats(log_stats, data_flow_names)
+    else:
+        _log_in_flight_macsec_flow_stats(in_flight_flow_metrics, data_flow_names, snappi_extra_params)
+
+
+def _log_in_flight_macsec_flow_stats(in_flight_flow_metrics, data_flow_names, snappi_extra_params):
+    """Log per-flow TX/RX frame counts from in-flight MACsec TGEN flow statistics."""
+    flow_names, tx_frames, rx_frames = [], [], []
+    for fs in in_flight_flow_metrics:
+        if int(fs['PGID']) in snappi_extra_params.flow_name_prio_map.values() and \
+           fs['Rx Port'] == snappi_extra_params.base_flow_config["rx_port_name"]:
+            flow_names.append(fs['Traffic Item'] + "-" + fs['PGID'])
+            tx_frames.append(fs['Tx Frames'])
+            rx_frames.append(fs['Rx Frames'])
+    rows = list(zip(flow_names, tx_frames, rx_frames))
+    logger.info(
+        "In-flight traffic statistics for flows:\n%s",
+        tabulate(rows, headers=["Flow", "Tx", "Rx"], tablefmt="psql"),
+    )
+
+
 def run_traffic(duthost,
                 api,
                 config,
@@ -676,9 +783,8 @@ def run_traffic(duthost,
         ixnet = api._ixnetwork
         dp = ixnet.Topology.find().DeviceGroup.find().Ethernet.find().Mka.find().DelayProtect
         dp.Single(False)
-        sci_id = ixnet.Topology.find()[1].DeviceGroup.find()[0].Ethernet.find()[0].StaticMacsec.find()[0].DutSciMac
-        dut_port = snappi_extra_params.base_flow_config["tx_port_config"].peer_port
-        sci_id.Single(duthost.get_dut_iface_mac(dut_port))
+        _configure_macsec_dut_sci_macs(
+            ixnet, snappi_extra_params.multi_dut_params.multi_dut_ports)
         for ti in ixnet.Traffic.TrafficItem.find():
             ti.EnableMacsecEgressOnlyAutoConfig = False
             ti.Tracking.find()[0].TrackBy = []
@@ -801,47 +907,18 @@ def run_traffic(duthost,
 
             if poll_iter == 5:
                 logger.info("Polling TGEN for in-flight traffic statistics...")
-                if not ptype:
-                    in_flight_flow_metrics = fetch_snappi_flow_metrics(api, all_flow_names)
-                    flow_names = [
-                        metric.name for metric in in_flight_flow_metrics if metric.name in data_flow_names
-                    ]
-                    tx_frames = [
-                        metric.frames_tx for metric in in_flight_flow_metrics if metric.name in data_flow_names
-                    ]
-                    rx_frames = [
-                        metric.frames_rx for metric in in_flight_flow_metrics if metric.name in data_flow_names
-                    ]
-                else:
-                    flow_names, tx_frames, rx_frames = [], [], []
-                    in_flight_flow_metrics = fetch_flow_metrics_for_macsec(api).Rows
-                    for fs in in_flight_flow_metrics:
-                        if int(fs['PGID']) in snappi_extra_params.flow_name_prio_map.values() and \
-                           fs['Rx Port'] == snappi_extra_params.base_flow_config["rx_port_name"]:
-                            flow_names.append(fs['Traffic Item'] + "-" + fs['PGID'])
-                            tx_frames.append(fs['Tx Frames'])
-                            rx_frames.append(fs['Rx Frames'])
-                logger.info("In-flight traffic statistics for flows: {}".format(flow_names))
-                logger.info("In-flight TX frames: {}".format(tx_frames))
-                logger.info("In-flight RX frames: {}".format(rx_frames))
-                in_flight_flow_metrics = fetch_snappi_flow_metrics(api, all_flow_names)
-                flow_names = [metric.name for metric in in_flight_flow_metrics if metric.name in data_flow_names]
-                tx_frames = [metric.frames_tx for metric in in_flight_flow_metrics if metric.name in data_flow_names]
-                rx_frames = [metric.frames_rx for metric in in_flight_flow_metrics if metric.name in data_flow_names]
-                rows = list(zip(flow_names, tx_frames, rx_frames))
-                logger.info(
-                    "In-flight traffic statistics for flows:\n%s",
-                    tabulate(rows, headers=["Flow", "Tx", "Rx"], tablefmt="psql"),
-                    )
+                in_flight_flow_metrics = _capture_in_flight_tgen_stats(
+                    api, all_flow_names, ptype)
+                _log_in_flight_stats(
+                    api, in_flight_flow_metrics, data_flow_names, ptype, snappi_extra_params)
 
         logger.info("DUT polling complete")
     else:
         time.sleep(exp_dur_sec*(2/5))  # no switch polling required, only TGEN polling
         logger.info("Polling TGEN for in-flight traffic statistics...")
-        if not ptype:
-            in_flight_flow_metrics = fetch_snappi_flow_metrics(api, all_flow_names)  # fetch in-flight metrics from TGEN
-        else:
-            in_flight_flow_metrics = fetch_flow_metrics_for_macsec(api).Rows
+        in_flight_flow_metrics = _capture_in_flight_tgen_stats(api, all_flow_names, ptype)
+        _log_in_flight_stats(
+            api, in_flight_flow_metrics, data_flow_names, ptype, snappi_extra_params)
         time.sleep(exp_dur_sec*(3/5))
 
     attempts = 0
@@ -1384,6 +1461,14 @@ def verify_pause_frame_count_dut(rx_dut,
                               "PFC pause frames should not be transmitted and counted in TX PFC counters")
 
 
+def _int_if_str(v):
+    """
+    Converts string to integer if value is string.
+    No change if value is integer.
+    """
+    return int(v) if isinstance(v, str) else v
+
+
 def verify_tx_frame_count_dut(duthost,
                               api,
                               snappi_extra_params,
@@ -1428,6 +1513,9 @@ def verify_tx_frame_count_dut(duthost,
 
         # Collect metrics from DUT once all flows have stopped
         tx_dut_frames, tx_dut_drop_frames = get_tx_frame_count(duthost, peer_port)
+
+        tgen_tx_frames = _int_if_str(tgen_tx_frames)
+        tx_dut_frames = _int_if_str(tx_dut_frames)
 
         # Verify metrics between TGEN and DUT
         pytest_assert(abs(tgen_tx_frames - tx_dut_frames)/tgen_tx_frames <= tx_frame_count_deviation,
@@ -1477,10 +1565,13 @@ def verify_rx_frame_count_dut(duthost,
                     break
 
         # Collect metrics from DUT once all flows have stopped
-        rx_frames, rx_drop_frames = get_rx_frame_count(duthost, peer_port)
+        rx_dut_frames, rx_drop_frames = get_rx_frame_count(duthost, peer_port)
+
+        tgen_rx_frames = _int_if_str(tgen_rx_frames)
+        rx_dut_frames = _int_if_str(rx_dut_frames)
 
         # Verify metrics between TGEN and DUT
-        pytest_assert(abs(tgen_rx_frames - rx_frames)/tgen_rx_frames <= rx_frame_count_deviation,
+        pytest_assert(abs(tgen_rx_frames - rx_dut_frames)/tgen_rx_frames <= rx_frame_count_deviation,
                       "Additional frames are received outside of deviation. Possible PFC frames are counted.")
         pytest_assert(rx_drop_frames <= rx_drop_frame_count_tol, "No frames should be dropped")
 
