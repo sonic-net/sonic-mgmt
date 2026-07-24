@@ -13,16 +13,6 @@ bfd/test_bfd.py:
     conditions:
     - asic_type in ['vs'] and 't1-8-lag' in topo_name
     reason: This test case either cannot pass or should be skipped on virtual chassis
-bgp/test_bgp_allow_list.py:
-  skip:
-    conditions:
-    - asic_type in ['vs'] and 't1-8-lag' in topo_name
-    reason: This test case either cannot pass or should be skipped on virtual chassis
-bgp/test_bgp_command.py:
-  skip:
-    conditions:
-    - asic_type in ['vs'] and 't1-8-lag' in topo_name
-    reason: This test case either cannot pass or should be skipped on virtual chassis
 bgp/test_bgp_gr_helper.py:
   skip:
     conditions:
@@ -39,11 +29,6 @@ bgp/test_bgp_operation_in_ro.py:
     - asic_type in ['vs'] and 't1-8-lag' in topo_name
     reason: This test case either cannot pass or should be skipped on virtual chassis
 bgp/test_bgp_port_disable.py:
-  skip:
-    conditions:
-    - asic_type in ['vs'] and 't1-8-lag' in topo_name
-    reason: This test case either cannot pass or should be skipped on virtual chassis
-bgp/test_bgp_router_id.py:
   skip:
     conditions:
     - asic_type in ['vs'] and 't1-8-lag' in topo_name
@@ -468,7 +453,7 @@ platform_tests/test_cpu_memory_usage.py:
     conditions:
     - asic_type in ['vs'] and 't1-8-lag' in topo_name
     reason: This test case either cannot pass or should be skipped on virtual chassis
-platform_tests/test_first_time_boot_password_change/test_first_time_boot_password_change.py:
+platform_tests/test_first_time_boot_password_change/test_password_change.py:
   skip:
     conditions:
     - asic_type in ['vs'] and 't1-8-lag' in topo_name

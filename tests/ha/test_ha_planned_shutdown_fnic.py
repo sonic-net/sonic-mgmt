@@ -9,7 +9,7 @@ import threading
 import queue
 from tests.common.helpers.assertions import pytest_assert
 from constants import LOCAL_PTF_INTF, REMOTE_PTF_RECV_INTF
-from packets import outbound_pl_packets
+from ha_packets import outbound_pl_packets
 from tests.ha.conftest import apply_dash_pl_pipeline_config
 from ha_dash_flow_utils import compare_flow_tables, compare_flow_tables_pdsctl
 from ha_utils import (
@@ -23,7 +23,7 @@ from ha_utils import (
 
 logger = logging.getLogger(__name__)
 
-# Distinct inner UDP ports used only after standby shutdown to create a new
+# Distinct inner TCP ports used only after standby shutdown to create a new
 # flow on the standalone primary and verify it is bulk-synced to the standby.
 POST_SHUTDOWN_INNER_SPORT = 50001
 POST_SHUTDOWN_INNER_DPORT = 50002
@@ -32,6 +32,16 @@ pytestmark = [
     pytest.mark.topology('t1-smartswitch-ha'),
     pytest.mark.skip_check_dut_health
 ]
+
+
+def _send_and_verify_outbound(ptfadapter, send_port, pkt, exp_pkt, recv_ports, label):
+    testutils.send(ptfadapter, send_port, pkt, 1)
+    try:
+        testutils.verify_packet_any_port(ptfadapter, exp_pkt, recv_ports)
+        return 0
+    except (Exception, pytest.fail.Exception) as e:
+        logger.info("%s outbound packet dropped: %s", label, e)
+        return 1
 
 
 @pytest.fixture(autouse=True, scope="function")
@@ -96,19 +106,30 @@ def test_ha_planned_shutdown(
         ptfadapter.dataplane.flush()
         time.sleep(1)
         send_count = 0
+        loss_count = 0
+        first_packet_received = False
         while not reached_max_time:
             sport = random.randint(49152, 65535)
             dport = random.randint(49152, 65535)
             vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(
                 dash_pl_config[0], encap_proto, floating_nic=True,
-                inner_sport=sport, inner_dport=dport, vni=pl.ENI_TRUSTED_VNI
+                inner_sport=sport, inner_dport=dport, vni=pl.ENI_TRUSTED_VNI,
+                tcp_flag_syn=True,  # each iteration is a unique 5-tuple; SYN creates a new flow.
             )
-            testutils.send(ptfadapter, dash_pl_config[0][LOCAL_PTF_INTF], vm_to_dpu_pkt, 1)
-            testutils.verify_packet_any_port(ptfadapter, exp_dpu_to_pe_pkt, rcv_outbound_pl_ports)
-            if send_count == 0:
+            packet_loss = _send_and_verify_outbound(
+                ptfadapter,
+                dash_pl_config[0][LOCAL_PTF_INTF],
+                vm_to_dpu_pkt,
+                exp_dpu_to_pe_pkt,
+                rcv_outbound_pl_ports,
+                "primary shutdown",
+            )
+            loss_count += packet_loss
+            if not first_packet_received and packet_loss == 0:
                 logger.info("HA: First packet received - compare flows")
                 flow_op = compare_flow_tables_pdsctl(dpuhosts[0], dpuhosts[1])
                 pytest_assert(flow_op, "Expected identical flow tables on primary and standby")
+                first_packet_received = True
             send_count += 1
             # After we send initial_send_count packets, awake perform_ha_action thread
             if send_count == initial_send_count:
@@ -126,7 +147,8 @@ def test_ha_planned_shutdown(
         pytest_assert(verify_ha_state(duthosts[1], standby_vdpu_key, "standalone"),
                       "Standby HA state is not standalone")
 
-        logging.info(f"HA: Primary shutdown all {send_count} packets received")
+        logging.info("HA: Primary shutdown traffic complete: sent=%d, lost=%d", send_count, loss_count)
+        pytest_assert(loss_count == 0, f"Primary shutdown lost {loss_count} packets")
 
         # Re-activate primary
         set_dash_ha_scope(localhost, duthosts[0], ptfhost, primary_vdpu_key, "dead", ha_owner, disabled=True)
@@ -140,7 +162,7 @@ def test_ha_planned_shutdown(
         while packet_sending_flag.empty() or (not packet_sending_flag.get()):
             time.sleep(0.2)
         logging.info("HA: Set standby to dead")
-        set_dead_dash_ha_scope(localhost, duthosts[1], ptfhost, standby_vdpu_key, ha_owner)
+        set_dash_ha_scope(localhost, duthosts[1], ptfhost, standby_vdpu_key, "dead", ha_owner, disabled=False)
 
     t = threading.Thread(target=standby_ha_action, name="standby_ha_action_thread")
     t.start()
@@ -149,20 +171,31 @@ def test_ha_planned_shutdown(
     ptfadapter.dataplane.flush()
     time.sleep(1)
     send_count = 0
+    loss_count = 0
+    first_packet_received = False
 
     while not reached_max_time:
         sport = random.randint(49152, 65535)
         dport = random.randint(49152, 65535)
         vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(
             dash_pl_config[0], encap_proto, floating_nic=True,
-            inner_sport=sport, inner_dport=dport, vni=pl.ENI_TRUSTED_VNI
+            inner_sport=sport, inner_dport=dport, vni=pl.ENI_TRUSTED_VNI,
+            tcp_flag_syn=True,  # each iteration is a unique 5-tuple; SYN creates a new flow.
         )
-        testutils.send(ptfadapter, dash_pl_config[0][LOCAL_PTF_INTF], vm_to_dpu_pkt, 1)
-        testutils.verify_packet_any_port(ptfadapter, exp_dpu_to_pe_pkt, rcv_outbound_pl_ports)
-        if send_count == 0:
+        packet_loss = _send_and_verify_outbound(
+            ptfadapter,
+            dash_pl_config[0][LOCAL_PTF_INTF],
+            vm_to_dpu_pkt,
+            exp_dpu_to_pe_pkt,
+            rcv_outbound_pl_ports,
+            "standby shutdown",
+        )
+        loss_count += packet_loss
+        if not first_packet_received and packet_loss == 0:
             logger.info("HA: First packet received - compare flows")
             flow_op = compare_flow_tables(dpuhosts[0], dpuhosts[1])
             pytest_assert(flow_op, "Expected identical flow tables on primary and standby")
+            first_packet_received = True
         send_count += 1
         # After we send initial_send_count packets, awake perform_ha_action thread
         if send_count == initial_send_count:
@@ -179,7 +212,8 @@ def test_ha_planned_shutdown(
     pytest_assert(verify_ha_state(duthosts[0], primary_vdpu_key, "standalone"),
                   "Primary HA state is not standalone")
 
-    logging.info(f"HA: standby shutdown all {send_count} packets received")
+    logging.info("HA: Standby shutdown traffic complete: sent=%d, lost=%d", send_count, loss_count)
+    pytest_assert(loss_count == 0, f"Standby shutdown lost {loss_count} packets")
 
     logger.info(
         "HA: Post-shutdown - send outbound packet with inner_sport=%s then compare flow tables",
@@ -190,10 +224,18 @@ def test_ha_planned_shutdown(
     vm_post_sd, exp_post_sd = outbound_pl_packets(
         dash_pl_config[0], encap_proto, floating_nic=True,
         inner_sport=POST_SHUTDOWN_INNER_SPORT, inner_dport=POST_SHUTDOWN_INNER_DPORT,
-        vni=pl.ENI_TRUSTED_VNI
+        vni=pl.ENI_TRUSTED_VNI,
+        tcp_flag_syn=True,  # post-shutdown packet uses a new 5-tuple; SYN creates the flow.
     )
-    testutils.send(ptfadapter, dash_pl_config[0][LOCAL_PTF_INTF], vm_post_sd, 1)
-    testutils.verify_packet_any_port(ptfadapter, exp_post_sd, rcv_outbound_pl_ports)
+    post_shutdown_loss = _send_and_verify_outbound(
+        ptfadapter,
+        dash_pl_config[0][LOCAL_PTF_INTF],
+        vm_post_sd,
+        exp_post_sd,
+        rcv_outbound_pl_ports,
+        "post-shutdown",
+    )
+    pytest_assert(post_shutdown_loss == 0, "Post-shutdown outbound packet was dropped")
 
     # Re-activate standby
     set_dash_ha_scope(localhost, duthosts[1], ptfhost, standby_vdpu_key, "dead", ha_owner, disabled=True)
@@ -201,6 +243,6 @@ def test_ha_planned_shutdown(
                                              owner=ha_owner), "Failed to re-activate HA on standby")
 
     flow_post = compare_flow_tables(
-        dpuhosts[0], dpuhosts[1], verbose=True, flow_state=True
+        dpuhosts[0], dpuhosts[1], verbose=False, flow_state=True
     )
     pytest_assert(flow_post, "Expected identical flow tables after launch from standalone (bulk sync)")
