@@ -287,6 +287,41 @@ def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list, cert=None
         raise Exception("py_gnmicli failed rc={}\nSTDOUT:\n{}\nSTDERR:\n{}".format(rc, stdout, stderr))
 
 
+def _raise_on_gnmi_cli_failure(duthost, output, extra_error_markers=None):
+    """Surface a py_gnmicli.py hard failure instead of letting an empty stdout
+    silently fold into a downstream count/parse assertion.
+
+    The gnmi helpers run py_gnmicli.py on the PTF with module_ignore_errors=True
+    and historically inspected only output['stdout']. When the client exits
+    non-zero with empty stdout (e.g. an import crash or handshake failure that
+    reports on stderr), the real traceback in stderr/rc was discarded and the
+    failure showed up as an empty 'error:' / 'Actual count: 0' message with no
+    root cause. This mirrors the rc/stderr-aware check gnmi_set already uses.
+
+    Only hard-failure signals raise here (rc != 0, or a Traceback / GRPC error /
+    rpc error in the combined output), so a legitimately-empty-but-successful
+    response (rc == 0, empty stderr) still flows back to the caller for its own
+    assertion.
+
+    Args:
+        duthost: fixture for duthost (used to dump diagnostic logs on failure)
+        output: dict returned by ptfhost.shell(..., module_ignore_errors=True)
+        extra_error_markers: optional extra substrings that indicate failure
+    """
+    stdout = output.get("stdout") or ""
+    stderr = output.get("stderr") or ""
+    rc = output.get("rc", 1)
+    combined = "{}\n{}".format(stdout, stderr)
+    error_markers = ["Traceback (most recent call last)", "GRPC error", "rpc error"]
+    if extra_error_markers:
+        error_markers.extend(extra_error_markers)
+    if rc != 0 or any(marker in combined for marker in error_markers):
+        dump_gnmi_log(duthost)
+        dump_system_status(duthost)
+        raise Exception(
+            "py_gnmicli failed rc={}\nSTDOUT:\n{}\nSTDERR:\n{}".format(rc, stdout, stderr))
+
+
 def gnmi_get(duthost, ptfhost, path_list, ip=None):
     """
     Send GNMI get request with GNMI client
@@ -316,6 +351,7 @@ def gnmi_get(duthost, ptfhost, path_list, ip=None):
         path = path.replace('sonic-db:', '')
         cmd += " " + path
     output = ptfhost.shell(cmd, module_ignore_errors=True)
+    _raise_on_gnmi_cli_failure(duthost, output)
     msg = output['stdout'].replace('\\', '')
     error = "GRPC error\n"
     if error in msg:
@@ -331,7 +367,8 @@ def gnmi_get(duthost, ptfhost, path_list, ip=None):
     else:
         dump_gnmi_log(duthost)
         dump_system_status(duthost)
-        raise Exception("error:" + msg)
+        stderr = output.get('stderr') or ''
+        raise Exception("error:{}\nrc={}\nSTDERR:\n{}".format(msg, output.get('rc', 1), stderr))
 
 
 # py_gnmicli does not fully support POLLING mode
@@ -381,6 +418,7 @@ def gnmi_subscribe_polling(duthost, ptfhost, path_list, interval_ms, count, ip=N
         path = path.replace('sonic-db:', '')
         cmd += '-q %s ' % (path)
     output = duthost.shell(cmd, module_ignore_errors=True)
+    _raise_on_gnmi_cli_failure(duthost, output)
     return output['stdout'], output['stderr']
 
 
@@ -424,6 +462,7 @@ def gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, interval_ms, co
         path = path.replace('sonic-db:', '')
         cmd += " " + path
     output = ptfhost.shell(cmd, module_ignore_errors=True)
+    _raise_on_gnmi_cli_failure(duthost, output)
     msg = output['stdout'].replace('\\', '')
     return msg, output['stderr']
 
@@ -463,6 +502,7 @@ def gnmi_subscribe_streaming_onchange(duthost, ptfhost, path_list, count, ip=Non
         path = path.replace('sonic-db:', '')
         cmd += " " + path
     output = ptfhost.shell(cmd, module_ignore_errors=True)
+    _raise_on_gnmi_cli_failure(duthost, output)
     msg = output['stdout'].replace('\\', '')
     return msg, output['stderr']
 
