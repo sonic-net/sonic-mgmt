@@ -454,7 +454,7 @@ def _load_testbed_config(tbfile, tbname):
         if tb.get('conf-name') == tbname:
             return tb
 
-    logger.warning(f"Testbed '{tbname}' not found in '{tbfile}'")
+    logger.warning(f"Testbed '{tbname}' not in '{tbfile}'")
     return
 
 
@@ -483,7 +483,8 @@ def converge_topo_if_needed(config):
         if neighbor_type not in ("eos", "ceos"):
             logger.info(
                 f"use_converged_peers=True for testbed '{tbname}' but neighbor_type="
-                f"'{neighbor_type}' is not cEOS; skipping converge (converged peer "
+                f"'{neighbor_type}' is not cEOS "
+                f"skipping converge (converged peer "
                 f"model is cEOS-only)")
             return
 
@@ -526,7 +527,7 @@ def converge_topo_if_needed(config):
 
         os.chmod(topo_file, original_mode)
         os.chown(topo_file, original_uid, original_gid)
-        logger.info(f"File permissions restored to {original_uid}:{original_gid}")
+        logger.info(f"File permissions restored to {original_uid}: {original_gid}")
 
         config.cache.set("converged_topo_file", topo_file)
         config.cache.set("converged_topo_backup", backup_file)
@@ -1408,7 +1409,7 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
 
             logging.debug(
                 f"Added serial port mapping: {dut_name} Console{host_port} -> "
-                f"{fanout_host}:{fanout_port} (baud={link_info.get('baud_rate', '9600')})"
+                f"{fanout_host}: {fanout_port} (baud={link_info.get('baud_rate', '9600')})"
             )
 
     logging.info(f"fanouthosts fixture initialized with {len(fanout_hosts)} fanout devices")
@@ -3863,7 +3864,7 @@ def build_gnmi_stubs(request):
             text=True,
             check=False  # Do not raise an exception automatically on non-zero exit
         )
-        logger.info(f"Output of {script_path}:\n{result.stdout}")
+        logger.info(f"Output of {script_path}: \n{result.stdout}")
 
         if result.returncode != 0:
             logger.error(f"{script_path} failed with exit code {result.returncode}")
@@ -4286,3 +4287,9 @@ def restore_counter_poll(rand_selected_dut):
         parsed_counterpoll_before,
         parsed_counterpoll_after
     )
+
+
+@pytest.fixture(scope='module')
+def skip_t2_isolated_topo(tbinfo):
+    if 't2-isolated' in tbinfo['topo']['name']:
+        pytest.skip("test is not applicable to t2-isolated topology due to T3 neighbors needed")

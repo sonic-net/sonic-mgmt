@@ -1774,7 +1774,8 @@ def setup_add_cluster(tbinfo,
 # Test Definitions
 # -----------------------------
 
-def test_add_cluster(tbinfo,
+def test_add_cluster(skip_t2_isolated_topo,
+                     tbinfo,
                      duthosts,
                      initialize_random_variables,
                      ptfadapter,
