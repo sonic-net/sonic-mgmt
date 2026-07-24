@@ -730,6 +730,7 @@ t1-lag-vpp:
   - vxlan/test_vnet_bgp_route_precedence.py
   - vxlan/test_vxlan_multi_tunnel.py
   - vxlan/test_vxlan_route_advertisement.py
+  - iface_loopback_action/test_iface_loopback_action.py
 
 
 multi-asic-t1-lag:
