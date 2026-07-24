@@ -302,6 +302,7 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
                                "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
                                "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
                                "uplink_mac": str(dhcp_relay['uplink_mac']),
+                               "host_mac": str(duthost.facts["router_mac"]),
                                "testing_mode": testing_mode,
                                "kvm_support": True,
                                "relay_agent": relay_agent,
@@ -422,6 +423,7 @@ def test_dhcp_relay_with_source_port_ip_in_relay_enabled(
                                "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
                                "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
                                "uplink_mac": str(dhcp_relay['uplink_mac']),
+                               "host_mac": str(duthost.facts["router_mac"]),
                                "testing_mode": testing_mode,
                                "enable_source_port_ip_in_relay": True,
                                "kvm_support": True,
@@ -511,6 +513,7 @@ def test_dhcp_relay_after_link_flap(ptfhost, dut_dhcp_relay_data, validate_dut_r
                            "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
                            "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
                            "uplink_mac": str(dhcp_relay['uplink_mac']),
+                           "host_mac": str(duthost.facts["router_mac"]),
                            "testing_mode": testing_mode,
                            "kvm_support": True,
                            "relay_agent": relay_agent,
@@ -573,6 +576,7 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
                            "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
                            "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
                            "uplink_mac": str(dhcp_relay['uplink_mac']),
+                           "host_mac": str(duthost.facts["router_mac"]),
                            "testing_mode": testing_mode,
                            "kvm_support": True,
                            "relay_agent": relay_agent,
@@ -583,7 +587,7 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
 
 
 def test_dhcp_relay_unicast_mac(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
-                                setup_standby_ports_on_rand_unselected_tor,				 # noqa: F811
+                                setup_standby_ports_on_rand_unselected_tor,              # noqa: F811
                                 toggle_all_simulator_ports_to_rand_selected_tor_m, relay_agent):     # noqa: F811
     """Test DHCP relay functionality on T0 topology with unicast mac
        Instead of using broadcast MAC, use unicast MAC of DUT and verify that DHCP relay functionality is entact.
@@ -613,6 +617,7 @@ def test_dhcp_relay_unicast_mac(ptfhost, dut_dhcp_relay_data, validate_dut_route
                            "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
                            "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
                            "uplink_mac": str(dhcp_relay['uplink_mac']),
+                           "host_mac": str(duthost.facts["router_mac"]),
                            "testing_mode": testing_mode,
                            "kvm_support": True,
                            "relay_agent": relay_agent,
@@ -623,7 +628,7 @@ def test_dhcp_relay_unicast_mac(ptfhost, dut_dhcp_relay_data, validate_dut_route
 
 
 def test_dhcp_relay_random_sport(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
-                                 setup_standby_ports_on_rand_unselected_tor,				 # noqa: F811
+                                 setup_standby_ports_on_rand_unselected_tor,                 # noqa: F811
                                  toggle_all_simulator_ports_to_rand_selected_tor_m,     # noqa: F811
                                  verify_acl_drop_on_standby_tor, relay_agent):    # noqa: F811
     """Test DHCP relay functionality on T0 topology with random source port (sport)
@@ -652,6 +657,7 @@ def test_dhcp_relay_random_sport(ptfhost, dut_dhcp_relay_data, validate_dut_rout
                            "client_udp_src_port": RANDOM_CLIENT_PORT,
                            "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
                            "uplink_mac": str(dhcp_relay['uplink_mac']),
+                           "host_mac": str(duthost.facts["router_mac"]),
                            "testing_mode": testing_mode,
                            "kvm_support": True,
                            "relay_agent": relay_agent,
@@ -699,6 +705,7 @@ def test_dhcp_relay_monitor_checksum_validation(ptfhost, dut_dhcp_relay_data, va
                                "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
                                "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
                                "uplink_mac": str(dhcp_relay['uplink_mac']),
+                               "host_mac": str(duthost.facts["router_mac"]),
                                "testing_mode": testing_mode,
                                "kvm_support": True,
                                "relay_agent": relay_agent,
@@ -761,6 +768,7 @@ def test_dhcp_broadcast_not_flooded(ptfhost, dut_dhcp_relay_data, validate_dut_r
                            "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
                            "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
                            "uplink_mac": str(dhcp_relay['uplink_mac']),
+                           "host_mac": str(duthost.facts["router_mac"]),
                            "testing_mode": testing_mode,
                            "kvm_support": True,
                            "relay_agent": relay_agent,
