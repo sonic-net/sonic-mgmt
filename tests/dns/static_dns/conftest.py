@@ -71,6 +71,9 @@ def static_dns_setup(duthost):
     with allure.step("Config reload to recover the original state"):
         config_reload(duthost, safe_reload=True)
 
+    with allure.step("Restart host rsyslog to clear stale imrelp client connections"):
+        duthost.shell("systemctl restart rsyslog")
+
 
 @pytest.fixture(autouse=False)
 def static_dns_clean(duthost):
