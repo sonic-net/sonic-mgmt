@@ -38,11 +38,6 @@ bgp/test_bgp_sentinel.py:
     conditions:
     - asic_type in ['vs'] and 't1-8-lag' in topo_name
     reason: This test case either cannot pass or should be skipped on virtual chassis
-bgp/test_bgp_session.py:
-  skip:
-    conditions:
-    - asic_type in ['vs'] and 't1-8-lag' in topo_name
-    reason: This test case either cannot pass or should be skipped on virtual chassis
 bgp/test_bgp_stress_link_flap.py:
   skip:
     conditions:
