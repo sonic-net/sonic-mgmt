@@ -3,7 +3,7 @@ import logging
 from tests.common.reboot import (
     sync_reboot_history_queue_with_dut,
     reboot,
-    REBOOT_TYPE_HISTOYR_QUEUE,
+    REBOOT_TYPE_HISTORY_QUEUE,
     REBOOT_TYPE_COLD,
     wait_for_startup,
 )
@@ -51,7 +51,7 @@ def reboot_and_check(localhost, dut, interfaces, xcvr_skip_list,
 
     # Append the last reboot type to the queue
     logging.info("Append the latest reboot type to the queue")
-    REBOOT_TYPE_HISTOYR_QUEUE.append(reboot_type)
+    REBOOT_TYPE_HISTORY_QUEUE.append(reboot_type)
 
     if interfaces_checker is not None:
         interfaces_checker(dut, interfaces, xcvr_skip_list, reboot_type=reboot_type)
