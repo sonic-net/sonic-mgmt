@@ -124,9 +124,6 @@ class TestSwitchHostModuleApi(PlatformApiTestBase):
         def _admin_on(v):
             return v in ('on', 'up')
 
-        def _admin_off(v):
-            return v in ('off', 'down')
-
         oper_status = _oper()
         self.expect(isinstance(oper_status, str),
                     f"get_oper_status() should return string, got {type(oper_status)}")

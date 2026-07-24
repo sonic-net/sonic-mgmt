@@ -1088,12 +1088,6 @@ platform_tests/daemon/test_pcied.py:
     conditions:
       - "platform in ['arm64-elba-asic-flash128-r0']"
 
-platform_tests/daemon/test_thermalctld.py::TestThermalctldDaemon::test_thermalctld_leak_status:
-  skip:
-    reason: "Improperly handled redis db result"
-    conditions:
-      - https://github.com/sonic-net/sonic-mgmt/issues/25760
-
 #######################################
 #####    fwutil/test_fwutil.py    #####
 #######################################
@@ -1554,12 +1548,11 @@ platform_tests/test_reload_config.py::test_reload_configuration:
 
 platform_tests/test_reload_config.py::test_reload_configuration_checks:
   skip:
-    reason: "Unsupported platform API / Service watchdog-control can not load on kvm testbed / Skip test_reload_configuration_checks testcase due to flaky timing issue for Cisco 8000."
+    reason: "Unsupported platform API / Service watchdog-control can not load on kvm testbed."
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['barefoot'] and hwsku in ['newport']"
       - "https://github.com/sonic-net/sonic-buildimage/issues/19879 and asic_type in ['vs']"
-      - "asic_type in ['cisco-8000']"
 
 #######################################
 ######  test_secure_upgrade.py  #######
