@@ -37,6 +37,53 @@ ARP_PKT_COUNT = 10
 DROP_TOLERANCE = 2
 
 
+def _resolve_l3_interfaces(mg_facts, port_index_map):
+    """
+    Build a unified list of routed L3 interfaces, covering both plain
+    physical router ports (``minigraph_interfaces``) and L3 portchannel
+    (LAG) interfaces (``minigraph_portchannel_interfaces``). Some
+    topologies (e.g. T1/T2, multi-asic) only have L3 addressing on
+    portchannels, so relying on ``minigraph_interfaces`` alone misses
+    them entirely.
+
+    Portchannels have no PTF port or portstat counters of their own, so
+    for each L3 portchannel we resolve to one physical member port --
+    that is where test traffic is actually injected/received and where
+    RX_DRP is actually tracked.
+    """
+    resolved = []
+
+    for intf in mg_facts.get("minigraph_interfaces", []):
+        port = intf["attachto"]
+        if port not in port_index_map:
+            continue
+        resolved.append({
+            "addr": intf["addr"],
+            "peer_addr": intf.get("peer_addr"),
+            "logical_port": port,
+            "phy_port": port,
+        })
+
+    portchannels = mg_facts.get("minigraph_portchannels", {})
+    for pc_intf in mg_facts.get("minigraph_portchannel_interfaces", []):
+        pc_name = pc_intf["attachto"]
+        members = portchannels.get(pc_name, {}).get("members", [])
+        phy_port = next(
+            (member for member in members if member in port_index_map),
+            None
+        )
+        if phy_port is None:
+            continue
+        resolved.append({
+            "addr": pc_intf["addr"],
+            "peer_addr": pc_intf.get("peer_addr"),
+            "logical_port": pc_name,
+            "phy_port": phy_port,
+        })
+
+    return resolved
+
+
 @pytest.fixture(scope="module")
 def l3_intf_setup(duthosts, rand_one_dut_hostname, tbinfo):
     """
@@ -45,21 +92,18 @@ def l3_intf_setup(duthosts, rand_one_dut_hostname, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
-    l3_interfaces = mg_facts.get("minigraph_interfaces", [])
-    pytest_assert(
-        len(l3_interfaces) > 0,
-        "No L3 routed interfaces found in minigraph"
-    )
-
     port_index_map = mg_facts["minigraph_ptf_indices"]
     dut_mac = duthost.facts["router_mac"]
+
+    l3_interfaces = _resolve_l3_interfaces(mg_facts, port_index_map)
+    pytest_assert(
+        len(l3_interfaces) > 0,
+        "No L3 routed interfaces (physical or portchannel) found in minigraph"
+    )
 
     ipv4_intf = None
     ipv6_intf = None
     for intf in l3_interfaces:
-        port = intf["attachto"]
-        if port not in port_index_map:
-            continue
         if ":" not in intf["addr"] and ipv4_intf is None:
             ipv4_intf = intf
         elif ":" in intf["addr"] and ipv6_intf is None:
@@ -77,15 +121,15 @@ def l3_intf_setup(duthosts, rand_one_dut_hostname, tbinfo):
 
     if ipv4_intf:
         logger.info(
-            "IPv4 L3 intf: port=%s ip=%s peer=%s",
-            ipv4_intf["attachto"], ipv4_intf["addr"],
-            ipv4_intf.get("peer_addr")
+            "IPv4 L3 intf: logical_port=%s phy_port=%s ip=%s peer=%s",
+            ipv4_intf["logical_port"], ipv4_intf["phy_port"],
+            ipv4_intf["addr"], ipv4_intf.get("peer_addr")
         )
     if ipv6_intf:
         logger.info(
-            "IPv6 L3 intf: port=%s ip=%s peer=%s",
-            ipv6_intf["attachto"], ipv6_intf["addr"],
-            ipv6_intf.get("peer_addr")
+            "IPv6 L3 intf: logical_port=%s phy_port=%s ip=%s peer=%s",
+            ipv6_intf["logical_port"], ipv6_intf["phy_port"],
+            ipv6_intf["addr"], ipv6_intf.get("peer_addr")
         )
 
     yield setup_info
@@ -205,7 +249,7 @@ class TestArpL3NoRxDrop:
         if intf is None:
             pytest.skip("No IPv4 L3 interface available")
 
-        dut_port = intf["attachto"]
+        dut_port = intf["phy_port"]
         peer_addr = intf.get("peer_addr")
         ptf_idx = setup["port_index_map"][dut_port]
         if peer_addr is None:
@@ -234,7 +278,7 @@ class TestArpL3NoRxDrop:
         if intf is None:
             pytest.skip("No IPv4 L3 interface available")
 
-        dut_port = intf["attachto"]
+        dut_port = intf["phy_port"]
         dut_mac = setup["dut_mac"]
         peer_addr = intf.get("peer_addr")
         ptf_idx = setup["port_index_map"][dut_port]
@@ -266,7 +310,7 @@ class TestArpL3NoRxDrop:
         if intf is None:
             pytest.skip("No IPv6 L3 interface available")
 
-        dut_port = intf["attachto"]
+        dut_port = intf["phy_port"]
         peer_addr = intf.get("peer_addr")
         ptf_idx = setup["port_index_map"][dut_port]
         if peer_addr is None:
@@ -294,7 +338,7 @@ class TestArpL3NoRxDrop:
         if intf is None:
             pytest.skip("No IPv6 L3 interface available")
 
-        dut_port = intf["attachto"]
+        dut_port = intf["phy_port"]
         dut_mac = setup["dut_mac"]
         peer_addr = intf.get("peer_addr")
         ptf_idx = setup["port_index_map"][dut_port]
