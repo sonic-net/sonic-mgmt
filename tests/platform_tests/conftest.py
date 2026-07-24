@@ -1,4 +1,3 @@
-import tarfile
 import json
 import pytest
 import os
@@ -10,7 +9,7 @@ from .args.counterpoll_cpu_usage_args import add_counterpoll_cpu_usage_args
 from tests.common.helpers.mellanox_thermal_control_test_helper import suspend_hw_tc_service, resume_hw_tc_service
 from tests.common.platform.device_utils import MGFX_HWSKU, MGFX_XCVR_INTF
 from tests.common.platform.transceiver_utils import get_passive_cable_port_list, get_cmis_cable_ports_and_ver
-from tests.common.helpers.firmware_helper import PLATFORM_COMP_PATH_TEMPLATE
+from tests.common.helpers.firmware_helper import PLATFORM_COMP_PATH_TEMPLATE, extract_fw_data
 from tests.common.platform.interface_utils import get_ports_with_flat_memory
 from tests.common.helpers.platform_api import bmc
 
@@ -317,26 +316,3 @@ def backup_platform_file(duthost):
     logger.info("Remove 'platform_components.json' backup from localhost: path={}".format(backup_path))
     os.remove(current_backup_path)
     os.rmdir(backup_path)
-
-
-def extract_fw_data(fw_pkg_path):
-    """
-    Extract fw data from updated-fw.tar.gz file or firmware.json file
-    :param fw_pkg_path: the path to tar.gz file or firmware.json file
-    :return: fw_data in dictionary
-    """
-    if tarfile.is_tarfile(fw_pkg_path):
-        path = "/tmp/firmware"
-        isExist = os.path.exists(path)
-        if not isExist:
-            os.mkdir(path)
-        with tarfile.open(fw_pkg_path, "r:gz") as f:
-            f.extractall(path)
-            json_file = os.path.join(path, "firmware.json")
-            with open(json_file, 'r') as fw:
-                fw_data = json.load(fw)
-    else:
-        with open(fw_pkg_path, 'r') as fw:
-            fw_data = json.load(fw)
-
-    return fw_data
