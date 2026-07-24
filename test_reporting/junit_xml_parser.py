@@ -76,10 +76,18 @@ REQUIRED_METADATA_PROPERTIES = [
 TESTCASE_TAG = "testcase"
 REQUIRED_TESTCASE_ATTRIBUTES = [
     "classname",
-    "file",
-    "line",
     "name",
     "time",
+]
+
+# Pytest's JUnit XML backend uses xunit 2 defaults, so the legacy xunit 1
+# attributes `file` and `line` are not emitted in our XML. See:
+# https://github.com/pytest-dev/pytest/blob/main/src/_pytest/junitxml.py#L80
+# We still accept them here when present for compatibility, but they default to
+# empty string if absent and are not used to drop testcases.
+OPTIONAL_TESTCASE_ATTRIBUTES = [
+    "file",
+    "line",
 ]
 
 # Fields found in the testcase/properties section of the JUnit XML file.
@@ -469,6 +477,8 @@ def _parse_test_cases(root):
 
         for attribute in REQUIRED_TESTCASE_ATTRIBUTES:
             result[attribute] = test_case.get(attribute)
+        for attribute in OPTIONAL_TESTCASE_ATTRIBUTES:
+            result[attribute] = test_case.get(attribute, "")
         for attribute in REQUIRED_TESTCASE_PROPERTIES:
             testcase_properties = _parse_testcase_properties(test_case)
             if attribute in testcase_properties:
@@ -622,8 +632,11 @@ def _validate_json_metadata(test_result_json):
 
         seen_properties.append(prop)
 
-    if set(seen_properties) < set(REQUIRED_METADATA_PROPERTIES):
-        raise TestResultJSONValidationError("missing metadata element(s)")
+    missing_props = sorted(set(REQUIRED_METADATA_PROPERTIES) - set(seen_properties))
+    if missing_props:
+        raise TestResultJSONValidationError(
+            "missing metadata element(s): {}".format(missing_props)
+        )
 
 
 def _validate_json_summary(test_result_json):
