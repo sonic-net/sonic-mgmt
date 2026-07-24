@@ -2084,8 +2084,8 @@ class QosSaiBase(QosBase):
             if 'platform_asic' in duthost.facts and duthost.facts['platform_asic'] == 'broadcom-dnx':
                 logger.info("THDI_BUFFER_CELL_LIMIT_SP is not valid for broadcom DNX - ignore dynamic buffer config")
                 qosParams = qosConfigs['qos_params'][dutAsic][dutTopo]
-            elif dutAsic == 'th5':
-                logger.info("Generator script not implemented for TH5")
+            elif dutAsic in ['th5', 'th6']:
+                logger.info("Generator script not implemented")
                 qosParams = qosConfigs['qos_params'][dutAsic][dutTopo]
             else:
                 bufferConfig = dutBufferConfig(duthost, dut_asic)
