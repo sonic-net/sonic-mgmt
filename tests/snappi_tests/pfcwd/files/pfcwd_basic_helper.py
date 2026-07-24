@@ -193,10 +193,8 @@ def run_pfcwd_basic_test(api,
                      loss_packets=loss_packets)
 
     # Restore the pre-test poll interval overridden above (runtime-only config).
-    for duthost, asic_value in ((egress_duthost, rx_port['asic_value']),
-                                (ingress_duthost, tx_port['asic_value'])):
-        if orig_poll_interval_ms.get(duthost):
-            update_pfc_poll_interval(duthost, orig_poll_interval_ms[duthost])
+    for duthost, orig in orig_poll_interval_ms.items():
+        update_pfc_poll_interval(duthost, orig)
 
 
 def get_stats(duthost, port, prio):
