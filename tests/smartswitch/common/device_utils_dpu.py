@@ -7,7 +7,7 @@ import re
 from datetime import datetime
 import time
 from tests.common.platform.device_utils import (  # noqa: F401,F403
-    platform_api_conn, start_platform_api_service, get_configured_dpu_names
+    platform_api_conn, start_platform_api_service, get_configured_dpu_names, get_dpuhost_for_dpu
 )
 from tests.common.helpers.platform_api import chassis, module
 from tests.common.utilities import wait_until
@@ -502,23 +502,6 @@ def check_dpu_health_status(duthost, dpu_name,
                     pytest_assert(status['state-value'].lower() == expected_state_value,
                                   f"data plane state is not {expected_state_value}")
     return
-
-
-def get_dpuhost_for_dpu(dpuhosts, dpu_id):
-    """
-    Get the dpuhost that corresponds to the given dpu_id.
-    dpuhosts may have fewer nodes than platform slots when the testbed
-    does not define SSH access for all DPUs. Tries integer index first,
-    then hostname match (e.g. *-dpu-0 for DPU0).
-    """
-    if dpu_id < len(dpuhosts):
-        return dpuhosts[dpu_id]
-    dpu_suffix = f"-dpu-{dpu_id}"
-    # If index lookup fails (e.g. dpu_id=3 but len(dpuhosts)=1), search by hostname.
-    for node in dpuhosts:
-        if getattr(node, 'hostname', '').endswith(dpu_suffix):
-            return node
-    return None
 
 
 # Track DPUs we've already warned about being absent from `dpuhosts`, so the
