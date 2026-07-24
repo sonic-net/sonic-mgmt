@@ -79,7 +79,7 @@ def backup_and_restore_config_db(duthosts, enum_frontend_dut_hostname):
 
 
 def get_dut_listen_range(tbinfo):
-    """Get the DUT listen range for BGP configuration
+    """Get the DUT listen range for BGP configuration.
 
     This function finds the backplane interface subnet for BGP Sentinel/Monitor configuration.
     It looks for any neighbor VM that has a backplane interface (bp_interface) defined.
