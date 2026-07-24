@@ -6,6 +6,22 @@ from scapy.all import PcapReader
 from tests.common.snappi_tests.pfc_packet import PFCPacket
 from tests.common.snappi_tests.cisco_pfc_packet import CiscoPFCPacket
 
+PCAP_MAGIC_STANDARD = b'\xd4\xc3\xb2\xa1'   # little-endian standard pcap
+PCAP_MAGIC_STANDARD_BE = b'\xa1\xb2\xc3\xd4'  # big-endian standard pcap
+PCAP_MAGIC_NSEC = b'\x4d\x3c\xb2\xa1'         # little-endian nanosecond pcap
+PCAP_MAGIC_NSEC_BE = b'\xa1\xb2\x3c\x4d'      # big-endian nanosecond pcap
+
+
+def _open_pcap_reader(f):
+    """Return the appropriate dpkt reader for pcap or pcapng files."""
+    magic = f.read(4)
+    f.seek(0)
+    if magic in (PCAP_MAGIC_STANDARD, PCAP_MAGIC_STANDARD_BE,
+                 PCAP_MAGIC_NSEC, PCAP_MAGIC_NSEC_BE):
+        return dpkt.pcap.Reader(f)
+    return dpkt.pcapng.Reader(f)
+
+
 logger = logging.getLogger(__name__)
 
 PFC_MAC_CONTROL_CODE = 0x8808
@@ -25,7 +41,7 @@ def validate_pfc_frame(pfc_pcap_file, SAMPLE_SIZE=15000, UTIL_THRESHOLD=0.8):
         True if valid PFC frame, False otherwise
     """
     f = open(pfc_pcap_file, "rb")
-    pcap = dpkt.pcapng.Reader(f)
+    pcap = _open_pcap_reader(f)
     seen_non_zero_cev = False  # Flag for checking if any PFC frame has non-zero class enable vector
 
     curPktCount = 0

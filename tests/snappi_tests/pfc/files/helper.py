@@ -103,6 +103,9 @@ def run_pfc_test(api,
 
     global DATA_FLOW_DURATION_SEC
     global data_flow_delay_sec
+    # Reset to initial values before any modification
+    DATA_FLOW_DURATION_SEC = 15
+    data_flow_delay_sec = 1
 
     # Port id of Rx port for traffic config
     port_id = 0
@@ -314,7 +317,11 @@ def run_pfc_test(api,
     # Verify PFC pause frames
     if valid_pfc_frame_test:
         if not is_cisco_device(duthost):
-            is_valid_pfc_frame, error_msg = validate_pfc_frame(snappi_extra_params.packet_capture_file + ".pcapng")
+            # Buffer may wrap during capture,
+            # but at least 100 frames are reliably retained in the pcapng file.
+            pfc_sample_size = 100
+            is_valid_pfc_frame, error_msg = validate_pfc_frame(snappi_extra_params.packet_capture_file + ".pcapng",
+                                                               SAMPLE_SIZE=pfc_sample_size)
         else:
             is_valid_pfc_frame, error_msg = validate_pfc_frame_cisco(
                                                             snappi_extra_params.packet_capture_file + ".pcapng")
