@@ -500,9 +500,14 @@ class TestSfpThermalStateDb:
         )
 
         keys = result["stdout"].strip().split("\n")
+        sfp_key_patterns = [
+            r"\bxsfp\s+module\s+\d+\b",
+            r"\btransceiver\b",
+            r"\boptic\b",
+        ]
         sfp_keys = [
             k for k in keys
-            if any(pattern in k.lower() for pattern in ["sfp", "transceiver", "xsfp", "optic"])
+            if any(re.search(pattern, k, re.IGNORECASE) for pattern in sfp_key_patterns)
         ]
 
         logger.info("TEMPERATURE_INFO keys: %d total, %d SFP-related",
