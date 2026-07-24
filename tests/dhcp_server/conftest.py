@@ -23,8 +23,8 @@ def dhcp_server_setup_teardown(duthost):
     dhcp_server_state = features_state[DHCP_SERVER_FEATRUE_NAME]
     py_require(dhcp_server_state in ('enabled', 'always_enabled', 'disabled'),
                "Skip on testbed with unsupported dhcp server feature state: {}".format(dhcp_server_state))
-    py_require(hasattr(dhcp_relay_utils, 'get_dhcp_relay_type'),
-               "Skip until required dependency #26525 provides get_dhcp_relay_type")
+    py_assert(hasattr(dhcp_relay_utils, 'get_dhcp_relay_type'),
+              "#26525 must merge first: get_dhcp_relay_type is required")
     get_dhcp_relay_type = dhcp_relay_utils.get_dhcp_relay_type
 
     restore_state_flag = dhcp_server_state == 'disabled'
