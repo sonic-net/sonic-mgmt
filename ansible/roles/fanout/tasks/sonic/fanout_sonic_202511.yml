@@ -160,6 +160,25 @@
     - name: reinit fp entries
       shell: "bcmcmd 'fp detach' && bcmcmd 'fp init'"
       become: yes
+
+    - name: Disable predefined trap on Q3D device
+      block:
+        - name: Copy Q3D trap disable script to fanout
+          copy:
+            src: "scripts/q3d_disable_trap.c"
+            dest: "/tmp/q3d_disable_trap.c"
+          become: yes
+
+        - name: Copy Q3D trap disable script to syncd container
+          shell: "docker cp /tmp/q3d_disable_trap.c syncd:/q3d_disable_trap.c"
+          become: yes
+
+        - name: Execute Q3D trap disable script
+          shell: "bcmcmd 'cint q3d_disable_trap.c'"
+          become: yes
+      when:
+        - fanout_sonic_version.asic_gen is defined
+        - fanout_sonic_version.asic_gen == 'q3d'
   when: "'broadcom' in fanout_sonic_version.asic_type"
 
 - block:
