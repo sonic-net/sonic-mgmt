@@ -50,7 +50,8 @@ def perform_ports_shutdown(duthost, ports, wait_sec):
     duthost.shutdown_multiple(ports)
     logger.info("Admin-down issued for %d port(s); waiting up to %ss for oper-down",
                 len(ports), wait_sec)
-    failures = wait_ports_oper_status(duthost, ports, "down", wait_sec)
+    laggards = wait_ports_oper_status(duthost, ports, "down", wait_sec)
+    failures = [f"port {port} did not reach oper-down within {wait_sec}s" for port in laggards]
     if failures:
         for failure in failures:
             logger.warning("%s", failure)
@@ -73,7 +74,8 @@ def perform_ports_startup(duthost, ports, wait_sec):
     duthost.no_shutdown_multiple(ports)
     logger.info("Admin-up issued for %d port(s); waiting up to %ss for oper-up",
                 len(ports), wait_sec)
-    failures = wait_ports_oper_status(duthost, ports, "up", wait_sec)
+    laggards = wait_ports_oper_status(duthost, ports, "up", wait_sec)
+    failures = [f"port {port} did not reach oper-up within {wait_sec}s" for port in laggards]
     if failures:
         for failure in failures:
             logger.warning("%s", failure)

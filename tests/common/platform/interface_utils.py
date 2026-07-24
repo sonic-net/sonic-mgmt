@@ -95,17 +95,16 @@ def expect_interface_status(dut, interface_name, expected_op_status):
 
 
 def wait_ports_oper_status(duthost, ports, status, wait_sec, poll_interval_sec=2):
-    """Poll until every port in ``ports`` reaches oper-``status``; return failures.
+    """Poll until every port in ``ports`` reaches oper-``status``; return the laggards.
 
     Issues a single ``show interface description`` per poll (one full-table dump,
     parsed once) and checks every port against that snapshot, rather than one CLI
     call per port -- the latter is O(N) redundant dumps per poll and does not
     scale to hundreds of ports.
 
-    Returns a list with one string per port still not at oper-``status`` after
-    ``wait_sec``; empty once all reach it. A port absent from the dump is reported
-    as a failure (rather than raising) so a missing/renamed port aggregates like
-    any other laggard.
+    Returns the list of ports still not at oper-``status`` after ``wait_sec``;
+    empty once all reach it. A port absent from the dump counts as a laggard
+    (rather than raising) so a missing/renamed port aggregates like any other.
     """
     # Imported lazily to avoid a module-load import cycle
     # (tests.common.utilities <-> tests.common.platform.interface_utils).
@@ -118,10 +117,7 @@ def wait_ports_oper_status(duthost, ports, status, wait_sec, poll_interval_sec=2
 
     if wait_until(wait_sec, poll_interval_sec, 0, lambda: not _ports_not_at_status()):
         return []
-    return [
-        "port {} did not reach oper-{} within {}s".format(port, status, wait_sec)
-        for port in _ports_not_at_status()
-    ]
+    return _ports_not_at_status()
 
 
 def check_interface_status(dut, asic_index, interfaces, xcvr_skip_list):
