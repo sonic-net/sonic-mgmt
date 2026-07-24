@@ -672,6 +672,11 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
         # files AND redis connectivity before running config_reload, which also waits
         # for BGP sessions to re-establish.
         db_config_timeout = 120
+
+        WEAK_CPU_PALTFORM_LIST = ['x86_64-mlnx_msn2700-r0']
+        # extra timeout needed for platforms with weak cpu
+        if duthost.facts["platform"] in WEAK_CPU_PALTFORM_LIST:
+            db_config_timeout = 240
         if duthost.facts.get("modular_chassis"):
             db_config_timeout = max(db_config_timeout, 600)
 
