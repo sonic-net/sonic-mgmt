@@ -1,0 +1,20 @@
+{
+    "ACL_TABLE": {
+        "OVERLAY_MARK_META_TEST": {
+            "policy_desc": "OVERLAY_MARK_META_TESTV4",
+            "ports": [
+                {{ acl_interfaces }}
+            ],
+            "stage": "ingress",
+            "type": "UNDERLAY_SET_DSCP"
+        },
+        "OVERLAY_MARK_META_TESTV6": {
+            "policy_desc": "OVERLAY_MARK_META_TEST_v6",
+            "ports": [
+                {{ acl_interfacesv6 }}
+            ],
+            "stage": "ingress",
+            "type": "UNDERLAY_SET_DSCPV6"
+        }
+    }
+}

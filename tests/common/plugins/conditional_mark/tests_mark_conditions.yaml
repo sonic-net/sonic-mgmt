@@ -103,6 +103,12 @@ acl/test_acl.py::TestMultiBindingAcl:
     conditions:
       - "'dualtor' not in topo_name"
 
+acl/test_acl_dscp_rewrite.py:
+  skip:
+    reason: "Egress ACL DSCP rewrite tests only supported on Cisco 8101/8102 platforms"
+    conditions:
+      - "platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0']"
+
 acl/test_acl_outer_vlan.py:
   #Outer VLAN id match support is planned for future release with SONIC on Cisco 8000
   #For the current release, will mark the related test cases as XFAIL
