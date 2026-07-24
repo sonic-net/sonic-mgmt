@@ -542,10 +542,15 @@ def validate_asic_route(duthost, prefix):
     """
     Check if a route exists in the routing table of the asic.
     """
-    asicdb = AsicDbCli(duthost)
-    route_table = asicdb.dump("ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY")
-    if prefix in str(route_table):
-        return True
+    if duthost.is_multi_asic:
+        asic_instances = [duthost.asic_instance(asic_id) for asic_id in duthost.get_frontend_asic_ids()]
+    else:
+        asic_instances = [duthost]
+    for asic in asic_instances:
+        asicdb = AsicDbCli(asic)
+        route_table = asicdb.dump("ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY")
+        if prefix in str(route_table):
+            return True
     return False
 
 
