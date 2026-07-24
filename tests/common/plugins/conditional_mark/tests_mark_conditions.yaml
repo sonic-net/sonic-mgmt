@@ -3099,12 +3099,12 @@ gnmi/test_gnoi_system_reboot.py::test_gnoi_system_reboot_warm:
 
 gnmi/test_pygnmi_client.py:
   skip:
-    reason: "gNMI port/DB coverage is not namespace-aware; not applicable on BMC / multi-ASIC / T2"
+    reason: "gNMI port/DB coverage is not namespace-aware; not applicable on BMC / multi-ASIC / VOQ chassis"
     conditions_logical_operator: or
     conditions:
       - "'bmc' in topo_type"
       - "is_multi_asic==True"
-      - "'t2' in topo_name"
+      - "switch_type=='voq'"
 
 ###############################################
 #####       golden_config_infra           #####
