@@ -40,6 +40,7 @@ class Arista(host_device.HostDevice):
         self.reboot_type = test_params['reboot_type']
         self.bgp_v4_v6_time_diff = test_params['bgp_v4_v6_time_diff']
         self.lacp_pdu_timings = list()
+        self.has_dut_portchannels = test_params.get('has_dut_portchannels', True)
 
     def __del__(self):
         self.disconnect()
@@ -77,7 +78,8 @@ class Arista(host_device.HostDevice):
         version_output = self.do_cmd('show version')
         self.veos_version = self.parse_version(version_output)
 
-        self.show_lacp_command = self.parse_supported_show_lacp_command()
+        if self.has_dut_portchannels:
+            self.show_lacp_command = self.parse_supported_show_lacp_command()
         self.show_ip_bgp_command = self.parse_supported_bgp_neighbor_command()
         self.show_ipv6_bgp_command = self.parse_supported_bgp_neighbor_command(
             v4=False)
@@ -142,6 +144,19 @@ class Arista(host_device.HostDevice):
 
         return
 
+    def get_portchannel_changetime(self):
+        portchannel_output = self.do_cmd("show interfaces po1 | json")
+        portchannel_output = "\n".join(portchannel_output.split("\r\n")[1:-1])
+        if not portchannel_output.strip():
+            raise RuntimeError("Empty output from 'show interfaces po1 | json'")
+        try:
+            po_info = json.loads(portchannel_output, strict=False)
+            return po_info['interfaces']['Port-Channel1']['lastStatusChangeTimestamp']
+        except (json.JSONDecodeError, KeyError, TypeError) as err:
+            raise RuntimeError(
+                "Failed to parse Port-Channel1 status: {}".format(err)
+            )
+
     def run(self):
         data = {}
         debug_data = {}
@@ -155,11 +170,9 @@ class Arista(host_device.HostDevice):
         cur_time = time.time()
         sample = {}
         samples = {}
-        portchannel_output = self.do_cmd("show interfaces po1 | json")
-        portchannel_output = "\n".join(portchannel_output.split("\r\n")[1:-1])
-        sample["po_changetime"] = json.loads(portchannel_output, strict=False)[
-            'interfaces']['Port-Channel1']['lastStatusChangeTimestamp']
-        samples[cur_time] = sample
+        if self.has_dut_portchannels:
+            sample["po_changetime"] = self.get_portchannel_changetime()
+            samples[cur_time] = sample
 
         while not (quit_enabled and v4_routing_ok and v6_routing_ok):
             cmd = None
@@ -171,15 +184,20 @@ class Arista(host_device.HostDevice):
                     quit_enabled = True
                     continue
 
-                if (cmd == 'cpu_down' or cmd == 'cpu_going_up' or cmd == 'cpu_up'):
+                if self.has_dut_portchannels and (
+                        cmd == 'cpu_down' or cmd == 'cpu_going_up' or cmd == 'cpu_up'):
                     last_lacppdu_time_before_reboot = self.check_last_lacppdu_time()
                     if last_lacppdu_time_before_reboot is not None:
                         self.lacp_pdu_timings.append(last_lacppdu_time_before_reboot)
 
             cur_time = time.time()
             info = {}
-            lacp_output = self.do_cmd(self.show_lacp_command)
-            info['lacp'] = self.parse_lacp(lacp_output)
+            lacp_output = None
+            if self.has_dut_portchannels:
+                lacp_output = self.do_cmd(self.show_lacp_command)
+                info['lacp'] = self.parse_lacp(lacp_output)
+            else:
+                info['lacp'] = True
             bgp_neig_output = self.do_cmd(self.show_ip_bgp_command)
             info['bgp_neig'] = self.parse_bgp_neighbor(bgp_neig_output)
 
@@ -197,15 +215,13 @@ class Arista(host_device.HostDevice):
                 self.log('BGP routing for ipv6 OK: %s' % (v6_routing_ok))
             info["bgp_route_v6"] = v6_routing_ok
 
-            portchannel_output = self.do_cmd("show interfaces po1 | json")
-            portchannel_output = "\n".join(
-                portchannel_output.split("\r\n")[1:-1])
-            sample["po_changetime"] = json.loads(portchannel_output, strict=False)[
-                'interfaces']['Port-Channel1']['lastStatusChangeTimestamp']
+            if self.has_dut_portchannels:
+                sample["po_changetime"] = self.get_portchannel_changetime()
 
             if not run_once:
-                # clear Portchannel counters
-                self.do_cmd("clear counters Port-Channel 1")
+                if self.has_dut_portchannels:
+                    # clear Portchannel counters
+                    self.do_cmd("clear counters Port-Channel 1")
 
                 self.ipv4_gr_enabled, self.ipv6_gr_enabled, self.gr_timeout = self.parse_bgp_neighbor_once(
                     bgp_neig_output)
@@ -215,14 +231,17 @@ class Arista(host_device.HostDevice):
                     run_once = True
 
             data[cur_time] = info
-            samples[cur_time] = sample
+            if self.has_dut_portchannels:
+                samples[cur_time] = sample
             if self.DEBUG:
-                debug_data[cur_time] = {
-                    'show lacp neighbor': lacp_output,
+                debug_entry = {
                     'show ip bgp neighbors': bgp_neig_output,
                     'show ip route bgp': bgp_route_v4_output,
                     'show ipv6 route bgp': bgp_route_v6_output,
                 }
+                if lacp_output is not None:
+                    debug_entry['show lacp neighbor'] = lacp_output
+                debug_data[cur_time] = debug_entry
             time.sleep(1)
 
         attempts = 60
@@ -268,14 +287,18 @@ class Arista(host_device.HostDevice):
         self.log('Checking BGP GR peer status on VM')
         self.check_gr_peer_status(data)
         cli_data = {}
-        cli_data['lacp'] = self.check_series_status(
-            data, "lacp",         "LACP session")
+        if self.has_dut_portchannels:
+            cli_data['lacp'] = self.check_series_status(
+                data, "lacp",         "LACP session")
+            cli_data['po'] = self.check_change_time(
+                samples, "po_changetime", "PortChannel interface")
+        else:
+            cli_data['lacp'] = (0, 0)
+            cli_data['po'] = (0, 0)
         cli_data['bgp_v4'] = self.check_series_status(
             data, "bgp_route_v4", "BGP v4 routes")
         cli_data['bgp_v6'] = self.check_series_status(
             data, "bgp_route_v6", "BGP v6 routes")
-        cli_data['po'] = self.check_change_time(
-            samples, "po_changetime", "PortChannel interface")
 
         if 'route_timeout' in log_data:
             route_timeout = log_data['route_timeout']
@@ -459,7 +482,9 @@ class Arista(host_device.HostDevice):
         for prefix, attrs in obj["routes"].items():
             if "routeAction" not in attrs or attrs["routeAction"] != "forward":
                 continue
-            if all("Port-Channel" in via["interface"] for via in attrs["vias"]):
+            if not self.has_dut_portchannels:
+                prefixes.add(prefix)
+            elif all("Port-Channel" in via["interface"] for via in attrs["vias"]):
                 prefixes.add(prefix)
 
         return set(expects) == prefixes
