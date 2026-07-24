@@ -1496,11 +1496,19 @@ class Test_VxLAN_ecmp_random_hash(Test_VxLAN):
             "Apply the config in the DUT and verify traffic. "
             "The random hash and ECMP check is already taken care of in the "
             "VxLAN PTF script.")
+        # Overlay ECMP distribution over N nexthops is multinomial: each
+        # nexthop's received count has std/mean = sqrt((N-1)/(N*packet_count)).
+        # With N=3 and packet_count=1000 that is ~2.6%, so the default 3%
+        # tolerance is only ~1.1 sigma and this check flakes on a perfectly
+        # healthy dataplane. Send more packets (better resolution) and use a
+        # per-test tolerance giving a ~3.8 sigma margin while still catching a
+        # genuine >7% ECMP imbalance.
         self.dump_self_info_and_run_ptf(
             "tc11",
             encap_type,
             True,
-            packet_count=1000)
+            packet_count=2000,
+            tolerance=0.07)
 
 
 @pytest.mark.skipif(
@@ -1562,7 +1570,10 @@ class Test_VxLAN_entropy(Test_VxLAN):
             random_sport=random_sport,
             random_dport=random_dport,
             random_src_ip=random_src_ip,
-            packet_count=1000,
+            # 2000 pkts/endpoint (vs 1000) halves the relative binomial variance
+            # of the 2-way endpoint split, so the inner-field entropy checks below
+            # are statistically robust rather than flaky at their tolerance bound.
+            packet_count=2000,
             tolerance=tolerance)
 
     def test_verify_entropy(self, setUp, encap_type):
@@ -1584,7 +1595,7 @@ class Test_VxLAN_entropy(Test_VxLAN):
         route 4's prefix dst
         '''
         self.vxlan_test_setup = setUp
-        self.verify_entropy(encap_type, tolerance=0.03)
+        self.verify_entropy(encap_type, tolerance=0.07)
 
     def test_vxlan_random_src_port(self, setUp, encap_type):
         '''
@@ -1596,7 +1607,7 @@ class Test_VxLAN_entropy(Test_VxLAN):
             encap_type,
             random_dport=False,
             random_sport=True,
-            tolerance=0.03)
+            tolerance=0.07)
 
     def test_vxlan_varying_src_ip(self, setUp, encap_type):
         '''
@@ -1608,4 +1619,4 @@ class Test_VxLAN_entropy(Test_VxLAN):
             encap_type,
             random_dport=False,
             random_src_ip=True,
-            tolerance=0.03)
+            tolerance=0.07)
