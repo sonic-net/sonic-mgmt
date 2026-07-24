@@ -2045,11 +2045,11 @@ def get_snappi_ports_multi_dut(duthosts,  # noqa: F811
 def is_snappi_multidut(duthosts):
     if duthosts is None or len(duthosts) == 0:
         return False
-    if not duthosts[0].get_facts().get("modular_chassis") and len(duthosts) == 1:
-        return False
-    if not duthosts[0].get_facts().get("modular_chassis") and len(duthosts) > 1:
+    if len(duthosts) > 1:
         return True
-    return duthosts[0].get_facts().get("modular_chassis")
+    # Single entry: treat as multi-DUT only for Cisco modular chassis,
+    # where one linecard is passed but the chassis spans multiple cards.
+    return bool(duthosts[0].get_facts().get("modular_chassis"))
 
 
 @pytest.fixture(scope="module")

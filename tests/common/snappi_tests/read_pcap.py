@@ -12,7 +12,7 @@ PFC_MAC_CONTROL_CODE = 0x8808
 PFC_DEST_MAC = "01:80:c2:00:00:01"
 
 
-def validate_pfc_frame(pfc_pcap_file, SAMPLE_SIZE=15000, UTIL_THRESHOLD=0.8):
+def validate_pfc_frame(pfc_pcap_file, SAMPLE_SIZE=15000, UTIL_THRESHOLD=0.8, peer_mac_addr=None):
     """
     Validate PFC frame by checking the CBFC opcode, class enable vector and class pause times.
 
@@ -20,6 +20,7 @@ def validate_pfc_frame(pfc_pcap_file, SAMPLE_SIZE=15000, UTIL_THRESHOLD=0.8):
         pfc_cap: PFC pcap file
         SAMPLE_SIZE: number of packets to sample
         UTIL_THRESHOLD: threshold for PFC utilization to check if enough PFC frames were sent
+        peer_mac_addr: optional peer MAC address to validate source MAC
 
     Returns:
         True if valid PFC frame, False otherwise
@@ -38,6 +39,10 @@ def validate_pfc_frame(pfc_pcap_file, SAMPLE_SIZE=15000, UTIL_THRESHOLD=0.8):
             dest_mac = mac_to_str(eth.dst)
             if dest_mac.lower() != PFC_DEST_MAC:
                 return False, "Destination MAC address is not 01:80:c2:00:00:01"
+            if peer_mac_addr:
+                src_mac = mac_to_str(eth.src)
+                if src_mac.lower() != peer_mac_addr.lower():
+                    return False, "Source MAC address is not the peer's mac address"
             pfc_packet = PFCPacket(pfc_frame_bytes=bytes(eth.data))
             if not pfc_packet.is_valid():
                 logger.info("PFC frame {} is not valid. Please check the capture file.".format(curPktCount))
