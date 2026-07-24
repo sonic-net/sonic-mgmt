@@ -794,6 +794,15 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
             iptables_rules.append("-A FORWARD -j DROP")
             ip6tables_rules.append("-A FORWARD -j DROP")
 
+    # Restrict access to FRR daemon TCP ports (zebra VTY 2601, fpmsyncd<->zebra 2620) on the
+    # loopback interface to the frr user (uid 300) only. caclmgrd applies this OUTPUT-chain
+    # ACCEPT(uid-owner)+DROP pair per port in every managed namespace (see
+    # sonic-net/sonic-host-services#389), so it is expected regardless of asic_index.
+    iptables_rules.append("-A OUTPUT -o lo -p tcp -m tcp --dport 2620 -m owner --uid-owner 300 -j ACCEPT")
+    iptables_rules.append("-A OUTPUT -o lo -p tcp -m tcp --dport 2601 -m owner --uid-owner 300 -j ACCEPT")
+    iptables_rules.append("-A OUTPUT -o lo -p tcp -m tcp --dport 2620 -j DROP")
+    iptables_rules.append("-A OUTPUT -o lo -p tcp -m tcp --dport 2601 -j DROP")
+
     # IP Table rule to allow eth1-midplane traffic for chassis
     if asic_index is None:
         append_midplane_traffic_rules(duthost, iptables_rules)
