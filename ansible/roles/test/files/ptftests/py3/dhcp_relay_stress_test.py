@@ -52,16 +52,33 @@ class DHCPStressTest(DHCPTest):
         self.packets_send_duration = self.test_params["packets_send_duration"]
         self.client_packets_per_sec = self.test_params["client_packets_per_sec"]
 
-    # Simulate client coming on VLAN and broadcasting a DHCPDISCOVER message
     def client_send_packet_stress(self):
-        server_ports = "|".join(["eth{}".format(idx) for idx in self.receive_port_indices])
-        tcpdump_cmd = (
-            "tcpdump --buffer-size=102400 --immediate-mode -U "
-            "-i any -n -q -l "
-            "'inbound and udp and (port 67 or port 68) and (udp[249:2] = 0x01{})' "
-            "| grep --line-buffered -w -E '{}' > /tmp/dhcp_stress_test_{}.log"
-        ).format(self.packet_type_hex, server_ports, self.packet_type)
-        tcpdump_proc = subprocess.Popen(tcpdump_cmd, shell=True)
+        # Start tcpdump on each receive-port interface individually to avoid
+        # issues with '-i any' cooked capture (SLL/SLLv2), deep BPF offsets
+        # (udp[249:2]), and grep-based interface filtering.
+        log_files = []
+        tcpdump_procs = []
+        for idx in self.receive_port_indices:
+            log_file = "/tmp/dhcp_stress_{}_{}.log".format(self.packet_type, idx)
+            log_files.append(log_file)
+            # Match only the DHCP message-type under test so background/other-type
+            # DHCP traffic cannot inflate the relayed-packet count. message-type
+            # (option 53) is the first DHCP option; udp[] is UDP-header relative,
+            # so its length+value bytes sit at udp[249:2] (8 UDP hdr + 236 BOOTP
+            # + 4 magic cookie + 1 option code). This deep offset is reliable now
+            # that capture is per-interface rather than '-i any' cooked mode.
+            # --buffer-size/--immediate-mode/-U keep tcpdump from dropping or
+            # buffering packets under the high packet rate of the stress test.
+            # exec so the shell is replaced by tcpdump and proc.pid is the
+            # tcpdump PID we can signal directly (see cleanup below).
+            cmd = ("exec tcpdump --buffer-size=102400 --immediate-mode -U "
+                   "-i eth{} -n -q -l "
+                   "'udp and (port 67 or port 68) and udp[249:2] = 0x01{}' "
+                   "> {} 2>/dev/null").format(idx, self.packet_type_hex, log_file)
+            tcpdump_procs.append(subprocess.Popen(cmd, shell=True))
+
+        time.sleep(1)
+
         if self.packet_type == "discover" or self.packet_type == "request":
             dhcp_packet = self.create_packet(self.dest_mac_address, self.client_udp_src_port)
         else:
@@ -74,33 +91,57 @@ class DHCPStressTest(DHCPTest):
             testutils.send_packet(self, self.send_port_indices[0], dhcp_packet)
             time.sleep(1/self.client_packets_per_sec)
 
-        # Wait until tcpdump stops receiving packets (idle for 5s, max 120s)
-        log_file = "/tmp/dhcp_stress_test_{}.log".format(self.packet_type)
+        # Wait until tcpdump stops receiving packets (idle for 5s, max 120s).
+        # Sum the sizes of every per-interface capture file so the wait tracks
+        # traffic across all receive-port interfaces, not a single '-i any' file.
         last_size = 0
         idle_count = 0
         deadline = time.time() + 120
         while idle_count < 5 and time.time() < deadline:
             time.sleep(1)
-            try:
-                current_size = os.path.getsize(log_file)
-            except OSError:
-                current_size = 0
+            current_size = 0
+            for log_file in log_files:
+                try:
+                    current_size += os.path.getsize(log_file)
+                except OSError:
+                    # File not created yet or already removed; treat as size 0.
+                    pass
             if current_size == last_size:
                 idle_count += 1
             else:
                 idle_count = 0
             last_size = current_size
 
-        pids = subprocess.check_output("pgrep tcpdump", shell=True).split()
-        for pid in pids:
-            os.kill(int(pid), signal.SIGINT)
-        tcpdump_proc.wait()
+        # Only stop the tcpdump instances this test started. A blanket
+        # `pgrep tcpdump` + kill would also tear down captures owned by other
+        # parametrized stress runs executing concurrently on the same PTF host.
+        for proc in tcpdump_procs:
+            try:
+                proc.send_signal(signal.SIGINT)
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+            except OSError:
+                # Process already exited; nothing to clean up.
+                pass
+        time.sleep(2)
 
-        wc_cmd = "wc -l /tmp/dhcp_stress_test_{}.log".format(self.packet_type)
-        wc_output = subprocess.check_output(wc_cmd, shell=True)
-        line_cnt = wc_output.decode().split()[0]
-        os.remove("/tmp/dhcp_stress_test_{}.log".format(self.packet_type))
-        subprocess.check_output("echo {} > /tmp/dhcp_stress_test_{}".format(line_cnt, self.packet_type), shell=True)
+        total_count = 0
+        for log_file in log_files:
+            try:
+                wc_output = subprocess.check_output("wc -l < {}".format(log_file), shell=True)
+                total_count += int(wc_output.decode().strip())
+            except (subprocess.CalledProcessError, ValueError):
+                # Log file may not exist or be empty; skip this interface's count
+                pass
+            try:
+                os.remove(log_file)
+            except OSError:
+                # File already removed or never created; nothing to clean up
+                pass
+
+        with open("/tmp/dhcp_stress_test_{}".format(self.packet_type), "w") as count_fh:
+            count_fh.write("{}\n".format(total_count))
 
     def runTest(self):
         self.client_send_packet_stress()
