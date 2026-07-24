@@ -61,7 +61,15 @@ class TestLinkLocalIPacket:
         hwsku = duthost.facts['hwsku']
         sai_settings = {}
         sai_profile = "/usr/share/sonic/device/{}/{}/sai.profile".format(platform, hwsku)
-        for line in duthost.command("cat %s" % sai_profile)["stdout_lines"]:
+        sai_profile_template = "{}.j2".format(sai_profile)
+        if duthost.stat(path=sai_profile)["stat"]["exists"]:
+            sai_profile_cmd = "cat {}".format(sai_profile)
+        elif duthost.stat(path=sai_profile_template)["stat"]["exists"]:
+            sai_profile_cmd = "sonic-cfggen -d -t {}".format(sai_profile_template)
+        else:
+            pytest.skip("Unable to determine link-local support: sai.profile or sai.profile.j2 is not present")
+            return
+        for line in duthost.command(sai_profile_cmd)["stdout_lines"]:
             if (not re.match("^[ \t]*#", line)) and re.search("=", line):
                 # line should not a comment, and must contain the "=".
                 key, value = line.split("=")
