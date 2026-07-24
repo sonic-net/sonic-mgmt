@@ -128,7 +128,12 @@ def vxlan_setup_one_vnet(duthost, ptfhost, tbinfo, cfg_facts,
 
     dut_vtep = get_loopback_ip(cfg_facts)
     logger.info(f"Creating VXLAN tunnel {TUNNEL_NAME} with source {dut_vtep}")
-    apply_chunk(duthost, {"VXLAN_TUNNEL": {TUNNEL_NAME: {"src_ip": dut_vtep}}}, "vxlan_tunnel")
+    vxlan_tunnel_entry = {"src_ip": dut_vtep}
+    # On cisco-8000, base topology IP-in-IP decap tunnels may already use pipe TTL mode.
+    # Set VXLAN decap ttl_mode to pipe so orchagent passes DECAP_TTL_MODE consistently.
+    if duthost.facts.get("asic_type") == "cisco-8000":
+        vxlan_tunnel_entry["ttl_mode"] = "pipe"
+    apply_chunk(duthost, {"VXLAN_TUNNEL": {TUNNEL_NAME: vxlan_tunnel_entry}}, "vxlan_tunnel")
     apply_chunk(duthost, {"VNET": {VNET_NAME: {"vni": str(VNI), "vxlan_tunnel": TUNNEL_NAME}}}, "vnet")
 
     ptf_port_index = port_indexes[ingress_if]
