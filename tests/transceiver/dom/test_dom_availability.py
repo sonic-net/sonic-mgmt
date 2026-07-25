@@ -23,7 +23,7 @@ def test_dom_data_availability_verification(
     """Verify configured DOM sensor data is present and fresh in STATE_DB."""
     all_failures = []
     has_configured_checks = False
-    now_utc = dom_now_utc()
+    now_utc = None
     checked_fields_by_port = {}
     freshness_age_by_port = {}
 
@@ -42,7 +42,15 @@ def test_dom_data_availability_verification(
         if max_age_min is not None or expected_fields or field_failures:
             has_configured_checks = True
 
-        freshness_result = dom_freshness_result(sensor_data, max_age_min, now_utc)
+        if max_age_min is not None and now_utc is None:
+            now_utc = dom_now_utc()
+
+        freshness_result = {
+            "failures": [],
+            "age_minutes": None,
+        }
+        if max_age_min is not None:
+            freshness_result = dom_freshness_result(sensor_data, max_age_min, now_utc)
         field_failures.extend(freshness_result["failures"])
         freshness_age_min = freshness_result["age_minutes"]
         freshness_age_by_port[port] = freshness_age_min

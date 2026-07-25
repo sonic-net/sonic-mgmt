@@ -1,54 +1,26 @@
 import logging
 from collections import defaultdict
 
-from natsort import natsorted
-
-from tests.common.platform.interface_utils import is_first_subport
 from tests.transceiver.attribute_parser.attribute_keys import (
     BASE_ATTRIBUTES_KEY,
     DOM_ATTRIBUTES_KEY,
 )
 from tests.transceiver.common.db_helpers import (
     build_state_db_freshness_result,
+    get_config_db_port_table,
     get_state_db_table,
-    hgetall_dict,
     resolve_port_namespace,
 )
 
 logger = logging.getLogger(__name__)
 
 STATE_DB_SENSOR_TABLE = "TRANSCEIVER_DOM_SENSOR"
-CONFIG_DB = "CONFIG_DB"
-CONFIG_DB_PORT_KEY_TEMPLATE = "PORT|{}"
 
 OPERATIONAL_SUFFIX = "_operational_range"
 LANE_NUM_PLACEHOLDER = "LANE_NUM"
 
 DOM_POLLING_ENABLED_VALUES = ("", "enabled")
 DOM_POLLING_DISABLED_VALUE = "disabled"
-
-
-def _has_dom_attributes(attrs):
-    dom_attrs = attrs.get(DOM_ATTRIBUTES_KEY, {})
-    return isinstance(dom_attrs, dict) and bool(dom_attrs)
-
-
-def dom_enabled_ports_from_attrs(port_attributes_dict, lport_to_first_subport_mapping):
-    """Return DOM-capable primary subports in deterministic interface order."""
-    return natsorted(
-        port
-        for port, attrs in port_attributes_dict.items()
-        if _has_dom_attributes(attrs) and is_first_subport(port, lport_to_first_subport_mapping)
-    )
-
-
-def dom_non_primary_ports_from_attrs(port_attributes_dict, lport_to_first_subport_mapping):
-    """Return DOM-capable non-primary breakout subports."""
-    return natsorted(
-        port
-        for port, attrs in port_attributes_dict.items()
-        if _has_dom_attributes(attrs) and not is_first_subport(port, lport_to_first_subport_mapping)
-    )
 
 
 def expand_operational_fields(attr_name, media_lane_count):
@@ -106,14 +78,22 @@ def build_dom_availability_plan(port_attributes_dict, dom_ports):
 def build_dom_polling_failures(duthost, dom_ports):
     """Return DOM polling prerequisite failures for configured DOM ports."""
     failures = []
+    port_table = get_config_db_port_table(duthost)
+
     for port in dom_ports:
-        namespace = resolve_port_namespace(duthost, port)
-        port_config = hgetall_dict(
-            duthost,
-            CONFIG_DB,
-            CONFIG_DB_PORT_KEY_TEMPLATE.format(port),
-            namespace=namespace,
-        )
+        port_config = port_table.get(port)
+        if port_config is None:
+            failures.append("{} missing from CONFIG_DB PORT table".format(port))
+            continue
+        if not isinstance(port_config, dict):
+            failures.append(
+                "{} CONFIG_DB PORT entry has unexpected type {}".format(
+                    port,
+                    type(port_config).__name__,
+                )
+            )
+            continue
+
         raw_value = port_config.get("dom_polling")
         normalized = "" if raw_value is None else str(raw_value).strip().lower()
 

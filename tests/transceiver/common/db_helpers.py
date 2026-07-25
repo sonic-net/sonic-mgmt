@@ -21,9 +21,9 @@ failure, so callers can use the suite-wide per-port aggregation pattern:
         continue
 
 Bulk/once-per-test accessors read many rows in one shot:
-:func:`get_config_db_port_names` returns its value directly, while
-:func:`get_state_db_table` keeps the ``(value, err)`` tuple so a dump failure can
-be surfaced as a clean per-test failure.
+:func:`get_config_db_port_table` and :func:`get_config_db_port_names` return
+their values directly, while :func:`get_state_db_table` keeps the ``(value,
+err)`` tuple so a dump failure can be surfaced as a clean per-test failure.
 """
 import ast
 import json
@@ -31,22 +31,20 @@ import logging
 import re
 from datetime import datetime, timezone
 
+from tests.common.helpers.sonic_db import STATE_DB
 from tests.transceiver.common.cli_parser_helper import RC_FAILURE
 
 logger = logging.getLogger(__name__)
 
 
-# sonic-db-cli database identifiers (the first positional arg to sonic-db-cli).
-STATE_DB = "STATE_DB"
-
 STATE_DB_UPDATE_TIME_FIELD = "last_update_time"
 STATE_DB_UPDATE_TIME_FUTURE_TOLERANCE_MIN = 0.1
+XCVRD_UPDATE_TIME_FORMAT = "%a %b %d %H:%M:%S %Y"
 
 _FLOAT_PATTERN = re.compile(
     r"[-+]?(?:inf(?:inity)?|\d*\.?\d+(?:[eE][-+]?\d+)?)",
     re.IGNORECASE,
 )
-_EPOCH_PATTERN = re.compile(r"^\d+(?:\.\d+)?$")
 
 
 def parse_numeric(value):
@@ -79,7 +77,7 @@ def parse_numeric(value):
 
 
 def parse_update_time(value):
-    """Parse a STATE_DB update timestamp into a timezone-aware UTC datetime."""
+    """Parse an xcvrd STATE_DB update timestamp into UTC."""
     if value is None:
         return None
 
@@ -87,53 +85,16 @@ def parse_update_time(value):
     if not raw:
         return None
 
-    if _EPOCH_PATTERN.match(raw):
-        numeric = parse_numeric(raw)
-        if numeric is not None:
-            epoch_sec = numeric / 1000.0 if numeric > 1e12 else numeric
-            try:
-                return datetime.fromtimestamp(epoch_sec, tz=timezone.utc)
-            except (OverflowError, OSError, ValueError):
-                pass
-
-    iso_text = raw.replace("Z", "+00:00")
+    normalized = " ".join(raw.split())
     try:
-        parsed = datetime.fromisoformat(iso_text)
-        if parsed.tzinfo is None:
-            parsed = parsed.replace(tzinfo=timezone.utc)
-        return parsed.astimezone(timezone.utc)
+        return datetime.strptime(normalized, XCVRD_UPDATE_TIME_FORMAT).replace(tzinfo=timezone.utc)
     except ValueError:
-        pass
-
-    formats = (
-        "%Y-%m-%d %H:%M:%S",
-        "%Y-%m-%d %H:%M:%S.%f",
-        "%Y-%m-%dT%H:%M:%S",
-        "%Y-%m-%dT%H:%M:%S.%f",
-        "%a %b %d %H:%M:%S %Y",
-    )
-    normalized_values = (raw, " ".join(raw.split()))
-    for text in normalized_values:
-        for fmt in formats:
-            try:
-                return datetime.strptime(text, fmt).replace(tzinfo=timezone.utc)
-            except ValueError:
-                continue
-
-    return None
+        return None
 
 
 def resolve_port_namespace(duthost, port):
     """Return the ASIC namespace for a logical port, or ``None`` on single-ASIC."""
-    try:
-        asic = duthost.get_port_asic_instance(port)
-        asic_index = getattr(asic, "asic_index", None)
-        if asic_index is None:
-            return None
-        return duthost.get_namespace_from_asic_id(asic_index) or None
-    except Exception as exc:
-        logger.debug("Could not resolve ASIC namespace for %s: %s", port, exc)
-        return None
+    return duthost.get_port_asic_instance(port).namespace
 
 
 def state_db_update_time_age_minutes(
@@ -387,7 +348,7 @@ def get_state_db_table(duthost, table, namespace=None):
     ``{port: {field: value}}`` map.
     """
     ns_prefix = f"sudo ip netns exec {namespace} " if namespace else ""
-    cmd = f"{ns_prefix}sonic-db-dump -n STATE_DB -y -k '{table}|*'"
+    cmd = f"{ns_prefix}sonic-db-dump -n {STATE_DB} -y -k '{table}|*'"
     result = duthost.shell(cmd, module_ignore_errors=True)
     if result.get("rc", RC_FAILURE) != 0:
         return None, (
@@ -406,17 +367,22 @@ def get_state_db_table(duthost, table, namespace=None):
     }, None
 
 
-def get_config_db_port_names(duthost):
-    """Return the set of port names in the CONFIG_DB PORT table.
+def get_config_db_port_table(duthost):
+    """Return the CONFIG_DB PORT table from running config facts.
 
     Thin accessor over ``duthost.get_running_config_facts()`` (the ansible-facts
-    path SONiC exposes for the running CONFIG_DB).  Returns an empty set when the
-    PORT table is absent/empty so the caller can decide whether that is a skip or
-    a failure.
+    path SONiC exposes for the running CONFIG_DB).  Returns an empty dict when
+    the PORT table is absent/empty so the caller can decide whether that is a
+    skip or a failure.
 
     This is a once-per-test bulk read (not a per-port query), so it returns the
-    set directly rather than the ``(value, err)`` tuple the per-port wrappers
+    table directly rather than the ``(value, err)`` tuple the per-port wrappers
     use; a facts-gather failure is an infra-level error and is allowed to raise.
     """
     config_facts = duthost.get_running_config_facts()
-    return set(config_facts.get("PORT", {}).keys())
+    return config_facts.get("PORT") or {}
+
+
+def get_config_db_port_names(duthost):
+    """Return the set of port names in the CONFIG_DB PORT table."""
+    return set(get_config_db_port_table(duthost).keys())
