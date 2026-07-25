@@ -316,7 +316,7 @@ class CiscoHost(AnsibleHostBase):
         err_out = False
         if 'stdout' in cmd_output_obj:
             stdout = cmd_output_obj['stdout']
-            msg = stdout[-1] if type(stdout) == list else stdout
+            msg = stdout[-1] if isinstance(stdout, list) else stdout
             err_out = 'Cannot advertise' in msg
 
         return ('failed' in cmd_output_obj and cmd_output_obj['failed']) or err_out
@@ -1010,7 +1010,7 @@ class CiscoHost(AnsibleHostBase):
             elif log_type == "ROLLOVER":
                 return True, "log {} not supported on device {}".format(log_type, self.hostname)
             command = "show logging last {} | include {} | include {}".format(last_count, log_type, interface)
-            output = self.commands(commands=[command])["stdout"][0]
+            output = self.commands(commands=[command])
             if not output.get("failed", False):
                 return len(output["stdout_lines"][0]) > 0, output["stdout"][0]
             return False, str(output)

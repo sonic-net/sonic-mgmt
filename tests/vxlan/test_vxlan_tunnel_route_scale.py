@@ -190,16 +190,18 @@ def get_vxlan_router_mac(duthost):
     return vxlan_router_mac
 
 
-def configure_vxlan_switch_with_mac(duthost, vxlan_port):
+def configure_vxlan_switch_with_mac(duthost, vxlan_port, vxlan_sport=None, vxlan_mask=None):
     """Configure VXLAN switch and return the MAC address used"""
     vxlan_router_mac = get_vxlan_router_mac(duthost)
     logger.info(f"Using VXLAN router MAC: {vxlan_router_mac}")
-    ecmp_utils.configure_vxlan_switch(duthost, vxlan_port=vxlan_port, dutmac=vxlan_router_mac)
+    ecmp_utils.configure_vxlan_switch(duthost, vxlan_port=vxlan_port, dutmac=vxlan_router_mac,
+                                      vxlan_sport=vxlan_sport, vxlan_mask=vxlan_mask)
     return vxlan_router_mac
 
 
 def vxlan_setup_config(config_facts, cfg_facts, duthost, dut_indx, ptfhost,
-                       tbinfo, num_vnets, routes_per_vnet, vnet_base, vxlan_port, samples_per_vnet):
+                       tbinfo, num_vnets, routes_per_vnet, vnet_base, vxlan_port, samples_per_vnet,
+                       vxlan_sport=None, vxlan_mask=None):
     ports = get_available_vlan_id_and_ports(config_facts, num_vnets)
     pytest_assert(ports and len(ports) >= num_vnets, "Not enough ports for VNET setup")
 
@@ -311,7 +313,8 @@ def vxlan_setup_config(config_facts, cfg_facts, duthost, dut_indx, ptfhost,
     pytest_assert(egress_ptf_if, "No egress PTF interfaces discovered from PortChannels")
     logger.info(f"Egress PTF interfaces: {egress_ptf_if}")
 
-    vxlan_router_mac = configure_vxlan_switch_with_mac(duthost, vxlan_port)
+    vxlan_router_mac = configure_vxlan_switch_with_mac(duthost, vxlan_port,
+                                                       vxlan_sport=vxlan_sport, vxlan_mask=vxlan_mask)
 
     logger.info("Waiting for all VNET routes to appear in STATE_DB (max 120s)")
     ready_state = wait_until(
@@ -336,6 +339,8 @@ def vxlan_setup_config(config_facts, cfg_facts, duthost, dut_indx, ptfhost,
         "vnet_ptf_map": vnet_ptf_map,
         "egress_ptf_if": egress_ptf_if,
         "vxlan_port": vxlan_port,
+        "vxlan_sport": vxlan_sport,
+        "vxlan_mask": vxlan_mask,
         "router_mac": duthost.facts["router_mac"],
         "mac_switch": vxlan_router_mac,
         "samples_per_vnet": samples_per_vnet,
@@ -362,6 +367,8 @@ def vxlan_scale_setup_teardown(duthosts, rand_one_dut_hostname, ptfhost, tbinfo,
         duts_map = tbinfo["duts_map"]
         dut_indx = duts_map[duthost.hostname]
         vxlan_port = request.config.option.vxlan_port
+        vxlan_sport = request.config.option.vxlan_sport
+        vxlan_mask = request.config.option.vxlan_mask
 
         logger.info(f"Using num_vnets={num_vnets}, routes_per_vnet={routes_per_vnet}")
 
@@ -376,7 +383,9 @@ def vxlan_scale_setup_teardown(duthosts, rand_one_dut_hostname, ptfhost, tbinfo,
             routes_per_vnet,
             vnet_base,
             vxlan_port,
-            samples_per_vnet
+            samples_per_vnet,
+            vxlan_sport=vxlan_sport,
+            vxlan_mask=vxlan_mask
         )
     except Exception as e:
         logger.error("Exception raised in setup: {}".format(repr(e)))
@@ -446,7 +455,9 @@ def test_vxlan_scale_config_reload(vxlan_scale_setup_teardown, ptfhost, duthosts
     # Reconfigure VXLAN switch with correct MAC after reload
     logger.info("Reconfiguring VXLAN switch after config reload")
     vxlan_port = setup_params["vxlan_port"]
-    vxlan_router_mac = configure_vxlan_switch_with_mac(duthost, vxlan_port)
+    vxlan_router_mac = configure_vxlan_switch_with_mac(duthost, vxlan_port,
+                                                       vxlan_sport=setup_params.get("vxlan_sport"),
+                                                       vxlan_mask=setup_params.get("vxlan_mask"))
     setup_params["mac_switch"] = vxlan_router_mac
 
     logger.info("Running PTF traffic after config reload")

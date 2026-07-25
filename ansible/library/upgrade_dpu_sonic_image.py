@@ -2,7 +2,11 @@
 
 import logging
 import os
+import threading
+import shlex
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
 import paramiko
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.smartswitch_utils import smartswitch_hwsku_config
@@ -45,6 +49,13 @@ Options:
       description: Maximum disk used percentage threshold for cleanup
       required: False
       Default: 50
+    - option-name: max_parallel_dpus
+      description: >-
+        Maximum number of DPUs to upgrade concurrently. -1 (default) upgrades all
+        targeted DPUs in parallel; a positive integer caps concurrency (1 = sequential).
+        0 and values less than -1 are rejected.
+      required: False
+      Default: -1
 '''
 
 config_module_logging("upgrade_dpu_sonic_image")
@@ -65,6 +76,16 @@ SHORT_CMD_TIMEOUT = 120
 REBOOT_TIMEOUT = 600
 # Poll interval while waiting for DPU reboot
 REBOOT_POLL_INTERVAL = 30
+# Extra /host headroom (MB) required beyond the image size before a DPU install
+DPU_INSTALL_MARGIN_MB = 500
+# Minimum plausible initrd size (bytes); anything smaller means a corrupt image
+DPU_MIN_INITRD_BYTES = 1024 * 1024
+# Max wait for a chassis-module state transition to clear (startup/shutdown no-op while set)
+MODULE_TRANSITION_TIMEOUT = 300
+# Poll interval while waiting for a chassis-module transition to clear
+MODULE_TRANSITION_POLL_INTERVAL = 5
+# Grace period after shutdown for chassisd to register the transition before polling
+MODULE_TRANSITION_SETTLE = 10
 
 
 class UpgradeDpuSonicImageModule(object):
@@ -78,11 +99,17 @@ class UpgradeDpuSonicImageModule(object):
                 new_image_url=dict(type='str', required=True),
                 target_dpu_index=dict(type='int', required=False, default=-1),
                 disk_used_pcent=dict(type='int', required=False, default=50),
+                max_parallel_dpus=dict(type='int', required=False, default=-1),
             ),
             supports_check_mode=False
         )
 
         self.messages = []
+        # Locks for thread-safe parallel DPU upgrades: _log_lock guards the shared
+        # messages list; _cli_lock serializes NPU-side commands that touch shared
+        # state (chassis module config and the SSH known_hosts files).
+        self._log_lock = threading.Lock()
+        self._cli_lock = threading.Lock()
 
         self.hwsku = self.module.params['hwsku']
         self.hostname = self.module.params['hostname']
@@ -91,6 +118,12 @@ class UpgradeDpuSonicImageModule(object):
         self.new_image_url = self.module.params['new_image_url']
         self.target_dpu_index = self.module.params['target_dpu_index']
         self.disk_used_pcent = self.module.params['disk_used_pcent']
+        self.max_parallel_dpus = self.module.params['max_parallel_dpus']
+        if self.max_parallel_dpus == 0 or self.max_parallel_dpus < -1:
+            self.module.fail_json(
+                msg="Invalid max_parallel_dpus={}: use -1 to upgrade all DPUs in parallel "
+                    "or a positive integer to cap concurrency (1 = sequential)".format(
+                        self.max_parallel_dpus))
 
         self.log("Initializing: hostname={}, hwsku={}, image_url={}, target_dpu_index={}".format(
             self.hostname, self.hwsku, self.new_image_url, self.target_dpu_index))
@@ -107,7 +140,10 @@ class UpgradeDpuSonicImageModule(object):
     def log(self, msg):
         """Log a timestamped message to both the messages list and the logging framework."""
         timestamp = time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime())
-        self.messages.append("{} {}".format(timestamp, msg))
+        with self._log_lock:
+            self.messages.append("{} {}".format(timestamp, msg))
+        # logging is thread-safe on its own, so keep it outside the lock to avoid
+        # serializing all threads on the frequent per-DPU log calls.
         logging.debug(msg)
 
     def connect_to_dpu(self, dpu_ip):
@@ -162,45 +198,73 @@ class UpgradeDpuSonicImageModule(object):
             self.log("WARNING: [DPU {}] Exception running '{}': {}".format(dpu_ip, command, str(e)))
             return False, "", str(e)
 
-    def reduce_installed_images(self, ssh, dpu_ip):
-        """Clean up old SONiC images on the DPU, keeping only the current image."""
-        self.log("[DPU {}] Step: Reducing installed images".format(dpu_ip))
-
+    def get_installed_images(self, ssh, dpu_ip, attempts=3):
+        """Return (ok, current, next) from sonic-installer list, retrying transient failures."""
         ok = False
         out = ""
-        for attempt in range(3):
+        for attempt in range(attempts):
             ok, out, _ = self.execute_command(ssh, dpu_ip, "sudo sonic-installer list")
             if ok:
                 break
-            self.log("[DPU {}] sonic-installer list failed (attempt {}/3), retrying in 20s".format(
-                dpu_ip, attempt + 1))
+            self.log("[DPU {}] sonic-installer list failed (attempt {}/{}), retrying in 20s".format(
+                dpu_ip, attempt + 1, attempts))
             time.sleep(20)
-
-        if not ok:
-            self.log("WARNING: [DPU {}] Failed to list images after 3 attempts. Continuing anyway.".format(dpu_ip))
-            return
-
-        curr_image = ""
-        next_image = ""
+        curr = nxt = ""
         for line in out.split('\n'):
             if 'Current:' in line:
-                curr_image = line.split(':')[1].strip()
+                curr = line.split(':')[1].strip()
             elif 'Next:' in line:
-                next_image = line.split(':')[1].strip()
+                nxt = line.split(':')[1].strip()
+        return ok, curr, nxt
 
-        self.log("[DPU {}] Current image: '{}', Next image: '{}'".format(
-            dpu_ip, curr_image, next_image))
+    def get_host_avail_mb(self, ssh, dpu_ip):
+        """Return free MB on /host, or None if it cannot be read/parsed."""
+        ok, out, _ = self.execute_command(ssh, dpu_ip, "df -BM --output=avail /host")
+        if not ok:
+            return None
+        try:
+            return int(out.splitlines()[-1].strip().rstrip('M'))
+        except (ValueError, IndexError):
+            return None
 
-        if not curr_image:
-            self.log("WARNING: [DPU {}] Could not determine current image".format(dpu_ip))
-            return
+    def get_host_path_size_mb(self, ssh, dpu_ip, path):
+        """Return du -sm size (MB) of a /host path, or None if it cannot be read/parsed."""
+        ok, out, _ = self.execute_command(ssh, dpu_ip, "sudo du -sm -- {}".format(shlex.quote(path)))
+        if not ok:
+            return None
+        try:
+            return int(out.split()[0])
+        except (ValueError, IndexError):
+            return None
 
-        if curr_image != next_image and next_image:
-            self.log("[DPU {}] Setting next-boot to current image".format(dpu_ip))
-            self.execute_command(ssh, dpu_ip,
-                                 "sudo sonic-installer set-next-boot {}".format(curr_image))
+    def reduce_installed_images(self, ssh, dpu_ip):
+        """Free disk space by cleaning up old DPU images, always attempting cleanup even if listing fails."""
+        self.log("[DPU {}] Step: Reducing installed images".format(dpu_ip))
 
-        self.execute_command(ssh, dpu_ip, "sudo sonic-installer cleanup -y")
+        list_ok, curr_image, next_image = self.get_installed_images(ssh, dpu_ip)
+        if list_ok:
+            self.log("[DPU {}] Current image: '{}', Next image: '{}'".format(
+                dpu_ip, curr_image, next_image))
+            if curr_image and next_image and curr_image != next_image:
+                self.log("[DPU {}] Setting next-boot to current image".format(dpu_ip))
+                self.execute_command(ssh, dpu_ip,
+                                     "sudo sonic-installer set-next-boot {}".format(curr_image))
+        else:
+            self.log("WARNING: [DPU {}] Could not list images after retries; "
+                     "attempting cleanup anyway".format(dpu_ip))
+
+        # Always attempt cleanup (safe: keeps Current and Next), retrying transient failures
+        cleaned = False
+        for attempt in range(3):
+            cleaned, _, err = self.execute_command(ssh, dpu_ip, "sudo sonic-installer cleanup -y")
+            if cleaned:
+                break
+            self.log("[DPU {}] sonic-installer cleanup failed (attempt {}/3), retrying in 20s: {}".format(
+                dpu_ip, attempt + 1, err.strip()))
+            time.sleep(20)
+
+        if not cleaned:
+            self.log("WARNING: [DPU {}] sonic-installer cleanup did not succeed after 3 attempts".format(dpu_ip))
         self.log("[DPU {}] Done reducing images".format(dpu_ip))
 
     def free_up_disk_space(self, ssh, dpu_ip):
@@ -283,6 +347,14 @@ class UpgradeDpuSonicImageModule(object):
         finally:
             ssh.close()
 
+    def restore_boot_to_current(self, ssh, dpu_ip, curr_image, next_image):
+        """Point default and next-boot back at the current image so a reboot can't land on a bad image."""
+        if curr_image and curr_image != next_image:
+            self.log("[DPU {}] Restoring default and next boot to current image '{}'".format(
+                dpu_ip, curr_image))
+            self.execute_command(ssh, dpu_ip, "sudo sonic-installer set-default {}".format(curr_image))
+            self.execute_command(ssh, dpu_ip, "sudo sonic-installer set-next-boot {}".format(curr_image))
+
     def install_image_on_dpu(self, ssh, dpu_ip):
         """Transfer the image from NPU to DPU via SCP and install it."""
         self.log("[DPU {}] Step: Install image".format(dpu_ip))
@@ -293,6 +365,25 @@ class UpgradeDpuSonicImageModule(object):
         # Transfer image from NPU to DPU
         if not self.scp_image_to_dpu(dpu_ip):
             return False
+
+        # Skip install if /host lacks room for the extracted image, failing safe instead of bricking the DPU
+        _, curr_image, _ = self.get_installed_images(ssh, dpu_ip)
+        cur_dir = "/host/image-{}".format(curr_image.replace("SONiC-OS-", "")) if curr_image else ""
+        proxy_mb = self.get_host_path_size_mb(ssh, dpu_ip, cur_dir) if cur_dir else None
+        avail_mb = self.get_host_avail_mb(ssh, dpu_ip)
+        if proxy_mb is None or avail_mb is None:
+            self.log("WARNING: [DPU {}] Could not determine /host free space or image footprint; "
+                     "skipping install to avoid a corrupt image".format(dpu_ip))
+            self.execute_command(ssh, dpu_ip, "sudo rm -f {}".format(DPU_IMAGE_PATH))
+            return False
+        required_mb = proxy_mb + DPU_INSTALL_MARGIN_MB
+        if avail_mb < required_mb:
+            self.log("WARNING: [DPU {}] Insufficient /host space: {}M free < {}M required "
+                     "({}M image + {}M margin); skipping install to avoid a corrupt image".format(
+                         dpu_ip, avail_mb, required_mb, proxy_mb, DPU_INSTALL_MARGIN_MB))
+            self.execute_command(ssh, dpu_ip, "sudo rm -f {}".format(DPU_IMAGE_PATH))
+            return False
+        self.log("[DPU {}] /host free {}M >= required {}M".format(dpu_ip, avail_mb, required_mb))
 
         # Check for --skip-package-migration support
         skip_param = ""
@@ -318,6 +409,34 @@ class UpgradeDpuSonicImageModule(object):
             self.log("WARNING: [DPU {}] Image installation FAILED: {}".format(dpu_ip, err.strip()))
             return False
 
+        # Persist writes before verifying/rebooting; a failed sync means writes may not be durable
+        sync_ok, _, sync_err = self.execute_command(ssh, dpu_ip, "sudo sync")
+        list_ok, curr_image, next_image = self.get_installed_images(ssh, dpu_ip)
+        if not (list_ok and next_image):
+            self.log("WARNING: [DPU {}] Could not read image list after install; "
+                     "failing safe (not rebooting into an unverified image)".format(dpu_ip))
+            return False
+        if not sync_ok:
+            self.log("WARNING: [DPU {}] Post-install sync FAILED: {}; writes may not be persisted, "
+                     "not rebooting into a potentially corrupt image".format(dpu_ip, sync_err.strip()))
+            self.restore_boot_to_current(ssh, dpu_ip, curr_image, next_image)
+            return False
+        img_dir = "/host/image-{}".format(next_image.replace("SONiC-OS-", ""))
+        _, initrd_out, _ = self.execute_command(
+            ssh, dpu_ip,
+            "sudo sh -c 'stat -c %s {}/boot/initrd.img-* 2>/dev/null | sort -n | tail -1'".format(img_dir))
+        try:
+            initrd_bytes = int(initrd_out.strip() or "0")
+        except ValueError:
+            initrd_bytes = 0
+        if initrd_bytes < DPU_MIN_INITRD_BYTES:
+            self.log("WARNING: [DPU {}] Post-install check FAILED for '{}': initrd missing/truncated "
+                     "({} bytes); not rebooting into a corrupt image".format(dpu_ip, next_image, initrd_bytes))
+            self.restore_boot_to_current(ssh, dpu_ip, curr_image, next_image)
+            return False
+        self.log("[DPU {}] Post-install check OK for '{}': initrd {} bytes".format(
+            dpu_ip, next_image, initrd_bytes))
+
         self.log("[DPU {}] Image installed successfully".format(dpu_ip))
         return True
 
@@ -333,24 +452,75 @@ class UpgradeDpuSonicImageModule(object):
             if line.startswith("Current:") or line.startswith("Next:"):
                 self.log("[DPU{}] {}".format(dpu_index, line))
 
+    def is_module_transition_in_progress(self, dpu_index):
+        """Return True if the DPU chassis module has a state transition in progress."""
+        dpu_name = "DPU{}".format(dpu_index)
+        cmd = 'sonic-db-cli STATE_DB HGET "CHASSIS_MODULE_TABLE|{}" transition_in_progress'.format(dpu_name)
+        with self._cli_lock:
+            rc, out, err = self.module.run_command(cmd)
+        if rc != 0:
+            self.log("WARNING: [DPU{}] Failed to read transition_in_progress (rc={}): {}".format(
+                dpu_index, rc, err.strip()))
+            return False
+        return out.strip().lower() == "true"
+
+    def wait_for_module_transition_done(self, dpu_index, settle=0,
+                                        timeout=MODULE_TRANSITION_TIMEOUT):
+        """Wait until the DPU chassis-module state transition has cleared (True) or timeout (False)."""
+        if settle:
+            time.sleep(settle)
+        elapsed = 0
+        while elapsed < timeout:
+            if not self.is_module_transition_in_progress(dpu_index):
+                return True
+            time.sleep(MODULE_TRANSITION_POLL_INTERVAL)
+            elapsed += MODULE_TRANSITION_POLL_INTERVAL
+            if elapsed % 60 == 0:
+                self.log("[DPU{}] Still waiting for module transition to clear... {}s/{}s".format(
+                    dpu_index, elapsed, timeout))
+        self.log("WARNING: [DPU{}] Module state transition still in progress after {}s".format(
+            dpu_index, timeout))
+        return False
+
     def reboot_dpu(self, dpu_index):
         """Reboot DPU by shutting down and starting it via NPU chassis module commands."""
         dpu_name = "DPU{}".format(dpu_index)
         self.log("[DPU{}] Step: Rebooting via chassis module shutdown/startup".format(dpu_index))
 
-        rc, out, err = self.module.run_command("config chassis modules shutdown {}".format(dpu_name))
+        # A prior transition must clear first or the shutdown CLI is a no-op (rc=0).
+        if not self.wait_for_module_transition_done(dpu_index):
+            self.log("WARNING: [DPU{}] Prior transition did not clear; aborting reboot".format(dpu_index))
+            return False
+
+        with self._cli_lock:
+            rc, out, err = self.module.run_command("config chassis modules shutdown {}".format(dpu_name))
         if rc != 0:
             self.log("WARNING: [DPU{}] shutdown failed (rc={}): stdout={} stderr={}".format(
                 dpu_index, rc, out.strip(), err.strip()))
             return False
+        # shutdown returns rc=0 even when it no-ops mid-transition, so detect that here
+        if "transition is already in progress" in (out or "").lower():
+            self.log("WARNING: [DPU{}] shutdown ignored, transition still in progress: {}".format(
+                dpu_index, out.strip()))
+            return False
 
-        self.log("[DPU{}] Shutdown issued, waiting 60s before startup".format(dpu_index))
-        time.sleep(60)
+        # Wait for the shutdown transition to clear (startup no-ops while a transition is in progress)
+        self.log("[DPU{}] Shutdown issued, waiting for module transition to clear".format(dpu_index))
+        if not self.wait_for_module_transition_done(dpu_index, settle=MODULE_TRANSITION_SETTLE):
+            self.log("WARNING: [DPU{}] Transition still in progress; startup may be ignored".format(
+                dpu_index))
 
-        rc, out, err = self.module.run_command("config chassis modules startup {}".format(dpu_name))
+        with self._cli_lock:
+            rc, out, err = self.module.run_command("config chassis modules startup {}".format(dpu_name))
         if rc != 0:
             self.log("WARNING: [DPU{}] startup failed (rc={}): stdout={} stderr={}".format(
                 dpu_index, rc, out.strip(), err.strip()))
+            return False
+
+        # startup returns rc=0 even when it no-ops mid-transition, so detect that here
+        if "transition is already in progress" in (out or "").lower():
+            self.log("WARNING: [DPU{}] startup ignored, transition still in progress: {}".format(
+                dpu_index, out.strip()))
             return False
 
         self.log("[DPU{}] Startup issued successfully".format(dpu_index))
@@ -359,10 +529,11 @@ class UpgradeDpuSonicImageModule(object):
     def remove_known_host(self, dpu_ip):
         """Remove DPU entry from SSH known_hosts on the NPU after reboot."""
         self.log("Removing {} from SSH known_hosts for root and admin".format(dpu_ip))
-        self.module.run_command("ssh-keygen -R {}".format(dpu_ip))
-        self.module.run_command(
-            "sudo -u admin ssh-keygen -R {} -f /home/admin/.ssh/known_hosts".format(dpu_ip)
-        )
+        with self._cli_lock:
+            self.module.run_command("ssh-keygen -R {}".format(dpu_ip))
+            self.module.run_command(
+                "sudo -u admin ssh-keygen -R {} -f /home/admin/.ssh/known_hosts".format(dpu_ip)
+            )
 
     def wait_for_dpu_reboot(self, dpu_ip):
         """Wait for a DPU to become reachable again after reboot."""
@@ -491,6 +662,18 @@ class UpgradeDpuSonicImageModule(object):
             dpu_index, elapsed))
         return True
 
+    def _resolve_worker_count(self, num_dpus):
+        """Determine how many DPUs to upgrade concurrently.
+
+        max_parallel_dpus < 0 (default) upgrades all targeted DPUs in parallel; a
+        positive value caps concurrency; 1 restores fully sequential behavior.
+        """
+        if num_dpus <= 0:
+            return 1
+        if self.max_parallel_dpus is None or self.max_parallel_dpus < 0:
+            return num_dpus
+        return max(1, min(self.max_parallel_dpus, num_dpus))
+
     def upgrade_dpus(self):
         """Upgrade all targeted DPUs and return (success_count, failure_count)."""
         if self.target_dpu_index >= 0:
@@ -513,16 +696,30 @@ class UpgradeDpuSonicImageModule(object):
         self.log("===== DPU upgrade: {} DPU(s) to upgrade, {} required for success =====".format(
             total, required))
 
+        workers = self._resolve_worker_count(len(dpu_indices))
+        self.log("Upgrading {} DPU(s) with up to {} in parallel".format(total, workers))
+
         try:
-            for idx in dpu_indices:
-                if self.upgrade_single_dpu(idx):
-                    success_count += 1
-                    results_per_dpu[idx] = "SUCCESS"
-                else:
-                    failure_count += 1
-                    results_per_dpu[idx] = "FAILED"
-                self.log("Progress: {}/{} complete ({} succeeded, {} failed)".format(
-                    success_count + failure_count, total, success_count, failure_count))
+            with ThreadPoolExecutor(max_workers=workers) as executor:
+                future_to_idx = {
+                    executor.submit(self.upgrade_single_dpu, idx): idx
+                    for idx in dpu_indices
+                }
+                for future in as_completed(future_to_idx):
+                    idx = future_to_idx[future]
+                    try:
+                        succeeded = future.result()
+                    except Exception as e:
+                        succeeded = False
+                        self.log("WARNING: [DPU{}] Exception during parallel upgrade: {}".format(idx, str(e)))
+                    if succeeded:
+                        success_count += 1
+                        results_per_dpu[idx] = "SUCCESS"
+                    else:
+                        failure_count += 1
+                        results_per_dpu[idx] = "FAILED"
+                    self.log("Progress: {}/{} complete ({} succeeded, {} failed)".format(
+                        success_count + failure_count, total, success_count, failure_count))
         finally:
             self.cleanup_npu_image()
 
