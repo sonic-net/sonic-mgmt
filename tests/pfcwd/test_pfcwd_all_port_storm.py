@@ -184,7 +184,7 @@ def resolve_arp(duthost, ptfhost, test_ports_info, vlan, ip_version):
     """
     Populate ARP info for DUT vlan ports.
 
-    For Cisco-8000: assigns a unique IP to each PTF port within the vlan subnet
+    For Cisco-8000: assign a unique IP to each PTF port within the vlan subnet
     so that background traffic creates independent egress flows on each server port.
 
     For other platforms: uses the single test_neighbor_addr from the first VLAN port
@@ -375,29 +375,30 @@ class TestPfcwdAllPortStorm(object):
                     selected_test_ports.append(test_port)
         resolve_arp(duthost, ptfhost, setup_pfc_test['test_ports'],
                     setup_pfc_test["vlan"], setup_pfc_test["ip_version"])
-        with send_background_traffic(duthost, ptfhost, queues, selected_test_ports, setup_pfc_test['test_ports'],
-                                     pkt_count=500):
-            self.run_test(duthost,
-                          storm_hndle,
-                          expect_regex=[EXPECT_PFC_WD_DETECT_RE + fetch_vendor_specific_diagnosis_re(duthost)],
-                          syslog_marker="all_port_storm",
-                          action="storm",
+        try:
+            with send_background_traffic(duthost, ptfhost, queues, selected_test_ports,
+                                         setup_pfc_test['test_ports'],
+                                         pkt_count=500):
+                self.run_test(duthost,
+                              storm_hndle,
+                              expect_regex=[EXPECT_PFC_WD_DETECT_RE +
+                                            fetch_vendor_specific_diagnosis_re(duthost)],
+                              syslog_marker="all_port_storm",
+                              action="storm",
+                              stormed_ports_list=stormed_ports_list,
+                              selected_test_ports=selected_test_ports,
+                              tbinfo=tbinfo)
+
+            logger.info(f"--- {len(stormed_ports_list)} ports entered storm state ---")
+            logger.info("--- Testing if PFC storm is restored on stormed ports ---")
+            # test_ports_info is intentionally not passed during restore: the duplicate-neighbor
+            # adjustment in verify_all_ports_pfc_storm_in_expected_state only applies to the storm
+            # phase, so it has no effect here.
+            self.run_test(duthost, storm_hndle, expect_regex=[EXPECT_PFC_WD_RESTORE_RE],
+                          syslog_marker="all_port_storm_restore", action="restore",
                           stormed_ports_list=stormed_ports_list,
                           selected_test_ports=selected_test_ports,
-                          test_ports_info=setup_pfc_test['test_ports'],
                           tbinfo=tbinfo)
-
-        logger.info(f"--- {len(stormed_ports_list)} ports entered storm state ---")
-        logger.info("--- Testing if PFC storm is restored on stormed ports ---")
-        # test_ports_info is intentionally not passed during restore: the duplicate-neighbor
-        # adjustment in verify_all_ports_pfc_storm_in_expected_state only applies to the storm
-        # phase, so it has no effect here.
-        self.run_test(duthost, storm_hndle, expect_regex=[EXPECT_PFC_WD_RESTORE_RE],
-                      syslog_marker="all_port_storm_restore", action="restore",
-                      stormed_ports_list=stormed_ports_list,
-                      selected_test_ports=selected_test_ports,
-                      tbinfo=tbinfo)
-
-        if duthost.facts['asic_type'] == 'cisco-8000':
+        finally:
             cleanup_ptf_ips(ptfhost, setup_pfc_test['test_ports'],
                             setup_pfc_test["vlan"], setup_pfc_test["ip_version"])
