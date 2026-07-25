@@ -165,6 +165,8 @@ stages:
   - name: BUILD_BRANCH
     ${{ if eq(variables['Build.Reason'], 'PullRequest') }}:
       value: $(System.PullRequest.TargetBranch)
+    ${{ elseif startsWith(variables['Build.SourceBranch'], 'refs/heads/gh-readonly-queue/') }}:
+      value: ${{ split(variables['Build.SourceBranch'], '/')[3] }}
     ${{ else }}:
       value: $(Build.SourceBranchName)
 
