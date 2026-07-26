@@ -111,14 +111,14 @@ def get_snmp_output(ip, duthost, nbr, creds_all_duts, oid='.1.3.6.1.2.1.1.1.0'):
         community = creds_all_duts[duthost.hostname]['snmp_rocommunity']
         # The neighbor Loopback is not routable back from the DUT, so bind the
         # query to the DUT-facing PortChannel1 global address via --clientaddr.
-        if isinstance(ipaddr, ipaddress.IPv6Address):
-            addr_family, iface_grep = "-6", "inet6 fc"
-        else:
-            addr_family, iface_grep = "-4", "inet 10."
+        addr_family = "-6" if isinstance(ipaddr, ipaddress.IPv6Address) else "-4"
+        # Pick the first globally-scoped address on the DUT-facing PortChannel1
+        # regardless of its prefix (IPv4 need not be in 10/8, IPv6 ULAs may be
+        # fc.. or fd..), then strip the /mask.
         src_lookup = (
-            "ip {af} -o addr show PortChannel1 2>/dev/null | "
-            "grep -m1 '{grep}' | awk '{{print $4}}' | cut -d/ -f1"
-        ).format(af=addr_family, grep=iface_grep)
+            "ip {af} -o addr show PortChannel1 scope global 2>/dev/null | "
+            "awk '{{print $4}}' | head -n1 | cut -d/ -f1"
+        ).format(af=addr_family)
         src_out = nbr['host'].command(src_lookup, module_ignore_errors=True)
         client_addr = ""
         src_stdout = src_out.get('stdout', '') if isinstance(src_out, dict) else ""
