@@ -1,5 +1,6 @@
 import logging
 import ipaddress
+import shlex
 
 from tests.common.utilities import wait_until
 from tests.common.errors import RunAnsibleModuleFail
@@ -123,9 +124,10 @@ def get_snmp_output(ip, duthost, nbr, creds_all_duts, oid='.1.3.6.1.2.1.1.1.0'):
         client_addr = ""
         src_stdout = src_out.get('stdout', '') if isinstance(src_out, dict) else ""
         if src_stdout and src_stdout.strip():
-            client_addr = "--clientaddr={} ".format(src_stdout.strip())
+            client_addr = "--clientaddr={} ".format(shlex.quote(src_stdout.strip()))
         command = "snmpwalk -v 2c -c {} {}{} {}".format(
-            community, client_addr, ip, oid)
+            shlex.quote(community), client_addr, shlex.quote(str(ip)),
+            shlex.quote(oid))
         out = nbr['host'].command(command)
     else:
         command = "docker exec snmp snmpwalk -v 2c -c {} {} {}".format(
