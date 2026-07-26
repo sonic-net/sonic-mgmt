@@ -822,7 +822,7 @@ def param_reboot(request, duthost, localhost, loganalyzer):
         logger.info("Randomly choose {} from reload, cold, warm, fast".format(reboot_type))
 
     if reboot_type == "reload":
-        config_reload(duthost, safe_reload=True, ignore_loganalyzer=loganalyzer)
+        config_reload(duthost, safe_reload=True, ignore_loganalyzer=loganalyzer, wait_for_bgp=True)
         wait_until(120, 10, 0, check_interface_status, duthost)
         # Wait for BGP sessions to re-establish, consistent with do_and_wait_reboot()
         bgp_neighbors = duthost.get_bgp_neighbors_per_asic(state="all")
