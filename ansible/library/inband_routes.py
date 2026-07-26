@@ -2,7 +2,6 @@
 
 from ansible.module_utils.basic import AnsibleModule
 import ipaddress
-import sys
 import subprocess
 
 DOCUMENTATION = '''
