@@ -57,7 +57,7 @@ def configure_routes(loopback_ip, vm_names, convergence_data, configuration):
             addr = convergence_data["converged_peers"][host]["vrf"][vm_name]["Vlan{}".format(vlan)][af]
             command.extend(["nexthop", "via", addr.split("/")[0]])
         else:
-            command.extend(["nexthop", "via", configuration[vm_name].bp_interface[af].split("/")[0]])
+            command.extend(["nexthop", "via", configuration[vm_name]["bp_interface"][af].split("/")[0]])
 
     subprocess.run(command, check=True)
 
@@ -81,9 +81,8 @@ def main():
     try:
         for loopback_ip in loopback_ips:
             configure_routes(loopback_ip, vm_names, convergence_data, configuration)
-    except Exception:
-        err = str(sys.exc_info())
-        module.fail_json(msg="Error: %s" % err)
+    except Exception as e:
+        module.fail_json(msg="Failed to add inband routes", exception=e)
 
     module.exit_json(**result)
 
