@@ -517,3 +517,5 @@ def test_lldp_entry_table_after_reboot(
         assert keys_match, "LLDP_ENTRY_TABLE keys do not match 'show lldp table' output"
     lldp_entry_keys, show_lldp_table_int_list, lldpctl_output = get_lldp_data(duthost, db_instance)
     verify_all_interfaces_lldp_content(db_instance, lldp_entry_keys, lldpctl_output, show_lldp_table_int_list)
+
+# code conflict 1
