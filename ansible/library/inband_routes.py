@@ -3,6 +3,7 @@
 from ansible.module_utils.basic import AnsibleModule
 import ipaddress
 import subprocess
+import traceback
 
 DOCUMENTATION = '''
 module: inband_routes
@@ -81,7 +82,7 @@ def main():
         for loopback_ip in loopback_ips:
             configure_routes(loopback_ip, vm_names, convergence_data, configuration)
     except Exception as e:
-        module.fail_json(msg="Failed to add inband routes", exception=e)
+        module.fail_json(msg=f"Failed to add inband route to {loopback_ip}", exception=''.join(traceback.format_exception(e)))
 
     module.exit_json(**result)
 
