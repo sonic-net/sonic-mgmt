@@ -24,7 +24,8 @@ def test_hft_end_to_end_influxdb(
     """Smoke-test the daemon-to-OTEL-to-InfluxDB HFT data path."""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     if "IF_IN_OCTETS" not in get_support_counter_list(
-            duthost, CounterObjectType.PORT):
+        duthost, CounterObjectType.PORT
+    ):
         pytest.skip("IF_IN_OCTETS is not supported on this platform")
     profile_name = "e2e_port_profile"
     ports = get_available_ports(duthost, tbinfo, desired_ports=2, min_ports=1)
