@@ -121,6 +121,8 @@ def hft_otel_collector(duthosts, enum_rand_one_per_hwsku_hostname, tbinfo):
             )
             if original_collector_running:
                 restart_otel_collector(duthost)
+            elif duthost.is_container_running("otel"):
+                stop_otel_collector(duthost)
         else:
             duthost.shell(
                 "sudo config feature state otel disabled",
