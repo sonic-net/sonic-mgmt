@@ -1639,4 +1639,3 @@ def test_ut2_remove_and_readd_cluster_peer(
             if la_entry:
                 logger.info("Re-enabling loganalyzer after cluster peer remove/add/reload flow.")
                 la_entry.add_end_ignore_mark()
-
