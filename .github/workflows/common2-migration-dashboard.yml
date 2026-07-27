@@ -47,14 +47,14 @@ jobs:
       GH_CTOC2_APP_ID: ${{ secrets.GH_CTOC2_APP_ID }}
       GH_CTOC2_APP_PRIVATE_KEY: ${{ secrets.GH_CTOC2_APP_PRIVATE_KEY }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
+      - name: Checkout repository (git hash for v7)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           # Full history is not required; the analyzer only reads the working tree.
           fetch-depth: 1
 
-      - name: Set up Python
-        uses: actions/setup-python@v7
+      - name: Set up Python (git hash for v7)
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
         with:
           python-version: "3.11"
 
@@ -83,9 +83,9 @@ jobs:
             --json-out dashboard-out/migration_dashboard.json \
             --yaml-out dashboard-out/migration_dashboard.yaml
 
-      - name: Upload dashboard artifacts
+      - name: Upload dashboard artifacts (git hash for v7)
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: migration-dashboard-artifacts
           path: |
@@ -107,9 +107,9 @@ jobs:
           echo "- Workflow run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/attempts/${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Artifact: migration-dashboard-artifacts (contains migration_dashboard.yaml)" >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Get GitHub App token
+      - name: Get GitHub App token (git hash for v3)
         id: app-token
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1
         with:
           app-id: ${{ env.GH_CTOC2_APP_ID }}
           private-key: ${{ env.GH_CTOC2_APP_PRIVATE_KEY }}
