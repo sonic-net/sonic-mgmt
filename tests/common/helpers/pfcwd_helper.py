@@ -886,7 +886,9 @@ def get_process_cores(duthost, process_name):
     Returns:
         set(str): core file names
     """
-    out = duthost.shell("ls -1 /var/core/ 2>/dev/null | grep {} || true".format(process_name),
+    # Anchor to the '<exe>.<time>.<pid>...core.gz' convention so we match this process's own
+    # cores, not any filename that merely contains the name as a substring.
+    out = duthost.shell("ls -1 /var/core/ 2>/dev/null | grep -E '^{}\\.' || true".format(process_name),
                         module_ignore_errors=True)["stdout"]
     return set(out.split())
 
