@@ -758,7 +758,8 @@ class InfluxDbSink:
             f"Missing latest samples for expected series: {list(missing_latest)[:20]}",
         )
         cutoff = min(
-            snapshot_latest[key]["time"] for key in expected
+            (snapshot_latest[key]["time"] for key in expected),
+            key=_parse_rfc3339_timestamp,
         )
         counts = self.counts(expected_series, cutoff)
         first = self._first(expected_series, cutoff)

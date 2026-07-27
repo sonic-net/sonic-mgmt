@@ -1,5 +1,4 @@
 import logging
-import time
 
 import pytest
 
@@ -387,15 +386,8 @@ def test_hft_port_shutdown_stream(
             ),
             f"{test_port} did not become operationally down",
         )
-        time.sleep(3)
+        down_watermark = hft_influxdb.assert_no_new_points(expected)
         down_values = hft_influxdb.latest(expected)
-        down_watermark = hft_influxdb.assert_no_new_points(
-            expected, drain_time=0
-        )
-        pytest_assert(
-            hft_influxdb.latest(expected) == down_values,
-            "Counter values changed while the port was down",
-        )
 
         duthost.shell(f"config interface startup {test_port}")
         pytest_assert(
