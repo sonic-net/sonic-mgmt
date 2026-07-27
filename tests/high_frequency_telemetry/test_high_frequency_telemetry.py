@@ -396,7 +396,12 @@ def test_hft_port_shutdown_stream(
         )
         hft_influxdb.wait_for_new_points(expected, down_watermark)
         hft_influxdb.wait_for_values_to_increase(expected, down_values)
+        traffic.stop()
         pytest_assert(traffic.packet_count > 0, "No PTF traffic was transmitted")
+        pytest_assert(
+            not traffic.errors,
+            f"PTF traffic sender errors: {traffic.errors[:10]}",
+        )
     finally:
         traffic.stop()
         duthost.shell(

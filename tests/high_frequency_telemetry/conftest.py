@@ -57,9 +57,27 @@ def hft_otel_collector(duthosts, enum_rand_one_per_hwsku_hostname, tbinfo):
     original_feature = dict(zip(feature_lines[0::2], feature_lines[1::2]))
     feature_existed = bool(original_feature)
     original_state = original_feature.get("state", "disabled")
+    enabled_states = {"enabled", "always_enabled"}
+    valid_states = enabled_states | {"disabled", "always_disabled"}
+    if original_state not in valid_states:
+        pytest.fail(f"Unexpected OTEL feature state: {original_state}")
+    if original_state == "always_disabled":
+        pytest.skip("OTEL feature is always disabled")
+
+    collector_status = duthost.shell(
+        "docker exec otel supervisorctl status otel",
+        module_ignore_errors=True,
+    )
+    original_collector_running = (
+        collector_status.get("rc") == 0
+        and "RUNNING" in collector_status.get("stdout", "")
+    )
 
     try:
-        if original_state != "enabled" or not duthost.is_container_running("otel"):
+        container_running = duthost.is_container_running("otel")
+        if original_state == "always_enabled" and not container_running:
+            pytest.fail("OTEL is always enabled but its container is not running")
+        if original_state not in enabled_states or not container_running:
             enable_otel_collector(duthost)
         template_path = os.path.join(
             os.path.dirname(__file__), "otel_collector_influxdb.yaml.j2"
@@ -79,17 +97,6 @@ def hft_otel_collector(duthosts, enum_rand_one_per_hwsku_hostname, tbinfo):
         else:
             duthost.shell(
                 f"rm -f {OTEL_CONFIG_PATH}", module_ignore_errors=True
-            )
-
-        if feature_existed and original_state != "enabled":
-            duthost.shell(
-                f"sudo config feature state otel {original_state}",
-                module_ignore_errors=True,
-            )
-        elif not feature_existed:
-            duthost.shell(
-                "sudo config feature state otel disabled",
-                module_ignore_errors=True,
             )
 
         if feature_existed:
@@ -112,9 +119,13 @@ def hft_otel_collector(duthosts, enum_rand_one_per_hwsku_hostname, tbinfo):
                 f"redis-cli -n 4 HSET 'FEATURE|otel' {field_values}",
                 module_ignore_errors=False,
             )
-            if original_state == "enabled":
+            if original_collector_running:
                 restart_otel_collector(duthost)
         else:
+            duthost.shell(
+                "sudo config feature state otel disabled",
+                module_ignore_errors=True,
+            )
             duthost.shell(
                 "sonic-db-cli CONFIG_DB del 'FEATURE|otel'",
                 module_ignore_errors=True,
