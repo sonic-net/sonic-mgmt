@@ -542,7 +542,9 @@ def build_expected_series(counter_type, object_names, counter_names):
 
 
 def _parse_rfc3339_timestamp(value):
-    clean = value.replace("Z", "+00:00")
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"Missing RFC3339 timestamp: {value!r}")
+    clean = value.strip().replace("Z", "+00:00")
     if "." in clean:
         dot_index = clean.index(".")
         offset_index = max(clean.rfind("+"), clean.rfind("-"))
@@ -741,8 +743,8 @@ class InfluxDbSink:
         ]
         raise AssertionError(
             f"Timed out waiting for {min_points} points per series. "
-            f"Missing ({len(missing)}): {missing[:20]}; "
-            f"underfilled ({len(underfilled)}): {underfilled[:20]}"
+            f"Missing ({len(missing)}): {missing[:20]}. "
+            f"Underfilled ({len(underfilled)}): {underfilled[:20]}"
         )
 
     def validate_series(self, expected_series, expected_interval_us,
