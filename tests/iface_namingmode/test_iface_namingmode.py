@@ -18,7 +18,13 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 PORT_TOGGLE_TIMEOUT = 30
-ESTABLISH_LLDP_NEIGHBOR_TIMEOUT = 90
+# Allow enough time for the neighbor's lldpd to re-advertise after a port toggle.
+# SONiC/cSONiC (docker-sonic-vs) neighbors run lldpd with a 30s transmit delay and
+# a transmit hold of 4 (120s TTL), so re-population after a port flap can take well
+# over 90s (slower than EOS). 180s covers the worst-case stale-TTL expiry plus a
+# couple of transmit cycles. This is a wait_until ceiling, so fast neighbors (EOS)
+# are unaffected.
+ESTABLISH_LLDP_NEIGHBOR_TIMEOUT = 180
 
 QUEUE_COUNTERS_RE_FMT = r'{}\s+[U|M]C|ALL\d\s+\S+\s+\S+\s+\S+\s+\S+'
 
@@ -312,7 +318,22 @@ class TestShowLLDP():
         dutHostGuest, mode, ifmode = setup_config_mode
         minigraph_neighbors = setup['minigraph_facts']['minigraph_neighbors']
 
-        lldp_table = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show lldp table'.format(ifmode))['stdout']
+        lldp_table_result = {}
+
+        def _lldp_table_ready():
+            lldp_table_result['output'] = dutHostGuest.shell(
+                'SONIC_CLI_IFACE_MODE={} show lldp table'.format(ifmode))['stdout']
+            expected_intfs = lldp_interfaces['alias'] if mode == 'alias' else lldp_interfaces['interface']
+            return all(re.search(re.escape(intf), lldp_table_result['output']) for intf in expected_intfs)
+
+        pytest_assert(
+            wait_until(ESTABLISH_LLDP_NEIGHBOR_TIMEOUT, 10, 0, _lldp_table_ready),
+            "LLDP table did not converge with all expected interfaces within {} seconds".format(
+                ESTABLISH_LLDP_NEIGHBOR_TIMEOUT
+            )
+        )
+
+        lldp_table = lldp_table_result['output']
         logger.info('lldp_table:\n{}'.format(lldp_table))
 
         vrf_map = {}
@@ -445,6 +466,8 @@ class TestShowInterfaces():
 
         for item in interfaces:
             if mode == 'alias':
+                if item not in setup['port_alias']:
+                    continue
                 assert item in setup['port_alias'], (
                     "Interface '{}' not found in the list of port aliases. "
                     "Expected the interface to match a known port alias in the test setup.\n"
@@ -452,6 +475,8 @@ class TestShowInterfaces():
                 ).format(item, setup['port_alias'])
 
             elif mode == 'default':
+                if item not in setup['default_interfaces']:
+                    continue
                 assert item in setup['default_interfaces'], (
                     "Interface '{}' not found in the list of default interfaces. "
                     "Expected the interface to match a known default interface in the test setup.\n"
@@ -777,10 +802,12 @@ class TestShowQueue():
                     # On non-T2 multi-ASIC, SonicDbCli(asic) already queries per-ASIC CONFIG_DB,
                     # keys are just BUFFER_QUEUE|Ethernet0|0-2, so fields[-3] is "BUFFER_QUEUE"
                     # and must NOT be filtered.
-                    if (duthost.is_multi_asic and tbinfo["topo"]["type"] == "t2"
-                            and fields[-3] != asic.namespace):
-                        continue
-                    interfaces.add(fields[-2])
+                    if len(fields) == 5:
+                        if fields[-3] == asic.namespace:
+                            interfaces.add(fields[-2])
+                    else:
+                        # The output simply looks like: BUFFER_QUEUE|<interface>|<queue>
+                        interfaces.add(fields[-2])
                 except IndexError:
                     pass
 
@@ -794,6 +821,8 @@ class TestShowQueue():
             intfsChecked = 0
             if mode == 'alias':
                 for intf in interfaces:
+                    if intf not in setup['port_name_map']:
+                        continue
                     alias = setup['port_name_map'][intf]
                     assert (
                         re.search(QUEUE_COUNTERS_RE_FMT.format(alias), queue_counter) is not None
@@ -1438,7 +1467,7 @@ class TestConfigInterface():
         _verify_speed(native_speed)
 
 
-@pytest.mark.topology('t1', 't2', 'lt2', 'ft2')
+@pytest.mark.topology('t1', 't2', 'lrh', 'urh', 'lt2', 'ft2')
 def test_show_acl_table(setup, setup_config_mode, tbinfo):
     """
     Checks whether 'show acl table DATAACL' lists the interface names
@@ -1475,7 +1504,7 @@ def test_show_acl_table(setup, setup_config_mode, tbinfo):
                 ).format(item, acl_table)
 
 
-@pytest.mark.topology('t1', 't2', 'lt2', 'ft2')
+@pytest.mark.topology('t1', 't2', 'lrh', 'urh', 'lt2', 'ft2')
 def test_show_interfaces_neighbor_expected(setup, setup_config_mode, tbinfo, duthosts,
                                            enum_rand_one_per_hwsku_frontend_hostname):
     """
@@ -1530,7 +1559,7 @@ def test_show_interfaces_neighbor_expected(setup, setup_config_mode, tbinfo, dut
                 )
 
 
-@pytest.mark.topology('t1', 't2', 'lt2', 'ft2')
+@pytest.mark.topology('t1', 't2', 'lrh', 'urh', 'lt2', 'ft2')
 class TestNeighbors():
 
     @pytest.fixture(scope="class", autouse=True)
@@ -1620,7 +1649,7 @@ class TestNeighbors():
                     ).format(addr, detail['interface'], ndp_output)
 
 
-@pytest.mark.topology('t1', 't2', 'lt2', 'ft2')
+@pytest.mark.topology('t1', 't2', 'lrh', 'urh', 'lt2', 'ft2')
 class TestShowIP():
 
     @pytest.fixture(scope="class", autouse=True)

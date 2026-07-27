@@ -10,6 +10,7 @@ from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback
 
 pytestmark = [
     pytest.mark.topology('any'),
+    pytest.mark.enable_monit_refresh,
 ]
 
 logger = logging.getLogger(__name__)
@@ -28,6 +29,8 @@ def is_policer_supported(duthost):
     """
     platform = duthost.facts.get('platform', '')
     if platform.startswith("x86_64-arista_7060x6"):
+        return False
+    if platform.startswith("x86_64-nokia_ixr7220"):
         return False
     return True
 

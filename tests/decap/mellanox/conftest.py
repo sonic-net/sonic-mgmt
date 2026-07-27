@@ -12,7 +12,7 @@ ECN_MODE_LIST = [(2, 3)]
 
 
 @pytest.fixture(scope='module')
-def prepare_param(rand_selected_dut, ptfadapter, downstream_links, upstream_links, request):  # noqa F811
+def prepare_param(rand_selected_dut, ptfadapter, downstream_links, upstream_links, tbinfo, request):  # noqa F811
     prepare_param = {}
     prepare_param['outer_dst_mac'] = rand_selected_dut.facts["router_mac"]
     prepare_param['outer_src_ip'] = '100.0.0.1'
@@ -31,9 +31,11 @@ def prepare_param(rand_selected_dut, ptfadapter, downstream_links, upstream_link
     assert uplink_ptf_ports, "No uplink found"
     assert prepare_param['outer_dst_mac'], "No router MAC found"
 
-    prepare_param['ptf_downlink_port'] = downlink.get("ptf_port_id")
+    prepare_param['ptf_src_port'] = downlink.get("ptf_port_id")
+    if "dualtor-aa" in tbinfo["topo"]["name"]:
+        prepare_param['ptf_src_port'] = random.choice(uplink_ptf_ports)
     prepare_param['ptf_uplink_ports'] = uplink_ptf_ports
 
-    prepare_param['outer_src_mac'] = ptfadapter.dataplane.get_mac(0, prepare_param['ptf_downlink_port']).decode('utf-8')
+    prepare_param['outer_src_mac'] = ptfadapter.dataplane.get_mac(0, prepare_param['ptf_src_port']).decode('utf-8')
 
     return prepare_param

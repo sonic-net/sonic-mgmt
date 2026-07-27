@@ -44,7 +44,7 @@ from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa: F401
 
 pytestmark = [
-    pytest.mark.topology("t0", "t1", "t2", "m0", "mx", "m1", "lt2", "ft2")
+    pytest.mark.topology("t0", "t1", "t2", "lrh", "urh", "m0", "mx", "m1", "lt2", "ft2")
 ]
 
 _COPPTestParameters = namedtuple("_COPPTestParameters",
@@ -112,14 +112,16 @@ class TestCOPP(object):
         # UDLD packet will not be forwarded to DUT
         if 'UDLD' == protocol:
             for fanouthost in list(fanouthosts.values()):
-                if fanouthost.get_fanout_os() == 'sonic' and "arista_7060x6_64pe" in fanouthost.facts["platform"]:
-                    pytest.skip("Skip UDLD test for Arista-7060x6 fanout without UDLD forward support")
+                if (fanouthost.get_fanout_os() == 'sonic' and fanouthost.facts["platform"]
+                        in ['arista_7060x6_64pe', 'x86_64-nokia_ixr7220_h5_64o-r0', 'x86_64-nokia_ixr7220_h6_64-r0']):
+                    pytest.skip("Skip UDLD test for Arista-7060x6 and Nokia-H5/H6 fanout without UDLD forward support")
 
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         namespace = DEFAULT_NAMESPACE
         if duthost.is_multi_asic:
             namespace = random.choice(duthost.asics)
 
+        has_trap = True
         # Skip the check if the protocol is "Default"
         if protocol != "Default":
             trap_ids = PROTOCOL_TO_TRAP_ID.get(protocol)
@@ -130,6 +132,7 @@ class TestCOPP(object):
             else:
                 feature_list, _ = duthost.get_feature_status()
                 trap_installed = copp_utils.is_trap_installed(duthost, trap_ids[0], namespace)
+                has_trap = trap_installed
                 if feature_name in feature_list and feature_list[feature_name] == "enabled":
                     pytest_assert(trap_installed,
                                   f"Trap {trap_ids[0]} for protocol {protocol} is not installed")
@@ -147,6 +150,7 @@ class TestCOPP(object):
                      protocol,
                      copp_testbed,
                      dut_type,
+                     has_trap=has_trap,
                      is_smartswitch_light_mode=is_smartswitch_light_mode)
 
     @pytest.mark.parametrize("protocol", ["IP2ME",
@@ -283,7 +287,7 @@ class TestCOPP(object):
             "uninstalling {} trap fail".format(self.trap_id))
 
     @pytest.mark.disable_loganalyzer
-    def test_trap_config_save_after_reboot(self, duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname,
+    def test_trap_config_save_after_reboot(self, duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname, creds,
                                            ptfhost, check_image_version, copp_testbed, dut_type,
                                            backup_restore_config_db, request):   # noqa: F811
         """
@@ -310,6 +314,18 @@ class TestCOPP(object):
         reboot(duthost, localhost, reboot_type=reboot_type, reboot_helper=None, reboot_kwargs=None)
 
         time.sleep(180)
+
+        # On platforms where Docker state lives in RAM (e.g., Arista 7060CX with docker_inram=on),
+        # the syncd container is recreated on every cold reboot, losing ptf_nn_agent.
+        # Re-install ptf_nn_agent only if it is not already running after the reboot.
+        if not copp_utils.is_ptf_nn_agent_running(duthost, copp_testbed.nn_target_namespace):
+            logger.info("ptf_nn_agent not running after reboot, re-configuring syncd")
+            copp_utils.configure_syncd(duthost, copp_testbed.nn_target_port,
+                                       copp_testbed.nn_target_interface,
+                                       copp_testbed.nn_target_namespace,
+                                       copp_testbed.nn_target_vlanid,
+                                       copp_testbed.swap_syncd, creds)
+
         logger.info("Verify always_enable of {} == {} in config_db".format(self.trap_id, "true"))
         copp_utils.verify_always_enable_value(duthost, self.trap_id, "true")
 
@@ -339,7 +355,7 @@ def test_verify_copp_configuration_cli(duthosts, enum_rand_one_per_hwsku_fronten
     show_copp_config = copp_utils.parse_show_copp_configuration(duthost, namespace)
 
     pytest_assert(trap in show_copp_config,
-                  f"Trap {trap} not found in show copp configuration output")
+                  f"Trap {trap} not found as part of show copp configuration output")
     pytest_assert(trap_group == show_copp_config[trap]["trap_group"],
                   f"Trap group mismatch for trap {trap} (expected: \
                   {trap_group}, actual: {show_copp_config[trap]['trap_group']})")
@@ -625,7 +641,7 @@ def _teardown_testbed(dut, creds, ptf, test_params, tbinfo, upStreamDuthost, is_
     else:
         copp_utils.restore_syncd(dut, test_params.nn_target_namespace)
         logging.info("Reloading config and restarting swss...")
-        config_reload(dut, safe_reload=True, check_intf_up_ports=True)
+        config_reload(dut, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
 
 def _setup_multi_asic_proxy(dut, creds, test_params, tbinfo):

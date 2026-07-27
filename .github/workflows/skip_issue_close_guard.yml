@@ -1,0 +1,40 @@
+name: Skip Issue Manual Close Guard
+
+on:
+  issues:
+    types:
+      - closed
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  skip-issue-close-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          fetch-tags: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r tools/skip_expiry/requirements.txt
+
+      - name: Run skip issue close guard workflow
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python tools/skip_expiry/run_skip_issue_close_guard.py \
+            --repo-root . \
+            --config .github/SKIP_EXPIRY_CONFIG.yaml \
+            --conditional-mark-dir tests/common/plugins/conditional_mark \
+            --event-path ${{ github.event_path }}

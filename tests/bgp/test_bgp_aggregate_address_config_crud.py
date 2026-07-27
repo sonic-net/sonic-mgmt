@@ -15,6 +15,7 @@ from natsort import natsorted
 
 from bgp_aggregate_helpers import (
     BGP_AGGREGATE_ADDRESS,
+    PLACEHOLDER_PREFIX,
     AggregateCfg,
     dump_db,
     gcu_add_aggregate,
@@ -47,7 +48,6 @@ EXTRA_AGGR_V6_1 = "2001:db8:200::/48"
 CONTRIBUTING_EXTRA_V4_1 = ["10.200.1.0/24"]
 CONTRIBUTING_EXTRA_V4_2 = ["10.150.1.0/24"]
 CONTRIBUTING_EXTRA_V6_1 = ["2001:db8:200:1::/64"]
-PLACEHOLDER_PREFIX = "192.0.2.0/32"
 EXABGP_BASE_PORT = 5000
 EXABGP_BASE_PORT_V6 = 6000
 

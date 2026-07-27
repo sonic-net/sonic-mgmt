@@ -250,6 +250,7 @@ class PtfGnoi:
             "remote_download": remote_download,
         }
 
+        self.grpc_client.configure_max_time(3600)   # image download can take a long time
         response = self.grpc_client.call_unary("gnoi.file.File", "TransferToRemote", request, metadata=metadata)
         logger.info("TransferToRemote completed: %s -> %s", url, local_path)
         return response
@@ -410,3 +411,26 @@ class PtfGnoi:
         except Exception as e:
             logger.error(f"Failed to activate OS version {version}: {e}")
             raise
+
+    def reboot_status(self, metadata=None) -> Dict:
+        """
+        Get the reboot status from the DUT using gNOI System.RebootStatus.
+
+        Returns:
+            Dictionary containing:
+            - active: Boolean indicating if a reboot is in progress
+            - when: Unix timestamp of when the reboot will occur
+            - reason: Reason string for the pending reboot
+            - count: Number of reboots since last power cycle
+            - method: RebootMethod enum value of the pending reboot
+
+        Raises:
+            GrpcConnectionError: If connection fails
+            GrpcCallError: If the gRPC call fails
+            GrpcTimeoutError: If the call times out
+        """
+        logger.debug("Getting reboot status via gNOI System.RebootStatus")
+
+        response = self.grpc_client.call_unary("gnoi.system.System", "RebootStatus", metadata=metadata)
+        logger.debug(f"Reboot status: {response}")
+        return response

@@ -17,6 +17,13 @@ BFD_FLAG_P_BIT = 5
 BFD_FLAG_F_BIT = 4
 UDP_BFD_PKT_LEN = 32
 
+# Canonical default config path for the bfd_responder helper. Kept in lock-step
+# with tests.common.helpers.constants.ARP_RESPONDER_DEFAULT_CONFIG (the sister
+# arp_responder helper uses the same path); we don't import it here because
+# this script runs inside the PTF container, where the sonic-mgmt test tree is
+# not on sys.path.
+DEFAULT_CONFIG_PATH = '/tmp/from_t1.json'
+
 
 def get_mac(ifname):
     """
@@ -159,7 +166,7 @@ class BFDResponder(object):
 
 def parse_args():
     parser = argparse.ArgumentParser(description='ARP autoresponder')
-    parser.add_argument('--conf', '-c', type=str, dest='conf', default='/tmp/from_t1.json',
+    parser.add_argument('--conf', '-c', type=str, dest='conf', default=DEFAULT_CONFIG_PATH,
                         help='path to json file with configuration')
     args = parser.parse_args()
     return args

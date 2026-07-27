@@ -13,7 +13,7 @@ from scapy.all import sniff
 from tests.common import utilities
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.portstat_utilities import parse_portstat
-from tests.common.utilities import parse_rif_counters
+from tests.common.utilities import parse_rif_counters, wait_until
 from tests.ip.ip_util import sum_ifaces_counts
 
 pytestmark = [
@@ -222,7 +222,6 @@ class TestLinkLocalIPacket:
             ptfadapter.dataplane.flush()
 
             testutils.send(ptfadapter, ptf_idx, pkt, PKT_NUM)
-            time.sleep(1)
             self.validate_counters(duthost, ptfadapter, exp_pkt, dut_rx_iface, rif_rx_iface,
                                    out_ptf_indices, out_ifaces, out_rif_ifaces, rif_support)
 
@@ -245,7 +244,6 @@ class TestLinkLocalIPacket:
             self.clear_counters(duthost, rif_support)
             ptfadapter.dataplane.flush()
             testutils.send(ptfadapter, ptf_idx, pkt, PKT_NUM)
-            time.sleep(1)
             self.validate_counters(duthost, ptfadapter, exp_pkt, dut_rx_iface, rif_rx_iface,
                                    out_ptf_indices, out_ifaces, out_rif_ifaces, rif_support)
 
@@ -271,11 +269,9 @@ class TestLinkLocalIPacket:
         self.clear_counters(duthost, rif_support)
         ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, ptf_rx_idx, pkt, PKT_NUM)
-        time.sleep(1)
-        portstat_out = parse_portstat(duthost.command("portstat")["stdout_lines"])
-        rx_ok = int(portstat_out[rx_iface]["rx_ok"].replace(",", ""))
-        pytest_assert(rx_ok >= PKT_NUM,
-                      "Received {} packets in rx counters, expected >= {}".format(rx_ok, PKT_NUM))
+        # Wait for portstat rx_ok counter to converge before checking
+        pytest_assert(wait_until(3, 1, 1, self.check_portstat_rx_ok, duthost, rx_iface),
+                      f"portstat rx_ok on {rx_iface} did not converge to >= {PKT_NUM} within 3s timeout")
         # Sleep to ensure all packets will be captured
         time.sleep(TCPDUMP_WAIT_TIME)
         duthost.shell(stop_pcap, module_ignore_errors=True)
@@ -314,7 +310,6 @@ class TestLinkLocalIPacket:
         ptfadapter.dataplane.flush()
 
         testutils.send(ptfadapter, ptf_rx_idx, pkt, PKT_NUM)
-        time.sleep(1)
         self.validate_counters(duthost, ptfadapter, exp_pkt, rx_iface, None,
                                out_ptf_indices, out_ifaces, out_rif_ifaces, rif_support)
 
@@ -338,7 +333,6 @@ class TestLinkLocalIPacket:
         self.clear_counters(duthost, rif_support)
         ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, ptf_rx_idx, pkt, PKT_NUM)
-        time.sleep(1)
         self.validate_counters(duthost, ptfadapter, exp_pkt, rx_iface, None,
                                out_ptf_indices, out_ifaces, out_rif_ifaces, rif_support)
 
@@ -409,21 +403,31 @@ class TestLinkLocalIPacket:
         return exp_pkt
 
     @staticmethod
+    def check_portstat_rx_ok(duthost, dut_rx_iface):
+        """Check if portstat rx_ok counter has converged to expected packet count."""
+        portstat_out = parse_portstat(duthost.command("portstat")["stdout_lines"])
+        rx_ok = int(portstat_out[dut_rx_iface]["rx_ok"].replace(",", ""))
+        logger.debug(f"portstat rx_ok={rx_ok} on {dut_rx_iface}, expected >= {PKT_NUM}")
+        return rx_ok >= PKT_NUM
+
+    @staticmethod
     def validate_counters(duthost, ptfadapter, exp_pkt, dut_rx_iface, rif_rx_ifaces, out_ptf_indices,
                           out_ifaces, out_rif_ifaces, rif_support):
+        # Wait for portstat rx_ok counter to converge. On shared servers with slow PTF,
+        # PORT_STAT flex counters may need multiple polling cycles to reflect all packets.
+        pytest_assert(wait_until(3, 1, 1, TestLinkLocalIPacket.check_portstat_rx_ok, duthost, dut_rx_iface),
+                      f"portstat rx_ok on {dut_rx_iface} did not converge to >= {PKT_NUM} within 3s timeout")
+
         portstat_out = parse_portstat(duthost.command("portstat")["stdout_lines"])
         if rif_support:
             rif_counter_out = parse_rif_counters(duthost.command("show interfaces counters rif")["stdout_lines"])
 
         # Rx counters Validations
-        rx_ok = int(portstat_out[dut_rx_iface]["rx_ok"].replace(",", ""))
         rx_drp = int(portstat_out[dut_rx_iface]["rx_drp"].replace(",", ""))
         rx_err = int(rif_counter_out[rif_rx_ifaces]["rx_err"].replace(",", "")) \
             if rif_support and rif_rx_ifaces else 0
-        pytest_assert(rx_ok >= PKT_NUM,
-                      "Received {} packets in rx, expected >= {}".format(rx_ok, PKT_NUM))
         pytest_assert(max(rx_drp, rx_err) <= PKT_NUM_ZERO,
-                      "Dropped {} packets in rx, expected range <= {}".format(rx_err, PKT_NUM_ZERO))
+                      f"Dropped packets in rx: rx_drp={rx_drp}, rx_err={rx_err}; expected both <= {PKT_NUM_ZERO}")
 
         # Match packets by PTF Validation
         match_cnt = testutils.count_matched_packets_all_ports(ptfadapter, exp_pkt, ports=list(out_ptf_indices))

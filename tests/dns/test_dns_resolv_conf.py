@@ -54,7 +54,7 @@ def setup_env(duthost):
         duthost.file(path=GOLDEN_CONFIG, state='absent')
 
     # Restore config
-    config_reload(duthost, safe_reload=True)
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
 
 def test_dns_resolv_conf(duthost):

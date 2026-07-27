@@ -170,9 +170,22 @@ def setup_ports_and_dut(
 
 
 @pytest.fixture(params=['warm', 'cold', 'fast'])
-def reboot_duts(setup_ports_and_dut, localhost, request):
+def reboot_duts(request, localhost):
+    """
+    Uses tgen_port_info if the test requested it, otherwise setup_ports_and_dut.
+    Once setup_ports_and_dut is removed, the code will be simplified to use tgen_port_info.
+    The code to be used the:
+    def reboot_duts(tgen_port_info, localhost, request):
+    """
     reboot_type = request.param
-    _, _, snappi_ports = setup_ports_and_dut
+
+    # Check for fixture used to generate port_info.
+    if 'tgen_port_info' in request.node.fixturenames:
+        port_info = request.getfixturevalue('tgen_port_info')
+    else:
+        port_info = request.getfixturevalue('setup_ports_and_dut')
+    _, _, snappi_ports = port_info
+
     skip_warm_reboot(snappi_ports[0]['duthost'], reboot_type)
     skip_warm_reboot(snappi_ports[1]['duthost'], reboot_type)
 

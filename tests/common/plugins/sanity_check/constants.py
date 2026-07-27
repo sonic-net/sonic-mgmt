@@ -1,3 +1,4 @@
+import re
 
 PRINT_LOGS = {
     "version": "show version",
@@ -12,6 +13,13 @@ PRINT_LOGS = {
     "mux_status": "show mux status",
     "mux_config": "show mux config",
 }
+
+# Regex patterns matching CLI commands that trigger rexec on supervisor.
+# Use these to filter out commands that would hang on supervisor nodes.
+SUPERVISOR_REXEC_COMMAND_PATTERNS = [
+    re.compile(r"show int(erface)? stat(us)?"),
+    re.compile(r"show ip bgp sum(mary)?"),
+]
 
 # Check items for testbed infrastructure that are not
 # controlled by the DUT

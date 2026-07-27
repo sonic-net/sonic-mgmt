@@ -17,6 +17,7 @@ from natsort import natsorted
 # Shared helpers from the aggregate-address helpers module
 from bgp_aggregate_helpers import (
     BGP_AGGREGATE_ADDRESS,
+    PLACEHOLDER_PREFIX,
     AggregateCfg,
     dump_db,
     gcu_add_aggregate,
@@ -37,7 +38,6 @@ pytestmark = [
 # ---- Test data ----
 AGGR_V4 = "10.100.0.0/16"
 CONTRIBUTING_V4 = ["10.100.1.0/24", "10.100.2.0/24", "10.100.3.0/24"]
-PLACEHOLDER_PREFIX = "192.0.2.0/32"
 EXABGP_BASE_PORT = 5000
 EXABGP_BASE_PORT_V6 = 6000
 

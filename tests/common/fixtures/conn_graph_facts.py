@@ -84,8 +84,13 @@ def get_graph_facts(duthost, localhost, hostnames):
         graph_groups = yaml.safe_load(open(graph_groups_file))
         for inv_file in inv_files:
             inv_name = os.path.basename(inv_file)
-            if inv_name in graph_groups:
-                group = inv_name
+            # Try exact match first, then prefix match for trimmed inventory names
+            for graph_group in graph_groups:
+                if (inv_name == graph_group or
+                        (inv_name.startswith("{}_".format(graph_group)) and
+                         inv_name.endswith("_trim_tmp"))):
+                    group = graph_group
+                    break
 
     kargs = {"filepath": lab_conn_graph_path}
     if group:

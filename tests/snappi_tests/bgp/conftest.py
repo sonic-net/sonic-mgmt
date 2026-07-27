@@ -10,7 +10,7 @@ from tests.conftest import add_custom_msg
 from tests.snappi_tests.variables import (
     COMMUNITY_LOWER_TIER_DROP,
     TOPOLOGY_T2_PIZZABOX,
-    FANOUT_PRESENCE,
+    TOPOLOGY_RH_PIZZABOX,
     detect_topology_and_vendor,
     get_lower_tier_info,
     get_uplink_fanout_info
@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 # Get the directory of the current script
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 CRITICAL_CONTAINERS = {"bgp", "swss", "syncd"}
+CRITICAL_CONTAINERS_FANOUT = {"swss", "syncd"}
 
 
 def pytest_runtest_logreport(report: TestReport):
@@ -86,21 +87,26 @@ def execute_command(ssh, command, password=None):
     return output
 
 
-def are_critical_containers_running(ssh):
-    """Check if all critical containers (bgp, swss, syncd) are running."""
+def are_critical_containers_running(ssh, required_containers=None):
+    """Check if required containers are running."""
+    if required_containers is None:
+        required_containers = CRITICAL_CONTAINERS
     running_containers_output = execute_command(
         ssh, "docker ps -f 'status=running' --format '{{.Names}}'")
     running_containers = set(running_containers_output.split())
 
-    return CRITICAL_CONTAINERS.issubset(running_containers)
+    return required_containers.issubset(running_containers)
 
 
-def validate_critical_containers(ssh):
+def validate_critical_containers(ssh, required_containers=None):
     """Ensure critical containers are running, waiting up to 120s with 10s intervals."""
-    logger.info("Validating critical containers are running...")
+    if required_containers is None:
+        required_containers = CRITICAL_CONTAINERS
+    logger.info(f"Validating containers are running: {required_containers}")
 
     assert wait_until(120, 10, 0, lambda: are_critical_containers_running(
-        ssh)), "Critical containers did not start within 120 seconds!"
+        ssh, required_containers)), \
+        f"Containers {required_containers} did not start within 120 seconds!"
 
     logger.info("All critical containers are running.")
 
@@ -158,7 +164,7 @@ def apply_lower_tier_config_on_dut(device_ip, creds, topology_type,
         ssh.close()
 
 
-def apply_fanout_config_on_dut(device_ip, creds,
+def apply_fanout_config_on_dut(device_ip, creds, asic_type=None,
                                remote_tmp_path="/tmp/config_db.json.tmp",
                                final_path="/etc/sonic/config_db.json"):
     """Apply fanout DUT specific configuration and validate containers."""
@@ -175,14 +181,20 @@ def apply_fanout_config_on_dut(device_ip, creds,
         execute_command(ssh, "sudo config reload -y", password)
         logger.info("Fanout DUT Config reload command executed")
 
-        # Validate containers
-        validate_critical_containers(ssh)
+        # Validate containers (fanout only needs swss + syncd, not bgp)
+        validate_critical_containers(ssh, CRITICAL_CONTAINERS_FANOUT)
         time.sleep(60)  # Wait for containers to stabilize
-        # Execute bcmcmd commands after validation
-        execute_command(ssh, 'bcmcmd "fp detach"', password)
-        logger.info("Executed bcmcmd 'fp detach'")
-        execute_command(ssh, 'bcmcmd "fp init"', password)
-        logger.info("Executed bcmcmd 'fp init'")
+
+        # XGS-specific: reset field processor to clear CoPP-installed ACLs
+        if asic_type != 'dnx':
+            execute_command(ssh, 'bcmcmd "fp detach"', password)
+            logger.info("Executed bcmcmd 'fp detach'")
+            execute_command(ssh, 'bcmcmd "fp init"', password)
+            logger.info("Executed bcmcmd 'fp init'")
+
+        # Stop arp_update to prevent fanout from broadcasting gratuitous ARPs
+        execute_command(ssh, 'docker exec -i swss supervisorctl stop arp_update', password)
+        logger.info("Stopped arp_update process in swss")
 
         logger.info(
             f"Fanout DUT Configuration applied successfully on {device_ip}")
@@ -195,20 +207,20 @@ def configure_lower_tier_or_fanout(topology_type, vendor, creds, role, **kwargs)
     Unified function to configure lower tier or Fanout DUT.
 
     Args:
-        topology_type: TOPOLOGY_T2_CHASSIS or TOPOLOGY_T2_PIZZABOX
-        vendor: Vendor identifier (e.g., 'ARISTA', 'NOKIA', 'CISCO')
+        topology_type: TOPOLOGY_T2_CHASSIS, TOPOLOGY_T2_PIZZABOX, or TOPOLOGY_RH_PIZZABOX
+        vendor: Vendor identifier
         creds: Credentials dictionary
         role: 'lower_tier' or 'fanout'
         **kwargs: Additional arguments (e.g., context for lower tier config)
     """
     # Determine config file name based on topology and role
     if role == "lower_tier":
-        if topology_type == TOPOLOGY_T2_PIZZABOX:
+        if topology_type in (TOPOLOGY_T2_PIZZABOX, TOPOLOGY_RH_PIZZABOX):
             config_role = "lower_tier.pizzabox"
         else:
             config_role = "lower_tier.chassis"
     elif role == "fanout":
-        if topology_type == TOPOLOGY_T2_PIZZABOX:
+        if topology_type in (TOPOLOGY_T2_PIZZABOX, TOPOLOGY_RH_PIZZABOX):
             config_role = "fanout.pizzabox"
         else:
             config_role = "fanout.chassis"
@@ -235,7 +247,9 @@ def configure_lower_tier_or_fanout(topology_type, vendor, creds, role, **kwargs)
     if role == "lower_tier":
         apply_lower_tier_config_on_dut(device_ip, creds, topology_type, **kwargs)
     elif role == "fanout":
-        apply_fanout_config_on_dut(device_ip, creds)
+        fanout_info = get_uplink_fanout_info(topology_type, vendor)
+        asic_type = fanout_info.get('asic_type')
+        apply_fanout_config_on_dut(device_ip, creds, asic_type=asic_type)
 
 
 def apply_tsb(duthost):
@@ -331,9 +345,14 @@ def initial_setup(duthosts, creds, tbinfo):
     logger.info(f"Vendor: {vendor}")
     logger.info(f"Topology Type: {topology_type}")
 
-    # Configure lower tier and fanout using unified function
-    configure_lower_tier_or_fanout(topology_type, vendor, creds, "lower_tier", context=context)
-    if FANOUT_PRESENCE:
+    # Configure lower tier (only if present for this topology)
+    lower_tier_info = get_lower_tier_info(topology_type, vendor)
+    if lower_tier_info:
+        configure_lower_tier_or_fanout(topology_type, vendor, creds, "lower_tier", context=context)
+
+    # Configure fanout (only if present for this topology)
+    fanout_info = get_uplink_fanout_info(topology_type, vendor)
+    if fanout_info:
         configure_lower_tier_or_fanout(topology_type, vendor, creds, "fanout")
 
     # Execute TSB on all DUTs
@@ -345,8 +364,7 @@ def initial_setup(duthosts, creds, tbinfo):
     yield
 
     # Cleanup
-    if not context['exist-prefix-deny']:
-        lower_tier_info = get_lower_tier_info(topology_type, vendor)
+    if lower_tier_info and not context['exist-prefix-deny']:
         device_ip = lower_tier_info["dut_ip"]
         route_map_prefix = "FROM_TIER2"
 

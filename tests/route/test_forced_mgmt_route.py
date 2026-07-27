@@ -11,7 +11,7 @@ from tests.common.utilities import wait_until, wait_for_file_changed, backup_con
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
-    pytest.mark.topology('t0', 't2', 'lt2', 'ft2'),
+    pytest.mark.topology('t0', 't2', 'lrh', 'urh', 'lt2', 'ft2'),
     pytest.mark.device_type('vs')
 ]
 
@@ -32,7 +32,7 @@ def backup_restore_config(duthosts, enum_rand_one_per_hwsku_hostname):
 
     #  Restore config after test finish
     restore_config(duthost, CONFIG_DB, CONFIG_DB_BACKUP)
-    config_reload(duthost)
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
 
 def address_type(address):

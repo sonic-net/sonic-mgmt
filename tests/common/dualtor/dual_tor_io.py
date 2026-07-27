@@ -14,6 +14,7 @@ import ptf.testutils as testutils
 from itertools import groupby
 
 from tests.common.dualtor.dual_tor_common import CableType
+from tests.common.helpers.constants import ARP_RESPONDER_DEFAULT_CONFIG
 from tests.common.utilities import wait_until, convert_scapy_packet_to_bytes
 from natsort import natsorted
 from collections import defaultdict
@@ -217,9 +218,9 @@ class DualTorIO:
         arp_responder_conf = {}
         for intf, ip in list(self.ptf_intf_to_server_ip_map.items()):
             arp_responder_conf['eth{}'.format(intf)] = [ip]
-        with open("/tmp/from_t1.json", "w") as fp:
+        with open(ARP_RESPONDER_DEFAULT_CONFIG, "w") as fp:
             json.dump(arp_responder_conf, fp, indent=4, sort_keys=True)
-        self.ptfhost.copy(src="/tmp/from_t1.json", dest="/tmp/from_t1.json", force=True)
+        self.ptfhost.copy(src=ARP_RESPONDER_DEFAULT_CONFIG, dest=ARP_RESPONDER_DEFAULT_CONFIG, force=True)
         self.ptfhost.shell("supervisorctl reread && supervisorctl update")
         self.ptfhost.shell("supervisorctl restart arp_responder")
         logger.info("arp_responder restarted")
@@ -587,7 +588,7 @@ class DualTorIO:
         # filter to filter out all the packets destined to the PTF backplane interface.
         output = self.ptfhost.shell('cat /sys/class/net/backplane/address',
                                     module_ignore_errors=True)
-        if not output['failed']:
+        if not output.get('failed', False):
             ptf_bp_mac = output['stdout']
             self.sniff_filter = '({}) and (not ether dst {})'.format(self.sniff_filter, ptf_bp_mac)
 

@@ -17,11 +17,16 @@ from natsort import natsorted
 
 # Shared helpers from the aggregate-address helper module
 from bgp_aggregate_helpers import (
+    BGP_AGGREGATE_ADDRESS,
+    PLACEHOLDER_PREFIX,
     AggregateCfg,
+    dump_db,
     gcu_add_aggregate,
+    gcu_add_placeholder_aggregate,
     gcu_remove_aggregate,
 )
 
+from tests.common.gcu_utils import create_checkpoint, rollback_or_reload, delete_checkpoint
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.bgp_routing import inject_routes, verify_route_on_neighbors
 from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP
@@ -48,6 +53,25 @@ EXABGP_BASE_PORT_V6 = 6000
 BGP_SESSION_WAIT_TIMEOUT = 300
 BGP_SESSION_POLL_INTERVAL = 10
 INTF_STATE_WAIT_TIMEOUT = 90
+
+
+@pytest.fixture(scope="module", autouse=True)
+def setup_teardown(duthost):
+    """Checkpoint before tests, rollback after.
+
+    Link-failover tests shut down and restore DUT interfaces, which can leave
+    stale BGP aggregate state if a test fails mid-way.  The checkpoint/rollback
+    ensures CONFIG_DB is restored to a clean state regardless of test outcome.
+    """
+    create_checkpoint(duthost)
+    default_aggregates = dump_db(duthost, "CONFIG_DB", BGP_AGGREGATE_ADDRESS)
+    if not default_aggregates:
+        gcu_add_placeholder_aggregate(duthost, PLACEHOLDER_PREFIX)
+    yield
+    try:
+        rollback_or_reload(duthost, fail_on_rollback_error=False)
+    finally:
+        delete_checkpoint(duthost)
 
 
 # ===========================================================================

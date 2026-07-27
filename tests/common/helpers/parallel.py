@@ -21,14 +21,25 @@ logger = logging.getLogger(__name__)
 
 
 def patch_ansible_worker_process():
-    """Patch AnsibleWorkerProcess to avoid logging deadlock after fork."""
+    """
+    Patch AnsibleWorkerProcess to avoid logging deadlock after fork.
+
+    ansible-core <= 2.18 also called self._save_stdin() to dup stdin
+    across the fork; that helper (and self._new_stdin) was removed in
+    ansible-core 2.19, so we only invoke it when present.
+    """
+
+    has_save_stdin = hasattr(WorkerProcess, "_save_stdin")
 
     def start(self):
-        self._save_stdin()
-        try:
+        if has_save_stdin:
+            self._save_stdin()
+            try:
+                return super(WorkerProcess, self).start()
+            finally:
+                self._new_stdin.close()
+        else:
             return super(WorkerProcess, self).start()
-        finally:
-            self._new_stdin.close()
 
     WorkerProcess.start = start
 

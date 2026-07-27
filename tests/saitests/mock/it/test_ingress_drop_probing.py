@@ -10,13 +10,14 @@ Ingress Drop Characteristics:
 - Uses same 3/4-phase algorithm as PFC XOFF
 - Typically higher threshold than PFC XOFF (Ingress Drop > PFC XOFF)
 
-Test Coverage (23 tests):
+Test Coverage (24 tests):
 A. Basic Hardware (4 tests)
 B. Point Probing (3 tests)
 C. Precision Ratio (4 tests)
 D. Noise + Verification Attempts (4 tests)
 E. Boundary Conditions (5 tests)
 F. Failure Scenarios (3 tests)
+G. Bug Fix Validation (incl. LAG dual-key regression)
 """
 
 import pytest
@@ -555,7 +556,7 @@ class TestIngressDropProbing:
             print("[PASS] Inconsistent: Extreme inconsistency handled")
 
     # ========================================================================
-    # G. Bug Fix Validation (3 tests)
+    # G. Bug Fix Validation (4 tests + LAG regression)
     # ========================================================================
 
     def test_ingress_drop_threshold_at_one(self):
@@ -701,9 +702,45 @@ class TestIngressDropProbing:
         else:
             print("[PASS] Completed (bad spots caused failure)")
 
+    def test_ingress_drop_lag_port_remapping(self):
+        """
+        G5: LAG port remapping - rx_port_resolver returns different member
+
+        Regression test for LAG dual-key bug (commit 921dfb7f09):
+        - add_flow() creates key with original dst port (28)
+        - generate_packets() resolves actual via get_rx_port → 29 (different member)
+        - get_packet(src, actual_dst=29) must succeed via dual-key alias
+        - Without fix: ValueError in get_packet() → probe crash
+        """
+        actual_threshold = 700
+
+        probe = create_ingress_drop_probe_instance(
+            actual_threshold=actual_threshold,
+            scenario=None,
+            enable_precise_detection=False,
+            precision_target_ratio=0.05
+        )
+
+        # Override get_rx_port to simulate LAG member remapping:
+        # dst port 28 → actual member 29
+        def lag_get_rx_port(src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip, dst_port_id, src_vlan):
+            if dst_port_id == 28:
+                return 29  # LAG hashing selects different member
+            return dst_port_id
+        probe.get_rx_port = lag_get_rx_port
+
+        probe.runTest()
+        result = probe.probe_result
+
+        assert result is not None, "Probe must not crash with LAG port remapping"
+        if result.success:
+            assert result.lower_bound <= actual_threshold <= result.upper_bound, \
+                f"Result [{result.lower_bound}, {result.upper_bound}] should bracket {actual_threshold}"
+        print(f"[PASS] LAG remapping: result=[{result.lower_bound}, {result.upper_bound}]")
+
     def test_ingress_drop_small_threshold_precision(self):
         """
-        G5: Precision check max(1,...) guard for small threshold
+        G6: Precision check max(1,...) guard for small threshold
         """
         import io
         import sys

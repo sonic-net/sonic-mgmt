@@ -29,7 +29,11 @@ def get_expected_baud_rate(duthost):
 
 def test_console_baud_rate_config(duthost):
     expected_baud_rate = get_expected_baud_rate(duthost)
-    res = duthost.shell("cat /proc/cmdline | grep -Eo 'console=ttyS[0-9]+,[0-9]+' | cut -d ',' -f2")
+    if duthost.facts['platform'] == "arm64-c8220tg_48a_o-r0":
+        res = duthost.shell("cat /proc/cmdline | grep -Eo 'console=tty[A-Z]*[0-9]+,[0-9]+' | cut -d ',' -f2")
+    else:
+        res = duthost.shell("cat /proc/cmdline | grep -Eo 'console=ttyS[0-9]+,[0-9]+' | cut -d ',' -f2")
+
     pytest_require(res["stdout"] != "", "Cannot get baud rate")
     if res["stdout"] != str(expected_baud_rate):
         global pass_config_test
