@@ -157,13 +157,14 @@ def get_configured_buffer_pools(duthost):
 def setup_hft_profile(duthost, profile_name, poll_interval=10000,
                       stream_state="disabled"):
     """Create an HFT profile through the supported CLI."""
+    profile_arg = shlex.quote(str(profile_name))
     stream_state = (stream_state or "").strip().lower()
     pytest_assert(
         stream_state in {"enabled", "disabled"},
         f"Invalid HFT stream state: {stream_state}",
     )
     result = duthost.shell(
-        f"sudo config hft add profile {profile_name} "
+        f"sudo config hft add profile {profile_arg} "
         f"--poll_interval {int(poll_interval)} "
         f"--stream_state {stream_state}",
         module_ignore_errors=False,
@@ -204,11 +205,12 @@ def _normalize_hft_group_type(group_name):
 def setup_hft_group(duthost, profile_name, group_name,
                     object_names, object_counters):
     """Create one HFT group through the supported CLI."""
+    profile_arg = shlex.quote(str(profile_name))
     group_type = _normalize_hft_group_type(group_name)
     object_names = _stringify_sequence(object_names)
     object_counters = _stringify_sequence(object_counters)
     result = duthost.shell(
-        f"sudo config hft add group {profile_name} "
+        f"sudo config hft add group {profile_arg} "
         f"--group_type {group_type} "
         f"--object_names {shlex.quote(object_names)} "
         f"--object_counters {shlex.quote(object_counters)}",
@@ -226,6 +228,7 @@ def setup_hft_group(duthost, profile_name, group_name,
 
 def setup_hft_stream_state(duthost, profile_name, stream_state):
     """Enable or disable an HFT profile."""
+    profile_arg = shlex.quote(str(profile_name))
     state = (stream_state or "").strip().lower()
     action_map = {
         "enabled": "enable",
@@ -235,17 +238,20 @@ def setup_hft_stream_state(duthost, profile_name, stream_state):
     }
     pytest_assert(state in action_map, f"Invalid HFT stream state: {state}")
     return duthost.shell(
-        f"sudo config hft {action_map[state]} {profile_name}",
+        f"sudo config hft {action_map[state]} {profile_arg}",
         module_ignore_errors=False,
     )
 
 
 def cleanup_hft_config(duthost, profile_name, group_names=None):
     """Delete groups before deleting their HFT profile."""
+    profile_arg = shlex.quote(str(profile_name))
     if group_names is None:
+        group_pattern = shlex.quote(
+            f"HIGH_FREQUENCY_TELEMETRY_GROUP|{profile_name}|*"
+        )
         result = duthost.shell(
-            f'redis-cli -n 4 KEYS "HIGH_FREQUENCY_TELEMETRY_GROUP|'
-            f'{profile_name}|*"',
+            f"redis-cli -n 4 KEYS {group_pattern}",
             module_ignore_errors=True,
         )
         group_names = []
@@ -259,11 +265,11 @@ def cleanup_hft_config(duthost, profile_name, group_names=None):
     for group_name in group_names:
         group_type = _normalize_hft_group_type(group_name)
         duthost.shell(
-            f"sudo config hft del group {profile_name} {group_type}",
+            f"sudo config hft del group {profile_arg} {group_type}",
             module_ignore_errors=True,
         )
     duthost.shell(
-        f"sudo config hft del profile {profile_name}",
+        f"sudo config hft del profile {profile_arg}",
         module_ignore_errors=True,
     )
     logger.info("Cleaned HFT profile %s", profile_name)
