@@ -84,10 +84,16 @@ class TestIPPacket(object):
             pytest.skip("Failed to resolve DUT interface for the specified PTF port index")
 
         if ptf_port_idx in unsupported_ptf_ports:
+            # Only routed ports and port-channel members have a router interface (RIF).
+            # Restrict candidates to those so the RIF counter lookup below can't KeyError
+            # on a plain L2 port.
+            l3_ingress_ports = {intf["attachto"] for intf in mg_facts["minigraph_interfaces"]}
+            for members in pc_ports_map.values():
+                l3_ingress_ports.update(members)
             supported_ingress_ptf_ports = [
                 idx for iface, idx in ptf_indices.items()
                 if idx not in unsupported_ptf_ports
-                and iface.startswith("Ethernet")
+                and iface in l3_ingress_ports
                 and mg_facts["minigraph_neighbors"].get(iface, {}).get("namespace") == ingress_namespace]
             if not supported_ingress_ptf_ports:
                 pytest.skip("All ingress ports in namespace '{}' connect to fanouts"
