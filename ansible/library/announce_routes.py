@@ -627,7 +627,7 @@ def fib_t0(topo, ptf_ip, no_default_route=False, action="announce", upstream_nei
             current_routes_offset += last_suffix
 
 
-def get_t1_router_type(properties):
+def get_router_type(properties):
     """Map topology property groups to the T1 synthetic route model."""
     for property_name in properties:
         if property_name in T1_ROUTER_TYPE_BY_PROPERTY:
@@ -647,6 +647,7 @@ def fib_t1_lag(topo, ptf_ip, topo_name, no_default_route=False, action="announce
     tor_subnet_size = common_config.get("tor_subnet_size", TOR_SUBNET_SIZE)
     nhipv4 = common_config.get("nhipv4", NHIPV4)
     nhipv6 = common_config.get("nhipv6", NHIPV6)
+    spine_asn = common_config.get("spine_asn", SPINE_ASN)
     leaf_asn_start = common_config.get("leaf_asn_start", LEAF_ASN_START)
     tor_asn_start = common_config.get("tor_asn_start", TOR_ASN_START)
     ipv6_address_pattern = common_config.get("ipv6_address_pattern", IPV6_ADDRESS_PATTERN_DEFAULT_VALUE)
@@ -741,7 +742,7 @@ def fib_t1_lag(topo, ptf_ip, topo_name, no_default_route=False, action="announce
         aggregate_routes_v6 = get_ipv6_routes(aggregate_routes)
         if k not in topo_routes:
             topo_routes[k] = {}
-        router_type = get_t1_router_type(v['properties'])
+        router_type = get_router_type(v['properties'])
         tornum = v.get('tornum', None)
         tor_index = tornum - 1 if tornum is not None else None
         if 'bt0' in v['properties'] and tor_index is not None:
@@ -752,7 +753,7 @@ def fib_t1_lag(topo, ptf_ip, topo_name, no_default_route=False, action="announce
         if router_type:
             if enable_ipv4_routes_generation:
                 routes_v4, _ = generate_routes("v4", podset_number, tor_number, tor_subnet_number,
-                                               None, leaf_asn_start, tor_asn_start,
+                                               spine_asn, leaf_asn_start, tor_asn_start,
                                                nhipv4, nhipv6, tor_subnet_size, max_tor_subnet_number, "t1",
                                                router_type=router_type, tor_index=tor_index,
                                                no_default_route=curr_no_default_route,
@@ -764,7 +765,7 @@ def fib_t1_lag(topo, ptf_ip, topo_name, no_default_route=False, action="announce
                 routes_to_change[port] += routes_v4
             if enable_ipv6_routes_generation:
                 routes_v6, _ = generate_routes("v6", podset_number, tor_number, tor_subnet_number,
-                                               None, leaf_asn_start, tor_asn_start,
+                                               spine_asn, leaf_asn_start, tor_asn_start,
                                                nhipv4, nhipv6, tor_subnet_size, max_tor_subnet_number, "t1",
                                                router_type=router_type, tor_index=tor_index,
                                                no_default_route=curr_no_default_route,
