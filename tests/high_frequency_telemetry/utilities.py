@@ -871,35 +871,3 @@ class InfluxDbSink:
                 return current
             time.sleep(poll_interval)
         raise AssertionError(f"HFT counter values did not increase: {current}")
-
-    def assert_values_stable(self, expected_series, duration=5, settle_time=3):
-        time.sleep(settle_time)
-        before_values = self.latest(expected_series)
-        before_counts = self.counts(expected_series)
-        time.sleep(duration)
-        after_values = self.latest(expected_series)
-        after_counts = self.counts(expected_series)
-        expected = self._expected_map(expected_series)
-        value_changes = {
-            key: (
-                before_values.get(key, {}).get("value"),
-                after_values.get(key, {}).get("value"),
-            )
-            for key in expected
-            if before_values.get(key, {}).get("value")
-            != after_values.get(key, {}).get("value")
-        }
-        stalled = [
-            key for key in expected
-            if int(after_counts.get(key, {}).get("value") or 0)
-            <= int(before_counts.get(key, {}).get("value") or 0)
-        ]
-        pytest_assert(
-            not value_changes,
-            f"Counters changed while the port was down: {value_changes}",
-        )
-        pytest_assert(
-            not stalled,
-            f"Telemetry stopped while the port was down: {stalled}",
-        )
-        return after_values

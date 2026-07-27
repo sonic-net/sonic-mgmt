@@ -333,14 +333,14 @@ def test_hft_port_shutdown_stream(
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     _require_port_counter(duthost)
     profile_name = "port_shutdown_profile"
-    test_port = get_available_ports(
+    candidate_ports = get_available_ports(
         duthost, tbinfo, desired_ports=None, min_ports=1
     )
     down_ports = set(
-        duthost.interface_facts(up_ports=test_port)["ansible_facts"]
+        duthost.interface_facts(up_ports=candidate_ports)["ansible_facts"]
         ["ansible_interface_link_down_ports"]
     )
-    oper_up_ports = [port for port in test_port if port not in down_ports]
+    oper_up_ports = [port for port in candidate_ports if port not in down_ports]
     if not oper_up_ports:
         pytest.skip("No operationally up, PTF-mapped port is available")
     test_port = oper_up_ports[0]
