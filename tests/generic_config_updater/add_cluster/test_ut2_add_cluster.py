@@ -1487,7 +1487,6 @@ def test_ut2_remove_and_readd_cluster_peer(
 
             # MACsec Teardown validation
             if macsec_ctx:
-                is_kvm = "x86_64-kvm_x86_64" in get_platform(duthost)
                 max_wait = 120
                 macsec_down = wait_until(
                     max_wait, 5, 0, verify_dut_macsec_oper_state,
@@ -1505,12 +1504,6 @@ def test_ut2_remove_and_readd_cluster_peer(
                     if ports_down:
                         logger.warning(
                             "MACsec oper-state lingered after %ss on %s; treating admin_status=down as success",
-                            max_wait, macsec_ctx["ports"],
-                        )
-                    elif is_kvm:
-                        logger.warning(
-                            "Virtual SONiC: MACsec oper-state still reported up after %ss on %s; "
-                            "accepting due to VM MACsec teardown latency",
                             max_wait, macsec_ctx["ports"],
                         )
                     else:
@@ -1629,7 +1622,6 @@ def test_ut2_remove_and_readd_cluster_peer(
                     logger.warning("Failed to revert MTU prior to save on %s: %s", adjusted_interfaces, e)
 
             duthost.shell("config save -y")
-            config_reload(duthost, config_source="config_db", safe_reload=True)
     finally:
         # Revert interface MTUs to default (9100)
         if adjusted_interfaces:
@@ -1639,7 +1631,12 @@ def test_ut2_remove_and_readd_cluster_peer(
                     duthost.shell(f"config interface mtu {interface} 9100")
             except Exception as e:
                 logger.warning("Failed to revert MTU on interfaces %s: %s", adjusted_interfaces, e)
-        if la_entry:
-            logger.info("Re-enabling loganalyzer after cluster peer remove/add/reload flow.")
-            la_entry.add_end_ignore_mark()
+        try:
+            # Reload the last persisted configuration even when a validation fails
+            # after the peer has been removed.
+            config_reload(duthost, config_source="config_db", safe_reload=True)
+        finally:
+            if la_entry:
+                logger.info("Re-enabling loganalyzer after cluster peer remove/add/reload flow.")
+                la_entry.add_end_ignore_mark()
 
