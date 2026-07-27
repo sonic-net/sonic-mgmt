@@ -1547,14 +1547,19 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         # Real PFC storm - the fake DEBUG_STORM cannot exercise the egress-ACL contention.
         self.fake_storm = False
 
+        # Crash detection relies on a new /var/core file; if cores aren't piped to a handler we
+        # can't detect a crash, so skip rather than risk a false pass.
+        pytest_require(duthost.shell("cat /proc/sys/kernel/core_pattern",
+                                     module_ignore_errors=True)["stdout"].strip().startswith("|"),
+                       "core dumps not piped/enabled - cannot reliably detect an orchagent crash")
         pytest_require(has_neighbor_device(setup_pfc_test),
                        "No neighbors detected ('rx_port' is None) - required for PFC storm setup")
         pytest_require(self.ports, "No pfcwd test ports selected")
 
         port = list(self.ports)[0]
-        queue = 4
         # init builds the real-storm (PFCStorm) handle.
         self.setup_test_params(port, setup_info['vlan'], init=(not self.fake_storm), ip_version=ip_version)
+        queue = self.pfc_wd['queue_index']
         fill_tables = []
         try:
             # Add egress L3 ACL tables until one fails to go Active (banks full) - that per-table
@@ -1565,7 +1570,11 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             fill_safety_cap = 256
             for idx in range(fill_safety_cap):
                 table = "PFCWD_ACL_FILL_{}".format(idx)
-                duthost.shell("config acl add table {} L3 -s egress -p {}".format(table, port))
+                res = duthost.shell("config acl add table {} L3 -s egress -p {}".format(table, port),
+                                    module_ignore_errors=True)
+                pytest_require(res["rc"] == 0,
+                               "egress ACL table create not supported here ({}): {}".format(
+                                   duthost.facts.get("asic_type"), (res["stderr"] or res["stdout"]).strip()))
                 fill_tables.append(table)
                 if not wait_until(45, 5, 0, is_acl_table_active, duthost, table):
                     exhausted = True
