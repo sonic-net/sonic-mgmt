@@ -407,6 +407,11 @@ def start_influxdb(ptfhost, port=8181, timeout=30,
         binary.get("rc") == 0,
         "influxdb3 is not installed on the PTF host",
     )
+    socket_tool = ptfhost.shell("command -v ss", module_ignore_errors=True)
+    pytest_assert(
+        socket_tool.get("rc") == 0,
+        "ss is not installed on the PTF host",
+    )
     listener = ptfhost.shell(
         f"ss -ltn | grep -q ':{int(port)} '", module_ignore_errors=True
     )
