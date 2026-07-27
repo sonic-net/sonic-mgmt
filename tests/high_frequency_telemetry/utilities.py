@@ -746,7 +746,15 @@ class InfluxDbSink:
         expected_measurements = {
             series.measurement for series in expected_series
         }
-        actual_measurements = self.measurements()
+        actual_measurements = set()
+        for measurement in self.measurements():
+            match = re.fullmatch(
+                r"sai_counter_type_(\d+)_stat_(\d+)", measurement
+            )
+            # countersyncd maps non-SAI IPFIX fields to SAI_OBJECT_TYPE_NULL.
+            if match and int(match.group(1)) == 0:
+                continue
+            actual_measurements.add(measurement)
         snapshot_latest = self.latest(expected_series)
         missing_latest = set(expected) - set(snapshot_latest)
         pytest_assert(

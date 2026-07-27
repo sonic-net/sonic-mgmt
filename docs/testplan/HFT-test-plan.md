@@ -114,8 +114,9 @@ data between phases and isolate phases with database watermarks.
 For counter coverage tests, the expected set is generated independently from
 the configured object and counter lists. Validation requires every expected
 `(SAI object type, SAI stat, object name)` series, nonnegative values, enough
-samples, no unexpected measurements, and source timestamp interval/CPS within
-the configured tolerance.
+samples, no unexpected non-null SAI counter measurements, and source timestamp
+interval/CPS within the configured tolerance. The `type 0/stat 0` measurement
+produced for non-SAI IPFIX metadata is excluded from counter coverage.
 
 ### Basic Functionality Tests
 
