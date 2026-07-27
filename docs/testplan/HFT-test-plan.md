@@ -105,7 +105,8 @@ Per-platform supported counters are defined in `tests/high_frequency_telemetry/c
 
 All HFT cases use the function-scoped `hft_influxdb` fixture. Before each
 invocation, including every parametrized poll interval, the fixture starts a
-test-owned in-memory InfluxDB process and verifies its database is empty. After
+test-owned in-memory InfluxDB process, reconnects the collector long enough to
+drain buffered metrics, then clears and verifies the database is empty. After
 the test removes its HFT configuration, the fixture stops the collector to
 prevent delayed writes, hard-deletes and recreates the database, verifies it is
 empty, and stops only the InfluxDB process it owns. Multi-phase cases retain
