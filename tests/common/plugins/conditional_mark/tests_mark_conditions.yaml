@@ -4073,9 +4073,9 @@ pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_actions:
 
 pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_config_fail_with_egress_acl:
    skip:
-     reason: "Egress-ACL/PFCWD bank contention is a hardware behavior; not supported on VS platform."
+     reason: "Egress-ACL/PFCWD bank contention is BRCM-DNX specific; test only applies to Broadcom DNX."
      conditions:
-        - "asic_type in ['vs']"
+        - "asic_subtype not in ['broadcom-dnx']"
 
 pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_no_traffic:
    skip:
