@@ -1,0 +1,90 @@
+name: Merge Queue Check
+on:
+  pull_request:
+    branches:
+      - merge-queue-test
+  merge_group:
+    branches:
+      - merge-queue-test
+
+jobs:
+  static-analysis:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 2
+
+      - name: Install pre-commit
+        run: sudo pip install pre-commit
+
+      - name: Run pre-commit
+        run: |
+          CHANGED_FILES=$(git diff --name-only HEAD^ HEAD)
+          FILTERED_FILES=$(echo "$CHANGED_FILES" | grep -v '^tests/common2')
+          if [ -n "$FILTERED_FILES" ]; then
+            pre-commit run --color never --files $FILTERED_FILES
+          else
+            echo "No files outside tests/common2 to check."
+          fi
+
+  validate-test-cases:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Login to Azure Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: sonicdev-microsoft.azurecr.io
+          username: ${{ secrets.SONICDEV_ACR_USERNAME }}
+          password: ${{ secrets.SONICDEV_ACR_PASSWORD }}
+
+      - name: Run pytest --collect-only
+        run: |
+          docker pull sonicdev-microsoft.azurecr.io:443/docker-sonic-mgmt:latest
+          docker run --rm \
+            -v ${{ github.workspace }}:/var/src/sonic-mgmt \
+            sonicdev-microsoft.azurecr.io:443/docker-sonic-mgmt:latest \
+            python3 -m pytest /var/src/sonic-mgmt/tests \
+              --inventory /var/src/sonic-mgmt/ansible/veos_vtb \
+              --host-pattern all \
+              --testbed_file /var/src/sonic-mgmt/vtestbed.yaml \
+              --testbed vms-kvm-t0 \
+              --ignore saitests --ignore ptftests --ignore acstests \
+              --ignore scripts --ignore k8s --ignore sai_qualify --ignore common \
+              --ignore-conditional-mark \
+              --color=no --collect-only --continue-on-collection-errors
+
+  dependency-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install dependencies
+        run: pip3 install natsort
+
+      - name: Run dependency check
+        run: python3 ./.azure-pipelines/dependency_check/dependency_check.py tests
+
+  markers-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install dependencies
+        run: pip3 install natsort
+
+      - name: Run markers check
+        run: python3 ./.azure-pipelines/markers_check/markers_check.py tests
+
+  meta-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install dependencies
+        run: pip3 install ipaddr natsort
+
+      - name: Run meta check
+        run: python3 ./ansible/scripts/meta/meta_validator.py -r errors -c .azure-pipelines/meta_validator.yml
