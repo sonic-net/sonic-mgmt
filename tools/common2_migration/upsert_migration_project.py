@@ -119,7 +119,8 @@ def graphql(token: str, query: str, variables: dict) -> dict:
     max_retries = 3
     for attempt in range(max_retries + 1):
         try:
-            with urllib.request.urlopen(
+            opener = urllib.request.build_opener()
+            with opener.open(
                 urllib.request.Request(
                     "https://api.github.com/graphql",
                     data=body,
