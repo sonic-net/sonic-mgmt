@@ -1141,6 +1141,20 @@ sonic_nokia_7215c1:
       ansible_hostv6: 2404:f801:10:16::a96:ee82
       model: 3HE22118AARA01
       serial: UN260500028
+      base_mac: 10:8A:7B:BF:74:FC
+      syseeprom_info:
+        "0x21": "7215 IXS-C1"
+        "0x22": "3HE22118AARA01"
+        "0x23": "UN260500028"
+        "0x24": "10:8A:7B:BF:74:FC"
+        "0x25": "03/10/2026 10:10:30"
+        "0x27": "DEMO UNIT"
+        "0x28": "arm64-nokia_ixs7215_c1xa-r0"
+        "0x29": "2023.02-56-g6901d77e.10"
+        "0x2A": "256"
+        "0x2D": "NOKIA"
+        "0x2F": "CSxxx00xxx"
+        "0xFE": "0x5E0B738F"
     bjw3-can-7215c1-5:
       os: sonic
       ansible_host: 10.150.238.131
