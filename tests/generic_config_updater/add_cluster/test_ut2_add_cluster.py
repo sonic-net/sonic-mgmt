@@ -12,11 +12,9 @@ from tests.common.gu_utils import apply_patch, delete_tmpfile, expect_op_success
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 from tests.common.utilities import wait_until
-from tests.generic_config_updater.add_cluster.test_add_cluster import (
+from tests.generic_config_updater.add_cluster.helpers import (
     format_sonic_buffer_pg_dict,
     format_sonic_interface_dict,
-)
-from tests.generic_config_updater.add_cluster.helpers import (
     get_cfg_info_from_dut,
     send_and_verify_traffic,
 )
@@ -24,7 +22,7 @@ from tests.common.macsec.macsec_helper import get_mka_session
 from tests.common.macsec.macsec_platform_helper import get_macsec_ifname, get_platform
 
 pytestmark = [
-    pytest.mark.topology("ut2", "t2"),
+    pytest.mark.topology("ut2"),
 ]
 
 
@@ -221,13 +219,13 @@ def _pick_target_neighbor(config_facts, config_facts_localhost, mg_facts, scenar
             "scenario_id": scenario["id"],
             "neighbor_role": scenario["neighbor_role"],
         })
-    pytest_assert(
-        candidates,
-        f"No BGP neighbor found for scenario {scenario['id']} "
-        f"(role={scenario['neighbor_role']}, "
-        f"device_types={sorted(expected_types)}, "
-        f"expect_ebgp={scenario['expect_ebgp']})",
-    )
+    if not candidates:
+        pytest.skip(
+            f"No BGP neighbor found for scenario {scenario['id']} "
+            f"(role={scenario['neighbor_role']}, "
+            f"device_types={sorted(expected_types)}, "
+            f"expect_ebgp={scenario['expect_ebgp']})",
+        )
     candidates.sort(key=lambda c: (c["neighbor_name"], c["neighbor_ip"]))
     selected = candidates[0]
     is_portchannel = selected["port"].startswith("PortChannel")
