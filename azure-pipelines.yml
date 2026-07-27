@@ -26,7 +26,10 @@ pr:
        - SECURITY.md
        - sdn_tests/**
        - '**/*.md'
-trigger: none
+trigger:
+  branches:
+    include:
+      - gh-readonly-queue/*
 
 name: $(TeamProject)_$(Build.DefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
 
@@ -156,14 +159,12 @@ stages:
 
 - stage: Test
   dependsOn: Pre_test
-  condition: and(succeeded(), not(canceled()), in(dependencies.Pre_test.result, 'Succeeded'))
+  condition: and(succeeded(), not(canceled()), in(dependencies.Pre_test.result, 'Succeeded'), not(startsWith(variables['Build.SourceBranch'], 'refs/heads/gh-readonly-queue/')))
   variables:
   - group: SONiC-Elastictest
   - name: BUILD_BRANCH
     ${{ if eq(variables['Build.Reason'], 'PullRequest') }}:
       value: $(System.PullRequest.TargetBranch)
-    ${{ elseif startsWith(variables['Build.SourceBranch'], 'refs/heads/gh-readonly-queue/') }}:
-      value: ${{ split(variables['Build.SourceBranch'], '/')[3] }}
     ${{ else }}:
       value: $(Build.SourceBranchName)
 
