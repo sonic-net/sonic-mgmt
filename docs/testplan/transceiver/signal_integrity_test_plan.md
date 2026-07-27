@@ -1,8 +1,8 @@
-# Signal Integrity Margin and Fault Injection Test Plan
+# Signal Integrity Test Plan
 
 ## Overview
 
-The Signal Integrity Margin and Fault Injection Test Plan defines the strategy for validating optical-link margin and fault response using transceivers onboarded to SONiC. It covers extended-duration soak testing for long-term link stability, optical margin characterization (receiver sensitivity and crosstalk), SI fault injection at CMIS test points (TP0–TP5), and ZR coherent-optics validation (neighboring-channel isolation and OSNR tolerance).
+The Signal Integrity Test Plan defines the strategy for validating optical-link margin and fault response using transceivers onboarded to SONiC. It covers extended-duration soak testing for long-term link stability, optical margin characterization (receiver sensitivity and crosstalk), SI fault injection at CMIS test points (TP0–TP5), and ZR coherent-optics validation (neighboring-channel isolation and OSNR tolerance).
 
 ## Relationship to System Test Plan
 
