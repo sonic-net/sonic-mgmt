@@ -5,10 +5,9 @@ import time
 import netaddr
 import logging
 
-from tests.common.dhcp_relay_utils import restart_dhcp_service
+from tests.common.dhcp_relay_utils import restart_dhcp_service, wait_dhcp_relay_ready
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa F401
-from tests.common.fixtures.split_vlan import setup_multiple_vlans_and_teardown  # noqa F401
 from tests.ptf_runner import ptf_runner
 from tests.common import config_reload
 from tests.common.platform.processes_utils import wait_critical_processes
@@ -246,7 +245,7 @@ def ensure_client_reachability(duthost, vlan_name):
     logger.info(f"Ensuring client reachability on VLAN {vlan_name}")
 
     # Send multicast ping to discover all link-local addresses on the segment
-    duthost.shell(f"ping6 -I {vlan_name} -c 3 ff02::1", module_ignore_errors=True)
+    duthost.shell("ping6 -I {} -c 3 ff02::1".format(vlan_name), module_ignore_errors=True)
 
     # Wait a moment for ND table to be populated
     time.sleep(2)
@@ -277,6 +276,7 @@ def test_interface_binding(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data,
         config_reload(duthost)
         wait_critical_processes(duthost)
         pytest_assert(wait_until(120, 5, 0, check_interface_status, duthost))
+        wait_dhcp_relay_ready(duthost, ['v6'])
 
     # Cmds to delete LLA for all Vlans
     delete_cmds = ["ip -6 address del {} dev {}"
@@ -306,7 +306,7 @@ def test_interface_binding(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data,
 
     try:
         duthost.shell_cmds(cmds=delete_cmds)
-        restart_dhcp_service(duthost)
+        restart_dhcp_service(duthost, ['v6'])
         time.sleep(10)
 
         output = duthost.shell("docker exec -t dhcp_relay ss -nlp | grep dhcp6relay")["stdout"]
@@ -548,27 +548,30 @@ class TestDhcpv6RelayWithMultipleVlan:
     def restart_dhcp_relay_after_test(self, duthost):
 
         yield
-        restart_dhcp_service(duthost)
+        restart_dhcp_service(duthost, ['v6'])
 
-    @pytest.mark.parametrize("setup_multiple_vlans_and_teardown", [3], indirect=True)
     def test_dhcp_relay_default(self, ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
                                                 toggle_all_simulator_ports_to_rand_selected_tor_m, # noqa F811
                                                 setup_active_active_as_active_standby,             # noqa F811
-                                                setup_multiple_vlans_and_teardown):                # noqa F811
+                                                parametrize_vlan_config_from_topo):                # noqa F811
         '''
             Test DHCP relay should set correct link address when relay packet to DHCP server
         '''
-        vlans_info = setup_multiple_vlans_and_teardown
+        vlans_info = parametrize_vlan_config_from_topo
         _, duthost = testing_config
         # Please note: relay interface always means vlan interface
         pytest_assert(len(dut_dhcp_relay_data) > 0, "No VLAN data")
         common_dhcp_relay_data = dut_dhcp_relay_data[0]
 
-        restart_dhcp_service(duthost)  # restart dhcp_relay to make new vlans config take into effect
+        restart_dhcp_service(duthost, ['v6'])  # restart dhcp_relay to make new vlans config take into effect
         for vlan_info in vlans_info:
             vlan_name = vlan_info['vlan_name']
+            members_with_ptf_idx = vlan_info['members_with_ptf_idx']
+            if not members_with_ptf_idx:
+                logger.info("Vlan %s has no PTF-mapped members (PortChannel-only); skipping", vlan_name)
+                continue
             exp_link_addr = vlan_info['interface_ipv6'].split('/')[0]
-            _, ptf_port_index = random.choice(vlan_info['members_with_ptf_idx'])
+            _, ptf_port_index = random.choice(members_with_ptf_idx)
             logger.info("Randomly selected PTF port index: {}".format(ptf_port_index))
             ensure_client_reachability(duthost, vlan_name)
             command = "ip addr show {} | grep inet6 | grep 'scope link' | awk '{{print $2}}' | cut -d '/' -f1" \
