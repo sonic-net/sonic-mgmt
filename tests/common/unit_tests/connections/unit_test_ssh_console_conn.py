@@ -18,8 +18,10 @@ The critical property is ``BOOTLOADER_BANNER_RE``:
 Follows the repo unit-test convention (unit_test_*.py, run with --noconftest).
 """
 
+import collections
 import os
 import sys
+from unittest import mock
 
 import pytest
 
@@ -34,7 +36,7 @@ _REPO_ROOT = os.path.dirname(
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
-from tests.common.connections.ssh_console_conn import BOOTLOADER_BANNER_RE  # noqa: E402
+from tests.common.connections.ssh_console_conn import BOOTLOADER_BANNER_RE, SSHConsoleConn  # noqa: E402
 
 
 # Real bootloader / boot-in-progress banners -- Ctrl-C MUST be suppressed here.
@@ -96,3 +98,95 @@ def test_bootloader_banner_ignores_ordinary_shell_output(text):
         f"unexpected bootloader match for {text!r} -- a false positive here makes "
         f"_recover_to_login_prompt skip the Ctrl-C + exit recovery on a leftover shell"
     )
+
+
+# ---------------------------------------------------------------------------
+# Behavioral tests: prove no key is written to the channel once a bootloader
+# banner is seen, and that the silent-console path only ever nudges with a bare
+# CR (never Ctrl-C). These mock the serial channel so they assert on the actual
+# bytes written, not just the classifier regex.
+# ---------------------------------------------------------------------------
+
+CTRL_C = "\x03"
+RETURN = "\r"
+
+
+def _make_console(read_chunks):
+    """Build an SSHConsoleConn with a mocked serial channel.
+
+    ``__new__`` bypasses the network-connecting __init__; we attach just the
+    attributes/methods ``_recover_to_login_prompt`` / ``session_preparation``
+    touch. ``read_channel`` yields ``read_chunks`` in order, then "" forever.
+    """
+    conn = SSHConsoleConn.__new__(SSHConsoleConn)
+    conn.RETURN = RETURN
+    conn.logger = mock.MagicMock()
+    conn.select_delay_factor = mock.MagicMock(return_value=1)
+    conn.clear_buffer = mock.MagicMock()
+    conn.write_channel = mock.MagicMock()
+    queue = collections.deque(read_chunks)
+    conn.read_channel = mock.MagicMock(side_effect=lambda: queue.popleft() if queue else "")
+    return conn
+
+
+def _written(conn):
+    """All positional payloads passed to write_channel."""
+    return [c.args[0] for c in conn.write_channel.call_args_list if c.args]
+
+
+@pytest.mark.parametrize("banner", [
+    "Press Control-C now to enter Aboot shell\n",
+    "Hit any key to stop autoboot:  3\n",
+    "GNU GRUB  version 2.06\n",
+    "ONIE: Starting ONIE Service Discovery\n",
+])
+def test_recover_writes_no_key_when_bootloader_detected(banner):
+    """No byte (CR or Ctrl-C) may be written once a bootloader banner is seen."""
+    conn = _make_console([banner])
+    with mock.patch("tests.common.connections.ssh_console_conn.time.sleep"):
+        result = SSHConsoleConn._recover_to_login_prompt(conn, max_attempts=4, delay_factor=1)
+    assert result is True, "bootloader/boot stage must be reported to the caller"
+    assert _written(conn) == [], (
+        f"no key must be written after a bootloader banner, but got {_written(conn)!r} "
+        f"-- any keypress (including CR) can abort a 'hit any key' autoboot window"
+    )
+
+
+def test_recover_silent_console_nudges_with_cr_only():
+    """A silent console is nudged with a bare CR, never Ctrl-C."""
+    conn = _make_console([])  # channel stays silent forever
+    with mock.patch("tests.common.connections.ssh_console_conn.time.sleep"):
+        result = SSHConsoleConn._recover_to_login_prompt(conn, max_attempts=2, delay_factor=1)
+    written = _written(conn)
+    assert result is False
+    assert CTRL_C not in written, "Ctrl-C must never be sent to a silent/booting console"
+    assert written and all(k == RETURN for k in written), (
+        f"silent console must only be nudged with a bare CR, got {written!r}"
+    )
+
+
+def test_recover_sends_ctrl_c_only_on_leftover_shell():
+    """A positively identified leftover shell still gets Ctrl-C + exit recovery."""
+    conn = _make_console(["admin@sonic-dut:~$ \n", "", "", "", "sonic login: \n"])
+    with mock.patch("tests.common.connections.ssh_console_conn.time.sleep"):
+        SSHConsoleConn._recover_to_login_prompt(conn, max_attempts=2, delay_factor=1)
+    written = _written(conn)
+    assert CTRL_C in written, "leftover shell recovery must still send Ctrl-C"
+    assert any(w.startswith("exit") for w in written), "recovery must send 'exit'"
+
+
+def test_session_preparation_defers_login_in_bootloader():
+    """session_preparation must skip login_stage_2 when a bootloader is detected."""
+    conn = SSHConsoleConn.__new__(SSHConsoleConn)
+    conn.logger = mock.MagicMock()
+    conn.console_type = "ssh"  # not a "*config" menu type
+    conn.menu_port = None
+    conn._test_channel_read = mock.MagicMock(return_value="")
+    conn._recover_to_login_prompt = mock.MagicMock(return_value=True)
+    conn.login_stage_2 = mock.MagicMock()
+    conn.session_preparation_finalise = mock.MagicMock()
+
+    SSHConsoleConn.session_preparation(conn)
+
+    conn.login_stage_2.assert_not_called()
+    conn.session_preparation_finalise.assert_called_once()

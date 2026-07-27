@@ -92,7 +92,16 @@ class SSHConsoleConn(BaseConsoleConn):
                                menu_port=self.menu_port,
                                pri_prompt_terminator=r".*login")
         # Exit any leftover shell from a previous test so we start at a clean login prompt.
-        self._recover_to_login_prompt()
+        # If the DUT is in a bootloader / boot stage, defer interactive login entirely:
+        # login_stage_2() sends periodic CRs while waiting for the username prompt, and on
+        # a "hit any key to stop autoboot" window (e.g. U-Boot) those CRs would abort
+        # autoboot and trap the DUT. Finalise the session without attempting login.
+        if self._recover_to_login_prompt():
+            self.logger.warning(
+                "DUT is in a bootloader/boot stage; deferring interactive login to "
+                "avoid interrupting autoboot")
+            self.session_preparation_finalise()
+            return
         # Attempt all sonic password. A wrong password must not prevent a
         # subsequent correct password in the list from succeeding, so we
         # re-synchronise the terminal back to a fresh "login:" prompt between
@@ -146,6 +155,13 @@ class SSHConsoleConn(BaseConsoleConn):
         a bootloader / boot stage (Arista Aboot, GRUB, U-Boot, ONIE) this method
         sends nothing and returns, because a Ctrl-C during the bootloader's
         autoboot window would trap the DUT in the bootloader and abort autoboot.
+
+        Returns:
+            bool: ``True`` if the console was found in a bootloader / boot stage
+            (interactive login must be deferred so the caller does not send any
+            keys -- even a bare CR aborts a "hit any key" autoboot window such as
+            U-Boot's). ``False`` otherwise (login prompt, recovered shell, or an
+            indeterminate state), in which case the normal login flow may proceed.
         """
         shell_prompt_patterns = (
             r'admin@.*:.*[\$#]',
@@ -176,19 +192,22 @@ class SSHConsoleConn(BaseConsoleConn):
                         output += self.read_channel()
             except Exception as e:
                 self.logger.warning(f"Error probing console state: {e}")
-                return
+                return False
             # Never send Ctrl-C / keys while the DUT is in a bootloader or boot
             # stage: on Arista Aboot the "Press Control-C now to enter Aboot shell"
             # window would trap the DUT at the Aboot# shell and abort autoboot so
-            # SONiC never boots (the same applies to GRUB / U-Boot / ONIE).
+            # SONiC never boots (the same applies to GRUB / U-Boot / ONIE). Signal
+            # the bootloader state to the caller so it also defers interactive
+            # login (login_stage_2 sends periodic CRs that would abort a "hit any
+            # key to stop autoboot" window such as U-Boot's).
             if BOOTLOADER_BANNER_RE.search(output):
                 self.logger.warning(
                     "Console is in a bootloader/boot stage; skipping login-prompt "
                     "recovery to avoid trapping autoboot")
-                return
+                return True
             # Already at a login prompt -> nothing to recover.
             if re.search(r"login:\s*$", output, flags=re.I | re.M):
-                return
+                return False
             # Logged-in shell left over from a previous session -> abort any pending
             # command with Ctrl-C, then log out to return to a clean login prompt.
             if any(re.search(p, output) for p in shell_prompt_patterns):
@@ -202,11 +221,12 @@ class SSHConsoleConn(BaseConsoleConn):
                     time.sleep(1 * delay_factor)
                 except Exception as e:
                     self.logger.warning(f"Error sending exit during recovery: {e}")
-                    return
+                    return False
                 continue
             # Unknown / transient state: try once more.
         # Best effort: clear whatever is pending so the login starts clean.
         self.clear_buffer()
+        return False
 
     def _resync_to_login_prompt(self, max_loops=20, delay_factor=1):
         """
