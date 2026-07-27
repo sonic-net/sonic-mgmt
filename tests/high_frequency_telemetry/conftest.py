@@ -1,64 +1,155 @@
 import pytest
 import logging
+import os
 import time
 from datetime import datetime, timezone
-from tests.common.utilities import wait_until
+from tests.high_frequency_telemetry.utilities import (
+    InfluxDbSink,
+    cleanup_hft_config,
+    enable_otel_collector,
+    ensure_countersyncd_daemon,
+    install_otel_collector_config,
+    render_otel_collector_config,
+    restart_otel_collector,
+    setup_influxdb,
+    start_influxdb,
+    stop_influxdb,
+    stop_otel_collector,
+)
 
 logger = logging.getLogger(__name__)
 
 OTEL_CONFIG_PATH = "/etc/sonic/otel_config.yml"
+INFLUXDB_PORT = 8181
+INFLUXDB_BUCKET = "hft_test"
+TEST_HFT_PROFILES = (
+    "port_profile",
+    "queue_profile",
+    "ingress_pg_profile",
+    "buffer_pool_profile",
+    "full_hft_profile",
+    "full_port_counter_profile",
+    "state_transition_profile",
+    "config_deletion_profile",
+    "port_shutdown_profile",
+    "e2e_port_profile",
+    "poll_interval_profile_1000",
+    "poll_interval_profile_10000",
+    "poll_interval_profile_100000",
+    "poll_interval_profile_1000000",
+    "poll_interval_profile_10000000",
+)
 
 
-@pytest.fixture(scope="module")
-def suppress_otel_debug_logging(duthosts, enum_rand_one_per_hwsku_hostname):
-    """Suppress verbose OTEL debug exporter logging to prevent /var/log disk exhaustion.
-
-    The default OTEL collector config uses a debug exporter with 'verbosity: detailed',
-    which dumps every metric (~14 lines each) to otel.log. During HFT tests with thousands
-    of counters at 10ms polling, this generates ~40 million log lines in minutes and fills
-    /var/log, causing rsyslog to drop messages (including LogAnalyzer markers).
-
-    This fixture changes the verbosity to 'basic' (one summary line per batch) before
-    HFT tests run, and restores the original config afterward.
-    """
+@pytest.fixture(scope="function")
+def hft_otel_collector(duthosts, enum_rand_one_per_hwsku_hostname, tbinfo):
+    """Point OTEL at the test InfluxDB endpoint and restore its original state."""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-
-    # Check if otel container is running
-    if not duthost.is_container_running("otel"):
-        logger.info("OTEL container is not running, skipping debug logging suppression")
-        yield
-        return
-
-    # Read the current otel config
-    result = duthost.shell(f'cat {OTEL_CONFIG_PATH}', module_ignore_errors=True)
-    if result['rc'] != 0:
-        logger.warning(f"Failed to read {OTEL_CONFIG_PATH}, skipping debug logging suppression")
-        yield
-        return
-
-    original_config = result['stdout']
-
-    if 'verbosity: detailed' not in original_config:
-        logger.info("OTEL config does not have 'verbosity: detailed', no change needed")
-        yield
-        return
-
-    # Change verbosity from detailed to basic
-    logger.info("Changing OTEL debug exporter verbosity from 'detailed' to 'basic'")
-    duthost.shell(
-        f"sed -i 's/verbosity: detailed/verbosity: basic/' {OTEL_CONFIG_PATH}",
-        module_ignore_errors=False
+    config_result = duthost.shell(
+        f"cat {OTEL_CONFIG_PATH}", module_ignore_errors=True
     )
-    duthost.shell('docker restart otel', module_ignore_errors=True)
-    wait_until(60, 2, 0, duthost.is_service_fully_started, "otel")
+    config_existed = config_result.get("rc") == 0
+    original_config = config_result.get("stdout", "")
+    feature_lines = duthost.shell(
+        "redis-cli -n 4 --raw HGETALL 'FEATURE|otel'",
+        module_ignore_errors=True,
+    ).get("stdout_lines", [])
+    original_feature = dict(zip(feature_lines[0::2], feature_lines[1::2]))
+    feature_existed = bool(original_feature)
+    original_state = original_feature.get("state", "disabled")
 
-    yield
+    try:
+        if original_state != "enabled" or not duthost.is_container_running("otel"):
+            enable_otel_collector(duthost)
+        template_path = os.path.join(
+            os.path.dirname(__file__), "otel_collector_influxdb.yaml.j2"
+        )
+        rendered_config = render_otel_collector_config(
+            template_path,
+            ptf_ip=str(tbinfo["ptf_ip"]).split("/", 1)[0],
+            influxdb_port=INFLUXDB_PORT,
+            influxdb_bucket=INFLUXDB_BUCKET,
+        )
+        install_otel_collector_config(duthost, rendered_config)
+        ensure_countersyncd_daemon(duthost)
+        yield
+    finally:
+        if config_existed:
+            duthost.copy(content=original_config, dest=OTEL_CONFIG_PATH)
+        else:
+            duthost.shell(
+                f"rm -f {OTEL_CONFIG_PATH}", module_ignore_errors=True
+            )
 
-    # Restore original config
-    logger.info("Restoring original OTEL collector config")
-    duthost.copy(content=original_config, dest=OTEL_CONFIG_PATH)
-    duthost.shell('docker restart otel', module_ignore_errors=True)
-    wait_until(60, 2, 0, duthost.is_service_fully_started, "otel")
+        if feature_existed and original_state != "enabled":
+            duthost.shell(
+                f"sudo config feature state otel {original_state}",
+                module_ignore_errors=True,
+            )
+        elif not feature_existed:
+            duthost.shell(
+                "sudo config feature state otel disabled",
+                module_ignore_errors=True,
+            )
+
+        if feature_existed:
+            current_lines = duthost.shell(
+                "redis-cli -n 4 --raw HKEYS 'FEATURE|otel'",
+                module_ignore_errors=True,
+            ).get("stdout_lines", [])
+            extra_fields = set(current_lines) - set(original_feature)
+            if extra_fields:
+                fields = " ".join(f"'{field}'" for field in extra_fields)
+                duthost.shell(
+                    f"redis-cli -n 4 HDEL 'FEATURE|otel' {fields}",
+                    module_ignore_errors=False,
+                )
+            field_values = " ".join(
+                f"'{field}' '{value}'"
+                for field, value in original_feature.items()
+            )
+            duthost.shell(
+                f"redis-cli -n 4 HSET 'FEATURE|otel' {field_values}",
+                module_ignore_errors=False,
+            )
+            if original_state == "enabled":
+                restart_otel_collector(duthost)
+        else:
+            duthost.shell(
+                "sonic-db-cli CONFIG_DB del 'FEATURE|otel'",
+                module_ignore_errors=True,
+            )
+
+
+@pytest.fixture(scope="function")
+def hft_influxdb(ptfhost, disable_flex_counters, hft_otel_collector,
+                 duthosts, enum_rand_one_per_hwsku_hostname):
+    """Provide a fresh in-memory InfluxDB instance for every test invocation."""
+    sink = InfluxDbSink(ptfhost, bucket=INFLUXDB_BUCKET, port=INFLUXDB_PORT)
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    pid = None
+    try:
+        ensure_countersyncd_daemon(duthost)
+        stop_otel_collector(duthost)
+        pid = start_influxdb(ptfhost, port=INFLUXDB_PORT)
+        setup_influxdb(
+            ptfhost, port=INFLUXDB_PORT, bucket=INFLUXDB_BUCKET
+        )
+        sink.clear()
+        restart_otel_collector(duthost)
+
+        yield sink
+    finally:
+        # HFT test bodies remove their profile before fixture teardown. Stop the
+        # collector process after its graceful flush so no delayed batch can
+        # repopulate the database while it is being cleared.
+        if pid is not None:
+            try:
+                stop_otel_collector(duthost)
+                sink.clear()
+            finally:
+                stop_influxdb(ptfhost, pid)
+        ensure_countersyncd_daemon(duthost)
 
 
 @pytest.fixture(autouse=True)
@@ -186,85 +277,32 @@ def ensure_swss_ready(duthosts, enum_rand_one_per_hwsku_hostname):
 def cleanup_high_frequency_telemetry(
     duthosts, enum_rand_one_per_hwsku_hostname, ensure_swss_ready
 ):
-    """
-    Function-level fixture to clean up high frequency telemetry
-    data before each test.
-    This removes HIGH_FREQUENCY_TELEMETRY_PROFILE and
-    HIGH_FREQUENCY_TELEMETRY_GROUP
-    tables from CONFIG_DB (database 4) to ensure a clean state for testing.
-    Depends on ensure_swss_ready to make sure swss container is stable.
-    """
+    """Remove stale profiles owned by this test suite before each test."""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-
-    logger.info("Cleaning up high frequency telemetry data...")
-
-    # High frequency telemetry tables to clean from CONFIG_DB (database 4)
-    hft_tables = [
-        "HIGH_FREQUENCY_TELEMETRY_PROFILE",
-        "HIGH_FREQUENCY_TELEMETRY_GROUP"
-    ]
-
-    total_deleted = 0
-
-    for table in hft_tables:
-        try:
-            # Get all keys for this table using pattern matching
-            keys_result = duthost.shell(
-                f'redis-cli -n 4 keys "{table}|*"',
-                module_ignore_errors=True
-            )
-
-            if keys_result['rc'] == 0 and keys_result['stdout'].strip():
-                keys = [
-                    key.strip() for key in keys_result['stdout_lines']
-                    if key.strip()
-                ]
-
-                if keys:
-                    # Delete all keys for this table
-                    keys_str = ' '.join([f'"{key}"' for key in keys])
-                    delete_result = duthost.shell(
-                        f'redis-cli -n 4 del {keys_str}',
-                        module_ignore_errors=True
-                    )
-
-                    if delete_result['rc'] == 0:
-                        deleted_count = (
-                            int(delete_result['stdout'].strip())
-                            if delete_result['stdout'].strip().isdigit()
-                            else 0
-                        )
-                        total_deleted += deleted_count
-                        if deleted_count > 0:
-                            logger.info(
-                                f"Deleted {deleted_count} keys "
-                                f"from table '{table}'"
-                            )
-                    else:
-                        logger.warning(
-                            f"Failed to delete keys from table '{table}'"
-                        )
-                else:
-                    logger.debug(f"No keys found for table '{table}'")
-            else:
-                logger.debug(
-                    f"No keys found for table '{table}' or command failed"
-                )
-
-        except Exception as e:
-            logger.warning(f"Error cleaning up table '{table}': {e}")
-
-    logger.info(
-            f"High frequency telemetry cleanup completed. "
-            f"Total keys deleted: {total_deleted}"
-        )
+    profile_keys = duthost.shell(
+        'redis-cli -n 4 KEYS "HIGH_FREQUENCY_TELEMETRY_PROFILE|*"',
+        module_ignore_errors=False,
+    )["stdout_lines"]
+    group_keys = duthost.shell(
+        'redis-cli -n 4 KEYS "HIGH_FREQUENCY_TELEMETRY_GROUP|*"',
+        module_ignore_errors=False,
+    )["stdout_lines"]
+    existing_profiles = {
+        key.split("|", 1)[1] for key in profile_keys
+        if "|" in key
+    }
+    existing_profiles.update(
+        key.split("|", 2)[1] for key in group_keys
+        if key.count("|") >= 2
+    )
+    for profile_name in set(TEST_HFT_PROFILES) & existing_profiles:
+        cleanup_hft_config(duthost, profile_name)
 
 
 @pytest.fixture(scope="function")
 def disable_flex_counters(
     duthosts, enum_rand_one_per_hwsku_hostname,
-    cleanup_high_frequency_telemetry,
-    suppress_otel_debug_logging
+    cleanup_high_frequency_telemetry
 ):
     """
     Function-level fixture to disable all flex counters and restore
@@ -279,35 +317,44 @@ def disable_flex_counters(
         module_ignore_errors=False
     )['stdout_lines']
 
-    # Store original states
     original_states = {}
-    for key in flex_counter_keys:
-        if key.strip():  # Skip empty lines
+
+    def restore_states():
+        for table_name, status in original_states.items():
+            if status:
+                command = (
+                    f'redis-cli -n 4 HSET "{table_name}" '
+                    f'"FLEX_COUNTER_STATUS" "{status}"'
+                )
+            else:
+                command = (
+                    f'redis-cli -n 4 HDEL "{table_name}" '
+                    '"FLEX_COUNTER_STATUS"'
+                )
+            duthost.shell(command, module_ignore_errors=False)
+
+    try:
+        for key in flex_counter_keys:
+            if not key.strip():
+                continue
             table_name = key.strip()
             status = duthost.shell(
                 f'redis-cli -n 4 HGET "{table_name}" "FLEX_COUNTER_STATUS"',
                 module_ignore_errors=False
-            )['stdout'].strip()
+            )["stdout"].strip()
             original_states[table_name] = status
-
-            # Disable the flex counter
             duthost.shell(
                 f'redis-cli -n 4 HSET "{table_name}" '
-                f'"FLEX_COUNTER_STATUS" "disable"',
+                '"FLEX_COUNTER_STATUS" "disable"',
                 module_ignore_errors=False
             )
+        logger.info("Disabled %d flex counters", len(original_states))
+    except Exception:
+        restore_states()
+        raise
 
-    logger.info(f"Disabled {len(original_states)} flex counters")
-
-    yield
-
-    # Restore original states
-    for table_name, status in original_states.items():
-        if status:  # Only restore if there was an original status
-            duthost.shell(
-                f'redis-cli -n 4 HSET "{table_name}" '
-                f'"FLEX_COUNTER_STATUS" "{status}"',
-                module_ignore_errors=False
-            )
-
-    logger.info("Restored all flex counters to original states")
+    try:
+        yield
+    finally:
+        restore_states()
+        logger.info("Restored all flex counters to original states")
