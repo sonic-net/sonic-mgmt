@@ -137,10 +137,6 @@ def hft_influxdb(ptfhost, disable_flex_counters, hft_otel_collector,
         )
         sink.clear()
         restart_otel_collector(duthost)
-        # countersyncd can retain metrics while the collector is unavailable.
-        # Drain those reconnect writes before establishing the test boundary.
-        time.sleep(5)
-        sink.clear()
 
         yield sink
     finally:

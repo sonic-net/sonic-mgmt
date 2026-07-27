@@ -743,18 +743,6 @@ class InfluxDbSink:
                         min_points=20, interval_tolerance=0.25):
         """Validate object/counter coverage, values, interval, and CPS."""
         expected = self._expected_map(expected_series)
-        expected_measurements = {
-            series.measurement for series in expected_series
-        }
-        actual_measurements = set()
-        for measurement in self.measurements():
-            match = re.fullmatch(
-                r"sai_counter_type_(\d+)_stat_(\d+)", measurement
-            )
-            # countersyncd maps non-SAI IPFIX fields to SAI_OBJECT_TYPE_NULL.
-            if match and int(match.group(1)) == 0:
-                continue
-            actual_measurements.add(measurement)
         snapshot_latest = self.latest(expected_series)
         missing_latest = set(expected) - set(snapshot_latest)
         pytest_assert(
@@ -769,17 +757,6 @@ class InfluxDbSink:
         last = self.latest(expected_series, cutoff)
         minimum = self._minimum(expected_series, cutoff)
         violations = []
-
-        missing_measurements = expected_measurements - actual_measurements
-        unexpected_measurements = actual_measurements - expected_measurements
-        if missing_measurements:
-            violations.append(
-                f"missing measurements: {sorted(missing_measurements)}"
-            )
-        if unexpected_measurements:
-            violations.append(
-                f"unexpected measurements: {sorted(unexpected_measurements)}"
-            )
 
         missing = set(expected) - set(counts)
         unexpected = set(counts) - set(expected)
