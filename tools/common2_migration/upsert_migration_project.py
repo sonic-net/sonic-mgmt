@@ -118,9 +118,15 @@ def graphql(token: str, query: str, variables: dict) -> dict:
     }
     max_retries = 3
     for attempt in range(max_retries + 1):
-        req = urllib.request.Request(GITHUB_GRAPHQL_URL, data=body, headers=headers)
         try:
-            with urllib.request.urlopen(req, timeout=30) as resp:
+            with urllib.request.urlopen(
+                urllib.request.Request(
+                    "https://api.github.com/graphql",
+                    data=body,
+                    headers=headers,
+                ),
+                timeout=30,
+            ) as resp:
                 payload = json.loads(resp.read().decode("utf-8"))
         except urllib.error.HTTPError as exc:
             if exc.code in (429, 502, 503) and attempt < max_retries:
