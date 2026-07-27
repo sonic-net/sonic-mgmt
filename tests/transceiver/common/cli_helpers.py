@@ -366,19 +366,6 @@ def set_dom_polling(duthost, port, enable):
     return None
 
 
-def get_dom_polling(duthost, port):
-    """Return the CONFIG_DB ``dom_polling`` value for ``port``.
-
-    ``"disabled"`` when DOM polling is off; ``""`` or ``"enabled"`` when on
-    (default is on).  Returns ``None`` if the value could not be read.
-    """
-    cmd = f'sonic-db-cli CONFIG_DB HGET "PORT|{port}" dom_polling'
-    result = duthost.shell(cmd, module_ignore_errors=True)
-    if result.get("rc", RC_FAILURE) != 0:
-        return None
-    return (result.get("stdout") or "").strip()
-
-
 def show_interfaces_transceiver_info(duthost, port=None, namespace=None):
     """Run ``show interfaces transceiver info [-n <ns>] [<port>]`` → ``({port: {field: value}}, err)``."""
     cmd = show_interfaces_transceiver_info_cmd(port, namespace=namespace)

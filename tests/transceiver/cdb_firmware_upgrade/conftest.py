@@ -21,6 +21,7 @@ from tests.transceiver.cdb_firmware_upgrade.port_selection import (
     resolve_ports_under_test,
 )
 from tests.transceiver.common import cli_helpers
+from tests.transceiver.common.db_helpers import get_db_hash_field
 
 CMIS_CDB_FIRMWARE_BASE_PATH_ON_DUT = "/tmp/cmis_cdb_firmware"
 CMIS_CDB_FIRMWARE_PRESTAGED_PATH_ON_DUT = "/host/cmis_cdb_firmware"
@@ -68,13 +69,11 @@ def required_firmware_metadata_for_all_transceivers(
 
 @pytest.fixture(scope="module", autouse=True)
 def stage_latest_firmware_binaries_on_dut(
-    duthosts,
-    enum_rand_one_per_hwsku_frontend_hostname,
+    duthost,
     transceiver_firmware_info_parser,
     required_firmware_metadata_for_all_transceivers
 ):
     logger.info("Staging latest CMIS CDB firmware binaries on DUT")
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
     firmware_metadata = required_firmware_metadata_for_all_transceivers
     if not firmware_metadata:
@@ -126,8 +125,14 @@ def dom_polling_disabled(
     try:
         for port in qualifying_ports:
             cdb_attrs = port_attributes_dict[port].get(CDB_FIRMWARE_UPGRADE_ATTRIBUTES_KEY, {})
-            sleep_sec = max(sleep_sec, cdb_attrs.get("sleep_after_dom_disable_sec", 0))
-            if cli_helpers.get_dom_polling(duthost, port) == "disabled":
+            sleep_sec = max(sleep_sec, cdb_attrs.get("sleep_after_dom_disable_sec", 5))
+            namespace = duthost.get_namespace_from_asic_id(duthost.get_port_asic_instance(port).asic_index)
+            dom_polling, err = get_db_hash_field(
+                duthost, "CONFIG_DB", "PORT", port, "dom_polling", namespace=namespace
+            )
+            if err:
+                pytest.fail(f"Failed to read dom_polling for {port}: {err}")
+            if dom_polling == "disabled":
                 logger.debug("Port %s: DOM polling already disabled", port)
                 continue
             err = cli_helpers.set_dom_polling(duthost, port, enable=False)
@@ -149,8 +154,7 @@ def dom_polling_disabled(
 
 @pytest.fixture(scope="module", autouse=True)
 def firmware_files_cleanup(
-    duthosts,
-    enum_rand_one_per_hwsku_frontend_hostname
+    duthost
 ):
     """
     Module-scoped cleanup fixture that removes firmware files after all tests in the module complete.
@@ -160,7 +164,6 @@ def firmware_files_cleanup(
     # Cleanup code runs after all tests complete (success or failure)
     try:
         logger.info("Starting firmware files cleanup...")
-        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
         # Clean up downloaded firmware files
         cleanup_firmware_files(duthost, CMIS_CDB_FIRMWARE_BASE_PATH_ON_DUT)
