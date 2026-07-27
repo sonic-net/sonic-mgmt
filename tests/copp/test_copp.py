@@ -350,6 +350,10 @@ class TestCoppStats:
     autouse fixture below skips the class on any DUT that reports false.
     """
 
+    # Stats these tests parse from `show copp stats`; checked against the
+    # SAI-advertised set in COPP_POLICER_STATS_SUPPORTED when published.
+    REQUIRED_POLICER_STATS = {"SAI_POLICER_STAT_RED_PACKETS"}
+
     @pytest.fixture(autouse=True)
     def _skip_if_copp_policer_stats_unsupported(
             self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
@@ -367,6 +371,27 @@ class TestCoppStats:
                 "SWITCH_CAPABILITY|switch:COPP_POLICER_STATS_CAPABLE='{}'"
                 .format(val or '<unset>')
             )
+
+        # A capable SAI may still advertise only a subset of policer stats
+        # (published as a comma-joined list); these tests parse the Red Pkts
+        # column, which coppstat renders as N/A for unadvertised stats. Skip
+        # rather than fail on int('N/A'). An absent field means an older
+        # orchagent that publishes only the boolean — keep boolean-only
+        # gating there.
+        result = duthost.shell(
+            'redis-cli -n 6 HGET "SWITCH_CAPABILITY|switch" '
+            '"COPP_POLICER_STATS_SUPPORTED"',
+            module_ignore_errors=True,
+        )
+        supported_csv = (result.get('stdout') or '').strip()
+        if supported_csv:
+            missing = self.REQUIRED_POLICER_STATS - set(supported_csv.split(','))
+            if missing:
+                pytest.skip(
+                    "SAI does not advertise policer stats required by these "
+                    "tests: {} (COPP_POLICER_STATS_SUPPORTED='{}')"
+                    .format(sorted(missing), supported_csv)
+                )
 
     @pytest.mark.disable_loganalyzer
     def test_copp_stats_default_enabled(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
