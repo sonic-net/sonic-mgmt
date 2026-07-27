@@ -141,8 +141,8 @@ def hft_influxdb(ptfhost, disable_flex_counters, hft_otel_collector,
         yield sink
     finally:
         # HFT test bodies remove their profile before fixture teardown. Stop the
-        # collector process after its graceful flush so no delayed batch can
-        # repopulate the database while it is being cleared.
+        # collector so no delayed batch can repopulate the database while it is
+        # being cleared.
         if pid is not None:
             try:
                 stop_otel_collector(duthost)

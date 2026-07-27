@@ -157,7 +157,7 @@ def test_hft_full_buffer_pool_counters(
     buffer_pools = get_configured_buffer_pools(duthost)
     counters = get_support_counter_list(duthost, CounterObjectType.BUFFER_POOL)
     if not buffer_pools:
-        pytest.skip("No buffer pools found in CONFIG_DB")
+        pytest.skip("No buffer pools found in COUNTERS_DB")
     if not counters:
         pytest.skip("No buffer pool counters supported on this platform")
 

@@ -147,9 +147,8 @@ def get_configured_buffer_queue_objects(duthost):
     )
 
 
-def get_configured_buffer_pools(duthost, source="persistent"):
+def get_configured_buffer_pools(duthost):
     """Return buffer pools that have an object mapping in COUNTERS_DB."""
-    del source
     return natsorted(_get_counter_db_name_map_keys(
         duthost, "COUNTERS_BUFFER_POOL_NAME_MAP"
     ))
@@ -296,10 +295,11 @@ def ensure_countersyncd_daemon(duthost):
 
 def render_otel_collector_config(template_path, **kwargs):
     """Render the test OTEL collector configuration."""
-    from jinja2 import Template
+    from jinja2 import Environment
 
     with open(template_path, "r") as stream:
-        return Template(stream.read()).render(**kwargs)
+        template = Environment(autoescape=True).from_string(stream.read())
+    return template.render(**kwargs)
 
 
 def install_otel_collector_config(duthost, rendered_config,
@@ -330,11 +330,11 @@ def restart_otel_collector(duthost, timeout=30):
         if status.get("rc") == 0 and "RUNNING" in status.get("stdout", ""):
             return True
         time.sleep(1)
-    pytest_assert(False, "OTEL collector process did not become ready")
+    raise AssertionError("OTEL collector process did not become ready")
 
 
 def stop_otel_collector(duthost):
-    """Flush and stop only the OTEL collector process inside its container."""
+    """Stop only the OTEL collector process inside its container."""
     result = duthost.shell(
         "docker exec otel supervisorctl stop otel",
         module_ignore_errors=True,
@@ -387,7 +387,7 @@ def enable_otel_collector(duthost, timeout=60):
         if running.get("rc") == 0 and running.get("stdout", "").strip():
             return True
         time.sleep(2)
-    pytest_assert(False, "OTEL container did not become ready")
+    raise AssertionError("OTEL container did not become ready")
 
 
 def start_influxdb(ptfhost, port=8181, timeout=30,
@@ -413,8 +413,8 @@ def start_influxdb(ptfhost, port=8181, timeout=30,
     )
     try:
         pid = int(result.get("stdout", "").strip().splitlines()[-1])
-    except (ValueError, IndexError):
-        pytest_assert(False, f"Failed to capture InfluxDB PID: {result}")
+    except (ValueError, IndexError) as exc:
+        raise RuntimeError(f"Failed to capture InfluxDB PID: {result}") from exc
 
     try:
         end_time = time.time() + timeout
@@ -430,7 +430,7 @@ def start_influxdb(ptfhost, port=8181, timeout=30,
         server_log = ptfhost.shell(
             f"tail -100 {shlex.quote(log_path)}", module_ignore_errors=True
         ).get("stdout", "")
-        pytest_assert(False, f"InfluxDB did not become healthy:\n{server_log}")
+        raise RuntimeError(f"InfluxDB did not become healthy:\n{server_log}")
     except BaseException:
         ptfhost.shell(f"kill {pid}", module_ignore_errors=True)
         raise
@@ -562,7 +562,9 @@ class InfluxDbSink:
         try:
             body = json.loads(result["stdout"])
         except json.JSONDecodeError as exc:
-            pytest_assert(False, f"Invalid InfluxDB JSON for {query}: {exc}")
+            raise AssertionError(
+                f"Invalid InfluxDB JSON for {query}: {exc}"
+            ) from exc
         errors = [
             entry["error"] for entry in body.get("results", [])
             if entry.get("error")
@@ -710,11 +712,10 @@ class InfluxDbSink:
             for key, series in expected.items()
             if key in last_counts and int(last_counts[key]["value"] or 0) < min_points
         ]
-        pytest_assert(
-            False,
+        raise AssertionError(
             f"Timed out waiting for {min_points} points per series. "
             f"Missing ({len(missing)}): {missing[:20]}; "
-            f"underfilled ({len(underfilled)}): {underfilled[:20]}",
+            f"underfilled ({len(underfilled)}): {underfilled[:20]}"
         )
 
     def validate_series(self, expected_series, expected_interval_us,
@@ -853,7 +854,7 @@ class InfluxDbSink:
             ):
                 return current
             time.sleep(poll_interval)
-        pytest_assert(False, f"HFT series did not resume: {current}")
+        raise AssertionError(f"HFT series did not resume: {current}")
 
     def wait_for_values_to_increase(self, expected_series, baseline,
                                     timeout=30, poll_interval=2):
@@ -869,7 +870,7 @@ class InfluxDbSink:
             ):
                 return current
             time.sleep(poll_interval)
-        pytest_assert(False, f"HFT counter values did not increase: {current}")
+        raise AssertionError(f"HFT counter values did not increase: {current}")
 
     def assert_values_stable(self, expected_series, duration=5, settle_time=3):
         time.sleep(settle_time)
