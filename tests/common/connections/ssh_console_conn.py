@@ -95,12 +95,16 @@ class SSHConsoleConn(BaseConsoleConn):
         # If the DUT is in a bootloader / boot stage, defer interactive login entirely:
         # login_stage_2() sends periodic CRs while waiting for the username prompt, and on
         # a "hit any key to stop autoboot" window (e.g. U-Boot) those CRs would abort
-        # autoboot and trap the DUT. Finalise the session without attempting login.
+        # autoboot and trap the DUT. Return immediately without attempting login.
         if self._recover_to_login_prompt():
             self.logger.warning(
                 "DUT is in a bootloader/boot stage; deferring interactive login to "
                 "avoid interrupting autoboot")
-            self.session_preparation_finalise()
+            # Do NOT call session_preparation_finalise() here: it runs set_base_prompt()
+            # -> find_prompt(), which writes RETURN(s) to the console to elicit a prompt.
+            # During a bootloader "hit any key to stop autoboot" window those RETURNs would
+            # abort autoboot and trap the DUT (and find_prompt() would raise since no prompt
+            # exists yet). Return with zero writes so the caller can passively monitor boot.
             return
         # Attempt all sonic password. A wrong password must not prevent a
         # subsequent correct password in the list from succeeding, so we

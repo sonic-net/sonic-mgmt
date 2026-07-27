@@ -176,7 +176,13 @@ def test_recover_sends_ctrl_c_only_on_leftover_shell():
 
 
 def test_session_preparation_defers_login_in_bootloader():
-    """session_preparation must skip login_stage_2 when a bootloader is detected."""
+    """session_preparation must skip login_stage_2 AND avoid any console write when a
+    bootloader is detected.
+
+    session_preparation_finalise() -> set_base_prompt() -> find_prompt() writes RETURN(s)
+    to the console, which would abort a "hit any key to stop autoboot" window, so the
+    bootloader path must not call it.
+    """
     conn = SSHConsoleConn.__new__(SSHConsoleConn)
     conn.logger = mock.MagicMock()
     conn.console_type = "ssh"  # not a "*config" menu type
@@ -185,8 +191,14 @@ def test_session_preparation_defers_login_in_bootloader():
     conn._recover_to_login_prompt = mock.MagicMock(return_value=True)
     conn.login_stage_2 = mock.MagicMock()
     conn.session_preparation_finalise = mock.MagicMock()
+    conn.set_base_prompt = mock.MagicMock()
+    conn.find_prompt = mock.MagicMock()
+    conn.write_channel = mock.MagicMock()
 
     SSHConsoleConn.session_preparation(conn)
 
     conn.login_stage_2.assert_not_called()
-    conn.session_preparation_finalise.assert_called_once()
+    conn.session_preparation_finalise.assert_not_called()
+    conn.set_base_prompt.assert_not_called()
+    conn.find_prompt.assert_not_called()
+    conn.write_channel.assert_not_called()
