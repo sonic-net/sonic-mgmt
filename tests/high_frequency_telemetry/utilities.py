@@ -295,10 +295,13 @@ def ensure_countersyncd_daemon(duthost):
 
 def render_otel_collector_config(template_path, **kwargs):
     """Render the test OTEL collector configuration."""
-    from jinja2 import Environment
+    from jinja2 import Environment, StrictUndefined, select_autoescape
 
     with open(template_path, "r") as stream:
-        template = Environment(autoescape=True).from_string(stream.read())
+        template = Environment(autoescape=select_autoescape(
+            enabled_extensions=("html", "htm", "xml"),
+            default_for_string=False,
+        ), undefined=StrictUndefined).from_string(stream.read())
     return template.render(**kwargs)
 
 
@@ -565,16 +568,26 @@ class InfluxDbSink:
             raise AssertionError(
                 f"Invalid InfluxDB JSON for {query}: {exc}"
             ) from exc
-        errors = [
+        errors = [body["error"]] if body.get("error") else []
+        errors.extend(
             entry["error"] for entry in body.get("results", [])
             if entry.get("error")
-        ]
+        )
         pytest_assert(not errors, f"InfluxDB query failed: {errors}")
         return body
 
     def is_empty(self):
-        body = self._query("SHOW MEASUREMENTS")
-        return not any(entry.get("series") for entry in body.get("results", []))
+        return not self.measurements()
+
+    def measurements(self):
+        """Return all measurement names currently present in the database."""
+        rows = parse_influxdb_json(json.dumps(self._query("SHOW MEASUREMENTS")))
+        return {
+            row["name"]
+            for measurement_rows in rows.values()
+            for row in measurement_rows
+            if row.get("name")
+        }
 
     def clear(self, retries=3, settle_time=2):
         """Hard-delete and recreate the database, then prove it stays empty."""
@@ -692,6 +705,14 @@ class InfluxDbSink:
             cutoff,
         )
 
+    def _minimum(self, expected_series, cutoff=None):
+        return self._grouped_values(
+            {series.measurement for series in expected_series},
+            'MIN("gauge")',
+            "metric_value",
+            cutoff,
+        )
+
     def wait_for_points(self, expected_series, min_points=20, timeout=90,
                         poll_interval=3):
         expected = self._expected_map(expected_series)
@@ -722,6 +743,10 @@ class InfluxDbSink:
                         min_points=20, interval_tolerance=0.25):
         """Validate object/counter coverage, values, interval, and CPS."""
         expected = self._expected_map(expected_series)
+        expected_measurements = {
+            series.measurement for series in expected_series
+        }
+        actual_measurements = self.measurements()
         snapshot_latest = self.latest(expected_series)
         missing_latest = set(expected) - set(snapshot_latest)
         pytest_assert(
@@ -734,7 +759,19 @@ class InfluxDbSink:
         counts = self.counts(expected_series, cutoff)
         first = self._first(expected_series, cutoff)
         last = self.latest(expected_series, cutoff)
+        minimum = self._minimum(expected_series, cutoff)
         violations = []
+
+        missing_measurements = expected_measurements - actual_measurements
+        unexpected_measurements = actual_measurements - expected_measurements
+        if missing_measurements:
+            violations.append(
+                f"missing measurements: {sorted(missing_measurements)}"
+            )
+        if unexpected_measurements:
+            violations.append(
+                f"unexpected measurements: {sorted(unexpected_measurements)}"
+            )
 
         missing = set(expected) - set(counts)
         unexpected = set(counts) - set(expected)
@@ -751,18 +788,21 @@ class InfluxDbSink:
         expected_cps = 1.0 / expected_interval_s
         stats = {}
         for key, series in expected.items():
-            if key not in counts or key not in first or key not in last:
+            if key not in counts or key not in first or key not in last \
+                    or key not in minimum:
                 continue
             count = int(counts[key]["value"] or 0)
             first_value = first[key]["value"]
             last_value = last[key]["value"]
+            minimum_value = minimum[key]["value"]
             if count < min_points:
                 violations.append(f"{key}: only {count} points, expected {min_points}")
                 continue
             if first_value is None or last_value is None \
-                    or float(first_value) < 0 or float(last_value) < 0:
+                    or minimum_value is None or float(minimum_value) < 0:
                 violations.append(
-                    f"{key}: invalid values first={first_value}, last={last_value}"
+                    f"{key}: invalid values first={first_value}, "
+                    f"last={last_value}, minimum={minimum_value}"
                 )
                 continue
             if counts[key]["type_id"] != str(series.type_id) \
@@ -801,6 +841,7 @@ class InfluxDbSink:
                 "sample_count": count,
                 "first_value": first_value,
                 "last_value": last_value,
+                "minimum_value": minimum_value,
                 "average_interval_ms": actual_interval * 1000,
                 "cps": actual_cps,
             }

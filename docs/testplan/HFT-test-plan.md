@@ -106,15 +106,16 @@ Per-platform supported counters are defined in `tests/high_frequency_telemetry/c
 All HFT cases use the function-scoped `hft_influxdb` fixture. Before each
 invocation, including every parametrized poll interval, the fixture starts a
 test-owned in-memory InfluxDB process and verifies its database is empty. After
-the test removes its HFT configuration, the fixture drains buffered writes,
-hard-deletes and recreates the database, verifies it is empty, and stops only
-the InfluxDB process it owns. Multi-phase cases retain data between phases and
-isolate phases with database watermarks.
+the test removes its HFT configuration, the fixture stops the collector to
+prevent delayed writes, hard-deletes and recreates the database, verifies it is
+empty, and stops only the InfluxDB process it owns. Multi-phase cases retain
+data between phases and isolate phases with database watermarks.
 
 For counter coverage tests, the expected set is generated independently from
 the configured object and counter lists. Validation requires every expected
 `(SAI object type, SAI stat, object name)` series, nonnegative values, enough
-samples, and source timestamp interval/CPS within the configured tolerance.
+samples, no unexpected measurements, and source timestamp interval/CPS within
+the configured tolerance.
 
 ### Basic Functionality Tests
 
@@ -412,7 +413,8 @@ Pipeline:   metrics → [otlp] → [batch] → [influxdb]
 **Expected Results**
 - InfluxDB 3 health endpoint returns `OK` (HTTP 200) after startup.
 - Otel container starts successfully on DUT.
-- InfluxDB query returns ≥ 1 data row within 60 seconds, confirming metrics flowed through the full pipeline.
+- Every expected series contains at least 20 points within 90 seconds,
+  confirming metrics flowed through the full pipeline.
 
 ---
 
