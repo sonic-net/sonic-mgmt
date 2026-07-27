@@ -511,7 +511,9 @@ def get_dut_ports_with_checksum_modifying_fanouts(duthost, localhost):
     checksum_modifying_fanout_skus = {"DellEMC-Z9332f-O32", "NH-5010-F-O64", "Arista-7280R4K-32QF-32DF-64O"}
     unsupported_dut_ports = set()
 
-    if duthost.facts.get("asic_type") == "vs":
+    # Virtual testbeds (VS and VPP/KVM) have no physical fanout to inspect; short-circuit
+    # to avoid unnecessary/failing connection-graph lookups (consistent with is_mellanox_fanout).
+    if is_virtual_platform(duthost):
         return unsupported_dut_ports
 
     try:
