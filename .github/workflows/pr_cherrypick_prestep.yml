@@ -73,11 +73,15 @@ jobs:
               local authorized=0
               if [[ "$sender" == "StormLiangMS" ]]; then
                 authorized=1
-              elif gh api "orgs/${org}/teams/release-manager-${branch}/memberships/${sender}" --silent 2>/dev/null; then
+              elif [[ "$(gh api "orgs/${org}/teams/release-manager-${branch}/memberships/${sender}" --jq '.state' 2>/dev/null)" == "active" ]]; then
                 authorized=1
               fi
               if [[ "$authorized" != "1" ]]; then
-                echo "User $sender is not authorized to approve cherry-pick to $branch branch. Skipping."
+                echo "User $sender is not authorized to approve cherry-pick to $branch branch. Removing label."
+                local release_team="release-manager-${branch}"
+                local members=$(gh api "orgs/${org}/teams/${release_team}/members" --jq '.[].login' 2>/dev/null | sed 's/^/@/' | tr '\n' ' ')
+                gh pr edit "$pr_url" --remove-label "$event_label"
+                gh pr comment "$pr_url" --body "The label \`$event_label\` can only be added by an active member of the @${org}/${release_team} team or @StormLiangMS. Removing the label. Please contact @StormLiangMS or one of the release managers: ${members} to approve the cherry pick."
                 return 0
               fi
             fi
@@ -118,7 +122,7 @@ jobs:
             local authorized=0
             if [[ "$label_adder" == "StormLiangMS" ]]; then
               authorized=1
-            elif [[ -n "$label_adder" ]] && gh api "orgs/${org}/teams/release-manager-${branch}/memberships/${label_adder}" --silent 2>/dev/null; then
+            elif [[ -n "$label_adder" ]] && [[ "$(gh api "orgs/${org}/teams/release-manager-${branch}/memberships/${label_adder}" --jq '.state' 2>/dev/null)" == "active" ]]; then
               authorized=1
             fi
             if [[ "$authorized" != "1" ]]; then
