@@ -924,7 +924,7 @@ sonic_nokia_7215a1:
       ansible_host: 10.150.23.251
       ansible_hostv6: 2404:f801:10:2200::a96:17fb
       model: 3HE18723AARA01
-      serial: 1241300018
+      serial: "1241300018"
       base_mac: E0:CB:19:74:54:70
       syseeprom_info:
         "0x21": "7215 IXS-A1"
@@ -943,7 +943,7 @@ sonic_nokia_7215a1:
       ansible_host: 10.150.23.253
       ansible_hostv6: 2404:f801:10:2200::a96:17fd
       model: 3HE18723AARA01
-      serial: 1241300054
+      serial: "1241300054"
       base_mac: E0:CB:19:74:55:70
       syseeprom_info:
         "0x21": "7215 IXS-A1"
