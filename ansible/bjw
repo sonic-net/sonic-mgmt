@@ -823,7 +823,6 @@ sonic_nokia_sup:
         'supervisor':
         - SUPERVISOR1
         'psus':
-        - PSU3
         - PSU8
         - PSU9
         - PSU10
