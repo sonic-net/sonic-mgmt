@@ -11,11 +11,12 @@ Execution order::
                                                  ``links_verified`` in
                                                  tests/transceiver/conftest.py
                                                  (failure skips every System test)
-    `- test_system_xcvrd_restart_simple
+    `- test_system_xcvrd_restart
          |- run_pre_check  (xcvrd RUNNING)    <- _per_test_health_check
          |- <body>: restart xcvrd -> verify all ports recovery
          `- run_post_check 
-    `- test_system_xcvrd_restart_with_i2c_errors
+    `- test_system_xcvrd_restart_with_i2c_errors 
+            NOTE: this test has been skipped during initial development due to library issues
          |- run_pre_check  (xcvrd RUNNING)    <- _per_test_health_check
          |- <body>: induce I2C errors -> restart xcvrd -> verify recovery
          `- run_post_check 
@@ -47,7 +48,7 @@ from tests.transceiver.common.prerequisites import (
 )
 from tests.transceiver.common.verification import (
     standard_port_recovery_and_verification
-)   
+)
 import tests.transceiver.common.process_restart_helpers as prh
 from tests.common.helpers.dut_utils import get_program_info
 
@@ -69,26 +70,25 @@ def test_system_xcvrd_restart(duthost, port_attributes_dict, expected_pid_change
     """
     expected_pid_changes.add("xcvrd")
     ports = sorted(port_attributes_dict.keys())
-    xcvrd_wait = prh.sys_attr(port_attributes_dict[ports[0]], "xcvrd_restart_settle_sec", 120)
     assert ports, "port_attributes_dict is empty - nothing to validate"
+    xcvrd_wait = prh.sys_attr(port_attributes_dict[ports[0]], "xcvrd_restart_settle_sec", 120)
     health_baseline = capture_baseline(duthost)
     failures = []  # collected across every (port, step) tuple
 
     logger.info("Recording link states and uptime for %d port(s)", len(ports))
     logger.info("Recording initialXcvrD uptime: %s", prh.get_xcvrd_uptime(duthost))
-    if not check_links_up(duthost, port_attributes_dict):
+    link_check = check_links_up(duthost, port_attributes_dict)
+    if not link_check["passed"]:
         logger.warning("Validation on Start FAILED: some ports are down")
     logger.info("Restarting xcvrd...")
     prh.restart_process(duthost, 'xcvrd')
     time.sleep(xcvrd_wait)
     
-    # Wait for settle time and verify
-    time.sleep(xcvrd_wait)
     logger.info("Running Standard Port Recovery and Verification for %d port(s)", len(ports))
     result = standard_port_recovery_and_verification(
         duthost, ports, port_attributes_dict, 
         link_up_timeout_sec=xcvrd_wait, 
-        health_baseline = health_baseline,
+        health_baseline=health_baseline,
         shared_state=None,
         expected_pid_changes='xcvrd'
     )
@@ -128,12 +128,13 @@ def test_system_xcvrd_crash_recovery(duthost, port_attributes_dict, expected_pid
 
     logger.info("Recording initial link states for %d port(s)", len(ports)) 
     logger.info("Recording initial XcvrD uptime: %s", prh.get_xcvrd_uptime(duthost))
-    if not check_links_up(duthost, port_attributes_dict):
+    link_check = check_links_up(duthost, port_attributes_dict)
+    if not link_check["passed"]:
         logger.warning("Validation on Start FAILED: some ports are down")
     
     logger.info("Using SIGKILL to crash xcvrd")
     status, pid = get_program_info(duthost, 'pmon', 'xcvrd')
-    duthost.kill_pmon_daemon_pid_w_sig(pid, -9)
+    duthost.kill_pmon_daemon_pid_w_sig(pid, "-9")
     
     # Wait, then run Standard Port Recovery and Verification for all ports
     time.sleep(xcvrd_wait)
@@ -141,7 +142,7 @@ def test_system_xcvrd_crash_recovery(duthost, port_attributes_dict, expected_pid
     result = standard_port_recovery_and_verification(
         duthost, ports, port_attributes_dict, 
         link_up_timeout_sec=xcvrd_wait, 
-        health_baseline = health_baseline,
+        health_baseline=health_baseline,
         shared_state=None,
         expected_pid_changes='xcvrd'
     )
