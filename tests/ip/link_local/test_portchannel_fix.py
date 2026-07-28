@@ -19,6 +19,10 @@ This test file proves the fix works without needing real SONiC hardware.
 import random
 import pytest
 
+pytestmark = [
+    pytest.mark.topology('any')
+]
+
 
 # -----------------------------------------------------------------------
 # The EXACT logic extracted from the common_params fixture
