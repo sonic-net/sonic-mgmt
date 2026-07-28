@@ -29,16 +29,12 @@ TEST_HFT_PROFILES = (
     "queue_profile",
     "ingress_pg_profile",
     "buffer_pool_profile",
-    "full_hft_profile",
     "full_port_counter_profile",
     "state_transition_profile",
     "config_deletion_profile",
     "port_shutdown_profile",
     "e2e_port_profile",
     "poll_interval_profile_1000",
-    "poll_interval_profile_100000",
-    "poll_interval_profile_1000000",
-    "poll_interval_profile_10000000",
 )
 
 
@@ -326,61 +322,3 @@ def cleanup_high_frequency_telemetry(
     )
     for profile_name in set(TEST_HFT_PROFILES) & existing_profiles:
         cleanup_hft_config(duthost, profile_name)
-
-
-@pytest.fixture(scope="module")
-def disable_flex_counters(
-    duthosts, enum_rand_one_per_hwsku_hostname
-):
-    """
-    Disable all flex counters for the module and restore their original states.
-    """
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-
-    # Get all flex counter tables
-    flex_counter_keys = duthost.shell(
-        'redis-cli -n 4 keys "FLEX_COUNTER_TABLE|*"',
-        module_ignore_errors=False
-    )['stdout_lines']
-
-    original_states = {}
-
-    def restore_states():
-        for table_name, status in original_states.items():
-            if status:
-                command = (
-                    f'redis-cli -n 4 HSET "{table_name}" '
-                    f'"FLEX_COUNTER_STATUS" "{status}"'
-                )
-            else:
-                command = (
-                    f'redis-cli -n 4 HDEL "{table_name}" '
-                    '"FLEX_COUNTER_STATUS"'
-                )
-            duthost.shell(command, module_ignore_errors=False)
-
-    try:
-        for key in flex_counter_keys:
-            if not key.strip():
-                continue
-            table_name = key.strip()
-            status = duthost.shell(
-                f'redis-cli -n 4 HGET "{table_name}" "FLEX_COUNTER_STATUS"',
-                module_ignore_errors=False
-            )["stdout"].strip()
-            original_states[table_name] = status
-            duthost.shell(
-                f'redis-cli -n 4 HSET "{table_name}" '
-                '"FLEX_COUNTER_STATUS" "disable"',
-                module_ignore_errors=False
-            )
-        logger.info("Disabled %d flex counters", len(original_states))
-    except Exception:
-        restore_states()
-        raise
-
-    try:
-        yield
-    finally:
-        restore_states()
-        logger.info("Restored all flex counters to original states")
