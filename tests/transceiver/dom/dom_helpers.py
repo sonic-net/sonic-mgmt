@@ -1,12 +1,12 @@
 import logging
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 
 from tests.transceiver.attribute_parser.attribute_keys import (
     BASE_ATTRIBUTES_KEY,
     DOM_ATTRIBUTES_KEY,
 )
 from tests.transceiver.common.db_helpers import (
-    build_state_db_freshness_result,
+    check_entry_freshness,
     get_config_db_port_table,
     get_state_db_table,
     resolve_port_namespace,
@@ -18,54 +18,73 @@ STATE_DB_SENSOR_TABLE = "TRANSCEIVER_DOM_SENSOR"
 
 OPERATIONAL_SUFFIX = "_operational_range"
 LANE_NUM_PLACEHOLDER = "LANE_NUM"
+DomMappedField = namedtuple("DomMappedField", ("source_attr", "attr_value"))
 
 DOM_POLLING_ENABLED_VALUES = ("", "enabled")
 DOM_POLLING_DISABLED_VALUE = "disabled"
 
 
-def expand_operational_fields(attr_name, media_lane_count):
-    """Expand one DOM operational attribute into STATE_DB sensor fields."""
+def _map_operational_attribute_to_fields(attr_name, attr_value, base_attrs):
+    """Map one operational range attribute to DOM sensor field metadata."""
     base_name = attr_name[:-len(OPERATIONAL_SUFFIX)]
     if LANE_NUM_PLACEHOLDER not in base_name:
-        return [base_name]
+        return {base_name: DomMappedField(attr_name, attr_value)}, []
 
-    if media_lane_count <= 0:
-        return []
+    media_lane_count = base_attrs.get("media_lane_count")
+    if not isinstance(media_lane_count, int) or media_lane_count <= 0:
+        return {}, [
+            "{} uses {} but {} has no valid media_lane_count".format(
+                attr_name,
+                LANE_NUM_PLACEHOLDER,
+                BASE_ATTRIBUTES_KEY,
+            )
+        ]
 
-    return [
-        base_name.replace(LANE_NUM_PLACEHOLDER, str(lane))
+    return {
+        base_name.replace(LANE_NUM_PLACEHOLDER, str(lane)): DomMappedField(
+            attr_name,
+            attr_value,
+        )
         for lane in range(1, media_lane_count + 1)
-    ]
+    }, []
 
 
-def build_dom_availability_plan(port_attributes_dict, dom_ports):
+DOM_FIELD_MAPPERS = (
+    (OPERATIONAL_SUFFIX, _map_operational_attribute_to_fields),
+)
+
+
+def map_dom_attribute_to_fields(attr_name, attr_value, base_attrs):
+    """Map one DOM attribute to current STATE_DB field metadata.
+
+    The suffix dispatch is DOM-local: TC1/TC2 use the operational mapper today,
+    and future threshold/consistency families can add their own mapper here
+    without duplicating the LANE_NUM expansion path.
+    """
+    for suffix, mapper in DOM_FIELD_MAPPERS:
+        if attr_name.endswith(suffix):
+            return mapper(attr_name, attr_value, base_attrs)
+    return {}, []
+
+
+def build_dom_availability_plan(port_attributes_dict, dom_primary_ports):
     """Return expected TC1 STATE_DB sensor fields and configuration errors."""
     plan_by_port = {}
-    for port in dom_ports:
+    for port in dom_primary_ports:
         port_attrs = port_attributes_dict.get(port, {})
         dom_attrs = port_attrs.get(DOM_ATTRIBUTES_KEY, {})
         base_attrs = port_attrs.get(BASE_ATTRIBUTES_KEY, {})
-        media_lane_count = base_attrs.get("media_lane_count")
         expected_fields = set()
         errors = []
 
-        for attr_name in sorted(dom_attrs):
-            if not attr_name.endswith(OPERATIONAL_SUFFIX):
-                continue
-            if LANE_NUM_PLACEHOLDER in attr_name:
-                if not isinstance(media_lane_count, int) or media_lane_count <= 0:
-                    errors.append(
-                        "{} uses {} but {} has no valid media_lane_count in {}".format(
-                            attr_name,
-                            LANE_NUM_PLACEHOLDER,
-                            port,
-                            BASE_ATTRIBUTES_KEY,
-                        )
-                    )
-                    continue
-                expected_fields.update(expand_operational_fields(attr_name, media_lane_count))
-                continue
-            expected_fields.update(expand_operational_fields(attr_name, 0))
+        for attr_name, attr_value in sorted(dom_attrs.items()):
+            mapped_fields, field_errors = map_dom_attribute_to_fields(
+                attr_name,
+                attr_value,
+                base_attrs,
+            )
+            expected_fields.update(mapped_fields.keys())
+            errors.extend(field_errors)
 
         plan_by_port[port] = {
             "expected_fields": sorted(expected_fields),
@@ -75,12 +94,12 @@ def build_dom_availability_plan(port_attributes_dict, dom_ports):
     return plan_by_port
 
 
-def build_dom_polling_failures(duthost, dom_ports):
+def build_dom_polling_failures(duthost, dom_primary_ports):
     """Return DOM polling prerequisite failures for configured DOM ports."""
     failures = []
     port_table = get_config_db_port_table(duthost)
 
-    for port in dom_ports:
+    for port in dom_primary_ports:
         port_config = port_table.get(port)
         if port_config is None:
             failures.append("{} missing from CONFIG_DB PORT table".format(port))
@@ -113,9 +132,9 @@ def build_dom_polling_failures(duthost, dom_ports):
     return failures
 
 
-def read_dom_sensor_snapshots(duthost, ports):
+def read_dom_sensor_data(duthost, ports):
     """Bulk-read current DOM sensor STATE_DB hashes for selected ports."""
-    snapshots = {port: {} for port in ports}
+    sensor_data = {port: {} for port in ports}
     errors = []
     ports_by_namespace = defaultdict(list)
 
@@ -140,14 +159,14 @@ def read_dom_sensor_snapshots(duthost, ports):
             continue
 
         for port in namespace_ports:
-            snapshots[port] = sensor_table.get(port, {}) or {}
+            sensor_data[port] = sensor_table.get(port, {}) or {}
 
-    return snapshots, errors
+    return sensor_data, errors
 
 
-def build_dom_freshness_result(sensor_data, max_age_min, now_utc):
-    """Return DOM freshness failures plus the parsed age for one snapshot."""
-    return build_state_db_freshness_result(
+def check_dom_sensor_freshness(sensor_data, max_age_min, now_utc):
+    """Return DOM freshness failures plus the parsed age for one sensor read."""
+    return check_entry_freshness(
         sensor_data,
         max_age_min,
         now_utc,

@@ -29,7 +29,7 @@ import ast
 import json
 import logging
 import re
-from datetime import datetime, timezone
+from datetime import datetime
 
 from tests.common.helpers.sonic_db import STATE_DB
 from tests.transceiver.common.cli_parser_helper import RC_FAILURE
@@ -77,7 +77,7 @@ def parse_numeric(value):
 
 
 def parse_update_time(value):
-    """Parse an xcvrd STATE_DB update timestamp into UTC."""
+    """Parse an xcvrd UTC update timestamp."""
     if value is None:
         return None
 
@@ -87,7 +87,7 @@ def parse_update_time(value):
 
     normalized = " ".join(raw.split())
     try:
-        return datetime.strptime(normalized, XCVRD_UPDATE_TIME_FORMAT).replace(tzinfo=timezone.utc)
+        return datetime.strptime(normalized, XCVRD_UPDATE_TIME_FORMAT)
     except ValueError:
         return None
 
@@ -97,39 +97,32 @@ def resolve_port_namespace(duthost, port):
     return duthost.get_port_asic_instance(port).namespace
 
 
-def state_db_update_time_age_minutes(
-    entry,
-    now_utc,
-    field=STATE_DB_UPDATE_TIME_FIELD,
-):
-    """Return ``field`` age in minutes for one STATE_DB hash, or ``None``."""
+def _entry_field_age_minutes(entry, now_utc):
+    """Return the configured update timestamp age in minutes, or ``None``."""
     if not entry:
         return None
 
-    parsed_time = parse_update_time(entry.get(field))
+    parsed_time = parse_update_time(entry.get(STATE_DB_UPDATE_TIME_FIELD))
     if parsed_time is None:
         return None
 
     return (now_utc - parsed_time).total_seconds() / 60.0
 
 
-def build_state_db_freshness_result(
+def check_entry_freshness(
     entry,
     max_age_min,
     now_utc,
     table_name="STATE_DB entry",
-    field=STATE_DB_UPDATE_TIME_FIELD,
-    max_age_label="data_max_age_min",
-    future_tolerance_min=STATE_DB_UPDATE_TIME_FUTURE_TOLERANCE_MIN,
 ):
-    """Validate ``field`` freshness and return failures plus the computed age.
+    """Validate entry freshness and return failures plus the computed age.
 
     The timestamp is parsed once, and callers can use the returned age for
-    logging without re-parsing the same STATE_DB value.
+    logging without re-parsing the same entry value.
     """
     result = {
         "failures": [],
-        "age_minutes": state_db_update_time_age_minutes(entry, now_utc, field=field),
+        "age_minutes": _entry_field_age_minutes(entry, now_utc),
     }
 
     if max_age_min is None:
@@ -137,7 +130,10 @@ def build_state_db_freshness_result(
 
     if not entry:
         result["failures"].append(
-            "missing {} data for {} freshness check".format(table_name, field)
+            "missing {} data for {} freshness check".format(
+                table_name,
+                STATE_DB_UPDATE_TIME_FIELD,
+            )
         )
         return result
 
@@ -145,29 +141,31 @@ def build_state_db_freshness_result(
         max_age = float(max_age_min)
     except (TypeError, ValueError):
         result["failures"].append(
-            "invalid {}={!r}".format(max_age_label, max_age_min)
+            "invalid data_max_age_min={!r}".format(max_age_min)
         )
         return result
 
     age_minutes = result["age_minutes"]
     if age_minutes is None:
         result["failures"].append(
-            "{} missing or unparsable while data_max_age_min is configured".format(field)
+            "{} missing or unparsable while data_max_age_min is configured".format(
+                STATE_DB_UPDATE_TIME_FIELD
+            )
         )
         return result
 
-    if age_minutes < -float(future_tolerance_min):
+    if age_minutes < -float(STATE_DB_UPDATE_TIME_FUTURE_TOLERANCE_MIN):
         result["failures"].append(
             "{} is in the future (age_min={:.2f}, tolerance_min={:.2f})".format(
-                field,
+                STATE_DB_UPDATE_TIME_FIELD,
                 age_minutes,
-                float(future_tolerance_min),
+                float(STATE_DB_UPDATE_TIME_FUTURE_TOLERANCE_MIN),
             )
         )
     elif age_minutes > max_age:
         result["failures"].append(
             "{} too old (age_min={:.2f}, limit={})".format(
-                field,
+                STATE_DB_UPDATE_TIME_FIELD,
                 age_minutes,
                 max_age_min,
             )

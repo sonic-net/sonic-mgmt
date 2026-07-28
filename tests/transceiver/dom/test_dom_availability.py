@@ -5,20 +5,20 @@ import pytest
 from natsort import natsorted
 
 from tests.transceiver.attribute_parser.attribute_keys import DOM_ATTRIBUTES_KEY
+from tests.transceiver.dom.dom_helpers import (
+    build_dom_availability_plan,
+    check_dom_sensor_freshness,
+    read_dom_sensor_data,
+)
 
 logger = logging.getLogger(__name__)
 
 
 def test_dom_data_availability_verification(
-    dom_ports,
+    duthost,
+    dom_primary_ports,
     dom_non_primary_ports,
     port_attributes_dict,
-    dom_sensor_by_port,
-    dom_non_primary_sensor_by_port,
-    dom_sensor_read_errors,
-    dom_availability_plan_by_port,
-    dom_freshness_result,
-    dom_now_utc,
 ):
     """Verify configured DOM sensor data is present and fresh in STATE_DB."""
     all_failures = []
@@ -26,15 +26,21 @@ def test_dom_data_availability_verification(
     now_utc = None
     checked_fields_by_port = {}
     freshness_age_by_port = {}
+    sensor_ports = natsorted(set(dom_primary_ports) | set(dom_non_primary_ports))
+    sensor_by_port, sensor_read_errors = read_dom_sensor_data(duthost, sensor_ports)
+    availability_plan_by_port = build_dom_availability_plan(
+        port_attributes_dict,
+        dom_primary_ports,
+    )
 
-    for read_error in dom_sensor_read_errors:
+    for read_error in sensor_read_errors:
         all_failures.append("STATE_DB read:\n  {}".format(read_error))
         has_configured_checks = True
 
-    for port in dom_ports:
+    for port in dom_primary_ports:
         dom_attrs = port_attributes_dict[port].get(DOM_ATTRIBUTES_KEY, {})
-        sensor_data = dom_sensor_by_port.get(port, {})
-        availability_plan = dom_availability_plan_by_port.get(port, {})
+        sensor_data = sensor_by_port.get(port, {})
+        availability_plan = availability_plan_by_port.get(port, {})
         expected_fields = availability_plan.get("expected_fields", [])
         field_failures = list(availability_plan.get("errors", []))
         max_age_min = dom_attrs.get("data_max_age_min")
@@ -43,14 +49,14 @@ def test_dom_data_availability_verification(
             has_configured_checks = True
 
         if max_age_min is not None and now_utc is None:
-            now_utc = dom_now_utc()
+            now_utc = duthost.get_now_time(utc_timezone=True)
 
         freshness_result = {
             "failures": [],
             "age_minutes": None,
         }
         if max_age_min is not None:
-            freshness_result = dom_freshness_result(sensor_data, max_age_min, now_utc)
+            freshness_result = check_dom_sensor_freshness(sensor_data, max_age_min, now_utc)
         field_failures.extend(freshness_result["failures"])
         freshness_age_min = freshness_result["age_minutes"]
         freshness_age_by_port[port] = freshness_age_min
@@ -89,7 +95,7 @@ def test_dom_data_availability_verification(
 
     for port in dom_non_primary_ports:
         has_configured_checks = True
-        sensor_data = dom_non_primary_sensor_by_port.get(port, {})
+        sensor_data = sensor_by_port.get(port, {})
         if sensor_data:
             all_failures.append(
                 "{}:\n  non-primary breakout subport unexpectedly has "

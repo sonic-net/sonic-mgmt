@@ -1,12 +1,12 @@
 """Shared port selectors for transceiver attribute-driven tests."""
 
+import logging
 from collections import namedtuple
 
 from natsort import natsorted
 
-from tests.common.platform.interface_utils import is_first_subport
 
-
+logger = logging.getLogger(__name__)
 PortSelection = namedtuple("PortSelection", ("primary_ports", "non_primary_ports"))
 
 
@@ -29,7 +29,9 @@ def select_attribute_ports(
     ``explicit_ports`` narrows the candidate set for suites with a configured
     port list.  ``predicate`` is an optional callable ``(port, attrs) -> bool``
     for category-specific filters.  Empty-case verdicts stay with the caller so
-    suites can choose skip vs. fail semantics independently.
+    suites can choose skip vs. fail semantics independently.  When no first
+    subport mapping is supplied, all selected ports are treated as primary ports
+    and ``include_non_primary`` has no effect.
     """
     explicit_port_set = None
     if explicit_ports is not None:
@@ -56,8 +58,13 @@ def select_attribute_ports(
 
         first_subport = lport_to_first_subport_mapping.get(port)
         if first_subport is None:
+            logger.debug(
+                "%s carries %s attributes but is absent from the first-subport mapping",
+                port,
+                attribute_key,
+            )
             continue
-        if is_first_subport(port, lport_to_first_subport_mapping):
+        if first_subport == port:
             primary_ports.append(port)
         elif include_non_primary:
             non_primary_ports.append(port)
