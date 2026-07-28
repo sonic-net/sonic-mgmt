@@ -93,8 +93,10 @@ def _apply_outbound_route_filter(duthost, dut_asn, neighbor_ips, is_v6, namespac
         # On BGP confederation topologies the DUT's inbound policy for the
         # confed peer-group (e.g. AZNGHub) tags routes with the no-export
         # community, which stops the DUT from re-advertising the test routes
-        # to the second ExaBGP neighbor. Add a permissive inbound route-map so
-        # the test routes are accepted without it.
+        # to the second ExaBGP neighbor. Bind a permissive inbound route-map on
+        # these neighbors: it overrides the peer-group inbound policy, so the
+        # no-export community is never applied in the first place (the route-map
+        # does not strip communities).
         vtysh_cmds.append("route-map {}_IN permit 10".format(TEST_ROUTES_ROUTE_MAP))
         vtysh_cmds.append("exit")
     vtysh_cmds.append("router bgp {}".format(dut_asn))
