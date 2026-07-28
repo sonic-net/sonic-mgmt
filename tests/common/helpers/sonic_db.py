@@ -260,7 +260,7 @@ def redis_hset(duthost, db, key, **fields):
         return
     parts = ' '.join("{k} {v}".format(k=k, v=v) for k, v in fields.items())
     duthost.shell(
-        "sonic-db-cli {db} HSET '{key}' {parts}".format(db=db, key=key, parts=parts),
+        "sonic-db-cli {db} -- HSET '{key}' {parts}".format(db=db, key=key, parts=parts),
         module_ignore_errors=True
     )
 

@@ -701,7 +701,7 @@ class EosHost(AnsibleHostBase):
         err_out = False
         if 'stdout' in cmd_output_obj:
             stdout = cmd_output_obj['stdout']
-            msg = stdout[-1] if type(stdout) == list else stdout
+            msg = stdout[-1] if isinstance(stdout, list) else stdout
             err_out = 'Cannot advertise' in msg
 
         return ('failed' in cmd_output_obj and cmd_output_obj['failed']) or err_out

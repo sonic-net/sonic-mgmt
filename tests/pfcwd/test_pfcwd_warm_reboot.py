@@ -265,7 +265,7 @@ class SendVerifyTraffic(object):
         """
         logger.info("Check for egress {} on Tx port {}".format(wd_action, self.pfc_wd_test_port))
         dst_port = "[" + str(self.pfc_wd_test_port_id) + "]"
-        if wd_action == "forward" and type(self.pfc_wd_test_port_ids) == list:
+        if wd_action == "forward" and isinstance(self.pfc_wd_test_port_ids, list):
             dst_port = "".join(str(self.pfc_wd_test_port_ids)).replace(',', '')
         ptf_params = {'router_mac': self.router_mac,
                       'queue_index': self.queue,
@@ -290,7 +290,7 @@ class SendVerifyTraffic(object):
             wd_action(string): pfcwd action expected on that port and queue (valid values: drop, forward)
         """
         logger.info("Check for ingress {} on Rx port {}".format(wd_action, self.pfc_wd_test_port))
-        if type(self.pfc_wd_rx_port_id) == list:
+        if isinstance(self.pfc_wd_rx_port_id, list):
             dst_port = "".join(str(self.pfc_wd_rx_port_id)).replace(',', '')
         else:
             dst_port = "[ " + str(self.pfc_wd_rx_port_id) + " ]"

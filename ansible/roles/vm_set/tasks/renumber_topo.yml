@@ -15,6 +15,11 @@
       ptf_imagetag: "latest"
     when: ptf_imagetag is not defined
 
+  - name: Enable ptf_use_docker_network for BMC topology
+    set_fact:
+      ptf_use_docker_network: true
+    when: "'bmc' in topo"
+
   - name: Detect Python major version of the existing ptf container
     shell: docker exec ptf_{{ vm_set_name }} python -c 'import sys; print(sys.version_info[0])'
     register: ptf_existing_python_major
@@ -210,6 +215,8 @@
       fp_mtu: "{{ fp_mtu_size }}"
       max_fp_num: "{{ max_fp_num }}"
       netns_mgmt_ip_addr: "{{ netns_mgmt_ip if netns_mgmt_ip is defined else omit }}"
+      multi_vrf: "{{ topo_is_multi_vrf }}"
+      multi_vrf_data: "{{ convergence_data|default({}) }}"
       is_vs_chassis: "{{ is_vs_chassis | default(false) }}"
     become: yes
     when: "'bmc' not in topo"
