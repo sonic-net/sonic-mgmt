@@ -282,23 +282,22 @@ class GrpcTestEnvironment:
 
     def _stop_crl_server(self, errors):
         """Kill the CRL server by exact PID, wait for exit, then remove the PTF dir."""
-        if self._crl_pid is None:
-            return
-        try:
-            self.ptfhost.shell(
-                "kill {} 2>/dev/null || true".format(self._crl_pid),
-                module_ignore_errors=True,
-            )
-            # Wait for the process to exit (up to 10 s)
-            wait_until(10, 1, 0,
-                       lambda: self.ptfhost.shell(
-                           "kill -0 {} 2>/dev/null; echo $?".format(self._crl_pid),
-                           module_ignore_errors=True,
-                       ).get("stdout", "0").strip() != "0")
-        except Exception as exc:
-            errors.append("stop CRL server failed: {}".format(exc))
-        finally:
-            self._crl_pid = None
+        if self._crl_pid is not None:
+            try:
+                self.ptfhost.shell(
+                    "kill {} 2>/dev/null || true".format(self._crl_pid),
+                    module_ignore_errors=True,
+                )
+                # Wait for the process to exit (up to 10 s)
+                wait_until(10, 1, 0,
+                           lambda: self.ptfhost.shell(
+                               "kill -0 {} 2>/dev/null; echo $?".format(self._crl_pid),
+                               module_ignore_errors=True,
+                           ).get("stdout", "0").strip() != "0")
+            except Exception as exc:
+                errors.append("stop CRL server failed: {}".format(exc))
+            finally:
+                self._crl_pid = None
         if self._crl_ptf_dir:
             try:
                 self.ptfhost.shell(

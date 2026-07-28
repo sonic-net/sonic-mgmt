@@ -60,8 +60,8 @@ def test_gnmi_authorize_failed_with_invalid_cname(
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     msg, gnmi_log = gnmi_create_vnet_native(duthost, gnmi_client)
 
-    assert "Unauthenticated" in msg, (
-        "'Unauthenticated' error message not found in gNMI response. "
+    assert "UNAUTHENTICATED" in msg, (
+        "'UNAUTHENTICATED' error message not found in gNMI response. "
         "- Actual message: '{}'"
     ).format(msg)
 

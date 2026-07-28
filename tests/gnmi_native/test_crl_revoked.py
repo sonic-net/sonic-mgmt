@@ -51,8 +51,8 @@ def test_gnmi_authorize_failed_with_revoked_cert(
         if "desc = Peer certificate revoked" in gnmi_log:
             break
 
-    assert "Unauthenticated" in msg, (
-        "'Unauthenticated' error message not found in gNMI response. "
+    assert "UNAUTHENTICATED" in msg, (
+        "'UNAUTHENTICATED' error message not found in gNMI response. "
         "- Actual message: '{}'"
     ).format(msg)
 
