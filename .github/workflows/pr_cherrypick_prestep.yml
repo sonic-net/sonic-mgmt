@@ -63,6 +63,28 @@ jobs:
 
         cherry_pick(){
           set -e
+          # Authorization check: only applies when a label is being added
+          if [[ $(echo $GITHUB_CONTEXT | jq -r ".event.action") == "labeled" ]]; then
+            local event_label=$(echo $GITHUB_CONTEXT | jq -r ".event.label.name")
+            if [[ "$event_label" == "Approved for $branch branch" ]]; then
+              local sender=$(echo $GITHUB_CONTEXT | jq -r ".event.sender.login")
+              local org=$(echo $repository | cut -d/ -f1)
+              local authorized=0
+              if [[ "$sender" == "StormLiangMS" ]]; then
+                authorized=1
+              elif gh api "orgs/${org}/teams/release-manager-${branch}/memberships/${sender}" --silent 2>/dev/null; then
+                authorized=1
+              fi
+              if [[ "$authorized" != "1" ]]; then
+                echo "User $sender is not authorized to approve cherry-pick to $branch branch. Removing label."
+                gh pr edit $pr_url --remove-label "$event_label"
+                local release_team="release-manager-${branch}"
+                local members=$(gh api "orgs/${org}/teams/${release_team}/members" --jq '.[].login' 2>/dev/null | sed 's/^/@/' | tr '\n' ' ')
+                gh pr comment $pr_url --body "The label \`$event_label\` can only be added by a member of the @${org}/${release_team} team or @StormLiangMS. Removing the label. Please contact @StormLiangMS or one of the release managers: ${members} to approve the cherry pick."
+                return 0
+              fi
+            fi
+          fi
           local create_pr=''
           while read label
           do
