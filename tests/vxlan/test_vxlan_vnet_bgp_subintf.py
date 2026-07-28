@@ -619,10 +619,13 @@ def setup_vnets(duthost, ptfhost, num_vnets, tunnel, base_vni):
 
 
 def setup_vxlan_tunnel(duthost, ptfhost, name, src_ip):
+    tunnel_entry = {"src_ip": src_ip}
+    # On cisco-8000, base topology IP-in-IP decap tunnels may already use pipe TTL mode.
+    # Set VXLAN decap ttl_mode to pipe so orchagent passes DECAP_TTL_MODE consistently.
+    if duthost.facts.get("asic_type") == "cisco-8000":
+        tunnel_entry["ttl_mode"] = "pipe"
     gnmi_set_update_config_db_json(duthost, ptfhost, f"{GNMI_PATH_PREFIX}/VXLAN_TUNNEL", {
-        name: {
-            "src_ip": src_ip
-        }
+        name: tunnel_entry
     }, "vxlan")
 
 
