@@ -359,7 +359,7 @@ cadence validation to two port series.
 | **Test Name** | `test_hft_end_to_end_influxdb` |
 | **Test File** | `tests/high_frequency_telemetry/test_hft_end_to_end.py` |
 | **Objective** | Validate the full HFT telemetry pipeline end-to-end: `countersyncd` → OpenTelemetry collector → InfluxDB. Confirms that HFT metrics actually flow through the otel collector and arrive in an external time-series database. |
-| **Fixtures** | `hft_influxdb`, `tbinfo`, `ptfhost` |
+| **Fixtures** | `hft_influxdb`, `tbinfo` |
 | **Topology** | `any` |
 | **Dependencies** | Requires InfluxDB 3 Core (`influxdb3`) installed in PTF container ([sonic-buildimage PR #26755](https://github.com/sonic-net/sonic-buildimage/pull/26755)). Requires `otel` container support on DUT. |
 
