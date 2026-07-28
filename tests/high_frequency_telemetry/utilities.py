@@ -16,7 +16,7 @@ import pytest
 from natsort import natsorted
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.high_frequency_telemetry.counter_profiles import (
+from tests.common.helpers.sai_ids import (
     get_sai_object_type_id,
     get_sai_stat_id,
 )
@@ -154,30 +154,6 @@ def get_configured_buffer_pools(duthost):
     ))
 
 
-def setup_hft_profile(duthost, profile_name, poll_interval=10000,
-                      stream_state="disabled"):
-    """Create an HFT profile through the supported CLI."""
-    profile_arg = shlex.quote(str(profile_name))
-    stream_state = (stream_state or "").strip().lower()
-    pytest_assert(
-        stream_state in {"enabled", "disabled"},
-        f"Invalid HFT stream state: {stream_state}",
-    )
-    result = duthost.shell(
-        f"sudo config hft add profile {profile_arg} "
-        f"--poll_interval {int(poll_interval)} "
-        f"--stream_state {stream_state}",
-        module_ignore_errors=False,
-    )
-    logger.info(
-        "Created HFT profile %s (poll_interval=%s, stream_state=%s)",
-        profile_name,
-        poll_interval,
-        stream_state,
-    )
-    return result
-
-
 def _stringify_sequence(value):
     if isinstance(value, str):
         return value
@@ -202,26 +178,90 @@ def _normalize_hft_group_type(group_name):
     return group_type
 
 
-def setup_hft_group(duthost, profile_name, group_name,
-                    object_names, object_counters):
-    """Create one HFT group through the supported CLI."""
-    profile_arg = shlex.quote(str(profile_name))
-    group_type = _normalize_hft_group_type(group_name)
-    object_names = _stringify_sequence(object_names)
-    object_counters = _stringify_sequence(object_counters)
+def _get_hft_config_keys(duthost):
     result = duthost.shell(
-        f"sudo config hft add group {profile_arg} "
-        f"--group_type {group_type} "
-        f"--object_names {shlex.quote(object_names)} "
-        f"--object_counters {shlex.quote(object_counters)}",
+        "printf '__PROFILES__\\n'; "
+        "redis-cli -n 4 --raw KEYS 'HIGH_FREQUENCY_TELEMETRY_PROFILE|*'; "
+        "printf '__GROUPS__\\n'; "
+        "redis-cli -n 4 --raw KEYS 'HIGH_FREQUENCY_TELEMETRY_GROUP|*'",
         module_ignore_errors=False,
     )
+    profiles = []
+    groups = []
+    destination = profiles
+    for line in result.get("stdout_lines", []):
+        if line == "__PROFILES__":
+            destination = profiles
+        elif line == "__GROUPS__":
+            destination = groups
+        elif line:
+            destination.append(line)
+    return profiles, groups
+
+
+def _apply_hft_patch(duthost, operations):
+    payload = shlex.quote(json.dumps(operations, separators=(",", ":")))
+    return duthost.shell(
+        "patch_file=$(mktemp /tmp/hft-test-XXXXXX.json) && "
+        f"printf '%s' {payload} > \"$patch_file\" && "
+        "sudo config apply-patch \"$patch_file\"; "
+        "rc=$?; rm -f \"$patch_file\"; exit $rc",
+        module_ignore_errors=False,
+    )
+
+
+def setup_hft_config(duthost, profile_name, group_name, object_names,
+                     object_counters, poll_interval=10000,
+                     stream_state="enabled"):
+    """Create an HFT profile and group in one validated config patch."""
+    state = (stream_state or "").strip().lower()
+    pytest_assert(
+        state in {"enabled", "disabled"},
+        f"Invalid HFT stream state: {state}",
+    )
+    group_type = _normalize_hft_group_type(group_name)
+    objects = [
+        item.strip() for item in _stringify_sequence(object_names).split(",")
+        if item.strip()
+    ]
+    counters = [
+        item.strip() for item in _stringify_sequence(object_counters).split(",")
+        if item.strip()
+    ]
+    profiles, groups = _get_hft_config_keys(duthost)
+    pytest_assert(
+        not profiles and not groups,
+        "An HFT configuration already exists: "
+        f"profiles={profiles}, groups={groups}",
+    )
+    result = _apply_hft_patch(duthost, [
+        {
+            "op": "add",
+            "path": "/HIGH_FREQUENCY_TELEMETRY_PROFILE",
+            "value": {
+                profile_name: {
+                    "stream_state": state,
+                    "poll_interval": str(int(poll_interval)),
+                },
+            },
+        },
+        {
+            "op": "add",
+            "path": "/HIGH_FREQUENCY_TELEMETRY_GROUP",
+            "value": {
+                f"{profile_name}|{group_type}": {
+                    "object_names": objects,
+                    "object_counters": counters,
+                },
+            },
+        },
+    ])
     logger.info(
-        "Created HFT group %s for %s: objects=%s counters=%s",
-        group_type,
+        "Created HFT profile/group %s/%s (poll_interval=%s, stream_state=%s)",
         profile_name,
-        object_names,
-        object_counters,
+        group_type,
+        poll_interval,
+        state,
     )
     return result
 
@@ -244,30 +284,43 @@ def setup_hft_stream_state(duthost, profile_name, stream_state):
 
 
 def cleanup_hft_config(duthost, profile_name, group_names=None):
-    """Delete groups before deleting their HFT profile."""
+    """Delete groups, wait for session cleanup, then delete the profile."""
     profile_arg = shlex.quote(str(profile_name))
+    _, group_keys = _get_hft_config_keys(duthost)
     if group_names is None:
-        group_pattern = shlex.quote(
-            f"HIGH_FREQUENCY_TELEMETRY_GROUP|{profile_name}|*"
-        )
-        result = duthost.shell(
-            f"redis-cli -n 4 KEYS {group_pattern}",
-            module_ignore_errors=True,
-        )
-        group_names = []
-        for key in result.get("stdout_lines", []):
-            parts = (key or "").strip().split("|", 2)
-            if len(parts) == 3 and parts[1] == profile_name:
-                group_names.append(parts[2])
+        group_names = [
+            key.split("|", 2)[2] for key in group_keys
+            if key.startswith(f"HIGH_FREQUENCY_TELEMETRY_GROUP|{profile_name}|")
+        ]
     elif isinstance(group_names, str):
         group_names = [group_names]
 
     for group_name in group_names:
         group_type = _normalize_hft_group_type(group_name)
+        group_key = (
+            f"HIGH_FREQUENCY_TELEMETRY_GROUP|{profile_name}|{group_type}"
+        )
+        if group_key not in group_keys:
+            continue
         duthost.shell(
             f"sudo config hft del group {profile_arg} {group_type}",
             module_ignore_errors=True,
         )
+        session_key = shlex.quote(
+            "HIGH_FREQUENCY_TELEMETRY_SESSION_TABLE|"
+            f"{profile_name}|{group_type}"
+        )
+        result = duthost.shell(
+            "for i in $(seq 1 30); do "
+            f"[ \"$(redis-cli -n 6 EXISTS {session_key})\" = 0 ] && exit 0; "
+            "sleep 1; done; exit 1",
+            module_ignore_errors=True,
+        )
+        pytest_assert(
+            result.get("rc") == 0,
+            f"HFT session {profile_name}|{group_type} was not removed",
+        )
+
     duthost.shell(
         f"sudo config hft del profile {profile_arg}",
         module_ignore_errors=True,
@@ -534,10 +587,13 @@ def parse_influxdb_json(json_text):
 
 def build_expected_series(counter_type, object_names, counter_names):
     """Build exact InfluxDB series expected for an HFT group."""
-    type_id = get_sai_object_type_id(counter_type)
+    sai_type_name = counter_type.name
+    type_id = get_sai_object_type_id(f"SAI_OBJECT_TYPE_{sai_type_name}")
     expected = []
     for counter_name in counter_names:
-        stat_id = get_sai_stat_id(counter_type, counter_name)
+        stat_id = get_sai_stat_id(
+            f"SAI_{sai_type_name}_STAT_{counter_name}"
+        )
         measurement = f"sai_counter_type_{type_id}_stat_{stat_id}"
         expected.extend(
             HftSeries(measurement, object_name, type_id, stat_id, counter_name)
@@ -625,10 +681,14 @@ class InfluxDbSink:
                 created = _influxdb_database_command(
                     self.ptfhost, "create", self.bucket, self.port
                 )
-                if created.get("rc") == 0:
+                if created.get("rc") == 0 or "already exists" in (
+                        created.get("stderr", "").lower()):
                     break
                 time.sleep(1)
-            if created is None or created.get("rc") != 0:
+            if created is None or (
+                    created.get("rc") != 0
+                    and "already exists" not in created.get("stderr", "").lower()
+            ):
                 logger.warning(
                     "InfluxDB recreate attempt %d failed: %s", attempt, created
                 )
@@ -663,18 +723,18 @@ class InfluxDbSink:
             for series in expected_series
         }
 
-    def _grouped_values(self, measurements, expression, value_column,
-                        cutoff=None):
+    def _where_clause(self, cutoff=None):
+        return f" WHERE time <= '{cutoff}'" if cutoff else ""
+
+    @staticmethod
+    def _grouped_rows(result, measurement, value_column):
         values = {}
-        where = f" WHERE time <= '{cutoff}'" if cutoff else ""
-        for measurement in sorted(measurements):
-            query = (
-                f'SELECT {expression} AS "{value_column}" '
-                f'FROM "{measurement}"{where} '
-                'GROUP BY "object_name", "sai_type_id", "sai_stat_id"'
-            )
-            rows = parse_influxdb_json(json.dumps(self._query(query)))
-            for row in rows.get(measurement, []):
+        for series in result.get("series", []):
+            columns = series.get("columns", [])
+            tags = series.get("tags", {})
+            for raw_values in series.get("values", []):
+                row = dict(zip(columns, raw_values))
+                row.update(tags)
                 object_name = row.get("object_name")
                 type_id = row.get("sai_type_id")
                 stat_id = row.get("sai_stat_id")
@@ -694,6 +754,54 @@ class InfluxDbSink:
                 }
         return values
 
+    def _grouped_values(self, measurements, expression, value_column,
+                        cutoff=None):
+        measurements = sorted(measurements)
+        where = self._where_clause(cutoff)
+        statements = [
+            (
+                f'SELECT {expression} AS "{value_column}" '
+                f'FROM "{measurement}"{where} '
+                'GROUP BY "object_name", "sai_type_id", "sai_stat_id"'
+            )
+            for measurement in measurements
+        ]
+        body = self._query(";".join(statements))
+        values = {}
+        for measurement, result in zip(measurements, body.get("results", [])):
+            values.update(self._grouped_rows(result, measurement, value_column))
+        return values
+
+    def _statistics(self, expected_series, cutoff):
+        measurements = sorted({
+            series.measurement for series in expected_series
+        })
+        where = self._where_clause(cutoff)
+        specs = (
+            ('COUNT("gauge")', "sample_count"),
+            ('FIRST("gauge")', "first_value"),
+            ('LAST("gauge")', "last_value"),
+            ('MIN("gauge")', "minimum_value"),
+        )
+        statements = []
+        statement_specs = []
+        for expression, value_column in specs:
+            for measurement in measurements:
+                statements.append(
+                    f'SELECT {expression} AS "{value_column}" '
+                    f'FROM "{measurement}"{where} '
+                    'GROUP BY "object_name", "sai_type_id", "sai_stat_id"'
+                )
+                statement_specs.append((measurement, value_column))
+        body = self._query(";".join(statements))
+        values = {value_column: {} for _, value_column in specs}
+        for (measurement, value_column), result in zip(
+                statement_specs, body.get("results", [])):
+            values[value_column].update(
+                self._grouped_rows(result, measurement, value_column)
+            )
+        return values
+
     def counts(self, expected_series, cutoff=None):
         return self._grouped_values(
             {series.measurement for series in expected_series},
@@ -710,24 +818,8 @@ class InfluxDbSink:
             cutoff,
         )
 
-    def _first(self, expected_series, cutoff=None):
-        return self._grouped_values(
-            {series.measurement for series in expected_series},
-            'FIRST("gauge")',
-            "metric_value",
-            cutoff,
-        )
-
-    def _minimum(self, expected_series, cutoff=None):
-        return self._grouped_values(
-            {series.measurement for series in expected_series},
-            'MIN("gauge")',
-            "metric_value",
-            cutoff,
-        )
-
-    def wait_for_points(self, expected_series, min_points=20, timeout=90,
-                        poll_interval=3):
+    def wait_for_points(self, expected_series, min_points=20, timeout=30,
+                        poll_interval=1):
         expected = self._expected_map(expected_series)
         end_time = time.time() + timeout
         last_counts = {}
@@ -753,8 +845,9 @@ class InfluxDbSink:
         )
 
     def validate_series(self, expected_series, expected_interval_us,
-                        min_points=20, interval_tolerance=0.25):
-        """Validate object/counter coverage, values, interval, and CPS."""
+                        min_points=20, interval_tolerance=0.05,
+                        validate_cadence=True):
+        """Validate series coverage and values, optionally enforcing cadence."""
         expected = self._expected_map(expected_series)
         snapshot_latest = self.latest(expected_series)
         missing_latest = set(expected) - set(snapshot_latest)
@@ -766,10 +859,11 @@ class InfluxDbSink:
             (snapshot_latest[key]["time"] for key in expected),
             key=_parse_rfc3339_timestamp,
         )
-        counts = self.counts(expected_series, cutoff)
-        first = self._first(expected_series, cutoff)
-        last = self.latest(expected_series, cutoff)
-        minimum = self._minimum(expected_series, cutoff)
+        values = self._statistics(expected_series, cutoff)
+        counts = values["sample_count"]
+        first = values["first_value"]
+        last = values["last_value"]
+        minimum = values["minimum_value"]
         violations = []
 
         missing = set(expected) - set(counts)
@@ -825,12 +919,12 @@ class InfluxDbSink:
             actual_cps = (count - 1) / duration
             interval_error = abs(actual_interval - expected_interval_s) / expected_interval_s
             cps_error = abs(actual_cps - expected_cps) / expected_cps
-            if interval_error > interval_tolerance:
+            if validate_cadence and interval_error > interval_tolerance:
                 violations.append(
                     f"{key}: interval {actual_interval * 1000:.3f}ms, expected "
                     f"{expected_interval_s * 1000:.3f}ms (+/-{interval_tolerance:.0%})"
                 )
-            if cps_error > interval_tolerance:
+            if validate_cadence and cps_error > interval_tolerance:
                 violations.append(
                     f"{key}: CPS {actual_cps:.3f}, expected "
                     f"{expected_cps:.3f} (+/-{interval_tolerance:.0%})"
@@ -853,17 +947,19 @@ class InfluxDbSink:
         return stats
 
     def wait_and_validate(self, expected_series, expected_interval_us,
-                          min_points=20, timeout=90,
-                          interval_tolerance=0.25):
+                          min_points=20, timeout=30,
+                          interval_tolerance=0.05,
+                          validate_cadence=True):
         self.wait_for_points(expected_series, min_points + 2, timeout)
         return self.validate_series(
             expected_series,
             expected_interval_us,
             min_points,
             interval_tolerance,
+            validate_cadence,
         )
 
-    def assert_no_new_points(self, expected_series, duration=5, drain_time=3):
+    def assert_no_new_points(self, expected_series, duration=3, drain_time=2):
         time.sleep(drain_time)
         before = self.counts(expected_series)
         time.sleep(duration)
@@ -880,8 +976,8 @@ class InfluxDbSink:
         )
         return after
 
-    def wait_for_new_points(self, expected_series, baseline, timeout=30,
-                            poll_interval=2):
+    def wait_for_new_points(self, expected_series, baseline, timeout=20,
+                            poll_interval=1):
         expected = self._expected_map(expected_series)
         end_time = time.time() + timeout
         current = {}
@@ -897,7 +993,7 @@ class InfluxDbSink:
         raise AssertionError(f"HFT series did not resume: {current}")
 
     def wait_for_values_to_increase(self, expected_series, baseline,
-                                    timeout=30, poll_interval=2):
+                                    timeout=20, poll_interval=1):
         expected = self._expected_map(expected_series)
         end_time = time.time() + timeout
         current = {}

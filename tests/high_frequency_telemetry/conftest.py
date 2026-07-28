@@ -136,8 +136,9 @@ def hft_otel_collector(duthosts, enum_rand_one_per_hwsku_hostname, tbinfo):
 
 @pytest.fixture(scope="function")
 def hft_influxdb(ptfhost, disable_flex_counters, hft_otel_collector,
+                 cleanup_high_frequency_telemetry,
                  duthosts, enum_rand_one_per_hwsku_hostname):
-    """Provide a fresh in-memory InfluxDB instance for every test invocation."""
+    """Provide a fresh owned InfluxDB process for every HFT case."""
     sink = InfluxDbSink(ptfhost, bucket=INFLUXDB_BUCKET, port=INFLUXDB_PORT)
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     pid = None
@@ -150,15 +151,11 @@ def hft_influxdb(ptfhost, disable_flex_counters, hft_otel_collector,
         )
         sink.clear()
         restart_otel_collector(duthost)
-
         yield sink
     finally:
-        # HFT test bodies remove their profile before fixture teardown. Stop the
-        # collector so no delayed batch can repopulate the database while it is
-        # being cleared.
+        stop_otel_collector(duthost)
         if pid is not None:
             try:
-                stop_otel_collector(duthost)
                 sink.clear()
             finally:
                 stop_influxdb(ptfhost, pid)
@@ -312,15 +309,12 @@ def cleanup_high_frequency_telemetry(
         cleanup_hft_config(duthost, profile_name)
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="module")
 def disable_flex_counters(
-    duthosts, enum_rand_one_per_hwsku_hostname,
-    cleanup_high_frequency_telemetry
+    duthosts, enum_rand_one_per_hwsku_hostname
 ):
     """
-    Function-level fixture to disable all flex counters and restore
-    them after each test.
-    Depends on cleanup_high_frequency_telemetry to ensure clean state.
+    Disable all flex counters for the module and restore their original states.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 

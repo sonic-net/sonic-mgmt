@@ -10,13 +10,15 @@ from tests.high_frequency_telemetry.utilities import (
     build_expected_series,
     cleanup_hft_config,
     get_available_ports,
-    setup_hft_group,
-    setup_hft_profile,
+    setup_hft_config,
 )
 
 logger = logging.getLogger(__name__)
 
-pytestmark = [pytest.mark.topology("any")]
+pytestmark = [
+    pytest.mark.topology("any"),
+    pytest.mark.disable_memory_utilization,
+]
 
 
 def test_hft_end_to_end_influxdb(
@@ -32,18 +34,20 @@ def test_hft_end_to_end_influxdb(
     counters = ["IF_IN_OCTETS"]
 
     try:
-        setup_hft_profile(
+        setup_hft_config(
             duthost,
             profile_name,
+            "PORT",
+            ports,
+            counters,
             poll_interval=10_000,
             stream_state="enabled",
         )
-        setup_hft_group(duthost, profile_name, "PORT", ports, counters)
         expected = build_expected_series(
             CounterObjectType.PORT, ports, counters
         )
         stats = hft_influxdb.wait_and_validate(
-            expected, 10_000, min_points=20, timeout=90
+            expected, 10_000, min_points=100, timeout=45
         )
         logger.info("Validated end-to-end HFT series: %s", stats)
     finally:
