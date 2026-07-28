@@ -38,6 +38,7 @@ class GrpcTestSpec:
     connection: GrpcConnection = GrpcConnection.MTLS_TCP
     profile: GrpcServerProfile = GrpcServerProfile.STANDARD
     identity: str = "read-only"
+    enable_crl: bool = False
 
 
 DEFAULT_GRPC_TEST_SPEC = GrpcTestSpec()
@@ -48,6 +49,9 @@ class GrpcTestEnvironment:
 
     CLIENT_CN = "test.client.gnmi.sonic"
     CLIENT_ROLES = "gnmi_readonly"
+    REVOKED_CN = "test.client.revoked.gnmi.sonic"
+    REVOKED_ROLES = "gnmi_readwrite"
+    CRL_PORT = 8080
 
     def __init__(self, duthost, spec=DEFAULT_GRPC_TEST_SPEC, ptfhost=None):
         self.duthost = duthost
@@ -60,6 +64,8 @@ class GrpcTestEnvironment:
         self._lock_dir = "/tmp/sonic-mgmt-grpc-test-environment.lock"
         self._lock_acquired = False
         self._checkpoint_created = False
+        self._crl_ptf_dir = None
+        self._crl_pid = None
 
     def start(self):
         """Provision the selected server profile and prove native readiness."""
@@ -69,6 +75,8 @@ class GrpcTestEnvironment:
         self._checkpoint_created = True
         self._generate_certificates()
         self._push_server_certificates()
+        if self.spec.enable_crl:
+            self._start_crl_server()
         self._configure_server()
         self._restart_server()
         if not wait_until(60, 2, 0, self._native_ready):
@@ -84,6 +92,8 @@ class GrpcTestEnvironment:
 
         errors = []
         restored = False
+        if self.spec.enable_crl:
+            self._stop_crl_server(errors)
         try:
             output = rollback(self.duthost, self._checkpoint)
             stdout = output.get("stdout", "")
@@ -132,6 +142,17 @@ class GrpcTestEnvironment:
             client_key=os.path.join(self._cert_dir, grpc_config.CLIENT_KEY),
         )
 
+    def revoked_client(self):
+        """Return a credential-bound native gNMI client using the revoked certificate."""
+        return PygnmiClient(
+            self.duthost.mgmt_ip,
+            grpc_config.DEFAULT_TLS_PORT,
+            ca_cert=os.path.join(self._cert_dir, grpc_config.CA_CERT),
+            client_cert=os.path.join(self._cert_dir, "gnmiclient.revoked.cer"),
+            client_key=os.path.join(self._cert_dir, "gnmiclient.revoked.key"),
+            connect=False,
+        )
+
     def _acquire_lock(self):
         result = self.duthost.shell(
             "mkdir {}".format(self._lock_dir),
@@ -157,12 +178,16 @@ class GrpcTestEnvironment:
             return False
 
     def _validate_spec(self):
-        if self.spec != DEFAULT_GRPC_TEST_SPEC:
+        if self.spec.connection != GrpcConnection.MTLS_TCP or self.spec.profile != GrpcServerProfile.STANDARD:
             raise ValueError("Unsupported gRPC test spec: {!r}".format(self.spec))
 
     def _generate_certificates(self):
         generator = create_gnmi_cert_generator(server_ip=self.duthost.mgmt_ip)
         generator.write_all(self._cert_dir)
+        if self.spec.enable_crl:
+            ptf_ip = self.ptfhost.mgmt_ip
+            crl_url = "http://{}:{}/sonic.crl.pem".format(ptf_ip, self.CRL_PORT)
+            generator.generate_revoked_cert_with_crl(crl_url, self._cert_dir)
 
     def _push_server_certificates(self):
         self.duthost.shell("mkdir -p {}".format(self._dut_cert_dir))
@@ -189,8 +214,101 @@ class GrpcTestEnvironment:
             ('sonic-db-cli CONFIG_DB hset "GNMI_CLIENT_CERT|{}" "role@" "{}"'
              .format(self.CLIENT_CN, self.CLIENT_ROLES)),
         ]
+        if self.spec.enable_crl:
+            commands += [
+                'sonic-db-cli CONFIG_DB hset "GNMI|gnmi" enable_crl true',
+                'sonic-db-cli CONFIG_DB hset "GNMI|gnmi" crl_expire_duration 30',
+                ('sonic-db-cli CONFIG_DB hset "GNMI_CLIENT_CERT|{}" "role@" "{}"'
+                 .format(self.REVOKED_CN, self.REVOKED_ROLES)),
+            ]
         for command in commands:
             self.duthost.shell(command)
+
+    def _crl_port_free(self):
+        """Raise if CRL_PORT is already in use on the PTF host."""
+        result = self.ptfhost.shell(
+            "ss -ltnH 'sport = :{}'".format(self.CRL_PORT),
+            module_ignore_errors=True,
+        )
+        if result.get("stdout", "").strip():
+            raise RuntimeError(
+                "CRL port {} is already occupied on PTF host".format(self.CRL_PORT)
+            )
+
+    def _start_crl_server(self):
+        """Copy crl_server.py + CRL PEM to a UUID dir on PTF and launch it."""
+        self._crl_port_free()
+        ptf_dir = "/root/crl-{}".format(uuid.uuid4().hex[:8])
+        self._crl_ptf_dir = ptf_dir
+        self.ptfhost.shell("mkdir -p {}".format(ptf_dir))
+
+        # Locate crl_server.py relative to this module's package root
+        crl_server_src = os.path.join(
+            os.path.dirname(__file__), "..", "..", "tests", "gnmi", "crl", "crl_server.py"
+        )
+        crl_server_src = os.path.normpath(crl_server_src)
+        self.ptfhost.copy(src=crl_server_src, dest="{}/crl_server.py".format(ptf_dir))
+        self.ptfhost.copy(
+            src=os.path.join(self._cert_dir, "sonic.crl.pem"),
+            dest="{}/sonic.crl.pem".format(ptf_dir),
+        )
+
+        # Launch; capture PID; validate it is an integer
+        result = self.ptfhost.shell(
+            "cd {dir}; nohup /root/env-python3/bin/python crl_server.py --port {port} "
+            "> crl.log 2>&1 </dev/null & echo $!".format(
+                dir=ptf_dir, port=self.CRL_PORT
+            )
+        )
+        pid_str = result.get("stdout", "").strip()
+        try:
+            self._crl_pid = int(pid_str)
+        except (ValueError, TypeError):
+            raise RuntimeError(
+                "CRL server did not return a valid PID; got: {!r}".format(pid_str)
+            )
+        logger.info("CRL server started at PID %d in %s", self._crl_pid, ptf_dir)
+
+        def _crl_ready():
+            res = self.ptfhost.shell(
+                "grep -c 'Ready handle request' {}/crl.log".format(ptf_dir),
+                module_ignore_errors=True,
+            )
+            return res.get("rc", 1) == 0 and int(res.get("stdout", "0").strip() or "0") > 0
+
+        if not wait_until(60, 1, 0, _crl_ready):
+            raise RuntimeError("CRL server did not signal readiness in {}".format(ptf_dir))
+        logger.info("CRL server ready")
+
+    def _stop_crl_server(self, errors):
+        """Kill the CRL server by exact PID, wait for exit, then remove the PTF dir."""
+        if self._crl_pid is None:
+            return
+        try:
+            self.ptfhost.shell(
+                "kill {} 2>/dev/null || true".format(self._crl_pid),
+                module_ignore_errors=True,
+            )
+            # Wait for the process to exit (up to 10 s)
+            wait_until(10, 1, 0,
+                       lambda: self.ptfhost.shell(
+                           "kill -0 {} 2>/dev/null; echo $?".format(self._crl_pid),
+                           module_ignore_errors=True,
+                       ).get("stdout", "0").strip() != "0")
+        except Exception as exc:
+            errors.append("stop CRL server failed: {}".format(exc))
+        finally:
+            self._crl_pid = None
+        if self._crl_ptf_dir:
+            try:
+                self.ptfhost.shell(
+                    "rm -rf {}".format(self._crl_ptf_dir),
+                    module_ignore_errors=True,
+                )
+            except Exception as exc:
+                errors.append("remove CRL PTF dir failed: {}".format(exc))
+            finally:
+                self._crl_ptf_dir = None
 
     def _restart_server(self):
         result = self.duthost.shell(
