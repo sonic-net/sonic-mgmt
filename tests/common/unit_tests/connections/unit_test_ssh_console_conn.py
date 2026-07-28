@@ -5,7 +5,8 @@ These tests guard the console-state classifier that decides whether the reboot
 console-log collector may send a Ctrl-C during recovery. Sending Ctrl-C while the
 DUT is in a bootloader/boot stage (e.g. Arista Aboot autoboot window) traps the
 box in the bootloader and aborts autoboot, so SONiC never boots and the device
-becomes permanently unreachable (the regression PR #26351 fixes).
+becomes permanently unreachable. The regression was introduced by #24288; this
+PR (#26351) fixes it.
 
 The critical property is ``BOOTLOADER_BANNER_RE``:
   * it MUST match real bootloader / boot-in-progress banners (so Ctrl-C is
