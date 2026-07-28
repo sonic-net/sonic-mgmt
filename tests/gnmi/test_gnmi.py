@@ -111,5 +111,3 @@ def test_gnmi_capabilities_authenticate(duthosts, rand_one_dut_hostname, localho
 
     # Restore default role
     add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic")
-
-
