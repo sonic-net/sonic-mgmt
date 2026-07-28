@@ -1,0 +1,28 @@
+# Enable the console switch feature and provision console lines on a SONiC
+# console fanout, derived from its serial links (sonic_<inv>_serial_links.csv).
+#
+# The DUT (via generate_c0_golden_config_db during deploy-mg) and the mc0
+# management/console switch (via mcx.yml) already get their CONSOLE_SWITCH /
+# CONSOLE_PORT config generated automatically. The SONiC console fanout
+# (e.g. FanoutLeafSonic) did not, so "config console enable" and
+# "config console line add -b <baud> <line>" had to be run by hand after each
+# deployment. This task closes that gap.
+- name: Collect serial links for this fanout
+  set_fact:
+    fanout_serial_links: "{{ (device_serial_link | default({}))[inventory_hostname] | default({}) }}"
+
+- name: Provision console switch on SONiC console fanout
+  when: fanout_serial_links | length > 0
+  block:
+    - name: Render CONSOLE_PORT / CONSOLE_SWITCH config
+      template:
+        src: console_config.j2
+        dest: /tmp/console_config.json
+
+    - name: Write console config into CONFIG_DB
+      shell: sonic-cfggen -j /tmp/console_config.json --write-to-db
+      become: yes
+
+    - name: Persist config
+      shell: config save -y
+      become: yes

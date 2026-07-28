@@ -182,7 +182,8 @@ def fixture_setUp(rand_selected_dut, tbinfo, ptfadapter):
         tunnel_name=data['vxlan_tunnel_name'],
         src_ip=data['loopback_src_ip'],
         portchannel_name=selected_pc,
-        router_mac=rand_selected_dut.facts['router_mac']
+        router_mac=rand_selected_dut.facts['router_mac'],
+        asic_type=rand_selected_dut.facts.get('asic_type')
     )
 
     def _check_vnet_route(duthost):
@@ -474,7 +475,8 @@ def remove_acl_rules(duthost):
     pytest_assert(exists_output.strip() == "0", f"ACL rule {state_db_key} still exists in STATE_DB")
 
 
-def create_vxlan_vnet_config(duthost, tunnel_name, src_ip, portchannel_name="PortChannel101", router_mac=None):
+def create_vxlan_vnet_config(duthost, tunnel_name, src_ip, portchannel_name="PortChannel101", router_mac=None,
+                             asic_type=None):
     # --- VXLAN parameters ---
     vnet_base = VXLAN_VNI
     ptf_vtep = PTF_VTEP_IP
@@ -483,10 +485,16 @@ def create_vxlan_vnet_config(duthost, tunnel_name, src_ip, portchannel_name="Por
     ecmp_utils.Constants['KEEP_TEMP_FILES'] = True
     ecmp_utils.Constants['DEBUG'] = False
 
+    vxlan_tunnel_entry = {"src_ip": dut_vtep}
+    # On cisco-8000, base topology IP-in-IP decap tunnels may already use pipe TTL mode.
+    # Set VXLAN decap ttl_mode to pipe so orchagent passes DECAP_TTL_MODE consistently.
+    if asic_type == "cisco-8000":
+        vxlan_tunnel_entry["ttl_mode"] = "pipe"
+
     # --- Build overlay config JSON ---
     dut_json = {
         "VXLAN_TUNNEL": {
-            tunnel_name: {"src_ip": dut_vtep}
+            tunnel_name: vxlan_tunnel_entry
         },
         "VNET": {
             "Vnet1": {
