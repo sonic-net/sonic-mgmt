@@ -268,7 +268,7 @@ def test_ecn_config_utility(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     cmd = 'ecnconfig -l{}'.format(asic)
 
     result = duthost.command(cmd)
-    assert result['rc'] == 0, f"Missing ecn configuration : {result['stderr']}"
+    assert result['rc'] == 0, f"Missing ecn configuration: {result['stderr']}"
     if result['stdout_lines']:
         ecn_list = {}
         for iter, line in enumerate(result['stdout_lines']):
@@ -284,7 +284,7 @@ def test_ecn_config_utility(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     for queue in test_queue_list:
         cmd = 'sudo ecnconfig {} -q {}'.format(asic, queue)
         result = duthost.command(cmd)
-        assert result['rc'] == 0, f"Missing ecn configuration : {result['stderr']}"
+        assert result['rc'] == 0, f"Missing ecn configuration: {result['stderr']}"
         if 'queue' in result['stdout_lines'][1]:
             status = result['stdout_lines'][1].split(':')
             logging.info("{} status is {}".format(status[0], status[1]))
@@ -323,5 +323,5 @@ def test_ecn_config_utility(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
 
     cmd = 'sudo counterpoll show {}'.format(asic)
     result = duthost.command(cmd)
-    assert 'WRED_ECN_QUEUE_STAT' in result['stdout'], f"Missing ecn configuration : {result['stderr']}"
-    assert 'WRED_ECN_PORT_STAT' in result['stdout'], f"Missing ecn configuration : {result['stderr']}"
+    assert 'WRED_ECN_QUEUE_STAT' in result['stdout'], f"Missing ecn configuration: {result['stderr']}"
+    assert 'WRED_ECN_PORT_STAT' in result['stdout'], f"Missing ecn configuration: {result['stderr']}"
