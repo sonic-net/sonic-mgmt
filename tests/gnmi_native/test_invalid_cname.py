@@ -7,9 +7,9 @@ import pytest
 from tests.common.helpers.gnmi_utils import (
     add_gnmi_client_common_name,
     del_gnmi_client_common_name,
-    dump_gnmi_log,
 )
 from tests.common.pygnmi_client import PygnmiClientCallError, PygnmiClientConnectionError
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -36,8 +36,8 @@ def setup_invalid_client_cert_cname(duthosts, enum_rand_one_per_hwsku_frontend_h
     add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic")
 
 
-def gnmi_create_vnet_native(duthost, client):
-    """Issue a native Set against APPL_DB/DASH_VNET_TABLE; return (error_msg, gnmi_log)."""
+def gnmi_create_vnet_native(client):
+    """Issue a native Set against APPL_DB/DASH_VNET_TABLE; return the error."""
     vnet_payload = {"Vnet1": {"vni": "1000", "guid": "559c6ce8-26ab-4193-b946-ccc6e8f930b2"}}
     error_message = ""
     try:
@@ -46,21 +46,17 @@ def gnmi_create_vnet_native(duthost, client):
         logger.info("gnmi set failed (expected): %s", exc)
         error_message = str(exc)
 
-    gnmi_log = dump_gnmi_log(duthost)
-    return error_message, gnmi_log
+    return error_message
 
 
 def test_gnmi_authorize_failed_with_invalid_cname(
-    duthosts,
-    enum_rand_one_per_hwsku_frontend_hostname,
     _grpc_environment,
     setup_invalid_client_cert_cname,
 ):
     """gNMI Set MUST be rejected with Unauthenticated when the client CN has no mapping."""
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     client = _grpc_environment.gnmi_client(connect=False)
     try:
-        msg, gnmi_log = gnmi_create_vnet_native(duthost, client)
+        msg = gnmi_create_vnet_native(client)
     finally:
         client.close()
 
@@ -69,7 +65,13 @@ def test_gnmi_authorize_failed_with_invalid_cname(
         "- Actual message: '{}'"
     ).format(msg)
 
-    assert "Failed to retrieve cert common name mapping" in gnmi_log, (
+    expected_log = "Failed to retrieve cert common name mapping"
+    assert wait_until(
+        10,
+        1,
+        0,
+        lambda: expected_log in _grpc_environment.gnmi_log(),
+    ), (
         "'Failed to retrieve cert common name mapping' not found in gNMI log. "
         "- Actual gNMI log: '{}'"
-    ).format(gnmi_log)
+    ).format(_grpc_environment.gnmi_log())

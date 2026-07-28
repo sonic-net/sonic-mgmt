@@ -67,6 +67,7 @@ class GrpcTestEnvironment:
         self._crl_ptf_dir = None
         self._crl_pid = None
         self._crl_bind_address = None
+        self._gnmi_log_start_line = 1
 
     def start(self):
         """Provision the selected server profile and prove native readiness."""
@@ -82,6 +83,7 @@ class GrpcTestEnvironment:
         self._restart_server()
         if not wait_until(60, 2, 0, self._native_ready):
             raise RuntimeError("gNMI server did not become ready for native mTLS calls")
+        self._mark_gnmi_log_start()
         return self
 
     def stop(self):
@@ -155,6 +157,16 @@ class GrpcTestEnvironment:
             connect=False,
         )
 
+    def gnmi_log(self):
+        """Return gNMI log lines emitted after this environment became ready."""
+        result = self.duthost.shell(
+            "sudo tail -n +{} /var/log/gnmi.log".format(
+                self._gnmi_log_start_line
+            ),
+            module_ignore_errors=True,
+        )
+        return result.get("stdout", "")
+
     def _acquire_lock(self):
         result = self.duthost.shell(
             "mkdir {}".format(self._lock_dir),
@@ -178,6 +190,19 @@ class GrpcTestEnvironment:
         except Exception as exc:
             logger.debug("Native gNMI readiness probe failed: %s", exc)
             return False
+
+    def _mark_gnmi_log_start(self):
+        result = self.duthost.shell(
+            "sudo sh -c 'wc -l < /var/log/gnmi.log'",
+            module_ignore_errors=True,
+        )
+        try:
+            self._gnmi_log_start_line = int(result.get("stdout", "0").strip()) + 1
+        except (TypeError, ValueError):
+            logger.warning(
+                "Unable to determine gNMI log offset: %s", result
+            )
+            self._gnmi_log_start_line = 1
 
     def _validate_spec(self):
         if (self.spec.connection != GrpcConnection.MTLS_TCP

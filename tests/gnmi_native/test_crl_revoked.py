@@ -5,8 +5,8 @@ import logging
 import pytest
 
 from tests.common.grpc_test_environment import GrpcTestSpec
-from tests.common.helpers.gnmi_utils import dump_gnmi_log
 from tests.common.pygnmi_client import PygnmiClientCallError, PygnmiClientConnectionError
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -24,12 +24,9 @@ def grpc_spec():
 
 
 def test_gnmi_authorize_failed_with_revoked_cert(
-    duthosts,
-    enum_rand_one_per_hwsku_frontend_hostname,
     _grpc_environment,
 ):
     """gNMI Set MUST be rejected with Unauthenticated when the client cert is CRL-revoked."""
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     vnet_payload = {"Vnet1": {"vni": "1000", "guid": "559c6ce8-26ab-4193-b946-ccc6e8f930b2"}}
 
     retry = 3
@@ -47,7 +44,14 @@ def test_gnmi_authorize_failed_with_revoked_cert(
         finally:
             client.close()
 
-        gnmi_log = dump_gnmi_log(duthost)
+        wait_until(
+            10,
+            1,
+            0,
+            lambda: "desc = Peer certificate revoked"
+            in _grpc_environment.gnmi_log(),
+        )
+        gnmi_log = _grpc_environment.gnmi_log()
         if "desc = Peer certificate revoked" in gnmi_log:
             break
 

@@ -377,7 +377,7 @@ class TlsCertificateGenerator:
             x509.CertificateRevocationListBuilder()
             .issuer_name(self._ca_cert.subject)
             .last_update(now - timedelta(minutes=1))
-            .next_update(now + timedelta(days=self.validity_days))
+            .next_update(not_valid_after)
             .add_extension(authority_key_identifier, critical=False)
             .add_revoked_certificate(revoked_cert)
             .sign(self._ca_key, hashes.SHA256())
