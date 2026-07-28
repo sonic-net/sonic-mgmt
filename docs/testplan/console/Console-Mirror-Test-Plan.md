@@ -22,8 +22,7 @@ This plan verifies:
 - `consutil mirror start`, `show`, `timeout`, and `stop`, including invalid requests
 - RX, TX, and bidirectional recording without console-session interference
 - SCM-Text v1 format, payload escaping, file rotation, and ZIP packaging
-- Per-line ownership, STATE_DB state, automatic stop, and proxy restart behavior
-- Access control, protected files, recording-error isolation, and resource stability
+- STATE_DB state management, automatic stop, and resource stability
 
 ## 3 Testbed Setup
 
@@ -77,7 +76,7 @@ For a mirror session on line 1:
 | Case | Objective | Test Steps | Expected Result |
 |-|-|-|-|
 | CLI and State | Verify CLI control, runtime state, validation | 1. Start, show, check `STATE_DB`, update timeout, check `STATE_DB`, and stop line 1 mirror<br />2. Repeat with invalid parameters | Valid operations return correct state and metadata; timeout update resets remaining time; invalid requests are rejected without side effects. |
-| Traffic Recording | Verify direction filtering, data integrity, escaping, and non-interference | 1. Parameterize `rx`, `tx`, and `both`<br />2. Exchange unique printable and control-byte payloads through line 1 and line 2 while the console sessions remain active | Only selected directions are recorded with correct labels and escaping. |
+| Traffic Recording | Verify direction filtering, data integrity, escaping, and non-interference | 1. Parameterize `rx`, `tx`, and `both`<br />2. Exchange unique printable and control-byte payloads through line 1 and line 2 while the console sessions remain active | Only selected directions are fully recorded with correct labels and escaping. |
 | Recording Files | Verify file format, rotation, retention, packaging, and permissions | 1. Stop once without archiving<br />2. Repeat with a small file-size limit and `--archive`, inspect log parts, ZIP contents, ownership, and permissions | Format and rotation are correct; unarchived logs remain; a successful ZIP contains every part and removes its source logs; directories are `0700` and files are `0600`, owned by `root:root` |
 | Archive Failure | Verify recording data is preserved when packaging fails | Force ZIP creation to fail | Incomplete `.zip.tmp` is removed, source logs are preserved, and console forwarding continues |
 
