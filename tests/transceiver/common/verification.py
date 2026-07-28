@@ -50,21 +50,6 @@ logger = logging.getLogger(__name__)
 DEFAULT_STABILITY_WINDOW_SEC = 5
 
 
-def resolve_namespace(duthost, port):
-    """Return the ASIC network namespace owning ``port`` (``None`` on single-ASIC).
-
-    Mirrors the resolution used by the EEPROM / link-behavior tests
-    (``get_namespace_from_asic_id`` of the port's ASIC instance). Multi-ASIC DBs
-    (STATE_DB / APPL_DB, including LLDP) are per-namespace, so every per-port DB
-    read in this module scopes to the owning ASIC; on a single-ASIC DUT this is
-    ``None`` (``DEFAULT_NAMESPACE``) and ``db_helpers.hgetall_dict`` emits no
-    ``-n`` flag.
-    """
-    return duthost.get_namespace_from_asic_id(
-        duthost.get_port_asic_instance(port).asic_index
-    )
-
-
 # ──────────────────────────────────────────────────────────────────────
 # LLDP neighbor poll
 # ──────────────────────────────────────────────────────────────────────
@@ -106,8 +91,9 @@ def check_lldp_neighbors_present(duthost, port_timeouts, namespaces=None):
         namespaces = {}
 
     def _namespace_for(port):
-        namespace = namespaces.get(port)
-        return namespace if namespace is not None else resolve_namespace(duthost, port)
+        if port in namespaces:
+            return namespaces[port]
+        return db_helpers.resolve_namespace(duthost, port)
 
     start = time.monotonic()
     deadlines = {port: start + max(0, int(timeout_sec)) for port, timeout_sec in port_timeouts.items()}
@@ -140,16 +126,6 @@ def check_lldp_neighbors_present(duthost, port_timeouts, namespaces=None):
             logger.warning("LLDP check FAILED: %s", details)
             per_port[port] = {"passed": False, "details": details}
     return per_port
-
-
-def check_lldp_neighbor_present(duthost, port, timeout_sec=30, namespace=None):
-    """Single-port convenience wrapper over :func:`check_lldp_neighbors_present`.
-
-    Returns:
-        dict: ``{'passed': bool, 'details': str}``
-    """
-    namespaces = {port: namespace} if namespace is not None else None
-    return check_lldp_neighbors_present(duthost, {port: timeout_sec}, namespaces=namespaces)[port]
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -192,8 +168,9 @@ def check_ports_stability(duthost, ports, window_sec, namespaces=None):
         namespaces = {}
 
     def _namespace_for(port):
-        namespace = namespaces.get(port)
-        return namespace if namespace is not None else resolve_namespace(duthost, port)
+        if port in namespaces:
+            return namespaces[port]
+        return db_helpers.resolve_namespace(duthost, port)
 
     def _snapshot_all():
         snapshot = {}
@@ -233,16 +210,6 @@ def check_ports_stability(duthost, ports, window_sec, namespaces=None):
             logger.info("Stability check PASSED: %s", details)
             per_port[port] = {"passed": True, "details": details}
     return per_port
-
-
-def check_link_stability(duthost, port, window_sec, namespace=None):
-    """Single-port convenience wrapper over :func:`check_ports_stability`.
-
-    Returns:
-        dict: ``{'passed': bool, 'details': str}``
-    """
-    namespaces = {port: namespace} if namespace is not None else None
-    return check_ports_stability(duthost, [port], window_sec, namespaces=namespaces)[port]
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -337,7 +304,7 @@ def check_media_si_settings(duthost, port, media_si_settings, namespace=None):
     if not media_si_settings:
         return {"passed": True, "details": f"{port}: media_si_settings not defined, skipped"}
     if namespace is None:
-        namespace = resolve_namespace(duthost, port)
+        namespace = db_helpers.resolve_namespace(duthost, port)
 
     port_table = db_helpers.hgetall_dict(duthost, "APPL_DB", f"PORT_TABLE:{port}", namespace=namespace)
 
@@ -401,7 +368,7 @@ def check_cmis_state(duthost, port, lport_to_first_subport_mapping, status_cache
     resolved from ``port`` (a breakout parent shares its subports' ASIC).
     """
     if namespace is None:
-        namespace = resolve_namespace(duthost, port)
+        namespace = db_helpers.resolve_namespace(duthost, port)
     parent = lport_to_first_subport_mapping.get(port, port)
     status = _get_transceiver_status(duthost, parent, status_cache, namespace)
     if not status:
@@ -578,7 +545,7 @@ def standard_port_recovery_and_verification(
     # Owning ASIC namespace per port, resolved once and reused for every
     # per-namespace DB read below (LLDP / TRANSCEIVER_STATUS / stability).
     # ``None`` on single-ASIC -> no ``-n`` flag.
-    namespaces = {port: resolve_namespace(duthost, port) for port in ports}
+    namespaces = {port: db_helpers.resolve_namespace(duthost, port) for port in ports}
 
     per_port_failures = {port: [] for port in ports}
     checks_ran = {port: [] for port in ports}  # human-readable checks that ran, per port

@@ -229,6 +229,25 @@ def get_state_db_table(duthost, table, namespace=None):
     }, None
 
 
+def resolve_namespace(duthost, port):
+    """Return the ASIC network namespace owning ``port`` (``None`` on single-ASIC).
+
+    ``duthost.get_port_asic_instance(port).namespace`` directly - that
+    ``SonicAsic`` attribute is already set to exactly what
+    ``duthost.get_namespace_from_asic_id(asic_index)`` would recompute from
+    the same instance's own ``asic_index`` (see ``tests/common/devices/
+    sonic_asic.py``'s ``__init__`` and ``tests/common/devices/multi_asic.py``'s
+    ``get_namespace_from_asic_id``), so going through ``get_namespace_from_asic_id``
+    is pure indirection for a port that's already resolved to its ASIC.
+
+    Multi-ASIC DBs (STATE_DB / APPL_DB, including LLDP) are per-namespace, so
+    every per-port DB read scopes to the owning ASIC; on a single-ASIC DUT
+    this is ``None`` (``DEFAULT_NAMESPACE``) and the ``hgetall_dict``/
+    ``get_db_hash_field`` wrappers above emit no ``-n`` flag.
+    """
+    return duthost.get_port_asic_instance(port).namespace
+
+
 def get_config_db_port_names(duthost):
     """Return the set of port names in the CONFIG_DB PORT table.
 
