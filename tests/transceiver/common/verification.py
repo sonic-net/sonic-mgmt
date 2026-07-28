@@ -301,27 +301,8 @@ def check_optics_si_settings(duthost, port, optics_si_settings):
     return {"passed": True, "details": details}
 
 
-def check_media_si_settings(duthost, port, media_si_settings, namespace=None, require_npu_si_settings_done=True):
+def check_media_si_settings(duthost, port, media_si_settings, namespace=None):
     """Verify ``port``'s applied media-side SI settings against APPL_DB.
-
-    If ``require_npu_si_settings_done`` (default ``True``), first gates on
-    ``NPU_SI_SETTINGS_SYNC_STATUS`` (``PORT_TABLE|<port>`` in STATE_DB - set
-    by xcvrd/orchagent, per
-    ``docs/sfp-cmis/Interface-Link-bring-up-sequence.md`` upstream) being
-    ``NPU_SI_SETTINGS_DONE``: a value of ``NPU_SI_SETTINGS_DEFAULT`` or
-    ``NPU_SI_SETTINGS_NOTIFIED`` means the NPU hasn't finished applying SI
-    settings yet, so comparing now would either race a real value or compare
-    against stale/default silicon state.
-
-    ``require_npu_si_settings_done=False`` skips this gate entirely and goes
-    straight to the comparison. This is for deployments that program media SI
-    settings by a path other than the xcvrd/``media_settings.json`` sync
-    workflow (e.g. straight from ``config_db.json`` at boot) - on those,
-    ``NPU_SI_SETTINGS_SYNC_STATUS`` sits at ``NPU_SI_SETTINGS_DEFAULT``
-    permanently, by design, since that sync cycle is never triggered; treating
-    it as a not-yet-converged failure would be a permanent false negative.
-    In practice, the value of the ``require_npu_si_settings_done``
-    SYSTEM_ATTRIBUTES attribute.
 
     ``media_si_settings`` is a flat dict of field name -> expected value (e.g.
     ``pre3``/``pre2``/``pre1``/``main``/``post1``/``idriver``, following
@@ -330,11 +311,25 @@ def check_media_si_settings(duthost, port, media_si_settings, namespace=None, re
     once the port is up. Nvidia/Mellanox-only in this suite - no vendor
     branch here.
 
+    No separate NPU-sync-status gate: traced xcvrd
+    (``xcvrd.py``/``xcvrd_utilities/media_settings_parser.py``) directly -
+    it only ever writes ``NPU_SI_SETTINGS_DEFAULT`` (port init/SFP removal)
+    or ``NPU_SI_SETTINGS_NOTIFIED`` (``PORT_TABLE|<port>`` in STATE_DB,
+    written immediately *after* the same code path commits the media SI
+    values to APPL_DB). ``NPU_SI_SETTINGS_DONE`` is not written anywhere in
+    xcvrd or swss in the current tree, so gating on it would never pass.
+    ``NOTIFIED`` is a sufficient precondition for this comparison (the
+    values are already in APPL_DB by the time it's set) and this function
+    only reads APPL_DB, so there is nothing later to wait on; in
+    :func:`standard_port_recovery_and_verification` this also only runs
+    after oper-up + settle, closing the race via the flow's own timing. A
+    stale/missing value already fails below with an accurate reason.
+
     Skips (passes) if ``media_si_settings`` is empty/undefined, matching the
     attribute's "test runs if dictionary is non-empty" contract.
 
-    ``namespace`` scopes the DB reads to the owning ASIC; when ``None`` it is
-    resolved from ``port``.
+    ``namespace`` scopes the APPL_DB read to the owning ASIC; when ``None``
+    it is resolved from ``port``.
 
     Returns:
         dict: ``{'passed': bool, 'details': str}``
@@ -343,17 +338,6 @@ def check_media_si_settings(duthost, port, media_si_settings, namespace=None, re
         return {"passed": True, "details": f"{port}: media_si_settings not defined, skipped"}
     if namespace is None:
         namespace = resolve_namespace(duthost, port)
-
-    if require_npu_si_settings_done:
-        state_port_table = db_helpers.hgetall_dict(duthost, "STATE_DB", f"PORT_TABLE|{port}", namespace=namespace)
-        sync_status = state_port_table.get("NPU_SI_SETTINGS_SYNC_STATUS")
-        if sync_status != "NPU_SI_SETTINGS_DONE":
-            details = (
-                f"{port}: NPU_SI_SETTINGS_SYNC_STATUS is {sync_status!r}, not 'NPU_SI_SETTINGS_DONE' "
-                f"(PORT_TABLE|{port} in STATE_DB) - NPU SI settings sync not complete"
-            )
-            logger.warning("Media SI settings check FAILED: %s", details)
-            return {"passed": False, "details": details}
 
     port_table = db_helpers.hgetall_dict(duthost, "APPL_DB", f"PORT_TABLE:{port}", namespace=namespace)
 
@@ -694,8 +678,7 @@ def standard_port_recovery_and_verification(
         media_si_settings = sys_attrs.get("media_si_settings")
         if media_si_settings:
             media_result = check_media_si_settings(
-                duthost, port, media_si_settings, namespace=namespaces.get(port),
-                require_npu_si_settings_done=sys_attrs.get("require_npu_si_settings_done", True),
+                duthost, port, media_si_settings, namespace=namespaces.get(port)
             )
             checks_ran[port].append("media SI settings")
             if not media_result["passed"]:
