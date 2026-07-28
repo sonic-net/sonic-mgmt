@@ -8177,6 +8177,8 @@ class PgMinThresholdTest(sai_base_test.ThriftInterfaceDataPlane):
         finally:
             # Re-enable TX on destination port
             self.sai_thrift_port_tx_enable(self.dst_client, self.asic_type, [self.dst_port_id])
+
+
 class _PtfDutShim:
     """
     Bridges PTF's run_cmd_on_dut interface to the duthost.shell() interface
@@ -8521,4 +8523,3 @@ class PgMinThresholdTestTAI(sai_base_test.ThriftInterfaceDataPlane):
             print("\n--- Enabling TX on destination port ---", file=sys.stderr)
             self.sai_thrift_port_tx_enable(self.dst_client, self.asic_type, [self.dst_port_id])
             print("TX enabled", file=sys.stderr)
-

@@ -20,6 +20,7 @@ Parameters:
         qos_dst_ports applies. Default is [2].
 """
 
+import ipaddress
 import logging
 import pytest
 import time
@@ -45,7 +46,8 @@ from tests.common.utilities import wait_until
 from .qos_sai_base import QosSaiBase
 from tests.common.helpers.ptf_tests_helper import (downstream_links, upstream_links, select_random_link,  # noqa: F401
                                                    get_stream_ptf_ports, apply_dscp_cfg_setup, apply_dscp_cfg_teardown,
-                                                   fetch_test_logs_ptf)
+                                                   fetch_test_logs_ptf, select_test_interface_and_ptf_port,
+                                                   get_interface_ip_address, detect_portchannel_egress_member)
 from tests.common.utilities import get_ipv4_loopback_ip
 from tests.common.helpers.base_helper import read_logs
 from tests.common.mellanox_data import is_mellanox_device
@@ -2025,8 +2027,6 @@ class TestQosSai(QosSaiBase):
             testParams=testParams,
             skip_pcap=True
         )
-
-    @pytest.mark.parametrize("queueProfile", ["wm_q_shared_lossless", "wm_q_shared_lossy"])
 
     def testQosSaiPgMinThresholdTAI(
         self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
