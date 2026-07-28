@@ -1664,8 +1664,8 @@
     },
     {
         "feature": "show_techsupport",
-        "owner": "Vaibhav Hemant Dixit",
-        "email": "vadixit@microsoft.com",
+        "owner": "Storm Liang",
+        "email": "stormliang@microsoft.com",
         "scripts": [
             {
                 "scripts": [
@@ -1673,8 +1673,8 @@
                     "show_techsupport.test_techsupport",
                     "show_techsupport.test_techsupport_no_secret"
                 ],
-                "owner": "Vaibhav Hemant Dixit",
-                "email": "vadixit@microsoft.com"
+                "owner": "Storm Liang",
+                "email": "stormliang@microsoft.com"
             }
         ]
     },
