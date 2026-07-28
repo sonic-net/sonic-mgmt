@@ -1,4 +1,5 @@
 import random
+import re
 from tests.snappi_tests.dataplane.imports import *          # noqa: F403, F401, F405
 from tests.common.telemetry import UNIT_SECONDS
 from tests.common.telemetry.constants import METRIC_LABEL_TG_TRAFFIC_RATE, METRIC_LABEL_TG_FRAME_BYTES
@@ -10,6 +11,22 @@ from tests.common.gu_utils import (
     rollback_or_reload,
 )
 logger = logging.getLogger(__name__)
+
+BLOCKING_SCHEDULER = "SCHEDULER_BLOCK_DATA_PLANE"
+DRILL_DOWN_OPTION = "Custom: (2 bits at offset 126)"
+SELECTED_UD_COLS = [
+    "Egress Tracking",
+    "Tx Frames",
+    "Rx Frames",
+    "Frames Delta",
+    "Loss %",
+    "Tx Frame Rate",
+    "Rx Frame Rate",
+]
+ECN_NON_ECT = 0   # 00
+ECN_ECT1 = 1      # 01
+ECN_ECT0 = 2      # 10
+ECN_CE = 3        # 11
 
 # ==============================================================================
 #  Shared BGP convergence test helpers (test_pr_bgp_single_port_{up,down},
@@ -476,12 +493,39 @@ def create_traffic_items(config, snappi_extra_params):
         test_flow.size.fixed = traffic["frame_size"]
         test_flow.rate.percentage = traffic["line_rate"]
         if traffic.get("is_rdma", False):
-            _, ipv4 = test_flow.packet.ethernet().ipv4()
+            eth, ipv4 = test_flow.packet.ethernet().ipv4()
+            eth.pfc_queue.value = traffic["prio"]
             ipv4.priority.dscp.phb.values = [
                 ipv4.priority.dscp.phb.DEFAULT,
             ]
-            ipv4.priority.dscp.phb.value = 4
-            ipv4.priority.dscp.ecn.value = ipv4.priority.dscp.ecn.CAPABLE_TRANSPORT_1
+            ipv4.priority.dscp.phb.value = traffic["dscp_value"]
+            # ECN codepoint(s) carried in the 2 ECN bits of the IP header.
+            # Callers may pass either:
+            #   - "ecn_values": a list of codepoints transmitted as an even mix
+            #                   (used by the mixed-codepoint interference test), or
+            #   - "ecn_value":  a single codepoint. When the key is absent it
+            #                   defaults to ECT(1) so existing callers keep their
+            #                   previous behaviour; pass None (or "none") to leave
+            #                   the ECN field untouched and configure only the DSCP
+            #                   value (used for a non-ECN queue).
+            # Accepted codepoint names: "non_ect" (00), "ect0" (10),
+            # "ect1" (01) and "ce" (11).
+            ecn = ipv4.priority.dscp.ecn
+            ecn_map = {
+                "non_ect": ecn.NON_CAPABLE,               # 00
+                "ect0": ecn.CAPABLE_TRANSPORT_0,          # 10
+                "ect1": ecn.CAPABLE_TRANSPORT_1,          # 01
+                "ce": ecn.CONGESTION_ENCOUNTERED,         # 11
+            }
+            if traffic.get("ecn_values"):
+                ecn.values = [ecn_map[c] for c in traffic["ecn_values"]]
+            elif "ecn_value" in traffic:
+                codepoint = traffic["ecn_value"]
+                # None / "none" -> non-ECN flow: only the DSCP value is set.
+                if codepoint not in (None, "none"):
+                    ecn.value = ecn_map.get(codepoint, ecn.CAPABLE_TRANSPORT_1)
+            else:
+                ecn.value = ecn.CAPABLE_TRANSPORT_1
         if traffic.get("latency", False):
             # Latency Config
             test_flow.metrics.latency.enable = True
@@ -578,7 +622,7 @@ def configure_acl_for_route_withdrawl(destination_ip_list, table_name):
     return acl_dict
 
 
-def get_stats(api, stat_name, columns=None, return_type='stat_obj'):
+def get_stats(api, stat_name, columns=None, return_type='stat_obj'):   # noqa F811
     """
     Args:
         api (pytest fixture): Snappi API
@@ -591,6 +635,7 @@ def get_stats(api, stat_name, columns=None, return_type='stat_obj'):
         except AttributeError:
             return default
     request = api.metrics_request()
+    logger.info("Fetching {}...".format(stat_name))
     if stat_name == "Data Plane Port Statistics":
         ixnet = api._ixnetwork
         dp_metrics = StatViewAssistant(ixnet, stat_name)
@@ -623,6 +668,9 @@ def get_stats(api, stat_name, columns=None, return_type='stat_obj'):
     ]
     tdf = pd.DataFrame(rows, columns=column_headers)
     selected_columns = columns if columns else column_headers
+    # Always surface the traffic item / flow name so per-flow rows are identifiable.
+    if stat_name == "Traffic Item Statistics" and "name" not in selected_columns:
+        selected_columns = ["name"] + list(selected_columns)
     df = tdf[selected_columns]
     if return_type == 'print':
         logger.info("\n%s" % tabulate(df, headers="keys", tablefmt="psql"))
@@ -751,6 +799,76 @@ def is_traffic_converged(snappi_api, flow_names=[], threshold=0.1):
     return True
 
 
+def _normalize_stat_rows(rows: Any) -> list:
+    """Normalize StatViewAssistant.Rows into list[dict].
+
+    Handles cases where each row element is:
+    - a dict-like (already usable)
+    - a string with lines like "Key: value"
+    - an object whose str() contains the key/value lines
+    """
+    norm = []
+    if rows is None:
+        return norm
+    for r in rows:
+        # If it's already a dict-like
+        if isinstance(r, dict):
+            norm.append(r)
+            continue
+        # Try to get a mapping attribute
+        try:
+            items = getattr(r, 'items', None)
+            if callable(items):
+                norm.append(dict(r.items()))
+                continue
+        except Exception:
+            pass
+
+        # Fallback: string parse
+        s = str(r)
+        # Split into lines, parse 'key: value' pairs
+        entry: Dict[str, str] = {}
+        for line in s.splitlines():
+            if ':' in line:
+                key, val = line.split(':', 1)
+                entry[key.strip()] = val.strip()
+        if entry:
+            norm.append(entry)
+        else:
+            # last resort: store full string under 'value'
+            norm.append({'value': s})
+    return norm
+
+
+def print_ud_statistics(selected_cols, stat_obj) -> Optional[pd.DataFrame]:
+    """Print selected columns from a User Defined Statistics StatViewAssistant.
+
+    Args:
+        stat_obj: a StatViewAssistant instance (already created).
+
+    Returns:
+        pandas.DataFrame or None
+    """
+    try:
+        rows = _normalize_stat_rows(stat_obj.Rows)
+        if not rows:
+            logger.info("User Defined Statistics: empty rows")
+            return None
+        df = pd.DataFrame(rows)
+        df = df.reindex(columns=selected_cols)
+        numeric_cols = ["Tx Frames", "Rx Frames", "Frames Delta", "Loss %", "Tx Frame Rate", "Rx Frame Rate"]
+        try:
+            df[numeric_cols] = df[numeric_cols].apply(pd.to_numeric, errors='coerce')
+        except Exception:
+            pass
+        df = df.fillna("")
+        logger.info("\n%s", tabulate(df, headers="keys", tablefmt="psql"))
+        return df
+    except Exception as e:
+        logger.warning("Failed to tabulate UD_Statistics: %s", e)
+        return None
+
+
 def start_stop(snappi_api, operation="start", op_type="protocols", waittime=20):
     logger.info("%s %s", operation.capitalize(), op_type)
 
@@ -793,6 +911,142 @@ def check_bgp_state(snappi_api, subnet_type):
         bgpv6_metrics = snappi_api.get_metrics(req).bgpv6_metrics
         assert bgpv6_metrics[-1].session_state == "up", "BGP v6 Session State is not UP"
         logger.info("BGP v6 Session State is UP")
+
+
+@pytest.fixture(scope="module", autouse=False)
+def dutconfig_checkpoint(duthosts):  # noqa: F811
+    """Snapshot CONFIG_DB on every DUT before the module runs; roll it back on teardown.
+
+    This replaces the manual ORIGINAL_SCHEDULER global + shell-unblock pattern.
+    rollback_or_reload() falls back to config_reload if the rollback fails, so
+    the DUT always returns to a clean state -- no try/finally needed in the tests.
+    """
+    for duthost in duthosts:
+        create_checkpoint(duthost)
+    yield
+    for duthost in duthosts:
+        rollback_or_reload(duthost)
+        delete_checkpoint(duthost)
+
+
+def _block_egress(duthost, port, queue, scheduler=BLOCKING_SCHEDULER):
+    """Apply a near-zero-rate scheduler to the lossless queue to block egress."""
+    cmd = (
+        f"sonic-db-cli CONFIG_DB HSET 'SCHEDULER|{scheduler}' "
+        "'type' 'DWRR' 'weight' '15' 'pir' '1' 'cir' '1'"
+    )
+    if duthost.facts["asic_type"] == "broadcom":
+        cmd += " 'meter_type' 'packets'"
+    duthost.shell(cmd)
+    duthost.shell(
+        f"sonic-db-cli CONFIG_DB HSET 'QUEUE|{port}|{queue}' 'scheduler' '{scheduler}'"
+    )
+    time.sleep(5)
+    result = duthost.shell(
+        f"sonic-db-cli CONFIG_DB HGET 'QUEUE|{port}|{queue}' 'scheduler'"
+    )
+    pytest_assert(scheduler in result["stdout"], f"Scheduler {scheduler} was not applied to {port} queue {queue}")
+
+
+def _unblock_egress(duthost, port, queue, original_scheduler):
+    """Restore the original scheduler on the lossless queue."""
+    duthost.shell(
+        f"sonic-db-cli CONFIG_DB HSET 'QUEUE|{port}|{queue}' 'scheduler' '{original_scheduler}'"
+    )
+    time.sleep(5)
+
+
+def _get_original_scheduler(duthost, port, queue):
+    result = duthost.shell(f"sonic-db-cli CONFIG_DB HGET 'QUEUE|{port}|{queue}' 'scheduler'")
+    original = result["stdout"].strip()
+    pytest_assert(original, f"Could not read scheduler for QUEUE|{port}|{queue}")
+    pytest_assert(
+        original != BLOCKING_SCHEDULER,
+        f"Queue {port}|{queue} is already using the blocking scheduler – DUT may be in a bad state",
+    )
+    return original
+
+
+def _dscp_values(config_facts, prio):
+    """Return the list of DSCP values mapped to ``prio`` in DSCP_TO_TC_MAP."""
+    return [int(dscp) for dscp, tc in config_facts["DSCP_TO_TC_MAP"]["AZURE"].items()
+            if int(tc) == prio]
+
+
+def _traffic_item(ixnet, flow_name):
+    """Return the IxNetwork Traffic Item for a snappi flow name."""
+    ti = ixnet.Traffic.TrafficItem.find(Name=flow_name)
+    pytest_assert(len(ti) == 1, "Traffic item {} not found".format(flow_name))
+    return ti
+
+
+def _ti_row_index(ixnet, flow_name):
+    """Return the row index of ``flow_name`` in the Traffic Item Statistics view."""
+    rows = _normalize_stat_rows(StatViewAssistant(ixnet, "Traffic Item Statistics").Rows)
+    for idx, row in enumerate(rows):
+        if row.get("Traffic Item") == flow_name:
+            return idx
+    pytest_assert(False, "Traffic Item {} not found in statistics".format(flow_name))
+
+
+def _drill_down_egress(ixnet, target_row_index=0):
+    """Drill the Traffic Item view down on the 2 egress ECN bits, producing the
+    per-codepoint 'User Defined Statistics' view for the given target row."""
+    tiview = ixnet.Statistics.View.find(Caption="Traffic Item Statistics")[0]
+    pytest_assert(len(tiview) == 1, "No rows found in Traffic Item Statistics view")
+    drill_down = tiview.DrillDown.find()
+    drill_down.TargetRowIndex = target_row_index
+    drill_down.TargetDrillDownOption = DRILL_DOWN_OPTION
+    drill_down.DoDrillDown()
+    wait_with_message("For drill down operation to complete:", 30)
+    logger.info("Drill Down Finished")
+
+
+def _parse_codepoint(egress_value):
+    """Extract the ECN codepoint (0-3) from a UD 'Egress Tracking' cell value."""
+    tokens = re.findall(r"0x[0-9a-fA-F]+|\d+", str(egress_value))
+    if not tokens:
+        return None
+    tok = tokens[-1]
+    val = int(tok, 16) if tok.lower().startswith("0x") else int(tok)
+    return val if val in (ECN_NON_ECT, ECN_ECT1, ECN_ECT0, ECN_CE) else None
+
+
+def _ud_rows_by_codepoint(ixnet):
+    """Return {codepoint: row_dict} for the current User Defined Statistics view."""
+    ud = StatViewAssistant(ixnet, "User Defined Statistics")
+    print_ud_statistics(SELECTED_UD_COLS, ud)
+    mapping = {}
+    for row in _normalize_stat_rows(ud.Rows):
+        cp = _parse_codepoint(row.get("Egress Tracking", ""))
+        if cp is not None:
+            mapping[cp] = row
+    return mapping
+
+
+def _rx_rate(cp_map, codepoint):
+    """Rx Frame Rate for a codepoint row (0.0 if the codepoint is absent)."""
+    row = cp_map.get(codepoint)
+    if not row:
+        return 0.0
+    try:
+        return float(row.get("Rx Frame Rate", 0) or 0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _drill_and_get(ixnet, flow_name):
+    """Drill the given flow's Traffic Item down on the egress ECN bits and return
+    its {codepoint: row_dict} User Defined Statistics mapping."""
+    _drill_down_egress(ixnet, _ti_row_index(ixnet, flow_name))
+    logger.info("Drill down on %s flow", flow_name)
+    return _ud_rows_by_codepoint(ixnet)
+
+
+def _ts_seconds(timestamp_str):
+    """Parse the seconds.milliseconds field out of an IxNetwork 'HH:MM:SS.sss'
+    timestamp string (same convention as the original response-time test)."""
+    return float(timestamp_str.split(":")[-1])
 
 
 def build_bgp_convergence_config(
@@ -1141,19 +1395,3 @@ def run_bgp_convergence_event(
         start_stop(snappi_api, operation="stop", op_type="traffic", waittime=1)
         if cleanup is not None and not cleanup_first:
             cleanup()
-
-
-@pytest.fixture(scope="module", autouse=False)
-def dutconfig_checkpoint(duthosts):
-    """Snapshot CONFIG_DB on every DUT before the module runs; roll it back on teardown.
-
-    This replaces the manual ORIGINAL_SCHEDULER global + shell-unblock pattern.
-    rollback_or_reload() falls back to config_reload if the rollback fails, so
-    the DUT always returns to a clean state -- no try/finally needed in the tests.
-    """
-    for duthost in duthosts:
-        create_checkpoint(duthost)
-    yield
-    for duthost in duthosts:
-        rollback_or_reload(duthost)
-        delete_checkpoint(duthost)
