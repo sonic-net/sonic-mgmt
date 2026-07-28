@@ -12,6 +12,18 @@ import six
 
 logger = logging.getLogger(__name__)
 
+# Circuit breaker for issue state checks. When the GitHub API is unreachable
+# (e.g. runners without internet access or with a dead proxy), every single
+# lookup burns a full HTTP timeout and logs an error before falling back to
+# "issue is active". With hundreds of issue URLs in the mark conditions files
+# that adds up to tens of minutes of pure waiting per session. After
+# MAX_CONSECUTIVE_API_FAILURES lookups fail in a row without a single success,
+# stop calling the API for the rest of the session and apply the same safe
+# fallback (treat issues as active) immediately.
+MAX_CONSECUTIVE_API_FAILURES = 3
+_api_failure_streak = 0
+_issue_check_disabled = False
+
 
 class IssueCheckerBase(six.with_metaclass(ABCMeta, object)):
     """Base class for issue checker
@@ -42,11 +54,20 @@ class GitHubIssueChecker(IssueCheckerBase):
     def is_active(self):
         """Check if the GitHub issue is still active.
 
+        Returns:
+            bool: False if the issue is closed else True.
+        """
+        return self.check()[0]
+
+    def check(self):
+        """Check if the GitHub issue is still active, reporting API reachability.
+
         Attempt to fetch issue details via proxy if configured. If proxy fails, retry with direct GitHub API URL.
         If unable to retrieve issue state, assume the issue is active (safe default).
 
         Returns:
-            bool: False if the issue is closed else True.
+            tuple of (bool, bool): First item is False if the issue is closed else True. Second item is False
+                if the issue state could not be fetched from the API (the first item is then the safe default).
         """
 
         def fetch_issue(url):
@@ -79,7 +100,7 @@ class GitHubIssueChecker(IssueCheckerBase):
             except Exception as direct_err:
                 logger.error(f"Access GitHub API directly failed for {direct_url}: {direct_err}")
                 logger.debug(f"Issue {direct_url} is considered active due to API access failure.")
-                return True
+                return True, False
 
         # Check issue state
         if issue_data.get('state') == 'closed':
@@ -89,10 +110,10 @@ class GitHubIssueChecker(IssueCheckerBase):
                 logger.warning(
                     f"GitHub issue {direct_url} appears to be a duplicate and was closed. "
                     f"Consider ignoring related test failures.")
-            return False
+            return False, True
 
         logger.debug(f"Issue {direct_url} is active.")
-        return True
+        return True, True
 
 
 def issue_checker_factory(url, proxies):
@@ -127,23 +148,50 @@ def check_issues(issues, proxies=None):
     Returns:
         dict: Issue state check result. Key is issue URL, value is either True or False based on issue state.
     """
+    global _api_failure_streak, _issue_check_disabled
+
+    if _issue_check_disabled:
+        logger.debug('Issue state check is disabled for this session, treating {} issue(s) as active'
+                     .format(len(issues)))
+        return {issue: True for issue in issues}
+
     checkers = [c for c in [issue_checker_factory(issue, proxies) for issue in issues] if c is not None]
     if not checkers:
         logger.error('No checker created for issues: {}'.format(issues))
         return {}
 
-    check_results = multiprocessing.Manager().dict()
+    manager = multiprocessing.Manager()
+    check_results = manager.dict()
+    api_failures = manager.dict()
+
+    def _check_issue(checker, results, failures):
+        checker_check = getattr(checker, 'check', None)
+        if checker_check is not None:
+            active, api_ok = checker_check()
+        else:
+            active, api_ok = checker.is_active(), True
+        results[checker.url] = active
+        if not api_ok:
+            failures[checker.url] = True
+
     check_procs = []
-
-    def _check_issue(checker, results):
-        results[checker.url] = checker.is_active()
-
     for checker in checkers:
-        check_procs.append(multiprocessing.Process(target=_check_issue, args=(checker, check_results,)))
+        check_procs.append(multiprocessing.Process(target=_check_issue, args=(checker, check_results, api_failures,)))
 
     for proc in check_procs:
         proc.start()
     for proc in check_procs:
         proc.join(timeout=60)
+
+    if api_failures:
+        _api_failure_streak += len(api_failures)
+        if _api_failure_streak >= MAX_CONSECUTIVE_API_FAILURES:
+            _issue_check_disabled = True
+            logger.warning(
+                'Disabling issue state checks for the rest of this session after {} consecutive API failures '
+                '(GitHub API unreachable from this host?). Remaining issue URLs will be treated as active.'
+                .format(_api_failure_streak))
+    else:
+        _api_failure_streak = 0
 
     return dict(check_results)
