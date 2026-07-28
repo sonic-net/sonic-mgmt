@@ -293,7 +293,7 @@ def test_vxlan_mac_vni(ptfhost, one_vnet_setup_teardown):
 
     # --- Build deterministic MAC list ---
     # 52:54:00:00:xx:yy (unique per endpoint)
-    mac_list = [f"52:54:00:{i//256:02x}:{i%256:02x}:aa" for i in range(num_endpoints)]
+    mac_list = ["52:54:00:{:02x}:{:02x}:aa".format(i // 256, i % 256) for i in range(num_endpoints)]
     mac_list_str = ",".join(mac_list)
     updated_vni = 5001
 
@@ -447,7 +447,7 @@ def test_ecmp_scale_modify_mac(ptfhost, one_vnet_setup_teardown):
     time.sleep(5)
 
     # Step 2 — Initial MAC list
-    mac_list = [f"52:54:00:{i//256:02x}:{i%256:02x}:aa" for i in range(num)]
+    mac_list = ["52:54:00:{:02x}:{:02x}:aa".format(i // 256, i % 256) for i in range(num)]
     mac_string = ",".join(mac_list)
 
     # Push initial MAC list
@@ -456,7 +456,7 @@ def test_ecmp_scale_modify_mac(ptfhost, one_vnet_setup_teardown):
 
     # Step 3 — Random index to modify
     mod_idx = random.randint(0, num - 1)
-    new_mac = f"52:54:99:{mod_idx//256:02x}:{mod_idx%256:02x}:cc"
+    new_mac = "52:54:99:{:02x}:{:02x}:cc".format(mod_idx // 256, mod_idx % 256)
     logger.info(f"Modifying MAC for endpoint index {mod_idx}: new MAC = {new_mac}")
 
     # Update the list

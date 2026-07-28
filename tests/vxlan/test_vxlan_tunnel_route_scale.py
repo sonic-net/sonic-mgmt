@@ -470,7 +470,7 @@ def test_vxlan_scale_mac_vni(vxlan_scale_setup_teardown, ptfhost):
     def gen_mac(vnet_id, idx, base_mac="52:54:aa"):
         hi = (idx >> 8) & 0xFF
         lo = idx & 0xFF
-        return f"{base_mac}:{vnet_id:02x}:{hi:02x}:{lo:02x}"
+        return "{}:{:02x}:{:02x}:{:02x}".format(base_mac, vnet_id, hi, lo)
 
     def gen_vni(vnet_id, idx, group_size=VNI_BUCKET_SIZE, offset=0):
         bucket = idx // group_size

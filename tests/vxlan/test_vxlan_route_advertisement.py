@@ -216,7 +216,7 @@ class Test_VxLAN_route_Advertisement():
         else:
             for i in range(1, 250):
                 for j in range(2, 250):
-                    key = f"dc4a:{i}:{j}::"
+                    key = "dc4a:{}:{}::".format(i, j)
                     routes[vnet][key] = nexthops.copy()
                     count = count + 1
                     if count >= num_routes:
