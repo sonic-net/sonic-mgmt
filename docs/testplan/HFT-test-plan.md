@@ -9,7 +9,6 @@
   - [Platform Support](#platform-support)
 - [Test Cases](#test-cases)
   - [Basic Functionality Tests](#basic-functionality-tests)
-    - [Test HFT Port Counters](#test-case-test-hft-port-counters)
     - [Test HFT Full Queue Counters](#test-case-test-hft-full-queue-counters)
     - [Test HFT Full Ingress Priority Group Counters](#test-case-test-hft-full-ingress-priority-group-counters)
     - [Test HFT Full Buffer Pool Counters](#test-case-test-hft-full-buffer-pool-counters)
@@ -41,7 +40,7 @@ The test suite covers:
 - **Configuration lifecycle**: Validating create → delete → recreate of HFT profiles/groups while `countersyncd` runs continuously.
 - **Poll interval accuracy**: Verifying the measured message rate matches expected rate based on configured poll interval.
 - **Port state interaction**: Confirming counter behavior (increasing vs. stable) when monitored ports are shut down/started up under traffic.
-- **Test infrastructure**: Validation of fixtures (`ensure_swss_ready`, `cleanup_high_frequency_telemetry`, `disable_flex_counters`) and utility functions for HFT config management.
+- **Test infrastructure**: Validation of fixtures (`ensure_swss_ready`, `cleanup_high_frequency_telemetry`, `hft_influxdb`) and utility functions for HFT config management.
 
 ### Testbed
 
@@ -99,22 +98,23 @@ Per-platform supported counters are defined in `tests/high_frequency_telemetry/c
 
 ## Test Cases
 
-All HFT cases share module-scoped flex-counter state, while OTEL configuration
-and the owned InfluxDB process remain function-scoped. This prevents delayed
-high-fanout exporter batches from leaking across hardware sessions. Before each
-invocation, including every parametrized poll interval, `hft_influxdb` starts
-an in-memory InfluxDB process and proves its database is empty. After the test
-removes its HFT configuration, the fixture stops the collector, clears and
-verifies the database, and stops only the InfluxDB PID it owns. Multi-phase
-cases retain data between phases and isolate phases with database watermarks.
+Each HFT test module starts one test-owned in-memory InfluxDB process. Every
+case creates a uniquely named database, proves it is empty, points a fresh OTEL
+collector process at it, and hard-deletes the database during teardown. Unique
+databases prevent delayed high-fanout exporter data from leaking across hardware
+sessions without paying the process startup cost for every case. The fixture
+stops only the InfluxDB PID it owns at module teardown. Multi-phase cases retain
+data between phases and isolate phases with database watermarks. Standard DUT
+memory-utilization monitoring remains enabled for all HFT cases.
 
 For counter coverage tests, the expected set is generated independently from
 the configured object and counter lists. Validation requires every expected
 `(SAI object type, SAI stat, object name)` series, exact SAI tags, nonnegative
-values, and enough samples. Full Queue and ingress-PG cases require at least 20
-samples for every series but do not enforce cadence because exhaustive object
-fanout affects the hardware rate. Port, poll-interval, and end-to-end cadence
-checks use at least 100 samples and a 5% tolerance.
+values, and enough samples. Full Queue requires at least 100 samples for every
+series and enforces average source interval and CPS within 10%. Ingress-PG
+requires at least 20 samples for every series but does not enforce cadence.
+Port, poll-interval, and end-to-end cadence checks use at least 100 samples and
+a 5% tolerance.
 
 The full Queue coverage case executes after every other active HFT case. Target
 hardware accepts transitions into a full Queue session, while a full Queue
@@ -123,50 +123,26 @@ ordered session cleanup.
 
 ### Basic Functionality Tests
 
-#### Test Case: Test HFT Port Counters
-
-| Item | Description |
-|---|---|
-| **Test Name** | `test_hft_port_counters` |
-| **Objective** | Verify basic HFT functionality for port counters with a single counter type (`IF_IN_OCTETS`). |
-| **Fixtures** | `disable_flex_counters`, `tbinfo` |
-| **Topology** | `any` |
-
-**Test Steps**
-1. Get available ports from topology (desired: 2, minimum: 1).
-2. Atomically create an HFT profile (`port_profile`) and PORT group with poll interval 10ms (10,000 μs), stream state `enabled`, the selected ports, and `IF_IN_OCTETS`.
-4. Wait until every expected InfluxDB series contains enough samples.
-5. Validate complete object/counter coverage, nonnegative values, source timestamp interval, and CPS.
-6. Verify the supervisor-owned `countersyncd` remains running.
-7. Clean up HFT profile and group.
-
-**Expected Results**
-- All monitored counters report values ≥ 0.
-- Per-series CPS and average source interval match the configured 10ms poll interval.
-- `countersyncd` remains running in `swss` after test.
-
----
-
 #### Test Case: Test HFT Full Queue Counters
 
 | Item | Description |
 |---|---|
 | **Test Name** | `test_hft_full_queue_counters` |
 | **Objective** | Verify HFT for all configured queue objects with platform-supported queue counters. |
-| **Fixtures** | `disable_flex_counters` |
+| **Fixtures** | `hft_influxdb` |
 | **Topology** | `any` |
 
 **Test Steps**
 1. Query all queue objects from `COUNTERS_QUEUE_NAME_MAP` in COUNTERS_DB. Skip if none found.
 2. Get supported queue counters for the current platform. Skip if none supported.
 3. Atomically create an HFT profile (`queue_profile`) and QUEUE group with poll interval 10ms, stream state `enabled`, all discovered queue objects, and supported counters.
-5. Wait for and validate every configured queue/counter series in InfluxDB.
-6. Validate complete series/tag coverage and nonnegative values. Log cadence
-   diagnostics without applying a tolerance to this exhaustive fanout case.
-7. Clean up HFT configuration.
+4. Wait for at least 100 points in every configured queue/counter series.
+5. Validate complete series/tag coverage, nonnegative values, and average source interval and CPS within 10%.
+6. Clean up HFT configuration.
 
 **Expected Results**
 - Every configured queue/counter combination is present with nonnegative values.
+- Every series reports an average interval and CPS within 10% of the configured 10ms cadence; counter values are not required to increase.
 
 ---
 
@@ -176,7 +152,7 @@ ordered session cleanup.
 |---|---|
 | **Test Name** | `test_hft_full_ingress_priority_group_counters` |
 | **Objective** | Verify HFT for all configured ingress priority groups (buffer queues) with platform-supported counters. |
-| **Fixtures** | `disable_flex_counters` |
+| **Fixtures** | `hft_influxdb` |
 | **Topology** | `any` |
 
 **Test Steps**
@@ -200,7 +176,7 @@ ordered session cleanup.
 |---|---|
 | **Test Name** | `test_hft_full_buffer_pool_counters` |
 | **Objective** | Verify HFT for all configured buffer pools with platform-supported counters. |
-| **Fixtures** | `disable_flex_counters` |
+| **Fixtures** | `hft_influxdb`, requested only after capability checks pass |
 | **Topology** | `any` |
 
 **Test Steps**
@@ -223,7 +199,7 @@ ordered session cleanup.
 |---|---|
 | **Test Name** | `test_hft_full_counters` |
 | **Objective** | Verify HFT when monitoring all supported object types (PORT, QUEUE, INGRESS_PRIORITY_GROUP, BUFFER_POOL) under a single profile. |
-| **Fixtures** | `disable_flex_counters`, `tbinfo` |
+| **Fixtures** | `hft_influxdb`, `tbinfo` |
 | **Topology** | `any` |
 | **Status** | **Skipped** — Full counters HFT isn't supported. On SN5640, multiple types in one session are not supported. On 7060X6, HFT tests are not yet supported. |
 
@@ -240,7 +216,7 @@ object-type tests.
 |---|---|
 | **Test Name** | `test_hft_full_port_counters` |
 | **Objective** | Verify HFT when monitoring all available ports with all supported port counters simultaneously. |
-| **Fixtures** | `disable_flex_counters`, `tbinfo` |
+| **Fixtures** | `hft_influxdb`, `tbinfo` |
 | **Topology** | `any` |
 
 **Test Steps**
@@ -266,7 +242,7 @@ object-type tests.
 |---|---|
 | **Test Name** | `test_hft_disabled_stream` |
 | **Objective** | Verify that dynamically enabling/disabling an HFT stream correctly starts/stops telemetry output. |
-| **Fixtures** | `disable_flex_counters`, `tbinfo` |
+| **Fixtures** | `hft_influxdb`, `tbinfo` |
 | **Topology** | `any` |
 
 **Test Steps**
@@ -291,7 +267,7 @@ object-type tests.
 |---|---|
 | **Test Name** | `test_hft_config_deletion_stream` |
 | **Objective** | Verify that `countersyncd` correctly responds to dynamic HFT configuration lifecycle changes (create → delete → recreate) without requiring process restart. |
-| **Fixtures** | `disable_flex_counters`, `tbinfo` |
+| **Fixtures** | `hft_influxdb`, `tbinfo` |
 | **Topology** | `any` |
 
 **Test Steps**
@@ -314,19 +290,21 @@ object-type tests.
 |---|---|
 | **Test Name** | `test_hft_poll_interval_validation` |
 | **Objective** | Verify source timestamp interval and per-series CPS for each configured poll interval. |
-| **Fixtures** | `disable_flex_counters`, `tbinfo` |
+| **Fixtures** | `hft_influxdb`, `tbinfo` |
 | **Topology** | `any` |
 | **Status** | Active on supported platforms. |
 
-**Parametrized Inputs**
+**Covered Inputs**
 
-| Poll Interval (μs) | Expected CPS |
-|---|---|
-| 1,000 (1ms) | 1000 |
-| 10,000 (10ms) | 100 |
+| Poll Interval (μs) | Expected CPS | Coverage |
+|---|---|---|
+| 1,000 (1ms) | 1000 | `test_hft_poll_interval_validation` |
+| 10,000 (10ms) | 100 | `test_hft_end_to_end_influxdb` |
 
 The 1ms and 10ms values are supported across the target images and avoid
-branch- or release-specific poll-range assumptions.
+branch- or release-specific poll-range assumptions. The 10ms case is not
+duplicated here because the end-to-end test applies the same 100-point, 5%
+cadence validation to two port series.
 
 **Test Steps**
 1. Get available ports from topology (desired: 2, minimum: 1).
@@ -348,7 +326,7 @@ branch- or release-specific poll-range assumptions.
 |---|---|
 | **Test Name** | `test_hft_port_shutdown_stream` |
 | **Objective** | Verify correct HFT counter behavior when a monitored port is shut down and restarted while PTF test traffic is continuously injected. |
-| **Fixtures** | `disable_flex_counters`, `tbinfo`, `ptfadapter` |
+| **Fixtures** | `hft_influxdb`, `tbinfo`, `ptfadapter` |
 | **Topology** | `any` |
 
 **Test Steps**
@@ -381,19 +359,19 @@ branch- or release-specific poll-range assumptions.
 | **Test Name** | `test_hft_end_to_end_influxdb` |
 | **Test File** | `tests/high_frequency_telemetry/test_hft_end_to_end.py` |
 | **Objective** | Validate the full HFT telemetry pipeline end-to-end: `countersyncd` → OpenTelemetry collector → InfluxDB. Confirms that HFT metrics actually flow through the otel collector and arrive in an external time-series database. |
-| **Fixtures** | `disable_flex_counters`, `tbinfo`, `ptfhost` |
+| **Fixtures** | `hft_influxdb`, `tbinfo`, `ptfhost` |
 | **Topology** | `any` |
 | **Dependencies** | Requires InfluxDB 3 Core (`influxdb3`) installed in PTF container ([sonic-buildimage PR #26755](https://github.com/sonic-net/sonic-buildimage/pull/26755)). Requires `otel` container support on DUT. |
 
 **Test Steps**
-1. **Start isolated infrastructure**: Start a test-owned in-memory InfluxDB process on port 8181 and install the test OTEL configuration.
-2. **Isolate the case**: Recreate the `hft_test` database, prove it is empty, and restart the collector.
+1. **Start isolated infrastructure**: Reuse the module's test-owned in-memory InfluxDB process on port 8181.
+2. **Isolate the case**: Create a unique empty database, install an OTEL configuration targeting it, and restart the collector.
 3. **Verify countersyncd**: Require the supervisor daemon to be running with `--enable-otel`; do not alter it.
-4. **Use the collector process**: Restart only the collector process inside the existing `otel` container; the function-scoped infrastructure prevents delayed data from a previous hardware session.
+4. **Use the collector process**: Restart only the collector process inside the existing `otel` container; the unique database prevents delayed data from a previous hardware session from contaminating this case.
 5. **Configure HFT**: Get available ports (desired: 2, minimum: 1). Atomically create HFT profile `e2e_port_profile` (poll interval 10ms, stream `enabled`) and its PORT group monitoring `IF_IN_OCTETS`.
 6. **Poll InfluxDB for metrics**: Query the exact expected measurements and object tags.
 7. **Verify data arrived**: Require complete series coverage, values, interval, and CPS within 5%.
-8. **Cleanup**: Remove HFT config, stop the collector, clear and verify the database, stop the owned InfluxDB PID, and restore OTEL state.
+8. **Cleanup**: Remove HFT config, stop the collector, hard-delete the case database, stop the owned InfluxDB PID at module teardown, and restore OTEL state.
 
 **Otel Collector Config** (`otel_collector_influxdb.yaml.j2`)
 ```

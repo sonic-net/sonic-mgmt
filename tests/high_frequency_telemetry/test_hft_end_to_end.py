@@ -17,7 +17,6 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology("any"),
-    pytest.mark.disable_memory_utilization,
 ]
 
 

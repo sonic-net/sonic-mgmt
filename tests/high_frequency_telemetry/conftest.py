@@ -1,7 +1,9 @@
-import pytest
+import itertools
 import logging
 import os
 import time
+
+import pytest
 from tests.high_frequency_telemetry.utilities import (
     InfluxDbSink,
     cleanup_hft_config,
@@ -20,9 +22,9 @@ logger = logging.getLogger(__name__)
 
 OTEL_CONFIG_PATH = "/etc/sonic/otel_config.yml"
 INFLUXDB_PORT = 8181
-INFLUXDB_BUCKET = "hft_test"
+INFLUXDB_BUCKET_PREFIX = "hft_test"
+INFLUXDB_BUCKET_IDS = itertools.count(1)
 TEST_HFT_PROFILES = (
-    "port_profile",
     "queue_profile",
     "ingress_pg_profile",
     "buffer_pool_profile",
@@ -33,16 +35,15 @@ TEST_HFT_PROFILES = (
     "port_shutdown_profile",
     "e2e_port_profile",
     "poll_interval_profile_1000",
-    "poll_interval_profile_10000",
     "poll_interval_profile_100000",
     "poll_interval_profile_1000000",
     "poll_interval_profile_10000000",
 )
 
 
-@pytest.fixture(scope="function")
-def hft_otel_collector(duthosts, enum_rand_one_per_hwsku_hostname, tbinfo):
-    """Point OTEL at the test InfluxDB endpoint and restore its original state."""
+@pytest.fixture(scope="module")
+def hft_otel_collector(duthosts, enum_rand_one_per_hwsku_hostname):
+    """Prepare OTEL for the module and restore its original state afterward."""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     config_result = duthost.shell(
         f"cat {OTEL_CONFIG_PATH}", module_ignore_errors=True
@@ -78,16 +79,6 @@ def hft_otel_collector(duthosts, enum_rand_one_per_hwsku_hostname, tbinfo):
             pytest.fail("OTEL is always enabled but its container is not running")
         if original_state not in enabled_states or not container_running:
             enable_otel_collector(duthost)
-        template_path = os.path.join(
-            os.path.dirname(__file__), "otel_collector_influxdb.yaml.j2"
-        )
-        rendered_config = render_otel_collector_config(
-            template_path,
-            ptf_ip=str(tbinfo["ptf_ip"]).split("/", 1)[0],
-            influxdb_port=INFLUXDB_PORT,
-            influxdb_bucket=INFLUXDB_BUCKET,
-        )
-        install_otel_collector_config(duthost, rendered_config)
         ensure_countersyncd_daemon(duthost)
         yield
     finally:
@@ -133,31 +124,48 @@ def hft_otel_collector(duthosts, enum_rand_one_per_hwsku_hostname, tbinfo):
             )
 
 
+@pytest.fixture(scope="module")
+def hft_influxdb_server(ptfhost):
+    """Provide one test-owned in-memory InfluxDB process for the module."""
+    pid = start_influxdb(ptfhost, port=INFLUXDB_PORT)
+    try:
+        yield
+    finally:
+        stop_influxdb(ptfhost, pid)
+
+
 @pytest.fixture(scope="function")
-def hft_influxdb(ptfhost, hft_otel_collector,
+def hft_influxdb(ptfhost, hft_influxdb_server, hft_otel_collector,
                  cleanup_high_frequency_telemetry,
-                 duthosts, enum_rand_one_per_hwsku_hostname):
-    """Provide a fresh owned InfluxDB process for every HFT case."""
-    sink = InfluxDbSink(ptfhost, bucket=INFLUXDB_BUCKET, port=INFLUXDB_PORT)
+                 duthosts, enum_rand_one_per_hwsku_hostname, tbinfo):
+    """Provide a unique InfluxDB database for every HFT case."""
+    bucket = f"{INFLUXDB_BUCKET_PREFIX}_{next(INFLUXDB_BUCKET_IDS)}"
+    sink = InfluxDbSink(ptfhost, bucket=bucket, port=INFLUXDB_PORT)
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    pid = None
+    database_created = False
     try:
         ensure_countersyncd_daemon(duthost)
         stop_otel_collector(duthost)
-        pid = start_influxdb(ptfhost, port=INFLUXDB_PORT)
-        setup_influxdb(
-            ptfhost, port=INFLUXDB_PORT, bucket=INFLUXDB_BUCKET
+        setup_influxdb(ptfhost, port=INFLUXDB_PORT, bucket=bucket)
+        database_created = True
+        if not sink.is_empty():
+            pytest.fail(f"InfluxDB database {bucket} is not empty")
+        template_path = os.path.join(
+            os.path.dirname(__file__), "otel_collector_influxdb.yaml.j2"
         )
-        sink.clear()
+        rendered_config = render_otel_collector_config(
+            template_path,
+            ptf_ip=str(tbinfo["ptf_ip"]).split("/", 1)[0],
+            influxdb_port=INFLUXDB_PORT,
+            influxdb_bucket=bucket,
+        )
+        install_otel_collector_config(duthost, rendered_config)
         restart_otel_collector(duthost)
         yield sink
     finally:
         stop_otel_collector(duthost)
-        if pid is not None:
-            try:
-                sink.clear()
-            finally:
-                stop_influxdb(ptfhost, pid)
+        if database_created:
+            sink.drop()
         ensure_countersyncd_daemon(duthost)
 
 

@@ -658,57 +658,18 @@ class InfluxDbSink:
             if row.get("name")
         }
 
-    def clear(self, retries=3, settle_time=2):
-        """Hard-delete and recreate the database, then prove it stays empty."""
-        last_measurements = None
-        for attempt in range(1, retries + 1):
-            deleted = _influxdb_database_command(
-                self.ptfhost,
-                "delete",
-                self.bucket,
-                self.port,
-                hard_delete=True,
-            )
-            if deleted.get("rc") != 0:
-                logger.warning(
-                    "InfluxDB delete attempt %d failed: %s", attempt, deleted
-                )
-                time.sleep(settle_time)
-                continue
-
-            created = None
-            for _ in range(10):
-                created = _influxdb_database_command(
-                    self.ptfhost, "create", self.bucket, self.port
-                )
-                if created.get("rc") == 0 or "already exists" in (
-                        created.get("stderr", "").lower()):
-                    break
-                time.sleep(1)
-            if created is None or (
-                    created.get("rc") != 0
-                    and "already exists" not in created.get("stderr", "").lower()
-            ):
-                logger.warning(
-                    "InfluxDB recreate attempt %d failed: %s", attempt, created
-                )
-                continue
-            time.sleep(settle_time)
-            if self.is_empty():
-                logger.info(
-                    "InfluxDB database %s is empty (attempt %d)",
-                    self.bucket,
-                    attempt,
-                )
-                return
-            last_measurements = self._query("SHOW MEASUREMENTS")
-            logger.warning(
-                "Metrics reached InfluxDB after clear attempt %d", attempt
-            )
+    def drop(self):
+        """Hard-delete this sink's database."""
+        result = _influxdb_database_command(
+            self.ptfhost,
+            "delete",
+            self.bucket,
+            self.port,
+            hard_delete=True,
+        )
         pytest_assert(
-            False,
-            f"InfluxDB database {self.bucket} did not remain empty: "
-            f"{last_measurements}",
+            result.get("rc") == 0,
+            f"Failed to delete InfluxDB database {self.bucket}: {result}",
         )
 
     @staticmethod
@@ -943,7 +904,17 @@ class InfluxDbSink:
             not violations,
             "InfluxDB HFT validation failed:\n" + "\n".join(violations[:100]),
         )
-        logger.info("Validated %d HFT object/counter series", len(stats))
+        intervals = [entry["average_interval_ms"] for entry in stats.values()]
+        rates = [entry["cps"] for entry in stats.values()]
+        logger.info(
+            "Validated %d HFT object/counter series; interval %.3f-%.3fms, "
+            "CPS %.3f-%.3f",
+            len(stats),
+            min(intervals),
+            max(intervals),
+            min(rates),
+            max(rates),
+        )
         return stats
 
     def wait_and_validate(self, expected_series, expected_interval_us,
