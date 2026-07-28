@@ -41,7 +41,7 @@ def test_gnmi_authorize_failed_with_revoked_cert(
         client = _grpc_environment.revoked_client()
         try:
             client.set(update=[("/sonic-db:APPL_DB/localhost/DASH_VNET_TABLE", vnet_payload)])
-        except (PygnmiClientCallError, PygnmiClientConnectionError, Exception) as exc:
+        except (PygnmiClientCallError, PygnmiClientConnectionError) as exc:
             logger.info("gnmi set failed (expected): %s", exc)
             msg = str(exc)
         finally:
@@ -51,8 +51,8 @@ def test_gnmi_authorize_failed_with_revoked_cert(
         if "desc = Peer certificate revoked" in gnmi_log:
             break
 
-    assert "UNAUTHENTICATED" in msg, (
-        "'UNAUTHENTICATED' error message not found in gNMI response. "
+    assert "unauthenticated" in msg.lower(), (
+        "'Unauthenticated' error message not found in gNMI response. "
         "- Actual message: '{}'"
     ).format(msg)
 

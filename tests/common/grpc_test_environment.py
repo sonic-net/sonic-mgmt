@@ -66,6 +66,7 @@ class GrpcTestEnvironment:
         self._checkpoint_created = False
         self._crl_ptf_dir = None
         self._crl_pid = None
+        self._crl_bind_address = None
 
     def start(self):
         """Provision the selected server profile and prove native readiness."""
@@ -132,7 +133,7 @@ class GrpcTestEnvironment:
                 "were preserved unless restoration completed: {}".format("; ".join(errors))
             )
 
-    def gnmi_client(self):
+    def gnmi_client(self, connect=True):
         """Return a target- and credential-bound native gNMI client."""
         return PygnmiClient(
             self.duthost.mgmt_ip,
@@ -140,6 +141,7 @@ class GrpcTestEnvironment:
             ca_cert=os.path.join(self._cert_dir, grpc_config.CA_CERT),
             client_cert=os.path.join(self._cert_dir, grpc_config.CLIENT_CERT),
             client_key=os.path.join(self._cert_dir, grpc_config.CLIENT_KEY),
+            connect=connect,
         )
 
     def revoked_client(self):
@@ -178,15 +180,27 @@ class GrpcTestEnvironment:
             return False
 
     def _validate_spec(self):
-        if self.spec.connection != GrpcConnection.MTLS_TCP or self.spec.profile != GrpcServerProfile.STANDARD:
+        if (self.spec.connection != GrpcConnection.MTLS_TCP
+                or self.spec.profile != GrpcServerProfile.STANDARD
+                or self.spec.identity != DEFAULT_GRPC_TEST_SPEC.identity):
             raise ValueError("Unsupported gRPC test spec: {!r}".format(self.spec))
+        if self.spec.enable_crl and self.ptfhost is None:
+            raise ValueError("CRL-enabled gRPC test environment requires ptfhost")
 
     def _generate_certificates(self):
         generator = create_gnmi_cert_generator(server_ip=self.duthost.mgmt_ip)
         generator.write_all(self._cert_dir)
         if self.spec.enable_crl:
-            ptf_ip = self.ptfhost.mgmt_ip
-            crl_url = "http://{}:{}/sonic.crl.pem".format(ptf_ip, self.CRL_PORT)
+            dut_facts = self.duthost.dut_basic_facts()["ansible_facts"]["dut_basic_facts"]
+            if dut_facts.get("is_mgmt_ipv6_only", False) and self.ptfhost.mgmt_ipv6:
+                self._crl_bind_address = self.ptfhost.mgmt_ipv6
+                crl_url = "http://[{}]:{}/sonic.crl.pem".format(
+                    self.ptfhost.mgmt_ipv6, self.CRL_PORT
+                )
+            else:
+                crl_url = "http://{}:{}/sonic.crl.pem".format(
+                    self.ptfhost.mgmt_ip, self.CRL_PORT
+                )
             generator.generate_revoked_cert_with_crl(crl_url, self._cert_dir)
 
     def _push_server_certificates(self):
@@ -254,10 +268,15 @@ class GrpcTestEnvironment:
         )
 
         # Launch; capture PID; validate it is an integer
+        bind_arg = ""
+        if self._crl_bind_address:
+            bind_arg = " --bind {}".format(self._crl_bind_address)
         result = self.ptfhost.shell(
-            "cd {dir}; nohup /root/env-python3/bin/python crl_server.py --port {port} "
-            "> crl.log 2>&1 </dev/null & echo $!".format(
-                dir=ptf_dir, port=self.CRL_PORT
+            "cd {dir}; nohup /root/env-python3/bin/python crl_server.py "
+            "--port {port}{bind_arg} > crl.log 2>&1 </dev/null & echo $!".format(
+                dir=ptf_dir,
+                port=self.CRL_PORT,
+                bind_arg=bind_arg,
             )
         )
         pid_str = result.get("stdout", "").strip()
@@ -289,11 +308,18 @@ class GrpcTestEnvironment:
                     module_ignore_errors=True,
                 )
                 # Wait for the process to exit (up to 10 s)
-                wait_until(10, 1, 0,
-                           lambda: self.ptfhost.shell(
-                               "kill -0 {} 2>/dev/null; echo $?".format(self._crl_pid),
-                               module_ignore_errors=True,
-                           ).get("stdout", "0").strip() != "0")
+                if not wait_until(
+                    10,
+                    1,
+                    0,
+                    lambda: self.ptfhost.shell(
+                        "kill -0 {} 2>/dev/null; echo $?".format(self._crl_pid),
+                        module_ignore_errors=True,
+                    ).get("stdout", "0").strip() != "0",
+                ):
+                    errors.append(
+                        "CRL server PID {} did not exit".format(self._crl_pid)
+                    )
             except Exception as exc:
                 errors.append("stop CRL server failed: {}".format(exc))
             finally:

@@ -42,7 +42,7 @@ def gnmi_create_vnet_native(duthost, client):
     error_message = ""
     try:
         client.set(update=[("/sonic-db:APPL_DB/localhost/DASH_VNET_TABLE", vnet_payload)])
-    except (PygnmiClientCallError, PygnmiClientConnectionError, Exception) as exc:
+    except (PygnmiClientCallError, PygnmiClientConnectionError) as exc:
         logger.info("gnmi set failed (expected): %s", exc)
         error_message = str(exc)
 
@@ -53,15 +53,19 @@ def gnmi_create_vnet_native(duthost, client):
 def test_gnmi_authorize_failed_with_invalid_cname(
     duthosts,
     enum_rand_one_per_hwsku_frontend_hostname,
-    gnmi_client,
+    _grpc_environment,
     setup_invalid_client_cert_cname,
 ):
     """gNMI Set MUST be rejected with Unauthenticated when the client CN has no mapping."""
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    msg, gnmi_log = gnmi_create_vnet_native(duthost, gnmi_client)
+    client = _grpc_environment.gnmi_client(connect=False)
+    try:
+        msg, gnmi_log = gnmi_create_vnet_native(duthost, client)
+    finally:
+        client.close()
 
-    assert "UNAUTHENTICATED" in msg, (
-        "'UNAUTHENTICATED' error message not found in gNMI response. "
+    assert "unauthenticated" in msg.lower(), (
+        "'Unauthenticated' error message not found in gNMI response. "
         "- Actual message: '{}'"
     ).format(msg)
 
