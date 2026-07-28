@@ -1,4 +1,5 @@
 {
+    "firmware_versions": ["36.240.134", "36.241.0", "36.229.0"],
     "dual_bank_supported": true,
     "gold_firmware_version": "36.229.0",
     "inactive_firmware_version": "36.241.0"

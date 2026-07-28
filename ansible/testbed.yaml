@@ -4229,7 +4229,7 @@
 
 - conf-name: vms26-dual-t0-8101c1-02
   group-name: vms26-2
-  topo: dualtor
+  topo: dualtor-aa
   ptf_image_name: docker-ptf
   ptf: vms26-2
   ptf_ip: 10.64.246.150/25
@@ -4341,7 +4341,7 @@
 
 - conf-name: testbed-bjw2-can-dual-t0-8101c1-2
   group-name: bjw2-4-1
-  topo: dualtor
+  topo: dualtor-aa
   ptf_image_name: docker-ptf
   ptf: bjw2-4-1
   ptf_ip: 10.150.23.133/23
