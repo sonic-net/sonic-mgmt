@@ -69,9 +69,8 @@ def modify_templates(duthost, tacacs_creds, creds):     # noqa F811
     sonic_admin_alt_password = duthost.host.options['variable_manager']._hostvars[duthost.hostname].get(
         "ansible_altpassword")
     # Connect over SSH as admin (duthost.shell can't run commands containing J2 templates).
-    # This runs while the admin credentials are still valid (before setup_limit switches AAA
-    # login to local), so a single attempt should normally succeed. Retry for up to a minute
-    # anyway to ride out any transient SSH unavailability such as sshd briefly restarting.
+    # This runs before AAA login is switched to local, so the admin credentials are still
+    # valid. Retry for up to a minute to ride out transient SSH unavailability.
     admin_session_holder = {}
 
     def _open_admin_session():
@@ -83,7 +82,7 @@ def modify_templates(duthost, tacacs_creds, creds):     # noqa F811
 
     pytest_assert(
         wait_until(60, 5, 0, _open_admin_session),
-        "Failed to establish admin SSH session to {} after AAA change".format(dut_ip))
+        "Failed to establish admin SSH session to {}".format(dut_ip))
     admin_session = admin_session_holder['session']
 
     # Backup and change /usr/share/sonic/templates/pam_limits.j2
@@ -134,16 +133,12 @@ def setup_limit(duthosts, rand_one_dut_hostname, tacacs_creds, creds):      # no
         setup_local_user(duthost, tacacs_creds)
 
         # Modify templates and restart hostcfgd to render config files.
-        # modify_templates opens a fresh admin SSH session, so it must run BEFORE AAA login is
-        # switched to local below. On testbeds where admin is a TACACS user it has no matching
-        # local password, so switching to local first makes the admin re-login fail - this is
-        # the root cause of the intermittent "Failed to establish admin SSH session after AAA
-        # change" errors seen on virtual switches.
+        # modify_templates opens a new admin SSH session, so it must run before AAA login is
+        # switched to local: where admin is a TACACS user it has no local password and the
+        # admin login would be rejected after the switch.
         modify_templates(duthost, tacacs_creds, creds)
 
-        # If AAA authentication is enabled, disable it (switch login to local) so the local
-        # test user can log in during the test. Done after modify_templates so the admin
-        # session above is established while admin can still authenticate via TACACS.
+        # If AAA authentication enabled, disable it to allow local user login
         if get_aaa_sub_options_value(duthost, "authentication", "login") == "tacacs+":
             duthost.shell("sudo config aaa authentication login default")
             aaa_login_disabled = True
