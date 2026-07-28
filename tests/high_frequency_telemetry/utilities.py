@@ -434,11 +434,10 @@ def enable_otel_collector(duthost, timeout=60):
             "has_global_scope True has_per_asic_scope False",
             module_ignore_errors=False,
         )
-    else:
-        duthost.shell(
-            "sudo config feature state otel enabled",
-            module_ignore_errors=False,
-        )
+    duthost.shell(
+        "sudo config feature state otel enabled",
+        module_ignore_errors=False,
+    )
 
     end_time = time.time() + timeout
     while time.time() < end_time:

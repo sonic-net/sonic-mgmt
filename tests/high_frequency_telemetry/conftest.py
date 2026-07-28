@@ -4,6 +4,7 @@ import os
 import time
 
 import pytest
+from tests.common.utilities import wait_until
 from tests.high_frequency_telemetry.utilities import (
     InfluxDbSink,
     cleanup_hft_config,
@@ -50,10 +51,13 @@ def hft_otel_collector(duthosts, enum_rand_one_per_hwsku_hostname):
     )
     config_existed = config_result.get("rc") == 0
     original_config = config_result.get("stdout", "")
-    feature_lines = duthost.shell(
+    feature_result = duthost.shell(
         "redis-cli -n 4 --raw HGETALL 'FEATURE|otel'",
-        module_ignore_errors=True,
-    ).get("stdout_lines", [])
+        module_ignore_errors=False,
+    )
+    feature_lines = feature_result.get("stdout_lines", [])
+    if len(feature_lines) % 2:
+        pytest.fail(f"Invalid FEATURE|otel response: {feature_result}")
     original_feature = dict(zip(feature_lines[0::2], feature_lines[1::2]))
     feature_existed = bool(original_feature)
     original_state = original_feature.get("state", "disabled")
@@ -64,6 +68,7 @@ def hft_otel_collector(duthosts, enum_rand_one_per_hwsku_hostname):
     if original_state == "always_disabled":
         pytest.skip("OTEL feature is always disabled")
 
+    original_container_running = duthost.is_container_running("otel")
     collector_status = duthost.shell(
         "docker exec otel supervisorctl status otel",
         module_ignore_errors=True,
@@ -74,10 +79,9 @@ def hft_otel_collector(duthosts, enum_rand_one_per_hwsku_hostname):
     )
 
     try:
-        container_running = duthost.is_container_running("otel")
-        if original_state == "always_enabled" and not container_running:
-            pytest.fail("OTEL is always enabled but its container is not running")
-        if original_state not in enabled_states or not container_running:
+        if original_state in enabled_states and not original_container_running:
+            pytest.fail("OTEL is enabled but its container is not running")
+        if original_state not in enabled_states:
             enable_otel_collector(duthost)
         ensure_countersyncd_daemon(duthost)
         yield
@@ -90,9 +94,30 @@ def hft_otel_collector(duthosts, enum_rand_one_per_hwsku_hostname):
             )
 
         if feature_existed:
+            if original_state == "disabled":
+                duthost.shell(
+                    "sudo config feature state otel disabled",
+                    module_ignore_errors=False,
+                )
+                if not wait_until(
+                    60, 2, 0,
+                    lambda: not duthost.is_container_running("otel"),
+                ):
+                    pytest.fail("OTEL container did not stop during restoration")
+            elif original_state == "enabled" \
+                    and not duthost.is_container_running("otel"):
+                duthost.shell(
+                    "sudo config feature state otel enabled",
+                    module_ignore_errors=False,
+                )
+                if not wait_until(
+                    60, 2, 0, duthost.is_container_running, "otel"
+                ):
+                    pytest.fail("OTEL container did not start during restoration")
+
             current_lines = duthost.shell(
                 "redis-cli -n 4 --raw HKEYS 'FEATURE|otel'",
-                module_ignore_errors=True,
+                module_ignore_errors=False,
             ).get("stdout_lines", [])
             extra_fields = set(current_lines) - set(original_feature)
             if extra_fields:
@@ -116,11 +141,16 @@ def hft_otel_collector(duthosts, enum_rand_one_per_hwsku_hostname):
         else:
             duthost.shell(
                 "sudo config feature state otel disabled",
-                module_ignore_errors=True,
+                module_ignore_errors=False,
             )
+            if not wait_until(
+                60, 2, 0,
+                lambda: not duthost.is_container_running("otel"),
+            ):
+                pytest.fail("OTEL container did not stop during restoration")
             duthost.shell(
                 "sonic-db-cli CONFIG_DB del 'FEATURE|otel'",
-                module_ignore_errors=True,
+                module_ignore_errors=False,
             )
 
 
