@@ -614,8 +614,8 @@ def verify_acl_rules_installation(duthost, expected_count):
             pytest.fail(f"Not all ACL rules are programmed. Expected: {expected_count}, Found: {rule_count}")
 
         if inactive_count > 0:
-            logger.warning(f"Found {inactive_count} Inactive rules out of {rule_count} total rules")
-            logger.warning("This may indicate hardware resource limits or priority conflicts")
+            pytest.fail(f"Found {inactive_count} Inactive rules out of {rule_count} total rules. "
+                        f"This indicates hardware resource limits or priority conflicts")
         else:
             logger.info(f"All {active_count} rules are active")
     else:
@@ -624,15 +624,14 @@ def verify_acl_rules_installation(duthost, expected_count):
         if state_rule_count < expected_count:
             pytest.fail(f"STATE_DB rule count insufficient: {state_rule_count}/{expected_count}")
 
-    # Check ACL rule counters if not VS
-    if duthost.facts['asic_type'] != 'vs':
-        logger.info("Waiting for ACL rule counters to become ready...")
-        counter_ready = wait_until(60, 5, 0, check_rule_counters, duthost)
-        if not counter_ready:
-            logger.warning("ACL rule counters are not ready after scale rule installation")
-            # Don't fail the test for counter issues, just warn
-        else:
-            logger.info("ACL rule counters are ready")
+    # Check ACL rule counters
+    logger.info("Waiting for ACL rule counters to become ready...")
+    counter_ready = wait_until(60, 5, 0, check_rule_counters, duthost)
+    if not counter_ready:
+        logger.warning("ACL rule counters are not ready after scale rule installation")
+        # Don't fail the test for counter issues, just warn
+    else:
+        logger.info("ACL rule counters are ready")
 
     logger.info(f"Successfully verified {expected_count} ACL rules installation")
 
@@ -1270,14 +1269,17 @@ def test_scale_acl_rule(setUp):
         logger.info(f"Average time per test: {(packet_test_time/test_rule_count):.2f} seconds")
 
         if success_rate < 100:
-            logger.warning("Some packet tests failed - this may be expected at scale due to hardware limits")
-            logger.warning("Failed tests likely correspond to Inactive rules due to resource constraints")
+            logger.error(f"Packet test success rate too low: {success_rate:.1f}%")
+            logger.error(f"Failed tests: {failed_tests}/{test_rule_count}")
+            pytest.fail(f"MAC rewrite verification failed - only {success_rate:.1f}% of packets passed verification. "
+                        f"This indicates the INNER_SRC_MAC_REWRITE_ACTION is not working correctly.")
         else:
             logger.info("All packet tests passed successfully!")
 
         if counter_increment_failures > 0:
-            logger.warning(f"{counter_increment_failures} active rules had counter increment issues")
-            logger.warning("This may indicate packet routing, timing, or hardware issues with single-packet testing")
+            logger.error(f"Counter increment failures detected: {counter_increment_failures}/{counter_increment_successes + counter_increment_failures}")
+            pytest.fail(f"ACL counter increments failed for {counter_increment_failures} rules. "
+                        f"Verify that rules are properly active and packets are being matched.")
 
         # ===================================================================
         # STEP 5: Verify system performance and stability
