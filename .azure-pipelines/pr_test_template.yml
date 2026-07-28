@@ -35,7 +35,7 @@ parameters:
 
 - name: PTF_IMAGE_TAG
   type: string
-  default: ""
+  default: "202611"
 
 - name: PTF_MODIFIED
   type: string
