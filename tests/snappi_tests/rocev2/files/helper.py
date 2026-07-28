@@ -764,13 +764,23 @@ def assert_queries(stat_df, checks):
 # ===========================================================================
 # 5. High-level glue: topology + aggregates + one-call orchestration
 # ===========================================================================
+# Cache so the random DSCP picked per TC is stable within a run: derive_priority_to_dscp
+# is called independently by the test (to build the traffic config) and by the collectors
+# (to build the checks), and they MUST resolve each TC to the same DSCP.
+_priority_to_dscp_cache = {}
+
+
 def derive_priority_to_dscp(prio_dscp_map):
     """
     Collapse {tc: [dscps]} (the prio_dscp_map fixture, from DSCP_TO_TC_MAP) to a
-    single representative DSCP per TC: prefer DSCP == TC when it maps to the TC,
-    else the smallest DSCP mapping to it (TC0->8, TC2->5, ...).
+    single DSCP per TC, chosen at RANDOM from the DSCPs that map to that TC (for
+    coverage across a TC's DSCPs). Memoized per unique map so the pick is stable
+    within a run - config and checks agree - while varying across separate runs.
     """
-    return {tc: (tc if tc in dscps else min(dscps)) for tc, dscps in prio_dscp_map.items()}
+    key = tuple(sorted((tc, tuple(sorted(dscps))) for tc, dscps in prio_dscp_map.items()))
+    if key not in _priority_to_dscp_cache:
+        _priority_to_dscp_cache[key] = {tc: random.choice(dscps) for tc, dscps in prio_dscp_map.items()}
+    return _priority_to_dscp_cache[key]
 
 
 def build_pairwise_topology(port_ids, common_cfg, last_pair_qp_configs=None, last_pair_cfg=None):

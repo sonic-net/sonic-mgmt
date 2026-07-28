@@ -226,7 +226,7 @@ def test_rocev2_pfc_congestion_ai(
         # protocols throws, otherwise the lossless queues stay WRED-disabled for
         # every later test on this shared testbed.
         try:
-            start_stop(snappi_api, operation="stop", op_type="protocols")
             start_stop(snappi_api, operation="stop", op_type="traffic")
+            start_stop(snappi_api, operation="stop", op_type="protocols")
         finally:
             restore_wred(wred_saved)
