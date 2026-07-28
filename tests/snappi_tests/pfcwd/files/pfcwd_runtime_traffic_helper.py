@@ -7,7 +7,8 @@ from tests.common.snappi_tests.common_helpers import start_pfcwd, stop_pfcwd, se
 from tests.common.snappi_tests.port import select_ports, select_tx_port       # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
-from tests.common.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
+from tests.common.snappi_tests.variables import pfcQueueValueDict
+from tests.common.snappi_tests.common_helpers import pfc_queue_group_size
 from tests.common.snappi_tests.snappi_fixtures import gen_data_flow_dest_ip
 
 
@@ -165,7 +166,7 @@ def __gen_traffic(testbed_config,
 
             eth.src.value = tx_mac
             eth.dst.value = rx_mac
-            if pfcQueueGroupSize == 8:
+            if pfc_queue_group_size() == 8:
                 eth.pfc_queue.value = prio
             else:
                 eth.pfc_queue.value = pfcQueueValueDict[prio]
