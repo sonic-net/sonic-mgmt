@@ -1311,7 +1311,7 @@ def get_dpu_port(duthost, dpu_index):
         logger.error("Failed to retrieve config_facts from DUT")
         return None
 
-    dpu_section = config_facts.get('DPU', {})
+    dpu_section = config_facts.get('DPU') or config_facts.get('DPUS') or {}
     if not dpu_section:
         logger.error("DPU section not found in config_facts")
         return None
@@ -1344,7 +1344,9 @@ def get_configured_dpu_names(duthost):
         logger.error("Failed to retrieve config_facts from DUT")
         return []
 
-    dpu_section = config_facts.get('DPU', {})
+    # DPU names may live under the singular 'DPU' table or the plural 'DPUS'
+    # table depending on the platform/config schema (e.g. Cisco 8102 uses 'DPUS').
+    dpu_section = config_facts.get('DPU') or config_facts.get('DPUS') or {}
     if not dpu_section:
         return []
 
