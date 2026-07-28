@@ -120,7 +120,12 @@ def vxlan_setup_one_vnet(duthost, ptfhost, tbinfo, cfg_facts,
 
     dut_vtep = get_loopback_ip(cfg_facts)
     logger.info(f"Creating VXLAN tunnel {TUNNEL_NAME} with source {dut_vtep}")
-    apply_chunk(duthost, {"VXLAN_TUNNEL": {TUNNEL_NAME: {"src_ip": dut_vtep}}}, "vxlan_tunnel")
+    vxlan_tunnel_entry = {"src_ip": dut_vtep}
+    # On cisco-8000, base topology IP-in-IP decap tunnels may already use pipe TTL mode.
+    # Set VXLAN decap ttl_mode to pipe so orchagent passes DECAP_TTL_MODE consistently.
+    if duthost.facts.get("asic_type") == "cisco-8000":
+        vxlan_tunnel_entry["ttl_mode"] = "pipe"
+    apply_chunk(duthost, {"VXLAN_TUNNEL": {TUNNEL_NAME: vxlan_tunnel_entry}}, "vxlan_tunnel")
     apply_chunk(duthost, {"VNET": {VNET_NAME: {"vni": str(VNI), "vxlan_tunnel": TUNNEL_NAME}}}, "vnet")
 
     ptf_port_index = port_indexes[ingress_if]
@@ -288,7 +293,7 @@ def test_vxlan_mac_vni(ptfhost, one_vnet_setup_teardown):
 
     # --- Build deterministic MAC list ---
     # 52:54:00:00:xx:yy (unique per endpoint)
-    mac_list = [f"52:54:00:{i//256:02x}:{i%256:02x}:aa" for i in range(num_endpoints)]
+    mac_list = ["52:54:00:{:02x}:{:02x}:aa".format(i // 256, i % 256) for i in range(num_endpoints)]
     mac_list_str = ",".join(mac_list)
     updated_vni = 5001
 
@@ -442,7 +447,7 @@ def test_ecmp_scale_modify_mac(ptfhost, one_vnet_setup_teardown):
     time.sleep(5)
 
     # Step 2 — Initial MAC list
-    mac_list = [f"52:54:00:{i//256:02x}:{i%256:02x}:aa" for i in range(num)]
+    mac_list = ["52:54:00:{:02x}:{:02x}:aa".format(i // 256, i % 256) for i in range(num)]
     mac_string = ",".join(mac_list)
 
     # Push initial MAC list
@@ -451,7 +456,7 @@ def test_ecmp_scale_modify_mac(ptfhost, one_vnet_setup_teardown):
 
     # Step 3 — Random index to modify
     mod_idx = random.randint(0, num - 1)
-    new_mac = f"52:54:99:{mod_idx//256:02x}:{mod_idx%256:02x}:cc"
+    new_mac = "52:54:99:{:02x}:{:02x}:cc".format(mod_idx // 256, mod_idx % 256)
     logger.info(f"Modifying MAC for endpoint index {mod_idx}: new MAC = {new_mac}")
 
     # Update the list

@@ -201,7 +201,12 @@ def vxlan_setup_config(config_facts, cfg_facts, duthost, dut_indx, ptfhost,
     dut_vtep = get_loopback_ip(cfg_facts)
     ptf_vtep = PTF_VTEP
     vxlan_tun = TUNNEL_NAME
-    apply_chunk(duthost, {"VXLAN_TUNNEL": {vxlan_tun: {"src_ip": dut_vtep}}}, "vxlan_tunnel")
+    vxlan_tunnel_entry = {"src_ip": dut_vtep}
+    # On cisco-8000, base topology IP-in-IP decap tunnels may already use pipe TTL mode.
+    # Set VXLAN decap ttl_mode to pipe so orchagent passes DECAP_TTL_MODE consistently.
+    if duthost.facts.get("asic_type") == "cisco-8000":
+        vxlan_tunnel_entry["ttl_mode"] = "pipe"
+    apply_chunk(duthost, {"VXLAN_TUNNEL": {vxlan_tun: vxlan_tunnel_entry}}, "vxlan_tunnel")
     res = duthost.shell("redis-cli -n 0 hget 'SWITCH_TABLE:switch' vxlan_router_mac")
     vxlan_router_mac = res["stdout"].strip()
 
@@ -465,7 +470,7 @@ def test_vxlan_scale_mac_vni(vxlan_scale_setup_teardown, ptfhost):
     def gen_mac(vnet_id, idx, base_mac="52:54:aa"):
         hi = (idx >> 8) & 0xFF
         lo = idx & 0xFF
-        return f"{base_mac}:{vnet_id:02x}:{hi:02x}:{lo:02x}"
+        return "{}:{:02x}:{:02x}:{:02x}".format(base_mac, vnet_id, hi, lo)
 
     def gen_vni(vnet_id, idx, group_size=VNI_BUCKET_SIZE, offset=0):
         bucket = idx // group_size
