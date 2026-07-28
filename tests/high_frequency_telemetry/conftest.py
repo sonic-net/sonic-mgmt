@@ -42,6 +42,10 @@ TEST_HFT_PROFILES = (
 )
 
 
+def _is_otel_container_stopped(duthost):
+    return not duthost.is_container_running("otel")
+
+
 @pytest.fixture(scope="module")
 def hft_otel_collector(duthosts, enum_rand_one_per_hwsku_hostname):
     """Prepare OTEL for the module and restore its original state afterward."""
@@ -100,8 +104,7 @@ def hft_otel_collector(duthosts, enum_rand_one_per_hwsku_hostname):
                     module_ignore_errors=False,
                 )
                 if not wait_until(
-                    60, 2, 0,
-                    lambda: not duthost.is_container_running("otel"),
+                    60, 2, 0, _is_otel_container_stopped, duthost
                 ):
                     pytest.fail("OTEL container did not stop during restoration")
             elif original_state == "enabled" \
@@ -144,8 +147,7 @@ def hft_otel_collector(duthosts, enum_rand_one_per_hwsku_hostname):
                 module_ignore_errors=False,
             )
             if not wait_until(
-                60, 2, 0,
-                lambda: not duthost.is_container_running("otel"),
+                60, 2, 0, _is_otel_container_stopped, duthost
             ):
                 pytest.fail("OTEL container did not stop during restoration")
             duthost.shell(
