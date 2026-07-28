@@ -49,9 +49,10 @@ class GrpcTestEnvironment:
     CLIENT_CN = "test.client.gnmi.sonic"
     CLIENT_ROLES = "gnmi_readonly"
 
-    def __init__(self, duthost, spec=DEFAULT_GRPC_TEST_SPEC):
+    def __init__(self, duthost, spec=DEFAULT_GRPC_TEST_SPEC, ptfhost=None):
         self.duthost = duthost
         self.spec = spec
+        self.ptfhost = ptfhost
         resource_id = uuid.uuid4().hex[:8]
         self._checkpoint = "grpc_test_environment_{}".format(resource_id)
         self._cert_dir = "/tmp/grpc_test_environment_{}".format(resource_id)

@@ -1,8 +1,7 @@
 import pytest
 import logging
 
-from tests.common.helpers.gnmi_utils import gnmi_capabilities, add_gnmi_client_common_name, \
-                                            del_gnmi_client_common_name
+from tests.common.helpers.gnmi_utils import gnmi_capabilities, add_gnmi_client_common_name
 from .helper import gnmi_set, dump_gnmi_log, gnmi_subscribe_streaming_sample
 from tests.common.utilities import wait_until
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
@@ -116,21 +115,6 @@ def test_gnmi_capabilities_authenticate(duthosts, rand_one_dut_hostname, localho
     add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic")
 
 
-@pytest.fixture(scope="function")
-def setup_invalid_client_cert_cname(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
-    del_gnmi_client_common_name(duthost, "test.client.gnmi.sonic")
-    add_gnmi_client_common_name(duthost, "invalid.cname")
-
-    keys = duthost.shell('sudo sonic-db-cli CONFIG_DB keys GNMI*')["stdout_lines"]
-    logger.debug("GNMI client cert keys: {}".format(keys))
-
-    yield
-
-    del_gnmi_client_common_name(duthost, "invalid.cname")
-    add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic")
-
-
 def gnmi_create_vnet(duthost, ptfhost, cert=None):
     file_name = "vnet.txt"
     text = "{\"Vnet1\": {\"vni\": \"1000\", \"guid\": \"559c6ce8-26ab-4193-b946-ccc6e8f930b2\"}}"
@@ -151,26 +135,6 @@ def gnmi_create_vnet(duthost, ptfhost, cert=None):
     return msg, gnmi_log
 
 
-def test_gnmi_authorize_failed_with_invalid_cname(duthosts,
-                                                  rand_one_dut_hostname,
-                                                  ptfhost,
-                                                  setup_invalid_client_cert_cname):
-    '''
-    Verify GNMI native write, incremental config for configDB
-    GNMI set request with invalid path
-    '''
-    duthost = duthosts[rand_one_dut_hostname]
-    msg, gnmi_log = gnmi_create_vnet(duthost, ptfhost)
-
-    assert "Unauthenticated" in msg, (
-        "'Unauthenticated' error message not found in GNMI response. "
-        "- Actual message: '{}'"
-    ).format(msg)
-
-    assert "Failed to retrieve cert common name mapping" in gnmi_log, (
-        "'Failed to retrieve cert common name mapping' message not found in GNMI log. "
-        "- Actual GNMI log: '{}'"
-    ).format(gnmi_log)
 
 
 @pytest.fixture(scope="function")
