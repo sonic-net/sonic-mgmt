@@ -183,7 +183,15 @@ def check_issues(issues, proxies=None):
     for proc in check_procs:
         proc.join(timeout=60)
 
-    if api_failures:
+    # A success anywhere in the batch proves the API is reachable and resets the
+    # streak; only batches that fail across the board count toward opening the
+    # breaker. Once open, the breaker deliberately stays open for the rest of
+    # the session (no auto-re-enable): the cost is conservative mark evaluation,
+    # identical to the existing per-URL failure fallback.
+    successes = len(check_results) - len(api_failures)
+    if successes > 0:
+        _api_failure_streak = 0
+    elif api_failures:
         _api_failure_streak += len(api_failures)
         if _api_failure_streak >= MAX_CONSECUTIVE_API_FAILURES:
             _issue_check_disabled = True
@@ -191,7 +199,5 @@ def check_issues(issues, proxies=None):
                 'Disabling issue state checks for the rest of this session after {} consecutive API failures '
                 '(GitHub API unreachable from this host?). Remaining issue URLs will be treated as active.'
                 .format(_api_failure_streak))
-    else:
-        _api_failure_streak = 0
 
     return dict(check_results)
