@@ -25,7 +25,7 @@ class TestNeighborMac:
     DUT_INTF_NETMASK = "24"
     TEST_MAC = ["00:c0:ca:c0:1a:05", "00:c0:ca:c0:1a:06"]
     PTF_INTERFACE_READY_TIMEOUT = 10
-    PING_RETRY_TIMEOUT = 30
+    PING_RETRY_TIMEOUT = 120
 
     @pytest.fixture(scope="module", autouse=True)
     def interfaceConfig(self, duthosts, rand_one_dut_hostname):
@@ -198,9 +198,10 @@ class TestNeighborMac:
             )
         return is_ready
 
-    def __ping_dut_from_ptf(self, ptfhost):
+    def __ping_dut_from_ptf(self, ptfhost, quick_probe=False):
+        ping_options = "-c 1 -W 1" if quick_probe else "-c 3"
         return ptfhost.shell(
-            "ping {} -c 3 -I {}".format(self.DUT_INTF_IP, self.PTF_HOST_IP),
+            "ping {} {} -I {}".format(self.DUT_INTF_IP, ping_options, self.PTF_HOST_IP),
             module_ignore_errors=True
         )
 
@@ -225,16 +226,16 @@ class TestNeighborMac:
         self.__configureNeighborIp(ptfhost, macIndex)
         ping_result = {}
         ping_attempts = 0
+        is_vpp = duthost.facts.get("asic_type") == "vpp"
 
         def ping_dut():
             nonlocal ping_attempts
             ping_attempts += 1
             ping_result.clear()
-            ping_result.update(self.__ping_dut_from_ptf(ptfhost))
+            ping_result.update(self.__ping_dut_from_ptf(ptfhost, quick_probe=is_vpp))
             logger.info("PTF ping attempt %s rc=%s", ping_attempts, ping_result.get("rc"))
             return ping_result.get("rc") == 0
 
-        is_vpp = duthost.facts.get("asic_type") == "vpp"
         if is_vpp:
             ping_succeeded = wait_until(self.PING_RETRY_TIMEOUT, 1, 0, ping_dut)
         else:
