@@ -720,7 +720,7 @@ def run_traffic(duthost,
             if row['Sessions Not Started'] != '0' or row['Sessions Down'] != '0':
                 pytest_assert(False, "Not all protocol sessions are up")
         rx_dut_port = snappi_extra_params.base_flow_config["rx_port_config"].peer_port
-        for i in range(7):
+        for i in range(7*(len(config.ports)-1)):
             eth_stack = config.devices[i].ethernets[0]
             mac_address = eth_stack.mac
             ip_address = eth_stack.ipv4_addresses[0].address
