@@ -75,7 +75,7 @@ def map_dom_attribute_to_fields(attr_name, attr_value, base_attrs):
 
 
 def build_dom_availability_plan(port_attributes_dict, dom_primary_ports):
-    """Return ``{port: {"expected_fields": [...], "errors": [...]}}``."""
+    """Return ``{port: {"expected_fields": [...], "errors": [...], "max_age_min": value}}``."""
     plan_by_port = {}
     for port in dom_primary_ports:
         port_attrs = port_attributes_dict.get(port, {})
@@ -96,6 +96,7 @@ def build_dom_availability_plan(port_attributes_dict, dom_primary_ports):
         plan_by_port[port] = {
             "expected_fields": sorted(expected_fields),
             "errors": errors,
+            "max_age_min": dom_attrs.get("data_max_age_min"),
         }
 
     return plan_by_port

@@ -4,7 +4,6 @@ import pytest
 
 from natsort import natsorted
 
-from tests.transceiver.attribute_parser.attribute_keys import DOM_ATTRIBUTES_KEY
 from tests.transceiver.dom.dom_helpers import (
     build_dom_availability_plan,
     check_dom_sensor_freshness,
@@ -14,52 +13,34 @@ from tests.transceiver.dom.dom_helpers import (
 logger = logging.getLogger(__name__)
 
 
-def test_dom_data_availability_verification(
-    duthost,
-    dom_primary_ports,
-    dom_non_primary_ports,
-    port_attributes_dict,
-):
-    """Verify configured DOM sensor data is present and fresh in STATE_DB."""
-    all_failures = []
-    has_configured_checks = False
-    now_utc = None
-    checked_fields_by_port = {}
-    freshness_age_by_port = {}
-    sensor_ports = natsorted(set(dom_primary_ports) | set(dom_non_primary_ports))
-    sensor_by_port, sensor_read_errors = read_dom_sensor_data(duthost, sensor_ports)
-    availability_plan_by_port = build_dom_availability_plan(
-        port_attributes_dict,
-        dom_primary_ports,
-    )
+def _format_optional_float(value):
+    return "{:.2f}".format(value) if value is not None else "not-available"
 
-    for read_error in sensor_read_errors:
-        all_failures.append("STATE_DB read:\n  {}".format(read_error))
-        has_configured_checks = True
+
+def _validate_dom_primary_ports(duthost, dom_primary_ports, sensor_by_port, availability_plan_by_port):
+    """Validate configured DOM fields and freshness for primary breakout subports."""
+    failures = []
+    checked_field_count = 0
+    checked_port_count = 0
+    now_utc = None
 
     for port in dom_primary_ports:
-        dom_attrs = port_attributes_dict[port].get(DOM_ATTRIBUTES_KEY, {})
         sensor_data = sensor_by_port.get(port, {})
         availability_plan = availability_plan_by_port.get(port, {})
         expected_fields = availability_plan.get("expected_fields", [])
         field_failures = list(availability_plan.get("errors", []))
-        max_age_min = dom_attrs.get("data_max_age_min")
+        max_age_min = availability_plan.get("max_age_min")
 
         if max_age_min is not None or expected_fields or field_failures:
-            has_configured_checks = True
+            checked_port_count += 1
 
-        if max_age_min is not None and now_utc is None:
-            now_utc = duthost.get_now_time(utc_timezone=True)
-
-        freshness_result = {
-            "failures": [],
-            "age_minutes": None,
-        }
+        freshness_age_min = None
         if max_age_min is not None:
-            freshness_result = check_dom_sensor_freshness(sensor_data, max_age_min, now_utc)
-        field_failures.extend(freshness_result["failures"])
-        freshness_age_min = freshness_result["age_minutes"]
-        freshness_age_by_port[port] = freshness_age_min
+            if now_utc is None:
+                now_utc = duthost.get_now_time(utc_timezone=True)
+            result = check_dom_sensor_freshness(sensor_data, max_age_min, now_utc)
+            field_failures.extend(result["failures"])
+            freshness_age_min = result["age_minutes"]
 
         if not sensor_data:
             for field in expected_fields:
@@ -67,7 +48,7 @@ def test_dom_data_availability_verification(
                     "missing TRANSCEIVER_DOM_SENSOR data for expected field {}".format(field)
                 )
             if field_failures:
-                all_failures.append("{}:\n  {}".format(port, "\n  ".join(field_failures)))
+                failures.append("{}:\n  {}".format(port, "\n  ".join(field_failures)))
             continue
 
         checked_fields = 0
@@ -79,25 +60,33 @@ def test_dom_data_availability_verification(
                 continue
             checked_fields += 1
 
-        checked_fields_by_port[port] = checked_fields
+        checked_field_count += checked_fields
 
         if field_failures:
-            all_failures.append("{}:\n  {}".format(port, "\n  ".join(field_failures)))
+            failures.append("{}:\n  {}".format(port, "\n  ".join(field_failures)))
             continue
 
         logger.debug(
             "DOM availability PASS %s: expected_fields=%s freshness_age_min=%s freshness_limit_min=%s",
             port,
             ", ".join(expected_fields) or "none",
-            "{:.2f}".format(freshness_age_min) if freshness_age_min is not None else "not-available",
+            _format_optional_float(freshness_age_min),
             max_age_min if max_age_min is not None else "not-configured",
         )
 
+    return failures, checked_field_count, checked_port_count
+
+
+def _validate_dom_non_primary_ports(dom_non_primary_ports, sensor_by_port):
+    """Validate non-primary breakout subports do not publish DOM sensor data."""
+    failures = []
+    checked_port_count = 0
+
     for port in dom_non_primary_ports:
-        has_configured_checks = True
+        checked_port_count += 1
         sensor_data = sensor_by_port.get(port, {})
         if sensor_data:
-            all_failures.append(
+            failures.append(
                 "{}:\n  non-primary breakout subport unexpectedly has "
                 "TRANSCEIVER_DOM_SENSOR data".format(port)
             )
@@ -107,33 +96,51 @@ def test_dom_data_availability_verification(
             port,
         )
 
-    if not has_configured_checks:
+    return failures, checked_port_count
+
+
+def test_dom_data_availability_verification(
+    duthost,
+    dom_primary_ports,
+    dom_non_primary_ports,
+    port_attributes_dict,
+):
+    """Verify configured DOM sensor data is present and fresh in STATE_DB."""
+    sensor_ports = natsorted(set(dom_primary_ports) | set(dom_non_primary_ports))
+    sensor_by_port, sensor_read_errors = read_dom_sensor_data(duthost, sensor_ports)
+    availability_plan_by_port = build_dom_availability_plan(
+        port_attributes_dict,
+        dom_primary_ports,
+    )
+
+    all_failures = ["STATE_DB read:\n  {}".format(read_error) for read_error in sensor_read_errors]
+    primary_failures, checked_field_count, checked_primary_port_count = _validate_dom_primary_ports(
+        duthost,
+        dom_primary_ports,
+        sensor_by_port,
+        availability_plan_by_port,
+    )
+    non_primary_failures, checked_non_primary_port_count = _validate_dom_non_primary_ports(
+        dom_non_primary_ports,
+        sensor_by_port,
+    )
+    all_failures.extend(primary_failures)
+    all_failures.extend(non_primary_failures)
+
+    if not (all_failures or checked_primary_port_count or checked_non_primary_port_count):
         pytest.skip("No DOM availability checks configured from DOM_ATTRIBUTES")
 
     if all_failures:
         pytest.fail("DOM availability validation failures:\n" + "\n".join(all_failures))
 
-    total_checked_fields = sum(checked_fields_by_port.values())
     logger.info(
         "DOM availability validation passed: %d expected field(s) across %d port(s)",
-        total_checked_fields,
-        len(checked_fields_by_port),
+        checked_field_count,
+        checked_primary_port_count,
     )
-    for port in natsorted(checked_fields_by_port):
-        freshness_age_min = freshness_age_by_port.get(port)
-        logger.info(
-            "DOM availability validation %s: checked %d field(s), freshness age_min=%s limit_min=%s",
-            port,
-            checked_fields_by_port[port],
-            "{:.2f}".format(freshness_age_min) if freshness_age_min is not None else "not-available",
-            port_attributes_dict[port].get(DOM_ATTRIBUTES_KEY, {}).get(
-                "data_max_age_min",
-                "not-configured",
-            ),
-        )
 
-    if dom_non_primary_ports:
+    if checked_non_primary_port_count:
         logger.info(
             "DOM availability validation passed: %d non-primary breakout subport(s) had no sensor data",
-            len(dom_non_primary_ports),
+            checked_non_primary_port_count,
         )
