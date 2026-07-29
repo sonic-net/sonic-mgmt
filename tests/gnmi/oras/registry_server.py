@@ -77,18 +77,21 @@ class OrasRegistryHandler(BaseHTTPRequestHandler):
             self.wfile.write(body)
 
     def _read_file(self, subdir, name):
-        # Strip any directory components from the crafted tag/digest name, then
-        # resolve the final path and confirm it is still contained within the
-        # intended sub-directory. This defends against path traversal even if
-        # basename() leaves anything unexpected behind (e.g. symlinks).
-        base_dir = os.path.realpath(os.path.join(self.server.data_dir, subdir))
-        fpath = os.path.realpath(os.path.join(base_dir, os.path.basename(name)))
-        if os.path.commonpath([base_dir, fpath]) != base_dir:
-            return None
-        if not os.path.isfile(fpath):
-            return None
-        with open(fpath, "rb") as f:
-            return f.read()
+        return self.server.files.get(subdir, {}).get(name)
+
+
+def _load_registry_files(data_dir):
+    files = {}
+    for subdir in ("manifests", "blobs"):
+        files[subdir] = {}
+        directory = os.path.join(data_dir, subdir)
+        with os.scandir(directory) as entries:
+            for entry in entries:
+                if not entry.is_file(follow_symlinks=False):
+                    continue
+                with open(entry.path, "rb") as f:
+                    files[subdir][entry.name] = f.read()
+    return files
 
 
 def main():
@@ -100,7 +103,9 @@ def main():
     args = parser.parse_args()
 
     server = ThreadingHTTPServer(("", args.port), OrasRegistryHandler)
-    server.data_dir = args.dir
+    # Load the fixed test artifact before accepting requests. Request path
+    # components are then dictionary keys, never filesystem path expressions.
+    server.files = _load_registry_files(args.dir)
     # Precompute the one header value that counts as authenticated
     creds = "{}:{}".format(args.username, args.password).encode()
     server.auth_header = "Basic " + base64.b64encode(creds).decode()
