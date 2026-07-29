@@ -875,6 +875,25 @@ def is_acl_table_active(duthost, table_name):
     return status == "Active"
 
 
+def get_acl_bind_port(duthost, port):
+    """
+    ACL bind point for a port: the parent PortChannel if the port is a LAG member.
+
+    A LAG member is not a valid ACL bind point, so egress ACL tables must bind to the
+    PortChannel instead of the physical member port.
+
+    Args:
+        duthost(AnsibleHost): DUT instance
+        port(string): physical port name
+
+    Returns:
+        string: parent PortChannel name, or the port itself if it is not a LAG member
+    """
+    pc_members = duthost.config_facts(
+        host=duthost.hostname, source="running")['ansible_facts'].get('PORTCHANNEL_MEMBER', {})
+    return next((pc for pc, members in pc_members.items() if port in members), port)
+
+
 def get_process_cores(duthost, process_name):
     """
     Set of core files currently under /var/core for the given process name.
