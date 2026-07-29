@@ -103,6 +103,12 @@ acl/test_acl.py::TestMultiBindingAcl:
     conditions:
       - "'dualtor' not in topo_name"
 
+acl/test_acl_dscp_rewrite.py:
+  skip:
+    reason: "Egress ACL DSCP rewrite tests only supported on Cisco 8101/8102 platforms"
+    conditions:
+      - "platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0']"
+
 acl/test_acl_outer_vlan.py:
   #Outer VLAN id match support is planned for future release with SONIC on Cisco 8000
   #For the current release, will mark the related test cases as XFAIL
@@ -793,15 +799,23 @@ cacl/test_cacl_application.py::test_cacl_application_dualtor:
 
 cacl/test_cacl_application.py::test_cacl_application_nondualtor:
   skip:
-    reason: "test_cacl_application is only supported on non dualtor topology"
+    reason: "test_cacl_application is only supported on non dualtor topology. Also temporarily
+      skipped while sonic-net/sonic-buildimage#28061 (adds new protected FRR BGP ports) is being
+      validated; test update to follow once that image is checked in."
+    conditions_logical_operator: or
     conditions:
       - "'dualtor' in topo_name"
+      - "https://github.com/sonic-net/sonic-buildimage/issues/28061"
 
 cacl/test_cacl_application.py::test_multiasic_cacl_application:
   skip:
-    reason: "test_multiasic_cacl_application is only supported on multi-ASIC platform"
+    reason: "test_multiasic_cacl_application is only supported on multi-ASIC platform. Also
+      temporarily skipped while sonic-net/sonic-buildimage#28061 (adds new protected FRR BGP
+      ports) is being validated; test update to follow once that image is checked in."
+    conditions_logical_operator: or
     conditions:
       - "not is_multi_asic"
+      - "https://github.com/sonic-net/sonic-buildimage/issues/28061"
 
 cacl/test_cacl_function.py:
   xfail:
@@ -5998,6 +6012,12 @@ vrf/test_vrf_attr.py::TestVrfAttrSrcMac::test_vrf1_neigh_with_default_router_mac
 #######################################
 #####           vxlan            #####
 #######################################
+vxlan/test_scale_ecmp.py:
+  skip:
+    reason: "test_scale_ecmp is not supported on dualtor topologies"
+    conditions:
+      - "'dualtor' in topo_name"
+
 vxlan/test_vnet_bgp_route_precedence.py:
   skip:
     reason: "test_vnet_bgp_route_precedence can only run on cisco, mnlx and VPP platforms. Also skip in 202411"
@@ -6274,6 +6294,12 @@ vxlan/test_vxlan_route_advertisement.py::Test_VxLAN_route_Advertisement::test_sc
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/20725 and '-v6-' in topo_name"
 
+vxlan/test_vxlan_tunnel_route_scale.py:
+  skip:
+    reason: "test_vxlan_tunnel_route_scale is not supported on dualtor topologies"
+    conditions:
+      - "'dualtor' in topo_name"
+
 vxlan/test_vxlan_underlay_ecmp.py:
   skip:
     reason: "VxLAN underlay ECMP test is not yet supported on multi-ASIC platform. Also this test can only run on some platforms."
@@ -6307,6 +6333,15 @@ wan/lacp/test_wan_lag_min_link.py::test_lag_min_link:
     conditions:
       - "len(minigraph_portchannels) < 2"
       - "not any(len(v['members']) > 1 for _, v in minigraph_portchannels.items())"
+
+#######################################
+#####           watermark         #####
+#######################################
+watermark:
+  skip:
+    reason: "Watermark tests are only supported on physical testbeds."
+    conditions:
+      - "asic_type in ['vs']"
 
 #######################################
 #####             wol            #####

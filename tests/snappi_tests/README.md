@@ -192,7 +192,6 @@ Before running **RDMA-related tests** (e.g., PFC, ECN, PFCWD), ensure the follow
 
 🛠️ The PFCWD configuration should be present in the DUT’s `config_db.json` file to ensure it is active on boot.
 
-
 The PFC TX queue-group size (8, or 4 on e.g. high-speed **AresOne** port modes) is auto-detected from the connected tgen ports — no configuration is needed. To pin the value explicitly (or on a tgen where detection is unavailable, e.g. a non-IxNetwork OTG backend), set the per-testbed override in `~/sonic-mgmt/tests/snappi_tests/variables.override.yml`:
 
 ```yaml
