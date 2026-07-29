@@ -90,11 +90,9 @@ def run_pfcwd_basic_test(api,
             packet_aging = disable_packet_aging if is_nexthop_device(duthost) else enable_packet_aging
             packet_aging(duthost, asic_value)
             start_pfcwd(duthost, asic_value)
-            if is_nexthop_device(duthost):
-                # Record only a restorable value; get_pfcwd_poll_interval may return None.
-                orig = get_pfcwd_poll_interval(duthost, asic_value)
-                if orig:
-                    orig_poll_interval_ms[duthost] = orig
+            if is_nexthop_device(duthost) and duthost not in orig_poll_interval_ms:
+                # `pfcwd interval` is host-global: once per DUT, else a repeat DUT re-reads our own override.
+                orig_poll_interval_ms[duthost] = get_pfcwd_poll_interval(duthost, asic_value)
                 update_pfc_poll_interval(duthost, PFCWD_POLL_INTERVAL_MS)
 
         # Must run after the setup loop above so the timers reflect what the DUT runs with.
@@ -197,8 +195,10 @@ def run_pfcwd_basic_test(api,
                          loss_packets=loss_packets)
     finally:
         # Restore the pre-test poll interval overridden above (runtime-only config).
+        # get_pfcwd_poll_interval may return None, in which case there is nothing to restore.
         for duthost, orig in orig_poll_interval_ms.items():
-            update_pfc_poll_interval(duthost, orig)
+            if orig:
+                update_pfc_poll_interval(duthost, orig)
 
 
 def get_stats(duthost, port, prio):
