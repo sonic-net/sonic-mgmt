@@ -936,7 +936,7 @@ sonic_nokia_ixr7220_th6p:
     str4-Nokia-7220-Th6p-1-bmc:
       ansible_host: 10.3.157.13
       mgmt_subnet_mask_length: 27
-      hwsku: Nokia-IXR7220-H6-P128
+      hwsku: Nokia-BMC-H6-128
       serial: NK261230208
     str4-Nokia-7220-Th6p-leaf-1:
       ansible_host: 10.3.154.233
