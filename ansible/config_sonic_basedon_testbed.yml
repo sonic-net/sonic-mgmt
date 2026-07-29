@@ -1,4 +1,4 @@
-# This Playbook run time generate matching configuration file for SONiC switch(Minigraph) based on a specific testbed topology specified in testbed.csv
+# This Playbook run time generate matching configuration file for SONiC switch(Minigraph) based on a specific testbed topology specified in testbed.yaml
 # When user call testbed-cli to deploy a testbed topology, use this playbook to generate matching SONiC minigraph file and deploy it into SONiC switch under test.
 # Or when you know your topology name, you may use this playbook alone to generate a minigraph matching your topology name without deploy it.
 #
@@ -18,7 +18,7 @@
 # -l str-msn2700-01          - the sonic_dut_name you are going to generate minigraph for
 # -e vm_base=VM0300          - the VM name which is used to as base to calculate VM name for this set
 # -e topo=t0                 - the name of topology to generate minigraph file
-# -e testbed_name=vms1-1     - the testbed name specified in testbed.csv file
+# -e testbed_name=vms1-1     - the testbed name specified in testbed.yaml file
 #                              (if you give 'testbed_name' option, will use info from testbed and ignore topo and vm_base options)
 # -e vm_file=veos            - the virtual machine file name
 # -e deploy=True             - if deploy the newly generated minigraph to the target DUT, default is false if not defined
@@ -65,6 +65,19 @@
       - ipv4_reachable_precheck.failed|default(false)
       - ansible_hostv6 is defined
       - ansible_hostv6 != ''
+
+  - name: Rotate the password
+    user:
+      name: "{{ ansible_ssh_user }}"
+      password: "{{ ansible_altpasswords[0] | password_hash('sha512') }}"
+      update_password: always
+    become: true
+    ignore_errors: true
+    when:
+      - type is not defined or type != "kvm"
+      - ansible_ssh_user is defined
+      - ansible_altpasswords is defined
+      - ansible_altpasswords | length > 0
 
   - block:
     - name: set default testbed file
@@ -158,6 +171,10 @@
       set_fact:
         prober_type: "{{ testbed_facts['prober_type'] | default(None) }}"
 
+    - name: set neighbor_mode
+      set_fact:
+        neighbor_mode: "{{ testbed_facts['neighbor_mode'] | default(None) }}"
+
     - name: set lit mode
       set_fact:
         is_lit_mode: "{{ testbed_facts.get('is_lit_mode', topo in ['t1-smartswitch-ha', 't1-28-lag', 'smartswitch-t1', 't1-48-lag']) }}"
@@ -243,6 +260,27 @@
 
   - topo_facts: topo={{ topo }} hwsku={{ hwsku }} testbed_name={{ testbed_name | default(None) }} asics_present={{ asics_present | default([]) }} card_type={{ card_type | default('fixed') }}
     delegate_to: localhost
+
+  - name: Port speed fix for 8111-t0
+    shell: sed -i 's/400000/100000/g' /usr/share/sonic/device/x86_64-8111_32eh_o-r0/Cisco-8111-O64/port_config.ini
+    become: true
+    when: hwsku == 'Cisco-8111-O64' and 't0' in topo
+
+  - name: Port speed fix for 8101-t0 and dualtor
+    shell: sed -i 's/200000/100000/g' /usr/share/sonic/device/x86_64-8101_32fh_o_c01-r0/{{ hwsku }}/port_config.ini
+    become: true
+    when: >
+      ( hwsku == 'Cisco-8101-V64' or hwsku == 'Cisco-8101C01-V64' )
+      and ('t0' in topo or 'dualtor' in topo)
+      and ( reduce_port_speed is defined and reduce_port_speed == true )
+
+  - name: Configure alternating enabled ports for Mellanox-SN4700-O8V48
+    replace:
+      path: /usr/share/sonic/device/x86_64-mlnx_msn4700-r0/{{ hwsku }}/port_config.ini
+      regexp: '^(Ethernet(?:0|16|32|48|64|80|160|176|192|208|224|240)[ \t]+\S+[ \t]+\S+[ \t]+\d+[ \t]+)200000([ \t]*)$'
+      replace: '\g<1>100000\g<2>'
+    become: true
+    when: hwsku == 'Mellanox-SN4700-O8V48'
 
   - name: override group_file for snappi testbed
     set_fact:
@@ -332,6 +370,10 @@
     when: hostvars[item]['slot_num'] is defined
     loop: "{{ ansible_play_batch }}"
 
+  - name: set is_tor_dut fact (aggregator dut_types contain the 'tor' substring but are NOT ToRs)
+    set_fact:
+      is_tor_dut: "{{ ('tor' in vm_topo_config['dut_type'] | lower) and ('aggregator' not in vm_topo_config['dut_type'] | lower) }}"
+
   - name: find all enabled host_interfaces
     set_fact:
       host_if_indexes: "{{ vm_topo_config['host_interfaces_by_dut'][dut_index|int] | difference(vm_topo_config['disabled_host_interfaces_by_dut'][dut_index|int]) }}"
@@ -340,7 +382,7 @@
     set_fact:
       vlan_intfs: "{{ vlan_intfs|default([]) + [port_alias[item]] }}"
     with_items: "{{ host_if_indexes }}"
-    when: "('host_interfaces_by_dut' in vm_topo_config) and ('tor' in vm_topo_config['dut_type'] | lower)"
+    when: "('host_interfaces_by_dut' in vm_topo_config) and (is_tor_dut | bool)"
 
   - name: set default dualtor facts
     set_fact:
@@ -375,7 +417,7 @@
 
   - name: gather hwsku for LeafRouter that supports dualtor deployment
     set_fact:
-      hwsku_list_dualtor_t1: "['ACS-MSN4600C', 'Arista-7260CX3-C64']"
+      hwsku_list_dualtor_t1: "['Mellanox-SN4600C-C64', 'ACS-MSN4600C', 'Arista-7260CX3-C64', 'Cisco-8102-C64', 'Cisco-8101-O8C48', 'Mellanox-SN4700-O8C48', 'Mellanox-SN4700-O32', 'Mellanox-SN4700-V64']"
 
   - name: enable tunnel_qos_remap for T1 in dualtor deployment
     set_fact:
@@ -384,7 +426,7 @@
 
   - name: gather hwsku that supports ComputeAI deployment
     set_fact:
-      hwsku_list_compute_ai: "['Cisco-8111-O64', 'Cisco-8111-O32', 'Cisco-8122-O64', 'Cisco-8122-O64S2', 'Cisco-8122-O128']"
+      hwsku_list_compute_ai: "['Cisco-8111-O64', 'Cisco-8111-O32', 'Cisco-8122-O64', 'Cisco-8122-O64S2', 'Cisco-8122-O128', 'Arista-7060X6-64PE-C256S2', 'Arista-7060X6-64PE-C224O8', 'Arista-7060X6-64PE-O128S2', 'Mellanox-SN5600-C256S1', 'Mellanox-SN5600-C224O8', 'Mellanox-SN5600-O128', 'Arista-7060X6-64PE-B-C512S2', 'Arista-7060X6-64PE-B-C448O16', 'Mellanox-SN5640-C512S2', 'Mellanox-SN5640-C448O16', 'Arista-7060X6-16PE-384C-O128S2', 'Arista-7060X6-16PE-384C-O128S2-COPPER-LAB', 'Arista-7060X6-16PE-384C-O128S2-LAB', 'Arista-7060X6-16PE-384C-B-O128S2', 'Arista-7060X6-16PE-384C-B-O128S2-LAB', 'Arista-7060X6-16PE-384C-B-O128S2-COPPER-LAB', 'Arista-7060X6-64PE-B-O128']"
 
   - name: enable ComputeAI deployment
     set_fact:
@@ -411,13 +453,13 @@
       port_alias: "{{ port_alias }}"
       vlan_config: "{{ vlan_config | default(None) }}"
     delegate_to: localhost
-    when: "('host_interfaces_by_dut' in vm_topo_config) and ('tor' in vm_topo_config['dut_type'] | lower)"
+    when: "('host_interfaces_by_dut' in vm_topo_config) and (is_tor_dut | bool)"
 
   - name: find downlink portchannel configuration for T0 topology
     set_fact:
       portchannel_config: "{{ vm_topo_config['DUT']['portchannel_config'] | default({})}}"
     delegate_to: localhost
-    when: "('host_interfaces_by_dut' in vm_topo_config) and ('tor' in vm_topo_config['dut_type'] | lower)"
+    when: "('host_interfaces_by_dut' in vm_topo_config) and (is_tor_dut | bool)"
 
   - name: find any tunnel configurations
     tunnel_config:
@@ -781,6 +823,9 @@
         delay: 10
         until: result is not failed
 
+      - name: Patch rsyslog configuration
+        include_tasks: patch_rsyslog.yml
+
       - name: Cleanup /etc/sonic folder before loading new minigraph
         block:
         - name: Ensure /etc/sonic/acl.json is deleted
@@ -921,7 +966,9 @@
           hwsku: "{{ (lab_csv_result.stdout | from_json).hwsku if (port_override_from_links | default(false) | bool) and lab_csv_result is defined and lab_csv_result.rc == 0 and (lab_csv_result.stdout | from_json).hwsku else hwsku }}"
           vm_configuration: "{{ configuration if topo == 't1-filterleaf-lag' else omit }}"
           prober_type: "{{ prober_type | default(omit) }}"
+          neighbor_mode: "{{ neighbor_mode | default(omit) }}"
           is_lit_mode: "{{ is_lit_mode | default(true) }}"
+          num_asics: "{{ num_asics }}"
           npu_index: "{{ dut_index | default(0) | int }}"
           bgp_confd_asn: "{{ bgp_confd_asn }}"
           bgp_confd_peers: "{{ bgp_confd_peers }}"
@@ -930,7 +977,29 @@
           console_ports: "{{ device_serial_link[inventory_hostname] | default(omit) if 'c0' in topo else omit }}"
           enabled_dpu_indices: "{{ (testbed_facts.enabled_dpus[inventory_hostname] | map(attribute='dpu_index') | list) if (testbed_facts.enabled_dpus is defined and inventory_hostname in testbed_facts.enabled_dpus) else omit }}"
         become: true
-        when: enable_macsec is not defined
+        when: enable_macsec is not defined and init_cfg_profile is not defined
+
+      - name: Copy macsec profile json to dut
+        copy: src=../tests/common/macsec/profile.json
+              dest=/tmp/profile.json
+        become: true
+        when: "('t2' in topo) and (enable_macsec is defined)"
+
+      - name: Copy golden_config_db_t2 template to DUT
+        copy: src=templates/golden_config_db_t2.j2
+              dest=/tmp/golden_config_db_t2.j2
+        become: true
+        when: "('t2' in topo) and (enable_macsec is defined)"
+
+      - name: Generate golden_config_db.json for t2
+        generate_golden_config_db:
+          topo_name: "{{ topo }}"
+          macsec_profile: "{{ macsec_profile }}"
+          num_asics: "{{ num_asics }}"
+          bgp_confd_asn: "{{ bgp_confd_asn }}"
+          bgp_confd_peers: "{{ bgp_confd_peers }}"
+        become: true
+        when: "('t2' in topo) and (enable_macsec is defined)"
 
       - name: Copy macsec profile json to dut
         copy: src=../tests/common/macsec/profile.json
@@ -982,6 +1051,20 @@
           pause:
             seconds: 5
           when: use_ipv6_mgmt|default(false)|bool
+
+        - name: Configure Mellanox-SN5640-C508O1X2 Ethernet508 subport after minigraph load
+          block:
+          - name: Set Ethernet508 subport for Mellanox-SN5640-C508O1X2 uneven port 64 breakout
+            become: true
+            shell: sonic-db-cli CONFIG_DB hset "PORT|Ethernet508" subport 2
+
+          - name: Save subport configuration
+            become: true
+            shell: config save -y
+          when:
+          - init_cfg_profile is not defined
+          - hwsku is defined
+          - hwsku == 'Mellanox-SN5640-C508O1X2'
 
         - name: execute cli "config load_minigraph -y" to apply new minigraph
           become: true
@@ -1178,7 +1261,7 @@
             become: true
             command: chronyc makestep
 
-        when: chrony_service.status.LoadState != "not-found"
+        when: chrony_service.status.LoadState != "not-found" and init_cfg_profile is not defined
 
       - name: Check if "config bmp" is supported
         shell: "config -h | grep 'BMP-related configuration'"
@@ -1210,6 +1293,24 @@
       - name: execute cli "config bgp startup all" to bring up all bgp sessions for test
         become: true
         shell: config bgp startup all
+
+      - name: Configure AZNG Production on T2 Chassis Upstream LC only.
+        become: true
+        shell: "{{ azng_config_cmd }}"
+        loop:
+          - azng_migration -d
+          - azng_migration -i
+          - azng_migration -o
+          - azng_migration -p
+        loop_control:
+          loop_var: azng_config_cmd
+        ignore_errors: false
+        when: >
+         't2' in topo
+         and 'lt2' not in topo
+         and 'ft2' not in topo
+         and testbed_facts['duts_map'][inventory_hostname] == 0
+         and (not is_ixia_testbed or 'route_conv' in topo)
 
       - name: Wait for DPU control planes to boot after config reload
         pause:
