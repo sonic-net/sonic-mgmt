@@ -13,6 +13,9 @@ all:
     servers:
       vars:
         topologies:
+          - bmc
+          - bmc-dual-mgmt
+          - bmc-shared-mgmt
           - t1
           - t1-lag
           - t1-28-lag
