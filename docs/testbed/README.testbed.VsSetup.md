@@ -553,5 +553,4 @@ Then run the command:
 ```
 
 This will clean up the PTF container, cEOS container, and KVM DUT. The `-k` option defaults to ceos, but you can provide veos or vsonic.
-
 <!-- elastictest ai worker publish smoke test -->
