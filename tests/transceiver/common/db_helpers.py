@@ -62,6 +62,7 @@ def parse_numeric(value):
 
     match = _FLOAT_PATTERN.search(text)
     if not match:
+        logger.debug("Could not parse numeric value from %r", value)
         return None
 
     token = match.group(0).lower()
@@ -73,6 +74,11 @@ def parse_numeric(value):
     try:
         return float(match.group(0))
     except ValueError:
+        logger.debug(
+            "Could not convert numeric token %r from %r",
+            match.group(0),
+            value,
+        )
         return None
 
 
@@ -89,6 +95,11 @@ def parse_update_time(value):
     try:
         return datetime.strptime(normalized, XCVRD_UPDATE_TIME_FORMAT)
     except ValueError:
+        logger.debug(
+            "Could not parse xcvrd update timestamp %r with format %s",
+            raw,
+            XCVRD_UPDATE_TIME_FORMAT,
+        )
         return None
 
 

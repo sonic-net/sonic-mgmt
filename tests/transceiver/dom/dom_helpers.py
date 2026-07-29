@@ -1,3 +1,9 @@
+"""Pure DOM helper functions.
+
+Read/derive helpers use a ``(payload, errors)`` convention where ``errors`` is
+a list of self-describing strings.  Callers aggregate those strings into the
+final per-test failure message instead of raising immediately.
+"""
 import logging
 from collections import defaultdict, namedtuple
 
@@ -25,7 +31,7 @@ DOM_POLLING_DISABLED_VALUE = "disabled"
 
 
 def _map_operational_attribute_to_fields(attr_name, attr_value, base_attrs):
-    """Map one operational range attribute to DOM sensor field metadata."""
+    """Return ``({field: DomMappedField(source_attr, attr_value)}, errors)``."""
     base_name = attr_name[:-len(OPERATIONAL_SUFFIX)]
     if LANE_NUM_PLACEHOLDER not in base_name:
         return {base_name: DomMappedField(attr_name, attr_value)}, []
@@ -64,11 +70,12 @@ def map_dom_attribute_to_fields(attr_name, attr_value, base_attrs):
     for suffix, mapper in DOM_FIELD_MAPPERS:
         if attr_name.endswith(suffix):
             return mapper(attr_name, attr_value, base_attrs)
+    logger.debug("DOM attribute %s matched no field mapper; skipped", attr_name)
     return {}, []
 
 
 def build_dom_availability_plan(port_attributes_dict, dom_primary_ports):
-    """Return expected TC1 STATE_DB sensor fields and configuration errors."""
+    """Return ``{port: {"expected_fields": [...], "errors": [...]}}``."""
     plan_by_port = {}
     for port in dom_primary_ports:
         port_attrs = port_attributes_dict.get(port, {})
@@ -133,7 +140,8 @@ def build_dom_polling_failures(duthost, dom_primary_ports):
 
 
 def read_dom_sensor_data(duthost, ports):
-    """Bulk-read current DOM sensor STATE_DB hashes for selected ports."""
+    """Return ``({port: {field: value}}, errors)`` for current DOM sensor data."""
+    ports = list(ports)
     sensor_data = {port: {} for port in ports}
     errors = []
     ports_by_namespace = defaultdict(list)
@@ -160,6 +168,14 @@ def read_dom_sensor_data(duthost, ports):
 
         for port in namespace_ports:
             sensor_data[port] = sensor_table.get(port, {}) or {}
+
+    logger.debug(
+        "Read DOM sensor data for %d port(s) across %d namespace(s); "
+        "%d port(s) returned data",
+        len(ports),
+        len(ports_by_namespace),
+        sum(1 for port_data in sensor_data.values() if port_data),
+    )
 
     return sensor_data, errors
 
