@@ -1293,7 +1293,7 @@ dhcp_relay/test_dhcpv4_relay.py:
     conditions_logical_operator: or
     conditions:
       - "release < '202511'"
-      - "asic_type in ['vs']"
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/26645"
 
 dhcp_relay/test_dhcpv4_relay.py::test_dhcp_relay_option82_suboptions[server_id_override-sonic-relay-agent]:
   skip:
@@ -1307,7 +1307,7 @@ dhcp_relay/test_dhcpv6_relay.py:
     conditions_logical_operator: or
     conditions:
       - "platform in ['x86_64-8111_32eh_o-r0']"
-      - "asic_type in ['vs']"
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/26645"
 
 dhcp_relay/test_dhcpv6_relay.py::TestDhcpv6RelayWithMultipleVlan:
   skip:
