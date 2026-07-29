@@ -153,16 +153,18 @@ def check_lldp_neighbor(duthost, localhost, eos, sonic, collect_techsupport_all_
     config_facts = duthost.asic_instance(asic).config_facts(host=duthost.hostname, source="running")['ansible_facts']
     if not list(lldpctl_facts['lldpctl'].items()):
         pytest.fail("No LLDP neighbors received (lldpctl_facts are empty)")
-    # We use the MAC of mgmt port to generate chassis ID as LLDPD dose.
-    # To be compatible with PR #3331, we keep using router MAC on T2 devices
+    # We use the MAC of mgmt port to generate chassis ID as LLDPD does.
+    # Classic T2 keeps DEVICE_METADATA MAC (PR #3331); isolated T2 uses mgmt MAC.
     switch_mac = ""
-    if tbinfo["topo"]["type"] != "t2":
+    if tbinfo["topo"]["type"] == "t2":
+        if "isolated" in tbinfo["topo"]["name"]:
+            mgmt_alias = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_mgmt_interface"]["alias"]
+            switch_mac = duthost.get_dut_iface_mac(mgmt_alias)
+        else:
+            switch_mac = config_facts['DEVICE_METADATA']['localhost']['mac'].lower()
+    else:
         mgmt_alias = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_mgmt_interface"]["alias"]
         switch_mac = duthost.get_dut_iface_mac(mgmt_alias)
-    elif tbinfo["topo"]["type"] == "t2":
-        switch_mac = config_facts['DEVICE_METADATA']['localhost']['mac'].lower()
-    else:
-        switch_mac = duthost.facts['router_mac']
 
     nei_meta = config_facts.get('DEVICE_NEIGHBOR_METADATA', {})
 
@@ -300,12 +302,14 @@ def get_expected_chassis_mac(duthost, asic, tbinfo):
         str: Expected chassis MAC address (lowercase)
     """
     if tbinfo["topo"]["type"] == "t2":
+        if "isolated" in tbinfo["topo"]["name"]:
+            mgmt_alias = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_mgmt_interface"]["alias"]
+            return duthost.get_dut_iface_mac(mgmt_alias).lower()
         if duthost.is_multi_asic:
             asic_cfg = asic.config_facts(host=duthost.hostname, source="running")['ansible_facts']
             return asic_cfg['DEVICE_METADATA']['localhost']['mac'].lower()
-        else:
-            config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-            return config_facts['DEVICE_METADATA']['localhost']['mac'].lower()
+        config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+        return config_facts['DEVICE_METADATA']['localhost']['mac'].lower()
     else:
         mgmt_alias = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_mgmt_interface"]["alias"]
         return duthost.get_dut_iface_mac(mgmt_alias).lower()
