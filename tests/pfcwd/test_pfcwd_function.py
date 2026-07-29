@@ -21,7 +21,7 @@ from tests.common.dualtor.dual_tor_utils import is_tunnel_qos_remap_enabled, dua
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m  # noqa: F401, E501
 from tests.common.helpers.pfcwd_helper import send_background_traffic, check_pfc_storm_state, \
     verify_pfc_storm_in_expected_state, parser_show_pfcwd_stat, is_pfcwd_hw_recovery_enabled, \
-    is_acl_table_active, get_process_cores
+    is_acl_table_active, get_process_cores, get_acl_bind_port
 from tests.common.utilities import wait_until
 from tests.common.cisco_data import is_cisco_device
 from tests.common.mellanox_data import is_mellanox_device
@@ -1557,6 +1557,9 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         pytest_require(self.ports, "No pfcwd test ports selected")
 
         port = list(self.ports)[0]
+        # The storm targets the physical port; the fill tables bind to its LAG if any
+        # (a LAG member port is not a valid ACL bind point).
+        acl_bind_port = get_acl_bind_port(duthost, port)
         # init builds the real-storm (PFCStorm) handle.
         self.setup_test_params(port, setup_info['vlan'], init=(not self.fake_storm), ip_version=ip_version)
         queue = self.pfc_wd['queue_index']
@@ -1570,7 +1573,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             fill_safety_cap = 256
             for idx in range(fill_safety_cap):
                 table = "PFCWD_ACL_FILL_{}".format(idx)
-                res = duthost.shell("config acl add table {} L3 -s egress -p {}".format(table, port),
+                res = duthost.shell("config acl add table {} L3 -s egress -p {}".format(table, acl_bind_port),
                                     module_ignore_errors=True)
                 pytest_require(res["rc"] == 0,
                                "egress ACL table create not supported here ({}): {}".format(
