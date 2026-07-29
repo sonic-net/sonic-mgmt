@@ -7,9 +7,9 @@ Lives at the location reserved by
 Implements the subset of the procedure defined in
 ``docs/testplan/transceiver/system_test_plan.md`` (§ Common Verification
 Procedures) that the Link Behavior System tests exercise after restoring a
-batch of ports: link status → link flap/stability → LLDP → CMIS state → SI
-settings → docker/process health. Each check returns a result dict (with
-``'passed'`` and ``'details'`` keys) and the top-level
+batch of ports: link status → link flap/stability → LLDP → CMIS state →
+docker/process health. Each check returns a result dict (with ``'passed'``
+and ``'details'`` keys) and the top-level
 :func:`standard_port_recovery_and_verification` runs every step batched
 across the whole ``ports`` list - one polling loop / observation window per
 step instead of one per port - and aggregates each port's sub-failures into
@@ -17,16 +17,15 @@ its own ``details`` string, so a single call surfaces every problem on every
 port without multiplying the fixed-wait and host-wide steps by port count.
 
 Remote-Side Link Verification (test-plan step 4, optional/opt-in - enabled by
-callers such as disruptive Event Handling and System Recovery tests) is
-intentionally not implemented here; it is added alongside the diagnostics and
-event-handling tests that exercise it.
+callers such as disruptive Event Handling and System Recovery tests) and SI
+Settings Verification (test-plan step 6, optics + media) are intentionally
+not implemented here; they land in a separate PR pending further discussion.
 
 DB reads go through :mod:`tests.transceiver.common.db_helpers`
-(``hgetall_dict``). The docker/process health step delegates entirely to
-:mod:`tests.transceiver.common.health_checks`, which owns the
-xcvrd/syncd/orchagent process check and the ``/var/core`` diff shared with
-the rest of the transceiver suite. SI settings verification delegates EEPROM
-reads to :mod:`tests.transceiver.common.cli_helpers`.
+(``hgetall_dict``, ``get_db_table``). The docker/process health step
+delegates entirely to :mod:`tests.transceiver.common.health_checks`, which
+owns the xcvrd/syncd/orchagent process check and the ``/var/core`` diff
+shared with the rest of the transceiver suite.
 """
 import logging
 import re
@@ -37,7 +36,7 @@ from tests.transceiver.attribute_parser.attribute_keys import (
     EEPROM_ATTRIBUTES_KEY,
     SYSTEM_ATTRIBUTES_KEY,
 )
-from tests.transceiver.common import cli_helpers, db_helpers, health_checks
+from tests.transceiver.common import db_helpers, health_checks
 from tests.transceiver.common.eeprom_decode import is_cmis_active_optical
 
 logger = logging.getLogger(__name__)
@@ -72,11 +71,23 @@ def check_lldp_neighbors_present(duthost, port_timeouts, namespaces=None):
     ``lldp_neighbor_wait_sec`` values), so a port with a short timeout can
     fail out while others with longer budgets keep polling.
 
+    Each cycle issues one ``sonic-db-dump`` per distinct namespace among the
+    still-pending ports (:func:`db_helpers.get_db_table`), not one ``hgetall``
+    per port - a cycle costs O(namespaces) round-trips instead of O(pending
+    ports); on a single-ASIC DUT that's one dump total per cycle regardless of
+    how many ports are pending. Redis never stores an empty hash, so "port
+    present in the dump" is equivalent to the previous per-port ``if entry:``
+    truth test. A dump failure for a namespace is treated as "not present yet"
+    for that cycle (matching ``hgetall_dict``'s own best-effort semantics) -
+    it's retried next cycle, or the port's own deadline times it out below.
+
     ``namespaces`` maps port -> ASIC namespace (``None`` on single-ASIC DUTs,
     where LLDP tables are per-namespace); a port missing from ``namespaces``
     (or a caller passing ``None``) has its namespace resolved from the port
     itself, so callers that don't track namespaces (e.g. the post-session
-    check) still query the right ASIC.
+    check) still query the right ASIC. Namespaces are resolved once, up
+    front - both to avoid re-resolving per port per cycle, and because that
+    same pass gives the per-namespace grouping the batched dump needs.
 
     Args:
         duthost: SONiC DUT host fixture.
@@ -95,25 +106,41 @@ def check_lldp_neighbors_present(duthost, port_timeouts, namespaces=None):
             return namespaces[port]
         return db_helpers.resolve_namespace(duthost, port)
 
+    ports_by_ns = {}
+    for port in port_timeouts:
+        ports_by_ns.setdefault(_namespace_for(port), []).append(port)
+
     start = time.monotonic()
     deadlines = {port: start + max(0, int(timeout_sec)) for port, timeout_sec in port_timeouts.items()}
     remaining = set(port_timeouts)
     passed_ports = set()
 
     while remaining:
+        for ns, ports_in_ns in ports_by_ns.items():
+            pending_in_ns = [port for port in ports_in_ns if port in remaining]
+            if not pending_in_ns:
+                continue
+            by_key, err = db_helpers.get_db_table(duthost, "APPL_DB", "LLDP_ENTRY_TABLE", namespace=ns, sep=":")
+            if err:
+                continue
+            for port in pending_in_ns:
+                if port in by_key:
+                    passed_ports.add(port)
+                    remaining.discard(port)
+
         now = time.monotonic()
         for port in list(remaining):
-            entry = db_helpers.hgetall_dict(
-                duthost, "APPL_DB", f"LLDP_ENTRY_TABLE:{port}", namespace=_namespace_for(port)
-            )
-            if entry:
-                passed_ports.add(port)
-                remaining.discard(port)
-            elif now >= deadlines[port]:
+            if now >= deadlines[port]:
                 remaining.discard(port)
         if not remaining:
             break
-        time.sleep(_LLDP_POLL_INTERVAL_SEC)
+        # Cap the sleep to whatever's left before the earliest still-remaining
+        # deadline, so a full _LLDP_POLL_INTERVAL_SEC never overshoots a
+        # deadline that falls inside this interval - keeps the reported
+        # "no LLDP neighbor after Ns" honest instead of running up to one
+        # poll interval past N.
+        sleep_for = min(_LLDP_POLL_INTERVAL_SEC, max(0, min(deadlines[port] for port in remaining) - now))
+        time.sleep(sleep_for)
 
     per_port = {}
     for port, timeout_sec in port_timeouts.items():
@@ -133,15 +160,120 @@ def check_lldp_neighbors_present(duthost, port_timeouts, namespaces=None):
 # ──────────────────────────────────────────────────────────────────────
 
 
+def capture_flap_sentinels(duthost, ports, namespaces=None):
+    """Snapshot every port's APPL_DB ``PORT_TABLE:<port>`` ``flap_count``/``last_up_time`` once.
+
+    Pure batched read, no sleep - the shared building block both flap-freeness
+    windows compose from: pair with :func:`assert_no_flap_since` to check these
+    are unchanged after some elapsed time, however that time is produced (a
+    flat sleep, as :func:`check_ports_stability` does; or, as
+    :func:`standard_port_recovery_and_verification` does, overlapped with other
+    work that runs concurrently with the observation instead of prefixing it
+    with dead time).
+
+    ``namespaces`` maps port -> ASIC namespace; a port missing from it (or a
+    caller passing ``None``) has its namespace resolved from the port itself.
+
+    Returns:
+        dict: ``{port: (flap_count, last_up_time)}`` - both raw APPL_DB
+        strings (or ``None`` if either field is absent), one entry per ``ports``.
+    """
+    if namespaces is None:
+        namespaces = {}
+
+    def _namespace_for(port):
+        if port in namespaces:
+            return namespaces[port]
+        return db_helpers.resolve_namespace(duthost, port)
+
+    sentinels = {}
+    for port in ports:
+        port_table = db_helpers.hgetall_dict(
+            duthost, "APPL_DB", f"PORT_TABLE:{port}", namespace=_namespace_for(port)
+        )
+        sentinels[port] = (port_table.get("flap_count"), port_table.get("last_up_time"))
+    return sentinels
+
+
+def assert_no_flap_since(duthost, ports, sentinels, namespaces=None, elapsed_sec=None):
+    """Verify no port in ``ports`` has flapped since its ``sentinels`` snapshot.
+
+    Re-reads each port's current APPL_DB ``PORT_TABLE:<port>`` ``flap_count``/
+    ``last_up_time`` and requires both to be unchanged vs. the paired entry in
+    ``sentinels`` (from :func:`capture_flap_sentinels`) - a pure comparison, no
+    sleep. The caller owns how much time elapses between capturing the
+    sentinel and calling this; ``elapsed_sec`` is used only to word the
+    'passed'/'failed' details message and plays no role in the comparison.
+
+    ``last_up_time`` is a DUT wall-clock string (1s resolution), not a
+    monotonic value - used here purely as an equality sentinel, never for
+    duration arithmetic. Callers measure elapsed time on their own
+    ``time.monotonic()``.
+
+    ``namespaces`` maps port -> ASIC namespace; a port missing from it (or a
+    caller passing ``None``) has its namespace resolved from the port itself.
+
+    Args:
+        duthost: SONiC DUT host fixture.
+        ports: list of logical interface names.
+        sentinels: dict of ``{port: (flap_count, last_up_time)}``, from
+            :func:`capture_flap_sentinels`.
+        namespaces: optional dict of ``{port: namespace}``.
+        elapsed_sec: optional, for the details message only.
+
+    Returns:
+        dict: ``{port: {'passed': bool, 'details': str}}``, one entry per ``ports``.
+    """
+    if namespaces is None:
+        namespaces = {}
+
+    def _namespace_for(port):
+        if port in namespaces:
+            return namespaces[port]
+        return db_helpers.resolve_namespace(duthost, port)
+
+    window_desc = f"{elapsed_sec}s window" if elapsed_sec is not None else "observation window"
+
+    per_port = {}
+    for port in ports:
+        baseline_flap, baseline_up = sentinels.get(port, (None, None))
+        port_table = db_helpers.hgetall_dict(
+            duthost, "APPL_DB", f"PORT_TABLE:{port}", namespace=_namespace_for(port)
+        )
+        current_flap = port_table.get("flap_count")
+        current_up = port_table.get("last_up_time")
+
+        if baseline_flap is None and baseline_up is None:
+            details = (
+                f"{port}: no flap_count/last_up_time sentinel captured - "
+                "cannot verify stability (schema mismatch or partial publish)"
+            )
+            logger.warning("Stability check FAILED: %s", details)
+            per_port[port] = {"passed": False, "details": details}
+        elif current_flap != baseline_flap or current_up != baseline_up:
+            details = (
+                f"{port}: flap detected during {window_desc} "
+                f"(flap_count {baseline_flap}->{current_flap}, "
+                f"last_up_time {baseline_up}->{current_up})"
+            )
+            logger.warning("Stability check FAILED: %s", details)
+            per_port[port] = {"passed": False, "details": details}
+        else:
+            details = f"{port}: stable for {window_desc} (flap_count={current_flap}, last_up_time={current_up})"
+            logger.info("Stability check PASSED: %s", details)
+            per_port[port] = {"passed": True, "details": details}
+    return per_port
+
+
 def check_ports_stability(duthost, ports, window_sec, namespaces=None):
     """Verify no port in ``ports`` flaps over one shared post-recovery observation window.
 
     Implements the "Stability (always)" sub-check of system_test_plan.md's
-    Link Flap/Stability Verification step: snapshots every port's APPL_DB
-    ``PORT_TABLE:<port>`` ``flap_count``/``last_up_time`` once, waits
-    ``window_sec`` a single time (not once per port), then re-reads every
-    port and requires both fields to be unchanged. N ports therefore share
-    one ``window_sec`` window instead of serializing N x ``window_sec``.
+    Link Flap/Stability Verification step, standalone: captures a sentinel
+    (:func:`capture_flap_sentinels`), sleeps ``window_sec`` a single time (not
+    once per port), then asserts nothing changed (:func:`assert_no_flap_since`).
+    N ports therefore share one ``window_sec`` window instead of serializing
+    N x ``window_sec``.
 
     This sub-check is **forward-looking only** - it observes from recovery
     onward and never compares against a pre-operation baseline - so it holds
@@ -150,7 +282,18 @@ def check_ports_stability(duthost, ports, window_sec, namespaces=None):
     test plan's second, operation-scoped sub-check ("no flap across the
     operation", only where the counter survives - e.g. ``xcvrd``/``pmon``
     restart) needs the pre-operation baseline from each test's own Common
-    Setup and is asserted by the individual test case, not here.
+    Setup and is asserted by the individual test case (or, within this suite,
+    by :func:`standard_port_recovery_and_verification`'s
+    ``assert_no_flap_across_op``), not here.
+
+    This flat "sleep window_sec, then check" shape is a leading dead-time
+    prefix - fine for a caller with nothing else to overlap it with (e.g. a
+    standalone stability check, or a fixed-duration steady-state monitor).
+    :func:`standard_port_recovery_and_verification` instead anchors its own
+    sentinel to right after link-up and only asserts at the end, after its
+    other steps have run, so the same observation window overlaps that work
+    instead of prefixing it - composing :func:`capture_flap_sentinels` and
+    :func:`assert_no_flap_since` directly rather than calling this wrapper.
 
     ``namespaces`` maps port -> ASIC namespace; a port missing from it (or a
     caller passing ``None``) has its namespace resolved from the port itself.
@@ -164,166 +307,9 @@ def check_ports_stability(duthost, ports, window_sec, namespaces=None):
     Returns:
         dict: ``{port: {'passed': bool, 'details': str}}``, one entry per ``ports``.
     """
-    if namespaces is None:
-        namespaces = {}
-
-    def _namespace_for(port):
-        if port in namespaces:
-            return namespaces[port]
-        return db_helpers.resolve_namespace(duthost, port)
-
-    def _snapshot_all():
-        snapshot = {}
-        for port in ports:
-            port_table = db_helpers.hgetall_dict(
-                duthost, "APPL_DB", f"PORT_TABLE:{port}", namespace=_namespace_for(port)
-            )
-            snapshot[port] = (port_table.get("flap_count"), port_table.get("last_up_time"))
-        return snapshot
-
-    baseline = _snapshot_all()
+    sentinels = capture_flap_sentinels(duthost, ports, namespaces=namespaces)
     time.sleep(window_sec)
-    current = _snapshot_all()
-
-    per_port = {}
-    for port in ports:
-        baseline_flap, baseline_up = baseline[port]
-        current_flap, current_up = current[port]
-
-        if baseline_flap is None and baseline_up is None:
-            details = (
-                f"{port}: PORT_TABLE:{port} has neither flap_count nor last_up_time - "
-                "cannot verify stability (schema mismatch or partial publish)"
-            )
-            logger.warning("Stability check FAILED: %s", details)
-            per_port[port] = {"passed": False, "details": details}
-        elif current_flap != baseline_flap or current_up != baseline_up:
-            details = (
-                f"{port}: flap detected during {window_sec}s stability window "
-                f"(flap_count {baseline_flap}->{current_flap}, "
-                f"last_up_time {baseline_up}->{current_up})"
-            )
-            logger.warning("Stability check FAILED: %s", details)
-            per_port[port] = {"passed": False, "details": details}
-        else:
-            details = f"{port}: stable for {window_sec}s (flap_count={current_flap}, last_up_time={current_up})"
-            logger.info("Stability check PASSED: %s", details)
-            per_port[port] = {"passed": True, "details": details}
-    return per_port
-
-
-# ──────────────────────────────────────────────────────────────────────
-# SI Settings check
-# ──────────────────────────────────────────────────────────────────────
-
-# optics_si_settings key format: "page.<hex>h_<decimal offset>", e.g.
-# "page.11h_223" -> EEPROM upper page 0x11, byte offset 223. The value is the
-# expected raw bytes at that region (one list entry per byte).
-_OPTICS_SI_KEY_RE = re.compile(r'^page\.([0-9a-fA-F]+)h_(\d+)$', re.IGNORECASE)
-
-
-def check_optics_si_settings(duthost, port, optics_si_settings):
-    """Verify EEPROM bytes at each region named in ``optics_si_settings`` match.
-
-    ``optics_si_settings`` (the ``transceivers``-level attribute) is a dict of
-    ``{"page.<hex>h_<decimal offset>": [expected_byte, ...]}``, e.g.
-    ``{"page.11h_223": [34, 34, 34, 34, 0, 0, 0, 0, 51, 51, 51, 51]}``. Each
-    key names one EEPROM upper-page + byte-offset region; the value is the
-    expected raw bytes there, read via ``sfputil read-eeprom`` (see
-    :func:`cli_helpers.sfputil_read_eeprom`).
-
-    Skips (passes) if ``optics_si_settings`` is empty/undefined, matching the
-    attribute's "test runs if dictionary is non-empty" contract.
-
-    Returns:
-        dict: ``{'passed': bool, 'details': str}``
-    """
-    if not optics_si_settings:
-        return {"passed": True, "details": f"{port}: optics_si_settings not defined, skipped"}
-
-    mismatches = []
-    for key, expected in optics_si_settings.items():
-        match = _OPTICS_SI_KEY_RE.match(key)
-        if not match:
-            mismatches.append(f"{key}: unrecognized key format (expected 'page.<hex>h_<offset>')")
-            continue
-        page = int(match.group(1), 16)
-        offset = int(match.group(2))
-        size = len(expected)
-        parsed, err = cli_helpers.sfputil_read_eeprom(duthost, port, offset=offset, size=size, page=page)
-        if err:
-            mismatches.append(f"{key}: {err}")
-            continue
-        actual = [parsed.get(offset + i) for i in range(size)]
-        if actual != list(expected):
-            mismatches.append(f"{key}: expected {list(expected)}, got {actual}")
-
-    if mismatches:
-        details = f"{port}: optics SI settings mismatch - " + "; ".join(mismatches)
-        logger.warning("Optics SI settings check FAILED: %s", details)
-        return {"passed": False, "details": details}
-
-    details = f"{port}: optics SI settings match ({len(optics_si_settings)} region(s))"
-    logger.info("Optics SI settings check PASSED: %s", details)
-    return {"passed": True, "details": details}
-
-
-def check_media_si_settings(duthost, port, media_si_settings, namespace=None):
-    """Verify ``port``'s applied media-side SI settings against APPL_DB.
-
-    ``media_si_settings`` is a flat dict of field name -> expected value (e.g.
-    ``pre3``/``pre2``/``pre1``/``main``/``post1``/``idriver``, following
-    ``media_settings.json`` structure); these are compared directly against
-    the same-named fields SONiC publishes to ``APPL_DB PORT_TABLE:<port>``
-    once the port is up. Nvidia/Mellanox-only in this suite - no vendor
-    branch here.
-
-    No separate NPU-sync-status gate: traced xcvrd
-    (``xcvrd.py``/``xcvrd_utilities/media_settings_parser.py``) directly -
-    it only ever writes ``NPU_SI_SETTINGS_DEFAULT`` (port init/SFP removal)
-    or ``NPU_SI_SETTINGS_NOTIFIED`` (``PORT_TABLE|<port>`` in STATE_DB,
-    written immediately *after* the same code path commits the media SI
-    values to APPL_DB). ``NPU_SI_SETTINGS_DONE`` is not written anywhere in
-    xcvrd or swss in the current tree, so gating on it would never pass.
-    ``NOTIFIED`` is a sufficient precondition for this comparison (the
-    values are already in APPL_DB by the time it's set) and this function
-    only reads APPL_DB, so there is nothing later to wait on; in
-    :func:`standard_port_recovery_and_verification` this also only runs
-    after oper-up + settle, closing the race via the flow's own timing. A
-    stale/missing value already fails below with an accurate reason.
-
-    Skips (passes) if ``media_si_settings`` is empty/undefined, matching the
-    attribute's "test runs if dictionary is non-empty" contract.
-
-    ``namespace`` scopes the APPL_DB read to the owning ASIC; when ``None``
-    it is resolved from ``port``.
-
-    Returns:
-        dict: ``{'passed': bool, 'details': str}``
-    """
-    if not media_si_settings:
-        return {"passed": True, "details": f"{port}: media_si_settings not defined, skipped"}
-    if namespace is None:
-        namespace = db_helpers.resolve_namespace(duthost, port)
-
-    port_table = db_helpers.hgetall_dict(duthost, "APPL_DB", f"PORT_TABLE:{port}", namespace=namespace)
-
-    mismatches = []
-    for field, expected in media_si_settings.items():
-        actual = port_table.get(field)
-        if actual is None:
-            mismatches.append(f"{field}: missing from PORT_TABLE:{port}")
-        elif actual != expected:
-            mismatches.append(f"{field}: expected {expected}, got {actual}")
-
-    if mismatches:
-        details = f"{port}: media SI settings mismatch - " + "; ".join(mismatches)
-        logger.warning("Media SI settings check FAILED: %s", details)
-        return {"passed": False, "details": details}
-
-    details = f"{port}: media SI settings match ({len(media_si_settings)} field(s))"
-    logger.info("Media SI settings check PASSED: %s", details)
-    return {"passed": True, "details": details}
+    return assert_no_flap_since(duthost, ports, sentinels, namespaces=namespaces, elapsed_sec=window_sec)
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -332,83 +318,172 @@ def check_media_si_settings(duthost, port, media_si_settings, namespace=None):
 # ──────────────────────────────────────────────────────────────────────
 
 
-def _get_transceiver_status(duthost, parent_port, status_cache, namespace=None):
-    """Cached fetch of ``STATE_DB TRANSCEIVER_STATUS|<parent_port>`` (per ASIC ns).
-
-    ``status_cache`` is a plain dict scoped to a single
-    :func:`standard_port_recovery_and_verification` call - it must NOT be
-    reused across separate calls in the same test, since a port's
-    TRANSCEIVER_STATUS can legitimately change between two disruptive
-    actions; reusing a stale cache would mask that.
-    """
-    if parent_port not in status_cache:
-        status_cache[parent_port] = db_helpers.hgetall_dict(
-            duthost, "STATE_DB", f"TRANSCEIVER_STATUS|{parent_port}", namespace=namespace
-        )
-    return status_cache[parent_port]
+# TRANSCEIVER_STATUS field names, verified against a live DUT
+# (``redis-cli -n 6 hgetall 'TRANSCEIVER_STATUS|Ethernet0'``) and against the
+# xcvrd writer - CmisApi.get_transceiver_status() in sonic-platform-common
+# (sonic_platform_base/sonic_xcvr/api/public/cmis.py): datapath state is
+# published as "DP<N>State" (value "DataPathActivated"), config state as
+# "config_state_hostlane<N>" (value "ConfigSuccess") - NOT
+# "host_lane<N>_datapath_state"/"host_lane<N>_config_state".
+_CMIS_DATAPATH_STATE_RE = re.compile(r'^DP(\d+)State$')
+_CMIS_CONFIG_STATE_RE = re.compile(r'^config_state_hostlane(\d+)$')
 
 
-def check_cmis_state(duthost, port, lport_to_first_subport_mapping, status_cache, namespace=None):
-    """Verify CMIS DataPathState=DataPathActivated and ConfigState=ConfigSuccess.
+def check_cmis_state(duthost, ports, lport_to_first_subport_mapping, namespaces=None):
+    """Verify CMIS DataPathState=DataPathActivated and ConfigState=ConfigSuccess, for every port in ``ports``.
 
     ("DataPathActivated" is the literal STATE_DB string, per
     ``docs/testplan/transceiver/test_plan.md``; the CMIS spec's own nibble name
     for the same state, used at the EEPROM layer in ``cmis_helper.py``, is
     "DPActivated".)
 
-    Reads the parent port's ``TRANSCEIVER_STATUS`` once (cached via
-    ``status_cache``) and validates every ``host_lane*_datapath_state``
-    and ``host_lane*_config_state`` field actually present in the hash, so
-    the check adapts to however many host lanes the port's breakout mode
-    exposes instead of assuming a fixed lane count. If NEITHER field is present
-    at all (schema mismatch or a partial STATE_DB publish), the check fails
-    rather than vacuously passing.
+    ``TRANSCEIVER_STATUS`` is published once per physical module, under the
+    first sub-port of a breakout group (hence ``lport_to_first_subport_mapping``
+    below), and carries every one of the module's host lanes - not just a
+    given port's own. Validating a port against every ``DP<N>State``/
+    ``config_state_hostlane<N>`` field in the parent's entry would, on a
+    breakout DUT, judge it by lanes owned by a *sibling* sub-port (e.g. a
+    module split into Ethernet0 on lanes 1-4 and Ethernet4 on lanes 5-8: without
+    this restriction, checking Ethernet4 would validate it against lanes 1-4).
+    So this also reads each port's own APPL_DB ``PORT_TABLE:<port>`` for
+    ``lanes`` (that port's own lane count) and ``subport`` (1-indexed among
+    siblings; a non-breakout port reports ``1`` too) and restricts ``<N>`` to
+    that port's own active host-lane range, computed the same way xcvrd does
+    in ``get_cmis_host_lanes_mask`` (``sonic-xcvrd/xcvrd/cmis/cmis_manager_task.py``):
+    ``start = host_lane_count * (subport - 1)``, active lanes
+    ``range(start + 1, start + host_lane_count + 1)``. For a non-breakout port
+    (``subport == 1``) this range is every lane the module has, so the
+    restriction is a no-op there - it only changes behavior for breakout
+    sub-ports.
 
-    ``namespace`` scopes the STATE_DB read to the owning ASIC; when ``None`` it is
-    resolved from ``port`` (a breakout parent shares its subports' ASIC).
+    If NEITHER field is present at all for a port's active lanes (schema
+    mismatch, partial STATE_DB publish, or an actual lane-range mismatch), that
+    port fails rather than vacuously passing.
+
+    Both TRANSCEIVER_STATUS and PORT_TABLE are read once per distinct
+    namespace among ``ports`` (:func:`db_helpers.get_state_db_table` /
+    :func:`db_helpers.get_db_table`), not once per port or per breakout
+    parent - so N ports sharing M breakout parents across K namespaces cost
+    2 x K dumps total, not N (or even M) round-trips. This also means the
+    per-call ``status_cache`` a single-port version of this check would need
+    to dedup TRANSCEIVER_STATUS reads across a breakout group's subports is
+    unnecessary and not part of this function's signature: every port's
+    dedup happens for free, once, inside this one call.
+
+    ``namespaces`` maps port -> ASIC namespace; a port missing from it (or a
+    caller passing ``None``) has its namespace resolved from the port itself.
+
+    Args:
+        duthost: SONiC DUT host fixture.
+        ports: list of logical interface names.
+        lport_to_first_subport_mapping: the value of the session-scoped
+            fixture of the same name (``tests/transceiver/conftest.py``).
+        namespaces: optional dict of ``{port: namespace}``.
+
+    Returns:
+        dict: ``{port: {'passed': bool, 'details': str}}``, one entry per ``ports``.
     """
-    if namespace is None:
-        namespace = db_helpers.resolve_namespace(duthost, port)
-    parent = lport_to_first_subport_mapping.get(port, port)
-    status = _get_transceiver_status(duthost, parent, status_cache, namespace)
-    if not status:
-        return {
-            "passed": False,
-            "details": f"{port}: TRANSCEIVER_STATUS|{parent} missing or empty",
-        }
+    if namespaces is None:
+        namespaces = {}
 
-    bad_datapath = []
-    bad_config = []
-    datapath_fields_seen = 0
-    config_fields_seen = 0
-    for k, v in status.items():
-        if k.startswith("host_lane") and k.endswith("_datapath_state"):
-            datapath_fields_seen += 1
-            if v != "DataPathActivated":
-                bad_datapath.append(f"{k}={v}")
-        elif k.startswith("host_lane") and k.endswith("_config_state"):
-            config_fields_seen += 1
-            if v != "ConfigSuccess":
-                bad_config.append(f"{k}={v}")
+    def _namespace_for(port):
+        if port in namespaces:
+            return namespaces[port]
+        return db_helpers.resolve_namespace(duthost, port)
 
-    if datapath_fields_seen == 0 and config_fields_seen == 0:
-        details = (
-            f"{port} (parent {parent}) TRANSCEIVER_STATUS|{parent} has no "
-            "host_lane*_datapath_state or host_lane*_config_state fields - "
-            "cannot confirm CMIS state (schema mismatch or partial publish)"
+    ports_by_ns = {}
+    for port in ports:
+        ports_by_ns.setdefault(_namespace_for(port), []).append(port)
+
+    status_by_parent = {}
+    port_table_by_port = {}
+    for ns in ports_by_ns:
+        status_dump, status_err = db_helpers.get_state_db_table(duthost, "TRANSCEIVER_STATUS", namespace=ns)
+        if status_err is None:
+            status_by_parent.update(status_dump)
+        port_table_dump, port_table_err = db_helpers.get_db_table(
+            duthost, "APPL_DB", "PORT_TABLE", namespace=ns, sep=":"
         )
-        return {"passed": False, "details": details}
+        if port_table_err is None:
+            port_table_by_port.update(port_table_dump)
 
-    if bad_datapath or bad_config:
-        problems = []
-        if bad_datapath:
-            problems.append("datapath: " + ", ".join(bad_datapath))
-        if bad_config:
-            problems.append("config: " + ", ".join(bad_config))
-        details = f"{port} (parent {parent}) CMIS state NOT activated - " + "; ".join(problems)
-        return {"passed": False, "details": details}
+    per_port = {}
+    for port in ports:
+        parent = lport_to_first_subport_mapping.get(port, port)
+        status = status_by_parent.get(parent)
+        if not status:
+            per_port[port] = {
+                "passed": False,
+                "details": f"{port}: TRANSCEIVER_STATUS|{parent} missing or empty",
+            }
+            continue
 
-    return {"passed": True, "details": f"{port} (parent {parent}) CMIS DataPathActivated + ConfigSuccess"}
+        port_table = port_table_by_port.get(port, {})
+        lanes_field = port_table.get("lanes")
+        if not lanes_field:
+            per_port[port] = {
+                "passed": False,
+                "details": (
+                    f"{port}: PORT_TABLE:{port} has no 'lanes' field - "
+                    "cannot determine this port's active host lanes"
+                ),
+            }
+            continue
+        host_lane_count = len(lanes_field.split(","))
+        subport = int(port_table.get("subport") or 1)
+        lane_start = host_lane_count * max(0, subport - 1)
+        active_lanes = set(range(lane_start + 1, lane_start + host_lane_count + 1))
+
+        bad_datapath = []
+        bad_config = []
+        datapath_fields_seen = 0
+        config_fields_seen = 0
+        for k, v in status.items():
+            datapath_match = _CMIS_DATAPATH_STATE_RE.match(k)
+            if datapath_match:
+                if int(datapath_match.group(1)) not in active_lanes:
+                    continue
+                datapath_fields_seen += 1
+                if v != "DataPathActivated":
+                    bad_datapath.append(f"{k}={v}")
+                continue
+            config_match = _CMIS_CONFIG_STATE_RE.match(k)
+            if config_match:
+                if int(config_match.group(1)) not in active_lanes:
+                    continue
+                config_fields_seen += 1
+                if v != "ConfigSuccess":
+                    bad_config.append(f"{k}={v}")
+
+        if datapath_fields_seen == 0 and config_fields_seen == 0:
+            per_port[port] = {
+                "passed": False,
+                "details": (
+                    f"{port} (parent {parent}) TRANSCEIVER_STATUS|{parent} has no "
+                    f"DP<N>State or config_state_hostlane<N> fields for this port's "
+                    f"active host lanes {sorted(active_lanes)} - cannot confirm CMIS "
+                    "state (schema mismatch, partial publish, or lane-range mismatch)"
+                ),
+            }
+            continue
+
+        if bad_datapath or bad_config:
+            problems = []
+            if bad_datapath:
+                problems.append("datapath: " + ", ".join(bad_datapath))
+            if bad_config:
+                problems.append("config: " + ", ".join(bad_config))
+            per_port[port] = {
+                "passed": False,
+                "details": f"{port} (parent {parent}) CMIS state NOT activated - " + "; ".join(problems),
+            }
+            continue
+
+        per_port[port] = {
+            "passed": True,
+            "details": f"{port} (parent {parent}) CMIS DataPathActivated + ConfigSuccess",
+        }
+    return per_port
 
 
 def standard_port_recovery_and_verification(
@@ -428,33 +503,35 @@ def standard_port_recovery_and_verification(
                                :func:`tests.common.platform.interface_utils.wait_ports_oper_status`)
                                of every port off the same ``show interface description``
                                dump per cycle; oper-up within ``link_up_timeout_sec``.
-      2. Link Flap/Stability - two sub-checks, for every port that came up:
-                               (a) mandatory "Stability (always)": one shared
-                               ``stability_window_sec`` observation window
-                               (snapshot all -> sleep once -> re-read all)
-                               instead of one window per port; (b) "no flap
-                               across the operation", only when the caller
-                               passes ``assert_no_flap_across_op=True`` (only
-                               valid for operations where the link stays up
-                               *and* APPL_DB isn't rebuilt, e.g. xcvrd/pmon
-                               restart) - compares each port's current
-                               ``flap_count`` against ``flap_count_baseline``.
+      2. Link Flap/Stability - two sub-checks, for every port that came up,
+                               sharing one flap/last_up_time sentinel captured
+                               right after step 1 (:func:`capture_flap_sentinels`)
+                               so neither re-reads PORT_TABLE for the same value:
+                               (a) mandatory "Stability (always)": the sentinel
+                               is asserted unchanged (:func:`assert_no_flap_since`)
+                               only after steps 3/5 below have run, sleeping
+                               only whatever's left of ``stability_window_sec``
+                               past their own elapsed time - so the observation
+                               overlaps that work (including the often much
+                               longer LLDP wait) instead of prefixing it with a
+                               dead sleep, while still always covering at least
+                               ``stability_window_sec``; (b) "no flap across the
+                               operation", only when the caller passes
+                               ``assert_no_flap_across_op=True`` (only valid for
+                               operations where the link stays up *and* APPL_DB
+                               isn't rebuilt, e.g. xcvrd/pmon restart) -
+                               compares the same sentinel's ``flap_count``
+                               against ``flap_count_baseline``.
       3. LLDP                - neighbor learned, for every up port with
                                ``verify_lldp_on_link_up``; per-port polls are
                                interleaved (poll all pending -> drop satisfied
                                -> repeat) so waits overlap instead of summing.
       5. CMIS State          - DataPathActivated + ConfigSuccess, for every up
-                               port that is ``cmis_active_optical``; per-parent
-                               ``TRANSCEIVER_STATUS`` reads are cached for the
-                               duration of this call so subports of the same
-                               breakout group cost one extra STATE_DB read,
-                               not one per subport.
-      6. SI Settings         - for every up port: optics SI (EEPROM bytes via
-                               :func:`check_optics_si_settings`, iff
-                               ``optics_si_settings`` is defined) and media SI
-                               (live SerDes TXEQ or APPL_DB, via
-                               :func:`check_media_si_settings`, iff
-                               ``media_si_settings`` is defined).
+                               port that is ``cmis_active_optical``, in one
+                               batched :func:`check_cmis_state` call across all
+                               of them - TRANSCEIVER_STATUS and PORT_TABLE are
+                               each read once per distinct namespace, not once
+                               per port or per breakout parent.
       7. Docker/process health - delegates to
                                :func:`tests.transceiver.common.health_checks.verify_health`,
                                the single owner of the xcvrd/syncd/orchagent
@@ -473,9 +550,11 @@ def standard_port_recovery_and_verification(
                                ``len(ports)``, and unconditionally -
                                independent of any port's link state.
 
-    Remote-Side Link Verification (test-plan step 4, optional/opt-in) is
-    intentionally not implemented here; it lands with the event-handling and
-    system-recovery tests that exercise it.
+    Remote-Side Link Verification (test-plan step 4, optional/opt-in) and SI
+    Settings Verification (test-plan step 6, optics + media) are intentionally
+    not implemented here; step 4 lands with the event-handling and
+    system-recovery tests that exercise it, and step 6 lands in a separate PR
+    pending further discussion.
 
     Every port's sub-failures are accumulated and reported together so a
     single call surfaces every problem on every port.
@@ -536,12 +615,6 @@ def standard_port_recovery_and_verification(
     Returns:
         dict: ``{'passed': bool, 'per_port': {port: {'passed': bool, 'details': str}}, 'details': str}``
     """
-    # Per-parent TRANSCEIVER_STATUS cache, scoped to this call only - a port's
-    # status can legitimately change between two separate calls in the same
-    # test (e.g. two disruptive actions), so this is never persisted or
-    # threaded in from the caller.
-    transceiver_status_cache = {}
-
     # Owning ASIC namespace per port, resolved once and reused for every
     # per-namespace DB read below (LLDP / TRANSCEIVER_STATUS / stability).
     # ``None`` on single-ASIC -> no ``-n`` flag.
@@ -559,31 +632,27 @@ def standard_port_recovery_and_verification(
 
     up_ports = [port for port in ports if port not in down_ports]
 
-    # 2a. Link Flap/Stability - mandatory "Stability (always)" sub-check, only
-    #     for ports that came up (nothing to observe stability of otherwise).
-    #     One shared window covers every up port.
-    if up_ports:
-        stability_results = check_ports_stability(
-            duthost, up_ports, stability_window_sec, namespaces=namespaces
-        )
-        for port, result in stability_results.items():
-            checks_ran[port].append("stability")
-            if not result["passed"]:
-                per_port_failures[port].append(result["details"])
+    # 2a/2b setup - one shared flap/last_up_time sentinel per up port, captured
+    # right after link-up. recovery_t0 anchors 2a's end-gate below (after
+    # steps 3/5 run) to this moment rather than to whenever that gate
+    # happens to execute, so the observation window it asserts against always
+    # covers the full post-recovery period - not just whatever's left after
+    # the other steps' own wall-clock time. Serves both 2a (forward-looking,
+    # asserted later) and 2b (compared against the caller's pre-op baseline,
+    # right below) so neither re-reads PORT_TABLE for the same value.
+    recovery_t0 = time.monotonic()
+    post_recovery_sentinels = capture_flap_sentinels(duthost, up_ports, namespaces=namespaces) if up_ports else {}
 
     # 2b. No flap across the operation - only where the flap counter survives
     #     (xcvrd/pmon restart, declared by the caller via
     #     assert_no_flap_across_op). Skipped for DB-rebuilding ops
     #     (swss/syncd restart, config reload, reboot, power cycle) whose
-    #     counter resets to 0 - for those, 2a above is the only flap check.
+    #     counter resets to 0 - for those, 2a below is the only flap check.
     if assert_no_flap_across_op:
         for port in up_ports:
             checks_ran[port].append("no-flap-across-op")
             baseline_flap = (flap_count_baseline or {}).get(port)
-            port_table = db_helpers.hgetall_dict(
-                duthost, "APPL_DB", f"PORT_TABLE:{port}", namespace=namespaces.get(port)
-            )
-            current_flap = port_table.get("flap_count")
+            current_flap, _current_up = post_recovery_sentinels.get(port, (None, None))
             if baseline_flap is None or current_flap is None:
                 per_port_failures[port].append(
                     f"{port}: cannot assert across-op no-flap - flap_count baseline/current missing"
@@ -615,41 +684,46 @@ def standard_port_recovery_and_verification(
             if not result["passed"]:
                 per_port_failures[port].append(result["details"])
 
-    # 5. CMIS state - only for up ports that are CMIS active-optical.
-    #    check_cmis_state caches TRANSCEIVER_STATUS per breakout parent in
-    #    transceiver_status_cache, so looping here costs at most one extra
-    #    STATE_DB read per breakout group, not one per subport.
-    for port in up_ports:
-        eeprom_attrs = port_attributes_dict.get(port, {}).get(EEPROM_ATTRIBUTES_KEY, {})
-        if is_cmis_active_optical(eeprom_attrs):
-            cmis_result = check_cmis_state(
-                duthost, port, lport_to_first_subport_mapping, transceiver_status_cache,
-                namespace=namespaces.get(port),
-            )
+    # 5. CMIS state - only for up ports that are CMIS active-optical, in one
+    #    batched check_cmis_state call across all of them: TRANSCEIVER_STATUS
+    #    and PORT_TABLE are each read once per distinct namespace, not once
+    #    per port or per breakout parent.
+    cmis_active_ports = [
+        port for port in up_ports
+        if is_cmis_active_optical(port_attributes_dict.get(port, {}).get(EEPROM_ATTRIBUTES_KEY, {}))
+    ]
+    if cmis_active_ports:
+        cmis_results = check_cmis_state(
+            duthost, cmis_active_ports, lport_to_first_subport_mapping, namespaces=namespaces
+        )
+        for port, result in cmis_results.items():
             checks_ran[port].append("CMIS state")
-            if not cmis_result["passed"]:
-                per_port_failures[port].append(cmis_result["details"])
+            if not result["passed"]:
+                per_port_failures[port].append(result["details"])
 
-    # 6. SI Settings - only for up ports; optics (EEPROM) and media (live
-    #    SerDes or APPL_DB, depending on platform) each independently gated on
-    #    their own attribute being non-empty.
-    for port in up_ports:
-        sys_attrs = port_attributes_dict.get(port, {}).get(SYSTEM_ATTRIBUTES_KEY, {})
-        optics_si_settings = sys_attrs.get("optics_si_settings")
-        if optics_si_settings:
-            optics_result = check_optics_si_settings(duthost, port, optics_si_settings)
-            checks_ran[port].append("optics SI settings")
-            if not optics_result["passed"]:
-                per_port_failures[port].append(optics_result["details"])
-
-        media_si_settings = sys_attrs.get("media_si_settings")
-        if media_si_settings:
-            media_result = check_media_si_settings(
-                duthost, port, media_si_settings, namespace=namespaces.get(port)
-            )
-            checks_ran[port].append("media SI settings")
-            if not media_result["passed"]:
-                per_port_failures[port].append(media_result["details"])
+    # 2a end-gate. Link Flap/Stability - mandatory "Stability (always)"
+    # sub-check, only for ports that came up (nothing to observe stability of
+    # otherwise). Rather than a leading sleep before steps 3/5, the
+    # observation window is anchored to recovery_t0 (captured in the 2a/2b
+    # setup above, right after link-up) and only asserted here, after
+    # everything else has run - so a flap during the LLDP wait (typically the
+    # longest phase) is caught too, and the observation overlaps that work
+    # instead of prefixing it with dead time. Sleeping only whatever's left of
+    # stability_window_sec past the other steps' own elapsed time still
+    # guarantees a total window of at least stability_window_sec either way:
+    # if the other steps already took longer, elapsed already exceeds it and
+    # no extra sleep is needed; otherwise the remaining sleep tops it up.
+    if up_ports:
+        elapsed = time.monotonic() - recovery_t0
+        time.sleep(max(0, stability_window_sec - elapsed))
+        stability_results = assert_no_flap_since(
+            duthost, up_ports, post_recovery_sentinels, namespaces=namespaces,
+            elapsed_sec=stability_window_sec,
+        )
+        for port, result in stability_results.items():
+            checks_ran[port].append("stability")
+            if not result["passed"]:
+                per_port_failures[port].append(result["details"])
 
     # 7. Docker and process health check (per system_test_plan.md). Delegates
     #    to health_checks.verify_health - the single owner of the
