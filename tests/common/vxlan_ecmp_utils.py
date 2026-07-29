@@ -76,7 +76,7 @@ class Ecmp_Utils(object):
 
         ttl_entry = ""
         if ttl_mode:
-            ttl_entry = f',\n"ttl_mode": "{ttl_mode}"\n'
+            ttl_entry = ',\n"ttl_mode": "{}"\n'.format(ttl_mode)
 
         config = '''{{
             "VXLAN_TUNNEL": {{
