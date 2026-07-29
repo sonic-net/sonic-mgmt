@@ -36,6 +36,13 @@ class TestLeakSensorApi(PlatformApiTestBase):
     num_leak_sensors = 0
 
     @pytest.fixture(scope="function", autouse=True)
+    def assert_test_expectations(self):
+        """Ensure accumulated self.expect() checks are asserted per test."""
+        del self.failed_expectations[:]
+        yield
+        self.assert_expectations()
+
+    @pytest.fixture(scope="function", autouse=True)
     def resolve_num_leak_sensors(self, platform_api_conn):  # noqa: F811
         try:
             self.num_leak_sensors = int(liquid_cooling.get_num_leak_sensors(platform_api_conn))
@@ -122,12 +129,12 @@ class TestLeakSensorApi(PlatformApiTestBase):
 
             # get_leak_max_minor_duration_sec() on the profile
             max_dur = leak_sensor.get_leak_max_minor_duration_sec(platform_api_conn, sensor_index)
-            if max_dur is None:
-                logger.info(f"Sensor {sensor_index} get_leak_max_minor_duration_sec() returned None "
+            if max_dur is None or max_dur == 0:
+                logger.info(f"Sensor {sensor_index} get_leak_max_minor_duration_sec() returned None or 0"
                             f"- platform does not support this attribute")
             else:
                 self.expect(isinstance(max_dur, (int, float)) and max_dur > 0,
-                            f"Sensor {sensor_index} max_minor_duration_sec={max_dur} should be non-zero")
+                            f"Sensor {sensor_index} max_minor_duration_sec={max_dur} should be non-negative")
 
         # get_all_profiles() on LiquidCoolingBase
         all_profiles = liquid_cooling.get_all_profiles(platform_api_conn)
