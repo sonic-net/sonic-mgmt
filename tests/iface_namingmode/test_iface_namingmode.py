@@ -25,8 +25,40 @@ PORT_TOGGLE_TIMEOUT = 30
 # couple of transmit cycles. This is a wait_until ceiling, so fast neighbors (EOS)
 # are unaffected.
 ESTABLISH_LLDP_NEIGHBOR_TIMEOUT = 180
+ROUTE_CHECK_CONVERGENCE_TIMEOUT = 300
+ROUTE_CHECK_CONVERGENCE_INTERVAL = 20
 
 QUEUE_COUNTERS_RE_FMT = r'{}\s+[U|M]C|ALL\d\s+\S+\s+\S+\s+\S+\s+\S+'
+
+
+def wait_for_route_check_to_pass(duthost, operation):
+    last_result = {}
+
+    def route_check_passed():
+        res = duthost.shell("sudo route_check.py", module_ignore_errors=True)
+        last_result["rc"] = res["rc"]
+        last_result["stdout"] = res.get("stdout", "")
+        last_result["stderr"] = res.get("stderr", "")
+        return res["rc"] == 0
+
+    pytest_assert(
+        wait_until(
+            ROUTE_CHECK_CONVERGENCE_TIMEOUT,
+            ROUTE_CHECK_CONVERGENCE_INTERVAL,
+            0,
+            route_check_passed
+        ),
+        (
+            "route_check.py is still failing after {} on {}. "
+            "Last rc: {}. Last stdout:\n{}\nLast stderr:\n{}"
+        ).format(
+            operation,
+            duthost.hostname,
+            last_result.get("rc"),
+            last_result.get("stdout", ""),
+            last_result.get("stderr", "")
+        )
+    )
 
 
 @pytest.fixture
@@ -137,17 +169,21 @@ def setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
          'multi_vrf_info': multi_vrf_info,
     }
 
-    yield setup_info
+    try:
+        wait_for_route_check_to_pass(duthost, "updating interface aliases")
+        yield setup_info
+    finally:
+        logger.info('Reverting the port alias name in redis db to the actual values')
+        for item in default_interfaces:
+            asic_index = duthost.get_port_asic_instance(item).asic_index
+            port_alias_old = port_alias_facts['port_name_map'][item]
+            db_cmd = 'sudo {} CONFIG_DB HSET "PORT|{}" alias {}'\
+                .format(duthost.asic_instance(asic_index).sonic_db_cli,
+                        item,
+                        port_alias_old)
+            duthost.command(db_cmd)
 
-    logger.info('Reverting the port alias name in redis db to the actual values')
-    for item in default_interfaces:
-        asic_index = duthost.get_port_asic_instance(item).asic_index
-        port_alias_old = port_alias_facts['port_name_map'][item]
-        db_cmd = 'sudo {} CONFIG_DB HSET "PORT|{}" alias {}'\
-            .format(duthost.asic_instance(asic_index).sonic_db_cli,
-                    item,
-                    port_alias_old)
-        duthost.command(db_cmd)
+        wait_for_route_check_to_pass(duthost, "restoring interface aliases")
 
 
 @pytest.fixture(scope='module', params=['alias', 'default'])
