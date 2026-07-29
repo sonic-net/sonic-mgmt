@@ -156,7 +156,7 @@ def check_lldp_neighbor(duthost, localhost, eos, sonic, collect_techsupport_all_
     # We use the MAC of mgmt port to generate chassis ID as LLDPD dose.
     # To be compatible with PR #3331, we keep using router MAC on T2 devices
     switch_mac = ""
-    if tbinfo["topo"]["type"] != "t2":
+    if tbinfo["topo"]["type"] != "t2" or "isolated" in tbinfo["topo"]["name"]:
         mgmt_alias = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_mgmt_interface"]["alias"]
         switch_mac = duthost.get_dut_iface_mac(mgmt_alias)
     elif tbinfo["topo"]["type"] == "t2":
@@ -299,7 +299,7 @@ def get_expected_chassis_mac(duthost, asic, tbinfo):
     Returns:
         str: Expected chassis MAC address (lowercase)
     """
-    if tbinfo["topo"]["type"] == "t2":
+    if tbinfo["topo"]["type"] == "t2" and "isolated" not in tbinfo["topo"]["name"]:
         if duthost.is_multi_asic:
             asic_cfg = asic.config_facts(host=duthost.hostname, source="running")['ansible_facts']
             return asic_cfg['DEVICE_METADATA']['localhost']['mac'].lower()
