@@ -583,14 +583,16 @@ def enable_sonic_dhcpv4_relay_agent(rand_selected_dut, request):
 
     try:
         if request.getfixturevalue("relay_agent") == "sonic-relay-agent":
+            # dhcp4relay is rendered only when DHCPV4_RELAY configuration already exists.
+            sonic_dhcp_relay_config(duthost, dut_dhcp_relay_data, False)
             sonic_dhcpv4_flag_config_and_unconfig(duthost, True)
-            sonic_dhcp_relay_config(duthost, dut_dhcp_relay_data, True)
+            pytest_assert(wait_until(40, 5, 0, check_dhcpv4_socket_status, duthost, dut_dhcp_relay_data,
+                          "sonic_dhcpv4_socket_check"))
         yield
     finally:
-        # Cleanup: disable the feature flag
         if request.getfixturevalue("relay_agent") == "sonic-relay-agent":
-            sonic_dhcpv4_flag_config_and_unconfig(duthost, False)
             sonic_dhcp_relay_unconfig(duthost, dut_dhcp_relay_data)
+            sonic_dhcpv4_flag_config_and_unconfig(duthost, False)
 
 
 def check_dhcpv4_socket_status(duthost, dut_dhcp_relay_data=None, process_and_socket_check=None):
