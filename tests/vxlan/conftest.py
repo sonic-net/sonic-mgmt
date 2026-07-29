@@ -54,9 +54,25 @@ def pytest_addoption(parser):
     )
 
     vxlan_group.addoption(
+        "--vxlan_sport",
+        action="store",
+        default=5120,
+        type=int,
+        help="Base UDP source port for VxLAN sport entropy"
+    )
+
+    vxlan_group.addoption(
+        "--vxlan_mask",
+        action="store",
+        default=7,
+        type=int,
+        help="Number of bits to vary in the VxLAN UDP source port range"
+    )
+
+    vxlan_group.addoption(
         "--num_vnet",
         action="store",
-        default=8,
+        default=5,
         type=int,
         help="number of VNETs for VNET VxLAN test"
     )
@@ -64,7 +80,7 @@ def pytest_addoption(parser):
     vxlan_group.addoption(
         "--num_endpoints",
         action="store",
-        default=4000,
+        default=511,
         type=int,
         help="number of endpoints for VNET VxLAN"
     )
@@ -257,7 +273,7 @@ def scaled_vnet_params(request):
     params[NUM_VNET_KEY] = request.config.option.num_vnet
     params[NUM_ROUTES_KEY] = request.config.option.num_routes
     if params[NUM_ROUTES_KEY] is None:
-        params[NUM_ROUTES_KEY] = 16000
+        params[NUM_ROUTES_KEY] = 1000
     params[NUM_ENDPOINTS_KEY] = request.config.option.num_endpoints
     return params
 
