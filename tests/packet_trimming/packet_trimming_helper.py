@@ -1713,16 +1713,21 @@ def ensure_block_queue_buffer_profile(duthost, block_queue_profile):
     Args:
         duthost: DUT host object
         block_queue_profile (str): Buffer profile name referenced by the blocking queue
+
+    Returns:
+        bool: True if this call created the profile (so teardown should remove it),
+        False if the platform already defined it.
     """
     exists = duthost.shell(
         f"redis-cli -n 4 exists 'BUFFER_PROFILE|{block_queue_profile}'")["stdout"].strip()
     if exists == "1":
-        return
+        return False
 
     pool = TRIM_QUEUE_PROFILE_CONFIG["pool"]
     fields = f"pool {pool} size 1518 dynamic_th {DYNAMIC_TH}"
     duthost.shell(f"redis-cli -n 4 hset 'BUFFER_PROFILE|{block_queue_profile}' {fields}")
     logger.info(f"Created missing blocking-queue buffer profile '{block_queue_profile}': {fields}")
+    return True
 
 
 def set_buffer_profile_for_block_queue(duthost, interfaces, block_queue_id, block_queue_profile):
@@ -1735,6 +1740,10 @@ def set_buffer_profile_for_block_queue(duthost, interfaces, block_queue_id, bloc
         block_queue_id: Queue index used for blocking traffic
         block_queue_profile (str): Buffer profile name to apply for blocking queue
 
+    Returns:
+        str or None: The buffer profile name if this call created it on demand (so teardown
+        must delete it), otherwise None (the platform already defined it).
+
     Raises:
         RuntimeError: If any interface fails to be configured with the specified profile.
     """
@@ -1746,7 +1755,7 @@ def set_buffer_profile_for_block_queue(duthost, interfaces, block_queue_id, bloc
 
     # Create the referenced buffer profile when the platform does not already define it
     # (for example the VPP virtual switch), so blocking-queue setup is self-sufficient.
-    ensure_block_queue_buffer_profile(duthost, block_queue_profile)
+    created_profile = ensure_block_queue_buffer_profile(duthost, block_queue_profile)
 
     # Convert single interface to list
     if isinstance(interfaces, str):
@@ -1766,6 +1775,53 @@ def set_buffer_profile_for_block_queue(duthost, interfaces, block_queue_id, bloc
             if not isinstance(e, RuntimeError):
                 raise RuntimeError(f"Exception while configuring interface {interface} blocking queue: {str(e)}") from e
             raise
+
+    return block_queue_profile if created_profile else None
+
+
+def delete_buffer_queue_for_block_queue(duthost, interfaces, block_queue_id):
+    """
+    Remove the BUFFER_QUEUE entries created for a blocking queue during setup.
+
+    Mirrors ``delete_buffer_queue_for_trim_queue``: ``config load`` of the pre-test backup
+    merges rather than replaces, so BUFFER_QUEUE keys the test added on platforms whose base
+    configuration does not define them (for example the VPP virtual switch on the shared
+    Force10-S6000 hwsku) survive teardown and dangle once the on-demand blocking-queue profile
+    is removed. Delete them explicitly, before the profile is removed, so teardown leaves a
+    YANG-valid configuration on every platform. Platforms whose base configuration defines the
+    queue restore it from the backup on ``config load``, so behavior there is unchanged.
+
+    Args:
+        duthost: DUT host object
+        interfaces (list or str): Port names whose blocking-queue reference should be removed
+        block_queue_id: Queue index used for blocking traffic
+    """
+    block_queue_id = str(block_queue_id)
+
+    if isinstance(interfaces, str):
+        interfaces = [interfaces]
+
+    for interface in interfaces:
+        duthost.shell(f"redis-cli -n 4 del 'BUFFER_QUEUE|{interface}|{block_queue_id}'")
+        logger.info(f"Removed blocking-queue BUFFER_QUEUE|{interface}|{block_queue_id} during teardown")
+
+
+def delete_created_block_queue_buffer_profiles(duthost, profiles):
+    """
+    Delete the blocking-queue buffer profiles created on demand during setup.
+
+    Only profiles that ``set_buffer_profile_for_block_queue`` created (platforms whose base
+    configuration lacked them, such as the VPP virtual switch) are passed here; on SKUs that
+    already define these profiles nothing is created and nothing is deleted, so behavior there
+    is unchanged. Removing them keeps CONFIG_DB clean and preserves test isolation across runs.
+
+    Args:
+        duthost: DUT host object
+        profiles (set or list): Buffer profile names created during setup
+    """
+    for profile in sorted(set(p for p in profiles if p)):
+        duthost.shell(f"redis-cli -n 4 del 'BUFFER_PROFILE|{profile}'")
+        logger.info(f"Deleted on-demand blocking-queue buffer profile '{profile}' during teardown")
 
 
 def create_trim_queue_test_buffer_profile(duthost):
