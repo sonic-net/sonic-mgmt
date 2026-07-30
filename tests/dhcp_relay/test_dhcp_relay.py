@@ -126,15 +126,15 @@ def _set_dhcp_relay_server_state(duthost, vlan_name, vlan_names, backend, v4_ser
         _set_config_db_list_field(
             duthost, "VLAN", current_vlan, "dhcp_servers", isc_v4_servers)
 
-        native_v4 = {}
+        native_v4 = dict(original_native_v4[current_vlan])
+        native_v4.pop("dhcpv4_servers", None)
         if backend == "sonic" and current_vlan == vlan_name and v4_servers:
-            native_v4 = dict(original_native_v4[current_vlan])
             native_v4["dhcpv4_servers"] = v4_servers
         _replace_config_db_hash(duthost, "DHCPV4_RELAY", current_vlan, native_v4)
 
-        v6_config = {}
+        v6_config = dict(original_v6[current_vlan])
+        v6_config.pop("dhcpv6_servers", None)
         if current_vlan == vlan_name and v6_servers:
-            v6_config = dict(original_v6[current_vlan])
             v6_config["dhcpv6_servers"] = v6_servers
         _replace_config_db_hash(duthost, "DHCP_RELAY", current_vlan, v6_config)
 
@@ -295,6 +295,7 @@ def test_dhcp_relay_process_layout(duthosts, rand_one_dut_hostname, dut_dhcp_rel
     """Verify the DHCP relay process matrix as server configuration changes."""
     duthost = duthosts[rand_one_dut_hostname]
     backend = "sonic" if relay_agent == "sonic-relay-agent" else "isc"
+    pytest_assert(dut_dhcp_relay_data, "No DHCP relay data is available for the process matrix")
     selected_relay = dut_dhcp_relay_data[0]
     vlan_name = selected_relay["downlink_vlan_iface"]["name"]
     match = re.fullmatch(r"Vlan(\d+)", vlan_name)
@@ -334,7 +335,7 @@ def test_dhcp_relay_process_layout(duthosts, rand_one_dut_hostname, dut_dhcp_rel
     original_backend = "sonic" if str(original_flag).lower() == "true" else "isc"
 
     feature_state = original_config.get("FEATURE", {}).get("dhcp_relay", {}).get("state")
-    pytest_assert(feature_state == "enabled",
+    pytest_assert(feature_state in ["enabled", "always_enabled"],
                   "dhcp_relay feature must remain enabled, got {}".format(feature_state))
 
     states = [
@@ -367,7 +368,7 @@ def test_dhcp_relay_process_layout(duthosts, rand_one_dut_hostname, dut_dhcp_rel
 
             current_feature_state = duthost.shell(
                 'sonic-db-cli CONFIG_DB hget "FEATURE|dhcp_relay" "state"')["stdout"].strip()
-            pytest_assert(current_feature_state == "enabled",
+            pytest_assert(current_feature_state in ["enabled", "always_enabled"],
                           "dhcp_relay feature changed in state {}: {}"
                           .format(state_name, current_feature_state))
             critical_status = duthost.critical_process_status("dhcp_relay")
