@@ -24,7 +24,7 @@ from paramiko.ssh_exception import SSHException
 # kernel/ramdisk loads so shell strings like "reloading"/"Loading configuration" do
 # not match.
 BOOTLOADER_BANNER_RE = re.compile(
-    r"Press\s+Control[-\s]?C|"                    # Arista Aboot autoboot window
+    r"Press\s+Control[-\s]?C\s+now|"              # Arista Aboot autoboot window ("...now to enter Aboot shell")
     r"Aboot#|"                                    # Arista Aboot shell prompt
     r"GNU\s+GRUB|grub\s*>|grub\s+rescue\s*>|"     # GRUB menu / shell
     r"Hit\s+any\s+key\s+to\s+stop\s+autoboot|"    # U-Boot autoboot window
@@ -127,6 +127,10 @@ class SSHConsoleConn(BaseConsoleConn):
         self.logger.debug(session_init_msg)
         # Reset the bootloader-deferred signal at the start of every preparation so a
         # caller can consistently read whether login was deferred due to a boot stage.
+        # It is set at any of several checkpoints that can be the FIRST to observe a
+        # boot banner (initial read, menu-port login, _recover_to_login_prompt, and
+        # login_stage_2's mid-wait / final-try) -- defense-in-depth so no single missed
+        # classification lets a key reach a 'hit any key to stop autoboot' window.
         self._bootloader_deferred = False
 
         if re.search(
@@ -160,6 +164,18 @@ class SSHConsoleConn(BaseConsoleConn):
                     "DUT is in a bootloader/boot stage (menu port); deferring "
                     "interactive login to avoid interrupting autoboot")
                 return
+        # The initial passive read itself may contain a one-shot bootloader/boot banner
+        # (e.g. a single "Hit any key to stop autoboot" or ONIE line) that then goes
+        # quiet. _recover_to_login_prompt() re-reads from scratch and, on a now-silent
+        # line, nudges with a bare CR -- which aborts autoboot on U-Boot/ONIE. Classify
+        # the first read here and defer immediately if it already shows a boot stage, so
+        # no key is ever sent even when the banner appeared only in that first read.
+        if BOOTLOADER_BANNER_RE.search(session_init_msg):
+            self.logger.warning(
+                "Initial console banner shows a bootloader/boot stage; deferring "
+                "interactive login to avoid interrupting autoboot")
+            self._bootloader_deferred = True
+            return
         # Exit any leftover shell from a previous test so we start at a clean login prompt.
         # If the DUT is in a bootloader / boot stage, defer interactive login entirely:
         # login_stage_2() sends periodic CRs while waiting for the username prompt, and on
@@ -495,8 +511,9 @@ class SSHConsoleConn(BaseConsoleConn):
             # window while cleanup() runs), a CR here counts as "hit any key to stop
             # autoboot" and would trap the DUT, so classify from passive output and bail.
             output = ""
-            for _ in range(4):
-                time.sleep(0.5)
+            for i in range(4):
+                if i:
+                    time.sleep(0.5)
                 output += self.read_channel()
             if BOOTLOADER_BANNER_RE.search(output):
                 self.logger.warning(

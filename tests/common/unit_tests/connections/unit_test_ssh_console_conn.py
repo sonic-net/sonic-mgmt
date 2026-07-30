@@ -83,6 +83,12 @@ NEGATIVE_CASES = [
     # Generic progress text that is not a kernel/ramdisk load must NOT match.
     "Loading configuration",
     "admin@sonic:~$ app: Loading modules ...",
+    # "Press Control-C" without the Aboot autoboot phrasing ("now") must NOT match
+    # (external review Finding 2: a tool or log line saying "Press Control-C to abort"
+    # would otherwise defer login for the whole session and break send_command paths
+    # like collect_mgmt_config_by_console()).
+    "Press Control-C to abort the operation",
+    "admin@sonic:~$ tool: Please Press Control-C to stop",
 ]
 
 
@@ -446,3 +452,37 @@ def test_read_initial_console_bounded_on_silent_console():
     assert conn.read_channel.call_count <= 6, \
         "silent-console read must be bounded (<=6) to fit collect_console_log's 10s budget"
     assert slept.call_count <= 6
+
+
+def test_session_preparation_defers_when_bootloader_only_in_initial_read():
+    """Regression guard for the initial-read classification gap (external review
+    Finding 1). A one-shot bootloader banner can appear ONLY in the first console
+    read (session_init_msg) and then the line goes silent. Without classifying that
+    first read, _recover_to_login_prompt() re-reads a now-silent line, takes its
+    ``not output.strip()`` branch and nudges with a bare CR -- which aborts autoboot
+    on U-Boot/ONIE. session_preparation() must classify the initial read and defer
+    with ZERO writes. Distinct from
+    test_session_preparation_initial_probe_writes_no_key_in_bootloader, which feeds
+    the banner on EVERY read (so _recover_to_login_prompt still sees it)."""
+    # Banner is returned exactly once (the first read), then read_channel() -> "" forever.
+    conn = _make_console(["Hit any key to stop autoboot:  3\n"])
+    conn.console_type = "ssh"
+    conn.menu_port = None
+    conn.username = "console_user:7001"
+    conn.sonic_username = "admin"
+    conn.sonic_password = ["pw"]
+    conn.login_stage_2 = mock.MagicMock()
+    conn.session_preparation_finalise = mock.MagicMock()
+    conn.set_base_prompt = mock.MagicMock()
+    conn.find_prompt = mock.MagicMock()
+
+    with mock.patch("tests.common.connections.ssh_console_conn.time.sleep"):
+        SSHConsoleConn.session_preparation(conn)
+
+    assert conn._bootloader_deferred is True, \
+        "must defer login when the bootloader banner is only in the first read"
+    assert _written(conn) == [], (
+        f"must write nothing when the initial read shows a bootloader banner, but "
+        f"wrote {_written(conn)!r} -- even a bare CR can abort a 'hit any key' window")
+    conn.login_stage_2.assert_not_called()
+    conn.session_preparation_finalise.assert_not_called()
