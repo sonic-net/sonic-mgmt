@@ -8,7 +8,7 @@ from .cli.util import get_skip_mod_list
 logger = logging.getLogger('__name__')
 
 pytestmark = [
-    pytest.mark.topology('t2')
+    pytest.mark.topology('t2', 'lrh', 'urh')
 ]
 
 

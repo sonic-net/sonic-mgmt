@@ -11,7 +11,7 @@ from tests.common.helpers.dut_utils import is_virtual_platform
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1', 't2', 'm0', 'mx', 'm1', 'c0'),
+    pytest.mark.topology('t0', 't1', 't2', 'lrh', 'urh', 'm0', 'mx', 'm1', 'c0'),
     pytest.mark.device_type('vs')
 ]
 
@@ -696,7 +696,7 @@ def test_lldp_interfaces_config_reload(duthosts, enum_rand_one_per_hwsku_fronten
                       "No LLDP neighbors found before config reload")
 
         logger.info("Step 2: Performing config reload")
-        config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
         logger.info("Step 3: Waiting for system to stabilize after config reload")
         # Wait for LLDP to converge

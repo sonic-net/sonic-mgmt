@@ -42,6 +42,8 @@ class TestIngressDropProbingExecutor:
         self.mock_ptftest.src_client = MagicMock()
         self.mock_ptftest.asic_type = "broadcom"
         self.mock_ptftest.cnt_pg_idx = 5  # PG 3 + 2
+        # Ensure getattr fallback works for ingress_drop_counter_mode
+        del self.mock_ptftest.ingress_drop_counter_mode
 
     @pytest.mark.order(8800)
     def test_init_with_default_parameters(self):
@@ -57,21 +59,21 @@ class TestIngressDropProbingExecutor:
         assert executor.observer is self.observer
         assert executor.verbose is False
         assert executor.name == ""
-        assert executor.use_pg_drop_counter is False  # Default to Port counter
+        assert executor.counter_mode == 'port_drop'  # Default counter mode
 
     @pytest.mark.order(8801)
     def test_init_with_pg_counter_enabled(self):
-        """Test initialization with PG counter strategy"""
+        """Test initialization with PG counter strategy via counter_mode param"""
         from ingress_drop_probing_executor import IngressDropProbingExecutor
 
         executor = IngressDropProbingExecutor(
             ptftest=self.mock_ptftest,
             observer=self.observer,
-            use_pg_drop_counter=True,
-            verbose=True
+            verbose=True,
+            counter_mode='pg_drop'
         )
 
-        assert executor.use_pg_drop_counter is True
+        assert executor.counter_mode == 'pg_drop'
         assert executor.verbose is True
 
     @pytest.mark.order(8802)
@@ -139,7 +141,7 @@ class TestIngressDropProbingExecutor:
         executor = IngressDropProbingExecutor(
             ptftest=self.mock_ptftest,
             observer=self.observer,
-            use_pg_drop_counter=False  # Use Port counter
+            counter_mode='port_drop'
         )
 
         success, detected = executor.check(24, 28, 500, attempts=1)
@@ -171,7 +173,7 @@ class TestIngressDropProbingExecutor:
         executor = IngressDropProbingExecutor(
             ptftest=self.mock_ptftest,
             observer=self.observer,
-            use_pg_drop_counter=False
+            counter_mode='port_drop'
         )
 
         success, detected = executor.check(24, 28, 2000, attempts=1)
@@ -208,7 +210,7 @@ class TestIngressDropProbingExecutor:
         executor = IngressDropProbingExecutor(
             ptftest=self.mock_ptftest,
             observer=self.observer,
-            use_pg_drop_counter=False
+            counter_mode='port_drop'
         )
 
         success, detected = executor.check(24, 28, 1500)
@@ -234,7 +236,7 @@ class TestIngressDropProbingExecutor:
         executor = IngressDropProbingExecutor(
             ptftest=self.mock_ptftest,
             observer=self.observer,
-            use_pg_drop_counter=True  # Enable PG counter
+            counter_mode='pg_drop'
         )
 
         success, detected = executor.check(24, 28, 1000, pg=3)
@@ -618,6 +620,204 @@ class TestIngressDropProbingExecutor:
         )
         success, detected = executor.check(24, 28, 1000, attempts=2)
         assert (success, detected) == (False, False)
+
+    @pytest.mark.order(8825)
+    def test_init_with_port_buffer_drop_mode(self):
+        """Test init with counter_mode='port_buffer_drop'"""
+        print("\n=== Testing init with counter_mode='port_buffer_drop' ===")
+        from ingress_drop_probing_executor import IngressDropProbingExecutor
+
+        executor = IngressDropProbingExecutor(
+            ptftest=self.mock_ptftest,
+            observer=self.observer,
+            counter_mode='port_buffer_drop'
+        )
+
+        print("  counter_mode='port_buffer_drop'")
+        print(f"  Result: counter_mode={executor.counter_mode}")
+        assert executor.counter_mode == 'port_buffer_drop'
+        print("[OK] port_buffer_drop mode set correctly")
+
+    @pytest.mark.order(8826)
+    def test_init_with_pg_drop_mode(self):
+        """Test init with counter_mode='pg_drop'"""
+        print("\n=== Testing init with counter_mode='pg_drop' ===")
+        from ingress_drop_probing_executor import IngressDropProbingExecutor
+
+        executor = IngressDropProbingExecutor(
+            ptftest=self.mock_ptftest,
+            observer=self.observer,
+            counter_mode='pg_drop'
+        )
+
+        print("  counter_mode='pg_drop'")
+        print(f"  Result: counter_mode={executor.counter_mode}")
+        assert executor.counter_mode == 'pg_drop'
+        print("[OK] pg_drop mode set correctly")
+
+    @pytest.mark.order(8829)
+    @patch('ingress_drop_probing_executor.port_list', {"src": {24: "mock_port_24"}})
+    @patch('ingress_drop_probing_executor.sai_thrift_read_port_counters')
+    @patch('ingress_drop_probing_executor.time.sleep')
+    def test_check_port_buffer_drop_mode_detected(self, mock_sleep, mock_read_counters):
+        """Test check() with counter_mode='port_buffer_drop' - only checks INGRESS_PORT_BUFFER_DROP"""
+        print("\n=== Testing check() with port_buffer_drop mode - drop detected ===")
+        import ingress_drop_probing_executor
+        ingress_drop_probing_executor.INGRESS_DROP = 2
+        ingress_drop_probing_executor.INGRESS_PORT_BUFFER_DROP = 12
+
+        from ingress_drop_probing_executor import IngressDropProbingExecutor
+
+        mock_read_counters.reset_mock()
+
+        # INGRESS_PORT_BUFFER_DROP (idx 12) increases, INGRESS_DROP (idx 2) stays same
+        base_counters = [0] * 20
+        curr_counters = [0] * 20
+        curr_counters[12] = 7  # INGRESS_PORT_BUFFER_DROP increased
+        # INGRESS_DROP (idx 2) stays at 0 — must NOT affect detection
+
+        mock_read_counters.side_effect = [
+            (base_counters, [0] * 10),   # Baseline
+            (curr_counters, [0] * 10)    # Current
+        ]
+
+        executor = IngressDropProbingExecutor(
+            ptftest=self.mock_ptftest,
+            observer=self.observer,
+            counter_mode='port_buffer_drop'
+        )
+
+        success, detected = executor.check(24, 28, 1500, attempts=1)
+
+        print(f"  Result: success={success}, detected={detected}")
+        assert success is True, f"Expected success=True, got {success}"
+        assert detected is True, f"Expected detected=True, got {detected}"
+        print("[OK] port_buffer_drop mode detected drop via INGRESS_PORT_BUFFER_DROP only")
+
+    @pytest.mark.order(8830)
+    @patch('ingress_drop_probing_executor.port_list', {"src": {24: "mock_port_24"}})
+    @patch('ingress_drop_probing_executor.sai_thrift_read_port_counters')
+    @patch('ingress_drop_probing_executor.time.sleep')
+    def test_check_port_buffer_drop_mode_not_detected(self, mock_sleep, mock_read_counters):
+        """Test check() with counter_mode='port_buffer_drop' - no drop on INGRESS_PORT_BUFFER_DROP"""
+        print("\n=== Testing check() with port_buffer_drop mode - no drop ===")
+        import ingress_drop_probing_executor
+        ingress_drop_probing_executor.INGRESS_DROP = 2
+        ingress_drop_probing_executor.INGRESS_PORT_BUFFER_DROP = 12
+
+        from ingress_drop_probing_executor import IngressDropProbingExecutor
+
+        mock_read_counters.reset_mock()
+
+        # INGRESS_DROP (idx 2) increases but INGRESS_PORT_BUFFER_DROP (idx 12) stays same
+        # In port_buffer_drop mode, only INGRESS_PORT_BUFFER_DROP matters
+        base_counters = [0] * 20
+        curr_counters = [0] * 20
+        curr_counters[2] = 15  # INGRESS_DROP increased — should be IGNORED
+        # curr_counters[12] stays 0
+
+        mock_read_counters.side_effect = [
+            (base_counters, [0] * 10),
+            (curr_counters, [0] * 10)
+        ]
+
+        executor = IngressDropProbingExecutor(
+            ptftest=self.mock_ptftest,
+            observer=self.observer,
+            counter_mode='port_buffer_drop'
+        )
+
+        print(f"  counter_mode={executor.counter_mode}")
+        print("  Baseline: all zeros")
+        print("  Current: INGRESS_PORT_BUFFER_DROP[12]=0, INGRESS_DROP[2]=15 (ignored)")
+
+        success, detected = executor.check(24, 28, 1500, attempts=1)
+
+        print(f"  Result: success={success}, detected={detected}")
+        assert success is True, f"Expected success=True, got {success}"
+        assert detected is False, f"Expected detected=False, got {detected}"
+        print("[OK] port_buffer_drop mode ignores INGRESS_DROP, no drop detected")
+
+    @pytest.mark.order(8831)
+    @patch('ingress_drop_probing_executor.port_list', {"src": {24: "mock_port_24"}})
+    @patch('ingress_drop_probing_executor.sai_thrift_read_port_counters')
+    @patch('ingress_drop_probing_executor.time.sleep')
+    def test_check_port_drop_mode_detects_either_counter(self, mock_sleep, mock_read_counters):
+        """Test check() with counter_mode='port_drop' - detects via INGRESS_DROP OR INGRESS_PORT_BUFFER_DROP"""
+        print("\n=== Testing check() with port_drop mode - detects either counter ===")
+        import ingress_drop_probing_executor
+        ingress_drop_probing_executor.INGRESS_DROP = 2
+        ingress_drop_probing_executor.INGRESS_PORT_BUFFER_DROP = 12
+
+        from ingress_drop_probing_executor import IngressDropProbingExecutor
+
+        mock_read_counters.reset_mock()
+
+        # Only INGRESS_DROP increases, INGRESS_PORT_BUFFER_DROP stays 0
+        # port_drop mode checks INGRESS_DROP OR INGRESS_PORT_BUFFER_DROP
+        base_counters = [0] * 20
+        curr_counters = [0] * 20
+        curr_counters[2] = 10  # INGRESS_DROP increased
+
+        mock_read_counters.side_effect = [
+            (base_counters, [0] * 10),
+            (curr_counters, [0] * 10)
+        ]
+
+        executor = IngressDropProbingExecutor(
+            ptftest=self.mock_ptftest,
+            observer=self.observer,
+            counter_mode='port_drop'
+        )
+
+        print(f"  counter_mode={executor.counter_mode}")
+        print("  Current: INGRESS_DROP[2]=10, INGRESS_PORT_BUFFER_DROP[12]=0")
+
+        success, detected = executor.check(24, 28, 1500, attempts=1)
+
+        print(f"  Result: success={success}, detected={detected}")
+        assert success is True, f"Expected success=True, got {success}"
+        assert detected is True, "Expected detected=True via INGRESS_DROP"
+        print("[OK] port_drop mode detects drop via INGRESS_DROP")
+
+    @pytest.mark.order(8832)
+    def test_init_no_counter_mode_attr_defaults_port_drop(self):
+        """Test init when ptftest has no ingress_drop_counter_mode attr → port_drop"""
+        print("\n=== Testing init with no ingress_drop_counter_mode attr ===")
+        from ingress_drop_probing_executor import IngressDropProbingExecutor
+
+        # Remove the attribute so getattr falls back
+        if hasattr(self.mock_ptftest, 'ingress_drop_counter_mode'):
+            del self.mock_ptftest.ingress_drop_counter_mode
+
+        # MagicMock auto-creates attrs, so use spec to prevent that
+        ptftest = MagicMock(spec=['buffer_ctrl', 'src_client', 'asic_type', 'cnt_pg_idx'])
+        ptftest.buffer_ctrl = MagicMock()
+        ptftest.src_client = MagicMock()
+        ptftest.asic_type = "broadcom"
+        ptftest.cnt_pg_idx = 5
+
+        executor = IngressDropProbingExecutor(
+            ptftest=ptftest,
+            observer=self.observer
+        )
+
+        print("  ptftest has no ingress_drop_counter_mode attr")
+        print(f"  Result: counter_mode={executor.counter_mode}")
+        assert executor.counter_mode == 'port_drop'
+        print("[OK] Missing attr defaults to port_drop")
+
+    @pytest.mark.order(8833)
+    def test_init_with_invalid_counter_mode_raises(self):
+        """Test init with invalid counter_mode raises ValueError"""
+        from ingress_drop_probing_executor import IngressDropProbingExecutor
+
+        with pytest.raises(ValueError, match="Invalid counter_mode='pg_drops'"):
+            IngressDropProbingExecutor(
+                ptftest=self.mock_ptftest,
+                observer=self.observer,
+                counter_mode='pg_drops'
+            )
 
 
 if __name__ == "__main__":

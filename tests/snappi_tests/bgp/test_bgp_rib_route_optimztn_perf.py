@@ -1,5 +1,6 @@
 from tests.common.snappi_tests.snappi_fixtures import (                     # noqa: F401
-    snappi_api, snappi_api_serv_ip, snappi_api_serv_port, tgen_ports)
+    snappi_api, snappi_api_serv_ip, snappi_api_serv_port, tgen_ports,
+    get_snappi_ports, get_snappi_ports_single_dut, get_snappi_ports_multi_dut)
 from tests.snappi_tests.bgp.files.bgp_convergence_helper import run_rib_in_convergence_test
 from tests.common.fixtures.conn_graph_facts import (                        # noqa: F401
     conn_graph_facts, fanout_graph_facts)
@@ -219,5 +220,4 @@ def test_rib_route_opt_perf(snappi_api,                    # noqa: F811
                                 NUMBER_OF_ROUTES,
                                 route_type,
                                 timeout=RIB_TIMEOUT,
-                                skip_cleanup=True,
                                 skip_duthost_bgp_config=use_bgp_pc_config,)

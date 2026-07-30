@@ -51,6 +51,41 @@ from switch_sai_thrift.sai_headers import SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID
 from scapy.layers.inet6 import ICMPv6ND_NS, ICMPv6NDOptDstLLAddr
 
 
+def wait_until(timeout, interval, delay, condition, *args, **kwargs):
+    """
+    Wait until the specified condition is True or timeout.
+
+    @param timeout: Maximum time to wait
+    @param interval: Poll interval
+    @param delay: Delay time
+    @param condition: A function that returns False or True
+    @param *args: Extra args required by the 'condition' function.
+    @param **kwargs: Extra args required by the 'condition' function.
+    @return: If the condition function returns True before timeout, return True.
+             If the condition function raises an exception, print the error and keep waiting and polling.
+    """
+    if delay > 0:
+        time.sleep(delay)
+
+    start_time = time.time()
+    elapsed_time = 0
+    while elapsed_time < timeout:
+        try:
+            check_result = condition(*args, **kwargs)
+        except Exception as e:
+            print("Exception caught while checking {}: {}".format(
+                condition.__name__, str(e)), file=sys.stderr)
+            check_result = False
+
+        if check_result:
+            return True
+        else:
+            time.sleep(interval)
+            elapsed_time = time.time() - start_time
+
+    return False
+
+
 # Counters
 # The index number comes from the append order in sai_thrift_read_port_counters
 EGRESS_DROP = 0
@@ -1364,8 +1399,68 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
                     pkt_dst_mac, src_port_mac, src_port_ip, dst_port_ip, dst_port_id,
                     src_port_id, exp_ttl, ip_ttl)
 
-            # Read Counters
-            time.sleep(3)
+            start_time = time.time()
+            check_iteration = [0]  # Use list to allow modification in nested function
+
+            def check_all_expected_counters_updated():
+                """Check if all expected queue counters have been updated with correct packet counts"""
+                check_iteration[0] += 1
+                current_elapsed = time.time() - start_time
+
+                try:
+                    _, queue_results_current = sai_thrift_read_port_counters(
+                        self.dst_client, asic_type, sai_dst_port_id)
+
+                    # If tc_to_dscp_count_map is provided, check all expected TCs
+                    if tc_to_dscp_count_map:
+                        missing_tcs = []
+                        for tc, expected_count in tc_to_dscp_count_map.items():
+                            actual_count = queue_results_current[tc] - queue_results_base[tc]
+                            # For TC 7, allow >= due to LACP packets
+                            if tc == 7:
+                                if actual_count < expected_count:
+                                    missing_tcs.append(
+                                        "TC{}(expected>={}, got={})".format(
+                                            tc, expected_count, actual_count))
+                            else:
+                                if actual_count != expected_count:
+                                    missing_tcs.append(
+                                        "TC{}(expected={}, got={})".format(
+                                            tc, expected_count, actual_count))
+
+                        if missing_tcs:
+                            print("Check iteration {}: {:.2f}s elapsed - Missing: {}".format(
+                                check_iteration[0], current_elapsed, ", ".join(missing_tcs)), file=sys.stderr)
+                            return False
+                        else:
+                            print("Check iteration {}: {:.2f}s elapsed - All counters matched!".format(
+                                check_iteration[0], current_elapsed), file=sys.stderr)
+                            return True
+                    else:
+                        # Fallback: check if any queue counter has changed from baseline
+                        result = any(curr != base for curr, base in zip(queue_results_current, queue_results_base))
+                        print("Check iteration {}: {:.2f}s elapsed - Fallback check: {}".format(
+                            check_iteration[0], current_elapsed, "PASS" if result else "FAIL"), file=sys.stderr)
+                        return result
+                except Exception as e:
+                    print("Check iteration {}: {:.2f}s elapsed - Exception: {}".format(
+                        check_iteration[0], current_elapsed, str(e)), file=sys.stderr)
+                    return False
+
+            # Wait up to 10 seconds for all expected counters to update, checking every 1 second
+            counters_updated = wait_until(10, 1, 0, check_all_expected_counters_updated)
+            elapsed_time = time.time() - start_time
+
+            if counters_updated:
+                print("FINAL RESULT: Queue counters updated successfully after {:.2f} seconds ({} iterations)".format(
+                    elapsed_time, check_iteration[0]), file=sys.stderr)
+            else:
+                print(
+                    "FINAL RESULT: Not all expected queue counters were "
+                    "updated within timeout ({:.2f} seconds, {} iterations)".format(
+                        elapsed_time, check_iteration[0]), file=sys.stderr)
+
+            # Do a fresh read of counters
             port_results, queue_results = sai_thrift_read_port_counters(self.dst_client, asic_type, sai_dst_port_id)
 
             print(list(map(operator.sub, queue_results,

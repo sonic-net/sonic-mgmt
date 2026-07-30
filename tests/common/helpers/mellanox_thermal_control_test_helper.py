@@ -1318,6 +1318,7 @@ class PsuPowerThresholdMocker(object):
 @mocker('RebootCauseMocker')
 class RebootCauseMocker(object):
     RESET_RELOAD_BIOS = '/var/run/hw-management/system/reset_reload_bios'
+    RESET_RELOAD_BIOS_CPO = '/var/run/hw-management/system/reset_pwr_converter_fail'
     RESET_FROM_ASIC = '/var/run/hw-management/system/reset_from_asic'
 
     def __init__(self, dut):
@@ -1328,6 +1329,9 @@ class RebootCauseMocker(object):
 
     def mock_reset_reload_bios(self):
         self.mock_helper.mock_value(self.RESET_RELOAD_BIOS, 1)
+
+    def mock_reset_reload_bios_cpo(self):
+        self.mock_helper.mock_value(self.RESET_RELOAD_BIOS_CPO, 1)
 
     def mock_reset_from_asic(self):
         self.mock_helper.mock_value(self.RESET_FROM_ASIC, 1)

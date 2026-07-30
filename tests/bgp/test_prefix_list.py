@@ -8,7 +8,7 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.helpers.parallel import parallel_run
 
 pytestmark = [
-    pytest.mark.topology('t2')
+    pytest.mark.topology('t2', 'lrh', 'urh')
 ]
 
 logger = logging.getLogger(__name__)

@@ -15,7 +15,7 @@ class EMatchNotFound(Exception):
 class SerialSession(object):
     def __init__(self, port):
         logging.debug('Starting')
-        self.tn = Telnet('127.0.0.1', port)
+        self.tn = Telnet('127.0.0.1', port)  # nosemgrep: telnetlib
         self.tn.write(b"\r\n")
 
         return

@@ -168,6 +168,9 @@ def convert_date(fct, s):
 
     locale.setlocale(locale.LC_ALL, loc)
 
+    if dt is None:
+        dt = 0
+        logger.warning(f"Failed to convert date from string, skipping unparseable line: {s}")
     return dt
 
 

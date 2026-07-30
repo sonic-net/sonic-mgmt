@@ -14,10 +14,15 @@
   set_fact:
     portchannel_config: "{{ topology['DUT']['portchannel_config'] | default({})}}"
 
+- name: find portchannel mode
+  set_fact:
+    portchannel_mode: "{{ topology['DUT']['portchannel_mode'] | default('teamd') }}"
+
 - name: Start PTF portchannel
   ptf_portchannel:
     cmd: start
     portchannel_config: "{{ portchannel_config }}"
+    mode: "{{ portchannel_mode }}"
   delegate_to: "{{ ptf_host }}"
   when: ptf_portchannel_action == 'start'
 
@@ -25,6 +30,7 @@
   ptf_portchannel:
     cmd: stop
     portchannel_config: "{{ portchannel_config }}"
+    mode: "{{ portchannel_mode }}"
   delegate_to: "{{ ptf_host }}"
   ignore_unreachable: yes
   when: ptf_portchannel_action == 'stop'

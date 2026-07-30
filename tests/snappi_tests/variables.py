@@ -160,6 +160,7 @@ def get_host_addresses(subnet, count):
 # =============================================================================
 TOPOLOGY_T2_CHASSIS = 'T2_CHASSIS'
 TOPOLOGY_T2_PIZZABOX = 'T2_PIZZABOX'
+TOPOLOGY_RH_PIZZABOX = 'RH_PIZZABOX'
 
 # =============================================================================
 # COMMON CONSTANTS (shared by both topologies)
@@ -442,6 +443,69 @@ TOPOLOGY_CONFIG = {
             'dut_interconnect_port': {'port_name': 'Ethernet256', 'asic_value': 'asic1'},
         },
     },
+
+    # =========================================================================
+    # TOPOLOGY: RH (Regional Hub) PIZZABOX
+    # RH is a device role similar to T2. This config has no lower-tier DUT
+    # connected yet — only uplink fanout + IXIA for route convergence testing.
+    # The fanout acts as a pure L2 bridge (all protocols disabled, empty CoPP).
+    # =========================================================================
+    TOPOLOGY_RH_PIZZABOX: {
+        'Vendor1': {
+            'device_hostnames': ["rh-dut-01"],
+
+            # RH has no lower tier — empty dict allows future extension
+            'lower_tier_info': {},
+
+            'lower_tier_snappi_ports': [],
+
+            'uplink_fanout': {
+                'fanout_ip': '10.0.0.100',
+                'asic_type': 'dnx',
+                'port_mapping': [
+                    {'fanout_port': 'Ethernet0', 'uplink_port': 'Ethernet128', 'vlan': 1000},
+                    {'fanout_port': 'Ethernet4', 'uplink_port': 'Ethernet132', 'vlan': 1001},
+                    {'fanout_port': 'Ethernet8', 'uplink_port': 'Ethernet136', 'vlan': 1002},
+                    {'fanout_port': 'Ethernet12', 'uplink_port': 'Ethernet140', 'vlan': 1003},
+                    {'fanout_port': 'Ethernet16', 'uplink_port': 'Ethernet144', 'vlan': 1004},
+                    {'fanout_port': 'Ethernet20', 'uplink_port': 'Ethernet148', 'vlan': 1005},
+                    {'fanout_port': 'Ethernet24', 'uplink_port': 'Ethernet152', 'vlan': 1006},
+                    {'fanout_port': 'Ethernet28', 'uplink_port': 'Ethernet156', 'vlan': 1007},
+                    {'fanout_port': 'Ethernet32', 'uplink_port': 'Ethernet160', 'vlan': 1008},
+                    {'fanout_port': 'Ethernet36', 'uplink_port': 'Ethernet164', 'vlan': 1009},
+                    {'fanout_port': 'Ethernet40', 'uplink_port': 'Ethernet168', 'vlan': 1010},
+                    {'fanout_port': 'Ethernet44', 'uplink_port': 'Ethernet172', 'vlan': 1011},
+                    {'fanout_port': 'Ethernet48', 'uplink_port': 'Ethernet176', 'vlan': 1012},
+                    {'fanout_port': 'Ethernet52', 'uplink_port': 'Ethernet180', 'vlan': 1013},
+                    {'fanout_port': 'Ethernet56', 'uplink_port': 'Ethernet184', 'vlan': 1014},
+                    {'fanout_port': 'Ethernet60', 'uplink_port': 'Ethernet188', 'vlan': 1015},
+                ]
+            },
+
+            'uplink_portchannel_members': {
+                None: {
+                    'PortChannel101': ['Ethernet128'],
+                    'PortChannel102': ['Ethernet132'],
+                    'PortChannel103': ['Ethernet136'],
+                    'PortChannel104': ['Ethernet140'],
+                    'PortChannel105': ['Ethernet144'],
+                    'PortChannel106': ['Ethernet148'],
+                    'PortChannel107': ['Ethernet152'],
+                    'PortChannel108': ['Ethernet156'],
+                    'PortChannel109': ['Ethernet160'],
+                    'PortChannel110': ['Ethernet164'],
+                    'PortChannel111': ['Ethernet168'],
+                    'PortChannel112': ['Ethernet172'],
+                    'PortChannel113': ['Ethernet176'],
+                    'PortChannel114': ['Ethernet180'],
+                    'PortChannel115': ['Ethernet184'],
+                    'PortChannel116': ['Ethernet188'],
+                }
+            },
+
+            'dut_interconnect_port': {},
+        },
+    },
 }
 
 
@@ -454,7 +518,7 @@ def get_topology_config(topology_type, vendor, key=None, default=None):
     Get configuration value for a topology/vendor combination.
 
     Args:
-        topology_type: TOPOLOGY_T2_CHASSIS or TOPOLOGY_T2_PIZZABOX
+        topology_type: TOPOLOGY_T2_CHASSIS, TOPOLOGY_T2_PIZZABOX, or TOPOLOGY_RH_PIZZABOX
         vendor: VendorName
         key: Optional key to retrieve specific value. If None, returns entire vendor config.
         default: Default value if key not found
@@ -534,8 +598,11 @@ def get_as_numbers():
 def get_routed_port_count(topology_type, vendor):
     """Calculate routed port count for a topology/vendor."""
     lower_tier_info = get_lower_tier_info(topology_type, vendor)
-    # 1 for interconnect port + number of lower tier ports
-    return 1 + len(lower_tier_info.get('ports', []))
+    if not lower_tier_info:
+        return 0
+    interconnect = get_dut_interconnect_port(topology_type, vendor)
+    interconnect_count = 1 if interconnect else 0
+    return interconnect_count + len(lower_tier_info.get('ports', []))
 
 
 def get_portchannel_count(topology_type, vendor):
@@ -586,8 +653,8 @@ def get_bgp_ips_for_topology(topology_type, vendor):
     Generate and return BGP IP addresses for a specific topology/vendor.
 
     Args:
-        topology_type: TOPOLOGY_T2_CHASSIS or TOPOLOGY_T2_PIZZABOX
-        vendor: 'NOKIA', 'ARISTA', or 'CISCO'
+        topology_type: TOPOLOGY_T2_CHASSIS, TOPOLOGY_T2_PIZZABOX, or TOPOLOGY_RH_PIZZABOX
+        vendor: Vendor identifier
 
     Returns:
         dict: Dictionary containing all IP lists for BGP configuration

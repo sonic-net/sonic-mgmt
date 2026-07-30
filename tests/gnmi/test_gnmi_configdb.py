@@ -25,6 +25,8 @@ pytestmark = [
 
 
 def get_first_interface(duthost):
+    if duthost.is_supervisor_node():
+        return None
     cmds = "show interface status"
     output = duthost.shell(cmds)
     assert (not output['rc']), "No output"
@@ -177,7 +179,8 @@ def test_gnmi_configdb_streaming_sample_01(duthosts, rand_one_dut_hostname, ptfh
     duthost = duthosts[rand_one_dut_hostname]
     exp_cnt = 5
     path_list = [test_data["path"]]
-    msg, _ = gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, 0, exp_cnt)
+    msg, _ = gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, 0, exp_cnt,
+                                             origin="sonic-db")
     assert msg.count("bgp_asn") >= exp_cnt, test_data["name"] + ": " + msg
 
 
@@ -409,7 +412,8 @@ def test_gnmi_configdb_subscribe_authenticate(duthosts, rand_one_dut_hostname, p
     with allure.step("Verify GNMI subscribe with noaccess role"):
         role = "gnmi_config_db_noaccess"
         add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", role)
-        output, _ = gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, 0, 1)
+        output, _ = gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, 0, 1,
+                                                    origin="sonic-db")
         logger.info("GNMI subscribe output: " + output)
         assert "GRPC error" in output, output
         assert role in output, output
@@ -417,21 +421,24 @@ def test_gnmi_configdb_subscribe_authenticate(duthosts, rand_one_dut_hostname, p
     with allure.step("Verify GNMI subscribe with readwrite role"):
         role = "gnmi_config_db_readwrite"
         add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", role)
-        output, _ = gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, 0, 1)
+        output, _ = gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, 0, 1,
+                                                    origin="sonic-db")
         assert "GRPC error" not in output, output
         assert "cloudtype" in output, output
 
     with allure.step("Verify GNMI subscribe with readonly role"):
         role = "gnmi_config_db_readonly"
         add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", role)
-        output, _ = gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, 0, 1)
+        output, _ = gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, 0, 1,
+                                                    origin="sonic-db")
         assert "GRPC error" not in output, output
         assert "cloudtype" in output, output
 
     with allure.step("Verify GNMI subscribe with empty role"):
         role = ""
         add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", role)
-        output, _ = gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, 0, 1)
+        output, _ = gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, 0, 1,
+                                                    origin="sonic-db")
         assert "GRPC error" not in output, output
         assert "cloudtype" in output, output
 

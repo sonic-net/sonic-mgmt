@@ -22,6 +22,7 @@
             --socket-recv-size 16384
 """
 
+import ipaddress
 import ptf
 import json
 from ptf.base_tests import BaseTest
@@ -210,10 +211,11 @@ class SflowTest(BaseTest):
             counter_sample[intf] = 0
         self.assertTrue(data['total_counter_count'] > 0,
                         "No counter packets are received in collector %s" % collector)
+        agent_id = ipaddress.ip_address(self.agent_id)
         for i in range(1, data['total_counter_count']+1):
-            rcvd_agent_id = port_sample[collector]['CounterSample'][i]['agent_id']
+            rcvd_agent_id = ipaddress.ip_address(port_sample[collector]['CounterSample'][i]['agent_id'])
             self.assertTrue(
-                rcvd_agent_id == self.agent_id,
+                rcvd_agent_id == agent_id,
                 "Agent id in Sampled packet is not expected . Expected :  %s , received : %s"
                 % (self.agent_id, rcvd_agent_id))
             elements = port_sample[collector]['CounterSample'][i]['elements']

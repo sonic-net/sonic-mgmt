@@ -12,6 +12,8 @@ import time
 import ipaddr
 import math
 from enum import Enum
+import logging
+logger = logging.getLogger(__name__)
 
 
 class StrEnum(str, Enum):
@@ -364,6 +366,33 @@ def fetch_snappi_flow_metrics(api, flow_names):
     flow_metrics = api.get_metrics(request).flow_metrics
 
     return flow_metrics
+
+
+def is_traffic_converged(snappi_api, flow_names=[], threshold_perentage=0.01):
+    """
+    Returns true if traffic has converged within the threshold
+    threshold_percentage: Allowed difference percentage between Tx and Rx rate
+    Example: threshold_percentage=0.01 means 0.01%, if tx_rate=1000 and rx_rate=998,
+             then loss_percentage = ((1000-998)/1000)*100 = 0.2% > 0.01% => returns False
+
+    """
+    threshold = float(threshold_perentage / 100)
+    request = snappi_api.metrics_request()
+    request.flow.flow_names = flow_names
+    flow_stats = snappi_api.get_metrics(request).flow_metrics
+    for fs in flow_stats:
+        tx_rate = float(fs.frames_tx_rate)
+        rx_rate = float(fs.frames_rx_rate)
+        logger.info('Loss Percentage for {} : {}'.format(fs.name, fs.loss))
+        logger.info('Tx Rate: {}'.format(tx_rate))
+        logger.info('Rx Rate: {}'.format(rx_rate))
+        if tx_rate == 0:
+            return False
+        rate_difference = ((tx_rate - rx_rate) / tx_rate) * 100
+        logger.info('Rate Difference Percentage for {} : {}'.format(fs.name, rate_difference))
+        if rate_difference > threshold:
+            return False
+    return True
 
 
 def fetch_flow_metrics_for_macsec(api):

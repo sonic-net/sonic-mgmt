@@ -534,6 +534,13 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
                                    .format(v['IPv6Address'],
                                            docker_network['bridge']['IPv6Address']))
 
+        # dhcp_server uses bridge networking; its startup script adds an iptables
+        # rule to allow syslog (UDP 514) past caclmgrd's catch-all DROP.
+        if "dhcp_server" in docker_network['container']:
+            iptables_rules.append(
+                "-A INPUT -i docker0 -p udp -m udp --dport 514"
+                " -m comment --comment dhcp_server_syslog -j ACCEPT")
+
     else:
         iptables_rules.append("-A INPUT -s {}/32 -d {}/32 -j ACCEPT".format(docker_network['container']['database'
                                                                             + str(asic_index)]['IPv4Address'],

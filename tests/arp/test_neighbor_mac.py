@@ -37,6 +37,8 @@ class TestNeighborMac:
                 None
         """
         duthost = duthosts[rand_one_dut_hostname]
+        if duthost.facts['platform'].startswith('arm64-c8220tg_48a_o'):
+            self.DUT_ETH_IF = "Ethernet1"
 
         intfStatus = duthost.show_interface(command="status")["ansible_facts"]["int_status"]
         if self.DUT_ETH_IF not in intfStatus:

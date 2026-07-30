@@ -16,7 +16,7 @@ CONFIG_DB_BACKUP = "/etc/sonic/config_db.json_before_override"
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t2', 't1'),
+    pytest.mark.topology('t2', 'lrh', 'urh', 't1'),
     pytest.mark.disable_loganalyzer,
 ]
 

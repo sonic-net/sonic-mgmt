@@ -10,6 +10,28 @@ pytestmark = [
 
 DEVICES_PATH = "/usr/share/sonic/device"
 
+SN4280_PLATFORM = "x86_64-nvidia_sn4280-r0"
+
+FWUTIL_DPU_RESET_IGNORE_REGEX = [
+    r".*ERR.*kernel.*i2c.*Failed to complete workqueue.*",
+    r".*ERR.*kernel:.*mlx5_core.*",
+    r".*WARNING.*kernel:.*mlx5_core.*",
+    r".*ERR.*kernel.*Device error state:.*",
+    r".*ERR pmon#chassisd.*: Failed to check watchdog reason for DPU.*",
+    r".*ERR pmon#sensord: Error getting sensor data.*",
+    r".*DEBUG.*kernel:.*pci_channel_io_normal.*",
+]
+
+
+@pytest.fixture(autouse=False)
+def ignore_fwutil_expected_dpu_reset_errors(loganalyzer, duthost, component):
+    if 'FPGA' not in component:
+        return
+    if duthost.facts.get("platform") != SN4280_PLATFORM:
+        return
+    if loganalyzer:
+        loganalyzer[duthost.hostname].ignore_regex.extend(FWUTIL_DPU_RESET_IGNORE_REGEX)
+
 
 def test_fwutil_show(duthost):
     """Tests that fwutil show has all components defined for platform"""
@@ -27,28 +49,6 @@ def test_fwutil_show(duthost):
     assert show_fw_comp_set == platform_comp_set
 
 
-def test_fwutil_install_file(request, duthost, localhost, pdu_controller, component, fw_pkg):
-    """Tests manually installing firmware to a component from a file."""
-    call_fwutil(request,
-                duthost,
-                localhost,
-                pdu_controller,
-                fw_pkg,
-                component=component,
-                basepath=os.path.join(DEVICES_PATH, duthost.facts['platform']))
-
-
-def test_fwutil_install_url(request, duthost, localhost, pdu_controller, component, fw_pkg, host_firmware):
-    """Tests manually installing firmware to a component from a URL."""
-    call_fwutil(request,
-                duthost,
-                localhost,
-                pdu_controller,
-                fw_pkg,
-                component=component,
-                basepath=host_firmware)
-
-
 def test_fwutil_install_bad_name(duthost):
     """Tests that fwutil install validates component names correctly."""
     out = duthost.command("fwutil install chassis component BAD fw BAD.pkg", module_ignore_errors=True)
@@ -62,27 +62,6 @@ def test_fwutil_install_bad_path(duthost, component):
                           module_ignore_errors=True)
     pattern = re.compile(r'''.*Error: Invalid value for ['"]<fw_path>['"]''')
     assert find_pattern(out['stderr_lines'], pattern)
-
-
-def test_fwutil_update_current(request, duthost, localhost, pdu_controller, component, fw_pkg):
-    """Tests updating firmware from current image using fwutil update"""
-    call_fwutil(request,
-                duthost,
-                localhost,
-                pdu_controller,
-                fw_pkg,
-                component=component)
-
-
-def test_fwutil_update_next(request, duthost, localhost, pdu_controller, component, next_image, fw_pkg):
-    """Tests updating firmware from the "next" image using fwutil update"""
-    call_fwutil(request,
-                duthost,
-                localhost,
-                pdu_controller,
-                fw_pkg,
-                component=component,
-                next_image=next_image)
 
 
 def test_fwutil_update_bad_config(duthost, component):
@@ -121,6 +100,53 @@ def test_fwutil_update_bad_config(duthost, component):
                                        r'invalid component schema*.')
     found_bad_component = find_pattern(out_bad_version['stdout_lines'], pattern_bad_component)
     assert found_bad_component
+
+
+def test_fwutil_install_file(request, duthost, localhost, pdu_controller, component, fw_pkg,
+                             ignore_fwutil_expected_dpu_reset_errors):
+    """Tests manually installing firmware to a component from a file."""
+    call_fwutil(request,
+                duthost,
+                localhost,
+                pdu_controller,
+                fw_pkg,
+                component=component,
+                basepath=os.path.join(DEVICES_PATH, duthost.facts['platform']))
+
+
+def test_fwutil_install_url(request, duthost, localhost, pdu_controller, component, fw_pkg, host_firmware,
+                            ignore_fwutil_expected_dpu_reset_errors):
+    """Tests manually installing firmware to a component from a URL."""
+    call_fwutil(request,
+                duthost,
+                localhost,
+                pdu_controller,
+                fw_pkg,
+                component=component,
+                basepath=host_firmware)
+
+
+def test_fwutil_update_current(request, duthost, localhost, pdu_controller, component, fw_pkg,
+                               ignore_fwutil_expected_dpu_reset_errors):
+    """Tests updating firmware from current image using fwutil update"""
+    call_fwutil(request,
+                duthost,
+                localhost,
+                pdu_controller,
+                fw_pkg,
+                component=component)
+
+
+def test_fwutil_update_next(request, duthost, localhost, pdu_controller, component, next_image, fw_pkg,
+                            ignore_fwutil_expected_dpu_reset_errors):
+    """Tests updating firmware from the "next" image using fwutil update"""
+    call_fwutil(request,
+                duthost,
+                localhost,
+                pdu_controller,
+                fw_pkg,
+                component=component,
+                next_image=next_image)
 
 
 @pytest.mark.parametrize("reboot_type", ["none", "cold"])

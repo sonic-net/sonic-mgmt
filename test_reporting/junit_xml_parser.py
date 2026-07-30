@@ -178,10 +178,7 @@ def validate_junit_xml_archive(directory_name, strict=False):
     roots = []
     metadata_source = None
     metadata = {}
-    doc_list = glob.glob(os.path.join(directory_name, "tr.xml"))
-    doc_list += glob.glob(os.path.join(directory_name, "*test*.xml"))
-    doc_list += glob.glob(os.path.join(directory_name, "**", "*test*.xml"), recursive=True)
-    doc_list = set(doc_list)
+    doc_list = set(glob.glob(os.path.join(directory_name, "**", "*.xml"), recursive=True))
 
     total_size = 0
     for document in doc_list:
@@ -740,7 +737,7 @@ python3 junit_xml_parser.py tests/files/sample_tr.xml
     else:
         print(output)
 
-    tstamp = datetime.now().strftime("%d-%b-%Y-%H:%M:%S.%f")
+    tstamp = datetime.now().strftime("%d-%b-%Y-%H-%M-%S.%f")
 
     if args.output_file:
         csv_file = open('report_{}_{}.csv'.format(args.output_file.split('.')[0], tstamp), "w+")

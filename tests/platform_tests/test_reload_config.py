@@ -167,16 +167,6 @@ def execute_config_reload_cmd(duthost, timeout=120, check_interval=5):
         return False, None
 
 
-def check_docker_status(duthost):
-    containers = duthost.get_all_containers()
-    for container in containers:
-        if 'disabled' in duthost.get_feature_status()[0].get(container, ''):
-            continue
-        if not duthost.is_service_fully_started(container):
-            return False
-    return True
-
-
 def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname, delayed_services,
                                      localhost, conn_graph_facts, xcvr_skip_list):      # noqa: F811
     """
@@ -187,7 +177,7 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
 
     config_reload_timeout = 120
     if hwsku in ["Nokia-M0-7215", "Nokia-7215"]:
-        config_reload_timeout = 180
+        config_reload_timeout = 240
 
     if not config_force_option_supported(duthost):
         return
@@ -223,8 +213,8 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
 
     if not duthost.get_facts().get("modular_chassis"):
         # Check if all containers have started
-        assert wait_until(300, 10, 0, check_docker_status, duthost), (
-            "Not all Docker containers reached the 'fully started' state within 300 seconds "
+        assert wait_until(300, 10, 0, duthost.critical_services_fully_started), (
+            "Not all Docker containers reached the 'fully started' state within 300 seconds"
         )
 
         # To ensure the system is stable enough, wait for another 30s

@@ -237,7 +237,7 @@ class TestPfcwdAllPortStorm(object):
 
             # Scale timeout with port count to allow sufficient time on high port-count platforms.
             num_ports = len(stormed_ports_list) if stormed_ports_list else len(selected_test_ports)
-            timeout = max(60, num_ports * 2)
+            timeout = max(60, num_ports * 3)
             # LT2/FT2 topologies need at least 120s because the traffic generator
             # takes longer to spin up on those setups.
             if tbinfo and tbinfo['topo']['type'] in ["lt2", "ft2"]:

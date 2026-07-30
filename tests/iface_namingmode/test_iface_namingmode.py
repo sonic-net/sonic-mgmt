@@ -312,7 +312,22 @@ class TestShowLLDP():
         dutHostGuest, mode, ifmode = setup_config_mode
         minigraph_neighbors = setup['minigraph_facts']['minigraph_neighbors']
 
-        lldp_table = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show lldp table'.format(ifmode))['stdout']
+        lldp_table_result = {}
+
+        def _lldp_table_ready():
+            lldp_table_result['output'] = dutHostGuest.shell(
+                'SONIC_CLI_IFACE_MODE={} show lldp table'.format(ifmode))['stdout']
+            expected_intfs = lldp_interfaces['alias'] if mode == 'alias' else lldp_interfaces['interface']
+            return all(re.search(re.escape(intf), lldp_table_result['output']) for intf in expected_intfs)
+
+        pytest_assert(
+            wait_until(ESTABLISH_LLDP_NEIGHBOR_TIMEOUT, 10, 0, _lldp_table_ready),
+            "LLDP table did not converge with all expected interfaces within {} seconds".format(
+                ESTABLISH_LLDP_NEIGHBOR_TIMEOUT
+            )
+        )
+
+        lldp_table = lldp_table_result['output']
         logger.info('lldp_table:\n{}'.format(lldp_table))
 
         vrf_map = {}
@@ -1438,7 +1453,7 @@ class TestConfigInterface():
         _verify_speed(native_speed)
 
 
-@pytest.mark.topology('t1', 't2', 'lt2', 'ft2')
+@pytest.mark.topology('t1', 't2', 'lrh', 'urh', 'lt2', 'ft2')
 def test_show_acl_table(setup, setup_config_mode, tbinfo):
     """
     Checks whether 'show acl table DATAACL' lists the interface names
@@ -1475,7 +1490,7 @@ def test_show_acl_table(setup, setup_config_mode, tbinfo):
                 ).format(item, acl_table)
 
 
-@pytest.mark.topology('t1', 't2', 'lt2', 'ft2')
+@pytest.mark.topology('t1', 't2', 'lrh', 'urh', 'lt2', 'ft2')
 def test_show_interfaces_neighbor_expected(setup, setup_config_mode, tbinfo, duthosts,
                                            enum_rand_one_per_hwsku_frontend_hostname):
     """
@@ -1530,7 +1545,7 @@ def test_show_interfaces_neighbor_expected(setup, setup_config_mode, tbinfo, dut
                 )
 
 
-@pytest.mark.topology('t1', 't2', 'lt2', 'ft2')
+@pytest.mark.topology('t1', 't2', 'lrh', 'urh', 'lt2', 'ft2')
 class TestNeighbors():
 
     @pytest.fixture(scope="class", autouse=True)
@@ -1620,7 +1635,7 @@ class TestNeighbors():
                     ).format(addr, detail['interface'], ndp_output)
 
 
-@pytest.mark.topology('t1', 't2', 'lt2', 'ft2')
+@pytest.mark.topology('t1', 't2', 'lrh', 'urh', 'lt2', 'ft2')
 class TestShowIP():
 
     @pytest.fixture(scope="class", autouse=True)

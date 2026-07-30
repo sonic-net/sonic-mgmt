@@ -13,7 +13,7 @@ from tests.generic_config_updater.add_cluster.helpers import add_static_route, \
     send_and_verify_traffic, verify_routev4_existence
 
 pytestmark = [
-        pytest.mark.topology("t2")
+        pytest.mark.topology("t2", "lrh", "urh")
         ]
 
 logger = logging.getLogger(__name__)

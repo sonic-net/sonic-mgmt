@@ -207,6 +207,30 @@ def configure_syncd(dut, nn_target_port, nn_target_interface, nn_target_namespac
     dut.command("docker exec {} supervisorctl update".format(syncd_docker_name))
 
 
+def is_ptf_nn_agent_running(dut, nn_target_namespace):
+    """
+    Check if ptf_nn_agent is already running inside the syncd container.
+
+    On platforms where Docker state is stored in RAM (e.g., Arista 7060CX with
+    docker_inram=on), the syncd container is recreated on every cold reboot, losing
+    ptf_nn_agent. This helper is used to detect that case before attempting reinstall.
+
+    Args:
+        dut (SonicHost): The target device.
+        nn_target_namespace (str): The namespace for the syncd instance.
+
+    Returns:
+        bool: True if ptf_nn_agent is running, False otherwise.
+    """
+    asichost = dut.asic_instance_from_namespace(nn_target_namespace)
+    syncd_docker_name = asichost.get_docker_name("syncd")
+    result = dut.command(
+        "docker exec {} supervisorctl status ptf_nn_agent".format(syncd_docker_name),
+        module_ignore_errors=True
+    )
+    return result["rc"] == 0 and "RUNNING" in result["stdout"]
+
+
 def restore_syncd(dut, nn_target_namespace):
     asichost = dut.asic_instance_from_namespace(nn_target_namespace)
     syncd_docker_name = asichost.get_docker_name("syncd")
@@ -228,7 +252,7 @@ def _install_nano_bookworm(dut, creds, syncd_docker_name):
                 && apt-get update \
                 && apt-get install -y python3-pip build-essential libssl-dev libffi-dev \
                 python3-dev python3-setuptools wget libnanomsg-dev python-is-python3 \
-                && TMPDIR=/var/tmp_build pip3 install --no-cache-dir cffi==1.16.0 \
+                && TMPDIR=/var/tmp_build pip3 install --no-cache-dir cffi \
                 && TMPDIR=/var/tmp_build pip3 install --no-cache-dir nnpy \
                 && rm -rf /var/tmp_build \
                 && mkdir -p /opt && cd /opt && wget {3} \
@@ -249,8 +273,9 @@ def _install_nano(dut, creds,  syncd_docker_name):
             creds (dict): Credential information according to the dut inventory
     """
 
-    if "bookworm" in dut.shell("docker exec {} grep VERSION_CODENAME /etc/os-release"
-                               .format(syncd_docker_name))['stdout'].lower():
+    codename = dut.shell("docker exec {} grep VERSION_CODENAME /etc/os-release"
+                         .format(syncd_docker_name))['stdout'].lower()
+    if "bookworm" in codename or "trixie" in codename:
         _install_nano_bookworm(dut, creds, syncd_docker_name)
         return
 
@@ -543,7 +568,7 @@ def is_trap_installed(duthost, trap_id, namespace=None):
     """
 
     output = parse_show_copp_configuration(duthost, namespace)
-    assert trap_id in output, f"Trap {trap_id} not found in the configuration"
+    assert trap_id in output, "Trap {} not found in the configuration".format(trap_id)
     assert "hw_status" in output[trap_id], f"hw_status not found for trap {trap_id}"
 
     return output[trap_id]["hw_status"] == "installed"

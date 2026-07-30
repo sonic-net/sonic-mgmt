@@ -147,6 +147,12 @@ class PtfGrpc:
             for name, value in items:
                 cmd.extend(["-H", f"{name}: {value}"])
 
+        # Auto-inject ss_target headers set via with_ss_target() so callers don't need to pass metadata
+        if self.ss_target_type:
+            cmd.extend(["-H", f"x-sonic-ss-target-type: {self.ss_target_type}"])
+        if self.ss_target_index is not None:
+            cmd.extend(["-H", f"x-sonic-ss-target-index: {self.ss_target_index}"])
+
         # Add custom headers
         for name, value in self.headers.items():
             cmd.extend(["-H", f"{name}: {value}"])

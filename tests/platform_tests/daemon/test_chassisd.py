@@ -20,7 +20,7 @@ from collections import OrderedDict
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t2'),
+    pytest.mark.topology('t2', 'lrh', 'urh'),
     pytest.mark.device_type('physical')
 ]
 

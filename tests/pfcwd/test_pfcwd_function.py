@@ -442,8 +442,8 @@ class SetupPfcwdFunc(object):
             ptf_port = 'eth%s' % self.pfc_wd['test_port_id']
             if self.pfc_wd['test_port_vlan_id'] is not None:
                 ptf_port += (constants.VLAN_SUB_INTERFACE_SEPARATOR + self.pfc_wd['test_port_vlan_id'])
-            self.ptf.command("ip neigh flush all")
-            self.ptf.command("ip -6 neigh flush all")
+            self.ptf.command("ip neigh flush all", module_ignore_errors=True)
+            self.ptf.command("ip -6 neigh flush all", module_ignore_errors=True)
             self.dut.command("ip neigh flush all")
             self.dut.command("ip -6 neigh flush all")
             if ip_version == "IPv4":
