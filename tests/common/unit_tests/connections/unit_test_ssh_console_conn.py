@@ -203,6 +203,7 @@ def test_session_preparation_defers_login_in_bootloader():
     conn.set_base_prompt.assert_not_called()
     conn.find_prompt.assert_not_called()
     conn.write_channel.assert_not_called()
+    assert conn._bootloader_deferred is True
 
 
 # ---------------------------------------------------------------------------

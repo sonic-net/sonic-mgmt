@@ -69,6 +69,9 @@ class SSHConsoleConn(BaseConsoleConn):
     def session_preparation(self):
         session_init_msg = self._test_channel_read()
         self.logger.debug(session_init_msg)
+        # Reset the bootloader-deferred signal at the start of every preparation so a
+        # caller can consistently read whether login was deferred due to a boot stage.
+        self._bootloader_deferred = False
 
         if re.search(
             r"(Port is in use. Closing connection...|Cannot connect: line \[\d{2}\] is busy)",
@@ -115,6 +118,9 @@ class SSHConsoleConn(BaseConsoleConn):
             # During a bootloader "hit any key to stop autoboot" window those RETURNs would
             # abort autoboot and trap the DUT (and find_prompt() would raise since no prompt
             # exists yet). Return with zero writes so the caller can passively monitor boot.
+            # Mirror the menu-port path: record the deferral so callers can detect the
+            # non-interactive boot stage and avoid later writes that could abort autoboot.
+            self._bootloader_deferred = True
             return
         # Attempt all sonic password. A wrong password must not prevent a
         # subsequent correct password in the list from succeeding, so we
