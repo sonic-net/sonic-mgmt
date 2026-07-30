@@ -42,13 +42,19 @@ def pytest_addoption(parser):
         "--hardware-aware-report-only",
         action="store_true",
         default=False,
-        help="Evaluate hardware-aware test capabilities during collection and write a report without deselecting tests.",
+        help=(
+            "Evaluate hardware-aware test capabilities during collection "
+            "and write a report without deselecting tests."
+        ),
     )
     group.addoption(
         "--hardware-aware-deselect",
         action="store_true",
         default=False,
-        help="Deselect tests that do not satisfy hardware-aware test capabilities during collection and write a report.",
+        help=(
+            "Deselect tests that do not satisfy hardware-aware test capabilities "
+            "during collection and write a report."
+        ),
     )
     group.addoption(
         "--hardware-aware-run-context-file",
