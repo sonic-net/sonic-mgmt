@@ -4020,6 +4020,18 @@ packet_trimming/test_packet_trimming_asymmetric.py:
     conditions:
       - "asic_type in ['vpp']"
 
+packet_trimming/test_packet_trimming_config_asymmetric.py:
+  skip:
+    reason: "Asymmetric (FROM_TC) packet-trimming GCU config validation is deferred on sonic-vpp; only symmetric core trimming is enabled (tracking sonic-net/sonic-buildimage#25789)."
+    conditions:
+      - "asic_type in ['vpp']"
+
+packet_trimming/test_packet_trimming_config_symmetric.py:
+  skip:
+    reason: "Symmetric packet-trimming GCU config validation is deferred on sonic-vpp; out of scope for the initial dataplane enablement (tracking sonic-net/sonic-buildimage#25789)."
+    conditions:
+      - "asic_type in ['vpp']"
+
 packet_trimming/test_packet_trimming_symmetric.py::TestPacketTrimmingSymmetric::test_acl_action_with_trimming:
   skip:
     reason: "ACL DISABLE_TRIM action with packet trimming is deferred on sonic-vpp; not yet implemented in the VPP dataplane (tracking sonic-net/sonic-buildimage#25789)."
