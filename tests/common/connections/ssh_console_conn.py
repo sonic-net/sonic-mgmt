@@ -28,7 +28,10 @@ BOOTLOADER_BANNER_RE = re.compile(
     r"Aboot#|"                                    # Arista Aboot shell prompt
     r"GNU\s+GRUB|grub\s*>|grub\s+rescue\s*>|"     # GRUB menu / shell
     r"Hit\s+any\s+key\s+to\s+stop\s+autoboot|"    # U-Boot autoboot window
-    r"\bautoboot\b|"                              # generic autoboot countdown
+    r"autoboot\s+in\b|stop\s+autoboot|"           # autoboot countdown ("autoboot in N"),
+                                                  # "... stop autoboot". NOT a bare "autoboot"
+                                                  # word: that false-positives on shell/log
+                                                  # text (e.g. "fw_printenv | grep autoboot").
     r"ONIE:|"                                     # ONIE installer / rescue (anchored;
                                                   # bare \bONIE\b matches "ONIE Version")
     r"^\s*Booting\b|"                             # boot-in-progress (line-anchored)
@@ -80,6 +83,11 @@ class SSHConsoleConn(BaseConsoleConn):
         the initial banner passively via _read_initial_console() (which tolerates
         a silent channel), so the priming CR is unnecessary. Force it off so no
         byte reaches the DUT until the bootloader guards below have run.
+
+        The inherited ``force_data`` argument (netmiko's _open() passes ``True``) is
+        intentionally IGNORED, not removed: the override must keep the parameter to
+        accept netmiko's call signature, but we never honour it. Do not "fix" this by
+        threading the value through -- doing so re-introduces the priming CR.
         """
         return super(SSHConsoleConn, self)._try_session_preparation(force_data=False)
 
@@ -125,12 +133,15 @@ class SSHConsoleConn(BaseConsoleConn):
         # _read_initial_console).
         session_init_msg = self._read_initial_console()
         self.logger.debug(session_init_msg)
-        # Reset the bootloader-deferred signal at the start of every preparation so a
-        # caller can consistently read whether login was deferred due to a boot stage.
-        # It is set at any of several checkpoints that can be the FIRST to observe a
-        # boot banner (initial read, menu-port login, _recover_to_login_prompt, and
-        # login_stage_2's mid-wait / final-try) -- defense-in-depth so no single missed
-        # classification lets a key reach a 'hit any key to stop autoboot' window.
+        # Reset the bootloader-deferred signal at the start of every preparation. This is
+        # currently INTERNAL state only: it coordinates the early-returns within
+        # session_preparation()/login_stage_2() and has no external reader today (reboot.py
+        # just holds the connection open and later disconnects). It is set at any of several
+        # checkpoints that can be the FIRST to observe a boot banner (initial read, menu-port
+        # login, _recover_to_login_prompt, and login_stage_2's mid-wait / final-try) --
+        # defense-in-depth so no single missed classification lets a key reach a
+        # 'hit any key to stop autoboot' window. Kept as an instance flag so a future caller
+        # (e.g. the reboot collector) could detect a deferred boot-stage login if needed.
         self._bootloader_deferred = False
 
         if re.search(
@@ -285,10 +296,13 @@ class SSHConsoleConn(BaseConsoleConn):
                     time.sleep(0.5 * delay_factor)
                     output += self.read_channel()
                 # Only if the console stayed silent do we nudge it with a bare CR
-                # (never Ctrl-C) to coax a login prompt to echo. A silent console is
-                # not an active autoboot window -- those continuously print a
-                # countdown -- so a single CR here is safe and cannot interrupt
-                # autoboot.
+                # (never Ctrl-C) to coax a login prompt to echo. This rests on the
+                # assumption that an active autoboot window REPAINTS its countdown, so a
+                # fully silent probe window is not one -- true for Aboot and the common
+                # U-Boot countdown. The boundary of that guarantee is a rare U-Boot build
+                # that prints "press any key" once and then waits silently; that case is
+                # caught earlier by classifying session_init_msg in session_preparation(),
+                # before this passive re-read could see only silence.
                 if not output.strip():
                     self.write_channel(self.RETURN)
                     for _ in range(4):

@@ -89,6 +89,12 @@ NEGATIVE_CASES = [
     # like collect_mgmt_config_by_console()).
     "Press Control-C to abort the operation",
     "admin@sonic:~$ tool: Please Press Control-C to stop",
+    # A shell/log line that merely mentions the word "autoboot" (without the real
+    # countdown phrasing "autoboot in N" / "stop autoboot") must NOT match -- the bare
+    # \bautoboot\b token was tightened for this (external review Finding 1); otherwise a
+    # U-Boot env dump would defer login and break send_command paths.
+    "admin@sonic:~$ fw_printenv | grep autoboot",
+    "admin@sonic:~$ echo 'set autoboot flag' >> notes.txt",
 ]
 
 
