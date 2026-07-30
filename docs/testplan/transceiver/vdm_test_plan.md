@@ -117,8 +117,8 @@ The following example demonstrates a `vdm.json` file with several VDM fields —
         "part_numbers": {
           "FTLX8571D3BCL-10GSFP": {
             "laser_age": 40,
-            "laser_temperature1": 35,
-            "prefec_ber_media_input_stats1": {
+            "laser_temperatureLANE_NUM": 35,
+            "prefec_ber_media_input_statsLANE_NUM": {
               "max": 1.0e-3,
               "average": 1.0e-4,
               "current": 2.0e-4
@@ -130,8 +130,8 @@ The following example demonstrates a `vdm.json` file with several VDM fields —
         "part_numbers": {
           "MCP1600-C003-100G": {
             "laser_age": 40,
-            "snr_media_input1": 15,
-            "prefec_ber_media_input_stats1": {
+            "snr_media_inputLANE_NUM": 15,
+            "prefec_ber_media_input_statsLANE_NUM": {
               "max": 1.0e-3,
               "average": 1.0e-4,
               "current": 2.0e-4
@@ -140,8 +140,8 @@ The following example demonstrates a `vdm.json` file with several VDM fields —
           "MMA1T00-VS-400G": {
             "laser_age": 15,
             "tec_current": 80,
-            "snr_media_input1": 20,
-            "prefec_ber_media_input_stats1": {
+            "snr_media_inputLANE_NUM": 20,
+            "prefec_ber_media_input_statsLANE_NUM": {
               "max": 1.0e-3,
               "average": 1.0e-4,
               "current": 2.0e-4
@@ -154,8 +154,8 @@ The following example demonstrates a `vdm.json` file with several VDM fields —
           "88X7120-800G": {
             "laser_age": 40,
             "tec_current": 85,
-            "snr_media_input1": 25,
-            "prefec_ber_media_input_stats1": {
+            "snr_media_inputLANE_NUM": 25,
+            "prefec_ber_media_input_statsLANE_NUM": {
               "max": 1.0e-3,
               "average": 1.0e-4,
               "current": 2.0e-4
@@ -174,28 +174,30 @@ The VDM test framework uses an attribute-driven approach to dynamically determin
 
 ### Algorithm Steps
 
-1. **Attribute Discovery**: Collect all attributes configured under the matched transceiver entry in `vdm.json` (resolved by vendor and part number). Lane-specific attributes use explicit lane numbers in the key (e.g., `prefec_ber_media_input_stats1` for lane 1); multiple entries with different lane suffixes may be present.
+1. **Attribute Discovery**: Collect all attributes configured under the matched transceiver entry in `vdm.json` (resolved by vendor and part number).
 
-2. **Field Type Classification**: For each attribute:
+2. **Lane Expansion Logic**: If the attribute key contains the `LANE_NUM` placeholder, expand it for all available lanes (1 to N) by replacing `LANE_NUM` with each actual lane number — a single config entry therefore covers every lane. If no `LANE_NUM` placeholder is present, the attribute maps to a single, non-lane-specific field.
+
+3. **Field Type Classification**: For each (lane-expanded) attribute:
    - **Scalar** (integer or float value): validate the corresponding STATE_DB field as an upper-bound threshold — the live value must be ≤ the configured value. For example, `"laser_age": 40` means the transceiver must report ≤ 40% EOL.
    - **Dict** (`_stats` attribute, object value): expand into per-sub-field STATE_DB validations
 
-3. **Sub-field Selective Validation**: For dict attributes, only validate the sub-fields explicitly present in the JSON config. Sub-fields omitted from the config (e.g., `min` for error-rate stats where a lower value is always better) are skipped entirely.
+4. **Sub-field Selective Validation**: For dict attributes, only validate the sub-fields explicitly present in the JSON config. Sub-fields omitted from the config (e.g., `min` for error-rate stats where a lower value is always better) are skipped entirely.
 
-4. **STATE_DB Field Name Construction**: Map each JSON attribute key and sub-field to a STATE_DB field name:
-   - The lane number is already embedded in the attribute key (e.g., `...stats1` → lane 1)
+5. **STATE_DB Field Name Construction**: Map each JSON attribute key (with `LANE_NUM` already replaced by the actual lane number) and sub-field to a STATE_DB field name:
    - Sub-field abbreviations: `average` → `avg`, `current` → `curr`; `min`, `max`, and `total` are unchanged
 
-5. **Field Validation**: Validate presence and threshold compliance for all derived STATE_DB fields
+6. **Field Validation**: Validate presence and threshold compliance for all derived STATE_DB fields
 
 ### Example Mappings
 
-| JSON Attribute Key | Type | Sub-fields Validated | Expected STATE_DB Fields |
-|-------------------|------|----------------------|--------------------------|
-| `laser_temperature1` | scalar | — | `laser_temperature1` |
-| `snr_media_input1` | scalar | — | `snr_media_input1` |
-| `prefec_ber_media_input_stats1` | dict | `max`, `average`, `current` | `prefec_ber_max_media_input1`, `prefec_ber_avg_media_input1`, `prefec_ber_curr_media_input1` |
-| `ferc_media_input_stats1` | dict | `max`, `average`, `current`, `total` | `ferc_max_media_input1`, `ferc_avg_media_input1`, `ferc_curr_media_input1`, `ferc_total_media_input1` |
+| JSON Attribute Key | Type | Lane Expansion | Sub-fields Validated | Expected STATE_DB Fields |
+|-------------------|------|-----------------|----------------------|--------------------------|
+| `laser_temperatureLANE_NUM` | scalar | Yes | — | `laser_temperature1`, `laser_temperature2`, ... (for N lanes) |
+| `snr_media_inputLANE_NUM` | scalar | Yes | — | `snr_media_input1`, `snr_media_input2`, ... (for N lanes) |
+| `prefec_ber_media_input_statsLANE_NUM` | dict | Yes | `max`, `average`, `current` | `prefec_ber_max_media_input1`, `prefec_ber_avg_media_input1`, `prefec_ber_curr_media_input1` (and lane 2, 3, ... equivalents for N lanes) |
+| `ferc_media_input_statsLANE_NUM` | dict | Yes | `max`, `average`, `current`, `total` | `ferc_max_media_input1`, `ferc_avg_media_input1`, `ferc_curr_media_input1`, `ferc_total_media_input1` (and lane 2, 3, ... equivalents for N lanes) |
+| `laser_age` | scalar | No | — | `laser_age` |
 
 This algorithm ensures that test validation is automatically aligned with the configured attributes, providing comprehensive coverage while maintaining flexibility for different transceiver types and platform configurations.
 
