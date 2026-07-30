@@ -104,6 +104,7 @@ def test_dom_data_availability_verification(
     dom_primary_ports,
     dom_non_primary_ports,
     port_attributes_dict,
+    lport_to_first_subport_mapping,
 ):
     """Verify configured DOM sensor data is present and fresh in STATE_DB."""
     sensor_ports = natsorted(set(dom_primary_ports) | set(dom_non_primary_ports))
@@ -111,6 +112,7 @@ def test_dom_data_availability_verification(
     availability_plan_by_port = build_dom_availability_plan(
         port_attributes_dict,
         dom_primary_ports,
+        lport_to_first_subport_mapping,
     )
 
     all_failures = ["STATE_DB read:\n  {}".format(read_error) for read_error in sensor_read_errors]

@@ -24,22 +24,51 @@ STATE_DB_SENSOR_TABLE = "TRANSCEIVER_DOM_SENSOR"
 
 OPERATIONAL_SUFFIX = "_operational_range"
 LANE_NUM_PLACEHOLDER = "LANE_NUM"
+MEDIA_LANE_MASK_KEY = "media_lane_mask"
 DomMappedField = namedtuple("DomMappedField", ("source_attr", "attr_value"))
 
 DOM_POLLING_ENABLED_VALUES = ("", "enabled")
 DOM_POLLING_DISABLED_VALUE = "disabled"
 
 
-def _map_operational_attribute_to_fields(attr_name, attr_value, base_attrs):
+def _active_media_lanes(primary_port, port_attributes_dict, lport_to_first_subport_mapping):
+    """Return a module's active media-lane indices for a primary subport.
+
+    DOM sensor data for a breakout module is published only on the first/primary
+    subport, but that single entry carries all of the module's media lanes (one
+    per subport). A subport's own ``media_lane_count`` is therefore too small
+    (e.g. 1 on an 8x breakout), so LANE_NUM must expand over the whole module.
+    The module's active media lanes are the union of the per-subport
+    ``media_lane_mask`` across the breakout group; each set mask bit is an
+    absolute, 1-indexed media lane. Padded/unconfigured lanes are excluded, so
+    the caller only expects fields for lanes that actually carry a signal.
+    """
+    mapping = lport_to_first_subport_mapping or {}
+    group = [sub for sub, first in mapping.items() if first == primary_port] or [primary_port]
+
+    mask_union = 0
+    for subport in group:
+        base_attrs = port_attributes_dict.get(subport, {}).get(BASE_ATTRIBUTES_KEY, {})
+        mask = base_attrs.get(MEDIA_LANE_MASK_KEY)
+        if mask is None:
+            continue
+        try:
+            mask_union |= int(str(mask), 16)
+        except (TypeError, ValueError):
+            logger.debug("%s has unparsable %s %r", subport, MEDIA_LANE_MASK_KEY, mask)
+
+    return [bit + 1 for bit in range(mask_union.bit_length()) if mask_union & (1 << bit)]
+
+
+def _map_operational_attribute_to_fields(attr_name, attr_value, active_media_lanes):
     """Return ``({field: DomMappedField(source_attr, attr_value)}, errors)``."""
     base_name = attr_name[:-len(OPERATIONAL_SUFFIX)]
     if LANE_NUM_PLACEHOLDER not in base_name:
         return {base_name: DomMappedField(attr_name, attr_value)}, []
 
-    media_lane_count = base_attrs.get("media_lane_count")
-    if not isinstance(media_lane_count, int) or media_lane_count <= 0:
+    if not active_media_lanes:
         return {}, [
-            "{} uses {} but {} has no valid media_lane_count".format(
+            "{} uses {} but no active media lanes resolved from {} media_lane_mask".format(
                 attr_name,
                 LANE_NUM_PLACEHOLDER,
                 BASE_ATTRIBUTES_KEY,
@@ -51,7 +80,7 @@ def _map_operational_attribute_to_fields(attr_name, attr_value, base_attrs):
             attr_name,
             attr_value,
         )
-        for lane in range(1, media_lane_count + 1)
+        for lane in active_media_lanes
     }, []
 
 
@@ -60,7 +89,7 @@ DOM_FIELD_MAPPERS = (
 )
 
 
-def map_dom_attribute_to_fields(attr_name, attr_value, base_attrs):
+def map_dom_attribute_to_fields(attr_name, attr_value, active_media_lanes):
     """Map one DOM attribute to current STATE_DB field metadata.
 
     The suffix dispatch is DOM-local: TC1/TC2 use the operational mapper today,
@@ -69,32 +98,41 @@ def map_dom_attribute_to_fields(attr_name, attr_value, base_attrs):
     """
     for suffix, mapper in DOM_FIELD_MAPPERS:
         if attr_name.endswith(suffix):
-            return mapper(attr_name, attr_value, base_attrs)
+            return mapper(attr_name, attr_value, active_media_lanes)
     logger.debug("DOM attribute %s matched no field mapper; skipped", attr_name)
     return {}, []
 
 
-def build_dom_availability_plan(port_attributes_dict, dom_primary_ports):
-    """Return ``{port: {"expected_fields": [...], "errors": [...], "max_age_min": value}}``."""
+def build_dom_availability_plan(port_attributes_dict, dom_primary_ports, lport_to_first_subport_mapping):
+    """Return ``{port: {"expected_fields": {field: DomMappedField}, "active_media_lanes": [...], "errors": [...], "max_age_min": value}}``.
+
+    ``expected_fields`` is a ``{field: DomMappedField(source_attr, attr_value)}``
+    map keyed in sorted field order: TC1 iterates the keys (presence/freshness),
+    while range-based checks (TC2) read each field's ``attr_value`` (its
+    ``{"min", "max"}`` operational range) without re-deriving the mapping.
+    """
     plan_by_port = {}
     for port in dom_primary_ports:
         port_attrs = port_attributes_dict.get(port, {})
         dom_attrs = port_attrs.get(DOM_ATTRIBUTES_KEY, {})
-        base_attrs = port_attrs.get(BASE_ATTRIBUTES_KEY, {})
-        expected_fields = set()
+        active_media_lanes = _active_media_lanes(
+            port, port_attributes_dict, lport_to_first_subport_mapping
+        )
+        expected_fields = {}
         errors = []
 
         for attr_name, attr_value in sorted(dom_attrs.items()):
             mapped_fields, field_errors = map_dom_attribute_to_fields(
                 attr_name,
                 attr_value,
-                base_attrs,
+                active_media_lanes,
             )
-            expected_fields.update(mapped_fields.keys())
+            expected_fields.update(mapped_fields)
             errors.extend(field_errors)
 
         plan_by_port[port] = {
-            "expected_fields": sorted(expected_fields),
+            "expected_fields": {field: expected_fields[field] for field in sorted(expected_fields)},
+            "active_media_lanes": active_media_lanes,
             "errors": errors,
             "max_age_min": dom_attrs.get("data_max_age_min"),
         }
