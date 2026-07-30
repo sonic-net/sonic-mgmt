@@ -136,7 +136,7 @@ The DOM test framework uses an attribute-driven approach to dynamically determin
 2. **Base Field Extraction**: Remove the suffix (`_operational_range` or `_threshold_range`) to get the base field name
 
 3. **Lane Expansion Logic**:
-   - If the attribute name contains `LANE_NUM` placeholder: Expand for all available lanes (1 to N) by replacing `LANE_NUM` with actual lane numbers
+   - If the attribute name contains the `LANE_NUM` placeholder: expand across the module's **active media lanes** — the union of `media_lane_mask` across the breakout group (equivalently, the per-type channel count: SFP 1, QSFP 4, CMIS 8). Use the *module's* lanes, not a subport's `media_lane_count` (which is 1 on breakout): DOM data is published only on the primary subport but covers all module lanes.
    - If no `LANE_NUM` placeholder is present: Expect a single field with the base name
 
 4. **Special Field Mappings**: Apply any platform-specific field name mappings as needed
@@ -148,10 +148,12 @@ The DOM test framework uses an attribute-driven approach to dynamically determin
 | Attribute Name | Base Field | Lane Expansion | Expected STATE_DB Fields |
 |----------------|------------|----------------|-------------------------|
 | `temperature_operational_range` | `temperature` | No | `temperature` |
-| `txLANE_NUMbias_operational_range` | `txLANE_NUMbias` | Yes | `tx1bias`, `tx2bias`, `tx3bias`, `tx4bias` (for 4-lane) |
-| `rxLANE_NUMpower_operational_range` | `rxLANE_NUMpower` | Yes | `rx1power`, `rx2power`, `rx3power`, `rx4power` (for 4-lane) |
+| `txLANE_NUMbias_operational_range` | `txLANE_NUMbias` | Yes | `tx1bias`..`txNbias` for the module's N active media lanes (e.g. 8 for CMIS) |
+| `rxLANE_NUMpower_operational_range` | `rxLANE_NUMpower` | Yes | `rx1power`..`rxNpower` for the module's N active media lanes |
 | `voltage_threshold_range` | `voltage` | No | `vcchighalarm`, `vcclowalarm`, `vcchighwarning`, `vcclowwarning` |
 | `tx_power_threshold_range` | `tx_power` | No | `txpowerhighalarm`, `txpowerlowalarm`, `txpowerhighwarning`, `txpowerlowwarning` |
+
+**Lane value rule:** active media lanes must report a numeric value; unused lanes (no configured subport, or a single-lane module's padded lanes) may be `N/A`/`-inf` and are excluded from the expected set.
 
 This algorithm ensures that test validation is automatically aligned with the configured attributes, providing comprehensive coverage while maintaining flexibility for different transceiver types and platform configurations.
 
