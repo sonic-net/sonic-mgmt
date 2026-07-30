@@ -176,9 +176,6 @@ class DHCPTest(DataplaneBaseTest):
         self.max_hop_count = self.test_params.get('max_hop_count', None)
         self.client_vrf = self.test_params.get('client_vrf', None)
         self.dhcpv4_disable_flag = self.test_params.get('dhcpv4_disable_flag', None)
-        if self.relay_agent == "sonic-relay-agent":
-            if (self.link_selection and self.source_interface) or self.server_vrf:
-                self.link_selection_ip = self.test_params['link_selection_ip']
 
         self.uplink_mac = self.test_params['uplink_mac']
 
@@ -221,8 +218,10 @@ class DHCPTest(DataplaneBaseTest):
             #  Byte 0: Suboption number, always set to 5
             #  Byte 1: Length of suboption data (4 bytes for IPv4)
             #  Bytes 2–5: The link selection IP address (in byte format)
-            if (self.link_selection and self.source_interface) or self.server_vrf:
-                link_selection_ip = bytes(list(map(int, self.link_selection_ip.split('.'))))
+            # ISC encodes the receiving VLAN address in Link Selection. Keep SONiC aligned
+            # and emit SubOption 5 before SubOption 11 (server-override).
+            if self.dual_tor or (self.link_selection and self.source_interface) or self.server_vrf:
+                link_selection_ip = bytes(list(map(int, self.relay_iface_ip.split('.'))))
                 self.option82 += struct.pack('BB', self.LINK_SELECTION_SUBOPTION, 4)
                 self.option82 += link_selection_ip
                 link_selection_added = True
@@ -253,8 +252,9 @@ class DHCPTest(DataplaneBaseTest):
         #  Byte 0: Suboption number, always set to 5
         #  Byte 1: Length of suboption data in bytes, always set to 4 (ipv4 addr has 4 bytes)
         #  Bytes 2+: vlan ip addr
-        # Relay emits link-selection (SubOption 5) once; skip this legacy dual-tor
-        # copy if the block above already added it (see commit msg).
+        # Legacy dual-tor SubOption 5, now only for the non-sonic-relay-agent (isc) path:
+        # the sonic-relay-agent block above already adds SubOption 5 for dual-tor (setting
+        # link_selection_added), so this only runs when that gate was not entered (isc).
         if self.dual_tor and not link_selection_added:
             link_selection = bytes(
                 list(map(int, self.relay_iface_ip.split('.'))))
