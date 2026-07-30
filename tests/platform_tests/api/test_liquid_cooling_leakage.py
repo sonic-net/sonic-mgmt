@@ -11,7 +11,7 @@ from tests.common.platform.device_utils import start_platform_api_service    # n
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('bmc'),
+    pytest.mark.topology('any'),
     pytest.mark.device_type('physical')
 ]
 
