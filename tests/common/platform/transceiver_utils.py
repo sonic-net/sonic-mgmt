@@ -344,7 +344,7 @@ def parse_one_sfp_eeprom_info(sfp_eeprom_info):
     """
     pattern_top_layer_key_value = r"^(?P<key>Ethernet\d+):(?P<value>.*)"
     pattern_second_layer_key_value = r"(^\s{8}|\t{1})(?P<key>[a-zA-Z0-9][a-zA-Z0-9\s\/\(\)-]+):(?P<value>.*)"
-    pattern_third_layer_key_value = r"(^\s{16}|\t{2})(?P<key>[a-zA-Z0-9][a-zA-Z0-9\s\/]+):(?P<value>.*)"
+    pattern_third_layer_key_value = r"(^\s{16}|\t{2})(?P<key>[a-zA-Z0-9][a-zA-Z0-9\s\/\+]+):(?P<value>.*)"
 
     one_sfp_eeprom_info_dict = {}
     second_layer_dict = {}
