@@ -112,7 +112,7 @@ def map_dom_attribute_to_fields(attr_name, attr_value, active_media_lanes):
 
 
 def build_dom_availability_plan(port_attributes_dict, dom_primary_ports, lport_to_first_subport_mapping):
-    """Return ``{port: {"expected_fields": {field: DomMappedField}, "active_media_lanes": [...], "errors": [...], "max_age_min": value}}``.
+    """Return each port's expected DOM fields, active lanes, errors, and age limit.
 
     ``expected_fields`` is a ``{field: DomMappedField(source_attr, attr_value)}``
     map keyed in sorted field order: TC1 iterates the keys (presence/freshness),

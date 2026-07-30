@@ -5,6 +5,8 @@ from collections import namedtuple
 
 from natsort import natsorted
 
+from tests.common.platform.interface_utils import is_first_subport
+
 
 logger = logging.getLogger(__name__)
 PortSelection = namedtuple("PortSelection", ("primary_ports", "non_primary_ports"))
@@ -64,7 +66,7 @@ def select_attribute_ports(
                 attribute_key,
             )
             continue
-        if first_subport == port:
+        if is_first_subport(port, lport_to_first_subport_mapping):
             primary_ports.append(port)
         elif include_non_primary:
             non_primary_ports.append(port)

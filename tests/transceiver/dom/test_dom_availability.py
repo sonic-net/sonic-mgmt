@@ -39,7 +39,7 @@ def _validate_dom_primary_ports(duthost, dom_primary_ports, sensor_by_port, avai
     for port in dom_primary_ports:
         sensor_data = sensor_by_port.get(port, {})
         availability_plan = availability_plan_by_port.get(port, {})
-        expected_fields = availability_plan.get("expected_fields", [])
+        expected_fields = availability_plan.get("expected_fields", {})
         active_lanes = availability_plan.get("active_media_lanes", [])
         field_failures = list(availability_plan.get("errors", []))
         max_age_min = availability_plan.get("max_age_min")
