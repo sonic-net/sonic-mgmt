@@ -272,7 +272,12 @@ class PFCStorm(object):
         if self.asic_type == 'vs':
             self.pfc_start_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_eos.j2")
-        elif self.dut.topo_type == 't2' and self.peer_device.os == 'sonic':
+        elif (self.dut.topo_type == 't2' and self.peer_device.os == 'sonic'
+              and not get_chip_name_if_asic_pfc_storm_supported(self._get_sonic_fanout_hwsku())):
+            # The t2 template drives pfc_gen via raw AF_PACKET, which the SONiC fanout's
+            # SAI/syncd CPU-port trap drops on newer images, so the storm never reaches the
+            # front panel. Only use it for fanouts whose ASIC does NOT support chip-side PFC
+            # generation; chip-capable SONiC fanouts fall through to the bcmcmd path below.
             self.pfc_start_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_{}_t2.j2".format(self.peer_device.os))
         elif self.fanout_asic_type == 'mellanox' and self.peer_device.os == 'sonic':
@@ -297,7 +302,9 @@ class PFCStorm(object):
         if self.asic_type == 'vs':
             self.pfc_stop_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_stop_eos.j2")
-        elif self.dut.topo_type == 't2' and self.peer_device.os == 'sonic':
+        elif (self.dut.topo_type == 't2' and self.peer_device.os == 'sonic'
+              and not get_chip_name_if_asic_pfc_storm_supported(self._get_sonic_fanout_hwsku())):
+            # Mirror _prepare_start_template: chip-capable SONiC fanouts use the bcmcmd path.
             self.pfc_stop_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_stop_{}_t2.j2".format(self.peer_device.os))
         elif self.fanout_asic_type == 'mellanox' and self.peer_device.os == 'sonic':
