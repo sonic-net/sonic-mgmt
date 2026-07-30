@@ -935,6 +935,7 @@
           dut_loopbacks: "{{ topology.DUT.loopback | default({}) }}"
           console_ports: "{{ device_serial_link[inventory_hostname] | default(omit) if 'c0' in topo else omit }}"
           enabled_dpu_indices: "{{ (testbed_facts.enabled_dpus[inventory_hostname] | map(attribute='dpu_index') | list) if (testbed_facts.enabled_dpus is defined and inventory_hostname in testbed_facts.enabled_dpus) else omit }}"
+          lacp_fast_rate: "{{ lacp_fast_rate | default(false) }}"
         become: true
         when: enable_macsec is not defined and init_cfg_profile is not defined
 
