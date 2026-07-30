@@ -188,7 +188,7 @@ def test_session_preparation_defers_login_in_bootloader():
     conn.logger = mock.MagicMock()
     conn.console_type = "ssh"  # not a "*config" menu type
     conn.menu_port = None
-    conn._test_channel_read = mock.MagicMock(return_value="")
+    conn._read_initial_console = mock.MagicMock(return_value="")
     conn._recover_to_login_prompt = mock.MagicMock(return_value=True)
     conn.login_stage_2 = mock.MagicMock()
     conn.session_preparation_finalise = mock.MagicMock()
@@ -230,7 +230,7 @@ def test_session_preparation_menu_port_defers_login_in_bootloader():
     conn.password = "console_pw"
     conn.sonic_username = "admin"
     conn.sonic_password = ["pw"]
-    conn._test_channel_read = mock.MagicMock(return_value="")
+    conn._read_initial_console = mock.MagicMock(return_value="")
     conn.select_delay_factor = mock.MagicMock(return_value=1)
     # write_and_poll() (real, inherited) selects the console-server port; its
     # read_until_pattern() is stubbed. After port selection the DUT serial shows
@@ -283,3 +283,86 @@ def test_is_at_sonic_prompt_detects_shell_when_not_bootloader():
     assert CTRL_C not in written, "Ctrl-C must never be sent to probe the prompt"
     assert written and all(k == RETURN for k in written), (
         f"non-bootloader probe must only nudge with a bare CR, got {written!r}")
+
+
+@pytest.mark.parametrize("banner", [
+    "Press Control-C now to enter Aboot shell\n",
+    "Hit any key to stop autoboot:  3\n",
+    "GNU GRUB  version 2.06\n",
+    "ONIE: Starting ONIE Service Discovery\n",
+])
+def test_session_preparation_initial_probe_writes_no_key_in_bootloader(banner):
+    """Regression guard for the FIRST console read in session_preparation.
+
+    Netmiko's inherited _test_channel_read() writes RETURN on an empty read; on a
+    quiet bootloader "hit any key to stop autoboot" window that CR aborts autoboot
+    and traps the DUT. This exercises the REAL initial probe (_read_initial_console)
+    AND the real _recover_to_login_prompt classification -- nothing that writes is
+    stubbed away -- and asserts session_preparation sends NO DUT-side key while a
+    bootloader banner is present, and defers login.
+    """
+    # The autoboot window prints its banner continuously, so every read returns it.
+    conn = _make_console([banner] * 60)
+    conn.console_type = "ssh"            # not a "*config" menu type
+    conn.menu_port = None
+    conn.username = "console_user:7001"
+    conn.sonic_username = "admin"
+    conn.sonic_password = ["pw"]
+    conn.login_stage_2 = mock.MagicMock()
+    conn.session_preparation_finalise = mock.MagicMock()
+    conn.set_base_prompt = mock.MagicMock()
+    conn.find_prompt = mock.MagicMock()
+
+    with mock.patch("tests.common.connections.ssh_console_conn.time.sleep"):
+        SSHConsoleConn.session_preparation(conn)
+
+    assert conn._bootloader_deferred is True, "must defer login in a bootloader state"
+    assert _written(conn) == [], (
+        f"session_preparation's initial probe must write nothing while a bootloader "
+        f"banner is present, but wrote {_written(conn)!r} -- any keypress (including "
+        f"a bare CR) can abort a 'hit any key to stop autoboot' window")
+    conn.login_stage_2.assert_not_called()
+    conn.session_preparation_finalise.assert_not_called()
+    conn.set_base_prompt.assert_not_called()
+    conn.find_prompt.assert_not_called()
+
+
+def test_session_preparation_menu_port_defers_when_banner_lags_first_read():
+    """Regression guard for residual A: on a menu_port console the autoboot
+    banner may not be in the buffer on the FIRST read after port selection (a
+    single read can land in a countdown gap). login_stage_2 must observe the DUT
+    serial passively over a few reads before risking a wake-up CR, so a lagging
+    bootloader banner still defers login and NO DUT-side key is sent. With the
+    old single-read code the first empty read would have triggered a CR."""
+    conn = SSHConsoleConn.__new__(SSHConsoleConn)
+    conn.RETURN = RETURN
+    conn.host = "dut"
+    conn.logger = mock.MagicMock()
+    conn.console_type = "ssh"            # not a "*config" menu type
+    conn.menu_port = 7
+    conn.username = "console_user"
+    conn.password = "console_pw"
+    conn.sonic_username = "admin"
+    conn.sonic_password = ["pw"]
+    conn._read_initial_console = mock.MagicMock(return_value="")
+    conn.select_delay_factor = mock.MagicMock(return_value=1)
+    conn.read_until_pattern = mock.MagicMock(return_value="Selection:")
+    # First two reads after port selection are empty (countdown gap); the banner
+    # only appears on the third read -- the single-read path would CR before it.
+    conn.read_channel = mock.MagicMock(side_effect=(
+        ["", "", "Hit any key to stop autoboot:  3\n"] + [""] * 40))
+    conn.write_channel = mock.MagicMock()
+    conn._recover_to_login_prompt = mock.MagicMock()
+    conn.session_preparation_finalise = mock.MagicMock()
+
+    with mock.patch("tests.common.connections.ssh_console_conn.time.sleep"):
+        SSHConsoleConn.session_preparation(conn)
+
+    # Only the console-server menu selection may be written -- never a DUT-side CR.
+    assert _written(conn) == ["menu ports" + RETURN, "7" + RETURN], (
+        f"only the console-server port selection may be written, got {_written(conn)!r}")
+    assert RETURN not in _written(conn), "no bare DUT-side wake-up CR may be sent"
+    assert CTRL_C not in _written(conn), "no Ctrl-C may be sent"
+    assert getattr(conn, "_bootloader_deferred", False) is True, "must defer login"
+    conn._recover_to_login_prompt.assert_not_called()
+    conn.session_preparation_finalise.assert_not_called()

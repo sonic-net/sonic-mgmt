@@ -66,8 +66,37 @@ class SSHConsoleConn(BaseConsoleConn):
         kwargs['device_type'] = "_ssh"
         super(SSHConsoleConn, self).__init__(**kwargs)
 
+    def _read_initial_console(self, max_reads=20, delay_factor=1):
+        """Passively read the initial console output WITHOUT writing anything.
+
+        session_preparation() must inspect the first console output (a console
+        server "port is in use" notice, or a bootloader "hit any key to stop
+        autoboot" banner) BEFORE it has classified the console state. Netmiko's
+        inherited _test_channel_read() is unsafe here: when its first read
+        returns empty it writes RETURN (an "any key" press) to coax data out,
+        and on a quiet bootloader autoboot window that CR aborts autoboot and
+        traps the DUT in the bootloader. This helper mirrors that
+        read-until-data behaviour but never writes a byte, so no key can reach
+        the DUT before the bootloader guards below run. It follows the same
+        passive "read first, classify, only then maybe nudge" idiom used by
+        _recover_to_login_prompt() and _is_at_sonic_prompt().
+        """
+        delay_factor = max(self.select_delay_factor(delay_factor), 1)
+        output = ""
+        for _ in range(max_reads):
+            output += self.read_channel()
+            if output:
+                break
+            time.sleep(0.5 * delay_factor)
+        return output
+
     def session_preparation(self):
-        session_init_msg = self._test_channel_read()
+        # Read the initial banner PASSIVELY -- never write to the channel before
+        # the console state is classified below. The inherited netmiko
+        # _test_channel_read() would write a RETURN on an empty read, which on a
+        # quiet autoboot window aborts autoboot and traps the DUT (see
+        # _read_initial_console).
+        session_init_msg = self._read_initial_console()
         self.logger.debug(session_init_msg)
         # Reset the bootloader-deferred signal at the start of every preparation so a
         # caller can consistently read whether login was deferred due to a boot stage.
@@ -318,7 +347,25 @@ class SSHConsoleConn(BaseConsoleConn):
                     self.write_channel(str(self.menu_port) + self.RETURN)
                     menu_port_sent = True
 
-                output = self.read_channel()
+                # Read the DUT serial line. In defer_on_bootloader mode, observe it
+                # PASSIVELY over a few reads before the loop can send any wake-up CR:
+                # a single read can land in an autoboot countdown gap and miss a
+                # bootloader banner, and a premature CR counts as "hit any key to stop
+                # autoboot" and would trap the DUT. This mirrors _recover_to_login_prompt()
+                # (read first, classify, only then maybe nudge). Non-defer callers keep the
+                # original single read, so ordinary login timing is unchanged, and the reads
+                # feed the same `output` the username detection below uses so a real
+                # login/username prompt is still handled normally.
+                if defer_on_bootloader and not user_sent:
+                    output = ""
+                    for _ in range(4):
+                        output += self.read_channel()
+                        if (BOOTLOADER_BANNER_RE.search(return_msg + output)
+                                or re.search(username_pattern, output, flags=re.I)):
+                            break
+                        time.sleep(0.5 * delay_factor)
+                else:
+                    output = self.read_channel()
                 return_msg += output
 
                 # Search for username pattern / send username
