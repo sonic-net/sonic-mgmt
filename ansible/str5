@@ -254,6 +254,12 @@ fanout:
       ansible_host: 10.64.246.32
       ansible_hostv6: 2a01:111:e210:b000::a40:f620
       os: sonic
+    str5-sn6600-fan-1:
+      ansible_host: 10.3.152.22
+      ansible_hostv6: 2a01:111:e210:86::a03:9816
+      mgmt_subnet_mask_length: 27
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
     str5-7260cx3-acs-fan-20:
       ansible_host: 10.64.247.109
       ansible_hostv6: 2a01:111:e210:b000::a40:f76d
@@ -285,6 +291,7 @@ sonic:
   children:
     sonic_arista_7060x6_512:
     sonic_nvidia_sn5640:
+    sonic_mlnx_sn6600_t0:
     sonic_arista_7280dr3_400G:
     sonic_arista_7280r4_400G:
     sonic_nexthop_ut2:
@@ -571,6 +578,20 @@ sonic_arista_7280dr3_400G:
         "0x2D": "Arista Networks"
         "0x2E": "Aboot-norcal10-10.0.6-udimm-36482749"
         "0x2F": "FGN2340026T"
+
+sonic_mlnx_sn6600_t0:
+  vars:
+    hwsku: Mellanox-SN6600_LD-P64O128C2
+  hosts:
+    str5-sn6600-1:
+      ansible_host: 10.3.152.21
+      ansible_hostv6: 2a01:111:e210:86::a03:9815
+      mgmt_subnet_mask_length: 27
+      mgmt_subnet_v6_mask_length: 122
+      model:
+      serial:
+      base_mac:
+      syseeprom_info: {}
 
 sonic_nvidia_sn5640:
   hosts:

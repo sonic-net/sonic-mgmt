@@ -29,6 +29,8 @@ str5-7060x6-moby-512-3,10.64.247.121/26,Arista-7060X6-16PE-384C-B-O128S2,DevSoni
 str5-7060x6-moby-512-fan-3,10.64.247.122/26,Arista-7060X6-16PE-384C-B-O128S2-FANOUT,FanoutLeafSonic,,sonic
 str5-sn5640-1,10.64.247.137/25,Mellanox-SN5640-C512S2,DevSonic,,sonic
 str5-sn5640-fan-1,10.64.247.138/25,Mellanox-SN5640-C512S2,FanoutLeafSonic,,sonic
+str5-sn6600-1,10.3.152.21/27,Mellanox-SN6600_LD-P64O128C2,DevSonic,,sonic
+str5-sn6600-fan-1,10.3.152.22/27,Mellanox-SN6600_LD-P64O128C2,FanoutLeafSonic,,sonic
 str5-sn5640-2,10.64.246.74/25,Mellanox-SN5640-C448O16,DevSonic,,sonic
 str5-sn5640-fan-2,10.64.246.77/25,Mellanox-SN5640-C448O16,FanoutLeafSonic,,sonic
 str5-sn5640-3,10.64.247.164/25,Mellanox-SN5640-C508O1X2,DevSonic,,sonic
@@ -109,3 +111,4 @@ str43-0101-0400-06c0,10.3.150.239,Cisco,ConsoleServer,ssh,
 str43-0101-0400-07c0,10.3.150.241,Cisco,ConsoleServer,ssh,
 str43-0101-0400-08c0,10.3.152.33,Cisco,ConsoleServer,ssh,
 str43-0101-0400-09c0,10.3.150.244,Cisco,ConsoleServer,ssh,
+str43-0101-0900-01c0,10.3.152.41,Cisco,ConsoleServer,ssh,

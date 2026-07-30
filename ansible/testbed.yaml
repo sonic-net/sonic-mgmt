@@ -7030,3 +7030,19 @@
   inv_name: ixia
   auto_recover: 'False'
   comment: yatishkoul
+
+- conf-name: vmstr5-t0-sn6600-1
+  group-name:
+  topo: t0-isolated-d128u64s2
+  ptf_image_name: docker-ptf
+  ptf:
+  ptf_ip:
+  ptf_ipv6:
+  server:
+  vm_base:
+  dut:
+  - str5-sn6600-1
+  inv_name: str5
+  auto_recover: 'False'
+  comment: zegan
+  tb_owner: zegan
