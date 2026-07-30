@@ -1060,10 +1060,10 @@ class DHCPTest(DataplaneBaseTest):
         else:
             source_ip = self.portchannels_ip_list[0]
 
-        if ((self.link_selection and self.source_interface) or self.server_vrf or self.dual_tor):
-            giaddr = self.switch_loopback_ip
-        elif self.server_id_override or not self.dual_tor:
-            giaddr = self.relay_iface_ip
+        # BOOTP has no Option 82 Link Selection, so giaddr must identify the receiving
+        # client VLAN in every topology.
+        # ISC already does this; sonic-relay-agent requires the corresponding product fix.
+        giaddr = self.relay_iface_ip
 
         bootp_packet = self.create_bootp_packet(src_mac=self.uplink_mac, src_ip=source_ip, giaddr=giaddr,
                                                 sport=self.DHCP_SERVER_PORT, hops=2)
