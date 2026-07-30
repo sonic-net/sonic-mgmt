@@ -64,6 +64,16 @@ def _check_firmware_versions(duthost, port, port_attrs, all_failures, prefetched
     ``inactive_firmware_version`` is likewise mandatory (it is optional only
     when ``dual_bank_supported`` is false), so a dual-bank module missing it
     also fails.
+
+    Args:
+        duthost: DUT host fixture used to run ``sfputil show fwversion``.
+        port: logical port being checked.
+        port_attrs: this port's attribute blocks from ``port_attributes_dict``.
+        all_failures: shared list; a ``"<port>: <failure>"`` string is appended on mismatch.
+        prefetched: unused; kept for the shared ``check_fn`` signature.
+
+    Returns:
+        None. Any mismatch/error is appended to ``all_failures``.
     """
     cdb_attrs = port_attrs.get(CDB_FIRMWARE_UPGRADE_ATTRIBUTES_KEY, {})
     expected_active = cdb_attrs.get("gold_firmware_version")

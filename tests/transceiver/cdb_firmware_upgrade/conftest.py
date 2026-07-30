@@ -126,7 +126,7 @@ def dom_polling_disabled(
         for port in qualifying_ports:
             cdb_attrs = port_attributes_dict[port].get(CDB_FIRMWARE_UPGRADE_ATTRIBUTES_KEY, {})
             sleep_sec = max(sleep_sec, cdb_attrs.get("sleep_after_dom_disable_sec", 5))
-            namespace = duthost.get_namespace_from_asic_id(duthost.get_port_asic_instance(port).asic_index)
+            namespace = duthost.get_port_asic_instance(port).namespace
             dom_polling, err = get_db_hash_field(
                 duthost, "CONFIG_DB", "PORT", port, "dom_polling", namespace=namespace
             )
@@ -135,17 +135,17 @@ def dom_polling_disabled(
             if dom_polling == "disabled":
                 logger.debug("Port %s: DOM polling already disabled", port)
                 continue
-            err = cli_helpers.set_dom_polling(duthost, port, enable=False)
+            err = cli_helpers.set_dom_polling(duthost, port, enable=False, namespace=namespace)
             if err:
                 pytest.fail(f"Failed to disable DOM polling: {err}")
-            disabled_ports.append(port)
+            disabled_ports.append((port, namespace))
         if disabled_ports:
             logger.info("Disabled DOM polling on %d port(s); waiting %ds", len(disabled_ports), sleep_sec)
             time.sleep(sleep_sec)
         yield
     finally:
-        for port in disabled_ports:
-            err = cli_helpers.set_dom_polling(duthost, port, enable=True)
+        for port, namespace in disabled_ports:
+            err = cli_helpers.set_dom_polling(duthost, port, enable=True, namespace=namespace)
             if err:
                 logger.warning("Failed to re-enable DOM polling on %s: %s", port, err)
         if disabled_ports:

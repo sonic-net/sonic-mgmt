@@ -65,7 +65,6 @@ SFPUTIL_SHOW_FWVERSION = "sfputil show fwversion"
 SFPUTIL_SHOW_PRESENCE = "sfputil show presence"
 SHOW_TRANSCEIVER_INFO = "show interfaces transceiver info"
 SHOW_TRANSCEIVER_PRESENCE = "show interfaces transceiver presence"
-CONFIG_INTERFACE_TRANSCEIVER_DOM = "config interface transceiver dom"
 
 # Max characters of stdout/stderr echoed into a failure message.  Some sfputil
 # errors dump the full 500+ port list, which would bury the failure summary in
@@ -351,15 +350,17 @@ def get_module_cdb_abort_support_map(duthost, physical_indices):
     return results
 
 
-def set_dom_polling(duthost, port, enable):
+def set_dom_polling(duthost, port, enable, namespace=None):
     """Enable/disable DOM polling on ``port`` via the ``config`` CLI.
 
-    Runs ``config interface transceiver dom <port> (enable|disable)``.  The CLI
-    only accepts the first subport / non-breakout port.  Returns ``None`` on
-    success, or a short error string.
+    Runs ``config interface [-n <ns>] transceiver dom <port> (enable|disable)``.
+    On multi-ASIC the ``-n <namespace>`` option is mandatory and must follow
+    ``config interface``, so it cannot use the trailing ``_ns_flag`` used by
+    the ``show`` commands.  The CLI only accepts the first subport / non-breakout port.
+    Returns ``None`` on success, or a short error string.
     """
     action = "enable" if enable else "disable"
-    cmd = f"{CONFIG_INTERFACE_TRANSCEIVER_DOM} {port} {action}"
+    cmd = f"config interface{_ns_flag(namespace)} transceiver dom {port} {action}"
     result = duthost.shell(cmd, module_ignore_errors=True)
     if result.get("rc", RC_FAILURE) != 0:
         return f"{cmd} failed with rc={result.get('rc')} ({_error_detail(result)})"
