@@ -74,6 +74,11 @@ class Ecmp_Utils(object):
         if src_ip is None:
             src_ip = self.get_dut_loopback_address(duthost, minigraph_data, af)
 
+        # On cisco-8000, base topology IP-in-IP decap tunnels use pipe TTL mode.
+        # Auto-default to "pipe" so orchagent passes DECAP_TTL_MODE consistently.
+        if ttl_mode is None and duthost.facts.get("asic_type") == "cisco-8000":
+            ttl_mode = "pipe"
+
         ttl_entry = ""
         if ttl_mode:
             ttl_entry = ',\n"ttl_mode": "{}"\n'.format(ttl_mode)
