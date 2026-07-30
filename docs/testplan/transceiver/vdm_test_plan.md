@@ -46,7 +46,7 @@ Before starting tests, verify the following system conditions:
    - `vdm.json` configuration file is properly formatted and accessible
    - All required attributes are defined for the transceivers under test
    - Platform-specific settings are correctly configured
-   - VDM monitoring config is enabled for all relevant ports under test
+   - DOM polling is enabled for all relevant ports under test (`config interface transceiver dom <port> enable`) — there is no separate VDM polling knob; VDM monitoring is enabled/disabled together with DOM polling, so a standalone "VDM disabled" scenario is not possible
 
 ## Attributes
 
@@ -223,7 +223,7 @@ The following tests from the [Transceiver Onboarding Test Infrastructure and Fra
 - Ensure active firmware is gold firmware (for non-DAC CMIS transceivers)
 - Link up verification
 - LLDP verification (if enabled)
-- Ensure VDM monitoring is enabled for all relevant ports under test
+- Ensure DOM polling is enabled for all relevant ports under test (this also enables VDM monitoring)
 
 **Assumptions for the Below Tests:**
 
