@@ -193,7 +193,7 @@ def _assert_dhcp_relay_process_layout(duthost, vlan_name, backend, has_v4, has_v
             return [state for name, state in entries if name == program]
 
         expected_dhcp6relay = ["RUNNING"] if has_v6 else []
-        expected_dhcp4relay = ["RUNNING"] if backend == "sonic" and has_v4 else []
+        expected_dhcp4relay = ["RUNNING"] if backend == "sonic" else []
         expected_isc = [
             ("isc-dhcpv4-relay-{}".format(vlan_name), "RUNNING")
         ] if backend == "isc" and has_v4 else []
@@ -358,7 +358,7 @@ def test_dhcp_relay_process_layout(duthosts, rand_one_dut_hostname, dut_dhcp_rel
                 duthost, vlan_name, vlan_names, backend, expected_v4, expected_v6)
 
             relay_types = []
-            if has_v4:
+            if backend == "sonic" or has_v4:
                 relay_types.append(backend)
             if has_v6:
                 relay_types.append("v6")
@@ -386,12 +386,9 @@ def test_dhcp_relay_process_layout(duthosts, rand_one_dut_hostname, dut_dhcp_rel
             duthost, original_flag if original_flag_present else None)
         original_relay_types = []
         if original_backend == "sonic":
-            original_has_v4 = any(
-                config.get("dhcpv4_servers") for config in original_native_v4.values())
-        else:
-            original_has_v4 = any(original_isc_v4.values())
-        if original_has_v4:
-            original_relay_types.append(original_backend)
+            original_relay_types.append("sonic")
+        elif any(original_isc_v4.values()):
+            original_relay_types.append("isc")
         if any(config.get("dhcpv6_servers") for config in original_v6.values()):
             original_relay_types.append("v6")
         _restart_dhcp_relay_for_process_layout(duthost, original_relay_types)
