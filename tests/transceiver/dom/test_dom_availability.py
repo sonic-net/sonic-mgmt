@@ -1,9 +1,11 @@
 import logging
+import math
 
 import pytest
 
 from natsort import natsorted
 
+from tests.transceiver.common.db_helpers import parse_numeric
 from tests.transceiver.dom.dom_helpers import (
     build_dom_availability_plan,
     check_dom_sensor_freshness,
@@ -17,6 +19,16 @@ def _format_optional_float(value):
     return "{:.2f}".format(value) if value is not None else "not-available"
 
 
+def _format_port_failure(port, active_lanes, expected_fields, field_failures):
+    """Prefix a port's failure block with its expected shape (lanes + field count)."""
+    return "{} [{} expected field(s), media lanes {}]:\n  {}".format(
+        port,
+        len(expected_fields),
+        active_lanes or "none",
+        "\n  ".join(field_failures),
+    )
+
+
 def _validate_dom_primary_ports(duthost, dom_primary_ports, sensor_by_port, availability_plan_by_port):
     """Validate configured DOM fields and freshness for primary breakout subports."""
     failures = []
@@ -28,6 +40,7 @@ def _validate_dom_primary_ports(duthost, dom_primary_ports, sensor_by_port, avai
         sensor_data = sensor_by_port.get(port, {})
         availability_plan = availability_plan_by_port.get(port, {})
         expected_fields = availability_plan.get("expected_fields", [])
+        active_lanes = availability_plan.get("active_media_lanes", [])
         field_failures = list(availability_plan.get("errors", []))
         max_age_min = availability_plan.get("max_age_min")
 
@@ -48,7 +61,7 @@ def _validate_dom_primary_ports(duthost, dom_primary_ports, sensor_by_port, avai
                     "missing TRANSCEIVER_DOM_SENSOR data for expected field {}".format(field)
                 )
             if field_failures:
-                failures.append("{}:\n  {}".format(port, "\n  ".join(field_failures)))
+                failures.append(_format_port_failure(port, active_lanes, expected_fields, field_failures))
             continue
 
         checked_fields = 0
@@ -58,17 +71,26 @@ def _validate_dom_primary_ports(duthost, dom_primary_ports, sensor_by_port, avai
                     "expected DOM field missing in STATE_DB sensor data: {}".format(field)
                 )
                 continue
+            value = parse_numeric(sensor_data[field])
+            if value is None or not math.isfinite(value):
+                field_failures.append(
+                    "expected DOM field {} has no valid finite value (got {!r})".format(
+                        field, sensor_data[field]
+                    )
+                )
+                continue
             checked_fields += 1
 
         checked_field_count += checked_fields
 
         if field_failures:
-            failures.append("{}:\n  {}".format(port, "\n  ".join(field_failures)))
+            failures.append(_format_port_failure(port, active_lanes, expected_fields, field_failures))
             continue
 
         logger.debug(
-            "DOM availability PASS %s: expected_fields=%s freshness_age_min=%s freshness_limit_min=%s",
+            "DOM availability PASS %s: media_lanes=%s expected_fields=%s freshness_age_min=%s freshness_limit_min=%s",
             port,
+            active_lanes or "none",
             ", ".join(expected_fields) or "none",
             _format_optional_float(freshness_age_min),
             max_age_min if max_age_min is not None else "not-configured",
@@ -88,7 +110,9 @@ def _validate_dom_non_primary_ports(dom_non_primary_ports, sensor_by_port):
         if sensor_data:
             failures.append(
                 "{}:\n  non-primary breakout subport unexpectedly has "
-                "TRANSCEIVER_DOM_SENSOR data".format(port)
+                "TRANSCEIVER_DOM_SENSOR data (fields: {})".format(
+                    port, ", ".join(natsorted(sensor_data)) or "none"
+                )
             )
             continue
         logger.debug(

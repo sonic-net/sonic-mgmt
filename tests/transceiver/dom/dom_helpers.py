@@ -57,7 +57,15 @@ def _active_media_lanes(primary_port, port_attributes_dict, lport_to_first_subpo
         except (TypeError, ValueError):
             logger.debug("%s has unparsable %s %r", subport, MEDIA_LANE_MASK_KEY, mask)
 
-    return [bit + 1 for bit in range(mask_union.bit_length()) if mask_union & (1 << bit)]
+    lanes = [bit + 1 for bit in range(mask_union.bit_length()) if mask_union & (1 << bit)]
+    logger.debug(
+        "%s active media lanes %s (breakout group %s, media_lane_mask union %#x)",
+        primary_port,
+        lanes,
+        sorted(group),
+        mask_union,
+    )
+    return lanes
 
 
 def _map_operational_attribute_to_fields(attr_name, attr_value, active_media_lanes):
@@ -136,6 +144,13 @@ def build_dom_availability_plan(port_attributes_dict, dom_primary_ports, lport_t
             "errors": errors,
             "max_age_min": dom_attrs.get("data_max_age_min"),
         }
+        logger.debug(
+            "%s DOM plan: %d expected field(s), active media lanes %s, data_max_age_min=%s",
+            port,
+            len(expected_fields),
+            active_media_lanes or "none",
+            dom_attrs.get("data_max_age_min"),
+        )
 
     return plan_by_port
 
