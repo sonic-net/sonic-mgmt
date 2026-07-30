@@ -7519,6 +7519,8 @@ str43-7060x6-512-c17-u08,Ethernet508,str43-7060x6-512-c17-u10,Ethernet508,100000
 str43-7060x6-512-c17-u08,Ethernet509,str43-7060x6-512-c17-u10,Ethernet509,100000,,Access,off
 str43-7060x6-512-c17-u08,Ethernet510,str43-7060x6-512-c17-u10,Ethernet510,100000,,Access,off
 str43-7060x6-512-c17-u08,Ethernet511,str43-7060x6-512-c17-u10,Ethernet511,100000,,Access,off
+str43-7060x6-512-c17-u08,Ethernet512,str43-7060x6-512-c17-u10,Ethernet512,10000,,Access,off
+str43-7060x6-512-c17-u08,Ethernet513,str43-7060x6-512-c17-u10,Ethernet513,10000,,Access,off
 str43-7060x6-512-c17-u10,Ethernet0,str43-7060x6-512-c17-u08,Ethernet0,100000,,Access,off
 str43-7060x6-512-c17-u10,Ethernet1,str43-7060x6-512-c17-u08,Ethernet1,100000,,Access,off
 str43-7060x6-512-c17-u10,Ethernet2,str43-7060x6-512-c17-u08,Ethernet2,100000,,Access,off
@@ -8031,6 +8033,8 @@ str43-7060x6-512-c17-u10,Ethernet508,str43-7060x6-512-c17-u08,Ethernet508,100000
 str43-7060x6-512-c17-u10,Ethernet509,str43-7060x6-512-c17-u08,Ethernet509,100000,,Access,off
 str43-7060x6-512-c17-u10,Ethernet510,str43-7060x6-512-c17-u08,Ethernet510,100000,,Access,off
 str43-7060x6-512-c17-u10,Ethernet511,str43-7060x6-512-c17-u08,Ethernet511,100000,,Access,off
+str43-7060x6-512-c17-u10,Ethernet512,str43-7060x6-512-c17-u08,Ethernet512,10000,,Access,off
+str43-7060x6-512-c17-u10,Ethernet513,str43-7060x6-512-c17-u08,Ethernet513,10000,,Access,off
 str4-Nokia-7220-Th6p-1,Ethernet0,str4-Nokia-7220-Th6p-leaf-1,Ethernet0,400000,1296,Access,off
 str4-Nokia-7220-Th6p-1,Ethernet4,str4-Nokia-7220-Th6p-leaf-1,Ethernet4,400000,1297,Access,off
 str4-Nokia-7220-Th6p-1,Ethernet8,str4-Nokia-7220-Th6p-leaf-1,Ethernet8,400000,1298,Access,off

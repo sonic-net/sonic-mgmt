@@ -2,11 +2,13 @@
     "vendor_names": {
         "PINEWAVE": "PINEWAVE",
         "FINISAR CORP": "FINISAR_CORP",
+        "FINISAR CORP.": "FINISAR_CORP",
         "WAVESPLITTER": "WAVESPLITTER"
     },
     "part_numbers": {
         "T-OH8CNT-NMT": "T-OH8CNT-NMT",
         "FCBR425QE2C02-MS": "FCBR425QE2C02-MS",
+        "FTLX8571D3BCL": "FTLX8571D3BCL",
         "WST-SFP+LR-C": "WST-SFP+LR-C"
     }
 }
