@@ -144,7 +144,7 @@ The following example demonstrates a `vdm.json` file with several VDM fields —
               "max": 1.0e-3,
               "average": 1.0e-4,
               "current": 2.0e-4
-            },
+            }
           }
         }
       },
@@ -158,7 +158,7 @@ The following example demonstrates a `vdm.json` file with several VDM fields —
               "max": 1.0e-3,
               "average": 1.0e-4,
               "current": 2.0e-4
-            },
+            }
           }
         }
       }
