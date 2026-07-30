@@ -51,17 +51,17 @@ class QosBase:
         "dualtor-120", "dualtor", "dualtor-64-breakout", "dualtor-aa", "dualtor-aa-56", "dualtor-aa-64-breakout",
         "t0-120", "t0-80", "t0-backend", "t0-56-o8v48", "t0-8-lag", "t0-standalone-32", "t0-standalone-64",
         "t0-standalone-128", "t0-standalone-256", "t0-28", "t0-isolated-d16u16s1", "t0-isolated-d16u16s2",
-        "t0-isolated-d96u32s2",  "t0-isolated-d32u32s2", "t0-isolated-d32u32s2-mix",
-        "t0-88-o8c80", "t0-f2-d40u8", "t0-f2-d40u8-po2vlan"
+        "t0-isolated-d96u32s2",  "t0-isolated-d32u32s2",
+        "t0-88-o8c80", "t0-f2-d40u8"
     ]
     SUPPORTED_T1_TOPOS = ["t1", "t1-lag", "t1-64-lag", "t1-56-lag", "t1-backend", "t1-28-lag", "t1-32-lag", "t1-48-lag",
-                          "t1-f2-d10u8", "t1-isolated-d32u1s2",
+                          "t1-f2-d10u8",
                           "t1-isolated-d28u1", "t1-isolated-v6-d28u1", "t1-isolated-d56u2", "t1-isolated-v6-d56u2",
                           "t1-isolated-d56u1-lag", "t1-isolated-v6-d56u1-lag", "t1-isolated-d128", "t1-isolated-d32",
                           "t1-isolated-d448u15-lag", "t1-isolated-v6-d448u15-lag"]
     SUPPORTED_PTF_TOPOS = ['ptf32', 'ptf64']
-    SUPPORTED_ASIC_LIST = ["pac", "gr", "gr2", "gr2x", "gb", "p200", "td2", "th", "th2", "spc1", "spc2", "spc3",
-                           "spc4", "spc5", "spc6", "td3", "th3", "j2c+", "jr2", "th5", "th6", "q3d"]
+    SUPPORTED_ASIC_LIST = ["pac", "gr", "gr2", "gb", "p200", "td2", "th", "th2", "spc1", "spc2", "spc3", "spc4", "spc5",
+                           "td3", "th3", "j2c+", "jr2", "th5", "q3d"]
 
     BREAKOUT_SKUS = ['Arista-7050-QX-32S']
     LOW_SPEED_PORT_SKUS = ['Arista-7050CX3-32S-C28S4', 'Arista-7050CX3-32C-C28S4']
@@ -198,6 +198,10 @@ class QosSaiBase(QosBase):
         QosSaiBase contains collection of pytest fixtures that ready the
         testbed for QoS SAI test cases.
     """
+
+    # SONiC fanout ACL constants (used in create + teardown; keep in sync)
+    _SONIC_ACL_TABLE_TYPE = "QOS_NOISE_FILTER"
+    _SONIC_ACL_RULE_SUFFIXES = ["DENY_LLDP", "DENY_LACP"]
 
     def __computeBufferThreshold(self, dut_asic, bufferProfile):
         """
@@ -399,7 +403,6 @@ class QosSaiBase(QosBase):
                     "pool": "ingress_lossless_pool",
                     "xon": "0",
                     "xoff": "0",
-                    "xon_offset": "0",  # Required for Cisco 8000 gr2/gr2x/p200 ASICs
                     "size": "0",
                     "dynamic_th": "0",
                     "pg_q_alpha": "0",
@@ -1303,11 +1306,6 @@ class QosSaiBase(QosBase):
             pytest_assert(
                 not src_dut.sonichost.is_multi_asic, "Fixture not supported on T0 multi ASIC"
             )
-            # TH6 lt2 selects test ports from PortChannel members; detect via hwsku hostvars like dutAsic.
-            _vendor = src_dut.facts["asic_type"]
-            _hostvars = src_dut.host.options['variable_manager']._hostvars[src_dut.hostname]
-            _th6_hwskus = "{0}_th6_hwskus".format(_vendor)
-            isBroadcomTH6Device = _th6_hwskus in _hostvars and src_mgFacts["minigraph_hwsku"] in _hostvars[_th6_hwskus]
             dutLagInterfaces = []
             testPortIds[src_dut_index] = {}
             for _, lag in src_mgFacts["minigraph_portchannels"].items():
@@ -1337,8 +1335,7 @@ class QosSaiBase(QosBase):
                         testPortIds[src_dut_index][src_asic_index].union(set(dutLagInterfaces))
                 # The last port is used for up link from DUT switch
                 testPortIds[src_dut_index][src_asic_index] -= {len(src_mgFacts["minigraph_ptf_indices"]) - 1}
-            if isBroadcomTH6Device:
-                testPortIds[src_dut_index][src_asic_index] = set(dutLagInterfaces)
+
             testPortIds[src_dut_index][src_asic_index] = sorted(testPortIds[src_dut_index][src_asic_index])
             pytest_require(len(testPortIds[src_dut_index][src_asic_index]) != 0,
                            "Skip test since no ports are available for testing")
@@ -1350,8 +1347,6 @@ class QosSaiBase(QosBase):
             dualTorPortIndexes[src_dut_index][src_asic_index] = []
             if 'backend' in topo:
                 intf_map = src_mgFacts["minigraph_vlan_sub_interfaces"]
-            elif isBroadcomTH6Device:
-                intf_map = src_mgFacts["minigraph_portchannel_interfaces"]
             else:
                 intf_map = src_mgFacts["minigraph_interfaces"]
 
@@ -1360,9 +1355,6 @@ class QosSaiBase(QosBase):
                 intf = portConfig["attachto"].split(".")[0]
                 portIndex = src_mgFacts["minigraph_ptf_indices"][intf]
                 if ipaddress.ip_interface(portConfig['peer_addr']).ip.version == ip_version:
-                    if isBroadcomTH6Device:
-                        if intf in src_mgFacts["minigraph_portchannels"]:
-                            intf = src_mgFacts["minigraph_portchannels"][intf]['members'][0]
                     if portIndex in testPortIds[src_dut_index][src_asic_index]:
                         portIpMap = {'peer_addr': portConfig["peer_addr"]}
                         if 'vlan' in portConfig:
@@ -1627,8 +1619,7 @@ class QosSaiBase(QosBase):
                     get_src_dst_asic_and_duts['dst_asic']:
                 dutTopo = dutTopo + "any"
             else:
-                # Any t2 variant for gb asic has to use the gb/t2 qos params only.
-                dutTopo = dutTopo + "t2"
+                dutTopo = dutTopo + topo
         elif dutTopo + topo in qosConfigs['qos_params'].get(dutAsic, {}):
             dutTopo = dutTopo + topo
         else:
@@ -1732,9 +1723,6 @@ class QosSaiBase(QosBase):
             Returns:
                 None
         """
-        if get_src_dst_asic_and_duts['src_dut'].facts['asic_type'] == "cisco-8000":
-            yield
-            return
         all_asics = get_src_dst_asic_and_duts['all_asics']
 
         ipVersions = [{"ip_version": "ipv4"}, {"ip_version": "ipv6"}]
@@ -1884,7 +1872,7 @@ class QosSaiBase(QosBase):
 
         src_dut.shell("sudo config bgp start all")
         if src_asic != dst_asic:
-            updateFeatureState(dst_dut, "lldp", "enabled")
+            updateFeatureState(dst_asic, "lldp", "enabled")
             with SafeThreadPoolExecutor(max_workers=8) as executor:
                 for service in dst_services:
                     executor.submit(updateDockerService, dst_dut, action="start", **service)
@@ -2084,8 +2072,8 @@ class QosSaiBase(QosBase):
             if 'platform_asic' in duthost.facts and duthost.facts['platform_asic'] == 'broadcom-dnx':
                 logger.info("THDI_BUFFER_CELL_LIMIT_SP is not valid for broadcom DNX - ignore dynamic buffer config")
                 qosParams = qosConfigs['qos_params'][dutAsic][dutTopo]
-            elif dutAsic in ['th5', 'th6']:
-                logger.info("Generator script not implemented")
+            elif dutAsic == 'th5':
+                logger.info("Generator script not implemented for TH5")
                 qosParams = qosConfigs['qos_params'][dutAsic][dutTopo]
             else:
                 bufferConfig = dutBufferConfig(duthost, dut_asic)
@@ -2425,7 +2413,6 @@ class QosSaiBase(QosBase):
                 executor.submit(
                     config_reload,
                     duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True,
-                    wait_for_bgp=True,
                 )
 
     @pytest.fixture(scope='module', autouse=True)
@@ -3198,7 +3185,7 @@ class QosSaiBase(QosBase):
             return
 
         if ('platform_asic' in dutTestParams["basicParams"] and
-                dutTestParams["basicParams"]["platform_asic"] in ["broadcom-dnx", "broadcom"]):
+                dutTestParams["basicParams"]["platform_asic"] == "broadcom-dnx"):
             dst_dut = get_src_dst_asic_and_duts['dst_dut']
             dst_mgfacts = dst_dut.get_extended_minigraph_facts(tbinfo)
             dst_interfaces = []
@@ -3222,14 +3209,7 @@ class QosSaiBase(QosBase):
                 neighbor_lag_intfs = [vm_neighbors[po_intf]['port'] for po_intf in po_interfaces]
                 neigh_intf = next(iter(po_interfaces.keys()))
                 peer_device = vm_neighbors[neigh_intf]['name']
-                peer_info = nbrhosts[peer_device]
-                vm_host = peer_info['host']
-                if peer_info['is_multi_vrf_peer']:
-                    multi_vrf_data = nbrhosts[peer_device]['multi_vrf_data']
-                    orig_port = multi_vrf_data['orig_intf_map'][neighbor_lag_intfs[0]]
-                    logger.info("original port: {}".format(orig_port))
-                    neighbor_lag_intfs = []
-                    neighbor_lag_intfs.append(orig_port)
+                vm_host = nbrhosts[peer_device]['host']
                 vm_host_neighbor_lag_members[vm_host] = []
                 num = 600
                 for neighbor_lag_member in neighbor_lag_intfs:
@@ -3241,7 +3221,7 @@ class QosSaiBase(QosBase):
 
         yield
         if ('platform_asic' in dutTestParams["basicParams"] and
-                dutTestParams["basicParams"]["platform_asic"] in ["broadcom-dnx", "broadcom"]):
+                dutTestParams["basicParams"]["platform_asic"] == "broadcom-dnx"):
             for vm_host, neighbor_lag_intfs in vm_host_neighbor_lag_members.items():
                 for neighbor_lag_member in neighbor_lag_intfs:
                     logger.info(
@@ -3413,15 +3393,15 @@ class QosSaiBase(QosBase):
                 logger.info("permit_only_test_traffic_on_fanout: "
                             "no LAGs found, skipping LACP steps")
 
-            # --- Step 3: Per-fanout dispatch (LLDP suppression + ACL where supported) ---
+            # --- Step 3: Per-fanout dispatch (LLDP suppression + ACL) ---
             # EOS path: egress MAC ACL whitelist (permit IP 0x0800 / IPv6 0x86DD /
             # ARP 0x0806; deny all others including LLDP 0x88CC, LACP 0x8809) plus
             # `no lldp transmit/receive` per interface.
-            # SONiC path: stop LLDP container only — see _apply_sonic_filter for
-            # limitations and tracked issue #24236.
+            # SONiC path: stop LLDP container + ingress ETHER_TYPE ACL on
+            # VM-facing ports (deny LLDP/LACP, permit all else).
             # PFC (0x8808) is DUT-originated and travels DUT→fanout; the EOS
-            # egress ACL does not affect it. SONiC has no port-side filtering
-            # applied here, so PFC is naturally unaffected.
+            # egress ACL does not affect it. SONiC ingress ACL is on
+            # VM-facing ports (opposite direction), so PFC is unaffected.
             dev_conn = conn_graph_facts.get('device_conn', {})
             # Restrict to only the source DUT's connections to avoid touching
             # fanout ports of unrelated DUTs in multi-DUT topologies.
@@ -3445,8 +3425,9 @@ class QosSaiBase(QosBase):
                         fanout_restore_list, acl_created_fanouts)
                 elif fanout_os == 'sonic':
                     self._apply_sonic_filter(
-                        fanout, fanout_name, fanout_port,
-                        fanout_restore_list, sonic_lldp_stopped)
+                        fanout, fanout_name, fanout_port, acl_name,
+                        fanout_restore_list, acl_created_fanouts,
+                        sonic_lldp_stopped, src_dut_conn)
                 else:
                     logger.warning(
                         "permit_only_test_traffic_on_fanout: "
@@ -3466,11 +3447,13 @@ class QosSaiBase(QosBase):
 
         eos_count = sum(1 for e in fanout_restore_list if e[0] == 'eos')
         sonic_count = sum(1 for e in fanout_restore_list if e[0] == 'sonic')
+        sonic_acl_count = sum(1 for v in acl_created_fanouts.values()
+                              if v == 'sonic')
         logger.info(
             "permit_only_test_traffic_on_fanout: setup complete — "
             "EOS=%d ports (egress MAC ACL), SONiC=%d ports "
-            "(LLDP-stop on %d fanouts), %d LACP timers set",
-            eos_count, sonic_count, len(sonic_lldp_stopped),
+            "(LLDP-stop + ingress ACL on %d fanouts), %d LACP timers set",
+            eos_count, sonic_count, sonic_acl_count,
             len(eos_restore_list))
 
         yield
@@ -3523,82 +3506,238 @@ class QosSaiBase(QosBase):
                 fanout_name, fanout_port, str(e))
 
     def _apply_sonic_filter(self, fanout, fanout_name, fanout_port,
-                            fanout_restore_list, sonic_lldp_stopped):
-        """Apply partial filter on SONiC fanout: stop LLDP container only.
+                            acl_name, fanout_restore_list,
+                            acl_created_fanouts, sonic_lldp_stopped,
+                            src_dut_conn):
+        """Apply ingress ETHER_TYPE ACL + LLDP stop on SONiC fanout.
 
-        Why partial: Broadcom SONiC does not support egress ACL, so we
-        cannot replicate the EOS "egress on DUT-facing port" approach.
-        Applying ingress ACL on the DUT-facing port would filter the wrong
-        direction (DUT->fanout, blocking PFC). Applying ingress ACL on
-        VM-facing ports requires multi-tier topology discovery that is
-        out of scope for this PR.
+        Extends #24317 (LLDP-stop only) with hardware-level ACL filtering
+        on VM-facing ports, bringing SONiC fanout to feature parity with
+        the EOS egress MAC ACL path (#24212).
 
-        What this DOES cover:
-        - Fanout-self originated LLDP, but only when the LLDP container is
-          running before the test. Fanouts where LLDP is already stopped
-          (e.g. Cisco 8101) are left untouched and are NOT restarted on
-          teardown, so the fixture never changes their LLDP state.
+        ACL strategy: blacklist (deny LLDP 0x88CC + LACP 0x8809, permit
+        everything else). Whitelist is not possible because Broadcom SAI
+        rejects a catch-all DENY rule when ACL_TABLE_TYPE declares
+        MATCHES=[ETHER_TYPE] — a rule without ETHER_TYPE is invalid.
 
-        What this does NOT cover (limitation, tracked in #24236):
-        - VM-originated LLDP/LACP that transits through the SONiC fanout
-
-        Mitigations for the uncovered cases come from the existing
-        DUT-side defenses already applied by this fixture and stopServices:
-        - DUT teamd lacpd stopped (no LAG flap from blocked LACP)
-        - EOS neighbor LACP multiplier 600 (no EOS-side LAG flap)
-        - DUT LLDP/BGP/radvd stopped by stopServices fixture
+        Direction: ingress on VM-facing ports. Egress ACL is unsupported
+        on most SONiC ASIC platforms, and ingress on DUT-facing ports
+        would block DUT-originated PFC (0x8808).
         """
-        # Stop the LLDP container only when it is *currently running*, and
-        # only restart in teardown the fanouts we actually stopped (tracked
-        # via sonic_lldp_stopped). Rationale: on some SONiC fanouts (e.g.
-        # Cisco 8101) LLDP is intentionally kept stopped/disabled; a symmetric
-        # "docker start" in teardown would wrongly turn it back on. Gating on
-        # the live running state means we (a) never start a container that was
-        # already down, and (b) leave such fanouts untouched. On fanouts where
-        # LLDP runs by default (e.g. Broadcom SONiC) behaviour is unchanged:
-        # it is stopped for the test and restored afterwards.
+        # Stop LLDP container once per fanout (covers fanout-self LLDP).
         if fanout_name not in sonic_lldp_stopped:
             try:
-                running = fanout.host.command(
-                    "docker ps -q --filter name=lldp --filter status=running",
-                    module_ignore_errors=True)
-                lldp_running = (not running.get('failed', False)
-                                and running.get('rc', 0) == 0
-                                and bool((running.get('stdout') or '').strip()))
-                if not lldp_running:
-                    logger.info(
-                        "permit_only_test_traffic_on_fanout: lldp already "
-                        "stopped on SONiC %s; leaving fanout untouched",
-                        fanout_name)
+                result = fanout.host.command(
+                    "docker stop lldp", module_ignore_errors=True)
+                if result.get('failed', False) or result.get('rc', 0) != 0:
+                    logger.warning(
+                        "permit_only_test_traffic_on_fanout: "
+                        "docker stop lldp on SONiC %s returned rc=%s, "
+                        "output=%s", fanout_name, result.get('rc', '?'),
+                        result.get('stdout', result.get('stderr', '')))
                 else:
-                    result = fanout.host.command(
-                        "docker stop lldp", module_ignore_errors=True)
-                    if result.get('failed', False) or result.get('rc', 0) != 0:
-                        logger.warning(
-                            "permit_only_test_traffic_on_fanout: "
-                            "docker stop lldp on SONiC %s returned rc=%s, "
-                            "output=%s", fanout_name, result.get('rc', '?'),
-                            result.get('stdout', result.get('stderr', '')))
-                    else:
-                        sonic_lldp_stopped.add(fanout_name)
-                        logger.info(
-                            "permit_only_test_traffic_on_fanout: stopped lldp "
-                            "container on SONiC %s", fanout_name)
+                    logger.info(
+                        "permit_only_test_traffic_on_fanout: stopped lldp "
+                        "container on SONiC %s", fanout_name)
             except Exception as e:
                 logger.warning(
                     "permit_only_test_traffic_on_fanout: "
                     "failed to stop lldp on SONiC %s: %s",
                     fanout_name, str(e))
+            # Mark as handled regardless of outcome so we don't retry
+            # and so teardown will attempt restart
+            sonic_lldp_stopped.add(fanout_name)
 
-        # Track this port for restore symmetry. The actual SONiC defense is
-        # one-shot per fanout (LLDP container stop above); this per-port
-        # entry is bookkeeping for log-symmetry with the EOS path.
+        # Create ACL once per fanout (idempotent guard, same as EOS path)
+        if fanout_name not in acl_created_fanouts:
+            try:
+                # Discover VM-facing ports = all fanout ports MINUS
+                # DUT-facing ports (from conn_graph_facts)
+                all_ports = self._sonic_fanout_list_ports(
+                    fanout, fanout_name)
+                dut_facing = {str(rec['peerport'])
+                              for rec in src_dut_conn.values()
+                              if str(rec['peerdevice']) == fanout_name}
+                vm_facing = [p for p in all_ports if p not in dut_facing]
+                if not vm_facing:
+                    logger.warning(
+                        "permit_only_test_traffic_on_fanout: "
+                        "no VM-facing ports on SONiC %s (all=%d, "
+                        "dut_facing=%d); skipping ACL",
+                        fanout_name, len(all_ports), len(dut_facing))
+                else:
+                    self._create_sonic_ethertype_acl(
+                        fanout, fanout_name, vm_facing, acl_name)
+                    acl_created_fanouts[fanout_name] = 'sonic'
+                    logger.info(
+                        "permit_only_test_traffic_on_fanout: "
+                        "ingress ACL applied to %d VM-facing ports on "
+                        "SONiC %s", len(vm_facing), fanout_name)
+            except Exception as e:
+                logger.warning(
+                    "permit_only_test_traffic_on_fanout: "
+                    "ACL config failed on SONiC %s: %s",
+                    fanout_name, str(e))
+
         fanout_restore_list.append(
             ('sonic', fanout, fanout_name, fanout_port))
-        logger.debug(
-            "permit_only_test_traffic_on_fanout: SONiC fanout %s associated "
-            "DUT port %s recorded; LLDP-stop already applied at fanout level",
-            fanout_name, fanout_port)
+
+    def _sonic_fanout_list_ports(self, fanout, fanout_name):
+        """Return list of port names (e.g. ['Ethernet0', ...]) on a SONiC
+        fanout by querying CONFIG_DB PORT table keys."""
+        try:
+            result = fanout.host.command(
+                "sonic-db-cli CONFIG_DB keys 'PORT|*'",
+                module_ignore_errors=True)
+            stdout = result.get('stdout', '') or ''
+            ports = []
+            for line in stdout.strip().split('\n'):
+                line = line.strip()
+                if line.startswith('PORT|'):
+                    ports.append(line.split('|', 1)[1])
+            return ports
+        except Exception as e:
+            logger.warning(
+                "permit_only_test_traffic_on_fanout: "
+                "failed to list ports on SONiC %s: %s",
+                fanout_name, str(e))
+            return []
+
+    def _create_sonic_ethertype_acl(self, fanout, fanout_name, ports,
+                                    acl_name):
+        """Push ACL_TABLE_TYPE + ACL_TABLE + ACL_RULEs to a SONiC fanout
+        via sonic-cfggen --write-to-db.
+
+        ACL_TABLE_TYPE must include COUNTER in ACTIONS, otherwise
+        orchagent's automatic counter attach makes SAI reject all rules.
+        """
+        table_type = self._SONIC_ACL_TABLE_TYPE
+        config = {
+            "ACL_TABLE_TYPE": {
+                table_type: {
+                    "MATCHES": ["ETHER_TYPE"],
+                    "ACTIONS": ["PACKET_ACTION", "COUNTER"],
+                    "BIND_POINTS": ["PORT"],
+                }
+            },
+            "ACL_TABLE": {
+                acl_name: {
+                    "type": table_type,
+                    "stage": "ingress",
+                    "ports@": ",".join(ports),
+                    "policy_desc": "QoS test noise filter",
+                }
+            },
+            "ACL_RULE": {
+                "{}|DENY_LLDP".format(acl_name): {
+                    "ETHER_TYPE": "35020",   # 0x88CC
+                    "PACKET_ACTION": "DROP",
+                    "PRIORITY": "100",
+                },
+                "{}|DENY_LACP".format(acl_name): {
+                    "ETHER_TYPE": "34825",   # 0x8809
+                    "PACKET_ACTION": "DROP",
+                    "PRIORITY": "99",
+                },
+            },
+        }
+        json_str = json.dumps(config)
+        remote_path = "/tmp/{}.json".format(acl_name)
+        fanout.host.copy(content=json_str, dest=remote_path)
+        result = fanout.host.command(
+            "sonic-cfggen -j {} --write-to-db".format(remote_path),
+            module_ignore_errors=True)
+        if result.get('failed', False) or result.get('rc', 0) != 0:
+            # Clean up temp file on failure
+            fanout.host.command(
+                'rm -f {}'.format(remote_path),
+                module_ignore_errors=True)
+            raise RuntimeError(
+                "sonic-cfggen --write-to-db on {} failed: rc={} stderr={}".format(
+                    fanout_name, result.get('rc', '?'),
+                    result.get('stderr', '')))
+
+        # Wait for orchagent to process the ACL config.  Poll CONFIG_DB
+        # key existence until the table appears, up to ~10s.
+        self._wait_sonic_acl_ready(fanout, fanout_name, acl_name,
+                                   present=True)
+
+    def _wait_sonic_acl_ready(self, fanout, fanout_name, acl_name,
+                              present=True, timeout=10, poll_interval=1):
+        """Poll until SONiC ACL table key is present (or absent) in
+        CONFIG_DB.  Returns True on convergence, False on timeout
+        (no raise).
+
+        Uses ``sonic-db-cli CONFIG_DB exists`` instead of
+        ``show acl table | grep`` because the Click-based SONiC CLI
+        does not support shell pipe operators.
+        """
+        # Readiness polling checks CONFIG_DB (not ASIC_DB); a present key
+        # here reflects intended config, which is sufficient for this fixture.
+        deadline = time.time() + timeout
+        check_cmd = (
+            "sonic-db-cli CONFIG_DB exists 'ACL_TABLE|{}'".format(acl_name))
+        while time.time() < deadline:
+            try:
+                result = fanout.host.command(
+                    check_cmd, module_ignore_errors=True)
+                stdout = (result.get('stdout', '') or '').strip()
+                # sonic-db-cli exists returns 1 when key exists, 0 otherwise
+                key_exists = stdout == '1'
+                if key_exists == present:
+                    return True
+            except Exception as e:
+                # Transient errors (e.g. fanout SSH hiccup) are non-fatal here:
+                # we retry until timeout, then fall through to the warning
+                # below. Log at debug so real issues remain diagnosable.
+                logger.debug(
+                    "permit_only_test_traffic_on_fanout: ACL readiness check "
+                    "for %s on %s failed transiently, will retry: %s",
+                    acl_name, fanout_name, e)
+            time.sleep(poll_interval)
+        logger.warning(
+            "permit_only_test_traffic_on_fanout: ACL %s on SONiC %s did "
+            "not converge to %s state within %ds; proceeding",
+            acl_name, fanout_name,
+            "present" if present else "absent", timeout)
+        return False
+
+    def _log_sonic_acl_counters(self, fanout, fanout_name, acl_name):
+        """Log ACL packet/byte counters on a SONiC fanout.
+
+        Called before teardown so the test report shows whether the
+        ACL actually dropped noise traffic (non-zero counters prove
+        the DENY rules are programmed into the ASIC and blocking).
+        """
+        try:
+            result = fanout.host.command(
+                "aclshow -a", module_ignore_errors=True)
+            stdout = (result.get('stdout', '') or '').strip()
+            if not stdout:
+                logger.warning(
+                    "permit_only_test_traffic_on_fanout: aclshow returned "
+                    "empty output on SONiC %s", fanout_name)
+                return
+            # Extract header + lines matching our ACL name
+            lines = []
+            for line in stdout.split('\n'):
+                if line.startswith('RULE') or acl_name in line:
+                    lines.append(line)
+            if len(lines) <= 1:
+                # Only header or no matching lines
+                logger.warning(
+                    "permit_only_test_traffic_on_fanout: ACL %s has no "
+                    "counter entries on SONiC %s — ACL may not have "
+                    "been programmed to ASIC", acl_name, fanout_name)
+            else:
+                logger.info(
+                    "permit_only_test_traffic_on_fanout: ACL drop "
+                    "counters on SONiC %s:\n%s",
+                    fanout_name, '\n'.join(lines))
+        except Exception as e:
+            logger.warning(
+                "permit_only_test_traffic_on_fanout: failed to read ACL "
+                "counters on SONiC %s: %s", fanout_name, str(e))
 
     def _teardown_test_traffic_filter(
             self, src_dut, teamd_docker, lacpd_stopped,
@@ -3647,6 +3786,13 @@ class QosSaiBase(QosBase):
                     "failed to restore %s %s: %s",
                     fanout_name, fanout_port, str(e))
 
+        # Log ACL drop counters on SONiC fanouts before deletion so the
+        # test report shows whether the ACL actually blocked noise.
+        for fanout_name, fanout_os in acl_created_fanouts.items():
+            if fanout_os == 'sonic':
+                self._log_sonic_acl_counters(
+                    fanouthosts[fanout_name], fanout_name, acl_name)
+
         # Delete ACL definition once per fanout (dispatch by recorded os)
         for fanout_name, fanout_os in acl_created_fanouts.items():
             try:
@@ -3654,7 +3800,31 @@ class QosSaiBase(QosBase):
                 if fanout_os == 'eos':
                     fanout.host.eos_config(
                         lines=['no mac access-list %s' % acl_name])
-                # SONiC: no ACL was created in this version (see _apply_sonic_filter)
+                elif fanout_os == 'sonic':
+                    # Sequential delete: rules first, then table, then
+                    # type. Sequencing helps SONiC orchagent process
+                    # state transitions cleanly.
+                    table_type = self._SONIC_ACL_TABLE_TYPE
+                    for suffix in self._SONIC_ACL_RULE_SUFFIXES:
+                        rule_key = "ACL_RULE|{0}|{1}".format(
+                            acl_name, suffix)
+                        fanout.host.command(
+                            'sonic-db-cli CONFIG_DB del "{}"'.format(rule_key),
+                            module_ignore_errors=True)
+                    fanout.host.command(
+                        'sonic-db-cli CONFIG_DB del "ACL_TABLE|{}"'.format(
+                            acl_name),
+                        module_ignore_errors=True)
+                    self._wait_sonic_acl_ready(
+                        fanout, fanout_name, acl_name, present=False)
+                    fanout.host.command(
+                        'sonic-db-cli CONFIG_DB del "ACL_TABLE_TYPE|{}"'.format(
+                            table_type),
+                        module_ignore_errors=True)
+                    # Clean up temp JSON file
+                    fanout.host.command(
+                        'rm -f /tmp/{}.json'.format(acl_name),
+                        module_ignore_errors=True)
             except Exception as e:
                 logger.warning(
                     "permit_only_test_traffic_on_fanout: "
@@ -3826,7 +3996,6 @@ def set_queue_pir(interface, queue, rate):
     @pytest.fixture(scope='class', autouse=True)
     def is_supported_per_dir(self, get_src_dst_asic_and_duts, tbinfo):  # noqa F811
         supported_per_dir_platform = ["Mellanox-SN5640-C448O16", "Mellanox-SN5640-C512S2",
-                                      "Mellanox-SN5640-C508O1X2",
                                       "Mellanox-SN5600-C224O8", "Mellanox-SN5600-C256S1",
                                       "Arista-7060X6-16PE-384C-B-O128S2"]
         is_supported_per_dir = \
@@ -3961,7 +4130,7 @@ def clear_pg_watermark(interface):
         src_asic = get_src_dst_asic_and_duts['src_asic']
         src_index = src_asic.asic_index
 
-        if src_dut.facts['asic_type'] != "cisco-8000" or dutConfig["dutAsic"] not in ["gr2", "gr2x"]:
+        if src_dut.facts['asic_type'] != "cisco-8000" or dutConfig["dutAsic"] != "gr2":
             yield
             return
 
@@ -4010,9 +4179,6 @@ def clear_pg_watermark(interface):
         By default WRED_ECN_QUEUE and WRED_ECN_PORT are disabled for polling.
         Enable flexcounter groups WRED_ECN_QUEUE and WRED_ECN_PORT using counterpoll CLI
         """
-        if get_src_dst_asic_and_duts['all_duts'][0].facts["asic_type"] == 'cisco-8000':
-            yield
-            return
         for duthost in get_src_dst_asic_and_duts['all_duts']:
             for dut_asic in duthost.asics:
                 try:
