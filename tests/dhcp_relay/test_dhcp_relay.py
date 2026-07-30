@@ -165,14 +165,8 @@ def _assert_dhcp_relay_server_state(duthost, vlan_name, vlan_names, backend, v4_
 
 
 def _restart_dhcp_relay_for_process_layout(duthost, relay_types):
-    """Restart the container when no relay agent exists or use the shared readiness helper."""
-    if relay_types:
-        restart_dhcp_service(duthost, relay_types)
-        return
-
-    duthost.shell("systemctl reset-failed dhcp_relay")
-    duthost.shell("systemctl restart dhcp_relay")
-    duthost.shell("systemctl reset-failed dhcp_relay")
+    """Restart the container and wait for the requested or empty ISC layout."""
+    restart_dhcp_service(duthost, relay_types or ["isc"])
 
 
 def _assert_dhcp_relay_process_layout(duthost, vlan_name, backend, has_v4, has_v6):
@@ -301,9 +295,11 @@ def test_dhcp_relay_process_layout(duthosts, rand_one_dut_hostname, dut_dhcp_rel
     match = re.fullmatch(r"Vlan(\d+)", vlan_name)
     pytest_assert(match, "Unexpected VLAN interface name {}".format(vlan_name))
 
-    v4_servers = list(selected_relay["downlink_vlan_iface"]["dhcp_server_addrs"])
+    v4_servers = [
+        server for server in selected_relay["downlink_vlan_iface"]["dhcp_server_addrs"] if server
+    ]
     minigraph_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    v6_servers = list(minigraph_facts.get("dhcpv6_servers", []))
+    v6_servers = [server for server in minigraph_facts.get("dhcpv6_servers", []) if server]
     pytest_assert(v4_servers, "No DHCPv4 server is available for {}".format(vlan_name))
     pytest_assert(v6_servers, "No DHCPv6 server is available for {}".format(vlan_name))
 
