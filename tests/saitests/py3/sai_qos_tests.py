@@ -4996,7 +4996,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
             print(diff_list, file=sys.stderr)
 
             for dscp, diff in diff_list:
-                if platform_asic and platform_asic == "broadcom-dnx":
+                if platform_asic and platform_asic == "broadcom-dnx" or "broadcom":
                     logging.info(
                         "On J2C+ can't control how packets are dequeued (CS00012272267) - so ignoring diff check now")
                 elif not dry_run:
@@ -5161,6 +5161,9 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
                 # send packets short of triggering egress drop
                 send_packet(self, src_port_id, pkt, pkts_num_egr_mem +
                             pkts_num_leak_out + pkts_num_trig_egr_drp - 1 - margin)
+            elif platform_asic and platform_asic == "broadcom":
+                send_packet(self, src_port_id, pkt, pkts_num_leak_out +
+                            pkts_num_egr_mem + pkts_num_trig_egr_drp - 1 - margin)
             else:
                 if check_leackout_compensation_support(asic_type, hwsku):
                     pkts_num_leak_out = 0
