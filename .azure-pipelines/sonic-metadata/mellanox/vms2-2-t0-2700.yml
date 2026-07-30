@@ -145,12 +145,12 @@ parameters:
 
 - name: RUN_DOUBLE_UPGRADE
   type: boolean
-  default: false
+  default: true
   displayName: "Run Double Upgrade Test (A -> B -> B)"
 
 - name: RUN_MULTI_HOP_UPGRADE
   type: boolean
-  default: false
+  default: true
   displayName: "Run Multi-Hop Upgrade Test"
 
 - name: RUN_WARMBOOT_DATA_CONSISTENCY
