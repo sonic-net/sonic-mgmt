@@ -83,7 +83,7 @@ class SSHConsoleConn(BaseConsoleConn):
         """
         return super(SSHConsoleConn, self)._try_session_preparation(force_data=False)
 
-    def _read_initial_console(self, max_reads=20, delay_factor=1):
+    def _read_initial_console(self, max_reads=6, delay_factor=1):
         """Passively read the initial console output WITHOUT writing anything.
 
         session_preparation() must inspect the first console output (a console
@@ -97,6 +97,16 @@ class SSHConsoleConn(BaseConsoleConn):
         the DUT before the bootloader guards below run. It follows the same
         passive "read first, classify, only then maybe nudge" idiom used by
         _recover_to_login_prompt() and _is_at_sonic_prompt().
+
+        The wait is deliberately short (max_reads*0.5s). Because we suppress
+        netmiko's priming CR (see _try_session_preparation), a genuinely SILENT
+        console now returns nothing here; stopping early is safe because a silent
+        console is by definition NOT in an active autoboot window (autoboot prints
+        a continuous countdown that arrives within the first read or two) and the
+        console-server "port is in use" notice is sent immediately on connect.
+        Bounding the wait keeps session_preparation() well inside the reboot
+        console-log collector's ~10s budget (reboot.py collect_console_log); the
+        later guarded steps elicit the login prompt when needed.
         """
         delay_factor = max(self.select_delay_factor(delay_factor), 1)
         output = ""

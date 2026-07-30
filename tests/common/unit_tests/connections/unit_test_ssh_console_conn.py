@@ -422,3 +422,27 @@ def test_session_preparation_direct_path_defers_on_bootloader():
     conn.login_stage_2.assert_called_once()
     conn.session_preparation_finalise.assert_not_called()
     assert getattr(conn, "_bootloader_deferred", False) is True
+
+
+def test_read_initial_console_bounded_on_silent_console():
+    """Fix D (regression guard for Fix C): suppressing netmiko's priming CR means
+    a genuinely SILENT console returns no data here. The passive read must be
+    BOUNDED to a few reads so session_preparation() stays well inside reboot.py
+    collect_console_log()'s ~10s budget -- otherwise the console-log collection
+    during reboot would time out and silently produce no log. With the default
+    (0.5s per empty read) a bound of <=6 keeps the worst case around 3s; the old
+    unbounded value (20) burned the entire 10s budget on a silent console."""
+    conn = SSHConsoleConn.__new__(SSHConsoleConn)
+    conn.logger = mock.MagicMock()
+    conn.select_delay_factor = mock.MagicMock(return_value=1)
+    conn.write_channel = mock.MagicMock()
+    conn.read_channel = mock.MagicMock(return_value="")
+
+    with mock.patch("tests.common.connections.ssh_console_conn.time.sleep") as slept:
+        out = SSHConsoleConn._read_initial_console(conn)
+
+    assert out == ""
+    conn.write_channel.assert_not_called()          # still never writes a byte
+    assert conn.read_channel.call_count <= 6, \
+        "silent-console read must be bounded (<=6) to fit collect_console_log's 10s budget"
+    assert slept.call_count <= 6
