@@ -134,13 +134,13 @@ def _restore_interface_admin_status(duthost, target_dir):
 
     for link in tor_data["links"]:
         interface = link["local"]["sonic_name"]
-            port_config = target_ports.get(interface)
-            assert isinstance(port_config, dict), \
-                "Missing PORT configuration for interface {}".format(interface)
+        port_config = target_ports.get(interface)
+        assert isinstance(port_config, dict), \
+            "Missing PORT configuration for interface {}".format(interface)
 
-            admin_status = port_config.get("admin_status", "down")
-            assert admin_status in ("up", "down"), \
-                "Unexpected admin_status '{}' for interface {}".format(admin_status, interface)
+        admin_status = port_config.get("admin_status", "down")
+        assert admin_status in ("up", "down"), \
+            "Unexpected admin_status '{}' for interface {}".format(admin_status, interface)
 
         action = "startup" if admin_status == "up" else "shutdown"
         pause = PAUSE_INTF_UP if admin_status == "up" else PAUSE_INTF_DOWN
