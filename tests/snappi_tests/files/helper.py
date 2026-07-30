@@ -7,14 +7,11 @@ from tests.common.broadcom_data import is_broadcom_device
 from tests.common.helpers.assertions import pytest_require
 from tests.common.cisco_data import is_cisco_device
 from tests.common.nokia_data import is_nokia_device
-from tests.snappi_tests.variables import MULTIDUT_PORT_INFO, MULTIDUT_TESTBED
 from tests.common.config_reload import config_reload
 from tests.common.reboot import reboot
 from tests.common.helpers.parallel import parallel_run
 from tests.common.utilities import wait_until
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
-from tests.common.snappi_tests.snappi_fixtures import get_snappi_ports_for_rdma, \
-    snappi_dut_base_config, is_snappi_multidut
 from tests.common.snappi_tests.qos_fixtures import reapply_pfcwd, get_pfcwd_config
 from tests.common.snappi_tests.common_helpers import \
         stop_pfcwd, disable_packet_aging, enable_packet_aging
@@ -119,72 +116,11 @@ def get_number_of_streams(duthost, tx_ports, rx_ports):
     return no_of_test_streams
 
 
-@pytest.fixture(autouse=True, params=MULTIDUT_PORT_INFO[MULTIDUT_TESTBED])
-def multidut_port_info(request):
-    yield request.param
-
-
-@pytest.fixture(autouse=True)
-def setup_ports_and_dut(
-        duthosts,
-        snappi_api,
-        get_snappi_ports,
-        multidut_port_info,
-        number_of_tx_rx_ports):
-    for testbed_subtype, rdma_ports in multidut_port_info.items():
-        tx_port_count, rx_port_count = number_of_tx_rx_ports
-        if len(get_snappi_ports) < tx_port_count + rx_port_count:
-            pytest.skip(
-                "Need Minimum of 2 ports defined in ansible/files/*links.csv"
-                " file, got:{}".format(len(get_snappi_ports)))
-
-        if len(rdma_ports['tx_ports']) < tx_port_count:
-            pytest.skip(
-                "MULTIDUT_PORT_INFO doesn't have the required Tx ports defined for "
-                "testbed {}, subtype {} in variables.py".format(
-                    MULTIDUT_TESTBED, testbed_subtype))
-
-        if len(rdma_ports['rx_ports']) < rx_port_count:
-            pytest.skip(
-                "MULTIDUT_PORT_INFO doesn't have the required Rx ports defined for "
-                "testbed {}, subtype {} in variables.py".format(
-                    MULTIDUT_TESTBED, testbed_subtype))
-        logger.info('Running test for testbed subtype: {}'.format(testbed_subtype))
-        if is_snappi_multidut(duthosts):
-            snappi_ports = get_snappi_ports_for_rdma(
-                get_snappi_ports,
-                rdma_ports,
-                tx_port_count,
-                rx_port_count,
-                MULTIDUT_TESTBED)
-        else:
-            snappi_ports = get_snappi_ports
-        testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(
-            duthosts, snappi_ports, snappi_api, setup=True)
-
-    if len(port_config_list) < 2:
-        pytest.skip("This test requires at least 2 ports")
-    yield (testbed_config, port_config_list, snappi_ports)
-
-    snappi_dut_base_config(duthosts, snappi_ports, snappi_api, setup=False)
-
-
 @pytest.fixture(params=['warm', 'cold', 'fast'])
-def reboot_duts(request, localhost):
-    """
-    Uses tgen_port_info if the test requested it, otherwise setup_ports_and_dut.
-    Once setup_ports_and_dut is removed, the code will be simplified to use tgen_port_info.
-    The code to be used the:
-    def reboot_duts(tgen_port_info, localhost, request):
-    """
+def reboot_duts(tgen_port_info, localhost, request):
     reboot_type = request.param
 
-    # Check for fixture used to generate port_info.
-    if 'tgen_port_info' in request.node.fixturenames:
-        port_info = request.getfixturevalue('tgen_port_info')
-    else:
-        port_info = request.getfixturevalue('setup_ports_and_dut')
-    _, _, snappi_ports = port_info
+    _, _, snappi_ports = tgen_port_info
 
     skip_warm_reboot(snappi_ports[0]['duthost'], reboot_type)
     skip_warm_reboot(snappi_ports[1]['duthost'], reboot_type)
@@ -217,8 +153,8 @@ def reboot_duts(request, localhost):
 
 
 @pytest.fixture(autouse=True)
-def enable_debug_shell(setup_ports_and_dut):  # noqa: F811
-    _, _, snappi_ports = setup_ports_and_dut
+def enable_debug_shell(tgen_port_info):  # noqa: F811
+    _, _, snappi_ports = tgen_port_info
     rx_duthost = snappi_ports[0]['duthost']
 
     if is_cisco_device(rx_duthost):
@@ -280,7 +216,7 @@ def get_fabric_mapping(duthost, asic=""):
     if asic and asic.namespace:
         asic_namespace = " --namespace {}".format(asic.namespace)
     else:
-        pytest.skip("This test is only for multiAsic Platforms.")
+        pytest.skip(f"This test is only for multiAsic Platforms. Cannot run on:{duthost}")
 
     cmd = "show platform npu bp-interface-map" + asic_namespace
     result = duthost.shell(cmd)['stdout']
