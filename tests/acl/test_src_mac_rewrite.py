@@ -919,7 +919,7 @@ def test_partial_match(setUp):
 
         # Case 2: Source IP matches but VNI does not match
         logger.info("=== Case 2: IP matches but VNI does not ===")
-        setup_multi_vni_acl_rule(duthost, "202.2.2.100/32", str(VXLAN_VNI_3), rewrite_mac_2, rule_name_2, "1002")
+        setup_multi_vni_acl_rule(duthost, "202.2.2.100/32", str(VXLAN_VNI_3), rewrite_mac_2, rule_name_2, "1001")
         _send_and_verify_no_mac_rewrite(
             ptfadapter, ptf_port_1, ptf_port_2, duthost,
             "202.2.2.100", VNET_PRIMARY_ROUTE_IP, original_inner_src_mac,
@@ -1081,9 +1081,15 @@ def setup_multi_vni_acl_rule(duthost, inner_src_ip, vni, new_src_mac, rule_name,
 
 
 def remove_specific_acl_rule(duthost, rule_name):
-    """Remove specific ACL rule for cleanup using the supported acl-loader tool"""
+    """Remove specific ACL rule for cleanup via direct CONFIG_DB modification.
+
+    orchagent watches CONFIG_DB directly for changes regardless of which tool
+    writes to it (redis-cli, config load, acl-loader, or gNMI in production),
+    so deleting the specific rule key here is equivalent to using acl-loader.
+    """
     try:
-        duthost.shell(f"acl-loader delete {ACL_TABLE_NAME} {rule_name}", module_ignore_errors=True)
+        rule_key = f"ACL_RULE|{ACL_TABLE_NAME}|{rule_name}"
+        duthost.shell(f'redis-cli -n 4 DEL "{rule_key}"', module_ignore_errors=True)
         logger.info(f"Removed ACL rule: {rule_name}")
     except Exception as e:
         logger.warning(f"Failed to remove ACL rule {rule_name}: {e}")
