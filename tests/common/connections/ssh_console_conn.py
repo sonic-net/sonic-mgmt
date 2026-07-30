@@ -66,6 +66,23 @@ class SSHConsoleConn(BaseConsoleConn):
         kwargs['device_type'] = "_ssh"
         super(SSHConsoleConn, self).__init__(**kwargs)
 
+    def _try_session_preparation(self, force_data=False):
+        """Suppress netmiko's pre-session priming CR (bootloader-safe).
+
+        netmiko's BaseConnection._open() calls _try_session_preparation() with
+        force_data=True, which writes a bare RETURN to the channel BEFORE
+        session_preparation() runs, to guarantee there is data to read. On a
+        serial console whose DUT may be sitting in a bootloader "hit any key to
+        stop autoboot" window at connect time, that unguarded CR counts as a
+        keypress, aborts autoboot and traps the DUT -- the exact failure this
+        class defends against everywhere else, but happening before any of our
+        bootloader classification can run. session_preparation() already reads
+        the initial banner passively via _read_initial_console() (which tolerates
+        a silent channel), so the priming CR is unnecessary. Force it off so no
+        byte reaches the DUT until the bootloader guards below have run.
+        """
+        return super(SSHConsoleConn, self)._try_session_preparation(force_data=False)
+
     def _read_initial_console(self, max_reads=20, delay_factor=1):
         """Passively read the initial console output WITHOUT writing anything.
 
@@ -160,7 +177,8 @@ class SSHConsoleConn(BaseConsoleConn):
             password = self.sonic_password[i]
             try:
                 self.login_stage_2(username=self.sonic_username,
-                                   password=password)
+                                   password=password,
+                                   defer_on_bootloader=True)
             except NetMikoAuthenticationException as e:
                 if i == len(self.sonic_password) - 1:
                     raise e
@@ -169,6 +187,17 @@ class SSHConsoleConn(BaseConsoleConn):
                 # password in the list.
                 self._resync_to_login_prompt()
             else:
+                if getattr(self, "_bootloader_deferred", False):
+                    # login_stage_2() saw a bootloader/boot banner on the DUT serial
+                    # line while waiting for the login prompt and stopped before
+                    # sending any wake-up CR. Defer interactive login (mirror the
+                    # menu-port and _recover_to_login_prompt paths) so a "hit any key
+                    # to stop autoboot" window missed by the earlier classification is
+                    # never aborted, and do NOT finalise (set_base_prompt would write).
+                    self.logger.warning(
+                        "DUT is in a bootloader/boot stage (direct console); deferring "
+                        "interactive login to avoid interrupting autoboot")
+                    return
                 break
 
         self.session_preparation_finalise()

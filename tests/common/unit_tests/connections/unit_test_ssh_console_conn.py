@@ -366,3 +366,59 @@ def test_session_preparation_menu_port_defers_when_banner_lags_first_read():
     assert getattr(conn, "_bootloader_deferred", False) is True, "must defer login"
     conn._recover_to_login_prompt.assert_not_called()
     conn.session_preparation_finalise.assert_not_called()
+
+
+def test_try_session_preparation_writes_no_priming_cr():
+    """Fix C: netmiko's BaseConnection._open() calls _try_session_preparation()
+    with force_data=True, which writes a bare CR to the channel BEFORE
+    session_preparation() runs. On a DUT sitting in a bootloader autoboot window
+    at connect time that CR aborts autoboot and traps the box -- earlier than any
+    of our own guards. SSHConsoleConn overrides _try_session_preparation to force
+    force_data=False, so NO byte is written before session_preparation() runs."""
+    conn = SSHConsoleConn.__new__(SSHConsoleConn)
+    conn.RETURN = RETURN
+    conn.logger = mock.MagicMock()
+    conn.write_channel = mock.MagicMock()
+    conn.disconnect = mock.MagicMock()
+    conn.session_preparation = mock.MagicMock()
+
+    SSHConsoleConn._try_session_preparation(conn)
+
+    conn.write_channel.assert_not_called()
+    conn.session_preparation.assert_called_once()
+
+
+def test_session_preparation_direct_path_defers_on_bootloader():
+    """Fix B: on a direct (non-menu) console the sonic-password login loop now
+    calls login_stage_2(defer_on_bootloader=True). If login_stage_2 detects a
+    bootloader banner mid-wait (a live autoboot that the earlier
+    _recover_to_login_prompt classification missed) it sets _bootloader_deferred;
+    session_preparation must then return WITHOUT calling
+    session_preparation_finalise() (whose set_base_prompt writes CRs that would
+    abort autoboot)."""
+    conn = SSHConsoleConn.__new__(SSHConsoleConn)
+    conn.RETURN = RETURN
+    conn.logger = mock.MagicMock()
+    conn.console_type = "ssh"          # not a "*config" menu type
+    conn.menu_port = None              # direct path, no menu port
+    conn.username = "console_user:2001"
+    conn.sonic_username = "admin"
+    conn.sonic_password = ["pw1"]
+    conn._read_initial_console = mock.MagicMock(return_value="")
+    conn._recover_to_login_prompt = mock.MagicMock(return_value=False)
+    conn.session_preparation_finalise = mock.MagicMock()
+    conn.write_channel = mock.MagicMock()
+
+    def _defer(**kwargs):
+        assert kwargs.get("defer_on_bootloader") is True, \
+            "direct-path login must pass defer_on_bootloader=True"
+        conn._bootloader_deferred = True
+        return ""
+    conn.login_stage_2 = mock.MagicMock(side_effect=_defer)
+
+    with mock.patch("tests.common.connections.ssh_console_conn.time.sleep"):
+        SSHConsoleConn.session_preparation(conn)
+
+    conn.login_stage_2.assert_called_once()
+    conn.session_preparation_finalise.assert_not_called()
+    assert getattr(conn, "_bootloader_deferred", False) is True
