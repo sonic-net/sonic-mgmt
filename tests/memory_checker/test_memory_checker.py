@@ -246,6 +246,11 @@ def test_setup_and_cleanup(memory_checker_dut_and_container, request):
 
     yield
 
+    # test_memory_checker relies on a container restart to clear its allocation, so it
+    # leaks the same way if it fails before that happens. Stop any allocation still
+    # running before handing the device to the next test.
+    container.stop_consume_memory()
+
     restore_monit_config_files(duthost)
     restart_monit_service(duthost)
 
@@ -683,9 +688,15 @@ def test_memory_checker_recover(memory_checker_dut_and_container, test_setup_and
         timeout_status_change = 30
 
     container.start_consume_memory()
-    container.wait_monit_mem_last_failed(timeout_status_change)
+    try:
+        container.wait_monit_mem_last_failed(timeout_status_change)
+    finally:
+        # If the wait above fails we are still holding the allocation, and nothing else
+        # in this test stops it. Leaving it running keeps the container inflated into the
+        # next test, which then gets failed by the memory utilization plugin for memory it
+        # never allocated.
+        container.stop_consume_memory()
 
-    container.stop_consume_memory()
     container.wait_monit_mem_last_ok(timeout_status_change)
 
     analysis = loganalyzer.analyze(marker, fail=False)
