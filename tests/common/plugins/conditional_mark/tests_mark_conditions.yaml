@@ -103,6 +103,12 @@ acl/test_acl.py::TestMultiBindingAcl:
     conditions:
       - "'dualtor' not in topo_name"
 
+acl/test_acl_dscp_rewrite.py:
+  skip:
+    reason: "Egress ACL DSCP rewrite tests only supported on Cisco 8101/8102 platforms"
+    conditions:
+      - "platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0']"
+
 acl/test_acl_outer_vlan.py:
   #Outer VLAN id match support is planned for future release with SONIC on Cisco 8000
   #For the current release, will mark the related test cases as XFAIL
@@ -793,15 +799,23 @@ cacl/test_cacl_application.py::test_cacl_application_dualtor:
 
 cacl/test_cacl_application.py::test_cacl_application_nondualtor:
   skip:
-    reason: "test_cacl_application is only supported on non dualtor topology"
+    reason: "test_cacl_application is only supported on non dualtor topology. Also temporarily
+      skipped while sonic-net/sonic-buildimage#28061 (adds new protected FRR BGP ports) is being
+      validated; test update to follow once that image is checked in."
+    conditions_logical_operator: or
     conditions:
       - "'dualtor' in topo_name"
+      - "https://github.com/sonic-net/sonic-buildimage/issues/28061"
 
 cacl/test_cacl_application.py::test_multiasic_cacl_application:
   skip:
-    reason: "test_multiasic_cacl_application is only supported on multi-ASIC platform"
+    reason: "test_multiasic_cacl_application is only supported on multi-ASIC platform. Also
+      temporarily skipped while sonic-net/sonic-buildimage#28061 (adds new protected FRR BGP
+      ports) is being validated; test update to follow once that image is checked in."
+    conditions_logical_operator: or
     conditions:
       - "not is_multi_asic"
+      - "https://github.com/sonic-net/sonic-buildimage/issues/28061"
 
 cacl/test_cacl_function.py:
   xfail:
@@ -1275,9 +1289,11 @@ dhcp_relay/test_dhcp_relay_stress.py::test_dhcp_relay_stress[request:
 
 dhcp_relay/test_dhcpv4_relay.py:
   skip:
-    reason: "Test skipped: sonic dhcpv4 is not supported in the DUT image version < 202511"
+    reason: "Test skipped: sonic dhcpv4 is not supported in the DUT image version < 202511 / Test is not stable for KVM PR checks"
+    conditions_logical_operator: or
     conditions:
       - "release < '202511'"
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/26645"
 
 dhcp_relay/test_dhcpv4_relay.py::test_dhcp_relay_option82_suboptions[server_id_override-sonic-relay-agent]:
   skip:
@@ -1287,9 +1303,11 @@ dhcp_relay/test_dhcpv4_relay.py::test_dhcp_relay_option82_suboptions[server_id_o
 
 dhcp_relay/test_dhcpv6_relay.py:
   skip:
-    reason: "Need to skip for platform x86_64-8111_32eh_o-r0"
+    reason: "Need to skip for platform x86_64-8111_32eh_o-r0 / Test is not stable for KVM PR checks"
+    conditions_logical_operator: or
     conditions:
       - "platform in ['x86_64-8111_32eh_o-r0']"
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/26645"
 
 dhcp_relay/test_dhcpv6_relay.py::TestDhcpv6RelayWithMultipleVlan:
   skip:
