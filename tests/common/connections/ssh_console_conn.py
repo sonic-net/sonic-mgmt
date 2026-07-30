@@ -90,7 +90,17 @@ class SSHConsoleConn(BaseConsoleConn):
             self.login_stage_2(username=self.username,
                                password=self.password,
                                menu_port=self.menu_port,
-                               pri_prompt_terminator=r".*login")
+                               pri_prompt_terminator=r".*login",
+                               defer_on_bootloader=True)
+            if getattr(self, "_bootloader_deferred", False):
+                # login_stage_2() saw a bootloader/boot banner on the DUT serial line
+                # after selecting the menu port and stopped before sending any DUT-side
+                # CR. Defer interactive login so we do not abort a "hit any key to stop
+                # autoboot" window; the caller can then passively monitor the boot.
+                self.logger.warning(
+                    "DUT is in a bootloader/boot stage (menu port); deferring "
+                    "interactive login to avoid interrupting autoboot")
+                return
         # Exit any leftover shell from a previous test so we start at a clean login prompt.
         # If the DUT is in a bootloader / boot stage, defer interactive login entirely:
         # login_stage_2() sends periodic CRs while waiting for the username prompt, and on
@@ -273,7 +283,8 @@ class SSHConsoleConn(BaseConsoleConn):
                       username_pattern=r"(?:user:|username|login:|user name)",
                       pwd_pattern=r"assword",
                       delay_factor=1,
-                      max_loops=20
+                      max_loops=20,
+                      defer_on_bootloader=False
                       ):
         """
         Perform a stage_2 login
@@ -289,6 +300,8 @@ class SSHConsoleConn(BaseConsoleConn):
         menu_port_sent = False
         user_sent = False
         password_sent = False
+        if defer_on_bootloader:
+            self._bootloader_deferred = False
         # The following prompt is only for SONiC
         # Need to add more login failure prompt for other system
         login_failure_prompt = r".*incorrect"
@@ -340,6 +353,15 @@ class SSHConsoleConn(BaseConsoleConn):
                 # Only send blank CR to wake up terminal when still waiting for username prompt;
                 # once username has been sent, stop sending CRs so no empty password arrives before 'Password:' prompt
                 if not user_sent:
+                    if defer_on_bootloader and BOOTLOADER_BANNER_RE.search(return_msg):
+                        # A bootloader/boot banner is on the DUT serial line: do NOT send
+                        # the wake-up CR -- it counts as "hit any key to stop autoboot"
+                        # and would trap the DUT. Signal the caller to defer login.
+                        self.logger.warning(
+                            "Console is in a bootloader/boot stage; deferring login to "
+                            "avoid aborting autoboot")
+                        self._bootloader_deferred = True
+                        return return_msg
                     self.write_channel(self.RETURN)
                 time.sleep(0.5 * delay_factor)
                 i += 1
@@ -349,6 +371,12 @@ class SSHConsoleConn(BaseConsoleConn):
                 raise NetMikoAuthenticationException(msg)
 
         # Last try to see if we already logged in
+        if defer_on_bootloader and BOOTLOADER_BANNER_RE.search(return_msg):
+            self.logger.warning(
+                "Console is in a bootloader/boot stage; deferring login to avoid "
+                "aborting autoboot")
+            self._bootloader_deferred = True
+            return return_msg
         self.write_channel(self.RETURN)
         time.sleep(0.5 * delay_factor)
         output = self.read_channel()
@@ -370,8 +398,19 @@ class SSHConsoleConn(BaseConsoleConn):
             bool: True if at SONiC prompt, False otherwise (including GRUB, ONIE, boot stages, etc.)
         """
         try:
-            # Send a CR and accumulate the echo to elicit the prompt (empty after login); harmless at GRUB/ONIE.
+            # Passively read the console FIRST -- never send a key before we know the
+            # state. If the DUT is in a bootloader/boot stage (e.g. a reboot autoboot
+            # window while cleanup() runs), a CR here counts as "hit any key to stop
+            # autoboot" and would trap the DUT, so classify from passive output and bail.
             output = ""
+            for _ in range(4):
+                time.sleep(0.5)
+                output += self.read_channel()
+            if BOOTLOADER_BANNER_RE.search(output):
+                self.logger.warning(
+                    "Console is in a bootloader/boot stage; not at a SONiC prompt")
+                return False
+            # Not a bootloader -> elicit the prompt (empty after login) with a CR.
             for _ in range(4):
                 self.write_channel(self.RETURN)
                 time.sleep(0.5)

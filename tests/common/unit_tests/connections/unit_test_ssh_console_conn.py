@@ -203,3 +203,82 @@ def test_session_preparation_defers_login_in_bootloader():
     conn.set_base_prompt.assert_not_called()
     conn.find_prompt.assert_not_called()
     conn.write_channel.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Behavioral tests for the two remaining "send keys before knowing the console
+# state" paths (both pre-existing/legacy, hardened here so the whole file is
+# bootloader-safe): (1) the menu_port login path, which calls login_stage_2()
+# before recovery, and (2) _is_at_sonic_prompt(), which cleanup() calls during
+# reboot teardown. Each must observe the console passively and send NO DUT-side
+# key once a bootloader banner is seen.
+# ---------------------------------------------------------------------------
+
+
+def test_session_preparation_menu_port_defers_login_in_bootloader():
+    """A menu_port console must select the console-server port but then send NO
+    DUT-side key (no CR / username / login / finalise) once a bootloader banner
+    is observed on the DUT serial line."""
+    conn = SSHConsoleConn.__new__(SSHConsoleConn)
+    conn.RETURN = RETURN
+    conn.host = "dut"
+    conn.logger = mock.MagicMock()
+    conn.console_type = "ssh"            # not a "*config" menu type
+    conn.menu_port = 7
+    conn.username = "console_user"
+    conn.password = "console_pw"
+    conn.sonic_username = "admin"
+    conn.sonic_password = ["pw"]
+    conn._test_channel_read = mock.MagicMock(return_value="")
+    conn.select_delay_factor = mock.MagicMock(return_value=1)
+    # write_and_poll() (real, inherited) selects the console-server port; its
+    # read_until_pattern() is stubbed. After port selection the DUT serial shows
+    # an autoboot banner, then stays silent.
+    conn.read_until_pattern = mock.MagicMock(return_value="Selection:")
+    conn.read_channel = mock.MagicMock(side_effect=(
+        ["Press Control-C now to enter Aboot shell\n"] + [""] * 40))
+    conn.write_channel = mock.MagicMock()
+    conn._recover_to_login_prompt = mock.MagicMock()
+    conn.session_preparation_finalise = mock.MagicMock()
+
+    with mock.patch("tests.common.connections.ssh_console_conn.time.sleep"):
+        SSHConsoleConn.session_preparation(conn)
+
+    # Only the console-server menu selection may be written -- never a DUT-side CR.
+    assert _written(conn) == ["menu ports" + RETURN, "7" + RETURN], (
+        f"only the console-server port selection may be written, got {_written(conn)!r}")
+    assert RETURN not in _written(conn), "no bare DUT-side wake-up CR may be sent"
+    assert CTRL_C not in _written(conn), "no Ctrl-C may be sent"
+    # The bootloader-safe recovery and the CR-writing finalise must be skipped.
+    conn._recover_to_login_prompt.assert_not_called()
+    conn.session_preparation_finalise.assert_not_called()
+
+
+@pytest.mark.parametrize("banner", [
+    "Press Control-C now to enter Aboot shell\n",
+    "Hit any key to stop autoboot:  3\n",
+    "GNU GRUB  version 2.06\n",
+    "ONIE: Starting ONIE Service Discovery\n",
+])
+def test_is_at_sonic_prompt_writes_no_key_in_bootloader(banner):
+    """cleanup()'s prompt probe must send no key while the DUT is in a bootloader/
+    boot stage -- during a reboot that CR would abort autoboot."""
+    conn = _make_console([banner])
+    with mock.patch("tests.common.connections.ssh_console_conn.time.sleep"):
+        result = SSHConsoleConn._is_at_sonic_prompt(conn)
+    assert result is False, "a bootloader/boot stage is not a SONiC prompt"
+    assert _written(conn) == [], (
+        f"no key may be written when a bootloader banner is present, got {_written(conn)!r}")
+
+
+def test_is_at_sonic_prompt_detects_shell_when_not_bootloader():
+    """When not in a bootloader, the probe still nudges with a CR (never Ctrl-C)
+    and correctly detects the SONiC shell prompt."""
+    conn = _make_console(["", "", "", "", "admin@sonic:~$ \n"])
+    with mock.patch("tests.common.connections.ssh_console_conn.time.sleep"):
+        result = SSHConsoleConn._is_at_sonic_prompt(conn)
+    assert result is True
+    written = _written(conn)
+    assert CTRL_C not in written, "Ctrl-C must never be sent to probe the prompt"
+    assert written and all(k == RETURN for k in written), (
+        f"non-bootloader probe must only nudge with a bare CR, got {written!r}")
