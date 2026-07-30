@@ -59,51 +59,53 @@ The following table summarizes the key attributes used in VDM testing. This tabl
 The Author of vdm.json must determine if the field is mandatory for said part, since
 attribute implementation varies by individual part and vendor.
 
-| Attribute Name | Type | Mandatory | Override Levels | Description |
-|----------------|------|-----------|-----------------|-------------|
-| laser_age | integer | O | transceivers | 0% BOL - 100% EOL (Media lane) |
-| tec_current | integer | O | transceivers | TEC Current (Module) |
-| laser_frequency_error | integer | O | transceivers | Frequency of laser error (MHz) |
-| laser_temperatureLANE_NUM | integer | O | transceivers | Temperature of laser (C) |
-| snr_media_inputLANE_NUM | integer | O | transceivers | Signal Noise Ratio (dB) of Media Lane |
-| snr_host_input | integer | O | transceivers | Signal Noise Ratio (dB) of Host Lane. For ZR, vendor-dependent — may not be reported by all modules; classification should be reconfirmed against VDM advertisement. |
-| pam4_ltp_media_input | integer | O | transceivers | PAM4 Level Transition Parameter Media Input (dB). Not applicable to ZR (coherent media uses QAM, not PAM4). |
-| pam4_ltp_host_inputLANE_NUM | integer | O | transceivers | PAM4 Level Transition Parameter Host Input Lane (dB). Not currently reported on ZR modules. |
-| prefec_ber_media_input_statsLANE_NUM | dict | O | transceivers | Pre-FEC BER stats on media side. Format: {"max": \<float\>, "average": \<float\>, "current": \<float\>} — all sub-fields optional; omit any sub-field to skip its validation |
-| prefec_ber_host_input_statsLANE_NUM | dict | O | transceivers | Pre-FEC BER stats on host side. Format: {"max": \<float\>, "average": \<float\>, "current": \<float\>} — all sub-fields optional; omit any sub-field to skip its validation |
-| ferc_media_input_statsLANE_NUM | dict | O | transceivers | Post-FEC errored frames stats on media side. Format: {"max": \<float\>, "average": \<float\>, "current": \<float\>, "total": \<float\>} — all sub-fields optional; omit any sub-field to skip its validation |
-| ferc_host_input_statsLANE_NUM | dict | O | transceivers | Post-FEC errored frames stats on host side. Format: {"max": \<float\>, "average": \<float\>, "current": \<float\>, "total": \<float\>} — all sub-fields optional; omit any sub-field to skip its validation. For ZR, this may be populated only on lane 1 as a combined metric on current modules; still collect for all lanes to remain compatible with future per-lane reporting. |
+**Threshold Direction** (scalar attributes only): `Max` means the configured value is an upper bound — the live value must be ≤ configured. `Min` means the configured value is a lower bound — the live value must be ≥ configured (used for quality metrics where higher is better, e.g. SNR/OSNR/Q-factor). Dict (`_stats`) attributes validate each configured sub-field directly and have no single direction, so this column is `N/A` for them.
+
+| Attribute Name | Type | Threshold Direction | Mandatory | Override Levels | Description |
+|----------------|------|----------------------|-----------|-----------------|-------------|
+| laser_age | integer | Max | O | transceivers | 0% BOL - 100% EOL (Media lane) |
+| tec_current | integer | Max | O | transceivers | TEC Current (Module) |
+| laser_frequency_error | integer | Max | O | transceivers | Frequency of laser error (MHz) |
+| laser_temperatureLANE_NUM | integer | Max | O | transceivers | Temperature of laser (C) |
+| snr_media_inputLANE_NUM | integer | Min | O | transceivers | Signal Noise Ratio (dB) of Media Lane |
+| snr_host_input | integer | Min | O | transceivers | Signal Noise Ratio (dB) of Host Lane. For ZR, vendor-dependent — may not be reported by all modules; classification should be reconfirmed against VDM advertisement. |
+| pam4_ltp_media_input | integer | Max | O | transceivers | PAM4 Level Transition Parameter Media Input (dB). Not applicable to ZR (coherent media uses QAM, not PAM4). |
+| pam4_ltp_host_inputLANE_NUM | integer | Max | O | transceivers | PAM4 Level Transition Parameter Host Input Lane (dB). Not currently reported on ZR modules. |
+| prefec_ber_media_input_statsLANE_NUM | dict | N/A | O | transceivers | Pre-FEC BER stats on media side. Format: {"max": \<float\>, "average": \<float\>, "current": \<float\>} — all sub-fields optional; omit any sub-field to skip its validation |
+| prefec_ber_host_input_statsLANE_NUM | dict | N/A | O | transceivers | Pre-FEC BER stats on host side. Format: {"max": \<float\>, "average": \<float\>, "current": \<float\>} — all sub-fields optional; omit any sub-field to skip its validation |
+| ferc_media_input_statsLANE_NUM | dict | N/A | O | transceivers | Post-FEC errored frames stats on media side. Format: {"max": \<float\>, "average": \<float\>, "current": \<float\>, "total": \<float\>} — all sub-fields optional; omit any sub-field to skip its validation |
+| ferc_host_input_statsLANE_NUM | dict | N/A | O | transceivers | Post-FEC errored frames stats on host side. Format: {"max": \<float\>, "average": \<float\>, "current": \<float\>, "total": \<float\>} — all sub-fields optional; omit any sub-field to skip its validation. For ZR, this may be populated only on lane 1 as a combined metric on current modules; still collect for all lanes to remain compatible with future per-lane reporting. |
 
 The following table summarizes Data Path Monitors of the VDM. These monitors apply primarily to ZR (coherent/DCO) optics — most are not available on grey optics, with the exception of `tx_power` and `rx_total_power`. Please note: Unless specified differently, the VDM monitors for a DCO are all associated with a data path. Therefore, the lane or data path identifier of those VDM monitors shall indicate the first lane of the relevant data path.
 
-| Monitor Name | Type | Mandatory | Override Levels | Description |
-|----------------|------|-----------|-----------------|-------------|
-| modulator_bias_xi | integer | O | transceivers | Modulator bias X/I in percentage |
-| modulator_bias_xq | integer | O | transceivers | Modulator bias X/Q in percentage |
-| modulator_bias_yi | integer | O | transceivers | Modulator bias Y/I in percentage |
-| modulator_bias_yq | integer | O | transceivers | Modulator bias Y/Q in percentage |
-| modulator_bias_x_phase | integer | O | transceivers | Modulator bias X_phase in percentage |
-| modulator_bias_y_phase | integer | O | transceivers | Modulator bias Y_phase in percentage |
-| hgranularity_slink_cd | integer | O | transceivers | Chromatic dispersion high granularity, short link in ps/nm. Measure on media side fiber as estimated from DSP compensation. |
-| lgranularity_llink_cd | integer | O | transceivers | Chromatic dispersion low granularity, long link in ps/nm |
-| DGD | integer | O | transceivers | Differential group delay in ps |
-| sopmd_high_granularity | integer | O | transceivers | State-of-polarization mode dispersion high granularity in ps^2 |
-| pdl | integer | O | transceivers | Polarization dependent loss in db |
-| osnr | integer | O | transceivers | Optical SNR in db |
-| esnr | integer | O | transceivers | effective SNR in db |
-| cfo | integer | O | transceivers | Carrier frequency offset in MHz |
-| evm | integer | O | transceivers | Error vector magnitude in percentage |
-| tx_power | integer | O | transceivers | TX power in dBm. Also available on grey optics (typically also reported via DOM). |
-| rx_total_power | integer | O | transceivers | RX total power in dBm. Also available on grey optics (typically also reported via DOM). |
-| rx_signal_power | integer | O | transceivers | Rx signal power in dbm |
-| sop_roc | integer | O | transceivers | State-of-polarization rotation rate in krads/s |
-| mer | integer | O | transceivers | Modulation error ratio in db |
-| clock_recovery_loop | integer | O | transceivers | Clock recovery loop in percentage, will be -100 to 100% with nominal at 0%. Defect thresholds are set by vendor to indicate operation is outside of normal range. |
-| sopmd_low_granularity | integer | O | transceivers | State-of-polarization mode dispersion low granularity in ps^2 |
-| snr_margin | integer | O | transceivers | SNR margin in db |
-| q_factor | integer | O | transceivers | Q factor in db |
-| q_margin | integer | O | transceivers | Q margin in db |
-| cfo_low_granularity | integer | O | transceivers | Carrier frequency offset low granularity in MHz |
+| Monitor Name | Type | Threshold Direction | Mandatory | Override Levels | Description |
+|----------------|------|----------------------|-----------|-----------------|-------------|
+| modulator_bias_xi | integer | Max | O | transceivers | Modulator bias X/I in percentage |
+| modulator_bias_xq | integer | Max | O | transceivers | Modulator bias X/Q in percentage |
+| modulator_bias_yi | integer | Max | O | transceivers | Modulator bias Y/I in percentage |
+| modulator_bias_yq | integer | Max | O | transceivers | Modulator bias Y/Q in percentage |
+| modulator_bias_x_phase | integer | Max | O | transceivers | Modulator bias X_phase in percentage |
+| modulator_bias_y_phase | integer | Max | O | transceivers | Modulator bias Y_phase in percentage |
+| hgranularity_slink_cd | integer | Max | O | transceivers | Chromatic dispersion high granularity, short link in ps/nm. Measure on media side fiber as estimated from DSP compensation. |
+| lgranularity_llink_cd | integer | Max | O | transceivers | Chromatic dispersion low granularity, long link in ps/nm |
+| DGD | integer | Max | O | transceivers | Differential group delay in ps |
+| sopmd_high_granularity | integer | Max | O | transceivers | State-of-polarization mode dispersion high granularity in ps^2 |
+| pdl | integer | Max | O | transceivers | Polarization dependent loss in db |
+| osnr | integer | Min | O | transceivers | Optical SNR in db |
+| esnr | integer | Min | O | transceivers | effective SNR in db |
+| cfo | integer | Max | O | transceivers | Carrier frequency offset in MHz |
+| evm | integer | Max | O | transceivers | Error vector magnitude in percentage |
+| tx_power | integer | Max | O | transceivers | TX power in dBm. Also available on grey optics (typically also reported via DOM). |
+| rx_total_power | integer | Max | O | transceivers | RX total power in dBm. Also available on grey optics (typically also reported via DOM). |
+| rx_signal_power | integer | Max | O | transceivers | Rx signal power in dbm |
+| sop_roc | integer | Max | O | transceivers | State-of-polarization rotation rate in krads/s |
+| mer | integer | Min | O | transceivers | Modulation error ratio in db |
+| clock_recovery_loop | integer | N/A | O | transceivers | Clock recovery loop in percentage, will be -100 to 100% with nominal at 0%. Defect thresholds are set by vendor to indicate operation is outside of normal range — validated per the description, not a simple Max/Min threshold. |
+| sopmd_low_granularity | integer | Max | O | transceivers | State-of-polarization mode dispersion low granularity in ps^2 |
+| snr_margin | integer | Min | O | transceivers | SNR margin in db |
+| q_factor | integer | Min | O | transceivers | Q factor in db |
+| q_margin | integer | Min | O | transceivers | Q margin in db |
+| cfo_low_granularity | integer | Max | O | transceivers | Carrier frequency offset low granularity in MHz |
 
 ## Example `vdm.json` File
 
@@ -179,7 +181,7 @@ The VDM test framework uses an attribute-driven approach to dynamically determin
 2. **Lane Expansion Logic**: If the attribute key contains the `LANE_NUM` placeholder, expand it for all available lanes (1 to N) by replacing `LANE_NUM` with each actual lane number — a single config entry therefore covers every lane. If no `LANE_NUM` placeholder is present, the attribute maps to a single, non-lane-specific field.
 
 3. **Field Type Classification**: For each (lane-expanded) attribute:
-   - **Scalar** (integer or float value): validate the corresponding STATE_DB field as an upper-bound threshold — the live value must be ≤ the configured value. For example, `"laser_age": 40` means the transceiver must report ≤ 40% EOL.
+   - **Scalar** (integer or float value): validate the corresponding STATE_DB field against the configured value per the attribute's **Threshold Direction** (see [Attributes](#attributes) table): `Max`-direction attributes require the live value ≤ configured (e.g., `"laser_age": 40` means the transceiver must report ≤ 40% EOL); `Min`-direction attributes require the live value ≥ configured (e.g., `"snr_media_input1": 15` means the transceiver must report ≥ 15 dB).
    - **Dict** (`_stats` attribute, object value): expand into per-sub-field STATE_DB validations
 
 4. **Sub-field Selective Validation**: For dict attributes, only validate the sub-fields explicitly present in the JSON config. Sub-fields omitted from the config (e.g., `min` for error-rate stats where a lower value is always better) are skipped entirely.
@@ -237,7 +239,7 @@ The following tests from the [Transceiver Onboarding Test Infrastructure and Fra
 | TC No. | Test | Steps | Expected Results |
 |------|------|------|------------------|
 | 1 | VDM data availability verification | 1. Access VDM data from `TRANSCEIVER_VDM` table in STATE_DB for each port.<br>2. Verify `last_update_time` is within `data_max_age_min` minutes of current time to ensure data freshness.<br>3. Dynamically determine expected VDM fields based on attributes present in `vdm.json` using the [Dynamic Field Mapping Algorithm](#dynamic-field-mapping-algorithm).<br>4. Validate presence of all dynamically determined expected fields in STATE_DB.<br>5. Skip validation for fields whose corresponding attributes are absent from `vdm.json`. | All VDM fields corresponding to configured attributes are present and accessible from STATE_DB. VDM data is successfully retrieved without errors for all attribute-driven fields. Lane-specific fields are automatically expanded for all available lanes (1 to N) based on the `LANE_NUM` placeholder. Field expectations are dynamically derived using the mapping algorithm. Data freshness is confirmed with recent `last_update_time` timestamp. |
-| 2 | VDM scalar threshold validation | 1. Retrieve VDM data from STATE_DB.<br>2. Verify `last_update_time` is within `data_max_age_min` minutes of current time to ensure data freshness.<br>3. For each scalar attribute present in `vdm.json`, retrieve the corresponding field from STATE_DB using the [Dynamic Field Mapping Algorithm](#dynamic-field-mapping-algorithm).<br>4. Check that the live STATE_DB value is ≤ the configured threshold (e.g., `laser_age` reported value must not exceed the configured percentage).<br>5. Fail the test case if any value exceeds its configured threshold.<br>6. Log detailed information about any violations including the actual value vs the configured threshold.<br>7. Only validate fields whose corresponding scalar attributes are present in `vdm.json`. | All scalar VDM sensor values are at or below their configured thresholds during normal operation. Test case fails if any sensor value exceeds its threshold. Data freshness is confirmed before validation. Lane-specific validation is automatically performed for all available lanes. Detailed logging is provided for any threshold violations. |
+| 2 | VDM scalar threshold validation | 1. Retrieve VDM data from STATE_DB.<br>2. Verify `last_update_time` is within `data_max_age_min` minutes of current time to ensure data freshness.<br>3. For each scalar attribute present in `vdm.json`, retrieve the corresponding field from STATE_DB using the [Dynamic Field Mapping Algorithm](#dynamic-field-mapping-algorithm).<br>4. Check that the live STATE_DB value satisfies its attribute's configured **Threshold Direction** (see [Attributes](#attributes) table): for `Max`-direction attributes, live value ≤ configured (e.g., `laser_age` reported value must not exceed the configured percentage); for `Min`-direction attributes, live value ≥ configured (e.g., `snr_media_input` reported value must not fall below the configured dB value).<br>5. Fail the test case if any value violates its configured threshold direction.<br>6. Log detailed information about any violations including the actual value, the configured threshold, and the expected direction.<br>7. Only validate fields whose corresponding scalar attributes are present in `vdm.json`. | All scalar VDM sensor values satisfy their configured threshold direction during normal operation (at or below for `Max`-direction attributes, at or above for `Min`-direction attributes). Test case fails if any sensor value violates its threshold. Data freshness is confirmed before validation. Lane-specific validation is automatically performed for all available lanes. Detailed logging is provided for any threshold violations. |
 | 3 | VDM warning threshold hierarchy validation | 1. Retrieve Pre-FEC and Post-FEC threshold data from `TRANSCEIVER_VDM_LWARN_THRESHOLD` and `TRANSCEIVER_VDM_HWARN_THRESHOLD` tables in STATE_DB.<br>2. Dynamically determine expected threshold fields based on `prefec_ber_` and `ferc_` attributes present in `vdm.json` using the [Dynamic Field Mapping Algorithm](#dynamic-field-mapping-algorithm).<br>3. For each determined field, verify that low-warning threshold values are less than high-warning threshold values, confirming correct threshold hierarchy.<br>4. Only validate fields derived from attributes present in `vdm.json`. | All threshold fields are present in STATE_DB and follow the correct logical hierarchy (LWARN < HWARN). EEPROM thresholds align with configured threshold ranges when present. Threshold data integrity is maintained in STATE_DB. Threshold validation is dynamically determined from the attribute table. |
 | 4 | VDM data consistency verification | 1. Read VDM data `consistency_check_poll_count` times with `max_update_time_sec` intervals between readings.<br>2. Verify data consistency between readings.<br>3. Check that `last_update_time` field is being updated correctly with each polling cycle.<br>4. Validate that VDM readings show expected behavior (e.g., temperature variations within reasonable limits). | VDM data shows consistent and reasonable variations between polling intervals over `consistency_check_poll_count` polling cycles. The `last_update_time` field is properly updated with each polling cycle. No erratic or impossible sensor value changes are observed during the monitoring period. Variation patterns indicate stable VDM monitoring system operation. |
 
