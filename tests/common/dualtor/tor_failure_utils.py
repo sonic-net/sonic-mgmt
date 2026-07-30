@@ -7,6 +7,7 @@ Reboot a ToR
 """
 from tests.common.reboot import reboot, SONIC_SSH_PORT, SONIC_SSH_REGEX, \
                                 REBOOT_TYPE_COLD
+import json
 import ipaddress
 import pytest
 import logging
@@ -163,9 +164,14 @@ def check_mux_feature(duthost):
     return "disabled" not in str(output)
 
 
+def get_container_status(duthost, container_name):
+    """Return Docker container state without using a Go template."""
+    output = duthost.shell("docker inspect --type container {}".format(container_name))["stdout"]
+    return json.loads(output)[0]["State"]["Status"]
+
+
 def check_mux_container(duthost):
-    output = duthost.shell("docker inspect -f '{{ .State.Status }}' mux")['stdout_lines']
-    return "running" in str(output)
+    return get_container_status(duthost, "mux") == "running"
 
 
 @pytest.fixture
@@ -189,8 +195,7 @@ def wait_for_mux_container(duthost):
 
 
 def check_pmon_container(duthost):
-    output = duthost.shell("docker inspect -f '{{ .State.Status }}' pmon")['stdout_lines']
-    return "running" in str(output)
+    return get_container_status(duthost, "pmon") == "running"
 
 
 @pytest.fixture
