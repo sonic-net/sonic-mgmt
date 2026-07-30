@@ -18,6 +18,7 @@ from tests.packet_trimming.packet_trimming_helper import (
     create_blocking_scheduler, configure_trimming_action, cleanup_trimming_acl, get_queue_id_by_dscp,
     get_test_ports, configure_srv6_loop_break_acl, cleanup_srv6_loop_break_acl,
     create_trim_queue_test_buffer_profile, delete_trim_queue_test_buffer_profile,
+    delete_buffer_queue_for_trim_queue,
     is_queue_level_trim_sent_drop_supported)
 
 
@@ -257,6 +258,15 @@ def setup_trimming(duthost, test_params, trim_counter_params, request):
             configure_trimming_action(duthost, test_params['trim_buffer_profiles'][buffer_profile], "off")
         for buffer_profile in trim_counter_params['trim_buffer_profiles']:
             configure_trimming_action(duthost, trim_counter_params['trim_buffer_profiles'][buffer_profile], "off")
+
+    with allure.step("Remove trim queue buffer profile references"):
+        # config load merges the backup and does not delete BUFFER_QUEUE keys added on
+        # platforms whose base config lacks them (e.g. VPP). Clear them before deleting
+        # the profile so teardown does not leave a dangling BUFFER_QUEUE -> BUFFER_PROFILE
+        # leafref that fails post-test YANG validation.
+        delete_buffer_queue_for_trim_queue(duthost, test_params['egress_ports'][0]['dut_members'])
+        if len(test_params['egress_ports']) > 1:
+            delete_buffer_queue_for_trim_queue(duthost, test_params['egress_ports'][1]['dut_members'])
 
     with allure.step("Delete trim queue test buffer profile"):
         delete_trim_queue_test_buffer_profile(duthost)

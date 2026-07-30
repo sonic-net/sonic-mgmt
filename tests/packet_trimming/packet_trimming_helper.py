@@ -33,7 +33,7 @@ from tests.packet_trimming.constants import (DEFAULT_SRC_PORT, DEFAULT_DST_PORT,
                                              MIRROR_SESSION_SRC_IP, MIRROR_SESSION_DST_IP, MIRROR_SESSION_DSCP,
                                              MIRROR_SESSION_TTL, MIRROR_SESSION_GRE, MIRROR_SESSION_QUEUE,
                                              SCHEDULER_CIR, SCHEDULER_METER_TYPE, PACKET_SIZE_MARGIN,
-                                             TRIMMING_COUNTER_INTERVAL,
+                                             TRIMMING_COUNTER_INTERVAL, DYNAMIC_TH,
                                              QUEUE_LEVEL_TRIM_SENT_DROP_SUPPORTED_PLATFORMS)
 from tests.packet_trimming.packet_trimming_config import PacketTrimmingConfig
 
@@ -1697,6 +1697,34 @@ def cleanup_srv6_loop_break_acl(duthost):
     logger.info("SRv6 loop-break ACL cleanup completed")
 
 
+def ensure_block_queue_buffer_profile(duthost, block_queue_profile):
+    """
+    Ensure the buffer profile referenced by a blocking queue exists in CONFIG_DB.
+
+    The suite references per-queue profiles named ``queue<N>_<uplink|downlink>_lossy_profile``.
+    On the SKUs packet trimming normally targets (Mellanox SN5640, Arista 7060X6) those
+    profiles are supplied by the platform ``buffers_defaults_objects.j2`` template. Minimal
+    buffer configurations - such as the VPP virtual switch on the shared Force10-S6000 hwsku -
+    do not define them, so the ``BUFFER_QUEUE`` reference would dangle and the subsequent
+    ``config mmu -p <profile> -t on`` trimming-action configuration would fail. Create a lossy
+    profile bound to the egress lossy pool on demand when the profile is missing. This is a
+    no-op on platforms that already define the profile, so behavior on those SKUs is unchanged.
+
+    Args:
+        duthost: DUT host object
+        block_queue_profile (str): Buffer profile name referenced by the blocking queue
+    """
+    exists = duthost.shell(
+        f"redis-cli -n 4 exists 'BUFFER_PROFILE|{block_queue_profile}'")["stdout"].strip()
+    if exists == "1":
+        return
+
+    pool = TRIM_QUEUE_PROFILE_CONFIG["pool"]
+    fields = f"pool {pool} size 1518 dynamic_th {DYNAMIC_TH}"
+    duthost.shell(f"redis-cli -n 4 hset 'BUFFER_PROFILE|{block_queue_profile}' {fields}")
+    logger.info(f"Created missing blocking-queue buffer profile '{block_queue_profile}': {fields}")
+
+
 def set_buffer_profile_for_block_queue(duthost, interfaces, block_queue_id, block_queue_profile):
     """
     Set buffer profile for the blocked queue of interfaces.
@@ -1715,6 +1743,10 @@ def set_buffer_profile_for_block_queue(duthost, interfaces, block_queue_id, bloc
 
     logger.info(f"Setting blocking queue ({block_queue_id}) buffer profile to '{block_queue_profile}', "
                 f"ports: {interfaces}")
+
+    # Create the referenced buffer profile when the platform does not already define it
+    # (for example the VPP virtual switch), so blocking-queue setup is self-sufficient.
+    ensure_block_queue_buffer_profile(duthost, block_queue_profile)
 
     # Convert single interface to list
     if isinstance(interfaces, str):
@@ -1796,6 +1828,35 @@ def set_buffer_profile_for_trim_queue(duthost, interfaces, trim_queue_id=None, t
             if not isinstance(e, RuntimeError):
                 raise RuntimeError(f"Exception while configuring interface {interface} trimming queue: {str(e)}") from e
             raise
+
+
+def delete_buffer_queue_for_trim_queue(duthost, interfaces, trim_queue_id=None):
+    """
+    Remove the BUFFER_QUEUE entries created for the trimming queue during setup.
+
+    Teardown restores configuration with ``config load``, which merges the pre-test
+    backup and does not delete BUFFER_QUEUE keys the test added on platforms whose base
+    configuration does not already define them (for example the VPP virtual switch on
+    the shared Force10-S6000 hwsku). Once ``trim_queue_test_profile`` is deleted, those
+    leftover keys become a dangling BUFFER_QUEUE -> BUFFER_PROFILE leafref that fails the
+    post-test YANG validation. Delete the entries explicitly, before the profile is
+    removed, so teardown leaves a YANG-valid configuration on every platform. Platforms
+    whose base configuration defines the queue restore it from the backup on ``config
+    load``, so behavior there is unchanged.
+
+    Args:
+        duthost: DUT host object
+        interfaces (list or str): Port names whose trimming-queue reference should be removed
+        trim_queue_id (int): Queue index used for packet trimming (default: trim queue from config)
+    """
+    trim_queue_id = str(trim_queue_id) if trim_queue_id else str(PacketTrimmingConfig.get_trim_queue(duthost))
+
+    if isinstance(interfaces, str):
+        interfaces = [interfaces]
+
+    for interface in interfaces:
+        duthost.shell(f"redis-cli -n 4 del 'BUFFER_QUEUE|{interface}|{trim_queue_id}'")
+        logger.info(f"Removed trimming-queue BUFFER_QUEUE|{interface}|{trim_queue_id} during teardown")
 
 
 def prepare_service_port(duthost, service_port):
