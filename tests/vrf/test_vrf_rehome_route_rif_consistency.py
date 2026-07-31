@@ -15,7 +15,7 @@ import pytest
 from natsort import natsorted
 
 from tests.common.config_reload import config_reload
-from tests.common.helpers.assertions import pytest_assert, pytest_require
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.dut_utils import verify_orchagent_running_or_assert
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import wait_until
@@ -23,7 +23,7 @@ from tests.common.utilities import wait_until
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology("any"),
+    pytest.mark.topology("t0"),
     # Stress provokes transient orchagent RIF-reference retries; the test scans logs itself.
     pytest.mark.disable_loganalyzer,
 ]
@@ -264,7 +264,7 @@ def _audit_route_rif_consistency(duthost):
 
 
 def _oper_up(duthost, port):
-    return _shell(duthost, "cat /sys/class/net/{}/operstate 2>/dev/null".format(port)) == "up"
+    return duthost.get_interfaces_status().get(port, {}).get("oper") == "up"
 
 
 def _orchagent_pid(duthost):
@@ -432,21 +432,21 @@ def get_function_completeness_level(pytestconfig):
 @pytest.fixture(scope="module")
 def rehome_env(rehome_duthost):
     duthost = rehome_duthost
-    pytest_require(not duthost.is_multi_asic,
-                   "Single-ASIC only: the audit reads the global ASIC_DB")
-    pytest_require(duthost.shell("docker exec bgp vtysh -c 'show version'",
-                                 module_ignore_errors=True)["rc"] == 0,
-                   "vtysh in the bgp container is required")
+    pytest_assert(not duthost.is_multi_asic,
+                  "The t0 regression job must use a single-ASIC DUT")
+    pytest_assert(duthost.shell("docker exec bgp vtysh -c 'show version'",
+                                module_ignore_errors=True)["rc"] == 0,
+                  "vtysh in the bgp container is required")
     for prefix in AUDIT_PREFIXES:
-        pytest_require(not _route_keys_by_dest(duthost, prefix),
-                       "Prefix {} already present in ASIC_DB".format(prefix))
+        pytest_assert(not _route_keys_by_dest(duthost, prefix),
+                      "Prefix {} already present in ASIC_DB".format(prefix))
     for vrf_name in (VRF_A, VRF_B):
-        pytest_require(
+        pytest_assert(
             _shell(duthost, "sonic-db-cli CONFIG_DB EXISTS 'VRF|{}'".format(vrf_name)) == "0",
             "VRF {} already exists on the DUT".format(vrf_name))
 
-    pytest_require(_shell(duthost, "test -f {} && echo yes".format(SWSS_REC)) == "yes",
-                   "swss.rec recording is required for the ordering telemetry")
+    pytest_assert(_shell(duthost, "test -f {} && echo yes".format(SWSS_REC)) == "yes",
+                  "swss.rec recording is required for the ordering telemetry")
 
     cfg = json.loads(duthost.shell("sonic-cfggen -d --print-data")["stdout"])
     used = set()
@@ -456,46 +456,41 @@ def rehome_env(rehome_duthost):
     used.update(k.split("|")[0].split(".")[0] for k in cfg.get("VLAN_SUB_INTERFACE", {}))
     mux_ports = set(cfg.get("MUX_CABLE", {}))
     used.update(mux_ports)
-    free = [p for p in natsorted(cfg.get("PORT", {})) if p not in used]
+    interface_status = duthost.get_interfaces_status()
+    free = [p for p in natsorted(cfg.get("PORT", {}))
+            if p not in used and interface_status.get(p, {}).get("oper") == "up"]
     untagged = natsorted(
         (k.split("|")[0].replace("Vlan", ""), k.split("|")[1])
         for k, v in cfg.get("VLAN_MEMBER", {}).items()
         if v.get("tagging_mode") == "untagged"
         and k.split("|")[1].startswith("Ethernet")
-        and k.split("|")[1] not in mux_ports)
+        and k.split("|")[1] not in mux_ports
+        and interface_status.get(k.split("|")[1], {}).get("oper") == "up")
 
-    env = {"port": None, "restore_vlan": None, "restore_shutdown": False,
+    env = {"port": None, "restore_vlan": None,
            "baseline_vrs": _vr_oids(duthost), "orch_pid": _orchagent_pid(duthost)}
 
     try:
         pytest_assert(env["orch_pid"], "orchagent is not running")
-        port = None
-        for cand in free[:4]:
-            started = cfg["PORT"][cand].get("admin_status") != "up"
-            if started:
-                _run(duthost, "config interface startup {}".format(cand))
-            if wait_until(15, 3, 0, lambda p=cand: _oper_up(duthost, p)):
-                port = cand
-                env["restore_shutdown"] = started
-                break
-            if started:
-                _run(duthost, "config interface shutdown {}".format(cand))
+        port = free[0] if free else None
+        if port is not None and not _oper_up(duthost, port):
+            port = None
         if port is None and untagged:
             vlan_id, member = untagged[0]
             logger.warning("No usable unused port; temporarily removing %s from "
                            "Vlan%s (restored in teardown)", member, vlan_id)
             res = _run(duthost, "config vlan member del {} {}".format(vlan_id, member))
-            pytest_require(res.get("rc") == 0,
-                           "Could not free VLAN member {}".format(member))
+            pytest_assert(res.get("rc") == 0,
+                          "Could not free VLAN member {}".format(member))
             env["restore_vlan"] = (vlan_id, member)
             env["port"] = member
-            pytest_require(wait_until(15, 3, 0, lambda: _oper_up(duthost, member)),
-                           "Freed VLAN member {} is not oper-up".format(member))
+            pytest_assert(wait_until(15, 3, 0, lambda: _oper_up(duthost, member)),
+                          "Freed VLAN member {} is not oper-up in SONiC".format(member))
             port = member
-        pytest_require(port is not None,
-                       "No usable front-panel port for the rehome stress "
-                       "(unused-port candidates: {}, untagged VLAN members: {})"
-                       .format(len(free), len(untagged)))
+        pytest_assert(port is not None,
+                      "No oper-up front-panel port is available for the mandatory t0 rehome test "
+                      "(unused candidates: {}, untagged VLAN members: {})"
+                      .format(len(free), len(untagged)))
         env["port"] = port
         _ensure_l3_port(duthost, port)
         env["port_oid"] = _port_oid(duthost, port)
@@ -573,8 +568,6 @@ def _teardown(duthost, env):
         logger.warning("Targeted cleanup did not converge; falling back to config_reload")
         config_reload(duthost, safe_reload=True, check_intf_up_ports=True,
                       wait_for_bgp=True)
-    if env.get("restore_shutdown"):
-        _run(duthost, "config interface shutdown {}".format(port))
     if env.get("restore_vlan"):
         vlan_id, member = env["restore_vlan"]
         _run(duthost, "config vlan member add {} {} -u".format(vlan_id, member))
