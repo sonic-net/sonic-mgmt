@@ -39,28 +39,33 @@ EXAMPLES = '''
 
 
 def configure_routes(loopback_ip, vm_names, convergence_data, configuration):
-    command = ["ip", "route", "replace", loopback_ip, "metric", "100"]
+    if vm_names:
+        command = ["ip", "route", "replace", loopback_ip, "metric", "100"]
 
-    loopback_ip_object = ipaddress.ip_network(loopback_ip)
-    af = "ipv6" if loopback_ip_object.version == 6 else "ipv4"
+        loopback_ip_object = ipaddress.ip_network(loopback_ip)
+        af = "ipv6" if loopback_ip_object.version == 6 else "ipv4"
 
-    for vm_name in vm_names:
-        addr = None
-        if convergence_data:
-            rev_vrf_map = {}
-            for dev, vrfs in convergence_data["convergence_mapping"].items():
-                for vrf in vrfs:
-                    rev_vrf_map[vrf] = dev
+        for vm_name in vm_names:
+            addr = None
+            if convergence_data:
+                rev_vrf_map = {}
+                for dev, vrfs in convergence_data["convergence_mapping"].items():
+                    for vrf in vrfs:
+                        rev_vrf_map[vrf] = dev
 
-            vlan = convergence_data["ptf_backplane_addrs"][vm_name]["vlan"]
+                vlan = convergence_data["ptf_backplane_addrs"][vm_name]["vlan"]
 
-            host = rev_vrf_map[vm_name]
-            addr = convergence_data["converged_peers"][host]["vrf"][vm_name][f"Vlan{vlan}"][af]
-        else:
-            addr = configuration[vm_name]["bp_interface"][af]
-        command.extend(["nexthop", "via", addr.split("/")[0]])
+                host = rev_vrf_map[vm_name]
+                addr = convergence_data["converged_peers"][host]["vrf"][vm_name][f"Vlan{vlan}"][af]
+            else:
+                addr = configuration[vm_name]["bp_interface"][af]
+            command.extend(["nexthop", "via", addr.split("/")[0]])
 
-    subprocess.run(command, check=True)
+        subprocess.run(command, check=True)
+    else:
+        # Make sure there's no route to the Loopback IP address. There probably
+        # isn't, but still.
+        subprocess.run(["ip", "route", "remove", loopback_ip])
 
 
 def main():
