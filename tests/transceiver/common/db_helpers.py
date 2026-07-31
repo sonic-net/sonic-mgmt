@@ -377,19 +377,26 @@ def get_state_db_table(duthost, table, namespace=None):
 
 
 def get_config_db_port_table(duthost):
-    """Return the CONFIG_DB PORT table from running config facts.
+    """Return the merged CONFIG_DB PORT table from running config facts.
 
-    Thin accessor over ``duthost.get_running_config_facts()`` (the ansible-facts
-    path SONiC exposes for the running CONFIG_DB).  Returns an empty dict when
-    the PORT table is absent/empty so the caller can decide whether that is a
-    skip or a failure.
+    Reads every frontend ASIC namespace so multi-ASIC DUTs include front-panel
+    Ethernet ports whose PORT entries live in per-ASIC CONFIG_DB instances. On
+    single-ASIC DUTs, ``get_frontend_asic_namespace_list`` returns ``[None]``,
+    so this keeps the default-namespace behavior.
 
     This is a once-per-test bulk read (not a per-port query), so it returns the
     table directly rather than the ``(value, err)`` tuple the per-port wrappers
     use; a facts-gather failure is an infra-level error and is allowed to raise.
     """
-    config_facts = duthost.get_running_config_facts()
-    return config_facts.get("PORT") or {}
+    port_table = {}
+    for namespace in duthost.get_frontend_asic_namespace_list():
+        config_facts = duthost.config_facts(
+            host=duthost.hostname,
+            source="running",
+            namespace=namespace,
+        )["ansible_facts"]
+        port_table.update(config_facts.get("PORT") or {})
+    return port_table
 
 
 def get_config_db_port_names(duthost):
