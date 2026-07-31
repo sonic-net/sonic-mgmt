@@ -3890,7 +3890,7 @@
   ntp_server: 10.20.8.130
   ptf_image_name: docker-ptf
   ptf: vms77-3
-  ptf_ip: 10.64.246.236/25
+  ptf_ip: 10.64.246.235/25
   ptf_ipv6:
   server: server_str4_77
   vm_base:
