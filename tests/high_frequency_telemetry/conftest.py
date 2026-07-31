@@ -46,11 +46,17 @@ def _is_otel_container_stopped(duthost):
 def hft_otel_collector(duthosts, enum_rand_one_per_hwsku_hostname):
     """Prepare OTEL for the module and restore its original state afterward."""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    config_result = duthost.shell(
-        f"cat {OTEL_CONFIG_PATH}", module_ignore_errors=True
+    config_exists = duthost.shell(
+        f"sudo test -f {OTEL_CONFIG_PATH}", module_ignore_errors=True
     )
-    config_existed = config_result.get("rc") == 0
-    original_config = config_result.get("stdout", "")
+    if config_exists.get("rc") not in {0, 1}:
+        pytest.fail(f"Failed to inspect {OTEL_CONFIG_PATH}: {config_exists}")
+    config_existed = config_exists.get("rc") == 0
+    original_config = ""
+    if config_existed:
+        original_config = duthost.shell(
+            f"sudo cat {OTEL_CONFIG_PATH}", module_ignore_errors=False
+        ).get("stdout", "")
     feature_result = duthost.shell(
         "redis-cli -n 4 --raw HGETALL 'FEATURE|otel'",
         module_ignore_errors=False,
@@ -90,7 +96,7 @@ def hft_otel_collector(duthosts, enum_rand_one_per_hwsku_hostname):
             duthost.copy(content=original_config, dest=OTEL_CONFIG_PATH)
         else:
             duthost.shell(
-                f"rm -f {OTEL_CONFIG_PATH}", module_ignore_errors=True
+                f"sudo rm -f {OTEL_CONFIG_PATH}", module_ignore_errors=False
             )
 
         if feature_existed:
