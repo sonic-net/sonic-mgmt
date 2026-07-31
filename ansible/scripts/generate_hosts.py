@@ -290,16 +290,14 @@ def write_hosts_file(file_path, hosts_map, original_lines):
     temp_path = None
     try:
         with tempfile.NamedTemporaryFile(
-                mode='w',
-                dir=output_dir,
-                prefix=f".{os.path.basename(output_path)}.",
-                delete=False) as f:
+            mode='w',
+            dir=output_dir,
+            prefix=f".{os.path.basename(output_path)}.",
+            delete=False
+        ) as f:
             temp_path = f.name
             f.writelines(original_lines)
-            if (
-                    new_lines
-                    and original_lines
-                    and not original_lines[-1].endswith('\n')):
+            if new_lines and original_lines and not original_lines[-1].endswith('\n'):
                 f.write('\n')
             f.writelines(new_lines)
             f.flush()
