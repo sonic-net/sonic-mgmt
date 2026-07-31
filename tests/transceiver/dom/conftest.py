@@ -46,6 +46,6 @@ def _dom_session_prerequisites(
     """Opt DOM tests into shared prerequisite gates and DOM polling checks."""
     failures = build_dom_polling_failures(duthost, dom_primary_ports)
     if failures:
-        pytest.skip("dom polling prerequisite failed - " + "; ".join(failures))
+        pytest.fail("dom polling prerequisite failed - " + "; ".join(failures))
 
     logger.info("DOM session prerequisites passed for %d port(s)", len(dom_primary_ports))

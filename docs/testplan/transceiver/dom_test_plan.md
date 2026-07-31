@@ -167,7 +167,7 @@ Inherits the [Common Session-Level Prerequisites](test_plan.md#common-session-le
 
 #### Session-Level Setup (once per test run)
 
-1. **DOM polling state**: Confirm DOM polling is enabled for all ports under test. This is a one-time check at the start of the run; individual tests that disable polling (Advanced TC 2) are responsible for restoring it as part of their own teardown.
+1. **DOM polling state**: Confirm DOM polling is enabled for all ports under test. This is a one-time check at the start of the run; individual tests that disable polling (Advanced TC 2) are responsible for restoring it as part of their own teardown. If no DOM-capable primary ports are selected, skip the DOM suite because there is nothing to validate. If DOM polling is disabled, or a selected DOM port is missing or malformed in the CONFIG_DB `PORT` table, fail the suite because that indicates a misconfiguration or DUT regression on a DOM-capable port.
 
 #### Per-Test Setup (before each test case)
 
