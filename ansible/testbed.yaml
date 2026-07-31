@@ -6611,7 +6611,7 @@
 
 - conf-name: vms71-ft2-w6940-1
   group-name: vms71-4
-  topo: ft2-64
+  topo: ft2-16
   ptf_image_name: docker-ptf
   ptf: vms71-4
   ptf_ip: 10.64.246.116/25
@@ -6627,7 +6627,7 @@
 
 - conf-name: vms71-ft2-w6940-2
   group-name: vms71-5
-  topo: ft2-64
+  topo: ft2-16
   ptf_image_name: docker-ptf
   ptf: vms71-5
   ptf_ip: 10.64.246.117/25
