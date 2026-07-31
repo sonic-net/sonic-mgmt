@@ -327,35 +327,38 @@ class LagTest:
             port = self.vm_neighbors[po_intf]['port']
             neighbor_lag_intfs.append(self.__resolve_vm_neighbor_intf(peer_device, port))
 
+        # Get the vm host(veos) by its host name
+        vm_host = self.nbrhosts[peer_device]['host']
+
+        # Save the initial LACP rate for each interface so it can be restored afterwards,
+        # regardless of whether the testbed was pre-configured to fast or slow.
+        initial_lacp_rates = {}
+        for neighbor_lag_member in neighbor_lag_intfs:
+            initial_lacp_rates[neighbor_lag_member] = vm_host.get_interface_lacp_rate_mode(neighbor_lag_member)
+            logger.info("Initial lacp rate for %s in %s: %s"
+                        % (neighbor_lag_member, peer_device, initial_lacp_rates[neighbor_lag_member]))
+
         try:
-            lag_rate_current_setting = None
-
-            # Get the vm host(veos) by it host name
-            vm_host = self.nbrhosts[peer_device]['host']
-
             # Make sure all lag members on VM are set to fast
             for neighbor_lag_member in neighbor_lag_intfs:
                 logger.info("Changing lacp rate to fast for %s in %s" % (neighbor_lag_member, peer_device))
                 vm_host.set_interface_lacp_rate_mode(neighbor_lag_member, 'fast')
-            lag_rate_current_setting = 'fast'
             time.sleep(5)
             for iface_behind_lag in iface_behind_lag_member:
                 self.__verify_lag_lacp_timing(1, iface_behind_lag)
-
-            # Make sure all lag members on VM are set to slow
             for neighbor_lag_member in neighbor_lag_intfs:
                 logger.info("Changing lacp rate to slow for %s in %s" % (neighbor_lag_member, peer_device))
                 vm_host.set_interface_lacp_rate_mode(neighbor_lag_member, 'normal')
-            lag_rate_current_setting = 'slow'
             time.sleep(5)
             for iface_behind_lag in iface_behind_lag_member:
                 self.__verify_lag_lacp_timing(30, iface_behind_lag)
         finally:
-            # Restore lag rate setting on VM in case of failure
-            if lag_rate_current_setting == 'fast':
-                for neighbor_lag_member in neighbor_lag_intfs:
-                    logger.info("Changing lacp rate to slow for %s in %s" % (neighbor_lag_member, peer_device))
-                    vm_host.set_interface_lacp_rate_mode(neighbor_lag_member, 'normal')
+            # Restore each interface to its original LACP rate
+            for neighbor_lag_member in neighbor_lag_intfs:
+                original_rate = initial_lacp_rates.get(neighbor_lag_member, 'normal')
+                logger.info("Restoring lacp rate to %s for %s in %s"
+                            % (original_rate, neighbor_lag_member, peer_device))
+                vm_host.set_interface_lacp_rate_mode(neighbor_lag_member, original_rate)
 
     def run_single_lag_test(self, lag_name, lag_facts):
         logger.info("Start checking single lag for: %s" % lag_name)
