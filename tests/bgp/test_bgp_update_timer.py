@@ -32,7 +32,7 @@ from tests.common.helpers.constants import DEFAULT_NAMESPACE
 
 
 pytestmark = [
-    pytest.mark.topology("any", "t1-multi-asic"),
+    pytest.mark.topology("any", "t1-multi-asic", "t0", "t1", "t1-lag", "t1-8-lag", "t2"),
 ]
 
 PEER_COUNT = 2
