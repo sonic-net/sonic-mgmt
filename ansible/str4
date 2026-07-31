@@ -39,11 +39,11 @@ all:
           ansible_host: 10.64.246.71
           ansible_hostv6: 2a01:111:e210:b000::a40:f647
         vms71-4:
-          ansible_host: 10.64.246.72
-          ansible_hostv6: 2a01:111:e210:b000::a40:f648
+          ansible_host: 10.64.246.116
+          ansible_hostv6: 2a01:111:e210:b000::a40:f674
         vms71-5:
-          ansible_host: 10.64.246.73
-          ansible_hostv6: 2a01:111:e210:b000::a40:f649
+          ansible_host: 10.64.246.117
+          ansible_hostv6: 2a01:111:e210:b000::a40:f675
         vms72-1:
           ansible_host: 10.64.246.75
           ansible_hostv6: 2a01:111:e210:b000::a40:f64b
