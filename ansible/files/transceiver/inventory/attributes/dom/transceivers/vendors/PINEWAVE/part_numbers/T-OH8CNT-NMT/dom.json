@@ -1,0 +1,16 @@
+{
+    "temperature_operational_range": {"min": 20.0, "max": 70.0},
+    "temperature_threshold_range": {"lowalarm": -10.0, "lowwarning": -5.0, "highwarning": 75.0, "highalarm": 80.0},
+
+    "voltage_operational_range": {"min": 3.20, "max": 3.40},
+    "voltage_threshold_range": {"lowalarm": 3.0, "lowwarning": 3.135, "highwarning": 3.465, "highalarm": 3.6},
+
+    "txLANE_NUMbias_operational_range": {"min": 100.0, "max": 200.0},
+    "tx_bias_threshold_range": {"lowalarm": 40.0, "lowwarning": 60.0, "highwarning": 320.0, "highalarm": 340.0},
+
+    "txLANE_NUMpower_operational_range": {"min": 0.0, "max": 4.5},
+    "tx_power_threshold_range": {"lowalarm": -4.901, "lowwarning": -3.901, "highwarning": 5.0, "highalarm": 6.0},
+
+    "rxLANE_NUMpower_operational_range": {"min": -5.0, "max": 3.9},
+    "rx_power_threshold_range": {"lowalarm": -6.402, "lowwarning": -5.901, "highwarning": 4.0, "highalarm": 4.5}
+}

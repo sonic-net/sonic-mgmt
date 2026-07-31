@@ -2,6 +2,11 @@
     "deployment_templates": {
         "8x100G_DR8": {
             "required_attributes": {"EEPROM_ATTRIBUTES": ["sff8024_identifier"],
+                                    "DOM_ATTRIBUTES": ["temperature_operational_range", "temperature_threshold_range",
+                                                        "voltage_operational_range", "voltage_threshold_range",
+                                                        "txLANE_NUMbias_operational_range", "tx_bias_threshold_range",
+                                                        "txLANE_NUMpower_operational_range", "tx_power_threshold_range",
+                                                        "rxLANE_NUMpower_operational_range", "rx_power_threshold_range"],
                                     "CDB_FIRMWARE_UPGRADE_ATTRIBUTES": ["dual_bank_supported"]},
             "optional_attributes": {"EEPROM_ATTRIBUTES": ["vdm_supported"]}
         }
