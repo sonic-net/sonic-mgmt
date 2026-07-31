@@ -192,6 +192,20 @@ def fixture_setUp(duthosts,
     else:
         raise RuntimeError("Pls update this script for your platform.")
 
+    # Relaxed uniformity parameters for the random-hash / entropy distribution
+    # checks, scoped to VPP only. VPP's underlay ECMP uses a coarse 16-bucket
+    # multipath split (sonic-platform-vpp patch 0016), giving ~6% inherent
+    # distribution skew; combined with the multinomial variance of these checks
+    # (see the per-test comments) the tight 3% assertion cannot pass on VPP. The
+    # other ASICs distribute the sequentially incrementing ports more uniformly,
+    # so they keep the tighter 3% check and the shorter (1000-packet) runtime.
+    if asic_type == "vpp":
+        data['ecmp_hash_tolerance'] = 0.07
+        data['ecmp_hash_packet_count'] = 2000
+    else:
+        data['ecmp_hash_tolerance'] = 0.03
+        data['ecmp_hash_packet_count'] = 1000
+
     platform = duthosts[rand_one_dut_hostname].facts['platform']
     if platform in ['x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0'] and encap_type in ['v4_in_v6', 'v6_in_v6']:
         pytest.skip("Skipping test. v6 underlay is not supported on Mlnx 2700")
@@ -1500,15 +1514,15 @@ class Test_VxLAN_ecmp_random_hash(Test_VxLAN):
         # nexthop's received count has std/mean = sqrt((N-1)/(N*packet_count)).
         # With N=3 and packet_count=1000 that is ~2.6%, so the default 3%
         # tolerance is only ~1.1 sigma and this check flakes on a perfectly
-        # healthy dataplane. Send more packets (better resolution) and use a
-        # per-test tolerance giving a ~3.8 sigma margin while still catching a
-        # genuine >7% ECMP imbalance.
+        # healthy dataplane. On VPP (see setUp) send more packets for better
+        # resolution and use a ~3.8 sigma tolerance while still catching a
+        # genuine >7% ECMP imbalance; other ASICs keep the tighter 3% / 1000.
         self.dump_self_info_and_run_ptf(
             "tc11",
             encap_type,
             True,
-            packet_count=2000,
-            tolerance=0.07)
+            packet_count=self.vxlan_test_setup['ecmp_hash_packet_count'],
+            tolerance=self.vxlan_test_setup['ecmp_hash_tolerance'])
 
 
 @pytest.mark.skipif(
@@ -1570,10 +1584,11 @@ class Test_VxLAN_entropy(Test_VxLAN):
             random_sport=random_sport,
             random_dport=random_dport,
             random_src_ip=random_src_ip,
-            # 2000 pkts/endpoint (vs 1000) halves the relative binomial variance
-            # of the 2-way endpoint split, so the inner-field entropy checks below
-            # are statistically robust rather than flaky at their tolerance bound.
-            packet_count=2000,
+            # On VPP send 2000 pkts/endpoint (vs 1000) to halve the relative
+            # binomial variance of the 2-way endpoint split so the inner-field
+            # entropy checks are statistically robust rather than flaky at their
+            # tolerance bound; other ASICs keep 1000 (see setUp).
+            packet_count=self.vxlan_test_setup['ecmp_hash_packet_count'],
             tolerance=tolerance)
 
     def test_verify_entropy(self, setUp, encap_type):
@@ -1595,7 +1610,7 @@ class Test_VxLAN_entropy(Test_VxLAN):
         route 4's prefix dst
         '''
         self.vxlan_test_setup = setUp
-        self.verify_entropy(encap_type, tolerance=0.07)
+        self.verify_entropy(encap_type, tolerance=self.vxlan_test_setup['ecmp_hash_tolerance'])
 
     def test_vxlan_random_src_port(self, setUp, encap_type):
         '''
@@ -1607,7 +1622,7 @@ class Test_VxLAN_entropy(Test_VxLAN):
             encap_type,
             random_dport=False,
             random_sport=True,
-            tolerance=0.07)
+            tolerance=self.vxlan_test_setup['ecmp_hash_tolerance'])
 
     def test_vxlan_varying_src_ip(self, setUp, encap_type):
         '''
@@ -1619,4 +1634,4 @@ class Test_VxLAN_entropy(Test_VxLAN):
             encap_type,
             random_dport=False,
             random_src_ip=True,
-            tolerance=0.07)
+            tolerance=self.vxlan_test_setup['ecmp_hash_tolerance'])
