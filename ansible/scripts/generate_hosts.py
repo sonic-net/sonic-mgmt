@@ -92,7 +92,7 @@ def parse_hosts_line(line):
     try:
         ip = str(ipaddress.ip_address(ip))
     except ValueError:
-        pass
+        ip = parts[0]
 
     return ip, parts[1:]
 
@@ -199,9 +199,7 @@ def load_csv_devices(csv_pattern):
                         continue
 
                     hostname_key = normalize_hostname(hostname)
-                    if (
-                            hostname_key in device_ips
-                            and device_ips[hostname_key] != ip):
+                    if hostname_key in device_ips and device_ips[hostname_key] != ip:
                         errors.append(
                             f"{csv_file} line {line_num}: Hostname "
                             f"{hostname} is mapped to multiple IPs: "
@@ -269,9 +267,7 @@ def write_hosts_file(file_path, hosts_map, original_lines):
         new_lines.append(f"{ip.ljust(max_ip_length)} {hostname}\n")
 
     requested_output_path = os.path.abspath(file_path)
-    if (
-            os.path.lexists(requested_output_path)
-            and not os.path.exists(requested_output_path)):
+    if os.path.lexists(requested_output_path) and not os.path.exists(requested_output_path):
         raise ValueError(
             f"Output path '{file_path}' is a broken or cyclic symlink."
         )
@@ -334,9 +330,7 @@ def main(base_hosts, output_file, csv_pattern, override):
     for ip, hostnames in existing_hosts.items():
         for hostname in hostnames:
             hostname_key = normalize_hostname(hostname)
-            if (
-                    hostname_key in existing_hostnames
-                    and existing_hostnames[hostname_key][1] != ip):
+            if hostname_key in existing_hostnames and existing_hostnames[hostname_key][1] != ip:
                 existing_ip = existing_hostnames[hostname_key][1]
                 print(
                     f"Error: Base hosts file maps {hostname} to both "

@@ -87,8 +87,7 @@ def test_load_csv_devices_reports_missing_columns(tmp_path):
     csv_file = tmp_path / "devices.csv"
     csv_file.write_text("ManagementIp,Name\n10.0.0.1,host1\n")
 
-    with pytest.raises(
-            ValueError, match="missing required CSV column.*Hostname"):
+    with pytest.raises(ValueError, match="missing required CSV column.*Hostname"):
         generate_hosts.load_csv_devices(str(csv_file))
 
 
