@@ -840,7 +840,7 @@ def setup_vnets(num_vnets, tunnel, base_vni, gnmi_tls):     # noqa: F811
     return [base_vni + i for i in range(num_vnets)]
 
 
-def setup_vxlan_tunnel(duthost, ptfhost, name, src_ip, gnmi_tls):     # noqa: F811
+def setup_vxlan_tunnel(duthost, name, src_ip, gnmi_tls):     # noqa: F811
     tunnel_entry = {"src_ip": src_ip}
     # On cisco-8000, base topology IP-in-IP decap tunnels may already use pipe TTL mode.
     # Set VXLAN decap ttl_mode to pipe so orchagent passes DECAP_TTL_MODE consistently.
@@ -898,7 +898,7 @@ def common_setup_and_teardown(tbinfo, duthosts, rand_one_dut_hostname,
         subnet_ip = "10.11.0.0/16"
 
         # Set up vxlan
-        setup_vxlan_tunnel("tunnel_v4", loopback_ip, gnmi_tls)
+        setup_vxlan_tunnel(duthost, "tunnel_v4", loopback_ip, gnmi_tls)
 
         # Set up vnets
         vnet_vnis = setup_vnets(NUM_VNETS, "tunnel_v4", BASE_VNI, gnmi_tls)

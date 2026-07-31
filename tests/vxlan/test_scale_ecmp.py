@@ -235,7 +235,7 @@ def one_vnet_setup_teardown(
 
 
 @pytest.fixture(scope="function", autouse=True)
-def clean_vnet_route(one_vnet_setup_teardown):
+def clean_vnet_route(one_vnet_setup_teardown, gnmi_tls):     # noqa: F811
     """Clean VNET route state before each test"""
     setup, duthost, _ = one_vnet_setup_teardown
 
@@ -246,7 +246,7 @@ def clean_vnet_route(one_vnet_setup_teardown):
     time.sleep(2)
 
     # Reprogram the route with initial endpoints and VNI
-    _update_vxlan_endpoints(duthost, VNET_NAME, PREFIX, INITIAL_ENDPOINTS, VNI)
+    _update_vxlan_endpoints(gnmi_tls, VNET_NAME, PREFIX, INITIAL_ENDPOINTS, VNI)
 
     yield
 
