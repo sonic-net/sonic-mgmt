@@ -75,7 +75,7 @@ class OnyxHost(AnsibleHostBase):
     def get_interface_lacp_rate_mode(self, interface_name):
         """Returns the current LACP rate mode ('fast' or 'normal') from running config."""
         out = self.host.onyx_command(
-            commands=['show running-config interfaces %s' % interface_name])
+            commands=['show running-config interfaces %s' % interface_name])[self.hostname]
         if out.get("failed", False):
             raise Exception("Failed to get LACP rate mode for interface [%s]" % interface_name)
         config = (out.get("stdout") or [""])[0]
