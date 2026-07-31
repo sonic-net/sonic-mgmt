@@ -87,6 +87,14 @@ pdu-k08-a,32,str4-nh4210-01,PSU1
 pdu-k08-a,34,str4-nh4210-01,PSU2
 pdu-k08-a,35,str4-nh4210-01,PSU3
 pdu-k08-b,34,str4-nh4210-01,PSU4
+pdu-k08-a,30,str4-Nokia-7220-Th6p-1,PSU1
+pdu-k08-a,31,str4-Nokia-7220-Th6p-1,PSU2
+pdu-k08-b,30,str4-Nokia-7220-Th6p-1,PSU3
+pdu-k08-b,31,str4-Nokia-7220-Th6p-1,PSU4
+pdu-k08-a,28,str4-Nokia-7220-Th6p-leaf-1,PSU1
+pdu-k08-a,29,str4-Nokia-7220-Th6p-leaf-1,PSU2
+pdu-k08-b,28,str4-Nokia-7220-Th6p-leaf-1,PSU3
+pdu-k08-b,29,str4-Nokia-7220-Th6p-leaf-1,PSU4
 pdu-k09-a,14,str4-nh4210-leaf-01,PSU1
 pdu-k09-a,15,str4-nh4210-leaf-01,PSU2
 pdu-k09-b,14,str4-nh4210-leaf-01,PSU3
