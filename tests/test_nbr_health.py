@@ -58,7 +58,7 @@ def check_sonic_facts(hostname, mgmt_addr, host):
     if len(mgmt_addrs) == 0:
         return "there is no management interface in neighbor {}".format(hostname)
     for addr in mgmt_addrs:
-        if addr == mgmt_addr:
+        if addr.split('/')[0] == mgmt_addr:
             return
     return "neighbor {} has no management address {}".format(hostname, mgmt_addr)
 
