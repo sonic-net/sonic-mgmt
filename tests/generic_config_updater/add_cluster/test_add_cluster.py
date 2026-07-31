@@ -2034,21 +2034,32 @@ def _select_n_mors(config_facts, n):
 
 
 def _verify_bgp_up_scaling(duthost, bgp_neigh_ips, timeout=180):
-    """Poll ``show ip bgp summary -d all`` for all peers reaching Established.
+    """Poll ``show ip bgp summary`` until every peer in *bgp_neigh_ips* is Established.
 
-    Same command used elsewhere in this file (line ~1687).  Returns True on
-    success; caller decides whether to fail or just log a warning.
+    SONiC reports an Established session by printing the received-prefix count in
+    the ``State/PfxRcd`` column -- the literal word "Established" is never shown
+    (it only prints state strings such as ``Idle (Admin)``, ``Active`` or
+    ``Connect`` for sessions that are *not* up).  A substring match on "Estab"
+    therefore never succeeds and the poll always burns its full timeout while
+    reporting the peers as down.  Test whether ``State/PfxRcd`` is numeric
+    instead.  Returns True on success; caller decides whether to fail or just
+    log a warning.
     """
+    wanted = set(bgp_neigh_ips)
+
     def _all_established():
-        out = duthost.shell("show ip bgp summary -d all",
+        out = duthost.shell("show ip bgp summary",
                             module_ignore_errors=True)["stdout"]
-        count = 0
-        for ip in bgp_neigh_ips:
-            for line in out.splitlines():
-                if ip in line and "Estab" in line:
-                    count += 1
-                    break
-        return count == len(bgp_neigh_ips)
+        established = set()
+        for line in out.splitlines():
+            fields = line.split()
+            # <neighbor> <V> <AS> <MsgRcvd> <MsgSent> <TblVer> <InQ> <OutQ>
+            #     <Up/Down> <State/PfxRcd> <NeighborName>
+            if len(fields) < 10 or fields[0] not in wanted:
+                continue
+            if fields[-2].isdigit():
+                established.add(fields[0])
+        return established == wanted
 
     return wait_until(timeout, 10, 0, _all_established)
 
