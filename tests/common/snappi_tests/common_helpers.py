@@ -22,9 +22,10 @@ import json
 import re
 from netaddr import IPNetwork
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
+from tests.common.broadcom_data import is_broadcom_dnx_device
 from ipaddress import IPv6Network
 import ipaddress
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.portstat_utilities import parse_portstat
 from collections import defaultdict
 from tests.conftest import parse_override
@@ -761,6 +762,34 @@ def get_pfcwd_restore_time(host_ans, intf, asic_value=None):
     return None
 
 
+def get_pfcwd_timers(host_ans, intf, asic_value=None):
+    """
+    Get PFC watchdog timers for a given interface, skipping the test if they are
+    not configured.
+
+    PFC watchdog config is only populated when 'default_pfcwd_status' is enabled
+    on the DUT; otherwise the timers read back as None and any pfcwd test cannot
+    run. Reusable by any pfcwd test that needs the timers.
+
+    Args:
+        host_ans: Ansible host instance of the device
+        intf (str): interface name
+        asic_value: asic value of the host
+
+    Returns:
+        dict with 'poll_interval', 'detection_time' and 'restoration_time' in seconds.
+    """
+    timers = {
+        'poll_interval': get_pfcwd_poll_interval(host_ans, asic_value),
+        'detection_time': get_pfcwd_detect_time(host_ans, intf, asic_value),
+        'restoration_time': get_pfcwd_restore_time(host_ans, intf, asic_value),
+    }
+    pytest_require(None not in timers.values(),
+                   "PFC watchdog is not configured on {} port {}: {}; skipping test"
+                   .format(host_ans.hostname, intf, timers))
+    return {key: val / 1000.0 for key, val in timers.items()}
+
+
 def get_pfcwd_stats(duthost, port, prio, asic_value=None):
     """
     Get PFC watchdog statistics for given interface:prio
@@ -830,6 +859,47 @@ def stop_pfcwd(duthost, asic_value=None):
         duthost.shell('sudo ip netns exec {} pfcwd stop'.format(asic_value))
 
 
+def _set_credit_watchdog(duthost, enable, asic_value=None):
+    """
+    Enable/disable the VOQ credit watchdog by setting the SWITCH_TABLE:switch 'credit_watchdog'
+    field in APPL_DB, which SwitchOrch maps to the SAI_SWITCH_ATTR_CREDIT_WD switch attribute.
+
+    Args:
+        duthost (AnsibleHost): Device Under Test (DUT)
+        enable (bool): True to enable the watchdog, False to disable it
+        asic_value (str): asic namespace to target (e.g. 'asic0'). None targets the
+            default namespace, or every asic namespace on a multi-asic DUT.
+    """
+    if not is_broadcom_dnx_device(duthost):
+        logger.info("Credit watchdog not applicable on platform %s; skipping",
+                    duthost.facts.get("platform_asic"))
+        return
+    if asic_value:
+        namespaces = [asic_value]
+    elif duthost.is_multi_asic:
+        namespaces = [asic.namespace for asic in duthost.frontend_asics]
+    else:
+        namespaces = ['']
+    value = "1" if enable else "0"
+    for ns in namespaces:
+        # 'credit_watchdog' is the exact SWITCH_TABLE field SwitchOrch consumes and maps
+        # to SAI_SWITCH_ATTR_CREDIT_WD (sonic-swss #4658; on images without that support
+        # SwitchOrch logs 'Unsupported switch attribute' and the write is a no-op).
+        pyscript = (
+            "from swsscommon.swsscommon import SonicDBConfig, DBConnector, ProducerStateTable; "
+            # Namespaced redis is reached via unix socket and needs the global db config;
+            # the default namespace keeps the existing TCP connection unchanged.
+            + ("SonicDBConfig.load_sonic_global_db_config(); "
+               "db = DBConnector('APPL_DB', 0, False, '{}'); ".format(ns) if ns
+               else "db = DBConnector('APPL_DB', 0, True); ")
+            + "p = ProducerStateTable(db, 'SWITCH_TABLE'); "
+              "p.set('switch', [('credit_watchdog', '{}')])".format(value)
+        )
+        duthost.shell('sudo python3 -c "{}"'.format(pyscript))
+        logger.info("%s VOQ credit watchdog via APPL_DB SWITCH_TABLE credit_watchdog=%s (namespace: %s)",
+                    'Enabled' if enable else 'Disabled', value, ns or 'default')
+
+
 def disable_packet_aging(duthost, asic_value=None):
     """
     Disable packet aging feature
@@ -844,20 +914,11 @@ def disable_packet_aging(duthost, asic_value=None):
         duthost.command("docker cp /tmp/packets_aging.py syncd:/")
         duthost.command("docker exec syncd python /packets_aging.py disable")
         duthost.command("docker exec syncd rm -rf /packets_aging.py")
-    elif "platform_asic" in duthost.facts and duthost.facts["platform_asic"] == "broadcom-dnx":
-        # if asic_value is present, disable packet aging for specific asic_value.
-        if (asic_value):
-            try:
-                duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog disable"'.format(asic_value))
-            except Exception:
-                duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog disable"'.format(asic_value[-1]))
-        else:
-            # Disabling packet aging for all asics on given DUT.
-            for asic_value in duthost.facts['asics_present']:
-                try:
-                    duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog disable"'.format(asic_value))
-                except Exception:
-                    duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog disable"'.format(asic_value[-1]))
+    elif is_broadcom_dnx_device(duthost):
+        _set_credit_watchdog(duthost, enable=False, asic_value=asic_value)
+    else:
+        logger.info("Packet aging disable not needed on this platform (%s)",
+                    duthost.facts.get("platform_asic"))
 
 
 def enable_packet_aging(duthost, asic_value=None):
@@ -874,20 +935,11 @@ def enable_packet_aging(duthost, asic_value=None):
         duthost.command("docker cp /tmp/packets_aging.py syncd:/")
         duthost.command("docker exec syncd python /packets_aging.py enable")
         duthost.command("docker exec syncd rm -rf /packets_aging.py")
-    elif "platform_asic" in duthost.facts and duthost.facts["platform_asic"] == "broadcom-dnx":
-        # if asic_value is present, enable packet aging for specific asic_value.
-        if (asic_value):
-            try:
-                duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog enable"'.format(asic_value))
-            except Exception:
-                duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog enable"'.format(asic_value[-1]))
-        else:
-            # Enabling packet aging for all asics on given DUT.
-            for asic_value in duthost.facts['asics_present']:
-                try:
-                    duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog enable"'.format(asic_value))
-                except Exception:
-                    duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog enable"'.format(asic_value[-1]))
+    elif is_broadcom_dnx_device(duthost):
+        _set_credit_watchdog(duthost, enable=True, asic_value=asic_value)
+    else:
+        logger.info("Packet aging enable not needed on this platform (%s)",
+                    duthost.facts.get("platform_asic"))
 
 
 def get_ipv6_addrs_in_subnet(subnet, number_of_ip, exclude_ips=None):
@@ -1060,6 +1112,7 @@ def check_tx_drp_counts(
     raw_out = duthost.shell(cmd)["stdout"]
 
     raw_json_str = re.sub(r"^(?:(?!{).)*\n", "", raw_out, count=1)
+    stats = {}
     try:
         stats = json.loads(raw_json_str)
     except Exception as e:
@@ -1073,7 +1126,7 @@ def check_tx_drp_counts(
     details = {} if verbose else None
 
     for p in ports:
-        pytest_assert(p in stats, f"Port {p} not found in portstat output")
+        pytest_assert(p in stats, f"Port {p} missing from portstat output")
         tx_drp_raw = stats[p].get("TX_DRP")
         pytest_assert(tx_drp_raw is not None, f"TX_DRP field missing for port {p}")
         try:
@@ -1239,7 +1292,7 @@ def config_capture_settings(api,
     for port_name in port_names:
         port = ixnet_session.Vport.find(Name=port_name)
         if not port:
-            raise ValueError(f"Port '{port_name}' not found in IxNetwork session")
+            raise ValueError(f"Port '{port_name}' missing from IxNetwork session")
 
         port.Capture.HardwareEnabled = True  # enables data plane capture
         port.Capture.Filter.CaptureFilterEnable = True
