@@ -116,7 +116,7 @@ def _config_bgp_neighbor_with_vtysh(duthost, peer_addr, peer_asn, dut_addr, dut_
         "-c 'router bgp {dut_asn}' "
         "-c 'neighbor {peer_addr} remote-as {peer_asn}' "
         "-c 'neighbor {peer_addr} activate' "
-    ).format(peer_addr=peer_addr, peer_asn=peer_asn, dut_addr=dut_addr, dut_asn=dut_asn)
+    ).format(peer_addr=peer_addr, peer_asn=peer_asn, dut_asn=dut_asn)
     duthost.shell(_vtysh_cmd(duthost, namespace, cmd))
 
 
