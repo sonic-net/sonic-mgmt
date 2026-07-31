@@ -100,6 +100,14 @@ def verify_command_result(result, cmd):
     assert not traceback_found, "Traceback found in {}".format(cmd)
 
 
+def is_availability_based_hwsku(duthost):
+    # G200X (Cisco-8122) reports the drop table by pool AVAILABILITY rather than
+    # OCCUPANCY. On availability-based hwskus, global region 0 (lowest
+    # availability) drops every VoQ. Occupancy-based hwskus (Q200 default, etc.)
+    # drop only at the last VoQ quant.
+    return "Cisco-8122" in duthost.facts["hwsku"]
+
+
 @pytest.mark.disable_loganalyzer
 def test_verify_ecn_marking_config(duthosts, rand_one_dut_hostname, request):
     """
@@ -259,13 +267,20 @@ def test_verify_ecn_marking_config(duthosts, rand_one_dut_hostname, request):
                                          '''.format(port, pg_to_test, g_idx, voq_idx,
                                                     age_idx, raw_value, mark_list)
 
-                ''' Verify drop is 7 for last quant only'''
+                ''' Verify drop is 7 at the last VoQ quant. On availability-based
+                    hwskus, global region 0 (lowest availability) also drops
+                    every VoQ; occupancy-based hwskus drop only at the last
+                    VoQ quant. '''
                 if voq_drop_data:
+                    availability_based = is_availability_based_hwsku(duthost)
                     for g_idx in range(sms_quant_len):
                         for voq_idx in range(voq_quant_len):
                             for age_idx in range(age_quant_len):
                                 actual_value = voq_drop_data[g_idx][voq_idx][age_idx]
-                                expected_value = 7 if voq_idx == (voq_quant_len - 1) else 0
+                                if (availability_based and g_idx == 0) or voq_idx == (voq_quant_len - 1):
+                                    expected_value = 7
+                                else:
+                                    expected_value = 0
                                 assert (
                                         actual_value == expected_value
                                 ), '''
