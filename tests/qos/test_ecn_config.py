@@ -101,11 +101,7 @@ def verify_command_result(result, cmd):
 
 
 def is_availability_based_hwsku(duthost):
-    # G200X (Cisco-8122) reports the drop table by pool AVAILABILITY rather than
-    # OCCUPANCY. On availability-based hwskus, global region 0 (lowest
-    # availability) drops every VoQ. Occupancy-based hwskus (Q200 default, etc.)
-    # drop only at the last VoQ quant.
-    return "Cisco-8122" in duthost.facts["hwsku"]
+    return any(npu in duthost.facts["hwsku"] for npu in ["Cisco-8122", "Cisco-8223"])
 
 
 @pytest.mark.disable_loganalyzer
