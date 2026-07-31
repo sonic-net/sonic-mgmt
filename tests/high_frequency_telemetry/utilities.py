@@ -783,14 +783,39 @@ class InfluxDbSink:
         expected = self._expected_map(expected_series)
         end_time = time.time() + timeout
         last_counts = {}
+        cutoff = None
+        missing_latest = set(expected)
+        unfiltered_ready = False
         while time.time() < end_time:
-            last_counts = self.counts(expected_series)
-            if expected and all(
-                key in last_counts
-                and int(last_counts[key]["value"] or 0) >= min_points
-                for key in expected
-            ):
-                return last_counts
+            if not unfiltered_ready:
+                last_counts = self.counts(expected_series)
+                unfiltered_ready = expected and all(
+                    key in last_counts
+                    and int(last_counts[key]["value"] or 0) >= min_points
+                    for key in expected
+                )
+            if unfiltered_ready:
+                snapshot_latest = self.latest(expected_series)
+                missing_latest = set(expected) - set(snapshot_latest)
+                if not missing_latest:
+                    cutoff = min(
+                        (snapshot_latest[key]["time"] for key in expected),
+                        key=_parse_rfc3339_timestamp,
+                    )
+                    last_counts = self.counts(expected_series, cutoff)
+                    if all(
+                        key in last_counts
+                        and int(last_counts[key]["value"] or 0) >= min_points
+                        for key in expected
+                    ):
+                        logger.info(
+                            "All %d HFT series have at least %d points at "
+                            "shared cutoff %s",
+                            len(expected),
+                            min_points,
+                            cutoff,
+                        )
+                        return cutoff
             time.sleep(poll_interval)
         missing = [series for key, series in expected.items() if key not in last_counts]
         underfilled = [
@@ -799,26 +824,33 @@ class InfluxDbSink:
             if key in last_counts and int(last_counts[key]["value"] or 0) < min_points
         ]
         raise AssertionError(
-            f"Timed out waiting for {min_points} points per series. "
+            f"Timed out waiting for {min_points} points per series at shared "
+            f"cutoff {cutoff}. "
+            f"Missing latest ({len(missing_latest)}): "
+            f"{list(missing_latest)[:20]}. "
             f"Missing ({len(missing)}): {missing[:20]}. "
             f"Underfilled ({len(underfilled)}): {underfilled[:20]}"
         )
 
     def validate_series(self, expected_series, expected_interval_us,
                         min_points=20, interval_tolerance=0.05,
-                        validate_cadence=True):
+                        validate_cadence=True, cutoff=None):
         """Validate series coverage and values, optionally enforcing cadence."""
         expected = self._expected_map(expected_series)
-        snapshot_latest = self.latest(expected_series)
-        missing_latest = set(expected) - set(snapshot_latest)
-        pytest_assert(
-            not missing_latest,
-            f"Missing latest samples for expected series: {list(missing_latest)[:20]}",
-        )
-        cutoff = min(
-            (snapshot_latest[key]["time"] for key in expected),
-            key=_parse_rfc3339_timestamp,
-        )
+        if cutoff is None:
+            snapshot_latest = self.latest(expected_series)
+            missing_latest = set(expected) - set(snapshot_latest)
+            pytest_assert(
+                not missing_latest,
+                f"Missing latest samples for expected series: "
+                f"{list(missing_latest)[:20]}",
+            )
+            cutoff = min(
+                (snapshot_latest[key]["time"] for key in expected),
+                key=_parse_rfc3339_timestamp,
+            )
+        else:
+            _parse_rfc3339_timestamp(cutoff)
         values = self._statistics(expected_series, cutoff)
         counts = values["sample_count"]
         first = values["first_value"]
@@ -920,13 +952,14 @@ class InfluxDbSink:
                           min_points=20, timeout=30,
                           interval_tolerance=0.05,
                           validate_cadence=True):
-        self.wait_for_points(expected_series, min_points + 2, timeout)
+        cutoff = self.wait_for_points(expected_series, min_points, timeout)
         return self.validate_series(
             expected_series,
             expected_interval_us,
-            min_points,
-            interval_tolerance,
-            validate_cadence,
+            min_points=min_points,
+            interval_tolerance=interval_tolerance,
+            validate_cadence=validate_cadence,
+            cutoff=cutoff,
         )
 
     def assert_no_new_points(self, expected_series, duration=3, drain_time=2):

@@ -110,11 +110,13 @@ memory-utilization monitoring remains enabled for all HFT cases.
 For counter coverage tests, the expected set is generated independently from
 the configured object and counter lists. Validation requires every expected
 `(SAI object type, SAI stat, object name)` series, exact SAI tags, nonnegative
-values, and enough samples. Full Queue requires at least 100 samples for every
-series and enforces average source interval and CPS within 10%. Ingress-PG
-requires at least 20 samples for every series but does not enforce cadence.
-Port, poll-interval, and end-to-end cadence checks use at least 100 samples and
-a 5% tolerance.
+values, and enough samples at a shared cutoff equal to the earliest latest
+timestamp across all expected series. The wait condition uses that same cutoff
+as final validation, so staggered series cannot be truncated below the sample
+minimum. Full Queue requires at least 100 samples for every series and enforces
+average source interval and CPS within 10%. Ingress-PG requires at least 20
+samples for every series but does not enforce cadence. Port, poll-interval, and
+end-to-end cadence checks use at least 100 samples and a 5% tolerance.
 
 The full Queue coverage case executes after every other active HFT case. Target
 hardware accepts transitions into a full Queue session, while a full Queue
