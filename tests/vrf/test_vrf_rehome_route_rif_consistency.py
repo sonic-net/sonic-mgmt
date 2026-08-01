@@ -1,8 +1,7 @@
-"""Route/RIF VRF consistency across an interface VRF rehome (sonic-net/sonic-buildimage#28619).
+"""Route/RIF VRF consistency across an interface VRF rehome.
 
 A route for VRF X must never resolve through a RIF of another VRF, and a rehome
-must never be silently lost. Decisive signal: analyze_rehome_window()'s
-route_vs_intf_del_ms goes negative when the route lands before IntfsOrch is notified.
+must never be silently lost.
 """
 
 import json
@@ -24,7 +23,6 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology("t0"),
-    # Stress provokes transient orchagent RIF-reference retries; the test scans logs itself.
     pytest.mark.disable_loganalyzer,
 ]
 
@@ -535,7 +533,7 @@ def _fail_with_evidence(duthost, env, label, details, analysis):
                  .format("|".join(re.escape(p) for p in AUDIT_PREFIXES)))
     rif = _port_rif(duthost, env["port_oid"])
     pytest.fail(
-        "{} (see sonic-buildimage#28619)\n{}\nviolations={}\nport_rif={}\n"
+        "{} \n{}\nviolations={}\nport_rif={}\n"
         "ordering analysis={}\nwedge logs:\n{}\nsairedis.rec:\n{}".format(
             label, details, violations, rif, analysis, wedge, rec))
 
@@ -674,8 +672,6 @@ def test_vrf_rehome_bounded_stress_keeps_route_rif_vr_consistent(
                            index, ITERATION_BUDGET, index)
             break
 
-    # Margins are telemetry, not a gate: APPL_DB consumer priorities do not
-    # enforce ordering (see sonic-buildimage#28626).
     margins = summarize_margins([s.get("route_vs_intf_del_ms") for s in all_stats])
     dels_missing = [s["iteration"] for s in all_stats if not s.get("intf_del_seen")]
     summary = {
