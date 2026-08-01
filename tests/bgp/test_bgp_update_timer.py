@@ -18,6 +18,7 @@ from tests.bgp.bgp_helpers import (
         check_routes_presence
 )
 from tests.common.helpers.bgp import BGPNeighbor
+from tests.common.helpers.bgp import _shutdown_bgp_neighbor_with_vtysh
 from tests.common.utilities import wait_until, delete_running_config
 from tests.common.utilities import is_ipv6_only_topology
 
@@ -31,7 +32,7 @@ from tests.common.helpers.constants import DEFAULT_NAMESPACE
 
 
 pytestmark = [
-    pytest.mark.topology("any", "t1-multi-asic"),
+    pytest.mark.topology("any", "t1-multi-asic", "t0", "t1", "t1-lag", "t1-8-lag", "t2"),
 ]
 
 PEER_COUNT = 2
@@ -129,6 +130,14 @@ def _remove_outbound_route_filter(duthost, dut_asn, neighbor_ips, is_v6, namespa
 
     cmd = "vtysh {} {}".format(ns_option, " ".join("-c '{}'".format(c) for c in vtysh_cmds))
     duthost.shell(cmd, module_ignore_errors=True)
+
+
+def _flush_routes(duthost, routes, namespace):
+    for route in routes:
+        cmd = duthost.get_linux_ip_cmd_for_namespace(
+            "ip route flush {}".format(route["prefix"]), namespace
+        )
+        duthost.shell(cmd, module_ignore_errors=True)
 
 
 @pytest.fixture
@@ -544,8 +553,7 @@ def test_bgp_update_timer_single_route(
         _remove_outbound_route_filter(
             duthost, n0.peer_asn, [n0.ip, n1.ip], is_v6_topo, n0.namespace
         )
-        for route in constants.routes:
-            duthost.shell("ip route flush %s" % route["prefix"])
+        _flush_routes(duthost, constants.routes, n0.namespace)
 
 
 def test_bgp_update_timer_session_down(
@@ -596,17 +604,11 @@ def test_bgp_update_timer_session_down(
         def _shutdown_bgp_session():
             """Shutdown bgp session on dut."""
             if use_vtysh:
-                dut_asn = n0.peer_asn
-                neigh_ip = n0.ip
-                cmd = (
-                    "vtysh "
-                    "-c 'configure terminal' "
-                    f"-c 'router bgp {dut_asn}' "
-                    f"-c 'neighbor {neigh_ip} shutdown' ")
-            else:
-                cmd = "config bgp shutdown neighbor {}".format(n0.name)
-
-            return duthost.shell(cmd)
+                _shutdown_bgp_neighbor_with_vtysh(
+                    duthost, n0.ip, n0.peer_asn, namespace=n0.namespace
+                )
+                return duthost.shell("true")
+            return duthost.shell("config bgp shutdown neighbor {}".format(n0.name))
 
         with capture_bgp_packages_to_file(duthost, "any", bgp_pcap, n0.namespace):
             result = _shutdown_bgp_session()
@@ -654,5 +656,4 @@ def test_bgp_update_timer_session_down(
         _remove_outbound_route_filter(
             duthost, n0.peer_asn, [n0.ip, n1.ip], is_v6_topo, n0.namespace
         )
-        for route in constants.routes:
-            duthost.shell("ip route flush %s" % route["prefix"])
+        _flush_routes(duthost, constants.routes, n0.namespace)

@@ -263,19 +263,19 @@ def restore_bgp_neighbors(duthost, asic_index, bgp_neighbors):
 
 
 def is_neighbor_sessions_established(duthost, neighbors):
-    is_established = True
-
-    # handle both multi-asic and single-asic
-    bgp_facts = duthost.bgp_facts(num_npus=duthost.sonichost.num_asics())[
-        "ansible_facts"
-    ]
     for neighbor in neighbors:
-        is_established &= (
-            neighbor.ip in bgp_facts["bgp_neighbors"]
-            and bgp_facts["bgp_neighbors"][neighbor.ip]["state"] == "established"
-        )
-
-    return is_established
+        namespace = getattr(neighbor, "namespace", None)
+        if duthost.is_multi_asic:
+            asic_index = duthost.asic_instance_from_namespace(namespace).asic_index
+            bgp_facts = duthost.bgp_facts(instance_id=asic_index)["ansible_facts"]
+        else:
+            bgp_facts = duthost.bgp_facts()["ansible_facts"]
+        if (
+            neighbor.ip not in bgp_facts["bgp_neighbors"]
+            or bgp_facts["bgp_neighbors"][neighbor.ip]["state"] != "established"
+        ):
+            return False
+    return True
 
 
 @pytest.fixture(scope='module')
