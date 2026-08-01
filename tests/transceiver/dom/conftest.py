@@ -35,7 +35,7 @@ def dom_non_primary_ports(dom_port_selection):
     return dom_port_selection.non_primary_ports
 
 
-@pytest.fixture(autouse=True, scope="session")
+@pytest.fixture(autouse=True, scope="package")
 def _dom_session_prerequisites(
     duthost,
     dom_primary_ports,

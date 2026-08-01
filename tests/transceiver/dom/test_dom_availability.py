@@ -2,7 +2,6 @@ import logging
 import math
 
 import pytest
-
 from natsort import natsorted
 
 from tests.transceiver.common.db_helpers import parse_numeric

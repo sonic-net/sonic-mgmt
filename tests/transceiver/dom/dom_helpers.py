@@ -32,7 +32,7 @@ DOM_POLLING_DISABLED_VALUE = "disabled"
 
 
 def _active_media_lanes(primary_port, port_attributes_dict, lport_to_first_subport_mapping):
-    """Return a module's active media-lane indices for a primary subport.
+    """Return ``(active_lanes, errors)`` for a primary subport.
 
     DOM sensor data for a breakout module is published only on the first/primary
     subport, but that single entry carries all of the module's media lanes (one
@@ -47,15 +47,30 @@ def _active_media_lanes(primary_port, port_attributes_dict, lport_to_first_subpo
     group = [sub for sub, first in mapping.items() if first == primary_port] or [primary_port]
 
     mask_union = 0
+    errors = []
     for subport in group:
         base_attrs = port_attributes_dict.get(subport, {}).get(BASE_ATTRIBUTES_KEY, {})
         mask = base_attrs.get(MEDIA_LANE_MASK_KEY)
         if mask is None:
+            errors.append(
+                "{} missing {} in {}".format(
+                    subport,
+                    MEDIA_LANE_MASK_KEY,
+                    BASE_ATTRIBUTES_KEY,
+                )
+            )
             continue
         try:
             mask_union |= int(str(mask), 16)
         except (TypeError, ValueError):
-            logger.debug("%s has unparsable %s %r", subport, MEDIA_LANE_MASK_KEY, mask)
+            errors.append(
+                "{} has unparsable {} {!r} in {}".format(
+                    subport,
+                    MEDIA_LANE_MASK_KEY,
+                    mask,
+                    BASE_ATTRIBUTES_KEY,
+                )
+            )
 
     lanes = [bit + 1 for bit in range(mask_union.bit_length()) if mask_union & (1 << bit)]
     logger.debug(
@@ -65,7 +80,7 @@ def _active_media_lanes(primary_port, port_attributes_dict, lport_to_first_subpo
         sorted(group),
         mask_union,
     )
-    return lanes
+    return lanes, errors
 
 
 def _map_operational_attribute_to_fields(attr_name, attr_value, active_media_lanes):
@@ -123,11 +138,11 @@ def build_dom_availability_plan(port_attributes_dict, dom_primary_ports, lport_t
     for port in dom_primary_ports:
         port_attrs = port_attributes_dict.get(port, {})
         dom_attrs = port_attrs.get(DOM_ATTRIBUTES_KEY, {})
-        active_media_lanes = _active_media_lanes(
+        active_media_lanes, lane_errors = _active_media_lanes(
             port, port_attributes_dict, lport_to_first_subport_mapping
         )
         expected_fields = {}
-        errors = []
+        errors = list(lane_errors)
 
         for attr_name, attr_value in sorted(dom_attrs.items()):
             mapped_fields, field_errors = map_dom_attribute_to_fields(
