@@ -203,6 +203,14 @@ def common_setup_teardown(
         neigh_type = "LowerRegionalHub"
         if confed_asn is not None:
             use_vtysh = True
+    elif dut_type in ["LowerMgmtAggregator"]:
+        neigh_type = "MgmtSpineRouter"
+        if confed_asn is not None:
+            use_vtysh = True
+    elif dut_type in ["UpperMgmtAggregator"]:
+        neigh_type = "LowerMgmtAggregator"
+        if confed_asn is not None:
+            use_vtysh = True
     else:
         neigh_type = "ToRRouter"
 
