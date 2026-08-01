@@ -131,7 +131,7 @@
         </PortChannel>
 {% endif %}
 {% endfor %}
-{% if 'tor' in vm_topo_config['dut_type'] | lower %}
+{% if is_tor_dut | bool %}
 {% for portchannel, params in portchannel_config.items() %}
 {% set port_channel_intf=';'.join(params['intfs'] | map('extract', port_alias)) %}
         <PortChannel>
@@ -162,7 +162,7 @@
       </TunnelInterfaces>
 {% endif %}
       <VlanInterfaces>
-{% if 'tor' in vm_topo_config['dut_type'] | lower %}
+{% if is_tor_dut | bool %}
 {% for vlan, vlan_param in vlan_configs.items() %}
         <VlanInterface>
           <Name>{{ vlan }}</Name>
@@ -240,7 +240,7 @@
 {% endfor %}
 {% endif %}
 {% endfor %}
-{% if 'tor' in vm_topo_config['dut_type'] | lower %}
+{% if is_tor_dut | bool %}
 {% for vlan, vlan_param in vlan_configs.items() %}
 {% if 'prefix' in vlan_param %}
         <IPInterface>
