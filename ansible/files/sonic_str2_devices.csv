@@ -62,8 +62,6 @@ str2-7050cx3-32c-f-acs-08,10.3.146.20/24,Arista-7050CX3-32C-C32,DevSonic,,sonic
 str2-7050cx3-32c-f-acs-09,10.3.146.6/24,Arista-7050CX3-32C-C32,DevSonic,,sonic
 str2-7050cx3-32c-f-acs-10,10.3.146.122/24,Arista-7050CX3-32C-C32,DevSonic,,sonic
 str2-7050cx3-32c-f-acs-11,10.3.146.127/24,Arista-7050CX3-32C-C32,DevSonic,,sonic
-str2-7050cx3-32c-f-acs-12,10.3.155.69/27,Arista-7050CX3-32C-C32,DevSonic,,sonic
-str2-7050cx3-32c-f-acs-13,10.3.155.71/27,Arista-7050CX3-32C-C32,DevSonic,,sonic
 str2-7050cx3-32c-f-acs-14,10.3.155.72/27,Arista-7050CX3-32C-C32,DevSonic,,sonic
 str2-7050cx3-32c-f-acs-15,10.3.155.73/27,Arista-7050CX3-32C-C32,DevSonic,,sonic
 str2-7050cx3-acs-12,10.3.146.13/24,Arista-7050CX3-32S-C32,DevSonic,,sonic
@@ -153,7 +151,6 @@ str2-bluefield-host-02,10.64.246.249/25,DPU,DevSonic,,sonic
 str2-pensando-3,10.3.146.235/24,DPU,DevSonic,,sonic
 str2-pensando-host-3,10.64.246.232/25,DPU,DevSonic,,sonic
 str2-7260cx3-acs-fan-37,10.3.150.165/27,Arista-7260CX3,FanoutLeaf,,
-str2-7260cx3-acs-fan-38,10.3.155.74/27,Arista-7260CX3,FanoutLeaf,,
 str2-7260cx3-acs-fan-39,10.3.155.75/27,Arista-7260CX3,FanoutLeaf,,
 str2-8223-azd-t0-01,10.3.150.164/27,Cisco-8223-C64S2,DevSonic,,sonic
 str2-acs-serv-16,10.64.246.95/25,TestServ,Server,,
@@ -223,5 +220,4 @@ str43-0101-0400-08c0,10.3.152.33,Cisco,ConsoleServer,ssh,
 str43-0101-0400-09c0,10.3.150.244,Cisco,ConsoleServer,ssh,
 str43-0101-0801-01c0,10.3.150.230,Cisco,ConsoleServer,ssh,
 str43-0101-0200-06c0,10.3.158.58,Cisco,ConsoleServer,ssh,
-str43-0101-0801-02m0,10.3.150.229,Cisco,MgmtSwitch,ssh,
-str43-0101-0801-02c0,10.3.150.228,Cisco,ConsoleServer,ssh,
+str43-0101-0801-02c0,10.3.152.53,Cisco,ConsoleServer,ssh,

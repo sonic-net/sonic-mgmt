@@ -40,6 +40,8 @@ mux_simulator_http_port:
     vms26-dual-t0-7050-3: 8080
     vms26-dual-t0-7260: 8082
 
+    vms93-dual-t0-7050-4: 8080
+
     vms24-dual-t0-7050-1: 8080
     vms24-dual-t0-7050-2: 8082
 

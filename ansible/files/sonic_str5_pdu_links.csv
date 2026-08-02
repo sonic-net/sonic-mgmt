@@ -39,3 +39,9 @@ pdu-126,40,str5-7280r4-ut2-3,PSU1
 pdu-127,40,str5-7280r4-ut2-3,PSU2
 pdu-126,46,str5-7280r4-ut2-4,PSU1
 pdu-127,46,str5-7280r4-ut2-4,PSU2
+pdu-k10-a,3,str5-7050cx3-32c-f-acs-12,PSU1
+pdu-k10-b,3,str5-7050cx3-32c-f-acs-12,PSU2
+pdu-k10-a,1,str5-7050cx3-32c-f-acs-13,PSU1
+pdu-k10-b,1,str5-7050cx3-32c-f-acs-13,PSU2
+pdu-k10-a,2,str5-7260cx3-acs-fan-38,PSU1
+pdu-k10-b,2,str5-7260cx3-acs-fan-38,PSU2

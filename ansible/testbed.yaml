@@ -6339,6 +6339,24 @@
   comment: yatishkoul
   tb_owner: yatishkoul
 
+- conf-name: vms93-dual-t0-7050-4
+  group-name: vms93-4
+  topo: dualtor-aa
+  ptf_image_name: docker-ptf
+  ptf: vms93-4
+  ptf_ip: 10.64.247.166/25
+  ptf_ipv6: 2a01:111:e210:b000::a40:f7a6/121
+  netns_mgmt_ip: 10.64.247.167/25
+  server: server_93
+  vm_base: VM93186
+  dut:
+  - str5-7050cx3-32c-f-acs-12
+  - str5-7050cx3-32c-f-acs-13
+  inv_name: str5
+  auto_recover: 'True'
+  comment: yawenni
+  tb_owner: yawenni
+
 - conf-name: ptp-robot-7060-1
   group-name:
   topo: ptp-32
