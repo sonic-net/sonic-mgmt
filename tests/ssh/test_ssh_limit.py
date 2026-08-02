@@ -68,6 +68,8 @@ def modify_templates(duthost, tacacs_creds, creds):     # noqa F811
 
     sonic_admin_alt_password = duthost.host.options['variable_manager']._hostvars[duthost.hostname].get(
         "ansible_altpassword")
+    sonic_default_passwords = duthost.host.options['variable_manager']._hostvars[
+        duthost.hostname].get("sonic_default_passwords") or []
     # Connect over SSH as admin (duthost.shell can't run commands containing J2 templates).
     # Retry the login for up to 1 minute instead of once, because the AAA config change above is
     # applied asynchronously and may take a little time to take effect, during which the admin
@@ -78,7 +80,7 @@ def modify_templates(duthost, tacacs_creds, creds):     # noqa F811
         admin_session_holder['session'] = paramiko_ssh(
             ip_address=dut_ip, username=creds['sonicadmin_user'],
             passwords=[creds['sonicadmin_password'], sonic_admin_alt_password]
-            + creds["ansible_altpasswords"])
+            + creds["ansible_altpasswords"] + sonic_default_passwords)
         return True
 
     pytest_assert(
