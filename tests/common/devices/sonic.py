@@ -504,12 +504,6 @@ class SonicHost(AnsibleHostBase):
                 && cat /etc/supervisor/critical_processes'".format(container_name)
         file_content = self.shell(cmd, module_ignore_errors=True)
         file_content = self._retry_if_oci_exec_race(cmd, file_content)
-        if file_content.get("rc", 1) != 0:
-            logging.warning(
-                "Reading critical_processes from container '%s' failed: rc=%s, stderr=%s",
-                container_name, file_content.get("rc"), file_content.get("stderr"))
-            return critical_group_list, critical_process_list, False
-
         for line in file_content["stdout_lines"]:
             line_info = line.strip().split(':')
             if len(line_info) != 2:
