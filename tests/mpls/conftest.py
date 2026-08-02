@@ -30,6 +30,23 @@ def _resolve_ptf_port_ids(dut_port, mg_facts):
     return [mg_facts['minigraph_port_indices'][member] for member in members]
 
 
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exceptions(duthost, loganalyzer):
+    """Ignore the kernel-MPLS errors intfmgrd emits on platforms without mpls_router.
+
+    Configuring MPLS on an interface makes intfmgrd run
+    "sysctl -w net.mpls.conf.<intf>.input=1". That requires the mpls_router kernel
+    module, which no SONiC image loads by default, so the command fails and is
+    logged as an ERR. On sonic-vpp this is harmless: MPLS forwarding is done by
+    VPP in userspace via the SAI INSEG entries, not by the Linux kernel data path.
+    """
+    if loganalyzer and duthost.facts.get('asic_type') == 'vpp':
+        loganalyzer[duthost.hostname].ignore_regex.extend([
+            r".*ERR swss#intfmgrd.*setIntfMpls: Command 'sysctl -w net\.mpls\.conf\..* failed with rc 1.*",
+        ])
+    yield
+
+
 @pytest.fixture(scope='module')
 def setup(duthost, tbinfo, ptfadapter):
     """
@@ -75,6 +92,13 @@ def setup(duthost, tbinfo, ptfadapter):
     logger.info('tor_ports: {}'.format(tor_ports))
     logger.info('spine_ports: {}'.format(spine_ports))
     logger.info('tor_addr: {}'.format(tor_addr))
+
+    # The test needs both a T2-facing ingress and a T0-facing egress interface.
+    # Some t1 variants (e.g. t1-backend, whose neighbors are all BT0) have no T2
+    # peer at all, so bail out cleanly instead of failing later in random.choice().
+    if not spine_ports or not tor_ports:
+        pytest.skip('Topology has no T2-facing ({}) or T0-facing ({}) interface'
+                    .format(len(spine_ports), len(tor_ports)))
 
     for dut_port in tor_ports:
         tor_ports_ids[dut_port] = _resolve_ptf_port_ids(dut_port, mg_facts)
