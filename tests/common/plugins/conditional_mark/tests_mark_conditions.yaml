@@ -868,12 +868,6 @@ clock/test_clock.py::test_config_clock_timezone:
     conditions:
       - "https://github.com/sonic-net/sonic-buildimage/issues/24562 and asic_type in ['mellanox', 'nvidia', 'vs']"
 
-closa/test_bgp_aggregate_address_t1_tagging_lifecycle_msft_internal.py:
-  xfail:
-    reason: "Known failure tracked by ADO 38502269: https://msazure.visualstudio.com/One/_workitems/edit/38502269"
-    conditions:
-      - "True"
-
 #######################################
 #####           configlet         #####
 #######################################
