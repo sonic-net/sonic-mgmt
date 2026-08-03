@@ -77,6 +77,13 @@ def common_setup_teardown(
         neigh_type = "LowerRegionalHub"
         if confed_asn is not None:
             use_vtysh = True
+    elif dut_type in ["LowerMgmtAggregator", "UpperMgmtAggregator"]:
+        # Mgmt aggregators run BGP confederation. The test neighbor is an
+        # external eBGP peer, so it must be added directly to FRR via vtysh
+        # (the config_db path is not rendered for these peers).
+        neigh_type = "MgmtSpineRouter"
+        if confed_asn is not None:
+            use_vtysh = True
     else:
         neigh_type = "ToRRouter"
     logging.info(
