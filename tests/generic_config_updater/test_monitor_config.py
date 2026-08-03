@@ -32,6 +32,8 @@ def is_policer_supported(duthost):
         return False
     if platform.startswith("x86_64-nokia_ixr7220"):
         return False
+    if platform.startswith("x86_64-nexthop_4210"):
+        return False
     return True
 
 
