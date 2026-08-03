@@ -617,7 +617,7 @@ def get_dhcp_relay_type(duthost):
         raise RuntimeError("Failed to determine dhcp_server feature state")
     config_facts = duthost.config_facts(host=duthost.hostname, source='running')['ansible_facts']
     device_metadata = config_facts.get('DEVICE_METADATA', {}).get('localhost', {})
-    has_sonic_dhcpv4_relay = str(device_metadata.get('has_sonic_dhcpv4_relay', 'False')).lower() == 'true'
+    has_sonic_dhcpv4_relay = device_metadata.get('has_sonic_dhcpv4_relay', 'False') == 'True'
     if features_state.get('dhcp_server') not in ('enabled', 'always_enabled'):
         return 'sonic' if has_sonic_dhcpv4_relay else 'isc'
 
