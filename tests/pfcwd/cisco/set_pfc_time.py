@@ -28,15 +28,21 @@ def get_ifgb(ifg_root):
     return ifgb
 
 
+def get_fc_port_cfg0(ifg_root, lane):
+    if is_graphene2:  # noqa: F821
+        return ifg_root.mac_pool8[lane // 8].fc_port_cfg0[lane % 8]
+    return get_ifgb(ifg_root).fc_port_cfg0[lane]
+
+
 def set_pfc_512bit_time(interface, bit_time, num_serdes_lanes):
     sai_lane = port_to_sai_lane_map[interface]           # noqa: F821
     slice_idx, ifg_idx, serdes_idx = sai_lane_to_slice_ifg_pif(sai_lane)      # noqa: F821
     for i in range(num_serdes_lanes):
         ifg_root = get_ifg_reg_list(slice_idx)[ifg_idx]
-        ifg_mac = get_ifgb(ifg_root)
-        regval = dd0.read_register(ifg_mac.fc_port_cfg0[serdes_idx + i])      # noqa: F821
+        reg = get_fc_port_cfg0(ifg_root, serdes_idx + i)
+        regval = dd0.read_register(reg)  # noqa: F821
         regval.port_512bit_time = bit_time
-        dd0.write_register(ifg_mac.fc_port_cfg0[serdes_idx + i], regval)      # noqa: F821
+        dd0.write_register(reg, regval)  # noqa: F821
 
 
 def set_pfc512_bit_sec(interface, time_sec):
