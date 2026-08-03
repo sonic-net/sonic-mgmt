@@ -10,7 +10,7 @@ from tests.common.dhcp_relay_utils import enable_sonic_dhcpv4_relay_agent    # n
 
 pytestmark = [
     pytest.mark.topology('mx'),
-    pytest.mark.parametrize("relay_agent", ["isc-relay-agent"]),
+    pytest.mark.parametrize("relay_agent", ["isc-relay-agent", "sonic-relay-agent"]),
 ]
 
 
