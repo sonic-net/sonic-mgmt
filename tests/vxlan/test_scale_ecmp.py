@@ -109,7 +109,7 @@ def get_available_vlan_id_and_ports(cfg_facts, num_ports_needed):
 
 # ---------- Single-VNET setup ----------
 def vxlan_setup_one_vnet(duthost, ptfhost, tbinfo, cfg_facts,
-                         config_facts, dut_indx, vxlan_port, gnmi_tls,
+                         config_facts, dut_indx, vxlan_port, gnmi_tls,    # noqa: F811
                          vxlan_sport=None, vxlan_mask=None):
     ports = get_available_vlan_id_and_ports(config_facts, 1)
     pytest_assert(ports and len(ports) >= 1, "Not enough ports for VNET setup")
@@ -250,6 +250,7 @@ def clean_vnet_route(one_vnet_setup_teardown, gnmi_tls):     # noqa: F811
 
     yield
 
+
 # ---------- PTF runner helper ----------
 def run_vxlan_ptf_test(ptfhost, endpoints, params, num_packets, mac_list=None, vni_list=None):
     logger.info(f"Calling VXLAN ECMP PTF test: {len(endpoints)} endpoints, {num_packets} packets")
@@ -385,7 +386,7 @@ def test_ecmp_mac_vni(ptfhost, one_vnet_setup_teardown, gnmi_tls):     # noqa: F
 
     # --- Build deterministic MAC list ---
     # 52:54:00:00:xx:yy (unique per endpoint)
-    mac_list = [f"52:54:00:{i//256:02x}:{i%256:02x}:bb" for i in range(num_endpoints)]
+    mac_list = [f"52:54:00:{i//256:02x}:{i % 256:02x}:bb" for i in range(num_endpoints)]
     mac_list_str = ",".join(mac_list)
     updated_vni = 6001
 
@@ -432,7 +433,7 @@ def test_ecmp_same_endpoint_diff_mac_vni(ptfhost, one_vnet_setup_teardown, gnmi_
 
     # --- Build deterministic MAC list ---
     # 52:54:00:00:xx:yy (unique per endpoint)
-    mac_list = [f"52:54:00:{i//256:02x}:{i%256:02x}:aa" for i in range(num_endpoints)]
+    mac_list = [f"52:54:00:{i//256:02x}:{i % 256:02x}:aa" for i in range(num_endpoints)]
     mac_list_str = ",".join(mac_list)
     vni_list = [5000 + i for i in range(num_endpoints)]
     vni_list_str = ",".join(str(vni) for vni in vni_list)
@@ -472,7 +473,7 @@ def test_ecmp_same_endpoint_diff_mac_vni(ptfhost, one_vnet_setup_teardown, gnmi_
 
     # --- Build deterministic MAC list ---
     # 52:54:00:00:xx:yy (unique per endpoint)
-    mac_list = [f"52:54:00:{i//256:02x}:{i%256:02x}:bb" for i in range(num_endpoints)]
+    mac_list = [f"52:54:00:{i//256:02x}:{i % 256:02x}:bb" for i in range(num_endpoints)]
     mac_list_str = ",".join(mac_list)
     vni_list = [6000 + i for i in range(num_endpoints)]
     vni_list_str = ",".join(str(vni) for vni in vni_list)

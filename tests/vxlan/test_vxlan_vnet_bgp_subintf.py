@@ -403,7 +403,7 @@ def generate_vnet_routes_v6(vnet_vnis, start_vni, num_routes_per_vnet, include_d
 
 
 def generate_vnet_routes_v4(vnet_vnis, start_prefix_int, start_endpoint_int, start_vni,
-                         num_routes_per_vnet, include_default_route=True, offset=0):
+                            num_routes_per_vnet, include_default_route=True, offset=0):
     """
     Generate vnet routes with prefix, endpoint, mac, and vni.
     """
@@ -416,7 +416,7 @@ def generate_vnet_routes_v4(vnet_vnis, start_prefix_int, start_endpoint_int, sta
                 "prefix": f"{ipaddress.IPv4Address(prefix_int)}/32",
                 "endpoint": str(ipaddress.IPv4Address(endpoint_int)),
                 "vni": start_vni + (i * num_routes_per_vnet) + j,
-                "mac_address": f"52:54:00:{(i << 8 + j + offset)//256:02x}:{(i << 8 + j + offset)%256:02x}:aa",
+                "mac_address": f"52:54:00:{(i << 8 + j + offset)//256:02x}:{(i << 8 + j + offset) % 256:02x}:aa",
                 "vnet_vni": vni
             }
             routes[vni].append(route)
@@ -468,7 +468,7 @@ def get_ptf_link_local_ipv6_on_interface(ptfhost, interface_name):
     pytest.fail(f"No PTF link-local IPv6 found on interface {interface_name}.")
 
 
-def ensure_localhost_deployment_id(duthost, gnmi_tls, deployment_id="26"):
+def ensure_localhost_deployment_id(duthost, gnmi_tls, deployment_id="26"):   # noqa: F811
     """
     Ensure DEVICE_METADATA localhost deployment_id is set to the expected value.
     """
@@ -489,7 +489,7 @@ def ensure_localhost_deployment_id(duthost, gnmi_tls, deployment_id="26"):
     time.sleep(10)
 
 
-def ensure_device_neighbor_metadata(duthost, gnmi_tls):
+def ensure_device_neighbor_metadata(duthost, gnmi_tls):   # noqa: F811
     """
     Ensure the WL partner neighbor metadata exists in CONFIG_DB.
     """
@@ -561,7 +561,7 @@ def setup_acl_config(duthost, ports, vnet_vnis, vnet_routes_v4, vnet_routes_v6, 
         return True
 
     pytest_assert(wait_until(60, 2, 0, _acl_tables_and_rules_active, duthost),
-                  f"ACL tables or rules not active after 60 seconds.")
+                  "ACL tables or rules not active after 60 seconds.")
 
 
 def setup_vnet_routes(vnet_vnis, vni_to_routes, gnmi_tls):     # noqa: F811
@@ -606,7 +606,7 @@ def setup_ra_sender(ptfhost, subintfs_info):
             f"nohup python3 /tmp/ra_send.py {bond_name} --interval 3 > /var/log/exabgp_vnet.log 2>&1 &",
             module_ignore_errors=True
         )
-    
+
     time.sleep(2)
 
 
@@ -630,7 +630,7 @@ def setup_bgp(duthost, ptfhost, vnet_vnis, subint_info,
                 "asn": peer_asn,
             },
             f"bgp_peer_{value['vnet_vni']}_{subint}")
-        
+
     prefix_lists = {}
     for vni in vnet_vnis:
         prefix_lists[f"IPV4_DOWNSTREAM_PREFIXES_VNET_Vnet{vni}|{subnet_ip}"] = {"action": "permit"}
@@ -918,13 +918,13 @@ def common_setup_and_teardown(tbinfo, duthosts, rand_one_dut_hostname,
 
         # Set up bgps
         setup_bgp(duthost,
-            ptfhost,
-            vnet_vnis,
-            subintfs_info,
-            subnet_ip=subnet_ip,
-            bgp_port=EXABGP_PORT,
-            gnmi_tls=gnmi_tls)
-        
+                  ptfhost,
+                  vnet_vnis,
+                  subintfs_info,
+                  subnet_ip=subnet_ip,
+                  bgp_port=EXABGP_PORT,
+                  gnmi_tls=gnmi_tls)
+
         # Start IPv6 RA sender on subinterfaces for peer NDP discovery
         setup_ra_sender(ptfhost, subintfs_info)
 
@@ -934,7 +934,7 @@ def common_setup_and_teardown(tbinfo, duthosts, rand_one_dut_hostname,
 
         # Generate and setup vnet routes
         vnet_routes_v6 = generate_vnet_routes_v6(vnet_vnis, start_vni=10000, num_routes_per_vnet=5,
-                                                  include_default_route=False)
+                                                 include_default_route=False)
         vnet_routes_v4 = generate_vnet_routes_v4(
             vnet_vnis,
             start_prefix_int=int(ipaddress.IPv4Address("30.0.0.0")),
@@ -1025,7 +1025,7 @@ def common_setup_and_teardown(tbinfo, duthosts, rand_one_dut_hostname,
     cleanup(duthost, ptfhost, localhost, wl_portchannel_info, subintfs_info)
 
 
-def modify_routes_mac_vni_v4(gnmi_tls, encap_test_configs, offset=0):
+def modify_routes_mac_vni_v4(gnmi_tls, encap_test_configs, offset=0):   # noqa: F811
     """
     Modify IPv4 VNET tunnel route VNI, endpoint, and MAC by offset.
     """
@@ -1041,9 +1041,9 @@ def modify_routes_mac_vni_v4(gnmi_tls, encap_test_configs, offset=0):
             route["endpoint"] = str(ipaddress.IPv4Address(int(ipaddress.IPv4Address(route["endpoint"])) + offset))
             gnmic_set_with_bypass(
                 gnmi_tls,
-                f"{GNMI_PATH_PREFIX}/VNET_ROUTE_TUNNEL/Vnet{route['vnet_vni']}|{route['prefix'].replace('/','~1')}",
+                f"{GNMI_PATH_PREFIX}/VNET_ROUTE_TUNNEL/Vnet{route['vnet_vni']}|{route['prefix'].replace('/', '~1')}",
                 {"endpoint": route["endpoint"], "vni": route["vni"], "mac_address": route["mac_address"]},
-                f"vnet_route_{route['vnet_vni']}_{route['prefix'].replace('/','_')}",
+                f"vnet_route_{route['vnet_vni']}_{route['prefix'].replace('/', '_')}",
             )
             acl_rule_value[f"{ACL_TABLE_NAME}|rule_{route['vni']}"] = {
                 "INNER_SRC_IP": f"{INNER_SRC_IP}/32",
@@ -1071,7 +1071,7 @@ def modify_routes_mac_vni_v4(gnmi_tls, encap_test_configs, offset=0):
                       f"{route['prefix']} not active after mac/vni update.")
 
 
-def modify_routes_mac_vni_v6(gnmi_tls, encap_test_configs, offset=1):
+def modify_routes_mac_vni_v6(gnmi_tls, encap_test_configs, offset=1):   # noqa: F811
     """
     Modify IPv6 VNET tunnel route VNI, endpoint, and MAC by offset.
     """
@@ -1089,13 +1089,13 @@ def modify_routes_mac_vni_v6(gnmi_tls, encap_test_configs, offset=1):
 
             gnmic_set_with_bypass(
                 gnmi_tls,
-                f"{GNMI_PATH_PREFIX}/VNET_ROUTE_TUNNEL/Vnet{route['vnet_vni']}|{route['prefix'].replace('/','~1')}",
+                f"{GNMI_PATH_PREFIX}/VNET_ROUTE_TUNNEL/Vnet{route['vnet_vni']}|{route['prefix'].replace('/', '~1')}",
                 {
                     "endpoint": route["endpoint"],
                     "vni": route["vni"],
                     "mac_address": route["mac_address"],
                 },
-                f"vnet_route_{route['vnet_vni']}_{route['prefix'].replace('/','_')}",
+                f"vnet_route_{route['vnet_vni']}_{route['prefix'].replace('/', '_')}",
             )
             acl_rule_value[f"{ACL_TABLE_NAME}|rule_{route['vni']}_v6"] = {
                 "INNER_SRC_IPV6": f"{INNER_SRC_IPV6}/128",
@@ -1126,7 +1126,8 @@ def modify_routes_mac_vni_v6(gnmi_tls, encap_test_configs, offset=1):
 
 def test_vnet_with_bgp_intf_smacrewrite(common_setup_and_teardown, gnmi_tls):     # noqa: F811
 
-    duthost, ptfhost, ptfadapter, vnet_vnis, subintfs_info, encap_test_configs, decap_test_configs = common_setup_and_teardown
+    duthost, ptfhost, ptfadapter, vnet_vnis, subintfs_info, encap_test_configs, \
+        decap_test_configs = common_setup_and_teardown
 
     validate_decap_t1_to_wl(duthost, ptfadapter, decap_test_configs)
 

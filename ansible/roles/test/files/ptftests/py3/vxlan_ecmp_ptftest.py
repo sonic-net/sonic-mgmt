@@ -209,7 +209,8 @@ class VxlanEcmpTest(BaseTest):
 
         logger.info(f"MAC+VNI Multi-endpoint validation counts: {endpoint_mac_vni_hits}")
         if mismatch_count > 0 or missing_count > 0:
-            raise AssertionError(f"{mismatch_count} packet(s) did NOT match expected MAC/VNI encapsulation, {missing_count} packet(s) were missing.")
+            raise AssertionError(f"{mismatch_count} packet(s) did NOT match expected MAC/VNI encapsulation, \
+                                 {missing_count} packet(s) were missing.")
         used = [self.endpoints_mac_vni_tuple_list[idx] for idx, c in enumerate(endpoint_mac_vni_hits) if c > 0]
         if len(used) == 0:
             raise AssertionError("NO endpoints used VXLAN not working")
