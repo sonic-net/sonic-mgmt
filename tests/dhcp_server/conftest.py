@@ -93,6 +93,13 @@ def dhcp_server_setup_teardown(duthost):
 def clean_dhcp_server_config_after_test(duthost):
     clean_dhcp_server_config(duthost)
 
-    yield
-
-    clean_dhcp_server_config(duthost)
+    try:
+        yield
+    finally:
+        active_error = sys.exc_info()[1]
+        try:
+            clean_dhcp_server_config(duthost)
+        except (Exception, OutcomeException):
+            if active_error is None:
+                raise
+            logger.exception("DHCP server config cleanup failed after test failure")
