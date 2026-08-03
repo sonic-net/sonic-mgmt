@@ -189,7 +189,15 @@ class VxlanEcmpTest(BaseTest):
                     logger.error(f"Received VXLAN pkt with unexpected VNI {received_vni}")
                     continue
 
-                idx = self.endpoints_mac_vni_tuple_list.index((outer_dst, dst_mac, received_vni))
+                try:
+                    idx = self.endpoints_mac_vni_tuple_list.index((outer_dst, dst_mac, received_vni))
+                except ValueError:
+                    mismatch_count += 1
+                    logger.error(
+                        f"Received VXLAN pkt with unexpected (endpoint, MAC, VNI) tuple: \
+                            {(outer_dst, dst_mac, received_vni)}"
+                    )
+                    continue
                 exp = self._build_expected_for_index(idx, inner)
 
                 if exp.pkt_match(pkt):

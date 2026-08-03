@@ -149,43 +149,43 @@ def validate_encap_wl_to_t1(duthost, ptfadapter, test_configs):
                 }
                 inner_pkt = testutils.simple_tcpv6_packet(**pkt_opts)
 
-        pkt_opts["eth_src"] = INNER_SRC_MAC    # expected rewritten inner src MAC
-        pkt_opts["eth_dst"] = configs["expected_dst_mac"]
-        pkt_opts["dl_vlan_enable"] = False
-        pkt_opts.pop("vlan_vid", None)
-        pkt_opts["pktlen"] = 96
+            pkt_opts["eth_src"] = INNER_SRC_MAC    # expected rewritten inner src MAC
+            pkt_opts["eth_dst"] = configs["expected_dst_mac"]
+            pkt_opts["dl_vlan_enable"] = False
+            pkt_opts.pop("vlan_vid", None)
+            pkt_opts["pktlen"] = 96
 
-        if addr_family == "v4":
-            pkt_opts["ip_ttl"] = 63
-            inner_exp_pkt = testutils.simple_tcp_packet(**pkt_opts)
-        else:
-            pkt_opts["ipv6_hlim"] = 63
-            inner_exp_pkt = testutils.simple_tcpv6_packet(**pkt_opts)
+            if addr_family == "v4":
+                pkt_opts["ip_ttl"] = 63
+                inner_exp_pkt = testutils.simple_tcp_packet(**pkt_opts)
+            else:
+                pkt_opts["ipv6_hlim"] = 63
+                inner_exp_pkt = testutils.simple_tcpv6_packet(**pkt_opts)
 
-        expected_pkt = testutils.simple_vxlan_packet(
-            eth_dst="aa:bb:cc:dd:ee:ff",
-            eth_src=duthost.facts['router_mac'],
-            ip_src=configs["expected_src_ip"],
-            ip_dst=configs["expected_dst_ip"],
-            ip_id=0, ip_flags=0x2,
-            udp_sport=1234, udp_dport=VXLAN_PORT, with_udp_chksum=False,
-            vxlan_vni=int(configs["expected_vni"]),
-            inner_frame=inner_exp_pkt,
-        )
-        masked_expected_pkt = Mask(expected_pkt)
-        masked_expected_pkt.set_ignore_extra_bytes()
-        masked_expected_pkt.set_do_not_care_packet(Ether, 'dst')
-        masked_expected_pkt.set_do_not_care_packet(UDP, 'sport')
-        masked_expected_pkt.set_do_not_care_packet(UDP, 'chksum')
-        masked_expected_pkt.set_do_not_care_packet(IP, "ttl")
-        masked_expected_pkt.set_do_not_care_packet(IP, "chksum")
-        masked_expected_pkt.set_do_not_care_packet(IP, "id")
-        masked_expected_pkt.set_do_not_care_packet(IP, "len")
-        masked_expected_pkt.set_do_not_care_packet(IP, "tos")
+            expected_pkt = testutils.simple_vxlan_packet(
+                eth_dst="aa:bb:cc:dd:ee:ff",
+                eth_src=duthost.facts['router_mac'],
+                ip_src=configs["expected_src_ip"],
+                ip_dst=configs["expected_dst_ip"],
+                ip_id=0, ip_flags=0x2,
+                udp_sport=1234, udp_dport=VXLAN_PORT, with_udp_chksum=False,
+                vxlan_vni=int(configs["expected_vni"]),
+                inner_frame=inner_exp_pkt,
+            )
+            masked_expected_pkt = Mask(expected_pkt)
+            masked_expected_pkt.set_ignore_extra_bytes()
+            masked_expected_pkt.set_do_not_care_packet(Ether, 'dst')
+            masked_expected_pkt.set_do_not_care_packet(UDP, 'sport')
+            masked_expected_pkt.set_do_not_care_packet(UDP, 'chksum')
+            masked_expected_pkt.set_do_not_care_packet(IP, "ttl")
+            masked_expected_pkt.set_do_not_care_packet(IP, "chksum")
+            masked_expected_pkt.set_do_not_care_packet(IP, "id")
+            masked_expected_pkt.set_do_not_care_packet(IP, "len")
+            masked_expected_pkt.set_do_not_care_packet(IP, "tos")
 
-        ptfadapter.dataplane.flush()
-        testutils.send(ptfadapter, configs["outgoing_port"], inner_pkt)
-        testutils.verify_packet_any_port(ptfadapter, masked_expected_pkt, configs["expected_ports"], timeout=2)
+            ptfadapter.dataplane.flush()
+            testutils.send(ptfadapter, configs["outgoing_port"], inner_pkt)
+            testutils.verify_packet_any_port(ptfadapter, masked_expected_pkt, configs["expected_ports"], timeout=2)
 
     logger.info("WL to T1 VXLAN encapsulation test (IPv6 inner) passed.")
 
@@ -386,7 +386,7 @@ def generate_vnet_routes_v6(vnet_vnis, start_vni, num_routes_per_vnet, include_d
                 "prefix": f"{prefix_addr}/128",
                 "endpoint": str(ipaddress.IPv4Address(endpoint_int)),
                 "vni": start_vni + (i * num_routes_per_vnet) + j,
-                "mac_address": f"52:54:00:{(i << 8 + j) // 256:02x}:{(i << 8 + j) % 256:02x}:aa",
+                "mac_address": f"52:54:00:{((i << 8) + j) // 256:02x}:{((i << 8) + j) % 256:02x}:aa",
                 "vnet_vni": vni,
             }
             routes[vni].append(route)
@@ -416,7 +416,7 @@ def generate_vnet_routes_v4(vnet_vnis, start_prefix_int, start_endpoint_int, sta
                 "prefix": f"{ipaddress.IPv4Address(prefix_int)}/32",
                 "endpoint": str(ipaddress.IPv4Address(endpoint_int)),
                 "vni": start_vni + (i * num_routes_per_vnet) + j,
-                "mac_address": f"52:54:00:{(i << 8 + j + offset)//256:02x}:{(i << 8 + j + offset) % 256:02x}:aa",
+                "mac_address": f"52:54:00:{((i << 8) + j + offset)//256:02x}:{((i << 8) + j + offset) % 256:02x}:aa",
                 "vnet_vni": vni
             }
             routes[vni].append(route)
@@ -603,7 +603,8 @@ def setup_ra_sender(ptfhost, subintfs_info):
         bond_name = values["bond_name"]
         logger.info(f"Starting RA sender on {bond_name}")
         ptfhost.shell(
-            f"nohup python3 /tmp/ra_send.py {bond_name} --interval 3 > /var/log/exabgp_vnet.log 2>&1 &",
+            f"nohup python3 /tmp/ra_send.py {bond_name} --interval 3 \
+                > /var/log/ra_{bond_name.replace('.', '_')}.log 2>&1 &",
             module_ignore_errors=True
         )
 
@@ -640,7 +641,7 @@ def setup_bgp(duthost, ptfhost, vnet_vnis, subint_info,
         gnmi_tls,
         f"{GNMI_PATH_PREFIX}/PREFIX_LIST",
         prefix_lists,
-        f"prefix_list_vnet{vni}"
+        "prefix_lists"
     )
 
     exabgp_config = f"""
@@ -1045,7 +1046,7 @@ def modify_routes_mac_vni_v4(gnmi_tls, encap_test_configs, offset=0):   # noqa: 
                 {"endpoint": route["endpoint"], "vni": route["vni"], "mac_address": route["mac_address"]},
                 f"vnet_route_{route['vnet_vni']}_{route['prefix'].replace('/', '_')}",
             )
-            acl_rule_value[f"{ACL_TABLE_NAME}|rule_{route['vni']}"] = {
+            acl_rule_value[f"{ACL_TABLE_NAME}|rule_{route['vni']}_v4"] = {
                 "INNER_SRC_IP": f"{INNER_SRC_IP}/32",
                 "INNER_SRC_MAC_REWRITE_ACTION": INNER_SRC_MAC,
                 "TUNNEL_VNI": f"{route['vni']}",

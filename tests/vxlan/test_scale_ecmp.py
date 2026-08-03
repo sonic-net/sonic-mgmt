@@ -137,7 +137,7 @@ def vxlan_setup_one_vnet(duthost, ptfhost, tbinfo, cfg_facts,
         vxlan_tunnel_entry["ttl_mode"] = "pipe"
 
     gnmic_set_with_bypass(gnmi_tls, "CONFIG_DB/localhost/VXLAN_TUNNEL",
-                          {TUNNEL_NAME: {"src_ip": dut_vtep}}, "vxlan_tunnel")
+                          {TUNNEL_NAME: vxlan_tunnel_entry}, "vxlan_tunnel")
     gnmic_set_with_bypass(gnmi_tls, "CONFIG_DB/localhost/VNET",
                           {VNET_NAME: {"vni": str(VNI), "vxlan_tunnel": TUNNEL_NAME}}, "vnet")
 
