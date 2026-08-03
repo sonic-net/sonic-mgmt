@@ -583,7 +583,7 @@ def enable_sonic_dhcpv4_relay_agent(rand_selected_dut, request):
 
     try:
         if request.getfixturevalue("relay_agent") == "sonic-relay-agent":
-            # Configure server state first so conditional supervisor templates can render dhcp4relay.
+            # Configure external relay servers first so conditional supervisor templates can render dhcp4relay.
             sonic_dhcp_relay_config(duthost, dut_dhcp_relay_data, False)
             sonic_dhcpv4_flag_config_and_unconfig(duthost, True)
             if dut_dhcp_relay_data:
