@@ -15,6 +15,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.daemon_utils import check_pmon_daemon_enable_status
 from tests.common.platform.processes_utils import check_critical_processes
 from tests.common.utilities import compose_dict_from_cli, skip_release, wait_until
+from tests.platform_tests.cli.util import get_skip_mod_list
 
 logger = logging.getLogger(__name__)
 
@@ -183,6 +184,7 @@ def test_pmon_psud_psu_status_and_led(duthosts, enum_supervisor_dut_hostname, da
     pytest_assert(data_before_restart['keys'], "No PSU_INFO keys found in STATE_DB")
     pytest_assert(data_before_restart['data'], "No PSU_INFO data found in STATE_DB")
 
+    psu_skip_list = get_skip_mod_list(duthost, ['psus'])
     present_psu_count = 0
     psu_status_failures = []
     psu_led_failures = []
@@ -190,6 +192,10 @@ def test_pmon_psud_psu_status_and_led(duthosts, enum_supervisor_dut_hostname, da
     for psu_key, psu_data in data_before_restart['data'].items():
         psu_name = psu_key.replace("PSU_INFO|", "")
         presence = psu_data.get("presence", "false")
+
+        if psu_name in psu_skip_list:
+            logger.info("PSU {} is in skip list, skipping validation".format(psu_name))
+            continue
 
         if presence.lower() != "true":
             logger.info("PSU {} is not present, skipping status and LED check".format(psu_name))

@@ -78,6 +78,8 @@ class TestEgressDropProbingInstance:
         self.def_vlan_mac = None
         self.cell_size = 208
         self.packet_size = 64
+        self.probe_packet_length = 64
+        self.probe_cells_per_packet = 1
         self.egress_lossy_pool_size = 104000
 
         # Probing configuration
@@ -90,7 +92,7 @@ class TestEgressDropProbingInstance:
 
         # Mock dataplane
         self.dataplane = MagicMock()
-        self.dataplane.get_mac.side_effect = lambda dev, port: f"00:00:00:00:00:{port:02x}"
+        self.dataplane.get_mac.side_effect = lambda dev, port: "00:00:00:00:00:{:02x}".format(port)
 
         # Stream manager (will be set by setup_traffic)
         self.stream_mgr = None

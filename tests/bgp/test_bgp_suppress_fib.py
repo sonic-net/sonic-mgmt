@@ -443,7 +443,7 @@ def setup_vrf_cfg(duthost, cfg_facts, nbrhosts, tbinfo, loganalyzer):
     duthost.template(src="bgp/vrf_config_db.j2", dest="/tmp/config_db_vrf.json")
     duthost.shell("cp -f /tmp/config_db_vrf.json /etc/sonic/config_db.json")
 
-    config_reload(duthost, safe_reload=True, ignore_loganalyzer=loganalyzer)
+    config_reload(duthost, safe_reload=True, ignore_loganalyzer=loganalyzer, wait_for_bgp=True)
     wait_until(120, 10, 0, check_interface_status, duthost)
 
 
@@ -1167,7 +1167,7 @@ def test_bgp_route_with_suppress(duthosts, enum_downstream_dut_hostname, enum_up
         if vrf_type == USER_DEFINED_VRF and not tbinfo["topo"]["type"] in ["t2"]:
             with allure.step("Clean user defined vrf"):
                 duthost_down.shell("cp -f /etc/sonic/config_db.json.bak /etc/sonic/config_db.json")
-                config_reload(duthost_down, safe_reload=True, ignore_loganalyzer=loganalyzer)
+                config_reload(duthost_down, safe_reload=True, ignore_loganalyzer=loganalyzer, wait_for_bgp=True)
                 wait_until(120, 10, 0, check_interface_status, duthost_down)
 
 

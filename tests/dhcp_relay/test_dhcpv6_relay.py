@@ -5,7 +5,7 @@ import time
 import netaddr
 import logging
 
-from tests.common.dhcp_relay_utils import restart_dhcp_service
+from tests.common.dhcp_relay_utils import restart_dhcp_service, wait_dhcp_relay_ready
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa F401
 from tests.common.fixtures.split_vlan import setup_multiple_vlans_and_teardown  # noqa F401
@@ -246,7 +246,7 @@ def ensure_client_reachability(duthost, vlan_name):
     logger.info(f"Ensuring client reachability on VLAN {vlan_name}")
 
     # Send multicast ping to discover all link-local addresses on the segment
-    duthost.shell(f"ping6 -I {vlan_name} -c 3 ff02::1", module_ignore_errors=True)
+    duthost.shell("ping6 -I {} -c 3 ff02::1".format(vlan_name), module_ignore_errors=True)
 
     # Wait a moment for ND table to be populated
     time.sleep(2)
@@ -277,6 +277,7 @@ def test_interface_binding(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data,
         config_reload(duthost)
         wait_critical_processes(duthost)
         pytest_assert(wait_until(120, 5, 0, check_interface_status, duthost))
+        wait_dhcp_relay_ready(duthost, ['v6'])
 
     # Cmds to delete LLA for all Vlans
     delete_cmds = ["ip -6 address del {} dev {}"
@@ -306,7 +307,7 @@ def test_interface_binding(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data,
 
     try:
         duthost.shell_cmds(cmds=delete_cmds)
-        restart_dhcp_service(duthost)
+        restart_dhcp_service(duthost, ['v6'])
         time.sleep(10)
 
         output = duthost.shell("docker exec -t dhcp_relay ss -nlp | grep dhcp6relay")["stdout"]
@@ -443,7 +444,8 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
                            "vlan_ip": str(dhcp_relay['downlink_vlan_iface']['addr']),
                            "uplink_mac": str(dhcp_relay['uplink_mac']),
                            "loopback_ipv6": str(dhcp_relay['loopback_ipv6']),
-                           "is_dualtor": str(dhcp_relay['is_dualtor'])},
+                           "is_dualtor": str(dhcp_relay['is_dualtor']),
+                           "kvm_support": True},
                    log_file="/tmp/dhcpv6_relay_test.DHCPTest.log", is_python3=True)
 
 
@@ -485,7 +487,8 @@ def test_dhcp_relay_after_link_flap(ptfhost, dut_dhcp_relay_data, validate_dut_r
                            "vlan_ip": str(dhcp_relay['downlink_vlan_iface']['addr']),
                            "uplink_mac": str(dhcp_relay['uplink_mac']),
                            "loopback_ipv6": str(dhcp_relay['loopback_ipv6']),
-                           "is_dualtor": str(dhcp_relay['is_dualtor'])},
+                           "is_dualtor": str(dhcp_relay['is_dualtor']),
+                           "kvm_support": True},
                    log_file="/tmp/dhcpv6_relay_test.DHCPTest.log", is_python3=True)
 
 
@@ -538,7 +541,8 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
                            "vlan_ip": str(dhcp_relay['downlink_vlan_iface']['addr']),
                            "uplink_mac": str(dhcp_relay['uplink_mac']),
                            "loopback_ipv6": str(dhcp_relay['loopback_ipv6']),
-                           "is_dualtor": str(dhcp_relay['is_dualtor'])},
+                           "is_dualtor": str(dhcp_relay['is_dualtor']),
+                           "kvm_support": True},
                    log_file="/tmp/dhcpv6_relay_test.DHCPTest.log", is_python3=True)
 
 
@@ -548,7 +552,7 @@ class TestDhcpv6RelayWithMultipleVlan:
     def restart_dhcp_relay_after_test(self, duthost):
 
         yield
-        restart_dhcp_service(duthost)
+        restart_dhcp_service(duthost, ['v6'])
 
     @pytest.mark.parametrize("setup_multiple_vlans_and_teardown", [3], indirect=True)
     def test_dhcp_relay_default(self, ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
@@ -564,7 +568,7 @@ class TestDhcpv6RelayWithMultipleVlan:
         pytest_assert(len(dut_dhcp_relay_data) > 0, "No VLAN data")
         common_dhcp_relay_data = dut_dhcp_relay_data[0]
 
-        restart_dhcp_service(duthost)  # restart dhcp_relay to make new vlans config take into effect
+        restart_dhcp_service(duthost, ['v6'])  # restart dhcp_relay to make new vlans config take into effect
         for vlan_info in vlans_info:
             vlan_name = vlan_info['vlan_name']
             exp_link_addr = vlan_info['interface_ipv6'].split('/')[0]
@@ -593,5 +597,6 @@ class TestDhcpv6RelayWithMultipleVlan:
                                "vlan_ip": str(exp_link_addr),
                                "uplink_mac": str(common_dhcp_relay_data['uplink_mac']),
                                "loopback_ipv6": str(common_dhcp_relay_data['loopback_ipv6']),
-                               "is_dualtor": str(common_dhcp_relay_data['is_dualtor'])},
+                               "is_dualtor": str(common_dhcp_relay_data['is_dualtor']),
+                               "kvm_support": True},
                        log_file="/tmp/dhcpv6_relay_test.DHCPTest.log", is_python3=True)

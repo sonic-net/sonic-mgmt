@@ -605,27 +605,28 @@ def validate_acl_rule_rids(duthost):
     return True
 
 
-def validate_acl_rules_in_asic_db(duthost):
+def get_acl_rule_counts(duthost):
     """
-    Validate that the number of ACL rules in ASIC DB is the same as the number of ACL rules in CONFIG DB.
-    Also check that the ACL rule RIDs are not empty.
-    For multi-ASIC DUTs, validates ACL rules in each frontend ASIC's ASIC_DB and CONFIG_DB.
+    Snapshot the number of ACL rules in CONFIG DB and ASIC DB, per frontend ASIC.
+
+    Returns a list with one (config_count, asic_count) tuple per frontend ASIC
+    (a single tuple for single-ASIC DUTs). Use this to capture a baseline before
+    applying ACL rules so the readiness check can compare deltas (see
+    validate_acl_rules_in_asic_db).
 
     Args:
         duthost: DUT host object
 
     Returns:
-        bool: True if ACL rules count matches and RIDs are valid in all frontend ASICs, False otherwise
+        list[tuple[int, int]]: [(config_count, asic_count), ...] indexed by frontend ASIC
     """
-    # Get all frontend ASIC instances
     if duthost.is_multi_asic:
         asic_instances = [duthost.asic_instance(asic_id) for asic_id in duthost.get_frontend_asic_ids()]
     else:
         asic_instances = [duthost]
 
-    # Validate ACL rules in each ASIC
+    counts = []
     for asic in asic_instances:
-        # Get namespace-specific command prefix
         if duthost.is_multi_asic:
             namespace = asic.get_asic_namespace()
             config_cmd = "sonic-db-cli -n {} CONFIG_DB KEYS *ACL_RULE*".format(namespace)
@@ -634,32 +635,90 @@ def validate_acl_rules_in_asic_db(duthost):
             config_cmd = "sonic-db-cli CONFIG_DB KEYS *ACL_RULE*"
             asic_cmd = "sonic-db-cli ASIC_DB KEYS *SAI_OBJECT_TYPE_ACL_ENTRY*"
 
-        config_rules = asic.shell(config_cmd)['stdout_lines']
-        asic_rules = asic.shell(asic_cmd)['stdout_lines']
+        config_count = len(asic.shell(config_cmd)['stdout_lines'])
+        asic_count = len(asic.shell(asic_cmd)['stdout_lines'])
+        counts.append((config_count, asic_count))
 
-        if len(config_rules) != len(asic_rules):
-            logging.error("ACL rules count mismatch in ASIC {}: CONFIG_DB={}, ASIC_DB={}".format(
-                asic.asic_index if duthost.is_multi_asic else "single",
-                len(config_rules), len(asic_rules)))
+    return counts
+
+
+def validate_acl_rules_in_asic_db(duthost, baseline_counts=None):
+    """
+    Validate that the ACL rules added since a baseline have all been programmed into ASIC DB.
+    Also check that the ACL rule RIDs are not empty.
+    For multi-ASIC DUTs, validates ACL rules in each frontend ASIC's ASIC_DB and CONFIG_DB.
+
+    The check compares the CHANGE in entry counts rather than absolute counts: the
+    number of new ASIC_DB ACL entries must be at least the number of new CONFIG_DB
+    ACL rules since `baseline_counts` was captured. This cancels any constant,
+    pre-existing offset between the two DBs caused by ASIC ACL entries that have no
+    CONFIG_DB ACL_RULE key.
+
+    On dualtor, the standby ToR carries exactly such an entry: MuxOrch programs a
+    DROP-all-ingress-ports ACL (matching IN_PORTS + traffic-class) directly into the
+    ASIC -- not via CONFIG_DB ACL_RULE/ACL_TABLE -- to black-hole server traffic on
+    the standby side. So on the standby ToR ASIC_DB has one more ACL entry than
+    CONFIG_DB, and the old absolute-equality check spun until timeout (observed on
+    Broadcom dualtor: a stable CONFIG_DB=28, ASIC_DB=29 on the standby ToR on every
+    retry).
+
+    Args:
+        duthost: DUT host object
+        baseline_counts: optional list of (config_count, asic_count) tuples captured
+            by get_acl_rule_counts() BEFORE the rules under test were applied. When
+            None, a zero baseline is assumed, which requires ASIC_DB >= CONFIG_DB
+            (every configured rule is programmed) without assuming the two counts
+            are exactly equal.
+
+    Returns:
+        bool: True if the per-ASIC ACL delta matches and RIDs are valid in all
+        frontend ASICs, False otherwise
+    """
+    # Get all frontend ASIC instances
+    if duthost.is_multi_asic:
+        asic_instances = [duthost.asic_instance(asic_id) for asic_id in duthost.get_frontend_asic_ids()]
+    else:
+        asic_instances = [duthost]
+
+    if baseline_counts is None:
+        baseline_counts = [(0, 0)] * len(asic_instances)
+
+    current_counts = get_acl_rule_counts(duthost)
+
+    # Validate ACL rules in each ASIC by comparing deltas against the baseline
+    for index, asic in enumerate(asic_instances):
+        config_now, asic_now = current_counts[index]
+        config_base, asic_base = baseline_counts[index]
+        config_delta = config_now - config_base
+        asic_delta = asic_now - asic_base
+
+        if asic_delta < config_delta:
+            logging.warning("Not all ACL rules are programmed in ASIC {}: "
+                            "CONFIG_DB delta={}, ASIC_DB delta={} (CONFIG_DB={}, ASIC_DB={})".format(
+                                asic.asic_index if duthost.is_multi_asic else "single",
+                                config_delta, asic_delta, config_now, asic_now))
             return False
 
     # Validate ACL rule RIDs across all ASICs
     return validate_acl_rule_rids(duthost)
 
 
-def wait_for_acl_rules_in_asic_db(duthost):
+def wait_for_acl_rules_in_asic_db(duthost, baseline_counts=None):
     """
-    Wait until the ACL rules in ASIC DB match CONFIG DB and RIDs are valid.
+    Wait until the ACL rules added since a baseline are programmed in ASIC DB and RIDs are valid.
 
     Uses the platform-specific wait time from get_plt_wait_time (key "everflow"),
     defaulting to 120 seconds if not configured.
 
     Args:
         duthost: DUT host object
+        baseline_counts: optional ACL-count baseline from get_acl_rule_counts(),
+            captured before the rules under test were applied. Passed through to
+            validate_acl_rules_in_asic_db so the readiness check compares deltas.
     """
     acl_rule_wait_time = get_plt_wait_time(duthost, "everflow").get("wait", 120)
     pytest_assert(
-        wait_until(acl_rule_wait_time, 10, 0, validate_acl_rules_in_asic_db, duthost),
+        wait_until(acl_rule_wait_time, 10, 0, validate_acl_rules_in_asic_db, duthost, baseline_counts),
         "ACL rules in ASIC DB did not match CONFIG DB within {} seconds".format(acl_rule_wait_time)
     )
 
@@ -956,6 +1015,37 @@ class BaseEverflowTest(object):
             self.remove_policer_config(duthost, policer, config_method)
 
     @staticmethod
+    def _build_v6_erspan_asic_command(session_info, asic_index=None, queue_num=None, policer=None):
+        """Build the ASIC command string for adding an ERSPAN mirror session
+
+        This is required as the CLI does not yet support adding IPv6 ERSPAN sessions.
+
+        Args:
+            session_info: Mirror session parameters dict.
+            asic_index: Optional ASIC index number.
+            queue_num: Optional queue number.
+            policer: Optional policer name.
+
+        Returns:
+            str: The ASIC command string.
+        """
+        per_asic_index = f"-n asic{asic_index} " if asic_index is not None else ""
+        command = (f"sonic-db-cli {per_asic_index}CONFIG_DB HSET "
+                   f"'MIRROR_SESSION|{session_info['session_name']}' "
+                   f"'dscp' '{session_info['session_dscp']}' "
+                   f"'dst_ip' '{session_info['session_dst_ipv6']}' "
+                   f"'gre_type' '{session_info['session_gre']}' "
+                   f"'type' '{session_info['session_type']}' "
+                   f"'src_ip' '{session_info['session_src_ipv6']}' "
+                   f"'ttl' '{session_info['session_ttl']}'")
+        if queue_num is not None:
+            command += f" 'queue' '{queue_num}'"
+        if policer is not None:
+            command += f" 'policer' '{policer}'"
+
+        return command
+
+    @staticmethod
     def _build_erspan_cli_command(session_info, queue_num=None,
                                   direction=None, policer=None,
                                   use_erspan_subcmd=False,
@@ -1063,24 +1153,37 @@ class BaseEverflowTest(object):
                             )
                         )
             else:
-                command = BaseEverflowTest._build_erspan_cli_command(
-                    session_info, queue_num=queue_num,
-                    policer=policer, use_erspan_subcmd=False,
-                    erspan_ip_ver=erspan_ip_ver
-                )
-                duthost.command(command)
+                if erspan_ip_ver == 4:
+                    command = BaseEverflowTest._build_erspan_cli_command(
+                        session_info, queue_num=queue_num,
+                        policer=policer, use_erspan_subcmd=False,
+                        erspan_ip_ver=erspan_ip_ver
+                    )
+                    duthost.command(command)
+                else:
+                    # Adding IPv6 ERSPAN sessions for each asic, from the CLI is currently not supported.
+                    commands_list = [
+                            BaseEverflowTest._build_v6_erspan_asic_command(session_info, asic_index=asic_index,
+                                                                           queue_num=queue_num, policer=policer)
+                            for asic_index in duthost.get_frontend_asic_ids()
+                    ]
+
+                    for cmd in commands_list:
+                        duthost.command(cmd)
 
         elif config_method == CONFIG_MODE_CONFIGLET:
             pass
 
     @staticmethod
-    def remove_mirror_config(duthost, session_name, config_method=CONFIG_MODE_CLI):
+    def remove_mirror_config(duthost, session_name, config_method=CONFIG_MODE_CLI, module_ignore_errors=False):
+        command = None
         if config_method == CONFIG_MODE_CLI:
             command = "config mirror_session remove {}".format(session_name)
         elif config_method == CONFIG_MODE_CONFIGLET:
             pass
 
-        duthost.command(command)
+        if command is not None:
+            duthost.command(command, module_ignore_errors=module_ignore_errors)
 
     def apply_policer_config(self, duthost, policer_name, config_method, rate_limit=100):
         if duthost.facts["asic_type"] in ["marvell-prestera", "marvell"]:
@@ -1132,6 +1235,7 @@ class BaseEverflowTest(object):
                     self.apply_acl_table_config(duthost, table_name, "MIRROR", config_method,
                                                 bind_namespace=getattr(inst, 'namespace', None))
 
+            BaseEverflowTest.remove_acl_rule_config(duthost, table_name, config_method, module_ignore_errors=True)
             self.apply_acl_rule_config(duthost, table_name, setup_mirror_session["session_name"], config_method)
 
         yield
@@ -1204,16 +1308,19 @@ class BaseEverflowTest(object):
         time.sleep(2)
 
     @staticmethod
-    def remove_acl_rule_config(duthost, table_name, config_method=CONFIG_MODE_CLI):
+    def remove_acl_rule_config(duthost, table_name, config_method=CONFIG_MODE_CLI, module_ignore_errors=False):
+        command = None
         if config_method == CONFIG_MODE_CLI:
+            duthost.shell("if [ -e {0} ] && [ ! -d {0} ]; then rm -f {0}; fi; mkdir -p {0}".format(DUT_RUN_DIR))
             duthost.copy(src=os.path.join(FILE_DIR, EVERFLOW_RULE_DELETE_FILE),
-                         dest=DUT_RUN_DIR)
+                         dest=os.path.join(DUT_RUN_DIR, EVERFLOW_RULE_DELETE_FILE))
             command = "acl-loader update full {} --table_name {}" \
                 .format(os.path.join(DUT_RUN_DIR, EVERFLOW_RULE_DELETE_FILE), table_name)
         elif config_method == CONFIG_MODE_CONFIGLET:
             pass
 
-        duthost.command(command)
+        if command is not None:
+            duthost.command(command, module_ignore_errors=module_ignore_errors)
         time.sleep(2)
 
     @abstractmethod

@@ -75,6 +75,8 @@ class TestIngressDropProbingInstance:
         self.def_vlan_mac = None
         self.cell_size = 208
         self.packet_size = 64
+        self.probe_packet_length = 64
+        self.probe_cells_per_packet = 1
         self.ingress_drop_counter_mode = 'port_drop'
 
         # Probing configuration
@@ -87,7 +89,7 @@ class TestIngressDropProbingInstance:
 
         # Mock dataplane
         self.dataplane = MagicMock()
-        self.dataplane.get_mac.side_effect = lambda dev, port: f"00:00:00:00:00:{port:02x}"
+        self.dataplane.get_mac.side_effect = lambda dev, port: "00:00:00:00:00:{:02x}".format(port)
 
         # Stream manager (will be set by setup_traffic)
         self.stream_mgr = None
@@ -766,6 +768,41 @@ class TestIngressDropProbingProbeMethod(unittest.TestCase):
             # Should still create result from (None, None)
             mock_result_class.from_bounds.assert_called_once_with(None, None)
             assert result == mock_result
+
+    @pytest.mark.order(3250)
+    @patch('ingress_drop_probing.ThresholdResult')
+    @patch('ingress_drop_probing.ProbingObserver')
+    def test_probe_pool_size_conversion_multi_cell(self, mock_observer_class, mock_result_class):
+        """Test probe converts pool_size from cells to packets when cells_per_packet > 1."""
+        instance = TestIngressDropProbingInstance()
+        instance.probe_cells_per_packet = 4  # Cisco: 1350B / 384B = 4 cells/pkt
+
+        mock_stream_mgr = MagicMock()
+        mock_stream_mgr.get_port_ids.return_value = [28]
+        instance.stream_mgr = mock_stream_mgr
+
+        # Pool size in cells
+        instance.get_pool_size = MagicMock(return_value=10000)
+
+        mock_algorithms = {
+            "upper_bound": MagicMock(),
+            "lower_bound": MagicMock(),
+            "threshold_range": MagicMock()
+        }
+        instance._create_algorithms = MagicMock(return_value=mock_algorithms)
+        instance._run_algorithms = MagicMock(return_value=(600, 650))
+
+        mock_result = MagicMock()
+        mock_result_class.from_bounds.return_value = mock_result
+        mock_observer_class.console = MagicMock()
+        mock_observer_class.report_probing_result = MagicMock()
+
+        IngressDropProbing.probe(instance)
+
+        # pool_size passed to _run_algorithms should be 10000 // 4 = 2500
+        instance._run_algorithms.assert_called_once_with(
+            mock_algorithms, 24, 28, 2500, pg=3
+        )
 
 
 if __name__ == "__main__":

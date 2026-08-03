@@ -30,15 +30,6 @@ def pytest_runtest_teardown(item, nextitem):
     && sonic-db-cli CONFIG_DB hset 'CRM|Config' {threshold_name}_high_threshold {high} \
     && sonic-db-cli CONFIG_DB hset 'CRM|Config' {threshold_name}_low_threshold {low}\""
     if item.rep_setup.passed and not item.rep_call.skipped:
-        # Restore CRM threshods
-        if crm_threshold_name:
-            crm_thresholds = item.funcargs["crm_thresholds"]
-            cmd = restore_cmd.format(threshold_name=crm_threshold_name, high=crm_thresholds[crm_threshold_name]["high"],
-                                     low=crm_thresholds[crm_threshold_name]["low"])
-            logger.info("Restore CRM thresholds. Execute: {}".format(cmd))
-            # Restore default CRM thresholds
-            item.funcargs["duthost"].command(cmd)
-
         test_name = item.function.__name__
         duthosts = item.funcargs['duthosts']
         hostname = item.funcargs['enum_rand_one_per_hwsku_frontend_hostname']
@@ -50,6 +41,15 @@ def pytest_runtest_teardown(item, nextitem):
             dut = item.funcargs['duthost']
             logger.warning('fallback to use duthost {} instead from {} {}'.format(dut.hostname, duthosts, hostname))
             hostname = dut.hostname
+
+        # Restore CRM thresholds on the correct DUT
+        if crm_threshold_name:
+            crm_thresholds = item.funcargs["crm_thresholds"]
+            cmd = restore_cmd.format(threshold_name=crm_threshold_name, high=crm_thresholds[crm_threshold_name]["high"],
+                                     low=crm_thresholds[crm_threshold_name]["low"])
+            logger.info("Restore CRM thresholds on {}. Execute: {}".format(hostname, cmd))
+            # Restore default CRM thresholds
+            dut.command(cmd)
 
         logger.info("Execute test cleanup: dut {} {}".format(hostname, json.dumps(RESTORE_CMDS, indent=4)))
         # Restore DUT after specific test steps
@@ -247,7 +247,7 @@ def get_vlan_prefix_len_per_ip_ver(asichost, tbinfo, ip_ver):
     mg_facts = asichost.get_extended_minigraph_facts(tbinfo)
     for vlan_port_data in mg_facts["minigraph_vlan_interfaces"]:
         if ipaddress.ip_interface(vlan_port_data['addr']).version == int(ip_ver):
-            logger.info(f"vlan interface {ip_ver} prefix is :{vlan_port_data['prefixlen']}")
+            logger.info(f"vlan interface {ip_ver} prefix is: {vlan_port_data['prefixlen']}")
             return vlan_port_data['prefixlen']
     assert False, f"Not find {ip_ver} prefix for vlan interface config"
 
