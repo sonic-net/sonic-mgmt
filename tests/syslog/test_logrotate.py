@@ -52,7 +52,7 @@ def backup_syslog(rand_selected_dut):
 @pytest.fixture(scope='function')
 def simulate_small_var_log_partition(rand_selected_dut):
     """
-    Simulate a small var log partition
+    Simulate a small var log partition without restarting unrelated SONiC containers.
     :param rand_selected_dut: The fixture returns a randomly selected DUT
     """
     duthost = rand_selected_dut
