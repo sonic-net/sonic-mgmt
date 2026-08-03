@@ -96,7 +96,7 @@ def restart_dhcp_service(duthost, relay_types):
                             - the single `dhcp4relay` supervisord entry is RUNNING
                             - exactly one `/usr/sbin/dhcp4relay` process exists
                           With no external v4 configuration:
-                            - the supervisord entry is absent or STOPPED
+                            - the supervisord entry is absent
                             - no `/usr/sbin/dhcp4relay` process exists
                           Not checked:
                             - dhcpmon-<Vlan> supervisord entries; monitor
@@ -228,7 +228,7 @@ def wait_dhcp_relay_ready(duthost, relay_types):
             if sonic_state == 'RUNNING':
                 if len(sonic_procs) != 1:
                     return False
-            elif sonic_state in (None, 'STOPPED'):
+            elif sonic_state is None:
                 if sonic_procs:
                     return False
             else:
