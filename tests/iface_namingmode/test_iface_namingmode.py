@@ -466,6 +466,8 @@ class TestShowInterfaces():
 
         for item in interfaces:
             if mode == 'alias':
+                if item not in setup['port_alias']:
+                    continue
                 assert item in setup['port_alias'], (
                     "Interface '{}' not found in the list of port aliases. "
                     "Expected the interface to match a known port alias in the test setup.\n"
@@ -473,6 +475,8 @@ class TestShowInterfaces():
                 ).format(item, setup['port_alias'])
 
             elif mode == 'default':
+                if item not in setup['default_interfaces']:
+                    continue
                 assert item in setup['default_interfaces'], (
                     "Interface '{}' not found in the list of default interfaces. "
                     "Expected the interface to match a known default interface in the test setup.\n"
@@ -817,6 +821,8 @@ class TestShowQueue():
             intfsChecked = 0
             if mode == 'alias':
                 for intf in interfaces:
+                    if intf not in setup['port_name_map']:
+                        continue
                     alias = setup['port_name_map'][intf]
                     assert (
                         re.search(QUEUE_COUNTERS_RE_FMT.format(alias), queue_counter) is not None

@@ -5,7 +5,7 @@ import pytest
 from tests.transceiver.attribute_parser.paths import get_repo_root
 from tests.transceiver.cdb_firmware_upgrade.parser import TransceiverFirmwareInfoParser
 from tests.transceiver.cdb_firmware_upgrade.utils.firmware_utils import (
-    get_latest_two_firmware_metadata_for_all_transceivers,
+    get_required_firmware_metadata_for_all_transceivers,
     get_dut_firmware_base_url,
     prepare_firmware_base_directory_on_dut,
     download_and_validate_firmware_binaries,
@@ -33,15 +33,14 @@ def transceiver_firmware_info_parser():
 
 
 @pytest.fixture(scope="session")
-def get_gold_firmware_and_latest_two_firmware_metadata_for_all_transceivers(
+def required_firmware_metadata_for_all_transceivers(
     get_dev_transceiver_details,
     transceiver_firmware_info_parser,
     get_transceiver_common_attributes
 ):
-    return get_latest_two_firmware_metadata_for_all_transceivers(
+    return get_required_firmware_metadata_for_all_transceivers(
         get_dev_transceiver_details,
         transceiver_firmware_info_parser.transceiver_firmware_info,
-        include_gold_firmware=True,
         transceiver_common_attributes=get_transceiver_common_attributes
     )
 
@@ -51,7 +50,7 @@ def download_latest_firmware_binaries_on_dut(
     duthosts,
     enum_rand_one_per_hwsku_frontend_hostname,
     transceiver_firmware_info_parser,
-    get_gold_firmware_and_latest_two_firmware_metadata_for_all_transceivers
+    required_firmware_metadata_for_all_transceivers
 ):
     logger.info("Downloading latest CMIS CDB firmware binaries on DUT")
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
@@ -60,14 +59,14 @@ def download_latest_firmware_binaries_on_dut(
         duthost, transceiver_firmware_info_parser.firmware_base_url_dict
     )
 
-    if not get_gold_firmware_and_latest_two_firmware_metadata_for_all_transceivers:
+    if not required_firmware_metadata_for_all_transceivers:
         pytest.skip("No transceiver firmware information found, skipping test.")
 
     prepare_firmware_base_directory_on_dut(duthost, CMIS_CDB_FIRMWARE_BASE_PATH_ON_DUT)
     download_and_validate_firmware_binaries(
         duthost,
         dut_firmware_base_url,
-        get_gold_firmware_and_latest_two_firmware_metadata_for_all_transceivers,
+        required_firmware_metadata_for_all_transceivers,
         CMIS_CDB_FIRMWARE_BASE_PATH_ON_DUT
     )
     logger.info("All latest firmware downloaded to {}".format(CMIS_CDB_FIRMWARE_BASE_PATH_ON_DUT))
