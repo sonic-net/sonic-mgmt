@@ -64,21 +64,21 @@ def start_pfcwd_after_test(duthosts, rand_one_dut_hostname):
 
 
 @pytest.fixture(autouse=True, scope="module")
-def enable_packet_aging_after_test(duthosts, rand_one_dut_hostname):
+def enable_packet_aging_after_test(duthosts):
     """
     Ensure that packet aging is enabled after tests
 
     Args:
         duthosts (pytest fixture) : list of DUTs
-        rand_one_dut_hostname (pytest fixture): DUT hostname
 
     Yields:
         N/A
     """
     yield
 
-    duthost = duthosts[rand_one_dut_hostname]
-    enable_packet_aging(duthost)
+    # Tests disable aging on both ingress and egress DUTs; restore every frontend DUT.
+    for duthost in duthosts.frontend_nodes:
+        enable_packet_aging(duthost)
 
 
 def pytest_addoption(parser):

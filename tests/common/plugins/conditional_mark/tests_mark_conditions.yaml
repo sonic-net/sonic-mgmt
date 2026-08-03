@@ -835,17 +835,24 @@ cacl/test_cacl_application.py::test_cacl_application_dualtor:
 
 cacl/test_cacl_application.py::test_cacl_application_nondualtor:
   skip:
-    reason: "test_cacl_application is only supported on non dualtor topology"
+    reason: "test_cacl_application is only supported on non dualtor topology. Also temporarily
+      skipped while sonic-net/sonic-buildimage#28061 (adds new protected FRR BGP ports) is being
+      validated; test update to follow once that image is checked in."
+    conditions_logical_operator: or
     conditions:
       - "'dualtor' in topo_name"
+      - "https://github.com/sonic-net/sonic-buildimage/issues/28061"
 
 cacl/test_cacl_application.py::test_multiasic_cacl_application:
   skip:
-    reason: "test_multiasic_cacl_application is only supported on multi-ASIC platform, also failing VS tests"
+    reason: "test_multiasic_cacl_application is only supported on multi-ASIC platform, also failing
+      VS tests. Also temporarily skipped while sonic-net/sonic-buildimage#28061 (adds new protected
+      FRR BGP ports) is being validated; test update to follow once that image is checked in."
     conditions_logical_operator: or
     conditions:
       - "not is_multi_asic"
       - "asic_type in ['vs'] and topo_type in ['t2']"
+      - "https://github.com/sonic-net/sonic-buildimage/issues/28061"
 
 cacl/test_cacl_function.py:
   xfail:
@@ -1329,9 +1336,11 @@ dhcp_relay/test_dhcp_relay_stress.py::test_dhcp_relay_stress[request:
 
 dhcp_relay/test_dhcpv4_relay.py:
   skip:
-    reason: "Test skipped: sonic dhcpv4 is not supported in the DUT image version < 202511"
+    reason: "Test skipped: sonic dhcpv4 is not supported in the DUT image version < 202511 / Test is not stable for KVM PR checks"
+    conditions_logical_operator: or
     conditions:
       - "release < '202511'"
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/26645"
 
 dhcp_relay/test_dhcpv4_relay.py::test_dhcp_relay_option82_suboptions[server_id_override-sonic-relay-agent]:
   skip:
@@ -1341,9 +1350,11 @@ dhcp_relay/test_dhcpv4_relay.py::test_dhcp_relay_option82_suboptions[server_id_o
 
 dhcp_relay/test_dhcpv6_relay.py:
   skip:
-    reason: "Need to skip for platform x86_64-8111_32eh_o-r0"
+    reason: "Need to skip for platform x86_64-8111_32eh_o-r0 / Test is not stable for KVM PR checks"
+    conditions_logical_operator: or
     conditions:
       - "platform in ['x86_64-8111_32eh_o-r0']"
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/26645"
 
 dhcp_relay/test_dhcpv6_relay.py::TestDhcpv6RelayWithMultipleVlan:
   skip:
@@ -1883,8 +1894,8 @@ everflow/:
 
 everflow/test_everflow_ipv6.py::Test(In|E)gressEverflowIPv6::test_[a-zA-Z0-9_]+\[erspan_ipv4-:
   regex: true
-  xfail:
-    reason: "Xfail for IPv6-only topologies"
+  skip:
+    reason: "Skip for IPv6-only topologies"
     conditions:
       - "'-v6-' in topo_name"
 
@@ -1894,68 +1905,17 @@ everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_any_protocol[erspa
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
-everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_any_transport_protocol[erspan_ipv4-cli-default]:
-  skip:
-    reason: "Skip for IPv6-only topologies"
-    conditions:
-      - "'-v6-' in topo_name"
-
 everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_any_transport_protocol[erspan_ipv6-cli-default]:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
-everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_both_subnets[erspan_ipv4-cli-default]:
-  skip:
-    reason: "Skip for IPv6-only topologies"
-    conditions:
-      - "'-v6-' in topo_name"
-
-everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_dest_subnet[erspan_ipv4-cli-default]:
-  skip:
-    reason: "Skip for IPv6-only topologies"
-    conditions:
-      - "'-v6-' in topo_name"
-
-everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_dscp_mirroring[erspan_ipv4-cli-default]:
-  skip:
-    reason: "Skip for IPv6-only topologies"
-    conditions:
-      - "'-v6-' in topo_name"
-
-everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_dst_ipv6_mirroring[erspan_ipv4-cli-default]:
-  skip:
-    reason: "Skip for IPv6-only topologies"
-    conditions:
-      - "'-v6-' in topo_name"
-
-everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_fuzzy_subnets[erspan_ipv4-cli-default]:
-  skip:
-    reason: "Skip for IPv6-only topologies"
-    conditions:
-      - "'-v6-' in topo_name"
-
-everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_invalid_tcp_rule[erspan_ipv4-cli-default]:
-  skip:
-    reason: "Skip for IPv6-only topologies"
-    conditions:
-      - "'-v6-' in topo_name"
 everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_l4_dst_port_mirroring[erspan_ipv4-cli-default]:
-  skip:
-    reason: "Skip for IPv6-only topologies"
-    conditions:
-      - "'-v6-' in topo_name"
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
-
-everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_l4_dst_port_range_mirroring[erspan_ipv4-cli-default]:
-  skip:
-    reason: "Skip for IPv6-only topologies"
-    conditions:
-      - "'-v6-' in topo_name"
 
 everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_l4_dst_port_range_mirroring[erspan_ipv6-cli-default]:
   xfail:
@@ -1963,36 +1923,7 @@ everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_l4_dst_port_range_
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
-everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_l4_range_mirroring[erspan_ipv4-cli-default]:
-  skip:
-    reason: "Skip for IPv6-only topologies"
-    conditions:
-      - "'-v6-' in topo_name"
-everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_l4_src_port_mirroring[erspan_ipv4-cli-default]:
-  skip:
-    reason: "Skip for IPv6-only topologies"
-    conditions:
-      - "'-v6-' in topo_name"
-everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_l4_src_port_range_mirroring[erspan_ipv4-cli-default]:
-  skip:
-    reason: "Skip for IPv6-only topologies"
-    conditions:
-      - "'-v6-' in topo_name"
-everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_next_header_mirroring[erspan_ipv4-cli-default]:
-  skip:
-    reason: "Skip for IPv6-only topologies"
-    conditions:
-      - "'-v6-' in topo_name"
-everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_source_subnet[erspan_ipv4-cli-default]:
-  skip:
-    reason: "Skip for IPv6-only topologies"
-    conditions:
-      - "'-v6-' in topo_name"
 everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_src_ipv6_mirroring[erspan_ipv4-cli-default]:
-  skip:
-    reason: "Skip for IPv6-only topologies"
-    conditions:
-      - "'-v6-' in topo_name"
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
@@ -2004,27 +1935,7 @@ everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_src_ipv6_mirroring
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
-everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_tcp_application_mirroring[erspan_ipv4-cli-default]:
-  skip:
-    reason: "Skip for IPv6-only topologies"
-    conditions:
-      - "'-v6-' in topo_name"
-everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_tcp_flags_mirroring[erspan_ipv4-cli-default]:
-  skip:
-    reason: "Skip for IPv6-only topologies"
-    conditions:
-      - "'-v6-' in topo_name"
-everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_tcp_response_mirroring[erspan_ipv4-cli-default]:
-  skip:
-    reason: "Skip for IPv6-only topologies"
-    conditions:
-      - "'-v6-' in topo_name"
-
 everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_udp_application_mirroring[erspan_ipv4-cli-default]:
-  skip:
-    reason: "Skip for IPv6-only topologies"
-    conditions:
-      - "'-v6-' in topo_name"
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
@@ -2039,12 +1950,6 @@ everflow/test_everflow_per_interface.py:
       - "'dualtor' in topo_name"
       - "platform in ['x86_64-8800_lc_48h_o-r0', 'x86_64-8800_lc_48h-r0']"
       - "(is_multi_asic==True) and https://github.com/sonic-net/sonic-buildimage/issues/11776"
-
-everflow/test_everflow_per_interface.py::test_everflow_packet_format[ipv4-erspan_ipv4-default]:
-  skip:
-    reason: "Skip for IPv6-only topologies"
-    conditions:
-      - "'-v6-' in topo_name"
 
 everflow/test_everflow_per_interface.py::test_everflow_packet_format[ipv6-erspan:
   skip:
@@ -2076,7 +1981,8 @@ everflow/test_everflow_per_interface.py::test_everflow_packet_format[ipv6-m0_vla
       - "platform in ['x86_64-8800_lc_48h_o-r0', 'x86_64-8800_lc_48h-r0']"
       - "(is_multi_asic==True) and https://github.com/sonic-net/sonic-buildimage/issues/11776"
 
-everflow/test_everflow_per_interface.py::test_everflow_per_interface[ipv4-erspan:
+everflow/test_everflow_per_interface.py::test_everflow_packet_format\[.*ipv4:
+  regex: true
   skip:
     reason: "Skip for IPv6-only topologies"
     conditions:
@@ -2124,13 +2030,20 @@ everflow/test_everflow_per_interface.py::test_everflow_per_interface[ipv6-m0_vla
       - "platform in ['x86_64-8800_lc_48h_o-r0', 'x86_64-8800_lc_48h-r0']"
       - "(is_multi_asic==True) and https://github.com/sonic-net/sonic-buildimage/issues/11776"
 
+everflow/test_everflow_per_interface.py::test_everflow_per_interface\[.*ipv4:
+  regex: true
+  skip:
+    reason: "Skip for IPv6-only topologies"
+    conditions:
+      - "'-v6-' in topo_name"
+
 everflow/test_everflow_testbed.py::EverflowIPv4Tests::test_everflow_dscp_with_policer:
   skip:
-    reason: "Test not supported on Mellanox platforms, Broadcom Th5 platform (x86_64-arista_7060x6_64pe_b), or Nokia IXR7220-H6-128 as policer is not supported. CS00012412189"
+    reason: "Test not supported on Mellanox platforms, Broadcom Th5 platform (x86_64-arista_7060x6_64pe_b), Nokia IXR7220-H6-128, or Nexthop NH-4210 as policer is not supported. CS00012412189"
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['mellanox']"
-      - "platform in ['x86_64-arista_7060x6_64pe_b', 'x86_64-nokia_ixr7220_h6_128-r0']"
+      - "platform in ['x86_64-arista_7060x6_64pe_b', 'x86_64-nokia_ixr7220_h6_128-r0', 'x86_64-nexthop_4210-r0021']"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror:
   skip:
@@ -2179,12 +2092,12 @@ everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_eve
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_dscp_with_policer:
   skip:
-    reason: "Skipping test since mirror with policer is not supported on Cisco 8000 platforms, Broadcom DNX platforms, Broadcom Th5 platform (x86_64-arista_7060x6_64pe_b), and Nokia IXR7220-H6-128. CS00012412189"
+    reason: "Skipping test since mirror with policer is not supported on Cisco 8000 platforms, Broadcom DNX platforms, Broadcom Th5 platform (x86_64-arista_7060x6_64pe_b), Nokia IXR7220-H6-128, and Nexthop NH-4210. CS00012412189"
     conditions_logical_operator: "OR"
     conditions:
       - "asic_subtype in ['broadcom-dnx']"
       - "asic_type in ['cisco-8000']"
-      - "platform in ['x86_64-arista_7060x6_64pe_b', 'x86_64-nokia_ixr7220_h6_128-r0']"
+      - "platform in ['x86_64-arista_7060x6_64pe_b', 'x86_64-nokia_ixr7220_h6_128-r0', 'x86_64-nexthop_4210-r0021']"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_dscp_with_policer[erspan_ipv4-cli-downstream-default]:
   skip:
@@ -2370,11 +2283,11 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
 
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_dscp_with_policer:
   skip:
-    reason: "Skipping test since mirror with policer is not supported on Cisco 8122 and 8223 platforms, Broadcom DNX platforms, Broadcom Th5 platform (x86_64-arista_7060x6_64pe_b), and Nokia IXR7220-H6-128. CS00012412189"
+    reason: "Skipping test since mirror with policer is not supported on Cisco 8122 and 8223 platforms, Broadcom DNX platforms, Broadcom Th5 platform (x86_64-arista_7060x6_64pe_b), Nokia IXR7220-H6-128, and Nexthop NH-4210. CS00012412189"
     conditions_logical_operator: "OR"
     conditions:
       - "asic_subtype in ['broadcom-dnx']"
-      - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0', 'x86_64-arista_7060x6_64pe_b', 'x86_64-8223_64e_mo-r0','x86_64-8223_64ef_mo-r0', 'x86_64-nokia_ixr7220_h6_128-r0']"
+      - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0', 'x86_64-arista_7060x6_64pe_b', 'x86_64-8223_64e_mo-r0','x86_64-8223_64ef_mo-r0', 'x86_64-nokia_ixr7220_h6_128-r0', 'x86_64-nexthop_4210-r0021']"
 
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_dscp_with_policer[erspan_ipv4-cli-downstream-default]:
   skip:

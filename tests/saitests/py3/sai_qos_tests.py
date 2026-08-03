@@ -949,12 +949,12 @@ def fill_leakout_plus_one(
         pkts_num_egr_mem=None):
     # Attempts to queue 1 packet while compensating for a varying packet leakout.
     # Returns whether 1 packet was successfully enqueued.
-    if pkts_num_egr_mem is not None:
-        if test_case.clients['dst'] != test_case.clients['src']:
-            fill_egress_plus_one(
-                test_case, src_port_id, pkt, queue,
-                asic_type, int(pkts_num_egr_mem))
-        return
+
+    if test_case.clients['dst'] != test_case.clients['src'] and pkts_num_egr_mem is not None:
+        fill_egress_plus_one(
+            test_case, src_port_id, pkt, queue,
+            asic_type, int(pkts_num_egr_mem))
+        return True
 
     if asic_type in ['cisco-8000']:
         queue_counters_base = sai_thrift_read_queue_occupancy(
