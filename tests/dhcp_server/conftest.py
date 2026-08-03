@@ -90,16 +90,16 @@ def dhcp_server_setup_teardown(duthost):
 
 
 @pytest.fixture(scope="function", autouse=True)
-def clean_dhcp_server_config_after_test(duthost):
+def clean_dhcp_server_config_after_test(duthost, request):
     clean_dhcp_server_config(duthost)
 
     try:
         yield
     finally:
-        active_error = sys.exc_info()[1]
+        test_failed = hasattr(request.node, 'rep_call') and request.node.rep_call.failed
         try:
             clean_dhcp_server_config(duthost)
         except (Exception, OutcomeException):
-            if active_error is None:
+            if not test_failed:
                 raise
             logger.exception("DHCP server config cleanup failed after test failure")
