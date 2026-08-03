@@ -487,11 +487,6 @@
       - name: Load variables from topology file for topo_{{ topo }}.yml
         include_vars: "vars/topo_{{ topo }}.yml"
 
-      - name: Set BGP confederation facts
-        set_fact:
-          bgp_confd_asn: "{{ hostvars[inventory_hostname]['configuration_properties']['common']['dut_confed_asn'] | default(None) }}"
-          bgp_confd_peers: "{{ hostvars[inventory_hostname]['configuration_properties']['common']['dut_confed_peers'] | default(None) }}"
-
       - name: saved original minigraph file in SONiC DUT(ignore errors when file does not exist)
         shell: mv /etc/sonic/minigraph.xml /etc/sonic/minigraph.xml.orig
         become: true
@@ -736,8 +731,6 @@
           vm_configuration: "{{ configuration if topo == 't1-filterleaf-lag' else omit }}"
           is_lit_mode: "{{ is_lit_mode | default(true) }}"
           npu_index: "{{ dut_index | default(0) | int }}"
-          bgp_confd_asn: "{{ bgp_confd_asn }}"
-          bgp_confd_peers: "{{ bgp_confd_peers }}"
           duts_list: "{{ testbed_facts['duts'] | default([]) }}"
           dut_loopbacks: "{{ topology.DUT.loopback | default({}) }}"
           console_ports: "{{ device_serial_link[inventory_hostname] | default(omit) if 'c0' in topo else omit }}"
