@@ -63,7 +63,9 @@ class GenerateGoldenConfigDBModule(object):
                                     npu_index=dict(required=False, type='int', default=0),
                                     duts_list=dict(required=False, type='list', default=[]),
                                     dut_loopbacks=dict(required=False, type='dict', default={}),
-                                    console_ports=dict(required=False, type='dict', default=None)),
+                                    console_ports=dict(required=False, type='dict', default=None),
+                                    bgp_confd_asn=dict(required=False, type='str', default=None),
+                                    bgp_confd_peers=dict(required=False, type='str', default=None)),
                                     supports_check_mode=True)
         self.topo_name = self.module.params['topo_name']
         self.port_index_map = self.module.params['port_index_map']
@@ -77,6 +79,8 @@ class GenerateGoldenConfigDBModule(object):
         self.duts_list = self.module.params['duts_list']
         self.dut_loopbacks = self.module.params['dut_loopbacks']
         self.console_ports = self.module.params['console_ports']
+        self.bgp_confd_asn = self.module.params['bgp_confd_asn']
+        self.bgp_confd_peers = self.module.params['bgp_confd_peers']
 
     def generate_mgfx_golden_config_db(self):
         rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
@@ -781,13 +785,21 @@ class GenerateGoldenConfigDBModule(object):
             return "{}"
         SUPPORTED_PORT_SPEED = ["200000", "400000", "800000"]
         ori_config = json.loads(self.get_config_from_minigraph())
-        port_config = ori_config.get("PORT", {})
+        golden_config = {"PORT": ori_config.get("PORT", {})}
+        port_config = golden_config["PORT"]
         for name, config in port_config.items():
             # Enable FEC for ports with supported speed
             if config["speed"] in SUPPORTED_PORT_SPEED and "fec" not in config:
                 config["fec"] = "rs"
 
-        return json.dumps({"PORT": port_config}, indent=4)
+        if self.bgp_confd_asn and self.bgp_confd_peers:
+            golden_config["BGP_DEVICE_GLOBAL"] = ori_config.get("BGP_DEVICE_GLOBAL", {})
+            golden_config["BGP_DEVICE_GLOBAL"]["CONFED"] = {
+                "asn": str(self.bgp_confd_asn),
+                "peers": str(self.bgp_confd_peers).replace(' ', ';')
+            }
+
+        return json.dumps(golden_config, indent=4)
 
     def generate_t0_f2_golden_config_db(self):
         """
