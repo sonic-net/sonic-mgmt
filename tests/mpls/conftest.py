@@ -30,23 +30,6 @@ def _resolve_ptf_port_ids(dut_port, mg_facts):
     return [mg_facts['minigraph_port_indices'][member] for member in members]
 
 
-@pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_exceptions(duthost, loganalyzer):
-    """Ignore the kernel-MPLS errors intfmgrd emits on platforms without mpls_router.
-
-    Configuring MPLS on an interface makes intfmgrd run
-    "sysctl -w net.mpls.conf.<intf>.input=1". That requires the mpls_router kernel
-    module, which no SONiC image loads by default, so the command fails and is
-    logged as an ERR. On sonic-vpp this is harmless: MPLS forwarding is done by
-    VPP in userspace via the SAI INSEG entries, not by the Linux kernel data path.
-    """
-    if loganalyzer and duthost.facts.get('asic_type') == 'vpp':
-        loganalyzer[duthost.hostname].ignore_regex.extend([
-            r".*ERR swss#intfmgrd.*setIntfMpls: Command 'sysctl -w net\.mpls\.conf\..* failed with rc 1.*",
-        ])
-    yield
-
-
 @pytest.fixture(scope='module')
 def setup(duthost, tbinfo, ptfadapter):
     """
@@ -57,6 +40,21 @@ def setup(duthost, tbinfo, ptfadapter):
     """
     if tbinfo['topo']['type'] != 't1':
         pytest.skip('Unsupported topology')
+
+    # Enabling MPLS on an interface makes intfmgrd run
+    # "sysctl -w net.mpls.conf.<intf>.input=1", which needs the mpls_router kernel
+    # module. The module ships in the image but nothing loads it, so without this
+    # the sysctl fails and is logged as an ERR. sonic-swss's own MPLS test loads it
+    # the same way. Left loaded on teardown: modprobe is idempotent and unloading
+    # could disrupt anything else using MPLS.
+    if duthost.facts['asic_type'] == 'vpp':
+        result = duthost.shell('modprobe mpls_router', module_ignore_errors=True)
+        if result['rc'] != 0:
+            # Not fatal here: let the test itself fail on the resulting syslog
+            # error rather than hiding a genuine loss of kernel MPLS support
+            # behind a setup failure.
+            logger.warning('Failed to load mpls_router: %s. Enabling MPLS on an '
+                           'interface will log a setIntfMpls error.', result['stderr'])
 
     # gather ansible facts
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
