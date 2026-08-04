@@ -5366,17 +5366,17 @@ srv6/test_srv6_dataplane.py:
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
-srv6/test_srv6_dataplane.py::TestSRv6DataPlaneBase::test_srv6_full_func[pipe-srh:
-  skip:
-    reason: "Skip test_srv6_full_func with srh on cisco-8000 platform."
-    conditions:
-      - "asic_type == 'cisco-8000'"
-
 srv6/test_srv6_dataplane.py::TestSRv6DataPlaneBase::test_srv6_full_func:
   xfail:
     reason: "vlan decap is disabled in 202412 image, which causes the test case failure."
     conditions:
       - "'isolated' in topo_name and release in ['202412']"
+
+srv6/test_srv6_dataplane.py::TestSRv6DataPlaneBase::test_srv6_full_func[pipe-srh:
+  skip:
+    reason: "Skip test_srv6_full_func with srh on cisco-8000 platform."
+    conditions:
+      - "asic_type == 'cisco-8000'"
 
 srv6/test_srv6_static_config.py:
   skip:
