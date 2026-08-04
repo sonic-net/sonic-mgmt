@@ -1,4 +1,4 @@
-"""Unit tests for the conserver console connection."""
+"""Unit tests for the linecard console connection."""
 
 import importlib.util
 from pathlib import Path
@@ -9,7 +9,7 @@ import types
 MODULE_PATH = (
     Path(__file__).resolve().parents[2]
     / "connections"
-    / "conserver_console_conn.py"
+    / "linecard_console_conn.py"
 )
 try:
     import pexpect  # noqa: F401
@@ -19,11 +19,21 @@ except ImportError:
     pexpect_stub.EOF = type("EOF", (Exception,), {})
     sys.modules["pexpect"] = pexpect_stub
 SPEC = importlib.util.spec_from_file_location(
-    "unit_target_conserver_console_conn", MODULE_PATH
+    "unit_target_linecard_console_conn", MODULE_PATH
 )
 MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
-ConserverConsoleConn = MODULE.ConserverConsoleConn
+LinecardConsoleConn = MODULE.LinecardConsoleConn
+
+
+class FakeMatch:
+    """Return one chunk from a pexpect match."""
+
+    def __init__(self, output):
+        self.output = output
+
+    def group(self):
+        return self.output
 
 
 class FakeConsoleCli:
@@ -32,28 +42,36 @@ class FakeConsoleCli:
     linesep = b"\r\n"
     before = b"show output\r\nLINE_0000: output\r\n"
 
-    def __init__(self):
+    def __init__(self, timing_output=None):
         self.command = None
         self.expect_args = None
+        self.timing_output = timing_output
+        self.match = None
 
     def sendline(self, command):
         self.command = command
 
     def expect(self, pattern, timeout):
         self.expect_args = (pattern, timeout)
+        if pattern == r'.+':
+            if self.timing_output is None:
+                raise MODULE.pexpect.TIMEOUT()
+            self.match = FakeMatch(self.timing_output)
+            self.timing_output = None
 
 
-def make_connection():
+def make_connection(timing_output=None):
     """Create a connection without invoking its I/O-heavy constructor."""
-    connection = ConserverConsoleConn.__new__(ConserverConsoleConn)
-    connection.console_cli = FakeConsoleCli()
+    connection = LinecardConsoleConn.__new__(LinecardConsoleConn)
+    connection.logger = MODULE.logging.getLogger(__name__)
+    connection.console_cli = FakeConsoleCli(timing_output)
     connection.default_timeout = 30
     connection.delay_factor = 1
     return connection
 
 
 def test_send_command_supports_netmiko_timeout_and_echo_arguments():
-    """Use Netmiko-compatible arguments while preserving conserver output."""
+    """Use Netmiko-compatible arguments while preserving linecard output."""
     connection = make_connection()
 
     output = connection.send_command(
@@ -68,13 +86,15 @@ def test_send_command_supports_netmiko_timeout_and_echo_arguments():
     assert output == "LINE_0000: output"
 
 
-def test_send_command_keeps_max_loops_compatibility():
-    """Retain the existing max_loops timeout behavior for current callers."""
-    connection = make_connection()
+def test_send_command_timing_supports_large_input_check():
+    """Provide the timing API used by the console stress input test."""
+    connection = make_connection(b"echo\r\nexpected-md5  -\r\n")
 
-    connection.send_command("show output", max_loops=60)
-
-    assert connection.console_cli.expect_args == (
-        "admin@[a-zA-Z0-9]{1,10}:~\\$",
-        60,
+    output = connection.send_command_timing(
+        "echo large-input | md5sum",
+        read_timeout=300,
+        last_read=2.0,
     )
+
+    assert connection.console_cli.command == "echo large-input | md5sum"
+    assert "expected-md5" in output
