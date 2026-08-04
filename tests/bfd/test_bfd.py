@@ -15,6 +15,7 @@ from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.helpers.assertions import pytest_assert
 
 pytestmark = [
+    pytest.mark.frr_generic,
     pytest.mark.topology('t1')
 ]
 

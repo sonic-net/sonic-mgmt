@@ -7,6 +7,7 @@ from tests.common.devices.sonic import SonicHost
 from tests.common.devices.csonic import CsonicHost
 from tests.common.utilities import wait_until
 pytestmark = [
+    pytest.mark.frr_generic,
     pytest.mark.topology('t0'),
     pytest.mark.device_type('vs')
 ]

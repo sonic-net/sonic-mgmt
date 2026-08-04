@@ -3,6 +3,7 @@ import logging
 from tests.common.helpers.assertions import pytest_assert
 
 pytestmark = [
+    pytest.mark.frr_generic,
     pytest.mark.topology('t1')
 ]
 

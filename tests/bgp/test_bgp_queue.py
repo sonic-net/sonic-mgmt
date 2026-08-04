@@ -6,6 +6,7 @@ from tests.common.utilities import wait_until
 logger = logging.getLogger(__name__)
 
 pytestmark = [
+    pytest.mark.frr_generic,
     pytest.mark.topology('any'),
     pytest.mark.device_type('vs')
 ]

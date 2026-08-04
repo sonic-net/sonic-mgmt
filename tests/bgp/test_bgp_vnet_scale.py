@@ -26,6 +26,7 @@ VNI_BASE = 10000
 CISCO_8000_ASIC = "cisco-8000"
 
 pytestmark = [
+    pytest.mark.frr_generic,
     pytest.mark.topology("t0"),
     pytest.mark.disable_loganalyzer,
     pytest.mark.device_type("physical"),

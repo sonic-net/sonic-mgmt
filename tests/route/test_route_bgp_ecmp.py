@@ -5,6 +5,7 @@ import time
 import pytest
 
 pytestmark = [
+    pytest.mark.frr_generic,
     pytest.mark.topology("t0")
 ]
 

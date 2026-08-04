@@ -14,6 +14,7 @@ import pytest
 logger = logging.getLogger(__name__)
 
 pytestmark = [
+    pytest.mark.frr_generic,
     pytest.mark.topology('t0', 't1', 't2'),
 ]
 
