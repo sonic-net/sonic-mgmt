@@ -407,8 +407,8 @@ def test_set_src_and_protocol_route_map_translated():
     out = translate_config_db(_base_config_db(), running, _peer_group_json())
     assert out["ROUTE_MAP"]["RM_SET_SRC|10"]["set_src"] == "10.1.0.32"
     assert out["ROUTE_MAP"]["RM_SET_SRC6|10"]["set_src"] == "fc00:1::32"
-    assert out["PROTOCOL_ROUTE_MAP"]["ipv4|bgp"]["route_map"] == "RM_SET_SRC"
-    assert out["PROTOCOL_ROUTE_MAP"]["ipv6|bgp"]["route_map"] == "RM_SET_SRC6"
+    assert out["PROTOCOL_ROUTE_MAP"]["default|IPv4|bgp"]["route_map"] == "RM_SET_SRC"
+    assert out["PROTOCOL_ROUTE_MAP"]["default|IPv6|bgp"]["route_map"] == "RM_SET_SRC6"
 
 
 # --------------------------------------------------------------------------- #
