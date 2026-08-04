@@ -236,6 +236,23 @@ The following tests from the [Transceiver Onboarding Test Infrastructure and Fra
 
 - All the below tests will be executed for all the transceivers connected to the DUT (the port list is derived from the `port_attributes_dict`) unless specified otherwise.
 
+### Common Test Setup and Teardown
+
+Inherits the [Common Session-Level Prerequisites](test_plan.md#common-session-level-prerequisites) and [Common Per-Test Health Checks](test_plan.md#common-per-test-health-checks) from the parent framework. VDM tests add the following category-specific checks:
+
+#### Session-Level Setup (once per test run)
+
+1. **DOM/VDM polling state**: Confirm DOM polling is enabled for all ports under test.
+
+#### Per-Test Setup (before each test case)
+
+1. **Interface liveness**: Verify all ports under test are operationally up with no recent link flaps. Checked per test because Advanced tests are disruptive and may affect link state.
+2. **Data freshness**: Query `TRANSCEIVER_VDM` in STATE_DB and verify `last_update_time` is within `data_max_age_min` minutes of current time.
+
+#### Per-Test Teardown (after each test case)
+
+1. **Data freshness**: Re-verify `last_update_time` in `TRANSCEIVER_VDM` is within `data_max_age_min` minutes of current time for all ports under test.
+
 ### Basic VDM Functionality Tests
 
 | TC No. | Test | Steps | Expected Results |
