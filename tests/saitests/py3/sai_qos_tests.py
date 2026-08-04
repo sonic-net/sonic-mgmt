@@ -4770,6 +4770,8 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         pkts_num_egr_mem = int(self.test_params.get('pkts_num_egr_mem', 0))
         topo = self.test_params['topo']
         platform_asic = self.test_params['platform_asic']
+        hwsku = self.test_params.get('hwsku', '')
+        use_set_scheduler = asic_type == 'cisco-8000' and 'Cisco-8223' not in hwsku
         prio_list = self.test_params.get('dscp_list', [])
         q_pkt_cnt = self.test_params.get('q_pkt_cnt', [])
         q_list = self.test_params.get('q_list', [])
@@ -4910,7 +4912,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
                         break
                     recv_pkt = scapy.Ether(received.packet)
 
-            if asic_type == 'cisco-8000':
+            if use_set_scheduler:
                 out, err, ret = self.exec_cmd_on_dut(
                     self.dst_server_ip,
                     self.test_params['dut_username'],
@@ -4960,7 +4962,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
                     # Ignore captured non-IP packet
                     continue
 
-            if asic_type == 'cisco-8000':
+            if use_set_scheduler:
                 # Release port
                 self.sai_thrift_port_tx_enable(
                     self.dst_client,
@@ -4973,9 +4975,12 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
             for prio, q_cnt in zip(prio_list, q_pkt_cnt):
                 queue_num_of_pkts[prio] = q_cnt
 
+            dscp_to_queue = dict(zip(prio_list, q_list))
+
             total_pkts = 0
 
             diff_list = []
+            dscp_order = []
 
             for pkt_to_inspect in pkts:
                 if 'backend' in topo:
@@ -4983,14 +4988,26 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
                 else:
                     dscp_of_pkt = pkt_to_inspect.payload.tos >> 2
                 total_pkts += 1
+                dscp_order.append(dscp_of_pkt)
 
                 # Count packet ordering
-
                 queue_pkt_counters[dscp_of_pkt] += 1
                 if queue_pkt_counters[dscp_of_pkt] == queue_num_of_pkts[dscp_of_pkt]:
                     diff_list.append((dscp_of_pkt, q_cnt_sum - total_pkts))
 
-                print(queue_pkt_counters, file=sys.stderr)
+            # Print the received ordering as a compact table: 40 two-char columns per
+            # row, single-space separated (~119 chars wide), so the scheduling pattern
+            # is visible at a glance even for thousands of packets.
+            def format_packet_table(values, per_row=40):
+                lines = []
+                for i in range(0, len(values), per_row):
+                    row = values[i:i + per_row]
+                    lines.append(" ".join("{:2d}".format(v) for v in row))
+                return "\n".join(lines)
+
+            queue_order = [dscp_to_queue.get(d, d) for d in dscp_order]
+            print("Packet ordering (DSCP):\n{}".format(format_packet_table(dscp_order)), file=sys.stderr)
+            print("Packet ordering (Queue):\n{}".format(format_packet_table(queue_order)), file=sys.stderr)
 
             print("Difference for each dscp: ", file=sys.stderr)
             print(diff_list, file=sys.stderr)
