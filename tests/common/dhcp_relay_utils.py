@@ -76,8 +76,6 @@ def restart_dhcp_service(duthost, relay_types):
                               dhcpmon-<Vlan> entries is empty. Readiness then
                               requires no stale `dhcrelay` or `dhcp4relay`
                               process.
-                            - The supervisor-owned `dhcp4relay` entry must be
-                              STOPPED or absent.
 
         'isc-internal' -> mx internal mode. dhcprelayd consolidates v4 relay
                           into a single `dhcrelay -iu docker0 ...` proc
@@ -227,8 +225,6 @@ def wait_dhcp_relay_ready(duthost, relay_types):
             if any('-iu docker0' in process for process in isc_relay_processes):
                 return False
             if sonic_relay_processes:
-                return False
-            if states.get('dhcp4relay') not in (None, 'STOPPED'):
                 return False
         if 'isc-internal' in relay_types:
             if len(isc_relay_processes) != 1 or '-iu docker0' not in isc_relay_processes[0]:
