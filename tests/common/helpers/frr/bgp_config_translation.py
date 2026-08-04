@@ -238,12 +238,19 @@ def _extract_policy_tables(running_config):
                                        entry["masklength_range"])
             tables["PREFIX"][key] = entry
         elif line.startswith("ip protocol ") and " route-map " in line:
-            # zebra 'ip protocol <proto> route-map <name>' -> PROTOCOL_ROUTE_MAP (ipv4).
+            # zebra 'ip protocol <proto> route-map <name>' -> PROTOCOL_ROUTE_MAP.
+            # The key is "<vrf_name>|<addr_family>|<protocol>" (sonic-protocol-route-map.yang:
+            # key "vrf_name addr_family protocol"), and addr_family is sonic-types:ip-family,
+            # whose values are "IPv4"/"IPv6" -- not the lowercase FRR CLI keywords. Getting
+            # either wrong makes sonic_yang reject the row, and because GCU validates the
+            # WHOLE CONFIG_DB, that breaks every apply-patch on the DUT, not just BGP ones.
             parts = line.split()
-            tables["PROTOCOL_ROUTE_MAP"]["ipv4|{}".format(parts[2])] = {"route_map": parts[4]}
+            key = "{}|IPv4|{}".format(DEFAULT_VRF, parts[2])
+            tables["PROTOCOL_ROUTE_MAP"][key] = {"route_map": parts[4]}
         elif line.startswith("ipv6 protocol ") and " route-map " in line:
             parts = line.split()
-            tables["PROTOCOL_ROUTE_MAP"]["ipv6|{}".format(parts[2])] = {"route_map": parts[4]}
+            key = "{}|IPv6|{}".format(DEFAULT_VRF, parts[2])
+            tables["PROTOCOL_ROUTE_MAP"][key] = {"route_map": parts[4]}
         else:
             for prefix, table in community_targets.items():
                 if line.startswith(prefix):
