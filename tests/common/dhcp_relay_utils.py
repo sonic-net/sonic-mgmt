@@ -584,11 +584,12 @@ def enable_sonic_dhcpv4_relay_agent(rand_selected_dut, request):
     try:
         if request.getfixturevalue("relay_agent") == "sonic-relay-agent":
             # Configure external relay servers first so conditional supervisor templates can render dhcp4relay.
-            sonic_dhcp_relay_config(duthost, dut_dhcp_relay_data, False)
+            sonic_dhcp_relay_config(duthost, dut_dhcp_relay_data, socket_check=False)
             sonic_dhcpv4_flag_config_and_unconfig(duthost, True)
             if dut_dhcp_relay_data:
                 pytest_assert(wait_until(40, 5, 0, check_dhcpv4_socket_status, duthost, dut_dhcp_relay_data,
-                              "sonic_dhcpv4_socket_check"))
+                              "sonic_dhcpv4_socket_check"),
+                              "SONiC DHCPv4 relay sockets did not become ready")
         yield
     finally:
         if request.getfixturevalue("relay_agent") == "sonic-relay-agent":
