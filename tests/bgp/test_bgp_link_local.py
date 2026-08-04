@@ -702,7 +702,7 @@ def configure_unnumbered_bgp(request, setup_info):
 
 
 @pytest.mark.disable_loganalyzer
-def test_bgp_link_local(setup_info, configure_unnumbered_bgp):
+def test_bgp_link_local(frr_config_mode, setup_info, configure_unnumbered_bgp):
     """
     Test BGP peering over IPv6 link-local addresses (unnumbered).
 
