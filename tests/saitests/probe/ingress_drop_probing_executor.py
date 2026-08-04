@@ -180,7 +180,8 @@ class IngressDropProbingExecutor:
 
                 # ===== Step 2: Baseline measurement =====
                 if self.counter_mode == 'pg_drop':
-                    # Level 1: PG drop counter (most precise, per-PG)
+                    # Level 1: Per-PG drop counter via sai_thrift_read_pg_drop_counters
+                    # Reads PG-specific drop count; noise-immune, most precise
                     pg_drop_base = sai_thrift_read_pg_drop_counters(
                         self.ptftest.src_client,
                         port_list["src"][src_port]
@@ -192,7 +193,8 @@ class IngressDropProbingExecutor:
                             f"PG{pg_num} baseline={pg_drop_base[pg_num]}, all_pgs={pg_drop_base}"
                         )
                 else:
-                    # Level 2 (port_buffer_drop) and Level 3 (port_drop) both read port counters
+                    # Level 2 & 3 both use sai_thrift_read_port_counters;
+                    # detection branch below selects which counter index to check
                     sport_cnt_base, _ = sai_thrift_read_port_counters(
                         self.ptftest.src_client,
                         self.ptftest.asic_type,
@@ -215,7 +217,7 @@ class IngressDropProbingExecutor:
 
                 # ===== Step 5: Ingress Drop detection =====
                 if self.counter_mode == 'pg_drop':
-                    # Level 1: PG-level drop counter (most precise, per-PG)
+                    # Level 1: sai_thrift_read_pg_drop_counters (per-PG, noise-immune)
                     pg_drop_curr = sai_thrift_read_pg_drop_counters(
                         self.ptftest.src_client,
                         port_list["src"][src_port]
@@ -236,7 +238,8 @@ class IngressDropProbingExecutor:
                                 f"[Ingress Drop] All PG drop changes: {all_diffs}"
                             )
                 elif self.counter_mode == 'port_buffer_drop':
-                    # Level 2: Port buffer drop counter (excludes noise, buffer-specific)
+                    # Level 2: INGRESS_PORT_BUFFER_DROP (SAI_PORT_STAT_IN_DROPPED_PKTS)
+                    # Checks only buffer drop counter; noise-immune like pg_drop
                     sport_cnt_curr, _ = sai_thrift_read_port_counters(
                         self.ptftest.src_client,
                         self.ptftest.asic_type,
@@ -258,7 +261,8 @@ class IngressDropProbingExecutor:
                             f"(INGRESS_DROP diff={ing_drop_diff} for reference)"
                         )
                 else:
-                    # Level 3: Port-level ingress drop counter (includes noise)
+                    # Level 3: INGRESS_DROP (SAI_PORT_STAT_IF_IN_DISCARDS) OR INGRESS_PORT_BUFFER_DROP
+                    # Checks both counters; includes non-unicast noise (LACP, IPv6 RS) — legacy default
                     sport_cnt_curr, _ = sai_thrift_read_port_counters(
                         self.ptftest.src_client,
                         self.ptftest.asic_type,

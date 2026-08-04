@@ -9,6 +9,7 @@ RANDOM_SEED = 'random_seed'
 CUSTOM_MSG_PREFIX = "sonic_custom_msg"
 DUT_CHECK_NAMESPACE = "dut_check_result"
 PTF_TIMEOUT = 60
+ERSPAN_GRE_TYPE = 0x8949
 
 # Canonical default config path for the PTF arp_responder helper
 # (ansible/roles/test/files/helpers/arp_responder.py and tests/scripts/arp_responder.py).

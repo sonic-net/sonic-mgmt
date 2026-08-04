@@ -2,12 +2,25 @@ import logging
 import pytest
 import json
 import re
+from datetime import datetime, timedelta, timezone
+
+from cryptography import x509
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.x509.oid import NameOID
 
 from pkg_resources import parse_version
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
 
 logger = logging.getLogger(__name__)
+
+# Backdate rotated telemetry cert notBefore so it survives clock skew
+# between the sonic-mgmt runner and the DUT. Cryptography lib here
+# instead of openssl shell because openssl 3.0.x has no CLI flag to
+# set notBefore on `req -x509` (added only in 3.5).
+_TELEMETRY_CERT_BACKDATE_DAYS = 7
+_TELEMETRY_CERT_VALIDITY_DAYS = 365
 
 METHOD_GET = "get"
 METHOD_SUBSCRIBE = "subscribe"
@@ -174,29 +187,43 @@ def archive_telemetry_certs(duthost):
             duthost.shell(cmd)
 
 
+def _mint_self_signed_telemetry_cert(common_name, cert_path, key_path):
+    """Generate a backdated self-signed leaf cert + key on the sonic-mgmt runner."""
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    now = datetime.now(timezone.utc)
+    not_before = now - timedelta(days=_TELEMETRY_CERT_BACKDATE_DAYS)
+    not_after = now + timedelta(days=_TELEMETRY_CERT_VALIDITY_DAYS)
+    subject = issuer = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, common_name)])
+    cert = (
+        x509.CertificateBuilder()
+        .subject_name(subject)
+        .issuer_name(issuer)
+        .public_key(key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(not_before)
+        .not_valid_after(not_after)
+        .sign(key, hashes.SHA256())
+    )
+    with open(key_path, "wb") as f:
+        f.write(key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.TraditionalOpenSSL,
+            encryption_algorithm=serialization.NoEncryption(),
+        ))
+    with open(cert_path, "wb") as f:
+        f.write(cert.public_bytes(serialization.Encoding.PEM))
+
+
 def rotate_telemetry_certs(duthost, localhost):
     path = "/etc/sonic/telemetry/"
-    # Create new certs to rotate
-    cmd = "openssl req \
-              -x509 \
-              -sha256 \
-              -nodes \
-              -days 365 \
-              -newkey rsa:2048 \
-              -keyout streamingtelemetryserver.key \
-              -subj '/CN=ndastreamingservertest' \
-              -out streamingtelemetryserver.cer"
-    localhost.shell(cmd)
-    cmd = "openssl req \
-              -x509 \
-              -sha256 \
-              -nodes \
-              -days 365 \
-              -newkey rsa:2048 \
-              -keyout dsmsroot.key \
-              -subj '/CN=ndastreamingclienttest' \
-              -out dsmsroot.cer"
-    localhost.shell(cmd)
+    # Mint fresh self-signed certs locally with a backdate so the rotated
+    # PKI survives clock skew between the sonic-mgmt runner and the DUT.
+    _mint_self_signed_telemetry_cert(
+        "ndastreamingservertest", "streamingtelemetryserver.cer", "streamingtelemetryserver.key",
+    )
+    _mint_self_signed_telemetry_cert(
+        "ndastreamingclienttest", "dsmsroot.cer", "dsmsroot.key",
+    )
 
     # Rotate certs
     duthost.copy(src="streamingtelemetryserver.cer", dest=path)

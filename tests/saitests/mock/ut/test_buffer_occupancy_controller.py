@@ -753,5 +753,108 @@ class TestBufferOccupancyControllerIntegration(unittest.TestCase):
         assert send_packet_fn.call_count == 2  # Restore call + traffic call
 
 
+@pytest.mark.order(6090)
+class TestDrainBufferIdempotency(unittest.TestCase):
+    """
+    Test drain_buffer idempotency — the fix for Mellanox KeyError.
+
+    On Mellanox, calling TX-enable on a port that was never TX-disabled
+    raises KeyError (no saved scheduler). The idempotency fix filters
+    out unheld ports so drain_buf_fn is only called with truly held ports.
+    """
+
+    def _make_ctrl(self):
+        """Create a controller with trackable mocks."""
+        self.drain_buf_fn = MagicMock()
+        return BufferOccupancyController(
+            hold_buf_fn=MagicMock(),
+            drain_buf_fn=self.drain_buf_fn,
+            stream_mgr=MagicMock(),
+            send_packet_fn=MagicMock(),
+            ptftest_ref=MagicMock(),
+            thrift_client=MagicMock(),
+            asic_type="mellanox"
+        )
+
+    @pytest.mark.order(6091)
+    def test_drain_unheld_ports_is_noop(self):
+        """Drain on ports never held → drain_buf_fn NOT called."""
+        ctrl = self._make_ctrl()
+
+        ctrl.drain_buffer([100, 200])
+
+        self.drain_buf_fn.assert_not_called()
+
+    @pytest.mark.order(6092)
+    def test_drain_mix_held_and_unheld(self):
+        """Drain with mix of held/unheld → only held ports passed."""
+        ctrl = self._make_ctrl()
+
+        ctrl.hold_buffer([10])  # hold port 10 only
+
+        ctrl.drain_buffer([10, 20, 30])  # 20 and 30 never held
+
+        self.drain_buf_fn.assert_called_once()
+        called_ports = self.drain_buf_fn.call_args[0][2]  # 3rd positional arg
+        assert called_ports == [10]
+
+    @pytest.mark.order(6093)
+    def test_double_drain_is_noop(self):
+        """Drain same port twice → second call is no-op."""
+        ctrl = self._make_ctrl()
+
+        ctrl.hold_buffer([10])
+        ctrl.drain_buffer([10])  # first drain
+        assert self.drain_buf_fn.call_count == 1
+
+        ctrl.drain_buffer([10])  # second drain — should be no-op
+        assert self.drain_buf_fn.call_count == 1  # still 1
+
+    @pytest.mark.order(6094)
+    def test_drain_empty_list_is_noop(self):
+        """Drain with empty port list → drain_buf_fn NOT called."""
+        ctrl = self._make_ctrl()
+
+        ctrl.drain_buffer([])
+
+        self.drain_buf_fn.assert_not_called()
+
+    @pytest.mark.order(6095)
+    def test_drain_passes_last_port_flag(self):
+        """Drain passes last_port kwarg to drain_buf_fn."""
+        ctrl = self._make_ctrl()
+
+        ctrl.hold_buffer([10])
+        ctrl.drain_buffer([10], last_port=True)
+
+        self.drain_buf_fn.assert_called_once()
+        assert self.drain_buf_fn.call_args[1]['last_port'] is True
+
+    @pytest.mark.order(6096)
+    def test_state_tracking_after_idempotent_drain(self):
+        """State is correct after various idempotent drain sequences."""
+        ctrl = self._make_ctrl()
+
+        ctrl.hold_buffer([10, 20, 30])
+        assert ctrl.is_buffer_held(10)
+        assert ctrl.is_buffer_held(20)
+        assert ctrl.is_buffer_held(30)
+
+        # Drain 10 + unheld 40
+        ctrl.drain_buffer([10, 40])
+        assert not ctrl.is_buffer_held(10)
+        assert ctrl.is_buffer_held(20)
+        assert ctrl.is_buffer_held(30)
+
+        # Double-drain 10 (already drained) + drain 20
+        ctrl.drain_buffer([10, 20])
+        assert not ctrl.is_buffer_held(10)
+        assert not ctrl.is_buffer_held(20)
+        assert ctrl.is_buffer_held(30)
+
+        # Only 2 actual drain calls (skip no-ops)
+        assert self.drain_buf_fn.call_count == 2
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
