@@ -96,8 +96,13 @@ def restart_dhcp_service(duthost, relay_types):
                            relay entries and starts no dynamic `dhcrelay`.
                            Required:
                              - no `dhcrelay` or `dhcp4relay` process exists
-                             - every IPv4 relay supervisor entry is STOPPED or
-                               absent
+                             - every `isc-dhcpv4-relay-*` supervisor entry is
+                               STOPPED or absent
+                             - the supervisor-owned `dhcp4relay` entry is
+                               STOPPED or absent
+                           Not checked:
+                             - dhcpmon-<Vlan> entries; monitor lifecycle is
+                               orthogonal to the idle IPv4 relay mode
 
         'sonic'        -> Consolidated v4 relay layout
                           (dockers/docker-dhcp-relay/dhcpv4-sonic-relay.agents.j2).
