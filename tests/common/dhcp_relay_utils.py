@@ -81,11 +81,11 @@ def restart_dhcp_service(duthost, relay_types):
                           into a single `dhcrelay -iu docker0 ...` proc
                           (not a supervisord entry).
                           Required:
-                            - exactly one /usr/sbin/dhcrelay proc, which includes
+                            - exactly one `dhcrelay` process, which includes
                               -iu docker0
                             - external ISC and supervisor-owned SONiC v4 relay
                               entries are STOPPED or absent
-                            - no `/usr/sbin/dhcp4relay` process exists
+                            - no `dhcp4relay` process exists
                           Not checked:
                             - dhcpmon-<Vlan> entries; monitor lifecycle is
                               orthogonal to the active IPv4 relay mode
@@ -94,7 +94,7 @@ def restart_dhcp_service(duthost, relay_types):
                           (dockers/docker-dhcp-relay/dhcpv4-sonic-relay.agents.j2).
                           With external relay-server configuration:
                             - the `dhcp4relay` supervisord entry is RUNNING
-                            - exactly one `/usr/sbin/dhcp4relay` process exists
+                            - exactly one `dhcp4relay` process exists
                           Without external relay-server configuration:
                             - the supervisord entry is absent
                             - no `/usr/sbin/dhcp4relay` process exists
@@ -104,7 +104,7 @@ def restart_dhcp_service(duthost, relay_types):
 
         'sonic-internal'
                         -> mx internal SONiC mode. dhcprelayd dynamically owns
-                          exactly one `/usr/sbin/dhcp4relay` process, while
+                          exactly one `dhcp4relay` process, while
                           external ISC and supervisor-owned SONiC v4 relay
                           entries stay STOPPED or absent.
 
