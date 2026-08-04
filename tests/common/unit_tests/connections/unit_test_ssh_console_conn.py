@@ -22,6 +22,7 @@ Follows the repo unit-test convention (unit_test_*.py, run with --noconftest).
 import collections
 import os
 import sys
+import threading
 from unittest import mock
 
 import pytest
@@ -37,7 +38,11 @@ _REPO_ROOT = os.path.dirname(
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
-from tests.common.connections.ssh_console_conn import BOOTLOADER_BANNER_RE, SSHConsoleConn  # noqa: E402
+from tests.common.connections.ssh_console_conn import (  # noqa: E402
+    BOOTLOADER_BANNER_RE,
+    SSHConsoleConn,
+    ConsoleRebootStartedError,
+)
 
 
 # Real bootloader / boot-in-progress banners -- Ctrl-C MUST be suppressed here.
@@ -492,3 +497,78 @@ def test_session_preparation_defers_when_bootloader_only_in_initial_read():
         f"wrote {_written(conn)!r} -- even a bare CR can abort a 'hit any key' window")
     conn.login_stage_2.assert_not_called()
     conn.session_preparation_finalise.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Cancel-event tests: once the reboot has started, the console worker must stop
+# writing to the DUT serial line. reboot.py runs collect_console_log() via
+# pool.apply_async().get(timeout=10); that timeout does NOT cancel the underlying
+# ThreadPool task, so a worker still preparing its session could send a late CR
+# into the bootloader autoboot window and trap the DUT -- the exact race this
+# guards. reboot.py sets a threading.Event right before rebooting; SSHConsoleConn
+# refuses every write_channel() once it is set.
+# ---------------------------------------------------------------------------
+
+
+def _make_gate_console(cancel_event):
+    """A bare SSHConsoleConn wired only for write_channel() gate testing."""
+    conn = SSHConsoleConn.__new__(SSHConsoleConn)
+    conn.RETURN = RETURN
+    conn.logger = mock.MagicMock()
+    conn.select_delay_factor = mock.MagicMock(return_value=1)
+    conn.clear_buffer = mock.MagicMock()
+    conn._cancel_event = cancel_event
+    return conn
+
+
+def test_write_channel_delegates_when_not_cancelled():
+    """With no cancel event / an unset one, write_channel() passes bytes through."""
+    for cancel_event in (None, threading.Event()):
+        conn = _make_gate_console(cancel_event)
+        with mock.patch("netmiko.base_connection.BaseConnection.write_channel") as sup:
+            SSHConsoleConn.write_channel(conn, conn.RETURN)
+        sup.assert_called_once_with(conn.RETURN)
+
+
+def test_write_channel_aborts_once_reboot_started():
+    """Once the cancel event is set, write_channel() raises and sends NO byte."""
+    cancel_event = threading.Event()
+    cancel_event.set()
+    conn = _make_gate_console(cancel_event)
+    with mock.patch("netmiko.base_connection.BaseConnection.write_channel") as sup:
+        with pytest.raises(ConsoleRebootStartedError):
+            SSHConsoleConn.write_channel(conn, conn.RETURN)
+        sup.assert_not_called()
+
+
+def test_worker_stops_nudging_silent_console_when_reboot_starts():
+    """End-to-end: a silent-console recovery begins BEFORE the reboot sends its first
+    bare-CR nudge, but the reboot then starts -- the worker must not send any further
+    CR. Simulates reboot.py setting the event immediately after the first CR reaches
+    the DUT serial line; a second nudge would risk aborting a 'hit any key' autoboot
+    window on U-Boot/ONIE."""
+    cancel_event = threading.Event()
+    conn = _make_gate_console(cancel_event)
+    conn.read_channel = mock.MagicMock(return_value="")  # fully silent console
+
+    writes = []
+
+    def record_and_start_reboot(out):
+        # The real bytes that reach the DUT serial line. The reboot begins right
+        # after the first CR lands, so subsequent write_channel() calls must abort.
+        writes.append(out)
+        cancel_event.set()
+
+    with mock.patch("netmiko.base_connection.BaseConnection.write_channel",
+                    side_effect=record_and_start_reboot):
+        with mock.patch("tests.common.connections.ssh_console_conn.time.sleep"):
+            result = SSHConsoleConn._recover_to_login_prompt(conn, max_attempts=4, delay_factor=1)
+
+    # _recover_to_login_prompt swallows the abort (its I/O is wrapped in
+    # try/except -> return False); the guarantee we assert is that exactly ONE CR
+    # ever reached the DUT and it was a bare RETURN (never Ctrl-C).
+    assert result is False
+    assert writes == [RETURN], (
+        f"exactly one bare-CR nudge may reach the DUT before the reboot starts, "
+        f"got {writes!r} -- a second write would risk aborting bootloader autoboot")
+    assert CTRL_C not in writes

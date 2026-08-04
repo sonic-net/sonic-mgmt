@@ -386,8 +386,13 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
         prev_reboot_cause_history = duthost.show_and_parse("show reboot-cause history")
 
     console_obj = None
+    # Set right before the reboot to tell a still-running console worker to stop
+    # writing to the DUT serial line (see below): console_thread_res.get(timeout=)
+    # does NOT cancel the ThreadPool task, so the worker can outlive the timeout.
+    reboot_started_event = threading.Event()
     console_thread_res = pool.apply_async(
-        collect_console_log, args=(duthost, localhost))
+        collect_console_log, args=(duthost, localhost),
+        kwds={"cancel_event": reboot_started_event})
 
     # Block and wait for console to be ready before starting reboot
     console_wait_max_seconds = 10
@@ -397,6 +402,12 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     except Exception as e:
         logger.warning(f"Console connection timed out or failed: {e}, proceeding with reboot anyway")
         console_obj = None
+
+    # The reboot is about to start. Signal any console worker still running its
+    # session preparation (the get(timeout=) above did not cancel it) to stop
+    # writing to the DUT: a late login/wake-up CR must not land in the bootloader
+    # autoboot window and trap the DUT -- the exact race this fix guards against.
+    reboot_started_event.set()
 
     # Perform reboot
     if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch") \
@@ -746,9 +757,10 @@ def check_determine_reboot_cause_service(dut):
             Current sub-state: {sub_state}"
 
 
-def try_create_dut_console(duthost, localhost, conn_graph_facts, creds):
+def try_create_dut_console(duthost, localhost, conn_graph_facts, creds, cancel_event=None):
     try:
-        dut_sonsole = create_duthost_console(duthost, localhost, conn_graph_facts, creds)
+        dut_sonsole = create_duthost_console(duthost, localhost, conn_graph_facts, creds,
+                                             cancel_event=cancel_event)
     except Exception as err:
         logger.warning(f"Fail to create dut console. Please check console config or if console works or not. {err}")
         return None
@@ -756,7 +768,7 @@ def try_create_dut_console(duthost, localhost, conn_graph_facts, creds):
     return dut_sonsole
 
 
-def collect_console_log(duthost, localhost):
+def collect_console_log(duthost, localhost, cancel_event=None):
     """
     Collect console log during reboot.
 
@@ -766,13 +778,17 @@ def collect_console_log(duthost, localhost):
     Args:
         duthost: DUT host object
         localhost: localhost object
+        cancel_event: optional threading.Event the caller sets right before it
+            reboots the DUT. Once set, the console connection stops writing to the
+            DUT serial line so a late CR cannot interrupt bootloader autoboot.
 
     Returns:
         ConsoleHost object if successful, None otherwise
     """
     creds = creds_on_dut(duthost)
     conn_graph_facts = get_graph_facts(duthost, localhost, [duthost.hostname])
-    dut_console = try_create_dut_console(duthost, localhost, conn_graph_facts, creds)
+    dut_console = try_create_dut_console(duthost, localhost, conn_graph_facts, creds,
+                                         cancel_event=cancel_event)
     if dut_console:
         logger.info("Console connection established successfully")
     else:

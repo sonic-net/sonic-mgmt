@@ -38,7 +38,8 @@ def ConsoleHost(console_type,
                 supervisor_ip=None,
                 linecard_number=None,
                 slot_num=None,
-                hwsku=None):
+                hwsku=None,
+                cancel_event=None):
     if console_type not in ConsoleTypeMapper:
         raise ValueError("console type {} is not supported yet".format(console_type))
     params = {
@@ -52,6 +53,11 @@ def ConsoleHost(console_type,
         "console_device": console_device,
         "timeout": timeout_s
     }
+
+    # Only SSHConsoleConn consumes this; add it conditionally so the other
+    # console classes' __init__ signatures are unaffected.
+    if cancel_event is not None:
+        params["cancel_event"] = cancel_event
 
     # Add linecard-specific parameters if provided
     if supervisor_ip is not None:
