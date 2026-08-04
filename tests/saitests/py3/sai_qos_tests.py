@@ -4981,6 +4981,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
 
             diff_list = []
             dscp_order = []
+            terminating_indices = set()
 
             for pkt_to_inspect in pkts:
                 if 'backend' in topo:
@@ -4994,20 +4995,36 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
                 queue_pkt_counters[dscp_of_pkt] += 1
                 if queue_pkt_counters[dscp_of_pkt] == queue_num_of_pkts[dscp_of_pkt]:
                     diff_list.append((dscp_of_pkt, q_cnt_sum - total_pkts))
+                    terminating_indices.add(total_pkts - 1)
 
             # Print the received ordering as a compact table: 40 two-char columns per
-            # row, single-space separated (~119 chars wide), so the scheduling pattern
-            # is visible at a glance even for thousands of packets.
-            def format_packet_table(values, per_row=40):
+            # row (~119 chars wide), so the scheduling pattern is visible at a glance
+            # even for thousands of packets. The separator after a packet is "E" when it
+            # is the last packet of its DSCP/queue, otherwise a space.
+            def format_packet_table(values, terminators, per_row=40):
                 lines = []
-                for i in range(0, len(values), per_row):
-                    row = values[i:i + per_row]
-                    lines.append(" ".join("{:2d}".format(v) for v in row))
+                for start in range(0, len(values), per_row):
+                    row_end = min(start + per_row, len(values))
+                    parts = []
+                    for idx in range(start, row_end):
+                        parts.append("{:2d}".format(values[idx]))
+                        if idx in terminators:
+                            parts.append("E")
+                        elif idx < row_end - 1:
+                            parts.append(" ")
+                    lines.append("".join(parts))
                 return "\n".join(lines)
 
             queue_order = [dscp_to_queue.get(d, d) for d in dscp_order]
-            print("Packet ordering (DSCP):\n{}".format(format_packet_table(dscp_order)), file=sys.stderr)
-            print("Packet ordering (Queue):\n{}".format(format_packet_table(queue_order)), file=sys.stderr)
+            print("Packet ordering (DSCP):\n{}".format(
+                format_packet_table(dscp_order, terminating_indices)), file=sys.stderr)
+            print("Packet ordering (Queue):\n{}".format(
+                format_packet_table(queue_order, terminating_indices)), file=sys.stderr)
+
+            queue_pkt_count = {q: queue_pkt_counters[d] for d, q in zip(prio_list, q_list)}
+            queue_sent_count = {q: cnt for q, cnt in zip(q_list, q_pkt_cnt)}
+            print("Sent packet count per queue: {}".format(queue_sent_count), file=sys.stderr)
+            print("Received packet count per queue: {}".format(queue_pkt_count), file=sys.stderr)
 
             print("Difference for each dscp: ", file=sys.stderr)
             print(diff_list, file=sys.stderr)
