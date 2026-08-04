@@ -181,6 +181,7 @@ class DHCPTest(DataplaneBaseTest):
                 self.link_selection_ip = self.test_params['link_selection_ip']
 
         self.uplink_mac = self.test_params['uplink_mac']
+        self.host_mac = self.test_params.get('host_mac', self.uplink_mac)
 
         # 'dual' for dual tor testing
         # 'single' for regular single tor testing
@@ -207,7 +208,12 @@ class DHCPTest(DataplaneBaseTest):
         #  Bytes 2+: Suboption data
         # remote_id (suboption 2) is the switch base MAC. On dual-ToR the VLAN carries a virtual MAC,
         # so the relay stamps the base MAC (uplink_mac); on single-ToR relay_iface_mac already equals it.
-        remote_id_string = self.uplink_mac if self.dual_tor else self.relay_iface_mac
+
+        # Our remote_id string simply consists of the MAC address of the port that received the request
+        remote_id_string = self.relay_iface_mac
+        if self.relay_agent == "sonic-relay-agent":
+            remote_id_string = self.host_mac
+
         self.option82 += struct.pack('BB', self.REMOTE_ID_SUBOPTION, len(remote_id_string))
         self.option82 += remote_id_string.encode('utf-8')
 
@@ -222,6 +228,18 @@ class DHCPTest(DataplaneBaseTest):
                 link_selection_ip = bytes(list(map(int, self.link_selection_ip.split('.'))))
                 self.option82 += struct.pack('BB', self.LINK_SELECTION_SUBOPTION, 4)
                 self.option82 += link_selection_ip
+                link_selection_added = True
+
+            # In dual ToR mode, sonic-relay-agent uses the VLAN subnet/network
+            # address for link-selection, not the VLAN interface IP.
+            if self.dual_tor and not link_selection_added:
+                link_selection_ip = str(ipaddress.ip_network(
+                    "{}/{}".format(self.relay_iface_ip, self.test_params['relay_iface_netmask']),
+                    strict=False
+                ).network_address)
+                link_selection = bytes(list(map(int, link_selection_ip.split('.'))))
+                self.option82 += struct.pack('BB', self.LINK_SELECTION_SUBOPTION, 4)
+                self.option82 += link_selection
                 link_selection_added = True
 
             # The structure is as follows:
@@ -253,8 +271,13 @@ class DHCPTest(DataplaneBaseTest):
         # Relay emits link-selection (SubOption 5) once; skip this legacy dual-tor
         # copy if the block above already added it (see commit msg).
         if self.dual_tor and not link_selection_added:
-            link_selection = bytes(
-                list(map(int, self.relay_iface_ip.split('.'))))
+            link_selection_ip = self.relay_iface_ip
+            if self.relay_agent == "sonic-relay-agent":
+                link_selection_ip = str(ipaddress.ip_network(
+                    "{}/{}".format(self.relay_iface_ip, self.test_params['relay_iface_netmask']),
+                    strict=False
+                ).network_address)
+            link_selection = bytes(list(map(int, link_selection_ip.split('.'))))
             self.option82 += struct.pack('BB', self.LINK_SELECTION_SUBOPTION, 4)
             self.option82 += link_selection
             link_selection_added = True
@@ -871,7 +894,7 @@ class DHCPTest(DataplaneBaseTest):
         # if pad_bytes > 0:
         #    bootp /= scapy.PADDING('\x00' * pad_bytes)
 
-        if self.relay_agent == "sonic-relay-agent" and (self.link_selection and self.source_interface):
+        if (self.link_selection and self.source_interface) or self.dual_tor:
             pad_bytes = self.DHCP_PKT_BOOTP_MIN_LEN - len(bootp)
             if pad_bytes > 0:
                 bootp /= scapy.PADDING('\x00' * pad_bytes)
@@ -1060,7 +1083,12 @@ class DHCPTest(DataplaneBaseTest):
         # BOOTP has no Option 82 Link Selection, so giaddr must identify the receiving
         # client VLAN in every topology.
         # ISC already does this; sonic-relay-agent requires the corresponding product fix.
-        giaddr = self.relay_iface_ip
+        if self.relay_agent == "isc-relay-agent" and self.dual_tor:
+            giaddr = self.relay_iface_ip
+        elif ((self.link_selection and self.source_interface) or self.server_vrf or self.dual_tor):
+            giaddr = self.switch_loopback_ip
+        elif self.server_id_override or not self.dual_tor:
+            giaddr = self.relay_iface_ip
 
         bootp_packet = self.create_bootp_packet(src_mac=self.uplink_mac, src_ip=source_ip, giaddr=giaddr,
                                                 sport=self.DHCP_SERVER_PORT, hops=2)
@@ -1096,7 +1124,8 @@ class DHCPTest(DataplaneBaseTest):
         dhcp_unknown = self.create_dhcp_offer_packet()
         logger.info("Server send unknown packet")
         dhcp_unknown[scapy.DHCP] = scapy.DHCP(options=[('message-type', 11), ('end')])
-        if self.relay_agent == "sonic-relay-agent" and (self.link_selection and self.source_interface):
+        if (self.relay_agent == "sonic-relay-agent" and 
+               ((self.link_selection and self.source_interface) or self.dual_tor)):
             dhcp_unknown[scapy.DHCP].options.insert(
                     dhcp_unknown[scapy.DHCP].options.index("end"),
                     (82, self.option82)
@@ -1107,7 +1136,8 @@ class DHCPTest(DataplaneBaseTest):
     def verify_relayed_unknown_on_client_side(self):
         dhcp_offer = self.create_dhcp_offer_relayed_packet()
         dhcp_offer[scapy.DHCP] = scapy.DHCP(options=[('message-type', 11), ('end')])
-        if self.relay_agent == "sonic-relay-agent" and (self.link_selection and self.source_interface):
+        if (self.relay_agent == "sonic-relay-agent" and 
+               ((self.link_selection and self.source_interface) or self.dual_tor)):
             bootp_len = len(dhcp_offer[scapy.BOOTP])
             pad_bytes = self.DHCP_PKT_BOOTP_MIN_LEN - bootp_len
             if pad_bytes > 0:
@@ -1140,7 +1170,8 @@ class DHCPTest(DataplaneBaseTest):
         # Build the DHCP NAK packet
         packet = self.create_dhcp_ack_packet()
         packet[scapy.DHCP] = scapy.DHCP(options=[('message-type', 'nak'), ('server_id', self.server_ip[0]), ('end')])
-        if self.relay_agent == "sonic-relay-agent" and (self.link_selection and self.source_interface):
+        if (self.relay_agent == "sonic-relay-agent" and 
+               ((self.link_selection and self.source_interface) or self.dual_tor)):
             packet[scapy.DHCP].options.insert(
                     packet[scapy.DHCP].options.index("end"),
                     (82, self.option82)
@@ -1151,7 +1182,8 @@ class DHCPTest(DataplaneBaseTest):
     def verify_relayed_nak(self):
         dhcp_nak = self.create_dhcp_ack_relayed_packet()
         dhcp_nak[scapy.DHCP] = scapy.DHCP(options=[('message-type', 'nak'), ('server_id', self.server_ip[0]), ('end')])
-        if self.relay_agent == "sonic-relay-agent" and (self.link_selection and self.source_interface):
+        if (self.relay_agent == "sonic-relay-agent" and 
+               ((self.link_selection and self.source_interface) or self.dual_tor)):
             bootp_len = len(dhcp_nak[scapy.BOOTP])
             pad_bytes = self.DHCP_PKT_BOOTP_MIN_LEN - bootp_len
             if pad_bytes > 0:
