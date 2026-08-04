@@ -45,6 +45,10 @@ from tests.common.helpers.constants import (
     UPSTREAM_NEIGHBOR_MAP,
     DOWNSTREAM_NEIGHBOR_MAP,
 )
+from tests.common.fixtures.frr_config_mode import (
+    skip_module_if_frr_native,
+    FRR_BGPCFGD_ONLY_AGGREGATE_REASON,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +65,19 @@ CONTRIBUTING_V4 = [
     "10.100.2.0/24",
     "10.100.3.0/24",
 ]
+
+
+# The BGP aggregate-address suite asserts bgpcfgd AggregateAddressMgr behavior, not just "FRR
+# advertises an aggregate": every module writes a BGP_AGGREGATE_ADDRESS row carrying
+# bbr_required and reads it back. frrcfgd has no BGP_AGGREGATE_ADDRESS handler, no STATE_DB
+# writer and no bbr-required concept, so these cannot pass under frrcfgd. The suite is
+# therefore NOT parametrized over frr_config_mode: it runs in traditional (bgpcfgd) mode and
+# skips outright on a native-frrcfgd DUT.
+@pytest.fixture(scope="module", autouse=True)
+def _skip_aggregate_address_in_frr_mgmt_framework(duthosts, rand_one_dut_hostname):
+    skip_module_if_frr_native(duthosts[rand_one_dut_hostname], FRR_BGPCFGD_ONLY_AGGREGATE_REASON)
+
+
 # Routes that fall *outside* the aggregate range
 NON_CONTRIBUTING_V4 = ["10.200.1.0/24"]
 
