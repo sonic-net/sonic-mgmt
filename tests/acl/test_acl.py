@@ -378,8 +378,8 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
     elif tbinfo['topo']['type'] in ['t0']:
         try:
             vlan_config = tbinfo['topo']['properties']['topology']['DUT']['vlan_configs']['default_vlan_config']
-            if vlan_config == 'two_vlan_a':
-                logging.info("topo {} has 2 vlans".format(tbinfo['topo']['name']))
+            if vlan_config in ('one_vlan_a', 'two_vlan_a'):
+                logging.info("topo {} vlan_config {}".format(tbinfo['topo']['name'], vlan_config))
                 DOWNSTREAM_DST_IP = DOWNSTREAM_DST_IP_VLAN2000 if vlan_name == "Vlan2000" else DOWNSTREAM_DST_IP_VLAN
                 DOWNSTREAM_IP_TO_ALLOW = DOWNSTREAM_IP_TO_ALLOW_VLAN2000 if vlan_name == "Vlan2000" \
                     else DOWNSTREAM_IP_TO_ALLOW_VLAN
@@ -509,6 +509,16 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
             # In multi-asic we need config both in host and namespace.
             if v['namespace']:
                 acl_table_ports[''].append(k)
+        # Add upstream ports not covered by any PortChannel
+        pc_members = set()
+        for pc in port_channels.values():
+            pc_members.update(pc.get('members', []))
+        for namespace, port in list(upstream_ports.items()):
+            non_pc_ports = [p for p in port if p not in pc_members]
+            acl_table_ports[namespace] += non_pc_ports
+            # In multi-asic we need config both in host and namespace.
+            if namespace:
+                acl_table_ports[''] += non_pc_ports
     elif topo == "t2":
         acl_table_ports = t2_info['acl_table_ports']
     elif topo == "lt2":
@@ -518,6 +528,25 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
         # Add RIF for upstream links
         for namespace, port in list(upstream_ports.items()):
             acl_table_ports[namespace] += port
+    elif topo in ("urh", "lrh"):
+        # For URH/LRH, ports may be in portchannels — raw PC member interfaces
+        # cannot bind ACLs, so add PortChannel names and filter out ports in portchannels.
+        ports_in_pc = set()
+        for pc_name, pc_info in list(port_channels.items()):
+            pc_namespace = pc_info.get('namespace', '')
+            acl_table_ports[pc_namespace].append(pc_name)
+            if pc_namespace:
+                acl_table_ports[''].append(pc_name)
+            ports_in_pc.update(pc_info.get('members', []))
+
+        # Add any standalone interfaces not in a portchannel
+        for namespace, ports in list(upstream_ports.items()) + list(downstream_ports.items()):
+            for port in ports:
+                if port in ports_in_pc:
+                    continue
+                acl_table_ports[namespace].append(port)
+                if namespace:
+                    acl_table_ports[''].append(port)
     else:
         for namespace, port in list(upstream_ports.items()):
             acl_table_ports[namespace] += port
@@ -1836,8 +1865,9 @@ class TestMultiBindingAcl(TestBasicAcl):
                      dest=dut_conf_file_path)
         dut.command(
             f"config mirror_session add everflow_session {SRC_IP} {DST_IP} {DSCP} {TTL} {GRE_TYPE}")
-        dut.command(f"acl-loader update full {dut_conf_file_path} --table_name {table_name} \
-                    --session_name everflow_session")
+        dut.command(
+            f"acl-loader update full {dut_conf_file_path} --table_name {table_name} "
+            "--session_name everflow_session")
 
     def test_ingress_unmatched_blocked(self, setup, direction, ptfadapter, ip_version, stage):
         pytest.skip("Not applicable for multi binding ACL")

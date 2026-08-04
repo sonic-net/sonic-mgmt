@@ -1,5 +1,8 @@
 import logging
+import secrets
 import time
+from passlib.hash import cisco_type7
+
 from tests.common.macsec.macsec_helper import get_mka_session, getns_prefix, wait_all_complete, \
      submit_async_task
 from tests.common.macsec.macsec_platform_helper import global_cmd, find_portchannel_from_member, get_portchannel
@@ -17,7 +20,10 @@ __all__ = [
     'disable_macsec_port',
     'get_macsec_enable_status',
     'get_macsec_profile',
-    'wait_for_macsec_cleanup'
+    'wait_for_macsec_cleanup',
+    'generate_macsec_profile',
+    'setup_macsec_multi_profile_configuration',
+    'cleanup_macsec_multi_profile_configuration',
 ]
 
 logger = logging.getLogger(__name__)
@@ -177,6 +183,12 @@ def disable_macsec_port(host, port):
         host.command("sudo config portchannel {} member add {} {}".format(getns_prefix(host, port), pc["name"], port))
 
 
+def replace_macsec_port(host, port, profile_name):
+    disable_macsec_port(host, port)
+    time.sleep(10)
+    enable_macsec_port(host, port, profile_name)
+
+
 def enable_macsec_feature(duthost, macsec_nbrhosts):
     nbrhosts = macsec_nbrhosts
     num_asics = duthost.num_asics()
@@ -284,6 +296,169 @@ def setup_macsec_configuration(duthost, ctrl_links, profile_name, default_priori
     # protocols. To hold some time for protocol recovery.
     time.sleep(60)
     logger.info("Setup macsec configuration finished")
+
+
+def generate_macsec_profile(port_name, cipher_suite="GCM-AES-128", priority=64,
+                            policy="security", send_sci="true", rekey_period=0):
+    """Generate a MACsec profile with random CAK/CKN for a specific port.
+
+    The profile is named ``MACSEC_PROFILE_<port_name>`` and the pre-shared keys
+    are generated using ``secrets.token_hex`` so that every port receives a
+    unique key pair.
+
+    Args:
+        port_name: Interface name (e.g. "Ethernet0"). Used in the profile name.
+        cipher_suite: Cipher suite string. Determines key lengths.
+        priority: MKA key-server priority (0-255).
+        policy: "security" (encrypt) or "integrity" (auth only).
+        send_sci: "true" or "false".
+        rekey_period: Seconds between rekeying (0 = disabled).
+
+    Returns:
+        dict: A profile dict compatible with set_macsec_profile().
+    """
+
+    # CAK length: AES-128 variants use 32 bytes (66 hex chars),
+    #             AES-256 variants use 64 bytes (130 hex chars).
+    # CKN length: AES-128 variants use 16 bytes (32 hex chars),
+    #             AES-256 variants use 32 bytes (64 hex chars).
+    if "128" in cipher_suite:
+        cak = secrets.token_hex(16)
+        # token_hex produces a string of n*2 chars (as each hex num is 2 chars)
+        # For CKN, this is interpreted as the literal password, so when passed to
+        # the type7 encoder each hex char is treated as its own byte.
+        # This is why the number passed to token hex is half the expected number of bytes,
+        # because the length of the string generated is double
+        ckn = secrets.token_hex(16)
+    else:
+        cak = secrets.token_hex(32)
+        ckn = secrets.token_hex(32)
+
+    # CAK is expected to be in "type7" encoding format
+    # This adds the extra byte to the cak / ckn length
+    cak = cisco_type7.hash(cak)
+
+    profile_name = "MACSEC_PROFILE_{}".format(port_name)
+    return {
+        "name": profile_name,
+        "priority": priority,
+        "cipher_suite": cipher_suite,
+        "primary_cak": cak,
+        "primary_ckn": ckn,
+        "policy": policy,
+        "send_sci": send_sci,
+        "rekey_period": rekey_period,
+    }
+
+
+def setup_macsec_multi_profile_configuration(duthost, ctrl_links, port_profiles, tbinfo):
+    """Set up MACsec with a different profile per port.
+
+    Each port in *ctrl_links* is configured with its own profile from
+    *port_profiles*.  The DUT uses ``default_priority`` from the profile while
+    neighbors alternate between ``priority - 1`` and ``priority + 1`` so the
+    DUT is elected MKA key-server on most links.
+
+    Args:
+        duthost: DUT host object.
+        ctrl_links: dict ``{dut_port: {name, host, port, ...}}``.
+        port_profiles: dict ``{dut_port: profile_dict}`` where each
+            ``profile_dict`` has keys matching ``generate_macsec_profile``
+            output.
+        tbinfo: Testbed info dict.
+    """
+    logger.info("Multi-profile setup step 1: set per-port macsec profiles")
+
+    for dut_port, profile in port_profiles.items():
+        set_macsec_profile(
+            duthost, profile["name"], profile["priority"],
+            profile["cipher_suite"], profile["primary_cak"],
+            profile["primary_ckn"], profile["policy"],
+            profile["send_sci"], profile["rekey_period"])
+    i = 0
+    for dut_port, nbr in ctrl_links.items():
+        profile = port_profiles[dut_port]
+
+        if i % 2 == 0:
+            nbr_priority = profile["priority"] - 1
+        else:
+            nbr_priority = profile["priority"] + 1
+        set_macsec_profile(
+            nbr["host"], profile["name"], nbr_priority,
+            profile["cipher_suite"], profile["primary_cak"],
+            profile["primary_ckn"], profile["policy"],
+            profile["send_sci"], profile["rekey_period"])
+        i += 1
+        time.sleep(3)
+
+    logger.info("Multi-profile setup step 2: enable per-port macsec")
+
+    for dut_port, nbr in list(ctrl_links.items()):
+        profile = port_profiles[dut_port]
+        time.sleep(3)
+        enable_macsec_port(duthost, dut_port, profile["name"])
+        enable_macsec_port(nbr["host"], nbr["port"], profile["name"])
+
+    logger.info("Multi-profile setup step 3: wait for macsec ready on each port")
+
+    for dut_port, nbr in list(ctrl_links.items()):
+        assert wait_until(300, 3, 0,
+                          lambda dp=dut_port, n=nbr: duthost.iface_macsec_ok(dp) and
+                          n["host"].iface_macsec_ok(n["port"]))
+
+    # Hold time for protocol recovery after link flaps.
+    time.sleep(60)
+    logger.info("Multi-profile setup finished")
+
+
+def cleanup_macsec_multi_profile_configuration(duthost, ctrl_links, port_profiles):
+    """Clean up per-port MACsec profiles.
+
+    Disables MACsec on every controlled port, then deletes each unique profile
+    from CONFIG_DB on both the DUT and neighbor devices.
+
+    Args:
+        duthost: DUT host object.
+        ctrl_links: dict ``{dut_port: {name, host, port, ...}}``.
+        port_profiles: dict ``{dut_port: profile_dict}``.
+    """
+    devices = set()
+    if duthost.facts["asic_type"] == "vs":
+        devices.add(duthost)
+
+    logger.info("Multi-profile cleanup step 1: disable macsec on all ports")
+    for dut_port, nbr in list(ctrl_links.items()):
+        time.sleep(3)
+        disable_macsec_port(duthost, dut_port)
+        disable_macsec_port(nbr["host"], nbr["port"])
+        devices.add(nbr["host"])
+
+    logger.info("Multi-profile cleanup step 2: delete per-port profiles")
+    deleted_profiles = set()
+    for dut_port, nbr in list(ctrl_links.items()):
+        profile_name = port_profiles[dut_port]["name"]
+        if profile_name not in deleted_profiles:
+            delete_macsec_profile(duthost, profile_name)
+            deleted_profiles.add(profile_name)
+
+    for d in devices:
+        for profile_name in deleted_profiles:
+            delete_macsec_profile(d, profile_name)
+
+    logger.info("Multi-profile cleanup step 3: wait for automatic cleanup")
+
+    interfaces = list(ctrl_links.keys())
+    wait_for_macsec_cleanup(duthost, interfaces)
+
+    for dut_port, nbr in list(ctrl_links.items()):
+        wait_for_macsec_cleanup(nbr["host"], [nbr["port"]])
+
+    logger.info("Multi-profile cleanup finished")
+
+    for d in devices:
+        if isinstance(d, EosHost):
+            continue
+        assert wait_until(30, 1, 0, lambda d=d: not get_mka_session(d))
 
 
 def wait_for_macsec_cleanup(host, interfaces, timeout=90):

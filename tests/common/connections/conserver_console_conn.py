@@ -1,6 +1,7 @@
 import logging
 import pexpect
 import os
+import time
 
 CONSERVER_CLI_PROMPT = "admin@[a-zA-Z0-9]{1,10}:~\\$"
 CONSERVER_DEBUG_FILE = "/tmp/conserver_console_debug.log"
@@ -64,3 +65,28 @@ class ConserverConsoleConn():
         self.console_cli.sendline('\x05c.')
         self.console_cli.close(force=True)
         self.logger.debug("Conserver connection closed.")
+
+    def send_command_timing(self, cmd, read_timeout=30, last_read=1.0):
+        """Send command and read output until no data for 'last_read' seconds."""
+        self.logger.debug("send_command_timing: cmd='%s'", cmd[:80])
+
+        start_time = time.time()
+        self.console_cli.sendline(cmd)
+
+        output = ""
+        deadline = start_time + read_timeout
+
+        while time.time() < deadline:
+            try:
+                self.console_cli.expect(r'.+', timeout=last_read)
+                output += self.console_cli.match.group().decode()
+            except pexpect.TIMEOUT:
+                break
+            except pexpect.EOF:
+                self.logger.warning("send_command_timing: connection closed")
+                break
+
+        elapsed = time.time() - start_time
+        self.logger.debug("send_command_timing: finished in %.1fs, %d bytes collected",
+                          elapsed, len(output))
+        return output

@@ -9,7 +9,8 @@ from tests.common.snappi_tests.port import select_ports                         
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.traffic_generation import run_traffic, \
      setup_base_traffic_config          # noqa: F401
-from tests.common.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
+from tests.common.snappi_tests.variables import pfcQueueValueDict
+from tests.common.snappi_tests.common_helpers import pfc_queue_group_size
 from tests.snappi_tests.files.helper import get_number_of_streams
 from tests.common.snappi_tests.snappi_fixtures import gen_data_flow_dest_ip
 logger = logging.getLogger(__name__)
@@ -150,6 +151,31 @@ def get_expected_bg_loss_percent(egress_duthost,
     return sum(losses) / len(losses)
 
 
+def get_expected_total_drop_percent(test_flow_rate_percent,
+                                    bg_prio_list,
+                                    bg_flow_rate_percent,
+                                    expected_bg_loss_percent):
+    """Compute expected overall drop percent from offered-load mix.
+
+    The total drop is background-offered-share multiplied by the expected
+    background loss percent, normalized by total offered load.
+    """
+    pytest_assert(bg_flow_rate_percent, "FAIL: bg_flow_rate_percent must be non-empty")
+    pytest_assert(
+        len(set(bg_flow_rate_percent)) == 1,
+        "FAIL: bg_flow_rate_percent entries must be equal, got {}".format(bg_flow_rate_percent))
+
+    bg_flow_count = len(bg_prio_list)
+    bg_rate_per_flow = bg_flow_rate_percent[0]
+    total_bg_offered_percent = bg_flow_count * bg_rate_per_flow
+    total_test_offered_percent = sum(test_flow_rate_percent)
+    total_offered_percent = total_bg_offered_percent + total_test_offered_percent
+    pytest_assert(total_offered_percent > 0,
+                  "FAIL: total offered percent must be > 0 (got {})".format(total_offered_percent))
+
+    return total_bg_offered_percent * expected_bg_loss_percent / total_offered_percent
+
+
 def run_m2o_fluctuating_lossless_test(api,
                                       testbed_config,
                                       port_config_list,
@@ -277,8 +303,6 @@ def run_m2o_fluctuating_lossless_test(api,
         pkt_drop = get_interface_stats(egress_duthost, dut_tx_port)[egress_duthost.hostname][dut_tx_port]['tx_drp']
         drop_percentage = (100 * pkt_drop) / total_rx_pkts
 
-    pytest_assert(abs(drop_percentage - 8) < 1, 'FAIL: Drop packets must be around 8 percent')
-
     expected_bg_loss_percent = get_expected_bg_loss_percent(
         egress_duthost=egress_duthost,
         test_prio_list=test_prio_list,
@@ -287,6 +311,18 @@ def run_m2o_fluctuating_lossless_test(api,
         bg_flow_rate_percent=BG_FLOW_AGGR_RATE_PERCENT,
         asic_value=rx_port.get('asic_value'),
         port=dut_tx_port)
+
+    expected_drop_percentage = get_expected_total_drop_percent(
+        test_flow_rate_percent=TEST_FLOW_AGGR_RATE_PERCENT,
+        bg_prio_list=bg_prio_list,
+        bg_flow_rate_percent=BG_FLOW_AGGR_RATE_PERCENT,
+        expected_bg_loss_percent=expected_bg_loss_percent)
+
+    pytest_assert(
+        abs(drop_percentage - expected_drop_percentage) < 1,
+        'FAIL: Drop packets must be around {:.2f}% (got {:.2f}%)'.format(
+            expected_drop_percentage, drop_percentage))
+
     logger.info('Expected per-Background-Flow loss: {:.2f}% (tolerance +/- {}%)'.format(
         expected_bg_loss_percent, BG_LOSS_TOLERANCE_PERCENT))
 
@@ -483,7 +519,7 @@ def __gen_data_flow(testbed_config,
     eth.src.value = tx_mac
     eth.dst.value = rx_mac
 
-    if pfcQueueGroupSize == 8:
+    if pfc_queue_group_size() == 8:
         if 'Background Flow' in flow.name:
             eth.pfc_queue.value = 1
         elif 'Test Flow 1 -> 0' in flow.name:
