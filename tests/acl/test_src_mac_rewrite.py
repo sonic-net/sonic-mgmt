@@ -70,7 +70,7 @@ def generate_ip_address(index, base_ip="10.0.0.0", prefix=16):
         raise ValueError(f"Index {index} exceeds maximum hosts {max_hosts} for network {network}")
 
     # Get the nth host in the network
-    return str(list(network.hosts())[index])
+    return str(network.network_address + (index + 1))
 
 
 def generate_mac_address(index):
@@ -730,9 +730,6 @@ def remove_bulk_acl_rules(duthost):
         time.sleep(5)
     else:
         logger.info("All ACL rules successfully removed from CONFIG_DB")
-
-    # Now remove the table itself
-    remove_acl_table(duthost)
 
     logger.info("Bulk ACL rule removal completed")
 
