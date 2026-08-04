@@ -1213,17 +1213,11 @@ def test_scale_acl_rule(setUp):
                 _send_and_verify_mac_rewrite(
                     ptfadapter=ptfadapter,
                     ptf_send_port=ptf_send_port,
-                    ptf_exp_ports_list=ptf_exp_ports,
                     duthost=duthost,
                     src_ip=inner_src_ip,
                     dst_ip=inner_dst_ip,
                     orig_src_mac=outer_src_mac,
                     expected_inner_src_mac=expected_new_src_mac,
-                    vni_id=vni_id,
-                    outer_src_mac=outer_src_mac,
-                    outer_dst_mac=outer_dst_mac,
-                    outer_src_ip=loopback_src_ip,
-                    outer_dst_ip=next_hop_ip,
                     table_name=table_name,
                     rule_name=rule_name,
                     scale_test=True
