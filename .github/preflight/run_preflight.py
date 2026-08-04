@@ -47,6 +47,13 @@ GITHUB_STEP_SUMMARY = os.environ.get("GITHUB_STEP_SUMMARY", "")
 # annotations so the useful ones are not buried.
 MAX_ANNOTATIONS_PER_LEVEL = 10
 
+# Kept out of the list literal it is appended to: implicit string concatenation
+# inside a list reads as a possibly-missing comma, and CodeQL flags it as such.
+SUMMARY_FOOTER = (
+    "_Only lines added or modified by this change are reported; "
+    "pre-existing findings elsewhere in the same files are ignored._"
+)
+
 # file:line:col: message   (flake8, yamllint --format parsable,
 #                           shellcheck --format gcc, ansible-lint --format pep8)
 COLON_RE = re.compile(r"^(?P<file>[^:]+):(?P<line>\d+):(?P<col>\d+)?:?\s*(?P<msg>.*)$")
@@ -319,8 +326,7 @@ def emit(blocking, advisory, skipped):
         lines.append("")
     if skipped:
         lines += [f"Skipped (not installed): {', '.join(skipped)}", ""]
-    lines += ["", "_Only lines added or modified by this change are reported; "
-              "pre-existing findings elsewhere in the same files are ignored._"]
+    lines += ["", SUMMARY_FOOTER]
 
     summary = "\n".join(lines)
     if GITHUB_STEP_SUMMARY:
