@@ -759,13 +759,13 @@ def check_determine_reboot_cause_service(dut):
 
 def try_create_dut_console(duthost, localhost, conn_graph_facts, creds, cancel_event=None):
     try:
-        dut_sonsole = create_duthost_console(duthost, localhost, conn_graph_facts, creds,
+        dut_console = create_duthost_console(duthost, localhost, conn_graph_facts, creds,
                                              cancel_event=cancel_event)
     except Exception as err:
         logger.warning(f"Fail to create dut console. Please check console config or if console works or not. {err}")
         return None
     logger.info("creating dut console succeeds")
-    return dut_sonsole
+    return dut_console
 
 
 def collect_console_log(duthost, localhost, cancel_event=None):
