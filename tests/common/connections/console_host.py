@@ -54,9 +54,12 @@ def ConsoleHost(console_type,
         "timeout": timeout_s
     }
 
-    # Only SSHConsoleConn consumes this; add it conditionally so the other
-    # console classes' __init__ signatures are unaffected.
-    if cancel_event is not None:
+    # Only SSHConsoleConn consumes cancel_event (it pops it before delegating to
+    # netmiko). The other console classes forward **kwargs straight to netmiko,
+    # which would raise "unexpected keyword argument 'cancel_event'" and break
+    # console-log collection on those console servers. Gate the injection on the
+    # resolved class so non-SSH console types are unaffected.
+    if cancel_event is not None and issubclass(ConsoleTypeMapper[console_type], SSHConsoleConn):
         params["cancel_event"] = cancel_event
 
     # Add linecard-specific parameters if provided

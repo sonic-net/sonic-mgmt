@@ -864,6 +864,17 @@ def collect_mgmt_config_by_console(duthost, localhost):
     conn_graph_facts = get_graph_facts(duthost, localhost, [duthost.hostname])
     dut_console = try_create_dut_console(duthost, localhost, conn_graph_facts, creds)
     if dut_console:
+        # try_create_dut_console may hand back a console that deferred its
+        # session preparation because the DUT was still in the bootloader/boot
+        # stage. Such an object has no established prompt, so send_command would
+        # just time out (and, historically, could nudge the bootloader). Skip the
+        # console commands in that case rather than driving a half-initialized
+        # session.
+        if getattr(dut_console, "_bootloader_deferred", False):
+            logger.warning("DUT appears stuck in bootloader/boot stage; "
+                           "skipping console mgmt-config commands")
+            dut_console.disconnect()
+            return
         dut_console.send_command("ip a s eth0")
         dut_console.send_command("show ip int")
         dut_console.disconnect()
