@@ -5,7 +5,7 @@ import time
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.fixtures.tacacs import tacacs_creds     # noqa F401
 from tests.common.helpers.tacacs.tacacs_helper import setup_local_user
-from tests.common.utilities import paramiko_ssh, wait_until
+from tests.common.utilities import paramiko_ssh
 from tests.common.fixtures.tacacs import get_aaa_sub_options_value
 
 pytestmark = [
@@ -69,21 +69,11 @@ def modify_templates(duthost, tacacs_creds, creds):     # noqa F811
     sonic_admin_alt_password = duthost.host.options['variable_manager']._hostvars[duthost.hostname].get(
         "ansible_altpassword")
     # Connect over SSH as admin (duthost.shell can't run commands containing J2 templates).
-    # This runs before AAA login is switched to local, so the admin credentials are still
-    # valid. Retry for up to a minute to ride out transient SSH unavailability.
-    admin_session_holder = {}
-
-    def _open_admin_session():
-        admin_session_holder['session'] = paramiko_ssh(
-            ip_address=dut_ip, username=creds['sonicadmin_user'],
-            passwords=[creds['sonicadmin_password'], sonic_admin_alt_password]
-            + creds["ansible_altpasswords"])
-        return True
-
-    pytest_assert(
-        wait_until(60, 5, 0, _open_admin_session),
-        "Failed to establish admin SSH session to {}".format(dut_ip))
-    admin_session = admin_session_holder['session']
+    # This runs before AAA login is switched to local, so the admin credentials are still valid.
+    admin_session = paramiko_ssh(
+        ip_address=dut_ip, username=creds['sonicadmin_user'],
+        passwords=[creds['sonicadmin_password'], sonic_admin_alt_password]
+        + creds["ansible_altpasswords"])
 
     # Backup and change /usr/share/sonic/templates/pam_limits.j2
     additional_content = "session  required  pam_limits.so"
