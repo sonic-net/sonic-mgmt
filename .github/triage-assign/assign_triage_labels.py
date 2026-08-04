@@ -21,13 +21,11 @@ Modes:
 """
 
 import hashlib
-import json
 import os
 import random
 import sys
-import urllib.error
-import urllib.request
 
+import requests
 import yaml
 
 from github import Auth, Github
@@ -95,20 +93,19 @@ def load_contributor_map() -> dict[str, set[str]]:
         )
         return {}
 
-    request = urllib.request.Request(
-        CONTRIBUTOR_MAP_URL,
-        headers={
-            "Authorization": f"Bearer {CONTRIBUTOR_MAP_TOKEN}",
-            "Accept": "application/vnd.github.raw+json",
-            "X-GitHub-Api-Version": "2022-11-28",
-            "User-Agent": "sonic-mgmt-triage-assign",
-        },
-    )
-
     try:
-        with urllib.request.urlopen(request, timeout=30) as response:
-            contributors = json.loads(response.read().decode("utf-8"))
-    except (urllib.error.URLError, ValueError) as exc:
+        response = requests.get(
+            CONTRIBUTOR_MAP_URL,
+            headers={
+                "Authorization": f"Bearer {CONTRIBUTOR_MAP_TOKEN}",
+                "Accept": "application/vnd.github.raw+json",
+                "X-GitHub-Api-Version": "2022-11-28",
+            },
+            timeout=30,
+        )
+        response.raise_for_status()
+        contributors = response.json()
+    except (requests.RequestException, ValueError) as exc:
         print(
             f"WARNING: could not read {CONTRIBUTOR_MAP_URL} ({exc}); falling back to the "
             "username suffix heuristic.",
