@@ -21,21 +21,168 @@ failure, so callers can use the suite-wide per-port aggregation pattern:
         continue
 
 Bulk/once-per-test accessors read many rows in one shot:
-:func:`get_config_db_port_names` returns its value directly, while
-:func:`get_state_db_table` keeps the ``(value, err)`` tuple so a dump failure can
-be surfaced as a clean per-test failure.
+:func:`get_config_db_port_table` and :func:`get_config_db_port_names` return
+their values directly, while :func:`get_state_db_table` keeps the ``(value,
+err)`` tuple so a dump failure can be surfaced as a clean per-test failure.
 """
 import ast
 import json
 import logging
+import re
+from datetime import datetime
 
+from tests.common.helpers.sonic_db import STATE_DB
 from tests.transceiver.common.cli_parser_helper import RC_FAILURE
 
 logger = logging.getLogger(__name__)
 
 
-# sonic-db-cli database identifiers (the first positional arg to sonic-db-cli).
-STATE_DB = "STATE_DB"
+STATE_DB_UPDATE_TIME_FIELD = "last_update_time"
+STATE_DB_UPDATE_TIME_FUTURE_TOLERANCE_MIN = 0.1
+XCVRD_UPDATE_TIME_FORMAT = "%a %b %d %H:%M:%S %Y"
+
+_FLOAT_PATTERN = re.compile(
+    r"[-+]?(?:inf(?:inity)?|\d*\.?\d+(?:[eE][-+]?\d+)?)",
+    re.IGNORECASE,
+)
+
+
+def parse_numeric(value):
+    """Parse the first numeric token from a DB value.
+
+    Supports regular floats plus ``inf`` / ``-inf`` forms such as ``-infdBm``.
+    Returns ``None`` for absent, N/A-like, or unparseable values.
+    """
+    if value is None:
+        return None
+
+    text = str(value).strip()
+    if not text or text.upper() in ("N/A", "NA", "NONE"):
+        return None
+
+    match = _FLOAT_PATTERN.search(text)
+    if not match:
+        logger.debug("Could not parse numeric value from %r", value)
+        return None
+
+    token = match.group(0).lower()
+    if token in ("inf", "+inf", "infinity", "+infinity"):
+        return float("inf")
+    if token in ("-inf", "-infinity"):
+        return float("-inf")
+
+    try:
+        return float(match.group(0))
+    except ValueError:
+        logger.debug(
+            "Could not convert numeric token %r from %r",
+            match.group(0),
+            value,
+        )
+        return None
+
+
+def parse_update_time(value):
+    """Parse an xcvrd UTC update timestamp."""
+    if value is None:
+        return None
+
+    raw = str(value).strip()
+    if not raw:
+        return None
+
+    normalized = " ".join(raw.split())
+    try:
+        return datetime.strptime(normalized, XCVRD_UPDATE_TIME_FORMAT)
+    except ValueError:
+        logger.debug(
+            "Could not parse xcvrd update timestamp %r with format %s",
+            raw,
+            XCVRD_UPDATE_TIME_FORMAT,
+        )
+        return None
+
+
+def resolve_port_namespace(duthost, port):
+    """Return the ASIC namespace for a logical port, or ``None`` on single-ASIC."""
+    return duthost.get_port_asic_instance(port).namespace
+
+
+def _entry_field_age_minutes(entry, now_utc):
+    """Return the configured update timestamp age in minutes, or ``None``."""
+    if not entry:
+        return None
+
+    parsed_time = parse_update_time(entry.get(STATE_DB_UPDATE_TIME_FIELD))
+    if parsed_time is None:
+        return None
+
+    return (now_utc - parsed_time).total_seconds() / 60.0
+
+
+def check_entry_freshness(
+    entry,
+    max_age_min,
+    now_utc,
+    table_name="STATE_DB entry",
+):
+    """Validate entry freshness and return failures plus the computed age.
+
+    The timestamp is parsed once, and callers can use the returned age for
+    logging without re-parsing the same entry value.
+    """
+    result = {
+        "failures": [],
+        "age_minutes": _entry_field_age_minutes(entry, now_utc),
+    }
+
+    if max_age_min is None:
+        return result
+
+    if not entry:
+        result["failures"].append(
+            "missing {} data for {} freshness check".format(
+                table_name,
+                STATE_DB_UPDATE_TIME_FIELD,
+            )
+        )
+        return result
+
+    try:
+        max_age = float(max_age_min)
+    except (TypeError, ValueError):
+        result["failures"].append(
+            "invalid data_max_age_min={!r}".format(max_age_min)
+        )
+        return result
+
+    age_minutes = result["age_minutes"]
+    if age_minutes is None:
+        result["failures"].append(
+            "{} missing or unparsable while data_max_age_min is configured".format(
+                STATE_DB_UPDATE_TIME_FIELD
+            )
+        )
+        return result
+
+    if age_minutes < -float(STATE_DB_UPDATE_TIME_FUTURE_TOLERANCE_MIN):
+        result["failures"].append(
+            "{} is in the future (age_min={:.2f}, tolerance_min={:.2f})".format(
+                STATE_DB_UPDATE_TIME_FIELD,
+                age_minutes,
+                float(STATE_DB_UPDATE_TIME_FUTURE_TOLERANCE_MIN),
+            )
+        )
+    elif age_minutes > max_age:
+        result["failures"].append(
+            "{} too old (age_min={:.2f}, limit={})".format(
+                STATE_DB_UPDATE_TIME_FIELD,
+                age_minutes,
+                max_age_min,
+            )
+        )
+
+    return result
 
 
 def parse_state_db_bool(value):
@@ -210,7 +357,7 @@ def get_state_db_table(duthost, table, namespace=None):
     ``{port: {field: value}}`` map.
     """
     ns_prefix = f"sudo ip netns exec {namespace} " if namespace else ""
-    cmd = f"{ns_prefix}sonic-db-dump -n STATE_DB -y -k '{table}|*'"
+    cmd = f"{ns_prefix}sonic-db-dump -n {STATE_DB} -y -k '{table}|*'"
     result = duthost.shell(cmd, module_ignore_errors=True)
     if result.get("rc", RC_FAILURE) != 0:
         return None, (
@@ -229,17 +376,29 @@ def get_state_db_table(duthost, table, namespace=None):
     }, None
 
 
-def get_config_db_port_names(duthost):
-    """Return the set of port names in the CONFIG_DB PORT table.
+def get_config_db_port_table(duthost):
+    """Return the merged CONFIG_DB PORT table from running config facts.
 
-    Thin accessor over ``duthost.get_running_config_facts()`` (the ansible-facts
-    path SONiC exposes for the running CONFIG_DB).  Returns an empty set when the
-    PORT table is absent/empty so the caller can decide whether that is a skip or
-    a failure.
+    Reads every frontend ASIC namespace so multi-ASIC DUTs include front-panel
+    Ethernet ports whose PORT entries live in per-ASIC CONFIG_DB instances. On
+    single-ASIC DUTs, ``get_frontend_asic_namespace_list`` returns ``[None]``,
+    so this keeps the default-namespace behavior.
 
     This is a once-per-test bulk read (not a per-port query), so it returns the
-    set directly rather than the ``(value, err)`` tuple the per-port wrappers
+    table directly rather than the ``(value, err)`` tuple the per-port wrappers
     use; a facts-gather failure is an infra-level error and is allowed to raise.
     """
-    config_facts = duthost.get_running_config_facts()
-    return set(config_facts.get("PORT", {}).keys())
+    port_table = {}
+    for namespace in duthost.get_frontend_asic_namespace_list():
+        config_facts = duthost.config_facts(
+            host=duthost.hostname,
+            source="running",
+            namespace=namespace,
+        )["ansible_facts"]
+        port_table.update(config_facts.get("PORT") or {})
+    return port_table
+
+
+def get_config_db_port_names(duthost):
+    """Return the set of port names in the CONFIG_DB PORT table."""
+    return set(get_config_db_port_table(duthost).keys())
