@@ -97,7 +97,7 @@ def restart_dhcp_service(duthost, relay_types):
                             - exactly one `dhcp4relay` process exists
                           Without external relay-server configuration:
                             - the supervisord entry is absent
-                            - no `/usr/sbin/dhcp4relay` process exists
+                            - no `dhcp4relay` process exists
                           Not checked:
                             - dhcpmon-<Vlan> supervisord entries; monitor
                               lifecycle is orthogonal to the active v4 relay
