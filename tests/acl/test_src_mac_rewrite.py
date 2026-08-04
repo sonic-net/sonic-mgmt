@@ -1033,6 +1033,7 @@ def test_range_ip_acl_rule(setUp):
     """
     _test_inner_src_mac_rewrite(setUp, "range_test")
 
+
 def test_scale_acl_rule(setUp):
     """
     Scale test: Program 9000 ACL rules with SAME PRIORITIES and test packet forwarding.
@@ -1282,7 +1283,8 @@ def test_scale_acl_rule(setUp):
             logger.info("All packet tests passed successfully!")
 
         if counter_increment_failures > 0:
-            logger.error(f"Counter increment failures detected: {counter_increment_failures}/{counter_increment_successes + counter_increment_failures}")
+            counter_total = counter_increment_successes + counter_increment_failures
+            logger.error(f"Counter increment failures detected: {counter_increment_failures}/{counter_total}")
             pytest.fail(f"ACL counter increments failed for {counter_increment_failures} rules. "
                         f"Verify that rules are properly active and packets are being matched.")
 
