@@ -122,6 +122,7 @@ stages:
         COMMON_EXTRA_PARAMS: ${{ parameters.COMMON_EXTRA_PARAMS }}
         SPECIFIC_PARAM: ${{ parameters.SPECIFIC_PARAM }}
         MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
+        PTF_IMAGE_TAG: 202511
         MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
         IMAGE_URL: ${{ parameters.IMAGE_URL }}
         MIN_WORKER: ${{ parameters.MIN_WORKER }}
