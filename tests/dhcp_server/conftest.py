@@ -96,7 +96,11 @@ def clean_dhcp_server_config_after_test(duthost, request):
     try:
         yield
     finally:
-        test_failed = hasattr(request.node, 'rep_call') and request.node.rep_call.failed
+        test_failed = any(
+            getattr(request.node, report_name, None) is not None
+            and getattr(request.node, report_name).failed
+            for report_name in ('rep_setup', 'rep_call')
+        )
         try:
             clean_dhcp_server_config(duthost)
         except (Exception, OutcomeException):
