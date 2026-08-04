@@ -520,3 +520,14 @@ r, ".* ERR auditd.*: auditd queue full reporting limit reached - ending dropped 
 # ctrmgrd k8s join warnings (old k8s version incompatibility with Docker 28.x)
 r, ".* ERR ctrmgrd\.py: Refer file .* for troubleshooting tips.*"
 r, ".* ERR ctrmgrd\.py:.*\[WARNING SystemVerification\]:.*Docker version is not on the list of validated versions.*"
+
+# syncd watchdog fires on Broadcom DNX (Jericho3, e.g. NH-5010) because ACL entry
+# programming is slow (~30s per SAI_OBJECT_TYPE_ACL_ENTRY create). This is a
+# performance watchdog on the ACL-entry create path only, not a functional
+# failure - the entries do get programmed. Scoped strictly to the ACL_ENTRY
+# create event dump so genuine slow-programming of other SAI objects is still
+# caught.
+r, ".* ERR syncd\d*#syncd:.*threadFunction: time span WD exceeded \d+ ms for create:SAI_OBJECT_TYPE_ACL_ENTRY:oid:0x[0-9a-fA-F]+.*"
+r, ".* ERR syncd\d*#syncd:.*setEndTime: event 'create:SAI_OBJECT_TYPE_ACL_ENTRY:oid:0x[0-9a-fA-F]+' took \d+ ms to execute.*"
+r, ".* ERR syncd\d*#syncd:.*logEventData: op: create, key: SAI_OBJECT_TYPE_ACL_ENTRY:oid:0x[0-9a-fA-F]+.*"
+r, ".* ERR syncd\d*#syncd:.*logEventData: fv: SAI_ACL_ENTRY_ATTR_.*"
