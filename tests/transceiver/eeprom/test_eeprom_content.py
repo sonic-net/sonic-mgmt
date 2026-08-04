@@ -9,7 +9,7 @@ from tests.transceiver.attribute_parser.attribute_keys import (
     EEPROM_ATTRIBUTES_KEY,
 )
 from tests.common.platform.interface_utils import is_first_subport
-from tests.transceiver.common import cli_helpers
+from tests.transceiver.common import cli_helpers, db_helpers
 from tests.transceiver.common.eeprom_decode import ModuleFamily, classify
 from tests.transceiver.eeprom import datapath
 
@@ -222,9 +222,9 @@ def _run_per_port_eeprom_check(
     bulk path :func:`_run_bulk_eeprom_check` instead.
 
     Each port's ASIC network namespace is resolved via
-    ``get_port_asic_instance`` + ``get_namespace_from_asic_id`` and forwarded to
-    the parse wrapper (accepted but unused by the sfputil adapter, which resolves
-    the port globally).
+    :func:`tests.transceiver.common.db_helpers.resolve_namespace` and forwarded
+    to the parse wrapper (accepted but unused by the sfputil adapter, which
+    resolves the port globally).
     """
     all_failures = []
     for port, port_attrs in port_attributes_dict.items():
@@ -234,9 +234,7 @@ def _run_per_port_eeprom_check(
         if not is_first_subport(port, lport_to_first_subport):
             logger.debug("Port %s is not the first breakout sub-port, skipping", port)
             continue
-        namespace = duthost.get_namespace_from_asic_id(
-            duthost.get_port_asic_instance(port).asic_index
-        )
+        namespace = db_helpers.resolve_namespace(duthost, port)
         port_failures = _validate_port_eeprom_dump(
             duthost, port, port_attrs, parse_wrapper, source_label, key_mapping,
             namespace=namespace,
