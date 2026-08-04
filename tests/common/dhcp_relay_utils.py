@@ -177,11 +177,11 @@ def wait_dhcp_relay_ready(duthost, relay_types):
         v4_modes = {'internal-idle', 'isc', 'isc-internal', 'sonic', 'sonic-internal'}
         if any(mode in relay_types for mode in v4_modes):
             relay_procs = duthost.shell(
-                "docker exec dhcp_relay pgrep -af '/usr/sbin/dhcrelay' || true"
+                "docker exec dhcp_relay pgrep -af '/usr/sbin/dhc[r]elay' || true"
             )['stdout_lines']
             relay_procs = [line for line in relay_procs if line.strip()]
             sonic_procs = duthost.shell(
-                "docker exec dhcp_relay pgrep -af '/usr/sbin/dhcp4relay' || true"
+                "docker exec dhcp_relay pgrep -af '/usr/sbin/dhcp4[r]elay' || true"
             )['stdout_lines']
             sonic_procs = [line for line in sonic_procs if line.strip()]
             last_state['relay_procs'] = relay_procs
@@ -250,7 +250,7 @@ def wait_dhcp_relay_ready(duthost, relay_types):
         return True
 
     pytest_assert(
-        wait_until(240, 5, 10, _is_dhcp_relay_ready),
+        wait_until(240, 5, 0, _is_dhcp_relay_ready),
         "dhcp_relay is not ready "
         "(relay_types=%s last_supervisor_states=%s relay_procs=%s sonic_procs=%s)"
         % (relay_types, last_state['states'], last_state['relay_procs'], last_state['sonic_procs']))
