@@ -9,7 +9,7 @@ The VDM Test Plan for transceivers outlines a comprehensive testing strategy for
 The scope of this test plan includes the following:
 
 - Validation of VDM data integrity and consistency for transceiver basic VDM content
-- Testing of VDM access times and performance
+- Testing of VDM access and performance
 
 ## Optics Scope
 
@@ -27,16 +27,16 @@ Before executing the VDM tests, ensure the following pre-requisites are met:
 
 - The testbed is set up according to the [Testbed Topology](test_plan.md#testbed-topology)
 - All the pre-requisites mentioned in [Transceiver Onboarding Test Infrastructure and Framework](test_plan.md#test-prerequisites-and-configuration-files) must be met
-- `vdm.json` is properly formatted and accessible; required attributes are defined for the transceivers under test (see [Attributes](#attributes) for the shard layout)
-- DOM polling is enabled in CONFIG_DB for all relevant ports under test (verified once at session start — see [Common Test Setup and Teardown](#common-test-setup-and-teardown)); there is no separate VDM polling knob — VDM data collection runs inside the same xcvrd polling task as DOM and is gated by the same `dom_polling` control (`config interface transceiver dom <port> enable`/`disable`), so a standalone "VDM disabled" scenario is not possible
+- `vdm.json` is defined with all the required attributes applicable to the transceiver (see [Attributes](#attributes) for the shard layout)
+- DOM polling is enabled in CONFIG_DB for all relevant ports under test (verified once at session start — see [Common Test Setup and Teardown](#common-test-setup-and-teardown)); there is no separate VDM polling knob — VDM data collection runs inside the same xcvrd polling task as DOM and is gated by the same `dom_polling` control (`config interface transceiver dom <port> enable`/`disable`).
 
 System health (running daemons, fresh logs) and transceiver baseline (presence, link-up) are covered by the parent's [Common Session-Level Prerequisites](test_plan.md#common-session-level-prerequisites) and [Common Per-Test Health Checks](test_plan.md#common-per-test-health-checks); see the prerequisite matrix there for which gates VDM consumes.
 
 ## Attributes
 
-A `vdm.json` file is used to define the attributes for the VDM tests for the various types of transceivers the system supports. The category is sharded across all five shard scopes (category, platform, HWSKU, vendor, per-PN) under `attributes/vdm/`; see [File Organization](test_plan.md#file-organization) for the shard contract and [Loader Validation](test_plan.md#loader-validation) for how it is enforced.
+A `vdm.json` file is used to define the attributes for the VDM tests for the various types of transceivers the system supports. The category is defined at per Part Number level under `attributes/vdm/`; see [File Organization](test_plan.md#file-organization) for the shard contract and [Loader Validation](test_plan.md#loader-validation) for how it is enforced.
 
-**Note on Operational Ranges:** Every VDM attribute is expressed as a realistic operational range, `{"min": <float>, "max": <float>}` — the same model DOM uses. A single `min <= live <= max` check naturally covers both "higher is better" metrics (e.g. eSNR, OSNR — bounded below by `min`) and "lower is better" metrics (e.g. Pre-FEC BER, errored frames, PDL — bounded above by `max`) without a separate per-attribute directionality flag.
+**Note on Operational Ranges:** Every VDM attribute is expressed as a realistic operational range, `{"min": <float>, "max": <float>}` — the same model DOM uses.
 
 **Note on unsupported observables:** If a module does not advertise a given VDM observable — or advertises it on only one side (e.g. some modules report `esnr_media_input` but not `esnr_host_input`) — omit the corresponding `_operational_range` attribute for that PN so presence/range checks do not run against a field the module never publishes.
 
@@ -110,36 +110,6 @@ The following example demonstrates `_operational_range` attributes for different
 }
 ```
 
-**`attributes/vdm/transceivers/vendors/MELLANOX/part_numbers/MCP1600-C003-100G/vdm.json`:**
-
-```json
-{
-  "esnr_media_input1_operational_range": {"min": 18.0, "max": 40.0},
-  "prefec_ber_avg_media_input1_operational_range": {"min": 0.0, "max": 1.0e-4}
-}
-```
-
-**`attributes/vdm/transceivers/vendors/MELLANOX/part_numbers/MMA1T00-VS-400G/vdm.json`:**
-
-```json
-{
-  "esnr_media_input1_operational_range": {"min": 18.0, "max": 40.0},
-  "prefec_ber_avg_media_input1_operational_range": {"min": 0.0, "max": 1.0e-4},
-  "errored_frames_avg_media_input1_operational_range": {"min": 0.0, "max": 5.0}
-}
-```
-
-**`attributes/vdm/transceivers/vendors/MARVELL/part_numbers/88X7120-800G/vdm.json`:** (shown here as coherent/ZR to illustrate the Data Path Monitor attributes)
-
-```json
-{
-  "esnr_media_input1_operational_range": {"min": 18.0, "max": 40.0},
-  "osnr1_operational_range": {"min": 15.0, "max": 30.0},
-  "pdl1_operational_range": {"min": 0.0, "max": 2.0},
-  "cfo1_operational_range": {"min": -1800.0, "max": 1800.0}
-}
-```
-
 ## Dynamic Field Mapping Algorithm
 
 The VDM test framework uses an attribute-driven approach to dynamically determine which fields to validate based on the configuration present in `vdm.json`. This eliminates the need for hardcoded field lists and provides flexible, maintainable test execution.
@@ -150,7 +120,7 @@ The VDM test framework uses an attribute-driven approach to dynamically determin
 
 2. **Base Field Extraction**: Remove the `_operational_range` suffix to get the base field name
 
-3. **Lane Expansion Logic**: Every VDM attribute in this plan is lane- (or data-path-) indexed via the `LANE_NUM` placeholder — unlike DOM, there is no whole-module VDM field. Expand `LANE_NUM` for all available lanes (1 to N) by replacing it with each actual lane number. For Data Path Monitors (coherent/ZR table), "lane" refers to the first lane of the relevant data path.
+3. **Lane Expansion Logic**: Every VDM attribute in this plan is lane- (or data-path-) indexed via the `LANE_NUM` placeholder — unlike DOM, there is no whole-module VDM field. Expand `LANE_NUM` for all available lanes (1 to N) by replacing it with each actual lane number. For Data Path Monitors, "lane" refers to the first lane of the data path.
 
 4. **Special Field Mappings**: Apply any platform-specific field name mappings as needed
 
@@ -160,12 +130,14 @@ The VDM test framework uses an attribute-driven approach to dynamically determin
 
 | Attribute Name | Base Field | Lane Expansion | Expected STATE_DB Fields |
 |----------------|------------|-----------------|--------------------------|
-| `esnr_media_inputLANE_NUM_operational_range` | `esnr_media_inputLANE_NUM` | Yes | `esnr_media_input1`..`esnr_media_inputN` for the module's N active media lanes |
+| `esnr_media_inputLANE_NUM_operational_range` | `esnr_media_inputLANE_NUM` | Yes | `esnr_media_input1`..`esnr_media_inputN` |
 | `prefec_ber_avg_media_inputLANE_NUM_operational_range` | `prefec_ber_avg_media_inputLANE_NUM` | Yes | `prefec_ber_avg_media_input1`..`prefec_ber_avg_media_inputN` |
 | `errored_frames_curr_host_inputLANE_NUM_operational_range` | `errored_frames_curr_host_inputLANE_NUM` | Yes | `errored_frames_curr_host_input1`..`errored_frames_curr_host_inputN` |
-| `osnrLANE_NUM_operational_range` (coherent/ZR) | `osnrLANE_NUM` | Yes | `osnr1`..`osnrN` (one per data path, indexed by its first lane) |
+| `osnrLANE_NUM_operational_range` | `osnrLANE_NUM` | Yes | `osnr1`..`osnrN` |
 
-This algorithm ensures that test validation is automatically aligned with the configured attributes, providing comprehensive coverage while maintaining flexibility for different transceiver types and platform configurations.
+During threshold validation, one must verify that the number of active media lanes/datapaths
+and only validate against those, as in SONiC not applicable/supported lanes are
+nonetheless populated with sentinel values which may flag a failure incorrectly.
 
 ## CLI Commands Reference
 
@@ -173,9 +145,8 @@ For detailed CLI commands used in the test cases below, please refer to the [CLI
 
 ## Test Cases
 
-**Assumptions for the Below Tests:**
 
-- All the below tests will be executed for all the transceivers connected to the DUT (the port list is derived from the `port_attributes_dict`) unless specified otherwise.
+- All the tests will be executed for all the transceivers connected to the Device (the port list is derived from the `port_attributes_dict`) unless specified otherwise.
 
 ### Common Test Setup and Teardown
 
@@ -199,10 +170,10 @@ Inherits the [Common Session-Level Prerequisites](test_plan.md#common-session-le
 | TC No. | Test | Steps | Expected Results |
 |------|------|------|------------------|
 | 1 | VDM data availability verification | 1. Access VDM data from `TRANSCEIVER_VDM_REAL_VALUE` table in STATE_DB for each port.<br>2. Verify `last_update_time` is within `data_max_age_min` minutes of current time to ensure data freshness.<br>3. Dynamically determine expected VDM fields based on attributes present in `vdm.json` using the [Dynamic Field Mapping Algorithm](#dynamic-field-mapping-algorithm).<br>4. Validate presence of all dynamically determined expected fields in STATE_DB.<br>5. Skip validation for fields whose corresponding attributes are absent from `vdm.json`. | All VDM fields corresponding to configured attributes are present and accessible from STATE_DB. VDM data is successfully retrieved without errors for all attribute-driven fields. Lane-specific fields are automatically expanded for all available lanes (1 to N) based on the `LANE_NUM` placeholder. Field expectations are dynamically derived using the mapping algorithm. Data freshness is confirmed with recent `last_update_time` timestamp. |
-| 2 | VDM sensor operational range validation | 1. Retrieve VDM data from STATE_DB.<br>2. Verify `last_update_time` is within `data_max_age_min` minutes of current time to ensure data freshness.<br>3. For each attribute ending with `_operational_range` present in `vdm.json`, validate the corresponding field(s) in STATE_DB using the [Dynamic Field Mapping Algorithm](#dynamic-field-mapping-algorithm).<br>4. Check that sensor values fall within the configured operational range (`min <= live <= max`).<br>5. Fail the test case if any values fall outside their respective operational ranges.<br>6. Log detailed information about any out-of-range values including actual vs expected ranges.<br>7. Only validate fields derived from attributes present in `vdm.json`. | All VDM sensor values fall within their respective operational ranges during normal operation (only for parameters with configured operational range attributes). Test case fails if any sensor values fall outside their configured operational ranges. Data freshness is confirmed before validation. Lane-specific validation is automatically performed for all available lanes using the `LANE_NUM` placeholder expansion. Detailed logging is provided for any out-of-range conditions. |
+| 2 | VDM sensor operational range validation | 1. Retrieve VDM data from STATE_DB.<br>2. Verify `last_update_time` is within `data_max_age_min` minutes of current time to ensure data freshness.<br>3. For each attribute ending with `_operational_range` present in `vdm.json`, validate the corresponding field(s) in STATE_DB using the [Dynamic Field Mapping Algorithm](#dynamic-field-mapping-algorithm).<br>4. Check that sensor values fall within the configured operational range (`min <= live <= max`).<br>5. Fail the test case if any values fall outside their respective operational ranges.<br>6. Log detailed information about any out-of-range values including actual vs expected ranges.<br>7. Only validate fields derived from attributes present in `vdm.json`. | All VDM sensor values fall within their respective operational ranges during normal operation (only for parameters with configured operational range attributes). Test case fails if any values fall outside their configured operational ranges. Data freshness is confirmed before validation. Lane-specific validation is automatically performed for all available lanes using the `LANE_NUM` placeholder expansion. Detailed logging is provided for any out-of-range conditions. |
 | 3 | VDM alarm/warning threshold hierarchy validation | 1. Retrieve threshold data from all four `TRANSCEIVER_VDM_LALARM_THRESHOLD`, `TRANSCEIVER_VDM_LWARN_THRESHOLD`, `TRANSCEIVER_VDM_HWARN_THRESHOLD`, and `TRANSCEIVER_VDM_HALARM_THRESHOLD` tables in STATE_DB.<br>2. Dynamically determine expected threshold fields based on attributes ending with `_operational_range` present in `vdm.json` using the [Dynamic Field Mapping Algorithm](#dynamic-field-mapping-algorithm) — any configured VDM field may have module-reported thresholds, not just Pre-FEC BER/errored-frames.<br>3. For each determined field, verify the complete threshold ordering `LALARM < LWARN < HWARN < HALARM`.<br>4. Only validate fields derived from attributes present in `vdm.json`. | All four threshold tables are present in STATE_DB for the configured fields and follow the correct logical hierarchy (`LALARM < LWARN < HWARN < HALARM`). Threshold data integrity is maintained in STATE_DB. Threshold validation is dynamically determined from the attribute table. |
 | 4 | VDM data consistency verification | 1. Read VDM data `consistency_check_poll_count` times with `max_update_time_sec` intervals between readings.<br>2. Verify data consistency between readings.<br>3. Check that `last_update_time` field is being updated correctly with each polling cycle.<br>4. Validate that VDM readings show expected behavior (e.g., eSNR/Pre-FEC BER variations within reasonable limits). | VDM data shows consistent and reasonable variations between polling intervals over `consistency_check_poll_count` polling cycles. The `last_update_time` field is properly updated with each polling cycle. No erratic or impossible sensor value changes are observed during the monitoring period. Variation patterns indicate stable VDM monitoring system operation. |
-| 5 | VDM statistic freeze/unfreeze coherence (capability-gated) | 1. For each port, check whether its `vdm.json` entry has any `_min`/`_max`/`_avg`-suffixed `_operational_range` attribute configured, and whether the port is in LPMODE. This is a config-driven proxy for xcvrd's real `is_vdm_statistic_supported()` gate (an internal platform-API capability call not directly exposed to sonic-mgmt tests). If either condition means the port has no statistic observables to validate, call `pytest.skip(...)` for that port with an explicit reason (e.g., "no min/max/avg attributes configured in vdm.json" or "port in LPMODE") so the skip is reported per-port rather than silently omitted, making any systematic coverage gap (e.g., all grey-optics ports skipped) visible in the test report.<br>2. Disable DOM polling for the port (`config interface transceiver dom <port> disable`). Since VDM has no independent polling knob (see [Pre-requisites](#pre-requisites)), this also halts xcvrd's own VDM freeze/unfreeze cycle for the port, so the test can drive freeze/unfreeze directly via the platform API without racing the daemon. Wait one DOM poll interval plus ~1 second for quiescence.<br>3. Invoke the platform API to freeze VDM statistics (`freeze_vdm_stats`); verify the freeze-done indication (`VDM_FREEZE_DONE`) asserts within its timing budget (~10 ms, up to 1 s).<br>4. While frozen, read the configured `_min`/`_max`/`_avg` fields (per the [Dynamic Field Mapping Algorithm](#dynamic-field-mapping-algorithm)) twice with a short interval between reads; verify all values are unchanged (latched) across both reads. Where a field's `_min`, `_avg`, and `_max` variants are all configured, also verify `min <= avg <= max` coherence. Note: the corresponding `_curr` (instantaneous) fields are basic, not statistic, observables — they are not frozen and continue updating normally during this window.<br>5. Invoke the platform API to unfreeze VDM statistics (`unfreeze_vdm_stats`); verify the unfreeze-done indication (`VDM_UNFREEZE_DONE`) asserts within its timing budget.<br>6. Wait at least one `max_update_time_sec` interval, then re-read the configured `_min`/`_max`/`_avg` values and verify they have resumed updating.<br>7. **Teardown (failure-path safe — runs even if a prior step failed):** unconditionally attempt unfreeze first (in case a step failed mid-frozen), then re-enable DOM polling (`config interface transceiver dom <port> enable`), and verify `TRANSCEIVER_VDM_REAL_VALUE` updates resume (`last_update_time` refreshes within `data_max_age_min`). | Freeze completes within its timing budget and latches all configured `_min`/`_max`/`_avg` values — no changes are observed across repeated reads while frozen, and min/avg/max coherence holds where all three are configured; `_curr` fields continue updating unaffected. Unfreeze completes within its timing budget and statistic values resume updating afterward. DOM/VDM polling is fully restored in teardown regardless of test outcome, with STATE_DB updates confirmed to resume. Ports whose `vdm.json` entry has no min/max/avg attributes configured, or that are in LPMODE, are skipped with an explicit per-port reason reported in the test results. (A raw-register freeze-handshake test against a mocked EEPROM belongs in the platform-daemons unit tests, not here — this test stays at the platform-API/STATE_DB level.) |
+| 5 | VDM statistic freeze/unfreeze coherence (capability-gated) | 1. For each port, check whether its `vdm.json` entry has any `_min`/`_max`/`_avg`-suffixed `_operational_range` attribute configured, and whether the port is in Low Power Mode. This is a config-driven proxy for xcvrd's real `is_vdm_statistic_supported()` gate (an internal platform-API capability call not directly exposed to sonic-mgmt tests). If either condition means the port has no statistic observables to validate, call `pytest.skip(...)` for that port with an explicit reason (e.g., "no min/max/avg attributes configured in vdm.json" or "port in LPMODE") so the skip is reported per-port rather than silently omitted, making any systematic coverage gap (e.g., all grey-optics ports skipped) visible in the test report.<br>2. Disable DOM polling for the port (`config interface transceiver dom <port> disable`). Since VDM has no independent polling knob (see [Pre-requisites](#pre-requisites)), this also halts xcvrd's own VDM freeze/unfreeze cycle for the port, so the test can drive freeze/unfreeze directly via the platform API without racing the daemon. Wait one DOM poll interval plus ~1 second for quiescence.<br>3. Invoke the platform API to freeze VDM statistics (`freeze_vdm_stats`); verify the freeze-done indication (`VDM_FREEZE_DONE`) asserts within its timing budget (~10 ms, up to 1 s).<br>4. While frozen, read the configured `_min`/`_max`/`_avg` fields (per the [Dynamic Field Mapping Algorithm](#dynamic-field-mapping-algorithm)) twice with a short interval between reads; verify all values are unchanged (latched) across both reads. Where a field's `_min`, `_avg`, and `_max` variants are all configured, also verify `min <= avg <= max` coherence. Note: the corresponding `_curr` (instantaneous) fields are basic, not statistic, observables — they are not frozen and continue updating normally during this window.<br>5. Invoke the platform API to unfreeze VDM statistics (`unfreeze_vdm_stats`); verify the unfreeze-done indication (`VDM_UNFREEZE_DONE`) asserts within its timing budget.<br>6. Wait at least one `max_update_time_sec` interval, then re-read the configured `_min`/`_max`/`_avg` values and verify they have resumed updating.<br>7. **Teardown (failure-path safe — runs even if a prior step failed):** unconditionally attempt unfreeze first (in case a step failed mid-frozen), then re-enable DOM polling (`config interface transceiver dom <port> enable`), and verify `TRANSCEIVER_VDM_REAL_VALUE` updates resume (`last_update_time` refreshes within `data_max_age_min`). | Freeze completes within its timing budget and latches all configured `_min`/`_max`/`_avg` values — no changes are observed across repeated reads while frozen, and min/avg/max coherence holds where all three are configured; `_curr` fields continue updating unaffected. Unfreeze completes within its timing budget and statistic values resume updating afterward. DOM/VDM polling is fully restored in teardown regardless of test outcome, with STATE_DB updates confirmed to resume. Ports whose `vdm.json` entry has no min/max/avg attributes configured, or that are in LPMODE, are skipped with an explicit per-port reason reported in the test results. (A raw-register freeze-handshake test against a mocked EEPROM belongs in the platform-daemons unit tests, not here — this test stays at the platform-API/STATE_DB level.) |
 
 ### Advanced VDM Testing
 
@@ -247,22 +218,19 @@ timers reuse the System plan's `*_settle_sec` attributes.
 
 **Applicability:**
 
-| Scenario | Applicable? | Scenario TC | Notes |
-|----------|:-----------:|:-----------:|-------|
-| Shut / no-shut | Y | Advanced TC 1 | existing — VDM data persistence during interface state changes |
-| Cold reboot | Y | S1 | |
-| Warm reboot | Y | S2 | gate on `warm_reboot_supported` |
-| Fast reboot | | | not yet covered by this plan |
-| Config reload | Y | S3 | |
-| Daemon/docker restart | | | not yet covered by this plan |
-| sfputil reset | | | not yet covered by this plan |
-| LPM toggle | | | not yet covered by this plan |
+
+All of the following scenarios should be covered by Test case S1, described below, substituting
+perform_XXX_reboot and XXX_settle_sec values with the corresponding case.
+- Shut / no-shut
+- Cold/Warm/Fast Reboot
+- Config reload
+- Docker/Daemon restart
+- sfputil reset
+- LPM toggle
 
 | TC No. | Test | Steps | Expected Results |
 |--------|------|-------|------------------|
-| S1 | VDM recovery after cold reboot | 1. **Pre-check**: capture the baseline via `capture_vdm_baseline(duthost)` with all ports up, then confirm a clean state with `verify_vdm_recovered(duthost)`.<br>2. **Operate**: `perform_cold_reboot(duthost)` (shared helper — not inlined).<br>3. **Recover**: poll (via `wait_until`) up to `cold_reboot_settle_sec` for the DUT to return, then run the [Standard Port Recovery and Verification Procedure](system_test_plan.md#standard-port-recovery-and-verification-procedure) (VDM needs the link up).<br>4. **Verify**: `verify_vdm_recovered(duthost, baseline=baseline)` — VDM data present and fresh, all configured fields within their operational range, and all four threshold tables are restored with the correct hierarchy. Aggregate failures and report at the end. | After cold reboot VDM data is re-published and fresh, all configured attributes are within their operational range, and all four threshold tables are present with correct `LALARM < LWARN < HWARN < HALARM` ordering. |
-| S2 | VDM recovery after warm reboot | Same as S1 using `perform_warm_reboot(duthost)` and `warm_reboot_settle_sec`. Skip if `warm_reboot_supported` is false. | Same expectations as S1, following a warm reboot. |
-| S3 | VDM recovery after config reload | Same as S1 using `perform_config_reload(duthost)` and `config_reload_settle_sec`. | Same expectations as S1, following a config reload. |
+| S1 | VDM recovery | 1. **Pre-check**: capture the baseline via `capture_vdm_baseline(duthost)` with all ports up, then confirm a clean state with `verify_vdm_recovered(duthost)`.<br>2. **Operate**: `perform_XXX_reboot(duthost) or config reload or docker restart etc`.<br>3. **Recover**: poll (via `wait_until`) up to `XXX_settle_sec` for the DUT to return, then run the [Standard Port Recovery and Verification Procedure](system_test_plan.md#standard-port-recovery-and-verification-procedure) (VDM needs the link up).<br>4. **Verify**: `verify_vdm_recovered(duthost, baseline=baseline)` — VDM data present and fresh, all configured fields within their operational range, and all four threshold tables are restored with the correct hierarchy. Aggregate failures and report at the end. | After cold reboot VDM data is re-published and fresh, all configured attributes are within their operational range, and all four threshold tables are present with correct `LALARM < LWARN < HWARN < HALARM` ordering. |
 
 ## Cleanup and Post-Test Verification
 
@@ -270,14 +238,13 @@ The following steps are performed once after **all test cases** in this plan hav
 
 ### State Restoration
 
-1. **Interface state**: Confirm all ports under test are operationally up. If any port remains in a shutdown state (e.g., due to test failure in Advanced TC 1 or Advanced TC 3), issue `config interface startup <port>`.
-2. **DOM/VDM polling**: Confirm DOM polling is re-enabled for all ports (there is no separate VDM polling knob — see [Pre-requisites](#pre-requisites)). If any port has DOM polling disabled (e.g., due to test failure in Basic TC 5), issue `config interface transceiver dom <port> enable`.
-3. **Environmental conditions**: Confirm any environmental stress applied during testing (e.g., Advanced TC 2) has been reverted to normal operating conditions.
-4. **Restoration verification**: Verify `last_update_time` in `TRANSCEIVER_VDM_REAL_VALUE` is within `data_max_age_min` minutes of current time for all ports (confirms polling resumed), and LLDP neighbors are discovered (if LLDP is enabled) to confirm end-to-end connectivity.
+1. **Interface state**: Confirm all ports under test are operationally up. If any port remains in a shutdown state, attempt a transcevier reset and a shut-unshut.
+2. **DOM/VDM polling**: Confirm DOM polling is re-enabled for all ports. If any port has DOM polling disabled (e.g., due to test failure in Basic TC 5), issue `config interface transceiver dom <port> enable`.
+3s. **Restoration verification**: Verify `last_update_time` in `TRANSCEIVER_VDM_REAL_VALUE` is within `data_max_age_min` minutes of current time for all ports (confirms polling resumed), and LLDP neighbors are discovered (if LLDP is enabled) to confirm end-to-end connectivity.
 
 ### Post-Test Report Generation
 
 1. **Test Summary**: Generate comprehensive test results including pass/fail status for each VDM parameter
-2. **Sensor Analysis**: Document any sensor values that approached range limits or showed unusual behavior
+2. **Analysis**: Document any reported values that approached range limits
 3. **Performance Metrics**: Report VDM access times and any performance variations observed
 4. **Range Validation**: Summary of all VDM parameters with their actual vs. expected ranges
