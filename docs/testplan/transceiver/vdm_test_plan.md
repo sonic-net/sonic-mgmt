@@ -61,51 +61,53 @@ attribute implementation varies by individual part and vendor.
 
 **Threshold Direction** (scalar attributes only): `Max` means the configured value is an upper bound — the live value must be ≤ configured. `Min` means the configured value is a lower bound — the live value must be ≥ configured (used for quality metrics where higher is better, e.g. SNR/OSNR/Q-factor). Dict (`_stats`) attributes validate each configured sub-field directly and have no single direction, so this column is `N/A` for them.
 
-| Attribute Name | Type | Threshold Direction | Mandatory | Override Levels | Description |
-|----------------|------|----------------------|-----------|-----------------|-------------|
-| laser_age | integer | Max | O | transceivers | 0% BOL - 100% EOL (Media lane) |
-| tec_current | integer | Max | O | transceivers | TEC Current (Module) |
-| laser_frequency_error | integer | Max | O | transceivers | Frequency of laser error (MHz) |
-| laser_temperatureLANE_NUM | integer | Max | O | transceivers | Temperature of laser (C) |
-| snr_media_inputLANE_NUM | integer | Min | O | transceivers | Signal Noise Ratio (dB) of Media Lane |
-| snr_host_input | integer | Min | O | transceivers | Signal Noise Ratio (dB) of Host Lane. For ZR, vendor-dependent — may not be reported by all modules; classification should be reconfirmed against VDM advertisement. |
-| pam4_ltp_media_input | integer | Max | O | transceivers | PAM4 Level Transition Parameter Media Input (dB). Not applicable to ZR (coherent media uses QAM, not PAM4). |
-| pam4_ltp_host_inputLANE_NUM | integer | Max | O | transceivers | PAM4 Level Transition Parameter Host Input Lane (dB). Not currently reported on ZR modules. |
-| prefec_ber_media_input_statsLANE_NUM | dict | N/A | O | transceivers | Pre-FEC BER stats on media side. Format: {"max": \<float\>, "average": \<float\>, "current": \<float\>} — all sub-fields optional; omit any sub-field to skip its validation |
-| prefec_ber_host_input_statsLANE_NUM | dict | N/A | O | transceivers | Pre-FEC BER stats on host side. Format: {"max": \<float\>, "average": \<float\>, "current": \<float\>} — all sub-fields optional; omit any sub-field to skip its validation |
-| ferc_media_input_statsLANE_NUM | dict | N/A | O | transceivers | Post-FEC errored frames stats on media side. Format: {"max": \<float\>, "average": \<float\>, "current": \<float\>, "total": \<float\>} — all sub-fields optional; omit any sub-field to skip its validation |
-| ferc_host_input_statsLANE_NUM | dict | N/A | O | transceivers | Post-FEC errored frames stats on host side. Format: {"max": \<float\>, "average": \<float\>, "current": \<float\>, "total": \<float\>} — all sub-fields optional; omit any sub-field to skip its validation. For ZR, this may be populated only on lane 1 as a combined metric on current modules; still collect for all lanes to remain compatible with future per-lane reporting. |
+**Default Value** is `-` for every attribute below: unlike DOM's realistic operational ranges (which are generic across most optics), these VDM values are inherently part/vendor-specific silicon behavior with no meaningful value that applies broadly — each must be authored per part number in `vdm.json`.
+
+| Attribute Name | Type | Default Value | Threshold Direction | Mandatory | Override Levels | Description |
+|----------------|------|----------------|----------------------|-----------|-----------------|-------------|
+| laser_age | integer | - | Max | O | transceivers | 0% BOL - 100% EOL (Media lane) |
+| tec_current | integer | - | Max | O | transceivers | TEC Current (Module) |
+| laser_frequency_error | integer | - | Max | O | transceivers | Frequency of laser error (MHz) |
+| laser_temperatureLANE_NUM | integer | - | Max | O | transceivers | Temperature of laser (C) |
+| snr_media_inputLANE_NUM | integer | - | Min | O | transceivers | Signal Noise Ratio (dB) of Media Lane |
+| snr_host_input | integer | - | Min | O | transceivers | Signal Noise Ratio (dB) of Host Lane. For ZR, vendor-dependent — may not be reported by all modules; classification should be reconfirmed against VDM advertisement. |
+| pam4_ltp_media_input | integer | - | Max | O | transceivers | PAM4 Level Transition Parameter Media Input (dB). Not applicable to ZR (coherent media uses QAM, not PAM4). |
+| pam4_ltp_host_inputLANE_NUM | integer | - | Max | O | transceivers | PAM4 Level Transition Parameter Host Input Lane (dB). Not currently reported on ZR modules. |
+| prefec_ber_media_input_statsLANE_NUM | dict | - | N/A | O | transceivers | Pre-FEC BER stats on media side. Format: {"max": \<float\>, "average": \<float\>, "current": \<float\>} — all sub-fields optional; omit any sub-field to skip its validation |
+| prefec_ber_host_input_statsLANE_NUM | dict | - | N/A | O | transceivers | Pre-FEC BER stats on host side. Format: {"max": \<float\>, "average": \<float\>, "current": \<float\>} — all sub-fields optional; omit any sub-field to skip its validation |
+| ferc_media_input_statsLANE_NUM | dict | - | N/A | O | transceivers | Post-FEC errored frames stats on media side. Format: {"max": \<float\>, "average": \<float\>, "current": \<float\>, "total": \<float\>} — all sub-fields optional; omit any sub-field to skip its validation |
+| ferc_host_input_statsLANE_NUM | dict | - | N/A | O | transceivers | Post-FEC errored frames stats on host side. Format: {"max": \<float\>, "average": \<float\>, "current": \<float\>, "total": \<float\>} — all sub-fields optional; omit any sub-field to skip its validation. For ZR, this may be populated only on lane 1 as a combined metric on current modules; still collect for all lanes to remain compatible with future per-lane reporting. |
 
 The following table summarizes Data Path Monitors of the VDM. These monitors apply primarily to ZR (coherent/DCO) optics — most are not available on grey optics, with the exception of `tx_power` and `rx_total_power`. Please note: Unless specified differently, the VDM monitors for a DCO are all associated with a data path. Therefore, the lane or data path identifier of those VDM monitors shall indicate the first lane of the relevant data path.
 
-| Monitor Name | Type | Threshold Direction | Mandatory | Override Levels | Description |
-|----------------|------|----------------------|-----------|-----------------|-------------|
-| modulator_bias_xi | integer | Max | O | transceivers | Modulator bias X/I in percentage |
-| modulator_bias_xq | integer | Max | O | transceivers | Modulator bias X/Q in percentage |
-| modulator_bias_yi | integer | Max | O | transceivers | Modulator bias Y/I in percentage |
-| modulator_bias_yq | integer | Max | O | transceivers | Modulator bias Y/Q in percentage |
-| modulator_bias_x_phase | integer | Max | O | transceivers | Modulator bias X_phase in percentage |
-| modulator_bias_y_phase | integer | Max | O | transceivers | Modulator bias Y_phase in percentage |
-| hgranularity_slink_cd | integer | Max | O | transceivers | Chromatic dispersion high granularity, short link in ps/nm. Measure on media side fiber as estimated from DSP compensation. |
-| lgranularity_llink_cd | integer | Max | O | transceivers | Chromatic dispersion low granularity, long link in ps/nm |
-| DGD | integer | Max | O | transceivers | Differential group delay in ps |
-| sopmd_high_granularity | integer | Max | O | transceivers | State-of-polarization mode dispersion high granularity in ps^2 |
-| pdl | integer | Max | O | transceivers | Polarization dependent loss in db |
-| osnr | integer | Min | O | transceivers | Optical SNR in db |
-| esnr | integer | Min | O | transceivers | effective SNR in db |
-| cfo | integer | Max | O | transceivers | Carrier frequency offset in MHz |
-| evm | integer | Max | O | transceivers | Error vector magnitude in percentage |
-| tx_power | integer | Max | O | transceivers | TX power in dBm. Also available on grey optics (typically also reported via DOM). |
-| rx_total_power | integer | Max | O | transceivers | RX total power in dBm. Also available on grey optics (typically also reported via DOM). |
-| rx_signal_power | integer | Max | O | transceivers | Rx signal power in dbm |
-| sop_roc | integer | Max | O | transceivers | State-of-polarization rotation rate in krads/s |
-| mer | integer | Min | O | transceivers | Modulation error ratio in db |
-| clock_recovery_loop | integer | N/A | O | transceivers | Clock recovery loop in percentage, will be -100 to 100% with nominal at 0%. Defect thresholds are set by vendor to indicate operation is outside of normal range — validated per the description, not a simple Max/Min threshold. |
-| sopmd_low_granularity | integer | Max | O | transceivers | State-of-polarization mode dispersion low granularity in ps^2 |
-| snr_margin | integer | Min | O | transceivers | SNR margin in db |
-| q_factor | integer | Min | O | transceivers | Q factor in db |
-| q_margin | integer | Min | O | transceivers | Q margin in db |
-| cfo_low_granularity | integer | Max | O | transceivers | Carrier frequency offset low granularity in MHz |
+| Monitor Name | Type | Default Value | Threshold Direction | Mandatory | Override Levels | Description |
+|----------------|------|----------------|----------------------|-----------|-----------------|-------------|
+| modulator_bias_xi | integer | - | Max | O | transceivers | Modulator bias X/I in percentage |
+| modulator_bias_xq | integer | - | Max | O | transceivers | Modulator bias X/Q in percentage |
+| modulator_bias_yi | integer | - | Max | O | transceivers | Modulator bias Y/I in percentage |
+| modulator_bias_yq | integer | - | Max | O | transceivers | Modulator bias Y/Q in percentage |
+| modulator_bias_x_phase | integer | - | Max | O | transceivers | Modulator bias X_phase in percentage |
+| modulator_bias_y_phase | integer | - | Max | O | transceivers | Modulator bias Y_phase in percentage |
+| hgranularity_slink_cd | integer | - | Max | O | transceivers | Chromatic dispersion high granularity, short link in ps/nm. Measure on media side fiber as estimated from DSP compensation. |
+| lgranularity_llink_cd | integer | - | Max | O | transceivers | Chromatic dispersion low granularity, long link in ps/nm |
+| DGD | integer | - | Max | O | transceivers | Differential group delay in ps |
+| sopmd_high_granularity | integer | - | Max | O | transceivers | State-of-polarization mode dispersion high granularity in ps^2 |
+| pdl | integer | - | Max | O | transceivers | Polarization dependent loss in db |
+| osnr | integer | - | Min | O | transceivers | Optical SNR in db |
+| esnr | integer | - | Min | O | transceivers | effective SNR in db |
+| cfo | integer | - | Max | O | transceivers | Carrier frequency offset in MHz |
+| evm | integer | - | Max | O | transceivers | Error vector magnitude in percentage |
+| tx_power | integer | - | Max | O | transceivers | TX power in dBm. Also available on grey optics (typically also reported via DOM). |
+| rx_total_power | integer | - | Max | O | transceivers | RX total power in dBm. Also available on grey optics (typically also reported via DOM). |
+| rx_signal_power | integer | - | Max | O | transceivers | Rx signal power in dbm |
+| sop_roc | integer | - | Max | O | transceivers | State-of-polarization rotation rate in krads/s |
+| mer | integer | - | Min | O | transceivers | Modulation error ratio in db |
+| clock_recovery_loop | integer | - | N/A | O | transceivers | Clock recovery loop in percentage, will be -100 to 100% with nominal at 0%. Defect thresholds are set by vendor to indicate operation is outside of normal range — validated per the description, not a simple Max/Min threshold. |
+| sopmd_low_granularity | integer | - | Max | O | transceivers | State-of-polarization mode dispersion low granularity in ps^2 |
+| snr_margin | integer | - | Min | O | transceivers | SNR margin in db |
+| q_factor | integer | - | Min | O | transceivers | Q factor in db |
+| q_margin | integer | - | Min | O | transceivers | Q margin in db |
+| cfo_low_granularity | integer | - | Max | O | transceivers | Carrier frequency offset low granularity in MHz |
 
 ## Example `vdm.json` File
 
@@ -205,14 +207,14 @@ This algorithm ensures that test validation is automatically aligned with the co
 
 ## Test Parameters
 
-The following parameters are referenced throughout the test cases and must be defined in the test configuration before execution:
+The following parameters are referenced throughout the test cases. If not overridden at the level(s) listed in Override Levels, the Default Value applies:
 
-| Parameter | Description |
-|-----------|-------------|
-| `data_max_age_min` | Maximum age (in minutes) of VDM data to be considered fresh. VDM data older than this threshold is treated as stale and will fail freshness checks. |
-| `consistency_check_poll_count` | Number of successive polling cycles used in consistency checks to confirm stable VDM data updates. |
-| `max_update_time_sec` | Maximum expected interval (in seconds) between consecutive VDM data updates. Used as the wait duration between polling cycles in consistency checks. |
-| `recovery_time_sec` | Time (in seconds) to wait after restoring normal operating conditions before re-validating sensor values. |
+| Parameter | Type | Default Value | Override Levels | Description |
+|-----------|------|---------------|-----------------|-------------|
+| `data_max_age_min` | integer | 5 | platform | Maximum age (in minutes) of VDM data to be considered fresh. VDM data older than this threshold is treated as stale and will fail freshness checks. |
+| `consistency_check_poll_count` | integer | 3 | transceivers or platform | Number of successive polling cycles used in consistency checks to confirm stable VDM data updates. |
+| `max_update_time_sec` | integer | 60 | platform | Maximum expected interval (in seconds) between consecutive VDM data updates. Used as the wait duration between polling cycles in consistency checks. |
+| `recovery_time_sec` | integer | No universal default — recommend ≥ 2× `max_update_time_sec` so at least one full polling cycle completes after recovery | platform | Time (in seconds) to wait after restoring normal operating conditions before re-validating sensor values. |
 
 ## CLI Commands Reference
 
