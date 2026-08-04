@@ -1172,9 +1172,7 @@ decap/test_subnet_decap.py::test_vlan_subnet_decap:
 
 device_ops_agent:
   skip:
-    reason: "grpcurl is only available on 202511 and above images"
-    conditions:
-      - "release not in ['202511', '202605']"
+    reason: "device_ops_agent is not deployed in nightly yet."
 
 #######################################
 #####         dhcp_relay        #####
