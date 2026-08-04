@@ -413,7 +413,7 @@ bgp/test_bgp_allow_list.py:
       - "platform in ['x86_64-8111_32eh_o-r0', 'x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
       - "'isolated' in topo_name"
 
-bgp/test_bgp_allow_list.py::.*\[frr_mgmt_framework:
+bgp/test_bgp_allow_list.py::.*\[.*frr_mgmt_framework:
   regex: true
   skip:
     reason: "frrcfgd route-map model has no 'on-match next' continue-flow (sonic-buildimage#28482)"
@@ -787,7 +787,7 @@ bgp/test_bgpmon_v6.py::test_bgpmon_no_ipv6_resolve_via_default:
     conditions:
       - "platform in ['x86_64-arista_7280dr3am_36']"
 
-bgp/test_frr_set_src_route_map.py::.*\[frr_mgmt_framework:
+bgp/test_frr_set_src_route_map.py::.*\[.*frr_mgmt_framework:
   regex: true
   skip:
     reason: "frrcfgd route-map model has no zebra 'set src' clause (sonic-buildimage#28482)"
