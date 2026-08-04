@@ -44,9 +44,23 @@ class ConserverConsoleConn():
 
         self.console_cli = console_cli
 
-    def send_command(self, cmd, expect_string=CONSERVER_CLI_PROMPT, max_loops=None):
+    def send_command(
+        self,
+        cmd,
+        expect_string=CONSERVER_CLI_PROMPT,
+        max_loops=None,
+        read_timeout=None,
+        cmd_verify=True,
+    ):
+        """Send a command using Netmiko-compatible arguments.
+
+        Conserver does not perform command echo verification, so cmd_verify is
+        accepted for interface compatibility only.
+        """
         self.console_cli.sendline(cmd)
-        timeout = self.default_timeout
+        timeout = (
+            read_timeout if read_timeout is not None else self.default_timeout
+        )
         if max_loops:
             timeout = max(max_loops * self.delay_factor, timeout)
         self.console_cli.expect(expect_string, timeout=timeout)
