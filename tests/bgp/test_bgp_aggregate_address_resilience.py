@@ -42,12 +42,28 @@ from tests.common.helpers.bgp import flatten_bgp_neighbors
 from tests.common.helpers.dut_utils import is_virtual_platform
 from tests.common.reboot import reboot
 from tests.common.utilities import wait_until
+from tests.common.fixtures.frr_config_mode import (
+    skip_module_if_frr_native,
+    FRR_BGPCFGD_ONLY_AGGREGATE_REASON,
+)
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology("m1"),
 ]
+
+
+# The BGP aggregate-address suite asserts bgpcfgd AggregateAddressMgr behavior, not just "FRR
+# advertises an aggregate": every module writes a BGP_AGGREGATE_ADDRESS row carrying
+# bbr_required and reads it back. frrcfgd has no BGP_AGGREGATE_ADDRESS handler, no STATE_DB
+# writer and no bbr-required concept, so these cannot pass under frrcfgd. The suite is
+# therefore NOT parametrized over frr_config_mode: it runs in traditional (bgpcfgd) mode and
+# skips outright on a native-frrcfgd DUT.
+@pytest.fixture(scope="module", autouse=True)
+def _skip_aggregate_address_in_frr_mgmt_framework(duthosts, rand_one_dut_hostname):
+    skip_module_if_frr_native(duthosts[rand_one_dut_hostname], FRR_BGPCFGD_ONLY_AGGREGATE_REASON)
+
 
 # ---- Constants ----
 AGGR_V4 = "172.16.51.0/24"
