@@ -611,13 +611,9 @@ def merge_counters(source_counter, merge_counter, is_v6=False):
 
 def get_dhcp_relay_type(duthost):
     """Return the IPv4 relay layout required by the current configuration."""
-    try:
-        features_state, succeeded = duthost.get_feature_status()
-    except Exception as error:
-        raise RuntimeError("Failed to determine dhcp_server feature state") from error
+    features_state, succeeded = duthost.get_feature_status()
+    pytest_assert(succeeded, "Failed to get feature status")
 
-    if not succeeded:
-        raise RuntimeError("Failed to determine dhcp_server feature state")
     config_facts = duthost.config_facts(host=duthost.hostname, source='running')['ansible_facts']
     device_metadata = config_facts.get('DEVICE_METADATA', {}).get('localhost', {})
     has_sonic_dhcpv4_relay = device_metadata.get('has_sonic_dhcpv4_relay', 'False') == 'True'
