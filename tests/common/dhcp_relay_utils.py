@@ -92,12 +92,12 @@ def restart_dhcp_service(duthost, relay_types):
 
         'sonic'        -> Consolidated v4 relay layout
                           (dockers/docker-dhcp-relay/dhcpv4-sonic-relay.agents.j2).
-                          With external relay-server configuration:
+                          The SONiC DHCPv4 relay flag renders and starts the
+                          `dhcp4relay` supervisor program even when no
+                          DHCPV4_RELAY server configuration exists.
+                          Required:
                             - the `dhcp4relay` supervisord entry is RUNNING
                             - exactly one `dhcp4relay` process exists
-                          Without external relay-server configuration:
-                            - the supervisord entry is absent
-                            - no `dhcp4relay` process exists
                           Not checked:
                             - dhcpmon-<Vlan> supervisord entries; monitor
                               lifecycle is orthogonal to the active v4 relay
@@ -226,14 +226,9 @@ def wait_dhcp_relay_ready(duthost, relay_types):
         if 'sonic' in relay_types:
             if isc_relay_processes:
                 return False
-            sonic_state = states.get('dhcp4relay')
-            if sonic_state == 'RUNNING':
-                if len(sonic_relay_processes) != 1:
-                    return False
-            elif sonic_state is None:
-                if sonic_relay_processes:
-                    return False
-            else:
+            if states.get('dhcp4relay') != 'RUNNING':
+                return False
+            if len(sonic_relay_processes) != 1:
                 return False
         if 'sonic-internal' in relay_types:
             if isc_relay_processes or len(sonic_relay_processes) != 1:
