@@ -615,22 +615,24 @@ def create_duthost_console(duthost, localhost, conn_graph_facts, creds):  # noqa
     if console_type in creds["console_password"]:
         sonic_password.extend(creds["console_password"][console_type])
 
-    # Move the DUT's actual current password to the front so the console login succeeds on the first attempt.
-    try:
-        current_passwd = get_dut_current_passwd(
-            duthost.mgmt_ip,
-            duthost.mgmt_ipv6,
-            creds["sonicadmin_user"],
-            [p for p in sonic_password if p],
-        )
-        if current_passwd and current_passwd in sonic_password:
-            sonic_password.remove(current_passwd)
-        if current_passwd:
-            sonic_password.insert(0, current_passwd)
-    except Exception as e:
-        logger.warning(
-            f"Could not resolve current DUT console password, using default "
-            f"order: {e}")
+    # creds_on_dut() already verifies sonicadmin_password over management SSH.
+    # Keep the probe for callers that supply credentials through another path.
+    if not creds.get("_sonicadmin_password_verified"):
+        try:
+            current_passwd = get_dut_current_passwd(
+                duthost.mgmt_ip,
+                duthost.mgmt_ipv6,
+                creds["sonicadmin_user"],
+                [p for p in sonic_password if p],
+            )
+            if current_passwd and current_passwd in sonic_password:
+                sonic_password.remove(current_passwd)
+            if current_passwd:
+                sonic_password.insert(0, current_passwd)
+        except Exception as e:
+            logger.warning(
+                f"Could not resolve current DUT console password, using default "
+                f"order: {e}")
 
     # Attempt to clear the console port
     try:
@@ -742,6 +744,7 @@ def creds_on_dut(duthost):
         creds['sonicadmin_user'],
         passwords
     )
+    creds["_sonicadmin_password_verified"] = True
 
     for k, v in list(console_login_creds.items()):
         creds["console_user"][k] = v["user"]
