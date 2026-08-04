@@ -1059,7 +1059,6 @@ def test_scale_acl_rule(setUp):
     ptfadapter = setUp['ptfadapter']
 
     ptf_send_port = setUp['ptf_send_port']
-    ptf_exp_ports = setUp['ptf_exp_ports']
     bind_ports = setUp['bind_ports']
     loopback_src_ip = setUp['loopback_src_ip']
     selected_portchannel = setUp['test_port_2']  # Dynamically selected PortChannel
@@ -1067,11 +1066,9 @@ def test_scale_acl_rule(setUp):
     # Configuration values
     vxlan_tunnel_name = setUp['vxlan_tunnel_name']
     outer_src_mac = setUp['outer_src_mac']
-    outer_dst_mac = setUp['outer_dst_mac']
     table_name = ACL_TABLE_NAME
 
     # Standard values from VXLAN/VNET configuration
-    next_hop_ip = PTF_VTEP_IP  # PTF VTEP endpoint
     inner_dst_ip = "150.0.3.1"  # Route destination
     vni_id = str(VXLAN_VNI)  # VNI from configuration
 
