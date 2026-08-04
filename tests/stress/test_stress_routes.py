@@ -15,6 +15,7 @@ MAX_WAIT_TIME = 120
 logger = logging.getLogger(__name__)
 
 pytestmark = [
+    pytest.mark.frr_generic,
     pytest.mark.topology('t0', 't1', 'm0', 'mx', 'm1', 't2', 'lrh', 'urh', 'lt2', 'ft2')
 ]
 

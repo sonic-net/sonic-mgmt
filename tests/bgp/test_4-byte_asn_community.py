@@ -25,6 +25,7 @@ bgp_sleep = 120
 bgp_id_textfsm = "./bgp/templates/bgp_id.template"
 
 pytestmark = [
+    pytest.mark.frr_generic,
     pytest.mark.topology('t2', 'lrh', 'urh')
 ]
 

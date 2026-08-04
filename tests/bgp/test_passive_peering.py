@@ -15,6 +15,7 @@ from tests.bgp.bgp_helpers import eos_bgp_neighbor_config_parents
 logger = logging.getLogger(__name__)
 
 pytestmark = [
+    pytest.mark.frr_generic,
     pytest.mark.topology('t2', 'lrh', 'urh')
 ]
 

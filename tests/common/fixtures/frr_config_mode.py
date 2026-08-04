@@ -40,6 +40,12 @@ logger = logging.getLogger(__name__)
 
 FRR_CONFIG_MODES = [MODE_TRADITIONAL, MODE_FRR_MGMT_FRAMEWORK]
 
+# Modules marked ``frr_generic`` are exercised in ONE config mode instead of both.
+# Preference order: frr_mgmt_framework first, so the newer frrcfgd path gets the
+# coverage, falling back to traditional when frr is not reachable on this DUT.
+FRR_GENERIC_MARKER = "frr_generic"
+_FRR_GENERIC_PREFERENCE = [MODE_FRR_MGMT_FRAMEWORK, MODE_TRADITIONAL]
+
 # bgpcfgd renders these base BGP-sentinel policy objects from its Jinja templates
 # (dockers/docker-fpm-frr/frr/bgpd/templates/sentinels/policies.conf.j2) on every DUT
 # whose image ships that template -- FROM_BGP_SENTINEL/TO_BGP_SENTINEL unconditionally,
@@ -270,6 +276,43 @@ def _current_mode(duthost):
             else MODE_TRADITIONAL)
 
 
+def _mode_reachable(duthost, request, original_mode, mode):
+    """Can ``mode`` actually be exercised on this DUT?
+
+    Mirrors the skip conditions in the ``frr_config_mode`` fixture below, so a
+    ``frr_generic`` module can pick a mode that will really run instead of one that
+    would skip. Staying in the DUT's boot mode is always reachable (no switch needed).
+    """
+    if mode == original_mode:
+        return True
+    # macsec and multi-asic / switchless DUTs run the boot mode only (see the fixture).
+    if getattr(request.config.option, "enable_macsec", False):
+        return False
+    if duthost.facts["num_asic"] > 1 or _is_switchless_node(duthost):
+        return False
+    # The translator only converts traditional -> frr.
+    if original_mode != MODE_TRADITIONAL:
+        return False
+    # A switch persists the mode in golden config so it survives the reload.
+    return bool(duthost.is_file_existed(GOLDEN_CFG_FILE))
+
+
+def _generic_mode(duthost, request, original_mode):
+    """For a ``frr_generic`` module, return the single mode to exercise.
+
+    Chosen from the modes ``--frr-config-mode`` selected, in
+    ``_FRR_GENERIC_PREFERENCE`` order (frrcfgd first), restricted to modes that are
+    actually reachable on this DUT. Returns None when none is reachable, letting the
+    fixture's normal skip cascade produce the specific reason.
+    """
+    selected = request.config.getoption("--frr-config-mode")
+    requested = FRR_CONFIG_MODES if selected == "both" else [selected]
+    for mode in _FRR_GENERIC_PREFERENCE:
+        if mode in requested and _mode_reachable(duthost, request, original_mode, mode):
+            return mode
+    return None
+
+
 def _is_switchless_node(duthost):
     """True for DUTs with no switchable BGP stack -- e.g. supervisor / chassis-control
     cards, which run no bgp container. A mode switch there is meaningless and the
@@ -362,6 +405,24 @@ def frr_config_mode(request, duthosts, rand_one_dut_hostname):
     # Discover the DUT's original mode once per module.
     if not hasattr(mod, "_frr_original_config_mode"):
         mod._frr_original_config_mode = _current_mode(duthost)
+
+    # frr_generic modules are mode-generic: they assert FRR / dataplane / kernel behavior
+    # over config established at boot and do not exercise the bgpcfgd<->frrcfgd schema
+    # translation, so running the body in both modes re-tests FRR, not the config daemon.
+    # Run them in ONE mode (frrcfgd preferred) and skip the other variant.
+    #
+    # Both params are deliberately kept rather than collapsing to one, so test IDs stay
+    # [traditional] / [frr_mgmt_framework] (conditional_mark keys and -k selection depend
+    # on them), the report states which mode actually ran, and -- crucially -- a DUT that
+    # cannot reach frr mode (no golden config, multi-asic, macsec, non-traditional boot)
+    # still runs the module in traditional instead of skipping it entirely.
+    if request.node.get_closest_marker(FRR_GENERIC_MARKER):
+        chosen = _generic_mode(duthost, request, mod._frr_original_config_mode)
+        if chosen is not None and mode != chosen:
+            pytest.skip(
+                "Module is marked '{}' (mode-generic: it does not exercise the "
+                "bgpcfgd<->frrcfgd config translation), so it runs in one mode only; "
+                "covered here in the '{}' mode".format(FRR_GENERIC_MARKER, chosen))
 
     # macsec: the mode-switch config reload disrupts macsec-protected PortChannel/BGP
     # sessions, which re-negotiate slowly and flakily after a reload (so the switch-back's

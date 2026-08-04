@@ -21,6 +21,7 @@ from tests.common.helpers.bgp import flatten_bgp_neighbors
 from tests.common.utilities import wait_until
 
 pytestmark = [
+    pytest.mark.frr_generic,
     pytest.mark.topology('t0'),
 ]
 

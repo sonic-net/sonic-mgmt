@@ -29,6 +29,7 @@ cpuSpike = 10
 memSpike = 1.3
 
 pytestmark = [
+    pytest.mark.frr_generic,
     pytest.mark.topology('t1', 't2', 'lrh', 'urh', 'm1', 'lt2', 'ft2', 'c0', 'lma', 'uma')
 ]
 

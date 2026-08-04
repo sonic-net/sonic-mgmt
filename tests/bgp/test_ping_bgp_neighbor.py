@@ -2,6 +2,7 @@ import pytest
 import logging
 
 pytestmark = [
+    pytest.mark.frr_generic,
     pytest.mark.topology('any')
 ]
 

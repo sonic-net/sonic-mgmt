@@ -32,6 +32,7 @@ from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory  # noqa:
 logger = logging.getLogger(__name__)
 
 pytestmark = [
+    pytest.mark.frr_generic,
     pytest.mark.topology('t2', 'lrh', 'urh')
 ]
 
