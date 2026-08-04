@@ -265,6 +265,8 @@ Inherits the [Common Session-Level Prerequisites](test_plan.md#common-session-le
 
 ### Advanced VDM Testing
 
+> **Note:** Each test case's steps include the TC-specific baselines it needs (e.g., threshold values, flag metadata). Failure-path recovery (restoring shutdown interfaces, re-enabling DOM polling, reverting environmental stress) is handled by the session-level [Cleanup](#cleanup-and-post-test-verification).
+
 | TC No. | Test | Steps | Expected Results |
 |------|------|------|------------------|
 | 1 | VDM data persistence during interface state changes | 1. Record baseline VDM data from `TRANSCEIVER_VDM` table in STATE_DB including all sensor values and `last_update_time`.<br>2. Record baseline link flap count for the port.<br>3. Execute interface shutdown: `config interface shutdown <port>`.<br>4. Wait for interface to reach down state (verify with `show interfaces status`).<br>5. Read VDM data from `TRANSCEIVER_VDM` table while interface is down.<br>6. Verify `last_update_time` continues to be updated during shutdown state.<br>7. Validate that VDM sensor values remain accessible and within expected ranges during shutdown.<br>8. Execute interface startup: `config interface startup <port>`.<br>9. Wait for interface to reach up state and link to establish (verify with `show interfaces status`).<br>10. Read VDM data from `TRANSCEIVER_VDM` table after interface comes up.<br>11. Perform consistency check by reading VDM data `consistency_check_poll_count` times with `max_update_time_sec` intervals.<br>12. Validate all dynamically determined VDM fields (per [Dynamic Field Mapping Algorithm](#dynamic-field-mapping-algorithm)) are present and updated.<br>13. Verify sensor values return to operational ranges after link establishment.<br>14. Compare final link flap count to baseline to confirm exactly 2 flaps occurred (1 down, 1 up). | VDM monitoring continues during interface shutdown with data updates and accessibility maintained. VDM data remains consistent and fresh throughout the shutdown period without data corruption. Interface state transitions do not disrupt VDM data collection or cause service crashes. After interface startup, all sensor values stabilize within operational ranges. Link flap count increases by exactly 2 confirming controlled interface state changes. Critical processes (`xcvrd`, `pmon`, `syncd`) remain stable throughout with no crashes or restarts. |
@@ -306,11 +308,11 @@ timers reuse the System plan's `*_settle_sec` attributes.
 
 | Scenario | Applicable? | Scenario TC | Notes |
 |----------|:-----------:|:-----------:|-------|
-| Shut / no-shut | ✅ | Advanced TC 1 | existing — VDM data persistence during interface state changes |
-| Cold reboot | ✅ | S1 | |
-| Warm reboot | ✅ | S2 | gate on `warm_reboot_supported` |
+| Shut / no-shut | Y | Advanced TC 1 | existing — VDM data persistence during interface state changes |
+| Cold reboot | Y | S1 | |
+| Warm reboot | Y | S2 | gate on `warm_reboot_supported` |
 | Fast reboot | | | not yet covered by this plan |
-| Config reload | ✅ | S3 | |
+| Config reload | Y | S3 | |
 | Daemon/docker restart | | | not yet covered by this plan |
 | sfputil reset | | | not yet covered by this plan |
 | LPM toggle | | | not yet covered by this plan |
@@ -323,13 +325,14 @@ timers reuse the System plan's `*_settle_sec` attributes.
 
 ## Cleanup and Post-Test Verification
 
-After test completion:
+The following steps are performed once after **all test cases** in this plan have completed. The [Common Per-Test Health Checks](test_plan.md#common-per-test-health-checks) already cover ongoing health monitoring throughout the run.
 
-### Immediate Cleanup
+### State Restoration
 
-1. **VDM State Verification**: Ensure VDM monitoring continues to function normally after testing
-2. **System Health**: Check alarms for any VDM-related errors or warnings introduced during testing
-3. **Service Status**: Verify xcvrd and pmon services are operating normally with VDM polling active
+1. **Interface state**: Confirm all ports under test are operationally up. If any port remains in a shutdown state (e.g., due to test failure in Advanced TC 1 or Advanced TC 3), issue `config interface startup <port>`.
+2. **DOM/VDM polling**: Confirm DOM polling is re-enabled for all ports (there is no separate VDM polling knob — see [Pre-requisites](#pre-requisites)). If any port has DOM polling disabled (e.g., due to test failure in Basic TC 5), issue `config interface transceiver dom <port> enable`.
+3. **Environmental conditions**: Confirm any environmental stress applied during testing (e.g., Advanced TC 2) has been reverted to normal operating conditions.
+4. **Restoration verification**: Verify `last_update_time` in `TRANSCEIVER_VDM` is within `data_max_age_min` minutes of current time for all ports (confirms polling resumed), and LLDP neighbors are discovered (if LLDP is enabled) to confirm end-to-end connectivity.
 
 ### Post-Test Report Generation
 
