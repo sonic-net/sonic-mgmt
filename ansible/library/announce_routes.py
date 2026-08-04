@@ -91,6 +91,10 @@ T1_ROUTER_TYPE_BY_PROPERTY = {
     'bt1': 'leaf',
     'bt2': 'spine',
 }
+# Property groups that belong to the backend network plane. Their synthetic
+# routes must not collide with the frontend ones, otherwise the DUT builds a
+# single ECMP group spanning both frontend uplinks and backend ports.
+T1_BACKEND_PROPERTIES = frozenset(['bt0', 'bt1', 'bt2'])
 ROUTES_BATCH_SIZE = 200
 
 # Describe default number of COLOs
@@ -627,6 +631,23 @@ def fib_t0(topo, ptf_ip, no_default_route=False, action="announce", upstream_nei
             current_routes_offset += last_suffix
 
 
+def is_backend_neighbor(properties):
+    """Return True if the neighbor belongs to the backend network plane."""
+    return not T1_BACKEND_PROPERTIES.isdisjoint(properties)
+
+
+def get_backend_routes_offset(podset_number, tor_number, max_tor_subnet_number, tor_subnet_size):
+    """Offset that shifts backend routes past the whole frontend route space.
+
+    Frontend neighbors consume route suffixes in the range
+    [0, podset_number * tor_number * max_tor_subnet_number * tor_subnet_size).
+    Starting the backend plane right after that range guarantees the two planes
+    never share a prefix, so the DUT cannot build an ECMP group that mixes
+    frontend uplinks with backend ports.
+    """
+    return podset_number * tor_number * max_tor_subnet_number * tor_subnet_size
+
+
 def get_router_type(properties):
     """Map topology property groups to the T1 synthetic route model."""
     for property_name in properties:
@@ -745,11 +766,19 @@ def fib_t1_lag(topo, ptf_ip, topo_name, no_default_route=False, action="announce
         router_type = get_router_type(v['properties'])
         tornum = v.get('tornum', None)
         tor_index = tornum - 1 if tornum is not None else None
-        if 'bt0' in v['properties'] and tor_index is not None:
-            # The backend topology can have more BT0 peers than logical ToRs in
-            # the synthetic route space. Reuse indices so every peer announces
-            # routes instead of dropping peers whose index exceeds tor_number.
-            tor_index %= tor_number
+        routes_offset = last_suffix
+        if is_backend_neighbor(v['properties']):
+            # Keep the backend route plane disjoint from the frontend one. Without
+            # this, BT2 announces exactly the same prefixes as the frontend T2
+            # neighbors, and the DUT ends up with a single ECMP group mixing
+            # frontend uplinks and backend ports (see issue #26577).
+            routes_offset += get_backend_routes_offset(podset_number, tor_number,
+                                                       max_tor_subnet_number, tor_subnet_size)
+            if tor_index is not None:
+                # The backend topology can have more BT0 peers than logical ToRs in
+                # the synthetic route space. Reuse indices so every peer announces
+                # routes instead of dropping peers whose index exceeds tor_number.
+                tor_index %= tor_number
         if router_type:
             if enable_ipv4_routes_generation:
                 routes_v4, _ = generate_routes("v4", podset_number, tor_number, tor_subnet_number,
@@ -757,7 +786,7 @@ def fib_t1_lag(topo, ptf_ip, topo_name, no_default_route=False, action="announce
                                                nhipv4, nhipv6, tor_subnet_size, max_tor_subnet_number, "t1",
                                                router_type=router_type, tor_index=tor_index,
                                                no_default_route=curr_no_default_route,
-                                               tor_default_route=tor_default_route, offset=last_suffix)
+                                               tor_default_route=tor_default_route, offset=routes_offset)
                 if aggregate_routes_v4:
                     filterout_subnet_ipv4(aggregate_routes, routes_v4)
                     routes_v4.extend(aggregate_routes_v4)
@@ -770,7 +799,7 @@ def fib_t1_lag(topo, ptf_ip, topo_name, no_default_route=False, action="announce
                                                router_type=router_type, tor_index=tor_index,
                                                no_default_route=curr_no_default_route,
                                                ipv6_address_pattern=ipv6_address_pattern,
-                                               tor_default_route=tor_default_route, offset=last_suffix)
+                                               tor_default_route=tor_default_route, offset=routes_offset)
                 if aggregate_routes_v6:
                     filterout_subnet_ipv6(aggregate_routes, routes_v6)
                     routes_v6.extend(aggregate_routes_v6)
