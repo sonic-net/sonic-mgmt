@@ -21,7 +21,8 @@ from tests.common.snappi_tests.common_helpers import config_capture_settings, ge
 from tests.common.snappi_tests.port import select_ports, select_tx_port
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp, fetch_snappi_flow_metrics, \
     fetch_flow_metrics_for_macsec    # noqa: F401
-from .variables import pfcQueueGroupSize, pfcQueueValueDict
+from .variables import pfcQueueValueDict
+from .common_helpers import pfc_queue_group_size
 from tests.common.snappi_tests.snappi_fixtures import gen_data_flow_dest_ip
 from tests.common.cisco_data import is_cisco_device
 from tests.common.reboot import reboot
@@ -226,7 +227,7 @@ def generate_test_flows(testbed_config,
             test_flow.packet.ethernet().ipv4()
             ip = test_flow.packet[-1]
             eth = test_flow.packet[-2]
-            if pfcQueueGroupSize == 8:
+            if pfc_queue_group_size() == 8:
                 eth.pfc_queue.value = prio
             else:
                 eth.pfc_queue.value = pfcQueueValueDict[prio]
@@ -252,7 +253,7 @@ def generate_test_flows(testbed_config,
 
             eth.src.value = base_flow_config["tx_mac"]
             eth.dst.value = base_flow_config["rx_mac"]
-            if pfcQueueGroupSize == 8:
+            if pfc_queue_group_size() == 8:
                 eth.pfc_queue.value = prio
             else:
                 eth.pfc_queue.value = pfcQueueValueDict[prio]
@@ -360,7 +361,7 @@ def generate_background_flows(testbed_config,
             bg_flow.packet.ethernet().ipv4()
             ip = bg_flow.packet[-1]
             eth = bg_flow.packet[-2]
-            if pfcQueueGroupSize == 8:
+            if pfc_queue_group_size() == 8:
                 eth.pfc_queue.value = prio
             else:
                 eth.pfc_queue.value = pfcQueueValueDict[prio]
@@ -384,7 +385,7 @@ def generate_background_flows(testbed_config,
 
             eth.src.value = base_flow_config["tx_mac"]
             eth.dst.value = base_flow_config["rx_mac"]
-            if pfcQueueGroupSize == 8:
+            if pfc_queue_group_size() == 8:
                 eth.pfc_queue.value = prio
             else:
                 eth.pfc_queue.value = pfcQueueValueDict[prio]
@@ -2011,13 +2012,20 @@ def multi_base_traffic_config(testbed_config,
                 rx_mac (str): MAC address of ixia RX port ex. '00:00:fa:ce:fa:ce'
                 tx_port_name (str): name of ixia TX port ex. 'Port 1'
                 rx_port_name (str): name of ixia RX port ex. 'Port 2'
-                dut_port_config (list): a list of two dictionaries of tx and rx ports on the peer (switch) side,
-                                        and the associated test priorities
-                                        ex. [{'Ethernet4':[3, 4]}, {'Ethernet8':[3, 4]}]
+                dut_port_config (dict): a dictionary with "Tx" and "Rx" keys, each containing a list of dictionaries
+                                        of tx and rx ports on the peer (switch) side, and the associated test
+                                        priorities ex. {"Tx": [{'Ethernet4':[3, 4]}],
+                                        "Rx": [{'Ethernet8':[3, 4]}]}
                 test_flow_name_dut_rx_port_map (dict): Mapping of test flow name to DUT RX port(s)
                                                   ex. {'flow1': [Ethernet4, Ethernet8]}
                 test_flow_name_dut_tx_port_map (dict): Mapping of test flow name to DUT TX port(s)
                                                   ex. {'flow1': [Ethernet4, Ethernet8]}
+
+    Note:
+        This helper currently creates a single port-mapping dictionary under each
+        of the "Tx" and "Rx" lists. In contrast, setup_base_traffic_config() may
+        produce multiple port-mapping dictionaries per direction. Both helpers
+        follow the same {"Tx", "Rx"} contract.
     """
     base_flow_config = {}
     base_flow_config["rx_port_id"] = rx_port_id
@@ -2029,11 +2037,11 @@ def multi_base_traffic_config(testbed_config,
     base_flow_config["rx_port_config"] = rx_port_config
 
     # Instantiate peer ports in dut_port_config
-    dut_port_config = []
+    dut_port_config = {"Tx": [], "Rx": []}
     tx_dict = {str(tx_port_config.peer_port): []}
     rx_dict = {str(rx_port_config.peer_port): []}
-    dut_port_config.append(tx_dict)
-    dut_port_config.append(rx_dict)
+    dut_port_config["Tx"].append(tx_dict)
+    dut_port_config["Rx"].append(rx_dict)
     base_flow_config["dut_port_config"] = dut_port_config
 
     base_flow_config["tx_mac"] = tx_port_config.mac

@@ -68,6 +68,20 @@ def get_asic_config_facts(duthost, asic_index):
     )["ansible_facts"]
 
 
+def map_bgp_neighbor_to_interfaces(neighbor_name, dev_nbrs):
+    """Map a BGP neighbor device name to local DUT member interfaces.
+
+    ``dev_nbrs`` is the ASIC-scoped ``DEVICE_NEIGHBOR`` table from
+    :func:`get_asic_config_facts`. Keys are physical ports (Ethernet*).
+    LAG members appear as their own entries, so no PortChannel lookup is needed.
+    """
+    interfaces = {}
+    for ifname, nbr_info in dev_nbrs.items():
+        if nbr_info.get('name') == neighbor_name:
+            interfaces[ifname] = nbr_info
+    return interfaces
+
+
 def get_vtysh_cmd_for_asic(duthost, asic_index, cmd):
     """Rewrite a ``vtysh ...`` command to target the given ASIC's namespace.
 
