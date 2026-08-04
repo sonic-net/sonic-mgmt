@@ -92,13 +92,12 @@ def restart_dhcp_service(duthost, relay_types):
 
         'sonic'        -> Consolidated v4 relay layout
                           (dockers/docker-dhcp-relay/dhcpv4-sonic-relay.agents.j2).
-                          Current behavior always renders the single
-                          supervisor-owned `dhcp4relay` when
-                          has_sonic_dhcpv4_relay is True, even with no external
-                          relay-server configuration.
-                          Required:
+                          With external relay-server configuration:
                             - the `dhcp4relay` supervisord entry is RUNNING
                             - exactly one `/usr/sbin/dhcp4relay` process exists
+                          Without external relay-server configuration:
+                            - the supervisord entry is absent
+                            - no `/usr/sbin/dhcp4relay` process exists
                           Not checked:
                             - dhcpmon-<Vlan> supervisord entries; monitor
                               lifecycle is orthogonal to the active v4 relay
@@ -152,7 +151,7 @@ def wait_dhcp_relay_ready(duthost, relay_types):
     """
     relay_types = _validate_relay_types('wait_dhcp_relay_ready', relay_types)
 
-    last_state = {'states': {}, 'dhcrelay_processes': [], 'dhcp4relay_processes': []}
+    last_state = {'states': {}, 'isc_relay_processes': [], 'sonic_relay_processes': []}
 
     def _supervisor_status_map():
         # supervisorctl returns rc != 0 if ANY entry is not RUNNING (e.g. the one-shot
@@ -177,16 +176,16 @@ def wait_dhcp_relay_ready(duthost, relay_types):
             return False
         v4_modes = {'internal-idle', 'isc', 'isc-internal', 'sonic', 'sonic-internal'}
         if any(mode in relay_types for mode in v4_modes):
-            dhcrelay_processes = duthost.shell(
-                "docker exec dhcp_relay pgrep -af '/usr/sbin/dhc[r]elay' || true"
+            isc_relay_processes = duthost.shell(
+                "docker exec dhcp_relay pgrep -a -x dhcrelay || true"
             )['stdout_lines']
-            dhcrelay_processes = [line for line in dhcrelay_processes if line.strip()]
-            dhcp4relay_processes = duthost.shell(
-                "docker exec dhcp_relay pgrep -af '/usr/sbin/dhcp4[r]elay' || true"
+            isc_relay_processes = [line for line in isc_relay_processes if line.strip()]
+            sonic_relay_processes = duthost.shell(
+                "docker exec dhcp_relay pgrep -a -x dhcp4relay || true"
             )['stdout_lines']
-            dhcp4relay_processes = [line for line in dhcp4relay_processes if line.strip()]
-            last_state['dhcrelay_processes'] = dhcrelay_processes
-            last_state['dhcp4relay_processes'] = dhcp4relay_processes
+            sonic_relay_processes = [line for line in sonic_relay_processes if line.strip()]
+            last_state['isc_relay_processes'] = isc_relay_processes
+            last_state['sonic_relay_processes'] = sonic_relay_processes
 
         isc_supervisor_states = [
             state for name, state in states.items()
@@ -209,37 +208,42 @@ def wait_dhcp_relay_ready(duthost, relay_types):
             for name, state in states.items():
                 if name.startswith('dhcpmon-') and state != 'RUNNING':
                     return False
-            if not isc_supervisor_states and dhcrelay_processes:
+            if not isc_supervisor_states and isc_relay_processes:
                 return False
-            if any('-iu docker0' in process for process in dhcrelay_processes):
+            if any('-iu docker0' in process for process in isc_relay_processes):
                 return False
-            if dhcp4relay_processes:
+            if sonic_relay_processes:
                 return False
         if 'isc-internal' in relay_types:
-            if len(dhcrelay_processes) != 1 or '-iu docker0' not in dhcrelay_processes[0]:
+            if len(isc_relay_processes) != 1 or '-iu docker0' not in isc_relay_processes[0]:
                 return False
-            if dhcp4relay_processes:
+            if sonic_relay_processes:
                 return False
             if any(state != 'STOPPED' for state in isc_supervisor_states):
                 return False
             if states.get('dhcp4relay') not in (None, 'STOPPED'):
                 return False
         if 'sonic' in relay_types:
-            if dhcrelay_processes:
+            if isc_relay_processes:
                 return False
-            if states.get('dhcp4relay') != 'RUNNING':
-                return False
-            if len(dhcp4relay_processes) != 1:
+            sonic_state = states.get('dhcp4relay')
+            if sonic_state == 'RUNNING':
+                if len(sonic_relay_processes) != 1:
+                    return False
+            elif sonic_state is None:
+                if sonic_relay_processes:
+                    return False
+            else:
                 return False
         if 'sonic-internal' in relay_types:
-            if dhcrelay_processes or len(dhcp4relay_processes) != 1:
+            if isc_relay_processes or len(sonic_relay_processes) != 1:
                 return False
             if any(state != 'STOPPED' for state in isc_supervisor_states):
                 return False
             if states.get('dhcp4relay') not in (None, 'STOPPED'):
                 return False
         if 'internal-idle' in relay_types:
-            if dhcrelay_processes or dhcp4relay_processes:
+            if isc_relay_processes or sonic_relay_processes:
                 return False
             if any(state != 'STOPPED' for state in isc_supervisor_states):
                 return False
@@ -250,9 +254,9 @@ def wait_dhcp_relay_ready(duthost, relay_types):
     pytest_assert(
         wait_until(240, 5, 0, _is_dhcp_relay_ready),
         "dhcp_relay is not ready "
-        "(relay_types=%s last_supervisor_states=%s dhcrelay_processes=%s dhcp4relay_processes=%s)"
+        "(relay_types=%s last_supervisor_states=%s isc_relay_processes=%s sonic_relay_processes=%s)"
         % (relay_types, last_state['states'],
-           last_state['dhcrelay_processes'], last_state['dhcp4relay_processes']))
+           last_state['isc_relay_processes'], last_state['sonic_relay_processes']))
 
 
 def init_dhcpmon_counters(duthost, is_v6=False):
@@ -625,7 +629,15 @@ def get_dhcp_relay_type(duthost):
         return 'sonic-internal' if has_sonic_dhcpv4_relay else 'isc-internal'
 
     if has_sonic_dhcpv4_relay:
-        return 'sonic'
+        vlan_interfaces = config_facts.get('VLAN_INTERFACE', {})
+        dhcpv4_relay = config_facts.get('DHCPV4_RELAY', {})
+        external_sonic_relay_configured = any(
+            vlan_name in vlan_interfaces
+            and any(str(server).strip() for server in config.get('dhcpv4_servers', []))
+            for vlan_name, config in dhcpv4_relay.items()
+        )
+        if external_sonic_relay_configured:
+            return 'sonic'
     return 'internal-idle'
 
 
