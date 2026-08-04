@@ -14,14 +14,9 @@ from tests.common import reboot
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.reboot import wait_for_startup
-from tests.common.utilities import wait_until
 from tests.conftest import get_hosts_per_hwsku
 from tests.platform_tests.test_reboot import check_interfaces_and_services
 from tests.platform_tests.utils import get_max_to_reboot, fanout_hosts_and_ports, link_status_on_host
-
-
-POST_REBOOT_COMMAND_TIMEOUT = 90
-POST_REBOOT_COMMAND_INTERVAL = 10
 
 
 pytestmark = [
@@ -60,17 +55,6 @@ def single_dut_and_ports(duthost):
     return duts_and_ports
 
 
-def wait_for_dut_ready(dut):
-    def is_dut_ready():
-        result = dut.command("true", module_ignore_errors=True)
-        return not result["failed"] and not result.get("unreachable", False)
-
-    pytest_assert(
-        wait_until(POST_REBOOT_COMMAND_TIMEOUT, POST_REBOOT_COMMAND_INTERVAL, 0, is_dut_ready),
-        "DUT {} did not become ready for Ansible commands after reboot".format(dut.hostname),
-    )
-
-
 def test_link_status_on_host_reboot(request, duthosts, localhost, conn_graph_facts, fanouthosts, xcvr_skip_list):
     frontend_nodes_per_hwsku = get_frontend_nodes_per_hwsku(duthosts, request)
     max_time_to_reboot = dict()
@@ -101,10 +85,9 @@ def test_link_status_on_host_reboot(request, duthosts, localhost, conn_graph_fac
         # After reboot, immediately check if all links on all fanouts are down
         link_status_on_host(fanouts_and_ports[dut], max_time_to_reboot[dut], up=False)
 
-        # Wait for ssh port to open up on the DUT
+        # Wait for SSH and Ansible commands to become ready on the DUT
         wait_for_startup(dut, localhost, 0, max_time_to_reboot[dut])
 
-        wait_for_dut_ready(dut)
         dut_uptime = dut.get_up_time()
         logger.info('DUT {} up since {}'.format(dut.hostname, dut_uptime))
         rebooted = float(dut_uptime_before.strftime("%s")) != float(dut_uptime.strftime("%s"))
