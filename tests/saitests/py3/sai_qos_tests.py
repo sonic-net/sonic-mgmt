@@ -4995,13 +4995,23 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
             print("Difference for each dscp: ", file=sys.stderr)
             print(diff_list, file=sys.stderr)
 
+            failures = []
+
+            # All packets sent should be received intact
+            print([q_cnt_sum, total_pkts], file=sys.stderr)
+            if q_cnt_sum != total_pkts:
+                failures.append("Not all packets received: sent %d but received %d" % (
+                    q_cnt_sum, total_pkts))
+
+            # Difference for each dscp should be within the scheduling limit
             for dscp, diff in diff_list:
                 if platform_asic and platform_asic == "broadcom-dnx":
                     logging.info(
                         "On J2C+ can't control how packets are dequeued (CS00012272267) - so ignoring diff check now")
                 elif not dry_run:
-                    assert diff < limit, "Difference for %d is %d which exceeds limit %d" % (
-                        dscp, diff, limit)
+                    if diff >= limit:
+                        failures.append("Difference for %d is %d which exceeds limit %d" % (
+                            dscp, diff, limit))
 
             # Read counters
             print("DST port counters: ")
@@ -5010,9 +5020,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
             print(list(map(operator.sub, queue_counters,
                            queue_counters_base)), file=sys.stderr)
 
-            print([q_cnt_sum, total_pkts], file=sys.stderr)
-            # All packets sent should be received intact
-            assert (q_cnt_sum == total_pkts)
+            assert len(failures) == 0, "WRRtest failures:\n" + "\n".join(failures)
         finally:
             self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id],
                                            enable_port_by_unblock_queue=False)
