@@ -116,7 +116,10 @@ def restart_dhcp_service(duthost, relay_types):
                           `dhcp4relay` process remains RUNNING and switches
                           internally from DHCPV4_RELAY to DHCP_SERVER_IPV4
                           configuration. Its process-layout requirements are
-                          therefore identical to `sonic`.
+                          therefore identical to `sonic`. This mode encompasses
+                          both an enabled local DHCP-server interface and the
+                          no-interface idle state, so no separate SONiC
+                          internal-idle mode is needed.
 
         'v6'           -> IPv6 relay.
                           Required RUNNING:
