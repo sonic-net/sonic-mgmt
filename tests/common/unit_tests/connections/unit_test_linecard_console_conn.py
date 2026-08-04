@@ -55,7 +55,7 @@ class FakeConsoleCli:
         self.expect_args = (pattern, timeout)
         if pattern == r'.+':
             if self.timing_output is None:
-                raise MODULE.pexpect.TIMEOUT()
+                raise MODULE.pexpect.TIMEOUT("timed out")
             self.match = FakeMatch(self.timing_output)
             self.timing_output = None
 
