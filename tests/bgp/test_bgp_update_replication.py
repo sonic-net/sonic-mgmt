@@ -23,6 +23,7 @@ STATS_COLLECT_TIMEOUT = 30
 STATS_COLLECT_INTERVAL = 5
 
 pytestmark = [
+    pytest.mark.frr_generic,
     pytest.mark.topology('t0', 't1', 't2', 'lrh', 'urh', 'lt2', 'ft2', 'lma', 'uma'),
     pytest.mark.disable_loganalyzer
 ]

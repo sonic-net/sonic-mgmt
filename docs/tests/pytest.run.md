@@ -113,3 +113,30 @@ Notes:
   the DUT; without it, mode-switching tests skip with a clear reason.
 * Mode-switching is single-ASIC only for now; on multi-ASIC / supervisor nodes the fixture
   runs the DUT's native mode only.
+
+### `frr_generic` modules: one mode instead of two
+
+Not every opted-in module exercises the bgpcfgd<->frrcfgd translation. Many assert FRR /
+zebra / dataplane / kernel behavior over config established at boot -- the config mode only
+governs how that boot config was rendered, and the fixture's fail-loud fingerprint already
+asserts the two renders carry the same objects. Running such a body in both modes re-tests
+FRR, not the config daemon.
+
+Those modules carry `pytest.mark.frr_generic` and run in **one** mode:
+
+| `--frr-config-mode` | `frr_generic` module runs in |
+|---|---|
+| `both` (default) | `frr_mgmt_framework` -- the newer frrcfgd path is preferred |
+| `traditional` | `traditional` |
+| `frr_mgmt_framework` | `frr_mgmt_framework` |
+
+The preference degrades gracefully: when frrcfgd is not reachable on the DUT (no
+`golden_config_db.json`, multi-ASIC, supervisor, `--enable_macsec`, or a non-traditional boot
+mode) a `both` run falls back to `traditional` so the module still **runs** rather than
+skipping. Both `[traditional]` and `[frr_mgmt_framework]` test IDs are still generated (so
+`conditional_mark` keys and `-k` selection are unchanged) and the variant that is not used
+reports a skip naming the mode that did run.
+
+Modules **without** the marker are the ones where the config daemon is the subject (render
+equivalence, `BGP_GLOBALS.router_id`, `BGP_BBR`, `BGP_ALLOWED_PREFIXES`, `ROUTE_MAP.set_src`,
+GCU patch paths, listen-range peer-groups, ...) and continue to run in both modes.

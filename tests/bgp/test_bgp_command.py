@@ -7,6 +7,7 @@ from tests.common.utilities import is_ipv6_only_topology
 
 
 pytestmark = [
+    pytest.mark.frr_generic,
     pytest.mark.topology("t0", "t1", "m0", "mx", "m1", "c0", "lma", "uma"),
     pytest.mark.device_type('vs')
 ]
