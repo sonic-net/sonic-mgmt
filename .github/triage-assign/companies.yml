@@ -1,0 +1,50 @@
+# Configuration for the "Assign Triage Labels" workflow
+# (.github/workflows/assign_triage_labels.yml).
+#
+# Every pull request gets `assignments_per_pr` labels of the form
+# "<label_prefix><company name>", picked at random from the companies listed
+# below, excluding the company the PR author belongs to.
+
+label_prefix: "triage-"
+assignments_per_pr: 2
+
+companies:
+  - name: Arista
+    # Matched (case-insensitively) against the "Organization" field of
+    # contributors.json in sonic-net/sonic-contributor-map.
+    organizations:
+      - Arista
+    # Fallback heuristic used when the contributor map is unavailable or does
+    # not list the PR author: a GitHub username ending in one of these
+    # suffixes is treated as belonging to this company.
+    username_suffixes:
+      - "-arista"
+
+  - name: Cisco
+    organizations:
+      - Cisco
+    username_suffixes:
+      - "-cisco"
+      - "-csco"
+
+  - name: Microsoft
+    organizations:
+      - Microsoft
+    username_suffixes:
+      - "-microsoft"
+      - "-msft"
+
+  - name: Nexthop
+    organizations:
+      - Nexthop
+      - Nexthop Systems
+    username_suffixes:
+      - "-nexthop"
+
+# Extra author -> company mappings applied on top of the contributor map.
+# Useful for people the (possibly stale) map has not caught up with yet, and
+# for people whose username carries no company suffix.
+# Keys are GitHub usernames (case-insensitive), values are company names from
+# the list above.
+overrides: {}
+  # octocat: Nexthop
