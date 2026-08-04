@@ -5,6 +5,7 @@ import pytest
 
 from tests.transceiver.attribute_parser.attribute_keys import (
     CDB_FIRMWARE_UPGRADE_ATTRIBUTES_KEY,
+    EEPROM_ATTRIBUTES_KEY,
 )
 from tests.transceiver.attribute_parser.paths import get_repo_root
 from tests.transceiver.cdb_firmware_upgrade.parser import TransceiverFirmwareInfoParser
@@ -16,12 +17,13 @@ from tests.transceiver.cdb_firmware_upgrade.utils.firmware_utils import (
     stage_prestaged_firmware_binaries,
     cleanup_firmware_files,
 )
-from tests.transceiver.cdb_firmware_upgrade.port_selection import (
-    get_qualifying_ports,
-    resolve_ports_under_test,
-)
 from tests.transceiver.common import cli_helpers
-from tests.transceiver.common.db_helpers import get_db_hash_field
+from tests.transceiver.common.db_helpers import get_db_hash_field, resolve_port_namespace
+from tests.transceiver.common.eeprom_decode import is_cmis_active_optical
+from tests.transceiver.common.port_selectors import (
+    resolve_ports_under_test,
+    select_attribute_ports,
+)
 
 CMIS_CDB_FIRMWARE_BASE_PATH_ON_DUT = "/tmp/cmis_cdb_firmware"
 CMIS_CDB_FIRMWARE_PRESTAGED_PATH_ON_DUT = "/host/cmis_cdb_firmware"
@@ -104,10 +106,37 @@ def stage_latest_firmware_binaries_on_dut(
     logger.info("All latest firmware staged to {}".format(CMIS_CDB_FIRMWARE_BASE_PATH_ON_DUT))
 
 
-@pytest.fixture
-def dom_polling_disabled(
-    duthost, port_attributes_dict, lport_to_first_subport_mapping, get_lport_to_pport_mapping
+@pytest.fixture(scope="module")
+def cdb_firmware_qualifying_ports(
+    port_attributes_dict, lport_to_first_subport_mapping, get_lport_to_pport_mapping
 ):
+    """CMIS active-optical first-subport ports the CDB firmware tests run on.
+
+    Selection is the CDB attribute category gated by the EEPROM ``cmis_active_optical``
+    flag and restricted to any configured ``ports_under_test``.
+    """
+    explicit_ports = resolve_ports_under_test(
+        get_lport_to_pport_mapping, port_attributes_dict, CDB_FIRMWARE_UPGRADE_ATTRIBUTES_KEY
+    )
+    qualifying_ports = select_attribute_ports(
+        port_attributes_dict,
+        CDB_FIRMWARE_UPGRADE_ATTRIBUTES_KEY,
+        lport_to_first_subport_mapping=lport_to_first_subport_mapping,
+        explicit_ports=explicit_ports,
+        predicate=lambda port, attrs: is_cmis_active_optical(attrs.get(EEPROM_ATTRIBUTES_KEY, {})),
+    ).primary_ports
+    if not qualifying_ports:
+        if explicit_ports is not None:
+            pytest.fail(
+                "ports_under_test configured but resolved to no qualifying "
+                "CMIS active-optical ports"
+            )
+        pytest.skip("No CMIS active-optical first-subport ports found for CDB firmware tests")
+    return qualifying_ports
+
+
+@pytest.fixture
+def dom_polling_disabled(duthost, port_attributes_dict, cdb_firmware_qualifying_ports):
     """Disable DOM polling on the ports under test, restoring it on teardown.
 
     Scope is intentionally function (the default): upcoming firmware-operation
@@ -115,18 +144,13 @@ def dom_polling_disabled(
     re-enabled between tests.  Function scope gives a per-test
     disable -> yield -> re-enable cycle.
     """
-    ports_under_test = resolve_ports_under_test(get_lport_to_pport_mapping, port_attributes_dict)
-    qualifying_ports = get_qualifying_ports(
-        port_attributes_dict, lport_to_first_subport_mapping, ports_under_test
-    )
-
     sleep_sec = 0
     disabled_ports = []
     try:
-        for port in qualifying_ports:
+        for port in cdb_firmware_qualifying_ports:
             cdb_attrs = port_attributes_dict[port].get(CDB_FIRMWARE_UPGRADE_ATTRIBUTES_KEY, {})
             sleep_sec = max(sleep_sec, cdb_attrs.get("sleep_after_dom_disable_sec", 5))
-            namespace = duthost.get_port_asic_instance(port).namespace
+            namespace = resolve_port_namespace(duthost, port)
             dom_polling, err = get_db_hash_field(
                 duthost, "CONFIG_DB", "PORT", port, "dom_polling", namespace=namespace
             )

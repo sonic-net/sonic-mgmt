@@ -12,10 +12,6 @@ import pytest
 from tests.transceiver.attribute_parser.attribute_keys import (
     CDB_FIRMWARE_UPGRADE_ATTRIBUTES_KEY,
 )
-from tests.transceiver.cdb_firmware_upgrade.port_selection import (
-    get_qualifying_ports,
-    resolve_ports_under_test,
-)
 from tests.transceiver.common import cli_helpers
 
 logger = logging.getLogger(__name__)
@@ -24,16 +20,15 @@ ACTIVE_FIRMWARE_KEY = "Active Firmware"
 INACTIVE_FIRMWARE_KEY = "Inactive Firmware"
 
 
-def _run_per_port_check(duthost, port_attributes_dict, lport_to_first_subport, lport_to_pport,
+def _run_per_port_check(duthost, port_attributes_dict, qualifying_ports, lport_to_pport,
                         check_fn, prefetch=None):
     """Iterate qualifying ports, run ``check_fn``, and aggregate failures.
 
     Args:
         duthost: DUT host fixture.
         port_attributes_dict: ``{port: {attr_block: {...}}}`` inventory map.
-        lport_to_first_subport: first-sub-port mapping fixture.
-        lport_to_pport: ``{logical_port: physical_index}`` map (resolved once)
-            used to resolve ``ports_under_test``.
+        qualifying_ports: ports to check (from the ``cdb_firmware_qualifying_ports`` fixture).
+        lport_to_pport: ``{logical_port: physical_index}`` map, passed to ``prefetch``.
         check_fn: callable ``(duthost, port, port_attrs, all_failures, prefetched) -> None``
             that appends a ``"<port>: <failure>"`` string to ``all_failures``.
         prefetch: optional callable
@@ -45,10 +40,6 @@ def _run_per_port_check(duthost, port_attributes_dict, lport_to_first_subport, l
         tuple[list[str], int]: the per-port failure entries, and the number of
         qualifying ports that were checked.
     """
-    ports_under_test = resolve_ports_under_test(lport_to_pport, port_attributes_dict)
-    qualifying_ports = get_qualifying_ports(
-        port_attributes_dict, lport_to_first_subport, ports_under_test
-    )
     prefetched = prefetch(duthost, qualifying_ports, lport_to_pport) if prefetch else None
     all_failures = []
     for port in qualifying_ports:
@@ -168,7 +159,7 @@ def _check_abort_support(duthost, port, port_attrs, all_failures, prefetched):
 
 
 def test_firmware_versions(
-    duthost, port_attributes_dict, lport_to_first_subport_mapping, get_lport_to_pport_mapping,
+    duthost, port_attributes_dict, cdb_firmware_qualifying_ports, get_lport_to_pport_mapping,
     dom_polling_disabled,
 ):
     """Verify each CMIS active-optical module runs its gold firmware.
@@ -181,7 +172,7 @@ def test_firmware_versions(
     by the ``dom_polling_disabled`` fixture.
     """
     all_failures, num_ports = _run_per_port_check(
-        duthost, port_attributes_dict, lport_to_first_subport_mapping,
+        duthost, port_attributes_dict, cdb_firmware_qualifying_ports,
         get_lport_to_pport_mapping, _check_firmware_versions,
     )
     logger.info("Verified firmware version on %d port(s)", num_ports)
@@ -190,7 +181,7 @@ def test_firmware_versions(
 
 
 def test_cdb_abort_support(
-    duthost, port_attributes_dict, lport_to_first_subport_mapping, get_lport_to_pport_mapping,
+    duthost, port_attributes_dict, cdb_firmware_qualifying_ports, get_lport_to_pport_mapping,
     dom_polling_disabled,
 ):
     """Verify advertised CDB firmware-download abort capability.
@@ -199,7 +190,7 @@ def test_cdb_abort_support(
     by the ``dom_polling_disabled`` fixture.
     """
     all_failures, num_ports = _run_per_port_check(
-        duthost, port_attributes_dict, lport_to_first_subport_mapping,
+        duthost, port_attributes_dict, cdb_firmware_qualifying_ports,
         get_lport_to_pport_mapping, _check_abort_support,
         prefetch=_build_abort_support_map,
     )
