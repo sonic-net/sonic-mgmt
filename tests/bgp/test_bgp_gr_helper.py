@@ -170,12 +170,7 @@ def test_bgp_gr_helper_routes_perserved(duthosts, rand_one_dut_hostname, nbrhost
                  test_neighbor_name)
 
 
-    # Fix: wait for routes learned from the neighbor to stabilize before snapshotting the
-    # baseline. After setup_bgp_graceful_restart bounces every session, the topology may still
-    # be converging (e.g. the default route flaps via the T0<->T1 advertise/withdraw feedback
-    # loop). Snapshotting mid-convergence captures a route the neighbor is about to legitimately
-    # withdraw, which then races the GR check and fails intermittently. Require two consecutive
-    # identical snapshots (10s apart) before proceeding.
+    # Wait for neighbor routes to stabilize before snapshotting the baseline
     _prev_learned_routes = {}
 
     def _neighbor_routes_stable(bgp_neighbor):
@@ -190,6 +185,7 @@ def test_bgp_gr_helper_routes_perserved(duthosts, rand_one_dut_hostname, nbrhost
             "routes learned from neighbor %s did not stabilize before graceful restart"
             % test_bgp_neighbor,
         )
+
     # get all routes received from neighbor before GR
     all_neighbor_routes_before_gr = {}
     for test_bgp_neighbor in test_bgp_neighbors:
