@@ -49,6 +49,12 @@ configuration_properties:
     swrole: core
   leaf:
     swrole: leaf
+  lma:
+    swrole: leaf
+    device_type: LowerMgmtAggregator     # VM02-05LMA (confed peers)
+  m1:
+    swrole: leaf
+    device_type: MgmtLeafRouter          # VM06M1 (external downstream)
 
 configuration:
   VM01RWA:
