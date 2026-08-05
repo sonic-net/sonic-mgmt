@@ -5,7 +5,7 @@
 - [3 Testbed Setup](#3-testbed-setup)
 - [4 Test Cases](#4-test-cases)
   - [4.1 Functionality Test](#41-functionality-test)
-  - [4.2 Lifecycle and Robustness](#42-lifecycle-and-robustness)
+  - [4.2 Lifecycle Test](#42-lifecycle-test)
   - [4.3 Performance Test](#43-performance-test)
 - [5 Future Work](#5-future-work)
 
