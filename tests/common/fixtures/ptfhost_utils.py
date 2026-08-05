@@ -1,3 +1,4 @@
+from collections import namedtuple
 import json
 import time
 import os
@@ -38,7 +39,6 @@ GARP_SERVICE_PY = 'garp_service.py'
 GARP_SERVICE_CONF_TEMPL = 'garp_service.conf.j2'
 PTF_TEST_PORT_MAP = '/root/ptf_test_port_map.json'
 PROBER_INTERVAL_MS = 3000
-PTFHOST_EXCEPTION_RC = 16
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -198,7 +198,8 @@ def teardown_ptf_ip_responder(duthost, ptfhost, responder_conf_path, ip_intf_pai
     ptfhost.file(path=responder_conf_path, state="absent")
     ptfhost.file(path="/etc/supervisor/conf.d/arp_responder.conf", state="absent")
     ptfhost.shell("supervisorctl reread && supervisorctl update", module_ignore_errors=True)
-    if route and ip_intf_pairs:
+    if route:
+        assert ip_intf_pairs, "ip_intf_pairs is required when route=True to clean up host routes"
         for ip, dut_intf, _ in ip_intf_pairs:
             duthost.shell(_ptf_ip_route_cmd("del", ip, dut_intf), module_ignore_errors=True)
     duthost.command("sonic-clear fdb all")
@@ -230,6 +231,11 @@ def copy_arp_responder_py(ptfhost):
 
     logger.info("Delete arp_responder.py from ptfhost '{0}'".format(ptfhost.hostname))
     ptfhost.file(path=os.path.join(OPT_DIR, ARP_RESPONDER_PY), state="absent")
+
+
+# responder_cfg: eth<ptf_index> -> [ipv4, ipv6] ([ipv6] on IPv6-only topos),
+# the exact IP(s) the responder answers per port.
+ArpResponderInfo = namedtuple("ArpResponderInfo", ["vlan", "responder_cfg"])
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -304,9 +310,14 @@ def setup_vlan_arp_responder(ptfhost, rand_selected_dut, tbinfo):
     logger.info("Start arp_responder")
     ptfhost.command('supervisorctl start arp_responder')
 
-    yield vlan, ipv4_base, ipv6_base, ip_offset
+    yield ArpResponderInfo(vlan=vlan, responder_cfg=arp_responder_cfg)
 
     ptfhost.command('supervisorctl stop arp_responder')
+    # Remove the rendered config so it can't mislead diagnostics or be picked up
+    # by a later, stale invocation of arp_responder. The supervisor unit file
+    # itself is intentionally left in place because the autouse fixture re-renders
+    # it on every module setup; deleting only the data file is enough.
+    ptfhost.file(path=CFG_FILE, state="absent")
 
 
 def _ptf_portmap_file(duthost, ptfhost, tbinfo):
@@ -356,12 +367,6 @@ def ptf_portmap_file_module(rand_selected_dut, ptfhost, tbinfo):
     A module level fixture that calls _ptf_portmap_file
     """
     yield _ptf_portmap_file(rand_selected_dut, ptfhost, tbinfo)
-
-
-def pytest_sessionfinish(session, exitstatus):
-    if session.config.cache.get("ptfhost_exception", None):
-        session.config.cache.set("ptfhost_exception", None)
-        session.exitstatus = PTFHOST_EXCEPTION_RC
 
 
 icmp_responder_session_started = False
@@ -757,6 +762,6 @@ def skip_traffic_test(request):
 
 @pytest.fixture(scope='function')
 def iptables_drop_ipv6_tx(ptfhost):
-    ptfhost.shell("ip6tables -P OUTPUT DROP")
+    ptfhost.shell("ip6tables -P OUTPUT DROP || true")
     yield
-    ptfhost.shell("ip6tables -P OUTPUT ACCEPT")
+    ptfhost.shell("ip6tables -P OUTPUT ACCEPT || true")

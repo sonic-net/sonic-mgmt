@@ -6,8 +6,13 @@ import time
 import netaddr
 import logging
 
-from tests.common.dhcp_relay_utils import restart_dhcp_service
-from tests.common.dhcp_relay_utils import init_dhcpmon_counters, validate_dhcpmon_counters, restart_dhcpmon_in_debug
+from tests.common.dhcp_relay_utils import (
+    init_dhcpmon_counters,
+    restart_dhcp_service,
+    restart_dhcpmon_in_debug,
+    validate_dhcpmon_counters,
+    wait_dhcp_relay_ready,
+)
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa F401
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py     # noqa F401
@@ -50,17 +55,6 @@ def wait_all_bgp_up(duthost):
     bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
     if not wait_until(180, 10, 0, duthost.check_bgp_session_state, list(bgp_neighbors.keys())):
         pytest.fail("not all bgp sessions are up after config change")
-
-
-def skip_dhcpv6_dhcptest_on_kvm(duthost):
-    # DHCPTest wrappers never passed kvm_support=True, so ptf_runner already
-    # skipped them on KVM/VS. Keep that behavior explicit now that these
-    # wrappers validate dhcpmon counters after the PTF run.
-    if (
-        duthost.facts.get("platform") == "x86_64-kvm_x86_64-r0"
-        and duthost.facts.get("asic_type") != "vpp"
-    ):
-        pytest.skip("dhcpv6_relay_test.DHCPTest is not supported on KVM non-VPP DUTs")
 
 
 def check_dhcpv6_relay_counter(duthost, ifname, type, dir):
@@ -332,6 +326,7 @@ def test_interface_binding(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data,
         config_reload(duthost)
         wait_critical_processes(duthost)
         pytest_assert(wait_until(120, 5, 0, check_interface_status, duthost))
+        wait_dhcp_relay_ready(duthost, ['v6'])
 
     # Cmds to delete LLA for all Vlans
     delete_cmds = ["ip -6 address del {} dev {}"
@@ -361,7 +356,7 @@ def test_interface_binding(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data,
 
     try:
         duthost.shell_cmds(cmds=delete_cmds)
-        restart_dhcp_service(duthost)
+        restart_dhcp_service(duthost, ['v6'])
         time.sleep(10)
 
         output = duthost.shell("docker exec -t dhcp_relay ss -nlp | grep dhcp6relay")["stdout"]
@@ -512,7 +507,7 @@ def test_dhcpv6_relay_counter(ptfhost, duthosts, rand_one_dut_hostname, dut_dhcp
 
     finally:
         # Clean up - Restart DHCP relay service on DUT to recover original dhcpmon setting
-        restart_dhcp_service(duthost)
+        restart_dhcp_service(duthost, ['v6'])
         pytest_assert(wait_until(120, 5, 0, check_interface_status, duthost))
 
 
@@ -523,8 +518,6 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
        For each DHCP relay agent running on the DuT, verify DHCP packets are relayed properly
     """
     _, duthost = testing_config
-
-    skip_dhcpv6_dhcptest_on_kvm(duthost)
 
     # Please note: relay interface always means vlan interface
     try:
@@ -561,7 +554,8 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
                                    "uplink_mac": str(dhcp_relay['uplink_mac']),
                                    "loopback_ipv6": str(dhcp_relay['loopback_ipv6']),
                                    "downstream_relay_ip": downstream_relay_ip,
-                                   "is_dualtor": str(dhcp_relay['is_dualtor'])},
+                                   "is_dualtor": str(dhcp_relay['is_dualtor']),
+                                   "kvm_support": True},
                            log_file="/tmp/dhcpv6_relay_test.DHCPTest.log", is_python3=True)
             finally:
                 teardown_ptf_ip_responder(
@@ -576,7 +570,7 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
 
     finally:
         # Clean up - Restart DHCP relay service on DUT to recover original dhcpmon setting
-        restart_dhcp_service(duthost)
+        restart_dhcp_service(duthost, ['v6'])
         pytest_assert(wait_until(120, 5, 0, check_interface_status, duthost))
 
 
@@ -586,8 +580,6 @@ def test_dhcp_relay_after_link_flap(ptfhost, dut_dhcp_relay_data, validate_dut_r
        then test whether the DHCP relay agent relays packets properly.
     """
     testing_mode, duthost = testing_config
-
-    skip_dhcpv6_dhcptest_on_kvm(duthost)
 
     try:
         for dhcp_relay in dut_dhcp_relay_data:
@@ -631,7 +623,8 @@ def test_dhcp_relay_after_link_flap(ptfhost, dut_dhcp_relay_data, validate_dut_r
                                    "uplink_mac": str(dhcp_relay['uplink_mac']),
                                    "loopback_ipv6": str(dhcp_relay['loopback_ipv6']),
                                    "downstream_relay_ip": DOWNSTREAM_RELAY_IP,
-                                   "is_dualtor": str(dhcp_relay['is_dualtor'])},
+                                   "is_dualtor": str(dhcp_relay['is_dualtor']),
+                                   "kvm_support": True},
                            log_file="/tmp/dhcpv6_relay_test.DHCPTest.log", is_python3=True)
             finally:
                 teardown_downstream_relay_responder(duthost, ptfhost, downstream_relay_responder)
@@ -645,7 +638,7 @@ def test_dhcp_relay_after_link_flap(ptfhost, dut_dhcp_relay_data, validate_dut_r
 
     finally:
         # Clean up - Restart DHCP relay service on DUT to recover original dhcpmon setting
-        restart_dhcp_service(duthost)
+        restart_dhcp_service(duthost, ['v6'])
         pytest_assert(wait_until(120, 5, 0, check_interface_status, duthost))
 
 
@@ -656,8 +649,6 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
        relays packets properly.
     """
     testing_mode, duthost = testing_config
-
-    skip_dhcpv6_dhcptest_on_kvm(duthost)
 
     try:
         for dhcp_relay in dut_dhcp_relay_data:
@@ -711,7 +702,8 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
                                    "uplink_mac": str(dhcp_relay['uplink_mac']),
                                    "loopback_ipv6": str(dhcp_relay['loopback_ipv6']),
                                    "downstream_relay_ip": DOWNSTREAM_RELAY_IP,
-                                   "is_dualtor": str(dhcp_relay['is_dualtor'])},
+                                   "is_dualtor": str(dhcp_relay['is_dualtor']),
+                                   "kvm_support": True},
                            log_file="/tmp/dhcpv6_relay_test.DHCPTest.log", is_python3=True)
             finally:
                 teardown_downstream_relay_responder(duthost, ptfhost, downstream_relay_responder)
@@ -725,7 +717,7 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
 
     finally:
         # Clean up - Restart DHCP relay service on DUT to recover original dhcpmon setting
-        restart_dhcp_service(duthost)
+        restart_dhcp_service(duthost, ['v6'])
         pytest_assert(wait_until(120, 5, 0, check_interface_status, duthost))
 
 
@@ -735,28 +727,30 @@ class TestDhcpv6RelayWithMultipleVlan:
     def restart_dhcp_relay_after_test(self, duthost):
 
         yield
-        restart_dhcp_service(duthost)
+        restart_dhcp_service(duthost, ['v6'])
 
-    @pytest.mark.parametrize("setup_multiple_vlans_and_teardown", [3], indirect=True)
     def test_dhcp_relay_default(self, ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
                                                 toggle_all_simulator_ports_to_rand_selected_tor_m, # noqa F811
                                                 setup_active_active_as_active_standby,             # noqa F811
-                                                setup_multiple_vlans_and_teardown):                # noqa F811
+                                                parametrize_vlan_config_from_topo):                # noqa F811
         '''
             Test DHCP relay should set correct link address when relay packet to DHCP server
         '''
-        vlans_info = setup_multiple_vlans_and_teardown
+        vlans_info = parametrize_vlan_config_from_topo
         _, duthost = testing_config
-        skip_dhcpv6_dhcptest_on_kvm(duthost)
         # Please note: relay interface always means vlan interface
         pytest_assert(len(dut_dhcp_relay_data) > 0, "No VLAN data")
         common_dhcp_relay_data = dut_dhcp_relay_data[0]
 
-        restart_dhcp_service(duthost)  # restart dhcp_relay to make new vlans config take into effect
+        restart_dhcp_service(duthost, ['v6'])  # restart dhcp_relay to make new vlans config take into effect
         for vlan_info in vlans_info:
             vlan_name = vlan_info['vlan_name']
+            members_with_ptf_idx = vlan_info['members_with_ptf_idx']
+            if not members_with_ptf_idx:
+                logger.info("Vlan %s has no PTF-mapped members (PortChannel-only); skipping", vlan_name)
+                continue
             exp_link_addr = vlan_info['interface_ipv6'].split('/')[0]
-            client_iface_name, ptf_port_index = random.choice(vlan_info['members_with_ptf_idx'])
+            client_iface_name, ptf_port_index = random.choice(members_with_ptf_idx)
             logger.info("Randomly selected PTF port index: {}".format(ptf_port_index))
             ensure_client_reachability(duthost, vlan_name)
             command = "ip addr show {} | grep inet6 | grep 'scope link' | awk '{{print $2}}' | cut -d '/' -f1" \
@@ -791,7 +785,8 @@ class TestDhcpv6RelayWithMultipleVlan:
                                    "uplink_mac": str(common_dhcp_relay_data['uplink_mac']),
                                    "loopback_ipv6": str(common_dhcp_relay_data['loopback_ipv6']),
                                    "downstream_relay_ip": DOWNSTREAM_RELAY_IP,
-                                   "is_dualtor": str(common_dhcp_relay_data['is_dualtor'])},
+                                   "is_dualtor": str(common_dhcp_relay_data['is_dualtor']),
+                                   "kvm_support": True},
                            log_file="/tmp/dhcpv6_relay_test.DHCPTest.log", is_python3=True)
             finally:
                 teardown_downstream_relay_responder(duthost, ptfhost, downstream_relay_responder)
@@ -810,5 +805,5 @@ class TestDhcpv6RelayWithMultipleVlan:
                                       expected_downlink_counter, is_v6=True)
 
         # Clean up - Restart DHCP relay service on DUT to recover original dhcpmon setting
-        restart_dhcp_service(duthost)
+        restart_dhcp_service(duthost, ['v6'])
         pytest_assert(wait_until(120, 5, 0, check_interface_status, duthost))
