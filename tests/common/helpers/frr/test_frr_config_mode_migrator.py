@@ -14,6 +14,7 @@ from tests.common.helpers.frr.frr_config_mode_migrator import (
     FrrTranslationError,
     CONFIG_DB_FILE,
     GOLDEN_CFG_FILE,
+    GOLDEN_CFG_ORIGIN_FILE,
     _BAK_SUFFIX,
 )
 
@@ -25,6 +26,7 @@ pytestmark = [
 
 CONFIG_BAK = CONFIG_DB_FILE + _BAK_SUFFIX
 GOLDEN_BAK = GOLDEN_CFG_FILE + _BAK_SUFFIX
+ORIGIN_BAK = GOLDEN_CFG_ORIGIN_FILE + _BAK_SUFFIX
 
 
 class FakeDutHost(object):
@@ -124,6 +126,35 @@ def test_restore_accepts_a_clean_traditional_config_db():
         config_db_tables=["BGP_NEIGHBOR", "BGP_PEER_GROUP", "BGP_DEVICE_GLOBAL", "PORT"],
     )
     assert FrrConfigModeMigrator(dut).to_traditional() is True
+
+
+def test_backup_includes_the_golden_origin_backup():
+    """restore_golden_config_db copies .origin.backup over golden at every module setup, so the
+    origin file is part of the state a mode switch has to save and restore."""
+    dut = FakeDutHost(files=[CONFIG_DB_FILE, GOLDEN_CFG_FILE, GOLDEN_CFG_ORIGIN_FILE])
+    FrrConfigModeMigrator(dut)._backup()
+    assert dut.ran("cp {0} {1}".format(GOLDEN_CFG_ORIGIN_FILE, ORIGIN_BAK))
+
+
+def test_backup_skips_origin_when_the_dut_has_none():
+    dut = FakeDutHost(files=[CONFIG_DB_FILE, GOLDEN_CFG_FILE])
+    FrrConfigModeMigrator(dut)._backup()
+    assert not dut.ran(GOLDEN_CFG_ORIGIN_FILE)
+
+
+def test_to_traditional_restores_the_golden_origin_backup():
+    dut = FakeDutHost(files=[CONFIG_DB_FILE, CONFIG_BAK, GOLDEN_CFG_FILE, GOLDEN_BAK,
+                             GOLDEN_CFG_ORIGIN_FILE, ORIGIN_BAK])
+    assert FrrConfigModeMigrator(dut).to_traditional() is True
+    assert dut.ran("cp {0} {1}".format(ORIGIN_BAK, GOLDEN_CFG_ORIGIN_FILE))
+
+
+def test_cleanup_removes_the_golden_origin_backup():
+    dut = FakeDutHost(files=[CONFIG_BAK, GOLDEN_BAK, ORIGIN_BAK])
+    FrrConfigModeMigrator(dut).cleanup()
+    assert ORIGIN_BAK not in dut.files
+    assert CONFIG_BAK not in dut.files
+    assert GOLDEN_BAK not in dut.files
 
 
 def test_failed_restore_keeps_backups_for_manual_recovery():
