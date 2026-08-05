@@ -48,8 +48,6 @@ configuration_properties:
   core:
     swrole: core
     device_type: RegionalWANAggregator
-  leaf:
-    swrole: leaf
   lma:
     swrole: leaf
     device_type: LowerMgmtAggregator     # VM02-05LMA (confed peers)
@@ -83,7 +81,7 @@ configuration:
   VM02LMA:
     properties:
     - common
-    - leaf
+    - lma
     bgp:
       asn: 64589
       confed_asn: 64582
@@ -106,7 +104,7 @@ configuration:
   VM03LMA:
     properties:
     - common
-    - leaf
+    - lma
     bgp:
       asn: 64589
       confed_asn: 64582
@@ -129,7 +127,7 @@ configuration:
   VM04LMA:
     properties:
     - common
-    - leaf
+    - lma
     bgp:
       asn: 64589
       confed_asn: 64582
@@ -152,7 +150,7 @@ configuration:
   VM05LMA:
     properties:
     - common
-    - leaf
+    - lma
     bgp:
       asn: 64589
       confed_asn: 64582
@@ -175,7 +173,7 @@ configuration:
   VM06M1:
     properties:
     - common
-    - leaf
+    - m1
     bgp:
       peer_in_bgp_confed: true
       asn: 65300
