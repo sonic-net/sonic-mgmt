@@ -115,6 +115,19 @@ class FrrConfigModeMigrator(object):
             self.duthost.shell("sudo cp {0} {0}{1}".format(GOLDEN_CFG_ORIGIN_FILE, _BAK_SUFFIX))
         self._backed_up = True
 
+    def capture_pristine_backup(self):
+        """Save the running config and back it up, before any test has mutated it.
+
+        Call once at session start. Taking the backup lazily inside to_frr_mgmt_framework()
+        instead captures whatever module fixtures have already done to CONFIG_DB by the time of
+        the first switch -- observed on a t1 as subinterfaces moved into a test's VRFs, which
+        made the "restore" reinstate the broken config and left a BGP neighbor unable to
+        establish because the interface holding its local_addr was still in a VRF. The backup
+        has to predate the tests for a restore to mean "put the DUT back the way we found it".
+        """
+        self.duthost.shell("sudo config save -y")
+        self._backup()
+
     def _config_reload(self):
         # -f bypasses the SwSS readiness check; frrcfgd only needs FRR ready. This
         # mirrors how the routing-mode switch is applied on the box.
