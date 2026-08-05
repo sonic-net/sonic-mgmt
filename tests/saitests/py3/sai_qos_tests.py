@@ -4900,18 +4900,30 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
             for p in list(self.dataplane.ports.values()):
                 p.socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 41943040)
 
-            # recv packets for leakout
-            if 'cisco-8000' in asic_type:
-                recv_pkt = scapy.Ether()
-
-                while recv_pkt:
+            def poll_test_pkts():
+                """Drain the dst port, returning the packets that belong to this test flow."""
+                received_pkts = []
+                while True:
                     received = self.dataplane.poll(
                         device_number=0, port_number=dst_port_id, timeout=2)
                     if isinstance(received, self.dataplane.PollFailure):
-                        recv_pkt = None
                         break
                     recv_pkt = scapy.Ether(received.packet)
+                    try:
+                        if recv_pkt[scapy.IP].src == src_port_ip and recv_pkt[scapy.IP].dst == dst_port_ip and \
+                                recv_pkt[scapy.IP].id == exp_ip_id:
+                            received_pkts.append(recv_pkt)
+                    except AttributeError:
+                        continue
+                    except IndexError:
+                        # Ignore captured non-IP packet
+                        continue
+                return received_pkts
 
+            # recv packets for leakout
+            if 'cisco-8000' in asic_type:
+                leakout_pkts_received = len(poll_test_pkts())
+                print("Leakout pkts received:", leakout_pkts_received, file=sys.stderr)
             if use_set_scheduler:
                 out, err, ret = self.exec_cmd_on_dut(
                     self.dst_server_ip,
@@ -4939,28 +4951,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
                     [dst_port_id],
                     enable_port_by_unblock_queue=False)
 
-            cnt = 0
-            pkts = []
-            recv_pkt = scapy.Ether()
-
-            while recv_pkt:
-                received = self.dataplane.poll(
-                    device_number=0, port_number=dst_port_id, timeout=2)
-                if isinstance(received, self.dataplane.PollFailure):
-                    recv_pkt = None
-                    break
-                recv_pkt = scapy.Ether(received.packet)
-
-                try:
-                    if recv_pkt[scapy.IP].src == src_port_ip and recv_pkt[scapy.IP].dst == dst_port_ip and \
-                            recv_pkt[scapy.IP].id == exp_ip_id:
-                        cnt += 1
-                        pkts.append(recv_pkt)
-                except AttributeError:
-                    continue
-                except IndexError:
-                    # Ignore captured non-IP packet
-                    continue
+            pkts = poll_test_pkts()
 
             if use_set_scheduler:
                 # Release port
