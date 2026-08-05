@@ -481,9 +481,15 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
         # For LT2, add portchannels for downstream links
         for k, v in list(port_channels.items()):
             acl_table_ports[v['namespace']].append(k)
-        # Add RIF for upstream links
+        # Add standalone RIFs for upstream links. PortChannel members cannot
+        # also be bound to the ACL table as physical interfaces.
+        pc_members = defaultdict(set)
+        for pc in port_channels.values():
+            pc_members[pc['namespace']].update(pc.get('members', []))
         for namespace, port in list(upstream_ports.items()):
-            acl_table_ports[namespace] += port
+            acl_table_ports[namespace] += [
+                interface for interface in port if interface not in pc_members[namespace]
+            ]
     else:
         for namespace, port in list(upstream_ports.items()):
             acl_table_ports[namespace] += port
