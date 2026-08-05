@@ -4230,6 +4230,7 @@
 - conf-name: vms26-dual-t0-8101c1-02
   group-name: vms26-2
   topo: dualtor-aa
+  neighbor_mode: prefix-route
   ptf_image_name: docker-ptf
   ptf: vms26-2
   ptf_ip: 10.64.246.150/25
@@ -4322,6 +4323,7 @@
 - conf-name: testbed-bjw2-can-dual-t0-8101c1-1
   group-name: bjw2-3-5
   topo: dualtor-aa
+  neighbor_mode: prefix-route
   ptf_image_name: docker-ptf
   ptf: bjw2-3-5
   ptf_ip: 10.150.23.132/23
@@ -4342,6 +4344,7 @@
 - conf-name: testbed-bjw2-can-dual-t0-8101c1-2
   group-name: bjw2-4-1
   topo: dualtor-aa
+  neighbor_mode: prefix-route
   ptf_image_name: docker-ptf
   ptf: bjw2-4-1
   ptf_ip: 10.150.23.133/23
@@ -4380,6 +4383,7 @@
 - conf-name: vms66-dual-t0-8101c1-03
   group-name: vms66-7
   topo: dualtor-aa-64-breakout
+  neighbor_mode: prefix-route
   ptf_image_name: docker-ptf
   ptf: vms66-7
   ptf_ip: 10.64.247.86/26
@@ -4398,6 +4402,8 @@
 - conf-name: vms68-dual-t0-8101c1-04
   group-name: vms68-1
   topo: dualtor-aa
+  neighbor_mode: prefix-route
+  prober_type: hardware
   ptf_image_name: docker-ptf
   ptf: vms68-1
   ptf_ip: 10.64.247.101/26
@@ -5394,6 +5400,7 @@
 - conf-name: testbed-bjw2-can-dual-t0-8101c1-3
   group-name: bjw2-5-c
   topo: dualtor-aa-64-breakout
+  neighbor_mode: prefix-route
   ptf_image_name: docker-ptf
   ptf: bjw2-5-c
   ptf_ip: 10.150.23.135/23
