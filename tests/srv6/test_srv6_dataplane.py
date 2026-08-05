@@ -436,7 +436,7 @@ class SRv6Base():
                 logger.info("Skip the test for VPP with USD flavor.")
                 continue
 
-            if (duthost.facts["asic_type"] == "cisco-8000") and ("Cisco-8122" in duthost.facts["hwsku"]):
+            if (duthost.facts["asic_type"] == "cisco-8000"):
                 continue
 
             logger.info('-------------------------------------------------------------------------')
@@ -520,8 +520,7 @@ class TestSRv6DataPlaneBase(SRv6Base):
         with allure.step('Validate SRv6 packet process'):
             srv6_pkt_list = self._validate_srv6_function(rand_selected_dut, ptfadapter, config_setup, weak_server)
 
-        if rand_selected_dut.facts["asic_type"] == "cisco-8000" and \
-                "Cisco-8122" in rand_selected_dut.facts["hwsku"]:
+        if rand_selected_dut.facts["asic_type"] == "cisco-8000":
             return
 
         with allure.step('Validate SRv6 counters'):
