@@ -4,8 +4,8 @@ import pytest
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until, wait_tcp_connection
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
-from tests.gnmi.conftest import setup_gnmi_rotated_server
-from .helper import gnmi_get, archive_gnmi_certs, unarchive_gnmi_certs
+from tests.gnmi.conftest import rotate_gnmi_certs
+from .helper import gnmi_get, archive_gnmi_certs, unarchive_gnmi_certs, apply_cert_config
 
 
 pytestmark = [
@@ -52,6 +52,11 @@ def test_gnmi_not_exit(duthosts, rand_one_dut_hostname, localhost):
     unarchive_gnmi_certs(duthost)
     wait_tcp_connection(localhost, duthost.mgmt_ip, env.gnmi_port, timeout_s=60)
 
+    # The container restart above dropped the client-cert-authorized server that
+    # setup_gnmi_server established for the module (fixtures here are module
+    # scoped), so re-apply it to leave the remaining tests a serving state.
+    apply_cert_config(duthost)
+
 
 def test_gnmi_post_cert_del(duthosts, rand_one_dut_hostname, ptfhost, localhost):
     """With certs a request succeeds; after deleting certs it fails."""
@@ -79,7 +84,7 @@ def test_gnmi_post_cert_add(duthosts, rand_one_dut_hostname, ptfhost, localhost)
     pytest_assert(not _gnmi_get_ok(duthost, ptfhost),
                   "gnmi request should fail without certs")
 
-    setup_gnmi_rotated_server(duthosts, rand_one_dut_hostname, localhost, ptfhost)
+    rotate_gnmi_certs(duthost, localhost, ptfhost)
     wait_tcp_connection(localhost, duthost.mgmt_ip, env.gnmi_port, timeout_s=60)
 
     pytest_assert(wait_until(30, 5, 0, _gnmi_get_ok, duthost, ptfhost),
@@ -96,7 +101,7 @@ def test_gnmi_cert_rotate(duthosts, rand_one_dut_hostname, ptfhost, localhost):
     pytest_assert(wait_until(30, 5, 0, _gnmi_get_ok, duthost, ptfhost),
                   "gnmi request should complete with certs")
 
-    setup_gnmi_rotated_server(duthosts, rand_one_dut_hostname, localhost, ptfhost)
+    rotate_gnmi_certs(duthost, localhost, ptfhost)
     wait_tcp_connection(localhost, duthost.mgmt_ip, env.gnmi_port, timeout_s=60)
 
     pytest_assert(wait_until(30, 5, 0, _gnmi_get_ok, duthost, ptfhost),
