@@ -42,6 +42,7 @@ logger = logging.getLogger(__name__)
 # ---- Topology & device-type markers (register in pytest.ini to avoid warnings) ----
 pytestmark = [
     pytest.mark.topology("m1"),
+    pytest.mark.frr_bgpcfgd_only(FRR_BGPCFGD_ONLY_AGGREGATE_REASON),
 ]
 
 

@@ -10,7 +10,8 @@ from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.utilities import wait_until
 
 pytestmark = [
-    pytest.mark.topology('t2')
+    pytest.mark.topology('t2'),
+    pytest.mark.frr_bgpcfgd_only("frrcfgd does not consume BGP_DEVICE_GLOBAL (TSA/TSB/IDF isolation/W-ECMP)"),
 ]
 
 logger = logging.getLogger(__name__)
