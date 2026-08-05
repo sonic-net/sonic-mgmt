@@ -169,7 +169,6 @@ def test_bgp_gr_helper_routes_perserved(duthosts, rand_one_dut_hostname, nbrhost
     logging.info("Select neighbor %s to verify that all bgp routes are preserved during graceful restart",
                  test_neighbor_name)
 
-
     # Wait for neighbor routes to stabilize before snapshotting the baseline
     _prev_learned_routes = {}
 
