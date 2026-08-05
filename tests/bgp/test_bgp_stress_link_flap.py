@@ -364,11 +364,8 @@ def _external_eth_nbrs(dev_nbrs, nbrhosts):
 @pytest.fixture(scope='module')
 def setup(frr_config_mode, duthosts, enum_frontend_dut_hostname, enum_rand_one_frontend_asic_index,
           nbrhosts, fanouthosts):
-    # frr_config_mode puts the DUT into the config mode under test before we read config
-    # facts below, so the mode-specific branch (VRF-keyed BGP_NEIGHBOR) is exercised.
-    # This module is marked frr_generic: it asserts FRR/session-recovery behavior rather
-    # than the bgpcfgd<->frrcfgd translation, so it runs in one mode only (frrcfgd
-    # preferred) instead of both.
+    # frr_config_mode has already switched the DUT, so the VRF-keyed BGP_NEIGHBOR branch
+    # below is the one under test.
     duthost = duthosts[enum_frontend_dut_hostname]
     asic_index = enum_rand_one_frontend_asic_index
     asichost = duthost.asic_instance(asic_index)

@@ -29,10 +29,6 @@ ZERO_ADDR_V6 = r'::/0'
 logger = logging.getLogger(__name__)
 
 
-# BGP monitors (bgpmon) is a legacy feature superseded by BMP; frrcfgd intentionally does not
-# implement it, so this module is not parametrized over frr_config_mode. It runs in traditional
-# (bgpcfgd) mode and skips outright on a native-frrcfgd DUT. See FRR_LEGACY_BGP_MONITORS_REASON
-# and sonic-buildimage#28482 ("Explicitly out of scope").
 @pytest.fixture(scope="module", autouse=True)
 def _skip_bgpmon_in_frr_mgmt_framework(duthosts, rand_one_dut_hostname):
     skip_module_if_frr_native(duthosts[rand_one_dut_hostname], FRR_LEGACY_BGP_MONITORS_REASON)
