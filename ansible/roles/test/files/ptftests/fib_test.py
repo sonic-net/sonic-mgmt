@@ -28,6 +28,7 @@ import fib
 
 import ptf
 import ptf.packet as scapy
+import macsec  # noqa F401
 
 from ptf.base_tests import BaseTest
 from ptf.mask import Mask
