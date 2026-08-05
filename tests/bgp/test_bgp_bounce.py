@@ -12,7 +12,17 @@ from bgp_helpers import get_no_export_output
 from bgp_helpers import BGP_ANNOUNCE_TIME
 
 pytestmark = [
-    pytest.mark.topology('t1')
+    pytest.mark.topology('t1'),
+    # This module configures BGP by copying a config file straight into the bgp container
+    # (apply_bgp_config -> docker_copy_to_all_asics), bypassing CONFIG_DB. A mode switch runs
+    # `config reload`, which rebuilds FRR *from* CONFIG_DB and therefore discards anything
+    # applied out-of-band -- so the no-export config is gone before the test can observe it
+    # ("No-export route state did not become present"). That is a property of how the test
+    # applies config, not of frrcfgd, and no amount of translation fixes it: the config was
+    # never in CONFIG_DB to translate.
+    pytest.mark.frr_bgpcfgd_only(
+        "this module injects BGP config directly into the bgp container, bypassing CONFIG_DB, "
+        "so a mode switch's config reload discards it"),
 ]
 
 
