@@ -133,6 +133,33 @@ class FrrConfigModeMigrator(object):
             self.duthost.shell("sudo cp {0}{1} {0}".format(GOLDEN_CFG_FILE, _BAK_SUFFIX))
         self._config_reload()
 
+    def interrupted_run_pending(self):
+        """True if a previous run left switch backups behind.
+
+        The backups only exist between ``to_frr_mgmt_framework()`` and ``cleanup()``, so
+        finding them at the start of a run means an earlier session died before its teardown
+        could restore the DUT -- a killed harness, a CI timeout, a DUT crash, an interrupted
+        background run. Fixture teardown cannot cover any of those, so recovery has to be
+        idempotent and happen at setup instead.
+        """
+        return self.duthost.is_file_existed(CONFIG_DB_FILE + _BAK_SUFFIX)
+
+    def recover_interrupted_run(self):
+        """Restore the DUT from a previous run's leftover backups. Returns True if it did.
+
+        Safe to call unconditionally at the start of a run: a no-op when no backups exist.
+        """
+        if not self.interrupted_run_pending():
+            return False
+        logger.warning(
+            "Found %s on %s: a previous run switched the FRR config mode and did not restore "
+            "it (killed process, CI timeout, or DUT crash -- fixture teardown cannot cover "
+            "those). Restoring the backed-up config before continuing.",
+            CONFIG_DB_FILE + _BAK_SUFFIX, self.duthost.hostname)
+        self.to_traditional()
+        self.cleanup()
+        return True
+
     def cleanup(self):
         """Remove backup files left on the DUT."""
         self.duthost.shell("sudo rm -f {0}{1} {2}{1}".format(
