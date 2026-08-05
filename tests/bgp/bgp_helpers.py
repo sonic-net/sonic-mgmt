@@ -31,6 +31,7 @@ from tests.bgp.traffic_checker import get_traffic_shift_state
 from tests.bgp.constants import TS_NORMAL
 from tests.common.devices.eos import EosHost
 from tests.common.devices.sonic import SonicHost
+from tests.common.helpers.bgp import flatten_bgp_neighbors
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 DUT_TMP_DIR = os.path.join('tmp', os.path.basename(BASE_DIR))
@@ -1211,7 +1212,7 @@ def check_bgp_neighbor(duthost):
     Validate all the bgp neighbors are established
     """
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-    bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
+    bgp_neighbors = flatten_bgp_neighbors(config_facts.get('BGP_NEIGHBOR', {}))
     pytest_assert(
         wait_until(300, 10, 0, duthost.check_bgp_session_state, bgp_neighbors),
         "bgp sessions {} are not up".format(bgp_neighbors)

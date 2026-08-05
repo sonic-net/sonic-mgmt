@@ -12,6 +12,7 @@ from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory  # noqa:
 from tests.common.helpers.assertions import pytest_assert
 from tests.ptf_runner import ptf_runner
 from tests.common.vxlan_ecmp_utils import Ecmp_Utils
+from tests.common.helpers.bgp import flatten_bgp_neighbors
 
 ecmp_utils = Ecmp_Utils()
 logger = logging.getLogger(__name__)
@@ -573,7 +574,7 @@ def vnet_bgp_setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, vnet_count,
             duthost.shell("config vlan member del all {}".format(entry["dut_port"]))
 
         dut_asn = cfg_facts["DEVICE_METADATA"]["localhost"]["bgp_asn"]
-        neighbors = cfg_facts["BGP_NEIGHBOR"]
+        neighbors = flatten_bgp_neighbors(cfg_facts["BGP_NEIGHBOR"])
         peer_asn = list(neighbors.values())[0]["asn"]
         total_sessions = vnet_count * subif_per_vnet
         wait_time = calculate_wait_time(total_sessions)
