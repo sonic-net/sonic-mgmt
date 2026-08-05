@@ -302,6 +302,42 @@ def test_is_at_sonic_prompt_detects_shell_when_not_bootloader():
         f"non-bootloader probe must only nudge with a bare CR, got {written!r}")
 
 
+def test_cleanup_deferred_session_makes_no_writes():
+    """Deferred-session teardown (reboot.py collect_mgmt_config_by_console ->
+    disconnect() -> cleanup()) must NOT probe the prompt: _is_at_sonic_prompt()
+    would send RETURNs into a one-shot bootloader autoboot window (the banner has
+    already been consumed, so it no longer matches). cleanup() must close the
+    transport without any write_channel()/send_command() call."""
+    conn = _make_console([])
+    conn._bootloader_deferred = True
+    conn.send_command = mock.MagicMock()
+    conn._is_at_sonic_prompt = mock.MagicMock()
+    rc = conn.remote_conn = mock.MagicMock()
+
+    SSHConsoleConn.cleanup(conn)
+
+    conn._is_at_sonic_prompt.assert_not_called()
+    conn.send_command.assert_not_called()
+    assert _written(conn) == [], (
+        f"a deferred-session cleanup must write nothing, got {_written(conn)!r}")
+    rc.close.assert_called_once()
+
+
+def test_cleanup_at_sonic_prompt_still_sends_exit():
+    """Sanity: a non-deferred session still probes and logs out at a SONiC prompt,
+    so the deferred short-circuit does not disable normal cleanup."""
+    conn = _make_console([])
+    conn._bootloader_deferred = False
+    conn.send_command = mock.MagicMock()
+    conn._is_at_sonic_prompt = mock.MagicMock(return_value=True)
+    rc = conn.remote_conn = mock.MagicMock()
+
+    SSHConsoleConn.cleanup(conn)
+
+    conn.send_command.assert_called_once()
+    rc.close.assert_called_once()
+
+
 @pytest.mark.parametrize("banner", [
     "Press Control-C now to enter Aboot shell\n",
     "Hit any key to stop autoboot:  3\n",

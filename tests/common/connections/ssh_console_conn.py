@@ -613,8 +613,18 @@ class SSHConsoleConn(BaseConsoleConn):
         Only send 'exit' if we're certain the DUT is at a SONiC prompt.
         This prevents issues during reboot when DUT might be in GRUB or other boot stages.
         """
-        # If we are in SONiC and session is ready, send an exit to logout
-        if self._is_at_sonic_prompt():
+        # A console whose session preparation was deferred (DUT still in the
+        # bootloader/boot stage) has no SONiC prompt to probe. Probing would call
+        # _is_at_sonic_prompt(), which sends up to four RETURNs when the one-shot
+        # bootloader banner is no longer buffered -- those CRs would land in an
+        # autoboot "hit any key" window and trap the DUT. Skip all interactive
+        # probing and just close the transport below.
+        if getattr(self, "_bootloader_deferred", False):
+            self.logger.warning(
+                "Session preparation was deferred (bootloader/boot stage); "
+                "closing console transport without prompt probing")
+        # Otherwise, if we are in SONiC and the session is ready, exit to logout.
+        elif self._is_at_sonic_prompt():
             self.logger.warning("At SONiC prompt, sending exit to logout")
             try:
                 self.send_command(command_string="exit", expect_string="login:")
