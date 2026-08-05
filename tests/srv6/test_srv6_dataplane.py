@@ -436,9 +436,6 @@ class SRv6Base():
                 logger.info("Skip the test for VPP with USD flavor.")
                 continue
 
-            if (duthost.facts["asic_type"] == "cisco-8000"):
-                continue
-
             logger.info('-------------------------------------------------------------------------')
             if srv6_packet['validate_dip_shift']:
                 logger.info('Validate DIP shift')
