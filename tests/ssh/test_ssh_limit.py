@@ -67,10 +67,12 @@ def modify_templates(duthost, tacacs_creds, creds):     # noqa F811
 
     sonic_admin_alt_password = duthost.host.options['variable_manager']._hostvars[duthost.hostname].get(
         "ansible_altpassword")
-    # Duthost shell not support run command with J2 template in command text.
-    admin_session = paramiko_ssh(ip_address=dut_ip, username=creds['sonicadmin_user'],
-                                 passwords=[creds['sonicadmin_password'], sonic_admin_alt_password]
-                                 + creds["ansible_altpasswords"])
+    # Connect over SSH as admin (duthost.shell can't run commands containing J2 templates).
+    # This runs before AAA login is switched to local, so the admin credentials are still valid.
+    admin_session = paramiko_ssh(
+        ip_address=dut_ip, username=creds['sonicadmin_user'],
+        passwords=[creds['sonicadmin_password'], sonic_admin_alt_password]
+        + creds["ansible_altpasswords"])
 
     # Backup and change /usr/share/sonic/templates/pam_limits.j2
     additional_content = "session  required  pam_limits.so"
@@ -117,15 +119,19 @@ def setup_limit(duthosts, rand_one_dut_hostname, tacacs_creds, creds):      # no
     template_file_exist = limit_template_exist(duthost)
     aaa_login_disabled = False
     if template_file_exist:
+        setup_local_user(duthost, tacacs_creds)
+
+        # Modify templates and restart hostcfgd to render config files.
+        # modify_templates opens a new admin SSH session, so it must run before AAA login is
+        # switched to local: where admin is a TACACS user it has no local password and the
+        # admin login would be rejected after the switch.
+        modify_templates(duthost, tacacs_creds, creds)
+
         # If AAA authentication enabled, disable it to allow local user login
         if get_aaa_sub_options_value(duthost, "authentication", "login") == "tacacs+":
             duthost.shell("sudo config aaa authentication login default")
             aaa_login_disabled = True
 
-        setup_local_user(duthost, tacacs_creds)
-
-        # Modify templates and restart hostcfgd to render config files
-        modify_templates(duthost, tacacs_creds, creds)
         restart_hostcfgd(duthost)
 
     yield
