@@ -275,10 +275,14 @@ def _assert_config_preserved(duthost, mode, baseline_fp):
     wait_until(_CONFIG_SETTLE_TIMEOUT, _CONFIG_SETTLE_INTERVAL, 0, _settled)
     pt_assert(not dropped,
               "Switching to '{}' mode dropped BGP config objects that were present in the "
-              "original mode: {} (still missing after {}s). The bgpcfgd->frrcfgd translation "
-              "did not carry them over -- extend "
-              "tests/common/helpers/frr/bgp_config_translation.py (and frrcfgd) to cover "
-              "them.".format(mode, dropped, _CONFIG_SETTLE_TIMEOUT))
+              "original mode: {} (still missing after {}s). Either the bgpcfgd->frrcfgd "
+              "translation did not carry them over -- extend "
+              "tests/common/helpers/frr/bgp_config_translation.py (and frrcfgd) to cover them "
+              "-- or this module configured them outside CONFIG_DB (vtysh, or a config file "
+              "copied into the bgp container), in which case no translation can preserve them: "
+              "the switch runs `config reload`, which rebuilds FRR from CONFIG_DB. Such a "
+              "module belongs behind the frr_bgpcfgd_only marker."
+              .format(mode, dropped, _CONFIG_SETTLE_TIMEOUT))
 
 
 def _current_mode(duthost):
