@@ -32,6 +32,13 @@ logger = logging.getLogger(__name__)
 
 CONFIG_DB_FILE = "/etc/sonic/config_db.json"
 GOLDEN_CFG_FILE = "/etc/sonic/golden_config_db.json"
+# tests/conftest.py's module-scoped autouse restore_golden_config_db fixture copies this over
+# GOLDEN_CFG_FILE at *every module setup*. A routing mode written only into GOLDEN_CFG_FILE
+# therefore survives at most one module: the next module's setup reverts golden to its original
+# (traditional) baseline while config_db.json still holds translated frr config, and the first
+# `config reload` after that flips the DUT back to traditional behind this migrator's back.
+# The mode has to be written into both files to actually persist.
+GOLDEN_CFG_ORIGIN_FILE = GOLDEN_CFG_FILE + ".origin.backup"
 _BAK_SUFFIX = ".frr_config_mode.bak"
 
 MODE_FRR_MGMT_FRAMEWORK = "frr_mgmt_framework"
@@ -84,6 +91,9 @@ class FrrConfigModeMigrator(object):
     def _golden_config_present(self):
         return self.duthost.is_file_existed(GOLDEN_CFG_FILE)
 
+    def _golden_origin_present(self):
+        return self.duthost.is_file_existed(GOLDEN_CFG_ORIGIN_FILE)
+
     def _backup_present(self):
         return self.duthost.is_file_existed(CONFIG_DB_FILE + _BAK_SUFFIX)
 
@@ -101,6 +111,8 @@ class FrrConfigModeMigrator(object):
         self.duthost.shell("sudo cp {0} {0}{1}".format(CONFIG_DB_FILE, _BAK_SUFFIX))
         if self._golden_config_present():
             self.duthost.shell("sudo cp {0} {0}{1}".format(GOLDEN_CFG_FILE, _BAK_SUFFIX))
+        if self._golden_origin_present():
+            self.duthost.shell("sudo cp {0} {0}{1}".format(GOLDEN_CFG_ORIGIN_FILE, _BAK_SUFFIX))
         self._backed_up = True
 
     def _config_reload(self):
@@ -146,6 +158,13 @@ class FrrConfigModeMigrator(object):
         self._set_mode_metadata(golden, "unified", "true")
         self._write_json_file(GOLDEN_CFG_FILE, golden)
 
+        # ...and so must its origin backup, which restore_golden_config_db copies back over
+        # golden at every module setup. See GOLDEN_CFG_ORIGIN_FILE.
+        if self._golden_origin_present():
+            origin = self._read_json_file(GOLDEN_CFG_ORIGIN_FILE) or {}
+            self._set_mode_metadata(origin, "unified", "true")
+            self._write_json_file(GOLDEN_CFG_ORIGIN_FILE, origin)
+
         self._config_reload()
 
     def to_traditional(self):
@@ -166,6 +185,8 @@ class FrrConfigModeMigrator(object):
         self.duthost.shell("sudo cp {0}{1} {0}".format(CONFIG_DB_FILE, _BAK_SUFFIX))
         if self.duthost.is_file_existed(GOLDEN_CFG_FILE + _BAK_SUFFIX):
             self.duthost.shell("sudo cp {0}{1} {0}".format(GOLDEN_CFG_FILE, _BAK_SUFFIX))
+        if self.duthost.is_file_existed(GOLDEN_CFG_ORIGIN_FILE + _BAK_SUFFIX):
+            self.duthost.shell("sudo cp {0}{1} {0}".format(GOLDEN_CFG_ORIGIN_FILE, _BAK_SUFFIX))
         self._config_reload()
         self.assert_no_frr_schema_residue()
         return True
@@ -227,5 +248,6 @@ class FrrConfigModeMigrator(object):
 
     def cleanup(self):
         """Remove backup files left on the DUT."""
-        self.duthost.shell("sudo rm -f {0}{1} {2}{1}".format(
-            CONFIG_DB_FILE, _BAK_SUFFIX, GOLDEN_CFG_FILE), module_ignore_errors=True)
+        self.duthost.shell("sudo rm -f {0}{1} {2}{1} {3}{1}".format(
+            CONFIG_DB_FILE, _BAK_SUFFIX, GOLDEN_CFG_FILE, GOLDEN_CFG_ORIGIN_FILE),
+            module_ignore_errors=True)
