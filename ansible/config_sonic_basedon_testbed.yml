@@ -66,13 +66,15 @@
       - ansible_hostv6 is defined
       - ansible_hostv6 != ''
 
-  - name: Rotate the password
-    user:
-      name: "{{ ansible_ssh_user }}"
-      password: "{{ ansible_altpasswords[0] | password_hash('sha512') }}"
-      update_password: always
+  - name: Rotate password using system password policy
+    # Let the device hash it. Hashing on the control side pins SHA-512 at passlib's
+    # 656000 rounds, which costs 12-18s per login on slow platforms (PBI 38666757).
+    ansible.builtin.shell:
+      cmd: chpasswd
+      stdin: "{{ ansible_ssh_user }}:{{ ansible_altpasswords[0] }}"
     become: true
     ignore_errors: true
+    no_log: true
     when:
       - type is not defined or type != "kvm"
       - ansible_ssh_user is defined
