@@ -323,6 +323,77 @@ def _is_switchless_node(duthost):
         return False
 
 
+class _FrrModeSessionState(object):
+    """Per-session FRR config-mode state.
+
+    Deliberately session-scoped rather than per-module. The mode is a property of the DUT,
+    not of a test module, so tracking it per module made every parametrized module switch
+    into frr and then immediately switch back -- two `config reload`s each, even when the
+    very next module wanted the same mode. pytest already groups tests by the module-scoped
+    param, so consecutive same-mode modules now cost zero extra switches and the DUT is
+    restored once, in pytest_sessionfinish.
+
+    Note the DUT cannot depend on a session-scoped fixture here: rand_one_dut_hostname is
+    module-scoped, so this is stashed on the session object and initialised lazily by the
+    first module-scoped frr_config_mode that runs.
+    """
+
+    def __init__(self, duthost):
+        self.duthost = duthost
+        self.migrator = FrrConfigModeMigrator(duthost)
+        self.original_mode = None
+        self.applied_mode = None
+        self.baseline_neighbors = None
+        self.baseline_fingerprint = None
+
+
+_SESSION_STATE_ATTR = "_frr_config_mode_state"
+
+
+def _session_state(request, duthost):
+    """Return this session's FRR mode state, initialising it on first use.
+
+    Initialisation also recovers from an interrupted previous run before reading the DUT's
+    "original" mode -- otherwise a run that died mid-switch would leave the DUT in frr and we
+    would record frr as the baseline to restore to, making the damage permanent.
+    """
+    session = request.session
+    state = getattr(session, _SESSION_STATE_ATTR, None)
+    if state is not None:
+        return state
+
+    state = _FrrModeSessionState(duthost)
+    state.migrator.recover_interrupted_run()
+    state.original_mode = _current_mode(duthost)
+    state.applied_mode = state.original_mode
+    state.baseline_neighbors = _bgp_established_neighbors(duthost)
+    state.baseline_fingerprint = _frr_config_fingerprint(duthost)
+    setattr(session, _SESSION_STATE_ATTR, state)
+    logger.info("FRR config-mode session state initialised; DUT boots in '%s'",
+                state.original_mode)
+    return state
+
+
+def pytest_sessionfinish(session, exitstatus):
+    """Restore the DUT's original FRR config mode once, at the end of the session.
+
+    Replaces the old per-module restore. This fires on a normal finish and on
+    KeyboardInterrupt, but NOT on SIGKILL / OOM / a hard DUT crash -- nothing in pytest can.
+    That residual case is covered by the migrator's setup-time
+    recover_interrupted_run(), which repairs the DUT on the next run.
+    """
+    state = getattr(session, _SESSION_STATE_ATTR, None)
+    if state is None:
+        return
+    try:
+        if state.applied_mode != state.original_mode:
+            logger.info("Restoring FRR config mode to '%s' at session end", state.original_mode)
+            _switch_mode(state, state.original_mode)
+        state.migrator.cleanup()
+    except Exception as e:      # never let cleanup break the session's exit status
+        logger.error("Failed to restore FRR config mode at session end: %s", e)
+
+
 def pytest_addoption(parser):
     parser.addoption(
         "--frr-config-mode", action="store", default="both",
@@ -400,11 +471,9 @@ def frr_config_mode(request, duthosts, rand_one_dut_hostname):
     """
     mode = request.param
     duthost = duthosts[rand_one_dut_hostname]
-    mod = request.module
-
-    # Discover the DUT's original mode once per module.
-    if not hasattr(mod, "_frr_original_config_mode"):
-        mod._frr_original_config_mode = _current_mode(duthost)
+    # Session-scoped state: the FRR config mode is a property of the DUT, not of a module.
+    # Initialising it also recovers from a previous run that died mid-switch.
+    state = _session_state(request, duthost)
 
     # frr_generic modules are mode-generic: they assert FRR / dataplane / kernel behavior
     # over config established at boot and do not exercise the bgpcfgd<->frrcfgd schema
@@ -417,7 +486,7 @@ def frr_config_mode(request, duthosts, rand_one_dut_hostname):
     # cannot reach frr mode (no golden config, multi-asic, macsec, non-traditional boot)
     # still runs the module in traditional instead of skipping it entirely.
     if request.node.get_closest_marker(FRR_GENERIC_MARKER):
-        chosen = _generic_mode(duthost, request, mod._frr_original_config_mode)
+        chosen = _generic_mode(duthost, request, state.original_mode)
         if chosen is not None and mode != chosen:
             pytest.skip(
                 "Module is marked '{}' (mode-generic: it does not exercise the "
@@ -430,12 +499,12 @@ def frr_config_mode(request, duthosts, rand_one_dut_hostname):
     # orthogonal to the BGP config schema, and the generic DUT-health checks already disable
     # themselves under --enable_macsec, so run only the DUT's native mode here too.
     if getattr(request.config.option, "enable_macsec", False):
-        if mode == mod._frr_original_config_mode:
+        if mode == state.original_mode:
             yield mode
             return
         pytest.skip("FRR config-mode switching is skipped with --enable_macsec (the reload "
                     "disrupts macsec sessions); only the DUT's native '{}' mode is exercised"
-                    .format(mod._frr_original_config_mode))
+                    .format(state.original_mode))
 
     # Some DUTs cannot have their BGP config-mode switched:
     #   * multi-asic DUTs use per-namespace BGP config the translator does not handle yet;
@@ -445,62 +514,62 @@ def frr_config_mode(request, duthosts, rand_one_dut_hostname):
     # a skip on its native topology, e.g. a t2 chassis), run only the DUT's native mode as a
     # no-op and skip the other mode variant.
     if duthost.facts["num_asic"] > 1 or _is_switchless_node(duthost):
-        if mode == mod._frr_original_config_mode:
+        if mode == state.original_mode:
             yield mode
             return
         pytest.skip("FRR config-mode switching is not supported on this DUT (multi-asic or "
                     "supervisor/no-bgp node); only the DUT's native '{}' mode is "
-                    "exercised".format(mod._frr_original_config_mode))
-
-    # Single-asic: set up the migrator and capture baselines once per module.
-    if not hasattr(mod, "_frr_migrator"):
-        mod._frr_applied_config_mode = mod._frr_original_config_mode
-        mod._frr_migrator = FrrConfigModeMigrator(duthost)
-        mod._frr_baseline_neighbors = _bgp_established_neighbors(duthost)
-        mod._frr_baseline_fingerprint = _frr_config_fingerprint(duthost)
+                    "exercised".format(state.original_mode))
 
     # The translator only converts traditional -> frr (the reverse is a config_db
     # backup-restore, not a translation), so a mode other than the DUT's
     # original one is only reachable from a traditional start. A run that stays in the DUT's
     # original mode (e.g. --frr-config-mode=frr_mgmt_framework on a DUT that already boots in
     # frr_mgmt_framework) needs no switch and no translation, so allow it.
-    if mode != mod._frr_original_config_mode and mod._frr_original_config_mode != MODE_TRADITIONAL:
+    if mode != state.original_mode and state.original_mode != MODE_TRADITIONAL:
         pytest.skip("frr_config_mode can only switch modes from a traditional (bgpcfgd) start; "
                     "this DUT boots in {}, so only that mode can be exercised".format(
-                        mod._frr_original_config_mode))
+                        state.original_mode))
 
-    if mod._frr_applied_config_mode != mode:
+    if state.applied_mode != mode:
         # A mode switch persists the new mode in golden config so it survives the reload; a
         # no-switch native run (mode == the DUT's boot mode) does not need it.
         if not duthost.is_file_existed(GOLDEN_CFG_FILE):
             pytest.skip("{} not present on DUT; cannot persist routing mode across config "
                         "reload".format(GOLDEN_CFG_FILE))
-        _switch_mode(duthost, mod, mode)
+        _switch_mode(state, mode)
 
     yield mode
 
-    # Restore the DUT's original mode when leaving a mode we switched into.
-    if mod._frr_applied_config_mode != mod._frr_original_config_mode:
-        _switch_mode(duthost, mod, mod._frr_original_config_mode)
-    mod._frr_migrator.cleanup()
+    # No per-module restore. The DUT is left in whatever mode this module used, so the next
+    # module wanting the same mode costs zero switches; pytest_sessionfinish restores the
+    # original mode once at the end. A per-module restore looked safer but was not -- it
+    # equally fails to run on SIGKILL / OOM / DUT crash, and only narrowed the window while
+    # paying two config reloads per module. The residual case is covered idempotently at
+    # setup by the migrator's recover_interrupted_run().
 
 
-def _switch_mode(duthost, mod, mode):
-    """Switch the DUT to ``mode``, wait for BGP to recover, and assert strictness."""
-    migrator = mod._frr_migrator
+def _switch_mode(state, mode):
+    """Switch the DUT to ``mode``, wait for BGP to recover, and assert strictness.
+
+    Takes the session state rather than a module, so the baselines checked against are the
+    ones captured once per session -- a translation that drops config is caught regardless of
+    which module triggered the switch.
+    """
+    duthost = state.duthost
     logger.info("Switching FRR config mode to '%s' on %s", mode, duthost.hostname)
     try:
         if mode == MODE_FRR_MGMT_FRAMEWORK:
-            migrator.to_frr_mgmt_framework()
+            state.migrator.to_frr_mgmt_framework()
         else:
-            migrator.to_traditional()
+            state.migrator.to_traditional()
     except FrrTranslationError as e:
         pytest.fail("Failed to switch to '{}' mode: {}".format(mode, e))
-    mod._frr_applied_config_mode = mode
+    state.applied_mode = mode
 
     pt_assert(wait_until(180, 10, 0, duthost.is_service_fully_started_per_asic_or_host, "bgp"),
               "bgp service did not come up after switching to '{}' mode".format(mode))
-    baseline = mod._frr_baseline_neighbors
+    baseline = state.baseline_neighbors
     # Capture the last-polled established set so the failure message reuses it instead of
     # firing another vtysh query -- the message string is built eagerly on every (including
     # successful) switch, so calling _bgp_established_neighbors() in .format() would run an
@@ -516,4 +585,4 @@ def _switch_mode(duthost, mod, mode):
         "Switching to '{}' mode did not preserve BGP: neighbors {} were not all "
         "re-established (established now: {}).".format(
             mode, sorted(baseline), sorted(last_established.get("set", set()))))
-    _assert_config_preserved(duthost, mode, mod._frr_baseline_fingerprint)
+    _assert_config_preserved(duthost, mode, state.baseline_fingerprint)
