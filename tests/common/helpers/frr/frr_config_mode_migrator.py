@@ -37,6 +37,21 @@ _BAK_SUFFIX = ".frr_config_mode.bak"
 MODE_FRR_MGMT_FRAMEWORK = "frr_mgmt_framework"
 MODE_TRADITIONAL = "traditional"
 
+# CONFIG_DB tables that only ever exist in frr_mgmt_framework mode -- bgpcfgd neither reads nor
+# writes them. Finding any of these while the DUT claims to be traditional means a previous
+# switch left translated config behind, which is not merely cosmetic: GCU (``apply_patch``)
+# validates the *whole* CONFIG_DB through sonic_yang, so one orphaned frr-schema key makes every
+# later GCU patch in the run fail with an error that points at the innocent patch instead.
+FRR_ONLY_TABLES = (
+    "BGP_GLOBALS",
+    "BGP_GLOBALS_AF",
+    "BGP_GLOBALS_AF_AGGREGATE_ADDR",
+    "BGP_GLOBALS_AF_NETWORK",
+    "BGP_GLOBALS_LISTEN_PREFIX",
+    "BGP_NEIGHBOR_AF",
+    "BGP_PEER_GROUP_AF",
+)
+
 
 class FrrConfigModeMigrator(object):
     """Owns the traditional<->frr switch for one DUT across a test module."""
@@ -69,8 +84,19 @@ class FrrConfigModeMigrator(object):
     def _golden_config_present(self):
         return self.duthost.is_file_existed(GOLDEN_CFG_FILE)
 
+    def _backup_present(self):
+        return self.duthost.is_file_existed(CONFIG_DB_FILE + _BAK_SUFFIX)
+
     def _backup(self):
         if self._backed_up:
+            return
+        if self._backup_present():
+            # A backup we did not take is a previous run's pristine pre-switch config. Never
+            # overwrite it with the current config, which may already be translated -- adopt it
+            # instead so the eventual restore still lands on real traditional config.
+            logger.warning("%s%s already exists; adopting it rather than overwriting",
+                           CONFIG_DB_FILE, _BAK_SUFFIX)
+            self._backed_up = True
             return
         self.duthost.shell("sudo cp {0} {0}{1}".format(CONFIG_DB_FILE, _BAK_SUFFIX))
         if self._golden_config_present():
@@ -124,14 +150,47 @@ class FrrConfigModeMigrator(object):
 
     def to_traditional(self):
         """Return the DUT to its original traditional config by restoring the
-        pre-switch backups and reloading."""
-        if not self._backed_up:
-            logger.warning("to_traditional() with no backup taken; nothing to restore")
-            return
+        pre-switch backups and reloading. Returns True if a restore happened.
+
+        Restorability is decided by the backup *file* on the DUT, not by ``self._backed_up``.
+        That flag only records whether *this* process took the backup, and the recovery path
+        (:meth:`recover_interrupted_run`) runs on a freshly constructed migrator whose flag is
+        always False -- gating on it made recovery a silent no-op that then deleted the only
+        pristine copy of the config, stranding the DUT in translated config for every
+        subsequent run.
+        """
+        if not self._backup_present():
+            logger.warning("to_traditional(): %s%s absent; nothing to restore",
+                           CONFIG_DB_FILE, _BAK_SUFFIX)
+            return False
         self.duthost.shell("sudo cp {0}{1} {0}".format(CONFIG_DB_FILE, _BAK_SUFFIX))
         if self.duthost.is_file_existed(GOLDEN_CFG_FILE + _BAK_SUFFIX):
             self.duthost.shell("sudo cp {0}{1} {0}".format(GOLDEN_CFG_FILE, _BAK_SUFFIX))
         self._config_reload()
+        self.assert_no_frr_schema_residue()
+        return True
+
+    def assert_no_frr_schema_residue(self):
+        """Raise if the running CONFIG_DB still holds frr-only tables.
+
+        Called right after the traditional restore so a lossy switch-back is reported here,
+        against the switch that caused it, instead of silently poisoning GCU for the rest of
+        the run. See :data:`FRR_ONLY_TABLES`.
+        """
+        out = self.duthost.shell(
+            "sonic-db-cli CONFIG_DB KEYS '*' | cut -d'|' -f1 | sort -u",
+            module_ignore_errors=True)
+        if out.get("rc"):
+            logger.warning("Could not list CONFIG_DB tables to check for frr residue")
+            return
+        present = set(out["stdout"].split())
+        residue = sorted(present.intersection(FRR_ONLY_TABLES))
+        if residue:
+            raise FrrTranslationError(
+                "traditional restore left frr_mgmt_framework tables in CONFIG_DB: {}. The "
+                "restored {} is inconsistent with its own traditional DEVICE_METADATA; every "
+                "later GCU patch would fail sonic_yang validation because of it.".format(
+                    ", ".join(residue), CONFIG_DB_FILE))
 
     def interrupted_run_pending(self):
         """True if a previous run left switch backups behind.
@@ -142,7 +201,7 @@ class FrrConfigModeMigrator(object):
         background run. Fixture teardown cannot cover any of those, so recovery has to be
         idempotent and happen at setup instead.
         """
-        return self.duthost.is_file_existed(CONFIG_DB_FILE + _BAK_SUFFIX)
+        return self._backup_present()
 
     def recover_interrupted_run(self):
         """Restore the DUT from a previous run's leftover backups. Returns True if it did.
@@ -156,7 +215,13 @@ class FrrConfigModeMigrator(object):
             "it (killed process, CI timeout, or DUT crash -- fixture teardown cannot cover "
             "those). Restoring the backed-up config before continuing.",
             CONFIG_DB_FILE + _BAK_SUFFIX, self.duthost.hostname)
-        self.to_traditional()
+        if not self.to_traditional():
+            # Keep the backups: they are the only pristine copy of the pre-switch config, and
+            # deleting them on a failed restore is what turns a recoverable interruption into a
+            # permanently mis-configured DUT.
+            raise FrrTranslationError(
+                "found {} but could not restore from it; leaving the backups in place for "
+                "manual recovery".format(CONFIG_DB_FILE + _BAK_SUFFIX))
         self.cleanup()
         return True
 
