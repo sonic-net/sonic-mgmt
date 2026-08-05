@@ -18,6 +18,7 @@ from tests.common.fixtures.frr_config_mode import skip_module_if_frr_native, FRR
 
 pytestmark = [
     pytest.mark.topology('any'),
+    pytest.mark.frr_bgpcfgd_only(FRR_LEGACY_BGP_MONITORS_REASON),
 ]
 
 BGP_PORT = 179

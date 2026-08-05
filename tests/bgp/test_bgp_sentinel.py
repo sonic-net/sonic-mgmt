@@ -24,6 +24,7 @@ from netaddr import IPNetwork
 pytestmark = [
     pytest.mark.topology('t1'),
     pytest.mark.device_type('vs'),
+    pytest.mark.frr_bgpcfgd_only(FRR_BGPCFGD_ONLY_SENTINEL_REASON),
 ]
 
 

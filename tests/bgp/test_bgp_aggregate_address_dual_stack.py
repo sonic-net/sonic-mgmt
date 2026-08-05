@@ -43,6 +43,7 @@ logger = logging.getLogger(__name__)
 pytestmark = [
     pytest.mark.topology("m1"),
     pytest.mark.disable_loganalyzer,
+    pytest.mark.frr_bgpcfgd_only(FRR_BGPCFGD_ONLY_AGGREGATE_REASON),
 ]
 
 

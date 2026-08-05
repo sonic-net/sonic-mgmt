@@ -20,7 +20,8 @@ from tests.bgp.constants import TS_NORMAL, TS_MAINTENANCE
 from tests.conftest import get_hosts_per_hwsku
 
 pytestmark = [
-    pytest.mark.topology('t2', 'lrh', 'urh')
+    pytest.mark.topology('t2', 'lrh', 'urh'),
+    pytest.mark.frr_bgpcfgd_only("frrcfgd does not consume BGP_DEVICE_GLOBAL (TSA/TSB/IDF isolation/W-ECMP)"),
 ]
 
 logger = logging.getLogger(__name__)
