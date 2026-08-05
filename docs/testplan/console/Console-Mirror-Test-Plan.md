@@ -7,6 +7,7 @@
   - [4.1 Functionality Test](#41-functionality-test)
   - [4.2 Lifecycle and Robustness](#42-lifecycle-and-robustness)
   - [4.3 Performance Test](#43-performance-test)
+- [5 Future Work](#5-future-work)
 
 ## 1 Background
 
@@ -19,19 +20,19 @@ For design details, refer to [Console Mirror High Level Design](https://github.c
 
 This plan verifies:
 
-- `consutil mirror start`, `show`, `timeout`, and `stop`, including invalid requests
+- Valid `consutil mirror start`, `show`, `timeout`, and `stop` operations
 - RX, TX, and bidirectional recording without console-session interference
-- SCM-Text v1 format, payload escaping, file rotation, and ZIP packaging
-- STATE_DB state management, automatic stop, and resource stability
+- SCM-Text v1 format, payload escaping, file rotation, and successful ZIP packaging
+- STATE_DB state management, automatic stop, session cleanup, and resource stability
 
 ## 3 Testbed Setup
 
 - **Test Server**: Runs `sonic-mgmt`.
 - **Lab ToR**: Provides the VLAN path used by `sonic-mgmt` to access the DUT.
 - **DUT**: Runs `consutil`, the per-line console proxies, Console Mirror, STATE_DB, and local recording storage.
-- **Serial wiring**: Console ports 1 and 2 on the DUT are connected directly with a crossover cable.
+- **Serial wiring**: Select one eligible console link from the testbed's `*_serial_links.csv`. The DUT endpoint is `mirror_line A`; the opposite endpoint is `mirror_line B`.
 
-This is a `c0-lo`-style physical two-port loopback setup. The Lab ToR is only the management path and is not part of the serial traffic path.
+The initial automation targets a `c0-lo`-style physical serial path. The Lab ToR is only the management path and is not part of the serial traffic path.
 
 ```mermaid
 flowchart LR
@@ -46,51 +47,54 @@ flowchart LR
     subgraph DUT["DUT / Console Switch"]
         cli["consutil mirror"]
 
-        proxy1["console-monitor-proxy@1"]
-        proxy2["console-monitor-proxy@2"]
-        port1["Console Port 1"]
-        port2["Console Port 2"]
+        proxyA["console-monitor-proxy@A"]
+        proxyB["console-monitor-proxy@B"]
+        portA["Console Port A"]
+        portB["Console Port B"]
 
-        cli --> proxy1
-        cli --> proxy2
-        proxy1 <--> port1
-        proxy2 <--> port2
+        cli --> proxyA
+        cli --> proxyB
+        proxyA <--> portA
+        proxyB <--> portB
     end
 
     mgmt <-->|"SSH / test control"| vlan
     vlan <--> cli
-    port1 <-->|"Physical crossover cable"| port2
+    portA <-->|"Physical crossover cable"| portB
 ```
 
-For a mirror session on line 1:
+For a mirror session on `mirror_line A`:
 
-| Test traffic | Direction recorded on line 1 |
+| Test traffic | Direction recorded on `mirror_line A` |
 |---|---|
-| Send from the line 1 console session | TX |
-| Send from the line 2 console session | RX |
+| Send from the `mirror_line A` console session to `mirror_line B` | TX |
+| Send from the `mirror_line B` console session to `mirror_line A` | RX |
 
 ## 4 Test Cases
+
+Use a function-scoped teardown fixture for every test case. The fixture stops any active mirror, waits for `consutil mirror show` and `CONSOLE_MIRROR|<mirror_line A>` in STATE_DB to report `idle`, verifies that all active-session fields are cleared and no recording file for the stopped session remains open by the target proxy, and releases both console sessions. A teardown verification failure fails the test.
 
 ### 4.1 Functionality Test
 
 | Case | Objective | Test Steps | Expected Result |
 |-|-|-|-|
-| CLI and State | Verify CLI control, runtime state, validation | 1. Start, show, check `STATE_DB`, update timeout, check `STATE_DB`, and stop line 1 mirror<br />2. Repeat with invalid parameters | Valid operations return correct state and metadata; timeout update resets remaining time; invalid requests are rejected without side effects. |
-| Traffic Recording | Verify direction filtering, data integrity, escaping, and non-interference | 1. Parameterize `rx`, `tx`, and `both`<br />2. Exchange unique printable and control-byte payloads through line 1 and line 2 while the console sessions remain active | Only selected directions are fully recorded with correct labels and escaping. |
-| Recording Files | Verify file format, rotation, retention, packaging, and permissions | 1. Stop once without archiving<br />2. Repeat with a small file-size limit and `--archive`, inspect log parts, ZIP contents, ownership, and permissions | Format and rotation are correct; unarchived logs remain; a successful ZIP contains every part and removes its source logs; directories are `0700` and files are `0600`, owned by `root:root` |
-| Archive Failure | Verify recording data is preserved when packaging fails | Force ZIP creation to fail | Incomplete `.zip.tmp` is removed, source logs are preserved, and console forwarding continues |
+| CLI and State | Verify CLI control and runtime state | Start, show, check `STATE_DB`, update timeout, check `STATE_DB`, and stop mirroring on `mirror_line A` | Operations return correct state and metadata; the timeout update resets the remaining time. |
+| Traffic Recording | Verify direction filtering, data integrity, escaping, and non-interference | 1. Parameterize `rx`, `tx`, and `both`<br />2. Exchange unique printable and control-byte payloads between `mirror_line A` and `mirror_line B` while mirroring and both console sessions remain active | Only selected directions are fully recorded with correct labels and escaping. `mirror_line B` receives exactly the string sent, without loss, duplication or other changes. |
+| Recording Files | Verify file format, rotation, retention, and permissions | Start with a small file-size limit, generate enough traffic to rotate the recording, stop without archiving, and inspect the log parts, ownership, and permissions | SCM-Text format and rotation are correct; all unarchived log parts remain; directories are `0700` and log files are `0600`, owned by `root:root` |
+| Archive Success | Verify successful ZIP packaging | Start with a small file-size limit, generate multiple log parts, stop with `--archive`, and inspect the resulting ZIP file and its contents | The ZIP is created successfully with mode `0600` and ownership `root:root`, contains every log part from the session, and the source log parts are removed |
 
-### 4.2 Lifecycle and Robustness
+### 4.2 Lifecycle Test
 
 | Case | Objective | Test Steps | Expected Result |
 |-|-|-|-|
 | Automatic Stop | Verify bounded mirror lifetime and automatic finalization | Start with a short timeout and wait for expiry | Mirror becomes `idle`, records `reason=timeout`, and creates a ZIP automatically |
-| Rapid Session Restart | Verify old session state and timers cannot affect a new session | Repeatedly start and stop line 1, then keep the final session active beyond an earlier session's deadline | Every session has a unique file prefix; stale timers do not stop the current session and state remains correct |
-| Asynchronous Archive | Verify archiving is independent of later sessions and the waiting CLI | 1. Start archiving a large recording<br />2. Terminate the waiting CLI, and immediately start a new mirror on the same line | The previous archive continues, the new session records independently, and files from the two sessions are not mixed |
 
 ### 4.3 Performance Test
 
 | Case | Objective | Test Steps | Expected Result |
 |-|-|-|-|
-| RAM Usage | Measure mirror memory usage under continuous traffic | Start bidirectional mirroring, generate continuous traffic, and sample the target proxy service RSS before, during, and after recording | Report peak RAM usage; memory remains bounded and returns near the idle baseline after stop |
-| Peak CPU Usage | Measure peak mirror CPU usage under continuous traffic | Generate continuous bidirectional traffic during mirroring and sample the target proxy service CPU usage | Report peak CPU usage; serial traffic remains intact without visible latency or loss |
+| Single-Line Maximum-Rate Resource Usage | Measure peak memory and CPU usage while one line is mirrored at its maximum serial rate | 1. Select `mirror_line A` and read its configured baud rate from the selected `*_serial_links.csv` entry<br />2. Record the target proxy service's idle memory and CPU baseline<br />3. Start bidirectional mirroring only on `mirror_line A`<br />4. Send continuous console traffic from `mirror_line A` to `mirror_line B` at the maximum throughput supported by the configured baud rate while sampling the proxy's memory and CPU usage<br />5. Stop mirroring and record the peaks and post-stop memory usage | Report peak memory and CPU usage; traffic reaches `mirror_line B` intact at the expected baud-limited rate; memory remains bounded and returns near the idle baseline after teardown. |
+
+## 5 Future Work
+
+- Add support for the 'c0' topology, including discovery and control of the console fanout endpoint for the selected serial link.
