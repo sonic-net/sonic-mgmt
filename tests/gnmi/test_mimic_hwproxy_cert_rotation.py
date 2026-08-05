@@ -1,11 +1,22 @@
 import pytest
 import logging
 
-from tests.gnmi.conftest import setup_gnmi_rotated_server
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
-from tests.common.helpers.gnmi_utils import GNMIEnvironment, gnmi_capabilities
+from tests.common.helpers.gnmi_utils import GNMIEnvironment, gnmi_capabilities, \
+    prepare_root_cert, prepare_server_cert, prepare_client_cert, copy_certificate_to_ptf, \
+    create_revoked_cert_and_crl, copy_certificate_to_dut
 from tests.common.utilities import get_image_type
+
+
+def _rotate_gnmi_certs(duthost, localhost, ptfhost):
+    """Regenerate the GNMI PKI and push the fresh certs to the DUT and ptf."""
+    prepare_root_cert(localhost)
+    prepare_server_cert(duthost, localhost)
+    prepare_client_cert(localhost)
+    copy_certificate_to_ptf(ptfhost)
+    create_revoked_cert_and_crl(localhost, ptfhost)
+    copy_certificate_to_dut(duthost)
 
 
 logger = logging.getLogger(__name__)
@@ -64,7 +75,7 @@ def test_mimic_hwproxy_cert_rotation(duthosts, rand_one_dut_hostname, localhost,
             disable_feature = 'sudo config feature state gnmi disabled'
             duthost.command(disable_feature, module_ignore_errors=True)
             # rotate gnmi cert
-            setup_gnmi_rotated_server(duthosts, rand_one_dut_hostname, localhost, ptfhost)
+            _rotate_gnmi_certs(duthost, localhost, ptfhost)
             # set gnmi table
             env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
             port = env.gnmi_port
