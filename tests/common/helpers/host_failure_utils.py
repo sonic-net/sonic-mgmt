@@ -7,79 +7,133 @@ DUTHOSTS_FIXTURE_FAILED_CACHE_KEY = "duthosts_fixture_failed"
 TESTBED_UNREACHABLE_STOP_REASON = (
     "DUT/testbed is unreachable; stop the current pytest session"
 )
+TESTBED_UNREACHABLE_HANDLED_ATTR = "sonic_testbed_unreachable_handled"
+
+# An exception message may embed a whole ansible module result, the failure
+# signatures we look for are always in the leading part of the message.
+MAX_INSPECTED_MESSAGE_LENGTH = 8192
+
+# Only pytest-ansible reports an unreachable host with these messages, they stay
+# recognizable after being wrapped by pytest_assert or a parallel task runner.
+UNREACHABLE_MARKERS = (
+    "host unreachable",
+    "unreachable in the inventory",
+)
+# On their own these only mean a single connection attempt failed, they need an
+# unhealthy DUT context to tell an unusable testbed from a functional failure.
+CONNECTIVITY_FAILURE_MARKERS = (
+    "unable to connect to port 22",
+    "timeout when waiting for",
+    "no route to host",
+)
 
 
 def _iter_exception_chain(exc):
+    """Yield an exception and every exception it is chained to."""
     pending = [exc]
     seen = set()
 
     while pending:
         current = pending.pop()
-        if id(current) in seen:
+        if current is None or id(current) in seen:
             continue
         seen.add(id(current))
         yield current
 
-        cause = getattr(current, "__cause__", None)
-        context = getattr(current, "__context__", None)
-        nested = getattr(current, "exceptions", ())
-        if cause is not None:
-            pending.append(cause)
-        if context is not None:
-            pending.append(context)
-        pending.extend(nested)
+        pending.append(getattr(current, "__cause__", None))
+        # __context__ is attached to any exception raised while another one was
+        # being handled, so honor an explicit "raise ... from None".
+        if not getattr(current, "__suppress_context__", False):
+            pending.append(getattr(current, "__context__", None))
+        # Exceptions collected by an ExceptionGroup, used by parallel runs.
+        nested = getattr(current, "exceptions", None)
+        if isinstance(nested, (list, tuple)):
+            pending.extend(nested)
 
 
-def is_testbed_unreachable_exception(exc, connection_failure_type=None):
+def _get_dark_hosts(exc):
+    """Return the hosts an ansible connection failure could not reach."""
+    dark = getattr(exc, "dark", None)
+    if isinstance(dark, dict):
+        return sorted(dark.keys())
+    return []
+
+
+def _get_message(exc):
+    try:
+        message = str(exc)
+    except Exception:
+        return ""
+    return message[:MAX_INSPECTED_MESSAGE_LENGTH].lower()
+
+
+def _is_unreachable_failure(exc, connection_failure_types):
+    # A connection failure is only conclusive when it names the hosts that were
+    # unreachable. ansible-core raises the same exception type for connection
+    # errors that do not mean the testbed became unusable.
+    if (connection_failure_types and
+            isinstance(exc, connection_failure_types) and
+            _get_dark_hosts(exc)):
+        return True
+
+    message = _get_message(exc)
+    if any(marker in message for marker in UNREACHABLE_MARKERS):
+        return True
+
+    # A DUT that never came back from a reboot always leaves the testbed unusable.
+    if "did not startup after reboot" in message:
+        return True
+
+    if not any(marker in message
+               for marker in CONNECTIVITY_FAILURE_MARKERS):
+        return False
+
+    # A bare "did not startup" is also used by functional assertions, it only
+    # means an unusable testbed when the DUT is unreachable as well.
+    reboot_failure = (
+        "dut not start" in message or
+        "did not startup" in message
+    )
+    sanity_recovery_failure = "recovery of sanity check failed" in message
+    return reboot_failure or sanity_recovery_failure
+
+
+def is_testbed_unreachable_exception(exc, connection_failure_types=None):
     """Return whether an exception means the assigned testbed is unusable."""
-    for current in _iter_exception_chain(exc):
-        if connection_failure_type is not None and isinstance(
-                current, connection_failure_type):
-            return True
-
-        message = str(current).lower()
-        if ("host unreachable" in message or
-                "unreachable in the inventory" in message or
-                "ansibleconnectionfailure" in message):
-            return True
-
-        reboot_failure = (
-            "dut not start" in message or
-            "did not startup" in message
-        )
-        reboot_after_failure = "did not startup after reboot" in message
-        sanity_recovery_failure = (
-            "recovery of sanity check failed" in message
-        )
-        connectivity_failure = any(marker in message for marker in (
-            "unable to connect to port 22",
-            "timeout when waiting for",
-            "no route to host",
-        ))
-        if reboot_after_failure or connectivity_failure and (
-                reboot_failure or sanity_recovery_failure):
-            return True
-
-    return False
+    return any(
+        _is_unreachable_failure(current, connection_failure_types)
+        for current in _iter_exception_chain(exc)
+    )
 
 
 def _get_unreachable_hosts(exc):
     for current in _iter_exception_chain(exc):
-        dark = getattr(current, "dark", None)
-        if isinstance(dark, dict):
-            return list(dark.keys())
+        hosts = _get_dark_hosts(current)
+        if hosts:
+            return hosts
     return []
 
 
-def stop_on_testbed_unreachable(node, call, connection_failure_type=None):
+def stop_on_testbed_unreachable(node, call, connection_failure_types=None):
     """Flag and stop a pytest session after a testbed connectivity failure."""
     if call.excinfo is None:
         return False
 
     exc = call.excinfo.value
-    if not is_testbed_unreachable_exception(
-            exc, connection_failure_type):
+    if not is_testbed_unreachable_exception(exc, connection_failure_types):
         return False
+
+    session = node.session
+    if not getattr(session, TESTBED_UNREACHABLE_HANDLED_ATTR, False):
+        setattr(session, TESTBED_UNREACHABLE_HANDLED_ATTR, True)
+        logger.error(
+            "Testbed connectivity failure detected in %s phase of %s: %r",
+            call.when,
+            getattr(node, "name", "unknown"),
+            exc,
+        )
+
+    node.config.cache.set(DUTHOSTS_FIXTURE_FAILED_CACHE_KEY, True)
 
     unreachable_hosts = _get_unreachable_hosts(exc)
     if unreachable_hosts:
@@ -90,19 +144,7 @@ def stop_on_testbed_unreachable(node, call, connection_failure_type=None):
     else:
         reason = TESTBED_UNREACHABLE_STOP_REASON
 
-    already_flagged = node.config.cache.get(
-        DUTHOSTS_FIXTURE_FAILED_CACHE_KEY, None)
-    if not already_flagged:
-        logger.error(
-            "Testbed connectivity failure detected in %s phase of %s: %r",
-            call.when,
-            getattr(node, "name", "unknown"),
-            exc,
-        )
-        node.config.cache.set(
-            DUTHOSTS_FIXTURE_FAILED_CACHE_KEY, True)
-
-    if not node.session.shouldstop:
-        node.session.shouldstop = reason
+    if not session.shouldstop:
+        session.shouldstop = reason
 
     return True

@@ -20,6 +20,9 @@ DUTHOSTS_FIXTURE_FAILED_CACHE_KEY = (
 TESTBED_UNREACHABLE_STOP_REASON = (
     HOST_FAILURE_UTILS.TESTBED_UNREACHABLE_STOP_REASON
 )
+MAX_INSPECTED_MESSAGE_LENGTH = (
+    HOST_FAILURE_UTILS.MAX_INSPECTED_MESSAGE_LENGTH
+)
 is_testbed_unreachable_exception = (
     HOST_FAILURE_UTILS.is_testbed_unreachable_exception
 )
@@ -36,6 +39,14 @@ class FakeConnectionFailure(Exception):
 
 class FakeCoreConnectionFailure(Exception):
     pass
+
+
+class FakeExceptionGroup(Exception):
+    """Stand-in for ExceptionGroup, which needs python 3.11 or newer."""
+
+    def __init__(self, message, exceptions):
+        super().__init__(message)
+        self.exceptions = exceptions
 
 
 def _make_node(cache_value=None, shouldstop=False):
@@ -55,15 +66,30 @@ def _make_call(exc=None, when="setup"):
     return SimpleNamespace(excinfo=excinfo, when=when)
 
 
-def test_detects_ansible_connection_failure_type():
-    exc = FakeConnectionFailure("authentication detail")
+def test_detects_ansible_connection_failure_with_unreachable_hosts():
+    exc = FakeConnectionFailure("connection detail", dark={"dut-1": {}})
 
     assert is_testbed_unreachable_exception(
         exc, FakeConnectionFailure)
 
 
-def test_detects_connection_failure_type_tuple():
+def test_ignores_connection_failure_type_without_unreachable_hosts():
+    # ansible-core raises the same exception type for a dropped ssh session.
+    exc = FakeConnectionFailure("authentication detail")
+
+    assert not is_testbed_unreachable_exception(
+        exc, FakeConnectionFailure)
+
+
+def test_ignores_core_connection_failure_without_evidence():
     exc = FakeCoreConnectionFailure("connection detail")
+
+    assert not is_testbed_unreachable_exception(
+        exc, (FakeConnectionFailure, FakeCoreConnectionFailure))
+
+
+def test_detects_connection_failure_type_tuple():
+    exc = FakeConnectionFailure("connection detail", dark={"dut-1": {}})
 
     assert is_testbed_unreachable_exception(
         exc, (FakeConnectionFailure, FakeCoreConnectionFailure))
@@ -72,6 +98,12 @@ def test_detects_connection_failure_type_tuple():
 def test_detects_wrapped_host_unreachable():
     exc = RuntimeError(
         "Thread worker aborted: Host unreachable in the inventory")
+
+    assert is_testbed_unreachable_exception(exc)
+
+
+def test_detects_host_unreachable_without_connection_failure_types():
+    exc = FakeConnectionFailure("Host unreachable in the inventory")
 
     assert is_testbed_unreachable_exception(exc)
 
@@ -86,14 +118,32 @@ def test_detects_connection_failure_in_exception_cause():
         outer, FakeConnectionFailure)
 
 
+def test_detects_connection_failure_in_exception_context():
+    inner = RuntimeError("Host unreachable in the inventory")
+    outer = RuntimeError("wrapper")
+    outer.__context__ = inner
+
+    assert is_testbed_unreachable_exception(outer)
+
+
+def test_ignores_suppressed_exception_context():
+    # "raise ... from None" means the context is not relevant to the failure.
+    inner = RuntimeError("Host unreachable in the inventory")
+    outer = RuntimeError("wrapper")
+    outer.__context__ = inner
+    outer.__suppress_context__ = True
+
+    assert not is_testbed_unreachable_exception(outer)
+
+
 def test_detects_connection_failure_in_exception_group():
-    group = ExceptionGroup(
+    group = FakeExceptionGroup(
         "parallel fixture failed",
-        [FakeCoreConnectionFailure("connection detail")],
+        [FakeConnectionFailure("connection detail", dark={"dut-1": {}})],
     )
 
     assert is_testbed_unreachable_exception(
-        group, FakeCoreConnectionFailure)
+        group, FakeConnectionFailure)
 
 
 def test_detects_dut_not_start_connectivity_failure():
@@ -142,15 +192,6 @@ def test_ignores_functional_did_not_startup_assertion():
         AssertionError("DUT dut-1 did not startup"))
 
 
-def test_ignores_non_matching_exception():
-    node = _make_node()
-    call = _make_call(AssertionError("expected 1, got 2"))
-
-    assert not stop_on_testbed_unreachable(node, call)
-    node.config.cache.set.assert_not_called()
-    assert not node.session.shouldstop
-
-
 def test_ignores_sanity_recovery_without_connectivity_failure():
     assert not is_testbed_unreachable_exception(
         RuntimeError("Recovery of sanity check failed: invalid config"))
@@ -159,6 +200,22 @@ def test_ignores_sanity_recovery_without_connectivity_failure():
 def test_ignores_connectivity_text_without_unhealthy_context():
     assert not is_testbed_unreachable_exception(
         RuntimeError("No route to host"))
+
+
+def test_ignores_marker_beyond_inspected_message_length():
+    padding = "a" * MAX_INSPECTED_MESSAGE_LENGTH
+    exc = RuntimeError(padding + " Host unreachable in the inventory")
+
+    assert not is_testbed_unreachable_exception(exc)
+
+
+def test_ignores_non_matching_exception():
+    node = _make_node()
+    call = _make_call(AssertionError("expected 1, got 2"))
+
+    assert not stop_on_testbed_unreachable(node, call)
+    node.config.cache.set.assert_not_called()
+    assert not node.session.shouldstop
 
 
 def test_flags_cache_and_stops_session():
@@ -172,21 +229,22 @@ def test_flags_cache_and_stops_session():
     assert node.session.shouldstop == TESTBED_UNREACHABLE_STOP_REASON
 
 
-def test_stops_when_cache_was_already_flagged():
+def test_flags_cache_even_when_stale_flag_was_left_behind():
     node = _make_node(cache_value=True)
     call = _make_call(RuntimeError(
         "Host unreachable in the inventory"))
 
     assert stop_on_testbed_unreachable(node, call)
-    node.config.cache.set.assert_not_called()
+    node.config.cache.set.assert_called_once_with(
+        DUTHOSTS_FIXTURE_FAILED_CACHE_KEY, True)
     assert node.session.shouldstop == TESTBED_UNREACHABLE_STOP_REASON
 
 
-def test_includes_unreachable_host_names():
+def test_includes_unreachable_host_names_in_stable_order():
     node = _make_node()
     call = _make_call(FakeConnectionFailure(
         "Host unreachable",
-        dark={"dut-1": {}, "dut-2": {}},
+        dark={"dut-2": {}, "dut-1": {}},
     ))
 
     assert stop_on_testbed_unreachable(
@@ -213,7 +271,20 @@ def test_preserves_existing_stop_reason():
         "Host unreachable in the inventory"))
 
     assert stop_on_testbed_unreachable(node, call)
+    node.config.cache.set.assert_called_once_with(
+        DUTHOSTS_FIXTURE_FAILED_CACHE_KEY, True)
     assert node.session.shouldstop == "existing reason"
+
+
+def test_logs_once_per_session():
+    node = _make_node()
+    exc = RuntimeError("Host unreachable in the inventory")
+
+    assert stop_on_testbed_unreachable(node, _make_call(exc, when="setup"))
+    logged_after_first = HOST_FAILURE_UTILS.logger.error.call_count
+
+    assert stop_on_testbed_unreachable(node, _make_call(exc, when="teardown"))
+    assert HOST_FAILURE_UTILS.logger.error.call_count == logged_after_first
 
 
 def test_returns_false_without_exception():

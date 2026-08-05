@@ -730,6 +730,11 @@ def pytest_sessionstart(session):
         logger.debug("reset existing key: {}".format(key))
         session.config.cache.set(key, None)
 
+    # A session killed before pytest_sessionfinish leaves these flags in the cache,
+    # reset them so that a later healthy run is not reported as a host failure.
+    session.config.cache.set("duthosts_fixture_failed", None)
+    session.config.cache.set("ptfhost_exception", None)
+
 
 def pytest_sessionfinish(session, exitstatus):
     if (session.config.cache.get("duthosts_fixture_failed", None) or
@@ -1560,16 +1565,23 @@ def log_custom_msg(item):
 def pytest_runtest_makereport(item, call):
     # Check the raw exception here instead of pytest_exception_interact,
     # which pytest skips for expected failures (xfail).
-    stop_on_testbed_unreachable(
-        item,
-        call,
-        CONNECTION_FAILURE_TYPES,
-    )
+    try:
+        stop_on_testbed_unreachable(
+            item,
+            call,
+            CONNECTION_FAILURE_TYPES,
+        )
+    except Exception as e:
+        # This hook runs for every test phase, a failure here would abort the
+        # whole session with an INTERNALERROR instead of reporting the test.
+        logger.error("Failed to check testbed connectivity failure: {}".format(repr(e)))
 
     if call.when == 'setup':
         item.user_properties.append(('start', str(datetime.fromtimestamp(call.start))))
     elif call.when == 'teardown':
-        if item.nodeid == item.session.items[-1].nodeid:
+        # The remaining items never run once the session is stopped early, so this
+        # is the last chance to attach the custom messages to the test report.
+        if item.nodeid == item.session.items[-1].nodeid or item.session.shouldstop:
             log_custom_msg(item)
         item.user_properties.append(('end', str(datetime.fromtimestamp(call.stop))))
 
