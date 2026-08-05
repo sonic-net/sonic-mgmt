@@ -8,19 +8,11 @@ from tests.transceiver.dom.dom_helpers import (
     THRESHOLD_FIELD_SUFFIXES,
     THRESHOLD_VALUE_TOLERANCE,
     build_dom_threshold_plan,
+    format_dom_port_failure,
     read_dom_threshold_data,
 )
 
 logger = logging.getLogger(__name__)
-
-
-def _format_port_failure(port, expected_fields, field_failures):
-    """Prefix a port's failure block with its expected threshold shape."""
-    return "{} [{} expected threshold field(s)]:\n  {}".format(
-        port,
-        len(expected_fields),
-        "\n  ".join(field_failures),
-    )
 
 
 def _parse_threshold_range(attr_name, attr_value):
@@ -215,7 +207,15 @@ def _validate_dom_threshold_ranges(dom_primary_ports, threshold_by_port, thresho
                 )
 
         if field_failures:
-            failures.append(_format_port_failure(port, expected_fields, field_failures))
+            failures.append(
+                format_dom_port_failure(
+                    port,
+                    None,
+                    expected_fields,
+                    field_failures,
+                    field_label="expected threshold field(s)",
+                )
+            )
 
     return failures, checked_attr_count, checked_field_count, checked_port_count
 
