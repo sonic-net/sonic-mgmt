@@ -307,6 +307,129 @@ def build_dom_polling_failures(duthost, dom_primary_ports):
     return failures
 
 
+def format_optional_float(value):
+    return "{:.2f}".format(value) if value is not None else "not-available"
+
+
+def format_dom_port_failure(
+    port,
+    active_lanes,
+    expected_fields,
+    field_failures,
+    field_label="expected field(s)",
+):
+    """Prefix a port's failure block with its expected shape."""
+    lane_context = "" if active_lanes is None else ", media lanes {}".format(active_lanes or "none")
+    return "{} [{} {}{}]:\n  {}".format(
+        port,
+        len(expected_fields),
+        field_label,
+        lane_context,
+        "\n  ".join(field_failures),
+    )
+
+
+def validate_dom_plan_fields(
+    duthost,
+    dom_primary_ports,
+    sensor_by_port,
+    plan_by_port,
+    field_check,
+    include_freshness_only=False,
+):
+    """Drive primary-port DOM sensor validation and delegate per-field rules.
+
+    ``field_check(field, mapped_field, raw_value)`` returns an error string or
+    ``None``. The driver owns freshness, empty-sensor handling, missing-field
+    handling, aggregation, and checked field/port counts.
+    """
+    failures = []
+    checked_field_count = 0
+    checked_port_count = 0
+    now_utc = None
+
+    for port in dom_primary_ports:
+        sensor_data = sensor_by_port.get(port, {})
+        plan = plan_by_port.get(port, {})
+        expected_fields = plan.get("expected_fields", {})
+        active_lanes = plan.get("active_media_lanes", [])
+        field_failures = list(plan.get("errors", []))
+        max_age_min = plan.get("max_age_min")
+        has_field_checks = bool(expected_fields or field_failures)
+        has_plan_checks = has_field_checks or (include_freshness_only and max_age_min is not None)
+
+        if not has_plan_checks:
+            continue
+        checked_port_count += 1
+
+        if not sensor_data:
+            if expected_fields:
+                field_failures.append(
+                    "missing {} data for expected field(s): {}".format(
+                        STATE_DB_SENSOR_TABLE,
+                        ", ".join(expected_fields),
+                    )
+                )
+            elif max_age_min is not None:
+                if now_utc is None:
+                    now_utc = duthost.get_now_time(utc_timezone=True)
+                field_failures.extend(
+                    check_dom_sensor_freshness(sensor_data, max_age_min, now_utc)["failures"]
+                )
+
+            if field_failures:
+                failures.append(format_dom_port_failure(port, active_lanes, expected_fields, field_failures))
+            continue
+
+        freshness_age_min = None
+        if max_age_min is not None and (has_field_checks or include_freshness_only):
+            if now_utc is None:
+                now_utc = duthost.get_now_time(utc_timezone=True)
+            freshness_result = check_dom_sensor_freshness(sensor_data, max_age_min, now_utc)
+            field_failures.extend(freshness_result["failures"])
+            freshness_age_min = freshness_result["age_minutes"]
+
+        checked_fields = 0
+        for field, mapped_field in expected_fields.items():
+            if field not in sensor_data:
+                field_failures.append(
+                    "expected DOM field missing in STATE_DB sensor data: {}".format(field)
+                )
+                continue
+
+            raw_value = sensor_data[field]
+            error = field_check(field, mapped_field, raw_value)
+            if error:
+                field_failures.append(error)
+                continue
+
+            checked_fields += 1
+            logger.debug(
+                "DOM field PASS %s %s (source_attr=%s)",
+                port,
+                field,
+                mapped_field.source_attr,
+            )
+
+        checked_field_count += checked_fields
+
+        if field_failures:
+            failures.append(format_dom_port_failure(port, active_lanes, expected_fields, field_failures))
+            continue
+
+        logger.debug(
+            "DOM plan PASS %s: media_lanes=%s expected_fields=%s "
+            "freshness_age_min=%s freshness_limit_min=%s",
+            port,
+            active_lanes or "none",
+            ", ".join(expected_fields) or "none",
+            format_optional_float(freshness_age_min),
+            max_age_min if max_age_min is not None else "not-configured",
+        )
+
+    return failures, checked_field_count, checked_port_count
+
+
 def _read_dom_table_data(duthost, ports, table_name):
     """Return ``({port: {field: value}}, errors)`` for a current DOM STATE_DB table."""
     ports = list(ports)
