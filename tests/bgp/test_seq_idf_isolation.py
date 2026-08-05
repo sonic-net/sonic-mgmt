@@ -12,7 +12,8 @@ from route_checker import verify_current_routes_announced_to_neighs, check_and_l
 from route_checker import scaled_route_convergence_timeout
 
 pytestmark = [
-    pytest.mark.topology('t2', 'lrh', 'urh', 'lt2')
+    pytest.mark.topology('t2', 'lrh', 'urh', 'lt2'),
+    pytest.mark.frr_bgpcfgd_only("frrcfgd does not consume BGP_DEVICE_GLOBAL (TSA/TSB/IDF isolation/W-ECMP)"),
 ]
 
 logger = logging.getLogger(__name__)

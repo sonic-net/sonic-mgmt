@@ -44,6 +44,16 @@ FRR_CONFIG_MODES = [MODE_TRADITIONAL, MODE_FRR_MGMT_FRAMEWORK]
 # Preference order: frr_mgmt_framework first, so the newer frrcfgd path gets the
 # coverage, falling back to traditional when frr is not reachable on this DUT.
 FRR_GENERIC_MARKER = "frr_generic"
+
+# Modules marked ``frr_bgpcfgd_only`` are by design unsupported under frrcfgd: they assert
+# bgpcfgd daemon behaviour, or drive a product operation frrcfgd does not consume. Their
+# frr_mgmt_framework variant is skipped with the marker's reason, so the traditional variant
+# still runs. A permanent, by-design skip -- deliberately NOT gated on an auto-lifting issue.
+#
+# This is the parametrized counterpart of skip_module_if_frr_native(): that helper only fires
+# on a DUT which *boots* frrcfgd, so with the fixture applied autouse it would let these
+# modules be switched INTO frr mode and fail instead of skip.
+FRR_BGPCFGD_ONLY_MARKER = "frr_bgpcfgd_only"
 _FRR_GENERIC_PREFERENCE = [MODE_FRR_MGMT_FRAMEWORK, MODE_TRADITIONAL]
 
 # bgpcfgd renders these base BGP-sentinel policy objects from its Jinja templates
@@ -485,6 +495,12 @@ def frr_config_mode(request, duthosts, rand_one_dut_hostname):
     # on them), the report states which mode actually ran, and -- crucially -- a DUT that
     # cannot reach frr mode (no golden config, multi-asic, macsec, non-traditional boot)
     # still runs the module in traditional instead of skipping it entirely.
+    bgpcfgd_only = request.node.get_closest_marker(FRR_BGPCFGD_ONLY_MARKER)
+    if bgpcfgd_only and mode == MODE_FRR_MGMT_FRAMEWORK:
+        reason = (bgpcfgd_only.args[0] if bgpcfgd_only.args
+                  else "this module asserts bgpcfgd-specific behaviour")
+        pytest.skip("frr_mgmt_framework mode not supported for this module: {}".format(reason))
+
     if request.node.get_closest_marker(FRR_GENERIC_MARKER):
         chosen = _generic_mode(duthost, request, state.original_mode)
         if chosen is not None and mode != chosen:
