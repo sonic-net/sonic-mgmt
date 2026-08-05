@@ -882,7 +882,7 @@ def duthosts_ipv6_mgmt_only(duthosts, backup_and_restore_ansible_hosts, backup_a
                     try:
                         # Add a temporary debug log to see if the DUT is reachable via IPv6 mgmt-ip. Will remove later
                         duthost_interface = duthost.shell("sudo ifconfig eth0")['stdout']
-                        logging.debug(f"Checking host[{duthost.hostname}] ifconfig eth0:[{duthost_interface}]")
+                        logging.debug(f"Checking host[{duthost.hostname}] ifconfig eth0: [{duthost_interface}]")
                         ssh_client.connect(ip_addr_without_mask,
                                            username="WRONG_USER", password="WRONG_PWD", timeout=15)
                     except AuthenticationException:
@@ -1065,7 +1065,7 @@ def duthosts_ipv4_mgmt_only(duthosts):
                     try:
                         # Add a temporary debug log to see if the DUT is reachable via IPv4 mgmt-ip. Will remove later
                         duthost_interface = duthost.shell("sudo ifconfig eth0")['stdout']
-                        logger.debug(f"Checking host[{duthost.hostname}] ifconfig eth0:[{duthost_interface}]")
+                        logger.debug(f"Checking host[{duthost.hostname}] ifconfig eth0: [{duthost_interface}]")
                         ssh_client.connect(ip_addr_without_mask,
                                            username="WRONG_USER", password="WRONG_PWD", timeout=15)
                     except AuthenticationException:
@@ -1200,12 +1200,12 @@ def assert_addr_in_output(addr_set: Dict[str, List], hostname: str,
     for addr in addr_set[hostname]:
         if expect_exists:
             pt_assert(addr in cmd_output,
-                      f"{addr} not appeared in {hostname} {cmd_desc}")
+                      f"{addr} is missing from {hostname} {cmd_desc}")
             logger.info(f"{addr} exists in the output of {cmd_desc}")
         else:
             pt_assert(addr not in cmd_output,
                       f"{hostname} {cmd_desc} still with addr {addr}")
-            logger.info(f"{addr} not exists in the output of {cmd_desc} which is expected")
+            logger.info(f"{addr} is absent from the output of {cmd_desc}, as expected")
 
 
 def is_sai_profile_multi_binding_enabled(duthost):
