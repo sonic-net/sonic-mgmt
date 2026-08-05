@@ -8061,40 +8061,28 @@ sensors_checks:
       - dps800-i2c-22-58/Power supply 2 secondary hotspot sensor/temp2_lcrit_alarm
       - dps800-i2c-22-58/Power supply 2 secondary hotspot sensor/temp2_max_alarm
       - dps800-i2c-22-58/Power supply 2 secondary hotspot sensor/temp2_min_alarm
-      - max6658-i2c-9-4c/temp1/temp1_crit_alarm
-      - max6658-i2c-9-4c/temp1/temp1_max_alarm
-      - max6658-i2c-9-4c/temp1/temp1_min_alarm
-      - max6658-i2c-9-4c/temp2/temp2_crit_alarm
-      - max6658-i2c-9-4c/temp2/temp2_fault
-      - max6658-i2c-9-4c/temp2/temp2_max_alarm
-      - max6658-i2c-9-4c/temp2/temp2_min_alarm
+      - max6658-i2c-9-4c/CPU board/temp1_crit_alarm
+      - max6658-i2c-9-4c/CPU board/temp1_max_alarm
+      - max6658-i2c-9-4c/CPU board/temp1_min_alarm
+      - max6658-i2c-9-4c/Back-panel/temp2_crit_alarm
+      - max6658-i2c-9-4c/Back-panel/temp2_fault
+      - max6658-i2c-9-4c/Back-panel/temp2_max_alarm
+      - max6658-i2c-9-4c/Back-panel/temp2_min_alarm
       - nvme-pci-0500/Composite/temp1_alarm
-      - tmp464-i2c-28-48/temp1/temp1_crit_alarm
-      - tmp464-i2c-28-48/temp1/temp1_max_alarm
-      - tmp464-i2c-28-48/temp2/temp2_crit_alarm
-      - tmp464-i2c-28-48/temp2/temp2_fault
-      - tmp464-i2c-28-48/temp2/temp2_max_alarm
-      - tmp464-i2c-28-48/temp3/temp3_crit_alarm
-      - tmp464-i2c-28-48/temp3/temp3_fault
-      - tmp464-i2c-28-48/temp3/temp3_max_alarm
-      - tmp464-i2c-28-48/temp4/temp4_crit_alarm
-      - tmp464-i2c-28-48/temp4/temp4_fault
-      - tmp464-i2c-28-48/temp4/temp4_max_alarm
-      - tmp464-i2c-28-48/temp5/temp5_crit_alarm
-      - tmp464-i2c-28-48/temp5/temp5_fault
-      - tmp464-i2c-28-48/temp5/temp5_max_alarm
-      - tmp464-i2c-28-48/temp6/temp6_crit_alarm
-      - tmp464-i2c-28-48/temp6/temp6_fault
-      - tmp464-i2c-28-48/temp6/temp6_max_alarm
-      - tmp464-i2c-28-48/temp7/temp7_crit_alarm
-      - tmp464-i2c-28-48/temp7/temp7_fault
-      - tmp464-i2c-28-48/temp7/temp7_max_alarm
-      - tmp464-i2c-28-48/temp8/temp8_crit_alarm
-      - tmp464-i2c-28-48/temp8/temp8_fault
-      - tmp464-i2c-28-48/temp8/temp8_max_alarm
-      - tmp464-i2c-28-48/temp9/temp9_crit_alarm
-      - tmp464-i2c-28-48/temp9/temp9_fault
-      - tmp464-i2c-28-48/temp9/temp9_max_alarm
+      - tmp464-i2c-28-48/JE0 Front Side/temp1_crit_alarm
+      - tmp464-i2c-28-48/JE0 Front Side/temp1_max_alarm
+      - tmp464-i2c-28-48/Air Inlet/temp2_crit_alarm
+      - tmp464-i2c-28-48/Air Inlet/temp2_fault
+      - tmp464-i2c-28-48/Air Inlet/temp2_max_alarm
+      - tmp464-i2c-28-48/Board Temp/temp3_crit_alarm
+      - tmp464-i2c-28-48/Board Temp/temp3_fault
+      - tmp464-i2c-28-48/Board Temp/temp3_max_alarm
+      - tmp464-i2c-28-48/JE1_C Diode/temp4_crit_alarm
+      - tmp464-i2c-28-48/JE1_C Diode/temp4_fault
+      - tmp464-i2c-28-48/JE1_C Diode/temp4_max_alarm
+      - tmp464-i2c-28-48/JE0_C Diode/temp5_crit_alarm
+      - tmp464-i2c-28-48/JE0_C Diode/temp5_fault
+      - tmp464-i2c-28-48/JE0_C Diode/temp5_max_alarm
 
     compares:
       fan: [ ]
@@ -8112,22 +8100,22 @@ sensors_checks:
         - dps800-i2c-22-58/Power supply 2 primary hotspot temp sensor/temp3_crit
       - - dps800-i2c-22-58/Power supply 2 secondary hotspot sensor/temp2_input
         - dps800-i2c-22-58/Power supply 2 secondary hotspot sensor/temp2_crit
-      - - max6658-i2c-9-4c/temp1/temp1_input
-        - max6658-i2c-9-4c/temp1/temp1_crit
-      - - max6658-i2c-9-4c/temp2/temp2_input
-        - max6658-i2c-9-4c/temp2/temp2_crit
+      - - max6658-i2c-9-4c/CPU board/temp1_input
+        - max6658-i2c-9-4c/CPU board/temp1_crit
+      - - max6658-i2c-9-4c/Back-panel/temp2_input
+        - max6658-i2c-9-4c/Back-panel/temp2_crit
       - - nvme-pci-0500/Composite/temp1_input
         - nvme-pci-0500/Composite/temp1_crit
-      - - tmp464-i2c-28-48/temp1/temp1_input
-        - tmp464-i2c-28-48/temp1/temp1_crit
-      - - tmp464-i2c-28-48/temp2/temp2_input
-        - tmp464-i2c-28-48/temp2/temp2_crit
-      - - tmp464-i2c-28-48/temp3/temp3_input
-        - tmp464-i2c-28-48/temp3/temp3_crit
-      - - tmp464-i2c-28-48/temp4/temp4_input
-        - tmp464-i2c-28-48/temp4/temp4_crit
-      - - tmp464-i2c-28-48/temp5/temp5_input
-        - tmp464-i2c-28-48/temp5/temp5_crit
+      - - tmp464-i2c-28-48/JE0 Front Side/temp1_input
+        - tmp464-i2c-28-48/JE0 Front Side/temp1_crit
+      - - tmp464-i2c-28-48/Air Inlet/temp2_input
+        - tmp464-i2c-28-48/Air Inlet/temp2_crit
+      - - tmp464-i2c-28-48/Board Temp/temp3_input
+        - tmp464-i2c-28-48/Board Temp/temp3_crit
+      - - tmp464-i2c-28-48/JE1_C Diode/temp4_input
+        - tmp464-i2c-28-48/JE1_C Diode/temp4_crit
+      - - tmp464-i2c-28-48/JE0_C Diode/temp5_input
+        - tmp464-i2c-28-48/JE0_C Diode/temp5_crit
 
     non_zero:
       fan:
@@ -8231,40 +8219,28 @@ sensors_checks:
       - dps800-i2c-22-58/Power supply 2 secondary hotspot sensor/temp2_lcrit_alarm
       - dps800-i2c-22-58/Power supply 2 secondary hotspot sensor/temp2_max_alarm
       - dps800-i2c-22-58/Power supply 2 secondary hotspot sensor/temp2_min_alarm
-      - max6658-i2c-9-4c/temp1/temp1_crit_alarm
-      - max6658-i2c-9-4c/temp1/temp1_max_alarm
-      - max6658-i2c-9-4c/temp1/temp1_min_alarm
-      - max6658-i2c-9-4c/temp2/temp2_crit_alarm
-      - max6658-i2c-9-4c/temp2/temp2_fault
-      - max6658-i2c-9-4c/temp2/temp2_max_alarm
-      - max6658-i2c-9-4c/temp2/temp2_min_alarm
+      - max6658-i2c-9-4c/CPU board/temp1_crit_alarm
+      - max6658-i2c-9-4c/CPU board/temp1_max_alarm
+      - max6658-i2c-9-4c/CPU board/temp1_min_alarm
+      - max6658-i2c-9-4c/Back-panel/temp2_crit_alarm
+      - max6658-i2c-9-4c/Back-panel/temp2_fault
+      - max6658-i2c-9-4c/Back-panel/temp2_max_alarm
+      - max6658-i2c-9-4c/Back-panel/temp2_min_alarm
       - nvme-pci-0500/Composite/temp1_alarm
-      - tmp464-i2c-28-48/temp1/temp1_crit_alarm
-      - tmp464-i2c-28-48/temp1/temp1_max_alarm
-      - tmp464-i2c-28-48/temp2/temp2_crit_alarm
-      - tmp464-i2c-28-48/temp2/temp2_fault
-      - tmp464-i2c-28-48/temp2/temp2_max_alarm
-      - tmp464-i2c-28-48/temp3/temp3_crit_alarm
-      - tmp464-i2c-28-48/temp3/temp3_fault
-      - tmp464-i2c-28-48/temp3/temp3_max_alarm
-      - tmp464-i2c-28-48/temp4/temp4_crit_alarm
-      - tmp464-i2c-28-48/temp4/temp4_fault
-      - tmp464-i2c-28-48/temp4/temp4_max_alarm
-      - tmp464-i2c-28-48/temp5/temp5_crit_alarm
-      - tmp464-i2c-28-48/temp5/temp5_fault
-      - tmp464-i2c-28-48/temp5/temp5_max_alarm
-      - tmp464-i2c-28-48/temp6/temp6_crit_alarm
-      - tmp464-i2c-28-48/temp6/temp6_fault
-      - tmp464-i2c-28-48/temp6/temp6_max_alarm
-      - tmp464-i2c-28-48/temp7/temp7_crit_alarm
-      - tmp464-i2c-28-48/temp7/temp7_fault
-      - tmp464-i2c-28-48/temp7/temp7_max_alarm
-      - tmp464-i2c-28-48/temp8/temp8_crit_alarm
-      - tmp464-i2c-28-48/temp8/temp8_fault
-      - tmp464-i2c-28-48/temp8/temp8_max_alarm
-      - tmp464-i2c-28-48/temp9/temp9_crit_alarm
-      - tmp464-i2c-28-48/temp9/temp9_fault
-      - tmp464-i2c-28-48/temp9/temp9_max_alarm
+      - tmp464-i2c-28-48/JE0 Front Side/temp1_crit_alarm
+      - tmp464-i2c-28-48/JE0 Front Side/temp1_max_alarm
+      - tmp464-i2c-28-48/Air Inlet/temp2_crit_alarm
+      - tmp464-i2c-28-48/Air Inlet/temp2_fault
+      - tmp464-i2c-28-48/Air Inlet/temp2_max_alarm
+      - tmp464-i2c-28-48/Board Temp/temp3_crit_alarm
+      - tmp464-i2c-28-48/Board Temp/temp3_fault
+      - tmp464-i2c-28-48/Board Temp/temp3_max_alarm
+      - tmp464-i2c-28-48/JE1_C Diode/temp4_crit_alarm
+      - tmp464-i2c-28-48/JE1_C Diode/temp4_fault
+      - tmp464-i2c-28-48/JE1_C Diode/temp4_max_alarm
+      - tmp464-i2c-28-48/JE0_C Diode/temp5_crit_alarm
+      - tmp464-i2c-28-48/JE0_C Diode/temp5_fault
+      - tmp464-i2c-28-48/JE0_C Diode/temp5_max_alarm
 
     compares:
       fan: [ ]
@@ -8282,22 +8258,22 @@ sensors_checks:
         - dps800-i2c-22-58/Power supply 2 primary hotspot temp sensor/temp3_crit
       - - dps800-i2c-22-58/Power supply 2 secondary hotspot sensor/temp2_input
         - dps800-i2c-22-58/Power supply 2 secondary hotspot sensor/temp2_crit
-      - - max6658-i2c-9-4c/temp1/temp1_input
-        - max6658-i2c-9-4c/temp1/temp1_crit
-      - - max6658-i2c-9-4c/temp2/temp2_input
-        - max6658-i2c-9-4c/temp2/temp2_crit
+      - - max6658-i2c-9-4c/CPU board/temp1_input
+        - max6658-i2c-9-4c/CPU board/temp1_crit
+      - - max6658-i2c-9-4c/Back-panel/temp2_input
+        - max6658-i2c-9-4c/Back-panel/temp2_crit
       - - nvme-pci-0500/Composite/temp1_input
         - nvme-pci-0500/Composite/temp1_crit
-      - - tmp464-i2c-28-48/temp1/temp1_input
-        - tmp464-i2c-28-48/temp1/temp1_crit
-      - - tmp464-i2c-28-48/temp2/temp2_input
-        - tmp464-i2c-28-48/temp2/temp2_crit
-      - - tmp464-i2c-28-48/temp3/temp3_input
-        - tmp464-i2c-28-48/temp3/temp3_crit
-      - - tmp464-i2c-28-48/temp4/temp4_input
-        - tmp464-i2c-28-48/temp4/temp4_crit
-      - - tmp464-i2c-28-48/temp5/temp5_input
-        - tmp464-i2c-28-48/temp5/temp5_crit
+      - - tmp464-i2c-28-48/JE0 Front Side/temp1_input
+        - tmp464-i2c-28-48/JE0 Front Side/temp1_crit
+      - - tmp464-i2c-28-48/Air Inlet/temp2_input
+        - tmp464-i2c-28-48/Air Inlet/temp2_crit
+      - - tmp464-i2c-28-48/Board Temp/temp3_input
+        - tmp464-i2c-28-48/Board Temp/temp3_crit
+      - - tmp464-i2c-28-48/JE1_C Diode/temp4_input
+        - tmp464-i2c-28-48/JE1_C Diode/temp4_crit
+      - - tmp464-i2c-28-48/JE0_C Diode/temp5_input
+        - tmp464-i2c-28-48/JE0_C Diode/temp5_crit
 
     non_zero:
       fan:
@@ -8401,40 +8377,28 @@ sensors_checks:
       - dps800-i2c-22-58/Power supply 2 secondary hotspot sensor/temp2_lcrit_alarm
       - dps800-i2c-22-58/Power supply 2 secondary hotspot sensor/temp2_max_alarm
       - dps800-i2c-22-58/Power supply 2 secondary hotspot sensor/temp2_min_alarm
-      - max6658-i2c-9-4c/temp1/temp1_crit_alarm
-      - max6658-i2c-9-4c/temp1/temp1_max_alarm
-      - max6658-i2c-9-4c/temp1/temp1_min_alarm
-      - max6658-i2c-9-4c/temp2/temp2_crit_alarm
-      - max6658-i2c-9-4c/temp2/temp2_fault
-      - max6658-i2c-9-4c/temp2/temp2_max_alarm
-      - max6658-i2c-9-4c/temp2/temp2_min_alarm
+      - max6658-i2c-9-4c/CPU board/temp1_crit_alarm
+      - max6658-i2c-9-4c/CPU board/temp1_max_alarm
+      - max6658-i2c-9-4c/CPU board/temp1_min_alarm
+      - max6658-i2c-9-4c/Back-panel/temp2_crit_alarm
+      - max6658-i2c-9-4c/Back-panel/temp2_fault
+      - max6658-i2c-9-4c/Back-panel/temp2_max_alarm
+      - max6658-i2c-9-4c/Back-panel/temp2_min_alarm
       - nvme-pci-0500/Composite/temp1_alarm
-      - tmp464-i2c-28-48/temp1/temp1_crit_alarm
-      - tmp464-i2c-28-48/temp1/temp1_max_alarm
-      - tmp464-i2c-28-48/temp2/temp2_crit_alarm
-      - tmp464-i2c-28-48/temp2/temp2_fault
-      - tmp464-i2c-28-48/temp2/temp2_max_alarm
-      - tmp464-i2c-28-48/temp3/temp3_crit_alarm
-      - tmp464-i2c-28-48/temp3/temp3_fault
-      - tmp464-i2c-28-48/temp3/temp3_max_alarm
-      - tmp464-i2c-28-48/temp4/temp4_crit_alarm
-      - tmp464-i2c-28-48/temp4/temp4_fault
-      - tmp464-i2c-28-48/temp4/temp4_max_alarm
-      - tmp464-i2c-28-48/temp5/temp5_crit_alarm
-      - tmp464-i2c-28-48/temp5/temp5_fault
-      - tmp464-i2c-28-48/temp5/temp5_max_alarm
-      - tmp464-i2c-28-48/temp6/temp6_crit_alarm
-      - tmp464-i2c-28-48/temp6/temp6_fault
-      - tmp464-i2c-28-48/temp6/temp6_max_alarm
-      - tmp464-i2c-28-48/temp7/temp7_crit_alarm
-      - tmp464-i2c-28-48/temp7/temp7_fault
-      - tmp464-i2c-28-48/temp7/temp7_max_alarm
-      - tmp464-i2c-28-48/temp8/temp8_crit_alarm
-      - tmp464-i2c-28-48/temp8/temp8_fault
-      - tmp464-i2c-28-48/temp8/temp8_max_alarm
-      - tmp464-i2c-28-48/temp9/temp9_crit_alarm
-      - tmp464-i2c-28-48/temp9/temp9_fault
-      - tmp464-i2c-28-48/temp9/temp9_max_alarm
+      - tmp464-i2c-28-48/JE0 Front Side/temp1_crit_alarm
+      - tmp464-i2c-28-48/JE0 Front Side/temp1_max_alarm
+      - tmp464-i2c-28-48/Air Inlet/temp2_crit_alarm
+      - tmp464-i2c-28-48/Air Inlet/temp2_fault
+      - tmp464-i2c-28-48/Air Inlet/temp2_max_alarm
+      - tmp464-i2c-28-48/Board Temp/temp3_crit_alarm
+      - tmp464-i2c-28-48/Board Temp/temp3_fault
+      - tmp464-i2c-28-48/Board Temp/temp3_max_alarm
+      - tmp464-i2c-28-48/JE1_C Diode/temp4_crit_alarm
+      - tmp464-i2c-28-48/JE1_C Diode/temp4_fault
+      - tmp464-i2c-28-48/JE1_C Diode/temp4_max_alarm
+      - tmp464-i2c-28-48/JE0_C Diode/temp5_crit_alarm
+      - tmp464-i2c-28-48/JE0_C Diode/temp5_fault
+      - tmp464-i2c-28-48/JE0_C Diode/temp5_max_alarm
 
     compares:
       fan: [ ]
@@ -8452,22 +8416,22 @@ sensors_checks:
         - dps800-i2c-22-58/Power supply 2 primary hotspot temp sensor/temp3_crit
       - - dps800-i2c-22-58/Power supply 2 secondary hotspot sensor/temp2_input
         - dps800-i2c-22-58/Power supply 2 secondary hotspot sensor/temp2_crit
-      - - max6658-i2c-9-4c/temp1/temp1_input
-        - max6658-i2c-9-4c/temp1/temp1_crit
-      - - max6658-i2c-9-4c/temp2/temp2_input
-        - max6658-i2c-9-4c/temp2/temp2_crit
+      - - max6658-i2c-9-4c/CPU board/temp1_input
+        - max6658-i2c-9-4c/CPU board/temp1_crit
+      - - max6658-i2c-9-4c/Back-panel/temp2_input
+        - max6658-i2c-9-4c/Back-panel/temp2_crit
       - - nvme-pci-0500/Composite/temp1_input
         - nvme-pci-0500/Composite/temp1_crit
-      - - tmp464-i2c-28-48/temp1/temp1_input
-        - tmp464-i2c-28-48/temp1/temp1_crit
-      - - tmp464-i2c-28-48/temp2/temp2_input
-        - tmp464-i2c-28-48/temp2/temp2_crit
-      - - tmp464-i2c-28-48/temp3/temp3_input
-        - tmp464-i2c-28-48/temp3/temp3_crit
-      - - tmp464-i2c-28-48/temp4/temp4_input
-        - tmp464-i2c-28-48/temp4/temp4_crit
-      - - tmp464-i2c-28-48/temp5/temp5_input
-        - tmp464-i2c-28-48/temp5/temp5_crit
+      - - tmp464-i2c-28-48/JE0 Front Side/temp1_input
+        - tmp464-i2c-28-48/JE0 Front Side/temp1_crit
+      - - tmp464-i2c-28-48/Air Inlet/temp2_input
+        - tmp464-i2c-28-48/Air Inlet/temp2_crit
+      - - tmp464-i2c-28-48/Board Temp/temp3_input
+        - tmp464-i2c-28-48/Board Temp/temp3_crit
+      - - tmp464-i2c-28-48/JE1_C Diode/temp4_input
+        - tmp464-i2c-28-48/JE1_C Diode/temp4_crit
+      - - tmp464-i2c-28-48/JE0_C Diode/temp5_input
+        - tmp464-i2c-28-48/JE0_C Diode/temp5_crit
 
     non_zero:
       fan:
@@ -8571,40 +8535,28 @@ sensors_checks:
       - dps800-i2c-22-58/Power supply 2 secondary hotspot sensor/temp2_lcrit_alarm
       - dps800-i2c-22-58/Power supply 2 secondary hotspot sensor/temp2_max_alarm
       - dps800-i2c-22-58/Power supply 2 secondary hotspot sensor/temp2_min_alarm
-      - max6658-i2c-9-4c/temp1/temp1_crit_alarm
-      - max6658-i2c-9-4c/temp1/temp1_max_alarm
-      - max6658-i2c-9-4c/temp1/temp1_min_alarm
-      - max6658-i2c-9-4c/temp2/temp2_crit_alarm
-      - max6658-i2c-9-4c/temp2/temp2_fault
-      - max6658-i2c-9-4c/temp2/temp2_max_alarm
-      - max6658-i2c-9-4c/temp2/temp2_min_alarm
+      - max6658-i2c-9-4c/CPU board/temp1_crit_alarm
+      - max6658-i2c-9-4c/CPU board/temp1_max_alarm
+      - max6658-i2c-9-4c/CPU board/temp1_min_alarm
+      - max6658-i2c-9-4c/Back-panel/temp2_crit_alarm
+      - max6658-i2c-9-4c/Back-panel/temp2_fault
+      - max6658-i2c-9-4c/Back-panel/temp2_max_alarm
+      - max6658-i2c-9-4c/Back-panel/temp2_min_alarm
       - nvme-pci-0500/Composite/temp1_alarm
-      - tmp464-i2c-28-48/temp1/temp1_crit_alarm
-      - tmp464-i2c-28-48/temp1/temp1_max_alarm
-      - tmp464-i2c-28-48/temp2/temp2_crit_alarm
-      - tmp464-i2c-28-48/temp2/temp2_fault
-      - tmp464-i2c-28-48/temp2/temp2_max_alarm
-      - tmp464-i2c-28-48/temp3/temp3_crit_alarm
-      - tmp464-i2c-28-48/temp3/temp3_fault
-      - tmp464-i2c-28-48/temp3/temp3_max_alarm
-      - tmp464-i2c-28-48/temp4/temp4_crit_alarm
-      - tmp464-i2c-28-48/temp4/temp4_fault
-      - tmp464-i2c-28-48/temp4/temp4_max_alarm
-      - tmp464-i2c-28-48/temp5/temp5_crit_alarm
-      - tmp464-i2c-28-48/temp5/temp5_fault
-      - tmp464-i2c-28-48/temp5/temp5_max_alarm
-      - tmp464-i2c-28-48/temp6/temp6_crit_alarm
-      - tmp464-i2c-28-48/temp6/temp6_fault
-      - tmp464-i2c-28-48/temp6/temp6_max_alarm
-      - tmp464-i2c-28-48/temp7/temp7_crit_alarm
-      - tmp464-i2c-28-48/temp7/temp7_fault
-      - tmp464-i2c-28-48/temp7/temp7_max_alarm
-      - tmp464-i2c-28-48/temp8/temp8_crit_alarm
-      - tmp464-i2c-28-48/temp8/temp8_fault
-      - tmp464-i2c-28-48/temp8/temp8_max_alarm
-      - tmp464-i2c-28-48/temp9/temp9_crit_alarm
-      - tmp464-i2c-28-48/temp9/temp9_fault
-      - tmp464-i2c-28-48/temp9/temp9_max_alarm
+      - tmp464-i2c-28-48/JE0 Front Side/temp1_crit_alarm
+      - tmp464-i2c-28-48/JE0 Front Side/temp1_max_alarm
+      - tmp464-i2c-28-48/Air Inlet/temp2_crit_alarm
+      - tmp464-i2c-28-48/Air Inlet/temp2_fault
+      - tmp464-i2c-28-48/Air Inlet/temp2_max_alarm
+      - tmp464-i2c-28-48/Board Temp/temp3_crit_alarm
+      - tmp464-i2c-28-48/Board Temp/temp3_fault
+      - tmp464-i2c-28-48/Board Temp/temp3_max_alarm
+      - tmp464-i2c-28-48/JE1_C Diode/temp4_crit_alarm
+      - tmp464-i2c-28-48/JE1_C Diode/temp4_fault
+      - tmp464-i2c-28-48/JE1_C Diode/temp4_max_alarm
+      - tmp464-i2c-28-48/JE0_C Diode/temp5_crit_alarm
+      - tmp464-i2c-28-48/JE0_C Diode/temp5_fault
+      - tmp464-i2c-28-48/JE0_C Diode/temp5_max_alarm
 
     compares:
       fan: [ ]
@@ -8622,22 +8574,22 @@ sensors_checks:
         - dps800-i2c-22-58/Power supply 2 primary hotspot temp sensor/temp3_crit
       - - dps800-i2c-22-58/Power supply 2 secondary hotspot sensor/temp2_input
         - dps800-i2c-22-58/Power supply 2 secondary hotspot sensor/temp2_crit
-      - - max6658-i2c-9-4c/temp1/temp1_input
-        - max6658-i2c-9-4c/temp1/temp1_crit
-      - - max6658-i2c-9-4c/temp2/temp2_input
-        - max6658-i2c-9-4c/temp2/temp2_crit
+      - - max6658-i2c-9-4c/CPU board/temp1_input
+        - max6658-i2c-9-4c/CPU board/temp1_crit
+      - - max6658-i2c-9-4c/Back-panel/temp2_input
+        - max6658-i2c-9-4c/Back-panel/temp2_crit
       - - nvme-pci-0500/Composite/temp1_input
         - nvme-pci-0500/Composite/temp1_crit
-      - - tmp464-i2c-28-48/temp1/temp1_input
-        - tmp464-i2c-28-48/temp1/temp1_crit
-      - - tmp464-i2c-28-48/temp2/temp2_input
-        - tmp464-i2c-28-48/temp2/temp2_crit
-      - - tmp464-i2c-28-48/temp3/temp3_input
-        - tmp464-i2c-28-48/temp3/temp3_crit
-      - - tmp464-i2c-28-48/temp4/temp4_input
-        - tmp464-i2c-28-48/temp4/temp4_crit
-      - - tmp464-i2c-28-48/temp5/temp5_input
-        - tmp464-i2c-28-48/temp5/temp5_crit
+      - - tmp464-i2c-28-48/JE0 Front Side/temp1_input
+        - tmp464-i2c-28-48/JE0 Front Side/temp1_crit
+      - - tmp464-i2c-28-48/Air Inlet/temp2_input
+        - tmp464-i2c-28-48/Air Inlet/temp2_crit
+      - - tmp464-i2c-28-48/Board Temp/temp3_input
+        - tmp464-i2c-28-48/Board Temp/temp3_crit
+      - - tmp464-i2c-28-48/JE1_C Diode/temp4_input
+        - tmp464-i2c-28-48/JE1_C Diode/temp4_crit
+      - - tmp464-i2c-28-48/JE0_C Diode/temp5_input
+        - tmp464-i2c-28-48/JE0_C Diode/temp5_crit
 
     non_zero:
       fan:

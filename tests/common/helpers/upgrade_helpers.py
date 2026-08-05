@@ -375,6 +375,23 @@ def perform_gnoi_upgrade(
     res = duthost.shell(f"test -s {cfg.dut_image_path}", module_ignore_errors=True)
     pytest_assert(res.get("rc", 1) == 0, f"Downloaded file not found or empty on DUT: {cfg.dut_image_path}")
 
+    # ---- 2b) Extract target version from the image binary if not provided ----
+    if not cfg.to_version:
+        ver_result = duthost.shell(
+            "sonic_installer binary_version {} 2>&1".format(cfg.dut_image_path)
+            + " | grep 'SONiC-OS-' | awk -F'SONiC-OS-' '{print $2}'",
+            module_ignore_errors=True,
+        )
+        extracted_version = ver_result.get("stdout", "").strip()
+        pytest_assert(
+            extracted_version,
+            "Failed to extract version from {}: {}".format(
+                cfg.dut_image_path, ver_result.get("stderr", "")
+            ),
+        )
+        cfg.to_version = "SONiC-OS-{}".format(extracted_version)
+        logger.info("Extracted target version from image: %s", cfg.to_version)
+
     # ---- 3) SetPackage (via wrapper) ----
     setpkg_resp = ptf_gnoi.system_set_package(
         local_path=cfg.dut_image_path,
@@ -384,7 +401,6 @@ def perform_gnoi_upgrade(
     logger.info("SetPackage response: %s", setpkg_resp)
     pytest_assert(isinstance(setpkg_resp, dict), "SetPackage did not return a JSON object")
 
-    pytest_assert(cfg.to_version, "cfg.to_version must be provided for validation")
     # ---- 4) Reboot (via reboot_and_check) ----
     pytest_assert(localhost is not None, "localhost must be provided for reboot_and_check")
     pytest_assert(conn_graph_facts is not None, "conn_graph_facts must be provided for reboot_and_check")

@@ -9,6 +9,10 @@ class IssueRef:
     repo: str
     number: int
 
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "owner", (self.owner or "").strip().lower())
+        object.__setattr__(self, "repo", (self.repo or "").strip().lower())
+
     @property
     def html_url(self) -> str:
         return f"https://github.com/{self.owner}/{self.repo}/issues/{self.number}"

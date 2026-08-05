@@ -1,5 +1,6 @@
 import json
 import logging
+import random
 import sys
 import time
 import traceback
@@ -243,14 +244,18 @@ echo "==== PTF cleanup end ===="
     ptfhost.shell("bash {}".format(script_path), module_ignore_errors=True)
 
 
-def generate_dut_config_ptf(vnet_count, subifs_per_vnet, peer_asn, port_bindings, cfg_facts):
+def generate_dut_config_ptf(vnet_count, subifs_per_vnet, peer_asn, port_bindings, cfg_facts, asic_type=None):
     dut_vtep = get_loopback_ip(cfg_facts)
+
+    vxlan_tunnel_entry = {"src_ip": dut_vtep}
+    # On cisco-8000, base topology IP-in-IP decap tunnels may already use pipe TTL mode.
+    # Set VXLAN decap ttl_mode to pipe so orchagent passes DECAP_TTL_MODE consistently.
+    if asic_type == "cisco-8000":
+        vxlan_tunnel_entry["ttl_mode"] = "pipe"
 
     config_db = {
         "VXLAN_TUNNEL": {
-            VXLAN_TUNNEL_NAME: {
-                "src_ip": dut_vtep,
-            }
+            VXLAN_TUNNEL_NAME: vxlan_tunnel_entry,
         },
         "VNET": {},
         "PORTCHANNEL": {},
@@ -467,6 +472,7 @@ def vnet_bgp_setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, vnet_count,
             peer_asn,
             wl_bindings,
             cfg_facts,
+            duthost.facts.get("asic_type"),
         )
 
         apply_config_to_dut(duthost, vnet_config, "vnet")
@@ -519,6 +525,56 @@ def validate_bgp_summary(duthost, vnet_count, subif_per_vnet):
         pytest.fail("BGP validation failed:\n{}".format("\n".join(failures)))
 
 
+def run_vnet_bgp_scale_dataplane_test(vnet_bgp_setup, ptfhost, traffic_test_type, completeness_level=None):
+    setup = vnet_bgp_setup
+    duthost = setup["duthost"]
+
+    validate_bgp_summary(
+        duthost,
+        setup["vnet_count"],
+        setup["subif_per_vnet"],
+    )
+    vnet_count = setup["vnet_count"]
+    normalized_level = completeness_level or "basic"
+
+    if normalized_level == "thorough":
+        test_vnet_ids = list(range(1, vnet_count + 1))
+    else:
+        test_vnet_ids = [random.randint(1, vnet_count)]
+
+    logger.info(
+        "Running %s dataplane test at level %s for VNET IDs: %s",
+        traffic_test_type,
+        normalized_level,
+        test_vnet_ids,
+    )
+
+    ptf_params = {
+        "vnet_count": setup["vnet_count"],
+        "subif_per_vnet": setup["subif_per_vnet"],
+        "base_vlan_id": BASE_VLAN_ID,
+        "wl_ptf_port_indices": ",".join(str(index) for index in setup["wl_ptf_port_indices"]),
+        "t1_ptf_port_index": str(setup["t1_ptf_port_index"]),
+        "router_mac": duthost.facts["router_mac"],
+        "dut_vtep": setup["dut_vtep"],
+        "vxlan_port": VXLAN_PORT,
+        "traffic_test_type": traffic_test_type,
+        "test_vnet_ids": ",".join(str(vnet_id) for vnet_id in test_vnet_ids),
+        "packets_per_path": 100,
+        "ecmp_deviation_pct": 50,
+    }
+
+    ptf_runner(
+        ptfhost,
+        "ptftests",
+        "vnet_bgp_scale_dataplane.VnetBgpScaleDataplane",
+        platform_dir="ptftests",
+        params=ptf_params,
+        log_file="/tmp/vnet_bgp_scale_{}.log".format(traffic_test_type),
+        is_python3=True,
+    )
+
+
 def test_vnet_bgp_scale_summary(vnet_bgp_setup):
     setup = vnet_bgp_setup
     validate_bgp_summary(setup["duthost"], setup["vnet_count"], setup["subif_per_vnet"])
@@ -538,29 +594,23 @@ def test_vnet_bgp_scale_config_reload(vnet_bgp_setup):
     duthost.shell("mv /etc/sonic/config_db.json.bak /etc/sonic/config_db.json")
 
 
-def test_vnet_bgp_scale_dataplane(vnet_bgp_setup, ptfhost):
-    setup = vnet_bgp_setup
-    duthost = setup["duthost"]
-
-    validate_bgp_summary(duthost, setup["vnet_count"], setup["subif_per_vnet"])
-
-    ptf_params = {
-        "vnet_count": setup["vnet_count"],
-        "subif_per_vnet": setup["subif_per_vnet"],
-        "base_vlan_id": BASE_VLAN_ID,
-        "wl_ptf_port_indices": ",".join(str(index) for index in setup["wl_ptf_port_indices"]),
-        "t1_ptf_port_index": str(setup["t1_ptf_port_index"]),
-        "router_mac": duthost.facts["router_mac"],
-        "dut_vtep": setup["dut_vtep"],
-        "vxlan_port": VXLAN_PORT,
-    }
-
-    ptf_runner(
+def test_vnet_bgp_scale_vxlan_decap_ecmp_dataplane(vnet_bgp_setup, ptfhost, get_function_completeness_level):
+    run_vnet_bgp_scale_dataplane_test(
+        vnet_bgp_setup,
         ptfhost,
-        "ptftests",
-        "vnet_bgp_scale_dataplane.VnetBgpScaleDataplane",
-        platform_dir="ptftests",
-        params=ptf_params,
-        log_file="/tmp/vnet_bgp_scale_dp.log",
-        is_python3=True,
+        traffic_test_type="vxlan",
+        completeness_level=get_function_completeness_level,
+    )
+
+
+def test_vnet_bgp_scale_regular_tcp_ecmp_dataplane(
+    vnet_bgp_setup,
+    ptfhost,
+    get_function_completeness_level,
+):
+    run_vnet_bgp_scale_dataplane_test(
+        vnet_bgp_setup,
+        ptfhost,
+        traffic_test_type="regular_tcp",
+        completeness_level=get_function_completeness_level,
     )

@@ -176,9 +176,6 @@ class DHCPTest(DataplaneBaseTest):
         self.max_hop_count = self.test_params.get('max_hop_count', None)
         self.client_vrf = self.test_params.get('client_vrf', None)
         self.dhcpv4_disable_flag = self.test_params.get('dhcpv4_disable_flag', None)
-        if self.relay_agent == "sonic-relay-agent":
-            if (self.link_selection and self.source_interface) or self.server_vrf:
-                self.link_selection_ip = self.test_params['link_selection_ip']
 
         self.uplink_mac = self.test_params['uplink_mac']
 
@@ -205,20 +202,29 @@ class DHCPTest(DataplaneBaseTest):
         #  Byte 0: Suboption number, always set to 2
         #  Byte 1: Length of suboption data in bytes
         #  Bytes 2+: Suboption data
-        # Our remote_id string simply consists of the MAC address of the port that received the request
-        remote_id_string = self.relay_iface_mac
+        # SONiC dual-ToR uses the switch base MAC; other paths use the receiving VLAN interface MAC.
+        remote_id_string = (
+            self.uplink_mac
+            if self.dual_tor and self.relay_agent == "sonic-relay-agent"
+            else self.relay_iface_mac
+        )
         self.option82 += struct.pack('BB', self.REMOTE_ID_SUBOPTION, len(remote_id_string))
         self.option82 += remote_id_string.encode('utf-8')
+
+        link_selection_added = False  # set below; dual-tor block skips SubOption 5 if set
 
         if self.relay_agent == "sonic-relay-agent":
             # Structure:
             #  Byte 0: Suboption number, always set to 5
             #  Byte 1: Length of suboption data (4 bytes for IPv4)
             #  Bytes 2–5: The link selection IP address (in byte format)
-            if (self.link_selection and self.source_interface) or self.server_vrf:
-                link_selection_ip = bytes(list(map(int, self.link_selection_ip.split('.'))))
+            # ISC encodes the receiving VLAN address in Link Selection. Keep SONiC aligned
+            # and emit SubOption 5 before SubOption 11 (server-override).
+            if self.dual_tor or (self.link_selection and self.source_interface) or self.server_vrf:
+                link_selection_ip = bytes(list(map(int, self.relay_iface_ip.split('.'))))
                 self.option82 += struct.pack('BB', self.LINK_SELECTION_SUBOPTION, 4)
                 self.option82 += link_selection_ip
+                link_selection_added = True
 
             # The structure is as follows:
             #  Byte 0: Suboption number, always set to 11
@@ -246,11 +252,15 @@ class DHCPTest(DataplaneBaseTest):
         #  Byte 0: Suboption number, always set to 5
         #  Byte 1: Length of suboption data in bytes, always set to 4 (ipv4 addr has 4 bytes)
         #  Bytes 2+: vlan ip addr
-        if self.dual_tor:
+        # Legacy dual-tor SubOption 5, now only for the non-sonic-relay-agent (isc) path:
+        # the sonic-relay-agent block above already adds SubOption 5 for dual-tor (setting
+        # link_selection_added), so this only runs when that gate was not entered (isc).
+        if self.dual_tor and not link_selection_added:
             link_selection = bytes(
                 list(map(int, self.relay_iface_ip.split('.'))))
             self.option82 += struct.pack('BB', self.LINK_SELECTION_SUBOPTION, 4)
             self.option82 += link_selection
+            link_selection_added = True
 
         # We'll assign our client the IP address 1 greater than our relay interface (i.e., gateway) IP
         self.client_ip = incrementIpAddress(self.relay_iface_ip, 1)
@@ -810,7 +820,7 @@ class DHCPTest(DataplaneBaseTest):
                           dhcp_lease=self.LEASE_TIME,
                           padding_bytes=0,
                           set_broadcast_bit=True)
-        if (self.link_selection and self.source_interface):
+        if (self.link_selection and self.source_interface) or self.dual_tor:
             dhcp_ack_packet[scapy.DHCP].options.insert(
                 dhcp_ack_packet[scapy.DHCP].options.index("end"),
                 (82, self.option82)
@@ -1050,10 +1060,10 @@ class DHCPTest(DataplaneBaseTest):
         else:
             source_ip = self.portchannels_ip_list[0]
 
-        if ((self.link_selection and self.source_interface) or self.server_vrf or self.dual_tor):
-            giaddr = self.switch_loopback_ip
-        elif self.server_id_override or not self.dual_tor:
-            giaddr = self.relay_iface_ip
+        # BOOTP has no Option 82 Link Selection, so giaddr must identify the receiving
+        # client VLAN in every topology.
+        # ISC already does this; sonic-relay-agent requires the corresponding product fix.
+        giaddr = self.relay_iface_ip
 
         bootp_packet = self.create_bootp_packet(src_mac=self.uplink_mac, src_ip=source_ip, giaddr=giaddr,
                                                 sport=self.DHCP_SERVER_PORT, hops=2)

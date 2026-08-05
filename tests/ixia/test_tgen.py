@@ -2,14 +2,14 @@ import time
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert, pytest_require
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts, \
     fanout_graph_facts                                                                      # noqa: F401
-from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port,\
+from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port, \
     ixia_api_serv_user, ixia_api_serv_passwd, ixia_api, ixia_testbed_config                 # noqa: F401
 from tests.common.ixia.port import select_ports
 from tests.common.ixia.qos_fixtures import prio_dscp_map                                    # noqa: F401
 
-from abstract_open_traffic_generator.flow import DeviceTxRx, TxRx, Flow, Header,\
+from abstract_open_traffic_generator.flow import DeviceTxRx, TxRx, Flow, Header, \
     Size, Rate, Duration, FixedSeconds, PortTxRx, PfcPause, EthernetPause, Continuous       # noqa: F401
 from abstract_open_traffic_generator.flow_ipv4 import Priority, Dscp
 from abstract_open_traffic_generator.flow import Pattern as FieldPattern
