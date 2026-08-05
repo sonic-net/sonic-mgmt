@@ -8,7 +8,7 @@ from tests.common.helpers.sensor_control_test_helper import BaseMocker
 from tests.common.helpers.assertions import pytest_require as pyrequire
 from tests.common.helpers.dut_utils import check_container_state
 from tests.common.helpers.gnmi_utils import GNMIEnvironment, gnmi_container, \
-    create_gnmi_certs, delete_gnmi_certs
+    create_gnmi_certs, delete_gnmi_certs, apply_cert_config, recover_cert_config
 from tests.common.utilities import wait_until
 # The interval of EVENT_PUBLISHED is 60 seconds by default.
 # To left some buffer, the timeout for gnmi LD event is set to 90 seconds
@@ -206,7 +206,7 @@ def startmonitor_gnmi_event(duthost, ptfhost, gnmi_port):
     )
     result = ptfhost.shell(gnmi_subscribe_cmd, module_ignore_errors=True)['stdout']
     logging.info(f"gnmi subscribe cmd: {gnmi_subscribe_cmd} \n gnmi event result: {result}")
-    return resultq
+    return result
 
 
 def get_pmon_daemon_thermalctld_control_dict(dut):
@@ -271,9 +271,6 @@ def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
     '''
     Setup GNMI server with mutual-TLS client certificate authentication.
     '''
-    # Imported lazily to avoid a module-level tests.common -> tests.gnmi dependency.
-    from tests.gnmi.helper import apply_cert_config, recover_cert_config
-
     duthost = duthosts[rand_one_dut_hostname]
 
     # Check if GNMI is enabled on the device
