@@ -378,6 +378,10 @@ def _session_state(request, duthost):
     state.applied_mode = state.original_mode
     state.baseline_neighbors = _bgp_established_neighbors(duthost)
     state.baseline_fingerprint = _frr_config_fingerprint(duthost)
+    # Back the config up here, alongside the baselines it has to agree with, rather than
+    # letting the migrator do it lazily at the first switch -- by then a module's own fixtures
+    # may already have changed CONFIG_DB, and restoring that is not a restore.
+    state.migrator.capture_pristine_backup()
     setattr(session, _SESSION_STATE_ATTR, state)
     logger.info("FRR config-mode session state initialised; DUT boots in '%s'",
                 state.original_mode)
@@ -568,11 +572,26 @@ def frr_config_mode(request, duthosts, rand_one_dut_hostname):
 def _switch_mode(state, mode):
     """Switch the DUT to ``mode``, wait for BGP to recover, and assert strictness.
 
-    Takes the session state rather than a module, so the baselines checked against are the
-    ones captured once per session -- a translation that drops config is caught regardless of
-    which module triggered the switch.
+    What we assert against depends on the direction, because the two directions do different
+    things:
+
+    * A forward switch *translates* whatever happens to be configured right now, so it is
+      compared against the state captured immediately beforehand. Comparing against the
+      session-start baseline instead blames the translation for config a test changed in
+      between -- observed on a t1, where a module replaces the DUT's BGP config from a template
+      before the switch and the fingerprint then reported the template's missing prefix-lists
+      and community-lists as a translation loss.
+    * A restore reinstates the session-start backup, so the session-start baseline is exactly
+      what should come back.
     """
     duthost = state.duthost
+    restoring = mode == state.original_mode
+    if restoring:
+        expected_neighbors = state.baseline_neighbors
+        expected_fingerprint = state.baseline_fingerprint
+    else:
+        expected_neighbors = _bgp_established_neighbors(duthost)
+        expected_fingerprint = _frr_config_fingerprint(duthost)
     logger.info("Switching FRR config mode to '%s' on %s", mode, duthost.hostname)
     try:
         if mode == MODE_FRR_MGMT_FRAMEWORK:
@@ -585,7 +604,7 @@ def _switch_mode(state, mode):
 
     pt_assert(wait_until(180, 10, 0, duthost.is_service_fully_started_per_asic_or_host, "bgp"),
               "bgp service did not come up after switching to '{}' mode".format(mode))
-    baseline = state.baseline_neighbors
+    baseline = expected_neighbors
     # Capture the last-polled established set so the failure message reuses it instead of
     # firing another vtysh query -- the message string is built eagerly on every (including
     # successful) switch, so calling _bgp_established_neighbors() in .format() would run an
@@ -601,4 +620,4 @@ def _switch_mode(state, mode):
         "Switching to '{}' mode did not preserve BGP: neighbors {} were not all "
         "re-established (established now: {}).".format(
             mode, sorted(baseline), sorted(last_established.get("set", set()))))
-    _assert_config_preserved(duthost, mode, state.baseline_fingerprint)
+    _assert_config_preserved(duthost, mode, expected_fingerprint)

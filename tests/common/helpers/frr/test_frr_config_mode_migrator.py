@@ -128,6 +128,27 @@ def test_restore_accepts_a_clean_traditional_config_db():
     assert FrrConfigModeMigrator(dut).to_traditional() is True
 
 
+def test_capture_pristine_backup_saves_then_backs_up():
+    """The session-start capture must persist the running config first, else the backup is a
+    stale on-disk copy rather than what is actually running."""
+    dut = FakeDutHost(files=[CONFIG_DB_FILE, GOLDEN_CFG_FILE, GOLDEN_CFG_ORIGIN_FILE])
+    FrrConfigModeMigrator(dut).capture_pristine_backup()
+    save_idx = next(i for i, c in enumerate(dut.commands) if "config save" in c)
+    cp_idx = next(i for i, c in enumerate(dut.commands)
+                  if c.startswith("sudo cp {}".format(CONFIG_DB_FILE)))
+    assert save_idx < cp_idx, dut.commands
+    assert CONFIG_BAK in dut.files
+
+
+def test_capture_pristine_backup_is_idempotent():
+    dut = FakeDutHost(files=[CONFIG_DB_FILE, GOLDEN_CFG_FILE])
+    migrator = FrrConfigModeMigrator(dut)
+    migrator.capture_pristine_backup()
+    first = len([c for c in dut.commands if c.startswith("sudo cp")])
+    migrator.capture_pristine_backup()
+    assert len([c for c in dut.commands if c.startswith("sudo cp")]) == first
+
+
 def test_backup_includes_the_golden_origin_backup():
     """restore_golden_config_db copies .origin.backup over golden at every module setup, so the
     origin file is part of the state a mode switch has to save and restore."""
