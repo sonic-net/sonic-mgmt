@@ -15,6 +15,8 @@ logger = logging.getLogger(__name__)
 
 
 def get_chip_name_if_asic_pfc_storm_supported(fanout):
+    if not fanout:
+        return None
     hwSkuInfo = {
         "Arista DCS-7060DX5": "Tomahawk4",
         "Arista DCS-7060PX5": "Tomahawk4",
@@ -269,11 +271,16 @@ class PFCStorm(object):
         Populates the pfc storm start template
         """
         self._update_template_args()
+        # Resolve the SONiC fanout's chip-side PFC capability once per call from the
+        # already-populated peer_info['hwsku'] (avoids a second remote 'show version'
+        # and a crash if a live HwSKU lookup returns None).
+        sonic_pfc_chip = (get_chip_name_if_asic_pfc_storm_supported(self.peer_info.get('hwsku'))
+                          if self.peer_device.os == 'sonic' else None)
         if self.asic_type == 'vs':
             self.pfc_start_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_eos.j2")
         elif (self.dut.topo_type == 't2' and self.peer_device.os == 'sonic'
-              and not get_chip_name_if_asic_pfc_storm_supported(self._get_sonic_fanout_hwsku())):
+              and not sonic_pfc_chip):
             # The t2 template drives pfc_gen via raw AF_PACKET, which the SONiC fanout's
             # SAI/syncd CPU-port trap drops on newer images, so the storm never reaches the
             # front panel. Only use it for fanouts whose ASIC does NOT support chip-side PFC
@@ -285,8 +292,7 @@ class PFCStorm(object):
                 TEMPLATES_DIR, "pfc_storm_mlnx_{}.j2".format(self.peer_device.os))
         elif ((self.peer_device.os == 'eos' and
                get_chip_name_if_asic_pfc_storm_supported(self._get_eos_fanout_version()[0])) or
-              (self.peer_device.os == 'sonic' and
-               get_chip_name_if_asic_pfc_storm_supported(self._get_sonic_fanout_hwsku()))):
+              (self.peer_device.os == 'sonic' and sonic_pfc_chip)):
             self.pfc_start_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_arista_{}.j2".format(self.peer_device.os))
         else:
@@ -299,11 +305,16 @@ class PFCStorm(object):
         Populates the pfc storm stop template
         """
         self._update_template_args()
+        # Resolve the SONiC fanout's chip-side PFC capability once per call from the
+        # already-populated peer_info['hwsku'] (avoids a second remote 'show version'
+        # and a crash if a live HwSKU lookup returns None).
+        sonic_pfc_chip = (get_chip_name_if_asic_pfc_storm_supported(self.peer_info.get('hwsku'))
+                          if self.peer_device.os == 'sonic' else None)
         if self.asic_type == 'vs':
             self.pfc_stop_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_stop_eos.j2")
         elif (self.dut.topo_type == 't2' and self.peer_device.os == 'sonic'
-              and not get_chip_name_if_asic_pfc_storm_supported(self._get_sonic_fanout_hwsku())):
+              and not sonic_pfc_chip):
             # Mirror _prepare_start_template: chip-capable SONiC fanouts use the bcmcmd path.
             self.pfc_stop_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_stop_{}_t2.j2".format(self.peer_device.os))
@@ -312,8 +323,7 @@ class PFCStorm(object):
                 TEMPLATES_DIR, "pfc_storm_stop_mlnx_{}.j2".format(self.peer_device.os))
         elif ((self.peer_device.os == 'eos' and
                get_chip_name_if_asic_pfc_storm_supported(self._get_eos_fanout_version()[0])) or
-              (self.peer_device.os == 'sonic' and
-               get_chip_name_if_asic_pfc_storm_supported(self._get_sonic_fanout_hwsku()))):
+              (self.peer_device.os == 'sonic' and sonic_pfc_chip)):
             self.pfc_stop_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_stop_arista_{}.j2".format(self.peer_device.os))
         else:
