@@ -46,8 +46,8 @@ class ConsoleCapture:
             if self._file is not None:
                 try:
                     self._file.close()
-                except Exception:
-                    pass
+                except Exception as close_err:
+                    logger.warning("Unable to close console capture artifact after setup failure: %s", close_err)
             self.artifact_path = None
             self._file = None
             logger.warning("Unable to create console capture artifact: %s", err)

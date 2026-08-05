@@ -579,7 +579,8 @@ def create_linecard_console(supervisor, linecard_duthost, inv_files, creds):
         pytest.skip(f"Linecard console not supported: {str(e)}")
 
 
-def create_duthost_console(duthost, localhost, conn_graph_facts, creds):  # noqa: F811
+def create_duthost_console(duthost, localhost, conn_graph_facts, creds,
+                           timeout_s=100, connection_attempts=3):  # noqa: F811
     dut_hostname = duthost.hostname
     console_host = conn_graph_facts['device_console_info'][dut_hostname]['ManagementIp']
     if "/" in console_host:
@@ -647,7 +648,7 @@ def create_duthost_console(duthost, localhost, conn_graph_facts, creds):  # noqa
         logger.warning(f"Issue trying to clear console port: {e}")
 
     # Set up console host
-    for attempt in range(1, 4):
+    for attempt in range(1, connection_attempts + 1):
         try:
             return ConsoleHost(
                 console_type=console_type,
@@ -658,11 +659,12 @@ def create_duthost_console(duthost, localhost, conn_graph_facts, creds):  # noqa
                 console_username=console_username,
                 console_password=creds["console_password"][console_type],
                 console_device=console_device,
+                timeout_s=timeout_s,
             )
         except Exception as e:
-            logger.warning(f"Attempt {attempt}/3 failed: {e}")
+            logger.warning(f"Attempt {attempt}/{connection_attempts} failed: {e}")
             # Back off so rapid retries do not trip the DUT serial-getty start limit.
-            if attempt < 3:
+            if attempt < connection_attempts:
                 time.sleep(CONSOLE_RECONNECT_BACKOFF_SECS)
             continue
     else:

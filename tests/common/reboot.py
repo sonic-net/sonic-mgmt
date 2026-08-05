@@ -782,7 +782,9 @@ def collect_console_log(duthost, localhost):
     """
     creds = creds_on_dut(duthost)
     conn_graph_facts = get_graph_facts(duthost, localhost, [duthost.hostname])
-    dut_console = create_duthost_console(duthost, localhost, conn_graph_facts, creds)
+    dut_console = create_duthost_console(
+        duthost, localhost, conn_graph_facts, creds,
+        timeout_s=10, connection_attempts=1)
     logger.info("Console connection established successfully")
     return dut_console
 
