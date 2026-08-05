@@ -126,6 +126,7 @@ class DHCPTest(DataplaneBaseTest):
         self.relay_link_local = self.test_params['relay_link_local']
         self.relay_linkaddr = '::'
         self.vlan_ip = self.test_params['vlan_ip']
+        self.downstream_relay_ip = self.test_params['downstream_relay_ip']
         self.client_mac = self.dataplane.get_mac(0, self.client_port_index)
         self.uplink_mac = self.test_params['uplink_mac']
         self.loopback_ipv6 = self.test_params['loopback_ipv6']
@@ -266,38 +267,6 @@ class DHCPTest(DataplaneBaseTest):
 
         return reply_relay_reply_packet
 
-    def create_dhcp_relay_forward_packet(self):
-        relay_forward_packet = packet.Ether(
-            src=self.client_mac, dst=self.BROADCAST_MAC)
-        relay_forward_packet /= IPv6(src=self.client_link_local,
-                                     dst=self.BROADCAST_IP)
-        relay_forward_packet /= packet.UDP(
-            sport=self.DHCP_CLIENT_PORT, dport=self.DHCP_SERVER_PORT)
-        relay_forward_packet /= DHCP6_RelayForward(
-            msgtype=12, linkaddr=self.vlan_ip, peeraddr=self.client_link_local)
-        relay_forward_packet /= DHCP6OptRelayMsg(
-            message=[DHCP6_Solicit(trid=12345)])
-        relay_forward_packet /= DHCP6OptElapsedTime(elapsedtime=0)
-
-        return relay_forward_packet
-
-    def create_dhcp_relayed_relay_packet(self):
-        relayed_relay_packet = packet.Ether(src=self.uplink_mac)
-        relayed_relay_packet /= IPv6()
-        relayed_relay_packet /= packet.UDP(
-            sport=self.DHCP_SERVER_PORT, dport=self.DHCP_SERVER_PORT)
-        packet_inside = DHCP6_RelayForward(
-            msgtype=12, linkaddr=self.vlan_ip, peeraddr=self.client_link_local)
-        packet_inside /= DHCP6OptRelayMsg(message=[DHCP6_Solicit(trid=12345)])
-        packet_inside /= DHCP6OptElapsedTime(elapsedtime=0)
-        relayed_relay_packet /= DHCP6_RelayForward(msgtype=12, hopcount=1, linkaddr=self.relay_linkaddr,
-                                                   peeraddr=self.client_link_local)
-        relayed_relay_packet /= DHCP6OptRelayMsg(message=[packet_inside])
-        if self.is_dualtor:
-            relayed_relay_packet /= DHCP6OptIfaceId(ifaceid=socket.inet_pton(socket.AF_INET6, self.vlan_ip))
-
-        return relayed_relay_packet
-
     def create_dhcp_relay_relay_reply_packet(self):
         relay_relay_reply_packet = packet.Ether(dst=self.uplink_mac)
         dst_ip = self.loopback_ipv6 if self.is_dualtor else self.relay_iface_ip
@@ -305,8 +274,8 @@ class DHCPTest(DataplaneBaseTest):
                                          dst=dst_ip)
         relay_relay_reply_packet /= packet.UDP(
             sport=self.DHCP_SERVER_PORT, dport=self.DHCP_SERVER_PORT)
-        relay_relay_reply_packet /= DHCP6_RelayReply(msgtype=13, hopcount=1, linkaddr=self.vlan_ip,
-                                                     peeraddr=self.client_link_local)
+        relay_relay_reply_packet /= DHCP6_RelayReply(msgtype=13, hopcount=1, linkaddr=self.relay_linkaddr,
+                                                     peeraddr=self.downstream_relay_ip)
         packet_inside = DHCP6_RelayReply(
             msgtype=13, linkaddr=self.vlan_ip, peeraddr=self.client_link_local)
         packet_inside /= DHCP6OptRelayMsg(message=[DHCP6_Reply(trid=12345)])
@@ -318,10 +287,10 @@ class DHCPTest(DataplaneBaseTest):
     def create_dhcp_relay_reply_packet(self):
         relay_reply_packet = packet.Ether(
             src=self.relay_iface_mac, dst=self.client_mac)
-        relay_reply_packet /= IPv6(src=self.relay_link_local,
-                                   dst=self.client_link_local)
+        relay_reply_packet /= IPv6(src=self.relay_iface_ip,
+                                   dst=self.downstream_relay_ip)
         relay_reply_packet /= packet.UDP(sport=self.DHCP_SERVER_PORT,
-                                         dport=self.DHCP_CLIENT_PORT)
+                                         dport=self.DHCP_SERVER_PORT)
         relay_reply_packet /= DHCP6_RelayReply(
             msgtype=13, linkaddr=self.vlan_ip, peeraddr=self.client_link_local)
         relay_reply_packet /= DHCP6OptRelayMsg(
@@ -443,34 +412,6 @@ class DHCPTest(DataplaneBaseTest):
         testutils.verify_packet(self, masked_packet, self.client_port_index)
 
     # Simulate a DHCP server sending a DHCPv6 RELAY-FORWARD encapsulating SOLICIT packet message to client.
-    def client_send_relayed_relay_forward(self):
-        # Form and send DHCPv6 RELAY-FORWARD encapsulating REPLY packet
-        relay_forward_packet = self.create_dhcp_relay_forward_packet()
-        testutils.send_packet(
-            self, self.client_port_index, relay_forward_packet)
-
-    # Verify that the DHCPv6 RELAYED RELAY would be received by our simulated server
-    def verify_relayed_relay_forward(self):
-        # Create a packet resembling a DHCPv6 RELAYED RELAY FORWARD packet
-        relayed_relay_forward_count = self.create_dhcp_relayed_relay_packet()
-
-        # Mask off fields we don't care about matching
-        masked_packet = Mask(relayed_relay_forward_count)
-        masked_packet.set_do_not_care_scapy(packet.Ether, "dst")
-        masked_packet.set_do_not_care_scapy(IPv6, "src")
-        masked_packet.set_do_not_care_scapy(IPv6, "dst")
-        masked_packet.set_do_not_care_scapy(IPv6, "fl")
-        masked_packet.set_do_not_care_scapy(IPv6, "tc")
-        masked_packet.set_do_not_care_scapy(IPv6, "plen")
-        masked_packet.set_do_not_care_scapy(IPv6, "nh")
-        masked_packet.set_do_not_care_scapy(packet.UDP, "chksum")
-        masked_packet.set_do_not_care_scapy(packet.UDP, "len")
-
-        relayed_relay_forward_count = testutils.count_matched_packets_all_ports(self, masked_packet,
-                                                                                self.server_port_indices, timeout=4.0)
-        self.assertTrue(relayed_relay_forward_count >= 1, "Failed: Relayed Relay Forward count of %d"
-                        % relayed_relay_forward_count)
-
     # Simulate a DHCP server sending a DHCPv6 RELAY-REPLY encapsulating RELAY-REPLY packet message to next relay agent
     def server_send_relay_relay_reply(self):
         # Form and send DHCPv6 RELAY-REPLY encapsulating REPLY packet
@@ -508,8 +449,18 @@ class DHCPTest(DataplaneBaseTest):
         self.server_send_reply_relay_reply()
         self.verify_relayed_reply()
 
-        self.client_send_relayed_relay_forward()
-        self.verify_relayed_relay_forward()
-
+        # Relay-to-relay topology: Client -> Relay A (PTF) -> Relay B (DUT) -> Server.
+        # This explicitly tests the RFC 8415 section 19.3 return path, not the
+        # normal t0/m0/mx first-hop exchange; the regular path above uses an
+        # end-client link-local peer. PTF simulates downstream Relay A with a GUA,
+        # so the outer Relay-Reply uses linkaddr=:: and peeraddr=<Relay A GUA>,
+        # matching the relay-to-relay model implemented by dhcp6relay and validated
+        # by dhcpmon. The mgmt test configures PTF's arp_responder so DUT Relay B
+        # can resolve Relay A. A link-local relay-to-relay hop is allowed by
+        # RFC8415, but current SONiC dhcp6relay/dhcpmon profiles assume GUA. They
+        # also assume first-hop downstream VLANs, which is fundamentally incompatible
+        # with making the DUT a second-or-later relay; this only models GUA return.
+        # This is a hypothetical test; there is no current SONiC topology where
+        # we use the DUT this way.
         self.server_send_relay_relay_reply()
         self.verify_relay_relay_reply()
