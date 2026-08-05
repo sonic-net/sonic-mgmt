@@ -347,6 +347,7 @@ class LabGraph(object):
                     "proxy": entry["Proxy"],
                     "type": entry["Console_type"],
                     "menu_type": entry["Console_menu_type"],
+                    "direct_ssh_port": entry.get("DirectSSHPort", None)
                 }
             }
         self.graph_facts["console_links"] = console_links
