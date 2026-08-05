@@ -47,6 +47,7 @@ configuration_properties:
     nhipv6: fc0a::ff
   core:
     swrole: core
+    device_type: RegionalWANAggregator
   leaf:
     swrole: leaf
   lma:
