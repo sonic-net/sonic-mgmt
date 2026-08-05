@@ -1,6 +1,6 @@
 """Unit tests for the conserver console connection."""
 
-import importlib.util
+from importlib import import_module, util
 from pathlib import Path
 import sys
 import types
@@ -12,16 +12,16 @@ MODULE_PATH = (
     / "conserver_console_conn.py"
 )
 try:
-    import pexpect  # noqa: F401
+    import_module("pexpect")
 except ImportError:
     pexpect_stub = types.ModuleType("pexpect")
     pexpect_stub.TIMEOUT = type("TIMEOUT", (Exception,), {})
     pexpect_stub.EOF = type("EOF", (Exception,), {})
     sys.modules["pexpect"] = pexpect_stub
-SPEC = importlib.util.spec_from_file_location(
+SPEC = util.spec_from_file_location(
     "unit_target_conserver_console_conn", MODULE_PATH
 )
-MODULE = importlib.util.module_from_spec(SPEC)
+MODULE = util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
 ConserverConsoleConn = MODULE.ConserverConsoleConn
 
