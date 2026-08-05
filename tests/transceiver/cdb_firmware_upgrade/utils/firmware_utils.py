@@ -334,6 +334,61 @@ def download_and_validate_firmware_binaries(duthost, firmware_base_url, firmware
     logger.info("All firmware binaries downloaded and verified successfully.")
 
 
+def copy_firmware_binary(duthost, src_path, dest_path):
+    """
+    Copies a pre-staged firmware binary already present on the DUT from src_path to dest_path.
+
+    @param duthost: DUT host object for running commands
+    @param src_path: Source path of the pre-staged firmware binary on the DUT
+    @param dest_path: Destination path on the DUT
+    @raises: pytest.fail if the source is missing or the copy fails
+    """
+    logger.info(f"Copying pre-staged firmware from {src_path} to {dest_path}")
+    if duthost.command(f'test -f "{src_path}"', module_ignore_errors=True)['rc'] != 0:
+        pytest.fail(f"Pre-staged firmware binary not found on DUT: {src_path}")
+    duthost.command(f'mkdir -p "{os.path.dirname(dest_path)}"')
+    result = duthost.command(f'cp "{src_path}" "{dest_path}"', module_ignore_errors=True)
+    if result['rc'] != 0:
+        pytest.fail(f"Failed to copy firmware from {src_path}. Error: {result['stderr']}")
+    logger.info(f"Copied firmware binaries to {dest_path}")
+
+
+def stage_prestaged_firmware_binaries(duthost, firmware_host_path, firmware_metadata_by_type, base_path):
+    """
+    Stages pre-staged firmware binaries for each transceiver type into the test directory on the DUT.
+
+    Used when no firmware base URL is configured (pre-staged mode): the binaries are expected to
+    already exist on the DUT under firmware_host_path using the same normalized layout as the
+    download source. Each binary is copied into base_path and its checksum verified.
+
+    @param duthost: DUT host object for running commands
+    @param firmware_host_path: Base path on the DUT where pre-staged binaries live (e.g. /host/cmis_cdb_firmware)
+    @param firmware_metadata_by_type: Dictionary mapping transceiver types to firmware metadata
+    @param base_path: Base path on DUT where firmware will be staged for the test run
+    """
+    for transceiver_type, firmware_metadata_list in firmware_metadata_by_type.items():
+        normalized_vendor_name, normalized_vendor_pn = transceiver_type
+        for firmware_metadata in firmware_metadata_list:
+            fw_binary_path_on_host = os.path.join(
+                firmware_host_path,
+                normalized_vendor_name,
+                normalized_vendor_pn,
+                firmware_metadata['version'],
+                firmware_metadata['binary']
+            )
+            fw_binary_path_on_dut = os.path.join(
+                base_path,
+                normalized_vendor_name,
+                normalized_vendor_pn,
+                firmware_metadata['version'],
+                firmware_metadata['binary']
+            )
+
+            copy_firmware_binary(duthost, fw_binary_path_on_host, fw_binary_path_on_dut)
+            verify_firmware_checksum(duthost, fw_binary_path_on_dut, firmware_metadata['md5sum'])
+    logger.info("All pre-staged firmware binaries copied and verified successfully.")
+
+
 def cleanup_firmware_files(duthost, firmware_base_path):
     """
     Remove the entire firmware directory and all its contents from DUT.
