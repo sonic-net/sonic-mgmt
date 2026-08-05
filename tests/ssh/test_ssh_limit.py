@@ -5,7 +5,7 @@ import time
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.fixtures.tacacs import tacacs_creds     # noqa F401
 from tests.common.helpers.tacacs.tacacs_helper import setup_local_user
-from tests.common.utilities import paramiko_ssh, wait_until
+from tests.common.utilities import paramiko_ssh
 from tests.common.fixtures.tacacs import get_aaa_sub_options_value
 
 pytestmark = [
@@ -68,22 +68,11 @@ def modify_templates(duthost, tacacs_creds, creds):     # noqa F811
     sonic_admin_alt_password = duthost.host.options['variable_manager']._hostvars[duthost.hostname].get(
         "ansible_altpassword")
     # Connect over SSH as admin (duthost.shell can't run commands containing J2 templates).
-    # Retry the login for up to 1 minute instead of once, because the AAA config change above is
-    # applied asynchronously and may take a little time to take effect, during which the admin
-    # login can be transiently rejected.
-    admin_session_holder = {}
-
-    def _open_admin_session():
-        admin_session_holder['session'] = paramiko_ssh(
-            ip_address=dut_ip, username=creds['sonicadmin_user'],
-            passwords=[creds['sonicadmin_password'], sonic_admin_alt_password]
-            + creds["ansible_altpasswords"])
-        return True
-
-    pytest_assert(
-        wait_until(60, 5, 0, _open_admin_session),
-        "Failed to establish admin SSH session to {} after AAA change".format(dut_ip))
-    admin_session = admin_session_holder['session']
+    # This runs before AAA login is switched to local, so the admin credentials are still valid.
+    admin_session = paramiko_ssh(
+        ip_address=dut_ip, username=creds['sonicadmin_user'],
+        passwords=[creds['sonicadmin_password'], sonic_admin_alt_password]
+        + creds["ansible_altpasswords"])
 
     # Backup and change /usr/share/sonic/templates/pam_limits.j2
     additional_content = "session  required  pam_limits.so"
@@ -130,15 +119,19 @@ def setup_limit(duthosts, rand_one_dut_hostname, tacacs_creds, creds):      # no
     template_file_exist = limit_template_exist(duthost)
     aaa_login_disabled = False
     if template_file_exist:
+        setup_local_user(duthost, tacacs_creds)
+
+        # Modify templates and restart hostcfgd to render config files.
+        # modify_templates opens a new admin SSH session, so it must run before AAA login is
+        # switched to local: where admin is a TACACS user it has no local password and the
+        # admin login would be rejected after the switch.
+        modify_templates(duthost, tacacs_creds, creds)
+
         # If AAA authentication enabled, disable it to allow local user login
         if get_aaa_sub_options_value(duthost, "authentication", "login") == "tacacs+":
             duthost.shell("sudo config aaa authentication login default")
             aaa_login_disabled = True
 
-        setup_local_user(duthost, tacacs_creds)
-
-        # Modify templates and restart hostcfgd to render config files
-        modify_templates(duthost, tacacs_creds, creds)
         restart_hostcfgd(duthost)
 
     yield
