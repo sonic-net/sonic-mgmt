@@ -73,7 +73,9 @@ from tests.common.cache import FactsCache
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from pytest_ansible.errors import AnsibleConnectionFailure
+from ansible.errors import AnsibleConnectionFailure as AnsibleCoreConnectionFailure
 from tests.common.helpers.inventory_utils import trim_inventory
+from tests.common.helpers.host_failure_utils import stop_on_testbed_unreachable
 from tests.common.utilities import InterruptableThread
 from tests.common.plugins.ptfadapter.dummy_testutils import DummyTestUtils
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
@@ -102,6 +104,10 @@ logger = logging.getLogger(__name__)
 cache = FactsCache()
 
 HOST_FIXTURE_FAILED_RC = 15
+CONNECTION_FAILURE_TYPES = (
+    AnsibleConnectionFailure,
+    AnsibleCoreConnectionFailure,
+)
 CUSTOM_MSG_PREFIX = "sonic_custom_msg"
 GOLDEN_CONFIG_DB_PATH = "/etc/sonic/golden_config_db.json"
 GOLDEN_CONFIG_DB_PATH_ORI = "/etc/sonic/golden_config_db.json.origin.backup"
@@ -1552,6 +1558,13 @@ def log_custom_msg(item):
 # messages are logged at the latest possible stage in the test lifecycle.
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
 def pytest_runtest_makereport(item, call):
+    # Check the raw exception here instead of pytest_exception_interact,
+    # which pytest skips for expected failures (xfail).
+    stop_on_testbed_unreachable(
+        item,
+        call,
+        CONNECTION_FAILURE_TYPES,
+    )
 
     if call.when == 'setup':
         item.user_properties.append(('start', str(datetime.fromtimestamp(call.start))))
