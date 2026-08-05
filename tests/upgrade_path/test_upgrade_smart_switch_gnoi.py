@@ -14,7 +14,7 @@ from tests.common.helpers.upgrade_helpers import (
 )
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.platform.device_utils import get_configured_dpu_names
+from tests.common.platform.device_utils import get_configured_dpu_indices
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +36,7 @@ def _build_dpu_metadata(dpu_index: int):
 #   DPU image/version : --target_image_list / --target_version
 #   NPU image/version : --ss_npu_target_image / --ss_npu_target_version
 #   ss_target_index   : single DPU index (default 3)
-#   dpu_indices       : all DPU indices (from CONFIG_DB, else --ss_target_indices)
+#   dpu_indices       : DPU indices to upgrade (--ss_target_indices if given, else admin-up DPUs from CONFIG_DB)
 SmartSwitchUpgradeParams = namedtuple("SmartSwitchUpgradeParams", [
     "upgrade_type",
     "from_image",
@@ -56,8 +56,9 @@ SmartSwitchUpgradeParams = namedtuple("SmartSwitchUpgradeParams", [
 def smartswitch_upgrade_params(request, duthost):
     """Unified parameters for all SmartSwitch upgrade tests.
 
-    DPU indices are derived from the CONFIG_DB DPU(S) table; if that is empty
-    they fall back to the comma-separated --ss_target_indices option.
+    DPU indices come from the explicit --ss_target_indices option when provided;
+    otherwise they are the admin-up DPU indices discovered from the CONFIG_DB
+    DPU(S) table (parsed from the actual DPU identities).
     """
     ss_target_index = request.config.getoption("ss_target_index")
     if ss_target_index in (None, ""):
@@ -65,15 +66,14 @@ def smartswitch_upgrade_params(request, duthost):
 
     ss_max_workers = request.config.getoption("ss_max_workers")
 
-    names = get_configured_dpu_names(duthost)
     ss_target_indices = request.config.getoption("ss_target_indices")
-    if names:
-        dpu_indices = list(range(len(names)))               # 4 -> [0, 1, 2, 3]
-    elif ss_target_indices:
+    if ss_target_indices:
+        # Operator explicitly selected DPUs -> honor exactly that selection, never override.
         dpu_indices = [int(x.strip()) for x in ss_target_indices.split(",") if x.strip()]
     else:
-        dpu_indices = []
-    logger.debug("smartswitch_upgrade_params: dpu names=%r -> dpu_indices=%s", names, dpu_indices)
+        # No explicit selection -> upgrade the actual admin-up DPUs discovered from CONFIG_DB.
+        dpu_indices = get_configured_dpu_indices(duthost)
+    logger.debug("smartswitch_upgrade_params: dpu_indices=%s", dpu_indices)
 
     return SmartSwitchUpgradeParams(
         upgrade_type=request.config.getoption("upgrade_type"),
