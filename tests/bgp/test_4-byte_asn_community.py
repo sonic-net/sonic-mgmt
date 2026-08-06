@@ -197,6 +197,20 @@ def setup_ceos(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand
     confed_asn = duthost.get_bgp_confed_asn()
 
     neighbors = dict()
+
+    # BGP can still be converging when this module runs immediately after an FRR config-mode
+    # switch (the switch restarts BGP), and the loop below asserts on a single instantaneous
+    # bgp_facts snapshot with no retry -- a transient then fails setup outright. Poll until the
+    # eBGP sessions this test cares about are up, then take the snapshot. This is mode-agnostic:
+    # it makes the setup robust rather than special-casing frrcfgd.
+    def _ebgp_sessions_established():
+        facts = duthost.bgp_facts(instance_id=asic_index)['ansible_facts']
+        return all(v['state'] == 'established'
+                   for v in facts['bgp_neighbors'].values()
+                   if "INTERNAL" not in v["peer group"] and "VOQ_CHASSIS" not in v["peer group"])
+
+    pytest_assert(wait_until(180, 10, 0, _ebgp_sessions_established),
+                  "eBGP sessions did not all reach established state")
     bgp_facts = duthost.bgp_facts(instance_id=asic_index)['ansible_facts']
     ceosNeighbors = [v['description'] for v in bgp_facts['bgp_neighbors'].values()
                      if 'asic' not in v['description'].lower()]
