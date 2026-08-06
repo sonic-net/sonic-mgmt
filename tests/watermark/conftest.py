@@ -276,7 +276,7 @@ def get_container_to_dscp_mapping(duthost, ingress_port, container_ports, tc_lis
     for dscp, tc in dscp_to_tc_map.items():
         container = tc_to_container.get(tc)
         if container is None:
-            logger.warning(f"Traffic class {tc} is not mapped to any container.")
+            logger.warning(f"Traffic class {tc} is not mapped to any PG/queue.")
             continue
         container_to_dscp[container] = container_to_dscp.get(container, [])
         container_to_dscp[container].append(dscp)
@@ -514,11 +514,13 @@ class WatermarkTestBase(ABC):
         container_to_dscp = select_random_containers(duthost, ingress_port, container_ports,
                                                      tc_lists[traffic_type], self.TC_MAP_NAME, self.TC_MAP_TABLE)
         if not container_to_dscp:
-            pytest.skip(f"No {traffic_type} TC found on DUT.")
+            pytest.skip(f"No {traffic_type} PG/queue found on DUT.")
 
         # The blocking scheduler is always applied to egress queues. If containers are PGs,
         # the blocking scheduler is applied to the egress queue(s) associated with those PGs.
         queues_to_block = self.get_queues_to_block(container_to_dscp.keys(), duthost, ingress_port, egress_ports)
+        if not queues_to_block:
+            pytest.skip(f"No queues associated with these priorities: {tc_lists[traffic_type]}.")
         apply_blocking_scheduler(duthost, egress_ports, queues_to_block)
 
         # On t0/dualtor the ingress port may be a VLAN member, in which case the congestion packet must be
