@@ -631,7 +631,9 @@ def fib_t0(topo, ptf_ip, no_default_route=False, action="announce", upstream_nei
             current_routes_offset += last_suffix
 
 
-def fib_lma(topo, ptf_ip, action="announce", topo_routes={}):
+def fib_lma(topo, ptf_ip, action="announce", topo_routes=None):
+    if topo_routes is None:
+        topo_routes = {}
     common_config = topo['configuration_properties'].get('common', {})
     nhipv4 = common_config.get("nhipv4", NHIPV4)
     nhipv6 = common_config.get("nhipv6", NHIPV6)
