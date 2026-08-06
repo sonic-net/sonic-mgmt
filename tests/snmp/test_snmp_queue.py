@@ -7,6 +7,10 @@ pytestmark = [
 ]
 
 
+def is_port_active(v):
+    return v['adminstatus'] == 'up' and v['operstatus'] == 'up'
+
+
 def test_snmp_queues(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_all_duts,
                      collect_techsupport_all_duts):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -58,7 +62,7 @@ def test_snmp_queues(duthosts, enum_rand_one_per_hwsku_hostname, localhost, cred
                 q_interfaces[intf[intf_idx]] = set()
             q_interfaces[intf[intf_idx]].add(intf[queue_idx])
 
-    snmp_facts = get_snmp_facts(localhost, host=hostip, version="v2c",
+    snmp_facts = get_snmp_facts(duthost, localhost, host=hostip, version="v2c",
                                 community=creds_all_duts[duthost.hostname]["snmp_rocommunity"],
                                 wait=True)['ansible_facts']
 
@@ -70,7 +74,7 @@ def test_snmp_queues(duthosts, enum_rand_one_per_hwsku_hostname, localhost, cred
 
     for k, v in snmp_facts['snmp_interfaces'].items():
         # v['name'] is  alias for example Ethernet1/1
-        if v['name'] in alias_port_name_map:
+        if v['name'] in alias_port_name_map and is_port_active(v):
             intf = alias_port_name_map[v['name']]
 
             # Expect all interfaces to have queue counters
@@ -93,6 +97,6 @@ def test_snmp_queues(duthosts, enum_rand_one_per_hwsku_hostname, localhost, cred
             else:
                 show_cli = 'show queue counters {} | grep "UC" | wc -l'.format(intf)
             result = duthost.shell(show_cli)
-            assert len(v['queues'][direction_type].keys()) == int(result[u'stdout']),\
+            assert len(v['queues'][direction_type].keys()) == int(result[u'stdout']), \
                    "Port {} does not have expected number of queue \
                    indexes in SNMP result".format(intf)

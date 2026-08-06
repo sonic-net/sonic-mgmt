@@ -2,6 +2,12 @@ import logging
 import pytest
 import json
 import re
+from datetime import datetime, timedelta, timezone
+
+from cryptography import x509
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.x509.oid import NameOID
 
 from pkg_resources import parse_version
 from tests.common.helpers.assertions import pytest_assert
@@ -9,9 +15,17 @@ from tests.common.helpers.gnmi_utils import GNMIEnvironment
 
 logger = logging.getLogger(__name__)
 
+# Backdate rotated telemetry cert notBefore so it survives clock skew
+# between the sonic-mgmt runner and the DUT. Cryptography lib here
+# instead of openssl shell because openssl 3.0.x has no CLI flag to
+# set notBefore on `req -x509` (added only in 3.5).
+_TELEMETRY_CERT_BACKDATE_DAYS = 7
+_TELEMETRY_CERT_VALIDITY_DAYS = 365
+
 METHOD_GET = "get"
 METHOD_SUBSCRIBE = "subscribe"
 SUBSCRIBE_MODE_STREAM = 0
+SUBSCRIBE_MODE_POLL = 2
 SUBMODE_SAMPLE = 2
 SUBMODE_ONCHANGE = 1
 
@@ -52,9 +66,11 @@ def skip_201911_and_older(duthost):
         pytest.skip("Test not supported for 201911 images. Skipping the test")
 
 
-def check_gnmi_cli_running(ptfhost):
-    program_list = ptfhost.shell("pgrep -f 'python /root/gnxi/gnmi_cli_py/py_gnmicli.py'")["stdout"]
-    return len(program_list) > 0
+def check_gnmi_cli_running(duthost, ptfhost):
+    env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
+    res = ptfhost.shell(f"netstat -tn | grep \":{env.gnmi_port} .*ESTABLISHED\"",
+                        module_ignore_errors=True)
+    return res and res["rc"] == 0
 
 
 def parse_gnmi_output(gnmi_output, match_no, find_data):
@@ -106,26 +122,32 @@ def trigger_logger(duthost, log, process, container="", priority="local0.notice"
 
 def generate_client_cli(duthost, gnxi_path, method=METHOD_GET, xpath="COUNTERS/Ethernet0", target="COUNTERS_DB",
                         subscribe_mode=SUBSCRIBE_MODE_STREAM, submode=SUBMODE_SAMPLE,
-                        intervalms=0, update_count=3, create_connections=1, filter_event_regex="",
-                        timeout=-1):
+                        intervalms=0, update_count=3, create_connections=1, filter_event_regex="", namespace=None,
+                        timeout=-1, polling_interval=10, max_sync_count=-1):
     """ Generate the py_gnmicli command line based on the given params.
-    t                      --target: gNMI target; required
-    p                      --port: port of target; required
-    m                      --mode: get/susbcribe; default get
-    x                      --xpath: gnmi path, table name; required
-    xt                     --xpath_target: gnmi path prefix, db name
-    o                      --host_override, targets hostname for certificate CN
-    subscribe_mode:        0=STREAM, 1=ONCE, 2=POLL; default 0
-    submode:               0=TARGET_DEFINED, 1=ON_CHANGE, 2=SAMPLE; default 2
-    interval:              sample interval in milliseconds, default 10000ms
-    update_count:          Max number of streaming updates to receive. 0 means no limit. default 0
-    create_connections:    Creates TCP connections with gNMI server; default 1; -1 for infinite connections
-    filter_event_regex:    Regex to filter event when querying events path
-    timeout:               Subscription duration in seconds; After X seconds, request terminates; default none
+    This version ensures the command runs from the correct directory and within the
+    activated virtual environment to resolve dependency issues.
     """
     env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
-    cmdFormat = 'python ' + gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m {2} -x {3} -xt {4} -o {5}'
-    cmd = cmdFormat.format(duthost.mgmt_ip, env.gnmi_port, method, xpath, target, "ndastreamingservertest")
+    ns = ""
+    if namespace is not None:
+        ns = "/{}".format(namespace)
+
+    # This command structure is critical. It does three things:
+    # 1. Activates the virtual environment using the POSIX-compliant '.' command.
+    # 2. Changes to the gnmi_cli_py directory, which is required for the protobuf imports to work.
+    # 3. Executes the py_gnmicli.py script.
+    cmdFormat = '. /root/env-python3/bin/activate && cd {7}gnmi_cli_py' \
+                ' && python py_gnmicli.py -g -t {0} -p {1} -m {2} -x {3} -xt {4}{5} -o {6}'
+    mgmt_ip = duthost.get_mgmt_ip()["mgmt_ip"]
+    cmd = cmdFormat.format(mgmt_ip, env.gnmi_port,
+                           method, xpath, target, ns,
+                           "ndastreamingservertest", gnxi_path)
+
+    if subscribe_mode == SUBSCRIBE_MODE_POLL:
+        poll_cmd = " --subscribe_mode {0} --polling_interval {1} --update_count {2} --max_sync_count {3} --timeout {4}"
+        cmd += poll_cmd.format(subscribe_mode, polling_interval, update_count, max_sync_count, timeout)
+        return cmd
 
     if method == METHOD_SUBSCRIBE:
         cmd += " --subscribe_mode {0} --submode {1} --interval {2} --update_count {3} --create_connections {4}".format(
@@ -165,30 +187,57 @@ def archive_telemetry_certs(duthost):
             duthost.shell(cmd)
 
 
+def _mint_self_signed_telemetry_cert(common_name, cert_path, key_path):
+    """Generate a backdated self-signed leaf cert + key on the sonic-mgmt runner."""
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    now = datetime.now(timezone.utc)
+    not_before = now - timedelta(days=_TELEMETRY_CERT_BACKDATE_DAYS)
+    not_after = now + timedelta(days=_TELEMETRY_CERT_VALIDITY_DAYS)
+    subject = issuer = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, common_name)])
+    cert = (
+        x509.CertificateBuilder()
+        .subject_name(subject)
+        .issuer_name(issuer)
+        .public_key(key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(not_before)
+        .not_valid_after(not_after)
+        .sign(key, hashes.SHA256())
+    )
+    with open(key_path, "wb") as f:
+        f.write(key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.TraditionalOpenSSL,
+            encryption_algorithm=serialization.NoEncryption(),
+        ))
+    with open(cert_path, "wb") as f:
+        f.write(cert.public_bytes(serialization.Encoding.PEM))
+
+
 def rotate_telemetry_certs(duthost, localhost):
     path = "/etc/sonic/telemetry/"
-    # Create new certs to rotate
-    cmd = "openssl req \
-              -x509 \
-              -sha256 \
-              -nodes \
-              -newkey rsa:2048 \
-              -keyout streamingtelemetryserver.key \
-              -subj '/CN=ndastreamingservertest' \
-              -out streamingtelemetryserver.cer"
-    localhost.shell(cmd)
-    cmd = "openssl req \
-              -x509 \
-              -sha256 \
-              -nodes \
-              -newkey rsa:2048 \
-              -keyout dsmsroot.key \
-              -subj '/CN=ndastreamingclienttest' \
-              -out dsmsroot.cer"
-    localhost.shell(cmd)
+    # Mint fresh self-signed certs locally with a backdate so the rotated
+    # PKI survives clock skew between the sonic-mgmt runner and the DUT.
+    _mint_self_signed_telemetry_cert(
+        "ndastreamingservertest", "streamingtelemetryserver.cer", "streamingtelemetryserver.key",
+    )
+    _mint_self_signed_telemetry_cert(
+        "ndastreamingclienttest", "dsmsroot.cer", "dsmsroot.key",
+    )
 
     # Rotate certs
     duthost.copy(src="streamingtelemetryserver.cer", dest=path)
     duthost.copy(src="streamingtelemetryserver.key", dest=path)
     duthost.copy(src="dsmsroot.cer", dest=path)
     duthost.copy(src="dsmsroot.key", dest=path)
+
+
+def execute_ptf_gnmi_cli(ptfhost, cmd):
+    rc = ptfhost.shell(cmd)['rc']
+    return rc == 0
+
+
+def invoke_py_cli_from_ptf(ptfhost, cmd, callback):
+    ret = ptfhost.shell(cmd)
+    assert ret["rc"] == 0, "PTF docker did not get a response"
+    callback(ret["stdout"])

@@ -93,6 +93,18 @@ def ensure_no_l2_drops(duthost, packets_count):
         pytest.fail("L2 'RX_DRP' was incremented for the following interfaces:\n{}".format(unexpected_drops))
 
 
+def ensure_no_l3_and_l2_drops(duthost, packets_count):
+    """ Verify L3 and L2 drop counters were not incremented """
+    ensure_no_l3_drops(duthost, packets_count)
+    ensure_no_l2_drops(duthost, packets_count)
+
+
+def ensure_no_l2_and_l3_drops(duthost, packets_count):
+    """ Verify L2 and L3 drop counters were not incremented """
+    ensure_no_l2_drops(duthost, packets_count)
+    ensure_no_l3_drops(duthost, packets_count)
+
+
 def verify_drop_counters(duthosts, asic_index, dut_iface, get_cnt_cli_cmd, column_key, packets_count):
     """ Verify drop counter incremented on specific interface """
     def _get_drops_across_all_duthosts():
@@ -121,6 +133,10 @@ def verify_drop_counters(duthosts, asic_index, dut_iface, get_cnt_cli_cmd, colum
         DROP_MARGIN = 0 if mg_facts['minigraph_vlans'] else 10
         for vlan in mg_facts['minigraph_vlans']:
             DROP_MARGIN += len(mg_facts['minigraph_vlans'][vlan]['members'])
+            # For dualtor, we need to double the margin
+            config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+            if config_facts['DEVICE_METADATA']['localhost'].get('subtype', '') == 'DualToR':
+                DROP_MARGIN *= 2
         logger.info(f"The DROP_MARGIN is {DROP_MARGIN}")
         actual_drop = _get_drops_across_all_duthosts()
         for drop in actual_drop:

@@ -43,7 +43,14 @@
 
 - name: Set ptf host
   set_fact:
-    ptf_host: "ptf_{{ vm_set_name }}"
+    ptf_host: "{{ ptf_ip.split('/')[0] }}"
+    ptf_host_ip: "{{ ptf_ip.split('/')[0] }}"
+
+- name: Add ptf host
+  add_host:
+    name: "{{ ptf_host }}"
+    groups:
+      - ptf
 
 - debug: msg="ptf_host {{ ptf_host }}"
 
@@ -78,9 +85,18 @@
     block:
 
     - name: Encrypt TACACS password from secret_group_vars
-      shell: python3 -c "import crypt; print(crypt.crypt('{{secret_group_vars['str']['altpasswords'][0]}}', 'abc'))"
-      register: encrypted_sonic_password
+      # Python's crypt module was removed in 3.13; fall back to perl crypt().
+      shell: >
+        python3 -c "import crypt,sys; print(crypt.crypt(sys.argv[1], 'ab'))"
+        "{{ secret_group_vars['str']['altpasswords'][0] }}" 2>/dev/null
+        || perl -e 'print crypt($ARGV[0], "ab"), "\n"' "{{ secret_group_vars['str']['altpasswords'][0] }}"
+      register: encrypted_sonic_password_secret_group_vars
+      no_log: True
       delegate_to: "{{ ptf_host }}"
+
+    - name: Set TACACS password from encrypted password from secret_group_vars
+      set_fact:
+        tacacs_user_passwd: '{{ encrypted_sonic_password_secret_group_vars.stdout }}'
 
     when:
       - secret_group_vars is defined
@@ -93,18 +109,23 @@
       include_vars: "{{ playbook_dir }}/group_vars/lab/secrets.yml"
 
     - name: Encrypt TACACS password from sonicadmin_password
-      shell: python3 -c "import crypt; print(crypt.crypt('{{sonicadmin_password}}', 'abc'))"
-      register: encrypted_sonic_password
+      # Python's crypt module was removed in 3.13; fall back to perl crypt().
+      shell: >
+        python3 -c "import crypt,sys; print(crypt.crypt(sys.argv[1], 'ab'))"
+        '{{sonicadmin_password}}' 2>/dev/null
+        || perl -e 'print crypt($ARGV[0], "ab"), "\n"' '{{sonicadmin_password}}'
+      register: encrypted_sonic_password_sonicadmin_password
+      no_log: True
       delegate_to: "{{ ptf_host }}"
+
+    - name: Set TACACS password from encrypted sonicadmin_password
+      set_fact:
+        tacacs_user_passwd: '{{ encrypted_sonic_password_sonicadmin_password.stdout }}'
 
     when:
       - tacacs_user_passwd is not defined
 
-  - name: Set TACACS password from encrypted_sonic_password
-    set_fact:
-      tacacs_user_passwd: '{{ encrypted_sonic_password.stdout }}'
-
-- debug: msg="tacacs_user_passwd {{ tacacs_user_passwd }}"
+- debug: msg="encrypted tacacs_user_passwd {{ tacacs_user_passwd }}"
 
 - block:
     - name: Generate tacacs daily daemon config file

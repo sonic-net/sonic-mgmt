@@ -12,12 +12,12 @@ import ptf.mask as mask
 import ptf.packet as packet
 
 from tests.common import constants
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses    # noqa F401
-from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py   # noqa F401
-from tests.common.fixtures.ptfhost_utils import skip_traffic_test       # noqa F401
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses    # noqa: F401
+from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py   # noqa: F401
+from tests.common.fixtures.ptfhost_utils import iptables_drop_ipv6_tx   # noqa: F401
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa: F401
 from tests.common.utilities import get_intf_by_sub_intf, wait_until
 
 logger = logging.getLogger(__name__)
@@ -31,7 +31,8 @@ def initClassVars(func):
     """
     Automatically assign instance variables. currently handles only arg list
     """
-    names, varargs, keywords, defaults = inspect.getargspec(func)
+    signature = inspect.signature(func)
+    names = list(signature.parameters.keys())
 
     @functools.wraps(func)
     def wrapper(self, *args):
@@ -175,8 +176,9 @@ def flushArpFdb(duthosts, rand_one_dut_hostname, dut_disable_arp_update):
 
 @pytest.fixture(autouse=True)
 def populateArp(unknownMacSetup, flushArpFdb, ptfhost, duthosts, rand_one_dut_hostname,
-                toggle_all_simulator_ports_to_rand_selected_tor_m,           # noqa F811
-                setup_standby_ports_on_rand_unselected_tor_unconditionally): # noqa F811
+                toggle_all_simulator_ports_to_rand_selected_tor_m,              # noqa: F811
+                setup_standby_ports_on_rand_unselected_tor_unconditionally,     # noqa: F811
+                iptables_drop_ipv6_tx):                                         # noqa: F811
     """
     Fixture to populate ARP entry on the DUT for the traffic destination
 
@@ -228,7 +230,7 @@ class PreTestVerify(object):
         match = re.match(r"{}.*lladdr\s+(.*)\s+[A-Z]+".format(self.dst_ip),
                          result['stdout_lines'][0])
         pytest_assert(match,
-                      "Regex failed while retreiving arp entry for {}".format(self.dst_ip))
+                      "Regex failed while retrieving arp entry for {}".format(self.dst_ip))
         self.arp_entry.update({self.dst_ip: match.group(1)})
 
     def _checkFdbEntryMiss(self):
@@ -260,7 +262,7 @@ class TrafficSendVerify(object):
     """ Send traffic and check interface counters and ptf ports """
     @initClassVars
     def __init__(self, duthost, ptfadapter, dst_ip, ptf_dst_port, ptf_vlan_ports,
-                 intfs, ptf_ports, arp_entry, dscp, skip_traffic_test):     # noqa F811
+                 intfs, ptf_ports, arp_entry, dscp):     # noqa: F811
         """
         Args:
             duthost(AnsibleHost) : dut instance
@@ -278,7 +280,6 @@ class TrafficSendVerify(object):
         self.pkt_map = dict()
         self.pre_rx_drops = dict()
         self.dut_mac = duthost.facts['router_mac']
-        self.skip_traffic_test = skip_traffic_test
 
     def _constructPacket(self):
         """
@@ -340,6 +341,12 @@ class TrafficSendVerify(object):
         stats = self._parseCntrs()
         for key, value in list(self.pkt_map.items()):
             intf = value[1]
+            # Counters read as 'N/A' until the counters poller has populated
+            # COUNTERS_DB (e.g. right after `sonic-clear counters`). Treat that
+            # as "not ready yet" so the wait_until wrappers keep polling instead
+            # of crashing with `int('N/A')`.
+            if stats[intf]['RX_DRP'] == 'N/A':
+                return False
             if pretest:
                 self.pre_rx_drops[intf] = int(stats[intf]['RX_DRP'])
             else:
@@ -361,10 +368,15 @@ class TrafficSendVerify(object):
         self._constructPacket()
         logger.info("Clear all counters before test run")
         self.duthost.command("sonic-clear counters")
-        if not self.skip_traffic_test:
+        asic_type = self.duthost.facts["asic_type"]
+        if asic_type != "vs":
             time.sleep(1)
             logger.info("Collect drop counters before test run")
-            self._verifyIntfCounters(pretest=True)
+            # Counters can read 'N/A' right after `sonic-clear counters` until the
+            # poller repopulates COUNTERS_DB; wait for them to be ready and fail
+            # loudly if they never are (rather than crashing on `int('N/A')`).
+            pytest_assert(wait_until(10, 2, 0, self._verifyIntfCounters, True),
+                          "Drop counters not ready (still 'N/A') before test run")
             for pkt, exp_pkt in zip(self.pkts, self.exp_pkts):
                 self.ptfadapter.dataplane.flush()
                 out_intf = self.pkt_map[str(pkt)][0]
@@ -378,7 +390,7 @@ class TrafficSendVerify(object):
 
 class TestUnknownMac(object):
     @pytest.mark.parametrize("dscp", ["dscp-3", "dscp-4", "dscp-8"])
-    def test_unknown_mac(self, unknownMacSetup, dscp, duthosts, rand_one_dut_hostname, ptfadapter, skip_traffic_test):  # noqa F811
+    def test_unknown_mac(self, unknownMacSetup, dscp, duthosts, rand_one_dut_hostname, ptfadapter):
         """
         Verify unknown mac behavior for lossless and lossy priority
 
@@ -404,7 +416,6 @@ class TestUnknownMac(object):
         self.ptf_vlan_ports = setup['ptf_vlan_ports']
         self.intfs = setup['intfs']
         self.ptf_ports = setup['ptf_ports']
-        self.skip_traffic_test = skip_traffic_test
         self.validateEntries()
         self.run()
 
@@ -422,5 +433,5 @@ class TestUnknownMac(object):
         thandle = TrafficSendVerify(self.duthost, self.ptfadapter, self.dst_ip, self.ptf_dst_port,
                                     self.ptf_vlan_ports,
                                     self.intfs, self.ptf_ports,
-                                    self.arp_entry, self.dscp, self.skip_traffic_test)
+                                    self.arp_entry, self.dscp)
         thandle.runTest()

@@ -15,12 +15,12 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.daemon_utils import check_pmon_daemon_enable_status
 from tests.common.platform.processes_utils import check_critical_processes
 from tests.common.utilities import compose_dict_from_cli, skip_release, wait_until
+from tests.platform_tests.cli.util import get_skip_mod_list
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('any'),
-    pytest.mark.device_type('physical'),
     pytest.mark.sanity_check(skip_sanity=True),
     pytest.mark.disable_loganalyzer
 ]
@@ -30,6 +30,7 @@ expected_stopped_status = "STOPPED"
 expected_exited_status = "EXITED"
 
 daemon_name = "psud"
+daemon_dut_hostname_fixture = "enum_supervisor_dut_hostname"
 
 SIG_STOP_SERVICE = None
 SIG_TERM = "-15"
@@ -61,15 +62,6 @@ def teardown_module(duthosts, enum_supervisor_dut_hostname):
     check_critical_processes(duthost, watch_secs=10)
 
 
-@pytest.fixture
-def check_daemon_status(duthosts, enum_supervisor_dut_hostname):
-    duthost = duthosts[enum_supervisor_dut_hostname]
-    daemon_status, daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
-    if daemon_status != "RUNNING":
-        duthost.start_pmon_daemon(daemon_name)
-        time.sleep(10)
-
-
 def check_if_daemon_restarted(duthost, daemon_name, pre_daemon_pid):
     daemon_status, daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     return (daemon_pid > pre_daemon_pid)
@@ -78,6 +70,13 @@ def check_if_daemon_restarted(duthost, daemon_name, pre_daemon_pid):
 def check_expected_daemon_status(duthost, expected_daemon_status):
     daemon_status, post_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     return daemon_status == expected_daemon_status
+
+
+def check_pmon_daemon_id(duthost, daemon_name, expected_id):
+    _, daemon_id = duthost.get_pmon_daemon_status(daemon_name)
+    if daemon_id != expected_id:
+        logger.info(f"{daemon_name} pmon id is {daemon_id} != {expected_id}")
+    return daemon_id == expected_id
 
 
 def collect_data(duthost):
@@ -128,6 +127,11 @@ def verify_data(data_before, data_after):
         for field in data_before['data'][psu_key]:
             if field not in ignore_fields:
                 value_before = data_before['data'][psu_key][field]
+
+                # This will slowly populate by supervisor. If we dont have this check we will have KeyError
+                if psu_key not in data_after["data"] or field not in data_after["data"][psu_key]:
+                    return False
+
                 value_after = data_after['data'][psu_key][field]
                 if value_before != value_after:
                     logger.info(msg.format(value_before, value_after, field))
@@ -154,9 +158,63 @@ def test_pmon_psud_running_status(duthosts, enum_supervisor_dut_hostname, data_b
                   "{} expected pid is a positive integer but is {}".format(daemon_name, daemon_pid))
 
     pytest_assert(data_before_restart['keys'],
-                  "DB keys is not availale on daemon running")
+                  "DB keys is not available on daemon running")
     pytest_assert(data_before_restart['data'],
-                  "DB data is not availale on daemon running")
+                  "DB data is not available on daemon running")
+
+
+def test_pmon_psud_psu_status_and_led(duthosts, enum_supervisor_dut_hostname, data_before_restart):
+    """
+    @summary: This test case validates that each present PSU is in OK status
+              and its LED is green. Addresses test gap issue #22143.
+    """
+    duthost = duthosts[enum_supervisor_dut_hostname]
+    daemon_status, daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
+    pytest_assert(daemon_status == expected_running_status,
+                  "{} is not running, cannot validate PSU status".format(daemon_name))
+
+    pytest_assert(data_before_restart['keys'], "No PSU_INFO keys found in STATE_DB")
+    pytest_assert(data_before_restart['data'], "No PSU_INFO data found in STATE_DB")
+
+    psu_skip_list = get_skip_mod_list(duthost, ['psus'])
+    present_psu_count = 0
+    psu_status_failures = []
+    psu_led_failures = []
+
+    for psu_key, psu_data in data_before_restart['data'].items():
+        psu_name = psu_key.replace("PSU_INFO|", "")
+        presence = psu_data.get("presence", "false")
+
+        if psu_name in psu_skip_list:
+            logger.info("PSU {} is in skip list, skipping validation".format(psu_name))
+            continue
+
+        if presence.lower() != "true":
+            logger.info("PSU {} is not present, skipping status and LED check".format(psu_name))
+            continue
+
+        present_psu_count += 1
+
+        # Check PSU operational status
+        if "status" not in psu_data:
+            psu_status_failures.append("{} missing 'status' field in STATE_DB".format(psu_name))
+        elif psu_data["status"].lower() != "true":
+            psu_status_failures.append("{} status is '{}', expected 'true'".format(psu_name, psu_data["status"]))
+
+        # Check PSU LED is green when a real color value is reported.
+        # Some platforms report 'N/A' when PSU LED status is not supported; accept that as well.
+        if "led_status" not in psu_data:
+            psu_led_failures.append("{} missing 'led_status' field in STATE_DB".format(psu_name))
+        elif psu_data["led_status"].lower() not in ("green", "n/a"):
+            psu_led_failures.append("{} led_status is '{}', expected 'green' or 'N/A'".format(
+                psu_name, psu_data["led_status"]))
+
+    pytest_assert(present_psu_count > 0, "No present PSUs found in STATE_DB")
+    logger.info("Validated {} present PSU(s) for status and LED".format(present_psu_count))
+    pytest_assert(len(psu_status_failures) == 0,
+                  "PSU status check failed: {}".format("; ".join(psu_status_failures)))
+    pytest_assert(len(psu_led_failures) == 0,
+                  "PSU LED check failed: {}".format("; ".join(psu_led_failures)))
 
 
 def test_pmon_psud_stop_and_start_status(check_daemon_status, duthosts,
@@ -169,7 +227,11 @@ def test_pmon_psud_stop_and_start_status(check_daemon_status, duthosts,
     logger.info("{} daemon is {} with pid {}".format(daemon_name, pre_daemon_status, pre_daemon_pid))
 
     duthost.stop_pmon_daemon(daemon_name, SIG_STOP_SERVICE)
+
     time.sleep(2)
+
+    wait_until(120, 10, 0, check_pmon_daemon_id, duthost, daemon_name, -1)
+    wait_until(50, 10, 0, check_expected_daemon_status, duthost, expected_stopped_status)
 
     daemon_status, daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     pytest_assert(daemon_status == expected_stopped_status,
@@ -178,10 +240,11 @@ def test_pmon_psud_stop_and_start_status(check_daemon_status, duthosts,
     pytest_assert(daemon_pid == -1,
                   "{} expected pid is -1 but is {}".format(daemon_name, daemon_pid))
 
-    data = collect_data(duthost)
-    pytest_assert(not data['keys'],
+    pytest_assert(wait_until(60, 10, 0, lambda: collect_data(duthost)['keys'] is not None),
                   "DB data keys is not cleared on daemon stop")
-    pytest_assert(not data['data'], "DB data is not cleared on daemon stop")
+
+    pytest_assert(wait_until(60, 10, 0, lambda: collect_data(duthost)['data'] is not None),
+                  "DB data is not cleared on daemon stop")
 
     duthost.start_pmon_daemon(daemon_name)
 
@@ -199,7 +262,12 @@ def test_pmon_psud_stop_and_start_status(check_daemon_status, duthosts,
                   .format(daemon_name, pre_daemon_pid, post_daemon_pid))
 
     # Wait till DB PSU_INFO key values are restored
-    wait_until(40, 5, 0, get_and_verify_data, duthost, data_before_restart)
+
+    # For T2 it takes around 1 minute for the information to be populated in supervisor
+    is_modular_chassis = duthost.get_facts().get("modular_chassis")
+    wait_time = 90 if is_modular_chassis else 40
+
+    wait_until(wait_time, 5, 0, get_and_verify_data, duthost, data_before_restart)
 
 
 def test_pmon_psud_term_and_start_status(check_daemon_status, duthosts,

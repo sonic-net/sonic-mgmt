@@ -1,5 +1,6 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 """Generate the port config for the fanout device."""
+import json
 import os
 import re
 import shutil
@@ -7,10 +8,16 @@ import tempfile
 import traceback
 import xml.dom.minidom as minidom
 import xml.etree.ElementTree as ET
+from copy import deepcopy
 
 from collections import OrderedDict
 from natsort import natsorted
 from ansible.module_utils.basic import AnsibleModule
+
+try:
+    from portconfig import parse_platform_json_file
+except ImportError:
+    parse_platform_json_file = None
 
 
 DOCUMENTATION = """
@@ -64,10 +71,14 @@ return:
 
 class PortConfigGenerator(object):
 
+    C508O1X2_HWSKU = "Mellanox-SN5640-C508O1X2"
     MACHINE_CONF = "/host/machine.conf"
     SONIC_VERSION_FILE = "/etc/sonic/sonic_version.yml"
     HWSKU_DIR_PREFIX = "/usr/share/sonic/device/"
     PORT_CONF_FILENAME = "port_config.ini"
+    PLATFORM_JSON = "platform.json"
+    HWSKU_JSON = "hwsku.json"
+    INTF_KEY = "interfaces"
     PORT_ALIAS_PATTERNS = (
         re.compile(r"^etp(?P<port_index>\d+)(?P<lane>[a-d]?)"),
         re.compile(r"^Ethernet(?P<port_index>\d+)(/)?(?(2)(?P<lane>[1-4]+))")
@@ -107,13 +118,17 @@ class PortConfigGenerator(object):
         for alias_pattern in self.PORT_ALIAS_PATTERNS:
             m = alias_pattern.match(port_alias)
             if m:
-                return m.group("port_index"), m.group("lane")
+                if 'Ethernet' in port_alias:
+                    return str(int(m.group("port_index")) // 4 + 1), m.group("lane")
+                else:
+                    return m.group("port_index"), m.group("lane")
+
         raise ValueError("Invalid parse port alias format %s" % port_alias)
 
     def _create_sonic_sku(self, port_xml_file):
         shutil.rmtree(os.path.join(self.HWSKU_DIR_PREFIX,
                       self.fanout_hwsku), ignore_errors=True)
-        cmd = "sonic_sku_create.py -f %s -k %s" % (
+        cmd = "/tmp/sonic_sku_create.py -f %s -k %s" % (
             port_xml_file, self.fanout_hwsku)
         ret_code, stdout, stderr = self.module.run_command(
             cmd, executable='/bin/bash', use_unsafe_shell=True)
@@ -165,11 +180,47 @@ class PortConfigGenerator(object):
         return port_config
 
     @staticmethod
+    def _read_from_json(platform_json_path, hwsku_json_path):
+        """Parse platform.json + hwsku.json and return the same alias-keyed dict
+        format as _read_from_port_config()."""
+        (ports, _, _) = parse_platform_json_file(hwsku_json_path, platform_json_path)
+        port_config = {}
+        for name, data in ports.items():
+            alias = data.get('alias', name)
+            entry = dict(data)
+            entry['name'] = name
+            port_config[alias] = entry
+        return port_config
+
+    @staticmethod
     def _prettify(xml_elem):
         """Output a xml element with indentation."""
         xml_output = ET.tostring(xml_elem, encoding="utf-8")
         reparsed_output = minidom.parseString(xml_output)
         return reparsed_output.toprettyxml(indent="  ")
+
+    def _read_hwsku_port_config(self, hwsku_name):
+        """Read port config for a given hwsku, preferring platform.json + hwsku.json
+        over port_config.ini when both JSON files are present and valid."""
+        hwsku_dir = os.path.join(self.HWSKU_DIR_PREFIX, hwsku_name)
+        hwsku_json_path = os.path.join(hwsku_dir, self.HWSKU_JSON)
+
+        if parse_platform_json_file is not None and os.path.isfile(hwsku_json_path):
+            platform_json_path = os.path.join(self.HWSKU_DIR_PREFIX, self.PLATFORM_JSON)
+            if os.path.isfile(platform_json_path):
+                try:
+                    with open(platform_json_path) as f:
+                        platform_data = json.load(f)
+                    interfaces = platform_data.get(self.INTF_KEY, None)
+                    if interfaces is not None and len(interfaces) > 0:
+                        return self._read_from_json(platform_json_path, hwsku_json_path)
+                except (json.JSONDecodeError, ValueError, KeyError):
+                    # platform.json is unreadable or malformed;
+                    # fall through to port_config.ini.
+                    pass
+
+        ini_path = os.path.join(hwsku_dir, self.PORT_CONF_FILENAME)
+        return self._read_from_port_config(ini_path)
 
     def init_platform(self):
         self.fanout_asic_type = self._get_asic_type()
@@ -180,7 +231,17 @@ class PortConfigGenerator(object):
         self.platform_supported_hwsku_list = [_ for _ in os.listdir(
             self.HWSKU_DIR_PREFIX) if os.path.isdir(os.path.join(self.HWSKU_DIR_PREFIX, _))]
 
+    def char_generator(self):
+        current_char = ord('a')
+        while current_char <= ord('h'):
+            yield chr(current_char)
+            current_char += 1
+
+    def extract_number(self, port_name):
+        return int(port_name.lstrip('Ethernet'))
+
     def init_port_config(self):
+
         """Init the port config to be used by fanout."""
         if self.fanout_hwsku_type == "predefined":
             if self.fanout_hwsku not in self.platform_supported_hwsku_list:
@@ -189,20 +250,31 @@ class PortConfigGenerator(object):
 
         elif self.fanout_hwsku_type == "dynamic":
             # fill missing ports in device_conn from the default port config file
-            default_hwsku_port_config = self._read_from_port_config(os.path.join(
-                self.HWSKU_DIR_PREFIX, self.platform_default_hwsku, self.PORT_CONF_FILENAME))
+            default_hwsku_port_config = self._read_hwsku_port_config(self.platform_default_hwsku)
             default_hwsku_port_index_to_port_config = {
                 self._parse_interface_alias(port_alias)[0]: port_config for
                 port_alias, port_config in default_hwsku_port_config.items()
             }
 
             fanout_connection = self.fanout_connections.copy()
-            for port_alias, port_config in fanout_connection.items():
-                port_index = self._parse_interface_alias(port_alias)[0]
-                default_hwsku_port_index_to_port_config.pop(port_index, None)
+            fanout_connection_with_alias = deepcopy(fanout_connection)
+            port_alias_count = {}
+            for port_name, port_config in fanout_connection.items():
+                port_index = self._parse_interface_alias(port_name)[0]
+                if port_index in default_hwsku_port_index_to_port_config:
+                    port_alias = default_hwsku_port_index_to_port_config[port_index]['alias']
+                    fanout_connection_with_alias[port_name]['alias'] = port_alias
+                    if port_alias not in port_alias_count:
+                        port_alias_count[port_alias] = 1
+                    else:
+                        port_alias_count[port_alias] += 1
 
-            for port_config in default_hwsku_port_index_to_port_config.values():
-                fanout_connection[port_config['alias']] = port_config
+            fanout_connection_with_alias = deepcopy(fanout_connection_with_alias)
+            for port_alias, count in port_alias_count.items():
+                char_gen = self.char_generator()
+                for port_name in sorted(fanout_connection_with_alias.keys(), key=self.extract_number):
+                    if port_alias == fanout_connection_with_alias[port_name]['alias'] and count > 1:
+                        fanout_connection_with_alias[port_name]['alias'] += str(next(char_gen))
 
             # create the xml file as input to sonic_sku_create.py script
             self.fanout_hwsku = self.platform_default_hwsku + "_NEW"
@@ -210,38 +282,97 @@ class PortConfigGenerator(object):
                 Vendor="Microsoft", HwSku=self.fanout_hwsku))
             ether_elem = ET.SubElement(xml_file_root, "Ethernet")
 
-            for index, port_alias in enumerate(natsorted(fanout_connection.keys()), start=1):
-                ET.SubElement(ether_elem, "Interface", attrib=OrderedDict(Index=str(index), PortName=str(
-                    index), InterfaceName=port_alias, Speed=fanout_connection[port_alias].get("speed", "100000")))
+            for index, port_name in enumerate(natsorted(fanout_connection_with_alias.keys()), start=1):
+                ET.SubElement(ether_elem, "Interface",
+                              attrib=OrderedDict(Index=str(index), PortName=str(index),
+                                                 InterfaceName=fanout_connection_with_alias[port_name]['alias'],
+                                                 Speed=fanout_connection_with_alias[port_name].
+                                                 get("speed", "100000")))
 
             with tempfile.NamedTemporaryFile(delete=False) as xml_file:
-                xml_file.write(self._prettify(xml_file_root))
+                xml_content = self._prettify(xml_file_root)
+                xml_file.write(xml_content.encode("utf-8"))
                 xml_file.flush()
                 self._create_sonic_sku(xml_file.name)
 
             if "broadcom" in self.fanout_asic_type:
                 self._use_flex_bcm_config()
 
-        hwsku_port_config = self._read_from_port_config(os.path.join(
-            self.HWSKU_DIR_PREFIX, self.fanout_hwsku, self.PORT_CONF_FILENAME))
+        hwsku_port_config = self._read_hwsku_port_config(self.fanout_hwsku)
 
         self.fanout_port_config = self.fanout_connections.copy()
         fanout_port_name_to_alias_map = dict(
             [(cfg['name'], alias) for alias, cfg in hwsku_port_config.items()])
+        fanout_not_exist_list = []
         for port_name, port_config in self.fanout_port_config.items():
             port_alias = fanout_port_name_to_alias_map.get(port_name, '')
+
             if port_alias not in hwsku_port_config:
-                raise ValueError("Port %s is not defined in hwsku %s port config" % (
-                    port_alias, self.fanout_hwsku))
+                fanout_not_exist_list.append(port_name)
+                continue
+
             for k, v in hwsku_port_config[port_alias].items():
                 if k not in port_config:
                     port_config[k] = v
 
+        for port_name in fanout_not_exist_list:
+            del self.fanout_port_config[port_name]
         # add port configs for those ports that have no connections in the connection graph file
         for port_alias, port_config in hwsku_port_config.items():
             port_name = port_config['name']
             if port_name not in self.fanout_port_config:
                 self.fanout_port_config[port_name] = port_config
+
+        self._derive_subports()
+        self._apply_c508o1x2_port64()
+
+    def _derive_subports(self):
+        """Derive subport attribute for ports sharing the same physical index.
+
+        For OSFP modules split into subports (e.g., etp1a/etp1b), the subport
+        attribute tells the ASIC which subport of the physical module each
+        logical port maps to. The alias suffix (a=1, b=2, c=3, d=4) determines
+        the subport number.
+        """
+        # Group ports by index to detect multi-subport configurations
+        index_groups = {}
+        for port_name, port_config in self.fanout_port_config.items():
+            idx = port_config.get('index', '')
+            if idx not in index_groups:
+                index_groups[idx] = []
+            index_groups[idx].append(port_name)
+
+        for idx, port_names in index_groups.items():
+            if len(port_names) <= 1:
+                continue
+            # Multiple ports share the same index — these are subports
+            for port_name in port_names:
+                port_config = self.fanout_port_config[port_name]
+                if 'subport' in port_config:
+                    continue
+                alias = port_config.get('alias', '')
+                if alias and alias[-1].isalpha():
+                    port_config['subport'] = str(ord(alias[-1]) - ord('a') + 1)
+
+    def _apply_c508o1x2_port64(self):
+        """Port 64 breakout on C508O1X2; Ethernet508 uses CONFIG_DB subport 2."""
+        if self.fanout_hwsku != self.C508O1X2_HWSKU:
+            return
+
+        port64_cfg = {
+            "Ethernet508": {
+                "name": "Ethernet508", "lanes": "508,509,510,511", "speed": "400000",
+                "index": "64", "alias": "etp64e", "subport": "2",
+            }
+        }
+        for port_name, fields in port64_cfg.items():
+            if port_name in self.fanout_port_config:
+                self.fanout_port_config[port_name].update(fields)
+            else:
+                self.fanout_port_config[port_name] = fields.copy()
+
+        for stale_port in ("Ethernet509", "Ethernet510", "Ethernet511"):
+            self.fanout_port_config.pop(stale_port, None)
 
 
 def main():

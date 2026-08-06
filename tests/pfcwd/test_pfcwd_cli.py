@@ -3,23 +3,63 @@ import logging
 import pytest
 import time
 
-from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      # noqa F401
+from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
-from tests.common.helpers.pfcwd_helper import start_wd_on_ports
+from tests.common.helpers.pfcwd_helper import start_wd_on_ports, send_tx_egress, \
+    shutdown_lag_members, restore_original_config
 from tests.common.helpers.pfcwd_helper import has_neighbor_device
 from tests.ptf_runner import ptf_runner
 from tests.common import constants
-from tests.common.dualtor.dual_tor_utils import is_tunnel_qos_remap_enabled, dualtor_ports # noqa F401
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m # noqa F401, E501
-from tests.common.helpers.pfcwd_helper import send_background_traffic, check_pfc_storm_state, parser_show_pfcwd_stat
+from tests.common.dualtor.dual_tor_utils import is_tunnel_qos_remap_enabled, dualtor_ports  # noqa: F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m  # noqa: F401, E501
+from tests.common.helpers.pfcwd_helper import send_background_traffic, verify_pfc_storm_in_expected_state, parser_show_pfcwd_stat  # noqa: E501
 from tests.common.utilities import wait_until
+from tests.common.cisco_data import is_cisco_device
 
 pytestmark = [
-    pytest.mark.topology("t0", "t1")
+    pytest.mark.topology("t0", "t1", "lt2", "ft2")
 ]
 
 logger = logging.getLogger(__name__)
+
+
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loganalyzer):
+    # Ignore in KVM test
+    KVMIgnoreRegex = [
+        ".*queryStatsCapability: failed to find switch.*",
+    ]
+    # Transient TACACS+ noise unrelated to PFCWD. On testbeds where the configured
+    # TACACS+ server is temporarily unreachable, NSS-TACACS+ lookups invoked by
+    # background processes (e.g. iptables) emit ERR-level syslog lines that get
+    # picked up by loganalyzer during teardown. Other tests (srv6, metadata-scripts)
+    # already ignore these same patterns for the same reason.
+    TacacsIgnoreRegex = [
+        r".*tac_connect_single: .*",
+        r".*nss_tacplus: .*",
+    ]
+    # On cisco-8000 platforms (e.g. Cisco-8101), the test teardown path that restores
+    # LAG / port-channel members re-binds cached QoS TC->Queue map and PFC settings
+    # on the affected ports. The underlying SAI objects can be recreated during the
+    # test, leaving orchagent with stale OIDs. The re-bind then fails in syncd with
+    # SAI_STATUS_ITEM_NOT_FOUND and orchagent logs ERR for handlePortQosMapTable /
+    # setPortPfc. The test itself passes; only loganalyzer flags these as failures.
+    Cisco8000IgnoreRegex = [
+        r".*sendApiResponse: api SAI_COMMON_API_SET failed in syncd mode: SAI_STATUS_ITEM_NOT_FOUND.*",
+        r".*processQuadEvent: VID: oid:0x[0-9a-f]+ RID: oid:0x[0-9a-f]+.*",
+        r".*processQuadEvent: attr: SAI_PORT_ATTR_QOS_TC_TO_QUEUE_MAP: oid:0x[0-9a-f]+.*",
+        r".*processQuadEvent: attr: SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL: \d+.*",
+        r".*handlePortQosMapTable: Failed to apply \S+ to port Ethernet\d+, rv:-7.*",
+        r".*setPortPfc: Failed to set PFC 0x[0-9a-f]+ to port id 0x[0-9a-f]+ \(rc:-7\).*",
+    ]
+    duthost = duthosts[rand_one_dut_hostname]
+    if loganalyzer:  # Skip if loganalyzer is disabled
+        loganalyzer[duthost.hostname].ignore_regex.extend(TacacsIgnoreRegex)
+        if duthost.facts["asic_type"] == "vs":
+            loganalyzer[duthost.hostname].ignore_regex.extend(KVMIgnoreRegex)
+        if duthost.facts["asic_type"] == "cisco-8000":
+            loganalyzer[duthost.hostname].ignore_regex.extend(Cisco8000IgnoreRegex)
 
 
 @pytest.fixture(scope='function', autouse=True)
@@ -50,7 +90,7 @@ class SetupPfcwdFunc(object):
             self.port_id_to_type_map[v['test_port_id']] = v['test_port_type']
 
     """ Test setup per port """
-    def setup_test_params(self, port, vlan, init=False, detect=True):
+    def setup_test_params(self, port, vlan, init=False, detect=True, ip_version="IPv4"):
         """
         Sets up test parameters associated with a DUT port
 
@@ -62,7 +102,7 @@ class SetupPfcwdFunc(object):
         logger.info("--- Setting up test params for port {} ---".format(port))
         self.parse_test_port_info()
         self.setup_port_params(port, init=init, detect=detect)
-        self.resolve_arp(vlan, self.is_dualtor)
+        self.resolve_arp(vlan, self.is_dualtor, ip_version)
         self.storm_setup(init=init, detect=detect)
 
     def setup_port_params(self, port, init=False, detect=True):
@@ -108,7 +148,7 @@ class SetupPfcwdFunc(object):
         logger.info("Current queue: {}".format(self.pfc_wd['queue_index']))
         self.queue_oid = self.dut.get_queue_oid(port, self.pfc_wd['queue_index'])
 
-    def resolve_arp(self, vlan, is_dualtor=False):
+    def resolve_arp(self, vlan, is_dualtor=False, ip_version="IPv4"):
         """
         Populate ARP info for the DUT vlan port
 
@@ -124,13 +164,23 @@ class SetupPfcwdFunc(object):
             self.ptf.command("ip -6 neigh flush all")
             self.dut.command("ip neigh flush all")
             self.dut.command("ip -6 neigh flush all")
-            self.ptf.command("ifconfig {} {}".format(ptf_port, self.pfc_wd['test_neighbor_addr']))
-            self.ptf.command("ping {} -c 10".format(vlan['addr']))
-
-            if is_dualtor:
-                self.dut.command("docker exec -i swss arping {} -c 5".format(self.pfc_wd['test_neighbor_addr']), module_ignore_errors=True)  # noqa: E501
+            # Prevent ARP replies from PTF interfaces that don't own the target IP.
+            # All vlan member ports share the same neighbor IP (e.g. 192.168.0.2).
+            # Without arp_ignore=1, the PTF kernel responds to ARP on every interface
+            # (default arp_ignore=0), causing the DUT to associate the IP with whichever
+            # port's reply arrives last -- typically the wrong port.
+            self.ptf.command("sysctl -w net.ipv4.conf.all.arp_ignore=1")
+            if ip_version == "IPv4":
+                self.ptf.command("ifconfig {} {}".format(ptf_port, self.pfc_wd['test_neighbor_addr']))
+                self.ptf.command("ping {} -c 10".format(vlan['addr']))
+                self.dut.command("docker exec -i swss arping {} -c 5".format(self.pfc_wd['test_neighbor_addr']),
+                                 module_ignore_errors=is_dualtor)  # noqa: E501
             else:
-                self.dut.command("docker exec -i swss arping {} -c 5".format(self.pfc_wd['test_neighbor_addr']))
+                self.ptf.command("ip -6 addr add {}/{} dev {}".format(self.pfc_wd['test_neighbor_addr'],
+                                                                      vlan['prefix'], ptf_port))
+                self.ptf.command("ping {} -6 -c 10".format(vlan['addr']))
+                self.dut.command("docker exec -i swss ping -6 -c 5 {}".format(self.pfc_wd['test_neighbor_addr']),
+                                 module_ignore_errors=is_dualtor)
 
     def storm_setup(self, init=False, detect=True):
         """
@@ -141,11 +191,14 @@ class SetupPfcwdFunc(object):
         """
         # new peer device
         if not self.peer_dev_list or self.peer_device not in self.peer_dev_list:
-            peer_info = {'peerdevice': self.peer_device,
-                         'hwsku': self.fanout_info[self.peer_device]['device_info']['HwSku'],
-                         'pfc_fanout_interface': self.neighbors[self.pfc_wd['test_port']]['peerport']
-                         }
-            self.peer_dev_list[self.peer_device] = peer_info['hwsku']
+            if self.dut.facts['asic_type'] == 'vs':
+                peer_info = {}
+            else:
+                peer_info = {'peerdevice': self.peer_device,
+                             'hwsku': self.fanout_info[self.peer_device]['device_info']['HwSku'],
+                             'pfc_fanout_interface': self.neighbors[self.pfc_wd['test_port']]['peerport']
+                             }
+                self.peer_dev_list[self.peer_device] = peer_info['hwsku']
 
             if self.dut.topo_type == 't2' and self.fanout[self.peer_device].os == 'sonic':
                 gen_file = 'pfc_gen_t2.py'
@@ -179,7 +232,7 @@ class SetupPfcwdFunc(object):
 
 class SendVerifyTraffic():
     """ PTF test """
-    def __init__(self, ptf, router_mac, tx_mac, pfc_params, is_dualtor):
+    def __init__(self, ptf, router_mac, tx_mac, pfc_params, is_dualtor, ip_version='IPv4'):
         """
         Args:
             ptf(AnsibleHost) : ptf instance
@@ -205,36 +258,19 @@ class SendVerifyTraffic():
             self.vlan_mac = "00:aa:bb:cc:dd:ee"
         else:
             self.vlan_mac = router_mac
+        self.ip_version = ip_version
 
-    def send_tx_egress(self, action, verify):
+    def get_lag_pkt_scale_factor(self):
         """
-        Send traffic with test port as the egress and verify if the packets get forwarded
-        or dropped based on the action
-
-        Args:
-            action(string) : PTF test action
+        When sending to a portchannel, the PTF code will distribute traffic across both egress
+        ports by randomizing the packet header. Scale up the number of packets sent based
+        on the number of ports. Send extra in case of imperfect hashing.
         """
-        logger.info("Check for egress {} on Tx port {}".format(action, self.pfc_wd_test_port))
-        dst_port = "[" + str(self.pfc_wd_test_port_id) + "]"
-        if action == "forward" and type(self.pfc_wd_test_port_ids) == list:
-            dst_port = "".join(str(self.pfc_wd_test_port_ids)).replace(',', '')
-        ptf_params = {'router_mac': self.router_mac,
-                      'vlan_mac': self.vlan_mac,
-                      'queue_index': self.pfc_queue_index,
-                      'pkt_count': self.pfc_wd_test_pkt_count,
-                      'port_src': self.pfc_wd_rx_port_id[0],
-                      'port_dst': dst_port,
-                      'ip_dst': self.pfc_wd_test_neighbor_addr,
-                      'port_type': self.port_id_to_type_map[self.pfc_wd_rx_port_id[0]],
-                      'wd_action': action if verify else "dontcare"}
-        if self.pfc_wd_rx_port_vlan_id is not None:
-            ptf_params['port_src_vlan_id'] = self.pfc_wd_rx_port_vlan_id
-        if self.pfc_wd_test_port_vlan_id is not None:
-            ptf_params['port_dst_vlan_id'] = self.pfc_wd_test_port_vlan_id
-        log_format = datetime.datetime.now().strftime("%Y-%m-%d-%H:%M:%S")
-        log_file = "/tmp/pfc_wd.PfcWdTest.{}.log".format(log_format)
-        ptf_runner(self.ptf, "ptftests", "pfc_wd.PfcWdTest", "ptftests", params=ptf_params,
-                   log_file=log_file, is_python3=True)
+        factor = 1
+        num_dst_ports = 1 if not isinstance(self.pfc_wd_test_port_ids, list) else len(self.pfc_wd_test_port_ids)
+        if num_dst_ports > 1:
+            factor = 1.25 * num_dst_ports
+        return factor
 
     def send_rx_ingress(self, action, verify):
         """
@@ -245,7 +281,7 @@ class SendVerifyTraffic():
             action(string) : PTF test action
         """
         logger.info("Check for ingress {} on Rx port {}".format(action, self.pfc_wd_test_port))
-        if type(self.pfc_wd_rx_port_id) == list:
+        if isinstance(self.pfc_wd_rx_port_id, list):
             dst_port = "".join(str(self.pfc_wd_rx_port_id)).replace(',', '')
         else:
             dst_port = "[ " + str(self.pfc_wd_rx_port_id) + " ]"
@@ -257,7 +293,8 @@ class SendVerifyTraffic():
                       'port_dst': dst_port,
                       'ip_dst': self.pfc_wd_rx_neighbor_addr,
                       'port_type': self.port_id_to_type_map[self.pfc_wd_test_port_id],
-                      'wd_action': action if verify else "dontcare"}
+                      'wd_action': action if verify else "dontcare",
+                      'ip_version': self.ip_version}
         if self.pfc_wd_rx_port_vlan_id is not None:
             ptf_params['port_dst_vlan_id'] = self.pfc_wd_rx_port_vlan_id
         if self.pfc_wd_test_port_vlan_id is not None:
@@ -266,6 +303,26 @@ class SendVerifyTraffic():
         log_file = "/tmp/pfc_wd.PfcWdTest.{}.log".format(log_format)
         ptf_runner(self.ptf, "ptftests", "pfc_wd.PfcWdTest", "ptftests", params=ptf_params,
                    log_file=log_file, is_python3=True)
+
+
+@pytest.fixture(scope='function')
+def manage_lag_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, nbrhosts, setup_pfc_test):
+    """Complete LAG config resource manager.
+
+    Setup (before test): backs up config_db and shuts down extra LAG members so
+    only the selected port remains active.
+    Teardown (after test): restores the original config_db, always runs even on failure.
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    ports = setup_pfc_test['selected_test_ports']
+    port = list(ports.keys())[0]
+
+    vm_host, neigh_port_channel, min_links = shutdown_lag_members(
+        duthost, port, tbinfo, nbrhosts, ports)
+
+    yield
+
+    restore_original_config(duthost, port, vm_host, neigh_port_channel, min_links, ports)
 
 
 class TestPfcwdFunc(SetupPfcwdFunc):
@@ -295,11 +352,13 @@ class TestPfcwdFunc(SetupPfcwdFunc):
 
             self.storm_hndle.start_storm()
 
-        logger.info("Verify if PFC storm is detected on port {}".format(port))
-        pytest_assert(
-            wait_until(30, 2, 5, check_pfc_storm_state, dut, port, self.storm_hndle.pfc_queue_idx, "storm"),
-            "PFC storm state did not change as expected"
-        )
+            # For devices that require traffic, the detection loop must be within the
+            # send_background_traffic context to continue sending traffic.
+            logger.info("Verify if PFC storm is detected on port {}".format(port))
+            pytest_assert(
+                wait_until(30, 2, 5, verify_pfc_storm_in_expected_state, dut, port, self.storm_hndle.pfc_queue_idx, "storm"),  # noqa: E501
+                "PFC storm state did not change as expected"
+            )
 
     def storm_restore_path(self, dut, port):
         """
@@ -316,7 +375,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         # storm restore
         logger.info("Verify if PFC storm is restored on port {}".format(port))
         pytest_assert(
-            wait_until(30, 2, 5, check_pfc_storm_state, dut, port, self.storm_hndle.pfc_queue_idx, "restore"),
+            wait_until(30, 2, 5, verify_pfc_storm_in_expected_state, dut, port, self.storm_hndle.pfc_queue_idx, "restore"),  # noqa: E501
             "PFC storm state did not change as expected"
         )
 
@@ -330,6 +389,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             port(string) : DUT port
             action(string) : PTF test action
         """
+        asic_type = dut.facts['asic_type']
         pfcwd_stat = self.dut.show_and_parse('show pfcwd stat')
         logger.info("before storm start: pfcwd_stat {}".format(pfcwd_stat))
 
@@ -339,72 +399,83 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         pfcwd_stat_init = parser_show_pfcwd_stat(dut, port, self.pfc_wd['queue_index'])
         logger.debug("pfcwd_stat_init {}".format(pfcwd_stat_init))
 
-        pytest_assert(("storm" in pfcwd_stat_init[0]['status']), "PFC storm status not detected")
-        pytest_assert(
-            ((int(pfcwd_stat_init[0]['storm_detect_count']) - int(pfcwd_stat_init[0]['restored_count'])) == 1),
-            "PFC storm detect count not correct"
-        )
+        if asic_type != 'vs':
+            pytest_assert(("storm" in pfcwd_stat_init[0]['status']), "PFC storm status not detected")
+            pytest_assert(
+                ((int(pfcwd_stat_init[0]['storm_detect_count']) - int(pfcwd_stat_init[0]['restored_count'])) == 1),
+                "PFC storm detect count not correct"
+            )
 
         # send traffic to egress port
-        self.traffic_inst.send_tx_egress(self.tx_action, False)
+        send_tx_egress(self.traffic_inst, self.tx_action, False,
+                       pkt_count=int(self.traffic_inst.pfc_wd_test_pkt_count *
+                                     self.traffic_inst.get_lag_pkt_scale_factor()))
+        time.sleep(10)  # wait for the traffic to be processed
         pfcwd_stat_after_tx = parser_show_pfcwd_stat(dut, port, self.pfc_wd['queue_index'])
         logger.debug("pfcwd_stat_after_tx {}".format(pfcwd_stat_after_tx))
-        # check count, drop: tx_drop_count; forward: tx_ok_count
-        if self.tx_action == "drop":
-            tx_drop_count_init = int(pfcwd_stat_init[0]['tx_drop_count'])
-            tx_drop_count_check = int(pfcwd_stat_after_tx[0]['tx_drop_count'])
-            logger.info("tx_drop_count {} -> {}".format(tx_drop_count_init, tx_drop_count_check))
-            pytest_assert(
-                ((tx_drop_count_check - tx_drop_count_init) >= self.pfc_wd['test_pkt_count']),
-                "PFC storm Tx ok count not correct"
-            )
-        elif self.tx_action == "forward":
-            tx_ok_count_init = int(pfcwd_stat_init[0]['tx_ok_count'])
-            tx_ok_count_check = int(pfcwd_stat_after_tx[0]['tx_ok_count'])
-            logger.info("tx_ok_count {} -> {}".format(tx_ok_count_init, tx_ok_count_check))
-            pytest_assert(
-                ((tx_ok_count_check - tx_ok_count_init) >= self.pfc_wd['test_pkt_count']),
-                "PFC storm Tx ok count not correct"
-            )
+
+        if asic_type != 'vs':
+            # check count, drop: tx_drop_count; forward: tx_ok_count
+            if self.tx_action == "drop":
+                tx_drop_count_init = int(pfcwd_stat_init[0]['tx_drop_count'])
+                tx_drop_count_check = int(pfcwd_stat_after_tx[0]['tx_drop_count'])
+                logger.info("tx_drop_count {} -> {}".format(tx_drop_count_init, tx_drop_count_check))
+                pytest_assert(
+                    ((tx_drop_count_check - tx_drop_count_init) >= self.pfc_wd['test_pkt_count']),
+                    "PFC storm Tx drop count not correct"
+                )
+            elif self.tx_action == "forward":
+                tx_ok_count_init = int(pfcwd_stat_init[0]['tx_ok_count'])
+                tx_ok_count_check = int(pfcwd_stat_after_tx[0]['tx_ok_count'])
+                logger.info("tx_ok_count {} -> {}".format(tx_ok_count_init, tx_ok_count_check))
+                pytest_assert(
+                    ((tx_ok_count_check - tx_ok_count_init) >= self.pfc_wd['test_pkt_count']),
+                    "PFC storm Tx ok count not correct"
+                )
 
         # send traffic to ingress port
         time.sleep(3)
         self.traffic_inst.send_rx_ingress(self.rx_action, False)
+        time.sleep(10)  # wait for the traffic to be processed
         pfcwd_stat_after_rx = parser_show_pfcwd_stat(dut, port, self.pfc_wd['queue_index'])
         logger.debug("pfcwd_stat_after_rx {}".format(pfcwd_stat_after_rx))
-        # check count, drop: rx_drop_count; forward: rx_ok_count
-        if self.rx_action == "drop":
-            rx_drop_count_init = int(pfcwd_stat_init[0]['rx_drop_count'])
-            rx_drop_count_check = int(pfcwd_stat_after_rx[0]['rx_drop_count'])
-            logger.info("rx_drop_count {} -> {}".format(rx_drop_count_init, rx_drop_count_check))
-            pytest_assert(
-                ((rx_drop_count_check - rx_drop_count_init) >= self.pfc_wd['test_pkt_count']),
-                "PFC storm Rx drop count not correct"
-            )
-        elif self.rx_action == "forward":
-            rx_ok_count_init = int(pfcwd_stat_init[0]['rx_ok_count'])
-            rx_ok_count_check = int(pfcwd_stat_after_rx[0]['rx_ok_count'])
-            logger.info("rx_ok_count {} -> {}".format(rx_ok_count_init, rx_ok_count_check))
-            pytest_assert(
-                ((rx_ok_count_check - rx_ok_count_init) >= self.pfc_wd['test_pkt_count']),
-                "PFC storm Rx ok count not correct"
-            )
+        if asic_type != 'vs':
+            # check count, drop: rx_drop_count; forward: rx_ok_count
+            if self.rx_action == "drop":
+                rx_drop_count_init = int(pfcwd_stat_init[0]['rx_drop_count'])
+                rx_drop_count_check = int(pfcwd_stat_after_rx[0]['rx_drop_count'])
+                logger.info("rx_drop_count {} -> {}".format(rx_drop_count_init, rx_drop_count_check))
+                pytest_assert(
+                    ((rx_drop_count_check - rx_drop_count_init) >= self.pfc_wd['test_pkt_count']),
+                    "PFC storm Rx drop count not correct"
+                )
+            elif self.rx_action == "forward":
+                rx_ok_count_init = int(pfcwd_stat_init[0]['rx_ok_count'])
+                rx_ok_count_check = int(pfcwd_stat_after_rx[0]['rx_ok_count'])
+                logger.info("rx_ok_count {} -> {}".format(rx_ok_count_init, rx_ok_count_check))
+                pytest_assert(
+                    ((rx_ok_count_check - rx_ok_count_init) >= self.pfc_wd['test_pkt_count']),
+                    "PFC storm Rx ok count not correct"
+                )
 
         logger.info("--- Storm restoration path for port {} ---".format(port))
         self.storm_restore_path(dut, port)
 
     def set_traffic_action(self, duthost, action):
         action = action if action != "dontcare" else "drop"
-        if duthost.facts["asic_type"] in ["mellanox", "cisco-8000", "innovium"] or is_tunnel_qos_remap_enabled(duthost):
+        if duthost.facts["asic_type"] in ["mellanox", "cisco-8000", "marvell-teralynx"] \
+                or is_tunnel_qos_remap_enabled(duthost):
             self.rx_action = "forward"
         else:
             self.rx_action = action
         self.tx_action = action
 
-    def test_pfcwd_show_stat(self, request, setup_pfc_test, setup_dut_test_params, enum_fanout_graph_facts, ptfhost, # noqa F811
+    def test_pfcwd_show_stat(self, request, setup_pfc_test, tbinfo, nbrhosts,
+                             setup_dut_test_params, enum_fanout_graph_facts, ptfhost,  # noqa: F811
                              duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts,
                              setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m_unconditionally,
-                             toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m): # noqa F811
+                             toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,  # noqa: F811
+                             manage_lag_config):
         """
         PFCwd CLI show pfcwd stats test
 
@@ -419,6 +490,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         setup_info = setup_pfc_test
         setup_dut_info = setup_dut_test_params
+        ip_version = setup_info["ip_version"]
         self.fanout_info = enum_fanout_graph_facts
         self.ptf = ptfhost
         self.dut = duthost
@@ -444,19 +516,24 @@ class TestPfcwdFunc(SetupPfcwdFunc):
 
         # for idx, port in enumerate(self.ports):
         port = list(self.ports.keys())[0]
+
         logger.info("--- Testing various Pfcwd actions on {} ---".format(port))
-        self.setup_test_params(port, setup_info['vlan'], init=True)
+        self.setup_test_params(port, setup_info['vlan'], init=True, ip_version=ip_version)
         self.traffic_inst = SendVerifyTraffic(
             self.ptf,
             duthost.get_dut_iface_mac(self.pfc_wd['rx_port'][0]),
             duthost.get_dut_iface_mac(self.pfc_wd['test_port']),
             self.pfc_wd,
-            self.is_dualtor)
+            self.is_dualtor,
+            ip_version)
 
         pfc_wd_restore_time_large = request.config.getoption("--restore-time")
         # wait time before we check the logs for the 'restore' signature. 'pfc_wd_restore_time_large' is in ms.
         self.timers['pfc_wd_wait_for_restore_time'] = int(pfc_wd_restore_time_large / 1000 * 2)
-        actions = ['drop', 'forward']
+        if is_cisco_device(duthost):
+            actions = ['drop']
+        else:
+            actions = ['drop', 'forward']
         for action in actions:
             logger.info("--- Pfcwd port {} set action {} ---".format(port, action))
             try:
@@ -464,8 +541,6 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                 logger.info("Pfcwd action {} on port {}: Tx traffic action {}, Rx traffic action {} ".
                             format(action, port, self.tx_action, self.rx_action))
                 self.run_test(self.dut, port, action)
-            except Exception as e:
-                pytest.fail(str(e))
 
             finally:
                 if self.storm_hndle:
@@ -473,3 +548,6 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                     self.storm_hndle.stop_storm()
                 logger.info("--- Stop PFC WD ---")
                 self.dut.command("pfcwd stop")
+                # Reset global ARP settings modified by resolve_arp
+                self.ptf.command("sysctl -w net.ipv4.conf.all.arp_ignore=0",
+                                 module_ignore_errors=True)

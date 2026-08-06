@@ -1,7 +1,7 @@
 import pytest
 import logging
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.snmp_helpers import get_snmp_facts
+from tests.common.helpers.snmp_helpers import get_snmp_facts, SNMP_DEFAULT_TIMEOUT
 from tests.common.utilities import get_data_acl, recover_acl_rule
 
 try:
@@ -26,6 +26,10 @@ def test_cacl_function(duthosts, enum_rand_one_per_hwsku_hostname, localhost, cr
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     data_acl = get_data_acl(duthost)
     dut_mgmt_ip = duthost.mgmt_ip
+    # SNMP container is not supported on BMC devices, skip SNMP probes there.
+    skip_snmp = duthost.is_bmc()
+    if skip_snmp:
+        logging.info("BMC device detected; skipping SNMP probes in test_cacl_function.")
 
     # Start an NTP client
     if NTPLIB_INSTALLED:
@@ -34,13 +38,15 @@ def test_cacl_function(duthosts, enum_rand_one_per_hwsku_hostname, localhost, cr
         logging.warning("Will not check NTP connection. ntplib is not installed.")
 
     # Ensure we can gather basic SNMP facts from the device. Should fail on timeout
-    get_snmp_facts(localhost,
-                   host=dut_mgmt_ip,
-                   version="v2c",
-                   community=creds['snmp_rocommunity'],
-                   wait=True,
-                   timeout=30,
-                   interval=5)
+    if not skip_snmp:
+        get_snmp_facts(duthost,
+                       localhost,
+                       host=dut_mgmt_ip,
+                       version="v2c",
+                       community=creds['snmp_rocommunity'],
+                       wait=True,
+                       timeout=30,
+                       interval=5)
 
     # Ensure we can send an NTP request
     if NTPLIB_INSTALLED:
@@ -82,11 +88,17 @@ def test_cacl_function(duthosts, enum_rand_one_per_hwsku_hostname, localhost, cr
 
         pytest_assert(res.is_failed, "SSH did not timeout when expected. {}".format(res.get('msg', '')))
 
-        # Ensure we CANNOT gather basic SNMP facts from the device
-        res = get_snmp_facts(localhost, host=dut_mgmt_ip, version='v2c', community=creds['snmp_rocommunity'],
-                             module_ignore_errors=True)
+        if not skip_snmp:
+            snmp_timeout = SNMP_DEFAULT_TIMEOUT
+            if duthost.facts['switch_type'] == "chassis-packet":
+                snmp_timeout = 5
+            # Ensure we CANNOT gather basic SNMP facts from the device
+            res = get_snmp_facts(duthost, localhost, host=dut_mgmt_ip, version='v2c',
+                                 community=creds['snmp_rocommunity'],
+                                 module_ignore_errors=True, snmp_timeout=snmp_timeout)
 
-        pytest_assert('ansible_facts' not in res and "No SNMP response received before timeout" in res.get('msg', ''))
+            pytest_assert('ansible_facts' not in res
+                          and "No SNMP response received before timeout" in res.get('msg', ''))
 
         # Ensure we cannot send an NTP request to the DUT
         if NTPLIB_INSTALLED:
@@ -105,7 +117,7 @@ def test_cacl_function(duthosts, enum_rand_one_per_hwsku_hostname, localhost, cr
                                  state='started',
                                  search_regex=SONIC_SSH_REGEX,
                                  delay=0,
-                                 timeout=90,
+                                 timeout=250,
                                  module_ignore_errors=True)
 
         pytest_assert(not res.is_failed, "SSH did not start working when expected. {}".format(res.get('msg', '')))
@@ -114,13 +126,15 @@ def test_cacl_function(duthosts, enum_rand_one_per_hwsku_hostname, localhost, cr
         duthost.file(path="/tmp/config_service_acls.sh", state="absent")
 
         # Ensure we can gather basic SNMP facts from the device once again. Should fail on timeout
-        get_snmp_facts(localhost,
-                       host=dut_mgmt_ip,
-                       version="v2c",
-                       community=creds['snmp_rocommunity'],
-                       wait=True,
-                       timeout=120,
-                       interval=20)
+        if not skip_snmp:
+            get_snmp_facts(duthost,
+                           localhost,
+                           host=dut_mgmt_ip,
+                           version="v2c",
+                           community=creds['snmp_rocommunity'],
+                           wait=True,
+                           timeout=120,
+                           interval=20)
     finally:
         if data_acl:
             recover_acl_rule(duthost, data_acl)

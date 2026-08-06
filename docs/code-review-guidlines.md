@@ -9,6 +9,9 @@
 - Add logs to indicate the state transitions, exceptions, errors, assertions, meaningful points, and so on.
 - Logs to be contained and rotated, to avoid the exhaustion of the host memory.
 
+## Performance optimized code guide
+- Use python decorator caching for repetitive, expensive or high duration functions. Verify that function results based on a specific input are deterministic. use maximize parameter where possible to prevent out of memory exception.
+- For long operations that can be aggregated (such as query access to switch or db) – use a single access with aggregated query for all the required details.
 
 ## Checklist for the PR author
 - The code shall be fully tested before the developer asks for an internal review.

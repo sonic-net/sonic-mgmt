@@ -1,0 +1,48 @@
+---
+# IPv6-only management network configuration for sonic group (virtual testbed DUTs)
+# This file contains IPv6 equivalents of management services when using --ipv6-only-mgmt
+#
+# For virtual testbeds, we use:
+# - Site-local addresses (fec0::/10) for management network
+# - The PTF container IPv6 address will be used for TACACS (configured in testbed.yaml)
+# - Google IPv6 DNS for external DNS resolution
+
+# IPv6 NTP servers
+# Primary: Local NTP server on the testbed host (deployed via setup-ntp-server.sh)
+# Fallback: Public IPv6 NTP servers
+ntp_servers_ipv6:
+  - 'fec0::ffff:afa:2'             # Local testbed NTP server (primary)
+  - '2610:20:6f15:15::27'          # NIST NTP server (fallback)
+
+# IPv6 DNS servers
+# Using public Google IPv6 DNS servers
+dns_servers_ipv6:
+  - '2001:4860:4860::8888'          # Google IPv6 DNS Primary
+  - '2001:4860:4860::8844'          # Google IPv6 DNS Secondary
+
+# IPv6 syslog servers
+# In virtual testbed, syslog typically goes to the PTF or test server
+syslog_servers_ipv6:
+  - 'fec0::1'                       # Virtual testbed server IPv6 (gateway)
+
+# IPv6 TACACS servers
+# Note: These will be overridden to use PTF IPv6 address when use_ptf_tacacs_server is enabled
+# which is the default behavior. The PTF IPv6 is configured in testbed.yaml
+tacacs_servers_ipv6: []
+
+# IPv6 SNMP servers
+snmp_servers_ipv6:
+  - 'fec0::1'                       # Virtual testbed server IPv6 (gateway)
+
+# Keep existing TACACS settings for virtual testbed
+tacacs_group_ipv6: 'testlab'
+tacacs_passkey_ipv6: testing123
+tacacs_enabled_by_default_ipv6: false
+
+# IPv6 forced management routes
+# Routes needed for IPv6-only management in virtual testbed
+forced_mgmt_routes_ipv6:
+  - '2001:4860:4860::/64'           # Google IPv6 DNS network
+  - 'fc00:1::/64'                   # Local ULA network for PTF backplane
+  - 'fc00:2::/64'                   # Management network (ULA)
+  - 'fec0::/64'                     # Site-local management network

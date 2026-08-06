@@ -1,10 +1,26 @@
 import json
 import re
 from tests.common.reboot import reboot
+from tests.common.utilities import wait_until
+
+
+# =============================================================================
+# Cisco 8000 Constants
+# =============================================================================
+CISCO_ASIC_TYPE = "cisco-8000"
+
+# Platform prefixes for conditional_mark and other test infrastructure.
+CISCO_8122_PREFIX = "x86_64-8122"        # Matches both GR2 (x86_64-8122_*) and GR2X (x86_64-8122x*)
+CISCO_8122_GR2_PREFIX = "x86_64-8122_"   # GR2 only (note trailing underscore)
+CISCO_8122_GR2X_PREFIX = "x86_64-8122x"  # GR2X only (note 'x' suffix)
+
+# Legacy aliases (kept for backward compatibility)
+GR2X_PLATFORM_PREFIX = CISCO_8122_GR2X_PREFIX
+GR2X_HWSKU_PREFIX = "Cisco-8122X"
 
 
 def is_cisco_device(dut):
-    return dut.facts["asic_type"] == "cisco-8000"
+    return dut.facts["asic_type"] == CISCO_ASIC_TYPE
 
 
 def is_model_json_format(duthost):
@@ -16,7 +32,7 @@ def get_markings_config_file(duthost):
     """
         Get the config file where the ECN markings are enabled or disabled.
     """
-    if duthost.facts["asic_type"] != "cisco-8000":
+    if duthost.facts["asic_type"] != CISCO_ASIC_TYPE:
         raise RuntimeError("This is applicable only to cisco platforms.")
     platform = duthost.facts['platform']
     hwsku = duthost.facts['hwsku']
@@ -70,3 +86,42 @@ def setup_markings_dut(duthost, localhost, **kwargs):
     if reboot_required:
         duthost.copy(content=json.dumps(json_contents, sort_keys=True, indent=4), dest=config_file)
         reboot(duthost, localhost)
+
+
+def copy_dshell_script_cisco_8000(dut, asic, dshell_script, script_name):
+    if dut.facts['asic_type'] != CISCO_ASIC_TYPE:
+        raise RuntimeError("This function should have been called only for cisco-8000.")
+
+    script_path = "/tmp/{}".format(script_name)
+    dut.copy(content=dshell_script, dest=script_path)
+    if dut.sonichost.is_multi_asic:
+        dest = f"syncd{asic}"
+    else:
+        dest = "syncd"
+    dut.shell(f"docker cp {script_path} {dest}:/")  # noqa: E231
+
+
+def copy_set_voq_watchdog_script_cisco_8000(dut, asic="", enable=True):
+    dshell_script = '''
+from common import d0
+def set_voq_watchdog(enable):
+    d0.set_bool_property(sdk.la_device_property_e_VOQ_WATCHDOG_ENABLED, enable)
+set_voq_watchdog({})
+'''.format(enable)
+
+    copy_dshell_script_cisco_8000(dut, asic, dshell_script, script_name="set_voq_watchdog.py")
+
+
+def check_dshell_ready(duthost):
+    show_command = "sudo show platform npu rx cgm_global"
+    err_msg = "debug shell server for asic 0 is not running"
+    output = duthost.command(show_command)['stdout']
+    if err_msg in output:
+        return False
+    return True
+
+
+def run_dshell_command(duthost, command):
+    if not wait_until(300, 20, 0, check_dshell_ready, duthost):
+        raise RuntimeError("Debug shell is not ready on {}".format(duthost.hostname))
+    return duthost.shell(command)

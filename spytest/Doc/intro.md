@@ -200,6 +200,7 @@ testbed file content for this topology is given below.
             credentials: {username: admin, password: password, altpassword: YourPaSsWoRd}
             properties: {config: default, build: default, services: default, speed: default}
             breakout: {Ethernet0: 4x10, Ethernet8: 4x10}
+            # [SuppressMessage("Microsoft.Security", "CS002:SecretInNextLine", Justification="Sample placeholder password")]
             rps: {model: Raritan, ip: 1.2.3.5, outlet: 10, username: admin, password: admin}
         DUT-02:
             device_type: sonic
@@ -207,6 +208,7 @@ testbed file content for this topology is given below.
             credentials: {username: admin, password: password, altpassword: YourPaSsWoRd}
             properties: {config: default, build: default, services: default, speed: default}
             breakout: {}
+            # [SuppressMessage("Microsoft.Security", "CS002:SecretInNextLine", Justification="Sample placeholder password")]
             rps: {model: Raritan, ip: 1.2.3.5, outlet: 11, username: admin, password: admin}
         ixia-01:
             device_type: TGEN

@@ -1,5 +1,5 @@
 import ptf.packet as scapy
-import ptf.dataplane as dataplane   # noqa F401
+import ptf.dataplane as dataplane   # noqa: F401
 
 from ptf.testutils import simple_tcp_packet
 from ptf.testutils import simple_tcpv6_packet
@@ -59,7 +59,7 @@ class RouterUtility():
             # building ipaddress fails for some of addresses unless
             # ipaddr.encode().decode() is specified for both ipv4/ipv6
             # Example - 192.168.156.129, it is valid IPV4 address, send_packet works with it.
-            ip = ipaddress.IPv4Address(ipaddr.encode().decode())     # noqa F841
+            ip = ipaddress.IPv4Address(ipaddr.encode().decode())     # noqa: F841
         except Exception:
             is_valid_ipv4 = False
 
@@ -74,7 +74,7 @@ class RouterUtility():
         '''
         is_valid_ipv6 = True
         try:
-            ip = ipaddress.IPv6Address(ipaddr.encode().decode())     # noqa F841
+            ip = ipaddress.IPv6Address(ipaddr.encode().decode())     # noqa: F841
         except Exception:
             is_valid_ipv6 = False
 

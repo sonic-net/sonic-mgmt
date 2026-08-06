@@ -2,31 +2,37 @@ load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 def pins_deps():
+    if not native.existing_rule("com_github_sonic_net_sonic_pins"):
+        git_repository(
+          name = "com_github_sonic_net_sonic_pins",
+          remote = "https://github.com/sonic-net/sonic-pins.git",
+          # Updates to March 18, 2026
+          commit = "1933f98f72b7989d4a8c15bc8519cd854480a0b5"
+        )
     if not native.existing_rule("com_github_grpc_grpc"):
         http_archive(
             name = "com_github_grpc_grpc",
-            url = "https://github.com/grpc/grpc/archive/v1.58.0.zip",
-            strip_prefix = "grpc-1.58.0",
-            sha256 = "aa329c7de707a03511c88206ef4483e9346ab6336b6be4378d294060aa7400b3",
+            url = "https://github.com/grpc/grpc/archive/v1.63.0.zip",
+            strip_prefix = "grpc-1.63.0",
+            sha256 = "daa1b06a19b5f7e4603e1f8980eeab43cf69b6e89bee3b2547f275fa5af7f480",
             patch_args = ["-p1"],
             patches = [
-                "//:bazel/patches/grpc-001-fix_file_watcher_race_condition.patch",
                 "//:bazel/patches/grpc-003-fix_go_gazelle_register_toolchain.patch",
             ],
-        )
+     )
     if not native.existing_rule("com_google_absl"):
         http_archive(
             name = "com_google_absl",
-            url = "https://github.com/abseil/abseil-cpp/archive/20230802.0.tar.gz",
-            strip_prefix = "abseil-cpp-20230802.0",
-            sha256 = "59d2976af9d6ecf001a81a35749a6e551a335b949d34918cfade07737b9d93c5",
+            url = "https://github.com/abseil/abseil-cpp/archive/20240116.2.tar.gz",
+            strip_prefix = "abseil-cpp-20240116.2",
+            sha256 = "733726b8c3a6d39a4120d7e45ea8b41a434cdacde401cba500f14236c49b39dc",
         )
     if not native.existing_rule("com_google_googletest"):
         http_archive(
             name = "com_google_googletest",
-            urls = ["https://github.com/google/googletest/archive/release-1.11.0.tar.gz"],
-            strip_prefix = "googletest-release-1.11.0",
-            sha256 = "b4870bf121ff7795ba20d20bcdd8627b8e088f2d1dab299a031c1034eddc93d5",
+            urls = ["https://github.com/google/googletest/archive/refs/tags/v1.14.0.tar.gz"],
+            strip_prefix = "googletest-1.14.0",
+            sha256 = "8ad598c73ad796e0d8280b082cebd82a630d73e73cd3c70057938a6501bba5d7",
         )
     if not native.existing_rule("com_google_benchmark"):
         http_archive(
@@ -38,9 +44,9 @@ def pins_deps():
     if not native.existing_rule("com_google_protobuf"):
         http_archive(
             name = "com_google_protobuf",
-            url = "https://github.com/protocolbuffers/protobuf/archive/refs/tags/v25.1.zip",
-            strip_prefix = "protobuf-25.1",
-            sha256 = "eaafa4e19a6619c15df4c30d7213efbfd0f33ad16021cc5f72bbc5d0877346b5",
+            url = "https://github.com/protocolbuffers/protobuf/archive/refs/tags/v25.2.zip",
+            strip_prefix = "protobuf-25.2",
+            sha256 = "ddd0f5271f31b549efc74eb39061e142132653d5d043071fcec265bd571e73c4",
         )
     if not native.existing_rule("com_googlesource_code_re2"):
         http_archive(
@@ -71,7 +77,6 @@ def pins_deps():
             build_file = "@//:bazel/BUILD.otg-models.bazel",
             sha256 = "1a63e769f1d7f42c79bc1115babf54acbc44761849a77ac28f47a74567f10090",
         )
-
     # Needed to make glog happy.
     if not native.existing_rule("com_github_gflags_gflags"):
         http_archive(
@@ -113,25 +118,26 @@ def pins_deps():
         # rather than a release.
         http_archive(
             name = "com_github_p4lang_p4runtime",
-            # 90553b9 is the newest commit on main as of 2023-10-09.
-            urls = ["https://github.com/p4lang/p4runtime/archive/f0e9f33818b74f0009daa44160926e568f1eaa4d.zip"],
-            strip_prefix = "p4runtime-f0e9f33818b74f0009daa44160926e568f1eaa4d/proto",
-            sha256 = "97b43996ada83484bfa3f9be205d6b6fd75b9ed6985839414ee72110d369cd53",
+            # Updates to https://github.com/p4lang/p4runtime/pull/566 on October 16, 2025
+            urls = ["https://github.com/p4lang/p4runtime/archive/f5187a26cd8745cae1b8a48bcdddddc00ec85e22.zip"],
+            strip_prefix = "p4runtime-f5187a26cd8745cae1b8a48bcdddddc00ec85e22/proto",
+            sha256 = "ec894c1458a3a9504e98e4f6cc0683ddb2307d1aa229807819b2d8edab963b04",
         )
     if not native.existing_rule("com_github_p4lang_p4_constraints"):
         http_archive(
             name = "com_github_p4lang_p4_constraints",
-            urls = ["https://github.com/p4lang/p4-constraints/archive/3d5196a793f375ccbe1bf38ae6c49e2e65604f4b.zip"],
-            strip_prefix = "p4-constraints-3d5196a793f375ccbe1bf38ae6c49e2e65604f4b",
-            sha256 = "f87d885ebfd6a1bdf02b4c4ba5bf6fb333f90d54561e4d520a8413c8d1fb7beb",
+            # Updates to https://github.com/p4lang/p4-constraints/pull/142 on April 29, 2024
+            urls = ["https://github.com/p4lang/p4-constraints/archive/d26400c0061c6eca43f48309ccfcec750c313337.zip"],
+            strip_prefix = "p4-constraints-d26400c0061c6eca43f48309ccfcec750c313337",
+            sha256 = "8bb2954680ded0f21d405ae79c5c7e893fcfa96b0236f22047154e07e536c9bd",
         )
     if not native.existing_rule("com_github_nlohmann_json"):
         http_archive(
             name = "com_github_nlohmann_json",
             # JSON for Modern C++
-            url = "https://github.com/nlohmann/json/archive/v3.7.3.zip",
-            strip_prefix = "json-3.7.3",
-            sha256 = "e109cd4a9d1d463a62f0a81d7c6719ecd780a52fb80a22b901ed5b6fe43fb45b",
+            url = "https://github.com/nlohmann/json/archive/v3.8.0.zip",
+            strip_prefix = "json-3.8.0",
+            sha256 = "83947cb78d50990b4b931b8dbc8632781bc601baa45b75ece0899c7b98d86c0b",
             build_file_content = """cc_library(name = "nlohmann_json",
                                                visibility = ["//visibility:public"],
                                                hdrs = glob([

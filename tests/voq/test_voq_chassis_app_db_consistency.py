@@ -13,38 +13,84 @@ import tests.common.helpers.voq_lag as voq_lag
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t2')
+    pytest.mark.topology('t2', 'lrh', 'urh')
 ]
 
 
-def verify_data_in_db(post_change_db_dump, tmp_pc, pc_members, duthosts, pc_nbr_ip, duthost, pc_nbr_ipv6):
+def verify_data_in_db(tmp_pc, pc_members, duthosts, pc_nbr_ip, duthost, pc_nbr_ipv6):
     '''
     Verification of additon of tmp_portchannel data in chassis_app_db tables and set
     '''
     # Verification on SYSTEM_LAG_TABLE and SYSTEM_LAG_ID_TABLE
     lag_id = voq_lag.get_lag_id_from_chassis_db(duthosts)
-    pytest_assert(lag_id,
-                  "Lag Id in Chasiss_APP_DB is missing for portchannel {}".format(tmp_pc))
+    if not lag_id:
+        logging.error("Lag Id in Chasiss_APP_DB is missing for portchannel {}".format(tmp_pc))
+        return False
     # Verifcation on SYSTEM_LAG_MEMBER_TABLE
     voq_lag.verify_lag_member_in_chassis_db(duthosts, pc_members)
     # Verification on SYSTEM_NEIGH for pc_nbr_ip
     voqdb = VoqDbCli(duthosts.supervisor_nodes[0])
     neigh_key = voqdb.get_neighbor_key_by_ip(pc_nbr_ip)
     if tmp_pc not in neigh_key:
-        pytest.fail("Portchannel Neigh ip {} is not allocatioed to tmp portchannel {}".format(pc_nbr_ip, tmp_pc))
+        logging.error("Portchannel Neigh ip {} is not allocated to tmp portchannel {}".format(pc_nbr_ip, tmp_pc))
+        return False
     # Verification on SYSTEM_NEIGH for pc_nbr_ipv6
     neigh_key = voqdb.get_neighbor_key_by_ip(pc_nbr_ipv6)
     if tmp_pc not in neigh_key:
-        pytest.fail("Portchannel Neigh ip {} is not allocatioed to tmp portchannel {}".format(pc_nbr_ipv6, tmp_pc))
+        logging.error("Portchannel Neigh ip {} is not allocated to tmp portchannel {}".format(pc_nbr_ipv6, tmp_pc))
+        return False
     # Verfication on SYSTEM_INTERFACE
     key = "SYSTEM_INTERFACE|{}*{}".format(duthost.sonichost.hostname, tmp_pc)
-    pytest_assert(voqdb.get_keys(key),
-                  "SYSTEM_INTERFACE in Chasiss_APP_DB is missing for portchannel {}".format(tmp_pc))
-    # Verfication on SYSTEM_LAG_ID_SET
-    if lag_id not in post_change_db_dump["SYSTEM_LAG_ID_SET"]:
-        pytest.fail(
-            "Portchannel Lag id {} is not allocatioed to tmp portchannel {} in SYSTEM_LAG_ID_SET".format(pc_nbr_ip,
-                                                                                                         tmp_pc))
+    if not voqdb.get_keys(key):
+        logging.error("SYSTEM_INTERFACE in Chasiss_APP_DB is missing for portchannel {}".format(tmp_pc))
+        return False
+
+    return True
+
+
+def verify_data_not_in_db(pc, pc_members, duthosts, pc_nbr_ip, duthost, pc_nbr_ipv6):
+    '''
+    Verification of portchannel data in chassis_app_db tables removed
+    '''
+    # Verification on SYSTEM_LAG_MEMBER_TABLE
+    voq_lag.verify_lag_member_in_chassis_db(duthosts, pc_members, pc, expected=False)
+    # Verification on SYSTEM_NEIGH for pc_nbr_ip
+    if len(duthosts) == 1:
+        voqdb = VoqDbCli(duthosts.frontend_nodes[0])
+    else:
+        voqdb = VoqDbCli(duthosts.supervisor_nodes[0])
+    neigh_key = voqdb.get_neighbor_key_by_ip(pc_nbr_ip)
+    if pc in neigh_key:
+        logging.error(
+            "{} Portchannel Neigh ip {} is still allocated to portchannel {}"
+            .format(neigh_key, pc_nbr_ip, pc))
+        return False
+
+    # Verification on SYSTEM_NEIGH for pc_nbr_ipv6
+    neigh_key = voqdb.get_neighbor_key_by_ip(pc_nbr_ipv6)
+    if pc in neigh_key:
+        logging.error(
+            "{} Portchannel Neigh ip {} is still allocated to portchannel {}"
+            .format(neigh_key, pc_nbr_ipv6, pc))
+        return False
+
+    # Verification on SYSTEM_INTERFACE
+    # usage of redis_get_keys as voqdb.get_keys will log an ERROR if stdout is empty
+    key = "SYSTEM_INTERFACE|{}*{}".format(duthost.sonichost.hostname, pc)
+    if len(duthosts) == 1:
+        chassis_app_db_result = redis_get_keys(duthosts.frontend_nodes[0],
+                                               "CHASSIS_APP_DB", key)
+    else:
+        chassis_app_db_result = redis_get_keys(duthosts.supervisor_nodes[0],
+                                               "CHASSIS_APP_DB", key)
+
+    if chassis_app_db_result:
+        logging.error(
+            "{} SYSTEM_INTERFACE in Chasiss_APP_DB is still present for portchannel {}"
+            .format(key, pc))
+        return False
+
+    return True
 
 
 @pytest.mark.parametrize("test_case", ["dut_reboot", "config_reload_with_config_save", "config_reload_no_config_save"])
@@ -150,11 +196,22 @@ def test_voq_chassis_app_db_consistency(duthosts, enum_rand_one_per_hwsku_fronte
         pytest_assert(int_facts['ansible_interface_facts'][tmp_portchannel]['ipv6'][0]['address'] == pc_ipv6)
         add_tmp_pc_ipv6 = True
 
-        time.sleep(30)
-        int_facts = asichost.interface_facts()['ansible_facts']
-        pytest_assert(int_facts['ansible_interface_facts'][tmp_portchannel]['link'])
+        def verify_pc_update():
+            try:
+                int_facts = asichost.interface_facts()['ansible_facts']
+                if not int_facts['ansible_interface_facts'][tmp_portchannel]['link']:
+                    return False
+                # Verify original portchannel is not in db
+                if not verify_data_not_in_db(pc, pc_members, duthosts, pc_nbr_ip, duthost, pc_nbr_ipv6):
+                    return False
+                # Verify tmp portchannel is in db
+                return verify_data_in_db(tmp_portchannel, pc_members, duthosts, pc_nbr_ip, duthost, pc_nbr_ipv6)
+            except Exception as e:
+                logging.error("Failed to verify portchannel update: {}".format(e))
+                return False
+
+        pytest_assert(wait_until(180, 10, 30, verify_pc_update))
         post_change_db_dump = get_db_dump(duthosts, duthost)
-        verify_data_in_db(post_change_db_dump, tmp_portchannel, pc_members, duthosts, pc_nbr_ip, duthost, pc_nbr_ipv6)
         # Setting Flags as false as config reload or dut reboot reverts the changes
         remove_pc_members = False
         remove_pc_ip = False
@@ -177,8 +234,9 @@ def test_voq_chassis_app_db_consistency(duthosts, enum_rand_one_per_hwsku_fronte
             logging.info("Rebooting dut {}".format(duthost))
             reboot(duthost, localhost, wait_for_ssh=False)
             localhost.wait_for(host=duthost.mgmt_ip, port=22, state="stopped", delay=1, timeout=60)
-            pytest_assert(check_db_consistency(duthosts, duthost, post_change_db_dump),
-                          "DB_Consistency Failed During Reboot")
+            if len(duthosts) > 1:
+                pytest_assert(check_db_consistency(duthosts, duthost, post_change_db_dump),
+                              "DB_Consistency Failed During Reboot")
             localhost.wait_for(host=duthost.mgmt_ip, port=22, state="started", delay=10, timeout=300)
             pytest_assert(wait_until(330, 20, 0, duthost.critical_services_fully_started),
                           "All critical services should fully started!")
@@ -189,7 +247,8 @@ def test_voq_chassis_app_db_consistency(duthosts, enum_rand_one_per_hwsku_fronte
         # Recover all states
         if test_case == "config_reload_with_config_save":
             logger.info("Restore config from minigraph.")
-            config_reload(duthost, config_source='minigraph', safe_reload=True, check_intf_up_ports=True)
+            config_reload(duthost, config_source='minigraph', safe_reload=True,
+                          check_intf_up_ports=True, override_config=True)
             wait_critical_processes(duthost)
             pytest_assert(wait_until(300, 20, 0, check_interface_status_of_up_ports, duthost),
                           "Not all ports that are admin up on are operationally up")
@@ -252,11 +311,34 @@ def get_db_dump(duthosts, duthost):
     """
 
     chassis_app_db_sysparams = {}
+    system_lag_id = {}
     key = "*SYSTEM*|*" + duthost.sonichost.hostname + "*"
     chassis_app_db_result = redis_get_keys(duthosts.supervisor_nodes[0], "CHASSIS_APP_DB", key)
     if chassis_app_db_result is not None:
         chassis_app_db_sysparams["CHASSIS_APP_DB"] = chassis_app_db_result
     voqdb = VoqDbCli(duthosts.supervisor_nodes[0])
-    chassis_app_db_sysparams["SYSTEM_LAG_ID_TABLE"] = voqdb.dump("SYSTEM_LAG_ID_TABLE")["SYSTEM_LAG_ID_TABLE"]['value']
-    chassis_app_db_sysparams["SYSTEM_LAG_ID_SET"] = voqdb.dump("SYSTEM_LAG_ID_SET")["SYSTEM_LAG_ID_SET"]['value']
+    system_lag_id["SYSTEM_LAG_ID_TABLE"] = voqdb.dump("SYSTEM_LAG_ID_TABLE")["SYSTEM_LAG_ID_TABLE"]['value']
+    SYSTEM_LAG_ID_SET = voqdb.dump("SYSTEM_LAG_ID_SET")["SYSTEM_LAG_ID_SET"]['value']
+    end = int(voqdb.dump("SYSTEM_LAG_ID_END")["SYSTEM_LAG_ID_END"]['value'])
+    start = int(voqdb.dump("SYSTEM_LAG_ID_START")["SYSTEM_LAG_ID_START"]['value'])
+    LAG_IDS_FREE_LIST = voqdb.dump("SYSTEM_LAG_IDS_FREE_LIST")["SYSTEM_LAG_IDS_FREE_LIST"]['value']
+
+    def verify_system_lag_sanity():
+        seen = set(LAG_IDS_FREE_LIST + SYSTEM_LAG_ID_SET)
+        if len(seen) != (end - start + 1):
+            logging.error(
+                "Missing or extra values are found in SYSTEM_LAG_IDS_FREE_LIST:{} or SYSTEM_LAG_ID_SET:{}".
+                format(LAG_IDS_FREE_LIST, SYSTEM_LAG_ID_SET))
+            return False
+        if any(LAG_IDS_FREE_LIST.count(x) > 1 or SYSTEM_LAG_ID_SET.count(
+                x) > 1 or (x in LAG_IDS_FREE_LIST and x in SYSTEM_LAG_ID_SET) for x in seen):
+            logging.error(
+                "Duplicate values found in SYSTEM_LAG_IDS_FREE_LIST:{} or SYSTEM_LAG_ID_SET:{}".
+                format(LAG_IDS_FREE_LIST, SYSTEM_LAG_ID_SET))
+            return False
+
+        return True
+
+    pytest_assert(wait_until(220, 10, 0, verify_system_lag_sanity))
+
     return {k: sorted(v) for k, v in chassis_app_db_sysparams.items()}

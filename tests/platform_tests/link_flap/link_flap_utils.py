@@ -3,8 +3,10 @@ Test utils used by the link flap tests.
 """
 import logging
 import random
+import time
 
 from tests.common.platform.device_utils import fanout_switch_port_lookup, __get_dut_if_status
+from tests.common.utilities import get_day_of_week_distributed_ports_from_buckets
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +71,8 @@ def build_test_candidates(dut, fanouthosts, port, completeness_level=None):
 
         if completeness_level == 'debug':
             candidates = random.sample(candidates, 1)
+        elif completeness_level == 'confident':
+            candidates = get_day_of_week_distributed_ports_from_buckets(candidates, 32)
 
     return candidates
 
@@ -118,7 +122,7 @@ def check_bgp_routes(dut, start_time_ipv4_route_counts, start_time_ipv6_route_co
     """
     MAX_DIFF = 5
 
-    sumv4, sumv6 = dut.get_ip_route_summary(skip_kernel_tunnel=True)
+    sumv4, sumv6 = dut.get_ip_route_summary(skip_kernel_tunnel=True, skip_kernel_linkdown=True)
     totalsv4 = sumv4.get('Totals', {})
     totalsv6 = sumv6.get('Totals', {})
     routesv4 = totalsv4.get('routes', 0)
@@ -129,3 +133,40 @@ def check_bgp_routes(dut, start_time_ipv4_route_counts, start_time_ipv6_route_co
     incr_ipv4_route_counts = abs(int(float(start_time_ipv4_route_counts)) - int(float(routesv4)))
     incr_ipv6_route_counts = abs(int(float(start_time_ipv6_route_counts)) - int(float(routesv6)))
     return incr_ipv4_route_counts < MAX_DIFF and incr_ipv6_route_counts < MAX_DIFF
+
+
+def get_avg_redis_mem_usage(duthost, interval, num_times):
+    """
+        Redis memory usage is not a stable value. It's fluctuating even when the device is stable stage.
+        202205 has larger redis memory usage (~ 5.5M) so the fluctuation of 0.2M is not an issue.
+        With 202405 redis memory usage is optimized (~ 2.5M) and 0.2M usage could make the test fail
+        if memory threshold is 5%.
+
+        This API returns the average radis memory usage during a period.
+        Args:
+            duthost: DUT host object
+            interval: time interval to wait for next query
+            num_times: number of times to query
+        """
+    logger.info("Checking average redis memory usage")
+    cmd = r"redis-cli info memory | grep used_memory_human | sed -e 's/.*:\(.*\)M/\1/'"
+    redis_memory = 0.0
+    for i in range(num_times):
+        redis_memory += float(duthost.shell(cmd)["stdout"])
+        time.sleep(interval)
+    return float(redis_memory/num_times)
+
+
+def validate_redis_memory_increase(tbinfo, start_mem, end_mem):
+    # Calculate diff in Redis memory
+    incr_redis_memory = end_mem - start_mem
+    logging.info("Redis memory usage difference: %f", incr_redis_memory)
+
+    # Check redis memory only if it is increased else default to pass
+    if incr_redis_memory > 0.0:
+        percent_incr_redis_memory = (incr_redis_memory / start_mem) * 100
+        logging.info("Redis Memory percentage Increase: %d", percent_incr_redis_memory)
+        incr_redis_memory_threshold = 20 if tbinfo["topo"]["type"] in ["m0", "mx"] else 15
+        if percent_incr_redis_memory >= incr_redis_memory_threshold:
+            return False
+    return True

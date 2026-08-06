@@ -6,12 +6,12 @@ from datetime import datetime
 from tests.arp.arp_utils import clear_dut_arp_cache
 from tests.ptf_runner import ptf_runner
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
-from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode   # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa: F401
+from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode   # noqa: F401
 
 
 pytestmark = [
-    pytest.mark.topology('t1', 't2')
+    pytest.mark.topology('t1', 't2', 'lrh', 'urh', 'm1', 'c0')
 ]
 
 logger = logging.getLogger(__name__)
@@ -26,8 +26,12 @@ def test_arp_unicast_reply(common_setup_teardown, intfs_for_test, enum_frontend_
     clear_dut_arp_cache(duthost, asichost.cli_ns_option)
     params = {
         'acs_mac': router_mac,
-        'port': intf1_indice
+        'port': intf1_indice,
+        'kvm_support': True
     }
+    # VPP software dataplane does not pad ARP replies to Ethernet minimum frame size
+    if duthost.facts['asic_type'] == 'vpp' and duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
+        params['no_padding'] = True
     log_file = "/tmp/arptest.VerifyUnicastARPReply.{0}.log".format(datetime.now().strftime("%Y-%m-%d-%H:%M:%S"))
     ptf_runner(ptfhost, 'ptftests', "arptest.VerifyUnicastARPReply", '/root/ptftests',
                params=params, log_file=log_file, is_python3=True)
@@ -45,8 +49,12 @@ def test_arp_expect_reply(common_setup_teardown, intfs_for_test, enum_frontend_a
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     params = {
         'acs_mac': router_mac,
-        'port': intf1_indice
+        'port': intf1_indice,
+        'kvm_support': True
     }
+    # VPP software dataplane does not pad ARP replies to Ethernet minimum frame size
+    if duthost.facts['asic_type'] == 'vpp' and duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
+        params['no_padding'] = True
 
     # Start PTF runner and send correct arp packets
     clear_dut_arp_cache(duthost, asichost.cli_ns_option)
@@ -69,10 +77,11 @@ def test_arp_no_reply_other_intf(common_setup_teardown, intfs_for_test, enum_fro
     clear_dut_arp_cache(duthost, asichost.cli_ns_option)
     intf2_params = {
         'acs_mac': router_mac,
-        'port': intf2_indice
+        'port': intf2_indice,
+        'kvm_support': True
     }
-    log_file = "/tmp/arptest.SrcOutRangeNoReply.{0}.log".format(datetime.now().strftime("%Y-%m-%d-%H:%M:%S"))
-    ptf_runner(ptfhost, 'ptftests', "arptest.SrcOutRangeNoReply", '/root/ptftests',
+    log_file = "/tmp/arptest.WrongIntNoReply.{0}.log".format(datetime.now().strftime("%Y-%m-%d-%H:%M:%S"))
+    ptf_runner(ptfhost, 'ptftests', "arptest.WrongIntNoReply", '/root/ptftests',
                params=intf2_params, log_file=log_file, is_python3=True)
 
     switch_arptable = asichost.switch_arptable()['ansible_facts']
@@ -87,7 +96,8 @@ def test_arp_no_reply_src_out_range(common_setup_teardown, intfs_for_test, enum_
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     params = {
         'acs_mac': router_mac,
-        'port': intf1_indice
+        'port': intf1_indice,
+        'kvm_support': True
     }
 
     # Check DUT won't reply ARP and install ARP entry when src address is not in interface subnet range
@@ -108,8 +118,12 @@ def test_arp_garp_no_update(common_setup_teardown, intfs_for_test, enum_frontend
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     params = {
         'acs_mac': router_mac,
-        'port': intf1_indice
+        'port': intf1_indice,
+        'kvm_support': True
     }
+    # VPP software dataplane does not pad ARP replies to Ethernet minimum frame size
+    if duthost.facts['asic_type'] == 'vpp' and duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
+        params['no_padding'] = True
 
     # Test Gratuitous ARP behavior, no Gratuitous ARP installed when arp was not resolved before
     clear_dut_arp_cache(duthost, asichost.cli_ns_option)

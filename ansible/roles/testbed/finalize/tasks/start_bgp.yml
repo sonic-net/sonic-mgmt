@@ -1,0 +1,4 @@
+---
+- name: bring up all bgp sessions for test
+  become: true
+  shell: config bgp startup all

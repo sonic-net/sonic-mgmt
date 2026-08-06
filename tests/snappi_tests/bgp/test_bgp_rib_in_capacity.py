@@ -1,7 +1,8 @@
-from tests.common.snappi_tests.snappi_fixtures import (                           # noqa F401
-    cvg_api, snappi_api_serv_ip, snappi_api_serv_port, tgen_ports)
+from tests.common.snappi_tests.snappi_fixtures import (                           # noqa: F401
+    snappi_api, snappi_api_serv_ip, snappi_api_serv_port, tgen_ports, is_snappi_multidut,
+    get_snappi_ports_single_dut, get_snappi_ports, setup_bgp_testbed)
 from tests.snappi_tests.bgp.files.bgp_convergence_helper import run_RIB_IN_capacity_test
-from tests.common.fixtures.conn_graph_facts import (                        # noqa F401
+from tests.common.fixtures.conn_graph_facts import (                        # noqa: F401
     conn_graph_facts, fanout_graph_facts)
 import pytest
 
@@ -9,20 +10,20 @@ pytestmark = [pytest.mark.topology('tgen')]
 
 
 @pytest.mark.parametrize('multipath', [2])
-@pytest.mark.parametrize('start_value', [1000])
-@pytest.mark.parametrize('step_value', [1000])
+@pytest.mark.parametrize('start_value', [5000])
+@pytest.mark.parametrize('step_value', [5000])
 @pytest.mark.parametrize('route_type', ['IPv4'])
-@pytest.mark.parametrize('port_speed', ['speed_100_gbps'])
-def test_RIB_IN_capacity(cvg_api,                   # noqa F811
+def test_RIB_IN_capacity(snappi_api,                   # noqa: F811
                          duthost,
-                         tgen_ports,                # noqa F811
-                         conn_graph_facts,          # noqa F811
-                         fanout_graph_facts,        # noqa F811
+                         setup_bgp_testbed,   # noqa: F811
+                         get_snappi_ports,    # noqa: F811
+                         tgen_ports,                # noqa: F811
+                         conn_graph_facts,          # noqa: F811
+                         fanout_graph_facts,        # noqa: F811
                          multipath,
                          start_value,
                          step_value,
-                         route_type,
-                         port_speed,):
+                         route_type,):
     """
     Topo:
     TGEN1 --- DUT --- TGEN(2..N)
@@ -51,14 +52,12 @@ def test_RIB_IN_capacity(cvg_api,                   # noqa F811
         start_value:  Start value of the number of BGP routes
         step_value: Step value of the number of BGP routes to be incremented
         route_type: IPv4 or IPv6 routes
-        port_speed: speed of the port used for test
     """
     # multipath, start_value, step_value and route_type, port_speed parameters can be modified as per user preference
-    run_RIB_IN_capacity_test(cvg_api,
+    run_RIB_IN_capacity_test(snappi_api,
                              duthost,
                              tgen_ports,
                              multipath,
                              start_value,
                              step_value,
-                             route_type,
-                             port_speed,)
+                             route_type,)

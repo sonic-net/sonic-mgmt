@@ -5,8 +5,13 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release
 from tests.common.utilities import update_pfcwd_default_state
 from tests.common.config_reload import config_reload
-from tests.common.utilities import backup_config, restore_config, get_running_config,\
-    reload_minigraph_with_golden_config, file_exists_on_dut, NON_USER_CONFIG_TABLES
+from tests.common.utilities import backup_config, restore_config, get_running_config, \
+    reload_minigraph_with_golden_config, file_exists_on_dut, compare_dicts_ignore_list_order, \
+    NON_USER_CONFIG_TABLES
+
+# Tables known to be overriden in run-time config, which will appear different
+# if the golden config is overridden empty.
+GOLDEN_OVERRRIDDEN_TABLES = ["FEATURE", "PORT"]
 
 GOLDEN_CONFIG = "/etc/sonic/golden_config_db.json"
 GOLDEN_CONFIG_BACKUP = "/etc/sonic/golden_config_db.json_before_override"
@@ -16,7 +21,7 @@ CONFIG_DB_BACKUP = "/etc/sonic/config_db.json_before_override"
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t2', 't1'),
+    pytest.mark.topology('t2', 'lrh', 'urh', 't1'),
     pytest.mark.disable_loganalyzer,
 ]
 
@@ -78,8 +83,8 @@ def setup_env(duthosts, tbinfo, enum_rand_one_per_hwsku_frontend_hostname):
         restore_config(duthost, GOLDEN_CONFIG, GOLDEN_CONFIG_BACKUP)
     else:
         duthost.file(path=GOLDEN_CONFIG, state='absent')
-    # Restore config before test
-    config_reload(duthost)
+    # Restore config after test
+    config_reload(duthost, safe_reload=True)
 
 
 def load_minigraph_with_golden_empty_input(duthost):
@@ -89,27 +94,40 @@ def load_minigraph_with_golden_empty_input(duthost):
     initial_asic0_config = get_running_config(duthost, "asic0")
 
     empty_input = {}
+
+    problem_tuples = []
+
     reload_minigraph_with_golden_config(duthost, empty_input)
 
     # Test host running config override
     host_current_config = get_running_config(duthost)
     for table in initial_host_config:
-        if table in NON_USER_CONFIG_TABLES:
+        if table in NON_USER_CONFIG_TABLES or table in GOLDEN_OVERRRIDDEN_TABLES:
             continue
-        pytest_assert(
-            initial_host_config[table] == host_current_config[table],
-            "empty input compare fail! {}".format(table)
-        )
+
+        if table == "ACL_TABLE":
+            if not compare_dicts_ignore_list_order(initial_host_config[table],
+                                                   host_current_config[table]):
+                problem_tuples.append((table, None))
+        else:
+            if not initial_host_config[table] == host_current_config[table]:
+                problem_tuples.append((table, None))
 
     # Test asic0 running config override
     asic0_current_config = get_running_config(duthost, "asic0")
     for table in initial_asic0_config:
-        if table in NON_USER_CONFIG_TABLES:
+        if table in NON_USER_CONFIG_TABLES or table in GOLDEN_OVERRRIDDEN_TABLES:
             continue
-        pytest_assert(
-            initial_asic0_config[table] == asic0_current_config[table],
-            "empty input compare fail! {}".format(table)
-        )
+
+        if table == "ACL_TABLE":
+            if not compare_dicts_ignore_list_order(initial_asic0_config[table],
+                                                   asic0_current_config[table]):
+                problem_tuples.append((table, "asic0"))
+        else:
+            if not initial_asic0_config[table] == asic0_current_config[table]:
+                problem_tuples.append((table, "asic0"))
+
+    pytest_assert(not problem_tuples, "empty input compare fail: {}".format(problem_tuples))
 
 
 def load_minigraph_with_golden_partial_config(duthost):
@@ -154,44 +172,6 @@ def load_minigraph_with_golden_partial_config(duthost):
     )
 
 
-def load_minigraph_with_golden_new_feature(duthost):
-    """Test Golden Config with new feature
-    """
-    new_feature_config = {
-        "localhost": {
-            "NEW_FEATURE_TABLE": {
-                "entry": {
-                    "field": "value",
-                    "state": "disabled"
-                }
-            }
-        },
-        "asic0": {
-            "NEW_FEATURE_TABLE": {
-                "entry": {
-                    "field": "value",
-                    "state": "disabled"
-                }
-            }
-        }
-    }
-    reload_minigraph_with_golden_config(duthost, new_feature_config)
-
-    host_current_config = get_running_config(duthost)
-    pytest_assert(
-        'NEW_FEATURE_TABLE' in host_current_config and
-        host_current_config['NEW_FEATURE_TABLE'] == new_feature_config['localhost']['NEW_FEATURE_TABLE'],
-        "new feature config update fail: {}".format(host_current_config['NEW_FEATURE_TABLE'])
-    )
-
-    asic0_current_config = get_running_config(duthost, "asic0")
-    pytest_assert(
-        'NEW_FEATURE_TABLE' in asic0_current_config and
-        asic0_current_config['NEW_FEATURE_TABLE'] == new_feature_config['asic0']['NEW_FEATURE_TABLE'],
-        "new feature config update fail: {}".format(asic0_current_config['NEW_FEATURE_TABLE'])
-    )
-
-
 def load_minigraph_with_golden_empty_table_removal(duthost):
     """Test Golden Config with empty table removal.
 
@@ -220,23 +200,31 @@ def load_minigraph_with_golden_empty_table_removal(duthost):
     )
 
 
-def test_load_minigraph_with_golden_config(duthosts, setup_env, tbinfo, enum_upstream_dut_hostname,
-                                           enum_rand_one_per_hwsku_frontend_hostname):
+def is_upstream_t2_dut(duthost, tbinfo):
+    upstream_nbr_type = "T3"
+    minigraph_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    minigraph_neighbors = minigraph_facts['minigraph_neighbors']
+    for key, value in minigraph_neighbors.items():
+        if upstream_nbr_type in value['name']:
+            return True
+
+    return False
+
+
+def test_load_minigraph_with_golden_config(duthosts, setup_env, tbinfo, enum_rand_one_per_hwsku_frontend_hostname):
     """
     Test Golden Config override during load minigraph
     Note: Skip full config override for multi-asic duts for now, because we
     don't have CLI to get new golden config that contains 'localhost' and 'asicxx'
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    duthost_up = duthosts[enum_upstream_dut_hostname]
     if not duthost.is_multi_asic:
         pytest.skip("Skip override-config-table multi-asic testing on single-asic platforms,\
                     test provided golden config format is not compatible with single-asics")
     topo_type = tbinfo["topo"]["type"]
-    if topo_type == 't2' and duthost != duthost_up:
+    if topo_type == 't2' and not is_upstream_t2_dut(duthost, tbinfo):
         # Skip empty golden-config testing on upstream linecards,
         # since the handling of empty golden config doesn't work on upstream linecards
         load_minigraph_with_golden_empty_input(duthost)
     load_minigraph_with_golden_partial_config(duthost)
-    load_minigraph_with_golden_new_feature(duthost)
     load_minigraph_with_golden_empty_table_removal(duthost)

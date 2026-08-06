@@ -136,6 +136,12 @@ def add_advanced_reboot_args(parser):
         )
 
     parser.addoption(
+        "--multi_hop_upgrade_path",
+        default="",
+        help="Specify the multi-hop upgrade path as a comma separated list of image URLs to download",
+    )
+
+    parser.addoption(
         "--restore_to_image",
         default="",
         help="Specify the target image to restore to, or stay in target image if empty",
@@ -180,4 +186,13 @@ def add_advanced_reboot_args(parser):
         "http://build-server.example/sonic-buildimage/{sonic_version}/debs/python3-pysairedis_1.0.0_amd64.deb " +
         "sonic_version is a template token that will be replaced with the actual sonic version of the device under " +
         "test. e.g. 202311"
+    )
+
+    parser.addoption(
+        "--packet_capture_location",
+        action="store",
+        type=str,
+        choices=["physical_port", "ptf_port"],
+        default="ptf_port",
+        help="The packet capture location to be used in advanced-reboot test, such as physical_port or ptf_port"
     )

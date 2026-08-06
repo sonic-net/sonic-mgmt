@@ -1,0 +1,9 @@
+{
+	"ACL_TABLE_TYPE": {
+		"CUSTOM_TYPE_IPV6": {
+			"MATCHES": ["SRC_IPV6", "DST_IPV6", "IP_TYPE", "NEXT_HEADER"],
+			"ACTIONS": ["PACKET_ACTION", "COUNTER"],
+			"BIND_POINTS": ["PORT"]
+		}
+	}
+}

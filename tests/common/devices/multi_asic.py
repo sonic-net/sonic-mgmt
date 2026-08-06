@@ -1,13 +1,17 @@
 import copy
+from functools import lru_cache
 import ipaddress
 import json
 import logging
 
+from pytest_ansible.results import ModuleResult
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.devices.sonic import SonicHost
 from tests.common.devices.sonic_asic import SonicAsic
+from tests.common.devices.sonic_docker import SonicDockerManager
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, DEFAULT_NAMESPACE, ASICS_PRESENT
+from tests.common.platform.interface_utils import get_dut_interfaces_status
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +70,7 @@ class MultiAsicSonicHost(object):
         active_asics = self.asics
         if self.sonichost.is_supervisor_node():
             service_list.append("lldp")
-            if self.get_facts()['asic_type'] != 'vs':
+            if self.facts['asic_type'] != 'vs':
                 active_asics = []
                 sonic_db_cli_out = \
                     self.command("sonic-db-cli CHASSIS_STATE_DB keys \"CHASSIS_FABRIC_ASIC_TABLE|asic*\"")
@@ -74,6 +78,8 @@ class MultiAsicSonicHost(object):
                     a_asic_name = a_asic_line.split("|")[1]
                     a_asic_instance = self.asic_instance_from_namespace(namespace=a_asic_name)
                     active_asics.append(a_asic_instance)
+            else:
+                active_asics = []
         service_list += self._DEFAULT_SERVICES
 
         config_facts = self.config_facts(host=self.hostname, source="running")['ansible_facts']
@@ -82,22 +88,42 @@ class MultiAsicSonicHost(object):
             "DEVICE_METADATA" in config_facts and
             "localhost" in config_facts["DEVICE_METADATA"] and
             "subtype" in config_facts["DEVICE_METADATA"]["localhost"] and
-                config_facts["DEVICE_METADATA"]["localhost"]["subtype"] == "DualToR"
+                config_facts["DEVICE_METADATA"]["localhost"]["subtype"] == "DualToR" and
+            "mux" in config_facts["FEATURE"] and config_facts["FEATURE"]["mux"]["state"] == "enabled"
         ):
             service_list.append("mux")
 
-        if self.get_facts().get("modular_chassis"):
-            # Update the asic service based on feature table state and asic flag
-            for service in list(self.sonichost.DEFAULT_ASIC_SERVICES):
-                if service == 'teamd' and config_facts['DEVICE_METADATA']['localhost'].get('switch_type', '') == 'dpu':
-                    logger.info("Removing teamd from default services for switch_type DPU")
-                    self.sonichost.DEFAULT_ASIC_SERVICES.remove(service)
-                    continue
-                if config_facts['FEATURE'][service]['has_per_asic_scope'] == "False":
-                    self.sonichost.DEFAULT_ASIC_SERVICES.remove(service)
-                if config_facts['FEATURE'][service]['state'] == "disabled":
-                    self.sonichost.DEFAULT_ASIC_SERVICES.remove(service)
-        else:
+        if "dhcp_relay" in config_facts["FEATURE"] and config_facts["FEATURE"]["dhcp_relay"]["state"] == "enabled":
+            service_list.append("dhcp_relay")
+
+        if "dhcp_server" in config_facts["FEATURE"] and config_facts["FEATURE"]["dhcp_server"]["state"] == "enabled":
+            service_list.append("dhcp_server")
+
+        is_dpu = config_facts['DEVICE_METADATA']['localhost'].get('switch_type', '') == 'dpu'
+        if is_dpu and 'snmp' in service_list:
+            service_list.remove('snmp')
+
+        # BMC topology: snmp is not deployed on BMC image (SNMP runs on the host NOS,
+        # not on the management-plane BMC board), so exclude it from critical services.
+        is_bmc = 'bmc' in (self.topo_type or '')
+        if is_bmc and 'snmp' in service_list:
+            service_list.remove('snmp')
+
+        # Update the asic service based on feature table state and asic flag
+        filtered_asic_services = []
+        for service in self.sonichost.DEFAULT_ASIC_SERVICES:
+            if service == 'teamd' and is_dpu:
+                logger.info("Removing teamd from default services for switch_type DPU")
+                continue
+            if service not in config_facts['FEATURE']:
+                continue
+            if config_facts['FEATURE'][service]['has_per_asic_scope'] == "False":
+                continue
+            if config_facts['FEATURE'][service]['state'] == "disabled":
+                continue
+            filtered_asic_services.append(service)
+        self.sonichost.DEFAULT_ASIC_SERVICES = filtered_asic_services
+        if not self.facts.get("modular_chassis") and not is_dpu:
             service_list.append("lldp")
 
         for asic in active_asics:
@@ -107,10 +133,11 @@ class MultiAsicSonicHost(object):
     def get_default_critical_services_list(self):
         return self._DEFAULT_SERVICES
 
-    def _run_on_asics(self, *module_args, **complex_args):
+    def _run_on_asics(self, multi_asic_attr, *module_args, **complex_args):
         """ Run an asible module on asics based on 'asic_index' keyword in complex_args
 
         Args:
+            multi_asic_attr: name of the ansible module to run
             module_args: other ansible module args passed from the caller
             complex_args: other ansible keyword args
 
@@ -131,22 +158,37 @@ class MultiAsicSonicHost(object):
         """
         if "asic_index" not in complex_args:
             # Default ASIC/namespace
-            return getattr(self.sonichost, self.multi_asic_attr)(*module_args, **complex_args)
+            return getattr(self.sonichost, multi_asic_attr)(*module_args, **complex_args)
         else:
             asic_complex_args = copy.deepcopy(complex_args)
             asic_index = asic_complex_args.pop("asic_index")
-            if type(asic_index) == int:
+            if isinstance(asic_index, int):
                 # Specific ASIC/namespace
                 if self.sonichost.facts['num_asic'] == 1:
                     if asic_index != 0:
                         raise ValueError("Trying to run module '{}' against asic_index '{}' on a single asic dut '{}'"
-                                         .format(self.multi_asic_attr, asic_index, self.sonichost.hostname))
-                return getattr(self.asic_instance(asic_index), self.multi_asic_attr)(*module_args, **asic_complex_args)
-            elif type(asic_index) == str and asic_index.lower() == "all":
+                                         .format(multi_asic_attr, asic_index, self.sonichost.hostname))
+                return getattr(self.asic_instance(asic_index), multi_asic_attr)(*module_args, **asic_complex_args)
+            elif isinstance(asic_index, str) and asic_index.lower() == "all":
                 # All ASICs/namespace
-                return [getattr(asic, self.multi_asic_attr)(*module_args, **asic_complex_args) for asic in self.asics]
+                return [getattr(asic, multi_asic_attr)(*module_args, **asic_complex_args) for asic in self.asics]
             else:
                 raise ValueError("Argument 'asic_index' must be an int or string 'all'.")
+
+    def show_interface(self, *module_args, **complex_args):
+        """Wrapper that short-circuits on supervisor nodes.
+
+        On supervisor, 'show interface status' triggers 'rexec -c ... all' which
+        prompts for LC passwords and hangs. Return empty ModuleResult instead.
+        """
+        if self.sonichost.is_supervisor_node():
+            logger.debug("Skipping show_interface on supervisor node %s", self.hostname)
+            return ModuleResult(ansible_facts={
+                "int_status": {},
+                "int_counter": {},
+                "ansible_interface_link_down_ports": [],
+            }, changed=False)
+        return self._run_on_asics("show_interface", *module_args, **complex_args)
 
     def get_dut_iface_mac(self, iface_name):
         """
@@ -285,6 +327,12 @@ class MultiAsicSonicHost(object):
         ns_cmd = cmd.replace('ip', 'ip -n {}'.format(namespace))
         return ns_cmd
 
+    def get_cli_cmd_for_namespace(self, cmd, namespace):
+        if not namespace:
+            return cmd
+        ns_cmd = cmd.replace('sonic-db-cli', 'sonic-db-cli -n {}'.format(namespace))
+        return ns_cmd
+
     @property
     def ttl_decr_value(self):
         """
@@ -295,14 +343,62 @@ class MultiAsicSonicHost(object):
             return 1
         return 3
 
-    def get_route(self, prefix, namespace=DEFAULT_NAMESPACE):
-        asic_id = self.get_asic_id_from_namespace(namespace)
-        if asic_id == DEFAULT_ASIC_ID:
-            ns_prefix = ''
+    def get_route(self, prefix=None, namespace=DEFAULT_NAMESPACE):
+        """
+        Get route information from DUT for multi-ASIC.
+        Args:
+            prefix (str, optional): Specific prefix to query. If None, returns BGP summary.
+            namespace (str): Network namespace. Defaults to DEFAULT_NAMESPACE.
+        Returns:
+            dict: Route information in JSON format.
+        """
+        asic_id = None if namespace == DEFAULT_NAMESPACE else self.get_asic_id_from_namespace(namespace)
+        ns_prefix = ''
+
+        if asic_id is not None:
+            ns_prefix = '-n {}'.format(asic_id)
+
+        if prefix is None:
+            cmd = "vtysh {} -c 'show bgp summary json'".format(ns_prefix)
         else:
-            ns_prefix = '-n ' + str(asic_id)
-        cmd = 'show bgp ipv4' if ipaddress.ip_network(prefix.encode().decode()).version == 4 else 'show bgp ipv6'
-        return json.loads(self.shell('vtysh {} -c "{} {} json"'.format(ns_prefix, cmd, prefix))['stdout'])
+            # Determine address family based on the prefix
+            cmd = 'show bgp ipv4' if ipaddress.ip_network(prefix.encode().decode()).version == 4 else 'show bgp ipv6'
+            cmd = "vtysh {} -c '{} unicast {} json'".format(ns_prefix, cmd, prefix)
+
+        output = self.command(cmd)
+        return json.loads(output['stdout'])
+
+    def get_bmc_host(self):
+        """Get the MultiAsicSonicHost of the associated host (CPU) for this BMC.
+
+        The host-side device is resolved from the 'bmc_host' field defined in
+        the testbed YAML file.
+
+        Returns:
+            MultiAsicSonicHost: Host-side DUT object from duthosts, with critical_services populated.
+
+        Raises:
+            AssertionError: If the current device is not a BMC or bmc_host is not defined.
+        """
+        pytest_assert(self.sonichost.is_bmc(), "get_bmc_host() can only be called on a BMC device")
+        bmc_host_hostname = self.duthosts.tbinfo.get('bmc_host')
+        pytest_assert(bmc_host_hostname, "bmc_host field not defined in testbed YAML")
+        return MultiAsicSonicHost(self.duthosts.ansible_adhoc, bmc_host_hostname,
+                                  self.duthosts, self.duthosts.tbinfo['topo']['type'])
+
+    def get_bmc_from_host(self):
+        """Return the MultiAsicSonicHost of the paired BMC for this switch host."""
+        pytest_assert(not self.sonichost.is_bmc(),
+                      "get_bmc_from_host() can only be called on a switch-host device")
+        my_hostname = self.sonichost.hostname
+        tbinfo = self.duthosts.tbinfo
+        pytest_assert(tbinfo.get('bmc_host') == my_hostname,
+                      "Testbed bmc_host field ({}) does not name this host ({})".format(
+                          tbinfo.get('bmc_host'), my_hostname))
+        bmc_hostnames = tbinfo.get('duts') or []
+        pytest_assert(bmc_hostnames,
+                      "No 'duts' entries in testbed YAML to resolve paired BMC")
+        return self.duthosts[bmc_hostnames[0]]
 
     def __getattr__(self, attr):
         """ To support calling an ansible module on a MultiAsicSonicHost.
@@ -319,8 +415,9 @@ class MultiAsicSonicHost(object):
         """
         sonic_asic_attr = getattr(SonicAsic, attr, None)
         if not attr.startswith("_") and sonic_asic_attr and callable(sonic_asic_attr):
-            self.multi_asic_attr = attr
-            return self._run_on_asics
+            def _run_on_asics_wrapper(*module_args, **complex_args):
+                return self._run_on_asics(attr, *module_args, **complex_args)
+            return _run_on_asics_wrapper
         else:
             return getattr(self.sonichost, attr)  # For backward compatibility
 
@@ -486,12 +583,16 @@ class MultiAsicSonicHost(object):
         """
         services = [feature]
 
-        if (feature in self.sonichost.DEFAULT_ASIC_SERVICES):
+        if (feature in self.sonichost.DEFAULT_ASIC_SERVICES) or feature in ["bmp"]:
             services = []
             for asic in self.asics:
                 service_name = asic.get_docker_name(feature)
                 if service_name in self.sonichost.critical_services:
                     services.append(service_name)
+
+        enable_interval_pattern = r'SysSock\.RateLimit\.Interval="[1-9][0-9]*"'
+        disable_interval_value = "SysSock.RateLimit.Interval=\"0\""
+        default_interval_value = "SysSock.RateLimit.Interval=\"300\""
 
         for docker in services:
             # This is to avoid gbsyncd check fo VS test_disable_rsyslog_rate_limit
@@ -499,29 +600,28 @@ class MultiAsicSonicHost(object):
             # and gbsyncd feature will be added to services
             if self.get_facts()['asic_type'] == 'vs' and "gbsyncd" in docker:
                 continue
-            cmd_disable_rate_limit = (
-                r"docker exec -i {} sed -i "
-                r"'s/^\$SystemLogRateLimit/#\$SystemLogRateLimit/g' "
-                r"/etc/rsyslog.conf"
-            )
-            cmd_enable_rate_limit = (
-                r"docker exec -i {} sed -i "
-                r"'s/^#\$SystemLogRateLimit/\$SystemLogRateLimit/g' "
-                r"/etc/rsyslog.conf"
-            )
-            cmd_reload = r"docker exec -i {} supervisorctl restart rsyslogd"
+            cmd_reload = f"docker exec -i {docker} supervisorctl restart rsyslogd"
             cmds = []
 
             if rl_option == 'disable':
-                cmds.append(cmd_disable_rate_limit.format(docker))
+                cmds.append(
+                    f"docker exec -i {docker} sed -i "
+                    f"'s/{enable_interval_pattern}/{disable_interval_value}/g' "
+                    f"/etc/rsyslog.conf"
+                )
             else:
-                cmds.append(cmd_enable_rate_limit.format(docker))
-            cmds.append(cmd_reload.format(docker))
+                cmds.append(
+                    f"docker exec -i {docker} sed -i "
+                    f"'s/{disable_interval_value}/{default_interval_value}/g' "
+                    f"/etc/rsyslog.conf"
+                )
+            cmds.append(cmd_reload)
             self.sonichost.shell_cmds(cmds=cmds)
 
-    def get_bgp_neighbors(self):
+    def get_bgp_neighbors(self, namespace=None):
         """
-        Get a diction of BGP neighbor states
+        Get a diction of BGP neighbor states. If namespace is not None
+        will get a dictionary of BGP neighbor states for that namespace
 
         Args: None
 
@@ -530,8 +630,9 @@ class MultiAsicSonicHost(object):
         """
         bgp_neigh = {}
         for asic in self.asics:
-            bgp_info = asic.bgp_facts()
-            bgp_neigh.update(bgp_info["ansible_facts"]["bgp_neighbors"])
+            if namespace is None or asic.namespace == namespace:
+                bgp_info = asic.bgp_facts()
+                bgp_neigh.update(bgp_info["ansible_facts"]["bgp_neighbors"])
 
         return bgp_neigh
 
@@ -540,7 +641,8 @@ class MultiAsicSonicHost(object):
         Get a diction of BGP neighbor states
 
         Args:
-        state: BGP session state, return neighbor IP of sessions that match this state
+        state: BGP session state, return neighbor IP of sessions that match this state. If state is "all",
+               return all neighbors regardless of state.
         Returns: dictionary {namespace: { (neighbor_ip : info_dict)* }}
 
         """
@@ -548,9 +650,10 @@ class MultiAsicSonicHost(object):
         for asic in self.asics:
             bgp_neigh[asic.namespace] = {}
             bgp_info = asic.bgp_facts()["ansible_facts"]["bgp_neighbors"]
-            for k, v in list(bgp_info.items()):
-                if v["state"] != state:
-                    bgp_info.pop(k)
+            if state != "all":
+                for k, v in list(bgp_info.items()):
+                    if v["state"] != state:
+                        bgp_info.pop(k)
             bgp_neigh[asic.namespace].update(bgp_info)
 
         return bgp_neigh
@@ -571,6 +674,8 @@ class MultiAsicSonicHost(object):
                 if v['state'] == state:
                     if k.lower() in neigh_ips:
                         neigh_ok.append(k)
+            logging.info("bgp neighbors to be checked for the state: {}".format(
+                         [ip for ip in neigh_ips if ip not in neigh_ok]))
             logging.info("bgp neighbors that match the state: {}".format(neigh_ok))
 
         if len(neigh_ips) == len(neigh_ok):
@@ -587,7 +692,7 @@ class MultiAsicSonicHost(object):
         """
         for asic in self.asics:
             if asic.namespace in bgp_neighbors:
-                neigh_ips = [k.lower() for k, v in list(bgp_neighbors[asic.namespace].items()) if v["state"] == state]
+                neigh_ips = [k.lower() for k, v in list(bgp_neighbors[asic.namespace].items())]
                 if not asic.check_bgp_session_state(neigh_ips, state):
                     return False
         return True
@@ -778,6 +883,17 @@ class MultiAsicSonicHost(object):
             container_name += str(asic_id)
         self.shell("sudo docker cp {}:{} {}".format(container_name, src, dst))
 
+    def is_critical_processes_running_per_asic_or_host(self, service):
+        duthost = self.sonichost
+        if duthost.is_multi_asic:
+            for asic in self.asics:
+                docker_name = asic.get_docker_name(service)
+                if not duthost.critical_processes_running(docker_name):
+                    return False
+            return True
+        else:
+            return duthost.critical_processes_running(service)
+
     def is_service_fully_started_per_asic_or_host(self, service):
         """This function tell if service is fully started base on multi-asic/single-asic"""
         duthost = self.sonichost
@@ -843,3 +959,66 @@ class MultiAsicSonicHost(object):
         """
         mg_facts = self.sonichost.minigraph_facts(host=self.sonichost.hostname)
         return list(mg_facts['ansible_facts']['minigraph_ports'].keys())
+
+    def get_admin_up_ports(self):
+        intf_status = get_dut_interfaces_status(self.sonichost)
+        admin_up_ports = [k for k, v in intf_status.items() if v['admin'] == "up"]
+        return admin_up_ports
+
+    def shutdown_interface(self, port):
+        """
+        This function works for both multi/single-asic dut
+        """
+        logging.info("Shutting down {}".format(port))
+        if self.sonichost.is_multi_asic:
+            asic_ns = self.get_port_asic_instance(port).namespace
+            return self.command(f"sudo config interface -n {asic_ns} shutdown {port}")
+        else:
+            return self.command(f"sudo config interface shutdown {port}")
+
+    def no_shutdown_interface(self, port):
+        """
+        This function works for both multi/single-asic dut
+        """
+        logging.info("Bring up {}".format(port))
+        if self.sonichost.is_multi_asic:
+            asic_ns = self.get_port_asic_instance(port).namespace
+            return self.command(f"sudo config interface -n {asic_ns} startup {port}")
+        else:
+            return self.command(f"sudo config interface startup {port}")
+
+    def yang_validate(self, strict_yang_validation=True):
+        """
+        Validate yang over running config
+        """
+        output = self.shell("echo '[]' | sudo config apply-patch /dev/stdin", module_ignore_errors=True)
+        if output['rc'] != 0:
+            return False
+        if strict_yang_validation:
+            for line in output['stdout_lines']:
+                if "Note: Below table(s) have no YANG models:" in line:
+                    logger.error(line)
+                    return False
+        return True
+
+    @lru_cache
+    def containers(self):
+        return SonicDockerManager(self)
+
+    def get_bgp_confed_asn(self):
+        """
+        Get BGP confederation ASN from running config
+        Return None if not configured
+        """
+        if self.sonichost.is_multi_asic:
+            asic = self.frontend_asics[0]
+            config_facts = asic.config_facts(
+                host=self.hostname, source="running", namespace=asic.namespace
+            )['ansible_facts']
+        else:
+            config_facts = self.sonichost.config_facts(
+                host=self.hostname, source="running"
+            )['ansible_facts']
+
+        bgp_confed_asn = config_facts.get('BGP_DEVICE_GLOBAL', {}).get('CONFED', {}).get('asn', None)
+        return bgp_confed_asn

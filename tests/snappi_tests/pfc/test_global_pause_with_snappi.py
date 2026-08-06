@@ -1,66 +1,71 @@
 import pytest
+import logging
+from tests.common.helpers.assertions import pytest_require, pytest_assert                               # noqa: F401
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts, \
+    fanout_graph_facts_multidut                                                                         # noqa: F401
+from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
+    snappi_api, snappi_dut_base_config, get_snappi_ports_for_rdma, cleanup_config, \
+    snappi_testbed_config, get_snappi_ports_single_dut, snappi_port_selection, \
+    get_snappi_ports, tgen_port_info, is_snappi_multidut, get_snappi_ports_multi_dut                    # noqa: F401
+from tests.common.snappi_tests.qos_fixtures import lossless_prio_list, prio_dscp_map, disable_pfcwd     # noqa: F401
+from tests.snappi_tests.pfc.files.helper import run_pfc_test                                            # noqa: F401
+from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
+from tests.snappi_tests.cisco.helper import disable_voq_watchdog                                        # noqa: F401
 
-from tests.common.helpers.assertions import pytest_require
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
-    fanout_graph_facts                      # noqa F401
-from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port,\
-    snappi_api, snappi_testbed_config       # noqa F401
-from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, all_prio_list, lossless_prio_list,\
-    lossy_prio_list                         # noqa F401
+logger = logging.getLogger(__name__)
 
-from tests.snappi_tests.pfc.files.helper import run_pfc_test
-
-pytestmark = [pytest.mark.topology('tgen')]
+pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]
 
 
-def test_global_pause(snappi_api,                   # noqa F811
-                      snappi_testbed_config,        # noqa F811
-                      conn_graph_facts,             # noqa F811
-                      fanout_graph_facts,           # noqa F811
+@pytest.fixture(autouse=True, scope='module')
+def number_of_tx_rx_ports():
+    yield (1, 1)
+
+
+def test_global_pause(snappi_api,                           # noqa: F811
+                      conn_graph_facts,                     # noqa: F811
+                      fanout_graph_facts_multidut,          # noqa: F811
                       duthosts,
-                      rand_one_dut_hostname,
-                      rand_one_dut_portname_oper_up,
-                      lossless_prio_list,           # noqa F811
-                      lossy_prio_list,              # noqa F811
-                      prio_dscp_map):               # noqa F811
+                      prio_dscp_map,                        # noqa: F811
+                      lossless_prio_list,                   # noqa: F811
+                      tbinfo,                               # noqa: F811
+                      tgen_port_info,                       # noqa: F811
+                      disable_pfcwd):                       # noqa: F811
     """
     Test if IEEE 802.3X pause (a.k.a., global pause) will impact any priority
 
     Args:
         snappi_api (pytest fixture): SNAPPI session
-        snappi_testbed_config (pytest fixture): testbed configuration information
         conn_graph_facts (pytest fixture): connection graph
-        fanout_graph_facts (pytest fixture): fanout graph
+        fanout_graph_facts_multidut (pytest fixture): fanout graph for multiple duts
+        get_snappi_ports (pytest fixture): list of snappi port and duthost information
         duthosts (pytest fixture): list of DUTs
-        rand_one_dut_hostname (str): hostname of DUT
-        rand_one_dut_portname_oper_up (str): name of port to test, e.g., 's6100-1|Ethernet0'
         lossless_prio_list (pytest fixture): list of all the lossless priorities
-        lossy_prio_list (pytest fixture): list of all the lossy priorities
         prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
-
+        tbinfo (pytest fixture): fixture provides information about testbed
+        tgen_port_info (pytest fixture): fixtures returns port_config_list, snappi_ports and testbed_config
     Returns:
         N/A
     """
+    testbed_config, port_config_list, snappi_ports = tgen_port_info
 
-    dut_hostname, dut_port = rand_one_dut_portname_oper_up.split('|')
-    pytest_require(rand_one_dut_hostname == dut_hostname,
-                   "Port is not mapped to the expected DUT")
+    logger.info("Snappi Ports : {}".format(snappi_ports))
 
-    testbed_config, port_config_list = snappi_testbed_config
-    duthost = duthosts[rand_one_dut_hostname]
+    all_prio_list = prio_dscp_map.keys()
     test_prio_list = lossless_prio_list
-    bg_prio_list = lossy_prio_list
+    bg_prio_list = [x for x in all_prio_list if x not in test_prio_list]
 
+    snappi_extra_params = SnappiTestParams()
+    snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
     run_pfc_test(api=snappi_api,
                  testbed_config=testbed_config,
                  port_config_list=port_config_list,
                  conn_data=conn_graph_facts,
-                 fanout_data=fanout_graph_facts,
-                 duthost=duthost,
-                 dut_port=dut_port,
+                 fanout_data=fanout_graph_facts_multidut,
                  global_pause=True,
                  pause_prio_list=None,
                  test_prio_list=test_prio_list,
                  bg_prio_list=bg_prio_list,
                  prio_dscp_map=prio_dscp_map,
-                 test_traffic_pause=False)
+                 test_traffic_pause=False,
+                 snappi_extra_params=snappi_extra_params)

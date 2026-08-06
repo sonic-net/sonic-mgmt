@@ -1,13 +1,24 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 
 import json
 from collections import defaultdict
 from ansible.module_utils.basic import AnsibleModule
-try:
+
+import asyncio
+import pysnmp
+
+if pysnmp.version[0] < 5:
     from pysnmp.entity.rfc3413.oneliner import cmdgen
-    has_pysnmp = True
-except Exception:
-    has_pysnmp = False
+else:
+    from pysnmp.hlapi.v3arch.asyncio import (
+        cmdgen,
+        UdpTransportTarget,
+        walk_cmd,
+        SnmpEngine,
+        ContextData,
+        ObjectType,
+        ObjectIdentity
+    )
 
 DOCUMENTATION = '''
 ---
@@ -90,11 +101,12 @@ class DefineOid(object):
         else:
             dp = ""
 
-        # From IF-MIB
+        # From IF-MIB, refer to https://mibs.observium.org/mib/IF-MIB/
         # ifdescr is common support, replace the lldpportid
         self.if_descr = dp + ".3.6.1.2.1.2.2.1.2"
 
         # From LLDP-MIB
+        self.lldp_rem_entry = dp + ".0.8802.1.1.2.1.4.1.1"       # for snmp_walk
         self.lldp_rem_port_id = dp + ".0.8802.1.1.2.1.4.1.1.7"
         self.lldp_rem_port_desc = dp + ".0.8802.1.1.2.1.4.1.1.8"
         self.lldp_rem_sys_desc = dp + ".0.8802.1.1.2.1.4.1.1.10"
@@ -129,27 +141,12 @@ def get_iftable(snmp_data):
     return (if_table, inverse_if_table)
 
 
-def main():
-    module = AnsibleModule(
-        argument_spec=dict(
-            host=dict(required=True),
-            version=dict(required=True, choices=['v2', 'v2c', 'v3']),
-            community=dict(required=False, default=False),
-            username=dict(required=False),
-            level=dict(required=False, choices=['authNoPriv', 'authPriv']),
-            integrity=dict(required=False, choices=['md5', 'sha']),
-            privacy=dict(required=False, choices=['des', 'aes']),
-            authkey=dict(required=False),
-            privkey=dict(required=False),
-            removeplaceholder=dict(required=False)),
-        required_together=(['username', 'level', 'integrity', 'authkey'], [
-                           'privacy', 'privkey'],),
-        supports_check_mode=False)
+def Tree():
+    return defaultdict(Tree)
 
+
+def main_legacy(module):
     m_args = module.params
-
-    if not has_pysnmp:
-        module.fail_json(msg='Missing required pysnmp module (check docs)')
 
     cmd_gen = cmdgen.CommandGenerator()
 
@@ -195,8 +192,6 @@ def main():
     p = DefineOid(dotprefix=True)
     # Use v without a prefix to use with return values
     v = DefineOid(dotprefix=False)
-
-    def Tree(): return defaultdict(Tree)
 
     results = Tree()
 
@@ -278,4 +273,189 @@ def main():
     module.exit_json(ansible_facts=results)
 
 
-main()
+class LLDPFactsCollector:
+
+    def __init__(self, module):
+        self.module = module
+        self.m_args = module.params
+        self.results = Tree()
+        self.if_table = dict()
+        self.inverse_if_table = dict()
+        self.snmp_engine = SnmpEngine()
+        self.context = ContextData()
+        self.transport = None
+        self._init_auth()
+        self.p = DefineOid(dotprefix=True)
+        self.v = DefineOid(dotprefix=False)
+
+    def _init_auth(self):
+        # Verify that we receive a community when using snmp v2
+        if self.m_args['version'] == "v2" or self.m_args['version'] == "v2c":
+            if self.m_args['community'] is False:
+                self.module.fail_json(
+                    msg='Community not set when using snmp version 2'
+                )
+
+        if self.m_args['version'] == "v3":
+            if self.m_args['username'] is None:
+                self.module.fail_json(
+                    msg='Username not set when using snmp version 3'
+                )
+
+            if self.m_args['level'] == "authPriv" and self.m_args['privacy'] is None:
+                self.module.fail_json(
+                    msg='Privacy algorithm not set when using authPriv'
+                )
+
+            if self.m_args['integrity'] == "sha":
+                integrity_proto = cmdgen.usmHMACSHAAuthProtocol
+            elif self.m_args['integrity'] == "md5":
+                integrity_proto = cmdgen.usmHMACMD5AuthProtocol
+
+            if self.m_args['privacy'] == "aes":
+                privacy_proto = cmdgen.usmAesCfb128Protocol
+            elif self.m_args['privacy'] == "des":
+                privacy_proto = cmdgen.usmDESPrivProtocol
+
+        # Use SNMP Version 2
+        if self.m_args['version'] == "v2" or self.m_args['version'] == "v2c":
+            self.snmp_auth = cmdgen.CommunityData(self.m_args['community'])
+
+        # Use SNMP Version 3 with authNoPriv
+        elif self.m_args['level'] == "authNoPriv":
+            self.snmp_auth = cmdgen.UsmUserData(
+                self.m_args['username'],
+                authKey=self.m_args['authkey'],
+                authProtocol=integrity_proto
+            )
+        # Use SNMP Version 3 with authPriv
+        else:
+            self.snmp_auth = cmdgen.UsmUserData(
+                self.m_args['username'],
+                authKey=self.m_args['authkey'],
+                privKey=self.m_args['privkey'],
+                authProtocol=integrity_proto,
+                privProtocol=privacy_proto
+            )
+
+    async def setup(self):
+        self.transport = await UdpTransportTarget.create(
+            (self.m_args['host'], 161),
+            timeout=self.m_args['timeout']
+        )
+
+    async def collect(self):
+        if self.transport is None:
+            raise Exception('Transport not initialized. Call setup() first.')
+
+        async for errorIndication, errorStatus, errorIndex, varBinds in walk_cmd(
+            self.snmp_engine,
+            self.snmp_auth,
+            self.transport,
+            ContextData(),
+            ObjectType(ObjectIdentity(self.p.if_descr)),
+            lookupMib=False,
+            lexicographicMode=False
+        ):
+            if errorIndication:
+                self.module.fail_json(
+                    msg=f"{str(errorIndication)} querying if_descr."
+                )
+
+            for oid, val in varBinds:
+                ifIndex = str(oid).split(".")[-1]
+                ifDescr = str(val)
+                self.if_table[ifDescr] = ifIndex
+                self.inverse_if_table[ifIndex] = ifDescr
+
+        lldp_rem_sys = dict()
+        lldp_rem_port_id = dict()
+        lldp_rem_port_desc = dict()
+        lldp_rem_chassis_id = dict()
+        lldp_rem_sys_desc = dict()
+
+        async for errorIndication, errorStatus, errorIndex, varBinds in walk_cmd(
+            self.snmp_engine,
+            self.snmp_auth,
+            self.transport,
+            ContextData(),
+            ObjectType(ObjectIdentity(self.p.lldp_rem_entry)),
+            lookupMib=False,
+            lexicographicMode=False
+        ):
+            if errorIndication:
+                self.module.fail_json(
+                    msg=f"{str(errorIndication)} querying lldp_rem_entry."
+                )
+
+            for oid, val in varBinds:
+                current_oid = oid.prettyPrint()
+                current_val = val.prettyPrint()
+
+                ifIndex = str(current_oid).split(".")[-2]
+
+                try:
+                    if_name = self.inverse_if_table[ifIndex]
+                except Exception:
+                    print(
+                        json.dumps({"unbound_interface_index": ifIndex})
+                    )
+                    module.fail_json(msg="unboundinterface in inverse if table")
+
+                if self.v.lldp_rem_sys_name in current_oid:
+                    lldp_rem_sys[if_name] = current_val
+                elif self.v.lldp_rem_port_id in current_oid:
+                    lldp_rem_port_id[if_name] = current_val
+                elif self.v.lldp_rem_port_desc in current_oid:
+                    lldp_rem_port_desc[if_name] = current_val
+                elif self.v.lldp_rem_chassis_id in current_oid:
+                    lldp_rem_chassis_id[if_name] = current_val
+                elif self.v.lldp_rem_sys_desc in current_oid:
+                    lldp_rem_sys_desc[if_name] = current_val
+
+        lldp_data = dict()
+
+        for if_name in lldp_rem_sys:
+            lldp_data[if_name] = {
+                'neighbor_sys_name': lldp_rem_sys[if_name],
+                'neighbor_port_desc': lldp_rem_port_desc[if_name],
+                'neighbor_port_id': lldp_rem_port_id[if_name],
+                'neighbor_sys_desc': lldp_rem_sys_desc[if_name],
+                'neighbor_chassis_id': lldp_rem_chassis_id[if_name]
+            }
+
+        self.results['ansible_lldp_facts'] = lldp_data
+
+
+async def main(module):
+    collector = LLDPFactsCollector(module)
+    await collector.setup()
+    await collector.collect()
+    module.exit_json(ansible_facts=collector.results)
+
+
+if __name__ == '__main__':
+    module = AnsibleModule(
+        argument_spec=dict(
+            host=dict(required=True),
+            timeout=dict(reqired=False, type='int', default=20),
+            version=dict(required=True, choices=['v2', 'v2c', 'v3']),
+            community=dict(required=False, default=False),
+            username=dict(required=False),
+            level=dict(required=False, choices=['authNoPriv', 'authPriv']),
+            integrity=dict(required=False, choices=['md5', 'sha']),
+            privacy=dict(required=False, choices=['des', 'aes']),
+            authkey=dict(required=False),
+            privkey=dict(required=False),
+            removeplaceholder=dict(required=False)),
+        required_together=(
+            ['username', 'level', 'integrity', 'authkey'],
+            ['privacy', 'privkey'],
+        ),
+        supports_check_mode=False
+    )
+
+    if pysnmp.version[0] < 5:
+        main_legacy(module)
+    else:
+        asyncio.run(main(module))

@@ -4,7 +4,7 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.processes_utils import wait_critical_processes
-from tests.common.reboot import reboot, SONIC_SSH_PORT, SONIC_SSH_REGEX, wait_for_startup,\
+from tests.common.reboot import reboot, SONIC_SSH_PORT, SONIC_SSH_REGEX, wait_for_startup, \
     REBOOT_TYPE_COLD, REBOOT_TYPE_KERNEL_PANIC, REBOOT_TYPE_SUPERVISOR_HEARTBEAT_LOSS
 from tests.platform_tests.test_reboot import check_interfaces_and_services
 
@@ -28,7 +28,7 @@ class TestKernelPanic:
         # For sup, we also need to ensure linecards are back and healthy for following tests
         is_sup = duthost.get_facts().get("modular_chassis") and duthost.is_supervisor_node()
         if is_sup:
-            if 'Cisco-8800-RP' in duthost.facts.get('hwsku'):
+            if any(hwsku in duthost.facts.get('hwsku') for hwsku in ['Cisco-8800-RP', 'Nokia-IXR7250E']):
                 reboot_type = REBOOT_TYPE_SUPERVISOR_HEARTBEAT_LOSS
             else:
                 reboot_type = REBOOT_TYPE_COLD

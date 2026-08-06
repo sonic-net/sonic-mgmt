@@ -19,10 +19,12 @@ import copy
 import tempfile
 import uuid
 import paramiko
+import asyncio
 from io import StringIO
 from ast import literal_eval
 from scapy.all import sniff as scapy_sniff
 from paramiko.ssh_exception import AuthenticationException
+from datetime import datetime
 
 import pytest
 from ansible.parsing.dataloader import DataLoader
@@ -32,8 +34,10 @@ from ansible.vars.manager import VariableManager
 from tests.common import constants
 from tests.common.cache import cached
 from tests.common.cache import FactsCache
-from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP
+from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, UPSTREAM_ALL_NEIGHBOR_MAP
+from tests.common.helpers.constants import DOWNSTREAM_NEIGHBOR_MAP, DOWNSTREAM_ALL_NEIGHBOR_MAP
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.portstat_utilities import parse_column_positions
 from netaddr import valid_ipv6
 
 logger = logging.getLogger(__name__)
@@ -46,8 +50,10 @@ FORCED_MGMT_ROUTE_PRIORITY = 32764
 # Wait 300 seconds because sometime 'interfaces-config' service take 45 seconds to response
 # interfaces-config service issue track by: https://github.com/sonic-net/sonic-buildimage/issues/19045
 FILE_CHANGE_TIMEOUT = 300
+DEFAULT_VRF_NAME = "default"
+MGMT_VRF_NAME = "mgmt"
 
-NON_USER_CONFIG_TABLES = ["FLEX_COUNTER_TABLE", "ASIC_SENSORS"]
+NON_USER_CONFIG_TABLES = ["FLEX_COUNTER_TABLE", "ASIC_SENSORS", "LOGGER"]
 
 
 def check_skip_release(duthost, release_list):
@@ -144,7 +150,7 @@ def wait_until(timeout, interval, delay, condition, *args, **kwargs):
 
         try:
             check_result = condition(*args, **kwargs)
-        except Exception as e:
+        except (Exception, pytest.fail.Exception) as e:
             exc_info = sys.exc_info()
             details = traceback.format_exception(*exc_info)
             logger.error(
@@ -167,6 +173,87 @@ def wait_until(timeout, interval, delay, condition, *args, **kwargs):
         return False
 
 
+def ping_ip(host, dst_ip, count=4, cmd_prefix=""):
+    """Ping an IP address from a host with an optional command prefix.
+
+    The *host* is expected to be an AnsibleHost-like object exposing a
+    ``command`` method (for example, ``duthost``, ``ptfhost`` or a localhost
+    wrapper).
+
+    This helper is designed to be used with wait_until: it returns True on
+    success and False on failure so callers can retry.
+
+    The cmd_prefix parameter can be used to run ping inside a namespace or
+    other wrapper context (for example, "sudo ip netns exec <ns>").
+    """
+    base_cmd = "ping -c {} {}".format(count, dst_ip)
+    cmd = "{} {}".format(cmd_prefix, base_cmd) if cmd_prefix else base_cmd
+    host_name = getattr(host, "hostname", repr(host))
+    logger.info("Pinging %s from host %s with command: %s", dst_ip, host_name, cmd)
+    result = host.command(cmd, module_ignore_errors=True)
+
+    if result.get("failed", False):
+        logger.info(
+            "Ping to %s from host %s failed: rc=%s, stderr=%s",
+            dst_ip,
+            host_name,
+            result.get("rc"),
+            result.get("stderr"),
+        )
+        return False
+
+    return True
+
+
+async def async_wait_until(timeout, interval, delay, condition, *args, **kwargs):
+    """
+    @summary: Same as wait_until but async
+    @param timeout: Maximum time to wait
+    @param interval: Poll interval
+    @param delay: Delay time
+    @param condition: A function that returns False or True
+    @param *args: Extra args required by the 'condition' function.
+    @param **kwargs: Extra args required by the 'condition' function.
+    @return: If the condition function returns True before timeout, return True. If the condition function raises an
+        exception, log the error and keep waiting and polling.
+    """
+    logger.debug("Wait until %s is True, timeout is %s seconds, checking interval is %s, delay is %s seconds" %
+                 (condition.__name__, timeout, interval, delay))
+
+    if delay > 0:
+        logger.debug("Delay for %s seconds first" % delay)
+        await asyncio.sleep(delay)
+
+    start_time = time.time()
+    elapsed_time = 0
+    while elapsed_time < timeout:
+        logger.debug("Time elapsed: %f seconds" % elapsed_time)
+
+        try:
+            check_result = condition(*args, **kwargs)
+        except Exception as e:
+            exc_info = sys.exc_info()
+            details = traceback.format_exception(*exc_info)
+            logger.error(
+                "Exception caught while checking {}:{}, error:{}".format(
+                    condition.__name__, "".join(details), e
+                )
+            )
+            check_result = False
+
+        if check_result:
+            logger.debug("%s is True, exit early with True" % condition.__name__)
+            return True
+        else:
+            logger.debug("%s is False, wait %d seconds and check again" % (condition.__name__, interval))
+            await asyncio.sleep(interval)
+            elapsed_time = time.time() - start_time
+
+    if elapsed_time >= timeout:
+        logger.debug("%s is still False after %d seconds, exit with False" % (condition.__name__, timeout))
+        return False
+
+
 def wait_tcp_connection(client, server_hostname, listening_port, timeout_s=30):
     """
     @summary: Wait until tcp connection is ready or timeout
@@ -181,8 +268,14 @@ def wait_tcp_connection(client, server_hostname, listening_port, timeout_s=30):
                           timeout=timeout_s,
                           module_ignore_errors=True)
     if 'exception' in res or res.get('failed') is True:
-        logger.warn("Failed to establish TCP connection to %s:%d, timeout=%d" %
-                    (str(server_hostname), listening_port, timeout_s))
+        logger.warning(
+            "Failed to establish TCP connection to %s:%d, timeout=%d" % (
+                str(server_hostname),
+                listening_port,
+                timeout_s,
+            )
+        )
+
         return False
     return True
 
@@ -488,6 +581,16 @@ def is_ipv4_address(ip_address):
         return False
 
 
+def is_ipv6_address(ip_address):
+    """Check if ip address is ipv6."""
+    ip_address = ip_address.encode().decode()
+    try:
+        ipaddress.IPv6Address(ip_address)
+        return True
+    except ipaddress.AddressValueError:
+        return False
+
+
 def get_mgmt_ipv6(duthost):
     config_facts = duthost.get_running_config_facts()
     mgmt_interfaces = config_facts.get("MGMT_INTERFACE", {})
@@ -582,7 +685,7 @@ def get_intf_by_sub_intf(sub_intf, vlan_id=None):
     Returns:
         str: interface name, e.g. Ethernet100
     """
-    if type(sub_intf) != str:
+    if not isinstance(sub_intf, str):
         sub_intf = str(sub_intf)
 
     if not vlan_id:
@@ -619,6 +722,16 @@ def str2bool(str):
     return str.lower() not in ["0", "false", "no"]
 
 
+def get_ptf_eth_ports_from_minigraph_interfaces(minigraph_interfaces, port_indices):
+    """Map minigraph L3 interfaces to PTF eth names when no portchannels exist."""
+    net_ports = []
+    for intf in minigraph_interfaces or []:
+        attachto = intf['attachto']
+        if attachto in port_indices:
+            net_ports.append('eth%d' % port_indices[attachto])
+    return net_ports
+
+
 def setup_ferret(duthost, ptfhost, tbinfo):
     '''
         Sets Ferret service on PTF host.
@@ -641,11 +754,16 @@ def setup_ferret(duthost, ptfhost, tbinfo):
             'minigraph_port_indices': mgFacts['minigraph_ptf_indices'],
             'minigraph_portchannel_interfaces': mgFacts['minigraph_portchannel_interfaces'],
             'minigraph_portchannels': mgFacts['minigraph_portchannels'],
+            'minigraph_interfaces': mgFacts['minigraph_interfaces'],
             'minigraph_lo_interfaces': mgFacts['minigraph_lo_interfaces'],
             'minigraph_vlans': mgFacts['minigraph_vlans'],
             'minigraph_vlan_interfaces': mgFacts['minigraph_vlan_interfaces'],
             'dut_mac': duthost.facts['router_mac']
         }
+        if not vxlanConfigData.get('minigraph_portchannels'):
+            vxlanConfigData['net_ports'] = get_ptf_eth_ports_from_minigraph_interfaces(
+                vxlanConfigData['minigraph_interfaces'],
+                vxlanConfigData['minigraph_port_indices'])
         with open(VXLAN_CONFIG_FILE, 'w') as file:
             file.write(json.dumps(vxlanConfigData, indent=4))
 
@@ -662,6 +780,11 @@ def setup_ferret(duthost, ptfhost, tbinfo):
     )
     dip = result['stdout']
     logger.info('VxLan Sender {0}'.format(dip))
+    if not dip:
+        result = duthost.shell(cmd='ip route show type unicast')
+        logger.error("VxLan Sender IP not found, the result of ip route show type unicast: {}".format(result['stdout']))
+        assert False, "VxLan Sender IP not found"
+
     vxlan_port_out = duthost.shell('redis-cli -n 0 hget "SWITCH_TABLE:switch" "vxlan_port"')
     if 'stdout' in vxlan_port_out and vxlan_port_out['stdout'].isdigit():
         vxlan_port = int(vxlan_port_out['stdout'])
@@ -768,6 +891,35 @@ def get_plt_reboot_ctrl(duthost, tc_name, reboot_type):
     return reboot_dict
 
 
+def get_plt_wait_time(duthost, tc_name):
+    """
+    @summary: utility function returns platform specific wait dict for each
+    test case that contains tc_name in it
+    @return a dict containing wait time and timeout for each test case
+
+        plt_wait_time:
+          acl/test_acl.py:
+            timeout: 300
+            wait: 300
+          everflow:
+            timeout: 300
+            wait: 60
+    """
+
+    wait_dict = dict()
+    im = duthost.sonichost.host.options['inventory_manager']
+    inv_files = im._sources
+    dut_vars = get_host_visible_vars(inv_files, duthost.hostname)
+
+    if 'plt_wait_time' in dut_vars:
+        for key in list(dut_vars['plt_wait_time'].keys()):
+            if key in tc_name:
+                for mod_id in list(dut_vars['plt_wait_time'][key].keys()):
+                    wait_dict[mod_id] = dut_vars['plt_wait_time'][key][mod_id]
+
+    return wait_dict
+
+
 def pdu_reboot(pdu_controller):
     """Power-cycle the DUT by turning off and on the PDU outlets.
 
@@ -858,32 +1010,81 @@ def get_neighbor_ptf_port_list(duthost, neighbor_name, tbinfo):
     return ptf_port_list
 
 
-def get_upstream_neigh_type(topo_type, is_upper=True):
+def get_upstream_neigh_type(tbinfo, is_upper=True):
     """
     @summary: Get neighbor type by topo type
-    @param topo_type: topo type
+    @param tbinfo: testbed info
     @param is_upper: if is_upper is True, return uppercase str, else return lowercase str
     @return a str
         Sample output: "mx"
     """
-    if topo_type in UPSTREAM_NEIGHBOR_MAP:
-        return UPSTREAM_NEIGHBOR_MAP[topo_type].upper() if is_upper else UPSTREAM_NEIGHBOR_MAP[topo_type]
+    topo_name = tbinfo["topo"]["name"]
+    topo_type = tbinfo["topo"]["type"]
+    topo_attrs = [topo_name, topo_type]
+
+    for topo_attr in topo_attrs:
+        if topo_attr in UPSTREAM_NEIGHBOR_MAP:
+            return UPSTREAM_NEIGHBOR_MAP[topo_attr].upper() if is_upper else UPSTREAM_NEIGHBOR_MAP[topo_attr]
 
     return None
 
 
-def get_downstream_neigh_type(topo_type, is_upper=True):
+def get_all_upstream_neigh_type(topo_type, is_upper=True):
+    """
+    @summary: Get ALL upstream neighbor type by topo type
+    @param topo_type: topo type
+    @param is_upper: if is_upper is True, return uppercase str, else return lowercase str
+    @return a list
+        Sample output: ["ma", "mb"]
+    """
+    if is_upper:
+        return [neigh.upper() for neigh in UPSTREAM_ALL_NEIGHBOR_MAP.get(topo_type, [])]
+    return UPSTREAM_ALL_NEIGHBOR_MAP.get(topo_type, [])
+
+
+def get_downstream_neigh_type(tbinfo, is_upper=True):
     """
     @summary: Get neighbor type by topo type
-    @param topo_type: topo type
+    @param tbinfo: testbed info
     @param is_upper: if is_upper is True, return uppercase str, else return lowercase str
     @return a str
         Sample output: "mx"
     """
-    if topo_type in DOWNSTREAM_NEIGHBOR_MAP:
-        return DOWNSTREAM_NEIGHBOR_MAP[topo_type].upper() if is_upper else DOWNSTREAM_NEIGHBOR_MAP[topo_type]
+    topo_name = tbinfo["topo"]["name"]
+    topo_type = tbinfo["topo"]["type"]
+    topo_attrs = [topo_name, topo_type]
+
+    for topo_attr in topo_attrs:
+        if topo_attr in DOWNSTREAM_NEIGHBOR_MAP:
+            return DOWNSTREAM_NEIGHBOR_MAP[topo_attr].upper() if is_upper else DOWNSTREAM_NEIGHBOR_MAP[topo_attr]
 
     return None
+
+
+def get_all_downstream_neigh_type(topo_type, is_upper=True):
+    """
+    @summary: Get ALL downstream neighbor type by topo type
+    @param topo_type: topo type
+    @param is_upper: if is_upper is True, return uppercase str, else return lowercase str
+    @return a list
+        Sample output: ["m0", "c0"]
+    """
+    if is_upper:
+        return [neigh.upper() for neigh in DOWNSTREAM_ALL_NEIGHBOR_MAP.get(topo_type, [])]
+    return DOWNSTREAM_ALL_NEIGHBOR_MAP.get(topo_type, [])
+
+
+def is_ipv6_only_topology(tbinfo):
+    """
+    @summary: Check if the current topology is IPv6-only based on testbed info.
+    @param tbinfo: Testbed information dictionary
+    @return: bool - True if topology is IPv6-only, False otherwise
+    """
+    return (
+        "-v6-" in tbinfo["topo"]["name"]
+        if tbinfo and "topo" in tbinfo and "name" in tbinfo["topo"]
+        else False
+    )
 
 
 def run_until(interval, delay, retry, condition, function, *args, **kwargs):
@@ -1029,11 +1230,11 @@ def recover_acl_rule(duthost, data_acl):
 
 def get_ipv4_loopback_ip(duthost):
     """
-    Get ipv4 loopback ip address
+    Get the first valid ipv4 loopback ip address
     """
     config_facts = duthost.get_running_config_facts()
     los = config_facts.get("LOOPBACK_INTERFACE", {})
-    loopback_ip = None
+    selected_loopback_ip = None
 
     for key, _ in los.items():
         if "Loopback" in key:
@@ -1041,10 +1242,12 @@ def get_ipv4_loopback_ip(duthost):
             for ip_str, _ in loopback_ips.items():
                 ip = ip_str.split("/")[0]
                 if is_ipv4_address(ip):
-                    loopback_ip = ip
+                    selected_loopback_ip = ip
                     break
+        if selected_loopback_ip is not None:
+            break
 
-    return loopback_ip
+    return selected_loopback_ip
 
 
 def get_dscp_to_queue_value(dscp_value, dscp_to_tc_map, tc_to_queue_map):
@@ -1097,6 +1300,19 @@ def find_egress_queue(all_queue_pkts, exp_queue_pkts, tolerance=0.05):
     return -1
 
 
+def handle_queue_stats_output(intf_queue_stats):
+    queue_stats = []
+    for prio in range(8):
+        total_pkts_prio_str = intf_queue_stats.get("UC{}".format(prio)) if intf_queue_stats.get("UC{}".format(prio)) \
+            is not None else {"totalpacket": "0"}
+        total_pkts_str = total_pkts_prio_str.get("totalpacket")
+        if total_pkts_str == "N/A" or total_pkts_str is None:
+            total_pkts_str = "0"
+        queue_stats.append(int(total_pkts_str.replace(',', '')))
+
+    return queue_stats
+
+
 def get_egress_queue_pkt_count_all_prio(duthost, port):
     """
     Get the egress queue count in packets for a given port and all priorities from SONiC CLI.
@@ -1110,17 +1326,27 @@ def get_egress_queue_pkt_count_all_prio(duthost, port):
     raw_out = duthost.shell("queuestat -jp {}".format(port))['stdout']
     raw_json = json.loads(raw_out)
     intf_queue_stats = raw_json.get(port)
-    queue_stats = []
 
-    for prio in range(8):
-        total_pkts_prio_str = intf_queue_stats.get("UC{}".format(prio)) if intf_queue_stats.get("UC{}".format(prio)) \
-            is not None else {"totalpacket": "0"}
-        total_pkts_str = total_pkts_prio_str.get("totalpacket")
-        if total_pkts_str == "N/A" or total_pkts_str is None:
-            total_pkts_str = "0"
-        queue_stats.append(int(total_pkts_str.replace(',', '')))
+    return handle_queue_stats_output(intf_queue_stats)
 
-    return queue_stats
+
+def get_egress_queue_pkt_count_all_port_prio(duthost):
+    """
+    Get the egress queue count in packets for all ports and all priorities from SONiC CLI.
+    This is the equivalent of the "queuestat -j" command.
+    Args:
+        duthost (Ansible host instance): device under test
+    Returns:
+        array [int]: total count of packets in the queue for all priorities and ports
+    """
+    raw_out = duthost.shell("queuestat -j")['stdout']
+    raw_json = json.loads(raw_out)
+    all_stats = {}
+    for port in raw_json.keys():
+        intf_queue_stats = raw_json.get(port)
+        all_stats[port] = handle_queue_stats_output(intf_queue_stats)
+
+    return all_stats
 
 
 @contextlib.contextmanager
@@ -1131,7 +1357,8 @@ def capture_and_check_packet_on_dut(
     pkts_validator=lambda pkts: pytest_assert(len(pkts) > 0, "No packets captured"),
     pkts_validator_args=[],
     pkts_validator_kwargs={},
-    wait_time=1
+    wait_time=1,
+    tcpdump_buffer_size=131072
 ):
     """
     Capture packets on DUT and check if the packet is expected
@@ -1145,8 +1372,8 @@ def capture_and_check_packet_on_dut(
         wait_time: the time to wait before stopping the packet capture, default is 1 second
     """
     pcap_save_path = "/tmp/func_capture_and_check_packet_on_dut_%s.pcap" % (str(uuid.uuid4()))
-    cmd_capture_pkts = "nohup tcpdump --immediate-mode -U -i %s -w %s >/dev/null 2>&1 %s & echo $!" \
-        % (interface, pcap_save_path, pkts_filter)
+    cmd_capture_pkts = ("nohup tcpdump --buffer-size=%s --immediate-mode -U -i %s -w %s" +
+                        ">/dev/null 2>&1 %s & echo $!") % (tcpdump_buffer_size, interface, pcap_save_path, pkts_filter)
     tcpdump_pid = duthost.shell(cmd_capture_pkts)["stdout"]
     cmd_check_if_process_running = "ps -p %s | grep %s |grep -v grep | wc -l" % (tcpdump_pid, tcpdump_pid)
     pytest_assert(duthost.shell(cmd_check_if_process_running)["stdout"] == "1",
@@ -1161,6 +1388,7 @@ def capture_and_check_packet_on_dut(
             duthost.fetch(src=pcap_save_path, dest=temp_pcap.name, flat=True)
             pkts_validator(scapy_sniff(offline=temp_pcap.name), *pkts_validator_args, **pkts_validator_kwargs)
     finally:
+        duthost.shell("kill -9 %s || true" % tcpdump_pid, module_ignore_errors=True)
         duthost.file(path=pcap_save_path, state="absent")
 
 
@@ -1211,6 +1439,17 @@ def get_dut_current_passwd(ipv4_address, ipv6_address, username, passwords):
     except Exception:
         _, passwd = _paramiko_ssh(ipv6_address, username, passwords)
     return passwd
+
+
+def update_console_creds(creds, console_auth_type):
+    # Load creds for console based on auth type (e.g. tacacs, xpme)
+    if console_auth_type and console_auth_type in creds.get("console_login_options", {}):
+        console_login_creds = creds["console_login_options"][console_auth_type]
+        creds["console_user"] = {}
+        creds["console_password"] = {}
+        for k, v in list(console_login_creds.items()):
+            creds["console_user"][k] = v["user"]
+            creds["console_password"][k] = v["passwd"]
 
 
 def check_msg_in_syslog(duthost, log_msg):
@@ -1303,9 +1542,10 @@ def restore_config(duthost, config, config_backup):
     duthost.shell("mv {} {}".format(config_backup, config))
 
 
-def get_running_config(duthost, asic=None):
+def get_running_config(duthost, asic=None, filter=None):
     ns = "-n " + asic if asic else ""
-    return json.loads(duthost.shell("sonic-cfggen {} -d --print-data".format(ns))['stdout'])
+    fil = f"| jq {filter}" if filter else ""
+    return json.loads(duthost.shell(f"sonic-cfggen {ns} -d --print-data {fil}")['stdout'])
 
 
 def reload_minigraph_with_golden_config(duthost, json_data, safe_reload=True):
@@ -1315,9 +1555,12 @@ def reload_minigraph_with_golden_config(duthost, json_data, safe_reload=True):
     from tests.common.config_reload import config_reload
     golden_config = "/etc/sonic/golden_config_db.json"
     duthost.copy(content=json.dumps(json_data, indent=4), dest=golden_config)
-    config_reload(duthost, config_source="minigraph", safe_reload=safe_reload, override_config=True)
-    # Cleanup golden config because some other test or device recover may reload config with golden config
-    duthost.command('mv {} {}_backup'.format(golden_config, golden_config))
+    try:
+        config_reload(duthost, config_source="minigraph", safe_reload=safe_reload, override_config=True,
+                      wait_for_bgp=True)
+    finally:
+        # Cleanup golden config because some other test or device recover may reload config with golden config
+        duthost.command('mv {} {}_backup'.format(golden_config, golden_config))
 
 
 def file_exists_on_dut(duthost, filename):
@@ -1358,3 +1601,229 @@ def run_show_features(duthosts, enum_dut_hostname):
                                     .format(cmd_key), module_ignore_errors=False)['stdout']
         pytest_assert(redis_value.lower() == cmd_value.lower(),
                       "'{}' is '{}' which does not match with config_db".format(cmd_key, cmd_value))
+
+
+def kill_process_by_pid(duthost, container_name, program_name, program_pid):
+    """Kills a process in the specified container by its pid.
+
+    Args:
+        duthost: Hostname of DUT.
+        container_name: A string shows container name.
+        program_name: A string shows process name.
+        program_pid: An integer represents the PID of a process.
+
+    Returns:
+        None.
+    """
+    if "20191130" in duthost.os_version:
+        kill_cmd_result = duthost.shell("docker exec {} supervisorctl stop {}".format(container_name, program_name))
+    else:
+        # If we used the command `supervisorctl stop <proc_name>' to stop process,
+        # Supervisord will treat the exit code of process as expected and it will not generate
+        # alerting message.
+        kill_cmd_result = duthost.shell("docker exec {} kill -SIGKILL {}".format(container_name, program_pid))
+
+    # Get the exit code of 'kill' or 'supervisorctl stop' command
+    exit_code = kill_cmd_result["rc"]
+    pytest_assert(exit_code == 0, "Failed to stop program '{}' before test".format(program_name))
+
+    logger.info("Program '{}' in container '{}' was stopped successfully"
+                .format(program_name, container_name))
+
+
+def get_duts_from_host_pattern(host_pattern):
+    if ';' in host_pattern:
+        duts = host_pattern.replace('[', '').replace(']', '').split(';')
+    else:
+        duts = host_pattern.split(',')
+    return duts
+
+
+def get_iface_ip(mg_facts, ifacename):
+    for loopback in mg_facts['minigraph_lo_interfaces']:
+        if loopback['name'] == ifacename and ipaddress.ip_address(loopback['addr']).version == 4:
+            return loopback['addr']
+    return None
+
+
+def get_vlan_from_port(duthost, member_port):
+    '''
+    Returns the name of the VLAN that has the given member port.
+    If no VLAN or appropriate member found, returns None.
+    '''
+    mg_facts = duthost.get_extended_minigraph_facts()
+    if 'minigraph_vlans' not in mg_facts:
+        return None
+    vlan_name = None
+    for vlan in mg_facts['minigraph_vlans']:
+        for member in mg_facts['minigraph_vlans'][vlan]['members']:
+            if member == member_port:
+                vlan_name = vlan
+                break
+        if vlan_name is not None:
+            break
+    return vlan_name
+
+
+def configure_packet_aging(duthost, disabled=True):
+    """
+        For Nvidia(Mellanox) platforms, packets in buffer will be aged after a timeout.
+        This function can enable or disable packet aging feature.
+
+        Args:
+            duthost: DUT host object
+            disabled: True to disable packet aging, False to enable packet aging
+    """
+    logger.info("Starting configure packet aging")
+    asic = duthost.get_asic_name()
+    if 'spc' in asic:
+        action = "disable" if disabled else "enable"
+        logger.info(f"{action.capitalize()} Mellanox packet aging")
+        duthost.copy(src="qos/files/mellanox/packets_aging.py", dest="/tmp")
+        duthost.command("docker cp /tmp/packets_aging.py syncd:/")
+        duthost.command(f"docker exec syncd python /packets_aging.py {action}")
+        duthost.command("docker exec syncd rm -rf /packets_aging.py")
+
+
+def cleanup_prev_images(duthost):
+    logger.info("Cleaning up previously installed images on DUT")
+    current_os_version = duthost.shell('sonic_installer list | grep Current | cut -f2 -d " "')['stdout']
+    duthost.shell("sonic_installer set-next-boot {}".format(current_os_version), module_ignore_errors=True)
+    duthost.shell("sonic_installer cleanup -y", module_ignore_errors=True)
+
+
+def parse_rif_counters(output_lines):
+    """Parse the output of "show interfaces counters rif" command
+    Args:
+        output_lines (list): The output lines of "show interfaces counters rif" command
+    Returns:
+        list: A dictionary, key is interface name, value is a dictionary of fields/values
+    """
+
+    header_line = ''
+    separation_line = ''
+    separation_line_number = 0
+    for idx, line in enumerate(output_lines):
+        if line.find('----') >= 0:
+            header_line = output_lines[idx - 1]
+            separation_line = output_lines[idx]
+            separation_line_number = idx
+            break
+
+    try:
+        positions = parse_column_positions(separation_line)
+    except Exception:
+        logger.error('Possibly bad command output')
+        return {}
+
+    headers = []
+    for pos in positions:
+        header = header_line[pos[0]:pos[1]].strip().lower()
+        headers.append(header)
+
+    if not headers:
+        return {}
+
+    results = {}
+    for line in output_lines[separation_line_number + 1:]:
+        portstats = []
+        for pos in positions:
+            portstat = line[pos[0]:pos[1]].strip()
+            portstats.append(portstat)
+
+        intf = portstats[0]
+        results[intf] = {}
+        for idx in range(1, len(portstats)):  # Skip the first column interface name
+            results[intf][headers[idx]] = portstats[idx].replace(',', '')
+
+    return results
+
+
+def get_day_of_week_distributed_ports_from_buckets(ports: list, num_buckets: int) -> list:
+    """
+    Select ports randomly using buckets and Day of Week (DoW) based selection.
+    Args:
+        ports (list): List of ports to select from.
+        num_buckets (int): Number of buckets to divide the ports into.
+    Returns:
+        list: Selected ports based on DoW from each bucket.
+    """
+    if len(ports) == 0:
+        return []
+    if len(ports) <= num_buckets:
+        return ports
+    # Get DoW
+    day_of_week = datetime.now().weekday()
+    logger.info("Day of Week: {} (0=Mon, 6=Sun) - used for port selection".format(day_of_week))
+    day_index = datetime.now().toordinal()
+    rng = random.Random(day_index)  # Local RNG: reproducible per day, no global side effects
+
+    bucket_size = len(ports) // num_buckets
+    remainder = len(ports) % num_buckets
+    selected_ports = []
+    start_idx = 0
+
+    for i in range(num_buckets):
+        # Distribute remainder across first available buckets
+        current_bucket_size = bucket_size + (1 if i < remainder else 0)
+        if current_bucket_size == 0:
+            break
+        end_idx = start_idx + current_bucket_size
+        bucket_ports = ports[start_idx:end_idx]
+        rng.shuffle(bucket_ports)
+        # Select port based on DoW index (wrapping if bucket is smaller than 7)
+        port_index = day_of_week % len(bucket_ports)
+        selected_ports.append(bucket_ports[port_index])
+        start_idx = end_idx
+
+    logger.info("Selected {} ports from {} buckets using DoW-based selection: {}".format(
+        len(selected_ports), num_buckets, selected_ports))
+    return selected_ports
+
+
+def group_interfaces_by_asic(duthost, interfaces: list) -> dict:
+    """
+    Group interfaces by their ASIC namespace.
+    Args:
+        duthost: DUT host object
+        interfaces: List of interface names
+    Returns:
+        dict: Mapping of ASIC namespace string to list of interfaces
+              e.g., {"": ["Eth1", "Eth2"], "-n asic0": ["Eth3"]}
+    """
+    if not duthost.is_multi_asic:
+        return {"": list(interfaces)}
+    asic_interface_map = collections.defaultdict(list)
+    for interface in interfaces:
+        namespace = duthost.get_port_asic_instance(interface).get_asic_namespace()
+        asic_interface_map["-n {}".format(namespace)].append(interface)
+    return dict(asic_interface_map)
+
+
+def testbed_is_multi_vrf(tbinfo):
+    val = tbinfo.get('use_converged_peers')
+    if val:
+        return str(val).lower() == 'true'
+    return False
+
+
+def get_neighbor_exabgp_vm_offset(nbrhosts, tbinfo, neighbor_name):
+    """Return the vm_offset used to derive a neighbor's exabgp API port.
+
+    The per-neighbor exabgp instances are created from the ORIGINAL topology
+    offsets. On a converged (multi-VRF) topology those original offsets are
+    preserved per logical neighbor in ``multi_vrf_data['vm_offset_mapping']``
+    (sourced from ``convergence_data['vm_offset_mapping']``), while
+    ``tbinfo['topo']['properties']['topology']['VMs']`` only carries the
+    collapsed *prime* offsets. Route-injection helpers that compute
+    ``EXABGP_BASE_PORT + offset`` must therefore use the per-neighbor original
+    offset, otherwise they post the announce to the wrong exabgp instance (a
+    different VRF) and the route never reaches the intended neighbor.
+
+    On stock topologies the neighbor is its own VM and this simply returns the
+    VM's ``vm_offset``, so behavior is unchanged there.
+    """
+    neighbor = nbrhosts.get(neighbor_name, {})
+    if neighbor.get('is_multi_vrf_peer', False):
+        return neighbor['multi_vrf_data']['vm_offset_mapping']
+    return tbinfo['topo']['properties']['topology']['VMs'][neighbor_name]['vm_offset']

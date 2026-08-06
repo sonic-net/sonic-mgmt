@@ -3,6 +3,7 @@ import re
 import logging
 from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_require
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import get_host_visible_vars
 from tests.common.reboot import reboot, REBOOT_TYPE_COLD, REBOOT_TYPE_WARM
@@ -13,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.asic('broadcom'),
-    pytest.mark.topology('t0', 't1'),
+    pytest.mark.topology('t0', 't1', 'm1'),
     pytest.mark.disable_loganalyzer
 ]
 
@@ -53,12 +54,18 @@ def enable_container_autorestart(duthosts, enum_rand_one_per_hwsku_frontend_host
     container_autorestart_states = duthost.get_container_autorestart_states()
     for feature, status in list(feature_list.items()):
         # Enable container autorestart only if the feature is enabled and container autorestart is disabled.
+        if feature == "frr_bmp":
+            # Skip frr_bmp since it's not container just bmp option used by bgpd
+            continue
         if status == 'enabled' and container_autorestart_states[feature] == 'disabled':
             duthost.shell("sudo config feature autorestart {} enabled".format(feature))
 
     yield
     for feature, status in list(feature_list.items()):
         # Disable container autorestart back if it was initially disabled.
+        if feature == "frr_bmp":
+            # Skip frr_bmp since it's not container just bmp option used by bgpd
+            continue
         if status == 'enabled' and container_autorestart_states[feature] == 'disabled':
             duthost.shell("sudo config feature autorestart {} disabled".format(feature))
 
@@ -201,6 +208,11 @@ def test_ecmp_hash_seed_value(localhost, duthosts, tbinfo, enum_rand_one_per_hws
     """
     Check ecmp HASH_SEED
     """
+    pytest_require(
+        not (parameter == "warm-reboot" and "dualtor" in tbinfo["topo"]["name"]),
+        "Skip warm reboot test on dualtor topology"
+    )
+
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asic = duthost.facts["asic_type"]
     topo_type = tbinfo['topo']['type']
@@ -250,6 +262,10 @@ def test_ecmp_offset_value(localhost, duthosts, tbinfo, enum_rand_one_per_hwsku_
     """
     Check ecmp HASH_OFFSET
     """
+    pytest_require(
+        not (parameter == "warm-reboot" and "dualtor" in tbinfo["topo"]["name"]),
+        "Skip warm reboot test on dualtor topology"
+    )
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asic = duthost.facts["asic_type"]
     topo_type = tbinfo['topo']['type']

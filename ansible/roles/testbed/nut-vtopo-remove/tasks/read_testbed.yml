@@ -1,0 +1,72 @@
+---
+# Read testbed.nut.yaml and extract device/link info from CSVs
+# Inputs: testbed_name, testbed_file
+# Outputs (set_fact): vnut_devices (list of dicts), vnut_links (list of dicts)
+
+- name: Validate testbed_name is provided
+  fail:
+    msg: "testbed_name must be specified"
+  when: testbed_name is not defined or testbed_name | length == 0
+
+- name: Resolve ansible base directory
+  # Use playbook_dir instead of role_path so we can locate testbed files and lab data
+  # relative to the top-level ansible directory regardless of role nesting depth.
+  set_fact:
+    vnut_ansible_dir: "{{ playbook_dir }}"
+    vnut_lab_files_dir: "{{ playbook_dir }}/files"
+
+- name: Read testbed YAML file
+  set_fact:
+    testbed_data: "{{ lookup('file', vnut_ansible_dir + '/' + testbed_file) | from_yaml }}"
+
+- name: Extract testbed entry
+  set_fact:
+    testbed_entry: "{{ testbed_data | selectattr('name', 'equalto', testbed_name) | list }}"
+
+- name: Validate testbed entry exists
+  assert:
+    that:
+      - testbed_entry | length > 0
+    fail_msg: >-
+      Testbed '{{ testbed_name }}' not found in {{ testbed_file }}.
+      Available testbeds: {{ testbed_data | map(attribute='name') | list }}
+
+- name: Set testbed entry fact
+  set_fact:
+    testbed_entry: "{{ testbed_entry | first }}"
+
+- name: Get DUT and TG names from testbed
+  set_fact:
+    testbed_dut_names: "{{ testbed_entry.duts | default([]) }}"
+    testbed_tg_names: "{{ testbed_entry.tgs | default([]) }}"
+    testbed_all_devices: "{{ (testbed_entry.duts | default([])) + (testbed_entry.tgs | default([])) }}"
+
+- name: Read sonic_lab_devices.csv
+  read_csv:
+    path: "{{ vnut_lab_files_dir }}/sonic_lab_devices.csv"
+  delegate_to: localhost
+  register: lab_devices_csv
+
+- name: Filter devices for this testbed
+  set_fact:
+    vnut_devices: "{{ lab_devices_csv.list | selectattr('Hostname', 'in', testbed_all_devices) | list }}"
+
+- name: Read sonic_lab_links.csv
+  read_csv:
+    path: "{{ vnut_lab_files_dir }}/sonic_lab_links.csv"
+  delegate_to: localhost
+  register: lab_links_csv
+
+- name: Filter links for this testbed's devices
+  set_fact:
+    vnut_links: >-
+      {{ (lab_links_csv.list | selectattr('StartDevice', 'in', testbed_all_devices) | list
+         + lab_links_csv.list | selectattr('EndDevice', 'in', testbed_all_devices) | list)
+         | unique }}
+
+- name: Display parsed testbed info
+  debug:
+    msg: |
+      Testbed: {{ testbed_name }}
+      Devices: {{ vnut_devices | map(attribute='Hostname') | list }}
+      Links: {{ vnut_links | length }} links

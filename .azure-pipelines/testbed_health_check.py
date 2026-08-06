@@ -14,8 +14,9 @@ import logging
 import os
 import sys
 import json
+import yaml
 from datetime import datetime
-from netaddr import valid_ipv4
+from netaddr import valid_ipv4, valid_ipv6
 
 _self_dir = os.path.dirname(os.path.abspath(__file__))
 base_path = os.path.realpath(os.path.join(_self_dir, ".."))
@@ -25,10 +26,18 @@ ansible_path = os.path.realpath(os.path.join(_self_dir, "../ansible"))
 if ansible_path not in sys.path:
     sys.path.append(ansible_path)
 
-from devutil.devices.factory import init_host, init_localhost, init_testbed_sonichosts  # noqa E402
-from devutil.devices.ansible_hosts import HostsUnreachable, RunAnsibleModuleFailed  # noqa E402
+from devutil.devices.factory import init_host, init_localhost, init_sonichosts  # noqa: E402
+from devutil.devices.ansible_hosts import HostsUnreachable, RunAnsibleModuleFailed  # noqa: E402
+from devutil.devices.dpu_utils import (  # noqa: E402
+    is_nat_enabled_for_dpu,
+    enable_nat_for_dpuhosts as _enable_nat_for_dpuhosts,
+)
 
 logger = logging.getLogger(__name__)
+
+ANSIBLE_POLL_INTERVAL_SECONDS = 5
+CONFIG_DB_CHECK_TIMEOUT_SECONDS = 30
+DUT_BASIC_FACTS_TIMEOUT_SECONDS = 120
 
 
 def get_timestamp_utcnow():
@@ -86,14 +95,73 @@ class TestbedHealthChecker:
 
         self.localhost = None
         self.sonichosts = None
+        self.duts_basic_facts = None
+        self.is_multi_asic = False
+        self.is_chassis = False
 
         self.inventory = inventory
         self.testbed_name = testbed_name
         self.testbed_file = testbed_file
         self.log_verbosity = log_verbosity
         self.output_file = output_file
+        self.is_snappi_testbed = 'rdma' in testbed_name or 'ixia' in testbed_name
+        self.is_bmc_testbed = 'bmc' in testbed_name.lower()
+
+        # DPU-related state
+        self.dpu_hosts = []
+        self.npu_hosts = []
+        self.nat_enabled_hosts = []
 
         self.check_result = TestbedCheckResult(code=0, errmsg=[], data={})
+
+    def _get_testbed_dut_names(self):
+        """
+        Get the list of DUT hostnames from the testbed file without connecting to them.
+
+        Returns:
+            list: List of DUT hostnames, or empty list if not found.
+        """
+        testbed_file_path = os.path.join(ansible_path, self.testbed_file)
+        try:
+            with open(testbed_file_path) as f:
+                testbeds = yaml.safe_load(f.read())
+
+            for testbed in testbeds:
+                if testbed["conf-name"] == self.testbed_name:
+                    return testbed.get("dut", [])
+        except Exception as e:
+            logger.error("Failed to read testbed file {}: {}".format(testbed_file_path, repr(e)))
+        return []
+
+    def _get_dut_basic_facts(self, sonichosts):
+        """Gather DUT facts without waiting indefinitely for CONFIG_DB."""
+        config_db_status = sonichosts.command(
+            "sonic-db-cli CONFIG_DB GET CONFIG_DB_INITIALIZED",
+            module_attrs={
+                "async": CONFIG_DB_CHECK_TIMEOUT_SECONDS,
+                "poll": ANSIBLE_POLL_INTERVAL_SECONDS,
+            },
+        )
+        uninitialized_hosts = [
+            hostname
+            for hostname in sonichosts.hostnames
+            if str(
+                config_db_status.get(hostname, {}).get("stdout", "")
+            ).strip() != "1"
+        ]
+        if uninitialized_hosts:
+            raise HostInitFailed(
+                "CONFIG_DB is not initialized on host(s): {}".format(
+                    ", ".join(uninitialized_hosts)
+                )
+            )
+
+        return sonichosts.dut_basic_facts(
+            module_attrs={
+                "async": DUT_BASIC_FACTS_TIMEOUT_SECONDS,
+                "poll": ANSIBLE_POLL_INTERVAL_SECONDS,
+            },
+        )
 
     def init_hosts(self):
 
@@ -104,14 +172,109 @@ class TestbedHealthChecker:
         if not self.localhost:
             raise HostInitFailed("localhost is None. Please check inventory.")
 
-        self.sonichosts = init_testbed_sonichosts(
-            self.inventory, self.testbed_name, testbed_file=self.testbed_file,
+        # Get DUT names from testbed file first (without connecting)
+        all_dut_names = self._get_testbed_dut_names()
+        if not all_dut_names:
+            raise HostInitFailed("No DUTs found in testbed file. Please check testbed name/file.")
+
+        # Separate NPU and DPU hostnames based on 'dpu' in name
+        npu_hostnames = [name for name in all_dut_names if "dpu" not in name.lower()]
+        dpu_hostnames = [name for name in all_dut_names if "dpu" in name.lower()]
+
+        logger.info("NPU hostnames: {}, DPU hostnames: {}".format(npu_hostnames, dpu_hostnames))
+
+        # Initialize NPU hosts first (directly reachable)
+        if npu_hostnames:
+            npu_sonichosts = init_sonichosts(
+                self.inventory, npu_hostnames,
+                options={"verbosity": self.log_verbosity}
+            )
+            if not npu_sonichosts:
+                raise HostInitFailed("Failed to initialize NPU hosts: {}".format(npu_hostnames))
+
+            # Get basic facts from NPU hosts
+            npu_basic_facts = self._get_dut_basic_facts(npu_sonichosts)
+            self.duts_basic_facts = npu_basic_facts
+
+            # Store NPU hosts
+            for sonichost in npu_sonichosts:
+                self.npu_hosts.append(sonichost)
+
+            self.is_multi_asic = npu_basic_facts[npu_sonichosts[0].hostname][
+                "ansible_facts"]["dut_basic_facts"]["is_multi_asic"]
+            self.is_chassis = npu_basic_facts[npu_sonichosts[0].hostname][
+                "ansible_facts"]["dut_basic_facts"]["is_chassis"]
+
+        # Enable NAT for DPU hosts if there are any DPUs
+        if dpu_hostnames:
+            logger.info("DPU hosts detected. Enabling NAT before initializing DPU hosts.")
+            self.enable_nat_for_dpuhosts(dpu_hostnames)
+
+            # Initialize DPU hosts one-by-one; some DPUs may be offline
+            reachable_dpu_hostnames = []
+            for dpu_hostname in dpu_hostnames:
+                try:
+                    dpu_sh = init_sonichosts(
+                        self.inventory, [dpu_hostname],
+                        options={"verbosity": self.log_verbosity}
+                    )
+                    if not dpu_sh:
+                        logger.warning("Failed to create SonicHosts for %s, skipping.", dpu_hostname)
+                        continue
+                    dpu_facts = self._get_dut_basic_facts(dpu_sh)
+                    self.duts_basic_facts.update(dpu_facts)
+                    for sonichost in dpu_sh:
+                        self.dpu_hosts.append(sonichost)
+                    reachable_dpu_hostnames.append(dpu_hostname)
+                    logger.info("DPU host %s is reachable and initialized.", dpu_hostname)
+                except (HostsUnreachable, RunAnsibleModuleFailed, HostInitFailed) as e:
+                    logger.warning("DPU host %s is unreachable, skipping: %s", dpu_hostname, repr(e))
+
+            if not reachable_dpu_hostnames:
+                logger.warning("No DPU hosts are reachable. Continuing with NPU hosts only.")
+
+            # Use only reachable hosts for the combined sonichosts
+            all_reachable_names = npu_hostnames + reachable_dpu_hostnames
+        else:
+            all_reachable_names = npu_hostnames if npu_hostnames else all_dut_names
+
+        # Combine all reachable hosts into sonichosts for compatibility
+        self.sonichosts = init_sonichosts(
+            self.inventory, all_reachable_names,
             options={"verbosity": self.log_verbosity}
         )
         if not self.sonichosts:
             raise HostInitFailed("sonichosts is None. Please check testbed name/file/inventory.")
 
         logger.info("======================= init_hosts ends =======================")
+
+    def enable_nat_for_dpuhosts(self, dpu_hostnames=None):
+        """Enable NAT on NPU hosts to make DPU hosts reachable.
+
+        Delegates to :func:`devutil.devices.sonic.enable_nat_for_dpuhosts` and
+        tracks which NPU hosts had NAT enabled in ``self.nat_enabled_hosts``.
+
+        Args:
+            dpu_hostnames: List of DPU hostname strings. If None, uses self.dpu_hosts.
+        """
+        if not dpu_hostnames and not self.dpu_hosts:
+            logger.info("No DPU hosts found. Skipping NAT enablement.")
+            return
+
+        if dpu_hostnames is None:
+            dpu_hostnames = [h.hostname for h in self.dpu_hosts]
+
+        logger.info("======================= enable_nat_for_dpuhosts starts =======================")
+
+        # Build a temporary SonicHosts-like list from self.npu_hosts
+        _enable_nat_for_dpuhosts(self.npu_hosts, self.inventory, dpu_hostnames)
+
+        # Track which NPU hosts now have NAT enabled
+        for npu_host in self.npu_hosts:
+            if npu_host.hostname not in self.nat_enabled_hosts and is_nat_enabled_for_dpu(npu_host):
+                self.nat_enabled_hosts.append(npu_host.hostname)
+
+        logger.info("======================= enable_nat_for_dpuhosts ends =======================")
 
     def pre_check(self):
         """
@@ -120,9 +283,11 @@ class TestbedHealthChecker:
 
         logger.info("======================= pre_check starts =======================")
 
+        group = os.path.basename(self.inventory[0]) if self.inventory else None
         # Retrieve the connection graph facts of localhost
         conn_graph_facts = self.localhost.conn_graph_facts(hosts=self.sonichosts.hostnames,
-                                                           filepath=os.path.join(ansible_path, "files"))
+                                                           filepath=os.path.join(ansible_path, "files"),
+                                                           group=group)
 
         # Check hosts reachability
         hosts_reachable = True
@@ -139,6 +304,11 @@ class TestbedHealthChecker:
                 self.check_result.errmsg.append("sonichost {} is unreachable.".format(sonichost.hostname))
                 self.check_result.data[sonichost.hostname] = result
 
+            # Skip fanout connectivity check for DPU hosts - they don't have external connections
+            if "dpu" in sonichost.hostname.lower():
+                logger.info("Skipping fanout check for DPU host: {}".format(sonichost.hostname))
+                continue
+
             dut_device_conn = conn_graph_facts["ansible_facts"]["device_conn"][sonichost.hostname]
 
             peer_devices = [dut_device_conn[port]["peerdevice"] for port in dut_device_conn]
@@ -146,6 +316,11 @@ class TestbedHealthChecker:
 
             for fanout_hostname in peer_devices:
                 # Check fanouthost reachability
+
+                # Skip the ixia host health check
+                if "ixia" in fanout_hostname:
+                    logger.info("Skip ixia host {} health check.".format(fanout_hostname))
+                    continue
 
                 # Create fanouthost instance.
                 fanouthost = init_host(inventories=self.inventory, host_pattern=fanout_hostname)
@@ -160,6 +335,9 @@ class TestbedHealthChecker:
                                                                             "fanout_sonic_password")
                     fanouthost.vm.extra_vars.update(
                         {"ansible_ssh_user": fanout_sonic_user, "ansible_ssh_password": fanout_sonic_password})
+                else:
+                    fanouthost.vm.extra_vars.pop("ansible_ssh_user", None)
+                    fanouthost.vm.extra_vars.pop("ansible_ssh_password", None)
 
                 is_reachable, result = fanouthost.reachable()
 
@@ -174,54 +352,52 @@ class TestbedHealthChecker:
         if not hosts_reachable:
             raise HostsUnreachable(self.check_result.errmsg)
 
-        # Verify mgmt-ipv4 address exists
+        # Verify management IP address exists (IPv4 or IPv6)
         config_db_file = "/etc/sonic/config_db.json"
-        ipv4_not_exists_hosts = []
+        mgmt_ip_not_exists_hosts = []
 
         for sonichost in self.sonichosts:
+            # Skip MGMT_INTERFACE check for DPU hosts - they use midplane IPs, not mgmt interface
+            if "dpu" in sonichost.hostname.lower():
+                logger.info(
+                    "Skipping MGMT_INTERFACE check for DPU host: {}".format(sonichost.hostname)
+                )
+                continue
 
-            rst = sonichost.shell(f"jq '.MGMT_INTERFACE' {config_db_file}", module_ignore_errors=True).get("stdout",
-                                                                                                           None)
+            rst = sonichost.shell(
+                f"jq '.MGMT_INTERFACE' {config_db_file}",
+                module_ignore_errors=True,
+            ).get("stdout", None)
+            device_hostname = sonichost.shell(
+                f"jq '.DEVICE_METADATA.localhost.hostname' {config_db_file}"
+            ).get("stdout", None)
 
-            # If valid stdout
-            if rst is not None and rst.strip() != "":
-
+            if not device_hostname or device_hostname == '"sonic"':
+                raise RuntimeError(f"Device {sonichost.hostname} is not properly configured, "
+                                   f"hostname is still: {device_hostname}")
+            # If valid stdout (also check for "null" which jq returns when key doesn't exist)
+            if rst is not None and rst.strip() != "" and rst.strip() != "null":
                 mgmt_interface = json.loads(rst)
-
-                ipv4_exists = False
-
+                mgmt_ip_exists = False
                 # Use list() to make a copy of mgmt_interface.keys() to avoid
                 for key in list(mgmt_interface):
-                    ip_addr = key.split("|")[1]
-                    ip_addr_without_mask = ip_addr.split('/')[0]
-                    if ip_addr:
-                        is_ipv4 = valid_ipv4(ip_addr_without_mask)
-                        if is_ipv4:
-                            ipv4_exists = True
-                            break
+                    key_parts = key.split("|", 1)
+                    if len(key_parts) < 2:
+                        continue
+                    ip_addr = key_parts[1]
+                    ip_addr_without_mask = ip_addr.split('/', 1)[0]
+                    if ip_addr_without_mask and (valid_ipv4(ip_addr_without_mask) or valid_ipv6(ip_addr_without_mask)):
+                        mgmt_ip_exists = True
+                        break
+                if not mgmt_ip_exists:
+                    mgmt_ip_not_exists_hosts.append(sonichost.hostname)
+                    logger.info("{} does not have mgmt IPv4/IPv6 address.".format(sonichost.hostname))
+                    self.check_result.errmsg.append(
+                        "{} does not have mgmt IPv4/IPv6 address.".format(sonichost.hostname)
+                    )
 
-                if not ipv4_exists:
-                    ipv4_not_exists_hosts.append(sonichost.hostname)
-                    logger.info("{} does not have mgmt-ipv4 address.".format(sonichost.hostname))
-                    self.check_result.errmsg.append("{} does not have mgmt-ipv4 address.".format(sonichost.hostname))
-
-        if len(ipv4_not_exists_hosts) > 0:
+        if len(mgmt_ip_not_exists_hosts) > 0:
             raise HostsUnreachable(self.check_result.errmsg)
-
-        # Retrieve the basic facts of the DUTs
-        duts_basic_facts = self.sonichosts.dut_basic_facts()
-
-        for dut_name, single_dut_basic_facts in duts_basic_facts.items():
-
-            # Get the basic facts of one DUT
-            dut_basic_facts = single_dut_basic_facts["ansible_facts"]["dut_basic_facts"]
-
-            # todo: Skip multi_asic check on multi_asic dut now because currently not support get asic object
-            if dut_basic_facts["is_multi_asic"]:
-                errmsg = "Not support to perform checks on multi-asic DUT now."
-                logger.info(errmsg)
-
-                raise SkipCurrentTestbed(errmsg)
 
         logger.info("======================= pre_check ends =======================")
 
@@ -297,12 +473,34 @@ class TestbedHealthChecker:
             state: str. The target state to compare the BGP session state against. Defaults to "established".
         """
 
+        if self.is_snappi_testbed:
+            logger.info("======================= skip check_bgp_session_state for snappi =======================")
+            return
+
+        if self.is_bmc_testbed:
+            logger.info("======================= skip check_bgp_session_state for bmc =======================")
+            return
+
+        def find_unexpected_bgp_neighbors(neigh_bgp_facts, expected_state, unexpected_neighbors):
+            for k, v in list(neigh_bgp_facts['bgp_neighbors'].items()):
+                if v['state'] != expected_state:
+                    unexpected_neighbors.append(f"{k}, {v['state']}")
+
         failed = False
         bgp_facts_on_hosts = {}
 
         logger.info("======================= check_bgp_session_state starts =======================")
 
         for sonichost in self.sonichosts:
+            if (self.is_chassis and
+                    self.duts_basic_facts[sonichost.hostname]["ansible_facts"]["dut_basic_facts"]["is_supervisor"]):
+                logger.info("Skip check_bgp_session_state on Supervisor.")
+                continue
+
+            # Skip BGP check for DPU hosts
+            if "dpu" in sonichost.hostname.lower():
+                logger.info("Skip check_bgp_session_state on DPU host: {}".format(sonichost.hostname))
+                continue
 
             hostname = sonichost.hostname
 
@@ -310,15 +508,43 @@ class TestbedHealthChecker:
                 hostname))
 
             # Retrieve BGP facts for the Sonic host
-            bgp_facts = sonichost.bgp_facts()['ansible_facts']
+            bgp_facts = {}
+            if self.is_multi_asic:
+                host_asics_list = self.duts_basic_facts[sonichost.hostname][
+                    "ansible_facts"]["dut_basic_facts"]["asic_index_list"]
+
+                for instance_id in host_asics_list:
+                    bgp_facts[instance_id] = sonichost.bgp_facts(instance_id=instance_id)['ansible_facts']
+            else:
+                bgp_facts = sonichost.bgp_facts()['ansible_facts']
 
             bgp_facts_on_hosts[hostname] = bgp_facts
 
+            # Detect neighbors that are intentionally admin-disabled and record in result data.
+            if self.is_multi_asic:
+                admin_down_neighbors = [
+                    k
+                    for facts in bgp_facts.values()
+                    for k, v in facts.get('bgp_neighbors', {}).items()
+                    if v.get('admin') == 'down'
+                ]
+            else:
+                admin_down_neighbors = [
+                    k for k, v in bgp_facts.get('bgp_neighbors', {}).items()
+                    if v.get('admin') == 'down'
+                ]
+            if admin_down_neighbors:
+                logger.info("Admin-down BGP neighbors detected on {}: {}".format(
+                    hostname, admin_down_neighbors))
+                self.check_result.data["has_bgp_admin_down"] = True
+
             # Check BGP session state for each neighbor
             neigh_not_ok = []
-            for k, v in list(bgp_facts['bgp_neighbors'].items()):
-                if v['state'] != state:
-                    neigh_not_ok.append(f"{k}, {v['state']}")
+            if self.is_multi_asic:
+                for instance_id, facts in bgp_facts.items():
+                    find_unexpected_bgp_neighbors(facts, state, neigh_not_ok)
+            else:
+                find_unexpected_bgp_neighbors(bgp_facts, state, neigh_not_ok)
 
             errlog = "BGP neighbors that not established on {}: {}".format(hostname, neigh_not_ok)
 
@@ -342,6 +568,13 @@ class TestbedHealthChecker:
         """
         Check the status of up ports on a list of SonicHost objects representing the DUTs.
         """
+        if self.is_snappi_testbed:
+            logger.info("=================== skip check_interface_status_of_up_ports for snappi ===================")
+            return
+
+        if self.is_bmc_testbed:
+            logger.info("=================== skip check_interface_status_of_up_ports for bmc ===================")
+            return
 
         failed = False
         interface_facts_on_hosts = {}
@@ -349,36 +582,85 @@ class TestbedHealthChecker:
         logger.info("======================= check_interface_status_of_up_ports starts =======================")
 
         for sonichost in self.sonichosts:
+            if (self.is_chassis and
+                    self.duts_basic_facts[sonichost.hostname]["ansible_facts"]["dut_basic_facts"]["is_supervisor"]):
+                logger.info("Skip check_interface_status_of_up_ports on Supervisor.")
+                continue
 
             hostname = sonichost.hostname
             logger.info(
                 "----------------------- check_interface_status_of_up_ports on [{}] -----------------------".format(
                     hostname))
 
-            # Retrieve the configuration facts for the DUT
-            cfg_facts = sonichost.config_facts(host=hostname, source='running')['ansible_facts']
+            # 1. Retrieve the configuration facts for the DUT
+            # 2. Get a list of up ports from the configuration facts
+            # 3. Retrieve the interface facts for the up ports
+            if self.is_multi_asic:
+                host_asics_list = self.duts_basic_facts[sonichost.hostname][
+                    "ansible_facts"]["dut_basic_facts"]["asic_index_list"]
 
-            # Get a list of up ports from the configuration facts
-            up_ports = [p for p, v in list(cfg_facts['PORT'].items()) if v.get('admin_status', None) == 'up']
+                interface_facts = {}
+                for asic_id in host_asics_list:
+                    cfg_facts_of_asic = sonichost.config_facts(
+                        host=hostname, source='running', namespace='asic{}'.format(asic_id)
+                    )['ansible_facts']
 
-            logger.info('up_ports: {}'.format(up_ports))
+                    ports = list(cfg_facts_of_asic.get('PORT', {}).items())
 
-            # Retrieve the interface facts for the up ports
-            interface_facts = sonichost.interface_facts(up_ports=up_ports)['ansible_facts']
+                    up_ports = [
+                        p for p, v in ports if v.get('admin_status', None) == 'up'
+                    ]
 
-            interface_facts_on_hosts[hostname] = interface_facts
+                    logger.info('up_ports: {}'.format(up_ports))
+                    interface_facts_of_asic = sonichost.interface_facts(
+                        up_ports=up_ports, namespace='asic{}'.format(asic_id)
+                    )['ansible_facts']
 
-            errlog = 'ansible_interface_link_down_ports on {}: {}'.format(
-                hostname, interface_facts['ansible_interface_link_down_ports'])
+                    interface_facts[asic_id] = interface_facts_of_asic
+                    if hostname not in interface_facts_on_hosts:
+                        interface_facts_on_hosts[hostname] = {}
 
-            logger.info(errlog)
+                    interface_facts_on_hosts[hostname][asic_id] = interface_facts
 
-            # Check if there are any link down ports in the interface facts
-            if len(interface_facts['ansible_interface_link_down_ports']) > 0:
-                # Set failed to True if any BGP neighbors are not established
-                failed = True
-                # Add errlog to check result errmsg
-                self.check_result.errmsg.append(errlog)
+                    errlog = 'ansible_interface_link_down_ports on asic{} of {}: {}'.format(
+                        asic_id, hostname, interface_facts[asic_id]['ansible_interface_link_down_ports'])
+
+                    logger.info(errlog)
+
+                    # Check if there are any link down ports in the interface facts
+                    if len(interface_facts[asic_id]['ansible_interface_link_down_ports']) > 0:
+                        # Set failed to True if any BGP neighbors are not established
+                        failed = True
+                        # Add errlog to check result errmsg
+                        self.check_result.errmsg.append(errlog)
+
+                    if not ports:
+                        failed = True
+                        self.check_result.errmsg.append(f"Device has no ports on asic{asic_id}."
+                                                        f"Please check 'show int status -n asic{asic_id}' ")
+            else:
+                cfg_facts = sonichost.config_facts(host=hostname, source='running')['ansible_facts']
+                ports = list(cfg_facts.get('PORT', {}).items())
+
+                up_ports = [p for p, v in ports if v.get('admin_status', None) == 'up']
+                logger.info('up_ports: {}'.format(up_ports))
+                interface_facts = sonichost.interface_facts(up_ports=up_ports)['ansible_facts']
+                interface_facts_on_hosts[hostname] = interface_facts
+                errlog = 'ansible_interface_link_down_ports on {}: {}'.format(
+                    hostname, interface_facts['ansible_interface_link_down_ports'])
+
+                logger.info(errlog)
+
+                # Check if there are any link down ports in the interface facts
+                if len(interface_facts['ansible_interface_link_down_ports']) > 0:
+                    # Set failed to True if any BGP neighbors are not established
+                    failed = True
+                    # Add errlog to check result errmsg
+                    self.check_result.errmsg.append(errlog)
+
+                if not ports:
+                    failed = True
+                    self.check_result.errmsg.append("Device has no ports. Please check 'show int status' result")
 
         # Set the check result
         self.check_result.data["interface_facts_on_hosts"] = interface_facts_on_hosts
@@ -398,13 +680,29 @@ class TestbedHealthChecker:
 
         # Set default critical containers to check
         if not critical_containers:
-            critical_containers = ["syncd", "swss", "bgp"]
+            if self.is_bmc_testbed:
+                critical_containers = [
+                    "gnmi",
+                    "pmon",
+                    "telemetry",
+                    "sysmgr",
+                    "redfish",
+                    "acms",
+                    "database"
+                ]
+            else:
+                critical_containers = ["syncd", "swss", "bgp"]
 
         failed = False
+        running_containers_facts_on_hosts = {}
 
         logger.info("======================= check_critical_containers_running starts =======================")
 
         for sonichost in self.sonichosts:
+            host_asics_list = []
+            if self.is_multi_asic:
+                host_asics_list = self.duts_basic_facts[sonichost.hostname][
+                    "ansible_facts"]["dut_basic_facts"]["asic_index_list"]
 
             hostname = sonichost.hostname
             logger.info(
@@ -415,7 +713,23 @@ class TestbedHealthChecker:
             running_containers = sonichost.shell(r"docker ps -f 'status=running' --format \{\{.Names\}\}")[
                 'stdout_lines']
 
-            for critical_container in critical_containers:
+            running_containers_facts_on_hosts[hostname] = running_containers
+
+            containers_to_check = critical_containers
+            if self.is_multi_asic:
+                if (self.is_chassis and
+                        self.duts_basic_facts[sonichost.hostname]["ansible_facts"]["dut_basic_facts"]["is_supervisor"]):
+                    containers_to_check = [
+                        "{}{}".format(container, asic)
+                        for asic in host_asics_list for container in critical_containers if container != "bgp"
+                    ]
+                else:
+                    containers_to_check = [
+                        "{}{}".format(container, asic)
+                        for asic in host_asics_list for container in critical_containers
+                    ]
+
+            for critical_container in containers_to_check:
 
                 # If the critical container is not running, add an error log
                 if critical_container not in running_containers:
@@ -427,13 +741,15 @@ class TestbedHealthChecker:
                     # Add errlog to check result errmsg
                     self.check_result.errmsg.append(errlog)
 
+        self.check_result.data["running_containers_facts_on_hosts"] = running_containers_facts_on_hosts
+
         logger.info("======================= check_critical_containers_running ends =======================")
 
         if failed:
             raise TestbedUnhealthy(self.check_result.errmsg)
 
 
-def validate_args(args):
+def setup_logging(args):
     _log_level_map = {
         "debug": logging.DEBUG,
         "info": logging.INFO,
@@ -449,8 +765,8 @@ def validate_args(args):
 
 
 def main(args):
-    logger.info("Validating arguments")
-    validate_args(args)
+    logger.info("Setting up logging")
+    setup_logging(args)
 
     logger.info("Checking")
     testbed_health_checker = TestbedHealthChecker(inventory=args.inventory, testbed_name=args.testbed_name,

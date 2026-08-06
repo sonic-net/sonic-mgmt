@@ -14,11 +14,36 @@ import pytest
 
 from tests.common.testbed import TestbedInfo
 from .issue import check_issues
+from tests.common.utilities import get_duts_from_host_pattern
+from tests.common.cisco_data import (
+    CISCO_8122_PREFIX,
+    CISCO_8122_GR2_PREFIX,
+    CISCO_8122_GR2X_PREFIX,
+)
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_CONDITIONS_FILE = 'common/plugins/conditional_mark/tests_mark_conditions*.yaml'
 ASIC_NAME_PATH = '/../../../../ansible/group_vars/sonic/variables'
+ANSIBLE_LIBRARY_PATH = os.path.realpath(os.path.join(os.path.dirname(__file__), '../../../../ansible/library'))
+MARK_CONDITIONS_CONSTANTS = {
+    # Cisco platform prefixes for use in conditions like:
+    #   platform.startswith(constants['CISCO_8122_PREFIX'])
+    "CISCO_8122_PREFIX": CISCO_8122_PREFIX,
+    "CISCO_8122_GR2_PREFIX": CISCO_8122_GR2_PREFIX,
+    "CISCO_8122_GR2X_PREFIX": CISCO_8122_GR2X_PREFIX,
+    "QOS_SAI_TOPO": ['t0', 't0-64', 't0-116', 't0-118', 't0-35', 't0-56', 't0-80',
+                     't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256',
+                     'dualtor-56', 'dualtor-120', 'dualtor', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout',
+                     't0-backend', 't0-d18u8s4', 't0-isolated-d96u32s2',
+                     't1-lag', 't1-28-lag', 't1-48-lag', 't1-64-lag', 't1-56-lag',
+                     't1-backend', 't1-isolated-d128', 't1-isolated-d32',
+                     't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic',
+                     'lt2-p32o64', 'lt2-o128', 'ft2-64', 'ft2-16', 't2_one_hwsku_min', 't2_one_hwsku_max',
+                     't2-single-node-min', 't2_single_node_min', 't2_single_node_max',
+                     't2_single_node_max_64p', 't2-single-node-max-64p', 't2_single_node_max_64p_v2',
+                     'urh_min', 'lrh_min', 'lt2-min', 'lt2-o224', 'lt2-o32', 'lt2-o256-u32d224']
+}
 
 
 def pytest_addoption(parser):
@@ -67,10 +92,10 @@ def load_conditions(session):
     conditions_list = list()
 
     conditions_files = session.config.option.mark_conditions_files
-    for condition in conditions_files:
-        if '*' in condition:
-            conditions_files.remove(condition)
-            files = glob.glob(condition)
+    for condition_file in conditions_files:
+        if '*' in condition_file:
+            conditions_files.remove(condition_file)
+            files = glob.glob(condition_file)
             for file in files:
                 if file not in conditions_files:
                     conditions_files.append(file)
@@ -114,7 +139,8 @@ def read_asic_name(hwsku):
             asic_name = yaml.safe_load(f)
 
         for key, value in list(asic_name.copy().items()):
-            if ('td' not in key) and ('th' not in key) and ('spc' not in key):
+            asic_gen_identifiers = ['td', 'th', 'spc', 'q3d']
+            if not any(identifier in key for identifier in asic_gen_identifiers):
                 asic_name.pop(key)
 
         for name, hw in list(asic_name.items()):
@@ -140,10 +166,12 @@ def load_dut_basic_facts(inv_name, dut_name):
         dict or None: Return the dut basic facts dict or None if something went wrong.
     """
     results = {}
-    logger.info('Getting dut basic facts')
+    logger.info('Getting dut basic facts: {}'.format(dut_name))
     try:
         inv_full_path = os.path.join(os.path.dirname(__file__), '../../../../ansible', inv_name)
-        ansible_cmd = 'ansible -m dut_basic_facts -i {} {} -o'.format(inv_full_path, dut_name)
+        ansible_cmd = (
+            'ansible -M {} -m dut_basic_facts -i {} {} -o'
+            .format(ANSIBLE_LIBRARY_PATH, inv_full_path, dut_name))
 
         raw_output = subprocess.check_output(ansible_cmd.split()).decode('utf-8')
         logger.debug('raw dut basic facts:\n{}'.format(raw_output))
@@ -157,27 +185,25 @@ def load_dut_basic_facts(inv_name, dut_name):
     return results
 
 
-def get_basic_facts(session):
-    testbed_name = session.config.option.testbed
-
-    testbed_name_cached = session.config.cache.get('TB_NAME', None)
-    basic_facts_cached = session.config.cache.get('BASIC_FACTS', None)
-
-    if testbed_name_cached != testbed_name:
-        # clear chche
-        session.config.cache.set('TB_NAME', None)
-        session.config.cache.set('BASIC_FACTS', None)
-
-        # get basic facts
-        basic_facts = load_basic_facts(session)
-
-        # update cache
-        session.config.cache.set('TB_NAME', testbed_name)
-        session.config.cache.set('BASIC_FACTS', basic_facts)
+def get_dut_name(session):
+    host_pattern = session.config.option.ansible_host_pattern
+    if host_pattern == 'all':
+        testbed_name = session.config.option.testbed
+        testbed_file = session.config.option.testbed_file
+        tbinfo = TestbedInfo(testbed_file).testbed_topo.get(testbed_name, None)
+        dut_name = tbinfo['duts'][0]
     else:
-        if not basic_facts_cached:
-            basic_facts = load_basic_facts(session)
-            session.config.cache.set('BASIC_FACTS', basic_facts)
+        dut_name = get_duts_from_host_pattern(host_pattern)[0]
+    return dut_name
+
+
+def get_basic_facts(session):
+    dut_name = get_dut_name(session)
+    cached_facts_name = f'BASIC_FACTS_{dut_name}'
+    basic_facts_cached = session.config.cache.get(cached_facts_name, None)
+    if not basic_facts_cached:
+        basic_facts = load_basic_facts(dut_name, session)
+        session.config.cache.set(cached_facts_name, basic_facts)
 
 
 def get_http_proxies(inv_name):
@@ -228,10 +254,13 @@ def load_minigraph_facts(inv_name, dut_name):
         dict or None: Return the minigraph basic facts dict or None if something went wrong.
     """
     results = {}
-    logger.info('Getting minigraph basic facts')
+    logger.info('Getting minigraph basic facts: {}'.format(dut_name))
     try:
         # get minigraph basic faces
-        ansible_cmd = "ansible -m minigraph_facts -i ../ansible/{0} {1} -a host={1}".format(inv_name, dut_name)
+        ansible_cmd = (
+            "ansible -M {} -m minigraph_facts"
+            " -i ../ansible/{} {} -a host={}"
+            .format(ANSIBLE_LIBRARY_PATH, inv_name, dut_name, dut_name))
         raw_output = subprocess.check_output(ansible_cmd.split()).decode('utf-8')
         logger.debug('raw minigraph basic facts:\n{}'.format(raw_output))
         output_fields = raw_output.split('SUCCESS =>', 1)
@@ -260,10 +289,13 @@ def load_config_facts(inv_name, dut_name):
         dict or None: Return the minigraph basic facts dict or None if something went wrong.
     """
     results = {}
-    logger.info('Getting config basic facts')
+    logger.info('Getting config basic facts: {}'.format(dut_name))
     try:
         # get config basic faces
-        ansible_cmd = ['ansible', '-m', 'config_facts', '-i', '../ansible/{}'.format(inv_name),
+        ansible_cmd = [
+            'ansible', '-M', ANSIBLE_LIBRARY_PATH,
+            '-m', 'config_facts',
+            '-i', '../ansible/{}'.format(inv_name),
                        '{}'.format(dut_name), '-a', 'host={} source=\'persistent\''.format(dut_name)]
         raw_output = subprocess.check_output(ansible_cmd).decode('utf-8')
         logger.debug('raw config basic facts:\n{}'.format(raw_output))
@@ -275,6 +307,12 @@ def load_config_facts(inv_name, dut_name):
             results['INTERFACE'] = output_fields.get('INTERFACE', {})
             if 'switch_type' in output_fields['DEVICE_METADATA']['localhost']:
                 results['switch_type'] = output_fields['DEVICE_METADATA']['localhost']['switch_type']
+            else:
+                results['switch_type'] = ""
+            if 'type' in output_fields['DEVICE_METADATA']['localhost']:
+                results['type'] = output_fields['DEVICE_METADATA']['localhost']['type']
+            else:
+                results['type'] = ""
 
     except Exception as e:
         logger.error('Failed to load config basic facts, exception: {}'.format(repr(e)))
@@ -295,10 +333,13 @@ def load_switch_capabilities_facts(inv_name, dut_name):
         dict or None: Return the minigraph basic facts dict or None if something went wrong.
     """
     results = {}
-    logger.info('Getting switch capabilities basic facts')
+    logger.info('Getting switch capabilities basic facts: {}'.format(dut_name))
     try:
         # get switch capabilities basic faces
-        ansible_cmd = "ansible -m switch_capabilities_facts -i ../ansible/{} {}".format(inv_name, dut_name)
+        ansible_cmd = (
+            "ansible -M {} -m switch_capabilities_facts"
+            " -i ../ansible/{} {}"
+            .format(ANSIBLE_LIBRARY_PATH, inv_name, dut_name))
         raw_output = subprocess.check_output(ansible_cmd.split()).decode('utf-8')
         logger.debug('raw switch capabilities basic facts:\n{}'.format(raw_output))
         output_fields = raw_output.split('SUCCESS =>', 1)
@@ -324,10 +365,13 @@ def load_console_facts(inv_name, dut_name):
         dict or None: Return the minigraph basic facts dict or None if something went wrong.
     """
     results = {}
-    logger.info('Getting console basic facts')
+    logger.info('Getting console basic facts: {}'.format(dut_name))
     try:
         # get console basic faces
-        ansible_cmd = "ansible -m console_facts -i ../ansible/{} {}".format(inv_name, dut_name)
+        ansible_cmd = (
+            "ansible -M {} -m console_facts"
+            " -i ../ansible/{} {}"
+            .format(ANSIBLE_LIBRARY_PATH, inv_name, dut_name))
         raw_output = subprocess.check_output(ansible_cmd.split()).decode('utf-8')
         logger.debug('raw console basic facts:\n{}'.format(raw_output))
         output_fields = raw_output.split('SUCCESS =>', 1)
@@ -340,17 +384,19 @@ def load_console_facts(inv_name, dut_name):
     return results
 
 
-def load_basic_facts(session):
+def load_basic_facts(dut_name, session):
     """Load some basic facts that can be used in condition statement evaluation.
 
     The facts will be a 1 level dictionary. The dict keys can be used as variables in condition statements evaluation.
 
     Args:
+        dut_name (str): The name of the dut
         session (obj): Pytest session object.
 
     Returns:
         dict: Dict of facts.
     """
+    logger.info("Loading basic facts for DUT: {}".format(dut_name))
     results = {}
 
     testbed_name = session.config.option.testbed
@@ -358,11 +404,17 @@ def load_basic_facts(session):
 
     tbinfo = TestbedInfo(testbed_file).testbed_topo.get(testbed_name, None)
 
+    if tbinfo is None:
+        logger.error("Testbed '{}' not found in testbed file '{}'. "
+                     "Available testbeds: {}".format(
+                         testbed_name, testbed_file,
+                         list(TestbedInfo(testbed_file).testbed_topo.keys())))
+        raise ValueError("Testbed '{}' not found in testbed file '{}'".format(
+            testbed_name, testbed_file))
+
     results['topo_type'] = tbinfo['topo']['type']
     results['topo_name'] = tbinfo['topo']['name']
     results['testbed'] = testbed_name
-
-    dut_name = tbinfo['duts'][0]
     if session.config.option.customize_inventory_file:
         inv_name = session.config.option.customize_inventory_file
     elif 'inv_name' in list(tbinfo.keys()):
@@ -402,10 +454,13 @@ def load_basic_facts(session):
 
         # Load possible other facts here
 
+    # Check if the testrun has enable_macsec parameter set
+    results['macsec_en'] = session.config.getoption("--enable_macsec", False)
+
     return results
 
 
-def find_all_matches(nodeid, conditions):
+def find_all_matches(nodeid, conditions, session, dynamic_update_skip_reason, basic_facts):
     """Find all matches of the given test case name in the conditions list.
 
     Args:
@@ -422,7 +477,27 @@ def find_all_matches(nodeid, conditions):
 
     for condition in conditions:
         # condition is a dict which has only one item, so we use condition.keys()[0] to get its key.
-        if nodeid.startswith(list(condition.keys())[0]):
+        condition_entry = list(condition.keys())[0]
+        condition_items = condition[condition_entry]
+        if "regex" in condition_items.keys():
+            assert isinstance(condition_items["regex"], bool), \
+                "The value of 'regex' in the mark conditions yaml should be bool type."
+            if condition_items["regex"] is True:
+                match = re.search(condition_entry, nodeid)
+            else:
+                match = None
+
+        elif "use_longest" in condition_items.keys():
+            assert isinstance(condition_items["use_longest"], bool), \
+                "The value of 'use_longest' in the mark conditions yaml should be bool type."
+            if nodeid.startswith(condition_entry) and condition_items["use_longest"] is True:
+                all_matches = []
+
+            match = nodeid.startswith(condition_entry)
+        else:
+            match = nodeid.startswith(condition_entry)
+
+        if match:
             all_matches.append(condition)
 
     for match in all_matches:
@@ -430,21 +505,30 @@ def find_all_matches(nodeid, conditions):
         length = len(case_starting_substring)
         marks = match[case_starting_substring].keys()
         for mark in marks:
-            if mark in conditional_marks:
-                if length >= max_length:
+            if mark in ["regex", "use_longest"]:
+                continue
+
+            condition_value = evaluate_conditions(dynamic_update_skip_reason, match[case_starting_substring][mark],
+                                                  match[case_starting_substring][mark].get('conditions'), basic_facts,
+                                                  match[case_starting_substring][mark].get(
+                                                      'conditions_logical_operator', 'AND').upper(), session)
+
+            if condition_value:
+                if mark in conditional_marks:
+                    if length >= max_length:
+                        conditional_marks.update({
+                            mark: {
+                                case_starting_substring: {
+                                    mark: match[case_starting_substring][mark]}
+                            }})
+                        max_length = length
+                else:
                     conditional_marks.update({
                         mark: {
                             case_starting_substring: {
                                 mark: match[case_starting_substring][mark]}
                         }})
                     max_length = length
-            else:
-                conditional_marks.update({
-                    mark: {
-                        case_starting_substring: {
-                            mark: match[case_starting_substring][mark]}
-                    }})
-                max_length = length
 
     # We may have the same matches of different marks
     # Need to remove duplicate here
@@ -503,7 +587,7 @@ def evaluate_condition(dynamic_update_skip_reason, mark_details, condition, basi
             it will update the skip reason, else will not.
         mark_details (dict): The mark detail infos specified in the mark conditions file.
         condition (str): A raw condition string that can be evaluated using python "eval()" function. The raw condition
-            string may contain issue URLs that need further processing.
+            #string may contain issue URLs that need further processing.
         basic_facts (dict): A one level dict with basic facts. Keys of the dict can be used as variables in the
             condition string evaluation.
         session (obj): Pytest session object, for getting cached data.
@@ -516,15 +600,24 @@ def evaluate_condition(dynamic_update_skip_reason, mark_details, condition, basi
 
     condition_str = update_issue_status(condition, session)
     try:
-        condition_result = bool(eval(condition_str, basic_facts))
+        safe_facts = {k: v for k, v in basic_facts.items()}
+        safe_globals = {}
+        safe_globals.update(safe_facts)
+
+        for var in ["asic_type", "platform", "hwsku", "asic_gen"]:
+            if var not in safe_globals:
+                logger.warning("Variable %s not found in basic_facts, defaulting to None", var)
+                safe_globals[var] = None
+
+        condition_result = bool(eval(condition_str, safe_globals))
+
         if condition_result and dynamic_update_skip_reason:
             mark_details['reason'].append(condition)
         return condition_result
     except Exception:
-        logger.exception('Failed to evaluate condition, raw_condition={}, condition_str={}'.format(
+        raise RuntimeError('Failed to evaluate condition, raw_condition={}, condition_str={}'.format(
             condition,
             condition_str))
-        return False
 
 
 def evaluate_conditions(dynamic_update_skip_reason, mark_details, conditions, basic_facts,
@@ -564,9 +657,11 @@ def evaluate_conditions(dynamic_update_skip_reason, mark_details, conditions, ba
 
 
 def pytest_collection(session):
-    """Hook for loading conditions and basic facts.
+    """Hook for loading conditions.
 
-    The pytest session.config.cache is used for caching loaded conditions and basic facts for later use.
+    The pytest session.config.cache is used for caching loaded conditions for later use.
+    DUT facts are loaded lazily in pytest_collection_modifyitems to avoid expensive SSH
+    overhead when all tests are already going to be skipped (e.g. topology mismatch).
 
     Args:
         session (obj): Pytest session object.
@@ -583,12 +678,14 @@ def pytest_collection(session):
     if conditions:
         session.config.cache.set('TESTS_MARK_CONDITIONS', conditions)
 
-        # Only load basic facts if conditions are defined.
-        get_basic_facts(session)
 
-
+@pytest.hookimpl(trylast=True)
 def pytest_collection_modifyitems(session, config, items):
-    """Hook for adding marks to test cases based on conditions defind in a centralized file.
+    """Hook for adding marks to test cases based on conditions defined in a centralized file.
+
+    Uses trylast=True so topology and other collection-modify hooks (e.g. custom_markers)
+    run first.  This allows skipping the expensive DUT fact loading (TestbedInfo + ansible
+    SSH, ~90 s on some testbeds) when every collected item has already been marked as skip.
 
     Args:
         session (obj): Pytest session object.
@@ -600,15 +697,41 @@ def pytest_collection_modifyitems(session, config, items):
         logger.debug('No mark condition is defined')
         return
 
-    basic_facts = config.cache.get('BASIC_FACTS', None)
+    # Skip the expensive DUT fact loading when there is nothing to process.
+    # This saves ~90 s (TestbedInfo YAML parsing + ansible SSH) on testbeds where
+    # every test is already marked as skip by an earlier hook such as the topology
+    # check in custom_markers (e.g. running a t0/t1 test against an lt2 testbed).
+    if not items:
+        logger.debug('No collected items; skipping DUT fact loading')
+        return
+    if all(item.get_closest_marker('skip') for item in items):
+        logger.debug('All collected items are already marked as skip; skipping DUT fact loading')
+        return
+
+    # Lazily load DUT facts now that we know they are actually needed.
+    get_basic_facts(session)
+
+    dut_name = get_dut_name(session)
+    cached_facts_name = f'BASIC_FACTS_{dut_name}'
+    basic_facts = config.cache.get(cached_facts_name, None)
     if not basic_facts:
         logger.debug('No basic facts')
         return
     logger.info('Available basic facts that can be used in conditional skip:\n{}'.format(
         json.dumps(basic_facts, indent=2)))
     dynamic_update_skip_reason = session.config.option.dynamic_update_skip_reason
+    basic_facts['constants'] = MARK_CONDITIONS_CONSTANTS
+    # Normalize nodeids to match the tests/-relative condition keys. rootdir may
+    # float above tests/ (e.g. --inventory ../ansible/veos_vtb), so strip both
+    # basename(rootpath) and a leading "tests/" or all conditional skips no-op.
+    root_prefix = os.path.basename(str(session.config.rootpath)) + "/"
     for item in items:
-        all_matches = find_all_matches(item.nodeid, conditions)
+        nodeid = item.nodeid
+        if nodeid.startswith(root_prefix):
+            nodeid = nodeid[len(root_prefix):]
+        if nodeid.startswith("tests/"):
+            nodeid = nodeid[len("tests/"):]
+        all_matches = find_all_matches(nodeid, conditions, session, dynamic_update_skip_reason, basic_facts)
 
         if all_matches:
             logger.debug('Found match "{}" for test case "{}"'.format(all_matches, item.nodeid))
@@ -616,6 +739,8 @@ def pytest_collection_modifyitems(session, config, items):
             for match in all_matches:
                 # match is a dict which has only one item, so we use match.values()[0] to get its value.
                 for mark_name, mark_details in list(list(match.values())[0].items()):
+                    if mark_name in ["regex", "use_longest"]:
+                        continue
                     conditions_logical_operator = mark_details.get('conditions_logical_operator', 'AND').upper()
                     add_mark = False
                     if not mark_details:

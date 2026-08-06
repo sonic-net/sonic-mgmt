@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 
 import argparse
+import json
 import logging
 import os
 import sys
-import json
+
 import yaml
+from natsort import natsorted
 
 _self_dir = os.path.dirname(os.path.abspath(__file__))
 base_path = os.path.realpath(os.path.join(_self_dir, ".."))
@@ -15,7 +17,7 @@ ansible_path = os.path.realpath(os.path.join(_self_dir, "../ansible"))
 if ansible_path not in sys.path:
     sys.path.append(ansible_path)
 
-from devutil.devices.factory import init_localhost, init_testbed_sonichosts  # noqa E402
+from devutil.devices.factory import init_localhost, init_testbed_sonichosts  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -47,42 +49,89 @@ def read_asic_name(hwsku):
 
 
 def get_duts_version(sonichosts, output=None):
+    """
+    Collect version information from DUTs via `show version`.
+
+    For SmartSwitch testbeds, if a DPU host is unreachable, enables NAT on its
+    NPU host and retries the command.
+
+    Returns:
+        dict: Parsed version info per DUT, structured with general fields and Docker images.
+    """
     try:
         ret = {}
-        duts_version = sonichosts.command("show version")
+        duts_version = sonichosts.command("show version", module_ignore_errors=True)
+
         for dut, version in duts_version.items():
-            ret[dut] = {}
-            dut_version = version["stdout_lines"]
+            # If a DPU host is unreachable, try enabling NAT and retry
+            if version.get("unreachable") or (version.get("failed") and not version.get("stdout_lines")):
+                if "dpu" in dut.lower():
+                    version = _retry_dpu_with_nat(sonichosts, dut)
+                if version is None:
+                    logger.warning("Skipping unreachable or failed host: %s", dut)
+                    continue
+
+            dut_info = {}
+            dut_version = version.get("stdout_lines", [])
+            in_docker_section = False
 
             for line in dut_version:
-                if ":" in line:
-                    line_splitted = line.split(":", 1)
-                    key = line_splitted[0].strip()
-                    value = line_splitted[1].strip()
-                    if key == "Docker images":
-                        ret[dut]["Docker images"] = []
-                        continue
-                    elif key == "ASIC":
-                        ret[dut]["ASIC TYPE"] = value
-                        continue
-                    elif key == "HwSKU":
-                        ret[dut]["ASIC"] = read_asic_name(value)
-                    ret[dut][key] = value
-                elif "docker" in line:
-                    line_splitted = line.split()
-                    ret[dut]["Docker images"].append({"REPOSITORY": line_splitted[0],
-                                                      "TAG": line_splitted[1],
-                                                      "IMAGE ID": line_splitted[2],
-                                                      "SIZE": line_splitted[3]})
+                line = line.strip()
+                if not line:
+                    continue
 
+                # ---- General info ----
+                if not in_docker_section:
+                    if line.startswith("Docker images"):
+                        dut_info["Docker images"] = []
+                        in_docker_section = True
+                        continue
+
+                    if ":" in line:
+                        key, value = [x.strip() for x in line.split(":", 1)]
+                        if key == "HwSKU":
+                            dut_info["HwSKU"] = value
+                            dut_info["ASIC"] = read_asic_name(value)
+                        elif key == "ASIC":
+                            dut_info["ASIC TYPE"] = value
+                        else:
+                            dut_info[key] = value
+                    continue
+
+                # ---- Docker images ----
+                if line.startswith("REPOSITORY"):
+                    continue  # skip header
+
+                parts = line.split()
+                if len(parts) < 4:
+                    continue  # malformed line, skip
+
+                image = {
+                    "REPOSITORY": parts[0],
+                    "TAG": parts[1],
+                    "IMAGE ID": parts[2],
+                    "SIZE": " ".join(parts[3:])  # safe join for "742 MB" / "683kB"
+                }
+                dut_info["Docker images"].append(image)
+
+            ret[dut] = dut_info
+
+        # Sort keys so that each NPU is followed by its DPUs in natural order
+        # (e.g. dpu-0, dpu-1, ..., dpu-10 instead of dpu-0, dpu-1, dpu-10, dpu-2).
+        # NPU hostnames are a strict prefix of their DPU hostnames, so natural
+        # sort groups each NPU with its DPUs automatically.
+        ret = {hostname: ret[hostname] for hostname in natsorted(ret)}
+
+        # ---- Output handling ----
         if output:
-            with open(output, "w") as f:
-                f.write(json.dumps(ret))
-                f.close()
+            with open(output, "w", encoding="utf-8") as f:
+                json.dump(ret, f, indent=2)
         else:
-            print(ret)
+            print(json.dumps(ret, indent=2))
+
+        return ret
     except Exception as e:
-        logger.error("Failed to get DUT version: {}".format(e))
+        logger.error(f"Failed to get DUT version: {repr(e)}", exc_info=True)
         sys.exit(RC_GET_DUT_VERSION_FAILED)
 
 
@@ -99,6 +148,34 @@ def validate_args(args):
         level=_log_level_map[args.log_level],
         format="%(asctime)s %(filename)s#%(lineno)d %(levelname)s - %(message)s"
     )
+
+
+def _retry_dpu_with_nat(sonichosts, dpu_hostname):
+    """Enable NAT for a single DPU host and retry 'show version'.
+
+    Returns the retried command result dict on success, or None.
+    """
+    try:
+        from devutil.devices.dpu_utils import enable_nat_for_dpuhosts
+    except ImportError:
+        logger.warning("dpu_utils not available, skipping NAT enablement for %s", dpu_hostname)
+        return None
+
+    npu_hosts = [h for h in sonichosts if "dpu" not in h.hostname.lower()]
+    try:
+        logger.info("Enabling NAT for DPU host: %s", dpu_hostname)
+        enable_nat_for_dpuhosts(npu_hosts, sonichosts.inventories, [dpu_hostname])
+
+        # Retry the command on the now-reachable DPU
+        retry_result = sonichosts.command("show version", module_ignore_errors=True)
+        version = retry_result.get(dpu_hostname)
+        if version and not version.get("unreachable") and version.get("stdout_lines"):
+            return version
+        logger.warning("DPU host %s still unreachable after enabling NAT", dpu_hostname)
+    except Exception as e:
+        logger.warning("Failed to enable NAT for %s: %s", dpu_hostname, repr(e))
+
+    return None
 
 
 def main(args):

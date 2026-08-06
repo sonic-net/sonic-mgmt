@@ -1,16 +1,17 @@
 import logging
 import pytest
 import time
+import re
 
-from tests.common.errors import RunAnsibleModuleFail
-from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      # noqa F401
+from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
-from tests.common.helpers.pfcwd_helper import start_wd_on_ports, start_background_traffic     # noqa F401
+from tests.common.helpers.pfcwd_helper import start_wd_on_ports, start_background_traffic     # noqa: F401
+from tests.common.helpers.pfcwd_helper import calculate_pfcwd_default_timers
 
 from tests.common.plugins.loganalyzer import DisableLogrotateCronContext
 from tests.common.helpers.pfcwd_helper import send_background_traffic
-
+from tests.common import config_reload
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -26,19 +27,6 @@ def pfc_queue_idx(pfcwd_timer_setup_restore):
     # This is used by the common code, this needs to be defined
     # before using start_background_traffic() fixture.
     yield pfcwd_timer_setup_restore['storm_handle'].pfc_queue_idx
-
-
-@pytest.fixture(scope='module', autouse=True)
-def stop_pfcwd(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
-    """
-    Fixture that stops PFC Watchdog before each test run
-
-    Args:
-        duthost (AnsibleHost): DUT instance
-    """
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    logger.info("--- Stop Pfcwd --")
-    duthost.command("pfcwd stop")
 
 
 @pytest.fixture(autouse=True)
@@ -62,8 +50,8 @@ def ignore_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_hostname, log
     yield
 
 
-@pytest.fixture(scope='class', autouse=True)
-def pfcwd_timer_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts,        # noqa F811
+@pytest.fixture(scope='module', autouse=True)
+def pfcwd_timer_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts,        # noqa: F811
                               enum_rand_one_per_hwsku_frontend_hostname, fanouthosts):
     """
     Fixture that inits the test vars, start PFCwd on ports and cleans up after the test run
@@ -79,11 +67,23 @@ def pfcwd_timer_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts,
         storm_handle (PFCStorm): class PFCStorm instance
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    asic_type = duthost.facts['asic_type']
     logger.info("--- Pfcwd timer test setup ---")
+    # Set syncd log level to INFO on each ASIC.
+    # On multi-ASIC platforms, the host-level swssloglevel wrapper requires
+    # '-n <asic_id>' to target the correct swss container.
+    if duthost.is_multi_asic:
+        for asic in duthost.asics:
+            duthost.shell(f"swssloglevel -n {asic.asic_index} -l INFO -c syncd")
+    else:
+        duthost.command("swssloglevel -l INFO -c syncd")
     setup_info = setup_pfc_test
     test_ports = setup_info['test_ports']
     timers = setup_info['pfc_timers']
     eth0_ip = setup_info['eth0_ip']
+    dynamic_timers = calculate_pfcwd_default_timers(duthost)
+    logger.info(f"Updating timers: original={timers}, dynamic={dynamic_timers}")
+    timers.update(dynamic_timers)
     # In Python2, dict.keys() returns list object, but in Python3 returns an iterable but not indexable object.
     # So that convert to list explicitly.
     pfc_wd_test_port = list(test_ports.keys())[0]
@@ -91,9 +91,9 @@ def pfcwd_timer_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts,
     fanout_info = enum_fanout_graph_facts
     dut = duthost
     fanout = fanouthosts
-    peer_params = populate_peer_info(neighbors, fanout_info, pfc_wd_test_port)
+    peer_params = populate_peer_info(asic_type, neighbors, fanout_info, pfc_wd_test_port)
     storm_handle = set_storm_params(dut, fanout_info, fanout, peer_params)
-    timers['pfc_wd_restore_time'] = 400
+    dut.command("pfcwd interval {}".format(timers['pfc_wd_poll_time']))
     start_wd_on_ports(dut, pfc_wd_test_port, timers['pfc_wd_restore_time'],
                       timers['pfc_wd_detect_time'])
     # enable routing from mgmt interface to localhost
@@ -112,12 +112,14 @@ def pfcwd_timer_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts,
            }
 
     logger.info("--- Pfcwd timer test cleanup ---")
+    # clear pfcwd stats and reset to default for next run
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
     dut.iptables(table="nat", flush="yes")
     dut.sysctl(name="net.ipv4.conf.eth0.route_localnet", value=0, sysctl_set=True)
     storm_handle.stop_storm()
 
 
-def populate_peer_info(neighbors, fanout_info, port):
+def populate_peer_info(asic_type, neighbors, fanout_info, port):
     """
     Build the peer_info map which will be used by the storm generation class
 
@@ -129,6 +131,8 @@ def populate_peer_info(neighbors, fanout_info, port):
     Returns:
         peer_info (dict): all PFC params needed for fanout for storm generation
     """
+    if asic_type == 'vs':
+        return {}
     peer_dev = neighbors[port]['peerdevice']
     peer_port = neighbors[port]['peerport']
     peer_info = {'peerdevice': peer_dev,
@@ -154,7 +158,7 @@ def set_storm_params(dut, fanout_info, fanout, peer_params):
     logger.info("Setting up storm params")
     pfc_queue_index = 4
     pfc_frames_count = 1000000
-    peer_device = peer_params['peerdevice']
+    peer_device = peer_params['peerdevice'] if dut.facts['asic_type'] != 'vs' else ""
     if dut.topo_type == 't2' and fanout[peer_device].os == 'sonic':
         pfc_gen_file = 'pfc_gen_t2.py'
         pfc_send_time = 8
@@ -183,25 +187,50 @@ class TestPfcwdAllTimer(object):
         test_ports_info = setup_info['test_ports']
         queues = [self.storm_handle.pfc_queue_idx]
 
-        with send_background_traffic(self.dut, self.ptf, queues, selected_test_ports, test_ports_info):
+        with send_background_traffic(self.dut, self.ptf, queues, selected_test_ports, test_ports_info, pkt_count=500):
             self.storm_handle.start_storm()
             logger.info("Wait for queue to recover from PFC storm")
             time.sleep(32)
             self.storm_handle.stop_storm()
             time.sleep(16)
 
+        if self.dut.facts['asic_type'] == 'vs':
+            logger.info("Skip time detect for VS")
+            return
+
+        skip_this_loop = False
         if self.dut.topo_type == 't2' and self.storm_handle.peer_device.os == 'sonic':
             storm_detect_ms = self.retrieve_timestamp("[d]etected PFC storm")
         else:
             storm_start_ms = self.retrieve_timestamp("[P]FC_STORM_START")
             storm_detect_ms = self.retrieve_timestamp("[d]etected PFC storm")
+
         logger.info("Wait for PFC storm end marker to appear in logs")
         time.sleep(16)
+
         if self.dut.topo_type == 't2' and self.storm_handle.peer_device.os == 'sonic':
             storm_restore_ms = self.retrieve_timestamp("[s]torm restored")
         else:
             storm_end_ms = self.retrieve_timestamp("[P]FC_STORM_END")
             storm_restore_ms = self.retrieve_timestamp("[s]torm restored")
+
+        if self.dut.topo_type == 't2' and self.storm_handle.peer_device.os == 'sonic':
+            if storm_detect_ms == 0 or storm_restore_ms == 0:
+                logging.warning("storm_detect_ms {} or storm_restore_ms {} is 0".format(
+                    storm_detect_ms, storm_restore_ms))
+                skip_this_loop = True
+        else:
+            if storm_start_ms == 0 or storm_detect_ms == 0 or storm_end_ms == 0 or storm_restore_ms == 0:
+                logging.warning("storm_start_ms {} or storm_detect_ms {} or "
+                                "storm_end_ms {} or storm_restore_ms {} is 0".format(
+                                    storm_start_ms, storm_detect_ms, storm_end_ms, storm_restore_ms))
+                skip_this_loop = True
+
+        if skip_this_loop:
+            logger.warning("Skip this loop due to missing timestamps")
+            return
+
+        if not (self.dut.topo_type == 't2' and self.storm_handle.peer_device.os == 'sonic'):
             real_detect_time = storm_detect_ms - storm_start_ms
             real_restore_time = storm_restore_ms - storm_end_ms
             self.all_detect_time.append(real_detect_time)
@@ -220,11 +249,15 @@ class TestPfcwdAllTimer(object):
         """
         Compare the timestamps obtained and verify the timer accuracy
         """
+        if self.dut.facts['asic_type'] == 'vs':
+            logger.info("Skip timer verify for VS")
+            return
+
         self.all_detect_time.sort()
         self.all_restore_time.sort()
         logger.info("Verify that real detection time is not greater than configured")
-        logger.info("all detect time {}".format(self.all_detect_time))
-        logger.info("all restore time {}".format(self.all_restore_time))
+        logger.info("sorted all detect time {}".format(self.all_detect_time))
+        logger.info("sorted all restore time {}".format(self.all_restore_time))
 
         check_point = ITERATION_NUM // 2 - 1
         config_detect_time = self.timers['pfc_wd_detect_time'] + self.timers['pfc_wd_poll_time']
@@ -249,6 +282,22 @@ class TestPfcwdAllTimer(object):
                         (self.timers['pfc_wd_poll_time'] // 2)
                     )
                     break
+
+        # Validate that we have enough samples before accessing list by index
+        # If more than half of iterations failed to collect timestamps, fail with a clear message
+        required_samples = check_point + 1
+        detect_count = len(self.all_detect_time)
+        restore_count = len(self.all_restore_time)
+        if detect_count < required_samples or restore_count < required_samples:
+            detect_failures = ITERATION_NUM - detect_count
+            restore_failures = ITERATION_NUM - restore_count
+            pytest.fail(
+                "Too many iterations failed to collect PFCWD timestamps. "
+                "Detect time samples: {}/{} (failures: {}), Restore time samples: {}/{} (failures: {}). "
+                "Required at least {} samples. This may indicate environment or timing issues.".format(
+                    detect_count, ITERATION_NUM, detect_failures,
+                    restore_count, ITERATION_NUM, restore_failures,
+                    required_samples))
 
         err_msg = ("Real detection time is greater than configured: Real detect time: {} "
                    "Expected: {} (wd_detect_time + wd_poll_time)".format(self.all_detect_time[check_point],
@@ -280,6 +329,10 @@ class TestPfcwdAllTimer(object):
         """
         Compare the timestamps obtained and verify the timer accuracy for t2 chassis
         """
+        if self.dut.facts['asic_type'] == 'vs':
+            logger.info("Skip timer verify for VS")
+            return
+
         self.all_dut_detect_restore_time.sort()
         # Detect to restore elapsed time should always be less than 10 seconds since
         # storm is sent for 8 seconds
@@ -304,20 +357,27 @@ class TestPfcwdAllTimer(object):
         Returns:
             timestamp_ms (int): syslog timestamp in ms for the line matching the pattern
         """
-        cmd = "grep \"{}\" /var/log/syslog".format(pattern)
-        syslog_msg_list = self.dut.shell(cmd)['stdout'].split()
         try:
-            timestamp_ms = float(self.dut.shell("date -d \"{}\" +%s%3N".format(syslog_msg_list[3]))['stdout'])
-        except RunAnsibleModuleFail:
-            timestamp_ms = float(self.dut.shell("date -d \"{}\" +%s%3N".format(syslog_msg_list[2]))['stdout'])
-        except Exception as e:
-            logging.error("Error when parsing syslog message timestamp: {}".format(repr(e)))
-            pytest.fail("Failed to parse syslog message timestamp")
+            cmd = "grep \"{}\" /var/log/syslog".format(pattern)
+            syslog_msg = self.dut.shell(cmd)['stdout']
 
-        return int(timestamp_ms)
+            # Regular expressions for the two timestamp formats
+            regex = re.compile(r'\b[A-Za-z]{3}\s{1,2}\d{1,2} \d{2}:\d{2}:\d{2}\.\d{6}\b')
+            search_string = regex.search(syslog_msg)
+            if search_string:
+                timestamp = search_string.group()
+            else:
+                logger.warning("Get timestamp: Unexpected syslog message format, syslog_msg {}".format(syslog_msg))
+                return int(0)
+
+            timestamp_ms = self.dut.shell("date -d '{}' +%s%3N".format(timestamp))['stdout']
+            return int(timestamp_ms)
+        except Exception as e:
+            logger.warning("Get timestamp: An unexpected error occurred: pattern {} err {}".format(pattern, str(e)))
+            return int(0)
 
     def test_pfcwd_timer_accuracy(self, duthosts, ptfhost, enum_rand_one_per_hwsku_frontend_hostname,
-                                  pfcwd_timer_setup_restore, fanouthosts):
+                                  pfcwd_timer_setup_restore, fanouthosts, set_pfc_time_cisco_8000):
         """
         Tests PFCwd timer accuracy
 

@@ -1,11 +1,50 @@
 import logging
+import os
+import re
 
 import pytest
 from .pdu_manager import pdu_manager_factory
+from tests.common.fixtures.conn_graph_facts import get_graph_facts
 from tests.common.utilities import get_host_visible_vars, get_sup_node_or_random_node
 
 
 logger = logging.getLogger(__name__)
+
+
+def resolve_env_variables(data):
+    """
+    Resolve environment variable lookups in data.
+
+    This function processes data (dict, string, or other types) and replaces
+    any patterns like '{{ lookup('env','VARIABLE_NAME') }}' with the actual
+    environment variable values.
+
+    Args:
+        data: The data to process (can be dict, string, list, or other types)
+
+    Returns:
+        The processed data with environment variables resolved
+    """
+    if isinstance(data, dict):
+        return {key: resolve_env_variables(value) for key, value in data.items()}
+    elif isinstance(data, list):
+        return [resolve_env_variables(item) for item in data]
+    elif isinstance(data, str):
+        # Pattern to match {{ lookup('env','VARIABLE_NAME') }}
+        pattern = r'\{\{\s*lookup\s*\(\s*[\'"]env[\'"]\s*,\s*[\'"]([^\'"]+)[\'"]\s*\)\s*\}\}'
+
+        def replace_env_var(match):
+            env_var_name = match.group(1)
+            env_value = os.getenv(env_var_name)
+            if env_value is None:
+                logger.warning(f"Environment variable '{env_var_name}' not found, keeping original value")
+                return match.group(0)  # Return original if env var not found
+            return env_value
+
+        return re.sub(pattern, replace_env_var, data)
+    else:
+        # For other types (int, bool, etc.), return as-is
+        return data
 
 
 def get_pdu_hosts(duthost):
@@ -26,7 +65,12 @@ def get_pdu_hosts(duthost):
 def get_pdu_visible_vars(inventories, pdu_hostnames):
     pdu_hosts_vars = {}
     for pdu_hostname in pdu_hostnames:
-        pdu_hosts_vars[pdu_hostname] = get_host_visible_vars(inventories, pdu_hostname)
+        raw_vars = get_host_visible_vars(inventories, pdu_hostname)
+        if raw_vars:
+            # Resolve environment variables in the PDU variables
+            pdu_hosts_vars[pdu_hostname] = resolve_env_variables(raw_vars)
+        else:
+            pdu_hosts_vars[pdu_hostname] = raw_vars
     return pdu_hosts_vars
 
 
@@ -68,12 +112,19 @@ def pdu_controller(duthosts, conn_graph_facts):
 
 
 @pytest.fixture(scope="module")
-def get_pdu_controller(conn_graph_facts):
+def get_pdu_controller(conn_graph_facts, localhost):
     controller_map = {}
 
     def pdu_controller_helper(duthost):
         if duthost.hostname not in controller_map:
-            controller = _get_pdu_controller(duthost, conn_graph_facts)
+            # conn_graph_facts is scoped to the testbed duthosts. When asked for a host
+            # that is not part of that set (e.g. the paired Switch-Host resolved from a
+            # BMC DUT), its PDU wiring is absent, so load the graph facts for that host
+            # on demand instead of returning an empty (None) controller.
+            facts = conn_graph_facts
+            if duthost.hostname not in facts.get('device_pdu_links', {}):
+                facts = get_graph_facts(duthost, localhost, [duthost.hostname])
+            controller = _get_pdu_controller(duthost, facts)
             controller_map[duthost.hostname] = controller
 
         return controller_map[duthost.hostname]

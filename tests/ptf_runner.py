@@ -12,14 +12,18 @@ import six
 logger = logging.getLogger(__name__)
 
 
-def ptf_collect(host, log_file, skip_pcap=False):
+def ptf_collect(host, log_file, skip_pcap=False, dst_dir='./logs/ptf_collect/'):
+    """
+    Collect PTF log and pcap files from PTF container to sonic-mgmt container.
+    Optionally, save the files to a sub-directory in the destination.
+    """
     pos = log_file.rfind('.')
     filename_prefix = log_file[0:pos] if pos > -1 else log_file
 
     pos = filename_prefix.rfind('/') + 1
     rename_prefix = filename_prefix[pos:] if pos > 0 else filename_prefix
     suffix = str(datetime.utcnow()).replace(' ', '.')
-    filename_log = './logs/ptf_collect/' + rename_prefix + '.' + suffix + '.log'
+    filename_log = dst_dir + rename_prefix + '.' + suffix + '.log'
     host.fetch(src=log_file, dest=filename_log, flat=True, fail_on_missing=False)
     allure.attach.file(filename_log, 'ptf_log: ' + filename_log, allure.attachment_type.TEXT)
     if skip_pcap:
@@ -31,7 +35,7 @@ def ptf_collect(host, log_file, skip_pcap=False):
         compressed_pcap_file = pcap_file + '.tar.gz'
         host.archive(path=pcap_file, dest=compressed_pcap_file, format='gz')
         # Copy compressed file from ptf to sonic-mgmt
-        filename_pcap = './logs/ptf_collect/' + rename_prefix + '.' + suffix + '.pcap.tar.gz'
+        filename_pcap = dst_dir + rename_prefix + '.' + suffix + '.pcap.tar.gz'
         host.fetch(src=compressed_pcap_file, dest=filename_pcap, flat=True, fail_on_missing=False)
         allure.attach.file(filename_pcap, 'ptf_pcap: ' + filename_pcap, allure.attachment_type.PCAP)
 
@@ -46,7 +50,21 @@ def get_dut_type(host):
         else:
             logger.warning("DUT type file is empty.")
     else:
-        logger.warning("DUT type file doesn't exist.")
+        logger.info("DUT type file doesn't exist.")
+    return "Unknown"
+
+
+def get_asic_type(host):
+    asic_type_stat = host.stat(path="/sonic/asic_type.txt")
+    if asic_type_stat["stat"]["exists"]:
+        asic_type = host.shell("cat /sonic/asic_type.txt")["stdout"]
+        if asic_type:
+            logger.info("ASIC type is {}".format(asic_type))
+            return asic_type.lower()
+        else:
+            logger.warning("ASIC type file is empty.")
+    else:
+        logger.info("ASIC type file doesn't exist.")
     return "Unknown"
 
 
@@ -65,7 +83,9 @@ def get_test_path(testdir, testname):
     """
     Returns two values
     - first: the complete path of the test based on testdir and testname.
-    - second: True if file is in 'py3' False otherwise
+    - second: True if file is in a subdirectory ('py3' or 'probe'), False otherwise.
+              Originally only 'py3' existed; 'probe' was added for the MMU threshold
+              probing framework.
     Raises FileNotFoundError if file is not found
     """
     curr_path = os.path.dirname(os.path.abspath(__file__))
@@ -73,6 +93,9 @@ def get_test_path(testdir, testname):
     idx = testname.find('.')
     test_fname = testname + '.py' if idx == -1 else testname[:idx] + '.py'
     chk_path = base_path.joinpath('py3').joinpath(test_fname)
+    if chk_path.exists():
+        return chk_path, True
+    chk_path = base_path.joinpath('probe').joinpath(test_fname)
     if chk_path.exists():
         return chk_path, True
     chk_path = base_path.joinpath(test_fname)
@@ -101,19 +124,23 @@ def is_py3_compat(test_fpath):
 
 def ptf_runner(host, testdir, testname, platform_dir=None, params={},
                platform="remote", qlen=0, relax=True, debug_level="info",
-               socket_recv_size=None, log_file=None, device_sockets=[], timeout=0, custom_options="",
-               module_ignore_errors=False, is_python3=None, async_mode=False, pdb=False):
-
+               socket_recv_size=None, log_file=None,
+               ptf_collect_dir="./logs/ptf_collect/",
+               device_sockets=[], timeout=0, custom_options="",
+               module_ignore_errors=False, is_python3=None, async_mode=False, pdb=False,
+               test_subdir='py3'):
     dut_type = get_dut_type(host)
-    if dut_type == "kvm" and params.get("kvm_support", True) is False:
+    asic_type = get_asic_type(host)
+    kvm_support = params.get("kvm_support", False)
+    if dut_type == "kvm" and asic_type != "vpp" and kvm_support is False:
         logger.info("Skip test case {} for not support on KVM DUT".format(testname))
         return True
 
     cmd = ""
     ptf_img_type = get_ptf_image_type(host)
     logger.info('PTF image type: {}'.format(ptf_img_type))
-    test_fpath, in_py3 = get_test_path(testdir, testname)
-    logger.info('Test file path {}, in py3: {}'.format(test_fpath, in_py3))
+    test_fpath, in_subdir = get_test_path(testdir, testname)
+    logger.info('Test file path {}, in subdir: {}'.format(test_fpath, in_subdir))
     is_python3 = is_py3_compat(test_fpath)
 
     # The logic below automatically chooses the PTF binary to execute a test script
@@ -140,8 +167,8 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
             err_msg = 'cannot run Python 2 test in a Python 3 only {} {}'.format(testdir, testname)
             raise Exception(err_msg)
 
-    if in_py3:
-        tdir = pathlib.Path(testdir).joinpath('py3')
+    if in_subdir:
+        tdir = pathlib.Path(testdir).joinpath(test_subdir)
         cmd = "{} --test-dir {} {}".format(ptf_cmd, tdir, testname)
     else:
         cmd = "{} --test-dir {} {}".format(ptf_cmd, testdir, testname)
@@ -200,15 +227,32 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
         result = host.shell(cmd, chdir="/root", module_ignore_errors=module_ignore_errors, module_async=async_mode)
         if not async_mode:
             if log_file:
-                ptf_collect(host, log_file)
+                ptf_collect(host, log_file, dst_dir=ptf_collect_dir)
             if result:
-                allure.attach(json.dumps(result, indent=4), 'ptf_console_result', allure.attachment_type.TEXT)
+                allure.attach(
+                    json.dumps(result, indent=4, cls=result.encoder),
+                    'ptf_console_result',
+                    allure.attachment_type.TEXT
+                )
         if module_ignore_errors:
             if result["rc"] != 0:
                 return result
     except Exception:
         if log_file:
-            ptf_collect(host, log_file)
+            ptf_collect(host, log_file, dst_dir=ptf_collect_dir)
+            # Dump the tail of the PTF log so the actual error is visible in CI output.
+            # PTF test exceptions are written to the log file but not to stdout/stderr,
+            # making failures opaque without this (see issue #22662).
+            try:
+                ptf_log_tail = host.shell(
+                    "tail -50 {}".format(pipes.quote(log_file)),
+                    module_ignore_errors=True
+                )
+                if ptf_log_tail and ptf_log_tail.get("rc") == 0 and ptf_log_tail.get("stdout"):
+                    logger.error("PTF log tail for %s:\n%s", testname, ptf_log_tail["stdout"])
+                    allure.attach(ptf_log_tail["stdout"], 'ptf_log_tail', allure.attachment_type.TEXT)
+            except Exception as e:
+                logger.debug("Failed to fetch PTF log tail for diagnostics: %s", e)
         traceback_msg = traceback.format_exc()
         allure.attach(traceback_msg, 'ptf_runner_exception_traceback', allure.attachment_type.TEXT)
         logger.error("Exception caught while executing case: {}. Error message: {}".format(testname, traceback_msg))

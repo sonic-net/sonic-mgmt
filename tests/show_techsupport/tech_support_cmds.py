@@ -79,8 +79,6 @@ frr_cmds = [
     "vtysh{} -c 'show mpls table'",
     "vtysh{} -c 'show mpls fec'",
     "vtysh{} -c 'show nexthop-group rib'",
-    "vtysh{} -c 'show thread cpu'",
-    "vtysh{} -c 'show thread poll'",
     "vtysh{} -c 'show debugging hashtable'",
     "vtysh{} -c 'show work-queues'",
     "vtysh{} -c 'show memory'",
@@ -115,10 +113,11 @@ bgp_cmds = [
     "vtysh{} -c 'show bgp ipv4 labeled-unicast'",
     "vtysh{} -c 'show bgp ipv6 labeled-unicast'",
     "vtysh{} -c 'show bgp mac hash'",
-    re.compile(r'vtysh{}\s+-c "show ip bgp neighbors .* advertised-routes"'),
-    re.compile(r'vtysh{}\s+-c "show ip bgp neighbors .* routes"'),
-    re.compile(r'vtysh{}\s+-c "show bgp ipv6 neighbors .* advertised-routes"'),
-    re.compile(r'vtysh{}\s+-c "show bgp ipv6 neighbors .* routes"'),
+    re.compile(r"vtysh(?:\s+-n\s+0)?(\s+-Ec 'show bgp ipv4 neighbors .* advertised-routes'(?:\s+-n\s+0)?\s+-Ec"
+               r" 'show bgp ipv4 neighbors .* routes')+"),
+    re.compile(r"vtysh(?:\s+-n\s+0)?(\s+-Ec 'show bgp ipv6 neighbors .* advertised-routes'(?:\s+-n\s+0)?\s+-Ec"
+               r" 'show bgp ipv6 neighbors .* routes')+"),
+
 ]
 
 evpn_cmds = [
@@ -209,7 +208,7 @@ misc_show_cmds = [
     "show interface transceiver eeprom --dom",
     "show ip interface",
     "show interface counters",
-    "{}show queue counters",
+    "show queue counters",
     "{}netstat -i",
     "{}ifconfig -a",
 ]
@@ -251,31 +250,48 @@ copy_config_cmds_no_qos = [
 ]
 
 broadcom_cmd_bcmcmd_xgs = [
-    'bcmcmd{} -t5 version',
-    'bcmcmd{} -t5 soc',
-    'bcmcmd{} -t5 ps',
-    'bcmcmd{} "l3 nat_ingress show"',
-    'bcmcmd{} "l3 nat_egress show"',
+    'bcmcmd{} -t 5 version',
+    'bcmcmd{} -t 5 ps',
     'bcmcmd{} "ipmc table show"',
     'bcmcmd{} "multicast show"',
-    'bcmcmd{} "conf show"',
     'bcmcmd{} "fp show"',
     'bcmcmd{} "pvlan show"',
     'bcmcmd{} "l2 show"',
     'bcmcmd{} "l3 intf show"',
-    'bcmcmd{} "l3 defip show"',
-    'bcmcmd{} "l3 l3table show"',
     'bcmcmd{} "l3 egress show"',
-    'bcmcmd{} "l3 ecmp egress show"',
-    'bcmcmd{} "l3 multipath show"',
-    'bcmcmd{} "l3 ip6host show"',
-    'bcmcmd{} "l3 ip6route show"',
     'bcmcmd{} "mc show"',
     'bcmcmd{} "cstat *"',
     'bcmcmd{} "mirror show"',
     'bcmcmd{} "mirror dest show"',
     'bcmcmd{} "port *"',
+]
+
+broadcom_cmd_bcmcmd_xgs_soc = [
+    'bcmcmd{} -t 5 soc',
+    'bcmcmd{} "conf show"',
+    'bcmcmd{} "l3 defip show"',
+    'bcmcmd{} "l3 l3table show"',
+    'bcmcmd{} "l3 ecmp egress show"',
+    'bcmcmd{} "l3 multipath show"',
+    'bcmcmd{} "l3 ip6host show"',
+    'bcmcmd{} "l3 ip6route show"',
     'bcmcmd{} "d chg my_station_tcam"',
+]
+
+broadcom_cmd_bcmcmd_xgs_th5 = [
+    'bcmcmd{} "show config lt raw"',
+    'bcmcmd{} "l3 route show v6=0"',
+    'bcmcmd{} "l3 host show v6=0"',
+    'bcmcmd{} "l3 ecmp show"',
+    'bcmcmd{} "l3 host show v6=1"',
+    'bcmcmd{} "l3 route show v6=1"',
+    'bcmcmd{} "l2 station show"',
+    'bcmcmd{} "bcmltshell -c \'pt dump -d my_station_tcam\'"',
+]
+
+broadcom_cmd_bcmcmd_xgs_nat = [
+    'bcmcmd{} "l3 nat_ingress show"',
+    'bcmcmd{} "l3 nat_egress show"',
 ]
 
 broadcom_cmd_bcmcmd_dnx = [

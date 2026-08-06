@@ -22,7 +22,8 @@ from tests.common.utilities import wait_until
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t2')
+    pytest.mark.disable_loganalyzer,
+    pytest.mark.topology('t2', 'lrh', 'urh')
 ]
 
 
@@ -180,7 +181,7 @@ def test_reboot_supervisor(duthosts, localhost, all_cfg_facts, nbrhosts, nbr_mac
     logger.info("-" * 80)
 
     reboot(duthosts.supervisor_nodes[0], localhost, wait=240)
-    assert wait_until(300, 20, 2, duthosts.supervisor_nodes[0].critical_services_fully_started),\
+    assert wait_until(300, 20, 2, duthosts.supervisor_nodes[0].critical_services_fully_started), \
         "Not all critical services are fully started"
 
     poll_bgp_restored(duthosts)
@@ -227,7 +228,7 @@ def test_reboot_system(duthosts, localhost, all_cfg_facts, nbrhosts, nbr_macs, t
     parallel_run(reboot_node, [localhost], {}, duthosts.nodes, timeout=1000)
 
     for node in duthosts.nodes:
-        assert wait_until(300, 20, 2, node.critical_services_fully_started),\
+        assert wait_until(300, 20, 2, node.critical_services_fully_started), \
             "Not all critical services are fully started"
 
     poll_bgp_restored(duthosts)

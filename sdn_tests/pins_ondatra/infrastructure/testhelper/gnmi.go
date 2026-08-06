@@ -2,18 +2,24 @@ package testhelper
 
 import (
 	"context"
-	"os"
-	"testing"
-
+	"fmt"
+	"github.com/bazelbuild/rules_go/go/tools/bazel"
+	log "github.com/golang/glog"
+	gpb "github.com/openconfig/gnmi/proto/gnmi"
 	closer "github.com/openconfig/gocloser"
 	"github.com/openconfig/ondatra"
 	"github.com/openconfig/ondatra/gnmi"
+	"github.com/openconfig/ondatra/gnmi/oc"
 	"github.com/openconfig/ondatra/gnmi/oc/system"
 	"github.com/openconfig/ygnmi/ygnmi"
+	"github.com/openconfig/ygot/ytypes"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
-
-	gpb "github.com/openconfig/gnmi/proto/gnmi"
+	"os"
+	"path"
+	"sync"
+	"testing"
+	"time"
 )
 
 // Function pointers that interact with the switch. They enable unit testing
@@ -30,7 +36,8 @@ var (
 		return c.Subscribe(ctx, opts...)
 	}
 	gnmiSet = func(t *testing.T, d *ondatra.DUTDevice, req *gpb.SetRequest) (*gpb.SetResponse, error) {
-		ctx := context.Background()
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer cancel()
 		c, err := d.RawAPIs().BindingDUT().DialGNMI(ctx)
 		if err != nil {
 			return nil, err
@@ -126,31 +133,104 @@ func GNMIAble(t *testing.T, d *ondatra.DUTDevice) error {
 }
 
 // ConfigGet returns a full config for the given DUT.
-func (d GNMIConfigDUT) ConfigGet() ([]byte, error) {
-	return os.ReadFile("ondatra/data/config.json")
+func (d GNMIConfigDUT) ConfigGet(t *testing.T) ([]byte, error) {
+	file, err := bazel.Runfile("ondatra/data/config.json")
+	if err != nil {
+		t.Errorf("When reading file %s got error %s", file, err)
+	}
+	return os.ReadFile(file)
 }
 
 // ConfigPush pushes the given config onto the DUT. If nil is passed in for config,
 // this function will use ConfigGet() to get a full config for the DUT.
-func ConfigPush(t *testing.T, dut *ondatra.DUTDevice, config *[]byte) error {
+func ConfigPush(t *testing.T, dut *ondatra.DUTDevice, config []byte) error {
 	if dut == nil {
 		return errors.New("nil DUT passed into ConfigPush()")
 	}
+        var err error
 	if config == nil {
-		getConfig, err := GNMIConfigDUT{dut}.ConfigGet()
+		config, err = GNMIConfigDUT{dut}.ConfigGet(t)
 		if err != nil {
 			return err
 		}
-		config = &getConfig
 	}
 	setRequest := &gpb.SetRequest{
 		Prefix: &gpb.Path{Origin: "openconfig", Target: testhelperDUTNameGet(dut)},
 		Replace: []*gpb.Update{{
 			Path: &gpb.Path{},
-			Val:  &gpb.TypedValue{Value: &gpb.TypedValue_JsonIetfVal{JsonIetfVal: *config}},
+			Val:  &gpb.TypedValue{Value: &gpb.TypedValue_JsonIetfVal{JsonIetfVal: config}},
 		}},
 	}
-	t.Logf("Pushing config on %v: %v", testhelperDUTNameGet(dut), setRequest)
-	_, err := gnmiSet(t, dut, setRequest)
+	// Save the config to artifacts.
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func(config []byte) {
+		defer wg.Done()
+		dn := testhelperDUTNameGet(dut)
+		artifactName := fmt.Sprintf("config_push_%v.txt", time.Now().UnixNano())
+		fp := path.Join(dn, artifactName)
+		log.Infof("Saving pushed config to artifacts at path: %v", fp)
+		if err := SaveToArtifact(string(config), fp); err != nil {
+			log.Warningf("Failed to save config for dut: %v to artifacts, err: %v", dn, err)
+		}
+	}(config)
+	defer wg.Wait()
+	_, err = gnmiSet(t, dut, setRequest)
 	return err
+}
+
+// unmarshalNotificationsToOCRoot unpacks notifications to oc.Root struct.
+// If preferConfigPath is true, the config path is preferred over the state path
+// while unmarshalling into oc.Root.
+func unmarshalNotificationsToOCRoot(notifications []*gpb.Notification, preferConfigPath bool) (*oc.Root, error) {
+	s, err := oc.Schema()
+	if err != nil {
+		return nil, fmt.Errorf("oc.Schema() failed with err : %v", err)
+	}
+	opts := []ytypes.UnmarshalOpt{
+		&ytypes.IgnoreExtraFields{},
+		&ytypes.BestEffortUnmarshal{},
+	}
+	if preferConfigPath {
+		opts = append(opts, &ytypes.PreferShadowPath{})
+	}
+	err = ytypes.UnmarshalNotifications(
+		s,
+		notifications,
+		opts...,
+	)
+	if err != nil {
+		if _, ok := err.(*ytypes.ComplianceErrors); !ok {
+			return nil, fmt.Errorf("ytypes.UnmarshalNotifications() failed with err : %v", err)
+		}
+	}
+	r, ok := s.Root.(*oc.Root)
+	if !ok {
+		return nil, fmt.Errorf("failed to convert the schema root to oc.Root")
+	}
+	return r, nil
+}
+
+// UnmarshalStateNotificationsToOCRoot unpacks notifications and
+// returns the Root GO struct
+func UnmarshalStateNotificationsToOCRoot(n []*gpb.Notification) (*oc.Root, error) {
+	return unmarshalNotificationsToOCRoot(n, false /*(preferConfigPath)*/)
+}
+
+// UnmarshalConfigNotificationsToOCRoot unpacks notifications and
+// returns the Root GO struct
+func UnmarshalConfigNotificationsToOCRoot(n []*gpb.Notification) (*oc.Root, error) {
+	return unmarshalNotificationsToOCRoot(n, true /*(preferConfigPath)*/)
+}
+
+// ygnmiClient returns a new ygnmi client for the dut.
+// YGNMI APIs don't call fatal on error whereas the GNMI APIs do.
+func ygnmiClient(ctx context.Context, dut *ondatra.DUTDevice) (*ygnmi.Client, error) {
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	defer cancel()
+	gnmiClient, err := dut.RawAPIs().BindingDUT().DialGNMI(ctx, grpc.WithBlock())
+	if err != nil {
+		return nil, fmt.Errorf("DialGNMI() failed: %v", err)
+	}
+	return ygnmi.NewClient(gnmiClient, ygnmi.WithTarget(dut.Name()))
 }

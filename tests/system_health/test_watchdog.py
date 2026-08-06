@@ -74,14 +74,22 @@ def check_process_status(duthost, process, asic_id):
     result = duthost.shell(
                         r"docker exec -i swss{} sh -c 'ps -au | grep {}".format(asic_id, process),
                         module_ignore_errors=True)['stdout']
-    logger.info('Check supervisor-proc-exit-listener running: {}'.format(result))
+    logger.info('Check the process({}) running inside swss{}: {}'.format(process, asic_id, result))
+    return result
+
+
+def pgrep_swss_process(duthost, process, asic_id):
+    result = duthost.shell(
+                        r"docker exec -i swss{} pgrep -f {}".format(asic_id, process),
+                        module_ignore_errors=True)['stdout']
+    logger.info('Pgrep the process({}) running inside swss{}: {}'.format(process, asic_id, result))
     return result
 
 
 def make_ut_fail_if_process_not_running(duthost, asic_id):
-    result = check_process_status(duthost, "/usr/bin/supervisor-proc-exit-listener'", asic_id)
+    result = pgrep_swss_process(duthost, "supervisor-proc-exit-listener", asic_id)
     if not result:
-        pytest.fail("Watchfog process is not running.")
+        pytest.fail("Watchdog process is not running.")
 
     # if orchagent not running, alert will never been triggered
     result = check_process_status(duthost, "/usr/bin/orchagent'", asic_id)

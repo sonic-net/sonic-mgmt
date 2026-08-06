@@ -4,11 +4,13 @@ import os
 import json
 import logging
 import allure
-import re
 
 from copy import deepcopy
 
 from tests.common.utilities import wait_until
+from tests.common.reboot import SONIC_SSH_REGEX
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.firmware_helper import show_firmware
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +23,8 @@ FAST_REBOOT = "fast"
 
 DEVICES_PATH = "usr/share/sonic/device"
 TIMEOUT = 1200
+COMMON_REBOOT_TIMEOUT = 600
+
 REBOOT_TYPES = {
     COLD_REBOOT: "reboot",
     WARM_REBOOT: "warm-reboot",
@@ -68,25 +72,50 @@ def reboot(duthost, pdu_ctrl, reboot_type, pdu_delay=60):
     duthost.command(REBOOT_TYPES[reboot_type], module_ignore_errors=True, module_async=True)
 
 
-def complete_install(duthost, localhost, boot_type, res, pdu_ctrl, auto_reboot=False, current=None, next_image=None,
-                     timeout=TIMEOUT, pdu_delay=60):
+def complete_install(duthost, localhost, boot_type, res, pdu_ctrl, component, auto_reboot=False, current=None,
+                     next_image=None, timeout=TIMEOUT, pdu_delay=60):
     hn = duthost.mgmt_ip
 
     if boot_type != "none":
         if not auto_reboot:
             logger.info("Waiting on install to finish.")
             res.get(timeout)
+            if res._value['failed']:
+                pytest.fail(f"The component installation is not successful: {res._value}")
             logger.info("Rebooting switch using {} boot".format(boot_type))
             duthost.command("sonic-installer set-default {}".format(current))
             reboot(duthost, pdu_ctrl, boot_type, pdu_delay)
+            logger.info("Waiting on switch to shutdown...")
+            localhost.wait_for(host=hn, port=22, state='stopped', delay=1, timeout=60)
+            # Wait for 30s in case there is ssh flap
+            time.sleep(30)
+            logger.info("Waiting on switch to come up in SONiC....")
+            localhost.wait_for(
+                host=hn, port=22, state='started', search_regex=SONIC_SSH_REGEX, delay=10,
+                timeout=COMMON_REBOOT_TIMEOUT)
+        else:
+            # For auto reboot scenario, it takes some time in ONIE to update the firmware
+            logger.info("Waiting on switch to shutdown after auto reboot...")
+            if 'CPLD' in component or 'FPGA' in component:
+                # For CPLD/FPGA update, most time is spend before the reboot
+                pre_reboot_timeout = timeout
+                post_reboot_timeout = COMMON_REBOOT_TIMEOUT
+            else:
+                # For BIOS/ONIE, most time is spend after the reboot in ONIE
+                pre_reboot_timeout = 120
+                if duthost.facts["platform"] == "x86_64-nvidia_sn4280-r0":
+                    pre_reboot_timeout += 240
+                post_reboot_timeout = timeout
+            localhost.wait_for(host=hn, port=22, state='stopped', delay=1, timeout=pre_reboot_timeout)
+            # Wait for 30s in case there is ssh flap
+            time.sleep(30)
+            logger.info("Waiting on switch to come up in SONiC....")
+            localhost.wait_for(
+                host=hn, port=22, state='started', search_regex=SONIC_SSH_REGEX, delay=10, timeout=post_reboot_timeout)
 
-        logger.info("Waiting on switch to shutdown...")
-        # Wait for ssh flap
-        localhost.wait_for(host=hn, port=22, state='stopped', delay=1, timeout=timeout)
-        logger.info("Letting switch get through ONIE / BIOS before pinging....")
-        time.sleep(300)
-        logger.info("Waiting on switch to come up....")
-        localhost.wait_for(host=hn, port=22, state='started', delay=10, timeout=300)
+        logger.info("Waiting for docker service to start")
+        pytest_assert(wait_until(300, 10, 0, duthost.is_host_service_running, "docker"),
+                      "Docker service failed to start")
         logger.info("Waiting on critical systems to come online...")
         wait_until(300, 30, 0, duthost.critical_services_fully_started)
         time.sleep(60)
@@ -105,34 +134,7 @@ def complete_install(duthost, localhost, boot_type, res, pdu_ctrl, auto_reboot=F
             time.sleep(60)
 
 
-def show_firmware(duthost):
-    out = duthost.command("fwutil show status")
-    num_spaces = 2
-    curr_chassis = ""
-    output_data = {"chassis": {}}
-    status_output = out['stdout']
-    separators = re.split(r'\s{2,}', status_output.splitlines()[1])  # get separators
-    output_lines = status_output.splitlines()[2:]
-
-    for line in output_lines:
-        data = []
-        start = 0
-
-        for sep in separators:
-            curr_len = len(sep)
-            data.append(line[start:start+curr_len].strip())
-            start += curr_len + num_spaces
-
-        if data[0].strip() != "":
-            curr_chassis = data[0].strip()
-            output_data["chassis"][curr_chassis] = {"component": {}}
-
-        output_data["chassis"][curr_chassis]["component"][data[2]] = data[3]
-
-    return output_data
-
-
-def get_install_paths(duthost, defined_fw, versions, chassis, target_component):
+def get_install_paths(request, duthost, defined_fw, versions, chassis, target_component):
     component = get_defined_components(duthost, defined_fw, chassis)
     ver = versions["chassis"].get(chassis, {})["component"]
 
@@ -147,12 +149,15 @@ def get_install_paths(duthost, defined_fw, versions, chassis, target_component):
                 logger.warning("Firmware is upgrade only and existing firmware {} is not present in version list. "
                                "Skipping {}".format(ver[comp], comp))
                 continue
-            for i, rev in enumerate(revs):
+            for rev in revs:
                 if "hw_revision" in rev and rev["hw_revision"] != get_hw_revision(duthost):
                     logger.warning("Firmware {} only supports HW Revision {} and this chassis is {}. Skipping".
                                    format(rev["version"], rev["hw_revision"], get_hw_revision(duthost)))
                     continue
-                if rev["version"] != ver[comp]:
+                if "install" in request.node.name and len(revs) == 1:
+                    paths[comp] = rev
+                    break
+                elif rev["version"] != ver[comp]:
                     paths[comp] = rev
                     break
                 elif rev.get("upgrade_only", False):
@@ -218,18 +223,16 @@ def upload_platform(duthost, paths, next_image=None):
                          dest=os.path.join(target, DEVICES_PATH, duthost.facts["platform"]))
 
 
-def validate_versions(init, final, config, chassis, boot):
+def validate_versions(final, config, chassis, boot):
     final = final["chassis"][chassis]["component"]
-    init = init["chassis"][chassis]["component"]
     for comp, dat in list(config.items()):
         logger.info("Validating {} is version {} (is {})".format(comp, dat["version"], final[comp]))
-        if (dat["version"] != final[comp] or init[comp] == final[comp]) and boot in dat["reboot"]:
+        if dat["version"] != final[comp] and boot in dat["reboot"]:
             pytest.fail("Failed to install FW verison {} on {}".format(dat["version"], comp))
-            return False
-    return True
 
 
-def call_fwutil(duthost, localhost, pdu_ctrl, fw_pkg, component=None, next_image=None, boot=None, basepath=None):
+def call_fwutil(request, duthost, localhost, pdu_ctrl, fw_pkg,
+                component=None, next_image=None, boot=None, basepath=None):
     allure.step("Collect firmware versions")
     logger.info("Calling fwutil with component: {} | next_image: {} | boot: {} | basepath: {}".format(component,
                                                                                                       next_image,
@@ -238,7 +241,7 @@ def call_fwutil(duthost, localhost, pdu_ctrl, fw_pkg, component=None, next_image
     logger.info("Initial Versions: {}".format(init_versions))
     # Only one chassis
     chassis = list(init_versions["chassis"].keys())[0]
-    paths = get_install_paths(duthost, fw_pkg, init_versions, chassis, component)
+    paths = get_install_paths(request, duthost, fw_pkg, init_versions, chassis, component)
     if component not in paths:
         pytest.skip("No available firmware to install on {}. Skipping".format(component))
     boot_type = boot if boot else paths[component]["reboot"][0]
@@ -285,12 +288,13 @@ def call_fwutil(duthost, localhost, pdu_ctrl, fw_pkg, component=None, next_image
     allure.step("Perform Neccesary Reboot")
     timeout = max([v.get("timeout", TIMEOUT) for k, v in list(paths.items())])
     pdu_delay = fw_pkg["chassis"][chassis].get("power_cycle_delay", 60)
-    complete_install(duthost, localhost, boot_type, res, pdu_ctrl, auto_reboot, current, next_image, timeout, pdu_delay)
+    complete_install(duthost, localhost, boot_type, res, pdu_ctrl, component,
+                     auto_reboot, current, next_image, timeout, pdu_delay)
 
     allure.step("Collect Updated Firmware Versions")
     time.sleep(2)  # Give a little bit of time in case of no-op install for mounts to complete
     final_versions = show_firmware(duthost)
-    test_result = validate_versions(init_versions, final_versions, paths, chassis, boot_type)
+    validate_versions(final_versions, paths, chassis, boot_type)
 
     allure.step("Begin Switch Restoration")
     if next_image is None:
@@ -310,7 +314,5 @@ def call_fwutil(duthost, localhost, pdu_ctrl, fw_pkg, component=None, next_image
             update_needed["chassis"][chassis]["component"][comp] = defined_components[comp]
     if len(list(update_needed["chassis"][chassis]["component"].keys())) > 0:
         logger.info("Latest firmware not installed after test. Installing....")
-        call_fwutil(duthost, localhost, pdu_ctrl, update_needed, component, None, boot,
+        call_fwutil(request, duthost, localhost, pdu_ctrl, update_needed, component, None, boot,
                     os.path.join("/", DEVICES_PATH, duthost.facts['platform']) if basepath is not None else None)
-
-    return test_result

@@ -7,10 +7,68 @@ import time
 import pytest
 from ptf import testutils
 
+from tests.common import config_reload
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
+
+
+def prepare_bfd_state(dut, flag, expected_bfd_state):
+    modify_all_bfd_sessions(dut, flag)
+    config_reload(dut, safe_reload=True)
+    # Verification that all BFD sessions are deleted
+    asics = [asic.split("asic")[1] for asic in dut.get_asic_namespace_list()]
+    for asic in asics:
+        assert wait_until(
+            600,
+            10,
+            0,
+            lambda: find_bfd_peers_with_given_state(dut, asic, expected_bfd_state),
+        ), (
+            "Timed out waiting for all BFD peers on ASIC {} of DUT '{}' to reach state '{}'."
+        ).format(
+            asic,
+            dut.hostname,
+            expected_bfd_state
+        )
+
+
+def verify_bfd_only(dut, nexthops, asic, expected_bfd_state):
+    logger.info("BFD verifications")
+    assert wait_until(
+        450,
+        10,
+        0,
+        lambda: verify_bfd_state(dut, nexthops.values(), asic, expected_bfd_state),
+    ), (
+        "Timed out waiting to verify BFD state is expected for nexthops {} on ASIC {}  to reach state '{}'."
+    ).format(
+        nexthops.values(),
+        asic,
+        expected_bfd_state
+    )
+
+
+def create_and_verify_bfd_state(asic, prefix, dut, dut_nexthops):
+    logger.info("BFD addition on dut")
+    add_bfd(asic.asic_index, prefix, dut)
+    verify_bfd_only(dut, dut_nexthops, asic, "Up")
+
+
+def verify_bfd_and_static_route(dut, dut_nexthops, asic, expected_bfd_state, prefix,
+                                expected_prefix_state, version,
+                                allow_empty_static_routes_on_removal=False):
+    logger.info("BFD & Static route verifications")
+    verify_bfd_only(dut, dut_nexthops, asic, expected_bfd_state)
+    verify_static_route(
+        asic,
+        prefix,
+        dut,
+        expected_prefix_state,
+        version,
+        allow_empty_static_routes_on_removal=allow_empty_static_routes_on_removal,
+    )
 
 
 def get_dut_asic_static_routes(version, dut):
@@ -19,9 +77,11 @@ def get_dut_asic_static_routes(version, dut):
     elif version == "ipv6":
         static_route_command = "show ipv6 route static"
     else:
-        assert False, "Invalid version"
+        assert False, (
+            "Invalid version specified: '{}'. Expected 'ipv4' or 'ipv6'."
+        ).format(version)
 
-    stdout = dut.shell(static_route_command, module_ignore_errors=True)["stdout"]
+    stdout = run_static_route_command(dut, static_route_command)
     if sys.version_info.major < 3:
         static_routes_output = stdout.encode("utf-8").strip().split("\n")
     else:
@@ -29,77 +89,24 @@ def get_dut_asic_static_routes(version, dut):
 
     asic_static_routes = extract_routes(static_routes_output, version)
     logger.info("asic routes, {}".format(asic_static_routes))
-    assert len(asic_static_routes) > 0, "static routes on dut are empty"
+    assert len(asic_static_routes) > 0, (
+        "Static routes on DUT are empty. Parsed static routes: {}"
+    ).format(asic_static_routes)
+
     return asic_static_routes
 
 
-def select_src_dst_dut_with_asic(
-    request, get_src_dst_asic_and_duts, version
-):
-    logger.debug("Selecting source and destination DUTs with ASICs...")
-    # Random selection of dut & asic.
-    src_asic = get_src_dst_asic_and_duts["src_asic"]
-    dst_asic = get_src_dst_asic_and_duts["dst_asic"]
-    src_dut = get_src_dst_asic_and_duts["src_dut"]
-    dst_dut = get_src_dst_asic_and_duts["dst_dut"]
-
-    logger.info("Source Asic: %s", src_asic)
-    logger.info("Destination Asic: %s", dst_asic)
-    logger.info("Source dut: %s", src_dut)
-    logger.info("Destination dut: %s", dst_dut)
-
-    request.config.src_asic = src_asic
-    request.config.dst_asic = dst_asic
-    request.config.src_dut = src_dut
-    request.config.dst_dut = dst_dut
-
-    src_asic_routes = get_dut_asic_static_routes(version, src_dut)
-    dst_asic_routes = get_dut_asic_static_routes(version, dst_dut)
-
-    # Extracting nexthops
-    dst_dut_nexthops = (
-        extract_ip_addresses_for_backend_portchannels(
-            src_dut, src_asic, version
-        )
+def run_static_route_command(dut, command):
+    result = dut.shell(command, module_ignore_errors=True)
+    assert result.get("rc") == 0, (
+        "Failed to run static route command '{}'. rc={}, stdout='{}', stderr='{}'"
+    ).format(
+        command,
+        result.get("rc"),
+        result.get("stdout", ""),
+        result.get("stderr", ""),
     )
-    logger.info("Destination nexthops, {}".format(dst_dut_nexthops))
-    assert len(dst_dut_nexthops) != 0, "Destination Nexthops are empty"
-
-    src_dut_nexthops = (
-        extract_ip_addresses_for_backend_portchannels(
-            dst_dut, dst_asic, version
-        )
-    )
-    logger.info("Source nexthops, {}".format(src_dut_nexthops))
-    assert len(src_dut_nexthops) != 0, "Source Nexthops are empty"
-
-    # Picking a static route to delete correspinding BFD session
-    src_prefix = selecting_route_to_delete(
-        src_asic_routes, src_dut_nexthops.values()
-    )
-    logger.info("Source prefix: %s", src_prefix)
-    request.config.src_prefix = src_prefix
-    assert src_prefix is not None and src_prefix != "", "Source prefix not found"
-
-    dst_prefix = selecting_route_to_delete(
-        dst_asic_routes, dst_dut_nexthops.values()
-    )
-    logger.info("Destination prefix: %s", dst_prefix)
-    request.config.dst_prefix = dst_prefix
-    assert (
-        dst_prefix is not None and dst_prefix != ""
-    ), "Destination prefix not found"
-
-    return (
-        src_asic,
-        dst_asic,
-        src_dut,
-        dst_dut,
-        src_dut_nexthops,
-        dst_dut_nexthops,
-        src_prefix,
-        dst_prefix,
-    )
+    return result["stdout"]
 
 
 def verify_bfd_state(dut, dut_nexthops, dut_asic, expected_bfd_state):
@@ -115,23 +122,19 @@ def verify_bfd_state(dut, dut_nexthops, dut_asic, expected_bfd_state):
     return True
 
 
-def verify_static_route(
-    request,
-    asic,
-    prefix,
-    dut,
-    expected_prefix_state,
-    version,
-):
+def verify_static_route(asic, prefix, dut, expected_prefix_state, version,
+                        allow_empty_static_routes_on_removal=False):
     # Verification of static route
     if version == "ipv4":
         command = "show ip route static"
     elif version == "ipv6":
         command = "show ipv6 route static"
     else:
-        assert False, "Invalid version"
+        assert False, (
+            "Invalid version specified: '{}'. Expected 'ipv4' or 'ipv6'."
+        ).format(version)
 
-    static_route = dut.shell(command, module_ignore_errors=True)["stdout"]
+    static_route = run_static_route_command(dut, command)
     if sys.version_info.major < 3:
         static_route_output = static_route.encode("utf-8").strip().split("\n")
     else:
@@ -141,22 +144,27 @@ def verify_static_route(
     logger.info("Here are asic routes, {}".format(asic_routes))
 
     if expected_prefix_state == "Route Removal":
-        if len(asic_routes) == 0 and request.config.interface_shutdown:
+        if len(asic_routes) == 0 and allow_empty_static_routes_on_removal:
             logger.info("asic routes are empty post interface shutdown")
         else:
-            assert len(asic_routes) > 0, "static routes on source dut are empty"
+            assert len(asic_routes) > 0, (
+                "Static routes on source DUT are empty. Parsed static routes: {}"
+            ).format(asic_routes)
+
             assert (
-                prefix
-                not in asic_routes.get("asic{}".format(asic.asic_index), {}).keys()
-            ), "Prefix removal is not successful. Prefix being validated: {}.".format(
-                prefix
-            )
+                prefix not in asic_routes.get("asic{}".format(asic.asic_index), {}).keys()
+            ), (
+                "Prefix removal is not successful. Prefix being validated: {}.\n"
+                "Current ASIC routes: {}"
+            ).format(prefix, asic_routes)
+
     elif expected_prefix_state == "Route Addition":
         assert (
             prefix in asic_routes.get("asic{}".format(asic.asic_index), {}).keys()
-        ), "Prefix has not been added even though BFD is expected. Prefix: {}".format(
-            prefix
-        )
+        ), (
+            "Prefix has not been added even though BFD is expected. Prefix: {}.\n"
+            "Current ASIC routes: {}"
+        ).format(prefix, asic_routes)
 
 
 def batch_control_interface_state(dut, asic, interfaces, action):
@@ -191,12 +199,17 @@ def toggle_interfaces_in_parallel(cmds, dut, asic, interfaces, target_state):
         with SafeThreadPoolExecutor(max_workers=8) as executor:
             for cmd in cmds:
                 executor.submit(dut.shell, cmd)
-
         assert wait_until(
             180,
             10,
             0,
             lambda: check_interfaces_oper_state(dut, asic, interfaces, target_state),
+        ), (
+            "Timed out waiting for interfaces {} on ASIC {} of  to reach state '{}'."
+        ).format(
+            interfaces,
+            asic,
+            target_state
         )
 
 
@@ -385,9 +398,7 @@ def list_to_dict(sample_list):
 
 
 def extract_current_bfd_state(nexthop, asic_number, dut):
-    bfd_peer_command = "ip netns exec asic{} show bfd peer {}".format(
-        asic_number, nexthop
-    )
+    bfd_peer_command = "show bfd peer {} -n asic{}".format(nexthop, asic_number)
     logger.info("Verifying BFD status on {}".format(dut))
     logger.info(bfd_peer_command)
     bfd_peer_status = dut.shell(bfd_peer_command, module_ignore_errors=True)["stdout"]
@@ -424,7 +435,7 @@ def parse_bfd_output(output):
 
 def find_bfd_peers_with_given_state(dut, dut_asic, expected_bfd_state):
     # Expected BFD states: Up, Down, No BFD sessions found
-    bfd_cmd = "ip netns exec asic{} show bfd sum"
+    bfd_cmd = "show bfd sum -n asic{}"
     result = True
     asic_bfd_sum = dut.shell(bfd_cmd.format(dut_asic))["stdout"]
     if sys.version_info.major < 3:
@@ -489,56 +500,6 @@ def ensure_interfaces_are_up(dut, asic, interfaces):
             cmds.append("sudo config interface -n asic{} startup {}".format(asic.asic_index, interface))
 
     toggle_interfaces_in_parallel(cmds, dut, asic, interfaces, "up")
-
-
-def prepare_traffic_test_variables(get_src_dst_asic, request, version):
-    dut = get_src_dst_asic["dut"]
-    src_asic = get_src_dst_asic["src_asic"]
-    src_asic_index = get_src_dst_asic["src_asic_index"]
-    dst_asic = get_src_dst_asic["dst_asic"]
-    dst_asic_index = get_src_dst_asic["dst_asic_index"]
-    logger.info(
-        "DUT: {}, src_asic_index: {}, dst_asic_index: {}".format(dut.hostname, src_asic_index, dst_asic_index)
-    )
-
-    backend_port_channels = extract_backend_portchannels(dut)
-    src_asic_next_hops, dst_asic_next_hops, src_prefix, dst_prefix = get_src_dst_asic_next_hops(
-        version,
-        dut,
-        src_asic,
-        dst_asic,
-        request,
-        backend_port_channels,
-    )
-
-    add_bfd(src_asic_index, src_prefix, dut)
-    add_bfd(dst_asic_index, dst_prefix, dut)
-    assert wait_until(
-        180,
-        10,
-        0,
-        lambda: verify_bfd_state(dut, src_asic_next_hops.values(), src_asic, "Up"),
-    )
-    assert wait_until(
-        180,
-        10,
-        0,
-        lambda: verify_bfd_state(dut, dst_asic_next_hops.values(), dst_asic, "Up"),
-    )
-
-    src_asic_router_mac = src_asic.get_router_mac()
-
-    return (
-        dut,
-        src_asic,
-        src_asic_index,
-        dst_asic,
-        dst_asic_index,
-        src_asic_next_hops,
-        dst_asic_next_hops,
-        src_asic_router_mac,
-        backend_port_channels,
-    )
 
 
 def clear_bfd_configs(dut, asic_index, prefix):
@@ -629,14 +590,8 @@ def clear_interface_counters(dut):
     dut.shell("sonic-clear counters")
 
 
-def send_packets_batch_from_ptf(
-    packet_count,
-    version,
-    src_asic_router_mac,
-    ptfadapter,
-    ptf_src_port,
-    dst_neighbor_ip,
-):
+def send_packets_batch_from_ptf(packet_count, version, src_asic_router_mac,
+                                ptfadapter, ptf_src_port, dst_neighbor_ip):
     for _ in range(packet_count):
         if version == "ipv4":
             pkt = testutils.simple_ip_packet(
@@ -662,21 +617,17 @@ def send_packets_batch_from_ptf(
         testutils.send(test=ptfadapter, port_id=ptf_src_port, pkt=pkt)
 
 
-def get_backend_interface_in_use_by_counter(
-    dut,
-    packet_count,
-    version,
-    src_asic_router_mac,
-    ptfadapter,
-    ptf_src_port,
-    dst_neighbor_ip,
-    src_asic_index,
-    dst_asic_index,
-):
-    clear_interface_counters(dut)
+def get_backend_interface_in_use_by_counter(src_dut, dst_dut, packet_count, version,
+                                            src_asic_router_mac, ptfadapter,
+                                            ptf_src_port, dst_neighbor_ip,
+                                            src_asic_index, dst_asic_index):
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for dut in [src_dut, dst_dut]:
+            executor.submit(clear_interface_counters, dut)
+
     send_packets_batch_from_ptf(packet_count, version, src_asic_router_mac, ptfadapter, ptf_src_port, dst_neighbor_ip)
-    src_output = dut.show_and_parse("show int counters -n asic{} -d all".format(src_asic_index))
-    dst_output = dut.show_and_parse("show int counters -n asic{} -d all".format(dst_asic_index))
+    src_output = src_dut.show_and_parse("show int counters -n asic{} -d all".format(src_asic_index))
+    dst_output = dst_dut.show_and_parse("show int counters -n asic{} -d all".format(dst_asic_index))
     src_bp_iface = None
     for item in src_output:
         if "BP" in item.get("iface", "") and int(item.get("tx_ok", "0").replace(',', '')) >= packet_count:
@@ -693,24 +644,34 @@ def get_backend_interface_in_use_by_counter(
     return src_bp_iface, dst_bp_iface
 
 
-def get_src_dst_asic_next_hops(version, dut, src_asic, dst_asic, request, backend_port_channels):
-    src_asic_next_hops = extract_ip_addresses_for_backend_portchannels(dut, dst_asic, version, backend_port_channels)
-    assert len(src_asic_next_hops) != 0, "Source next hops are empty"
-    dst_asic_next_hops = extract_ip_addresses_for_backend_portchannels(dut, src_asic, version, backend_port_channels)
-    assert len(dst_asic_next_hops) != 0, "Destination next hops are empty"
+def get_src_dst_asic_next_hops(version, src_dut, src_asic,
+                               src_backend_port_channels, dst_dut, dst_asic,
+                               dst_backend_port_channels):
+    src_asic_next_hops = extract_ip_addresses_for_backend_portchannels(
+        dst_dut,
+        dst_asic,
+        version,
+        backend_port_channels=dst_backend_port_channels,
+    )
 
-    dut_asic_static_routes = get_dut_asic_static_routes(version, dut)
+    assert len(src_asic_next_hops) != 0, (
+        "Source next hops are empty. "
+        "Parsed source next hops: {}"
+    ).format(src_asic_next_hops)
 
-    # Picking a static route to delete its BFD session
-    src_prefix = selecting_route_to_delete(dut_asic_static_routes, src_asic_next_hops.values())
-    request.config.src_prefix = src_prefix
-    assert src_prefix is not None and src_prefix != "", "Source prefix not found"
+    dst_asic_next_hops = extract_ip_addresses_for_backend_portchannels(
+        src_dut,
+        src_asic,
+        version,
+        backend_port_channels=src_backend_port_channels,
+    )
 
-    dst_prefix = selecting_route_to_delete(dut_asic_static_routes, dst_asic_next_hops.values())
-    request.config.dst_prefix = dst_prefix
-    assert dst_prefix is not None and dst_prefix != "", "Destination prefix not found"
+    assert len(dst_asic_next_hops) != 0, (
+        "Destination next hops are empty. "
+        "Parsed destination next hops: {}"
+    ).format(dst_asic_next_hops)
 
-    return src_asic_next_hops, dst_asic_next_hops, src_prefix, dst_prefix
+    return src_asic_next_hops, dst_asic_next_hops
 
 
 def get_port_channel_by_member(backend_port_channels, member):
@@ -721,16 +682,10 @@ def get_port_channel_by_member(backend_port_channels, member):
     return None
 
 
-def toggle_port_channel_or_member(
-    target_to_toggle,
-    dut,
-    asic,
-    request,
-    action,
-):
-    request.config.portchannels_on_dut = "dut"
-    request.config.selected_portchannels = [target_to_toggle]
-    request.config.asic = asic
+def toggle_port_channel_or_member(target_to_toggle, dut, asic, cleanup_context,
+                                  action):
+    if action == "shutdown":
+        cleanup_context.register_restore(dut, asic, [target_to_toggle])
 
     batch_control_interface_state(dut, asic, [target_to_toggle], action)
     if action == "shutdown":
@@ -744,13 +699,14 @@ def assert_bp_iface_after_shutdown(
     dst_bp_iface_after_shutdown,
     src_asic_index,
     dst_asic_index,
-    dut_hostname,
+    src_dut_hostname,
+    dst_dut_hostname,
 ):
     if src_bp_iface_before_shutdown == src_bp_iface_after_shutdown:
         pytest.fail(
             "Source backend interface in use on asic{} of dut {} does not change after shutdown".format(
                 src_asic_index,
-                dut_hostname,
+                src_dut_hostname,
             )
         )
 
@@ -758,7 +714,7 @@ def assert_bp_iface_after_shutdown(
         pytest.fail(
             "Destination backend interface in use on asic{} of dut {} does not change after shutdown".format(
                 dst_asic_index,
-                dut_hostname,
+                dst_dut_hostname,
             )
         )
 
@@ -770,13 +726,14 @@ def assert_port_channel_after_shutdown(
     dst_port_channel_after_shutdown,
     src_asic_index,
     dst_asic_index,
-    dut_hostname,
+    src_dut_hostname,
+    dst_dut_hostname,
 ):
     if src_port_channel_before_shutdown == src_port_channel_after_shutdown:
         pytest.fail(
             "Source port channel in use on asic{} of dut {} does not change after shutdown".format(
                 src_asic_index,
-                dut_hostname,
+                src_dut_hostname,
             )
         )
 
@@ -784,7 +741,7 @@ def assert_port_channel_after_shutdown(
         pytest.fail(
             "Destination port channel in use on asic{} of dut {} does not change after shutdown".format(
                 dst_asic_index,
-                dut_hostname,
+                dst_dut_hostname,
             )
         )
 
@@ -794,42 +751,28 @@ def verify_given_bfd_state(asic_next_hops, port_channel, asic_index, dut, expect
     return current_state == expected_state
 
 
-def wait_until_given_bfd_down(
-    src_asic_next_hops,
-    src_port_channel,
-    src_asic_index,
-    dst_asic_next_hops,
-    dst_port_channel,
-    dst_asic_index,
-    dut,
-):
+def wait_until_given_bfd_down(next_hops, port_channel, asic_index, dut):
     assert wait_until(
-        180,
+        450,
         10,
         0,
-        lambda: verify_given_bfd_state(src_asic_next_hops, dst_port_channel, src_asic_index, dut, "Down"),
-    )
-
-    assert wait_until(
-        180,
-        10,
-        0,
-        lambda: verify_given_bfd_state(dst_asic_next_hops, src_port_channel, dst_asic_index, dut, "Down"),
+        lambda: verify_given_bfd_state(next_hops, port_channel, asic_index, dut, "Down"),
+    ), (
+        "Timed out waiting for BFD session on port channel '{}' (ASIC {} ) to reach state 'Down'."
+    ).format(
+        port_channel,
+        asic_index
     )
 
 
-def assert_traffic_switching(
-    dut,
-    backend_port_channels,
-    src_asic_index,
-    src_bp_iface_before_shutdown,
-    src_bp_iface_after_shutdown,
-    src_port_channel_before_shutdown,
-    dst_asic_index,
-    dst_bp_iface_after_shutdown,
-    dst_bp_iface_before_shutdown,
-    dst_port_channel_before_shutdown,
-):
+def assert_traffic_switching(src_dut, dst_dut, src_backend_port_channels,
+                             dst_backend_port_channels, src_asic_index,
+                             src_bp_iface_before_shutdown,
+                             src_bp_iface_after_shutdown,
+                             src_port_channel_before_shutdown, dst_asic_index,
+                             dst_bp_iface_after_shutdown,
+                             dst_bp_iface_before_shutdown,
+                             dst_port_channel_before_shutdown):
     assert_bp_iface_after_shutdown(
         src_bp_iface_before_shutdown,
         dst_bp_iface_before_shutdown,
@@ -837,16 +780,17 @@ def assert_traffic_switching(
         dst_bp_iface_after_shutdown,
         src_asic_index,
         dst_asic_index,
-        dut.hostname,
+        src_dut.hostname,
+        dst_dut.hostname,
     )
 
     src_port_channel_after_shutdown = get_port_channel_by_member(
-        backend_port_channels,
+        src_backend_port_channels,
         src_bp_iface_after_shutdown,
     )
 
     dst_port_channel_after_shutdown = get_port_channel_by_member(
-        backend_port_channels,
+        dst_backend_port_channels,
         dst_bp_iface_after_shutdown,
     )
 
@@ -857,21 +801,22 @@ def assert_traffic_switching(
         dst_port_channel_after_shutdown,
         src_asic_index,
         dst_asic_index,
-        dut.hostname,
+        src_dut.hostname,
+        dst_dut.hostname,
     )
 
 
-def wait_until_bfd_up(dut, src_asic_next_hops, src_asic, dst_asic_next_hops, dst_asic):
-    assert wait_until(
-        180,
-        10,
-        0,
-        lambda: verify_bfd_state(dut, src_asic_next_hops.values(), src_asic, "Up"),
-    )
+def get_upstream_and_downstream_dut_pool(frontend_nodes):
+    upstream_dut_pool = []
+    downstream_dut_pool = []
+    for node in frontend_nodes:
+        bgp_neighbors = node.get_bgp_neighbors()
+        for neighbor_info in bgp_neighbors.values():
+            if "t3" in neighbor_info["description"].lower():
+                upstream_dut_pool.append(node)
+                break
+            elif "t1" in neighbor_info["description"].lower():
+                downstream_dut_pool.append(node)
+                break
 
-    assert wait_until(
-        180,
-        10,
-        0,
-        lambda: verify_bfd_state(dut, dst_asic_next_hops.values(), dst_asic, "Up"),
-    )
+    return upstream_dut_pool, downstream_dut_pool

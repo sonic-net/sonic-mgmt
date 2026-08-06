@@ -21,7 +21,6 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('any'),
-    pytest.mark.device_type('physical'),
     pytest.mark.sanity_check(skip_sanity=True),
     pytest.mark.disable_loganalyzer
 ]
@@ -56,15 +55,6 @@ def teardown_module(duthosts, rand_one_dut_hostname):
         time.sleep(10)
     logger.info("Tearing down: to make sure all the critical services, interfaces and transceivers are good")
     check_critical_processes(duthost, watch_secs=10)
-
-
-@pytest.fixture()
-def check_daemon_status(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
-    daemon_status, daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
-    if daemon_status != "RUNNING":
-        duthost.start_pmon_daemon(daemon_name)
-        time.sleep(10)
 
 
 def check_expected_daemon_status(duthost, expected_daemon_status):

@@ -6,7 +6,10 @@ import difflib
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.gu_utils import apply_patch, expect_op_success, expect_res_success, expect_op_failure
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
+from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
+from tests.common.utilities import wait_until
+from tests.common.config_reload import config_reload_minigraph_with_rendered_golden_config_override
 
 # Test on t0 topo to verify functionality and to choose predefined variable
 # admin@vlab-01:~$ show acl table
@@ -18,24 +21,25 @@ from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback
 # SSH_ONLY    CTRLPLANE  SSH              SSH_ONLY       ingress
 
 pytestmark = [
-    pytest.mark.topology('t0', 'm0', 'mx', 't1'),
+    pytest.mark.topology('t0', 'm0', 'mx', 'm1', 't1', 't2', 'lrh', 'urh', 'lt2', 'ft2', 'bmc'),
 ]
 
 logger = logging.getLogger(__name__)
 
 
-def get_cacl_tables(duthost):
-    """Get acl control palne tables
+def get_cacl_tables(duthost, ip_netns_namespace_prefix):
+    """Get acl control plane tables
     """
-    cmds = "show acl table | grep -w CTRLPLANE | awk '{print $1}'"
+    cmds = "{} show acl table | grep -w CTRLPLANE | awk '{{print $1}}'".format(ip_netns_namespace_prefix)
+
     output = duthost.shell(cmds)
     pytest_assert(not output['rc'], "'{}' failed with rc={}".format(cmds, output['rc']))
     cacl_tables = output['stdout'].splitlines()
     return cacl_tables
 
 
-def get_iptable_rules(duthost):
-    cmds = "iptables -S"
+def get_iptable_rules(duthost, ip_netns_namespace_prefix):
+    cmds = "{} iptables -S".format(ip_netns_namespace_prefix)
     output = duthost.shell(cmds)
     pytest_assert(not output['rc'], "'{}' failed with rc={}".format(cmds, output['rc']))
     rules_chain = output['stdout'].splitlines()
@@ -43,7 +47,15 @@ def get_iptable_rules(duthost):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def disable_port_toggle(duthosts, tbinfo):
+def restore_test_env(duthosts, rand_one_dut_front_end_hostname):
+    duthost = duthosts[rand_one_dut_front_end_hostname]
+    config_reload_minigraph_with_rendered_golden_config_override(
+        duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+    yield
+
+
+@pytest.fixture(scope="module", autouse=True)
+def disable_port_toggle(duthosts, tbinfo, restore_test_env):
     # set mux mode to manual on both TORs to avoid port state change during test
     if "dualtor" in tbinfo['topo']['name']:
         for dut in duthosts:
@@ -55,16 +67,19 @@ def disable_port_toggle(duthosts, tbinfo):
 
 
 @pytest.fixture(autouse=True)
-def setup_env(duthosts, rand_one_dut_hostname):
+def setup_env(duthosts, rand_one_dut_front_end_hostname, enum_rand_one_frontend_asic_index, ip_netns_namespace_prefix):
     """
     Setup/teardown fixture for acl config
     Args:
         duthosts: list of DUTs.
-        rand_selected_dut: The fixture returns a randomly selected DuT.
+        rand_one_dut_front_end_hostname: The fixture returns a randomly selected DuT.
+        enum_rand_one_frontend_asic_index: The fixture returns a randomly selected asic index.
     """
-    duthost = duthosts[rand_one_dut_hostname]
-    original_iptable_rules = get_iptable_rules(duthost)
-    original_cacl_tables = get_cacl_tables(duthost)
+    duthost = duthosts[rand_one_dut_front_end_hostname]
+
+    original_iptable_rules = get_iptable_rules(duthost, ip_netns_namespace_prefix)
+    original_cacl_tables = get_cacl_tables(duthost, ip_netns_namespace_prefix)
+
     create_checkpoint(duthost)
 
     yield
@@ -73,28 +88,18 @@ def setup_env(duthosts, rand_one_dut_hostname):
         logger.info("Rolled back to original checkpoint")
         rollback_or_reload(duthost)
 
-        current_iptable_rules = get_iptable_rules(duthost)
-        logger.info("original iptable rules: {}, current iptable rules: {}".format(
-            original_iptable_rules, current_iptable_rules)
-        )
-        iptable_rules_diff = [
-            li for li in difflib.ndiff(original_iptable_rules, current_iptable_rules) if li[0] != ' '
-        ]
-        logger.info("iptable_rules_diff {}".format(iptable_rules_diff))
-        pytest_assert(
-            set(original_iptable_rules) == set(current_iptable_rules),
-            "iptable rules are not suppose to change after test. diff: {}".format(
-                iptable_rules_diff)
-        )
+        pytest_assert(wait_until(5, 1, 0, check_original_and_current_iptable_rule,
+                                 duthost, original_iptable_rules, ip_netns_namespace_prefix),
+                      "The current iptable rules doesn't match the original one")
 
-        current_cacl_tables = get_cacl_tables(duthost)
+        current_cacl_tables = get_cacl_tables(duthost, ip_netns_namespace_prefix)
         logger.info("original cacl tables: {}, current cacl tables: {}".format(
             original_cacl_tables, current_cacl_tables)
         )
         cacl_tables_diff = [
             li for li in difflib.ndiff(original_cacl_tables, current_cacl_tables) if li[0] != ' '
         ]
-        logger.info("cacl_tables_diff {}".format(iptable_rules_diff))
+        logger.info("cacl_tables_diff {}".format(cacl_tables_diff))
         pytest_assert(
             set(original_cacl_tables) == set(current_cacl_tables),
             "cacl tables are not suppose to change after test. diff: {}".format(
@@ -104,10 +109,27 @@ def setup_env(duthosts, rand_one_dut_hostname):
         delete_checkpoint(duthost)
 
 
-def expect_acl_table_match(duthost, table_name, expected_content_list):
+def check_original_and_current_iptable_rule(duthost, original_iptable_rules, ip_netns_namespace_prefix):
+    current_iptable_rules = get_iptable_rules(duthost, ip_netns_namespace_prefix)
+    logger.info("original iptable rules: {}, current iptable rules: {}".format(
+        original_iptable_rules, current_iptable_rules)
+    )
+    iptable_rules_diff = [
+        li for li in difflib.ndiff(original_iptable_rules, current_iptable_rules) if li[0] != ' '
+    ]
+    logger.info("iptable_rules_diff {}".format(iptable_rules_diff))
+
+    if set(original_iptable_rules) == set(current_iptable_rules):
+        return True
+    else:
+        logger.error(f"iptable rules are not suppose to change after test. diff: {iptable_rules_diff}")
+        return False
+
+
+def expect_acl_table_match(duthost, table_name, expected_content_list, ip_netns_namespace_prefix):
     """Check if acl table show as expected
     """
-    cmds = "show acl table {}".format(table_name)
+    cmds = "{} show acl table {}".format(ip_netns_namespace_prefix, table_name)
     output = duthost.shell(cmds)
     pytest_assert(not output['rc'], "'{}' failed with rc={}".format(cmds, output['rc']))
 
@@ -123,18 +145,19 @@ def expect_acl_table_match(duthost, table_name, expected_content_list):
     pytest_assert(set(expected_content_list) == set(actual_list), "ACL table doesn't match")
 
 
-def expect_res_success_acl_rule(duthost, expected_content_list, unexpected_content_list):
+def expect_res_success_acl_rule(duthost, expected_content_list, unexpected_content_list,
+                                ip_netns_namespace_prefix):
     """Check if acl rule added as expected
     """
     time.sleep(1)   # Sleep 1 sec to ensure caclmgrd does update in case of its UPDATE_DELAY_SECS 0.5s
-    cmds = "iptables -S"
+    cmds = "{} iptables -S".format(ip_netns_namespace_prefix)
     output = duthost.shell(cmds)
     pytest_assert(not output['rc'], "'{}' failed with rc={}".format(cmds, output['rc']))
 
     expect_res_success(duthost, output, expected_content_list, unexpected_content_list)
 
 
-def cacl_tc1_add_new_table(duthost, protocol):
+def cacl_tc1_add_new_table(duthost, protocol, ip_netns_namespace_prefix, namespace=None):
     """ Add acl table for test
 
     Sample output
@@ -158,6 +181,8 @@ def cacl_tc1_add_new_table(duthost, protocol):
             }
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[namespace])
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -167,12 +192,12 @@ def cacl_tc1_add_new_table(duthost, protocol):
         expect_op_success(duthost, output)
 
         expected_content_list = [table, "CTRLPLANE", protocol, "{}_Test_Table_1".format(protocol), "ingress"]
-        expect_acl_table_match(duthost, table, expected_content_list)
+        expect_acl_table_match(duthost, table, expected_content_list, ip_netns_namespace_prefix)
     finally:
         delete_tmpfile(duthost, tmpfile)
 
 
-def cacl_tc1_add_duplicate_table(duthost, protocol):
+def cacl_tc1_add_duplicate_table(duthost, protocol, namespace=None):
     """ Add duplicate acl table
     """
     if protocol == 'SSH':
@@ -193,6 +218,8 @@ def cacl_tc1_add_duplicate_table(duthost, protocol):
             }
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[namespace])
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -204,7 +231,7 @@ def cacl_tc1_add_duplicate_table(duthost, protocol):
         delete_tmpfile(duthost, tmpfile)
 
 
-def cacl_tc1_replace_table_variable(duthost, protocol):
+def cacl_tc1_replace_table_variable(duthost, protocol, ip_netns_namespace_prefix, namespace=None):
     """ Replace acl table with SSH service
 
     Expected output
@@ -252,6 +279,8 @@ def cacl_tc1_replace_table_variable(duthost, protocol):
             }
         ]
 
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[namespace])
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 
@@ -264,12 +293,12 @@ def cacl_tc1_replace_table_variable(duthost, protocol):
         else:
             expected_content_list = [table_name, "CTRLPLANE", "SSH",
                                      "{}_TO_SSH".format(protocol), "egress"]
-        expect_acl_table_match(duthost, table_name, expected_content_list)
+        expect_acl_table_match(duthost, table_name, expected_content_list, ip_netns_namespace_prefix)
     finally:
         delete_tmpfile(duthost, tmpfile)
 
 
-def cacl_tc1_add_invalid_table(duthost, protocol):
+def cacl_tc1_add_invalid_table(duthost, protocol, namespace=None):
     """ Add invalid acl table
 
     {"service": "SSH", "stage": "ogress", "type": "CTRLPLANE"}, # wrong stage
@@ -279,7 +308,6 @@ def cacl_tc1_add_invalid_table(duthost, protocol):
         {"service": protocol, "stage": "ogress", "type": "CTRLPLANE"},
         {"service": protocol, "stage": "ingress", "type": "TRLPLANE"}
     ]
-
     for ele in invalid_table:
         json_patch = [
             {
@@ -298,6 +326,8 @@ def cacl_tc1_add_invalid_table(duthost, protocol):
 
         tmpfile = generate_tmpfile(duthost)
         logger.info("tmpfile {}".format(tmpfile))
+        json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                     is_asic_specific=True, asic_namespaces=[namespace])
 
         try:
             output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
@@ -306,7 +336,7 @@ def cacl_tc1_add_invalid_table(duthost, protocol):
             delete_tmpfile(duthost, tmpfile)
 
 
-def cacl_tc1_remove_unexisted_table(duthost):
+def cacl_tc1_remove_unexisted_table(duthost, namespace=None):
     """ Remove unexisted acl table
     """
     json_patch = [
@@ -315,6 +345,8 @@ def cacl_tc1_remove_unexisted_table(duthost):
             "path": "/ACL_RULE/SSH_ONLY_UNEXISTED"
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[namespace])
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -325,7 +357,7 @@ def cacl_tc1_remove_unexisted_table(duthost):
         delete_tmpfile(duthost, tmpfile)
 
 
-def cacl_tc1_remove_table(duthost, protocol):
+def cacl_tc1_remove_table(duthost, protocol, ip_netns_namespace_prefix, namespace=None):
     """ Remove acl table test
     """
     if protocol == 'SSH':
@@ -338,6 +370,8 @@ def cacl_tc1_remove_table(duthost, protocol):
             "path": "/ACL_TABLE/{}".format(table_name)
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[namespace])
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -346,12 +380,12 @@ def cacl_tc1_remove_table(duthost, protocol):
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
-        expect_acl_table_match(duthost, table_name, [])
+        expect_acl_table_match(duthost, table_name, [], ip_netns_namespace_prefix)
     finally:
         delete_tmpfile(duthost, tmpfile)
 
 
-def cacl_tc2_add_init_rule(duthost, protocol):
+def cacl_tc2_add_init_rule(duthost, protocol, ip_netns_namespace_prefix, namespace=None):
     """ Add acl rule for test
 
     Check 'ip tables' to make sure rule is actually being applied
@@ -383,6 +417,11 @@ def cacl_tc2_add_init_rule(duthost, protocol):
         params_dict["table"] = "EXTERNAL_CLIENT_ACL"
         params_dict["IP_PROTOCOL"] = "6"
         params_dict["L4_DST_PORT"] = "8081"
+    elif protocol == 'REDFISH':
+        params_dict["table"] = "REDFISH_ACL"
+        params_dict["IP_PROTOCOL"] = "6"
+        params_dict["L4_DST_PORT"] = "443"
+
     json_patch = [
         {
             "op": "add",
@@ -399,6 +438,8 @@ def cacl_tc2_add_init_rule(duthost, protocol):
             }
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[namespace])
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 
@@ -414,12 +455,14 @@ def cacl_tc2_add_init_rule(duthost, protocol):
                                      "-A INPUT -s 9.9.9.9/32 -p udp -m udp --dport 161 -j DROP"]
         elif protocol == 'EXTERNAL_CLIENT':
             expected_content_list = ["-A INPUT -s 9.9.9.9/32 -p tcp -m tcp --dport 8081 -j DROP"]
-        expect_res_success_acl_rule(duthost, expected_content_list, [])
+        elif protocol == 'REDFISH':
+            expected_content_list = ["-A INPUT -s 9.9.9.9/32 -p tcp -m tcp --dport 443 -j DROP"]
+        expect_res_success_acl_rule(duthost, expected_content_list, [], ip_netns_namespace_prefix)
     finally:
         delete_tmpfile(duthost, tmpfile)
 
 
-def cacl_tc2_add_duplicate_rule(duthost, protocol):
+def cacl_tc2_add_duplicate_rule(duthost, protocol, namespace=None):
     """ Add duplicate acl rule for test
     """
     params_dict = {}
@@ -440,6 +483,11 @@ def cacl_tc2_add_duplicate_rule(duthost, protocol):
         params_dict["table"] = "EXTERNAL_CLIENT_ACL"
         params_dict["IP_PROTOCOL"] = "6"
         params_dict["L4_DST_PORT"] = "8081"
+    elif protocol == 'REDFISH':
+        params_dict["table"] = "REDFISH_ACL"
+        params_dict["IP_PROTOCOL"] = "6"
+        params_dict["L4_DST_PORT"] = "443"
+
     json_patch = [
         {
             "op": "add",
@@ -456,6 +504,8 @@ def cacl_tc2_add_duplicate_rule(duthost, protocol):
             }
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[namespace])
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -467,7 +517,7 @@ def cacl_tc2_add_duplicate_rule(duthost, protocol):
         delete_tmpfile(duthost, tmpfile)
 
 
-def cacl_tc2_replace_rule(duthost, protocol):
+def cacl_tc2_replace_rule(duthost, protocol, ip_netns_namespace_prefix, namespace=None):
     """ Replace a value from acl rule test
 
     Check 'ip tables' to make sure rule is actually being applied
@@ -488,6 +538,9 @@ def cacl_tc2_replace_rule(duthost, protocol):
         table = 'NTP_ACL'
     elif protocol == 'EXTERNAL_CLIENT':
         table = 'EXTERNAL_CLIENT_ACL'
+    elif protocol == 'REDFISH':
+        table = 'REDFISH_ACL'
+
     json_patch = [
         {
             "op": "replace",
@@ -495,6 +548,8 @@ def cacl_tc2_replace_rule(duthost, protocol):
             "value": "8.8.8.8/32"
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[namespace])
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 
@@ -515,14 +570,19 @@ def cacl_tc2_replace_rule(duthost, protocol):
         elif protocol == 'EXTERNAL_CLIENT':
             expected_content_list = ["-A INPUT -s 8.8.8.8/32 -p tcp -m tcp --dport 8081 -j DROP"]
             unexpected_content_list = ["-A INPUT -s 9.9.9.9/32 -p tcp -m tcp --dport 8081 -j DROP"]
-        expect_res_success_acl_rule(duthost, expected_content_list, unexpected_content_list)
+        elif protocol == 'REDFISH':
+            expected_content_list = ["-A INPUT -s 8.8.8.8/32 -p tcp -m tcp --dport 443 -j DROP"]
+            unexpected_content_list = ["-A INPUT -s 9.9.9.9/32 -p tcp -m tcp --dport 443 -j DROP"]
+        expect_res_success_acl_rule(duthost, expected_content_list, unexpected_content_list,
+                                    ip_netns_namespace_prefix)
     finally:
         delete_tmpfile(duthost, tmpfile)
 
 
-def cacl_tc2_add_rule_to_unexisted_table(duthost):
+def cacl_tc2_add_rule_to_unexisted_table(duthost, namespace=None):
     """ Add acl rule to unexisted table
     """
+
     json_patch = [
         {
             "op": "add",
@@ -537,6 +597,8 @@ def cacl_tc2_add_rule_to_unexisted_table(duthost):
             }
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[namespace])
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -548,7 +610,7 @@ def cacl_tc2_add_rule_to_unexisted_table(duthost):
         delete_tmpfile(duthost, tmpfile)
 
 
-def cacl_tc2_remove_table_before_rule(duthost, protocol):
+def cacl_tc2_remove_table_before_rule(duthost, protocol, namespace=None):
     """ Remove acl table before removing acl rule
     """
     if protocol == 'SSH':
@@ -559,12 +621,17 @@ def cacl_tc2_remove_table_before_rule(duthost, protocol):
         table = 'NTP_ACL'
     elif protocol == 'EXTERNAL_CLIENT':
         table = 'EXTERNAL_CLIENT_ACL'
+    elif protocol == 'REDFISH':
+        table = 'REDFISH_ACL'
+
     json_patch = [
         {
             "op": "remove",
             "path": "/ACL_TABLE/{}".format(table)
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[namespace])
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -576,7 +643,7 @@ def cacl_tc2_remove_table_before_rule(duthost, protocol):
         delete_tmpfile(duthost, tmpfile)
 
 
-def cacl_tc2_remove_unexist_rule(duthost, protocol):
+def cacl_tc2_remove_unexist_rule(duthost, protocol, namespace=None):
     """ Remove unexisted acl rule
     """
     if protocol == 'SSH':
@@ -587,12 +654,17 @@ def cacl_tc2_remove_unexist_rule(duthost, protocol):
         table = 'NTP_ACL'
     elif protocol == 'EXTERNAL_CLIENT':
         table = 'EXTERNAL_CLIENT_ACL'
+    elif protocol == 'REDFISH':
+        table = 'REDFISH_ACL'
+
     json_patch = [
         {
             "op": "remove",
             "path": "/ACL_RULE/{}|TEST_DROP2".format(table)
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[namespace])
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
     try:
@@ -602,15 +674,18 @@ def cacl_tc2_remove_unexist_rule(duthost, protocol):
         delete_tmpfile(duthost, tmpfile)
 
 
-def cacl_tc2_remove_rule(duthost):
+def cacl_tc2_remove_rule(duthost, ip_netns_namespace_prefix, namespace=None):
     """ Remove acl rule test
     """
+
     json_patch = [
         {
             "op": "remove",
-            "path": "/ACL_RULE"
+            "path": "/ACL_RULE".format()
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[namespace])
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -623,13 +698,14 @@ def cacl_tc2_remove_rule(duthost):
                                    "-A INPUT -s 8.8.8.8/32 -p tcp -m tcp --dport 161 -j DROP",
                                    "-A INPUT -s 8.8.8.8/32 -p udp -m udp --dport 161 -j DROP",
                                    "-A INPUT -s 8.8.8.8/32 -p tcp -m udp --dport 123 -j DROP",
-                                   "-A INPUT -s 8.8.8.8/32 -p tcp -m tcp --dport 8081 -j DROP"]
-        expect_res_success_acl_rule(duthost, [], unexpected_content_list)
+                                   "-A INPUT -s 8.8.8.8/32 -p tcp -m tcp --dport 8081 -j DROP",
+                                   "-A INPUT -s 8.8.8.8/32 -p tcp -m tcp --dport 443 -j DROP"]
+        expect_res_success_acl_rule(duthost, [], unexpected_content_list, ip_netns_namespace_prefix)
     finally:
         delete_tmpfile(duthost, tmpfile)
 
 
-def cacl_external_client_add_new_table(duthost):
+def cacl_external_client_add_new_table(duthost, ip_netns_namespace_prefix, namespace=None):
     """ Add acl table for test
     Sample output
     admin@vlab-01:~$ show acl table
@@ -637,6 +713,7 @@ def cacl_external_client_add_new_table(duthost):
     ----------------------  ---------  ---------------  ----------------------------  -------  --------
     EXTERNAL_CLIENT_ACL     CTRLPLANE  EXTERNAL_CLIENT  EXTERNAL_CLIENT_ACL           ingress  Active
     """
+
     json_patch = [
         {
             "op": "add",
@@ -651,6 +728,8 @@ def cacl_external_client_add_new_table(duthost):
             }
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[namespace])
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -661,44 +740,284 @@ def cacl_external_client_add_new_table(duthost):
 
         expected_content_list = ["EXTERNAL_CLIENT_ACL", "CTRLPLANE", "EXTERNAL_CLIENT",
                                  "EXTERNAL_CLIENT_ACL", "ingress"]
-        expect_acl_table_match(duthost, "EXTERNAL_CLIENT_ACL", expected_content_list)
+        expect_acl_table_match(duthost, "EXTERNAL_CLIENT_ACL", expected_content_list,
+                               ip_netns_namespace_prefix)
     finally:
         delete_tmpfile(duthost, tmpfile)
 
 
-@pytest.fixture(scope="module", params=["SSH", "NTP", "SNMP", "EXTERNAL_CLIENT"])
-def cacl_protocol(request):       # noqa F811
+def cacl_redfish_add_new_table(duthost, ip_netns_namespace_prefix, namespace=None):
+    """ Add REDFISH_ACL acl table for test.
+
+    REDFISH_ACL is not present in CONFIG_DB by default, so the rule-suite
+    must create it before exercising rule operations.
+
+    Sample output
+    admin@vlab-01:~$ show acl table
+    Name         Type       Binding   Description    Stage    Status
+    -----------  ---------  --------  -------------  -------  --------
+    REDFISH_ACL  CTRLPLANE  REDFISH   REDFISH_ACL    ingress  Active
     """
-    Return the protocol to be tested
-    """
-    return request.param
+
+    json_patch = [
+        {
+            "op": "add",
+            "path": "/ACL_TABLE/REDFISH_ACL",
+            "value": {
+                "policy_desc": "REDFISH_ACL",
+                "services": [
+                    "REDFISH"
+                ],
+                "stage": "ingress",
+                "type": "CTRLPLANE"
+            }
+        }
+    ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[namespace])
+
+    tmpfile = generate_tmpfile(duthost)
+    logger.info("tmpfile {}".format(tmpfile))
+
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+
+        expected_content_list = ["REDFISH_ACL", "CTRLPLANE", "REDFISH",
+                                 "REDFISH_ACL", "ingress"]
+        expect_acl_table_match(duthost, "REDFISH_ACL", expected_content_list,
+                               ip_netns_namespace_prefix)
+    finally:
+        delete_tmpfile(duthost, tmpfile)
 
 
-def test_cacl_tc1_acl_table_suite(cacl_protocol, rand_selected_dut):
+def cacl_tc3_acl_table_and_acl_rule(duthost, ip_netns_namespace_prefix, namespace=None):
+    """ Add acl table and acl rule in single patch for test
+    """
+
+    json_patch = [
+        {
+            "op": "add",
+            "path": "/ACL_TABLE/EXTERNAL_CLIENT_ACL",
+            "value": {
+                "type": "CTRLPLANE",
+                "stage": "ingress",
+                "policy_desc": "EXTERNAL_CLIENT_ACL",
+                "services": [
+                    "EXTERNAL_CLIENT"
+                ]
+            }
+        },
+        {
+            "op": "add",
+            "path": "/ACL_RULE",
+            "value": {
+                "EXTERNAL_CLIENT_ACL|RULE_1": {
+                    "PRIORITY": "9999",
+                    "SRC_IP": "9.9.9.9/32",
+                    "IP_PROTOCOL": "6",
+                    "PACKET_ACTION": "DROP",
+                    "L4_DST_PORT": "8081"
+                }
+            }
+        }
+    ]
+
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[namespace])
+
+    tmpfile = generate_tmpfile(duthost)
+    logger.info("tmpfile {}".format(tmpfile))
+
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+
+        expected_table_content_list = ["EXTERNAL_CLIENT_ACL", "CTRLPLANE", "EXTERNAL_CLIENT",
+                                       "EXTERNAL_CLIENT_ACL", "ingress"]
+        expect_acl_table_match(duthost, "EXTERNAL_CLIENT_ACL", expected_table_content_list,
+                               ip_netns_namespace_prefix)
+        expected_rule_content_list = ["-A INPUT -s 9.9.9.9/32 -p tcp -m tcp --dport 8081 -j DROP"]
+        expect_res_success_acl_rule(duthost, expected_rule_content_list, [], ip_netns_namespace_prefix)
+    finally:
+        delete_tmpfile(duthost, tmpfile)
+
+
+def _get_redfish_feature_state(duthost):
+    return duthost.shell('sonic-db-cli CONFIG_DB hget "FEATURE|redfish" state',
+                         module_ignore_errors=True)['stdout'].strip()
+
+
+@pytest.fixture(scope="module", params=["SSH", "NTP", "SNMP", "EXTERNAL_CLIENT", "REDFISH"])
+def cacl_protocol(request):       # noqa: F811
+    """
+    Return the protocol to be tested.
+
+    REDFISH ACL only applies on BMC DUTs, so the REDFISH parameterization is
+    skipped on non-BMC DUTs. In addition, caclmgrd only programs the REDFISH
+    (tcp/443) iptables rules when FEATURE.redfish state is "enabled" - air-cooled
+    BMCs default to "disabled". Enable the feature for the duration of the REDFISH
+    tests so caclmgrd emits the rules, and restore the original state on teardown.
+    """
+    protocol = request.param
+    if protocol != "REDFISH":
+        yield protocol
+        return
+
+    duthost = request.getfixturevalue('rand_selected_front_end_dut')
+    if not duthost.is_bmc():
+        pytest.skip("REDFISH ACL test skipped: not a BMC DUT")
+
+    original_state = _get_redfish_feature_state(duthost)
+    pytest_assert(
+        original_state in ("enabled", "disabled"),
+        "Could not read a valid FEATURE.redfish state (got {!r}); DUT may be in a bad state".format(original_state))
+    if original_state == "enabled":
+        # Already enabled; nothing to change, so nothing to restore.
+        yield protocol
+        return
+
+    try:
+        duthost.shell("config feature state redfish enabled")
+        pytest_assert(
+            wait_until(30, 2, 0, lambda: _get_redfish_feature_state(duthost) == "enabled"),
+            "FEATURE.redfish did not transition to 'enabled'")
+
+        yield protocol
+    finally:
+        # Always restore the original feature state, even if the enable transition
+        # assertion fails or a REDFISH-parameterized test raises after enabling.
+        # The fixture is module-scoped, so a leaked "enabled" state would corrupt
+        # every subsequent test in the module.
+        duthost.shell("config feature state redfish {}".format(original_state or "disabled"),
+                      module_ignore_errors=True)
+
+
+def test_cacl_tc1_acl_table_suite(cacl_protocol, rand_selected_front_end_dut, enum_rand_one_frontend_asic_index,
+                                  ip_netns_namespace_prefix):
+    namespace = rand_selected_front_end_dut.get_namespace_from_asic_id(enum_rand_one_frontend_asic_index)
     logger.info("Test acl table for protocol {}".format(cacl_protocol))
-    cacl_tc1_add_new_table(rand_selected_dut, cacl_protocol)
-    cacl_tc1_add_duplicate_table(rand_selected_dut, cacl_protocol)
-    cacl_tc1_replace_table_variable(rand_selected_dut, cacl_protocol)
-    cacl_tc1_add_invalid_table(rand_selected_dut, cacl_protocol)
-    cacl_tc1_remove_unexisted_table(rand_selected_dut)
-    cacl_tc1_remove_table(rand_selected_dut, cacl_protocol)
+    cacl_tc1_add_new_table(rand_selected_front_end_dut, cacl_protocol, ip_netns_namespace_prefix, namespace)
+    cacl_tc1_add_duplicate_table(rand_selected_front_end_dut, cacl_protocol, namespace)
+    cacl_tc1_replace_table_variable(rand_selected_front_end_dut, cacl_protocol, ip_netns_namespace_prefix, namespace)
+    cacl_tc1_add_invalid_table(rand_selected_front_end_dut, cacl_protocol, namespace)
+    cacl_tc1_remove_unexisted_table(rand_selected_front_end_dut, namespace)
+    cacl_tc1_remove_table(rand_selected_front_end_dut, cacl_protocol, ip_netns_namespace_prefix, namespace)
 
 
 # ACL_RULE tests are related. So group them into one test.
-def test_cacl_tc2_acl_rule_test(cacl_protocol, rand_selected_dut):
-    if rand_selected_dut.is_multi_asic:
+def test_cacl_tc2_acl_rule_test(cacl_protocol, rand_selected_front_end_dut, enum_rand_one_frontend_asic_index,
+                                ip_netns_namespace_prefix):
+    if rand_selected_front_end_dut.is_multi_asic:
         pytest.skip(
             "On multi-ASIC, caclmgrd applies SSH/SNMP rules to the FORWARD chain instead of INPUT. "
             "Test expectations need updating once sonic-host-services PR #398 "
             "(https://github.com/sonic-net/sonic-host-services/pull/398) is merged."
         )
+    namespace = rand_selected_front_end_dut.get_namespace_from_asic_id(enum_rand_one_frontend_asic_index)
+
     logger.info("Test acl table for protocol {}".format(cacl_protocol))
     if cacl_protocol == 'EXTERNAL_CLIENT':
-        cacl_external_client_add_new_table(rand_selected_dut)
-    cacl_tc2_add_init_rule(rand_selected_dut, cacl_protocol)
-    cacl_tc2_add_duplicate_rule(rand_selected_dut, cacl_protocol)
-    cacl_tc2_replace_rule(rand_selected_dut, cacl_protocol)
-    cacl_tc2_add_rule_to_unexisted_table(rand_selected_dut)
-    cacl_tc2_remove_table_before_rule(rand_selected_dut, cacl_protocol)
-    cacl_tc2_remove_unexist_rule(rand_selected_dut, cacl_protocol)
-    cacl_tc2_remove_rule(rand_selected_dut)
+        cacl_external_client_add_new_table(rand_selected_front_end_dut, ip_netns_namespace_prefix, namespace)
+    elif cacl_protocol == 'REDFISH':
+        cacl_redfish_add_new_table(rand_selected_front_end_dut, ip_netns_namespace_prefix, namespace)
+    cacl_tc2_add_init_rule(rand_selected_front_end_dut, cacl_protocol, ip_netns_namespace_prefix, namespace)
+    cacl_tc2_add_duplicate_rule(rand_selected_front_end_dut, cacl_protocol, namespace)
+    cacl_tc2_replace_rule(rand_selected_front_end_dut, cacl_protocol, ip_netns_namespace_prefix, namespace)
+    cacl_tc2_add_rule_to_unexisted_table(rand_selected_front_end_dut, namespace)
+    cacl_tc2_remove_table_before_rule(rand_selected_front_end_dut, cacl_protocol, namespace)
+    cacl_tc2_remove_unexist_rule(rand_selected_front_end_dut, cacl_protocol, namespace)
+    cacl_tc2_remove_rule(rand_selected_front_end_dut, ip_netns_namespace_prefix, namespace)
+
+
+def test_cacl_tc3_acl_all(rand_selected_front_end_dut, enum_rand_one_frontend_asic_index, ip_netns_namespace_prefix):
+    namespace = rand_selected_front_end_dut.get_namespace_from_asic_id(enum_rand_one_frontend_asic_index)
+    cacl_tc3_acl_table_and_acl_rule(rand_selected_front_end_dut, ip_netns_namespace_prefix, namespace)
+
+
+def cacl_redfish_add_drop_rule(duthost, namespace=None):
+    """ Add a REDFISH_ACL DROP rule (caclmgrd applies the fixed tcp/443 dst_port). """
+    json_patch = [
+        {
+            "op": "add",
+            "path": "/ACL_RULE",
+            "value": {
+                "REDFISH_ACL|TEST_DROP": {
+                    "IP_PROTOCOL": "6",
+                    "L4_DST_PORT": "443",
+                    "IP_TYPE": "IP",
+                    "PACKET_ACTION": "DROP",
+                    "PRIORITY": "9998",
+                    "SRC_IP": "9.9.9.9/32"
+                }
+            }
+        }
+    ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[namespace])
+    tmpfile = generate_tmpfile(duthost)
+    logger.info("tmpfile {}".format(tmpfile))
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+    finally:
+        delete_tmpfile(duthost, tmpfile)
+
+
+def test_cacl_redfish_feature_gating(rand_selected_front_end_dut, enum_rand_one_frontend_asic_index,
+                                     ip_netns_namespace_prefix):
+    """ Verify caclmgrd gates REDFISH iptables rules on the FEATURE.redfish state.
+
+    With a REDFISH ACL rule configured:
+      - FEATURE.redfish disabled -> caclmgrd does NOT program the tcp/443 rule.
+      - runtime enable           -> the tcp/443 rule appears (subscription path).
+      - runtime disable          -> the tcp/443 rule is removed again.
+
+    This exercises the RedfishAllowed gate and the FEATURE-table subscription
+    handler against real iptables. The autouse setup_env fixture
+    checkpoints/rolls back CONFIG_DB (ACL + FEATURE),
+    and the original feature state is restored explicitly on teardown.
+    """
+    duthost = rand_selected_front_end_dut
+    if not duthost.is_bmc():
+        pytest.skip("REDFISH CACL gating test requires a BMC DUT")
+
+    namespace = duthost.get_namespace_from_asic_id(enum_rand_one_frontend_asic_index)
+    redfish_rule = "-A INPUT -s 9.9.9.9/32 -p tcp -m tcp --dport 443 -j DROP"
+
+    def redfish_rule_present():
+        return redfish_rule in get_iptable_rules(duthost, ip_netns_namespace_prefix)
+
+    original_state = _get_redfish_feature_state(duthost)
+    pytest_assert(
+        original_state in ("enabled", "disabled"),
+        "Could not read a valid FEATURE.redfish state (got {!r}); DUT may be in a bad state".format(original_state))
+    try:
+        # Start from a known-disabled feature state.
+        if original_state != "disabled":
+            duthost.shell("config feature state redfish disabled")
+            pytest_assert(
+                wait_until(10, 2, 0, lambda: _get_redfish_feature_state(duthost) == "disabled"),
+                "FEATURE.redfish did not transition to 'disabled'")
+
+        # Configure a REDFISH ACL table + rule while the feature is disabled.
+        cacl_redfish_add_new_table(duthost, ip_netns_namespace_prefix, namespace)
+        cacl_redfish_add_drop_rule(duthost, namespace)
+
+        # caclmgrd must not program the tcp/443 rule.
+        pytest_assert(not wait_until(10, 2, 0, redfish_rule_present),
+                      "REDFISH tcp/443 rule was programmed while FEATURE.redfish is disabled")
+
+        # Runtime enable: the rule should appear once caclmgrd processes the FEATURE event.
+        duthost.shell("config feature state redfish enabled")
+        pytest_assert(wait_until(30, 5, 0, redfish_rule_present),
+                      "REDFISH tcp/443 rule was not programmed after enabling FEATURE.redfish")
+
+        # Runtime disable: the rule should be removed again.
+        duthost.shell("config feature state redfish disabled")
+        pytest_assert(wait_until(30, 5, 0, lambda: not redfish_rule_present()),
+                      "REDFISH tcp/443 rule was not removed after disabling FEATURE.redfish")
+    finally:
+        # Restore the original feature state (setup_env rolls back the ACL config).
+        if original_state != "disabled":
+            duthost.shell("config feature state redfish {}".format(original_state or "disabled"))

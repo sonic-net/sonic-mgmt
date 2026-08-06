@@ -32,6 +32,22 @@ def pytest_addoption(parser):
     )
 
 
+@pytest.fixture(params=["4", "6"])
+def ip_versions(request):
+    """
+    Parameterized fixture for IP versions.
+    """
+    yield request.param
+
+
+@pytest.fixture(params=["VlanSubnet", "VlanSubnetIPinIP"])
+def packet_type(request):
+    """
+    Parameterized fixture for packet types used for neighbor miss tests
+    """
+    yield request.param
+
+
 @pytest.fixture(autouse=True, scope="module")
 def is_backend_topology(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
     """
@@ -42,3 +58,14 @@ def is_backend_topology(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbi
     is_backend_topology = mg_facts.get(constants.IS_BACKEND_TOPOLOGY_KEY, False)
 
     return is_backend_topology
+
+
+@pytest.fixture(params=[64, 1514, 4096])
+def packet_size(request):
+    """
+    Parameterized fixture for packet sizes.
+    4096 is the biggest frame size currently because of an issue with
+    ptf_nn_agent, which truncates jumbo packets to 4096 bytes.
+    Refer: https://github.com/p4lang/ptf/issues/226
+    """
+    yield request.param

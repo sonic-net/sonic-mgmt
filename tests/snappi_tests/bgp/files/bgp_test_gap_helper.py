@@ -1,7 +1,8 @@
 from tabulate import tabulate
-from tests.common.utilities import (wait, wait_until)
+from tests.common.utilities import (wait)
 from tests.common.helpers.assertions import pytest_assert
 import logging
+import json
 logger = logging.getLogger(__name__)
 
 TGEN_AS_NUM = 65200
@@ -13,7 +14,7 @@ NG_LIST = []
 aspaths = [65002, 65003]
 
 
-def run_bgp_convergence_performance(cvg_api,
+def run_bgp_convergence_performance(snappi_api,
                                     duthost,
                                     tgen_ports,
                                     multipath,
@@ -25,7 +26,7 @@ def run_bgp_convergence_performance(cvg_api,
     Run Remote link failover test
 
     Args:
-        cvg_api (pytest fixture): snappi API
+        snappi_api (pytest fixture): snappi API
         duthost (pytest fixture): duthost fixture
         tgen_ports (pytest fixture): Ports mapping info of T0 testbed
         multipath: ecmp value for BGP config
@@ -34,17 +35,17 @@ def run_bgp_convergence_performance(cvg_api,
         stop_routes: ending route count value
         route_type: IPv4 or IPv6 routes
     """
-    port_count = multipath + 1
+
     """ Create bgp config on dut """
 
-    duthost_bgp_3port_config(duthost,
-                             tgen_ports,
-                             port_count,)
+    """ Create bgp config on dut """
+    duthost_bgp_scalability_config(duthost, tgen_ports, multipath)
+
     """
         Run the convergence test by withdrawing all the route ranges
         one by one and calculate the convergence values
     """
-    get_convergence_for_remote_link_failover(cvg_api,
+    get_convergence_for_remote_link_failover(snappi_api,
                                              multipath,
                                              start_routes,
                                              routes_step,
@@ -52,11 +53,8 @@ def run_bgp_convergence_performance(cvg_api,
                                              route_type,
                                              duthost,)
 
-    """ Cleanup the dut configs after getting the convergence numbers """
-    cleanup_config(duthost)
 
-
-def run_bgp_scalability_v4_v6(cvg_api,
+def run_bgp_scalability_v4_v6(snappi_api,
                               duthost,
                               localhost,
                               tgen_ports,
@@ -68,7 +66,7 @@ def run_bgp_scalability_v4_v6(cvg_api,
     Run Remote link failover test
 
     Args:
-        cvg_api (pytest fixture): snappi API
+        snappi_api (pytest fixture): snappi API
         duthost (pytest fixture): duthost fixture
         tgen_ports (pytest fixture): Ports mapping info of T0 testbed
         multipath: ecmp value for BGP config
@@ -79,6 +77,9 @@ def run_bgp_scalability_v4_v6(cvg_api,
 
     port_count = multipath + 1
 
+    """ Create bgp config on dut """
+    duthost_bgp_scalability_config(duthost, tgen_ports, multipath)
+
     if ipv4_routes == 0 and ipv6_routes == 0:
         assert False, "Both v4 and v6 route counts can't be zero"
     elif ipv4_routes > 0 and ipv6_routes > 0:
@@ -86,108 +87,21 @@ def run_bgp_scalability_v4_v6(cvg_api,
     else:
         dual_stack_flag = 0
     """ Create bgp config on TGEN """
-    tgen_bgp_config = __tgen_bgp_config(cvg_api,
+    tgen_bgp_config = __tgen_bgp_config(snappi_api,
                                         port_count,
                                         ipv4_routes,
                                         ipv6_routes,
                                         ipv6_prefix,
                                         dual_stack_flag,)
 
-    if ipv4_routes + ipv6_routes > 20000:
+    if ipv4_routes + ipv6_routes > 125000:
         limit_flag = 1
     else:
         limit_flag = 0
     """
         Run the BGP Scalability test
     """
-    get_bgp_scalability_result(cvg_api, localhost, tgen_bgp_config, limit_flag, duthost)
-
-
-def duthost_bgp_3port_config(duthost,
-                             tgen_ports,
-                             port_count,):
-    """
-    Configures BGP on the DUT with N-1 ecmp
-
-    Args:
-        duthost (pytest fixture): duthost fixture
-        tgen_ports (pytest fixture): Ports mapping info of T0 testbed
-        port_count:multipath + 1
-    """
-    duthost.command('sudo crm config polling interval 30')
-    duthost.command('sudo crm config thresholds ipv4 route high 85')
-    duthost.command('sudo crm config thresholds ipv4 route low 70')
-    duthost.command("sudo config save -y")
-    duthost.command("sudo cp {} {}".format("/etc/sonic/config_db.json", "/etc/sonic/config_db_backup.json"))
-    global temp_tg_port
-    temp_tg_port = tgen_ports
-    for i in range(0, port_count):
-        intf_config = (
-            "sudo config interface ip remove %s %s/%s \n"
-            "sudo config interface ip remove %s %s/%s \n"
-        )
-        intf_config %= (
-            tgen_ports[i]['peer_port'],
-            tgen_ports[i]['peer_ip'], tgen_ports[i]['prefix'],
-            tgen_ports[i]['peer_port'], tgen_ports[i]['peer_ipv6'],
-            tgen_ports[i]['ipv6_prefix']
-        )
-        logger.info('Removing configured IP and IPv6 Address from %s' % (tgen_ports[i]['peer_port']))
-        duthost.shell(intf_config)
-
-    for i in range(0, port_count):
-        portchannel_config = (
-            "sudo config portchannel add PortChannel%s \n"
-            "sudo config portchannel member add PortChannel%s %s\n"
-            "sudo config interface ip add PortChannel%s %s/%s\n"
-            "sudo config interface ip add PortChannel%s %s/%s\n"
-        )
-        portchannel_config %= (
-            i + 1,
-            i + 1,
-            tgen_ports[i]['peer_port'],
-            i + 1,
-            tgen_ports[i]['peer_ip'],
-            tgen_ports[i]['prefix'],
-            i + 1,
-            tgen_ports[i]['peer_ipv6'],
-            64
-        )
-        logger.info('Configuring %s to PortChannel%s with IPs %s,%s' % (tgen_ports[i]['peer_port'],
-                    i + 1, tgen_ports[i]['peer_ip'], tgen_ports[i]['peer_ipv6']))
-        duthost.shell(portchannel_config)
-
-    bgp_config = (
-        "vtysh "
-        "-c 'configure terminal' "
-        "-c 'router bgp %s' "
-        "-c 'no bgp ebgp-requires-policy' "
-        "-c 'bgp bestpath as-path multipath-relax' "
-        "-c 'maximum-paths %s' "
-        "-c 'exit' "
-    )
-    bgp_config %= (DUT_AS_NUM, port_count-1)
-    duthost.shell(bgp_config)
-
-    for i in range(1, port_count):
-        bgp_config_neighbor = (
-            "vtysh "
-            "-c 'configure terminal' "
-            "-c 'router bgp %s' "
-            "-c 'neighbor %s remote-as %s' "
-            "-c 'address-family ipv4 unicast' "
-            "-c 'neighbor %s activate' "
-            "-c 'neighbor %s remote-as %s' "
-            "-c 'address-family ipv6 unicast' "
-            "-c 'neighbor %s activate' "
-            "-c 'exit' "
-        )
-        bgp_config_neighbor %= (
-            DUT_AS_NUM, tgen_ports[i]['ip'], TGEN_AS_NUM, tgen_ports[i]['ip'],
-            tgen_ports[i]['ipv6'], TGEN_AS_NUM, tgen_ports[i]['ipv6'])
-        logger.info('Configuring BGP v4 Neighbor {}, v6 Neighbor {}'.format(tgen_ports[i]['ip'],
-                    tgen_ports[i]['ipv6']))
-        duthost.shell(bgp_config_neighbor)
+    get_bgp_scalability_result(snappi_api, localhost, tgen_bgp_config, limit_flag, duthost)
 
 
 def duthost_bgp_scalability_config(duthost, tgen_ports, multipath):
@@ -202,66 +116,82 @@ def duthost_bgp_scalability_config(duthost, tgen_ports, multipath):
     duthost.command('sudo crm config polling interval 30')
     duthost.command('sudo crm config thresholds ipv4 route high 85')
     duthost.command('sudo crm config thresholds ipv4 route low 70')
-    duthost.command("sudo config save -y")
-    duthost.command("sudo cp {} {}".format("/etc/sonic/config_db.json", "/etc/sonic/config_db_backup.json"))
     temp_tg_port = tgen_ports
-    for i in range(0, port_count):
+    for i in range(port_count):
+        port = tgen_ports[i]
         intf_config = (
-            "sudo config interface ip remove %s %s/%s \n"
-            "sudo config interface ip remove %s %s/%s \n"
+            f"sudo config interface ip remove {port['peer_port']} {port['peer_ip']}/{port['prefix']}\n"
+            f"sudo config interface ip remove {port['peer_port']} {port['peer_ipv6']}/{port['ipv6_prefix']}\n"
         )
-        intf_config %= (tgen_ports[i]['peer_port'], tgen_ports[i]['peer_ip'], tgen_ports[i]['prefix'],
-                        tgen_ports[i]['peer_port'], tgen_ports[i]['peer_ipv6'], tgen_ports[i]['ipv6_prefix'])
-        logger.info('Removing configured IP and IPv6 Address from %s' % (tgen_ports[i]['peer_port']))
+        logger.info(f"Removing IPs from {port['peer_port']}")
         duthost.shell(intf_config)
 
-    for i in range(0, port_count):
+    for i in range(port_count):
+        port = tgen_ports[i]
+        idx = i + 1
         portchannel_config = (
-            "sudo config portchannel add PortChannel%s \n"
-            "sudo config portchannel member add PortChannel%s %s\n"
-            "sudo config interface ip add PortChannel%s %s/%s\n"
-            "sudo config interface ip add PortChannel%s %s/%s\n"
+            f"sudo config portchannel add PortChannel{idx} \n"
+            f"sudo config portchannel member add PortChannel{idx} {port['peer_port']}\n"
+            f"sudo config interface ip add PortChannel{idx} {port['peer_ip']}/{port['prefix']}\n"
+            f"sudo config interface ip add PortChannel{idx} {port['peer_ipv6']}/{port['ipv6_prefix']}\n"
         )
-        portchannel_config %= (i + 1, i + 1, tgen_ports[i]['peer_port'], i + 1, tgen_ports[i]['peer_ip'],
-                               tgen_ports[i]['prefix'], i + 1, tgen_ports[i]['peer_ipv6'],
-                               tgen_ports[i]['ipv6_prefix'])
-        logger.info('Configuring %s to PortChannel%s' % (tgen_ports[i]['peer_port'], i + 1))
+        logger.info(f"Configuring {port['peer_port']} to PortChannel{idx}")
         duthost.shell(portchannel_config)
 
-    bgp_config = (
-        "vtysh "
-        "-c 'configure terminal' "
-        "-c 'router bgp %s' "
-        "-c 'no bgp ebgp-requires-policy' "
-        "-c 'bgp bestpath as-path multipath-relax' "
-        "-c 'maximum-paths %s' "
-        "-c 'exit' "
-    )
-    bgp_config %= (DUT_AS_NUM, port_count-1)
-    duthost.shell(bgp_config)
+    duthost.command("sudo config save -y")
+    # BGP Configuration
+    loopback_interfaces = {
+        "Loopback0": {},
+        "Loopback0|1.1.1.1/32": {},
+        "Loopback0|1::1/128": {},
+    }
+    config_db = json.loads(duthost.shell("sonic-cfggen -d --print-data")['stdout'])
+    bgp_neighbors = {
+        addr: {
+            "asn": TGEN_AS_NUM,
+            "holdtime": "180",
+            "keepalive": "60",
+            "local_addr": ip_version,
+            "name": "snappi-sonic",
+            "nhopself": "0",
+            "rrclient": "0",
+        }
+        for port in tgen_ports
+        for addr, ip_version in [(port['ip'], port['peer_ip']), (port['ipv6'], port['peer_ipv6'])]
+    }
 
-    for i in range(1, port_count):
-        bgp_config_neighbor = (
-            "vtysh "
-            "-c 'configure terminal' "
-            "-c 'router bgp %s' "
-            "-c 'neighbor %s remote-as %s' "
-            "-c 'address-family ipv4 unicast' "
-            "-c 'neighbor %s activate' "
-            "-c 'neighbor %s remote-as %s' "
-            "-c 'address-family ipv6 unicast' "
-            "-c 'neighbor %s activate' "
-            "-c 'exit' "
-        )
-        bgp_config_neighbor %= (
-            DUT_AS_NUM, tgen_ports[i]['ip'], TGEN_AS_NUM, tgen_ports[i]['ip'],
-            tgen_ports[i]['ipv6'], TGEN_AS_NUM, tgen_ports[i]['ipv6'])
-        logger.info('Configuring BGP v4 Neighbor {}, v6 Neighbor {}'.format(tgen_ports[i]['ip'],
-                    tgen_ports[i]['ipv6']))
-        duthost.shell(bgp_config_neighbor)
+    device_neighbors = {
+        port['peer_port']: {
+            "name": "snappi-sonic",
+            "port": "Ethernet1"
+        }
+        for port in tgen_ports
+    }
+
+    device_neighbor_metadatas = {
+        "snappi-sonic": {
+            "hwsku": "snappi-sonic",
+            "mgmt_addr": "172.16.149.206",
+            "type": "ToRRouter"
+        }
+    }
+    config_db.setdefault("LOOPBACK_INTERFACE", {}).update(loopback_interfaces)
+    config_db.setdefault("BGP_NEIGHBOR", {}).update(bgp_neighbors)
+    config_db.setdefault("DEVICE_NEIGHBOR_METADATA", {}).update(device_neighbor_metadatas)
+    config_db.setdefault("DEVICE_NEIGHBOR", {}).update(device_neighbors)
+    with open("/tmp/temp_config.json", 'w') as fp:
+        json.dump(config_db, fp, indent=4)
+    duthost.copy(src="/tmp/temp_config.json", dest="/etc/sonic/config_db.json")
+    logger.info("Reloading config on DUT {}".format(duthost.hostname))
+    error = duthost.command("sudo config reload -f -y \n")['stderr']
+    if 'Error' in error:
+        pytest_assert('Error' not in duthost.shell("sudo config reload -y \n")['stderr'],
+                      'Error while reloading config in {} !!!!!'.format(duthost.hostname))
+    wait(60, "For DUT to come back online after config reload")
+    logger.info('Config Reload Successful in {} !!!'.format(duthost.hostname))
 
 
-def __tgen_bgp_config(cvg_api,
+def __tgen_bgp_config(snappi_api,
                       port_count,
                       v4_routes,
                       v6_routes,
@@ -271,16 +201,15 @@ def __tgen_bgp_config(cvg_api,
     Creating  BGP config on TGEN
 
     Args:
-        cvg_api (pytest fixture): snappi API
+        snappi_api (pytest fixture): snappi API
         port_count: multipath + 1
         v4_routes: no of v4 routes
         v6_routes: no of v6 routes
         v6_prefix: IPv6 prefix value
         dual_stack_flag: notation for dual or single stack
     """
-    conv_config = cvg_api.convergence_config()
-    cvg_api.enable_scaling(True)
-    config = conv_config.config
+    config = snappi_api.config()
+    snappi_api.enable_scaling(True)
     p1, p2 = (
         config.ports.port(name="Source", location=temp_tg_port[0]['location'])
         .port(name="Destination", location=temp_tg_port[1]['location'])
@@ -303,15 +232,15 @@ def __tgen_bgp_config(cvg_api,
     layer1.name = 'port settings'
     layer1.port_names = [port.name for port in config.ports]
     layer1.ieee_media_defaults = False
-    layer1.auto_negotiation.rs_fec = True
-    layer1.auto_negotiation.link_training = False
-    layer1.speed = "speed_100_gbps"
-    layer1.auto_negotiate = False
+    layer1.auto_negotiation.rs_fec = temp_tg_port[0].get('fec', False)
+    layer1.auto_negotiation.link_training = temp_tg_port[0].get('link_training', False)
+    layer1.speed = temp_tg_port[0]['speed']
+    layer1.auto_negotiate = temp_tg_port[0].get('autoneg', False)
 
     # Source
     config.devices.device(name='Tx')
     eth_1 = config.devices[0].ethernets.add()
-    eth_1.port_name = lag1.name
+    eth_1.connection.port_name = lag1.name
     eth_1.name = 'Ethernet 1'
     eth_1.mac = "00:14:0a:00:00:01"
     ipv4_1 = eth_1.ipv4_addresses.add()
@@ -327,7 +256,7 @@ def __tgen_bgp_config(cvg_api,
     # Destination
     config.devices.device(name="Rx")
     eth_2 = config.devices[1].ethernets.add()
-    eth_2.port_name = lag2.name
+    eth_2.connection.port_name = lag2.name
     eth_2.name = 'Ethernet 2'
     eth_2.mac = "00:14:01:00:00:01"
     ipv4_2 = eth_2.ipv4_addresses.add()
@@ -388,20 +317,20 @@ def __tgen_bgp_config(cvg_api,
             createTrafficItem("IPv6_1-IPv6_Routes", ipv6_1.name, route_range2.name, 10)
         elif v6_routes == 0:
             createTrafficItem("IPv4_1-IPv4_Routes", ipv4_1.name, route_range1.name, 10)
-    return conv_config
+    return config
 
 
-def get_flow_stats(cvg_api):
+def get_flow_stats(snappi_api):
     """
     Args:
-        cvg_api (pytest fixture): Snappi API
+        snappi_api (pytest fixture): Snappi API
     """
-    request = cvg_api.convergence_request()
-    request.metrics.flow_names = []
-    return cvg_api.get_results(request).flow_metric
+    req = snappi_api.metrics_request()
+    req.flow.flow_names = []
+    return snappi_api.get_metrics(req).flow_metrics
 
 
-def get_convergence_for_remote_link_failover(cvg_api,
+def get_convergence_for_remote_link_failover(snappi_api,
                                              multipath,
                                              start_routes,
                                              routes_step,
@@ -410,7 +339,7 @@ def get_convergence_for_remote_link_failover(cvg_api,
                                              duthost):
     """
     Args:
-        cvg_api (pytest fixture): snappi API
+        snappi_api (pytest fixture): snappi API
         iteration: number of iterations for running convergence test on a port
         start_routes: starting value of no of routes
         routes_step: incremental step value for the routes
@@ -418,11 +347,10 @@ def get_convergence_for_remote_link_failover(cvg_api,
         route_type: IPv4 or IPv6 routes
     """
     table = []
-    global NG_LIST
+    global NG_LIST  # noqa: F824
 
     def tgen_config(routes):
-        conv_config = cvg_api.convergence_config()
-        config = conv_config.config
+        config = snappi_api.config()
         for i in range(1, multipath + 2):
             config.ports.port(name='Test_Port_%d' % i, location=temp_tg_port[i - 1]['location'])
             c_lag = config.lags.lag(name="lag%d" % i)[-1]
@@ -442,14 +370,14 @@ def get_convergence_for_remote_link_failover(cvg_api,
         layer1.name = 'port settings'
         layer1.port_names = [port.name for port in config.ports]
         layer1.ieee_media_defaults = False
-        layer1.auto_negotiation.rs_fec = True
-        layer1.auto_negotiation.link_training = False
-        layer1.speed = "speed_100_gbps"
-        layer1.auto_negotiate = False
+        layer1.auto_negotiation.rs_fec = temp_tg_port[0].get('fec', False)
+        layer1.auto_negotiation.link_training = temp_tg_port[0].get('link_training', False)
+        layer1.speed = temp_tg_port[0]['speed']
+        layer1.auto_negotiate = temp_tg_port[0].get('autoneg', False)
 
         def create_v4_topo():
             eth = config.devices[0].ethernets.add()
-            eth.port_name = config.lags[0].name
+            eth.connection.port_name = config.lags[0].name
             eth.name = 'Ethernet 1'
             eth.mac = "00:00:00:00:00:01"
             ipv4 = eth.ipv4_addresses.add()
@@ -466,7 +394,7 @@ def get_convergence_for_remote_link_failover(cvg_api,
                     m = hex(i).split('0x')[1]
 
                 ethernet_stack = config.devices[i - 1].ethernets.add()
-                ethernet_stack.port_name = config.lags[i - 1].name
+                ethernet_stack.connection.port_name = config.lags[i - 1].name
                 ethernet_stack.name = 'Ethernet %d' % i
                 ethernet_stack.mac = "00:00:00:00:00:%s" % m
                 ipv4_stack = ethernet_stack.ipv4_addresses.add()
@@ -494,7 +422,7 @@ def get_convergence_for_remote_link_failover(cvg_api,
 
         def create_v6_topo():
             eth = config.devices[0].ethernets.add()
-            eth.port_name = config.lags[0].name
+            eth.connection.port_name = config.lags[0].name
             eth.name = 'Ethernet 1'
             eth.mac = "00:00:00:00:00:01"
             ipv6 = eth.ipv6_addresses.add()
@@ -510,7 +438,7 @@ def get_convergence_for_remote_link_failover(cvg_api,
                 else:
                     m = hex(i).split('0x')[1]
                 ethernet_stack = config.devices[i - 1].ethernets.add()
-                ethernet_stack.port_name = config.lags[i - 1].name
+                ethernet_stack.connection.port_name = config.lags[i - 1].name
                 ethernet_stack.name = 'Ethernet %d' % i
                 ethernet_stack.mac = "00:00:00:00:00:%s" % m
                 ipv6_stack = ethernet_stack.ipv6_addresses.add()
@@ -536,7 +464,9 @@ def get_convergence_for_remote_link_failover(cvg_api,
                 rx_flow_name.append(route_range.name)
             return rx_flow_name
 
-        conv_config.rx_rate_threshold = 90 / (multipath)
+        config.events.cp_events.enable = True
+        config.events.dp_events.enable = True
+        config.events.dp_events.rx_rate_threshold = 90/(multipath-1)
         if route_type == 'IPv4':
             rx_flows = create_v4_topo()
             flow = config.flows.flow(name='IPv4_Traffic_%d' % routes)[-1]
@@ -551,14 +481,16 @@ def get_convergence_for_remote_link_failover(cvg_api,
         flow.rate.percentage = 100
         flow.metrics.enable = True
         flow.metrics.loss = True
-        return conv_config
+        return config
 
     for j in range(start_routes, stop_routes, routes_step):
         logger.info('|--------------------CP/DP Test with No.of Routes : {} ----|'.format(j))
         bgp_config = tgen_config(j)
         route_name = NG_LIST[0]
-        bgp_config.rx_rate_threshold = 90 / (multipath - 1)
-        cvg_api.set_config(bgp_config)
+        bgp_config.events.cp_events.enable = True
+        bgp_config.events.dp_events.enable = True
+        bgp_config.events.dp_events.rx_rate_threshold = 90/(multipath-1)
+        snappi_api.set_config(bgp_config)
 
         def get_cpdp_convergence_time(route_name):
             """
@@ -567,18 +499,19 @@ def get_convergence_for_remote_link_failover(cvg_api,
 
             """
             table, tx_frate, rx_frate = [], [], []
-            run_traffic(cvg_api, duthost)
-            flow_stats = get_flow_stats(cvg_api)
+            run_traffic(snappi_api, duthost)
+            flow_stats = get_flow_stats(snappi_api)
             tx_frame_rate = flow_stats[0].frames_tx_rate
             assert tx_frame_rate != 0, "Traffic has not started"
             """ Withdrawing routes from a BGP peer """
             logger.info('Withdrawing Routes from {}'.format(route_name))
-            cs = cvg_api.convergence_state()
-            cs.route.names = [route_name]
-            cs.route.state = cs.route.WITHDRAW
-            cvg_api.set_state(cs)
+            wait(TIMEOUT, "Waiting before routes to be withdrawn")
+            cs = snappi_api.control_state()
+            cs.protocol.route.state = cs.protocol.route.WITHDRAW
+            cs.protocol.route.names = [route_name]
+            snappi_api.set_control_state(cs)
             wait(TIMEOUT, "For routes to be withdrawn")
-            flows = get_flow_stats(cvg_api)
+            flows = get_flow_stats(snappi_api)
             for flow in flows:
                 tx_frate.append(flow.frames_tx_rate)
                 rx_frate.append(flow.frames_rx_rate)
@@ -587,13 +520,13 @@ def get_convergence_for_remote_link_failover(cvg_api,
             logger.info("Traffic has converged after route withdraw")
 
             """ Get control plane to data plane convergence value """
-            request = cvg_api.convergence_request()
+            request = snappi_api.metrics_request()
             request.convergence.flow_names = []
-            convergence_metrics = cvg_api.get_results(request).flow_convergence
+            convergence_metrics = snappi_api.get_metrics(request).convergence_metrics
             for metrics in convergence_metrics:
                 logger.info('CP/DP Convergence Time (ms): \
                             {}'.format(metrics.control_plane_data_plane_convergence_us / 1000))
-            stop_traffic(cvg_api)
+            stop_traffic(snappi_api)
             table.append(route_type)
             table.append(j)
             table.append(int(metrics.control_plane_data_plane_convergence_us / 1000))
@@ -605,41 +538,41 @@ def get_convergence_for_remote_link_failover(cvg_api,
     logger.info("\n%s" % tabulate(table, headers=columns, tablefmt="psql"))
 
 
-def restart_traffic(cvg_api):
+def restart_traffic(snappi_api):
     """ Stopping Protocols """
     logger.info("L2/3 traffic apply failed,Restarting protocols and traffic")
-    cs = cvg_api.convergence_state()
-    cs.protocol.state = cs.protocol.STOP
-    cvg_api.set_state(cs)
+    cs = snappi_api.control_state()
+    cs.protocol.all.state = cs.protocol.all.STOP
+    snappi_api.set_control_state(cs)
     wait(TIMEOUT - 10, "For Protocols To stop")
-    cs = cvg_api.convergence_state()
-    cs.protocol.state = cs.protocol.START
-    cvg_api.set_state(cs)
+    cs = snappi_api.control_state()
+    cs.protocol.all.state = cs.protocol.all.START
+    snappi_api.set_control_state(cs)
     wait(TIMEOUT - 10, "For Protocols To start")
-    cs = cvg_api.convergence_state()
-    cs.transmit.state = cs.transmit.START
-    cvg_api.set_state(cs)
+    cs = snappi_api.control_state()
+    cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START
+    snappi_api.set_control_state(cs)
     wait(TIMEOUT, "For Traffic To start and stabilize")
 
 
-def run_traffic(cvg_api, duthost):
+def run_traffic(snappi_api, duthost):
     warning = 0
     """ Starting Protocols """
     logger.info("Starting all protocols ...")
-    cs = cvg_api.convergence_state()
-    cs.protocol.state = cs.protocol.START
-    cvg_api.set_state(cs)
+    cs = snappi_api.control_state()
+    cs.protocol.all.state = cs.protocol.all.START
+    snappi_api.set_control_state(cs)
     wait(TIMEOUT - 10, "For Protocols To start")
     """ Starting Traffic """
     logger.info('Starting Traffic')
     try:
-        cs = cvg_api.convergence_state()
-        cs.transmit.state = cs.transmit.START
-        cvg_api.set_state(cs)
+        cs = snappi_api.control_state()
+        cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START
+        snappi_api.set_control_state(cs)
         wait(TIMEOUT + 10, "For Traffic To start and stabilize")
     except Exception as e:
         logger.info(e)
-        restart_traffic(cvg_api)
+        restart_traffic(snappi_api)
     finally:
         duthost.shell("sudo cp /var/log/syslog /host/scale_syslog.99")
         var = duthost.shell("sudo cat /host/scale_syslog.99 | grep 'ROUTE THRESHOLD_EXCEEDED' || true")['stdout']
@@ -652,43 +585,42 @@ def run_traffic(cvg_api, duthost):
     return warning
 
 
-def stop_traffic(cvg_api):
+def stop_traffic(snappi_api):
     logger.info('Stopping Traffic')
-    cs = cvg_api.convergence_state()
-    cs.transmit.state = cs.transmit.STOP
-    cvg_api.set_state(cs)
+    cs = snappi_api.control_state()
+    cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.STOP
+    snappi_api.set_control_state(cs)
     wait(TIMEOUT - 20, "For Traffic To stop")
     """ Stopping Protocols """
     logger.info("Stopping all protocols ...")
-    cs = cvg_api.convergence_state()
-    cs.protocol.state = cs.protocol.STOP
-    cvg_api.set_state(cs)
+    cs = snappi_api.control_state()
+    cs.protocol.all.state = cs.protocol.all.STOP
+    snappi_api.set_control_state(cs)
     wait(TIMEOUT - 20, "For Protocols To STOP")
 
 
-def get_bgp_scalability_result(cvg_api, localhost, bgp_config, flag, duthost):
+def get_bgp_scalability_result(snappi_api, localhost, bgp_config, flag, duthost):
     """
     Cleaning up dut config at the end of the test
 
     Args:
-        cvg_api (pytest fixture): snappi API
+        snappi_api (pytest fixture): snappi API
         bgp_config: tgen_bgp_config
     """
-    cvg_api.set_config(bgp_config)
-    restpy_session = cvg_api._api._assistant.Session
-    ixnet = restpy_session.Ixnetwork
+    snappi_api.set_config(bgp_config)
+    ixnet = snappi_api._ixnetwork
     if str(ixnet.Locations.find()[0].DeviceType) == 'Optixia XV':
         ixnet.Traffic.Statistics.CpdpConvergence.EnableDataPlaneEventsRateMonitor = False
-    warning = run_traffic(cvg_api, duthost)
+    warning = run_traffic(snappi_api, duthost)
     if warning == 1:
         msg = "THRESHOLD_EXCEEDED warning message observed in syslog"
     else:
         msg = "THRESHOLD_EXCEEDED warning message not observed in syslog"
-    flow_stats = get_flow_stats(cvg_api)
+    flow_stats = get_flow_stats(snappi_api)
     tx_frame_rate = flow_stats[0].frames_tx_rate
     assert tx_frame_rate != 0, "Traffic has not started"
-    stop_traffic(cvg_api)
-    flow_stats = get_flow_stats(cvg_api)
+    stop_traffic(snappi_api)
+    flow_stats = get_flow_stats(snappi_api)
     logger.info('|---- Tx Frame: {} ----|'.format(flow_stats[0].frames_tx))
     logger.info('|---- Rx Frame: {} ----|'.format(flow_stats[0].frames_rx))
     logger.info('|---- Loss % : {} ----|'.format(flow_stats[0].loss))
@@ -699,18 +631,3 @@ def get_bgp_scalability_result(cvg_api, localhost, bgp_config, flag, duthost):
     else:
         assert float(flow_stats[0].loss) <= 0.1, "FAIL: Loss observerd in traffic item"
         logger.info('PASSED : No Loss observerd in traffic item and {}'.format(msg))
-
-
-def cleanup_config(duthost):
-    """
-    Cleaning up dut config at the end of the test
-
-    Args:
-        duthost (pytest fixture): duthost fixture
-    """
-    duthost.command("sudo cp {} {}".format("/etc/sonic/config_db_backup.json", "/etc/sonic/config_db.json"))
-    duthost.shell("sudo config reload -y \n")
-    logger.info("Wait until all critical services are fully started")
-    pytest_assert(wait_until(360, 10, 1, duthost.critical_services_fully_started),
-                  "Not all critical services are fully started")
-    logger.info('Convergence Test Completed')

@@ -10,6 +10,7 @@ from netaddr import IPAddress
 import ptf.mask as mask
 import ptf.packet as packet
 import ptf.testutils as testutils
+from tests.common.utilities import wait_until
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert
 from jinja2 import Environment, FileSystemLoader
@@ -189,15 +190,12 @@ def dut_interface_control(duthost, action, interface_name, ip_addr=""):
     output_cli = exec_command(duthost, ["sudo config interface {}".format(interface_actions[action])])
     if output_cli["rc"]:
         raise Exception('Return code is {} not 0'.format(output_cli["rc"]))
-    attempts = 3
-    current_operstatus = dut_interface_status(duthost, interface_name)
-    while current_operstatus != expected_operstatus[action]:
-        if attempts == 0:
-            break
-        time.sleep(15)
-        current_operstatus = dut_interface_status(duthost, interface_name)
-        attempts -= 1
-    return current_operstatus
+
+    def _check_oper_status():
+        return dut_interface_status(duthost, interface_name) == expected_operstatus[action]
+
+    wait_until(60, 15, 0, _check_oper_status)
+    return dut_interface_status(duthost, interface_name)
 
 
 def nat_translations(duthost, show=False, clear=False):
@@ -961,7 +959,12 @@ def get_dynamic_l4_ports(duthost, proto, direction, public_ip):
     :param direction: string with current flow direction
     :return named tuple with values src_port, dst_port, exp_src_port, exp_dst_por
     """
-    time.sleep(5)
+    def _translation_exists():
+        output = exec_command(duthost, ["show nat translation"])['stdout']
+        pattern = r"{}.+{}:(\d+)".format(proto.lower(), public_ip)
+        return bool(re.findall(pattern, output))
+
+    wait_until(30, 5, 0, _translation_exists)
     # Get expected source port
     output = exec_command(duthost, ["show nat translation"])['stdout']
     # Find expected source port

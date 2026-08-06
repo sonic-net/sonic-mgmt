@@ -2,27 +2,38 @@ import time
 from math import ceil
 import logging
 
-from tests.common.helpers.assertions import pytest_assert
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
-    fanout_graph_facts          # noqa F401
-from tests.common.snappi_tests.snappi_helpers import get_dut_port_id
-from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector,\
-    get_pfcwd_poll_interval, get_pfcwd_detect_time, get_pfcwd_restore_time,\
-    enable_packet_aging, start_pfcwd, sec_to_nanosec
-from tests.common.snappi_tests.port import select_ports, select_tx_port
-from tests.common.snappi_tests.snappi_helpers import wait_for_arp
-from tests.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
+from tests.common.helpers.assertions import pytest_assert, pytest_require
+from tests.common.broadcom_data import is_broadcom_device
+from tests.common.cisco_data import is_cisco_device
+from tests.common.nexthop_data import is_nexthop_device
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa: F401
+from tests.common.snappi_tests.snappi_helpers import get_dut_port_id                              # noqa: F401
+from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector, \
+    get_pfcwd_timers, disable_packet_aging, enable_packet_aging, \
+    start_pfcwd, sec_to_nanosec, get_pfcwd_stats, get_pfcwd_poll_interval    # noqa: F401
+from tests.common.helpers.pfcwd_helper import update_pfc_poll_interval
+from tests.common.config_reload import pfcwd_feature_enabled
+from tests.common.snappi_tests.port import select_ports, select_tx_port                           # noqa: F401
+from tests.common.snappi_tests.snappi_helpers import wait_for_arp                                 # noqa: F401
+from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
+from tests.common.snappi_tests.variables import pfcQueueValueDict
+from tests.common.snappi_tests.common_helpers import pfc_queue_group_size
+from tests.snappi_tests.files.helper import get_number_of_streams
+from tests.common.snappi_tests.snappi_fixtures import gen_data_flow_dest_ip
 
 logger = logging.getLogger(__name__)
 
 PAUSE_FLOW_NAME = "Pause Storm"
-WARM_UP_TRAFFIC_NAME = "Warm Up Traffic"
 DATA_FLOW1_NAME = "Data Flow 1"
 DATA_FLOW2_NAME = "Data Flow 2"
+WARM_UP_TRAFFIC_NAME = "Warm Up Traffic"
 WARM_UP_TRAFFIC_DUR = 1
 DATA_PKT_SIZE = 1024
 SNAPPI_POLL_DELAY_SEC = 2
 DEVIATION = 0.3
+UDP_PORT_START = 5000
+# Keep poll well below detection_time so a sub-detection pause can't trip pfcwd in one poll.
+PFCWD_POLL_INTERVAL_MS = 100
 
 
 def run_pfcwd_basic_test(api,
@@ -30,11 +41,11 @@ def run_pfcwd_basic_test(api,
                          port_config_list,
                          conn_data,
                          fanout_data,
-                         duthost,
                          dut_port,
                          prio_list,
                          prio_dscp_map,
-                         trigger_pfcwd):
+                         trigger_pfcwd,
+                         snappi_extra_params=None):
     """
     Run a basic PFC watchdog test
 
@@ -49,98 +60,170 @@ def run_pfcwd_basic_test(api,
         prio_list (list): priorities of data flows and pause storm
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
         trigger_pfcwd (bool): if PFC watchdog is expected to be triggered
+        snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
 
     Returns:
         N/A
     """
+    if snappi_extra_params is None:
+        snappi_extra_params = SnappiTestParams()
 
-    pytest_assert(testbed_config is not None,
-                  'Fail to get L2/3 testbed config')
+    # Traffic flow:
+    # tx_port (TGEN) --- ingress DUT --- egress DUT --- rx_port (TGEN)
 
-    start_pfcwd(duthost)
-    enable_packet_aging(duthost)
+    rx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[0]
+    egress_duthost = rx_port['duthost']
 
-    # Set appropriate pfcwd loss deviation - these values are based on empirical testing
-    DEVIATION = 0.35 if duthost.facts['asic_type'] in ["broadcom"] else 0.3
+    tx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[1]
+    ingress_duthost = tx_port["duthost"]
+    pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
 
-    """ Get the ID of the port to test """
-    port_id = get_dut_port_id(dut_hostname=duthost.hostname,
-                              dut_port=dut_port,
-                              conn_data=conn_data,
-                              fanout_data=fanout_data)
+    # Skip early, before touching the DUT, if pfcwd is neither running nor startable.
+    cfg = egress_duthost.get_running_config_facts()
+    pytest_require(bool(cfg.get('PFC_WD')) or pfcwd_feature_enabled(egress_duthost),
+                   "PFC watchdog cannot be started on {}; skipping".format(egress_duthost.hostname))
 
-    pytest_assert(port_id is not None,
-                  'Fail to get ID for port {}'.format(dut_port))
+    orig_poll_interval_ms = {}
+    try:
+        for duthost, asic_value in ((egress_duthost, rx_port['asic_value']),
+                                    (ingress_duthost, tx_port['asic_value'])):
+            # Disable packet aging only on Nexthop (VOQ/DNX) DUTs; others keep it enabled.
+            packet_aging = disable_packet_aging if is_nexthop_device(duthost) else enable_packet_aging
+            packet_aging(duthost, asic_value)
+            start_pfcwd(duthost, asic_value)
+            if is_nexthop_device(duthost) and duthost not in orig_poll_interval_ms:
+                # `pfcwd interval` is host-global: once per DUT, else a repeat DUT re-reads our own override.
+                orig_poll_interval_ms[duthost] = get_pfcwd_poll_interval(duthost, asic_value)
+                update_pfc_poll_interval(duthost, PFCWD_POLL_INTERVAL_MS)
 
-    poll_interval_sec = get_pfcwd_poll_interval(duthost) / 1000.0
-    detect_time_sec = get_pfcwd_detect_time(
-        host_ans=duthost, intf=dut_port) / 1000.0
-    restore_time_sec = get_pfcwd_restore_time(
-        host_ans=duthost, intf=dut_port) / 1000.0
+        # Must run after the setup loop above so the timers reflect what the DUT runs with.
+        timers = get_pfcwd_timers(egress_duthost, dut_port, rx_port['asic_value'])
+        poll_interval_sec = timers['poll_interval']
+        detect_time_sec = timers['detection_time']
+        restore_time_sec = timers['restoration_time']
 
-    """ Warm up traffic is initially sent before any other traffic to prevent pfcwd
-    fake alerts caused by idle links (non-incremented packet counters) during pfcwd detection periods """
-    warm_up_traffic_dur_sec = WARM_UP_TRAFFIC_DUR
-    warm_up_traffic_delay_sec = 0
+        ini_stats = {}
+        for prio in prio_list:
+            ini_stats.update(get_stats(egress_duthost, rx_port['peer_port'], prio))
 
-    if trigger_pfcwd:
-        """ Large enough to trigger PFC watchdog """
-        pfc_storm_dur_sec = ceil(detect_time_sec + poll_interval_sec + 0.1)
+        # Set appropriate pfcwd loss deviation - these values are based on empirical testing
+        if is_cisco_device(egress_duthost) or is_cisco_device(ingress_duthost):
+            DEVIATION = 0.5
+        elif is_broadcom_device(egress_duthost) or is_broadcom_device(ingress_duthost):
+            DEVIATION = 0.35
+        else:
+            DEVIATION = 0.3
 
-        flow1_delay_sec = restore_time_sec / 2 + WARM_UP_TRAFFIC_DUR
-        flow1_dur_sec = pfc_storm_dur_sec
+        """ Warm up traffic is initially sent before any other traffic to prevent pfcwd
+        fake alerts caused by idle links (non-incremented packet counters) during pfcwd detection periods """
+        warm_up_traffic_dur_sec = WARM_UP_TRAFFIC_DUR
+        warm_up_traffic_delay_sec = 0
 
-        """ Start data traffic 2 after PFC is restored """
-        flow2_delay_sec = pfc_storm_dur_sec + restore_time_sec + \
-            poll_interval_sec + WARM_UP_TRAFFIC_DUR
-        flow2_dur_sec = 1
+        if trigger_pfcwd:
+            """ Large enough to trigger PFC watchdog """
+            pfc_storm_dur_sec = ceil(detect_time_sec + poll_interval_sec + 0.1)
 
-        flow1_max_loss_rate = 1
-        flow1_min_loss_rate = 1 - DEVIATION
+            flow1_delay_sec = restore_time_sec / 2 + WARM_UP_TRAFFIC_DUR
+            flow1_dur_sec = pfc_storm_dur_sec
 
-    else:
-        pfc_storm_dur_sec = detect_time_sec * 0.5
-        flow1_delay_sec = pfc_storm_dur_sec * 0.1 + WARM_UP_TRAFFIC_DUR
-        flow1_dur_sec = ceil(pfc_storm_dur_sec)
+            """ Start data traffic 2 after PFC is restored """
+            flow2_delay_sec = pfc_storm_dur_sec + restore_time_sec + \
+                poll_interval_sec + WARM_UP_TRAFFIC_DUR
+            flow2_dur_sec = 1
 
-        """ Start data traffic 2 after the completion of data traffic 1 """
-        flow2_delay_sec = flow1_delay_sec + flow1_dur_sec + WARM_UP_TRAFFIC_DUR + 0.1
-        flow2_dur_sec = 1
+            flow1_max_loss_rate = 1
+            flow1_min_loss_rate = 1 - DEVIATION
 
-        flow1_max_loss_rate = 0
-        flow1_min_loss_rate = 0
+        else:
+            pfc_storm_dur_sec = detect_time_sec * 0.5
+            flow1_delay_sec = pfc_storm_dur_sec * 0.1 + WARM_UP_TRAFFIC_DUR
+            flow1_dur_sec = ceil(pfc_storm_dur_sec)
 
-    exp_dur_sec = flow2_delay_sec + flow2_dur_sec + 1
+            """ Start data traffic 2 after the completion of data traffic 1 """
+            flow2_delay_sec = flow1_delay_sec + flow1_dur_sec + WARM_UP_TRAFFIC_DUR + 0.1
+            flow2_dur_sec = 1
 
-    """ Generate traffic config """
-    __gen_traffic(testbed_config=testbed_config,
-                  port_config_list=port_config_list,
-                  port_id=port_id,
-                  pause_flow_name=PAUSE_FLOW_NAME,
-                  pause_flow_dur_sec=pfc_storm_dur_sec,
-                  data_flow_name_list=[WARM_UP_TRAFFIC_NAME,
-                                       DATA_FLOW1_NAME, DATA_FLOW2_NAME],
-                  data_flow_delay_sec_list=[
-                      warm_up_traffic_delay_sec, flow1_delay_sec, flow2_delay_sec],
-                  data_flow_dur_sec_list=[
-                      warm_up_traffic_dur_sec, flow1_dur_sec, flow2_dur_sec],
-                  data_pkt_size=DATA_PKT_SIZE,
-                  prio_list=prio_list,
-                  prio_dscp_map=prio_dscp_map)
+            flow1_max_loss_rate = 0
+            flow1_min_loss_rate = 0
 
-    flows = testbed_config.flows
+        exp_dur_sec = flow2_delay_sec + flow2_dur_sec + 1
+        cisco_platform = "Cisco" in egress_duthost.facts['hwsku']
+        number_of_streams = get_number_of_streams(egress_duthost, tx_port, rx_port)
 
-    all_flow_names = [flow.name for flow in flows]
+        """ Generate traffic config """
+        __gen_traffic(testbed_config=testbed_config,
+                      port_config_list=port_config_list,
+                      port_id=0,
+                      pause_flow_name=PAUSE_FLOW_NAME,
+                      pause_flow_dur_sec=pfc_storm_dur_sec,
+                      data_flow_name_list=[WARM_UP_TRAFFIC_NAME,
+                                           DATA_FLOW1_NAME, DATA_FLOW2_NAME],
+                      data_flow_delay_sec_list=[
+                          warm_up_traffic_delay_sec, flow1_delay_sec, flow2_delay_sec],
+                      data_flow_dur_sec_list=[
+                          warm_up_traffic_dur_sec, flow1_dur_sec, flow2_dur_sec],
+                      data_pkt_size=DATA_PKT_SIZE,
+                      prio_list=prio_list,
+                      prio_dscp_map=prio_dscp_map,
+                      traffic_rate=49.99 if cisco_platform else 100.0,
+                      number_of_streams=number_of_streams)
 
-    flow_stats = __run_traffic(api=api,
-                               config=testbed_config,
-                               all_flow_names=all_flow_names,
-                               exp_dur_sec=exp_dur_sec)
+        flows = testbed_config.flows
 
-    __verify_results(rows=flow_stats,
-                     data_flow_name_list=[DATA_FLOW1_NAME, DATA_FLOW2_NAME],
-                     data_flow_min_loss_rate_list=[flow1_min_loss_rate, 0],
-                     data_flow_max_loss_rate_list=[flow1_max_loss_rate, 0])
+        all_flow_names = [flow.name for flow in flows]
+
+        flow_stats = __run_traffic(api=api,
+                                   config=testbed_config,
+                                   all_flow_names=all_flow_names,
+                                   exp_dur_sec=exp_dur_sec)
+
+        fin_stats = {}
+        for prio in prio_list:
+            fin_stats.update(get_stats(egress_duthost, rx_port['peer_port'], prio))
+
+        loss_packets = 0
+        for k in fin_stats.keys():
+            logger.info('Parameter:{}, Initial Value:{}, Final Value:{}'.format(k, ini_stats[k], fin_stats[k]))
+            if 'DROP' in k:
+                loss_packets += (int(fin_stats[k]) - int(ini_stats[k]))
+
+        logger.info('Total PFCWD drop packets before and after the test:{}'.format(loss_packets))
+
+        __verify_results(rows=flow_stats,
+                         data_flow_name_list=[DATA_FLOW1_NAME, DATA_FLOW2_NAME],
+                         data_flow_min_loss_rate_list=[flow1_min_loss_rate, 0],
+                         data_flow_max_loss_rate_list=[flow1_max_loss_rate, 0],
+                         loss_packets=loss_packets)
+    finally:
+        # Restore the pre-test poll interval overridden above (runtime-only config).
+        # get_pfcwd_poll_interval may return None, in which case there is nothing to restore.
+        for duthost, orig in orig_poll_interval_ms.items():
+            if orig:
+                update_pfc_poll_interval(duthost, orig)
+
+
+def get_stats(duthost, port, prio):
+    """
+    Returns the PFCWD stats for Tx Ok, Tx drop, Storm detected and restored.
+
+    Args:
+        duthost (obj): DUT
+        port (string): Port on the DUT
+        prio (int):    Priority
+
+    Returns:
+        Dictionary with prio_'parameter' as key and associated value.
+
+    """
+    my_dict = {}
+    new_dict = {}
+    init_pfcwd = get_pfcwd_stats(duthost, port, prio)
+    key_list = ['TX_OK/DROP', 'STORM_DETECTED/RESTORED']
+    for keys in key_list:
+        my_dict[keys] = init_pfcwd[keys]
+    new_dict = {str(prio)+'_'+k: v for key, value in my_dict.items() for k, v in zip(key.split('/'), value.split('/'))}
+
+    return new_dict
 
 
 def __gen_traffic(testbed_config,
@@ -153,7 +236,9 @@ def __gen_traffic(testbed_config,
                   data_flow_dur_sec_list,
                   data_pkt_size,
                   prio_list,
-                  prio_dscp_map):
+                  prio_dscp_map,
+                  traffic_rate,
+                  number_of_streams):
     """
     Generate configurations of flows, including data flows and pause storm.
 
@@ -169,6 +254,8 @@ def __gen_traffic(testbed_config,
         data_pkt_size (int): size of data packets in byte
         prio_list (list): priorities of data flows and pause storm
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
+        traffic_rate: Total rate of traffic for all streams together.
+        number_of_streams: The number of UDP streams needed.
 
     Returns:
         N/A
@@ -241,7 +328,7 @@ def __gen_traffic(testbed_config,
 
     tx_port_name = testbed_config.ports[tx_port_id].name
     rx_port_name = testbed_config.ports[rx_port_id].name
-    data_flow_rate_percent = int(100 / len(prio_list))
+    data_flow_rate_percent = int(traffic_rate / len(prio_list))
 
     """ For each data flow """
     for i in range(len(data_flow_name_list)):
@@ -253,16 +340,24 @@ def __gen_traffic(testbed_config,
             data_flow.tx_rx.port.tx_name = tx_port_name
             data_flow.tx_rx.port.rx_name = rx_port_name
 
-            eth, ipv4 = data_flow.packet.ethernet().ipv4()
+            eth, ipv4, udp = data_flow.packet.ethernet().ipv4().udp()
+
             eth.src.value = tx_mac
             eth.dst.value = rx_mac
-            if pfcQueueGroupSize == 8:
+            if pfc_queue_group_size() == 8:
                 eth.pfc_queue.value = prio
             else:
                 eth.pfc_queue.value = pfcQueueValueDict[prio]
 
+            global UDP_PORT_START
+            src_port = UDP_PORT_START
+            UDP_PORT_START += number_of_streams
+            udp.src_port.increment.start = src_port
+            udp.src_port.increment.step = 1
+            udp.src_port.increment.count = number_of_streams
+
             ipv4.src.value = tx_port_config.ip
-            ipv4.dst.value = rx_port_config.ip
+            ipv4.dst.value = gen_data_flow_dest_ip(rx_port_config.ip)
             ipv4.priority.choice = ipv4.priority.DSCP
             ipv4.priority.dscp.phb.values = prio_dscp_map[prio]
             ipv4.priority.dscp.ecn.value = (
@@ -298,9 +393,9 @@ def __run_traffic(api, config, all_flow_names, exp_dur_sec):
     wait_for_arp(api, max_attempts=30, poll_interval_sec=2)
 
     logger.info('Starting transmit on all flows ...')
-    ts = api.transmit_state()
-    ts.state = ts.START
-    api.set_transmit_state(ts)
+    cs = api.control_state()
+    cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START
+    api.set_control_state(cs)
 
     time.sleep(exp_dur_sec)
 
@@ -330,9 +425,9 @@ def __run_traffic(api, config, all_flow_names, exp_dur_sec):
     rows = api.get_metrics(request).flow_metrics
 
     logger.info('Stop transmit on all flows ...')
-    ts = api.transmit_state()
-    ts.state = ts.STOP
-    api.set_transmit_state(ts)
+    cs = api.control_state()
+    cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.STOP
+    api.set_control_state(cs)
 
     return rows
 
@@ -340,7 +435,8 @@ def __run_traffic(api, config, all_flow_names, exp_dur_sec):
 def __verify_results(rows,
                      data_flow_name_list,
                      data_flow_min_loss_rate_list,
-                     data_flow_max_loss_rate_list):
+                     data_flow_max_loss_rate_list,
+                     loss_packets):
     """
     Verify if we get expected experiment results
 
@@ -367,7 +463,9 @@ def __verify_results(rows,
                 data_flow_tx_frames_list[i] += tx_frames
                 data_flow_rx_frames_list[i] += rx_frames
 
+    tgen_loss_packets = 0
     for i in range(num_data_flows):
+        tgen_loss_packets += data_flow_tx_frames_list[i] - data_flow_rx_frames_list[i]
         loss_rate = 1 - \
             float(data_flow_rx_frames_list[i]) / data_flow_tx_frames_list[i]
         min_loss_rate = data_flow_min_loss_rate_list[i]
@@ -376,3 +474,5 @@ def __verify_results(rows,
         pytest_assert(loss_rate <= max_loss_rate and loss_rate >= min_loss_rate,
                       'Loss rate of {} ({}) should be in [{}, {}]'.format(
                           data_flow_name_list[i], loss_rate, min_loss_rate, max_loss_rate))
+
+    logger.info('TGEN Loss packets:{}'.format(tgen_loss_packets))

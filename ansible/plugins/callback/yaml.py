@@ -6,7 +6,7 @@ import json
 import re
 import string
 import sys
-from ansible.plugins.callback import CallbackBase, strip_internal_keys      # noqa F401
+from ansible.plugins.callback import CallbackBase, strip_internal_keys      # noqa: F401
 from ansible.plugins.callback.default import CallbackModule as Default
 
 # simple workaroud for using yaml callback plugin
@@ -16,10 +16,14 @@ if sys.version_info.major > 2:
 else:
     represent_unicode = yaml.representer.SafeRepresenter.represent_unicode
 from ansible.parsing.yaml.dumper import AnsibleDumper
-AnsibleDumper.add_representer(
-    AnsibleUnsafeText,
-    represent_unicode,
-)
+
+# In ansible-core >= 2.20, AnsibleDumper is a factory function, not a class.
+# Only call add_representer if it's actually a class with that method.
+if isinstance(AnsibleDumper, type) and hasattr(AnsibleDumper, 'add_representer'):
+    AnsibleDumper.add_representer(
+        AnsibleUnsafeText,
+        represent_unicode,
+    )
 
 DOCUMENTATION = '''
     callback: yaml

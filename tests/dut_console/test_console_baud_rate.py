@@ -2,12 +2,12 @@ import pytest
 import time
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.helpers.console_helper import assert_expect_text, create_ssh_client, ensure_console_session_up
-from tests.common.reboot import reboot
 
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.disable_memory_utilization
 ]
 
 BOOT_TYPE = {
@@ -22,16 +22,20 @@ def is_sonic_console(conn_graph_facts, dut_hostname):
 
 
 def get_expected_baud_rate(duthost):
-    DEFAULT_BAUDRATE = "9600"
+    DEFAULT_BAUDRATE = 9600
     hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
     return hostvars.get('console_baudrate', DEFAULT_BAUDRATE)
 
 
 def test_console_baud_rate_config(duthost):
     expected_baud_rate = get_expected_baud_rate(duthost)
-    res = duthost.shell("cat /proc/cmdline | grep -Eo 'console=ttyS[0-9]+,[0-9]+' | cut -d ',' -f2")
+    if duthost.facts['platform'] == "arm64-c8220tg_48a_o-r0":
+        res = duthost.shell("cat /proc/cmdline | grep -Eo 'console=tty[A-Z]*[0-9]+,[0-9]+' | cut -d ',' -f2")
+    else:
+        res = duthost.shell("cat /proc/cmdline | grep -Eo 'console=ttyS[0-9]+,[0-9]+' | cut -d ',' -f2")
+
     pytest_require(res["stdout"] != "", "Cannot get baud rate")
-    if res["stdout"] != expected_baud_rate:
+    if res["stdout"] != str(expected_baud_rate):
         global pass_config_test
         pass_config_test = False
         pytest.fail("Device baud rate is {}, expected {}".format(res["stdout"], expected_baud_rate))
@@ -41,6 +45,8 @@ def test_console_baud_rate_config(duthost):
 def console_client_setup_teardown(duthost, conn_graph_facts, creds):
     pytest_assert(pass_config_test, "Fail due to failure in test_console_baud_rate_config.")
     dut_hostname = duthost.hostname
+    if "ManagementIp" not in conn_graph_facts['device_console_info'][dut_hostname]:
+        pytest.skip("Console port does not exist in console_links.csv file. Skipping {}".format(dut_hostname))
     console_host = conn_graph_facts['device_console_info'][dut_hostname]['ManagementIp']
     if "/" in console_host:
         console_host = console_host.split("/")[0]
@@ -101,11 +107,11 @@ def test_baud_rate_sonic_connect(console_client_setup_teardown):
     assert_expect_text(client, "login:", console_port, timeout_sec=1)
 
 
-def test_baud_rate_boot_connect(localhost, duthost, console_client_setup_teardown, boot_connect_teardown):
+def test_baud_rate_boot_connect(duthost, console_client_setup_teardown, boot_connect_teardown):
     client, console_port = console_client_setup_teardown
     platform = duthost.facts["platform"]
     pytest_require(platform in BOOT_TYPE, "Unsupported platform: {}".format(platform))
-    reboot(duthost, localhost, wait_for_ssh=False)
+    duthost.shell("sudo reboot", module_async=True)
     if BOOT_TYPE[platform] == "ABoot":
         run_aboot_test(client, console_port)
     elif BOOT_TYPE[platform] == "UBoot-ONIE":

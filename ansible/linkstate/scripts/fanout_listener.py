@@ -67,13 +67,13 @@ class Conn(object):
 
     def read(self):
         fp = self.conn.makefile('rb', 1024)
-        data = pickle.load(fp)
+        data = pickle.load(fp)  # nosemgrep: avoid-pickle
         fp.close()
         return data
 
     def write(self, data):
         fp = self.conn.makefile('wb', 1024)
-        pickle.dump(data, fp, pickle.HIGHEST_PROTOCOL)
+        pickle.dump(data, fp, pickle.HIGHEST_PROTOCOL)  # nosemgrep: avoid-pickle
         fp.close()
 
 
@@ -87,7 +87,7 @@ def main():
     global g_log_fp
     g_log_fp = open("/tmp/fanout_listener.log", "w")
 
-    sw = setup_sw()     # noqa F841
+    sw = setup_sw()     # noqa: F841
     try:
         Tac.runActivities()
     except Exception:

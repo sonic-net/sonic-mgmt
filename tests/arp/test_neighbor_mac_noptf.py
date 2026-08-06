@@ -2,6 +2,7 @@ import logging
 import pytest
 import time
 
+from ipaddress import ip_interface
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.config_reload import config_reload
@@ -39,30 +40,104 @@ class TestNeighborMacNoPtf:
                 module_ignore_errors=True, verbose=True)['stdout']
         return int(num)
 
-    def _get_bgp_routes_asic(self, asichost):
+    def _get_back_plane_port_ips(self, duthost):
+        cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
+        port_config = cfg_facts.get("PORT", {})
+
+        back_plane_ports = {
+            port for port, attrs in port_config.items()
+            if attrs.get("role", "").lower() == "dpc"
+        }
+
+        logger.info(f"back plane ports: {sorted(back_plane_ports)}")
+
+        # config_facts formats VLAN_MEMBER as {Vlan55: {Ethernet224: {tagging_mode: ...}}}.
+        vlan_names = set()
+        for vlan_name, members in cfg_facts.get("VLAN_MEMBER", {}).items():
+            for port in members.keys():
+                if port in back_plane_ports:
+                    vlan_names.add(vlan_name)
+
+        back_plane_port_ips = []
+        vlan_interface = cfg_facts.get("VLAN_INTERFACE", {})
+        for vlan_name in vlan_names:
+            for addr in vlan_interface.get(vlan_name, {}):
+                if "/" not in addr:
+                    continue
+                try:
+                    iface = ip_interface(addr)
+                    if iface.version == 4:
+                        # Redis KEYS glob prefix-matches dest; filter both subnet and /32 host.
+                        # e.g. Vlan55 20.0.200.254/24 -> 20.0.200.0 and 20.0.200.254
+                        back_plane_port_ips.append(str(iface.ip))
+                        back_plane_port_ips.append(str(iface.network.network_address))
+                except ValueError as e:
+                    logger.warning(f"Error parsing VLAN {vlan_name} address {addr}: {e}")
+
+        # Fallback for legacy config where DPC ports had IPs directly assigned
+        if not back_plane_port_ips:
+            for port in back_plane_ports:
+                try:
+                    output = duthost.shell(
+                        f"ip addr show {port} | grep -w inet | awk '{{print $2}}'",
+                        module_ignore_errors=True, verbose=False)["stdout"].strip()
+                    if output:
+                        iface = ip_interface(output)
+                        back_plane_port_ips.append(str(iface.ip))
+                        back_plane_port_ips.append(str(iface.network.network_address))
+                except Exception as e:
+                    logger.warning(f"Error getting back plane {port} IP: {e}")
+
+        back_plane_port_ips = list(dict.fromkeys(back_plane_port_ips))
+        logger.info(f"back plane port IPs: {back_plane_port_ips}")
+
+        return back_plane_port_ips
+
+    def _get_bgp_routes_asic(self, asichost, filter_ip_list=[]):
         # Get the routes installed by BGP in ASIC_DB by filtering out all local routes installed on asic
-        localv6 = self.count_routes(asichost, "fc") + self.count_routes(asichost, "fe")
-        localv4 = self.count_routes(asichost, "10.") + self.count_routes(asichost, "192.168.0.")
+        localv6_prefixes = ["fc", "fe"]
+        localv6 = sum(self.count_routes(asichost, prefix) for prefix in localv6_prefixes)
+        # For 2 vlans with secondary subnet, the route subnet could be 192.169.0.0, not only 192.168.0.0
+        localv4_prefixes = ["10.", "192."]
+        localv4 = sum(self.count_routes(asichost, prefix) for prefix in localv4_prefixes)
         # these routes are present only on multi asic device, on single asic platform they will be zero
-        internal = self.count_routes(asichost, "8.") + self.count_routes(asichost, "2603")
+        internal_prefixes = ["8.", "2603"]
+        if asichost.sonichost.facts['switch_type'] == 'voq':
+            # voq inband_ip's
+            internal_prefixes.append("3")
+        internal = sum(self.count_routes(asichost, prefix) for prefix in internal_prefixes)
+        # custom filtered ips
+        filter = {
+            ip for ip in set(filter_ip_list)
+            if not any(ip.lower().startswith(prefix)
+                       for prefix in (localv4_prefixes + localv6_prefixes + internal_prefixes))
+        }
+        logger.info("custom filter: {}".format(filter))
+        filtered = sum(self.count_routes(asichost, ip) for ip in set(filter))
+
         allroutes = self.count_routes(asichost, "")
-        logger.info("asic[{}] localv4 routes {} localv6 routes {} internalv4 {} allroutes {}"
-                    .format(asichost.asic_index, localv4, localv6, internal, allroutes))
-        bgp_routes_asic = allroutes - localv6 - localv4 - internal - DEFAULT_ROUTE_NUM
+        logger.info("asic[{}] localv4 routes {} localv6 routes {} internalv4 {} filtered {} allroutes {}"
+                    .format(asichost.asic_index, localv4, localv6, internal, filtered, allroutes))
+        bgp_routes_asic = allroutes - localv6 - localv4 - internal - filtered - DEFAULT_ROUTE_NUM
 
         return bgp_routes_asic
 
     def _check_no_bgp_routes(self, duthost):
         bgp_routes = 0
+
+        filter_ip_list = []
+        if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch"):
+            filter_ip_list = self._get_back_plane_port_ips(duthost)
+
         # Checks that there are no routes installed by BGP in ASIC_DB
         # by filtering out all local routes installed on testbed
         for asic in duthost.asics:
-            bgp_routes += self._get_bgp_routes_asic(asic)
+            bgp_routes += self._get_bgp_routes_asic(asic, filter_ip_list)
 
         return bgp_routes == 0
 
     @pytest.fixture(scope="module", autouse=True)
-    def setupDutConfig(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    def setupDutConfig(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
         """
             Disabled BGP to reduce load on switch and restores DUT configuration after test completes
 
@@ -75,8 +150,13 @@ class TestNeighborMacNoPtf:
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         if not duthost.get_facts().get("modular_chassis"):
             duthost.command("sudo config bgp shutdown all")
-            if not wait_until(120, 2.0, 0, self._check_no_bgp_routes, duthost):
-                pytest.fail('BGP Shutdown Timeout: BGP route removal exceeded 120 seconds.')
+            # BGP routes drain noticeably slower on the VPP-based virtual
+            # switch (t1-lag-vpp / vlab-vpp-01), so give it a larger budget.
+            # Keep the original 120s ceiling for all other topologies.
+            bgp_shutdown_timeout = 300 if tbinfo['topo']['name'] == 't1-lag-vpp' else 120
+            if not wait_until(bgp_shutdown_timeout, 2.0, 0, self._check_no_bgp_routes, duthost):
+                pytest.fail('BGP Shutdown Timeout: BGP route removal exceeded {} seconds.'
+                            .format(bgp_shutdown_timeout))
 
         yield
 
@@ -92,7 +172,7 @@ class TestNeighborMacNoPtf:
             Args:
                 request: pytest request object
 
-            Retruns:
+            Returns:
                 ipVersion (int): IP version to be used for testing
         """
         yield request.param
@@ -105,7 +185,7 @@ class TestNeighborMacNoPtf:
             Args:
                 duthost (AnsibleHost): Device Under Test (DUT)
 
-            Retruns:
+            Returns:
                 routedInterface (str): Routed interface used for testing
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
@@ -139,7 +219,7 @@ class TestNeighborMacNoPtf:
 
         def verifyOrchagentRunningOrAssert(duthost):
             """
-                Verifyes that orchagent is running, asserts otherwise
+                Verifies that orchagent is running, asserts otherwise
 
                 Args:
                     duthost (AnsibleHost): Device Under Test (DUT)
@@ -232,7 +312,7 @@ class TestNeighborMacNoPtf:
     def arpTableMac(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                     enum_frontend_asic_index, ipVersion, updateNeighborIp):
         """
-            Retreive DUT ARP table MAC entry of neighbor IP
+            Retrieve DUT ARP table MAC entry of neighbor IP
 
             Args:
                 duthost (AnsibleHost): Device Under Test (DUT)
@@ -251,7 +331,7 @@ class TestNeighborMacNoPtf:
     def redisNeighborMac(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                          enum_frontend_asic_index, ipVersion, updateNeighborIp):
         """
-            Retreive DUT Redis MAC entry of neighbor IP
+            Retrieve DUT Redis MAC entry of neighbor IP
 
             Args:
                 duthost (AnsibleHost): Device Under Test (DUT)

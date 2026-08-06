@@ -3,6 +3,7 @@ import logging
 import time
 import re
 import random
+import json
 import ptf.testutils as testutils
 import ptf.mask as mask
 import ptf.packet as packet
@@ -17,7 +18,10 @@ from tests.route.utils import generate_intf_neigh, generate_route_file, prepare_
 CRM_POLL_INTERVAL = 1
 CRM_DEFAULT_POLL_INTERVAL = 300
 
-pytestmark = [pytest.mark.topology("any"), pytest.mark.device_type("vs")]
+pytestmark = [
+    pytest.mark.topology("any", "t1-multi-asic"),
+    pytest.mark.device_type("vs")
+]
 
 logger = logging.getLogger(__name__)
 
@@ -54,18 +58,70 @@ def get_route_scale_per_role(tbinfo, ip_version):
     return set_num_routes
 
 
+def get_l3_alpm_template_from_config_bcm(duthost):
+    """
+    Get l3_alpm_template from config.bcm file
+    :param duthost: DUT host object
+    :return: l3_alpm_template value
+    """
+    ls_command = "docker exec syncd cat /etc/sai.d/sai.profile | grep SAI_INIT_CONFIG_FILE"
+    ls_output = duthost.shell(ls_command, module_ignore_errors=True)['stdout']
+    # Check if the file exists
+    if ls_output:
+        file_name = ls_output.split("=")[-1].strip()
+        logging.info("Config bcm file found:{}".format(file_name))
+        # Read the config.bcm file and find the l3_alpm_template variable
+        cat_command = "docker exec syncd cat {} | grep l3_alpm_template".format(file_name)
+        cat_output = duthost.shell(cat_command, module_ignore_errors=True)['stdout']
+        if cat_output:
+            # Extract the value of l3_alpm_template
+            l3_alpm_template = cat_output.split(":")[-1].strip()
+            logging.info("l3_alpm_template found:{}".format(l3_alpm_template))
+            return int(l3_alpm_template)
+        else:
+            logging.info("Unable to find l3_alpm_template in config.bcm file")
+            raise RuntimeError(
+                "Unable to find l3_alpm_template in config.bcm file"
+            )
+    # If the file does not exist, raise an error
+    else:
+        logging.info("Unable to find config.bcm file in /etc/sai.d/sai.profile")
+        raise RuntimeError(
+            "Unable to find config.bcm file in /etc/sai.d/sai.profile"
+        )
+    return None
+
+
 @pytest.fixture
-def check_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
+def check_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_rand_one_frontend_asic_index, tbinfo):
     if tbinfo["topo"]["type"] in ["m0", "mx"]:
         return
 
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    if (duthost.facts.get('platform_asic') == 'broadcom-dnx'):
+        # CS00012377343 - l3_alpm_enable isn't supported on dnx
+        return
+
     asic = duthost.facts["asic_type"]
+    platform = duthost.facts["platform"]
+    asic_id = enum_rand_one_frontend_asic_index
 
     if (asic == "broadcom"):
-        alpm_enable = duthost.command('bcmcmd "conf show l3_alpm_enable"')["stdout_lines"][2].strip()
-        logger.info("Checking config: {}".format(alpm_enable))
-        pytest_assert(alpm_enable == "l3_alpm_enable=2", "l3_alpm_enable is not set for route scaling")
+        if "x86_64-arista_7060x6" in platform or "x86_64-nokia_ixr7220_h6" in platform:
+            # For TH5 (Arista 7060x6) and TH6 (Nokia IXR7220 H6) family devices,
+            # l3_alpm_template is set in config.bcm instead of l3_alpm_enable
+            # * 1 - Combined (By default)
+            # * 2 - Parallel
+            pytest_assert(
+                get_l3_alpm_template_from_config_bcm(duthost) == 1,
+                "l3_alpm_template is not set for route scaling"
+            )
+        else:
+            broadcom_cmd = "bcmcmd -n " + str(asic_id) if duthost.is_multi_asic else "bcmcmd"
+            alpm_cmd = "{} {}".format(broadcom_cmd, '"conf show l3_alpm_enable"')
+            alpm_enable = duthost.command(alpm_cmd)["stdout_lines"][2].strip()
+            logger.info("Checking config: {}".format(alpm_enable))
+            pytest_assert(alpm_enable == "l3_alpm_enable=2", "l3_alpm_enable is not set for route scaling")
 
 
 @pytest.fixture(autouse=True)
@@ -94,13 +150,13 @@ def ignore_expected_loganalyzer_exceptions(
 
 
 @pytest.fixture(scope="function", autouse=True)
-def reload_dut(duthosts, enum_rand_one_per_hwsku_frontend_hostname, request):
+def reload_dut(duthosts, enum_rand_one_per_hwsku_frontend_hostname, request, loganalyzer):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     yield
-    if request.node.rep_call.failed:
+    if hasattr(request.node, "rep_call") and request.node.rep_call.failed:
         # Issue a config_reload to clear statically added route table and ip addr
         logging.info("Reloading config..")
-        config_reload(duthost)
+        config_reload(duthost, ignore_loganalyzer=loganalyzer)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -133,7 +189,12 @@ def exec_routes(
 
     # Calculate timeout as a function of the number of routes
     # Allow at least 1 second even when there is a limited number of routes
-    route_timeout = max(len(prefixes) / 250, 1)
+    asic_type = duthost.facts["asic_type"]
+    if asic_type == "vs":
+        # In vs, route entries need more time to be installed
+        route_timeout = max(len(prefixes) / 160, 1)
+    else:
+        route_timeout = max(len(prefixes) / 250, 1)
 
     # Calculate expected number of route and record start time
     if op == "SET":
@@ -173,6 +234,9 @@ def exec_routes(
         actual_num_routes = asichost.count_routes(ROUTE_TABLE_NAME)
         if total_delay >= route_timeout:
             break
+
+    logger.info("After pushing route to swssconfig, current {} expected {}".format(
+        actual_num_routes, expected_num_routes))
 
     # Record time when all routes show up in ASIC_DB
     end_time = datetime.now()
@@ -240,6 +304,8 @@ def test_perf_add_remove_routes(
         asichost, NUM_NEIGHS, ip_versions, mg_facts, is_backend_topology
     )
 
+    crm_facts = duthost.get_crm_facts()
+    logger.info(json.dumps(crm_facts, indent=4))
     route_tag = "ipv{}_route".format(ip_versions)
     used_routes_count = asichost.count_crm_resources(
         "main_resources", route_tag, "used"
@@ -332,11 +398,12 @@ def test_perf_add_remove_routes(
             if ip_versions == 4:
                 ip_dst = generate_ips(1, dst_nw, [])
                 send_and_verify_traffic(
-                    duthost, ptfadapter, tbinfo, ip_dst, ptf_dst_ports, ptf_src_port
+                    asichost, duthost, ptfadapter, tbinfo, ip_dst, ptf_dst_ports, ptf_src_port
                 )
             else:
                 ip_dst = dst_nw.split("/")[0] + "1"
                 send_and_verify_traffic(
+                    asichost,
                     duthost,
                     ptfadapter,
                     tbinfo,
@@ -363,11 +430,11 @@ def test_perf_add_remove_routes(
 
 
 def send_and_verify_traffic(
-    duthost, ptfadapter, tbinfo, ip_dst, expected_ports, ptf_src_port, ipv6=False
+    asichost, duthost, ptfadapter, tbinfo, ip_dst, expected_ports, ptf_src_port, ipv6=False
 ):
     if ipv6:
         pkt = testutils.simple_tcpv6_packet(
-            eth_dst=duthost.facts["router_mac"],
+            eth_dst=asichost.get_router_mac().lower(),
             eth_src=ptfadapter.dataplane.get_mac(0, ptf_src_port),
             ipv6_src="2001:db8:85a3::8a2e:370:7334",
             ipv6_dst=ip_dst,
@@ -377,7 +444,7 @@ def send_and_verify_traffic(
         )
     else:
         pkt = testutils.simple_tcp_packet(
-            eth_dst=duthost.facts["router_mac"],
+            eth_dst=asichost.get_router_mac().lower(),
             eth_src=ptfadapter.dataplane.get_mac(0, ptf_src_port),
             ip_src="1.1.1.1",
             ip_dst=ip_dst,

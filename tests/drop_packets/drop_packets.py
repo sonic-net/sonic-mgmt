@@ -7,15 +7,16 @@ import logging
 import ptf.testutils as testutils
 import ptf.mask as mask
 import ptf.packet as packet
+import csv
+import json
 
-from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts  # noqa F401
+from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts  # noqa: F401
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common import config_reload
-from tests.common.fixtures.ptfhost_utils import skip_traffic_test       # noqa F401
 from tests.common.helpers.dut_utils import is_mellanox_fanout
 
 RX_DRP = "RX_DRP"
@@ -89,20 +90,143 @@ def fanouthost(duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts,
         if not is_mellanox_fanout(duthost, localhost) or fanout.os == "sonic":
             fanout = None
 
+    # Check if DUT has Marvell Teralynx ASIC
+    if duthost.facts["asic_type"] == "marvell-teralynx":
+        # Re-acquire specific fanout object for Marvell DUT
+        fanout = get_fanout_obj(conn_graph_facts, duthost, fanouthosts)
+        # Check if FANOUT has Marvell ASIC
+        if fanout.facts["asic_type"] != "marvell-teralynx":
+            fanout = None
+
     yield fanout
     if fanout:
         if hasattr(fanout, 'restore_drop_counter_config'):
             fanout.restore_drop_counter_config()
 
+    if fanout:
+        if hasattr(fanout, "facts") and fanout.facts.get("asic_type") == "marvell-teralynx":
+            # Check and clean up existing REDIRECT_VLAN ACL table if present.
+            check_output = fanout.shell("show acl table", module_ignore_errors=True)
+            if "REDIRECT_VLAN" in check_output["stdout"]:
+                # Clean up existing ACL rules
+                fanout.shell("acl-loader delete REDIRECT_VLAN")
+                # Clean up existing ACL table to reset environment
+                fanout.shell("config acl remove table REDIRECT_VLAN")
+
+                # Remove generated acl_rules.json file
+                acl_json_path = "drop_packets/acl_rules.json"
+                if os.path.exists(acl_json_path):
+                    os.remove(acl_json_path)
+                    logger.info(f"Removed generated ACL file: {acl_json_path}")
+                else:
+                    logger.warning(f"Expected ACL file not found for deletion: {acl_json_path}")
+
+
+def generate_acl_rules_from_csv(csv_path, output_json_path):
+    """
+    Generate ACL rules JSON from the given CSV and write it to the specified file.
+
+    Args:
+        output_json_path (str): Path to ACL rule JSON file.
+        csv_path (str): Path to CSV file containing interface mappings.
+    """
+    if not os.path.exists(csv_path):
+        logger.error(f"CSV file not found: {csv_path}")
+        return
+
+    acl_data = {"ACL_RULE": {}}
+
+    try:
+        with open(csv_path, "r") as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                vlan_id = row.get("VlanID")
+                port = row.get("StartPort")
+                if vlan_id and port:
+                    rule_name = f"REDIRECT_VLAN|MATCH_VLAN_{vlan_id}"
+                    acl_data["ACL_RULE"][rule_name] = {
+                        "PRIORITY": "1000",
+                        "VLAN_ID": vlan_id,
+                        "REDIRECT_ACTION": port
+                    }
+                else:
+                    logger.warning(f"Skipping invalid row: {row}")
+
+        # Ensure output directory exists
+        os.makedirs(os.path.dirname(output_json_path), exist_ok=True)
+
+        # Write ACL rules to JSON file
+        with open(output_json_path, "w") as jsonfile:
+            json.dump(acl_data, jsonfile, indent=2)
+            logger.info(f"ACL rules written to {output_json_path}")
+
+    except Exception as e:
+        logger.error(f"Failed to generate ACL rules: {e}", exc_info=True)
+
+
+def drop_counter_config(fanouthost):
+    """
+    This function injects ACL rules on fanout host by parsing the port info from a CSV file.
+    It creates ACL(Access Control List) rule for each VLAN which helps in identifying the
+    pkt based on the VLAN id and redirect the pkt to the egress.
+
+    Args:
+        fanouthost: Fanout host object with .facts, .copy(), and .shell() methods.
+        acl_file (str): Path to ACL rule JSON file.
+        csv_path (str): Path to CSV file containing interface mappings.
+        search_str (str): String to identify target row in CSV.
+        fetch_port (str): Port identifier substring (e.g., 'Ethernet').
+    """
+
+    acl_file = "drop_packets/acl_rules.json"
+    csv_path = "../ansible/files/sonic_lab_links.csv"
+    search_str = "Trunk"
+    fetch_port = "Ethernet"
+
+    # Generate ACL rules JSON from the given CSV
+    generate_acl_rules_from_csv(csv_path, acl_file)
+
+    try:
+        if not os.path.exists(acl_file):
+            raise FileNotFoundError(f"ACL file not found: {acl_file}")
+
+        fanouthost.copy(src=acl_file, dest="/tmp")
+        fanouthost.shell(f"config load -y /tmp/{os.path.basename(acl_file)}")
+
+        if not os.path.exists(csv_path):
+            raise FileNotFoundError(f"CSV file not found: {csv_path}")
+
+        host_con_port = None
+        with open(csv_path, 'r') as file:
+            reader = csv.reader(file)
+            for row in reader:
+                if search_str in row:
+                    host_con_port = next((field for field in row if fetch_port in field), None)
+                    if host_con_port:
+                        logger.info(f"Found interface: {host_con_port}")
+                        fanouthost.shell(f"config acl add table REDIRECT_VLAN L3 -s ingress -p {host_con_port}")
+                        break
+
+        if host_con_port is None:
+            raise ValueError(f"No matching port with '{fetch_port}' found in any row containing '{search_str}'.")
+
+    except FileNotFoundError as e:
+        logger.error(f"[File Error] {e}")
+    except ValueError as e:
+        logger.error(f"[Value Error] {e}")
+    except Exception as e:
+        logger.error(f"[Unexpected Error] {e}", exc_info=True)
+
 
 @pytest.fixture
-def configure_copp_drop_for_ttl_error(duthosts, rand_one_dut_hostname):
+def configure_copp_drop_for_ttl_error(duthosts, rand_one_dut_hostname, loganalyzer):
     """
     Fixture that allows to update copp configuration for dropping packets with TTL=0
 
     Args:
         duthosts: fixture to get DUT hosts defined in testbed
         rand_one_dut_hostname: fixture to return the randomly selected duthost
+        loganalyzer: loganalyzer
     """
     duthost = duthosts[rand_one_dut_hostname]
     copp_trap_group_json = "/tmp/copp_trap_group.json"
@@ -144,7 +268,12 @@ EOF
     yield
 
     duthost.command("rm {} {}".format(copp_trap_group_json, copp_trap_rule_json))
-    config_reload(duthost, safe_reload=True)
+    config_reload(duthost, safe_reload=True, ignore_loganalyzer=loganalyzer)
+    if duthost.facts["asic_type"] == "vpp":
+        # monit refreshes on a ~60s cycle, so wait one full cycle to let usage
+        # settle and ensure monit's next refresh captures the steady-state
+        # value for the next test's baseline.
+        time.sleep(65)
 
 
 def get_fanout_obj(conn_graph_facts, duthost, fanouthosts):
@@ -247,7 +376,18 @@ def setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
     for po_member in set(l2_port_channel_members):
         port_channel_members.pop(po_member)
 
-    rif_members = {item["attachto"]: item["attachto"] for item in mg_facts["minigraph_interfaces"]}
+    rif_members_list = [item["attachto"] for item in mg_facts["minigraph_interfaces"]]
+
+    # On some Broadcom platforms, counters on interfaces with 'PT0' in their neighbor's name do not work as expected.
+    # This filters them out to prevent test failures.
+    if duthost.facts["asic_type"] == "broadcom":
+        logger.info("Broadcom platform detected, filtering out RIF members connected to 'PT0' neighbors.")
+        rif_members_list = [
+            port for port in rif_members_list
+            if "PT0" not in mg_facts["minigraph_neighbors"].get(port, {}).get("name", "")
+        ]
+    rif_members = {port: port for port in rif_members_list}
+
     # Compose list of sniff ports
     neighbor_sniff_ports = []
     for dut_port, neigh in list(mg_facts['minigraph_neighbors'].items()):
@@ -516,7 +656,7 @@ def send_packets(pkt, ptfadapter, ptf_tx_port_id, num_packets=1):
 
 
 def test_equal_smac_dmac_drop(do_test, ptfadapter, setup, fanouthost,
-                              pkt_fields, ports_info, enum_fanout_graph_facts, skip_traffic_test):      # noqa F811
+                              pkt_fields, ports_info, enum_fanout_graph_facts):      # noqa: F811
     """
     @summary: Create a packet with equal SMAC and DMAC.
     """
@@ -526,6 +666,10 @@ def test_equal_smac_dmac_drop(do_test, ptfadapter, setup, fanouthost,
     log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"],
                    ports_info["dst_mac"], pkt_fields["ipv4_dst"], pkt_fields["ipv4_src"])
     src_mac = ports_info["dst_mac"]
+
+    # Marvell ASIC specific ACL rule injection
+    if hasattr(fanouthost, "facts") and fanouthost.facts.get("asic_type") == "marvell-teralynx":
+        drop_counter_config(fanouthost)
 
     if fanouthost.os == 'onyx':
         pytest.SKIP_COUNTERS_FOR_MLNX = True
@@ -555,11 +699,11 @@ def test_equal_smac_dmac_drop(do_test, ptfadapter, setup, fanouthost,
 
     group = "L2"
     do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"],
-            comparable_pkt=comparable_pkt, skip_traffic_test=skip_traffic_test)
+            comparable_pkt=comparable_pkt)
 
 
 def test_multicast_smac_drop(do_test, ptfadapter, setup, fanouthost,
-                             pkt_fields, ports_info, enum_fanout_graph_facts):   # noqa F811
+                             pkt_fields, ports_info, enum_fanout_graph_facts):   # noqa: F811
     """
     @summary: Create a packet with multicast SMAC.
     """
@@ -571,6 +715,10 @@ def test_multicast_smac_drop(do_test, ptfadapter, setup, fanouthost,
 
     log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], multicast_smac,
                    pkt_fields["ipv4_dst"], pkt_fields["ipv4_src"])
+
+    # Marvell ASIC specific ACL rule injection
+    if hasattr(fanouthost, "facts") and fanouthost.facts.get("asic_type") == "marvell-teralynx":
+        drop_counter_config(fanouthost)
 
     if fanouthost.os == 'onyx':
         pytest.SKIP_COUNTERS_FOR_MLNX = True
@@ -599,11 +747,11 @@ def test_multicast_smac_drop(do_test, ptfadapter, setup, fanouthost,
 
     group = "L2"
     do_test(group, pkt, ptfadapter, ports_info,
-            setup["neighbor_sniff_ports"], comparable_pkt=comparable_pkt, skip_traffic_test=skip_traffic_test)
+            setup["neighbor_sniff_ports"], comparable_pkt=comparable_pkt)
 
 
 def test_not_expected_vlan_tag_drop(do_test, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                                    ptfadapter, setup, pkt_fields, ports_info, skip_traffic_test):
+                                    ptfadapter, setup, pkt_fields, ports_info):
     """
     @summary: Create a VLAN tagged packet which VLAN ID does not match ingress port VLAN ID.
     """
@@ -637,10 +785,11 @@ def test_not_expected_vlan_tag_drop(do_test, duthosts, enum_rand_one_per_hwsku_f
 
     group = "L2"
     do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"],
-            skip_traffic_test=skip_traffic_test)
+            # VPP drops the packet but does not increment the drop counter
+            skip_counter_check=(duthost.facts["asic_type"] == "vpp"))
 
 
-def test_dst_ip_is_loopback_addr(do_test, ptfadapter, setup, pkt_fields, tx_dut_ports, ports_info, skip_traffic_test):
+def test_dst_ip_is_loopback_addr(do_test, ptfadapter, setup, pkt_fields, tx_dut_ports, ports_info):
     """
     @summary: Create a packet with loopback destination IP adress.
     """
@@ -658,11 +807,10 @@ def test_dst_ip_is_loopback_addr(do_test, ptfadapter, setup, pkt_fields, tx_dut_
         tcp_dport=pkt_fields["tcp_dport"])
 
     group = "L3"
-    do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"],
-            tx_dut_ports, skip_traffic_test=skip_traffic_test)
+    do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
 
 
-def test_src_ip_is_loopback_addr(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, ports_info, skip_traffic_test):
+def test_src_ip_is_loopback_addr(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, ports_info):
     """
     @summary: Create a packet with loopback source IP adress.
     """
@@ -680,11 +828,10 @@ def test_src_ip_is_loopback_addr(do_test, ptfadapter, setup, tx_dut_ports, pkt_f
         tcp_dport=pkt_fields["tcp_dport"])
 
     group = "L3"
-    do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"],
-            tx_dut_ports, skip_traffic_test=skip_traffic_test)
+    do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
 
 
-def test_dst_ip_absent(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, ports_info, skip_traffic_test):
+def test_dst_ip_absent(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, ports_info):
     """
     @summary: Create a packet with absent destination IP address.
     """
@@ -712,13 +859,12 @@ def test_dst_ip_absent(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, por
 
     group = "L3"
     print(("msm group {}, setup {}".format(group, setup)))
-    do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"],
-            tx_dut_ports, skip_traffic_test=skip_traffic_test)
+    do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
 
 
 @pytest.mark.parametrize("ip_addr", ["ipv4", "ipv6"])
 def test_src_ip_is_multicast_addr(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, ip_addr,
-                                  ports_info, skip_traffic_test):
+                                  ports_info):
     """
     @summary: Create a packet with multicast source IP adress.
     """
@@ -752,11 +898,11 @@ def test_src_ip_is_multicast_addr(do_test, ptfadapter, setup, tx_dut_ports, pkt_
 
     group = "L3"
     do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"],
-            tx_dut_ports, ip_ver=ip_addr, skip_traffic_test=skip_traffic_test)
+            tx_dut_ports, ip_ver=ip_addr)
 
 
 def test_src_ip_is_class_e(do_test, ptfadapter, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                           setup, tx_dut_ports, pkt_fields, ports_info, skip_traffic_test):
+                           setup, tx_dut_ports, pkt_fields, ports_info):
     """
     @summary: Create a packet with source IP address in class E.
     """
@@ -779,14 +925,12 @@ def test_src_ip_is_class_e(do_test, ptfadapter, duthosts, enum_rand_one_per_hwsk
             tcp_dport=pkt_fields["tcp_dport"])
 
         group = "L3"
-        do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"],
-                tx_dut_ports, skip_traffic_test=skip_traffic_test)
+        do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
 
 
 @pytest.mark.parametrize("addr_type, addr_direction", [("ipv4", "src"), ("ipv6", "src"),
                                                        ("ipv4", "dst"), ("ipv6", "dst")])
-def test_ip_is_zero_addr(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, addr_type, addr_direction,
-                         ports_info, skip_traffic_test):
+def test_ip_is_zero_addr(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, addr_type, addr_direction, ports_info):
     """
     @summary: Create a packet with "0.0.0.0" source or destination IP address.
     """
@@ -833,11 +977,11 @@ def test_ip_is_zero_addr(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, a
         pytest.skip("Src IP zero packets are not dropped on Broadcom DNX platform currently")
 
     do_test(group, pkt, ptfadapter, ports_info, list(setup["dut_to_ptf_port_map"].values()), tx_dut_ports,
-            ip_ver=addr_type, skip_traffic_test=skip_traffic_test)
+            ip_ver=addr_type)
 
 
 def test_dst_ip_link_local(do_test, ptfadapter, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                           setup, tx_dut_ports, pkt_fields, ports_info, skip_traffic_test):
+                           setup, tx_dut_ports, pkt_fields, ports_info):
     """
     @summary: Create a packet with link-local address "169.254.0.0/16".
     """
@@ -860,11 +1004,10 @@ def test_dst_ip_link_local(do_test, ptfadapter, duthosts, enum_rand_one_per_hwsk
     group = "L3"
 
     logger.info(pkt_params)
-    do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"],
-            tx_dut_ports, skip_traffic_test=skip_traffic_test)
+    do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
 
 
-def test_loopback_filter(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, ports_info, skip_traffic_test):
+def test_loopback_filter(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, ports_info):
     """
     @summary: Create a packet drops by loopback-filter. Loop-back filter means that route to the host
               with DST IP of received packet exists on received interface
@@ -892,13 +1035,11 @@ def test_loopback_filter(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, p
 
     group = "L3"
 
-    do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"],
-            tx_dut_ports, skip_traffic_test=skip_traffic_test)
+    do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
 
 
 def test_ip_pkt_with_expired_ttl(duthost, do_test, ptfadapter, setup, tx_dut_ports, pkt_fields,
-                                 ports_info, sai_acl_drop_adj_enabled, configure_copp_drop_for_ttl_error,
-                                 skip_traffic_test):
+                                 ports_info, sai_acl_drop_adj_enabled, configure_copp_drop_for_ttl_error):
     """
     @summary: Create an IP packet with TTL=0.
     """
@@ -916,12 +1057,12 @@ def test_ip_pkt_with_expired_ttl(duthost, do_test, ptfadapter, setup, tx_dut_por
 
     group = "L3"
     do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"],
-            tx_dut_ports, skip_counter_check=sai_acl_drop_adj_enabled, skip_traffic_test=skip_traffic_test)
+            tx_dut_ports, skip_counter_check=sai_acl_drop_adj_enabled)
 
 
 @pytest.mark.parametrize("pkt_field, value", [("version", 1), ("chksum", 10), ("ihl", 1)])
 def test_broken_ip_header(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, pkt_field,
-                          value, ports_info, sai_acl_drop_adj_enabled, skip_traffic_test):
+                          value, ports_info, sai_acl_drop_adj_enabled):
     """
     @summary: Create a packet with broken IP header.
     """
@@ -940,11 +1081,11 @@ def test_broken_ip_header(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, 
 
     group = "L3"
     do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"],
-            tx_dut_ports, skip_counter_check=sai_acl_drop_adj_enabled, skip_traffic_test=skip_traffic_test)
+            tx_dut_ports, skip_counter_check=sai_acl_drop_adj_enabled)
 
 
 def test_absent_ip_header(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, ports_info,
-                          sai_acl_drop_adj_enabled, skip_traffic_test):
+                          sai_acl_drop_adj_enabled):
     """
     @summary: Create packets with absent IP header.
     """
@@ -967,12 +1108,12 @@ def test_absent_ip_header(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, 
     group = "L3"
 
     do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"],
-            tx_dut_ports, skip_counter_check=sai_acl_drop_adj_enabled, skip_traffic_test=skip_traffic_test)
+            tx_dut_ports, skip_counter_check=sai_acl_drop_adj_enabled)
 
 
 @pytest.mark.parametrize("eth_dst", ["01:00:5e:00:01:02", "ff:ff:ff:ff:ff:ff"])
 def test_unicast_ip_incorrect_eth_dst(do_test, ptfadapter, setup, tx_dut_ports,
-                                      pkt_fields, eth_dst, ports_info, skip_traffic_test):
+                                      pkt_fields, eth_dst, ports_info):
     """
     @summary: Create packets with multicast/broadcast ethernet dst.
     """
@@ -992,15 +1133,14 @@ def test_unicast_ip_incorrect_eth_dst(do_test, ptfadapter, setup, tx_dut_ports,
         )
 
     group = "L3"
-    do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"],
-            tx_dut_ports, skip_traffic_test=skip_traffic_test)
+    do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
 
 
 @pytest.mark.parametrize("igmp_version,msg_type", [("v1", "general_query"), ("v3", "general_query"),
                                                    ("v1", "membership_report"), ("v2", "membership_report"),
                                                    ("v3", "membership_report"), ("v2", "leave_group")])
 def test_non_routable_igmp_pkts(do_test, ptfadapter, setup, fanouthost, tx_dut_ports,
-                                pkt_fields, igmp_version, msg_type, ports_info, skip_traffic_test):
+                                pkt_fields, igmp_version, msg_type, ports_info):
     """
     @summary: Create an IGMP non-routable packets.
     """
@@ -1053,7 +1193,7 @@ def test_non_routable_igmp_pkts(do_test, ptfadapter, setup, fanouthost, tx_dut_p
         "v2": {"membership_report": IGMP(type=0x16, gaddr=multicast_group_addr),
                "leave_group": IGMP(type=0x17, gaddr=multicast_group_addr)},
         "v3": {"general_query": "\x11\x00L2\xe0\x00\x00\x01\x01}\x00\x02\xac\x10\x0b\x01\n\x00\x00;",
-               "membership_report": "\"\x009\xa9\x00\x00\x00\x01\x01\x00\x00\x02\xe0\x02\x02\x04\xac\x10\x0b\x01\n\x00\x00;"}   # noqa E501
+               "membership_report": "\"\x009\xa9\x00\x00\x00\x01\x01\x00\x00\x02\xe0\x02\x02\x04\xac\x10\x0b\x01\n\x00\x00;"}   # noqa: E501
     }
 
     if igmp_version == "v3":
@@ -1085,12 +1225,11 @@ def test_non_routable_igmp_pkts(do_test, ptfadapter, setup, fanouthost, tx_dut_p
                    pkt.getlayer("IP").dst, pkt_fields["ipv4_src"])
 
     group = "L3"
-    do_test(group, pkt, ptfadapter, ports_info, list(setup["dut_to_ptf_port_map"].values()),
-            tx_dut_ports, skip_traffic_test=skip_traffic_test)
+    do_test(group, pkt, ptfadapter, ports_info, list(setup["dut_to_ptf_port_map"].values()), tx_dut_ports)
 
 
 def test_acl_drop(do_test, ptfadapter, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                  setup, tx_dut_ports, pkt_fields, acl_ingress, ports_info, skip_traffic_test):
+                  setup, tx_dut_ports, pkt_fields, acl_ingress, ports_info):
     """
         @summary: Verify that DUT drops packet with SRC IP 20.0.0.0/24 matched by ingress ACL
     """
@@ -1114,12 +1253,11 @@ def test_acl_drop(do_test, ptfadapter, duthosts, enum_rand_one_per_hwsku_fronten
         tcp_dport=pkt_fields["tcp_dport"]
     )
 
-    do_test("ACL", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"],
-            tx_dut_ports, skip_traffic_test=skip_traffic_test)
+    do_test("ACL", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
 
 
 def test_acl_egress_drop(do_test, ptfadapter, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                         setup, tx_dut_ports, pkt_fields, acl_egress, ports_info, skip_traffic_test):
+                         setup, tx_dut_ports, pkt_fields, acl_egress, ports_info):
     """
         @summary: Verify that DUT drops packet with DST IP 192.168.144.1/24
         matched by egress ACL and ACL drop counter incremented
@@ -1145,5 +1283,4 @@ def test_acl_egress_drop(do_test, ptfadapter, duthosts, enum_rand_one_per_hwsku_
         ip_ttl=64
     )
     do_test(discard_group="ACL", pkt=pkt, ptfadapter=ptfadapter, ports_info=ports_info,
-            sniff_ports=setup["neighbor_sniff_ports"], tx_dut_ports=tx_dut_ports, drop_information="OUTDATAACL",
-            skip_traffic_test=skip_traffic_test)
+            sniff_ports=setup["neighbor_sniff_ports"], tx_dut_ports=tx_dut_ports, drop_information="OUTDATAACL")

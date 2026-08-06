@@ -4,15 +4,16 @@ import logging
 
 from tests.common.utilities import wait_until
 from tests.common.devices.eos import EosHost
-from .macsec_helper import get_appl_db
-from .macsec_config_helper import disable_macsec_port, enable_macsec_port, delete_macsec_profile, set_macsec_profile
-from .macsec_platform_helper import get_eth_ifname, find_portchannel_from_member, get_portchannel
+from tests.common.macsec.macsec_helper import get_appl_db
+from tests.common.macsec.macsec_config_helper import disable_macsec_port, \
+    enable_macsec_port, delete_macsec_profile, set_macsec_profile
+from tests.common.macsec.macsec_platform_helper import get_eth_ifname, find_portchannel_from_member, get_portchannel
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.macsec_required,
-    pytest.mark.topology("t0", "t2", "t0-sonic"),
+    pytest.mark.topology("t0", "t2", "lrh", "urh", "t0-sonic"),
 ]
 
 
@@ -23,7 +24,11 @@ class TestFaultHandling():
     @pytest.mark.disable_loganalyzer
     def test_link_flap(self, duthost, ctrl_links, wait_mka_establish):
         # Only pick one link for link flap test
-        assert ctrl_links
+        assert ctrl_links, (
+            "No control links found. Expected at least one control link, but got {}.\n"
+            "Actual ctrl_links: {}"
+        ).format(len(ctrl_links), ctrl_links)
+
         port_name, nbr = list(ctrl_links.items())[0]
         nbr_eth_port = get_eth_ifname(
             nbr["host"], nbr["port"])
@@ -42,8 +47,13 @@ class TestFaultHandling():
                         nbr["port"], nbr["port"]))
                     _, _, _, dut_egress_sa_table_new, dut_ingress_sa_table_new = get_appl_db(
                         duthost, port_name, nbr["host"], nbr["port"])
-                    assert dut_egress_sa_table_orig == dut_egress_sa_table_new
-                    assert dut_ingress_sa_table_orig == dut_ingress_sa_table_new
+                    assert dut_egress_sa_table_orig == dut_egress_sa_table_new, (
+                        "DUT egress SA table mismatch. Original table: {}, New table: {}. "
+                    ).format(dut_egress_sa_table_orig, dut_egress_sa_table_new)
+
+                    assert dut_ingress_sa_table_orig == dut_ingress_sa_table_new, (
+                        "DUT ingress SA table mismatch. Original table: {}, New table: {}. "
+                    ).format(dut_ingress_sa_table_orig, dut_ingress_sa_table_new)
                     break
                 except AssertionError as e:
                     if retry == 0:
@@ -65,16 +75,36 @@ class TestFaultHandling():
         def check_new_mka_session():
             _, _, _, dut_egress_sa_table_new, dut_ingress_sa_table_new = get_appl_db(
                 duthost, port_name, nbr["host"], nbr["port"])
-            assert dut_egress_sa_table_new
-            assert dut_ingress_sa_table_new
-            assert dut_egress_sa_table_orig != dut_egress_sa_table_new
-            assert dut_ingress_sa_table_orig != dut_ingress_sa_table_new
+            assert dut_egress_sa_table_new, (
+                "DUT egress SA table is empty. Expected non-empty table, but got {}. "
+            ).format(dut_egress_sa_table_new)
+            assert dut_ingress_sa_table_new, (
+                "DUT ingress SA table is empty. Expected non-empty table, but got {}. "
+            ).format(dut_ingress_sa_table_new)
+            assert dut_egress_sa_table_orig != dut_egress_sa_table_new, (
+                "DUT egress SA table remains the same. Original table: {}, New table: {}. "
+                "Expected tables to be different, but they are identical. "
+            ).format(dut_egress_sa_table_orig, dut_egress_sa_table_new)
+            assert dut_ingress_sa_table_orig != dut_ingress_sa_table_new, (
+                "DUT ingress SA table remains the same. Original table: {}, New table: {}. "
+                "Expected tables to be different, but they are identical. "
+            ).format(dut_ingress_sa_table_orig, dut_ingress_sa_table_new)
             return True
-        assert wait_until(30, 5, 2, check_new_mka_session)
+        assert wait_until(30, 5, 2, check_new_mka_session), (
+            "New MKA session not established within expected time. ")
 
         # Flap > 90 seconds
         assert wait_until(12, 1, 0, lambda: find_portchannel_from_member(
-            port_name, get_portchannel(duthost))["status"] == "Up")
+            port_name, get_portchannel(duthost))["status"] == "Up"), (
+            "Portchannel {} did not come up within expected time. "
+            "Portchannel status: {} "
+            "Find portchannel from member: {} "
+        ).format(
+            port_name,
+            find_portchannel_from_member(port_name, get_portchannel(duthost))["status"],
+            find_portchannel_from_member(port_name, get_portchannel(duthost))
+        )
+
         if isinstance(nbr["host"], EosHost):
             nbr["host"].shutdown(nbr_eth_port)
             sleep(TestFaultHandling.LACP_TIMEOUT)
@@ -82,26 +112,42 @@ class TestFaultHandling():
             nbr["host"].shell("ifconfig {} down && sleep {}".format(
                 nbr_eth_port, TestFaultHandling.LACP_TIMEOUT))
         assert wait_until(6, 1, 0, lambda: find_portchannel_from_member(
-            port_name, get_portchannel(duthost))["status"] == "Dw")
+                    port_name, get_portchannel(duthost))["status"] == "Dw"), (
+            "Portchannel {} did not go down within expected time. "
+            "Portchannel status: {} "
+            "Find portchannel from member: {} "
+        ).format(
+            port_name,
+            find_portchannel_from_member(port_name, get_portchannel(duthost))["status"],
+            find_portchannel_from_member(port_name, get_portchannel(duthost))
+        )
 
         if isinstance(nbr["host"], EosHost):
             nbr["host"].no_shutdown(nbr_eth_port)
         else:
             nbr["host"].shell("ifconfig {} up".format(nbr_eth_port))
         assert wait_until(12, 1, 0, lambda: find_portchannel_from_member(
-            port_name, get_portchannel(duthost))["status"] == "Up")
+            port_name, get_portchannel(duthost))["status"] == "Up"), (
+            "Portchannel {} did not come up within expected time. "
+            "Portchannel status: {} "
+            "Find portchannel from member: {} "
+        ).format(
+            port_name,
+            find_portchannel_from_member(port_name, get_portchannel(duthost))["status"],
+            find_portchannel_from_member(port_name, get_portchannel(duthost))
+        )
 
     @pytest.mark.disable_loganalyzer
-    def test_mismatch_macsec_configuration(self, duthost, unctrl_links,
+    def test_mismatch_macsec_configuration(self, duthost, unctrl_links, port_profiles,
                                            profile_name, default_priority, cipher_suite,
                                            primary_cak, primary_ckn, policy, send_sci, wait_mka_establish):
+        if port_profiles:
+            pytest.skip("Mismatch test uses single-profile CAK/CKN fixtures")
         # Only pick one uncontrolled link for mismatch macsec configuration test
-        assert unctrl_links
-        port_name, nbr = list(unctrl_links.items())[0]
+        if not unctrl_links:
+            pytest.skip('SKIP this test as there are no uncontrolled links in this dut')
 
-        disable_macsec_port(duthost, port_name)
-        disable_macsec_port(nbr["host"], nbr["port"])
-        delete_macsec_profile(nbr["host"], nbr["port"], profile_name)
+        port_name, nbr = list(unctrl_links.items())[0]
 
         # Wait till macsec session has gone down.
         wait_until(20, 3, 0,
@@ -111,7 +157,7 @@ class TestFaultHandling():
         # Set a wrong cak to the profile
         primary_cak = "0" * len(primary_cak)
         enable_macsec_port(duthost, port_name, profile_name)
-        set_macsec_profile(nbr["host"], nbr["port"], profile_name, default_priority,
+        set_macsec_profile(nbr["host"], profile_name, default_priority,
                            cipher_suite, primary_cak, primary_ckn, policy, send_sci)
         enable_macsec_port(nbr["host"], nbr["port"], profile_name)
 
@@ -121,10 +167,12 @@ class TestFaultHandling():
             return dut_ingress_sc_table or dut_egress_sa_table or dut_ingress_sa_table
         # The mka should be establishing or established
         # To check whether the MKA establishment happened within 90 seconds
-        assert not wait_until(90, 1, 12, check_mka_establishment)
+        assert not wait_until(90, 1, 12, check_mka_establishment), (
+            "MKA establishment failed. Expected MKA to not establish within expected time, but it did. "
+        )
 
         # Teardown
         disable_macsec_port(duthost, port_name)
         disable_macsec_port(nbr["host"], nbr["port"])
-        delete_macsec_profile(nbr["host"], nbr["port"], profile_name)
+        delete_macsec_profile(nbr["host"], profile_name)
         sleep(300)

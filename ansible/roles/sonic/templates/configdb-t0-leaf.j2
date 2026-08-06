@@ -1,0 +1,200 @@
+{% set host = configuration[hostname] %}
+{# #25898 follow-up: exabgp iBGP injector must live in BGP_INTERNAL_NEIGHBOR    #}
+{# (separate INTERNAL_PEER_V4/V6 group), NOT BGP_NEIGHBOR, else it poisons      #}
+{# PEER_V4/V6 as internal and FRR rejects the eBGP DUT peer                     #}
+{# ("Peer-group members must be all internal or all external") -> 0 routes.     #}
+{% set exabgp_asn = host['bgp']['asn'] %}
+{% set _lo0 = host['interfaces'].get('Loopback0', {}) %}
+{
+    "PORT": {
+{% set port_comma = joiner(",") %}
+{% for name, iface in host['interfaces'].items() %}
+{% if name.startswith('Ethernet') %}
+{{ port_comma() }}
+        "{{ name }}": {
+            "admin_status": "up",
+            "alias": "fortyGigE0/{{ (name | replace('Ethernet','') | int - 1) * 4 }}",
+            "lanes": "{{ (name | replace('Ethernet','') | int - 1) * 4 + 25 }},{{ (name | replace('Ethernet','') | int - 1) * 4 + 26 }},{{ (name | replace('Ethernet','') | int - 1) * 4 + 27 }},{{ (name | replace('Ethernet','') | int - 1) * 4 + 28 }}",
+            "mtu": "9100",
+            "speed": "40000"
+        }
+{% endif %}
+{% endfor %}
+{% if host['bp_interface'] is defined %}
+,
+        "Ethernet2": {
+            "admin_status": "up",
+            "alias": "fortyGigE0/4",
+            "lanes": "29,30,31,32",
+            "mtu": "9100",
+            "speed": "40000"
+        }
+{% endif %}
+    },
+    "DEVICE_METADATA": {
+        "localhost": {
+            "bgp_asn": "{{ host['bgp']['asn'] }}",
+            "hostname": "{{ hostname }}",
+            "type": "LeafRouter",
+            "hwsku": "SONiC-VM",
+            "platform": "x86_64-kvm_x86_64-r0"
+        }
+    },
+    "LOOPBACK_INTERFACE": {
+{% set loopback_comma = joiner(",") %}
+{% for name, iface in host['interfaces'].items() %}
+{% if name.startswith('Loopback') %}
+{{ loopback_comma() }}
+        "{{ name }}": {}
+{% if iface['ipv4'] is defined %}
+{{ loopback_comma() }}
+        "{{ name }}|{{ iface['ipv4'] }}": {}
+{% endif %}
+{% if iface['ipv6'] is defined %}
+{{ loopback_comma() }}
+        "{{ name }}|{{ iface['ipv6'] }}": {}
+{% endif %}
+{% endif %}
+{% endfor %}
+{# Synthetic Loopback4096 required by bgpcfgd's internal peer manager (used for #}
+{# the exabgp iBGP injector in BGP_INTERNAL_NEIGHBOR). Reuses Loopback0 addrs.  #}
+{{ loopback_comma() }}
+        "Loopback4096": {}
+{% if _lo0['ipv4'] is defined %}
+{{ loopback_comma() }}
+        "Loopback4096|{{ _lo0['ipv4'] }}": {}
+{% endif %}
+{% if _lo0['ipv6'] is defined %}
+{{ loopback_comma() }}
+        "Loopback4096|{{ _lo0['ipv6'] }}": {}
+{% endif %}
+    },
+{% set has_portchannel = [] %}
+{% for name, iface in host['interfaces'].items() %}
+{% if name.startswith('Port-Channel') %}
+{% if has_portchannel.append(1) %}{% endif %}
+{% endif %}
+{% endfor %}
+{% if has_portchannel %}
+    "PORTCHANNEL": {
+{% set pc_comma = joiner(",") %}
+{% for name, iface in host['interfaces'].items() %}
+{% if name.startswith('Port-Channel') %}
+{% set pc_name = 'PortChannel' ~ name.split('Port-Channel')[1] %}
+{{ pc_comma() }}
+        "{{ pc_name }}": {
+            "admin_status": "up",
+            "mtu": "9100",
+            "min_links": "1",
+            "lacp_key": "auto"
+        }
+{% endif %}
+{% endfor %}
+    },
+    "PORTCHANNEL_MEMBER": {
+{% set pcm_comma = joiner(",") %}
+{% for name, iface in host['interfaces'].items() %}
+{% if name.startswith('Ethernet') and iface is mapping and iface.get('lacp') is defined %}
+{% set pc_name = 'PortChannel' ~ iface['lacp'] %}
+{{ pcm_comma() }}
+        "{{ pc_name }}|{{ name }}": {}
+{% endif %}
+{% endfor %}
+    },
+    "PORTCHANNEL_INTERFACE": {
+{% set pci_comma = joiner(",") %}
+{% for name, iface in host['interfaces'].items() %}
+{% if name.startswith('Port-Channel') %}
+{% set pc_name = 'PortChannel' ~ name.split('Port-Channel')[1] %}
+{{ pci_comma() }}
+        "{{ pc_name }}": {}
+{% if iface['ipv4'] is defined %}
+{{ pci_comma() }}
+        "{{ pc_name }}|{{ iface['ipv4'] }}": {}
+{% endif %}
+{% if iface['ipv6'] is defined %}
+{{ pci_comma() }}
+        "{{ pc_name }}|{{ iface['ipv6'] }}": {}
+{% endif %}
+{% endif %}
+{% endfor %}
+    },
+{% endif %}
+    "INTERFACE": {
+{% set iface_comma = joiner(",") %}
+{% for name, iface in host['interfaces'].items() %}
+{% if name.startswith('Ethernet') and (iface is not mapping or iface.get('lacp') is not defined) %}
+{{ iface_comma() }}
+        "{{ name }}": {}
+{% if iface is mapping and iface.get('ipv4') %}
+{{ iface_comma() }}
+        "{{ name }}|{{ iface['ipv4'] }}": {}
+{% endif %}
+{% if iface is mapping and iface.get('ipv6') %}
+{{ iface_comma() }}
+        "{{ name }}|{{ iface['ipv6'] }}": {}
+{% endif %}
+{% endif %}
+{% endfor %}
+{% if host['bp_interface'] is defined %}
+{{ iface_comma() }}
+        "Ethernet2": {}
+{% if host['bp_interface']['ipv4'] is defined %}
+{{ iface_comma() }}
+        "Ethernet2|{{ host['bp_interface']['ipv4'] }}": {}
+{% endif %}
+{% if host['bp_interface']['ipv6'] is defined %}
+{{ iface_comma() }}
+        "Ethernet2|{{ host['bp_interface']['ipv6'] }}": {}
+{% endif %}
+{% endif %}
+    },
+    "SNMP_COMMUNITY": {
+        "{{ snmp_rocommunity | default('public') }}": {
+            "TYPE": "RO"
+        }
+    },
+    "BGP_NEIGHBOR": {
+{% set bgp_comma = joiner(",") %}
+{% for asn, remote_ips in host['bgp']['peers'].items() %}
+{% for remote_ip in remote_ips %}
+{{ bgp_comma() }}
+        "{{ remote_ip }}": {
+            "asn": "{{ asn }}",
+            "name": "{{ asn }}",
+            "admin_status": "up",
+            "holdtime": "10",
+            "keepalive": "3"
+        }
+{% endfor %}
+{% endfor %}
+    },
+    "BGP_INTERNAL_NEIGHBOR": {
+{% set bgp_int_comma = joiner(",") %}
+{# exabgp route-injector as iBGP (own ASN) in the INTERNAL peer-group, so the   #}
+{# DUT never sees exabgp and PEER_V4/V6 stays uniformly eBGP. local_addr binds  #}
+{# the session to the neighbor's Loopback0 (fallback backplane) address.        #}
+{% if props.nhipv4 is defined and props.nhipv4 %}
+{{ bgp_int_comma() }}
+        "{{ props.nhipv4 }}": {
+            "asn": "{{ exabgp_asn }}",
+            "name": "exabgp_v4",
+            "local_addr": "{{ (_lo0['ipv4'] | default(host['bp_interface']['ipv4'], true)).split('/')[0] }}",
+            "admin_status": "up",
+            "holdtime": "10",
+            "keepalive": "3"
+        }
+{% endif %}
+{% if props.nhipv6 is defined and props.nhipv6 %}
+{{ bgp_int_comma() }}
+        "{{ props.nhipv6 }}": {
+            "asn": "{{ exabgp_asn }}",
+            "name": "exabgp_v6",
+            "local_addr": "{{ (_lo0['ipv6'] | default(host['bp_interface']['ipv6'], true)).split('/')[0] }}",
+            "admin_status": "up",
+            "holdtime": "10",
+            "keepalive": "3"
+        }
+{% endif %}
+    }
+}

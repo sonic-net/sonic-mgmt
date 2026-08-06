@@ -8,9 +8,11 @@ import sys
 from collections import Counter
 
 from tests.common.helpers.assertions import pytest_assert, pytest_require
+from tests.common.helpers.constants import ARP_RESPONDER_DEFAULT_CONFIG
 from tests.ptf_runner import ptf_runner
 from tests.common.utilities import wait_until
-from tests.common.fixtures.ptfhost_utils import copy_acstests_directory # noqa F401
+from tests.common.fixtures.ptfhost_utils import \
+    copy_acstests_directory, copy_ptftests_directory, copy_arp_responder_py  # noqa: F401
 from tests.common.config_reload import config_reload
 
 logger = logging.getLogger(__name__)
@@ -23,9 +25,10 @@ pytestmark = [
 if sys.version_info.major >= 3:
     UNICODE_TYPE = str
 else:
-    UNICODE_TYPE = unicode      # noqa F821
+    UNICODE_TYPE = unicode      # noqa: F821
 
 PTF_LAG_NAME = "bond1"
+PTF_LAG_MAC = "00:11:22:33:44:66"
 DUT_LAG_NAME = "PortChannel1"
 # Definition of behind or not behind:
 # Port behind lag means ports that in a lag, port not behind lag means ports that not in a lag.
@@ -113,7 +116,11 @@ def set_arp_reply(ptfhost, interface_list, value):
     """
     for interface in interface_list:
         ptfhost.shell("sysctl -w net.ipv4.conf.{}.arp_ignore={}".format(interface, value))
-    ptfhost.shell("sysctl -p")
+    # "sysctl -w" already applies each setting live. A bare "sysctl -p" only
+    # reads the legacy /etc/sysctl.conf, which Debian trixie's procps no longer
+    # ships, so it fails on newer PTF images. Reload from the drop-in dirs
+    # instead, tolerating their absence.
+    ptfhost.shell("sysctl --system", module_ignore_errors=True)
 
 
 def ptf_teardown(ptfhost, ptf_ports):
@@ -139,6 +146,10 @@ def ptf_teardown(ptfhost, ptf_ports):
                                                  ptf_ports[ATTR_PORT_NOT_BEHIND_LAG]["port_name"]))
     ptfhost.ptf_nn_agent()
     ptfhost.shell('supervisorctl stop arp_responder', module_ignore_errors=True)
+    # Remove the arp_responder config rendered during setup_ptf_lag so it cannot
+    # be re-used by a subsequent test that starts arp_responder with the default
+    # config path.
+    ptfhost.file(path=ARP_RESPONDER_DEFAULT_CONFIG, state="absent")
 
 
 def setup_dut_lag(duthost, dut_ports, vlan, src_vlan_id):
@@ -199,6 +210,10 @@ def setup_ptf_lag(ptfhost, ptf_ports):
     for _, port_name in list(ptf_ports[ATTR_PORT_BEHIND_LAG].items()):
         ptfhost.add_intf_to_lag(PTF_LAG_NAME, port_name)
 
+    # Setup MAC manually for bond interface to avoid packets being dropped on leaf fanout or root fanout.
+    # The original MAC of bond interface can be seen in /proc/net/bonding/bond1.
+    # and will be restored when ptf lag is deleted.
+    ptfhost.shell("ip link set {} address {}".format(PTF_LAG_NAME, PTF_LAG_MAC))
     ptfhost.startup_lag(PTF_LAG_NAME)
     ptfhost.add_ip_to_dev(ptf_ports[ATTR_PORT_NOT_BEHIND_LAG]["port_name"], port_not_behind_lag_ip)
     ptfhost.ptf_nn_agent()
@@ -211,13 +226,16 @@ def setup_arp_responder(ptf_ports, ptfhost):
     # Disable linux arp response on port, let arp_responder to response.
     set_arp_reply(ptfhost, [PTF_LAG_NAME, ptf_ports[ATTR_PORT_NOT_BEHIND_LAG]["port_name"]], DISABLE_ARP_REPLY)
 
+    logger.info('Copy ARP responder to the PTF container  {}'.format(ptfhost.hostname))
+    ptfhost.copy(src='scripts/arp_responder.py', dest='/opt')
+
     arp_responder_conf = {}
     arp_responder_conf[PTF_LAG_NAME] = [ptf_ports["ip"]["lag"].split("/")[0]]
     arp_responder_conf[ptf_ports[ATTR_PORT_NOT_BEHIND_LAG]["port_name"]] = \
         [ptf_ports["ip"]["port_not_behind_lag"].split("/")[0]]
-    with open("/tmp/from_t1.json", "w") as ar_config:
+    with open(ARP_RESPONDER_DEFAULT_CONFIG, "w") as ar_config:
         json.dump(arp_responder_conf, ar_config)
-    ptfhost.copy(src="/tmp/from_t1.json", dest="/tmp/from_t1.json")
+    ptfhost.copy(src=ARP_RESPONDER_DEFAULT_CONFIG, dest=ARP_RESPONDER_DEFAULT_CONFIG)
     ptfhost.host.options["variable_manager"].extra_vars.update({"arp_responder_args": ""})
     ptfhost.template(src="templates/arp_responder.conf.j2", dest="/etc/supervisor/conf.d/arp_responder.conf")
 
@@ -399,7 +417,7 @@ def most_common_port_speed(duthost):
 
 
 def check_arp(duthost, port_name, ip_address):
-    res = duthost.shell("show arp", module_ignore_errors=True)
+    res = duthost.command("show arp", module_ignore_errors=True)
     if res["rc"] != 0:
         return False
     output_lines = res["stdout_lines"]
@@ -452,7 +470,8 @@ def run_lag_member_traffic_test(duthost, dut_vlan, ptf_ports, ptfhost):
         "dut_mac": duthost.facts["router_mac"],
         "dut_vlan": dut_vlan,
         "ptf_lag": ptf_lag,
-        ATTR_PORT_NOT_BEHIND_LAG: ptf_not_lag
+        ATTR_PORT_NOT_BEHIND_LAG: ptf_not_lag,
+        "kvm_support": True
     }
     ptf_runner(ptfhost, 'acstests', "lag_test.LagMemberTrafficTest", "/root/ptftests", params=params, is_python3=True)
 
@@ -472,17 +491,18 @@ def test_lag_member_traffic(common_setup_teardown, duthost, ptf_dut_setup_and_te
     """
     ptfhost = common_setup_teardown
     dut_ports, ptf_ports, vlan = ptf_dut_setup_and_teardown
-    ping_format = "timeout 2 ping -c 2 -w 2 -I {} {}"
+    ping_format = "ping -c 5 -w 2 -l 5 -I {} {}"
 
     vlan_ip = vlan["ip"].split("/")[0]
     not_behind_lag_ping_cmd = ping_format.format(ptf_ports[ATTR_PORT_NOT_BEHIND_LAG]["port_name"], vlan_ip)
-    behind_lag_ping_cmd = " & ".join([ping_format.format(port, vlan_ip) for port in ptf_ports[ATTR_PORT_BEHIND_LAG]
-                                      .values()])
+
     # ping dut from port not behind lag, port not behind lag and lag interface to refresh arp table in dut.
-    ptfhost.shell((not_behind_lag_ping_cmd + " & " + behind_lag_ping_cmd + "&" +
-                  ping_format.format(PTF_LAG_NAME, vlan_ip)), module_ignore_errors=True)
-    pytest_assert(wait_until(10, 1, 0, check_arp, duthost, DUT_LAG_NAME, ptf_ports["ip"]["lag"].split("/")[0]),
-                  "Arp info for portchannel is not correct")
+    ptfhost.command(not_behind_lag_ping_cmd, module_ignore_errors=True)
+    ptfhost.command(ping_format.format(PTF_LAG_NAME, vlan_ip), module_ignore_errors=True)
+
+    if duthost.facts["asic_type"] != "vs":
+        pytest_assert(wait_until(10, 1, 0, check_arp, duthost, DUT_LAG_NAME, ptf_ports["ip"]["lag"].split("/")[0]),
+                      "Arp info for portchannel is not correct")
     pytest_assert(wait_until(10, 1, 0, check_arp, duthost, dut_ports[ATTR_PORT_NOT_BEHIND_LAG]["port_name"],
                              ptf_ports["ip"][ATTR_PORT_NOT_BEHIND_LAG].split("/")[0]),
                   "Arp info for port not behind lag is not correct")

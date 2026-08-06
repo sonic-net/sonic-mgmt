@@ -20,6 +20,8 @@ from tests.vxlan.vnet_constants import (
     NUM_INTF_PER_VNET_KEY,
     TEMPLATE_DIR
 )
+from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_on_duts  # noqa: F401
+from tests.common.config_reload import config_reload
 
 logger = logging.getLogger(__name__)
 
@@ -52,25 +54,33 @@ def pytest_addoption(parser):
     )
 
     vxlan_group.addoption(
+        "--vxlan_sport",
+        action="store",
+        default=5120,
+        type=int,
+        help="Base UDP source port for VxLAN sport entropy"
+    )
+
+    vxlan_group.addoption(
+        "--vxlan_mask",
+        action="store",
+        default=7,
+        type=int,
+        help="Number of bits to vary in the VxLAN UDP source port range"
+    )
+
+    vxlan_group.addoption(
         "--num_vnet",
         action="store",
-        default=8,
+        default=5,
         type=int,
         help="number of VNETs for VNET VxLAN test"
     )
 
     vxlan_group.addoption(
-        "--num_routes",
-        action="store",
-        default=16000,
-        type=int,
-        help="number of routes for VNET VxLAN test"
-    )
-
-    vxlan_group.addoption(
         "--num_endpoints",
         action="store",
-        default=4000,
+        default=511,
         type=int,
         help="number of endpoints for VNET VxLAN"
     )
@@ -121,12 +131,6 @@ def pytest_addoption(parser):
         type=str2bool,
         default=True,
         help="Test IPV6 in IPv6"
-    )
-
-    vxlan_group.addoption(
-        "--skip_cleanup",
-        action="store_true",
-        help="Do not cleanup after VNET VxLAN test"
     )
 
     vxlan_group.addoption(
@@ -241,6 +245,15 @@ def pytest_addoption(parser):
              "(number of repeated addresses to use across all the routes)."
     )
 
+    vxlan_group.addoption(
+        "--num_samples",
+        action="store",
+        default=-1,
+        type=int,
+        help="Number of routes to run datapath test per VNET. If not set (default -1), "
+             "will test all configured routes."
+    )
+
 
 @pytest.fixture(scope="module")
 def scaled_vnet_params(request):
@@ -259,6 +272,8 @@ def scaled_vnet_params(request):
     params = {}
     params[NUM_VNET_KEY] = request.config.option.num_vnet
     params[NUM_ROUTES_KEY] = request.config.option.num_routes
+    if params[NUM_ROUTES_KEY] is None:
+        params[NUM_ROUTES_KEY] = 1000
     params[NUM_ENDPOINTS_KEY] = request.config.option.num_endpoints
     return params
 
@@ -307,7 +322,7 @@ def vnet_test_params(duthost, request):
 
 
 @pytest.fixture(scope="module")
-def minigraph_facts(duthosts, rand_one_dut_hostname, tbinfo):
+def minigraph_facts(duthosts, rand_one_dut_hostname, tbinfo, backup_and_restore_config_db_on_duts):        # noqa: F811
     """
     Fixture to get minigraph facts
     Args:
@@ -347,3 +362,24 @@ def vnet_config(minigraph_facts, vnet_test_params, scaled_vnet_params):
     return yaml.safe_load(
         safe_open_template(
             join(TEMPLATE_DIR, "vnet_config.j2")).render(combined_args))
+
+
+@pytest.fixture(scope="module", autouse=True)
+def restore_config_by_config_reload(duthosts, rand_one_dut_hostname):
+    yield
+    duthost = duthosts[rand_one_dut_hostname]
+    logger.info("Restore config after running tests")
+    config_reload(duthost, safe_reload=True)
+
+
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exception(duthost, loganalyzer):
+    if loganalyzer:
+        # The following error sometimes happens after removing the VNET during fixture_setUp teardown.
+        # It is a harmless error and does not affect the test results.
+        # The root cause is a race condition that is fixed by https://github.com/sonic-net/sonic-swss/pull/4499.
+        # Since the PR is not merged yet, we need to ignore this error for now.
+        ignore_regex_list = [
+            ".*ERR bgp#fpmsyncd:.*onRouteMsg: Invalid VRF name.*"
+        ]
+        loganalyzer[duthost.hostname].ignore_regex.extend(ignore_regex_list)

@@ -4,7 +4,7 @@ import pytest
 import sys
 from tests.common.utilities import skip_release
 from .util.base_test import do_test_add_rack, backup_minigraph, restore_orig_minigraph
-from .util.helpers import log_info
+from tests.common.configlet.helpers import log_info
 
 pytestmark = [
         pytest.mark.topology("t1")

@@ -22,6 +22,16 @@
     {% if fanout_port_config[port_name]['speed'] | default('100000') == "100000" %}
             "fec" : "rs",
     {% endif %}
+    {% if port_name in device_conn[inventory_hostname] %}
+        {% if 'autoneg' in device_conn[inventory_hostname][port_name] %}
+                {% if 'on' in device_conn[inventory_hostname][port_name]['autoneg']%}
+                    "autoneg": "on",
+                    {% if msft_an_enabled is defined %}
+                        "fec": "none",
+                    {% endif %}
+                {% endif %}
+        {% endif %}
+    {% endif %}
     {% if 'broadcom' in fanout_sonic_version["asic_type"] or 'marvell' in fanout_sonic_version["asic_type"] or 'mellanox' in fanout_sonic_version["asic_type"] %}
         {% if port_name in device_port_vlans[inventory_hostname] and device_port_vlans[inventory_hostname][port_name]["mode"].lower() == "access" %}
             "tpid": "0x9100",
@@ -46,7 +56,13 @@
 
     {% set ns = {'firstPrinted': False} %}
     "VLAN_MEMBER": {
-    {% for port_name in device_port_vlans[inventory_hostname] %}
+    {% if device_info[inventory_hostname]['PortConfigIni'] is defined %}
+      {% set port_config = fanout_port_config %}
+    {% else %}
+      {% set port_config = device_port_vlans[inventory_hostname] %}
+    {% endif %}
+    {% for port_name in port_config %}
+    {% if port_name in device_port_vlans[inventory_hostname] %}
     {% if device_port_vlans[inventory_hostname][port_name]['mode'].lower() == 'access' %}
     {% if ns.firstPrinted %},{% endif %}
         "Vlan{{ device_port_vlans[inventory_hostname][port_name]['vlanids'] }}|{{ fanout_port_config[port_name]['name'] }}": {
@@ -61,6 +77,7 @@
         }
     {% if ns.update({'firstPrinted': True}) %} {% endif %}
     {% endfor %}
+    {% endif %}
     {% endif %}
     {% endfor %}
     },

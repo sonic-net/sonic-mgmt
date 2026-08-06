@@ -12,6 +12,7 @@ pytestmark = [
     pytest.mark.disable_loganalyzer,
     pytest.mark.topology("any"),
     pytest.mark.device_type("vs"),
+    pytest.mark.device_type("vpp"),
 ]
 
 HOSTSERVICE_RELOADING_COMMAND = "sudo systemctl restart hostcfgd.service"
@@ -67,10 +68,12 @@ def modify_templates(duthost, tacacs_creds, creds):     # noqa F811
 
     sonic_admin_alt_password = duthost.host.options['variable_manager']._hostvars[duthost.hostname].get(
         "ansible_altpassword")
-    # Duthost shell not support run command with J2 template in command text.
-    admin_session = paramiko_ssh(ip_address=dut_ip, username=creds['sonicadmin_user'],
-                                 passwords=[creds['sonicadmin_password'], sonic_admin_alt_password]
-                                 + creds["ansible_altpasswords"])
+    # Connect over SSH as admin (duthost.shell can't run commands containing J2 templates).
+    # This runs before AAA login is switched to local, so the admin credentials are still valid.
+    admin_session = paramiko_ssh(
+        ip_address=dut_ip, username=creds['sonicadmin_user'],
+        passwords=[creds['sonicadmin_password'], sonic_admin_alt_password]
+        + creds["ansible_altpasswords"])
 
     # Backup and change /usr/share/sonic/templates/pam_limits.j2
     additional_content = "session  required  pam_limits.so"
@@ -78,7 +81,18 @@ def modify_templates(duthost, tacacs_creds, creds):     # noqa F811
                     additional_content, hwsku, type)
 
     # Backup and change /usr/share/sonic/templates/limits.conf.j2
-    additional_content = "{0}  hard  maxlogins  1".format(user)
+
+    # Starting with PAM 1.7.0 (present in Debian Trixie and newer), the
+    # pam_limits module is relying on systemd-logind for limiting logins.
+    # However, one of the sessions is used as a systemd manager session,
+    # so the actual count needs to be one higher. This is described a bit
+    # in the commit below:
+    #
+    # https://github.com/linux-pam/linux-pam/commit/f5db2603d2ce80a610a247e06bdd49c4eb091a7d#diff-f454153035e14468d4263c7bc9b85ec0e192be1d16080b65ae4974a74846de25R282-R288
+    if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("sonic_os_version") >= 13:
+        additional_content = "{0}  hard  maxlogins  2".format(user)
+    else:
+        additional_content = "{0}  hard  maxlogins  1".format(user)
     modify_template(admin_session, LIMITS_CONF_TEMPLATE_PATH,
                     additional_content, hwsku, type)
 
@@ -106,15 +120,19 @@ def setup_limit(duthosts, rand_one_dut_hostname, tacacs_creds, creds):      # no
     template_file_exist = limit_template_exist(duthost)
     aaa_login_disabled = False
     if template_file_exist:
+        setup_local_user(duthost, tacacs_creds)
+
+        # Modify templates and restart hostcfgd to render config files.
+        # modify_templates opens a new admin SSH session, so it must run before AAA login is
+        # switched to local: where admin is a TACACS user it has no local password and the
+        # admin login would be rejected after the switch.
+        modify_templates(duthost, tacacs_creds, creds)
+
         # If AAA authentication enabled, disable it to allow local user login
         if get_aaa_sub_options_value(duthost, "authentication", "login") == "tacacs+":
             duthost.shell("sudo config aaa authentication login default")
             aaa_login_disabled = True
 
-        setup_local_user(duthost, tacacs_creds)
-
-        # Modify templates and restart hostcfgd to render config files
-        modify_templates(duthost, tacacs_creds, creds)
         restart_hostcfgd(duthost)
 
     yield
@@ -169,7 +187,7 @@ def test_ssh_limits(duthosts, rand_one_dut_hostname, tacacs_creds, setup_limit):
 
     logging.debug("Login session 1 result:\n{0}\n".format(login_message_1))
     pytest_assert("There were too many logins for" not in login_message_1,
-                  "The first login was rejected due to too many logins")
+                  "The first login was unexpectedly rejected due to too many logins")
 
     # The second session will be disconnect by device
     ssh_session_2 = paramiko_ssh(dut_ip, local_user, local_user_password)

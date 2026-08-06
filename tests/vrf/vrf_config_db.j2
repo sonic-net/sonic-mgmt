@@ -23,29 +23,25 @@
     },
 {%     elif k == 'BGP_PEER_RANGE' %}
     "BGP_PEER_RANGE": {
-        "BGPSLBPassive": {
-            "vrf_name": "Vrf1",
+        "Vrf1|BGPSLBPassive": {
             "ip_range": [
                 "10.255.0.0/25"
             ],
             "name": "BGPSLBPassive"
         },
-        "BGPVac": {
-            "vrf_name": "Vrf1",
+        "Vrf1|BGPVac": {
             "ip_range": [
                 "192.168.0.0/21"
             ],
             "name": "BGPVac"
         },
-        "BGPSLBPassive2": {
-            "vrf_name": "Vrf2",
+        "Vrf2|BGPSLBPassive2": {
             "ip_range": [
                 "10.255.0.0/25"
             ],
             "name": "BGPSLBPassive2"
         },
-        "BGPVac2": {
-            "vrf_name": "Vrf2",
+        "Vrf2|BGPVac2": {
             "ip_range": [
                 "192.168.0.0/21"
             ],
@@ -123,6 +119,7 @@
 
 {%         endfor %}
     },
+{%     elif k == 'DHCP_RELAY' %}
 {%     else %}
     "{{ k }}": {{ cfg_t0[k] | to_nice_json | indent}},
 {%     endif %}

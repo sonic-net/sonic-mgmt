@@ -161,7 +161,7 @@ def download_new_sonic_image(module, new_image_url, save_as):
         log("Downloading new image using curl")
         exec_command(
             module,
-            cmd="curl -Lo {} {}".format(save_as, new_image_url),
+            cmd="curl --interface eth0 -Lo {} {}".format(save_as, new_image_url),
             msg="downloading new image"
         )
         log("Completed downloading image")
@@ -180,8 +180,75 @@ def download_new_sonic_image(module, new_image_url, save_as):
         exec_command(module, cmd="sudo echo {} > /tmp/downloaded-sonic-image-version".format(
             results["downloaded_image_version"]))
 
+        # get image size
+        try:
+            _, out, _ = exec_command(module, cmd="ls -al {}".format(save_as), msg="get new image size")
+            lines = out.split('\n')
+            for line in lines:
+                if save_as in line:
+                    fields = line.split()
+                    if len(fields) < 3:
+                        return
+                    else:
+                        image_size = int(fields[4])
+                        results['image_size'] = image_size
+                        log("image size: {}".format(image_size))
+                        break
+        except Exception as e:
+            log("Failed to get image file size: {}".format(e))
 
-def install_new_sonic_image(module, new_image_url, save_as=None, required_space=1600):
+
+def get_sonic_image_size(module):
+    global results
+
+    if "Unknown" == results["downloaded_image_version"]:
+        return
+
+    image_path = "/host/image-{}".format(results["downloaded_image_version"].split("SONiC-OS-")[1])
+    log("image_path: {}".format(image_path))
+    squashfs_file_name = "fs.squashfs"
+    docker_file_name = "dockerfs.tar.gz"
+
+    # get docker and squashfs file size
+    _, out, _ = exec_command(module, cmd="ls -al {}".format(image_path), msg="ls image_dir")
+    lines = out.split('\n')
+    for line in lines:
+        if docker_file_name in line:
+            fields = line.split()
+            if len(fields) < 3:
+                return
+            else:
+                docker_file_size = int(fields[4])
+                results['dockerfs'] = docker_file_size
+                log("dockerfs size: {}".format(docker_file_size))
+        elif squashfs_file_name in line:
+            fields = line.split()
+            if len(fields) < 3:
+                return
+            else:
+                squashfs_file_size = int(fields[4])
+                results['squashfs'] = squashfs_file_size
+                log("squashfs size: {}".format(squashfs_file_size))
+
+    # get docker folder size
+    docker_dir = image_path + "/docker"
+    if path.exists(docker_dir):
+        log("docker_dir: {}".format(docker_dir))
+        _, out, _ = exec_command(module, cmd="sudo du -sb {}".format(docker_dir), msg="get docker_dir")
+        lines = out.split('\n')
+        for line in lines:
+            if docker_dir in line:
+                fields = line.split()
+                if len(fields) < 2:
+                    return
+                else:
+                    docker_dir_size = int(fields[0])
+                    results['docker_dir'] = docker_dir_size
+                    log("docker dir size: {}".format(docker_dir_size))
+                    break
+
+
+def install_new_sonic_image(module, new_image_url, save_as=None, required_space=1600, skip_platform_check=False):
     log("install new sonic image")
     if not save_as:
         log("Clean-up previous downloads first")
@@ -209,9 +276,12 @@ def install_new_sonic_image(module, new_image_url, save_as=None, required_space=
         return
 
     skip_package_migrate_param = ""
+    skip_platform_check_param = ""
     _, output, _ = exec_command(module, cmd="sonic_installer install --help", ignore_error=True)
     if "skip-package-migration" in output:
         skip_package_migrate_param = "--skip-package-migration"
+    if skip_platform_check and "skip-platform-check" in output:
+        skip_platform_check_param = "--skip-platform-check"
 
     if save_as.startswith("/tmp/tmpfs"):
         log("Create a tmpfs partition to download image to install")
@@ -227,7 +297,8 @@ def install_new_sonic_image(module, new_image_url, save_as=None, required_space=
         log("Running sonic_installer to install image at {}".format(save_as))
         rc, out, err = exec_command(
             module,
-            cmd="sonic_installer install {} {} -y".format(save_as, skip_package_migrate_param),
+            cmd="sonic_installer install {} {} {} -y".format(
+                save_as, skip_package_migrate_param, skip_platform_check_param),
             msg="installing new image", ignore_error=True
         )
         log("Done running sonic_installer to install image")
@@ -246,8 +317,8 @@ def install_new_sonic_image(module, new_image_url, save_as=None, required_space=
         log("Running sonic_installer to install image at {}".format(save_as))
         rc, out, err = exec_command(
             module,
-            cmd="sonic_installer install {} {} -y".format(
-                save_as, skip_package_migrate_param),
+            cmd="sonic_installer install {} {} {} -y".format(
+                save_as, skip_package_migrate_param, skip_platform_check_param),
             msg="installing new image", ignore_error=True
         )
         log("Always remove the downloaded temp image inside /host/ before proceeding")
@@ -257,13 +328,37 @@ def install_new_sonic_image(module, new_image_url, save_as=None, required_space=
 
     # If sonic device is configured with minigraph, remove config_db.json
     # to force next image to load minigraph.
+    # Skip this for SmartSwitch devices — they need config_db.json and
+    # golden_config_db.json for DPU configuration.
     if path.exists("/host/old_config/minigraph.xml"):
-        log("Remove /host/old_config/config_db.json when /etc/old_config/minigraph.xml exists")
-        exec_command(
-            module,
-            cmd="rm -f /host/old_config/config_db.json",
-            msg="Remove config_db.json in preference of minigraph.xml"
-        )
+        is_smartswitch = False
+        try:
+            from sonic_py_common import device_info
+            if hasattr(device_info, 'is_smartswitch'):
+                is_smartswitch = device_info.is_smartswitch()
+        except Exception:
+            log("Failed to determine if device is SmartSwitch")
+
+        if is_smartswitch:
+            log("SmartSwitch detected, keeping config_db.json and golden_config_db.json")
+        else:
+            log("Remove /host/old_config/config_db.json when /etc/old_config/minigraph.xml exists")
+            exec_command(
+                module,
+                cmd="rm -f /host/old_config/config_db.json",
+                msg="Remove config_db.json in preference of minigraph.xml"
+            )
+            log("Remove /host/old_config/golden_config_db.json when /etc/old_config/minigraph.xml exists")
+            exec_command(
+                module,
+                cmd="rm -f /host/old_config/golden_config_db.json",
+                msg="Remove golden_config_db.json in preference of minigraph.xml"
+            )
+
+    try:
+        get_sonic_image_size(module)
+    except Exception as e:
+        log("Failed to get image size: {}".format(e))
 
 
 def work_around_for_slow_disks(module):
@@ -295,6 +390,7 @@ def free_up_disk_space(module, disk_used_pcent):
         exec_command(module, "rm -f /var/core/*", ignore_error=True)
         exec_command(module, "rm -rf /var/dump/*", ignore_error=True)
         exec_command(module, "rm -rf /home/admin/*", ignore_error=True)
+        exec_command(module, "rm -rf /host/logs_before_reboot/*", ignore_error=True)
         latest_used_percent = get_disk_used_percent(module)
         log("Done free up, latest used percent: {}".format(latest_used_percent))
     else:
@@ -387,6 +483,7 @@ def main():
             new_image_url=dict(required=False, type='str', default=None),
             save_as=dict(required=False, type='str', default=None),
             required_space=dict(required=False, type='int', default=1600),
+            skip_platform_check=dict(required=False, type='bool', default=False),
         ),
         supports_check_mode=False)
 
@@ -394,7 +491,7 @@ def main():
     new_image_url = module.params['new_image_url']
     save_as = module.params['save_as']
     required_space = module.params['required_space']
-
+    skip_platform_check = module.params['skip_platform_check']
     try:
         if new_image_url or save_as:
             results["current_stage"] = "start"
@@ -409,7 +506,8 @@ def main():
             setup_swap_if_necessary(module)
             results["current_stage"] = "install"
 
-            install_new_sonic_image(module, new_image_url, save_as, required_space)
+            install_new_sonic_image(
+                module, new_image_url, save_as, required_space, skip_platform_check)
             results["current_stage"] = "complete"
         else:
             reduce_installed_sonic_images(module)

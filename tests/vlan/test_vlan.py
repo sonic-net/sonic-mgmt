@@ -5,14 +5,14 @@ from ptf.mask import Mask
 
 import logging
 
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
-from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_orig          # noqa F401
-from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_add           # noqa F401
-from tests.common.fixtures.duthost_utils import ports_list            # noqa F401
-from tests.common.helpers.portchannel_to_vlan import setup_acl_table  # noqa F401
-from tests.common.helpers.portchannel_to_vlan import acl_rule_cleanup # noqa F401
-from tests.common.helpers.portchannel_to_vlan import vlan_intfs_dict  # noqa F401
-from tests.common.helpers.portchannel_to_vlan import setup_po2vlan    # noqa F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa: F401
+from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_orig          # noqa: F401
+from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_add           # noqa: F401
+from tests.common.fixtures.duthost_utils import ports_list            # noqa: F401
+from tests.common.helpers.portchannel_to_vlan import setup_acl_table  # noqa: F401
+from tests.common.helpers.portchannel_to_vlan import acl_rule_cleanup  # noqa: F401
+from tests.common.helpers.portchannel_to_vlan import vlan_intfs_dict  # noqa: F401
+from tests.common.helpers.portchannel_to_vlan import setup_po2vlan    # noqa: F401
 from tests.common.helpers.portchannel_to_vlan import running_vlan_ports_list
 from tests.common.helpers.portchannel_to_vlan import has_portchannels
 
@@ -70,6 +70,21 @@ def build_icmp_packet(vlan_id, src_mac="00:22:00:00:00:02", dst_mac="ff:ff:ff:ff
     return pkt
 
 
+def build_icmpv6_packet(vlan_id, src_mac="00:22:00:00:00:02", dst_mac="ff:ff:ff:ff:ff:ff",
+                        src_ip="2001:db8::1", dst_ip="2001:db8::2", hlim=64):
+
+    pkt = testutils.simple_icmpv6_packet(pktlen=100 if vlan_id == 0 else 104,
+                                         eth_dst=dst_mac,
+                                         eth_src=src_mac,
+                                         dl_vlan_enable=False if vlan_id == 0 else True,
+                                         vlan_vid=vlan_id,
+                                         vlan_pcp=0,
+                                         ipv6_src=src_ip,
+                                         ipv6_dst=dst_ip,
+                                         ipv6_hlim=hlim)
+    return pkt
+
+
 def build_qinq_packet(outer_vlan_id, vlan_id,
                       src_mac="00:22:00:00:00:02", dst_mac="ff:ff:ff:ff:ff:ff",
                       src_ip="192.168.0.1", dst_ip="192.168.0.2", ttl=64):
@@ -103,8 +118,16 @@ def verify_packets_with_portchannel(test, pkt, ports=[], portchannel_ports=[], d
 
 
 def verify_icmp_packets(ptfadapter, send_pkt, vlan_ports_list, vlan_port, vlan_id):
-    untagged_pkt = build_icmp_packet(0)
-    tagged_pkt = build_icmp_packet(vlan_id)
+    # Detect IP version from vlan_port, default to ipv4 if not set or None
+    ip_version = vlan_port.get('ip_version') or 'ipv4'
+
+    if ip_version == 'ipv6':
+        untagged_pkt = build_icmpv6_packet(0)
+        tagged_pkt = build_icmpv6_packet(vlan_id)
+    else:
+        untagged_pkt = build_icmp_packet(0)
+        tagged_pkt = build_icmp_packet(vlan_id)
+
     untagged_dst_ports = []
     tagged_dst_ports = []
     untagged_dst_pc_ports = []
@@ -158,7 +181,7 @@ def verify_unicast_packets(ptfadapter, send_pkt, exp_pkt, src_ports, dst_ports, 
 @pytest.mark.bsl
 @pytest.mark.po2vlan
 def test_vlan_tc1_send_untagged(ptfadapter, duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo,
-                                ports_list, toggle_all_simulator_ports_to_rand_selected_tor_m):     # noqa F811
+                                ports_list, toggle_all_simulator_ports_to_rand_selected_tor_m):     # noqa: F811
     """
     Test case #1
     Verify packets egress without tag from ports whose PVID same with ingress port
@@ -175,17 +198,32 @@ def test_vlan_tc1_send_untagged(ptfadapter, duthosts, rand_one_dut_hostname, ran
     if not has_portchannels(duthosts, rand_one_dut_hostname):
         pytest.skip("Test skipped: No portchannels detected when sending untagged packets")
 
-    untagged_pkt = build_icmp_packet(0)
-    # Need a tagged packet for set_do_not_care_scapy
-    tagged_pkt = build_icmp_packet(4095)
+    vlan_ports_list = running_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, ports_list)
+
+    # Detect IP version from the first vlan port, default to ipv4 if not set or None
+    ip_version = 'ipv4'
+    if vlan_ports_list and vlan_ports_list[0].get('ip_version'):
+        ip_version = vlan_ports_list[0]['ip_version']
+
+    # Build packets based on IP version
+    if ip_version == 'ipv6':
+        untagged_pkt = build_icmpv6_packet(0)
+        # Need a tagged packet for set_do_not_care_scapy
+        tagged_pkt = build_icmpv6_packet(4095)
+    else:
+        untagged_pkt = build_icmp_packet(0)
+        # Need a tagged packet for set_do_not_care_scapy
+        tagged_pkt = build_icmp_packet(4095)
+
     exp_pkt = Mask(tagged_pkt)
     exp_pkt.set_do_not_care_scapy(scapy.Dot1Q, "vlan")
-    vlan_ports_list = running_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, ports_list)
+
     for vlan_port in vlan_ports_list:
-        logger.info("Send untagged packet from the port {} ...".format(
-            vlan_port["port_index"][0]))
+        logger.info("Send untagged packet (IP version: {}) from the port {} ...".format(
+            ip_version, vlan_port["port_index"][0]))
         logger.info(untagged_pkt.sprintf(
-            "%Ether.src% %IP.src% -> %Ether.dst% %IP.dst%"))
+            "%Ether.src% %IP.src% -> %Ether.dst% %IP.dst%" if ip_version == 'ipv4'
+            else "%Ether.src% %IPv6.src% -> %Ether.dst% %IPv6.dst%"))
         if vlan_port['pvid'] != 0:
             verify_icmp_packets(
                 ptfadapter, untagged_pkt, vlan_ports_list, vlan_port, vlan_port["pvid"])
@@ -202,7 +240,7 @@ def test_vlan_tc1_send_untagged(ptfadapter, duthosts, rand_one_dut_hostname, ran
 @pytest.mark.bsl
 @pytest.mark.po2vlan
 def test_vlan_tc2_send_tagged(ptfadapter, duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo,
-                              ports_list, toggle_all_simulator_ports_to_rand_selected_tor_m):   # noqa F811
+                              ports_list, toggle_all_simulator_ports_to_rand_selected_tor_m):   # noqa: F811
     """
     Test case #2
     Send tagged packets from each port.
@@ -222,12 +260,19 @@ def test_vlan_tc2_send_tagged(ptfadapter, duthosts, rand_one_dut_hostname, rand_
 
     vlan_ports_list = running_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, ports_list)
     for vlan_port in vlan_ports_list:
+        # Detect IP version, default to ipv4 if not set or None
+        ip_version = vlan_port.get('ip_version') or 'ipv4'
         for permit_vlanid in map(int, vlan_port["permit_vlanid"]):
-            pkt = build_icmp_packet(permit_vlanid)
-            logger.info("Send tagged({}) packet from the port {} ...".format(
-                permit_vlanid, vlan_port["port_index"][0]))
+            # Build packet based on IP version
+            if ip_version == 'ipv6':
+                pkt = build_icmpv6_packet(permit_vlanid)
+            else:
+                pkt = build_icmp_packet(permit_vlanid)
+            logger.info("Send tagged({}) packet (IP version: {}) from the port {} ...".format(
+                permit_vlanid, ip_version, vlan_port["port_index"][0]))
             logger.info(pkt.sprintf(
-                "%Ether.src% %IP.src% -> %Ether.dst% %IP.dst%"))
+                "%Ether.src% %IP.src% -> %Ether.dst% %IP.dst%" if ip_version == 'ipv4'
+                else "%Ether.src% %IPv6.src% -> %Ether.dst% %IPv6.dst%"))
 
             verify_icmp_packets(
                 ptfadapter, pkt, vlan_ports_list, vlan_port, permit_vlanid)
@@ -236,7 +281,7 @@ def test_vlan_tc2_send_tagged(ptfadapter, duthosts, rand_one_dut_hostname, rand_
 @pytest.mark.bsl
 @pytest.mark.po2vlan
 def test_vlan_tc3_send_invalid_vid(ptfadapter, duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo,
-                                   ports_list, toggle_all_simulator_ports_to_rand_selected_tor_m):  # noqa F811
+                                   ports_list, toggle_all_simulator_ports_to_rand_selected_tor_m):  # noqa: F811
     """
     Test case #3
     Send packets with invalid VLAN ID
@@ -248,7 +293,18 @@ def test_vlan_tc3_send_invalid_vid(ptfadapter, duthosts, rand_one_dut_hostname, 
         pytest.skip("Dual TOR device does not support broadcast packet")
 
     vlan_ports_list = running_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, ports_list)
-    invalid_tagged_pkt = build_icmp_packet(4095)
+
+    # Detect IP version from the first vlan port, default to ipv4 if not set or None
+    ip_version = 'ipv4'
+    if vlan_ports_list and vlan_ports_list[0].get('ip_version'):
+        ip_version = vlan_ports_list[0]['ip_version']
+
+    # Build packet based on IP version
+    if ip_version == 'ipv6':
+        invalid_tagged_pkt = build_icmpv6_packet(4095)
+    else:
+        invalid_tagged_pkt = build_icmp_packet(4095)
+
     masked_invalid_tagged_pkt = Mask(invalid_tagged_pkt)
     masked_invalid_tagged_pkt.set_do_not_care_scapy(scapy.Dot1Q, "vlan")
     for vlan_port in vlan_ports_list:
@@ -256,10 +312,11 @@ def test_vlan_tc3_send_invalid_vid(ptfadapter, duthosts, rand_one_dut_hostname, 
         for port in vlan_ports_list:
             dst_ports += port["port_index"] if port != vlan_port else []
         src_ports = vlan_port["port_index"]
-        logger.info("Send invalid tagged packet " +
+        logger.info("Send invalid tagged packet (IP version: {}) ".format(ip_version) +
                     " from " + str(src_ports) + "...")
         logger.info(invalid_tagged_pkt.sprintf(
-            "%Ether.src% %IP.src% -> %Ether.dst% %IP.dst%"))
+            "%Ether.src% %IP.src% -> %Ether.dst% %IP.dst%" if ip_version == 'ipv4'
+            else "%Ether.src% %IPv6.src% -> %Ether.dst% %IPv6.dst%"))
         for src_port in src_ports:
             testutils.send(ptfadapter, src_port, invalid_tagged_pkt)
         logger.info("Check on " + str(dst_ports) + "...")
@@ -270,8 +327,8 @@ def test_vlan_tc3_send_invalid_vid(ptfadapter, duthosts, rand_one_dut_hostname, 
 @pytest.mark.bsl
 @pytest.mark.po2vlan
 def test_vlan_tc4_tagged_unicast(ptfadapter, duthosts, rand_one_dut_hostname, rand_selected_dut,
-                                 tbinfo, vlan_intfs_dict, ports_list,                   # noqa F811
-                                 toggle_all_simulator_ports_to_rand_selected_tor_m):    # noqa F811
+                                 tbinfo, vlan_intfs_dict, ports_list,                   # noqa: F811
+                                 toggle_all_simulator_ports_to_rand_selected_tor_m):    # noqa: F811
     """
     Test case #4
     Send packets w/ src and dst specified over tagged ports in vlan
@@ -324,8 +381,8 @@ def test_vlan_tc4_tagged_unicast(ptfadapter, duthosts, rand_one_dut_hostname, ra
 @pytest.mark.bsl
 @pytest.mark.po2vlan
 def test_vlan_tc5_untagged_unicast(ptfadapter, duthosts, rand_one_dut_hostname, rand_selected_dut,
-                                   tbinfo, vlan_intfs_dict, ports_list,                 # noqa F811
-                                   toggle_all_simulator_ports_to_rand_selected_tor_m):  # noqa F811
+                                   tbinfo, vlan_intfs_dict, ports_list,                 # noqa: F811
+                                   toggle_all_simulator_ports_to_rand_selected_tor_m):  # noqa: F811
     """
     Test case #5
     Send packets w/ src and dst specified over untagged ports in vlan
@@ -379,8 +436,8 @@ def test_vlan_tc5_untagged_unicast(ptfadapter, duthosts, rand_one_dut_hostname, 
 @pytest.mark.bsl
 @pytest.mark.po2vlan
 def test_vlan_tc6_tagged_untagged_unicast(ptfadapter, duthosts, rand_one_dut_hostname, rand_selected_dut,
-                                          tbinfo, vlan_intfs_dict, ports_list,                  # noqa F811
-                                          toggle_all_simulator_ports_to_rand_selected_tor_m):   # noqa F811
+                                          tbinfo, vlan_intfs_dict, ports_list,                  # noqa: F811
+                                          toggle_all_simulator_ports_to_rand_selected_tor_m):   # noqa: F811
     """
     Test case #6
     Send packets w/ src and dst specified over tagged port and untagged port in vlan
@@ -451,8 +508,8 @@ def test_vlan_tc6_tagged_untagged_unicast(ptfadapter, duthosts, rand_one_dut_hos
 
 @pytest.mark.po2vlan
 def test_vlan_tc7_tagged_qinq_switch_on_outer_tag(ptfadapter, duthosts, rand_one_dut_hostname, rand_selected_dut,
-                                                  tbinfo, vlan_intfs_dict, duthost, ports_list,         # noqa F811
-                                                  toggle_all_simulator_ports_to_rand_selected_tor_m):   # noqa F811
+                                                  tbinfo, vlan_intfs_dict, duthost, ports_list,         # noqa: F811
+                                                  toggle_all_simulator_ports_to_rand_selected_tor_m):   # noqa: F811
     """
     Test case #7
     Send qinq packets w/ src and dst specified over tagged ports in vlan

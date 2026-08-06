@@ -9,6 +9,7 @@ from tests.common.utilities import wait_until
 logger = logging.getLogger(__name__)
 
 BASE_PORT_COUNT = 28.0  # default t0 topology has 28 ports to toggle
+WAIT_TIME_AFTER_INTF_SHUTDOWN = 5  # in seconds
 
 
 def port_toggle(duthost, tbinfo, ports=None, wait_time_getter=None, wait_after_ports_up=60, watch=False):
@@ -121,14 +122,16 @@ def default_port_toggle_wait_time(duthost, port_count):
     port_down_wait_time, port_up_wait_time = 120, 180
     asic_type = duthost.facts["asic_type"]
 
-    if asic_type == "mellanox":
+    is_modular_chassis = duthost.get_facts().get("modular_chassis")
+
+    if (asic_type == "mellanox") or (asic_type == "broadcom" and not is_modular_chassis):
         if port_count <= BASE_PORT_COUNT:
             port_count = BASE_PORT_COUNT
 
         port_count_factor = port_count / BASE_PORT_COUNT
         port_down_wait_time = int(port_down_wait_time * port_count_factor)
         port_up_wait_time = int(port_up_wait_time * port_count_factor)
-    elif duthost.get_facts().get("modular_chassis"):
+    elif is_modular_chassis:
         port_down_wait_time = 300
         port_up_wait_time = 300
 

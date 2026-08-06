@@ -5,7 +5,7 @@ import random
 import os
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa: F401
 from tests.ptf_runner import ptf_runner
 from .utils import fdb_cleanup
 
@@ -211,11 +211,11 @@ class TestFdbFlush:
             self.__loadSwssConfig(duthost)
         self.__deleteTmpSwitchConfig(duthost)
 
-    def prepare_test(self, duthosts, rand_one_dut_hostname):
+    def prepare_test(self, duthosts, rand_one_dut_hostname, fanouthosts):
         logging.info("Start prepare_test")
 
         # Perform FDB clean up before each test
-        fdb_cleanup(duthosts, rand_one_dut_hostname)
+        fdb_cleanup(duthosts, rand_one_dut_hostname, fanouthosts)
 
         duthost = duthosts[rand_one_dut_hostname]
 
@@ -264,7 +264,9 @@ class TestFdbFlush:
             self.curr_exist_cores = existing_core_dumps
 
     def create_fdb_oper_files(self, duthost):
-        mac_addresses = ["00-11-22-33-55-66", "00-11-22-33-55-67", "00-11-22-33-55-68"]
+        # Keep static MACs on 00:11:22:33:44:XX to avoid collision with PTF dynamic MACs (00:11:22:33:55:XX).
+        # Use 44 in the 5th octet; dynamic FDB MACs use 55 and can collide on larger testbeds.
+        mac_addresses = ["00-11-22-33-44-66", "00-11-22-33-44-67", "00-11-22-33-44-68"]
         vlan_id = 1000
         fdb_static_set = []
         fdb_static_del = []
@@ -324,6 +326,7 @@ class TestFdbFlush:
                 "router_mac": duthost.facts["router_mac"],
                 "fdb_info": self.FDB_INFO_FILE,
                 "dummy_mac_prefix": self.DUMMY_MAC_PREFIX,
+                "kvm_support": True
             }
             self.__runPtfTest(ptfhost, "fdb_flush_test.FdbFlushTest", testParams)
         elif 'clear' == create_or_clear:
@@ -341,10 +344,11 @@ class TestFdbFlush:
         duthost.shell("docker exec -i swss swssconfig {}".format(fdb_oper_file), module_ignore_errors=True)
 
     @pytest.mark.parametrize("flush_type", FLUSH_TYPES)
-    def testFdbFlush(self, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost, tbinfo, request, flush_type):
+    def testFdbFlush(self, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost, tbinfo, request, flush_type,
+                     fanouthosts):
 
         logging.info("test type {} ".format(flush_type))
-        self.prepare_test(duthosts, rand_one_dut_hostname)
+        self.prepare_test(duthosts, rand_one_dut_hostname, fanouthosts)
 
         if "dynamic" == flush_type or "mix" == flush_type:
             self.dynamic_fdb_oper(duthosts[rand_one_dut_hostname], tbinfo, ptfhost, 'create')

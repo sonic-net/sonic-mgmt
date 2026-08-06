@@ -5,7 +5,7 @@ from tests.common.devices.eos import EosHost
 from tests.common.utilities import skip_release
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1', 't2', 'm0', 'mx', 't1-multi-asic'),
+    pytest.mark.topology('t0', 't1', 't2', 'lrh', 'urh', 'm0', 'mx', 'm1', 't1-multi-asic', 'lt2', 'ft2', 'c0'),
     pytest.mark.device_type('vs')
 ]
 
@@ -23,12 +23,20 @@ def test_snmp_loopback(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     hostip = duthost.host.options['inventory_manager'].get_host(
         duthost.hostname).vars['ansible_host']
     snmp_facts = get_snmp_facts(
-        localhost, host=hostip, version="v2c",
+        duthost, localhost, host=hostip, version="v2c",
         community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
     config_facts = duthost.config_facts(
         host=duthost.hostname, source="persistent")['ansible_facts']
-    # Get first neighbor VM information
-    nbr = nbrhosts[list(nbrhosts.keys())[0]]
+
+    if tbinfo['topo']['type'] == 'lt2':
+        # Get a UT2 nbr to run the test on LT2 topo
+        for nbr_id, nbr_host in nbrhosts.items():
+            if "UT2" in nbr_id:
+                nbr = nbr_host
+                break
+    else:
+        # Get first neighbor VM information
+        nbr = nbrhosts[list(nbrhosts.keys())[0]]
 
     for ip in config_facts['LOOPBACK_INTERFACE']['Loopback0']:
         loip = ip.split('/')[0]
@@ -46,7 +54,7 @@ def test_snmp_loopback(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
             stdout_lines = result['stdout_lines'][0][0]
         else:
             stdout_lines = result['stdout_lines'][0]
-        assert "SONiC Software Version" in stdout_lines,\
+        assert "SONiC Software Version" in stdout_lines, \
             "Sysdescr not found in SNMP result from IP {}".format(ip)
-        assert snmp_facts['ansible_sysdescr'] in stdout_lines,\
+        assert snmp_facts['ansible_sysdescr'] in stdout_lines, \
             "Sysdescr from IP{} not matching with result from Mgmt IPv4.".format(ip)

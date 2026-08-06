@@ -10,8 +10,7 @@ logger = logging.getLogger(__name__)
 allure.logger = logger
 
 pytestmark = [
-    pytest.mark.topology("any"),
-    pytest.mark.device_type('physical')
+    pytest.mark.topology("any")
 ]
 
 test_update_route_pattern_para = [

@@ -4,24 +4,26 @@ import logging
 import ipaddress
 import random
 import re
+import json
 
 from tests.common import constants
-from datetime import datetime, timedelta
 from tests.common.utilities import skip_release
 from tests.common.utilities import wait_tcp_connection
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
-from bgp_helpers import update_routes
-from tests.generic_config_updater.test_bgp_speaker import get_bgp_speaker_runningconfig
+from tests.common.helpers.bgp import namespace_cli_arg
+from tests.common2.routing.bgp.bgp_route_control import update_routes
+from tests.common.gu_utils import get_bgp_speaker_runningconfig
 from tests.common.gu_utils import apply_patch, expect_op_success
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
+from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.gu_utils import (
     create_checkpoint,
     delete_checkpoint,
     rollback_or_reload,
 )
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
-
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa:F401
+from tests.common.helpers.dut_ports import get_vlan_interface_list, get_vlan_interface_info
 
 pytestmark = [pytest.mark.topology("t0")]
 
@@ -71,7 +73,7 @@ def lo_intfs(duthost, tbinfo):
 
 @pytest.fixture(autouse=True)
 def setup_env(
-    duthosts, rand_one_dut_hostname, toggle_all_simulator_ports_to_rand_selected_tor_m, # noqa F811
+    duthosts, rand_one_dut_hostname, toggle_all_simulator_ports_to_rand_selected_tor_m,     # noqa:F811
 ):
     """
     Setup/teardown fixture for bgp speaker config
@@ -110,13 +112,13 @@ class BgpDualAsn:
         self.peer_addrs = []
         self.peer_addrs_v6 = []
 
-    def __gen_vlan_subnets(self, mg_facts):
+    def __gen_vlan_subnets(self, vlan_ipv4_entry, vlan_ipv6_entry):
         # Generate peer ipv4 addresses
         vlan_network = ipaddress.IPv4Interface(
             "%s/%s"
             % (
-                mg_facts["minigraph_vlan_interfaces"][0]["addr"],
-                mg_facts["minigraph_vlan_interfaces"][0]["prefixlen"],
+                vlan_ipv4_entry["addr"],
+                vlan_ipv4_entry["prefixlen"],
             )
         ).network
         peer_subnets = [
@@ -124,7 +126,7 @@ class BgpDualAsn:
             list(vlan_network.subnets())[1],
         ]
         logger.info(
-            "Generated two bgp speeker ip subnets: %s, %s"
+            "Generated two bgp speaker ip subnets: %s, %s"
             % (peer_subnets[0], peer_subnets[1])
         )
 
@@ -132,8 +134,8 @@ class BgpDualAsn:
         vlan_network_v6 = ipaddress.IPv6Interface(
             "%s/%s"
             % (
-                mg_facts["minigraph_vlan_interfaces"][1]["addr"],
-                mg_facts["minigraph_vlan_interfaces"][1]["prefixlen"],
+                vlan_ipv6_entry["addr"],
+                vlan_ipv6_entry["prefixlen"],
             )
         ).network
         peer_subnets_v6 = [
@@ -142,7 +144,7 @@ class BgpDualAsn:
         ]
 
         logger.info(
-            "Generated two bgp speeker ipv6 subnets: %s, %s"
+            "Generated two bgp speaker ipv6 subnets: %s, %s"
             % (peer_subnets_v6[0], peer_subnets_v6[1])
         )
         return peer_subnets, peer_subnets_v6
@@ -158,7 +160,13 @@ class BgpDualAsn:
 
         self.local_asn = mg_facts["minigraph_bgp_asn"]
 
-        self.peer_subnets, self.peer_subnets_v6 = self.__gen_vlan_subnets(mg_facts)
+        vlan_interfaces = get_vlan_interface_list(duthost)
+        # pick up the first vlan to test
+        vlan_if_name = vlan_interfaces[0]
+        vlan_ipv4_entry = get_vlan_interface_info(duthost, tbinfo, vlan_if_name, "ipv4")
+        vlan_ipv6_entry = get_vlan_interface_info(duthost, tbinfo, vlan_if_name, "ipv6")
+
+        self.peer_subnets, self.peer_subnets_v6 = self.__gen_vlan_subnets(vlan_ipv4_entry, vlan_ipv6_entry)
         self.peer_addrs = [
             str(
                 ipaddress.IPv4Address(
@@ -197,7 +205,7 @@ class BgpDualAsn:
         ]
 
         logger.info(
-            "Generated two bgp speeker ip: %s, %s, ipv6: %s, %s"
+            "Generated two bgp speaker ip: %s, %s, ipv6: %s, %s"
             % (
                 self.peer_addrs[0],
                 self.peer_addrs[1],
@@ -208,23 +216,19 @@ class BgpDualAsn:
 
         self.lo, self.lo6 = lo_intfs(duthost, tbinfo)
 
-        vlan_addr = mg_facts["minigraph_vlan_interfaces"][0]["addr"]
-        vlan_addr6 = mg_facts["minigraph_vlan_interfaces"][1]["addr"]
+        vlan_addr = vlan_ipv4_entry["addr"]
+        vlan_addr6 = vlan_ipv6_entry["addr"]
 
         # find two vlan member interfaces
         vlan_ports = []
         for i in range(0, 1):
             vlan_ports.append(
                 mg_facts["minigraph_ptf_indices"][
-                    mg_facts["minigraph_vlans"][
-                        mg_facts["minigraph_vlan_interfaces"][0]["attachto"]
-                    ]["members"][i]
+                    mg_facts["minigraph_vlans"][vlan_if_name]["members"][i]
                 ]
             )
         if "backend" in tbinfo["topo"]["name"]:
-            vlan_id = mg_facts["minigraph_vlans"][
-                mg_facts["minigraph_vlan_interfaces"][0]["attachto"]
-            ]["vlanid"]
+            vlan_id = mg_facts["minigraph_vlans"][vlan_if_name]["vlanid"]
             self.ptf_ports = [
                 ("eth%s" % _) + constants.VLAN_SUB_INTERFACE_SEPARATOR + vlan_id
                 for _ in vlan_ports
@@ -280,6 +284,18 @@ class BgpDualAsn:
         for i in range(0, 2):
             ptfhost.exabgp(name="bgps%d" % i, state="absent")
         logger.info("exabgp stopped")
+
+        # Delete test-specific BGP_PEER_RANGE entries so rollback can
+        # restore BGPVac without listen-range overlap
+        test_peer_ranges = [BGPSLB, BGPSLB_2, BGPSLB_V6, BGPSLB_V6_2]
+        del_keys = " ".join('"BGP_PEER_RANGE|{}"'.format(n) for n in test_peer_ranges)
+        ns_list = duthost.get_frontend_asic_namespace_list() or [None]
+        for ns in ns_list:
+            ns_flag = namespace_cli_arg(ns)
+            duthost.shell(
+                "sonic-db-cli {} CONFIG_DB del {}".format(ns_flag, del_keys),
+                module_ignore_errors=True
+            )
 
         for port in self.ptf_ports:
             ptfhost.shell("ip addr flush dev {} scope global".format(port))
@@ -367,6 +383,7 @@ def bgp_peer_range_add_config(
                 }
             ]
 
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 
@@ -402,6 +419,7 @@ def bgp_peer_range_delete_config(
         {"op": "remove", "path": "/BGP_PEER_RANGE/{}".format(ip_range_name)},
         {"op": "remove", "path": "/BGP_PEER_RANGE/{}".format(ipv6_range_name)},
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -452,21 +470,31 @@ def verify_bgp_session(duthost, bgp_neighbor):
     )
 
 
-def get_bgp_uptime(duthost, bgp_neighbor):
-    # it's a work around for show ip bgp neighbors <ipaddress>, it can not show
-    # neighbors which are not configured
+def get_bgp_connection_count(duthost, bgp_neighbor):
+    """Get the established/dropped connection counts for a dynamic BGP neighbor."""
     output = duthost.shell(
-        "show ip bgp neighbors | grep -A 10 {} | grep 'Established'".format(
-            bgp_neighbor
-        )
+        'vtysh -c "show bgp neighbors {} json"'.format(bgp_neighbor),
+        module_ignore_errors=True,
     )
-    if not output["stdout"]:
-        pytest_assert(True, "Bgp neighbor {} is not up".format(bgp_neighbor))
-    time_string = re.search(r"up for (\d{2}:\d{2}:\d{2})", output["stdout"]).group(1)
-    t = datetime.strptime(time_string, "%H:%M:%S").time()
-    return int(
-        timedelta(hours=t.hour, minutes=t.minute, seconds=t.second).total_seconds()
+    pytest_assert(
+        output["rc"] == 0 and output["stdout"],
+        "Could not find connection info for {} (rc={})".format(
+            bgp_neighbor, output["rc"]
+        ),
     )
+    bgp_info = json.loads(output["stdout"])
+    pytest_assert(
+        bgp_neighbor in bgp_info,
+        "Neighbor {} not found in vtysh JSON output".format(bgp_neighbor),
+    )
+    neighbor_info = bgp_info[bgp_neighbor]
+    established = neighbor_info.get("connectionsEstablished", 0)
+    dropped = neighbor_info.get("connectionsDropped", 0)
+    pytest_assert(
+        established > 0,
+        "connectionsEstablished is 0 for {} — session was never established".format(bgp_neighbor),
+    )
+    return established, dropped
 
 
 def check_bgp_routes_exist(duthost, prefix):
@@ -520,8 +548,7 @@ def test_bgp_dual_asn_v4(
             30, 5, 10, verify_bgp_session, duthost, dualAsn.peer_addrs[0]
         ):
             pytest.fail("bgp peer %s should up" % dualAsn.peer_addrs[0])
-        current_bgp_uptime = get_bgp_uptime(duthost, dualAsn.peer_addrs[0])
-        current_time = time.time()
+        initial_established, initial_dropped = get_bgp_connection_count(duthost, dualAsn.peer_addrs[0])
         # announce route from valid bgp peer
         announce_route(ptfhost, NEIGHBOR_PORT_LIST[0], PREFIX, dualAsn.peer_addrs[0])
         # bgp peer which is not in peer range group should not up
@@ -584,10 +611,19 @@ def test_bgp_dual_asn_v4(
         check_bgp_routes_exist(duthost, PREFIX_2)
 
         # check original bgp neighbor no flapping
-        latest_time = time.time()
-        latest_bgp_uptime = get_bgp_uptime(duthost, dualAsn.peer_addrs[0])
-        if latest_time - current_time > latest_bgp_uptime - current_bgp_uptime:
-            pytest.fail("bgp %s flapped during testing" % dualAsn.peer_addrs[0])
+        # Verify the original BGP peer did not flap by comparing FRR connection counters.
+        # Uses established/dropped counts instead of uptime to avoid false positives
+        # from wall-clock vs BGP-uptime measurement drift over SSH.
+        # Note: Any change in either counter (established or dropped) is treated as unexpected,
+        # including reconnections (e.g. graceful restart). This is intentional, during
+        # this test window, the original peer should maintain a single stable session without any flap.
+        final_established, final_dropped = get_bgp_connection_count(duthost, dualAsn.peer_addrs[0])
+        if final_established != initial_established or final_dropped != initial_dropped:
+            pytest.fail(
+                "bgp %s flapped during testing (established: %d->%d, dropped: %d->%d)"
+                % (dualAsn.peer_addrs[0], initial_established, final_established,
+                   initial_dropped, final_dropped)
+            )
 
         # remove first peer range group configuration, check it's neighbor's bgp state
         bgp_peer_range_delete_config(

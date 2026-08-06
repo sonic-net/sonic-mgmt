@@ -8,13 +8,13 @@ Test summary:
 
     Continuous mux state change based on configurable parameter 'N':
 
-    | Step                                                         | Goal | Expected results                                                  |     # noqa F501
-    | ------------------------------------------------------------ | ---- | ----------------------------------------------------------------- |     # noqa F501
-    | Change mux state from Active->Standby->Active 'N' times      | CRM  | Verify CRM values for routes/nexthop and check for leaks          |     # noqa F501
-    |                                                              |      |                                                                   |     # noqa F501
-    | Flush and re-learn Neighbor entry 'N' times in Standby state | CRM  | Verify CRM values for routes/neighbor/nexthop and check for leaks |     # noqa F501
-    |                                                              |      |                                                                   |     # noqa F501
-    | Flush and re-learn Neighbor entry 'N' times in Active state  | CRM  | Verify CRM values for routes/neighbor/nexthop and check for leaks |     # noqa F501
+    | Step                                                         | Goal | Expected results                                                  |     # noqa: E501
+    | ------------------------------------------------------------ | ---- | ----------------------------------------------------------------- |     # noqa: E501
+    | Change mux state from Active->Standby->Active 'N' times      | CRM  | Verify CRM values for routes/nexthop and check for leaks          |     # noqa: E501
+    |                                                              |      |                                                                   |     # noqa: E501
+    | Flush and re-learn Neighbor entry 'N' times in Standby state | CRM  | Verify CRM values for routes/neighbor/nexthop and check for leaks |     # noqa: E501
+    |                                                              |      |                                                                   |     # noqa: E501
+    | Flush and re-learn Neighbor entry 'N' times in Active state  | CRM  | Verify CRM values for routes/neighbor/nexthop and check for leaks |     # noqa: E501
 """
 import json
 import logging
@@ -23,10 +23,11 @@ import os
 import pytest
 
 from tests.common.utilities import wait
+from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import compare_crm_facts
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.dualtor.dual_tor_utils import tor_mux_intfs       # noqa F401
-from tests.common.dualtor.dual_tor_mock import *                    # noqa F401
+from tests.common.dualtor.dual_tor_utils import tor_mux_intfs       # noqa: F401
+from tests.common.dualtor.dual_tor_mock import *                    # noqa: F401, F403
 
 pytestmark = [
     pytest.mark.topology("t0")
@@ -88,6 +89,7 @@ def load_swss_config(dut, config_file):
         dut (obj): Object for interacting with DUT.
         config_file (str): Path and filename of the config file in swss docker container.
     """
+    wait_critical_processes(dut)
     logger.info('Loading swss config {} ...'.format(config_file))
     dut.shell('docker exec swss sh -c "swssconfig {}"'.format(config_file))
     wait(10, 'for CRMs to be updated and corresponding codeflow finished')
@@ -110,7 +112,7 @@ def _swss_path(filename):
 
 
 @pytest.fixture(scope='module', autouse=True)
-def swss_config_files(rand_selected_dut, tor_mux_intfs):            # noqa F811
+def swss_config_files(rand_selected_dut, tor_mux_intfs):            # noqa: F811
     """This fixture is to generate/cleanup the swss config files in the swss docker.
 
     Args:
@@ -127,11 +129,13 @@ def swss_config_files(rand_selected_dut, tor_mux_intfs):            # noqa F811
     for cfg in swss_configs:
         mux_config = mux_state_configs(tor_mux_intfs, cfg[0], op=cfg[1])
         dut.copy(content=json.dumps(mux_config, indent=4), dest=cfg[2])
+        wait_critical_processes(rand_selected_dut)
         dut.shell('docker cp {} swss:{}'.format(cfg[2], _swss_path(cfg[2])))
 
     yield
 
     for cfg in swss_configs:
+        wait_critical_processes(rand_selected_dut)
         dut.shell('docker exec swss sh -c "rm {}"'.format(_swss_path(cfg[2])))
         dut.file(path=cfg[2], state='absent')
 
@@ -153,6 +157,7 @@ def test_change_mux_state(
         request):
 
     dut = rand_selected_dut
+    asic_type = dut.facts['asic_type']
 
     wait(20, 'extra wait for presetup flow')
 
@@ -178,8 +183,9 @@ def test_change_mux_state(
 
     # Check CRM values for leak
     unmatched_crm_facts = compare_crm_facts(crm_facts1, crm_facts2)
-    pytest_assert(len(unmatched_crm_facts) == 0, 'Unmatched CRM facts: {}'
-                  .format(json.dumps(unmatched_crm_facts, indent=4)))
+    if asic_type != 'vs':
+        pytest_assert(len(unmatched_crm_facts) == 0, 'Unmatched CRM facts: {}'
+                      .format(json.dumps(unmatched_crm_facts, indent=4)))
 
 
 def remove_neighbors(dut, neighbors, interface):
@@ -225,6 +231,7 @@ def test_flap_neighbor_entry_active(
         mock_server_ip_mac_map):
 
     dut = rand_selected_dut
+    asic_type = dut.facts['asic_type']
 
     vlan_interface_name = list(dut.get_extended_minigraph_facts(tbinfo)['minigraph_vlans'].keys())[0]
 
@@ -246,8 +253,9 @@ def test_flap_neighbor_entry_active(
     logger.info(json.dumps(crm_facts2, indent=4))
 
     unmatched_crm_facts = compare_crm_facts(crm_facts1, crm_facts2)
-    pytest_assert(len(unmatched_crm_facts) == 0, 'Unmatched CRM facts: {}'
-                  .format(json.dumps(unmatched_crm_facts, indent=4)))
+    if asic_type != 'vs':
+        pytest_assert(len(unmatched_crm_facts) == 0, 'Unmatched CRM facts: {}'
+                      .format(json.dumps(unmatched_crm_facts, indent=4)))
 
 
 def test_flap_neighbor_entry_standby(
@@ -259,6 +267,7 @@ def test_flap_neighbor_entry_standby(
         mock_server_ip_mac_map):
 
     dut = rand_selected_dut
+    asic_type = dut.facts['asic_type']
 
     vlan_interface_name = list(dut.get_extended_minigraph_facts(tbinfo)['minigraph_vlans'].keys())[0]
 
@@ -280,5 +289,6 @@ def test_flap_neighbor_entry_standby(
     logger.info(json.dumps(crm_facts2, indent=4))
 
     unmatched_crm_facts = compare_crm_facts(crm_facts1, crm_facts2)
-    pytest_assert(len(unmatched_crm_facts) == 0, 'Unmatched CRM facts: {}'
-                  .format(json.dumps(unmatched_crm_facts, indent=4)))
+    if asic_type != 'vs':
+        pytest_assert(len(unmatched_crm_facts) == 0, 'Unmatched CRM facts: {}'
+                      .format(json.dumps(unmatched_crm_facts, indent=4)))

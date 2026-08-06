@@ -5,23 +5,92 @@ import pytest
 import re
 import time
 
-from .helper import gnmi_set, gnmi_get, gnoi_reboot
+from .helper import gnmi_set, gnmi_get, is_mgmt_vrf_enabled
 from .helper import gnmi_subscribe_polling
 from .helper import gnmi_subscribe_streaming_sample, gnmi_subscribe_streaming_onchange
+from tests.common.helpers.gnmi_utils import add_gnmi_client_common_name, gnmi_container
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import wait_until
-from tests.common.platform.processes_utils import wait_critical_processes
-from tests.common.platform.interface_utils import check_interface_status_of_up_ports
+from tests.common.utilities import DEFAULT_VRF_NAME, MGMT_VRF_NAME, wait_until
+from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 
 logger = logging.getLogger(__name__)
+allure.logger = logger
 
 pytestmark = [
     pytest.mark.topology('any'),
-    pytest.mark.disable_loganalyzer
+    pytest.mark.disable_loganalyzer,
+    pytest.mark.usefixtures("setup_gnmi_ntp_client_server", "setup_gnmi_server",
+                            "setup_gnmi_rotated_server", "check_dut_timestamp")
 ]
 
 
-def get_first_interface(duthost):
+VRF_SCENARIOS = [
+    {"name": "default_1", "vrf": None, "description": "Default (no VRF)"},
+    {"name": "default_2", "vrf": DEFAULT_VRF_NAME, "description": f"Default (explicit '{DEFAULT_VRF_NAME}')"},
+    {"name": "mgmt", "vrf": MGMT_VRF_NAME, "description": "Management VRF"},
+]
+
+
+@pytest.fixture(scope="module", autouse=True)
+def download_gnmi_client(duthosts, rand_one_dut_hostname):
+    """Stage gnmi_cli on the DUT host filesystem.
+
+    When the gNMI server is bound to a non-default VRF, gnmi_subscribe_polling
+    must run gnmi_cli via `sudo ip vrf exec <vrf> /tmp/gnmi_cli ...` on the DUT
+    host (the gnmi container itself does not have `ip vrf exec` privileges).
+    The binary ships only inside the container, so copy it out once per module.
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    container = gnmi_container(duthost)
+    duthost.shell("docker cp %s:/usr/sbin/gnmi_cli /tmp/gnmi_cli" % container)
+    duthost.shell("chmod +x /tmp/gnmi_cli")
+
+
+@pytest.fixture(scope="module", params=VRF_SCENARIOS, ids=lambda scenario: f"vrf_{scenario['name']}")
+def vrf_config(request, duthost, ptfhost):
+    vrf_cfg = request.param.copy()
+    vrf_cfg.update({
+        "dut_ip": duthost.mgmt_ip,
+        "ptf_ip": ptfhost.mgmt_ip,
+        "dut_intf": "eth0",
+        "ptf_intf": "mgmt",
+    })
+    return vrf_cfg
+
+
+@pytest.fixture(scope="module", autouse=True)
+def setup_vrf_configuration(duthosts, rand_one_dut_hostname, vrf_config):
+    """
+    This fixture runs before setup_gnmi_server to ensure VRF config is in place.
+    Only default and mgmt VRFs are supported.
+
+    While these GNMI tests do not depend on SNMP, some tests fail while waiting
+    for all critical processes to be up and running. These are caused by SNMP
+    agent address misconfiguration during VRF transition. Hence SNMP services
+    are stopped before toggling mgmt VRF and restarted after.
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    vrf_name = vrf_config["vrf"]
+    mgmt_vrf_enabled = is_mgmt_vrf_enabled(duthost)
+
+    try:
+        if vrf_name == MGMT_VRF_NAME and not mgmt_vrf_enabled:
+            duthost.shell('sudo systemctl stop snmpd snmp-subagent', module_ignore_errors=True)
+            duthost.shell('sonic-db-cli CONFIG_DB hset "MGMT_VRF_CONFIG|vrf_global" "mgmtVrfEnabled" "true"')
+            duthost.shell('sudo systemctl start snmpd snmp-subagent', module_ignore_errors=True)
+        yield vrf_config
+
+    finally:
+        if vrf_name == MGMT_VRF_NAME and not mgmt_vrf_enabled:
+            duthost.shell('sudo systemctl stop snmpd snmp-subagent', module_ignore_errors=True)
+            duthost.shell('sonic-db-cli CONFIG_DB hset "MGMT_VRF_CONFIG|vrf_global" "mgmtVrfEnabled" "false"')
+            duthost.shell('sonic-db-cli CONFIG_DB hdel "MGMT_VRF_CONFIG|vrf_global" "mgmtVrfEnabled"')
+            duthost.shell('sudo systemctl start snmpd snmp-subagent', module_ignore_errors=True)
+
+
+def get_first_interface(duthost, excluded_interfaces=[]):
+    if duthost.is_supervisor_node():
+        return None
     cmds = "show interface status"
     output = duthost.shell(cmds)
     assert (not output['rc']), "No output"
@@ -36,8 +105,9 @@ def get_first_interface(duthost):
         interface_status = line.strip()
         assert len(interface_status) > 0, "Failed to read interface properties"
         sl = interface_status.split()
+        intf_name = sl[0]
         # Skip portchannel
-        if sl[lanes_index] == 'N/A':
+        if sl[lanes_index] == 'N/A' or intf_name in excluded_interfaces:
             continue
         if sl[admin_index] == 'up':
             return sl[0]
@@ -51,14 +121,38 @@ def get_interface_status(duthost, field, interface='Ethernet0'):
     return output["stdout"]
 
 
-def test_gnmi_configdb_incremental_01(duthosts, rand_one_dut_hostname, ptfhost):
+def get_sonic_cfggen_output(duthost, namespace=None):
+    '''
+    Fetch and return the sonic-cfggen output
+    '''
+    cmd = "sonic-cfggen -d --print-data"
+    if namespace:
+        cmd = f"sonic-cfggen -n {namespace} -d --print-data"
+    output = duthost.shell(cmd)
+    assert (not output['rc']), "No output"
+    return (json.loads(output["stdout"]))
+
+
+def wait_bgp_neighbor(duthost):
+    '''
+    Wait for BGP neighbor to be up
+    '''
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
+    pytest_assert(wait_until(60, 10, 0, duthost.check_bgp_session_state, list(bgp_neighbors.keys())),
+                  "Not all BGP sessions are established on DUT")
+
+
+def test_gnmi_configdb_incremental_01(duthosts, rand_one_dut_hostname, ptfhost, vrf_config):
     '''
     Verify GNMI native write, incremental config for configDB
     Toggle interface admin status
     '''
     duthost = duthosts[rand_one_dut_hostname]
+    if duthost.is_supervisor_node():
+        pytest.skip("gnmi test relies on port data not present on supervisor card '%s'" % rand_one_dut_hostname)
     file_name = "port.txt"
-    interface = get_first_interface(duthost)
+    interface = get_first_interface(duthost, [vrf_config['dut_intf']])
     assert interface is not None, "Invalid interface"
     update_list = ["/sonic-db:CONFIG_DB/localhost/PORT/%s/admin_status:@/root/%s" % (interface, file_name)]
     path_list = ["/sonic-db:CONFIG_DB/localhost/PORT/%s/admin_status" % (interface)]
@@ -68,11 +162,11 @@ def test_gnmi_configdb_incremental_01(duthosts, rand_one_dut_hostname, ptfhost):
     with open(file_name, 'w') as file:
         file.write(text)
     ptfhost.copy(src=file_name, dest='/root')
-    gnmi_set(duthost, ptfhost, [], update_list, [])
+    gnmi_set(duthost, ptfhost, [], update_list, [], ip=vrf_config["dut_ip"])
     # Check interface status and gnmi_get result
     status = get_interface_status(duthost, "admin_status", interface)
     assert status == "down", "Incremental config failed to toggle interface %s status" % interface
-    msg_list = gnmi_get(duthost, ptfhost, path_list)
+    msg_list = gnmi_get(duthost, ptfhost, path_list, ip=vrf_config["dut_ip"])
     assert msg_list[0] == "\"down\"", msg_list[0]
 
     # Startup interface
@@ -80,15 +174,17 @@ def test_gnmi_configdb_incremental_01(duthosts, rand_one_dut_hostname, ptfhost):
     with open(file_name, 'w') as file:
         file.write(text)
     ptfhost.copy(src=file_name, dest='/root')
-    gnmi_set(duthost, ptfhost, [], update_list, [])
+    gnmi_set(duthost, ptfhost, [], update_list, [], ip=vrf_config["dut_ip"])
     # Check interface status and gnmi_get result
     status = get_interface_status(duthost, "admin_status", interface)
     assert status == "up", "Incremental config failed to toggle interface %s status" % interface
-    msg_list = gnmi_get(duthost, ptfhost, path_list)
+    msg_list = gnmi_get(duthost, ptfhost, path_list, ip=vrf_config["dut_ip"])
     assert msg_list[0] == "\"up\"", msg_list[0]
+    # Wait for BGP neighbor to be up
+    wait_bgp_neighbor(duthost)
 
 
-def test_gnmi_configdb_incremental_02(duthosts, rand_one_dut_hostname, ptfhost):
+def test_gnmi_configdb_incremental_02(duthosts, rand_one_dut_hostname, ptfhost, vrf_config):
     '''
     Verify GNMI native write, incremental config for configDB
     GNMI set request with invalid path
@@ -103,7 +199,7 @@ def test_gnmi_configdb_incremental_02(duthosts, rand_one_dut_hostname, ptfhost):
         file.write(text)
     ptfhost.copy(src=file_name, dest='/root')
     try:
-        gnmi_set(duthost, ptfhost, [], update_list, [])
+        gnmi_set(duthost, ptfhost, [], update_list, [], ip=vrf_config["dut_ip"])
     except Exception as e:
         logger.info("Incremental config failed: " + str(e))
     else:
@@ -127,7 +223,7 @@ test_data_metadata = [
 
 
 @pytest.mark.parametrize('test_data', test_data_metadata)
-def test_gnmi_configdb_polling_01(duthosts, rand_one_dut_hostname, ptfhost, test_data):
+def test_gnmi_configdb_polling_01(duthosts, rand_one_dut_hostname, ptfhost, test_data, vrf_config):
     '''
     Verify GNMI subscribe API, streaming onchange mode
     Subscribe polling mode
@@ -135,12 +231,14 @@ def test_gnmi_configdb_polling_01(duthosts, rand_one_dut_hostname, ptfhost, test
     duthost = duthosts[rand_one_dut_hostname]
     exp_cnt = 3
     path_list = [test_data["path"]]
-    msg, _ = gnmi_subscribe_polling(duthost, ptfhost, path_list, 1000, exp_cnt)
+    msg, _ = gnmi_subscribe_polling(
+        duthost, ptfhost, path_list, 1000, exp_cnt, ip=vrf_config["dut_ip"], vrf_name=vrf_config["vrf"]
+    )
     assert msg.count("bgp_asn") >= exp_cnt, test_data["name"] + ": " + msg
 
 
 @pytest.mark.parametrize('test_data', test_data_metadata)
-def test_gnmi_configdb_streaming_sample_01(duthosts, rand_one_dut_hostname, ptfhost, test_data):
+def test_gnmi_configdb_streaming_sample_01(duthosts, rand_one_dut_hostname, ptfhost, test_data, vrf_config):
     '''
     Verify GNMI subscribe API, streaming onchange mode
     Subscribe streaming sample mode
@@ -148,12 +246,13 @@ def test_gnmi_configdb_streaming_sample_01(duthosts, rand_one_dut_hostname, ptfh
     duthost = duthosts[rand_one_dut_hostname]
     exp_cnt = 5
     path_list = [test_data["path"]]
-    msg, _ = gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, 0, exp_cnt)
+    msg, _ = gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, 0, exp_cnt,
+                                             origin="sonic-db", ip=vrf_config["dut_ip"])
     assert msg.count("bgp_asn") >= exp_cnt, test_data["name"] + ": " + msg
 
 
 @pytest.mark.parametrize('test_data', test_data_metadata)
-def test_gnmi_configdb_streaming_onchange_01(duthosts, rand_one_dut_hostname, ptfhost, test_data):
+def test_gnmi_configdb_streaming_onchange_01(duthosts, rand_one_dut_hostname, ptfhost, test_data, vrf_config):
     '''
     Verify GNMI subscribe API, streaming onchange mode
     Subscribe streaming onchange mode
@@ -177,13 +276,13 @@ def test_gnmi_configdb_streaming_onchange_01(duthosts, rand_one_dut_hostname, pt
     client_task.start()
     exp_cnt = 5
     path_list = [test_data["path"]]
-    msg, _ = gnmi_subscribe_streaming_onchange(duthost, ptfhost, path_list, exp_cnt*2)
+    msg, _ = gnmi_subscribe_streaming_onchange(duthost, ptfhost, path_list, exp_cnt*2, ip=vrf_config["dut_ip"])
     run_flag.value = False
     client_task.join()
     assert msg.count("bgp_asn") >= exp_cnt, test_data["name"] + ": " + msg
 
 
-def test_gnmi_configdb_streaming_onchange_02(duthosts, rand_one_dut_hostname, ptfhost):
+def test_gnmi_configdb_streaming_onchange_02(duthosts, rand_one_dut_hostname, ptfhost, vrf_config):
     '''
     Verify GNMI subscribe API, streaming onchange mode
     Subscribe table, and verify gnmi output has table key
@@ -204,7 +303,7 @@ def test_gnmi_configdb_streaming_onchange_02(duthosts, rand_one_dut_hostname, pt
     client_task.start()
     exp_cnt = 3
     path_list = ["/sonic-db:CONFIG_DB/localhost/DEVICE_METADATA"]
-    msg, _ = gnmi_subscribe_streaming_onchange(duthost, ptfhost, path_list, exp_cnt)
+    msg, _ = gnmi_subscribe_streaming_onchange(duthost, ptfhost, path_list, exp_cnt, ip=vrf_config["dut_ip"])
     run_flag.value = False
     client_task.join()
 
@@ -218,20 +317,36 @@ def test_gnmi_configdb_streaming_onchange_02(duthosts, rand_one_dut_hostname, pt
         assert "bgp_asn" in result["localhost"], "Invalid result: " + match
 
 
-def test_gnmi_configdb_full_01(duthosts, rand_one_dut_hostname, ptfhost):
+def test_gnmi_configdb_full_replace_01(duthosts, rand_one_dut_hostname, ptfhost, vrf_config):
     '''
-    Verify GNMI native write, full config for configDB
+    Verify GNMI native write, full config replace for configDB
     Toggle interface admin status
     '''
     duthost = duthosts[rand_one_dut_hostname]
-    output = duthost.shell("sonic-cfggen -d --print-data")
-    assert (not output['rc']), "No output"
-    dic = json.loads(output["stdout"])
-    assert "PORT" in dic, "Failed to read running config"
-    interface = get_first_interface(duthost)
+    if duthost.is_supervisor_node():
+        pytest.skip("gnmi test relies on port data not present on supervisor card '%s'" % rand_one_dut_hostname)
+    interface = get_first_interface(duthost, [vrf_config['dut_intf']])
     assert interface is not None, "Invalid interface"
+
+    # Get ASIC namespace and check interface
+    if duthost.sonichost.is_multi_asic:
+        for asic in duthost.frontend_asics:
+            dic = get_sonic_cfggen_output(duthost, asic.namespace)
+            if interface in dic["PORT"]:
+                break
+    else:
+        dic = get_sonic_cfggen_output(duthost)
+
+    assert "PORT" in dic, "Failed to read running config"
     assert interface in dic["PORT"], "Failed to get interface %s" % interface
     assert "admin_status" in dic["PORT"][interface], "Failed to get interface %s" % interface
+
+    def check_admin_status(duthost, interface, expected_status):
+        status = get_interface_status(duthost, "admin_status", interface)
+        return status == expected_status
+
+    # Make sure interface is up to begin with
+    assert check_admin_status(duthost, interface, "up"), "Unexpected port status"
 
     # Update full config with GNMI
     dic["PORT"][interface]["admin_status"] = "down"
@@ -239,23 +354,160 @@ def test_gnmi_configdb_full_01(duthosts, rand_one_dut_hostname, ptfhost):
     with open(filename, 'w') as file:
         json.dump(dic, file)
     ptfhost.copy(src=filename, dest='/root')
-    delete_list = ["/sonic-db:CONFIG_DB/localhost/"]
-    update_list = ["/sonic-db:CONFIG_DB/localhost/:@/root/%s" % filename]
-    gnmi_set(duthost, ptfhost, delete_list, update_list, [])
-    # Check interface status and gnmi_get result
-    status = get_interface_status(duthost, "admin_status", interface)
-    assert status == "up", "Port status is changed"
-    # GNOI reboot
-    gnoi_reboot(duthost, 0, 0, "abc")
+
+    replace_list = ["/sonic-db:CONFIG_DB/localhost/:@/root/%s" % filename]
+    gnmi_set(duthost, ptfhost, [], [], replace_list, ip=vrf_config["dut_ip"])
+
+    # Check that interface is down after full config push
     pytest_assert(
-        wait_until(600, 10, 0, duthost.critical_services_fully_started),
-        "All critical services should be fully started!")
-    wait_critical_processes(duthost)
-    pytest_assert(
-        wait_until(300, 10, 0, check_interface_status_of_up_ports, duthost),
-        "Not all ports that are admin up on are operationally up")
-    # Check interface status
-    status = get_interface_status(duthost, "admin_status", interface)
-    assert status == "down", "Full config failed to toggle interface %s status" % interface
+        wait_until(30, 2, 0, check_admin_status, duthost, interface, "down"),
+        "Full config failed to toggle interface %s status" % interface)
+
     # Startup interface
     duthost.shell("config interface startup %s" % interface)
+    duthost.shell("config save -y")
+    # Wait for BGP neighbor to be up
+    wait_bgp_neighbor(duthost)
+
+
+def test_gnmi_configdb_set_authenticate(duthosts, rand_one_dut_hostname, ptfhost, vrf_config):
+    '''
+    Verify GNMI native write with authentication
+    '''
+    duthost = duthosts[rand_one_dut_hostname]
+    file_name = "cloud.txt"
+    text = "\"Public\""
+    with open(file_name, 'w') as file:
+        file.write(text)
+    ptfhost.copy(src=file_name, dest='/root')
+    update_list = ["/sonic-db:CONFIG_DB/localhost/DEVICE_METADATA/localhost/cloudtype:@/root/%s" % (file_name)]
+
+    with allure.step("Verify GNMI set with noaccess role"):
+        role = "gnmi_config_db_noaccess"
+        add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", role)
+        try:
+            gnmi_set(duthost, ptfhost, [], update_list, [], ip=vrf_config["dut_ip"])
+        except Exception as e:
+            logger.info("Failed to set: " + str(e))
+            assert role in str(e), str(e)
+
+    with allure.step("Verify GNMI set with readwrite role"):
+        role = "gnmi_config_db_readwrite"
+        add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", role)
+        try:
+            gnmi_set(duthost, ptfhost, [], update_list, [], ip=vrf_config["dut_ip"])
+        except Exception as e:
+            logger.info("Failed to set: " + str(e))
+            pytest.fail("Set request failed: " + str(e))
+
+    with allure.step("Verify GNMI set with readonly role"):
+        role = "gnmi_config_db_readonly"
+        add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", role)
+        try:
+            gnmi_set(duthost, ptfhost, [], update_list, [], ip=vrf_config["dut_ip"])
+        except Exception as e:
+            logger.info("Failed to set: " + str(e))
+            assert role in str(e), str(e)
+
+    with allure.step("Verify GNMI set with empty role"):
+        role = ""
+        add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", role)
+        try:
+            gnmi_set(duthost, ptfhost, [], update_list, [], ip=vrf_config["dut_ip"])
+        except Exception as e:
+            logger.info("Failed to set: " + str(e))
+            assert "write access" in str(e), str(e)
+
+    # Restore default role
+    add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic")
+
+
+def test_gnmi_configdb_get_authenticate(duthosts, rand_one_dut_hostname, ptfhost, vrf_config):
+    '''
+    Verify GNMI native read with authentication
+    '''
+    duthost = duthosts[rand_one_dut_hostname]
+    path_list = ["/sonic-db:CONFIG_DB/localhost/DEVICE_METADATA/localhost"]
+
+    with allure.step("Verify GNMI get with noaccess role"):
+        role = "gnmi_config_db_noaccess"
+        add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", role)
+        try:
+            gnmi_get(duthost, ptfhost, path_list, ip=vrf_config["dut_ip"])
+        except Exception as e:
+            logger.info("Failed to get: " + str(e))
+            assert role in str(e), str(e)
+
+    with allure.step("Verify GNMI get with readwrite role"):
+        role = "gnmi_config_db_readwrite"
+        add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", role)
+        try:
+            gnmi_get(duthost, ptfhost, path_list, ip=vrf_config["dut_ip"])
+        except Exception as e:
+            logger.info("Failed to get: " + str(e))
+            pytest.fail("Get request failed: " + str(e))
+
+    with allure.step("Verify GNMI get with readonly role"):
+        role = "gnmi_config_db_readonly"
+        add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", role)
+        try:
+            gnmi_get(duthost, ptfhost, path_list, ip=vrf_config["dut_ip"])
+        except Exception as e:
+            logger.info("Failed to get: " + str(e))
+            pytest.fail("Get request failed: " + str(e))
+
+    with allure.step("Verify GNMI get with empty role"):
+        role = ""
+        add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", role)
+        try:
+            gnmi_get(duthost, ptfhost, path_list, ip=vrf_config["dut_ip"])
+        except Exception as e:
+            logger.info("Failed to get: " + str(e))
+            pytest.fail("Get request failed: " + str(e))
+
+    # Restore default role
+    add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic")
+
+
+def test_gnmi_configdb_subscribe_authenticate(duthosts, rand_one_dut_hostname, ptfhost, vrf_config):
+    '''
+    Verify GNMI native read with authentication
+    '''
+    duthost = duthosts[rand_one_dut_hostname]
+    path_list = ["/sonic-db:CONFIG_DB/localhost/DEVICE_METADATA/localhost"]
+
+    with allure.step("Verify GNMI subscribe with noaccess role"):
+        role = "gnmi_config_db_noaccess"
+        add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", role)
+        output, _ = gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, 0, 1,
+                                                    origin="sonic-db", ip=vrf_config["dut_ip"])
+        logger.info("GNMI subscribe output: " + output)
+        assert "GRPC error" in output, output
+        assert role in output, output
+
+    with allure.step("Verify GNMI subscribe with readwrite role"):
+        role = "gnmi_config_db_readwrite"
+        add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", role)
+        output, _ = gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, 0, 1,
+                                                    origin="sonic-db", ip=vrf_config["dut_ip"])
+        assert "GRPC error" not in output, output
+        assert "cloudtype" in output, output
+
+    with allure.step("Verify GNMI subscribe with readonly role"):
+        role = "gnmi_config_db_readonly"
+        add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", role)
+        output, _ = gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, 0, 1,
+                                                    origin="sonic-db", ip=vrf_config["dut_ip"])
+        assert "GRPC error" not in output, output
+        assert "cloudtype" in output, output
+
+    with allure.step("Verify GNMI subscribe with empty role"):
+        role = ""
+        add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", role)
+        output, _ = gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, 0, 1,
+                                                    origin="sonic-db", ip=vrf_config["dut_ip"])
+        assert "GRPC error" not in output, output
+        assert "cloudtype" in output, output
+
+    # Restore default role
+    add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic")

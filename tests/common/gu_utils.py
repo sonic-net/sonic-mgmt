@@ -2,7 +2,7 @@ import json
 import logging
 import pytest
 import os
-import time
+import re
 from jsonpointer import JsonPointer
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
@@ -14,11 +14,21 @@ CONTAINER_SERVICES_LIST = ["swss", "syncd", "radv", "lldp", "dhcp_relay", "teamd
 DEFAULT_CHECKPOINT_NAME = "test"
 GCU_FIELD_OPERATION_CONF_FILE = "gcu_field_operation_validators.conf.json"
 GET_HWSKU_CMD = "sonic-cfggen -d -v DEVICE_METADATA.localhost.hwsku"
-GCUTIMEOUT = 240
+GCUTIMEOUT_MAP = {
+    'armhf-nokia_ixs7215_52x-r0': 1200,
+    'x86_64-nvidia_sn5640-r0': 3600,  # Increase timeout due to issue #22370
+    # H6-128: bulk PFC_WD apply-patch (256 ports); default 600s
+    # triggers a false TimeoutError even after the command has already succeeded (test_pfcwd_status).
+    'x86_64-nokia_ixr7220_h6_128-r0': 1800,
+    # Cisco 8000 LC: port speed GCU patches with cluster restore can exceed 900s.
+    'x86_64-88_lc0_36fh-r0': 1800,
+}
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 FILES_DIR = os.path.join(BASE_DIR, "files")
 TMP_DIR = '/tmp'
+HOST_NAME = "localhost"
+ASIC_PREFIX = "asic"
 
 
 def generate_tmpfile(duthost):
@@ -33,6 +43,79 @@ def delete_tmpfile(duthost, tmpfile):
     duthost.file(path=tmpfile, state='absent')
 
 
+def format_json_patch_for_multiasic(duthost, json_data,
+                                    is_asic_specific=False,
+                                    is_host_specific=False,
+                                    asic_namespaces=None):
+    """
+    Formats a JSON patch for multi-ASIC platforms based on the specified scope.
+
+    - Case 1: Apply changes only to /localhost namespace.
+      example: format_json_patch_for_multiasic(duthost, json_data, is_host_specific=True)
+
+    - Case 2: Apply changes only to all available ASIC namespaces (e.g., /asic0, /asic1).
+      example: format_json_patch_for_multiasic(duthost, json_data, is_asic_specific=True)
+
+    - Case 3: Apply changes to one specific ASIC namespace (e.g., /asic0).
+      example: format_json_patch_for_multiasic(duthost, json_data, is_asic_specific=True, asic_namespaces='asic0')
+
+    - Case 4: Apply changes to both /localhost and all ASIC namespaces.
+      example: format_json_patch_for_multiasic(duthost, json_data)
+
+    """
+    json_patch = []
+    asic_namespaces = asic_namespaces or []
+
+    if duthost.is_multi_asic:
+        num_asic = duthost.facts.get('num_asic')
+
+        for operation in json_data:
+            path = operation["path"]
+
+            # Case 1: Apply only to localhost
+            if is_host_specific:
+                if path.startswith(f"/{HOST_NAME}"):
+                    json_patch.append(operation)
+                else:
+                    template = operation.copy()
+                    template["path"] = f"/{HOST_NAME}{path}"
+                    json_patch.append(template)
+
+            # Case 2: Apply only to all ASIC namespaces
+            elif is_asic_specific and not asic_namespaces:
+                for asic_index in range(num_asic):
+                    asic_ns = f"{ASIC_PREFIX}{asic_index}"
+                    template = operation.copy()
+                    template["path"] = f"/{asic_ns}{path}"
+                    json_patch.append(template)
+
+            # Case 3: Apply to one specific ASIC namespace
+            elif asic_namespaces:
+                for asic_ns in asic_namespaces:
+                    template = operation.copy()
+                    template["path"] = f"/{asic_ns}{path}"
+                    json_patch.append(template)
+
+            # Case 4: Apply to both localhost and all ASIC namespaces
+            else:
+                # Add for localhost
+                template = operation.copy()
+                template["path"] = f"/{HOST_NAME}{path}"
+                json_patch.append(template)
+
+                # Add for all ASIC namespaces
+                for asic_index in range(num_asic):
+                    asic_ns = f"{ASIC_PREFIX}{asic_index}"
+                    template = operation.copy()
+                    template["path"] = f"/{asic_ns}{path}"
+                    json_patch.append(template)
+
+        json_data = json_patch
+    logger.debug("format_json_patch_for_multiasic: {}".format(json_data))
+
+    return json_data
+
+
 def apply_patch(duthost, json_data, dest_file):
     """Run apply-patch on target duthost
 
@@ -41,17 +124,37 @@ def apply_patch(duthost, json_data, dest_file):
         json_data: Source json patch to apply
         dest_file: Destination file on duthost
     """
-    duthost.copy(content=json.dumps(json_data, indent=4), dest=dest_file)
+    patch_content = json.dumps(json_data, indent=4)
+    duthost.copy(content=patch_content, dest=dest_file)
+    logger.debug("Patch Content: {}".format(patch_content))
 
     cmds = 'config apply-patch {}'.format(dest_file)
 
     logger.info("Commands: {}".format(cmds))
-    start_time = time.time()
-    output = duthost.shell(cmds, module_ignore_errors=True)
-    elapsed_time = time.time() - start_time
-    if elapsed_time > GCUTIMEOUT:
-        logger.error("Command took too long: {} seconds".format(elapsed_time))
-        raise TimeoutError("Command execution timeout: {} seconds".format(elapsed_time))
+    gcu_timeout = get_gcu_timeout(duthost)
+
+    # Run the command asynchronously so we can poll for completion and
+    # time out without blocking the test runner indefinitely.  This
+    # uses wait_until (the standard polling helper used across the repo)
+    # instead of an ad-hoc bash 'timeout' wrapper, giving us periodic
+    # logging and Python-level control over the thread.
+    pool, async_result = duthost.shell(cmds, module_ignore_errors=True,
+                                       module_async=True)
+    try:
+        completed = wait_until(gcu_timeout, 10, 0,
+                               lambda: async_result.ready())
+        if not completed:
+            logger.error("apply-patch did not complete within {} seconds, "
+                         "terminating".format(gcu_timeout))
+            raise TimeoutError(
+                "Command execution timeout: {} seconds".format(gcu_timeout))
+
+        # .get() returns the result on success or re-raises the
+        # original exception from the worker thread on failure.
+        output = async_result.get()
+    finally:
+        pool.terminate()
+        pool.join()
 
     return output
 
@@ -107,7 +210,7 @@ def expect_res_success(duthost, output, expected_content_list, unexpected_conten
 def expect_op_failure(output):
     """Expected failure from apply-patch output
     """
-    logger.info("return code {}".format(output['rc']))
+    logger.info("Return code: {}, error: {}".format(output['rc'], output['stderr']))
     pytest_assert(
         output['rc'],
         "The command should fail with non zero return code"
@@ -264,8 +367,8 @@ def rollback_or_reload(duthost, cp=DEFAULT_CHECKPOINT_NAME):
     """
     output = rollback(duthost, cp)
 
-    if output['rc'] or "Config rolled back successfully" not in output['stdout']:
-        config_reload(duthost)
+    if output.get('rc', 1) or "Config rolled back successfully" not in output.get('stdout', ''):
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
         pytest.fail("config rollback failed. Restored by config_reload")
 
 
@@ -284,7 +387,10 @@ def check_show_ip_intf(duthost, intf_name, expected_content_list, unexpected_con
                                       fe80::5054:ff:feda:c6af%Vlan1000/64                       N/A             N/A
     """
     address_family = "ip" if is_ipv4 else "ipv6"
-    output = duthost.shell("show {} interfaces | grep -w {} || true".format(address_family, intf_name))
+    # Use -d all flag for multi-ASIC systems to show interfaces from all namespaces
+    display_option = "-d all" if duthost.is_multi_asic else ""
+    output = duthost.shell("show {} interfaces {} | grep -w {} || true".format(
+        address_family, display_option, intf_name))
 
     expect_res_success(duthost, output, expected_content_list, unexpected_content_list)
 
@@ -332,6 +438,8 @@ def get_asic_name(duthost):
         asic = "cisco-8000"
     elif asic_type in ('mellanox', 'broadcom'):
         asic = _get_asic_name(asic_type)
+    elif asic_type == 'marvell-teralynx':
+        asic = "marvell-teralynx"
     elif asic_type == 'vs':
         # We need to check both mellanox and broadcom asics for vs platform
         dummy_asic_list = ['broadcom', 'mellanox', 'cisco-8000']
@@ -369,11 +477,12 @@ def is_valid_platform_and_version(duthost, table, scenario, operation, field_val
     if "master" in os_version or "internal" in os_version:
         return True
     try:
-        version_required = gcu_conf["tables"][table]["validator_data"]["rdma_config_update_validator"][scenario]["platforms"][asic] # noqa E501
+        version_required = gcu_conf["tables"][table][
+            "validator_data"]["rdma_config_update_validator"][scenario]["platforms"][asic]     # noqa: E501
         if version_required == "":
             return False
-        # os_version is in format "20220531.04", version_required is in format "20220500"
-        return os_version[0:8] >= version_required[0:8]
+        # os_version can be in any of 202411.1, 20241100.1 formats and version_required is in format "20220500"
+        return os_version.split('.')[0].ljust(8, '0') >= version_required[0:8]
     except KeyError:
         return False
     except IndexError:
@@ -424,19 +533,48 @@ def expect_acl_table_match_multiple_bindings(duthost,
 
     for dut in duts_to_check:
 
-        output = dut.show_and_parse(cmds)
-        pytest_assert(len(output) > 0, "'{}' is not a table on this device".format(table_name))
+        def check_table():
+            output = dut.show_and_parse(cmds)
+            if len(output) == 0:
+                return False
 
-        first_line = output[0]
-        pytest_assert(set(first_line.values()) == set(expected_first_line_content))
-        table_bindings = [first_line["binding"]]
-        for i in range(len(output)):
-            table_bindings.append(output[i]["binding"])
-        pytest_assert(set(table_bindings) == set(expected_bindings), "ACL Table bindings don't fully match")
+            first_line = output[0]
+            table_bindings = [line["binding"] for line in output if line.get("binding")]
+
+            if first_line["binding"] not in expected_bindings:
+                logger.warning(f"Unexpected first ACL table binding: {first_line['binding']}")
+                return False
+
+            actual_first_line = set(first_line.values()) - set(expected_bindings)
+            expected_first_line = set(expected_first_line_content) - set(expected_bindings)
+            first_line_diff = actual_first_line ^ expected_first_line
+            if actual_first_line != expected_first_line:
+                logger.warning(f"First line content does not match. Difference: {first_line_diff}")
+                return False
+
+            table_bindings_diff = set(table_bindings) ^ set(expected_bindings)
+            if not set(table_bindings) == set(expected_bindings):
+                logger.warning(f"ACL Table bindings don't fully match. Difference: {table_bindings_diff}")
+                return False
+            return True
+
+        pytest_assert(wait_until(30, 5, 0, check_table), "ACL table does not contain expected bindings")
 
 
-def expect_acl_rule_match(duthost, rulename, expected_content_list, setup):
-    """Check if acl rule shows as expected"""
+def expect_acl_rule_match(duthost, rulename, expected_content_list, setup, timeout=15, interval=2):
+    """Check if acl rule shows as expected.
+
+    GCU writes the rule to CONFIG_DB synchronously, but orchagent programs it to the
+    ASIC asynchronously (draining its queue in lexicographic key order) and only then
+    writes the STATE_DB status to "Active". At scale a freshly-added rule can read back
+    as "N/A" / "Pending creation" for several seconds, so poll until it matches instead
+    of checking exactly once.
+
+    Args:
+        timeout: Maximum seconds to wait for the rule to reach the expected state.
+                 Increase for large/scale patches where programming takes longer.
+        interval: Seconds between polls.
+    """
 
     cmds = "show acl rule DYNAMIC_ACL_TABLE {}".format(rulename)
 
@@ -446,20 +584,35 @@ def expect_acl_rule_match(duthost, rulename, expected_content_list, setup):
 
     for dut in duts_to_check:
 
-        output = dut.show_and_parse(cmds)
+        def rule_matches():
+            # Return True/False (never assert) so wait_until can keep polling.
+            # wait_until swallows pytest.fail.Exception, so an assert here would be
+            # silently treated as a retry rather than a hard failure.
+            output = dut.show_and_parse(cmds)
 
-        rule_lines = len(output)
+            rule_lines = len(output)
+            if rule_lines < 1:
+                logger.warning("'{}' is not a rule on this device yet".format(rulename))
+                return False
 
-        pytest_assert(rule_lines >= 1, "'{}' is not a rule on this device".format(rulename))
+            first_line = output[0].values()
+            if not set(first_line) <= set(expected_content_list):
+                logger.warning("Rule '{}' not matching yet. Got {}, want subset of {}".format(
+                    rulename, list(first_line), expected_content_list))
+                return False
 
-        first_line = output[0].values()
+            if rule_lines > 1:
+                for i in range(1, rule_lines):
+                    if output[i]["match"] not in expected_content_list:
+                        logger.warning("Unexpected match condition for '{}': {}".format(
+                            rulename, output[i]["match"]))
+                        return False
+            return True
 
-        pytest_assert(set(first_line) <= set(expected_content_list), "ACL Rule details do not match!")
-
-        if rule_lines > 1:
-            for i in range(1, rule_lines):
-                pytest_assert(output[i]["match"] in expected_content_list,
-                              "Unexpected match condition found: " + str(output[i]["match"]))
+        pytest_assert(
+            wait_until(timeout, interval, 0, rule_matches),
+            "ACL rule '{}' did not reach expected state within {}s "
+            "(status likely N/A/Pending creation)".format(rulename, timeout))
 
 
 def expect_acl_rule_removed(duthost, rulename, setup):
@@ -477,3 +630,83 @@ def expect_acl_rule_removed(duthost, rulename, setup):
         removed = len(output) == 0
 
         pytest_assert(removed, "'{}' showed a rule, this following rule should have been removed".format(cmds))
+
+
+def save_backup_test_config(duthost, file_postfix="bkp"):
+    """Save test env before a test case starts.
+    Back up the existing config_db.json file(s).
+    Args:
+        duthost: Device Under Test (DUT)
+        file_postfix: Postfix string to be used for the backup files.
+    Returns:
+        None.
+    """
+    CONFIG_DB = "/etc/sonic/config_db.json"
+    CONFIG_DB_BACKUP = "/etc/sonic/config_db.json.{}".format(file_postfix)
+
+    logger.info("Backup {} to {} on {}".format(
+        CONFIG_DB, CONFIG_DB_BACKUP, duthost.hostname))
+    duthost.shell("cp {} {}".format(CONFIG_DB, CONFIG_DB_BACKUP))
+    if duthost.is_multi_asic:
+        for n in range(len(duthost.asics)):
+            asic_config_db = "/etc/sonic/config_db{}.json".format(n)
+            asic_config_db_backup = "/etc/sonic/config_db{}.json.{}".format(n, file_postfix)
+            logger.info("Backup {} to {} on {}".format(
+                asic_config_db, asic_config_db_backup, duthost.hostname))
+            duthost.shell("cp {} {}".format(asic_config_db, asic_config_db_backup))
+
+
+def restore_backup_test_config(duthost, file_postfix="bkp", config_reload=True):
+    """Restore test env after a test case finishes.
+    Args:
+        duthost: Device Under Test (DUT)
+        file_postfix: Postfix string to be used for restoring the saved backup files.
+    Returns:
+        None.
+    """
+    CONFIG_DB = "/etc/sonic/config_db.json"
+    CONFIG_DB_BACKUP = "/etc/sonic/config_db.json.{}".format(file_postfix)
+
+    logger.info("Restore {} with {} on {}".format(
+        CONFIG_DB, CONFIG_DB_BACKUP, duthost.hostname))
+    duthost.shell("mv {} {}".format(CONFIG_DB_BACKUP, CONFIG_DB))
+    if duthost.is_multi_asic:
+        for n in range(len(duthost.asics)):
+            asic_config_db = "/etc/sonic/config_db{}.json".format(n)
+            asic_config_db_backup = "/etc/sonic/config_db{}.json.{}".format(n, file_postfix)
+            logger.info("Restore {} with {} on {}".format(
+                asic_config_db, asic_config_db_backup, duthost.hostname))
+            duthost.shell("mv {} {}".format(asic_config_db_backup, asic_config_db))
+
+    if config_reload:
+        config_reload(duthost)
+
+
+def get_bgp_speaker_runningconfig(duthost):
+    """ Get bgp speaker config that contains src_address and ip_range
+
+    Sample output in t0:
+    ['\n neighbor BGPSLBPassive update-source 10.1.0.32',
+     '\n neighbor BGPVac update-source 10.1.0.32',
+     '\n bgp listen range 10.255.0.0/25 peer-group BGPSLBPassive',
+     '\n bgp listen range 192.168.0.0/21 peer-group BGPVac']
+    """
+    cmds = "show runningconfiguration bgp"
+    output = duthost.shell(cmds)
+    pytest_assert(not output['rc'], "'{}' failed with rc={}".format(cmds, output['rc']))
+
+    # Sample:
+    # neighbor BGPSLBPassive update-source 10.1.0.32
+    # bgp listen range 192.168.0.0/21 peer-group BGPVac
+    bgp_speaker_pattern = r"\s+neighbor.*update-source.*|\s+bgp listen range.*"
+    bgp_speaker_config = re.findall(bgp_speaker_pattern, output['stdout'])
+    return bgp_speaker_config
+
+
+def get_gcu_timeout(duthost):
+    """Return the GCU apply-patch timeout (in seconds) for this platform.
+
+    Platforms listed in GCUTIMEOUT_MAP get a custom value; everything
+    else defaults to 900 s.
+    """
+    return GCUTIMEOUT_MAP.get(duthost.facts['platform'], 900)

@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 # This test only runs on t2 systems.
 pytestmark = [
-    pytest.mark.topology('t2')
+    pytest.mark.topology('t2', 'lrh', 'urh')
 ]
 
 # This test checks if fabric link monitoring algorithm works as expected.
@@ -108,6 +108,10 @@ def check_fabric_link_status(host, asicName, port, state):
     cmd_output = host.shell(cmd, module_ignore_errors=True)["stdout"].split("\n")
     auto_isolated = cmd_output[0]
     if auto_isolated == state:
+        return True
+    elif auto_isolated == '' and state == '0':
+        # AUTO_ISOLATED attribute may be missing from the table if it's the first time it's been isolated,
+        # missing means the port is not isolated
         return True
     else:
         return False

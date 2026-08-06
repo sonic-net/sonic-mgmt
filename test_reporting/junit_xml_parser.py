@@ -178,10 +178,7 @@ def validate_junit_xml_archive(directory_name, strict=False):
     roots = []
     metadata_source = None
     metadata = {}
-    doc_list = glob.glob(os.path.join(directory_name, "tr.xml"))
-    doc_list += glob.glob(os.path.join(directory_name, "*test*.xml"))
-    doc_list += glob.glob(os.path.join(directory_name, "**", "*test*.xml"), recursive=True)
-    doc_list = set(doc_list)
+    doc_list = set(glob.glob(os.path.join(directory_name, "**", "*.xml"), recursive=True))
 
     total_size = 0
     for document in doc_list:
@@ -208,7 +205,7 @@ def validate_junit_xml_archive(directory_name, strict=False):
                                                   f"{document}: {root_metadata}\n"
                                                   f"{metadata_source}: {metadata}")
 
-            roots.append(root)
+            roots.append((root, document))
         except Exception as e:
             if strict:
                 raise JUnitXMLValidationError(f"could not parse {document}: {e}") from e
@@ -222,7 +219,7 @@ def validate_junit_xml_archive(directory_name, strict=False):
 
 def validate_junit_xml_path(path, strict=False):
     if os.path.isfile(path):
-        roots = [validate_junit_xml_file(path)]
+        roots = [(validate_junit_xml_file(path), path)]
     else:
         roots = validate_junit_xml_archive(path, strict)
 
@@ -240,7 +237,7 @@ def _validate_junit_xml(root):
 def _validate_test_summary(root):
     if root.tag == TESTSUITES_TAG:
         testsuit_element = root.find(TESTSUITE_TAG)
-        if not testsuit_element:
+        if testsuit_element is None:
             raise JUnitXMLValidationError(f"{TESTSUITE_TAG} tag not found")
     elif root.tag == TESTSUITE_TAG:
         testsuit_element = root
@@ -360,7 +357,7 @@ def parse_test_result(roots):
         print("No XML file needs to be parsed or the file is empty.")
         return
 
-    for root in roots:
+    for root, document in roots:
         if root.tag == TESTSUITES_TAG:
             root = root.find(TESTSUITE_TAG)
 
@@ -368,9 +365,13 @@ def parse_test_result(roots):
                                                                   _parse_test_metadata(root))
         test_cases = _parse_test_cases(root)
         test_result_json["test_cases"] = _update_test_cases(test_result_json["test_cases"], test_cases)
+        parsed_summary = _parse_test_summary(root)
+        # xfails is not a testsuite root attribute; derive it from the per-case
+        # results so xfailed/xpassed (native pytest marks) are surfaced instead of 0.
+        parsed_summary["xfails"] = _extract_test_summary(test_cases).get("xfails", "0")
         test_result_json["test_summary"] = _update_test_summary(test_result_json["test_summary"],
-                                                                _extract_test_summary(test_cases))
-
+                                                                parsed_summary)
+    print(f"Parsed {len(roots)} XML document(s) into test result JSON.")
     return test_result_json
 
 
@@ -453,6 +454,13 @@ def _parse_test_cases(root):
     test_case_results = defaultdict(list)
 
     def _parse_test_case(test_case):
+
+        # For special case like: <testcase time="17.190" />
+        # There is no required attributes in it, then just return None, None
+        for attribute in REQUIRED_TESTCASE_ATTRIBUTES:
+            if attribute not in test_case.keys():
+                return None, None
+
         result = {}
 
         # FIXME: This is specific to pytest, needs to be extended to support spytest.
@@ -471,15 +479,15 @@ def _parse_test_cases(root):
         error = test_case.find("error")
         skipped = test_case.find("skipped")
 
-        # Any test which marked as xfail will drop out a property to the report xml file.
-        # Add prefix "xfail_" to tests which are marked with xfail
-        properties_element = test_case.find(PROPERTIES_TAG)
+        # Count xfails to match pytest's own summary: only tests that actually ran and
+        # failed as expected are "xfailed", which pytest records as <skipped type="pytest.xfail">.
+        # A conditional_mark xfail whose skip condition matched is a plain <skipped> and pytest
+        # counts it as skipped, while an xpassed test is a plain success; neither is an xfail.
         xfail_case = ""
-        if properties_element:
-            for prop in properties_element.iterfind(PROPERTY_TAG):
-                if prop.get("name") == "xfail":
-                    xfail_case = "xfail_"
-                    break
+        for outcome in (skipped, failure, error):
+            if outcome is not None and (outcome.get("type") or "").startswith("pytest.xfail"):
+                xfail_case = "xfail_"
+                break
 
         # NOTE: "error" is unique in that it can occur alongside a succesful, failed, or skipped test result.
         # Because of this, we track errors separately so that the error can be correlated with the stage it
@@ -508,6 +516,8 @@ def _parse_test_cases(root):
 
     for test_case in root.findall("testcase"):
         feature, result = _parse_test_case(test_case)
+        if feature is None or result is None:
+            continue
         test_case_results[feature].append(result)
 
     return dict(test_case_results)
@@ -700,7 +710,7 @@ python3 junit_xml_parser.py tests/files/sample_tr.xml
         elif args.directory:
             roots = validate_junit_xml_archive(args.file_name, args.strict)
         else:
-            roots = [validate_junit_xml_file(args.file_name)]
+            roots = [(validate_junit_xml_file(args.file_name), args.file_name)]
     except JUnitXMLValidationError as e:
         print(f"XML validation failed: {e}")
         sys.exit(1)
@@ -731,7 +741,7 @@ python3 junit_xml_parser.py tests/files/sample_tr.xml
     else:
         print(output)
 
-    tstamp = datetime.now().strftime("%d-%b-%Y-%H:%M:%S.%f")
+    tstamp = datetime.now().strftime("%d-%b-%Y-%H-%M-%S.%f")
 
     if args.output_file:
         csv_file = open('report_{}_{}.csv'.format(args.output_file.split('.')[0], tstamp), "w+")

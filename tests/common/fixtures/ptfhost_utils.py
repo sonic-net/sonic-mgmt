@@ -1,4 +1,6 @@
+from collections import namedtuple
 import json
+import time
 import os
 import pytest
 import logging
@@ -14,7 +16,10 @@ from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.dut_utils import check_link_status
 from tests.common.dualtor.dual_tor_common import ActiveActivePortID
 from tests.common.dualtor.dual_tor_utils import update_linkmgrd_probe_interval, recover_linkmgrd_probe_interval
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, is_ipv6_only_topology
+from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
+from pytest_ansible.errors import AnsibleConnectionFailure
+
 
 logger = logging.getLogger(__name__)
 
@@ -160,6 +165,55 @@ def remove_ip_addresses(ptfhost):
         ptfhost.shell("supervisorctl restart icmp_responder", module_ignore_errors=True)
 
 
+def setup_ptf_ip_responder(duthost, ptfhost, responder_conf_path, ip_intf_pairs, route=False):
+    # Use route=True when the responder IP is not in the DUT interface subnet/VLAN
+    # and needs an explicit host route through that interface.
+    arp_responder_conf = {}
+    ping_commands = []
+    for ip, dut_intf, ptf_index in ip_intf_pairs:
+        ip_addr = ip_interface(str(ip)).ip
+        arp_responder_conf.setdefault("eth{}".format(ptf_index), []).append(str(ip_addr))
+        ping = "ping6" if ip_addr.version == 6 else "ping"
+        ping_commands.append("{} -c 1 -w 1 -I {} {}".format(ping, dut_intf, ip_addr))
+
+    ptfhost.copy(content=json.dumps(arp_responder_conf), dest=responder_conf_path)
+    ptfhost.host.options["variable_manager"].extra_vars.update(
+        {"arp_responder_args": "--conf {}".format(responder_conf_path)})
+    ptfhost.template(src="templates/arp_responder.conf.j2", dest="/etc/supervisor/conf.d/arp_responder.conf")
+    ptfhost.shell("supervisorctl reread && supervisorctl update && supervisorctl restart arp_responder")
+
+    if route:
+        for ip, dut_intf, _ in ip_intf_pairs:
+            duthost.shell(_ptf_ip_route_cmd("replace", ip, dut_intf))
+    duthost.command("sonic-clear fdb all")
+    duthost.command("sonic-clear arp")
+    duthost.command("sonic-clear ndp")
+    time.sleep(20)
+    for cmd in ping_commands:
+        duthost.shell(cmd, module_ignore_errors=True)
+
+
+def teardown_ptf_ip_responder(duthost, ptfhost, responder_conf_path, ip_intf_pairs=None, route=False):
+    ptfhost.shell("supervisorctl stop arp_responder", module_ignore_errors=True)
+    ptfhost.file(path=responder_conf_path, state="absent")
+    ptfhost.file(path="/etc/supervisor/conf.d/arp_responder.conf", state="absent")
+    ptfhost.shell("supervisorctl reread && supervisorctl update", module_ignore_errors=True)
+    if route:
+        assert ip_intf_pairs, "ip_intf_pairs is required when route=True to clean up host routes"
+        for ip, dut_intf, _ in ip_intf_pairs:
+            duthost.shell(_ptf_ip_route_cmd("del", ip, dut_intf), module_ignore_errors=True)
+    duthost.command("sonic-clear fdb all")
+    duthost.command("sonic-clear arp")
+    duthost.command("sonic-clear ndp")
+
+
+def _ptf_ip_route_cmd(action, ip, dut_intf):
+    ip_addr = ip_interface(str(ip)).ip
+    route_prefix_len = 128 if ip_addr.version == 6 else 32
+    return "ip -{} route {} {}/{} dev {}".format(
+        ip_addr.version, action, ip_addr, route_prefix_len, dut_intf)
+
+
 @pytest.fixture(scope="session", autouse=True)
 def copy_arp_responder_py(ptfhost):
     """
@@ -177,6 +231,93 @@ def copy_arp_responder_py(ptfhost):
 
     logger.info("Delete arp_responder.py from ptfhost '{0}'".format(ptfhost.hostname))
     ptfhost.file(path=os.path.join(OPT_DIR, ARP_RESPONDER_PY), state="absent")
+
+
+# responder_cfg: eth<ptf_index> -> [ipv4, ipv6] ([ipv6] on IPv6-only topos),
+# the exact IP(s) the responder answers per port.
+ArpResponderInfo = namedtuple("ArpResponderInfo", ["vlan", "responder_cfg"])
+
+
+@pytest.fixture(scope="module", autouse=True)
+def setup_vlan_arp_responder(ptfhost, rand_selected_dut, tbinfo):
+    arp_responder_cfg = {}
+    if is_ipv6_only_topology(tbinfo):
+        ipv4_base = None
+    config_facts = rand_selected_dut.config_facts(
+        host=rand_selected_dut.hostname, source="running"
+    )['ansible_facts']
+    vlan_intf_config = config_facts['VLAN_INTERFACE']
+    for vlan, attrs in vlan_intf_config.items():
+        for val in attrs:
+            try:
+                if isinstance(attrs[val], dict) and attrs[val].get('secondary') == 'true':
+                    continue
+                ip = ip_interface(val)
+                if ip.version == 4:
+                    ipv4_base = ip
+                else:
+                    ipv6_base = ip
+            except ValueError:
+                continue
+        break
+    vlan_members = list(config_facts['VLAN_MEMBER'][vlan].keys())
+
+    dut_to_ptf_port_map = rand_selected_dut.get_extended_minigraph_facts(
+        tbinfo
+    )['minigraph_ptf_indices']
+
+    server_ip = {}
+    if 'dualtor' in tbinfo['topo']['name']:
+        server_ip = mux_cable_server_ip(rand_selected_dut)
+
+    ip_offset = 0
+    for port in vlan_members:
+        ptf_index = dut_to_ptf_port_map[port]
+        ip_offset = ptf_index + 1  # Add one since PTF indices start at 0
+        if 'dualtor' in tbinfo['topo']['name']:
+            arp_responder_cfg['eth{}'.format(ptf_index)] = [
+                server_ip[port]['server_ipv4'].split('/')[0],
+                server_ip[port]['server_ipv6'].split('/')[0]
+            ]
+            continue
+        if is_ipv6_only_topology(tbinfo):
+            arp_responder_cfg['eth{}'.format(ptf_index)] = [
+                str(ipv6_base.ip + ip_offset)
+            ]
+        else:
+            arp_responder_cfg['eth{}'.format(ptf_index)] = [
+                str(ipv4_base.ip + ip_offset), str(ipv6_base.ip + ip_offset)
+            ]
+
+    CFG_FILE = '/tmp/arp_responder_vlan.json'
+    with open(CFG_FILE, 'w') as file:
+        json.dump(arp_responder_cfg, file)
+    ptfhost.copy(src=CFG_FILE, dest=CFG_FILE)
+
+    extra_vars = {
+            'arp_responder_args': '--conf {}'.format(CFG_FILE)
+    }
+
+    ptfhost.host.options['variable_manager'].extra_vars.update(extra_vars)
+    ptfhost.template(src='templates/arp_responder.conf.j2',
+                     dest='/etc/supervisor/conf.d/arp_responder.conf')
+    ptfhost.copy(src=os.path.join(SCRIPTS_SRC_DIR, ARP_RESPONDER_PY),
+                 dest=OPT_DIR)
+
+    ptfhost.command('supervisorctl reread')
+    ptfhost.command('supervisorctl update')
+
+    logger.info("Start arp_responder")
+    ptfhost.command('supervisorctl start arp_responder')
+
+    yield ArpResponderInfo(vlan=vlan, responder_cfg=arp_responder_cfg)
+
+    ptfhost.command('supervisorctl stop arp_responder')
+    # Remove the rendered config so it can't mislead diagnostics or be picked up
+    # by a later, stale invocation of arp_responder. The supervisor unit file
+    # itself is intentionally left in place because the autouse fixture re-renders
+    # it on every module setup; deleting only the data file is enough.
+    ptfhost.file(path=CFG_FILE, state="absent")
 
 
 def _ptf_portmap_file(duthost, ptfhost, tbinfo):
@@ -232,7 +373,7 @@ icmp_responder_session_started = False
 
 
 @pytest.fixture(scope="session", autouse=True)
-def run_icmp_responder_session(duthosts, duthost, ptfhost, tbinfo):
+def run_icmp_responder_session(duthosts, duthost, ptfhost, tbinfo, request):
     """Run icmp_responder on ptfhost session-wise on dualtor testbeds with active-active ports."""
     # No vlan is available on non-t0 testbed, so skip this fixture
     if "dualtor-mixed" not in tbinfo["topo"]["name"] and "dualtor-aa" not in tbinfo["topo"]["name"]:
@@ -248,7 +389,12 @@ def run_icmp_responder_session(duthosts, duthost, ptfhost, tbinfo):
 
     duthost = duthosts[0]
     logger.debug("Copy icmp_responder.py to ptfhost '{0}'".format(ptfhost.hostname))
-    ptfhost.copy(src=os.path.join(SCRIPTS_SRC_DIR, ICMP_RESPONDER_PY), dest=OPT_DIR)
+    try:
+        ptfhost.copy(src=os.path.join(SCRIPTS_SRC_DIR, ICMP_RESPONDER_PY), dest=OPT_DIR)
+    except AnsibleConnectionFailure as e:
+        logger.error("Failed to copy files to ptfhost.")
+        request.config.cache.set("ptfhost_exception", True)
+        pt_assert(False, "!!! ptfhost copy file failed !!! Exception: {}".format(repr(e)))
 
     logger.info("Start running icmp_responder")
     templ = Template(open(os.path.join(TEMPLATES_DIR, ICMP_RESPONDER_CONF_TEMPL)).read())
@@ -385,11 +531,11 @@ def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses, request):
             mux_cable_table = {}
             server_ipv4_base_addr, server_ipv6_base_addr = request.getfixturevalue('mock_server_base_ip_addr')
             for i, intf in enumerate(request.getfixturevalue('tor_mux_intfs')):
-                server_ipv4 = str(server_ipv4_base_addr + i)
-                server_ipv6 = str(server_ipv6_base_addr + i)
+                server_ipv4 = str(server_ipv4_base_addr + i) if server_ipv4_base_addr else ''
+                server_ipv6 = str(server_ipv6_base_addr + i) if server_ipv6_base_addr else ''
                 mux_cable_table[intf] = {}
-                mux_cable_table[intf]['server_ipv4'] = six.text_type(server_ipv4)    # noqa F821
-                mux_cable_table[intf]['server_ipv6'] = six.text_type(server_ipv6)    # noqa F821
+                mux_cable_table[intf]['server_ipv4'] = six.text_type(server_ipv4)    # noqa: F821
+                mux_cable_table[intf]['server_ipv6'] = six.text_type(server_ipv6)    # noqa: F821
         else:
             # For physical dualtor testbed
             mux_cable_table = duthost.get_running_config_facts()['MUX_CABLE']
@@ -398,8 +544,8 @@ def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses, request):
 
         for vlan_intf, config in list(mux_cable_table.items()):
             ptf_port_index = ptf_indices[vlan_intf]
-            server_ip = ip_interface(config['server_ipv4']).ip
-            server_ipv6 = ip_interface(config['server_ipv6']).ip
+            server_ip = ip_interface(config['server_ipv4']).ip if config['server_ipv4'] else ''
+            server_ipv6 = ip_interface(config['server_ipv6']).ip if config['server_ipv6'] else ''
 
             garp_config[ptf_port_index] = {
                                             'dut_mac': '{}'.format(dut_mac),
@@ -612,3 +758,10 @@ def skip_traffic_test(request):
         if m.name == "skip_traffic_test":
             return True
     return False
+
+
+@pytest.fixture(scope='function')
+def iptables_drop_ipv6_tx(ptfhost):
+    ptfhost.shell("ip6tables -P OUTPUT DROP || true")
+    yield
+    ptfhost.shell("ip6tables -P OUTPUT ACCEPT || true")

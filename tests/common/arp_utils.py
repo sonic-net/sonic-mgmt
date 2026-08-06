@@ -1,6 +1,7 @@
 import json
 import logging
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import get_ptf_eth_ports_from_minigraph_interfaces
 from tests.ptf_runner import ptf_runner
 
 # Globals
@@ -28,10 +29,15 @@ def __prepareVxlanConfigData(duthost, ptfhost, tbinfo):
         'minigraph_port_indices': mgFacts['minigraph_ptf_indices'],
         'minigraph_portchannel_interfaces': mgFacts['minigraph_portchannel_interfaces'],
         'minigraph_portchannels': mgFacts['minigraph_portchannels'],
+        'minigraph_interfaces': mgFacts['minigraph_interfaces'],
         'minigraph_lo_interfaces': mgFacts['minigraph_lo_interfaces'],
         'vlan_facts': vlan_facts,
         'dut_mac': duthost.facts['router_mac']
     }
+    if not vxlanConfigData.get('minigraph_portchannels'):
+        vxlanConfigData['net_ports'] = get_ptf_eth_ports_from_minigraph_interfaces(
+            vxlanConfigData['minigraph_interfaces'],
+            vxlanConfigData['minigraph_port_indices'])
     with open(VXLAN_CONFIG_FILE, 'w') as file:
         file.write(json.dumps(vxlanConfigData, indent=4))
 
@@ -116,7 +122,7 @@ def setupFerret(duthost, ptfhost, tbinfo):
     __prepareVxlanConfigData(duthost, ptfhost, tbinfo)
 
     logger.info('Refreshing supervisor control with ferret configuration')
-    ptfhost.shell('supervisorctl reread && supervisorctl update')
+    ptfhost.shell('supervisorctl reread && supervisorctl update && supervisorctl start ferret')
 
 
 def setupRouteToPtfhost(duthost, ptfhost):
@@ -179,7 +185,7 @@ def tear_down(duthost, route, ptfIp, gwIp):
     teardownRouteToPtfhost(duthost, route, ptfIp, gwIp)
 
 
-def testWrArp(request, duthost, ptfhost, creds, skip_traffic_test):
+def testWrArp(request, duthost, ptfhost, creds):
     testDuration = request.config.getoption('--test_duration', default=DEFAULT_TEST_DURATION)
     ptfIp = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars['ansible_host']
     dutIp = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
@@ -187,8 +193,7 @@ def testWrArp(request, duthost, ptfhost, creds, skip_traffic_test):
     logger.info('Warm-Reboot Control-Plane assist feature')
     sonicadmin_alt_password = duthost.host.options['variable_manager']. \
         _hostvars[duthost.hostname]['sonic_default_passwords']
-    if skip_traffic_test is True:
-        return
+
     ptf_runner(
         ptfhost,
         'ptftests',

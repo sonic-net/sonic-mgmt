@@ -2,7 +2,10 @@
 Utility functions can re-used in testing scripts.
 """
 import re
+import time
 import logging
+
+logging_logger = logging.getLogger()
 
 
 # internal used function
@@ -64,3 +67,43 @@ def parse_show(output_lines):
         result.append(item)
 
     return result
+
+
+def __retry_internal(f, exceptions=Exception, tries=3, delay=2, logger=logging_logger):
+    """
+    @summary: Execute function with retry mechanism
+    @param f: Function to execute
+    @param exceptions: Exceptions to retry on
+    @param tries: Retry attempts
+    @param delay: Base delay between retries
+    @param logger: Logger instance
+    @return: Function result
+    """
+    if tries == 0:
+        return f()
+    for i in range(tries):
+        try:
+            return f()
+        except exceptions as e:
+            if i == tries - 1:
+                raise
+            if logger is not None:
+                logger.warning('%s, retrying in %s seconds...', e, delay)
+            time.sleep(delay)
+
+
+def retry_call(f, fargs=None, fkwargs=None, exceptions=Exception, tries=3, delay=2, logger=logging_logger):
+    """
+    @summary: Call function with retry mechanism
+    @param f: Target function
+    @param fargs: Positional args
+    @param fkwargs: Keyword args
+    @param exceptions: Exceptions to retry on
+    @param tries: Retry attempts
+    @param delay: Base delay between retries
+    @param logger: Logger instance
+    @return: Function result
+    """
+    def _wrapped_f():
+        return f(*(fargs or []), **(fkwargs or {}))
+    return __retry_internal(_wrapped_f, exceptions, tries, delay, logger)
