@@ -497,9 +497,9 @@ def test_perf_multi_operation(perf_ctx):
             "op": "add",
             "path": "/ACL_TABLE/{}".format(table_b),
             "value": {
-                "type": "L3",
+                "type": "CTRLPLANE",
                 "policy_desc": "Multi test B - to be removed",
-                "ports": up_ports[:min(4, len(up_ports))],
+                "services": ["SSH"],
                 "stage": "ingress"
             }
         }
