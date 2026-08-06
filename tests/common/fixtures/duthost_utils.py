@@ -960,7 +960,7 @@ def duthosts_ipv6_mgmt_only(duthosts, backup_and_restore_ansible_hosts, backup_a
         for duthost in duthosts.nodes:
             executor.submit(config_reload_if_modified, duthost)
 
-    duthosts.reset()
+    duthosts.meta("reset_connection")
     set_ansible_hosts(duthosts, ipv6_address)
 
     def wait_for_processes_and_bgp(dut):

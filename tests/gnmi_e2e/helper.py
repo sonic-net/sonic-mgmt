@@ -4,18 +4,12 @@ import logging
 
 from tests.common.helpers.gnmi_utils import add_gnmi_client_common_name, \
                                             del_gnmi_client_common_name, \
-                                            GNMI_CERT_NAME, TELEMETRY_CONTAINER
+                                            GNMI_CERT_NAME
 
 
 logger = logging.getLogger(__name__)
 SETUP_ENV_CP = "test_setup_checkpoint"
 INVALID_CERT_NAME = "invalid.cname"
-
-
-def telemetry_enabled(duthost):
-    containers = duthost.get_all_containers()
-    logger.warning("running containers: {}".format(containers))
-    return TELEMETRY_CONTAINER in containers
 
 
 @pytest.fixture(scope="function")
