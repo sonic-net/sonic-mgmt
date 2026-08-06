@@ -661,6 +661,18 @@ def translate_config_db(config_db, running_config, peer_group_json):
     # See sonic-buildimage#28482.
     if any(ln.strip() == "no bgp ebgp-requires-policy" for ln in running_config.splitlines()):
         globals_tbl[DEFAULT_VRF]["ebgp_requires_policy"] = "false"
+    # Same shape for suppress-fib-pending, but it lives in DEVICE_METADATA rather than
+    # BGP_GLOBALS. bgpcfgd's template renders 'bgp suppress-fib-pending' whether or not the field
+    # is set; frrcfgd reads DEVICE_METADATA['suppress-fib-pending'], caches it at startup and
+    # pushes it to FRR only when it *changes*. With the field absent frrcfgd caches 'disabled'
+    # without touching FRR, so FRR keeps the line and a later write of 'disabled' compares equal
+    # to the cache and is dropped -- routes then stay in the queued state
+    # (test_bgp_route_without_suppress). Carrying the running-config state into the field keeps
+    # frrcfgd's cache honest so a subsequent change is acted on.
+    suppress_fib = "enabled" if any(
+        ln.strip() == "bgp suppress-fib-pending" for ln in running_config.splitlines()) else "disabled"
+    result.setdefault("DEVICE_METADATA", {}).setdefault("localhost", {})[
+        "suppress-fib-pending"] = suppress_fib
     peer_group = _build_peer_groups(bgp_asn, all_pg_names)
     peer_group_af = _build_peer_group_af(ipv4_pg, ipv6_pg, route_map_names)
     _apply_bbr(result, peer_group_af)
