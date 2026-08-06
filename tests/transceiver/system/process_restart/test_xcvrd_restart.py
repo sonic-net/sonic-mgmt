@@ -38,7 +38,6 @@ across all ports.
 """
 import logging
 import time
-
 import pytest
 
 from tests.transceiver.attribute_parser.attribute_keys import (
@@ -135,10 +134,9 @@ def test_system_xcvrd_crash_recovery(
     See the module docstring for the full execution tree.  Steps:
 
       * verify all ports are oper-up and record xcvrd uptime,
-      * inject a crash into the xcvrd script via ``inject_xcvrd_crash``,
+      * inject a crash into the xcvrd script via SIGKILL,
       * monitor automatic restart behavior,
-      * wait for ``xcvrd_restart_settle_sec`` then run Standard Port Recovery
-        and Verification for every port.
+      * wait for ``xcvrd_restart_settle_sec`` then run SPRaV
 
     All (port, step) failures are accumulated and reported in a single
     ``pytest.fail`` so one run surfaces every issue.

@@ -26,10 +26,6 @@ def check_lldp_neighbors_present(duthost, port_timeouts, namespaces=None):
     """Poll APPL_DB ``LLDP_ENTRY_TABLE:<port>`` until every port has a
     neighbor.
 
-    Why: System tests need to confirm the far end re-converged after a
-    disruptive operation; polling all ports together (each with its own
-    timeout) lets waits overlap instead of summing per-port timeouts.
-
     Args:
         duthost: SONiC DUT host fixture.
         port_timeouts: dict of ``{port: timeout_sec}``.
@@ -241,7 +237,7 @@ def check_cmis_state(
     ConfigState=ConfigSuccess, for every port in ``ports``.
 
     Why: ``TRANSCEIVER_STATUS`` is published once per physical module (under
-    the first sub-port of a breakout group) and carries every host lane of
+    the first sub-port of a breakou                   t group) and carries every host lane of
     the module, so a breakout sub-port must be checked only against its own
     active lanes - not a sibling's - to avoid a false pass/fail; this also
     batches the underlying DB reads per namespace instead of per port.
