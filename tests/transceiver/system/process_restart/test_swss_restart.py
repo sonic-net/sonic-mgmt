@@ -68,7 +68,8 @@ def test_system_swss_restart(
     failures = []
 
     logger.info("Recording link states and uptime for %d port(s)", len(ports))
-    if not check_links_up(duthost, port_attributes_dict):
+    link_check = check_links_up(duthost, port_attributes_dict)
+    if not link_check["passed"]:
         logger.warning("Validation on Start FAILED: some ports are down")
     else:
         appl_db = sdbHelp(duthost)
