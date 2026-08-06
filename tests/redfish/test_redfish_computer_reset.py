@@ -60,12 +60,10 @@ def cpu_running(platform_api_conn):  # noqa: F811
         # Reading the reset register requires root, which the platform API server
         # has. Anything other than Online/Offline here is a genuine read failure,
         # not a privilege problem, so surface it instead of reporting "in reset".
-        pytest_assert(
-            False,
+        raise AssertionError(
             "SWITCH-HOST oper status is {!r}, expected {} or {}: the BMC failed to "
             "read the switch host CPU reset register".format(
-                status, MODULE_STATUS_ONLINE, MODULE_STATUS_OFFLINE),
-        )
+                status, MODULE_STATUS_ONLINE, MODULE_STATUS_OFFLINE))
 
     return _cpu_running
 
@@ -73,8 +71,8 @@ def cpu_running(platform_api_conn):  # noqa: F811
 def _cpu_running_or_unknown(cpu_running):
     """Non-raising variant for teardown: an unreadable state counts as not-running.
 
-    pytest_assert raises pytest.fail.Exception, which derives from BaseException,
-    so it is caught explicitly alongside Exception (same as wait_until does).
+    pytest.fail.Exception derives from BaseException rather than Exception, so it
+    is caught explicitly alongside it (same as wait_until does).
     """
     try:
         return cpu_running()
