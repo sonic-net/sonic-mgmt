@@ -47,15 +47,16 @@ def validate_pfc_frame(pfc_pcap_file, SAMPLE_SIZE=15000, UTIL_THRESHOLD=0.8):
                 logger.info("PFC frame {} is not valid. Please check the capture file.".format(curPktCount))
                 return False, "PFC frame is not valid"
             cev = [int(i) for i in pfc_packet.class_enable_vec]
+            cev_nonzero = sum(cev) > 0
             # Per-frame detail at debug level so a 15k-packet sample does not flood the log.
             logger.debug("PFC frame {} valid: dst_mac={}, cbfc_opcode={}, class_enable_vec={}, class_pause_times={}"
                          .format(curPktCount, dest_mac, hex(pfc_packet.cbfc_opcode),
                                  pfc_packet.class_enable_vec, pfc_packet.class_pause_times))
-            if sum(cev) > 0 and not seen_non_zero_cev:
+            if cev_nonzero and not seen_non_zero_cev:
                 logger.info("First PFC frame with non-zero class enable vector at packet {}: "
                             "class_enable_vec={}, class_pause_times={}"
                             .format(curPktCount, pfc_packet.class_enable_vec, pfc_packet.class_pause_times))
-            seen_non_zero_cev = True if sum(cev) > 0 else seen_non_zero_cev
+            seen_non_zero_cev = seen_non_zero_cev or cev_nonzero
             curPFCPktCount += 1
         curPktCount += 1
 

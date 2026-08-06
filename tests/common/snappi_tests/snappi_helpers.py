@@ -379,13 +379,22 @@ def set_flow_transmit_state(api, operation, flow_names=None):
     Args:
     api: snappi api
     operation (str): 'start' or 'stop'
-    flow_names (list): flows to act on; None/empty acts on all flows
+    flow_names (list): flows to act on; None acts on all flows. An empty list
+                       is rejected — a scoped call that resolved to no flows
+                       is a caller bug, not a stop-all.
 
     Returns:
     None
     """
+    if flow_names is not None and not flow_names:
+        raise ValueError(
+            "set_flow_transmit_state: flow_names=[] would have been treated as "
+            "'{} ALL flows' (including any PFC pause storm). If you meant all "
+            "flows, pass flow_names=None; otherwise check why the scoped flow "
+            "list resolved to empty.".format(operation)
+        )
     cs = api.control_state()
-    if flow_names:
+    if flow_names is not None:
         cs.traffic.flow_transmit.flow_names = flow_names
     if operation == "start":
         cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START
