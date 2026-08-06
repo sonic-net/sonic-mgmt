@@ -24,6 +24,7 @@ forced_mgmt_routes: [
   '2603:10e2:140:3000::0000/114',       # TK5
   '2603:10e2:140:3000::4000/114',       # strtk5, PTF & neighbors
   '2603:10e2:140:3000::8000/114',       # strtk5a, PTF & neighbors
+  '2603:1039:405:13::/64',              # IPv6 ExpressRoute NAT GW network address
 ]
 
 #properties of ErspanDestinationIpv4 in minigraph
