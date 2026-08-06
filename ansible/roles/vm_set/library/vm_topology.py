@@ -1261,12 +1261,17 @@ class VMTopology(object):
         injected_iface_id = bindings[injected_iface]
         vm_iface_id = bindings[vm_iface]
 
-        # Collect all flow rules and program them with a single
-        # "ovs-ofctl replace-flows" call instead of a separate "del-flows"
-        # plus one or more individual "add-flow" calls. replace-flows
-        # atomically clears the flow table and installs the new rules in
-        # one OpenFlow transaction, cutting the number of round trips to
-        # the (often busy) ovs-vswitchd OpenFlow channel.
+        # clear old bindings
+        VMTopology.cmd('ovs-ofctl del-flows %s' % br_name)
+
+        # Collect all flow rules and install them with a single batched
+        # "ovs-ofctl add-flows" call instead of one "add-flow" call per
+        # rule. Note: "ovs-ofctl replace-flows" was tried here to also
+        # fold in the "del-flows" above, but it additionally requires the
+        # switch to support the NXM/OXM flow formats (it needs to dump the
+        # current flow table to compute a diff), which freshly created
+        # bridges do not always support, causing bind failures. Keep the
+        # separate "del-flows" call and only batch the "add-flow"s.
         all_cmds = []
         bind_helper = lambda cmd: \
             all_cmds.append(cmd.split()[-1])  # noqa: E731
@@ -1377,11 +1382,7 @@ class VMTopology(object):
             for rule in all_cmds:
                 f.write(rule.strip("'") + "\n")
 
-        # replace-flows atomically clears the existing flow table and
-        # installs the rules from the file in a single OpenFlow
-        # transaction, replacing the previous "del-flows" + N x "add-flow"
-        # sequence.
-        processes.append(VMTopology.fire_and_forget("ovs-ofctl replace-flows {} {}".format(br_name, f.name)))
+        processes.append(VMTopology.fire_and_forget("ovs-ofctl add-flows {} {}".format(br_name, f.name)))
 
     def unbind_ovs_ports(self, br_name, vm_port, **kwargs):
         """unbind all ports except the vm port from an ovs bridge"""
