@@ -10,8 +10,10 @@ suite-wide list of per-port failure strings for aggregation into one
 """
 
 import logging
+import time
 
 from tests.common.platform.interface_utils import wait_ports_oper_status
+from tests.transceiver.common import cli_helpers
 
 logger = logging.getLogger(__name__)
 
@@ -79,4 +81,25 @@ def perform_ports_startup(duthost, ports, wait_sec):
             logger.warning("%s", failure)
     else:
         logger.info("All %d port(s) reached oper-up", len(ports))
+    return failures
+
+
+def perform_sfputil_reset(duthost, port, recover_with_port_toggle=True,
+                          i2c_recover_sec=5, shutdown_wait=5, startup_wait=60):
+    """``sfputil reset`` a transceiver, optionally bracketed by a port toggle.
+
+    Some modules stay oper-down after a reset, so ``recover_with_port_toggle``
+    helps bring the port back up. Sleeps``i2c_recover_sec`` after the reset.
+    Returns a list of per-port failure strings.
+    """
+    failures = []
+    if recover_with_port_toggle:
+        failures += perform_ports_shutdown(duthost, [port], shutdown_wait)
+    reset_elapsed, reset_err = cli_helpers.sfputil_reset(duthost, port)
+    logger.info("Port %s: transceiver reset took %ss", port, reset_elapsed)
+    if reset_err:
+        failures.append(f"transceiver reset failed on {port}: {reset_err}")
+    time.sleep(i2c_recover_sec)
+    if recover_with_port_toggle:
+        failures += perform_ports_startup(duthost, [port], startup_wait)
     return failures
