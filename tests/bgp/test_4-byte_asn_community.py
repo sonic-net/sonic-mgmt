@@ -25,7 +25,19 @@ bgp_sleep = 120
 bgp_id_textfsm = "./bgp/templates/bgp_id.template"
 
 pytestmark = [
-    pytest.mark.frr_generic,
+    # NOT frr_generic. This module tears down and rebuilds the DUT's entire BGP instance through
+    # vtysh -- `no router bgp <asn>` then `router bgp <4-byte asn>` with every neighbour,
+    # address-family and route-map -- and makes zero CONFIG_DB writes. frrcfgd drives FRR from
+    # CONFIG_DB, so that config is not carried and the 4-byte ASN never reaches the neighbour's
+    # v6 AS paths (the v4 check passes, the v6 one does not). Confirmed by widening the assertion
+    # to search the whole output: the ASN is genuinely absent, not merely mis-positioned.
+    #
+    # frr_generic was harmful here for the same reason as in test_ipv6_nlri_over_ipv4: it ran the
+    # module in frrcfgd mode *only* -- the one mode it cannot work in -- so the traditional run,
+    # which passes, was skipped.
+    pytest.mark.frr_bgpcfgd_only(
+        "this module rebuilds the DUT's BGP instance via vtysh rather than CONFIG_DB, so frrcfgd "
+        "does not carry the 4-byte ASN and it never appears in the neighbour's v6 AS paths"),
     pytest.mark.topology('t2', 'lrh', 'urh')
 ]
 
@@ -591,16 +603,10 @@ def run_bgp_4_byte_asn_community_eos(setup):
     assert str(dut_4byte_asn) in output.split()[3]
     output = bgp_neigh.get_command_output("show ipv6 bgp summary | include {}".format(setup['dut_ip_v6'].lower()))
     assert str(dut_4byte_asn) in output.split()[3]
-    # Search the whole output instead of fixed line offsets. EOS wraps a v6 route's next-hop
-    # onto a continuation line (the DUT-side check above documents the same thing and tests two
-    # candidate lines), so the AS path is not reliably in the last one or two lines. Asserting on
-    # [-1]/[-2] made this fail even though the earlier DUT-side and v4 neighbour-side checks all
-    # passed. An ASN that is genuinely not advertised still fails this, so widening the search
-    # cannot mask a real gap.
     output = bgp_neigh.get_command_output("show ip bgp neighbors {} routes".format(setup['dut_ip_v4']))
-    assert str(dut_4byte_asn) in output
+    assert str(dut_4byte_asn) in str(output.split('\n')[-1])
     output = bgp_neigh.get_command_output("show ipv6 bgp peers {} routes".format(setup['dut_ip_v6'].lower()))
-    assert str(dut_4byte_asn) in output
+    assert str(dut_4byte_asn) in str(output.split('\n')[-1]) or str(dut_4byte_asn) in str(output.split('\n')[-2])
 
 
 def test_4_byte_asn_community(setup):
