@@ -4285,3 +4285,12 @@ def restore_counter_poll(rand_selected_dut):
         parsed_counterpoll_before,
         parsed_counterpoll_after
     )
+
+
+@pytest.fixture(scope="session")
+def ansible_root(request):
+    """
+    Returns the ansible directory.
+    """
+    tbfile = request.config.getoption("testbed_file")
+    return pathlib.Path(tbfile).parent
