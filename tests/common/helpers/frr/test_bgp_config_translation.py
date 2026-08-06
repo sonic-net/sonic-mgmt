@@ -101,6 +101,24 @@ def test_ebgp_requires_policy_absent_when_not_in_running_config():
     assert "ebgp_requires_policy" not in out["BGP_GLOBALS"]["default"]
 
 
+def test_suppress_fib_pending_carried_from_running_config():
+    # 'bgp suppress-fib-pending' is rendered by bgpcfgd's template but frrcfgd drives it from
+    # DEVICE_METADATA, caching the value at startup and pushing it to FRR only when it changes.
+    # If the field were left absent frrcfgd would cache 'disabled' while FRR still had the line,
+    # so a later write of 'disabled' would compare equal and never be applied.
+    running = "\n".join([
+        "router bgp 65100",
+        " bgp suppress-fib-pending",
+    ])
+    out = translate_config_db(_base_config_db(), running, _peer_group_json())
+    assert out["DEVICE_METADATA"]["localhost"]["suppress-fib-pending"] == "enabled"
+
+
+def test_suppress_fib_pending_disabled_when_absent_from_running_config():
+    out = translate_config_db(_base_config_db(), "", _peer_group_json())
+    assert out["DEVICE_METADATA"]["localhost"]["suppress-fib-pending"] == "disabled"
+
+
 def test_peer_groups_built():
     out = translate_config_db(_base_config_db(), "", _peer_group_json())
     assert out["BGP_PEER_GROUP"]["default|PEER_V4"]["local_asn"] == "65100"
