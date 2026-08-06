@@ -642,9 +642,7 @@ def fib_lma(topo, ptf_ip, action="announce", topo_routes=None):
     vms_config = topo['configuration']
 
     for k, v in vms_config.items():
-        vm_offset = vms[k]['vm_offset']
-        port = IPV4_BASE_PORT + vm_offset
-        port6 = IPV6_BASE_PORT + vm_offset
+        port, port6 = get_change_routes_ports(k, topo)
 
         routes_v4 = []
         routes_v6 = []
@@ -672,9 +670,7 @@ def fib_uma(topo, ptf_ip, action="announce", topo_routes={}):
     vms_config = topo['configuration']
 
     for k, v in vms_config.items():
-        vm_offset = vms[k]['vm_offset']
-        port = IPV4_BASE_PORT + vm_offset
-        port6 = IPV6_BASE_PORT + vm_offset
+        port, port6 = get_change_routes_ports(k, topo)
 
         routes_v4 = []
         routes_v6 = []
