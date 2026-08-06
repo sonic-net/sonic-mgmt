@@ -24,6 +24,7 @@ from datetime import datetime
 from ipaddress import ip_interface, IPv4Interface
 from tests.common.multi_servers_utils import MultiServersUtils
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa: F401
+from tests.common.fixtures.vlan_config_swap import parametrize_vlan_config_from_topo  # noqa: F401
 from tests.common.devices.local import Localhost
 from tests.common.devices.ptf import PTFHost
 from tests.common.devices.eos import EosHost
@@ -43,7 +44,6 @@ from tests.common.fixtures.ptfhost_utils import ptf_test_port_map_active_active 
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder_session                  # noqa: F401
 from tests.common.dualtor.dual_tor_utils import disable_timed_oscillation_active_standby    # noqa: F401
 from tests.common.dualtor.dual_tor_utils import config_active_active_dualtor
-from tests.common.dualtor.dual_tor_common import active_active_ports                        # noqa: F401
 from tests.common.dualtor import mux_simulator_control                                      # noqa: F401
 
 from tests.common.helpers.constants import (
@@ -2229,6 +2229,23 @@ _macsec_frontend_hosts_per_hwsku_per_module = {}
 
 
 def pytest_generate_tests(metafunc):
+    # Auto-parametrize over topo DUT.vlan_configs keys (see vlan_config_swap.py).
+    if "parametrize_vlan_config_from_topo" in metafunc.fixturenames:
+        already_explicit = any(
+            m.name == "parametrize"
+            and m.args
+            and m.args[0] == "parametrize_vlan_config_from_topo"
+            for m in metafunc.definition.iter_markers()
+        )
+        if not already_explicit:
+            _, _tbinfo = get_tbinfo(metafunc)
+            _topo_dut = _tbinfo.get("topo", {}).get("properties", {}).get("topology", {}).get("DUT", {})
+            _vcs = _topo_dut.get("vlan_configs") or {}
+            _variants = sorted(k for k in _vcs.keys() if k != "default_vlan_config")
+            metafunc.parametrize(
+                "parametrize_vlan_config_from_topo",
+                _variants, indirect=True, ids=_variants,
+            )
     # The topology always has atleast 1 dut
     dut_fixture_name = None
     duts_selected = None
@@ -4019,7 +4036,7 @@ class DualtorMuxPortSetupConfig(enum.Flag):
 
 
 @pytest.fixture(autouse=True)
-def setup_dualtor_mux_ports(active_active_ports, duthost, duthosts, tbinfo, request, mux_server_url):       # noqa:F811
+def setup_dualtor_mux_ports(duthost, duthosts, tbinfo, request, mux_server_url):       # noqa:F811
     """Setup dualtor mux ports."""
     def _get_enumerated_dut_hostname(request):
         for k, v in request.node.callspec.params.items():
@@ -4114,7 +4131,7 @@ def setup_dualtor_mux_ports(active_active_ports, duthost, duthosts, tbinfo, requ
             config_active_active_dualtor(
                 duthosts[active_dut_hostname],
                 duthosts[standby_dut_hostname],
-                active_active_ports,
+                "all",
                 dualtor_setup_config & DualtorMuxPortSetupConfig.DUALTOR_SETUP_MUX_PORT_MANUAL_MODE
             )
         else:

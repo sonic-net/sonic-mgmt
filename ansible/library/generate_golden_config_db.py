@@ -193,7 +193,8 @@ class GenerateGoldenConfigDBModule(object):
                                     bgp_confd_asn=dict(required=False, type='str', default=None),
                                     bgp_confd_peers=dict(required=False, type='str', default=None),
                                     enabled_dpu_indices=dict(required=False, type='list',
-                                                             elements='int', default=None)),
+                                                             elements='int', default=None),
+                                    lacp_fast_rate=dict(required=False, type='bool', default=False)),
                                     supports_check_mode=True)
         self.topo_name = self.module.params['topo_name']
         self.port_index_map = self.module.params['port_index_map']
@@ -218,6 +219,7 @@ class GenerateGoldenConfigDBModule(object):
         self.dut_loopbacks = self.module.params['dut_loopbacks']
         self.console_ports = self.module.params['console_ports']
         self.enabled_dpu_indices = self.module.params['enabled_dpu_indices']
+        self.lacp_fast_rate = self.module.params['lacp_fast_rate']
 
     def _update_config_db_in_ns(self, config, table, value, namespaces_to_update='asic'):
         """Update a table entry across all ASIC namespaces for multi-ASIC platforms.
@@ -1095,7 +1097,8 @@ class GenerateGoldenConfigDBModule(object):
     def generate_drh_golden_config_db(self):
         """
         Generate golden_config for disaggregated Regional Hub (LRH/URH) topologies.
-        Only sets BGP confederation config.
+        Sets BGP confederation config, and optionally enables LACP fast rate on all
+        PortChannels when lacp_fast_rate is requested.
         """
         ori_config = json.loads(self.get_config_from_minigraph())
         golden_config = ori_config
@@ -1105,6 +1108,12 @@ class GenerateGoldenConfigDBModule(object):
             golden_config["BGP_DEVICE_GLOBAL"]["CONFED"] = \
                 {"asn": str(self.bgp_confd_asn), "peers": str(self.bgp_confd_peers).replace(' ', ';')}
 
+        # Enable LACP fast rate on all PortChannels so neighbor-facing LAGs run 1s LACPDUs.
+        if self.lacp_fast_rate:
+            golden_config["PORTCHANNEL"] = ori_config.get("PORTCHANNEL", {})
+            for portchannel_config in golden_config["PORTCHANNEL"].values():
+                portchannel_config["fast_rate"] = "true"
+
         return json.dumps(golden_config, indent=4)
 
     def generate_lt2_ft2_golden_config_db(self):
@@ -1113,7 +1122,7 @@ class GenerateGoldenConfigDBModule(object):
         Enables FEC for high-speed ports. PORT table rebuild from platform.json
         is handled separately by override_port_table_from_platform().
         """
-        SUPPORTED_TOPO = ["ft2-64", "ft2-16", "lt2-p32o64", "lt2-o128", "lt2-o128-d110u14",
+        SUPPORTED_TOPO = ["lt2-min", "ft2-64", "ft2-16", "lt2-p32o64", "lt2-o128", "lt2-o128-d110u14",
                           "ft2-o128", "lt2-o256-u32d224", "lt2-u32d128"]
         if self.topo_name not in SUPPORTED_TOPO:
             return "{}"
