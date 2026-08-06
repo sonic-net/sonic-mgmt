@@ -5,10 +5,12 @@ import pytest
 
 from tests.transceiver.common.db_helpers import parse_numeric
 from tests.transceiver.dom.dom_helpers import (
+    STATE_DB_THRESHOLD_TABLE,
     THRESHOLD_FIELD_SUFFIXES,
     THRESHOLD_VALUE_TOLERANCE,
     build_dom_threshold_plan,
     format_dom_port_failure,
+    parse_min_max_range,
     read_dom_threshold_data,
 )
 
@@ -49,30 +51,6 @@ def _parse_threshold_range(attr_name, attr_value):
     return thresholds, []
 
 
-def _parse_operational_range(mapped_field):
-    """Return ``(min_value, max_value, error)`` for one paired operational range."""
-    attr_name = mapped_field.source_attr
-    attr_value = mapped_field.attr_value
-
-    if not isinstance(attr_value, dict):
-        return None, None, "{} must be a dict with min/max in DOM_ATTRIBUTES".format(attr_name)
-
-    min_value = parse_numeric(attr_value.get("min"))
-    max_value = parse_numeric(attr_value.get("max"))
-    if min_value is None or max_value is None:
-        return None, None, "{} missing numeric min/max in DOM_ATTRIBUTES".format(attr_name)
-    if not math.isfinite(min_value) or not math.isfinite(max_value):
-        return None, None, "{} has non-finite min/max in DOM_ATTRIBUTES".format(attr_name)
-    if min_value > max_value:
-        return None, None, "{} has invalid range [{}, {}]".format(
-            attr_name,
-            attr_value.get("min"),
-            attr_value.get("max"),
-        )
-
-    return min_value, max_value, None
-
-
 def _threshold_hierarchy_error(attr_name, thresholds, source):
     if (
         thresholds["lowalarm"]
@@ -89,7 +67,7 @@ def _threshold_hierarchy_error(attr_name, thresholds, source):
 
 def _validate_operational_range_within_warning(threshold_attr, thresholds, operational_mapped_field):
     """Validate a paired operational range sits inside threshold warning bounds."""
-    op_min, op_max, range_error = _parse_operational_range(operational_mapped_field)
+    op_min, op_max, range_error = parse_min_max_range(operational_mapped_field)
     if range_error:
         return [range_error]
 
@@ -106,6 +84,14 @@ def _validate_operational_range_within_warning(threshold_attr, thresholds, opera
             thresholds["highwarning"],
         )
     ]
+
+
+def _has_threshold_range_attributes(threshold_plan_by_port):
+    """Return True when any primary port has configured threshold-range checks."""
+    return any(
+        plan.get("threshold_attrs") or plan.get("errors")
+        for plan in threshold_plan_by_port.values()
+    )
 
 
 def _validate_dom_threshold_ranges(dom_primary_ports, threshold_by_port, threshold_plan_by_port):
@@ -127,6 +113,21 @@ def _validate_dom_threshold_ranges(dom_primary_ports, threshold_by_port, thresho
         if has_threshold_checks:
             checked_port_count += 1
 
+        if has_threshold_checks and not threshold_data:
+            field_failures.append(
+                "no {} entry published for port".format(STATE_DB_THRESHOLD_TABLE)
+            )
+            failures.append(
+                format_dom_port_failure(
+                    port,
+                    None,
+                    expected_fields,
+                    field_failures,
+                    field_label="expected threshold field(s)",
+                )
+            )
+            continue
+
         for attr_name, attr_value in sorted(threshold_attrs.items()):
             attr_failure_count = len(field_failures)
             attr_expected_fields = {
@@ -142,12 +143,6 @@ def _validate_dom_threshold_ranges(dom_primary_ports, threshold_by_port, thresho
 
             if not attr_expected_fields:
                 field_failures.append("{} has no expected STATE_DB threshold fields".format(attr_name))
-                continue
-
-            if not threshold_data:
-                field_failures.append(
-                    "{} threshold table missing in STATE_DB".format(attr_name)
-                )
                 continue
 
             actual_thresholds = {}
@@ -226,9 +221,11 @@ def test_dom_threshold_validation(
     port_attributes_dict,
 ):
     """Verify configured DOM threshold ranges against STATE_DB threshold data."""
-    threshold_by_port, threshold_read_errors = read_dom_threshold_data(duthost, dom_primary_ports)
     threshold_plan_by_port = build_dom_threshold_plan(port_attributes_dict, dom_primary_ports)
+    if not _has_threshold_range_attributes(threshold_plan_by_port):
+        pytest.skip("No *_threshold_range attributes configured for DOM threshold validation")
 
+    threshold_by_port, threshold_read_errors = read_dom_threshold_data(duthost, dom_primary_ports)
     all_failures = ["STATE_DB read:\n  {}".format(read_error) for read_error in threshold_read_errors]
     threshold_failures, checked_attr_count, checked_field_count, checked_port_count = (
         _validate_dom_threshold_ranges(
@@ -238,9 +235,6 @@ def test_dom_threshold_validation(
         )
     )
     all_failures.extend(threshold_failures)
-
-    if not (all_failures or checked_port_count):
-        pytest.skip("No *_threshold_range attributes configured for DOM threshold validation")
 
     if all_failures:
         pytest.fail("DOM threshold validation failures:\n" + "\n".join(all_failures))
