@@ -5,6 +5,7 @@ a list of self-describing strings.  Callers aggregate those strings into the
 final per-test failure message instead of raising immediately.
 """
 import logging
+import math
 from collections import defaultdict, namedtuple
 
 from tests.transceiver.attribute_parser.attribute_keys import (
@@ -15,6 +16,7 @@ from tests.transceiver.common.db_helpers import (
     check_entry_freshness,
     get_config_db_port_table,
     get_state_db_table,
+    parse_numeric,
     resolve_port_namespace,
 )
 
@@ -214,12 +216,36 @@ def format_optional_float(value):
 
 def format_dom_port_failure(port, active_lanes, expected_fields, field_failures):
     """Prefix a port's failure block with its expected shape."""
-    return "{} [{} expected field(s), media lanes {}]:\n  {}".format(
+    return "{} [{} expected field(s), lanes {}]:\n  {}".format(
         port,
         len(expected_fields),
         active_lanes or "none",
         "\n  ".join(field_failures),
     )
+
+
+def parse_min_max_range(mapped_field):
+    """Return ``(min_value, max_value, error)`` for a DOM ``{"min", "max"}`` range."""
+    attr_name = mapped_field.source_attr
+    attr_value = mapped_field.attr_value
+
+    if not isinstance(attr_value, dict):
+        return None, None, "{} must be a dict with min/max in DOM_ATTRIBUTES".format(attr_name)
+
+    min_value = parse_numeric(attr_value.get("min"))
+    max_value = parse_numeric(attr_value.get("max"))
+    if min_value is None or max_value is None:
+        return None, None, "{} missing numeric min/max in DOM_ATTRIBUTES".format(attr_name)
+    if not math.isfinite(min_value) or not math.isfinite(max_value):
+        return None, None, "{} has non-finite min/max in DOM_ATTRIBUTES".format(attr_name)
+    if min_value > max_value:
+        return None, None, "{} has invalid range [{}, {}]".format(
+            attr_name,
+            attr_value.get("min"),
+            attr_value.get("max"),
+        )
+
+    return min_value, max_value, None
 
 
 def validate_dom_plan_fields(
@@ -256,22 +282,10 @@ def validate_dom_plan_fields(
         checked_port_count += 1
 
         if not sensor_data:
-            if expected_fields:
-                field_failures.append(
-                    "missing {} data for expected field(s): {}".format(
-                        STATE_DB_SENSOR_TABLE,
-                        ", ".join(expected_fields),
-                    )
-                )
-            elif max_age_min is not None:
-                if now_utc is None:
-                    now_utc = duthost.get_now_time(utc_timezone=True)
-                field_failures.extend(
-                    check_dom_sensor_freshness(sensor_data, max_age_min, now_utc)["failures"]
-                )
-
-            if field_failures:
-                failures.append(format_dom_port_failure(port, active_lanes, expected_fields, field_failures))
+            field_failures.append(
+                "no {} entry published for port".format(STATE_DB_SENSOR_TABLE)
+            )
+            failures.append(format_dom_port_failure(port, active_lanes, expected_fields, field_failures))
             continue
 
         freshness_age_min = None
