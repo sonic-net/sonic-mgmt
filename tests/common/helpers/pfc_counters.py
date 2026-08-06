@@ -308,11 +308,12 @@ def run_rx_ok_isolation_test(fanouthosts, duthost, conn_graph_facts,       # noq
               counted as normal RX packets (RX_OK) or RX drops (RX_DRP) on the
               DUT interfaces.
 
-              A large burst of PFC frames is sent across all priorities to every
-              active physical interface first; only then is a single counter
-              snapshot compared against the baseline (one stats retrieval pass).
-              The RX_OK and RX_DRP deltas must each stay within `margin` to
-              tolerate background control-plane traffic.
+              Each active physical interface is exercised one at a time: a
+              baseline snapshot is taken, a burst of PFC frames is sent across
+              all priorities to that port, then the port's counters are read
+              back. The per-port measurement window keeps the RX_OK/RX_DRP
+              deltas within `margin` instead of accumulating background traffic
+              across the whole port scan.
     @param duthost: The object for interacting with DUT through ansible
     @param conn_graph_facts: Testbed topology connectivity information
     @param leaf_fanouts: Leaf fanout switches
@@ -329,49 +330,44 @@ def run_rx_ok_isolation_test(fanouthosts, duthost, conn_graph_facts,       # noq
 
     conn_facts = conn_graph_facts['device_conn'].get(duthost.hostname, {})
     int_status = asic.show_interface(command="status")['ansible_facts']['int_status']
-    """ We only test active physical interfaces that have connection graph entries """
+    """ We only test active physical interfaces that have connection graph entries
+        and a reachable fanout """
     active_phy_intfs = [intf for intf in int_status if
                         intf.startswith('Ethernet') and
                         int_status[intf]['admin_state'] == 'up' and
                         int_status[intf]['oper_state'] == 'up' and
-                        intf in conn_facts]
+                        intf in conn_facts and
+                        conn_facts[intf]['peerdevice'] in fanouthosts]
 
-    """ Baseline RX counters for all ports in a single retrieval """
-    baseline = get_rx_port_counters(duthost)
+    """ Skip if nothing exercisable was found """
+    if len(active_phy_intfs) == 0:
+        pytest.skip(
+            "No active physical interfaces with a reachable fanout were exercised, so "
+            "PFC RX counter isolation could not be validated. Check the testbed "
+            "topology and fanout connectivity."
+        )
 
-    """ Send all PFC frames first, across all priorities and all ports """
-    tested_intfs = []
+    """ Send frames and read back one port at a time so background traffic
+        cannot accumulate across the whole port scan """
+    failures = []
     for intf in active_phy_intfs:
         peer_device = conn_facts[intf]['peerdevice']
         peer_port = conn_facts[intf]['peerport']
-
-        if peer_device not in fanouthosts:
-            continue
-
         peerdev_ans = fanouthosts[peer_device]
         peer_port_name, fanout_hwsku = _resolve_peer_port_name(
             peerdev_ans, enum_fanout_graph_facts, peer_port)
+
+        """ Baseline for this port immediately before sending """
+        baseline = get_rx_port_counters(duthost)
+
         for priority in range(PRIO_COUNT):
             send_pfc_frame(peerdev_ans, peer_port_name, fanout_hwsku,
                            priority, pause_time, pkt_count)
-        tested_intfs.append(intf)
 
-    """ Guard against an empty run masquerading as a pass """
-    assert len(tested_intfs) > 0, (
-        "No active physical interfaces with a reachable fanout were exercised, so "
-        "PFC RX counter isolation could not be validated. Check the testbed "
-        "topology and fanout connectivity."
-    )
+        """ SONiC takes some time to update counters in database """
+        time.sleep(5)
+        after = get_rx_port_counters(duthost)
 
-    """ SONiC takes some time to update counters in database """
-    time.sleep(5)
-
-    """ Validate RX counters in one single retrieval swoop """
-    after = get_rx_port_counters(duthost)
-
-    """ Validate every active interface, not only the ones we sent frames to """
-    failures = []
-    for intf in active_phy_intfs:
         if intf not in baseline or intf not in after:
             logger.warning(
                 "Interface %s missing from the %s counter snapshot; skipping its "
