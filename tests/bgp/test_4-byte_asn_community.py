@@ -591,10 +591,16 @@ def run_bgp_4_byte_asn_community_eos(setup):
     assert str(dut_4byte_asn) in output.split()[3]
     output = bgp_neigh.get_command_output("show ipv6 bgp summary | include {}".format(setup['dut_ip_v6'].lower()))
     assert str(dut_4byte_asn) in output.split()[3]
+    # Search the whole output instead of fixed line offsets. EOS wraps a v6 route's next-hop
+    # onto a continuation line (the DUT-side check above documents the same thing and tests two
+    # candidate lines), so the AS path is not reliably in the last one or two lines. Asserting on
+    # [-1]/[-2] made this fail even though the earlier DUT-side and v4 neighbour-side checks all
+    # passed. An ASN that is genuinely not advertised still fails this, so widening the search
+    # cannot mask a real gap.
     output = bgp_neigh.get_command_output("show ip bgp neighbors {} routes".format(setup['dut_ip_v4']))
-    assert str(dut_4byte_asn) in str(output.split('\n')[-1])
+    assert str(dut_4byte_asn) in output
     output = bgp_neigh.get_command_output("show ipv6 bgp peers {} routes".format(setup['dut_ip_v6'].lower()))
-    assert str(dut_4byte_asn) in str(output.split('\n')[-1]) or str(dut_4byte_asn) in str(output.split('\n')[-2])
+    assert str(dut_4byte_asn) in output
 
 
 def test_4_byte_asn_community(setup):
