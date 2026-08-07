@@ -635,13 +635,9 @@ def fib_lma(topo, ptf_ip, action="announce", topo_routes=None):
     common_config = topo['configuration_properties'].get('common', {})
     nhipv4 = common_config.get("nhipv4", NHIPV4)
     nhipv6 = common_config.get("nhipv6", NHIPV6)
-
-    vms = topo['topology']['VMs']
     vms_config = topo['configuration']
-
     for k, v in vms_config.items():
         port, port6 = get_change_routes_ports(k, topo)
-
         routes_v4 = []
         routes_v6 = []
         # The upstream UpperMgmtAggregator (UMA) neighbors originate the default
@@ -650,7 +646,6 @@ def fib_lma(topo, ptf_ip, action="announce", topo_routes=None):
         if "core" in v["properties"]:
             routes_v4 = [("0.0.0.0/0", nhipv4, None)]
             routes_v6 = [("::/0", nhipv6, None)]
-
         topo_routes[k] = {}
         topo_routes[k][IPV4] = routes_v4
         topo_routes[k][IPV6] = routes_v6
@@ -663,13 +658,9 @@ def fib_uma(topo, ptf_ip, action="announce", topo_routes={}):
     common_config = topo['configuration_properties'].get('common', {})
     nhipv4 = common_config.get("nhipv4", NHIPV4)
     nhipv6 = common_config.get("nhipv6", NHIPV6)
-
-    vms = topo['topology']['VMs']
     vms_config = topo['configuration']
-
     for k, v in vms_config.items():
         port, port6 = get_change_routes_ports(k, topo)
-
         routes_v4 = []
         routes_v6 = []
         # The upstream RegionalWANAggregator (RWA) neighbors originate the default
@@ -678,7 +669,6 @@ def fib_uma(topo, ptf_ip, action="announce", topo_routes={}):
         if "core" in v["properties"]:
             routes_v4 = [("0.0.0.0/0", nhipv4, None)]
             routes_v6 = [("::/0", nhipv6, None)]
-
         topo_routes[k] = {}
         topo_routes[k][IPV4] = routes_v4
         topo_routes[k][IPV6] = routes_v6
