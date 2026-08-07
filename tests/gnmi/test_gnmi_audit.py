@@ -18,6 +18,7 @@ from tests.common.gu_utils import (
 )
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
+from tests.common.pygnmi_client import PygnmiClientError
 from tests.common.utilities import wait_until
 from tests.syslog.syslog_utils import add_syslog_server
 
@@ -29,6 +30,7 @@ logger = logging.getLogger(__name__)
 allure.logger = logger
 RPC_COMPLETION_PREFIX = "RPC_COMPLETION "
 CLIENT_PRINCIPAL = "test.client.gnmi.sonic"
+INVALID_CN_CHECKPOINT = "invalid_cn_test"
 REMOTE_SYSLOG_CHECKPOINT = "gnmi_audit_remote_syslog"
 
 
@@ -50,6 +52,24 @@ def _config_db_checkpoint(duthost, checkpoint_name):
         delete_checkpoint(duthost, checkpoint_name)
 
 
+def _clear_client_cn_mappings(duthost):
+    result = duthost.shell(
+        "sonic-db-cli CONFIG_DB keys 'GNMI_CLIENT_CERT|*'"
+    )
+    for key in result["stdout_lines"]:
+        duthost.shell(
+            "sonic-db-cli CONFIG_DB del {}".format(shlex.quote(key))
+        )
+
+    remaining = duthost.shell(
+        "sonic-db-cli CONFIG_DB keys 'GNMI_CLIENT_CERT|*'"
+    )["stdout_lines"]
+    pytest_assert(
+        not remaining,
+        "Failed to clear GNMI client CN mappings: {}".format(remaining),
+    )
+
+
 def _get_completions(log_text):
     records = []
     decoder = json.JSONDecoder()
@@ -66,6 +86,28 @@ def _get_completions(log_text):
                 and record.get("principal") == CLIENT_PRINCIPAL):
             records.append(record)
     return records
+
+
+@pytest.fixture
+def gnmi_tls_with_cn_enforcement(
+    request,
+    duthosts,
+    rand_one_dut_hostname,
+):
+    duthost = duthosts[rand_one_dut_hostname]
+    process = duthost.shell(
+        "docker exec gnmi ps -eo args | grep '[t]elemetry'",
+        module_ignore_errors=True,
+    )
+    original_cn_enforcement = (
+        "--config_table_name GNMI_CLIENT_CERT" in process["stdout"]
+    )
+    if not original_cn_enforcement:
+        pytest.xfail(
+            "Original gNMI service does not enforce GNMI_CLIENT_CERT"
+        )
+
+    return request.getfixturevalue("gnmi_tls")
 
 
 @pytest.fixture
@@ -176,6 +218,21 @@ def test_gnmi_get_audit_log(gnmi_tls):  # noqa: F811
         len(_get_completions(new_log)) == 1,
         "Expected exactly one new Get completion record",
     )
+
+
+def test_gnmi_invalid_cn_name(gnmi_tls_with_cn_enforcement):
+    tls_fixture = gnmi_tls_with_cn_enforcement
+    duthost = tls_fixture.duthost
+    with _config_db_checkpoint(duthost, INVALID_CN_CHECKPOINT):
+        _clear_client_cn_mappings(duthost)
+        with pytest.raises(
+            PygnmiClientError,
+            match="Unauthenticated|unauthenticated|common name mapping",
+        ):
+            tls_fixture.pygnmi_client.get(
+                "COUNTERS_PORT_NAME_MAP",
+                target="COUNTERS_DB",
+            )
 
 
 def test_gnmi_get_audit_log_remote_forwarding(
