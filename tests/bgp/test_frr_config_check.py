@@ -10,7 +10,7 @@ from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1', 't1-lag', 't1-8-lag','lma', 'uma'),
+    pytest.mark.topology('t0', 't1', 't1-lag', 't1-8-lag', 'lma', 'uma'),
     pytest.mark.disable_loganalyzer,
 ]
 
