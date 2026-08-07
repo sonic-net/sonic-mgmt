@@ -184,6 +184,7 @@ def check_entry_freshness(
 
     return result
 
+
 def parse_state_db_bool(value):
     """Parse a STATE_DB string into a Python bool, or ``None`` if unrecognized.
 
