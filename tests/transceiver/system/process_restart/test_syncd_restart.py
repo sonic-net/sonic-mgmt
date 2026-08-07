@@ -37,7 +37,7 @@ from tests.transceiver.common.verification import (
     standard_port_recovery_and_verification
 )
 from tests.common.helpers.sonic_db import AppDbCli as sdbHelp
-from tests.common.platform.processes_utils import check_process_up
+from tests.common.platform.processes_utils import check_pmon_uptime_minutes
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +94,7 @@ def test_system_syncd_restart(
     ).get("expect_pmon_restart_with_swss_or_syncd", False):
         time.sleep(15)
         logger.info("Verifying pmon restart after syncd restart...")
-        if check_process_up(duthost, 'pmon'):
+        if check_pmon_uptime_minutes(duthost, minimal_runtime=3):
             failures.append("[pmon] pmon did not restart as expected")
             logger.warning(
                 "pmon FAILED to restart when"
