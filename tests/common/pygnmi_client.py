@@ -558,12 +558,12 @@ class PygnmiClient:
         if thread is not None and hasattr(thread, "_invoke_excepthook"):
             invoke_excepthook = thread._invoke_excepthook
 
-            def invoke_subscription_excepthook():
+            def invoke_subscription_excepthook(*args):
                 error = sys.exc_info()[1]
                 if closing[0] and self._is_expected_subscription_shutdown(error):
                     logger.debug("Ignoring expected gNMI subscription shutdown: %s", error)
                     return
-                invoke_excepthook()
+                invoke_excepthook(*args)
 
             thread._invoke_excepthook = invoke_subscription_excepthook
 
