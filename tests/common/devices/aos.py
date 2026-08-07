@@ -32,8 +32,8 @@ class AosHost(AnsibleHostBase):
 
     def _exec_jinja_template(self, task_name, jinja_template):
         inventory = 'lab'
-        ansible_root = pathlib.Path(os.getenv("ANSIBLE_CONFIG",
-                                              pathlib.Path(__file__).resolve().parent.joinpath("../../ansible")))
+        ansible_root = str(pathlib.Path(os.getenv(
+            "ANSIBLE_CONFIG", pathlib.Path(__file__).joinpath("../../../ansible"))).resolve()) + "/"
 
         playbook_name = 'accton_os_cmd_exec.yml'
         jinja_name = 'accton_os_cmd_exec.j2'
