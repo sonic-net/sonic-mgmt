@@ -8,15 +8,23 @@
 label_prefix: "triage-"
 assignments_per_pr: 2
 
+# Organization values in the author map that mean "unknown", rather than "some
+# company other than the ones below". Authors carrying one of these are treated
+# as absent from the map, so the username suffix heuristic still gets a shot --
+# without this, the ~30 suffixed authors the CSV files under "Others" would
+# never be matched to their company.
+unknown_organizations:
+  - Others
+
 companies:
   - name: Arista
-    # Matched (case-insensitively) against the "Organization" field of
-    # contributors.json in sonic-net/sonic-contributor-map.
+    # Matched (case-insensitively) against the "Organization" column of
+    # sii_author_predict.csv in sonic-net/sonic-tsc.
     organizations:
       - Arista
-    # Fallback heuristic used when the contributor map is unavailable or does
-    # not list the PR author: a GitHub username ending in one of these
-    # suffixes is treated as belonging to this company.
+    # Fallback heuristic used when the author map is unavailable or does not
+    # list the PR author: a GitHub username ending in one of these suffixes is
+    # treated as belonging to this company.
     username_suffixes:
       - "-arista"
 
@@ -41,7 +49,7 @@ companies:
     username_suffixes:
       - "-nexthop"
 
-# Extra author -> company mappings applied on top of the contributor map.
+# Extra author -> company mappings applied on top of the author map.
 # Useful for people the (possibly stale) map has not caught up with yet, and
 # for people whose username carries no company suffix.
 # Keys are GitHub usernames (case-insensitive), values are company names from

@@ -10,8 +10,8 @@ backstop scan idempotent, while the distribution across PRs stays even.
 
 Author company is resolved in this order:
   1. the `overrides` map in companies.yml
-  2. contributors.json from sonic-net/sonic-contributor-map (best effort; that
-     repository is private, so this needs CONTRIBUTOR_MAP_TOKEN to be set)
+  2. sii_author_predict.csv from sonic-net/sonic-tsc (best effort; that
+     repository is public, so this needs no credentials)
   3. a username suffix heuristic (e.g. "someone-arista" -> Arista)
 
 Modes:
@@ -20,7 +20,9 @@ Modes:
                      company label yet
 """
 
+import csv
 import hashlib
+import io
 import os
 import random
 import sys
@@ -35,10 +37,9 @@ GITHUB_REPOSITORY = os.environ["GITHUB_REPOSITORY"]
 PR_NUMBER = os.environ.get("PR_NUMBER", "").strip()
 
 CONFIG_PATH = os.environ.get("TRIAGE_CONFIG_PATH", ".github/triage-assign/companies.yml")
-CONTRIBUTOR_MAP_TOKEN = os.environ.get("CONTRIBUTOR_MAP_TOKEN", "").strip()
-CONTRIBUTOR_MAP_URL = os.environ.get(
-    "CONTRIBUTOR_MAP_URL",
-    "https://api.github.com/repos/sonic-net/sonic-contributor-map/contents/contributors.json",
+AUTHOR_MAP_URL = os.environ.get(
+    "AUTHOR_MAP_URL",
+    "https://raw.githubusercontent.com/sonic-net/sonic-tsc/master/sii_author_predict.csv",
 )
 DRY_RUN = os.environ.get("DRY_RUN", "false").strip().lower() in ("true", "t", "1", "yes", "y", "on")
 SCAN_LIMIT = int(os.environ.get("SCAN_LIMIT", "0"))
@@ -76,57 +77,67 @@ def load_config(config_path: str) -> dict:
             str(user).strip().lower(): str(company).strip()
             for user, company in (config.get("overrides") or {}).items()
         },
+        "unknown_organizations": {
+            str(organization).strip().lower()
+            for organization in (config.get("unknown_organizations") or [])
+        },
     }
 
 
-def load_contributor_map() -> dict[str, set[str]]:
-    """Return {github username (lowercase): {organization (lowercase), ...}}.
+def load_author_map(config: dict) -> dict[str, str]:
+    """Return {github username (lowercase): organization (lowercase)}.
 
-    Returns an empty map, rather than failing, when the contributor map cannot
-    be read: it is a best-effort input and the suffix heuristic covers for it.
+    Parsed from sii_author_predict.csv (columns: Author, Organization, Score).
+    A handful of authors appear more than once with conflicting organizations;
+    the row with the highest Score wins. Organizations listed under
+    `unknown_organizations` in companies.yml (the CSV's "Others" bucket) mean
+    "not known", not "not one of these companies", so they are dropped here and
+    left to the suffix heuristic.
+
+    Returns an empty map, rather than failing, when the CSV cannot be read: it
+    is a best-effort input and the suffix heuristic covers for it.
     """
-    if not CONTRIBUTOR_MAP_TOKEN:
-        print(
-            "NOTE: CONTRIBUTOR_MAP_TOKEN is not set; sonic-contributor-map is a private "
-            "repository, so falling back to the username suffix heuristic.",
-            file=sys.stderr,
-        )
-        return {}
-
     try:
-        response = requests.get(
-            CONTRIBUTOR_MAP_URL,
-            headers={
-                "Authorization": f"Bearer {CONTRIBUTOR_MAP_TOKEN}",
-                "Accept": "application/vnd.github.raw+json",
-                "X-GitHub-Api-Version": "2022-11-28",
-            },
-            timeout=30,
-        )
+        response = requests.get(AUTHOR_MAP_URL, timeout=30)
         response.raise_for_status()
-        contributors = response.json()
-    except (requests.RequestException, ValueError) as exc:
+        rows = list(csv.DictReader(io.StringIO(response.text)))
+    except (requests.RequestException, csv.Error) as exc:
         print(
-            f"WARNING: could not read {CONTRIBUTOR_MAP_URL} ({exc}); falling back to the "
+            f"WARNING: could not read {AUTHOR_MAP_URL} ({exc}); falling back to the "
             "username suffix heuristic.",
             file=sys.stderr,
         )
         return {}
 
-    contributor_map: dict[str, set[str]] = {}
-    for entry in contributors:
-        if not isinstance(entry, dict):
+    if rows and not {"Author", "Organization"}.issubset(rows[0].keys()):
+        print(
+            f"WARNING: {AUTHOR_MAP_URL} has no Author/Organization columns; falling back "
+            "to the username suffix heuristic.",
+            file=sys.stderr,
+        )
+        return {}
+
+    unknown = config["unknown_organizations"]
+    best_score: dict[str, float] = {}
+    author_map: dict[str, str] = {}
+    for row in rows:
+        author = str(row.get("Author") or "").strip().lower()
+        organization = str(row.get("Organization") or "").strip().lower()
+        if not author or not organization or organization in unknown:
             continue
-        user = str(entry.get("Id", "")).strip().lower()
-        organization = str(entry.get("Organization", "")).strip().lower()
-        if user and organization:
-            contributor_map.setdefault(user, set()).add(organization)
+        try:
+            score = float(row.get("Score") or 0)
+        except ValueError:
+            score = 0.0
+        if score > best_score.get(author, float("-inf")):
+            best_score[author] = score
+            author_map[author] = organization
 
-    print(f"Loaded {len(contributor_map)} contributors from the contributor map.")
-    return contributor_map
+    print(f"Loaded {len(author_map)} authors from {AUTHOR_MAP_URL}.")
+    return author_map
 
 
-def author_companies(author: str, config: dict, contributor_map: dict[str, set[str]]) -> set[str]:
+def author_companies(author: str, config: dict, author_map: dict[str, str]) -> set[str]:
     """Companies the PR author belongs to, and so must not be assigned to."""
     author_key = author.strip().lower()
     companies = config["companies"]
@@ -138,15 +149,17 @@ def author_companies(author: str, config: dict, contributor_map: dict[str, set[s
             return matched
         print(f"WARNING: override for '{author}' names unknown company '{override}'.", file=sys.stderr)
 
-    organizations = contributor_map.get(author_key, set())
-    if organizations:
+    organization = author_map.get(author_key)
+    if organization:
         matched = {
             company["name"]
             for company in companies
-            if organizations.intersection(company["organizations"])
+            if organization in company["organizations"]
         }
-        # The author is in the map: trust it even when their organization is
-        # not one of the configured companies (an empty result is meaningful).
+        # The author is in the map with a known organization: trust it even
+        # when that organization is not one of the configured companies (an
+        # empty result is meaningful, and stops a coincidental username ending
+        # from wrongly excluding a company).
         return matched
 
     return {
@@ -172,7 +185,7 @@ def ensure_labels_exist(repo, config: dict) -> None:
                 repo.create_label(name=name, color=company["label_color"])
 
 
-def assign_labels(repo, pull_request, config: dict, contributor_map: dict[str, set[str]]) -> bool:
+def assign_labels(repo, pull_request, config: dict, author_map: dict[str, str]) -> bool:
     """Label a single pull request. Returns True when labels were assigned."""
     prefix = config["label_prefix"]
     company_labels = {f"{prefix}{company['name']}" for company in config["companies"]}
@@ -187,7 +200,7 @@ def assign_labels(repo, pull_request, config: dict, contributor_map: dict[str, s
         print(f"PR #{pull_request.number}: no author, skipping.", file=sys.stderr)
         return False
 
-    excluded = author_companies(author, config, contributor_map)
+    excluded = author_companies(author, config, author_map)
     candidates = [company["name"] for company in config["companies"] if company["name"] not in excluded]
 
     if len(candidates) < config["assignments_per_pr"]:
@@ -214,7 +227,7 @@ def assign_labels(repo, pull_request, config: dict, contributor_map: dict[str, s
 
 def main() -> None:
     config = load_config(CONFIG_PATH)
-    contributor_map = load_contributor_map()
+    author_map = load_author_map(config)
 
     github = Github(auth=Auth.Token(GITHUB_TOKEN))
     repo = github.get_repo(GITHUB_REPOSITORY)
@@ -222,7 +235,7 @@ def main() -> None:
     ensure_labels_exist(repo, config)
 
     if PR_NUMBER:
-        assign_labels(repo, repo.get_pull(int(PR_NUMBER)), config, contributor_map)
+        assign_labels(repo, repo.get_pull(int(PR_NUMBER)), config, author_map)
         return
 
     print("Scanning open pull requests for missing triage labels...")
@@ -233,7 +246,7 @@ def main() -> None:
             print(f"Reached SCAN_LIMIT of {SCAN_LIMIT} pull requests, stopping.")
             break
         scanned += 1
-        if assign_labels(repo, pull_request, config, contributor_map):
+        if assign_labels(repo, pull_request, config, author_map):
             assigned += 1
 
     print(f"Scanned {scanned} open pull requests, labelled {assigned}.")
