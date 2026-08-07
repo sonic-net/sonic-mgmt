@@ -21,6 +21,7 @@ Scope / assumptions (the ``frr_config_mode`` fixture enforces these by skipping)
 """
 import json
 import logging
+import time
 
 from tests.common.helpers.frr.bgp_config_translation import (
     translate_config_db,
@@ -78,15 +79,37 @@ class FrrConfigModeMigrator(object):
     def _write_json_file(self, path, data):
         self.duthost.copy(content=json.dumps(data, indent=2), dest=path)
 
+    def _vtysh(self, cmd, attempts=6, interval=10):
+        """Run a vtysh command, retrying while vtysh is unreachable.
+
+        vtysh talks to the FRR daemons over their vty sockets, so it fails outright for a
+        while after anything restarts the bgp container -- a mode switch, a config reload, or
+        the tail of a previous module's teardown. Failing the first call turns that transient
+        into a module error before a single test runs, which is what happened on a t2 when a
+        run started ~2 minutes after the DUT was repaired.
+        """
+        last = None
+        for attempt in range(attempts):
+            last = self.duthost.shell('sudo vtysh -c "{}"'.format(cmd), module_ignore_errors=True)
+            if last.get("rc") == 0:
+                return last["stdout"]
+            logger.warning("vtysh %r failed on %s (rc=%s, attempt %d/%d)", cmd,
+                           self.duthost.hostname, last.get("rc"), attempt + 1, attempts)
+            time.sleep(interval)
+
+        raise FrrTranslationError(
+            "vtysh command {!r} kept failing on {} (rc={}, stderr={!r})".format(
+                cmd, self.duthost.hostname, last.get("rc"), (last.get("stderr") or "")[:200]))
+
     def _vtysh_json(self, cmd):
-        out = self.duthost.shell('sudo vtysh -c "{}"'.format(cmd))["stdout"]
+        out = self._vtysh(cmd)
         try:
             return json.loads(out)
         except ValueError:
             raise FrrTranslationError("vtysh command {!r} did not return JSON".format(cmd))
 
     def _vtysh_text(self, cmd):
-        return self.duthost.shell('sudo vtysh -c "{}"'.format(cmd))["stdout"]
+        return self._vtysh(cmd)
 
     def _golden_config_present(self):
         return self.duthost.is_file_existed(GOLDEN_CFG_FILE)
@@ -191,15 +214,24 @@ class FrrConfigModeMigrator(object):
         pristine copy of the config, stranding the DUT in translated config for every
         subsequent run.
         """
+        # Restore the golden files even when the CONFIG_DB backup is gone. to_frr_mgmt_framework()
+        # stamps the routing mode into golden_config_db.json *and* its .origin.backup so the mode
+        # survives a reload, which means a half-finished teardown leaves both claiming frr mode.
+        # Anyone then recovering the DUT with 'config load_minigraph -o' -- the documented repair
+        # -- silently gets frr mode back, because -o applies golden. Seen on a t2: recovery
+        # returned frr=true routing=unified twice before the contaminated origin backup was
+        # spotted. These restores are independent of the CONFIG_DB one, so do them first and
+        # unconditionally.
+        restored_golden = False
+        for path in (GOLDEN_CFG_FILE, GOLDEN_CFG_ORIGIN_FILE):
+            if self.duthost.is_file_existed(path + _BAK_SUFFIX):
+                self.duthost.shell("sudo cp {0}{1} {0}".format(path, _BAK_SUFFIX))
+                restored_golden = True
         if not self._backup_present():
-            logger.warning("to_traditional(): %s%s absent; nothing to restore",
-                           CONFIG_DB_FILE, _BAK_SUFFIX)
+            logger.warning("to_traditional(): %s%s absent; restored golden files only (%s)",
+                           CONFIG_DB_FILE, _BAK_SUFFIX, restored_golden)
             return False
         self.duthost.shell("sudo cp {0}{1} {0}".format(CONFIG_DB_FILE, _BAK_SUFFIX))
-        if self.duthost.is_file_existed(GOLDEN_CFG_FILE + _BAK_SUFFIX):
-            self.duthost.shell("sudo cp {0}{1} {0}".format(GOLDEN_CFG_FILE, _BAK_SUFFIX))
-        if self.duthost.is_file_existed(GOLDEN_CFG_ORIGIN_FILE + _BAK_SUFFIX):
-            self.duthost.shell("sudo cp {0}{1} {0}".format(GOLDEN_CFG_ORIGIN_FILE, _BAK_SUFFIX))
         self._config_reload()
         self.assert_no_frr_schema_residue()
         return True
