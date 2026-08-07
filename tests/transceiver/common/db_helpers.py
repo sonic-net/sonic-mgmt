@@ -423,17 +423,5 @@ def get_config_db_port_names(duthost):
     table directly rather than the ``(value, err)`` tuple the per-port wrappers
     use; a facts-gather failure is an infra-level error and is allowed to raise.
     """
-    port_table = {}
-    for namespace in duthost.get_frontend_asic_namespace_list():
-        config_facts = duthost.config_facts(
-            host=duthost.hostname,
-            source="running",
-            namespace=namespace,
-        )["ansible_facts"]
-        port_table.update(config_facts.get("PORT") or {})
-    return port_table
-
-
-def get_config_db_port_names(duthost):
-    """Return the set of port names in the CONFIG_DB PORT table."""
-    return set(get_config_db_port_table(duthost).keys())
+    config_facts = duthost.get_running_config_facts()
+    return set(config_facts.get("PORT", {}).keys())
