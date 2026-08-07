@@ -8,6 +8,7 @@ import logging
 import pytest
 from tests.common.config_reload import config_reload
 from tests.common.devices.eos import EosHost
+from tests.common.helpers.bgp import get_vtysh_cmd_for_asic
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.utilities import wait_until
 from tests.bgp.bgp_helpers import eos_bgp_neighbor_config_parents
@@ -160,9 +161,11 @@ def check_bgp_neighbor_state(duthost, asic_index, neigh_ip, should_be_establishe
 
 def test_bgp_passive_peering_ipv4(setup):
     # configure passive EBGP peering session on DUT and ensure adjacency stays established (IPv4)
-    cmd = 'vtysh -n {} -c "config" -c "router bgp {}" -c "neighbor {} passive"'.format(setup['asic_index'],
-                                                                                       setup['dut_asn'],
-                                                                                       setup['peer_group_v4'])
+    cmd = get_vtysh_cmd_for_asic(
+        setup['duthost'], setup['asic_index'],
+        'vtysh -c "config" -c "router bgp {}" -c "neighbor {} passive"'.format(
+            setup['dut_asn'], setup['peer_group_v4']),
+    )
     setup['duthost'].shell(cmd, module_ignore_errors=True)
 
     assert wait_until(BGP_WAIT_TIMEOUT, BGP_WAIT_INTERVAL, 0,
@@ -171,10 +174,11 @@ def test_bgp_passive_peering_ipv4(setup):
         "BGP IPv4 session not established after configuring passive peering"
 
     # configure password on DUT and ensure the adjacency is not established (IPv4)
-    cmd = 'vtysh -n {} -c "config" -c "router bgp {}" -c "neighbor {} password {}"'.format(setup['asic_index'],
-                                                                                           setup['dut_asn'],
-                                                                                           setup['peer_group_v4'],
-                                                                                           peer_password)
+    cmd = get_vtysh_cmd_for_asic(
+        setup['duthost'], setup['asic_index'],
+        'vtysh -c "config" -c "router bgp {}" -c "neighbor {} password {}"'.format(
+            setup['dut_asn'], setup['peer_group_v4'], peer_password),
+    )
     setup['duthost'].shell(cmd, module_ignore_errors=True)
 
     assert wait_until(BGP_WAIT_TIMEOUT, BGP_WAIT_INTERVAL, 0,
@@ -186,11 +190,11 @@ def test_bgp_passive_peering_ipv4(setup):
 
     # configure password on Neighbor and ensure the adjacency is established (IPv4)
     if setup['is_sonic']:
-        cmd = 'vtysh -n {} -c "config" -c "router bgp {}" -c "neighbor {} password {}"'.format(
-                                                                                        setup['neigh_asic_index'],
-                                                                                        setup['neigh_asn'],
-                                                                                        setup['dut_ip_v4'],
-                                                                                        peer_password)
+        cmd = get_vtysh_cmd_for_asic(
+            setup['neighhost'], setup['neigh_asic_index'],
+            'vtysh -c "config" -c "router bgp {}" -c "neighbor {} password {}"'.format(
+                setup['neigh_asn'], setup['dut_ip_v4'], peer_password),
+        )
         setup['neighhost'].shell(cmd, module_ignore_errors=True)
     else:
         cmd = ["neighbor {} password 0 {}".format(setup['dut_ip_v4'], peer_password)]
@@ -204,10 +208,11 @@ def test_bgp_passive_peering_ipv4(setup):
         "BGP IPv4 session not established after configuring matching password"
 
     # configure mismatch password on DUT and ensure the adjacency is not established (IPv4)
-    cmd = 'vtysh -n {} -c "config" -c "router bgp {}" -c "neighbor {} password {}"'.format(setup['asic_index'],
-                                                                                           setup['dut_asn'],
-                                                                                           setup['peer_group_v4'],
-                                                                                           wrong_password)
+    cmd = get_vtysh_cmd_for_asic(
+        setup['duthost'], setup['asic_index'],
+        'vtysh -c "config" -c "router bgp {}" -c "neighbor {} password {}"'.format(
+            setup['dut_asn'], setup['peer_group_v4'], wrong_password),
+    )
     setup['duthost'].shell(cmd, module_ignore_errors=True)
 
     assert wait_until(BGP_WAIT_TIMEOUT, BGP_WAIT_INTERVAL, 0,
@@ -218,9 +223,11 @@ def test_bgp_passive_peering_ipv4(setup):
 
 def test_bgp_passive_peering_ipv6(setup):
     # configure passive EBGP peering session on DUT and ensure adjacency stays established (IPv6)
-    cmd = 'vtysh -n {} -c "config" -c "router bgp {}" -c "neighbor {} passive"'.format(setup['asic_index'],
-                                                                                       setup['dut_asn'],
-                                                                                       setup['peer_group_v6'])
+    cmd = get_vtysh_cmd_for_asic(
+        setup['duthost'], setup['asic_index'],
+        'vtysh -c "config" -c "router bgp {}" -c "neighbor {} passive"'.format(
+            setup['dut_asn'], setup['peer_group_v6']),
+    )
     setup['duthost'].shell(cmd, module_ignore_errors=True)
 
     assert wait_until(BGP_WAIT_TIMEOUT, BGP_WAIT_INTERVAL, 0,
@@ -229,10 +236,11 @@ def test_bgp_passive_peering_ipv6(setup):
         "BGP IPv6 session not established after configuring passive peering"
 
     # configure password on DUT and ensure the adjacency is not established (IPv6)
-    cmd = 'vtysh -n {} -c "config" -c "router bgp {}" -c "neighbor {} password {}"'.format(setup['asic_index'],
-                                                                                           setup['dut_asn'],
-                                                                                           setup['peer_group_v6'],
-                                                                                           peer_password)
+    cmd = get_vtysh_cmd_for_asic(
+        setup['duthost'], setup['asic_index'],
+        'vtysh -c "config" -c "router bgp {}" -c "neighbor {} password {}"'.format(
+            setup['dut_asn'], setup['peer_group_v6'], peer_password),
+    )
     setup['duthost'].shell(cmd, module_ignore_errors=True)
 
     assert wait_until(BGP_WAIT_TIMEOUT, BGP_WAIT_INTERVAL, 0,
@@ -242,12 +250,11 @@ def test_bgp_passive_peering_ipv6(setup):
 
     # configure password on Neighbor and ensure the adjacency is established (IPv6)
     if setup['is_sonic']:
-        cmd = 'vtysh -n {} -c "config" -c "router bgp {}" -c "neighbor {} password {}"'.\
-                                                                                    format(
-                                                                                        setup['neigh_asic_index'],
-                                                                                        setup['neigh_asn'],
-                                                                                        setup['dut_ip_v6'],
-                                                                                        peer_password)
+        cmd = get_vtysh_cmd_for_asic(
+            setup['neighhost'], setup['neigh_asic_index'],
+            'vtysh -c "config" -c "router bgp {}" -c "neighbor {} password {}"'.format(
+                setup['neigh_asn'], setup['dut_ip_v6'], peer_password),
+        )
         setup['neighhost'].shell(cmd, module_ignore_errors=True)
     else:
         cmd = ["neighbor {} password 0 {}".format(setup['dut_ip_v6'], peer_password)]
@@ -261,10 +268,11 @@ def test_bgp_passive_peering_ipv6(setup):
         "BGP IPv6 session not established after configuring matching password"
 
     # configure mismatch password on DUT and ensure the adjacency is not established (IPv6)
-    cmd = 'vtysh -n {} -c "config" -c "router bgp {}" -c "neighbor {} password {}"'.format(setup['asic_index'],
-                                                                                           setup['dut_asn'],
-                                                                                           setup['peer_group_v6'],
-                                                                                           wrong_password)
+    cmd = get_vtysh_cmd_for_asic(
+        setup['duthost'], setup['asic_index'],
+        'vtysh -c "config" -c "router bgp {}" -c "neighbor {} password {}"'.format(
+            setup['dut_asn'], setup['peer_group_v6'], wrong_password),
+    )
     setup['duthost'].shell(cmd, module_ignore_errors=True)
 
     assert wait_until(BGP_WAIT_TIMEOUT, BGP_WAIT_INTERVAL, 0,
