@@ -1,10 +1,10 @@
 ---
-ansible_user: "{{ lookup('env', 'SONIC_MGMT_VM_HOST_USER') | default('use_own_value', true) }}"
-ansible_password: "{{ lookup('env', 'SONIC_MGMT_VM_HOST_PASSWORD') | default('use_own_value', true) }}"
-ansible_become_password: "{{ lookup('env', 'SONIC_MGMT_VM_HOST_BECOME_PASSWORD') | default('use_own_value', true) }}"
+ansible_user: root
+ansible_password: Embe1mpls
+ansible_become_password: Embe1mpls
 
 # Use the following username/password variables to login to vm hosts
 # instead of the default variables (defined above).
-vm_host_user: "{{ lookup('env', 'SONIC_MGMT_VM_HOST_USER') | default('use_own_value', true) }}"
-vm_host_password: "{{ lookup('env', 'SONIC_MGMT_VM_HOST_PASSWORD') | default('use_own_value', true) }}"
-vm_host_become_password: "{{ lookup('env', 'SONIC_MGMT_VM_HOST_BECOME_PASSWORD') | default('use_own_value', true) }}"
+vm_host_user: root
+vm_host_password: Embe1mpls
+vm_host_become_password: Embe1mpls

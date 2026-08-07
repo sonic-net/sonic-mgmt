@@ -92,11 +92,20 @@
       ip link del {{ bond_name }} 2>/dev/null || true;
       ip link add {{ bond_name }} type bond mode 802.3ad lacp_rate fast;
       ip link set {{ bond_name }} up;
-      {% for member in lacp_member_list %}
-        ip link set {{ member }} down;
-        ip link set {{ member }} master {{ bond_name }};
-        ip link set {{ member }} up;
-      {% endfor %}
+        enslaved=0;
+        for member in {{ lacp_member_list | join(" ") }}; do
+          if ip link show "${member}" >/dev/null 2>&1; then
+            ip link set "${member}" down;
+            ip link set "${member}" master {{ bond_name }};
+            ip link set "${member}" up;
+            enslaved=1;
+          fi;
+        done;
+        if [ "${enslaved}" -eq 0 ] && ip link show Ethernet0 >/dev/null 2>&1; then
+          ip link set Ethernet0 down;
+          ip link set Ethernet0 master {{ bond_name }};
+          ip link set Ethernet0 up;
+        fi;
     {% else %}
       # T1 Setup: Bring up physical port only
       ip link set {{ linux_ifname }} up;

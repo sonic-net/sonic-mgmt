@@ -31,7 +31,16 @@
 
 - name: Generate password hash
   set_fact:
-    junos_root_hash: "{{ ansible_password | password_hash('sha512') }}"
+    junos_root_hash: >-
+      {{
+        (
+          ansible_password
+          | default(ansible_ssh_pass, true)
+          | default(hostvars.get(inventory_hostname, {}).get('ansible_ssh_pass'), true)
+          | default(hostvars.get(VM_host[0], {}).get('ansible_ssh_pass'), true)
+          | default('YourPaSsWoRd', true)
+        ) | password_hash('sha512')
+      }}
 
 - name: create directory for sonic config
   become: yes
