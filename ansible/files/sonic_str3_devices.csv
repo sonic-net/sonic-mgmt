@@ -201,12 +201,8 @@ str43-0101-0400-09c0,10.3.150.244,Cisco,ConsoleServer,ssh,
 str43-0101-0501-02c0,10.3.152.39,Cisco,ConsoleServer,ssh,
 str43-0101-0400-10m0,10.3.152.32,Cisco,MgmtSwitch,ssh,
 str43-0101-0801-01c0,10.3.150.230,Cisco,ConsoleServer,ssh,
-str43-0101-0801-02c0,10.3.150.228,Cisco,ConsoleServer,ssh,
-str3-7050cx3-32c-f-acs-16,10.3.155.78/27,Arista-7050CX3-32C-C32,DevSonic,,sonic
-str3-7050cx3-32c-f-acs-17,10.3.155.79/27,Arista-7050CX3-32C-C32,DevSonic,,sonic
 str3-7050cx3-32c-f-acs-18,10.3.155.80/27,Arista-7050CX3-32C-C32,DevSonic,,sonic
 str3-7050cx3-32c-f-acs-19,10.3.155.81/27,Arista-7050CX3-32C-C32,DevSonic,,sonic
-str3-7260cx3-acs-fan-40,10.3.155.82/27,Arista-7260CX3,FanoutLeaf,,
 str3-7260cx3-acs-fan-41,10.3.155.83/27,Arista-7260CX3,FanoutLeaf,,
 str3-arista-7260-E04-fan-01,10.3.156.100/27,Arista-7260CX3,FanoutLeaf,,
 str3-cisco-8102-E04-U26,10.3.156.99/27,Cisco-8102-28FH-DPU-C28,DevSonic,,sonic

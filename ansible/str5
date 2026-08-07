@@ -62,6 +62,9 @@ all:
         vms95-1:
           ansible_host: 10.64.247.176
           ansible_hostv6: 2a01:111:e210:b000::a40:f7b0
+        vms95-2:
+          ansible_host: 10.64.247.186
+          ansible_hostv6: 2a01:111:e210:b000::a40:f7ba
         vms110-1:
           ansible_host: 10.64.247.26
           ansible_hostv6: 2a01:111:e210:b000::a40:f71a
@@ -289,6 +292,10 @@ fanout:
     str5-7260cx3-acs-fan-39:
       ansible_host: 10.3.155.75
       ansible_hostv6: 2a01:111:e210:3000::a03:9b4b
+      mgmt_subnet_mask_length: 27
+    str5-7260cx3-acs-fan-40:
+      ansible_host: 10.3.155.82
+      ansible_hostv6: 2a01:111:e210:3000::a03:9b52
       mgmt_subnet_mask_length: 27
     str5-z9332f-01:
       ansible_host: 10.64.247.112
@@ -965,6 +972,46 @@ sonic_arista_7050cx3:
         "0x28": "x86_64-arista_7050cx3_32c"
         "0x2D": "Arista Networks"
         "0x2F": "HBG241502G0"
+      msft_an_enabled: True
+    str5-7050cx3-32c-f-acs-16:
+      ansible_host: 10.3.155.78
+      ansible_hostv6: 2a01:111:e210:3000::a03:9b4e
+      mgmt_subnet_mask_length: 27
+      hwsku: Arista-7050CX3-32C-C32
+      model: DCS-7050CX3-32C
+      serial: HBG241502HY
+      base_mac: b4:92:fe:25:cd:88
+      syseeprom_info:
+        "0x21": "DCS-7050CX3-32C"
+        "0x22": "ASY0746402B0"
+        "0x23": "HBG241502HY"
+        "0x24": "b4:92:fe:25:cd:88"
+        "0x25": "2024/04/19 07:59:57"
+        "0x26": "01"
+        "0x27": "01.00"
+        "0x28": "x86_64-arista_7050cx3_32c"
+        "0x2D": "Arista Networks"
+        "0x2F": "HBG241502HY"
+      msft_an_enabled: True
+    str5-7050cx3-32c-f-acs-17:
+      ansible_host: 10.3.155.79
+      ansible_hostv6: 2a01:111:e210:3000::a03:9b4f
+      mgmt_subnet_mask_length: 27
+      hwsku: Arista-7050CX3-32C-C32
+      model: DCS-7050CX3-32C
+      serial: HBG241502H4
+      base_mac: b4:92:fe:25:85:58
+      syseeprom_info:
+        "0x21": "DCS-7050CX3-32C"
+        "0x22": "ASY0746402B0"
+        "0x23": "HBG241502H4"
+        "0x24": "b4:92:fe:25:85:58"
+        "0x25": "2024/04/19 08:07:30"
+        "0x26": "01"
+        "0x27": "01.00"
+        "0x28": "x86_64-arista_7050cx3_32c"
+        "0x2D": "Arista Networks"
+        "0x2F": "HBG241502H4"
       msft_an_enabled: True
 
 sonic_arista_7280r4_400G:
