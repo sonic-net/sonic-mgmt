@@ -21,9 +21,9 @@ failure, so callers can use the suite-wide per-port aggregation pattern:
         continue
 
 Bulk/once-per-test accessors read many rows in one shot:
-:func:`get_config_db_port_table` and :func:`get_config_db_port_names` return
-their values directly, while :func:`get_state_db_table` keeps the ``(value,
-err)`` tuple so a dump failure can be surfaced as a clean per-test failure.
+:func:`get_config_db_port_names` returns its value directly, while
+:func:`get_state_db_table` keeps the ``(value, err)`` tuple so a dump failure can
+be surfaced as a clean per-test failure.
 """
 import ast
 import json
@@ -32,10 +32,10 @@ import re
 from datetime import datetime
 
 from tests.common.helpers.sonic_db import STATE_DB
+
 from tests.transceiver.common.cli_parser_helper import RC_FAILURE
 
 logger = logging.getLogger(__name__)
-
 
 STATE_DB_UPDATE_TIME_FIELD = "last_update_time"
 STATE_DB_UPDATE_TIME_FUTURE_TOLERANCE_MIN = 0.1
@@ -328,36 +328,43 @@ def get_state_db_hash_field(duthost, table, key, field, namespace=None):
     return get_db_hash_field(duthost, STATE_DB, table, key, field, namespace=namespace)
 
 
-def get_state_db_table(duthost, table, namespace=None):
-    """Read every STATE_DB ``<table>|*`` entry in a single ``sonic-db-dump`` call.
+def get_db_table(duthost, db, table, namespace=None, sep="|"):
+    """Read every ``<table><sep>*`` entry in ``db`` in a single ``sonic-db-dump`` call.
 
-    This replaces one ``hget`` per port with one bulk dump — the right shape when
-    a test needs many ports' fields (e.g. verifying ``vdm_supported`` across the
-    whole ``TRANSCEIVER_INFO`` table) instead of a single field.
+    This replaces one per-key read (``hget``/``hgetall``) per port with one bulk
+    dump — the right shape when a test/poll needs many ports' entries (e.g.
+    verifying ``vdm_supported`` across the whole ``TRANSCEIVER_INFO`` table, or
+    polling ``LLDP_ENTRY_TABLE`` presence across a batch of ports) instead of one
+    round-trip per port.
+
+    ``sep`` is the table/key separator: ``"|"`` for STATE_DB and CONFIG_DB,
+    ``":"`` for APPL_DB (see :func:`get_db_hash_field`).
 
     ``namespace`` scopes the dump to one ASIC on a multi-ASIC DUT.  NOTE the
-    mechanism differs from :func:`get_state_db_hash_field`: ``sonic-db-dump``'s
-    own ``-n`` is the *database* name (here ``STATE_DB``), not a namespace, so a
-    namespaced read is done by running the dump inside the ASIC's network
-    namespace via ``sudo ip netns exec <ns> ...`` — the same wrapper the
-    framework's ASIC host uses (see ``sonic_asic.py`` ``ns_arg``).  The prefix is
-    added only when ``namespace`` is truthy (``asicN``, e.g. from
+    mechanism differs from :func:`get_db_hash_field`: ``sonic-db-dump``'s own
+    ``-n`` is the *database* name (here ``db``), not a namespace, so a namespaced
+    read is done by running the dump inside the ASIC's network namespace via
+    ``sudo ip netns exec <ns> ...`` — the same wrapper the framework's ASIC host
+    uses (see ``sonic_asic.py`` ``ns_arg``).  The prefix is added only when
+    ``namespace`` is truthy (``asicN``, e.g. from
     ``duthost.get_namespace_from_asic_id``); on a single-ASIC DUT the value is
     ``None``/``""`` and the command stays byte-identical to the pre-namespace form.
 
     Returns ``(by_key, err)``:
-      - ``({key_suffix: {field: value}}, None)`` on success.  The ``<table>|``
+      - ``({key_suffix: {field: value}}, None)`` on success.  The ``<table><sep>``
         prefix is stripped, so for ``TRANSCEIVER_INFO`` ``key_suffix`` is the
         port name and the value is that port's published field map (an empty
-        dict if the entry carries no fields).
+        dict if the entry carries no fields). Redis never stores an empty hash,
+        so ``key_suffix in by_key`` is equivalent to "that key's hash is
+        non-empty" — the same truth a per-key ``if entry:`` test gives.
       - ``(None, "<cmd> failed ...")`` on a non-zero rc or unparseable output.
 
     ``sonic-db-dump -y`` emits JSON keyed by full Redis key, with the hash fields
     nested under each key's ``"value"`` block; this unwraps that into a flat
-    ``{port: {field: value}}`` map.
+    ``{key_suffix: {field: value}}`` map.
     """
     ns_prefix = f"sudo ip netns exec {namespace} " if namespace else ""
-    cmd = f"{ns_prefix}sonic-db-dump -n {STATE_DB} -y -k '{table}|*'"
+    cmd = f"{ns_prefix}sonic-db-dump -n {db} -y -k '{table}{sep}*'"
     result = duthost.shell(cmd, module_ignore_errors=True)
     if result.get("rc", RC_FAILURE) != 0:
         return None, (
@@ -368,7 +375,7 @@ def get_state_db_table(duthost, table, namespace=None):
         raw = json.loads(result.get("stdout") or "{}")
     except ValueError as exc:
         return None, f"{cmd}: could not parse sonic-db-dump JSON ({exc})"
-    prefix = f"{table}|"
+    prefix = f"{table}{sep}"
     return {
         full_key[len(prefix):]: entry.get("value", {})
         for full_key, entry in raw.items()
@@ -376,29 +383,45 @@ def get_state_db_table(duthost, table, namespace=None):
     }, None
 
 
-def get_config_db_port_table(duthost):
-    """Return the merged CONFIG_DB PORT table from running config facts.
+def get_state_db_table(duthost, table, namespace=None):
+    """Thin wrapper over :func:`get_db_table` pinned to ``STATE_DB`` (``|`` separator).
 
-    Reads every frontend ASIC namespace so multi-ASIC DUTs include front-panel
-    Ethernet ports whose PORT entries live in per-ASIC CONFIG_DB instances. On
-    single-ASIC DUTs, ``get_frontend_asic_namespace_list`` returns ``[None]``,
-    so this keeps the default-namespace behavior.
-
-    This is a once-per-test bulk read (not a per-port query), so it returns the
-    table directly rather than the ``(value, err)`` tuple the per-port wrappers
-    use; a facts-gather failure is an infra-level error and is allowed to raise.
+    See that function for the ``namespace``/``(by_key, err)`` semantics; this
+    preserves the existing STATE_DB call sites unchanged.
     """
-    port_table = {}
-    for namespace in duthost.get_frontend_asic_namespace_list():
-        config_facts = duthost.config_facts(
-            host=duthost.hostname,
-            source="running",
-            namespace=namespace,
-        )["ansible_facts"]
-        port_table.update(config_facts.get("PORT") or {})
-    return port_table
+    return get_db_table(duthost, "STATE_DB", table, namespace=namespace, sep="|")
+
+
+def resolve_namespace(duthost, port):
+    """Return the ASIC network namespace owning ``port`` (``None`` on single-ASIC).
+
+    ``duthost.get_port_asic_instance(port).namespace`` directly - that
+    ``SonicAsic`` attribute is already set to exactly what
+    ``duthost.get_namespace_from_asic_id(asic_index)`` would recompute from
+    the same instance's own ``asic_index`` (see ``tests/common/devices/
+    sonic_asic.py``'s ``__init__`` and ``tests/common/devices/multi_asic.py``'s
+    ``get_namespace_from_asic_id``), so going through ``get_namespace_from_asic_id``
+    is pure indirection for a port that's already resolved to its ASIC.
+
+    Multi-ASIC DBs (STATE_DB / APPL_DB, including LLDP) are per-namespace, so
+    every per-port DB read scopes to the owning ASIC; on a single-ASIC DUT
+    this is ``None`` (``DEFAULT_NAMESPACE``) and the ``hgetall_dict``/
+    ``get_db_hash_field`` wrappers above emit no ``-n`` flag.
+    """
+    return duthost.get_port_asic_instance(port).namespace
 
 
 def get_config_db_port_names(duthost):
-    """Return the set of port names in the CONFIG_DB PORT table."""
-    return set(get_config_db_port_table(duthost).keys())
+    """Return the set of port names in the CONFIG_DB PORT table.
+
+    Thin accessor over ``duthost.get_running_config_facts()`` (the ansible-facts
+    path SONiC exposes for the running CONFIG_DB).  Returns an empty set when the
+    PORT table is absent/empty so the caller can decide whether that is a skip or
+    a failure.
+
+    This is a once-per-test bulk read (not a per-port query), so it returns the
+    set directly rather than the ``(value, err)`` tuple the per-port wrappers
+    use; a facts-gather failure is an infra-level error and is allowed to raise.
+    """
+    config_facts = duthost.get_running_config_facts()
+    return set(config_facts.get("PORT", {}).keys())
