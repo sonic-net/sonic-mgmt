@@ -301,17 +301,12 @@ def gnmi_tls(request, duthosts, ptfhost):
 
         logger.info("Constructed PygnmiClient: %s", pygnmi_client)
         logger.info("gNOI TLS server setup completed successfully")
-        yield fixture
+        with pygnmi_client:
+            yield fixture
 
     finally:
         # 6. Cleanup: close the reused gNMI channel, then rollback configuration
         logger.info("Cleaning up gNOI TLS server environment")
-        if pygnmi_client is not None:
-            try:
-                pygnmi_client.close()
-            except Exception as e:
-                logger.error("Failed to close PygnmiClient: %s", e)
-
         try:
             output = rollback(duthost, checkpoint_name)
             stdout = output.get('stdout', '')
@@ -372,10 +367,8 @@ def gnmi_plaintext(request, duthosts, ptfhost):
     )
 
     logger.info(f"Created plaintext GnmiFixture: {target}")
-    try:
+    with pygnmi_client:
         yield fixture
-    finally:
-        pygnmi_client.close()
 
 
 def _gnmi_uds_flow(duthost):

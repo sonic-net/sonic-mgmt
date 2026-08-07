@@ -3034,13 +3034,13 @@ gnmi/test_gnoi_system_reboot.py::test_gnoi_system_reboot_warm:
 
 gnmi/test_pygnmi_client.py::test_pygnmi_capabilities:
   skip:
-    reason: "not applicable on BMC (no front-panel ports or COUNTERS_DB)"
+    reason: "native gNMI TLS fixture is not supported on BMC"
     conditions:
       - "'bmc' in topo_type"
 
 gnmi/test_pygnmi_client.py::test_pygnmi_get_empty_paths_raises:
   skip:
-    reason: "not applicable on BMC (no front-panel ports or COUNTERS_DB)"
+    reason: "native gNMI TLS fixture is not supported on BMC"
     conditions:
       - "'bmc' in topo_type"
 

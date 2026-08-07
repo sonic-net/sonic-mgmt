@@ -193,7 +193,7 @@ class PygnmiClient:
 
     def _ensure_client(self) -> gNMIclient:
         """
-        Lazily open and cache the gNMIclient channel, reusing it across calls.
+        Lazily open and cache the gNMIclient channel for the current operation.
 
         Returns:
             The connected ``gNMIclient`` for this instance.
@@ -484,6 +484,16 @@ class PygnmiClient:
         paths = _normalize_paths(paths)
         if not paths:
             raise PygnmiClientCallError("subscribe requires at least one path")
+        intervals = (sample_interval, heartbeat_interval)
+        intervals += tuple(
+            item[key]
+            for item in paths if isinstance(item, dict)
+            for key in ("sample_interval", "heartbeat_interval")
+            if item.get(key) is not None
+        )
+        if any(interval is not None and interval < 0 for interval in intervals):
+            raise PygnmiClientCallError(
+                "sample_interval and heartbeat_interval must be >= 0")
 
         request = self._build_subscribe_request(
             paths, mode, stream_mode, sample_interval, heartbeat_interval,
@@ -548,12 +558,12 @@ class PygnmiClient:
         if thread is not None and hasattr(thread, "_invoke_excepthook"):
             invoke_excepthook = thread._invoke_excepthook
 
-            def invoke_subscription_excepthook(thread):
+            def invoke_subscription_excepthook():
                 error = sys.exc_info()[1]
                 if closing[0] and self._is_expected_subscription_shutdown(error):
                     logger.debug("Ignoring expected gNMI subscription shutdown: %s", error)
                     return
-                invoke_excepthook(thread)
+                invoke_excepthook()
 
             thread._invoke_excepthook = invoke_subscription_excepthook
 

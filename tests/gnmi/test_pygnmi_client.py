@@ -32,7 +32,7 @@ def test_pygnmi_capabilities(gnmi_tls):  # noqa: F811
 
     encodings = result.get("supported_encodings", [])
     assert "json_ietf" in encodings, \
-        f"json_ietf not in supported_encodings: {encodings}"
+        f"json_ietf absent from supported_encodings: {encodings}"
 
     logger.info("gnmi_version: %s", result["gnmi_version"])
     logger.info("supported_encodings: %s", encodings)
@@ -199,15 +199,19 @@ def test_pygnmi_subscribe_early_break(gnmi_tls):  # noqa: F811
     """Test subscribe() yields incrementally and stops cleanly on early break."""
     want = 2
     collected = []
-    for notif in gnmi_tls.pygnmi_client.subscribe(
+    subscription = gnmi_tls.pygnmi_client.subscribe(
         "COUNTERS/Ethernet0",
         target="COUNTERS_DB",
         sample_interval=1,
         collect_seconds=30,
-    ):
-        collected.append(notif)
-        if len(collected) >= want:
-            break
+    )
+    try:
+        for notif in subscription:
+            collected.append(notif)
+            if len(collected) >= want:
+                break
+    finally:
+        subscription.close()
     logger.info("SUBSCRIBE yielded %d notifications before break", len(collected))
     assert len(collected) == want, \
         f"Expected to break after {want} notifications, got {len(collected)}"
