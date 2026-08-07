@@ -36,7 +36,10 @@ name-level drop this module might introduce.
 """
 import copy
 import ipaddress
+import logging
 import re
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_VRF = "default"
 DEFAULT_IPV4_PEER_GROUP = "PEER_V4"
@@ -302,6 +305,24 @@ def _extract_route_maps(running_config, tables):
             # and has no separate 'additive' companion field, so keep every community plus the
             # trailing 'additive' token in the list (-> 'set community <c1> <c2> additive').
             entry["set_community_inline"] = line.split()[2:]
+        elif line.startswith("match ip address prefix-list "):
+            entry["match_prefix_set|ipv4"] = line.split()[-1]
+        elif line.startswith("match ipv6 address prefix-list "):
+            entry["match_prefix_set|ipv6"] = line.split()[-1]
+        elif line.startswith("match tag "):
+            entry["match_tag"] = line.split()[-1]
+        elif line.startswith("set community ") and not line.endswith(" additive"):
+            entry["set_community_inline"] = line.split()[2:]
+        elif line.startswith("set comm-list ") and line.endswith(" delete"):
+            # A genuine frrcfgd gap, not a translation miss: frrcfgd models only
+            # 'set extended-comm-list <n> delete' (frrcfgd.py set_ext_community_delete) and has
+            # no field for the standard-community form bgpcfgd renders here. Log it rather than
+            # raise -- bgpcfgd emits this on every UpperSpineRouter, so raising would make the
+            # mode switch fail outright on t2. Tracked in sonic-buildimage#28482.
+            logger.warning(
+                "route-map %s seq %s: %r has no frr_mgmt_framework representation "
+                "(frrcfgd supports only extended-comm-list delete); frr mode will run without "
+                "it -- see sonic-buildimage#28482", current[0], current[1], line)
         elif line.startswith("set src "):
             entry["set_src"] = line.split()[2]
         elif line == "set ipv6 next-hop prefer-global":
@@ -324,6 +345,46 @@ def _extract_route_maps(running_config, tables):
 # --------------------------------------------------------------------------- #
 # BGP globals / peer-groups / neighbors
 # --------------------------------------------------------------------------- #
+
+def _extract_global_af(running_config):
+    """BGP_GLOBALS_AF rows for per-address-family globals bgpcfgd renders.
+
+    Today that is ``table-map`` (frrcfgd ``route_download_filter``), which bgpcfgd applies on
+    an UpperSpineRouter/UpstreamLC to keep locally-anchored routes out of the FIB
+    (SELECTIVE_ROUTE_DOWNLOAD_V4/V6). Dropping it in the translation leaves frr mode
+    downloading routes traditional mode filters out -- a silent behavioural difference, since
+    the fixture's fingerprint only compares object *names*.
+    """
+    global_af = {}
+    in_bgp = False
+    af = None
+    for raw in running_config.splitlines():
+        line = raw.strip()
+        if not line or line == "!":
+            # '!' separates stanzas *inside* 'router bgp' too, so it must not end the block.
+            continue
+        if line.startswith("router bgp "):
+            in_bgp, af = True, None
+            continue
+        if in_bgp and not raw[:1].isspace():
+            # Any non-indented line (including a bare 'exit') closes the router bgp block.
+            in_bgp, af = False, None
+            continue
+        if not in_bgp:
+            continue
+        if line.startswith("address-family "):
+            parts = line.split()
+            af = "{}_{}".format(parts[1], parts[2]) if len(parts) > 2 else None
+            continue
+        if line == "exit-address-family":
+            af = None
+            continue
+        if af and line.startswith("table-map "):
+            key = "{}|{}".format(DEFAULT_VRF, af)
+            global_af.setdefault(key, {})["route_download_filter"] = line.split()[1]
+
+    return global_af
+
 
 def _build_globals(config_db, bgp_asn, router_id):
     globals_tbl = {DEFAULT_VRF: {"local_asn": bgp_asn, "router_id": router_id}}
@@ -661,6 +722,12 @@ def translate_config_db(config_db, running_config, peer_group_json):
     # See sonic-buildimage#28482.
     if any(ln.strip() == "no bgp ebgp-requires-policy" for ln in running_config.splitlines()):
         globals_tbl[DEFAULT_VRF]["ebgp_requires_policy"] = "false"
+    # Same shape: bgpcfgd renders multipath-relax from its template, frrcfgd drives it from the
+    # BGP_GLOBALS load_balance_mp_relax field (frrcfgd.py global_key_map). Without it frr mode
+    # computes multipath differently from traditional on the same topology.
+    if any(ln.strip() == "bgp bestpath as-path multipath-relax"
+           for ln in running_config.splitlines()):
+        globals_tbl[DEFAULT_VRF]["load_balance_mp_relax"] = "true"
     # Same shape for suppress-fib-pending, but it lives in DEVICE_METADATA rather than
     # BGP_GLOBALS. bgpcfgd's template renders 'bgp suppress-fib-pending' whether or not the field
     # is set; frrcfgd reads DEVICE_METADATA['suppress-fib-pending'], caches it at startup and
@@ -688,6 +755,9 @@ def translate_config_db(config_db, running_config, peer_group_json):
     aggregates = _build_aggregate_addresses(result)
 
     result["BGP_GLOBALS"] = globals_tbl
+    global_af = _extract_global_af(running_config)
+    if global_af:
+        result["BGP_GLOBALS_AF"] = global_af
     if af_network:
         result["BGP_GLOBALS_AF_NETWORK"] = af_network
     result["BGP_PEER_GROUP"] = peer_group

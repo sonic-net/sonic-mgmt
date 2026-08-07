@@ -34,6 +34,7 @@ from tests.common.helpers.frr.frr_config_mode_migrator import (
     MODE_TRADITIONAL,
 )
 from tests.common.helpers.frr.bgp_config_translation import FrrTranslationError
+from tests.common.platform.interface_utils import check_interface_status_of_up_ports
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
@@ -624,4 +625,14 @@ def _switch_mode(state, mode):
         "Switching to '{}' mode did not preserve BGP: neighbors {} were not all "
         "re-established (established now: {}).".format(
             mode, sorted(baseline), sorted(last_established.get("set", set()))))
+    # A mode switch is a full-stack reload ('config reload' stops sonic.target -- every
+    # container). BGP being established does not mean the DUT is ready: the front-panel ports
+    # come up later, and anything that reloads again before they do gets a half-initialised
+    # stack. Measured on a t2: a second reload ~90s after this one left all 10 admin-up ports
+    # oper-down, so LACP never formed, the peer subnets' connected routes stayed 'dead
+    # linkdown', and every BGP session sat in Active with "No path to specified Neighbor" --
+    # surfacing as a bogus BGP/LLDP timeout in whichever module reloaded next.
+    if not wait_until(300, 20, 0, check_interface_status_of_up_ports, duthost):
+        logger.warning("%s: not all admin-up ports are operationally up after switching to '%s'",
+                       duthost.hostname, mode)
     _assert_config_preserved(duthost, mode, expected_fingerprint)
