@@ -32,6 +32,7 @@ function usage
   echo "    $0 [options] (create-master | destroy-master) <k8s-server-name> <vault-password-file>"
   echo "    $0 [options] restart-ptf <testbed-name> <vault-password-file>"
   echo "    $0 [options] set-l2 <testbed-name> <vault-password-file>"
+  echo "    $0 [options] deploy-l1 <testbed-name> <inventory> <vault-password-file>"
   echo "    $0 [options] install-image <testbed-name> <inventory> <image-url>"
   echo "    $0 [options] install-dpu-image <testbed-name> <inventory> <image-url> [<dpu-index>]"
   echo "    $0 [options] collect-show-tech <testbed-name> <inventory> <vault-password-file>"
@@ -95,6 +96,7 @@ function usage
   echo "To destroy Kubernetes master on a server: $0 -m k8s_ubuntu destroy-master 'k8s-server-name' ~/.password"
   echo "To restart ptf of specified testbed: $0 restart-ptf 'testbed-name' ~/.password"
   echo "To set DUT of specified testbed to l2 switch mode: $0 set-l2 'testbed-name' ~/.password"
+  echo "To deploy L1 (OCS) config for a testbed: $0 deploy-l1 'testbed-name' 'inventory' ~/.password"
   echo "To install an image on all DUTs in a testbed: $0 install-image 'testbed-name' 'inventory' 'image-url'"
   echo "To install an image on DPUs of a testbed: $0 install-dpu-image 'testbed-name' 'inventory' 'image-url' [dpu-index]"
   echo "    Optional argument for install-dpu-image:"
@@ -331,7 +333,7 @@ function start_vms
   echo "Starting VMs on server '${server}'"
 
   ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile -e VM_num="$vm_num" -e vm_type="$vm_type" testbed_start_VMs.yml \
-      --vault-password-file="${passwd}" -l "${server}" $@
+      --vault-password-file="${passwd}" -l "${server}" "$@"
 }
 
 function stop_vms
@@ -346,7 +348,7 @@ function stop_vms
   shift
   echo "Stopping VMs on server '${server}'"
 
-  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile -e vm_type="$vm_type" testbed_stop_VMs.yml --vault-password-file="${passwd}" -l "${server}" $@
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile -e vm_type="$vm_type" testbed_stop_VMs.yml --vault-password-file="${passwd}" -l "${server}" "$@"
 }
 
 function start_topo_vms
@@ -364,7 +366,7 @@ function start_topo_vms
   echo "Starting VMs for testbed '${testbed_name}' on server '${server}'"
 
   ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_start_VMs.yml --vault-password-file="${passwd}" -l "${server}" \
-	  -e VM_base="$vm_base" -e vm_type="$vm_type" -e topo="$topo" $@
+	  -e VM_base="$vm_base" -e vm_type="$vm_type" -e topo="$topo" "$@"
 }
 
 function stop_topo_vms
@@ -382,7 +384,7 @@ function stop_topo_vms
   echo "Stopping VMs for testbed '${testbed_name}' on server '${server}'"
 
   ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_stop_VMs.yml --vault-password-file="${passwd}" -l "${server}" \
-	  -e VM_base="$vm_base" -e vm_type="$vm_type" -e topo="$topo" $@
+	  -e VM_base="$vm_base" -e vm_type="$vm_type" -e topo="$topo" "$@"
 }
 
 function parse_servers
@@ -549,7 +551,7 @@ function add_topo
     fi
 
     if [[ "$ptf_imagename" != "docker-keysight-api-server" ]]; then
-      ansible-playbook fanout_connect.yml -i $vmfile --limit "$server" --vault-password-file="${passwd}" -e "dut=$duts" $fanout_options $@
+      ansible-playbook fanout_connect.yml -i $vmfile --limit "$server" --vault-password-file="${passwd}" -e "dut=$duts" $fanout_options "$@"
     fi
 
     if [[ $topo == *"t2"* ]]; then
@@ -639,10 +641,10 @@ function remove_topo
 
 function redeploy_topo()
 {
-    remove_topo $@ || true
+    remove_topo "$@" || true
     echo "Sleep 60 seconds ..."
     sleep 60
-    add_topo $@
+    add_topo "$@"
 }
 
 function connect_topo
@@ -662,9 +664,9 @@ function connect_topo
                      -e VM_base="$vm_base" -e ptf_ip="$ptf_ip" \
                      -e topo="$topo" -e vm_set_name="$vm_set_name" \
                      -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" -e ptf_ipv6="$ptf_ipv6" \
-                     -e ptf_extra_mgmt_ip="$ptf_extra_mgmt_ip" $@
+                     -e ptf_extra_mgmt_ip="$ptf_extra_mgmt_ip" "$@"
 
-  ansible-playbook fanout_connect.yml -i $vmfile --limit "$server" --vault-password-file="${passwd}" -e "dut=$duts" $@
+  ansible-playbook fanout_connect.yml -i $vmfile --limit "$server" --vault-password-file="${passwd}" -e "dut=$duts" "$@"
 
   echo Done
 }
@@ -684,9 +686,9 @@ function renumber_topo
       -e topo="$topo" -e vm_set_name="$vm_set_name" -e ptf_imagename="$ptf_imagename" -e ptf_ipv6="$ptf_ipv6" \
       -e vm_type="$vm_type" \
       -e upstream_neighbor_groups="$upstream_neighbor_groups" -e downstream_neighbor_groups="$downstream_neighbor_groups" \
-      -e ptf_extra_mgmt_ip="$ptf_extra_mgmt_ip" $@
+      -e ptf_extra_mgmt_ip="$ptf_extra_mgmt_ip" "$@"
 
-  ansible-playbook fanout_connect.yml -i $vmfile --limit "$server" --vault-password-file="${passwd}" -e "dut=$duts" $@
+  ansible-playbook fanout_connect.yml -i $vmfile --limit "$server" --vault-password-file="${passwd}" -e "dut=$duts" "$@"
 
   echo Done
 }
@@ -705,7 +707,7 @@ function restart_ptf
   ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_renumber_vm_topology.yml --vault-password-file="${passwd}" \
       -l "$server" -e testbed_name="$testbed_name" -e duts_name="$duts" -e VM_base="$vm_base" -e ptf_ip="$ptf_ip" \
       -e topo="$topo" -e vm_set_name="$vm_set_name" -e ptf_imagename="$ptf_imagename" -e ptf_ipv6="$ptf_ipv6" \
-      -e ptf_extra_mgmt_ip="$ptf_extra_mgmt_ip" -e netns_mgmt_ip="$netns_mgmt_ip" $@
+      -e ptf_extra_mgmt_ip="$ptf_extra_mgmt_ip" -e netns_mgmt_ip="$netns_mgmt_ip" "$@"
 
   echo Done
 }
@@ -734,7 +736,7 @@ function refresh_dut
         -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" -e ptf_ipv6="$ptf_ipv6" \
         -e ptf_extra_mgmt_ip="$ptf_extra_mgmt_ip" -e force_stop_sonic_vm="yes" \
         -e upstream_neighbor_groups="$upstream_neighbor_groups" -e downstream_neighbor_groups="$downstream_neighbor_groups" \
-        $ansible_options $@
+        $ansible_options "$@"
 
   echo Done
 }
@@ -773,7 +775,7 @@ function announce_routes
   read_file $testbed_name
 
   ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_announce_routes.yml --vault-password-file="$passfile" \
-      -l "$server" -e vm_set_name="$vm_set_name" -e topo="$topo" -e ptf_ip="$ptf_ip" $@
+      -l "$server" -e vm_set_name="$vm_set_name" -e topo="$topo" -e ptf_ip="$ptf_ip" "$@"
 
   echo done
 }
@@ -910,7 +912,7 @@ function deploy_config
   echo "Devices to generate config for: $devices"
   echo ""
 
-  ansible-playbook -i "$inventory" deploy_config_on_testbed.yml --vault-password-file="$passfile" -l "$devices" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e deploy=true -e save=true $@
+  ansible-playbook -i "$inventory" deploy_config_on_testbed.yml --vault-password-file="$passfile" -l "$devices" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e deploy=true -e save=true "$@"
 
   echo Done
 }
@@ -936,7 +938,20 @@ function deploy_l1
   echo "Devices to generate config for: $devices"
   echo ""
 
-  ansible-playbook -i "$inventory" deploy_config_on_testbed.yml --vault-password-file="$passfile" -l "$devices" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e deploy=true -e save=true -e config_duts=false -e reset_previous_connection=false$@
+  # Toggle the OCS cross-connect CLI path. When true, reconcile
+  # cross-connects via the CLI and clear stale entries (the CLI persists
+  # automatically, no "config save" needed; l1_xconnect_clear_stale defaults
+  # to true). When false, fall back to the patch and reload path (gated by
+  # deploy=true) and reset previous connections. The CLI path and deploy=true
+  # are mutually exclusive.
+  use_l1_ocs_cli="${use_l1_ocs_cli:-true}"
+  if [[ "$use_l1_ocs_cli" == "true" ]]; then
+    ocs_options="-e use_l1_ocs_cli=true"
+  else
+    ocs_options="-e use_l1_ocs_cli=false -e deploy=true -e save=true -e reset_previous_connection=false"
+  fi
+
+  ansible-playbook -i "$inventory" deploy_config_on_testbed.yml --vault-password-file="$passfile" -l "$devices" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e config_duts=false $ocs_options "$@"
 
   echo Done
 }
@@ -961,7 +976,7 @@ function generate_config
   echo "Devices to generate config for: $devices"
   echo ""
 
-  ansible-playbook -i "$inventory" deploy_config_on_testbed.yml --vault-password-file="$passfile" -l "$devices" -e testbed_name="$testbed_name" -e testbed_file=$tbfile $@
+  ansible-playbook -i "$inventory" deploy_config_on_testbed.yml --vault-password-file="$passfile" -l "$devices" -e testbed_name="$testbed_name" -e testbed_file=$tbfile "$@"
 
   echo Done
 }
@@ -979,7 +994,7 @@ function config_y_cable
 
   read_file $testbed_name
 
-  ansible-playbook -i "$inventory" config_y_cable.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile $@
+  ansible-playbook -i "$inventory" config_y_cable.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile "$@"
 
   echo Done
 }
@@ -1033,7 +1048,7 @@ function set_l2_mode
     exit 1
   fi
 
-  ansible-playbook -i "$inv_name" testbed_set_l2_mode.yml --vault-password-file="$passfile" -l "$duts" $@
+  ansible-playbook -i "$inv_name" testbed_set_l2_mode.yml --vault-password-file="$passfile" -l "$duts" "$@"
 }
 
 function config_vm
@@ -1058,7 +1073,7 @@ function start_k8s_vms
 
   echo "Starting Kubernetes VMs on server '${server}'"
 
-  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_start_k8s_VMs.yml --vault-password-file="${passwd}" -e k8s="true" -l "${server}" $@
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_start_k8s_VMs.yml --vault-password-file="${passwd}" -e k8s="true" -l "${server}" "$@"
 }
 
 function setup_k8s_vms
@@ -1082,7 +1097,7 @@ function stop_k8s_vms
 
   echo "Stopping Kubernetes VMs on server '${server}'"
 
-  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_stop_k8s_VMs.yml --vault-password-file="${passwd}" -l "${server}" -e k8s="true" $@
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_stop_k8s_VMs.yml --vault-password-file="${passwd}" -l "${server}" -e k8s="true" "$@"
 }
 
 function cleanup_vmhost
@@ -1094,7 +1109,7 @@ function cleanup_vmhost
   echo "Cleaning vm_host server '${server}'"
 
   ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile -e VM_num="$vm_num" testbed_cleanup.yml \
-      --vault-password-file="${passwd}" -l "${server}" $@
+      --vault-password-file="${passwd}" -l "${server}" "$@"
 }
 
 function install_image
@@ -1146,7 +1161,7 @@ function collect_show_tech
 
   echo "Collect show techsupport result on testbed '$testbed_name'"
 
-  ansible-playbook -i "$inventory" collect_show_tech.yml --vault-password-file="$passfile" -e testbed_name="$testbed_name" -e testbed_file=$tbfile $@
+  ansible-playbook -i "$inventory" collect_show_tech.yml --vault-password-file="$passfile" -e testbed_name="$testbed_name" -e testbed_file=$tbfile "$@"
 
   echo Done
 
@@ -1351,70 +1366,70 @@ function remove_vnut_topo
 subcmd=$1
 shift
 case "${subcmd}" in
-  start-vms)   start_vms $@
+  start-vms)   start_vms "$@"
                ;;
-  stop-vms)    stop_vms $@
+  stop-vms)    stop_vms "$@"
                ;;
-  start-topo-vms) start_topo_vms $@
+  start-topo-vms) start_topo_vms "$@"
                ;;
-  stop-topo-vms) stop_topo_vms $@
+  stop-topo-vms) stop_topo_vms "$@"
                ;;
-  add-topo)    add_topo $@
+  add-topo)    add_topo "$@"
                ;;
-  remove-topo) remove_topo $@
+  remove-topo) remove_topo "$@"
                ;;
-  redeploy-topo) redeploy_topo $@
+  redeploy-topo) redeploy_topo "$@"
                ;;
-  renumber-topo) renumber_topo $@
+  renumber-topo) renumber_topo "$@"
                ;;
-  connect-topo) connect_topo $@
+  connect-topo) connect_topo "$@"
                ;;
-  deploy-topo-with-cache) deploy_topo_with_cache $@
+  deploy-topo-with-cache) deploy_topo_with_cache "$@"
                ;;
-  refresh-dut) refresh_dut $@
+  refresh-dut) refresh_dut "$@"
                ;;
-  connect-vms) connect_vms $@
+  connect-vms) connect_vms "$@"
                ;;
-  disconnect-vms) disconnect_vms $@
+  disconnect-vms) disconnect_vms "$@"
                ;;
-  config-vm)   config_vm $@
+  config-vm)   config_vm "$@"
                ;;
-  announce-routes) announce_routes $@
+  announce-routes) announce_routes "$@"
                ;;
-  gen-mg)      generate_minigraph $@
+  gen-mg)      generate_minigraph "$@"
                ;;
-  deploy-mg)   deploy_minigraph $@
+  deploy-mg)   deploy_minigraph "$@"
                ;;
-  test-mg)     test_minigraph $@
+  test-mg)     test_minigraph "$@"
                ;;
-  deploy-cfg)  deploy_config $@
+  deploy-cfg)  deploy_config "$@"
                ;;
-  deploy-l1)   deploy_l1 $@
+  deploy-l1)   deploy_l1 "$@"
                ;;
-  gen-cfg)     generate_config $@
+  gen-cfg)     generate_config "$@"
                ;;
-  config-y-cable) config_y_cable $@
+  config-y-cable) config_y_cable "$@"
                ;;
-  set-l2) set_l2_mode $@
+  set-l2) set_l2_mode "$@"
                ;;
-  cleanup-vmhost) cleanup_vmhost $@
+  cleanup-vmhost) cleanup_vmhost "$@"
                ;;
-  create-master) start_k8s_vms $@
-                 setup_k8s_vms $@
+  create-master) start_k8s_vms "$@"
+                 setup_k8s_vms "$@"
                ;;
-  destroy-master) stop_k8s_vms $@
+  destroy-master) stop_k8s_vms "$@"
                ;;
-  restart-ptf) restart_ptf $@
+  restart-ptf) restart_ptf "$@"
                ;;
-  install-image) install_image $@
+  install-image) install_image "$@"
                ;;
-  install-dpu-image) install_dpu_image $@
+  install-dpu-image) install_dpu_image "$@"
                ;;
-  collect-show-tech) collect_show_tech $@
+  collect-show-tech) collect_show_tech "$@"
                ;;
-  config-vs-chassis) config_vs_chassis $@
+  config-vs-chassis) config_vs_chassis "$@"
                ;;
-  update-breakout) update_breakout $@
+  update-breakout) update_breakout "$@"
                ;;
   add-vnut-topo)    add_vnut_topo "$@"
                ;;

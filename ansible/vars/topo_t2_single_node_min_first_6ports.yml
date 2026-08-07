@@ -1,0 +1,169 @@
+topology:
+  VMs:
+    VM01T3:
+      vlans:
+        - 0
+      vm_offset: 0
+    VM02T3:
+      vlans:
+        - 1
+      vm_offset: 1
+    VM03T3:
+      vlans:
+        - 2
+      vm_offset: 2
+    VM05LT2:
+      vlans:
+        - 3
+        - 4
+      vm_offset: 3
+    VM07LT2:
+      vlans:
+        - 5
+      vm_offset: 4
+
+  DUT:
+    loopback:
+      ipv4:
+        - 10.1.0.1/32
+      ipv6:
+        - fc00:10::1/128
+
+configuration_properties:
+  common:
+    podset_number: 400
+    tor_number: 16
+    tor_subnet_number: 8
+    max_tor_subnet_number: 32
+    tor_subnet_size: 128
+    dut_asn: 66000
+    dut_confed_asn: 65100
+    dut_confed_peers: 65300
+    dut_type: UpperSpineRouter
+    nhipv4: 10.10.246.254
+    nhipv6: fc0a::ff
+  core:
+    swrole: core
+  leaf:
+    swrole: leaf
+
+configuration:
+  VM01T3:
+    properties:
+    - common
+    - core
+    bgp:
+      peer_in_bgp_confed: true
+      asn: 65200
+      peers:
+        65100:
+        - 10.0.0.0
+        - fc00::1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.1/32
+        ipv6: 2064:100::1/128
+      Port-Channel1:
+        ipv4: 10.0.0.1/31
+        ipv6: fc00::2/126
+      Ethernet1:
+        lacp: 1
+    bp_interface:
+      ipv4: 10.10.246.1/24
+      ipv6: fc0a::2/64
+
+  VM02T3:
+    properties:
+    - common
+    - core
+    bgp:
+      peer_in_bgp_confed: true
+      asn: 65200
+      peers:
+        65100:
+        - 10.0.0.2
+        - fc00::5
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.2/32
+        ipv6: 2064:100::2/128
+      Ethernet1:
+        ipv4: 10.0.0.3/31
+        ipv6: fc00::6/126
+    bp_interface:
+      ipv4: 10.10.246.2/24
+      ipv6: fc0a::3/64
+
+  VM03T3:
+    properties:
+    - common
+    - core
+    bgp:
+      peer_in_bgp_confed: true
+      asn: 65200
+      peers:
+        65100:
+        - 10.0.0.4
+        - fc00::9
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.3/32
+        ipv6: 2064:100::3/128
+      Port-Channel1:
+        ipv4: 10.0.0.5/31
+        ipv6: fc00::a/126
+      Ethernet1:
+        lacp: 1
+    bp_interface:
+      ipv4: 10.10.246.3/24
+      ipv6: fc0a::4/64
+
+  VM05LT2:
+    properties:
+    - common
+    - leaf
+    bgp:
+      asn: 65300
+      confed_asn: 65100
+      confed_peers: 66000
+      peers:
+        66000:
+        - 10.0.0.136
+        - fc00::111
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.69/32
+        ipv6: 2064:100::45/128
+      Ethernet1:
+        lacp: 1
+      Ethernet2:
+        lacp: 1
+      Port-Channel1:
+        ipv4: 10.0.0.137/31
+        ipv6: fc00::112/126
+    bp_interface:
+      ipv4: 10.10.246.69/24
+      ipv6: fc0a::46/64
+
+  VM07LT2:
+    properties:
+    - common
+    - leaf
+    bgp:
+      asn: 65300
+      confed_asn: 65100
+      confed_peers: 66000
+      peers:
+        66000:
+        - 10.0.0.140
+        - fc00::119
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.71/32
+        ipv6: 2064:100::47/128
+      Ethernet1:
+        ipv4: 10.0.0.141/31
+        ipv6: fc00::11a/126
+    bp_interface:
+      ipv4: 10.10.246.71/24
+      ipv6: fc0a::48/64

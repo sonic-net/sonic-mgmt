@@ -146,7 +146,7 @@ def _password_retry(func):
         ssh_args = args[0]
         # Change the IPv4 host in the ssh_args to IPv6
         for idx in range(len(ssh_args)):
-            if type(ssh_args[idx]) == bytes and ssh_args[idx].decode() == self.host:
+            if isinstance(ssh_args[idx], bytes) and ssh_args[idx].decode() == self.host:
                 ssh_args[idx] = new_host
         self.host = new_host
         self.set_option("host", new_host)
@@ -168,7 +168,7 @@ def _password_retry(func):
             ipv4_addr_unavailable = (CONNECTION_TIMEOUT_ERR_FLAG1 in e.message) or \
                                     (CONNECTION_TIMEOUT_ERR_FLAG2 in e.message)
 
-            try_ipv6_addr = orig_host != hostv6 and (type(e) != AnsibleAuthenticationFailure) and \
+            try_ipv6_addr = orig_host != hostv6 and (not isinstance(e, AnsibleAuthenticationFailure)) and \
                 ipv4_addr_unavailable and hostv6
             if not try_ipv6_addr:
                 raise e

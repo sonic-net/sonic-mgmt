@@ -23,7 +23,7 @@ STATS_COLLECT_TIMEOUT = 30
 STATS_COLLECT_INTERVAL = 5
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1', 't2', 'lrh', 'urh', 'lt2', 'ft2'),
+    pytest.mark.topology('t0', 't1', 't2', 'lrh', 'urh', 'lt2', 'ft2', 'lma', 'uma'),
     pytest.mark.disable_loganalyzer
 ]
 
@@ -178,6 +178,11 @@ def setup_bgp_peers(
     dut_type = mg_facts["minigraph_devices"][duthost.hostname]["type"]
     if dut_type in ["ToRRouter", "SpineRouter", "BackEndToRRouter", "LowerSpineRouter"]:
         neigh_type = "LeafRouter"
+    elif dut_type == "UpperSpineRouter" and confed_asn is not None:
+        # On confederation-based UT2 topologies the UpperSpineRouter peers with
+        # AZNGHub neighbors using the confederation ASN, not the per-DUT ASN.
+        neigh_type = "AZNGHub"
+        dut_asn = int(confed_asn)
     elif dut_type in ["UpperSpineRouter", "FabricSpineRouter"]:
         neigh_type = "LowerSpineRouter"
         if dut_type == "FabricSpineRouter" and confed_asn is not None:

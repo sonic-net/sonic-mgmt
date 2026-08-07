@@ -25,6 +25,7 @@
   ptf_ipv6: fec0::ffff:afa:2/64
   server: server_1
   vm_base: VM0100
+  vm_type: csonic
   dut:
     - vlab-01
   inv_name: veos_vtb
@@ -572,7 +573,7 @@
 
 - conf-name: vms-kvm-dual-vpp-t0-1
   group-name: vms6-9
-  topo: dualtor
+  topo: dualtor-vpp
   ptf_image_name: docker-ptf
   ptf: ptf-09
   ptf_ip: 10.250.0.120/24
@@ -584,12 +585,12 @@
     - vlab-vpp-04
   inv_name: veos_vtb
   auto_recover: 'False'
-  use_converged_peers: True
+  use_converged_peers: False
   comment: Dual-TOR VPP testbed
 
 - conf-name: vms-kvm-dual-vpp-t0-2
   group-name: vms6-10
-  topo: dualtor-aa
+  topo: dualtor-aa-vpp
   ptf_image_name: docker-ptf
   ptf: ptf-10
   ptf_ip: 10.250.0.121/24
@@ -602,5 +603,5 @@
     - vlab-vpp-06
   inv_name: veos_vtb
   auto_recover: 'False'
-  use_converged_peers: True
+  use_converged_peers: False
   comment: Active-Active Dual-TOR VPP testbed
