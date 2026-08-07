@@ -987,6 +987,13 @@
                 ],
                 "owner": "Isabel Li",
                 "email": "isl@microsoft.com"
+            },
+            {
+                "scripts": [
+                    "kubesonic.test_network_test_api_health"
+                ],
+                "owner": "Ryan Zhu",
+                "email": "ryanzhu@microsoft.com"
             }
         ]
     },

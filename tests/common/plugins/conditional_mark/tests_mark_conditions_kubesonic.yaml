@@ -1,0 +1,5 @@
+kubesonic/test_network_test_api_health.py:
+  skip:
+    reason: "Network-Test API probe is not applicable to example or virtual testbeds"
+    conditions:
+      - "testbed in ['ixanvl-vs-conf', 'nut-testbed-1', 'tor-dualtor3', 'vms-chassis-packet-dut']"
