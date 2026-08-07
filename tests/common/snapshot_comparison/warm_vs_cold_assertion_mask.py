@@ -187,14 +187,14 @@ Expectation = Union[TopLevelKeyOneSideExpectation, TopLevelKeyBothValueDiffExpec
 _ARISTA_ASSERTION_MASK = {
     DBType.APPL: [
         # IPv4/IPv6 ECMP routes warm-only 'weight' field.
-        # Warm has a weight string ("1,1,1,1" for 4-member ECMP, "1" for single),
+        # Warm has one all-ones weight per next hop ("1", "1,1", "1,1,1,1", ...),
         # cold has no weight field.
         TopLevelKeyBothValueDiffExpectation(
             key_match=KeyMatch(mode=KeyMatchMode.PREFIX, pattern="ROUTE_TABLE:"),
             fields=[
                 FieldExpectation(
                     field_match=KeyMatch(mode=KeyMatchMode.EXACT, pattern="weight"),
-                    after_warmboot=ValueSpec.one_of(["1,1,1,1", "1"]),
+                    after_warmboot=ValueSpec.regex(r"1(,1)*"),
                     after_coldboot=ValueSpec.null(),
                 ),
             ],
