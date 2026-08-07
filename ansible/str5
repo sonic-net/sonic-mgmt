@@ -191,6 +191,12 @@ all:
         pdu-131:
           ansible_host: 10.3.155.126
           protocol: snmp
+        pdu-k10-a:
+          ansible_host: 10.3.157.80
+          protocol: snmp
+        pdu-k10-b:
+          ansible_host: 10.3.157.81
+          protocol: snmp
 
 fanout:
   hosts:
