@@ -25,7 +25,8 @@ from tests.common.cisco_data import (
 logger = logging.getLogger(__name__)
 
 DEFAULT_CONDITIONS_FILE = 'common/plugins/conditional_mark/tests_mark_conditions*.yaml'
-ANSIBLE_CONFIG_PATH = pathlib.Path(os.getenv('ANSIBLE_CONFIG', '../../../../ansible'))
+ANSIBLE_CONFIG_PATH = pathlib.Path(os.getenv("ANSIBLE_CONFIG",
+                                             pathlib.Path(__file__).resolve().parent.joinpath("../../../ansible")))
 ASIC_NAME_PATH = ANSIBLE_CONFIG_PATH.joinpath("group_vars/sonic/variables")
 ANSIBLE_LIBRARY_PATH = ANSIBLE_CONFIG_PATH.joinpath("library")
 MARK_CONDITIONS_CONSTANTS = {
@@ -135,9 +136,8 @@ def read_asic_name(hwsku):
         str or None: Return the asic generation name or None if something went wrong or nothing found in the file.
 
     '''
-    asic_name_file = ASIC_NAME_PATH
     try:
-        with open(asic_name_file) as f:
+        with open(ASIC_NAME_PATH) as f:
             asic_name = yaml.safe_load(f)
 
         for key, value in list(asic_name.copy().items()):
@@ -209,9 +209,7 @@ def get_basic_facts(session):
 
 
 def get_http_proxies(inv_name):
-    # INV_ENV_FILE = '../../../../ansible/group_vars/{}/env.yml'.format(inv_name)
     INV_ENV_FILE = ANSIBLE_CONFIG_PATH.joinpath("group_vars/{}/env.yml".format(inv_name))
-    # PUBLIC_ENV_FILE = '../../../../ansible/group_vars/all/env.yml'
     PUBLIC_ENV_FILE = ANSIBLE_CONFIG_PATH.joinpath("group_vars/all/env.yml")
     proxies = {}
 
