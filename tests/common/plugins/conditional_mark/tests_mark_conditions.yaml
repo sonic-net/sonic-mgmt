@@ -3811,20 +3811,12 @@ mvrf:
 
 mvrf/test_mgmtvrf.py:
   skip:
-<<<<<<< HEAD
-    reason: "mvrf is not supported in x86_64-nokia_ixr7250e_36x400g-r0 platform, M* topo, kvm testbed, mellanox, nvidia and broadcom asic from 202411 and later and  test skipped due to github issue #3589"
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vs', 'mellanox', 'nvidia', 'broadcom']"
-=======
     reason: "mvrf is not supported in x86_64-nokia_ixr7250e_36x400g-r0 platform, M* topo, mellanox and nvidia asic"
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['mellanox', 'nvidia']"
->>>>>>> 339e23779 (NOS-13590: enable mvrf/test_mgmtvrf.py on vs — PTF NTP for post-reboot check (#2508))
       - "topo_type in ['m0', 'mx', 'm1']"
       - "platform in ['x86_64-nokia_ixr7250e_36x400g-r0']"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/3589"
 
 mvrf/test_mgmtvrf.py::TestReboot::test_fastboot:
   skip:
