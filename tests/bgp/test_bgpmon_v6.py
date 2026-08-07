@@ -9,6 +9,7 @@ from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # noqa:F401
 from tests.common.helpers.generators import generate_ip_through_default_route, generate_ip_through_default_v6_route
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.bgp import get_asic_config_facts
 from tests.common.utilities import wait_until
 from tests.common.utilities import wait_tcp_connection
 from bgp_helpers import BGPMON_TEMPLATE_FILE, BGPMON_CONFIG_FILE, BGP_MONITOR_NAME, BGP_MONITOR_PORT
@@ -90,12 +91,8 @@ def common_v6_setup_teardown(duthosts, tbinfo, enum_rand_one_per_hwsku_frontend_
     peer_addr = str(IPNetwork(peer_addr).ip)
     peer_ports, local_ports = get_all_uplink_ptf_recv_ports(duthosts, tbinfo)
 
-    # Get loopback4096 address
-    if enum_rand_one_frontend_asic_index:
-        cfg_facts = duthost.config_facts(
-                        source='persistent', asic_index='all')[enum_rand_one_frontend_asic_index]['ansible_facts']
-    else:
-        cfg_facts = duthost.config_facts(source='persistent', asic_index='all')[0]['ansible_facts']
+    # Get loopback4096 address for the selected frontend ASIC
+    cfg_facts = get_asic_config_facts(duthost, enum_rand_one_frontend_asic_index)
 
     if 'Loopback4096' in cfg_facts['LOOPBACK_INTERFACE']:
         lbs4096 = list(cfg_facts['LOOPBACK_INTERFACE']['Loopback4096'].keys())
