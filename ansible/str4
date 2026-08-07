@@ -256,10 +256,17 @@ fanout:
       ansible_host: 10.3.146.216
       ansible_hostv6:
       os: sonic
-    str4-7060x6-64pe-fan-11:
+    str4-7060x6-64pe-fan-4:
+      ansible_host: 10.64.247.111
+      ansible_hostv6:
+      os: sonic
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+    str4-7060x6-512-fan-14:
       ansible_host: 10.3.146.139
       ansible_hostv6:
       os: sonic
+      mgmt_subnet_mask_length: 24
     str4-sn5640-fan-2:
       ansible_host: 10.64.246.122
       ansible_hostv6: 2a01:111:e210:b000::a40:f67a
@@ -411,26 +418,6 @@ sonic_arista_7060x6:
         "0x2D": "Arista Networks"
         "0x2B": "Arista Networks"
         "0x2F": "HBG25160FJJ"
-    str4-7060x6-64pe-11:
-      ansible_host: 10.3.146.138
-      ansible_hostv6: 2a01:111:e210:3000::a03:928a
-      mgmt_subnet_mask_length: 24
-      hwsku: Arista-7060X6-64PE-C256S2
-      model: DCS-7060X6-64PE
-      serial: HBG24410522
-      base_mac: 9c:69:ed:61:aa:72
-      syseeprom_info:
-        "0x21": "DCS-7060X6-64PE"
-        "0x22": "ASY0783905C0"
-        "0x23": "HBG24410522"
-        "0x24": "9c:69:ed:61:aa:72"
-        "0x25": "2024/10/17 23:08:12"
-        "0x26": "02"
-        "0x27": "11.22"
-        "0x28": "x86_64-arista_7060x6_64pe"
-        "0x2D": "Arista Networks"
-        "0x2B": "Arista Networks"
-        "0x2F": "HBG24410522"
 
 sonic_arista_7060x6_512:
   hosts:
@@ -460,7 +447,7 @@ sonic_arista_7060x6_512:
       ansible_hostv6: 2a01:111:e210:b000::a40:f77c
       mgmt_subnet_mask_length: 26
       mgmt_subnet_v6_mask_length: 122
-      hwsku: Arista-7060X6-64PE-B-C448O16
+      hwsku: Arista-7060X6-64PE-B-C512S2
       model: DCS-7060X6-64PE-B
       serial: HBG250902J7
       base_mac: d8:06:f3:51:b0:4f
@@ -481,7 +468,7 @@ sonic_arista_7060x6_512:
       ansible_hostv6: 2a01:111:e210:b000::a40:f6cd
       mgmt_subnet_mask_length: 25
       mgmt_subnet_v6_mask_length: 121
-      hwsku: Arista-7060X6-64PE-B-C448O16
+      hwsku: Arista-7060X6-64PE-B-C512S2
       model: DCS-7060X6-64PE-B
       serial: HBG25160FHW
       base_mac: d8:06:f3:3b:ff:f7
@@ -565,7 +552,7 @@ sonic_arista_7060x6_512:
       ansible_hostv6: 2a01:111:e210:b000::a40:f73e
       mgmt_subnet_mask_length: 26
       mgmt_subnet_v6_mask_length: 122
-      hwsku: Arista-7060X6-64PE-B-C448O16
+      hwsku: Arista-7060X6-64PE-B-C512S2
       model: DCS-7060X6-64PE-B
       serial: HBG251204WB
       base_mac: d8:06:f3:5a:a9:b1
@@ -686,6 +673,27 @@ sonic_arista_7060x6_512:
         "0x2B": "Arista Networks"
         "0x2D": "Arista Networks"
         "0x2F": "HBG25230JK8"
+    str4-7060x6-512-14:
+      ansible_host: 10.3.146.138
+      ansible_hostv6: 2a01:111:e210:3000::a03:928a
+      mgmt_subnet_mask_length: 24
+      mgmt_subnet_v6_mask_length: 120
+      hwsku: Arista-7060X6-64PE-B-C448O16
+      model: DCS-7060X6-64PE-B
+      serial: HBG25470V4E
+      base_mac: a4:7a:72:30:18:4f
+      syseeprom_info:
+        "0x21": "DCS-7060X6-64PE-B"
+        "0x22": "ASY0899401B0"
+        "0x23": "HBG25470V4E"
+        "0x24": "a4:7a:72:30:18:4f"
+        "0x25": "2025/11/28 18:27:49"
+        "0x26": "02"
+        "0x27": "11.10"
+        "0x28": "x86_64-arista_7060x6_64pe_b"
+        "0x2D": "Arista Networks"
+        "0x2B": "Arista Networks"
+        "0x2F": "HBG25470V4E"
 
 sonic_nvidia_sn5600:
   hosts:

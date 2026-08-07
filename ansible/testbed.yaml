@@ -2169,9 +2169,9 @@
   comment: riffjiang
   tb_owner: riffjiang
 
-- conf-name: vms72-t1-7060x6-11
+- conf-name: vms72-t1-7060x6-512-14
   group-name: vms72-1
-  topo: t1-isolated-d254u2
+  topo: t1-isolated-d56u1-lag # 57VM
   ptf_image_name: docker-ptf
   ptf: vms72-1
   ptf_ip: 10.64.246.75/25
@@ -2179,7 +2179,7 @@
   server: server_72
   vm_base: VM42000
   dut:
-  - str4-7060x6-64pe-11
+  - str4-7060x6-512-14
   inv_name: str4
   comment: wendachu
   tb_owner: wendachu
