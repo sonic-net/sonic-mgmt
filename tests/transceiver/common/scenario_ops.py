@@ -89,7 +89,7 @@ def perform_sfputil_reset(duthost, port, recover_with_port_toggle=True,
     """``sfputil reset`` a transceiver, optionally bracketed by a port toggle.
 
     Some modules stay oper-down after a reset, so ``recover_with_port_toggle``
-    helps bring the port back up. Sleeps``i2c_recover_sec`` after the reset.
+    helps bring the port back up. Sleeps ``i2c_recover_sec`` after the reset.
     Returns a list of per-port failure strings.
     """
     failures = []

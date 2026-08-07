@@ -447,4 +447,7 @@ def issue_cdb_fw_abort(duthost, physical_index):
     result = duthost.shell('python3 -c "{}"'.format(pycode), module_ignore_errors=True)
     if result.get("rc", RC_FAILURE) != 0:
         return None, f"CDB abort failed with rc={result.get('rc')} ({_error_detail(result)})"
-    return " ".join(result.get("stdout_lines") or []).strip(), None
+    status = " ".join(result.get("stdout_lines") or []).strip()
+    if status == "NO_CDB":
+        return None, "CDB not supported on module"
+    return status, None

@@ -92,6 +92,7 @@ def resolve_binary_path(metadata_map, vendor, pn, version):
     for entry in metadata_map[(vendor, pn)]:
         if entry["version"] == version:
             return entry["dut_path"]
+    return None
 
 
 def verify_firmware_downloaded(duthost, port, before_banks, target_version, download_err):
@@ -149,7 +150,9 @@ def perform_firmware_download(duthost, port, port_context, metadata_map,
     if cdb_attrs.get("firmware_download_cdb_abort_support", True):
         status, abort_err = cli_helpers.issue_cdb_fw_abort(duthost, physical_index)
         if abort_err:
-            return [f"abort failed: {abort_err}"]
+            logger.warning("Port %s: pre-download CDB abort failed (proceeding): %s", port, abort_err)
+        else:
+            logger.info("Port %s: pre-download CDB abort status=%s", port, status)
 
     thermalctld_stopped = False
     if cdb_attrs.get("thermalctld_disabling_required", False):
@@ -191,7 +194,9 @@ def verify_firmware_activation(duthost, port, before_banks, dual_bank_supported,
     failures = []
     if dual_bank_supported:
         if after_banks.get(FW_ACTIVE) != before_banks.get(FW_INACTIVE):
-            failures.append("firmware activation failed")
+            failures.append("active firmware not updated after activation")
+        if after_banks.get(FW_INACTIVE) != before_banks.get(FW_ACTIVE):
+            failures.append("previous active firmware not preserved in inactive bank after swap")
         if after_banks.get(FW_RUNNING_IMAGE) == before_banks.get(FW_RUNNING_IMAGE):
             failures.append("Running Image did not change after activation")
     elif activated_version is None:
@@ -227,6 +232,7 @@ def perform_firmware_activation(duthost, port, port_context,
 
     failures = scenario_ops.perform_ports_shutdown(duthost, subports, shutdown_wait)
     thermalctld_stopped = False
+    dmesg_start_uptime = None
     try:
         if not failures and cdb_attrs.get("thermalctld_disabling_required", False):
             thermalctld_stopped, thermal_err = _stop_thermalctld(duthost)
@@ -254,9 +260,10 @@ def perform_firmware_activation(duthost, port, port_context,
             failures += _scan_i2c_errors(duthost, dmesg_start_uptime, "activation")
 
         thermal_err = _start_thermalctld(duthost, thermalctld_stopped)
-        thermalctld_stopped = False
         if thermal_err:
             failures.append(f"failed to restart thermalctld: {thermal_err}")
+        else:
+            thermalctld_stopped = False
 
         if not failures:
             failures += scenario_ops.perform_sfputil_reset(
