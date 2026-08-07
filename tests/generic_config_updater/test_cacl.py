@@ -908,6 +908,12 @@ def test_cacl_tc1_acl_table_suite(cacl_protocol, rand_selected_front_end_dut, en
 # ACL_RULE tests are related. So group them into one test.
 def test_cacl_tc2_acl_rule_test(cacl_protocol, rand_selected_front_end_dut, enum_rand_one_frontend_asic_index,
                                 ip_netns_namespace_prefix):
+    if rand_selected_front_end_dut.is_multi_asic:
+        pytest.skip(
+            "On multi-ASIC, caclmgrd applies SSH/SNMP rules to the FORWARD chain instead of INPUT. "
+            "Test expectations need updating once sonic-host-services PR #398 "
+            "(https://github.com/sonic-net/sonic-host-services/pull/398) is merged."
+        )
     namespace = rand_selected_front_end_dut.get_namespace_from_asic_id(enum_rand_one_frontend_asic_index)
 
     logger.info("Test acl table for protocol {}".format(cacl_protocol))
