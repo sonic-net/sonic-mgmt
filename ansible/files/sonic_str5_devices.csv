@@ -42,8 +42,11 @@ str5-sn5640-fan-6,10.64.246.32/25,Mellanox-SN5640-C512S2,FanoutLeafSonic,,sonic
 str5-7260cx3-acs-fan-20,10.64.247.109/26,Arista-7260CX3,FanoutLeaf,,
 str5-7260cx3-acs-fan-21,10.64.247.110/26,Arista-7260CX3,FanoutLeaf,,
 str5-7260cx3-acs-fan-38,10.3.155.74/27,Arista-7260CX3,FanoutLeaf,,
+str5-7260cx3-acs-fan-39,10.3.155.75/27,Arista-7260CX3,FanoutLeaf,,
 str5-7050cx3-32c-f-acs-12,10.3.155.69/27,Arista-7050CX3-32C-C32,DevSonic,,sonic
 str5-7050cx3-32c-f-acs-13,10.3.155.71/27,Arista-7050CX3-32C-C32,DevSonic,,sonic
+str5-7050cx3-32c-f-acs-14,10.3.155.72/27,Arista-7050CX3-32C-C32,DevSonic,,sonic
+str5-7050cx3-32c-f-acs-15,10.3.155.73/27,Arista-7050CX3-32C-C32,DevSonic,,sonic
 str5-z9332f-01,10.64.247.112/26,DellEMC-Z9332f-O32,FanoutLeafSonic,,sonic
 str5-z9332f-02,10.64.247.115/26,DellEMC-Z9332f-O32,FanoutLeafSonic,,sonic
 str5-7280dr3-2,10.64.247.74/26,Arista-7280DR3AM-36,DevSonic,,sonic
@@ -116,5 +119,5 @@ str43-0101-0400-06c0,10.3.150.239,Cisco,ConsoleServer,ssh,
 str43-0101-0400-07c0,10.3.150.241,Cisco,ConsoleServer,ssh,
 str43-0101-0400-08c0,10.3.152.33,Cisco,ConsoleServer,ssh,
 str43-0101-0400-09c0,10.3.150.244,Cisco,ConsoleServer,ssh,
-str43-0101-0801-02c0,10.3.150.228,Cisco,ConsoleServer,ssh,
+str43-0101-0801-02c0,10.3.152.53,Cisco,ConsoleServer,ssh,
 str43-0101-0900-01c0,10.3.152.41,Cisco,ConsoleServer,ssh,

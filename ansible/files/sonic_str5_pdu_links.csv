@@ -45,3 +45,9 @@ pdu-k10-a,1,str5-7050cx3-32c-f-acs-13,PSU1
 pdu-k10-b,1,str5-7050cx3-32c-f-acs-13,PSU2
 pdu-k10-a,2,str5-7260cx3-acs-fan-38,PSU1
 pdu-k10-b,2,str5-7260cx3-acs-fan-38,PSU2
+pdu-k10-a,6,str5-7050cx3-32c-f-acs-14,PSU1
+pdu-k10-b,6,str5-7050cx3-32c-f-acs-14,PSU2
+pdu-k10-a,4,str5-7050cx3-32c-f-acs-15,PSU1
+pdu-k10-b,4,str5-7050cx3-32c-f-acs-15,PSU2
+pdu-k10-a,5,str5-7260cx3-acs-fan-39,PSU1
+pdu-k10-b,5,str5-7260cx3-acs-fan-39,PSU2
