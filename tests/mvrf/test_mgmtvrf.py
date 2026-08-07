@@ -305,7 +305,15 @@ class TestServices():
 
 
 class TestReboot():
+<<<<<<< HEAD
     def basic_check_after_reboot(self, duthost, localhost, ptfhost, creds):
+=======
+    def basic_check_after_reboot(self, duthost, localhost, ptfhost, creds, ntp_daemon_in_use,  # noqa: F811
+                                 check_ntp_sync):
+        """
+        Perform basic checks after reboot to verify mgmt VRF functionality.
+        """
+>>>>>>> 339e23779 (NOS-13590: enable mvrf/test_mgmtvrf.py on vs — PTF NTP for post-reboot check (#2508))
         verify_show_command(duthost)
         inbound_test = TestMvrfInbound()
         outbound_test = TestMvrfOutbound()
@@ -313,8 +321,30 @@ class TestReboot():
         inbound_test.test_ping(duthost=duthost)
         inbound_test.test_snmp_fact(localhost=localhost, duthost=duthost, creds=creds)
 
+<<<<<<< HEAD
     @pytest.mark.disable_loganalyzer
     def test_warmboot(self, duthosts, rand_one_dut_hostname, localhost, ptfhost, creds, change_critical_services):
+=======
+        # Verify NTP is reachable after reboot when configured in mgmt VRF.
+        # If the configured NTP servers were not reachable before the test
+        # (e.g. vs testbeds have no route to the lab NTP servers), verify
+        # through a PTF-hosted server instead, as TestServices::test_ntp does.
+        if check_ntp_sync:
+            with setup_ntp_context(ptfhost, duthost, False):
+                pytest_assert(
+                    wait_until(120, 10, 0, check_ntp_reachability, duthost, ntp_daemon_in_use),
+                    "NTP servers should be reachable after reboot when NTP is configured in mgmt VRF. "
+                )
+        else:
+            pytest_assert(
+                wait_until(120, 10, 0, check_ntp_reachability, duthost, ntp_daemon_in_use),
+                "NTP servers should be reachable after reboot when NTP is configured in mgmt VRF. "
+            )
+
+    @pytest.mark.disable_loganalyzer
+    def test_warmboot(self, duthosts, rand_one_dut_hostname, localhost, ptfhost, creds,
+                      change_critical_services, ntp_daemon_in_use, check_ntp_sync):  # noqa: F811
+>>>>>>> 339e23779 (NOS-13590: enable mvrf/test_mgmtvrf.py on vs — PTF NTP for post-reboot check (#2508))
         duthost = duthosts[rand_one_dut_hostname]
         duthost.command("sudo config save -y")  # This will override config_db.json with mgmt vrf config
         reboot(duthost, localhost, reboot_type="warm")
@@ -337,22 +367,42 @@ class TestReboot():
 
         pytest_assert(wait_until(180, 20, 0, duthost.critical_services_fully_started),
                       "Not all services which start with bootOn timer are fully started")
+<<<<<<< HEAD
         self.basic_check_after_reboot(duthost, localhost, ptfhost, creds)
 
     @pytest.mark.disable_loganalyzer
     def test_reboot(self, duthosts, rand_one_dut_hostname, localhost, ptfhost, creds):
+=======
+        self.basic_check_after_reboot(duthost, localhost, ptfhost, creds, ntp_daemon_in_use, check_ntp_sync)
+
+    @pytest.mark.disable_loganalyzer
+    def test_reboot(self, duthosts, rand_one_dut_hostname, localhost, ptfhost, creds,
+                    ntp_daemon_in_use, check_ntp_sync):  # noqa: F811
+>>>>>>> 339e23779 (NOS-13590: enable mvrf/test_mgmtvrf.py on vs — PTF NTP for post-reboot check (#2508))
         duthost = duthosts[rand_one_dut_hostname]
         duthost.command("sudo config save -y")  # This will override config_db.json with mgmt vrf config
         reboot(duthost, localhost)
         pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
                       "Not all critical services are fully started")
+<<<<<<< HEAD
         self.basic_check_after_reboot(duthost, localhost, ptfhost, creds)
 
     @pytest.mark.disable_loganalyzer
     def test_fastboot(self, duthosts, rand_one_dut_hostname, localhost, ptfhost, creds):
+=======
+        self.basic_check_after_reboot(duthost, localhost, ptfhost, creds, ntp_daemon_in_use, check_ntp_sync)
+
+    @pytest.mark.disable_loganalyzer
+    def test_fastboot(self, duthosts, rand_one_dut_hostname, localhost, ptfhost, creds,
+                      ntp_daemon_in_use, check_ntp_sync):  # noqa: F811
+>>>>>>> 339e23779 (NOS-13590: enable mvrf/test_mgmtvrf.py on vs — PTF NTP for post-reboot check (#2508))
         duthost = duthosts[rand_one_dut_hostname]
         duthost.command("sudo config save -y")  # This will override config_db.json with mgmt vrf config
         reboot(duthost, localhost, reboot_type="fast")
         pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
                       "Not all critical services are fully started")
+<<<<<<< HEAD
         self.basic_check_after_reboot(duthost, localhost, ptfhost, creds)
+=======
+        self.basic_check_after_reboot(duthost, localhost, ptfhost, creds, ntp_daemon_in_use, check_ntp_sync)
+>>>>>>> 339e23779 (NOS-13590: enable mvrf/test_mgmtvrf.py on vs — PTF NTP for post-reboot check (#2508))
