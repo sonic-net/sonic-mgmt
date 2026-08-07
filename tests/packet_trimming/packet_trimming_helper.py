@@ -16,11 +16,13 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until, get_dscp_to_queue_value
 from tests.common.helpers.srv6_helper import dump_packet_detail, validate_srv6_in_appl_db, validate_srv6_in_asic_db
 from tests.common.reboot import reboot
+from tests.common.helpers.trimming_help import buffer_profile_exists
 from tests.packet_trimming.constants import (DEFAULT_SRC_PORT, DEFAULT_DST_PORT, DEFAULT_TTL, DUMMY_MAC, DUMMY_IPV6,
                                              DUMMY_FILL_IPV6, DUMMY_IP, DUMMY_FILL_IP, BATCH_PACKET_COUNT,
                                              SEND_MAX_RETRIES, STATIC_THRESHOLD_MULTIPLIER,
                                              BLOCK_DATA_PLANE_SCHEDULER_NAME, PACKET_TYPE, SRV6_PACKETS,
                                              TRIM_QUEUE_PROFILE, TRIM_QUEUE_PROFILE_CONFIG, TRIMMING_CAPABILITY,
+                                             BLOCK_QUEUE_PROFILE_CONFIG,
                                              ACL_TABLE_NAME,
                                              ACL_RULE_PRIORITY, ACL_TABLE_TYPE_NAME, ACL_RULE_NAME, SRV6_MY_SID_LIST,
                                              SRV6_ROUTE_PREFIX, SRV6_LOOP_BREAK_ACL_TABLE_TYPE_NAME,
@@ -39,7 +41,6 @@ from tests.packet_trimming.constants import (DEFAULT_SRC_PORT, DEFAULT_DST_PORT,
                                              WARM_REBOOT_PACKET_RATE, WARM_REBOOT_PACKET_SIZE,
                                              WARM_REBOOT_CAPTURE_SNAP_LEN, WARM_REBOOT_CAPTURE_BUFFER_SIZE,
                                              WARM_REBOOT_CAPTURE_START_WAIT, WARM_REBOOT_ANALYZER_WAIT,
-                                             DYNAMIC_TH, FALLBACK_BLOCK_QUEUE_RESERVED_BYTES,
                                              QUEUE_LEVEL_TRIM_SENT_DROP_SUPPORTED_PLATFORMS)
 from tests.packet_trimming.packet_trimming_config import PacketTrimmingConfig
 
@@ -1705,40 +1706,132 @@ def cleanup_srv6_loop_break_acl(duthost):
 
 def ensure_block_queue_buffer_profile(duthost, block_queue_profile):
     """
-    Ensure the buffer profile referenced by a blocking queue exists in CONFIG_DB.
+    Create the block-queue lossy buffer profile if missing, before BUFFER_QUEUE references it.
 
-    The suite references per-queue profiles named ``queue<N>_<uplink|downlink>_lossy_profile``.
-    On the SKUs packet trimming normally targets (Mellanox SN5640, Arista 7060X6) those
-    profiles are supplied by the platform ``buffers_defaults_objects.j2`` template. Minimal
-    buffer configurations - such as the VPP virtual switch on the shared Force10-S6000 hwsku -
-    do not define them, so the ``BUFFER_QUEUE`` reference would dangle and the subsequent
-    ``config mmu -p <profile> -t on`` trimming-action configuration would fail. Create a lossy
-    profile bound to the egress lossy pool on demand when the profile is missing. This is a
-    no-op on platforms that already define the profile, so behavior on those SKUs is unchanged.
-
-    The fallback reserves buffer memory, not a maximum packet length. It retains the
-    shared Force10-S6000 egress-lossy profile's 1518-byte reservation; MTU changes do
-    not require changing this value. VPP blocking is driven by the scheduler PIR,
-    not by this reservation.
+    Some SKUs lack the per-queue lossy profiles; referencing a non-existent profile
+    would make orchagent create a pool-less BUFFER_PROFILE (SAI_BUFFER_PROFILE_ATTR_POOL_ID error).
+    Auto-create the trimming profile (BLOCK_QUEUE_PROFILE_CONFIG); existing profiles are
+    left untouched.
 
     Args:
         duthost: DUT host object
-        block_queue_profile (str): Buffer profile name referenced by the blocking queue
+        block_queue_profile (str): Buffer profile name referenced by the block queue
 
-    Returns:
-        bool: True if this call created the profile (so teardown should remove it),
-        False if the platform already defined it.
     """
-    exists = duthost.shell(
-        f"redis-cli -n 4 exists 'BUFFER_PROFILE|{block_queue_profile}'")["stdout"].strip()
-    if exists == "1":
-        return False
+    if not buffer_profile_exists(duthost, block_queue_profile):
+        logger.info(f"Block queue buffer profile '{block_queue_profile}' does not exist, creating it")
+        fields = " ".join(f"{k} {v}" for k, v in BLOCK_QUEUE_PROFILE_CONFIG.items())
+        cmd = f"redis-cli -n 4 hset 'BUFFER_PROFILE|{block_queue_profile}' {fields}"
+        duthost.shell(cmd)
 
-    pool = TRIM_QUEUE_PROFILE_CONFIG["pool"]
-    fields = f"pool {pool} size {FALLBACK_BLOCK_QUEUE_RESERVED_BYTES} dynamic_th {DYNAMIC_TH}"
-    duthost.shell(f"redis-cli -n 4 hset 'BUFFER_PROFILE|{block_queue_profile}' {fields}")
-    logger.info(f"Created missing blocking-queue buffer profile '{block_queue_profile}': {fields}")
-    return True
+
+def _get_buffer_profile_pool(duthost, profile_name):
+    """Return the buffer pool bound to ``profile_name`` (or empty string)."""
+    if not profile_name:
+        return ""
+    cmd = f"redis-cli -n 4 HGET 'BUFFER_PROFILE|{profile_name}' pool"
+    return (duthost.shell(cmd).get("stdout") or "").strip()
+
+
+def _split_conflicting_buffer_queue_range(duthost, interface, queue_id, target_profile):
+    """
+    Ensure ``queue_id`` can be bound to ``target_profile`` on ``interface``.
+
+    On some SKUs the queue is covered by a default *range* BUFFER_QUEUE entry
+    (e.g. ``5-6`` -> ``egress_lossless_profile``) that binds it to a different pool
+    than ``target_profile``; this overlapping range wins in the ASIC, so a later
+    single-queue profile never takes effect.
+
+    When the range uses a DIFFERENT pool than ``target_profile``, this helper drops
+    the range key and recreates only the surrounding sub-ranges that *exclude*
+    ``queue_id`` (keeping the original profile), freeing the queue for
+    ``target_profile``. Same-pool ranges are left untouched.
+
+    Args:
+        duthost: DUT host object.
+        interface (str): Port name whose BUFFER_QUEUE entries are inspected.
+        queue_id (int or str): Queue index that must be bound to ``target_profile``.
+        target_profile (str): Buffer profile name to be bound to ``queue_id`` by the
+            caller; used only to resolve the target buffer pool.
+
+    Example (some SKUs, binding queue 5 to ``trim_queue_test_profile``):
+        Initial CONFIG_DB (db 4) state on ``Ethernet0``::
+
+            BUFFER_QUEUE|Ethernet0|5-6 -> egress_lossless_profile  (pool egress_lossless_pool)
+
+        ``trim_queue_test_profile`` lives on ``egress_lossy_pool``, so the ``5-6``
+        range binds queue 5 to a DIFFERENT pool. The helper therefore:
+          1. Deletes ``BUFFER_QUEUE|Ethernet0|5-6``.
+          2. Recreates only the sub-range that excludes queue 5, collapsing the
+             single element ``6-6`` to a bare queue number and preserving the
+             original profile::
+
+                 BUFFER_QUEUE|Ethernet0|6 -> egress_lossless_profile
+
+             (No lower sub-range is created because ``lo = 5`` equals ``q``, so
+             ``lo <= q - 1`` is False.)
+
+        After the caller's single-queue ``hset`` the result is::
+
+            BUFFER_QUEUE|Ethernet0|6 -> egress_lossless_profile   (queue 6 unchanged)
+            BUFFER_QUEUE|Ethernet0|5 -> trim_queue_test_profile   (queue 5 now lossy)
+
+        Queue 5 now binds cleanly to the trim profile because no overlapping range
+        covers it anymore.
+    """
+    q = int(queue_id)
+    target_pool = _get_buffer_profile_pool(duthost, target_profile)
+
+    list_cmd = f"redis-cli -n 4 KEYS 'BUFFER_QUEUE|{interface}|*'"
+    raw = (duthost.shell(list_cmd).get("stdout") or "").strip()
+    if not raw:
+        return
+
+    for line in raw.splitlines():
+        key = re.sub(r'^\d+\)\s*', '', line.strip()).strip().strip('"').strip("'")
+        if not key.startswith("BUFFER_QUEUE|"):
+            continue
+
+        suffix = key.split("|")[-1]
+        m = re.fullmatch(r'(\d+)\s*-\s*(\d+)', suffix)
+        if not m:
+            continue
+
+        lo, hi = int(m.group(1)), int(m.group(2))
+        if lo > hi:
+            lo, hi = hi, lo
+        if not (lo <= q <= hi):
+            continue
+
+        range_profile = (duthost.shell(
+            f"redis-cli -n 4 HGET '{key}' profile").get("stdout") or "").strip()
+        range_pool = _get_buffer_profile_pool(duthost, range_profile)
+
+        # Only split when the range binds the queue to a different pool than the
+        # target profile; same-pool overlaps (e.g. queue 1 under a lossy 0-2 range)
+        # already work and must be left as-is.
+        if target_pool and range_pool and range_pool == target_pool:
+            continue
+
+        logger.info(
+            f"Splitting conflicting BUFFER_QUEUE range '{key}' (profile '{range_profile}', "
+            f"pool '{range_pool}') so queue {q} on {interface} can bind to '{target_profile}' "
+            f"(pool '{target_pool}')")
+        duthost.shell(f"redis-cli -n 4 del '{key}'")
+
+        if not range_profile:
+            continue
+
+        def _recreate(low, high):
+            new_suffix = f"{low}" if low == high else f"{low}-{high}"
+            duthost.shell(
+                f"redis-cli -n 4 hset 'BUFFER_QUEUE|{interface}|{new_suffix}' profile {range_profile}")
+            logger.info(f"Recreated BUFFER_QUEUE|{interface}|{new_suffix} -> {range_profile}")
+
+        if lo <= q - 1:
+            _recreate(lo, q - 1)
+        if q + 1 <= hi:
+            _recreate(q + 1, hi)
 
 
 def set_buffer_profile_for_block_queue(duthost, interfaces, block_queue_id, block_queue_profile):
@@ -1774,6 +1867,12 @@ def set_buffer_profile_for_block_queue(duthost, interfaces, block_queue_id, bloc
 
     for interface in interfaces:
         try:
+            # Some SKUs bind the block queue to a different (lossless) pool via a
+            # default range BUFFER_QUEUE entry (e.g. '3-4' -> egress_lossless_profile).
+            # Split it so the single-queue lossy trim profile below actually binds.
+            _split_conflicting_buffer_queue_range(
+                duthost, interface, block_queue_id, block_queue_profile)
+
             # Set buffer profile for the blocking queue
             block_cmd = f"redis-cli -n 4 hset 'BUFFER_QUEUE|{interface}|{block_queue_id}' profile {block_queue_profile}"
             duthost.shell(block_cmd)
@@ -1883,6 +1982,11 @@ def set_buffer_profile_for_trim_queue(duthost, interfaces, trim_queue_id=None, t
 
     for interface in interfaces:
         try:
+            # The trim/forwarding queue may also be bound to a different pool via a
+            # default range BUFFER_QUEUE entry. Split it so the trim profile binds.
+            _split_conflicting_buffer_queue_range(
+                duthost, interface, trim_queue_id, trim_queue_profile)
+
             # Set buffer profile for the trimming queue
             trim_cmd = f"redis-cli -n 4 hset 'BUFFER_QUEUE|{interface}|{trim_queue_id}' profile {trim_queue_profile}"
             duthost.shell(trim_cmd)
