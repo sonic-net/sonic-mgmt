@@ -76,7 +76,9 @@ def copy_ptftests_directory(ptfhost, request):
     logger.info("Copy PTF test files to PTF host '{0}'".format(ptfhost.hostname))
     try:
         ptfhost.copy(src=PTF_TESTS, dest=ROOT_DIR)
-    except AnsibleConnectionFailure:
+    except Exception:
+        # Catch broadly: copy failures may surface as AnsibleConnectionFailure,
+        # RunAnsibleModuleFail or other exception types depending on the wrapper.
         set_upgrade_path_error_result_custom_msg(request, ErrorType.PTFHOST_SETUP_FAILED)
         raise
 

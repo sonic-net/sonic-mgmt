@@ -479,6 +479,8 @@ def _parse_test_cases(root):
             result[attribute] = test_case.get(attribute)
         for attribute in OPTIONAL_TESTCASE_ATTRIBUTES:
             result[attribute] = test_case.get(attribute, "")
+        if not result.get("file"):
+            result["file"] = "{}::{}".format(result.get("classname", ""), result.get("name", ""))
         for attribute in REQUIRED_TESTCASE_PROPERTIES:
             testcase_properties = _parse_testcase_properties(test_case)
             if attribute in testcase_properties:

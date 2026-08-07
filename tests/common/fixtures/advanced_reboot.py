@@ -44,7 +44,20 @@ class ErrorType(str, Enum):
 
 
 def set_upgrade_path_error_result_custom_msg(request, error_type: ErrorType) -> None:
-    """Write upgrade-path error classification under CustomMsg.upgrade_path_result."""
+    """Write upgrade-path error classification under CustomMsg.upgrade_path_result.
+
+    NOTE: Gating on upgrade-path options from here is not ideal as it is a form of
+    bidirectional coupling. Ideally advanced-reboot would not know anything about
+    upgrade_path tests and the dependency would be from upgrade-path to
+    advanced-reboot. That requires more plumbing and mapping logic to decouple,
+    so we don't worry about that for now; this comment serves as a reminder.
+    """
+    # Only emit when upgrade-path options are actually in use, so advanced-reboot
+    # failures in non-upgrade suites (e.g. platform_tests) don't write a spurious
+    # upgrade_path_result classification.
+    if not (request.config.getoption("base_image_list", default=None)
+            or request.config.getoption("multi_hop_upgrade_path", default=None)):
+        return
     add_custom_msg(request, "upgrade_path_result", {"error_type": error_type.value})
 
 
