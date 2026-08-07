@@ -184,11 +184,6 @@ def check_entry_freshness(
 
     return result
 
-
-# sonic-db-cli database identifiers (the first positional arg to sonic-db-cli).
-STATE_DB = "STATE_DB"
-
-
 def parse_state_db_bool(value):
     """Parse a STATE_DB string into a Python bool, or ``None`` if unrecognized.
 
