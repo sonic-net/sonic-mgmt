@@ -33,8 +33,8 @@ pytestmark = [
     pytest.mark.topology("any"),
 ]
 
-ARP_PKT_COUNT = 10
-DROP_TOLERANCE = 2
+ARP_PKT_COUNT = 100
+DROP_TOLERANCE_RATIO = 0.05  # at most 5% of sent packets may be dropped
 
 
 def _resolve_l3_interfaces(mg_facts, port_index_map):
@@ -136,14 +136,25 @@ def l3_intf_setup(duthosts, rand_one_dut_hostname, tbinfo):
     yield setup_info
 
 
+def get_namespace_for_interface(duthost, interface):
+    """Return the ASIC namespace that owns *interface*, or None for single-ASIC."""
+    if not duthost.is_multi_asic:
+        return None
+    return duthost.get_port_asic_instance(interface).namespace
+
+
 def get_rx_drp(duthost, interface):
-    """Read RX_DRP counter for a specific interface."""
-    result = duthost.command("portstat -j")["stdout"]
-    counters = json.loads(result)
+    """Read RX_DRP counter for *interface*.
+
+    On multi-ASIC devices, ``portstat`` is namespace-scoped, so we
+    resolve the owning namespace via :func:`get_namespace_for_interface`
+    and pass ``-n <namespace>`` accordingly.
+    """
+    ns = get_namespace_for_interface(duthost, interface)
+    cmd = "portstat -j -n {}".format(ns) if ns else "portstat -j"
+    counters = json.loads(duthost.command(cmd)["stdout"])
     if interface not in counters:
-        pytest.fail(
-            "Interface {} not in portstat output".format(interface)
-        )
+        pytest.fail("Interface {} not found in portstat output (namespace={})".format(interface, ns))
     return int(counters[interface].get("RX_DRP", 0))
 
 
@@ -154,6 +165,18 @@ def build_arp_request(src_mac, src_ip, dst_ip, dst_mac):
         ARP(
             op="who-has", hwsrc=src_mac, psrc=src_ip,
             hwdst="00:00:00:00:00:00", pdst=dst_ip
+        )
+    )
+
+
+def build_arp_reply(src_mac, src_ip, dst_mac, dst_ip):
+    """Build an ARP reply (is-at) packet."""
+    return (
+        Ether(src=src_mac, dst=dst_mac) /
+        ARP(
+            op="is-at",
+            hwsrc=src_mac, psrc=src_ip,
+            hwdst=dst_mac, pdst=dst_ip
         )
     )
 
@@ -225,12 +248,14 @@ def _send_and_verify_no_drop(
         dut_port, post_rx_drp, rx_drp_delta
     )
 
+    max_allowed_drops = int(pkt_count * DROP_TOLERANCE_RATIO)
     pytest_assert(
-        rx_drp_delta <= DROP_TOLERANCE,
-        "RX_DRP increased by {} on {} after sending {} {}. "
+        rx_drp_delta <= max_allowed_drops,
+        "RX_DRP increased by {} on {} after sending {} {} (tolerance: {}% = {} drops). "
         "Pre: {}, Post: {}".format(
-            rx_drp_delta, dut_port, pkt_count,
-            pkt_desc, pre_rx_drp, post_rx_drp
+            rx_drp_delta, dut_port, pkt_count, pkt_desc,
+            int(DROP_TOLERANCE_RATIO * 100), max_allowed_drops,
+            pre_rx_drp, post_rx_drp
         )
     )
 
@@ -286,13 +311,9 @@ class TestArpL3NoRxDrop:
         if peer_addr is None:
             pytest.skip("No peer address for {}".format(dut_port))
 
-        pkt = (
-            Ether(src="00:11:22:33:44:55", dst=dut_mac) /
-            ARP(
-                op="is-at",
-                hwsrc="00:11:22:33:44:55", psrc=peer_addr,
-                hwdst=dut_mac, pdst=intf["addr"]
-            )
+        pkt = build_arp_reply(
+            src_mac="00:11:22:33:44:55", src_ip=peer_addr,
+            dst_mac=dut_mac, dst_ip=intf["addr"]
         )
         _send_and_verify_no_drop(
             duthost, ptfadapter, dut_port, ptf_idx,
