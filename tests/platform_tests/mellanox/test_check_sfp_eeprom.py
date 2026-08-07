@@ -67,7 +67,6 @@ def test_check_sfp_eeprom_with_option_dom(duthosts, rand_one_dut_hostname, show_
         assert sfp_info_dict, "No SFP EEPROM info found"
 
     with allure.step("Check results for {}".format(show_eeprom_cmd)):
-        non_cpo_ports = set()
         if is_cpo_supported:
             with allure.step("Run: {} to get interface status".format(SHOW_INTF_STATUS_CMDS)):
                 intf_status = duthost.show_and_parse(SHOW_INTF_STATUS_CMDS)
