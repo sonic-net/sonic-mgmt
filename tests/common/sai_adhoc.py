@@ -24,7 +24,8 @@ def get_info_helper(conf_name):
         param:
             conf_name : configuration name in testbed.yaml
     """
-    ansible_config_path = pathlib.Path(os.getenv("ANSIBLE_CONFIG", pathlib.Path(__file__).resolve().parent.joinpath("../ansible")))
+    ansible_config_path = pathlib.Path(os.getenv("ANSIBLE_CONFIG",
+                                                 pathlib.Path(__file__).resolve().parent.joinpath("../ansible")))
     with open(ansible_config_path.joinpath("testbed.yaml")) as f:
         testbed_infos = yaml.load(f, Loader=SafeLoader)
         for testbed_info in testbed_infos:
