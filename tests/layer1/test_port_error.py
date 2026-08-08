@@ -1,9 +1,11 @@
+import ast
 import logging
 import pytest
 import random
 import time
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.platform.interface_utils import get_physical_port_indices
 from tests.common.utilities import skip_release
 
 pytestmark = [
@@ -44,6 +46,34 @@ class TestMACFault(object):
     def get_interface_status(dut, interface):
         return dut.show_and_parse("show interfaces status {}".format(interface))[0].get("oper", "unknown")
 
+    @staticmethod
+    def filter_rx_disable_supported_interfaces(dut, interfaces):
+        """Exclude interfaces whose module does not support RX disable"""
+        port_index_map = get_physical_port_indices(dut, interfaces)
+        indexes = sorted({idx for idx in port_index_map.values() if idx is not None})
+        cmd = """
+cat << EOF > get_rx_disable_supported_indexes.py
+from sonic_platform.chassis import Chassis
+c = Chassis()
+supported = []
+for i in {indexes}:
+    try:
+        api = c.get_sfp(i).get_xcvr_api()
+        if api and api.get_rx_disable_support() is True:
+            supported.append(i)
+    except Exception:
+        pass
+print(supported)
+EOF
+""".format(indexes=indexes)
+        dut.shell(cmd)
+        out = dut.shell("python3 get_rx_disable_supported_indexes.py")["stdout"].strip()
+        supported_indexes = set(ast.literal_eval(out))
+        supported = [intf for intf in interfaces if port_index_map.get(intf) in supported_indexes]
+        logging.info("Excluded interfaces without RX disable support: {}".format(
+            [intf for intf in interfaces if intf not in supported]))
+        return supported
+
     @pytest.fixture
     def select_random_interfaces(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         dut = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
@@ -58,6 +88,11 @@ class TestMACFault(object):
         ]
 
         pytest_assert(available_interfaces, "No interfaces with SFP detected. Cannot proceed with tests.")
+
+        # Local fault uses sfputil rx-output; skip modules that cannot disable RX.
+        available_interfaces = self.filter_rx_disable_supported_interfaces(dut, available_interfaces)
+        if not available_interfaces:
+            pytest.skip("No interfaces available for this test were found.")
 
         # Select 5 random interfaces (or fewer if not enough available)
         selected_interfaces = random.sample(available_interfaces, min(5, len(available_interfaces)))
