@@ -79,6 +79,7 @@ SINGLE_TOR_MODE = 'single'
 CLIENT_VRF_NAME = "Vrf01"   # Global macro for Client VRF
 MAX_HOP_COUNT = 16
 CONFIG_HOP_COUNT = 2
+DOWNSTREAM_RELAY_IP = '192.0.2.1'  # TEST-NET-1; synthetic downstream relay
 
 logger = logging.getLogger(__name__)
 
@@ -353,7 +354,8 @@ def test_dhcp_relay_option82_suboptions(ptfhost, dut_dhcp_relay_data, validate_d
 @pytest.mark.parametrize("test_mode", [
                                     "discard",
                                     "replace",
-                                    "append"
+                                    "append",
+                                    "forward"
                                 ])
 def test_dhcp_relay_agent_mode(
         ptfhost,
@@ -377,6 +379,7 @@ def test_dhcp_relay_agent_mode(
         - "discard": Drops packets containing Option 82.
         - "replace": Replaces existing Option 82 with new data before forwarding.
         - "append": Appends a new Option 82 to packets that already have it.
+        - "forward": Preserves an existing Option 82 unchanged.
 
     Key Actions:
         - Configures the device under test (DUT) with the selected relay mode.
@@ -422,6 +425,8 @@ def test_dhcp_relay_agent_mode(
                     "kvm_support": True,
                     "relay_agent": relay_agent,
                     "agent_relay_mode": test_mode,
+                    "client_giaddr": (DOWNSTREAM_RELAY_IP if test_mode == "forward"
+                                      else dhcp_relay['switch_loopback_ip']),
                     "downlink_vlan_iface_name": str(dhcp_relay['downlink_vlan_iface']['name']),
                 },
                 log_file="/tmp/test_dhcp_relay_agent_mode.log",
