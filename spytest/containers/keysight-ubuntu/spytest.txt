@@ -22,7 +22,7 @@ pyflakes
 pylint==1.8.1
 Pyro4
 pysnmp
-pytest>=4.4.1,<=4.6.5
+pytest==6.2.5
 pytest-timeout<=1.4.2
 pytest-xdist==1.28.0
 python-jenkins
