@@ -1656,6 +1656,11 @@ class ReloadTest(BaseTest):
 
         else:
             self.restart_service()
+            self.finalizer_state = "inactive"
+            if not self.kvm_test:
+                self.sniffer_started = threading.Event()
+                self.sniff_thr.start()
+                self.sender_thr.start()
             return
 
         if not self.kvm_test and\
