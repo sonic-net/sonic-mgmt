@@ -111,6 +111,12 @@ platform_tests/api/test_chassis.py::TestChassisApi::test_status_led:
 #######################################
 #####   api/test_chassis_fans.py  #####
 #######################################
+platform_tests/api/test_chassis_fans.py:
+  skip:
+    reason: "Chassis fans API tests are not available on BMC"
+    conditions:
+      - "'bmc' in topo_type"
+
 platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_direction:
   xfail:
     reason: "Testcase consistently fails, raised issue to track"
@@ -184,6 +190,12 @@ platform_tests/api/test_chassis_fans.py::TestChassisFans::test_set_fans_speed:
 #######################################
 #####    api/test_component.py    #####
 #######################################
+platform_tests/api/test_component.py:
+  skip:
+    reason: "Component API tests are not available on BMC"
+    conditions:
+      - "'bmc' in topo_type"
+
 platform_tests/api/test_component.py::TestComponentApi::test_get_available_firmware_version:
   skip:
     reason: "Unsupported platform API"
@@ -291,6 +303,12 @@ platform_tests/api/test_component.py::TestComponentApi::test_update_firmware:
 #######################################
 #####   api/test_fan_drawer.py    #####
 #######################################
+platform_tests/api/test_fan_drawer.py:
+  skip:
+    reason: "Fan drawer API tests are not available on BMC"
+    conditions:
+      - "'bmc' in topo_type"
+
 platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_get_maximum_consumed_power:
   skip:
     reason: "Unsupported platform API"
@@ -341,6 +359,12 @@ platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_set_fan_drawers_le
 #######################################
 ##### api/test_fan_drawer_fans.py #####
 #######################################
+
+platform_tests/api/test_fan_drawer_fans.py:
+  skip:
+    reason: "Fan drawer fans API tests are not available on BMC"
+    conditions:
+      - "'bmc' in topo_type"
 
 platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_get_model:
   skip:
@@ -430,6 +454,12 @@ platform_tests/api/test_module.py::TestModuleApi::test_reboot:
 #######################################
 #####        api/test_psu.py      #####
 #######################################
+platform_tests/api/test_psu.py:
+  skip:
+    reason: "PSU API tests are not available on BMC"
+    conditions:
+      - "'bmc' in topo_type"
+
 platform_tests/api/test_psu.py::TestPsuApi::test_fans:
   skip:
     reason: "Unsupported platform API"
@@ -512,6 +542,12 @@ platform_tests/api/test_psu.py::test_temperature:
     conditions:
       - "asic_type in ['vs']"
       - "is_multi_asic==True and release in ['201911']"
+
+platform_tests/api/test_psu_fans.py:
+  skip:
+    reason: "PSU fans API tests are not available on BMC"
+    conditions:
+      - "'bmc' in topo_type"
 
 platform_tests/api/test_psu_fans.py::TestPsuFans::test_get_error_description:
   xfail:
@@ -1072,6 +1108,19 @@ platform_tests/daemon/test_chassisd.py:
     conditions:
       - "release in ['201811', '201911', '202012']"
       - "asic_type in ['vs']"
+      - "'bmc' in topo_type"
+
+platform_tests/daemon/test_fancontrol.py:
+  skip:
+    reason: "Not available on BMC"
+    conditions:
+      - "'bmc' in topo_type"
+
+platform_tests/daemon/test_ledd.py:
+  skip:
+    reason: "Not available on BMC"
+    conditions:
+      - "'bmc' in topo_type"
 
 
 platform_tests/daemon/test_ledd.py::test_pmon_ledd_kill_and_start_status:
@@ -1085,8 +1134,16 @@ platform_tests/daemon/test_ledd.py::test_pmon_ledd_kill_and_start_status:
 platform_tests/daemon/test_pcied.py:
   skip:
     reason: "Not supported, AMD DPU Pcie link bringup sequence is handled differently"
+    conditions_logical_operator: or
     conditions:
       - "platform in ['arm64-elba-asic-flash128-r0']"
+      - "'bmc' in topo_type"
+
+platform_tests/daemon/test_psud.py:
+  skip:
+    reason: "Not available on BMC"
+    conditions:
+      - "'bmc' in topo_type"
 
 #######################################
 #####    fwutil/test_fwutil.py    #####
