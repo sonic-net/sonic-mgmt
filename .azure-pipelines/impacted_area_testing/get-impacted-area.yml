@@ -18,8 +18,7 @@ steps:
 - script: |
     set -x
 
-    pip install PyYAML
-    pip install natsort
+    sudo uv pip install --system PyYAML natsort
 
     sudo apt-get -o DPkg::Lock::Timeout=600 -y install jq
 
