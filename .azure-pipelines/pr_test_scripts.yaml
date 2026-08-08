@@ -305,6 +305,7 @@ t0:
   - test_pktgen.py
   - test_procdockerstatsd.py
   - testbed_setup/test_populate_fdb.py
+  - udf/test_udf.py
   - upgrade_path/test_multi_hop_upgrade_path.py
   - upgrade_path/test_upgrade_path.py
   - vlan/test_autostate_disabled.py
@@ -618,6 +619,7 @@ t1-lag:
   - test_nbr_health.py
   - test_pktgen.py
   - test_procdockerstatsd.py
+  - udf/test_udf.py
   - upgrade_path/test_multi_hop_upgrade_path.py
   - upgrade_path/test_upgrade_path.py
   - vxlan/test_vnet_bgp_route_precedence.py
