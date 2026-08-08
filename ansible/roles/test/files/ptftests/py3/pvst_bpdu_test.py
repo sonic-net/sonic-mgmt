@@ -506,10 +506,14 @@ class PvstBpduTest(BaseTest):
         config_bpdus = self.get_captured_bpdus(vlan_id=vlan_id, bpdu_type=self.BPDU_TYPE_CONFIG)
 
         if not config_bpdus:
+            # Same shape as the success path - callers read ['errors'] and
+            # ['validated_bpdus'] unconditionally, so a short-form dict here
+            # turns a real "nothing captured" failure into a KeyError.
             return {
                 'success': False,
-                'error': f'No Configuration BPDUs captured for VLAN {vlan_id}',
-                'captured_count': 0
+                'captured_count': 0,
+                'validated_bpdus': [],
+                'errors': [f'No Configuration BPDUs captured for VLAN {vlan_id}']
             }
 
         validation_results = {
@@ -1119,25 +1123,40 @@ class PvstBpduTest(BaseTest):
         self.logger.info(f"Successfully validated bridge MAC and priority "
                          f"in {validation_results['captured_count']} BPDU packet(s)")
 
-    def create_l2_packet(self, send_port, vlan_id):
-        self.dataplane.flush()
-        payload = f"Hello VLAN {vlan_id}".encode()
-        pkt = Ether(dst="ff:ff:ff:ff:ff:ff", src=f"00:11:22:33:55:{send_port}", type=0x8100) / \
-            Dot1Q(vlan=vlan_id) / \
-            payload
+    # Minimum Ethernet payload. Used as the 802.3 length field too: a frame with
+    # length/ethertype 0x0000 is malformed (it declares an empty payload) and the
+    # ASIC drops it - measured on a t0 testbed, 0/20 delivered at 0x0000 vs 20/20
+    # with a correct length. Do not "simplify" this back to 0.
+    L2_PAYLOAD_LEN = 46
 
-        return pkt
+    @classmethod
+    def _l2_payload(cls, vlan_id):
+        """Payload padded to the 46-byte Ethernet minimum, so the frame we send
+        is byte-identical to the one we expect back out of the peer port."""
+        payload = f"Hello VLAN {vlan_id}".encode()
+        return payload + b"\x00" * (cls.L2_PAYLOAD_LEN - len(payload))
+
+    def create_l2_packet(self, send_port, vlan_id):
+        """Untagged L2 probe frame.
+
+        The VLAN under test is the minigraph default VLAN, whose members are
+        *untagged* access ports. A Dot1Q-tagged frame is classified by the
+        port's PVID and the 802.1Q header stays in the payload, so the DUT
+        floods it back out the peer access port with the tag still embedded and
+        the next hop drops it - the frame never reaches the PTF. Measured on a
+        t0 testbed: tagged 0/20 received, untagged 20/20.
+        """
+        self.dataplane.flush()
+        return Ether(dst="ff:ff:ff:ff:ff:ff",
+                     src=f"00:11:22:33:55:{send_port}",
+                     type=self.L2_PAYLOAD_LEN) / self._l2_payload(vlan_id)
 
     def verify_l2_expected_packet(self, vlan_id, send_port):
-        payload = f"Hello VLAN {vlan_id}".encode()
-        pad_len = 46 - len(payload)
-        payload += b"\x00" * pad_len
-        pkt = Ether(
+        return Ether(
             dst="ff:ff:ff:ff:ff:ff",
             src=f"00:11:22:33:55:{send_port}",
-            type=0x0000
-        ) / payload
-        return pkt
+            type=self.L2_PAYLOAD_LEN
+        ) / self._l2_payload(vlan_id)
 
     def test_validate_l2_packet(self):
         send_port = int(self.test_params["send_port"])
@@ -1150,7 +1169,9 @@ class PvstBpduTest(BaseTest):
 
         expected_l2_packet = self.verify_l2_expected_packet(vlan_id, send_port)
         masked_pkt = Mask(expected_l2_packet)
-        masked_pkt.set_do_not_care(12, len(expected_l2_packet) - 12)
+        # Match on the dst+src MAC only. Mask offsets are in *bits*, not bytes:
+        # the previous (12, len-12) blanked bits 12..59
+        masked_pkt.set_do_not_care(12 * 8, (len(expected_l2_packet) - 12) * 8)
 
         count_to_send = 100
 
