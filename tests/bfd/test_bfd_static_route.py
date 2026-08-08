@@ -20,6 +20,37 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 
+# NOT parametrized over frr_config_mode (bgpcfgd / frr_mgmt_framework), for two reasons.
+#
+# 1. It could never take effect here. This module is multi-ASIC chassis only -- topology
+#    t2/lrh/urh, device_type physical, and bfd_helpers addresses every DUT through
+#    "-n asic<N>" namespaces -- and frr_config_mode runs a multi-ASIC DUT's native mode
+#    only. So the parametrization never switched modes; it just added a permanently
+#    skipped [frr_mgmt_framework] variant to every run.
+#
+# 2. The behavior under test is bgpcfgd-only. These tests assert that a static route
+#    appears and withdraws as its BFD session goes up and down, and BFD-driven static
+#    routes reach FRR only through APPL_DB, which frrcfgd does not read:
+#      a. staticroutebfd reads CONFIG_DB STATIC_ROUTE rows carrying bfd="true" (this
+#         module sets that flag, see bfd_helpers add_bfd/delete_bfd), tracks the BFD
+#         session, and republishes the resolved route into APPL_DB STATIC_ROUTE
+#         (sonic-buildimage src/sonic-bgpcfgd/staticroutebfd/main.py);
+#      b. bgpcfgd's StaticRouteMgr deliberately skips bfd="true" rows -- "bfd enabled
+#         route would be handled in staticroutebfd" (bgpcfgd/managers_static_rt.py) --
+#      c. because bgpcfgd registers a SECOND manager over APPL_DB,
+#         StaticRouteMgr(common_objs, "APPL_DB", "STATIC_ROUTE") (bgpcfgd/main.py), and
+#         that instance is what renders the resolved route into FRR.
+#    frrcfgd subscribes STATIC_ROUTE from CONFIG_DB only (frrcfgd.py), so in
+#    frr_mgmt_framework mode step (c) has no consumer and the BFD-resolved static route
+#    never reaches FRR. Making this module dual-mode therefore needs an frrcfgd APPL_DB
+#    STATIC_ROUTE consumer first; until then bgpcfgd mode is the only meaningful one.
+#
+# Determined from community sonic-buildimage source; not yet reproduced on a DUT. A DUT
+# that natively boots frrcfgd would run these tests and fail on the missing routes -- no
+# skip is wired for that case because the chassis DUT selection here (line cards via
+# select_src_dst_dut_with_asic) makes "which node's mode" ambiguous.
+
+
 class TestBfdStaticRoute(BfdBase):
     COMPLETENESS_TO_ITERATIONS = {
         'debug': 1,

@@ -29,6 +29,7 @@ from tests.bgp.bgp_helpers import restart_bgp_session, get_eth_port, get_exabgp_
 from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_ALL_NEIGHBOR_MAP
 
 pytestmark = [
+    pytest.mark.frr_generic,
     pytest.mark.topology('t1', 't2', 'lrh', 'urh'),
     pytest.mark.skip_check_dut_health
 ]
@@ -1187,7 +1188,8 @@ def upstream_verification(duthost_up, ipv4_route_list, ipv6_route_list, exabgp_p
 
 
 @pytest.mark.parametrize("vrf_type", VRF_TYPES)
-def test_bgp_route_with_suppress(duthosts, enum_downstream_dut_hostname, enum_upstream_dut_hostname, tbinfo, nbrhosts,
+def test_bgp_route_with_suppress(frr_config_mode,
+                                 duthosts, enum_downstream_dut_hostname, enum_upstream_dut_hostname, tbinfo, nbrhosts,
                                  ptfadapter, localhost, restore_bgp_suppress_fib,
                                  prepare_param, vrf_type, continuous_boot_times, generate_route_and_traffic_data,
                                  request, loganalyzer):
@@ -1320,7 +1322,8 @@ def test_bgp_route_with_suppress(duthosts, enum_downstream_dut_hostname, enum_up
                 wait_until(120, 10, 0, check_interface_status, duthost_down)
 
 
-def test_bgp_route_without_suppress(duthosts, enum_downstream_dut_hostname, enum_upstream_dut_hostname, tbinfo,
+def test_bgp_route_without_suppress(frr_config_mode,
+                                    duthosts, enum_downstream_dut_hostname, enum_upstream_dut_hostname, tbinfo,
                                     nbrhosts, ptfadapter, prepare_param, restore_bgp_suppress_fib,
                                     generate_route_and_traffic_data):
     duthost_down = duthosts[enum_downstream_dut_hostname]
@@ -1393,7 +1396,8 @@ def test_bgp_route_without_suppress(duthosts, enum_downstream_dut_hostname, enum
                                           action=WITHDRAW)
 
 
-def test_bgp_route_with_suppress_negative_operation(duthosts, enum_downstream_dut_hostname, enum_upstream_dut_hostname,
+def test_bgp_route_with_suppress_negative_operation(frr_config_mode,
+                                                    duthosts, enum_downstream_dut_hostname, enum_upstream_dut_hostname,
                                                     tbinfo, nbrhosts, ptfadapter, localhost, prepare_param,
                                                     restore_bgp_suppress_fib, generate_route_and_traffic_data,
                                                     loganalyzer):
@@ -1528,7 +1532,8 @@ def test_bgp_route_with_suppress_negative_operation(duthosts, enum_downstream_du
             remove_static_route_and_redistribute(duthost_down, is_v6_topo, asic_namespace=namespace)
 
 
-def test_credit_loop(duthosts, enum_downstream_dut_hostname, enum_upstream_dut_hostname, tbinfo, nbrhosts, ptfadapter,
+def test_credit_loop(frr_config_mode,
+                     duthosts, enum_downstream_dut_hostname, enum_upstream_dut_hostname, tbinfo, nbrhosts, ptfadapter,
                      prepare_param, generate_route_and_traffic_data,
                      restore_bgp_suppress_fib):
     """
@@ -1610,7 +1615,8 @@ def test_credit_loop(duthosts, enum_downstream_dut_hostname, enum_upstream_dut_h
                                           action=WITHDRAW)
 
 
-def test_suppress_fib_stress(duthosts, enum_downstream_dut_hostname, enum_upstream_dut_hostname, tbinfo, nbrhosts,
+def test_suppress_fib_stress(frr_config_mode,
+                             duthosts, enum_downstream_dut_hostname, enum_upstream_dut_hostname, tbinfo, nbrhosts,
                              ptfadapter, prepare_param, completeness_level,
                              generate_route_and_traffic_data, restore_bgp_suppress_fib):
     """
@@ -1697,7 +1703,8 @@ def test_suppress_fib_stress(duthosts, enum_downstream_dut_hostname, enum_upstre
                 operate_orchagent(duthost_down, action=ACTION_CONTINUE)
 
 
-def test_suppress_fib_performance(duthosts, enum_downstream_dut_hostname, enum_upstream_dut_hostname, tbinfo, nbrhosts,
+def test_suppress_fib_performance(frr_config_mode,
+                                  duthosts, enum_downstream_dut_hostname, enum_upstream_dut_hostname, tbinfo, nbrhosts,
                                   ptfadapter, prepare_param, ptfhost,
                                   generate_route_and_traffic_data, restore_bgp_suppress_fib):
     duthost_down = duthosts[enum_downstream_dut_hostname]
@@ -1796,7 +1803,8 @@ RELAY_LATENCY_THRESHOLD_SEC = 0.5
 RELAY_TEST_PREFIX_V4 = "99.99.99.0/24"
 
 
-def test_bgp_update_relay_latency(duthosts, enum_downstream_dut_hostname, enum_upstream_dut_hostname, tbinfo, nbrhosts,
+def test_bgp_update_relay_latency(frr_config_mode,
+                                  duthosts, enum_downstream_dut_hostname, enum_upstream_dut_hostname, tbinfo, nbrhosts,
                                   ptfadapter, prepare_param, ptfhost, restore_bgp_suppress_fib):
     """
     Verify BGP UPDATE relay latency is sub-second with suppress-fib-pending.

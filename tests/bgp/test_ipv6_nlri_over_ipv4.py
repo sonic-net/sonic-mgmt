@@ -18,6 +18,18 @@ from tests.common.utilities import wait_until
 logger = logging.getLogger(__name__)
 
 pytestmark = [
+    # NOT frr_generic. This module builds its entire test topology with vtysh -- 17 vtysh calls
+    # and zero CONFIG_DB writes: it deletes the neighbour from its peer-group, creates an "NLRI"
+    # peer-group, activates the IPv6 address-family on an IPv4 session and applies route-maps,
+    # all directly in FRR. frrcfgd drives FRR from CONFIG_DB, so that out-of-band config does not
+    # hold and the advertised route never appears ("Routing entry for DUT not established").
+    # It passes in traditional on the same DUT and session.
+    #
+    # frr_generic was actively harmful here: it made the module run in frrcfgd mode *only* --
+    # the one mode it cannot work in -- so the traditional coverage that does pass was skipped.
+    pytest.mark.frr_bgpcfgd_only(
+        "this module configures BGP entirely through vtysh rather than CONFIG_DB, so frrcfgd "
+        "does not carry the config and the advertised route never installs"),
     pytest.mark.topology('t2', 'lrh', 'urh')
 ]
 
@@ -25,7 +37,7 @@ EOS_NEIGH_BACKUP_CONFIG_FILE = "/tmp/ipv6_nlri_eos_backup_config_{}"
 
 
 @pytest.fixture(scope='module')
-def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, request):
+def setup(frr_config_mode, tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, request):
     neighbor_type = request.config.getoption("neighbor_type")
     if neighbor_type not in ["sonic", "csonic", "eos"]:
         pytest.skip("Unsupported neighbor type: {}".format(neighbor_type))

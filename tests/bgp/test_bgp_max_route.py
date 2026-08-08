@@ -224,7 +224,7 @@ def check_bgp_session_state(duthost, neighbor, state="established"):
 
 
 @pytest.mark.parametrize("af", ["ipv4", "ipv6"])
-def test_bgp_max_prefix_behavior(duthosts, rand_one_dut_hostname, af):
+def test_bgp_max_prefix_behavior(frr_config_mode, duthosts, rand_one_dut_hostname, af):
     """
     Test BGP max-prefix behavior for IPv4 and IPv6 peers:
     1. Find a neighbor with active routes

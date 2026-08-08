@@ -14,6 +14,7 @@ from tests.common.platform.interface_utils import check_interface_status_of_up_p
 from tests.common.platform.processes_utils import wait_critical_processes
 
 pytestmark = [
+    pytest.mark.frr_generic,
     pytest.mark.topology("t0", "t1"),
     pytest.mark.disable_loganalyzer
 ]
@@ -106,7 +107,7 @@ def post_reboot_healthcheck(duthost, localhost, duthosts, wait_time):
     return True
 
 
-def test_bgp_operations_in_ro(localhost, duthosts, enum_frontend_dut_hostname, pdu_controller):
+def test_bgp_operations_in_ro(frr_config_mode, localhost, duthosts, enum_frontend_dut_hostname, pdu_controller):
     """
     @summary: This test case is to verify the BGP operations can successfully run in Read-Only state
     """

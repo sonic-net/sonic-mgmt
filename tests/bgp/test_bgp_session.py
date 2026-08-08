@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 vrfname = 'default'
 
 pytestmark = [
+    pytest.mark.frr_generic,
     pytest.mark.topology("t0", "t1", 'm1', 'lt2', 'ft2', 'c0', 'lma', 'uma'),
 ]
 
@@ -37,8 +38,10 @@ def enable_container_autorestart(duthosts, enum_frontend_dut_hostname):
 
 
 @pytest.fixture(scope='module')
-def setup(duthosts, enum_frontend_dut_hostname, enum_rand_one_frontend_asic_index,
+def setup(frr_config_mode, duthosts, enum_frontend_dut_hostname, enum_rand_one_frontend_asic_index,
           nbrhosts, fanouthosts):
+    # frr_config_mode has already switched the DUT, so the VRF-keyed BGP_NEIGHBOR branch
+    # below is the one under test.
     duthost = duthosts[enum_frontend_dut_hostname]
     asic_index = enum_rand_one_frontend_asic_index
 
