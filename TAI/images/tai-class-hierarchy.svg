@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="860" height="470" viewBox="0 0 860 470" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="ch-tri" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="13" markerHeight="13" orient="auto-start-reverse">
+      <path d="M0,0 L12,6 L0,12 z" fill="#ffffff" stroke="#80868b" stroke-width="1.2"/>
+    </marker>
+    <style>
+      .cls { font-size: 13px; font-weight: 600; fill: #202124; }
+      .file{ font-family: "SFMono-Regular", Consolas, monospace; font-size: 10px; fill: #80868b; }
+      .note{ font-size: 11px; fill: #5f6368; font-style: italic; }
+      .tag { font-size: 11px; font-weight: 600; fill: #5f6368; letter-spacing:.4px; }
+      .ext { stroke: #80868b; stroke-width: 1.4; fill: none; }
+    </style>
+  </defs>
+  <rect width="860" height="470" fill="#ffffff"/>
+
+  <!-- Root -->
+  <rect x="330" y="28" width="200" height="50" rx="9" fill="#e8eaed" stroke="#5f6368" stroke-width="1.6"/>
+  <text x="430" y="49" text-anchor="middle" class="cls">AdapterBase  (ABC)</text>
+  <text x="430" y="66" text-anchor="middle" class="file">core/base.py</text>
+
+  <!-- two adapter type bases -->
+  <rect x="150" y="138" width="220" height="52" rx="9" fill="#f3e8fd" stroke="#a142f4" stroke-width="1.6"/>
+  <text x="260" y="159" text-anchor="middle" class="cls">ThriftAdapter</text>
+  <text x="260" y="177" text-anchor="middle" class="file">core/thrift.py</text>
+
+  <rect x="490" y="138" width="220" height="52" rx="9" fill="#f3e8fd" stroke="#a142f4" stroke-width="1.6"/>
+  <text x="600" y="159" text-anchor="middle" class="cls">QoSAdapter</text>
+  <text x="600" y="177" text-anchor="middle" class="file">core/qos.py</text>
+
+  <!-- root to bases -->
+  <path class="ext" d="M260,138 L260,108 L430,108 L430,78" marker-end="url(#ch-tri)"/>
+  <path class="ext" d="M600,138 L600,108 L430,108" />
+
+  <!-- ===== Thrift subtree ===== -->
+  <text x="120" y="232" class="tag">tomahawk</text>
+  <rect x="150" y="244" width="100" height="46" rx="8" fill="#ffffff" stroke="#5f6368" stroke-width="1.4"/>
+  <text x="200" y="266" text-anchor="middle" class="cls" font-size="12">TH5</text>
+  <text x="200" y="281" text-anchor="middle" class="file">Thrift</text>
+
+  <rect x="150" y="330" width="100" height="46" rx="8" fill="#ffffff" stroke="#5f6368" stroke-width="1.4"/>
+  <text x="200" y="352" text-anchor="middle" class="cls" font-size="12">TH6</text>
+  <text x="200" y="367" text-anchor="middle" class="file">Thrift</text>
+
+  <path class="ext" d="M200,244 L200,190" marker-end="url(#ch-tri)"/>
+  <path class="ext" d="M200,330 L200,290" marker-end="url(#ch-tri)"/>
+
+  <text x="330" y="270" class="tag">qumran</text>
+  <rect x="300" y="282" width="100" height="46" rx="8" fill="#ffffff" stroke="#5f6368" stroke-width="1.4"/>
+  <text x="350" y="304" text-anchor="middle" class="cls" font-size="12">Q3D</text>
+  <text x="350" y="319" text-anchor="middle" class="file">Thrift</text>
+  <path class="ext" d="M350,282 L350,190" marker-end="url(#ch-tri)"/>
+
+  <!-- ===== QoS subtree ===== -->
+  <rect x="490" y="244" width="100" height="46" rx="8" fill="#ffffff" stroke="#5f6368" stroke-width="1.4"/>
+  <text x="540" y="266" text-anchor="middle" class="cls" font-size="12">TH5</text>
+  <text x="540" y="281" text-anchor="middle" class="file">QoS</text>
+
+  <rect x="490" y="330" width="100" height="46" rx="8" fill="#ffffff" stroke="#5f6368" stroke-width="1.4"/>
+  <text x="540" y="352" text-anchor="middle" class="cls" font-size="12">TH6</text>
+  <text x="540" y="367" text-anchor="middle" class="file">QoS</text>
+
+  <path class="ext" d="M540,244 L540,190" marker-end="url(#ch-tri)"/>
+  <path class="ext" d="M540,330 L540,290" marker-end="url(#ch-tri)"/>
+
+  <rect x="640" y="282" width="100" height="46" rx="8" fill="#ffffff" stroke="#5f6368" stroke-width="1.4"/>
+  <text x="690" y="304" text-anchor="middle" class="cls" font-size="12">Q3D</text>
+  <text x="690" y="319" text-anchor="middle" class="file">QoS</text>
+  <path class="ext" d="M690,282 L690,190" marker-end="url(#ch-tri)"/>
+
+  <!-- legend -->
+  <line x1="150" y1="430" x2="186" y2="430" class="ext" marker-end="url(#ch-tri)"/>
+  <text x="196" y="434" class="note">hollow triangle = "inherits from"  &#183;  each generation overrides only what differs</text>
+</svg>
