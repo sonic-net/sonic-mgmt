@@ -7,7 +7,8 @@ from tests.common import reboot
 from tests.common.utilities import wait_until
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.ntp_helper import NtpDaemon, ntp_daemon_in_use, setup_ntp_context   # noqa: F401
+from tests.common.helpers.ntp_helper import (NtpDaemon, ntp_daemon_in_use, setup_ntp_context,  # noqa: F401
+                                             get_ntp_daemon_in_use)
 from tests.common.helpers.snmp_helpers import get_snmp_facts
 from tests.common.devices.ptf import PTFHost
 from tests.common.gu_utils import apply_patch, generate_tmpfile, delete_tmpfile, format_json_patch_for_multiasic
@@ -182,8 +183,16 @@ def ntp_teardown(ptfhost, duthosts, rand_one_dut_hostname, ntp_servers):
     yield
 
     duthost = duthosts[rand_one_dut_hostname]
+    # Determine the NTP service in use
+    ntp_daemon_type = get_ntp_daemon_in_use(ptfhost)
+    if ntp_daemon_type == NtpDaemon.NTPSEC:
+        ntp_service_name = 'ntpsec'
+    elif ntp_daemon_type == NtpDaemon.CHRONY:
+        ntp_service_name = 'chrony'
+    else:
+        ntp_service_name = 'ntp'
     # stop ntp server
-    ptfhost.service(name="ntp", state="stopped")
+    ptfhost.service(name=ntp_service_name, state="stopped")
     # reset ntp client configuration
     duthost.command("config ntp del %s" % ptfhost.mgmt_ip, module_ignore_errors=True)
     for ntp_server in ntp_servers:
