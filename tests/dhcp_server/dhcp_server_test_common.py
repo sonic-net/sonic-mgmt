@@ -7,6 +7,7 @@ import pytest
 import ptf.packet as scapy
 import ptf.testutils as testutils
 from tests.common.utilities import capture_and_check_packet_on_dut, wait_until
+from tests.common import dhcp_relay_utils
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 
 
@@ -35,6 +36,12 @@ DHCP_SERVER_SUPPORTED_OPTION_ID = (
     "191", "192", "193", "194", "195", "196", "197", "198", "199", "200", "201", "202", "203", "204",
     "205", "206", "207", "214", "215", "216", "217", "218", "219", "222", "223"
 )
+
+
+def _wait_dhcp_server_relay_ready(duthost):
+    selector = getattr(dhcp_relay_utils, 'get_dhcp_relay_type', None)
+    pytest_assert(callable(selector), "#26525 must merge first: get_dhcp_relay_type is required")
+    dhcp_relay_utils.wait_dhcp_relay_ready(duthost, [selector(duthost)])
 
 
 def vlan_i2n(vlan_id):
@@ -71,6 +78,7 @@ def clean_dhcp_server_config(duthost):
         for line in keys['stdout_lines']:
             if line.startswith(key + '|'):
                 duthost.shell("sonic-db-cli CONFIG_DB DEL '{}'".format(line))
+    _wait_dhcp_server_relay_ready(duthost)
 
 
 def verify_lease(duthost, dhcp_interface, client_mac, exp_ip, exp_lease_time):
@@ -118,6 +126,7 @@ def apply_dhcp_server_config_cli(duthost, config_commands):
     logging.info("The dhcp_server_config: %s" % config_commands)
     for cmd in config_commands:
         duthost.shell(cmd)
+    _wait_dhcp_server_relay_ready(duthost)
 
 
 def apply_dhcp_server_config_gcu(duthost, config_to_apply):
@@ -133,6 +142,7 @@ def apply_dhcp_server_config_gcu(duthost, config_to_apply):
         )
     finally:
         duthost.file(path=tmpfile, state='absent')
+    _wait_dhcp_server_relay_ready(duthost)
 
 
 def create_common_config_patch(vlan_name, gateway, net_mask, dut_ports, ip_ranges, customized_options=None):
