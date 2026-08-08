@@ -111,7 +111,8 @@ class ParseTestbedTopoinfo():
         for vm in self.get_vm_list(topo_definition, neigh_type):
             vmconfig[vm] = dict()
             vmconfig[vm]['intfs'] = [[] for i in range(dut_num)]
-            if 'properties' in vmconfig[vm]:
+            if ('configuration' in topo_definition
+                    and 'properties' in topo_definition['configuration'][vm]):
                 # expand properties list into properties dictinary
                 property_lst = topo_definition['configuration'][vm]['properties']
                 vmconfig[vm]['properties'] = {}
