@@ -1,0 +1,42 @@
+{% set host = configuration[hostname] %}
+!
+hostname {{ hostname }}
+password zebra
+enable password zebra
+!
+log syslog informational
+log facility local4
+!
+router bgp {{ host['bgp']['asn'] }}
+ bgp router-id {{ host['interfaces']['Loopback0']['ipv4'] | ipaddr('address') }}
+ !
+{% for asn, remote_ips in host['bgp']['peers'].items() %}
+{% for remote_ip in remote_ips %}
+ neighbor {{ remote_ip }} remote-as {{ asn }}
+ neighbor {{ remote_ip }} description {{ asn }}
+{% if remote_ip | ipv6 %}
+ address-family ipv6 unicast
+  neighbor {{ remote_ip }} activate
+ exit
+{% endif %}
+{% endfor %}
+{% endfor %}
+ neighbor {{ props.nhipv4 }} remote-as {{ host['bgp']['asn'] }}
+ neighbor {{ props.nhipv4 }} description exabgp_v4
+ neighbor {{ props.nhipv6 }} remote-as {{ host['bgp']['asn'] }}
+ neighbor {{ props.nhipv6 }} description exabgp_v6
+ address-family ipv6
+  neighbor {{ props.nhipv6 }} activate
+ exit
+ !
+{% for name, iface in host['interfaces'].items() if name.startswith('Loopback') %}
+{% if iface['ipv4'] is defined %}
+ address-family ipv4 unicast
+  network {{ iface['ipv4'] }}
+{% endif %}
+{% if iface['ipv6'] is defined %}
+ address-family ipv6 unicast
+  network {{ iface['ipv6'] }}
+{% endif %}
+{% endfor %}
+!
