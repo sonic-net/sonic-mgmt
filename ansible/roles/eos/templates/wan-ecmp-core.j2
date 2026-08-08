@@ -19,8 +19,7 @@ agent Bfd shutdown
 !
 hostname {{ hostname }}
 !
-vrf definition MGMT
- rd 1:1
+vrf instance MGMT
 !
 spanning-tree mode mstp
 !
