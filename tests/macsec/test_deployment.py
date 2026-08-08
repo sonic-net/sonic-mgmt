@@ -24,11 +24,6 @@ class TestDeployment():
         duthost.shell("config save -y")
         config_reload(duthost)
         assert wait_until(300, 6, 12, check_appl_db, duthost, ctrl_links, policy, cipher_suite, send_sci)
-        # check_appl_db doesn't work with EosDut neighbors so check the macsec ports are up as well
-        for dut_port, nbr in list(ctrl_links.items()):
-            assert wait_until(300, 3, 0,
-                              lambda: duthost.iface_macsec_ok(dut_port) and
-                              nbr["host"].iface_macsec_ok(nbr["port"]))
         # Recover the original config file
         duthost.shell("sudo mv /tmp/config_db*.json /etc/sonic")
 

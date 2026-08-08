@@ -205,6 +205,9 @@ def check_appl_db(duthost, ctrl_links, policy, cipher_suite, send_sci):
     procs = []
     for port_name, nbr in list(ctrl_links.items()):
         if isinstance(nbr["host"], EosHost):
+            assert wait_until(300, 3, 0,
+                              lambda: duthost.iface_macsec_ok(port_name) and
+                              nbr["host"].iface_macsec_ok(nbr["port"]))
             continue
         proc = submit_async_task(
             __check_appl_db,
