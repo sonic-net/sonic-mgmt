@@ -91,8 +91,7 @@ class TestSfpThermalStateDb:
         Matches patterns like 'xSFP module N Temp'.
         """
         sensor_lower = sensor_name.lower()
-        return ("sfp" in sensor_lower or "transceiver" in sensor_lower or
-                "optic" in sensor_lower)
+        return ("sfp" in sensor_lower or "transceiver" in sensor_lower)
 
     def test_sfp_temperature_present_in_show_platform_temperature(
             self, duthosts, enum_rand_one_per_hwsku_hostname):
@@ -502,7 +501,7 @@ class TestSfpThermalStateDb:
         keys = result["stdout"].strip().split("\n")
         sfp_keys = [
             k for k in keys
-            if any(pattern in k.lower() for pattern in ["sfp", "transceiver", "xsfp", "optic"])
+            if any(pattern in k.lower() for pattern in ["sfp", "transceiver", "xsfp"])
         ]
 
         logger.info("TEMPERATURE_INFO keys: %d total, %d SFP-related",
@@ -542,7 +541,7 @@ class TestSfpThermalStateDb:
 
         non_sfp_sensors = [
             name for name in sensor_names
-            if not any(p in name.lower() for p in ["sfp", "transceiver", "xsfp", "optic"])
+            if not any(p in name.lower() for p in ["sfp", "transceiver", "xsfp"])
         ]
 
         pytest_assert(
