@@ -381,6 +381,13 @@ platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_set_fans_spe
       - "hwsku in ['Celestica-DX010-C32']"
       - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
+platform_tests/api/test_liquid_cooling_leakage.py:
+  skip:
+    reason: "Unsupported platform API"
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
 #######################################
 #####   test_liquid_cooling_leakage.py   #####
 #######################################
