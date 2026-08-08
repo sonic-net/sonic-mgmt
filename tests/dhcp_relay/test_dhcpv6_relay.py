@@ -354,7 +354,7 @@ def setup_active_active_as_active_standby(
 def test_dhcpv6_relay_counter(ptfhost, duthosts, rand_one_dut_hostname, dut_dhcp_relay_data,
                               toggle_all_simulator_ports_to_rand_selected_tor_m, # noqa F811
                               setup_active_active_as_active_standby):            # noqa F811
-    """ Test DHCPv6 Counter """
+    """ Test DHCPv6 Counter  """
     duthost = duthosts[rand_one_dut_hostname]
 
     message_types = ["Unknown", "Solicit", "Advertise", "Request", "Confirm", "Renew", "Rebind", "Reply", "Release",
