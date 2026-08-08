@@ -34,6 +34,8 @@ def pytest_addoption(parser):
                      help='Fake storm for most ports instead of using pfc gen')
     parser.addoption('--two-queues', action='store_true', default=True,
                      help='Run test with sending traffic to both queues [3, 4]')
+    parser.addoption('--save-timer-results', action='store_true', default=False,
+                     help='Save results of pfc timer accuracy test to file')
 
 
 @pytest.fixture(scope="module")
@@ -79,6 +81,20 @@ def fake_storm(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
                      is_cisco_device(duthost) or
                      "7060X6" in duthost.facts['hwsku'].upper()) \
         else request.config.getoption('--fake-storm')
+
+
+@pytest.fixture(scope="module")
+def save_timer_results(request):
+    """
+    Save timer results to file
+
+    Args:
+        request: pytest request object
+
+    Returns:
+        save_timer_results: True/False
+    """
+    return request.config.getoption('--save-timer-results')
 
 
 @pytest.fixture(scope="module")
