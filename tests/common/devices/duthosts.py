@@ -2,6 +2,7 @@ import logging
 import sys
 
 from tests.common.devices.multi_asic import MultiAsicSonicHost
+from tests.common.helpers.dut_utils import get_admin_down_dpu_hostnames
 from tests.common.helpers.parallel_utils import is_initial_checks_active
 
 logger = logging.getLogger(__name__)
@@ -63,6 +64,15 @@ class DutHosts(object):
         self.request = request
         self.duts = duts
         self.is_parallel_run = target_hostname is not None
+        # DPU hostnames that should be skipped because their parent NPU has
+        # them administratively down per testbed.yaml `enabled_dpus`. See
+        # tests/common/helpers/dut_utils.get_admin_down_dpu_hostnames.
+        self._admin_down_dpus = get_admin_down_dpu_hostnames(tbinfo)
+        if self._admin_down_dpus:
+            logger.info(
+                "Excluding admin-down DPU hostnames from duthosts: %s",
+                sorted(self._admin_down_dpus),
+            )
         # Initialize _nodes to None to avoid recursion in __getattr__
         self._nodes = None
         self._nodes_for_parallel = None
@@ -87,6 +97,7 @@ class DutHosts(object):
                     self,
                     self.tbinfo['topo']['type'],
                 ) for hostname in self.tbinfo["duts"]
+                if hostname not in self._admin_down_dpus
             ])
 
             self._nodes_for_parallel_tests = self._Nodes([
@@ -122,7 +133,8 @@ class DutHosts(object):
                 hostname,
                 self,
                 self.tbinfo['topo']['type'],
-            ) for hostname in self.tbinfo["duts"] if hostname in self.duts
+            ) for hostname in self.tbinfo["duts"]
+            if hostname in self.duts and hostname not in self._admin_down_dpus
         ])
 
         self._supervisor_nodes = self._Nodes([node for node in self._nodes if node.is_supervisor_node()])
