@@ -194,6 +194,7 @@ def test_neighbor_link_down(testbed_params, setup_counters, duthosts, rand_one_d
 
     try:
         # Add a static fdb entry
+        duthost.command("sonic-clear fdb all")
         apply_fdb_config(duthost, testbed_params['vlan_interface']['attachto'],
                          mock_server['server_dst_intf'], mock_server['server_dst_mac'],
                          "SET", "static")
@@ -209,13 +210,13 @@ def test_neighbor_link_down(testbed_params, setup_counters, duthosts, rand_one_d
                      mock_server['server_dst_mac'], mock_server['server_dst_intf'])
         send_dropped_traffic(counter_type, pkt, rx_port)
     finally:
-        mock_server["fanout_neighbor"].no_shutdown(mock_server["fanout_intf"])
-        duthost.command("sonic-clear fdb all")
-        duthost.command("sonic-clear arp")
         # Delete the static fdb entry
         apply_fdb_config(duthost, testbed_params['vlan_interface']['attachto'],
                          mock_server['server_dst_intf'], mock_server['server_dst_mac'],
                          "DEL", "static")
+        duthost.command("sonic-clear fdb all")
+        duthost.command("sonic-clear arp")
+        mock_server["fanout_neighbor"].no_shutdown(mock_server["fanout_intf"])
         # FIXME: Add config reload on t0-backend as a workaround to keep DUT healthy because the following
         # drop packet testcases will suffer from the brcm_sai_get_port_stats errors flooded in syslog
         if "backend" in tbinfo["topo"]["name"]:
