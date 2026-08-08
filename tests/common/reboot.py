@@ -62,7 +62,7 @@ reboot_ctrl_dict = {
     },
     REBOOT_TYPE_FAST: {
         "command": "fast-reboot",
-        "timeout": 180,
+        "timeout": 240,
         "wait": 120,
         "warmboot_finalizer_timeout": 180,
         "cause": "fast-reboot",
