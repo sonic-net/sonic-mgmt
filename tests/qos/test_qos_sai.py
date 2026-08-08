@@ -1311,6 +1311,8 @@ class TestQosSai(QosSaiBase):
 
         if "packet_size" in list(qosConfig["lossy_queue_1"].keys()):
             testParams["packet_size"] = qosConfig["lossy_queue_1"]["packet_size"]
+
+        if "cell_size" in list(qosConfig["lossy_queue_1"].keys()):
             testParams["cell_size"] = qosConfig["lossy_queue_1"]["cell_size"]
 
         if "pkts_num_margin" in list(qosConfig["lossy_queue_1"].keys()):
