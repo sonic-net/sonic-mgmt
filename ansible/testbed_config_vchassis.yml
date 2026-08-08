@@ -14,6 +14,10 @@
     fail: msg="Define topo variable with -e topo=something"
     when: topo is not defined
 
+  - name: Check that topo is not single node "t2"
+    meta: end_play
+    when: topo == "t2_single_node_min"
+
   - set_fact:
       base_topo: "{{ topo.split('_') | first }}"
 
