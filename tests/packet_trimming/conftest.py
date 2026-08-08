@@ -14,6 +14,7 @@ from tests.packet_trimming.packet_trimming_config import PacketTrimmingConfig
 from tests.packet_trimming.packet_trimming_helper import (
     delete_blocking_scheduler, check_trimming_capability, prepare_service_port, get_interface_peer_addresses,
     configure_tc_to_dscp_map, set_buffer_profile_for_block_queue, set_buffer_profile_for_trim_queue,
+    unset_buffer_profile_for_trim_queue,
     create_blocking_scheduler, configure_trimming_action, cleanup_trimming_acl, get_queue_id_by_dscp,
     get_test_ports, configure_srv6_loop_break_acl, cleanup_srv6_loop_break_acl,
     create_trim_queue_test_buffer_profile, delete_trim_queue_test_buffer_profile,
@@ -215,6 +216,7 @@ def setup_trimming(duthost, test_params, trim_counter_params, request):
         set_buffer_profile_for_block_queue(duthost, counter_block_interface, trim_counter_params['block_queue'],
                                            trim_counter_params['trim_buffer_profiles']['uplink'])
         create_trim_queue_test_buffer_profile(duthost)
+        trim_queue_interfaces = list(block_interface) if isinstance(block_interface, list) else [block_interface]
         set_buffer_profile_for_trim_queue(duthost, block_interface)
 
         # The second interface is downlink interface. If the second interface exists, use downlink buffer profile
@@ -225,6 +227,8 @@ def setup_trimming(duthost, test_params, trim_counter_params, request):
             set_buffer_profile_for_block_queue(duthost, block_interface, test_params['block_queue'],
                                                test_params['trim_buffer_profiles']['downlink'])
             set_buffer_profile_for_trim_queue(duthost, block_interface)
+            trim_queue_interfaces += list(block_interface) if isinstance(block_interface, list) \
+                else [block_interface]
 
         # Also set the downlink buffer profile for the block queue used in counter tests, if applicable.
         if len(trim_counter_params['egress_ports']) > 1:
@@ -256,6 +260,9 @@ def setup_trimming(duthost, test_params, trim_counter_params, request):
             configure_trimming_action(duthost, test_params['trim_buffer_profiles'][buffer_profile], "off")
         for buffer_profile in trim_counter_params['trim_buffer_profiles']:
             configure_trimming_action(duthost, trim_counter_params['trim_buffer_profiles'][buffer_profile], "off")
+
+    with allure.step("Remove trim queue buffer profile reference from interfaces"):
+        unset_buffer_profile_for_trim_queue(duthost, trim_queue_interfaces)
 
     with allure.step("Delete trim queue test buffer profile"):
         delete_trim_queue_test_buffer_profile(duthost)
