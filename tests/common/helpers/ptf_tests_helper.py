@@ -115,9 +115,20 @@ def detect_portchannel_egress_member(duthost, tbinfo, ptf_adapter, portchannel_n
         tuple: (member_interface, ptf_port) or (None, None)
     """
     import ptf.testutils as testutils
+    from scapy.all import Ether, IP
 
     logger.info("Detecting egress member for {}".format(portchannel_name))
 
+    # Populate ARP entry for the packet destination so the ASIC neighbor table
+    # is up to date before sending detection traffic.
+    try:
+        dst_ip = Ether(bytes(test_packet))[IP].dst
+        logger.info("Pinging {} from DUT to populate ASIC neighbor entry".format(dst_ip))
+        duthost.shell("ping -c 4 -W 1 -q {}".format(dst_ip), module_ignore_errors=True)
+        ptf_adapter.dataplane.flush()
+    except Exception as e:
+        logger.warning("Could not ping dst_ip for ARP population: {}".format(e))
+        
     # Get PortChannel members
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     portchannels = mg_facts.get('minigraph_portchannels', {})
@@ -137,7 +148,7 @@ def detect_portchannel_egress_member(duthost, tbinfo, ptf_adapter, portchannel_n
         return None, None
 
     # Try each member port
-    num_test_packets = 100
+    num_test_packets = 100000
     timeout = 10.0
 
     for member_name, member_ptf_port in member_ptf_ports:
@@ -167,6 +178,8 @@ def detect_portchannel_egress_member(duthost, tbinfo, ptf_adapter, portchannel_n
             ptf_adapter.dataplane.flush()
             return member_name, member_ptf_port
 
+    import time 
+    time.sleep(30)
     # No working member found
     ptf_adapter.dataplane.flush()
     return None, None
