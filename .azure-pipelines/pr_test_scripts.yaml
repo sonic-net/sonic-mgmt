@@ -197,7 +197,6 @@ t0:
   - platform_tests/link_flap/test_cont_link_flap.py
   - platform_tests/link_flap/test_link_flap.py
   - platform_tests/mellanox/test_check_sfp_eeprom.py
-  - platform_tests/mellanox/test_check_sfp_using_ethtool.py
   - platform_tests/mellanox/test_check_sysfs.py
   - platform_tests/mellanox/test_hw_management_service.py
   - platform_tests/mellanox/test_psu_power_threshold.py
@@ -526,7 +525,6 @@ t1-lag:
   - platform_tests/link_flap/test_cont_link_flap.py
   - platform_tests/link_flap/test_link_flap.py
   - platform_tests/mellanox/test_check_sfp_eeprom.py
-  - platform_tests/mellanox/test_check_sfp_using_ethtool.py
   - platform_tests/mellanox/test_check_sysfs.py
   - platform_tests/mellanox/test_hw_management_service.py
   - platform_tests/mellanox/test_psu_power_threshold.py
