@@ -21,6 +21,48 @@ VRF_SCENARIOS = [
 ]
 
 
+def pytest_addoption(parser):
+    """
+     * CLI options for the gNOI ORAS Pull tests (tests/gnmi/test_gnoi_oras.py).
+     *
+     * By default the ORAS tests are fully self-contained: they spin up a
+     * throwaway local registry on the PTF host (see the oras_registry
+     * fixture in test_gnoi_oras.py), so no external registry or
+     * credentials are required.
+     *
+     * These options only matter if you want to point the tests at a real,
+     * external registry instead. None of them have a hardcoded default --
+     * if --oras_test_registry is left unset, the tests stay in local mode.
+    """
+    parser.addoption(
+        "--oras_test_registry",
+        action="store",
+        default=None,
+        help="External ORAS registry host (e.g. myregistry.azurecr.io). "
+             "Setting this switches the ORAS tests from local (self-hosted) "
+             "mode to external mode.",
+    )
+    parser.addoption(
+        "--oras_test_repository",
+        action="store",
+        default=None,
+        help="External ORAS repository/image name (external mode only).",
+    )
+    parser.addoption(
+        "--oras_test_tag",
+        action="store",
+        default=None,
+        help="External ORAS tag to pull (external mode only).",
+    )
+    parser.addoption(
+        "--oras_test_username",
+        action="store",
+        default=None,
+        help="External ORAS registry username (external mode only). "
+             "Password is resolved from Ansible creds ('oras_registry_password').",
+    )
+
+
 @pytest.fixture(scope="module", params=VRF_SCENARIOS, ids=lambda scenario: f"vrf_{scenario['name']}")
 def vrf_config(request):
     return request.param
