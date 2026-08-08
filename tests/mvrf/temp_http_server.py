@@ -12,7 +12,7 @@ class TempHttpServer(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "text/plain")
         self.end_headers()
 
-        self.wfile.write(bytes(MAGIC_STRING))
+        self.wfile.write(bytes(MAGIC_STRING, 'utf-8'))
 
 
 if __name__ == "__main__":
