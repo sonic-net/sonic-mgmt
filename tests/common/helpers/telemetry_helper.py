@@ -85,12 +85,36 @@ def setup_streaming_telemetry_context(is_ipv6, duthost, localhost, ptfhost, gnxi
     """
     @summary: Post setting up the streaming telemetry before running the test.
     """
+    original_idle_conn_duration = None
     try:
         has_gnmi_config = check_gnmi_config(duthost)
         if not has_gnmi_config:
             create_gnmi_config(duthost)
         env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
+
+        # Nokia IXR7220 telemetry server defaults to a 5-minute idle connection timeout
+        # (--idle_conn_duration 5).  EVENTS streaming tests can take more than 5 minutes,
+        # causing DEADLINE_EXCEEDED failures.  Set idle_conn_duration to 30 minutes before
+        # starting the telemetry container so the gRPC stream stays alive for the full test.
+        if 'Nokia' in duthost.facts.get('hwsku', ''):
+            orig = duthost.shell(
+                'sonic-db-cli CONFIG_DB HGET "%s|gnmi" idle_conn_duration' % env.gnmi_config_table,
+                module_ignore_errors=True)['stdout'].strip()
+            if orig != '30':
+                original_idle_conn_duration = orig  # '' means key was absent
+                duthost.shell(
+                    'sonic-db-cli CONFIG_DB HSET "%s|gnmi" idle_conn_duration 30' % env.gnmi_config_table)
+
         default_client_auth = setup_telemetry_forpyclient(duthost)
+
+        # If idle_conn_duration was changed but setup_telemetry_forpyclient did not restart
+        # the container (client_auth was already false), force a restart now so the new
+        # idle_conn_duration value is picked up by the telemetry startup script.
+        if original_idle_conn_duration is not None and default_client_auth != "true":
+            duthost.shell("systemctl reset-failed %s" % env.gnmi_container)
+            duthost.service(name=env.gnmi_container, state="restarted")
+            py_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, env.gnmi_container),
+                      "%s not started after idle_conn_duration change." % env.gnmi_container)
 
         # Wait until the TCP port was opened
         dut_ip = duthost.mgmt_ip
@@ -113,5 +137,15 @@ def setup_streaming_telemetry_context(is_ipv6, duthost, localhost, ptfhost, gnxi
 
     yield
     restore_telemetry_forpyclient(duthost, default_client_auth)
+    # Restore Nokia idle_conn_duration to its original value if it was changed
+    if original_idle_conn_duration is not None:
+        env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
+        if original_idle_conn_duration:
+            duthost.shell(
+                'sonic-db-cli CONFIG_DB HSET "%s|gnmi" idle_conn_duration %s'
+                % (env.gnmi_config_table, original_idle_conn_duration))
+        else:
+            duthost.shell(
+                'sonic-db-cli CONFIG_DB HDEL "%s|gnmi" idle_conn_duration' % env.gnmi_config_table)
     if not has_gnmi_config:
         delete_gnmi_config(duthost)
