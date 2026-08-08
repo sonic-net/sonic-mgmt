@@ -6,8 +6,8 @@ import fnmatch
 import os
 import re
 
-from tests.common.configlet.utils import orig_db_dir, no_t0_db_dir, patch_add_t0_dir, patch_rm_t0_dir, tor_data,\
-                   RELOAD_WAIT_TIME, PAUSE_INTF_DOWN, PAUSE_INTF_UP, PAUSE_CLET_APPLY, DB_COMP_WAIT_TIME,\
+from tests.common.configlet.utils import orig_db_dir, no_t0_db_dir, patch_add_t0_dir, patch_rm_t0_dir, tor_data, \
+                   RELOAD_WAIT_TIME, PAUSE_INTF_DOWN, PAUSE_INTF_UP, PAUSE_CLET_APPLY, DB_COMP_WAIT_TIME, \
                    do_pause, db_comp, is_bgp_session_established
 
 if os.path.exists("/etc/sonic/sonic-environment"):

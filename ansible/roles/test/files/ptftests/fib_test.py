@@ -557,7 +557,7 @@ class FibTest(BaseTest):
     def check_same_asic(self, src_port, exp_port_list):
         updated_exp_port_list = list()
         for port in exp_port_list:
-            if type(port) == list:
+            if isinstance(port, list):
                 per_port_list = list()
                 for per_port in port:
                     if self.ptf_test_port_map[str(per_port)]['target_dut'] \
@@ -600,7 +600,7 @@ class FibTest(BaseTest):
             asic_list['voq'] = dest_port_list
         else:
             for port in dest_port_list:
-                if type(port) == list:
+                if isinstance(port, list):
                     port_map = self.ptf_test_port_map[str(port[0])]
                     asic_id = port_map.get('asic_idx', 0)
                     member = asic_list.get(asic_id)
