@@ -140,3 +140,121 @@ class PtfGnmic:
 
     def __repr__(self):
         return self.__str__()
+
+    def set(self, path: str, value: str, encoding: str = "json_ietf",
+            timeout: int = 90, metadata: str = None, filename: str = "value") -> Dict:
+        """
+        Set a value on the target device using gNMI Set operation.
+
+        Args:
+            path: gNMI path string
+            value: Value to set, formatted according to the specified encoding
+            encoding: Encoding format (default: "json_ietf")
+            timeout: Timeout for the gNMI Set operation (default: 10 seconds)
+            metadata: Optional metadata for the gNMI Set operation
+
+        Returns:
+            Dictionary containing the gNMI Set response
+
+        Raises:
+            GnmicConnectionError: If connection to target fails (refused, TLS errors)
+            GnmicCallError: If gnmic exits with non-zero code or returns invalid JSON
+        """
+        # put value into temp file
+        value_content = json.dumps(value, indent=2)
+        value_file = f"/tmp/{filename}.json"
+        self.ptfhost.copy(content=value_content, dest=value_file)
+
+        cmd = f"{self._gnmic_path} -a {self.target}"
+
+        if self.plaintext:
+            cmd += " --insecure"
+        elif self.ca_cert and self.client_cert and self.client_key:
+            cmd += f" --tls-ca {self.ca_cert} --tls-cert {self.client_cert} --tls-key {self.client_key}"
+
+        cmd += f" set --prefix 'sonic-db:' --update-path '{path}' --update-file '{value_file}' \
+            --encoding {encoding} --timeout={timeout}s"
+
+        if metadata:
+            cmd += f" --metadata '{metadata}'"
+
+        logger.debug(f"Executing gnmic command: {cmd}")
+        result = self.ptfhost.shell(cmd, module_ignore_errors=True)
+
+        rc = result["rc"]
+        stdout = result.get("stdout", "").strip()
+        stderr = result.get("stderr", "").strip()
+
+        if rc != 0:
+            # Check for connection-related error keywords
+            stderr_lower = stderr.lower()
+            if any(kw in stderr_lower for kw in _CONNECTION_KEYWORDS):
+                raise GnmicConnectionError(
+                    f"gnmic connection failed to {self.target}: {stderr}"
+                )
+            raise GnmicCallError(
+                f"gnmic set failed (rc={rc}): {stderr}"
+            )
+
+        # Parse JSON output
+        try:
+            return json.loads(stdout)
+        except (json.JSONDecodeError, ValueError) as e:
+            raise GnmicCallError(
+                f"gnmic returned invalid JSON: {e}\nOutput: {stdout}"
+            )
+
+    def get(self, path: str, encoding: str = "json_ietf", timeout: int = 90, metadata: str = None) -> Dict:
+        """
+        Get a value from the target device using gNMI Get operation.
+
+        Args:
+            path: gNMI path string
+            encoding: Encoding format (default: "json_ietf")
+            timeout: Timeout for the gNMI Get operation (default: 10 seconds)
+            metadata: Optional metadata for the gNMI Get operation
+
+        Returns:
+            Dictionary containing the gNMI Get response
+
+        Raises:
+            GnmicConnectionError: If connection to target fails (refused, TLS errors)
+            GnmicCallError: If gnmic exits with non-zero code or returns invalid JSON
+        """
+        cmd = f"{self._gnmic_path} -a {self.target}"
+
+        if self.plaintext:
+            cmd += " --insecure"
+        elif self.ca_cert and self.client_cert and self.client_key:
+            cmd += f" --tls-ca {self.ca_cert} --tls-cert {self.client_cert} --tls-key {self.client_key}"
+
+        cmd += f" get --prefix 'sonic-db:' --path '{path}' --encoding {encoding} --timeout={timeout}s"
+
+        if metadata:
+            cmd += f" --metadata '{metadata}'"
+
+        logger.debug(f"Executing gnmic command: {cmd}")
+        result = self.ptfhost.shell(cmd, module_ignore_errors=True)
+
+        rc = result["rc"]
+        stdout = result.get("stdout", "").strip()
+        stderr = result.get("stderr", "").strip()
+
+        if rc != 0:
+            # Check for connection-related error keywords
+            stderr_lower = stderr.lower()
+            if any(kw in stderr_lower for kw in _CONNECTION_KEYWORDS):
+                raise GnmicConnectionError(
+                    f"gnmic connection failed to {self.target}: {stderr}"
+                )
+            raise GnmicCallError(
+                f"gnmic get failed (rc={rc}): {stderr}"
+            )
+
+        # Parse JSON output
+        try:
+            return json.loads(stdout)
+        except (json.JSONDecodeError, ValueError) as e:
+            raise GnmicCallError(
+                f"gnmic returned invalid JSON: {e}\nOutput: {stdout}"
+            )
