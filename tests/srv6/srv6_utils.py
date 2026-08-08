@@ -362,6 +362,22 @@ def verify_appl_db_sid_entry_exist(duthost, sonic_db_cli, key, exist):
     return key in appl_db_my_sids if exist else key not in appl_db_my_sids
 
 
+#
+# Verify that the SID list entry is programmed in APPL_DB
+#
+def verify_appl_db_sid_list_entry_exist(duthost, sonic_db_cli, key, exist):
+    appl_db_my_sids = duthost.command(sonic_db_cli + " APPL_DB keys SRV6_SID_LIST_TABLE*")["stdout"]
+    return key in appl_db_my_sids if exist else key not in appl_db_my_sids
+
+
+#
+# Verify that the route entry is programmed in APPL_DB
+#
+def verify_appl_db_route_entry_exist(duthost, sonic_db_cli, key, exist):
+    appl_db_my_sids = duthost.command(sonic_db_cli + " APPL_DB keys ROUTE_TABLE*")["stdout"]
+    return key in appl_db_my_sids if exist else key not in appl_db_my_sids
+
+
 def enable_srv6_counterpoll(duthost):
     """
     Enable SRv6 counterpoll on the DUT.
