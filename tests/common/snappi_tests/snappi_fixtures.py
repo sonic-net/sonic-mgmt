@@ -1208,7 +1208,26 @@ def snappi_dut_base_config(duthost_list,
     l1_config.speed = 'speed_{}_gbps'.format(speed_gbps)
     l1_config.ieee_media_defaults = False
     l1_config.auto_negotiate = False
-    if is_snappi_multidut(duthost_list):
+
+    # Derive link_training from DUT CONFIG_DB if available, otherwise use legacy defaults
+    lt_from_dut = None
+    try:
+        dut_for_lt = duthost_list[0] if duthost_list else None
+        if dut_for_lt:
+            run_facts = dut_for_lt.config_facts(host=dut_for_lt.hostname, source="running")['ansible_facts']
+            port_table = run_facts.get('PORT', {})
+            for sp in new_snappi_ports:
+                p = sp.get('peer_port')
+                lt_val = port_table.get(p, {}).get('link_training')
+                if lt_val is not None:
+                    lt_from_dut = str(lt_val).lower() in ['on', 'true', 'yes', '1']
+                    break
+    except Exception:
+        pass
+
+    if lt_from_dut is not None:
+        l1_config.auto_negotiation.link_training = lt_from_dut
+    elif is_snappi_multidut(duthost_list):
         l1_config.auto_negotiation.link_training = False
     else:
         l1_config.auto_negotiation.link_training = True
