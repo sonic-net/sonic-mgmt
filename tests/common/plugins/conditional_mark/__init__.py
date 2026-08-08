@@ -37,7 +37,7 @@ MARK_CONDITIONS_CONSTANTS = {
                      'dualtor-56', 'dualtor-120', 'dualtor', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout',
                      't0-backend', 't0-d18u8s4', 't0-isolated-d96u32s2',
                      't1-lag', 't1-28-lag', 't1-48-lag', 't1-64-lag', 't1-56-lag',
-                     't1-backend', 't1-isolated-d128', 't1-isolated-d32',
+                     't1-backend', 't1-d96u4', 't1-isolated-d128', 't1-isolated-d32',
                      't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic',
                      'lt2-p32o64', 'lt2-o128', 'ft2-64', 'ft2-16', 't2_one_hwsku_min', 't2_one_hwsku_max',
                      't2-single-node-min', 't2_single_node_min', 't2_single_node_max',
