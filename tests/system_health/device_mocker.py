@@ -32,6 +32,12 @@ class DeviceMocker:
     def mock_fan_direction(self, good):
         return False, None
 
+    def mock_pdb_presence(self, status):
+        return False, None
+
+    def mock_pdb_status(self, status):
+        return False, None
+
 
 @pytest.fixture
 def device_mocker_factory():
