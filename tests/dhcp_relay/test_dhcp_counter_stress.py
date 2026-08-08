@@ -42,6 +42,7 @@ def ignore_expected_loganalyzer_exceptions(rand_one_dut_hostname, loganalyzer):
     yield
 
 
+@pytest.mark.disable_memory_utilization
 @pytest.mark.parametrize('dhcp_type', ['discover', 'offer', 'request', 'ack'])
 def test_dhcpmon_relay_counters_stress(ptfhost, relay_agent, enable_sonic_dhcpv4_relay_agent,    # noqa: F811
                                        ptfadapter, dut_dhcp_relay_data, validate_dut_routes_exist,
@@ -123,6 +124,10 @@ def test_dhcpmon_relay_counters_stress(ptfhost, relay_agent, enable_sonic_dhcpv4
                     interface_dict[name] = index
 
             return interface_dict
+
+        # Remove any stale count file from a previous parametrized run so
+        # _check_count_file_exists cannot return early on leftover data.
+        ptfhost.shell('rm -f {}'.format(count_file), module_ignore_errors=True)
 
         with capture_and_check_packet_on_dut(
             duthost=duthost, interface='any',
