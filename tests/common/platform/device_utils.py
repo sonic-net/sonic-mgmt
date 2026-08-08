@@ -1229,14 +1229,14 @@ def add_platform_api_server_port_nat_for_dpu(
         npu_host = create_npu_host_based_on_dpu_info(ansible_adhoc, tbinfo, request, duthost)
         npu_host.command(
             f'sudo iptables -t nat -A PREROUTING -i eth0 -p tcp --dport \
-            {SERVER_PORT} -j DNAT --to-destination {dpu_ip}:{SERVER_PORT}')
+            {SERVER_PORT} -j DNAT --to-destination {dpu_ip}:{SERVER_PORT}')  # noqa: E231
 
     yield
 
     if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_dpu"):
         npu_host.command(
             f'sudo iptables -t nat -D PREROUTING -i eth0 -p tcp --dport \
-                {SERVER_PORT} -j DNAT --to-destination {dpu_ip}:{SERVER_PORT}')
+                {SERVER_PORT} -j DNAT --to-destination {dpu_ip}:{SERVER_PORT}')  # noqa: E231
 
 
 def get_ansible_ssh_port(duthost, ansible_adhoc):  # noqa: F811
@@ -1390,3 +1390,31 @@ def reboot_dpu_and_wait_for_start_up(duthost, dpuhost_name, dpu_index):
         return False
 
     return True
+
+
+def get_skip_mod_list(duthost, mod_key=None):
+    """
+    Return list of modules/peripherals absent in the chassis per the inventory's skip_modules.
+
+    inventory example:
+    DUTHOST:
+      skip_modules:
+        'psus':
+          - PSU4
+          - PSU5
+
+    Returns an empty list if skip_modules is not defined for the host.
+    """
+    skip_mod_list = []
+    dut_vars = duthost.host.options['variable_manager'].get_vars()['hostvars'][duthost.hostname]
+    if 'skip_modules' in dut_vars:
+        if mod_key is None:
+            for mod_type in list(dut_vars['skip_modules'].keys()):
+                for mod_id in dut_vars['skip_modules'][mod_type]:
+                    skip_mod_list.append(mod_id)
+        else:
+            for mod_type in mod_key:
+                if mod_type in list(dut_vars['skip_modules'].keys()):
+                    for mod_id in dut_vars['skip_modules'][mod_type]:
+                        skip_mod_list.append(mod_id)
+    return skip_mod_list
