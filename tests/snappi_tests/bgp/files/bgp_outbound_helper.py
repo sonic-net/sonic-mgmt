@@ -500,7 +500,7 @@ def __snappi_bgp_config(api,
 
         device = config.devices.device(name="T3 Device {}".format(lag_count))[-1]
         eth = device.ethernets.add()
-        eth.connection.port_name = lag.name
+        eth.connection.lag_name = lag.name
         eth.name = 'T3_Ethernet_%d' % lag_count
         eth.mac = "00:00:00:00:00:%s" % m
 
