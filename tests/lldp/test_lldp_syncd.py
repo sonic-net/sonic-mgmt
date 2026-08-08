@@ -462,7 +462,12 @@ def verify_all_interfaces_lldp_content(db_instance, lldp_entry_keys, lldpctl_out
 def wait_until_lldp_populated(duthost, db_instance, after_event_str):
     keys_match = wait_until(90, 2, 0, check_lldp_table_keys, duthost, db_instance)
     pytest_assert(keys_match, "LLDP_ENTRY_TABLE keys do not match 'show lldp table' output")
-    lldp_entry_keys = get_lldp_entry_keys(db_instance)
+    # The management interface (e.g. eth0) can pick up a transient LLDP neighbor on the
+    # mgmt network whose LLDP_ENTRY_TABLE entry ages in and out independently, leaving a
+    # partial (single-field) entry that never fully populates. This is out of scope for
+    # front-panel LLDP verification and is why every other cross-source comparison in this
+    # file drops mgmt interfaces. Exclude it here as well so the check does not flap.
+    lldp_entry_keys = exclude_mgmt_interfaces(get_lldp_entry_keys(db_instance))
     # Wait until all interfaces are up and lldp entries are populated
     result = wait_until(300, 2, 0, verify_lldp_entry, db_instance, lldp_entry_keys)
     if not result:
