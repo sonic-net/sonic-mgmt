@@ -11,7 +11,10 @@ pytestmark = [
 COMMAND_TIMEOUT = 90  # seconds
 
 
-def check_if_platform_reboot_enabled(duthost) -> bool:
+def check_if_custom_reboot_enabled(duthost) -> bool:
+    # SmartSwitch reboots DPUs before reaching the mocked /sbin/reboot.
+    if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch", False):
+        return True
     platform = get_command_result(duthost, "sonic-cfggen -H -v DEVICE_METADATA.localhost.platform")
     return check_if_dut_file_exist(duthost, "/usr/share/sonic/device/{}/platform_reboot".format(platform))
 
@@ -97,8 +100,8 @@ class TestRebootBlockingModeCLI:
         localhost
     ):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-        if check_if_platform_reboot_enabled(duthost):
-            pytest.skip("Skip test because platform reboot is enabled.")
+        if check_if_custom_reboot_enabled(duthost):
+            pytest.skip("Skip test because custom reboot handling is enabled.")
 
         mock_systemctl_reboot(duthost)
         yield
@@ -138,8 +141,8 @@ class TestRebootBlockingModeConfigFile:
         localhost
     ):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-        if check_if_platform_reboot_enabled(duthost):
-            pytest.skip("Skip test because platform reboot is enabled.")
+        if check_if_custom_reboot_enabled(duthost):
+            pytest.skip("Skip test because custom reboot handling is enabled.")
 
         mock_systemctl_reboot(duthost)
         yield
