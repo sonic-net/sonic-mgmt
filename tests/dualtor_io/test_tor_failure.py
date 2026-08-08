@@ -110,7 +110,7 @@ def test_active_tor_reboot_downstream_standby(
     setup_loganalyzer(upper_tor_host, collect_only=True, collect_from_bootup=True)
     send_t1_to_server_with_action(
         lower_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-        action=toggle_upper_tor_pdu, stop_after=60
+        action=toggle_upper_tor_pdu, stop_after=60, send_interval=0.01
     )
     wait_for_device_reachable(upper_tor_host)
     wait_for_mux_container(upper_tor_host)
