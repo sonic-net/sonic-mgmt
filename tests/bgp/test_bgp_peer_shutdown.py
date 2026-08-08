@@ -17,7 +17,7 @@ from tests.common.utilities import wait_until
 from tests.common.utilities import is_ipv6_only_topology
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1', 't2', 'lrh', 'urh', 'm1', 'lt2', 'ft2', 'c0'),
+    pytest.mark.topology('t0', 't1', 't2', 'lrh', 'urh', 'm1', 'lt2', 'ft2', 'c0', 'lma', 'uma'),
 ]
 
 TEST_ITERATIONS = 5
@@ -75,6 +75,14 @@ def common_setup_teardown(
             use_vtysh = True
     elif dut_type in ["UpperRegionalHub"]:
         neigh_type = "LowerRegionalHub"
+        if confed_asn is not None:
+            use_vtysh = True
+    elif dut_type in ["LowerMgmtAggregator"]:
+        neigh_type = "MgmtSpineRouter"
+        if confed_asn is not None:
+            use_vtysh = True
+    elif dut_type in ["UpperMgmtAggregator"]:
+        neigh_type = "LowerMgmtAggregator"
         if confed_asn is not None:
             use_vtysh = True
     else:
