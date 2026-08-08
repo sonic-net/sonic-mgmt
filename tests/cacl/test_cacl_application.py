@@ -1423,3 +1423,119 @@ def test_caclmgrd_syslog(duthosts, enum_rand_one_per_hwsku_hostname,):
     match = re.search(r'(caclmgrd.*?iptables)', systemctl_output)
     mux_match = re.search(r'(caclmgrd.*?mux)', systemctl_output)
     pytest_assert(match or mux_match, "iptables rules are not applied after restarting caclmgrd")
+
+
+@pytest.fixture
+def restore_dhcp_server_feature_state(duthosts, enum_rand_one_per_hwsku_hostname):
+    """Snapshot FEATURE|dhcp_server state and restore it after the test.
+
+    The teardown waits for CONFIG_DB to converge back to the original state so a
+    test that toggles the feature cannot leak a mid-transition state into the
+    next test. This lives in a fixture (not an in-test ``finally``) so the
+    convergence wait can be asserted without swallowing the test-body exception.
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    orig_state = duthost.shell(
+        "sonic-db-cli CONFIG_DB HGET 'FEATURE|dhcp_server' state")["stdout"].strip()
+
+    yield orig_state
+
+    cur_state = duthost.shell(
+        "sonic-db-cli CONFIG_DB HGET 'FEATURE|dhcp_server' state",
+        module_ignore_errors=True)["stdout"].strip()
+    if cur_state != orig_state:
+        duthost.shell("sudo config feature state dhcp_server {}".format(orig_state),
+                      module_ignore_errors=True)
+
+    dhcp_syslog_rule = ("-A INPUT -i docker0 -p tcp -m tcp --dport 2514"
+                        " -m comment --comment dhcp_server_syslog -j ACCEPT")
+
+    def _converged():
+        state = duthost.shell(
+            "sonic-db-cli CONFIG_DB HGET 'FEATURE|dhcp_server' state",
+            module_ignore_errors=True)["stdout"].strip()
+        rule_present = dhcp_syslog_rule in duthost.command(
+            "iptables -S INPUT")["stdout"].split("\n")
+        return state == orig_state and rule_present == (orig_state == "enabled")
+
+    # Always wait for convergence (state + rule presence), even when the DB state
+    # already matches, so a still-transitioning feature is not leaked to the next
+    # test. The restore command above stays conditional.
+    pytest_assert(
+        wait_until(60, 5, 0, _converged),
+        "dhcp_server feature state did not converge back to {} during teardown"
+        .format(orig_state))
+
+
+def test_caclmgrd_dhcp_server_syslog(duthosts, enum_rand_one_per_hwsku_hostname,
+                                     dummy_acl_rules, restore_dhcp_server_feature_state):
+    """
+    Verify caclmgrd owns the dhcp_server docker0 syslog (RELP tcp/2514) INPUT
+    exception (sonic-net/sonic-buildimage#27584 and the ownership move in
+    sonic-net/sonic-buildimage#28328, sonic-net/sonic-host-services#412 and
+    sonic-net/sonic-buildimage#28580):
+
+      * the rule is programmed above caclmgrd's control-plane catch-all DROP
+        while FEATURE|dhcp_server is enabled,
+      * it survives a control-plane ACL flush-and-rebuild (dummy_acl_rules forces
+        one via acl-loader), and
+      * it is removed when the feature is disabled and restored when re-enabled.
+
+    dhcp_server uses bridge networking, so the exception only exists on the host
+    namespace where the feature is enabled (e.g. mx); the test skips otherwise.
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    orig_state = restore_dhcp_server_feature_state
+    if orig_state != "enabled":
+        pytest.skip("dhcp_server feature is not enabled on this DUT; caclmgrd does "
+                    "not program the docker0 syslog exception")
+
+    dhcp_syslog_rule = ("-A INPUT -i docker0 -p tcp -m tcp --dport 2514"
+                        " -m comment --comment dhcp_server_syslog -j ACCEPT")
+    catch_all_drop = "-A INPUT -j DROP"
+
+    def _input_rules():
+        return duthost.command("iptables -S INPUT")["stdout"].split("\n")
+
+    def _rule_present():
+        return dhcp_syslog_rule in _input_rules()
+
+    # dummy_acl_rules has applied control-plane ACLs, forcing caclmgrd to flush
+    # and rebuild the INPUT chain and append the catch-all DROP. The
+    # caclmgrd-owned syslog exception must be re-emitted by that rebuild.
+    pytest_assert(
+        wait_until(60, 5, 0, _rule_present),
+        "caclmgrd did not program the dhcp_server docker0 syslog rule after a "
+        "control-plane ACL rebuild while the feature is enabled")
+
+    rules = _input_rules()
+    pytest_assert(
+        catch_all_drop in rules,
+        "Expected caclmgrd catch-all INPUT DROP is not present; cannot verify ordering")
+    pytest_assert(
+        rules.index(dhcp_syslog_rule) < rules.index(catch_all_drop),
+        "dhcp_server docker0 syslog rule is not ordered above the catch-all DROP")
+
+    # Disable the feature -> caclmgrd removes the rule on the next rebuild.
+    duthost.shell("sudo config feature state dhcp_server disabled")
+    pytest_assert(
+        wait_until(60, 5, 0, lambda: not _rule_present()),
+        "caclmgrd did not remove the dhcp_server docker0 syslog rule after "
+        "disabling the feature")
+
+    # Re-enable -> caclmgrd re-programs the rule, still above the catch-all DROP.
+    duthost.shell("sudo config feature state dhcp_server enabled")
+    pytest_assert(
+        wait_until(60, 5, 0, _rule_present),
+        "caclmgrd did not re-program the dhcp_server docker0 syslog rule after "
+        "re-enabling the feature")
+    rules = _input_rules()
+    pytest_assert(
+        catch_all_drop in rules,
+        "Expected caclmgrd catch-all INPUT DROP is not present after re-enabling "
+        "the feature; cannot verify ordering")
+    pytest_assert(
+        rules.index(dhcp_syslog_rule) < rules.index(catch_all_drop),
+        "dhcp_server docker0 syslog rule is not ordered above the catch-all DROP "
+        "after re-enabling the feature")
