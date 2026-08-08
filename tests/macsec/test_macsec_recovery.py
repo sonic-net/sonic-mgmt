@@ -29,6 +29,10 @@ def macsec_loganalyzer_ignore(loganalyzer, macsec_duthost):
       deletes a stale SA; the DNX platform logs this transiently.
     - 'KaY: The key server is not in my live peers list': wpa_supplicant logs
       this while MKA re-negotiates after the macsec container is killed.
+    - 'KaY: Reject distributed SAK since I'm a key server': during dirty
+      restart, the peer may briefly win KS election and distribute a SAK;
+      when the DUT comes back with its original priority it rejects the
+      incoming SAK because it is now key server again.  Transient and expected.
     - 'e1000 ... Reset adapter': KVM virtual NIC resets when the macsec
       container is SIGKILL'd; this is a VTB environment artifact.
     """
@@ -36,6 +40,7 @@ def macsec_loganalyzer_ignore(loganalyzer, macsec_duthost):
         loganalyzer[macsec_duthost.hostname].ignore_regex.extend([
             r".*SAI_API_MACSEC:brcm_sai_dnx_get_macsec_sa_attribute.*Invalid object ID.*",
             r".*macsec\d*#wpa_supplicant.*KaY: The key server is not in my live peers list.*",
+            r".*macsec\d*#wpa_supplicant.*KaY: Reject distributed SAK since I'm a key server.*",
             r".*kernel:.*e1000.*Reset adapter.*",
         ])
 
