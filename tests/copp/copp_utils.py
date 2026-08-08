@@ -541,7 +541,7 @@ def is_trap_installed(duthost, trap_id):
     """
 
     output = parse_show_copp_configuration(duthost)
-    assert trap_id in output, f"Trap {trap_id} not found in the configuration"
+    assert trap_id in output, "Trap {} not found in the configuration".format(trap_id)
     assert "hw_status" in output[trap_id], f"hw_status not found for trap {trap_id}"
 
     return output[trap_id]["hw_status"] == "installed"
