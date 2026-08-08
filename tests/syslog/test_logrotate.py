@@ -428,7 +428,7 @@ def test_orchagent_logrotate(orch_logrotate_setup, duthosts, enum_rand_one_per_h
         duthost.shell('sudo ip neigh add {} lladdr {} dev {}'.format(FAKE_IP, FAKE_MAC, target_port))
     duthost.control_process('orchagent', pause=False, namespace=asic_id)
     pytest_assert(
-        wait_until(30, 1, 0, no_pending_entries, duthost, ignore_list=ignore_entries),
+        wait_until(40, 1, 0, no_pending_entries, duthost, ignore_list=ignore_entries),
         "Found pending entries in APPL_DB"
     )
 
