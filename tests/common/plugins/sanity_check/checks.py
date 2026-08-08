@@ -351,25 +351,160 @@ def check_bgp(duthosts, tbinfo):
     return _check
 
 
+def _get_process_cmdline(pid, asic):
+    if pid:
+        cmd_result = asic.sonichost.shell(f'xargs -0 < /proc/{pid}/cmdline', module_ignore_errors=True)
+        if cmd_result['rc'] == 0:
+            return cmd_result['stdout'].strip()
+    return '<Unknown>'
+
+
+def _find_processes_from_tcp_addresses(addrs, asic):
+    """
+    Find processes connected to redis by matching TCP addresses
+
+    Args:
+        addrs: List of addresses in format "IP:PORT" for TCP
+        asic: ASIC instance for running shell commands
+
+    Returns:
+        List of strings describing connected processes
+    """
+    connection_details = []
+
+    # Build mapping: TCP address -> set of PIDs
+    addr_to_pids = {}
+
+    # Get TCP socket mapping using 'ss'
+    ss_tcp_cmd = "sudo ss -tpnHQ"
+    ss_tcp_result = asic.sonichost.shell(ss_tcp_cmd, module_ignore_errors=True)
+    # Output format:
+    # Columns: <State> <Local-Addr:Port> <Peer-Addr:Port> <Process>
+    # e.g.: ESTAB 127.0.0.1:6379 127.0.0.1:48894 users:(("redis-server",pid=1733,fd=360))
+
+    for line in ss_tcp_result['stdout_lines']:
+        parts = line.split()
+        if len(parts) < 4:
+            continue
+
+        # Column positions:
+        # parts[0] = State
+        # parts[1] = Local-Addr:Port
+        # parts[2] = Peer-Addr:Port
+        # parts[3] = Process
+        local_address = parts[1]
+        process = parts[3]
+        # Extract all PIDs from users:(("process",pid=XXXX,fd=YY))
+        pid_matches = re.findall(r'pid=(\d+)', process)
+        for pid_str in pid_matches:
+            pid = int(pid_str)
+            addr_to_pids.setdefault(local_address, set()).add(pid)
+
+    # Process TCP addresses from addrs
+    for addr in addrs:
+        pids = addr_to_pids.get(addr, set())
+        for pid in pids:
+            cmdline = _get_process_cmdline(pid, asic)
+            connection_details.append(f"Process {pid} at {addr}: {cmdline}")
+
+    return connection_details
+
+
+def _find_processes_from_unix_sockets(fds, asic):
+    """
+    Find processes connected to redis by matching Unix socket numbers
+
+    Args:
+        fds: List of file descriptor number from redis-server
+        asic: ASIC instance for running shell commands
+
+    Returns:
+        List of strings describing connected processes
+    """
+    connection_details = []
+
+    # Build two mappings:
+    # 1. redis_fd_to_peer_socket: redis FD -> peer socket inode (for Unix sockets)
+    # 2. socket_to_pids: socket inode -> set of PIDs (for Unix sockets)
+    redis_fd_to_peer_socket = {}
+    socket_to_pids = {}
+
+    # Get Unix sockets mapping using 'ss'
+    ss_unix_cmd = "sudo ss -pnHQ --socket unix_stream"
+    ss_unix_result = asic.sonichost.shell(ss_unix_cmd, module_ignore_errors=True)
+    # Unix output format:
+    # Columns: <State> <Local-Socket-Path> <Local-Inode> <*> <Peer-Inode> <Process>
+    # e.g:
+    # ESTAB /var/run/redis/redis.sock 18996419 * 18997416 users:(("redis-server",pid=1733,fd=27))
+    # ESTAB * 18906073 * 18943574 users:(("process",pid=1234,fd=5))
+
+    for line in ss_unix_result['stdout_lines']:
+        parts = line.split()
+        if len(parts) < 6:
+            continue
+
+        # Unix socket column positions:
+        # parts[0] = State
+        # parts[1] = Local socket path or *
+        # parts[2] = Local inode
+        # parts[3] = * (separator)
+        # parts[4] = Peer inode
+        # parts[5] = Process
+        local_socket_path = parts[1]
+        local_inode = int(parts[2])
+        peer_inode = int(parts[4])
+        process = parts[5]
+
+        # If this is a redis-server socket, map its FD to the peer inode
+        if local_socket_path.startswith('/var/run/redis'):
+            fd_match = re.search(r'fd=(\d+)', process)
+            if fd_match:
+                fd = int(fd_match.group(1))
+                redis_fd_to_peer_socket[fd] = peer_inode
+
+        # Map local inodes to PIDs
+        pid_matches = re.findall(r'pid=(\d+)', process)
+        for pid_str in pid_matches:
+            pid = int(pid_str)
+            socket_to_pids.setdefault(local_inode, set()).add(pid)
+
+    # Process Unix socket FDs from redis-server
+    for fd in fds:
+        socket = redis_fd_to_peer_socket.get(fd)
+        pids = socket_to_pids.get(socket, set())
+        for pid in pids:
+            cmdline = _get_process_cmdline(pid, asic)
+            connection_details.append(f"Process {pid} on Unix socket (redis fd={fd}): {cmdline}")
+
+    return connection_details
+
 def _is_db_omem_over_threshold(command_output):
 
     total_omem = 0
-    re_omem = re.compile(r"omem=(\d+)")
+    re_omem = re.compile(r" addr=(\S+) .* fd=(\d+) .* omem=(\d+)")
+
     result = False
     non_zero_output = []
+    fds = []
+    addrs = []
 
     for line in command_output:
         m = re_omem.search(line)
         if m:
-            omem = int(m.group(1))
+            omem = int(m.group(3))
             total_omem += omem
             if omem > 0:
                 non_zero_output.append(line)
+                addr = m.group(1)
+                if addr.startswith('/var/run/redis'):
+                    fds.append(int(m.group(2)))
+                else:
+                    addrs.append(addr)
     logger.debug('total_omen={}, OMEM_THRESHOLD_BYTES={}'.format(total_omem, OMEM_THRESHOLD_BYTES))
     if total_omem > OMEM_THRESHOLD_BYTES:
         result = True
 
-    return result, total_omem, non_zero_output
+    return result, total_omem, non_zero_output, addrs, fds
 
 
 @pytest.fixture(scope="module")
@@ -390,13 +525,18 @@ def check_dbmemory(duthosts):
         # check the db memory on the redis instance running on each instance
         for asic in dut.asics:
             res = asic.run_redis_cli_cmd(redis_cmd)['stdout_lines']
-            result, total_omem, non_zero_output = _is_db_omem_over_threshold(res)
+            result, total_omem, non_zero_output, addrs, fds = _is_db_omem_over_threshold(res)
             check_result["total_omem"] = total_omem
             if result:
+                connection_details = []
+                connection_details.extend(_find_processes_from_tcp_addresses(addrs, asic))
+                connection_details.extend(_find_processes_from_unix_sockets(fds, asic))
                 check_result["failed"] = True
                 logging.info("{} db memory over the threshold ".format(str(asic.namespace or '')))
                 logging.info("{} db memory omem non-zero output: \n{}"
                              .format(str(asic.namespace or ''), "\n".join(non_zero_output)))
+                logging.info("{} db memory process list: \n{}"
+                             .format(str(asic.namespace or ''), "\n".join(connection_details)))
                 break
         logger.info("Done checking database memory on %s" % dut.hostname)
         results[dut.hostname] = check_result
