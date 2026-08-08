@@ -180,15 +180,94 @@ def restart_bgp(duthost, tbinfo):
     wait_bgp_sessions(duthost)
 
 
+def is_loopback_advertised_to_neighbor(duthost, asic_index, show_cmd, remote_ip, loopback_ip):
+    """Return True if loopback_ip is advertised as a route (prefix) to remote_ip.
+
+    Runs the advertised-routes command directly (bounded by `timeout` like the other vtysh calls in
+    this file, since a stuck vtysh would otherwise hang the test) and asserts it succeeded, so a
+    vtysh/command failure (e.g. neighbor not found) surfaces as an error instead of being silently
+    read as "not advertised". Then checks in Python for the prefix followed by '/' (e.g. '10.1.0.1/').
+    The trailing '/' means it does not false-match:
+      - the 'local router ID is <loopback_ip>' header line, which contains loopback_ip when the DUT
+        router-id equals its loopback IP (the default state, before bgp_router_id is customized), or
+      - a longer prefix that merely starts with loopback_ip (e.g. loopback '10.1.0.1' vs an advertised
+        '10.1.0.10/32', or an IPv6 '/64' network vs its '/128' host routes).
+    """
+    vtysh_cmd = get_vtysh_cmd_for_asic(
+        duthost,
+        asic_index,
+        "vtysh -c \"{} {} advertised-routes\"".format(show_cmd, remote_ip)
+    )
+    bounded_cmd = "timeout -k {} {} {}".format(
+        VTYSH_SHOW_CMD_KILL_GRACE_SEC, VTYSH_SHOW_CMD_TIMEOUT_SEC, vtysh_cmd)
+    res = duthost.shell(bounded_cmd, module_ignore_errors=True)
+    rc = res.get("rc")
+    output = res.get("stdout", "") or ""
+    pytest_assert(rc == 0, (
+        "Failed to run '{}' for neighbor {} (rc={}). stderr: {}; stdout: {}"
+    ).format(vtysh_cmd, remote_ip, rc, (res.get("stderr", "") or "")[:200], output[:200]))
+    return "{}/".format(loopback_ip) in output
+
+
+def get_neighbor_loopback_advertised_map(duthost, asic_index, cfg_facts, loopback_ip, is_ipv6):
+    """Return a dict {neighbor_ip: bool} for every BGP neighbor of the matching address family,
+    where the value is whether loopback_ip is currently advertised to that neighbor.
+
+    Capturing both the advertised and not-advertised neighbors lets the test assert the exact same
+    advertisement map after changing bgp_router_id, without hardcoding which neighbor roles are or
+    are not expected to receive the loopback (e.g. FabricSpineRouter/FT2 peers that a route-map denies).
+    """
+    show_cmd = "show ipv6 bgp neighbor" if is_ipv6 else "show ip bgp neighbor"
+    addr_char = ":" if is_ipv6 else "."
+    advertised_map = {}
+    for remote_ip in cfg_facts.get("BGP_NEIGHBOR", {}).keys():
+        if addr_char not in remote_ip:
+            continue
+        advertised_map[remote_ip] = is_loopback_advertised_to_neighbor(
+            duthost, asic_index, show_cmd, remote_ip, loopback_ip)
+    return advertised_map
+
+
 @pytest.fixture()
-def router_id_setup_and_teardown(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, tbinfo):
+def router_id_setup_and_teardown_ipv4(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, loopback_ip,
+                                      tbinfo):
     duthost = duthosts[enum_frontend_dut_hostname]
+    # Before customizing bgp_router_id, record for every neighbor whether it is currently advertised the
+    # loopback. The test asserts this exact advertised/not-advertised map is unchanged afterwards, so it
+    # stays correct on topologies where some peers are intentionally not advertised the loopback (e.g.
+    # FabricSpineRouter/FT2 peers) without hardcoding names.
+    cfg_facts = get_asic_config_facts(duthost, enum_frontend_asic_index)
+    baseline_advertised_map = get_neighbor_loopback_advertised_map(
+        duthost, enum_frontend_asic_index, cfg_facts, loopback_ip, False)
     run_config_db_cmd(duthost, enum_frontend_asic_index,
                       "hset \"DEVICE_METADATA|localhost\" \"bgp_router_id\" \"{}\""
                       .format(CUSTOMIZED_BGP_ROUTER_ID))
     restart_bgp(duthost, tbinfo)
 
-    yield
+    yield baseline_advertised_map
+
+    run_config_db_cmd(duthost, enum_frontend_asic_index,
+                      "hdel \"DEVICE_METADATA|localhost\" \"bgp_router_id\"")
+    restart_bgp(duthost, tbinfo)
+
+
+@pytest.fixture()
+def router_id_setup_and_teardown_ipv6(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, loopback_ipv6,
+                                      tbinfo):
+    duthost = duthosts[enum_frontend_dut_hostname]
+    # Before customizing bgp_router_id, record for every neighbor whether it is currently advertised the
+    # loopback. The test asserts this exact advertised/not-advertised map is unchanged afterwards, so it
+    # stays correct on topologies where some peers are intentionally not advertised the loopback (e.g.
+    # FabricSpineRouter/FT2 peers) without hardcoding names.
+    cfg_facts = get_asic_config_facts(duthost, enum_frontend_asic_index)
+    baseline_advertised_map = get_neighbor_loopback_advertised_map(
+        duthost, enum_frontend_asic_index, cfg_facts, loopback_ipv6, True)
+    run_config_db_cmd(duthost, enum_frontend_asic_index,
+                      "hset \"DEVICE_METADATA|localhost\" \"bgp_router_id\" \"{}\""
+                      .format(CUSTOMIZED_BGP_ROUTER_ID))
+    restart_bgp(duthost, tbinfo)
+
+    yield baseline_advertised_map
 
     run_config_db_cmd(duthost, enum_frontend_asic_index,
                       "hdel \"DEVICE_METADATA|localhost\" \"bgp_router_id\"")
@@ -228,68 +307,54 @@ def test_bgp_router_id_default(duthosts, enum_frontend_dut_hostname, enum_fronte
 # BGP restart in setup/teardown can emit transient loganalyzer noise.
 @pytest.mark.disable_loganalyzer
 def test_bgp_router_id_set(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, nbrhosts, request,
-                           loopback_ip, router_id_setup_and_teardown, tbinfo):
+                           loopback_ip, router_id_setup_and_teardown_ipv4, tbinfo):
     # Test in the scenario that bgp_router_id and Loopback IPv4 address both exist in CONFIG_DB, the actual BGP router
     # ID should be aligned with bgp_router_id in CONFIG_DB. And the Loopback IPv4 address should be advertised to BGP
     # neighbor
     duthost = duthosts[enum_frontend_dut_hostname]
     neighbor_type = request.config.getoption("neighbor_type")
     verify_bgp(enum_frontend_asic_index, duthost, CUSTOMIZED_BGP_ROUTER_ID, neighbor_type, nbrhosts, tbinfo)
-    # Verify Loopback ip has been advertised to neighbor
-    cfg_facts = get_asic_config_facts(duthost, enum_frontend_asic_index)
-    for remote_ip in cfg_facts.get("BGP_NEIGHBOR", {}).keys():
-        if "." not in remote_ip or "FT2" in cfg_facts["BGP_NEIGHBOR"][remote_ip]["name"]:
-            continue
-        cmd = get_vtysh_cmd_for_asic(
-            duthost,
-            enum_frontend_asic_index,
-            "vtysh -c \"show ip bgp neighbor {} advertised-routes\"".format(remote_ip)
-        )
-        output = duthost.shell("{} | grep {}".format(cmd, loopback_ip), module_ignore_errors=True)
-        pytest_assert(output["rc"] == 0, (
-            "Failed to check whether Loopback ipv4 address has been advertised. "
-            "Return code: {} "
-            "Output: {}"
-        ).format(output["rc"], output))
-
-        pytest_assert(loopback_ip in output["stdout"], (
-            "Router advertised unexpected. "
-            "Expected loopback IP: {} "
-            "Actual output: {}"
-        ).format(loopback_ip, output["stdout"]))
+    # Changing bgp_router_id must not change which neighbors the loopback is advertised to. Compare the
+    # current advertised/not-advertised state per neighbor against the baseline captured before the change.
+    baseline_advertised_map = router_id_setup_and_teardown_ipv4
+    if not baseline_advertised_map:
+        pytest.skip("No IPv4 BGP neighbor found to check Loopback {} advertisement.".format(loopback_ip))
+    for remote_ip, was_advertised in baseline_advertised_map.items():
+        is_advertised = is_loopback_advertised_to_neighbor(
+            duthost, enum_frontend_asic_index, "show ip bgp neighbor", remote_ip, loopback_ip)
+        pytest_assert(
+            is_advertised == was_advertised,
+            "Loopback IPv4 {} advertisement to neighbor {} changed after setting bgp_router_id: "
+            "was {}, now {}.".format(
+                loopback_ip, remote_ip,
+                "advertised" if was_advertised else "not advertised",
+                "advertised" if is_advertised else "not advertised"))
 
 
 @pytest.mark.disable_loganalyzer
 def test_bgp_router_id_set_ipv6(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, nbrhosts, request,
-                                loopback_ipv6, router_id_setup_and_teardown, tbinfo):
+                                loopback_ipv6, router_id_setup_and_teardown_ipv6, tbinfo):
     # Test in the scenario that bgp_router_id and Loopback IPv6 address both exist in CONFIG_DB, the actual BGP router
     # ID should be aligned with bgp_router_id in CONFIG_DB. And the Loopback IPv6 address should be advertised to BGP
     # neighbor
     duthost = duthosts[enum_frontend_dut_hostname]
     neighbor_type = request.config.getoption("neighbor_type")
     verify_bgp(enum_frontend_asic_index, duthost, CUSTOMIZED_BGP_ROUTER_ID, neighbor_type, nbrhosts, tbinfo)
-    # Verify Loopback ip has been advertised to neighbor
-    cfg_facts = get_asic_config_facts(duthost, enum_frontend_asic_index)
-    for remote_ip in cfg_facts.get("BGP_NEIGHBOR", {}).keys():
-        if ":" not in remote_ip or "FT2" in cfg_facts["BGP_NEIGHBOR"][remote_ip]["name"]:
-            continue
-        cmd = get_vtysh_cmd_for_asic(
-            duthost,
-            enum_frontend_asic_index,
-            "vtysh -c \"show ipv6 bgp neighbor {} advertised-routes\"".format(remote_ip)
-        )
-        output = duthost.shell("{} | grep {}".format(cmd, loopback_ipv6), module_ignore_errors=True)
-        pytest_assert(output["rc"] == 0, (
-            "Failed to check whether Loopback ipv6 address has been advertised. "
-            "Return code: {} "
-            "Output: {}"
-        ).format(output["rc"], output))
-
-        pytest_assert(loopback_ipv6 in output["stdout"], (
-            "Router advertised unexpected. "
-            "Expected loopback IP: {} "
-            "Actual output: {}"
-        ).format(loopback_ipv6, output["stdout"]))
+    # Changing bgp_router_id must not change which neighbors the loopback is advertised to. Compare the
+    # current advertised/not-advertised state per neighbor against the baseline captured before the change.
+    baseline_advertised_map = router_id_setup_and_teardown_ipv6
+    if not baseline_advertised_map:
+        pytest.skip("No IPv6 BGP neighbor found to check Loopback {} advertisement.".format(loopback_ipv6))
+    for remote_ip, was_advertised in baseline_advertised_map.items():
+        is_advertised = is_loopback_advertised_to_neighbor(
+            duthost, enum_frontend_asic_index, "show ipv6 bgp neighbor", remote_ip, loopback_ipv6)
+        pytest_assert(
+            is_advertised == was_advertised,
+            "Loopback IPv6 {} advertisement to neighbor {} changed after setting bgp_router_id: "
+            "was {}, now {}.".format(
+                loopback_ipv6, remote_ip,
+                "advertised" if was_advertised else "not advertised",
+                "advertised" if is_advertised else "not advertised"))
 
 
 @pytest.mark.disable_loganalyzer
