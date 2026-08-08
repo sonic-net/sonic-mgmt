@@ -1,0 +1,16 @@
+[
+    {
+      "DASH_HA_SET_CONFIG_TABLE:haset0_{{ dpu_index }}": {
+            "version": "1",
+            "vip_v4": "3.2.1.{{ dpu_index }}",
+            "vip_v6": "3:2::1:{{ dpu_index }}",
+            "scope": "dpu",
+            "preferred_vdpu_id": "vdpu0_{{ dpu_index }}",
+            "preferred_standalone_vdpu_index": 0,
+            "vdpu_ids": ["vdpu0_{{ dpu_index }}","vdpu1_{{ dpu_index }}"]
+        },
+        "target": "npu",
+        "db": "APPL_DB",
+        "OP": "{{ op }}"
+    }
+]

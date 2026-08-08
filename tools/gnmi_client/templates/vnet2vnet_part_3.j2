@@ -1,0 +1,51 @@
+[
+        {
+                "DASH_ROUTE_TABLE:group_id_1:192.0.0.0/8" : {
+                        "action_type":"vnet",
+                        "vnet":"Vnet1"
+                },
+               "OP": "{{ op }}"
+        },
+        {
+                "DASH_VNET_MAPPING_TABLE:Vnet1:192.0.0.1" : {
+                        "routing_type":"vnet_encap",
+                        "underlay_ip":"19.19.212.1",
+                        "mac_address":"00:22:22:22:01:01",
+                        "use_dst_vni":"true"
+                },
+               "OP": "{{ op }}"
+        },
+        {
+                "DASH_VNET_MAPPING_TABLE:Vnet1:192.0.0.2" : {
+                        "routing_type":"vnet_encap",
+                        "underlay_ip":"19.19.212.2",
+                        "mac_address":"00:22:22:22:01:02",
+                        "use_dst_vni":"true"
+                },
+               "OP": "{{ op }}"
+        },
+        {
+                "DASH_VNET_MAPPING_TABLE:Vnet1:192.0.0.3" : {
+                        "routing_type":"vnet_encap",
+                        "underlay_ip":"19.19.212.3",
+                        "mac_address":"00:22:22:22:01:03",
+                        "use_dst_vni":"true"
+                },
+               "OP": "{{ op }}"
+        },
+        {
+                "DASH_VNET_MAPPING_TABLE:Vnet1:192.0.0.4" : {
+                        "routing_type":"vnet_encap",
+                        "underlay_ip":"19.19.212.4",
+                        "mac_address":"00:22:22:22:01:04",
+                        "use_dst_vni":"true"
+                },
+               "OP": "{{ op }}"
+        },
+        {
+                "DASH_ENI_ROUTE_TABLE:001111110001": {
+                    "group_id":"group_id_1"
+                },
+               "OP": "{{ op }}"
+        }
+]
