@@ -4,6 +4,7 @@ This module contains the snappi fixture in the snappi_tests directory.
 import pytest
 import time
 import logging
+import os
 import snappi
 import sys
 import random
