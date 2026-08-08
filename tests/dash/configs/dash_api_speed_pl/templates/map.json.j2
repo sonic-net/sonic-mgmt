@@ -1,0 +1,9 @@
+[
+{% for nsg in range(nsg_count) %}
+{% for acl in range(0, acl_rules_nsg, 2) %}
+{% set ip = ip_r_start + nsg * ip_step_nsg + acl %}
+    {"DASH_VNET_MAPPING_TABLE:vnet-{{ r_vni_id }}:{{ ip | ipv4 }}": {"routing_type": "privatelink", "underlay_ip": "{{ vtep_remote }}", "overlay_sip_prefix": "{{ overlay_sip_prefix }}", "overlay_dip_prefix": "2603:100:{{ eni_hex }}:0::{{ ip | hex_hi16 }}:{{ ip | hex_lo16 }}/ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"}, "OP": "SET"},
+{% endfor %}
+{% endfor %}
+    {"DASH_ENI_ROUTE_TABLE:eni-{{ eni }}": {"group_id": "route-group-{{ eni }}"}, "OP": "SET"}
+]
