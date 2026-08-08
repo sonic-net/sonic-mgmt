@@ -29,6 +29,7 @@ class SadTest(object):
         return self.shandle.retreive_test_info(), self.shandle.retreive_logs()
 
     def route_setup(self):
+        self.shandle.vm_reconnect()
         self.shandle.modify_routes()
         return self.shandle.retreive_logs()
 
@@ -44,6 +45,7 @@ class SadTest(object):
         return self.shandle.retreive_logs()
 
     def revert(self):
+        self.shandle.vm_reconnect()
         self.shandle.sad_setup()
         return self.shandle.retreive_logs()
 
@@ -145,6 +147,12 @@ class SadPath(object):
             else:
                 self.vm_handles[neigh_vm] = Arista(neigh_vm, None, self.test_args)
             self.vm_handles[neigh_vm].connect()
+
+    def vm_reconnect(self):
+        for vm in self.neigh_vms:
+            if vm in self.vm_handles:
+                self.vm_handles[vm].disconnect()
+        self.vm_connect()
 
     def __del__(self):
         self.vm_disconnect()
