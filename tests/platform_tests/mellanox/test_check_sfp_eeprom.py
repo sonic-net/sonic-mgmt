@@ -6,7 +6,7 @@ from .util import check_sfp_eeprom_info
 from tests.common.platform.transceiver_utils import parse_sfp_eeprom_infos
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.platform.processes_utils import check_pmon_uptime_minutes
+from tests.common.platform.processes_utils import check_pmon_uptime_minutes, PMON_READY_TIMEOUT_SECS
 from tests.platform_tests.mellanox.conftest import CPO_PORT_TYPE
 import logging
 
@@ -57,7 +57,7 @@ def test_check_sfp_eeprom_with_option_dom(duthosts, rand_one_dut_hostname, show_
     """
     duthost = duthosts[rand_one_dut_hostname]
 
-    pytest_assert(wait_until(360, 10, 0, check_pmon_uptime_minutes, duthost),
+    pytest_assert(wait_until(PMON_READY_TIMEOUT_SECS, 10, 0, check_pmon_uptime_minutes, duthost),
                   "Pmon docker is not ready for test")
 
     with allure.step("Run: {} to get transceiver eeprom info".format(show_eeprom_cmd)):
