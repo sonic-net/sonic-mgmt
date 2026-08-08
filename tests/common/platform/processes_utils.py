@@ -83,6 +83,21 @@ def check_critical_processes(dut, watch_secs=0):
         watch_secs = watch_secs - 5
 
 
+def check_critical_processes_for_service(dut, service):
+    """
+    @summary: check critical processes for a single service/container. They should be all running.
+    @param dut: The AnsibleHost object of DUT. For interacting with DUT.
+    @param service: Name of the SONiC service/container (e.g. "pmon").
+    """
+    result = dut.critical_process_status(service)
+    pytest_assert(
+        result['status'],
+        "Critical processes for '{}' are not healthy: exited={}".format(
+            service, result['exited_critical_process']
+        )
+    )
+
+
 def wait_critical_processes(dut, timeout=None):
     """
     @summary: wait until all critical processes are healthy.
