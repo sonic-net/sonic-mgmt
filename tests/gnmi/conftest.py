@@ -75,7 +75,7 @@ def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost, vrf_c
     create_gnmi_certs(duthost, localhost, ptfhost, dut_ip=vrf_config.get("dut_ip"))
 
     create_checkpoint(duthost, SETUP_ENV_CP)
-    stopped_programs = apply_cert_config(duthost, vrf_config.get("vrf"))
+    stopped_programs = apply_cert_config(duthost, vrf_config.get("vrf"), localhost)
 
     yield
 

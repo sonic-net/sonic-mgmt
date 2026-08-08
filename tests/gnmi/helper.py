@@ -6,7 +6,7 @@ import ipaddress
 from tests.common.utilities import wait_until
 from tests.common.platform.device_utils import get_dpu_ip, get_dpu_port
 from tests.common.helpers.gnmi_utils import GNMIEnvironment, add_gnmi_client_common_name, del_gnmi_client_common_name, \
-                                            dump_gnmi_log, dump_system_status
+                                            dump_gnmi_log, dump_system_status, gnmi_capabilities
 from tests.common.helpers.ntp_helper import NtpDaemon, get_ntp_daemon_in_use   # noqa: F401
 from tests.common.helpers.dut_utils import check_container_state
 
@@ -24,7 +24,7 @@ def is_mgmt_vrf_enabled(duthost):
     return res == "true"
 
 
-def apply_cert_config(duthost, vrf_name=None):
+def apply_cert_config(duthost, vrf_name=None, localhost=None):
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     # Get subtype
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
@@ -79,6 +79,26 @@ def apply_cert_config(duthost, vrf_name=None):
         dump_gnmi_log(duthost)
         dump_system_status(duthost)
         pytest.fail("Failed to start gnmi server")
+
+    # The listening-port check above only proves the process has bound the socket; the gRPC
+    # service can still reject/hang new connections for a short window afterwards (e.g. while
+    # finishing cert/key hot-reload), which surfaced as intermittent "context deadline exceeded"
+    # dial errors from gnmi_cli immediately after apply_cert_config(). Confirm the server is
+    # actually able to complete a real gNMI RPC before handing control back to the caller,
+    # mirroring the post-rotation readiness pattern in
+    # tests/telemetry/test_telemetry_cert_rotation.py (wait_until(30, 5, 0, ...) around a live
+    # gnmi request rather than just the TCP handshake).
+    if localhost is not None:
+        def _gnmi_server_responsive():
+            ret, _ = gnmi_capabilities(duthost, localhost)
+            return ret == 0
+
+        server_responsive = wait_until(30, 5, 0, _gnmi_server_responsive)
+        if not server_responsive:
+            dump_gnmi_log(duthost)
+            dump_system_status(duthost)
+            pytest.fail("gnmi server is listening but not yet responsive to gNMI requests")
+
     if duthost.facts['platform'] != 'x86_64-kvm_x86_64-r0':
         is_time_synced = wait_until(80, 3, 0, check_system_time_sync, duthost)
         assert is_time_synced, "Failed to synchronize DUT system time with NTP Server"
