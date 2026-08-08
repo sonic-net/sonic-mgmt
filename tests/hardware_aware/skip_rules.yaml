@@ -1,0 +1,660 @@
+version: hardware-aware-skip-catalog/v0.1
+description: >
+  Human-readable skip-rule catalog for hardware-aware pre-run deselection.
+  A skip rule applies when its reason_patterns match an Allure skipped reason
+  and its parameters match the selected setup profile parameters.
+
+skip_rules:
+  nat_feature_disabled:
+    reason_patterns:
+      - "^nat feature is not enabled with image version .*$"
+    parameters:
+      features.nat.enabled: false
+    tests:
+      - tests/nat/
+
+  dhcp_relay_feature_disabled:
+    reason_patterns:
+      - "^dhcp_relay is not enabled$"
+      - "^dhcp_relay is not enabled, skipping dhcp_relay events$"
+    parameters:
+      features.dhcp_relay.enabled: false
+    tests:
+      - tests/dhcp_relay/
+      - tests/telemetry/events/dhcp-relay_events.py::test_event
+
+  voq_not_supported:
+    reason_patterns:
+      - "^Cisco 8800 doesn't support voq tests$"
+    parameters:
+      platform.asic_type: cisco-8000
+      topology.is_t2: false
+    tests:
+      - tests/voq/
+
+  multi_dut_not_supported_on_t0:
+    reason_patterns:
+      - "^multi-dut is not supported on T0 topologies$"
+    parameters:
+      topology.multi_dut.supported: false
+    tests:
+      - nodeids:
+          - tests/cisco/qos/test_qos_sai.py::TestQosSai::testQosSaiFullMeshTrafficSanity
+          - tests/cisco/qos/test_qos_sai.py::TestQosSai::testQosSaiTrafficSanity
+          - tests/qos/test_oq_watchdog.py::TestOqWatchdog::testOqWatchdog
+          - tests/qos/test_voq_watchdog.py::TestVoqWatchdog::testVoqWatchdog
+          - tests/qos/test_qos_sai.py::TestQosSai::testParameter
+          - tests/qos/test_qos_sai.py::TestQosSai::testQosSaiBufferPoolWatermark
+          - tests/qos/test_qos_sai.py::TestQosSai::testQosSaiDscpQueueMapping
+          - tests/qos/test_qos_sai.py::TestQosSai::testQosSaiDscpToPgMapping
+          - tests/qos/test_qos_sai.py::TestQosSai::testQosSaiDwrr
+          - tests/qos/test_qos_sai.py::TestQosSai::testQosSaiDwrrWeightChange
+          - tests/qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolSize
+          - tests/qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolWatermark
+          - tests/qos/test_qos_sai.py::TestQosSai::testQosSaiLossyQueue
+          - tests/qos/test_qos_sai.py::TestQosSai::testQosSaiPfcXoffLimit
+          - tests/qos/test_qos_sai.py::TestQosSai::testQosSaiPfcXonLimit
+          - tests/qos/test_qos_sai.py::TestQosSai::testQosSaiPgHeadroomWatermark
+          - tests/qos/test_qos_sai.py::TestQosSai::testQosSaiPgSharedWatermark
+          - tests/qos/test_qos_sai.py::TestQosSai::testQosSaiQSharedWatermark
+          - tests/qos/test_qos_sai.py::TestQosSai::testQosSaiQWatermarkAllPorts
+          - tests/qos/test_qos_sai.py::TestQosSai::testQosSaiSeparatedDscpQueueMapping
+          - tests/qos/test_qos_sai.py::TestQosSai::testQosSaiSeparatedDscpToPgMapping
+        param_contains: multi_dut
+
+  multi_dut_not_supported_on_t1:
+    reason_patterns:
+      - "^multi-dut is not supported on T1 topologies$"
+    parameters:
+      topology.type: t1
+    tests:
+      - path_prefix: tests/qos/
+        param_contains: multi_dut
+      - path_prefix: tests/cisco/qos/
+        param_contains: multi_dut
+
+  include_long_tests_not_enabled:
+    reason_patterns:
+      - "^This test runs only when '--include_long_tests=True' is provided$"
+      - "^This test will be run only if '--include_long_tests=True' is provided\\.$"
+      - "^This test will be run only if'--include_long_tests=True' is provided\\.$"
+    parameters:
+      run.options.include_long_tests: false
+    tests:
+      - tests/vxlan/test_vxlan_ecmp.py::Test_VxLAN_ecmp_random_hash
+      - tests/vxlan/test_vxlan_ecmp.py::Test_VxLAN_entropy
+      - tests/vxlan/test_vxlan_ecmp.py::Test_VxLAN_underlay_ecmp
+
+  single_dut_multi_asic_not_supported_on_t0:
+    reason_patterns:
+      - "^single_dut_multi_asic is not supported on T0 topologies$"
+    parameters:
+      topology.single_dut_multi_asic.supported: false
+    tests:
+      - nodeids:
+          - tests/cisco/qos/test_qos_sai.py::TestQosSai::testQosSaiFullMeshTrafficSanity
+          - tests/cisco/qos/test_qos_sai.py::TestQosSai::testQosSaiTrafficSanity
+          - tests/qos/test_oq_watchdog.py::TestOqWatchdog::testOqWatchdog
+          - tests/qos/test_voq_watchdog.py::TestVoqWatchdog::testVoqWatchdog
+          - tests/qos/test_qos_sai.py::TestQosSai::testParameter
+          - tests/qos/test_qos_sai.py::TestQosSai::testQosSaiBufferPoolWatermark
+          - tests/qos/test_qos_sai.py::TestQosSai::testQosSaiDscpQueueMapping
+          - tests/qos/test_qos_sai.py::TestQosSai::testQosSaiDscpToPgMapping
+          - tests/qos/test_qos_sai.py::TestQosSai::testQosSaiDwrr
+          - tests/qos/test_qos_sai.py::TestQosSai::testQosSaiDwrrWeightChange
+          - tests/qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolSize
+          - tests/qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolWatermark
+          - tests/qos/test_qos_sai.py::TestQosSai::testQosSaiLossyQueue
+          - tests/qos/test_qos_sai.py::TestQosSai::testQosSaiPfcXoffLimit
+          - tests/qos/test_qos_sai.py::TestQosSai::testQosSaiPfcXonLimit
+          - tests/qos/test_qos_sai.py::TestQosSai::testQosSaiPgHeadroomWatermark
+          - tests/qos/test_qos_sai.py::TestQosSai::testQosSaiPgSharedWatermark
+          - tests/qos/test_qos_sai.py::TestQosSai::testQosSaiQSharedWatermark
+          - tests/qos/test_qos_sai.py::TestQosSai::testQosSaiQWatermarkAllPorts
+          - tests/qos/test_qos_sai.py::TestQosSai::testQosSaiSeparatedDscpQueueMapping
+          - tests/qos/test_qos_sai.py::TestQosSai::testQosSaiSeparatedDscpToPgMapping
+        param_contains: single_dut_multi_asic
+
+  console_switch_feature_disabled:
+    reason_patterns:
+      - "^Skip test due to the console switch feature is not enabled for current DUT\\.$"
+    parameters:
+      features.console_switch.enabled: false
+    tests:
+      - tests/console/test_console_availability.py::test_console_availability
+      - tests/console/test_console_driver.py::test_console_driver
+      - tests/console/test_console_loopback.py::test_console_loopback_echo
+      - tests/console/test_console_loopback.py::test_console_loopback_pingpong
+      - tests/console/test_console_reversessh.py::test_console_reversessh_connectivity
+      - tests/console/test_console_reversessh.py::test_console_reversessh_force_interrupt
+      - tests/console/test_console_udevrule.py::test_console_port_mapping
+
+  unsupported_platform_or_asic:
+    confidence: low
+    reason_patterns:
+      - "^Unsupported platform or asic$"
+    parameters:
+      test.platform_or_asic.supported: false
+    tests:
+      - tests/sub_port_interfaces/test_show_subinterface.py::test_subinterface_status
+      - tests/sub_port_interfaces/test_sub_port_interfaces.py::TestSubPortStress::test_max_numbers_of_sub_ports
+      - tests/sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_admin_status_down_disables_forwarding
+      - tests/sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_balancing_sub_ports
+      - tests/sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_mtu_inherited_from_parent_port
+      - tests/sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_packet_routed_with_valid_vlan
+      - tests/sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_routing_between_sub_ports
+      - tests/sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_routing_between_sub_ports_and_port
+      - tests/sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_routing_between_sub_ports_unaffected_by_sub_ports_removal
+      - tests/sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_untagged_packet_not_routed
+      - tests/sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_vlan_config_impact
+      - tests/sub_port_interfaces/test_sub_port_interfaces.py::TestSubPortsNegative::test_packet_routed_with_invalid_vlan
+      - tests/sub_port_interfaces/test_sub_port_l2_forwarding.py::test_sub_port_l2_forwarding
+
+  rif_members_unavailable:
+    reason_patterns:
+      - "^No rif_members available$"
+    parameters:
+      topology.rif_members.available: false
+    tests:
+      - nodeids:
+          - tests/cisco/platform_tests/test_serviceability_packet_capture.py::test_packet_capture
+          - tests/drop_packets/test_drop_counters.py::test_absent_ip_header
+          - tests/drop_packets/test_drop_counters.py::test_acl_drop
+          - tests/drop_packets/test_drop_counters.py::test_acl_egress_drop
+          - tests/drop_packets/test_drop_counters.py::test_broken_ip_header
+          - tests/drop_packets/test_drop_counters.py::test_equal_smac_dmac_drop
+          - tests/drop_packets/test_drop_counters.py::test_ip_pkt_with_exceeded_mtu
+          - tests/drop_packets/test_drop_counters.py::test_ip_pkt_with_expired_ttl
+          - tests/drop_packets/test_drop_counters.py::test_multicast_smac_drop
+          - tests/drop_packets/test_drop_counters.py::test_no_egress_drop_on_down_link
+          - tests/drop_packets/test_drop_counters.py::test_non_routable_igmp_pkts
+          - tests/drop_packets/test_drop_counters.py::test_not_expected_vlan_tag_drop
+          - tests/drop_packets/test_drop_counters.py::test_reserved_dmac_drop
+          - tests/drop_packets/test_drop_counters.py::test_src_ip_is_loopback_addr
+          - tests/drop_packets/test_drop_counters.py::test_src_ip_is_multicast_addr
+          - tests/drop_packets/test_drop_counters.py::test_unicast_ip_incorrect_eth_dst
+        param_prefixes:
+          - rif_members
+
+  drop_counter_vlan_members_unsupported:
+    reason_patterns:
+      - "^Test case is not supported on VLAN interface$"
+    parameters:
+      topology.vlan_members.drop_counter_supported: false
+    tests:
+      - nodeid: tests/drop_packets/test_drop_counters.py::test_unicast_ip_incorrect_eth_dst
+        param_prefixes:
+          - vlan_members
+
+  requires_t2_topology:
+    reason_patterns:
+      - "^Only support T2$"
+      - "^Skip the test\\. This is only for T2 and Cisco T2 does not support it\\.$"
+    parameters:
+      topology.is_t2: false
+    tests:
+      - nodeids:
+          - tests/platform_tests/api/test_module.py::TestModuleApi::test_components
+          - tests/platform_tests/api/test_module.py::TestModuleApi::test_fans
+          - tests/platform_tests/api/test_module.py::TestModuleApi::test_get_base_mac
+          - tests/platform_tests/api/test_module.py::TestModuleApi::test_get_description
+          - tests/platform_tests/api/test_module.py::TestModuleApi::test_get_maximum_consumed_power
+          - tests/platform_tests/api/test_module.py::TestModuleApi::test_get_midplane_ip
+          - tests/platform_tests/api/test_module.py::TestModuleApi::test_get_model
+          - tests/platform_tests/api/test_module.py::TestModuleApi::test_get_name
+          - tests/platform_tests/api/test_module.py::TestModuleApi::test_get_oper_status
+          - tests/platform_tests/api/test_module.py::TestModuleApi::test_get_position_in_parent
+          - tests/platform_tests/api/test_module.py::TestModuleApi::test_get_presence
+          - tests/platform_tests/api/test_module.py::TestModuleApi::test_get_serial
+          - tests/platform_tests/api/test_module.py::TestModuleApi::test_get_slot
+          - tests/platform_tests/api/test_module.py::TestModuleApi::test_get_status
+          - tests/platform_tests/api/test_module.py::TestModuleApi::test_get_system_eeprom_info
+          - tests/platform_tests/api/test_module.py::TestModuleApi::test_get_type
+          - tests/platform_tests/api/test_module.py::TestModuleApi::test_is_midplane_reachable
+          - tests/platform_tests/api/test_module.py::TestModuleApi::test_is_replaceable
+          - tests/platform_tests/api/test_module.py::TestModuleApi::test_psus
+          - tests/platform_tests/api/test_module.py::TestModuleApi::test_reboot
+          - tests/platform_tests/api/test_module.py::TestModuleApi::test_sfps
+          - tests/platform_tests/api/test_module.py::TestModuleApi::test_thermals
+
+  requires_modular_chassis:
+    reason_patterns:
+      - "^Test skipped applicable to modular chassis only$"
+      - "^skipped as this test is applicable to modular chassis only$"
+    parameters:
+      platform.is_modular_chassis: false
+    tests:
+      - nodeids:
+          - tests/platform_tests/api/test_chassis.py::TestChassisApi::test_get_my_slot
+          - tests/platform_tests/api/test_chassis.py::TestChassisApi::test_get_supervisor_slot
+          - tests/platform_tests/test_thermal_state_db.py::test_thermal_global_state_db
+          - tests/platform_tests/test_thermal_state_db.py::test_thermal_state_db
+
+  chassis_modules_unavailable:
+    reason_patterns:
+      - "^No modules found on device$"
+    parameters:
+      platform.chassis.modules.available: false
+    tests:
+      - tests/platform_tests/api/test_chassis.py::TestChassisApi::test_modules
+
+  chassis_status_led_not_controllable:
+    reason_patterns:
+      - "^skipped as chassis's status led is not controllable$"
+    parameters:
+      platform.chassis.status_led.controllable: false
+    tests:
+      - tests/platform_tests/api/test_chassis.py::TestChassisApi::test_status_led
+
+  requires_multi_asic_cisco_lc:
+    confidence: medium
+    reason_patterns:
+      - "^Only supported on multi-asic system & Cisco LCs\\.$"
+    parameters:
+      platform.is_multi_asic: false
+      platform.role: null
+    tests:
+      - nodeids:
+          - tests/bfd/test_bfd_static_route.py::TestBfdStaticRoute::test_bfd_config_reload
+          - tests/bfd/test_bfd_static_route.py::TestBfdStaticRoute::test_bfd_flap
+          - tests/bfd/test_bfd_static_route.py::TestBfdStaticRoute::test_bfd_lc_asic_shutdown
+          - tests/bfd/test_bfd_static_route.py::TestBfdStaticRoute::test_bfd_portchannel_member_flap
+          - tests/bfd/test_bfd_static_route.py::TestBfdStaticRoute::test_bfd_remote_link_flap
+          - tests/bfd/test_bfd_static_route.py::TestBfdStaticRoute::test_bfd_static_route_deletion
+          - tests/bfd/test_bfd_static_route.py::TestBfdStaticRoute::test_bfd_with_bad_fc_asic
+          - tests/bfd/test_bfd_static_route.py::TestBfdStaticRoute::test_bfd_with_lc_reboot
+          - tests/bfd/test_bfd_static_route.py::TestBfdStaticRoute::test_bfd_with_rp_config_reload
+          - tests/bfd/test_bfd_static_route.py::TestBfdStaticRoute::test_bfd_with_rp_reboot
+
+  requires_multi_asic_system:
+    reason_patterns:
+      - "^Only supported on multi-asic system\\.$"
+    parameters:
+      platform.is_multi_asic: false
+    tests:
+      - tests/generic_config_updater/test_multiasic_addcluster.py
+      - tests/generic_config_updater/test_multiasic_idf.py
+      - tests/generic_config_updater/test_multiasic_linkcrc.py
+
+  not_applicable_on_cisco_8000_t2_m0_mx:
+    confidence: medium
+    reason_patterns:
+      - "^These tests don't apply to cisco 8000 platforms or T2 or m0/mx, since they support only traditional model\\.$"
+      - "^These tests don't apply to cisco 8000 platforms or T2 or M\\* since they support only traditional model\\.?$"
+      - "^These tests don't apply to cisco 8000 platforms or T2 or M\\* since they support only traditional model and it is skipped for '202412' for now$"
+    parameters:
+      platform.asic_type: cisco-8000
+    tests:
+      - nodeids:
+          - tests/qos/test_buffer.py::test_buffer_deployment
+          - tests/qos/test_buffer.py::test_change_speed_cable
+          - tests/qos/test_buffer.py::test_exceeding_headroom
+          - tests/qos/test_buffer.py::test_headroom_override
+          - tests/qos/test_buffer.py::test_lossless_pg
+          - tests/qos/test_buffer.py::test_port_admin_down
+          - tests/qos/test_buffer.py::test_port_auto_neg
+          - tests/qos/test_buffer.py::test_shared_headroom_pool_configure
+
+  cross_direction_acl_mirroring_not_supported:
+    reason_patterns:
+      - "^Cross-direction ACL mirroring is not supported$"
+      - "^egress ACL w/ ingress Mirroring not supported, skipping$"
+      - "^ingress ACL w/ egress Mirroring not supported, skipping$"
+    parameters:
+      features.everflow.cross_direction_acl_mirroring.supported: false
+    tests:
+      - nodeids:
+          - tests/everflow/test_everflow_testbed.py::TestEverflowV4EgressAclIngressMirror::test_everflow_basic_forwarding
+          - tests/everflow/test_everflow_testbed.py::TestEverflowV4EgressAclIngressMirror::test_everflow_dscp_with_policer
+          - tests/everflow/test_everflow_testbed.py::TestEverflowV4EgressAclIngressMirror::test_everflow_frwd_with_bkg_trf
+          - tests/everflow/test_everflow_testbed.py::TestEverflowV4EgressAclIngressMirror::test_everflow_neighbor_mac_change
+          - tests/everflow/test_everflow_testbed.py::TestEverflowV4EgressAclIngressMirror::test_everflow_remove_unused_ecmp_next_hop
+          - tests/everflow/test_everflow_testbed.py::TestEverflowV4EgressAclIngressMirror::test_everflow_remove_used_ecmp_next_hop
+          - tests/everflow/test_everflow_testbed.py::TestEverflowV4IngressAclEgressMirror::test_everflow_basic_forwarding
+          - tests/everflow/test_everflow_testbed.py::TestEverflowV4IngressAclEgressMirror::test_everflow_dscp_with_policer
+          - tests/everflow/test_everflow_testbed.py::TestEverflowV4IngressAclEgressMirror::test_everflow_frwd_with_bkg_trf
+          - tests/everflow/test_everflow_testbed.py::TestEverflowV4IngressAclEgressMirror::test_everflow_neighbor_mac_change
+          - tests/everflow/test_everflow_testbed.py::TestEverflowV4IngressAclEgressMirror::test_everflow_remove_unused_ecmp_next_hop
+          - tests/everflow/test_everflow_testbed.py::TestEverflowV4IngressAclEgressMirror::test_everflow_remove_used_ecmp_next_hop
+
+  everflow_ipv6_erspan_cli_not_supported:
+    reason_patterns:
+      - "^Cannot create mirror session: both legacy and erspan CLI commands failed\\."
+    parameters:
+      features.everflow.ipv6_erspan_cli.supported: false
+    tests:
+      - nodeid_prefix: tests/everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6
+        param_contains: erspan_ipv6-cli
+      - nodeid_prefix: tests/everflow/test_everflow_ipv6.py::TestEgressEverflowIPv6
+        param_contains: erspan_ipv6-cli
+
+  requires_explicit_fanout_support:
+    reason_patterns:
+      - "^Test case requires explicit fanout support$"
+    parameters:
+      topology.fanout.explicit_support: false
+    tests:
+      - nodeids:
+          - tests/drop_packets/test_drop_counters.py::test_equal_smac_dmac_drop
+          - tests/drop_packets/test_drop_counters.py::test_multicast_smac_drop
+          - tests/drop_packets/test_drop_counters.py::test_non_routable_igmp_pkts
+          - tests/drop_packets/test_drop_counters.py::test_reserved_dmac_drop
+        param_prefixes:
+          - port_channel_members
+          - vlan_members
+
+  macsec_tests_not_applicable:
+    confidence: medium
+    reason_patterns:
+      - "^macsec test cases$"
+    parameters:
+      features.macsec.enabled: false
+    tests:
+      - tests/macsec/
+
+  sflow_feature_disabled:
+    reason_patterns:
+      - "^sflow feature is not enabled$"
+    parameters:
+      features.sflow.enabled: false
+    tests:
+      - tests/sflow/
+
+  bgp_tsa_persistence_not_supported:
+    reason_patterns:
+      - "^TSA persistence not supported in the image$"
+    parameters:
+      features.bgp.tsa_persistence.supported: false
+    tests:
+      - tests/bgp/test_startup_tsa_tsb_service.py::test_tsa_tsb_service_consistency
+      - tests/bgp/test_startup_tsa_tsb_service.py::test_tsa_tsb_service_with_dut_abnormal_reboot
+      - tests/bgp/test_startup_tsa_tsb_service.py::test_tsa_tsb_service_with_dut_cold_reboot
+      - tests/bgp/test_startup_tsa_tsb_service.py::test_tsa_tsb_service_with_supervisor_abnormal_reboot
+      - tests/bgp/test_startup_tsa_tsb_service.py::test_tsa_tsb_service_with_supervisor_cold_reboot
+      - tests/bgp/test_startup_tsa_tsb_service.py::test_tsa_tsb_service_with_tsa_on_sup
+      - tests/bgp/test_startup_tsa_tsb_service.py::test_tsa_tsb_service_with_user_init_tsa
+      - tests/bgp/test_startup_tsa_tsb_service.py::test_tsa_tsb_timer_efficiency
+      - tests/bgp/test_startup_tsa_tsb_service.py::test_user_init_tsa_while_service_run_on_dut
+      - tests/bgp/test_startup_tsa_tsb_service.py::test_user_init_tsb_on_sup_while_service_run_on_dut
+      - tests/bgp/test_startup_tsa_tsb_service.py::test_user_init_tsb_while_service_run_on_dut
+      - tests/bgp/test_traffic_shift.py::test_TSA_TSB_with_config_reload
+      - tests/bgp/test_traffic_shift.py::test_load_minigraph_with_traffic_shift_away
+      - tests/bgp/test_traffic_shift_lc.py::test_load_minigraph_with_traffic_shift_away
+      - tests/bgp/test_traffic_shift_lc.py::test_tsa_tsb_with_config_reload
+
+  bgp_idf_isolation_not_supported:
+    reason_patterns:
+      - "^IDF isolation is not supported in the image$"
+      - "^Sequential IDF isolation is not supported in the image$"
+    parameters:
+      features.bgp.idf_isolation.supported: false
+    tests:
+      - tests/bgp/test_seq_idf_isolation.py::test_idf_isolated_no_export
+      - tests/bgp/test_seq_idf_isolation.py::test_idf_isolated_withdraw_all
+      - tests/bgp/test_seq_idf_isolation.py::test_idf_isolation_no_export_with_config_reload
+      - tests/bgp/test_seq_idf_isolation.py::test_idf_isolation_withdraw_all_with_config_reload
+
+  requires_dualtor:
+    reason_patterns:
+      - "^Only run on dualtor testbed\\.$"
+      - "^Testcase could only be executed on dualtor testbed\\.$"
+      - "^DualTOR is MSFT specific$"
+      - "^KVM testbed do not support shutdown fanout interface action / Testcase could only be executed on dualtor testbed\\.$"
+      - "^Skip on non-dualtor testbed$"
+      - "^This is only applicable for dualtor topology$"
+    parameters:
+      topology.is_dualtor: false
+    tests:
+      - tests/dualtor/
+      - tests/dualtor_mgmt/
+      - path_prefix: tests/dualtor_io/
+        exclude_nodeids:
+          - tests/dualtor_io/test_normal_op.py::test_upstream_standby_rx_drop_check
+          - tests/dualtor_io/test_switchover_impact.py::test_tor_switchover_impact_bulk
+
+  acl_multibinding_requires_dualtor:
+    reason_patterns:
+      - "^MultiBinding only supports dualtor topo$"
+    parameters:
+      topology.is_dualtor: false
+    tests:
+      - tests/acl/test_acl.py::TestMultiBindingAcl
+
+  pretest_snappi_metadata_requires_tgen:
+    reason_patterns:
+      - "^Skip snappi metadata generation for non-tgen testbed$"
+    parameters:
+      topology.is_tgen: false
+    tests:
+      - tests/test_pretest.py::test_update_snappi_testbed_metadata
+      - tests/test_pretest/test_pre1.py::test_update_snappi_testbed_metadata
+
+  pretest_saithrift_url_missing:
+    reason_patterns:
+      - "^No URL specified for python saithrift package$"
+    parameters:
+      resources.python_saithrift_package_url.available: false
+    tests:
+      - tests/test_pretest.py::test_update_saithrift_ptf
+      - tests/test_pretest/test_pre1.py::test_update_saithrift_ptf
+
+  pretest_backend_acl_requires_t0_backend:
+    reason_patterns:
+      - "^Skip 'test_backend_acl_load' on non[- ]t0-backend testbeds\\.$"
+    parameters:
+      topology.is_t0_backend: false
+    tests:
+      - tests/test_pretest.py::test_backend_acl_load
+      - tests/test_pretest/test_pre2.py::test_backend_acl_load
+
+  pretest_dpu_recovery_requires_smartswitch:
+    reason_patterns:
+      - "^DPU module recovery is only applicable to SmartSwitch testbeds$"
+    parameters:
+      platform.is_smartswitch: false
+    tests:
+      - tests/test_pretest.py::test_recover_admin_up_offline_dpu_modules
+
+  sensor_mocker_unavailable:
+    reason_patterns:
+      - "^No mocker defined for this platform .*$"
+      - "^No FanStatusMocker for .*, skip rest of the testing in this case$"
+      - "^No ThermalStatusMocker for .*, skip rest of the testing in this case$"
+    parameters:
+      resources.sensor_mocker.available: false
+    tests:
+      - nodeids:
+          - tests/platform_tests/test_platform_info.py::test_show_platform_fanstatus_mocked
+          - tests/platform_tests/test_platform_info.py::test_show_platform_temperature_mocked
+          - tests/platform_tests/test_platform_info.py::test_thermal_control_fan_status
+
+  psu_minimum_count_2_unavailable:
+    reason_patterns:
+      - "^At least 2 PSUs required for rest of the testing in this case$"
+    parameters:
+      resources.psu.minimum_count_2.available: false
+    tests:
+      - tests/platform_tests/test_platform_info.py::test_turn_on_off_psu_and_check_psustatus
+
+  counterpoll_cpu_usage_program_unavailable:
+    reason_patterns:
+      - "^Skip no program is offered to check$"
+    parameters:
+      resources.counterpoll_cpu_usage_program.available: false
+    tests:
+      - tests/platform_tests/test_cpu_memory_usage.py::test_cpu_memory_usage_counterpoll
+
+  sim_sfp_low_power_mode_not_supported:
+    reason_patterns:
+      - "^Skip the test for sim$"
+      - "^Skip the test for sim, will be revisited later$"
+    parameters:
+      environment.is_sim: true
+    tests:
+      - tests/platform_tests/api/test_sfp.py::TestSfpApi::test_lpmode
+      - tests/platform_tests/sfp/test_sfputil.py::test_check_sfputil_low_power_mode
+
+  vxr_chassis_identity_unstable:
+    reason_patterns:
+      - "^Test is skipped on vxr since the model is not set in the ansible inventory properly$"
+      - "^Test is skipped on vxr since the serail is generated randomly in each run$"
+      - "^Test is skipped on vxr since the mac is generated randomly in each run$"
+    parameters:
+      environment.is_vxr: true
+    tests:
+      - nodeids:
+          - tests/platform_tests/api/test_chassis.py::TestChassisApi::test_get_base_mac
+          - tests/platform_tests/api/test_chassis.py::TestChassisApi::test_get_model
+          - tests/platform_tests/api/test_chassis.py::TestChassisApi::test_get_serial
+
+  vxr_chassis_eeprom_and_thermal_unavailable:
+    reason_patterns:
+      - "^Test is skipped on vxr, will be revisited later$"
+    parameters:
+      environment.is_vxr: true
+    tests:
+      - nodeids:
+          - tests/platform_tests/api/test_chassis.py::TestChassisApi::test_get_system_eeprom_info
+          - tests/platform_tests/api/test_chassis.py::TestChassisApi::test_thermals
+
+  everflow_multibinding_requires_dualtor:
+    reason_patterns:
+      - "^Multi-binding ACL is not supported for non-dualtor testbed$"
+    parameters:
+      topology.is_dualtor: false
+    tests:
+      - tests/everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_multi_binding_acl
+      - tests/everflow/test_everflow_testbed.py::TestEverflowV4EgressAclIngressMirror::test_everflow_multi_binding_acl
+      - tests/everflow/test_everflow_testbed.py::TestEverflowV4IngressAclEgressMirror::test_everflow_multi_binding_acl
+      - tests/everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_multi_binding_acl
+
+  ipv4_acl_not_supported_on_isolated_v6:
+    reason_patterns:
+      - "^IPV4 ACL test not supported on isolated-v6 testbeds$"
+    parameters:
+      topology.is_isolated_v6: true
+    tests:
+      - nodeid_prefix: tests/acl/test_acl.py::TestAclWithPortToggle
+        param_contains: ipv4
+      - nodeid_prefix: tests/acl/test_acl.py::TestAclWithReboot
+        param_contains: ipv4
+      - nodeid_prefix: tests/acl/test_acl.py::TestBasicAcl
+        param_contains: ipv4
+      - nodeid_prefix: tests/acl/test_acl.py::TestIncrementalAcl
+        param_contains: ipv4
+
+  ipv6_acl_not_supported_on_t0:
+    reason_patterns:
+      - "^IPV6 ACL test not currently supported on t0 testbeds$"
+    parameters:
+      topology.type: t0
+      topology.is_isolated_v6: false
+    tests:
+      - nodeid_prefix: tests/acl/test_acl.py::TestAclWithPortToggle
+        param_contains: ipv6
+      - nodeid_prefix: tests/acl/test_acl.py::TestAclWithReboot
+        param_contains: ipv6
+      - nodeid_prefix: tests/acl/test_acl.py::TestBasicAcl
+        param_contains: ipv6
+      - nodeid_prefix: tests/acl/test_acl.py::TestIncrementalAcl
+        param_contains: ipv6
+
+  ipfwd_mtu_unsupported_topology:
+    reason_patterns:
+      - "^Unsupported topology\\.$"
+    parameters:
+      topology.type:
+        - t0
+        - m0
+        - mx
+    tests:
+      - tests/ipfwd/test_mtu.py::test_mtu
+      - tests/cisco/ipfwd/test_mtu.py::test_mtu
+
+  topology_unavailable:
+    description: >
+      Historical skipped reason for pytest.mark.topology mismatch. This rule is
+      kept for report coverage and future hardware-aware topology experiments,
+      but hardware-aware skips it by default because SONiC custom_markers
+      already handles topology gating when --topology is provided. Set enabled
+      to true only if hardware-aware should evaluate pytest.mark.topology
+      itself.
+    handled_by_default: sonic_custom_markers
+    enabled: false
+    disabled_reason: SONiC custom_markers already handles topology gating.
+    reason_patterns:
+      - "^Test requires a topology that is not available in this run$"
+    evaluation:
+      mode: topology_marker_intersects_available_tags
+      marker: topology
+      actual: pytest.mark.topology args
+      expected: topology.available_tags
+      operator: intersects
+
+  tgen_port_info_unavailable:
+    reason_patterns:
+      - "^got empty parameter set \\['tgen_port_info'\\]$"
+      - "^got empty parameter set for \\(tgen_port_info\\)$"
+    parameters:
+      resources.tgen_port_info.available: false
+    tests:
+      - tests/snappi_tests/ecn/test_multidut_dequeue_ecn_brcm_dnx.py::test_dequeue_ecn
+      - tests/snappi_tests/pfc/test_lossless_response_to_external_pause_storms.py::test_lossless_response_to_external_pause_storms_test
+      - tests/snappi_tests/pfc/test_lossless_response_to_throttling_pause_storms.py::test_lossless_response_to_throttling_pause_storms
+      - tests/snappi_tests/pfc/test_m2o_fluctuating_lossless.py::test_m2o_fluctuating_lossless
+      - tests/snappi_tests/pfc/test_m2o_oversubscribe_lossless.py::test_m2o_oversubscribe_lossless
+      - tests/snappi_tests/pfc/test_m2o_oversubscribe_lossless_lossy.py::test_m2o_oversubscribe_lossless_lossy
+      - tests/snappi_tests/pfc/test_m2o_oversubscribe_lossy.py::test_m2o_oversubscribe_lossy
+      - tests/snappi_tests/pfc/test_pfc_pause_lossless_with_snappi.py::test_pfc_pause_counter_check
+      - tests/snappi_tests/pfc/test_pfc_pause_lossless_with_snappi.py::test_pfc_pause_multi_lossless_prio
+      - tests/snappi_tests/pfc/test_pfc_pause_lossless_with_snappi.py::test_pfc_pause_multi_lossless_prio_reboot
+      - tests/snappi_tests/pfc/test_pfc_pause_lossless_with_snappi.py::test_pfc_pause_single_lossless_prio
+      - tests/snappi_tests/pfc/test_pfc_pause_lossless_with_snappi.py::test_pfc_pause_single_lossless_prio_reboot
+      - tests/snappi_tests/pfc/test_pfc_pause_lossy_with_snappi.py::test_pfc_pause_multi_lossy_prio
+      - tests/snappi_tests/pfc/test_pfc_pause_lossy_with_snappi.py::test_pfc_pause_multi_lossy_prio_reboot
+      - tests/snappi_tests/pfc/test_pfc_pause_lossy_with_snappi.py::test_pfc_pause_single_lossy_prio
+      - tests/snappi_tests/pfc/test_pfc_pause_lossy_with_snappi.py::test_pfc_pause_single_lossy_prio_reboot
+      - tests/snappi_tests/pfcwd/test_pfcwd_a2a_with_snappi.py::test_multidut_pfcwd_all_to_all
+      - tests/snappi_tests/pfcwd/test_pfcwd_burst_storm_with_snappi.py::test_pfcwd_burst_storm_single_lossless_prio
+      - tests/snappi_tests/pfcwd/test_pfcwd_m2o_with_snappi.py::test_pfcwd_many_to_one
+      - tests/snappi_tests/pfcwd/test_pfcwd_runtime_traffic_with_snappi.py::test_pfcwd_runtime_traffic
+      - tests/snappi_tests/test_multidut_snappi.py
+
+  mellanox_2700_v6_underlay_not_supported:
+    reason_patterns:
+      - "^Skipping test\\. v6 underlay is not supported on Mlnx 2700$"
+    parameters:
+      platform.platform:
+        - x86_64-mlnx_msn2700-r0
+        - x86_64-mlnx_msn2700a1-r0
+    tests:
+      - path_prefix: tests/vxlan/test_vxlan_bfd_tsa.py
+        param_prefixes:
+          - v4_in_v6
+          - v6_in_v6
+      - path_prefix: tests/vxlan/test_vxlan_ecmp.py
+        param_prefixes:
+          - v4_in_v6
+          - v6_in_v6
+      - path_prefix: tests/vxlan/test_vxlan_ecmp_switchover.py
+        param_prefixes:
+          - v4_in_v6
+          - v6_in_v6
+
+  requires_mellanox_platform:
+    reason_patterns:
+      - "^Non-Mellanox platforms doesn't support fwutil for now$"
+      - "^This test is only for Mellanox\\.$"
+    parameters:
+      platform.vendor_family: cisco
+    tests:
+      - nodeids:
+          - tests/platform_tests/fwutil/test_fwutil.py::test_fwutil_install_bad_name
+          - tests/platform_tests/fwutil/test_fwutil.py::test_fwutil_install_bad_path
+          - tests/platform_tests/fwutil/test_fwutil.py::test_fwutil_install_file
+          - tests/platform_tests/fwutil/test_fwutil.py::test_fwutil_install_url
+          - tests/platform_tests/fwutil/test_fwutil.py::test_fwutil_show
+          - tests/platform_tests/fwutil/test_fwutil.py::test_fwutil_update_bad_config
+          - tests/platform_tests/fwutil/test_fwutil.py::test_fwutil_update_current
+          - tests/platform_tests/fwutil/test_fwutil.py::test_fwutil_update_next
+      - tests/qos/test_qos_sai.py::TestQosSai::testPfcStormWithSharedHeadroomOccupancy
