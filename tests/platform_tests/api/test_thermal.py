@@ -348,7 +348,8 @@ class TestThermalApi(PlatformApiTestBase):
                 thermals_skipped += 1
                 continue
 
-            low_temperature = 20
+            temperature = thermal.get_low_threshold(platform_api_conn, i)
+            low_temperature = 20 if temperature <= 20 else temperature + 1
             result = thermal.set_low_threshold(platform_api_conn, i, low_temperature)
             if self.expect(result is not None, "Failed to perform set_low_threshold"):
                 self.expect(result is True, "Failed to set set_low_threshold for thermal {} to {}"
@@ -357,7 +358,7 @@ class TestThermalApi(PlatformApiTestBase):
             temperature = thermal.get_low_threshold(platform_api_conn, i)
             if self.expect(temperature is not None, "Unable to retrieve Thermal {} low threshold".format(i)):
                 if self.expect(isinstance(temperature, float), "Thermal {} low threshold appears incorrect".format(i)):
-                    self.expect(temperature == 20,
+                    self.expect(temperature == low_temperature,
                                 "Thermal {} low threshold {} is not matching the set value {}"
                                 .format(i, temperature, low_temperature))
 
@@ -382,7 +383,8 @@ class TestThermalApi(PlatformApiTestBase):
                 thermals_skipped += 1
                 continue
 
-            high_temperature = 80
+            temperature = thermal.get_high_threshold(platform_api_conn, i)
+            high_temperature = 80 if temperature >= 80 else temperature - 1
             result = thermal.set_high_threshold(platform_api_conn, i, high_temperature)
             if self.expect(result is not None, "Failed to perform set_high_threshold"):
                 self.expect(result is True, "Failed to set set_high_threshold for thermal {} to {}"
@@ -392,7 +394,7 @@ class TestThermalApi(PlatformApiTestBase):
             if self.expect(temperature is not None, "Unable to retrieve Thermal {} high threshold".format(i)):
                 if self.expect(isinstance(temperature, float),
                                "Thermal {} high threshold appears incorrect".format(i)):
-                    self.expect(temperature == 80,
+                    self.expect(temperature == high_temperature,
                                 "Thermal {} high threshold {} is not matching the set value {}"
                                 .format(i, temperature, high_temperature))
 
