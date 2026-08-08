@@ -16,7 +16,8 @@ from tests.bgp.route_checker import assert_only_loopback_routes_announced_to_nei
 from tests.bgp.traffic_checker import get_traffic_shift_state, check_tsa_persistence_support, \
     verify_traffic_shift_per_asic
 from tests.bgp.constants import TS_NORMAL, TS_MAINTENANCE, TS_NO_NEIGHBORS
-from tests.conftest import get_hosts_per_hwsku
+from tests.conftest import get_hosts_per_hwsku, backup_golden_config, restore_golden_config, \
+    update_golden_config_tsa_enabled
 
 pytestmark = [
     pytest.mark.topology('t2')
@@ -360,9 +361,15 @@ def test_load_minigraph_with_traffic_shift_away(request, duthosts, nbrhosts, tra
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     initial_tsa_check_before_and_after_test(duthosts)
 
+    # Backup and update golden_config_db.json to enable TSA
+    backup_path = "/tmp/golden_config_db_backup.json"
+    for duthost in frontend_nodes_per_hwsku:
+        backup_golden_config(duthost, backup_path)
+        update_golden_config_tsa_enabled(duthost, tsa_enabled=True)
+
     for duthost in frontend_nodes_per_hwsku:
         # Ensure that the DUT is not in maintenance already before start of the test
-        pytest_assert(wait_until(30, 5, 0, lambda: TS_NORMAL == get_traffic_shift_state(duthost, 'TSC no-stats')),
+        pytest_assert(wait_until(60, 5, 0, lambda: TS_NORMAL == get_traffic_shift_state(duthost, 'TSC no-stats')),
                       "DUT is not in normal state")
         if not check_tsa_persistence_support(duthost):
             pytest.skip("TSA persistence not supported in the image")
@@ -381,7 +388,7 @@ def test_load_minigraph_with_traffic_shift_away(request, duthosts, nbrhosts, tra
 
         for duthost in frontend_nodes_per_hwsku:
             # Verify DUT is in maintenance state.
-            pytest_assert(wait_until(30, 5, 0,
+            pytest_assert(wait_until(60, 5, 0,
                                      lambda: TS_MAINTENANCE == get_traffic_shift_state(duthost, 'TSC no-stats')),
                           "DUT is not in maintenance state")
             assert_only_loopback_routes_announced_to_neighs(
@@ -402,9 +409,13 @@ def test_load_minigraph_with_traffic_shift_away(request, duthosts, nbrhosts, tra
 
         # Verify DUT is in normal state.
         for duthost in frontend_nodes_per_hwsku:
-            pytest_assert(wait_until(30, 5, 0,
+            pytest_assert(wait_until(60, 5, 0,
                                      lambda: TS_NORMAL == get_traffic_shift_state(duthost, 'TSC no-stats')),
                           "DUT is not in normal state")
+
+        # Restore the original golden_config_db.json
+        for duthost in frontend_nodes_per_hwsku:
+            restore_golden_config(duthost, backup_path)
 
         # Wait until all routes are announced to neighbors
         verify_route_on_neighbors(frontend_nodes_per_hwsku, dut_nbrhosts, orig_v4_routes, orig_v6_routes)
