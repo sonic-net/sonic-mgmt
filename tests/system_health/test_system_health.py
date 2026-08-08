@@ -384,7 +384,8 @@ def test_system_health_config(duthosts, enum_rand_one_per_hwsku_hostname,
                         duthost, STATE_DB, HEALTH_TABLE_NAME, psu_name)
                     return not value or expect_value != value
 
-                assert wait_until(DEFAULT_INTERVAL, FAST_INTERVAL, 0, _check_psu_is_ignored, duthost, psu_name), \
+                assert wait_until(DEFAULT_INTERVAL, FAST_INTERVAL, FAST_INTERVAL,
+                                  _check_psu_is_ignored, duthost, psu_name), \
                     'PSU check is still performed after it is configured to be ignored'
 
 
