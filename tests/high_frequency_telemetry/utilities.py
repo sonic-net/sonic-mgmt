@@ -387,11 +387,15 @@ def run_countersyncd_and_capture_output(duthost, timeout=120, stats_interval=60)
         dict: Command result with stdout, stderr, rc
     """
     countersyncd_cmd = (
-        f'timeout {timeout} docker exec swss countersyncd -e '
+        f'countersyncd -e '
         f'--max-stats-per-report 0 '
-        f'--stats-interval {stats_interval} '
+        f'--stats-interval {stats_interval}'
     )
-    result = duthost.shell(countersyncd_cmd, module_ignore_errors=True)
+    run_countersyncd_cmd = (f'timeout {timeout} docker exec swss {countersyncd_cmd}')
+    result = duthost.shell(run_countersyncd_cmd, module_ignore_errors=True)
+
+    kill_countersyncd_cmd = (f"pkill -f '{countersyncd_cmd}' || true")
+    duthost.shell(kill_countersyncd_cmd, module_ignore_errors=True)
 
     # Check if command completed successfully (timeout is expected)
     pytest_assert(
