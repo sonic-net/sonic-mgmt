@@ -109,6 +109,12 @@ acl/test_acl_dscp_rewrite.py:
     conditions:
       - "platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0']"
 
+acl/test_acl_l3v4v6.py:
+  skip:
+    reason: "Combined v4v6 L3 type ACL is supported on Marvell (marvell-teralynx) platform"
+    conditions:
+      - "asic_type not in ['marvell-teralynx']"
+
 acl/test_acl_outer_vlan.py:
   #Outer VLAN id match support is planned for future release with SONIC on Cisco 8000
   #For the current release, will mark the related test cases as XFAIL
