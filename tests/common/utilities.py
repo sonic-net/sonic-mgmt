@@ -1392,7 +1392,61 @@ def capture_and_check_packet_on_dut(
         duthost.file(path=pcap_save_path, state="absent")
 
 
-def _paramiko_ssh(ip_address, username, passwords):
+def create_proxy_from_ssh_args(ssh_common_args, target_host, target_port):
+    """
+    Parse ansible_ssh_common_args and create a paramiko.ProxyCommand if
+    a ProxyCommand or ProxyJump option is present.
+
+    Args:
+        ssh_common_args (str): The value of ansible_ssh_common_args
+        target_host (str): The target hostname/IP for %h substitution
+        target_port (int): The target port for %p substitution
+
+    Returns:
+        paramiko.ProxyCommand or None
+    """
+    if not ssh_common_args:
+        return None
+
+    import shlex
+    tokens = shlex.split(ssh_common_args)
+
+    proxy_cmd = None
+    proxy_jump = None
+
+    i = 0
+    while i < len(tokens):
+        if tokens[i] == "-o" and i + 1 < len(tokens):
+            opt = tokens[i + 1]
+            if opt.startswith("ProxyCommand="):
+                proxy_cmd = opt.split("=", 1)[1]
+            elif opt.startswith("ProxyJump="):
+                proxy_jump = opt.split("=", 1)[1]
+            i += 2
+        elif tokens[i].startswith("-oProxyCommand="):
+            proxy_cmd = tokens[i].split("=", 1)[1]
+            i += 1
+        elif tokens[i].startswith("-oProxyJump="):
+            proxy_jump = tokens[i].split("=", 1)[1]
+            i += 1
+        else:
+            i += 1
+
+    cmd_str = None
+    if proxy_cmd:
+        cmd_str = proxy_cmd
+    elif proxy_jump:
+        # Convert ProxyJump to an equivalent ssh -W command
+        cmd_str = "ssh -W %h:%p {}".format(proxy_jump)
+
+    if cmd_str:
+        cmd_str = cmd_str.replace("%h", str(target_host)).replace("%p", str(target_port))
+        return paramiko.ProxyCommand(cmd_str)
+
+    return None
+
+
+def _paramiko_ssh(ip_address, username, passwords, port=22, sock=None):
     """
     Connect to the device via ssh using paramiko
     Args:
@@ -1400,6 +1454,9 @@ def _paramiko_ssh(ip_address, username, passwords):
         username (str): The username of device
         passwords (str or list): Potential passwords of device
             this argument can be either a string or a list of string
+        port (int): The SSH port to connect to (default: 22)
+        sock (paramiko.ProxyCommand or None): Optional proxy socket for
+            connecting through a jump host (default: None)
     Returns:
         AuthResult: the ssh session of device
     """
@@ -1414,8 +1471,14 @@ def _paramiko_ssh(ip_address, username, passwords):
         try:
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            ssh.connect(ip_address, username=username, password=password,
-                        allow_agent=False, look_for_keys=False, timeout=10)
+            connect_kwargs = dict(
+                hostname=ip_address, port=port, username=username,
+                password=password, allow_agent=False,
+                look_for_keys=False, timeout=10
+            )
+            if sock is not None:
+                connect_kwargs['sock'] = sock
+            ssh.connect(**connect_kwargs)
             return ssh, password
         except AuthenticationException:
             continue
@@ -1426,18 +1489,22 @@ def _paramiko_ssh(ip_address, username, passwords):
     raise AuthenticationException
 
 
-def paramiko_ssh(ip_address, username, passwords):
-    ssh, pwd = _paramiko_ssh(ip_address, username, passwords)
+def paramiko_ssh(ip_address, username, passwords, port=22, sock=None):
+    ssh, pwd = _paramiko_ssh(ip_address, username, passwords, port=port,
+                             sock=sock)
     return ssh
 
 
-def get_dut_current_passwd(ipv4_address, ipv6_address, username, passwords):
+def get_dut_current_passwd(ipv4_address, ipv6_address, username, passwords,
+                           port=22, sock=None):
     try:
-        _, passwd = _paramiko_ssh(ipv4_address, username, passwords)
+        _, passwd = _paramiko_ssh(ipv4_address, username, passwords, port=port,
+                                  sock=sock)
     except AuthenticationException:
         raise
     except Exception:
-        _, passwd = _paramiko_ssh(ipv6_address, username, passwords)
+        _, passwd = _paramiko_ssh(ipv6_address, username, passwords, port=port,
+                                  sock=sock)
     return passwd
 
 
