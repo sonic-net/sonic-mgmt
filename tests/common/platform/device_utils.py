@@ -1306,24 +1306,37 @@ def get_dpu_ip(duthost, dpu_index):
 
 
 def get_dpu_port(duthost, dpu_index):
+    """Return the gNMI port for a DPU index from the CONFIG_DB 'DPU' table.
+
+    gnmi_port is a 'DPU' table attribute; 'DPUS' is only the name-to-midplane
+    mapping and never carries gnmi_port. So gNMI-port lookup uses 'DPU'
+    exclusively, kept separate from inventory discovery.
+    """
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     if not config_facts:
         logger.error("Failed to retrieve config_facts from DUT")
         return None
 
-    dpu_section = config_facts.get('DPU', {})
+    # gnmi_port lives only in the 'DPU' table; do not fall back to 'DPUS'.
+    dpu_section = config_facts.get('DPU') or {}
     if not dpu_section:
-        logger.error("DPU section not found in config_facts")
+        logger.error("DPU table not found in config_facts (gnmi_port needs 'DPU')")
         return None
 
-    dpu_key = 'dpu{}'.format(dpu_index)
-    # Check if the DPU exists in the configuration
-    if dpu_key not in dpu_section:
-        logger.error("DPU '{}' not found in config_facts. Available DPUs: {}".format(
-            dpu_key, list(dpu_section.keys())))
+    # DPU keys may be plain (dpu0) or hostname-prefixed (<host>-dpu0) -> match trailing index.
+    dpu_config = None
+    for name, cfg in dpu_section.items():
+        # Grab the trailing number of the key (dpu3 / <host>-dpu3 -> 3).
+        m = re.search(r'(\d+)$', str(name))
+        if m and int(m.group(1)) == int(dpu_index):
+            dpu_config = cfg
+            break
+    if dpu_config is None:
+        logger.error("DPU index %s not found in DPU table. Available: %s",
+                     dpu_index, list(dpu_section.keys()))
         return None
 
-    dpu_config = dpu_section[dpu_key]
+    # Extract the gNMI port for this DPU.
     port = dpu_config.get('gnmi_port', None)
     if port is None:
         logger.error("gnmi_port not found in config_facts for dpu_index {}".format(dpu_index))
@@ -1344,7 +1357,9 @@ def get_configured_dpu_names(duthost):
         logger.error("Failed to retrieve config_facts from DUT")
         return []
 
-    dpu_section = config_facts.get('DPU', {})
+    # DPU names may live under the singular 'DPU' table or the plural 'DPUS'
+    # table depending on the platform/config schema (e.g. Cisco 8102 uses 'DPUS').
+    dpu_section = config_facts.get('DPU') or config_facts.get('DPUS') or {}
     if not dpu_section:
         return []
 
@@ -1355,6 +1370,44 @@ def get_configured_dpu_names(duthost):
 
     names = [str(k) for k in dpu_section.keys()]
     return sorted(names, key=_dpu_sort_key)
+
+
+def get_configured_dpu_indices(duthost, include_admin_down=False):
+    """
+    Return the actual DPU indices configured on the DUT (e.g. dpu3 -> 3).
+
+    Indices are parsed from the real DPU identities, not a positional count,
+    so a non-contiguous table (dpu1, dpu3) yields [1, 3] rather than [0, 1].
+    By default admin-down DPUs (CHASSIS_MODULE admin_status='down') are skipped;
+    pass include_admin_down=True to return every configured index.
+    """
+    # Reuse the DPU/DPUS table selection + ordering from get_configured_dpu_names.
+    names = get_configured_dpu_names(duthost)
+    if not names:
+        return []
+
+    # Admin state lives in the CHASSIS_MODULE table, keyed by 'DPU<index>'.
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    chassis_modules = (config_facts or {}).get('CHASSIS_MODULE') or {}
+
+    indices = []
+    for name in names:
+        # Parse the trailing number so dpu3 / <host>-dpu3 both map to 3.
+        m = re.search(r'(\d+)$', str(name))
+        if not m:
+            logger.warning("Skipping DPU entry without a numeric index: %r", name)
+            continue
+        idx = int(m.group(1))
+        # Look up admin state; treat a missing entry as 'up' (enabled by default).
+        admin_status = chassis_modules.get('DPU{}'.format(idx), {}).get('admin_status', 'up')
+        # Skip administratively-down DPUs unless the caller wants them all.
+        if not include_admin_down and str(admin_status).lower() == 'down':
+            logger.info("Skipping admin-down DPU%d", idx)
+            continue
+        indices.append(idx)
+
+    # Deduplicate and keep deterministic ascending order.
+    return sorted(set(indices))
 
 
 def check_dpu_reachable_from_npu(duthost, dpuhost_name, dpu_index):
