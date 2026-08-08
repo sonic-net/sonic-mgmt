@@ -1,0 +1,30 @@
+all:
+  children:
+    ocs:
+      children:
+        sonic:
+          children:
+            sonic_ocs:
+        servers:
+          children:
+            test_station:
+    ptf:
+      vars:
+        ansible_user: yourusername
+        ansible_password: yourpassword
+      hosts:
+        ptf:
+          ansible_host: 10.10.12.1
+
+sonic_ocs:
+  hosts:
+    device_ocs:
+      ansible_host: 10.11.12.13
+      ansible_ssh_user: yourusername
+      ansible_ssh_pass: yourpassword
+
+test_station:
+  test_server:
+    ansible_host: 10.12.13.14
+    ansible_ssh_user: yourusername
+    ansible_ssh_pass: yourpassword
