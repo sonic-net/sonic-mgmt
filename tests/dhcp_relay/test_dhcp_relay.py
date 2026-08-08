@@ -3,6 +3,7 @@ import random
 import time
 import logging
 import re
+import shlex
 
 from tests.common.dhcp_relay_utils import init_dhcpmon_counters, validate_dhcpmon_counters
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
@@ -77,6 +78,141 @@ def check_interface_status(duthost, relay_agent="isc-relay-agent"):
     return False
 
 
+def _replace_config_db_hash(duthost, table, name, values):
+    """Replace one CONFIG_DB hash using sonic-db-cli."""
+    key = "{}|{}".format(table, name)
+    commands = ["sonic-db-cli CONFIG_DB del {}".format(shlex.quote(key))]
+    for field, value in sorted(values.items()):
+        if isinstance(value, list):
+            field = "{}@".format(field)
+            value = ",".join(value)
+        commands.append(
+            "sonic-db-cli CONFIG_DB hset {} {} {}".format(
+                shlex.quote(key), shlex.quote(field), shlex.quote(str(value))))
+    duthost.shell_cmds(cmds=commands)
+
+
+def _set_config_db_list_field(duthost, table, name, field, values):
+    """Set or remove one CONFIG_DB list field using sonic-db-cli."""
+    key = "{}|{}".format(table, name)
+    field = "{}@".format(field)
+    if values:
+        command = "sonic-db-cli CONFIG_DB hset {} {} {}".format(
+            shlex.quote(key), shlex.quote(field), shlex.quote(",".join(values)))
+    else:
+        command = "sonic-db-cli CONFIG_DB hdel {} {}".format(
+            shlex.quote(key), shlex.quote(field))
+    duthost.shell(command)
+
+
+def _set_sonic_dhcpv4_relay_flag(duthost, value):
+    """Set the native DHCPv4 relay flag, or remove it when value is None."""
+    key = "DEVICE_METADATA|localhost"
+    field = "has_sonic_dhcpv4_relay"
+    if value is None:
+        command = "sonic-db-cli CONFIG_DB hdel {} {}".format(
+            shlex.quote(key), shlex.quote(field))
+    else:
+        command = "sonic-db-cli CONFIG_DB hset {} {} {}".format(
+            shlex.quote(key), shlex.quote(field), shlex.quote(value))
+    duthost.shell(command)
+
+
+def _set_dhcp_relay_server_state(duthost, vlan_name, vlan_names, backend, v4_servers, v6_servers,
+                                 original_native_v4, original_v6):
+    """Configure only the selected VLAN without triggering an implicit service restart."""
+    for current_vlan in vlan_names:
+        isc_v4_servers = v4_servers if backend == "isc" and current_vlan == vlan_name else []
+        _set_config_db_list_field(
+            duthost, "VLAN", current_vlan, "dhcp_servers", isc_v4_servers)
+
+        native_v4 = dict(original_native_v4[current_vlan])
+        native_v4.pop("dhcpv4_servers", None)
+        if backend == "sonic" and current_vlan == vlan_name and v4_servers:
+            native_v4["dhcpv4_servers"] = v4_servers
+        _replace_config_db_hash(duthost, "DHCPV4_RELAY", current_vlan, native_v4)
+
+        v6_config = dict(original_v6[current_vlan])
+        v6_config.pop("dhcpv6_servers", None)
+        if current_vlan == vlan_name and v6_servers:
+            v6_config["dhcpv6_servers"] = v6_servers
+        _replace_config_db_hash(duthost, "DHCP_RELAY", current_vlan, v6_config)
+
+
+def _assert_dhcp_relay_server_state(duthost, vlan_name, vlan_names, backend, v4_servers, v6_servers):
+    """Verify that only the selected VLAN has the requested server configuration."""
+    config = duthost.get_running_config_facts()
+    for current_vlan in vlan_names:
+        expected_isc_v4 = v4_servers if backend == "isc" and current_vlan == vlan_name else []
+        expected_sonic_v4 = v4_servers if backend == "sonic" and current_vlan == vlan_name else []
+        expected_v6 = v6_servers if current_vlan == vlan_name else []
+        actual_isc_v4 = config.get("VLAN", {}).get(
+            current_vlan, {}).get("dhcp_servers", [])
+        actual_sonic_v4 = config.get("DHCPV4_RELAY", {}).get(
+            current_vlan, {}).get("dhcpv4_servers", [])
+        actual_v6 = config.get("DHCP_RELAY", {}).get(
+            current_vlan, {}).get("dhcpv6_servers", [])
+
+        pytest_assert(sorted(actual_isc_v4) == sorted(expected_isc_v4),
+                      "Unexpected ISC DHCPv4 servers for {}: expected {}, got {}"
+                      .format(current_vlan, expected_isc_v4, actual_isc_v4))
+        pytest_assert(sorted(actual_sonic_v4) == sorted(expected_sonic_v4),
+                      "Unexpected SONiC DHCPv4 servers for {}: expected {}, got {}"
+                      .format(current_vlan, expected_sonic_v4, actual_sonic_v4))
+        pytest_assert(sorted(actual_v6) == sorted(expected_v6),
+                      "Unexpected DHCPv6 servers for {}: expected {}, got {}"
+                      .format(current_vlan, expected_v6, actual_v6))
+
+
+def _restart_dhcp_relay_for_process_layout(duthost, relay_types):
+    """Restart the container and wait for the requested or empty ISC layout."""
+    restart_dhcp_service(duthost, relay_types or ["isc"])
+
+
+def _assert_dhcp_relay_process_layout(duthost, vlan_name, backend, has_v4, has_v6):
+    """Assert the global and selected-VLAN supervisor process layout."""
+    last_entries = {"value": []}
+
+    def _has_expected_layout():
+        output = duthost.shell(
+            "docker exec dhcp_relay supervisorctl status", module_ignore_errors=True)
+        entries = []
+        for line in output["stdout_lines"]:
+            parts = line.split()
+            if len(parts) >= 2:
+                entries.append((parts[0].split(":")[-1], parts[1]))
+        last_entries["value"] = entries
+
+        def _matching(program):
+            return [state for name, state in entries if name == program]
+
+        expected_dhcp6relay = ["RUNNING"] if has_v6 else []
+        expected_dhcp4relay = ["RUNNING"] if backend == "sonic" else []
+        expected_isc = [
+            ("isc-dhcpv4-relay-{}".format(vlan_name), "RUNNING")
+        ] if backend == "isc" and has_v4 else []
+        expected_monitors = [
+            ("dhcpmon-{}".format(vlan_name), "RUNNING")
+        ] if has_v4 or has_v6 else []
+        actual_isc = sorted(
+            (name, state) for name, state in entries if name.startswith("isc-dhcpv4-relay-"))
+        actual_monitors = sorted(
+            (name, state) for name, state in entries if name.startswith("dhcpmon-"))
+
+        return (
+            _matching("dhcprelayd") == ["RUNNING"]
+            and _matching("dhcp6relay") == expected_dhcp6relay
+            and _matching("dhcp4relay") == expected_dhcp4relay
+            and actual_isc == expected_isc
+            and actual_monitors == expected_monitors
+        )
+
+    pytest_assert(
+        wait_until(120, 5, 0, _has_expected_layout),
+        "Unexpected dhcp_relay supervisor layout for backend={} v4={} v6={}: {}"
+        .format(backend, has_v4, has_v6, last_entries["value"]))
+
+
 @pytest.fixture(scope="function")
 def enable_source_port_ip_in_relay(duthosts, rand_one_dut_hostname, tbinfo, request):
     duthost = duthosts[rand_one_dut_hostname]
@@ -145,6 +281,114 @@ def enable_source_port_ip_in_relay(duthosts, rand_one_dut_hostname, tbinfo, requ
             delete_checkpoint(duthost, check_point)
             restart_dhcp_service(duthost, ['isc'])
             pytest_assert(wait_until(60, 2, 0, dhcp_ready, False), "Source port ip in relay is not disabled!")
+
+
+@pytest.mark.skip_config_dhcpv4_relay_agent
+def test_dhcp_relay_process_layout(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data,
+                                   tbinfo, relay_agent):
+    """Verify the DHCP relay process matrix as server configuration changes."""
+    duthost = duthosts[rand_one_dut_hostname]
+    backend = "sonic" if relay_agent == "sonic-relay-agent" else "isc"
+    pytest_assert(dut_dhcp_relay_data, "No DHCP relay data is available for the process matrix")
+    selected_relay = dut_dhcp_relay_data[0]
+    vlan_name = selected_relay["downlink_vlan_iface"]["name"]
+    match = re.fullmatch(r"Vlan(\d+)", vlan_name)
+    pytest_assert(match, "Unexpected VLAN interface name {}".format(vlan_name))
+
+    v4_servers = [
+        server for server in selected_relay["downlink_vlan_iface"]["dhcp_server_addrs"] if server
+    ]
+    minigraph_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    v6_servers = [server for server in minigraph_facts.get("dhcpv6_servers", []) if server]
+    pytest_assert(v4_servers, "No DHCPv4 server is available for {}".format(vlan_name))
+    pytest_assert(v6_servers, "No DHCPv6 server is available for {}".format(vlan_name))
+
+    original_config = duthost.get_running_config_facts()
+    vlan_names = {vlan_name}
+    for table, field in [
+            ("VLAN", "dhcp_servers"),
+            ("DHCPV4_RELAY", "dhcpv4_servers"),
+            ("DHCP_RELAY", "dhcpv6_servers")]:
+        vlan_names.update(
+            name for name, values in original_config.get(table, {}).items()
+            if values.get(field))
+    vlan_names = sorted(vlan_names)
+    original_isc_v4 = {
+        name: list(original_config.get("VLAN", {}).get(name, {}).get("dhcp_servers", []))
+        for name in vlan_names
+    }
+    original_native_v4 = {
+        name: dict(original_config.get("DHCPV4_RELAY", {}).get(name, {}))
+        for name in vlan_names
+    }
+    original_v6 = {
+        name: dict(original_config.get("DHCP_RELAY", {}).get(name, {}))
+        for name in vlan_names
+    }
+    metadata = original_config.get("DEVICE_METADATA", {}).get("localhost", {})
+    original_flag_present = "has_sonic_dhcpv4_relay" in metadata
+    original_flag = metadata.get("has_sonic_dhcpv4_relay")
+    original_backend = "sonic" if str(original_flag).lower() == "true" else "isc"
+
+    feature_state = original_config.get("FEATURE", {}).get("dhcp_relay", {}).get("state")
+    pytest_assert(feature_state in ["enabled", "always_enabled"],
+                  "dhcp_relay feature must remain enabled, got {}".format(feature_state))
+
+    states = [
+        ("no-v4-no-v6", False, False),
+        ("v4-only", True, False),
+        ("v6-only", False, True),
+        ("v4-and-v6", True, True),
+    ]
+
+    try:
+        _set_sonic_dhcpv4_relay_flag(duthost, "True" if backend == "sonic" else None)
+        for state_name, has_v4, has_v6 in states:
+            logger.info("Checking DHCP relay process state %s for %s on %s",
+                        state_name, vlan_name, backend)
+            expected_v4 = v4_servers if has_v4 else []
+            expected_v6 = v6_servers if has_v6 else []
+            _set_dhcp_relay_server_state(
+                duthost, vlan_name, vlan_names, backend, expected_v4, expected_v6,
+                original_native_v4, original_v6)
+            _assert_dhcp_relay_server_state(
+                duthost, vlan_name, vlan_names, backend, expected_v4, expected_v6)
+
+            relay_types = []
+            if backend == "sonic" or has_v4:
+                relay_types.append(backend)
+            if has_v6:
+                relay_types.append("v6")
+            _restart_dhcp_relay_for_process_layout(duthost, relay_types)
+            _assert_dhcp_relay_process_layout(duthost, vlan_name, backend, has_v4, has_v6)
+
+            current_feature_state = duthost.shell(
+                'sonic-db-cli CONFIG_DB hget "FEATURE|dhcp_relay" "state"')["stdout"].strip()
+            pytest_assert(current_feature_state in ["enabled", "always_enabled"],
+                          "dhcp_relay feature changed in state {}: {}"
+                          .format(state_name, current_feature_state))
+            critical_status = duthost.critical_process_status("dhcp_relay")
+            pytest_assert(critical_status["status"] and not critical_status["exited_critical_process"],
+                          "dhcp_relay critical processes are unhealthy in state {}: {}"
+                          .format(state_name, critical_status))
+    finally:
+        for current_vlan in vlan_names:
+            _set_config_db_list_field(
+                duthost, "VLAN", current_vlan, "dhcp_servers", original_isc_v4[current_vlan])
+            _replace_config_db_hash(
+                duthost, "DHCPV4_RELAY", current_vlan, original_native_v4[current_vlan])
+            _replace_config_db_hash(
+                duthost, "DHCP_RELAY", current_vlan, original_v6[current_vlan])
+        _set_sonic_dhcpv4_relay_flag(
+            duthost, original_flag if original_flag_present else None)
+        original_relay_types = []
+        if original_backend == "sonic":
+            original_relay_types.append("sonic")
+        elif any(original_isc_v4.values()):
+            original_relay_types.append("isc")
+        if any(config.get("dhcpv6_servers") for config in original_v6.values()):
+            original_relay_types.append("v6")
+        _restart_dhcp_relay_for_process_layout(duthost, original_relay_types)
 
 
 def test_interface_binding(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data, relay_agent):
