@@ -85,7 +85,7 @@ def test_link_status_on_host_reboot(request, duthosts, localhost, conn_graph_fac
         # After reboot, immediately check if all links on all fanouts are down
         link_status_on_host(fanouts_and_ports[dut], max_time_to_reboot[dut], up=False)
 
-        # Wait for ssh port to open up on the DUT
+        # Wait for SSH and Ansible commands to become ready on the DUT
         wait_for_startup(dut, localhost, 0, max_time_to_reboot[dut])
 
         dut_uptime = dut.get_up_time()
