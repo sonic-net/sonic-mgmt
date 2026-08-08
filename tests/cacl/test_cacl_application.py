@@ -177,7 +177,7 @@ def dummy_acl_rules(duthosts, enum_rand_one_per_hwsku_hostname):
         acl_entry = {}
 
         # Alternate between IPv4 and IPv6 addresses (should be 2 IPv4 for every IPv6)
-        src_ip = f"20.0.0.{1 + index}/32" if index % 3 else f"2001::{1 + index}/128"
+        src_ip = f"20.0.0.{1 + index}/32" if index % 3 else f"2001::{1 + index}/128"  # noqa: E231
 
         # Alternate between accept and drop for each rule
         action = "ACCEPT" if index % 2 else "DROP"
@@ -1112,17 +1112,17 @@ def verify_cacl_show_acl_rule(duthost, acl_file):
             if rule_conf_actual[ip_key] != rule_conf_expected["ip"]["config"]["source-ip-address"]:
                 actual = rule_conf_actual[ip_key]
                 expected = rule_conf_expected["ip"]["config"]["source-ip-address"]
-                rule_issues.append(f"  - {rule_name}: Expected IP {expected} does not match {actual}")
+                rule_issues.append(f" - {rule_name}: Expected IP {expected} does not match {actual}")
 
             if rule_conf_actual["action"] != rule_conf_expected["actions"]["config"]["forwarding-action"]:
                 actual = rule_conf_actual["action"]
                 expected = rule_conf_expected["actions"]["config"]["forwarding-action"]
-                rule_issues.append(f"  - {rule_name}: Expected action {expected} does not match {actual}")
+                rule_issues.append(f" - {rule_name}: Expected action {expected} does not match {actual}")
 
             if int(rule_conf_actual["priority"]) != (10000 - int(rule_conf_expected["config"]["sequence-id"])):
                 actual = int(rule_conf_actual["priority"])
                 expected = (10000 - int(rule_conf_expected["config"]["sequence-id"]))
-                rule_issues.append(f"  - {rule_name}: Expected priority {expected} does not match {actual}")
+                rule_issues.append(f" - {rule_name}: Expected priority {expected} does not match {actual}")
 
             if rule_issues:
                 rule_issues_str = '\n'.join(rule_issues)
@@ -1156,8 +1156,14 @@ def verify_cacl(duthost, tbinfo, localhost, creds, docker_network,
         generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expected_dhcp_rules_for_standby,
                                 use_forward_chain_for_multiasic=True)
 
-    stdout = duthost.get_asic_or_sonic_host(asic_index).command("iptables -S")["stdout"]
-    actual_iptables_rules = stdout.strip().split("\n")
+    actual_iptables_rules = []
+
+    def _iptables_rules_present():
+        actual_iptables_rules[:] = \
+            duthost.get_asic_or_sonic_host(asic_index).command("iptables -S")["stdout"].strip().split("\n")
+        return len(set(expected_iptables_rules) - set(actual_iptables_rules)) == 0
+
+    wait_until(60, 5, 0, _iptables_rules_present)
 
     logger.info("Number of expected iptable rules (legacy/forward-chain):{}/{}, number of actual iptables rules:{}"
                 .format(len(set(expected_iptables_rules_legacy)), len(set(expected_iptables_rules_fwd)),
@@ -1191,8 +1197,14 @@ def verify_cacl(duthost, tbinfo, localhost, creds, docker_network,
     # for i in range(len(expected_iptables_rules)):
     #    pytest_assert(actual_iptables_rules[i] == expected_iptables_rules[i], "iptables rules not in expected order")
 
-    stdout = duthost.get_asic_or_sonic_host(asic_index).command("ip6tables -S")["stdout"]
-    actual_ip6tables_rules = stdout.strip().split("\n")
+    actual_ip6tables_rules = []
+
+    def _ip6tables_rules_present():
+        actual_ip6tables_rules[:] = \
+            duthost.get_asic_or_sonic_host(asic_index).command("ip6tables -S")["stdout"].strip().split("\n")
+        return len(set(expected_ip6tables_rules) - set(actual_ip6tables_rules)) == 0
+
+    wait_until(60, 5, 0, _ip6tables_rules_present)
 
     logger.info("Number of expected ip6table rules (legacy/forward-chain):{}/{}, number of actual ip6tables rules:{}"
                 .format(len(set(expected_ip6tables_rules_legacy)), len(set(expected_ip6tables_rules_fwd)),
