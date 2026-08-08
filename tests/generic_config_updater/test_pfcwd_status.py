@@ -5,6 +5,7 @@ import pytest
 from collections import defaultdict
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.pfcwd_helper import is_pfcwd_hw_recovery_enabled
 from tests.common.utilities import wait_until
 from tests.common.helpers.dut_utils import verify_orchagent_running_or_assert
 from tests.common.gu_utils import apply_patch, expect_op_success, expect_op_failure
@@ -20,7 +21,8 @@ logger = logging.getLogger(__name__)
 
 READ_FLEXDB_TIMEOUT = 20
 READ_FLEXDB_INTERVAL = 5
-FLEXDB_COUNTERS_PER_PORT = 3
+SW_FLEXDB_COUNTERS_PER_PORT = 3
+HW_FLEXDB_COUNTERS_PER_PORT = 2
 
 
 @pytest.fixture(autouse=True)
@@ -95,7 +97,10 @@ def ensure_dut_readiness(duthost, extract_pfcwd_config):
 
     pfcwd_config = extract_pfcwd_config
     number_of_ports = len(pfcwd_config)
-    check_config_update(duthost, number_of_ports * FLEXDB_COUNTERS_PER_PORT)
+    if is_pfcwd_hw_recovery_enabled(duthost):
+        check_config_update(duthost, number_of_ports * HW_FLEXDB_COUNTERS_PER_PORT)
+    else:
+        check_config_update(duthost, number_of_ports * SW_FLEXDB_COUNTERS_PER_PORT)
 
     yield
 
@@ -232,10 +237,14 @@ def test_stop_pfcwd(duthost, enum_rand_one_frontend_asic_index,
         4. Validates that orchagent is running fine pre and post test
     """
     pfcwd_config = extract_pfcwd_config
-    initial_count = len(pfcwd_config) * FLEXDB_COUNTERS_PER_PORT
+    flexdb_counters_per_port = (
+        HW_FLEXDB_COUNTERS_PER_PORT
+        if is_pfcwd_hw_recovery_enabled(duthost)
+        else SW_FLEXDB_COUNTERS_PER_PORT)
+    initial_count = len(pfcwd_config) * flexdb_counters_per_port
 
     if port == 'single':
-        expected_count = initial_count - FLEXDB_COUNTERS_PER_PORT
+        expected_count = initial_count - flexdb_counters_per_port
     else:
         expected_count = 0
     json_patch = list()
@@ -282,11 +291,15 @@ def test_start_pfcwd(duthost, enum_rand_one_frontend_asic_index,
         4. Validates that orchagent is running fine pre and post test
     """
     pfcwd_config = extract_pfcwd_config
+    flexdb_counters_per_port = (
+        HW_FLEXDB_COUNTERS_PER_PORT
+        if is_pfcwd_hw_recovery_enabled(duthost)
+        else SW_FLEXDB_COUNTERS_PER_PORT)
 
     if port == 'single':
-        expected_count = FLEXDB_COUNTERS_PER_PORT
+        expected_count = flexdb_counters_per_port
     else:
-        expected_count = len(pfcwd_config) * FLEXDB_COUNTERS_PER_PORT
+        expected_count = len(pfcwd_config) * flexdb_counters_per_port
     json_patch = list()
     exp_str = 'Ethernet'
     op = 'add'
