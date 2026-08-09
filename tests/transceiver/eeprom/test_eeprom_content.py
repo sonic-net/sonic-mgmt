@@ -11,6 +11,7 @@ from tests.transceiver.attribute_parser.attribute_keys import (
 from tests.common.platform.interface_utils import is_first_subport
 from tests.transceiver.common import cli_helpers
 from tests.transceiver.common.eeprom_decode import ModuleFamily, classify
+from tests.transceiver.common.scenario_ops import poll_ports_recovered
 from tests.transceiver.eeprom import datapath
 
 logger = logging.getLogger(__name__)
@@ -41,12 +42,23 @@ SFPUTIL_CLI_KEY_TO_INV_KEY = {
     "Hardware Revision": "hardware_rev",
     "CMIS Revision":     "cmis_revision",
 }
-SHOW_CLI_KEY_TO_INV_KEY = {
+# Firmware versions recover on a slower timeline than the rest of the static
+# content (published to TRANSCEIVER_FIRMWARE_INFO by xcvrd's DOM thread, not
+# TRANSCEIVER_INFO), so the scenario-recovery path scores them separately with
+# their own budget (verify_firmware_info_recovered); the plain content test
+# keeps them inline.
+_FIRMWARE_CLI_KEY_TO_INV_KEY = {
+    "Active Firmware":   "gold_firmware_version",
+    "Inactive Firmware": "inactive_firmware_version",
+}
+_STATIC_SHOW_CLI_KEY_TO_INV_KEY = {
     **_COMMON_CLI_KEY_TO_INV_KEY,
     "Module Hardware Rev": "hardware_rev",
     "CMIS Rev":            "cmis_revision",
-    "Active Firmware":     "gold_firmware_version",
-    "Inactive Firmware":   "inactive_firmware_version",
+}
+SHOW_CLI_KEY_TO_INV_KEY = {
+    **_STATIC_SHOW_CLI_KEY_TO_INV_KEY,
+    **_FIRMWARE_CLI_KEY_TO_INV_KEY,
 }
 
 # Sentinel distinguishing "attribute genuinely absent from inventory" from
@@ -54,6 +66,10 @@ SHOW_CLI_KEY_TO_INV_KEY = {
 # explicitly set to None means "must be unset on hardware" and should be
 # checked, not silently skipped.
 _MISSING = object()
+
+# Poll interval (seconds) for the recovery polls; kept coarse because each poll
+# re-issues the full bulk CLI (large output) and recovery is minutes-scale.
+_RECOVERY_POLL_INTERVAL_SEC = 20
 
 
 # ---------------------------------------------------------------------------
@@ -130,7 +146,7 @@ def _compare_eeprom_fields(port_attrs, port_fields, source_label, key_mapping):
 
 def _validate_port_eeprom_dump(
     duthost, port, port_attrs, parse_wrapper, source_label, key_mapping,
-    namespace=None,
+    namespace=None, enforce_timeout=True,
 ):
     """Per-port EEPROM dump + timeout enforcement + field validation.
 
@@ -189,7 +205,9 @@ def _validate_port_eeprom_dump(
         return failures
 
     # Timeout enforcement (Generic expected result, per eeprom_test_plan.md).
-    if elapsed > timeout_sec:
+    # Skipped for the post-disruption recovery confirmation, where the first I2C
+    # read is legitimately slow while the driver settles.
+    if enforce_timeout and elapsed > timeout_sec:
         failures.append(
             f"{source_label} took {format(elapsed, '.2f')}s, exceeding "
             f"eeprom_dump_timeout_sec={timeout_sec}s"
@@ -204,7 +222,7 @@ def _validate_port_eeprom_dump(
 
 def _run_per_port_eeprom_check(
     duthost, port_attributes_dict, parse_wrapper, source_label, key_mapping,
-    lport_to_first_subport,
+    lport_to_first_subport, enforce_timeout=True,
 ):
     """Per-port (timed) check, used by the sfputil variant.
 
@@ -232,14 +250,13 @@ def _run_per_port_eeprom_check(
             logger.debug("Port %s has no attributes, skipping", port)
             continue
         if not is_first_subport(port, lport_to_first_subport):
-            logger.debug("Port %s is not the first breakout sub-port, skipping", port)
             continue
         namespace = duthost.get_namespace_from_asic_id(
             duthost.get_port_asic_instance(port).asic_index
         )
         port_failures = _validate_port_eeprom_dump(
             duthost, port, port_attrs, parse_wrapper, source_label, key_mapping,
-            namespace=namespace,
+            namespace=namespace, enforce_timeout=enforce_timeout,
         )
         if port_failures:
             all_failures.append(port + ":\n  " + "\n  ".join(port_failures))
@@ -266,7 +283,9 @@ def _validate_datapath_fields(port, port_attrs, cli_fields):
     return datapath.compare_datapath_fields(port_attrs, cli_fields, active_optical)
 
 
-def _run_bulk_eeprom_check(duthost, port_attributes_dict, source_label, key_mapping):
+def _run_bulk_eeprom_check(
+    duthost, port_attributes_dict, source_label, key_mapping, include_datapath=True,
+):
     """Bulk (all-sub-ports) check, used by the show-CLI variant.
 
     ``show interfaces transceiver info`` reads STATE_DB ``TRANSCEIVER_INFO``,
@@ -305,11 +324,116 @@ def _run_bulk_eeprom_check(duthost, port_attributes_dict, source_label, key_mapp
         port_failures = _compare_eeprom_fields(
             port_attrs, cli_fields, source_label, key_mapping,
         )
-        # Generic TC#4 step 4: dynamic DataPath fields (by module class).
-        port_failures += _validate_datapath_fields(port, port_attrs, cli_fields)
+        if include_datapath:
+            # Generic TC#4 step 4: dynamic DataPath fields (by module class).
+            port_failures += _validate_datapath_fields(port, port_attrs, cli_fields)
         if port_failures:
             all_failures.append(port + ":\n  " + "\n  ".join(port_failures))
     return all_failures
+
+
+def _select_target_attributes(port_attributes_dict, ports):
+    """Return ``port_attributes_dict`` restricted to ``ports`` (all if None)."""
+    if ports is None:
+        return port_attributes_dict
+    return {
+        port: port_attributes_dict[port]
+        for port in ports
+        if port in port_attributes_dict
+    }
+
+
+def _poll_bulk_recovery(duthost, target_attributes, key_mapping, wait_sec, label="content"):
+    """Poll the bulk show-CLI check until every target port's ``key_mapping``
+    fields match inventory or ``wait_sec`` elapses (``<= 0`` = single snapshot);
+    logs the still-failing count when it changes. Returns per-port failures.
+    """
+    def _bulk_check():
+        return _run_bulk_eeprom_check(
+            duthost,
+            target_attributes,
+            source_label="show interfaces transceiver info",
+            key_mapping=key_mapping,
+            include_datapath=False,
+        )
+
+    return poll_ports_recovered(
+        _bulk_check, wait_sec, _RECOVERY_POLL_INTERVAL_SEC, "EEPROM " + label)
+
+
+def verify_eeprom_static_recovered(
+    duthost,
+    port_attributes_dict,
+    lport_to_first_subport_mapping,
+    wait_sec,
+    ports=None,
+    live_i2c_confirm=True,
+    enforce_timeout=True,
+):
+    """Verify static EEPROM content recovered after a disruptive scenario.
+
+    Polls the bulk STATE_DB read across the settle window, then (when
+    ``live_i2c_confirm``) one live-I2C ``sfputil show eeprom`` confirmation pass.
+    Firmware and DataPath fields are excluded (scored separately).
+
+    Args:
+        wait_sec: max poll time; ``<= 0`` does a single snapshot check.
+        ports: optional subset of ``port_attributes_dict`` to verify.
+        live_i2c_confirm: run the live-I2C sfputil confirmation after the STATE_DB
+            read; skip it for a cheap baseline pre-check.
+        enforce_timeout: enforce the ``eeprom_dump_timeout_sec`` SLA on the
+            confirmation read (default True). Pass False for scenarios that
+            reload the driver (reboot / config reload / daemon restart), where
+            the first read is legitimately slow.
+
+    Returns:
+        list[str]: aggregated per-port failures, or ``[]`` once all recover.
+    """
+    target_attributes = _select_target_attributes(port_attributes_dict, ports)
+
+    # Poll the cheap bulk STATE_DB read across the settle window.
+    bulk_failures = _poll_bulk_recovery(
+        duthost, target_attributes, _STATIC_SHOW_CLI_KEY_TO_INV_KEY, wait_sec, label="static",
+    )
+    if bulk_failures or not live_i2c_confirm:
+        return bulk_failures
+
+    # One live-I2C confirmation pass: proves physical re-readability (a green
+    # STATE_DB alone can pass on content xcvrd re-published without a fresh read).
+    return _run_per_port_eeprom_check(
+        duthost,
+        target_attributes,
+        parse_wrapper=_parse_via_sfputil,
+        source_label="sfputil show eeprom -p <port>",
+        key_mapping=SFPUTIL_CLI_KEY_TO_INV_KEY,
+        lport_to_first_subport=lport_to_first_subport_mapping,
+        enforce_timeout=enforce_timeout,
+    )
+
+
+def verify_firmware_info_recovered(
+    duthost,
+    port_attributes_dict,
+    wait_sec,
+    ports=None,
+):
+    """Verify firmware versions recovered after a disruptive scenario.
+
+    Firmware (``TRANSCEIVER_FIRMWARE_INFO``) is republished by xcvrd's DOM thread
+    on a delayed cycle, so it recovers after the static content and is polled
+    with its own budget. Ports without firmware attributes are skipped.
+
+    Args:
+        wait_sec: max poll time; ``<= 0`` does a single snapshot check.
+        ports: optional subset of ``port_attributes_dict`` to verify.
+
+    Returns:
+        list[str]: aggregated per-port failures, or ``[]`` once all recover.
+    """
+    target_attributes = _select_target_attributes(port_attributes_dict, ports)
+    return _poll_bulk_recovery(
+        duthost, target_attributes, _FIRMWARE_CLI_KEY_TO_INV_KEY, wait_sec, label="firmware",
+    )
 
 
 # ---------------------------------------------------------------------------

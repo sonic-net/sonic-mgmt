@@ -13,7 +13,7 @@ operation and call every verifier — a refactor, not a rewrite.
 
 | Element | Contract |
 |---------|----------|
-| **Operation helper** | `perform_<op>(duthost, ...)` in `tests/transceiver/common/scenario_ops.py`, **wrapping** the existing repo helper (`tests/common/reboot.py::reboot`, `config_reload`). Never inline a reboot/reload/restart. |
+| **Operation helper** | `perform_<op>(duthost, ...)` in `tests/transceiver/common/scenario_ops.py`, **wrapping** the existing repo helper (`tests/common/reboot.py::reboot`, `config_reload`). Reboot operations also receive the pytest `localhost` fixture used by the repository helper to observe SSH loss/recovery. Never inline a reboot/reload/restart. |
 | **Verifier** | `verify_<feature>_recovered(duthost, ports=None, baseline=None)` — iterates ports under test (`port_attributes_dict` if applicable) and aggregates failures; `ports` scopes a subset; standalone so an orchestrator can call it after one operation. Asserts **only state the feature owns** (no link/flap checks in a content verifier). |
 | **Pre-check** | Assert the feature is healthy before the operation — reusing the parent's [session prerequisites](test_plan.md#common-session-level-prerequisites) / [health checks](test_plan.md#common-per-test-health-checks), not re-implementing presence/link/core checks — so a failure is attributable to the operation. |
 | **Baseline (optional)** | `capture_<feature>_baseline(duthost, ports=None)` — returns a per-port snapshot `{port: {...}}` (keyed like `port_attributes_dict`, feature-defined payload) that the matching verifier consumes for its relative comparison. Only for **relative** checks (deviation ranges, flap-count delta); absolute checks against `port_attributes_dict` need no baseline. |
