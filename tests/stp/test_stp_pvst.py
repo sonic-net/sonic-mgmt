@@ -421,13 +421,26 @@ class TestPvst(StpTestBase):
         default_priority = int(self._bridge_cfg(duthost, vlan_id).get("priority", "32768"))
 
         try:
-            pytest_assert(self.is_self_root(duthost, vlan_id),
-                          "precondition: DUT should be the root bridge")
+            # Reset the STP state machine before the self-loop exercise.
+            self.bounce_stp(duthost)
+            pytest_assert(
+                wait_until(60, 2, 0, lambda: self.is_self_root(duthost, vlan_id)),
+                "precondition: DUT should be the root bridge")
+            self.verify_stp_state(duthost, vlan_id, [dut_port_2], "FORWARDING")
 
+            # capture_port MUST equal replay_port. `supercedes_port_info()`
+            # (sonic-stp stp/stp.c) only reaches `self_loop = true` - the sole
+            # path to `make_blocking()` - when the received BPDU's port id
+            # compares EQUAL_TO the *receiving* port's `designated_port`. A BPDU
+            # captured on port_1 and replayed on port_2 carries port_1's id and
+            # can never satisfy that.
             self.run_bpdu(
                 ptfhost, duthost, "validate_backup_port",
                 {"vlan_id": vlan_id, "capture_port": ptf_port_2, "replay_port": ptf_port_2,
-                 "capture_duration": self.PKT_CAPTURE_DURATION, "replay_delay": 1},
+                 "capture_duration": self.PKT_CAPTURE_DURATION, "replay_delay": 1,
+                 # Replay one captured BPDU 20x at 0.4s - an 8s self-loop, long
+                 # enough for the BLOCKING transition to be observed.
+                 "replay_count": 20, "replay_interval": 0.4},
                 "/tmp/pvst_backup_port.log")
 
             self.verify_stp_state(duthost, vlan_id, [dut_port_2], self.BLOCK_STATE)

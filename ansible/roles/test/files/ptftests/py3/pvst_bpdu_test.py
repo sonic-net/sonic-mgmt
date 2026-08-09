@@ -709,47 +709,28 @@ class PvstBpduTest(BaseTest):
 
         self.logger.info(f"Replaying {len(bpdus_to_replay)} BPDU(s) on port {replay_port}")
 
+        # Replay the captured frame BYTE-FOR-BYTE with scapy, on the raw
+        # interface
+        replay_interface = "eth{}".format(replay_port)
+        replay_count = int(self.test_params.get('replay_count', 20))
+        replay_interval = float(self.test_params.get('replay_interval', 0.4))
+
         for i, bpdu_info in enumerate(bpdus_to_replay):
             try:
-                # Get the original packet
                 original_packet = bpdu_info['packet']
                 bpdu_data = bpdu_info['bpdu_data']
-
-                # Create new packet with proper PVST structure
-                new_packet = Ether(
-                    dst=original_packet.dst,
-                    src=original_packet.src,
-                    type=0x8100
-                ) / Dot1Q(
-                    vlan=bpdu_data.get('vlan_id', 1),
-                    type=self.BPDU_LEN  # Use length field for PVST
-                ) / Raw(original_packet.payload)
-
-                # Create a copy for replay
-                replay_packet = new_packet.copy()
-
-                # Send the BPDU on the replay port
-                testutils.send_packet(self, replay_port, replay_packet)
-                self.logger.info(f"Replayed BPDU {i+1}/{len(bpdus_to_replay)} on port {replay_port}")
-                self.logger.info(f"Replayed BPDU details: VLAN {bpdu_data.get('vlan_id', 'Unknown')}, "
-                                 f"Bridge Priority {bpdu_data.get('bridge_priority', 'Unknown')}")
-
-                # Small delay between BPDU replays
-                if i < len(bpdus_to_replay) - 1:
-                    time.sleep(1)
-
-            except Exception as e:
-                self.logger.warning(f"Failed to reconstruct packet with VLAN tag: {e}")
-                self.logger.info("Using original packet for replay")
                 replay_packet = original_packet.copy()
-                testutils.send_packet(self, replay_port, replay_packet)
-                self.logger.info(f"Replayed BPDU {i+1}/{len(bpdus_to_replay)} on port {replay_port}")
-                self.logger.info(f"Replayed BPDU details: VLAN {bpdu_data.get('vlan_id', 'Unknown')}, "
-                                 f"Bridge Priority {bpdu_data.get('bridge_priority', 'Unknown')}")
 
-                # Small delay between BPDU replays
-                if i < len(bpdus_to_replay) - 1:
-                    time.sleep(1)
+                self.logger.info(
+                    "Replaying BPDU %d/%d verbatim on %s: %d copies every %.2fs "
+                    "(len=%d, VLAN %s, bridge priority %s)"
+                    % (i + 1, len(bpdus_to_replay), replay_interface, replay_count,
+                       replay_interval, len(bytes(replay_packet)),
+                       bpdu_data.get('vlan_id', 'Unknown'),
+                       bpdu_data.get('bridge_priority', 'Unknown')))
+
+                scapy2.sendp(replay_packet, iface=replay_interface,
+                             count=replay_count, inter=replay_interval, verbose=0)
 
             except Exception as e:
                 self.logger.error(f"Error replaying BPDU {i+1}: {e}")
