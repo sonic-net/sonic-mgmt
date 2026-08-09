@@ -29,6 +29,21 @@ _KIND_ORDER = {"apl": 0, "grp": 1, "eni": 2, "map": 3}
 _TRANSIENT_GNMI_MARKERS = ("unavailable", "socket closed", "failed to connect",
                            "error reading server preface", "connection reset")
 
+# Per-retry readiness wait: bounds worst-case retry time so a dead server can't stall the job.
+_RETRY_READY_TIMEOUT = 60
+
+# Redacts a password if the client ever echoes its argv/env/Namespace into stdout or stderr.
+_SECRET_HINT_RE = re.compile(r"((?:--password|-p|GNMI_PASSWORD|password)['\"]?\s*[=: ]\s*['\"]?)[^\s'\",)]+")
+
+
+def _scrub_secrets(text, secret=None):
+    # Redact *secret* and any -p/--password/GNMI_PASSWORD=<value> form from *text* before it is logged.
+    if not text:
+        return text
+    if secret:
+        text = text.replace(secret, "***")
+    return _SECRET_HINT_RE.sub(r"\1***", text)
+
 
 def parse_file_index(filename):
     # Return (index:int, kind:str) for a rendered config file, or (None, None).
@@ -345,33 +360,44 @@ def _prepare_gnmi(localhost, duthost, dpuhost, config_dir, creds, action="push")
             "tls_prefix": tls_prefix, "tls_paths": tls_paths}
 
 
-def _apply_gnmi_file(localhost, conn, cfg_path, creds, attempts=8):
+def _apply_gnmi_file(localhost, conn, cfg_path, creds, attempts=8, deadline=None):
     # Run gnmi_client update -f cfg_path; retry only on transient errors (no per-file pre-probe).
     # File OP drives SET/DEL.
     ip, port, tls_paths = conn["ip"], conn["port"], conn["tls_paths"]
-    gnmi_user, gnmi_pass = shlex.quote(creds["sonicadmin_user"]), shlex.quote(creds["sonicadmin_password"])
-    cmd = (f"cd {conn['extracted_dir']} && {conn['tls_prefix']}PYTHONPATH=. python3 gnmi_client.py"
+    secret = creds["sonicadmin_password"]
+    # Credentials go through the environment, never argv: argv is world-readable via /proc/<pid>/cmdline.
+    cmd = (f"cd {conn['extracted_dir']} && {conn['tls_prefix']}"
+           f"GNMI_USERNAME={shlex.quote(creds['sonicadmin_user'])} GNMI_PASSWORD={shlex.quote(secret)}"
+           f" PYTHONPATH=. python3 gnmi_client.py"
            f" --batch_val {_BATCH_VAL} -l warning -t {ip}:{port} -i {conn['dpu_index']} -n 8"  # noqa: E231
-           f" -u {gnmi_user} -p {gnmi_pass} update -f {cfg_path}")
+           f" update -f {cfg_path}")
     rc, stderr, stdout = -1, "", ""
     for _ in range(attempts):
-        out = localhost.shell(cmd, module_ignore_errors=True)
-        rc, stderr, stdout = out.get("rc", -1), out.get("stderr", "") or "", out.get("stdout", "") or ""
+        # verbose=False keeps the secret-bearing command and its result out of the ansible debug log.
+        out = localhost.shell(cmd, module_ignore_errors=True, verbose=False)
+        rc = out.get("rc", -1)
+        stderr, stdout = _scrub_secrets(out.get("stderr", "") or "", secret), \
+            _scrub_secrets(out.get("stdout", "") or "", secret)
         if rc == 0 or not any(m in stderr.lower() for m in _TRANSIENT_GNMI_MARKERS):
             break
-        _wait_gnmi_ready(localhost, ip, port, tls_paths=tls_paths)
+        if deadline is not None and time.time() >= deadline:
+            logger.error("  giving up retrying %s — test time budget exhausted", os.path.basename(cfg_path))
+            break
+        _wait_gnmi_ready(localhost, ip, port, timeout=_RETRY_READY_TIMEOUT, tls_paths=tls_paths)
     return rc, stderr, stdout
 
 
 def load_config_via_gnmi(localhost, duthost, dpuhost, config_dir, files,
-                         creds, timings=None, mem_timeline=None, mem_every=1):
+                         creds, timings=None, mem_timeline=None, mem_every=1, timeout=None):
     # [WIP] Push DASH config (apl->grp->eni->map) via gNMI; times each file, samples mem every mem_every files.
+    # timeout (secs) caps the whole push so retries on a wedged server can't run away; None = unbounded.
     # Returns counts {landed (DBSIZE delta), expected_total, per_table (SET ops sent), db_before/after}.
     if timings is None:
         timings = {}
     if mem_timeline is None:
         mem_timeline = []
     mem_every = max(1, int(mem_every))
+    deadline = (time.time() + timeout) if timeout else None
     conn = _prepare_gnmi(localhost, duthost, dpuhost, config_dir, creds, action="push")
 
     db_before = dpuhost.shell("sonic-db-cli DPU_APPL_DB DBSIZE", module_ignore_errors=True)
@@ -390,11 +416,17 @@ def load_config_via_gnmi(localhost, duthost, dpuhost, config_dir, files,
 
     push_errors = []
     for idx, (filename, op_count, tables) in enumerate(file_info, start=1):
+        if deadline is not None and time.time() >= deadline:
+            push_errors.append("aborted after %d/%d files: push exceeded the %ds time budget"
+                               % (idx - 1, len(file_info), timeout))
+            logger.error("  [%d/%d] aborting push — %ds time budget exhausted", idx, len(files), timeout)
+            break
         summary = ", ".join("%s:%dS/%dD" % (t, tables[t]["SET"], tables[t]["DEL"]) for t in sorted(tables))
         logger.info("  [%d/%d] pushing %s (%d ops: %s) ...", idx, len(files), filename, op_count, summary)
 
         t_start = time.time()
-        rc, stderr, stdout = _apply_gnmi_file(localhost, conn, os.path.join(config_dir, filename), creds)
+        rc, stderr, stdout = _apply_gnmi_file(localhost, conn, os.path.join(config_dir, filename), creds,
+                                              deadline=deadline)
         elapsed = time.time() - t_start
         timings[filename] = elapsed
 
@@ -402,6 +434,7 @@ def load_config_via_gnmi(localhost, duthost, dpuhost, config_dir, files,
                   "error string in output" if any(s in stderr for s in ("Traceback", "RpcError", "Set failed"))
                   else "")
         if reason:
+            # stderr/stdout are already scrubbed of credentials by _apply_gnmi_file.
             logger.error("  [%d/%d] FAILED %s after %.2fs — %s\n  output (tail): %s",
                          idx, len(files), filename, elapsed, reason, (stderr or stdout)[-3000:])
             push_errors.append("%s: %s" % (filename, reason))
@@ -442,9 +475,10 @@ def load_config_via_gnmi(localhost, duthost, dpuhost, config_dir, files,
     return counts
 
 
-def cleanup_config_via_gnmi(localhost, duthost, dpuhost, config_dir, files, creds, mode="precise"):
+def cleanup_config_via_gnmi(localhost, duthost, dpuhost, config_dir, files, creds, mode="precise", timeout=None):
     # [WIP] Restore DPU state. mode="flushdb": one FLUSHDB (instant, wipes ALL keys, dedicated DPU only).
     # mode="precise": gNMI DELETE each file in reverse via sibling *.del.json (safe on shared DPU, ~as slow as push).
+    # timeout (secs) caps the precise-mode delete loop; None = unbounded.
     if mode == "flushdb":
         db_before = dpuhost.shell("sonic-db-cli DPU_APPL_DB DBSIZE", module_ignore_errors=True)
         res = dpuhost.shell("sonic-db-cli DPU_APPL_DB FLUSHDB", module_ignore_errors=True)
@@ -459,8 +493,14 @@ def cleanup_config_via_gnmi(localhost, duthost, dpuhost, config_dir, files, cred
                                            -_KIND_ORDER.get(parse_file_index(f)[1], 9)))
     print("Cleanup: deleting %d pushed config file(s) to restore DPU state ..." % len(ordered))
     db_before = dpuhost.shell("sonic-db-cli DPU_APPL_DB DBSIZE", module_ignore_errors=True)
+    deadline = (time.time() + timeout) if timeout else None
     errors = 0
     for idx, filename in enumerate(ordered, start=1):
+        if deadline is not None and time.time() >= deadline:
+            errors += 1
+            print("  cleanup aborted after %d/%d file(s): exceeded the %ds time budget"
+                  % (idx - 1, len(ordered), timeout))
+            break
         src_path = os.path.join(config_dir, filename)
         del_path = (src_path[:-5] if filename.endswith(".json") else src_path) + ".del.json"
         try:
@@ -475,7 +515,7 @@ def cleanup_config_via_gnmi(localhost, duthost, dpuhost, config_dir, files, cred
             logger.warning("  cleanup [%d/%d] build DEL file failed %s: %s", idx, len(ordered), filename, e)
             print("  cleanup [%d/%d] %-40s  SKIP(build)" % (idx, len(ordered), filename))
             continue
-        rc, stderr, stdout = _apply_gnmi_file(localhost, conn, del_path, creds, attempts=5)
+        rc, stderr, stdout = _apply_gnmi_file(localhost, conn, del_path, creds, attempts=5, deadline=deadline)
         ok = rc == 0 and "Traceback" not in stderr and "RpcError" not in stderr
         if not ok:
             errors += 1

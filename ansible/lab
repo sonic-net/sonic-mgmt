@@ -76,11 +76,11 @@ all:
         ptf_keysight-nss01:
           ansible_host: 172.17.0.1
           ansible_port: 2222
-          ansible_ssh_pass: pass
+          ansible_ssh_pass: CHANGEME
         ptf_keysight-css01:
           ansible_host: 172.17.0.1
           ansible_port: 2222
-          ansible_ssh_pass: pass
+          ansible_ssh_pass: CHANGEME
 
 sonic_sn2700_40:
   vars:
@@ -345,6 +345,8 @@ sonic_vnut:
       num_asics: 1
 
 # ─── Keysight SmartSwitch lab ────────────────────────────────────────────────
+# All credentials below are non-functional placeholders: replace CHANGEME with your
+# own values locally, or better, supply them as ansible-vault encrypted vars.
 
 # ── Nvidia SmartSwitch (SN4280, 4 DPUs) ──
 sonic_nvidia_smartswitch:
@@ -352,8 +354,8 @@ sonic_nvidia_smartswitch:
     hwsku: Mellanox-SN4280-O28
     iface_speed: 400000
     ansible_ssh_user: admin
-    ansible_ssh_pass: pass
-    ansible_altpassword: pass
+    ansible_ssh_pass: CHANGEME
+    ansible_altpassword: CHANGEME
   hosts:
     keysight-nss01:
       ansible_host: 10.36.78.150
@@ -364,8 +366,8 @@ sonic_cisco_smartswitch:
     hwsku: Cisco-8102-28FH-DPU-O
     iface_speed: 400000
     ansible_ssh_user: admin
-    ansible_ssh_pass: pass
-    ansible_altpassword: pass
+    ansible_ssh_pass: CHANGEME
+    ansible_altpassword: CHANGEME
   hosts:
     keysight-css01:
       ansible_host: 10.36.77.121
@@ -379,8 +381,8 @@ sonic_cisco_smartswitch:
 sonic_nvidia_dpu:
   vars:
     ansible_ssh_user: admin
-    ansible_ssh_pass: pass
-    ansible_altpassword: pass
+    ansible_ssh_pass: CHANGEME
+    ansible_altpassword: CHANGEME
   hosts:
     keysight-nss01-dpu0:
       ansible_host: 10.36.78.150    # NPU IP — DPU reached via NAT port-forward
@@ -393,8 +395,8 @@ sonic_nvidia_dpu:
 sonic_amd_dpu:
   vars:
     ansible_ssh_user: admin
-    ansible_ssh_pass: pass
-    ansible_altpassword: pass
+    ansible_ssh_pass: CHANGEME
+    ansible_altpassword: CHANGEME
   hosts:
     keysight-css01-dpu0:
       ansible_host: 10.36.77.121    # NPU IP — DPU reached via NAT port-forward
@@ -407,4 +409,4 @@ server_keysight:
     sonic-mgmt-keysight:
       ansible_host: 10.36.79.161
       ansible_user: dash
-      ansible_ssh_pass: "pass"
+      ansible_ssh_pass: CHANGEME
