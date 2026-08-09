@@ -765,7 +765,7 @@ def try_create_dut_console(duthost, localhost, conn_graph_facts, creds, cancel_e
     return dut_console
 
 
-def collect_console_log(duthost, localhost, cancel_event=None):
+def collect_console_log(duthost, localhost):
     """
     Collect console log during reboot.
 
@@ -774,9 +774,6 @@ def collect_console_log(duthost, localhost, cancel_event=None):
     Args:
         duthost: DUT host object
         localhost: localhost object
-        cancel_event: optional threading.Event the caller sets right before it
-            reboots the DUT. Once set, the console connection stops writing to the
-            DUT serial line so a late CR cannot interrupt bootloader autoboot.
 
     Returns:
         Authenticated ConsoleHost object

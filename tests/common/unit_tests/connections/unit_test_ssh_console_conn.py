@@ -536,13 +536,10 @@ def test_session_preparation_defers_when_bootloader_only_in_initial_read():
 
 
 # ---------------------------------------------------------------------------
-# Cancel-event tests: once the reboot has started, the console worker must stop
-# writing to the DUT serial line. reboot.py runs collect_console_log() via
-# pool.apply_async().get(timeout=10); that timeout does NOT cancel the underlying
-# ThreadPool task, so a worker still preparing its session could send a late CR
-# into the bootloader autoboot window and trap the DUT -- the exact race this
-# guards. reboot.py sets a threading.Event right before rebooting; SSHConsoleConn
-# refuses every write_channel() once it is set.
+# Cancel-event tests: callers that prepare a console asynchronously can set the
+# event before rebooting so a worker still preparing its session cannot send a
+# late CR into the bootloader autoboot window. SSHConsoleConn refuses every
+# write_channel() once the event is set.
 # ---------------------------------------------------------------------------
 
 
