@@ -32,17 +32,18 @@ _TRANSIENT_GNMI_MARKERS = ("unavailable", "socket closed", "failed to connect",
 # Per-retry readiness wait; short so 8 retries on a dead server can't stall a file for over an hour.
 _RETRY_READY_TIMEOUT = 60
 
-# Redacts a password if the client ever echoes its argv/env/Namespace into stdout or stderr.
+# Redacts a password if the client ever echoes its env/argv/Namespace into stdout or stderr.
+# Pattern-only by design: the credential is never passed in, so no secret can flow to a log sink.
 _SECRET_HINT_RE = re.compile(r"((?:--password|-p|GNMI_PASSWORD|password)['\"]?\s*[=: ]\s*['\"]?)[^\s'\",)]+")
+# Matches the list-repr form a sys.argv dump produces, e.g. ['gnmi_client.py', '-p', 'secret'].
+_SECRET_LIST_RE = re.compile(r"(['\"](?:-p|--password)['\"]\s*,\s*['\"])[^'\"]+")
 
 
-def _scrub_secrets(text, secret=None):
-    # Redact *secret* and any -p/--password/GNMI_PASSWORD=<value> form from *text* before it is logged.
+def _scrub_secrets(text):
+    # Redact any -p/--password/GNMI_PASSWORD=<value> form from *text* before it is logged.
     if not text:
         return text
-    if secret:
-        text = text.replace(secret, "***")
-    return _SECRET_HINT_RE.sub(r"\1***", text)
+    return _SECRET_HINT_RE.sub(r"\1***", _SECRET_LIST_RE.sub(r"\1***", text))
 
 
 def parse_file_index(filename):
@@ -364,10 +365,10 @@ def _apply_gnmi_file(localhost, conn, cfg_path, creds, attempts=8):
     # Run gnmi_client update -f cfg_path; retry only on transient errors (no per-file pre-probe).
     # File OP drives SET/DEL.
     ip, port, tls_paths = conn["ip"], conn["port"], conn["tls_paths"]
-    secret = creds["sonicadmin_password"]
     # Credentials go through the environment, never argv: argv is world-readable via /proc/<pid>/cmdline.
     cmd = (f"cd {conn['extracted_dir']} && {conn['tls_prefix']}"
-           f"GNMI_USERNAME={shlex.quote(creds['sonicadmin_user'])} GNMI_PASSWORD={shlex.quote(secret)}"
+           f"GNMI_USERNAME={shlex.quote(creds['sonicadmin_user'])}"
+           f" GNMI_PASSWORD={shlex.quote(creds['sonicadmin_password'])}"
            f" PYTHONPATH=. python3 gnmi_client.py"
            f" --batch_val {_BATCH_VAL} -l warning -t {ip}:{port} -i {conn['dpu_index']} -n 8"  # noqa: E231
            f" update -f {cfg_path}")
@@ -376,8 +377,7 @@ def _apply_gnmi_file(localhost, conn, cfg_path, creds, attempts=8):
         # verbose=False keeps the secret-bearing command and its result out of the ansible debug log.
         out = localhost.shell(cmd, module_ignore_errors=True, verbose=False)
         rc = out.get("rc", -1)
-        stderr, stdout = _scrub_secrets(out.get("stderr", "") or "", secret), \
-            _scrub_secrets(out.get("stdout", "") or "", secret)
+        stderr, stdout = _scrub_secrets(out.get("stderr", "") or ""), _scrub_secrets(out.get("stdout", "") or "")
         if rc == 0 or not any(m in stderr.lower() for m in _TRANSIENT_GNMI_MARKERS):
             break
         _wait_gnmi_ready(localhost, ip, port, timeout=_RETRY_READY_TIMEOUT, tls_paths=tls_paths)
