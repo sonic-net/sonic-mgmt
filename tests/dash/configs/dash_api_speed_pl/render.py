@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-# Jinja2 generator for DASH Private-Link config (same JSON as dpugen/dash.py).
-# CLI: python render.py [-o out] [-p params]; templates in templates/.
+# Jinja2 generator for DASH Private-Link config (same JSON as dpugen/dash.py); templates in templates/.
 
 import argparse
 import hashlib
@@ -15,9 +14,7 @@ from multiprocessing import Pool, cpu_count
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 
-# ============================================================================
-#  Default parameters  (mirrors dpugen/dflt_params.py)
-# ============================================================================
+# ── Default parameters  (mirrors dpugen/dflt_params.py) ──
 DEFAULTS = {
     'LOOPBACK':          '221.0.0.1',
     'PAL':               '221.1.0.0',
@@ -48,9 +45,7 @@ DEFAULTS = {
 }
 
 
-# ============================================================================
-#  Conversion helpers
-# ============================================================================
+# ── Conversion helpers ──
 def ip2int(s):
     # IPv4 string -> 32-bit integer.
     return int(ipaddress.ip_address(s))
@@ -61,9 +56,7 @@ def mac2int(s):
     return int(s.replace(':', ''), 16)
 
 
-# ============================================================================
-#  Jinja2 custom filters
-# ============================================================================
+# ── Jinja2 custom filters ──
 def filt_ipv4(n):
     # Integer -> IPv4 string: 0x01040001 -> '1.4.0.1'
     return socket.inet_ntoa(struct.pack('>I', int(n)))
@@ -96,9 +89,7 @@ def mac_str(n):
     return ':'.join(h[i:i + 2] for i in range(0, 12, 2))
 
 
-# ============================================================================
-#  Outbound-route computation (port of dpugen/dashgen/dash_route_table.py)
-# ============================================================================
+# ── Outbound-route computation (port of dpugen/dashgen/dash_route_table.py) ──
 def _pick_block_mix(ips, target):
     # Return [(block_bits, count), ...] tiling `ips` into blocks summing to `target` routes.
     for bb in range(1, 17):
@@ -199,9 +190,7 @@ def compute_outbound_routes(ip_r_start_eni, eni_index, params, total_outbound_ro
         yield entry
 
 
-# ============================================================================
-#  Template environment
-# ============================================================================
+# ── Template environment ──
 def make_env():
     tpl_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'templates')
     env = Environment(
@@ -217,9 +206,7 @@ def make_env():
     return env
 
 
-# ============================================================================
-#  File-generation workers  (picklable for multiprocessing)
-# ============================================================================
+# ── File-generation workers  (picklable for multiprocessing) ──
 def _postprocess(content):
     # Match compact_json formatting: trailing space after line-ending commas, CRLF.
     lines = content.split('\n')
@@ -278,9 +265,7 @@ def _render_map(args):
     return path
 
 
-# ============================================================================
-#  Main orchestrator
-# ============================================================================
+# ── Main orchestrator ──
 def generate(params, output_dir, prefix='pl_100'):
     p = params
     dpus = p['DPUS']
@@ -362,8 +347,7 @@ def generate(params, output_dir, prefix='pl_100'):
                 'r_vni_id':           r_vni,
                 'vtep_remote':        filt_ipv4(eni_par),
                 'eni_hex':            eni_hex,
-                # Bluefield: CA2PA overlay SIP mask must be bits 80-112 (wide /96 rejected);
-                # use 1:ffff:ffff:: (sonic-mgmt#23765).
+                # Bluefield rejects a wide /96 CA2PA overlay SIP mask; use 1:ffff:ffff:: (sonic-mgmt#23765).
                 'overlay_sip_prefix': f'1:100:{eni_hex}::'  # noqa: E231
                                       f'/1:ffff:ffff::',  # noqa: E231,E131
                 'ip_r_start':         eni_ip_r,
@@ -394,9 +378,7 @@ def generate(params, output_dir, prefix='pl_100'):
     print('Done.', file=sys.stderr)
 
 
-# ============================================================================
-#  CLI
-# ============================================================================
+# ── CLI ──
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='Generate DASH Private-Link configs via Jinja2 templates')

@@ -46,14 +46,10 @@ The push uses the extracted native gNMI client at
 `GNMI_AGENT_EXTRACTED_DIR` in `dash_api_speed_common.py` — update it (and drop
 the `.gitignore` entry) when the agent is packaged into the repo.
 
-**Credential contract:** the test passes the gNMI username/password to
-`gnmi_client.py` through the `GNMI_USERNAME` / `GNMI_PASSWORD` environment
-variables, never on the command line. The client's `-u` / `-p` flags still
-exist but default to those env vars; do not use `-p` from automation, because
-argv is readable by any local user via `/proc/<pid>/cmdline`. The test also
-runs the push with `verbose=False` (keeps the command out of the ansible debug
-log) and scrubs credential-looking patterns out of client output before
-logging a failure tail.
+**Credential contract:** credentials reach `gnmi_client.py` via `GNMI_USERNAME` /
+`GNMI_PASSWORD`, never on the command line — `-u` / `-p` still exist but default to
+those env vars, and argv is world-readable via `/proc/<pid>/cmdline`. The push also
+runs with `verbose=False` and scrubs password patterns from client output before logging.
 
 ---
 

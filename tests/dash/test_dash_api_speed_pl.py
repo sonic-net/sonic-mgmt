@@ -1,5 +1,4 @@
-# DASH API load-speed test: render per-ENI private-link config, push via gNMI, report per-ENI/total time + memory.
-# Scale via OVERRIDE_* below; see test_dash_api_speed_pl.md.
+# DASH API load-speed test: render per-ENI PL config, push via gNMI, report time + memory; see the .md.
 import fnmatch
 import importlib.util
 import logging
@@ -46,7 +45,7 @@ pytestmark = [
     pytest.mark.skip_check_dut_health,
     pytest.mark.disable_loganalyzer,
     pytest.mark.sanity_check(skip_sanity=True),
-    # ~34 min push + ~34 min cleanup at 64 ENIs; cap the job so retries can't run away.
+    # 64 ENIs is ~34 min push + ~34 min cleanup; caps a runaway retry loop.
     pytest.mark.timeout(5400),
 ]
 
@@ -60,8 +59,7 @@ def _resolve_scale(npu_hwsku):
 
 
 def _build_render_params(eni_count, mapping_count, route_count):
-    # Map per-ENI scale knobs onto render.DEFAULTS for one DPU; print actual map/route counts.
-    # Decomposition may under-shoot; return params.
+    # Map per-ENI scale knobs onto render.DEFAULTS for one DPU; decomposition may under-shoot.
     p = dict(render.DEFAULTS)
     p["DPUS"] = 1
     p["ENI_COUNT"] = eni_count
@@ -82,7 +80,7 @@ def _build_render_params(eni_count, mapping_count, route_count):
 
 
 def _assert_programmed(counts, eni_count):
-    # Require exact: landed (DBSIZE delta) == sent SET ops (no KEYS scan; load polls for async-commit settle first).
+    # Require exact: landed (DBSIZE delta) == sent SET ops; load already polled for async-commit settle.
     landed = counts.get("landed", 0)
     expected = counts.get("expected_total", 0)
     per_table = counts.get("per_table", {})
@@ -121,7 +119,7 @@ def test_dash_api_speed_pl(localhost, duthost, dpuhosts, dpu_index, creds):
     render.generate(params, render_output_dir, prefix="pl_100")
     render_elapsed = time.time() - render_start
 
-    # render always emits "dpu0" (DPUS=1); the push targets real hardware via the client's -i <dpu_index>.
+    # render always emits "dpu0" (DPUS=1); the client's -i <dpu_index> targets real hardware.
     config_dir = os.path.join(render_output_dir, "dpu0")
     assert os.path.isdir(config_dir), f"Config directory not found after render: {config_dir}"
     files = sorted(f for f in os.listdir(config_dir) if fnmatch.fnmatch(f, "*dpu0*.json"))

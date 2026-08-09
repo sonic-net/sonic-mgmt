@@ -345,8 +345,7 @@ sonic_vnut:
       num_asics: 1
 
 # ─── Keysight SmartSwitch lab ────────────────────────────────────────────────
-# All credentials below are non-functional placeholders: replace CHANGEME with your
-# own values locally, or better, supply them as ansible-vault encrypted vars.
+# CHANGEME credentials are non-functional placeholders; prefer ansible-vault encrypted vars.
 
 # ── Nvidia SmartSwitch (SN4280, 4 DPUs) ──
 sonic_nvidia_smartswitch:

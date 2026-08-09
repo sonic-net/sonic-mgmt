@@ -1,5 +1,4 @@
-# Helpers for test_dash_api_speed_pl: gNMI config push/cleanup + memory reporting.
-# No dataplane pre-config; see the .md.
+# Helpers for test_dash_api_speed_pl: gNMI config push/cleanup + memory reporting; see the .md.
 import json
 import logging
 import os
@@ -29,18 +28,14 @@ _KIND_ORDER = {"apl": 0, "grp": 1, "eni": 2, "map": 3}
 _TRANSIENT_GNMI_MARKERS = ("unavailable", "socket closed", "failed to connect",
                            "error reading server preface", "connection reset")
 
-# Per-retry readiness wait; short so 8 retries on a dead server can't stall a file for over an hour.
-_RETRY_READY_TIMEOUT = 60
+_RETRY_READY_TIMEOUT = 60  # short, so 8 retries on a dead server can't stall one file for an hour
 
-# Redacts a password if the client ever echoes its env/argv/Namespace into stdout or stderr.
-# Pattern-only by design: the credential is never passed in, so no secret can flow to a log sink.
+# Redact password forms the client might echo; no credential is passed in, so none can leak here.
 _SECRET_HINT_RE = re.compile(r"((?:--password|-p|GNMI_PASSWORD|password)['\"]?\s*[=: ]\s*['\"]?)[^\s'\",)]+")
-# Matches the list-repr form a sys.argv dump produces, e.g. ['gnmi_client.py', '-p', 'secret'].
-_SECRET_LIST_RE = re.compile(r"(['\"](?:-p|--password)['\"]\s*,\s*['\"])[^'\"]+")
+_SECRET_LIST_RE = re.compile(r"(['\"](?:-p|--password)['\"]\s*,\s*['\"])[^'\"]+")  # sys.argv list repr
 
 
 def _scrub_secrets(text):
-    # Redact any -p/--password/GNMI_PASSWORD=<value> form from *text* before it is logged.
     if not text:
         return text
     return _SECRET_HINT_RE.sub(r"\1***", _SECRET_LIST_RE.sub(r"\1***", text))
@@ -52,9 +47,7 @@ def parse_file_index(filename):
     return (int(m.group(1)), m.group(2)) if m else (None, None)
 
 
-# ============================================================================
-#  Memory accounting
-# ============================================================================
+# ── Memory accounting ──
 def _parse_mem_str(mem_str):
     # Parse a docker memory string ('512MiB', '1.5GiB', '256kB') into MiB.
     m = re.match(r"([\d.]+)\s*(B|kB|MiB|GiB|TiB)", mem_str.strip())
@@ -227,9 +220,7 @@ def _print_results(timings, total_elapsed, mem_before, mem_after,
     print(sep)
 
 
-# ============================================================================
-#  Config inspection
-# ============================================================================
+# ── Config inspection ──
 def _count_json_operations(filepath):
     # Return (op_count, {table: {SET, DEL}}) for a config JSON file.
     with open(filepath) as f:
@@ -253,9 +244,7 @@ def _db_int(shell_result):
         return 0
 
 
-# ============================================================================
-#  gNMI transport detection + readiness
-# ============================================================================
+# ── gNMI transport detection + readiness ──
 def _detect_server_tls(duthost, env):
     # Return 'notls'/'tls'/'mtls' from the running telemetry process flags (CONFIG_DB certs often empty).
     out = duthost.shell(
@@ -326,9 +315,7 @@ def _wait_gnmi_ready(localhost, ip, port, timeout=600, interval=5, tls_paths=Non
     return False
 
 
-# ============================================================================
-#  gNMI push / cleanup
-# ============================================================================
+# ── gNMI push / cleanup ──
 def _prepare_gnmi(localhost, duthost, dpuhost, config_dir, creds, action="push"):
     # Resolve gNMI target+transport, stage TLS certs, wait for readiness; returns a conn dict.
     env = GNMIEnvironment(duthost)
@@ -355,17 +342,15 @@ def _prepare_gnmi(localhost, duthost, dpuhost, config_dir, creds, action="push")
                 mode.upper() if tls_paths else "plaintext")
 
     _wait_gnmi_ready(localhost, ip, port, tls_paths=tls_paths)
-    # Credentials are deliberately NOT stored in this dict; they are passed separately to
-    # _apply_gnmi_file so the secret never co-mingles with fields (ip/port) that get logged.
+    # No credentials here on purpose: this dict holds fields (ip/port) that do get logged.
     return {"ip": ip, "port": port, "dpu_index": dpu_index, "extracted_dir": extracted_dir,
             "tls_prefix": tls_prefix, "tls_paths": tls_paths}
 
 
 def _apply_gnmi_file(localhost, conn, cfg_path, creds, attempts=8):
-    # Run gnmi_client update -f cfg_path; retry only on transient errors (no per-file pre-probe).
-    # File OP drives SET/DEL.
+    # Run gnmi_client update -f cfg_path, retrying only transient errors; the file OP drives SET/DEL.
     ip, port, tls_paths = conn["ip"], conn["port"], conn["tls_paths"]
-    # Credentials go through the environment, never argv: argv is world-readable via /proc/<pid>/cmdline.
+    # Credentials via env, never argv: /proc/<pid>/cmdline is world-readable.
     cmd = (f"cd {conn['extracted_dir']} && {conn['tls_prefix']}"
            f"GNMI_USERNAME={shlex.quote(creds['sonicadmin_user'])}"
            f" GNMI_PASSWORD={shlex.quote(creds['sonicadmin_password'])}"
@@ -374,7 +359,7 @@ def _apply_gnmi_file(localhost, conn, cfg_path, creds, attempts=8):
            f" update -f {cfg_path}")
     rc, stderr, stdout = -1, "", ""
     for _ in range(attempts):
-        # verbose=False keeps the secret-bearing command and its result out of the ansible debug log.
+        # verbose=False keeps the credential-bearing command out of the ansible debug log.
         out = localhost.shell(cmd, module_ignore_errors=True, verbose=False)
         rc = out.get("rc", -1)
         stderr, stdout = _scrub_secrets(out.get("stderr", "") or ""), _scrub_secrets(out.get("stdout", "") or "")
@@ -386,8 +371,7 @@ def _apply_gnmi_file(localhost, conn, cfg_path, creds, attempts=8):
 
 def load_config_via_gnmi(localhost, duthost, dpuhost, config_dir, files,
                          creds, timings=None, mem_timeline=None, mem_every=1):
-    # [WIP] Push DASH config (apl->grp->eni->map) via gNMI; times each file, samples mem every mem_every files.
-    # Returns counts {landed (DBSIZE delta), expected_total, per_table (SET ops sent), db_before/after}.
+    # [WIP] Push config (apl->grp->eni->map) via gNMI; returns {landed, expected_total, per_table, db_before/after}.
     if timings is None:
         timings = {}
     if mem_timeline is None:
@@ -423,7 +407,7 @@ def load_config_via_gnmi(localhost, duthost, dpuhost, config_dir, files,
                   "error string in output" if any(s in stderr for s in ("Traceback", "RpcError", "Set failed"))
                   else "")
         if reason:
-            # stderr/stdout are already scrubbed of credentials by _apply_gnmi_file.
+            # Tail is already credential-scrubbed by _apply_gnmi_file.
             logger.error("  [%d/%d] FAILED %s after %.2fs — %s\n  output (tail): %s",
                          idx, len(files), filename, elapsed, reason, (stderr or stdout)[-3000:])
             push_errors.append("%s: %s" % (filename, reason))
@@ -431,7 +415,7 @@ def load_config_via_gnmi(localhost, duthost, dpuhost, config_dir, files,
             logger.info("  [%d/%d] done %s %.2fs rc=%d", idx, len(files), filename, elapsed, rc)
         print("  [%d/%d] %-40s  %6.2fs  %s" % (idx, len(files), filename, elapsed, "FAIL" if reason else "ok"))
 
-        # Sample free -m every mem_every files (always on the last); it's pure SSH overhead (~130s at 32-ENI).
+        # Sample every mem_every files (and the last); pure SSH overhead, ~130s at 32-ENI.
         if idx % mem_every == 0 or idx == len(file_info):
             try:
                 npu, dpu = _collect_free_memory(duthost), _collect_free_memory(dpuhost)
@@ -443,9 +427,7 @@ def load_config_via_gnmi(localhost, duthost, dpuhost, config_dir, files,
             except Exception:
                 logger.debug("  [%d/%d] mem snapshot failed (non-fatal)", idx, len(files))
 
-    # Verify via DBSIZE delta (O(1)), not KEYS (blocks redis on large keyspaces).
-    # Poll until the delta reaches the sent SET count (async commit may lag the push) or timeout.
-    # _assert_programmed requires exact equality.
+    # Verify by DBSIZE delta, not KEYS (blocks redis); poll until it reaches the sent SET count or times out.
     before_n = _db_int(db_before)
     deadline = time.time() + _VERIFY_SETTLE_SECS
     while True:
@@ -465,8 +447,7 @@ def load_config_via_gnmi(localhost, duthost, dpuhost, config_dir, files,
 
 
 def cleanup_config_via_gnmi(localhost, duthost, dpuhost, config_dir, files, creds, mode="precise"):
-    # [WIP] Restore DPU state. mode="flushdb": one FLUSHDB (instant, wipes ALL keys, dedicated DPU only).
-    # mode="precise": gNMI DELETE each file in reverse via sibling *.del.json (safe on shared DPU, ~as slow as push).
+    # [WIP] Restore DPU state: "flushdb" wipes ALL keys (dedicated DPU only); "precise" gNMI-DELETEs each file.
     if mode == "flushdb":
         db_before = dpuhost.shell("sonic-db-cli DPU_APPL_DB DBSIZE", module_ignore_errors=True)
         res = dpuhost.shell("sonic-db-cli DPU_APPL_DB FLUSHDB", module_ignore_errors=True)
