@@ -209,6 +209,18 @@ def test_ignores_marker_beyond_inspected_message_length():
     assert not is_testbed_unreachable_exception(exc)
 
 
+def test_ignores_ping_output_reporting_destination_host_unreachable():
+    # tacacs_helper.setup_tacacs_client embeds raw ping stdout in its failure
+    # message, an unreachable ping peer must not retire a healthy DUT.
+    exc = AssertionError(
+        "TACACS server not reachable: "
+        "PING 10.250.0.101 (10.250.0.101) 56(84) bytes of data.\n"
+        "From 10.250.0.1 icmp_seq=1 Destination Host Unreachable\n"
+        "1 packets transmitted, 0 received, +1 errors, 100% packet loss")
+
+    assert not is_testbed_unreachable_exception(exc)
+
+
 def test_ignores_non_matching_exception():
     node = _make_node()
     call = _make_call(AssertionError("expected 1, got 2"))

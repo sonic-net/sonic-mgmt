@@ -1574,7 +1574,7 @@ def pytest_runtest_makereport(item, call):
     except Exception as e:
         # This hook runs for every test phase, a failure here would abort the
         # whole session with an INTERNALERROR instead of reporting the test.
-        logger.error("Failed to check testbed connectivity failure: {}".format(repr(e)))
+        logger.exception("Failed to check testbed connectivity failure: {}".format(repr(e)))
 
     if call.when == 'setup':
         item.user_properties.append(('start', str(datetime.fromtimestamp(call.start))))
