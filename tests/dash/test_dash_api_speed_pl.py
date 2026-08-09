@@ -26,8 +26,6 @@ OVERRIDE_ROUTE_COUNT = None      # routes per ENI; None -> 10K
 CLEANUP_AFTER = True             # delete this run's config afterwards; False keeps it
 CLEANUP_MODE = "precise"         # "precise" (gNMI DELETE each file) or "flushdb" (instant, wipes all DPU_APPL_DB)
 MEM_TIMELINE_EVERY = 1           # sample free -m every Nth file (1=every file; higher=faster, fewer points)
-PUSH_TIMEOUT_SECS = 90 * 60      # hard ceiling on the push phase (~34 min at 64 ENIs) so retries can't run away
-CLEANUP_TIMEOUT_SECS = 60 * 60   # hard ceiling on precise cleanup (~as slow as the push)
 # ─────────────────────────────────────────────────────────────────────────────
 
 _DEFAULT_ENI_COUNT_BY_HWSKU = {"Mellanox-SN4280-O28": 64, "Cisco-8102-28FH-DPU-O": 32}
@@ -48,6 +46,8 @@ pytestmark = [
     pytest.mark.skip_check_dut_health,
     pytest.mark.disable_loganalyzer,
     pytest.mark.sanity_check(skip_sanity=True),
+    # ~34 min push + ~34 min cleanup at 64 ENIs; cap the job so retries can't run away.
+    pytest.mark.timeout(5400),
 ]
 
 
@@ -135,8 +135,7 @@ def test_dash_api_speed_pl(localhost, duthost, dpuhosts, dpu_index, creds):
     total_start = time.time()
     try:
         counts = load_config_via_gnmi(localhost, duthost, dpuhost, config_dir, files, creds,
-                                      timings, mem_timeline, mem_every=MEM_TIMELINE_EVERY,
-                                      timeout=PUSH_TIMEOUT_SECS)
+                                      timings, mem_timeline, mem_every=MEM_TIMELINE_EVERY)
         _assert_programmed(counts, eni_count)
     finally:
         total_elapsed = time.time() - total_start  # measurement window (cleanup not counted)
@@ -153,8 +152,7 @@ def test_dash_api_speed_pl(localhost, duthost, dpuhosts, dpu_index, creds):
         if CLEANUP_AFTER:
             try:
                 cleanup_start = time.time()
-                cleanup_config_via_gnmi(localhost, duthost, dpuhost, config_dir, files, creds,
-                                        mode=CLEANUP_MODE, timeout=CLEANUP_TIMEOUT_SECS)
+                cleanup_config_via_gnmi(localhost, duthost, dpuhost, config_dir, files, creds, mode=CLEANUP_MODE)
                 cleanup_elapsed = time.time() - cleanup_start
             except Exception:
                 logger.exception("Post-test cleanup failed (non-fatal)")
