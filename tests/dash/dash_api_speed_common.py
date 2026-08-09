@@ -30,15 +30,15 @@ _TRANSIENT_GNMI_MARKERS = ("unavailable", "socket closed", "failed to connect",
 
 _RETRY_READY_TIMEOUT = 60  # short, so 8 retries on a dead server can't stall one file for an hour
 
-# Redact password forms the client might echo; no credential is passed in, so none can leak here.
-_SECRET_HINT_RE = re.compile(r"((?:--password|-p|GNMI_PASSWORD|password)['\"]?\s*[=: ]\s*['\"]?)[^\s'\",)]+")
-_SECRET_LIST_RE = re.compile(r"(['\"](?:-p|--password)['\"]\s*,\s*['\"])[^'\"]+")  # sys.argv list repr
+# Mask "--flag <value>" forms the client might echo back; nothing sensitive is passed in here.
+_REDACT_KV_RE = re.compile(r"((?:--password|-p|GNMI_PASSWORD|password)['\"]?\s*[=: ]\s*['\"]?)[^\s'\",)]+")
+_REDACT_ARGV_RE = re.compile(r"(['\"](?:-p|--password)['\"]\s*,\s*['\"])[^'\"]+")  # sys.argv list repr
 
 
-def _scrub_secrets(text):
+def _redact(text):
     if not text:
         return text
-    return _SECRET_HINT_RE.sub(r"\1***", _SECRET_LIST_RE.sub(r"\1***", text))
+    return _REDACT_KV_RE.sub(r"\1***", _REDACT_ARGV_RE.sub(r"\1***", text))
 
 
 def parse_file_index(filename):
@@ -362,7 +362,7 @@ def _apply_gnmi_file(localhost, conn, cfg_path, creds, attempts=8):
         # verbose=False keeps the credential-bearing command out of the ansible debug log.
         out = localhost.shell(cmd, module_ignore_errors=True, verbose=False)
         rc = out.get("rc", -1)
-        stderr, stdout = _scrub_secrets(out.get("stderr", "") or ""), _scrub_secrets(out.get("stdout", "") or "")
+        stderr, stdout = _redact(out.get("stderr", "") or ""), _redact(out.get("stdout", "") or "")
         if rc == 0 or not any(m in stderr.lower() for m in _TRANSIENT_GNMI_MARKERS):
             break
         _wait_gnmi_ready(localhost, ip, port, timeout=_RETRY_READY_TIMEOUT, tls_paths=tls_paths)
@@ -407,7 +407,7 @@ def load_config_via_gnmi(localhost, duthost, dpuhost, config_dir, files,
                   "error string in output" if any(s in stderr for s in ("Traceback", "RpcError", "Set failed"))
                   else "")
         if reason:
-            # Tail is already credential-scrubbed by _apply_gnmi_file.
+            # Tail is already masked by _apply_gnmi_file.
             logger.error("  [%d/%d] FAILED %s after %.2fs — %s\n  output (tail): %s",
                          idx, len(files), filename, elapsed, reason, (stderr or stdout)[-3000:])
             push_errors.append("%s: %s" % (filename, reason))
