@@ -161,7 +161,7 @@ def get_change_routes_ports(vm, topo):
 
 def get_topo_type(topo_name):
     pattern = re.compile(
-        r'^(t0-mclag|t0|t1|ptf|fullmesh|dualtor|t2|mgmttor|m0|mc0|mx|m1|c0|dpu|smartswitch-t1|lt2|ft2|lrh|urh)')
+        r'^(t0-mclag|t0|t1|ptf|fullmesh|dualtor|t2|mgmttor|m0|mc0|mx|m1|c0|dpu|smartswitch-t1|lt2|ft2|lrh|urh|uma|lma)')
     match = pattern.match(topo_name)
     if not match:
         return "unsupported"
@@ -629,6 +629,52 @@ def fib_t0(topo, ptf_ip, no_default_route=False, action="announce", upstream_nei
         next_group_index = (index + 1) * upstream_neighbor_groups // vms_len
         if group_index != next_group_index:
             current_routes_offset += last_suffix
+
+
+def fib_lma(topo, ptf_ip, action="announce", topo_routes=None):
+    common_config = topo['configuration_properties'].get('common', {})
+    nhipv4 = common_config.get("nhipv4", NHIPV4)
+    nhipv6 = common_config.get("nhipv6", NHIPV6)
+    vms_config = topo['configuration']
+    for k, v in vms_config.items():
+        port, port6 = get_change_routes_ports(k, topo)
+        routes_v4 = []
+        routes_v6 = []
+        # The upstream UpperMgmtAggregator (UMA) neighbors originate the default
+        # route toward the LowerMgmtAggregator DUT. Downstream leaf(M2/M3)
+        # neighbors advertise only their own loopbacks via their own BGP.
+        if "core" in v["properties"]:
+            routes_v4 = [("0.0.0.0/0", nhipv4, None)]
+            routes_v6 = [("::/0", nhipv6, None)]
+        topo_routes[k] = {}
+        topo_routes[k][IPV4] = routes_v4
+        topo_routes[k][IPV6] = routes_v6
+        if action != GENERATE_WITHOUT_APPLY:
+            change_routes(action, ptf_ip, port, routes_v4)
+            change_routes(action, ptf_ip, port6, routes_v6)
+
+
+def fib_uma(topo, ptf_ip, action="announce", topo_routes={}):
+    common_config = topo['configuration_properties'].get('common', {})
+    nhipv4 = common_config.get("nhipv4", NHIPV4)
+    nhipv6 = common_config.get("nhipv6", NHIPV6)
+    vms_config = topo['configuration']
+    for k, v in vms_config.items():
+        port, port6 = get_change_routes_ports(k, topo)
+        routes_v4 = []
+        routes_v6 = []
+        # The upstream RegionalWANAggregator (RWA) neighbors originate the default
+        # route toward the UpperMgmtAggregator DUT. Downstream leaf (LMA/M1)
+        # neighbors advertise only their own loopbacks via their own BGP.
+        if "core" in v["properties"]:
+            routes_v4 = [("0.0.0.0/0", nhipv4, None)]
+            routes_v6 = [("::/0", nhipv6, None)]
+        topo_routes[k] = {}
+        topo_routes[k][IPV4] = routes_v4
+        topo_routes[k][IPV6] = routes_v6
+        if action != GENERATE_WITHOUT_APPLY:
+            change_routes(action, ptf_ip, port, routes_v4)
+            change_routes(action, ptf_ip, port6, routes_v6)
 
 
 def is_backend_neighbor(properties):
@@ -1910,6 +1956,12 @@ def main():
         elif topo_type == "ft2":
             fib_ft2_routes(topo, ptf_ip, action=action, topo_routes=topo_routes)
             module.exit_json(change=True, topo_routes=convert_routes_to_str(topo_routes))
+        elif topo_type == "lma":
+            fib_lma(topo, ptf_ip, action=action, topo_routes=topo_routes)
+            module.exit_json(changed=True, topo_routes=convert_routes_to_str(topo_routes))
+        elif topo_type == "uma":
+            fib_uma(topo, ptf_ip, action=action, topo_routes=topo_routes)
+            module.exit_json(changed=True, topo_routes=convert_routes_to_str(topo_routes))
         else:
             module.exit_json(
                 msg='Unsupported topology "{}" - skipping announcing routes'.format(topo_name))

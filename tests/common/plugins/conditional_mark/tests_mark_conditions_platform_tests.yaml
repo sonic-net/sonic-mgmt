@@ -36,13 +36,20 @@ platform_tests/api/test_chassis.py::TestChassisApi::test_get_my_slot:
       - "asic_type in ['mellanox', 'vs']"
       - "is_multi_asic==True and release in ['201911']"
 
+platform_tests/api/test_chassis.py::TestChassisApi::test_get_name:
+  skip:
+    reason: "The EEPROM info is burned by the vendor, so this case is not suitable for BMC"
+    conditions:
+      - "'bmc' in topo_type"
+
 platform_tests/api/test_chassis.py::TestChassisApi::test_get_presence:
   skip:
-    reason: "Unsupported platform API"
+    reason: "Unsupported platform API. Unsupported on BMC"
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['mellanox', 'vs']"
       - "is_multi_asic==True and release in ['201911']"
+      - "'bmc' in topo_type"
 
 platform_tests/api/test_chassis.py::TestChassisApi::test_get_revision:
   xfail:
@@ -61,11 +68,12 @@ platform_tests/api/test_chassis.py::TestChassisApi::test_get_revision:
 platform_tests/api/test_chassis.py::TestChassisApi::test_get_status:
   # Skip unsupported API test on Mellanox platform
   skip:
-    reason: "Unsupported platform API"
+    reason: "Unsupported platform API. Unsupported on BMC"
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['mellanox', 'vs']"
       - "is_multi_asic==True and release in ['201911']"
+      - "'bmc' in topo_type"
 
 platform_tests/api/test_chassis.py::TestChassisApi::test_get_supervisor_slot:
   skip:
@@ -94,6 +102,10 @@ platform_tests/api/test_chassis.py::TestChassisApi::test_get_watchdog:
       - "'Force10-S6000' in hwsku"
       - "asic_type in ['vs']"
       - "is_multi_asic==True and release in ['201911']"
+  xfail:
+    reason: "Watchdog API issue on BMC"
+    conditions:
+      - "'bmc' in topo_type and https://github.com/sonic-net/sonic-buildimage/issues/28185"
 
 platform_tests/api/test_chassis.py::TestChassisApi::test_status_led:
   skip:
@@ -111,6 +123,12 @@ platform_tests/api/test_chassis.py::TestChassisApi::test_status_led:
 #######################################
 #####   api/test_chassis_fans.py  #####
 #######################################
+platform_tests/api/test_chassis_fans.py:
+  skip:
+    reason: "Skip on BMC as no fan"
+    conditions:
+      - "'bmc' in topo_type"
+
 platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_direction:
   xfail:
     reason: "Testcase consistently fails, raised issue to track"
@@ -291,6 +309,12 @@ platform_tests/api/test_component.py::TestComponentApi::test_update_firmware:
 #######################################
 #####   api/test_fan_drawer.py    #####
 #######################################
+platform_tests/api/test_fan_drawer.py:
+  skip:
+    reason: "Skip on BMC as no fan"
+    conditions:
+      - "'bmc' in topo_type"
+
 platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_get_maximum_consumed_power:
   skip:
     reason: "Unsupported platform API"
@@ -341,6 +365,11 @@ platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_set_fan_drawers_le
 #######################################
 ##### api/test_fan_drawer_fans.py #####
 #######################################
+platform_tests/api/test_fan_drawer_fans.py:
+  skip:
+    reason: "Skip on BMC as no fan"
+    conditions:
+      - "'bmc' in topo_type"
 
 platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_get_model:
   skip:
@@ -428,8 +457,23 @@ platform_tests/api/test_module.py::TestModuleApi::test_reboot:
       - "is_multi_asic==True and release in ['201911']"
 
 #######################################
+#####        api/test_pdb.py      #####
+#######################################
+platform_tests/api/test_pdb.py:
+  skip:
+    reason: "Test is skipped on BMC as it has no PDB (Power Distribution Board)"
+    conditions:
+      - "'bmc' in topo_type"
+
+#######################################
 #####        api/test_psu.py      #####
 #######################################
+platform_tests/api/test_psu.py:
+  skip:
+    reason: "Skip on BMC as no psu"
+    conditions:
+      - "'bmc' in topo_type"
+
 platform_tests/api/test_psu.py::TestPsuApi::test_fans:
   skip:
     reason: "Unsupported platform API"
@@ -512,6 +556,12 @@ platform_tests/api/test_psu.py::test_temperature:
     conditions:
       - "asic_type in ['vs']"
       - "is_multi_asic==True and release in ['201911']"
+
+platform_tests/api/test_psu_fans.py:
+  skip:
+    reason: "Skip on BMC as no psu fan"
+    conditions:
+      - "'bmc' in topo_type"
 
 platform_tests/api/test_psu_fans.py::TestPsuFans::test_get_error_description:
   xfail:
@@ -814,6 +864,7 @@ platform_tests/api/test_thermal.py::TestThermalApi::test_get_high_critical_thres
     conditions:
       - "asic_type in ['vs'] or platform in ['armhf-nokia_ixs7215_52x-r0']"
       - "is_multi_asic==True and release in ['201911']"
+      - "'bmc' in topo_type"
 
 platform_tests/api/test_thermal.py::TestThermalApi::test_get_high_threshold:
   skip:
@@ -822,6 +873,7 @@ platform_tests/api/test_thermal.py::TestThermalApi::test_get_high_threshold:
     conditions:
       - "asic_type in ['vs']"
       - "is_multi_asic==True and release in ['201911']"
+      - "'bmc' in topo_type"
 
 platform_tests/api/test_thermal.py::TestThermalApi::test_get_low_critical_threshold:
   skip:
@@ -830,6 +882,7 @@ platform_tests/api/test_thermal.py::TestThermalApi::test_get_low_critical_thresh
     conditions:
       - "asic_type in ['mellanox', 'vs']"
       - "is_multi_asic==True and release in ['201911']"
+      - "'bmc' in topo_type"
 
 platform_tests/api/test_thermal.py::TestThermalApi::test_get_low_threshold:
   skip:
@@ -838,33 +891,37 @@ platform_tests/api/test_thermal.py::TestThermalApi::test_get_low_threshold:
     conditions:
       - "asic_type in ['mellanox', 'vs']"
       - "is_multi_asic==True and release in ['201911']"
+      - "'bmc' in topo_type"
 
 platform_tests/api/test_thermal.py::TestThermalApi::test_get_maximum_recorded:
   skip:
-    reason: "Unsupported platform API"
+    reason: "Unsupported platform API. Unsupported on BMC"
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['mellanox', 'vs']"
       - "is_multi_asic==True and release in ['201911']"
+      - "'bmc' in topo_type"
 
 platform_tests/api/test_thermal.py::TestThermalApi::test_get_minimum_recorded:
   skip:
-    reason: "Unsupported platform API"
+    reason: "Unsupported platform API. Unsupported on BMC"
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['mellanox', 'vs']"
       - "is_multi_asic==True and release in ['201911']"
+      - "'bmc' in topo_type"
 
 platform_tests/api/test_thermal.py::TestThermalApi::test_get_model:
   # Hardware components that we use for our sensors does not have IDPROM to store model and serial number details.
   # Due to this Cisco currently does not expose serial and model number under sysfs path
   skip:
-    reason: "test_get_model is not supported in cisco and mellanox platform"
+    reason: "test_get_model is not supported in cisco and mellanox platform. Unsupported on BMC"
     conditions_logical_operator: or
     conditions:
        - "asic_type in ['mellanox', 'cisco-8000', 'vs']"
        - "is_multi_asic==True and release in ['201911']"
        - "platform.startswith('arm64-c8220tg_48a_o')"
+       - "'bmc' in topo_type"
 
 platform_tests/api/test_thermal.py::TestThermalApi::test_get_presence:
   skip:
@@ -878,12 +935,13 @@ platform_tests/api/test_thermal.py::TestThermalApi::test_get_serial:
   # Hardware components that we use for our sensors does not have IDPROM to store model and serial number details.
   # Due to this Cisco currently does not expose serial and model number under sysfs path
   skip:
-    reason: "test_get_serial is not supported in cisco and mellanox platform"
+    reason: "test_get_serial is not supported in cisco and mellanox platform. Unsupported on BMC"
     conditions_logical_operator: or
     conditions:
        - "asic_type in ['mellanox', 'cisco-8000', 'vs']"
        - "is_multi_asic==True and release in ['201911']"
        - "platform.startswith('arm64-c8220tg_48a_o')"
+       - "'bmc' in topo_type"
 
 platform_tests/api/test_thermal.py::TestThermalApi::test_get_status:
   skip:
@@ -903,11 +961,12 @@ platform_tests/api/test_thermal.py::TestThermalApi::test_get_temperature:
 
 platform_tests/api/test_thermal.py::TestThermalApi::test_set_high_threshold:
   skip:
-    reason: "Unsupported platform API"
+    reason: "Unsupported platform API. Unsupported on BMC"
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['mellanox', 'vs']"
       - "is_multi_asic==True and release in ['201911']"
+      - "'bmc' in topo_type"
   xfail:
     reason: "Testcase consistently fails, raised issue to track"
     conditions:
@@ -916,11 +975,12 @@ platform_tests/api/test_thermal.py::TestThermalApi::test_set_high_threshold:
 
 platform_tests/api/test_thermal.py::TestThermalApi::test_set_low_threshold:
   skip:
-    reason: "Unsupported platform API"
+    reason: "Unsupported platform API. Unsupported on BMC"
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['mellanox', 'vs']"
       - "is_multi_asic==True and release in ['201911']"
+      - "'bmc' in topo_type"
   xfail:
     reason: "Testcase consistently fails, raised issue to track"
     conditions:
@@ -1064,6 +1124,12 @@ platform_tests/daemon:
     reason: "Temporarily skip in PR testing"
     conditions:
       - "asic_type in ['vs']"
+
+platform_tests/daemon/test_bmc_watchdog.py::TestBmcWatchdog::test_watchdog_bmc_integration:
+  xfail:
+    reason: "BMC watchdog not supported yet: watchdog-keepalive.sh persistent log sink is missing"
+    conditions:
+      - "'bmc' in topo_type and https://github.com/sonic-net/sonic-buildimage/issues/28185"
 
 platform_tests/daemon/test_chassisd.py:
   skip:
