@@ -25,6 +25,7 @@
 #   CA_CER         default /etc/sonic/telemetry/dsmsroot.cer
 #   CA_KEY         default /etc/sonic/telemetry/dsmsroot.key
 #   DEVICE_NAME    default $(hostname)
+#   TELEMETRY_CN   default ndastreamingservertest
 #   VALID_DAYS     default 30
 #
 # Outputs (overwritten in place):
@@ -33,7 +34,8 @@
 #
 # The minted leaf has:
 #   Subject:               CN=device-ops-agent
-#   X509v3 SAN:            DNS:${DEVICE_NAME}, DNS:localhost, IP:127.0.0.1
+#   X509v3 SAN:            DNS:${DEVICE_NAME}, DNS:${TELEMETRY_CN},
+#                          DNS:localhost, IP:127.0.0.1
 #   X509v3 EKU:            serverAuth
 #   X509v3 KU:             digitalSignature, keyEncipherment
 #   Signed by:             ${CA_CER} / ${CA_KEY}
@@ -56,6 +58,7 @@ OUT_DIR="${OUT_DIR:-/etc/sonic/telemetry}"
 CA_CER="${CA_CER:-/etc/sonic/telemetry/dsmsroot.cer}"
 CA_KEY="${CA_KEY:-/etc/sonic/telemetry/dsmsroot.key}"
 DEVICE_NAME="${DEVICE_NAME:-$(hostname)}"
+TELEMETRY_CN="${TELEMETRY_CN:-ndastreamingservertest}"
 VALID_DAYS="${VALID_DAYS:-30}"
 
 if [[ ! -r "${CA_CER}" ]]; then
@@ -83,7 +86,7 @@ prompt             = no
 CN = device-ops-agent
 
 [v3]
-subjectAltName     = DNS:${DEVICE_NAME},DNS:localhost,IP:127.0.0.1
+subjectAltName     = DNS:${DEVICE_NAME},DNS:${TELEMETRY_CN},DNS:localhost,IP:127.0.0.1
 extendedKeyUsage   = serverAuth
 keyUsage           = digitalSignature,keyEncipherment
 EOF
@@ -122,4 +125,4 @@ if ! openssl x509 -in "${OUT_DIR}/streamingtelemetryserver.cer" -noout -text | g
     exit 1
 fi
 
-echo "gen-server-cert: minted ${OUT_DIR}/streamingtelemetryserver.cer (CN=device-ops-agent, SAN=DNS:${DEVICE_NAME},DNS:localhost,IP:127.0.0.1, signed by ${CA_CER}, ${VALID_DAYS} days)"
+echo "gen-server-cert: minted ${OUT_DIR}/streamingtelemetryserver.cer (CN=device-ops-agent, SAN=DNS:${DEVICE_NAME},DNS:${TELEMETRY_CN},DNS:localhost,IP:127.0.0.1, signed by ${CA_CER}, ${VALID_DAYS} days)"
