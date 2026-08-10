@@ -9,6 +9,7 @@ import time
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
 from tests.common.config_reload import config_reload
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +22,19 @@ pytestmark = [
 SOUTHBOUND_PORTCHANNELS = ['PortChannel1031', 'PortChannel1032']
 GPU_PORTCHANNELS = [f'PortChannel10{i}' for i in range(31, 47)]
 GPU_RESOURCE_TYPE = "BMOffnetGPUV2"
+
+ORACLE_BGP_THRESHOLD = 1
+GPU_BGP_THRESHOLD = 3
+
+# Poll timeout for the first check after a link state change, while waiting for the
+# tracker to notice the change and react to it.
+STATE_PROPAGATION_TIMEOUT = 30
+# The tracker updates the southbound portchannel status, the loopback status and the
+# loopback CONFIG_DB admin_status in the same handling cycle, so once the first of them
+# has been verified the remaining checks only need a short timeout.
+DEPENDENT_STATE_TIMEOUT = 10
+# Poll interval for state db checks.
+STATE_POLL_INTERVAL = 2
 
 
 LOOPBACK_INTERFACE = 'Loopback6'
@@ -216,6 +230,41 @@ def get_loopback_config_admin_status(duthost):
     return result['stdout'].strip()
 
 
+def wait_for_state_db_entry(duthost, key, expected_value, timeout):
+    """
+    Poll a LINK_STATE_TRACKER_TABLE entry until it equals expected_value or timeout.
+
+    Args:
+        duthost: DUT host
+        key: the state db key to check
+        expected_value: the value to wait for
+        timeout: maximum seconds to wait
+
+    Returns:
+        True if the value matched within the timeout, else False.
+    """
+    return wait_until(
+        timeout, STATE_POLL_INTERVAL, 0,
+        lambda: get_link_state_tracker_state_db_entry(duthost, key) == expected_value)
+
+
+def wait_for_loopback_config_admin_status(duthost, expected_value, timeout):
+    """
+    Poll CONFIG_DB loopback6 admin_status until it equals expected_value or timeout.
+
+    Args:
+        duthost: DUT host
+        expected_value: the admin_status value to wait for ('up' or 'down')
+        timeout: maximum seconds to wait
+
+    Returns:
+        True if the value matched within the timeout, else False.
+    """
+    return wait_until(
+        timeout, STATE_POLL_INTERVAL, 0,
+        lambda: get_loopback_config_admin_status(duthost) == expected_value)
+
+
 def reset_portchannels_state(duthost, southbound_portchannels):
     """
     Set portchannels to admin up and oper up.
@@ -229,18 +278,22 @@ def reset_portchannels_state(duthost, southbound_portchannels):
     time.sleep(10)  # Allow time for state to propagate
 
 
-def validate_link_state_tracker_enabled(duthost, southbound_portchannels):
+def validate_link_state_tracker_enabled(duthost, southbound_portchannels, threshold):
     """
     Test link state tracker functionality when enabled.
 
-    - Test loopback6 is enabled when at least one southbound portchannel is up
-    - Test loopback6 is disabled when all southbound portchannels are down
-    - Test loopback6 re-enables when portchannel comes back up
+    - Test loopback6 is enabled when at least `threshold` southbound portchannels are up
+    - Test loopback6 is disabled when fewer than `threshold` southbound portchannels are up
+    - Test loopback6 re-enables when enough portchannels come back up
 
     Args:
         duthost: DUT host
+        southbound_portchannels: list of southbound portchannels to track
+        threshold: minimum number of southbound portchannels that must be up to keep loopback6 enabled
     """
-    logger.debug("Running link state tracker enabled test.")
+    logger.debug(f"Running link state tracker enabled test (threshold={threshold}).")
+
+    total = len(southbound_portchannels)
 
     # Make sure portchannels start with admin and oper up
     reset_portchannels_state(duthost, southbound_portchannels)
@@ -249,46 +302,74 @@ def validate_link_state_tracker_enabled(duthost, southbound_portchannels):
     is_enabled = get_link_state_tracker_state_db_entry(duthost, STATE_DB_SCRIPT_ENABLED_KEY)
     pytest_assert(is_enabled == "yes", "Link state tracker should be enabled")
 
-    # Test loopback6 disabled when all portchannels go down
+    # All portchannels are up, so connectivity is up and loopback6 should be enabled.
+    pytest_assert(
+        wait_for_state_db_entry(duthost, STATE_DB_LOOPBACK_STATUS_KEY, "enabled", STATE_PROPAGATION_TIMEOUT),
+        "Loopback6 should be enabled once all southbound portchannels are up")
+
+    # Bring portchannels down one at a time and verify loopback6 tracks the threshold
     for i, portchannel in enumerate(southbound_portchannels):
         set_portchannel_oper_status(duthost, portchannel, "down")
-        time.sleep(10)  # Allow time for state to propagate
+
+        num_up = total - (i + 1)
+        threshold_met = num_up >= threshold
 
         # Check southbound portchannels status in state db
-        southbound_pc_status = get_link_state_tracker_state_db_entry(duthost, STATE_DB_SOUTHBOUND_PC_STATUS_KEY)
-        expected_southbound_status = "down" if i == len(southbound_portchannels) - 1 else "up"
-        pytest_assert(southbound_pc_status == expected_southbound_status,
-                      f"Southbound portchannels status should be {expected_southbound_status} "
-                      f"after {i+1} portchannels down")
+        expected_southbound_status = "up" if threshold_met else "down"
+        pytest_assert(
+            wait_for_state_db_entry(duthost, STATE_DB_SOUTHBOUND_PC_STATUS_KEY,
+                                    expected_southbound_status, STATE_PROPAGATION_TIMEOUT),
+            f"Southbound portchannels status should be {expected_southbound_status} "
+            f"after {i+1} portchannels down ({num_up} up, threshold {threshold})")
 
-        # Check loopback status in state db
-        loopback_status = get_link_state_tracker_state_db_entry(duthost, STATE_DB_LOOPBACK_STATUS_KEY)
-        expected_loopback = "disabled" if i == len(southbound_portchannels) - 1 else "enabled"
-        pytest_assert(loopback_status == expected_loopback,
-                      f"Loopback6 status should be {expected_loopback} after {i+1} portchannels down")
+        # Check loopback status in state db. The tracker updates this in the same cycle as
+        # the southbound status verified above, so a short timeout is enough.
+        expected_loopback = "enabled" if threshold_met else "disabled"
+        pytest_assert(
+            wait_for_state_db_entry(duthost, STATE_DB_LOOPBACK_STATUS_KEY,
+                                    expected_loopback, DEPENDENT_STATE_TIMEOUT),
+            f"Loopback6 status should be {expected_loopback} "
+            f"after {i+1} portchannels down ({num_up} up, threshold {threshold})")
 
         # Check loopback admin status in CONFIG_DB
-        config_admin_status = get_loopback_config_admin_status(duthost)
-        expected_config_admin = "down" if i == len(southbound_portchannels) - 1 else "up"
-        pytest_assert(config_admin_status == expected_config_admin,
-                      f"Loopback6 CONFIG_DB admin_status should be {expected_config_admin} "
-                      f"after {i+1} portchannels down")
+        expected_config_admin = "up" if threshold_met else "down"
+        pytest_assert(
+            wait_for_loopback_config_admin_status(duthost, expected_config_admin, DEPENDENT_STATE_TIMEOUT),
+            f"Loopback6 CONFIG_DB admin_status should be {expected_config_admin} "
+            f"after {i+1} portchannels down ({num_up} up, threshold {threshold})")
 
-    # Test loopback6 enabled when portchannel comes back up
-    set_portchannel_oper_status(duthost, southbound_portchannels[0], "up")
-    time.sleep(10)
+    # Test loopback6 re-enables only once enough portchannels come back up to meet the
+    # threshold. Bring portchannels up one at a time and verify loopback6 remains disabled
+    # right up until the threshold is met, then becomes enabled.
+    for i in range(threshold):
+        set_portchannel_oper_status(duthost, southbound_portchannels[i], "up")
 
-    # Check southbound portchannel status is up in state db
-    southbound_pc_status = get_link_state_tracker_state_db_entry(duthost, STATE_DB_SOUTHBOUND_PC_STATUS_KEY)
-    pytest_assert(southbound_pc_status == "up", "Southbound portchannel status should be up after portchannel comes up")
+        num_up = i + 1
+        threshold_met = num_up >= threshold
 
-    # Check loopback status is enabled in state db
-    loopback_status = get_link_state_tracker_state_db_entry(duthost, STATE_DB_LOOPBACK_STATUS_KEY)
-    pytest_assert(loopback_status == "enabled", "Loopback6 should be enabled after portchannel comes up")
+        # Check southbound portchannels status in state db
+        expected_southbound_status = "up" if threshold_met else "down"
+        pytest_assert(
+            wait_for_state_db_entry(duthost, STATE_DB_SOUTHBOUND_PC_STATUS_KEY,
+                                    expected_southbound_status, STATE_PROPAGATION_TIMEOUT),
+            f"Southbound portchannels status should be {expected_southbound_status} "
+            f"after {num_up} portchannels up (threshold {threshold})")
 
-    # Check loopback admin status in CONFIG_DB
-    config_admin_status = get_loopback_config_admin_status(duthost)
-    pytest_assert(config_admin_status == "up", "Loopback6 admin_status should be up in CONFIG_DB")
+        # Check loopback status in state db. The tracker updates this in the same cycle as
+        # the southbound status verified above, so a short timeout is enough.
+        expected_loopback = "enabled" if threshold_met else "disabled"
+        pytest_assert(
+            wait_for_state_db_entry(duthost, STATE_DB_LOOPBACK_STATUS_KEY,
+                                    expected_loopback, DEPENDENT_STATE_TIMEOUT),
+            f"Loopback6 status should be {expected_loopback} "
+            f"after {num_up} portchannels up (threshold {threshold})")
+
+        # Check loopback admin status in CONFIG_DB
+        expected_config_admin = "up" if threshold_met else "down"
+        pytest_assert(
+            wait_for_loopback_config_admin_status(duthost, expected_config_admin, DEPENDENT_STATE_TIMEOUT),
+            f"Loopback6 CONFIG_DB admin_status should be {expected_config_admin} "
+            f"after {num_up} portchannels up (threshold {threshold})")
 
 
 def validate_link_state_tracker_disabled(duthost, southbound_portchannels):
@@ -347,6 +428,9 @@ def cleanup(duthost, ptfhost, bond_port_mapping):
         bond_port_mapping: map of bond port name (bond#) to ptf port name (eth#)
     """
     logger.debug("cleanup: Loading backup config db json.")
+    # Stop the tracker first so it cannot write Loopback6 admin_status back into CONFIG_DB.
+    duthost.shell(f"docker exec {DOCKER_CONTAINER_NAME} supervisorctl stop {SERVICE_NAME}",
+                  module_ignore_errors=True)
     duthost.shell(f"mv {CONFIG_DB_PATH}.bak {CONFIG_DB_PATH}")
 
     # Cleanup test portchannels
@@ -354,6 +438,10 @@ def cleanup(duthost, ptfhost, bond_port_mapping):
 
     # Reload to restore configuration
     config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
+
+    # session-monitor restarts mid-reload and the tracker recreates Loopback6, so drop it
+    # once the restored config has disabled the feature for good.
+    duthost.shell(f"config loopback del {LOOPBACK_INTERFACE}", module_ignore_errors=True)
 
     # Remove tmp files
     if os.path.exists(TEMP_FILE):
@@ -373,6 +461,11 @@ def resource_type(request):
 @pytest.fixture
 def southbound_portchannels(resource_type):
     return GPU_PORTCHANNELS if resource_type == GPU_RESOURCE_TYPE else SOUTHBOUND_PORTCHANNELS
+
+
+@pytest.fixture
+def bgp_threshold(resource_type):
+    return GPU_BGP_THRESHOLD if resource_type == GPU_RESOURCE_TYPE else ORACLE_BGP_THRESHOLD
 
 
 @pytest.fixture(scope="function")
@@ -418,7 +511,7 @@ def common_setup_and_teardown(tbinfo, duthosts, rand_one_dut_hostname,
     cleanup(duthost, ptfhost, bond_port_mapping)
 
 
-def test_link_state_tracker(common_setup_and_teardown):
+def test_link_state_tracker(common_setup_and_teardown, bgp_threshold):
     """
     Entry point for running link state tracker tests.
     """
@@ -426,7 +519,7 @@ def test_link_state_tracker(common_setup_and_teardown):
 
     # Run tests
     # Test script works when enabled. Should be enabled by default.
-    validate_link_state_tracker_enabled(duthost, southbound_portchannels)
+    validate_link_state_tracker_enabled(duthost, southbound_portchannels, bgp_threshold)
 
     # Disable link state tracker
     duthost.shell(f"docker exec {DOCKER_CONTAINER_NAME} supervisorctl stop {SERVICE_NAME}")
@@ -440,10 +533,10 @@ def test_link_state_tracker(common_setup_and_teardown):
     time.sleep(10)
 
     # Test script works when re-enabled
-    validate_link_state_tracker_enabled(duthost, southbound_portchannels)
+    validate_link_state_tracker_enabled(duthost, southbound_portchannels, bgp_threshold)
 
 
-def test_link_state_tracker_rapid_state_changes(common_setup_and_teardown):
+def test_link_state_tracker_rapid_state_changes(common_setup_and_teardown, bgp_threshold):
     """
     Test link state tracker behavior with rapid portchannel state transitions.
     This test validates that the tracker can handle rapid up/down state changes
@@ -455,27 +548,30 @@ def test_link_state_tracker_rapid_state_changes(common_setup_and_teardown):
     duthost.shell(f"docker exec {DOCKER_CONTAINER_NAME} supervisorctl start {SERVICE_NAME}")
     time.sleep(10)
 
-    # Test rapid up/down transitions
-    # Using 5 second intervals to test rapid changes while allowing state propagation
+    # Test rapid up/down transitions and verify loopback6 tracks the threshold promptly
+    # in both directions.
     for i in range(3):
         logger.debug(f"Flapping test iteration {i+1}")
 
         # Bring all portchannels down
         for pc in southbound_portchannels:
             set_portchannel_oper_status(duthost, pc, "down")
-        time.sleep(5)
 
         # Verify loopback disabled
-        loopback_status = get_link_state_tracker_state_db_entry(duthost, STATE_DB_LOOPBACK_STATUS_KEY)
-        pytest_assert(loopback_status == "disabled", f"Loopback6 should be disabled on iteration {i+1}")
+        pytest_assert(
+            wait_for_state_db_entry(duthost, STATE_DB_LOOPBACK_STATUS_KEY, "disabled",
+                                    STATE_PROPAGATION_TIMEOUT),
+            f"Loopback6 should be disabled on iteration {i+1}")
 
-        # Bring one portchannel up
-        set_portchannel_oper_status(duthost, southbound_portchannels[0], "up")
-        time.sleep(5)
+        # Bring enough portchannels up to meet the threshold
+        for pc in southbound_portchannels[:bgp_threshold]:
+            set_portchannel_oper_status(duthost, pc, "up")
 
         # Verify loopback enabled
-        loopback_status = get_link_state_tracker_state_db_entry(duthost, STATE_DB_LOOPBACK_STATUS_KEY)
-        pytest_assert(loopback_status == "enabled", f"Loopback6 should be enabled on iteration {i+1}")
+        pytest_assert(
+            wait_for_state_db_entry(duthost, STATE_DB_LOOPBACK_STATUS_KEY, "enabled",
+                                    STATE_PROPAGATION_TIMEOUT),
+            f"Loopback6 should be enabled on iteration {i+1}")
 
 
 def test_link_state_tracker_service_restart(common_setup_and_teardown):
@@ -489,26 +585,27 @@ def test_link_state_tracker_service_restart(common_setup_and_teardown):
     duthost.shell(f"docker exec {DOCKER_CONTAINER_NAME} supervisorctl start {SERVICE_NAME}")
     time.sleep(10)
 
-    # Set specific state - one portchannel down, one up
+    # Set specific state - one portchannel down, the rest up (connectivity remains up)
     set_portchannel_oper_status(duthost, southbound_portchannels[0], "up")
     set_portchannel_oper_status(duthost, southbound_portchannels[1], "down")
-    time.sleep(10)
 
     # Verify expected state before restart
-    loopback_status = get_link_state_tracker_state_db_entry(duthost, STATE_DB_LOOPBACK_STATUS_KEY)
-    pytest_assert(loopback_status == "enabled", "Loopback6 should be enabled before restart")
+    pytest_assert(
+        wait_for_state_db_entry(duthost, STATE_DB_LOOPBACK_STATUS_KEY, "enabled", STATE_PROPAGATION_TIMEOUT),
+        "Loopback6 should be enabled before restart")
 
     # Restart the service
     duthost.shell(f"docker exec {DOCKER_CONTAINER_NAME} supervisorctl restart {SERVICE_NAME}")
-    time.sleep(15)  # Allow more time for service restart and initialization
 
     # Verify service picks up current state correctly after restart
-    is_enabled = get_link_state_tracker_state_db_entry(duthost, STATE_DB_SCRIPT_ENABLED_KEY)
-    pytest_assert(is_enabled == "yes", "Link state tracker should be enabled after restart")
+    pytest_assert(
+        wait_for_state_db_entry(duthost, STATE_DB_SCRIPT_ENABLED_KEY, "yes", STATE_PROPAGATION_TIMEOUT),
+        "Link state tracker should be enabled after restart")
 
-    southbound_pc_status = get_link_state_tracker_state_db_entry(duthost, STATE_DB_SOUTHBOUND_PC_STATUS_KEY)
-    pytest_assert(southbound_pc_status == "up",
-                  "southbound portchannel status should be up after restart (one PC is up)")
+    pytest_assert(
+        wait_for_state_db_entry(duthost, STATE_DB_SOUTHBOUND_PC_STATUS_KEY, "up", DEPENDENT_STATE_TIMEOUT),
+        "southbound portchannel status should be up after restart (one PC is up)")
 
-    loopback_status = get_link_state_tracker_state_db_entry(duthost, STATE_DB_LOOPBACK_STATUS_KEY)
-    pytest_assert(loopback_status == "enabled", "Loopback6 should remain enabled after restart")
+    pytest_assert(
+        wait_for_state_db_entry(duthost, STATE_DB_LOOPBACK_STATUS_KEY, "enabled", DEPENDENT_STATE_TIMEOUT),
+        "Loopback6 should remain enabled after restart")
