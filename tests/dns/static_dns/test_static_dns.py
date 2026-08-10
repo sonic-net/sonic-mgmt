@@ -1,5 +1,6 @@
 import pytest
 import logging
+import os
 import re
 
 from tests.common.reboot import reboot
@@ -41,21 +42,52 @@ UNCONFIGURED_IP_ERR = r"Error: DNS nameserver .* is not configured"
 EXCEED_MAX_ERR = r"Error: The maximum number \(3\) of nameservers exceeded"
 DUPLICATED_IP_ERR = r"Error: .* nameserver is already configured"
 
+DHCLIENT_RESTORE_SCRIPT = os.path.join(os.path.dirname(__file__), "dhclient_restore.sh")
+REMOTE_DHCLIENT_RESTORE_SCRIPT = "/tmp/dhclient-dns-test-restore.sh"
 MGMT_PORT = "eth0"
 DHCLIENT_PID_FILE = "/run/dhclient-dns-test.pid"
+DHCLIENT_DONE_FILE = "/tmp/dhclient-dns-test.done"
 
 
 def start_dhclient(duthost):
-    duthost.shell(f"sudo dhclient -pf {DHCLIENT_PID_FILE} {MGMT_PORT}")
+    """Run dhclient without leaving the Ansible management path broken.
+
+    Static-management testbeds can use eth0 as the Ansible SSH control
+    interface. Running dhclient on eth0 may replace the inventory IP before
+    Ansible receives the command result, so the restore has to run entirely
+    inside the DUT before the controller waits for completion.
+    """
+    # Run restore from the DUT so Ansible can reconnect even if dhclient
+    # briefly changes the management address used by the control connection.
+    duthost.copy(src=DHCLIENT_RESTORE_SCRIPT,
+                 dest=REMOTE_DHCLIENT_RESTORE_SCRIPT,
+                 mode="0755")
+    cmd = (
+        f"rm -f {DHCLIENT_DONE_FILE}\n"
+        f"nohup bash {REMOTE_DHCLIENT_RESTORE_SCRIPT} "
+        f"{MGMT_PORT} {DHCLIENT_PID_FILE} {DHCLIENT_DONE_FILE} "
+        "> /dev/null 2>&1 &"
+    )
+    duthost.shell(cmd)
+    pytest_assert(wait_until(180, 5, 5, is_dhclient_restore_done, duthost),
+                  f"DHCP renew did not complete on {MGMT_PORT}")
+
+
+def is_dhclient_restore_done(duthost):
+    return duthost.shell(f"test -f {DHCLIENT_DONE_FILE}",
+                         module_ignore_errors=True, verbose=False).get("rc") == 0
 
 
 @pytest.fixture()
 def stop_dhclient(duthost):
-    yield
-
-    if duthost.shell(f'ls {DHCLIENT_PID_FILE}', module_ignore_errors=True)['rc'] == 0:
-        duthost.shell(f"sudo kill $(cat {DHCLIENT_PID_FILE})")
-        duthost.shell(f"rm -rf {DHCLIENT_PID_FILE}")
+    try:
+        yield
+    finally:
+        if duthost.shell(f'ls {DHCLIENT_PID_FILE}', module_ignore_errors=True)['rc'] == 0:
+            duthost.shell(f"sudo kill $(cat {DHCLIENT_PID_FILE})", module_ignore_errors=True)
+        duthost.shell(
+            f"sudo rm -f {DHCLIENT_PID_FILE} {DHCLIENT_DONE_FILE} {REMOTE_DHCLIENT_RESTORE_SCRIPT}",
+            module_ignore_errors=True)
 
 
 @pytest.mark.disable_loganalyzer
