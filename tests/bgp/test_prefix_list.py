@@ -36,7 +36,7 @@ CONSTANTS_FILE = "/etc/sonic/constants.yml"
 
 
 def op_anchor_prefix_with_cmd(duthost, prefix_type, prefix, action, ignore_error=False):
-    # Add or remove prefix list
+    # Add or remove prefix list.
     pytest_assert(action in ["add", "remove"], "Invalid action specified. Must be 'add' or 'remove'.")
     cmd = "sudo prefix_list {} {} {}".format(action, prefix_type, prefix)
     duthost.shell(cmd, module_ignore_errors=ignore_error)
