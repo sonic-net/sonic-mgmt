@@ -33,8 +33,15 @@ UNREACHABLE_MARKERS = (
     "unreachable in the inventory",
     "unreachable in the extra inventory",
 )
-# On their own these only mean a single connection attempt failed, they need an
-# unhealthy DUT context to tell an unusable testbed from a functional failure.
+# Reboot and sanity recovery detect a dead DUT by running wait_for from
+# localhost against the DUT ssh port, so the ansible connection itself succeeds
+# and the failure surfaces as a plain Exception that only carries text, see
+# wait_for_startup in tests/common/reboot.py. There is no
+# AnsibleConnectionFailure and no "dark" hosts to inspect for these, which is
+# why matching the message is the only signal available.
+# On their own these markers only mean a single connection attempt failed, so
+# they need an unhealthy DUT context to tell an unusable testbed from a
+# functional failure.
 CONNECTIVITY_FAILURE_MARKERS = (
     "unable to connect to port 22",
     "timeout when waiting for",
