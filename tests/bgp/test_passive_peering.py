@@ -1,6 +1,6 @@
 '''
 
-This script is to test BGP passive peering on SONiC.
+This script is to test BGP passive peering on SONiC
 
 '''
 
