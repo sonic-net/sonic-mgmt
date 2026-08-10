@@ -41,7 +41,7 @@ def check_lldp_neighbors_present(duthost, port_timeouts, namespaces=None):
     def _namespace_for(port):
         if port in namespaces:
             return namespaces[port]
-        return db_helpers.resolve_namespace(duthost, port)
+        return db_helpers.resolve_port_namespace(duthost, port)
 
     ports_by_ns = {}
     for port in port_timeouts:
@@ -122,7 +122,7 @@ def capture_flap_sentinels(duthost, ports, namespaces=None):
     def _namespace_for(port):
         if port in namespaces:
             return namespaces[port]
-        return db_helpers.resolve_namespace(duthost, port)
+        return db_helpers.resolve_port_namespace(duthost, port)
 
     sentinels = {}
     for port in ports:
@@ -160,7 +160,7 @@ def assert_no_flap_since(
     def _namespace_for(port):
         if port in namespaces:
             return namespaces[port]
-        return db_helpers.resolve_namespace(duthost, port)
+        return db_helpers.resolve_port_namespace(duthost, port)
 
     window_desc = (
         f"{elapsed_sec}s window" if elapsed_sec is not None
@@ -259,7 +259,7 @@ def check_cmis_state(
     def _namespace_for(port):
         if port in namespaces:
             return namespaces[port]
-        return db_helpers.resolve_namespace(duthost, port)
+        return db_helpers.resolve_port_namespace(duthost, port)
 
     ports_by_ns = {}
     for port in ports:
@@ -405,7 +405,7 @@ def standard_port_recovery_and_verification(
     """
     # ``None`` on single-ASIC -> no ``-n`` flag.
     namespaces = {
-        port: db_helpers.resolve_namespace(duthost, port) for port in ports
+        port: db_helpers.resolve_port_namespace(duthost, port) for port in ports
     }
 
     per_port_failures = {port: [] for port in ports}
