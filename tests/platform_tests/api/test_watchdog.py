@@ -71,6 +71,7 @@ class TestWatchdogApi(PlatformApiTestBase):
             duthost.facts['platform'] == 'armhf-nokia_ixs7215_52x-r0'
             or duthost.facts['platform'] == 'arm64-nokia_ixs7215_52xb-r0'
             or duthost.facts['platform'] == 'arm64-nokia_ixs7215_c1xa-r0'
+            or duthost.facts['platform'] == 'arm64-arista_goldfinch-r0'
             or duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_dpu")
         ):
             duthost.shell("watchdogutil disarm")
