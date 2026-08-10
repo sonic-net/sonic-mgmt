@@ -5,12 +5,21 @@ import time
 
 import pytest
 from tests.common.utilities import wait_until
+from tests.high_frequency_telemetry.counter_profiles import (
+    CounterObjectType,
+    get_support_counter_list,
+)
 from tests.high_frequency_telemetry.utilities import (
     InfluxDbSink,
     cleanup_hft_config,
     enable_otel_collector,
     ensure_countersyncd_daemon,
+    get_available_ports,
+    get_configured_buffer_pools,
+    get_configured_buffer_queue_objects,
+    get_configured_queue_objects,
     install_otel_collector_config,
+    is_otel_image_available,
     render_otel_collector_config,
     restart_otel_collector,
     setup_influxdb,
@@ -43,8 +52,9 @@ def _is_otel_container_stopped(duthost):
 
 
 @pytest.fixture(scope="module")
-def hft_otel_collector(duthosts, enum_rand_one_per_hwsku_hostname):
-    """Prepare OTEL for the module and restore its original state afterward."""
+def skip_unsupported_hft_platform(
+        duthosts, enum_rand_one_per_hwsku_hostname):
+    """Validate shared HFT prerequisites without changing the DUT."""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     config_exists = duthost.shell(
         f"sudo test -f {OTEL_CONFIG_PATH}", module_ignore_errors=True
@@ -57,6 +67,7 @@ def hft_otel_collector(duthosts, enum_rand_one_per_hwsku_hostname):
         original_config = duthost.shell(
             f"sudo cat {OTEL_CONFIG_PATH}", module_ignore_errors=False
         ).get("stdout", "")
+
     feature_result = duthost.shell(
         "redis-cli -n 4 --raw HGETALL 'FEATURE|otel'",
         module_ignore_errors=False,
@@ -65,7 +76,6 @@ def hft_otel_collector(duthosts, enum_rand_one_per_hwsku_hostname):
     if len(feature_lines) % 2:
         pytest.fail(f"Invalid FEATURE|otel response: {feature_result}")
     original_feature = dict(zip(feature_lines[0::2], feature_lines[1::2]))
-    feature_existed = bool(original_feature)
     original_state = original_feature.get("state", "disabled")
     enabled_states = {"enabled", "always_enabled"}
     valid_states = enabled_states | {"disabled", "always_disabled"}
@@ -75,20 +85,121 @@ def hft_otel_collector(duthosts, enum_rand_one_per_hwsku_hostname):
         pytest.skip("OTEL feature is always disabled")
 
     original_container_running = duthost.is_container_running("otel")
-    collector_status = duthost.shell(
-        "docker exec otel supervisorctl status otel",
-        module_ignore_errors=True,
-    )
-    original_collector_running = (
-        collector_status.get("rc") == 0
-        and "RUNNING" in collector_status.get("stdout", "")
-    )
+    if original_state in enabled_states and not original_container_running:
+        pytest.fail("OTEL is enabled but its container is not running")
+    if original_state not in enabled_states \
+            and not is_otel_image_available(duthost):
+        pytest.skip("docker-sonic-otel is not available on this platform")
+    collector_status = {"rc": 1, "stdout": ""}
+    if original_container_running:
+        collector_status = duthost.shell(
+            "docker exec otel supervisorctl status otel",
+            module_ignore_errors=True,
+        )
+    ensure_countersyncd_daemon(duthost)
+    return {
+        "config_existed": config_existed,
+        "original_config": original_config,
+        "original_feature": original_feature,
+        "original_state": original_state,
+        "original_collector_running": (
+            collector_status.get("rc") == 0
+            and "RUNNING" in collector_status.get("stdout", "")
+        ),
+    }
+
+
+@pytest.fixture(scope="function")
+def skip_unsupported_hft_test(request, duthosts,
+                              enum_rand_one_per_hwsku_hostname, tbinfo):
+    """Skip unsupported cases before starting InfluxDB or changing OTEL."""
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    marker = request.node.get_closest_marker("hft_requirements")
+    if marker is None:
+        pytest.fail("Tests using hft_influxdb must declare hft_requirements")
+    if len(marker.args) != 1 or not isinstance(marker.args[0], CounterObjectType):
+        pytest.fail("hft_requirements requires one CounterObjectType argument")
+    unknown_options = set(marker.kwargs) - {"counter", "oper_up_port"}
+    if unknown_options:
+        pytest.fail(
+            "Unsupported hft_requirements options: "
+            f"{sorted(unknown_options)}"
+        )
+    counter_type = marker.args[0]
+    required_counter = marker.kwargs.get("counter")
+    if "counter" in marker.kwargs and (
+            not isinstance(required_counter, str) or not required_counter):
+        pytest.fail("hft_requirements counter must be a non-empty string")
+    require_oper_up_port = marker.kwargs.get("oper_up_port", False)
+    if not isinstance(require_oper_up_port, bool):
+        pytest.fail("hft_requirements oper_up_port must be a bool")
+    if "oper_up_port" in marker.kwargs \
+            and counter_type != CounterObjectType.PORT:
+        pytest.fail("oper_up_port is valid only for PORT requirements")
+
+    counters = get_support_counter_list(duthost, counter_type)
+    if required_counter and required_counter not in counters:
+        pytest.skip(
+            f"{required_counter} is not supported on this platform"
+        )
+    if counter_type == CounterObjectType.INGRESS_PRIORITY_GROUP:
+        objects = get_configured_buffer_queue_objects(duthost)
+        if not objects:
+            pytest.skip("No ingress priority groups found in COUNTERS_DB")
+    elif counter_type == CounterObjectType.BUFFER_POOL:
+        if not counters:
+            pytest.skip("No buffer pool counters supported on this platform")
+        objects = get_configured_buffer_pools(duthost)
+        if not objects:
+            pytest.skip("No buffer pools found in COUNTERS_DB")
+    elif counter_type == CounterObjectType.QUEUE:
+        objects = get_configured_queue_objects(duthost)
+        if not objects:
+            pytest.skip("No queue objects found in COUNTERS_DB")
+    else:
+        objects = get_available_ports(
+            duthost, tbinfo, desired_ports=None, min_ports=1
+        )
+        if require_oper_up_port:
+            down_ports = set(
+                duthost.interface_facts(up_ports=objects)["ansible_facts"]
+                ["ansible_interface_link_down_ports"]
+            )
+            objects = [port for port in objects if port not in down_ports]
+            if not objects:
+                pytest.skip("No operationally up, PTF-mapped port is available")
+
+    if not counters:
+        pytest.skip(
+            f"No {counter_type.value.replace('_', ' ')} counters supported "
+            "on this platform"
+        )
+    request.getfixturevalue("skip_unsupported_hft_platform")
+    return {
+        "counter_type": counter_type,
+        "counters": counters,
+        "objects": objects,
+    }
+
+
+@pytest.fixture(scope="module")
+def hft_otel_collector(duthosts, enum_rand_one_per_hwsku_hostname,
+                       skip_unsupported_hft_platform):
+    """Prepare OTEL for the module and restore its original state afterward."""
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    config_existed = skip_unsupported_hft_platform["config_existed"]
+    original_config = skip_unsupported_hft_platform["original_config"]
+    original_feature = skip_unsupported_hft_platform["original_feature"]
+    feature_existed = bool(original_feature)
+    original_state = skip_unsupported_hft_platform["original_state"]
+    enabled_states = {"enabled", "always_enabled"}
+    original_collector_running = skip_unsupported_hft_platform[
+        "original_collector_running"
+    ]
 
     try:
-        if original_state in enabled_states and not original_container_running:
-            pytest.fail("OTEL is enabled but its container is not running")
         if original_state not in enabled_states:
-            enable_otel_collector(duthost)
+            enable_otel_collector(duthost, check_image=False)
         ensure_countersyncd_daemon(duthost)
         yield
     finally:
@@ -169,10 +280,12 @@ def hft_influxdb_server(ptfhost):
 
 
 @pytest.fixture(scope="function")
-def hft_influxdb(ptfhost, hft_influxdb_server, hft_otel_collector,
-                 cleanup_high_frequency_telemetry,
+def hft_influxdb(request, ptfhost, skip_unsupported_hft_test,
                  duthosts, enum_rand_one_per_hwsku_hostname, tbinfo):
     """Provide a unique InfluxDB database for every HFT case."""
+    request.getfixturevalue("cleanup_high_frequency_telemetry")
+    request.getfixturevalue("hft_influxdb_server")
+    request.getfixturevalue("hft_otel_collector")
     bucket = f"{INFLUXDB_BUCKET_PREFIX}_{next(INFLUXDB_BUCKET_IDS)}"
     sink = InfluxDbSink(ptfhost, bucket=bucket, port=INFLUXDB_PORT)
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]

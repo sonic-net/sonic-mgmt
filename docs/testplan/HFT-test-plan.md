@@ -107,6 +107,13 @@ stops only the InfluxDB PID it owns at module teardown. Multi-phase cases retain
 data between phases and isolate phases with database watermarks. Standard DUT
 memory-utilization monitoring remains enabled for all HFT cases.
 
+Each case declares its counter, object, and port prerequisites with the
+`hft_requirements` marker. Before that case can request HFT infrastructure, the
+`skip_unsupported_hft_test` fixture checks those prerequisites and returns the
+validated objects and counters. A capability-skipped case therefore performs no
+InfluxDB startup, OTEL change, or HFT cleanup of its own. Infrastructure already
+owned by an earlier supported case remains module-scoped until module teardown.
+
 For counter coverage tests, the expected set is generated independently from
 the configured object and counter lists. Validation requires every expected
 `(SAI object type, SAI stat, object name)` series, exact SAI tags, nonnegative
@@ -178,7 +185,7 @@ ordered session cleanup.
 |---|---|
 | **Test Name** | `test_hft_full_buffer_pool_counters` |
 | **Objective** | Verify HFT for all configured buffer pools with platform-supported counters. |
-| **Fixtures** | `hft_influxdb`, requested only after capability checks pass |
+| **Fixtures** | `skip_unsupported_hft_test`, `hft_influxdb` |
 | **Topology** | `any` |
 
 **Test Steps**

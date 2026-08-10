@@ -407,20 +407,24 @@ def stop_otel_collector(duthost):
     )
 
 
-def enable_otel_collector(duthost, timeout=60):
-    """Enable the OTEL feature and wait for its container."""
-    has_image = False
-    for attempt in range(6):
+def is_otel_image_available(duthost, attempts=6, retry_interval=10):
+    """Return whether the DUT has the OTEL container image."""
+    for attempt in range(attempts):
         image = duthost.shell(
             "docker images docker-sonic-otel --format yes",
             module_ignore_errors=True,
         )
         if image.get("rc") == 0 and "yes" in image.get("stdout", ""):
-            has_image = True
-            break
+            return True
         logger.info("OTEL image check attempt %d failed", attempt + 1)
-        time.sleep(10)
-    if not has_image:
+        if attempt + 1 < attempts:
+            time.sleep(retry_interval)
+    return False
+
+
+def enable_otel_collector(duthost, timeout=60, check_image=True):
+    """Enable the OTEL feature and wait for its container."""
+    if check_image and not is_otel_image_available(duthost):
         pytest.skip("docker-sonic-otel is not available on this platform")
 
     exists = duthost.shell(

@@ -6,16 +6,11 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.high_frequency_telemetry.counter_profiles import (
     CounterObjectType,
-    get_support_counter_list,
 )
 from tests.high_frequency_telemetry.utilities import (
     ContinuousTraffic,
     build_expected_series,
     cleanup_hft_config,
-    get_available_ports,
-    get_configured_buffer_pools,
-    get_configured_buffer_queue_objects,
-    get_configured_queue_objects,
     setup_hft_config,
     setup_hft_stream_state,
 )
@@ -27,12 +22,6 @@ pytestmark = [
 ]
 
 DEFAULT_POLL_INTERVAL_US = 10_000
-
-
-def _require_port_counter(duthost, counter_name="IF_IN_OCTETS"):
-    supported = get_support_counter_list(duthost, CounterObjectType.PORT)
-    if counter_name not in supported:
-        pytest.skip(f"{counter_name} is not supported on this platform")
 
 
 def _configure_and_validate(duthost, sink, profile_name, group_name,
@@ -66,21 +55,15 @@ def _configure_and_validate(duthost, sink, profile_name, group_name,
     return expected, stats
 
 
+@pytest.mark.hft_requirements(CounterObjectType.INGRESS_PRIORITY_GROUP)
 def test_hft_full_ingress_priority_group_counters(
-        request, duthosts, enum_rand_one_per_hwsku_hostname):
+        duthosts, enum_rand_one_per_hwsku_hostname, hft_influxdb,
+        skip_unsupported_hft_test):
     """Verify every supported counter for every configured ingress PG."""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     profile_name = "ingress_pg_profile"
-    pg_objects = get_configured_buffer_queue_objects(duthost)
-    counters = get_support_counter_list(
-        duthost, CounterObjectType.INGRESS_PRIORITY_GROUP
-    )
-    if not pg_objects:
-        pytest.skip("No ingress priority groups found in COUNTERS_DB")
-    if not counters:
-        pytest.skip("No ingress priority group counters supported on this platform")
-    hft_influxdb = request.getfixturevalue("hft_influxdb")
-
+    pg_objects = skip_unsupported_hft_test["objects"]
+    counters = skip_unsupported_hft_test["counters"]
     try:
         _configure_and_validate(
             duthost,
@@ -100,18 +83,15 @@ def test_hft_full_ingress_priority_group_counters(
         )
 
 
+@pytest.mark.hft_requirements(CounterObjectType.BUFFER_POOL)
 def test_hft_full_buffer_pool_counters(
-        request, duthosts, enum_rand_one_per_hwsku_hostname):
+        duthosts, enum_rand_one_per_hwsku_hostname, hft_influxdb,
+        skip_unsupported_hft_test):
     """Verify every supported counter for every configured buffer pool."""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    counters = get_support_counter_list(duthost, CounterObjectType.BUFFER_POOL)
-    if not counters:
-        pytest.skip("No buffer pool counters supported on this platform")
-    buffer_pools = get_configured_buffer_pools(duthost)
-    if not buffer_pools:
-        pytest.skip("No buffer pools found in COUNTERS_DB")
+    counters = skip_unsupported_hft_test["counters"]
+    buffer_pools = skip_unsupported_hft_test["objects"]
     profile_name = "buffer_pool_profile"
-    hft_influxdb = request.getfixturevalue("hft_influxdb")
 
     try:
         _configure_and_validate(
@@ -134,17 +114,17 @@ def test_hft_full_counters():
     """Reserved for platforms that support mixed object types in one session."""
 
 
-def test_hft_full_port_counters(request, duthosts,
-                                enum_rand_one_per_hwsku_hostname, tbinfo):
+@pytest.mark.hft_requirements(
+    CounterObjectType.PORT, counter="IF_IN_OCTETS"
+)
+def test_hft_full_port_counters(
+        duthosts, enum_rand_one_per_hwsku_hostname, hft_influxdb,
+        skip_unsupported_hft_test):
     """Verify every supported port counter for every available port."""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    _require_port_counter(duthost)
     profile_name = "full_port_counter_profile"
-    ports = get_available_ports(duthost, tbinfo, desired_ports=None, min_ports=1)
-    counters = get_support_counter_list(duthost, CounterObjectType.PORT)
-    if not counters:
-        pytest.skip("No port counters supported on this platform")
-    hft_influxdb = request.getfixturevalue("hft_influxdb")
+    ports = skip_unsupported_hft_test["objects"]
+    counters = skip_unsupported_hft_test["counters"]
 
     try:
         _configure_and_validate(
@@ -161,16 +141,18 @@ def test_hft_full_port_counters(request, duthosts,
         cleanup_hft_config(duthost, profile_name, ["PORT"])
 
 
-def test_hft_disabled_stream(request, duthosts,
-                             enum_rand_one_per_hwsku_hostname, tbinfo):
+@pytest.mark.hft_requirements(
+    CounterObjectType.PORT, counter="IF_IN_OCTETS"
+)
+def test_hft_disabled_stream(
+        duthosts, enum_rand_one_per_hwsku_hostname, hft_influxdb,
+        skip_unsupported_hft_test):
     """Verify enable, disable, and re-enable using InfluxDB watermarks."""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    _require_port_counter(duthost)
     profile_name = "state_transition_profile"
-    ports = get_available_ports(duthost, tbinfo, desired_ports=2, min_ports=1)
+    ports = skip_unsupported_hft_test["objects"][:2]
     counters = ["IF_IN_OCTETS"]
     expected = build_expected_series(CounterObjectType.PORT, ports, counters)
-    hft_influxdb = request.getfixturevalue("hft_influxdb")
 
     try:
         setup_hft_config(
@@ -199,16 +181,18 @@ def test_hft_disabled_stream(request, duthosts,
         cleanup_hft_config(duthost, profile_name, ["PORT"])
 
 
+@pytest.mark.hft_requirements(
+    CounterObjectType.PORT, counter="IF_IN_OCTETS"
+)
 def test_hft_config_deletion_stream(
-        request, duthosts, enum_rand_one_per_hwsku_hostname, tbinfo):
+        duthosts, enum_rand_one_per_hwsku_hostname, hft_influxdb,
+        skip_unsupported_hft_test):
     """Verify create, delete, and recreate using InfluxDB watermarks."""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    _require_port_counter(duthost)
     profile_name = "config_deletion_profile"
-    ports = get_available_ports(duthost, tbinfo, desired_ports=2, min_ports=1)
+    ports = skip_unsupported_hft_test["objects"][:2]
     counters = ["IF_IN_OCTETS"]
     expected = build_expected_series(CounterObjectType.PORT, ports, counters)
-    hft_influxdb = request.getfixturevalue("hft_influxdb")
 
     try:
         setup_hft_config(
@@ -243,15 +227,17 @@ def test_hft_config_deletion_stream(
         cleanup_hft_config(duthost, profile_name, ["PORT"])
 
 
+@pytest.mark.hft_requirements(
+    CounterObjectType.PORT, counter="IF_IN_OCTETS"
+)
 def test_hft_poll_interval_validation(
-        request, duthosts, enum_rand_one_per_hwsku_hostname, tbinfo):
+        duthosts, enum_rand_one_per_hwsku_hostname, hft_influxdb,
+        skip_unsupported_hft_test):
     """Verify the 1ms poll interval from source timestamps and CPS."""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    _require_port_counter(duthost)
     poll_interval_us = 1_000
     profile_name = f"poll_interval_profile_{poll_interval_us}"
-    ports = get_available_ports(duthost, tbinfo, desired_ports=2, min_ports=1)
-    hft_influxdb = request.getfixturevalue("hft_influxdb")
+    ports = skip_unsupported_hft_test["objects"][:2]
 
     try:
         _configure_and_validate(
@@ -270,25 +256,16 @@ def test_hft_poll_interval_validation(
         cleanup_hft_config(duthost, profile_name, ["PORT"])
 
 
+@pytest.mark.hft_requirements(
+    CounterObjectType.PORT, counter="IF_IN_OCTETS", oper_up_port=True
+)
 def test_hft_port_shutdown_stream(
-        request, duthosts, enum_rand_one_per_hwsku_hostname, tbinfo,
-        ptfadapter):
+        duthosts, enum_rand_one_per_hwsku_hostname, tbinfo, ptfadapter,
+        hft_influxdb, skip_unsupported_hft_test):
     """Verify counter values grow when up, stay stable when down, and recover."""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    _require_port_counter(duthost)
     profile_name = "port_shutdown_profile"
-    candidate_ports = get_available_ports(
-        duthost, tbinfo, desired_ports=None, min_ports=1
-    )
-    down_ports = set(
-        duthost.interface_facts(up_ports=candidate_ports)["ansible_facts"]
-        ["ansible_interface_link_down_ports"]
-    )
-    oper_up_ports = [port for port in candidate_ports if port not in down_ports]
-    if not oper_up_ports:
-        pytest.skip("No operationally up, PTF-mapped port is available")
-    hft_influxdb = request.getfixturevalue("hft_influxdb")
-    test_port = oper_up_ports[0]
+    test_port = skip_unsupported_hft_test["objects"][0]
     ptf_port_index = duthost.get_extended_minigraph_facts(tbinfo)[
         "minigraph_ptf_indices"
     ][test_port]
@@ -360,19 +337,15 @@ def test_hft_port_shutdown_stream(
         cleanup_hft_config(duthost, profile_name, ["PORT"])
 
 
+@pytest.mark.hft_requirements(CounterObjectType.QUEUE)
 def test_hft_full_queue_counters(
-        request, duthosts, enum_rand_one_per_hwsku_hostname):
+        duthosts, enum_rand_one_per_hwsku_hostname, hft_influxdb,
+        skip_unsupported_hft_test):
     """Verify every supported counter for every configured queue."""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     profile_name = "queue_profile"
-    queue_objects = get_configured_queue_objects(duthost)
-    counters = get_support_counter_list(duthost, CounterObjectType.QUEUE)
-    if not queue_objects:
-        pytest.skip("No queue objects found in COUNTERS_DB")
-    if not counters:
-        pytest.skip("No queue counters supported on this platform")
-    hft_influxdb = request.getfixturevalue("hft_influxdb")
-
+    queue_objects = skip_unsupported_hft_test["objects"]
+    counters = skip_unsupported_hft_test["counters"]
     try:
         _configure_and_validate(
             duthost,
