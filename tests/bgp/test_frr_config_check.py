@@ -47,28 +47,34 @@ def _bgp_container_name(duthost, asic_index):
     return "bgp{}".format(asic_index)
 
 
+def _asic_label(duthost, asic_index):
+    return "asic{}".format(asic_index) if duthost.is_multi_asic else "default"
+
+
 def parse_frr_config_file(duthost, config_file, asic_index=None):
     """
     Parse FRR configuration file and extract meaningful configuration lines
     """
+    asic_label = _asic_label(duthost, asic_index)
+    if duthost.is_multi_asic:
+        cmd = "docker exec {} cat /etc/frr/{}".format(
+            _bgp_container_name(duthost, asic_index), config_file
+        )
+    else:
+        cmd = "sudo cat /etc/sonic/frr/{}".format(config_file)
+    result = duthost.shell(cmd, module_ignore_errors=True)
+    if result['rc'] != 0:
+        pytest.fail(
+            "Failed to read FRR config file {} on {}: {}".format(
+                config_file, asic_label, result.get('stderr') or result.get('stdout', ''))
+        )
+
     config_lines = []
-    try:
-        if duthost.is_multi_asic:
-            cmd = "docker exec {} cat /etc/frr/{}".format(
-                _bgp_container_name(duthost, asic_index), config_file
-            )
-        else:
-            cmd = "sudo cat /etc/sonic/frr/{}".format(config_file)
-        result = duthost.shell(cmd)
-
-        for line in result['stdout_lines']:
-            line = line.strip()
-            # Skip empty lines and comments
-            if (line and not line.startswith('!')):
-                config_lines.append(line)
-
-    except Exception as e:
-        logger.warning("Failed to read config file {}: {}".format(config_file, str(e)))
+    for line in result['stdout_lines']:
+        line = line.strip()
+        # Skip empty lines and comments
+        if (line and not line.startswith('!')):
+            config_lines.append(line)
 
     return config_lines
 
@@ -127,7 +133,7 @@ def verify_frr_config_in_running(duthost, config_file, running_config, asic_inde
     """
     Verify that configurations in config file are present in running configuration
     """
-    asic_label = "asic{}".format(asic_index) if duthost.is_multi_asic else "default"
+    asic_label = _asic_label(duthost, asic_index)
     logger.info("Verifying FRR config file {} on {}".format(config_file, asic_label))
 
     # Get configuration lines from file
@@ -186,23 +192,29 @@ def get_frr_config_files(duthost, asic_index=None):
     """
     Get list of FRR config files from /etc/sonic/frr directory
     """
+    asic_label = _asic_label(duthost, asic_index)
+    if duthost.is_multi_asic:
+        result = duthost.shell(
+            "docker exec {} ls /etc/frr".format(_bgp_container_name(duthost, asic_index)),
+            module_ignore_errors=True,
+        )
+    else:
+        result = duthost.shell("ls /etc/sonic/frr", module_ignore_errors=True)
+    if result['rc'] != 0:
+        pytest.fail(
+            "Failed to list FRR config files on {}: {}".format(
+                asic_label, result.get('stderr') or result.get('stdout', ''))
+        )
+
     config_files = []
-    try:
-        if duthost.is_multi_asic:
-            result = duthost.shell(
-                "docker exec {} ls /etc/frr".format(_bgp_container_name(duthost, asic_index))
-            )
-        else:
-            result = duthost.shell("ls /etc/sonic/frr")
-        for file in result['stdout_lines']:
-            file = file.strip()
-            if file in SONIC_FRR_CONFIG_FILES:
-                config_files.append(file)
-        logger.info("Found FRR config files: {}".format(config_files))
-        return config_files
-    except Exception as e:
-        logger.error("Failed to get FRR config files: {}".format(str(e)))
-        return config_files
+    for file in result['stdout_lines']:
+        file = file.strip()
+        if file in SONIC_FRR_CONFIG_FILES:
+            config_files.append(file)
+    if not config_files:
+        pytest.fail("No recognized FRR config files found on {}".format(asic_label))
+    logger.info("Found FRR config files on {}: {}".format(asic_label, config_files))
+    return config_files
 
 
 # Add iteration level mapping similar to bgp_stress_link_flap
@@ -383,15 +395,26 @@ def _verify_config_file_forward(config_content, running_config):
 def _collect_missing_frr_configs(duthost):
     missing_configs = {}
     for asic_index in _frontend_asic_indexes(duthost):
-        asic_label = "asic{}".format(asic_index) if duthost.is_multi_asic else "default"
+        asic_label = _asic_label(duthost, asic_index)
         running_config = parse_vtysh_running_config(duthost, asic_index)
+        if not running_config:
+            pytest.fail("Failed to get FRR running configuration on {}".format(asic_label))
+
         frr_config_files = get_frr_config_files(duthost, asic_index)
+        files_read = 0
         for config_file in frr_config_files:
+            parse_frr_config_file(duthost, config_file, asic_index)
+            files_read += 1
             missing = verify_frr_config_in_running(
                 duthost, config_file, running_config, asic_index
             )
             if missing:
                 missing_configs.setdefault(asic_label, {})[config_file] = missing
+
+        pytest_assert(
+            files_read >= 1,
+            "Expected at least one FRR config file to be read on {}".format(asic_label),
+        )
     return missing_configs
 
 
