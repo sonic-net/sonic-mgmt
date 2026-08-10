@@ -337,6 +337,9 @@ t0-sonic:
   - pc/test_retry_count.py
   - platform_tests/test_advanced_reboot.py::test_warm_reboot
 
+t0-vpp:
+  - test_prettest.py
+
 dualtor:
   - arp/test_arp_dualtor.py
   - arp/test_arp_extended.py
