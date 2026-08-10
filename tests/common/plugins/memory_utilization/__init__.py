@@ -9,6 +9,13 @@ logger.setLevel(logging.INFO)
 _memory_errors_by_test = {}
 
 
+def pytest_configure(config):
+    config.addinivalue_line(
+        "markers",
+        "disable_memory_utilization: disable memory monitoring for fork-sensitive tests",
+    )
+
+
 def pytest_addoption(parser):
     parser.addoption(
         "--disable_memory_utilization",
