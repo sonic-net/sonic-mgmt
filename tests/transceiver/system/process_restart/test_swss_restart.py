@@ -62,6 +62,7 @@ def test_system_swss_restart(
     ``pytest.fail`` so one run surfaces every issue.
     """
     expected_pid_changes.add("xcvrd")
+    expected_pid_changes.add("swss")
     ports = sorted(port_attributes_dict.keys())
     assert ports, "port_attributes_dict is empty - nothing to validate"
     health_baseline = capture_baseline(duthost)
@@ -82,7 +83,7 @@ def test_system_swss_restart(
             )
 
     logger.info("Restarting swss...")
-    duthost.restart_service('swss', 'swss')
+    duthost.restart_service('swss')
     swss_wait = port_attributes_dict[ports[0]].get(
         SYSTEM_ATTRIBUTES_KEY, {}
     ).get("swss_restart_settle_sec", 180)

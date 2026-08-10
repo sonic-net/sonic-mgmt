@@ -79,7 +79,7 @@ def test_system_pmon_restart(
             )
 
     logger.info("Restarting pmon...")
-    duthost.restart_service('pmon', 'pmon')
+    duthost.restart_service('pmon')
     pmon_wait = port_attributes_dict[ports[0]].get(
         SYSTEM_ATTRIBUTES_KEY, {}
     ).get("pmon_restart_settle_sec", 120)

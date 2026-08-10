@@ -62,6 +62,7 @@ def test_system_syncd_restart(
     ``pytest.fail`` so one run surfaces every issue.
     """
     expected_pid_changes.add("xcvrd")
+    expected_pid_changes.add("syncd")
     ports = sorted(port_attributes_dict.keys())
     assert ports, "port_attributes_dict is empty - nothing to validate"
     failures = []
@@ -82,7 +83,7 @@ def test_system_syncd_restart(
             )
 
     logger.info("Restarting syncd...")
-    duthost.restart_service("syncd", "syncd")
+    duthost.restart_service("syncd")
     syncd_wait = port_attributes_dict[ports[0]].get(
         SYSTEM_ATTRIBUTES_KEY, {}
     ).get("syncd_restart_settle_sec", 240)
