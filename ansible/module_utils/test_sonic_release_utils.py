@@ -64,6 +64,14 @@ class TestGuessReleaseFromBuildVersion:
 
     @pytest.mark.parametrize("empty_release", [None, "", "none"])
     @pytest.mark.parametrize("build_version", [
+        "HEAD.0-9567328141",
+        "HEAD.123-deadbeef",
+    ])
+    def test_detached_head_build_version(self, empty_release, build_version):
+        assert guess_release_from_build_version(empty_release, build_version) == "master"
+
+    @pytest.mark.parametrize("empty_release", [None, "", "none"])
+    @pytest.mark.parametrize("build_version", [
         "",
         None,
         "foobar",

@@ -22,7 +22,8 @@ def guess_release_from_build_version(release, build_version):
 
     * a leading 6-digit ``YYYYMM`` token -> that release (e.g. '202605'), which
       also covers old date-stamped images ('20181130.31' -> '201811');
-    * a ``build_version`` containing 'master' -> 'master';
+    * a ``build_version`` containing 'master' or starting with ``HEAD.`` ->
+      'master';
     * anything else -> 'unknown'.
 
     Note: prior to this helper the fallback only recognized '201811', '201911'
@@ -41,7 +42,7 @@ def guess_release_from_build_version(release, build_version):
         return release
 
     build_version = build_version or ''
-    if 'master' in build_version:
+    if 'master' in build_version or build_version.startswith('HEAD.'):
         return 'master'
 
     match = _RELEASE_TOKEN_RE.match(build_version)
