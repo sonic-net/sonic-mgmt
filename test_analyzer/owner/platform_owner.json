@@ -928,6 +928,14 @@
         "tag": "Yes"
     },
     {
+        "hwsku": "Nokia-7215-A1-G48S4",
+        "topo": "m0",
+        "owner": "Jianquan Ye",
+        "email": "jianquanye@microsoft.com",
+        "new_platform": "Yes",
+        "tag": "Yes"
+    },
+    {
         "hwsku": "Arista-7060X6-64PE-B-P32V128",
         "topo": "t0-f2-d40u8",
         "owner": "Shawn Dashuai Zhang",
