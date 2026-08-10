@@ -26,7 +26,7 @@ ZERO_V6_ADDR = r'::/0'
 logger = logging.getLogger(__name__)
 
 
-# This API gets the ptf indices list and the local interfaces list for uplink LC
+# This API gets the ptf indices list and the local interfaces list for uplink LC.
 def get_all_uplink_ptf_recv_ports(duthosts, tbinfo):
     """
     This function returns ptf indices and local ports from dut which has connectivity to T3 (RNG/AZH) layer.
