@@ -1042,6 +1042,86 @@ class GenerateGoldenConfigDBModule(object):
         ori_config_db.setdefault("CHASSIS_MODULE", {}).setdefault("SWITCH-HOST", {})["admin_status"] = "up"
         return json.dumps(ori_config_db, indent=4)
 
+    def inject_confederation_config(self, config):
+        """Inject BGP confederation (BGP_DEVICE_GLOBAL|CONFED) for aggregator
+        topos whose generator does not already set it. No-op when the confed
+        asn/peers are not provided. Idempotent: does not overwrite an existing
+        CONFED entry set by a dedicated generator.
+        """
+        if not (self.bgp_confd_asn and self.bgp_confd_peers):
+            return config
+
+        confed = {
+            "asn": str(self.bgp_confd_asn),
+            "peers": str(self.bgp_confd_peers).replace(' ', ';')
+        }
+
+        ori_config_db = json.loads(config)
+        if self.num_asics > 1:
+            for asic in range(self.num_asics):
+                asic_name = f"asic{asic}"
+                bgp_device_global = ori_config_db.setdefault(asic_name, {}).setdefault("BGP_DEVICE_GLOBAL", {})
+                bgp_device_global.setdefault("CONFED", confed)
+        else:
+            bgp_device_global = ori_config_db.setdefault("BGP_DEVICE_GLOBAL", {})
+            bgp_device_global.setdefault("CONFED", confed)
+
+        return json.dumps(ori_config_db, indent=4)
+
+    def generate_uma_golden_config_db(self):
+        """
+        Generate golden_config for UMA topology based on m1-128.
+        Reuse minigraph-derived config and inject BGP confederation when provided.
+        """
+        full_config = {}
+        if self.num_asics > 1:
+            full_config = self.get_config_from_minigraph_multiasic()
+            for asic in range(self.num_asics):
+                asic_name = f"asic{asic}"
+                if self.bgp_confd_asn and self.bgp_confd_peers:
+                    bgp_device_global = full_config[asic_name].setdefault("BGP_DEVICE_GLOBAL", {})
+                    bgp_device_global["CONFED"] = {
+                        "asn": str(self.bgp_confd_asn),
+                        "peers": str(self.bgp_confd_peers).replace(' ', ';')
+                    }
+        else:
+            full_config = json.loads(self.get_config_from_minigraph())
+            if self.bgp_confd_asn and self.bgp_confd_peers:
+                bgp_device_global = full_config.setdefault("BGP_DEVICE_GLOBAL", {})
+                bgp_device_global["CONFED"] = {
+                    "asn": str(self.bgp_confd_asn),
+                    "peers": str(self.bgp_confd_peers).replace(' ', ';')
+                }
+
+        return json.dumps(full_config, indent=4)
+
+    def generate_lma_golden_config_db(self):
+        """
+        Generate golden_config for LMA topology based on m0 topologies.
+        Reuse minigraph-derived config and inject BGP confederation when provided.
+        """
+        full_config = {}
+        if self.num_asics > 1:
+            full_config = self.get_config_from_minigraph_multiasic()
+            for asic in range(self.num_asics):
+                asic_name = f"asic{asic}"
+                if self.bgp_confd_asn and self.bgp_confd_peers:
+                    bgp_device_global = full_config[asic_name].setdefault("BGP_DEVICE_GLOBAL", {})
+                    bgp_device_global["CONFED"] = {
+                        "asn": str(self.bgp_confd_asn),
+                        "peers": str(self.bgp_confd_peers).replace(' ', ';')
+                    }
+        else:
+            full_config = json.loads(self.get_config_from_minigraph())
+            if self.bgp_confd_asn and self.bgp_confd_peers:
+                bgp_device_global = full_config.setdefault("BGP_DEVICE_GLOBAL", {})
+                bgp_device_global["CONFED"] = {
+                    "asn": str(self.bgp_confd_asn),
+                    "peers": str(self.bgp_confd_peers).replace(' ', ';')
+                }
+
+        return json.dumps(full_config, indent=4)
+
     def generate_default_init_config_db(self):
         rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
         if rc != 0:
@@ -1323,6 +1403,12 @@ class GenerateGoldenConfigDBModule(object):
         elif "dualtor" in self.topo_name:
             config = self.generate_dualtor_golden_config_db()
             module_msg = module_msg + " for dualtor"
+        elif "uma" in self.topo_name:
+            config = self.generate_uma_golden_config_db()
+            module_msg = module_msg + " for uma"
+        elif "lma" in self.topo_name:
+            config = self.generate_lma_golden_config_db()
+            module_msg = module_msg + " for lma"
         elif "c0" in self.topo_name:
             config = self.generate_c0_golden_config_db()
             module_msg = module_msg + " for c0"
@@ -1332,6 +1418,11 @@ class GenerateGoldenConfigDBModule(object):
         # set switch-host admin_up by default for BMC
         if "bmc" in self.topo_name:
             config = self.set_switch_host_admin_up_config(config)
+
+        # Inject BGP confederation config for aggregator topos (LMA/UMA) whose
+        # generator does not already set CONFED. No-op when confed asn/peers unset.
+        if "lma" in self.topo_name or "uma" in self.topo_name:
+            config = self.inject_confederation_config(config)
 
         # update dns config
         config = self.update_dns_config(config)

@@ -5546,7 +5546,7 @@
 
 - conf-name: testbed-bjw3-can-7050c-9
   group-name: bjw3-5-1
-  topo: m1-44
+  topo: uma
   ptf_image_name: docker-ptf
   ptf: bjw3-5-1
   ptf_ip: 10.150.239.10/23
@@ -5564,7 +5564,7 @@
 
 - conf-name: testbed-bjw3-can-7050c-10
   group-name: bjw3-5-2
-  topo: m1-44
+  topo: lma
   ptf_image_name: docker-ptf
   ptf: bjw3-5-2
   ptf_ip: 10.150.239.11/23
