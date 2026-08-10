@@ -66,7 +66,14 @@ def _iter_exception_chain(exc):
 
 
 def _get_dark_hosts(exc):
-    """Return the hosts an ansible connection failure could not reach."""
+    """Return the hosts an ansible connection failure could not reach.
+
+    "dark" is the exception attribute pytest-ansible populates directly from
+    its result callback: AnsibleConnectionFailure(msg, dark=callback.unreachable).
+    The callback itself is a local of ModuleDispatcherV213._run and AdHocResult
+    only carries the contacted hosts, so this attribute is the only supported
+    way to read callback.unreachable, and it is exact rather than text matched.
+    """
     dark = getattr(exc, "dark", None)
     if isinstance(dark, dict):
         return sorted(dark.keys())
