@@ -85,10 +85,14 @@ def test_system_swss_restart(
 
     logger.info("Restarting swss...")
     duthost.restart_service('swss')
+    syncd_wait = port_attributes_dict[ports[0]].get(
+        SYSTEM_ATTRIBUTES_KEY, {}
+    ).get("syncd_restart_settle_sec", 240)
     swss_wait = port_attributes_dict[ports[0]].get(
         SYSTEM_ATTRIBUTES_KEY, {}
     ).get("swss_restart_settle_sec", 180)
-    time.sleep(swss_wait)
+    max_wait = max(syncd_wait, swss_wait)
+    time.sleep(max_wait)
 
     # Check whether pmon restarted alongside swss
     if port_attributes_dict[ports[0]].get(
@@ -106,7 +110,7 @@ def test_system_swss_restart(
     # Wait for settle time and verify
     result = standard_port_recovery_and_verification(
         duthost, ports, port_attributes_dict,
-        link_up_timeout_sec=swss_wait,
+        link_up_timeout_sec=max_wait,
         health_baseline=health_baseline,
         lport_to_first_subport_mapping=lport_to_first_subport_mapping,
         expected_pid_changes=expected_pid_changes,
