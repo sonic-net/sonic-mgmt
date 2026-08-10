@@ -14,10 +14,13 @@ TESTBED_UNREACHABLE_HANDLED_ATTR = "sonic_testbed_unreachable_handled"
 MAX_INSPECTED_MESSAGE_LENGTH = 8192
 
 # The two messages pytest-ansible raises for an unreachable host, see
-# ModuleDispatcherV213._raise_on_unreachable. They stay recognizable after the
-# exception is wrapped by pytest_assert or a parallel task runner, which is the
-# only case these markers are needed for: a directly raised
-# AnsibleConnectionFailure is already matched by its "dark" hosts.
+# ModuleDispatcherV213._raise_on_unreachable. They are method local literals
+# upstream, not an importable constant, so they have to be repeated here:
+# https://github.com/ansible/pytest-ansible/blob/9374c591579fffedc85e6bc1509be40c7b505d36/src/pytest_ansible/module_dispatcher/v213.py#L292-L313
+# They stay recognizable after the exception is wrapped by pytest_assert or a
+# parallel task runner, which is the only case these markers are needed for: a
+# directly raised AnsibleConnectionFailure is already matched by its "dark"
+# hosts, which is a documented attribute of the exception class.
 #
 # "in the inventory" is the token that carries the signal, so the leading
 # "Host" is deliberately not part of the marker: it adds no precision, and
