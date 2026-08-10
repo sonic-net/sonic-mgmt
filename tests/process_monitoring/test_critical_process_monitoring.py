@@ -71,8 +71,11 @@ def _filter_bmc_unsupported(duthost, container_name, critical_process_list):
 @pytest.fixture(autouse=True, scope='module')
 def config_reload_after_tests(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
+    up_bgp_neighbors = duthost.get_bgp_neighbors_per_asic("established")
     yield
-    config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=False)
+    if not postcheck_critical_processes_status(duthost, up_bgp_neighbors):
+        pytest.fail("Post-check failed after the module config reload!")
 
 
 @pytest.fixture(autouse=True, scope='module')
@@ -720,7 +723,7 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
     else:
         # Normal recovery for other containers
         logger.info("Executing the config reload...")
-        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=False)
         logger.info("Executing the config reload was done!")
 
         ensure_all_critical_processes_running(duthost, containers_in_namespaces)
