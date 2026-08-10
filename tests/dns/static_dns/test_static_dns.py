@@ -1,5 +1,6 @@
 import pytest
 import logging
+import os
 import re
 
 from tests.common.reboot import reboot
@@ -41,21 +42,45 @@ UNCONFIGURED_IP_ERR = r"Error: DNS nameserver .* is not configured"
 EXCEED_MAX_ERR = r"Error: The maximum number \(3\) of nameservers exceeded"
 DUPLICATED_IP_ERR = r"Error: .* nameserver is already configured"
 
+DHCLIENT_RESTORE_SCRIPT = os.path.join(os.path.dirname(__file__), "dhclient_restore.sh")
+REMOTE_DHCLIENT_RESTORE_SCRIPT = "/tmp/dhclient-dns-test-restore.sh"
 MGMT_PORT = "eth0"
 DHCLIENT_PID_FILE = "/run/dhclient-dns-test.pid"
+DHCLIENT_DONE_FILE = "/tmp/dhclient-dns-test.done"
 
 
 def start_dhclient(duthost):
-    duthost.shell(f"sudo dhclient -pf {DHCLIENT_PID_FILE} {MGMT_PORT}")
+    """Run dhclient without leaving the Ansible management path broken.
+
+    Static-management testbeds can use eth0 as the Ansible SSH control
+    interface. Running dhclient on eth0 may replace the inventory IP before
+    Ansible receives the command result, so the restore has to run entirely
+    inside the DUT before the controller waits for completion.
+    """
+    # Run restore from the DUT so Ansible can reconnect even if dhclient
+    # briefly changes the management address used by the control connection.
+    duthost.copy(src=DHCLIENT_RESTORE_SCRIPT,
+                 dest=REMOTE_DHCLIENT_RESTORE_SCRIPT,
+                 mode="0755")
+    cmd = (
+        f"rm -f {DHCLIENT_DONE_FILE}\n"
+        f"nohup bash {REMOTE_DHCLIENT_RESTORE_SCRIPT} "
+        f"{MGMT_PORT} {DHCLIENT_PID_FILE} {DHCLIENT_DONE_FILE} "
+        "> /dev/null 2>&1 &"
+    )
+    duthost.shell(cmd)
+    try:
+        pytest_assert(wait_until(180, 5, 5, is_dhclient_restore_done, duthost),
+                      f"DHCP renew did not complete on {MGMT_PORT}")
+    finally:
+        duthost.shell(
+            f"sudo rm -f {DHCLIENT_DONE_FILE} {REMOTE_DHCLIENT_RESTORE_SCRIPT}",
+            module_ignore_errors=True)
 
 
-@pytest.fixture()
-def stop_dhclient(duthost):
-    yield
-
-    if duthost.shell(f'ls {DHCLIENT_PID_FILE}', module_ignore_errors=True)['rc'] == 0:
-        duthost.shell(f"sudo kill $(cat {DHCLIENT_PID_FILE})")
-        duthost.shell(f"rm -rf {DHCLIENT_PID_FILE}")
+def is_dhclient_restore_done(duthost):
+    return duthost.shell(f"test -f {DHCLIENT_DONE_FILE}",
+                         module_ignore_errors=True, verbose=False).get("rc") == 0
 
 
 @pytest.mark.disable_loganalyzer
@@ -119,7 +144,7 @@ def test_static_dns_basic(request, duthost, localhost, backup_and_restore_config
 
 @pytest.mark.usefixtures('static_mgmt_ip_configured')
 class TestStaticMgmtPortIP():
-    def test_dynamic_dns_not_working_when_static_ip_configured(self, duthost, stop_dhclient):
+    def test_dynamic_dns_not_working_when_static_ip_configured(self, duthost):
         """
         Test to verify Dynamic DNS not work when static ip address is configured on the mgmt port
         :param duthost: DUT host object
@@ -142,7 +167,7 @@ class TestStaticMgmtPortIP():
 
 @pytest.mark.usefixtures('static_mgmt_ip_not_configured')
 class TestDynamicMgmtPortIP():
-    def test_static_dns_is_not_changing_when_do_dhcp_renew(self, duthost, stop_dhclient):
+    def test_static_dns_is_not_changing_when_do_dhcp_renew(self, duthost):
         """
         Test case to verify Static DNS will not change when do dhcp renew for the mgmt port
         :param duthost: DUT host object
@@ -169,7 +194,7 @@ class TestDynamicMgmtPortIP():
                 del_dns_nameserver(duthost, nameserver)
 
     @pytest.mark.usefixtures('static_mgmt_ip_not_configured')
-    def test_dynamic_dns_working_when_no_static_ip_and_static_dns(self, duthost, stop_dhclient):
+    def test_dynamic_dns_working_when_no_static_ip_and_static_dns(self, duthost):
         """
         The test is to verify Dynamic DNS work as expected when no static ip configured on mgmt port and
         static DNS is configured.
