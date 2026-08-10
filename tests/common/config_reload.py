@@ -11,12 +11,9 @@ from tests.common.utilities import wait_until
 from tests.common.configlet.utils import chk_for_pfc_wd
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
 from tests.common.helpers.dut_utils import ignore_t2_syslog_msgs
-<<<<<<< HEAD
 from tests.common.vs_data import is_vs_device
-=======
 from ansible.errors import AnsibleConnectionFailure
 from pytest_ansible.errors import AnsibleConnectionFailure as PytestAnsibleConnectionFailure
->>>>>>> 736703c96 (NOS-8757: fix dead connection-loss handler in config reload (#2479))
 
 logger = logging.getLogger(__name__)
 
@@ -282,10 +279,6 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
     :return:
     """
     def _config_reload_cmd_wrapper(cmd, executable):
-<<<<<<< HEAD
-        out = sonic_host.shell(cmd, executable=executable)
-        if out['rc'] == 0:
-=======
         try:
             out = sonic_host.shell(cmd, executable=executable, module_ignore_errors=True)
             if out['rc'] == 0:
@@ -294,9 +287,9 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
                 return False
         except (AnsibleConnectionFailure, PytestAnsibleConnectionFailure) as conn_err:
             logger.info("Connection lost during config reload: {}".format(str(conn_err)))
->>>>>>> 736703c96 (NOS-8757: fix dead connection-loss handler in config reload (#2479))
             return True
-        else:
+        except Exception as e:
+            logger.info("Config reload try failed with exception: {}".format(str(e)))
             return False
 
     if config_source not in config_sources:
