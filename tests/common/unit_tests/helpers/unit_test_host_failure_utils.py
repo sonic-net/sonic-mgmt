@@ -102,6 +102,23 @@ def test_detects_wrapped_host_unreachable():
     assert is_testbed_unreachable_exception(exc)
 
 
+def test_detects_wrapped_host_unreachable_in_extra_inventory():
+    # pytest-ansible raises a second, differently worded message when the
+    # unreachable host comes from the extra inventory.
+    exc = RuntimeError(
+        "Thread worker aborted: Host unreachable in the extra inventory")
+
+    assert is_testbed_unreachable_exception(exc)
+
+
+def test_detects_host_unreachable_when_upstream_says_hosts():
+    # The marker omits the leading noun so a "Host" -> "Hosts" rename upstream
+    # cannot silently disable the wrapped-exception detection.
+    exc = RuntimeError("Hosts unreachable in the inventory")
+
+    assert is_testbed_unreachable_exception(exc)
+
+
 def test_detects_host_unreachable_without_connection_failure_types():
     exc = FakeConnectionFailure("Host unreachable in the inventory")
 

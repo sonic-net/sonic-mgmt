@@ -13,14 +13,22 @@ TESTBED_UNREACHABLE_HANDLED_ATTR = "sonic_testbed_unreachable_handled"
 # signatures we look for are always in the leading part of the message.
 MAX_INSPECTED_MESSAGE_LENGTH = 8192
 
-# Only pytest-ansible reports an unreachable host with this message, it stays
-# recognizable after being wrapped by pytest_assert or a parallel task runner.
-# A bare "host unreachable" is deliberately not matched: ICMP output embeds
+# The two messages pytest-ansible raises for an unreachable host, see
+# ModuleDispatcherV213._raise_on_unreachable. They stay recognizable after the
+# exception is wrapped by pytest_assert or a parallel task runner, which is the
+# only case these markers are needed for: a directly raised
+# AnsibleConnectionFailure is already matched by its "dark" hosts.
+#
+# "in the inventory" is the token that carries the signal, so the leading
+# "Host" is deliberately not part of the marker: it adds no precision, and
+# omitting it keeps the match working if upstream ever says "Hosts".
+# A bare "host unreachable" must never be used: ICMP output embeds
 # "Destination Host Unreachable" and tests do put raw ping output into their
 # failure messages (tests/common/helpers/tacacs/tacacs_helper.py), which would
 # retire a healthy DUT when only the pinged peer is down.
 UNREACHABLE_MARKERS = (
     "unreachable in the inventory",
+    "unreachable in the extra inventory",
 )
 # On their own these only mean a single connection attempt failed, they need an
 # unhealthy DUT context to tell an unusable testbed from a functional failure.
