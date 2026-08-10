@@ -459,11 +459,26 @@ class ECMPHashManager:
 
     def set_test_offset(self):
         """Set the ECMP hash offset to test value."""
-        if hasattr(self.handler, 'get_test_offset_value'):
-            test_value = self.handler.get_test_offset_value()
-            return self.set_offset(test_value)
-        else:
+        if not hasattr(self.handler, "get_test_offset_value"):
             raise NotImplementedError("Test offset value not defined for this platform")
+
+        test_value = self.handler.get_test_offset_value()
+        # A run that was interrupted between set_test_offset() and
+        # restore_original_offset() leaves the DUT sitting on the test value.
+        # Re-applying it would leave the packet distribution untouched, so the
+        # comparison against the baseline run fails -- and since
+        # restore_original_offset() then writes that same value back, every
+        # later run keeps failing too. Use the default value instead so the
+        # offset genuinely changes.
+        if self._original_value is not None and str(self._original_value) == str(test_value):
+            default_value = self.handler.get_default_offset_value()
+            logger.warning(
+                "Current ECMP hash offset already equals the test value {}; "
+                "using {} instead so the offset actually changes".format(
+                    self._original_value, default_value)
+            )
+            test_value = default_value
+        return self.set_offset(test_value)
 
     def get_support_info(self):
         """Get detailed support information for debugging.
