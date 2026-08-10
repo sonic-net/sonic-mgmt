@@ -794,6 +794,12 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
             iptables_rules.append("-A FORWARD -j DROP")
             ip6tables_rules.append("-A FORWARD -j DROP")
 
+    # caclmgrd restricts FRR loopback ports in every managed namespace.
+    iptables_rules.append("-A OUTPUT -o lo -p tcp -m tcp --dport 2620 -m owner --uid-owner 300 -j ACCEPT")
+    iptables_rules.append("-A OUTPUT -o lo -p tcp -m tcp --dport 2601 -m owner --uid-owner 300 -j ACCEPT")
+    iptables_rules.append("-A OUTPUT -o lo -p tcp -m tcp --dport 2620 -j DROP")
+    iptables_rules.append("-A OUTPUT -o lo -p tcp -m tcp --dport 2601 -j DROP")
+
     # IP Table rule to allow eth1-midplane traffic for chassis
     if asic_index is None:
         append_midplane_traffic_rules(duthost, iptables_rules)
