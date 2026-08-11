@@ -694,12 +694,12 @@ class TestProbingBaseRunTest:
             with patch('probing_base.send_packet'):
                 pb.runTest()
 
-        print("  Step 1: get_probe_config() called ✓")
-        print("  Step 2: sai_thrift_port_tx_enable() called ✓")
-        print("  Step 3: setup_traffic() called ✓")
-        print("  Step 4: BufferOccupancyController initialized ✓")
-        print("  Step 5: probe() executed ✓")
-        print("  Step 6: assert_probing_result() called ✓")
+        print("  Step 1: get_probe_config() called [ok]")
+        print("  Step 2: sai_thrift_port_tx_enable() called [ok]")
+        print("  Step 3: setup_traffic() called [ok]")
+        print("  Step 4: BufferOccupancyController initialized [ok]")
+        print("  Step 5: probe() executed [ok]")
+        print("  Step 6: assert_probing_result() called [ok]")
 
         # Verify BufferOccupancyController was created
         assert mock_boc.called, "BufferOccupancyController should be initialized"
