@@ -327,7 +327,7 @@ class TestIngressDropProbingAlgorithmExecution(unittest.TestCase):
         )
 
         # Verify all phases executed
-        mock_upper.run.assert_called_once_with(24, 28, 5000, pg=3)
+        mock_upper.run.assert_called_once_with(24, 28, 5000, pool_size=5000, pg=3)
         mock_lower.run.assert_called_once_with(24, 28, 2000, pg=3)
         mock_range.run.assert_called_once_with(24, 28, 1000, 2000, pg=3)
 
@@ -557,7 +557,7 @@ class TestIngressDropProbingAlgorithmExecution(unittest.TestCase):
         )
 
         # Verify all algorithms receive traffic_keys
-        mock_upper.run.assert_called_once_with(24, 28, 5000, pg=3, queue=5, custom="value")
+        mock_upper.run.assert_called_once_with(24, 28, 5000, pool_size=5000, pg=3, queue=5, custom="value")
         mock_lower.run.assert_called_once_with(24, 28, 2000, pg=3, queue=5, custom="value")
         mock_range.run.assert_called_once_with(24, 28, 1000, 2000, pg=3, queue=5, custom="value")
 
