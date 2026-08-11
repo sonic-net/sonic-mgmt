@@ -265,6 +265,18 @@ def redis_hset(duthost, db, key, **fields):
     )
 
 
+def redis_hdel(duthost, db, key, *fields):
+    """HDEL one or more fields from a hash."""
+    if not fields:
+        return
+    duthost.shell(
+        "sonic-db-cli {db} HDEL '{key}' {fields}".format(
+            db=db, key=key, fields=' '.join(fields)
+        ),
+        module_ignore_errors=True
+    )
+
+
 def redis_del(duthost, db, *keys):
     """DEL one or more keys."""
     for k in keys:
