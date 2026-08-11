@@ -528,7 +528,7 @@ def append_midplane_traffic_rules(duthost, iptables_rules):
 
 
 def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expected_dhcp_rules_for_standby,
-                            use_forward_chain_for_multiasic=False):
+                            use_forward_chain_for_multiasic=False, include_frr_loopback_rules=False):
     """
     Args:
         ...
@@ -801,10 +801,11 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
     # Add OUTPUT rules to restrict access to FRR daemon ports 2601 (zebra VTY) and 2620 (FPM).
     # caclmgrd programs these rules in every managed namespace (host and all per-ASIC namespaces).
     # Ref: https://github.com/sonic-net/sonic-host-services/pull/389
-    iptables_rules.append("-A OUTPUT -o lo -p tcp -m tcp --dport 2620 -m owner --uid-owner 300 -j ACCEPT")
-    iptables_rules.append("-A OUTPUT -o lo -p tcp -m tcp --dport 2601 -m owner --uid-owner 300 -j ACCEPT")
-    iptables_rules.append("-A OUTPUT -o lo -p tcp -m tcp --dport 2620 -j DROP")
-    iptables_rules.append("-A OUTPUT -o lo -p tcp -m tcp --dport 2601 -j DROP")
+    if include_frr_loopback_rules:
+        iptables_rules.append("-A OUTPUT -o lo -p tcp -m tcp --dport 2620 -m owner --uid-owner 300 -j ACCEPT")
+        iptables_rules.append("-A OUTPUT -o lo -p tcp -m tcp --dport 2601 -m owner --uid-owner 300 -j ACCEPT")
+        iptables_rules.append("-A OUTPUT -o lo -p tcp -m tcp --dport 2620 -j DROP")
+        iptables_rules.append("-A OUTPUT -o lo -p tcp -m tcp --dport 2601 -j DROP")
 
     return iptables_rules, ip6tables_rules
 
@@ -1151,6 +1152,13 @@ def verify_cacl_show_acl_rule(duthost, acl_file):
 
 def verify_cacl(duthost, tbinfo, localhost, creds, docker_network,
                 expected_dhcp_rules_for_standby=None, asic_index=None):
+    # Detect whether the DUT's caclmgrd has FRR loopback port protection (sonic-host-services#389).
+    # Grep for the FRR_USER_UID constant which is only present in images with that feature.
+    dut_has_frr_loopback_rules = \
+        duthost.command("grep -q FRR_USER_UID /usr/bin/caclmgrd",
+                        module_ignore_errors=True)["rc"] == 0
+    logger.info("DUT caclmgrd has FRR loopback port protection rules: {}".format(dut_has_frr_loopback_rules))
+
     # Build two variants of the expected rules: the "legacy" INPUT-chain based rules, and the
     # newer FORWARD-chain based rules used by caclmgrd's multi-asic namespace-to-host forwarding
     # security patch (restricting SSH/SNMP/etc. namespace->host forwarding to specific IP ranges).
@@ -1159,10 +1167,12 @@ def verify_cacl(duthost, tbinfo, localhost, creds, docker_network,
     # avoiding a cyclic cross-repo merge-order dependency between the two PRs.
     expected_iptables_rules_legacy, expected_ip6tables_rules_legacy = \
         generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expected_dhcp_rules_for_standby,
-                                use_forward_chain_for_multiasic=False)
+                                use_forward_chain_for_multiasic=False,
+                                include_frr_loopback_rules=dut_has_frr_loopback_rules)
     expected_iptables_rules_fwd, expected_ip6tables_rules_fwd = \
         generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expected_dhcp_rules_for_standby,
-                                use_forward_chain_for_multiasic=True)
+                                use_forward_chain_for_multiasic=True,
+                                include_frr_loopback_rules=dut_has_frr_loopback_rules)
 
     stdout = duthost.get_asic_or_sonic_host(asic_index).command("iptables -S")["stdout"]
     actual_iptables_rules = stdout.strip().split("\n")
