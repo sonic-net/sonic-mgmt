@@ -423,7 +423,7 @@ def standard_port_recovery_and_verification(
 
     # 1. Link status - one batched poll covers every port.
     time.sleep(link_up_timeout_sec) 
-    link_check_dict = check_links_up(duthost, ports)
+    link_check_dict = check_links_up(duthost, port_attributes_dict)
     up_ports = link_check_dict.get("up", [])
 
     # 2a/2b setup - one shared flap/last_up_time sentinel per up port, captured
