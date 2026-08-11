@@ -8,12 +8,26 @@ import time
 import logging
 import pytest
 from tests.common.helpers.assertions import pytest_assert as py_assert
+from tests.common.utilities import wait_until
 from tests.common.vxlan_ecmp_utils import Ecmp_Utils
 
 Logger = logging.getLogger(__name__)
 ecmp_utils = Ecmp_Utils()
 WAIT_TIME = 2
 WAIT_TIME_EXTRA = 5
+ROUTE_PROPAGATION_TIMEOUT = 60
+
+
+def verify_route_in_t2(t2device, route, timeout=ROUTE_PROPAGATION_TIMEOUT):
+    """
+    Poll until *route* appears in the T2 EOS neighbor's BGP table, or timeout.
+
+    Returns True when the route is present, False if timeout is reached.
+    """
+    return wait_until(timeout, 5, 0,
+                      lambda: route in t2device['host'].get_route(route)
+                      .get('vrfs', {}).get('default', {}).get('bgpRouteEntries', {}))
+
 
 # This is the list of encapsulations that will be tested in this script.
 SUPPORTED_ENCAP_TYPES = ['v4_in_v4', 'v6_in_v4']
@@ -260,10 +274,10 @@ class Test_VxLAN_route_Advertisement():
             for prefix in routes[vnet]:
                 route = f'{prefix}/{prefix_mask}'
                 for t2device in self.vxlan_test_setup['t2']:
-                    result = t2device['host'].get_route(route)
-                    py_assert(route in result['vrfs']['default']['bgpRouteEntries'],
-                              "Route not propogated to the T2")
+                    py_assert(verify_route_in_t2(t2device, route),
+                              f"Route {route} not propagated to T2 within {ROUTE_PROPAGATION_TIMEOUT}s")
                     if community != "":
+                        result = t2device['host'].get_route(route)
                         py_assert(community in str(result), "community not propogated.")
         return
 
@@ -276,10 +290,10 @@ class Test_VxLAN_route_Advertisement():
             for prefix in routes[vnet]:
                 route = f'{prefix}/{prefix_mask}'
                 for t2device in self.vxlan_test_setup['t2']:
-                    result = t2device['host'].get_route(route)
-                    py_assert(route not in result['vrfs']['default']['bgpRouteEntries'],
+                    py_assert(not verify_route_in_t2(t2device, route),
                               "Route not propogated to the T2")
                     if community != "":
+                        result = t2device['host'].get_route(route)
                         py_assert(community not in str(result), "community is still getting propogated.")
         return
 
