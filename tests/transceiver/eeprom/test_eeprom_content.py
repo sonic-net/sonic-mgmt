@@ -400,9 +400,16 @@ def verify_eeprom_static_recovered(
 
     # One live-I2C confirmation pass: proves physical re-readability (a green
     # STATE_DB alone can pass on content xcvrd re-published without a fresh read).
+    # The sfputil read only touches each module's first subport, so map the
+    # selected ports to theirs (from the full dict); a subset of only non-primary
+    # breakout subports would otherwise confirm nothing.
+    confirm_attributes = _select_target_attributes(
+        port_attributes_dict,
+        {lport_to_first_subport_mapping.get(port, port) for port in target_attributes},
+    )
     return _run_per_port_eeprom_check(
         duthost,
-        target_attributes,
+        confirm_attributes,
         parse_wrapper=_parse_via_sfputil,
         source_label="sfputil show eeprom -p <port>",
         key_mapping=SFPUTIL_CLI_KEY_TO_INV_KEY,
