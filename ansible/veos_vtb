@@ -51,6 +51,7 @@ all:
           - m1-128
           - c0
           - c0-lo
+          - urh
           - dualtor-mixed
           - dualtor-mixed-56
           - dualtor-mixed-120
