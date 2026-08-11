@@ -15,6 +15,7 @@ import pytest
 
 from tests.common.testbed import TestbedInfo
 from .issue import check_issues
+from .failure_signature import has_any_stored_signatures, load_signatures_for_issues, evaluate_failure
 from tests.common.utilities import get_duts_from_host_pattern
 from tests.common.cisco_data import (
     CISCO_8122_PREFIX,
@@ -609,8 +610,12 @@ def evaluate_condition(dynamic_update_skip_reason, mark_details, condition, basi
 
         condition_result = bool(eval(condition_str, safe_globals))
 
-        if condition_result and dynamic_update_skip_reason:
-            mark_details['reason'].append(condition)
+        if condition_result:
+            # Always record the matched condition so the Failure-Validated xfail
+            # logic can extract the exact issue URL that triggered the mark.
+            mark_details['matched_conditions'].append(condition)
+            if dynamic_update_skip_reason:
+                mark_details['reason'].append(condition)
         return condition_result
     except Exception:
         raise RuntimeError('Failed to evaluate condition, raw_condition={}, condition_str={}'.format(
@@ -638,6 +643,7 @@ def evaluate_conditions(dynamic_update_skip_reason, mark_details, conditions, ba
     Returns:
         bool: True or False based on condition strings evaluation result.
     """
+    mark_details['matched_conditions'] = []
     if dynamic_update_skip_reason:
         mark_details['reason'] = []
     if isinstance(conditions, list):
@@ -766,11 +772,158 @@ def pytest_collection_modifyitems(session, config, items):
                             strict = False
                             if mark_details:
                                 strict = mark_details.get('strict', False)
-                            mark = getattr(pytest.mark, mark_name)(reason=reason, strict=strict)
-                            # To generate xfail property in the report xml file
-                            item.user_properties.append(('xfail', strict))
+
+                            # --- Failure-Validated xfail ---
+                            # Check if this xfail condition references known issues that have
+                            # stored failure signatures.  If so, defer the xfail decision to
+                            # runtime (pytest_runtest_makereport) where we can compare the
+                            # actual failure against the reference signatures.
+                            matched_conditions = ' '.join(mark_details.get('matched_conditions', []))
+                            issue_urls = re.findall(r'https?://[^ )]+', matched_conditions)
+                            has_files = issue_urls and has_any_stored_signatures(issue_urls)
+                            signatures = load_signatures_for_issues(issue_urls) if has_files else {}
+                            if signatures:
+                                item._dynamic_xfail_info = {
+                                    "issue_urls": issue_urls,
+                                    "reason": reason,
+                                    "strict": strict,
+                                    "signatures": signatures,
+                                }
+                                logger.debug(
+                                    f'Deferring xfail to runtime for {item.nodeid} (issues: {issue_urls})')
+                                # Do NOT add the xfail mark - the hook will decide at runtime.
+                                # Still record the xfail property for report XML compatibility.
+                                item.user_properties.append(('xfail', strict))
+                            else:
+                                # Fall back to static xfail (current behavior).
+                                # If signature files exist but contained no valid signatures,
+                                # add a note so the engineer knows the file is broken.
+                                xfail_reason = reason
+                                if has_files:
+                                    xfail_reason = (f"{reason}\n[Failure-Validated xfail: "
+                                                    f"signature file(s) found for "
+                                                    f"{', '.join(issue_urls)} but no valid "
+                                                    f"signatures could be loaded. "
+                                                    f"Falling back to static xfail.]")
+                                    logger.warning(
+                                        f"Signature file(s) found for {issue_urls} but no "
+                                        f"valid signatures loaded. Falling back to static "
+                                        f"xfail for {item.nodeid}.")
+                                mark = getattr(pytest.mark, mark_name)(reason=xfail_reason, strict=strict)
+                                # To generate xfail property in the report xml file
+                                item.user_properties.append(('xfail', strict))
+                                logger.debug('Adding mark {} to {}'.format(mark, item.nodeid))
+                                item.add_marker(mark)
                         else:
                             mark = getattr(pytest.mark, mark_name)(reason=reason)
+                            logger.debug('Adding mark {} to {}'.format(mark, item.nodeid))
+                            item.add_marker(mark)
 
-                        logger.debug('Adding mark {} to {}'.format(mark, item.nodeid))
-                        item.add_marker(mark)
+
+def _update_allure_result_for_teardown(item, report, xfail_reason):
+    """Directly update Allure's test_result for a teardown xfail.
+
+    Allure's teardown handler only updates the test result for FAILED/BROKEN
+    status, and ignores SKIPPED. Since we set report.outcome to "skipped"
+    for pytest's benefit, we need to directly update Allure's internal
+    test_result object to show the xfail status and message.
+    """
+    try:
+        allure_listener = None
+        for plugin in item.config.pluginmanager.get_plugins():
+            if type(plugin).__name__ == "AllureListener":
+                allure_listener = plugin
+                break
+        if allure_listener is None:
+            return
+        uuid = allure_listener._cache.get(item.nodeid)
+        if uuid is None:
+            return
+        test_result = allure_listener.allure_logger.get_test(uuid)
+        if test_result is None:
+            return
+
+        from allure_commons.model2 import Status, StatusDetails
+        message = f"XFAIL {xfail_reason}\n\n{report.longreprtext}" if report.longreprtext else f"XFAIL {xfail_reason}"
+        test_result.status = Status.SKIPPED
+        test_result.statusDetails = StatusDetails(
+            message=message,
+            trace=report.longreprtext or "")
+    except Exception as e:
+        logger.debug(f"Could not update Allure result for teardown xfail: {e}")
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    """Hook for Failure-Validated xfail: validate test failures against known issue signatures.
+
+    When a test has ``_dynamic_xfail_info`` (set during collection), this hook intercepts the
+    test result and compares the actual failure against stored reference signatures.
+
+    - If the failure matches a known issue (same_issue): report as xfail (expected failure).
+    - If the failure is different (different_issue): report as a real failure.
+
+    This hook acts on all phases (setup, call, teardown) because failures in
+    fixture setup/teardown (e.g. yang_validation_check) are real issues that
+    should also be validated against stored signatures.
+    """
+    outcome = yield
+    report = outcome.get_result()
+    if not report.failed:
+        return
+
+    dynamic_xfail_info = getattr(item, "_dynamic_xfail_info", None)
+    if dynamic_xfail_info is None:
+        return
+
+    # If a setup failure was already handled by FV-xfail, skip the call
+    # phase (which fails with KeyError because the fixture is unavailable).
+    if report.when == "call" and getattr(item, "_fvxfail_setup_handled", False):
+        report.outcome = "skipped"
+        report.wasxfail = dynamic_xfail_info["reason"]
+        return
+
+    # Skip loganalyzer teardown failures.
+    if report.when == "teardown" and call.excinfo is not None:
+        trace_text = report.longreprtext or ""
+        if "tests/common/plugins/loganalyzer/__init__.py" in trace_text:
+            logger.debug(f"Skipping FV-xfail for {item.nodeid}: loganalyzer teardown failure.")
+            return
+
+    if call.excinfo is None:
+        logger.warning(f"Test {item.nodeid} failed in {report.when} but no excinfo available. "
+                       f"Falling back to xfail.")
+        report.outcome = "skipped"
+        report.wasxfail = dynamic_xfail_info["reason"]
+        return
+
+    current_failure = {
+        "exception_type": call.excinfo.typename,
+        "message": call.excinfo.exconly(),
+        "stack_trace": report.longreprtext,
+    }
+
+    signatures = dynamic_xfail_info.get("signatures", {})
+    decision, detail = evaluate_failure(current_failure, signatures)
+
+    logger.info(
+        f"Failure-Validated xfail for {item.nodeid} ({report.when}): decision={decision}, detail={detail}")
+
+    xfail_reason = f"{dynamic_xfail_info['reason']}\n[Failure-Validated xfail: {detail}]"
+
+    if decision == "same_issue":
+        # Override report to xfail (expected failure)
+        report.outcome = "skipped"
+        report.wasxfail = xfail_reason
+        if report.when == "setup":
+            # Mark that setup was handled so the call phase (which fails
+            # with KeyError because the fixture is unavailable) is skipped.
+            item._fvxfail_setup_handled = True
+        elif report.when == "teardown":
+            # For teardown: Allure ignores skipped teardown reports, so
+            # directly update Allure's test_result to show the xfail.
+            _update_allure_result_for_teardown(item, report, xfail_reason)
+    else:
+        issue_urls = dynamic_xfail_info.get('issue_urls', [])
+        report.wasxfail = (f"[Failure-Validated xfail: Known issues {', '.join(issue_urls)} "
+                           f"did NOT match. {detail}]")
