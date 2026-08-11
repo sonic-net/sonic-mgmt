@@ -89,7 +89,7 @@ def apply_cert_config(duthost, vrf_name=None, localhost=None):
     # gnmi request rather than just the TCP handshake).
     if localhost is not None:
         def _gnmi_server_responsive():
-            ret, _ = gnmi_capabilities(duthost, localhost)
+            ret, _ = gnmi_capabilities(duthost, localhost, vrf_name)
             return ret == 0
 
         server_responsive = wait_until(30, 5, 0, _gnmi_server_responsive)
