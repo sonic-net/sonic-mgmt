@@ -25,7 +25,7 @@ from tests.transceiver.attribute_parser.attribute_keys import DOM_ATTRIBUTES_KEY
 from tests.transceiver.common import scenario_ops
 from tests.transceiver.common.health_checks import DEFAULT_MONITORED_PROCESSES
 from tests.transceiver.eeprom import datapath
-from tests.transceiver.eeprom.test_eeprom_content import (
+from tests.transceiver.eeprom.eeprom_content import (
     verify_eeprom_static_recovered,
     verify_firmware_info_recovered,
 )
