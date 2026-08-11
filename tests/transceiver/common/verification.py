@@ -336,9 +336,9 @@ def check_cmis_state(
 
         missing_msg = ""
         if datapath_fields_seen != len(active_lanes):
-            missing_msg+="DataPathState fields missing; "
+            missing_msg += "DataPathState fields missing; "
         if config_fields_seen != len(active_lanes):
-            missing_msg+="ConfigState fields missing; "
+            missing_msg += "ConfigState fields missing; "
 
         if missing_msg:
             per_port[port] = {
@@ -422,7 +422,7 @@ def standard_port_recovery_and_verification(
     checks_ran = {port: [] for port in ports}  # human-readable checks ran
 
     # 1. Link status - one batched poll covers every port.
-    time.sleep(link_up_timeout_sec) 
+    time.sleep(link_up_timeout_sec)
     link_check_dict = check_links_up(duthost, port_attributes_dict)
     up_ports = link_check_dict.get("up", [])
 

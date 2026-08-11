@@ -341,7 +341,7 @@ def clear_interface_counters_and_wait(duthost, wait_time=60):
     Args:
         duthost: The device under test.
         wait_time (int): Number of seconds to wait after clearing counters.
-        
+
     Returns:
         None
     """
