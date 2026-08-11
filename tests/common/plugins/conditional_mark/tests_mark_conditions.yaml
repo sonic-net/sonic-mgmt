@@ -648,6 +648,7 @@ bgp/test_bgp_suppress_fib.py:
       - "release in ['201811', '201911', '202012', '202205', '202211', '202305', '202311', '202405']"
       - "release in ['202505', '202511', '202605']"
       - "release in ['master'] and https://github.com/sonic-net/sonic-mgmt/issues/26175"
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/26175"
   xfail:
     reason: "xfail for IPv6-only topologies, issue https://github.com/sonic-net/sonic-mgmt/issues/20756 or Mellanox platform due to https://github.com/sonic-net/sonic-buildimage/issues/24679"
     conditions_logical_operator: or
