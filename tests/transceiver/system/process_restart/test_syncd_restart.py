@@ -37,7 +37,10 @@ from tests.transceiver.common.verification import (
     standard_port_recovery_and_verification
 )
 from tests.common.helpers.sonic_db import AppDbCli as sdbHelp
-from tests.common.platform.processes_utils import check_pmon_uptime_minutes
+from tests.common.platform.processes_utils import (
+    check_docker_uptime_minutes, 
+    check_pmon_uptime_minutes
+)
 
 logger = logging.getLogger(__name__)
 
@@ -85,14 +88,10 @@ def test_system_syncd_restart(
 
     logger.info("Restarting syncd...")
     duthost.restart_service("syncd")
-    syncd_wait = port_attributes_dict[ports[0]].get(
-        SYSTEM_ATTRIBUTES_KEY, {}
-    ).get("syncd_restart_settle_sec", 240)
-    swss_wait = port_attributes_dict[ports[0]].get(
-        SYSTEM_ATTRIBUTES_KEY, {}
-    ).get("swss_restart_settle_sec", 180)
-    max_wait = max(syncd_wait, swss_wait)
-    time.sleep(max_wait)
+
+    if check_docker_uptime_minutes(duthost, "syncd", minimal_runtime=3):
+        failures.append("syncd did not restart as expected")
+        logger.warning("syncd FAILED to restart")
 
     # Check whether pmon restarted alongside syncd
     if port_attributes_dict[ports[0]].get(
@@ -106,6 +105,15 @@ def test_system_syncd_restart(
                 "pmon FAILED to restart when"
                 " expect_pmon_restart_with_swss_or_syncd is True"
             )
+
+    syncd_wait = port_attributes_dict[ports[0]].get(
+        SYSTEM_ATTRIBUTES_KEY, {}
+    ).get("syncd_restart_settle_sec", 240)
+    swss_wait = port_attributes_dict[ports[0]].get(
+        SYSTEM_ATTRIBUTES_KEY, {}
+    ).get("swss_restart_settle_sec", 180)
+    max_wait = max(syncd_wait, swss_wait)
+    time.sleep(max_wait)
 
     # Wait for settle time and verify
     result = standard_port_recovery_and_verification(
