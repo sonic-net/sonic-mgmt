@@ -361,7 +361,7 @@ class UpgradeDpuSonicImageModule(object):
 
     def prepare_image_for_reboot(self, ssh, dpu_ip, image):
         """Persist an image as both the default and one-time boot target, then verify it."""
-        # U-Boot is platform-specific; platforms without its tools use the sonic-installer path below.
+        # Pensando DPUs use U-Boot; platforms without its tools use the sonic-installer path below.
         uboot_slot_cmd = (
             "if command -v fw_printenv >/dev/null 2>&1 && command -v fw_setenv >/dev/null 2>&1; then "
             "printf '%s\\n' \"$(fw_printenv -n sonic_version_1 2>/dev/null || true)\" "
