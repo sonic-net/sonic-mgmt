@@ -12,6 +12,7 @@ from tests.common.utilities import wait_until, get_plt_reboot_ctrl
 
 logger = logging.getLogger(__name__)
 
+
 def check_docker_uptime_minutes(duthost, name, minimal_runtime=6):
     """
     @summary: This function checks if the named docker's uptime is at least the minimal_runtime
