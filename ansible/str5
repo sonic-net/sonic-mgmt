@@ -1032,6 +1032,9 @@ sonic_arista_7280r4_400G:
       platform_tests/test_reload_config.py::test_reload_configuration_checks:
         timeout: 360
         wait: 60
+    plt_wait_time:
+      everflow:
+        wait: 240
   hosts:
     str5-7280r4-ut2-3:
       hwsku: Arista-7280R4K-32QF-32DF-64O
@@ -1041,7 +1044,7 @@ sonic_arista_7280r4_400G:
       serial: SSN25462008
       base_mac: b8:a1:b8:a4:37:a2
       ansible_host: 10.3.152.115
-      ansible_hostv6: 2a01:111:e210:86::a03:9873
+      ansible_hostv6: 2a01:111:e210:86::87
       model: 'DCS-7280R4K-32QF-32DF'
       syseeprom_info:
         "0x21": "DCS-7280R4K-32QF-32DF"
@@ -1063,7 +1066,7 @@ sonic_arista_7280r4_400G:
       serial: SSN25462010
       base_mac: b8:a1:b8:a4:39:23
       ansible_host: 10.3.152.116
-      ansible_hostv6: 2a01:111:e210:86::a03:9874
+      ansible_hostv6: 2a01:111:e210:86::88
       model: 'DCS-7280R4K-32QF-32DF'
       syseeprom_info:
         "0x21": "DCS-7280R4K-32QF-32DF"
