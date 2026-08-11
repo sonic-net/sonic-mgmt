@@ -588,8 +588,8 @@ def test_static_route_ecmp_ipv6(rand_selected_dut, rand_unselected_dut, ptfadapt
                           is_route_flow_counter_supported, ipv6=True, config_reload_test=True)
 
 
-# Keep non-reboot coverage ahead of warmboot tests. A failed warmboot can leave
-# SWSS/FIB unhealthy and cascade false wrong-egress failures into later cases.
+# Keep this config-reload test ahead of warmboot tests. A failed warmboot can
+# leave SWSS/FIB unhealthy and make this case report a false wrong-egress failure.
 @pytest.mark.disable_loganalyzer
 def test_static_route_config_reload_with_traffic(rand_selected_dut, rand_unselected_dut, ptfadapter, ptfhost, tbinfo,
                                                  setup_standby_ports_on_rand_unselected_tor, # noqa F811
