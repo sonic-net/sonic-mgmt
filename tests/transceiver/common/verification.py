@@ -241,7 +241,7 @@ def check_cmis_state(
     ConfigState=ConfigSuccess, for every port in ``ports``.
 
     Why: ``TRANSCEIVER_STATUS`` is published once per physical module (under
-    the first sub-port of a breakou                   t group) and carries every host lane of
+    the first sub-port of a breakout group) and carries every host lane of
     the module, so a breakout sub-port must be checked only against its own
     active lanes - not a sibling's - to avoid a false pass/fail; this also
     batches the underlying DB reads per namespace instead of per port.
@@ -334,12 +334,18 @@ def check_cmis_state(
                 if v != "ConfigSuccess":
                     bad_config.append(f"{k}={v}")
 
-        if datapath_fields_seen + config_fields_seen != len(active_lanes):
+        missing_msg = ""
+        if datapath_fields_seen != len(active_lanes):
+            missing_msg+="DataPathState fields missing; "
+        if config_fields_seen != len(active_lanes):
+            missing_msg+="ConfigState fields missing; "
+
+        if missing_msg:
             per_port[port] = {
                 "passed": False,
                 "details": (
                     f"{port} (parent {parent}) TRANSCEIVER_STATUS|{parent} "
-                    f"has no DP<N>State or config_state_hostlane<N> fields "
+                    f"has {missing_msg} "
                     f"for this port's active host lanes "
                     f"{sorted(active_lanes)} - cannot confirm CMIS state "
                     "(schema mismatch, partial publish, or lane-range "
@@ -440,73 +446,6 @@ def standard_port_recovery_and_verification(
         capture_flap_sentinels(duthost, up_ports, namespaces=namespaces)
         if up_ports else {}
     )
-
-    # NOTE: Temporarily disabled for PR streamlining
-    #       All commented code below is UNTESTED
-    #
-    # # 2b. No flap across the operation - only when assert_no_flap_across_op
-    # #     is set (flap counter must survive the op, e.g. xcvrd/pmon
-    # #     restart).
-    # if assert_no_flap_across_op:
-    #     for port in up_ports:
-    #         checks_ran[port].append("no-flap-across-op")
-    #         baseline_flap = (flap_count_baseline or {}).get(port)
-    #         current_flap, _current_up = post_recovery_sentinels.get(
-    #             port, (None, None)
-    #         )
-    #         if baseline_flap is None or current_flap is None:
-    #             per_port_failures[port].append(
-    #                 f"{port}: cannot assert across-op no-flap - "
-    #                 "flap_count baseline/current missing"
-    #             )
-    #         elif current_flap != baseline_flap:
-    #             per_port_failures[port].append(
-    #                 f"{port}: flapped across operation (flap_count "
-    #                 f"{baseline_flap} -> {current_flap})"
-    #             )
-
-    # # 3. LLDP - only for up ports that request it (otherwise LLDP is moot);
-    # #    per-port timeouts honored, polls interleaved across the batch.
-    # lldp_port_timeouts = {}
-    # for port in up_ports:
-    #     sys_attrs = port_attributes_dict.get(port, {}).get(
-    #         SYSTEM_ATTRIBUTES_KEY, {}
-    #     )
-    #     if sys_attrs.get("verify_lldp_on_link_up", True):
-    #         if "lldp_neighbor_wait_sec" not in sys_attrs:
-    #             raise ValueError(
-    #                 f"{port}: 'lldp_neighbor_wait_sec' is not defined in "
-    #                 "SYSTEM_ATTRIBUTES (system.json 'defaults', or a more "
-    #                 "specific override) - required whenever "
-    #                 "verify_lldp_on_link_up is True"
-    #             )
-    #         lldp_port_timeouts[port] = sys_attrs["lldp_neighbor_wait_sec"]
-    # if lldp_port_timeouts:
-    #     lldp_results = check_lldp_neighbors_present(
-    #         duthost, lldp_port_timeouts, namespaces=namespaces
-    #     )
-    #     for port, result in lldp_results.items():
-    #         checks_ran[port].append("LLDP")
-    #         if not result["passed"]:
-    #             per_port_failures[port].append(result["details"])
-
-    # # 5. CMIS state - only for up, CMIS active-optical ports, in one
-    # #    batched check_cmis_state call.
-    # cmis_active_ports = [
-    #     port for port in up_ports
-    #     if is_cmis_active_optical(
-    #         port_attributes_dict.get(port, {}).get(EEPROM_ATTRIBUTES_KEY, {})
-    #     )
-    # ]
-    # if cmis_active_ports:
-    #     cmis_results = check_cmis_state(
-    #         duthost, cmis_active_ports, lport_to_first_subport_mapping,
-    #         namespaces=namespaces
-    #     )
-    #     for port, result in cmis_results.items():
-    #         checks_ran[port].append("CMIS state")
-    #         if not result["passed"]:
-    #             per_port_failures[port].append(result["details"])
 
     # 2a end-gate. Mandatory stability sub-check, only for up ports. Asserted
     # here (after steps 3/5) so the window overlaps that work instead of a
