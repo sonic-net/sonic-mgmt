@@ -20,6 +20,10 @@ DEFAULT_STABILITY_WINDOW_SEC = 5
 _LLDP_POLL_INTERVAL_SEC = 3
 _CMIS_DATAPATH_STATE_RE = re.compile(r'^DP(\d+)State$')
 _CMIS_CONFIG_STATE_RE = re.compile(r'^config_state_hostlane(\d+)$')
+# Mirrors the message format produced by wait_ports_oper_status()
+# (tests/common/platform/interface_utils.py), which returns failure strings
+# rather than port names.
+_DOWN_PORT_MSG_RE = re.compile(r'^port (\S+) did not reach oper-\S+ within \d+s$')
 
 
 def check_lldp_neighbors_present(duthost, port_timeouts, namespaces=None):
@@ -49,7 +53,7 @@ def check_lldp_neighbors_present(duthost, port_timeouts, namespaces=None):
 
     start = time.monotonic()
     deadlines = {
-        port: start + max(0, int(timeout_sec))
+        port: start + timeout_sec
         for port, timeout_sec in port_timeouts.items()
     }
     remaining = set(port_timeouts)
@@ -330,7 +334,7 @@ def check_cmis_state(
                 if v != "ConfigSuccess":
                     bad_config.append(f"{k}={v}")
 
-        if datapath_fields_seen == 0 and config_fields_seen == 0:
+        if datapath_fields_seen + config_fields_seen != len(active_lanes):
             per_port[port] = {
                 "passed": False,
                 "details": (
@@ -412,15 +416,20 @@ def standard_port_recovery_and_verification(
     checks_ran = {port: [] for port in ports}  # human-readable checks ran
 
     # 1. Link status - one batched poll covers every port.
-    down_ports = wait_ports_oper_status(
+    down_port_msgs = wait_ports_oper_status(
         duthost, ports, "up", link_up_timeout_sec
     )
+    down_ports = []
+    for msg in down_port_msgs:
+        match = _DOWN_PORT_MSG_RE.match(msg)
+        if not match:
+            logger.warning("Unable to parse port from down-port message: %s", msg)
+            continue
+        port = match.group(1)
+        down_ports.append(port)
+        per_port_failures[port].append(msg)
     for port in ports:
         checks_ran[port].append("link up")
-    for port in down_ports:
-        per_port_failures[port].append(
-            f"port {port} did not reach oper-up within {link_up_timeout_sec}s"
-        )
 
     up_ports = [port for port in ports if port not in down_ports]
 
