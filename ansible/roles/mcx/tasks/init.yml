@@ -17,7 +17,7 @@
 - name: Set credential for auto-recovery
   set_fact:
     console_ssh_user: "{{ console_login['console_ssh']['user'] }}"
-    console_ssh_password: "{{ console_login['console_ssh']['passwd'] }}"
+    console_ssh_password: "{{ console_login['console_ssh']['passwd'][0] }}"
 
 - name: Create user for auto-recovery
   user:
