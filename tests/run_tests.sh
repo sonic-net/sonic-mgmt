@@ -24,6 +24,7 @@ function show_help_and_exit()
     echo "    -O             : run tests in input order rather than alphabetical order"
     echo "    -p <path>      : specify log path (default: logs)"
     echo "    -q <n>         : test will stop after <n> failures (default: not stop on failure)"
+    echo "    -R <n>         : repeat test up to <n> times, stop on first failure (default: 1)"
     echo "    -r             : retain individual file log for suceeded tests (default: remove)"
     echo "    -s <tests>     : specify list of tests to skip (default: none)"
     echo "    -S <folders>   : specify list of test folders to skip (default: none)"
@@ -124,6 +125,7 @@ function setup_environment()
     TEST_INPUT_ORDER="False"
     TEST_METHOD='group'
     TEST_MAX_FAIL=0
+    REPEAT_COUNT=1
     DPU_NAME="None"
     NO_CLEAR_CACHE="False"
     IPV6_ONLY_MGMT="False"
@@ -283,6 +285,7 @@ function run_debug_tests()
     echo "TEST_FILTER:           ${TEST_FILTER}"
     echo "TEST_INPUT_ORDER:      ${TEST_INPUT_ORDER}"
     echo "TEST_MAX_FAIL:         ${TEST_MAX_FAIL}"
+    echo "REPEAT_COUNT:          ${REPEAT_COUNT}"
     echo "TEST_METHOD:           ${TEST_METHOD}"
     echo "TESTBED_FILE:          ${TESTBED_FILE}"
     echo "TEST_LOGGING_OPTIONS:  ${TEST_LOGGING_OPTIONS}"
@@ -480,7 +483,7 @@ for arg in "$@"; do
     fi
 done
 
-while getopts "h?a:b:Bc:C:d:e:Ef:F:H:i:I:k:l:m:Mn:oOp:q:rs:S:t:uxw6" opt; do
+while getopts "h?a:b:Bc:C:d:e:Ef:F:H:i:I:k:l:m:Mn:oOp:q:rR:s:S:t:uxw6" opt; do
     case ${opt} in
         h|\? )
             show_help_and_exit 0
@@ -555,6 +558,13 @@ while getopts "h?a:b:Bc:C:d:e:Ef:F:H:i:I:k:l:m:Mn:oOp:q:rs:S:t:uxw6" opt; do
         r )
             RETAIN_SUCCESS_LOG="True"
             ;;
+        R )
+            if [[ ! ${OPTARG} =~ ^[1-9][0-9]*$ ]]; then
+                echo "Repeat count (-R) must be a positive integer: ${OPTARG}"
+                show_help_and_exit 6
+            fi
+            REPEAT_COUNT=${OPTARG}
+            ;;
         s )
             SKIP_SCRIPTS="${SKIP_SCRIPTS} ${OPTARG}"
             ;;
@@ -603,13 +613,22 @@ fi
 
 RC=0
 
-if [[ x"${BSL}" == x"True" ]]; then
-    run_bsl_tests || RC=$?
-elif [[ x"${MUX_COMBO_MODE}" == x"True" ]]; then
-    run_mux_combo_tests || RC=$?
-else
-    run_${TEST_METHOD}_tests || RC=$?
-fi
+for (( _iter=1; _iter<=REPEAT_COUNT; _iter++ )); do
+    if [[ ${REPEAT_COUNT} -gt 1 ]]; then
+        echo "=== Iteration ${_iter} of ${REPEAT_COUNT} ==="
+    fi
+    if [[ x"${BSL}" == x"True" ]]; then
+        run_bsl_tests || RC=$?
+    elif [[ x"${MUX_COMBO_MODE}" == x"True" ]]; then
+        run_mux_combo_tests || RC=$?
+    else
+        run_${TEST_METHOD}_tests || RC=$?
+    fi
+    if [[ ${RC} -ne 0 ]]; then
+        echo "=== Failed on iteration ${_iter} of ${REPEAT_COUNT} ==="
+        break
+    fi
+done
 
 if [[ x"${TEST_METHOD}" != x"debug" && x"${BYPASS_UTIL}" == x"False" ]]; then
     cleanup_dut
