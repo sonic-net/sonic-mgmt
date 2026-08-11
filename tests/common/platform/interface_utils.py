@@ -1,5 +1,6 @@
 """
 Helper script for checking status of interfaces
+
 This script contains re-usable functions for checking status of interfaces on SONiC.
 """
 
@@ -95,10 +96,12 @@ def expect_interface_status(dut, interface_name, expected_op_status):
 
 def wait_ports_oper_status(duthost, ports, status, wait_sec, poll_interval_sec=2):
     """Poll until every port in ``ports`` reaches oper-``status``; return failures.
+
     Issues a single ``show interface description`` per poll (one full-table dump,
     parsed once) and checks every port against that snapshot, rather than one CLI
     call per port -- the latter is O(N) redundant dumps per poll and does not
     scale to hundreds of ports.
+
     Returns a list with one string per port still not at oper-``status`` after
     ``wait_sec``; empty once all reach it. A port absent from the dump is reported
     as a failure (rather than raising) so a missing/renamed port aggregates like
@@ -293,9 +296,11 @@ def get_dpu_npu_ports_from_hwsku(duthost):
 def get_fec_eligible_interfaces(duthost, supported_speeds):
     """
     Get interfaces that are operationally up, SFP present and have supported speeds.
+
     Args:
         duthost: The device under test.
         supported_speeds (list): A list of supported speeds for validation.
+
     Returns:
         interfaces (list): A list of interface names with SFP present, oper status up
         and speed in supported_speeds.
@@ -332,9 +337,11 @@ def get_fec_eligible_interfaces(duthost, supported_speeds):
 def clear_interface_counters_and_wait(duthost, wait_time=60):
     """
     Clear SONiC interface counters and wait before validating them.
+
     Args:
         duthost: The device under test.
         wait_time (int): Number of seconds to wait after clearing counters.
+        
     Returns:
         None
     """
