@@ -79,7 +79,7 @@ def poll_ports_recovered(check_fn, wait_sec, interval_sec, label):
         state["latest"] = check_fn()
         count = len(state["latest"])
         if count and count != state["last_count"]:
-            logger.info("%s recovery poll: %d port(s) still not recovered", label, count)
+            logger.info("%s recovery poll: %d item(s) still not recovered", label, count)
         state["last_count"] = count
         return not state["latest"]
 

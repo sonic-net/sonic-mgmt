@@ -184,8 +184,9 @@ def test_datapath_clear_restore_on_shut_noshut(duthost, port_attributes_dict):
         all_failures += datapath.verify_datapath_recovered(
             duthost, port_attributes_dict, port_startup_wait, ports=ports)
     finally:
-        # Teardown: ensure every exercised port is back up on any failure path.
-        scenario_ops.perform_ports_startup(duthost, ports, startup_wait)
+        # Teardown: restore every exercised port and surface any that don't come
+        # back up, so a broken testbed fails this test rather than later ones.
+        all_failures += scenario_ops.perform_ports_startup(duthost, ports, startup_wait)
 
     if all_failures:
         pytest.fail(
