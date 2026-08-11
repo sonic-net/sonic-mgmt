@@ -588,6 +588,52 @@ def test_static_route_ecmp_ipv6(rand_selected_dut, rand_unselected_dut, ptfadapt
                           is_route_flow_counter_supported, ipv6=True, config_reload_test=True)
 
 
+# Keep non-reboot coverage ahead of warmboot tests. A failed warmboot can leave
+# SWSS/FIB unhealthy and cascade false wrong-egress failures into later cases.
+@pytest.mark.disable_loganalyzer
+def test_static_route_config_reload_with_traffic(rand_selected_dut, rand_unselected_dut, ptfadapter, ptfhost, tbinfo,
+                                                 setup_standby_ports_on_rand_unselected_tor, # noqa F811
+                                                 toggle_all_simulator_ports_to_rand_selected_tor_m, is_route_flow_counter_supported): # noqa F811
+    """
+    Test static route persistence through config reload with comprehensive traffic validation.
+    This test validates that:
+    1. Static routes are configured and traffic flows correctly
+    2. Routes persist through config reload
+    3. Traffic resumes correctly after config reload
+    4. BGP route advertisement is restored properly
+    """
+    duthost = rand_selected_dut
+    unselected_duthost = rand_unselected_dut
+    is_dual_tor = 'dualtor' in tbinfo['topo']['name'] and unselected_duthost is not None
+    prefix = "5.5.5.0/24"
+
+    with static_route_context(duthost, unselected_duthost, ptfadapter, ptfhost, tbinfo,
+                              prefix, nexthop_count=2,
+                              is_route_flow_counter_supported_flag=is_route_flow_counter_supported,
+                              ipv6=False):
+        # Perform config reload
+        duthost.shell('config save -y')
+        if duthost.facts["platform"] == "x86_64-cel_e1031-r0":
+            config_reload(duthost, wait=500)
+        else:
+            config_reload(duthost, wait=450)
+
+        # Handle potential mux state change on dualtor
+        if is_dual_tor:
+            duthost.shell("config mux mode active all")
+            unselected_duthost.shell("config mux mode standby all")
+            pytest_assert(wait_until(60, 5, 0, check_mux_status, duthost, 'active'),
+                          "Could not config ports to active")
+            pytest_assert(wait_until(60, 5, 0, check_mux_status, unselected_duthost, 'standby'),
+                          "Could not config ports to standby")
+
+        # Additional dualtor cleanup
+        if is_dual_tor:
+            duthost.shell('config mux mode auto all')
+            unselected_duthost.shell('config mux mode auto all')
+            unselected_duthost.shell('config save -y')
+
+
 @pytest.mark.disable_loganalyzer
 def test_static_route_warmboot(localhost, rand_selected_dut, rand_unselected_dut, ptfadapter, ptfhost, tbinfo,
                                setup_standby_ports_on_rand_unselected_tor, # noqa F811
@@ -662,50 +708,6 @@ def test_static_route_ipv6_warmboot(localhost, rand_selected_dut, rand_unselecte
         # Perform warmboot
         duthost.shell('config save -y')
         reboot(duthost, localhost, reboot_type='warm', wait_warmboot_finalizer=True, safe_reboot=True)
-
-
-@pytest.mark.disable_loganalyzer
-def test_static_route_config_reload_with_traffic(rand_selected_dut, rand_unselected_dut, ptfadapter, ptfhost, tbinfo,
-                                                 setup_standby_ports_on_rand_unselected_tor, # noqa F811
-                                                 toggle_all_simulator_ports_to_rand_selected_tor_m, is_route_flow_counter_supported): # noqa F811
-    """
-    Test static route persistence through config reload with comprehensive traffic validation.
-    This test validates that:
-    1. Static routes are configured and traffic flows correctly
-    2. Routes persist through config reload
-    3. Traffic resumes correctly after config reload
-    4. BGP route advertisement is restored properly
-    """
-    duthost = rand_selected_dut
-    unselected_duthost = rand_unselected_dut
-    is_dual_tor = 'dualtor' in tbinfo['topo']['name'] and unselected_duthost is not None
-    prefix = "5.5.5.0/24"
-
-    with static_route_context(duthost, unselected_duthost, ptfadapter, ptfhost, tbinfo,
-                              prefix, nexthop_count=2,
-                              is_route_flow_counter_supported_flag=is_route_flow_counter_supported,
-                              ipv6=False):
-        # Perform config reload
-        duthost.shell('config save -y')
-        if duthost.facts["platform"] == "x86_64-cel_e1031-r0":
-            config_reload(duthost, wait=500)
-        else:
-            config_reload(duthost, wait=450)
-
-        # Handle potential mux state change on dualtor
-        if is_dual_tor:
-            duthost.shell("config mux mode active all")
-            unselected_duthost.shell("config mux mode standby all")
-            pytest_assert(wait_until(60, 5, 0, check_mux_status, duthost, 'active'),
-                          "Could not config ports to active")
-            pytest_assert(wait_until(60, 5, 0, check_mux_status, unselected_duthost, 'standby'),
-                          "Could not config ports to standby")
-
-        # Additional dualtor cleanup
-        if is_dual_tor:
-            duthost.shell('config mux mode auto all')
-            unselected_duthost.shell('config mux mode auto all')
-            unselected_duthost.shell('config save -y')
 
 
 def check_static_route_removed(duthost, prefix, ipv6):
