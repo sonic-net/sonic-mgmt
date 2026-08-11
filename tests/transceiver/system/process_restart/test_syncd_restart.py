@@ -67,6 +67,7 @@ def test_system_syncd_restart(
     expected_pid_changes.add("xcvrd")
     expected_pid_changes.add("syncd")
     expected_pid_changes.add("swss")
+    expected_pid_changes.add("orchagent")
     ports = sorted(port_attributes_dict.keys())
     assert ports, "port_attributes_dict is empty - nothing to validate"
     failures = []
