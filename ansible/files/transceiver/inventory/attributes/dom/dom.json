@@ -1,6 +1,7 @@
 {
     "defaults": {
         "data_max_age_min": 5,
+        "dom_info_recover_sec": 300,
         "telemetry_profile_poll_interval_sec": 10,
         "telemetry_profile_duration_min": 10
     }

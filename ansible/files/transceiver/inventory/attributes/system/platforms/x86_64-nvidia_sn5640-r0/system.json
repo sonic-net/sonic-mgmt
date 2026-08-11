@@ -1,0 +1,5 @@
+{
+    "syncd_restart_supported": false,
+    "swss_restart_settle_sec": 540,
+    "syncd_restart_settle_sec": 540
+}

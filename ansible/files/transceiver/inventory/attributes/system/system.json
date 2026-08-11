@@ -1,6 +1,18 @@
 {
     "defaults": {
         "port_shutdown_wait_sec": 5,
-        "port_startup_wait_sec": 60
+        "port_startup_wait_sec": 60,
+        "xcvrd_restart_settle_sec": 120,
+        "pmon_restart_settle_sec": 120,
+        "swss_restart_settle_sec": 180,
+        "syncd_restart_settle_sec": 180,
+        "syncd_restart_supported": true,
+        "config_reload_settle_sec": 300,
+        "cold_reboot_settle_sec": 400,
+        "warm_reboot_supported": false,
+        "warm_reboot_settle_sec": 300,
+        "fast_reboot_supported": false,
+        "fast_reboot_settle_sec": 300,
+        "transceiver_reset_i2c_recover_sec": 5
     }
 }
