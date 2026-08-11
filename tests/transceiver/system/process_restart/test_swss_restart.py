@@ -38,7 +38,7 @@ from tests.transceiver.common.verification import (
 )
 from tests.common.helpers.sonic_db import AppDbCli as sdbHelp
 from tests.common.platform.processes_utils import (
-    check_docker_uptime_minutes, 
+    check_docker_uptime_minutes,
     check_pmon_uptime_minutes
 )
 
