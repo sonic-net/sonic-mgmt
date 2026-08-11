@@ -2893,6 +2893,24 @@ generic_config_updater/test_ntp.py::test_ntp_server_change_source_intf:
     conditions:
       - "'bmc' in topo_type"
 
+generic_config_updater/test_packet_trimming_config_asymmetric.py:
+    skip:
+        reason: "Packet trim is not supported in 202505 image"
+        conditions:
+        - "asic_type in ['vs','marvell-teralynx']"
+
+generic_config_updater/test_packet_trimming_config_symmetric:
+  skip:
+    reason: "Packet trim is not supported in 202505 image"
+    conditions:
+      - "asic_type in ['vs','marvell-teralynx']"
+
+generic_config_updater/test_srv6.py:
+  skip:
+    reason: "SRv6 feature support is not added for TL platforms so tests cannot be run and needs to be skipped"
+    conditions:
+      - "asic_type in ['vs','marvell-teralynx']"
+
 generic_config_updater/test_pfcwd_interval.py:
   skip:
     reason: "This test can only support mellanox platforms. This test is not run on this hwsku currently"
