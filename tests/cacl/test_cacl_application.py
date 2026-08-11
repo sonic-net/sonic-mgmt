@@ -355,6 +355,13 @@ ACL_SERVICES = {
 # Template json file used to test scale rules
 SCALE_ACL_FILE = "/tmp/scale_cacl.json"
 
+FRR_LOOPBACK_RULES = [
+    "-A OUTPUT -o lo -p tcp -m tcp --dport 2620 -m owner --uid-owner 300 -j ACCEPT",
+    "-A OUTPUT -o lo -p tcp -m tcp --dport 2601 -m owner --uid-owner 300 -j ACCEPT",
+    "-A OUTPUT -o lo -p tcp -m tcp --dport 2620 -j DROP",
+    "-A OUTPUT -o lo -p tcp -m tcp --dport 2601 -j DROP",
+]
+
 
 def parse_int_to_tcp_flags(hex_value):
     tcp_flags_str = ""
@@ -1158,6 +1165,17 @@ def verify_cacl(duthost, tbinfo, localhost, creds, docker_network,
 
     stdout = duthost.get_asic_or_sonic_host(asic_index).command("iptables -S")["stdout"]
     actual_iptables_rules = stdout.strip().split("\n")
+
+    # Accept images from either side of the caclmgrd rollout, but reject a
+    # partially installed rule set.
+    actual_frr_loopback_rules = set(actual_iptables_rules) & set(FRR_LOOPBACK_RULES)
+    pytest_assert(
+        actual_frr_loopback_rules in (set(), set(FRR_LOOPBACK_RULES)),
+        "Incomplete FRR loopback rule set: {}".format(repr(actual_frr_loopback_rules))
+    )
+    if actual_frr_loopback_rules:
+        expected_iptables_rules_legacy.extend(FRR_LOOPBACK_RULES)
+        expected_iptables_rules_fwd.extend(FRR_LOOPBACK_RULES)
 
     logger.info("Number of expected iptable rules (legacy/forward-chain):{}/{}, number of actual iptables rules:{}"
                 .format(len(set(expected_iptables_rules_legacy)), len(set(expected_iptables_rules_fwd)),
