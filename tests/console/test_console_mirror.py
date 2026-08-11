@@ -10,6 +10,7 @@ These test cases verify:
 Testbed Architecture: c0-lo
 """
 
+import ast
 import json
 import logging
 import os
@@ -190,12 +191,24 @@ def _get_state_db(duthost, line: str) -> dict[str, str]:
     pytest_assert(
         result["rc"] == 0, f"Failed to read Console Mirror STATE_DB for line {line}"
     )
-    values = result.get("stdout", []).splitlines()
+    stdout = result.get("stdout", "")
+    # return directly if is a dict
+    if isinstance(stdout, dict):
+        return {str(key): str(value) for key, value in stdout.items()}
+    # parse str
+    stripped = stdout.strip()
+    if stripped.startswith("{") and stripped.endswith("}"):
+        try:
+            values_dict = ast.literal_eval(stripped)
+        except (SyntaxError, ValueError):
+            values_dict = None
+        if isinstance(values_dict, dict):
+            return {str(key): str(value) for key, value in values_dict.items()}
+    # values used for checking
+    values = stdout.splitlines()
     pytest_assert(
         len(values) % 2 == 0,
-        "Unexpected STATE_DB HGETALL output for line {}: {}".format(
-            line, result["stdout"]
-        ),
+        f"Unexpected STATE_DB HGETALL output for line {line}: {stdout}",
     )
     return dict(zip(values[0::2], values[1::2]))
 
@@ -205,7 +218,7 @@ def _get_cli_status(duthost, line: str) -> dict[str, str]:
     for output_line in result["stdout"].splitlines():
         columns = output_line.split()
         if len(columns) >= 2 and columns[0] == str(line):
-            columns += ["-"] * (7 - len(columns))
+            columns += ["-"] * (7 - len(columns))  # pad to 7 columns
             return {
                 "line": columns[0],
                 "state": columns[1],
@@ -226,7 +239,7 @@ def _duration_seconds(value: str) -> int:
     matches = list(re.finditer(r"[0-9]+([dhms])", value))
     units = {"d": 86400, "h": 3600, "m": 60, "s": 1}
     pytest_assert(matches and "".join(m.group(0) for m in matches) == value)
-    return sum(int(m.group(1)) * units[m.group(2)] for m in matches)
+    return sum(int(m.group(0)[:-1]) * units[m.group(1)] for m in matches)
 
 
 def _wait_for_mirror_idle(
@@ -294,7 +307,6 @@ def _remove_test_recording(duthost, prefix: str) -> None:
     pytest_assert(result["rc"] == 0, f"Failed to delete test recording {prefix}")
 
 
-# TODO:
 def _list_recording_parts(duthost, prefix: str) -> list[str]:
     _validate_prefix(prefix)
     line_dir = os.path.dirname(prefix)
@@ -470,12 +482,16 @@ def _drain_console(client: pexpect.spawn) -> None:
             pytest.fail("Console session closed while draining pending data")
 
 
-def _send_all(client: pexpect.spawn, payload: bytes) -> None:
+def _send_all(client: pexpect.spawn, payload: bytes, baud_rate: int) -> None:
+    chunk_size = 256
     remaining = memoryview(payload)
     while remaining:
-        written = client.send(remaining.tobytes())
+        chunk = remaining[:chunk_size]
+        written = client.send(chunk.tobytes())
         pytest_assert(written, "Console session accepted zero bytes while sending")
         remaining = remaining[written:]
+        if remaining:
+            time.sleep(written * 10.0 / baud_rate)  # 8N1
 
 
 def _extract_frame(captured: bytes, start_marker: bytes, end_marker: bytes) -> bytes:
@@ -527,7 +543,7 @@ def _transfer_payload(
     )
     started = time.monotonic()
     reader_thread.start()
-    _send_all(sender, frame)
+    _send_all(sender, frame, baud_rate)
     reader_thread.join(timeout)
     elapsed = time.monotonic() - started
     done.set()
@@ -604,7 +620,7 @@ def _transfer_bidirectional(
 
     def send(client, frame):
         try:
-            _send_all(client, frame)
+            _send_all(client, frame, baud_rate)
         except BaseException as error:  # noqa: BLE001
             send_errors.append(str(error))
 
@@ -686,6 +702,48 @@ def _remote_stat(duthost, path: str) -> dict[str, object]:
     }
 
 
+def _zip_information(duthost, archive_path: str, include_content: bool = False) -> dict:
+    _validate_prefix(archive_path[:-4] if archive_path.endswith(".zip") else "")
+    entry_value = (
+        "z.read(name).decode('utf-8')"
+        if include_content
+        else "z.read(name).decode('utf-8').splitlines()[:3]"
+    )
+    script = (
+        "import json,sys,zipfile;"
+        "z=zipfile.ZipFile(sys.argv[1]);"
+        "names=z.namelist();"
+        f"print(json.dumps({{'bad':z.testzip(),'entries':[{{'name':name,'value':{entry_value}}} for name in names]}}))"
+    )
+    result = duthost.shell(
+        f"sudo python3 -c {shlex.quote(script)} {shlex.quote(archive_path)}",
+        module_ignore_errors=True,
+    )
+    pytest_assert(
+        result["rc"] == 0,
+        "Failed to inspect archive {}: {}".format(archive_path, result.get("stderr")),
+    )
+    return json.loads(result["stdout"])
+
+
+def _assert_archive_part_names(prefix: str, names: list[str]) -> None:
+    _validate_prefix(prefix)
+    prefix_name = re.escape(os.path.basename(prefix))
+    pattern = re.compile(rf"^{prefix_name}-part([0-9]{{4}})\.log$")
+    part_numbers = []
+    for name in names:
+        match = pattern.fullmatch(name)
+        pytest_assert(
+            match is not None, f"ZIP contains a foreign or malformed entry: {name}"
+        )
+        assert match is not None
+        part_numbers.append(int(match.group(1)))
+    pytest_assert(
+        part_numbers == list(range(1, len(names) + 1)),
+        f"ZIP recording parts are missing or duplicated: {names}",
+    )
+
+
 # ==================== Fixtures ============================
 
 
@@ -743,7 +801,6 @@ def mirror_link(setup_c0, duthost, conn_graph_facts) -> MirrorLink:
     )
 
 
-# TODO: replace with a full version
 @pytest.fixture(scope="function")
 def mirror_test_context(duthost, mirror_link: MirrorLink):
     """Provide strict per-test teardown for mirror and interactive sessions."""
@@ -948,7 +1005,7 @@ def test_console_mirror_traffic_recording(
     client_a, client_b = _open_console_pair(duthost, creds, context)
     _, _, prefix = _start_mirror(duthost, context, direction=direction, timeout="2m")
 
-    control_bytes = b"\x00\x02\t\n\r\x1b\x7f\x80\\"
+    control_bytes = b"\x02\t\n\r\x1b\x7f\x80\\"
     tx_payload = (
         b"printable-TX-" + uuid.uuid4().hex.encode("ascii") + b"-" + control_bytes
     )
@@ -1076,4 +1133,59 @@ def test_console_mirror_recording_files(
             "Rotated part exceeded the requested 1 MB limit: {} -> {}".format(
                 path, stat_info["size"]
             ),
+        )
+
+
+def test_console_mirror_archive_success(
+    duthost, creds, mirror_test_context: MirrorTestContext
+):
+    """Verify all rotated parts are packaged and sources are removed after success."""
+    context = mirror_test_context
+    _, _, prefix = _start_mirror(
+        duthost, context, direction="both", timeout="10m", max_file_size=1
+    )
+    source_parts = _generate_rotation(duthost, creds, context, prefix)
+    pytest_assert(len(source_parts) >= 2)
+
+    result, archive_path = _stop_mirror(duthost, context, archive=True)
+    pytest_assert("packaging recording" in result["stdout"])
+    pytest_assert("Waiting for packaging to complete" in result["stdout"])
+    pytest_assert(
+        _remote_file_exists(duthost, archive_path), "Completed ZIP does not exist"
+    )
+    pytest_assert(
+        not _list_recording_parts(duthost, prefix),
+        "Source log parts were not removed after successful packaging",
+    )
+    pytest_assert(
+        not _remote_file_exists(duthost, archive_path + ".tmp"),
+        "Temporary ZIP remains after successful packaging",
+    )
+
+    stat_info = _remote_stat(duthost, archive_path)
+    pytest_assert(
+        stat_info["mode"] == "600"
+        and stat_info["user"] == "root"
+        and stat_info["group"] == "root"
+        and stat_info["type"] == "regular file",
+        f"Archive permissions/ownership are invalid: {stat_info}",
+    )
+    archive = _zip_information(duthost, archive_path)
+    pytest_assert(
+        archive["bad"] is None,
+        "ZIP CRC validation failed for {}".format(archive["bad"]),
+    )
+    names = [entry["name"] for entry in archive["entries"]]
+    _assert_archive_part_names(prefix, names)
+    pytest_assert(
+        {os.path.basename(path) for path in source_parts}.issubset(set(names)),
+        f"ZIP is missing parts observed before stop: source={source_parts}, archive={names}",
+    )
+    pytest_assert(
+        len(names) >= 2, f"ZIP does not contain all rotated recording parts: {names}"
+    )
+    for entry in archive["entries"]:
+        pytest_assert(entry["value"][0] == "# SONIC_CONSOLE_MIRROR_TEXT version=1")
+        pytest_assert(
+            entry["value"][2] == "# fields=timestamp delta seq direction length payload"
         )
