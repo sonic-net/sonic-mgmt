@@ -11,8 +11,8 @@ import logging
 import re
 import time
 
-from tests.common.platform.interface_utils import wait_ports_oper_status
 from tests.transceiver.common import db_helpers, health_checks
+from tests.transceiver.common.prerequisites import check_links_up
 
 logger = logging.getLogger(__name__)
 
@@ -422,22 +422,9 @@ def standard_port_recovery_and_verification(
     checks_ran = {port: [] for port in ports}  # human-readable checks ran
 
     # 1. Link status - one batched poll covers every port.
-    down_port_msgs = wait_ports_oper_status(
-        duthost, ports, "up", link_up_timeout_sec
-    )
-    down_ports = []
-    for msg in down_port_msgs:
-        match = _DOWN_PORT_MSG_RE.match(msg)
-        if not match:
-            logger.warning("Unable to parse port from down-port message: %s", msg)
-            continue
-        port = match.group(1)
-        down_ports.append(port)
-        per_port_failures[port].append(msg)
-    for port in ports:
-        checks_ran[port].append("link up")
-
-    up_ports = [port for port in ports if port not in down_ports]
+    time.sleep(link_up_timeout_sec) 
+    link_check_dict = check_links_up(duthost, ports)
+    up_ports = link_check_dict.get("up", [])
 
     # 2a/2b setup - one shared flap/last_up_time sentinel per up port, captured
     # right after link-up.
