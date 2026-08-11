@@ -648,6 +648,7 @@ bgp/test_bgp_suppress_fib.py:
       - "release in ['201811', '201911', '202012', '202205', '202211', '202305', '202311', '202405']"
       - "release in ['202505', '202511', '202605']"
       - "release in ['master'] and https://github.com/sonic-net/sonic-mgmt/issues/26175"
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/26175"
   xfail:
     reason: "xfail for IPv6-only topologies, issue https://github.com/sonic-net/sonic-mgmt/issues/20756 or Mellanox platform due to https://github.com/sonic-net/sonic-buildimage/issues/24679"
     conditions_logical_operator: or
@@ -2985,12 +2986,6 @@ gnmi/test_gnmi_stress.py::test_gnmi_latency_01:
     conditions:
       - "'bmc' in topo_type"
 
-gnmi/test_gnmic.py:
-  skip:
-    reason: "gnmic binary is being removed from docker-ptf to reduce attack surface"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/24328"
-
 gnmi/test_gnoi_killprocess.py:
   skip:
     reason: "Test noisy due to restart issue not relevant to GNOI. Disabling them to rewrite."
@@ -3011,6 +3006,15 @@ gnmi/test_gnoi_system_reboot.py::test_gnoi_system_reboot_warm:
       - "'isolated' in topo_name"
       - "release in ['202412']"
       - "'f2' in topo_name"
+
+gnmi/test_pygnmi_client.py:
+  skip:
+    reason: "gNMI port/DB coverage is not namespace-aware; not applicable on BMC / multi-ASIC / VOQ chassis"
+    conditions_logical_operator: or
+    conditions:
+      - "'bmc' in topo_type"
+      - "is_multi_asic==True"
+      - "switch_type=='voq'"
 
 ###############################################
 #####       golden_config_infra           #####
@@ -6214,6 +6218,12 @@ vxlan/test_vxlan_vnet_bgp_subintf.py:
     conditions:
       - "'dualtor' in topo_name"
       - "(asic_type in ['cisco-8000']) and (release in ['202511'])"
+
+vxlan/test_vxlan_vnet_ping_tsa.py:
+  skip:
+    reason: "Skip for AI backend/isolated topologies, as vnet-ping feature is not used"
+    conditions:
+      - "'isolated' in topo_name"
 
 #######################################
 #####            wan              #####
