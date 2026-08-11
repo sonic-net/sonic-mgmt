@@ -103,7 +103,7 @@ def _write_variable_from_j2_to_configdb(duthost, template_file, **kwargs):
         duthost.file(path=save_dest_path, state="absent")
 
 
-def _config_bgp_neighbor_with_vtysh(duthost, peer_addr, peer_asn, dut_addr, dut_asn):
+def _config_bgp_neighbor_with_vtysh(duthost, peer_addr, peer_asn, dut_addr, dut_asn, namespace=None):
     """Configure BGP neighbor using vtysh command"""
     cmd = (
         "vtysh "
@@ -112,13 +112,11 @@ def _config_bgp_neighbor_with_vtysh(duthost, peer_addr, peer_asn, dut_addr, dut_
         "-c 'neighbor {peer_addr} remote-as {peer_asn}' "
         "-c 'neighbor {peer_addr} activate' "
     )
-    duthost.shell(cmd.format(peer_addr=peer_addr,
-                             peer_asn=peer_asn,
-                             dut_addr=dut_addr,
-                             dut_asn=dut_asn))
+    cmd = cmd.format(peer_addr=peer_addr, peer_asn=peer_asn, dut_addr=dut_addr, dut_asn=dut_asn)
+    duthost.shell(duthost.get_vtysh_cmd_for_namespace(cmd, namespace))
 
 
-def _remove_bgp_neighbor_with_vtysh(duthost, peer_addr, dut_asn):
+def _remove_bgp_neighbor_with_vtysh(duthost, peer_addr, dut_asn, namespace=None):
     """Remove BGP neighbor using vtysh command"""
     cmd = (
         "vtysh "
@@ -126,11 +124,11 @@ def _remove_bgp_neighbor_with_vtysh(duthost, peer_addr, dut_asn):
         "-c 'router bgp {dut_asn}' "
         "-c 'no neighbor {peer_addr}' "
     )
-    duthost.shell(cmd.format(peer_addr=peer_addr,
-                             dut_asn=dut_asn))
+    cmd = cmd.format(peer_addr=peer_addr, dut_asn=dut_asn)
+    duthost.shell(duthost.get_vtysh_cmd_for_namespace(cmd, namespace))
 
 
-def _shutdown_bgp_neighbor_with_vtysh(duthost, peer_addr, dut_asn):
+def _shutdown_bgp_neighbor_with_vtysh(duthost, peer_addr, dut_asn, namespace=None):
     """Shutdown BGP neighbor using vtysh command"""
     cmd = (
         "vtysh "
@@ -138,8 +136,8 @@ def _shutdown_bgp_neighbor_with_vtysh(duthost, peer_addr, dut_asn):
         "-c 'router bgp {dut_asn}' "
         "-c 'neighbor {peer_addr} shutdown' "
     )
-    duthost.shell(cmd.format(peer_addr=peer_addr,
-                             dut_asn=dut_asn))
+    cmd = cmd.format(peer_addr=peer_addr, dut_asn=dut_asn)
+    duthost.shell(duthost.get_vtysh_cmd_for_namespace(cmd, namespace))
 
 
 def run_bgp_facts(duthost, enum_asic_index):
@@ -252,7 +250,8 @@ class BGPNeighbor(object):
                 peer_addr=self.ip,
                 peer_asn=self.asn,
                 dut_addr=self.peer_ip,
-                dut_asn=self.peer_asn
+                dut_asn=self.peer_asn,
+                namespace=self.namespace,
             )
         elif not self.is_passive:
             _write_variable_from_j2_to_configdb(
@@ -311,12 +310,13 @@ class BGPNeighbor(object):
             _remove_bgp_neighbor_with_vtysh(
                 self.duthost,
                 peer_addr=self.ip,
-                dut_asn=self.peer_asn
+                dut_asn=self.peer_asn,
+                namespace=self.namespace,
             )
         elif not self.is_passive:
-            for asichost in self.duthost.asics:
-                asichost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_NEIGHBOR|{}'".format(self.ip))
-                asichost.run_sonic_db_cli_cmd("CONFIG_DB del 'DEVICE_NEIGHBOR_METADATA|{}'".format(self.name))
+            asichost = self.duthost.asic_instance_from_namespace(self.namespace)
+            asichost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_NEIGHBOR|{}'".format(self.ip))
+            asichost.run_sonic_db_cli_cmd("CONFIG_DB del 'DEVICE_NEIGHBOR_METADATA|{}'".format(self.name))
 
         self.ptfhost.exabgp(name=self.name, state="absent")
 
@@ -340,7 +340,8 @@ class BGPNeighbor(object):
             _shutdown_bgp_neighbor_with_vtysh(
                 self.duthost,
                 peer_addr=self.ip,
-                dut_asn=self.peer_asn
+                dut_asn=self.peer_asn,
+                namespace=self.namespace,
             )
         elif not self.is_passive:
             for asichost in self.duthost.asics:
