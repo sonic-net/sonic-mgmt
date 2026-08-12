@@ -34,7 +34,7 @@ from tests.common.helpers.frr.frr_config_mode_migrator import (
     MODE_TRADITIONAL,
 )
 from tests.common.helpers.frr.bgp_config_translation import FrrTranslationError
-from tests.common.platform.interface_utils import check_interface_status_of_up_ports
+from tests.common.platform.interface_utils import get_oper_up_ports
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
@@ -400,6 +400,13 @@ def pytest_sessionfinish(session, exitstatus):
     KeyboardInterrupt, but NOT on SIGKILL / OOM / a hard DUT crash -- nothing in pytest can.
     That residual case is covered by the migrator's setup-time
     recover_interrupted_run(), which repairs the DUT on the next run.
+
+    A failure here is an infrastructure failure, not a test failure: the DUT may be left in
+    the wrong FRR config mode, which silently mis-runs every later module on that testbed.
+    So it forces a non-zero session exit status (``INTERNAL_ERROR``) rather than only logging
+    -- a green run whose DUT was left switched is worse than a red one, because nothing else
+    in the session reports it. The DUT is still self-repairing: the switch marker stays on
+    it, so the next run's recover_interrupted_run() restores it at setup.
     """
     state = getattr(session, _SESSION_STATE_ATTR, None)
     if state is None:
@@ -409,8 +416,13 @@ def pytest_sessionfinish(session, exitstatus):
             logger.info("Restoring FRR config mode to '%s' at session end", state.original_mode)
             _switch_mode(state, state.original_mode)
         state.migrator.cleanup()
-    except Exception as e:      # never let cleanup break the session's exit status
-        logger.error("Failed to restore FRR config mode at session end: %s", e)
+    except Exception as e:
+        logger.error(
+            "Failed to restore FRR config mode to '%s' on %s at session end: %s. The DUT may "
+            "still be running %s config; the next run's recover_interrupted_run() will "
+            "restore it at setup. Failing the session so CI does not read this run as clean.",
+            state.original_mode, state.duthost.hostname, e, state.applied_mode)
+        session.exitstatus = pytest.ExitCode.INTERNAL_ERROR
 
 
 def pytest_addoption(parser):
@@ -597,12 +609,28 @@ def _switch_mode(state, mode):
     else:
         expected_neighbors = _bgp_established_neighbors(duthost)
         expected_fingerprint = _frr_config_fingerprint(duthost)
+    # Hold the switch to the ports that were actually carrying traffic beforehand, not to
+    # every admin-up port: some testbeds keep admin-up ports deliberately unconnected, and
+    # those must not make every mode switch fail. See the recovery check below.
+    expected_ports = get_oper_up_ports(duthost)
     logger.info("Switching FRR config mode to '%s' on %s", mode, duthost.hostname)
     try:
         if mode == MODE_FRR_MGMT_FRAMEWORK:
             state.migrator.to_frr_mgmt_framework()
         else:
-            state.migrator.to_traditional()
+            # to_traditional() returns False when the CONFIG_DB backup is gone: it restored
+            # the golden files only, and the DUT is still running translated frr config.
+            # Recording the mode as applied there would leave the rest of the session -- and
+            # the session-end restore, which no-ops when applied == original -- believing the
+            # DUT had been returned to traditional. Fail instead, leaving applied_mode alone.
+            if not state.migrator.to_traditional():
+                pytest.fail(
+                    "Failed to restore '{}' mode on {}: the pre-switch CONFIG_DB backup is "
+                    "gone, so only the golden config files were restored and the DUT is "
+                    "still running translated frr_mgmt_framework config. It needs manual "
+                    "recovery ('config load_minigraph -y', or restore "
+                    "/etc/sonic/config_db.json from a known-good copy) before further runs."
+                    .format(mode, duthost.hostname))
     except FrrTranslationError as e:
         pytest.fail("Failed to switch to '{}' mode: {}".format(mode, e))
     state.applied_mode = mode
@@ -632,7 +660,22 @@ def _switch_mode(state, mode):
     # oper-down, so LACP never formed, the peer subnets' connected routes stayed 'dead
     # linkdown', and every BGP session sat in Active with "No path to specified Neighbor" --
     # surfacing as a bogus BGP/LLDP timeout in whichever module reloaded next.
-    if not wait_until(300, 20, 0, check_interface_status_of_up_ports, duthost):
-        logger.warning("%s: not all admin-up ports are operationally up after switching to '%s'",
-                       duthost.hostname, mode)
+    #
+    # Since continuing in that state is exactly what the comment above says must not happen,
+    # this fails rather than warns. It is held to the ports that were operationally up before
+    # the switch (captured above), so a testbed's intentionally-disconnected admin-up ports do
+    # not turn every switch into a failure.
+    last_ports = {}
+
+    def _ports_recovered():
+        last_ports["set"] = get_oper_up_ports(duthost)
+        return expected_ports <= last_ports["set"]
+
+    pt_assert(
+        wait_until(300, 20, 0, _ports_recovered),
+        "Switching to '{}' mode left ports that were operationally up beforehand down on {}: "
+        "{}. Continuing would run the module against a half-initialised stack (no LACP, "
+        "connected routes 'dead linkdown', BGP stuck in Active).".format(
+            mode, duthost.hostname,
+            sorted(expected_ports - last_ports.get("set", set()))))
     _assert_config_preserved(duthost, mode, expected_fingerprint)
