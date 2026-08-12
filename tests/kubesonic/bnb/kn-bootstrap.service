@@ -1,0 +1,24 @@
+# Test copy of the unit the real KNB image ships at /kn-bootstrap.service
+# (BNB extracts and installs it; kn-bootstrap.service is owned by the KNB
+# image, not by BNB). Mirrors the canonical unit in
+# sonic-addon-containers/src/services/kubesonic/agent/kn-bootstrap/.
+[Unit]
+Description=Kubernetes Node Bootstrapper (KNB)
+After=docker.service
+Requires=docker.service
+StartLimitIntervalSec=600
+StartLimitBurst=5
+
+[Service]
+Type=simple
+SyslogIdentifier=kn-bootstrap
+Restart=always
+RestartSec=10
+ExecStartPre=-/usr/bin/docker rm -f kn-bootstrap
+ExecStart=/usr/bin/docker run --name kn-bootstrap --privileged --pid=host --network=host \
+    -v /var/run/redis:/var/run/redis \
+    --env-file /etc/sonic/kn-bootstrap.env kn-bootstrap:latest
+ExecStop=/usr/bin/docker stop kn-bootstrap
+
+[Install]
+WantedBy=multi-user.target

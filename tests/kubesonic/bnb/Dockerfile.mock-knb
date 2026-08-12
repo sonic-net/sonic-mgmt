@@ -1,0 +1,19 @@
+# Mock KNB image: a stand-in for the real KNB container in the BNB nightly test.
+# It does NOT join a cluster -- it just idles so `kn-bootstrap.service`
+# (Restart=always) stays active and `docker ps` shows the container.
+#
+# BASE is the DUT's local pause image (present on every kubernetes-capable
+# SONiC image -- kubelet needs it for pod sandboxes). Testbeds cannot pull
+# from public registries, and pause ships no shell, so this build must be
+# COPY-only (no RUN). /pause idles forever -- exactly what the mock needs.
+#
+# The mock-stamp file (written by the fixture) varies the image ID so the
+# digest-flip test can serve a "new KNB version" from the same Dockerfile.
+#
+# Like the real KNB image, it ships its own systemd unit at /kn-bootstrap.service
+# -- BNB extracts and installs it and fails loud if the image has none.
+ARG BASE
+FROM ${BASE}
+COPY mock-stamp /mock-stamp
+COPY kn-bootstrap.service /kn-bootstrap.service
+ENTRYPOINT ["/pause"]
