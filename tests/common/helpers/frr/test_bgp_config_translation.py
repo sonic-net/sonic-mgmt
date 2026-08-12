@@ -516,3 +516,245 @@ def test_no_peer_range_leaves_no_listen_prefix_table():
     # Baseline (no BGP_PEER_RANGE) must not synthesize a listen-prefix table.
     out = translate_config_db(_base_config_db(), "", _peer_group_json())
     assert "BGP_GLOBALS_LISTEN_PREFIX" not in out
+
+
+def test_vrf_scoped_peer_range_raises():
+    # A '<vrf-or-vnet>|<peer-group>' key must not be silently relocated into the default VRF.
+    cfg = _base_config_db()
+    cfg["BGP_PEER_RANGE"] = {
+        "Vnet1|BGPVac": {"ip_range": ["10.255.0.0/25"], "name": "BGPVac"},
+    }
+    with pytest.raises(FrrTranslationError):
+        translate_config_db(cfg, "", _peer_group_json())
+
+
+def test_default_scoped_peer_range_key_is_accepted():
+    cfg = _base_config_db()
+    cfg["BGP_PEER_RANGE"] = {
+        "default|BGPVac": {"ip_range": ["10.255.0.0/25"], "name": "BGPVac"},
+    }
+    out = translate_config_db(cfg, "", _peer_group_json())
+    assert out["BGP_GLOBALS_LISTEN_PREFIX"]["default|10.255.0.0/25"]["peer_group"] == "BGPVac"
+
+
+# --------------------------------------------------------------------------- #
+# Stanza / address-family context. FRR 'show running-config' is one flat text blob, so
+# every extractor has to know which stanza it is inside. Without that, clauses leak
+# across block boundaries and non-default-VRF instances are folded into the default VRF.
+# --------------------------------------------------------------------------- #
+
+def test_route_map_stanza_does_not_leak_into_the_next_block():
+    # The clause below belongs to RM_B. Before stanza-end tracking, 'current' stayed set
+    # past the '!' and RM_A silently absorbed it.
+    running = "\n".join([
+        "route-map RM_A permit 10",
+        " match community CL1",
+        "!",
+        "route-map RM_B permit 20",
+        " match community CL2",
+    ])
+    out = translate_config_db(_base_config_db(), running, _peer_group_json())
+    assert out["ROUTE_MAP"]["RM_A|10"]["match_community"] == "CL1"
+    assert out["ROUTE_MAP"]["RM_B|20"]["match_community"] == "CL2"
+
+
+def test_clause_after_route_map_exit_is_not_attributed_to_it():
+    running = "\n".join([
+        "route-map RM_A permit 10",
+        " match community CL1",
+        "exit",
+        "router bgp 65100",
+        " bgp router-id 10.1.0.32",
+    ])
+    out = translate_config_db(_base_config_db(), running, _peer_group_json())
+    assert out["ROUTE_MAP"]["RM_A|10"] == {
+        "name": "RM_A", "route_operation": "permit", "stmt_name": "10",
+        "match_community": "CL1",
+    }
+
+
+def test_extra_peer_groups_ignore_a_non_default_vrf_bgp_instance():
+    # 'router bgp <asn> vrf <name>' configures a different VRF; its peer-groups must not be
+    # emitted under the default VRF.
+    running = "\n".join([
+        "router bgp 65100",
+        " neighbor BGPSLBPassive peer-group",
+        " neighbor BGPSLBPassive remote-as 65432",
+        "exit",
+        "router bgp 65100 vrf Vrf1",
+        " neighbor VRF_ONLY_PG peer-group",
+        " neighbor VRF_ONLY_PG remote-as 65999",
+        "exit",
+    ])
+    out = translate_config_db(_base_config_db(), running, _peer_group_json())
+    assert out["BGP_PEER_GROUP"]["default|BGPSLBPassive"]["asn"] == "65432"
+    assert "default|VRF_ONLY_PG" not in out["BGP_PEER_GROUP"]
+
+
+# --------------------------------------------------------------------------- #
+# route-map clause coverage. Fields are grounded in frrcfgd's route_map_key_map and the
+# ROUTE_MAP leaves of sonic-route-map.yang -- emitting a name in neither is worse than
+# dropping the clause, because sonic_yang then rejects the row and GCU (which validates
+# the whole CONFIG_DB) fails for every later patch on the DUT.
+# --------------------------------------------------------------------------- #
+
+def test_match_prefix_list_uses_the_single_match_prefix_set_leaf():
+    # frrcfgd derives the ipv4/ipv6 qualifier from the referenced PREFIX_SET's mode;
+    # 'match_prefix_set|ipv4' is an internal key_map name, not a CONFIG_DB field.
+    running = "\n".join([
+        "route-map RM_V4 permit 10",
+        " match ip address prefix-list PL_V4",
+        "route-map RM_V6 permit 10",
+        " match ipv6 address prefix-list PL_V6",
+    ])
+    out = translate_config_db(_base_config_db(), running, _peer_group_json())
+    assert out["ROUTE_MAP"]["RM_V4|10"]["match_prefix_set"] == "PL_V4"
+    assert out["ROUTE_MAP"]["RM_V6|10"]["match_prefix_set"] == "PL_V6"
+    assert not any(k.startswith("match_prefix_set|") for k in out["ROUTE_MAP"]["RM_V4|10"])
+
+
+def test_two_prefix_list_matches_in_one_stanza_raise():
+    running = "\n".join([
+        "route-map RM_X permit 10",
+        " match ip address prefix-list PL_A",
+        " match ipv6 address prefix-list PL_B",
+    ])
+    with pytest.raises(FrrTranslationError):
+        translate_config_db(_base_config_db(), running, _peer_group_json())
+
+
+def test_match_tag_is_a_leaf_list():
+    running = "\n".join([
+        "route-map RM_X permit 10",
+        " match tag 1001",
+    ])
+    out = translate_config_db(_base_config_db(), running, _peer_group_json())
+    # sonic-route-map.yang models match_tag as a leaf-list; a bare string is rejected.
+    assert out["ROUTE_MAP"]["RM_X|10"]["match_tag"] == ["1001"]
+
+
+def test_azng_style_clauses_translated():
+    # The clauses the AZNG spine policies carry, which used to be silently dropped while the
+    # route-map name survived -- so the fixture fingerprint reported success on a policy the
+    # switch had quietly changed.
+    running = "\n".join([
+        "route-map V4_SPINE_AH permit 10",
+        " match as-path AS_PATH_SET_1",
+        " set local-preference 80",
+        " set as-path prepend 65100 65100",
+        " set metric 42",
+        " set origin igp",
+    ])
+    out = translate_config_db(_base_config_db(), running, _peer_group_json())
+    rm = out["ROUTE_MAP"]["V4_SPINE_AH|10"]
+    assert rm["match_as_path"] == "AS_PATH_SET_1"
+    assert rm["set_local_pref"] == "80"
+    assert rm["set_asn_list"] == "65100,65100"      # frrcfgd renders a comma-separated list
+    assert rm["set_med"] == "42"
+    assert rm["set_origin"] == "igp"
+
+
+def test_known_frrcfgd_gap_clause_is_kept_non_fatal():
+    # bgpcfgd emits 'set comm-list ... delete' from its own base templates on every
+    # UpperSpineRouter, so raising here would break the mode switch on a stock t2.
+    running = "\n".join([
+        "route-map RM_X permit 10",
+        " set comm-list DEVICE_INTERNAL_COMMUNITY delete",
+        " set tag 101",
+        " set originator-id 10.10.10.10",
+    ])
+    out = translate_config_db(_base_config_db(), running, _peer_group_json())
+    rm = out["ROUTE_MAP"]["RM_X|10"]
+    assert rm == {"name": "RM_X", "route_operation": "permit", "stmt_name": "10"}
+
+
+def test_unrecognized_route_map_clause_raises():
+    running = "\n".join([
+        "route-map RM_X permit 10",
+        " set some-brand-new-clause 5",
+    ])
+    with pytest.raises(FrrTranslationError):
+        translate_config_db(_base_config_db(), running, _peer_group_json())
+
+
+# --------------------------------------------------------------------------- #
+# Router-bgp globals bgpcfgd renders from constants.yml but frrcfgd drives from fields
+# --------------------------------------------------------------------------- #
+
+def test_graceful_restart_carried_into_bgp_globals():
+    running = "\n".join([
+        "router bgp 65100",
+        " bgp graceful-restart",
+        " bgp graceful-restart restart-time 240",
+        " bgp graceful-restart preserve-fw-state",
+        " bgp graceful-restart stalepath-time 300",
+    ])
+    out = translate_config_db(_base_config_db(), running, _peer_group_json())
+    g = out["BGP_GLOBALS"]["default"]
+    assert g["graceful_restart_enable"] == "true"
+    assert g["gr_restart_time"] == "240"
+    assert g["gr_preserve_fw_state"] == "true"
+    assert g["gr_stale_routes_time"] == "300"
+
+
+def test_graceful_restart_absent_leaves_globals_clean():
+    out = translate_config_db(_base_config_db(), "", _peer_group_json())
+    assert "graceful_restart_enable" not in out["BGP_GLOBALS"]["default"]
+
+
+def test_select_defer_time_is_a_known_gap_not_a_failure():
+    # frrcfgd's global_key_map has no select-defer-time field; warn, do not raise.
+    running = "\n".join([
+        "router bgp 65100",
+        " bgp graceful-restart",
+        " bgp graceful-restart select-defer-time 45",
+    ])
+    out = translate_config_db(_base_config_db(), running, _peer_group_json())
+    assert out["BGP_GLOBALS"]["default"]["graceful_restart_enable"] == "true"
+
+
+def test_maximum_paths_carried_into_global_af():
+    # bgpcfgd renders maximum-paths per AF from constants.yml; frrcfgd drives it from
+    # BGP_GLOBALS_AF.max_ebgp_paths, whose YANG default is 1 -- so dropping it silently
+    # collapses ECMP to a single path in frr mode.
+    running = "\n".join([
+        "router bgp 65100",
+        " address-family ipv4 unicast",
+        "  maximum-paths 64",
+        " exit-address-family",
+        " address-family ipv6 unicast",
+        "  maximum-paths 64",
+        "  maximum-paths ibgp 8",
+        " exit-address-family",
+    ])
+    out = translate_config_db(_base_config_db(), running, _peer_group_json())
+    assert out["BGP_GLOBALS_AF"]["default|ipv4_unicast"]["max_ebgp_paths"] == "64"
+    assert out["BGP_GLOBALS_AF"]["default|ipv6_unicast"]["max_ebgp_paths"] == "64"
+
+
+# --------------------------------------------------------------------------- #
+# Neighbor -> peer-group association
+# --------------------------------------------------------------------------- #
+
+def test_neighbor_keeps_its_own_peer_group():
+    # 'show bgp peer-group json' reports which group each neighbor belongs to; assigning
+    # every same-AF neighbor to the first group of that family loses the association.
+    cfg = _base_config_db()
+    cfg["BGP_NEIGHBOR"]["10.0.0.2"] = {
+        "admin_status": "up", "asn": "65201", "local_addr": "10.0.0.3", "name": "ARISTA03T2",
+    }
+    pg_json = {
+        "PEER_V4": {"members": {"10.0.0.1": {}}, "addressFamilyInfo": "IPv4 Unicast"},
+        "ANOTHER_V4": {"members": {"10.0.0.2": {}}, "addressFamilyInfo": "IPv4 Unicast"},
+        "PEER_V6": {"members": {"fc00::6": {}}, "addressFamilyInfo": "IPv6 Unicast"},
+    }
+    out = translate_config_db(cfg, "", pg_json)
+    assert out["BGP_NEIGHBOR"]["default|10.0.0.1"]["peer_group_name"] == "PEER_V4"
+    assert out["BGP_NEIGHBOR"]["default|10.0.0.2"]["peer_group_name"] == "ANOTHER_V4"
+
+
+def test_neighbor_without_a_reported_group_falls_back_to_the_family_default():
+    cfg = _base_config_db()
+    cfg["BGP_NEIGHBOR"]["10.0.0.9"] = {"admin_status": "up", "asn": "65299"}
+    out = translate_config_db(cfg, "", _peer_group_json())
+    assert out["BGP_NEIGHBOR"]["default|10.0.0.9"]["peer_group_name"] == "PEER_V4"
