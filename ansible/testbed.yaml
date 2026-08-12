@@ -4263,7 +4263,7 @@
   inv_name: bjw2
   auto_recover: 'True'
   comment: Beijing Lab
-  tb_owner: xichenlin
+  tb_owner: xiaweijiang
   ptf_extra_mgmt_ip:
     - 172.16.188.126/17
 
@@ -4880,7 +4880,7 @@
   inv_name: bjw2
   auto_recover: 'True'
   comment: Beijing Lab
-  tb_owner: xichenlin
+  tb_owner: xiaweijiang
   ptf_extra_mgmt_ip:
     - 172.16.188.124/17
 
@@ -4898,7 +4898,7 @@
   inv_name: bjw2
   auto_recover: 'True'
   comment: Beijing Lab
-  tb_owner: xichenlin
+  tb_owner: xiaweijiang
   ptf_extra_mgmt_ip:
     - 172.16.188.125/17
 
@@ -5451,7 +5451,7 @@
   inv_name: bjw2
   auto_recover: 'True'
   comment: Beijing Lab
-  tb_owner: xichenlin
+  tb_owner: xiaweijiang
   ptf_extra_mgmt_ip:
     - 172.16.188.129/17
 
@@ -5469,7 +5469,7 @@
   inv_name: bjw2
   auto_recover: 'True'
   comment: Beijing Lab
-  tb_owner: xichenlin
+  tb_owner: xiaweijiang
   ptf_extra_mgmt_ip:
     - 172.16.188.130/17
 
@@ -5487,7 +5487,7 @@
   inv_name: bjw2
   auto_recover: 'True'
   comment: Beijing Lab
-  tb_owner: xichenlin
+  tb_owner: xiaweijiang
   ptf_extra_mgmt_ip:
     - 172.16.188.131/17
 
@@ -5541,7 +5541,7 @@
   inv_name: bjw3
   auto_recover: 'True'
   comment: Beijing Lab
-  tb_owner: xichenlin
+  tb_owner: xiaweijiang
   ptf_extra_mgmt_ip:
     - 172.16.188.144/17
 
@@ -5559,7 +5559,7 @@
   inv_name: bjw3
   auto_recover: 'True'
   comment: Beijing Lab
-  tb_owner: xichenlin
+  tb_owner: xiaweijiang
   ptf_extra_mgmt_ip:
     - 172.16.188.145/17
 
@@ -5577,7 +5577,7 @@
   inv_name: bjw3
   auto_recover: 'True'
   comment: Beijing Lab
-  tb_owner: xichenlin
+  tb_owner: xiaweijiang
   ptf_extra_mgmt_ip:
     - 172.16.188.146/17
 
@@ -5595,7 +5595,7 @@
   inv_name: bjw3
   auto_recover: 'True'
   comment: Beijing Lab
-  tb_owner: xichenlin
+  tb_owner: xiaweijiang
   ptf_extra_mgmt_ip:
     - 172.16.188.147/17
 
