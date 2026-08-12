@@ -208,7 +208,7 @@ def restart_bgp_tracked(duthost, enum_asic_index, tbinfo, bgp_restart_state, bes
     """
     try:
         restart_bgp(duthost, enum_asic_index, tbinfo)
-    except Exception as e:
+    except (Exception, pytest.fail.Exception) as e:
         bgp_restart_state["wedged"].add((duthost.hostname, enum_asic_index))
         if not best_effort:
             raise
