@@ -8,7 +8,6 @@ from tests.common.helpers.gnmi_utils import gnmi_container, add_gnmi_client_comm
                                             create_gnmi_certs, delete_gnmi_certs, GNMIEnvironment, \
                                             GNMI_CERT_NAME
 from tests.common.gu_utils import create_checkpoint, rollback
-from tests.gnmi_e2e.helper import telemetry_enabled
 
 
 logger = logging.getLogger(__name__)
@@ -47,7 +46,7 @@ def apply_cert_config(duthost):
 
     gnmi_env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
 
-    # Setup gnmi & telemetry client cert common name
+    # Setup gnmi client cert common name
     role = "gnmi_readwrite,gnmi_config_db_readwrite,gnmi_appl_db_readwrite,gnmi_dpu_appl_db_readwrite,gnoi_readwrite"
     add_gnmi_client_common_name(duthost, GNMI_CERT_NAME, role)
 
@@ -60,19 +59,6 @@ def apply_cert_config(duthost):
 
     command = "docker exec {} supervisorctl start {}".format(gnmi_env.gnmi_container, gnmi_env.gnmi_program)
     duthost.shell(command, module_ignore_errors=True)
-
-    # tememetry container not avaliable on all image
-    if telemetry_enabled(duthost):
-        tele_env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
-        # Setup telemetry config
-        setup_service_config(duthost, tele_env.gnmi_config_table, tele_env.gnmi_port)
-
-        # Restart telemetry service to apply the updated configuration changes
-        command = "docker exec {} supervisorctl stop {}".format(tele_env.gnmi_container, tele_env.gnmi_program)
-        duthost.shell(command, module_ignore_errors=True)
-
-        command = "docker exec {} supervisorctl start {}".format(tele_env.gnmi_container, tele_env.gnmi_program)
-        duthost.shell(command, module_ignore_errors=True)
 
 
 def recover_cert_config(duthost):
