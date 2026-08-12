@@ -682,6 +682,19 @@ t1-lag-vpp:
   - dns/static_dns/test_static_dns.py
   - dns/test_dns_resolv_conf.py
   - drop_packets/test_drop_counters.py
+  # ecmp: only test_ecmp_balance.py can run on sonic-vpp today. The others are
+  # listed so they are reported as expected skips instead of silently not running:
+  # inner_hashing/* and test_fgnhg.py are t0-only (topology marker), and
+  # test_ecmp_sai_value.py / test_ecmp_group_members_increment.py are Broadcom-only
+  # (asic marker). They start running automatically if sonic-vpp gains support.
+  - ecmp/inner_hashing/test_inner_hashing.py
+  - ecmp/inner_hashing/test_inner_hashing_lag.py
+  - ecmp/inner_hashing/test_wr_inner_hashing.py
+  - ecmp/inner_hashing/test_wr_inner_hashing_lag.py
+  - ecmp/test_ecmp_balance.py
+  - ecmp/test_ecmp_group_members_increment.py
+  - ecmp/test_ecmp_sai_value.py
+  - ecmp/test_fgnhg.py
   - fib/test_fib.py
   - test_interfaces.py
   - http/test_http_copy.py
