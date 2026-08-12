@@ -11,6 +11,17 @@ from pandas import DataFrame
 
 KUSTO_CLIENTS = {}
 
+KUSTO_AUTH_MODE = os.getenv("KUSTO_AUTH_MODE", "interactive").strip().lower()
+
+# Veritas cluster owners require pipeline (az_cli) reads to go through the follower;
+# interactive/local users must hit the primary.
+VERITAS_CLUSTER = (
+    "vnetkustofollower.northcentralus"
+    if KUSTO_AUTH_MODE == "az_cli"
+    else "vnetkusto.northcentralus"
+)
+VERITAS_CLUSTER_URI = f"{VERITAS_CLUSTER}.kusto.windows.net"
+
 
 def init_kusto_clients():
 
@@ -19,7 +30,6 @@ def init_kusto_clients():
     """
 
     TENANT_ID = "72f988bf-86f1-41af-91ab-2d7cd011db47"
-    KUSTO_AUTH_MODE = os.getenv("KUSTO_AUTH_MODE", "interactive").strip().lower()
 
     def build_kusto_client(cluster: str) -> KustoClient:
         cluster_uri = f"https://{cluster}.kusto.windows.net/"
@@ -34,7 +44,7 @@ def init_kusto_clients():
 
     global KUSTO_CLIENTS
     if not KUSTO_CLIENTS:
-        clusters = ['azwan', 'aznwsdn', 'azphynet', 'vnetkusto.northcentralus', 'sonicrepodatadev.westus']
+        clusters = ['azwan', 'aznwsdn', 'azphynet', VERITAS_CLUSTER, 'sonicrepodatadev.westus']
         KUSTO_CLIENTS = {
             cluster: build_kusto_client(cluster) for cluster in clusters
         }

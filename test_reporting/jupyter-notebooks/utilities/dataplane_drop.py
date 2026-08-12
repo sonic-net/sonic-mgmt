@@ -2,7 +2,7 @@ import urllib
 import pandas as pd
 from enum import Enum
 from pandas import DataFrame
-from utilities.kusto import execute_kusto_query
+from utilities.kusto import VERITAS_CLUSTER, VERITAS_CLUSTER_URI, execute_kusto_query
 from utilities.sonic_shift import normalize_timestamp_to_iso_utc
 
 # A pingmesh receive rate strictly between these bounds (percent) indicates partial packet
@@ -55,12 +55,12 @@ let lo = toscalar(upgrades | summarize min(bin(StartTime, 5m)));
 let hi = toscalar(upgrades | summarize max(EndTime));
 let hosts = toscalar(upgrades | summarize make_set(tolower(TorName)));
 let sendRecv =
-    cluster('vnetkusto.northcentralus.kusto.windows.net').database('veritas').TorPingSendAggreEvent
+    cluster('{VERITAS_CLUSTER_URI}').database('veritas').TorPingSendAggreEvent
     | where TIMESTAMP >= lo and TIMESTAMP < hi
     | where tolower(TorName) in (hosts)
     | summarize SendCount = max(SendCount) by TIMESTAMP, NodeId, TorName
     | join kind = leftouter (
-        cluster('vnetkusto.northcentralus.kusto.windows.net').database('veritas').TorPingRecvAggreEvent
+        cluster('{VERITAS_CLUSTER_URI}').database('veritas').TorPingRecvAggreEvent
         | where TIMESTAMP >= lo and TIMESTAMP < hi
         | where tolower(TorName) in (hosts)
         | summarize RecvCount = max(RecvCount) by TIMESTAMP, NodeId, TorName
@@ -78,7 +78,7 @@ upgrades
     by UpgradeKey
 """
     # Kusto rejects query text larger than 1 MB; if batches ever grow that large, split them.
-    df = execute_kusto_query("vnetkusto.northcentralus", "veritas", query)
+    df = execute_kusto_query(VERITAS_CLUSTER, "veritas", query)
 
     # Map drop buckets back by key. Only upgrades with partial-loss buckets appear in the
     # result; any upgrade absent had no drops (or no pingmesh data) -> HasDrop False, empty list.
@@ -183,13 +183,13 @@ def get_host_tor_pingmesh_node_availablity_during_window(tor_name: str, start_ti
 let startTime = datetime("{startTime}");
 let endTime = datetime("{endTime}");
 let torName = "{torName}";
-cluster('vnetkusto.northcentralus.kusto.windows.net').database('veritas').TorPingSendAggreEvent
+cluster('{veritasCluster}').database('veritas').TorPingSendAggreEvent
     | where TIMESTAMP >= startTime and TIMESTAMP < endTime
     | where TorName =~ torName
     | summarize SendCount = max(SendCount) by TIMESTAMP, NodeId, TorName
     | join kind = leftouter
     (
-        cluster('vnetkusto.northcentralus.kusto.windows.net').database('veritas').TorPingRecvAggreEvent
+        cluster('{veritasCluster}').database('veritas').TorPingRecvAggreEvent
     | where TIMESTAMP >= startTime and TIMESTAMP < endTime
     | where TorName =~ torName
     | summarize RecvCount = max(RecvCount) by TIMESTAMP, NodeId, TorName
@@ -203,8 +203,10 @@ cluster('vnetkusto.northcentralus.kusto.windows.net').database('veritas').TorPin
 
     '''
 
-    query = node_downtime_query.format(startTime=start_time, endTime=end_time, torName=tor_name)
-    df_node_downtime = execute_kusto_query("vnetkusto.northcentralus", "veritas", query)
+    query = node_downtime_query.format(
+        startTime=start_time, endTime=end_time, torName=tor_name, veritasCluster=VERITAS_CLUSTER_URI
+    )
+    df_node_downtime = execute_kusto_query(VERITAS_CLUSTER, "veritas", query)
     return df_node_downtime
 
 
@@ -220,12 +222,12 @@ let nodeIdlist = (cluster('azphynet.kusto.windows.net').database('azdhmds').Devi
                     cluster('azphynet.kusto.windows.net').database('azdhmds').Servers
                 ) on DeviceName
                 | summarize by NodeId);
-                cluster('vnetkusto.northcentralus.kusto.windows.net').database('veritas').TorPingSendAggreEvent
+                cluster('{veritasCluster}').database('veritas').TorPingSendAggreEvent
                 | where TIMESTAMP >= bin(startTime, 5m) and TIMESTAMP <  endTime
                 | where NodeId in~ (nodeIdlist)
                 | summarize SendCount = max(SendCount) by TIMESTAMP, NodeId
                 | join kind = leftouter (
-                    cluster('vnetkusto.northcentralus.kusto.windows.net').database('veritas').TorPingRecvAggreEvent
+                    cluster('{veritasCluster}').database('veritas').TorPingRecvAggreEvent
                     | where TIMESTAMP >= bin(startTime, 5m) and TIMESTAMP < endTime
                     | where NodeId in~ (nodeIdlist)
                     | summarize RecvCount = max(RecvCount) by TIMESTAMP, NodeId
@@ -239,8 +241,10 @@ let nodeIdlist = (cluster('azphynet.kusto.windows.net').database('azdhmds').Devi
 
 """
 
-    query = query_template.format(startTime=start_time, endTime=end_time, torName=tor_name)
-    df_tor_downtime = execute_kusto_query("vnetkusto.northcentralus", "veritas", query)
+    query = query_template.format(
+        startTime=start_time, endTime=end_time, torName=tor_name, veritasCluster=VERITAS_CLUSTER_URI
+    )
+    df_tor_downtime = execute_kusto_query(VERITAS_CLUSTER, "veritas", query)
     return df_tor_downtime
 
 
