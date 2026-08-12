@@ -104,13 +104,13 @@ def _get_countersdb(client):
 
 
 @pytest.mark.parametrize(
-    "request",
+    "operation",
     [
         pytest.param(_get_countersdb, id="get"),
         pytest.param(_set_configdb, id="set"),
     ],
 )
-def test_gnmi_default_cert_auth(gnmi_tls, request):  # noqa: F811
+def test_gnmi_default_cert_auth(gnmi_tls, operation):  # noqa: F811
     duthost = gnmi_tls.duthost
     redis_hdel(duthost, CONFIG_DB, "GNMI|gnmi", "user_auth")
     _restart_gnoi_server(duthost)
@@ -124,7 +124,7 @@ def test_gnmi_default_cert_auth(gnmi_tls, request):  # noqa: F811
         PygnmiClientError,
         match="Unauthenticated|unauthenticated|common name mapping",
     ):
-        request(gnmi_tls.pygnmi_client)
+        operation(gnmi_tls.pygnmi_client)
 
 
 @pytest.mark.parametrize(
@@ -168,14 +168,14 @@ def test_cn_insufficient_access(gnmi_tls, cn_roles, error_pattern):  # noqa: F81
 
 
 @pytest.mark.parametrize(
-    "role,request",
+    "role,operation",
     [
         pytest.param(READONLY_ROLE, _get_configdb, id="readonly-get"),
         pytest.param(READWRITE_ROLE, _get_configdb, id="readwrite-get"),
         pytest.param(READWRITE_ROLE, _set_configdb, id="readwrite-set"),
     ],
 )
-def test_cn_allowed_access(gnmi_tls, role, request):  # noqa: F811
+def test_cn_allowed_access(gnmi_tls, role, operation):  # noqa: F811
     """Verify a mapped CN can perform the requested CONFIG_DB operation."""
     duthost = gnmi_tls.duthost
     redis_hset(
@@ -185,4 +185,4 @@ def test_cn_allowed_access(gnmi_tls, role, request):  # noqa: F811
         **{"role@": role}
     )
 
-    request(gnmi_tls.pygnmi_client)
+    operation(gnmi_tls.pygnmi_client)
