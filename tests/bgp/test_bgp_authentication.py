@@ -11,6 +11,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.config_reload import config_reload
 from tests.common.utilities import wait_until
+from tests.common.fixtures.frr_config_mode import skip_if_dut_not_switched
 
 logger = logging.getLogger(__name__)
 
@@ -160,6 +161,10 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, frr_config_mod
         is_sonic_neigh = False
 
     duthost = duthosts[enum_frontend_dut_hostname]
+    # enum_frontend_dut_hostname enumerates every frontend DUT; frr_config_mode switches only
+    # rand_one_dut_hostname. On a multi-DUT T2 those differ, so skip rather than claim frr
+    # coverage for a DUT still in its original mode.
+    skip_if_dut_not_switched(request, duthost)
     dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
     confed_asn = duthost.get_bgp_confed_asn()
 
