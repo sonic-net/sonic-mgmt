@@ -57,9 +57,6 @@ AUTO_STOP_TIMEOUT_SEC = 5
 RESOURCE_LOAD_DURATION_SEC = 180
 RESOURCE_SAMPLE_INTERVAL_SEC = 1
 
-_PROXY_CPU_USAGE_LAST_TIME = None
-_PROXY_CPU_USAGE_LAST_VALUE = None
-
 _PREFIX_RE = re.compile(
     r"^/var/log/sonic/console-mirror/line(?P<line>[0-9]+)/"
     r"console-mirror-line(?P=line)-(?P<direction>rx|tx|both)-(?P<timestamp>[0-9]{8}T[0-9]{12}Z)$"
@@ -233,7 +230,7 @@ def _get_cli_status(duthost, line: str) -> dict[str, str]:
                 "remaining": columns[5],
                 "file_path": columns[6],
             }
-    pytest.fail(
+    raise AssertionError(
         "Could not parse line {} from consutil mirror show output: {}".format(
             line, result["stdout"]
         )
@@ -540,7 +537,8 @@ def _transfer_payload(
                 if end_marker in captured:
                     return
             reader_errors.append(f"Timed out receiving {len(frame)} serial bytes")
-        except BaseException as error:  # Propagate reader-thread errors in the test thread.  # noqa: BLE001
+        # Propagate reader-thread errors in the test thread.
+        except (Exception, pytest.fail.Exception) as error:  # noqa: BLE001
             reader_errors.append(str(error))
 
     reader_thread = threading.Thread(
@@ -614,7 +612,7 @@ def _transfer_bidirectional(
             errors.append(
                 f"Timed out receiving bidirectional serial traffic on side {key}"
             )
-        except BaseException as error:  # noqa: BLE001
+        except (Exception, pytest.fail.Exception) as error:  # noqa: BLE001
             errors.append(f"side {key}: {error}")
 
     readers = [
@@ -626,7 +624,7 @@ def _transfer_bidirectional(
     def send(client, frame):
         try:
             _send_all(client, frame, baud_rate)
-        except BaseException as error:  # noqa: BLE001
+        except (Exception, pytest.fail.Exception) as error:  # noqa: BLE001
             send_errors.append(str(error))
 
     senders = [
@@ -766,21 +764,20 @@ def _get_proxy_memory_usage(duthost, service: str) -> int:
     return int(_systemd_counter(duthost, service, "MemoryCurrent"))
 
 
-def _get_proxy_cpu_usage(duthost, service: str) -> float:
-    global _PROXY_CPU_USAGE_LAST_TIME, _PROXY_CPU_USAGE_LAST_VALUE
-    if _PROXY_CPU_USAGE_LAST_TIME is None:
-        _PROXY_CPU_USAGE_LAST_TIME = time.monotonic()
-        _PROXY_CPU_USAGE_LAST_VALUE = float(
-            _systemd_counter(duthost, service, "CPUUsageNSec")
-        )
+def _get_proxy_cpu_usage(
+    duthost, service: str, sample_state: dict[str, float]
+) -> float:
+    last_time = sample_state.get("time")
+    last_value = sample_state.get("value")
+    if last_time is None or last_value is None:
+        last_time = time.monotonic()
+        last_value = float(_systemd_counter(duthost, service, "CPUUsageNSec"))
         time.sleep(2)
     current_time = time.monotonic()
     current_value = float(_systemd_counter(duthost, service, "CPUUsageNSec"))
-    elapsed_time = current_time - _PROXY_CPU_USAGE_LAST_TIME
-    assert _PROXY_CPU_USAGE_LAST_VALUE is not None
-    elapsed_cpu_nsec = current_value - _PROXY_CPU_USAGE_LAST_VALUE
-    _PROXY_CPU_USAGE_LAST_TIME = current_time
-    _PROXY_CPU_USAGE_LAST_VALUE = current_value
+    elapsed_time = current_time - last_time
+    elapsed_cpu_nsec = current_value - last_value
+    sample_state.update(time=current_time, value=current_value)
     elapsed_cpu_sec = elapsed_cpu_nsec / 1e9
     cpu_percent = (elapsed_cpu_sec / elapsed_time) * 100
     return cpu_percent
@@ -841,6 +838,7 @@ def mirror_link(setup_c0, duthost, conn_graph_facts) -> MirrorLink:
         "Console Mirror requires two console lines on the c0-lo DUT that are recorded as opposite endpoints "
         "in *_serial_links.csv; self-loop modules cannot distinguish RX from TX"
     )
+    raise AssertionError("pytest.skip returned unexpectedly")  # Not Reached
 
 
 @pytest.fixture(scope="function")
@@ -1289,7 +1287,8 @@ def test_console_mirror_resource_usage(
     service = f"console-monitor-proxy@{context.link.line_a}.service"
 
     # record baseline
-    baseline_cpu = _get_proxy_cpu_usage(duthost, service)
+    cpu_sample_state: dict[str, float] = {}
+    baseline_cpu = _get_proxy_cpu_usage(duthost, service, cpu_sample_state)
     baseline_mem = _get_proxy_memory_usage(duthost, service)
 
     _start_mirror(duthost, context, direction="both", timeout="5m")
@@ -1307,8 +1306,8 @@ def test_console_mirror_resource_usage(
                 client_a, client_b, payload, context.link.baud_rate
             )
             transfer_result.update(frame=frame, elapsed=elapsed)
-        except BaseException as e:  # noqa: BLE001
-            transfer_errors.append(e)
+        except (Exception, pytest.fail.Exception) as error:  # noqa: BLE001
+            transfer_errors.append(error)
 
     transfer_thread = threading.Thread(
         target=transfer, name="console-mirror-transfer", daemon=True
@@ -1320,7 +1319,7 @@ def test_console_mirror_resource_usage(
     while transfer_thread.is_alive():
         time.sleep(RESOURCE_SAMPLE_INTERVAL_SEC)
         mem_samples.append(_get_proxy_memory_usage(duthost, service))
-        cpu_samples.append(_get_proxy_cpu_usage(duthost, service))
+        cpu_samples.append(_get_proxy_cpu_usage(duthost, service, cpu_sample_state))
 
     transfer_thread.join(timeout=1.0)
     pytest_assert(
