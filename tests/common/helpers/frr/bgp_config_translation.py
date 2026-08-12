@@ -105,11 +105,18 @@ def _bgp_asn(config_db):
 
 
 def _peer_groups(peer_group_json):
-    """From 'show bgp peer-group json', return (ipv4_pg, ipv6_pg, all_pg_names).
+    """From 'show bgp peer-group json', return (ipv4_pg, ipv6_pg, all_pg_names, pg_by_neighbor).
 
-    A peer group is classed v4 or v6 by the address family of its members. The
-    first v4/v6 peer group found is used for neighbors of that family (matching
-    the reference migrator); every discovered peer group is created."""
+    A peer group is classed v4 or v6 by the address family of its members. ``ipv4_pg`` /
+    ``ipv6_pg`` are the first v4/v6 group found, used only as the *fallback* for a neighbor
+    FRR does not report as an explicit member; every discovered peer group is created.
+
+    ``pg_by_neighbor`` maps each explicitly-configured neighbor IP to the group it actually
+    belongs to. Discarding that mapping and assigning every neighbor of an address family to
+    the first group of that family loses the association whenever a topology has more than
+    one same-family peer group (e.g. PEER_V4 with 10.0.0.1 and ANOTHER_V4 with 10.0.0.2 both
+    ended up in PEER_V4).
+    """
     if not peer_group_json:
         # A test may have deployed a BGP config with no peer-groups, or torn the
         # peer-groups down, before the mode switch. Rather than abort the switch, fall
@@ -117,11 +124,14 @@ def _peer_groups(peer_group_json):
         # a valid frrcfgd config; the fixture's fail-loud fingerprint independently
         # catches anything actually dropped.
         return (DEFAULT_IPV4_PEER_GROUP, DEFAULT_IPV6_PEER_GROUP,
-                [DEFAULT_IPV4_PEER_GROUP, DEFAULT_IPV6_PEER_GROUP])
+                [DEFAULT_IPV4_PEER_GROUP, DEFAULT_IPV6_PEER_GROUP], {})
     ipv4_pgs, ipv6_pgs, all_names = [], [], []
+    pg_by_neighbor = {}
     for name, info in peer_group_json.items():
         all_names.append(name)
         members = info.get("members", {}) if isinstance(info, dict) else {}
+        for member in members:
+            pg_by_neighbor[member] = name
         has_v4 = any("." in m for m in members)
         has_v6 = any(":" in m for m in members)
         # Fall back to the address family declared on the group if it has no members yet.
@@ -135,7 +145,7 @@ def _peer_groups(peer_group_json):
             ipv6_pgs.append(name)
     ipv4_pg = ipv4_pgs[0] if ipv4_pgs else DEFAULT_IPV4_PEER_GROUP
     ipv6_pg = ipv6_pgs[0] if ipv6_pgs else DEFAULT_IPV6_PEER_GROUP
-    return ipv4_pg, ipv6_pg, all_names
+    return ipv4_pg, ipv6_pg, all_names, pg_by_neighbor
 
 
 def _route_map_names_for_peer_group(peer_group, route_map_names):
@@ -275,11 +285,145 @@ def _extract_policy_tables(running_config):
     return tables
 
 
+# Route-map clauses frrcfgd cannot express. Each is a genuine frrcfgd gap, not a translation
+# miss: the route-map NAME is still preserved (so the fixture's fingerprint stays green), but
+# the clause is not rendered in frr mode. These are logged loudly rather than raised, because
+# bgpcfgd emits them from its own base templates on stock DUTs -- raising would make the mode
+# switch fail outright on, e.g., every UpperSpineRouter. Tracked in sonic-buildimage#28482.
+_ROUTE_MAP_UNSUPPORTED_CLAUSES = (
+    ("set comm-list ",
+     "frrcfgd models only 'set extended-comm-list <name> delete', not the standard-community "
+     "form bgpcfgd renders"),
+    ("set tag ",
+     "sonic-route-map.yang has a set_tag leaf but frrcfgd's route_map_key_map does not render "
+     "it, so the field would be inert"),
+    ("set originator-id ",
+     "frrcfgd has no set_originator_id field"),
+)
+
+
+def _set_match_prefix_set(entry, pl_name, name, seq):
+    """Record a ``match ip[v6] address prefix-list`` clause on a ROUTE_MAP row.
+
+    The CONFIG_DB field is the single ``match_prefix_set`` leaf: frrcfgd derives the
+    ipv4/ipv6 qualifier itself by looking up the referenced PREFIX_SET's mode (frrcfgd.py
+    ``__update_bgp_table``), and ``match_prefix_set|ipv4`` is only an internal key_map name.
+    Writing that internal name as a CONFIG_DB field is worse than dropping the clause:
+    frrcfgd ignores it AND sonic_yang rejects the row, which -- because GCU validates the
+    WHOLE CONFIG_DB -- breaks every later apply-patch on the DUT, not just BGP ones.
+    """
+    existing = entry.get("match_prefix_set")
+    if existing is not None and existing != pl_name:
+        raise FrrTranslationError(
+            "route-map {} seq {} matches two prefix-lists ({!r} and {!r}); a frrcfgd "
+            "ROUTE_MAP row has a single match_prefix_set leaf and cannot express both"
+            .format(name, seq, existing, pl_name))
+    entry["match_prefix_set"] = pl_name
+
+
+def _translate_route_map_clause(entry, line, name, seq):
+    """Translate one route-map clause into frrcfgd ROUTE_MAP fields, in place.
+
+    Every field below is grounded in frrcfgd's ``route_map_key_map``
+    (sonic-frr-mgmt-framework/frrcfgd/frrcfgd.py) and the ROUTE_MAP leaves of
+    ``sonic-yang-models/yang-models/sonic-route-map.yang``.
+
+    Clauses in neither that map nor :data:`_ROUTE_MAP_UNSUPPORTED_CLAUSES` raise. Silently
+    ignoring them -- as this did before -- conflicts with the module's fail-loud contract in
+    the way that matters most: the route-map *name* survives, so the fixture's fingerprint
+    reports success while the policy the test then exercises has quietly changed.
+    """
+    parts = line.split()
+
+    # -- match ---------------------------------------------------------------
+    if line.startswith("match interface "):
+        entry["match_interface"] = parts[2]
+    elif line.startswith("match ip address prefix-list "):
+        _set_match_prefix_set(entry, parts[-1], name, seq)
+    elif line.startswith("match ipv6 address prefix-list "):
+        _set_match_prefix_set(entry, parts[-1], name, seq)
+    elif line.startswith("match ip next-hop prefix-list "):
+        entry["match_next_hop_set"] = parts[-1]
+    elif line.startswith("match tag "):
+        # sonic-route-map.yang models match_tag as a leaf-list, so it must be a list --
+        # a bare string is rejected by sonic_yang.
+        entry["match_tag"] = [parts[2]]
+    elif line.startswith("match metric "):
+        entry["match_med"] = parts[2]
+    elif line.startswith("match origin "):
+        entry["match_origin"] = parts[2]
+    elif line.startswith("match local-preference "):
+        entry["match_local_pref"] = parts[2]
+    elif line.startswith("match community "):
+        entry["match_community"] = parts[2]
+    elif line.startswith("match extcommunity "):
+        entry["match_ext_community"] = parts[2]
+    elif line.startswith("match as-path "):
+        entry["match_as_path"] = parts[2]
+    elif line.startswith("match source-vrf "):
+        entry["match_src_vrf"] = parts[2]
+    elif line.startswith("match peer "):
+        entry["match_neighbor"] = [parts[2]]        # leaf-list (sonic-route-map.yang)
+    # -- call / continue-flow ------------------------------------------------
+    elif line.startswith("call "):
+        entry["call_route_map"] = line.split(None, 1)[1]
+    elif line == "on-match next":
+        # frrcfgd models route-map continue-flow via the set_on_match_action enum
+        # (rendered as 'on-match next' / 'on-match goto <seq>'). See sonic-buildimage#28482.
+        entry["set_on_match_action"] = "ON_MATCH_NEXT"
+    elif line.startswith("on-match goto "):
+        entry["set_on_match_action"] = "ON_MATCH_GOTO"
+        entry["set_on_match_goto"] = parts[2]
+    # -- set -----------------------------------------------------------------
+    elif line.startswith("set origin "):
+        entry["set_origin"] = parts[2]
+    elif line.startswith("set local-preference "):
+        entry["set_local_pref"] = parts[2]
+    elif line.startswith("set metric "):
+        entry["set_med"] = parts[2]
+    elif line.startswith("set ip next-hop "):
+        entry["set_next_hop"] = parts[3]
+    elif line == "set ipv6 next-hop prefer-global":
+        entry["set_ipv6_next_hop_prefer_global"] = "true"
+    elif line.startswith("set ipv6 next-hop global "):
+        entry["set_ipv6_next_hop_global"] = parts[4]
+    elif line.startswith("set as-path prepend "):
+        # frrcfgd's set_asn_list is a comma-separated ASN list
+        # ('set as-path prepend {:asn_list}', hdl_set_asn_list).
+        entry["set_asn_list"] = ",".join(parts[3:])
+    elif line.startswith("set community "):
+        # frrcfgd space-joins the set_community_inline leaf-list and has no separate
+        # 'additive' companion field, so every community plus any trailing 'additive'
+        # token stays in the list (-> 'set community <c1> <c2> additive').
+        entry["set_community_inline"] = parts[2:]
+    elif line == "set extcommunity bandwidth num-multipaths":
+        entry["set_extcommunity_bandwidth_type"] = "NUM_MULTIPATHS"
+    elif line.startswith("set extcommunity "):
+        entry["set_ext_community_inline"] = [" ".join(parts[2:])]
+    elif line.startswith("set src "):
+        entry["set_src"] = parts[2]
+    else:
+        for prefix, reason in _ROUTE_MAP_UNSUPPORTED_CLAUSES:
+            if line.startswith(prefix):
+                logger.warning(
+                    "route-map %s seq %s: %r has no frr_mgmt_framework representation (%s); "
+                    "frr mode will run without it -- see sonic-buildimage#28482",
+                    name, seq, line, reason)
+                return
+        raise FrrTranslationError(
+            "route-map {} seq {}: {!r} is neither translated to a frrcfgd ROUTE_MAP field nor "
+            "listed as a known frrcfgd gap. Refusing to switch modes with a policy this "
+            "translator would silently change -- extend _translate_route_map_clause() with "
+            "the matching frrcfgd field, or add the clause to "
+            "_ROUTE_MAP_UNSUPPORTED_CLAUSES if frrcfgd genuinely cannot express it."
+            .format(name, seq, line))
+
+
 def _extract_route_maps(running_config, tables):
     """Parse 'route-map NAME permit|deny SEQ' blocks into ROUTE_MAP/ROUTE_MAP_SET.
 
-    Preserves every route-map name (the fixture's fail-loud net checks names);
-    translates the match/set clauses used by the test topologies."""
+    Preserves every route-map name (the fixture's fail-loud net checks names) and translates
+    each clause via :func:`_translate_route_map_clause`."""
     header = re.compile(r"^route-map\s+(\S+)\s+(permit|deny)\s+(\d+)\s*$")
     current = None  # (name, seq)
     for raw in running_config.splitlines():
@@ -293,69 +437,36 @@ def _extract_route_maps(running_config, tables):
                 "name": name, "route_operation": action, "stmt_name": seq,
             }
             continue
-        if current is None or not line or line.startswith("!"):
+        # Close the stanza explicitly: at 'exit', at a '!' separator, at a blank line, or at
+        # the next non-indented line. Previously '!' only skipped the line and `current`
+        # stayed set past the end of the block, so -- because this parser strips indentation
+        # before matching -- a match/set line in a later stanza was attributed to the
+        # preceding route-map.
+        if not line or line == "exit" or line.startswith("!") or not raw[:1].isspace():
+            current = None
             continue
-        entry = tables["ROUTE_MAP"]["{}|{}".format(*current)]
-        if line.startswith("call "):
-            entry["call_route_map"] = line.split(None, 1)[1]
-        elif line.startswith("match community "):
-            entry["match_community"] = line.split()[2]
-        elif line.startswith("set community ") and line.endswith(" additive"):
-            # Community upstream frrcfgd renders set_community_inline as a space-joined list
-            # and has no separate 'additive' companion field, so keep every community plus the
-            # trailing 'additive' token in the list (-> 'set community <c1> <c2> additive').
-            entry["set_community_inline"] = line.split()[2:]
-        elif line.startswith("match ip address prefix-list "):
-            entry["match_prefix_set|ipv4"] = line.split()[-1]
-        elif line.startswith("match ipv6 address prefix-list "):
-            entry["match_prefix_set|ipv6"] = line.split()[-1]
-        elif line.startswith("match tag "):
-            entry["match_tag"] = line.split()[-1]
-        elif line.startswith("set community ") and not line.endswith(" additive"):
-            entry["set_community_inline"] = line.split()[2:]
-        elif line.startswith("set comm-list ") and line.endswith(" delete"):
-            # A genuine frrcfgd gap, not a translation miss: frrcfgd models only
-            # 'set extended-comm-list <n> delete' (frrcfgd.py set_ext_community_delete) and has
-            # no field for the standard-community form bgpcfgd renders here. Log it rather than
-            # raise -- bgpcfgd emits this on every UpperSpineRouter, so raising would make the
-            # mode switch fail outright on t2. Tracked in sonic-buildimage#28482.
-            logger.warning(
-                "route-map %s seq %s: %r has no frr_mgmt_framework representation "
-                "(frrcfgd supports only extended-comm-list delete); frr mode will run without "
-                "it -- see sonic-buildimage#28482", current[0], current[1], line)
-        elif line.startswith("set src "):
-            entry["set_src"] = line.split()[2]
-        elif line == "set ipv6 next-hop prefer-global":
-            entry["set_ipv6_next_hop_prefer_global"] = "true"
-        elif line == "on-match next":
-            # frrcfgd models route-map continue-flow via the set_on_match_action enum
-            # (rendered as 'on-match next' / 'on-match goto <seq>'). See sonic-buildimage#28482.
-            entry["set_on_match_action"] = "ON_MATCH_NEXT"
-        elif line.startswith("on-match goto "):
-            entry["set_on_match_action"] = "ON_MATCH_GOTO"
-            entry["set_on_match_goto"] = line.split()[2]
-        elif line.startswith("on-match "):
-            raise FrrTranslationError(
-                "route-map {} seq {}: {!r} (unrecognized route-map continue-flow form) "
-                "has no frr_mgmt_framework representation".format(current[0], current[1], line))
-        # Other match/set clauses are not modeled here; the route-map name is still
-        # preserved above, and the fixture asserts name-level preservation.
+        if current is None:
+            continue
+        _translate_route_map_clause(
+            tables["ROUTE_MAP"]["{}|{}".format(*current)], line, current[0], current[1])
 
 
 # --------------------------------------------------------------------------- #
 # BGP globals / peer-groups / neighbors
 # --------------------------------------------------------------------------- #
 
-def _extract_global_af(running_config):
-    """BGP_GLOBALS_AF rows for per-address-family globals bgpcfgd renders.
+def _router_bgp_lines(running_config):
+    """Yield ``(address_family, line)`` for each line inside the default-VRF ``router bgp``
+    stanza of FRR's ``show running-config``.
 
-    Today that is ``table-map`` (frrcfgd ``route_download_filter``), which bgpcfgd applies on
-    an UpperSpineRouter/UpstreamLC to keep locally-anchored routes out of the FIB
-    (SELECTIVE_ROUTE_DOWNLOAD_V4/V6). Dropping it in the translation leaves frr mode
-    downloading routes traditional mode filters out -- a silent behavioural difference, since
-    the fixture's fingerprint only compares object *names*.
+    Centralises the stanza / address-family context tracking every router-bgp extractor
+    below needs. ``address_family`` is None in router-bgp context and e.g. ``ipv4_unicast``
+    inside an ``address-family`` block.
+
+    Only the default-VRF instance is yielded. ``router bgp <asn> vrf <name>`` configures a
+    different VRF, and everything the callers emit is keyed to :data:`DEFAULT_VRF`, so
+    folding a VRF instance's lines in would silently move that config into the default VRF.
     """
-    global_af = {}
     in_bgp = False
     af = None
     for raw in running_config.splitlines():
@@ -364,7 +475,8 @@ def _extract_global_af(running_config):
             # '!' separates stanzas *inside* 'router bgp' too, so it must not end the block.
             continue
         if line.startswith("router bgp "):
-            in_bgp, af = True, None
+            in_bgp = " vrf " not in line
+            af = None
             continue
         if in_bgp and not raw[:1].isspace():
             # Any non-indented line (including a bare 'exit') closes the router bgp block.
@@ -376,18 +488,88 @@ def _extract_global_af(running_config):
             parts = line.split()
             af = "{}_{}".format(parts[1], parts[2]) if len(parts) > 2 else None
             continue
-        if line == "exit-address-family":
+        if line in ("exit-address-family", "exit"):
             af = None
             continue
-        if af and line.startswith("table-map "):
-            key = "{}|{}".format(DEFAULT_VRF, af)
-            global_af.setdefault(key, {})["route_download_filter"] = line.split()[1]
+        yield af, line
 
+
+def _extract_global_af(running_config):
+    """BGP_GLOBALS_AF rows for per-address-family globals bgpcfgd renders.
+
+    * ``table-map`` (frrcfgd ``route_download_filter``), which bgpcfgd applies on an
+      UpperSpineRouter/UpstreamLC to keep locally-anchored routes out of the FIB
+      (SELECTIVE_ROUTE_DOWNLOAD_V4/V6);
+    * ``maximum-paths`` (frrcfgd ``max_ebgp_paths``), which bgpcfgd renders per address
+      family from ``constants.yml``. frrcfgd drives it from BGP_GLOBALS_AF instead, and the
+      YANG default is 1 -- so without this the switch silently collapses BGP multipath to a
+      single path, which the fixture's name-only fingerprint cannot see (it broke ECMP
+      expectations in frr mode while every object name was still present).
+    """
+    global_af = {}
+    for af, line in _router_bgp_lines(running_config):
+        if not af:
+            continue
+        key = "{}|{}".format(DEFAULT_VRF, af)
+        if line.startswith("table-map "):
+            global_af.setdefault(key, {})["route_download_filter"] = line.split()[1]
+        elif line.startswith("maximum-paths ") and not line.startswith("maximum-paths ibgp "):
+            global_af.setdefault(key, {})["max_ebgp_paths"] = line.split()[1]
     return global_af
 
 
-def _build_globals(config_db, bgp_asn, router_id):
+# 'bgp graceful-restart ...' forms bgpcfgd renders from constants.yml, mapped to the
+# BGP_GLOBALS fields frrcfgd drives them from (frrcfgd.py global_key_map; leaves confirmed in
+# sonic-bgp-global.yang). Longest CLI form first -- 'bgp graceful-restart restart-time N'
+# also starts with the bare 'bgp graceful-restart'.
+_GLOBAL_FLAG_PREFIXES = (
+    ("bgp graceful-restart restart-time ", "gr_restart_time", None),
+    ("bgp graceful-restart stalepath-time ", "gr_stale_routes_time", None),
+    ("bgp graceful-restart preserve-fw-state", "gr_preserve_fw_state", "true"),
+    ("bgp graceful-restart", "graceful_restart_enable", "true"),
+    ("no bgp ebgp-requires-policy", "ebgp_requires_policy", "false"),
+    ("bgp bestpath as-path multipath-relax", "load_balance_mp_relax", "true"),
+)
+
+# 'bgp graceful-restart select-defer-time N' has no frrcfgd field (global_key_map models
+# restart-time / stalepath-time / preserve-fw-state only), so it is a real frrcfgd gap.
+_GLOBAL_UNSUPPORTED_PREFIXES = (
+    ("bgp graceful-restart select-defer-time ",
+     "frrcfgd's global_key_map has no select-defer-time field"),
+)
+
+
+def _extract_global_flags(running_config):
+    """BGP_GLOBALS fields for the router-bgp-level settings bgpcfgd renders from its
+    templates/constants but frrcfgd drives from CONFIG_DB fields.
+
+    Graceful restart is the load-bearing one: bgpcfgd renders ``bgp graceful-restart``,
+    ``restart-time``, and ``preserve-fw-state`` on a ToR from constants.yml, while frrcfgd
+    consumes none of those constants and renders GR only from explicit BGP_GLOBALS fields.
+    Without this the DUT silently loses graceful restart the first time the bgp container
+    restarts in frr mode.
+    """
+    fields = {}
+    for af, line in _router_bgp_lines(running_config):
+        if af:
+            continue
+        for prefix, reason in _GLOBAL_UNSUPPORTED_PREFIXES:
+            if line.startswith(prefix):
+                logger.warning(
+                    "%r has no frr_mgmt_framework representation (%s); frr mode will run "
+                    "without it -- see sonic-buildimage#28482", line, reason)
+                break
+        else:
+            for prefix, field, value in _GLOBAL_FLAG_PREFIXES:
+                if line.startswith(prefix):
+                    fields[field] = value if value is not None else line.split()[-1]
+                    break
+    return fields
+
+
+def _build_globals(config_db, bgp_asn, router_id, running_config):
     globals_tbl = {DEFAULT_VRF: {"local_asn": bgp_asn, "router_id": router_id}}
+    globals_tbl[DEFAULT_VRF].update(_extract_global_flags(running_config))
     af_network = {}
     for addr in _loopback0_addrs(config_db):
         af = "ipv4_unicast" if "." in addr.split("/")[0] else "ipv6_unicast"
@@ -417,12 +599,17 @@ def _build_peer_group_af(ipv4_pg, ipv6_pg, route_map_names):
     return peer_group_af
 
 
-def _build_neighbors(config_db, ipv4_pg, ipv6_pg, route_map_names):
+def _build_neighbors(config_db, ipv4_pg, ipv6_pg, route_map_names, pg_by_neighbor=None):
     """Transform the traditional BGP_NEIGHBOR table into the frrcfgd VRF-keyed
-    BGP_NEIGHBOR + BGP_NEIGHBOR_AF tables."""
+    BGP_NEIGHBOR + BGP_NEIGHBOR_AF tables.
+
+    ``pg_by_neighbor`` (from ``show bgp peer-group json``) gives each neighbor's real peer
+    group; the per-family ``ipv4_pg``/``ipv6_pg`` are only the fallback for a neighbor FRR
+    does not report as a member of any group."""
     src = config_db.get("BGP_NEIGHBOR")
     if not src:
         raise FrrTranslationError("config_db has no BGP_NEIGHBOR entries to translate")
+    pg_by_neighbor = pg_by_neighbor or {}
     neighbors, neighbor_af = {}, {}
     for key, value in src.items():
         if "|" in key:
@@ -430,7 +617,7 @@ def _build_neighbors(config_db, ipv4_pg, ipv6_pg, route_map_names):
         else:
             vrf, ip = DEFAULT_VRF, key
         af = _afi_safi(ip)
-        pg = ipv4_pg if af == "ipv4_unicast" else ipv6_pg
+        pg = pg_by_neighbor.get(ip) or (ipv4_pg if af == "ipv4_unicast" else ipv6_pg)
         # Carry the source admin_status through (default up when absent) rather than
         # forcing up -- an admin_status="down" neighbor must not silently come up.
         admin_status = value.get("admin_status", "up")
@@ -476,18 +663,7 @@ def _extract_extra_peer_groups(running_config, primary_names, bgp_asn):
     Returns ``(peer_group, peer_group_af)`` dicts keyed like the other builders.
     """
     peer_group, peer_group_af = {}, {}
-    current_af = None
-    for raw in running_config.splitlines():
-        line = raw.strip()
-        if line.startswith("address-family "):
-            parts = line.split()
-            # 'address-family ipv4 unicast' -> 'ipv4_unicast'
-            if len(parts) >= 3:
-                current_af = "{}_{}".format(parts[1], parts[2])
-            continue
-        if line == "exit-address-family" or line == "exit":
-            current_af = None
-            continue
+    for current_af, line in _router_bgp_lines(running_config):
         if not line.startswith("neighbor "):
             continue
         parts = line.split()
@@ -545,13 +721,28 @@ def _build_listen_prefixes(config_db):
     ranges, e.g. for BGPSLBPassive / BGPVac) into frrcfgd's ``BGP_GLOBALS_LISTEN_PREFIX``
     (frrcfgd.py; yang key ``vrf_name|ip_prefix``, leaf ``peer_group`` ->
     ``bgp listen range <prefix> peer-group <pg>``). bgpcfgd consumes BGP_PEER_RANGE
-    directly; frrcfgd expresses the same range through this table."""
+    directly; frrcfgd expresses the same range through this table.
+
+    A ``BGP_PEER_RANGE`` key may be qualified as ``<vrf-or-vnet>|<peer-group>``. Everything
+    emitted here is keyed to :data:`DEFAULT_VRF`, so a non-default scope raises rather than
+    being silently relocated into the default VRF -- which would produce a config with
+    different semantics from the one being translated."""
     src = config_db.get("BGP_PEER_RANGE")
     if not src:
         return {}
     listen = {}
     for name, value in src.items():
-        pg = value.get("name") or name.split("|")[-1]
+        if "|" in name:
+            scope, pg_name = name.split("|", 1)
+            if scope != DEFAULT_VRF:
+                raise FrrTranslationError(
+                    "BGP_PEER_RANGE key {!r} is scoped to VRF/VNET {!r}; VRF-scoped listen "
+                    "ranges have no translation here (frrcfgd would need a "
+                    "BGP_GLOBALS_LISTEN_PREFIX row plus its own BGP_GLOBALS/BGP_PEER_GROUP "
+                    "instance under that VRF)".format(name, scope))
+        else:
+            pg_name = name
+        pg = value.get("name") or pg_name
         for prefix in value.get("ip_range", []):
             listen["{}|{}".format(DEFAULT_VRF, prefix)] = {
                 "vrf_name": DEFAULT_VRF, "ip_prefix": prefix, "peer_group": pg,
@@ -708,27 +899,18 @@ def translate_config_db(config_db, running_config, peer_group_json):
     bgp_asn = _bgp_asn(result)
     router_id = _router_id(result)
 
-    ipv4_pg, ipv6_pg, all_pg_names = _peer_groups(peer_group_json)
+    ipv4_pg, ipv6_pg, all_pg_names, pg_by_neighbor = _peer_groups(peer_group_json)
     policy = _extract_policy_tables(running_config)
     # W-ECMP adds an outbound-route-map clause; fold it in before route_map_names
     # is snapshotted so peer-groups still resolve their route_map_out list.
     _apply_wcmp(result, policy, ipv4_pg, ipv6_pg)
     route_map_names = set(policy["ROUTE_MAP_SET"].keys())
 
-    globals_tbl, af_network = _build_globals(result, bgp_asn, router_id)
-    # bgpcfgd disables ebgp-requires-policy in traditional mode ('no bgp ebgp-requires-policy').
-    # frrcfgd has no unconditional default for this -- it is field-driven -- so carry the setting
-    # into the BGP_GLOBALS row from the actual running config, and frrcfgd renders the same line.
-    # See sonic-buildimage#28482.
-    if any(ln.strip() == "no bgp ebgp-requires-policy" for ln in running_config.splitlines()):
-        globals_tbl[DEFAULT_VRF]["ebgp_requires_policy"] = "false"
-    # Same shape: bgpcfgd renders multipath-relax from its template, frrcfgd drives it from the
-    # BGP_GLOBALS load_balance_mp_relax field (frrcfgd.py global_key_map). Without it frr mode
-    # computes multipath differently from traditional on the same topology.
-    if any(ln.strip() == "bgp bestpath as-path multipath-relax"
-           for ln in running_config.splitlines()):
-        globals_tbl[DEFAULT_VRF]["load_balance_mp_relax"] = "true"
-    # Same shape for suppress-fib-pending, but it lives in DEVICE_METADATA rather than
+    # _build_globals folds in the router-bgp-level settings bgpcfgd renders from its templates
+    # and constants.yml but frrcfgd drives from BGP_GLOBALS fields -- graceful restart,
+    # ebgp-requires-policy, multipath-relax. See _extract_global_flags.
+    globals_tbl, af_network = _build_globals(result, bgp_asn, router_id, running_config)
+    # suppress-fib-pending has the same shape but lives in DEVICE_METADATA rather than
     # BGP_GLOBALS. bgpcfgd's template renders 'bgp suppress-fib-pending' whether or not the field
     # is set; frrcfgd reads DEVICE_METADATA['suppress-fib-pending'], caches it at startup and
     # pushes it to FRR only when it *changes*. With the field absent frrcfgd caches 'disabled'
@@ -751,7 +933,8 @@ def translate_config_db(config_db, running_config, peer_group_json):
         peer_group[key] = {**peer_group.get(key, {}), **value}
     peer_group_af.update(extra_pg_af)
     listen_prefixes = _build_listen_prefixes(result)
-    neighbors, neighbor_af = _build_neighbors(result, ipv4_pg, ipv6_pg, route_map_names)
+    neighbors, neighbor_af = _build_neighbors(
+        result, ipv4_pg, ipv6_pg, route_map_names, pg_by_neighbor)
     aggregates = _build_aggregate_addresses(result)
 
     result["BGP_GLOBALS"] = globals_tbl
