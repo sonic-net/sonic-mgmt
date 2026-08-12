@@ -1840,7 +1840,7 @@
   inv_name: bjw
   auto_recover: 'True'
   comment: Beijing Lab
-  tb_owner: xichenlin
+  tb_owner: zegan
 
 - conf-name: testbed-bjw-can-4600c-1
   group-name: bjw7-8
@@ -1857,7 +1857,7 @@
   inv_name: bjw
   auto_recover: 'True'
   comment: Beijing Lab
-  tb_owner: xichenlin
+  tb_owner: zegan
 
 - conf-name: testbed-bjw-can-2700-3
   group-name: bjw7-9
@@ -1874,7 +1874,7 @@
   inv_name: bjw
   auto_recover: 'True'
   comment: Beijing Lab
-  tb_owner: xichenlin
+  tb_owner: zegan
 
 - conf-name: vms66-t1-7060dx5-1
   group-name: vms66-2
@@ -3454,7 +3454,7 @@
   inv_name: bjw2
   auto_recover: 'True'
   comment: Beijing Lab
-  tb_owner: xichenlin
+  tb_owner: zegan
 
 - conf-name: testbed-bjw2-can-t0-4600c-2
   group-name: bjw2-2-2
@@ -3471,7 +3471,7 @@
   inv_name: bjw2
   auto_recover: 'True'
   comment: Beijing Lab
-  tb_owner: xichenlin
+  tb_owner: zegan
 
 - conf-name: testbed-bjw2-can-t1-4600c-3
   group-name: bjw2-2-3
@@ -3488,7 +3488,7 @@
   inv_name: bjw2
   auto_recover: 'True'
   comment: Beijing Lab
-  tb_owner: xichenlin
+  tb_owner: zegan
 
 - conf-name: testbed-bjw2-can-t1-4600c-4
   group-name: bjw2-2-4
@@ -3505,7 +3505,7 @@
   inv_name: bjw2
   auto_recover: 'True'
   comment: Beijing Lab
-  tb_owner: xichenlin
+  tb_owner: zegan
 
 - conf-name: testbed-bjw2-can-t0-7260-1
   group-name: bjw2-2-5
@@ -3755,7 +3755,7 @@
   inv_name: bjw2
   auto_recover: 'True'
   comment: Beijing Lab
-  tb_owner: xichenlin
+  tb_owner: zegan
 
 - conf-name: testbed-bjw2-can-t1-4600c-6
   group-name: bjw2-5-6
@@ -3772,7 +3772,7 @@
   inv_name: bjw2
   auto_recover: 'True'
   comment: Beijing Lab
-  tb_owner: xichenlin
+  tb_owner: zegan
 
 - conf-name: vms12-t1-smartswitch-8102-02
   group-name: vms12-2
