@@ -1738,7 +1738,7 @@ sonic_arista_7060:
   hosts:
     strtk5-7060x6-512-01:
       ansible_host: 10.212.70.10
-      ansible_hostv6: 2603:10e2:140:3000::ad4:460a
+      ansible_hostv6: 2603:10e2:140:3000::1ca
       model: DCS-7060X6-64PE-B
       serial: HBG254712XL
       base_mac: 8c:01:9d:c7:d9:e1

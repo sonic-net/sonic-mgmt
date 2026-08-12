@@ -180,6 +180,7 @@ validators:
       - strtk5-7060cx-fanout-01   # IPv4/IPv6 mismatch
       - strtk5-7060cx-fanout-02   # IPv4/IPv6 mismatch
       - strtk5-7060cx-fanout-03   # IPv4/IPv6 mismatch
+      - strtk5-7060x6-512-01      # IPv4/IPv6 mismatch
       - strtk5-7170-azd-01        # IPv4/IPv6 mismatch
       - strtk5-720dt-01           # IPv4/IPv6 mismatch
       - strtk5-7215-05            # IPv4/IPv6 mismatch
