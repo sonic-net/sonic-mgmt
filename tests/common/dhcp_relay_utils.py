@@ -585,6 +585,13 @@ def enable_sonic_dhcpv4_relay_agent(rand_selected_dut, request, dhcp_relay_test_
                   "Invalid DHCP relay test context: {}".format(dhcp_relay_test_context))
     enable_relay_type = 'sonic-internal' if dhcp_relay_test_context == 'internal' else 'sonic'
     disable_relay_type = 'isc-internal-idle' if dhcp_relay_test_context == 'internal' else 'isc'
+    relay_agent = request.getfixturevalue("relay_agent")
+    if dhcp_relay_test_context == 'internal' and relay_agent == "sonic-relay-agent":
+        try:
+            _validate_relay_types('enable_sonic_dhcpv4_relay_agent', [enable_relay_type])
+            _validate_relay_types('enable_sonic_dhcpv4_relay_agent', [disable_relay_type])
+        except ValueError:
+            pytest.skip("#26658 internal relay context requires the relay modes from #26525")
 
     if "dut_dhcp_relay_data" in request.fixturenames:
         dut_dhcp_relay_data = request.getfixturevalue("dut_dhcp_relay_data")
@@ -592,7 +599,7 @@ def enable_sonic_dhcpv4_relay_agent(rand_selected_dut, request, dhcp_relay_test_
         dut_dhcp_relay_data = None
 
     try:
-        if request.getfixturevalue("relay_agent") == "sonic-relay-agent":
+        if relay_agent == "sonic-relay-agent":
             # Configure external relay servers first so conditional supervisor templates can render dhcp4relay.
             sonic_dhcp_relay_config(duthost, dut_dhcp_relay_data, socket_check=False)
             sonic_dhcpv4_flag_config_and_unconfig(duthost, True, enable_relay_type)
@@ -602,7 +609,7 @@ def enable_sonic_dhcpv4_relay_agent(rand_selected_dut, request, dhcp_relay_test_
                               "SONiC DHCPv4 relay sockets did not become ready")
         yield
     finally:
-        if request.getfixturevalue("relay_agent") == "sonic-relay-agent":
+        if relay_agent == "sonic-relay-agent":
             sonic_dhcp_relay_unconfig(duthost, dut_dhcp_relay_data)
             sonic_dhcpv4_flag_config_and_unconfig(duthost, False, disable_relay_type)
 
