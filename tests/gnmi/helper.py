@@ -16,6 +16,16 @@ GNMI_PROGRAM_NAME = ''
 GNMI_PORT = 0
 # Base wait unit (seconds) for GNMI server startup; the listening-port poll allows up to 2x this
 GNMI_SERVER_START_WAIT_TIME = 15
+# gnmi_cli's own client-side dial timeout (seen verbatim in its error message, e.g.
+# "Dialer(127.0.0.1:8080, 30s): context deadline exceeded" in sonic-mgmt#26737). A single failed
+# gnmi_capabilities() probe can therefore block for this entire duration.
+GNMI_DIAL_TIMEOUT_SECONDS = 30
+GNMI_READINESS_POLL_INTERVAL = 5
+# Must exceed one full failed probe (GNMI_DIAL_TIMEOUT_SECONDS) plus the poll interval, otherwise
+# a single slow/failed probe consumes the whole budget and wait_until() never attempts a second
+# probe -- which is exactly the "context deadline exceeded" failure this readiness poll is meant
+# to catch and retry past (sonic-mgmt#26737).
+GNMI_READINESS_POLL_TIMEOUT = 2 * GNMI_DIAL_TIMEOUT_SECONDS + GNMI_READINESS_POLL_INTERVAL
 
 
 def is_mgmt_vrf_enabled(duthost):
@@ -85,14 +95,18 @@ def apply_cert_config(duthost, vrf_name=None, localhost=None):
     # dial errors from gnmi_cli immediately after apply_cert_config(). Confirm the server is
     # actually able to complete a real gNMI RPC before handing control back to the caller,
     # mirroring the post-rotation readiness pattern in
-    # tests/telemetry/test_telemetry_cert_rotation.py (wait_until(30, 5, 0, ...) around a live
-    # gnmi request rather than just the TCP handshake).
+    # tests/telemetry/test_telemetry_cert_rotation.py (wait_until(...) around a live gnmi request
+    # rather than just the TCP handshake). The outer timeout is sized to survive one full failed
+    # probe (see GNMI_READINESS_POLL_TIMEOUT above) so a single dial-timeout failure -- the exact
+    # failure mode reported in #26737 -- doesn't consume the whole budget and prevent a second,
+    # potentially successful, probe.
     if localhost is not None:
         def _gnmi_server_responsive():
             ret, _ = gnmi_capabilities(duthost, localhost, vrf_name)
             return ret == 0
 
-        server_responsive = wait_until(30, 5, 0, _gnmi_server_responsive)
+        server_responsive = wait_until(
+            GNMI_READINESS_POLL_TIMEOUT, GNMI_READINESS_POLL_INTERVAL, 0, _gnmi_server_responsive)
         if not server_responsive:
             dump_gnmi_log(duthost)
             dump_system_status(duthost)
