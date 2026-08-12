@@ -87,9 +87,8 @@ def apply_patch_remove_qos_for_namespace(duthost,
                   "No BUFFER_PG or PORT_QOS_MAP entries to remove "
                   "in namespace {}.".format(namespace))
 
-    tmpfile = generate_tmpfile(duthost)
-
     if apply:
+        tmpfile = generate_tmpfile(duthost)
         try:
             output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
             expect_op_success(duthost, output)
@@ -115,9 +114,10 @@ def apply_patch_remove_qos_for_namespace(duthost,
                 # any leftover / unexpected entries are visible at a glance.
 
                 ns_prefix = '' if namespace is None else '-n ' + namespace
+                # PORT_QOS_MAP intentionally skipped as APPL_DB
+                # do not maintain PORT_QOS_TABLE entries
                 appl_targets = [
                     ('BUFFER_PG_TABLE', buffer_pg_removed),
-                    ('PORT_QOS_TABLE', port_qos_map_removed),
                 ]
 
                 def _appl_keys(appl_table):
@@ -287,17 +287,29 @@ def verify_qos_in_appl_db(duthost, namespace, qos_config, timeout=60, interval=5
     def _keys(appl_table):
         cmd = "sonic-db-cli {} APPL_DB keys {}:*".format(ns_prefix, appl_table)
         return [k for k in duthost.shell(cmd)["stdout"].splitlines() if k]
+
     for cfg_table, appl_table in table_map.items():
-        expected = qos_config.get(cfg_table) or {}
-        if not expected:
+        expected_cfg = qos_config.get(cfg_table) or {}
+        if not expected_cfg:
             continue
-        logger.info("Verifying APPL_DB table {} matches CONFIG_DB {}.".format(appl_table, cfg_table))
-        pytest_assert(
-            wait_until(timeout, interval, 0,
-                       lambda: len(_keys(appl_table)) == len(expected)),
-            "APPL_DB table {} has {} keys, expected {}.".format(
-                appl_table, len(_keys(appl_table)), len(expected)),
+        expected = {
+            "{}:{}".format(appl_table, cfg_key.replace('|', ':'))
+            for cfg_key in expected_cfg
+        }
+        logger.info(
+            "Verifying APPL_DB table {} matches CONFIG_DB {} ({} keys).".format(
+                appl_table, cfg_table, len(expected)),
         )
+
+        def _matches(_expected=expected, _table=appl_table):
+            return set(_keys(_table)) == _expected
+
+        pytest_assert(
+            wait_until(timeout, interval, 0, _matches),
+            "APPL_DB table {} keys mismatch. expected={}, actual={}".format(
+                appl_table, sorted(expected), sorted(_keys(appl_table))),
+        )
+
 
 # -----------------------------
 # Test Definitions
@@ -316,20 +328,22 @@ def ignore_expected_qos_errors(loganalyzer, rand_one_dut_front_end_hostname):
             # variant is no longer triggered because this test does not
             # remove/re-add PORT_QOS_MAP/'global'.
             # -----------------------------------------------------------
-            r".*ERR syncd[0-9]*#syncd:.*sendApiResponse:.*SAI_COMMON_API_SET.*"
-            r"SAI_STATUS_NOT_IMPLEMENTED.*",
+            (
+                r".*ERR syncd[0-9]*#syncd:.*sendApiResponse:.*SAI_COMMON_API_SET.*"
+                r"SAI_STATUS_NOT_IMPLEMENTED.*"
+            ),
             r".*ERR syncd[0-9]*#syncd:.*processQuadEvent:.*VID:.*RID:.*",
             r".*ERR swss[0-9]*#orchagent:.*doTask:.*Failed to process QOS task, drop it.*",
             # -----------------------------------------------------------
             # BUFFER_PG churn: whole-table remove then per-key add produces
             # transient errors from buffermgrd / BufferOrch.
             # -----------------------------------------------------------
-            r".*ERR swss[0-9]*#buffermgrd.*",
-            r".*ERR swss[0-9]*#orchagent.*BufferOrch.*",
+            r".*ERR swss[0-9]*#buffermgrd:.*Failed to apply.*BUFFER_PG.*",
+            r".*ERR swss[0-9]*#orchagent:.*BufferOrch.*Failed to process.*",
             # -----------------------------------------------------------
             # QoS / port admin state cycling.
             # -----------------------------------------------------------
-            r".*ERR swss[0-9]*#orchagent.*QosOrch.*",
+            r".*ERR swss[0-9]*#orchagent:.*QosOrch.*Failed to set.*DSCP_TO_TC.*",
             r".*ERR swss[0-9]*#orchagent.*setPortPfcAsym.*",
             r".*ERR syncd[0-9]*#syncd.*SAI_API_(BUFFER|QOS_MAP|QUEUE).*",
         ]
