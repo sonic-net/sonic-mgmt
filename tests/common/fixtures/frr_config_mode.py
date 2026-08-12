@@ -109,6 +109,45 @@ def switched_dut_hostname(request):
     return state.duthost.hostname
 
 
+def frr_mode_switch_count(request):
+    """How many FRR config-mode switches this session has performed so far.
+
+    0 when the fixture has not run yet. Capture it at module setup and re-read it at
+    teardown to tell whether a switch (and therefore a ``config reload``) happened while the
+    module was running.
+    """
+    state = getattr(request.session, _SESSION_STATE_ATTR, None)
+    return state.switch_count if state is not None else 0
+
+
+def frr_mode_perturbed(request, since_switch_count=None):
+    """True when the generic DUT-health config checks cannot be trusted right now.
+
+    Those checks compare the DUT against a testbed-wide baseline --
+    ``/etc/sonic/running_golden_config.json``, written once by
+    ``test_pretest.py::test_generate_running_golden_config`` and reused for the life of the
+    testbed -- so they answer "does the DUT still match the pretest snapshot", not "did this
+    module change anything". Two independent things make that comparison meaningless here:
+
+    * **the DUT is not in its boot config mode.** Its CONFIG_DB then differs from the pretest
+      baseline across the entire frr schema, by design rather than as drift. No amount of
+      settling fixes this, so the frr_mgmt_framework variant can never pass config-diff.
+    * **a mode switch ran during this module.** That is a ``config reload``, which regenerates
+      telemetry/gnmi certs and re-runs db_migrator -- benign, self-restoring differences any
+      reload produces, mode switch or not.
+
+    Pass the setup-time :func:`frr_mode_switch_count` as ``since_switch_count`` to cover the
+    second case; omit it to test only the first (e.g. for a pre-test check, where nothing has
+    run yet). False when the fixture never ran, so non-BGP modules are unaffected.
+    """
+    state = getattr(request.session, _SESSION_STATE_ATTR, None)
+    if state is None:
+        return False
+    if state.applied_mode != state.original_mode:
+        return True
+    return since_switch_count is not None and state.switch_count != since_switch_count
+
+
 def skip_if_dut_not_switched(request, duthost):
     """Skip when ``duthost`` is not the DUT ``frr_config_mode`` switched.
 
@@ -207,21 +246,24 @@ def _is_expected_core(core, patterns):
 
 @pytest.fixture(scope="module", autouse=True)
 def _frr_mode_core_dump_check(request, duthosts):
-    """Focused core-dump (crash) detection for frr_config_mode dual-mode modules.
+    """Focused core-dump (crash) detection for frr_config_mode modules whose own markers turn
+    the generic check off.
 
-    Opted-in modules carry ``skip_check_dut_health`` because the mid-module mode-switch
-    ``config reload`` legitimately perturbs the generic config-diff / YANG / memory checks
-    (and its recovery reload races swss). That marker also disables the generic core-dump
-    detection in ``core_dump_and_config_check`` -- but a process crash during a dual-mode
-    BGP test must still be caught. So run a focused core-dump-only check here (no config-diff,
-    no recovery reload) for modules the collection hook marked ``frr_dual_mode``. A no-op for
-    every other module, so it does not touch the rest of the suite.
+    ``core_dump_and_config_check`` does crash detection for opted-in modules as usual -- it is
+    only the running-config *comparison* the mode switch invalidates, and that is skipped on
+    its own (see ``frr_mode_perturbed``). But a module that carries ``skip_check_dut_health``
+    in its own ``pytestmark`` disables that fixture entirely, and a process crash during a
+    dual-mode BGP test must still be caught. So this runs only for ``frr_dual_mode`` modules
+    that are also ``skip_check_dut_health``: core dumps only, no config-diff and no recovery
+    reload. A no-op everywhere else, including where the generic check is active, so a crash
+    is never reported twice.
 
     Cores a module declares via ``expected_core_dumps`` are reported but do not fail it --
     otherwise this check would turn the traffic-shift modules' known ``dplane_fpm_nl`` core
     into a module failure, which is precisely the whitelist the generic checker honours.
     """
-    if request.node.get_closest_marker("frr_dual_mode") is None:
+    if (request.node.get_closest_marker("frr_dual_mode") is None
+            or request.node.get_closest_marker("skip_check_dut_health") is None):
         yield
         return
 
@@ -417,6 +459,10 @@ class _FrrModeSessionState(object):
         self.migrator = FrrConfigModeMigrator(duthost)
         self.original_mode = None
         self.applied_mode = None
+        # Monotonic count of mode switches performed this session. The generic DUT-health
+        # checks compare it across a module to tell "a `config reload` happened while this
+        # module ran" from "the DUT was already in this mode when the module started".
+        self.switch_count = 0
         self.baseline_neighbors = None
         self.baseline_fingerprint = None
 
@@ -519,10 +565,13 @@ def frr_config_mode(request, duthosts, rand_one_dut_hostname):
     narrow the run to a single mode -- e.g. ``--frr-config-mode=frr_mgmt_framework`` exercises
     only frrcfgd and bypasses the bgpcfgd variant.
 
-    Opted-in modules MUST also carry ``pytest.mark.skip_check_dut_health``: the mode
-    switch rewrites BGP config_db mid-module and reloads, which the config-diff /
-    YANG DUT-health checks would otherwise flag. The switch restores the DUT's
-    original config on exit, leaving the testbed clean for later modules.
+    Generic DUT-health checks: the mode switch rewrites BGP config_db mid-module and
+    reloads, which the config-diff and YANG checks would flag. They are NOT disabled by a
+    marker -- that would suppress them for every opted-in module and both mode variants,
+    including native-mode runs that reload nothing. Instead the checks themselves skip at
+    runtime, via ``frr_mode_perturbed()``, exactly while the DUT is away from its boot mode
+    or in a module a switch actually ran in; crash detection is never skipped. The switch
+    restores the DUT's original config on exit, leaving the testbed clean for later modules.
 
     The ``disable_memory_utilization`` marker is applied automatically (by
     ``pytest_collection_modifyitems`` in tests/conftest.py, keyed on this fixture) for
@@ -699,6 +748,7 @@ def _switch_mode(state, mode):
     except FrrTranslationError as e:
         pytest.fail("Failed to switch to '{}' mode: {}".format(mode, e))
     state.applied_mode = mode
+    state.switch_count += 1
 
     pt_assert(wait_until(180, 10, 0, duthost.is_service_fully_started_per_asic_or_host, "bgp"),
               "bgp service did not come up after switching to '{}' mode".format(mode))
