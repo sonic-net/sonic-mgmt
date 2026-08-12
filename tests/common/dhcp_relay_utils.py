@@ -566,19 +566,18 @@ def sonic_dhcpv4_flag_config_and_unconfig(duthost, dhcpv4_config_flag, relay_typ
 
 
 @pytest.fixture()
-def dhcp_relay_test_context():
-    """Use external relay modes unless a test module explicitly overrides the context."""
-    return 'external'
-
-
-@pytest.fixture()
-def enable_sonic_dhcpv4_relay_agent(rand_selected_dut, request, dhcp_relay_test_context):
+def enable_sonic_dhcpv4_relay_agent(rand_selected_dut, request):
     """
     Fixture to enable the DHCP relay feature flag and restart the service.
     """
     if "skip_config_dhcpv4_relay_agent" in request.keywords:
         yield
         return
+
+    try:
+        dhcp_relay_test_context = request.getfixturevalue("dhcp_relay_test_context")
+    except pytest.FixtureLookupError:
+        dhcp_relay_test_context = 'external'
 
     duthost = rand_selected_dut
     pytest_assert(dhcp_relay_test_context in ('external', 'internal'),
