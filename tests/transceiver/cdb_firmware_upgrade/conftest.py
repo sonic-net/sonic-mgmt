@@ -4,7 +4,6 @@ from contextlib import contextmanager
 
 import pytest
 
-from tests.common.platform.interface_utils import get_physical_port_indices
 from tests.transceiver.attribute_parser.attribute_keys import (
     CDB_FIRMWARE_UPGRADE_ATTRIBUTES_KEY,
     EEPROM_ATTRIBUTES_KEY,
@@ -33,7 +32,6 @@ from tests.transceiver.cdb_firmware_upgrade.firmware_operations import (
 
 CMIS_CDB_FIRMWARE_BASE_PATH_ON_DUT = "/tmp/cmis_cdb_firmware"
 CMIS_CDB_FIRMWARE_PRESTAGED_PATH_ON_DUT = "/host/cmis_cdb_firmware"
-DEFAULT_SLEEP_AFTER_DOM_DISABLE_SEC = 5
 
 
 logger = logging.getLogger(__name__)
@@ -114,14 +112,8 @@ def stage_latest_firmware_binaries_on_dut(
 
 
 @pytest.fixture(scope="session")
-def lport_to_pport(duthost):
-    """Session-scoped logical-to-physical port map."""
-    return get_physical_port_indices(duthost)
-
-
-@pytest.fixture(scope="session")
 def cdb_firmware_qualifying_ports(
-    port_attributes_dict, lport_to_first_subport_mapping, lport_to_pport,
+    port_attributes_dict, lport_to_first_subport_mapping, get_lport_to_pport_mapping,
 ):
     """CMIS active-optical first-subport ports the CDB firmware tests run on.
 
@@ -129,7 +121,7 @@ def cdb_firmware_qualifying_ports(
     flag and restricted to any configured ``ports_under_test``.
     """
     explicit_ports = resolve_ports_under_test(
-        lport_to_pport, port_attributes_dict, CDB_FIRMWARE_UPGRADE_ATTRIBUTES_KEY
+        get_lport_to_pport_mapping, port_attributes_dict, CDB_FIRMWARE_UPGRADE_ATTRIBUTES_KEY
     )
     qualifying_ports = select_attribute_ports(
         port_attributes_dict,
@@ -159,8 +151,7 @@ def dom_polling_disabled_on_ports(duthost, port_attributes_dict, ports):
     try:
         for port in ports:
             cdb_attrs = port_attributes_dict[port].get(CDB_FIRMWARE_UPGRADE_ATTRIBUTES_KEY, {})
-            sleep_sec = max(sleep_sec, cdb_attrs.get("sleep_after_dom_disable_sec",
-                                                     DEFAULT_SLEEP_AFTER_DOM_DISABLE_SEC))
+            sleep_sec = max(sleep_sec, cdb_attrs["sleep_after_dom_disable_sec"])
             namespace = resolve_port_namespace(duthost, port)
             dom_polling, err = get_db_hash_field(
                 duthost, "CONFIG_DB", "PORT", port, "dom_polling", namespace=namespace
@@ -202,7 +193,7 @@ def dom_polling_disabled(duthost, port_attributes_dict, cdb_firmware_qualifying_
 def restore_original_firmware_baseline(
     stage_latest_firmware_binaries_on_dut, firmware_files_cleanup, duthost, port_attributes_dict,
     cdb_firmware_qualifying_ports, required_firmware_metadata_for_all_transceivers,
-    lport_to_pport,
+    get_lport_to_pport_mapping,
 ):
     """Restore every qualifying module to its original state before and
     after the package. Depends on ``firmware_files_cleanup`` so the
@@ -212,7 +203,7 @@ def restore_original_firmware_baseline(
         with dom_polling_disabled_on_ports(duthost, port_attributes_dict, cdb_firmware_qualifying_ports):
             failures, ports = run_firmware_op_on_ports(
                 duthost, port_attributes_dict, cdb_firmware_qualifying_ports,
-                lport_to_pport, required_firmware_metadata_for_all_transceivers,
+                get_lport_to_pport_mapping, required_firmware_metadata_for_all_transceivers,
                 restore_module_to_original,
             )
         logger.info("%s original firmware baseline on %d port(s)", phase, ports)

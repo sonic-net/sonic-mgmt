@@ -23,13 +23,6 @@ logger = logging.getLogger(__name__)
 I2C_ERROR_PATTERN = r"i2c.*(error|fail|timeout|nack)|(error|fail).*i2c"
 THERMALCTLD = "thermalctld"
 
-DEFAULT_FIRMWARE_DOWNLOAD_TIMEOUT_MINUTES = 30
-DEFAULT_FIRMWARE_RUN_TIMEOUT_SEC = 20
-DEFAULT_FIRMWARE_COMMIT_TIMEOUT_SEC = 10
-DEFAULT_TRANSCEIVER_RESET_I2C_RECOVER_SEC = 5
-DEFAULT_PORT_STARTUP_WAIT_SEC = 60
-DEFAULT_PORT_SHUTDOWN_WAIT_SEC = 5
-
 
 def select_target_version(firmware_versions, banks):
     """Select the next version, after the active one, that is in neither bank."""
@@ -145,7 +138,7 @@ def perform_firmware_download(duthost, port, port_context, metadata_map,
 
     fwfile = resolve_binary_path(metadata_map, vendor, pn, target_version)
 
-    startup_wait = system_attrs.get("port_startup_wait_sec", DEFAULT_PORT_STARTUP_WAIT_SEC)
+    startup_wait = system_attrs["port_startup_wait_sec"]
     if expect_link_up:
         link_failures = wait_ports_oper_status(duthost, [port], "up", startup_wait)
         if link_failures:
@@ -170,9 +163,7 @@ def perform_firmware_download(duthost, port, port_context, metadata_map,
         if dmesg_start_err:
             failures.append(dmesg_start_err)
         else:
-            timeout_sec = cdb_attrs.get(
-                "firmware_download_timeout_minutes", DEFAULT_FIRMWARE_DOWNLOAD_TIMEOUT_MINUTES
-            ) * 60
+            timeout_sec = cdb_attrs["firmware_download_timeout_minutes"] * 60
             elapsed, dl_err = cli_helpers.sfputil_firmware_download(duthost, port, fwfile, timeout_sec)
             logger.info("Port %s: firmware download %s took %ss", port, target_version, elapsed)
 
@@ -225,11 +216,11 @@ def perform_firmware_activation(duthost, port, port_context,
     system_attrs = port_context["system_attrs"]
     subports = port_context["subports"]
     dual_bank = cdb_attrs.get("dual_bank_supported", True)
-    run_timeout = cdb_attrs.get("firmware_run_timeout_sec", DEFAULT_FIRMWARE_RUN_TIMEOUT_SEC)
-    commit_timeout = cdb_attrs.get("firmware_commit_timeout_sec", DEFAULT_FIRMWARE_COMMIT_TIMEOUT_SEC)
-    recover_sec = system_attrs.get("transceiver_reset_i2c_recover_sec", DEFAULT_TRANSCEIVER_RESET_I2C_RECOVER_SEC)
-    startup_wait = system_attrs.get("port_startup_wait_sec", DEFAULT_PORT_STARTUP_WAIT_SEC)
-    shutdown_wait = system_attrs.get("port_shutdown_wait_sec", DEFAULT_PORT_SHUTDOWN_WAIT_SEC)
+    run_timeout = cdb_attrs["firmware_run_timeout_sec"]
+    commit_timeout = cdb_attrs["firmware_commit_timeout_sec"]
+    recover_sec = system_attrs["transceiver_reset_i2c_recover_sec"]
+    startup_wait = system_attrs["port_startup_wait_sec"]
+    shutdown_wait = system_attrs["port_shutdown_wait_sec"]
 
     if before_banks is None:
         before_banks, err = cli_helpers.sfputil_show_fwversion(duthost, port)
@@ -348,8 +339,7 @@ def restore_module_to_original(duthost, port, port_context, metadata_map):
             )
 
     failures += scenario_ops.perform_ports_startup(
-        duthost, port_context["subports"],
-        system_attrs.get("port_startup_wait_sec", DEFAULT_PORT_STARTUP_WAIT_SEC),
+        duthost, port_context["subports"], system_attrs["port_startup_wait_sec"],
     )
     return failures
 
