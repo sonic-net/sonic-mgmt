@@ -31,7 +31,6 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.bgp_routing import inject_routes, verify_route_on_neighbors
 from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP
 from tests.common.fixtures.frr_config_mode import (
-    skip_module_if_frr_native,
     FRR_BGPCFGD_ONLY_AGGREGATE_REASON,
 )
 
@@ -41,11 +40,6 @@ pytestmark = [
     pytest.mark.topology("m1"),
     pytest.mark.frr_bgpcfgd_only(FRR_BGPCFGD_ONLY_AGGREGATE_REASON),
 ]
-
-
-@pytest.fixture(scope="module", autouse=True)
-def _skip_aggregate_address_in_frr_mgmt_framework(duthosts, rand_one_dut_hostname):
-    skip_module_if_frr_native(duthosts[rand_one_dut_hostname], FRR_BGPCFGD_ONLY_AGGREGATE_REASON)
 
 
 # ---- Test data ----

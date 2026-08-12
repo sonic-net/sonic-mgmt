@@ -12,7 +12,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.utilities import wait_tcp_connection
 from bgp_helpers import BGPMON_TEMPLATE_FILE, BGPMON_CONFIG_FILE, BGP_MONITOR_NAME, BGP_MONITOR_PORT
-from tests.common.fixtures.frr_config_mode import skip_module_if_frr_native, FRR_LEGACY_BGP_MONITORS_REASON
+from tests.common.fixtures.frr_config_mode import FRR_LEGACY_BGP_MONITORS_REASON
 
 pytestmark = [
     pytest.mark.topology('t2', 'lrh', 'urh'),
@@ -25,11 +25,6 @@ MAX_TIME_FOR_BGPMON = 180
 ZERO_ADDR = r'0.0.0.0/0'
 ZERO_V6_ADDR = r'::/0'
 logger = logging.getLogger(__name__)
-
-
-@pytest.fixture(scope="module", autouse=True)
-def _skip_bgpmon_in_frr_mgmt_framework(duthosts, rand_one_dut_hostname):
-    skip_module_if_frr_native(duthosts[rand_one_dut_hostname], FRR_LEGACY_BGP_MONITORS_REASON)
 
 
 # This API gets the ptf indices list and the local interfaces list for uplink LC

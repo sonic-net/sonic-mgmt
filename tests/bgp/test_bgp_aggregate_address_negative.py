@@ -46,7 +46,6 @@ from tests.common.helpers.constants import (
     DOWNSTREAM_NEIGHBOR_MAP,
 )
 from tests.common.fixtures.frr_config_mode import (
-    skip_module_if_frr_native,
     FRR_BGPCFGD_ONLY_AGGREGATE_REASON,
 )
 
@@ -65,11 +64,6 @@ CONTRIBUTING_V4 = [
     "10.100.2.0/24",
     "10.100.3.0/24",
 ]
-
-
-@pytest.fixture(scope="module", autouse=True)
-def _skip_aggregate_address_in_frr_mgmt_framework(duthosts, rand_one_dut_hostname):
-    skip_module_if_frr_native(duthosts[rand_one_dut_hostname], FRR_BGPCFGD_ONLY_AGGREGATE_REASON)
 
 
 # Routes that fall *outside* the aggregate range

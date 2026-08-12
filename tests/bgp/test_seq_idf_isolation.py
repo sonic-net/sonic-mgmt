@@ -1,6 +1,5 @@
 import logging
 import pytest
-from tests.common.fixtures.frr_config_mode import skip_module_if_frr_native
 import random
 from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert
@@ -9,10 +8,11 @@ from tests.common.helpers.constants import DEFAULT_ASIC_ID
 from tests.common.utilities import wait_until
 from route_checker import assert_only_loopback_routes_announced_to_neighs, parse_routes_on_neighbors
 from route_checker import verify_current_routes_announced_to_neighs, check_and_log_routes_diff
+from tests.common.fixtures.frr_config_mode import FRR_BGP_DEVICE_GLOBAL_GAP_REASON
 
 pytestmark = [
     pytest.mark.topology('t2', 'lrh', 'urh', 'lt2'),
-    pytest.mark.frr_bgpcfgd_only("frrcfgd does not consume BGP_DEVICE_GLOBAL (TSA/TSB/IDF isolation/W-ECMP)"),
+    pytest.mark.frr_bgpcfgd_only(FRR_BGP_DEVICE_GLOBAL_GAP_REASON),
 ]
 
 logger = logging.getLogger(__name__)
@@ -305,8 +305,3 @@ def test_idf_isolation_withdraw_all_with_config_reload(duthosts, rand_one_downli
                           duthost, nbrs, orig_v6_routes, cur_v6_routes, 6):
             if not check_and_log_routes_diff(duthost, nbrhosts, orig_v6_routes, cur_v6_routes, 6):
                 pytest.fail("Not all ipv6 routes are announced to neighbors")
-
-
-@pytest.fixture(scope="module", autouse=True)
-def _skip_bgp_device_global_in_frr_mgmt_framework(duthosts, rand_one_dut_hostname):
-    skip_module_if_frr_native(duthosts[rand_one_dut_hostname])

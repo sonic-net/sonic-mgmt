@@ -23,6 +23,7 @@ silently.
 import json
 import logging
 import os
+import re
 
 import pytest
 
@@ -51,9 +52,10 @@ FRR_GENERIC_MARKER = "frr_generic"
 # frr_mgmt_framework variant is skipped with the marker's reason, so the traditional variant
 # still runs. A permanent, by-design skip -- deliberately NOT gated on an auto-lifting issue.
 #
-# This is the parametrized counterpart of skip_module_if_frr_native(): that helper only fires
-# on a DUT which *boots* frrcfgd, so with the fixture applied autouse it would let these
-# modules be switched INTO frr mode and fail instead of skip.
+# The marker is the single mode-selection mechanism for these modules. It also covers the
+# native-frrcfgd DUT on its own, so no extra "skip if the DUT boots frrcfgd" fixture is
+# needed: the frr variant skips on the marker, and the traditional variant skips in the
+# cascade below because the translator only converts traditional -> frr.
 FRR_BGPCFGD_ONLY_MARKER = "frr_bgpcfgd_only"
 _FRR_GENERIC_PREFERENCE = [MODE_FRR_MGMT_FRAMEWORK, MODE_TRADITIONAL]
 
@@ -134,22 +136,30 @@ FRR_BGPCFGD_ONLY_AGGREGATE_REASON = (
     "does not implement")
 
 
-def skip_module_if_frr_native(duthost, reason=FRR_BGP_DEVICE_GLOBAL_GAP_REASON):
-    """Skip a module that is by-design unsupported under frrcfgd when the DUT natively runs
-    frrcfgd. Such modules are not parametrized over frr_config_mode -- they just skip outright
-    in native frr mode. ``reason`` names the specific cause (defaults to the BGP_DEVICE_GLOBAL
-    gap). Shared by the BGP_DEVICE_GLOBAL modules (test_traffic_shift{,_lc,_sup},
-    test_seq_idf_isolation, test_startup_tsa_tsb_service), the legacy bgpmon modules
-    (test_bgpmon, test_bgpmon_v6), and the bgpcfgd-only sentinel module (test_bgp_sentinel)
-    to avoid copy-pasting the skip fixture."""
-    if duthost.get_frr_mgmt_framework_config():
-        pytest.skip(reason)
-
-
 def _core_dumps(duthost):
     cmd = ("ls /var/core/ | grep -v python || true" if "20191130" in duthost.os_version
            else "ls /var/core/ || true")
     return set(duthost.shell(cmd, module_ignore_errors=True)["stdout"].split())
+
+
+def expected_core_dump_patterns(node):
+    """Regexes for core dumps a module legitimately produces, from its
+    ``pytest.mark.expected_core_dumps(...)`` markers.
+
+    Some modules knowingly generate a core as part of what they exercise -- e.g. the
+    traffic-shift modules and ``dplane_fpm_nl`` on certain platforms. They used to whitelist
+    those by appending to ``core_dump_and_config_check``'s ``pre_core_dumps``, which only
+    works while that fixture is active. Expressing it as a marker instead lets every
+    core-dump checker honour the same list.
+    """
+    patterns = []
+    for marker in node.iter_markers("expected_core_dumps"):
+        patterns.extend(marker.args)
+    return patterns
+
+
+def _is_expected_core(core, patterns):
+    return any(re.match(p, core) for p in patterns)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -163,11 +173,16 @@ def _frr_mode_core_dump_check(request, duthosts):
     BGP test must still be caught. So run a focused core-dump-only check here (no config-diff,
     no recovery reload) for modules the collection hook marked ``frr_dual_mode``. A no-op for
     every other module, so it does not touch the rest of the suite.
+
+    Cores a module declares via ``expected_core_dumps`` are reported but do not fail it --
+    otherwise this check would turn the traffic-shift modules' known ``dplane_fpm_nl`` core
+    into a module failure, which is precisely the whitelist the generic checker honours.
     """
     if request.node.get_closest_marker("frr_dual_mode") is None:
         yield
         return
 
+    expected = expected_core_dump_patterns(request.node)
     pre = {dut.hostname: _core_dumps(dut) for dut in duthosts}
 
     yield
@@ -175,7 +190,8 @@ def _frr_mode_core_dump_check(request, duthosts):
     logs_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "..", "logs")
     new_by_host = {}
     for dut in duthosts:
-        new = sorted(_core_dumps(dut) - pre.get(dut.hostname, set()))
+        new = sorted(c for c in _core_dumps(dut) - pre.get(dut.hostname, set())
+                     if not _is_expected_core(c, expected))
         if new:
             new_by_host[dut.hostname] = new
             for core in new:

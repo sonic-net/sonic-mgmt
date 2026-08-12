@@ -443,7 +443,11 @@ bgp/test_bgp_bbr.py::test_bbr_enabled_dut_asn_in_aspath\[.*frr_mgmt_framework:
       - https://github.com/sonic-net/sonic-buildimage/issues/28482
 
 
-bgp/test_bgp_bbr.py::test_bbr_status_consistent_after_reload[enabled]:
+# frr_config_mode inserts a 'traditional' / 'frr_mgmt_framework' param into the node id, so
+# this needs a regex rather than the default prefix match. Written to tolerate the mode param
+# on either side of 'enabled', and NOT to match the 'disabled' variant.
+bgp/test_bgp_bbr.py::test_bbr_status_consistent_after_reload\[(.*-)?enabled(-.*)?\]:
+  regex: true
   xfail:
     reason: "Testcase ignored due to issue https://github.com/sonic-net/sonic-buildimage/issues/23642"
     conditions:
@@ -666,7 +670,10 @@ bgp/test_bgp_speaker.py::test_bgp_speaker_bgp_sessions:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19917 and '-v6-' in topo_name"
 
-bgp/test_bgp_stress_link_flap.py::test_bgp_stress_link_flap[all]:
+# Regex (not the default prefix match) because frr_config_mode inserts a
+# 'traditional' / 'frr_mgmt_framework' param into the node id; tolerant of either param order.
+bgp/test_bgp_stress_link_flap.py::test_bgp_stress_link_flap\[(.*-)?all(-.*)?\]:
+  regex: true
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
