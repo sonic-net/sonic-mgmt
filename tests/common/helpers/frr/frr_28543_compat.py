@@ -49,7 +49,9 @@ GATED_NAMES = (
     "set_on_match_action",           # ROUTE_MAP: 'on-match next' / 'on-match goto <seq>'
     "set_on_match_goto",
     "set_src",                       # ROUTE_MAP: zebra 'set src <addr>'
-    "set_extcommunity_bandwidth_type",   # ROUTE_MAP: 'set extcommunity bandwidth num-multipaths'
+    # NOTE: set_extcommunity_bandwidth_type is deliberately NOT listed. It is not added by
+    # #28543 and has no leaf in sonic-route-map.yang at all, so it must never be emitted --
+    # the translator now records W-ECMP as a frrcfgd gap instead of writing the field.
 )
 
 

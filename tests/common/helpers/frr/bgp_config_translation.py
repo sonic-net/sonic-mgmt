@@ -852,15 +852,26 @@ def _apply_wcmp(config_db, policy, ipv4_pg, ipv6_pg):
     if wcmp != "true":
         raise FrrTranslationError(
             "BGP_DEVICE_GLOBAL|STATE wcmp_enabled has unexpected value {!r} (expected 'true'/'false')".format(wcmp))
-    for pg in (ipv4_pg, ipv6_pg):
-        name = "TO_BGP_{}".format(pg)
-        policy["ROUTE_MAP_SET"].setdefault(name, {"name": name})
-        entry = policy["ROUTE_MAP"].setdefault("{}|100".format(name), {
-            "name": name, "route_operation": "permit", "stmt_name": "100",
-        })
-        # set_extcommunity_bandwidth_type NUM_MULTIPATHS -> 'set extcommunity
-        # bandwidth num-multipaths' (frrcfgd.py).
-        entry["set_extcommunity_bandwidth_type"] = "NUM_MULTIPATHS"
+    # No frrcfgd representation. This used to emit
+    # ROUTE_MAP.set_extcommunity_bandwidth_type, but that leaf exists in NEITHER
+    # sonic-route-map.yang NOR frrcfgd's route_map_key_map -- and it is not added by
+    # sonic-buildimage#28543 either (verified against the PR's YANG diff). Writing an
+    # unmodeled leaf is actively harmful: sonic_yang validates the WHOLE CONFIG_DB, so it
+    # breaks every GCU apply-patch on the DUT, not just BGP ones.
+    #
+    # The frr_28543_compat shim happens to strip it today, but that file is documented for
+    # deletion once #28543 lands -- at which point the bug would come back. So treat W-ECMP
+    # as what it is: a genuine frrcfgd gap, consistent with BGP_DEVICE_GLOBAL being
+    # unsupported (the TSA/IDF/W-ECMP modules are already frr_bgpcfgd_only).
+    #
+    # Closing it needs a new frrcfgd field, proposed on sonic-buildimage#28482. It must be an
+    # opt-in knob the migrator sets, NOT a changed frrcfgd default -- same treatment as
+    # ebgp_requires_policy in #28543 -- so existing installations keep their behaviour.
+    logger.warning(
+        "BGP_DEVICE_GLOBAL wcmp_enabled=true, but frrcfgd has no field for 'set extcommunity "
+        "bandwidth num-multipaths' (no leaf in sonic-route-map.yang, and not added by "
+        "sonic-buildimage#28543); frr mode will run without W-ECMP -- see "
+        "sonic-buildimage#28482")
 
 
 def _build_aggregate_addresses(config_db):
