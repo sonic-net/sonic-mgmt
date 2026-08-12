@@ -3896,6 +3896,7 @@
   vm_base:
   dut:
   - str4-Nokia-7220-Th6p-1-bmc
+  bmc_host: str4-Nokia-7220-Th6p-1
   inv_name: str4
   auto_recover: 'True'
   comment: ediwibowo
