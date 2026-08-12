@@ -85,7 +85,7 @@ def _set_configdb(client):
     client.set(
         update=[(
             "sonic-db:CONFIG_DB/localhost/DEVICE_METADATA/localhost/cloudtype",
-            "Public",
+            '"Public"',
         )],
     )
 
