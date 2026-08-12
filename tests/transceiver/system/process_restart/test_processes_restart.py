@@ -141,7 +141,6 @@ def _process_restart_tester(
                     " expect_pmon_restart_with_swss_or_syncd is True"
                 )
 
-    extra_settle_sec = 0
     if process_name == "swss" or process_name == "syncd":
         syncd_wait = system_attributes.get("syncd_restart_settle_sec", 240)
         swss_wait = system_attributes.get("swss_restart_settle_sec", 180)
@@ -151,10 +150,6 @@ def _process_restart_tester(
             f"{process_name}_restart_settle_sec",
             _DEFAULT_RESTART_SETTLE_SEC[process_name],
         )
-        if process_name == "pmon":
-            # accounts for minimum timeout behavior of SPRaV
-            extra_settle_sec = 60
-    time.sleep(settle_wait + extra_settle_sec)
 
     logger.info(
         "Running Standard Port Recovery and Verification for %d port(s)",
@@ -190,7 +185,7 @@ def _process_crash_tester(
 
         Only used for the xcvrd crash-recovery test case today, but takes
         the supervised container/program and kill signal as parameters so
-        it can be extended to other pmon-supervised daemons later.
+        it can be extended to other programs later.
     """
     expected_pid_changes.add(program_name)
     ports = sorted(port_attributes_dict.keys())
