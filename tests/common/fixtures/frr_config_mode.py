@@ -113,6 +113,14 @@ FRRCFGD_UNSUPPORTED_GLOBAL_PREFIXES = (
     "bgp graceful-restart select-defer-time ",
     "bgp graceful-restart-disable",
     "bgp long-lived-graceful-restart ",
+    # bgpcfgd renders this from DEVICE_METADATA.suppress-fib-pending
+    # (bgpd.main.conf.j2). frrcfgd does not: grepping the whole
+    # sonic-frr-mgmt-framework tree for suppress-fib finds nothing -- neither a
+    # global_key_map entry nor a template line. The translator still carries the
+    # DEVICE_METADATA field across (it is YANG-modeled, it is what
+    # `config suppress-fib-pending` writes, and route_check.py reads it), so CONFIG_DB
+    # stays consistent -- but the FRR line itself is lost in frr mode.
+    "bgp suppress-fib-pending",
 )
 
 

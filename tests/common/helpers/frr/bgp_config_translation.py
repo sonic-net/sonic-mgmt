@@ -954,14 +954,19 @@ def translate_config_db(config_db, running_config, peer_group_json):
     # and constants.yml but frrcfgd drives from BGP_GLOBALS fields -- graceful restart,
     # ebgp-requires-policy, multipath-relax. See _extract_global_flags.
     globals_tbl, af_network = _build_globals(result, bgp_asn, router_id, running_config)
-    # suppress-fib-pending has the same shape but lives in DEVICE_METADATA rather than
-    # BGP_GLOBALS. bgpcfgd's template renders 'bgp suppress-fib-pending' whether or not the field
-    # is set; frrcfgd reads DEVICE_METADATA['suppress-fib-pending'], caches it at startup and
-    # pushes it to FRR only when it *changes*. With the field absent frrcfgd caches 'disabled'
-    # without touching FRR, so FRR keeps the line and a later write of 'disabled' compares equal
-    # to the cache and is dropped -- routes then stay in the queued state
-    # (test_bgp_route_without_suppress). Carrying the running-config state into the field keeps
-    # frrcfgd's cache honest so a subsequent change is acted on.
+    # suppress-fib-pending lives in DEVICE_METADATA rather than BGP_GLOBALS. bgpcfgd's template
+    # renders 'bgp suppress-fib-pending' from it (bgpd.main.conf.j2).
+    #
+    # Correcting an earlier claim here: frrcfgd does NOT consume this field. Grepping the whole
+    # sonic-frr-mgmt-framework tree for suppress-fib finds nothing -- no global_key_map entry
+    # and no template line -- so the FRR line is genuinely lost in frr mode. It is recorded as
+    # a gap in the fixture's FRRCFGD_UNSUPPORTED_GLOBAL_PREFIXES and reported on
+    # sonic-buildimage#28482.
+    #
+    # The field is still carried across, because it is the CONFIG_DB source of truth
+    # independent of which daemon renders FRR: it is YANG-modeled (sonic-device_metadata.yang),
+    # it is what `config suppress-fib-pending` writes, and route_check.py reads it. Dropping it
+    # would leave CONFIG_DB inconsistent on top of the missing FRR line.
     suppress_fib = "enabled" if any(
         ln.strip() == "bgp suppress-fib-pending" for ln in running_config.splitlines()) else "disabled"
     result.setdefault("DEVICE_METADATA", {}).setdefault("localhost", {})[
