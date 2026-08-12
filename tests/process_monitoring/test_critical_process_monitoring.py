@@ -33,6 +33,7 @@ CONTAINER_CHECK_INTERVAL_SECS = 1
 CONTAINER_RESTART_THRESHOLD_SECS = 180
 POST_CHECK_INTERVAL_SECS = 1
 POST_CHECK_THRESHOLD_SECS = 600
+# config_reload adds 120 seconds to these values for its BGP convergence check.
 CONFIG_RELOAD_WAIT_SECS = 120
 LT2_CONFIG_RELOAD_WAIT_SECS = 480
 
@@ -719,7 +720,8 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
                         % db_config_timeout)
 
         logger.info("Database config ready, performing config reload for clean recovery...")
-        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True,
+                      wait=get_config_reload_wait(tbinfo), wait_for_bgp=True)
 
         ensure_all_critical_processes_running(duthost, containers_in_namespaces)
 
