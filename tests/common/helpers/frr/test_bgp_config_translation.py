@@ -4,6 +4,8 @@ These run without a DUT. The expected frrcfgd output is anchored to real output
 captured from a t1 DUT (e.g. the ARISTA02T2 fc00::6 neighbor and the PEER_V4 /
 PEER_V6 peer groups the topology ships with).
 """
+import json
+
 import pytest
 
 from tests.common.helpers.frr.bgp_config_translation import (
@@ -225,15 +227,18 @@ def test_bbr_disabled_leaves_allow_as_in_unset():
     assert "allow_as_in" not in pg_af and "allow_as_count" not in pg_af
 
 
-def test_wcmp_enabled_sets_extcommunity_bandwidth_route_map():
+def test_wcmp_enabled_emits_no_unmodeled_field():
+    # W-ECMP has no frrcfgd representation: set_extcommunity_bandwidth_type is in neither
+    # sonic-route-map.yang nor frrcfgd's route_map_key_map, and #28543 does not add it.
+    # Emitting it would fail sonic_yang validation over the whole CONFIG_DB and break every
+    # GCU apply-patch on the DUT, so the translator records the gap and writes nothing.
     cfg = _base_config_db()
     cfg["BGP_DEVICE_GLOBAL"] = {"STATE": {"wcmp_enabled": "true", "tsa_enabled": "false"}}
     out = translate_config_db(cfg, "", _peer_group_json())
     for name in ("TO_BGP_PEER_V4", "TO_BGP_PEER_V6"):
-        assert out["ROUTE_MAP_SET"][name] == {"name": name}
-        rm = out["ROUTE_MAP"]["{}|100".format(name)]
-        assert rm["set_extcommunity_bandwidth_type"] == "NUM_MULTIPATHS"
-        assert rm["route_operation"] == "permit" and rm["stmt_name"] == "100"
+        assert "{}|100".format(name) not in out.get("ROUTE_MAP", {})
+    blob = json.dumps(out)
+    assert "set_extcommunity_bandwidth_type" not in blob
 
 
 def test_wcmp_disabled_adds_no_route_map():

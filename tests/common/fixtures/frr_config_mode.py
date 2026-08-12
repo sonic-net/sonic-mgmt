@@ -74,6 +74,55 @@ FRRCFGD_UNSUPPORTED_OBJECTS = {
     "community_lists": {"sentinel_community"},
 }
 
+# Single-line FRR *settings* (as opposed to named objects) that the fingerprint tracks.
+# Named objects were never the whole story: bgpcfgd renders a set of globals from its
+# templates that frrcfgd has no field for, and because those are not objects the name-based
+# fingerprint below was structurally blind to them. Three were found by hand -- graceful
+# restart, maximum-paths, and the zebra globals -- which is three too many, hence this.
+#
+# Matched by prefix at the start of a stripped running-config line. Deliberately narrow:
+# only lines that are genuinely device-wide settings, so anything captured here is worth
+# comparing and a disappearance is a real signal rather than noise.
+_GLOBAL_SETTING_PREFIXES = (
+    "zebra ", "no zebra ",          # zebra nexthop-group keep / nexthop kernel enable
+    "fpm ", "no fpm ",              # fpm address / use-next-hop-groups
+    "bgp ", "no bgp ",              # router-bgp globals: graceful-restart, bestpath, listen range
+    "maximum-paths ", "table-map ",  # per-address-family globals
+)
+
+# ...except these, which are named objects already tracked in their own categories.
+_GLOBAL_SETTING_EXCLUDES = (
+    "bgp community-list", "bgp extcommunity-list", "bgp large-community-list",
+    "bgp as-path access-list",
+)
+
+# Globals bgpcfgd renders that frrcfgd genuinely cannot express. Prefix-matched, since most
+# carry a value. Same role as FRRCFGD_UNSUPPORTED_OBJECTS: a real frrcfgd capability gap, so
+# it is recorded visibly rather than failing the switch. Each one is a behavioural difference
+# in frr mode -- e.g. losing 'zebra nexthop-group keep 1' reverts zebra to FRR's 180s
+# nexthop-group retention, which surfaces much later as flaky nexthop-group/CRM counts.
+#
+# Closing these needs new frrcfgd fields (tracked on sonic-buildimage#28482). They must be
+# opt-in knobs the migrator sets, NOT changed frrcfgd defaults, so existing installations
+# keep their current behaviour -- the same treatment ebgp_requires_policy gets in #28543.
+FRRCFGD_UNSUPPORTED_GLOBAL_PREFIXES = (
+    "zebra nexthop-group keep ",
+    "zebra nexthop kernel enable",
+    "no zebra nexthop kernel enable",
+    "fpm address ",
+    "bgp graceful-restart select-defer-time ",
+    "bgp graceful-restart-disable",
+    "bgp long-lived-graceful-restart ",
+)
+
+
+def _is_global_setting(line):
+    """True for a running-config line that is a device-wide FRR setting we should compare."""
+    if any(line.startswith(p) for p in _GLOBAL_SETTING_EXCLUDES):
+        return False
+    return any(line.startswith(p) for p in _GLOBAL_SETTING_PREFIXES)
+
+
 # How long to let the config daemon finish rendering after a mode switch before
 # declaring a baseline object lost. See _assert_config_preserved.
 _CONFIG_SETTLE_TIMEOUT = 120
@@ -317,8 +366,13 @@ def _frr_config_fingerprint(duthost):
     out = duthost.shell('sudo vtysh -c "show running-config"',
                         module_ignore_errors=True)["stdout"]
     fp = {"neighbors": set(), "prefix_lists": set(),
-          "route_maps": set(), "community_lists": set()}
+          "route_maps": set(), "community_lists": set(), "globals": set()}
     for raw in out.splitlines():
+        # Independent of the object classification below -- a line can be both a global
+        # setting and (for community-lists) a named object, and the excludes handle that.
+        stripped = raw.strip()
+        if _is_global_setting(stripped):
+            fp["globals"].add(stripped)
         parts = raw.split()
         if len(parts) >= 3 and parts[0] == "neighbor" and parts[2] == "remote-as":
             fp["neighbors"].add(parts[1])
@@ -345,7 +399,12 @@ def _dropped_config_objects(duthost, mode, baseline_fp):
         missing = objs - after[cat]
         # A missing object that frrcfgd is known not to support is an expected capability
         # gap, not a translation miss -- record it visibly but do not fail on it.
-        exempt = missing & FRRCFGD_UNSUPPORTED_OBJECTS.get(cat, set())
+        if cat == "globals":
+            # Prefix-matched: most of these carry a value (e.g. 'keep 1', 'restart-time 240').
+            exempt = {o for o in missing
+                      if any(o.startswith(p) for p in FRRCFGD_UNSUPPORTED_GLOBAL_PREFIXES)}
+        else:
+            exempt = missing & FRRCFGD_UNSUPPORTED_OBJECTS.get(cat, set())
         if exempt:
             logger.info("Switching to '%s' mode dropped frrcfgd-unsupported %s %s "
                         "(bgpcfgd base-template artifacts with no frrcfgd equivalent); "
