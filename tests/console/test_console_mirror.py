@@ -1249,15 +1249,15 @@ def test_console_mirror_automatic_stop(duthost, mirror_test_context: MirrorTestC
         message=f"Mirror did not automatically stop after {AUTO_STOP_TIMEOUT_SEC}s",
     )
     pytest_assert(
-        wait_until(60, 1, 1, _remote_file_exists, duthost, archive_path),
+        wait_until(30, 1, 1, _remote_file_exists, duthost, archive_path),
         "Automatic stop did not create a ZIP",
     )
     pytest_assert(
-        not _list_recording_parts(duthost, prefix),
+        wait_until(30, 1, 1, lambda: not _list_recording_parts(duthost, prefix)),
         "Source log parts were not removed after automatic stop",
     )
 
-    archive = _zip_information(duthost, archive_path)
+    archive = _zip_information(duthost, archive_path, include_content=True)
     pytest_assert(
         archive["bad"] is None,
         "ZIP CRC validation failed for {}".format(archive["bad"]),
