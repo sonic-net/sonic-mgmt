@@ -89,7 +89,10 @@ def config_bbr_by_gcu(duthost, status):
     # frrcfgd does not consume BGP_BBR; realize the equivalent allowas-in on the
     # peer-group AFs directly so the frr-mode allowas-in assertions reflect the BBR
     # status (no-op in traditional mode). Mirrors enable_bbr/disable_bbr in test_bgp_bbr.
-    program_bbr_for_mode(duthost, enabled=(status == "enabled"))
+    # The GCU patch above is multi-ASIC-aware, so cover every frontend ASIC here too --
+    # each has its own CONFIG_DB and FRR instance.
+    for namespace in duthost.get_frontend_asic_namespace_list():
+        program_bbr_for_mode(duthost, enabled=(status == "enabled"), namespace=namespace)
 
 
 def disable_bbr(duthost, namespace):
