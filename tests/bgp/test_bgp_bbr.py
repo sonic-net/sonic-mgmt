@@ -102,8 +102,11 @@ def enable_bbr(duthost, namespace):
         time.sleep(3)
     else:
         config_bbr_by_gcu(duthost, "enabled")
-    # In frr_mgmt_framework mode, BGP_BBR is not consumed; realize BBR natively.
-    program_bbr_for_mode(duthost, enabled=True)
+    # In frr_mgmt_framework mode, BGP_BBR is not consumed; realize BBR natively on the
+    # SAME ASIC this function just configured -- on a native-frrcfgd multi-ASIC DUT the
+    # selected T0 can live on a non-default ASIC, whose peer-group rows are not in the
+    # host CONFIG_DB.
+    program_bbr_for_mode(duthost, enabled=True, namespace=namespace)
 
 
 def disable_bbr(duthost, namespace):
@@ -115,8 +118,9 @@ def disable_bbr(duthost, namespace):
         time.sleep(3)
     else:
         config_bbr_by_gcu(duthost, "disabled")
-    # In frr_mgmt_framework mode, BGP_BBR is not consumed; realize BBR natively.
-    program_bbr_for_mode(duthost, enabled=False)
+    # In frr_mgmt_framework mode, BGP_BBR is not consumed; realize BBR natively on the
+    # same ASIC (see enable_bbr).
+    program_bbr_for_mode(duthost, enabled=False, namespace=namespace)
 
 
 @pytest.fixture
