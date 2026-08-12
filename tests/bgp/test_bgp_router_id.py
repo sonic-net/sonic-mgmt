@@ -28,8 +28,33 @@ VTYSH_SHOW_CMD_KILL_GRACE_SEC = 5
 
 
 def run_config_db_cmd(duthost, enum_asic_index, cmd, module_ignore_errors=True):
-    duthost.shell("{} CONFIG_DB {}".format(get_db_cli_prefix(duthost, enum_asic_index), cmd),
-                  module_ignore_errors=module_ignore_errors)
+    return duthost.shell("{} CONFIG_DB {}".format(get_db_cli_prefix(duthost, enum_asic_index), cmd),
+                         module_ignore_errors=module_ignore_errors)
+
+
+def read_frr_router_id(duthost, enum_asic_index):
+    """The frrcfgd router-id currently in this ASIC's CONFIG_DB, or None if unset.
+
+    Captured before an override so teardown can restore the exact original value. Assuming
+    the original is the Loopback0 IPv4 is wrong on a multi-ASIC VOQ/chassis DUT, where
+    default_bgp_router_id resolves to that ASIC's Loopback4096 address -- and since the
+    fixture lets a native-frrcfgd multi-ASIC DUT run without a mode switch, session cleanup
+    does not restore the pristine CONFIG_DB either, so a wrong value would persist.
+    """
+    out = run_config_db_cmd(duthost, enum_asic_index,
+                            'hget "BGP_GLOBALS|default" "router_id"')
+    value = (out.get("stdout") or "").strip()
+    return value or None
+
+
+def restore_frr_router_id(duthost, enum_asic_index, original):
+    """Put back what read_frr_router_id() captured (deleting the field if there was none)."""
+    if original:
+        run_config_db_cmd(duthost, enum_asic_index,
+                          'hset "BGP_GLOBALS|default" "router_id" "{}"'.format(original))
+    else:
+        run_config_db_cmd(duthost, enum_asic_index,
+                          'hdel "BGP_GLOBALS|default" "router_id"')
 
 
 def verify_bgp_peer(neighbor_type, nbrhost, localip, expected_bgp_router_id, is_v6_topo, vrf="default"):
@@ -184,12 +209,17 @@ def restart_bgp(duthost, enum_asic_index, tbinfo):
 
 
 @pytest.fixture()
-def router_id_setup_and_teardown(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, loopback_ip, tbinfo):
+def router_id_setup_and_teardown(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, tbinfo):
     duthost = duthosts[enum_frontend_dut_hostname]
     # bgpcfgd reads the BGP router-id from DEVICE_METADATA|localhost:bgp_router_id, but
     # frrcfgd reads it from BGP_GLOBALS|default:router_id. Write the table the active
     # backend actually consumes so the router-id override takes effect in both modes.
-    if duthost.get_frr_mgmt_framework_config():
+    frr_mode = duthost.get_frr_mgmt_framework_config()
+    original_router_id = None
+    if frr_mode:
+        # Capture the value actually in place, rather than assuming Loopback0 -- see
+        # read_frr_router_id().
+        original_router_id = read_frr_router_id(duthost, enum_frontend_asic_index)
         run_config_db_cmd(duthost, enum_frontend_asic_index,
                           "hset \"BGP_GLOBALS|default\" \"router_id\" \"{}\""
                           .format(CUSTOMIZED_BGP_ROUTER_ID))
@@ -201,11 +231,8 @@ def router_id_setup_and_teardown(duthosts, enum_frontend_dut_hostname, enum_fron
 
     yield
 
-    if duthost.get_frr_mgmt_framework_config():
-        # Restore the router-id to the Loopback0 IPv4 (frrcfgd's BGP_GLOBALS baseline), not
-        # a bare hdel, so subsequent frr-mode tests in the module see the default router-id.
-        run_config_db_cmd(duthost, enum_frontend_asic_index,
-                          "hset \"BGP_GLOBALS|default\" \"router_id\" \"{}\"".format(loopback_ip))
+    if frr_mode:
+        restore_frr_router_id(duthost, enum_frontend_asic_index, original_router_id)
     else:
         run_config_db_cmd(duthost, enum_frontend_asic_index,
                           "hdel \"DEVICE_METADATA|localhost\" \"bgp_router_id\"")
@@ -220,7 +247,9 @@ def router_id_loopback_setup_and_teardown(duthosts, enum_frontend_dut_hostname, 
     # reads it from BGP_GLOBALS|default:router_id. Write the table the active backend
     # consumes (same as router_id_setup_and_teardown).
     frr_mode = duthost.get_frr_mgmt_framework_config()
+    original_router_id = None
     if frr_mode:
+        original_router_id = read_frr_router_id(duthost, enum_frontend_asic_index)
         run_config_db_cmd(duthost, enum_frontend_asic_index,
                           "hset \"BGP_GLOBALS|default\" \"router_id\" \"{}\""
                           .format(CUSTOMIZED_BGP_ROUTER_ID))
@@ -236,8 +265,7 @@ def router_id_loopback_setup_and_teardown(duthosts, enum_frontend_dut_hostname, 
     yield
 
     if frr_mode:
-        run_config_db_cmd(duthost, enum_frontend_asic_index,
-                          "hset \"BGP_GLOBALS|default\" \"router_id\" \"{}\"".format(loopback_ip))
+        restore_frr_router_id(duthost, enum_frontend_asic_index, original_router_id)
     else:
         run_config_db_cmd(duthost, enum_frontend_asic_index,
                           "hdel \"DEVICE_METADATA|localhost\" \"bgp_router_id\"")
