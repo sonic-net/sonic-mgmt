@@ -299,6 +299,14 @@ _ROUTE_MAP_UNSUPPORTED_CLAUSES = (
      "it, so the field would be inert"),
     ("set originator-id ",
      "frrcfgd has no set_originator_id field"),
+    # W-ECMP. set_extcommunity_bandwidth_type is in NEITHER sonic-route-map.yang NOR
+    # frrcfgd's route_map_key_map, and sonic-buildimage#28543 does not add it. This parser
+    # used to emit it when it saw the clause in the running config -- which is the same
+    # unmodeled-leaf GCU breakage _apply_wcmp() was fixed for, just reached by a different
+    # route (a DUT that already has the clause rendered, rather than BGP_DEVICE_GLOBAL).
+    ("set extcommunity bandwidth ",
+     "frrcfgd has no set_extcommunity_bandwidth_type field (W-ECMP); writing it would fail "
+     "sonic_yang validation over the whole CONFIG_DB"),
 )
 
 
@@ -396,8 +404,6 @@ def _translate_route_map_clause(entry, line, name, seq):
         # 'additive' companion field, so every community plus any trailing 'additive'
         # token stays in the list (-> 'set community <c1> <c2> additive').
         entry["set_community_inline"] = parts[2:]
-    elif line == "set extcommunity bandwidth num-multipaths":
-        entry["set_extcommunity_bandwidth_type"] = "NUM_MULTIPATHS"
     elif line.startswith("set extcommunity "):
         entry["set_ext_community_inline"] = [" ".join(parts[2:])]
     elif line.startswith("set src "):

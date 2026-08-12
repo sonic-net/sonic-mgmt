@@ -673,6 +673,20 @@ def test_known_frrcfgd_gap_clause_is_kept_non_fatal():
     assert rm == {"name": "RM_X", "route_operation": "permit", "stmt_name": "10"}
 
 
+def test_wcmp_clause_in_running_config_is_not_emitted_either():
+    """The BGP_DEVICE_GLOBAL path was fixed to stop emitting the unmodeled W-ECMP field, but
+    the running-config clause parser still did -- same GCU breakage, reached from a DUT that
+    already has the clause rendered rather than from the table."""
+    running = "\n".join([
+        "route-map TO_BGP_PEER_V4 permit 100",
+        " set extcommunity bandwidth num-multipaths",
+    ])
+    out = translate_config_db(_base_config_db(), running, _peer_group_json())
+    assert "set_extcommunity_bandwidth_type" not in json.dumps(out)
+    # The route-map name is still preserved, so the fingerprint stays green.
+    assert out["ROUTE_MAP_SET"]["TO_BGP_PEER_V4"] == {"name": "TO_BGP_PEER_V4"}
+
+
 def test_unrecognized_route_map_clause_raises():
     running = "\n".join([
         "route-map RM_X permit 10",
