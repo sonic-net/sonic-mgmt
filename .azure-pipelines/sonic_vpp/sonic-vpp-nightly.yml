@@ -28,8 +28,6 @@ stages:
         value: veos_vtb
       - name: testbed_file
         value: vtestbed.yaml
-      - name: T0_VPP_INSTANCE_NUM
-        value: 20
       - name: BUILD_BRANCH
         value: $(Build.SourceBranchName)
 
@@ -45,8 +43,8 @@ stages:
               TOPOLOGY: t0-vpp
               MIN_WORKER: $(T0_VPP_INSTANCE_NUM)
               MAX_WORKER: $(T0_VPP_INSTANCE_NUM)
-              KVM_IMAGE_BRANCH: master
-              MGMT_BRANCH: master
+              KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
+              MGMT_BRANCH: $(BUILD_BRANCH)
               ASIC_TYPE: "vpp"
               KVM_IMAGE_BUILD_PIPELINE_ID: "2818"
               COMMON_EXTRA_PARAMS: "--disable_sai_validation --disable_loganalyzer"
