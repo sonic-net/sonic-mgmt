@@ -29,9 +29,12 @@ EOS_BACKUP_CONFIG_FILE = "/tmp/eos_neighbor_test_passive_peering_backup_config_{
 
 @pytest.fixture(scope='module')
 def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_front_end_hostname, frr_config_mode, request):
-    # frr_config_mode parametrizes this module over both the traditional (bgpcfgd)
-    # and frr_mgmt_framework config modes; the passive/password config below is
-    # pushed via vtysh, which programs FRR directly in either mode.
+    # This module runs in ONE config mode, not both: it is marked frr_generic because the
+    # passive/password config below is pushed via vtysh, which programs FRR directly and
+    # never touches the bgpcfgd/frrcfgd CONFIG_DB schemas -- so running the body twice would
+    # re-test FRR, not the config daemon. frr_config_mode still yields the mode that was
+    # actually selected (frrcfgd preferred, falling back to traditional when frr is not
+    # reachable on this DUT), and the skipped variant says which mode covered the module.
     # verify neighbors are type sonic
     is_sonic = False
     if request.config.getoption("neighbor_type") == "sonic":

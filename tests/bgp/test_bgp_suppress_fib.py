@@ -27,9 +27,17 @@ from tests.bgp.bgp_helpers import restart_bgp_session, get_eth_port, get_exabgp_
     get_bgp_neighbor_ip, check_route_install_status, validate_route_propagate_status, operate_orchagent, \
     get_upstream_ptf_intfs, get_eth_name_from_ptf_port, check_bgp_neighbor, check_fib_route
 from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_ALL_NEIGHBOR_MAP
+from tests.common.fixtures.frr_config_mode import skip_if_frr_mgmt_framework
 
 pytestmark = [
-    pytest.mark.frr_generic,
+    # Deliberately NOT frr_generic. The default-VRF variant is mode-generic, but the
+    # USER_DEFINED_VRF one is not: setup_vrf_cfg() only creates BGP_GLOBALS|Vrf1 when the
+    # whole BGP_GLOBALS table is absent, which is never true once the DUT has been translated
+    # to the frrcfgd schema, and the unchanged template then prefixes an already-qualified
+    # neighbor key (-> BGP_NEIGHBOR|Vrf1|default|<ip>) while leaving the neighbor-AF row under
+    # 'default'. frr_generic would have run the module in frrcfgd only, so the Vrf1 variant
+    # would have had no correct mode to run in at all. Staying dual-mode keeps the default-VRF
+    # case covered in both modes; the Vrf1 case skips its frr variant (see below).
     pytest.mark.topology('t1', 't2', 'lrh', 'urh'),
     pytest.mark.skip_check_dut_health
 ]
@@ -1195,8 +1203,17 @@ def test_bgp_route_with_suppress(frr_config_mode,
                                  request, loganalyzer):
     duthost = duthosts[enum_upstream_dut_hostname]
     asic_name = duthost.get_asic_name()
-    if vrf_type == USER_DEFINED_VRF and asic_name == 'th5':
-        pytest.xfail("vrf testing not supported on TH5")
+    if vrf_type == USER_DEFINED_VRF:
+        # setup_vrf_cfg() builds the VRF's BGP config in the bgpcfgd schema; under frrcfgd it
+        # neither creates BGP_GLOBALS|Vrf1 (its 'BGP_GLOBALS not in cfg' guard is already
+        # false) nor keys the neighbour rows correctly. The default-VRF variant still runs in
+        # both modes.
+        skip_if_frr_mgmt_framework(
+            frr_config_mode,
+            "setup_vrf_cfg() writes the VRF's BGP config in the bgpcfgd schema; frrcfgd needs "
+            "BGP_GLOBALS|Vrf1 plus VRF-keyed BGP_NEIGHBOR/BGP_NEIGHBOR_AF rows")
+        if asic_name == 'th5':
+            pytest.xfail("vrf testing not supported on TH5")
 
     duthost_down = duthosts[enum_downstream_dut_hostname]
     duthost_up = duthosts[enum_upstream_dut_hostname]

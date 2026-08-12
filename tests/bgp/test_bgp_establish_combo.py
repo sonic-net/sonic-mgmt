@@ -8,6 +8,15 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 
 pytestmark = [
+    # This module is bgpcfgd-specific in two independent ways. Its GCU patch targets
+    # /BGP_NEIGHBOR/<ip>/name, but under frrcfgd the row is /BGP_NEIGHBOR/default|<ip>/name,
+    # so apply-patch fails. More fundamentally it drives DEVICE_METADATA.type and
+    # DEVICE_NEIGHBOR_METADATA.type to exercise bgpcfgd's template-derived neighbor
+    # combinations -- frrcfgd consumes neither, so there is nothing for the frr variant to
+    # assert.
+    pytest.mark.frr_bgpcfgd_only(
+        "this module exercises bgpcfgd's template-derived neighbor combinations via "
+        "DEVICE_METADATA/DEVICE_NEIGHBOR_METADATA types, which frrcfgd does not consume"),
     pytest.mark.topology('m1'),
 ]
 

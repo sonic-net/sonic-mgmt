@@ -18,6 +18,15 @@ from ptf.mask import Mask
 from scapy.all import IP, Ether
 
 pytestmark = [
+    # frrcfgd cannot express what this module configures. Its template prefixes an
+    # already-VRF-qualified key, producing BGP_NEIGHBOR|Vnet1|default|<ip>; it leaves
+    # BGP_NEIGHBOR_AF under 'default' rather than the VNET; it never creates
+    # BGP_GLOBALS|Vnet1, without which frrcfgd ignores the VNET's rows entirely; and it
+    # writes BGP_PEER_RANGE, which frrcfgd does not consume (it needs BGP_PEER_GROUP,
+    # BGP_PEER_GROUP_AF and BGP_GLOBALS_LISTEN_PREFIX under the VNET instead).
+    pytest.mark.frr_bgpcfgd_only(
+        "this module writes VNET-scoped BGP config in the bgpcfgd schema (BGP_PEER_RANGE, "
+        "unqualified BGP_NEIGHBOR keys); frrcfgd needs a VRF-keyed schema it does not build"),
     pytest.mark.topology('t0'),
     pytest.mark.disable_loganalyzer
 ]

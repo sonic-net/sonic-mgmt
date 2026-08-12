@@ -291,18 +291,22 @@ class BgpDualAsn:
         if _is_frr_mode(duthost):
             # frr mode never wrote BGP_PEER_RANGE; clear the native listen-range rows the
             # test added so the setup_env checkpoint/rollback restores a clean baseline.
-            for prefix in list(self.peer_subnets) + list(self.peer_subnets_v6):
-                duthost.shell(
-                    "sonic-db-cli CONFIG_DB del 'BGP_GLOBALS_LISTEN_PREFIX|default|{}'".format(prefix),
-                    module_ignore_errors=True)
-            for n in test_peer_ranges:
-                for af in ("ipv4_unicast", "ipv6_unicast"):
+            for ns in _frr_namespaces(duthost):
+                db_cli = "sonic-db-cli {}".format(namespace_cli_arg(ns)).rstrip()
+                for prefix in list(self.peer_subnets) + list(self.peer_subnets_v6):
                     duthost.shell(
-                        "sonic-db-cli CONFIG_DB del 'BGP_PEER_GROUP_AF|default|{}|{}'".format(n, af),
+                        "{} CONFIG_DB del 'BGP_GLOBALS_LISTEN_PREFIX|default|{}'".format(
+                            db_cli, prefix),
                         module_ignore_errors=True)
-                duthost.shell(
-                    "sonic-db-cli CONFIG_DB del 'BGP_PEER_GROUP|default|{}'".format(n),
-                    module_ignore_errors=True)
+                for n in test_peer_ranges:
+                    for af in ("ipv4_unicast", "ipv6_unicast"):
+                        duthost.shell(
+                            "{} CONFIG_DB del 'BGP_PEER_GROUP_AF|default|{}|{}'".format(
+                                db_cli, n, af),
+                            module_ignore_errors=True)
+                    duthost.shell(
+                        "{} CONFIG_DB del 'BGP_PEER_GROUP|default|{}'".format(db_cli, n),
+                        module_ignore_errors=True)
         else:
             del_keys = " ".join('"BGP_PEER_RANGE|{}"'.format(n) for n in test_peer_ranges)
             ns_list = duthost.get_frontend_asic_namespace_list() or [None]
@@ -329,7 +333,19 @@ def _is_frr_mode(duthost):
     return bool(duthost.get_frr_mgmt_framework_config())
 
 
-def _frr_peer_range_add(duthost, name, ip_range, src_addr, peer_asn, afi_safi):
+def _frr_namespaces(duthost):
+    """The ASIC namespaces the frr-mode helpers must program.
+
+    The traditional path already iterates get_frontend_asic_namespace_list(); the frr path
+    used to write the host CONFIG_DB unconditionally. A multi-ASIC DUT booting natively in
+    frrcfgd can run this variant once the #28482 skip is lifted, and each of its frontend
+    ASICs has its own CONFIG_DB -- so programming only the default one would leave the other
+    ASICs without the listen ranges under test.
+    """
+    return duthost.get_frontend_asic_namespace_list() or [None]
+
+
+def _frr_peer_range_add(duthost, name, ip_range, src_addr, peer_asn, afi_safi, namespace=None):
     """frr_mgmt_framework equivalent of a BGP_PEER_RANGE add.
 
     frrcfgd does not consume the bgpcfgd BGP_PEER_RANGE convenience table; it expresses
@@ -340,33 +356,37 @@ def _frr_peer_range_add(duthost, name, ip_range, src_addr, peer_asn, afi_safi):
     list-valued fields use the '@' suffix) + BGP_GLOBALS_LISTEN_PREFIX (the listen range).
     """
     vrf = "default"
+    db_cli = "sonic-db-cli {}".format(namespace_cli_arg(namespace)).rstrip()
     local_asn = duthost.shell(
-        "sonic-db-cli CONFIG_DB HGET 'DEVICE_METADATA|localhost' 'bgp_asn'"
+        "{} CONFIG_DB HGET 'DEVICE_METADATA|localhost' 'bgp_asn'".format(db_cli)
     )["stdout"].strip()
     duthost.shell(
-        "sonic-db-cli CONFIG_DB HSET 'BGP_PEER_GROUP|{vrf}|{name}' "
+        "{cli} CONFIG_DB HSET 'BGP_PEER_GROUP|{vrf}|{name}' "
         "asn {asn} local_addr {src} local_asn {lasn} name {name} "
         "passive_mode true ebgp_multihop true peer_group_name {name} vrf_name {vrf}".format(
-            vrf=vrf, name=name, asn=peer_asn, src=src_addr, lasn=local_asn))
+            cli=db_cli, vrf=vrf, name=name, asn=peer_asn, src=src_addr, lasn=local_asn))
     duthost.shell(
-        "sonic-db-cli CONFIG_DB HSET 'BGP_PEER_GROUP_AF|{vrf}|{name}|{af}' "
+        "{cli} CONFIG_DB HSET 'BGP_PEER_GROUP_AF|{vrf}|{name}|{af}' "
         "admin_status up afi_safi {af} peer_group_name {name} "
         "'route_map_in@' FROM_BGP_SPEAKER 'route_map_out@' TO_BGP_SPEAKER "
-        "soft_reconfiguration_in true vrf_name {vrf}".format(vrf=vrf, name=name, af=afi_safi))
+        "soft_reconfiguration_in true vrf_name {vrf}".format(
+            cli=db_cli, vrf=vrf, name=name, af=afi_safi))
     duthost.shell(
-        "sonic-db-cli CONFIG_DB HSET 'BGP_GLOBALS_LISTEN_PREFIX|{vrf}|{pfx}' "
-        "ip_prefix {pfx} peer_group {name} vrf_name {vrf}".format(vrf=vrf, pfx=ip_range, name=name))
+        "{cli} CONFIG_DB HSET 'BGP_GLOBALS_LISTEN_PREFIX|{vrf}|{pfx}' "
+        "ip_prefix {pfx} peer_group {name} vrf_name {vrf}".format(
+            cli=db_cli, vrf=vrf, pfx=ip_range, name=name))
     time.sleep(3)
 
 
-def _frr_peer_range_del(duthost, name, ip_range, afi_safi):
+def _frr_peer_range_del(duthost, name, ip_range, afi_safi, namespace=None):
     """Reverse of _frr_peer_range_add."""
     vrf = "default"
-    duthost.shell("sonic-db-cli CONFIG_DB del 'BGP_GLOBALS_LISTEN_PREFIX|{}|{}'".format(vrf, ip_range),
+    db_cli = "sonic-db-cli {}".format(namespace_cli_arg(namespace)).rstrip()
+    duthost.shell("{} CONFIG_DB del 'BGP_GLOBALS_LISTEN_PREFIX|{}|{}'".format(db_cli, vrf, ip_range),
                   module_ignore_errors=True)
-    duthost.shell("sonic-db-cli CONFIG_DB del 'BGP_PEER_GROUP_AF|{}|{}|{}'".format(vrf, name, afi_safi),
+    duthost.shell("{} CONFIG_DB del 'BGP_PEER_GROUP_AF|{}|{}|{}'".format(db_cli, vrf, name, afi_safi),
                   module_ignore_errors=True)
-    duthost.shell("sonic-db-cli CONFIG_DB del 'BGP_PEER_GROUP|{}|{}'".format(vrf, name),
+    duthost.shell("{} CONFIG_DB del 'BGP_PEER_GROUP|{}|{}'".format(db_cli, vrf, name),
                   module_ignore_errors=True)
     time.sleep(3)
 
@@ -378,10 +398,12 @@ def bgp_peer_range_config_cleanup(duthost):
         # BGP_PEER_RANGE. Clear the ranges (clean slate) the way the traditional path
         # clears BGP_PEER_RANGE; the checkpoint/rollback in setup_env restores the
         # baseline ranges at teardown.
-        cmds = ('sonic-db-cli CONFIG_DB keys "BGP_GLOBALS_LISTEN_PREFIX|*" '
-                '| xargs -r -I{} sonic-db-cli CONFIG_DB del "{}"')
-        output = duthost.shell(cmds)
-        pytest_assert(not output["rc"], "bgp speaker config cleanup failed.")
+        for ns in _frr_namespaces(duthost):
+            db_cli = "sonic-db-cli {}".format(namespace_cli_arg(ns)).rstrip()
+            cmds = ('{cli} CONFIG_DB keys "BGP_GLOBALS_LISTEN_PREFIX|*" '
+                    '| xargs -r -I{{}} {cli} CONFIG_DB del "{{}}"').format(cli=db_cli)
+            output = duthost.shell(cmds)
+            pytest_assert(not output["rc"], "bgp speaker config cleanup failed.")
         time.sleep(3)
         return
     cmds = 'sonic-db-cli CONFIG_DB keys "BGP_PEER_RANGE|*" | xargs -r sonic-db-cli CONFIG_DB del'
@@ -409,13 +431,18 @@ def bgp_peer_range_add_config(
         # frrcfgd ignores runtime BGP_PEER_RANGE writes; program the equivalent native
         # listen-range tables instead. Same three shapes as the GCU path below:
         # first v4+v6 pair, then an add-on v4 range, then an add-on v6 range.
-        if ip_range_name_2 is None:
-            _frr_peer_range_add(duthost, ip_range_name, ip_range, lo["addr"], peer_asn, "ipv4_unicast")
-            _frr_peer_range_add(duthost, ipv6_range_name, ipv6_range, lo6["addr"], peer_asn, "ipv6_unicast")
-        elif ipv6_range_2 is None:
-            _frr_peer_range_add(duthost, ip_range_name_2, ip_range_2, lo["addr"], peer_asn_2, "ipv4_unicast")
-        else:
-            _frr_peer_range_add(duthost, ipv6_range_name_2, ipv6_range_2, lo6["addr"], peer_asn_2, "ipv6_unicast")
+        for ns in _frr_namespaces(duthost):
+            if ip_range_name_2 is None:
+                _frr_peer_range_add(duthost, ip_range_name, ip_range, lo["addr"], peer_asn,
+                                    "ipv4_unicast", namespace=ns)
+                _frr_peer_range_add(duthost, ipv6_range_name, ipv6_range, lo6["addr"], peer_asn,
+                                    "ipv6_unicast", namespace=ns)
+            elif ipv6_range_2 is None:
+                _frr_peer_range_add(duthost, ip_range_name_2, ip_range_2, lo["addr"], peer_asn_2,
+                                    "ipv4_unicast", namespace=ns)
+            else:
+                _frr_peer_range_add(duthost, ipv6_range_name_2, ipv6_range_2, lo6["addr"],
+                                    peer_asn_2, "ipv6_unicast", namespace=ns)
         bgp_config = duthost.shell("show runningconfiguration bgp")["stdout"]
         pytest_assert(
             re.search(BGP_SRC_ADDR_RE.format(ip_range_name, lo["addr"]), bgp_config)
@@ -511,8 +538,9 @@ def bgp_peer_range_delete_config(
     duthost, ip_range_name, ip_range, ipv6_range_name, ipv6_range
 ):
     if _is_frr_mode(duthost):
-        _frr_peer_range_del(duthost, ip_range_name, ip_range, "ipv4_unicast")
-        _frr_peer_range_del(duthost, ipv6_range_name, ipv6_range, "ipv6_unicast")
+        for ns in _frr_namespaces(duthost):
+            _frr_peer_range_del(duthost, ip_range_name, ip_range, "ipv4_unicast", namespace=ns)
+            _frr_peer_range_del(duthost, ipv6_range_name, ipv6_range, "ipv6_unicast", namespace=ns)
         bgp_config = duthost.shell("show runningconfiguration bgp")["stdout"]
         pytest_assert(
             not re.search(BGP_IP_RANGE_RE.format(ip_range, ip_range_name), bgp_config)
