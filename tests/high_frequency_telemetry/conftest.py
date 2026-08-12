@@ -2,8 +2,63 @@ import pytest
 import logging
 import time
 from datetime import datetime, timezone
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
+
+OTEL_CONFIG_PATH = "/etc/sonic/otel_config.yml"
+
+
+@pytest.fixture(scope="module")
+def suppress_otel_debug_logging(duthosts, enum_rand_one_per_hwsku_hostname):
+    """Suppress verbose OTEL debug exporter logging to prevent /var/log disk exhaustion.
+
+    The default OTEL collector config uses a debug exporter with 'verbosity: detailed',
+    which dumps every metric (~14 lines each) to otel.log. During HFT tests with thousands
+    of counters at 10ms polling, this generates ~40 million log lines in minutes and fills
+    /var/log, causing rsyslog to drop messages (including LogAnalyzer markers).
+
+    This fixture changes the verbosity to 'basic' (one summary line per batch) before
+    HFT tests run, and restores the original config afterward.
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    # Check if otel container is running
+    if not duthost.is_container_running("otel"):
+        logger.info("OTEL container is not running, skipping debug logging suppression")
+        yield
+        return
+
+    # Read the current otel config
+    result = duthost.shell(f'cat {OTEL_CONFIG_PATH}', module_ignore_errors=True)
+    if result['rc'] != 0:
+        logger.warning(f"Failed to read {OTEL_CONFIG_PATH}, skipping debug logging suppression")
+        yield
+        return
+
+    original_config = result['stdout']
+
+    if 'verbosity: detailed' not in original_config:
+        logger.info("OTEL config does not have 'verbosity: detailed', no change needed")
+        yield
+        return
+
+    # Change verbosity from detailed to basic
+    logger.info("Changing OTEL debug exporter verbosity from 'detailed' to 'basic'")
+    duthost.shell(
+        f"sed -i 's/verbosity: detailed/verbosity: basic/' {OTEL_CONFIG_PATH}",
+        module_ignore_errors=False
+    )
+    duthost.shell('docker restart otel', module_ignore_errors=True)
+    wait_until(60, 2, 0, duthost.is_service_fully_started, "otel")
+
+    yield
+
+    # Restore original config
+    logger.info("Restoring original OTEL collector config")
+    duthost.copy(content=original_config, dest=OTEL_CONFIG_PATH)
+    duthost.shell('docker restart otel', module_ignore_errors=True)
+    wait_until(60, 2, 0, duthost.is_service_fully_started, "otel")
 
 
 @pytest.fixture(autouse=True)
@@ -208,7 +263,8 @@ def cleanup_high_frequency_telemetry(
 @pytest.fixture(scope="function")
 def disable_flex_counters(
     duthosts, enum_rand_one_per_hwsku_hostname,
-    cleanup_high_frequency_telemetry
+    cleanup_high_frequency_telemetry,
+    suppress_otel_debug_logging
 ):
     """
     Function-level fixture to disable all flex counters and restore
