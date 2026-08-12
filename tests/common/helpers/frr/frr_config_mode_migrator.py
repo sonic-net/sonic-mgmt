@@ -41,6 +41,13 @@ GOLDEN_CFG_FILE = "/etc/sonic/golden_config_db.json"
 # The mode has to be written into both files to actually persist.
 GOLDEN_CFG_ORIGIN_FILE = GOLDEN_CFG_FILE + ".origin.backup"
 _BAK_SUFFIX = ".frr_config_mode.bak"
+# Written just before the forward (traditional -> frr) switch reloads, and removed once the
+# DUT is restored. Interrupted-run recovery keys on THIS, not on the presence of the config
+# backup: capture_pristine_backup() takes that backup at session start, before any switch is
+# attempted, so on a DUT that boots frrcfgd a killed run would otherwise look like an
+# unfinished switch -- and "recovery" would reload the DUT's own native frr config and then
+# reject its legitimate frr tables in assert_no_frr_schema_residue().
+SWITCHED_MARKER_FILE = "/etc/sonic/frr_config_mode.switched"
 
 MODE_FRR_MGMT_FRAMEWORK = "frr_mgmt_framework"
 MODE_TRADITIONAL = "traditional"
@@ -201,6 +208,9 @@ class FrrConfigModeMigrator(object):
             self._set_mode_metadata(origin, "unified", "true")
             self._write_json_file(GOLDEN_CFG_ORIGIN_FILE, origin)
 
+        # Mark the DUT as switched BEFORE the reload, so a run killed anywhere from here on
+        # is recoverable. See SWITCHED_MARKER_FILE.
+        self.duthost.shell("sudo touch {}".format(SWITCHED_MARKER_FILE))
         self._config_reload()
 
     def to_traditional(self):
@@ -232,6 +242,8 @@ class FrrConfigModeMigrator(object):
                            CONFIG_DB_FILE, _BAK_SUFFIX, restored_golden)
             return False
         self.duthost.shell("sudo cp {0}{1} {0}".format(CONFIG_DB_FILE, _BAK_SUFFIX))
+        self.duthost.shell("sudo rm -f {}".format(SWITCHED_MARKER_FILE),
+                           module_ignore_errors=True)
         self._config_reload()
         self.assert_no_frr_schema_residue()
         return True
@@ -259,15 +271,23 @@ class FrrConfigModeMigrator(object):
                     ", ".join(residue), CONFIG_DB_FILE))
 
     def interrupted_run_pending(self):
-        """True if a previous run left switch backups behind.
+        """True if a previous run left the DUT in a switched FRR config mode.
 
-        The backups only exist between ``to_frr_mgmt_framework()`` and ``cleanup()``, so
-        finding them at the start of a run means an earlier session died before its teardown
-        could restore the DUT -- a killed harness, a CI timeout, a DUT crash, an interrupted
-        background run. Fixture teardown cannot cover any of those, so recovery has to be
-        idempotent and happen at setup instead.
+        Keyed on :data:`SWITCHED_MARKER_FILE`, which exists only between the forward switch
+        in ``to_frr_mgmt_framework()`` and the restore in ``to_traditional()``. Finding it at
+        the start of a run means an earlier session died before its teardown could restore
+        the DUT -- a killed harness, a CI timeout, a DUT crash, an interrupted background run.
+        Fixture teardown cannot cover any of those, so recovery has to be idempotent and
+        happen at setup instead.
+
+        Deliberately NOT keyed on the config backup: ``capture_pristine_backup()`` writes
+        that at session start, before any switch is attempted, so on a DUT that natively
+        boots frrcfgd -- where no switch ever happens -- an interrupted run would otherwise
+        look like an unfinished switch, and "recovery" would reload the DUT's own native frr
+        config only for ``assert_no_frr_schema_residue()`` to reject its legitimate frr
+        tables.
         """
-        return self._backup_present()
+        return self.duthost.is_file_existed(SWITCHED_MARKER_FILE)
 
     def recover_interrupted_run(self):
         """Restore the DUT from a previous run's leftover backups. Returns True if it did.
@@ -280,7 +300,7 @@ class FrrConfigModeMigrator(object):
             "Found %s on %s: a previous run switched the FRR config mode and did not restore "
             "it (killed process, CI timeout, or DUT crash -- fixture teardown cannot cover "
             "those). Restoring the backed-up config before continuing.",
-            CONFIG_DB_FILE + _BAK_SUFFIX, self.duthost.hostname)
+            SWITCHED_MARKER_FILE, self.duthost.hostname)
         if not self.to_traditional():
             # Keep the backups: they are the only pristine copy of the pre-switch config, and
             # deleting them on a failed restore is what turns a recoverable interruption into a
@@ -292,7 +312,8 @@ class FrrConfigModeMigrator(object):
         return True
 
     def cleanup(self):
-        """Remove backup files left on the DUT."""
-        self.duthost.shell("sudo rm -f {0}{1} {2}{1} {3}{1}".format(
-            CONFIG_DB_FILE, _BAK_SUFFIX, GOLDEN_CFG_FILE, GOLDEN_CFG_ORIGIN_FILE),
+        """Remove the backup and switch-marker files left on the DUT."""
+        self.duthost.shell("sudo rm -f {4} {0}{1} {2}{1} {3}{1}".format(
+            CONFIG_DB_FILE, _BAK_SUFFIX, GOLDEN_CFG_FILE, GOLDEN_CFG_ORIGIN_FILE,
+            SWITCHED_MARKER_FILE),
             module_ignore_errors=True)
