@@ -702,6 +702,20 @@ def test_graceful_restart_absent_leaves_globals_clean():
     assert "graceful_restart_enable" not in out["BGP_GLOBALS"]["default"]
 
 
+def test_graceful_restart_disable_is_not_read_as_an_enable():
+    # bgpcfgd renders these two on an UpperRegionalHub. 'bgp graceful-restart-disable' starts
+    # with 'bgp graceful-restart', so a prefix match would set graceful_restart_enable=true --
+    # the exact inverse of the DUT's config. Both are frrcfgd gaps: its only lever renders
+    # 'no bgp graceful-restart', which is FRR's default helper state, not an explicit disable.
+    running = "\n".join([
+        "router bgp 65100",
+        " bgp graceful-restart-disable",
+        " bgp long-lived-graceful-restart stale-time 864000",
+    ])
+    out = translate_config_db(_base_config_db(), running, _peer_group_json())
+    assert "graceful_restart_enable" not in out["BGP_GLOBALS"]["default"]
+
+
 def test_select_defer_time_is_a_known_gap_not_a_failure():
     # frrcfgd's global_key_map has no select-defer-time field; warn, do not raise.
     running = "\n".join([
