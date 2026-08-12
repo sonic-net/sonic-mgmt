@@ -204,14 +204,25 @@ def remove_dataacl_table(duthosts):
     with SafeThreadPoolExecutor(max_workers=8) as executor:
         # Recover DUT by reloading minigraph
         for duthost in duthosts:
-            executor.submit(
-                config_reload,
-                duthost,
-                config_source="minigraph",
-                safe_reload=True,
-                override_config=True,
-                check_intf_up_ports=True
-            )
+            executor.submit(reload_minigraph_with_optional_override, duthost)
+
+
+def reload_minigraph_with_optional_override(duthost):
+    """
+    Reload minigraph, applying golden config override only if the golden
+    config file actually exists on the DUT. Passing override_config=True
+    causes config_reload/load_minigraph to abort test with
+    "Cannot find 'golden_config_db.json'!".
+    """
+    golden_cfg = duthost.stat(path="/etc/sonic/golden_config_db.json")
+    override_config = golden_cfg.get("stat", {}).get("exists", False)
+    config_reload(
+        duthost,
+        config_source="minigraph",
+        safe_reload=True,
+        override_config=override_config,
+        check_intf_up_ports=True
+    )
 
 
 def remove_dataacl_table_single_dut(table_name, duthost):
