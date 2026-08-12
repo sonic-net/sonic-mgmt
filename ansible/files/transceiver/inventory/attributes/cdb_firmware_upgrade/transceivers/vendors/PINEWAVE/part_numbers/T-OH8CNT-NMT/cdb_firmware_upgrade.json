@@ -1,6 +1,6 @@
 {
-    "firmware_versions": ["36.241.0", "36.229.0", "36.233.0"],
+    "firmware_versions": ["36.252.224", "36.253.224", "36.233.0"],
     "dual_bank_supported": true,
     "gold_firmware_version": "36.233.0",
-    "inactive_firmware_version": "36.229.0"
+    "inactive_firmware_version": "36.253.224"
 }

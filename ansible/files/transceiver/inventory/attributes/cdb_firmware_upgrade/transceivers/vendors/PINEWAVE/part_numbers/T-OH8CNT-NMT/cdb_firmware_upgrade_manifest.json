@@ -10,5 +10,17 @@
     "36.240.134": {
         "fw_binary_name": "OSFP_DR8_MSFT_24F0_1_7_1_2551_EEPROM_24E50003.bin",
         "md5sum": "cfad278cde55665211acbe71c465c337"
+    },
+    "36.233.0": {
+        "fw_binary_name": "OSFP_DR8_MSFT_24E9_00_1_8_1_2700_20260526.bin",
+        "md5sum": "aefc3c3e73a194d208427341b6dfdd71"
+    },
+    "36.252.224": {
+        "fw_binary_name": "OSFP_DR8_MSFT_24FC_E0_DFW_1_8_1_2700_EEPROM_24E9FE01_CDB.bin",
+        "md5sum": "cad3edcffdc86a74412db4189e607f98"
+    },
+    "36.253.224": {
+        "fw_binary_name": "OSFP_DR8_MSFT_24FD_E0_DFW_1_8_1_2700_EEPROM_24E9FE01_CDB.bin",
+        "md5sum": "b9b52ec5ab4a34d5c6f0eaf68ed876c6"
     }
 }
