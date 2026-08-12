@@ -10,6 +10,7 @@ from tests.transceiver.attribute_parser.attribute_keys import (
     SYSTEM_ATTRIBUTES_KEY,
 )
 from tests.transceiver.common import cli_helpers, dmesg_helpers, scenario_ops
+from tests.transceiver.cdb_firmware_upgrade.utils.firmware_utils import resolve_binary_path
 from tests.transceiver.common.cli_parser_helper import (
     FW_ACTIVE,
     FW_COMMITTED_IMAGE,
@@ -21,6 +22,13 @@ logger = logging.getLogger(__name__)
 
 I2C_ERROR_PATTERN = r"i2c.*(error|fail|timeout|nack)|(error|fail).*i2c"
 THERMALCTLD = "thermalctld"
+
+DEFAULT_FIRMWARE_DOWNLOAD_TIMEOUT_MINUTES = 30
+DEFAULT_FIRMWARE_RUN_TIMEOUT_SEC = 20
+DEFAULT_FIRMWARE_COMMIT_TIMEOUT_SEC = 10
+DEFAULT_TRANSCEIVER_RESET_I2C_RECOVER_SEC = 5
+DEFAULT_PORT_STARTUP_WAIT_SEC = 60
+DEFAULT_PORT_SHUTDOWN_WAIT_SEC = 5
 
 
 def select_target_version(firmware_versions, banks):
@@ -35,16 +43,20 @@ def select_target_version(firmware_versions, banks):
     return firmware_versions[0]
 
 
-def _verify_bank_image_fields(after_banks, before_banks=None):
-    if before_banks is not None:
-        failures = []
-        for field in (FW_RUNNING_IMAGE, FW_COMMITTED_IMAGE):
-            if after_banks.get(field) != before_banks.get(field):
-                failures.append(
-                    f"{field} changed from {before_banks.get(field)} to "
-                    f"{after_banks.get(field)} after download"
-                )
-        return failures
+def _verify_bank_images_unchanged(after_banks, before_banks):
+    """Running/Committed bank letters are the same before and after a download."""
+    failures = []
+    for field in (FW_RUNNING_IMAGE, FW_COMMITTED_IMAGE):
+        if after_banks.get(field) != before_banks.get(field):
+            failures.append(
+                f"{field} changed from {before_banks.get(field)} to "
+                f"{after_banks.get(field)} after download"
+            )
+    return failures
+
+
+def _verify_running_matches_committed(after_banks):
+    """The activated image is also the committed one."""
     running = after_banks.get(FW_RUNNING_IMAGE)
     committed = after_banks.get(FW_COMMITTED_IMAGE)
     if running != committed:
@@ -60,8 +72,8 @@ def _stop_thermalctld(duthost):
         return False, None
     duthost.stop_pmon_daemon_service(THERMALCTLD)
     status, _ = duthost.get_pmon_daemon_status(THERMALCTLD)
-    if status == "RUNNING":
-        return False, "thermalctld remained running after stop"
+    if status != "STOPPED":
+        return False, f"thermalctld status after stop is {status or 'unknown'}"
     return True, None
 
 
@@ -87,14 +99,6 @@ def _scan_i2c_errors(duthost, dmesg_start_uptime, operation):
     return []
 
 
-def resolve_binary_path(metadata_map, vendor, pn, version):
-    """Return the staged on-DUT path for ``(vendor, pn, version)``."""
-    for entry in metadata_map[(vendor, pn)]:
-        if entry["version"] == version:
-            return entry["dut_path"]
-    return None
-
-
 def verify_firmware_downloaded(duthost, port, before_banks, target_version, download_err):
     """Active/Running/Committed banks unchanged, the inactive bank has ``target_version``."""
     if download_err:
@@ -115,7 +119,7 @@ def verify_firmware_downloaded(duthost, port, before_banks, target_version, down
             f"inactive firmware {after_banks.get(FW_INACTIVE) or 'N/A'} != "
             f"downloaded {target_version}"
         )
-    failures += _verify_bank_image_fields(after_banks, before_banks=before_banks)
+    failures += _verify_bank_images_unchanged(after_banks, before_banks)
     return failures
 
 
@@ -141,7 +145,7 @@ def perform_firmware_download(duthost, port, port_context, metadata_map,
 
     fwfile = resolve_binary_path(metadata_map, vendor, pn, target_version)
 
-    startup_wait = system_attrs.get("port_startup_wait_sec", 60)
+    startup_wait = system_attrs.get("port_startup_wait_sec", DEFAULT_PORT_STARTUP_WAIT_SEC)
     if expect_link_up:
         link_failures = wait_ports_oper_status(duthost, [port], "up", startup_wait)
         if link_failures:
@@ -166,7 +170,9 @@ def perform_firmware_download(duthost, port, port_context, metadata_map,
         if dmesg_start_err:
             failures.append(dmesg_start_err)
         else:
-            timeout_sec = cdb_attrs.get("firmware_download_timeout_minutes", 30) * 60
+            timeout_sec = cdb_attrs.get(
+                "firmware_download_timeout_minutes", DEFAULT_FIRMWARE_DOWNLOAD_TIMEOUT_MINUTES
+            ) * 60
             elapsed, dl_err = cli_helpers.sfputil_firmware_download(duthost, port, fwfile, timeout_sec)
             logger.info("Port %s: firmware download %s took %ss", port, target_version, elapsed)
 
@@ -204,7 +210,7 @@ def verify_firmware_activation(duthost, port, before_banks, dual_bank_supported,
     elif after_banks.get(FW_ACTIVE) != activated_version:
         failures.append(f"active firmware {after_banks.get(FW_ACTIVE)} != activated {activated_version}")
 
-    failures += _verify_bank_image_fields(after_banks)
+    failures += _verify_running_matches_committed(after_banks)
 
     return failures
 
@@ -219,11 +225,11 @@ def perform_firmware_activation(duthost, port, port_context,
     system_attrs = port_context["system_attrs"]
     subports = port_context["subports"]
     dual_bank = cdb_attrs.get("dual_bank_supported", True)
-    run_timeout = cdb_attrs.get("firmware_run_timeout_sec", 20)
-    commit_timeout = cdb_attrs.get("firmware_commit_timeout_sec", 10)
-    recover_sec = system_attrs.get("transceiver_reset_i2c_recover_sec", 5)
-    startup_wait = system_attrs.get("port_startup_wait_sec", 60)
-    shutdown_wait = system_attrs.get("port_shutdown_wait_sec", 5)
+    run_timeout = cdb_attrs.get("firmware_run_timeout_sec", DEFAULT_FIRMWARE_RUN_TIMEOUT_SEC)
+    commit_timeout = cdb_attrs.get("firmware_commit_timeout_sec", DEFAULT_FIRMWARE_COMMIT_TIMEOUT_SEC)
+    recover_sec = system_attrs.get("transceiver_reset_i2c_recover_sec", DEFAULT_TRANSCEIVER_RESET_I2C_RECOVER_SEC)
+    startup_wait = system_attrs.get("port_startup_wait_sec", DEFAULT_PORT_STARTUP_WAIT_SEC)
+    shutdown_wait = system_attrs.get("port_shutdown_wait_sec", DEFAULT_PORT_SHUTDOWN_WAIT_SEC)
 
     if before_banks is None:
         before_banks, err = cli_helpers.sfputil_show_fwversion(duthost, port)
@@ -343,18 +349,22 @@ def restore_module_to_original(duthost, port, port_context, metadata_map):
 
     failures += scenario_ops.perform_ports_startup(
         duthost, port_context["subports"],
-        system_attrs.get("port_startup_wait_sec", 60),
+        system_attrs.get("port_startup_wait_sec", DEFAULT_PORT_STARTUP_WAIT_SEC),
     )
     return failures
 
 
 def run_firmware_op_on_ports(duthost, port_attributes_dict, qualifying_ports, lport_to_pport,
-                             metadata_map, per_port_op):
+                             metadata_map, per_port_op, prefetch=None):
     """Run ``per_port_op`` on every qualifying CDB firmware port and aggregate failures.
+
+    ``prefetch(duthost, qualifying_ports, lport_to_pport)`` runs once before the
+    loop and its result is exposed as ``port_context["prefetched"]``.
 
     Returns ``(all_failures, num_ports)``, the caller ``pytest.fail``s or logs.
     """
     pport_to_lport = get_physical_to_logical_port_mapping(lport_to_pport)
+    prefetched = prefetch(duthost, qualifying_ports, lport_to_pport) if prefetch else None
     all_failures = []
     for port in qualifying_ports:
         base_attrs = port_attributes_dict[port].get(BASE_ATTRIBUTES_KEY, {})
@@ -369,6 +379,7 @@ def run_firmware_op_on_ports(duthost, port_attributes_dict, qualifying_ports, lp
             "system_attrs": port_attributes_dict[port].get(SYSTEM_ATTRIBUTES_KEY, {}),
             "vendor": vendor, "pn": pn, "physical_index": physical_index,
             "subports": pport_to_lport.get(physical_index, [port]),
+            "prefetched": prefetched,
         }
         all_failures += [f"{port}: {f}" for f in per_port_op(duthost, port, port_context, metadata_map)]
     return all_failures, len(qualifying_ports)

@@ -9,46 +9,15 @@ import logging
 
 import pytest
 
-from tests.transceiver.attribute_parser.attribute_keys import (
-    CDB_FIRMWARE_UPGRADE_ATTRIBUTES_KEY,
-)
+from tests.transceiver.cdb_firmware_upgrade.firmware_operations import run_firmware_op_on_ports
 from tests.transceiver.common import cli_helpers
+from tests.transceiver.common.cli_parser_helper import FW_ACTIVE, FW_INACTIVE
 
 logger = logging.getLogger(__name__)
 
-ACTIVE_FIRMWARE_KEY = "Active Firmware"
-INACTIVE_FIRMWARE_KEY = "Inactive Firmware"
 
-
-def _run_per_port_check(duthost, port_attributes_dict, qualifying_ports, lport_to_pport,
-                        check_fn, prefetch=None):
-    """Iterate qualifying ports, run ``check_fn``, and aggregate failures.
-
-    Args:
-        duthost: DUT host fixture.
-        port_attributes_dict: ``{port: {attr_block: {...}}}`` inventory map.
-        qualifying_ports: ports to check (from the ``cdb_firmware_qualifying_ports`` fixture).
-        lport_to_pport: ``{logical_port: physical_index}`` map, passed to ``prefetch``.
-        check_fn: callable ``(duthost, port, port_attrs, all_failures, prefetched) -> None``
-            that appends a ``"<port>: <failure>"`` string to ``all_failures``.
-        prefetch: optional callable
-            ``(duthost, qualifying_ports, lport_to_pport) -> prefetched`` run once before
-            iterating; its result is passed to every ``check_fn`` call.  Lets a check
-            batch a single DUT query once and share it across ports.
-
-    Returns:
-        tuple[list[str], int]: the per-port failure entries, and the number of
-        qualifying ports that were checked.
-    """
-    prefetched = prefetch(duthost, qualifying_ports, lport_to_pport) if prefetch else None
-    all_failures = []
-    for port in qualifying_ports:
-        check_fn(duthost, port, port_attributes_dict[port], all_failures, prefetched)
-    return all_failures, len(qualifying_ports)
-
-
-def _check_firmware_versions(duthost, port, port_attrs, all_failures, prefetched=None):
-    """Per-port check: Active/Inactive firmware banks vs gold inventory.
+def _check_firmware_versions(duthost, port, port_context, metadata_map):
+    """Per-port op: Active/Inactive firmware banks vs gold inventory.
 
     A qualifying port MUST define ``gold_firmware_version``; a missing value is
     an inventory gap and fails the test.  For dual-bank modules
@@ -56,106 +25,75 @@ def _check_firmware_versions(duthost, port, port_attrs, all_failures, prefetched
     when ``dual_bank_supported`` is false), so a dual-bank module missing it
     also fails.
 
-    Args:
-        duthost: DUT host fixture used to run ``sfputil show fwversion``.
-        port: logical port being checked.
-        port_attrs: this port's attribute blocks from ``port_attributes_dict``.
-        all_failures: shared list; a ``"<port>: <failure>"`` string is appended on mismatch.
-        prefetched: unused; kept for the shared ``check_fn`` signature.
-
-    Returns:
-        None. Any mismatch/error is appended to ``all_failures``.
+    Returns a list of per-port failure strings (empty on success).
     """
-    cdb_attrs = port_attrs.get(CDB_FIRMWARE_UPGRADE_ATTRIBUTES_KEY, {})
+    cdb_attrs = port_context["cdb_attrs"]
     expected_active = cdb_attrs.get("gold_firmware_version")
     dual_bank_supported = cdb_attrs.get("dual_bank_supported", True)
     expected_inactive = cdb_attrs.get("inactive_firmware_version")
 
     if not expected_active:
-        all_failures.append(f"{port}: gold_firmware_version not defined")
-        return
+        return ["gold_firmware_version not defined"]
     if dual_bank_supported and not expected_inactive:
-        all_failures.append(
-            f"{port}: inactive_firmware_version not defined for dual-bank module"
-        )
-        return
+        return ["inactive_firmware_version not defined for dual-bank module"]
 
     parsed, err = cli_helpers.sfputil_show_fwversion(duthost, port)
     if err:
-        all_failures.append(f"{port}: {err}")
-        return
+        return [err]
 
-    actual_active = parsed.get(ACTIVE_FIRMWARE_KEY, "")
+    failures = []
+    actual_active = parsed.get(FW_ACTIVE, "")
     if actual_active != expected_active:
-        all_failures.append(
-            f"{port}: active firmware mismatch: expected '{expected_active}', "
+        failures.append(
+            f"active firmware mismatch: expected '{expected_active}', "
             f"got '{actual_active or 'N/A'}'"
         )
 
     if dual_bank_supported:
-        actual_inactive = parsed.get(INACTIVE_FIRMWARE_KEY, "")
+        actual_inactive = parsed.get(FW_INACTIVE, "")
         if actual_inactive != expected_inactive:
-            all_failures.append(
-                f"{port}: inactive firmware mismatch: expected '{expected_inactive}', "
+            failures.append(
+                f"inactive firmware mismatch: expected '{expected_inactive}', "
                 f"got '{actual_inactive or 'N/A'}'"
             )
+    return failures
 
 
 def _build_abort_support_map(duthost, qualifying_ports, lport_to_pport):
     """Batch the CDB abort-support query for all qualifying ports into one DUT call.
 
-    Returns ``{logical_port: (abort_supported, err)}`` keyed by logical port, so
-    ``_check_abort_support`` needs no physical-index lookup of its own.
+    Returns ``{physical_index: (abort_supported, err)}``; the driver already
+    resolves each port's physical index into ``port_context``.
     """
     physical_indices = []
     for port in qualifying_ports:
         physical_index = lport_to_pport.get(port)
-        if physical_index is not None and physical_index not in physical_indices:
+        if physical_index is not None:
             physical_indices.append(physical_index)
-    abort_support_map = cli_helpers.get_module_cdb_abort_support_map(duthost, physical_indices)
-
-    result = {}
-    for port in qualifying_ports:
-        physical_index = lport_to_pport.get(port)
-        if physical_index is None:
-            result[port] = (None, "could not resolve physical port index")
-        else:
-            result[port] = abort_support_map.get(
-                physical_index, (None, "no CDB abort-support result for the port")
-            )
-    return result
+    return cli_helpers.get_module_cdb_abort_support_map(duthost, physical_indices)
 
 
-def _check_abort_support(duthost, port, port_attrs, all_failures, prefetched):
-    """Per-port check: advertised CDB firmware-download abort support vs inventory.
+def _check_abort_support(duthost, port, port_context, metadata_map):
+    """Per-port op: advertised CDB firmware-download abort support vs inventory.
 
-    Args:
-        duthost: DUT host fixture (unused; kept for the shared ``check_fn`` signature).
-        port: logical port being checked.
-        port_attrs: this port's attribute blocks from ``port_attributes_dict``.
-        all_failures: shared list; a ``"<port>: <failure>"`` string is appended on mismatch.
-        prefetched: ``{logical_port: (abort_supported, err)}`` map
-
-    Returns:
-        None. Any mismatch/error is appended to ``all_failures``.
+    Returns a list of per-port failure strings (empty on success).
     """
-    cdb_attrs = port_attrs.get(CDB_FIRMWARE_UPGRADE_ATTRIBUTES_KEY, {})
-    expected_abort_support = cdb_attrs.get("firmware_download_cdb_abort_support", True)
-
-    actual_abort_support, err = prefetched[port]
+    expected_abort_support = port_context["cdb_attrs"].get("firmware_download_cdb_abort_support", True)
+    actual_abort_support, err = port_context["prefetched"].get(
+        port_context["physical_index"], (None, "no CDB abort-support result for the port")
+    )
     if err:
-        all_failures.append(f"{port}: {err}")
-        return
+        return [err]
 
     if actual_abort_support != expected_abort_support:
-        all_failures.append(
-            f"{port}: CDB firmware-download abort support mismatch: "
+        return [
+            "CDB firmware-download abort support mismatch: "
             f"expected {expected_abort_support} "
             f"(firmware_download_cdb_abort_support), got {actual_abort_support} "
-            f"(from EEPROM via get_module_fw_mgmt_feature)"
-        )
-        return
+            "(from EEPROM via get_module_fw_mgmt_feature)"
+        ]
     logger.debug("Port %s CDB abort support verified: %s", port, actual_abort_support)
+    return []
 
 
 def test_firmware_versions(
@@ -171,9 +109,9 @@ def test_firmware_versions(
     DOM polling on the ports under test is disabled for the duration of the test
     by the ``dom_polling_disabled`` fixture.
     """
-    all_failures, num_ports = _run_per_port_check(
+    all_failures, num_ports = run_firmware_op_on_ports(
         duthost, port_attributes_dict, cdb_firmware_qualifying_ports,
-        get_lport_to_pport_mapping, _check_firmware_versions,
+        get_lport_to_pport_mapping, None, _check_firmware_versions,
     )
     logger.info("Verified firmware version on %d port(s)", num_ports)
     if all_failures:
@@ -189,9 +127,9 @@ def test_cdb_abort_support(
     DOM polling on the ports under test is disabled for the duration of the test
     by the ``dom_polling_disabled`` fixture.
     """
-    all_failures, num_ports = _run_per_port_check(
+    all_failures, num_ports = run_firmware_op_on_ports(
         duthost, port_attributes_dict, cdb_firmware_qualifying_ports,
-        get_lport_to_pport_mapping, _check_abort_support,
+        get_lport_to_pport_mapping, None, _check_abort_support,
         prefetch=_build_abort_support_map,
     )
     logger.info("Verified CDB abort support on %d port(s)", num_ports)

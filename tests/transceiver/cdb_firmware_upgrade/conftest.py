@@ -1,5 +1,6 @@
 import logging
 import time
+from contextlib import contextmanager
 
 import pytest
 
@@ -32,6 +33,7 @@ from tests.transceiver.cdb_firmware_upgrade.firmware_operations import (
 
 CMIS_CDB_FIRMWARE_BASE_PATH_ON_DUT = "/tmp/cmis_cdb_firmware"
 CMIS_CDB_FIRMWARE_PRESTAGED_PATH_ON_DUT = "/host/cmis_cdb_firmware"
+DEFAULT_SLEEP_AFTER_DOM_DISABLE_SEC = 5
 
 
 logger = logging.getLogger(__name__)
@@ -74,7 +76,7 @@ def required_firmware_metadata_for_all_transceivers(
     )
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="package", autouse=True)
 def stage_latest_firmware_binaries_on_dut(
     duthost,
     transceiver_firmware_info_parser,
@@ -112,13 +114,20 @@ def stage_latest_firmware_binaries_on_dut(
 
 
 @pytest.fixture(scope="session")
-def cdb_firmware_qualifying_ports(duthost, port_attributes_dict, lport_to_first_subport_mapping):
+def lport_to_pport(duthost):
+    """Session-scoped logical-to-physical port map."""
+    return get_physical_port_indices(duthost)
+
+
+@pytest.fixture(scope="session")
+def cdb_firmware_qualifying_ports(
+    port_attributes_dict, lport_to_first_subport_mapping, lport_to_pport,
+):
     """CMIS active-optical first-subport ports the CDB firmware tests run on.
 
     Selection is the CDB attribute category gated by the EEPROM ``cmis_active_optical``
     flag and restricted to any configured ``ports_under_test``.
     """
-    lport_to_pport = get_physical_port_indices(duthost)
     explicit_ports = resolve_ports_under_test(
         lport_to_pport, port_attributes_dict, CDB_FIRMWARE_UPGRADE_ATTRIBUTES_KEY
     )
@@ -139,19 +148,19 @@ def cdb_firmware_qualifying_ports(duthost, port_attributes_dict, lport_to_first_
     return qualifying_ports
 
 
-@pytest.fixture
-def dom_polling_disabled(duthost, port_attributes_dict, cdb_firmware_qualifying_ports):
-    """Disable DOM polling on the ports under test, restoring it on teardown.
+@contextmanager
+def dom_polling_disabled_on_ports(duthost, port_attributes_dict, ports):
+    """Disable DOM polling on ``ports`` for the duration of the block.
 
-    Firmware operation tests re-validate DOM values after each test, which
-    requires DOM to be re-enabled between tests.
+    Ports already disabled are left untouched so their prior state survives.
     """
     sleep_sec = 0
     disabled_ports = []
     try:
-        for port in cdb_firmware_qualifying_ports:
+        for port in ports:
             cdb_attrs = port_attributes_dict[port].get(CDB_FIRMWARE_UPGRADE_ATTRIBUTES_KEY, {})
-            sleep_sec = max(sleep_sec, cdb_attrs.get("sleep_after_dom_disable_sec", 5))
+            sleep_sec = max(sleep_sec, cdb_attrs.get("sleep_after_dom_disable_sec",
+                                                     DEFAULT_SLEEP_AFTER_DOM_DISABLE_SEC))
             namespace = resolve_port_namespace(duthost, port)
             dom_polling, err = get_db_hash_field(
                 duthost, "CONFIG_DB", "PORT", port, "dom_polling", namespace=namespace
@@ -178,38 +187,49 @@ def dom_polling_disabled(duthost, port_attributes_dict, cdb_firmware_qualifying_
             logger.info("Re-enabled DOM polling on %d port(s)", len(disabled_ports))
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture
+def dom_polling_disabled(duthost, port_attributes_dict, cdb_firmware_qualifying_ports):
+    """Disable DOM polling on the ports under test, restoring it on teardown.
+
+    Firmware operation tests re-validate DOM values after each test, which
+    requires DOM to be re-enabled between tests.
+    """
+    with dom_polling_disabled_on_ports(duthost, port_attributes_dict, cdb_firmware_qualifying_ports):
+        yield
+
+
+@pytest.fixture(scope="package", autouse=True)
 def restore_original_firmware_baseline(
     stage_latest_firmware_binaries_on_dut, firmware_files_cleanup, duthost, port_attributes_dict,
     cdb_firmware_qualifying_ports, required_firmware_metadata_for_all_transceivers,
+    lport_to_pport,
 ):
     """Restore every qualifying module to its original state before and
-    after the session. Depends on ``firmware_files_cleanup`` so the
-    post-session restore runs before the staged binaries are removed.
+    after the package. Depends on ``firmware_files_cleanup`` so the
+    post-package restore runs before the staged binaries are removed.
     """
-    lport_to_pport = get_physical_port_indices(duthost)
-
     def _restore(phase):
-        failures, ports = run_firmware_op_on_ports(
-            duthost, port_attributes_dict, cdb_firmware_qualifying_ports,
-            lport_to_pport, required_firmware_metadata_for_all_transceivers,
-            restore_module_to_original,
-        )
+        with dom_polling_disabled_on_ports(duthost, port_attributes_dict, cdb_firmware_qualifying_ports):
+            failures, ports = run_firmware_op_on_ports(
+                duthost, port_attributes_dict, cdb_firmware_qualifying_ports,
+                lport_to_pport, required_firmware_metadata_for_all_transceivers,
+                restore_module_to_original,
+            )
         logger.info("%s original firmware baseline on %d port(s)", phase, ports)
         if failures:
             pytest.fail(f"{phase} firmware restore failures:\n" + "\n".join(failures))
 
-    _restore("Pre-session")
+    _restore("Pre-package")
     yield
-    _restore("Post-session")
+    _restore("Post-package")
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="package", autouse=True)
 def firmware_files_cleanup(
     duthost
 ):
     """
-    Session-scoped cleanup fixture that removes firmware files after all tests in the session complete.
+    Package-scoped cleanup fixture that removes firmware files after all tests in the package complete.
     """
     yield  # This is where all tests run
 

@@ -9,6 +9,8 @@ from tests.transceiver.attribute_parser.attribute_keys import (
 
 logger = logging.getLogger(__name__)
 
+EXPECTED_FIRMWARE_VERSIONS_COUNT = 3
+
 
 def get_required_firmware_metadata_for_all_transceivers(
     port_attributes_dict,
@@ -36,6 +38,26 @@ def get_required_firmware_metadata_for_all_transceivers(
         firmware_versions = cdb_attrs.get("firmware_versions")
         if not firmware_versions:
             pytest.fail(f"{port}: firmware_versions is missing or empty")
+        if len(firmware_versions) != EXPECTED_FIRMWARE_VERSIONS_COUNT:
+            pytest.fail(
+                f"{port}: firmware_versions must contain exactly "
+                f"{EXPECTED_FIRMWARE_VERSIONS_COUNT} entries, got {len(firmware_versions)}"
+            )
+        if len(set(firmware_versions)) != len(firmware_versions):
+            pytest.fail(f"{port}: firmware_versions must not contain duplicates: {firmware_versions}")
+        gold_firmware_version = cdb_attrs.get("gold_firmware_version")
+        if gold_firmware_version != firmware_versions[-1]:
+            pytest.fail(
+                f"{port}: gold_firmware_version '{gold_firmware_version}' must be the last entry "
+                f"in firmware_versions {firmware_versions}"
+            )
+        if cdb_attrs.get("dual_bank_supported", True):
+            inactive_firmware_version = cdb_attrs.get("inactive_firmware_version")
+            if inactive_firmware_version != firmware_versions[-2]:
+                pytest.fail(
+                    f"{port}: inactive_firmware_version '{inactive_firmware_version}' must be the "
+                    f"second to last entry in firmware_versions {firmware_versions}"
+                )
         if transceiver_key in firmware_metadata_by_transceiver_type:
             continue
 
@@ -75,6 +97,14 @@ def get_required_firmware_metadata_for_all_transceivers(
         logger.info(f"Transceiver type {transceiver_type}: versions {versions}")
 
     return firmware_metadata_by_transceiver_type
+
+
+def resolve_binary_path(metadata_map, vendor, pn, version):
+    """Return the staged on-DUT path for ``(vendor, pn, version)``."""
+    for entry in metadata_map[(vendor, pn)]:
+        if entry["version"] == version:
+            return entry["dut_path"]
+    return None
 
 
 def get_dut_firmware_base_url(duthost, firmware_base_url_dict):
