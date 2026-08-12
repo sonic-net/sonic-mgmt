@@ -6,9 +6,8 @@ import ipaddress
 from tests.common.utilities import wait_until
 from tests.common.platform.device_utils import get_dpu_ip, get_dpu_port
 from tests.common.helpers.gnmi_utils import GNMIEnvironment, add_gnmi_client_common_name, del_gnmi_client_common_name, \
-                                            dump_gnmi_log, dump_system_status
+                                            dump_gnmi_log, dump_system_status, recover_telemetry_container
 from tests.common.helpers.ntp_helper import NtpDaemon, get_ntp_daemon_in_use   # noqa: F401
-from tests.common.helpers.dut_utils import check_container_state
 
 
 logger = logging.getLogger(__name__)
@@ -102,21 +101,6 @@ def check_gnmi_status(duthost):
     return "RUNNING" in output['stdout']
 
 
-def _check_monit_container_checker(duthost):
-    """Check if monit container_checker service is healthy.
-
-    After gNMI cert config recovery, monit needs time to re-evaluate
-    container status. This function checks if container_checker has
-    returned to a healthy state (OK or Status ok).
-    """
-    monit_services = duthost.get_monit_services_status()
-    if not monit_services:
-        return False
-    container_checker = monit_services.get("container_checker", {})
-    status = container_checker.get("service_status", "")
-    return status in ("OK", "Status ok")
-
-
 def recover_cert_config(duthost, stopped_programs=None):
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     # Kill the GNMI process
@@ -140,18 +124,7 @@ def recover_cert_config(duthost, stopped_programs=None):
         logger.error("GNMI service failed to start. GNMI log: {}".format(output['stdout']))
         pytest.fail("Failed to recover GNMI client cert configuration.")
 
-    # Restart telemetry container if it was stopped during cert config change
-    # apply_cert_config may trigger ctrmgrd to stop the telemetry container
-    if not check_container_state(duthost, "telemetry", should_be_running=True):
-        logger.info("Telemetry container is not running after cert config recovery, restarting it")
-        duthost.shell("sudo systemctl restart telemetry", module_ignore_errors=True)
-
-    # Wait for monit container_checker to report healthy status.
-    # After restarting processes/containers, monit needs time to re-evaluate
-    # service status. Without this wait, post-test sanity check may see stale
-    # "Status failed" from container_checker and fail the test on teardown.
-    if not wait_until(120, 10, 30, _check_monit_container_checker, duthost):
-        logger.warning("Monit container_checker did not recover to healthy status after cert config recovery")
+    recover_telemetry_container(duthost)
 
 
 def check_ntp_sync_status(duthost):

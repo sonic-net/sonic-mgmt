@@ -7,6 +7,9 @@ from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.x509.oid import NameOID
 
+from tests.common.helpers.dut_utils import check_container_state
+from tests.common.utilities import wait_until
+
 logger = logging.getLogger(__name__)
 
 
@@ -21,6 +24,30 @@ TELEMETRY_CONTAINER = "telemetry"
 # cryptography because the openssl 3.0.x CLI on the runner has no flag
 # to set notBefore on `req -x509` / `x509 -req` (added only in 3.5).
 _CERT_BACKDATE_DAYS = 7
+
+
+def _check_monit_container_checker(duthost):
+    """Check if monit container_checker service is healthy.
+
+    After gNMI cert config recovery, monit needs time to re-evaluate
+    container status. This function checks if container_checker has
+    returned to a healthy state (OK or Status ok).
+    """
+    monit_services = duthost.get_monit_services_status()
+    if not monit_services:
+        return False
+    container_checker = monit_services.get("container_checker", {})
+    status = container_checker.get("service_status", "")
+    return status in ("OK", "Status ok")
+
+
+def recover_telemetry_container(duthost):
+    """Restart telemetry when needed and wait for container_checker recovery."""
+    if not check_container_state(duthost, TELEMETRY_CONTAINER, should_be_running=True):
+        logger.info("Telemetry container is not running after gNMI recovery, restarting it")
+        duthost.shell("sudo systemctl restart telemetry", module_ignore_errors=True)
+
+    return wait_until(120, 10, 30, _check_monit_container_checker, duthost)
 
 
 def _cert_validity_period(days):

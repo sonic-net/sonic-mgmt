@@ -26,7 +26,7 @@ from tests.common.cert_utils import create_gnmi_cert_generator
 from tests.common.grpc_config import grpc_config
 from tests.common.gu_utils import create_checkpoint, rollback
 from tests.common.platform.processes_utils import wait_critical_processes
-from tests.common.helpers.gnmi_utils import GNMIEnvironment
+from tests.common.helpers.gnmi_utils import GNMIEnvironment, recover_telemetry_container
 from tests.common.ptf_grpc import PtfGrpc
 from tests.common.ptf_gnoi import PtfGnoi
 from tests.common.pygnmi_client import PygnmiClient
@@ -351,6 +351,12 @@ def gnmi_tls(request, duthosts, ptfhost):
             logger.info("All critical processes are healthy")
         except Exception as e:
             logger.error("Waiting for critical processes failed with exception: %s", e)
+
+        logger.info("Recovering telemetry container health after rollback")
+        if recover_telemetry_container(duthost):
+            logger.info("Telemetry container and Monit container_checker are healthy")
+        else:
+            logger.error("Telemetry container health did not recover after rollback")
 
         try:
             _delete_gnoi_certs(cert_dir)
