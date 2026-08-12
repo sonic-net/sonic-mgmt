@@ -54,6 +54,7 @@ MIRROR_ACTIVE_FIELDS = {
 MIRROR_IDLE_TIMEOUT_SEC = 30
 ROTATION_PAYLOAD_BYTES_PER_DIRECTION = 160 * 1024
 RESOURCE_LOAD_DURATION_SEC = 10
+AUTO_STOP_TIMEOUT_SEC = 5
 
 _PREFIX_RE = re.compile(
     r"^/var/log/sonic/console-mirror/line(?P<line>[0-9]+)/"
@@ -510,7 +511,7 @@ def _transfer_payload(
     payload: bytes,
     baud_rate: int,
 ) -> tuple[bytes, float]:
-    token = uuid.uuid4().hex.encode("ascii")
+    token = uuid.uuid4().hex.encode(encoding="ascii")
     start_marker = b"CM_START_" + token + b"_"
     end_marker = b"_CM_END_" + token + b"\n"
     frame = start_marker + payload + end_marker
@@ -1189,3 +1190,50 @@ def test_console_mirror_archive_success(
         pytest_assert(
             entry["value"][2] == "# fields=timestamp delta seq direction length payload"
         )
+
+
+def test_console_mirror_automatic_stop(duthost, mirror_test_context: MirrorTestContext):
+    """Verify timeout finalization records its reason and creates a ZIP."""
+    context = mirror_test_context
+    _, _, prefix = _start_mirror(
+        duthost,
+        context,
+        direction="both",
+        timeout=f"{AUTO_STOP_TIMEOUT_SEC}s",
+    )
+    archive_path = prefix + ".zip"
+
+    pytest_assert(
+        _wait_for_mirror_idle(duthost, context.link.line_a),
+        message=f"Mirror did not automatically stop after {AUTO_STOP_TIMEOUT_SEC}s",
+    )
+    pytest_assert(
+        wait_until(60, 1, 1, _remote_file_exists(duthost, archive_path)),
+        "Automatic stop did not create a ZIP",
+    )
+    pytest_assert(
+        not _list_recording_parts(duthost, prefix),
+        "Source log parts were not removed after automatic stop",
+    )
+
+    archive = _zip_information(duthost, archive_path)
+    pytest_assert(
+        archive["bad"] is None,
+        "ZIP CRC validation failed for {}".format(archive["bad"]),
+    )
+    names = [entry["name"] for entry in archive["entries"]]
+    _assert_archive_part_names(prefix, names)
+    records = []
+    prefix_match = _validate_prefix(prefix)
+    for part_number, entry in enumerate(archive["entries"], 1):
+        records.extend(
+            _parse_scm_content(
+                entry["value"], prefix_match.group("line"), "both", part_number
+            )
+        )
+    pytest_assert(
+        any(
+            record.event == {"event": "stop", "reason": "timeout"} for record in records
+        ),
+        "Automatic archive does not contain reason=timeout",
+    )
