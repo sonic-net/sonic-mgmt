@@ -33,6 +33,9 @@ CONTAINER_CHECK_INTERVAL_SECS = 1
 CONTAINER_RESTART_THRESHOLD_SECS = 180
 POST_CHECK_INTERVAL_SECS = 1
 POST_CHECK_THRESHOLD_SECS = 600
+# config_reload adds 120 seconds to these values for its BGP convergence check.
+CONFIG_RELOAD_WAIT_SECS = 120
+LT2_CONFIG_RELOAD_WAIT_SECS = 480
 
 # Delay (seconds) between issuing the SysRq kernel reboot and when it fires.
 # Used on multi-ASIC VS: the reboot is scheduled just before the global DB
@@ -68,11 +71,16 @@ def _filter_bmc_unsupported(duthost, container_name, critical_process_list):
     return filtered
 
 
+def get_config_reload_wait(tbinfo):
+    return LT2_CONFIG_RELOAD_WAIT_SECS if tbinfo["topo"]["type"] == "lt2" else CONFIG_RELOAD_WAIT_SECS
+
+
 @pytest.fixture(autouse=True, scope='module')
-def config_reload_after_tests(duthosts, rand_one_dut_hostname):
+def config_reload_after_tests(duthosts, rand_one_dut_hostname, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
     yield
-    config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True,
+                  wait=get_config_reload_wait(tbinfo), wait_for_bgp=True)
 
 
 @pytest.fixture(autouse=True, scope='module')
@@ -712,7 +720,8 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
                         % db_config_timeout)
 
         logger.info("Database config ready, performing config reload for clean recovery...")
-        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True,
+                      wait=get_config_reload_wait(tbinfo), wait_for_bgp=True)
 
         ensure_all_critical_processes_running(duthost, containers_in_namespaces)
 
@@ -720,7 +729,8 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
     else:
         # Normal recovery for other containers
         logger.info("Executing the config reload...")
-        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True,
+                      wait=get_config_reload_wait(tbinfo), wait_for_bgp=True)
         logger.info("Executing the config reload was done!")
 
         ensure_all_critical_processes_running(duthost, containers_in_namespaces)
