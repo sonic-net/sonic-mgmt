@@ -5,9 +5,9 @@ This script is to test BGP passive peering on SONiC
 '''
 
 import logging
+import time
 import pytest
 from tests.common.config_reload import config_reload
-from tests.common.devices.eos import EosHost
 from tests.common.helpers.bgp import get_vtysh_cmd_for_asic
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.utilities import wait_until
@@ -24,7 +24,27 @@ BGP_WAIT_INTERVAL = 10
 # [SuppressMessage("Microsoft.Security", "CS002:SecretInNextLine", Justification="Test placeholder password")]
 peer_password = "sonic.123"
 wrong_password = "wrong-password"
-EOS_BACKUP_CONFIG_FILE = "/tmp/eos_neighbor_test_passive_peering_backup_config_{}"
+
+
+def remove_password_on_neighbor(setup):
+    """Undo neighbor BGP passwords added by the tests (EOS or SONiC)."""
+    if setup['is_sonic']:
+        for dut_ip in (setup['dut_ip_v4'], setup['dut_ip_v6']):
+            cmd = get_vtysh_cmd_for_asic(
+                setup['neighhost'], setup['neigh_asic_index'],
+                'vtysh -c "config" -c "router bgp {}" -c "no neighbor {} password {}"'.format(
+                    setup['neigh_asn'], dut_ip, peer_password),
+            )
+            setup['neighhost'].shell(cmd, module_ignore_errors=True)
+    else:
+        for dut_ip in (setup['dut_ip_v4'], setup['dut_ip_v6']):
+            try:
+                setup['neighhost'].eos_config(
+                    lines=["no neighbor {} password 0 {}".format(dut_ip, peer_password)],
+                    parents=setup['neigh_eos_bgp_parents'],
+                )
+            except Exception as e:
+                logger.warning("Failed to remove BGP password for neighbor {}: {}".format(dut_ip, e))
 
 
 @pytest.fixture(scope='module')
@@ -112,30 +132,18 @@ def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_front_end_hostname, request):
     }
 
     logger.debug('Setup_info: {}'.format(setup_info))
-    neighbor_dut = nbrhosts[neigh_name]["host"]
-
-    is_arista_neighbor = not is_sonic and isinstance(neighbor_dut, EosHost)
-
-    if is_arista_neighbor:
-        # Neighbor is running EOS, backup config
-        neighbor_dut.eos_config(
-            backup=True,
-            backup_options={
-                'filename': EOS_BACKUP_CONFIG_FILE.format(neighbor_dut.hostname)
-            }
-        )
 
     yield setup_info
 
-    # restore config to original state on both DUT and neighbor
-
-    if is_arista_neighbor:
-        # Neighbor is running EOS, backup config
-        neighbor_dut.load_configuration(EOS_BACKUP_CONFIG_FILE.format(neighbor_dut.hostname))
-    elif is_sonic:
+    # Undo only what the tests changed on the neighbor. Full EOS backup restore via
+    # load_configuration() can fail on VS (e.g. VLAN subnet overlap on Vl2004/Vlan1).
+    if is_sonic:
         config_reload(nbrhosts[neigh_name]["host"], is_dut=False)
+    else:
+        remove_password_on_neighbor(setup_info)
 
-    config_reload(duthost, safe_reload=True, wait_for_bgp=True)
+    time.sleep(10)
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
 
 def check_bgp_neighbor_state(duthost, asic_index, neigh_ip, should_be_established=True):
