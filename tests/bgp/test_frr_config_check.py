@@ -11,6 +11,18 @@ from tests.common.helpers.assertions import pytest_assert
 
 pytestmark = [
     pytest.mark.topology('t0', 't1', 't1-lag', 't1-8-lag', 'lma', 'uma'),
+    # Both tests here self-skip when frrcfgd is running (see the
+    # get_frr_mgmt_framework_config() guards below, which predate the dual-mode work): they
+    # compare bgpcfgd's per-daemon config FILES against FRR's running config, and frrcfgd
+    # renders an integrated frr.conf instead, so there is nothing equivalent to compare.
+    #
+    # Without this marker the module is still parametrized over both modes, so the fixture
+    # performs a full config-reload switch into frr mode purely for the test to then skip --
+    # zero coverage for two reloads. Caught on a t0 (gold407): the [frr_mgmt_framework]
+    # variants skipped with "FRR management framework enabled" *after* the switch had run.
+    pytest.mark.frr_bgpcfgd_only(
+        "this module compares bgpcfgd's per-daemon config files against FRR's running "
+        "config; frrcfgd renders an integrated frr.conf, so both tests self-skip under it"),
     pytest.mark.disable_loganalyzer,
 ]
 
