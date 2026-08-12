@@ -53,8 +53,12 @@ MIRROR_ACTIVE_FIELDS = {
 }
 MIRROR_IDLE_TIMEOUT_SEC = 30
 ROTATION_PAYLOAD_BYTES_PER_DIRECTION = 160 * 1024
-RESOURCE_LOAD_DURATION_SEC = 10
 AUTO_STOP_TIMEOUT_SEC = 5
+RESOURCE_LOAD_DURATION_SEC = 180
+RESOURCE_SAMPLE_INTERVAL_SEC = 1
+
+_PROXY_CPU_USAGE_LAST_TIME = None
+_PROXY_CPU_USAGE_LAST_VALUE = None
 
 _PREFIX_RE = re.compile(
     r"^/var/log/sonic/console-mirror/line(?P<line>[0-9]+)/"
@@ -745,6 +749,43 @@ def _assert_archive_part_names(prefix: str, names: list[str]) -> None:
     )
 
 
+def _systemd_counter(duthost, service: str, property_name: str):
+    result = duthost.shell(
+        f"sudo systemctl show {service} --property={property_name} --value",
+        module_ignore_errors=True,
+    )
+    value = result.get("stdout", "").strip()
+    pytest_assert(
+        result["rc"] == 0 and value.isdigit(),
+        f"Could not read {property_name} for {service}: {value}",
+    )
+    return value
+
+
+def _get_proxy_memory_usage(duthost, service: str) -> int:
+    return int(_systemd_counter(duthost, service, "MemoryCurrent"))
+
+
+def _get_proxy_cpu_usage(duthost, service: str) -> float:
+    global _PROXY_CPU_USAGE_LAST_TIME, _PROXY_CPU_USAGE_LAST_VALUE
+    if _PROXY_CPU_USAGE_LAST_TIME is None:
+        _PROXY_CPU_USAGE_LAST_TIME = time.monotonic()
+        _PROXY_CPU_USAGE_LAST_VALUE = float(
+            _systemd_counter(duthost, service, "CPUUsageNSec")
+        )
+        time.sleep(2)
+    current_time = time.monotonic()
+    current_value = float(_systemd_counter(duthost, service, "CPUUsageNSec"))
+    elapsed_time = current_time - _PROXY_CPU_USAGE_LAST_TIME
+    assert _PROXY_CPU_USAGE_LAST_VALUE is not None
+    elapsed_cpu_nsec = current_value - _PROXY_CPU_USAGE_LAST_VALUE
+    _PROXY_CPU_USAGE_LAST_TIME = current_time
+    _PROXY_CPU_USAGE_LAST_VALUE = current_value
+    elapsed_cpu_sec = elapsed_cpu_nsec / 1e9
+    cpu_percent = (elapsed_cpu_sec / elapsed_time) * 100
+    return cpu_percent
+
+
 # ==================== Fixtures ============================
 
 
@@ -1208,7 +1249,7 @@ def test_console_mirror_automatic_stop(duthost, mirror_test_context: MirrorTestC
         message=f"Mirror did not automatically stop after {AUTO_STOP_TIMEOUT_SEC}s",
     )
     pytest_assert(
-        wait_until(60, 1, 1, _remote_file_exists(duthost, archive_path)),
+        wait_until(60, 1, 1, _remote_file_exists, duthost, archive_path),
         "Automatic stop did not create a ZIP",
     )
     pytest_assert(
@@ -1237,3 +1278,91 @@ def test_console_mirror_automatic_stop(duthost, mirror_test_context: MirrorTestC
         ),
         "Automatic archive does not contain reason=timeout",
     )
+
+
+def test_console_mirror_resource_usage(
+    duthost, creds, record_property, mirror_test_context: MirrorTestContext
+):
+    """Measure proxy CPU/memory at maximum configured serial throughput."""
+    context = mirror_test_context
+    client_a, client_b = _open_console_pair(duthost, creds, context)
+    service = f"console-monitor-proxy@{context.link.line_a}.service"
+
+    # record baseline
+    baseline_cpu = _get_proxy_cpu_usage(duthost, service)
+    baseline_mem = _get_proxy_memory_usage(duthost, service)
+
+    _start_mirror(duthost, context, direction="both", timeout="5m")
+
+    payload_size = max(
+        4096, int(context.link.baud_rate / 10.0 * RESOURCE_LOAD_DURATION_SEC)
+    )
+    payload = b"S" * payload_size
+    transfer_result = {}
+    transfer_errors = []
+
+    def transfer():
+        try:
+            frame, elapsed = _transfer_payload(
+                client_a, client_b, payload, context.link.baud_rate
+            )
+            transfer_result.update(frame=frame, elapsed=elapsed)
+        except BaseException as e:  # noqa: BLE001
+            transfer_errors.append(e)
+
+    transfer_thread = threading.Thread(
+        target=transfer, name="console-mirror-transfer", daemon=True
+    )
+    transfer_thread.start()
+
+    mem_samples = []
+    cpu_samples = []
+    while transfer_thread.is_alive():
+        time.sleep(RESOURCE_SAMPLE_INTERVAL_SEC)
+        mem_samples.append(_get_proxy_memory_usage(duthost, service))
+        cpu_samples.append(_get_proxy_cpu_usage(duthost, service))
+
+    transfer_thread.join(timeout=1.0)
+    pytest_assert(
+        not transfer_errors, f"Maximum-rate console transfer failed: {transfer_errors}"
+    )
+    pytest_assert(transfer_result, "Maximum-rate console transfer produced no result")
+    _stop_mirror(duthost, context)
+
+    # check actual throughput
+    throughput = payload_size / transfer_result["elapsed"]
+    expected_throughput = context.link.baud_rate / 10.0
+    pytest_assert(
+        throughput >= expected_throughput * 0.75,
+        f"Console throughput {throughput:.1f} B/s is below 75% of baud-limited {expected_throughput:.1f} B/s",
+    )
+
+    post_limit = baseline_mem + int(baseline_mem * 0.25)
+    pytest_assert(
+        wait_until(
+            30,
+            3,
+            0,
+            lambda: _get_proxy_memory_usage(duthost, service) <= post_limit,
+        ),
+        f"Proxy memory did not return near its idle baseline (baseline={baseline_mem}, allowed={post_limit})",
+    )
+
+    post_memory = _get_proxy_memory_usage(duthost, service)
+    peak_memory = max(mem_samples or [baseline_mem])
+    peak_cpu = max(cpu_samples or [0.0])
+
+    metrics = {
+        "line": context.link.line_a,
+        "baud_rate": context.link.baud_rate,
+        "payload_bytes": payload_size,
+        "throughput_bytes_per_sec": round(throughput, 2),
+        "idle_cpu_percent": round(baseline_cpu, 3),
+        "peak_cpu_percent": round(peak_cpu, 3),
+        "idle_memory_bytes": baseline_mem,
+        "peak_memory_bytes": peak_memory,
+        "post_stop_memory_bytes": post_memory,
+    }
+    logger.info("Console Mirror resource metrics: %s", metrics)
+    for name, value in metrics.items():
+        record_property(f"console_mirror_{name}", value)
