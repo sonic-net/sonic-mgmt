@@ -15,6 +15,21 @@ DHCP_SERVER_FEATURE_NAME = "dhcp_server"
 logger = logging.getLogger(__name__)
 
 
+def get_lifecycle_relay_type(duthost, internal):
+    """Select the lifecycle mode from the existing SONiC DHCPv4 relay flag."""
+    config_facts = duthost.config_facts(host=duthost.hostname, source='running')['ansible_facts']
+    device_metadata = config_facts['DEVICE_METADATA']['localhost']
+    sonic_relay = device_metadata.get('has_sonic_dhcpv4_relay', 'False') == 'True'
+    if sonic_relay:
+        return 'sonic-internal' if internal else 'sonic'
+    if not internal:
+        return 'isc'
+    dhcp_server_ipv4 = config_facts.get('DHCP_SERVER_IPV4', {})
+    if any(config.get('state') == 'enabled' for config in dhcp_server_ipv4.values()):
+        return 'isc-internal'
+    return 'isc-internal-idle'
+
+
 @pytest.fixture(scope="module", autouse=True)
 def dhcp_server_setup_teardown(duthost):
     features_state, succeeded = duthost.get_feature_status()
@@ -23,10 +38,6 @@ def dhcp_server_setup_teardown(duthost):
     dhcp_server_state = features_state[DHCP_SERVER_FEATURE_NAME]
     py_require(dhcp_server_state in ('enabled', 'always_enabled', 'disabled'),
                "Skip on testbed with unsupported dhcp server feature state: {}".format(dhcp_server_state))
-    py_assert(hasattr(dhcp_relay_utils, 'get_dhcp_relay_type'),
-              "#26525 must merge first: get_dhcp_relay_type is required")
-    get_dhcp_relay_type = dhcp_relay_utils.get_dhcp_relay_type
-
     restore_state_flag = dhcp_server_state == 'disabled'
 
     def restore_dhcp_server_state():
@@ -45,7 +56,7 @@ def dhcp_server_setup_teardown(duthost):
             cleanup_step('disable feature', lambda: duthost.shell("config feature state dhcp_server disabled"))
         cleanup_step('restore relay layout',
                      lambda: dhcp_relay_utils.restart_dhcp_service(
-                         duthost, [get_dhcp_relay_type(duthost)]))
+                         duthost, [get_lifecycle_relay_type(duthost, not restore_state_flag)]))
         if restore_state_flag:
             def remove_dhcp_server_container():
                 result = duthost.shell("docker rm -f {}".format(DHCP_SERVER_CONTAINER_NAME), module_ignore_errors=True)
@@ -66,7 +77,7 @@ def dhcp_server_setup_teardown(duthost):
         if restore_state_flag:
             duthost.shell("config feature state dhcp_server enabled")
 
-        dhcp_relay_utils.restart_dhcp_service(duthost, [get_dhcp_relay_type(duthost)])
+        dhcp_relay_utils.restart_dhcp_service(duthost, [get_lifecycle_relay_type(duthost, True)])
 
         def is_supervisor_subprocess_running(duthost, container_name, app_name):
             result = duthost.shell(f"docker exec {container_name} supervisorctl status {app_name}",
@@ -90,8 +101,8 @@ def dhcp_server_setup_teardown(duthost):
 
 
 @pytest.fixture(scope="function", autouse=True)
-def clean_dhcp_server_config_after_test(duthost, request):
-    clean_dhcp_server_config(duthost)
+def clean_dhcp_server_config_after_test(duthost, request, relay_agent):
+    clean_dhcp_server_config(duthost, relay_agent)
 
     try:
         yield
@@ -105,7 +116,7 @@ def clean_dhcp_server_config_after_test(duthost, request):
             for report_name in ('rep_setup', 'rep_call')
         )
         try:
-            clean_dhcp_server_config(duthost)
+            clean_dhcp_server_config(duthost, relay_agent)
         except (Exception, OutcomeException):
             if not test_has_outcome:
                 raise

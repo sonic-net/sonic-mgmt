@@ -48,13 +48,15 @@ def setup_multiple_vlans_and_teardown(duthost, tbinfo):
     )
 
     logging.info("The patch for setup is %s" % patch_setup)
-    apply_dhcp_server_config_gcu(duthost, patch_setup)
+    apply_dhcp_server_config_gcu(
+        duthost, patch_setup, 'isc-relay-agent', relay_configured=False)
 
     logging.info("The four_vlans_info after setup is %s" % four_vlans_info)
     yield four_vlans_info
 
     logging.info("The patch for restore is %s" % patch_restore)
-    apply_dhcp_server_config_gcu(duthost, patch_restore)
+    apply_dhcp_server_config_gcu(
+        duthost, patch_restore, 'isc-relay-agent', relay_configured=False)
 
 
 def generate_four_vlans_config_patch(vlan_name, vlan_info, vlan_member_with_ptf_idx):
@@ -221,7 +223,7 @@ def test_single_ip_assignment(
             test_sets.append((vlan_name, gateway, net_mask, dut_ports[index], ptf_port_indexs[index],
                               exp_assigned_ip_ranges[index], test_xid))
 
-    apply_dhcp_server_config_gcu(duthost, config_to_apply)
+    apply_dhcp_server_config_gcu(duthost, config_to_apply, relay_agent)
     for vlan_name, gateway, net_mask, dut_port, ptf_port_index, exp_assigned_ip_range, test_xid in test_sets:
         logging.info("Testing for vlan %s, gateway %s, net_mask %s dut_port %s, ptf_port_index %s, \
                      expected_assigned_ip %s, test_xid %s" % (vlan_name, gateway, net_mask, dut_port,
@@ -294,7 +296,7 @@ def test_range_ip_assignment(
         [[expected_assigned_ip_2, last_ip_in_range_2]]
     )
 
-    apply_dhcp_server_config_gcu(duthost, config_to_apply)
+    apply_dhcp_server_config_gcu(duthost, config_to_apply, relay_agent)
     verify_discover_and_request_then_release(
         duthost=duthost,
         ptfhost=ptfhost,

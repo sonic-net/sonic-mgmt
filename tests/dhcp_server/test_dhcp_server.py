@@ -83,7 +83,7 @@ def test_dhcp_server_port_based_assignment_single_ip_tc1(
         config_to_apply = config_cli
     elif config_tool == DHCP_SERVER_CONFIG_TOOL_GCU:
         config_to_apply = config_gcu
-    with dhcp_server_config(duthost, config_tool, config_to_apply):
+    with dhcp_server_config(duthost, config_tool, config_to_apply, relay_agent):
         verify_discover_and_request_then_release(
             duthost=duthost,
             ptfhost=ptfhost,
@@ -126,7 +126,7 @@ def test_dhcp_server_port_based_assignment_single_ip_tc2(
         config_to_apply = config_cli
     elif config_tool == DHCP_SERVER_CONFIG_TOOL_GCU:
         config_to_apply = config_gcu
-    with dhcp_server_config(duthost, config_tool, config_to_apply):
+    with dhcp_server_config(duthost, config_tool, config_to_apply, relay_agent):
         verify_discover_and_request_then_release(
             duthost=duthost,
             ptfhost=ptfhost,
@@ -172,7 +172,7 @@ def test_dhcp_server_port_based_assignment_single_ip_tc3(
         config_to_apply = config_cli
     elif config_tool == DHCP_SERVER_CONFIG_TOOL_GCU:
         config_to_apply = config_gcu
-    with dhcp_server_config(duthost, config_tool, config_to_apply):
+    with dhcp_server_config(duthost, config_tool, config_to_apply, relay_agent):
         verify_discover_and_request_then_release(
             duthost=duthost,
             ptfhost=ptfhost,
@@ -221,7 +221,7 @@ def test_dhcp_server_port_based_assignment_single_ip_tc4(
         config_to_apply = config_cli
     elif config_tool == DHCP_SERVER_CONFIG_TOOL_GCU:
         config_to_apply = config_gcu
-    with dhcp_server_config(duthost, config_tool, config_to_apply):
+    with dhcp_server_config(duthost, config_tool, config_to_apply, relay_agent):
         verify_discover_and_request_then_release(
             duthost=duthost,
             ptfhost=ptfhost,
@@ -268,7 +268,7 @@ def test_dhcp_server_port_based_assignment_range_ip(
         config_to_apply = config_cli
     elif config_tool == DHCP_SERVER_CONFIG_TOOL_GCU:
         config_to_apply = config_gcu
-    with dhcp_server_config(duthost, config_tool, config_to_apply):
+    with dhcp_server_config(duthost, config_tool, config_to_apply, relay_agent):
         verify_discover_and_request_then_release(
             duthost=duthost,
             ptfhost=ptfhost,
@@ -318,7 +318,7 @@ def test_dhcp_server_port_based_assigenment_single_ip_mac_move(
         config_to_apply = config_cli
     elif config_tool == DHCP_SERVER_CONFIG_TOOL_GCU:
         config_to_apply = config_gcu
-    with dhcp_server_config(duthost, config_tool, config_to_apply):
+    with dhcp_server_config(duthost, config_tool, config_to_apply, relay_agent):
         verify_discover_and_request_then_release(
             duthost=duthost,
             ptfhost=ptfhost,
@@ -381,7 +381,7 @@ def test_dhcp_server_port_based_assigenment_single_ip_mac_swap(
         config_to_apply = config_cli
     elif config_tool == DHCP_SERVER_CONFIG_TOOL_GCU:
         config_to_apply = config_gcu
-    with dhcp_server_config(duthost, config_tool, config_to_apply):
+    with dhcp_server_config(duthost, config_tool, config_to_apply, relay_agent):
         verify_discover_and_request_then_release(
             duthost=duthost,
             ptfhost=ptfhost,
@@ -476,7 +476,7 @@ def test_dhcp_server_port_based_customize_options(
         [[expected_assigned_ip]],
         customized_options
     )
-    with dhcp_server_config(duthost, DHCP_SERVER_CONFIG_TOOL_GCU, config_patch):
+    with dhcp_server_config(duthost, DHCP_SERVER_CONFIG_TOOL_GCU, config_patch, relay_agent):
         pkts_validator = validate_dhcp_server_pkts_custom_option
         pkts_validator_args = [test_xid]
         pkts_validator_kwargs = {"%s" % random_option_id: option_info[1].encode('ascii')}
@@ -538,7 +538,7 @@ def test_dhcp_server_config_change_dhcp_interface(
     logging.info("expected assigned ip is %s, dut_port is %s, ptf_port_index is %s" %
                  (expected_assigned_ip, dut_port, ptf_port_index))
     config_to_apply = create_common_config_patch(vlan_name, gateway, net_mask, [dut_port], [[expected_assigned_ip]])
-    apply_dhcp_server_config_gcu(duthost, config_to_apply)
+    apply_dhcp_server_config_gcu(duthost, config_to_apply, relay_agent)
     verify_discover_and_request_then_release(
         duthost=duthost,
         ptfhost=ptfhost,
@@ -561,7 +561,7 @@ def test_dhcp_server_config_change_dhcp_interface(
             "value": "disabled"
         }
     ]
-    apply_dhcp_server_config_gcu(duthost, config_to_apply)
+    apply_dhcp_server_config_gcu(duthost, config_to_apply, relay_agent, relay_configured=False)
     verify_discover_and_request_then_release(
         duthost=duthost,
         ptfhost=ptfhost,
@@ -596,7 +596,7 @@ def test_dhcp_server_config_change_common(
     logging.info("expected assigned ip is %s, dut_port is %s, ptf_port_index is %s" %
                  (expected_assigned_ip, dut_port, ptf_port_index))
     config_to_apply = create_common_config_patch(vlan_name, gateway, net_mask, [dut_port], [[expected_assigned_ip]])
-    apply_dhcp_server_config_gcu(duthost, config_to_apply)
+    apply_dhcp_server_config_gcu(duthost, config_to_apply, relay_agent)
     verify_discover_and_request_then_release(
         duthost=duthost,
         ptfhost=ptfhost,
@@ -635,7 +635,7 @@ def test_dhcp_server_config_change_common(
             "value": "%s" % changed_gateway
         }
     ]
-    apply_dhcp_server_config_gcu(duthost, change_to_apply)
+    apply_dhcp_server_config_gcu(duthost, change_to_apply, relay_agent)
     change_to_apply = [
         {
             "op": "remove",
@@ -643,7 +643,7 @@ def test_dhcp_server_config_change_common(
             "value": "%s" % expected_assigned_ip
         }
     ]
-    apply_dhcp_server_config_gcu(duthost, change_to_apply)
+    apply_dhcp_server_config_gcu(duthost, change_to_apply, relay_agent)
     verify_discover_and_request_then_release(
         duthost=duthost,
         ptfhost=ptfhost,
@@ -682,7 +682,7 @@ def test_dhcp_server_config_vlan_member_change(
     logging.info("expected assigned ip is %s, dut_port is %s, ptf_port_index is %s" %
                  (expected_assigned_ip, dut_port, ptf_port_index))
     config_to_apply = create_common_config_patch(vlan_name, gateway, net_mask, [dut_port], [[expected_assigned_ip]])
-    apply_dhcp_server_config_gcu(duthost, config_to_apply)
+    apply_dhcp_server_config_gcu(duthost, config_to_apply, relay_agent)
     # delete member
     duthost.del_member_from_vlan(vlan_n2i(vlan_name), dut_port)
     try:
@@ -741,7 +741,7 @@ def test_dhcp_server_lease_config_change(
     logging.info("expected assigned ip is %s, dut_port is %s, ptf_port_index is %s" %
                  (expected_assigned_ip, dut_port, ptf_port_index))
     config_to_apply = create_common_config_patch(vlan_name, gateway, net_mask, [dut_port], [[expected_assigned_ip]])
-    apply_dhcp_server_config_gcu(duthost, config_to_apply)
+    apply_dhcp_server_config_gcu(duthost, config_to_apply, relay_agent)
     verify_discover_and_request_then_release(
         duthost=duthost,
         ptfhost=ptfhost,
@@ -766,7 +766,7 @@ def test_dhcp_server_lease_config_change(
             "value": "%s" % changed_lease_time
         }
     ]
-    apply_dhcp_server_config_gcu(duthost, change_to_apply)
+    apply_dhcp_server_config_gcu(duthost, change_to_apply, relay_agent)
     client_mac = ptfadapter.dataplane.get_mac(0, ptf_port_index).decode('utf-8')
     verify_lease(duthost, vlan_name, client_mac, expected_assigned_ip, DHCP_DEFAULT_LEASE_TIME)
     send_release_packet(ptfadapter, ptf_port_index, test_xid, client_mac, expected_assigned_ip, gateway)
@@ -806,7 +806,7 @@ def test_dhcp_server_config_vlan_intf_change(
         [dut_port_1],
         [[expected_assigned_ip_1]]
     )
-    apply_dhcp_server_config_gcu(duthost, config_to_apply)
+    apply_dhcp_server_config_gcu(duthost, config_to_apply, relay_agent)
 
     # When the VLAN has multiple IPv4 addresses, extra IPs on different subnets
     # can interfere with the DHCP server's subnet matching after IP swap/restore.
