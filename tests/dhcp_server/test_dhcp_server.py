@@ -10,13 +10,18 @@ from dhcp_server_test_common import DHCP_SERVER_CONFIG_TOOL_GCU, DHCP_SERVER_CON
     verify_discover_and_request_then_release, send_and_verify, DHCP_MESSAGE_TYPE_DISCOVER_NUM, \
     DHCP_SERVER_SUPPORTED_OPTION_ID, DHCP_MESSAGE_TYPE_REQUEST_NUM, DHCP_DEFAULT_LEASE_TIME, \
     apply_dhcp_server_config_gcu, create_dhcp_client_packet, vlan_n2i
-from tests.common.dhcp_relay_utils import enable_sonic_dhcpv4_relay_agent  # noqa: F401
 
 
 pytestmark = [
     pytest.mark.topology('mx'),
     pytest.mark.parametrize("relay_agent", ["isc-relay-agent", "sonic-relay-agent"]),
 ]
+
+
+@pytest.fixture()
+def dhcp_relay_test_context():
+    """DHCP-server tests use the relay agent's internal process layout."""
+    return 'internal'
 
 
 @pytest.fixture(scope="module")

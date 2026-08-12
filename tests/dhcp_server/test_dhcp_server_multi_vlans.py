@@ -6,12 +6,17 @@ from tests.common.helpers.assertions import pytest_assert
 from dhcp_server_test_common import create_common_config_patch, append_common_config_patch, \
     verify_discover_and_request_then_release, apply_dhcp_server_config_gcu, empty_config_patch, \
     vlan_n2i
-from tests.common.dhcp_relay_utils import enable_sonic_dhcpv4_relay_agent    # noqa: F401
 
 pytestmark = [
     pytest.mark.topology('mx'),
     pytest.mark.parametrize("relay_agent", ["isc-relay-agent", "sonic-relay-agent"]),
 ]
+
+
+@pytest.fixture()
+def dhcp_relay_test_context():
+    """DHCP-server tests use the relay agent's internal process layout."""
+    return 'internal'
 
 
 @pytest.fixture(scope="module", autouse=True)

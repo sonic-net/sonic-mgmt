@@ -2,6 +2,7 @@ import pytest
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert as py_assert
 from tests.common.helpers.assertions import pytest_require as py_require
+from tests.common.dhcp_relay_utils import enable_sonic_dhcpv4_relay_agent  # noqa: F401
 from dhcp_server_test_common import clean_dhcp_server_config
 
 DHCP_RELAY_CONTAINER_NAME = "dhcp_relay"
@@ -90,7 +91,7 @@ def dhcp_server_setup_teardown(duthost):
 
 
 @pytest.fixture(scope="function", autouse=True)
-def clean_dhcp_server_config_after_test(duthost):
+def clean_dhcp_server_config_after_test(duthost, enable_sonic_dhcpv4_relay_agent):  # noqa: F811
     clean_dhcp_server_config(duthost)
 
     yield
