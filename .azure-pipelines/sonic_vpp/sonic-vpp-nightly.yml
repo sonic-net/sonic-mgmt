@@ -28,6 +28,8 @@ stages:
         value: veos_vtb
       - name: testbed_file
         value: vtestbed.yaml
+      - name: T0_VPP_INSTANCE_NUM
+        value: 20
       - name: BUILD_BRANCH
         value: $(Build.SourceBranchName)
 
