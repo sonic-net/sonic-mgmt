@@ -1,6 +1,5 @@
 import logging
 import pytest
-from tests.common.fixtures.frr_config_mode import skip_module_if_frr_native
 from tests.common.helpers.assertions import pytest_assert
 from tests.common import config_reload
 from tests.bgp.constants import TS_NORMAL, TS_MAINTENANCE
@@ -8,10 +7,11 @@ from tests.bgp.traffic_checker import get_traffic_shift_state
 from tests.bgp.bgp_helpers import initial_tsa_check_before_and_after_test
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.utilities import wait_until
+from tests.common.fixtures.frr_config_mode import FRR_BGP_DEVICE_GLOBAL_GAP_REASON
 
 pytestmark = [
     pytest.mark.topology('t2'),
-    pytest.mark.frr_bgpcfgd_only("frrcfgd does not consume BGP_DEVICE_GLOBAL (TSA/TSB/IDF isolation/W-ECMP)"),
+    pytest.mark.frr_bgpcfgd_only(FRR_BGP_DEVICE_GLOBAL_GAP_REASON),
 ]
 
 logger = logging.getLogger(__name__)
@@ -143,8 +143,3 @@ def test_TSA_TSB_chassis_with_config_reload(duthosts, enum_supervisor_dut_hostna
         verify_traffic_shift_state_all_lcs(duthosts, TS_NORMAL, "normal")
         # Bring back the supervisor and line cards to the BGP operational normal state
         initial_tsa_check_before_and_after_test(duthosts)
-
-
-@pytest.fixture(scope="module", autouse=True)
-def _skip_bgp_device_global_in_frr_mgmt_framework(duthosts, rand_one_dut_hostname):
-    skip_module_if_frr_native(duthosts[rand_one_dut_hostname])

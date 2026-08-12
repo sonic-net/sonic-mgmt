@@ -4,7 +4,6 @@ import threading
 import time
 
 import pytest
-from tests.common.fixtures.frr_config_mode import skip_module_if_frr_native
 from tests.common import reboot, config_reload
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.reboot import get_reboot_cause, SONIC_SSH_PORT, SONIC_SSH_REGEX, wait_for_startup
@@ -18,10 +17,11 @@ from tests.bgp.route_checker import parse_routes_on_neighbors, check_and_log_rou
     verify_current_routes_announced_to_neighs, assert_only_loopback_routes_announced_to_neighs
 from tests.bgp.constants import TS_NORMAL, TS_MAINTENANCE
 from tests.conftest import get_hosts_per_hwsku
+from tests.common.fixtures.frr_config_mode import FRR_BGP_DEVICE_GLOBAL_GAP_REASON
 
 pytestmark = [
     pytest.mark.topology('t2', 'lrh', 'urh'),
-    pytest.mark.frr_bgpcfgd_only("frrcfgd does not consume BGP_DEVICE_GLOBAL (TSA/TSB/IDF isolation/W-ECMP)"),
+    pytest.mark.frr_bgpcfgd_only(FRR_BGP_DEVICE_GLOBAL_GAP_REASON),
 ]
 
 logger = logging.getLogger(__name__)
@@ -1761,8 +1761,3 @@ def test_tsa_tsb_service_consistency(request, duthosts):
                 config_reload(lc, safe_reload=True, check_intf_up_ports=True, exec_tsb=True)
 
         config_reload_linecard_if_unhealthy(masic_linecard)
-
-
-@pytest.fixture(scope="module", autouse=True)
-def _skip_bgp_device_global_in_frr_mgmt_framework(duthosts, rand_one_dut_hostname):
-    skip_module_if_frr_native(duthosts[rand_one_dut_hostname])
