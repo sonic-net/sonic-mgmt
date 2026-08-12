@@ -109,7 +109,10 @@ FRRCFGD_UNSUPPORTED_GLOBAL_PREFIXES = (
     "zebra nexthop-group keep ",
     "zebra nexthop kernel enable",
     "no zebra nexthop kernel enable",
-    "fpm address ",
+    # NOT listed, because frrcfgd DOES render them (templates/frr/frr.conf.j2):
+    #   fpm address 127.0.0.1          -- hardcoded there, same as bgpcfgd
+    #   fpm use-next-hop-groups        -- driven by DEVICE_METADATA.nexthop_group
+    # If either ever goes missing across a switch that is a real regression, so let it fail.
     "bgp graceful-restart select-defer-time ",
     "bgp graceful-restart-disable",
     "bgp long-lived-graceful-restart ",
