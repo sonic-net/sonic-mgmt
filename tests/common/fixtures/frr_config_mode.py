@@ -96,6 +96,47 @@ def skip_if_frr_mgmt_framework(mode, reason):
 
 FRR_BGP_DEVICE_GLOBAL_GAP_REASON = "frrcfgd does not consume BGP_DEVICE_GLOBAL (TSA/IDF/W-ECMP)"
 
+
+def switched_dut_hostname(request):
+    """The hostname ``frr_config_mode`` actually switched, or None if no switch happened.
+
+    None covers every no-switch path -- a native-mode run, a multi-ASIC or supervisor DUT,
+    ``--enable_macsec`` -- as well as a session where the fixture has not run yet.
+    """
+    state = getattr(request.session, _SESSION_STATE_ATTR, None)
+    if state is None or state.applied_mode == state.original_mode:
+        return None
+    return state.duthost.hostname
+
+
+def skip_if_dut_not_switched(request, duthost):
+    """Skip when ``duthost`` is not the DUT ``frr_config_mode`` switched.
+
+    The fixture switches ``rand_one_dut_hostname``. A module that configures or asserts FRR
+    behaviour on a DIFFERENT DUT -- one chosen by ``enum_rand_one_per_hwsku_frontend_hostname``,
+    ``enum_frontend_dut_hostname``, or its own source/destination selection -- would otherwise
+    report frr coverage while running against a DUT still in traditional mode. That is worse
+    than no coverage when the module's read side normalises both schemas, because the
+    ``[frr_mgmt_framework]`` variant then passes without having exercised frrcfgd at all.
+
+    Those selections genuinely resolve to a different host on topologies that exist today: a
+    dualtor testbed has two single-ASIC frontend DUTs, and a multi-DUT T2 enumerates several.
+
+    A no-op when no switch was performed (see :func:`switched_dut_hostname`) -- there is no
+    mismatch to protect against then -- and a no-op when the hostnames coincide, which they do
+    on a single-DUT topology. Call it from the module's setup, passing the DUT the module
+    actually operates on. Widening the fixture to switch every DUT under test instead would
+    need per-DUT migrators and baselines.
+    """
+    switched = switched_dut_hostname(request)
+    if switched is None or duthost.hostname == switched:
+        return
+    pytest.skip(
+        "frr_config_mode switched '{}', but this test operates on '{}'. Running here would "
+        "report frr_mgmt_framework coverage for a DUT still in its original mode, so skip "
+        "instead. Switching every DUT under test would need per-DUT migrators and baselines."
+        .format(switched, duthost.hostname))
+
 # BGP monitors (BGP_MONITORS / bgpmon) is a legacy feature, superseded by BMP (BGP Monitoring
 # Protocol, RFC 7854) which FRR now supports natively and which the tests/bmp suite covers.
 # bgpmon predates BMP and was only added because FRR lacked BMP support at the time. frrcfgd
@@ -104,6 +145,8 @@ FRR_BGP_DEVICE_GLOBAL_GAP_REASON = "frrcfgd does not consume BGP_DEVICE_GLOBAL (
 # over frr_config_mode: they run in traditional (bgpcfgd) mode and skip outright on a
 # native-frrcfgd DUT. This is a permanent, by-design skip, deliberately NOT gated on an
 # auto-lifting tracking issue.
+
+
 FRR_LEGACY_BGP_MONITORS_REASON = (
     "BGP monitors (BGP_MONITORS) is a legacy feature superseded by BMP and is intentionally "
     "unsupported in frr_mgmt_framework mode; use BMP (see tests/bmp) instead")
@@ -499,15 +542,21 @@ def frr_config_mode(request, duthosts, rand_one_dut_hostname):
     coverage.
 
     Scope caveat -- which DUT gets switched: this fixture switches the mode on
-    ``rand_one_dut_hostname``. Multi-DUT modules that act on a different DUT
-    (``enum_downstream_dut_hostname`` / ``enum_upstream_dut_hostname``, e.g.
-    test_bgp_suppress_fib) are therefore only meaningfully parametrized when those
-    resolve to the same host. They do on single-DUT single-ASIC topologies, and the
-    multi-DUT topologies in practice are multi-ASIC -- where the branch below runs the
-    DUT's native mode only and performs no switch. So the frr variant of such a module
-    either tests the switched DUT or does not switch at all; it never silently tests an
-    unswitched DUT while claiming frr coverage. Widening this to switch every DUT under
-    test would need per-DUT migrators and baselines.
+    ``rand_one_dut_hostname``. A module that acts on a different DUT
+    (``enum_frontend_dut_hostname``, ``enum_rand_one_per_hwsku_frontend_hostname``,
+    ``enum_downstream_dut_hostname``/``enum_upstream_dut_hostname``, or its own
+    source/destination selection) is only meaningfully parametrized when those resolve to
+    the same host.
+
+    They do on a single-DUT topology, but NOT in general: a dualtor testbed has two
+    single-ASIC frontend DUTs, so the multi-ASIC no-switch branch below does not save us,
+    and a multi-DUT T2 enumerates several. Such a module must call
+    :func:`skip_if_dut_not_switched` from its setup with the DUT it operates on, so the frr
+    variant skips rather than reporting frr coverage for a DUT still in its original mode.
+    That matters most where the module's read side normalises both schemas -- the variant
+    would otherwise pass without exercising frrcfgd at all.
+
+    Widening this to switch every DUT under test would need per-DUT migrators and baselines.
 
     Skips (with a clear reason, rather than running something wrong):
       * multi-ASIC DUT (per-ASIC switching not supported yet);

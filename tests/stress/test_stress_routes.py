@@ -7,6 +7,7 @@ import pytest
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from utils import get_crm_resource_status, check_queue_status, sleep_to_wait, LOOP_TIMES_LEVEL_MAP
+from tests.common.fixtures.frr_config_mode import skip_if_dut_not_switched
 
 ALLOW_ROUTES_CHANGE_NUMS = 5
 CRM_POLLING_INTERVAL = 1
@@ -39,13 +40,19 @@ def announce_withdraw_routes(duthost, namespace, localhost, ptf_ip, topo_name):
     logger.info("ipv6 route used {}".format(get_crm_resource_status(duthost, "ipv6_route", "used", namespace)))
 
 
-def test_announce_withdraw_route(frr_config_mode, duthosts, localhost, tbinfo, get_function_completeness_level,
+def test_announce_withdraw_route(request, frr_config_mode, duthosts, localhost, tbinfo,
+                                 get_function_completeness_level,
                                  withdraw_and_announce_existing_routes, loganalyzer,
                                  enum_rand_one_per_hwsku_frontend_hostname, enum_rand_one_frontend_asic_index,
                                  rotate_syslog):
     ptf_ip = tbinfo["ptf_ip"]
     topo_name = tbinfo["topo"]["name"]
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    # frr_config_mode switches rand_one_dut_hostname, but this test runs against the DUT
+    # enum_rand_one_per_hwsku_frontend_hostname picked. On a dualtor (two single-ASIC
+    # frontend DUTs) those resolve independently, so skip rather than claim frr coverage
+    # for a DUT still in its original mode.
+    skip_if_dut_not_switched(request, duthost)
     asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
     asic_type = duthost.facts["asic_type"]
     namespace = asichost.namespace

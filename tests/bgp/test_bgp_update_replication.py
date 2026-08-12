@@ -13,6 +13,7 @@ from tests.bgp.bgp_helpers import is_neighbor_sessions_established
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until, is_ipv6_only_topology
+from tests.common.fixtures.frr_config_mode import skip_if_dut_not_switched
 
 logger = logging.getLogger(__name__)
 
@@ -278,6 +279,7 @@ def _check_rib_routes_withdrawn(duthost, is_ipv6, min_expected_rib):
 
 
 def test_bgp_update_replication(
+    request,
     frr_config_mode,
     duthosts,
     enum_rand_one_per_hwsku_frontend_hostname,
@@ -288,6 +290,9 @@ def test_bgp_update_replication(
     NUM_ROUTES = 10_000
     ROUTE_WAIT_TIMEOUT = 60
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    # frr_config_mode switches rand_one_dut_hostname; on a dualtor these resolve
+    # independently, so skip rather than claim frr coverage for an unswitched DUT.
+    skip_if_dut_not_switched(request, duthost)
     bgp_peers: list[BGPNeighbor] = setup_bgp_peers
     duthost_intervals: list[float] = setup_duthost_intervals
     is_ipv6 = is_ipv6_only_topology(tbinfo)
