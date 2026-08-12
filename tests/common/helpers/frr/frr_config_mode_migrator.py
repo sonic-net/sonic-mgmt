@@ -253,12 +253,32 @@ class FrrConfigModeMigrator(object):
                            module_ignore_errors=True)
         return True
 
+    def _frr_tables_in_backup(self):
+        """FRR-schema tables the pre-switch backup already contained.
+
+        This is the baseline the restore is measured against. It is NOT always empty: a DUT
+        that natively boots frrcfgd carries the frr schema in CONFIG_DB as its normal state,
+        and a hand-migrated box can run bgpcfgd over an frr-shaped CONFIG_DB. Those tables
+        were there before anything switched, so their presence afterwards is not residue.
+        """
+        backup = self._read_json_file(CONFIG_DB_FILE + _BAK_SUFFIX)
+        if backup is None:
+            return set()
+        return {table for table in backup if table in FRR_ONLY_TABLES}
+
     def assert_no_frr_schema_residue(self):
-        """Raise if the running CONFIG_DB still holds frr-only tables.
+        """Raise if the traditional restore ADDED frr-only tables that the backup did not have.
 
         Called right after the traditional restore so a lossy switch-back is reported here,
         against the switch that caused it, instead of silently poisoning GCU for the rest of
         the run. See :data:`FRR_ONLY_TABLES`.
+
+        Measured against the backup rather than against "no frr tables at all". The restore
+        reinstates the backup and reloads, so the invariant that actually holds is
+        "CONFIG_DB matches the backup" -- anything else is a false positive on any DUT whose
+        pre-switch config legitimately contains frr tables. Getting this wrong is expensive:
+        the check runs inside to_traditional(), so one false positive fails the restore, and
+        every later module then errors at setup via recover_interrupted_run().
         """
         out = self.duthost.shell(
             "sonic-db-cli CONFIG_DB KEYS '*' | cut -d'|' -f1 | sort -u",
@@ -267,13 +287,17 @@ class FrrConfigModeMigrator(object):
             logger.warning("Could not list CONFIG_DB tables to check for frr residue")
             return
         present = set(out["stdout"].split())
-        residue = sorted(present.intersection(FRR_ONLY_TABLES))
+        baseline = self._frr_tables_in_backup()
+        if baseline:
+            logger.info("Pre-switch config already carried frr-schema tables %s; they are the "
+                        "baseline, not residue", sorted(baseline))
+        residue = sorted(present.intersection(FRR_ONLY_TABLES) - baseline)
         if residue:
             raise FrrTranslationError(
-                "traditional restore left frr_mgmt_framework tables in CONFIG_DB: {}. The "
-                "restored {} is inconsistent with its own traditional DEVICE_METADATA; every "
-                "later GCU patch would fail sonic_yang validation because of it.".format(
-                    ", ".join(residue), CONFIG_DB_FILE))
+                "traditional restore left frr_mgmt_framework tables in CONFIG_DB that the "
+                "pre-switch backup did not have: {}. The restored {} is inconsistent with its "
+                "own traditional DEVICE_METADATA; every later GCU patch would fail sonic_yang "
+                "validation because of it.".format(", ".join(residue), CONFIG_DB_FILE))
 
     def interrupted_run_pending(self):
         """True if a previous run left the DUT in a switched FRR config mode.

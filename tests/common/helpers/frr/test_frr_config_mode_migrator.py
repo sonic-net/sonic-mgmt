@@ -7,6 +7,8 @@ They cover the crash-recovery path specifically, because that path is the one th
 exercised by a normal test run -- it only fires when a *previous* run died between
 ``to_frr_mgmt_framework()`` and ``cleanup()``.
 """
+import json
+
 import pytest
 
 from tests.common.helpers.frr.frr_config_mode_migrator import (
@@ -35,9 +37,11 @@ class FakeDutHost(object):
 
     hostname = "fake-dut"
 
-    def __init__(self, files=(), config_db_tables=()):
+    def __init__(self, files=(), config_db_tables=(), backup_tables=()):
         self.files = set(files)
         self.config_db_tables = list(config_db_tables)
+        # FRR tables the pre-switch backup contained (the residue baseline).
+        self.backup_tables = list(backup_tables)
         self.commands = []
 
     def is_file_existed(self, path):
@@ -48,6 +52,9 @@ class FakeDutHost(object):
         # Emulate the table listing used by assert_no_frr_schema_residue().
         if "CONFIG_DB KEYS" in cmd:
             return {"rc": 0, "stdout": "\n".join(self.config_db_tables)}
+        # Emulate reading the pre-switch backup, which supplies the residue baseline.
+        if cmd.startswith("sudo cat ") and cmd.split()[-1] == CONFIG_BAK:
+            return {"rc": 0, "stdout": json.dumps({t: {} for t in self.backup_tables})}
         # Emulate `cp src dst` so a restore is visible to later is_file_existed calls.
         parts = cmd.split()
         if "cp" in parts:
@@ -220,3 +227,31 @@ def test_cleanup_removes_the_switch_marker():
     dut = FakeDutHost(files=[CONFIG_BAK, GOLDEN_BAK, SWITCHED_MARKER_FILE])
     FrrConfigModeMigrator(dut).cleanup()
     assert SWITCHED_MARKER_FILE not in dut.files
+
+
+def test_residue_check_ignores_frr_tables_the_backup_already_had():
+    """A DUT that natively boots frrcfgd carries the frr schema as its normal state, and a
+    hand-migrated box can run bgpcfgd over an frr-shaped CONFIG_DB. Those tables predate any
+    switch, so flagging them fails the restore for no reason -- and because the check runs
+    inside to_traditional(), that one false positive then errors every later module at setup.
+    Observed on a t0 whose CONFIG_DB was VRF-keyed throughout."""
+    dut = FakeDutHost(
+        files=[CONFIG_DB_FILE, CONFIG_BAK],
+        config_db_tables=["BGP_NEIGHBOR", "BGP_GLOBALS", "BGP_NEIGHBOR_AF", "PORT"],
+        backup_tables=["BGP_GLOBALS", "BGP_NEIGHBOR_AF"],
+    )
+    assert FrrConfigModeMigrator(dut).to_traditional() is True
+
+
+def test_residue_check_still_catches_tables_the_backup_lacked():
+    """The baseline must not become a blanket exemption: a table the restore introduced is
+    still residue and must fail loudly."""
+    dut = FakeDutHost(
+        files=[CONFIG_DB_FILE, CONFIG_BAK],
+        config_db_tables=["BGP_NEIGHBOR", "BGP_GLOBALS", "BGP_PEER_GROUP_AF", "PORT"],
+        backup_tables=["BGP_GLOBALS"],
+    )
+    with pytest.raises(FrrTranslationError) as excinfo:
+        FrrConfigModeMigrator(dut).to_traditional()
+    assert "BGP_PEER_GROUP_AF" in str(excinfo.value)
+    assert "BGP_GLOBALS" not in str(excinfo.value).split("did not have:")[1]
