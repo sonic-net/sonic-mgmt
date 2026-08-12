@@ -53,6 +53,15 @@ SINGLE_CONTAINER_TEST_TIMEOUT_SECS = 2400
 RECOVERY_RELOAD_TIMEOUT_SECS = 600
 
 
+def get_internal_idle_relay_type(duthost):
+    """Return the explicit internal idle mode selected by the SONiC relay flag."""
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
+    device_metadata = config_facts["DEVICE_METADATA"]["localhost"]
+    if device_metadata.get("has_sonic_dhcpv4_relay", "False") == "True":
+        return "sonic-internal"
+    return "isc-internal-idle"
+
+
 class ContainerAutorestartTimeout(BaseException):
     """Raised when a single container's autorestart sub-test exceeds its watchdog budget.
 
@@ -119,11 +128,6 @@ def single_container_timeout(container_name, timeout_secs=SINGLE_CONTAINER_TEST_
 
 @pytest.fixture(autouse=True, scope='module')
 def config_reload_after_tests(duthosts, selected_rand_one_per_hwsku_hostname, tbinfo):
-    if tbinfo["topo"]["type"] == "mx":
-        pytest_assert(
-            hasattr(dhcp_relay_utils, "get_dhcp_relay_type"),
-            "P6 requires #26525 to provide dhcp_relay_utils.get_dhcp_relay_type; merge #26525 first."
-        )
     dhcp_server_hosts = []
     # Enable autorestart for all features before the test begins
     for hostname in selected_rand_one_per_hwsku_hostname:
@@ -139,8 +143,7 @@ def config_reload_after_tests(duthosts, selected_rand_one_per_hwsku_hostname, tb
             dhcp_server_hosts.append(hostname)
             duthost.shell("config feature state %s enabled" % DHCP_SERVER)
             duthost.shell("sudo config feature autorestart %s enabled" % DHCP_SERVER)
-            relay_type = dhcp_relay_utils.get_dhcp_relay_type(duthost)
-            dhcp_relay_utils.restart_dhcp_service(duthost, [relay_type])
+            dhcp_relay_utils.restart_dhcp_service(duthost, [get_internal_idle_relay_type(duthost)])
     yield
     # Config reload should set the auto restart back to state before test started
     for hostname in selected_rand_one_per_hwsku_hostname:
