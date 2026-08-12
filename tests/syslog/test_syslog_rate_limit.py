@@ -3,10 +3,11 @@ import logging
 import os
 import pytest
 import random
+import re
 import time
 
 from tests.common.config_reload import config_reload
-from tests.common.utilities import skip_release
+from tests.common.utilities import skip_release, wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.helpers.sonic_db import SonicDbCli
@@ -15,6 +16,8 @@ logger = logging.getLogger(__name__)
 
 RATE_LIMIT_BURST = 100
 RATE_LIMIT_INTERVAL = 10
+SYSLOG_FORWARD_TIMEOUT = 60
+SYSLOG_FORWARD_INTERVAL = 2
 # Generate 101 packets in tests/syslog/log_generator.py, so that 1 log message will be dropped by rsyslogd
 LOG_MESSAGE_GENERATE_COUNT = 101
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -271,6 +274,35 @@ def verify_config_rate_limit_fail(duthost, service_name):
     pytest_assert('Error' in output, 'Error: config syslog rate limit for {}: {}'.format(service_name, output))
 
 
+def _wait_expected_logs_forwarded(duthost, start_marker, expect_log_regex, additional_files):
+    """Wait until every expected message has been forwarded into the host log files for
+    this LogAnalyzer window before the window is closed.
+
+    The log generator runs inside a container; its messages are forwarded to the host
+    syslog asynchronously. A fixed sleep races that forwarding: under load the messages
+    can arrive after the LogAnalyzer end marker, so the window is captured empty and the
+    test fails intermittently. Poll the host log files, scoped to this window's unique
+    start marker (the test reuses a marker prefix across config_reload, so an earlier
+    window's identical logs must not be matched), until the expected messages appear.
+
+    The scoping pattern is the bare marker (``<prefix>.<timestamp>``) rather than the full
+    ``start-LogAnalyzer-<marker>`` line: this shell command is itself echoed into syslog,
+    so matching the full marker string would inject a second ``start-LogAnalyzer-<marker>``
+    line and corrupt the window LogAnalyzer extracts on exit.
+    """
+    log_files = ['/var/log/syslog'] + list(additional_files or {})
+
+    def _all_expected_present():
+        escaped_marker = re.escape(start_marker).replace('/', r'\/')
+        captured = ''
+        for log_file in log_files:
+            captured += duthost.shell("sudo awk '/{}/,0' {}".format(escaped_marker, log_file),
+                                      module_ignore_errors=True)['stdout']
+        return all(re.search(regex, captured) for regex in expect_log_regex)
+
+    return wait_until(SYSLOG_FORWARD_TIMEOUT, SYSLOG_FORWARD_INTERVAL, 0, _all_expected_present)
+
+
 def verify_rate_limit_with_log_generator(duthost, service_name, log_marker, expect_log_regex, expect_log_matches,
                                          is_host=False, additional_files=None):
     """Generator syslog with a script and verify that syslog rate limit reached
@@ -296,10 +328,12 @@ def verify_rate_limit_with_log_generator(duthost, service_name, log_marker, expe
 
     with loganalyzer:
         duthost.command(run_generator_cmd)
-        # Wait for rsyslogd to forward the rate-limiting notification from the container
-        # to the host syslog. Without this, the notification may arrive after the
-        # LogAnalyzer end marker, causing intermittent test failures.
-        time.sleep(5)
+        # The log generator runs inside a container; its messages are forwarded to the
+        # host syslog asynchronously. Wait until the expected messages have actually been
+        # forwarded (scoped to this window's unique start marker) before LogAnalyzer closes
+        # and verifies the window, instead of racing that forwarding with a fixed sleep.
+        # LogAnalyzer itself asserts the messages on exit, so this is only a wait.
+        _wait_expected_logs_forwarded(duthost, loganalyzer._markers[-1], expect_log_regex, additional_files)
 
 
 def get_loganalyzer_additional_files(service_name):
