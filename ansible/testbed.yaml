@@ -4404,7 +4404,6 @@
   group-name: vms68-1
   topo: dualtor-aa
   neighbor_mode: prefix-route
-  prober_type: hardware
   ptf_image_name: docker-ptf
   ptf: vms68-1
   ptf_ip: 10.64.247.101/26
