@@ -36,6 +36,11 @@ parameters:
         SOURCE_BRANCH: "202506"
         TARGET_BRANCH: "internal-202506"
         PUSH_BRANCH: "internal-202506"
+      MSFT_202511_AZD:
+        SOURCE_REPO: "https://github.com/Azure/sonic-mgmt.msft.git"
+        SOURCE_BRANCH: "202511_azd"
+        TARGET_BRANCH: "internal-202511-azd"
+        PUSH_BRANCH: "internal-202511-azd"
       DT2_202512:
         SOURCE_REPO: "https://github.com/Azure/sonic-mgmt.msft.git"
         SOURCE_BRANCH: "202512"
