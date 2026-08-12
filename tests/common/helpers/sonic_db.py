@@ -2,6 +2,7 @@ import logging
 import json
 import six
 import ast
+import shlex
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.devices.sonic_asic import SonicAsic
 
@@ -270,8 +271,10 @@ def redis_hdel(duthost, db, key, *fields):
     if not fields:
         return
     duthost.shell(
-        "sonic-db-cli {db} HDEL '{key}' {fields}".format(
-            db=db, key=key, fields=' '.join(fields)
+        "sonic-db-cli {db} -- HDEL {key} {fields}".format(
+            db=db,
+            key=shlex.quote(key),
+            fields=' '.join(shlex.quote(field) for field in fields),
         ),
         module_ignore_errors=True
     )
