@@ -14,6 +14,15 @@ pytestmark = [
 ]
 
 
+def get_configured_relay_agent(duthost):
+    """Return the relay backend currently selected in DEVICE_METADATA."""
+    config_facts = duthost.config_facts(host=duthost.hostname, source='running')['ansible_facts']
+    device_metadata = config_facts['DEVICE_METADATA']['localhost']
+    if device_metadata.get('has_sonic_dhcpv4_relay', 'False') == 'True':
+        return 'sonic-relay-agent'
+    return 'isc-relay-agent'
+
+
 @pytest.fixture(scope="module", autouse=True)
 def setup_multiple_vlans_and_teardown(duthost, tbinfo):
     vlan_brief = duthost.get_vlan_brief()
@@ -49,14 +58,14 @@ def setup_multiple_vlans_and_teardown(duthost, tbinfo):
 
     logging.info("The patch for setup is %s" % patch_setup)
     apply_dhcp_server_config_gcu(
-        duthost, patch_setup, 'isc-relay-agent', relay_configured=False)
+        duthost, patch_setup, get_configured_relay_agent(duthost), relay_configured=False)
 
     logging.info("The four_vlans_info after setup is %s" % four_vlans_info)
     yield four_vlans_info
 
     logging.info("The patch for restore is %s" % patch_restore)
     apply_dhcp_server_config_gcu(
-        duthost, patch_restore, 'isc-relay-agent', relay_configured=False)
+        duthost, patch_restore, get_configured_relay_agent(duthost), relay_configured=False)
 
 
 def generate_four_vlans_config_patch(vlan_name, vlan_info, vlan_member_with_ptf_idx):
