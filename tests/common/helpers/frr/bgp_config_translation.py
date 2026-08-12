@@ -522,6 +522,12 @@ def _extract_global_af(running_config):
 # BGP_GLOBALS fields frrcfgd drives them from (frrcfgd.py global_key_map; leaves confirmed in
 # sonic-bgp-global.yang). Longest CLI form first -- 'bgp graceful-restart restart-time N'
 # also starts with the bare 'bgp graceful-restart'.
+#
+# An entry whose ``value`` is None takes a trailing argument, so its CLI form is matched as a
+# PREFIX; one with a literal value is a valueless line and is matched EXACTLY. The distinction
+# is load-bearing: 'bgp graceful-restart-disable' (rendered on an UpperRegionalHub) starts with
+# 'bgp graceful-restart', so a prefix match there would read an explicit disable as an enable
+# and turn graceful restart ON in frr mode -- the exact inverse of the DUT's config.
 _GLOBAL_FLAG_PREFIXES = (
     ("bgp graceful-restart restart-time ", "gr_restart_time", None),
     ("bgp graceful-restart stalepath-time ", "gr_stale_routes_time", None),
@@ -531,11 +537,21 @@ _GLOBAL_FLAG_PREFIXES = (
     ("bgp bestpath as-path multipath-relax", "load_balance_mp_relax", "true"),
 )
 
-# 'bgp graceful-restart select-defer-time N' has no frrcfgd field (global_key_map models
-# restart-time / stalepath-time / preserve-fw-state only), so it is a real frrcfgd gap.
+# Router-bgp-global lines bgpcfgd renders that frrcfgd cannot express. Matched as prefixes,
+# and checked BEFORE _GLOBAL_FLAG_PREFIXES.
 _GLOBAL_UNSUPPORTED_PREFIXES = (
+    # global_key_map models restart-time / stalepath-time / preserve-fw-state only.
     ("bgp graceful-restart select-defer-time ",
      "frrcfgd's global_key_map has no select-defer-time field"),
+    # frrcfgd's only lever is graceful_restart_enable, which renders 'no bgp graceful-restart'
+    # -- FRR's *default* (still a GR helper for its peers), not the explicit
+    # 'graceful-restart-disable' that also drops the helper role. Translating it would be a
+    # behaviour change, so record it as a gap instead. Rendered on an UpperRegionalHub.
+    ("bgp graceful-restart-disable",
+     "frrcfgd can only render 'no bgp graceful-restart' (FRR's default helper state), which "
+     "is not the same as an explicit graceful-restart-disable"),
+    ("bgp long-lived-graceful-restart ",
+     "frrcfgd has no long-lived-graceful-restart field"),
 )
 
 
@@ -572,8 +588,14 @@ def _extract_global_flags(running_config):
                 break
         else:
             for prefix, field, value in _GLOBAL_FLAG_PREFIXES:
-                if line.startswith(prefix):
-                    fields[field] = value if value is not None else line.split()[-1]
+                if value is None:
+                    # Takes a trailing argument: prefix-match and read the argument.
+                    if line.startswith(prefix):
+                        fields[field] = line.split()[-1]
+                        break
+                # Valueless line: must match EXACTLY. See _GLOBAL_FLAG_PREFIXES.
+                elif line == prefix:
+                    fields[field] = value
                     break
     return fields
 
