@@ -553,6 +553,17 @@ def _extract_global_flags(running_config):
     for af, line in _router_bgp_lines(running_config):
         if af:
             continue
+        # Confederation membership. frrcfgd models the identifier as the confed_id leaf and
+        # the peer ASNs as the confed_peers leaf-list (global_key_map / sonic-bgp-global.yang).
+        # Dropping these silently un-confederates the DUT, which the fixture's name-only
+        # fingerprint cannot see -- and test_bgp_confed_route_propagation reads both straight
+        # out of the running config.
+        if line.startswith("bgp confederation identifier "):
+            fields["confed_id"] = line.split()[3]
+            continue
+        if line.startswith("bgp confederation peers "):
+            fields.setdefault("confed_peers", []).extend(line.split()[3:])
+            continue
         for prefix, reason in _GLOBAL_UNSUPPORTED_PREFIXES:
             if line.startswith(prefix):
                 logger.warning(
