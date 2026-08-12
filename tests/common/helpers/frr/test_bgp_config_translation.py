@@ -713,6 +713,31 @@ def test_select_defer_time_is_a_known_gap_not_a_failure():
     assert out["BGP_GLOBALS"]["default"]["graceful_restart_enable"] == "true"
 
 
+def test_confederation_carried_into_bgp_globals():
+    # test_bgp_confed_route_propagation (uma/lma) reads both of these straight out of the
+    # running config, so dropping them un-confederates the DUT in frr mode -- invisible to a
+    # fingerprint that only compares object names.
+    running = "\n".join([
+        "router bgp 64589",
+        " bgp confederation identifier 64582",
+        " bgp confederation peers 64588",
+    ])
+    out = translate_config_db(_base_config_db(), running, _peer_group_json())
+    g = out["BGP_GLOBALS"]["default"]
+    assert g["confed_id"] == "64582"
+    assert g["confed_peers"] == ["64588"]        # leaf-list (sonic-bgp-global.yang)
+
+
+def test_confederation_peers_accumulate_across_lines():
+    running = "\n".join([
+        "router bgp 64589",
+        " bgp confederation peers 64588 64590",
+        " bgp confederation peers 64591",
+    ])
+    out = translate_config_db(_base_config_db(), running, _peer_group_json())
+    assert out["BGP_GLOBALS"]["default"]["confed_peers"] == ["64588", "64590", "64591"]
+
+
 def test_maximum_paths_carried_into_global_af():
     # bgpcfgd renders maximum-paths per AF from constants.yml; frrcfgd drives it from
     # BGP_GLOBALS_AF.max_ebgp_paths, whose YANG default is 1 -- so dropping it silently
