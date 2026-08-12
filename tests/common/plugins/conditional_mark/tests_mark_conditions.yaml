@@ -215,7 +215,6 @@ arp/test_arp_update.py::test_dut_ping_learns_mac:
     conditions_logical_operator: or
     conditions:
       - "'dualtor' in topo_name"
-      - "'-v6-' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/24598"
 
 arp/test_arp_update.py::test_kernel_asic_mac_mismatch\[.*ipv4.*\]:
   regex: true
