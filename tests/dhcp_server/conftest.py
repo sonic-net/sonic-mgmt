@@ -15,6 +15,15 @@ DHCP_SERVER_FEATURE_NAME = "dhcp_server"
 logger = logging.getLogger(__name__)
 
 
+def require_internal_relay_modes():
+    """Skip standalone runs until the prerequisite shared modes are available."""
+    try:
+        for relay_type in ('sonic-internal', 'isc-internal-idle'):
+            dhcp_relay_utils._validate_relay_types('dhcp_server_setup_teardown', [relay_type])
+    except (AttributeError, ValueError):
+        pytest.skip("#26526 requires the internal relay modes from #26525")
+
+
 def get_lifecycle_relay_type(duthost, internal):
     """Select the lifecycle mode from the existing SONiC DHCPv4 relay flag."""
     config_facts = duthost.config_facts(host=duthost.hostname, source='running')['ansible_facts']
@@ -32,6 +41,7 @@ def get_lifecycle_relay_type(duthost, internal):
 
 @pytest.fixture(scope="module", autouse=True)
 def dhcp_server_setup_teardown(duthost):
+    require_internal_relay_modes()
     features_state, succeeded = duthost.get_feature_status()
     py_require(succeeded, "Skip when dhcp server feature status cannot be retrieved")
     py_require(DHCP_SERVER_FEATURE_NAME in features_state, "Skip on vs testbed without dhcp server feature")
