@@ -84,8 +84,8 @@ def test_gnmi_get_audit_log(gnmi_tls):  # noqa: F811
 def _set_configdb(client):
     client.set(
         update=[(
-            "sonic-db:CONFIG_DB/localhost/GNMI/gnmi/log_level",
-            "1",
+            "sonic-db:CONFIG_DB/localhost/DEVICE_METADATA/localhost/cloudtype",
+            "Public",
         )],
     )
 
