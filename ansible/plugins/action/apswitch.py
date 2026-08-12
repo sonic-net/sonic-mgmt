@@ -8,6 +8,13 @@ from ansible.module_utils._text import to_text
 import ast
 import sys
 
+try:
+    from ansible.template import trust_as_template
+except ImportError:
+    def trust_as_template(data):
+        return data
+
+
 # If the version of the Python interpreter is greater or equal to 3, set the unicode variable to the str class.
 if sys.version_info[0] >= 3:
     unicode = str
@@ -52,9 +59,8 @@ class ActionModule(ActionBase):
                 _template = self._loader.path_dwim_relative(
                     self._loader.get_basedir(), 'templates', _template)
 
-            f = open(_template, 'r')
-            template_data = to_text(f.read())
-            f.close()
+            with open(_template, 'r') as f:
+                template_data = trust_as_template(to_text(f.read()))
 
             _template = self._templar.template(template_data)
 
