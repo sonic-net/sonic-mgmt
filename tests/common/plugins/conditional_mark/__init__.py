@@ -198,9 +198,24 @@ def get_dut_name(session):
     return dut_name
 
 
+def get_inventory_name(session):
+    if session.config.option.customize_inventory_file:
+        inv_name = session.config.option.customize_inventory_file
+    else:
+        testbed_name = session.config.option.testbed
+        testbed_file = session.config.option.testbed_file
+        tbinfo = TestbedInfo(testbed_file).testbed_topo.get(testbed_name)
+        if tbinfo is None:
+            raise ValueError("Testbed '{}' not found in testbed file '{}'".format(
+                testbed_name, testbed_file))
+        inv_name = tbinfo.get('inv_name', 'lab')
+    return inv_name, os.path.basename(os.path.normpath(inv_name)).lower()
+
+
 def get_basic_facts(session):
     dut_name = get_dut_name(session)
-    cached_facts_name = f'BASIC_FACTS_{dut_name}'
+    _, normalized_inv_name = get_inventory_name(session)
+    cached_facts_name = f'BASIC_FACTS_{normalized_inv_name}_{dut_name}'
     basic_facts_cached = session.config.cache.get(cached_facts_name, None)
     if not basic_facts_cached:
         basic_facts = load_basic_facts(dut_name, session)
@@ -416,12 +431,7 @@ def load_basic_facts(dut_name, session):
     results['topo_type'] = tbinfo['topo']['type']
     results['topo_name'] = tbinfo['topo']['name']
     results['testbed'] = testbed_name
-    if session.config.option.customize_inventory_file:
-        inv_name = session.config.option.customize_inventory_file
-    elif 'inv_name' in list(tbinfo.keys()):
-        inv_name = tbinfo['inv_name']
-    else:
-        inv_name = 'lab'
+    inv_name, results['inv_name'] = get_inventory_name(session)
     proxies = get_http_proxies(inv_name)
     session.config.cache.set('PROXIES', proxies)
 
@@ -713,7 +723,8 @@ def pytest_collection_modifyitems(session, config, items):
     get_basic_facts(session)
 
     dut_name = get_dut_name(session)
-    cached_facts_name = f'BASIC_FACTS_{dut_name}'
+    _, normalized_inv_name = get_inventory_name(session)
+    cached_facts_name = f'BASIC_FACTS_{normalized_inv_name}_{dut_name}'
     basic_facts = config.cache.get(cached_facts_name, None)
     if not basic_facts:
         logger.debug('No basic facts')
