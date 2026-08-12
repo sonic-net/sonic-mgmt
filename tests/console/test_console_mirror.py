@@ -344,7 +344,7 @@ def _unescape_payload(payload: str) -> bytes:
             index += 2
             continue
         if escape == "x":
-            hex_value = payload[index + 2 : index + 4]
+            hex_value = payload[index + 2: index + 4]
             pytest_assert(
                 len(hex_value) == 2 and re.fullmatch(r"[0-9a-fA-F]{2}", hex_value),
                 f"Invalid hexadecimal SCM-Text escape in {payload!r}",
@@ -506,7 +506,7 @@ def _extract_frame(captured: bytes, start_marker: bytes, end_marker: bytes) -> b
         start >= 0 and end >= 0,
         f"Did not receive Console Mirror traffic frame (captured {len(captured)} bytes)",
     )
-    return captured[start + len(start_marker) : end]
+    return captured[start + len(start_marker): end]
 
 
 def _transfer_payload(
@@ -969,7 +969,7 @@ def mirror_test_context(duthost, mirror_link: MirrorLink):
 
 def test_console_mirror_cli_and_state(duthost, mirror_test_context: MirrorTestContext):
     """Verify start/show/timeout/stop output and STATE_DB runtime metadata."""
-    ###### mirror start ######
+    # Mirror start
     # Start a mirror
     context = mirror_test_context
     _, file_path, prefix = _start_mirror(
@@ -993,7 +993,7 @@ def test_console_mirror_cli_and_state(duthost, mirror_test_context: MirrorTestCo
     )
     original_start_time = state["start_time"]
 
-    ###### mirror timeout ######
+    # Mirror timeout
     result = _mirror_command(duthost, f"timeout {context.link.line_a} 1m")
     pytest_assert(
         f"Updated mirror timeout on line [{context.link.line_a}]" in result["stdout"]
@@ -1015,7 +1015,7 @@ def test_console_mirror_cli_and_state(duthost, mirror_test_context: MirrorTestCo
     )
     pytest_assert(state.get("file_path") == file_path)
 
-    ###### mirror stop ######
+    # Mirror stop
     result, retained_prefix = _stop_mirror(duthost, context)
     pytest_assert(f"Stopped mirror on line [{context.link.line_a}]" in result["stdout"])
     pytest_assert(retained_prefix == prefix)
