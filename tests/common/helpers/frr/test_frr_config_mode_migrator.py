@@ -11,6 +11,10 @@ import json
 
 import pytest
 
+from tests.common.helpers.frr.frr_28543_compat import (
+    GATED_GLOBAL_LINES,
+    gated_globals_missing_from_image,
+)
 from tests.common.helpers.frr.frr_config_mode_migrator import (
     FrrConfigModeMigrator,
     FrrTranslationError,
@@ -255,3 +259,32 @@ def test_residue_check_still_catches_tables_the_backup_lacked():
         FrrConfigModeMigrator(dut).to_traditional()
     assert "BGP_PEER_GROUP_AF" in str(excinfo.value)
     assert "BGP_GLOBALS" not in str(excinfo.value).split("did not have:")[1]
+
+
+class _YangProbeDut(object):
+    """duthost stand-in that answers only the shim's YANG-model grep."""
+
+    hostname = "fake-dut"
+
+    def __init__(self, supported=()):
+        self.supported = list(supported)
+
+    def shell(self, cmd, module_ignore_errors=False):
+        return {"rc": 0 if self.supported else 1, "stdout": "\n".join(self.supported)}
+
+
+def test_gated_globals_reported_missing_on_a_pre_28543_image():
+    """The translator emits ebgp_requires_policy correctly, but the compat shim strips it on
+    an image whose YANG models lack the leaf -- so 'no bgp ebgp-requires-policy' legitimately
+    disappears across a switch. Counting that as a dropped object turned a documented,
+    conditional_mark-gated gap into a hard failure for every opted-in module on current
+    images (seen on upstream KVM t0)."""
+    missing = gated_globals_missing_from_image(_YangProbeDut())
+    assert "no bgp ebgp-requires-policy" in missing
+    assert "bgp ebgp-requires-policy" in missing
+
+
+def test_gated_globals_empty_once_the_image_carries_28543():
+    """Self-clearing: the check tightens back up on its own, with no code change."""
+    supported = sorted(set(GATED_GLOBAL_LINES.values()))
+    assert gated_globals_missing_from_image(_YangProbeDut(supported)) == set()

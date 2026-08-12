@@ -535,6 +535,11 @@ _GLOBAL_FLAG_PREFIXES = (
     ("bgp graceful-restart", "graceful_restart_enable", "true"),
     ("no bgp ebgp-requires-policy", "ebgp_requires_policy", "false"),
     ("bgp bestpath as-path multipath-relax", "load_balance_mp_relax", "true"),
+    # bgpcfgd renders this unconditionally (bgpd.main.conf.j2). frrcfgd DOES model it --
+    # log_nbr_state_changes in global_key_map, leaf in sonic-bgp-global.yang -- so this was a
+    # translation gap, not a frrcfgd one. Caught by the globals fingerprint on KVM t0.
+    ("bgp log-neighbor-changes", "log_nbr_state_changes", "true"),
+    ("no bgp log-neighbor-changes", "log_nbr_state_changes", "false"),
 )
 
 # Router-bgp-global lines bgpcfgd renders that frrcfgd cannot express. Matched as prefixes,

@@ -702,6 +702,27 @@ def test_graceful_restart_carried_into_bgp_globals():
     assert g["gr_stale_routes_time"] == "300"
 
 
+def test_log_neighbor_changes_carried_into_bgp_globals():
+    # bgpcfgd renders this unconditionally; frrcfgd models it as log_nbr_state_changes. It was
+    # simply not translated -- a translation gap, not a frrcfgd one. The globals fingerprint
+    # caught it on upstream KVM t0, where the switch dropped 'bgp log-neighbor-changes'.
+    running = "\n".join([
+        "router bgp 65100",
+        " bgp log-neighbor-changes",
+    ])
+    out = translate_config_db(_base_config_db(), running, _peer_group_json())
+    assert out["BGP_GLOBALS"]["default"]["log_nbr_state_changes"] == "true"
+
+
+def test_log_neighbor_changes_negated_form():
+    running = "\n".join([
+        "router bgp 65100",
+        " no bgp log-neighbor-changes",
+    ])
+    out = translate_config_db(_base_config_db(), running, _peer_group_json())
+    assert out["BGP_GLOBALS"]["default"]["log_nbr_state_changes"] == "false"
+
+
 def test_graceful_restart_absent_leaves_globals_clean():
     out = translate_config_db(_base_config_db(), "", _peer_group_json())
     assert "graceful_restart_enable" not in out["BGP_GLOBALS"]["default"]

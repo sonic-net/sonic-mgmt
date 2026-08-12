@@ -55,6 +55,28 @@ GATED_NAMES = (
 )
 
 
+# FRR running-config lines whose backing CONFIG_DB name is gated by #28543. On an image that
+# predates it the shim strips the field, so the line legitimately disappears across a mode
+# switch -- the fixture's globals fingerprint must not report that as a translation miss.
+# Only ebgp_requires_policy shows up as a *global*; the other gated names are route-map
+# clauses or a whole table, neither of which the globals fingerprint tracks.
+GATED_GLOBAL_LINES = {
+    "bgp ebgp-requires-policy": "ebgp_requires_policy",
+    "no bgp ebgp-requires-policy": "ebgp_requires_policy",
+}
+
+
+def gated_globals_missing_from_image(duthost):
+    """Global running-config lines this image cannot carry across a switch, because the
+    CONFIG_DB field behind them is not in its YANG models yet.
+
+    Returns an empty set once the image carries #28543, so the fingerprint tightens back up
+    on its own -- the same self-clearing property as strip_unsupported_by_image().
+    """
+    supported = _supported_names(duthost)
+    return {line for line, field in GATED_GLOBAL_LINES.items() if field not in supported}
+
+
 def _supported_names(duthost):
     """Return the subset of GATED_NAMES this image's sonic-yang models know about.
 

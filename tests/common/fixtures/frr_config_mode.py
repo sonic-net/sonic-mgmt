@@ -35,6 +35,9 @@ from tests.common.helpers.frr.frr_config_mode_migrator import (
     MODE_TRADITIONAL,
 )
 from tests.common.helpers.frr.bgp_config_translation import FrrTranslationError
+from tests.common.helpers.frr.frr_28543_compat import (      # noqa: DELETE-WITH-28543
+    gated_globals_missing_from_image,
+)
 from tests.common.platform.interface_utils import get_oper_up_ports
 from tests.common.utilities import wait_until
 
@@ -402,8 +405,14 @@ def _frr_config_fingerprint(duthost):
     return fp
 
 
-def _dropped_config_objects(duthost, mode, baseline_fp):
-    """Return ``{category: [name, ...]}`` for baseline objects FRR is not rendering now."""
+def _dropped_config_objects(duthost, mode, baseline_fp, image_gated_globals=frozenset()):
+    """Return ``{category: [name, ...]}`` for baseline objects FRR is not rendering now.
+
+    ``image_gated_globals`` are global lines this image cannot carry because the CONFIG_DB
+    field behind them is not in its YANG models yet (sonic-buildimage#28543). The translator
+    emits them correctly; the compat shim strips them just before they reach the DUT, so
+    their absence afterwards is expected rather than a translation miss.
+    """
     after = _frr_config_fingerprint(duthost)
     dropped = {}
     for cat, objs in baseline_fp.items():
@@ -414,6 +423,7 @@ def _dropped_config_objects(duthost, mode, baseline_fp):
             # Prefix-matched: most of these carry a value (e.g. 'keep 1', 'restart-time 240').
             exempt = {o for o in missing
                       if any(o.startswith(p) for p in FRRCFGD_UNSUPPORTED_GLOBAL_PREFIXES)}
+            exempt |= (missing & image_gated_globals)     # noqa: DELETE-WITH-28543
         else:
             exempt = missing & FRRCFGD_UNSUPPORTED_OBJECTS.get(cat, set())
         if exempt:
@@ -438,10 +448,16 @@ def _assert_config_preserved(duthost, mode, baseline_fp):
     switch-back to traditional mode fail spuriously.
     """
     dropped = {}
+    # Probed once, not per poll: a pre-#28543 image cannot carry these, so their absence is
+    # expected. Empty once the image carries #28543, tightening the check back up by itself.
+    image_gated = gated_globals_missing_from_image(duthost)   # noqa: DELETE-WITH-28543
+    if image_gated:
+        logger.info("Image predates sonic-buildimage#28543; these globals cannot survive the "
+                    "switch and are not counted as dropped: %s", sorted(image_gated))
 
     def _settled():
         dropped.clear()
-        dropped.update(_dropped_config_objects(duthost, mode, baseline_fp))
+        dropped.update(_dropped_config_objects(duthost, mode, baseline_fp, image_gated))
         return not dropped
 
     wait_until(_CONFIG_SETTLE_TIMEOUT, _CONFIG_SETTLE_INTERVAL, 0, _settled)
