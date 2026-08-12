@@ -15,6 +15,7 @@ from tests.common.helpers.frr.frr_config_mode_migrator import (
     CONFIG_DB_FILE,
     GOLDEN_CFG_FILE,
     GOLDEN_CFG_ORIGIN_FILE,
+    SWITCHED_MARKER_FILE,
     _BAK_SUFFIX,
 )
 
@@ -83,7 +84,9 @@ def test_to_traditional_without_backup_reports_no_restore():
 
 
 def test_recover_interrupted_run_restores_and_cleans_up():
-    dut = FakeDutHost(files=[CONFIG_DB_FILE, CONFIG_BAK, GOLDEN_CFG_FILE, GOLDEN_BAK])
+    # The switch marker is what says a switch actually happened; the backups alone do not.
+    dut = FakeDutHost(files=[CONFIG_DB_FILE, CONFIG_BAK, GOLDEN_CFG_FILE, GOLDEN_BAK,
+                             SWITCHED_MARKER_FILE])
     migrator = FrrConfigModeMigrator(dut)
 
     assert migrator.recover_interrupted_run() is True
@@ -94,6 +97,16 @@ def test_recover_interrupted_run_restores_and_cleans_up():
 
 def test_recover_interrupted_run_is_noop_without_backups():
     dut = FakeDutHost(files=[CONFIG_DB_FILE, GOLDEN_CFG_FILE])
+    assert FrrConfigModeMigrator(dut).recover_interrupted_run() is False
+    assert dut.commands == []
+
+
+def test_recover_is_noop_when_backups_exist_but_no_switch_happened():
+    """capture_pristine_backup() writes the backups at session start, before any switch is
+    attempted. On a DUT that natively boots frrcfgd no switch ever happens, so treating the
+    backups as evidence of one made a killed run "recover" by reloading the DUT's own native
+    frr config -- which assert_no_frr_schema_residue() then rejected. Only the marker counts."""
+    dut = FakeDutHost(files=[CONFIG_DB_FILE, CONFIG_BAK, GOLDEN_CFG_FILE, GOLDEN_BAK])
     assert FrrConfigModeMigrator(dut).recover_interrupted_run() is False
     assert dut.commands == []
 
@@ -182,7 +195,7 @@ def test_failed_restore_keeps_backups_for_manual_recovery():
     """If the restore cannot complete, the backups must survive -- deleting them is what turns
     a recoverable interruption into a permanently mis-configured DUT."""
     dut = FakeDutHost(
-        files=[CONFIG_DB_FILE, CONFIG_BAK],
+        files=[CONFIG_DB_FILE, CONFIG_BAK, SWITCHED_MARKER_FILE],
         config_db_tables=["BGP_GLOBALS"],
     )
     migrator = FrrConfigModeMigrator(dut)
@@ -190,3 +203,20 @@ def test_failed_restore_keeps_backups_for_manual_recovery():
         migrator.recover_interrupted_run()
     assert CONFIG_BAK in dut.files
     assert not dut.ran("rm -f")
+    # The switch marker must survive too: clearing it on a failed restore would make the
+    # next run's interrupted_run_pending() read False, so recovery would never retry and
+    # the DUT would stay stranded in translated frr config.
+    assert SWITCHED_MARKER_FILE in dut.files
+
+
+def test_to_traditional_clears_the_switch_marker():
+    """Leaving the marker behind would make every later run think a switch is still pending."""
+    dut = FakeDutHost(files=[CONFIG_DB_FILE, CONFIG_BAK, SWITCHED_MARKER_FILE])
+    assert FrrConfigModeMigrator(dut).to_traditional() is True
+    assert dut.ran("rm -f {}".format(SWITCHED_MARKER_FILE))
+
+
+def test_cleanup_removes_the_switch_marker():
+    dut = FakeDutHost(files=[CONFIG_BAK, GOLDEN_BAK, SWITCHED_MARKER_FILE])
+    FrrConfigModeMigrator(dut).cleanup()
+    assert SWITCHED_MARKER_FILE not in dut.files

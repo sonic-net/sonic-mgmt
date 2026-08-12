@@ -242,10 +242,15 @@ class FrrConfigModeMigrator(object):
                            CONFIG_DB_FILE, _BAK_SUFFIX, restored_golden)
             return False
         self.duthost.shell("sudo cp {0}{1} {0}".format(CONFIG_DB_FILE, _BAK_SUFFIX))
+        self._config_reload()
+        # Only now clear the switch marker -- after the reload AND after the residue check
+        # below have proved the DUT is genuinely back on traditional config. Clearing it
+        # earlier means a restore that then fails leaves the backups but no marker, so
+        # interrupted_run_pending() reads False on the next run and recovery never retries:
+        # the DUT stays stranded in translated frr config with nothing left to notice.
+        self.assert_no_frr_schema_residue()
         self.duthost.shell("sudo rm -f {}".format(SWITCHED_MARKER_FILE),
                            module_ignore_errors=True)
-        self._config_reload()
-        self.assert_no_frr_schema_residue()
         return True
 
     def assert_no_frr_schema_residue(self):
