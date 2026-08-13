@@ -9,7 +9,7 @@ import logging
 
 import pytest
 
-from tests.transceiver.cdb_firmware_upgrade.firmware_operations import run_firmware_op_on_ports
+from tests.transceiver.cdb_firmware_upgrade.firmware_operations import execute_on_ports
 from tests.transceiver.common import cli_helpers
 from tests.transceiver.common.cli_parser_helper import FW_ACTIVE, FW_INACTIVE
 
@@ -109,7 +109,7 @@ def test_firmware_versions(
     DOM polling on the ports under test is disabled for the duration of the test
     by the ``dom_polling_disabled`` fixture.
     """
-    all_failures, num_ports = run_firmware_op_on_ports(
+    all_failures, num_ports = execute_on_ports(
         duthost, port_attributes_dict, cdb_firmware_qualifying_ports,
         get_lport_to_pport_mapping, None, _check_firmware_versions,
     )
@@ -127,7 +127,7 @@ def test_cdb_abort_support(
     DOM polling on the ports under test is disabled for the duration of the test
     by the ``dom_polling_disabled`` fixture.
     """
-    all_failures, num_ports = run_firmware_op_on_ports(
+    all_failures, num_ports = execute_on_ports(
         duthost, port_attributes_dict, cdb_firmware_qualifying_ports,
         get_lport_to_pport_mapping, None, _check_abort_support,
         prefetch=_build_abort_support_map,

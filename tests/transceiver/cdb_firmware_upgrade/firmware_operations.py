@@ -36,7 +36,7 @@ def select_target_version(firmware_versions, banks):
     return firmware_versions[0]
 
 
-def _verify_bank_images_unchanged(after_banks, before_banks):
+def _verify_running_committed_unchanged(after_banks, before_banks):
     """Running/Committed bank letters are the same before and after a download."""
     failures = []
     for field in (FW_RUNNING_IMAGE, FW_COMMITTED_IMAGE):
@@ -112,7 +112,7 @@ def verify_firmware_downloaded(duthost, port, before_banks, target_version, down
             f"inactive firmware {after_banks.get(FW_INACTIVE) or 'N/A'} != "
             f"downloaded {target_version}"
         )
-    failures += _verify_bank_images_unchanged(after_banks, before_banks)
+    failures += _verify_running_committed_unchanged(after_banks, before_banks)
     return failures
 
 
@@ -281,7 +281,7 @@ def perform_firmware_activation(duthost, port, port_context,
 
 
 def activation_op(duthost, port, port_context, metadata_map):
-    """``run_firmware_op_on_ports`` per-port op: activate selected firmware."""
+    """``execute_on_ports`` per-port callable: activate selected firmware."""
     cdb_attrs = port_context["cdb_attrs"]
     if not cdb_attrs.get("dual_bank_supported", True):
         banks, err = cli_helpers.sfputil_show_fwversion(duthost, port)
@@ -344,9 +344,9 @@ def restore_module_to_original(duthost, port, port_context, metadata_map):
     return failures
 
 
-def run_firmware_op_on_ports(duthost, port_attributes_dict, qualifying_ports, lport_to_pport,
-                             metadata_map, per_port_op, prefetch=None):
-    """Run ``per_port_op`` on every qualifying CDB firmware port and aggregate failures.
+def execute_on_ports(duthost, port_attributes_dict, qualifying_ports, lport_to_pport,
+                     metadata_map, per_port_fn, prefetch=None):
+    """Invoke ``per_port_fn`` on every qualifying CDB firmware port and aggregate failures.
 
     ``prefetch(duthost, qualifying_ports, lport_to_pport)`` runs once before the
     loop and its result is exposed as ``port_context["prefetched"]``.
@@ -371,5 +371,5 @@ def run_firmware_op_on_ports(duthost, port_attributes_dict, qualifying_ports, lp
             "subports": pport_to_lport.get(physical_index, [port]),
             "prefetched": prefetched,
         }
-        all_failures += [f"{port}: {f}" for f in per_port_op(duthost, port, port_context, metadata_map)]
+        all_failures += [f"{port}: {f}" for f in per_port_fn(duthost, port, port_context, metadata_map)]
     return all_failures, len(qualifying_ports)

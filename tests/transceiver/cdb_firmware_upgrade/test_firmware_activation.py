@@ -16,7 +16,7 @@ def test_firmware_activation(
     dom_polling_disabled,
 ):
     """Activate selected firmware and verify every qualifying module recovers."""
-    all_failures, num_ports = firmware_operations.run_firmware_op_on_ports(
+    all_failures, num_ports = firmware_operations.execute_on_ports(
         duthost, port_attributes_dict, cdb_firmware_qualifying_ports,
         get_lport_to_pport_mapping,
         required_firmware_metadata_for_all_transceivers, firmware_operations.activation_op,

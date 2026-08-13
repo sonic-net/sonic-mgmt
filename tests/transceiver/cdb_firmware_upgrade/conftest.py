@@ -26,8 +26,8 @@ from tests.transceiver.common.port_selectors import (
     select_attribute_ports,
 )
 from tests.transceiver.cdb_firmware_upgrade.firmware_operations import (
+    execute_on_ports,
     restore_module_to_original,
-    run_firmware_op_on_ports,
 )
 
 CMIS_CDB_FIRMWARE_BASE_PATH_ON_DUT = "/tmp/cmis_cdb_firmware"
@@ -201,7 +201,7 @@ def restore_original_firmware_baseline(
     """
     def _restore(phase):
         with dom_polling_disabled_on_ports(duthost, port_attributes_dict, cdb_firmware_qualifying_ports):
-            failures, ports = run_firmware_op_on_ports(
+            failures, ports = execute_on_ports(
                 duthost, port_attributes_dict, cdb_firmware_qualifying_ports,
                 get_lport_to_pport_mapping, required_firmware_metadata_for_all_transceivers,
                 restore_module_to_original,
