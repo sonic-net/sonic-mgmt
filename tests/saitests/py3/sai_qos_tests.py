@@ -4996,7 +4996,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
             print(diff_list, file=sys.stderr)
 
             for dscp, diff in diff_list:
-                if platform_asic and platform_asic == "broadcom-dnx" or "broadcom":
+                if platform_asic and platform_asic in ("broadcom-dnx", "broadcom"):
                     logging.info(
                         "On J2C+ can't control how packets are dequeued (CS00012272267) - so ignoring diff check now")
                 elif not dry_run:
