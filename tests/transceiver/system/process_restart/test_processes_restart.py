@@ -174,7 +174,7 @@ def _process_restart_tester(
             "port(s):\n  - "
             + "\n  - ".join(failures)
         )
-        time.sleep(90) # wait for the system to settle before the next test
+        time.sleep(90)  # wait for the system to settle before the next test
 
 
 def _process_crash_tester(
