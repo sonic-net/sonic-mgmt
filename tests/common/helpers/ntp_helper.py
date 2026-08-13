@@ -1,4 +1,5 @@
 from enum import Enum
+import logging
 import pytest
 import time
 from contextlib import contextmanager
@@ -140,6 +141,28 @@ def get_ntp_daemon_in_use(host):
     if ntp_conf_stat["stat"]["exists"]:
         return NtpDaemon.NTP
     pytest.fail("Unable to determine NTP daemon in use")
+
+
+logger = logging.getLogger(__name__)
+
+
+def check_ntp_sync_status(duthost):
+    """Return True if the DUT is synchronized with its configured NTP server."""
+    ntp_daemon = get_ntp_daemon_in_use(duthost)
+
+    if ntp_daemon == NtpDaemon.CHRONY:
+        ntp_status_cmd = "chronyc -c tracking"
+    else:
+        ntp_status_cmd = "ntpstat"
+
+    ntp_status = duthost.command(ntp_status_cmd, module_ignore_errors=True)
+    if (ntp_daemon == NtpDaemon.CHRONY and "Not synchronised" not in ntp_status["stdout"]) or \
+            (ntp_daemon != NtpDaemon.CHRONY and "unsynchronised" not in ntp_status["stdout"]):
+        logger.info("DUT %s is synchronized with NTP server.", duthost)
+        return True
+
+    logger.info("DUT %s is NOT synchronized.", duthost)
+    return False
 
 
 @pytest.fixture(scope="module")

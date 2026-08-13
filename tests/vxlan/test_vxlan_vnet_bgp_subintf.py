@@ -14,8 +14,7 @@ from tests.common.vxlan_ecmp_utils import Ecmp_Utils
 from tests.common.helpers.dut_utils import check_container_state
 from tests.common.helpers.gnmi_utils import GNMIEnvironment, gnmi_container, create_gnmi_certs, \
     delete_gnmi_certs
-from tests.common.helpers.ntp_helper import setup_ntp_context
-from tests.gnmi.helper import check_ntp_sync_status
+from tests.common.helpers.ntp_helper import setup_ntp_context, check_ntp_sync_status
 
 ecmp_utils = Ecmp_Utils()
 

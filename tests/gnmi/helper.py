@@ -7,7 +7,7 @@ from tests.common.utilities import wait_until
 from tests.common.platform.device_utils import get_dpu_ip, get_dpu_port
 from tests.common.helpers.gnmi_utils import GNMIEnvironment, add_gnmi_client_common_name, del_gnmi_client_common_name, \
                                             dump_gnmi_log, dump_system_status
-from tests.common.helpers.ntp_helper import NtpDaemon, get_ntp_daemon_in_use   # noqa: F401
+from tests.common.helpers.ntp_helper import NtpDaemon, get_ntp_daemon_in_use, check_ntp_sync_status  # noqa: F401
 from tests.common.helpers.dut_utils import check_container_state
 
 
@@ -152,28 +152,6 @@ def recover_cert_config(duthost, stopped_programs=None):
     # "Status failed" from container_checker and fail the test on teardown.
     if not wait_until(120, 10, 30, _check_monit_container_checker, duthost):
         logger.warning("Monit container_checker did not recover to healthy status after cert config recovery")
-
-
-def check_ntp_sync_status(duthost):
-    """
-    Checks if the DUT's time is synchronized with the NTP server.
-    """
-
-    ntp_daemon = get_ntp_daemon_in_use(duthost)
-
-    if ntp_daemon == NtpDaemon.CHRONY:
-        ntp_status_cmd = "chronyc -c tracking"
-    else:
-        ntp_status_cmd = "ntpstat"
-
-    ntp_status = duthost.command(ntp_status_cmd, module_ignore_errors=True)
-    if (ntp_daemon == NtpDaemon.CHRONY and "Not synchronised" not in ntp_status["stdout"]) or \
-            (ntp_daemon != NtpDaemon.CHRONY and "unsynchronised" not in ntp_status["stdout"]):
-        logger.info("DUT %s is synchronized with NTP server.", duthost)
-        return True
-    else:
-        logger.info("DUT %s is NOT synchronized.", duthost)
-        return False
 
 
 def check_system_time_sync(duthost):
