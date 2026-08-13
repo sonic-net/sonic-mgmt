@@ -62,7 +62,7 @@ def test_snmp_psu_status(duthosts, enum_supervisor_dut_hostname, snmp_psu_module
         return
 
     psu_keys = natsorted(redis_get_keys(duthost, 'STATE_DB', 'PSU_INFO|*'))
-    assert psu_keys, "No PSU_INFO keys found in STATE_DB."
+    pytest_assert(psu_keys, "No PSU_INFO keys found in STATE_DB.")
 
     for psu_indx, operstatus in snmp_facts['snmp_psu'].items():
         get_presence = duthost.shell(
