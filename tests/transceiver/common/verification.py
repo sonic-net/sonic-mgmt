@@ -11,8 +11,10 @@ import logging
 import re
 import time
 
-from tests.transceiver.common import db_helpers, health_checks
-from tests.transceiver.common.prerequisites import check_links_up
+from tests.transceiver.common import db_helpers
+from tests.transceiver.common.prerequisites import (
+    wait_until_health_ok, wait_until_links_up,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -395,7 +397,8 @@ def standard_port_recovery_and_verification(
         port_attributes_dict: dict of ``{port: port_attrs}`` (as produced by
             the ``port_attributes_dict`` fixture), with one entry per port in
             ``ports``.
-        link_up_timeout_sec: budget for waiting on oper-up
+        link_up_timeout_sec: total budget shared between waiting on oper-up
+            and polling docker/process health afterward
         health_baseline: the dict returned by
             :func:`tests.transceiver.common.health_checks.capture_baseline`
         lport_to_first_subport_mapping: the value of the session-scoped
@@ -422,9 +425,16 @@ def standard_port_recovery_and_verification(
     checks_ran = {port: [] for port in ports}  # human-readable checks ran
 
     # 1. Link status - one batched poll covers every port.
-    time.sleep(link_up_timeout_sec)
-    link_check_dict = check_links_up(duthost, port_attributes_dict)
+    link_poll_t0 = time.monotonic()
+    link_check_dict = wait_until_links_up(
+        duthost, port_attributes_dict, link_up_timeout_sec
+    )
+    link_poll_elapsed = time.monotonic() - link_poll_t0
     up_ports = link_check_dict.get("up", [])
+    down_ports_raw = link_check_dict.get("down", [])
+    down_ports = [port.split("(")[0] for port in down_ports_raw]
+    for port in down_ports:
+        per_port_failures[port].append(f"{port} is down")
 
     # 2a/2b setup - one shared flap/last_up_time sentinel per up port, captured
     # right after link-up.
@@ -449,9 +459,10 @@ def standard_port_recovery_and_verification(
             if not result["passed"]:
                 per_port_failures[port].append(result["details"])
 
-    # 7. Docker/process health - delegates to health_checks.verify_health
-    #    against the same health_baseline the per-test fixture uses. Runs
-    #    once, host-wide, unconditionally.
+    # 7. Docker/process health - one batched poll, host-wide, unconditionally.
+    #    Shares link_up_timeout_sec with step 1: whatever the link-up poll
+    #    didn't use is what's left for health, floored at 1s so health is
+    #    still checked at least once even if link-up ate the whole budget.
     if health_baseline is None:
         health_failure = (
             "health_baseline not provided - caller must pass the "
@@ -459,8 +470,10 @@ def standard_port_recovery_and_verification(
             "(tests/transceiver/conftest.py)"
         )
     else:
-        health_result = health_checks.verify_health(
-            duthost, health_baseline, expect_pid_change=expected_pid_changes,
+        health_timeout_sec = max(1, link_up_timeout_sec - link_poll_elapsed)
+        health_result = wait_until_health_ok(
+            duthost, health_baseline, health_timeout_sec,
+            expect_pid_change=expected_pid_changes,
         )
         health_failure = (
             None if health_result["passed"]
