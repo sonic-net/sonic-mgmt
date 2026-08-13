@@ -18,7 +18,8 @@ def check_docker_uptime_minutes(duthost, name, minimal_runtime=6):
     @summary: This function checks if the named docker's uptime is at least the minimal_runtime
     @return: True if the docker has been running at least the minimal_runtime, False for otherwise
     """
-    result = duthost.command("docker ps --filter name=^/{}$ --format '{{.Status}}'".format(name), _uses_shell=True)
+    result = duthost.command("docker ps --filter name=^/{}$ --format '{{{{.Status}}}}'".format(name), 
+                             _uses_shell=True, module_ignore_errors=True)
     if result["stdout"]:
         match = re.search(r'Up (\d+) (minutes|hours|days|weeks|months)', result["stdout"])
         if match:
