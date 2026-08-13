@@ -8,8 +8,11 @@ from tests.common.gu_utils import apply_patch, expect_op_success, expect_res_suc
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, update_pfcwd_default_state
 from tests.common.config_reload import config_reload_minigraph_with_rendered_golden_config_override
+from tests.common import mellanox_data, broadcom_data
+
+LOSSY_ONLY_HWSKUS = mellanox_data.LOSSY_ONLY_HWSKUS + broadcom_data.LOSSY_ONLY_HWSKUS
 
 # Test on t0 topo to verify functionality and to choose predefined variable
 # admin@vlab-01:~$ show acl table
@@ -49,9 +52,15 @@ def get_iptable_rules(duthost, ip_netns_namespace_prefix):
 @pytest.fixture(scope="module", autouse=True)
 def restore_test_env(duthosts, rand_one_dut_front_end_hostname):
     duthost = duthosts[rand_one_dut_front_end_hostname]
+    hwsku = duthost.facts["hwsku"]
+    original_pfcwd_value = None
+    if hwsku in LOSSY_ONLY_HWSKUS:
+        original_pfcwd_value = update_pfcwd_default_state(duthost, "/etc/sonic/init_cfg.json", "disable")
     config_reload_minigraph_with_rendered_golden_config_override(
         duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
     yield
+    if original_pfcwd_value is not None:
+        update_pfcwd_default_state(duthost, "/etc/sonic/init_cfg.json", original_pfcwd_value)
 
 
 @pytest.fixture(scope="module", autouse=True)
