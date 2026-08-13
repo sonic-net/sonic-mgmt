@@ -1,4 +1,5 @@
 import logging
+import pathlib
 import allure
 import os
 import jinja2
@@ -30,7 +31,8 @@ NAT_ENABLE_KEY = "nat_enabled_on_{}"
 CONSOLE_RECONNECT_BACKOFF_SECS = 12
 
 # Ansible config files
-LAB_CONNECTION_GRAPH_PATH = os.path.normpath((os.path.join(os.path.dirname(__file__), "../../../ansible/files")))
+LAB_CONNECTION_GRAPH_PATH = pathlib.Path(
+    os.getenv("ANSIBLE_CONFIG", pathlib.Path(__file__).resolve().parent.joinpath("../../ansible"))).joinpath("files")
 
 BASI_PATH = os.path.dirname(os.path.abspath(__file__))
 
