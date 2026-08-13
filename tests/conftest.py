@@ -43,7 +43,6 @@ from tests.common.fixtures.ptfhost_utils import ptf_test_port_map_active_active 
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder_session                  # noqa: F401
 from tests.common.dualtor.dual_tor_utils import disable_timed_oscillation_active_standby    # noqa: F401
 from tests.common.dualtor.dual_tor_utils import config_active_active_dualtor
-from tests.common.dualtor.dual_tor_common import active_active_ports                        # noqa: F401
 from tests.common.dualtor import mux_simulator_control                                      # noqa: F401
 
 from tests.common.helpers.constants import (
@@ -442,7 +441,7 @@ def _load_testbed_config(tbfile, tbname):
         if tb.get('conf-name') == tbname:
             return tb
 
-    logger.warning(f"Testbed '{tbname}' not found in '{tbfile}'")
+    logger.warning(f"Testbed '{tbname}' not found in '{tbfile}'")  # noqa: E713
     return
 
 
@@ -498,7 +497,7 @@ def converge_topo_if_needed(config):
 
         os.chmod(topo_file, original_mode)
         os.chown(topo_file, original_uid, original_gid)
-        logger.info(f"File permissions restored to {original_uid}:{original_gid}")
+        logger.info(f"File permissions restored to {original_uid}:{original_gid}")  # noqa: E231
 
         config.cache.set("converged_topo_file", topo_file)
         config.cache.set("converged_topo_backup", backup_file)
@@ -1350,7 +1349,7 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
 
             logging.debug(
                 f"Added serial port mapping: {dut_name} Console{host_port} -> "
-                f"{fanout_host}:{fanout_port} (baud={link_info.get('baud_rate', '9600')})"
+                f"{fanout_host}:{fanout_port} (baud={link_info.get('baud_rate', '9600')})"  # noqa: E231
             )
 
     logging.info(f"fanouthosts fixture initialized with {len(fanout_hosts)} fanout devices")
@@ -3781,7 +3780,7 @@ def build_gnmi_stubs(request):
             text=True,
             check=False  # Do not raise an exception automatically on non-zero exit
         )
-        logger.info(f"Output of {script_path}:\n{result.stdout}")
+        logger.info(f"Output of {script_path}:\n{result.stdout}")  # noqa: E231
 
         if result.returncode != 0:
             logger.error(f"{script_path} failed with exit code {result.returncode}")
@@ -3916,7 +3915,7 @@ class DualtorMuxPortSetupConfig(enum.Flag):
 
 
 @pytest.fixture(autouse=True)
-def setup_dualtor_mux_ports(active_active_ports, duthost, duthosts, tbinfo, request, mux_server_url):       # noqa:F811
+def setup_dualtor_mux_ports(duthost, duthosts, tbinfo, request, mux_server_url):       # noqa:F811
     """Setup dualtor mux ports."""
     def _get_enumerated_dut_hostname(request):
         for k, v in request.node.callspec.params.items():
@@ -4011,7 +4010,7 @@ def setup_dualtor_mux_ports(active_active_ports, duthost, duthosts, tbinfo, requ
             config_active_active_dualtor(
                 duthosts[active_dut_hostname],
                 duthosts[standby_dut_hostname],
-                active_active_ports,
+                "all",
                 dualtor_setup_config & DualtorMuxPortSetupConfig.DUALTOR_SETUP_MUX_PORT_MANUAL_MODE
             )
         else:
