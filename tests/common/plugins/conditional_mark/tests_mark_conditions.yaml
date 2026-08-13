@@ -5403,6 +5403,19 @@ srv6/test_srv6_vlan_forwarding.py::test_srv6_uN_no_vlan_flooding[False]:
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
+srv6/test_srv6_warmboot.py:
+  skip:
+    reason: "Only target Mellanox SPC4+ and SRv6-capable Broadcom platforms with 202412 or 202511+ image. SRv6 is not supported on older ASICs (Broadcom TH/TH2/TD3; Mellanox SPC1-3). Skip for non Arista-7060X6-64PE-B-* TH5 SKUs. Skip for t0-isolated-d96u32, t1-isolated-d32/128. Warm reboot is not supported on dualtor, m0, m1, mx, smartswitch, isolated topologies, on multi ASIC devices and on x86_64-nvidia_sn5640-r0."
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type not in ['mellanox', 'broadcom', 'vpp'] or (release != 'master' and release != '202412' and release < '202511')"
+      - "asic_type == 'mellanox' and asic_gen in ['spc1', 'spc2', 'spc3']"
+      - "asic_type == 'broadcom' and 'Arista-7060X6-64PE-B' not in hwsku"
+      - "asic_type == 'broadcom' and asic_gen not in ['th5', 'th6', 'q3d']"
+      - "topo_type in ['m0', 'm1', 'mx', 'dualtor']"
+      - "'isolated' in topo_name or 'dualtor' in topo_name"
+      - "platform in ['x86_64-nvidia_sn5640-r0']"
+
 #######################################
 #####             ssh             #####
 #######################################

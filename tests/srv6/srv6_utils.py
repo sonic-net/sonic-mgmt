@@ -1,16 +1,42 @@
+import json
 import logging
+import random
+import string
 import time
+import pytest
 import requests
 import ptf.packet as scapy
 import ptf.testutils as testutils
+
+from ptf.mask import Mask
+from ptf.testutils import simple_ipv6_sr_packet, send_packet, verify_no_packet_any
+from scapy.all import Raw
+from scapy.layers.inet6 import IPv6, UDP
+from scapy.layers.l2 import Ether
 from tests.common.helpers.dut_utils import get_available_tech_support_files, get_new_techsupport_files_list, \
     extract_techsupport_tarball_file
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.portstat_utilities import parse_portstat
+from tests.common.utilities import wait_until
 from tests.common.helpers.srv6_helper import SRv6
 
 logger = logging.getLogger(__name__)
 LOCATOR_NUM = 128
 ROUTE_BASE = '2001'
+
+#
+# uN configuration used by the SRv6 data plane and warm reboot tests
+#
+UN_LOCATOR_NAME = 'loc1'
+UN_LOCATOR_PREFIX = 'fcbb:bbbb:1::'
+UN_SID_PREFIX = 'fcbb:bbbb:1::/48'
+UN_SID_APPL_DB_KEY = 'SRV6_MY_SID_TABLE:32:16:0:0:fcbb:bbbb:1::'
+# Destination address of the injected packets, it matches the uN SID above
+UN_SID_TRAFFIC_DST = 'fcbb:bbbb:1:2::'
+# Destination address of the packets once the uN behavior has been applied
+UN_EGRESS_DST = 'fcbb:bbbb:2::'
+UN_EGRESS_ROUTE = 'fcbb:bbbb:2::/48'
+SRV6_BLACKHOLE_ROUTE = 'fcbb:bbbb::/32'
 
 
 class MyLocators():
@@ -645,3 +671,301 @@ def verify_asic_db_sid_entry_exist(duthost, sonic_db_cli):
     asic_db_my_sids = duthost.command(sonic_db_cli +
                                       " ASIC_DB keys *ASIC_STATE:SAI_OBJECT_TYPE_MY_SID_ENTRY*")["stdout"]
     return len(asic_db_my_sids.strip()) > 0
+
+
+def get_ptf_src_port_and_dut_port_and_neighbor(dut, tbinfo):
+    """Get the PTF port mapping for the duthost or an asic of the duthost"""
+    dut_mg_facts = dut.get_extended_minigraph_facts(tbinfo)
+    ports_map = dut_mg_facts["minigraph_ptf_indices"]
+    if len(ports_map) == 0:
+        pytest.skip("No PTF ports found for {}".format(dut))
+
+    lldp_table = dut.command("show lldp table")['stdout'].split("\n")[3:]
+    neighbor_table = [line.split() for line in lldp_table]
+    for entry in neighbor_table:
+        intf = entry[0]
+        if intf in ports_map:
+            # Check if this interface is part of a portchannel
+            ptf_ports = [ports_map[intf]]
+
+            # Check if the interface is a member of any portchannel
+            if 'minigraph_portchannels' in dut_mg_facts:
+                for pc_name, pc_info in dut_mg_facts['minigraph_portchannels'].items():
+                    if intf in pc_info.get('members', []):
+                        # Found a portchannel - get PTF ports for all members
+                        logger.info("Interface {} is a member of portchannel {}".format(intf, pc_name))
+                        ptf_ports = []
+                        for member in pc_info['members']:
+                            if member in ports_map:
+                                ptf_ports.append(ports_map[member])
+                                logger.info("Added portchannel member {} with PTF port {}".format(
+                                    member, ports_map[member]))
+                        break
+
+            return intf, ptf_ports, entry[1]  # local intf, ptf_src_ports (list), neighbor hostname
+
+    pytest.skip("No active LLDP neighbor found for {}".format(dut))
+
+
+def run_srv6_traffic_test(duthost, dut_mac, ptf_src_ports, neighbor_ip, ptfadapter, ptfhost, with_srh):
+    # Convert single port to list for uniform handling
+    if isinstance(ptf_src_ports, int):
+        ptf_src_ports_list = [ptf_src_ports]
+    else:
+        ptf_src_ports_list = ptf_src_ports
+
+    # Use the first port for sending packets
+    ptf_src_port = ptf_src_ports_list[0]
+
+    for i in range(0, 10):
+        # generate a random payload
+        payload = ''.join(random.choices(string.ascii_letters + string.digits, k=20))
+        if with_srh:
+            injected_pkt = simple_ipv6_sr_packet(
+                eth_dst=dut_mac,
+                eth_src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode(),
+                ipv6_src=ptfhost.mgmt_ipv6 if ptfhost.mgmt_ipv6 else "1000::1",
+                ipv6_dst="fcbb:bbbb:1:2::",
+                srh_seg_left=1,
+                srh_nh=41,
+                inner_frame=IPv6() / UDP(dport=4791) / Raw(load=payload)
+            )
+        else:
+            injected_pkt = Ether(dst=dut_mac, src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode()) \
+                           / IPv6(src=ptfhost.mgmt_ipv6 if ptfhost.mgmt_ipv6 else "1000::1", dst="fcbb:bbbb:1:2::") \
+                           / IPv6() / UDP(dport=4791) / Raw(load=payload)
+
+        expected_pkt = injected_pkt.copy()
+        expected_pkt['Ether'].dst = get_neighbor_mac(duthost, neighbor_ip)
+        expected_pkt['Ether'].src = dut_mac
+        expected_pkt['IPv6'].dst = "fcbb:bbbb:2::"
+        expected_pkt['IPv6'].hlim -= 1
+        logger.debug("Expected packet #{}: {}".format(i, expected_pkt.summary()))
+        runSendReceive(injected_pkt, ptf_src_port, expected_pkt, ptf_src_ports_list, True, ptfadapter)
+
+
+def _normalize_asic_db_mysid_key(key):
+    """
+    Build a comparable identity for an ASIC_DB MY_SID entry key.
+
+    The key embeds the entry definition as a json document, e.g.
+    ASIC_STATE:SAI_OBJECT_TYPE_MY_SID_ENTRY:{"switch_id":"oid:0x21...","sid":"fcbb:bbbb:1::",...}
+    The switch object id is dropped so that the comparison only covers the entry
+    itself.
+    """
+    _, _, entry = key.partition('SAI_OBJECT_TYPE_MY_SID_ENTRY:')
+    if not entry:
+        return key
+    try:
+        decoded = json.loads(entry)
+    except ValueError:
+        return entry
+    if isinstance(decoded, dict):
+        decoded.pop('switch_id', None)
+        return json.dumps(decoded, sort_keys=True)
+    return entry
+
+
+def get_asic_db_mysid_entries(duthost, sonic_db_cli="sonic-db-cli"):
+    """
+    Collect the SRv6 MY_SID entries programmed in the ASIC DB.
+
+    Returns:
+        dict: {normalized entry key: {attribute: value}}
+    """
+    entries = {}
+    keys = duthost.command(
+        sonic_db_cli + ' ASIC_DB KEYS "ASIC_STATE:SAI_OBJECT_TYPE_MY_SID_ENTRY*"')["stdout"]
+    for key in keys.splitlines():
+        key = key.strip()
+        if not key:
+            continue
+        attributes = duthost.command(
+            "{} ASIC_DB HGETALL '{}'".format(sonic_db_cli, key), module_ignore_errors=True)["stdout"]
+        entries[_normalize_asic_db_mysid_key(key)] = attributes
+    return entries
+
+
+def verify_static_route_installed(duthost, prefix, nexthop=None, ifname=None, blackhole=False,
+                                  sonic_db_cli="sonic-db-cli", cli_options=""):
+    """
+    Verify that a static route is installed all the way down to the ASIC.
+
+    The static routes used for SRv6 forwarding are configured in CONFIG_DB and
+    are never redistributed into BGP, so they cannot be verified from a BGP
+    neighbor. They are instead checked on the box, stage by stage, so that a
+    failure tells which component did not program the route:
+    FRR RIB -> kernel -> APPL_DB -> ASIC_DB.
+
+    Args:
+        duthost: DUT host object
+        prefix: the route prefix, e.g. fcbb:bbbb:2::/48
+        nexthop: expected next hop address, checked when given
+        ifname: expected egress interface, checked when given
+        blackhole: True when the route is expected to be a blackhole route
+        sonic_db_cli: sonic-db-cli command, including the namespace options
+        cli_options: namespace options for vtysh
+
+    Returns:
+        bool: True when the route is installed everywhere it is expected to be
+    """
+    # 1. FRR RIB
+    frr_route = duthost.command(
+        'vtysh{} -c "show ipv6 route {} json"'.format(cli_options, prefix),
+        module_ignore_errors=True)["stdout"]
+    try:
+        frr_routes = json.loads(frr_route) if frr_route.strip() else {}
+    except ValueError:
+        logger.error("Unable to parse the FRR route entry for {}: {}".format(prefix, frr_route))
+        return False
+
+    frr_entries = []
+    for route_entries in frr_routes.values():
+        frr_entries.extend(route_entries)
+    static_entries = [entry for entry in frr_entries if entry.get('protocol') == 'static']
+    if not static_entries:
+        logger.error("Static route {} is missing from the FRR RIB".format(prefix))
+        return False
+    if not any(entry.get('selected') or entry.get('installed') for entry in static_entries):
+        logger.error("Static route {} is in the FRR RIB but is not selected nor installed".format(prefix))
+        return False
+
+    # 2. Linux kernel
+    kernel_route = duthost.command(
+        "ip -6 route show {}".format(prefix), module_ignore_errors=True)["stdout"]
+    if prefix.split('/')[0] not in kernel_route:
+        logger.error("Static route {} is missing from the kernel routing table".format(prefix))
+        return False
+    if blackhole and "blackhole" not in kernel_route:
+        logger.error("Route {} is not a blackhole route in the kernel: {}".format(prefix, kernel_route))
+        return False
+    if nexthop and nexthop not in kernel_route:
+        logger.error("Static route {} does not use next hop {} in the kernel: {}".format(
+            prefix, nexthop, kernel_route))
+        return False
+    if ifname and ifname not in kernel_route:
+        logger.error("Static route {} does not use interface {} in the kernel: {}".format(
+            prefix, ifname, kernel_route))
+        return False
+
+    # 3. APPL_DB
+    appl_db_route = duthost.command(
+        "{} APPL_DB HGETALL 'ROUTE_TABLE:{}'".format(sonic_db_cli, prefix),
+        module_ignore_errors=True)["stdout"]
+    if not appl_db_route.strip():
+        logger.error("Static route {} is missing from APPL_DB".format(prefix))
+        return False
+    if blackhole and "true" not in appl_db_route.lower():
+        logger.error("Route {} is not marked as blackhole in APPL_DB: {}".format(prefix, appl_db_route))
+        return False
+    if nexthop and nexthop not in appl_db_route:
+        logger.error("Static route {} does not use next hop {} in APPL_DB: {}".format(
+            prefix, nexthop, appl_db_route))
+        return False
+
+    # 4. ASIC_DB
+    asic_db_route = duthost.command(
+        '{} ASIC_DB KEYS "*SAI_OBJECT_TYPE_ROUTE_ENTRY*{}*"'.format(sonic_db_cli, prefix),
+        module_ignore_errors=True)["stdout"]
+    if not asic_db_route.strip():
+        logger.error("Static route {} is missing from ASIC_DB".format(prefix))
+        return False
+
+    logger.info("Static route {} is installed in the FRR RIB, the kernel, APPL_DB and ASIC_DB".format(prefix))
+    return True
+
+
+def verify_reboot_cause_warm(duthost):
+    """
+    Verify that the last reboot was a warm reboot.
+
+    A warm reboot which silently degraded into a cold one would make any hitless
+    expectation meaningless, so this is checked explicitly.
+    """
+    reboot_cause = duthost.command("show reboot-cause")["stdout"]
+    logger.info("Reboot cause: {}".format(reboot_cause))
+    return "warm-reboot" in reboot_cause
+
+
+def collect_warmboot_diagnostics(duthost, sonic_db_cli="sonic-db-cli"):
+    """Collect the warm restart state, to be called when a warm boot test fails."""
+    commands = [
+        "show reboot-cause",
+        "show warm_restart state",
+        "show warm_restart config",
+        '{} STATE_DB KEYS "WARM_RESTART_TABLE|*"'.format(sonic_db_cli),
+        '{} STATE_DB KEYS "WARM_RESTART_ENABLE_TABLE|*"'.format(sonic_db_cli),
+    ]
+    for command in commands:
+        output = duthost.command(command, module_ignore_errors=True)["stdout"]
+        logger.info("=== {} ===\n{}".format(command, output))
+
+
+def run_srv6_no_sid_blackhole_test(setup_uN, ptfadapter, ptfhost, with_srh):
+    """
+    Verify that packets sent to a SID which is not programmed are dropped.
+
+    The drop relies on the fcbb:bbbb::/32 blackhole static route, so this also
+    covers the persistence of that route across a disruption.
+    """
+    duthost = setup_uN['duthost']
+    dut_mac = setup_uN['dut_mac']
+    dut_port = setup_uN['dut_port']
+    ptf_src_ports = setup_uN['ptf_src_ports']
+    neighbor_ip = setup_uN['neighbor_ip']
+    ptf_port_ids = setup_uN['ptf_port_ids']
+
+    # Use the first port to send traffic
+    first_ptf_port = ptf_src_ports[0] if isinstance(ptf_src_ports, list) else ptf_src_ports
+
+    # Verify that the ASIC DB has the SRv6 SID entries
+    sonic_db_cli = "sonic-db-cli" + setup_uN['cli_options']
+    assert wait_until(20, 5, 0, verify_asic_db_sid_entry_exist, duthost, sonic_db_cli), \
+        "ASIC_STATE:SAI_OBJECT_TYPE_MY_SID_ENTRY entries are missing in ASIC_DB before blackhole test"
+
+    # get the drop counter before traffic test
+    if duthost.facts["asic_type"] == "broadcom":
+        portstat = parse_portstat(duthost.command(f'portstat -i {dut_port}')['stdout_lines'])
+        before_count = int(portstat[dut_port]['rx_drp'])
+    elif duthost.facts["asic_type"] == "mellanox":
+        before_count = int(duthost.command(f"show interfaces counters rif {dut_port}")['stdout_lines'][6].split()[0])
+
+    # inject a number of packets with random payload
+    pkt_count = 100
+    payload = ''.join(random.choices(string.ascii_letters + string.digits, k=20))
+    if with_srh:
+        injected_pkt = simple_ipv6_sr_packet(
+            eth_dst=dut_mac,
+            eth_src=ptfadapter.dataplane.get_mac(0, first_ptf_port).decode(),
+            ipv6_src=ptfhost.mgmt_ipv6 if ptfhost.mgmt_ipv6 else "1000::1",
+            ipv6_dst="fcbb:bbbb:3:2::",
+            srh_seg_left=1,
+            srh_nh=41,
+            inner_frame=IPv6(dst=neighbor_ip, src=ptfhost.mgmt_ipv6 if ptfhost.mgmt_ipv6 else "1000::1") / UDP(
+                dport=4791) / Raw(load=payload)
+        )
+    else:
+        injected_pkt = Ether(dst=dut_mac, src=ptfadapter.dataplane.get_mac(0, first_ptf_port).decode()) \
+                       / IPv6(src=ptfhost.mgmt_ipv6 if ptfhost.mgmt_ipv6 else "1000::1", dst="fcbb:bbbb:3:2::") \
+                       / IPv6(dst=neighbor_ip, src=ptfhost.mgmt_ipv6 if ptfhost.mgmt_ipv6 else "1000::1") \
+                       / UDP(dport=4791) / Raw(load=payload)
+
+    expected_pkt = injected_pkt.copy()
+    expected_pkt['IPv6'].dst = "fcbb:bbbb:3:2::"
+    expected_pkt['IPv6'].hlim -= 1
+    logger.debug("Expected packet: {}".format(expected_pkt.summary()))
+
+    expected_pkt = Mask(expected_pkt)
+    expected_pkt.set_do_not_care_packet(Ether, "dst")
+    expected_pkt.set_do_not_care_packet(Ether, "src")
+    send_packet(ptfadapter, first_ptf_port, injected_pkt, count=pkt_count)
+    verify_no_packet_any(ptfadapter, expected_pkt, ptf_port_ids, 0, 1)
+
+    # verify that the RX_DROP counter is incremented
+    if duthost.facts["asic_type"] == "broadcom":
+        portstat = parse_portstat(duthost.command(f'portstat -i {dut_port}')['stdout_lines'])
+        after_count = int(portstat[dut_port]['rx_drp'])
+        assert after_count >= (before_count + pkt_count), "RX_DRP counter is not incremented as expected"
+    elif duthost.facts["asic_type"] == "mellanox":
+        after_count = int(duthost.command(f"show interfaces counters rif {dut_port}")['stdout_lines'][6].split()[0])
+        assert after_count >= (before_count + pkt_count), "RIF RX_ERR counter is not incremented as expected"
