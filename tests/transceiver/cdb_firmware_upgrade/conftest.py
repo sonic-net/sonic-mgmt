@@ -7,7 +7,6 @@ from tests.transceiver.attribute_parser.attribute_keys import (
     CDB_FIRMWARE_UPGRADE_ATTRIBUTES_KEY,
     EEPROM_ATTRIBUTES_KEY,
 )
-from tests.transceiver.attribute_parser.paths import get_repo_root
 from tests.transceiver.cdb_firmware_upgrade.parser import TransceiverFirmwareInfoParser
 from tests.transceiver.cdb_firmware_upgrade.utils.firmware_utils import (
     get_required_firmware_metadata_for_all_transceivers,
@@ -46,9 +45,8 @@ def _cdb_firmware_session_prerequisites(presence_verified, links_verified):
 
 
 @pytest.fixture(scope="session")
-def transceiver_firmware_info_parser():
-    repo_root = get_repo_root()
-    firmware_info_parser = TransceiverFirmwareInfoParser(repo_root)
+def transceiver_firmware_info_parser(ansible_root):
+    firmware_info_parser = TransceiverFirmwareInfoParser(ansible_root)
 
     if not firmware_info_parser.transceiver_firmware_info:
         pytest.skip("No transceiver firmware information found, skipping test.")
