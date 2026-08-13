@@ -41,13 +41,77 @@ def _check_monit_container_checker(duthost):
     return status in ("OK", "Status ok")
 
 
+def _check_telemetry_health(duthost):
+    """Check that telemetry is running and Monit reports healthy containers."""
+    container_running = check_container_state(
+        duthost,
+        TELEMETRY_CONTAINER,
+        should_be_running=True,
+    )
+    return container_running and _check_monit_container_checker(duthost)
+
+
 def recover_telemetry_container(duthost):
     """Restart telemetry when needed and wait for container_checker recovery."""
-    if not check_container_state(duthost, TELEMETRY_CONTAINER, should_be_running=True):
-        logger.info("Telemetry container is not running after gNMI recovery, restarting it")
-        duthost.shell("sudo systemctl restart telemetry", module_ignore_errors=True)
+    feature_status, status_available = duthost.get_feature_status()
+    if status_available:
+        telemetry_status = feature_status.get(TELEMETRY_CONTAINER)
+        if telemetry_status in (None, "disabled", "always_disabled"):
+            logger.info(
+                "Telemetry feature is %s; skipping container recovery",
+                telemetry_status or "absent",
+            )
+            return True
+    else:
+        logger.warning(
+            "Unable to read telemetry feature status; attempting recovery"
+        )
 
-    return wait_until(120, 10, 30, _check_monit_container_checker, duthost)
+    telemetry_restarted = False
+    if not check_container_state(
+        duthost,
+        TELEMETRY_CONTAINER,
+        should_be_running=True,
+    ):
+        logger.info(
+            "Telemetry container is not running after gNMI recovery, "
+            "restarting it"
+        )
+        result = duthost.shell(
+            "sudo systemctl restart telemetry",
+            module_ignore_errors=True,
+        )
+        if result.get("rc", 1) != 0:
+            logger.warning(
+                "Failed to restart telemetry container: %s",
+                result.get("stderr", ""),
+            )
+            return False
+
+        if not wait_until(
+                120,
+                10,
+                0,
+                check_container_state,
+                duthost,
+                TELEMETRY_CONTAINER,
+                True):
+            logger.warning(
+                "Telemetry container did not recover after gNMI "
+                "configuration cleanup"
+            )
+            return False
+        telemetry_restarted = True
+
+    monit_delay = 30 if telemetry_restarted else 0
+    if not wait_until(120, 10, monit_delay, _check_telemetry_health, duthost):
+        logger.warning(
+            "Monit container_checker did not recover after gNMI "
+            "configuration cleanup"
+        )
+        return False
+
+    return True
 
 
 def _cert_validity_period(days):

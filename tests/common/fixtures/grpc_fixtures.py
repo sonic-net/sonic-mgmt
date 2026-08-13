@@ -352,11 +352,13 @@ def gnmi_tls(request, duthosts, ptfhost):
         except Exception as e:
             logger.error("Waiting for critical processes failed with exception: %s", e)
 
-        logger.info("Recovering telemetry container health after rollback")
+        logger.info("Checking telemetry container health after rollback")
         if recover_telemetry_container(duthost):
-            logger.info("Telemetry container and Monit container_checker are healthy")
+            logger.info("Telemetry recovery check completed")
         else:
-            logger.error("Telemetry container health did not recover after rollback")
+            logger.error(
+                "Telemetry container health did not recover after rollback"
+            )
 
         try:
             _delete_gnoi_certs(cert_dir)
