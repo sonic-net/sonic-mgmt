@@ -60,7 +60,7 @@ class KeyMatch:
     pattern: str
 
     def __str__(self) -> str:
-        return f"{self.mode.value}:{self.pattern!r}"
+        return "{}:{!r}".format(self.mode.value, self.pattern)
 
 
 @dataclass(frozen=True)
@@ -97,7 +97,7 @@ class ValueSpec:
 
     def __str__(self) -> str:
         if self.mode in (ValueSpecMode.LITERAL, ValueSpecMode.REGEX, ValueSpecMode.ONE_OF):
-            return f"{self.mode.value}:{self.value!r}"
+            return "{}:{!r}".format(self.mode.value, self.value)
         return self.mode.value
 
 

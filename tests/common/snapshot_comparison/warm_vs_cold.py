@@ -404,7 +404,7 @@ def apply_diff_assertion_mask(diff: Dict[DBType, SnapshotDiff], platform: str):
     mask = resolve_warm_cold_diff_mask(platform)
     if mask is None:
         logger.warning(
-            f"No warm-vs-cold assertion mask found for platform={platform!r}; "
+            f"No warm-vs-cold assertion mask found for platform={platform!r}. "
             "regression assertions are skipped for this DUT."
         )
         return
@@ -415,9 +415,9 @@ def apply_diff_assertion_mask(diff: Dict[DBType, SnapshotDiff], platform: str):
         if unused:
             logger.warning(
                 f"{len(unused)} {db_type.name} mask expectation(s) did not match any "
-                f"diff entry; the underlying difference may have been fixed and the "
-                f"mask can likely be reduced. Unused expectations:\n"
-                + "\n".join(f"  - {e}" for e in unused)
+                "diff entry. The underlying difference may have been fixed and the "
+                "mask can likely be reduced. Unused expectations:\n"
+                + "\n".join("  - {}".format(expectation) for expectation in unused)
             )
 
 
@@ -437,7 +437,7 @@ def assert_no_unmasked_regressions(diff: Dict[DBType, SnapshotDiff], platform: s
     """
     if not is_assertion_mask_supported_for_platform(platform):
         logger.warning(
-            f"No warm-vs-cold assertion mask found for platform={platform!r}; "
+            f"No warm-vs-cold assertion mask found for platform={platform!r}. "
             "regression assertions are skipped for this DUT."
         )
         if diff:
@@ -447,7 +447,7 @@ def assert_no_unmasked_regressions(diff: Dict[DBType, SnapshotDiff], platform: s
             )
             logger.warning(
                 "Differences found in snapshots after warm vs cold boot "
-                f"(no assertion mask applied):\n{pretty_diff}"
+                "(no assertion mask applied):\n{}".format(pretty_diff)
             )
         # Don't fail the test; this platform needs an assertion mask added in future.
         return
@@ -459,7 +459,7 @@ def assert_no_unmasked_regressions(diff: Dict[DBType, SnapshotDiff], platform: s
     for db_type, db_snapshot in diff.items():
         if db_snapshot.diff:
             pretty_diff = json.dumps(db_snapshot.diff, indent=4)
-            logger.warning(f"Differences found in {db_type.name} DB after pruning:\n{pretty_diff}")
+            logger.warning("Differences found in {} DB after pruning:\n{}".format(db_type.name, pretty_diff))
             all_unexpected.append((db_type.name, db_snapshot.diff))
         else:
             logger.info(f"No unmasked differences found in {db_type.name} DB")

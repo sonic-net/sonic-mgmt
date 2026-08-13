@@ -432,7 +432,7 @@ class SnapshotDiff:
             for key, content in state_db.items():
                 if re.match(r"^PROCESS_STATS\|\d+", key):
                     assert "value" in content and "CMD" in content["value"], \
-                        f"Unexpected PROCESS_STATS entry: {key} : {content}"
+                        f"Unexpected PROCESS_STATS entry: {key}: {content}"
                     extracted_cmd_store.append(content["value"]["CMD"])
 
         db_a_processes_counter = Counter(db_a_processes)
@@ -477,7 +477,7 @@ class SnapshotDiff:
                 if not key.startswith("DOCKER_STATS|"):
                     continue
                 assert "value" in content and "NAME" in content["value"], \
-                    f"Unexpected DOCKER_STATS entry: {key} : {content}"
+                    f"Unexpected DOCKER_STATS entry: {key}: {content}"
                 name = content["value"]["NAME"]
                 rekeyed[f"DOCKER_STATS|{name}"] = content
 
@@ -568,7 +568,7 @@ class SnapshotDiff:
         """
 
         if top_level_key not in self._diff:
-            raise ValueError(f"Top-level key {top_level_key} not found in diff")
+            raise ValueError(f"Top-level key {top_level_key} is missing from diff")
 
         contents = self._diff[top_level_key]
 
@@ -658,7 +658,7 @@ def _sum_total_values(db_type: DBType, db_dump: dict) -> Tuple[int, int]:
     always_ignore_keys = VOLATILE_VALUES.get(db_type, [])
     volatile_tl_patterns = VOLATILE_TOP_LEVEL_KEYS.get(db_type, set())
     for tl_key, content in db_dump.items():
-        assert "value" in content, f"Unexpected entry in {db_type.name} DB: {tl_key} : {content}"
+        assert "value" in content, f"Unexpected entry in {db_type.name} DB: {tl_key}: {content}"
         value_dict = content["value"]
         tl_is_volatile = _matches_any_glob(tl_key, volatile_tl_patterns) if volatile_tl_patterns else False
         for key in value_dict:
