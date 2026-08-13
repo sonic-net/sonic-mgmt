@@ -1,4 +1,5 @@
 import logging
+from contextlib import contextmanager
 
 from tests.common.platform.interface_utils import (
     get_physical_to_logical_port_mapping,
@@ -48,13 +49,33 @@ def _verify_running_committed_unchanged(after_banks, before_banks):
     return failures
 
 
-def _verify_running_matches_committed(after_banks):
-    """The activated image is also the committed one."""
+def _verify_running_matches_committed(after_banks, operation):
+    """The running image is also the committed one."""
     running = after_banks.get(FW_RUNNING_IMAGE)
     committed = after_banks.get(FW_COMMITTED_IMAGE)
     if running != committed:
-        return [f"Committed Image {committed} != Running Image {running} after activation"]
+        return [f"Committed Image {committed} != Running Image {running} after {operation}"]
     return []
+
+
+def _verify_running_bank_changed(duthost, port, before_banks):
+    """The firmware run swapped the running bank."""
+    after_banks, err = cli_helpers.sfputil_show_fwversion(duthost, port)
+    if err:
+        return [err]
+    if after_banks.get(FW_RUNNING_IMAGE) == before_banks.get(FW_RUNNING_IMAGE):
+        return [
+            f"Running Image {after_banks.get(FW_RUNNING_IMAGE)} did not change after firmware run"
+        ]
+    return []
+
+
+def _verify_committed_bank_matches_running(duthost, port):
+    """The firmware commit pointed the committed bank at the running one."""
+    after_banks, err = cli_helpers.sfputil_show_fwversion(duthost, port)
+    if err:
+        return [err]
+    return _verify_running_matches_committed(after_banks, "firmware commit")
 
 
 def _stop_thermalctld(duthost):
@@ -78,6 +99,22 @@ def _start_thermalctld(duthost, was_stopped):
     if status != "RUNNING":
         return f"thermalctld status after start is {status or 'unknown'}"
     return None
+
+
+@contextmanager
+def thermalctld_stopped_if_required(duthost, cdb_attrs, failures):
+    """Stop thermalctld for the duration of the block when the module requires it."""
+    stopped = False
+    if cdb_attrs.get("thermalctld_disabling_required", False):
+        stopped, err = _stop_thermalctld(duthost)
+        if err:
+            failures.append(f"failed to stop thermalctld: {err}")
+    try:
+        yield
+    finally:
+        err = _start_thermalctld(duthost, stopped)
+        if err:
+            failures.append(f"failed to restart thermalctld: {err}")
 
 
 def _scan_i2c_errors(duthost, dmesg_start_uptime, operation):
@@ -123,7 +160,6 @@ def perform_firmware_download(duthost, port, port_context, metadata_map,
     Returns a list of per-port failure strings (empty on success).
     """
     cdb_attrs = port_context["cdb_attrs"]
-    system_attrs = port_context["system_attrs"]
     vendor, pn = port_context["vendor"], port_context["pn"]
     physical_index = port_context["physical_index"]
 
@@ -138,46 +174,39 @@ def perform_firmware_download(duthost, port, port_context, metadata_map,
 
     fwfile = resolve_binary_path(metadata_map, vendor, pn, target_version)
 
-    startup_wait = system_attrs["port_startup_wait_sec"]
     if expect_link_up:
-        link_failures = wait_ports_oper_status(duthost, [port], "up", startup_wait)
-        if link_failures:
-            return ["port must be operationally up before download"] + link_failures
-
-    if cdb_attrs.get("firmware_download_cdb_abort_support", True):
-        status, abort_err = cli_helpers.issue_cdb_fw_abort(duthost, physical_index)
-        if abort_err:
-            logger.warning("Port %s: pre-download CDB abort failed (proceeding): %s", port, abort_err)
-        else:
-            logger.info("Port %s: pre-download CDB abort status=%s", port, status)
-
-    thermalctld_stopped = False
-    if cdb_attrs.get("thermalctld_disabling_required", False):
-        thermalctld_stopped, thermal_err = _stop_thermalctld(duthost)
-        if thermal_err:
-            return [f"failed to stop thermalctld: {thermal_err}"]
+        if wait_ports_oper_status(duthost, [port], "up", 0):
+            return ["port must be operationally up before download"]
 
     failures = []
-    try:
-        dmesg_start_uptime, dmesg_start_err = dmesg_helpers.capture_dmesg_uptime_watermark(duthost)
-        if dmesg_start_err:
-            failures.append(dmesg_start_err)
-        else:
-            timeout_sec = cdb_attrs["firmware_download_timeout_minutes"] * 60
-            elapsed, dl_err = cli_helpers.sfputil_firmware_download(duthost, port, fwfile, timeout_sec)
-            logger.info("Port %s: firmware download %s took %ss", port, target_version, elapsed)
+    with thermalctld_stopped_if_required(duthost, cdb_attrs, failures):
+        if not failures and cdb_attrs.get("firmware_download_cdb_abort_support", True):
+            status, abort_err = cli_helpers.issue_cdb_fw_abort(duthost, physical_index)
+            if abort_err:
+                logger.warning("Port %s: pre-download CDB abort failed (proceeding): %s", port, abort_err)
+            else:
+                logger.info("Port %s: pre-download CDB abort status=%s", port, status)
 
-            failures += verify_firmware_downloaded(
-                duthost, port, before_banks, target_version, dl_err,
-            )
-            if expect_link_up and not dl_err:
-                failures += wait_ports_oper_status(duthost, [port], "up", startup_wait)
+        if not failures:
+            dmesg_start_uptime, dmesg_start_err = dmesg_helpers.capture_dmesg_uptime_watermark(duthost)
+            if dmesg_start_err:
+                failures.append(dmesg_start_err)
+            else:
+                timeout_sec = cdb_attrs["firmware_download_timeout_minutes"] * 60
+                elapsed, dl_err = cli_helpers.sfputil_firmware_download(duthost, port, fwfile, timeout_sec)
+                logger.info("Port %s: firmware download %s took %ss", port, target_version, elapsed)
 
-            failures += _scan_i2c_errors(duthost, dmesg_start_uptime, "download")
-    finally:
-        thermal_err = _start_thermalctld(duthost, thermalctld_stopped)
-        if thermal_err:
-            failures.append(f"failed to restart thermalctld: {thermal_err}")
+                failures += verify_firmware_downloaded(
+                    duthost, port, before_banks, target_version, dl_err,
+                )
+                if expect_link_up and not dl_err:
+                    if wait_ports_oper_status(duthost, [port], "up", 0):
+                        failures.append("link went down during firmware download")
+
+                # TODO: no link flap should occur during firmware download,
+                # need to add check for link flap.
+
+                failures += _scan_i2c_errors(duthost, dmesg_start_uptime, "download")
     return failures
 
 
@@ -196,12 +225,11 @@ def verify_firmware_activation(duthost, port, before_banks, dual_bank_supported,
             failures.append("previous active firmware not preserved in inactive bank after swap")
         if after_banks.get(FW_RUNNING_IMAGE) == before_banks.get(FW_RUNNING_IMAGE):
             failures.append("Running Image did not change after activation")
+        failures += _verify_running_matches_committed(after_banks, "activation")
     elif activated_version is None:
         failures.append("activated_version is required for a single-bank module")
     elif after_banks.get(FW_ACTIVE) != activated_version:
         failures.append(f"active firmware {after_banks.get(FW_ACTIVE)} != activated {activated_version}")
-
-    failures += _verify_running_matches_committed(after_banks)
 
     return failures
 
@@ -228,50 +256,40 @@ def perform_firmware_activation(duthost, port, port_context,
             return [err]
 
     failures = scenario_ops.perform_ports_shutdown(duthost, subports, shutdown_wait)
-    thermalctld_stopped = False
     dmesg_start_uptime = None
     try:
-        if not failures and cdb_attrs.get("thermalctld_disabling_required", False):
-            thermalctld_stopped, thermal_err = _stop_thermalctld(duthost)
-            if thermal_err:
-                failures.append(f"failed to stop thermalctld: {thermal_err}")
-
         if not failures:
-            dmesg_start_uptime, dmesg_start_err = dmesg_helpers.capture_dmesg_uptime_watermark(duthost)
-            if dmesg_start_err:
-                failures.append(dmesg_start_err)
+            with thermalctld_stopped_if_required(duthost, cdb_attrs, failures):
+                if not failures:
+                    dmesg_start_uptime, dmesg_start_err = dmesg_helpers.capture_dmesg_uptime_watermark(duthost)
+                    if dmesg_start_err:
+                        failures.append(dmesg_start_err)
 
-        if not failures:
-            run_elapsed, run_err = cli_helpers.sfputil_firmware_run(duthost, port, run_timeout)
-            logger.info("Port %s: firmware run took %ss", port, run_elapsed)
-            if run_err:
-                failures.append(f"firmware run failed: {run_err}")
+                if not failures:
+                    run_elapsed, run_err = cli_helpers.sfputil_firmware_run(duthost, port, run_timeout)
+                    logger.info("Port %s: firmware run took %ss", port, run_elapsed)
+                    if run_err:
+                        failures.append(f"firmware run failed: {run_err}")
+                    elif dual_bank:
+                        failures += _verify_running_bank_changed(duthost, port, before_banks)
 
-        if not failures:
-            commit_elapsed, commit_err = cli_helpers.sfputil_firmware_commit(duthost, port, commit_timeout)
-            logger.info("Port %s: firmware commit took %ss", port, commit_elapsed)
-            if commit_err:
-                failures.append(f"firmware commit failed: {commit_err}")
+                if not failures:
+                    commit_elapsed, commit_err = cli_helpers.sfputil_firmware_commit(duthost, port, commit_timeout)
+                    logger.info("Port %s: firmware commit took %ss", port, commit_elapsed)
+                    if commit_err:
+                        failures.append(f"firmware commit failed: {commit_err}")
+                    elif dual_bank:
+                        failures += _verify_committed_bank_matches_running(duthost, port)
 
-        if not failures:
-            failures += _scan_i2c_errors(duthost, dmesg_start_uptime, "activation")
-
-        thermal_err = _start_thermalctld(duthost, thermalctld_stopped)
-        if thermal_err:
-            failures.append(f"failed to restart thermalctld: {thermal_err}")
-        else:
-            thermalctld_stopped = False
+                if not failures:
+                    failures += _scan_i2c_errors(duthost, dmesg_start_uptime, "activation")
 
         if not failures:
             failures += scenario_ops.perform_sfputil_reset(
                 duthost, port, recover_with_port_toggle=False, i2c_recover_sec=recover_sec,
             )
     finally:
-        thermal_err = _start_thermalctld(duthost, thermalctld_stopped)
-        if thermal_err:
-            failures.append(f"failed to restart thermalctld: {thermal_err}")
-        startup_failures = scenario_ops.perform_ports_startup(duthost, subports, startup_wait)
-        failures += startup_failures
+        failures += scenario_ops.perform_ports_startup(duthost, subports, startup_wait)
 
     if not failures:
         failures += verify_firmware_activation(
