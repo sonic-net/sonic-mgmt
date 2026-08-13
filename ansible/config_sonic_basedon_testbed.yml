@@ -1297,6 +1297,16 @@
         become: true
         shell: config bgp startup all
 
+      - name: Wait for T2 chassis to stabilise before configuring AZNG Production
+        pause:
+          seconds: 120
+        when: >
+          't2' in topo
+          and 'lt2' not in topo
+          and 'ft2' not in topo
+          and testbed_facts['duts_map'][inventory_hostname] == 0
+          and (not is_ixia_testbed or 'route_conv' in topo)
+
       - name: Configure AZNG Production on T2 Chassis Upstream LC only.
         become: true
         shell: "{{ azng_config_cmd }}"
