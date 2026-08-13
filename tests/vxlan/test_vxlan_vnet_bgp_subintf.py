@@ -650,6 +650,7 @@ def setup_gnmi_server(duthost, localhost, ptfhost):
         with setup_ntp_context(ptfhost, duthost, use_v6):
             apply_cert_config(duthost)
 
+
 @pytest.fixture(scope="module")
 def common_setup_and_teardown(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, ptfadapter, localhost):
     duthost = duthosts[rand_one_dut_hostname]
