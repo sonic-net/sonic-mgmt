@@ -3,7 +3,9 @@ import logging
 
 from tests.common.helpers.gnmi_utils import gnmi_capabilities, add_gnmi_client_common_name, \
                                             del_gnmi_client_common_name
-from .helper import gnmi_set, dump_gnmi_log, gnmi_subscribe_streaming_sample
+from .helper import gnmi_set, dump_gnmi_log
+from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
+from tests.common.pygnmi_client import StreamMode, SubscribeMode
 from tests.common.utilities import wait_until
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 
@@ -215,7 +217,7 @@ def setup_crl_server_on_ptf(ptfhost, duthosts, rand_one_dut_hostname):
     ptfhost.shell("pkill -9 -f '/root/env-python3/bin/python /root/crl_server.py'", module_ignore_errors=True)
 
 
-def test_gnmi_subscribe_sample(duthosts, rand_one_dut_hostname, ptfhost):
+def test_gnmi_subscribe_sample(duthosts, rand_one_dut_hostname, gnmi_tls):  # noqa: F811
     '''
     Verify GNMI subscribe sample request
     '''
@@ -225,42 +227,55 @@ def test_gnmi_subscribe_sample(duthosts, rand_one_dut_hostname, ptfhost):
     if duthost.is_supervisor_node():
         pytest.skip("Skipping test as no Ethernet0 frontpanel port on supervisor")
 
-    interval_ms = 5000  # 5 second interval
-    count = 5
+    sample_count = 5
+    interval_ns = 5_000_000_000
 
-    def validates_subscribe_sample(output: str):
-        respCnt = output.count("response received")
+    def validate_subscribe_sample(responses):
+        assert len(responses) == sample_count + 1, \
+            f"Expected exactly 6 responses, got {len(responses)}: {responses}"
 
-        # expected <count> responses + 1 sync response
-        assert respCnt == count + 1, f"expected {count + 1} responses, got {respCnt}"
+        initial, *samples = responses
+        assert initial.get("sync_response") is True, \
+            f"Initial response missing sync_response: {initial}"
+        assert isinstance(initial.get("update"), dict), \
+            f"Initial response missing update payload: {initial}"
+        assert all(isinstance(sample.get("update"), dict) for sample in samples), \
+            f"SAMPLE response missing update payload: {samples}"
 
-        timestamps = [ts for ts in output.split("\n") if "timestamp" in ts]
-        for i in range(len(timestamps) - 1):
-            if i == 0:
-                break
-            # format "timestamp: <timestamp in nanoseconds>"
-            currTs = int(timestamps[i].split(': ')[1])
-            nextTs = int(timestamps[i + 1].split(': ')[1])
-            # round to the nearest second
-            assert round(nextTs - currTs, -8) == 5000000000, (
-                "expected 5 second timestamp diff," f"currTs: {currTs}, nextTs: {nextTs}"
-            )
+        timestamps = [sample["update"].get("timestamp") for sample in samples]
+        assert all(isinstance(timestamp, int) and timestamp > 0 for timestamp in timestamps), \
+            f"SAMPLE response missing a valid timestamp: {samples}"
 
-        logger.info(f"Successfully received exactly {count} gNMI subscribe sample responses")
+        for previous, current in zip(timestamps, timestamps[1:]):
+            delta = current - previous
+            assert round(delta, -8) == interval_ns, \
+                f"Expected 5-second SAMPLE interval, got {delta / 1e9:.3f}s: {timestamps}"
 
     with allure.step("Perform gNMI subscribe sample request to state DB"):
-        stdout_msg, _ = gnmi_subscribe_streaming_sample(
-            duthost, ptfhost,  ["/PSU_INFO"], interval_ms, count, target="STATE_DB"
-        )
-        logger.debug("gNMI subscribe response: %s", stdout_msg)
-        validates_subscribe_sample(stdout_msg)
+        responses = list(gnmi_tls.pygnmi_client.subscribe(
+            "/PSU_INFO",
+            target="STATE_DB",
+            mode=SubscribeMode.STREAM,
+            stream_mode=StreamMode.SAMPLE,
+            sample_interval=5,
+            count=sample_count + 1,
+            collect_seconds=40,
+        ))
+        logger.debug("gNMI subscribe STATE_DB response: %s", responses)
+        validate_subscribe_sample(responses)
 
-    with allure.step("Perform gNMI subscribe sample request to sonic DB"):
-        stdout_msg, _ = gnmi_subscribe_streaming_sample(
-            duthost, ptfhost, ["/COUNTERS_DB/localhost/COUNTERS"], interval_ms, count, origin="sonic-db"
-        )
-        logger.debug("gNMI subscribe response: %s", stdout_msg)
-        validates_subscribe_sample(stdout_msg)
+    with allure.step("Perform gNMI subscribe sample request to counters DB"):
+        responses = list(gnmi_tls.pygnmi_client.subscribe(
+            "COUNTERS",
+            target="COUNTERS_DB",
+            mode=SubscribeMode.STREAM,
+            stream_mode=StreamMode.SAMPLE,
+            sample_interval=5,
+            count=sample_count + 1,
+            collect_seconds=40,
+        ))
+        logger.debug("gNMI subscribe COUNTERS_DB response: %s", responses)
+        validate_subscribe_sample(responses)
 
 
 def test_gnmi_authorize_failed_with_revoked_cert(duthosts,
