@@ -1013,16 +1013,13 @@ def apply_patch_add_cluster(config_facts,
                             config_facts_localhost,
                             mg_facts,
                             duthost,
-                            enum_rand_one_asic_namespace,
-                            include_acl_table=True):
+                            enum_rand_one_asic_namespace):
     """
     Apply patch to add cluster information for a given ASIC namespace.
 
     Changes are perfomed to below tables:
 
-    ACL_TABLE (skipped when include_acl_table=False — used by the N-MOR
-    scaling test which manages ACL_TABLE ports separately as a
-    localhost-only replace op)
+    ACL_TABLE
     BGP_NEIGHBOR
     DEVICE_NEIGHBOR
     DEVICE_NEIGHBOR_METADATA
@@ -1146,25 +1143,22 @@ def apply_patch_add_cluster(config_facts,
             "value": f"{highest}m"
         })
 
-    # table ACL_TABLE changes (skip when caller opts out — the N-MOR
-    # scaling test does this so it can manage ACL_TABLE ports via a
-    # separate localhost-only replace op)
-    if include_acl_table:
-        json_patch_asic.append({
-            "op": "add",
-            "path": f"{json_namespace}/ACL_TABLE/DATAACL",
-            "value": config_facts["ACL_TABLE"]["DATAACL"]
-        })
-        json_patch_asic.append({
-            "op": "add",
-            "path": f"{json_namespace}/ACL_TABLE/EVERFLOW",
-            "value": config_facts["ACL_TABLE"]["EVERFLOW"]
-        })
-        json_patch_asic.append({
-            "op": "add",
-            "path": f"{json_namespace}/ACL_TABLE/EVERFLOWV6",
-            "value": config_facts["ACL_TABLE"]["EVERFLOWV6"]
-        })
+    # table ACL_TABLE changes
+    json_patch_asic.append({
+        "op": "add",
+        "path": f"{json_namespace}/ACL_TABLE/DATAACL",
+        "value": config_facts["ACL_TABLE"]["DATAACL"]
+    })
+    json_patch_asic.append({
+        "op": "add",
+        "path": f"{json_namespace}/ACL_TABLE/EVERFLOW",
+        "value": config_facts["ACL_TABLE"]["EVERFLOW"]
+    })
+    json_patch_asic.append({
+        "op": "add",
+        "path": f"{json_namespace}/ACL_TABLE/EVERFLOWV6",
+        "value": config_facts["ACL_TABLE"]["EVERFLOWV6"]
+    })
 
     ######################
     # LOCALHOST NAMESPACE
@@ -1238,22 +1232,21 @@ def apply_patch_add_cluster(config_facts,
             "value": value
         })
 
-    if include_acl_table:
-        json_patch_localhost.append({
-            "op": "add",
-            "path": "/localhost/ACL_TABLE/DATAACL/ports",
-            "value": config_facts_localhost["ACL_TABLE"]["DATAACL"]["ports"]
-        })
-        json_patch_localhost.append({
-            "op": "add",
-            "path": "/localhost/ACL_TABLE/EVERFLOW/ports",
-            "value": config_facts_localhost["ACL_TABLE"]["EVERFLOW"]["ports"]
-        })
-        json_patch_localhost.append({
-            "op": "add",
-            "path": "/localhost/ACL_TABLE/EVERFLOWV6/ports",
-            "value": config_facts_localhost["ACL_TABLE"]["EVERFLOWV6"]["ports"]
-        })
+    json_patch_localhost.append({
+        "op": "add",
+        "path": "/localhost/ACL_TABLE/DATAACL/ports",
+        "value": config_facts_localhost["ACL_TABLE"]["DATAACL"]["ports"]
+    })
+    json_patch_localhost.append({
+        "op": "add",
+        "path": "/localhost/ACL_TABLE/EVERFLOW/ports",
+        "value": config_facts_localhost["ACL_TABLE"]["EVERFLOW"]["ports"]
+    })
+    json_patch_localhost.append({
+        "op": "add",
+        "path": "/localhost/ACL_TABLE/EVERFLOWV6/ports",
+        "value": config_facts_localhost["ACL_TABLE"]["EVERFLOWV6"]["ports"]
+    })
 
     #####################################
     # combine localhost and ASIC patch data
@@ -1272,8 +1265,7 @@ def apply_patch_add_cluster_chassis_packet(config_facts,
                                            config_facts_localhost,
                                            mg_facts,
                                            duthost,
-                                           enum_rand_one_asic_namespace,
-                                           include_acl_table=True):
+                                           enum_rand_one_asic_namespace):
     """
     Apply patch to add cluster information for chassis-packet switches.
 
@@ -1490,14 +1482,13 @@ def apply_patch_add_cluster_chassis_packet(config_facts,
         })
 
     # STEP 12: Add/Replace ACL_TABLE changes
-    if include_acl_table:
-        for acl_table_name in ["DATAACL", "EVERFLOW", "EVERFLOWV6"]:
-            if acl_table_name in config_facts.get("ACL_TABLE", {}):
-                json_patch_asic_rest.append({
-                    "op": "add",
-                    "path": f"{json_namespace}/ACL_TABLE/{acl_table_name}/ports",
-                    "value": config_facts["ACL_TABLE"][acl_table_name]["ports"]
-                })
+    for acl_table_name in ["DATAACL", "EVERFLOW", "EVERFLOWV6"]:
+        if acl_table_name in config_facts.get("ACL_TABLE", {}):
+            json_patch_asic_rest.append({
+                "op": "add",
+                "path": f"{json_namespace}/ACL_TABLE/{acl_table_name}/ports",
+                "value": config_facts["ACL_TABLE"][acl_table_name]["ports"]
+            })
 
     #####################################
     # Apply patches in correct order
@@ -1906,30 +1897,37 @@ def test_add_cluster(tbinfo,
 # Purpose
 # -------
 # Measure how ``config apply-patch`` elapsed time scales with the number of
-# MORs (T1 neighbors) added in a single patch.  Baseline instrument for
-# comparing stock 202405 GCU vs. GCU-container (with master #3831 backported)
-# and for validating removal of ``skip-sort_table`` on 202412 .61 images.
+# MORs (T1 neighbors) re-added in a single patch.  The GCU patch sorter's
+# cost grows super-linearly with the number of moves in a patch, so this is
+# a baseline instrument for catching sorter regressions that a fixed-size
+# patch would miss.
 #
 # Design
 # ------
 # 1. Full cluster is present at test entry.
-# 2. Pick N external PortChannels (= N MORs).
-# 3. Build a targeted REMOVE patch for those N MORs (setup, untimed).
-# 4. Filter ``config_facts`` down to just those N MORs.
-# 5. Call the existing ``apply_patch_add_cluster*()`` with the filtered dict
-#    and ``include_acl_table=False`` — TIMED.  ACL_TABLE port lists are
-#    handled separately via a small localhost replace op.
+# 2. Pick N external PortChannels (= N MORs) via ``_select_n_mors()``.
+# 3. Remove just those N MORs with targeted ``sonic-db-cli`` deletes in
+#    ``_cli_remove_selected_mors()`` (setup, untimed).  A GCU/JSON-patch
+#    remove was tried first but hit YANG cascade-delete edge cases, and the
+#    existing ``remove_cluster_via_sonic_db_cli()`` helper wildcard-deletes
+#    the whole ASIC, which is too coarse for a per-N measurement.
+# 4. Strip those PortChannels from any referring ``ports`` leaf-list via
+#    ``_scan_pc_references()`` / ``_cli_remove_pc_references()`` so the
+#    add-back patch does not trip leafref validation.
+# 5. Build one incremental JSON patch that re-adds exactly those N MORs
+#    (``_build_scaling_add_patch()``) and apply it in a single
+#    ``apply_patch()`` call — TIMED.
 # 6. Verify BGP peers on those N MORs come back up.
-# 7. record_property() the metric so CI / Kusto ingest can graph it.
-# 8. Teardown: rollback_or_reload restores full state.
+# 7. record_property() the metric so CI can graph it.
+# 8. Teardown: ``config rollback`` restores full state.
 #
-# Reuses ``apply_patch_add_cluster()`` / ``apply_patch_add_cluster_chassis_packet()``
-# for the ADD path so there is no duplicate patch-builder logic.  Only the
-# subset REMOVE path is custom (existing remove functions operate on whole
-# tables and cannot be filtered without a much larger refactor).
+# The ADD path deliberately builds its own patch instead of reusing
+# ``apply_patch_add_cluster*()``: those helpers rebuild the *entire* cluster
+# from ``config_facts``, so the measured time would not vary with N.  A
+# scaling measurement needs a patch whose size is a function of N alone.
 # ===========================================================================
 
-# Tiered N values (see meeting notes 2026-07-14):
+# Tiered N values:
 #   - Nightly: fast regression + one near-production data point.
 #   - Weekly:  full-scale capacity ("how many MORs in 1 hour" number).
 #   - Sanity:  validates the test itself; opt-in only.
@@ -1944,11 +1942,11 @@ DEFAULT_TIME_BUDGET_S = 3600
 
 # nightly/weekly/sanity use a per-N budget: catches per-MOR perf regressions
 # instead of only flagging when total elapsed exceeds the 1-hour target.
-# Data on ``str3-7800-lc4-1`` (SONiC.internal-202601.170538176, 202405-
-# equivalent sonic-utilities): elapsed/N observed ~1.47 s/change * ~34
-# changes/MOR ~= 50 s/MOR.  60 s/MOR gives ~20% headroom over the current
-# baseline; small-N runs are covered by BUDGET_FLOOR_S which pays for the
-# fixed apply-patch overhead visible even at N=1 (~50s measured).
+# Measured on a modular-chassis line card: elapsed/N was ~1.47 s per
+# change at ~34 changes/MOR, i.e. ~50 s/MOR.  60 s/MOR gives ~20% headroom
+# over that baseline; small-N runs are covered by BUDGET_FLOOR_S, which
+# pays for the fixed apply-patch overhead that is visible even at N=1
+# (~50 s measured).
 # GCU_TIME_BUDGET_S env var overrides to an absolute budget (useful for
 # local debugging / capacity experiments).
 PER_MOR_BUDGET_S = 60
@@ -2077,7 +2075,7 @@ def scaling_checkpoint(duthosts, enum_downstream_dut_hostname):
 
 
 def _record_platform_metadata(duthost, config_facts, selection, record_property):
-    """Emit per-run metadata to enable Kusto slicing across platforms."""
+    """Emit per-run metadata so results can be sliced across platforms."""
     facts = duthost.facts or {}
     record_property("gcu_sonic_version",
                     facts.get("asic_type", "") + "/" + str(facts.get("num_asic", "")))
@@ -2406,14 +2404,16 @@ def _build_scaling_add_patch(config_facts, config_facts_localhost, mg_facts,
                 })
 
     # Restore per-port scalars removed by _cli_remove_selected_mors.
-    # These use "replace" (they may or may not currently exist depending
-    # on whether the surgical remove actually deleted them, which is
-    # namespace-dependent).  Use "add" — replaces if present.
+    # These use "add" rather than "replace": the keys may or may not still
+    # exist, depending on whether the surgical remove actually deleted them
+    # (which is namespace-dependent).  RFC 6902 "replace" requires the
+    # target to already exist, whereas "add" overwrites it if present.
     #
-    # Bug 7 guard: our per-port ``hdel``/``del`` in _cli_remove_selected_mors
-    # can empty the parent hash entirely (CABLE_LENGTH|AZURE, PORT_QOS_MAP|*,
-    # BUFFER_PG|*), in which case Redis auto-deletes the key and the parent
-    # path disappears from ``show runningconfiguration all``.  jsonpatch
+    # Empty-parent guard: our per-port ``hdel``/``del`` in
+    # _cli_remove_selected_mors can empty the parent hash entirely
+    # (CABLE_LENGTH|AZURE, PORT_QOS_MAP|*, BUFFER_PG|*), in which case Redis
+    # auto-deletes the key and the parent path disappears from
+    # ``show runningconfiguration all``.  jsonpatch
     # (RFC 6902) then refuses ``add /CABLE_LENGTH/AZURE/EthernetX`` with
     # ``member 'AZURE' not found in {}``.  When ``parents_present`` tells
     # us the parent is gone, prepend a defensive ``add /parent = {}`` op.
@@ -2565,11 +2565,11 @@ def _run_scaling_measurement(duthost, tbinfo, config_facts, config_facts_localho
                     [(r["scope"], r["table"], r["key"]) for r in pc_refs])
         _cli_remove_pc_references(duthost, pc_refs, enum_rand_one_asic_namespace)
 
-    # Bug 7 guard: snapshot which parent hashes survived the CLI removal.
-    # If a parent (CABLE_LENGTH|AZURE, PORT_QOS_MAP|*, BUFFER_PG|*) is
-    # empty post-removal, Redis has auto-deleted it and RFC-6902 add
-    # into its child path will fail.  _build_scaling_add_patch uses this
-    # to prepend defensive parent-add ops only when needed.
+    # Empty-parent guard: snapshot which parent hashes survived the CLI
+    # removal.  If a parent (CABLE_LENGTH|AZURE, PORT_QOS_MAP|*,
+    # BUFFER_PG|*) is empty post-removal, Redis has auto-deleted it and an
+    # RFC-6902 add into its child path will fail.  _build_scaling_add_patch
+    # uses this to prepend defensive parent-add ops only when needed.
     parents_present = _probe_parent_tables_present(
         duthost, enum_rand_one_asic_namespace)
     logger.info("Scaling parent-table probe: %s", parents_present)
@@ -2600,8 +2600,10 @@ def _run_scaling_measurement(duthost, tbinfo, config_facts, config_facts_localho
             hwproxy_to = True
         logger.error("add_cluster failed: %r", exc)
     finally:
+        # Stop the clock before cleanup: removing the temp file is a separate
+        # SSH round-trip and is not part of what apply-patch costs.
+        apply_elapsed_s = time.time() - apply_start
         delete_tmpfile(duthost, tmpfile)
-    apply_elapsed_s = time.time() - apply_start
 
     # ---- BGP convergence check counts toward e2e wall clock ----
     bgp_up = False
@@ -2667,9 +2669,9 @@ def _run_and_publish(duthost, tbinfo, config_facts, config_facts_localhost,
     """Shared runner: measure, publish metrics, apply pass/fail policy.
 
     Policy:
-      - HWProxy timeout is recorded but does NOT fail the test.
-        Vaibhav owns the SSH-chatty fix separately; treating it as failure
-        would block nightly signal on an issue we're not measuring here.
+      - HWProxy timeout is recorded but does NOT fail the test.  The
+        underlying SSH chattiness is a separate issue; failing on it would
+        block nightly signal on something this test does not measure.
       - Real GCU failures DO fail the test.
       - Elapsed exceeding the time budget fails the test (that IS the metric).
       - BGP check is soft — logged only.
@@ -2726,10 +2728,10 @@ def test_max_mors_under_budget(
     enum_rand_one_asic_namespace, config_facts, config_facts_localhost,
     mg_facts, scaling_checkpoint, record_property,
 ):
-    """Answer Vaibhav's question directly: how many MORs fit in 1 hour?
+    """Find how many MORs fit inside the 1-hour operational budget.
 
     Sweeps N ascending, stops at the first N that fails or exceeds budget.
-    Records ``gcu_max_n_under_budget`` = the largest N that succeeded
+    Records ``gcu_max_mors_under_budget`` = the largest N that succeeded
     within the time budget on this testbed.
     """
     duthost = duthosts[enum_downstream_dut_hostname]
@@ -2746,6 +2748,13 @@ def test_max_mors_under_budget(
                 mg_facts, enum_rand_one_asic_namespace, n, record_property)
         except pytest.skip.Exception as exc:
             logger.info("Skip at N=%d: %s", n, exc)
+            if max_n == 0:
+                # Nothing measured yet, so the skip is about the platform or
+                # testbed rather than the sweep running out of headroom.
+                # Propagate it instead of falling through to the assertion,
+                # which would report this as a failure.  Matches how the
+                # tiered scaling tests behave.
+                pytest.skip(str(exc))
             break
         # Best-effort rollback between iterations so the next iteration
         # starts from the same pre-state (module-scoped config_facts is
