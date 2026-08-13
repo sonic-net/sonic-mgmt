@@ -135,7 +135,7 @@ def _process_restart_tester(
                 "Verifying pmon restart after %s restart...", process_name
             )
             if check_pmon_uptime_minutes(duthost, minimal_runtime=3):
-                failures.append("[pmon] pmon did not restart as expected")
+                failures.append("pmon did not restart as expected")
                 logger.warning(
                     "pmon FAILED to restart when"
                     " expect_pmon_restart_with_swss_or_syncd is True"
@@ -174,6 +174,7 @@ def _process_restart_tester(
             "port(s):\n  - "
             + "\n  - ".join(failures)
         )
+        time.sleep(90) # wait for the system to settle before the next test
 
 
 def _process_crash_tester(
