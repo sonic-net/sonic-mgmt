@@ -34,6 +34,9 @@ function show_help_and_exit()
     echo "    -x             : print commands and their arguments as they are executed"
     echo "    -6             : IPv6-only management mode (use IPv6 for DUT mgmt connectivity)"
     echo "    -M             : run all 4 prober_type x neighbor_mode MUX_CABLE combos (dualtor/dualtor_io only)"
+    echo ""
+    echo "    environment variables:"
+    echo "    ANSIBLE_PARENT_DIR_OVERRIDE : root holding the 'ansible' directory (default: repo root)"
 
     exit $1
 }
@@ -104,6 +107,9 @@ function setup_environment()
     FULL_PATH=$(realpath ${SCRIPT})
     SCRIPT_PATH=$(dirname ${FULL_PATH})
     BASE_PATH=$(dirname ${SCRIPT_PATH})
+    # Root that holds the 'ansible' directory. Defaults to this repo checkout; set
+    # ANSIBLE_PARENT_DIR_OVERRIDE when the ansible tree lives somewhere else.
+    ANSIBLE_PARENT_DIR=${ANSIBLE_PARENT_DIR_OVERRIDE:-${BASE_PATH}}
     LOG_PATH="logs"
 
     AUTO_RECOVER="True"
@@ -113,13 +119,13 @@ function setup_environment()
     EXTRA_PARAMETERS=""
     FILE_LOG_LEVEL='debug'
     INCLUDE_FOLDERS=""
-    INVENTORY="${BASE_PATH}/ansible/lab,${BASE_PATH}/ansible/veos"
+    INVENTORY="${ANSIBLE_PARENT_DIR}/ansible/lab,${ANSIBLE_PARENT_DIR}/ansible/veos"
     KUBE_MASTER_ID="unset"
     OMIT_FILE_LOG="False"
     RETAIN_SUCCESS_LOG="False"
     SKIP_SCRIPTS=""
     SKIP_FOLDERS="ptftests acstests saitests scripts k8s sai_qualify"
-    TESTBED_FILE="${BASE_PATH}/ansible/testbed.yaml"
+    TESTBED_FILE="${ANSIBLE_PARENT_DIR}/ansible/testbed.yaml"
     TEST_CASES=""
     TEST_FILTER=""
     TEST_INPUT_ORDER="False"
@@ -131,11 +137,11 @@ function setup_environment()
     IPV6_ONLY_MGMT="False"
     MUX_COMBO_MODE="False"
 
-    export ANSIBLE_CONFIG=${BASE_PATH}/ansible
-    export ANSIBLE_LIBRARY=${BASE_PATH}/ansible/library/
-    export ANSIBLE_CONNECTION_PLUGINS=${BASE_PATH}/ansible/plugins/connection
-    export ANSIBLE_CLICONF_PLUGINS=${BASE_PATH}/ansible/cliconf_plugins
-    export ANSIBLE_TERMINAL_PLUGINS=${BASE_PATH}/ansible/terminal_plugins
+    export ANSIBLE_CONFIG=${ANSIBLE_PARENT_DIR}/ansible
+    export ANSIBLE_LIBRARY=${ANSIBLE_PARENT_DIR}/ansible/library/
+    export ANSIBLE_CONNECTION_PLUGINS=${ANSIBLE_PARENT_DIR}/ansible/plugins/connection
+    export ANSIBLE_CLICONF_PLUGINS=${ANSIBLE_PARENT_DIR}/ansible/cliconf_plugins
+    export ANSIBLE_TERMINAL_PLUGINS=${ANSIBLE_PARENT_DIR}/ansible/terminal_plugins
 
     # Kill pytest and ansible-playbook process
     pkill --signal 9 pytest
@@ -264,6 +270,7 @@ function run_debug_tests()
     echo "FULL_PATH:             ${FULL_PATH}"
     echo "SCRIPT_PATH:           ${SCRIPT_PATH}"
     echo "BASE_PATH:             ${BASE_PATH}"
+    echo "ANSIBLE_PARENT_DIR:    ${ANSIBLE_PARENT_DIR}"
 
     echo "ANSIBLE_CONFIG:        ${ANSIBLE_CONFIG}"
     echo "ANSIBLE_LIBRARY:       ${ANSIBLE_LIBRARY}"

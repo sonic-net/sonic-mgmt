@@ -353,7 +353,9 @@ def verify_lldp_table(duthost, intf_status_output, test_name=""):
     # Filter intf_status_output: exclude PortChannel interfaces and admin down interfaces
     intf_status_filtered_for_lldp = {
         intf['interface'] for intf in intf_status_output
-        if not intf['interface'].startswith('PortChannel') and intf['admin'].lower() == 'up'
+        if not intf['interface'].startswith('PortChannel') and
+        not intf['alias'].startswith('Recirc') and
+        intf['admin'].lower() == 'up'
     }
 
     missing_in_lldp_table = intf_status_filtered_for_lldp - lldp_table_interfaces_no_eth0
@@ -436,12 +438,15 @@ def verify_lldpcli_interfaces(duthost, asic, intf_status_output, test_name=""):
             asic.asic_index, len(asic_ports)))
         intf_status_filtered_for_lldpcli = {
             intf['interface'] for intf in intf_status_output
-            if not intf['interface'].startswith('PortChannel') and intf['interface'] in asic_ports
+            if not intf['interface'].startswith('PortChannel') and
+            not intf['alias'].startswith('Recirc') and
+            intf['interface'] in asic_ports
         }
     else:
         intf_status_filtered_for_lldpcli = {
             intf['interface'] for intf in intf_status_output
-            if not intf['interface'].startswith('PortChannel')
+            if not intf['interface'].startswith('PortChannel') and
+            not intf['alias'].startswith('Recirc')
         }
 
     missing_in_lldpcli = intf_status_filtered_for_lldpcli - lldpcli_interfaces_no_eth0
@@ -507,7 +512,9 @@ def verify_lldpctl_facts(duthost, enum_frontend_asic_index, intf_status_output, 
     # Compare intf_status_output with lldpctl_facts interfaces (exclude PortChannels and admin down from intf_status)
     intf_status_filtered_for_lldpctl = {
         intf['interface'] for intf in intf_status_output
-        if not intf['interface'].startswith('PortChannel') and intf['admin'].lower() == 'up'
+        if not intf['interface'].startswith('PortChannel') and
+        not intf['alias'].startswith('Recirc') and
+        intf['admin'].lower() == 'up'
     }
 
     missing_in_lldpctl_facts = intf_status_filtered_for_lldpctl - lldpctl_facts_interfaces
