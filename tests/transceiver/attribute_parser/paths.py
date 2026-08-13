@@ -15,8 +15,8 @@ from pathlib import Path
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
-# Root directory (relative to repository root)
-REL_TRANSCEIVER_INV_DIR = os.path.join('ansible', 'files', 'transceiver', 'inventory')
+# Root directory (relative to ansible root)
+REL_TRANSCEIVER_INV_DIR = os.path.join('files', 'transceiver', 'inventory')
 
 # Subdirectories
 REL_ATTR_DIR = os.path.join(REL_TRANSCEIVER_INV_DIR, 'attributes')
