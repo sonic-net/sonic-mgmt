@@ -6135,7 +6135,7 @@ vxlan/test_vxlan_decap.py:
     conditions_logical_operator: OR
     conditions:
       - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
-      - "asic_gen in ['th4', 'th5'] and release in ['202503', '202505', '202511']"
+      - "asic_gen in ['th4', 'th5'] and release in ['202503', '202505', '202511', '202605']"
       - *noVxlanTopos
   xfail:
     reason: "Skipped due to bug https://github.com/sonic-net/sonic-buildimage/issues/22056"
