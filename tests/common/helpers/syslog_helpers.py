@@ -10,6 +10,25 @@ DOCKER_TMP_PATH = "/tmp/"
 logger = logging.getLogger(__name__)
 
 
+def add_syslog_server(dut, syslog_server_ip, source=None, vrf=None, port=None):
+    command = "sudo config syslog add {}".format(syslog_server_ip)
+    if source:
+        command += " --source {}".format(source)
+    if vrf:
+        command += " --vrf {}".format(vrf)
+    if port:
+        command += " --port {}".format(port)
+    logger.debug("Add syslog server command: %s", command)
+    return dut.command(command, module_ignore_errors=True)
+
+
+def del_syslog_server(dut, syslog_server_ip, module_ignore_errors=False):
+    return dut.command(
+        "sudo config syslog del {}".format(syslog_server_ip),
+        module_ignore_errors=module_ignore_errors,
+    )
+
+
 # Before real test, check default route on DUT:
 #     If DUT has no IPv4 and IPv6 default route, skip syslog test. If DUT has at least one type default route,
 #     tell test_syslog function to do further check
