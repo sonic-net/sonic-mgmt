@@ -648,6 +648,7 @@ bgp/test_bgp_suppress_fib.py:
       - "release in ['201811', '201911', '202012', '202205', '202211', '202305', '202311', '202405']"
       - "release in ['202505', '202511', '202605']"
       - "release in ['master'] and https://github.com/sonic-net/sonic-mgmt/issues/26175"
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/26175"
   xfail:
     reason: "xfail for IPv6-only topologies, issue https://github.com/sonic-net/sonic-mgmt/issues/20756 or Mellanox platform due to https://github.com/sonic-net/sonic-buildimage/issues/24679"
     conditions_logical_operator: or
@@ -799,13 +800,14 @@ cacl/test_cacl_application.py::test_cacl_application_dualtor:
 
 cacl/test_cacl_application.py::test_cacl_application_nondualtor:
   skip:
-    reason: "test_cacl_application is only supported on non dualtor topology. Also temporarily
-      skipped while sonic-net/sonic-buildimage#28061 (adds new protected FRR BGP ports) is being
-      validated; test update to follow once that image is checked in."
-    conditions_logical_operator: or
+    reason: "test_cacl_application is only supported on non dualtor topology"
     conditions:
       - "'dualtor' in topo_name"
-      - "https://github.com/sonic-net/sonic-buildimage/issues/28061"
+  xfail:
+    reason: "sonic-net/sonic-buildimage#28061 adds new protected FRR BGP ports; test update to
+      follow once that image is checked in"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/26908"
 
 cacl/test_cacl_application.py::test_multiasic_cacl_application:
   skip:
@@ -815,7 +817,11 @@ cacl/test_cacl_application.py::test_multiasic_cacl_application:
     conditions_logical_operator: or
     conditions:
       - "not is_multi_asic"
-      - "https://github.com/sonic-net/sonic-buildimage/issues/28061"
+  xfail:
+    reason: "sonic-net/sonic-buildimage#28061 adds new protected FRR BGP ports; test update to
+      follow once that image is checked in"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/26908"
 
 cacl/test_cacl_function.py:
   xfail:
@@ -1789,11 +1795,11 @@ ecmp/inner_hashing/test_wr_inner_hashing_lag.py:
 
 ecmp/test_ecmp_balance.py:
   skip:
-    reason: "Only support Broadcom T1/T0 topology for now"
+    reason: "Only support Broadcom and sonic-vpp T1/T0 topology for now"
     conditions_logical_operator: or
     conditions:
       - "topo_type not in ['t1', 't0']"
-      - "asic_type not in ['broadcom']"
+      - "asic_type not in ['broadcom', 'vpp']"
 
 ecmp/test_ecmp_group_members_increment.py:
   skip:
@@ -2992,12 +2998,6 @@ gnmi/test_gnmi_stress.py::test_gnmi_latency_01:
     conditions:
       - "'bmc' in topo_type"
 
-gnmi/test_gnmic.py:
-  skip:
-    reason: "gnmic binary is being removed from docker-ptf to reduce attack surface"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/24328"
-
 gnmi/test_gnoi_killprocess.py:
   skip:
     reason: "Test noisy due to restart issue not relevant to GNOI. Disabling them to rewrite."
@@ -3018,6 +3018,15 @@ gnmi/test_gnoi_system_reboot.py::test_gnoi_system_reboot_warm:
       - "'isolated' in topo_name"
       - "release in ['202412']"
       - "'f2' in topo_name"
+
+gnmi/test_pygnmi_client.py:
+  skip:
+    reason: "gNMI port/DB coverage is not namespace-aware; not applicable on BMC / multi-ASIC / VOQ chassis"
+    conditions_logical_operator: or
+    conditions:
+      - "'bmc' in topo_type"
+      - "is_multi_asic==True"
+      - "switch_type=='voq'"
 
 ###############################################
 #####       golden_config_infra           #####
@@ -4233,6 +4242,12 @@ portstat/test_portstat.py:
 #######################################
 #####     process_monitoring      #####
 #######################################
+process_monitoring/test_critical_process_monitoring.py::test_monitoring_critical_processes:
+  skip:
+    reason: "BMC platforms have no swss/orchagent/syncd containers. This test kills critical processes and relies on auto-restart to recover, which fails on BMC due to reduced container set and lack of PDU controller."
+    conditions:
+      - "'bmc' in topo_type"
+
 process_monitoring/test_critical_process_monitoring.py::test_orchagent_heartbeat:
   skip:
     reason: "This test is intended for Orchagent freeze scenario during warm-reboot. It is not required for T1 devices, and not supported on 202412 release. Also not applicable on BMC platforms which have no orchagent."
@@ -6099,7 +6114,7 @@ vxlan/test_vxlan_decap.py:
     conditions_logical_operator: OR
     conditions:
       - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
-      - "asic_gen in ['th4', 'th5'] and release in ['202503', '202505', '202511']"
+      - "asic_gen in ['th4', 'th5'] and release in ['202503', '202505', '202511', '202605']"
       - *noVxlanTopos
   xfail:
     reason: "Skipped due to bug https://github.com/sonic-net/sonic-buildimage/issues/22056"
@@ -6221,6 +6236,12 @@ vxlan/test_vxlan_vnet_bgp_subintf.py:
     conditions:
       - "'dualtor' in topo_name"
       - "(asic_type in ['cisco-8000']) and (release in ['202511'])"
+
+vxlan/test_vxlan_vnet_ping_tsa.py:
+  skip:
+    reason: "Skip for AI backend/isolated topologies, as vnet-ping feature is not used"
+    conditions:
+      - "'isolated' in topo_name"
 
 #######################################
 #####            wan              #####
