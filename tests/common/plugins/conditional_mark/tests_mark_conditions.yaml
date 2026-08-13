@@ -4080,6 +4080,12 @@ pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_no_traffic:
         - "topo_type in ['m0', 'mx', 'm1']"
         - *lossyTopos
 
+pfcwd/test_pfcwd_stat_history.py:
+  skip:
+    reason: "PFC statistics history is produced only by the Broadcom PFCWD plugin"
+    conditions:
+      - "asic_type != 'broadcom'"
+
 pfcwd/test_pfcwd_timer_accuracy.py::TestPfcwdAllTimer::test_pfcwd_timer_accuracy:
   skip:
     reason: "ipv6 mgmt ip is not supported, see check_timer_accuracy_test.yml#43"
