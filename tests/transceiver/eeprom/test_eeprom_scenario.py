@@ -310,8 +310,6 @@ def test_eeprom_recovery_after_daemon_restart(
     )
 
 
-@pytest.mark.disable_loganalyzer
-@pytest.mark.disable_memory_utilization
 def test_eeprom_recovery_after_sfputil_reset(
     duthost,
     port_attributes_dict,
@@ -331,12 +329,24 @@ def test_eeprom_recovery_after_sfputil_reset(
     # _verify_recovery already snapshots static content + DataPath as the pre-check.
     active_optical_ports = datapath.cmis_active_optical_ports(port_attributes_dict)
 
+    # Reset support varies by optic, so gate each module on its own attribute
+    # rather than on a representative port.
     reset_ports = [
         port
         for port in port_attributes_dict
         if is_first_subport(port, lport_to_first_subport_mapping)
+        and port_attributes_dict[port][SYSTEM_ATTRIBUTES_KEY]["transceiver_reset_supported"]
     ]
-    toggle_ports = list(port_attributes_dict)
+    if not reset_ports:
+        pytest.skip("No ports with transceiver_reset_supported")
+    # A reset drops the datapath on every subport of the module, so the toggle
+    # (and the verification) covers all subports of the reset modules only.
+    reset_modules = set(reset_ports)
+    toggle_ports = [
+        port
+        for port in port_attributes_dict
+        if lport_to_first_subport_mapping.get(port) in reset_modules
+    ]
     active_ports = [port for port in toggle_ports if port in active_optical_ports]
 
     # All modules reset in one bulk shut -> reset -> startup cycle (not one cycle
@@ -373,6 +383,15 @@ def test_eeprom_recovery_after_sfputil_reset(
         port_attributes_dict,
         recover_wait,
         ports=active_ports,
+    )
+    # Firmware is republished on xcvrd's slower DOM cycle, so it gets the reset
+    # recovery budget plus that delay (same split as ``_verify_recovery``).
+    all_failures += verify_firmware_info_recovered(
+        duthost,
+        port_attributes_dict,
+        recover_wait + _representative_attribute(
+            port_attributes_dict, DOM_ATTRIBUTES_KEY, "dom_info_recover_sec"),
+        ports=toggle_ports,
     )
 
     if all_failures:
