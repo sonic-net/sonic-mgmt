@@ -52,7 +52,7 @@ MALFORM_STORM_LEAD_SEC = 5     # malformed frames start/end this many seconds ar
 # The three malformed control frame variants injected during the test.
 MALFORM_VARIANTS = [
     {"malform_type": "invalid_opcode", "frame_size": 64, "control_op_code": int("00ff", 16)},
-    {"malform_type": "reserved_class_vector", "frame_size": 64, "class_enable_vector": int("1000", 16)},
+    {"malform_type": "reserved_class_vector", "frame_size": 64, "class_enable_vector": int("ffff", 16)},
     {"malform_type": "truncated", "frame_size": 40},
 ]
 
