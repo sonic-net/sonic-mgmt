@@ -5163,9 +5163,6 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
                 # send packets short of triggering egress drop
                 send_packet(self, src_port_id, pkt, pkts_num_egr_mem +
                             pkts_num_leak_out + pkts_num_trig_egr_drp - 1 - margin)
-            elif platform_asic and platform_asic == "broadcom":
-                send_packet(self, src_port_id, pkt, pkts_num_leak_out +
-                            pkts_num_egr_mem + pkts_num_trig_egr_drp - 1 - margin)
             else:
                 if check_leackout_compensation_support(asic_type, hwsku):
                     pkts_num_leak_out = 0
