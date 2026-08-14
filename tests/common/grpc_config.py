@@ -19,7 +19,7 @@ class GrpcCertificateConfig:
     # Certificate file names (consistent across all hosts)
     CA_CERT = "gnmiCA.cer"
     SERVER_CERT = "gnmiserver.cer"
-    SERVER_KEY = "gnmiserver.cer.key"
+    SERVER_KEY = "gnmiserver.key"
     CLIENT_CERT = "gnmiclient.cer"
     CLIENT_KEY = "gnmiclient.key"
 

@@ -4,8 +4,6 @@ import logging
 from tests.common.helpers.gnmi_utils import gnmi_capabilities, add_gnmi_client_common_name, \
                                             del_gnmi_client_common_name
 from .helper import gnmi_set, dump_gnmi_log
-from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
-from tests.common.pygnmi_client import StreamMode, SubscribeMode
 from tests.common.utilities import wait_until
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 
@@ -215,67 +213,6 @@ def setup_crl_server_on_ptf(ptfhost, duthosts, rand_one_dut_hostname):
 
     # pkill will use the kill signal -9 as exit code, need ignore error
     ptfhost.shell("pkill -9 -f '/root/env-python3/bin/python /root/crl_server.py'", module_ignore_errors=True)
-
-
-def test_gnmi_subscribe_sample(duthosts, rand_one_dut_hostname, gnmi_tls):  # noqa: F811
-    '''
-    Verify GNMI subscribe sample request
-    '''
-    duthost = duthosts[rand_one_dut_hostname]
-
-    # Skip test for supervisor nodes as they don't have Ethernet0 frontpanel port
-    if duthost.is_supervisor_node():
-        pytest.skip("Skipping test as no Ethernet0 frontpanel port on supervisor")
-
-    sample_count = 5
-    interval_ns = 5_000_000_000
-
-    def validate_subscribe_sample(responses):
-        assert len(responses) == sample_count + 1, \
-            f"Expected exactly 6 responses, got {len(responses)}: {responses}"
-
-        initial, *samples = responses
-        assert initial.get("sync_response") is True, \
-            f"Initial response missing sync_response: {initial}"
-        assert isinstance(initial.get("update"), dict), \
-            f"Initial response missing update payload: {initial}"
-        assert all(isinstance(sample.get("update"), dict) for sample in samples), \
-            f"SAMPLE response missing update payload: {samples}"
-
-        timestamps = [sample["update"].get("timestamp") for sample in samples]
-        assert all(isinstance(timestamp, int) and timestamp > 0 for timestamp in timestamps), \
-            f"SAMPLE response missing a valid timestamp: {samples}"
-
-        for previous, current in zip(timestamps, timestamps[1:]):
-            delta = current - previous
-            assert round(delta, -8) == interval_ns, \
-                f"Expected 5-second SAMPLE interval, got {delta / 1e9:.3f}s: {timestamps}"
-
-    with allure.step("Perform gNMI subscribe sample request to state DB"):
-        responses = list(gnmi_tls.pygnmi_client.subscribe(
-            "/PSU_INFO",
-            target="STATE_DB",
-            mode=SubscribeMode.STREAM,
-            stream_mode=StreamMode.SAMPLE,
-            sample_interval=5,
-            count=sample_count + 1,
-            collect_seconds=40,
-        ))
-        logger.debug("gNMI subscribe STATE_DB response: %s", responses)
-        validate_subscribe_sample(responses)
-
-    with allure.step("Perform gNMI subscribe sample request to counters DB"):
-        responses = list(gnmi_tls.pygnmi_client.subscribe(
-            "COUNTERS",
-            target="COUNTERS_DB",
-            mode=SubscribeMode.STREAM,
-            stream_mode=StreamMode.SAMPLE,
-            sample_interval=5,
-            count=sample_count + 1,
-            collect_seconds=40,
-        ))
-        logger.debug("gNMI subscribe COUNTERS_DB response: %s", responses)
-        validate_subscribe_sample(responses)
 
 
 def test_gnmi_authorize_failed_with_revoked_cert(duthosts,

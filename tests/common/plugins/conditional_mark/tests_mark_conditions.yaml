@@ -2917,7 +2917,7 @@ gnmi:
     conditions:
       - "release in ['202412']"
 
-gnmi/test_gnmi.py::test_gnmi_subscribe_sample:
+gnmi/test_gnmi_native.py::test_gnmi_subscribe_sample:
   skip:
     reason: "Test relies on Ethernet0 frontpanel port and COUNTERS_DB; not applicable on BMC"
     conditions:
