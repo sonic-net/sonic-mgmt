@@ -141,22 +141,24 @@ def bgp_prefix_tc1_add_config(duthost, community, community_table, cli_namespace
 def bgp_prefix_tc1_xfail(duthost, community_table, namespace=None):
     """ Test input with invalid prefixes
     """
+    # JSON Patch remove resolves leaf-list entries by index, not by value. Use index 1
+    # for remove operations because these lists contain only the valid entry at index 0.
     xfail_input = [
-        ("add", "10.256.0.0/16", PREFIXES_V6_DUMMY),        # Invalid v4 prefix
-        ("add", PREFIXES_V4_DUMMY, "fc01:xyz::/64"),        # Invalid v6 prefix
-        ("remove", PREFIXES_V4_DUMMY, PREFIXES_V6_INIT),    # Unexisted v4 prefix
-        ("remove", PREFIXES_V4_INIT, PREFIXES_V6_DUMMY)     # Unexisted v6 prefix
+        ("add", 0, "10.256.0.0/16", PREFIXES_V6_DUMMY),        # Invalid v4 prefix
+        ("add", 0, PREFIXES_V4_DUMMY, "fc01:xyz::/64"),        # Invalid v6 prefix
+        ("remove", 1, PREFIXES_V4_DUMMY, PREFIXES_V6_INIT),    # Unexisted v4 prefix
+        ("remove", 1, PREFIXES_V4_INIT, PREFIXES_V6_DUMMY)     # Unexisted v6 prefix
     ]
-    for op, prefixes_v4, prefixes_v6 in xfail_input:
+    for op, index, prefixes_v4, prefixes_v6 in xfail_input:
         json_patch = [
             {
                 "op": op,
-                "path": "/BGP_ALLOWED_PREFIXES/DEPLOYMENT_ID|0{}/prefixes_v6/0".format(community_table),
+                "path": "/BGP_ALLOWED_PREFIXES/DEPLOYMENT_ID|0{}/prefixes_v6/{}".format(community_table, index),
                 "value": prefixes_v6
             },
             {
                 "op": op,
-                "path": "/BGP_ALLOWED_PREFIXES/DEPLOYMENT_ID|0{}/prefixes_v4/0".format(community_table),
+                "path": "/BGP_ALLOWED_PREFIXES/DEPLOYMENT_ID|0{}/prefixes_v4/{}".format(community_table, index),
                 "value": prefixes_v4
             }
         ]
