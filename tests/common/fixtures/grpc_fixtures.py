@@ -521,7 +521,10 @@ def _create_gnoi_certs(duthost, ptfhost, cert_dir):
     logger.info("Generating gNOI TLS certificates")
 
     # Generate certificates with 1-day backdating to handle clock skew
-    generator = create_gnmi_cert_generator(server_ip=duthost.mgmt_ip)
+    generator = create_gnmi_cert_generator(
+        server_ip=duthost.mgmt_ip,
+        server_key_name=grpc_config.SERVER_KEY,
+    )
     generator.write_all(cert_dir)
 
     logger.info(f"Certificates generated in {cert_dir}")
