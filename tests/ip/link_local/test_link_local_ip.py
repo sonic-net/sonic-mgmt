@@ -357,6 +357,7 @@ class TestLinkLocalIPacket:
         config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
 
         vlan_member = config_facts.get('VLAN_MEMBER')
+        ports_added = False
         if vlan_member:
             for vlan_interface, vlan_members in vlan_member.items():
                 vlan_id = re.search(r"Vlan(\d+)", vlan_interface).group(1)
@@ -370,7 +371,9 @@ class TestLinkLocalIPacket:
                         cleanup_list.append((duthost.command,
                                              ("config vlan member add {} {} {}".format(vlan_id,
                                                                                        iface, tagging_mode), ), {}))
-        else:
+                    ports_added = True
+                    break
+        if not ports_added:
             for iface in [rx_iface, tx_iface]:
                 duthost.command("config vlan member add {} {} -u".format(VLAN_ID, iface))
                 cleanup_list.append((duthost.command,
