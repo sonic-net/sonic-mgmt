@@ -964,6 +964,16 @@ class BaseEverflowTest(object):
         for duthost in duthost_set:
             if not session_info:
                 session_info = BaseEverflowTest.mirror_session_info("TEST_POLICER_SESSION", duthost.facts["asic_type"])
+
+            # Skip for ASICs that do not support mirror policing
+            vendor = duthost.facts["asic_type"]
+            hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
+            for asic in getattr(self, "MIRROR_POLICER_UNSUPPORTED_ASIC_LIST", []):
+                vendorAsic = "{0}_{1}_hwskus".format(vendor, asic)
+                if vendorAsic in list(hostvars.keys()) and duthost.facts['hwsku'] in hostvars[vendorAsic]:
+                    pytest.skip("Skipping test since mirror policing is not supported on {0} {1} platforms"
+                                .format(vendor, asic))
+
             # Create a policer that allows 100 packets/sec through
             self.apply_policer_config(duthost, policer, config_method)
             BaseEverflowTest.apply_mirror_config(duthost, session_info, config_method, policer=policer,
