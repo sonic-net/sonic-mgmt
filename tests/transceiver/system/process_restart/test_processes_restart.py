@@ -85,17 +85,22 @@ def _process_restart_tester(
         checked for a coupled pmon restart, and share the longer of the
         two processes' settle times.
     """
-    expected_pid_changes.add("xcvrd")
-    if process_name == "swss" or process_name == "syncd":
-        expected_pid_changes.add("swss")
-        expected_pid_changes.add("syncd")
-        expected_pid_changes.add("orchagent")
-
     ports = sorted(port_attributes_dict.keys())
     assert ports, "port_attributes_dict is empty - nothing to validate"
     system_attributes = port_attributes_dict[ports[0]].get(
         SYSTEM_ATTRIBUTES_KEY, {}
     )
+
+    if process_name == "xcvrd" or process_name == "pmon":
+        expected_pid_changes.add("xcvrd")
+    if process_name == "swss" or process_name == "syncd":
+        expected_pid_changes.add("syncd")
+        expected_pid_changes.add("orchagent")
+        if system_attributes.get(
+            "expect_pmon_restart_with_swss_or_syncd", False
+        ):
+            expected_pid_changes.add("xcvrd")
+
     health_baseline = capture_baseline(duthost)
     failures = []  # collected across every (port, step) tuple
 
@@ -169,12 +174,12 @@ def _process_restart_tester(
         logger.info("Post-restart validation PASSED: %s", result["details"])
 
     if failures:
+        time.sleep(90)  # wait for the system to settle before the next test
         pytest.fail(
             f"{process_name} restart recovery FAILED on {len(failures)} "
             "port(s):\n  - "
             + "\n  - ".join(failures)
         )
-        time.sleep(90)  # wait for the system to settle before the next test
 
 
 def _process_crash_tester(
