@@ -110,12 +110,13 @@ def _process_restart_tester(
         logger.warning("Validation on Start FAILED: some ports are down")
     else:
         appl_db = sdbHelp(duthost)
+        port_table = appl_db.dump("PORT_TABLE")
         for port in ports:
+            last_up_time = port_table.get(
+                "PORT_TABLE:{}".format(port), {}
+            ).get("value", {}).get("last_up_time")
             logger.info(
-                "Recording initial link uptime: %s",
-                appl_db.hget_key_value(
-                    "PORT_TABLE:{}".format(port), "last_up_time"
-                ),
+                "Recording initial link uptime: %s: %s", port, last_up_time
             )
 
     logger.info("Restarting %s...", process_name)
