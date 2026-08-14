@@ -2917,12 +2917,6 @@ gnmi:
     conditions:
       - "release in ['202412']"
 
-gnmi/test_gnmi_native.py::test_gnmi_subscribe_sample:
-  skip:
-    reason: "Test relies on Ethernet0 frontpanel port and COUNTERS_DB; not applicable on BMC"
-    conditions:
-      - "'bmc' in topo_type"
-
 gnmi/test_gnmi_configdb.py:
   skip:
     reason: "This feature is not supported for multi asic. Skipping these test for T2 and multi asic."
@@ -2983,6 +2977,12 @@ gnmi/test_gnmi_countersdb.py::test_gnmi_counterdb_streaming_sample_02:
 gnmi/test_gnmi_countersdb.py::test_gnmi_output:
   skip:
     reason: "not applicable on BMC (no COUNTERS_PORT_NAME_MAP)"
+    conditions:
+      - "'bmc' in topo_type"
+
+gnmi/test_gnmi_native.py::test_gnmi_subscribe_sample:
+  skip:
+    reason: "Test relies on Ethernet0 frontpanel port and COUNTERS_DB; not applicable on BMC"
     conditions:
       - "'bmc' in topo_type"
 
