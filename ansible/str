@@ -139,6 +139,9 @@ all:
         vms11-9:
           ansible_host: 10.64.247.141
           ansible_hostv6: 2a01:111:e210:b000::a40:f78d
+        vms11-10:
+          ansible_host: 10.64.247.205
+          ansible_hostv6: 2a01:111:e210:b000::a40:f7cd
       vars:
         ansible_ssh_user: root
         ansible_ssh_pass: root
@@ -238,6 +241,12 @@ all:
         pdu-134:
           ansible_host: 10.3.154.137
           protocol: snmp
+        pdu-45:
+          ansible_host: 10.3.154.45
+          protocol: snmp
+        pdu-46:
+          ansible_host: 10.3.154.46
+          protocol: snmp
 
 sonic:
   vars:
@@ -310,6 +319,33 @@ sonic_cisco_8101:
         "0x28": "x86_64-8101_32fh_o-r0"
         "0x2D": "Cisco"
         "0xFE": "0x4A406B0B"
+      plt_reboot_dict:
+        cold:
+          timeout: 600
+          wait: 600
+        Kernel Panic:
+          timeout: 600
+          wait: 600
+        power off:
+          timeout: 600
+          wait: 600
+    str-azd-t0-8101-01:
+      ansible_host: 10.3.150.170
+      ansible_hostv6: 2a01:111:e210:b000::a03:96aa
+      mgmt_subnet_mask_length: 27
+      iface_speed: 100000
+      hwsku: Cisco-8101-C32
+      model: 8101-32FH-O
+      serial: FLM300339C5
+      base_mac: 14:E2:2A:B3:78:00
+      syseeprom_info:
+        "0x21": "8101-32FH-O"
+        "0x22": "479009"
+        "0x23": "FLM300339C5"
+        "0x24": "14:E2:2A:B3:78:00"
+        "0x26": "3"
+        "0x28": "x86_64-8101_32fh_o-r0"
+        "0x2D": "Cisco"
       plt_reboot_dict:
         cold:
           timeout: 600
@@ -1316,6 +1352,11 @@ fanout:
     str-msn4700-fanout-03:
       ansible_host: 10.3.152.111
       mgmt_subnet_mask_length: 26
+      os: sonic
+    str-azd-t0-8101-fanout-01:
+      ansible_host: 10.3.150.172
+      ansible_hostv6: 2a01:111:e210:b000::a03:96ac
+      mgmt_subnet_mask_length: 27
       os: sonic
 
 server:
