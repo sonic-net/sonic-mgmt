@@ -63,6 +63,7 @@ SFPUTIL_SHOW_EEPROM_HEXDUMP = "sfputil show eeprom-hexdump"
 SFPUTIL_READ_EEPROM = "sfputil read-eeprom"
 SFPUTIL_SHOW_FWVERSION = "sfputil show fwversion"
 SFPUTIL_SHOW_PRESENCE = "sfputil show presence"
+SFPUTIL_RESET = "sfputil reset"
 SHOW_TRANSCEIVER_INFO = "show interfaces transceiver info"
 SHOW_TRANSCEIVER_PRESENCE = "show interfaces transceiver presence"
 
@@ -162,6 +163,11 @@ def sfputil_show_fwversion_cmd(port):
 def sfputil_show_presence_cmd(port=None):
     """Return ``sfputil show presence`` (all ports) or ``... -p <port>``."""
     return f"{SFPUTIL_SHOW_PRESENCE} -p {port}" if port else SFPUTIL_SHOW_PRESENCE
+
+
+def sfputil_reset_cmd(port):
+    """Return ``sfputil reset <port>``."""
+    return f"{SFPUTIL_RESET} {port}"
 
 
 def show_interfaces_transceiver_info_cmd(port=None, namespace=None):
