@@ -208,28 +208,6 @@ def assert_no_flap_since(
     return per_port
 
 
-def check_ports_stability(duthost, ports, window_sec, namespaces=None):
-    """Verify no port in ``ports`` flaps over one shared post-recovery
-    observation window.
-
-    Args:
-        duthost: SONiC DUT host fixture.
-        ports: list of logical interface names.
-        window_sec: shared observation window, in seconds.
-        namespaces: optional dict of ``{port: namespace}``.
-
-    Returns:
-        dict: ``{port: {'passed': bool, 'details': str}}``, one entry per
-        ``ports``.
-    """
-    sentinels = capture_flap_sentinels(duthost, ports, namespaces=namespaces)
-    time.sleep(window_sec)
-    return assert_no_flap_since(
-        duthost, ports, sentinels, namespaces=namespaces,
-        elapsed_sec=window_sec,
-    )
-
-
 # ──────────────────────────────────────────────────────────────────────
 # Standard Port Recovery and Verification Procedure
 # (see docs/testplan/transceiver/system_test_plan.md)
