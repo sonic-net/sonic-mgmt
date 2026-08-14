@@ -302,7 +302,7 @@ def test_osbuild_version(duthosts, rand_one_dut_hostname, ptfhost):
     '''
     duthost = duthosts[rand_one_dut_hostname]
     msg_list = gnmi_get(duthost, ptfhost, ["osversion/build"], target="OTHERS", origin=None)
-    result = str(msg_list)
+    result = "\n".join(msg_list)
 
     assert len(re.findall(r'"build_version": "SONiC\.', result)) == 1, (
         "build_version value not found in gnmi output: {}".format(result))
