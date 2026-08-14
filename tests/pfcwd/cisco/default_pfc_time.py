@@ -77,7 +77,7 @@ def find_default_bit_time(interface):
             if field.startswith(starter_str):
                 poss_speed_enum_val = getattr(mac_port, field)
                 if mac_port_speed_enum_val == poss_speed_enum_val:
-                    speed = field[len(starter_str) :]
+                    speed = field[len(starter_str):]
                     break
         assert speed is not None, "Failed to find matching speed for mac port enum value {}".format(
             mac_port_speed_enum_val

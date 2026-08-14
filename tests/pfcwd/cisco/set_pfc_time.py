@@ -9,6 +9,7 @@ param_success = __PARAM_SUCCESS__  # noqa: F821
 
 # Note: If is_g2ll == True, then is_graphene2 == True. See common.py.
 
+
 def get_ifg_reg_list(slice_idx):
     """Gr2 does not have an ifg list, listify"""
     if is_graphene2 or is_palladium2:
