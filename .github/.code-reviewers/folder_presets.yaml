@@ -1,2 +1,8 @@
 /.git:
   type: IGNORE
+
+/tests/generic_config_updater:
+  owners:
+    rimunagala: .inf
+    vaibhavhd: .inf
+  type: OPEN_OWNERS
