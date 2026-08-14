@@ -253,8 +253,8 @@ def test_ptf_arp_learns_mac(
         logger.info("DUT VLAN IPv4: {}".format(dut_info['ipv4']))
         # VPP software dataplane does not pad ARP replies to Ethernet minimum frame size
         # and in kvm there is no hardware NIC to pad either
-        no_padding = (dut_info['host'].facts.get('asic_type') == 'vpp' and
-                  'kvm' in dut_info['host'].facts.get('platform', ''))
+        platform_name = dut_info['host'].facts.get('platform', '')
+        no_padding = dut_info['host'].facts.get('asic_type') == 'vpp' and 'kvm' in platform_name
         exp_pktlen = 42 if no_padding else 60
 
         arp_req = testutils.simple_arp_packet(
