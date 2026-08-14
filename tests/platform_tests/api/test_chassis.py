@@ -35,7 +35,12 @@ pytestmark = [
 REGEX_MAC_ADDRESS = r'^([0-9A-Fa-f]{2}:){5}([0-9A-Fa-f]{2})$'
 REGEX_SERIAL_NUMBER = r'^[A-Za-z0-9\-]+$'
 
+# Chassis API tests that are not available/applicable on BMC topologies
 BMC_SKIPPED_CHASSIS_TESTS = {
+    "test_get_presence",
+    "test_get_model",
+    "test_get_revision",
+    "test_get_status",
     "test_get_position_in_parent",
     "test_is_replaceable",
     "test_components",
@@ -45,6 +50,7 @@ BMC_SKIPPED_CHASSIS_TESTS = {
     "test_thermals",
     "test_sfps",
     "test_status_led",
+    "test_get_thermal_manager",
     "test_get_supervisor_slot",
     "test_get_my_slot",
 }
