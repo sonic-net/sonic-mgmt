@@ -71,7 +71,6 @@ SHOW_TRANSCEIVER_PRESENCE = "show interfaces transceiver presence"
 SFPUTIL_FIRMWARE_DOWNLOAD = "sfputil firmware download"
 SFPUTIL_FIRMWARE_RUN = "sfputil firmware run"
 SFPUTIL_FIRMWARE_COMMIT = "sfputil firmware commit"
-SFPUTIL_RESET = "sfputil reset"
 
 # Max characters of stdout/stderr echoed into a failure message.  Some sfputil
 # errors dump the full 500+ port list, which would bury the failure summary in
@@ -80,6 +79,7 @@ SFPUTIL_RESET = "sfputil reset"
 # aggregated per-port failure report readable.
 CLI_ERROR_DETAIL_MAX_CHARS = 200
 TIMEOUT_RC = 124
+FW_RUN_DELAY_SEC = 10
 
 # Success markers for the firmware sfputil commands
 FW_DOWNLOAD_SUCCESS_MARKER = "Firmware download complete success"
@@ -176,11 +176,6 @@ def sfputil_show_fwversion_cmd(port):
 def sfputil_show_presence_cmd(port=None):
     """Return ``sfputil show presence`` (all ports) or ``... -p <port>``."""
     return f"{SFPUTIL_SHOW_PRESENCE} -p {port}" if port else SFPUTIL_SHOW_PRESENCE
-
-
-def sfputil_reset_cmd(port):
-    """Return ``sfputil reset <port>``."""
-    return f"{SFPUTIL_RESET} {port}"
 
 
 def show_interfaces_transceiver_info_cmd(port=None, namespace=None):
@@ -430,8 +425,8 @@ def sfputil_firmware_download(duthost, port, fwfile, timeout_sec):
 
 
 def sfputil_firmware_run(duthost, port, timeout_sec):
-    """Run ``sfputil firmware run <port>`` returns ``(elapsed_sec, err)``."""
-    cmd = f"{SFPUTIL_FIRMWARE_RUN} {port}"
+    """Run ``sfputil firmware run --delay <delay_sec> <port>`` returns ``(elapsed_sec, err)``."""
+    cmd = f"{SFPUTIL_FIRMWARE_RUN} --delay {FW_RUN_DELAY_SEC} {port}"
     return _run_firmware_cmd(duthost, cmd, timeout_sec, FW_RUN_SUCCESS_MARKER)
 
 

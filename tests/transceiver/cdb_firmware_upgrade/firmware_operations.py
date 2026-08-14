@@ -1,4 +1,5 @@
 import logging
+import time
 from contextlib import contextmanager
 
 from tests.common.platform.interface_utils import (
@@ -172,7 +173,9 @@ def perform_firmware_download(duthost, port, port_context, metadata_map,
             cdb_attrs.get("firmware_versions"), before_banks,
         )
 
-    fwfile = resolve_binary_path(metadata_map, vendor, pn, target_version)
+    fwfile, err = resolve_binary_path(metadata_map, vendor, pn, target_version)
+    if err:
+        return [err]
 
     if expect_link_up:
         if wait_ports_oper_status(duthost, [port], "up", 0):
@@ -286,8 +289,9 @@ def perform_firmware_activation(duthost, port, port_context,
 
         if not failures:
             failures += scenario_ops.perform_sfputil_reset(
-                duthost, port, recover_with_port_toggle=False, i2c_recover_sec=recover_sec,
+                duthost, [port], [], shutdown_wait, startup_wait
             )
+            time.sleep(recover_sec)
     finally:
         failures += scenario_ops.perform_ports_startup(duthost, subports, startup_wait)
 

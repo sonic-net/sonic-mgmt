@@ -24,6 +24,7 @@ def get_required_firmware_metadata_for_all_transceivers(
         pytest.skip("No qualifying CDB firmware ports found, skipping test.")
 
     firmware_metadata_by_transceiver_type = {}
+    failures = []
 
     for port in qualifying_ports:
         port_attrs = port_attributes_dict[port]
@@ -32,29 +33,32 @@ def get_required_firmware_metadata_for_all_transceivers(
         normalized_vendor_name = base_attrs.get("normalized_vendor_name")
         normalized_vendor_pn = base_attrs.get("normalized_vendor_pn")
         if not normalized_vendor_name or not normalized_vendor_pn:
-            pytest.fail(f"{port}: normalized vendor name or part number is missing")
+            failures.append(f"{port}: normalized vendor name or part number is missing")
+            continue
 
         transceiver_key = (normalized_vendor_name, normalized_vendor_pn)
         firmware_versions = cdb_attrs.get("firmware_versions")
         if not firmware_versions:
-            pytest.fail(f"{port}: firmware_versions is missing or empty")
+            failures.append(f"{port}: firmware_versions is missing or empty")
+            continue
         if len(firmware_versions) != EXPECTED_FIRMWARE_VERSIONS_COUNT:
-            pytest.fail(
+            failures.append(
                 f"{port}: firmware_versions must contain exactly "
                 f"{EXPECTED_FIRMWARE_VERSIONS_COUNT} entries, got {len(firmware_versions)}"
             )
+            continue
         if len(set(firmware_versions)) != len(firmware_versions):
-            pytest.fail(f"{port}: firmware_versions must not contain duplicates: {firmware_versions}")
+            failures.append(f"{port}: firmware_versions must not contain duplicates: {firmware_versions}")
         gold_firmware_version = cdb_attrs.get("gold_firmware_version")
         if gold_firmware_version != firmware_versions[-1]:
-            pytest.fail(
+            failures.append(
                 f"{port}: gold_firmware_version '{gold_firmware_version}' must be the last entry "
                 f"in firmware_versions {firmware_versions}"
             )
         if cdb_attrs.get("dual_bank_supported", True):
             inactive_firmware_version = cdb_attrs.get("inactive_firmware_version")
             if inactive_firmware_version != firmware_versions[-2]:
-                pytest.fail(
+                failures.append(
                     f"{port}: inactive_firmware_version '{inactive_firmware_version}' must be the "
                     f"second to last entry in firmware_versions {firmware_versions}"
                 )
@@ -63,7 +67,8 @@ def get_required_firmware_metadata_for_all_transceivers(
 
         firmware_metadata_list = transceiver_firmware_info.get(transceiver_key)
         if not firmware_metadata_list:
-            pytest.fail(f"No firmware manifest metadata found for transceiver type {transceiver_key}")
+            failures.append(f"{port}: no firmware manifest metadata found for transceiver type {transceiver_key}")
+            continue
 
         metadata_by_version = {}
         for firmware_metadata in firmware_metadata_list:
@@ -75,21 +80,27 @@ def get_required_firmware_metadata_for_all_transceivers(
             version for version in firmware_versions if version not in metadata_by_version
         ]
         if missing_versions:
-            pytest.fail(
-                f"Firmware version(s) {missing_versions} for {transceiver_key} are missing from the manifest"
+            failures.append(
+                f"{port}: firmware version(s) {missing_versions} for {transceiver_key} "
+                "are missing from the manifest"
             )
+            continue
 
         selected_firmware = [metadata_by_version[version] for version in firmware_versions]
-        for firmware_metadata in selected_firmware:
-            if not firmware_metadata.get("binary") or not firmware_metadata.get("md5sum"):
-                pytest.fail(
-                    f"Incomplete firmware metadata for {transceiver_key}/{firmware_metadata.get('version')}"
-                )
+        incomplete_versions = [
+            fw.get("version") for fw in selected_firmware
+            if not fw.get("binary") or not fw.get("md5sum")
+        ]
+        if incomplete_versions:
+            failures.append(
+                f"{port}: incomplete firmware metadata for {transceiver_key} version(s) {incomplete_versions}"
+            )
+            continue
 
         firmware_metadata_by_transceiver_type[transceiver_key] = selected_firmware
 
-    if not firmware_metadata_by_transceiver_type:
-        pytest.skip("No transceiver types found with firmware versions, skipping test.")
+    if failures:
+        pytest.fail("Firmware metadata validation failures:\n" + "\n".join(failures))
 
     logger.info(f"Found firmware metadata for {len(firmware_metadata_by_transceiver_type)} transceiver types")
     for transceiver_type, firmware_list in firmware_metadata_by_transceiver_type.items():
@@ -100,11 +111,14 @@ def get_required_firmware_metadata_for_all_transceivers(
 
 
 def resolve_binary_path(metadata_map, vendor, pn, version):
-    """Return the staged on-DUT path for ``(vendor, pn, version)``."""
-    for entry in metadata_map[(vendor, pn)]:
+    """Return ``(dut_path, err)`` for the staged ``(vendor, pn, version)`` binary."""
+    entries = metadata_map.get((vendor, pn))
+    if not entries:
+        return None, f"no staged firmware metadata for ({vendor}, {pn})"
+    for entry in entries:
         if entry["version"] == version:
-            return entry["dut_path"]
-    return None
+            return entry["dut_path"], None
+    return None, f"firmware version {version} not staged for ({vendor}, {pn})"
 
 
 def get_dut_firmware_base_url(duthost, firmware_base_url_dict):

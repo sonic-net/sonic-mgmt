@@ -21,7 +21,6 @@ budgets) and ``poll_ports_recovered`` (the verifier recovery-poll loop).
 """
 
 import logging
-import time
 
 from tests.common.config_reload import config_reload
 from tests.common.platform.interface_utils import wait_ports_oper_status
@@ -171,16 +170,10 @@ def perform_sfputil_reset(duthost, reset_ports, toggle_ports, shutdown_wait_sec,
 
     try:
         for port in reset_ports:
-            command = cli_helpers.sfputil_reset_cmd(port)
-            result = duthost.command(command, module_ignore_errors=True)
-            if result.get("rc", 1) != 0:
-                failures.append(
-                    "{} failed with rc={}: {}".format(
-                        command,
-                        result.get("rc"),
-                        (result.get("stderr") or result.get("stdout") or "").strip(),
-                    )
-                )
+            elapsed, err = cli_helpers.sfputil_reset(duthost, port)
+            logger.info("sfputil reset of %s took %ss", port, elapsed)
+            if err:
+                failures.append(err)
     finally:
         failures += perform_ports_startup(duthost, toggle_ports, startup_wait_sec)
 
@@ -229,25 +222,4 @@ def perform_ports_startup(duthost, ports, wait_sec):
             logger.warning("%s", failure)
     else:
         logger.info("All %d port(s) reached oper-up", len(ports))
-    return failures
-
-
-def perform_sfputil_reset(duthost, port, recover_with_port_toggle=True,
-                          i2c_recover_sec=5, shutdown_wait=5, startup_wait=60):
-    """``sfputil reset`` a transceiver, optionally bracketed by a port toggle.
-
-    Some modules stay oper-down after a reset, so ``recover_with_port_toggle``
-    helps bring the port back up. Sleeps ``i2c_recover_sec`` after the reset.
-    Returns a list of per-port failure strings.
-    """
-    failures = []
-    if recover_with_port_toggle:
-        failures += perform_ports_shutdown(duthost, [port], shutdown_wait)
-    reset_elapsed, reset_err = cli_helpers.sfputil_reset(duthost, port)
-    logger.info("Port %s: transceiver reset took %ss", port, reset_elapsed)
-    if reset_err:
-        failures.append(f"transceiver reset failed on {port}: {reset_err}")
-    time.sleep(i2c_recover_sec)
-    if recover_with_port_toggle:
-        failures += perform_ports_startup(duthost, [port], startup_wait)
     return failures
