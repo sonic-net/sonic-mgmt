@@ -38,7 +38,7 @@ def get_fc_port_cfg0(ifg_root, lane):
 
 
 def set_pfc_512bit_time(interface, bit_time, num_serdes_lanes):
-    print("Setting bit_time (number of clocks) to {}".format(bit_time))    
+    print("Setting bit_time (number of clocks) to {}".format(bit_time))
     sai_lane = port_to_sai_lane_map[interface]
     slice_idx, ifg_idx, serdes_idx = sai_lane_to_slice_ifg_pif(sai_lane)
     for i in range(num_serdes_lanes):
