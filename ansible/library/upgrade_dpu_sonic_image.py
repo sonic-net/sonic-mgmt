@@ -21,6 +21,7 @@ short_description: Install a new SONiC image on one or all DPUs of a SmartSwitch
 description:
     - Downloads the image on the NPU (which has lab network access), then transfers
       it to each DPU via SCP over the midplane network (169.254.200.x).
+    - Skips DPUs whose CHASSIS_MODULE admin_status is down.
     - Cleans up old images, installs using sonic-installer, reboots the DPU.
     - Follows the same installation logic as reduce_and_add_sonic_images but executed
       remotely on DPUs via paramiko SSH (modeled after load_extra_dpu_config).
@@ -212,9 +213,9 @@ class UpgradeDpuSonicImageModule(object):
         curr = nxt = ""
         for line in out.split('\n'):
             if 'Current:' in line:
-                curr = line.split(':')[1].strip()
+                curr = line.split(':', 1)[1].strip().lstrip('/')
             elif 'Next:' in line:
-                nxt = line.split(':')[1].strip()
+                nxt = line.split(':', 1)[1].strip().lstrip('/')
         return ok, curr, nxt
 
     def get_host_avail_mb(self, ssh, dpu_ip):
@@ -238,22 +239,23 @@ class UpgradeDpuSonicImageModule(object):
             return None
 
     def reduce_installed_images(self, ssh, dpu_ip):
-        """Free disk space by cleaning up old DPU images, always attempting cleanup even if listing fails."""
+        """Free disk space without removing an image referenced by the bootloader."""
         self.log("[DPU {}] Step: Reducing installed images".format(dpu_ip))
 
         list_ok, curr_image, next_image = self.get_installed_images(ssh, dpu_ip)
-        if list_ok:
-            self.log("[DPU {}] Current image: '{}', Next image: '{}'".format(
-                dpu_ip, curr_image, next_image))
-            if curr_image and next_image and curr_image != next_image:
-                self.log("[DPU {}] Setting next-boot to current image".format(dpu_ip))
-                self.execute_command(ssh, dpu_ip,
-                                     "sudo sonic-installer set-next-boot {}".format(curr_image))
-        else:
+        if not (list_ok and curr_image and next_image):
             self.log("WARNING: [DPU {}] Could not list images after retries; "
-                     "attempting cleanup anyway".format(dpu_ip))
+                     "skipping cleanup to protect the boot image".format(dpu_ip))
+            return False
 
-        # Always attempt cleanup (safe: keeps Current and Next), retrying transient failures
+        self.log("[DPU {}] Current image: '{}', Next image: '{}'".format(
+            dpu_ip, curr_image, next_image))
+        if curr_image != next_image:
+            self.log("[DPU {}] Making current image the persistent and one-time boot target".format(dpu_ip))
+            if not self.prepare_image_for_reboot(ssh, dpu_ip, curr_image):
+                self.log("WARNING: [DPU {}] Could not protect current image before cleanup".format(dpu_ip))
+                return False
+
         cleaned = False
         for attempt in range(3):
             cleaned, _, err = self.execute_command(ssh, dpu_ip, "sudo sonic-installer cleanup -y")
@@ -265,7 +267,9 @@ class UpgradeDpuSonicImageModule(object):
 
         if not cleaned:
             self.log("WARNING: [DPU {}] sonic-installer cleanup did not succeed after 3 attempts".format(dpu_ip))
+            return False
         self.log("[DPU {}] Done reducing images".format(dpu_ip))
+        return True
 
     def free_up_disk_space(self, ssh, dpu_ip):
         """Remove old logs, core dumps, and other expendable files on the DPU."""
@@ -352,8 +356,83 @@ class UpgradeDpuSonicImageModule(object):
         if curr_image and curr_image != next_image:
             self.log("[DPU {}] Restoring default and next boot to current image '{}'".format(
                 dpu_ip, curr_image))
-            self.execute_command(ssh, dpu_ip, "sudo sonic-installer set-default {}".format(curr_image))
-            self.execute_command(ssh, dpu_ip, "sudo sonic-installer set-next-boot {}".format(curr_image))
+            if not self.prepare_image_for_reboot(ssh, dpu_ip, curr_image):
+                self.log("WARNING: [DPU {}] Failed to restore current image boot target".format(dpu_ip))
+
+    def prepare_image_for_reboot(self, ssh, dpu_ip, image):
+        """Persist an image as both the default and one-time boot target, then verify it."""
+        # Pensando DPUs use U-Boot; platforms without its tools use the sonic-installer path below.
+        uboot_slot_cmd = (
+            "if command -v fw_printenv >/dev/null 2>&1 && command -v fw_setenv >/dev/null 2>&1; then "
+            "printf '%s\\n' \"$(fw_printenv -n sonic_version_1 2>/dev/null || true)\" "
+            "\"$(fw_printenv -n sonic_version_2 2>/dev/null || true)\"; "
+            "else echo __NOT_UBOOT__; fi"
+        )
+        slot_ok, slot_out, slot_err = self.execute_command(ssh, dpu_ip, uboot_slot_cmd)
+        if not slot_ok:
+            self.log("WARNING: [DPU {}] Failed to read boot slots for '{}': {}".format(
+                dpu_ip, image, slot_err.strip()))
+            return False
+
+        slots = slot_out.splitlines()
+        if slots != ["__NOT_UBOOT__"]:
+            matching_slots = [index for index, version in enumerate(slots[:2], 1) if version == image]
+            if len(matching_slots) != 1:
+                self.log("WARNING: [DPU {}] Image '{}' maps to {} U-Boot slots; refusing reboot".format(
+                    dpu_ip, image, len(matching_slots)))
+                return False
+
+            boot_target = "run sonic_image_{}".format(matching_slots[0])
+            quoted_target = shlex.quote(boot_target)
+            for variable in ("boot_next", "boot_once"):
+                ok, _, err = self.execute_command(
+                    ssh, dpu_ip, "sudo fw_setenv {} {}".format(variable, quoted_target))
+                if not ok:
+                    self.log("WARNING: [DPU {}] Failed to set {} to '{}': {}".format(
+                        dpu_ip, variable, boot_target, err.strip()))
+                    return False
+
+            sync_ok, _, sync_err = self.execute_command(ssh, dpu_ip, "sudo sync")
+            if not sync_ok:
+                self.log("WARNING: [DPU {}] Failed to persist U-Boot selection for '{}': {}".format(
+                    dpu_ip, image, sync_err.strip()))
+                return False
+
+            verify_cmd = "fw_printenv -n boot_next"
+            verify_ok, verify_out, verify_err = self.execute_command(ssh, dpu_ip, verify_cmd)
+            if not verify_ok or verify_out.strip() != boot_target:
+                self.log("WARNING: [DPU {}] U-Boot target verification failed for '{}': {}".format(
+                    dpu_ip, image, verify_err.strip() or verify_out.strip()))
+                return False
+            return True
+
+        quoted_image = shlex.quote(image)
+        default_ok, _, default_err = self.execute_command(
+            ssh, dpu_ip, "sudo sonic-installer set-default {}".format(quoted_image))
+        if not default_ok:
+            self.log("WARNING: [DPU {}] Failed to persist default image '{}': {}".format(
+                dpu_ip, image, default_err.strip()))
+            return False
+
+        next_ok, _, next_err = self.execute_command(
+            ssh, dpu_ip, "sudo sonic-installer set-next-boot {}".format(quoted_image))
+        if not next_ok:
+            self.log("WARNING: [DPU {}] Failed to set one-time boot image '{}': {}".format(
+                dpu_ip, image, next_err.strip()))
+            return False
+
+        sync_ok, _, sync_err = self.execute_command(ssh, dpu_ip, "sudo sync")
+        if not sync_ok:
+            self.log("WARNING: [DPU {}] Failed to persist boot selection for '{}': {}".format(
+                dpu_ip, image, sync_err.strip()))
+            return False
+
+        list_ok, _, next_image = self.get_installed_images(ssh, dpu_ip)
+        if not list_ok or next_image != image:
+            self.log("WARNING: [DPU {}] Persistent boot target is '{}' instead of '{}'".format(
+                dpu_ip, next_image, image))
+            return False
+        return True
 
     def install_image_on_dpu(self, ssh, dpu_ip):
         """Transfer the image from NPU to DPU via SCP and install it."""
@@ -409,17 +488,10 @@ class UpgradeDpuSonicImageModule(object):
             self.log("WARNING: [DPU {}] Image installation FAILED: {}".format(dpu_ip, err.strip()))
             return False
 
-        # Persist writes before verifying/rebooting; a failed sync means writes may not be durable
-        sync_ok, _, sync_err = self.execute_command(ssh, dpu_ip, "sudo sync")
         list_ok, curr_image, next_image = self.get_installed_images(ssh, dpu_ip)
         if not (list_ok and next_image):
             self.log("WARNING: [DPU {}] Could not read image list after install; "
                      "failing safe (not rebooting into an unverified image)".format(dpu_ip))
-            return False
-        if not sync_ok:
-            self.log("WARNING: [DPU {}] Post-install sync FAILED: {}; writes may not be persisted, "
-                     "not rebooting into a potentially corrupt image".format(dpu_ip, sync_err.strip()))
-            self.restore_boot_to_current(ssh, dpu_ip, curr_image, next_image)
             return False
         img_dir = "/host/image-{}".format(next_image.replace("SONiC-OS-", ""))
         _, initrd_out, _ = self.execute_command(
@@ -436,6 +508,11 @@ class UpgradeDpuSonicImageModule(object):
             return False
         self.log("[DPU {}] Post-install check OK for '{}': initrd {} bytes".format(
             dpu_ip, next_image, initrd_bytes))
+
+        if not self.prepare_image_for_reboot(ssh, dpu_ip, next_image):
+            self.log("WARNING: [DPU {}] Boot selection verification failed; not rebooting".format(dpu_ip))
+            self.restore_boot_to_current(ssh, dpu_ip, curr_image, next_image)
+            return False
 
         self.log("[DPU {}] Image installed successfully".format(dpu_ip))
         return True
@@ -618,7 +695,9 @@ class UpgradeDpuSonicImageModule(object):
             return False
 
         try:
-            self.reduce_installed_images(ssh, dpu_ip)
+            if not self.reduce_installed_images(ssh, dpu_ip):
+                self.log("WARNING: [DPU{}] FAILED: Could not safely clean installed images".format(dpu_index))
+                return False
             self.free_up_disk_space(ssh, dpu_ip)
 
             if not self.install_image_on_dpu(ssh, dpu_ip):
@@ -674,8 +753,37 @@ class UpgradeDpuSonicImageModule(object):
             return num_dpus
         return max(1, min(self.max_parallel_dpus, num_dpus))
 
+    def get_admin_up_dpu_indices(self, dpu_indices):
+        """Return targeted DPUs whose CONFIG_DB admin status is up."""
+        admin_up_dpus = []
+        skipped_dpus = []
+
+        for dpu_index in dpu_indices:
+            dpu_name = "DPU{}".format(dpu_index)
+            cmd = 'sonic-db-cli CONFIG_DB HGET "CHASSIS_MODULE|{}" admin_status'.format(dpu_name)
+            with self._cli_lock:
+                rc, out, err = self.module.run_command(cmd)
+
+            if rc != 0:
+                self.module.fail_json(
+                    msg="Failed to read admin status for {}: rc={}, err={}".format(
+                        dpu_name, rc, err.strip()))
+
+            admin_status = out.strip().lower()
+            if admin_status == "up":
+                admin_up_dpus.append(dpu_index)
+            elif admin_status == "down":
+                skipped_dpus.append(dpu_index)
+                self.log("[DPU{}] Skipping upgrade because admin_status is down".format(dpu_index))
+            else:
+                self.module.fail_json(
+                    msg="Invalid or missing admin status '{}' for {}".format(
+                        admin_status, dpu_name))
+
+        return admin_up_dpus, skipped_dpus
+
     def upgrade_dpus(self):
-        """Upgrade all targeted DPUs and return (success_count, failure_count)."""
+        """Upgrade admin-up targeted DPUs and return success, failure, and skipped counts."""
         if self.target_dpu_index >= 0:
             if self.target_dpu_index >= self.dpu_num:
                 self.module.fail_json(
@@ -685,7 +793,13 @@ class UpgradeDpuSonicImageModule(object):
         else:
             dpu_indices = list(range(self.dpu_num))
 
+        dpu_indices, skipped_dpus = self.get_admin_up_dpu_indices(dpu_indices)
         total = len(dpu_indices)
+        if total == 0:
+            self.log("No admin-up DPUs targeted for upgrade; skipped {} admin-down DPU(s)".format(
+                len(skipped_dpus)))
+            return 0, 0, skipped_dpus
+
         required = max(1, int(total * SUCCESS_THRESHOLD))
         success_count = 0
         failure_count = 0
@@ -736,26 +850,33 @@ class UpgradeDpuSonicImageModule(object):
                 success_count=success_count,
                 failure_count=failure_count,
                 total_dpus=total,
+                skipped_dpus=skipped_dpus,
                 messages=self.messages)
 
-        return success_count, failure_count
+        return success_count, failure_count, skipped_dpus
 
     def run(self):
-        success_count, failure_count = self.upgrade_dpus()
+        success_count, failure_count, skipped_dpus = self.upgrade_dpus()
         total = success_count + failure_count
 
-        if failure_count == 0:
+        if total == 0:
+            msg = "No admin-up DPUs to upgrade (skipped {} admin-down DPU(s))".format(
+                len(skipped_dpus))
+        elif failure_count == 0:
             msg = "Successfully upgraded all {} DPU(s)".format(success_count)
         else:
             msg = ("Upgraded {} of {} DPU(s) ({} failures, "
                    "met success threshold)").format(success_count, total, failure_count)
+        if total > 0 and skipped_dpus:
+            msg += "; skipped {} admin-down DPU(s)".format(len(skipped_dpus))
 
         self.module.exit_json(
-            changed=True,
+            changed=success_count > 0,
             msg=msg,
             success_count=success_count,
             failure_count=failure_count,
             total_dpus=total,
+            skipped_dpus=skipped_dpus,
             messages=self.messages)
 
 

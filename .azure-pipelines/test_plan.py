@@ -299,7 +299,7 @@ class TestPlanManager(object):
         # Add topo and device type args for PR test
         if test_plan_type == "PR":
             # Add topo arg
-            if topology in ["t0", "t0-64-32"]:
+            if topology in ["t0", "t0-64-32", "t0-vpp"]:
                 common_extra_params = common_extra_params + " --topology=t0,any"
             elif topology in ["t1-lag", "t1-8-lag", "t1-vpp", "t1-lag-vpp"]:
                 common_extra_params = common_extra_params + " --topology=t1,any"
