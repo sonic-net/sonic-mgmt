@@ -258,7 +258,7 @@ def redis_hgetall(duthost, db, key):
 def redis_hset(duthost, db, key, **fields):
     """HSET one or more field=value pairs."""
     if not fields:
-        return
+        return None
     parts = ' '.join(
         "{key} {value}".format(
             key=shlex.quote(str(field_name)),
@@ -279,7 +279,7 @@ def redis_hset(duthost, db, key, **fields):
 def redis_hdel(duthost, db, key, *fields):
     """HDEL one or more fields from a hash."""
     if not fields:
-        return
+        return None
     return duthost.shell(
         "sonic-db-cli {db} -- HDEL {key} {fields}".format(
             db=db,
