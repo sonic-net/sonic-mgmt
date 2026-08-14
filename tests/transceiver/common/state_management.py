@@ -50,16 +50,16 @@ def _is_oper_up(duthost, port):
     return s.get("admin") == "up" and s.get("oper") == "up"
 
 
-def _is_lpmode_high(duthost, port):
+def _is_lpmode_on(duthost, port):
     """Return True iff sfputil reports low-power mode is OFF (i.e. high power)."""
     out = duthost.shell(f"sfputil show lpmode -p {port}", module_ignore_errors=True)
     if out.get("rc", 1) != 0:
-        return True  # can't tell - don't try to "fix" what we can't observe
+        return None  # can't tell - don't try to "fix" what we can't observe
     for line in (out.get("stdout_lines") or []):
         parts = line.strip().split()
         if len(parts) >= 2 and parts[0] == port:
             return parts[1].lower() == "off"
-    return True
+    return None
 
 
 def post_state_restoration(duthost, port_attributes_dict):
@@ -105,7 +105,7 @@ def post_state_restoration(duthost, port_attributes_dict):
 
     # Pass 2: turn off low-power mode on anything still in LPMode.
     for port in sorted(port_attributes_dict.keys()):
-        if not _is_lpmode_high(duthost, port):
+        if not _is_lpmode_on(duthost, port):
             logger.info("Restoration: turning off LPMode on %s", port)
             duthost.shell(f"sfputil lpmode off {port}", module_ignore_errors=True)
             summary["lpmode_high_restored"].append(port)
