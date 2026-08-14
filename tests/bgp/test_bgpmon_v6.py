@@ -5,6 +5,9 @@ from netaddr import IPNetwork
 from jinja2 import Template
 import json
 import random
+import ptf.testutils as testutils
+import ptf.packet as scapy
+from ptf.mask import Mask
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa:F401
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # noqa:F401
 from tests.common.helpers.generators import generate_ip_through_default_route, generate_ip_through_default_v6_route
@@ -21,15 +24,15 @@ pytestmark = [
 BGP_PORT = 179
 BGP_CONNECT_TIMEOUT = 121
 MAX_TIME_FOR_BGPMON = 180
-ZERO_ADDR = r'0.0.0.0/0'
-ZERO_V6_ADDR = r'::/0'
 logger = logging.getLogger(__name__)
 
 
-# This API gets the ptf indices list and the local interfaces list for uplink LC.
-def get_all_uplink_ptf_recv_ports(duthosts, tbinfo):
+def get_all_uplink_ptf_recv_ports(duthosts, tbinfo, target_duthost=None, asic_index=None):
     """
-    This function returns ptf indices and local ports from dut which has connectivity to T3 (RNG/AZH) layer.
+    Return PTF indices and local ports from DUT(s) with connectivity to T3 (RH/AZNG).
+
+    When target_duthost / asic_index are provided, only ports on that DUT/ASIC are
+    returned so BGPMON traffic is steered to the ASIC under test.
     """
     ptf_port_indices = []
     local_dut_ports = []
@@ -37,6 +40,8 @@ def get_all_uplink_ptf_recv_ports(duthosts, tbinfo):
 
     for duthost in duthosts:
         if duthost.is_supervisor_node():
+            continue
+        if target_duthost is not None and duthost.hostname != target_duthost.hostname:
             continue
 
         # First get all T3 neighbors, which are of type RegionalHub, AZNGHub
@@ -51,34 +56,57 @@ def get_all_uplink_ptf_recv_ports(duthosts, tbinfo):
         for port, neighbor in mg_facts["minigraph_neighbors"].items():
             if neighbor['name'] in recv_neigh_list and port in mg_facts["minigraph_ptf_indices"]:
                 if 'PortChannel' in port:
-                    for member in mg_facts['minigraph_portchannels'][port]['members']:
-                        ptf_port_indices.append(mg_facts['minigraph_ptf_indices'][member])
-                        local_dut_ports.append(member)
+                    members = mg_facts['minigraph_portchannels'][port]['members']
                 else:
-                    ptf_port_indices.append(mg_facts['minigraph_ptf_indices'][port])
-                    local_dut_ports.append(port)
+                    members = [port]
+
+                for member in members:
+                    if (asic_index is not None and duthost.is_multi_asic and
+                            duthost.get_port_asic_instance(member).asic_index != asic_index):
+                        continue
+                    ptf_port_indices.append(mg_facts['minigraph_ptf_indices'][member])
+                    local_dut_ports.append(member)
 
     return ptf_port_indices, local_dut_ports
 
 
-def get_uplink_route_mac(duthosts, port):
-    """
-    This function returns the router mac of dut/asic which has connectivity to T3 (RNG/AZH) layer,
-    based on the input local dut interface.
-    """
-    for duthost in duthosts:
-        if duthost.is_supervisor_node():
-            continue
+def get_uplink_route_mac(duthost, port):
+    """Return the router MAC for the ASIC that owns the given local DUT interface."""
+    return duthost.get_port_asic_instance(port).get_router_mac() \
+        if duthost.is_multi_asic else duthost.facts["router_mac"]
 
-        config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-        device_neighbor_metadata = config_facts['DEVICE_NEIGHBOR_METADATA']
-        for k, v in device_neighbor_metadata.items():
-            # if this duthost has peer of type RH/AZNG, then it is uplink LC
-            # return the router mac for that duthost/asic
-            if v['type'] == "RegionalHub" or v['type'] == "AZNGHub":
-                # Get the router_mac based on which asic the port belongs to in this dut
-                return duthost.get_port_asic_instance(port).get_router_mac() \
-                                    if duthost.is_multi_asic else duthost.facts["router_mac"]
+
+def build_syn_pkt(local_addr, peer_addr):
+    """Build an IPv6 TCP SYN expectation for BGP (port 179)."""
+    pkt = testutils.simple_tcpv6_packet(
+        pktlen=74,
+        ipv6_src=local_addr,
+        ipv6_dst=peer_addr,
+        tcp_dport=BGP_PORT,
+        tcp_flags="S"
+    )
+    exp_packet = Mask(pkt)
+    exp_packet.set_do_not_care_scapy(scapy.Ether, "dst")
+    exp_packet.set_do_not_care_scapy(scapy.Ether, "src")
+
+    exp_packet.set_do_not_care_scapy(scapy.IPv6, "version")
+    exp_packet.set_do_not_care_scapy(scapy.IPv6, "tc")
+    exp_packet.set_do_not_care_scapy(scapy.IPv6, "fl")
+    exp_packet.set_do_not_care_scapy(scapy.IPv6, "plen")
+    exp_packet.set_do_not_care_scapy(scapy.IPv6, "nh")
+    exp_packet.set_do_not_care_scapy(scapy.IPv6, "hlim")
+
+    exp_packet.set_do_not_care_scapy(scapy.TCP, "sport")
+    exp_packet.set_do_not_care_scapy(scapy.TCP, "seq")
+    exp_packet.set_do_not_care_scapy(scapy.TCP, "ack")
+    exp_packet.set_do_not_care_scapy(scapy.TCP, "reserved")
+    exp_packet.set_do_not_care_scapy(scapy.TCP, "dataofs")
+    exp_packet.set_do_not_care_scapy(scapy.TCP, "window")
+    exp_packet.set_do_not_care_scapy(scapy.TCP, "chksum")
+    exp_packet.set_do_not_care_scapy(scapy.TCP, "urgptr")
+
+    exp_packet.set_ignore_extra_bytes()
+    return exp_packet
 
 
 @pytest.fixture
@@ -89,7 +117,9 @@ def common_v6_setup_teardown(duthosts, tbinfo, enum_rand_one_per_hwsku_frontend_
     router_id = generate_ip_through_default_route(duthost)
     pytest_assert(peer_addr, "Failed to generate ip address for test")
     peer_addr = str(IPNetwork(peer_addr).ip)
-    peer_ports, local_ports = get_all_uplink_ptf_recv_ports(duthosts, tbinfo)
+    peer_ports, local_ports = get_all_uplink_ptf_recv_ports(
+        duthosts, tbinfo, target_duthost=duthost, asic_index=enum_rand_one_frontend_asic_index
+    )
 
     # Get loopback4096 address for the selected frontend ASIC
     cfg_facts = get_asic_config_facts(duthost, enum_rand_one_frontend_asic_index)
@@ -143,7 +173,8 @@ def test_bgpmon_v6(duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostnam
     asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
 
     local_addr, peer_addr, peer_ports, local_ports, asn, router_id = common_v6_setup_teardown
-    pytest_assert(peer_ports is not None, "No upstream neighbors in the testbed")
+    if not peer_ports:
+        pytest.skip("Selected DUT/ASIC has no uplink (RH/AZNG) ports")
 
     # Flush dataplane
     ptfadapter.dataplane.flush()
@@ -153,7 +184,7 @@ def test_bgpmon_v6(duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostnam
 
     port_index = random.randint(0, len(peer_ports)-1)
     logger.info("Configured route to from PTF to LC on PTF port {}".format(peer_ports[port_index]))
-    router_mac = get_uplink_route_mac(duthosts, local_ports[port_index])
+    router_mac = get_uplink_route_mac(duthost, local_ports[port_index])
     ptf_interface = "eth" + str(peer_ports[port_index])
     ptfhost.shell("ip -6 addr add {} dev {}".format(peer_addr + "/128", ptf_interface))
     ptfhost.shell("ip neigh add %s lladdr %s dev %s" % (local_addr, router_mac, ptf_interface))
@@ -181,52 +212,34 @@ def test_bgpmon_v6(duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostnam
         ptfhost.shell("ip -6 addr del %s dev %s" % (peer_addr + "/128", ptf_interface))
 
 
-def test_bgpmon_no_ipv6_resolve_via_default(duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname, ptfhost,
-                                            enum_rand_one_frontend_asic_index, common_v6_setup_teardown, ptfadapter):
+def test_bgpmon_no_ipv6_resolve_via_default(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                                            enum_rand_one_frontend_asic_index, common_v6_setup_teardown,
+                                            ptfadapter):
     """
-    Verify no syn for BGP is sent when 'ipv6 nht resolve-via-default' is disabled.
+    Verify no SYN for BGP is sent when 'ipv6 nht resolve-via-default' is disabled.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
 
-    local_addr, peer_addr, peer_ports, local_ports, asn, router_id = common_v6_setup_teardown
-    pytest_assert(peer_ports is not None, "No upstream neighbors in the testbed")
+    local_addr, peer_addr, peer_ports, _, _, _ = common_v6_setup_teardown
+    if not peer_ports:
+        pytest.skip("Selected DUT/ASIC has no uplink (RH/AZNG) ports")
+    exp_packet = build_syn_pkt(local_addr, peer_addr)
 
-    # Flush dataplane
-    ptfadapter.dataplane.flush()
-    # Load bgp monitor config
-    logger.info("Configured BGPMON on {}".format(duthost))
-    asichost.write_to_config_db(BGPMON_CONFIG_FILE)
-
-    port_index = random.randint(0, len(peer_ports)-1)
-    logger.info("Configured route to from PTF to LC on PTF port {}".format(peer_ports[port_index]))
-    router_mac = get_uplink_route_mac(duthosts, local_ports[port_index])
-    ptf_interface = "eth" + str(peer_ports[port_index])
-    ptfhost.shell("ip -6 addr add {} dev {}".format(peer_addr + "/128", ptf_interface))
-    ptfhost.shell("ip neigh add %s lladdr %s dev %s" % (local_addr, router_mac, ptf_interface))
-    ptfhost.shell("ip -6 route add %s dev %s" % (local_addr + "/128", ptf_interface))
     try:
+        # Disable resolve-via-default
+        duthost.run_vtysh("-c \"configure terminal\" -c \"no ipv6 nht resolve-via-default\"", asic_index='all')
         # Flush dataplane
         ptfadapter.dataplane.flush()
         asichost.write_to_config_db(BGPMON_CONFIG_FILE)
-        # Disable resolve-via-default
-        duthost.run_vtysh("-c \"configure terminal\" -c \"no ipv6 nht resolve-via-default\"", asic_index='all')
-        ptfhost.exabgp(name=BGP_MONITOR_NAME,
-                       state="started",
-                       local_ip=peer_addr,
-                       router_id=router_id,
-                       peer_ip=local_addr,
-                       local_asn=asn,
-                       peer_asn=asn,
-                       port=BGP_MONITOR_PORT)
-        pytest_assert(wait_tcp_connection(localhost, ptfhost.mgmt_ip, BGP_MONITOR_PORT, timeout_s=60),
-                      "Failed to start bgp monitor session on PTF")
-        pytest_assert(not wait_until(MAX_TIME_FOR_BGPMON, 5, 0, bgpmon_peer_connected, asichost, peer_addr),
-                      "BGPMon Peer connection is established when it shouldn't be")
+
+        # Verify no syn packet is received (same approach as test_bgpmon.py)
+        pytest_assert(
+            0 == testutils.count_matched_packets_all_ports(
+                test=ptfadapter, exp_packet=exp_packet, ports=peer_ports, timeout=BGP_CONNECT_TIMEOUT
+            ),
+            "Syn packets is captured when resolve-via-default is disabled"
+        )
     finally:
         # Re-enable resolve-via-default
-        ptfhost.exabgp(name=BGP_MONITOR_NAME, state="absent")
-        ptfhost.shell("ip -6 route del %s dev %s" % (local_addr + "/128", ptf_interface))
-        ptfhost.shell("ip -6 neigh del %s lladdr %s dev %s" % (local_addr, router_mac, ptf_interface))
-        ptfhost.shell("ip -6 addr del %s dev %s" % (peer_addr + "/128", ptf_interface))
         duthost.run_vtysh("-c \"configure terminal\" -c \"ipv6 nht resolve-via-default\"", asic_index='all')
