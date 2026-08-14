@@ -13,6 +13,7 @@
         "warm_reboot_settle_sec": 300,
         "fast_reboot_supported": false,
         "fast_reboot_settle_sec": 300,
+        "transceiver_reset_supported": true,
         "transceiver_reset_i2c_recover_sec": 5
     }
 }
