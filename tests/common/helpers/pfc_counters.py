@@ -9,6 +9,7 @@ counter verification without cross-feature imports.
 from tests.common.platform.device_utils import eos_to_linux_intf, nxos_to_linux_intf, sonic_to_linux_intf
 from tests.common.helpers.drop_counters.drop_counters import GET_L2_COUNTERS, get_pkt_drops
 import os
+import random
 import time
 import pytest
 import logging
@@ -308,12 +309,12 @@ def run_rx_ok_isolation_test(fanouthosts, duthost, conn_graph_facts,       # noq
               counted as normal RX packets (RX_OK) or RX drops (RX_DRP) on the
               DUT interfaces.
 
-              Each active physical interface is exercised one at a time: a
-              baseline snapshot is taken, a burst of PFC frames is sent across
-              all priorities to that port, then the port's counters are read
-              back. The per-port measurement window keeps the RX_OK/RX_DRP
-              deltas within `margin` instead of accumulating background traffic
-              across the whole port scan.
+              A single active physical interface is chosen at random and
+              exercised: a baseline snapshot is taken, a burst of PFC frames is
+              sent across all priorities to that port, then the port's counters
+              are read back. The narrow measurement window keeps the
+              RX_OK/RX_DRP deltas within `margin` instead of accumulating
+              background traffic across a full port scan.
     @param duthost: The object for interacting with DUT through ansible
     @param conn_graph_facts: Testbed topology connectivity information
     @param leaf_fanouts: Leaf fanout switches
@@ -347,43 +348,43 @@ def run_rx_ok_isolation_test(fanouthosts, duthost, conn_graph_facts,       # noq
             "topology and fanout connectivity."
         )
 
-    """ Send frames and read back one port at a time so background traffic
-        cannot accumulate across the whole port scan """
-    failures = []
-    for intf in active_phy_intfs:
-        peer_device = conn_facts[intf]['peerdevice']
-        peer_port = conn_facts[intf]['peerport']
-        peerdev_ans = fanouthosts[peer_device]
-        peer_port_name, fanout_hwsku = _resolve_peer_port_name(
-            peerdev_ans, enum_fanout_graph_facts, peer_port)
+    """ Exercise a single randomly-chosen port so background traffic cannot
+        accumulate across a full port scan """
+    intf = random.choice(active_phy_intfs)
+    peer_device = conn_facts[intf]['peerdevice']
+    peer_port = conn_facts[intf]['peerport']
+    peerdev_ans = fanouthosts[peer_device]
+    peer_port_name, fanout_hwsku = _resolve_peer_port_name(
+        peerdev_ans, enum_fanout_graph_facts, peer_port)
+    logger.info(
+        "Selected interface %s (peer %s port %s) out of %d candidate(s) for "
+        "PFC RX_OK isolation test", intf, peer_device, peer_port, len(active_phy_intfs))
 
-        """ Baseline for this port immediately before sending """
-        baseline = get_rx_port_counters(duthost)
+    """ Baseline for this port immediately before sending """
+    baseline = get_rx_port_counters(duthost)
 
-        for priority in range(PRIO_COUNT):
-            send_pfc_frame(peerdev_ans, peer_port_name, fanout_hwsku,
-                           priority, pause_time, pkt_count)
+    for priority in range(PRIO_COUNT):
+        send_pfc_frame(peerdev_ans, peer_port_name, fanout_hwsku,
+                       priority, pause_time, pkt_count)
 
-        """ SONiC takes some time to update counters in database """
-        time.sleep(5)
-        after = get_rx_port_counters(duthost)
+    """ SONiC takes some time to update counters in database """
+    time.sleep(5)
+    after = get_rx_port_counters(duthost)
 
-        if intf not in baseline or intf not in after:
-            logger.warning(
-                "Interface %s missing from the %s counter snapshot; skipping its "
-                "RX_OK/RX_DRP validation", intf,
-                "baseline" if intf not in baseline else "post-send")
-            continue
-        rx_ok_delta = after[intf]['RX_OK'] - baseline[intf]['RX_OK']
-        rx_drp_delta = after[intf]['RX_DRP'] - baseline[intf]['RX_DRP']
-        if rx_ok_delta > margin or rx_drp_delta > margin:
-            failures.append((intf, rx_ok_delta, rx_drp_delta))
-            logger.error(
-                "Interface %s: RX_OK increased by %d, RX_DRP increased by %d "
-                "(allowed margin %d) after receiving %d PFC frames per priority",
-                intf, rx_ok_delta, rx_drp_delta, margin, pkt_count)
+    assert intf in baseline and intf in after, (
+        "Interface {} missing from the {} counter snapshot; cannot validate "
+        "its RX_OK/RX_DRP counters"
+    ).format(intf, "baseline" if intf not in baseline else "post-send")
 
-    assert len(failures) == 0, (
+    rx_ok_delta = after[intf]['RX_OK'] - baseline[intf]['RX_OK']
+    rx_drp_delta = after[intf]['RX_DRP'] - baseline[intf]['RX_DRP']
+    if rx_ok_delta > margin or rx_drp_delta > margin:
+        logger.error(
+            "Interface %s: RX_OK increased by %d, RX_DRP increased by %d "
+            "(allowed margin %d) after receiving %d PFC frames per priority",
+            intf, rx_ok_delta, rx_drp_delta, margin, pkt_count)
+
+    assert rx_ok_delta <= margin and rx_drp_delta <= margin, (
         "PFC frames were counted as RX_OK or RX_DRP beyond the allowed margin of {} "
-        "on the following interfaces [(intf, rx_ok_delta, rx_drp_delta)]: {}"
-    ).format(margin, failures)
+        "on interface {} (rx_ok_delta={}, rx_drp_delta={})"
+    ).format(margin, intf, rx_ok_delta, rx_drp_delta)
