@@ -13,12 +13,14 @@ points at the component which did not preserve it.
 """
 
 import logging
+import re
 
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.srv6_helper import is_bgp_route_synced
 from tests.common.helpers.srv6_io import run_srv6_io_test, format_flow_result, SRV6_FLOW, CONTROL_FLOW
+from tests.common.mellanox_data import is_mellanox_device, get_chip_type
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 from tests.common.reboot import reboot
 from tests.common.utilities import wait_until
@@ -30,18 +32,51 @@ from tests.srv6.srv6_utils import UN_SID_APPL_DB_KEY, UN_SID_TRAFFIC_DST, UN_EGR
 
 logger = logging.getLogger(__name__)
 
+# SRv6 is only expected to survive a warm reboot on Spectrum-5 and newer ASICs
+MIN_SPECTRUM_GENERATION = 5
+
 pytestmark = [
-    pytest.mark.asic("mellanox", "broadcom", "vpp"),
+    pytest.mark.asic("mellanox"),
     pytest.mark.topology("t0", "t1"),
     # A warm reboot generates expected log noise, the SRv6 state is verified explicitly instead
     pytest.mark.disable_loganalyzer,
 ]
 
 
+def get_spectrum_generation(duthost):
+    """
+    Return the Spectrum generation of the DUT, or None when it cannot be determined.
+
+    A platform which is unknown to tests/common/mellanox_data.py is most likely
+    newer than the ones listed there, so it is reported as undetermined and the
+    caller does not skip on it. The conditional mark remains the authoritative gate.
+    """
+    try:
+        chip_type = get_chip_type(duthost)
+    except KeyError:
+        logger.warning("Platform {} is unknown, unable to determine its Spectrum generation"
+                       .format(duthost.facts.get("platform")))
+        return None
+
+    match = re.match(r'spectrum(\d+)$', str(chip_type))
+    if not match:
+        logger.warning("Unable to determine the Spectrum generation out of the chip type {}".format(chip_type))
+        return None
+    return int(match.group(1))
+
+
 @pytest.fixture(scope="module", autouse=True)
 def skip_unsupported_warm_reboot(duthosts, enum_frontend_dut_hostname, tbinfo):
-    """Skip the module on the setups which do not support a warm reboot."""
+    """Skip the module on the setups which do not support SRv6 over a warm reboot."""
     duthost = duthosts[enum_frontend_dut_hostname]
+
+    if not is_mellanox_device(duthost):
+        pytest.skip("SRv6 over warm reboot is only supported on Mellanox/NVIDIA platforms")
+
+    generation = get_spectrum_generation(duthost)
+    if generation is not None and generation < MIN_SPECTRUM_GENERATION:
+        pytest.skip("SRv6 over warm reboot is only supported on Spectrum-{} and newer platforms, "
+                    "this one is Spectrum-{}".format(MIN_SPECTRUM_GENERATION, generation))
 
     if duthost.is_multi_asic:
         pytest.skip("Warm reboot is not supported on multi ASIC devices")
