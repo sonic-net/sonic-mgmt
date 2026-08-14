@@ -22,12 +22,15 @@ from tests.common.helpers.sonic_db import (
     CONFIG_DB,
     redis_del,
     redis_hdel,
+    redis_hget,
+    redis_hgetall,
     redis_hset,
     redis_keys,
 )
 from tests.common.helpers.syslog_helpers import (
     add_syslog_server,
     del_syslog_server,
+    is_mgmt_vrf_enabled,
 )
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 from tests.common.pygnmi_client import PygnmiClientError
@@ -40,9 +43,17 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 allure.logger = logger
 CLIENT_PRINCIPAL = "test.client.gnmi.sonic"
-READWRITE_CLIENT_PRINCIPAL = "test.client.readwrite.gnmi.sonic"
-READONLY_ROLE = "gnmi_config_db_readonly"
-READWRITE_ROLE = "gnmi_config_db_readwrite"
+GENERIC_NOACCESS_ROLE = "gnmi_noaccess"
+GENERIC_READONLY_ROLE = "gnmi_readonly"
+GENERIC_READWRITE_ROLE = "gnmi_readwrite"
+CONFIG_DB_NOACCESS_ROLE = "gnmi_config_db_noaccess"
+CONFIG_DB_READONLY_ROLE = "gnmi_config_db_readonly"
+CONFIG_DB_READWRITE_ROLE = "gnmi_config_db_readwrite"
+NO_ACCESS_ERROR = "does not have access|gnmi.*noaccess"
+UNMAPPED_CN_ERROR = (
+    "Unauthenticated|unauthenticated|Invalid cert cname|"
+    "not a trusted|common name mapping"
+)
 
 
 def _set_configdb(client):
@@ -67,9 +78,98 @@ def _get_countersdb(client):
     )
 
 
+def _get_capabilities(client):
+    result = client.capabilities()
+    models = result.get("supported_models", [])
+    encodings = result.get("supported_encodings", [])
+    pytest_assert(
+        any(model.get("name") == "sonic-db" for model in models),
+        "sonic-db not found in gNMI capabilities: {}".format(models),
+    )
+    pytest_assert(
+        "json_ietf" in encodings,
+        "json_ietf not found in gNMI capabilities: {}".format(encodings),
+    )
+
+
 AUDIT_ACTIVITIES = [
     pytest.param(_get_countersdb, "/gnmi.gNMI/Get", id="get"),
     pytest.param(_set_configdb, "/gnmi.gNMI/Set", id="set"),
+]
+
+ROLE_ACCESS_CASES = [
+    pytest.param(
+        GENERIC_NOACCESS_ROLE,
+        _get_capabilities,
+        NO_ACCESS_ERROR,
+        id="generic-noaccess-capabilities",
+    ),
+    pytest.param(
+        GENERIC_READONLY_ROLE,
+        _get_capabilities,
+        None,
+        id="generic-readonly-capabilities",
+    ),
+    pytest.param(
+        GENERIC_READWRITE_ROLE,
+        _get_capabilities,
+        None,
+        id="generic-readwrite-capabilities",
+    ),
+    pytest.param(
+        "",
+        _get_capabilities,
+        None,
+        id="empty-role-capabilities",
+    ),
+    pytest.param(
+        CONFIG_DB_NOACCESS_ROLE,
+        _get_configdb,
+        NO_ACCESS_ERROR,
+        id="configdb-noaccess-get",
+    ),
+    pytest.param(
+        CONFIG_DB_NOACCESS_ROLE,
+        _set_configdb,
+        NO_ACCESS_ERROR,
+        id="configdb-noaccess-set",
+    ),
+    pytest.param(
+        CONFIG_DB_READONLY_ROLE,
+        _get_configdb,
+        None,
+        id="configdb-readonly-get",
+    ),
+    pytest.param(
+        CONFIG_DB_READONLY_ROLE,
+        _set_configdb,
+        CONFIG_DB_READONLY_ROLE,
+        id="configdb-readonly-set",
+    ),
+    pytest.param(
+        CONFIG_DB_READWRITE_ROLE,
+        _get_configdb,
+        None,
+        id="configdb-readwrite-get",
+    ),
+    pytest.param(
+        CONFIG_DB_READWRITE_ROLE,
+        _set_configdb,
+        None,
+        id="configdb-readwrite-set",
+    ),
+    pytest.param(
+        None,
+        _get_configdb,
+        UNMAPPED_CN_ERROR,
+        id="unmapped-get",
+    ),
+    pytest.param(
+        None,
+        _set_configdb,
+        UNMAPPED_CN_ERROR,
+        id="unmapped-set",
+    ),
 ]
 
 
@@ -77,6 +177,7 @@ AUDIT_ACTIVITIES = [
 def remote_syslog_capture(gnmi_tls, ptfhost):  # noqa: F811
     duthost = gnmi_tls.duthost
     ptf_ip = ptfhost.mgmt_ip
+    syslog_vrf = "mgmt" if is_mgmt_vrf_enabled(duthost) else None
     capture_file = "/tmp/gnmi-audit-{}.pcap".format(uuid.uuid4().hex)
     capture_pool = None
     capture_result = None
@@ -84,7 +185,7 @@ def remote_syslog_capture(gnmi_tls, ptfhost):  # noqa: F811
 
     try:
         logger.info("Adding temporary remote syslog server %s", ptf_ip)
-        add_result = add_syslog_server(duthost, ptf_ip)
+        add_result = add_syslog_server(duthost, ptf_ip, vrf=syslog_vrf)
         pytest_assert(
             add_result["rc"] == 0,
             "Failed to add temporary syslog server",
@@ -94,9 +195,15 @@ def remote_syslog_capture(gnmi_tls, ptfhost):  # noqa: F811
         remote_action = 'Target="{}" Port="514"'.format(ptf_ip)
 
         def remote_action_configured():
-            command = "grep -Fq {} /etc/rsyslog.conf".format(
+            command = "grep -F {} /etc/rsyslog.conf".format(
                 shlex.quote(remote_action)
             )
+            if syslog_vrf:
+                command += " | grep -Fq {}".format(
+                    shlex.quote('Device="{}"'.format(syslog_vrf))
+                )
+            else:
+                command += " >/dev/null"
             return duthost.shell(
                 command, module_ignore_errors=True
             )["rc"] == 0
@@ -211,7 +318,18 @@ def test_gnmi_audit_log_remote_forwarding(
 @pytest.mark.parametrize("operation,method", AUDIT_ACTIVITIES)
 def test_gnmi_default_cert_auth(gnmi_tls, operation, method):  # noqa: F811
     duthost = gnmi_tls.duthost
-    redis_hdel(duthost, CONFIG_DB, "GNMI|gnmi", "user_auth")
+    delete_result = redis_hdel(
+        duthost, CONFIG_DB, "GNMI|gnmi", "user_auth"
+    )
+    pytest_assert(
+        delete_result["rc"] == 0
+        and delete_result["stdout"].strip() == "1",
+        "Failed to delete GNMI|gnmi.user_auth: {}".format(delete_result),
+    )
+    pytest_assert(
+        not redis_hget(duthost, CONFIG_DB, "GNMI|gnmi", "user_auth"),
+        "GNMI|gnmi.user_auth is still configured after HDEL",
+    )
     _restart_gnoi_server(duthost)
 
     redis_del(
@@ -226,62 +344,42 @@ def test_gnmi_default_cert_auth(gnmi_tls, operation, method):  # noqa: F811
         operation(gnmi_tls.pygnmi_client)
 
 
-@pytest.mark.parametrize(
-    "cn_roles,error_pattern",
-    [
-        pytest.param(
-            {
-                CLIENT_PRINCIPAL: READONLY_ROLE,
-                READWRITE_CLIENT_PRINCIPAL: READWRITE_ROLE,
-            },
-            READONLY_ROLE,
-            id="readonly",
-        ),
-        pytest.param(
-            {READWRITE_CLIENT_PRINCIPAL: READWRITE_ROLE},
-            "Unauthenticated|Invalid cert cname|not a trusted",
-            id="unmapped",
-        ),
-    ],
-)
-def test_cn_insufficient_access(gnmi_tls, cn_roles, error_pattern):  # noqa: F811
+@pytest.mark.parametrize("role,operation,error_pattern", ROLE_ACCESS_CASES)
+def test_cn_role_access(gnmi_tls, role, operation, error_pattern):  # noqa: F811
+    """Verify generic and target-specific role authorization."""
     duthost = gnmi_tls.duthost
-    redis_del(
-        duthost,
-        CONFIG_DB,
-        *redis_keys(duthost, CONFIG_DB, "GNMI_CLIENT_CERT|*"),
-    )
-    for cname, role in cn_roles.items():
-        redis_hset(
+    role_key = "GNMI_CLIENT_CERT|{}".format(CLIENT_PRINCIPAL)
+
+    if role is None:
+        delete_results = redis_del(duthost, CONFIG_DB, role_key)
+        pytest_assert(
+            len(delete_results) == 1
+            and delete_results[0]["rc"] == 0
+            and delete_results[0]["stdout"].strip() == "1",
+            "Failed to remove client certificate mapping {}: {}".format(
+                role_key, delete_results
+            ),
+        )
+    else:
+        set_result = redis_hset(
             duthost,
             CONFIG_DB,
-            "GNMI_CLIENT_CERT|{}".format(cname),
+            role_key,
             **{"role@": role}
         )
+        pytest_assert(
+            set_result["rc"] == 0,
+            "Failed to set role {!r}: {}".format(role, set_result),
+        )
+        configured_fields = redis_hgetall(duthost, CONFIG_DB, role_key)
+        pytest_assert(
+            "role@" in configured_fields
+            and configured_fields["role@"] == role,
+            "Expected role {!r}, got {}".format(role, configured_fields),
+        )
 
-    with pytest.raises(
-        PygnmiClientError,
-        match=error_pattern,
-    ):
-        _set_configdb(gnmi_tls.pygnmi_client)
-
-
-@pytest.mark.parametrize(
-    "role,operation",
-    [
-        pytest.param(READONLY_ROLE, _get_configdb, id="readonly-get"),
-        pytest.param(READWRITE_ROLE, _get_configdb, id="readwrite-get"),
-        pytest.param(READWRITE_ROLE, _set_configdb, id="readwrite-set"),
-    ],
-)
-def test_cn_allowed_access(gnmi_tls, role, operation):  # noqa: F811
-    """Verify a mapped CN can perform the requested CONFIG_DB operation."""
-    duthost = gnmi_tls.duthost
-    redis_hset(
-        duthost,
-        CONFIG_DB,
-        "GNMI_CLIENT_CERT|{}".format(CLIENT_PRINCIPAL),
-        **{"role@": role}
-    )
-
-    operation(gnmi_tls.pygnmi_client)
+    if error_pattern:
+        with pytest.raises(PygnmiClientError, match=error_pattern):
+            operation(gnmi_tls.pygnmi_client)
+    else:
+        operation(gnmi_tls.pygnmi_client)
