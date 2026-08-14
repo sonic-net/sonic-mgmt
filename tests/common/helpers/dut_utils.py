@@ -1,4 +1,5 @@
 import logging
+import pathlib
 import allure
 import os
 import jinja2
@@ -30,7 +31,8 @@ NAT_ENABLE_KEY = "nat_enabled_on_{}"
 CONSOLE_RECONNECT_BACKOFF_SECS = 12
 
 # Ansible config files
-LAB_CONNECTION_GRAPH_PATH = os.path.normpath((os.path.join(os.path.dirname(__file__), "../../../ansible/files")))
+LAB_CONNECTION_GRAPH_PATH = pathlib.Path(
+    os.getenv("ANSIBLE_CONFIG", pathlib.Path(__file__).resolve().parent.joinpath("../../ansible"))).joinpath("files")
 
 BASI_PATH = os.path.dirname(os.path.abspath(__file__))
 
@@ -97,6 +99,22 @@ def check_container_state(duthost, container_name, should_be_running):
     """
     is_running = is_container_running(duthost, container_name)
     return is_running == should_be_running
+
+
+def wait_for_container_running(duthost, container_name, timeout=120, check_interval=5):
+    """Wait until `container_name` is in the running state on `duthost`.
+
+    Polls `is_container_running` every `check_interval` seconds, up to
+    `timeout` seconds total. Raises an Exception if the container is still
+    not running when the timeout expires.
+    """
+    logger.info("Waiting for container %s to be running on %s", container_name, duthost.hostname)
+    if not wait_until(timeout, check_interval, 0, is_container_running, duthost, container_name):
+        raise TimeoutError(
+            "Container {} is not running on {} after {} seconds".format(
+                container_name, duthost.hostname, timeout
+            )
+        )
 
 
 def is_hitting_start_limit(duthost, container_name):
@@ -579,7 +597,7 @@ def create_linecard_console(supervisor, linecard_duthost, inv_files, creds):
         pytest.skip(f"Linecard console not supported: {str(e)}")
 
 
-def create_duthost_console(duthost, localhost, conn_graph_facts, creds):  # noqa: F811
+def create_duthost_console(duthost, localhost, conn_graph_facts, creds, cancel_event=None):  # noqa: F811
     dut_hostname = duthost.hostname
     console_host = conn_graph_facts['device_console_info'][dut_hostname]['ManagementIp']
     if "/" in console_host:
@@ -656,6 +674,7 @@ def create_duthost_console(duthost, localhost, conn_graph_facts, creds):  # noqa
                 console_username=console_username,
                 console_password=creds["console_password"][console_type],
                 console_device=console_device,
+                cancel_event=cancel_event,
             )
         except Exception as e:
             logger.warning(f"Attempt {attempt}/3 failed: {e}")

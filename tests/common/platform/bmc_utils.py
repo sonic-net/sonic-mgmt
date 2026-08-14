@@ -1,12 +1,15 @@
 """Shared helpers for BMC platform tests (syslog, event.log, Switch-Host)."""
 
 import logging
+import shlex
+
 from contextlib import contextmanager
 
 import pytest
 
+
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.sonic_db import STATE_DB, redis_hget, redis_hset
+from tests.common.helpers.sonic_db import STATE_DB, redis_hget, redis_hgetall, redis_hset
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
@@ -128,10 +131,12 @@ class BmcLogAnalyzer:
         marker = "{}.{}".format(self.marker_prefix,
                                 time.strftime("%Y-%m-%d-%H:%M:%S", time.gmtime()))
         start_line = "start-LogAnalyzer-{}".format(marker)
+        self.duthost.shell("sync {}".format(shlex.quote(BMC_EVENT_LOG)))
         self.duthost.shell(
             "echo '{}' >> {}".format(start_line, BMC_EVENT_LOG),
             module_ignore_errors=True,
         )
+        self.duthost.shell("sync {}".format(shlex.quote(BMC_EVENT_LOG)))
         logger.debug("BmcLogAnalyzer: wrote marker '%s' to %s", start_line, BMC_EVENT_LOG)
         return marker
 
@@ -150,10 +155,13 @@ class BmcLogAnalyzer:
             return self._get_syslog_analyzer().analyze(marker, fail=fail)
 
         start_line = "start-LogAnalyzer-{}".format(marker)
+        self.duthost.shell("sync {}".format(shlex.quote(BMC_EVENT_LOG)))
         result = self.duthost.shell(
-            "awk '/{}/ {{found=1; next}} found' {} 2>/dev/null".format(
-                start_line.replace("'", r"'\''"), BMC_EVENT_LOG),
-            module_ignore_errors=True,
+            "sed -n {} {}".format(
+                shlex.quote(r"/{}/,$p".format(start_line)),
+                shlex.quote(BMC_EVENT_LOG)
+            ),
+            module_ignore_errors=True
         )
         content = (result.get('stdout', '') or '').strip()
 
@@ -207,6 +215,20 @@ def bmc_log_zgrep(duthost, pattern, tail=20, files='/var/log/syslog*'):
 
 # --- Leak-sensor injection helpers ----------------------------------------
 
+LIQUID_COOLING_INFO_TABLE = 'LIQUID_COOLING_INFO'
+
+
+def get_sensor_data(duthost, sensor_name):
+    """
+    Return LIQUID_COOLING_INFO|<sensor_name> from STATE_DB as a field dict.
+
+    Reads via ``sonic-db-cli STATE_DB HGETALL`` and parses the result into a
+    Python dictionary (e.g. leaking, leak_severity, leak_sensor_status).
+    Returns an empty dict when the key is absent.
+    """
+    return redis_hgetall(duthost, STATE_DB, f'{LIQUID_COOLING_INFO_TABLE}|{sensor_name}')
+
+
 def inject_leak_sensor(duthost, sensor_name, leak_severity, leaking='Yes', leak_sensor_status='Good',
                        sensor_type=None, location=None):
     """HSET LIQUID_COOLING_INFO|<sensor_name> with thermalctld's wire schema."""
@@ -223,7 +245,7 @@ def inject_leak_sensor(duthost, sensor_name, leak_severity, leaking='Yes', leak_
         fields['type'] = sensor_type
     if location is not None:
         fields['location'] = location
-    redis_hset(duthost, STATE_DB, f'LIQUID_COOLING_INFO|{sensor_name}', **fields)
+    redis_hset(duthost, STATE_DB, f'{LIQUID_COOLING_INFO_TABLE}|{sensor_name}', **fields)
 
 
 def get_system_leak_status(duthost):
