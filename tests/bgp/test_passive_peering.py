@@ -32,19 +32,16 @@ def remove_password_on_neighbor(setup):
         for dut_ip in (setup['dut_ip_v4'], setup['dut_ip_v6']):
             cmd = get_vtysh_cmd_for_asic(
                 setup['neighhost'], setup['neigh_asic_index'],
-                'vtysh -c "config" -c "router bgp {}" -c "no neighbor {} password {}"'.format(
-                    setup['neigh_asn'], dut_ip, peer_password),
+                'vtysh -c "config" -c "router bgp {}" -c "no neighbor {} password"'.format(
+                    setup['neigh_asn'], dut_ip),
             )
-            setup['neighhost'].shell(cmd, module_ignore_errors=True)
+            setup['neighhost'].shell(cmd)
     else:
-        for dut_ip in (setup['dut_ip_v4'], setup['dut_ip_v6']):
-            try:
-                setup['neighhost'].eos_config(
-                    lines=["no neighbor {} password 0 {}".format(dut_ip, peer_password)],
-                    parents=setup['neigh_eos_bgp_parents'],
-                )
-            except Exception as e:
-                logger.warning("Failed to remove BGP password for neighbor {}: {}".format(dut_ip, e))
+        cmd = [
+            "no neighbor {} password".format(setup['dut_ip_v4']),
+            "no neighbor {} password".format(setup['dut_ip_v6']),
+        ]
+        setup['neighhost'].eos_config(lines=cmd, parents=setup['neigh_eos_bgp_parents'])
 
 
 @pytest.fixture(scope='module')
@@ -77,6 +74,10 @@ def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_front_end_hostname, request):
     skip_hosts = duthost.get_asic_namespace_list()
 
     bgp_facts = duthost.bgp_facts(instance_id=asic_index)['ansible_facts']
+    neigh_ip_v4 = None
+    neigh_ip_v6 = None
+    peer_group_v4 = None
+    peer_group_v6 = None
     neigh_asn = dict()
     for k, v in bgp_facts['bgp_neighbors'].items():
         if v['description'] not in skip_hosts:
@@ -90,6 +91,10 @@ def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_front_end_hostname, request):
                     peer_group_v6 = v['peer group']
                     assert v['state'] == 'established'
             neigh_asn[v['description']] = v['remote AS']
+
+    if (neigh_ip_v4 is None or neigh_ip_v6 is None or peer_group_v4 is None or
+            peer_group_v6 is None):
+        pytest.skip("Failed to get neighbor info")
 
     neigh_bgp_config = tbinfo['topo']['properties']['configuration'][neigh_name]['bgp']
     peer_in_bgp_confed = neigh_bgp_config.get('peer_in_bgp_confed', False)
