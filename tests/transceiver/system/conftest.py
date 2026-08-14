@@ -55,12 +55,17 @@ def _system_session_prerequisites(presence_verified, gold_fw_verified, links_ver
 # ──────────────────────────────────────────────────────────────────────
 
 
-def _state_db_key_exists(duthost, key):
-    cmd = f'sonic-db-cli STATE_DB hgetall "{key}"'
+def _find_state_db_ports(duthost, keys):
+    """Return the set of ports that have a STATE_DB entry under ``keys``.
+    Uses a single ``KEYS`` scan per prefix for all ports
+    """
+    cmd = f"sonic-db-cli STATE_DB KEYS '{keys}*'"
     out = duthost.shell(cmd, module_ignore_errors=True)
     if out.get("rc", 1) != 0:
-        return False
-    return bool((out.get("stdout") or "").strip())
+        return set()
+    matched_keys = (out.get("stdout") or "").splitlines()
+    prefix = f"{keys}|"
+    return {key[len(prefix):] for key in matched_keys if key.startswith(prefix)}
 
 
 @pytest.fixture(autouse=True, scope="session")
@@ -114,13 +119,10 @@ def _system_post_session_checks(duthost, port_attributes_dict):
                 len(port_attributes_dict))
 
     # 1. STATE_DB consistency.
-    missing_info = []
-    missing_dom = []
-    for port in sorted(port_attributes_dict.keys()):
-        if not _state_db_key_exists(duthost, f"TRANSCEIVER_INFO|{port}"):
-            missing_info.append(port)
-        if not _state_db_key_exists(duthost, f"TRANSCEIVER_DOM_SENSOR|{port}"):
-            missing_dom.append(port)
+    info_ports = _find_state_db_ports(duthost, "TRANSCEIVER_INFO")
+    dom_ports = _find_state_db_ports(duthost, "TRANSCEIVER_DOM_SENSOR")
+    missing_info = [port for port in sorted(port_attributes_dict.keys()) if port not in info_ports]
+    missing_dom = [port for port in sorted(port_attributes_dict.keys()) if port not in dom_ports]
     if missing_info:
         logger.warning("Post-session: TRANSCEIVER_INFO missing in STATE_DB for: %s",
                        ", ".join(missing_info))
