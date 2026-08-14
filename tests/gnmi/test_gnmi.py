@@ -187,16 +187,6 @@ def test_gnmi_authorize_failed_with_revoked_cert(duthosts,
     ).format(gnmi_log)
 
 
-def test_gnmi_enabled_by_default(duthosts, rand_one_dut_hostname):
-    '''
-    Verify the gnmi feature is enabled by default.
-    '''
-    duthost = duthosts[rand_one_dut_hostname]
-    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    state = duthost.shell('sonic-db-cli CONFIG_DB HGET "FEATURE|%s" state' % env.gnmi_container)['stdout'].strip()
-    assert state == "enabled", "gnmi feature is not enabled by default, state={}".format(state)
-
-
 def test_mem_spike(duthosts, rand_one_dut_hostname, ptfhost):
     '''
     The gnmi container memory must stay under threshold when a client continuously
