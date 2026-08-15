@@ -23,6 +23,7 @@ from tests.transceiver.common.db_helpers import (
 logger = logging.getLogger(__name__)
 
 STATE_DB_SENSOR_TABLE = "TRANSCEIVER_DOM_SENSOR"
+STATE_DB_STATUS_TABLE = "TRANSCEIVER_STATUS"
 STATE_DB_THRESHOLD_TABLE = "TRANSCEIVER_DOM_THRESHOLD"
 
 OPERATIONAL_SUFFIX = "_operational_range"
@@ -489,6 +490,11 @@ def _read_dom_table_data(duthost, ports, table_name):
 def read_dom_sensor_data(duthost, ports):
     """Return ``({port: {field: value}}, errors)`` for current DOM sensor data."""
     return _read_dom_table_data(duthost, ports, STATE_DB_SENSOR_TABLE)
+
+
+def read_dom_status_data(duthost, ports):
+    """Return ``({port: {field: value}}, errors)`` for current transceiver status data."""
+    return _read_dom_table_data(duthost, ports, STATE_DB_STATUS_TABLE)
 
 
 def read_dom_threshold_data(duthost, ports):
