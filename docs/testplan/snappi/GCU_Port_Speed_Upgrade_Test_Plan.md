@@ -33,7 +33,7 @@ In scope:
 
 - Select a Snappi-connected 400G port on the T2 downlink line card.
 - Convert the selected DUT port from 400G to 100G by applying a PORT-only GCU patch.
-- Convert the selected DUT port from 100G to 400G by applying a GCU patch that includes applicable selected-port restore data.
+- Convert the selected DUT port from 100G to 400G by applying a GCU patch that includes applicable selected-port restore data, including `QUEUE`.
 - Verify speed, lanes, FEC, and oper state after the GCU transitions.
 - Reuse an existing downlink Snappi 100G port as a traffic peer when the setup has one.
 - Run Snappi all-to-all traffic when at least two Snappi ports are selected.
@@ -73,7 +73,7 @@ Minimum setup:
 - The platform has lane-count data for 100G and 400G conversion in `tests/snappi_tests/gcu_port_speed_platform_config.py`.
 - The selected port supports a FEC mode that is valid for the target speed.
 - Running config and minigraph facts are available as sources for applicable selected-port restore data.
-- Expected transient errors can appear while PORT, BUFFER_PG, QoS, and related tables converge during speed changes; the test configures loganalyzer ignores for those known transient patterns.
+- Expected transient errors can appear while `PORT`, `BUFFER_PG`, `QUEUE`, `PORT_QOS_MAP`, `PFC_WD`, and related tables converge during speed changes; the test configures loganalyzer ignores for those known transient patterns.
 
 ## High Level Design
 
@@ -95,7 +95,7 @@ The design has four phases:
    - Apply the 100G PORT-only patch through GCU.
    - Verify the selected port is configured as 100G. Oper-up is not required after the downgrade.
    - Build the 400G restore patch from the current 100G state and original 400G port data.
-   - Include applicable selected-port restore data for the 400G upgrade patch.
+   - Include applicable selected-port restore data for the 400G upgrade patch, including `DEVICE_NEIGHBOR`, `INTERFACE`, `BUFFER_PG`, `QUEUE`, `PORT_QOS_MAP`, `PFC_WD`, `CABLE_LENGTH`, and neighbor metadata when present.
    - Apply the 400G patch through GCU.
    - Verify the selected port is 400G and oper-up.
 
@@ -151,7 +151,7 @@ Verify that a Snappi-connected downlink LC 400G port can be moved to a temporary
 3. Apply the 100G PORT-only GCU patch.
 4. Verify the target port shows 100G speed, expected lanes, and expected FEC.
 5. Build the 400G PORT config using the original 400G PORT data and the current 100G config.
-6. Build applicable selected-port restore patch data from the original running config and minigraph facts.
+6. Build applicable selected-port restore patch data from the original running config and minigraph facts, including `QUEUE` entries for the selected port.
 7. Apply the 400G GCU patch.
 8. Verify the target port shows 400G speed, expected lanes, expected FEC, and oper-up.
 9. Build Snappi base config from the selected target and optional peer ports.

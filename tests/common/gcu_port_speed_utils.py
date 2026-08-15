@@ -47,6 +47,21 @@ def _format_sonic_buffer_pg_dict(buffer_pg_dict):
     return formatted_dict
 
 
+def _format_sonic_queue_dict(queue_dict):
+    """
+    Convert a SONiC QUEUE dictionary into JSON patch key/value form.
+    """
+    formatted_dict = {}
+    for key, value in queue_dict.items():
+        if '|' in key:
+            formatted_dict[key] = value
+            continue
+        if isinstance(value, dict):
+            for queue_key, queue_value in value.items():
+                formatted_dict["{}|{}".format(key, queue_key)] = queue_value
+    return formatted_dict
+
+
 def _escape_json_pointer_key(key):
     """
     Escape a CONFIG_DB key segment for use in a JSON patch path.
@@ -220,6 +235,20 @@ def build_cluster_port_restore_ops(
             "value": bp_value,
         })
 
+    queue_dict = {
+        _escape_json_pointer_key(key): value
+        for key, value in _format_sonic_queue_dict(
+            config_facts.get("QUEUE", {})
+        ).items()
+        if key == port or key.startswith("{}|".format(port))
+    }
+    for queue_key, queue_value in queue_dict.items():
+        json_patch.append({
+            "op": "add",
+            "path": "{}/QUEUE/{}".format(json_namespace, queue_key),
+            "value": queue_value,
+        })
+
     if port in config_facts.get("PORT_QOS_MAP", {}):
         json_patch.append({
             "op": "add",
@@ -297,6 +326,7 @@ def validate_patch_scoped_to_ports(json_patch, ports, mg_facts=None):
         "PORT",
         "INTERFACE",
         "BUFFER_PG",
+        "QUEUE",
         "PORT_QOS_MAP",
         "PFC_WD",
         "DEVICE_NEIGHBOR",
