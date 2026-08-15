@@ -17,6 +17,8 @@ class CounterpollConstants:
     QUEUE = 'queue'
     PORT_STAT_TYPE = 'PORT_STAT'
     PORT = 'port'
+    PORT_PHY_ATTR = 'phy'
+    PORT_PHY_ATTR_TYPE = 'PHY'
     PORT_BUFFER_DROP_TYPE = 'PORT_BUFFER_DROP'
     PORT_BUFFER_DROP = 'port-buffer-drop'
     RIF_STAT_TYPE = 'RIF_STAT'
