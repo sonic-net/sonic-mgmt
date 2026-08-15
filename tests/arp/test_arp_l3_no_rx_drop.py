@@ -26,6 +26,7 @@ from scapy.all import Ether, ARP, IPv6, ICMPv6ND_NS, ICMPv6ND_NA
 from scapy.all import ICMPv6NDOptSrcLLAddr, ICMPv6NDOptDstLLAddr
 from scapy.all import inet_pton, inet_ntop
 from tests.common.helpers.assertions import pytest_assert
+import ptf.testutils as testutils
 
 logger = logging.getLogger(__name__)
 
@@ -152,7 +153,10 @@ def get_rx_drp(duthost, interface):
     """
     ns = get_namespace_for_interface(duthost, interface)
     cmd = "portstat -j -n {}".format(ns) if ns else "portstat -j"
-    counters = json.loads(duthost.command(cmd)["stdout"])
+    stdout = duthost.command(cmd)["stdout"]
+    # portstat may prepend a "Last cached time was ..." line before the JSON
+    json_start = stdout.find("{")
+    counters = json.loads(stdout[json_start:] if json_start != -1 else stdout)
     if interface not in counters:
         pytest.fail("Interface {} not found in portstat output (namespace={})".format(interface, ns))
     return int(counters[interface].get("RX_DRP", 0))
@@ -238,7 +242,7 @@ def _send_and_verify_no_drop(
         pkt_count, pkt_desc, dut_port, ptf_port_idx
     )
     for _ in range(pkt_count):
-        ptfadapter.dataplane.send(ptf_port_idx, bytes(pkt))
+        testutils.send_packet(ptfadapter, ptf_port_idx, bytes(pkt))
     time.sleep(3)
 
     post_rx_drp = get_rx_drp(duthost, dut_port)
