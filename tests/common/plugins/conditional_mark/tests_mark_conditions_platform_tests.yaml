@@ -590,10 +590,11 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_error_description:
       - "asic_type in ['nvidia-bluefield', 'vs']"
       - "is_multi_asic==True and release in ['201911']"
   xfail:
-    reason: "Platform API 'get_error_description' not implemented. Or test case has issue on the t0-isolated-d256u256s2 topo."
+    reason: "Platform API 'get_error_description' not implemented. Or test case has issue on SN5640 isolated topologies."
     conditions_logical_operator: or
     conditions:
       - "platform in ['x86_64-cel_e1031-r0'] and https://github.com/sonic-net/sonic-buildimage/issues/18229"
+      - "'t0-isolated-d32u32s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_model:
