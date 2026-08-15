@@ -178,7 +178,7 @@ def _operational_attr_for_threshold(attr_name):
     return THRESHOLD_TO_OPERATIONAL_ATTR.get(base_name)
 
 
-def build_dom_availability_plan(port_attributes_dict, dom_primary_ports, lport_to_first_subport_mapping):
+def build_dom_sensor_plan(port_attributes_dict, dom_primary_ports, lport_to_first_subport_mapping):
     """Return each port's expected DOM fields, active lanes, errors, and age limit.
 
     ``expected_fields`` is a ``{field: DomMappedField(source_attr, attr_value)}``
@@ -321,7 +321,7 @@ def format_dom_port_failure(
     field_label="expected field(s)",
 ):
     """Prefix a port's failure block with its expected shape."""
-    lane_context = "" if active_lanes is None else ", lanes {}".format(active_lanes or "none")
+    lane_context = "" if active_lanes is None else ", media lanes {}".format(active_lanes or "none")
     return "{} [{} {}{}]:\n  {}".format(
         port,
         len(expected_fields),
@@ -396,7 +396,7 @@ def validate_dom_plan_fields(
             continue
 
         freshness_age_min = None
-        if max_age_min is not None and (has_field_checks or include_freshness_only):
+        if max_age_min is not None:
             if now_utc is None:
                 now_utc = duthost.get_now_time(utc_timezone=True)
             freshness_result = check_dom_sensor_freshness(sensor_data, max_age_min, now_utc)
