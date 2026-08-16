@@ -2390,6 +2390,7 @@ fib/:
 fib/test_fib.py:
   skip:
     reason: 'Skip on t1-isolated-d32/128 topos or due to github issue https://github.com/sonic-net/sonic-mgmt/issues/17930'
+    conditions_logical_operator: "OR"
     conditions:
       - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
       - "https://github.com/sonic-net/sonic-mgmt/issues/17930 and topo_name in ['t1-isolated-d28u1']"
