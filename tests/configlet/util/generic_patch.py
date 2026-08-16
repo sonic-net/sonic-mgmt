@@ -128,6 +128,26 @@ def _list_patch_files(patch_dir):
     return sorted(fnmatch.filter(os.listdir(patch_dir), "patch_[0-9]_*.json"))
 
 
+def _restore_interface_admin_status(duthost, target_dir):
+    with open(os.path.join(target_dir, "config_db.json"), "r") as stream:
+        target_ports = json.load(stream).get("PORT", {})
+
+    for link in tor_data["links"]:
+        interface = link["local"]["sonic_name"]
+        port_config = target_ports.get(interface)
+        assert isinstance(port_config, dict), \
+            "Missing PORT configuration for interface {}".format(interface)
+
+        admin_status = port_config.get("admin_status", "down")
+        assert admin_status in ("up", "down"), \
+            "Unexpected admin_status '{}' for interface {}".format(admin_status, interface)
+
+        action = "startup" if admin_status == "up" else "shutdown"
+        pause = PAUSE_INTF_UP if admin_status == "up" else PAUSE_INTF_DOWN
+        duthost.shell("config interface {} {}".format(action, interface))
+        do_pause(pause, "pause upon i/f {} {} after remove patch".format(interface, action))
+
+
 def generic_patch_add_t0(duthost, skip_load=False, hack_apply=False):
     # Load config w/o T0
     #
@@ -221,13 +241,10 @@ def generic_patch_rm_t0(duthost, skip_load=False, hack_apply=False):
         # We can ignore rc, as DB comp is the final check. So skip it.
         # assert res["rc"] == 0, "Failed to apply patch"
 
-    # Manual shutdown needed because the removal of admin_status won't operate shutdown. It will
-    # by default keep the previous admin_status state. Thus making app-db comparison fail.
-    for link in tor_data["links"]:
-        tor_ifname = link["local"]["sonic_name"]
-        duthost.shell("config interface shutdown {}".format(tor_ifname))
-        do_pause(PAUSE_INTF_DOWN, "pause upon i/f {} shutdown before add patch".format(tor_ifname))
+    # Applying a remove patch can preserve a transient interface state when admin_status
+    # is removed or reordered. Restore the state captured from the no-T0 configuration.
+    _restore_interface_admin_status(duthost, no_t0_db_dir)
 
     assert wait_until(DB_COMP_WAIT_TIME, 20, 0, db_comp, duthost, patch_rm_t0_dir,
                       no_t0_db_dir, "generic_patch_rm_t0"), \
-        "DB compare failed after adding T0 via generic patch updater"
+        "DB compare failed after removing T0 via generic patch updater"

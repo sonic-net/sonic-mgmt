@@ -38,24 +38,28 @@ A `dom.json` file is used to define the attributes for the DOM tests for the var
 
 **Note on Operational vs. Threshold Ranges:** The DOM test framework uses dual-range validation to provide more nuanced testing. Realistic operational ranges represent the expected values during normal, healthy operation in typical data center environments. These ranges are tighter than the absolute EEPROM threshold ranges and help distinguish between normal operation and edge cases that, while within specification, may indicate environmental stress, aging components, or suboptimal conditions. This approach enables early detection of potential issues before they trigger formal alarms, providing better system health monitoring and preventive maintenance capabilities.
 
+**Note on configuring operational ranges (per-PN):** Operational ranges have no universal defaults — they depend on each transceiver's normal-operation envelope. Derive them per part number from the module datasheet (or observed steady-state DOM readings), and keep them inside the module's warning thresholds: `lowwarning < operational_min` and `operational_max < highwarning`. Do not copy a one-size-fits-all range; for example, a module whose Tx/Rx power operates at ~+3 dBm would incorrectly fail a generic `{"min": -8, "max": 2}`.
+
+**Note on unsupported parameters:** If a module does not support a DOM parameter — indicated by an absent sensor field, or a sensor/threshold set pinned to `0.0` (e.g., `laser_temperature` with all-zero `lasertemp*` thresholds) — omit both its `_operational_range` and `_threshold_range` attributes for that PN, so availability and range checks do not run against meaningless data.
+
 The following table summarizes the key attributes used in DOM testing. This table serves as the authoritative reference for all attributes and must be updated whenever new attributes are introduced:
 
 **Legend:** M = Mandatory, O = Optional
 
 | Attribute Name | Type | Default Value | Mandatory | Override Levels | Description |
 |----------------|------|---------------|-----------|-----------------|-------------|
-| temperature_operational_range | dict | {"min": 20.0, "max": 70.0} | O | transceivers | Realistic operational temperature range in Celsius during normal operation (typical: room temp to moderate heat) |
-| temperature_threshold_range | dict | (format) {"lowalarm": <float>, "lowwarning": <float>, "highwarning": <float>, "highalarm": <float>} | O | transceivers | Absolute threshold temperature range in Celsius (must define all four keys; no implicit defaults) |
-| voltage_operational_range | dict | {"min": 3.20, "max": 3.40} | O | transceivers | Realistic operational voltage range in volts during normal operation (typical: 3.3V ±3%) |
-| voltage_threshold_range | dict | (format) {"lowalarm": <float>, "lowwarning": <float>, "highwarning": <float>, "highalarm": <float>} | O | transceivers | Absolute threshold voltage range in volts (provide EEPROM alarm/warn limits; skip to disable voltage threshold validation) |
-| laser_temperature_operational_range | dict | {"min": 20.0, "max": 70.0} | O | transceivers | Realistic operational laser temperature range in Celsius during normal operation |
-| laser_temperature_threshold_range | dict | (format) {"lowalarm": <float>, "lowwarning": <float>, "highwarning": <float>, "highalarm": <float>} | O | transceivers | Absolute threshold laser temperature range in Celsius (specify all four; omit to skip laser temperature threshold checks) |
-| txLANE_NUMbias_operational_range | dict | {"min": 50.0, "max": 180.0} | O | transceivers | Realistic operational TX bias current range in mA for lane LANE_NUM during normal operation |
-| tx_bias_threshold_range | dict | (format) {"lowalarm": <float>, "lowwarning": <float>, "highwarning": <float>, "highalarm": <float>} | O | transceivers | Absolute threshold TX bias current range in mA (EEPROM limits; skip attribute to disable bias threshold validation) |
-| txLANE_NUMpower_operational_range | dict | {"min": -3.0, "max": 3.0} | O | transceivers | Realistic operational TX power range in dBm for lane LANE_NUM during normal operation |
-| tx_power_threshold_range | dict | (format) {"lowalarm": <float>, "lowwarning": <float>, "highwarning": <float>, "highalarm": <float>} | O | transceivers | Absolute threshold TX power range in dBm (define all four for TX power threshold validation) |
-| rxLANE_NUMpower_operational_range | dict | {"min": -8.0, "max": 2.0} | O | transceivers | Realistic operational RX power range in dBm for lane LANE_NUM during normal operation |
-| rx_power_threshold_range | dict | (format) {"lowalarm": <float>, "lowwarning": <float>, "highwarning": <float>, "highalarm": <float>} | O | transceivers | Absolute threshold RX power range in dBm (omit attribute to skip RX power threshold validation) |
+| temperature_operational_range | dict `{"min": <float>, "max": <float>}` | - | O | transceivers | Realistic operational temperature range in Celsius during normal operation (typical: room temp to moderate heat) |
+| temperature_threshold_range | dict `{"lowalarm": <float>, "lowwarning": <float>, "highwarning": <float>, "highalarm": <float>}` | - | O | transceivers | Absolute threshold temperature range in Celsius (must define all four keys; no implicit defaults) |
+| voltage_operational_range | dict `{"min": <float>, "max": <float>}` | - | O | transceivers | Realistic operational voltage range in volts during normal operation (typical: 3.3V ±3%) |
+| voltage_threshold_range | dict `{"lowalarm": <float>, "lowwarning": <float>, "highwarning": <float>, "highalarm": <float>}` | - | O | transceivers | Absolute threshold voltage range in volts (provide EEPROM alarm/warn limits; skip to disable voltage threshold validation) |
+| laser_temperature_operational_range | dict `{"min": <float>, "max": <float>}` | - | O | transceivers | Realistic operational laser temperature range in Celsius during normal operation |
+| laser_temperature_threshold_range | dict `{"lowalarm": <float>, "lowwarning": <float>, "highwarning": <float>, "highalarm": <float>}` | - | O | transceivers | Absolute threshold laser temperature range in Celsius (specify all four; omit to skip laser temperature threshold checks) |
+| txLANE_NUMbias_operational_range | dict `{"min": <float>, "max": <float>}` | - | O | transceivers | Realistic operational TX bias current range in mA for lane LANE_NUM during normal operation |
+| tx_bias_threshold_range | dict `{"lowalarm": <float>, "lowwarning": <float>, "highwarning": <float>, "highalarm": <float>}` | - | O | transceivers | Absolute threshold TX bias current range in mA (EEPROM limits; skip attribute to disable bias threshold validation) |
+| txLANE_NUMpower_operational_range | dict `{"min": <float>, "max": <float>}` | - | O | transceivers | Realistic operational TX power range in dBm for lane LANE_NUM during normal operation |
+| tx_power_threshold_range | dict `{"lowalarm": <float>, "lowwarning": <float>, "highwarning": <float>, "highalarm": <float>}` | - | O | transceivers | Absolute threshold TX power range in dBm (define all four for TX power threshold validation) |
+| rxLANE_NUMpower_operational_range | dict `{"min": <float>, "max": <float>}` | - | O | transceivers | Realistic operational RX power range in dBm for lane LANE_NUM during normal operation |
+| rx_power_threshold_range | dict `{"lowalarm": <float>, "lowwarning": <float>, "highwarning": <float>, "highalarm": <float>}` | - | O | transceivers | Absolute threshold RX power range in dBm (omit attribute to skip RX power threshold validation) |
 | max_update_time_sec | integer | 60 | O | platform | Maximum expected time in seconds between DOM data updates for continuous monitoring validation |
 | consistency_check_poll_count | integer | 3 | O | transceivers or platform | Number of polling cycles to perform when validating DOM data consistency and variation patterns |
 | tx_power_consistency_variation_threshold | float | 3.0 | O | transceivers or platform | Maximum allowed absolute delta between two consecutive per-lane Tx power samples during DOM data consistency verification (`abs(curr_dBm - prev_dBm)`; threshold effectively in dB) |
@@ -64,17 +68,18 @@ The following table summarizes the key attributes used in DOM testing. This tabl
 | laser_temperature_consistency_variation_threshold | float | 3.0 | O | transceivers or platform | Maximum allowed absolute delta between two consecutive laser temperature samples during DOM data consistency verification, in Celsius |
 | temperature_consistency_variation_threshold | float | 3.0 | O | transceivers or platform | Maximum allowed absolute delta between two consecutive module temperature samples during DOM data consistency verification, in Celsius |
 | voltage_consistency_variation_threshold | float | 0.1 | O | transceivers or platform | Maximum allowed absolute delta between two consecutive module voltage samples during DOM data consistency verification, in volts |
-| shutdown_tx_bias_threshold | float | 0 | O | transceivers | Maximum TX bias current in mA expected when interface is shutdown |
+| shutdown_tx_bias_threshold | float | 0.0 | O | transceivers | Maximum TX bias current in mA expected when interface is shutdown |
 | shutdown_tx_power_threshold | float | -30.0 | O | transceivers | Maximum TX power in dBm expected when interface is shutdown |
 | shutdown_rx_power_threshold | float | -30.0 | O | transceivers | Maximum RX power in dBm expected on remote side when interface is shutdown |
 | data_max_age_min | integer | 5 | O | platform | Maximum age in minutes for DOM data to be considered fresh (last_update_time validation) |
-| voltage_deviation_range | dict | - | O | transceivers | Acceptable post-test deviation from baseline for `voltage` in volts. Format: `{"min": <float>, "max": <float>}` — the difference `post-test value − baseline value` must satisfy `min <= difference <= max`. Omit to skip this post-test check. |
-| laser_temperature_deviation_range | dict | - | O | transceivers | Acceptable post-test deviation from baseline for `laser_temperature` in Celsius. Format: `{"min": <float>, "max": <float>}` — `min <= (post-test − baseline) <= max`. Omit to skip this post-test check. |
-| txLANE_NUMbias_deviation_range | dict | - | O | transceivers | Acceptable post-test deviation from baseline for `tx{lane}bias` in mA, validated per lane. Format: `{"min": <float>, "max": <float>}` — `min <= (post-test − baseline) <= max`. Omit to skip this per-lane post-test check. |
-| txLANE_NUMpower_deviation_range | dict | - | O | transceivers | Acceptable post-test deviation from baseline for `tx{lane}power` in dBm, validated per lane. Format: `{"min": <float>, "max": <float>}` — `min <= (post-test − baseline) <= max`. Omit to skip this per-lane post-test check. |
-| rxLANE_NUMpower_deviation_range | dict | - | O | transceivers | Acceptable post-test deviation from baseline for `rx{lane}power` in dBm, validated per lane. Format: `{"min": <float>, "max": <float>}` — `min <= (post-test − baseline) <= max`. Omit to skip this per-lane post-test check. |
-| telemetry_profile_poll_interval_sec | integer | 10 | O | transceivers or platform_hwsku_overrides | Polling interval in seconds for the telemetry update profiling test |
-| telemetry_profile_duration_min | integer | 10 | O | transceivers or platform_hwsku_overrides | Duration in minutes to run the telemetry update profiling test |
+| dom_info_recover_sec | integer | 300 | O | platform | Extra time (added on top of a disruptive operation's settle timer) for `DomInfoUpdateTask`-owned STATE_DB tables (e.g. `TRANSCEIVER_FIRMWARE_INFO`) to be republished after an xcvrd restart. The task clears these tables on restart and its first republish pass is deferred a full `dom_update_interval` then walks every port. |
+| voltage_deviation_range | dict `{"min": <float>, "max": <float>}` | - | O | transceivers | Acceptable post-test deviation from baseline for `voltage` in volts. The difference `post-test value − baseline value` must satisfy `min <= difference <= max`. Omit to skip this post-test check. |
+| laser_temperature_deviation_range | dict `{"min": <float>, "max": <float>}` | - | O | transceivers | Acceptable post-test deviation from baseline for `laser_temperature` in Celsius. `min <= (post-test − baseline) <= max`. Omit to skip this post-test check. |
+| txLANE_NUMbias_deviation_range | dict `{"min": <float>, "max": <float>}` | - | O | transceivers | Acceptable post-test deviation from baseline for `tx{lane}bias` in mA, validated per lane. `min <= (post-test − baseline) <= max`. Omit to skip this per-lane post-test check. |
+| txLANE_NUMpower_deviation_range | dict `{"min": <float>, "max": <float>}` | - | O | transceivers | Acceptable post-test deviation from baseline for `tx{lane}power` in dBm, validated per lane. `min <= (post-test − baseline) <= max`. Omit to skip this per-lane post-test check. |
+| rxLANE_NUMpower_deviation_range | dict `{"min": <float>, "max": <float>}` | - | O | transceivers | Acceptable post-test deviation from baseline for `rx{lane}power` in dBm, validated per lane. `min <= (post-test − baseline) <= max`. Omit to skip this per-lane post-test check. |
+| telemetry_profile_poll_interval_sec | integer | 10 | O | transceivers or platform | Polling interval in seconds for the telemetry update profiling test |
+| telemetry_profile_duration_min | integer | 10 | O | transceivers or platform | Duration in minutes to run the telemetry update profiling test |
 
 **Post-test deviation rule:** For tests that restore a port to steady-state operation, the test captures a baseline DOM reading before the disruptive operation and a post-test reading after recovery. For each configured `_deviation_range` attribute, compute `difference = post-test value − baseline value` and verify `min <= difference <= max`. The baseline is the first reading recorded at the start of the test (or the average of multiple pre-test readings if the test collects them). The check applies only to attributes that are present in the configuration. Lane-based entries such as TX bias and TX/RX power use the `LANE_NUM` expansion and are validated per lane. The test fails if any enabled field's deviation falls outside its configured range.
 
@@ -132,7 +137,7 @@ The DOM test framework uses an attribute-driven approach to dynamically determin
 2. **Base Field Extraction**: Remove the suffix (`_operational_range` or `_threshold_range`) to get the base field name
 
 3. **Lane Expansion Logic**:
-   - If the attribute name contains `LANE_NUM` placeholder: Expand for all available lanes (1 to N) by replacing `LANE_NUM` with actual lane numbers
+   - If the attribute name contains the `LANE_NUM` placeholder: expand across the module's **active media lanes** — the union of `media_lane_mask` across the breakout group (equivalently, the per-type channel count: SFP 1, QSFP 4, CMIS 8). Use the *module's* lanes, not a subport's `media_lane_count` (which is 1 on breakout): DOM data is published only on the primary subport but covers all module lanes.
    - If no `LANE_NUM` placeholder is present: Expect a single field with the base name
 
 4. **Special Field Mappings**: Apply any platform-specific field name mappings as needed
@@ -144,10 +149,12 @@ The DOM test framework uses an attribute-driven approach to dynamically determin
 | Attribute Name | Base Field | Lane Expansion | Expected STATE_DB Fields |
 |----------------|------------|----------------|-------------------------|
 | `temperature_operational_range` | `temperature` | No | `temperature` |
-| `txLANE_NUMbias_operational_range` | `txLANE_NUMbias` | Yes | `tx1bias`, `tx2bias`, `tx3bias`, `tx4bias` (for 4-lane) |
-| `rxLANE_NUMpower_operational_range` | `rxLANE_NUMpower` | Yes | `rx1power`, `rx2power`, `rx3power`, `rx4power` (for 4-lane) |
+| `txLANE_NUMbias_operational_range` | `txLANE_NUMbias` | Yes | `tx1bias`..`txNbias` for the module's N active media lanes (e.g. 8 for CMIS) |
+| `rxLANE_NUMpower_operational_range` | `rxLANE_NUMpower` | Yes | `rx1power`..`rxNpower` for the module's N active media lanes |
 | `voltage_threshold_range` | `voltage` | No | `vcchighalarm`, `vcclowalarm`, `vcchighwarning`, `vcclowwarning` |
 | `tx_power_threshold_range` | `tx_power` | No | `txpowerhighalarm`, `txpowerlowalarm`, `txpowerhighwarning`, `txpowerlowwarning` |
+
+**Lane value rule:** active media lanes must report a numeric value; unused lanes (no configured subport, or a single-lane module's padded lanes) may be `N/A`/`-inf` and are excluded from the expected set.
 
 This algorithm ensures that test validation is automatically aligned with the configured attributes, providing comprehensive coverage while maintaining flexibility for different transceiver types and platform configurations.
 
@@ -167,7 +174,7 @@ Inherits the [Common Session-Level Prerequisites](test_plan.md#common-session-le
 
 #### Session-Level Setup (once per test run)
 
-1. **DOM polling state**: Confirm DOM polling is enabled for all ports under test. This is a one-time check at the start of the run; individual tests that disable polling (Advanced TC 2) are responsible for restoring it as part of their own teardown.
+1. **DOM polling state**: Confirm DOM polling is enabled for all ports under test. This is a one-time check at the start of the run; individual tests that disable polling (Advanced TC 2) are responsible for restoring it as part of their own teardown. If no DOM-capable primary ports are selected, skip the DOM suite because there is nothing to validate. If DOM polling is disabled, or a selected DOM port is missing or malformed in the CONFIG_DB `PORT` table, fail the suite because that indicates a misconfiguration or DUT regression on a DOM-capable port.
 
 #### Per-Test Setup (before each test case)
 
@@ -241,7 +248,7 @@ the System plan's `*_settle_sec`/`port_*_wait_sec` attributes.
 | Fast reboot | ✅ | S3 | gate on `fast_reboot_supported` |
 | Config reload | ✅ | S4 | |
 | Daemon/docker restart | ✅ | S5 | xcvrd / pmon / swss / syncd |
-| sfputil reset | ✅ | S6 | default `recover_with_port_toggle=True` → shut → `sfputil reset` → startup |
+| sfputil reset | ✅ | S6 | bulk shut (all subports) → `sfputil reset` (one per module) → startup |
 | LPM toggle | ✅ | S7 | `perform_lpm_toggle(duthost, <port>, low_power=True)` (no shut) → `module_state`=ModuleLowPwr / `DP{lane}State`=DataPathDeactivated, oper-down, Tx power/bias drop (laser off); restored via `perform_lpm_toggle(duthost, <port>, low_power=False)` |
 
 | TC No. | Test | Steps | Expected Results |
@@ -251,7 +258,7 @@ the System plan's `*_settle_sec`/`port_*_wait_sec` attributes.
 | S3 | DOM recovery after fast reboot | Same as S1 using `perform_fast_reboot(duthost)` and `fast_reboot_settle_sec`. Skip if `fast_reboot_supported` is false. | Same expectations as S1, following a fast reboot. |
 | S4 | DOM recovery after config reload | Same as S1 using `perform_config_reload(duthost)` and `config_reload_settle_sec`. | Same expectations as S1, following a config reload. |
 | S5 | DOM recovery after daemon/docker restart | Same as S1, iterating the shared `perform_daemon_restart(duthost, <daemon>)` over xcvrd / pmon / swss / syncd with the matching `*_restart_settle_sec`. | DOM data remains fresh and within operational range after each restart; deviation-from-baseline checks pass. |
-| S6 | DOM recovery after sfputil reset | Same as S1, but **Operate** = `perform_sfputil_reset(duthost, <port>, recover_with_port_toggle=True)` (default `recover_with_port_toggle=True` runs `config interface shutdown` → `sfputil reset <port>` → `config interface startup`, since a bare reset leaves the port oper-down on some modules; pass `False` for modules that auto-recover), and **Recover** polls for **oper up** (the shut→startup wrap uses `port_shutdown_wait_sec`/`port_startup_wait_sec`, plus `transceiver_reset_i2c_recover_sec` for I2C recovery after the reset), then allows for the DOM poll lag (per the note above) before asserting DOM freshness. The reset-induced transient `ModuleLowPwr`/`DPDeactivated` state is validated by [System TC 1 (Transceiver reset validation)](system_test_plan.md#transceiver-event-handling-test-cases), not re-checked here. | After the reset the port returns to oper up and DOM data recovers fresh/in-range; deviation-from-baseline checks pass. |
+| S6 | DOM recovery after sfputil reset | Same as S1, but **Operate** = `perform_sfputil_reset(duthost, reset_ports, toggle_ports, shutdown_wait_sec, startup_wait_sec)` (runs `config interface shutdown` on every `toggle_ports` entry → `sfputil reset` on each `reset_ports` entry → `config interface startup` on `toggle_ports`, since a bare reset leaves the port oper-down on some modules; `reset_ports` is one port per physical module, `toggle_ports` every subport of those modules), and **Recover** polls for **oper up** (the shut→startup wrap uses `port_shutdown_wait_sec`/`port_startup_wait_sec`, plus `transceiver_reset_i2c_recover_sec` for I2C recovery after the reset), then allows for the DOM poll lag (per the note above) before asserting DOM freshness. The reset-induced transient `ModuleLowPwr`/`DPDeactivated` state is validated by [System TC 1 (Transceiver reset validation)](system_test_plan.md#transceiver-event-handling-test-cases), not re-checked here. | After the reset the port returns to oper up and DOM data recovers fresh/in-range; deviation-from-baseline checks pass. |
 | S7 | DOM behavior in low-power mode | Real low power is induced via **`perform_lpm_toggle(duthost, <port>, low_power=True)`** (shared helper wrapping `sfputil lpmode on <port>` — not inlined). <br>1. **Baseline**: `capture_dom_baseline(duthost)` with the port up (confirm `module_state`=`ModuleReady`, link up).<br>2. **Enter low power**: `perform_lpm_toggle(duthost, <port>, low_power=True)`; confirm `sfputil show lpmode -p <port>` = `On`.<br>3. **Verify low power** (poll until the periodic DOM poll reflects the change — STATE_DB lags the operation by the poll interval): from `TRANSCEIVER_STATUS` confirm `module_state` = `ModuleLowPwr` and every `DP{lane}State` = `DataPathDeactivated` (authoritative CMIS low-power/datapath signal), with the port oper-down while `admin_status` stays `up`; from `TRANSCEIVER_DOM_SENSOR` confirm per-lane `tx{lane}power`/`tx{lane}bias` drop to/below `shutdown_tx_power_threshold`/`shutdown_tx_bias_threshold` (laser off) while `temperature`/`voltage` stay readable. DOM polling continues in low power, so `last_update_time` keeps advancing. <br>4. **Exit + recover**: `perform_lpm_toggle(duthost, <port>, low_power=False)` (wraps `sfputil lpmode off <port>`; the module returns to `ModuleReady`/`DataPathActivated` and the link comes back up on its own — no `startup` needed); poll for oper up and run the Standard Port Recovery and Verification Procedure (allow for the same poll lag before asserting recovery).<br>5. **Verify recovery**: `verify_dom_recovered(duthost, baseline=baseline)`. **Mandatory teardown:** ensure `perform_lpm_toggle(duthost, <port>, low_power=False)` runs even on failure — the low-power request **latches** and would otherwise leave the port oper-down for all later tests. | Verify: `lpmode on` (admin-up, no shut) drives `module_state`=`ModuleLowPwr`, every `DP{lane}State`=`DataPathDeactivated`, oper-down with `admin_status` still `up`, `tx{lane}power`≈-40 dBm and `tx{lane}bias`≈0 (at/below the shutdown thresholds), temperature drops while voltage stays readable, and `last_update_time` keeps advancing; `lpmode off` restores DOM fresh/in-range with the link back up, and deviation-from-baseline checks pass. |
 
 ## Cleanup and Post-Test Verification
