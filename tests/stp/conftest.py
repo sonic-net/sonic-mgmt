@@ -43,17 +43,13 @@ def check_stp_feature_status(duthost):
     stp = next((f for f in feature_status if f["feature"] == "stp"), None)
     if not stp:
         pytest.skip("STP feature is not present in this image")
-    if stp["state"] != "enabled":
-        duthost.shell("sudo config feature state stp enabled", module_ignore_errors=True)
-        py_assert(
-            wait_until(60, 3, 0, lambda: any(
-                f["feature"] == "stp" and f["state"] == "enabled"
-                for f in duthost.show_and_parse("show feature status"))),
-            "STP feature did not reach 'enabled'")
-        py_assert(
-            wait_until(60, 3, 0, lambda: "stp" in duthost.shell(
-                "docker ps --format '{{.Names}}'", module_ignore_errors=True).get("stdout", "")),
-            "stp container did not come up after enabling the feature")
+    if stp["state"] != "enabled" or not stp_base.stp_container_up(duthost):
+        # `config reload` restores FEATURE|stp to the image default (disabled),
+        # masks the stp container, and bounces featured; a plain enable during
+        # that window is dropped. ensure_stp_feature_up() waits for featured,
+        # enables, and force-starts the container if needed.
+        py_assert(stp_base.ensure_stp_feature_up(duthost),
+                  "stp container did not come up after enabling the feature")
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -200,9 +196,8 @@ def stp_config_env(request, duthosts, rand_one_dut_hostname, tbinfo):
     # the box is already in `mst` (and vice versa), so without this a box left in
     # the other mode by a prior run would silently stay there and every check
     # against this mode's tables would fail.
-    duthost.shell("config feature state stp enabled", module_ignore_errors=True)
-    wait_until(90, 3, 0, lambda: "stp" in duthost.shell(
-        "docker ps --format '{{.Names}}'", module_ignore_errors=True).get("stdout", ""))
+    py_assert(stp_base.ensure_stp_feature_up(duthost),
+              "stp container did not come up after enabling the feature")
     duthost.shell("config spanning-tree disable mst", module_ignore_errors=True)
     duthost.shell("config spanning-tree disable pvst", module_ignore_errors=True)
     stp_base.enable_stp(duthost, mode)

@@ -29,6 +29,44 @@ PTF_CLASS = {
 
 
 # ============================ module-level helpers ==========================
+# ---- STP feature / container ----
+def stp_container_up(duthost):
+    # NOTE: use is_container_running() (docker ps -f name=stp), not
+    # `docker ps --format '{{.Names}}'` -- ansible renders the un-escaped
+    # `{{.Names}}` as an (empty) Jinja2 expression, so that form always reports
+    # the container as down even when it is up.
+    return duthost.is_container_running("stp")
+
+
+def wait_featured_ready(duthost, timeout=90):
+    """`featured` is the daemon that actually starts/stops feature containers in
+    response to FEATURE|<name> state changes. `config reload` stops
+    featured.timer and SIGTERMs featured (and hostcfgd), then it is restarted via
+    its timer -- a `config feature state stp enabled` issued while it is down is a
+    no-op until it returns, so the container never starts. Gate on featured being
+    active before toggling feature state."""
+    return wait_until(timeout, 2, 0, lambda: duthost.shell(
+        "systemctl is-active featured.service",
+        module_ignore_errors=True).get("stdout", "").strip() == "active")
+
+
+def ensure_stp_feature_up(duthost, timeout=120):
+    """Enable the STP feature and make sure its container is running, resilient to
+    the post-`config reload` window. A reload restores FEATURE|stp to the image
+    default (disabled), masks/stops the stp container, and bounces featured; a
+    plain enable during that window is dropped. So wait for featured, enable, and
+    if the container still has not come up, force it with an explicit
+    unmask + start. Returns True once the container is up."""
+    wait_featured_ready(duthost)
+    duthost.shell("sudo config feature state stp enabled", module_ignore_errors=True)
+    if wait_until(timeout, 3, 0, lambda: stp_container_up(duthost)):
+        return True
+    # featured did not bring it up (masked / still bouncing): drive it directly.
+    duthost.shell("sudo systemctl unmask stp.service", module_ignore_errors=True)
+    duthost.shell("sudo systemctl start stp.service", module_ignore_errors=True)
+    return wait_until(timeout, 3, 0, lambda: stp_container_up(duthost))
+
+
 # ---- global mode ----
 def enable_stp(duthost, mode):
     duthost.shell("config spanning-tree enable {}".format(mode), module_ignore_errors=True)
@@ -201,16 +239,16 @@ class StpTestBase:
     # `scope` is CIST instance 0 for MST and the VLAN id for PVST.
     @staticmethod
     def stp_container_up(duthost):
-        return "stp" in duthost.shell("docker ps --format '{{.Names}}'",
-                                      module_ignore_errors=True).get("stdout", "")
+        return stp_container_up(duthost)
 
     def ensure_stp_up(self, duthost):
         """Guard against the stp.service flakiness: if the container has exited
-        (it does not reliably auto-restart after config/feature churn), start it
-        and wait, so the APPL_DB enrolment rows are authoritative."""
-        if not self.stp_container_up(duthost):
+        (it does not reliably auto-restart after config/feature churn), unmask +
+        start it and wait, so the APPL_DB enrolment rows are authoritative."""
+        if not stp_container_up(duthost):
+            duthost.shell("sudo systemctl unmask stp.service", module_ignore_errors=True)
             duthost.shell("sudo systemctl start stp.service", module_ignore_errors=True)
-            wait_until(60, 3, 0, lambda: self.stp_container_up(duthost))
+            wait_until(60, 3, 0, lambda: stp_container_up(duthost))
 
     def is_enrolled(self, duthost, scope, intf):
         """True once `intf` has an STP port row for `scope` (STP is running on it)."""
@@ -238,8 +276,7 @@ class StpTestBase:
         duthost.shell("config feature state stp {}".format(state), module_ignore_errors=True)
 
     def enable_feature_and_wait(self, duthost):
-        self.stp_feature(duthost, "enabled")
-        pytest_assert(wait_until(90, 3, 0, lambda: self.stp_container_up(duthost)),
+        pytest_assert(ensure_stp_feature_up(duthost),
                       "stp container did not come up after enabling the feature")
 
     def disable_feature_and_wait(self, duthost):

@@ -488,8 +488,7 @@ class TestMstp(StpTestBase):
         ptf_port_1 = d["dut_ports"]["ptf_port_1"]
 
         def _stp_container_up():
-            return "stp" in duthost.shell("docker ps --format '{{.Names}}'",
-                                          module_ignore_errors=True).get("stdout", "")
+            return self.stp_container_up(duthost)
 
         try:
             duthost.shell("config spanning-tree interface bpdu-guard enable {} --shutdown".format(dut_port_1),
