@@ -58,7 +58,7 @@ def get_internal_idle_relay_type(duthost):
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
     device_metadata = config_facts["DEVICE_METADATA"]["localhost"]
     if device_metadata.get("has_sonic_dhcpv4_relay", "False") == "True":
-        return "sonic-internal"
+        return "sonic"
     return "isc-internal-idle"
 
 
