@@ -193,7 +193,6 @@ pdu-98,46,str2-8101c1-01,PSU1
 pdu-99,32,str2-8101c1-01,PSU2
 pdu-98,34,str2-8101c1-02,PSU1
 pdu-99,34,str2-8101c1-02,PSU2
-pdu-98,36,str2-8101c1-03,PSU1
 pdu-99,36,str2-8101c1-03,PSU2
 pdu-94,28,str2-8101c1-04,PSU1
 pdu-95,28,str2-8101c1-04,PSU2
@@ -217,8 +216,7 @@ pdu-116,33,str2-8101-fanout-19,PSU1
 pdu-115,34,str2-8101-fanout-19,PSU2
 pdu-89,4,str2-8101-fanout-20,PSU1
 pdu-88,4,str2-8101-fanout-20,PSU2
-pdu-94,31,str2-8101-fanout-21,PSU1
-pdu-95,31,str2-8101-fanout-21,PSU2
+pdu-95,31,str2-8101-fanout-21,PSU1
 pdu-118,42,str2-7260cx3-acs-root02,PSU1
 pdu-119,42,str2-7260cx3-acs-root02,PSU2
 pdu-45,21,str2-7260cx3-acs-fan-37,PSU1
