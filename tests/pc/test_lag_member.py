@@ -462,7 +462,7 @@ def run_lag_member_traffic_test(duthost, dut_vlan, ptf_ports, ptfhost):
     ptf_runner(ptfhost, 'acstests', "lag_test.LagMemberTrafficTest", "/root/ptftests", params=params, is_python3=True)
 
 
-def test_lag_member_traffic(copy_acstests_directory, ptfhost, duthost, ptf_dut_setup_and_teardown):
+def test_lag_member_traffic(copy_acstests_directory, ptfhost, duthost, ptf_dut_setup_and_teardown):  # noqa: F811
     """
     Test traffic about ports in a lag
 
