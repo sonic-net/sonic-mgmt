@@ -25,6 +25,13 @@ Tests:
    After rsyslogd restarts, log messages written via syslog() appear in the host
    syslog — proving glibc reconnected to the new /dev/log socket transparently.
 
+3. test_listener_own_syslog_reconnects_after_rsyslogd_restart:
+   Stronger variant of test 2. Triggers the listener's own syslog() code path
+   (its error!() alerting message) rather than a separate `logger` probe.
+   After rsyslogd restarts mid-run, a critical-process exit causes the listener
+   itself to call syslog() — that message appears in host syslog, proving libc
+   reconnected specifically for the listener binary, not just for `logger`.
+
 Reference: https://github.com/Geal/rust-syslog/issues/21
 PR: https://github.com/sonic-net/sonic-buildimage/pull/29053
 """
@@ -50,15 +57,21 @@ pytestmark = [
 # - has a well-known critical_processes file
 TEST_CONTAINER = "bgp"
 
-# Process to restart to generate a PROCESS_STATE_EXITED event visible in syslog.
+# Process to kill to generate a PROCESS_STATE_EXITED event visible in syslog.
 # Must be in critical_processes for the container.
 PROBE_CRITICAL_PROCESS = "zebra"
+
+# Secondary container for test_listener_own_syslog_reconnects_after_rsyslogd_restart.
+# eventd is ideal: always running on every topology, single critical process (eventd),
+# non-critical companion (eventdb), and a clean restart cycle.
+EVENTD_CONTAINER = "eventd"
+EVENTD_CRITICAL_PROCESS = "eventd"
 
 # How long to wait (seconds) for a supervisord status change.
 SUPERVISORD_SETTLE_SECS = 15
 
-# How long to wait for the bgp container to shut down after a critical process is killed.
-BGP_SHUTDOWN_WAIT_SECS = 30
+# How long to wait for a container to shut down after a critical process is killed.
+CONTAINER_SHUTDOWN_WAIT_SECS = 30
 
 
 def _listener_status(duthost, container):
@@ -74,7 +87,6 @@ def _listener_is_running(duthost, container):
 def _listener_is_fatal(duthost, container):
     status, _ = _listener_status(duthost, container)
     return status == "FATAL"
-
 
 
 def _container_is_running(duthost, container):
@@ -228,15 +240,15 @@ def test_listener_survives_devlog_absent(duthosts, rand_one_dut_hostname):
     logger.info("Sent SIGKILL to {} (pid={})".format(PROBE_CRITICAL_PROCESS, probe_pid))
 
     # Step 8: assert the bgp container shuts down (listener called terminate_supervisor())
-    logger.info("Step 8: Waiting up to {}s for bgp container to shut down".format(BGP_SHUTDOWN_WAIT_SECS))
+    logger.info("Step 8: Waiting up to {}s for bgp container to shut down".format(CONTAINER_SHUTDOWN_WAIT_SECS))
     container_stopped = wait_until(
-        BGP_SHUTDOWN_WAIT_SECS, 2, 0,
+        CONTAINER_SHUTDOWN_WAIT_SECS, 2, 0,
         lambda: not _container_is_running(duthost, TEST_CONTAINER)
     )
     pytest_assert(
         container_stopped,
         "bgp container did not shut down within {}s after zebra was killed — "
-        "listener may not have called terminate_supervisor()".format(BGP_SHUTDOWN_WAIT_SECS)
+        "listener may not have called terminate_supervisor()".format(CONTAINER_SHUTDOWN_WAIT_SECS)
     )
     logger.info("PASS: bgp container shut down after zebra kill — listener correctly triggered supervisor termination")
 
@@ -350,7 +362,7 @@ def test_listener_syslog_self_healing(duthosts, rand_one_dut_hostname):
     if found == 0:
         # Dump last few lines for diagnosis
         recent = duthost.shell(
-            "tail -20 /var/log/syslog".format(TEST_CONTAINER),
+            "tail -20 /var/log/syslog",
             module_ignore_errors=True
         )
         logger.error("Recent syslog tail:\n{}".format(recent.get("stdout", "")))
@@ -370,3 +382,183 @@ def test_listener_syslog_self_healing(duthosts, rand_one_dut_hostname):
             status_final, pid_final, pid)
     )
     logger.info("PASS: listener still RUNNING with same pid={} throughout test".format(pid_final))
+
+
+def test_listener_own_syslog_reconnects_after_rsyslogd_restart(duthosts, rand_one_dut_hostname):
+    """
+    Stronger syslog self-healing test: prove the listener's own syslog() call reconnects.
+
+    Uses the eventd container (always running on every topology) with:
+      - rsyslogd: the process whose stop/start removes and restores /dev/log
+      - eventd: the single critical process whose exit triggers the listener's info!()
+        call immediately (no 60s alerting delay); the container restarts cleanly.
+
+    Unlike test_listener_syslog_self_healing (which uses a `logger` proxy), this test
+    triggers the listener's own info!() code path:
+      info!("Process 'eventd' exited unexpectedly. Terminating supervisor 'eventd'")
+    That message appears in /var/log/syslog only if the listener's libc syslog()
+    reconnected to the new /dev/log socket after rsyslogd was restarted.
+
+    Steps:
+    1. Skip if eventd not running (should never happen on any topology).
+    2. Confirm Rust listener variant is in use in the eventd container.
+    3. Baseline: listener RUNNING, rsyslogd RUNNING, /dev/log present.
+    4. Record host syslog line count as the search offset.
+    5. Stop rsyslogd inside eventd -- /dev/log disappears.
+    6. Assert listener stays RUNNING with the same PID (no crash).
+    7. Restart rsyslogd -- /dev/log reappears.
+    8. Kill eventd (critical, auto_restart=enabled by default) -- the listener
+       writes its own info!() message via syslog() then calls terminate_supervisor.
+    9. Assert the listener's own message appears in /var/log/syslog -- proves
+       the listener's libc syslog() reconnected to the new /dev/log socket.
+    10. Wait for eventd container to shut down and restart cleanly.
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+
+    # Step 1: skip if eventd is not running (should not happen on any topology)
+    pytest_require(
+        _container_is_running(duthost, EVENTD_CONTAINER),
+        "'{}' container is not running on this DUT; skipping.".format(EVENTD_CONTAINER)
+    )
+
+    # Step 2: confirm Rust listener is in use in the eventd container
+    listener_cmd = duthost.shell(
+        "docker exec {} grep -A2 'eventlistener:supervisor-proc-exit-listener' "
+        "/etc/supervisor/conf.d/supervisord.conf | grep '^command='".format(EVENTD_CONTAINER),
+        module_ignore_errors=True
+    )
+    pytest_require(
+        listener_cmd["rc"] == 0 and "-rs" in listener_cmd.get("stdout", ""),
+        "supervisor-proc-exit-listener is not the Rust variant in '{}'; skipping.".format(EVENTD_CONTAINER)
+    )
+
+    # Step 3: baseline
+    status, pid = _listener_status(duthost, EVENTD_CONTAINER)
+    pytest_assert(
+        status == "RUNNING",
+        "Baseline: listener status='{}' (expected RUNNING) in '{}'".format(status, EVENTD_CONTAINER)
+    )
+    rsyslogd_check = duthost.shell(
+        "docker exec {} supervisorctl status rsyslogd".format(EVENTD_CONTAINER)
+    )
+    pytest_assert(
+        "RUNNING" in rsyslogd_check.get("stdout", ""),
+        "Baseline: rsyslogd not RUNNING in '{}': {}".format(
+            EVENTD_CONTAINER, rsyslogd_check.get("stdout"))
+    )
+    eventd_proc_status, eventd_proc_pid = get_program_info(duthost, EVENTD_CONTAINER, EVENTD_CRITICAL_PROCESS)
+    pytest_assert(
+        eventd_proc_status == "RUNNING" and eventd_proc_pid,
+        "Baseline: '{}' not RUNNING in '{}' (status='{}').".format(
+            EVENTD_CRITICAL_PROCESS, EVENTD_CONTAINER, eventd_proc_status)
+    )
+    logger.info("Baseline: listener pid={}, rsyslogd RUNNING, {} pid={}".format(
+        pid, EVENTD_CRITICAL_PROCESS, eventd_proc_pid))
+
+    # Step 4: record syslog offset
+    offset_result = duthost.shell("wc -l < /var/log/syslog", module_ignore_errors=True)
+    syslog_offset = offset_result.get("stdout", "0").strip()
+    logger.info("Host syslog offset: {} lines".format(syslog_offset))
+
+    # Step 5: stop rsyslogd to remove /dev/log
+    logger.info("Stopping rsyslogd in '{}' to remove /dev/log".format(EVENTD_CONTAINER))
+    duthost.shell("docker exec {} supervisorctl stop rsyslogd".format(EVENTD_CONTAINER))
+    time.sleep(2)
+
+    devlog_check = duthost.shell(
+        "docker exec {} ls /dev/log 2>&1; echo rc=$?".format(EVENTD_CONTAINER)
+    )
+    pytest_assert(
+        "No such file" in devlog_check["stdout"] or "rc=1" in devlog_check["stdout"],
+        "/dev/log still exists after stopping rsyslogd in '{}': {}".format(
+            EVENTD_CONTAINER, devlog_check["stdout"])
+    )
+    logger.info("/dev/log confirmed absent after rsyslogd stop")
+
+    # Step 6: listener must still be RUNNING with the same PID
+    time.sleep(2)
+    status_mid, pid_mid = _listener_status(duthost, EVENTD_CONTAINER)
+    logger.info("Listener status while /dev/log absent: status={}, pid={}".format(status_mid, pid_mid))
+    pytest_assert(
+        status_mid == "RUNNING" and pid_mid == pid,
+        "Listener is not RUNNING (or restarted) while /dev/log is absent in '{}': "
+        "status='{}', pid={} (was {})".format(EVENTD_CONTAINER, status_mid, pid_mid, pid)
+    )
+    logger.info("PASS: listener stayed RUNNING (same pid) while /dev/log was absent")
+
+    # Step 7: restart rsyslogd to restore /dev/log
+    logger.info("Restarting rsyslogd to restore /dev/log")
+    duthost.shell("docker exec {} supervisorctl start rsyslogd".format(EVENTD_CONTAINER))
+    time.sleep(3)
+
+    devlog_back = duthost.shell("docker exec {} ls /dev/log 2>&1".format(EVENTD_CONTAINER))
+    pytest_assert(
+        "No such file" not in devlog_back["stdout"],
+        "/dev/log did not reappear after rsyslogd restart in '{}': {}".format(
+            EVENTD_CONTAINER, devlog_back["stdout"])
+    )
+    logger.info("/dev/log restored: {}".format(devlog_back["stdout"].strip()))
+
+    # Step 8: kill eventd -- listener writes its own info!() via syslog() then terminates.
+    # Re-read pid; supervisord may have restarted eventd while rsyslogd was stopped.
+    _, current_eventd_proc_pid = get_program_info(duthost, EVENTD_CONTAINER, EVENTD_CRITICAL_PROCESS)
+    pytest_assert(
+        current_eventd_proc_pid,
+        "'{}' has no PID before kill in '{}'".format(EVENTD_CRITICAL_PROCESS, EVENTD_CONTAINER)
+    )
+    logger.info("Killing '{}' (pid={}) in '{}' to trigger listener's own syslog() call".format(
+        EVENTD_CRITICAL_PROCESS, current_eventd_proc_pid, EVENTD_CONTAINER))
+    duthost.shell(
+        "docker exec {} kill -9 {}".format(EVENTD_CONTAINER, current_eventd_proc_pid),
+        module_ignore_errors=True
+    )
+    # The PROCESS_STATE_EXITED event propagates to the listener; it calls info!() then
+    # terminate_supervisor. Give rsyslogd a moment to flush the message to disk.
+    time.sleep(5)
+
+    # Step 9: assert the listener's own message appears in /var/log/syslog.
+    # Exact format: "Process 'eventd' exited unexpectedly. Terminating supervisor 'eventd'"
+    listener_msg = "Process '{}' exited unexpectedly".format(EVENTD_CRITICAL_PROCESS)
+    search_result = duthost.shell(
+        "tail -n +{} /var/log/syslog | grep -c '{}' || true".format(syslog_offset, listener_msg),
+        module_ignore_errors=True
+    )
+    found = int(search_result.get("stdout", "0").strip() or "0")
+    logger.info("Listener message '{}' found {} time(s) in host syslog".format(listener_msg, found))
+
+    if found == 0:
+        recent = duthost.shell("tail -30 /var/log/syslog", module_ignore_errors=True)
+        logger.error("Recent syslog tail:\n{}".format(recent.get("stdout", "")))
+
+    pytest_assert(
+        found > 0,
+        "Listener syslog reconnect FAILED: message '{}' not found in /var/log/syslog after "
+        "rsyslogd restart. The listener's own libc syslog() did not reconnect to the new "
+        "/dev/log socket.".format(listener_msg)
+    )
+    logger.info(
+        "PASS: listener's own message found in host syslog -- "
+        "libc syslog() reconnected to the new /dev/log socket"
+    )
+
+    # Step 10: wait for eventd container to shut down and restart (terminate_supervisor was called)
+    logger.info("Waiting up to {}s for '{}' to shut down".format(
+        CONTAINER_SHUTDOWN_WAIT_SECS, EVENTD_CONTAINER))
+    stopped = wait_until(
+        CONTAINER_SHUTDOWN_WAIT_SECS, 2, 0,
+        lambda: not _container_is_running(duthost, EVENTD_CONTAINER)
+    )
+    pytest_assert(
+        stopped,
+        "'{}' did not shut down within {}s after '{}' was killed".format(
+            EVENTD_CONTAINER, CONTAINER_SHUTDOWN_WAIT_SECS, EVENTD_CRITICAL_PROCESS)
+    )
+    restarted = wait_until(
+        CONTAINER_SHUTDOWN_WAIT_SECS, 3, 0,
+        _container_is_running, duthost, EVENTD_CONTAINER
+    )
+    pytest_assert(
+        restarted,
+        "'{}' did not restart within {}s".format(EVENTD_CONTAINER, CONTAINER_SHUTDOWN_WAIT_SECS)
+    )
+    logger.info("PASS: '{}' restarted cleanly".format(EVENTD_CONTAINER))
