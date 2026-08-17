@@ -226,6 +226,24 @@ class ThriftInterface(BaseTest):
         else:
             sai_thrift_port_tx_disable(client, asic_type, port_list, target=target)
 
+    def _dst_ns_opt(self):
+        """'-n asic<idx> ' for the dst port's namespace on a multi-ASIC DUT, else ''."""
+        # dst_asic_index is only assigned on the 'port_map_file' setUp path.
+        dst_asic_index = getattr(self, 'dst_asic_index', None)
+        if self.test_params.get('dst_is_multi_asic', False) and dst_asic_index is not None:
+            return '-n asic{} '.format(dst_asic_index)
+        return ''
+
+    def _run_shaper_cmds(self, cmds, caller):
+        """Run the shaper's CONFIG_DB writes, logging any that fail."""
+        for cmd in cmds:
+            _, stdErr, retValue = self.exec_cmd_on_dut(
+                self.dst_server_ip, self.test_params['dut_username'],
+                self.test_params['dut_password'], cmd)
+            if retValue != 0 or stdErr:
+                print("{}: command failed (retValue={}, stdErr={}): {}".format(
+                    caller, retValue, stdErr, cmd))
+
     def apply_egress_shaper(self, dut_port, max_rate, burst=0):
         """Program a port-level egress shaper on the DUT via CONFIG_DB so a
         high-speed port does not overrun the fanout->PTF path when a queued
@@ -251,14 +269,14 @@ class ThriftInterface(BaseTest):
         if not burst:
             burst = max(max_rate // 100, 8192)
         sched_name = "egress_shaper_{}".format(dut_port)
+        ns_opt = self._dst_ns_opt()
         cmds = [
-            'sudo sonic-db-cli CONFIG_DB hset "SCHEDULER|{}" meter_type bytes pir {} pbs {}'.format(
-                sched_name, int(max_rate), int(burst)),
-            'sudo sonic-db-cli CONFIG_DB hset "PORT_QOS_MAP|{}" scheduler {}'.format(dut_port, sched_name),
+            'sudo sonic-db-cli {}CONFIG_DB hset "SCHEDULER|{}" meter_type bytes pir {} pbs {}'.format(
+                ns_opt, sched_name, int(max_rate), int(burst)),
+            'sudo sonic-db-cli {}CONFIG_DB hset "PORT_QOS_MAP|{}" scheduler {}'.format(
+                ns_opt, dut_port, sched_name),
         ]
-        for cmd in cmds:
-            self.exec_cmd_on_dut(self.dst_server_ip, self.test_params['dut_username'],
-                                 self.test_params['dut_password'], cmd)
+        self._run_shaper_cmds(cmds, 'apply_egress_shaper')
         # Let orchagent program the port scheduler profile before traffic is released.
         time.sleep(3)
 
@@ -269,13 +287,12 @@ class ThriftInterface(BaseTest):
         if not max_rate or self.test_params.get('sonic_asic_type') != 'broadcom':
             return
         sched_name = "egress_shaper_{}".format(dut_port)
+        ns_opt = self._dst_ns_opt()
         cmds = [
-            'sudo sonic-db-cli CONFIG_DB hdel "PORT_QOS_MAP|{}" scheduler'.format(dut_port),
-            'sudo sonic-db-cli CONFIG_DB del "SCHEDULER|{}"'.format(sched_name),
+            'sudo sonic-db-cli {}CONFIG_DB hdel "PORT_QOS_MAP|{}" scheduler'.format(ns_opt, dut_port),
+            'sudo sonic-db-cli {}CONFIG_DB del "SCHEDULER|{}"'.format(ns_opt, sched_name),
         ]
-        for cmd in cmds:
-            self.exec_cmd_on_dut(self.dst_server_ip, self.test_params['dut_username'],
-                                 self.test_params['dut_password'], cmd)
+        self._run_shaper_cmds(cmds, 'clear_egress_shaper')
 
     def get_dut_port(self, ptf_port):
         for port_group in interface_to_front_mapping.keys():

@@ -4515,8 +4515,10 @@ class DscpEcnSend(sai_base_test.ThriftInterfaceDataPlane):
             fields = line.split()
             # DNX VOQ chassis row: <host>|<asic>|<port>  VOQ<idx>  WredDrp/pkts ...
             # XGS row:             <port>                UC<idx>   WredDrp/pkts ...
+            if len(fields) < 3:
+                continue
             port_match = fields[0].endswith(dut_port) if voq else fields[0] == dut_port
-            if len(fields) >= 3 and port_match and fields[1] == label:
+            if port_match and fields[1] == label:
                 value = fields[2]
                 if value == 'N/A':
                     return None
@@ -4594,33 +4596,35 @@ class DscpEcnSend(sai_base_test.ThriftInterfaceDataPlane):
             self.dst_client, asic_type, port_list['dst'][dst_port_id])
         print(port_counters_base)
         print(queue_counters_base)
-        # Pace egress on the dst port so the release does not overrun the
-        # fanout->PTF path. Applied while the port is still up; broadcom-only
-        # (no-op otherwise). Per-queue WRED/scheduling is untouched.
-        self.apply_egress_shaper(dut_port, egress_shaper_rate)
-        self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id])
-        # Clear WRED counter caches so the post-test 'show queue wredcounters'
-        # reads are per-run deltas. 'sonic-clear queue wredcounters' resets
-        # the egress-queue cache (XGS, and DNX's egress UC rows). On DNX
-        # the VOQ cache is separate and only matters for the wred_drop
-        # variant (verify_wred_drops + ecn==0) — clear it via
-        # 'wredstat -c -V' there.
-        clear_cmds = []
-        if platform_asic and platform_asic in ("broadcom-dnx", "broadcom"):
-            clear_cmds.append('sonic-clear queue wredcounters')
-            if platform_asic == "broadcom-dnx" and verify_wred_drops and ecn == 0:
-                clear_cmds.append('wredstat -c -V')
-        for clear_cmd in clear_cmds:
-            stdOut, stdErr, retValue = self.exec_cmd_on_dut(
-                self.dst_server_ip, self.test_params['dut_username'],
-                self.test_params['dut_password'], clear_cmd)
-            if stdErr and retValue != 0:
-                raise RuntimeError("Command might have failed in the DUT.Error:{}".format(stdErr))
-            else:
-                print("---------Wredcounter cache reset via '{}'------------".format(clear_cmd))
-
-        # send packets
+        # Shaper and tx-disable are inside the try so the finally always undoes
+        # them; both they and the clear_cmds loop below can raise.
         try:
+            # Pace egress on the dst port so the release does not overrun the
+            # fanout->PTF path. Applied while the port is still up; broadcom-only
+            # (no-op otherwise). Per-queue WRED/scheduling is untouched.
+            self.apply_egress_shaper(dut_port, egress_shaper_rate)
+            self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id])
+            # Clear WRED counter caches so the post-test 'show queue wredcounters'
+            # reads are per-run deltas. 'sonic-clear queue wredcounters' resets
+            # the egress-queue cache (XGS, and DNX's egress UC rows). On DNX
+            # the VOQ cache is separate and only matters for the wred_drop
+            # variant (verify_wred_drops + ecn==0) — clear it via
+            # 'wredstat -c -V' there.
+            clear_cmds = []
+            if platform_asic and platform_asic in ("broadcom-dnx", "broadcom"):
+                clear_cmds.append('sonic-clear queue wredcounters')
+                if platform_asic == "broadcom-dnx" and verify_wred_drops and ecn == 0:
+                    clear_cmds.append('wredstat -c -V')
+            for clear_cmd in clear_cmds:
+                stdOut, stdErr, retValue = self.exec_cmd_on_dut(
+                    self.dst_server_ip, self.test_params['dut_username'],
+                    self.test_params['dut_password'], clear_cmd)
+                if stdErr and retValue != 0:
+                    raise RuntimeError("Command might have failed in the DUT.Error:{}".format(stdErr))
+                else:
+                    print("---------Wredcounter cache reset via '{}'------------".format(clear_cmd))
+
+            # send packets
             tos = dscp << 2
             tos |= ecn
 
@@ -4713,6 +4717,10 @@ class DscpEcnSend(sai_base_test.ThriftInterfaceDataPlane):
 
             transmitted_pkts = port_counters[TRANSMITTED_PKTS] - port_counters_base[TRANSMITTED_PKTS]
 
+            # Tuned for q3d: assumes num_of_pkts exceeds the platform's WRED
+            # drop threshold by a small, bounded margin. Retune before enabling
+            # 'wred_drop' on another asic.
+            #
             # WRED-drop counter cross-check (verify_wred_drops, non-ECT only).
             # The drop counter is on the ingress VOQ on DNX and on the egress
             # queue on XGS; both caches were cleared before the send, so the
