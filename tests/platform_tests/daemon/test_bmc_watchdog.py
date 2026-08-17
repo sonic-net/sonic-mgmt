@@ -67,14 +67,16 @@ class TestBmcWatchdog:
         """
         Verify BMC watchdog: arm/disarm via `watchdogutil` round-trips correctly
         AND `/host/bmc/watchdog.log` is the persistent log sink for the Aspeed
-        `watchdog-keepalive.sh` daemon.
+        `hw-watchdog-mgrd.py` daemon.
 
-        The keepalive script:
-          - Creates /host/bmc/ if missing, writes lifecycle and keepalive lines
-            to /host/bmc/watchdog.log
-          - Arms the watchdog with `watchdogutil arm -s 180` on start
-          - Kicks /dev/watchdog0 every 60s independently of `watchdogutil disarm`
-            — so this test is safe to run on a live BMC.
+        The hw-watchdog-mgrd daemon:
+          - Logs lifecycle and keepalive lines via syslog, which the
+            aspeed-platform-services rsyslog drop-in routes to
+            /host/bmc/watchdog.log (persistent storage; /var/log is tmpfs).
+          - Arms the watchdog with a 180s timeout at boot (boot_arm policy) and
+            pets /dev/watchdog0 every 60s while armed.
+          - Stops petting once disarmed, so this test always restores the
+            pre-test arm state in `finally`.
 
         Pre-test arm state is restored in `finally`.
         """
