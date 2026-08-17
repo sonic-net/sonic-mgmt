@@ -29,7 +29,7 @@ str2-7260cx3-acs-fan-34,10.3.146.145/24,Arista-7260CX3,FanoutLeaf,,
 str2-7260cx3-acs-fan-36,10.3.146.23/24,Arista-7260CX3,FanoutLeaf,,
 str2-7260cx3-02,10.3.146.79/24,Arista-7260CX3,FanoutLeaf,,
 str2-msn2700-spy-1,10.3.146.66/24,Mellanox-SN2700,DevSonic,,sonic
-str2-msn2700-spy-2,10.3.146.88/24,Mellanox-SN2700,DevSonic,,sonic
+str2-msn2700-spy-2,10.3.146.88/24,Mellanox-SN2700-A1,DevSonic,,sonic
 str2-7060cx-32s-29,10.3.146.57/24,Arista-7060CX-32S-Q32,DevSonic,,sonic
 str2-msn4700-05,10.3.146.221/24,Mellanox-SN4700-V64,DevSonic,,sonic
 str2-msn4700-06,10.3.146.80/24,Mellanox-SN4700-V64,DevSonic,,sonic
