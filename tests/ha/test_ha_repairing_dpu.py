@@ -683,7 +683,7 @@ def test_ha_repairing_dpu(
             repair_vdpu_key,
             "dead",
             ha_owner,
-            disabled=True,
+            disabled=False,
         )
 
         pytest_assert(

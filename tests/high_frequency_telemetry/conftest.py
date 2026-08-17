@@ -48,16 +48,18 @@ def suppress_otel_debug_logging(duthosts, enum_rand_one_per_hwsku_hostname):
         f"sed -i 's/verbosity: detailed/verbosity: basic/' {OTEL_CONFIG_PATH}",
         module_ignore_errors=False
     )
-    duthost.shell('docker restart otel', module_ignore_errors=True)
-    wait_until(60, 2, 0, duthost.is_service_fully_started, "otel")
+    duthost.shell('sudo systemctl restart otel', module_ignore_errors=False)
+    if not wait_until(60, 2, 10, duthost.is_service_fully_started, "otel"):
+        pytest.fail("OTEL container failed to start after restarting otel.service")
 
     yield
 
     # Restore original config
     logger.info("Restoring original OTEL collector config")
     duthost.copy(content=original_config, dest=OTEL_CONFIG_PATH)
-    duthost.shell('docker restart otel', module_ignore_errors=True)
-    wait_until(60, 2, 0, duthost.is_service_fully_started, "otel")
+    duthost.shell('sudo systemctl restart otel', module_ignore_errors=False)
+    if not wait_until(60, 2, 10, duthost.is_service_fully_started, "otel"):
+        pytest.fail("OTEL container failed to start after restarting otel.service")
 
 
 @pytest.fixture(autouse=True)
