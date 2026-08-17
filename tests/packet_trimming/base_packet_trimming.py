@@ -300,9 +300,13 @@ class BasePacketTrimming:
         if loganalyzer and duthost.hostname in loganalyzer:
             # thermalctld can throw a transient JSONDecodeError while state-db is being
             # repopulated right after boot. This is expected and unrelated to packet trimming
-            # (see sonic-buildimage#8984); tacacs transport errors are already ignored globally.
+            # (see sonic-buildimage#8984). The exception is caught internally by thermalctld
+            # (the daemon keeps running, per `supervisorctl status`) and it successfully
+            # re-initializes the thermal manager on its next polling cycle once state-db is
+            # repopulated, so this is safe to ignore here.
             loganalyzer[duthost.hostname].ignore_regex.extend([
-                r".*ERR pmon#thermalctld.*Caught exception while initializing thermal manager.*",
+                r".*ERR pmon#thermalctld.*Caught exception while initializing thermal manager"
+                r".*JSONDecodeError.*",
             ])
 
         with allure.step(f"Configure packet trimming in global level for {self.trimming_mode} mode"):
