@@ -19,6 +19,7 @@ from ptf.testutils import dp_poll, send_packet
 from tests.common.vxlan_ecmp_utils import Ecmp_Utils
 from tests.common.config_reload import config_reload
 from tests.common.utilities import wait_until
+from tests.common.plugins.test_completeness import CompletenessLevel
 
 ecmp_utils = Ecmp_Utils()
 
@@ -46,12 +47,21 @@ DUT_VTEP_IP = "10.1.0.32"   # DUT VTEP IP
 VXLAN_UDP_PORT = 4789       # Standard VXLAN UDP port
 VXLAN_VNI = 10000           # VXLAN Network Identifier
 RANDOM_MAC = "00:aa:bb:cc:dd:ee"  # Random MAC for outer Ethernet dst
+VNET_NAME = "Vnet1"
+VNET_ROUTE_DST_IP = "150.0.3.1"
+VNET_ROUTE_PREFIX = "{}/32".format(VNET_ROUTE_DST_IP)
 
 ACL_TABLE_NAME = "INNER_SRC_MAC_REWRITE_TABLE"
 ACL_TABLE_TYPE = "INNER_SRC_MAC_REWRITE_TYPE"
 
-# Scale test specific constants
-SCALE_RULE_COUNT = 9000  # Full scale test with 9000 rules to test maximum hardware capacity
+# Scale test rule count per completeness level. One packet is sent per rule, so the runtime
+# grows linearly with the count; 'thorough' targets the maximum hardware capacity.
+SCALE_RULE_COUNT_LEVEL_MAP = {
+    "debug": 10,
+    "basic": 100,
+    "confident": 1000,
+    "thorough": 9000
+}
 
 # IP range for scale testing
 SCALE_IP_BASE = "10.0.0.0"
@@ -75,24 +85,13 @@ def generate_ip_address(index, base_ip="10.0.0.0", prefix=16):
 
 def generate_mac_address(index):
     """
-    Generate a MAC address using an index for scale testing.
+    Generate a unique unicast MAC address from an index for scale testing.
 
     """
-    # Use different base MAC patterns for variety
-    if index < 256:
-        base_mac = "aa:bb:cc:dd:ee"
-        last_octet = f"{index:02x}"
-    elif index < 512:
-        base_mac = "aa:bb:cc:dd:ef"
-        last_octet = f"{(index-256):02x}"
-    else:
-        # For higher indices, use more octets
-        octet_5 = (index // 256) % 256
-        octet_6 = index % 256
-        base_mac = f"aa:bb:cc:dd:{octet_5:02x}"
-        last_octet = f"{octet_6:02x}"
+    if index >= 0x10000:
+        raise ValueError(f"Index {index} exceeds the 65535 addresses encodable in the last two MAC octets")
 
-    return f"{base_mac}:{last_octet}"
+    return f"aa:bb:cc:dd:{(index >> 8) & 0xff:02x}:{index & 0xff:02x}"
 
 
 @pytest.fixture(name="setUp", scope="module")
@@ -219,7 +218,7 @@ def fixture_setUp(rand_selected_dut, tbinfo, ptfadapter):
 
     def _check_vnet_route(duthost):
         output = duthost.shell("show vnet route all")["stdout"]
-        return "150.0.3.1/32" in output and "Vnet1" in output
+        return VNET_ROUTE_PREFIX in output and VNET_NAME in output
 
     # Wait for configuration to be applied
     if not wait_until(30, 5, 5, _check_vnet_route, rand_selected_dut):
@@ -756,13 +755,14 @@ def create_vxlan_vnet_config(duthost, tunnel_name, src_ip, portchannel_name="Por
             tunnel_name: vxlan_tunnel_entry
         },
         "VNET": {
-            "Vnet1": {
+            VNET_NAME: {
                 "vni": str(vnet_base),
                 "vxlan_tunnel": tunnel_name,
+                "scope": "default"
             }
         },
         "VNET_ROUTE_TUNNEL": {
-            "Vnet1|150.0.3.1/32": {"endpoint": ptf_vtep}
+            f"{VNET_NAME}|{VNET_ROUTE_PREFIX}": {"endpoint": ptf_vtep}
         }
     }
 
@@ -960,7 +960,7 @@ def _test_inner_src_mac_rewrite(setUp, scenario_name):
     table_name = ACL_TABLE_NAME
 
     # Standard values from VXLAN/VNET configuration
-    inner_dst_ip = "150.0.3.1"  # Route destination
+    inner_dst_ip = VNET_ROUTE_DST_IP
     vni_id = str(VXLAN_VNI)  # VNI from configuration
     inner_src_ip = "201.0.0.101"  # Source IP for test packets
 
@@ -1034,11 +1034,14 @@ def test_range_ip_acl_rule(setUp):
     _test_inner_src_mac_rewrite(setUp, "range_test")
 
 
-def test_scale_acl_rule(setUp):
+@pytest.mark.supported_completeness_level(CompletenessLevel.debug, CompletenessLevel.basic,
+                                          CompletenessLevel.confident, CompletenessLevel.thorough)
+def test_scale_acl_rule(setUp, request):
     """
-    Scale test: Program 9000 ACL rules with SAME PRIORITIES and test packet forwarding.
+    Scale test: Program ACL rules with SAME PRIORITIES and test packet forwarding.
 
-    This test validates system behavior when 9000 ACL rules have identical priority (1000).
+    The rule count is driven by --completeness_level (see SCALE_RULE_COUNT_LEVEL_MAP),
+    ranging from 10 rules for 'debug' up to 9000 rules for 'thorough'.
     It verifies that all rules become Active and tests packet forwarding functionality
     at scale.
 
@@ -1047,10 +1050,13 @@ def test_scale_acl_rule(setUp):
     2. Packet forwarding verification with priority conflicts
     3. Performance testing with scale + same priorities
 
-    WARNING: 9000 rules is a significant scale test that will likely hit hardware limits.
+    WARNING: at 'thorough' the rule count will likely hit hardware limits.
     """
 
-    logger.info("=== STARTING 9000-RULE SCALE TEST ===")
+    normalized_level = CompletenessLevel.get_normalized_level(request)
+    scale_rule_count = SCALE_RULE_COUNT_LEVEL_MAP[normalized_level]
+
+    logger.info(f"=== STARTING {scale_rule_count}-RULE SCALE TEST (completeness level: {normalized_level}) ===")
     logger.info("WARNING: This is a high-scale test that may hit hardware resource limits")
     logger.info("Expect some rules to be INACTIVE - this is normal at this scale")
     logger.info("==============================================")
@@ -1069,11 +1075,11 @@ def test_scale_acl_rule(setUp):
     table_name = ACL_TABLE_NAME
 
     # Standard values from VXLAN/VNET configuration
-    inner_dst_ip = "150.0.3.1"  # Route destination
+    inner_dst_ip = VNET_ROUTE_DST_IP
     vni_id = str(VXLAN_VNI)  # VNI from configuration
 
     logger.info("=== Starting ACL Source MAC Rewrite Scale Test ===")
-    logger.info(f"Target: {SCALE_RULE_COUNT} ACL rules")
+    logger.info(f"Target: {scale_rule_count} ACL rules")
     logger.info(f"Using VNI: {vni_id}")
     logger.info(f"IP range: {SCALE_IP_BASE}/{SCALE_IP_PREFIX}")
 
@@ -1097,7 +1103,7 @@ def test_scale_acl_rule(setUp):
         # Verify infrastructure
         logger.info("Verifying VNET route")
         output = duthost.shell("show vnet route all")["stdout"]
-        assert "150.0.3.1/32" in output and "Vnet1" in output, "VNET route not found"
+        assert VNET_ROUTE_PREFIX in output and VNET_NAME in output, "VNET route not found"
 
         logger.info("Verifying VXLAN tunnel")
         tunnel_output = duthost.shell("show vxlan tunnel")["stdout"]
@@ -1117,21 +1123,21 @@ def test_scale_acl_rule(setUp):
         setup_acl_table_type(duthost, acl_type_name=ACL_TABLE_TYPE)
         setup_acl_table(duthost, bind_ports)
 
-        # Setup 9000 ACL rules with bulk JSON operation
-        logger.info(f"Programming {SCALE_RULE_COUNT} ACL rules...")
+        # Setup ACL rules with bulk JSON operation
+        logger.info(f"Programming {scale_rule_count} ACL rules...")
         start_time = time.time()
 
-        setup_bulk_acl_rules(duthost, SCALE_RULE_COUNT, vni_id, start_index=0)
+        setup_bulk_acl_rules(duthost, scale_rule_count, vni_id, start_index=0)
 
         setup_time = time.time() - start_time
         logger.info(f"ACL rule programming completed in {setup_time:.2f} seconds")
-        logger.info(f"Average time per rule: {(setup_time/SCALE_RULE_COUNT)*1000:.2f} ms")
+        logger.info(f"Average time per rule: {(setup_time/scale_rule_count)*1000:.2f} ms")
 
         # ===================================================================
         # STEP 3: Verify rule status and behavior with same priority
         # ===================================================================
         logger.info("STEP 3: Verifying rule status and behavior with SAME PRIORITY")
-        logger.info(f"All {SCALE_RULE_COUNT} rules programmed with priority 1000 - observing system behavior")
+        logger.info(f"All {scale_rule_count} rules programmed with priority 1000 - observing system behavior")
 
         # Check rule status distribution
         logger.info("Checking rule status distribution...")
@@ -1185,11 +1191,11 @@ def test_scale_acl_rule(setUp):
         logger.info("STEP 4: Testing packet forwarding with same-priority ACL rules")
 
         # Test a reasonable subset of rules - focus on early rules (most likely to be active)
-        test_rule_count = SCALE_RULE_COUNT
+        test_rule_count = scale_rule_count
         logger.info(f"Testing packet forwarding for {test_rule_count} rules with same priority (1000)")
         logger.info("Sending ONE packet per rule to test both MAC rewrite AND counter increment")
         logger.info("This will help identify which rules are ACTIVE vs INACTIVE due to hardware limits")
-        logger.info("Note: With 9000 total rules, expect significant hardware resource limits")
+        logger.info(f"Note: With {scale_rule_count} total rules, expect significant hardware resource limits")
 
         packet_test_start = time.time()
         successful_tests = 0
@@ -1293,8 +1299,8 @@ def test_scale_acl_rule(setUp):
         # Use the existing verify_acl_rules_installation function for comprehensive rule verification
         logger.info("Performing final verification of all ACL rules with SAME PRIORITY...")
         try:
-            verify_acl_rules_installation(duthost, SCALE_RULE_COUNT)
-            logger.info(f"All {SCALE_RULE_COUNT} ACL rules verified successfully")
+            verify_acl_rules_installation(duthost, scale_rule_count)
+            logger.info(f"All {scale_rule_count} ACL rules verified successfully")
         except Exception as e:
             logger.error(f"Final rule verification failed: {e}")
 
@@ -1302,7 +1308,7 @@ def test_scale_acl_rule(setUp):
             show_acl_result = duthost.shell("show acl rule", module_ignore_errors=True)
             if show_acl_result["rc"] == 0:
                 rule_count = show_acl_result["stdout"].count(ACL_TABLE_NAME)
-                logger.error(f"'show acl rule' shows {rule_count} rules out of {SCALE_RULE_COUNT}")
+                logger.error(f"'show acl rule' shows {rule_count} rules out of {scale_rule_count}")
                 logger.info("Sample of 'show acl rule' output:")
                 logger.info(show_acl_result["stdout"][:500])  # Show sample for debugging
 
@@ -1312,9 +1318,9 @@ def test_scale_acl_rule(setUp):
         # Skip counter testing for this same-priority observation test
         logger.info("Skipping ACL counter verification for same-priority behavior test")
 
-        logger.info("=== 9000-RULE SCALE TEST COMPLETED ===")
+        logger.info(f"=== {scale_rule_count}-RULE SCALE TEST COMPLETED ===")
         logger.info("SCALE TEST SUMMARY:")
-        logger.info(f"- Programmed {SCALE_RULE_COUNT} ACL rules with SAME priority (1000)")
+        logger.info(f"- Programmed {scale_rule_count} ACL rules with SAME priority (1000)")
         logger.info("- System behavior observed for priority conflict handling")
         logger.info("- Packet testing performed for sample rules to identify active vs inactive patterns")
         logger.info("- Check logs above for rule installation, active/inactive ratios, and performance results")
