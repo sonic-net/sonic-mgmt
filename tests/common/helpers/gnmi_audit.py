@@ -1,7 +1,4 @@
 import json
-import shlex
-
-from scapy.all import Raw, UDP, rdpcap
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
@@ -81,27 +78,3 @@ def wait_for_audit_record(duthost, offset, method, principal):
     return wait_for_audit_records(
         duthost, offset, method, principal, expected_count=1
     )
-
-
-def read_forwarded_payloads(duthost, capture_result, capture_file):
-    pytest_assert(
-        wait_until(35, 1, 0, capture_result.ready),
-        "UDP/514 packet capture did not finish",
-    )
-    capture_status = capture_result.get()
-    pcap_status = duthost.shell(
-        "sudo test -s {}".format(shlex.quote(capture_file)),
-        module_ignore_errors=True,
-    )
-    pytest_assert(
-        pcap_status["rc"] == 0,
-        "UDP/514 capture file is empty or missing: {}".format(
-            capture_status
-        ),
-    )
-    duthost.fetch(src=capture_file, dest="/tmp/", flat=True)
-    return [
-        bytes(packet[Raw].load).decode("utf-8", errors="replace")
-        for packet in rdpcap(capture_file)
-        if UDP in packet and Raw in packet
-    ]

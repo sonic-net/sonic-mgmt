@@ -1,10 +1,7 @@
 """gNMI audit, authentication, and authorization tests."""
 
 import logging
-import os
-import shlex
 import time
-import uuid
 
 import pytest
 from pygnmi.client import gNMIException
@@ -18,7 +15,6 @@ from tests.common.helpers.gnmi_audit import (
     RPC_COMPLETION_PREFIX,
     get_audit_log_offset,
     parse_audit_records,
-    read_forwarded_payloads,
     wait_for_audit_record,
     wait_for_audit_records,
 )
@@ -31,13 +27,12 @@ from tests.common.helpers.sonic_db import (
     redis_keys,
 )
 from tests.common.helpers.syslog_helpers import (
-    add_syslog_server,
-    del_syslog_server,
+    capture_remote_syslog,
     is_mgmt_vrf_enabled,
+    read_syslog_payloads,
 )
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 from tests.common.pygnmi_client import GetDataType, PygnmiClientError
-from tests.common.utilities import wait_until
 
 
 pytestmark = [
@@ -130,166 +125,6 @@ AUDIT_ACTIVITIES = [
     pytest.param(_get_countersdb, GET_METHOD, id="get"),
     pytest.param(_set_configdb, SET_METHOD, id="set"),
 ]
-
-ROLE_ACCESS_CASES = [
-    pytest.param(
-        GENERIC_NOACCESS_ROLE,
-        _get_capabilities,
-        NO_ACCESS_ERROR,
-        id="generic-noaccess-capabilities",
-    ),
-    pytest.param(
-        GENERIC_READONLY_ROLE,
-        _get_capabilities,
-        None,
-        id="generic-readonly-capabilities",
-    ),
-    pytest.param(
-        GENERIC_READWRITE_ROLE,
-        _get_capabilities,
-        None,
-        id="generic-readwrite-capabilities",
-    ),
-    pytest.param(
-        "",
-        _get_capabilities,
-        None,
-        id="empty-role-capabilities",
-    ),
-    pytest.param(
-        CONFIG_DB_NOACCESS_ROLE,
-        _get_configdb,
-        NO_ACCESS_ERROR,
-        id="configdb-noaccess-get",
-    ),
-    pytest.param(
-        CONFIG_DB_NOACCESS_ROLE,
-        _set_configdb,
-        NO_ACCESS_ERROR,
-        id="configdb-noaccess-set",
-    ),
-    pytest.param(
-        CONFIG_DB_READONLY_ROLE,
-        _get_configdb,
-        None,
-        id="configdb-readonly-get",
-    ),
-    pytest.param(
-        CONFIG_DB_READONLY_ROLE,
-        _set_configdb,
-        CONFIG_DB_READONLY_ROLE,
-        id="configdb-readonly-set",
-    ),
-    pytest.param(
-        CONFIG_DB_READWRITE_ROLE,
-        _get_configdb,
-        None,
-        id="configdb-readwrite-get",
-    ),
-    pytest.param(
-        CONFIG_DB_READWRITE_ROLE,
-        _set_configdb,
-        None,
-        id="configdb-readwrite-set",
-    ),
-    pytest.param(
-        None,
-        _get_configdb,
-        UNMAPPED_CN_ERROR,
-        id="unmapped-get",
-    ),
-    pytest.param(
-        None,
-        _set_configdb,
-        UNMAPPED_CN_ERROR,
-        id="unmapped-set",
-    ),
-]
-
-
-@pytest.fixture
-def remote_syslog_capture(gnmi_tls, ptfhost):  # noqa: F811
-    duthost = gnmi_tls.duthost
-    ptf_ip = ptfhost.mgmt_ip
-    syslog_vrf = "mgmt" if is_mgmt_vrf_enabled(duthost) else None
-    capture_file = "/tmp/gnmi-audit-{}.pcap".format(uuid.uuid4().hex)
-    capture_pool = None
-    capture_result = None
-    syslog_server_added = False
-
-    try:
-        logger.info("Adding temporary remote syslog server %s", ptf_ip)
-        add_result = add_syslog_server(duthost, ptf_ip, vrf=syslog_vrf)
-        pytest_assert(
-            add_result["rc"] == 0,
-            "Failed to add temporary syslog server",
-        )
-        syslog_server_added = True
-
-        remote_action = 'Target="{}" Port="514"'.format(ptf_ip)
-
-        def remote_action_configured():
-            command = "grep -F {} /etc/rsyslog.conf".format(
-                shlex.quote(remote_action)
-            )
-            if syslog_vrf:
-                command += " | grep -Fq {}".format(
-                    shlex.quote('Device="{}"'.format(syslog_vrf))
-                )
-            else:
-                command += " >/dev/null"
-            return duthost.shell(
-                command, module_ignore_errors=True
-            )["rc"] == 0
-
-        logger.info("Waiting for remote syslog configuration")
-        pytest_assert(
-            wait_until(30, 1, 0, remote_action_configured),
-            "Host rsyslog did not configure UDP/514 forwarding",
-        )
-
-        logger.info("Starting remote syslog packet capture")
-        capture_command = (
-            "sudo timeout 30 tcpdump -i any -y LINUX_SLL -nn "
-            "-s0 -U -w {} "
-            "'udp and dst host {} and dst port 514'"
-        ).format(shlex.quote(capture_file), ptf_ip)
-        capture_pool, capture_result = duthost.shell(
-            capture_command,
-            module_async=True,
-            module_ignore_errors=True,
-        )
-
-        def capture_started():
-            command = "sudo test $(stat -c %s {}) -ge 24".format(
-                shlex.quote(capture_file)
-            )
-            return duthost.shell(
-                command, module_ignore_errors=True
-            )["rc"] == 0
-
-        logger.info("Waiting for remote syslog packet capture")
-        pytest_assert(
-            wait_until(10, 1, 0, capture_started),
-            "UDP/514 packet capture did not start",
-        )
-
-        yield capture_result, capture_file
-    finally:
-        if capture_pool is not None:
-            if capture_result.ready():
-                capture_pool.close()
-            else:
-                capture_pool.terminate()
-            capture_pool.join()
-        duthost.shell(
-            "sudo rm -f {}".format(shlex.quote(capture_file)),
-            module_ignore_errors=True,
-        )
-        if os.path.exists(capture_file):
-            os.remove(capture_file)
-        if syslog_server_added:
-            del_syslog_server(duthost, ptf_ip, module_ignore_errors=True)
 
 
 @pytest.mark.parametrize("operation,method", AUDIT_ACTIVITIES)
@@ -406,42 +241,45 @@ def test_gnmi_audit_rate_limit(gnmi_tls):  # noqa: F811
 
 @pytest.mark.parametrize("operation,method", AUDIT_ACTIVITIES)
 def test_gnmi_audit_log_remote_forwarding(
-    gnmi_tls, remote_syslog_capture, operation, method  # noqa: F811
+    gnmi_tls, ptfhost, operation, method  # noqa: F811
 ):
     duthost = gnmi_tls.duthost
-    capture_result, capture_file = remote_syslog_capture
-    offset = get_audit_log_offset(duthost)
+    syslog_vrf = "mgmt" if is_mgmt_vrf_enabled(duthost) else None
 
-    with allure.step("Generate a {} audit record".format(method)):
-        operation(gnmi_tls.pygnmi_client)
+    with capture_remote_syslog(
+        duthost, ptfhost.mgmt_ip, vrf=syslog_vrf
+    ) as (capture_result, capture_file):
+        offset = get_audit_log_offset(duthost)
+        with allure.step("Generate a {} audit record".format(method)):
+            operation(gnmi_tls.pygnmi_client)
 
-    with allure.step("Verify the remotely forwarded audit record"):
-        local_records = wait_for_audit_record(
-            duthost, offset, method, CLIENT_PRINCIPAL
-        )
-        forwarded_payloads = read_forwarded_payloads(
-            duthost, capture_result, capture_file
-        )
-        pytest_assert(
-            any(RPC_COMPLETION_PREFIX in payload
-                for payload in forwarded_payloads),
-            "No RPC_COMPLETION marker found in forwarded UDP packets",
-        )
-        streamed_records = [
-            record
-            for payload in forwarded_payloads
-            for record in parse_audit_records(
-                payload, method, CLIENT_PRINCIPAL
+        with allure.step("Verify the remotely forwarded audit record"):
+            local_records = wait_for_audit_record(
+                duthost, offset, method, CLIENT_PRINCIPAL
             )
-        ]
-        pytest_assert(
-            streamed_records == local_records,
-            "Streamed audit records differ from local gNMI records: "
-            "local={}, streamed={}".format(
-                local_records,
-                streamed_records,
-            ),
-        )
+            forwarded_payloads = read_syslog_payloads(
+                duthost, capture_result, capture_file
+            )
+            pytest_assert(
+                any(RPC_COMPLETION_PREFIX in payload
+                    for payload in forwarded_payloads),
+                "No RPC_COMPLETION marker found in forwarded UDP packets",
+            )
+            streamed_records = [
+                record
+                for payload in forwarded_payloads
+                for record in parse_audit_records(
+                    payload, method, CLIENT_PRINCIPAL
+                )
+            ]
+            pytest_assert(
+                streamed_records == local_records,
+                "Streamed audit records differ from local gNMI records: "
+                "local={}, streamed={}".format(
+                    local_records,
+                    streamed_records,
+                ),
+            )
 
 
 @pytest.mark.parametrize("operation,method", AUDIT_ACTIVITIES)
@@ -473,7 +311,92 @@ def test_gnmi_default_cert_auth(gnmi_tls, operation, method):  # noqa: F811
         operation(gnmi_tls.pygnmi_client)
 
 
-@pytest.mark.parametrize("role,operation,error_pattern", ROLE_ACCESS_CASES)
+CAPABILITIES_ROLE_CASES = [
+    pytest.param(
+        GENERIC_NOACCESS_ROLE,
+        _get_capabilities,
+        NO_ACCESS_ERROR,
+        id="generic-noaccess-capabilities",
+    ),
+    pytest.param(
+        GENERIC_READONLY_ROLE,
+        _get_capabilities,
+        None,
+        id="generic-readonly-capabilities",
+    ),
+    pytest.param(
+        GENERIC_READWRITE_ROLE,
+        _get_capabilities,
+        None,
+        id="generic-readwrite-capabilities",
+    ),
+    pytest.param(
+        "",
+        _get_capabilities,
+        None,
+        id="empty-role-capabilities",
+    ),
+]
+
+CONFIG_DB_ROLE_CASES = [
+    pytest.param(
+        CONFIG_DB_NOACCESS_ROLE,
+        _get_configdb,
+        NO_ACCESS_ERROR,
+        id="configdb-noaccess-get",
+    ),
+    pytest.param(
+        CONFIG_DB_NOACCESS_ROLE,
+        _set_configdb,
+        NO_ACCESS_ERROR,
+        id="configdb-noaccess-set",
+    ),
+    pytest.param(
+        CONFIG_DB_READONLY_ROLE,
+        _get_configdb,
+        None,
+        id="configdb-readonly-get",
+    ),
+    pytest.param(
+        CONFIG_DB_READONLY_ROLE,
+        _set_configdb,
+        CONFIG_DB_READONLY_ROLE,
+        id="configdb-readonly-set",
+    ),
+    pytest.param(
+        CONFIG_DB_READWRITE_ROLE,
+        _get_configdb,
+        None,
+        id="configdb-readwrite-get",
+    ),
+    pytest.param(
+        CONFIG_DB_READWRITE_ROLE,
+        _set_configdb,
+        None,
+        id="configdb-readwrite-set",
+    ),
+]
+
+UNMAPPED_CN_ROLE_CASES = [
+    pytest.param(
+        None,
+        _get_configdb,
+        UNMAPPED_CN_ERROR,
+        id="unmapped-get",
+    ),
+    pytest.param(
+        None,
+        _set_configdb,
+        UNMAPPED_CN_ERROR,
+        id="unmapped-set",
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    "role,operation,error_pattern",
+    CAPABILITIES_ROLE_CASES + CONFIG_DB_ROLE_CASES + UNMAPPED_CN_ROLE_CASES,
+)
 def test_cn_role_access(
     gnmi_tls, role, operation, error_pattern  # noqa: F811
 ):
