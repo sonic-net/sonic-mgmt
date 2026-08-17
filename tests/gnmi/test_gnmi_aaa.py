@@ -27,7 +27,6 @@ from tests.common.helpers.sonic_db import (
     redis_del,
     redis_hdel,
     redis_hget,
-    redis_hgetall,
     redis_hset,
     redis_keys,
 )
@@ -103,6 +102,27 @@ def _get_capabilities(client):
     pytest_assert(
         "json_ietf" in encodings,
         "json_ietf not found in gNMI capabilities: {}".format(encodings),
+    )
+
+
+def _set_client_cert_role(duthost, role):
+    role_key = "GNMI_CLIENT_CERT|{}".format(CLIENT_PRINCIPAL)
+    if role is None:
+        result = redis_del(duthost, CONFIG_DB, role_key)[0]
+        pytest_assert(
+            result["rc"] == 0 and result["stdout"].strip() == "1",
+            "Failed to remove client certificate mapping: {}".format(result),
+        )
+        return
+
+    result = redis_hset(duthost, CONFIG_DB, role_key, **{"role@": role})
+    pytest_assert(
+        result["rc"] == 0,
+        "Failed to set role {!r}: {}".format(role, result),
+    )
+    pytest_assert(
+        redis_hget(duthost, CONFIG_DB, role_key, "role@") == role,
+        "Client certificate role was not set to {!r}".format(role),
     )
 
 
@@ -336,38 +356,16 @@ def test_gnmi_audit_rate_limit(gnmi_tls):  # noqa: F811
         "Get/Unimplemented did not use an independent outcome bucket",
     )
 
-    role_key = "GNMI_CLIENT_CERT|{}".format(CLIENT_PRINCIPAL)
-    # Denied Sets exercise the unlimited policy without 61 config saves.
-    original_role = redis_hget(duthost, CONFIG_DB, role_key, "role@")
-    pytest_assert(original_role, "Client certificate role is not configured")
-    try:
-        set_result = redis_hset(
-            duthost,
-            CONFIG_DB,
-            role_key,
-            **{"role@": CONFIG_DB_READONLY_ROLE}
-        )
-        pytest_assert(
-            set_result["rc"] == 0,
-            "Failed to set read-only role: {}".format(set_result),
-        )
-        with gnmi_tls.pygnmi_client._build_client() as client:
-            for _ in range(RATE_LIMIT_BURST + 1):
-                with pytest.raises(
-                    gNMIException, match=CONFIG_DB_READONLY_ROLE
-                ):
-                    client.set(
-                        update=[(CONFIG_DB_SET_PATH, '"Public"')],
-                        encoding="json_ietf",
-                    )
-    finally:
-        restore_result = redis_hset(
-            duthost, CONFIG_DB, role_key, **{"role@": original_role}
-        )
-        pytest_assert(
-            restore_result["rc"] == 0,
-            "Failed to restore certificate role: {}".format(restore_result),
-        )
+    _set_client_cert_role(duthost, CONFIG_DB_READONLY_ROLE)
+    with gnmi_tls.pygnmi_client._build_client() as client:
+        for _ in range(RATE_LIMIT_BURST + 1):
+            with pytest.raises(
+                gNMIException, match=CONFIG_DB_READONLY_ROLE
+            ):
+                client.set(
+                    update=[(CONFIG_DB_SET_PATH, '"Public"')],
+                    encoding="json_ietf",
+                )
 
     set_records = wait_for_audit_records(
         duthost,
@@ -375,6 +373,7 @@ def test_gnmi_audit_rate_limit(gnmi_tls):  # noqa: F811
         SET_METHOD,
         CLIENT_PRINCIPAL,
         expected_count=RATE_LIMIT_BURST + 1,
+        code="Unknown",
         path=AUDIT_SET_PATH,
     )
     pytest_assert(
@@ -483,46 +482,12 @@ def test_cn_role_access(
     role_key = "GNMI_CLIENT_CERT|{}".format(CLIENT_PRINCIPAL)
     original_role = redis_hget(duthost, CONFIG_DB, role_key, "role@")
     pytest_assert(original_role, "Client certificate role is not configured")
-
     try:
-        if role is None:
-            delete_results = redis_del(duthost, CONFIG_DB, role_key)
-            pytest_assert(
-                len(delete_results) == 1
-                and delete_results[0]["rc"] == 0
-                and delete_results[0]["stdout"].strip() == "1",
-                "Failed to remove client certificate mapping {}: {}".format(
-                    role_key, delete_results
-                ),
-            )
-        else:
-            set_result = redis_hset(
-                duthost,
-                CONFIG_DB,
-                role_key,
-                **{"role@": role}
-            )
-            pytest_assert(
-                set_result["rc"] == 0,
-                "Failed to set role {!r}: {}".format(role, set_result),
-            )
-            configured_fields = redis_hgetall(duthost, CONFIG_DB, role_key)
-            pytest_assert(
-                "role@" in configured_fields
-                and configured_fields["role@"] == role,
-                "Expected role {!r}, got {}".format(role, configured_fields),
-            )
-
+        _set_client_cert_role(duthost, role)
         if error_pattern:
             with pytest.raises(PygnmiClientError, match=error_pattern):
                 operation(gnmi_tls.pygnmi_client)
         else:
             operation(gnmi_tls.pygnmi_client)
     finally:
-        restore_result = redis_hset(
-            duthost, CONFIG_DB, role_key, **{"role@": original_role}
-        )
-        pytest_assert(
-            restore_result["rc"] == 0,
-            "Failed to restore certificate role: {}".format(restore_result),
-        )
+        _set_client_cert_role(duthost, original_role)
