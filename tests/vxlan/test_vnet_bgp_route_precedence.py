@@ -328,14 +328,87 @@ class Test_VNET_BGP_route_Precedence():
     '''
         Class for all the tests where VNET and BGP learnt routes are tested.
     '''
+    @pytest.fixture(autouse=True)
+    def _cleanup_test_resources(self):
+        self._test_vnet_routes = []
+        self._test_bgp_routes = []
+        self._test_bgp_profiles = set()
+        yield
+
+        # Test bodies intentionally exercise failure paths. Keep cleanup outside
+        # the body so an assertion/xfail does not contaminate following cases.
+        cleanup_errors = []
+        for routes in list(reversed(getattr(self, "_test_vnet_routes", []))):
+            try:
+                self.remove_vnet_route(routes)
+            except Exception as err:
+                message = "Failed to cleanup VNET route {}: {}".format(routes, err)
+                Logger.warning(message, exc_info=True)
+                cleanup_errors.append(message)
+
+        for tor, routes, routes_adv in list(reversed(getattr(self, "_test_bgp_routes", []))):
+            try:
+                self.remove_bgp_route_from_neighbor_tor(tor, routes, routes_adv)
+            except Exception as err:
+                message = "Failed to cleanup BGP route {}: {}".format(routes_adv, err)
+                Logger.warning(message, exc_info=True)
+                cleanup_errors.append(message)
+
+        for profile in list(getattr(self, "_test_bgp_profiles", set())):
+            try:
+                self.remove_bgp_profile(profile)
+            except Exception as err:
+                message = "Failed to cleanup BGP profile {}: {}".format(profile, err)
+                Logger.warning(message, exc_info=True)
+                cleanup_errors.append(message)
+
+        if hasattr(self, "duthost"):
+            try:
+                self.wait_for_route_checks_pass(vnet_check=True)
+            except Exception as err:
+                message = "Route check still failing after per-test cleanup: {}".format(err)
+                Logger.warning(message, exc_info=True)
+                cleanup_errors.append(message)
+
+        if cleanup_errors:
+            pytest.fail("Per-test cleanup failed:\n{}".format("\n".join(cleanup_errors)))
+
+    def _track_vnet_route(self, routes):
+        if hasattr(self, "_test_vnet_routes") and routes not in self._test_vnet_routes:
+            self._test_vnet_routes.append(routes)
+
+    def _untrack_vnet_route(self, routes):
+        if hasattr(self, "_test_vnet_routes") and routes in self._test_vnet_routes:
+            self._test_vnet_routes.remove(routes)
+
+    def _track_bgp_route(self, tor, routes, routes_adv):
+        if hasattr(self, "_test_bgp_routes"):
+            for entry_tor, entry_routes, entry_routes_adv in self._test_bgp_routes:
+                if entry_tor is tor and entry_routes == routes and entry_routes_adv == routes_adv:
+                    return
+            self._test_bgp_routes.append((tor, routes, routes_adv))
+
+    def _untrack_bgp_route(self, tor, routes, routes_adv):
+        if not hasattr(self, "_test_bgp_routes"):
+            return
+        for index, entry in enumerate(self._test_bgp_routes):
+            entry_tor, entry_routes, entry_routes_adv = entry
+            if entry_tor is tor and entry_routes == routes and entry_routes_adv == routes_adv:
+                del self._test_bgp_routes[index]
+                return
+
     def create_bgp_profile(self, name, community):
         # sonic-db-cli APPL_DB HSET "BGP_PROFILE_TABLE:FROM_SDN_SLB_ROUTES" "community_id" "1234:1235"
         self.duthost.shell("sonic-db-cli APPL_DB HSET 'BGP_PROFILE_TABLE:{}' 'community_id' '{}'"
                            .format(name, community))
+        if hasattr(self, "_test_bgp_profiles"):
+            self._test_bgp_profiles.add(name)
 
     def remove_bgp_profile(self, name):
         # sonic-db-cli APPL_DB DEL "BGP_PROFILE_TABLE:FROM_SDN_SLB_ROUTES"
         self.duthost.shell("sonic-db-cli APPL_DB DEL 'BGP_PROFILE_TABLE:{}' ".format(name))
+        if hasattr(self, "_test_bgp_profiles"):
+            self._test_bgp_profiles.discard(name)
 
     def generate_vnet_routes(self, encap_type, num_routes, postfix='', nhcount=4, fixed_route=False, nh_prefix="202"):
         nexthops = []
@@ -384,17 +457,19 @@ class Test_VNET_BGP_route_Precedence():
 
     def remove_vnet_route(self, routes):
         routes_copy = routes.copy()
-        if routes in self.vxlan_test_setup['active_routes']:
-            self.vxlan_test_setup['active_routes'].remove(routes)
         ecmp_utils.set_routes_in_dut(self.duthost,
                                      routes_copy,
                                      self.prefix_type,
                                      'DEL',
                                      bfd=False,
                                      mask=self.prefix_mask)
+        if routes in self.vxlan_test_setup['active_routes']:
+            self.vxlan_test_setup['active_routes'].remove(routes)
+        self._untrack_vnet_route(routes)
 
     def add_monitored_vnet_route(self, routes, routes_adv, profile, monitor_type):
         self.vxlan_test_setup['active_routes'].append(routes)
+        self._track_vnet_route(routes)
         if monitor_type == 'custom':
             for vnet in routes:
                 for prefix in routes[vnet]:
@@ -452,6 +527,7 @@ class Test_VNET_BGP_route_Precedence():
         return
 
     def add_bgp_route_to_neighbor_tor(self, tor, routes, routes_adv):
+        self._track_bgp_route(tor, routes, routes_adv)
         if self.prefix_type == 'v4':
             type = 'ipv4'
             type1 = 'ip'
@@ -510,6 +586,7 @@ class Test_VNET_BGP_route_Precedence():
                         ]
                 tor['host'].run_command_list(cmds)
                 Logger.info("Route %s removed from :%s", prefix, tor['host'].hostname)
+        self._untrack_bgp_route(tor, routes, routes_adv)
 
     def get_asic_db_bfd_session_id(self):
         cmd = "python /tmp/bfd_notifier.py"
