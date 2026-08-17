@@ -557,19 +557,22 @@ def test_listener_own_syslog_reconnects_after_rsyslogd_restart(duthosts, rand_on
     )
 
     # Step 10: wait for eventd container to shut down and restart (terminate_supervisor was called)
+    # Use a longer timeout than bgp: supervisord in eventd takes ~60-90s to fully
+    # stop all child processes after SIGTERM on CI infrastructure. 120s gives margin.
+    eventd_shutdown_wait = max(CONTAINER_SHUTDOWN_WAIT_SECS, 120)
     logger.info("Waiting up to {}s for '{}' to shut down".format(
-        CONTAINER_SHUTDOWN_WAIT_SECS, EVENTD_CONTAINER))
+        eventd_shutdown_wait, EVENTD_CONTAINER))
     stopped = wait_until(
-        CONTAINER_SHUTDOWN_WAIT_SECS, 2, 0,
+        eventd_shutdown_wait, 2, 0,
         lambda: not _container_is_running(duthost, EVENTD_CONTAINER)
     )
     pytest_assert(
         stopped,
         "'{}' did not shut down within {}s after '{}' was killed".format(
-            EVENTD_CONTAINER, CONTAINER_SHUTDOWN_WAIT_SECS, EVENTD_CRITICAL_PROCESS)
+            EVENTD_CONTAINER, eventd_shutdown_wait, EVENTD_CRITICAL_PROCESS)
     )
     restarted = wait_until(
-        CONTAINER_SHUTDOWN_WAIT_SECS, 3, 0,
+        eventd_shutdown_wait, 3, 0,
         _container_is_running, duthost, EVENTD_CONTAINER
     )
     pytest_assert(
