@@ -4,7 +4,6 @@ import ipaddress
 from netaddr import IPNetwork
 from jinja2 import Template
 import json
-import random
 import ptf.testutils as testutils
 import ptf.packet as scapy
 from ptf.mask import Mask
@@ -176,19 +175,27 @@ def test_bgpmon_v6(duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostnam
     if not peer_ports:
         pytest.skip("Selected DUT/ASIC has no uplink (RH/AZNG) ports")
 
+    exp_packet = build_syn_pkt(local_addr, peer_addr)
     # Flush dataplane
     ptfadapter.dataplane.flush()
     # Load bgp monitor config
-    logger.info("Configured BGPMON on {}".format(duthost))
+    logger.info("Configured BGPMON on {} and verifying SYN on {}".format(duthost, peer_ports))
     asichost.write_to_config_db(BGPMON_CONFIG_FILE)
 
-    port_index = random.randint(0, len(peer_ports)-1)
-    logger.info("Configured route to from PTF to LC on PTF port {}".format(peer_ports[port_index]))
-    router_mac = get_uplink_route_mac(duthost, local_ports[port_index])
-    ptf_interface = "eth" + str(peer_ports[port_index])
+    # Use the uplink that received the BGP SYN instead of guessing among ECMP members
+    (rcvd_port_index, rcvd_pkt) = testutils.verify_packet_any_port(
+        test=ptfadapter, pkt=exp_packet, ports=peer_ports, timeout=BGP_CONNECT_TIMEOUT
+    )
+    ptf_interface = "eth" + str(peer_ports[rcvd_port_index])
+    router_mac = get_uplink_route_mac(duthost, local_ports[rcvd_port_index])
+    logger.info("BGP SYN received on PTF port {}, attaching monitor there".format(peer_ports[rcvd_port_index]))
+
+    res = ptfhost.shell('cat /sys/class/net/{}/address'.format(ptf_interface))
+    original_mac = res['stdout']
+    ptfhost.shell("ifconfig %s hw ether %s" % (ptf_interface, scapy.Ether(rcvd_pkt).dst))
     ptfhost.shell("ip -6 addr add {} dev {}".format(peer_addr + "/128", ptf_interface))
-    ptfhost.shell("ip neigh add %s lladdr %s dev %s" % (local_addr, router_mac, ptf_interface))
-    ptfhost.shell("ip -6 route add %s dev %s" % (local_addr + "/128", ptf_interface))
+    ptfhost.shell("ip -6 neigh add %s lladdr %s dev %s" % (local_addr, router_mac, ptf_interface))
+    ptfhost.shell("ip -6 route replace %s dev %s" % (local_addr + "/128", ptf_interface))
 
     logger.info("Starting BGP Monitor on PTF")
     ptfhost.exabgp(name=BGP_MONITOR_NAME,
@@ -198,7 +205,8 @@ def test_bgpmon_v6(duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostnam
                    peer_ip=local_addr,
                    local_asn=asn,
                    peer_asn=asn,
-                   port=BGP_MONITOR_PORT)
+                   port=BGP_MONITOR_PORT,
+                   passive=True)
 
     try:
         pytest_assert(wait_tcp_connection(localhost, ptfhost.mgmt_ip, BGP_MONITOR_PORT, timeout_s=60),
@@ -210,6 +218,7 @@ def test_bgpmon_v6(duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostnam
         ptfhost.shell("ip -6 route del %s dev %s" % (local_addr + "/128", ptf_interface))
         ptfhost.shell("ip -6 neigh del %s lladdr %s dev %s" % (local_addr, router_mac, ptf_interface))
         ptfhost.shell("ip -6 addr del %s dev %s" % (peer_addr + "/128", ptf_interface))
+        ptfhost.shell("ifconfig %s hw ether %s" % (ptf_interface, original_mac))
 
 
 def test_bgpmon_no_ipv6_resolve_via_default(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
