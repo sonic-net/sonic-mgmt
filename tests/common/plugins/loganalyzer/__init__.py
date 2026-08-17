@@ -7,6 +7,56 @@ from tests.common.helpers.parallel import parallel_run, reset_ansible_local_tmp
 from .bug_handler_helper import get_bughandler_instance
 
 
+VAR_LOG_CLEANUP_THRESHOLD = 85
+VAR_LOG_FAILURE_THRESHOLD = 90
+VAR_LOG_MAINTENANCE_FAILURE_RC = 90
+VAR_LOG_USAGE_CHECK_FAILURE_RC = 91
+
+LOGROTATE_AND_CLEANUP_CMD = f"""
+logrotate_failed=0
+if ! /usr/sbin/logrotate -f /etc/logrotate.conf > /dev/null 2>&1; then
+    logrotate_failed=1
+fi
+
+get_var_log_usage() {{
+    df -P /var/log 2>/dev/null | awk 'END {{gsub(/%/, "", $5); print $5}}'
+}}
+
+usage=$(get_var_log_usage)
+case "$usage" in
+    ''|*[!0-9]*)
+        echo "Failed to determine /var/log usage" >&2
+        exit {VAR_LOG_USAGE_CHECK_FAILURE_RC}
+        ;;
+esac
+
+if [ "$usage" -ge {VAR_LOG_CLEANUP_THRESHOLD} ]; then
+    echo "/var/log usage is ${{usage}}%; deleting compressed rotated logs"
+    if ! find /var/log -xdev -type f -name '*.gz' -delete; then
+        echo "Failed to delete compressed rotated logs under /var/log" >&2
+        exit {VAR_LOG_MAINTENANCE_FAILURE_RC}
+    fi
+
+    usage=$(get_var_log_usage)
+    case "$usage" in
+        ''|*[!0-9]*)
+            echo "Failed to determine /var/log usage after cleanup" >&2
+            exit {VAR_LOG_USAGE_CHECK_FAILURE_RC}
+            ;;
+    esac
+    echo "/var/log usage after cleanup is ${{usage}}%"
+
+    if [ "$usage" -ge {VAR_LOG_FAILURE_THRESHOLD} ]; then
+        echo "/var/log usage remains above the safe limit after cleanup" >&2
+        du -kx /var/log 2>/dev/null | sort -nr | head -20 >&2
+        exit {VAR_LOG_MAINTENANCE_FAILURE_RC}
+    fi
+fi
+
+exit "$logrotate_failed"
+"""
+
+
 def _cleanup_orphaned_ansible_processes(timed_out_duts):
     """Kill orphaned ansible processes on DUTs whose analyze_logs did not complete.
 
@@ -59,12 +109,35 @@ def analyzer_logrotate(node=None, results=None):
     with DisableLogrotateCronContext(node):
         logging.info("logrotate called on {}".format(node.hostname))
         try:
-            node.shell("/usr/sbin/logrotate -f /etc/logrotate.conf > /dev/null 2>&1")
+            result = node.shell(LOGROTATE_AND_CLEANUP_CMD)
+            if result.get("stdout"):
+                logging.info(
+                    "Log maintenance on %s:\n%s",
+                    node.hostname,
+                    result["stdout"]
+                )
         except RunAnsibleModuleFail as e:
+            result = getattr(e, "results", {}) or {}
+            if result.get("rc") in [
+                VAR_LOG_MAINTENANCE_FAILURE_RC,
+                VAR_LOG_USAGE_CHECK_FAILURE_RC
+            ]:
+                raise RuntimeError(
+                    "Unable to ensure safe /var/log usage on {}:\n"
+                    "Stdout: {}\nStderr: {}".format(
+                        node.hostname,
+                        result.get("stdout", ""),
+                        result.get("stderr", "")
+                    )
+                )
             logging.warning("logrotate is failed. Command returned:\n"
                             "Stdout: {}\n"
                             "Stderr: {}\n"
-                            "Return code: {}".format(e.results["stdout"], e.results["stderr"], e.results["rc"]))
+                            "Return code: {}".format(
+                                result.get("stdout", ""),
+                                result.get("stderr", ""),
+                                result.get("rc", "")
+                            ))
 
 
 @reset_ansible_local_tmp
