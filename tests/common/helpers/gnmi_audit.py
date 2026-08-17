@@ -10,7 +10,15 @@ from tests.common.utilities import wait_until
 RPC_COMPLETION_PREFIX = "RPC_COMPLETION "
 
 
-def parse_audit_records(log_text, method, principal):
+def get_audit_log_offset(duthost):
+    return int(
+        duthost.shell(
+            "sudo stat -c %s /var/log/gnmi.log"
+        )["stdout"].strip()
+    )
+
+
+def parse_audit_records(log_text, method, principal, code=None, path=None):
     records = []
     decoder = json.JSONDecoder()
     for line in log_text.splitlines():
@@ -21,35 +29,58 @@ def parse_audit_records(log_text, method, principal):
             record, _ = decoder.raw_decode(payload)
         except json.JSONDecodeError:
             continue
-        if (record.get("method") == method
-                and record.get("principal") == principal):
-            records.append(record)
+        if (record.get("method") != method
+                or record.get("principal") != principal):
+            continue
+        if code is not None and record.get("code") != code:
+            continue
+        if path is not None and path not in (record.get("path") or []):
+            continue
+        records.append(record)
     return records
 
 
-def _audit_record_written(duthost, offset, method, principal):
+def _audit_records_written(duthost, offset, method, principal,
+                           expected_count, code, path):
     new_log = duthost.shell(
         "sudo tail -c +{} /var/log/gnmi.log".format(offset + 1),
         module_ignore_errors=True,
     )["stdout"]
-    return len(parse_audit_records(new_log, method, principal)) == 1
+    records = parse_audit_records(
+        new_log, method, principal, code=code, path=path
+    )
+    return len(records) >= expected_count
 
 
-def wait_for_audit_record(duthost, offset, method, principal):
+def wait_for_audit_records(duthost, offset, method, principal,
+                           expected_count, code=None, path=None, timeout=30):
     pytest_assert(
-        wait_until(30, 1, 0, _audit_record_written,
-                   duthost, offset, method, principal),
-        "Missing {} completion record in /var/log/gnmi.log".format(method),
+        wait_until(timeout, 1, 0, _audit_records_written,
+                   duthost, offset, method, principal,
+                   expected_count, code, path),
+        "Expected {} {} completion records in /var/log/gnmi.log".format(
+            expected_count, method
+        ),
     )
     new_log = duthost.shell(
         "sudo tail -c +{} /var/log/gnmi.log".format(offset + 1)
     )["stdout"]
-    records = parse_audit_records(new_log, method, principal)
+    records = parse_audit_records(
+        new_log, method, principal, code=code, path=path
+    )
     pytest_assert(
-        len(records) == 1,
-        "Expected exactly one {} completion record".format(method),
+        len(records) == expected_count,
+        "Expected exactly {} {} completion records, got {}".format(
+            expected_count, method, len(records)
+        ),
     )
     return records
+
+
+def wait_for_audit_record(duthost, offset, method, principal):
+    return wait_for_audit_records(
+        duthost, offset, method, principal, expected_count=1
+    )
 
 
 def read_forwarded_payloads(duthost, capture_result, capture_file):

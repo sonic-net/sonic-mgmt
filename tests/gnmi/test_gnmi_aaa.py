@@ -3,9 +3,11 @@
 import logging
 import os
 import shlex
+import time
 import uuid
 
 import pytest
+from pygnmi.client import gNMIException
 
 from tests.common.fixtures.grpc_fixtures import (  # noqa: F401
     _restart_gnoi_server,
@@ -14,9 +16,11 @@ from tests.common.fixtures.grpc_fixtures import (  # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.gnmi_audit import (
     RPC_COMPLETION_PREFIX,
+    get_audit_log_offset,
     parse_audit_records,
     read_forwarded_payloads,
     wait_for_audit_record,
+    wait_for_audit_records,
 )
 from tests.common.helpers.sonic_db import (
     CONFIG_DB,
@@ -33,7 +37,7 @@ from tests.common.helpers.syslog_helpers import (
     is_mgmt_vrf_enabled,
 )
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
-from tests.common.pygnmi_client import PygnmiClientError
+from tests.common.pygnmi_client import GetDataType, PygnmiClientError
 from tests.common.utilities import wait_until
 
 
@@ -54,6 +58,16 @@ UNMAPPED_CN_ERROR = (
     "Unauthenticated|unauthenticated|Invalid cert cname|"
     "not a trusted|common name mapping"
 )
+GET_METHOD = "/gnmi.gNMI/Get"
+SET_METHOD = "/gnmi.gNMI/Set"
+RATE_LIMIT_BURST = 60
+RATE_LIMIT_REFILL_SECONDS = 60
+CONFIG_DB_GET_PATH = (
+    "sonic-db:CONFIG_DB/localhost/DEVICE_METADATA/localhost"
+)
+CONFIG_DB_SET_PATH = "{}/cloudtype".format(CONFIG_DB_GET_PATH)
+AUDIT_GET_PATH = "/CONFIG_DB/localhost/DEVICE_METADATA/localhost"
+AUDIT_SET_PATH = "{}/cloudtype".format(AUDIT_GET_PATH)
 
 
 def _set_configdb(client):
@@ -93,8 +107,8 @@ def _get_capabilities(client):
 
 
 AUDIT_ACTIVITIES = [
-    pytest.param(_get_countersdb, "/gnmi.gNMI/Get", id="get"),
-    pytest.param(_set_configdb, "/gnmi.gNMI/Set", id="set"),
+    pytest.param(_get_countersdb, GET_METHOD, id="get"),
+    pytest.param(_set_configdb, SET_METHOD, id="set"),
 ]
 
 ROLE_ACCESS_CASES = [
@@ -261,14 +275,134 @@ def remote_syslog_capture(gnmi_tls, ptfhost):  # noqa: F811
 @pytest.mark.parametrize("operation,method", AUDIT_ACTIVITIES)
 def test_gnmi_audit_log(gnmi_tls, operation, method):  # noqa: F811
     duthost = gnmi_tls.duthost
-    offset = int(
-        duthost.shell(
-            "sudo stat -c %s /var/log/gnmi.log"
-        )["stdout"].strip()
-    )
+    offset = get_audit_log_offset(duthost)
 
     operation(gnmi_tls.pygnmi_client)
     wait_for_audit_record(duthost, offset, method, CLIENT_PRINCIPAL)
+
+
+def test_gnmi_audit_rate_limit(gnmi_tls):  # noqa: F811
+    """Verify Get outcome buckets are limited and Set remains unlimited."""
+    duthost = gnmi_tls.duthost
+    offset = get_audit_log_offset(duthost)
+
+    burst_started = time.monotonic()
+    with gnmi_tls.pygnmi_client._build_client() as client:
+        for _ in range(RATE_LIMIT_BURST + 1):
+            client.get(
+                path=[CONFIG_DB_GET_PATH],
+                encoding="json_ietf",
+            )
+
+        get_burst_seconds = time.monotonic() - burst_started
+        pytest_assert(
+            get_burst_seconds < RATE_LIMIT_REFILL_SECONDS,
+            "Get burst took {:.1f}s; requests crossed the 60s refill "
+            "boundary".format(get_burst_seconds),
+        )
+
+        with pytest.raises(gNMIException, match="unsupported request type"):
+            client.get(
+                path=[CONFIG_DB_GET_PATH],
+                datatype=str(GetDataType.STATE),
+                encoding="json_ietf",
+            )
+
+    get_records = wait_for_audit_records(
+        duthost,
+        offset,
+        GET_METHOD,
+        CLIENT_PRINCIPAL,
+        expected_count=RATE_LIMIT_BURST,
+        code="OK",
+        path=AUDIT_GET_PATH,
+    )
+    pytest_assert(
+        all(record["suppressed"] == 0 for record in get_records),
+        "In-limit Get records unexpectedly reported suppression",
+    )
+
+    unimplemented_records = wait_for_audit_records(
+        duthost,
+        offset,
+        GET_METHOD,
+        CLIENT_PRINCIPAL,
+        expected_count=1,
+        code="Unimplemented",
+        path=AUDIT_GET_PATH,
+    )
+    pytest_assert(
+        unimplemented_records[0]["suppressed"] == 0,
+        "Get/Unimplemented did not use an independent outcome bucket",
+    )
+
+    role_key = "GNMI_CLIENT_CERT|{}".format(CLIENT_PRINCIPAL)
+    # Denied Sets exercise the unlimited policy without 61 config saves.
+    original_role = redis_hget(duthost, CONFIG_DB, role_key, "role@")
+    pytest_assert(original_role, "Client certificate role is not configured")
+    try:
+        set_result = redis_hset(
+            duthost,
+            CONFIG_DB,
+            role_key,
+            **{"role@": CONFIG_DB_READONLY_ROLE}
+        )
+        pytest_assert(
+            set_result["rc"] == 0,
+            "Failed to set read-only role: {}".format(set_result),
+        )
+        with gnmi_tls.pygnmi_client._build_client() as client:
+            for _ in range(RATE_LIMIT_BURST + 1):
+                with pytest.raises(
+                    gNMIException, match=CONFIG_DB_READONLY_ROLE
+                ):
+                    client.set(
+                        update=[(CONFIG_DB_SET_PATH, '"Public"')],
+                        encoding="json_ietf",
+                    )
+    finally:
+        restore_result = redis_hset(
+            duthost, CONFIG_DB, role_key, **{"role@": original_role}
+        )
+        pytest_assert(
+            restore_result["rc"] == 0,
+            "Failed to restore certificate role: {}".format(restore_result),
+        )
+
+    set_records = wait_for_audit_records(
+        duthost,
+        offset,
+        SET_METHOD,
+        CLIENT_PRINCIPAL,
+        expected_count=RATE_LIMIT_BURST + 1,
+        path=AUDIT_SET_PATH,
+    )
+    pytest_assert(
+        all(record["suppressed"] == 0 for record in set_records),
+        "Set records were unexpectedly rate-limited",
+    )
+
+    refill_wait = max(
+        0,
+        RATE_LIMIT_REFILL_SECONDS + 1 - (time.monotonic() - burst_started),
+    )
+    time.sleep(refill_wait)
+    gnmi_tls.pygnmi_client.get(CONFIG_DB_GET_PATH)
+
+    get_records = wait_for_audit_records(
+        duthost,
+        offset,
+        GET_METHOD,
+        CLIENT_PRINCIPAL,
+        expected_count=RATE_LIMIT_BURST + 1,
+        code="OK",
+        path=AUDIT_GET_PATH,
+    )
+    pytest_assert(
+        get_records[-1]["suppressed"] == 1,
+        "First refilled Get record did not report one suppressed request: {}"
+        .format(get_records[-1]),
+    )
 
 
 @pytest.mark.parametrize("operation,method", AUDIT_ACTIVITIES)
@@ -277,11 +411,7 @@ def test_gnmi_audit_log_remote_forwarding(
 ):
     duthost = gnmi_tls.duthost
     capture_result, capture_file = remote_syslog_capture
-    offset = int(
-        duthost.shell(
-            "sudo stat -c %s /var/log/gnmi.log"
-        )["stdout"].strip()
-    )
+    offset = get_audit_log_offset(duthost)
 
     with allure.step("Generate a {} audit record".format(method)):
         operation(gnmi_tls.pygnmi_client)
@@ -345,41 +475,54 @@ def test_gnmi_default_cert_auth(gnmi_tls, operation, method):  # noqa: F811
 
 
 @pytest.mark.parametrize("role,operation,error_pattern", ROLE_ACCESS_CASES)
-def test_cn_role_access(gnmi_tls, role, operation, error_pattern):  # noqa: F811
+def test_cn_role_access(
+    gnmi_tls, role, operation, error_pattern  # noqa: F811
+):
     """Verify generic and target-specific role authorization."""
     duthost = gnmi_tls.duthost
     role_key = "GNMI_CLIENT_CERT|{}".format(CLIENT_PRINCIPAL)
+    original_role = redis_hget(duthost, CONFIG_DB, role_key, "role@")
+    pytest_assert(original_role, "Client certificate role is not configured")
 
-    if role is None:
-        delete_results = redis_del(duthost, CONFIG_DB, role_key)
-        pytest_assert(
-            len(delete_results) == 1
-            and delete_results[0]["rc"] == 0
-            and delete_results[0]["stdout"].strip() == "1",
-            "Failed to remove client certificate mapping {}: {}".format(
-                role_key, delete_results
-            ),
-        )
-    else:
-        set_result = redis_hset(
-            duthost,
-            CONFIG_DB,
-            role_key,
-            **{"role@": role}
-        )
-        pytest_assert(
-            set_result["rc"] == 0,
-            "Failed to set role {!r}: {}".format(role, set_result),
-        )
-        configured_fields = redis_hgetall(duthost, CONFIG_DB, role_key)
-        pytest_assert(
-            "role@" in configured_fields
-            and configured_fields["role@"] == role,
-            "Expected role {!r}, got {}".format(role, configured_fields),
-        )
+    try:
+        if role is None:
+            delete_results = redis_del(duthost, CONFIG_DB, role_key)
+            pytest_assert(
+                len(delete_results) == 1
+                and delete_results[0]["rc"] == 0
+                and delete_results[0]["stdout"].strip() == "1",
+                "Failed to remove client certificate mapping {}: {}".format(
+                    role_key, delete_results
+                ),
+            )
+        else:
+            set_result = redis_hset(
+                duthost,
+                CONFIG_DB,
+                role_key,
+                **{"role@": role}
+            )
+            pytest_assert(
+                set_result["rc"] == 0,
+                "Failed to set role {!r}: {}".format(role, set_result),
+            )
+            configured_fields = redis_hgetall(duthost, CONFIG_DB, role_key)
+            pytest_assert(
+                "role@" in configured_fields
+                and configured_fields["role@"] == role,
+                "Expected role {!r}, got {}".format(role, configured_fields),
+            )
 
-    if error_pattern:
-        with pytest.raises(PygnmiClientError, match=error_pattern):
+        if error_pattern:
+            with pytest.raises(PygnmiClientError, match=error_pattern):
+                operation(gnmi_tls.pygnmi_client)
+        else:
             operation(gnmi_tls.pygnmi_client)
-    else:
-        operation(gnmi_tls.pygnmi_client)
+    finally:
+        restore_result = redis_hset(
+            duthost, CONFIG_DB, role_key, **{"role@": original_role}
+        )
+        pytest_assert(
+            restore_result["rc"] == 0,
+            "Failed to restore certificate role: {}".format(restore_result),
+        )
