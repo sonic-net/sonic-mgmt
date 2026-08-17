@@ -59,6 +59,8 @@ IGNORE_FIELDS = {
     "SAI_FLOW_ENTRY_ATTR_VERSION",
 }
 
+SONIC_DPU_FLOW_DUMP_MAX_FLOWS_DEFAULT = 1024
+
 
 def flow_key(flow):
     return tuple(flow[field] for field in FLOW_KEY_FIELDS)
@@ -116,21 +118,52 @@ def log_flow_map_diff(flow_map1, flow_map2, host1, host2):
     logger.warning(f" flows with attribute differences:\n{pformat(attr_diffs, sort_dicts=False, width=120)}")
 
 
-def compare_flow_tables_sonic_dpu_flow_dump(dpuhost1, dpuhost2):
-    output1 = dpuhost1.shell("sudo sonic-dpu-flow-dump.py")["stdout"]
-    output2 = dpuhost2.shell("sudo sonic-dpu-flow-dump.py")["stdout"]
+def compare_flow_tables_sonic_dpu_flow_dump(
+    dpuhost1, dpuhost2, max_flows, verbose=True, include_flow_state=False,
+    min_expected_flows=None,
+):
+    parts = ["sudo", "sonic-dpu-flow-dump.py"]
+    if not include_flow_state:
+        parts.append("--no-flow-state")
+    parts.append("-m")
+    parts.append(str(int(max_flows)))
+    dump_cmd = " ".join(parts)
+    output1 = dpuhost1.shell(dump_cmd)["stdout"]
+    output2 = dpuhost2.shell(dump_cmd)["stdout"]
 
-    logger.debug(f"dump on {dpuhost1.hostname}:\n{output1}")
-    logger.debug(f"dump on {dpuhost2.hostname}:\n{output2}")
+    if verbose:
+        logger.info(f"dump on {dpuhost1.hostname}:\n{output1}")
+        logger.info(f"dump on {dpuhost2.hostname}:\n{output2}")
 
     flow_map1 = parse_sonic_dpu_flow_dump_output(output1)
     if flow_map1 is None:
         logger.warning(f" flows table for {dpuhost1.hostname} is None")
         return False
+
     flow_map2 = parse_sonic_dpu_flow_dump_output(output2)
     if flow_map2 is None:
         logger.warning(f" flows table for {dpuhost2.hostname} is None")
         return False
+
+    if min_expected_flows is not None and min_expected_flows > 0:
+
+        if len(flow_map1) < min_expected_flows:
+            logger.warning(
+                "%s: parsed flow count %s < min_expected_flows %s",
+                dpuhost1.hostname,
+                len(flow_map1),
+                min_expected_flows,
+            )
+            return False
+
+        if len(flow_map2) < min_expected_flows:
+            logger.warning(
+                "%s: parsed flow count %s < min_expected_flows %s",
+                dpuhost2.hostname,
+                len(flow_map2),
+                min_expected_flows,
+            )
+            return False
 
     if flow_map1 == flow_map2:
         logger.info(f" flows for {dpuhost1.hostname} and {dpuhost2.hostname} are identical")
@@ -141,7 +174,7 @@ def compare_flow_tables_sonic_dpu_flow_dump(dpuhost1, dpuhost2):
         return False
 
 
-def compare_flow_tables_pdsctl(dpuhost1, dpuhost2):
+def compare_flow_tables_pdsctl(dpuhost1, dpuhost2, verbose=True):
     output1 = dpuhost1.shell("pdsctl show flow")["stdout"]
     output2 = dpuhost2.shell("pdsctl show flow")["stdout"]
     flow_table1 = parse_pdsctl_show_flow_output(output1)
@@ -154,20 +187,53 @@ def compare_flow_tables_pdsctl(dpuhost1, dpuhost2):
         logger.warning(f" flows table for {dpuhost2.hostname} is empty")
         return False
 
-    logger.info(f"flows on primary: {flow_table1}")
-    logger.info(f"flows on standby: {flow_table2}")
+    if verbose:
+        logger.info(f"flows on primary: {flow_table1}")
+        logger.info(f"flows on standby: {flow_table2}")
 
-    if flow_table1 == flow_table2:
-        logger.info(f" flows for {dpuhost1.hostname} and {dpuhost2.hostname} are identical")
+    def without_session(flow_list):
+        return [{k: v for k, v in entry.items() if k != 'Session'} for entry in flow_list]
+
+    if without_session(flow_table1) == without_session(flow_table2):
+        logger.info(f" flows for {dpuhost1.hostname} and {dpuhost2.hostname} are identical (ignoring Session id)")
         return True
     else:
         logger.warning(f" flows for {dpuhost1.hostname} and {dpuhost2.hostname} are different")
         return False
 
 
-def compare_flow_tables(dpuhost1, dpuhost2):
+def compare_flow_tables(dpuhost1, dpuhost2, verbose=True, **kwargs):
+    """
+    Compare flow tables between two DPU hosts (sonic-dpu-flow-dump on non-Pensando).
+
+    Optional kwargs: max_flows (int, default SONIC_DPU_FLOW_DUMP_MAX_FLOWS_DEFAULT),
+    flow_state (bool, default False — False adds --no-flow-state to the dump command).
+    min_expected_flows (int, optional) — for sonic-dpu-flow-dump only: require at least this
+    many flows on each DPU after parse (and non-empty stdout) before treating equality as success.
+    """
+    max_flows = kwargs.pop("max_flows", None)
+    flow_state = kwargs.pop("flow_state", None)
+    min_expected_flows = kwargs.pop("min_expected_flows", None)
+    if kwargs:
+        unexpected = ", ".join(sorted(kwargs))
+        raise TypeError("compare_flow_tables() got unexpected keyword arguments: %s" % unexpected)
+
+    if max_flows is None:
+        max_flows = SONIC_DPU_FLOW_DUMP_MAX_FLOWS_DEFAULT
+    if flow_state is None:
+        flow_state = False
+
+    include_flow_state = bool(flow_state)
+
     if 'pensando' not in dpuhost1.facts['asic_type'] or 'pensando' not in dpuhost2.facts['asic_type']:
         logger.info("not pensando, using sonic-dpu-flow-dump.py")
-        return compare_flow_tables_sonic_dpu_flow_dump(dpuhost1, dpuhost2)
+        return compare_flow_tables_sonic_dpu_flow_dump(
+            dpuhost1,
+            dpuhost2,
+            verbose=verbose,
+            max_flows=max_flows,
+            include_flow_state=include_flow_state,
+            min_expected_flows=min_expected_flows,
+        )
     else:
-        return compare_flow_tables_pdsctl(dpuhost1, dpuhost2)
+        return compare_flow_tables_pdsctl(dpuhost1, dpuhost2, verbose=verbose)

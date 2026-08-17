@@ -119,13 +119,21 @@
   shell: config reload -y -f
   become: true
 
-- name: wait for SONiC update config db finish
-  pause:
-    seconds: 180
+- name: wait for swss container to be running after config reload
+  shell: docker ps --filter name=swss --format '{{ '{{' }}.Status{{ '}}' }}' | grep -q '^Up'
+  become: true
+  register: swss_status
+  until: swss_status.rc == 0
+  retries: 24
+  delay: 15
 
 - name: Shutdown arp_update process in swss (avoid fanout broadcasting it's MAC address)
   shell: docker exec -i swss supervisorctl stop arp_update
   become: yes
+  retries: 3
+  delay: 30
+  register: arp_update_result
+  until: arp_update_result.rc == 0
 
 - name: Setup broadcom based fanouts
   block:

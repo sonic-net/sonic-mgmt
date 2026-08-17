@@ -1,4 +1,4 @@
-{% set converged = topo_is_multi_vrf|default(false) %}
+{% set converged = topo_is_multi_vrf|default(false)|bool %}
 {% set host = configuration[hostname] %}
 {% if converged %}
     {% set conv_config = convergence_data["converged_peers"][hostname] %}

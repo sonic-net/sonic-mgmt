@@ -230,6 +230,7 @@ class LoadExtraDpuConfigModule(object):
 
                 # Run config-setup factory to generate factory default config_db.json
                 self.module.log("Running config-setup factory on DPU {}".format(dpu_ip))
+                self.execute_command(ssh, dpu_ip, f"sudo rm -f {DEFAULT_CONFIG_FILE}")
                 if not self.execute_command(ssh, dpu_ip, CONFIG_SETUP_FACTORY_CMD):
                     failure_count += 1
                     self.module.warn("Failed to configure DPU {} at {}".format(i + 1, dpu_ip))

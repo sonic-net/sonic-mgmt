@@ -21,12 +21,13 @@ class Arista(host_device.HostDevice):
     SSH_CMD_TIMEOUT = 10
 
     def __init__(self, ip, queue, test_params, log_cb=None,  # nosemgrep: hardcoded-password-default-argument
-                 login='admin', password='123456'):
+                 login='admin', password='123456', connect_timeout=None):
         self.ip = ip
         self.queue = queue
         self.log_cb = log_cb
         self.login = login
         self.password = password
+        self.connect_timeout = connect_timeout
         self.conn = None
         self.arista_prompt = None
         self.v4_routes = list(ast.literal_eval(
@@ -50,8 +51,17 @@ class Arista(host_device.HostDevice):
     def connect(self):
         self.conn = paramiko.SSHClient()
         self.conn.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        self.conn.connect(self.ip, username=self.login,
-                          password=self.password, allow_agent=False, look_for_keys=False)
+        connect_kwargs = {
+            'username': self.login,
+            'password': self.password,
+            'allow_agent': False,
+            'look_for_keys': False,
+        }
+        if self.connect_timeout is not None:
+            connect_kwargs['timeout'] = self.connect_timeout
+            connect_kwargs['banner_timeout'] = self.connect_timeout
+            connect_kwargs['auth_timeout'] = self.connect_timeout
+        self.conn.connect(self.ip, **connect_kwargs)
         self.shell = self.conn.invoke_shell()
         # avoid paramiko Channel.recv() stuck forever
         self.shell.settimeout(Arista.SSH_CMD_TIMEOUT)

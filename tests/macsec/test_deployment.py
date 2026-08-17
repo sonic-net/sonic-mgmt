@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.macsec_required,
-    pytest.mark.topology("t0", "t2", "t0-sonic"),
+    pytest.mark.topology("t0", "t2", "lrh", "urh", "t0-sonic"),
 ]
 
 

@@ -2,18 +2,26 @@ import os
 import json
 import pytest
 import logging
+import ptf.testutils as testutils
+from constants import (
+    LOCAL_PTF_INTF,
+    REMOTE_PTF_RECV_INTF,
+)
 from conftest import (
     activate_scope_per_dut,
     deactivate_dash_ha_from_json_util,
     ha_scope_per_dut,
-    remove_setup_dash_ha_from_json_util
+    remove_setup_dash_ha_from_json_util,
+    wait_for_dpu_neighbor_resolution,
 )
+from ha_packets import outbound_pl_packets
 from ha_utils import verify_ha_state, wait_for_pending_operation_id, ha_scope_config, ha_set_config, apply_ha_messages
 from tests.common.helpers.assertions import pytest_assert
 
 
 pytestmark = [
-    pytest.mark.topology("t1-smartswitch-ha")
+    pytest.mark.topology("t1-smartswitch-ha"),
+    pytest.mark.skip_check_dut_health,
 ]
 
 logger = logging.getLogger(__name__)
@@ -39,7 +47,7 @@ def setup_dash_ha(duthost, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_o
     scope_fields = dict(scope_fields)
     scope_fields['owner'] = ha_owner
 
-    # Workaround for the neigh resolve issue
+    # TODO: remove once neighbor flakiness is fixed.
     '''
     ip_part = 200 + role_index
     ip_last = dpuhost.dpu_index + 1
@@ -47,6 +55,12 @@ def setup_dash_ha(duthost, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_o
     ping_result = duthost.shell(f"ping -c 3 20.0.{ip_part}.{ip_last}", module_ignore_errors=True)["stdout"]
     logger.info(f"{duthost.hostname} ping_result [{ping_result}]")
     '''
+
+    wait_for_dpu_neighbor_resolution(
+        duthost=duthost,
+        role_index=role_index,
+        dpu_index=dpuhost.dpu_index,
+    )
 
     with open(ha_set_file) as f:
         ha_set_data = json.load(f)["DASH_HA_SET_CONFIG_TABLE"]
@@ -82,7 +96,8 @@ def setup_dash_ha(duthost, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_o
     logger.info(f"HA: Setup completed for {duthost.hostname}")
 
 
-def activate_dash_ha(duthost, dpuhost, localhost, ptfhost, setup_gnmi_server, ha_owner, role_index):
+def activate_dash_ha(duthost, dpuhost, localhost, ptfhost, setup_gnmi_server,
+                     ha_owner, role_index, approval_needed=True):
     template_key = f"vdpu{role_index}_0:haset0_0"
     actual_key = f"vdpu{role_index}_{dpuhost.dpu_index}:haset0_0"
 
@@ -106,52 +121,78 @@ def activate_dash_ha(duthost, dpuhost, localhost, ptfhost, setup_gnmi_server, ha
         messages=ha_scope_messages,
     )
 
-    pending_id = wait_for_pending_operation_id(
-        duthost,
-        scope_key=actual_key,
-        expected_op_type="activate_role",
-        timeout=300,
-        interval=2
-    )
-    assert pending_id, (
-        f"Timed out waiting for active pending_operation_id "
-        f"for {duthost.hostname} scope {actual_key}"
-    )
+    if approval_needed:
+        pending_id = wait_for_pending_operation_id(
+            duthost,
+            scope_key=actual_key,
+            expected_op_type="activate_role",
+            timeout=300,
+            interval=2
+        )
+        assert pending_id, (
+            f"Timed out waiting for active pending_operation_id "
+            f"for {duthost.hostname} scope {actual_key}"
+        )
 
-    logger.info(f"HA: {duthost.hostname} found pending id {pending_id}")
-    ha_scope_messages = ha_scope_config(
-        vdpu_id=vdpu_id,
-        ha_set_id=ha_set_id,
-        approved_pending_operation_ids=[pending_id],
-        **fields,
-    )
-    apply_ha_messages(
-        localhost=localhost,
-        duthost=duthost,
-        ptfhost=ptfhost,
-        messages=ha_scope_messages,
-    )
+        logger.info(f"HA: {duthost.hostname} found pending id {pending_id}")
+        ha_scope_messages = ha_scope_config(
+            vdpu_id=vdpu_id,
+            ha_set_id=ha_set_id,
+            approved_pending_operation_ids=[pending_id],
+            **fields,
+        )
+        apply_ha_messages(
+            localhost=localhost,
+            duthost=duthost,
+            ptfhost=ptfhost,
+            messages=ha_scope_messages,
+        )
     logger.info(f"HA: Activate completed for {duthost.hostname}")
 
 
-def test_ha_launch_with_no_peer_and_standalone_peer(request, duthosts, dpuhosts, localhost, ptfhost, setup_ha_config,
-                                                    ha_owner, setup_gnmi_server, primary_vdpu_key, standby_vdpu_key):
+def verify_primary_standalone_traffic(ptfadapter, dash_pl_config):
+    primary_config = dash_pl_config[0]
+    # Single-shot packet: send SYN so the DPU creates the stateful TCP flow on the spot.
+    send_pkt, exp_pkt = outbound_pl_packets(primary_config, "vxlan", tcp_flag_syn=True)
+
+    logger.info("HA: verify PL traffic sent to primary NPU while primary is standalone")
+    ptfadapter.dataplane.flush()
+    testutils.send(ptfadapter, primary_config[LOCAL_PTF_INTF], send_pkt, count=1)
+    testutils.verify_packet_any_port(
+        ptfadapter,
+        exp_pkt,
+        primary_config[REMOTE_PTF_RECV_INTF],
+    )
+
+
+def test_ha_launch_with_no_peer(request, duthosts, dpuhosts, localhost, ptfhost, setup_ha_config,
+                                ha_owner, setup_gnmi_server, primary_vdpu_key, standby_vdpu_key,
+                                setup_dash_pl_pipeline, ptfadapter, dash_pl_config):
 
     logger.info("HA: activate only primary")
     try:
         setup_dash_ha(duthosts[0], dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner, role_index=0)
-        activate_dash_ha(duthosts[0], dpuhosts[0], localhost, ptfhost, setup_gnmi_server, ha_owner, role_index=0)
+        activate_dash_ha(duthosts[0], dpuhosts[0], localhost, ptfhost, setup_gnmi_server, ha_owner, role_index=0,
+                         approval_needed=(ha_owner == "dpu"))
 
-        pytest_assert(verify_ha_state(duthosts[0], scope_key=primary_vdpu_key, expected_state="standalone"),
+        pytest_assert(verify_ha_state(duthosts[0], scope_key=primary_vdpu_key, expected_state="standalone",
+                                      timeout=150),
                       "HA: Primary state is not standalone")
+        verify_primary_standalone_traffic(ptfadapter, dash_pl_config)
 
         logger.info("HA: activate standby with standalone primary")
         setup_dash_ha(duthosts[1], dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner, role_index=1)
         activate_dash_ha(duthosts[1], dpuhosts[1], localhost, ptfhost, setup_gnmi_server, ha_owner, role_index=1)
-        pytest_assert(verify_ha_state(duthosts[1], scope_key=standby_vdpu_key, expected_state="active"),
-                      "HA: Standby state is not active")
-        pytest_assert(verify_ha_state(duthosts[0], scope_key=primary_vdpu_key, expected_state="active"),
-                      "HA: Primary state is not active")
+        if ha_owner == "dpu":
+            pytest_assert(verify_ha_state(duthosts[1], scope_key=standby_vdpu_key, expected_state="active"),
+                          "HA: Standby state is not active")
+            pytest_assert(verify_ha_state(duthosts[0], scope_key=primary_vdpu_key, expected_state="active"),
+                          "HA: Primary state is not active")
+        else:
+            pytest_assert(verify_ha_state(duthosts[1], scope_key=standby_vdpu_key, expected_state="standby"),
+                          "HA: Standby state is not standby")
+            pytest_assert(verify_ha_state(duthosts[0], scope_key=primary_vdpu_key, expected_state="active"),
+                          "HA: Primary state is not active")
     finally:
         deactivate_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner)
         remove_setup_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner)

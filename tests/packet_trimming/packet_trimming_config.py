@@ -1,6 +1,7 @@
 class PacketTrimmingConfig:
     DSCP = 48
     COUNTER_DSCP = 3   # Map to queue2
+    TRIM_QUEUE = 6
 
     @staticmethod
     def get_trim_size(duthost):
@@ -28,7 +29,7 @@ class PacketTrimmingConfig:
             # not support being modified
             return th5_queue.get(duthost.facts['hwsku'], 9)
         else:
-            return 6
+            return PacketTrimmingConfig.TRIM_QUEUE
 
     @staticmethod
     def get_valid_trim_configs(duthost, asymmetric=False):
@@ -101,3 +102,12 @@ class PacketTrimmingConfig:
             return th5_queue.get(duthost.facts['hwsku'], 0)
 
         return PacketTrimmingConfig.COUNTER_DSCP
+
+    @staticmethod
+    def get_verify_packet_count(duthost):
+        if duthost.get_asic_name() == 'th5':
+            # Broadcom shaper will always leak some packets
+            # More verification packets are required to see trimming
+            return 1000
+        else:
+            return 100

@@ -2,7 +2,7 @@ import logging
 import pytest
 import re
 
-from .helper import gnmi_get, gnmi_subscribe_polling, gnmi_subscribe_streaming_sample
+from .helper import gnmi_get, gnmi_subscribe_polling, gnmi_subscribe_streaming_sample, get_namespace
 from tests.common.helpers.assertions import pytest_assert
 
 
@@ -26,12 +26,16 @@ def test_gnmi_queue_buffer_cnt(duthosts, rand_one_dut_hostname, ptfhost):
     logger.info('start gnmi output testing')
     iface = "Ethernet0"
     # Get UC for Ethernet0
-    dut_command = "show queue counters %s" % iface
+    namespace_name = get_namespace(duthost)
+    if duthost.is_multi_asic:
+        dut_command = f"show queue counters {iface} -n {namespace_name}"
+    else:
+        dut_command = f"show queue counters {iface}"
     result = duthost.shell(dut_command, module_ignore_errors=True)
     uc_list = re.findall(r"UC(\d+)", result["stdout"])
     for i in uc_list:
         # Read UC
-        path_list = ["/sonic-db:COUNTERS_DB/localhost/COUNTERS_QUEUE_NAME_MAP/" + iface + ":" + str(i)]
+        path_list = [f"/sonic-db:COUNTERS_DB/{namespace_name}/COUNTERS_QUEUE_NAME_MAP/" + iface + ":" + str(i)]
         msg_list = gnmi_get(duthost, ptfhost, path_list)
         result = msg_list[0]
         pytest_assert("oid" in result, (
@@ -40,7 +44,7 @@ def test_gnmi_queue_buffer_cnt(duthosts, rand_one_dut_hostname, ptfhost):
         ).format(result))
 
     # Read invalid UC
-    path_list = ["/sonic-db:COUNTERS_DB/localhost/COUNTERS_QUEUE_NAME_MAP/" + iface + ":abc"]
+    path_list = [f"/sonic-db:COUNTERS_DB/{namespace_name}/COUNTERS_QUEUE_NAME_MAP/" + iface + ":abc"]
     try:
         msg_list = gnmi_get(duthost, ptfhost, path_list)
     except Exception as e:
@@ -62,14 +66,15 @@ def test_gnmi_output(duthosts, rand_one_dut_hostname, ptfhost):
         pytest.skip("Skipping test as no Ethernet0 frontpanel port on supervisor")
     logger.info('start gnmi output testing')
     # Get COUNTERS table key for Ethernet0
-    dut_command = "sonic-db-cli COUNTERS_DB hget COUNTERS_PORT_NAME_MAP Ethernet0"
-    result = duthost.shell(dut_command, module_ignore_errors=True)
+    namespace_name = get_namespace(duthost)
+    asic = duthost.get_port_asic_instance("Ethernet0")
+    result = asic.run_sonic_db_cli_cmd("COUNTERS_DB hget COUNTERS_PORT_NAME_MAP Ethernet0")
     counter_key = result['stdout'].strip()
     assert "oid" in counter_key, (
         "Invalid oid: {}."
     ).format(counter_key)
 
-    path_list = ["/sonic-db:COUNTERS_DB/localhost/COUNTERS/" + counter_key]
+    path_list = [f"/sonic-db:COUNTERS_DB/{namespace_name}/COUNTERS/" + counter_key]
     msg_list = gnmi_get(duthost, ptfhost, path_list)
     result = msg_list[0]
     logger.info("GNMI Server output")
@@ -82,11 +87,13 @@ def test_gnmi_output(duthosts, rand_one_dut_hostname, ptfhost):
 test_data_counters_port_name_map = [
     {
         "name": "Subscribe table for COUNTERS_PORT_NAME_MAP",
-        "path": "/sonic-db:COUNTERS_DB/localhost/COUNTERS_PORT_NAME_MAP"
+        "path": "/sonic-db:COUNTERS_DB/",
+        "port": "",
     },
     {
         "name": "Subscribe table field for COUNTERS_PORT_NAME_MAP",
-        "path": "/sonic-db:COUNTERS_DB/localhost/COUNTERS_PORT_NAME_MAP/Ethernet0"
+        "path": "/sonic-db:COUNTERS_DB/",
+        "port": "/Ethernet0"
     }
 ]
 
@@ -101,7 +108,8 @@ def test_gnmi_counterdb_polling_01(duthosts, rand_one_dut_hostname, ptfhost, tes
     if duthost.is_supervisor_node():
         pytest.skip("Skipping test as no Ethernet0 frontpanel port on supervisor")
     exp_cnt = 3
-    path_list = [test_data["path"]]
+    namespace_name = get_namespace(duthost)
+    path_list = [f"{test_data['path']}{namespace_name}/COUNTERS_PORT_NAME_MAP{test_data['port']}"]
     msg, _ = gnmi_subscribe_polling(duthost, ptfhost, path_list, 1000, exp_cnt)
     assert msg.count("oid") >= exp_cnt, (
         "{}: {}. "
@@ -120,8 +128,9 @@ def test_gnmi_counterdb_polling_02(duthosts, rand_one_dut_hostname, ptfhost):
         pytest.skip("Skipping test as no Ethernet0 frontpanel port on supervisor")
     exp_cnt = 3
     # Get COUNTERS table key for Ethernet0
-    dut_command = "sonic-db-cli COUNTERS_DB hget COUNTERS_PORT_NAME_MAP Ethernet0"
-    result = duthost.shell(dut_command, module_ignore_errors=True)
+    namespace_name = get_namespace(duthost)
+    asic = duthost.get_port_asic_instance("Ethernet0")
+    result = asic.run_sonic_db_cli_cmd("COUNTERS_DB hget COUNTERS_PORT_NAME_MAP Ethernet0")
     counter_key = result['stdout'].strip()
     assert "oid" in counter_key, (
         "Invalid oid: {}. "
@@ -129,7 +138,8 @@ def test_gnmi_counterdb_polling_02(duthosts, rand_one_dut_hostname, ptfhost):
     ).format(counter_key)
 
     # Subscribe table
-    path_list = ["/sonic-db:COUNTERS_DB/localhost/COUNTERS/"]
+    counters_path = f"/sonic-db:COUNTERS_DB/{namespace_name}/COUNTERS/"
+    path_list = [counters_path]
     msg, _ = gnmi_subscribe_polling(duthost, ptfhost, path_list, 1000, exp_cnt)
     assert msg.count("SAI_PORT_STAT_IF_IN_ERRORS") >= exp_cnt, (
         "Expected count of 'SAI_PORT_STAT_IF_IN_ERRORS' not met. "
@@ -139,7 +149,7 @@ def test_gnmi_counterdb_polling_02(duthosts, rand_one_dut_hostname, ptfhost):
     ).format(exp_cnt, msg.count("SAI_PORT_STAT_IF_IN_ERRORS"), msg)
 
     # Subscribe table key
-    path_list = ["/sonic-db:COUNTERS_DB/localhost/COUNTERS/" + counter_key]
+    path_list = [counters_path + counter_key]
     msg, _ = gnmi_subscribe_polling(duthost, ptfhost, path_list, 1000, exp_cnt)
     assert msg.count("SAI_PORT_STAT_IF_IN_ERRORS") >= exp_cnt, (
         "Expected count of 'SAI_PORT_STAT_IF_IN_ERRORS' not met. "
@@ -148,7 +158,7 @@ def test_gnmi_counterdb_polling_02(duthosts, rand_one_dut_hostname, ptfhost):
         "Message: {}"
     ).format(exp_cnt, msg.count("SAI_PORT_STAT_IF_IN_ERRORS"), msg)
     # Subscribe table field
-    path_list = ["/sonic-db:COUNTERS_DB/localhost/COUNTERS/" + counter_key + "/SAI_PORT_STAT_IF_IN_ERRORS"]
+    path_list = [counters_path + counter_key + "/SAI_PORT_STAT_IF_IN_ERRORS"]
     msg, _ = gnmi_subscribe_polling(duthost, ptfhost, path_list, 1000, exp_cnt)
     assert msg.count("SAI_PORT_STAT_IF_IN_ERRORS") >= exp_cnt, (
         "Expected count of 'SAI_PORT_STAT_IF_IN_ERRORS' not met. "
@@ -168,7 +178,8 @@ def test_gnmi_counterdb_streaming_sample_01(duthosts, rand_one_dut_hostname, ptf
     if duthost.is_supervisor_node():
         pytest.skip("Skipping test as no Ethernet0 frontpanel port on supervisor")
     exp_cnt = 3
-    path_list = [test_data["path"]]
+    namespace_name = get_namespace(duthost)
+    path_list = [f"{test_data['path']}{namespace_name}/COUNTERS_PORT_NAME_MAP{test_data['port']}"]
     msg, _ = gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, 0, exp_cnt, origin="sonic-db")
     assert msg.count("oid") >= exp_cnt, (
         "Expected count of 'oid' not met. "
@@ -187,9 +198,10 @@ def test_gnmi_counterdb_streaming_sample_02(duthosts, rand_one_dut_hostname, ptf
     if duthost.is_supervisor_node():
         pytest.skip("Skipping test as no Ethernet0 frontpanel port on supervisor")
     exp_cnt = 3
+    namespace_name = get_namespace(duthost)
     # Get COUNTERS table key for Ethernet0
-    dut_command = "sonic-db-cli COUNTERS_DB hget COUNTERS_PORT_NAME_MAP Ethernet0"
-    result = duthost.shell(dut_command, module_ignore_errors=True)
+    asic = duthost.get_port_asic_instance("Ethernet0")
+    result = asic.run_sonic_db_cli_cmd("COUNTERS_DB hget COUNTERS_PORT_NAME_MAP Ethernet0")
     counter_key = result['stdout'].strip()
     assert "oid" in counter_key, (
         "Invalid oid: {}. "
@@ -197,7 +209,7 @@ def test_gnmi_counterdb_streaming_sample_02(duthosts, rand_one_dut_hostname, ptf
     ).format(counter_key)
 
     # Subscribe table field
-    path_list = ["/sonic-db:COUNTERS_DB/localhost/COUNTERS/" + counter_key + "/SAI_PORT_STAT_IF_IN_ERRORS"]
+    path_list = [f"/sonic-db:COUNTERS_DB/{namespace_name}/COUNTERS/" + counter_key + "/SAI_PORT_STAT_IF_IN_ERRORS"]
     msg, _ = gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, 0, exp_cnt, origin="sonic-db")
     assert msg.count("SAI_PORT_STAT_IF_IN_ERRORS") >= exp_cnt, (
         "Expected count of 'SAI_PORT_STAT_IF_IN_ERRORS' not met. "

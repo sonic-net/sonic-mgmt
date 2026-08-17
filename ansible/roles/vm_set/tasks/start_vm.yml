@@ -65,7 +65,7 @@
 - name: Define vm {{ vm_name }}, hwsku {{ hwsku }}
   virt: name={{ vm_name }}
         command=define
-        xml="{{ lookup('template', 'templates/{{ vm_xml_template }}') }}"
+        xml="{{ lookup('template', 'templates/' ~ vm_xml_template) }}"
         uri=qemu:///system
   when: vm_name not in vm_list_defined.list_vms
   become: yes

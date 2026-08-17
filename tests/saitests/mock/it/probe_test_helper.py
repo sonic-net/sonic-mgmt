@@ -251,7 +251,7 @@ def create_test_params_for_ingress_drop(
     point_probing_step_size=1,
     probing_port_ids=None,
     pg=3,
-    use_pg_drop_counter=False,
+    ingress_drop_counter_mode='port_drop',
     **kwargs
 ):
     """
@@ -270,9 +270,9 @@ def create_test_params_for_ingress_drop(
     )
 
     # Ingress Drop specific
-    test_params['use_pg_drop_counter'] = use_pg_drop_counter
+    test_params['ingress_drop_counter_mode'] = ingress_drop_counter_mode
     test_params['executor_env'] = 'sim'  # Ensure sim environment
-    test_params['_mock_executor']['use_pg_drop_counter'] = use_pg_drop_counter
+    test_params['_mock_executor']['ingress_drop_counter_mode'] = ingress_drop_counter_mode
 
     return test_params
 
@@ -567,16 +567,11 @@ def create_ingress_drop_probe_instance(
     point_probing_step_size=1,
     probing_port_ids=None,
     pg=3,
-    use_pg_drop_counter=False,
+    ingress_drop_counter_mode='port_drop',
     **kwargs
 ):
     """
     Create IngressDropProbing instance (using V2 Minimal Mock strategy).
-
-    V2 improvements:
-    - [OK] Run real probe_base.setUp()
-    - [OK] Run real probe_base.parse_param()
-    - [OK] Only mock PTF low-level and hardware operations
 
     Args:
         actual_threshold: Mock executor's threshold value
@@ -587,7 +582,7 @@ def create_ingress_drop_probe_instance(
         point_probing_step_size: Step size for Point Probing
         probing_port_ids: Port IDs for probing
         pg: Priority Group number
-        use_pg_drop_counter: Use PG drop counter instead of port drop counter
+        ingress_drop_counter_mode: Counter mode - 'pg_drop', 'port_buffer_drop', or 'port_drop'
         **kwargs: Additional mock executor parameters
 
     Returns:
@@ -605,7 +600,7 @@ def create_ingress_drop_probe_instance(
         point_probing_step_size=point_probing_step_size,
         probing_port_ids=probing_port_ids,
         pg=pg,
-        use_pg_drop_counter=use_pg_drop_counter,
+        ingress_drop_counter_mode=ingress_drop_counter_mode,
         **kwargs
     )
 

@@ -111,6 +111,12 @@
 
   when: not skip_this_vm and (vm_type | lower) == "vsonic"
 
+# Initialize cisco_vmhost before the block so that ansible-core >= 2.20 does not
+# fail when eagerly templating delegate_to on skipped tasks.
+- set_fact:
+    cisco_vmhost: ""
+  when: cisco_vmhost is not defined
+
 - block:
   - name: Wait until vm {{ vm_name }} is loaded
     cisco_kickstart: telnet_port={{ serial_port }}

@@ -2,9 +2,8 @@ import pytest
 import random
 import time
 import logging
-import re
 
-from tests.common.dhcp_relay_utils import init_dhcpmon_counters, validate_dhcpmon_counters
+from tests.common.dhcp_relay_utils import init_dhcpmon_counters, validate_dhcpmon_counters, restart_dhcpmon_in_debug
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
@@ -20,7 +19,7 @@ from tests.common import config_reload
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common.dhcp_relay_utils import check_routes_to_dhcp_server
-from tests.common.dhcp_relay_utils import restart_dhcp_service
+from tests.common.dhcp_relay_utils import restart_dhcp_service, wait_dhcp_relay_ready
 from tests.common.dhcp_relay_utils import enable_sonic_dhcpv4_relay_agent  # noqa: F401
 
 pytestmark = [
@@ -122,7 +121,7 @@ def enable_source_port_ip_in_relay(duthosts, rand_one_dut_hostname, tbinfo, requ
             create_checkpoint(duthost, check_point)
             output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
             expect_op_success(duthost, output)
-            restart_dhcp_service(duthost)
+            restart_dhcp_service(duthost, ['isc'])
 
             def dhcp_ready(enable_source_port_ip_in_relay):
                 dhcp_relay_running = duthost.is_service_fully_started("dhcp_relay")
@@ -143,7 +142,7 @@ def enable_source_port_ip_in_relay(duthosts, rand_one_dut_hostname, tbinfo, requ
             logger.info("Rolled back to original checkpoint")
             rollback_or_reload(duthost, check_point)
             delete_checkpoint(duthost, check_point)
-            restart_dhcp_service(duthost)
+            restart_dhcp_service(duthost, ['isc'])
             pytest_assert(wait_until(60, 2, 0, dhcp_ready, False), "Source port ip in relay is not disabled!")
 
 
@@ -155,6 +154,7 @@ def test_interface_binding(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data,
             config_reload(duthost)
             wait_critical_processes(duthost)
             pytest_assert(wait_until(120, 5, 0, check_interface_status, duthost))
+            wait_dhcp_relay_ready(duthost, ['isc'])
         output = duthost.shell("docker exec -t dhcp_relay ss -nlp | grep dhcrelay", module_ignore_errors=True)["stdout"]
         logger.info(output)
         for dhcp_relay in dut_dhcp_relay_data:
@@ -162,35 +162,6 @@ def test_interface_binding(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data,
                 "{} is not found in {}".format("{}:67".format(dhcp_relay['downlink_vlan_iface']['name']), output)
             for iface in dhcp_relay['uplink_interfaces']:
                 assert "{}:67".format(iface) in output, "{} is not found in {}".format("{}:67".format(iface), output)
-
-
-def restart_dhcpmon_in_debug(duthost):
-    program_name = "dhcpmon"
-    program_pid_list = []
-    program_list = duthost.shell("ps aux | grep {}".format(program_name))
-    matches = re.findall(r'/usr/sbin/dhcpmon.*', program_list["stdout"])
-
-    for program_info in program_list["stdout_lines"]:
-        if program_name in program_info:
-            program_pid = int(program_info.split()[1])
-            program_pid_list.append(program_pid)
-
-    for program_pid in program_pid_list:
-        kill_cmd_result = duthost.shell("sudo kill -9 {} || true".format(program_pid), module_ignore_errors=True)
-        # Get the exit code of 'kill' command
-        exit_code = kill_cmd_result["rc"]
-        if exit_code != 0:
-            stderr = kill_cmd_result.get("stderr", "")
-            if "No such process" not in stderr:
-                pytest.fail("Failed to stop program '{}' before test. Error: {}".format(program_name, stderr))
-
-    if matches:
-        for dhcpmon_cmd in matches:
-            if "-D" not in dhcpmon_cmd:
-                dhcpmon_cmd += " -D"
-            duthost.shell("docker exec -d dhcp_relay %s" % dhcpmon_cmd)
-    else:
-        assert False, "Failed to start dhcpmon in debug counter mode\n"
 
 
 def get_acl_count_by_mark(rand_unselected_dut, mark):
@@ -202,7 +173,7 @@ def get_acl_count_by_mark(rand_unselected_dut, mark):
 
 
 @pytest.fixture(scope="function")
-def verify_acl_drop_on_standby_tor(rand_unselected_dut, dut_dhcp_relay_data, testing_config, tbinfo):
+def verify_acl_drop_on_standby_tor(rand_unselected_dut, dut_dhcp_relay_data, testing_config, tbinfo, request):
     testing_mode, _ = testing_config
     if testing_mode == DUAL_TOR_MODE and "dualtor-aa" not in tbinfo["topo"]["name"]:
         pre_client_dhcp_acl_counts = {}
@@ -221,6 +192,10 @@ def verify_acl_drop_on_standby_tor(rand_unselected_dut, dut_dhcp_relay_data, tes
                                                                                                mark)
 
     yield
+
+    if hasattr(request.node, "rep_call") and request.node.rep_call.failed:
+        logger.info("Skip standby ToR ACL drop validation because the test call failed")
+        return
 
     if testing_mode == DUAL_TOR_MODE and "dualtor-aa" not in tbinfo["topo"]["name"]:
         for client_interface_name, item in pre_client_dhcp_acl_counts.items():
@@ -305,7 +280,7 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
                                  .format(dhcp_relay["downlink_vlan_iface"]["name"])),
                        is_python3=True)
             if not skip_dhcpmon:
-                time.sleep(36)      # dhcpmon debug counter prints every 18 seconds
+                time.sleep(36)      # dhcpmon: health check every 18s, DB write every 20s
                 loganalyzer.analyze(marker)
                 dhcp_server_sum = len(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'])
                 dhcp_relay_request_times = 2
@@ -334,9 +309,10 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
 
     if not skip_dhcpmon:
         # Clean up - Restart DHCP relay service on DUT to recover original dhcpmon setting
-        restart_dhcp_service(duthost)
+        relay_types = ['sonic' if relay_agent == 'sonic-relay-agent' else 'isc']
+        restart_dhcp_service(duthost, relay_types)
         if testing_mode == DUAL_TOR_MODE:
-            restart_dhcp_service(standby_duthost)
+            restart_dhcp_service(standby_duthost, relay_types)
             pytest_assert(wait_until(120, 5, 0, check_interface_status, standby_duthost, relay_agent))
         pytest_assert(wait_until(120, 5, 0, check_interface_status, duthost, relay_agent))
 
@@ -426,7 +402,7 @@ def test_dhcp_relay_with_source_port_ip_in_relay_enabled(
                        is_python3=True)
 
             if not skip_dhcpmon:
-                time.sleep(36)      # dhcpmon debug counter prints every 18 seconds
+                time.sleep(36)      # dhcpmon: health check every 18s, DB write every 20s
                 loganalyzer.analyze(marker)
                 dhcp_server_sum = len(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'])
                 dhcp_relay_request_times = 2
@@ -455,9 +431,10 @@ def test_dhcp_relay_with_source_port_ip_in_relay_enabled(
 
     if not skip_dhcpmon:
         # Clean up - Restart DHCP relay service on DUT to recover original dhcpmon setting
-        restart_dhcp_service(duthost)
+        relay_types = ['sonic' if relay_agent == 'sonic-relay-agent' else 'isc']
+        restart_dhcp_service(duthost, relay_types)
         if testing_mode == DUAL_TOR_MODE:
-            restart_dhcp_service(standby_duthost)
+            restart_dhcp_service(standby_duthost, relay_types)
             pytest_assert(wait_until(120, 5, 0, check_interface_status, standby_duthost, relay_agent))
         pytest_assert(wait_until(120, 5, 0, check_interface_status, duthost, relay_agent))
 
@@ -699,7 +676,7 @@ def test_dhcp_relay_monitor_checksum_validation(ptfhost, dut_dhcp_relay_data, va
                        log_file=("/tmp/dhcp_relay_test.DHCPTest.default.{}.log"
                                  .format(dhcp_relay["downlink_vlan_iface"]["name"])),
                        is_python3=True)
-            time.sleep(36)      # dhcpmon debug counter prints every 18 seconds
+            time.sleep(36)      # dhcpmon: health check every 18s, DB write every 20s
             if testing_mode == DUAL_TOR_MODE:
                 # If the testing mode is DUAL_TOR_MODE, standby tor's dhcpmon relay counters should all be 0
                 validate_dhcpmon_counters(dhcp_relay, standby_duthost, {}, {})
@@ -715,3 +692,49 @@ def test_dhcp_relay_monitor_checksum_validation(ptfhost, dut_dhcp_relay_data, va
     except LogAnalyzerError as err:
         logger.error("Unable to find expected log in syslog")
         raise err
+
+
+def test_dhcp_broadcast_not_flooded(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist,
+                                    testing_config, relay_agent):
+    """Verify DHCP broadcast packets are trapped to CPU and not L2-flooded to other VLAN member ports.
+
+    The COPP trap_action for DHCP is 'trap' (SAI_PACKET_ACTION_TRAP), meaning packets
+    are sent exclusively to CPU and removed from the forwarding pipeline. This test
+    sends DHCP Discover and Request broadcasts from a client port and asserts that
+    no copy of the original broadcast appears on any other VLAN member port.
+    """
+    testing_mode, duthost = testing_config
+
+    if duthost.facts.get("asic_type") == "vs":
+        pytest.skip("VS/KVM dataplane does not enforce SAI_PACKET_ACTION_TRAP removal semantics; "
+                    "broadcasts are L2-flooded even when COPP traps them to CPU")
+
+    for dhcp_relay in dut_dhcp_relay_data:
+        if not dhcp_relay['other_client_ports']:
+            pytest.skip("Need at least two VLAN member ports to verify non-flooding behavior")
+
+        ptf_runner(ptfhost,
+                   "ptftests",
+                   "dhcp_relay_test.DHCPBroadcastNotFloodedTest",
+                   platform_dir="ptftests",
+                   params={"hostname": duthost.hostname,
+                           "client_port_index": dhcp_relay['client_iface']['port_idx'],
+                           "other_client_port": repr(dhcp_relay['other_client_ports']),
+                           "client_iface_alias": str(dhcp_relay['client_iface']['alias']),
+                           "leaf_port_indices": repr(dhcp_relay['uplink_port_indices']),
+                           "num_dhcp_servers": len(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs']),
+                           "server_ip": dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'],
+                           "relay_iface_ip": str(dhcp_relay['downlink_vlan_iface']['addr']),
+                           "relay_iface_mac": str(dhcp_relay['downlink_vlan_iface']['mac']),
+                           "relay_iface_netmask": str(dhcp_relay['downlink_vlan_iface']['mask']),
+                           "dest_mac_address": BROADCAST_MAC,
+                           "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
+                           "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
+                           "uplink_mac": str(dhcp_relay['uplink_mac']),
+                           "testing_mode": testing_mode,
+                           "kvm_support": True,
+                           "relay_agent": relay_agent,
+                           "downlink_vlan_iface_name": str(dhcp_relay['downlink_vlan_iface']['name'])},
+                   log_file=("/tmp/dhcp_relay_test.DHCPBroadcastNotFloodedTest.{}.log"
+                             .format(dhcp_relay["downlink_vlan_iface"]["name"])),
+                   is_python3=True)
