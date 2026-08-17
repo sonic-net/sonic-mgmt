@@ -30,6 +30,7 @@ def _ignore_allow_list_errlogs(duthosts, rand_one_dut_front_end_hostname, logana
     if loganalyzer:
         IgnoreRegex = [
             ".*ERR bgp[0-9]*#bgpcfgd: BGPAllowListMgr::Default action community value is not found.*",
+            ".*ERR bgp[0-9]*#bgpcfgd: BGPAllowListMgr::Received BGP ALLOWED .* message with no prefixes specified.*",
         ]
         duthost = duthosts[rand_one_dut_front_end_hostname]
         """Cisco 8111-O64 has different allow list config"""
