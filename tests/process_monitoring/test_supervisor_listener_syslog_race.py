@@ -1,5 +1,6 @@
 """
-Test that supervisor-proc-exit-listener-rs survives the /dev/log startup race.
+Test that supervisor-proc-exit-listener-rs survives the /dev/log startup race
+and that syslog self-heals after rsyslogd restarts mid-run.
 
 When a container starts, supervisor-proc-exit-listener-rs may start before
 rsyslogd has created /dev/log. The Rust syslog crate (Geal/rust-syslog) connects
@@ -7,17 +8,25 @@ eagerly at init time; if /dev/log is absent it returns Err and the old binary ex
 with code 1, causing supervisord to exhaust startretries and enter FATAL state —
 silently disabling container autorestart for the lifetime of the container.
 
-The fix uses a DualLogger that retries syslog::unix() on each log() call, so the
-binary stays alive when /dev/log is absent at startup and reconnects once it appears.
+The fix uses syslog-tracing, which delegates to libc's openlog()/syslog(). On glibc,
+syslog() reconnects to /dev/log transparently on every call, so:
+- Startup race: no crash when /dev/log is absent at init
+- Mid-run healing: if rsyslogd restarts (and /dev/log is recreated), the next
+  syslog() call reconnects automatically without any application-level logic
 
-This test verifies:
-1. The listener stays RUNNING after /dev/log is forcibly removed and the listener
-   is restarted by supervisord.
-2. After rsyslogd is restarted (restoring /dev/log), a critical-process exit (zebra)
-   correctly triggers bgp container shutdown via terminate_supervisor().
+Tests:
+1. test_listener_survives_devlog_absent:
+   The listener stays RUNNING after /dev/log is forcibly removed and the listener
+   is restarted. After rsyslogd is restarted (restoring /dev/log), a critical-process
+   exit (zebra) correctly triggers bgp container shutdown.
+
+2. test_listener_syslog_self_healing:
+   The listener stays RUNNING when rsyslogd stops mid-run (/dev/log disappears).
+   After rsyslogd restarts, log messages written via syslog() appear in the host
+   syslog — proving glibc reconnected to the new /dev/log socket transparently.
 
 Reference: https://github.com/Geal/rust-syslog/issues/21
-PR: https://github.com/sonic-net/sonic-buildimage/pull/28827
+PR: https://github.com/sonic-net/sonic-buildimage/pull/29053
 """
 import logging
 import time
@@ -230,3 +239,134 @@ def test_listener_survives_devlog_absent(duthosts, rand_one_dut_hostname):
         "listener may not have called terminate_supervisor()".format(BGP_SHUTDOWN_WAIT_SECS)
     )
     logger.info("PASS: bgp container shut down after zebra kill — listener correctly triggered supervisor termination")
+
+
+def test_listener_syslog_self_healing(duthosts, rand_one_dut_hostname):
+    """
+    Verify that syslog output self-heals after rsyslogd restarts mid-run.
+
+    libc's syslog() reconnects to /dev/log transparently on every call (glibc
+    behaviour). This test verifies that after rsyslogd stops and restarts while
+    the listener is running, a probe message written via the bgp container's
+    syslog socket appears in the host syslog — proving reconnection happened
+    without any restart of the listener itself.
+
+    Steps:
+    1. Confirm baseline: listener RUNNING, rsyslogd RUNNING, /dev/log present.
+    2. Record host syslog line count as the search offset.
+    3. Stop rsyslogd inside the bgp container — /dev/log disappears.
+    4. Assert listener is still RUNNING (no crash, no FATAL).
+    5. Restart rsyslogd — /dev/log reappears.
+    6. Write a unique probe message via `logger` inside the bgp container.
+       `logger` uses the same /dev/log socket path that the listener uses via
+       libc syslog(); its success proves the socket is reachable again.
+    7. Assert the probe message appears in /var/log/syslog on the DUT.
+       This is the self-healing assertion: syslog delivery resumed without
+       restarting the listener.
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+
+    # Confirm the Rust listener is in use
+    listener_cmd = duthost.shell(
+        "docker exec {} grep -A2 'eventlistener:supervisor-proc-exit-listener' "
+        "/etc/supervisor/conf.d/supervisord.conf | grep '^command='".format(TEST_CONTAINER),
+        module_ignore_errors=True
+    )
+    pytest_require(
+        listener_cmd["rc"] == 0 and "-rs" in listener_cmd.get("stdout", ""),
+        "supervisor-proc-exit-listener is not the Rust variant in '{}'; skipping.".format(TEST_CONTAINER)
+    )
+
+    # Step 1: baseline
+    status, pid = _listener_status(duthost, TEST_CONTAINER)
+    pytest_assert(status == "RUNNING",
+                  "Baseline check failed: listener status='{}' (expected RUNNING)".format(status))
+    rsyslogd_check = duthost.shell(
+        "docker exec {} supervisorctl status rsyslogd".format(TEST_CONTAINER)
+    )
+    pytest_assert("RUNNING" in rsyslogd_check.get("stdout", ""),
+                  "Baseline check failed: rsyslogd not RUNNING: {}".format(rsyslogd_check.get("stdout")))
+    logger.info("Baseline: listener RUNNING pid={}, rsyslogd RUNNING".format(pid))
+
+    # Step 2: record syslog offset
+    offset_result = duthost.shell("wc -l < /var/log/syslog", module_ignore_errors=True)
+    syslog_offset = offset_result.get("stdout", "0").strip()
+    logger.info("Host syslog offset: {} lines".format(syslog_offset))
+
+    # Step 3: stop rsyslogd
+    logger.info("Stopping rsyslogd in '{}' to remove /dev/log".format(TEST_CONTAINER))
+    duthost.shell("docker exec {} supervisorctl stop rsyslogd".format(TEST_CONTAINER))
+    time.sleep(2)
+
+    devlog_check = duthost.shell(
+        "docker exec {} ls /dev/log 2>&1; echo rc=$?".format(TEST_CONTAINER)
+    )
+    pytest_assert(
+        "No such file" in devlog_check["stdout"] or "rc=1" in devlog_check["stdout"],
+        "/dev/log still exists after stopping rsyslogd: {}".format(devlog_check["stdout"])
+    )
+    logger.info("/dev/log confirmed absent after rsyslogd stop")
+
+    # Step 4: listener must still be RUNNING
+    time.sleep(3)
+    status_mid, pid_mid = _listener_status(duthost, TEST_CONTAINER)
+    logger.info("Listener status while /dev/log absent: status={}, pid={}".format(status_mid, pid_mid))
+    pytest_assert(
+        status_mid == "RUNNING" and pid_mid == pid,
+        "Listener is not RUNNING (or restarted) while /dev/log is absent: "
+        "status='{}', pid={} (was {})".format(status_mid, pid_mid, pid)
+    )
+    logger.info("PASS: listener stayed RUNNING (same pid) while /dev/log was absent")
+
+    # Step 5: restart rsyslogd
+    logger.info("Restarting rsyslogd to restore /dev/log")
+    duthost.shell("docker exec {} supervisorctl start rsyslogd".format(TEST_CONTAINER))
+    time.sleep(3)
+
+    devlog_back = duthost.shell("docker exec {} ls /dev/log 2>&1".format(TEST_CONTAINER))
+    pytest_assert(
+        "No such file" not in devlog_back["stdout"],
+        "/dev/log did not reappear after rsyslogd restart: {}".format(devlog_back["stdout"])
+    )
+    logger.info("/dev/log restored")
+
+    # Step 6: write probe message via logger inside the container
+    probe_tag = "devlog-self-healing-{}".format(int(time.time()))
+    logger.info("Writing probe '{}' via logger in '{}'".format(probe_tag, TEST_CONTAINER))
+    duthost.shell(
+        "docker exec {} logger -t 'bgp#supervisor-proc-exit-listener-rs' '{}'".format(
+            TEST_CONTAINER, probe_tag)
+    )
+    time.sleep(3)
+
+    # Step 7: assert probe appears in host syslog
+    search_result = duthost.shell(
+        "tail -n +{} /var/log/syslog | grep -c '{}' || true".format(syslog_offset, probe_tag),
+        module_ignore_errors=True
+    )
+    found = int(search_result.get("stdout", "0").strip() or "0")
+    logger.info("Probe '{}' found {} time(s) in host syslog".format(probe_tag, found))
+
+    if found == 0:
+        # Dump last few lines for diagnosis
+        recent = duthost.shell(
+            "tail -20 /var/log/syslog".format(TEST_CONTAINER),
+            module_ignore_errors=True
+        )
+        logger.error("Recent syslog tail:\n{}".format(recent.get("stdout", "")))
+
+    pytest_assert(
+        found > 0,
+        "Syslog self-healing FAILED: probe '{}' not found in /var/log/syslog after rsyslogd restart. "
+        "libc syslog() did not reconnect to the new /dev/log socket.".format(probe_tag)
+    )
+    logger.info("PASS: probe found in host syslog — syslog self-healing confirmed")
+
+    # Final state: listener still running with same pid
+    status_final, pid_final = _listener_status(duthost, TEST_CONTAINER)
+    pytest_assert(
+        status_final == "RUNNING" and pid_final == pid,
+        "Listener pid or status changed unexpectedly at end: status='{}', pid={} (was {})".format(
+            status_final, pid_final, pid)
+    )
+    logger.info("PASS: listener still RUNNING with same pid={} throughout test".format(pid_final))
