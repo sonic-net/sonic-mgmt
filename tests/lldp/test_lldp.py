@@ -223,6 +223,11 @@ def check_lldp_neighbor(duthost, localhost, eos, sonic, collect_techsupport_all_
                     "mgmt_addr '{}' from DEVICE_NEIGHBOR_METADATA for SNMP".format(
                         nei_name, hostip, fallback))
                 hostip = fallback
+            else:
+                pytest.fail(
+                    "Neighbor {} has no IPv4 management address usable for SNMP: "
+                    "LLDP mgmt-ip='{}', DEVICE_NEIGHBOR_METADATA mgmt_addr='{}'".format(
+                        nei_name, hostip, fallback))
 
         if request.config.getoption("--neighbor_type") == 'eos':
             neighbor_interface = v['port']['ifname']
@@ -248,7 +253,11 @@ def check_lldp_neighbor(duthost, localhost, eos, sonic, collect_techsupport_all_
 
         # After swss restart, the DUT's LLDP entry on the neighbor may have aged out
         # during the restart window. Wait until the neighbor re-learns DUT's LLDP info.
-        dut_port_alias = config_facts['PORT'][k]['alias']
+        dut_port_alias = config_facts.get('PORT', {}).get(k, {}).get('alias')
+        if request.config.getoption("--neighbor_type") != 'eos' and not dut_port_alias:
+            pytest.fail(
+                "DUT iface '{}' has no PORT alias in CONFIG_DB; cannot resolve SONiC "
+                "neighbor SNMP LLDP local-port key".format(k))
         assert wait_until(30, 5, 0, _neighbor_has_lldp_entry,
                           localhost, hostip, snmp_community, neighbor_interface,
                           duthost.hostname, dut_port_alias), \
