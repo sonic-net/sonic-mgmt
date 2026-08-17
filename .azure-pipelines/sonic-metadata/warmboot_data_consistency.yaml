@@ -340,6 +340,7 @@ stages:
     SKIP_POSTUPGRADE_ACTIONS: true
     # Not integrated yet but we should in the future
     RUN_ASIC_DB_ASIC_SAI_CONSISTENCY_CHECKER: false
+    RUN_REBOOT_CASE: "test_warmboot_data_consistency"
     METADATA_UPGRADE_PATH: ${{ parameters.METADATA_UPGRADE_PATH }}
     FROM_IMAGE_LIST: ${{ parameters.FROM_IMAGE_LIST }}
     FROM_IMAGE_URL: ${{ parameters.FROM_IMAGE_URL }}
