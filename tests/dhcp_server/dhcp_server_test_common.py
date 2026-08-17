@@ -39,9 +39,9 @@ DHCP_SERVER_SUPPORTED_OPTION_ID = (
 
 
 def get_expected_dhcp_server_relay_type(relay_agent, relay_configured):
-    """Return the internal relay mode explicitly selected by the test and config phase."""
+    """Return the relay mode explicitly selected by the test and config phase."""
     if relay_agent == 'sonic-relay-agent':
-        return 'sonic-internal'
+        return 'sonic'
     return 'isc-internal' if relay_configured else 'isc-internal-idle'
 
 

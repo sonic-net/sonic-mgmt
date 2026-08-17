@@ -18,8 +18,7 @@ logger = logging.getLogger(__name__)
 def require_internal_relay_modes():
     """Skip standalone runs until the prerequisite shared modes are available."""
     try:
-        for relay_type in ('sonic-internal', 'isc-internal-idle'):
-            dhcp_relay_utils._validate_relay_types('dhcp_server_setup_teardown', [relay_type])
+        dhcp_relay_utils._validate_relay_types('dhcp_server_setup_teardown', ['isc-internal-idle'])
     except (AttributeError, ValueError):
         pytest.skip("#26526 requires the internal relay modes from #26525")
 
@@ -30,7 +29,7 @@ def get_lifecycle_relay_type(duthost, internal):
     device_metadata = config_facts['DEVICE_METADATA']['localhost']
     sonic_relay = device_metadata.get('has_sonic_dhcpv4_relay', 'False') == 'True'
     if sonic_relay:
-        return 'sonic-internal' if internal else 'sonic'
+        return 'sonic'
     if not internal:
         return 'isc'
     dhcp_server_ipv4 = config_facts.get('DHCP_SERVER_IPV4', {})
