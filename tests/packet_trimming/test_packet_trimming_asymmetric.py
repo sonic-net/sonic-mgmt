@@ -5,7 +5,7 @@ from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 from tests.packet_trimming.constants import (
     DEFAULT_PACKET_SIZE, DEFAULT_DSCP, JUMBO_PACKET_SIZE,
     ASYM_PORT_1_DSCP, ASYM_PORT_2_DSCP, MODE_TOGGLE_COUNT,
-    NORMAL_PACKET_DSCP, PACKET_COUNT)
+    NORMAL_PACKET_DSCP)
 from tests.packet_trimming.packet_trimming_config import PacketTrimmingConfig
 from tests.packet_trimming.packet_trimming_helper import (
     configure_trimming_global, verify_trimming_config, configure_trimming_action, verify_trimmed_packet,
@@ -117,6 +117,7 @@ class TestPacketTrimmingAsymmetric(BasePacketTrimming):
         trim_queue = PacketTrimmingConfig.get_trim_queue(duthost)
         asym_tc = PacketTrimmingConfig.get_asym_tc(duthost)
         trim_dscp = PacketTrimmingConfig.DSCP
+        num_verify_packets = PacketTrimmingConfig.get_verify_packet_count(duthost)
 
         for i in range(MODE_TOGGLE_COUNT):
             with allure.step(f"Round {i+1}: Configure trimming in Symmetric DSCP mode"):
@@ -132,7 +133,7 @@ class TestPacketTrimmingAsymmetric(BasePacketTrimming):
                         send_pkt_dscp=DEFAULT_DSCP,
                         recv_pkt_size=trim_size,
                         recv_pkt_dscp=trim_dscp,
-                        packet_count=PACKET_COUNT
+                        packet_count=num_verify_packets
                     )
 
             with allure.step(f"Round {i+1}: Configure trimming in Asymmetric DSCP mode"):
@@ -188,5 +189,6 @@ class TestPacketTrimmingAsymmetric(BasePacketTrimming):
                 send_pkt_size=DEFAULT_PACKET_SIZE,
                 send_pkt_dscp=NORMAL_PACKET_DSCP,
                 recv_pkt_size=DEFAULT_PACKET_SIZE,
-                recv_pkt_dscp=NORMAL_PACKET_DSCP
+                recv_pkt_dscp=NORMAL_PACKET_DSCP,
+                packet_count=PacketTrimmingConfig.get_verify_packet_count(duthost)
             )
