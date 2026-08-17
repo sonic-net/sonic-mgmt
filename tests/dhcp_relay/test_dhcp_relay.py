@@ -2,7 +2,6 @@ import pytest
 import random
 import time
 import logging
-import re
 import sys
 
 from _pytest.outcomes import OutcomeException
