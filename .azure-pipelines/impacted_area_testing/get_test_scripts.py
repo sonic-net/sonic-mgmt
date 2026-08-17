@@ -16,8 +16,10 @@ import functools
 from natsort import natsorted
 from constant import PR_TOPOLOGY_TYPE, EXCLUDE_TEST_SCRIPTS, CONTROL_PLANE_DEDUP_RULES
 
-VPP_TOPOLOGY = "t1-lag-vpp"
-VPP_CHECKER = "t1-lag-vpp_checker"
+VPP_TOPOLOGY_CHECKERS = {
+    "t0-vpp": "t0-vpp_checker",
+    "t1-lag-vpp": "t1-lag-vpp_checker",
+}
 
 
 def topo_name_to_topo_checker(topo_name):
@@ -59,7 +61,7 @@ def distribute_scripts_to_PR_checkers(match, script_name, test_scripts_per_topol
                 test_scripts_per_topology_checker[topology_checker].append(script_name)
 
 
-def load_vpp_test_scripts_allowlist():
+def load_vpp_test_scripts_allowlist(vpp_topology):
     pr_test_scripts_path = os.path.abspath(os.path.join(
         os.path.dirname(os.path.dirname(__file__)),
         "pr_test_scripts.yaml"
@@ -81,18 +83,18 @@ def load_vpp_test_scripts_allowlist():
             )
         )
 
-    if not isinstance(pr_test_scripts, dict) or VPP_TOPOLOGY not in pr_test_scripts:
+    if not isinstance(pr_test_scripts, dict) or vpp_topology not in pr_test_scripts:
         raise Exception(
             "Missing {} allowlist in {}".format(
-                VPP_TOPOLOGY, pr_test_scripts_path
+                vpp_topology, pr_test_scripts_path
             )
         )
 
-    vpp_scripts = pr_test_scripts[VPP_TOPOLOGY]
+    vpp_scripts = pr_test_scripts[vpp_topology]
     if not isinstance(vpp_scripts, list):
         raise Exception(
             "{} allowlist in {} must be a list".format(
-                VPP_TOPOLOGY, pr_test_scripts_path
+                vpp_topology, pr_test_scripts_path
             )
         )
 
@@ -160,12 +162,13 @@ def collect_scripts_by_topology_type(features: str, location: str) -> dict:
         except Exception as e:
             raise Exception('Exception occurred while trying to get topology in {}, error {}'.format(s, e))
 
-    vpp_scripts = build_vpp_impacted_scripts(
-        raw_impacted_scripts,
-        load_vpp_test_scripts_allowlist()
-    )
-    if vpp_scripts:
-        test_scripts_per_topology_checker[VPP_CHECKER] = vpp_scripts
+    for vpp_topology, vpp_checker in VPP_TOPOLOGY_CHECKERS.items():
+        vpp_scripts = build_vpp_impacted_scripts(
+            raw_impacted_scripts,
+            load_vpp_test_scripts_allowlist(vpp_topology)
+        )
+        if vpp_scripts:
+            test_scripts_per_topology_checker[vpp_checker] = vpp_scripts
 
     return {k: v for k, v in test_scripts_per_topology_checker.items() if v}
 
