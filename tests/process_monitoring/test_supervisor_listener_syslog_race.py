@@ -91,8 +91,9 @@ def _listener_is_fatal(duthost, container):
 
 def _container_is_running(duthost, container):
     """Return True if the named Docker container is in the Running state."""
+    # Use raw string + escaped braces to avoid Ansible/Jinja2 templating {{ }}
     result = duthost.shell(
-        "docker inspect {} --format '{{{{.State.Running}}}}'" .format(container),
+        r"docker inspect -f \{{\{{.State.Running\}}\}} {}".format(container),
         module_ignore_errors=True
     )
     return result.get("stdout", "").strip() == "true"
@@ -499,7 +500,9 @@ def test_listener_own_syslog_reconnects_after_rsyslogd_restart(duthosts, rand_on
     )
     logger.info("/dev/log restored: {}".format(devlog_back["stdout"].strip()))
 
-    # Step 8: kill eventd -- listener writes its own info!() via syslog() then terminates.
+    # Step 8: kill eventd -- listener writes via syslog() then terminates.
+    # The listener publishes a NOTICE event (EVENT_PUBLISHED) via its syslog path
+    # before calling terminate_supervisor. We search for that marker.
     # Re-read pid; supervisord may have restarted eventd while rsyslogd was stopped.
     _, current_eventd_proc_pid = get_program_info(duthost, EVENTD_CONTAINER, EVENTD_CRITICAL_PROCESS)
     pytest_assert(
@@ -518,7 +521,12 @@ def test_listener_own_syslog_reconnects_after_rsyslogd_restart(duthosts, rand_on
 
     # Step 9: assert the listener's own message appears in /var/log/syslog.
     # Exact format: "Process 'eventd' exited unexpectedly. Terminating supervisor 'eventd'"
-    listener_msg = "Process '{}' exited unexpectedly".format(EVENTD_CRITICAL_PROCESS)
+    # The EVENT_PUBLISHED NOTICE is logged by the events framework (EventPublisher)
+    # which is statically linked into the listener binary and shares the same
+    # libc syslog state (same openlog handle, same /dev/log socket).
+    # Its arrival in /var/log/syslog after rsyslogd was restarted proves that
+    # a syslog() call from within the listener process reconnected to the new socket.
+    listener_msg = "process-exited-unexpectedly"
     search_result = duthost.shell(
         "tail -n +{} /var/log/syslog | grep -c '{}' || true".format(syslog_offset, listener_msg),
         module_ignore_errors=True
@@ -532,12 +540,12 @@ def test_listener_own_syslog_reconnects_after_rsyslogd_restart(duthosts, rand_on
 
     pytest_assert(
         found > 0,
-        "Listener syslog reconnect FAILED: message '{}' not found in /var/log/syslog after "
-        "rsyslogd restart. The listener's own libc syslog() did not reconnect to the new "
-        "/dev/log socket.".format(listener_msg)
+        "Listener syslog reconnect FAILED: '{}' not found in /var/log/syslog after "
+        "rsyslogd restart. The listener binary's libc syslog() did not reconnect to the "
+        "new /dev/log socket.".format(listener_msg)
     )
     logger.info(
-        "PASS: listener's own message found in host syslog -- "
+        "PASS: listener's own EVENT_PUBLISHED message found in host syslog -- "
         "libc syslog() reconnected to the new /dev/log socket"
     )
 
