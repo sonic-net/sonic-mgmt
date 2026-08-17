@@ -249,10 +249,7 @@ def _wait_for_macsec_cleanup_with_vs_recovery(host, interfaces, is_dut):
 
 
 def _restore_macsec_feature_after_cleanup_recovery(
-        duthost, ctrl_links, recovered):
-    if not recovered:
-        return
-
+        duthost, ctrl_links):
     nbrhosts = {nbr["name"]: nbr for nbr in ctrl_links.values()}
     enable_macsec_feature(duthost, nbrhosts)
 
@@ -295,8 +292,9 @@ def cleanup_macsec_configuration(duthost, ctrl_links, profile_name):
             nbr["host"], [nbr["port"]], is_dut=False)
         recovered = neighbor_recovered or recovered
 
-    _restore_macsec_feature_after_cleanup_recovery(
-        duthost, ctrl_links, recovered)
+    if recovered:
+        _restore_macsec_feature_after_cleanup_recovery(
+            duthost, ctrl_links)
 
     logger.info("Cleanup macsec configuration finished")
 
@@ -505,8 +503,9 @@ def cleanup_macsec_multi_profile_configuration(duthost, ctrl_links, port_profile
             nbr["host"], [nbr["port"]], is_dut=False)
         recovered = neighbor_recovered or recovered
 
-    _restore_macsec_feature_after_cleanup_recovery(
-        duthost, ctrl_links, recovered)
+    if recovered:
+        _restore_macsec_feature_after_cleanup_recovery(
+            duthost, ctrl_links)
 
     logger.info("Multi-profile cleanup finished")
 
