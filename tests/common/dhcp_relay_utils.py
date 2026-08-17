@@ -582,15 +582,14 @@ def enable_sonic_dhcpv4_relay_agent(rand_selected_dut, request):
     duthost = rand_selected_dut
     pytest_assert(dhcp_relay_test_context in ('external', 'internal'),
                   "Invalid DHCP relay test context: {}".format(dhcp_relay_test_context))
-    enable_relay_type = 'sonic-internal' if dhcp_relay_test_context == 'internal' else 'sonic'
+    enable_relay_type = 'sonic'
     disable_relay_type = 'isc-internal-idle' if dhcp_relay_test_context == 'internal' else 'isc'
     relay_agent = request.getfixturevalue("relay_agent")
     if dhcp_relay_test_context == 'internal' and relay_agent == "sonic-relay-agent":
         try:
-            _validate_relay_types('enable_sonic_dhcpv4_relay_agent', [enable_relay_type])
             _validate_relay_types('enable_sonic_dhcpv4_relay_agent', [disable_relay_type])
         except ValueError:
-            pytest.skip("#26658 internal relay context requires the relay modes from #26525")
+            pytest.skip("#26658 internal relay context requires the idle relay mode from #26525")
 
     if "dut_dhcp_relay_data" in request.fixturenames:
         dut_dhcp_relay_data = request.getfixturevalue("dut_dhcp_relay_data")
