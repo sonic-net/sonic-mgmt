@@ -8,6 +8,7 @@ high frequency telemetry test cases.
 import itertools
 import logging
 import re
+import shlex
 import threading
 import time
 from datetime import datetime, timedelta, timezone
@@ -1528,6 +1529,33 @@ def install_otel_collector_config(duthost, rendered_config,
     logger.info(f"Installed otel collector config to {dest_path}")
 
 
+def restart_otel_collector(duthost, timeout=30):
+    """Reload the OTEL configuration without restarting its container."""
+    duthost.shell(
+        "docker exec otel supervisorctl stop otel",
+        module_ignore_errors=True,
+    )
+    result = duthost.shell(
+        "docker exec otel supervisorctl start otel",
+        module_ignore_errors=True,
+    )
+    pytest_assert(
+        result.get("rc") == 0,
+        f"Failed to restart the OTEL collector process: {result}",
+    )
+
+    end_time = time.time() + timeout
+    while time.time() < end_time:
+        status = duthost.shell(
+            "docker exec otel supervisorctl status otel",
+            module_ignore_errors=True,
+        )
+        if status.get("rc") == 0 and "RUNNING" in status.get("stdout", ""):
+            return True
+        time.sleep(1)
+    pytest_assert(False, "OTEL collector process did not become ready")
+
+
 def enable_otel_collector(duthost, timeout=60):
     """
     Enable the OpenTelemetry collector feature on the DUT and wait
@@ -1624,24 +1652,27 @@ def start_influxdb(ptfhost, port=8181, timeout=30):
 
 
 def setup_influxdb(ptfhost, port=8181, bucket="home"):
-    """
-    Ensure the InfluxDB 3 database exists.
-
-    InfluxDB 3 Core is schema-on-write and auto-creates databases on first
-    write, so explicit creation is optional. We attempt to pre-create the
-    database via the CLI for clarity; failure is non-fatal.
-    """
-    result = ptfhost.shell(
-        f"influxdb3 create database {bucket} --port {port}",
-        module_ignore_errors=True,
+    """Create the InfluxDB 3 database used by the test."""
+    modern = (
+        f"influxdb3 create database --host http://127.0.0.1:{int(port)} "
+        f"{shlex.quote(bucket)}"
     )
-    if result["rc"] == 0:
-        logger.info(f"InfluxDB 3 database '{bucket}' created")
-    else:
-        logger.info(
-            f"InfluxDB 3 database '{bucket}' may already exist or will "
-            "auto-create on first write (rc=%d)", result["rc"],
-        )
+    legacy = (
+        f"influxdb3 create database {shlex.quote(bucket)} --port {int(port)}"
+    )
+    result = ptfhost.shell(modern, module_ignore_errors=True)
+    stderr = result.get("stderr", "").lower()
+    if result.get("rc") != 0 and (
+        "unexpected argument '--host'" in stderr
+        or "unrecognized option '--host'" in stderr
+    ):
+        result = ptfhost.shell(legacy, module_ignore_errors=True)
+
+    pytest_assert(
+        result.get("rc") == 0,
+        f"Failed to create InfluxDB database '{bucket}': {result}",
+    )
+    logger.info(f"InfluxDB 3 database '{bucket}' created")
 
 
 def query_influxdb(ptfhost, influxql_query, port=8181, db="home"):
