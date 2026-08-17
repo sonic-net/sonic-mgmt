@@ -1211,11 +1211,11 @@ dhcp_relay/test_dhcpv4_relay.py:
       - "release < '202511'"
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/26645"
 
-dhcp_relay/test_dhcpv4_relay.py::test_dhcp_relay_with_non_default_vrf:
+dhcp_relay/test_dhcpv4_relay.py::test_dhcp_relay_option82_suboptions[server_id_override-sonic-relay-agent]:
   skip:
-    reason: "Skip on 202605 because the required sonic-swss RIF VRF fixes are not available in this release"
+    reason: "Test skipped: We are skipping this testcase for now"
     conditions:
-      - "release in ['202605']"
+      - "True"
 
 dhcp_relay/test_dhcpv4_relay.py::test_dhcp_relay_with_different_non_default_vrf:
   skip:
@@ -1223,11 +1223,11 @@ dhcp_relay/test_dhcpv4_relay.py::test_dhcp_relay_with_different_non_default_vrf:
     conditions:
       - "release in ['202605']"
 
-dhcp_relay/test_dhcpv4_relay.py::test_dhcp_relay_option82_suboptions[server_id_override-sonic-relay-agent]:
+dhcp_relay/test_dhcpv4_relay.py::test_dhcp_relay_with_non_default_vrf:
   skip:
-    reason: "Test skipped: We are skipping this testcase for now"
+    reason: "Skip on 202605 because the required sonic-swss RIF VRF fixes are not available in this release"
     conditions:
-      - "True"
+      - "release in ['202605']"
 
 dhcp_relay/test_dhcpv6_relay.py:
   skip:
