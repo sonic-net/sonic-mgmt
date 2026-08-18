@@ -28,7 +28,6 @@ VNI = 10000
 PREFIX = "150.0.3.1/32"
 ENDPOINTS = ["100.0.1.10", "100.0.2.10"]
 
-# Mask is always 7 (128-port range). Source port is configurable.
 DEFAULT_SOURCE_PORT = 32768
 SOURCE_PORT_MASK = 7
 NUM_FLOWS = 1000
@@ -71,14 +70,11 @@ def get_available_vlan_id_and_ports(cfg_facts, num_ports_needed):
     return available_ports
 
 
-# ---------- Source-port range configuration ----------
-
 def configure_vxlan_source_port_range(duthost, vxlan_port, source_port):
     """
     Program the VXLAN switch config and source-port range into the
     DUT via a single SWITCH_TABLE SET.
     """
-    # Validate: the lower 7 bits of the base port must all be zero.
     pytest_assert(
         source_port & 0x7F == 0,
         f"Source port base {source_port} is not aligned for mask 7 — "
