@@ -74,7 +74,6 @@ def ptf_teardown(ptfhost, ptf_lag_map):
         ptfhost.set_dev_up_or_down(ptf_lag_member, True)
 
     ptfhost.shell("ip link del {}".format(PTF_LAG_NAME))
-    ptfhost.shell("teamd -t {} -k".format(PTF_LAG_NAME))
     ptfhost.ptf_nn_agent()
 
 
