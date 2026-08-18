@@ -1,12 +1,3 @@
-
-# This test verifies three things:
-#   Phase 1 – Range:  every encapsulated packet's outer UDP source port
-#                      falls within [base, upper_bound].
-#   Phase 2 – Consistency:  re-sending the same inner flow produces the
-#                            same outer source port every time.
-#   Phase 3 – Coverage:  all ports in the range receive at least some traffic
-#                        (i.e., the hash function utilizes the entire range).
-
 import json
 import os
 import logging
@@ -128,8 +119,7 @@ class VxlanSportRangeTest(BaseTest):
         m.set_do_not_care_scapy(scapy.IP, "chksum")
         m.set_do_not_care_scapy(scapy.UDP, "sport")
 
-        # Byte layout: outer Ether(14) + IP(20) + UDP(8) + VXLAN(8) = 50
-        # Inner frame starts at byte 50.
+        # outer Ether(14) + IP(20) + UDP(8) + VXLAN(8) = 50
         INNER_START = 14 + 20 + 8 + 8  # = 50
         # Inner Ether dst: 6 bytes at offset 50
         m.set_do_not_care(INNER_START * 8, 6 * 8)
@@ -196,8 +186,7 @@ class VxlanSportRangeTest(BaseTest):
         logger.info(f"Phase 2 PASSED — {len(check_indices)} flows × "
                     f"{HASH_CHECK_REPEATS} repeats all consistent")
 
-        # Using the port_counts collected in Phase 1, check that all ports
-        # in the configured range receive at least some traffic (coverage).
+        # Check that all ports in the configured range receive at least some traffic (coverage).
         logger.info("=== Phase 3: PORT COVERAGE verification ===")
 
         logger.info(f"  Range size  : {self.range_size}")
