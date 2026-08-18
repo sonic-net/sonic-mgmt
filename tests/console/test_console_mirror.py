@@ -617,6 +617,20 @@ def _remote_stat(duthost, path: str) -> dict[str, object]:
     }
 
 
+def _remote_sha256(duthost, path: str) -> str:
+    result = duthost.shell(
+        f"sudo sha256sum -- {shlex.quote(path)}", module_ignore_errors=True
+    )
+    digest = result.get("stdout", "").split(maxsplit=1)[0]  # <sha256>  <filename>
+    pytest_assert(
+        result["rc"] == 0 and re.fullmatch(r"[0-9a-f]{64}", digest),
+        "Failed to calculate SHA-256 for {}: {}".format(
+            path, result.get("stderr") or result.get("stdout")
+        ),
+    )
+    return digest
+
+
 def _zip_information(duthost, archive_path: str, include_content: bool = False) -> dict:
     _validate_prefix(archive_path[:-4] if archive_path.endswith(".zip") else "")
     entry_value = (
@@ -625,10 +639,11 @@ def _zip_information(duthost, archive_path: str, include_content: bool = False) 
         else "z.read(name).decode('utf-8').splitlines()[:3]"
     )
     script = (
-        "import json,sys,zipfile;"
+        "import hashlib,json,sys,zipfile;"
         "z=zipfile.ZipFile(sys.argv[1]);"
         "names=z.namelist();"
-        f"print(json.dumps({{'bad':z.testzip(),'entries':[{{'name':name,'value':{entry_value}}} for name in names]}}))"
+        f"print(json.dumps({{'bad':z.testzip(),'entries':[{{'name':name,'size':z.getinfo(name).file_size,"
+        f"'sha256':hashlib.sha256(z.read(name)).hexdigest(),'value':{entry_value}}} for name in names]}}))"
     )
     result = duthost.shell(
         f"sudo python3 -c {shlex.quote(script)} {shlex.quote(archive_path)}",
@@ -1065,6 +1080,22 @@ def test_console_mirror_archive_success(
     source_parts = _generate_rotation(duthost, creds, context, prefix)
     pytest_assert(len(source_parts) >= 2)
 
+    # Keep a hard link to each source inode.
+    source_copies = {}
+    for source_path in source_parts:
+        source_copy = source_path + ".source-copy"
+        result = duthost.shell(
+            f"sudo ln -- {shlex.quote(source_path)} {shlex.quote(source_copy)}",
+            module_ignore_errors=True,
+        )
+        pytest_assert(
+            result["rc"] == 0,
+            "Failed to preserve source log {}: {}".format(
+                source_path, result.get("stderr") or result.get("stdout")
+            ),
+        )
+        source_copies[os.path.basename(source_path)] = source_copy
+
     result, archive_path = _stop_mirror(duthost, context, archive=True)
     pytest_assert("packaging recording" in result["stdout"])
     pytest_assert("Waiting for packaging to complete" in result["stdout"])
@@ -1096,13 +1127,25 @@ def test_console_mirror_archive_success(
     names = [entry["name"] for entry in archive["entries"]]
     _assert_archive_part_names(prefix, names)
     pytest_assert(
-        {os.path.basename(path) for path in source_parts}.issubset(set(names)),
-        f"ZIP is missing parts observed before stop: source={source_parts}, archive={names}",
+        set(names) == set(source_copies),
+        f"ZIP entries do not match the source logs: source={sorted(source_copies)}, archive={names}",
     )
     pytest_assert(
         len(names) >= 2, f"ZIP does not contain all rotated recording parts: {names}"
     )
     for entry in archive["entries"]:
+        source_copy = source_copies[entry["name"]]
+        source_stat = _remote_stat(duthost, source_copy)
+        pytest_assert(
+            entry["size"] == source_stat["size"],
+            "Archived content size differs from source {}: archive={}, source={}".format(
+                entry["name"], entry["size"], source_stat["size"]
+            ),
+        )
+        pytest_assert(
+            entry["sha256"] == _remote_sha256(duthost, source_copy),
+            f"Archived content differs from source log {entry['name']}",
+        )
         pytest_assert(entry["value"][0] == "# SONIC_CONSOLE_MIRROR_TEXT version=1")
         pytest_assert(
             entry["value"][2] == "# fields=timestamp delta seq direction length payload"
