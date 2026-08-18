@@ -747,9 +747,12 @@ t1-lag-vpp:
 
 t0-vpp:
   - acl/test_acl.py
+  - acl/test_acl_outer_vlan.py
+  - arp/test_arp_extended.py
   - arp/test_arp_update.py
   - arp/test_neighbor_mac_aging.py
   - arp/test_neighbor_mac_noptf.py
+  - arp/test_stress_arp.py
   - arp/test_tagged_arp.py
   - autorestart/test_container_autorestart.py
   - bgp/test_bgp_command.py
@@ -760,29 +763,40 @@ t0-vpp:
   - bgp/test_bgp_route_neigh_learning.py
   - bgp/test_bgp_router_id.py
   - bgp/test_bgp_session.py
+  - bgp/test_bgp_speaker.py
   - bgp/test_bgp_stress_link_flap.py
   - bgp/test_bgp_update_timer.py
   - bgp/test_bgpmon.py
+  - cacl/test_cacl_application.py
   - cacl/test_cacl_function.py
   - cacl/test_ebtables_application.py
   - clock/test_clock.py
   - container_checker/test_container_checker.py
   - container_hardening/test_container_hardening.py
+  - crm/test_crm.py
   - crm/test_crm_available.py
   - database/test_db_config.py
   - database/test_db_scripts.py
   - db_migrator/test_migrate_dns.py
   - decap/test_decap.py
   - dhcp_relay/test_dhcp_relay.py
+  - dhcp_relay/test_dhcp_relay_stress.py
+  - dhcp_relay/test_dhcpv6_relay.py
   - disk/test_disk_exhaustion.py
   - dns/test_dns_resolv_conf.py
+  - dns/test_static_dns.py
+  - drop_packets/test_drop_counters.py
+  - fdb/test_fdb.py
   - fdb/test_fdb_flush.py
+  - fdb/test_fdb_mac_learning.py
+  - fib/test_fib.py
   - fips/test_fips.py
   - generic_config_updater/test_aaa.py
   - generic_config_updater/test_bgp_speaker.py
   - generic_config_updater/test_bgpl.py
   - generic_config_updater/test_cacl.py
   - generic_config_updater/test_dhcp_relay.py
+  - generic_config_updater/test_dynamic_acl.py
   - generic_config_updater/test_ecn_config_update.py
   - generic_config_updater/test_eth_interface.py
   - generic_config_updater/test_incremental_qos.py
@@ -801,6 +815,7 @@ t0-vpp:
   - gnmi/test_gnmi_countersdb.py
   - gnmi/test_gnoi_os.py
   - gnmi/test_gnoi_system.py
+  - gnmi/test_gnoi_system_reboot.py
   - hash/test_generic_hash.py
   - http/test_http_copy.py
   - iface_namingmode/test_iface_namingmode.py
