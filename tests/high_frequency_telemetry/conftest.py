@@ -21,7 +21,7 @@ from tests.high_frequency_telemetry.utilities import (
     install_otel_collector_config,
     is_otel_image_available,
     render_otel_collector_config,
-    restart_otel_collector,
+    restart_otel_service,
     setup_influxdb,
     start_influxdb,
     stop_influxdb,
@@ -251,7 +251,7 @@ def hft_otel_collector(duthosts, enum_rand_one_per_hwsku_hostname,
                 module_ignore_errors=False,
             )
             if original_collector_running:
-                restart_otel_collector(duthost)
+                restart_otel_service(duthost)
             elif duthost.is_container_running("otel"):
                 stop_otel_collector(duthost)
         else:
@@ -307,7 +307,7 @@ def hft_influxdb(request, ptfhost, skip_unsupported_hft_test,
             influxdb_bucket=bucket,
         )
         install_otel_collector_config(duthost, rendered_config)
-        restart_otel_collector(duthost)
+        restart_otel_service(duthost)
         yield sink
     finally:
         stop_otel_collector(duthost)

@@ -99,13 +99,14 @@ Per-platform supported counters are defined in `tests/high_frequency_telemetry/c
 ## Test Cases
 
 Each HFT test module starts one test-owned in-memory InfluxDB process. Every
-case creates a uniquely named database, proves it is empty, points a fresh OTEL
-collector process at it, and hard-deletes the database during teardown. Unique
-databases prevent delayed high-fanout exporter data from leaking across hardware
-sessions without paying the process startup cost for every case. The fixture
-stops only the InfluxDB PID it owns at module teardown. Multi-phase cases retain
-data between phases and isolate phases with database watermarks. Standard DUT
-memory-utilization monitoring remains enabled for all HFT cases.
+case creates a uniquely named database, proves it is empty, installs an OTEL
+configuration targeting it, restarts the systemd-managed OTEL service, and
+hard-deletes the database during teardown. Unique databases prevent delayed
+high-fanout exporter data from leaking across hardware sessions without paying
+the process startup cost for every case. The fixture stops only the InfluxDB PID
+it owns at module teardown. Multi-phase cases retain data between phases and
+isolate phases with database watermarks. Standard DUT memory-utilization
+monitoring remains enabled for all HFT cases.
 
 Each case declares its counter, object, and port prerequisites with the
 `hft_requirements` marker. Before that case can request HFT infrastructure, the
@@ -374,9 +375,9 @@ cadence validation to two port series.
 
 **Test Steps**
 1. **Start isolated infrastructure**: Reuse the module's test-owned in-memory InfluxDB process on port 8181.
-2. **Isolate the case**: Create a unique empty database, install an OTEL configuration targeting it, and restart the collector.
-3. **Verify countersyncd**: Require the supervisor daemon to be running with `--enable-otel`; do not alter it.
-4. **Use the collector process**: Restart only the collector process inside the existing `otel` container; the unique database prevents delayed data from a previous hardware session from contaminating this case.
+2. **Isolate the case**: Stop the collector, create a unique empty database, and install an OTEL configuration targeting it.
+3. **Restart OTEL safely**: Restart the systemd-managed `otel.service` and require its critical collector process to become healthy.
+4. **Verify countersyncd**: Require the supervisor daemon to be running with `--enable-otel`; do not alter it.
 5. **Configure HFT**: Get available ports (desired: 2, minimum: 1). Atomically create HFT profile `e2e_port_profile` (poll interval 10ms, stream `enabled`) and its PORT group monitoring `IF_IN_OCTETS`.
 6. **Poll InfluxDB for metrics**: Query the exact expected measurements and object tags.
 7. **Verify data arrived**: Require complete series coverage, values, interval, and CPS within 5%.

@@ -20,6 +20,7 @@ from tests.common.helpers.sai_ids import (
     get_sai_object_type_id,
     get_sai_stat_id,
 )
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -369,30 +370,22 @@ def install_otel_collector_config(duthost, rendered_config,
     duthost.copy(content=rendered_config, dest=dest_path)
 
 
-def restart_otel_collector(duthost, timeout=30):
-    """Reload OTEL configuration without restarting its managed container."""
+def restart_otel_service(duthost, timeout=60):
+    """Restart the systemd-managed OTEL service and wait for its collector."""
     duthost.shell(
-        "docker exec otel supervisorctl stop otel",
-        module_ignore_errors=True,
-    )
-    result = duthost.shell(
-        "docker exec otel supervisorctl start otel",
-        module_ignore_errors=True,
+        "sudo systemctl restart otel",
+        module_ignore_errors=False,
     )
     pytest_assert(
-        result.get("rc") == 0,
-        f"Failed to restart the OTEL collector process: {result}",
+        wait_until(
+            timeout,
+            2,
+            10,
+            duthost.critical_processes_running,
+            "otel",
+        ),
+        "OTEL collector did not become ready after restarting otel.service",
     )
-    end_time = time.time() + timeout
-    while time.time() < end_time:
-        status = duthost.shell(
-            "docker exec otel supervisorctl status otel",
-            module_ignore_errors=True,
-        )
-        if status.get("rc") == 0 and "RUNNING" in status.get("stdout", ""):
-            return True
-        time.sleep(1)
-    raise AssertionError("OTEL collector process did not become ready")
 
 
 def stop_otel_collector(duthost):
