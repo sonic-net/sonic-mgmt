@@ -4842,9 +4842,11 @@ route/test_default_route.py::test_default_route_with_bgp_flap:
 
 route/test_duplicate_route.py::test_duplicate_routes:
   xfail:
-    reason: "xfail due to GH issue https://github.com/sonic-net/sonic-mgmt/issues/20231"
+    reason: "xfail due to GH issue https://github.com/sonic-net/sonic-mgmt/issues/20231 or SAI dump exceeding the syncd watchdog timeout on SN5640 with 202511 (ADO PBI 38630599)"
+    conditions_logical_operator: OR
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/20231"
+      - "release in ['202511'] and hwsku in ['Mellanox-SN5640-C512S2', 'Mellanox-SN5640-C448O16']"
 
 route/test_duplicate_route.py::test_duplicate_routes[4:
   skip:
