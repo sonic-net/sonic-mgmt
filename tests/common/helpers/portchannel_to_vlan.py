@@ -74,6 +74,7 @@ def ptf_teardown(ptfhost, ptf_lag_map):
         ptfhost.set_dev_up_or_down(ptf_lag_member, True)
 
     ptfhost.shell("ip link del {}".format(PTF_LAG_NAME))
+    ptfhost.shell("teamd -t {} -k".format(PTF_LAG_NAME))
     ptfhost.ptf_nn_agent()
 
 
@@ -454,9 +455,11 @@ def setup_po2vlan(duthosts, ptfhost, rand_one_dut_hostname, rand_selected_dut, p
         yield
     # --------------------- Teardown -----------------------
     finally:
-        config_reload(duthost, safe_reload=True)
-        if ptf_lag_map is not None:
-            ptf_teardown(ptfhost, ptf_lag_map)
+        try:
+            config_reload(duthost, safe_reload=True)
+        finally:
+            if ptf_lag_map is not None:
+                ptf_teardown(ptfhost, ptf_lag_map)
 
 
 def has_portchannels(duthosts, rand_one_dut_hostname):
