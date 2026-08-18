@@ -435,7 +435,6 @@ def verify_autorestart_with_critical_process(duthost, container_name, service_na
     @summary: Kill a critical process in a container to verify whether the container
               is stopped and restarted correctly
     """
-    global PROGRAM_STATUS
     pytest_assert(wait_until(40, 3, 0, is_process_running, duthost, container_name, program_name),
                   "Program '{}' in container '{}' is in the '{}' state, expected 'RUNNING'"
                   .format(program_name, container_name, PROGRAM_STATUS))
@@ -828,7 +827,9 @@ def test_supervisor_listener_syslog_reconnects(
         "docker exec {} ls /dev/log 2>&1; echo rc=$?".format(container_name)
     )
     pytest_assert(
-        "No such file" in devlog_check["stdout"] or "rc=1" in devlog_check["stdout"] or "rc=2" in devlog_check["stdout"],
+        ("No such file" in devlog_check["stdout"]
+         or "rc=1" in devlog_check["stdout"]
+         or "rc=2" in devlog_check["stdout"]),
         "/dev/log still exists after stopping rsyslogd in '{}': {}".format(
             container_name, devlog_check["stdout"])
     )
