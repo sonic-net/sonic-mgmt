@@ -23,14 +23,13 @@ from dataclasses import dataclass, field
 
 import pexpect
 import pytest
-
-# from tests.common.fixtures.conn_graph_facts import conn_graph_facts
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.console_helper import (
     check_target_line_status,
     create_ssh_client,
     disconnect_console_client,
     ensure_console_session_up,
+    get_dut_console_lines,
     get_host_ip_and_creds,
 )
 from tests.common.utilities import wait_until
@@ -73,16 +72,15 @@ _RECORD_RE = re.compile(
 
 
 @dataclass(frozen=True)
-class MirrorLink:
-    line_a: str
-    line_b: str
+class MirrorPort:
+    line: str
     baud_rate: int
     flow_control: bool
 
 
 @dataclass
 class MirrorTestContext:
-    link: MirrorLink
+    port: MirrorPort
     clients: list[pexpect.spawn] = field(default_factory=list)
     recording_prefixes: set[str] = field(default_factory=set)
 
@@ -127,7 +125,7 @@ def _start_mirror(
     max_file_size: int | None = None,
 ) -> tuple[dict, str, str]:
     arguments = (
-        f"start {context.link.line_a} --direction {direction} --timeout {timeout}"
+        f"start {context.port.line} --direction {direction} --timeout {timeout}"
     )
     if max_file_size is not None:
         arguments += f" --max-file-size {max_file_size}"
@@ -140,7 +138,7 @@ def _start_mirror(
     assert match is not None
     file_path = match.group(1)
     prefix = context.register_recording_file(file_path)
-    pytest_assert(f"Started mirror on line [{context.link.line_a}]" in result["stdout"])
+    pytest_assert(f"Started mirror on line [{context.port.line}]" in result["stdout"])
     pytest_assert(f"Auto-stop timeout: {timeout}" in result["stdout"])
     return result, file_path, prefix
 
@@ -148,7 +146,7 @@ def _start_mirror(
 def _stop_mirror(
     duthost, context: MirrorTestContext, archive: bool = False
 ) -> tuple[dict, str]:
-    arguments = "stop {}{}".format(context.link.line_a, " --archive" if archive else "")
+    arguments = "stop {}{}".format(context.port.line, " --archive" if archive else "")
     result = _mirror_command(duthost, arguments)
     if archive:
         match = re.search(
@@ -507,8 +505,7 @@ def _extract_frame(captured: bytes, start_marker: bytes, end_marker: bytes) -> b
 
 
 def _transfer_payload(
-    sender: pexpect.spawn,
-    receiver: pexpect.spawn,
+    client: pexpect.spawn,
     payload: bytes,
     baud_rate: int,
 ) -> tuple[bytes, float]:
@@ -516,7 +513,7 @@ def _transfer_payload(
     start_marker = b"CM_START_" + token + b"_"
     end_marker = b"_CM_END_" + token + b"\n"
     frame = start_marker + payload + end_marker
-    _drain_console(receiver)
+    _drain_console(client)
 
     captured = bytearray()
     reader_errors = []
@@ -528,7 +525,7 @@ def _transfer_payload(
         try:
             while time.monotonic() < deadline and not done.is_set():
                 try:
-                    data = receiver.read_nonblocking(size=8192, timeout=0.2)
+                    data = client.read_nonblocking(size=8192, timeout=0.2)
                 except pexpect.TIMEOUT:
                     continue
                 if isinstance(data, str):
@@ -546,7 +543,7 @@ def _transfer_payload(
     )
     started = time.monotonic()
     reader_thread.start()
-    _send_all(sender, frame, baud_rate)
+    _send_all(client, frame, baud_rate)
     reader_thread.join(timeout)
     elapsed = time.monotonic() - started
     done.set()
@@ -559,111 +556,26 @@ def _transfer_payload(
     return frame, elapsed
 
 
-def _open_console_pair(
+def _open_console_client(
     duthost, creds: dict, context: MirrorTestContext
-) -> tuple[pexpect.spawn, pexpect.spawn]:
+) -> pexpect.spawn:
     dut_ip, dut_user, dut_password = get_host_ip_and_creds(duthost, creds)
-    clients = []
-    for line in (context.link.line_a, context.link.line_b):
-        client = create_ssh_client(dut_ip, f"{dut_user}:{line}", dut_password)
-        context.clients.append(client)
-        ensure_console_session_up(client, line)
-        client.delaybeforesend = None
-        client.delayafterread = None
-        clients.append(client)
-    _drain_console(clients[0])
-    _drain_console(clients[1])
-    return clients[0], clients[1]
-
-
-def _transfer_bidirectional(
-    client_a: pexpect.spawn,
-    client_b: pexpect.spawn,
-    payload_a_to_b: bytes,
-    payload_b_to_a: bytes,
-    baud_rate: int,
-) -> tuple[bytes, bytes]:
-    token_a = uuid.uuid4().hex.encode("ascii")
-    token_b = uuid.uuid4().hex.encode("ascii")
-    start_a, end_a = b"CM_START_" + token_a + b"_", b"_CM_END_" + token_a + b"\n"
-    start_b, end_b = b"CM_START_" + token_b + b"_", b"_CM_END_" + token_b + b"\n"
-    frame_a = start_a + payload_a_to_b + end_a
-    frame_b = start_b + payload_b_to_a + end_b
-    _drain_console(client_a)
-    _drain_console(client_b)
-
-    captures = {"a": bytearray(), "b": bytearray()}
-    errors = []
-    timeout = max(len(frame_a), len(frame_b)) * 10.0 / baud_rate * 3.0 + 30.0
-
-    def receive(client, key, end_marker):
-        deadline = time.monotonic() + timeout
-        try:
-            while time.monotonic() < deadline:
-                try:
-                    data = client.read_nonblocking(size=8192, timeout=0.2)
-                except pexpect.TIMEOUT:
-                    continue
-                if isinstance(data, str):
-                    data = data.encode("latin-1")
-                captures[key].extend(data)
-                if end_marker in captures[key]:
-                    return
-            errors.append(
-                f"Timed out receiving bidirectional serial traffic on side {key}"
-            )
-        except (Exception, pytest.fail.Exception) as error:  # noqa: BLE001
-            errors.append(f"side {key}: {error}")
-
-    readers = [
-        threading.Thread(target=receive, args=(client_a, "a", end_b), daemon=True),
-        threading.Thread(target=receive, args=(client_b, "b", end_a), daemon=True),
-    ]
-    send_errors = []
-
-    def send(client, frame):
-        try:
-            _send_all(client, frame, baud_rate)
-        except (Exception, pytest.fail.Exception) as error:  # noqa: BLE001
-            send_errors.append(str(error))
-
-    senders = [
-        threading.Thread(target=send, args=(client_a, frame_a), daemon=True),
-        threading.Thread(target=send, args=(client_b, frame_b), daemon=True),
-    ]
-    for thread in readers + senders:
-        thread.start()
-    for thread in senders + readers:
-        thread.join(timeout)
-
-    pytest_assert(
-        not any(thread.is_alive() for thread in readers + senders),
-        "Bidirectional console traffic threads did not finish",
-    )
-    pytest_assert(
-        not errors and not send_errors,
-        f"Bidirectional console traffic failed: receive={errors}, send={send_errors}",
-    )
-    pytest_assert(
-        _extract_frame(bytes(captures["b"]), start_a, end_a) == payload_a_to_b,
-        "A-to-B console payload was changed, lost, or duplicated",
-    )
-    pytest_assert(
-        _extract_frame(bytes(captures["a"]), start_b, end_b) == payload_b_to_a,
-        "B-to-A console payload was changed, lost, or duplicated",
-    )
-    return frame_a, frame_b
+    line = context.port.line
+    client = create_ssh_client(dut_ip, f"{dut_user}:{line}", dut_password)
+    context.clients.append(client)
+    ensure_console_session_up(client, line)
+    client.delaybeforesend = None
+    client.delayafterread = None
+    _drain_console(client)
+    return client
 
 
 def _generate_rotation(
     duthost, creds, context: MirrorTestContext, prefix: str
 ) -> list[str]:
-    client_a, client_b = _open_console_pair(duthost, creds, context)
-    payload_a = b"\x80" * ROTATION_PAYLOAD_BYTES_PER_DIRECTION
-    payload_b = b"\x81" * ROTATION_PAYLOAD_BYTES_PER_DIRECTION
-    _transfer_bidirectional(
-        client_a, client_b, payload_a, payload_b, context.link.baud_rate
-    )
+    client = _open_console_client(duthost, creds, context)
+    payload = b"\x80" * ROTATION_PAYLOAD_BYTES_PER_DIRECTION
+    _transfer_payload(client, payload, context.port.baud_rate)
     pytest_assert(
         wait_until(30, 1, 0, lambda: len(_list_recording_parts(duthost, prefix)) >= 2),
         "Recording did not rotate after escaped traffic exceeded the 1 MB part limit",
@@ -787,76 +699,51 @@ def _get_proxy_cpu_usage(
 
 
 @pytest.fixture(scope="module")
-def mirror_link(setup_c0, duthost, conn_graph_facts) -> MirrorLink:
-    """Select one crossed, same-DUT serial link from ``*_serial_links.csv``."""
+def mirror_port(setup_c0, duthost, conn_graph_facts, console_facts) -> MirrorPort:  # noqa: F811
+    """Select one c0-lo console port."""
     setup_dut, console_fanout = setup_c0
     pytest_assert(
         setup_dut is duthost and console_fanout is duthost,
-        "Console Mirror tests require a c0-lo DUT with local serial wiring",
+        "Console Mirror tests require a c0-lo DUT with local loopback wiring",
     )
 
-    serial_links = conn_graph_facts.get("device_serial_link", {}).get(
-        duthost.hostname, {}
+    lines = get_dut_console_lines(conn_graph_facts, duthost)
+    pytest_assert(
+        lines,
+        f"Console Mirror requires at least one console line for DUT '{duthost.hostname}' in *_serial_links.csv",
     )
-    for raw_line_a in sorted(serial_links, key=int):
-        line_a = str(raw_line_a)
-        link_a = serial_links[line_a]
-        line_b = str(link_a.get("peerport", ""))
-        if str(link_a.get("peerdevice", "")) != duthost.hostname or line_b == line_a:
-            continue
-        link_b = serial_links.get(line_b)
-        if not link_b:
-            continue
-        if (
-            str(link_b.get("peerdevice", "")) != duthost.hostname
-            or str(link_b.get("peerport", "")) != line_a
-        ):
-            continue
-
-        baud_a = int(link_a.get("baud_rate", "9600"))
-        baud_b = int(link_b.get("baud_rate", "9600"))
-        flow_a = bool(int(link_a.get("flow_control", "0")))
-        flow_b = bool(int(link_b.get("flow_control", "0")))
-        pytest_assert(
-            baud_a == baud_b,
-            f"Crossed mirror lines {line_a} and {line_b} use different baud rates: {baud_a} and {baud_b}",
-        )
-        pytest_assert(
-            flow_a == flow_b,
-            f"Crossed mirror lines {line_a} and {line_b} use different flow-control settings",
-        )
-        logger.info(
-            "Selected Console Mirror path: line %s <-> line %s, baud=%s, flow_control=%s",
-            line_a,
-            line_b,
-            baud_a,
-            flow_a,
-        )
-        return MirrorLink(line_a, line_b, baud_a, flow_a)
-
-    pytest.skip(
-        "Console Mirror requires two console lines on the c0-lo DUT that are recorded as opposite endpoints "
-        "in *_serial_links.csv; self-loop modules cannot distinguish RX from TX"
+    line = str(lines[0])
+    line_facts = console_facts["lines"][line]
+    port = MirrorPort(
+        line=line,
+        baud_rate=int(line_facts["baud_rate"]),
+        flow_control=bool(line_facts["flow_control"]),
     )
-    raise AssertionError("pytest.skip returned unexpectedly")  # Not Reached
+    logger.info(
+        "Selected Console Mirror loopback port: line %s, baud=%s, flow_control=%s",
+        port.line,
+        port.baud_rate,
+        port.flow_control,
+    )
+    return port
 
 
 @pytest.fixture(scope="function")
-def mirror_test_context(duthost, mirror_link: MirrorLink):
+def mirror_test_context(duthost, mirror_port: MirrorPort):
     """Provide strict per-test teardown for mirror and interactive sessions."""
     # 1. Check proxy service and socket
-    for line in (mirror_link.line_a, mirror_link.line_b):
-        service = f"console-monitor-proxy@{line}.service"
-        result = duthost.shell(
-            f"sudo systemctl is-active --quiet {service}", module_ignore_errors=True
-        )
-        pytest_assert(result["rc"] == 0, f"{service} is not active")
-        pytest_assert(
-            check_target_line_status(duthost, line, "IDLE"),
-            f"Console line {line} is busy before the test starts",
-        )
+    line = mirror_port.line
+    service = f"console-monitor-proxy@{line}.service"
+    result = duthost.shell(
+        f"sudo systemctl is-active --quiet {service}", module_ignore_errors=True
+    )
+    pytest_assert(result["rc"] == 0, f"{service} is not active")
+    pytest_assert(
+        check_target_line_status(duthost, line, "IDLE"),
+        f"Console line {line} is busy before the test starts",
+    )
 
-    socket_path = f"/run/console-monitor/mirror/line{mirror_link.line_a}.sock"
+    socket_path = f"/run/console-monitor/mirror/line{line}.sock"
     result = duthost.shell(
         f"sudo test -S {shlex.quote(socket_path)}", module_ignore_errors=True
     )
@@ -865,23 +752,23 @@ def mirror_test_context(duthost, mirror_link: MirrorLink):
     )
 
     # 2. Check initial CLI and DB are idle
-    initial_cli = _get_cli_status(duthost, mirror_link.line_a)
-    initial_db = _get_state_db(duthost, mirror_link.line_a)
+    initial_cli = _get_cli_status(duthost, line)
+    initial_db = _get_state_db(duthost, line)
     pytest_assert(
         initial_cli.get("state") == "idle" and initial_db.get("state") == "idle",
-        f"Console line {mirror_link.line_a} is not idle at test start, CLI={initial_cli}, DB={initial_db}",
+        f"Console line {line} is not idle at test start, CLI={initial_cli}, DB={initial_db}",
     )
 
     # 3. Create context
-    context: MirrorTestContext = MirrorTestContext(link=mirror_link)
+    context: MirrorTestContext = MirrorTestContext(port=mirror_port)
 
     yield context
 
     teardown_errors = []
     # 4. Stop any active mirror sessions
     try:
-        cli_status = _get_cli_status(duthost, mirror_link.line_a)
-        db_status = _get_state_db(duthost, mirror_link.line_a)
+        cli_status = _get_cli_status(duthost, line)
+        db_status = _get_state_db(duthost, line)
         if cli_status.get("file_path") and cli_status["file_path"] != "-":
             try:
                 context.register_recording_file(cli_status["file_path"])
@@ -890,7 +777,7 @@ def mirror_test_context(duthost, mirror_link: MirrorLink):
         if cli_status.get("state") == "active" or db_status.get("state") == "active":
             result = _mirror_command(
                 duthost,
-                f"stop {mirror_link.line_a}",
+                f"stop {line}",
                 expect_success=False,
             )
             if result["rc"] != 0:
@@ -907,11 +794,11 @@ def mirror_test_context(duthost, mirror_link: MirrorLink):
     # 5. Wait for cli and db idle
     # 6. Check cleared
     try:
-        if not _wait_for_mirror_idle(duthost, mirror_link.line_a):
+        if not _wait_for_mirror_idle(duthost, line):
             teardown_errors.append(
-                f"Mirror line {mirror_link.line_a} did not become idle in CLI and STATE_DB"
+                f"Mirror line {line} did not become idle in CLI and STATE_DB"
             )
-        state = _get_state_db(duthost, mirror_link.line_a)
+        state = _get_state_db(duthost, line)
         uncleared = sorted(MIRROR_ACTIVE_FIELDS.intersection(state))
         if state.get("state") != "idle" or uncleared:
             teardown_errors.append(
@@ -939,16 +826,15 @@ def mirror_test_context(duthost, mirror_link: MirrorLink):
         except (Exception, pytest.fail.Exception) as error:  # noqa: BLE001
             teardown_errors.append(f"Failed to close console client: {error}")
 
-    for line in (mirror_link.line_a, mirror_link.line_b):
-        try:
-            if not wait_until(
-                15, 1, 0, check_target_line_status, duthost, line, "IDLE"
-            ):
-                teardown_errors.append(f"Console line {line} did not return to IDLE")
-        except (Exception, pytest.fail.Exception) as error:  # noqa: BLE001
-            teardown_errors.append(
-                f"Failed to verify console line {line} cleanup: {error}"
-            )
+    try:
+        if not wait_until(
+            15, 1, 0, check_target_line_status, duthost, line, "IDLE"
+        ):
+            teardown_errors.append(f"Console line {line} did not return to IDLE")
+    except (Exception, pytest.fail.Exception) as error:  # noqa: BLE001
+        teardown_errors.append(
+            f"Failed to verify console line {line} cleanup: {error}"
+        )
 
     for prefix in sorted(context.recording_prefixes):
         try:
@@ -975,8 +861,8 @@ def test_console_mirror_cli_and_state(duthost, mirror_test_context: MirrorTestCo
     )
 
     # Check state in CLI and STATE_DB
-    cli_status = _get_cli_status(duthost, context.link.line_a)
-    state = _get_state_db(duthost, context.link.line_a)
+    cli_status = _get_cli_status(duthost, context.port.line)
+    state = _get_state_db(duthost, context.port.line)
     pytest_assert(cli_status["state"] == "active" and cli_status["direction"] == "both")
     pytest_assert(
         cli_status["timeout"] == "30s"
@@ -992,9 +878,9 @@ def test_console_mirror_cli_and_state(duthost, mirror_test_context: MirrorTestCo
     original_start_time = state["start_time"]
 
     # Mirror timeout
-    result = _mirror_command(duthost, f"timeout {context.link.line_a} 1m")
+    result = _mirror_command(duthost, f"timeout {context.port.line} 1m")
     pytest_assert(
-        f"Updated mirror timeout on line [{context.link.line_a}]" in result["stdout"]
+        f"Updated mirror timeout on line [{context.port.line}]" in result["stdout"]
     )
     pytest_assert("Timeout: 1m" in result["stdout"])
     remaining_match = re.search(r"^Remaining:\s*(\S+)", result["stdout"], re.MULTILINE)
@@ -1002,8 +888,8 @@ def test_console_mirror_cli_and_state(duthost, mirror_test_context: MirrorTestCo
     assert remaining_match is not None
     pytest_assert(0 < _duration_seconds(remaining_match.group(1)) <= 60)
 
-    cli_status = _get_cli_status(duthost, context.link.line_a)
-    state = _get_state_db(duthost, context.link.line_a)
+    cli_status = _get_cli_status(duthost, context.port.line)
+    state = _get_state_db(duthost, context.port.line)
     pytest_assert(
         cli_status["timeout"] == "1m"
         and 0 < _duration_seconds(cli_status["remaining"]) <= 60
@@ -1015,11 +901,11 @@ def test_console_mirror_cli_and_state(duthost, mirror_test_context: MirrorTestCo
 
     # Mirror stop
     result, retained_prefix = _stop_mirror(duthost, context)
-    pytest_assert(f"Stopped mirror on line [{context.link.line_a}]" in result["stdout"])
+    pytest_assert(f"Stopped mirror on line [{context.port.line}]" in result["stdout"])
     pytest_assert(retained_prefix == prefix)
     # Wait for the mirror to become idle
-    pytest_assert(_wait_for_mirror_idle(duthost, context.link.line_a))
-    idle_state = _get_state_db(duthost, context.link.line_a)
+    pytest_assert(_wait_for_mirror_idle(duthost, context.port.line))
+    idle_state = _get_state_db(duthost, context.port.line)
     pytest_assert(
         idle_state == {"state": "idle"}, f"Active fields were not cleared: {idle_state}"
     )
@@ -1042,22 +928,14 @@ def test_console_mirror_traffic_recording(
 ):
     """Verify direction filtering, escaping, byte integrity, and non-interference."""
     context = mirror_test_context
-    client_a, client_b = _open_console_pair(duthost, creds, context)
+    client = _open_console_client(duthost, creds, context)
     _, _, prefix = _start_mirror(duthost, context, direction=direction, timeout="2m")
 
     control_bytes = b"\x02\t\n\r\x1b\x7f\x80\\"
-    tx_payload = (
-        b"printable-TX-" + uuid.uuid4().hex.encode("ascii") + b"-" + control_bytes
+    payload = (
+        b"loopback-" + uuid.uuid4().hex.encode("ascii") + b"-" + control_bytes
     )
-    rx_payload = (
-        b"printable-RX-" + uuid.uuid4().hex.encode("ascii") + b"-" + control_bytes
-    )
-    tx_frame, _ = _transfer_payload(
-        client_a, client_b, tx_payload, context.link.baud_rate
-    )
-    rx_frame, _ = _transfer_payload(
-        client_b, client_a, rx_payload, context.link.baud_rate
-    )
+    loopback_frame, _ = _transfer_payload(client, payload, context.port.baud_rate)
 
     _stop_mirror(duthost, context)
     _, records = _read_scm_parts(duthost, prefix, direction)
@@ -1077,22 +955,22 @@ def test_console_mirror_traffic_recording(
 
     if "TX" in expected_directions:
         pytest_assert(
-            streams["TX"].count(tx_frame) == 1,
-            "TX payload was not recorded exactly once",
+            streams["TX"].count(loopback_frame) == 1,
+            "Loopback frame was not recorded exactly once as TX",
         )
     else:
         pytest_assert(
-            tx_frame not in streams["TX"],
+            loopback_frame not in streams["TX"],
             "TX payload leaked into an excluded direction",
         )
     if "RX" in expected_directions:
         pytest_assert(
-            streams["RX"].count(rx_frame) == 1,
-            "RX payload was not recorded exactly once",
+            streams["RX"].count(loopback_frame) == 1,
+            "Looped-back frame was not recorded exactly once as RX",
         )
     else:
         pytest_assert(
-            rx_frame not in streams["RX"],
+            loopback_frame not in streams["RX"],
             "RX payload leaked into an excluded direction",
         )
 
@@ -1112,11 +990,11 @@ def test_console_mirror_recording_files(
             1,
             0,
             lambda: (
-                _get_state_db(duthost, context.link.line_a).get("file_path")
+                _get_state_db(duthost, context.port.line).get("file_path")
                 == active_parts[-1]
             ),
         ),
-        f"STATE_DB did not follow the current rotated part: {_get_state_db(duthost, context.link.line_a)}",
+        f"STATE_DB did not follow the current rotated part: {_get_state_db(duthost, context.port.line)}",
     )
 
     _stop_mirror(duthost, context)
@@ -1243,7 +1121,7 @@ def test_console_mirror_automatic_stop(duthost, mirror_test_context: MirrorTestC
     archive_path = prefix + ".zip"
 
     pytest_assert(
-        _wait_for_mirror_idle(duthost, context.link.line_a),
+        _wait_for_mirror_idle(duthost, context.port.line),
         message=f"Mirror did not automatically stop after {AUTO_STOP_TIMEOUT_SEC}s",
     )
     pytest_assert(
@@ -1283,8 +1161,8 @@ def test_console_mirror_resource_usage(
 ):
     """Measure proxy CPU/memory at maximum configured serial throughput."""
     context = mirror_test_context
-    client_a, client_b = _open_console_pair(duthost, creds, context)
-    service = f"console-monitor-proxy@{context.link.line_a}.service"
+    client = _open_console_client(duthost, creds, context)
+    service = f"console-monitor-proxy@{context.port.line}.service"
 
     # record baseline
     cpu_sample_state: dict[str, float] = {}
@@ -1294,7 +1172,7 @@ def test_console_mirror_resource_usage(
     _start_mirror(duthost, context, direction="both", timeout="5m")
 
     payload_size = max(
-        4096, int(context.link.baud_rate / 10.0 * RESOURCE_LOAD_DURATION_SEC)
+        4096, int(context.port.baud_rate / 10.0 * RESOURCE_LOAD_DURATION_SEC)
     )
     payload = b"S" * payload_size
     transfer_result = {}
@@ -1303,7 +1181,7 @@ def test_console_mirror_resource_usage(
     def transfer():
         try:
             frame, elapsed = _transfer_payload(
-                client_a, client_b, payload, context.link.baud_rate
+                client, payload, context.port.baud_rate
             )
             transfer_result.update(frame=frame, elapsed=elapsed)
         except (Exception, pytest.fail.Exception) as error:  # noqa: BLE001
@@ -1330,7 +1208,7 @@ def test_console_mirror_resource_usage(
 
     # check actual throughput
     throughput = payload_size / transfer_result["elapsed"]
-    expected_throughput = context.link.baud_rate / 10.0
+    expected_throughput = context.port.baud_rate / 10.0
     pytest_assert(
         throughput >= expected_throughput * 0.75,
         f"Console throughput {throughput:.1f} B/s is below 75% of baud-limited {expected_throughput:.1f} B/s",
@@ -1352,8 +1230,8 @@ def test_console_mirror_resource_usage(
     peak_cpu = max(cpu_samples or [0.0])
 
     metrics = {
-        "line": context.link.line_a,
-        "baud_rate": context.link.baud_rate,
+        "line": context.port.line,
+        "baud_rate": context.port.baud_rate,
         "payload_bytes": payload_size,
         "throughput_bytes_per_sec": round(throughput, 2),
         "idle_cpu_percent": round(baseline_cpu, 3),
