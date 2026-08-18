@@ -1,7 +1,5 @@
-"""TC4: CDB firmware activation validation.
+"""CDB firmware activation validation."""
 
-Activates firmware and verifies the final firmware state and recovery.
-"""
 import logging
 import pytest
 
@@ -20,6 +18,7 @@ def test_firmware_activation(
         duthost, port_attributes_dict, cdb_firmware_qualifying_ports,
         get_lport_to_pport_mapping,
         required_firmware_metadata_for_all_transceivers, firmware_operations.activation_op,
+        verify_post_operation=True,
     )
     logger.info("Firmware activation exercised %d port(s)", num_ports)
     if all_failures:
