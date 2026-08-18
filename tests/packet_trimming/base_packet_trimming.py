@@ -305,8 +305,7 @@ class BasePacketTrimming:
             # re-initializes the thermal manager on its next polling cycle once state-db is
             # repopulated, so this is safe to ignore here.
             loganalyzer[duthost.hostname].ignore_regex.extend([
-                r".*ERR pmon#thermalctld.*Caught exception while initializing thermal manager"
-                r".*JSONDecodeError.*",
+                r".*ERR pmon#thermalctld.*Caught exception while initializing thermal manager - JSONDecodeError.*",
             ])
 
         with allure.step(f"Configure packet trimming in global level for {self.trimming_mode} mode"):
