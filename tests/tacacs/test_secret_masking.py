@@ -26,15 +26,14 @@ import re
 import time
 import pytest
 
-from tests.common.helpers.tacacs.tacacs_helper import (
+from tests.common.helpers.tacacs.tacacs_helper import (  # noqa: F401
     per_command_accounting_skip_versions,
-    check_tacacs,  # noqa: F401
+    check_tacacs,
 )
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release
 from .utils import (
     change_and_wait_aaa_config_update,
-    get_auditd_config_reload_timestamp,
     ssh_connect_remote_retry,
     ssh_run_command,
     cleanup_tacacs_log,
