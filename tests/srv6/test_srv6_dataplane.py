@@ -339,7 +339,7 @@ def setup_uA(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, tbi
 
     if duthost.is_multi_asic:
         cli_options = " -n " + duthost.get_namespace_from_asic_id(asic_index)
-        dut_asic = duthost.asic_instance[asic_index]
+        dut_asic = duthost.asic_instance(asic_index)
         dut_mac = dut_asic.get_router_mac()
         neighbor_ips, interface_names, port_id_lists = get_ptf_src_port_and_dut_port_and_neighbor_uA(dut_asic, tbinfo)
     else:
