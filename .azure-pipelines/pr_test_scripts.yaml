@@ -298,6 +298,7 @@ t0:
   - tacacs/test_ro_disk.py
   - tacacs/test_ro_user.py
   - tacacs/test_rw_user.py
+  - tacacs/test_secret_masking.py
   - gnmi/test_events.py
   - test_features.py
   - test_interfaces.py
@@ -612,6 +613,7 @@ t1-lag:
   - tacacs/test_ro_disk.py
   - tacacs/test_ro_user.py
   - tacacs/test_rw_user.py
+  - tacacs/test_secret_masking.py
   - gnmi/test_events.py
   - test_features.py
   - test_interfaces.py
@@ -835,6 +837,7 @@ multi-asic-t1-lag:
   - tacacs/test_jit_user.py
   - tacacs/test_ro_user.py
   - tacacs/test_rw_user.py
+  - tacacs/test_secret_masking.py
   - test_interfaces.py
 
 dpu:
