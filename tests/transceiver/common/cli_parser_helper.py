@@ -17,6 +17,12 @@ __all__ = [
     # ── General shell / command-result constants ────────────────────────────
     "RC_FAILURE",
 
+    # ── sfputil show fwversion field labels ─────────────────────────────────
+    "FW_ACTIVE",
+    "FW_INACTIVE",
+    "FW_RUNNING_IMAGE",
+    "FW_COMMITTED_IMAGE",
+
     # ── Public parsers ──────────────────────────────────────────────────────
     "parse_fwversion",
     "parse_hexdump",
@@ -203,6 +209,12 @@ def parse_presence(output_lines):
             presence = match.group(2).strip()
             res[port] = presence
     return res
+
+
+FW_ACTIVE = "Active Firmware"
+FW_INACTIVE = "Inactive Firmware"
+FW_RUNNING_IMAGE = "Running Image"
+FW_COMMITTED_IMAGE = "Committed Image"
 
 
 def parse_fwversion(output_lines):

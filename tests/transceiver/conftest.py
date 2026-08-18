@@ -438,7 +438,7 @@ def get_dev_transceiver_details(duthost, get_transceiver_inventory):
     return details
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def get_lport_to_pport_mapping(duthost):
     """
     Fixture to get the mapping of logical ports to physical ports.

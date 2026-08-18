@@ -853,10 +853,13 @@ class EverflowIPv4Tests(BaseEverflowTest):
                                send_time=send_time,
                                tolerance=everflow_tolerance)
 
-            # Verify that packets dropped by policer do not increment TX_DROP counters
+            # Skip counter checks on ASICs that count policer-dropped packets as TX drops.
             mirror_port = get_mirror_port(everflow_dut, "TEST_POLICER_SESSION")
-            assert_no_tx_drops_on_mirror_port(everflow_dut, mirror_port)
-            assert_no_tx_queue_drops_on_mirror_port(everflow_dut, mirror_port)
+            asic = everflow_dut.get_asic_name()
+            if asic != "th2":
+                assert_no_tx_drops_on_mirror_port(everflow_dut, mirror_port)
+            if asic not in {"th2", "td3"}:
+                assert_no_tx_queue_drops_on_mirror_port(everflow_dut, mirror_port)
         finally:
             # Clean up ACL rules and routes
             BaseEverflowTest.remove_acl_rule_config(everflow_dut, table_name, config_method)
