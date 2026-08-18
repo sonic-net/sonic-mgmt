@@ -102,14 +102,25 @@ def test_logrotate_and_cleanup_use_one_remote_call(loganalyzer_plugin):
     command = node.shell.call_args.args[0]
     assert "/usr/sbin/logrotate -f /etc/logrotate.conf" in command
     assert "logrotate_failed=1" in command
-    assert "df -P /var/log" in command
-    assert "find /var/log -xdev -type f -name '*.gz' -delete" in command
+    assert "df -Pk /var/log" in command
+    assert (
+        "find /var/log -xdev -regextype posix-extended -type f "
+        "-regex '.*\\.[0-9]+\\.gz$' -delete"
+        in command
+    )
     assert (
         '"$usage" -ge {}'.format(
             loganalyzer_plugin.VAR_LOG_CLEANUP_THRESHOLD
         )
         in command
     )
+    assert (
+        '"$available_kb" -lt {}'.format(
+            loganalyzer_plugin.VAR_LOG_MIN_FREE_KB
+        )
+        in command
+    )
+    assert command.count("if var_log_is_unsafe; then") == 2
 
 
 @pytest.mark.parametrize("return_code", [90, 91])

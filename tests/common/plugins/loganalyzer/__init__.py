@@ -8,7 +8,8 @@ from .bug_handler_helper import get_bughandler_instance
 
 
 VAR_LOG_CLEANUP_THRESHOLD = 85
-VAR_LOG_FAILURE_THRESHOLD = 90
+# Preserve enough room for the observed ~44 MiB per-test log growth on small filesystems.
+VAR_LOG_MIN_FREE_KB = 64 * 1024
 VAR_LOG_MAINTENANCE_FAILURE_RC = 90
 VAR_LOG_USAGE_CHECK_FAILURE_RC = 91
 
@@ -18,36 +19,48 @@ if ! /usr/sbin/logrotate -f /etc/logrotate.conf > /dev/null 2>&1; then
     logrotate_failed=1
 fi
 
-get_var_log_usage() {{
-    df -P /var/log 2>/dev/null | awk 'END {{gsub(/%/, "", $5); print $5}}'
+refresh_var_log_stats() {{
+    stats=$(df -Pk /var/log 2>/dev/null | awk 'END {{gsub(/%/, "", $5); print $5, $4}}')
+    set -- $stats
+    usage=$1
+    available_kb=$2
+
+    case "$usage" in
+        ''|*[!0-9]*)
+            return 1
+            ;;
+    esac
+    case "$available_kb" in
+        ''|*[!0-9]*)
+            return 1
+            ;;
+    esac
 }}
 
-usage=$(get_var_log_usage)
-case "$usage" in
-    ''|*[!0-9]*)
-        echo "Failed to determine /var/log usage" >&2
-        exit {VAR_LOG_USAGE_CHECK_FAILURE_RC}
-        ;;
-esac
+var_log_is_unsafe() {{
+    [ "$usage" -ge {VAR_LOG_CLEANUP_THRESHOLD} ] || [ "$available_kb" -lt {VAR_LOG_MIN_FREE_KB} ]
+}}
 
-if [ "$usage" -ge {VAR_LOG_CLEANUP_THRESHOLD} ]; then
-    echo "/var/log usage is ${{usage}}%; deleting compressed rotated logs"
-    if ! find /var/log -xdev -type f -name '*.gz' -delete; then
+if ! refresh_var_log_stats; then
+    echo "Failed to determine /var/log usage and available space" >&2
+    exit {VAR_LOG_USAGE_CHECK_FAILURE_RC}
+fi
+
+if var_log_is_unsafe; then
+    echo "/var/log usage is ${{usage}}% with ${{available_kb}} KB available; deleting numbered rotated logs"
+    if ! find /var/log -xdev -regextype posix-extended -type f -regex '.*\\.[0-9]+\\.gz$' -delete; then
         echo "Failed to delete compressed rotated logs under /var/log" >&2
         exit {VAR_LOG_MAINTENANCE_FAILURE_RC}
     fi
 
-    usage=$(get_var_log_usage)
-    case "$usage" in
-        ''|*[!0-9]*)
-            echo "Failed to determine /var/log usage after cleanup" >&2
-            exit {VAR_LOG_USAGE_CHECK_FAILURE_RC}
-            ;;
-    esac
-    echo "/var/log usage after cleanup is ${{usage}}%"
+    if ! refresh_var_log_stats; then
+        echo "Failed to determine /var/log usage and available space after cleanup" >&2
+        exit {VAR_LOG_USAGE_CHECK_FAILURE_RC}
+    fi
+    echo "/var/log usage after cleanup is ${{usage}}% with ${{available_kb}} KB available"
 
-    if [ "$usage" -ge {VAR_LOG_FAILURE_THRESHOLD} ]; then
-        echo "/var/log usage remains above the safe limit after cleanup" >&2
+    if var_log_is_unsafe; then
+        echo "/var/log remains above the safe limits after cleanup" >&2
         du -kx /var/log 2>/dev/null | sort -nr | head -20 >&2
         exit {VAR_LOG_MAINTENANCE_FAILURE_RC}
     fi
