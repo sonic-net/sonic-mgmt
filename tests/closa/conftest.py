@@ -31,6 +31,24 @@ T1_TAGGING_TEST_MODULES = (
     "test_bgp_aggregate_address_t1_tagging_t2_upstream_msft_internal.py",
 )
 
+LIFECYCLE_DISRUPTION_TESTS = (
+    "test_lifecycle_bgp_restart_preserves_tagging",
+    "test_lifecycle_config_reload_preserves_tagging",
+    "test_aggregate_tag_survives_bgp_restart",
+    "test_aggregate_tag_survives_config_reload",
+    "test_suppress_prefix_persistence",
+)
+
+LIFECYCLE_DISRUPTION_IGNORE_LOGS = [
+    r".* ERR iptables: tac_connect_single: connection to .* failed: Network is unreachable.*",
+    r".* ERR iptables: nss_tacplus: failed to connect TACACS\+ server .* Network is unreachable.*",
+    r".* ERR journalctl: tac_connect_single: connection failed with .* Transport endpoint is not connected.*",
+    r".* ERR journalctl: nss_tacplus: failed to connect TACACS\+ server .* Transport endpoint is not connected.*",
+    r".* ERR monit.* 'chrony' process is not running.*",
+    r".* ERR memory_checker: \[memory_checker\] Failed to get container ID of.*",
+    r".* ERR memory_checker: \[memory_checker\] cgroup memory usage file.*",
+]
+
 
 @pytest.fixture(autouse=True)
 def _closa_skip_if_multi_asic(duthosts, rand_one_dut_hostname):
@@ -46,6 +64,19 @@ def _closa_skip_if_multi_asic(duthosts, rand_one_dut_hostname):
         is_multi_asic = getattr(duthost, "is_multi_asic", False)
     if is_multi_asic:
         pytest.skip("Skip for multi-ASIC testbed")
+
+
+@pytest.fixture(autouse=True)
+def _closa_ignore_lifecycle_disruption_logs(request, duthosts, rand_one_dut_hostname):
+    """Ignore transient service errors caused by lifecycle disruptions."""
+    test_name = getattr(request.node, "originalname", request.node.name)
+    if test_name not in LIFECYCLE_DISRUPTION_TESTS:
+        return
+
+    loganalyzer = request.getfixturevalue("loganalyzer")
+    duthost = duthosts[rand_one_dut_hostname]
+    if loganalyzer and duthost.hostname in loganalyzer:
+        loganalyzer[duthost.hostname].ignore_regex.extend(LIFECYCLE_DISRUPTION_IGNORE_LOGS)
 
 
 @pytest.fixture(autouse=True)
