@@ -202,6 +202,7 @@ pdu-46,10.3.154.46,Sentry,Pdu,snmp,
 console-80,10.3.145.80,Cisco,ConsoleServer,ssh,,tacacs
 console-81,10.3.145.81,Cisco,ConsoleServer,ssh,,tacacs
 console-82,10.3.145.82,Cisco,ConsoleServer,ssh,,tacacs
+console-175,10.3.145.175,Cisco,ConsoleServer,ssh,,tacacs
 console-178,10.3.145.178,Cisco,ConsoleServer,ssh,,tacacs
 console-179,10.3.145.179,Cisco,ConsoleServer,ssh,,tacacs
 console-182,10.3.145.182,Cisco,ConsoleServer,ssh,,tacacs
