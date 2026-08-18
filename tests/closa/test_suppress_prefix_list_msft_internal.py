@@ -34,10 +34,6 @@ logger = logging.getLogger(__name__)
 PREFIX_TYPE = "SUPPRESS_PREFIX"
 CONSTANTS_FILE = "/etc/sonic/constants.yml"
 SUPPRESS_COMMUNITY = "65525:110"
-MEMORY_CHECKER_RELOAD_RACE_REGEXES = [
-    r".* ERR memory_checker: \[memory_checker\] Failed to get container ID of.*",
-    r".* ERR memory_checker: \[memory_checker\] cgroup memory usage file.*",
-]
 
 # RFC 5737 / RFC 3849 documentation ranges - will not collide with real testbed routes.
 TEST_PREFIXES_V4 = ["198.51.100.0/24", "198.51.101.0/24", "198.51.102.0/24"]
@@ -254,17 +250,6 @@ def get_advertised_prefix(duthost, tbinfo, ipv="ip"):
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
-
-@pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_errors(duthosts, loganalyzer):
-    """Ignore known transient memory_checker noise from docker reload races."""
-    if loganalyzer:
-        for duthost in duthosts:
-            if duthost.hostname in loganalyzer:
-                loganalyzer[duthost.hostname].ignore_regex.extend(
-                    MEMORY_CHECKER_RELOAD_RACE_REGEXES
-                )
-
 
 @pytest.fixture(scope="module")
 def prefix_list_names(duthosts, rand_one_dut_hostname):
