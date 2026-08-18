@@ -5,6 +5,7 @@ import json
 import time
 import yaml
 from tests.common.helpers.assertions import pytest_assert, pytest_require
+from tests.common.helpers.bgp import get_db_cli_prefix, get_vtysh_cmd_for_asic
 from tests.common.helpers.parallel import parallel_run
 
 pytestmark = [
@@ -35,7 +36,7 @@ CONSTANTS_FILE = "/etc/sonic/constants.yml"
 
 
 def op_anchor_prefix_with_cmd(duthost, prefix_type, prefix, action, ignore_error=False):
-    # Add or remove prefix list
+    # Add or remove prefix list.
     pytest_assert(action in ["add", "remove"], "Invalid action specified. Must be 'add' or 'remove'.")
     cmd = "sudo prefix_list {} {} {}".format(action, prefix_type, prefix)
     duthost.shell(cmd, module_ignore_errors=ignore_error)
@@ -60,8 +61,9 @@ def verify_prefix_list_in_db(duthost, prefix_type, prefix):
 def verify_prefix_in_bgp_table(duthost, ip_version, prefix):
     # Check whether prefix in BGP table
     for asic_index in duthost.get_frontend_asic_ids():
-        asic_ns = f"-n {asic_index}" if duthost.is_multi_asic else ""
-        cmd = f"vtysh {asic_ns} -c 'show bgp {ip_version} {prefix}'"
+        cmd = get_vtysh_cmd_for_asic(
+            duthost, asic_index, f"vtysh -c 'show bgp {ip_version} {prefix}'"
+        )
         outputs = duthost.shell(cmd)["stdout"]
         if "Network not in table" in outputs:
             logger.info("Expected prefix {} to be in the BGP table, but it was not found".format(prefix))
@@ -72,8 +74,8 @@ def verify_prefix_in_bgp_table(duthost, ip_version, prefix):
 def verify_prefix_in_fib_table(duthost, prefix):
     # Check whether prefix in FIB table
     for asic_index in duthost.get_frontend_asic_ids():
-        asic_ns = f"-n asic{asic_index}" if duthost.is_multi_asic else ""
-        cmd = f"sonic-db-cli {asic_ns} APPL_DB hgetall \"ROUTE_TABLE:{prefix}\""
+        db_cli = get_db_cli_prefix(duthost, asic_index)
+        cmd = f'{db_cli} APPL_DB hgetall "ROUTE_TABLE:{prefix}"'
         output = duthost.shell(cmd)["stdout"].strip().replace("'", "\"")
         route_info = json.loads(output) if output else {}
         if route_info == {} or ("blackhole" in route_info and route_info["blackhole"] == "true"):
