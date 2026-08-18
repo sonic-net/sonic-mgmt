@@ -471,6 +471,7 @@ bgp/test_bgp_max_route.py::test_bgp_max_prefix_behavior:
   xfail:
     reason: "Test failed on multi-asic PR tests"
     conditions_logical_operator: and
+    conditions:
       - "is_multi_asic==True"
       - "asic_type in ['vs']"
       - "https://github.com/sonic-net/sonic-mgmt/issues/21691"
@@ -634,7 +635,7 @@ bgp/test_bgp_suppress_fib.py:
       - "release in ['master'] and https://github.com/sonic-net/sonic-mgmt/issues/26175"
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/26175"
   xfail:
-    reason: "xfail for IPv6-only topologies, issue https://github.com/sonic-net/sonic-mgmt/issues/20756 or Mellanox platform due to https://github.com/sonic-net/sonic-buildimage/issues/24679"
+    reason: "xfail for IPv6-only topologies, issue https://github.com/sonic-net/sonic-mgmt/issues/20756"
     conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/20756 and '-v6-' in topo_name"
@@ -751,12 +752,6 @@ bgp/test_traffic_shift_sup.py:
     reason: "Not supported on T2 single node topology"
     conditions:
       - "'t2_single_node' in topo_name"
-
-bmp/:
-  skip:
-    reason: "https://github.com/sonic-net/sonic-buildimage/issues/23777"
-    conditions:
-      - "release in ['master']"
 
 #######################################
 #####            cacl             #####
@@ -1908,11 +1903,11 @@ everflow/test_everflow_per_interface.py::test_everflow_per_interface\[.*ipv4:
 
 everflow/test_everflow_testbed.py::EverflowIPv4Tests::test_everflow_dscp_with_policer:
   skip:
-    reason: "Test not supported on Mellanox platforms, Broadcom Th5 platform (x86_64-arista_7060x6_64pe_b), Nokia IXR7220-H6-128, or Nexthop NH-4210 as policer is not supported. CS00012412189"
+    reason: "Test not supported on Mellanox platforms, Broadcom Th5 platform (x86_64-arista_7060x6_64pe_b), or Nokia IXR7220-H6-128 as policer is not supported. CS00012412189"
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['mellanox']"
-      - "platform in ['x86_64-arista_7060x6_64pe_b', 'x86_64-nokia_ixr7220_h6_128-r0', 'x86_64-nexthop_4210-r0021']"
+      - "platform in ['x86_64-arista_7060x6_64pe_b', 'x86_64-nokia_ixr7220_h6_128-r0']"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror:
   skip:
@@ -1961,12 +1956,12 @@ everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_eve
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_dscp_with_policer:
   skip:
-    reason: "Skipping test since mirror with policer is not supported on Cisco 8000 platforms, Broadcom DNX platforms, Broadcom Th5 platform (x86_64-arista_7060x6_64pe_b), Nokia IXR7220-H6-128, and Nexthop NH-4210. CS00012412189"
+    reason: "Skipping test since mirror with policer is not supported on Cisco 8000 platforms, Broadcom DNX platforms, Broadcom Th5 platform (x86_64-arista_7060x6_64pe_b), and Nokia IXR7220-H6-128. CS00012412189"
     conditions_logical_operator: "OR"
     conditions:
       - "asic_subtype in ['broadcom-dnx']"
       - "asic_type in ['cisco-8000']"
-      - "platform in ['x86_64-arista_7060x6_64pe_b', 'x86_64-nokia_ixr7220_h6_128-r0', 'x86_64-nexthop_4210-r0021']"
+      - "platform in ['x86_64-arista_7060x6_64pe_b', 'x86_64-nokia_ixr7220_h6_128-r0']"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_dscp_with_policer[erspan_ipv4-cli-downstream-default]:
   skip:
@@ -2152,11 +2147,11 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
 
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_dscp_with_policer:
   skip:
-    reason: "Skipping test since mirror with policer is not supported on Cisco 8122 and 8223 platforms, Broadcom DNX platforms, Broadcom Th5 platform (x86_64-arista_7060x6_64pe_b), Nokia IXR7220-H6-128, and Nexthop NH-4210. CS00012412189"
+    reason: "Skipping test since mirror with policer is not supported on Cisco 8122 and 8223 platforms, Broadcom DNX platforms, Broadcom Th5 platform (x86_64-arista_7060x6_64pe_b), and Nokia IXR7220-H6-128. CS00012412189"
     conditions_logical_operator: "OR"
     conditions:
       - "asic_subtype in ['broadcom-dnx']"
-      - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0', 'x86_64-arista_7060x6_64pe_b', 'x86_64-8223_64e_mo-r0','x86_64-8223_64ef_mo-r0', 'x86_64-nokia_ixr7220_h6_128-r0', 'x86_64-nexthop_4210-r0021']"
+      - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0', 'x86_64-arista_7060x6_64pe_b', 'x86_64-8223_64e_mo-r0','x86_64-8223_64ef_mo-r0', 'x86_64-nokia_ixr7220_h6_128-r0']"
 
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_dscp_with_policer[erspan_ipv4-cli-downstream-default]:
   skip:
@@ -2310,6 +2305,7 @@ fib/:
 fib/test_fib.py:
   skip:
     reason: 'Skip on t1-isolated-d32/128 topos or due to github issue https://github.com/sonic-net/sonic-mgmt/issues/17930'
+    conditions_logical_operator: "OR"
     conditions:
       - "topo_name in ['t1-isolated-d128', 't1-isolated-d32', 't1-isolated-d32u1s2']"
       - "https://github.com/sonic-net/sonic-mgmt/issues/17930 and topo_name in ['t1-isolated-d28u1']"
@@ -3941,7 +3937,7 @@ pfcwd/test_pfcwd_all_port_storm.py:
 
 pfcwd/test_pfcwd_all_port_storm.py::TestPfcwdAllPortStorm::test_all_port_storm_restore[IPv6.*:
    xfail:
-     reason: "Xfail due to https://github.com/sonic-net/sonic-mgmt/issues/21067 or https://github.com/sonic-net/sonic-mgmt/issues/21082"
+     reason: "Xfail due to https://github.com/sonic-net/sonic-mgmt/issues/21082"
      conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/21082 and topo_name in ['t0-88-o8c80', 't1-48-lag', 't1-lag', 't1-32-lag', 't1-64-lag'] and asic_type in ['mellanox']"
 
@@ -4076,14 +4072,12 @@ platform_tests/test_reboot.py::test_watchdog_reboot:
 platform_tests/test_reload_config.py::test_reload_configuration:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo or smartswitch platform"
-    conditions_logical_operator:
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 platform_tests/test_reload_config.py::test_reload_configuration_checks:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo or smartswitch platform"
-    conditions_logical_operator:
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
@@ -4652,7 +4646,7 @@ route/test_default_route.py::test_default_route_set_src:
 
 route/test_default_route.py::test_default_route_with_bgp_flap:
   xfail:
-    reason: "Or test case has issue on the t0-isolated-d256u256s2 topo."
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
@@ -5625,19 +5619,6 @@ voq/test_fabric_reach.py:
       - "not any(i in platform for i in ['arista_7800', 'x86_64-nokia_ixr7250e'])"
       - "(asic_type in ['cisco-8000'])"
 
-voq/test_voq_counter.py::TestVoqCounter::test_voq_queue_counter[multi_dut_shortlink_to_longlink]:
-  skip:
-    reason: "Testcase ignored due to sonic-mgmt issue: https://github.com/sonic-net/sonic-buildimage/issues/21098"
-    conditions:
-      - "(switch_type=='voq')"
-      - "('t2' in topo_name or topo_type in ['lrh', 'urh'])"
-
-voq/test_voq_counter.py::test_voq_drop_counter:
-  skip:
-    reason: "Testcase ignored due to sonic-mgmt issue: https://github.com/sonic-net/sonic-mgmt/issues/16140"
-    conditions:
-      - "('t2' in topo_name or topo_type in ['lrh', 'urh'])"
-
 voq/test_voq_counter.py::test_voq_queue_counter:
   skip:
     reason: "Skip test_voq_queue_counter for non broadcom-dnx 't2' platforms."
@@ -5739,7 +5720,7 @@ vxlan/test_vnet_bgp_route_precedence.py:
       - "asic_type not in ['cisco-8000', 'mellanox', 'vpp']"
       - "release in ['202411']"
   xfail:
-    reason: "Testcase ignored due to github issue: https://github.com/sonic-net/sonic-buildimage/issues/23824"
+    reason: "Testcase ignored due to github issue: https://github.com/sonic-net/sonic-mgmt/issues/21895"
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/21895 and '-v6-' in topo_name and asic_type in ['mellanox']"
 
@@ -5884,7 +5865,7 @@ vxlan/test_vxlan_decap.py:
     conditions_logical_operator: OR
     conditions:
       - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
-      - "asic_gen in ['th4', 'th5'] and release in ['202503', '202505', '202511']"
+      - "asic_gen in ['th4', 'th5'] and release in ['202503', '202505', '202511', '202605']"
       - *noVxlanTopos
   xfail:
     reason: "Skipped due to bug https://github.com/sonic-net/sonic-buildimage/issues/22056"

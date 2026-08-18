@@ -153,7 +153,7 @@ def _load_platform_hwsku(duthost):
 
 
 @pytest.fixture(scope='session')
-def port_attributes_dict(request, duthost):
+def port_attributes_dict(request, ansible_root, duthost):
     """Session-scoped merged port attributes (BASE + category).
 
     Loads dut_info.json via DutInfoLoader and merges category attribute files via AttributeManager.
@@ -172,7 +172,7 @@ def port_attributes_dict(request, duthost):
         logger.warning("Platform/HWSKU not determined; platform/hwsku specific overrides may not apply")
 
     logger.info("Building transceiver base port attributes for DUT '%s'", dut_name)
-    loader = DutInfoLoader(REPO_ROOT)
+    loader = DutInfoLoader(ansible_root)
     try:
         base_dict = loader.build_base_port_attributes(dut_name)
     except DutInfoError as e:
@@ -181,12 +181,12 @@ def port_attributes_dict(request, duthost):
     if not base_dict:
         pytest.skip(f"No ports found for DUT '{dut_name}' in dut_info.json")
 
-    attr_dir = os.path.join(REPO_ROOT, REL_ATTR_DIR)
+    attr_dir = os.path.join(ansible_root, REL_ATTR_DIR)
     if not os.path.isdir(attr_dir):
         pytest.skip(f"Attributes directory {attr_dir} absent - returning base attributes only")
 
     logger.info("Merging category attributes from %s", attr_dir)
-    mgr = AttributeManager(REPO_ROOT, base_dict)
+    mgr = AttributeManager(ansible_root, base_dict)
     try:
         merged = mgr.build_port_attributes(dut_name, platform or '', hwsku or '')
     except AttributeMergeError as e:
@@ -195,10 +195,10 @@ def port_attributes_dict(request, duthost):
         pytest.skip(f"No merged attributes found for DUT '{dut_name}'")
 
     # Run compliance validation (validator handles detailed logging and raises on required misses)
-    templates_path = os.path.join(REPO_ROOT, REL_DEPLOYMENT_TEMPLATES_FILE)
+    templates_path = os.path.join(ansible_root, REL_DEPLOYMENT_TEMPLATES_FILE)
     if not request.config.getoption('--skip_transceiver_template_validation') and os.path.isfile(templates_path):
         logger.info("Validating transceiver attributes against templates in %s", templates_path)
-        validator = TemplateValidator(REPO_ROOT)
+        validator = TemplateValidator(ansible_root)
         try:
             # Validate merged attributes; raises on missing required attributes (partials only warn)
             compliance_dict = validator.validate(merged)
@@ -438,7 +438,7 @@ def get_dev_transceiver_details(duthost, get_transceiver_inventory):
     return details
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def get_lport_to_pport_mapping(duthost):
     """
     Fixture to get the mapping of logical ports to physical ports.
