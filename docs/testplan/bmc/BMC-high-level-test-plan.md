@@ -206,6 +206,26 @@ Example `testbed.yaml` segment for bmc-shared-mgmt:
   - **`dut_facing_port`**: The sniffer port connected to the DUT's front-panel management port.
   - **`mgmt_facing_port`**: The sniffer port connected to the lab management switch.
 
+### 3.3 Testbed Deployment
+
+A BMC testbed contains two SONiC devices that must both be deployed: the **BMC** (the DUT that BMC tests target) and the associated **host-side switch** (kept as reserved testbed infrastructure so BMC tests can cross-check the host). The two devices are deployed differently. Both are handled within a **single testbed deployment run** (not two independent invocations): the BMC is deployed first — it provides the host's console — and the host-side switch is deployed next in the same run. Each device executes only the steps applicable to it, as listed below.
+
+**BMC deployment**
+
+The BMC is brought up through the standard testbed flow using one of the BMC topologies (`bmc-dual-mgmt` or `bmc-shared-mgmt`):
+
+- `add-topo` — set up the BMC topology and its PTF container.
+- Install the SONiC BMC image on the BMC.
+- `gen-mg` / `deploy-mg` — generate and deploy the minigraph on the BMC.
+
+**Host-side switch deployment**
+
+The host-side switch must also run SONiC so that BMC tests can interact with it — for example, checking host status or reboot cause after a BMC-initiated power cycle. Its deployment is intentionally lighter than a full data-plane testbed:
+
+- Install the SONiC image on the switch.
+- `gen-mg` / `deploy-mg` — generate and deploy the minigraph on the switch using the `ptp` topology.
+- The switch does **not** run `remove-topo` / `add-topo`. The BMC topology already owns the PTF container and management-network wiring, so the switch only needs a valid SONiC configuration to be reachable and manageable as testbed infrastructure. The `ptp` topology provides that minimal switch configuration.
+
 ## 4 Utilities
 
 This section describes the key utilities that will be added or extended to support BMC testing. The primary focus is extending the existing `SonicHost` class so that test authors can seamlessly interact with both the BMC and the host side within the same test.
@@ -296,13 +316,64 @@ def test_bmc_power_cycle(duthosts, rand_one_dut_hostname):
                   "Expected power cycle reboot cause")
 ```
 
-### 4.2 Future Utilities
+#### `get_bmc_from_host()`
+
+The inverse of `get_bmc_host()`: when called on a host-side switch DUT, it returns the paired BMC DUT. The pairing is resolved from the same `bmc_host` field in the testbed YAML (which must name the current host) and the `duts` list, where the BMC is `duts[0]`. This lets a test running against the switch reach over to its BMC.
+
+```python
+def get_bmc_from_host(self):
+    """Return the SonicHost of the paired BMC for this switch host.
+
+    Resolved from the testbed 'bmc_host' field (which must name this host)
+    and the 'duts' list (the BMC is duts[0]).
+
+    Returns:
+        SonicHost: A SonicHost instance representing the paired BMC.
+
+    Raises:
+        AssertionError: If the current device is a BMC, or the pairing
+            cannot be resolved.
+    """
+```
+
+### 4.2 Test Execution: Accessing the BMC and the Host
+
+Many BMC test cases perform an action on the BMC and then verify the result on the switch side (or vice versa). To make this seamless, both the BMC and its host-side switch are represented as ordinary SONiC DUT objects (`MultiAsicSonicHost`) — there is no separate BMC device class and no separate global BMC fixture.
+
+- The integrated SONiC-BMC is a regular DUT, distinguished only by its `router_type`: `is_bmc()` returns `True` when `router_type == 'NetworkBmc'` (see `tests/common/devices/sonic.py`).
+- In a BMC testbed the **BMC is the DUT**: `duts` lists only the BMC (`switch01-bmc`), so it is `duts[0]`, and BMC test suites resolve their DUT with `duthosts[tbinfo["duts"][0]]`. The host-side switch is **not** in `duts` — it is named by the separate `bmc_host` field and built on demand (see below).
+- From either device a test can hop to its pair using the helpers on `MultiAsicSonicHost` (defined in `tests/common/devices/multi_asic.py`):
+  - From the BMC, get the switch: `switch = bmc_duthost.get_bmc_host()` — constructs the host-side `MultiAsicSonicHost` from the `bmc_host` field (it does not need to be in `duts`).
+  - From the switch, get the BMC: `bmc = switch_duthost.get_bmc_from_host()` — returns `duts[0]`.
+
+**Example — resolve the BMC DUT and gate the test on it** (`tests/redfish/conftest.py`):
+
+```python
+@pytest.fixture(scope="session")
+def bmc_duthost(duthosts, tbinfo):
+    duthost = duthosts[tbinfo["duts"][0]]          # BMC is duts[0]
+    pyrequire(duthost.is_bmc(), "Redfish BMC tests require a BMC DUT (NetworkBmc)")
+    return duthost
+```
+
+**Example — hop from the BMC to the paired switch to check host-side state** (`tests/common/platform/bmc_utils.py`):
+
+```python
+def get_switch_host_or_skip_test(duthost):
+    """Return the paired Switch-Host SonicHost, or pytest.skip if unreachable."""
+    host = duthost.get_bmc_host()                  # BMC -> paired switch
+    host.command("echo ping")                      # verify reachability
+    return host
+```
+
+This is the standard pattern for BMC tests that observe the host side — for example, power-cycling the switch from the BMC and then checking the switch's reboot cause.
+
+### 4.3 Future Utilities
 
 The following utilities may be added in subsequent phases as the BMC test suite matures:
 
 | Utility | Description |
 |---|---|
-| `get_bmc_from_host()` | Inverse of `get_bmc_host()` — given a host-side `SonicHost`, return the associated BMC instance. |
 | BMC power control helpers | Wrappers for common BMC power operations (power on/off/cycle/status) on the host side. |
 | BMC health check fixtures | Pytest fixtures that verify BMC health before and after each test. |
 | Console access helpers | Utilities for testing serial console access through the BMC to the host. |
