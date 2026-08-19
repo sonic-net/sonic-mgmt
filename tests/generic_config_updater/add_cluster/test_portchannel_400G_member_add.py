@@ -80,8 +80,7 @@ LOGANALYZER_IGNORE_REGEX = [
     ".*ERR sonic_yang.*",
     ".*ERR teamd[0-9].*get_dump: Can't get dump for LAG.*",
     ".*ERR swss[0-9]*#orchagent.*removeLag.*",
-    ".*ERR swss[0-9]*#orchagent: :- doTask: Failed to process invalid "
-    "buffer task",
+    ".*ERR swss[0-9]*#orchagent: :- doTask: Failed to process invalid buffer task",
 ]
 
 
@@ -1334,6 +1333,7 @@ def _get_counters_db_counter_value(duthost, cli_namespace_prefix, port):
             sorted(counter_hash.keys()),
         ),
     )
+    raise AssertionError("pytest_assert(False) did not raise")
 
 
 def _get_portstat_counter(duthost, port, counter_name):
@@ -1805,6 +1805,7 @@ def _select_unused_portchannel_traffic_dst_ip(duthost, asic_index):
             PORTCHANNEL_TRAFFIC_DST_IPS,
         ),
     )
+    raise AssertionError("pytest_assert(False) did not raise")
 
 
 def _select_ptf_source_port(duthost, asic_namespace, mg_facts,
@@ -1840,6 +1841,7 @@ def _select_ptf_source_port(duthost, asic_namespace, mg_facts,
             sorted(excluded_interfaces)
         ),
     )
+    raise AssertionError("pytest_assert(False) did not raise")
 
 
 def _wait_for_restored_member_counters(duthost, cli_namespace_prefix,
