@@ -523,6 +523,24 @@ read_mac/test_read_mac_metadata.py::ReadMACMetadata:
       - "asic_type in ['vpp']"
 
 #######################################
+#####           sFlow             #####
+#######################################
+sflow/test_sflow.py::TestReboot::testFastreboot:
+  skip:
+    reason: "Known unrelated VPP reboot issue"
+    conditions:
+      - "asic_type in ['vpp']"
+      - "topo_type in ['t0']"
+
+sflow/test_sflow.py::TestReboot::testWarmreboot:
+  skip:
+    reason: "Known unrelated VPP reboot issue"
+    conditions:
+      - "asic_type in ['vpp']"
+      - "topo_type in ['t0']"
+
+
+#######################################
 #####           SNMP              #####
 #######################################
 
