@@ -1051,6 +1051,12 @@ platform_tests/cli/test_show_chassis_module.py::test_show_chassis_module_status:
 #######################################
 #####  cli/test_show_platform.py  #####
 #######################################
+platform_tests/cli/test_show_platform.py::test_show_platform_current:
+  skip:
+    reason: "Current sensor CLI is not available on BMC"
+    conditions:
+      - "'bmc' in topo_type"
+
 platform_tests/cli/test_show_platform.py::test_show_platform_fan:
   skip:
     reason: "Unsupported platform API"
@@ -1098,6 +1104,12 @@ platform_tests/cli/test_show_platform.py::test_show_platform_psustatus_json:
       - "platform in ['arm64-elba-asic-flash128-r0']"
       - "'bmc' in topo_type"
 
+platform_tests/cli/test_show_platform.py::test_show_platform_ssdhealth:
+  skip:
+    reason: "SSD health check is not available on BMC"
+    conditions:
+      - "'bmc' in topo_type"
+
 platform_tests/cli/test_show_platform.py::test_show_platform_syseeprom:
   xfail:
     reason: "Testcase consistently fails, raised issue to track. Or test case has issue on the t0-isolated-d256u256s2 topo."
@@ -1105,6 +1117,12 @@ platform_tests/cli/test_show_platform.py::test_show_platform_syseeprom:
     conditions:
       - "hwsku in ['Celestica-DX010-C32'] and https://github.com/sonic-net/sonic-mgmt/issues/6518"
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
+
+platform_tests/cli/test_show_platform.py::test_show_platform_voltage:
+  skip:
+    reason: "Voltage sensor CLI is not available on BMC"
+    conditions:
+      - "'bmc' in topo_type"
 
 ###############################################
 ## counterpoll/test_counterpoll_watermark.py ##
