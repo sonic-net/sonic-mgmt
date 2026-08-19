@@ -9,11 +9,14 @@ from generic_hash_helper import get_hash_fields_from_option, get_ip_version_from
     get_interfaces_for_test, get_ptf_port_indices, check_default_route, generate_test_params, flap_interfaces, \
     PTF_QLEN, remove_ip_interface_and_config_vlan, config_custom_vxlan_port, shutdown_interface, \
     remove_add_portchannel_member, get_hash_algorithm_from_option, check_global_hash_algorithm, \
-    get_diff_hash_algorithm, check_default_route_asic_db, check_vpp_fib_paths
+    get_diff_hash_algorithm, check_default_route_asic_db, check_vpp_fib_paths, \
+    IPINIP_UNSUPPORTED_HASH_FIELDS, ECMP_UNSUPPORTED_HASH_FIELDS, ECMP_AND_LAG_HASH_TESTS, \
+    get_asic_type, get_asic_gen, \
+    generate_hash_param_tuples, skip_if_hash_param_unsupported, \
+    filter_hash_params_for_collection
 from generic_hash_helper import restore_configuration, reload, global_hash_capabilities, restore_interfaces  # noqa:F401
 from generic_hash_helper import mg_facts, restore_init_hash_config, restore_vxlan_port, \
     get_supported_hash_algorithms, toggle_all_simulator_ports_to_upper_tor, skip_lag_tests_on_no_lag_topos  # noqa:F401
-from generic_hash_helper import skip_tests_on_isolated_topos  # noqa:F401
 from tests.common.utilities import wait_until
 from tests.ptf_runner import ptf_runner
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa: F401
@@ -38,39 +41,80 @@ def pytest_generate_tests(metafunc):
     this provides possibility to skip some hash field when there is some issue.
     """
     params = []
-    params_tuple = []
+    params_skip_reason = None
+    asic_type = get_asic_type(metafunc)
+    asic_gen = get_asic_gen(metafunc)
+    algorithm_option = metafunc.config.getoption("--algorithm")
+    encap_type_option = metafunc.config.getoption("--encap_type")
     if 'lag' in metafunc.function.__name__:
         hash_fields = get_hash_fields_from_option(metafunc, 'lag', metafunc.config.getoption("--hash_field"))
     else:
         hash_fields = get_hash_fields_from_option(metafunc, 'ecmp', metafunc.config.getoption("--hash_field"))
-    hash_algorithms = get_hash_algorithm_from_option(metafunc, metafunc.config.getoption("--algorithm"))
+    if metafunc.function.__name__ in ECMP_AND_LAG_HASH_TESTS:
+        hash_fields = [
+            field for field in hash_fields if field not in ECMP_UNSUPPORTED_HASH_FIELDS
+        ]
+    hash_algorithms = get_hash_algorithm_from_option(metafunc, algorithm_option)
+    if (
+        algorithm_option == 'random'
+        and asic_type == 'broadcom'
+        and metafunc.function.__name__ in ECMP_AND_LAG_HASH_TESTS
+        and 'IN_PORT' in hash_fields
+    ):
+        hash_algorithms = ['CRC']
     outer_ip_versions = get_ip_version_from_option(metafunc.config.getoption("--ip_version"))
     inner_ip_versions = get_ip_version_from_option(metafunc.config.getoption("--inner_ip_version"))
-    encap_types = get_encap_type_from_option(metafunc.config.getoption("--encap_type"))
-    for field in hash_fields:
-        if 'IPV6_FLOW_LABEL' in field:
-            params_tuple.extend([(algorithm, field, 'ipv6', inner_ip_version, encap_type)
-                                 for algorithm in hash_algorithms
-                                 for inner_ip_version in inner_ip_versions
-                                 for encap_type in encap_types])
-        elif 'INNER' not in field:
-            params_tuple.extend([(algorithm, field, ip_version, 'None', 'None')
-                                 for algorithm in hash_algorithms
-                                 for ip_version in outer_ip_versions])
-        elif 'INNER_ETHERTYPE' in field:
-            params_tuple.extend([(algorithm, field, ip_version, 'None', encap_type)
-                                 for algorithm in hash_algorithms
-                                 for ip_version in outer_ip_versions
-                                 for encap_type in encap_types])
-        else:
-            params_tuple.extend([(algorithm, field, ip_version, inner_ip_version, encap_type)
-                                 for algorithm in hash_algorithms
-                                 for ip_version in outer_ip_versions
-                                 for inner_ip_version in inner_ip_versions
-                                 for encap_type in encap_types])
+    if encap_type_option == 'random' and any(
+            field in IPINIP_UNSUPPORTED_HASH_FIELDS for field in hash_fields):
+        encap_types = [random.choice(['vxlan', 'nvgre'])]
+    else:
+        encap_types = get_encap_type_from_option(encap_type_option)
+    params_tuple = generate_hash_param_tuples(
+        hash_fields, hash_algorithms, outer_ip_versions, inner_ip_versions, encap_types
+    )
+    generated_params_tuple = list(params_tuple)
+    if asic_gen == 'spc1' and metafunc.function.__name__ in ECMP_AND_LAG_HASH_TESTS:
+        params_skip_reason = (
+            "SPC1 supports only the CRC hash algorithm, but this test requires "
+            "different algorithms for ECMP and LAG hash."
+        )
+    else:
+        params_tuple = filter_hash_params_for_collection(
+            params_tuple, metafunc, metafunc.function.__name__
+        )
     for param in params_tuple:
         params.append('-'.join(param))
     if 'params' in metafunc.fixturenames:
+        skipped_param_ids = ['-'.join(param) for param in generated_params_tuple]
+        if not skipped_param_ids:
+            skipped_param_ids = [
+                f"{algorithm_option}-"
+                f"{metafunc.config.getoption('--hash_field')}-"
+                f"{metafunc.config.getoption('--ip_version')}-"
+                f"{metafunc.config.getoption('--inner_ip_version')}-"
+                f"{encap_type_option}"
+            ]
+        if params_skip_reason:
+            params = [
+                pytest.param(
+                    param_id,
+                    marks=pytest.mark.skip(reason=f"{params_skip_reason} Parameter: {param_id}"),
+                    id=param_id,
+                )
+                for param_id in skipped_param_ids
+            ]
+        elif not params:
+            params = [
+                pytest.param(
+                    param_id,
+                    marks=pytest.mark.skip(
+                        reason=f"No supported hash parameter combination {param_id} "
+                        f"for {asic_type}/{asic_gen or 'unknown'}."
+                    ),
+                    id=param_id,
+                )
+                for param_id in skipped_param_ids
+            ]
         metafunc.parametrize("params", params)
 
     reboot_types = get_reboot_type_from_option(metafunc, metafunc.config.getoption("--reboot"))
@@ -79,32 +123,15 @@ def pytest_generate_tests(metafunc):
 
 
 @pytest.fixture(scope='function')
-def fine_params(params, global_hash_capabilities):  # noqa:F811
-    hash_algorithm, _, _, _, _ = params.split('-')
-    all_supported_hash_algorithms = set(global_hash_capabilities['ecmp_algo']).\
-        union(set(global_hash_capabilities['ecmp_algo']))
-    if hash_algorithm not in all_supported_hash_algorithms:
-        pytest.skip(f"{hash_algorithm} is not supported on current platform, "
-                    f"the supported algorithms: {all_supported_hash_algorithms}")
+def fine_params(request, params, global_hash_capabilities):  # noqa:F811
+    skip_if_hash_param_unsupported(request, params, global_hash_capabilities)
     return params
 
 
-def skip_unsupported_packet(hash_field, encap_type):
-    if hash_field in ['INNER_SRC_MAC', 'INNER_DST_MAC', 'INNER_ETHERTYPE'] and encap_type == 'ipinip':
-        pytest.skip(f"The field {hash_field} is not supported in ipinip encapsulation.")
-
-
-def skip_unsupported_field_for_ecmp_test(field, encap_type):
-    if field in ['DST_MAC', 'ETHERTYPE', 'VLAN_ID']:
-        pytest.skip(f"The field {field} is not supported by the ecmp test case.")
-    skip_unsupported_packet(field, encap_type)
-
-
-def skip_single_member_lag_topology(uplink_portchannels, field, encap_type):
-    lag_member_count = len(list(uplink_portchannels.values())[0])
+def skip_single_member_lag_topology(uplink_portchannels):
+    lag_member_count = len(next(iter(uplink_portchannels.values())))
     if lag_member_count < 2:
-        pytest.skip("Skip the test_lag_member_flap case on setups without multi-member uplink portchannels.")
-    skip_unsupported_packet(field, encap_type)
+        pytest.skip("Skip on setups without multi-member uplink portchannels.")
 
 
 def config_validate_algorithm(duthost, algorithm_type, supported_algorithms):
@@ -158,7 +185,6 @@ def test_ecmp_hash(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_facts, gl
         global_hash_capabilities: module level fixture to get the dut hash capabilities
     """
     hash_algorithm, ecmp_test_hash_field, ipver, inner_ipver, encap_type = fine_params.split('-')
-    skip_unsupported_field_for_ecmp_test(ecmp_test_hash_field, encap_type)
     with allure.step('Randomly select an ecmp hash field to test and configure the global ecmp and lag hash'):
         lag_hash_fields = global_hash_capabilities['lag']
         lag_hash_fields = lag_hash_fields[:]
@@ -227,7 +253,7 @@ def test_lag_hash(rand_selected_dut, ptfhost, tbinfo, fine_params, mg_facts, res
         uplink_interfaces, downlink_interfaces = get_interfaces_for_test(rand_selected_dut, mg_facts,
                                                                          lag_test_hash_field)
         # If the uplinks are not multi-member portchannels, skip the test
-        skip_single_member_lag_topology(uplink_interfaces, lag_test_hash_field, encap_type)
+        skip_single_member_lag_topology(uplink_interfaces)
         # Config the hash fields
         rand_selected_dut.set_switch_hash_global('ecmp', ecmp_hash_fields)
         rand_selected_dut.set_switch_hash_global('lag', [lag_test_hash_field])
@@ -300,7 +326,6 @@ def test_ecmp_and_lag_hash(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_f
         global_hash_capabilities: module level fixture to get the dut hash capabilities
     """
     ecmp_algorithm, ecmp_test_hash_field, ipver, inner_ipver, encap_type = fine_params.split('-')
-    skip_unsupported_field_for_ecmp_test(ecmp_test_hash_field, encap_type)
     with allure.step('Randomly select an ecmp hash field to test '
                      'and configure all supported fields to the global ecmp and lag hash'):
         config_all_hash_fields(rand_selected_dut, global_hash_capabilities)
@@ -368,7 +393,6 @@ def test_nexthop_flap(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_facts,
         global_hash_capabilities: module level fixture to get the dut hash capabilities
     """
     ecmp_algorithm, ecmp_test_hash_field, ipver, inner_ipver, encap_type = fine_params.split('-')
-    skip_unsupported_field_for_ecmp_test(ecmp_test_hash_field, encap_type)
     with allure.step('Randomly select an ecmp hash field to test '
                      'and configure all supported fields to the global ecmp and lag hash'):
         config_all_hash_fields(rand_selected_dut, global_hash_capabilities)
@@ -486,7 +510,7 @@ def test_lag_member_flap(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_fac
         uplink_interfaces, downlink_interfaces = get_interfaces_for_test(rand_selected_dut, mg_facts,
                                                                          lag_test_hash_field)
         # If the uplinks are not multi-member portchannels, skip the test
-        skip_single_member_lag_topology(uplink_interfaces, lag_test_hash_field, encap_type)
+        skip_single_member_lag_topology(uplink_interfaces)
         config_all_hash_fields(rand_selected_dut, global_hash_capabilities)
         lag_algorithm = get_diff_hash_algorithm(ecmp_algorithm, get_supported_hash_algorithms)
     with allure.step(f'Configure ecmp hash algorithm: {ecmp_algorithm} - lag hash algorithm: {lag_algorithm}'):
@@ -595,7 +619,7 @@ def test_lag_member_remove_add(rand_selected_dut, tbinfo, ptfhost, fine_params, 
         uplink_interfaces, downlink_interfaces = get_interfaces_for_test(rand_selected_dut, mg_facts,
                                                                          lag_test_hash_field)
         # If the uplinks are not multi-member portchannels, skip the test
-        skip_single_member_lag_topology(uplink_interfaces, lag_test_hash_field, encap_type)
+        skip_single_member_lag_topology(uplink_interfaces)
         config_all_hash_fields(rand_selected_dut, global_hash_capabilities)
         lag_algorithm = get_diff_hash_algorithm(ecmp_algorithm, get_supported_hash_algorithms)
     with allure.step(f'Configure ecmp hash algorithm: {ecmp_algorithm} - lag hash algorithm: {lag_algorithm}'):
@@ -693,7 +717,6 @@ def test_reboot(rand_selected_dut, tbinfo, ptfhost, localhost, fine_params, mg_f
         global_hash_capabilities: module level fixture to get the dut hash capabilities
     """
     ecmp_algorithm, ecmp_test_hash_field, ipver, inner_ipver, encap_type = fine_params.split('-')
-    skip_unsupported_field_for_ecmp_test(ecmp_test_hash_field, encap_type)
     with allure.step('Randomly select an ecmp hash field to test '
                      'and configure all supported fields to the global ecmp and lag hash'):
         config_all_hash_fields(rand_selected_dut, global_hash_capabilities)
