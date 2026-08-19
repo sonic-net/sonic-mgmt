@@ -377,6 +377,13 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     # Create a temporary file in tmpfs before reboot
     logger.info('DUT {} create a file /dev/shm/test_reboot before rebooting'.format(hostname))
     duthost.command('sudo touch /dev/shm/test_reboot')
+    # BMC images may report a stale or clock-shifted uptime after reboot. Capture
+    # the kernel boot ID so reboot verification does not depend on wall-clock time.
+    pre_reboot_boot_id = None
+    if duthost.is_bmc():
+        pre_reboot_boot_id = duthost.shell(
+            "cat /proc/sys/kernel/random/boot_id"
+        )["stdout"].strip()
     # Get reboot-cause history before reboot
     logger.info('DUT OS Version: {}'.format(duthost.os_version))
     prev_reboot_cause_history = None
@@ -494,6 +501,15 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     if file_check['stat']['exists']:
         raise Exception('DUT {} did not reboot'.format(hostname))
 
+    if pre_reboot_boot_id is not None:
+        post_reboot_boot_id = duthost.shell(
+            "cat /proc/sys/kernel/random/boot_id"
+        )["stdout"].strip()
+        pytest_assert(
+            pre_reboot_boot_id != post_reboot_boot_id,
+            "Device {} did not reboot: kernel boot ID did not change".format(hostname)
+        )
+
     DUT_ACTIVE.set()
     logger.info('{} reboot finished on {}'.format(reboot_type, hostname))
     if console_obj:
@@ -513,14 +529,15 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
         curr_reboot_cause_history = duthost.show_and_parse("show reboot-cause history")
         pytest_assert(prev_reboot_cause_history != curr_reboot_cause_history, "No new input into history-queue")
     else:
-        if float(dut_uptime.strftime("%s")) < float(dut_datetime.strftime("%s")):
+        if not duthost.is_bmc() and float(dut_uptime.strftime("%s")) < float(dut_datetime.strftime("%s")):
             logger.info('DUT {} timestamp went backwards'.format(hostname))
             wait_until(120, 5, 0, positive_uptime, duthost, dut_datetime)
 
-        dut_uptime = duthost.get_up_time()
+        if not duthost.is_bmc():
+            dut_uptime = duthost.get_up_time()
 
-        assert float(dut_uptime.strftime("%s")) > float(dut_datetime.strftime("%s")), "Device {} did not reboot". \
-            format(hostname)
+            assert float(dut_uptime.strftime("%s")) > float(dut_datetime.strftime("%s")), "Device {} did not reboot". \
+                format(hostname)
 
     if wait_for_bgp:
         bgp_neighbors = duthost.get_bgp_neighbors_per_asic(state="all")
