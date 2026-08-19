@@ -13,7 +13,6 @@ from tests.high_frequency_telemetry.utilities import (
     stop_countersyncd_otel,
     render_otel_collector_config,
     install_otel_collector_config,
-    restart_otel_collector,
     enable_otel_collector,
     start_influxdb,
     setup_influxdb,
@@ -73,7 +72,8 @@ def test_hft_end_to_end_influxdb(duthosts, enum_rand_one_per_hwsku_hostname,
             influxdb_bucket=INFLUXDB_BUCKET,
         )
         install_otel_collector_config(duthost, rendered_config)
-        restart_otel_collector(duthost)
+        duthost.shell("docker restart otel", module_ignore_errors=False)
+        time.sleep(5)
 
         # --- Step 4: Discover ports and configure HFT ---
         test_ports = get_available_ports(

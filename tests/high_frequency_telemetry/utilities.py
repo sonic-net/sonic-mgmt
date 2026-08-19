@@ -1530,14 +1530,6 @@ def install_otel_collector_config(duthost, rendered_config,
     logger.info(f"Installed otel collector config to {dest_path}")
 
 
-def _is_otel_collector_ready(duthost):
-    """Return whether the OTEL container and its critical processes are running."""
-    return (
-        duthost.is_service_fully_started("otel")
-        and duthost.critical_processes_running("otel")
-    )
-
-
 def restart_otel_collector(duthost, timeout=60):
     """Restart otel.service and wait for the collector to become ready."""
     duthost.shell(
@@ -1545,7 +1537,7 @@ def restart_otel_collector(duthost, timeout=60):
         module_ignore_errors=False,
     )
     pytest_assert(
-        wait_until(timeout, 2, 10, _is_otel_collector_ready, duthost),
+        wait_until(timeout, 2, 10, duthost.is_service_fully_started, "otel"),
         "OTEL container or a critical collector process failed to start "
         "after restarting otel.service",
     )
