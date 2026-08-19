@@ -9,6 +9,7 @@ import sys
 import random
 import pandas as pd
 from datetime import datetime
+from pathlib import Path
 from tests.common.utilities import (wait, wait_until)   # noqa: F401
 from tabulate import tabulate
 
@@ -1845,6 +1846,8 @@ def run_traffic_and_collect_stats(rx_duthost,
         flow_list.append(item.replace(' ', '_').lower())
     results = list(df_t.columns)
     fname = fname + '-' + datetime.now().strftime('%Y-%m-%d-%H-%M')
+    # Callers compose fname from nested log dirs that may not exist yet.
+    Path(fname).parent.mkdir(parents=True, exist_ok=True)
     with open(fname+'.txt', 'w') as f:
         f.write('Captured data for {} iterations at {} seconds interval \n'.format(m, stats_interval))
         test_stats = {}
