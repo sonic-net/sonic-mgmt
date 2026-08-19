@@ -43,7 +43,6 @@ BMC_SKIPPED_CHASSIS_TESTS = {
     "test_get_status",
     "test_get_position_in_parent",
     "test_is_replaceable",
-    "test_components",
     "test_fans",
     "test_fan_drawers",
     "test_psus",
