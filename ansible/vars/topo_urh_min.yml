@@ -22,7 +22,7 @@ topology:
       vm_offset: 4
     ARISTA04LRH:
       vlans:
-        - 30
+        - 34
       vm_offset: 5
 
   DUT:
