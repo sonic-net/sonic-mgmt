@@ -1531,23 +1531,42 @@ def install_otel_collector_config(duthost, rendered_config,
 
 
 def _is_otel_collector_ready(duthost):
-    """Return whether the OTEL container and its critical processes are running."""
-    return (
-        duthost.is_service_fully_started("otel")
-        and duthost.critical_processes_running("otel")
+    if (
+        not duthost.is_service_fully_started("otel")
+        or not duthost.critical_processes_running("otel")
+    ):
+        return False
+
+    result = duthost.shell(
+        "sudo ss -lnt | grep -Eq ':4317[[:space:]]'",
+        module_ignore_errors=True,
     )
+    return result.get("rc") == 0
 
 
 def restart_otel_collector(duthost, timeout=60):
-    """Restart otel.service and wait for the collector to become ready."""
+    """Restart otel.service and wait for the collector's OTLP listener."""
     duthost.shell(
-        "sudo systemctl restart otel",
+        "sudo systemctl reset-failed otel && sudo systemctl restart otel",
         module_ignore_errors=False,
     )
+    ready = wait_until(timeout, 2, 10, _is_otel_collector_ready, duthost)
+    diagnostics = ""
+    if not ready:
+        status = duthost.shell(
+            "systemctl status otel --no-pager",
+            module_ignore_errors=True,
+        )
+        logs = duthost.shell(
+            "docker logs --tail 200 otel",
+            module_ignore_errors=True,
+        )
+        diagnostics = f"; service status: {status}; container logs: {logs}"
+
     pytest_assert(
-        wait_until(timeout, 2, 10, _is_otel_collector_ready, duthost),
-        "OTEL container or a critical collector process failed to start "
-        "after restarting otel.service",
+        ready,
+        "OTEL container, critical process, or OTLP listener did not become "
+        f"ready after restarting otel.service{diagnostics}",
     )
 
 
