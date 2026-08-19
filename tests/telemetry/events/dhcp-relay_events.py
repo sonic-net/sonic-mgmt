@@ -6,8 +6,8 @@ import time
 import ptf.testutils as testutils
 
 from tests.common.helpers.assertions import pytest_assert as py_assert
-from tests.common.utilities import wait_until
 from tests.common.utilities import is_ipv6_only_topology
+from tests.common.dhcp_relay_utils import restart_dhcp_service, wait_dhcp_relay_ready
 from run_events_test import run_test
 from event_utils import find_test_vlan, find_test_client_port_and_mac, create_dhcp_discover_packet
 
@@ -53,8 +53,7 @@ def trigger_dhcp_relay_disparity(duthost, tbinfo, ptfadapter=None):
 
 def trigger_dhcp_relay_bind_failure(duthost, tbinfo):
     # Flush ipv6 vlan address and restart dhc6relay process
-    py_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, "dhcp_relay"),
-              "dhcp_relay container not started")
+    wait_dhcp_relay_ready(duthost, ['v6'])
 
     # Get Vlan with IPv6 address configured
     dhcp_test_info = find_test_vlan(duthost)
@@ -81,15 +80,11 @@ def trigger_dhcp_relay_bind_failure(duthost, tbinfo):
         # After bind failure test, dhcp6relay would exit because fail to bind. It's critical process of dhcp_relay,
         # hence maybe in that time dhcp_relay container has crashed, we need to restart whole dhcp_relay service to
         # recover
-        duthost.shell("systemctl reset-failed dhcp_relay")
-        duthost.restart_service("dhcp_relay")
-        py_assert(wait_until(100, 10, 0, duthost.is_service_fully_started_per_asic_or_host, "dhcp_relay"),
-                  "dhcp_relay not started.")
+        restart_dhcp_service(duthost, ['v6'])
 
 
 def send_dhcp_discover_packets(duthost, tbinfo, ptfadapter, packets_to_send=5, interval=1):
-    py_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, "dhcp_relay"),
-              "dhcp_relay container not started")
+    wait_dhcp_relay_ready(duthost, ['isc'])
 
     # Get Vlan with IPv4 address configured
     dhcp_test_info = find_test_vlan(duthost)
@@ -106,6 +101,7 @@ def send_dhcp_discover_packets(duthost, tbinfo, ptfadapter, packets_to_send=5, i
 
         # Restart dhcrelay process
         duthost.shell("docker exec dhcp_relay supervisorctl restart {}".format(dhcrelay_process))
+        wait_dhcp_relay_ready(duthost, ['isc'])
 
         # Send packets
 
