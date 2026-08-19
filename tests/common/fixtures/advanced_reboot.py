@@ -595,7 +595,8 @@ class AdvancedReboot:
                         f"version ({os_version})"))
             return
 
-        with self.consistency_checker_provider.get_consistency_checker(self.duthost) as consistency_checker:
+        with self.consistency_checker_provider.get_consistency_checker(
+                self.duthost, self.tbinfo) as consistency_checker:
             inconsistencies = consistency_checker.check_consistency()
             not_implemented_attributes = set()
             mismatched_attributes = {}

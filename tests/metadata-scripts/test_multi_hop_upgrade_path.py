@@ -2,6 +2,7 @@ import pytest
 import logging
 from tests.common.fixtures.advanced_reboot import get_advanced_reboot                                   # noqa F401
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.mgmt_route import apply_mgmt_route_workaround_if_needed
 from tests.common.platform.warmboot_sad_cases import SAD_CASE_LIST, get_sad_case_list
 from tests.common.reboot import get_reboot_cause
 from tests.common.utilities import wait_until
@@ -74,7 +75,8 @@ def test_multi_hop_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfh
         to_image = upgrade_path_urls[hop_index]
         logger.info("Installing hop {} image {}".format(hop_index, to_image))
         if metadata_process:
-            sonic_update_firmware(duthost, localhost, to_image, upgrade_type, upgrade_strategy_fixture)
+            with apply_mgmt_route_workaround_if_needed(duthost, tbinfo):
+                sonic_update_firmware(duthost, localhost, to_image, upgrade_type, upgrade_strategy_fixture)
         else:
             install_sonic(duthost, to_image, tbinfo)
 
@@ -147,7 +149,8 @@ def test_multi_hop_warm_upgrade_sad_path(localhost, duthosts, rand_one_dut_hostn
         to_image = upgrade_path_urls[hop_index]
         logger.info("Installing hop {} image {}".format(hop_index, to_image))
         if metadata_process:
-            sonic_update_firmware(duthost, localhost, to_image, upgrade_type, upgrade_strategy_fixture)
+            with apply_mgmt_route_workaround_if_needed(duthost, tbinfo):
+                sonic_update_firmware(duthost, localhost, to_image, upgrade_type, upgrade_strategy_fixture)
         else:
             install_sonic(duthost, to_image, tbinfo)
 

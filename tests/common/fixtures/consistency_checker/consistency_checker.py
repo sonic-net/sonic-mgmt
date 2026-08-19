@@ -7,6 +7,7 @@ from typing import List, Optional
 from collections import defaultdict
 from tests.common.fixtures.consistency_checker.constants import SUPPORTED_PLATFORMS_AND_VERSIONS, \
     ConsistencyCheckQueryKey, ALL_ATTRIBUTES
+from tests.common.helpers.mgmt_route import apply_mgmt_route_workaround_if_needed
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +31,7 @@ LIBSAIREDIS_TEMP = "libsairedis-temp"
 
 class ConsistencyChecker:
 
-    def __init__(self, duthost, libsairedis_download_url=None, python3_pysairedis_download_url=None):
+    def __init__(self, duthost, tbinfo, libsairedis_download_url=None, python3_pysairedis_download_url=None):
         """
         If the libsairedis_download_url and python3_pysairedis_download_url are provided, then these artifacts
         are downloaded and installed on the DUT, otherwise it's assumed that the environment is already setup
@@ -39,6 +40,7 @@ class ConsistencyChecker:
         self._duthost = duthost
         self._libsairedis_download_url = libsairedis_download_url
         self._python3_pysairedis_download_url = python3_pysairedis_download_url
+        self._tbinfo = tbinfo
 
     def __enter__(self):
         logger.info("Initializing consistency checker on dut...")
@@ -47,11 +49,16 @@ class ConsistencyChecker:
         self._duthost.copy(src=QUERY_ASIC_SCRIPT_PATH_SRC, dest=QUERY_ASIC_SCRIPT_PATH_DST_HOST)
         self._duthost.copy(src=QUERY_ASIC_PARSER_PATH_SRC, dest=QUERY_ASIC_PARSER_PATH_DST_HOST)
 
-        if self._libsairedis_download_url is not None:
-            self._duthost.command(f"curl -o {DUT_DST_PATH_HOST}/{LIBSAIREDIS_DEB} {self._libsairedis_download_url}")
-        if self._python3_pysairedis_download_url is not None:
-            self._duthost.command(
-                f"curl -o {DUT_DST_PATH_HOST}/{PYTHON3_PYSAIREDIS_DEB} {self._python3_pysairedis_download_url}")
+        # The debs are downloaded over the mgmt network; on some older bjw images the download
+        # server needs a temporary route via the mgmt gateway or the curl below times out.
+        if self._libsairedis_download_url is not None or self._python3_pysairedis_download_url is not None:
+            with apply_mgmt_route_workaround_if_needed(self._duthost, self._tbinfo):
+                if self._libsairedis_download_url is not None:
+                    self._duthost.command(
+                        f"curl -o {DUT_DST_PATH_HOST}/{LIBSAIREDIS_DEB} {self._libsairedis_download_url}")
+                if self._python3_pysairedis_download_url is not None:
+                    self._duthost.command(
+                        f"curl -o {DUT_DST_PATH_HOST}/{PYTHON3_PYSAIREDIS_DEB} {self._python3_pysairedis_download_url}")
 
         # Move everything into syncd container
         self._duthost.shell((
@@ -392,11 +399,12 @@ class ConsistencyCheckerProvider:
 
         return False
 
-    def get_consistency_checker(self, dut) -> ConsistencyChecker:
+    def get_consistency_checker(self, dut, tbinfo) -> ConsistencyChecker:
         """
         Get a new instance of the ConsistencyChecker class.
 
         :param dut: SonicHost object
+        :param tbinfo: Testbed info, used to apply the mgmt-route download workaround
         :return ConsistencyChecker: New instance of the ConsistencyChecker class
         """
 
@@ -418,7 +426,7 @@ class ConsistencyCheckerProvider:
             .format(sonic_version=sonic_version_template_param)\
             if self._python3_pysairedis_url_template else None
 
-        return ConsistencyChecker(dut, libsairedis_download_url, python3_pysairedis_download_url)
+        return ConsistencyChecker(dut, tbinfo, libsairedis_download_url, python3_pysairedis_download_url)
 
 
 @pytest.fixture
