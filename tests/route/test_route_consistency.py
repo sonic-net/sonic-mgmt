@@ -35,6 +35,10 @@ def check_and_kill_process(duthost, container_name, program_name):
     elif program_status in ["EXITED", "STOPPED", "STARTING"]:
         pytest.fail("Program '{}' in container '{}' is in the '{}' state, expected 'RUNNING'"
                     .format(program_name, container_name, program_status))
+    elif program_status == "FATAL":
+        pytest.fail("Program '{}' in container '{}' is in the 'FATAL' state; "
+                    "the supervisor entry points to a missing or non-executable binary"
+                    .format(program_name, container_name))
     else:
         pytest.fail("Failed to find program '{}' in container '{}'"
                     .format(program_name, container_name))

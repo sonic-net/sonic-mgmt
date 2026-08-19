@@ -274,10 +274,14 @@ def get_program_info(duthost, container_name, program_name):
     program_list = duthost.shell("docker exec {} supervisorctl status"
                                  .format(container_name), module_ignore_errors=True)
     for program_info in program_list["stdout_lines"]:
-        if program_info.find(program_name) != -1:
-            program_status = program_info.split()[1].strip()
+        fields = program_info.split()
+        # Match on the first field (program name) only to avoid false positives
+        # where the program name appears in other fields such as error message paths
+        # (e.g. "sub_program FATAL can't find command '/usr/vendor/program/sub_program'").
+        if fields and fields[0] == program_name:
+            program_status = fields[1].strip()
             if program_status == "RUNNING":
-                program_pid = int(program_info.split()[3].strip(','))
+                program_pid = int(fields[3].strip(','))
             break
 
     if program_pid != -1:
