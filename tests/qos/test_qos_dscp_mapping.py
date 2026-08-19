@@ -91,24 +91,12 @@ def dscp_config(dscp_mode, rand_selected_dut, loganalyzer):
     """
     duthost = rand_selected_dut
     asic_type = duthost.facts['asic_type']
-    device_type = duthost.shell(
-        'redis-cli -n 4 HGET "DEVICE_METADATA|localhost" "type"'
+    ip_decap_status = duthost.shell(
+        "sonic-cfggen -d -v 'SYSTEM_DEFAULTS.ip_decap.status'",
+        module_ignore_errors=True
     )["stdout"].strip()
-    resource_type = duthost.shell(
-        'redis-cli -n 4 HGET "DEVICE_METADATA|localhost" "resource_type"'
-    )["stdout"].strip()
-    storage_device_exists = int(duthost.shell(
-        'redis-cli -n 4 HEXISTS "DEVICE_METADATA|localhost" "storage_device"'
-    )["stdout"])
-    backend_device_types = ("BackEndToRRouter", "BackEndLeafRouter", "BackEndSpineRouter")
-
-    if (
-        asic_type == "mellanox"
-        and device_type in backend_device_types
-        and resource_type == "ComputeAI"
-        and not storage_device_exists
-    ):
-        pytest.skip("IP-in-IP decap is disabled on Mellanox ComputeAI backend devices")
+    if ip_decap_status == "disabled":
+        pytest.skip("IP-in-IP decapsulation is disabled on this DUT")
 
     # global DSCP_TO_TC_MAP update is not supported on Broadcom platforms
     # Broadcom ASICs do not support inner DSCP-based queue remapping for IPIP pipe mode.
