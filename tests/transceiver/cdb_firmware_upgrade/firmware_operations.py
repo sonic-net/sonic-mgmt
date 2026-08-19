@@ -197,16 +197,26 @@ def verify_dom_refreshed(duthost, port_attributes_dict, ports, lport_to_first_su
         port_attributes_dict, ports, lport_to_first_subport_mapping,
     )
 
+    stale_by_port, _ = dom_helpers.read_dom_sensor_data(duthost, ports)
+    stale_timestamps = {
+        port: stale_by_port.get(port, {}).get("last_update_time") for port in ports
+    }
+
+    enabled_ports = []
     for port in ports:
-        err = cli_helpers.set_dom_polling(
-            duthost, port, enable=True, namespace=resolve_port_namespace(duthost, port),
-        )
+        namespace = resolve_port_namespace(duthost, port)
+        enabled_ports.append((port, namespace))
+        err = cli_helpers.set_dom_polling(duthost, port, enable=True, namespace=namespace)
         if err:
             return [f"failed to re-enable DOM polling on {port}: {err}"]
 
     def _check_republished():
         sensor_by_port, read_errors = dom_helpers.read_dom_sensor_data(duthost, ports)
         failures = [f"STATE_DB read: {read_error}" for read_error in read_errors]
+        for port in ports:
+            updated = sensor_by_port.get(port, {}).get("last_update_time")
+            if updated is not None and updated == stale_timestamps[port]:
+                failures.append(f"{port}: DOM data not republished since polling was re-enabled")
         port_failures, _, _ = dom_helpers.validate_dom_plan_fields(
             duthost, ports, sensor_by_port, plan_by_port,
             _dom_field_finite_value,
@@ -214,20 +224,26 @@ def verify_dom_refreshed(duthost, port_attributes_dict, ports, lport_to_first_su
         )
         return failures + port_failures
 
-    failures = scenario_ops.poll_ports_recovered(
-        _check_republished, dom_attrs["dom_info_recover_sec"],
-        DOM_REFRESH_POLL_INTERVAL_SEC, "DOM refresh",
-    )
-    if failures:
-        return failures
+    try:
+        failures = scenario_ops.poll_ports_recovered(
+            _check_republished, dom_attrs["dom_info_recover_sec"],
+            DOM_REFRESH_POLL_INTERVAL_SEC, "DOM refresh",
+        )
+        if failures:
+            return failures
 
-    sensor_by_port, read_errors = dom_helpers.read_dom_sensor_data(duthost, ports)
-    port_failures, _, _ = dom_helpers.validate_dom_plan_fields(
-        duthost, ports, sensor_by_port, plan_by_port,
-        _dom_field_in_operational_range,
-        include_freshness_only=True,
-    )
-    return [f"STATE_DB read: {read_error}" for read_error in read_errors] + port_failures
+        sensor_by_port, read_errors = dom_helpers.read_dom_sensor_data(duthost, ports)
+        port_failures, _, _ = dom_helpers.validate_dom_plan_fields(
+            duthost, ports, sensor_by_port, plan_by_port,
+            _dom_field_in_operational_range,
+            include_freshness_only=True,
+        )
+        return [f"STATE_DB read: {read_error}" for read_error in read_errors] + port_failures
+    finally:
+        for port, namespace in enabled_ports:
+            err = cli_helpers.set_dom_polling(duthost, port, enable=False, namespace=namespace)
+            if err:
+                logger.warning("Failed to restore DOM polling disabled on %s: %s", port, err)
 
 
 def verify_firmware_downloaded(duthost, port, before_banks, target_version, download_err):
@@ -476,10 +492,11 @@ def download_low_power_op(duthost, port, port_context, metadata_map):
     system_attrs = port_context["system_attrs"]
     settle_sec = system_attrs["transceiver_reset_i2c_recover_sec"]
 
-    failures = scenario_ops.perform_lpm_toggle(
-        duthost, port, low_power=True, settle_sec=settle_sec,
-    )
+    failures = []
     try:
+        failures += scenario_ops.perform_lpm_toggle(
+            duthost, port, low_power=True, settle_sec=settle_sec,
+        )
         if not failures:
             failures += perform_firmware_download(
                 duthost, port, port_context, metadata_map, expect_link_up=False,
@@ -502,10 +519,11 @@ def download_admin_down_op(duthost, port, port_context, metadata_map):
     system_attrs = port_context["system_attrs"]
     subports = port_context["subports"]
 
-    failures = scenario_ops.perform_ports_shutdown(
-        duthost, subports, system_attrs["port_shutdown_wait_sec"],
-    )
+    failures = []
     try:
+        failures += scenario_ops.perform_ports_shutdown(
+            duthost, subports, system_attrs["port_shutdown_wait_sec"],
+        )
         if not failures:
             failures += perform_firmware_download(
                 duthost, port, port_context, metadata_map, expect_link_up=False,
