@@ -740,9 +740,7 @@ t1-lag-vpp:
   - vxlan/test_vxlan_route_advertisement.py
   - vxlan/test_vnet_route_leak.py
   - vxlan/test_vxlan_crm.py
-  - vxlan/test_vnet_bgp_route_precedence.py
   - vxlan/test_vxlan_multi_tunnel.py
-  - vxlan/test_vxlan_route_advertisement.py
 
 
 t0-vpp:
@@ -774,6 +772,7 @@ t0-vpp:
   - db_migrator/test_migrate_dns.py
   - decap/test_decap.py
   - dhcp_relay/test_dhcp_relay.py
+  - dhcp_relay/test_dhcp_relay_stress.py
   - disk/test_disk_exhaustion.py
   - dns/test_dns_resolv_conf.py
   - fdb/test_fdb_flush.py
