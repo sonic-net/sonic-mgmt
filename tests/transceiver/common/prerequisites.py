@@ -6,11 +6,12 @@ the caller decides whether to ``pytest.skip``, ``pytest.fail``, or assert.
 import logging
 
 from tests.common.platform.interface_utils import get_dut_interfaces_status
+from tests.common.utilities import wait_until
 from tests.transceiver.attribute_parser.attribute_keys import (
     CDB_FIRMWARE_UPGRADE_ATTRIBUTES_KEY,
     EEPROM_ATTRIBUTES_KEY,
 )
-from tests.transceiver.common import cli_helpers
+from tests.transceiver.common import cli_helpers, health_checks
 from tests.transceiver.common.cli_parser_helper import parse_presence
 
 logger = logging.getLogger(__name__)
@@ -228,7 +229,7 @@ def check_gold_firmware(duthost, port_attributes_dict):
 # ──────────────────────────────────────────────────────────────────────
 
 
-def check_links_up(duthost, port_attributes_dict):
+def check_links_up(duthost, port_attributes_dict, suppressWarnings=False):
     """Verify every port in *port_attributes_dict* is admin-up and oper-up.
 
     Uses :func:`tests.common.platform.interface_utils.get_dut_interfaces_status`
@@ -258,7 +259,8 @@ def check_links_up(duthost, port_attributes_dict):
             admin = status.get("admin", "missing") if status else "missing"
             oper = status.get("oper", "missing") if status else "missing"
             down.append(f"{port}(admin={admin}, oper={oper})")
-            logger.warning("Port %s not up: admin=%s oper=%s", port, admin, oper)
+            if not suppressWarnings:
+                logger.warning("Port %s not up: admin=%s oper=%s", port, admin, oper)
 
     passed = len(down) == 0
     total = len(expected_ports)
@@ -271,3 +273,73 @@ def check_links_up(duthost, port_attributes_dict):
         )
     logger.info("Link-up check: %s", details)
     return {"passed": passed, "up": up, "down": down, "details": details}
+
+
+def wait_until_links_up(
+    duthost, port_attributes_dict, timeout_sec, poll_interval_sec=2
+):
+    """Poll :func:`check_links_up` until every port is up or ``timeout_sec``
+    elapses.
+
+    Args:
+        duthost: SONiC DUT host fixture.
+        port_attributes_dict: dict of ``{port: port_attrs}``, as accepted by
+            :func:`check_links_up`.
+        timeout_sec: total time budget to wait for all ports to come up.
+        poll_interval_sec: time between polls.
+
+    Returns:
+        dict: the ``check_links_up`` result from the last poll (i.e. the
+        latest snapshot), regardless of whether it passed.
+    """
+    latest_result = {}
+
+    def _links_up():
+        nonlocal latest_result
+        latest_result = check_links_up(duthost, port_attributes_dict, True)
+        return (latest_result["down"] == [])
+
+    wait_until(timeout_sec, poll_interval_sec, 0, _links_up)
+    for down_port in latest_result.get("down", []):
+        logger.warning("%s", down_port)
+    return latest_result
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Docker/process health check
+# ──────────────────────────────────────────────────────────────────────
+
+
+def wait_until_health_ok(
+    duthost, baseline, timeout_sec, poll_interval_sec=2,
+    monitored_processes=None, expect_pid_change=None,
+):
+    """Poll :func:`health_checks.verify_health` until it passes or
+    ``timeout_sec`` elapses.
+
+    Args:
+        duthost: SONiC DUT host fixture.
+        baseline: baseline dict returned by
+            :func:`health_checks.capture_baseline`.
+        timeout_sec: total time budget to wait for health to pass.
+        poll_interval_sec: time between polls.
+        monitored_processes: dict of ``{process_name: container_name}``.
+        expect_pid_change: set of process names where a PID change is
+            expected (e.g., after an intentional service restart).
+
+    Returns:
+        dict: the ``verify_health`` result from the last poll (i.e. the
+        latest snapshot), regardless of whether it passed.
+    """
+    latest_result = {}
+
+    def _health_ok():
+        nonlocal latest_result
+        latest_result = health_checks.verify_health(
+            duthost, baseline, monitored_processes=monitored_processes,
+            expect_pid_change=expect_pid_change,
+        )
+        return latest_result["passed"]
+
+    wait_until(timeout_sec, poll_interval_sec, 0, _health_ok)
+    return latest_result

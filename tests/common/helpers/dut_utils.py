@@ -256,7 +256,9 @@ def get_group_program_info(duthost, container_name, group_name):
     return group_program_info
 
 
-def get_program_info(duthost, container_name, program_name):
+def get_program_info(
+    duthost, container_name, program_name, include_uptime=False
+):
     """Gets program running status and its pid by analyzing the command
        output of "docker exec <container_name> supervisorctl status"
 
@@ -264,26 +266,39 @@ def get_program_info(duthost, container_name, program_name):
         duthost: Hostname of DUT.
         container_name: A string shows container name.
         program_name: A string shows process name.
+        include_uptime: When True, also return the uptime field supervisorctl
+            reports for a RUNNING program (e.g. "0:12:34", or "37 days,
+            17:55:12" past the first day). Defaults to False so existing
+            callers keep unpacking a 2-tuple unchanged.
 
     Return:
-        Program running status and its pid.
+        Program running status and its pid. When include_uptime is True, a
+        third value (uptime string, or None if not RUNNING) is also returned.
     """
     program_status = None
     program_pid = -1
+    program_uptime = None
 
     program_list = duthost.shell("docker exec {} supervisorctl status"
                                  .format(container_name), module_ignore_errors=True)
     for program_info in program_list["stdout_lines"]:
         if program_info.find(program_name) != -1:
-            program_status = program_info.split()[1].strip()
+            fields = program_info.split()
+            program_status = fields[1].strip()
             if program_status == "RUNNING":
-                program_pid = int(program_info.split()[3].strip(','))
+                program_pid = int(fields[3].strip(','))
+                if "uptime" in fields:
+                    program_uptime = " ".join(
+                        fields[fields.index("uptime") + 1:]
+                    )
             break
 
     if program_pid != -1:
         logger.info("Found program '{}' in the '{}' state with pid {}"
                     .format(program_name, program_status, program_pid))
 
+    if include_uptime:
+        return program_status, program_pid, program_uptime
     return program_status, program_pid
 
 
