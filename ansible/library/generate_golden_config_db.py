@@ -1358,26 +1358,6 @@ class GenerateGoldenConfigDBModule(object):
         if self.has_otel_image():
             config = self.overwrite_feature_golden_config_db_singleasic(config, "otel", "enabled", "enabled")
 
-        # Register the mpls feature on the sonic-vpp t1 testbeds so the MPLS
-        # data-plane tests (tests/mpls) are not skipped by the
-        # "'mpls' not in feature_status" condition in tests_mark_conditions.yaml.
-        # The VPP SAI implementation supports MPLS (INSEG disposition/imposition).
-        #
-        # Scoped to t1 because that is the only topology the tests run on:
-        # tests/mpls/test_mpls.py is marked topology('t1') and tests/mpls/conftest.py
-        # skips any other topology type, so registering the feature elsewhere would
-        # only add config that can never be used.
-        #
-        # The state is deliberately "disabled": mpls is a config flag, not a
-        # containerized service, so there is no "mpls" docker. Registering it as
-        # "enabled" would make the image's monit container_checker report
-        # "Expected containers not running: mpls" and fail the sanity check for
-        # every test on this platform. The condition above only tests for the
-        # presence of the key, so "disabled" is enough to un-skip the tests.
-        if "vpp" in self.topo_name and "t1" in self.topo_name:
-            config = self.overwrite_feature_golden_config_db_singleasic(
-                config, "mpls", auto_restart="disabled", state="disabled")
-
         # Disable dash-ha feature for all multi-asic platforms
         if multi_asic.is_multi_asic():
             config = self.overwrite_feature_golden_config_db_multiasic(config, "dash-ha", feature_data={
