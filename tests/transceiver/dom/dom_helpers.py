@@ -132,32 +132,8 @@ def _map_operational_attribute_to_fields(attr_name, attr_value, active_media_lan
     }, []
 
 
-DOM_FIELD_MAPPERS = (
-    (OPERATIONAL_SUFFIX, _map_operational_attribute_to_fields),
-)
-
-
-def map_dom_attribute_to_fields(attr_name, attr_value, active_media_lanes):
-    """Map one DOM attribute to current STATE_DB field metadata.
-
-    The suffix dispatch is DOM-local. TC1/TC2 use this operational mapper for
-    ``TRANSCEIVER_DOM_SENSOR``; TC3 uses separate threshold helpers because
-    ``TRANSCEIVER_DOM_THRESHOLD`` is transceiver-level and does not expand
-    LANE_NUM.
-    """
-    for suffix, mapper in DOM_FIELD_MAPPERS:
-        if attr_name.endswith(suffix):
-            return mapper(attr_name, attr_value, active_media_lanes)
-    logger.debug("DOM attribute %s matched no field mapper; skipped", attr_name)
-    return {}, []
-
-
-def map_dom_threshold_attribute_to_fields(attr_name, attr_value):
-    """Return ``({field: DomThresholdMappedField(source_attr, attr_value, threshold_key)}, errors)``."""
-    if not attr_name.endswith(THRESHOLD_SUFFIX):
-        logger.debug("DOM attribute %s is not a threshold range; skipped", attr_name)
-        return {}, []
-
+def _map_threshold_attribute_to_fields(attr_name, attr_value):
+    """Return ``({field: DomThresholdMappedField(...)}, errors)`` for one threshold range."""
     base_name = attr_name[:-len(THRESHOLD_SUFFIX)]
     prefix = THRESHOLD_FIELD_PREFIXES.get(base_name)
     if prefix is None:
@@ -171,6 +147,31 @@ def map_dom_threshold_attribute_to_fields(attr_name, attr_value):
         )
         for suffix in THRESHOLD_FIELD_SUFFIXES
     }, []
+
+
+def _map_threshold_attribute_to_fields_for_dispatch(attr_name, attr_value, _active_media_lanes):
+    return _map_threshold_attribute_to_fields(attr_name, attr_value)
+
+
+DOM_FIELD_MAPPERS = (
+    (OPERATIONAL_SUFFIX, _map_operational_attribute_to_fields),
+    (THRESHOLD_SUFFIX, _map_threshold_attribute_to_fields_for_dispatch),
+)
+
+
+def map_dom_attribute_to_fields(attr_name, attr_value, active_media_lanes):
+    """Map one DOM attribute to current STATE_DB field metadata.
+
+    The suffix dispatch is DOM-local. Sensor-table operational ranges expand
+    ``LANE_NUM`` across active media lanes. Threshold ranges are transceiver-
+    level and return ``DomThresholdMappedField`` entries without lane expansion.
+    Callers build table-specific plans from the mapped field type they need.
+    """
+    for suffix, mapper in DOM_FIELD_MAPPERS:
+        if attr_name.endswith(suffix):
+            return mapper(attr_name, attr_value, active_media_lanes)
+    logger.debug("DOM attribute %s matched no field mapper; skipped", attr_name)
+    return {}, []
 
 
 def _operational_attr_for_threshold(attr_name):
@@ -198,6 +199,8 @@ def build_dom_sensor_plan(port_attributes_dict, dom_primary_ports, lport_to_firs
         errors = list(lane_errors)
 
         for attr_name, attr_value in sorted(dom_attrs.items()):
+            if not attr_name.endswith(OPERATIONAL_SUFFIX):
+                continue
             mapped_fields, field_errors = map_dom_attribute_to_fields(
                 attr_name,
                 attr_value,
@@ -243,7 +246,7 @@ def build_dom_threshold_plan(port_attributes_dict, dom_primary_ports):
                 continue
 
             threshold_attrs[attr_name] = attr_value
-            mapped_fields, field_errors = map_dom_threshold_attribute_to_fields(attr_name, attr_value)
+            mapped_fields, field_errors = map_dom_attribute_to_fields(attr_name, attr_value, active_media_lanes=None)
             expected_fields.update(mapped_fields)
             errors.extend(field_errors)
 
@@ -320,9 +323,10 @@ def format_dom_port_failure(
     expected_fields,
     field_failures,
     field_label="expected field(s)",
+    include_lanes=True,
 ):
     """Prefix a port's failure block with its expected shape."""
-    lane_context = "" if active_lanes is None else ", media lanes {}".format(active_lanes or "none")
+    lane_context = ", lanes {}".format(active_lanes or "none") if include_lanes else ""
     return "{} [{} {}{}]:\n  {}".format(
         port,
         len(expected_fields),
@@ -492,7 +496,7 @@ def read_dom_sensor_data(duthost, ports):
     return _read_dom_table_data(duthost, ports, STATE_DB_SENSOR_TABLE)
 
 
-def read_dom_status_data(duthost, ports):
+def read_transceiver_status_data(duthost, ports):
     """Return ``({port: {field: value}}, errors)`` for current transceiver status data."""
     return _read_dom_table_data(duthost, ports, STATE_DB_STATUS_TABLE)
 

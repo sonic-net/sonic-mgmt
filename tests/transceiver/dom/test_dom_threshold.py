@@ -120,10 +120,11 @@ def _validate_dom_threshold_ranges(dom_primary_ports, threshold_by_port, thresho
             failures.append(
                 format_dom_port_failure(
                     port,
-                    None,
+                    [],
                     expected_fields,
                     field_failures,
                     field_label="expected threshold field(s)",
+                    include_lanes=False,
                 )
             )
             continue
@@ -205,10 +206,11 @@ def _validate_dom_threshold_ranges(dom_primary_ports, threshold_by_port, thresho
             failures.append(
                 format_dom_port_failure(
                     port,
-                    None,
+                    [],
                     expected_fields,
                     field_failures,
                     field_label="expected threshold field(s)",
+                    include_lanes=False,
                 )
             )
 

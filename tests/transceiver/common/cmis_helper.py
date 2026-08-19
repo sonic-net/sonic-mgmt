@@ -12,6 +12,7 @@ __all__ = [
     "CMIS_DP_STATE_DEACTIVATED",
     "CMIS_DP_STATE_NIBBLE_MASK",
     "CMIS_DP_STATE_LANES_PER_BYTE",
+    "STATE_DB_DP_STATE_ACTIVATED",
 
     # ── Constants: CMIS page 01h (CDB capability) ──────────────────────────
     "CMIS_PAGE_01_CDB_CAP_PAGE",
@@ -21,6 +22,7 @@ __all__ = [
     # ── Public helpers ──────────────────────────────────────────────────────
     "check_dp_state",
     "check_dp_state_activated",
+    "is_state_db_dp_state_activated",
 ]
 
 # CMIS upper page 11h: DataPath state registers (2 lanes per byte, nibble-encoded).
@@ -31,6 +33,10 @@ CMIS_DP_STATE_LANES_PER_BYTE = 2
 CMIS_DP_STATE_ACTIVATED = 0x4   # DPActivated nibble value per CMIS spec
 CMIS_DP_STATE_DEACTIVATED = 0x1   # DPDeactivated nibble value per CMIS spec
 CMIS_DP_STATE_NIBBLE_MASK = 0x0F
+
+# STATE_DB TRANSCEIVER_STATUS uses the CLI/user-facing string form, not the
+# CMIS page 11h enum label. For example: DP1State = "DataPathActivated".
+STATE_DB_DP_STATE_ACTIVATED = "DataPathActivated"
 
 # CMIS Page 01h: CDB capability register
 # CMIS global byte 163 (decimal) = 0xA3 (hex).
@@ -106,3 +112,8 @@ def check_dp_state_activated(page_11_data, num_lanes):
     return check_dp_state(
         page_11_data, num_lanes, CMIS_DP_STATE_ACTIVATED, state_label="DPActivated"
     )
+
+
+def is_state_db_dp_state_activated(status_data, lane):
+    """Return True when ``TRANSCEIVER_STATUS`` reports an activated datapath lane."""
+    return status_data.get("DP{}State".format(lane)) == STATE_DB_DP_STATE_ACTIVATED
