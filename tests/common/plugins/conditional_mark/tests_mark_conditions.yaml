@@ -803,25 +803,13 @@ cacl/test_cacl_application.py::test_cacl_application_nondualtor:
     reason: "test_cacl_application is only supported on non dualtor topology"
     conditions:
       - "'dualtor' in topo_name"
-  xfail:
-    reason: "sonic-net/sonic-buildimage#28061 adds new protected FRR BGP ports; test update to
-      follow once that image is checked in"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/26908"
 
 cacl/test_cacl_application.py::test_multiasic_cacl_application:
   skip:
-    reason: "test_multiasic_cacl_application is only supported on multi-ASIC platform. Also
-      temporarily skipped while sonic-net/sonic-buildimage#28061 (adds new protected FRR BGP
-      ports) is being validated; test update to follow once that image is checked in."
+    reason: "test_multiasic_cacl_application is only supported on multi-ASIC platform"
     conditions_logical_operator: or
     conditions:
       - "not is_multi_asic"
-  xfail:
-    reason: "sonic-net/sonic-buildimage#28061 adds new protected FRR BGP ports; test update to
-      follow once that image is checked in"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/26908"
 
 cacl/test_cacl_function.py:
   xfail:
@@ -996,20 +984,6 @@ dash/test_dash_eni_counter.py:
     reason: "Currently dash tests are not supported on KVM"
     conditions:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
-
-dash/test_dash_eni_counter.py::TestEniCounter::test_inbound_pkt_eni_counter:
-  regex: true
-  xfail:
-    reason: "SAI_ENI_STAT_FLOW_AGED does not increment within the counter poll window on the Nvidia Bluefield DPU (flows do not idle-age)"
-    conditions:
-      - "hwsku in ['Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28']"
-
-dash/test_dash_eni_counter.py::TestEniCounter::test_outbound_pkt_pass_eni_counter:
-  regex: true
-  xfail:
-    reason: "SAI_ENI_STAT_FLOW_AGED does not increment within the counter poll window on the Nvidia Bluefield DPU (flows do not idle-age)"
-    conditions:
-      - "hwsku in ['Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28']"
 
 dash/test_dash_metering.py:
   skip:
