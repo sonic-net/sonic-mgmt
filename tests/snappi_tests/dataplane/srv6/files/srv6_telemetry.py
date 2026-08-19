@@ -179,8 +179,10 @@ def _flatten_srv6_mysid(raw):
 
         ``[{"sid": <prefix>, "packets_count": <int>, "packets_bytes": <int>}, ...]``
 
-    Unknown keys are tolerated (``.get(...) or 0``) so we still emit
-    something useful on future schema variations.
+    Unknown keys are tolerated (``.get(<new>, .get(<old>, 0))``) so we still
+    emit something useful on future schema variations. Note the nested
+    default rather than an ``or`` chain: a legitimate counter value of 0
+    must be preserved, not treated as "key missing".
     """
     records = []
     if isinstance(raw, dict):
@@ -198,8 +200,8 @@ def _flatten_srv6_mysid(raw):
                 continue
             records.append({
                 "sid": r.get("sid") or r.get("my_sid") or "",
-                "packets_count": r.get("packets") or r.get("packets_count") or 0,
-                "packets_bytes": r.get("bytes") or r.get("packets_bytes") or 0,
+                "packets_count": r.get("packets", r.get("packets_count", 0)),
+                "packets_bytes": r.get("bytes", r.get("packets_bytes", 0)),
             })
     return records
 

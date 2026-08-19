@@ -1,6 +1,7 @@
 import collections
 import re
 import logging
+# from rich import print as pr
 
 from snappi_tests.dataplane.files.helper import get_autoneg_fec, get_macs
 from tests.common.helpers.assertions import pytest_assert
@@ -597,6 +598,13 @@ def increment_hex(hex_str, by=1, width=2, prefix=False, upper=False):
     return ('0x' if prefix else '') + out
 
 
+def decrement_hex(hex_str, by=1, width=2, prefix=False, upper=False):
+    value = int(hex_str, 16) - by
+    fmt = f'0{width}{"X" if upper else "x"}'   # e.g. '02x'
+    out = format(value, fmt)
+    return ('0x' if prefix else '') + out
+
+
 def increment_to_next_hundred(number):
     """
     if number is 108, return 200
@@ -633,6 +641,35 @@ def snappi_port_name_mapper(snappi_obj_handles, snappi_extra_params, Common_vars
                     port_name = port_names[index]
                     Common_vars.port_name_mapper[port['location']] = port_name
                     break
+
+
+def snappi_port_name_mapper_snake(snappi_obj_handles, snappi_extra_params, Common_vars):
+    """
+    For RAW traffic and be able to select custom src and dst endpoints, have to use port_names
+    as tgen endpoints generated in snappi_obj_handles.
+    This is a helper function to get the port_name from snappi_obj_handle when sending
+    bi-directional traffic or if having mixed traffic patterns.
+    Creating a port mapper to solve the problem.
+    """
+    for role, pconfig in snappi_extra_params.protocol_config.items():
+        is_ipv4 = pconfig['subnet_type'] == 'IPv4'
+        snappi_obj_handles[role]['port_name'] = [f"Port_{p['port_id']}" for p in pconfig['ports']]
+        snappi_obj_handles[role]['ethernet_mac'] = [p['src_mac_address'] for p in pconfig['ports']]
+        snappi_obj_handles[role]['ipv4_address' if is_ipv4 else 'ipv6_address'] = \
+            [p['ipAddress'] for p in pconfig['ports']]
+        snappi_obj_handles[role]['ipv4_gateway' if is_ipv4 else 'ipv6_gateway'] = \
+            [p['ipGateway'] for p in pconfig['ports']]
+
+    for port in Common_vars.config_data['tgen_ports_left'] + Common_vars.config_data['tgen_ports_right']:
+        # Look in snappi_obj_handle for the port that matches the ip address to get the port_name
+        for x_type in ['Tx', 'Rx']:
+            addresses = snappi_obj_handles[x_type].get('ipv6_address', [])
+            port_names = snappi_obj_handles[x_type].get('port_name', [])
+            if port['src_ip_address'] in addresses:
+                index = addresses.index(port['src_ip_address'])
+                port_name = port_names[index]
+                Common_vars.port_name_mapper[port['src_port']] = port_name
+                break
 
 
 def _num(v):
@@ -804,6 +841,7 @@ def construct_dut_to_dut_links(conn_graph_facts, Common_vars):
                     # Add IP addresses on link connections between 2 DUTs
                     Common_vars.config_data[attributes['peerdevice']]['dut_link_ip_addresses'][dut].append(next_hop_ip)
 
+                # This needs to be incremented for next-hop for local_dut_link_ip and next_hop_ip
                 Common_vars.static_route_subnet_start = increment_hex(str(Common_vars.static_route_subnet_start))
 
 
@@ -956,6 +994,82 @@ def config_traffic_flows(pket_size, duthosts, snappi_config, Common_vars):
             ipv6_inner.hop_limit.value = 64
 
 
+def config_snake_traffic_flows(pket_size, line_rate, snappi_config, Common_vars):
+    """
+    tgen_ports_left|right
+    {
+        'src_ip_address': 'fc0a::1',
+        'gateway_ip_address': 'fc0a::2',
+        'ip_subnet_prefix': '126',
+        'src_mac_address': '00:11:01:00:00:00',
+        'dest_mac_address': '00:11:00:00:00:02',
+        'peer_port': 'Ethernet0',
+        'sid_list': ['0001', '0002', '0004', '0006', '0008', '0010'],
+        'srh_sid_list': ['0012', '0014'],
+        'sid': 'fcbb:bbbb:1:2:4:6:8:10',
+        'srh_sid': 'fcbb:bbbb:12:14::',
+        'src_port': '10.36.84.36/2.1',
+        'dst_port': '10.36.84.36/6.1',
+        'dst_port_ip_address': 'fc0a::e2'
+    }
+    """
+    for index, flow in enumerate(Common_vars.config_data['tgen_ports_left'] +
+                                 Common_vars.config_data['tgen_ports_right']):
+        # flow: {'src_ip_address': 'fc0a::1', 'gateway_ip_address': 'fc0a::2', 'ip_subnet_prefix': '126',
+        # 'src_mac_address': '00:11:01:00:00:00', 'dest_mac_address': '00:11:00:00:00:02', 'peer_port': 'Ethernet0',
+        # 'sid_list': ['0001', '0002', '0004', '0006', '0008', '0010'], 'srh_sid_list': ['0012', '0014'],
+        # 'sid': 'fcbb:bbbb:1:2:4:6:8:10', 'srh_sid': 'fcbb:bbbb:12:14::', 'src_port': '10.36.84.36/2.1',
+        # 'dst_port': '10.36.84.36/6.1', 'dst_port_ip_address': 'fc0a::e2'}
+
+        # RAW traffic: Get the port_name
+        tx_snappi_port_name_for_raw_pkts = Common_vars.port_name_mapper[flow['src_port']]
+        rx_snappi_port_name_for_raw_pkts = Common_vars.port_name_mapper[flow['dst_port']]
+
+        flow_name = (f"{tx_snappi_port_name_for_raw_pkts} {flow['src_port']} -> {rx_snappi_port_name_for_raw_pkts} "
+                     f"{flow['dst_port']}   SID:{flow['sid']}   SRH:{flow['srh_sid']}")
+
+        logger.info(f'Flow {index+1}: {flow_name}')
+        test_flow = snappi_config.flows.add(name=flow_name)
+
+        test_flow.tx_rx.port.tx_name = tx_snappi_port_name_for_raw_pkts
+        test_flow.tx_rx.port.rx_name = rx_snappi_port_name_for_raw_pkts
+        test_flow.size.fixed = pket_size
+        test_flow.rate.percentage = line_rate
+        test_flow.duration.continuous
+        test_flow.metrics.enable = True
+
+        ethernet = test_flow.packet.add()
+        ethernet.choice = "ethernet"
+        ethernet.ethernet.src.value = flow['src_mac_address']
+        ethernet.ethernet.dst.value = flow['dest_mac_address']
+
+        ipv6_outer = test_flow.packet.add().ipv6
+        ipv6_outer.src.value = flow['src_ip_address']
+        du = ipv6_outer.dst_usids
+        du.locator.value = f'{Common_vars.sid_prefix}::'
+        du.locator_length.value = 32
+        du.usids = flow['sid_list']
+        ipv6_outer.next_header.value = 43
+        ipv6_outer.hop_limit.value = 64
+
+        ext = test_flow.packet.add()
+        ext.choice = "ipv6_extension_header"
+        ext.ipv6_extension_header.routing.choice = "segment_routing_usid"
+        sr = ext.ipv6_extension_header.routing.segment_routing_usid
+        sr.segments_left.value = 1
+        sr.last_entry.value = 0
+        seg = sr.segment_list.segment()[-1]
+        seg.locator.value = f'{Common_vars.sid_prefix}::'
+        seg.locator_length.value = 32
+        seg.usids = flow['srh_sid_list']
+
+        ipv6_inner = test_flow.packet.add().ipv6
+        ipv6_inner.src.value = flow['src_ip_address']
+        ipv6_inner.dst.value = flow['dst_port_ip_address']
+        ipv6_inner.next_header.value = 59
+        ipv6_inner.hop_limit.value = 64
+
+
 def clear_dut_stats(duthosts):
     for duthost in duthosts:
         logger.info(f'sonic-clear counters on DUT: {duthost.hostname} ...')
@@ -1090,10 +1204,25 @@ def verify_nut_stats(aligned, snappi_stats):
 
             # The DUT counter RX/TX stats must be equal or more than the TX-port transmitted packets.
             # It is ok for DUT link ports to have a little more packets from periodic protocol packets.
-            # Skip endpoint sides / unparsed counters (None) -- there is nothing to compare there.
-            for label, val in (('ingress RX_OK', ig_rx), ('egress TX_OK', eg_tx)):
-                if val is not None and val < tx_frames:
-                    logger.warning(f"FAILED: {hop['dut']} {label}={val} < transmitted {tx_frames}")
+            for side, port, stats, key, val in (('ingress', ig, hop['ingress_stats'], 'RX_OK', ig_rx),
+                                                ('egress', eg, hop['egress_stats'], 'TX_OK', eg_tx)):
+                if not port:
+                    # Genuinely absent endpoint side: this hop has no interface on this
+                    # side (e.g. the entry/exit t0 has no tgen-facing port at this link
+                    # index), so there is no counter to compare against.
+                    continue
+
+                if val is None:
+                    # A real interface with no usable counter -- portstat did not list
+                    # the port, or the cell was non-numeric ('-', 'N/A'). We cannot
+                    # prove the packets made it through this hop, so fail rather than
+                    # silently accept the gap.
+                    reason = 'not reported by portstat' if key not in stats else 'non-numeric'
+                    logger.warning(f"FAILED: {hop['dut']} {side} {port} {key} missing ({reason})")
+                    result = False
+                elif val < tx_frames:
+                    logger.warning(f"FAILED: {hop['dut']} {side} {port} {key}={val} "
+                                   f"< transmitted {tx_frames}")
                     result = False
 
     return result
@@ -1177,6 +1306,754 @@ def config_dut_ip_interface(snappi_ports):
         snappi_port['duthost'].shell(cli_command)
 
 
+def config_snake_vlan_mac_port(Common_vars):
+    """
+    sudo sonic-db-cli CONFIG_DB keys 'INTERFACE|Ethernet1|*' INTERFACE|Ethernet1|10.0.0.2/31
+
+    sudo config interface ip remove Ethernet1 10.0.0.2/31 2> /dev/null
+    sudo sonic-db-cli CONFIG_DB del "10.0.0.2/31" > /dev/null
+    sudo sonic-db-cli CONFIG_DB del 'INTERFACE|Ethernet1' > /dev/null
+    sudo config interface startup Ethernet1 2> /dev/null
+    sudo config vlan member add -u 3 Ethernet1
+    """
+    vlan_list = Common_vars.conn_graph_facts['device_vlan_list'][Common_vars.dut_hostname]
+    # total_vrfs = 7
+    # vlans_per_vrf = 16
+    expected_total_vlans = Common_vars.total_vrfs * Common_vars.vlans_per_vrf
+    if len(vlan_list) != expected_total_vlans:
+        pytest_assert(False, (f"Expected {expected_total_vlans} vlans but found {len(vlan_list)} "
+                              f"in the sonic_snappi-sonic_links.csv file"))
+
+    for port, properties in Common_vars.conn_graph_facts['device_port_vlans'][Common_vars.dut_hostname].items():
+        # 'Ethernet0': {'mode': 'Access', 'vlanids': '2', 'vlanlist': [2]}
+        vlan_id = int(properties["vlanids"])
+
+        # mac address follows the vlan ID number
+        two_bytes = vlan_id.to_bytes(2, byteorder='big')
+        suffix = ':'.join(f'{byte:02x}' for byte in two_bytes)
+        mac_address = f'{Common_vars.mac_address_prefix}:{suffix}'
+
+        logger.info(f'sudo config vlan add {properties["vlanids"]}')
+        Common_vars.dut_host.shell(f'sudo config vlan add {vlan_id}')
+
+        current_int_ip_address = Common_vars.dut_host.shell(f"sonic-db-cli CONFIG_DB keys "
+                                                            f"'INTERFACE|{port}|*'")['stdout']
+        if current_int_ip_address:
+            # INTERFACE|Ethernet2|10.0.0.4/31
+            current_ip_address = current_int_ip_address.split('|')[-1]
+            logger.info(f"sudo config interface ip remove {port} {current_ip_address}' 2> /dev/null")
+            Common_vars.dut_host.shell(f"sudo config interface ip remove {port} {current_ip_address}' 2> /dev/null")
+
+            logger.info(f'sonic-db-cli CONFIG_DB del "{current_ip_address}" > /dev/null')
+            Common_vars.dut_host.shell(f'sonic-db-cli CONFIG_DB del "{current_ip_address}" > /dev/null')
+
+        logger.info(f'sonic-db-cli CONFIG_DB del "INTERFACE|{port}" > /dev/null')
+        Common_vars.dut_host.shell(f"sonic-db-cli CONFIG_DB del 'INTERFACE|{port}' > /dev/null")
+
+        logger.info(f'sudo config interface startup {port} 2> /dev/null')
+        Common_vars.dut_host.shell(f"sudo config interface startup {port} 2> /dev/null")
+
+        logger.info(f'sudo config vlan member add -u {vlan_id} {port}')
+        Common_vars.dut_host.shell(f'sudo config vlan member add -u {vlan_id} {port}')
+
+        logger.info(f"sonic-db-cli CONFIG_DB hset 'VLAN|Vlan{vlan_id}' mac '{mac_address}'")
+        Common_vars.dut_host.shell(f"sonic-db-cli CONFIG_DB hset 'VLAN|Vlan{vlan_id}' mac '{mac_address}'")
+        logger.info('')
+
+
+def config_snake_vrf(Common_vars):
+    for group_index in range(Common_vars.total_vrfs):
+        vrf_name = f'Vrf{group_index + 1}'
+        logger.info(f'sudo config vrf add {vrf_name} 2>/dev/null || true')
+        Common_vars.dut_host.shell(f'sudo config vrf add {vrf_name} 2>/dev/null || true')
+
+
+def config_snake_vrf_bindings(Common_vars):
+    """
+    Create 7 VRFs and bind 16 vlans to each VRF. Each vlan is assigned an IPv6 address.
+
+    Split the DUT vlan list into Common_vars.total_vrfs groups of
+    Common_vars.vlans_per_vrf vlans, and bind each group to its own VRF:
+
+        Vrf1 -> vlans[0:16], Vrf2 -> vlans[16:32], ... Vrf7 -> vlans[96:112]
+
+    Each VRF group is further split into Common_vars.subgroups_per_vrf subgroups of 8 vlans.
+    A subgroup's first vlan takes the next unused SID and every following vlan in that
+    subgroup steps by 14 (total_vrfs x subgroups_per_vrf):
+
+        Vrf1 vlans[0:8]   -> sids 1,  15, 29, ... 99
+        Vrf1 vlans[8:16]  -> sids 2,  16, 30, ... 100
+        Vrf2 vlans[0:8]   -> sids 3,  17, 31, ... 101
+        Vrf2 vlans[8:16]  -> sids 4,  18, 32, ... 102
+        ...
+        Vrf7 vlans[8:16]  -> sids 14, 28, 42, ... 112
+
+    Every link in the snake gets its own /126 subnet, so the two vlans cabled together
+    always share a subnet. The links, in snake order, are:
+
+        stage 0   tgen_ports_left[i] <-> Vrf1 group1[i]
+        stage k   Vrf(k) group2[i]   <-> Vrf(k+1) group1[i]   for k in 1 .. 6
+        stage 7   Vrf7 group2[i]     <-> tgen_ports_right[i]
+
+    A vlan therefore lives in the subnet of stage (group_index + subgroup_index) at its
+    own position, and the subnets are handed out in that order starting at fc0a::0/126:
+
+        Vrf1 group1[0] -> fc0a::2    (fc0a::0/126,   tgen_ports_left[0]  fc0a::1)
+        Vrf1 group1[7] -> fc0a::1e   (fc0a::1c/126,  tgen_ports_left[7]  fc0a::1d)
+        Vrf1 group2[0] -> fc0a::21   (fc0a::20/126,  Vrf2 group1[0]      fc0a::22)
+        Vrf2 group2[0] -> fc0a::41   (fc0a::40/126,  Vrf3 group1[0]      fc0a::42)
+        ...
+        Vrf6 group2[0] -> fc0a::c1   (fc0a::c0/126,  Vrf7 group1[0]      fc0a::c2)
+        Vrf7 group2[0] -> fc0a::e1   (fc0a::e0/126,  tgen_ports_right[0] fc0a::e2)
+        Vrf7 group2[7] -> fc0a::fd   (fc0a::fc/126,  tgen_ports_right[7] fc0a::fe)
+
+    group1 always takes the .2 of its /126 and group2 the .1, which leaves the .1 for
+    tgen_ports_left and the .2 for tgen_ports_right.
+
+    Every vlan also records the DUT port it lives on, so the index alignment against the
+    snappi ports can be checked against the cabling instead of being assumed from the
+    order device_vlan_list came back in.
+
+    sudo config vrf add Vrf1
+    sudo config interface vrf bind Vlan2 Vrf1
+    """
+    vlan_list = Common_vars.conn_graph_facts['device_vlan_list'][Common_vars.dut_hostname]
+    vlans_per_subgroup = Common_vars.vlans_per_vrf // Common_vars.subgroups_per_vrf
+    first_subgroup = 0
+    last_subgroup = Common_vars.subgroups_per_vrf - 1
+    last_vrf_name = f'Vrf{Common_vars.total_vrfs}'
+
+    # The vlans are sliced into fixed size VRF groups, so the list has to be exactly
+    # total_vrfs x vlans_per_vrf long or the groups silently lose their alignment
+    expected_total_vlans = Common_vars.total_vrfs * Common_vars.vlans_per_vrf
+    pytest_assert(len(vlan_list) == expected_total_vlans,
+                  f"Expected {expected_total_vlans} vlans but found {len(vlan_list)} "
+                  f"in the sonic_snappi-sonic_links.csv file")
+
+    # 'Ethernet0': {'mode': 'Access', 'vlanids': '2', 'vlanlist': [2]} -> {2: 'Ethernet0'}
+    device_port_vlans = Common_vars.conn_graph_facts['device_port_vlans'][Common_vars.dut_hostname]
+    vlan_to_dut_port = {int(properties['vlanids']): port
+                        for port, properties in device_port_vlans.items()}
+
+    # Within a subgroup the SIDs are one full sweep of all subgroups apart: 7 VRFs x 2 = 14
+    sid_stride = Common_vars.total_vrfs * Common_vars.subgroups_per_vrf
+
+    for group_index in range(Common_vars.total_vrfs):
+        vrf_name = f'Vrf{group_index + 1}'
+        start = group_index * Common_vars.vlans_per_vrf
+        # [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
+        vlan_group = vlan_list[start:start + Common_vars.vlans_per_vrf]
+
+        Common_vars.config_data['vrf_groups'][vrf_name] = {}
+
+        # subgroup_index: 0|1
+        for subgroup_index in range(Common_vars.subgroups_per_vrf):
+            sub_start = subgroup_index * vlans_per_subgroup
+            # [2, 3, 4, 5, 6, 7, 8, 9]
+            vlan_subgroup = vlan_group[sub_start:sub_start + vlans_per_subgroup]
+
+            # Each subgroup starts one SID higher than the previous one:
+            # Vrf1 -> 1, 2   Vrf2 -> 3, 4   ...   Vrf7 -> 13, 14
+            sid = group_index * Common_vars.subgroups_per_vrf + subgroup_index + 1
+            group = []
+
+            for position, vlan_id in enumerate(vlan_subgroup):
+                # mac address follows the vlan ID number
+                two_bytes = vlan_id.to_bytes(2, byteorder='big')
+                suffix = ':'.join(f'{byte:02x}' for byte in two_bytes)
+                mac_address = f'{Common_vars.mac_address_prefix}:{suffix}'
+
+                # group1 faces the previous snake stage and group2 the next one, so the two
+                # vlans cabled together resolve to the same stage and land on the same /126
+                stage = group_index + subgroup_index
+                subnet_base = (stage * vlans_per_subgroup + position) * Common_vars.ip_step
+
+                # group1 takes the .2 of its /126, group2 the .1
+                host = subnet_base + (2 if subgroup_index == first_subgroup else 1)
+                host_last_byte = f'{host:x}'
+                gateway_ip_address = f'{Common_vars.ip_prefix}::{host_last_byte}'
+
+                dut_port = vlan_to_dut_port[vlan_id]
+
+                group.append({'vlan_id': vlan_id,
+                              'dut_port': dut_port,
+                              'mac_address': mac_address,
+                              'sid': sid,
+                              'ip_prefix': Common_vars.ip_subnet_prefix,
+                              'gateway_ip_address': f'{gateway_ip_address}'})
+
+                # Generate VLAN Mac Address for tgen's dest mac
+                two_bytes = vlan_id.to_bytes(2, byteorder='big')
+                suffix = ':'.join(f'{byte:02x}' for byte in two_bytes)
+                mac_address = f'{Common_vars.mac_address_prefix}:{suffix}'
+
+                if vrf_name == 'Vrf1' and subgroup_index == first_subgroup:
+                    # tgen_ports_left holds the .1 of the /126 Vrf1 group1 took the .2 of
+                    tgen_ip_last_byte = decrement_hex(host_last_byte, by=1, width=1, prefix=False, upper=False)
+                    tgen_ip_address = f'{Common_vars.ip_prefix}::{tgen_ip_last_byte}'
+
+                    src_mac_address = f'{Common_vars.mac_src_prefix}:{Common_vars.mac_src_byte}:00'
+                    Common_vars.config_data['tgen_ports_left'].append(
+                        {'src_ip_address': tgen_ip_address,
+                         'gateway_ip_address': gateway_ip_address,
+                         'ip_subnet_prefix': Common_vars.ip_subnet_prefix,
+                         'src_mac_address': src_mac_address,
+                         'dest_mac_address': mac_address,
+                         'peer_port': dut_port})
+
+                    Common_vars.mac_src_byte = increment_hex(Common_vars.mac_src_byte, by=1,
+                                                             width=2, prefix=False, upper=False)
+
+                elif vrf_name == last_vrf_name and subgroup_index == last_subgroup:
+                    # tgen_ports_right holds the .2 of the /126 Vrf7 group2 took the .1 of
+                    tgen_ip_last_byte = increment_hex(host_last_byte, by=1, width=1, prefix=False, upper=False)
+                    tgen_ip_address = f'{Common_vars.ip_prefix}::{tgen_ip_last_byte}'
+
+                    src_mac_address = f'{Common_vars.mac_src_prefix}:{Common_vars.mac_src_byte}:00'
+                    Common_vars.config_data['tgen_ports_right'].append(
+                        {'src_ip_address': tgen_ip_address,
+                         'gateway_ip_address': gateway_ip_address,
+                         'ip_subnet_prefix': Common_vars.ip_subnet_prefix,
+                         'src_mac_address': src_mac_address,
+                         'dest_mac_address': mac_address,
+                         'peer_port': dut_port})
+
+                    Common_vars.mac_src_byte = increment_hex(Common_vars.mac_src_byte, by=1,
+                                                             width=2, prefix=False, upper=False)
+
+                logger.info(f'Binding {vrf_name} to VLAN:{vlan_id} sid:{sid} and '
+                            f'assigning IP: {gateway_ip_address}/{Common_vars.ip_subnet_prefix} ...')
+
+                logger.info(f'sudo config interface vrf bind Vlan{vlan_id} {vrf_name}')
+                Common_vars.dut_host.shell(f'sudo config interface vrf bind Vlan{vlan_id} {vrf_name}')
+
+                logger.info(f'sudo config interface ip add Vlan{vlan_id} '
+                            f'{gateway_ip_address}/{Common_vars.ip_subnet_prefix}')
+                Common_vars.dut_host.shell(f'sudo config interface ip add Vlan{vlan_id} '
+                                           f'{gateway_ip_address}/{Common_vars.ip_subnet_prefix}')
+
+                # Next vlan in this subgroup gets the next SID block
+                sid += sid_stride
+
+            Common_vars.config_data['vrf_groups'][vrf_name][subgroup_index] = group
+
+
+def config_snake_sids(Common_vars):
+    """
+    Configure sid locators and static-sids
+    """
+    for count in range(1, len(Common_vars.conn_graph_facts['device_vlan_list'][Common_vars.dut_hostname]) + 1):
+        my_sid_locator = f'{Common_vars.sid_prefix}:{count}::'
+        my_static_sid = f'{Common_vars.sid_prefix}:{count}::/48'
+
+        logger.info(f'sonic-db-cli CONFIG_DB hset "SRV6_MY_LOCATORS|loc{count}" prefix "{my_sid_locator}" func_len 0')
+        Common_vars.dut_host.shell(f'sonic-db-cli CONFIG_DB hset "SRV6_MY_LOCATORS|loc{count}" '
+                                   f'prefix "{my_sid_locator}" func_len 0')
+
+        logger.info(f'sonic-db-cli CONFIG_DB hset "SRV6_MY_SIDS|loc{count}|{my_static_sid}" '
+                    f'action uN decap_dscp_mode pipe')
+        Common_vars.dut_host.shell(f'sonic-db-cli CONFIG_DB hset "SRV6_MY_SIDS|loc{count}|{my_static_sid}" '
+                                   f'action uN decap_dscp_mode pipe')
+
+
+def create_snake_tgen_sid_list(Common_vars):
+    """
+    Give each tgen_ports_left/right entry the list of SIDs its traffic walks through.
+
+    The snake enters at the tgen port's index and picks the vlan sitting at that same
+    index in Vrf1 group1, Vrf1 group2, then group2 of every remaining VRF:
+
+        Vrf1 group1 -> Vrf1 group2 -> Vrf2 group2 -> ... -> Vrf7 group2
+
+        tgen_ports_left[0] -> [1,  2,   4,   6,   8,   10,  12,  14]
+        tgen_ports_left[1] -> [15, 16,  18,  20,  22,  24,  26,  28]
+        ...
+        tgen_ports_left[7] -> [99, 100, 102, 104, 106, 108, 110, 112]
+
+    The first 6 SIDs become the sid_list, the last 2 become the srh_sid_list, both
+    written as fcbb:bbbb: prefixed addresses:
+
+        tgen_ports_left[0] -> sid_list:     'fcbb:bbbb:1:2:4:6:8:10'
+                              srh_sid_list: 'fcbb:bbbb:12:14'
+        tgen_ports_left[7] -> sid_list:     'fcbb:bbbb:99:100:102:104:106:108'
+                              srh_sid_list: 'fcbb:bbbb:110:112'
+
+    tgen_ports_right walks the snake back the other way, which is the mirror image of the
+    walk above: it starts on Vrf7 group2, crosses to Vrf7 group1, then takes group1 of
+    every remaining VRF:
+
+        Vrf7 group2 -> Vrf7 group1 -> Vrf6 group1 -> ... -> Vrf1 group1
+
+        tgen_ports_right[0] -> [14,  13,  11,  9,   7,   5,   3,   1]
+        tgen_ports_right[1] -> [28,  27,  25,  23,  21,  19,  17,  15]
+        ...
+        tgen_ports_right[7] -> [112, 111, 109, 107, 105, 103, 101, 99]
+
+    and it is split the same way:
+
+        tgen_ports_right[0] -> sid_list:     'fcbb:bbbb:14:13:11:9:7:5'
+                               srh_sid_list: 'fcbb:bbbb:3:1'
+        tgen_ports_right[7] -> sid_list:     'fcbb:bbbb:112:111:109:107:105:103'
+                               srh_sid_list: 'fcbb:bbbb:101:99'
+    """
+    vrf_groups = Common_vars.config_data['vrf_groups']
+    first_subgroup = 0
+    last_subgroup = Common_vars.subgroups_per_vrf - 1
+
+    # fcbb:bbbb: leaves room for 6 SIDs in the address, the rest go in the SRH
+    sids_per_address = 6
+
+    def set_tgen_sids(tgen_port, sids):
+        """
+        fcbb:bbbb:1::/48 [1/0] via fc0a::1, Vlan2
+        """
+        head = ':'.join(str(sid) for sid in sids[:sids_per_address])
+        tail = ':'.join(str(sid) for sid in sids[sids_per_address:])
+
+        # Convert SIDs to 4-digit zero-padded strings because snappi expects them that way
+        head2 = head.split(":")
+        head3 = [f"{int(x):04d}" for x in head2 if x]
+        tail2 = tail.split(":")
+        tail3 = [f"{int(x):04d}" for x in tail2 if x]
+
+        tgen_port['sid_list'] = head3
+        tgen_port['srh_sid_list'] = tail3
+
+        tgen_port['sid'] = f'{Common_vars.sid_prefix}:{head}'
+        tgen_port['srh_sid'] = f'{Common_vars.sid_prefix}:{tail}::'
+
+    tgen_ports_left = Common_vars.config_data['tgen_ports_left']
+    tgen_ports_right = Common_vars.config_data['tgen_ports_right']
+
+    for index, tgen_port in enumerate(tgen_ports_left):
+        # The snake starts in Vrf1's first subgroup ...
+        sids = [vrf_groups['Vrf1'][first_subgroup][index]['sid']]
+
+        # ... then hops through the last subgroup of every VRF: Vrf1, Vrf2, ... Vrf7
+        for group_index in range(Common_vars.total_vrfs):
+            vrf_name = f'Vrf{group_index + 1}'
+            sids.append(vrf_groups[vrf_name][last_subgroup][index]['sid'])
+
+        set_tgen_sids(tgen_port, sids)
+
+        # The right port at the same index walks the snake back the other way, mirroring
+        # the walk above: it starts in Vrf7's last subgroup ...
+        reverse_sids = [vrf_groups[f'Vrf{Common_vars.total_vrfs}'][last_subgroup][index]['sid']]
+
+        # ... then hops through the first subgroup of every VRF: Vrf7, Vrf6, ... Vrf1
+        for group_index in reversed(range(Common_vars.total_vrfs)):
+            vrf_name = f'Vrf{group_index + 1}'
+            reverse_sids.append(vrf_groups[vrf_name][first_subgroup][index]['sid'])
+
+        set_tgen_sids(tgen_ports_right[index], reverse_sids)
+
+
+def config_snake_static_route(Common_vars):
+    """
+    Add the static routes for both directions of the snake, built from the vlans in
+    Common_vars.config_data['vrf_groups'].
+
+    Every vlan owns one sid and sits on one link, so every vlan gets exactly one route:
+    its own sid, out its own interface, with whatever sits on the far side of that link
+    as the nexthop. That single rule covers both directions of the snake, because the
+    forward walk and the reverse walk use different halves of the vlans:
+
+        forward  tgen_left[i]  -> sids 1:2:4:6:8:10:12:14   (Vrf1 group1, then group2 of every VRF)
+        reverse  tgen_right[i] -> sids 14:13:11:9:7:5:3:1   (Vrf7 group2, then group1 of every VRF)
+
+    Which gives four kinds of route, all index aligned:
+
+        Vrf1 group1[i]  faces tgen_ports_left[i]      -> nexthop tgen_ports_left[i] src_ip_address
+        VrfN group2[i]  faces Vrf(N+1) group1[i]      -> nexthop that vlan's gateway_ip_address
+        VrfN group1[i]  faces Vrf(N-1) group2[i]      -> nexthop that vlan's gateway_ip_address
+        Vrf7 group2[i]  faces tgen_ports_right[i]     -> nexthop tgen_ports_right[i] src_ip_address
+
+    The two middle rules are the same VrfN group2 <-> Vrf(N+1) group1 pair seen from either
+    end, so each snake link between two VRFs is programmed as two routes, one per direction:
+    Vrf1 group2 <-> Vrf2 group1, Vrf2 group2 <-> Vrf3 group1, ... Vrf6 group2 <-> Vrf7 group1.
+
+    index 0 lays down 14 routes, one per subgroup:
+
+    sudo sonic-db-cli CONFIG_DB hset 'STATIC_ROUTE|Vrf1|fcbb:bbbb:1::/48'  nexthop 'fc0a::1'  ifname 'Vlan2'
+    sudo sonic-db-cli CONFIG_DB hset 'STATIC_ROUTE|Vrf7|fcbb:bbbb:14::/48' nexthop 'fc0a::e2' ifname 'Vlan122'
+    sudo sonic-db-cli CONFIG_DB hset 'STATIC_ROUTE|Vrf1|fcbb:bbbb:2::/48'  nexthop 'fc0a::22' ifname 'Vlan10'
+    sudo sonic-db-cli CONFIG_DB hset 'STATIC_ROUTE|Vrf2|fcbb:bbbb:3::/48'  nexthop 'fc0a::21' ifname 'Vlan18'
+    sudo sonic-db-cli CONFIG_DB hset 'STATIC_ROUTE|Vrf2|fcbb:bbbb:4::/48'  nexthop 'fc0a::42' ifname 'Vlan26'
+    sudo sonic-db-cli CONFIG_DB hset 'STATIC_ROUTE|Vrf3|fcbb:bbbb:5::/48'  nexthop 'fc0a::41' ifname 'Vlan34'
+    ...
+    sudo sonic-db-cli CONFIG_DB hset 'STATIC_ROUTE|Vrf6|fcbb:bbbb:12::/48' nexthop 'fc0a::c2' ifname 'Vlan90'
+    sudo sonic-db-cli CONFIG_DB hset 'STATIC_ROUTE|Vrf7|fcbb:bbbb:13::/48' nexthop 'fc0a::c1' ifname 'Vlan98'
+    """
+    vrf_groups = Common_vars.config_data['vrf_groups']
+    tgen_ports_left = Common_vars.config_data['tgen_ports_left']
+    tgen_ports_right = Common_vars.config_data['tgen_ports_right']
+    first_subgroup = 0
+    last_subgroup = Common_vars.subgroups_per_vrf - 1
+    last_vrf_name = f'Vrf{Common_vars.total_vrfs}'
+
+    def _static_route_add(vrf_name, vlan, next_hop):
+        # A vlan always routes the sid it owns out of its own interface
+        static_route = (f'sonic-db-cli CONFIG_DB hset '
+                        f'"STATIC_ROUTE|{vrf_name}|{Common_vars.sid_prefix}:{vlan["sid"]}::/48" '
+                        f'nexthop "{next_hop}" ifname "Vlan{vlan["vlan_id"]}"')
+        logger.info(static_route)
+        Common_vars.dut_host.shell(static_route)
+        Common_vars.config_data['static_routes'].append(static_route)
+
+    # The snake picks the vlan sitting at its own index in every subgroup it walks through
+    for index in range(len(vrf_groups['Vrf1'][first_subgroup])):
+        # Do the entry and exit static routes first. Then do the rest of the snake routes.
+
+        # Vrf1 group1 faces tgen_ports_left, where the reverse walk leaves the DUT
+        entry_vlan = vrf_groups['Vrf1'][first_subgroup][index]
+        _static_route_add('Vrf1', entry_vlan, tgen_ports_left[index]['src_ip_address'])
+
+        # Vrf7 group2 faces tgen_ports_right, where the forward walk leaves the DUT
+        exit_vlan = vrf_groups[last_vrf_name][last_subgroup][index]
+        _static_route_add(last_vrf_name, exit_vlan, tgen_ports_right[index]['src_ip_address'])
+
+        # Vrf1 group2 <-> Vrf2 group1, Vrf2 group2 <-> Vrf3 group1, ... Vrf6 group2 <-> Vrf7 group1
+        for group_index in range(Common_vars.total_vrfs - 1):
+            vrf_name = f'Vrf{group_index + 1}'
+            peer_vrf_name = f'Vrf{group_index + 2}'
+
+            # The two vlans cabled together, index aligned and sharing one /126
+            egress_vlan = vrf_groups[vrf_name][last_subgroup][index]
+            ingress_vlan = vrf_groups[peer_vrf_name][first_subgroup][index]
+
+            # VrfN group2 -> Vrf(N+1) group1 carries the snake forward ...
+            _static_route_add(vrf_name, egress_vlan, ingress_vlan['gateway_ip_address'])
+            # ... and Vrf(N+1) group1 -> VrfN group2 carries it back
+            _static_route_add(peer_vrf_name, ingress_vlan, egress_vlan['gateway_ip_address'])
+
+
+def config_ip_neighbor_add_dev(Common_vars):
+    """
+    Add the static neighbor entries that stitch one VRF's last subgroup to the next
+    VRF's first subgroup, which is where the snake hands traffic over:
+
+        Vrf1 group2 <-> Vrf2 group1
+        Vrf2 group2 <-> Vrf3 group1
+        ...
+        Vrf6 group2 <-> Vrf7 group1
+
+    Both subgroups hold 8 vlans, and the vlans are paired by index, so
+    Vrf1 group2[0] faces Vrf2 group1[0], Vrf1 group2[1] faces Vrf2 group1[1], ...
+
+    Each pair is programmed in both directions: the vlan on one side learns the
+    vlan_id it lives on, plus the mac_address and gateway_ip_address of the vlan on
+    the other side:
+
+        sudo ip neigh add dev 'Vlan10' lladdr 00:11:00:00:00:12 'fc0a::22'
+        sudo ip neigh add dev 'Vlan18' lladdr 00:11:00:00:00:0a 'fc0a::21'
+
+    Vrf1 group1 and Vrf7 group2 are left out on purpose, those are the vlans facing
+    the tgen ports.
+    """
+    vrf_groups = Common_vars.config_data['vrf_groups']
+    first_subgroup = 0
+    last_subgroup = Common_vars.subgroups_per_vrf - 1
+
+    def _neigh_add(local_vlan, peer_vlan):
+        # The neighbour sitting on the far side of local_vlan is peer_vlan, so peer_vlan
+        # hands over the mac_address and the gateway_ip_address
+        vlan_id = local_vlan['vlan_id']
+        mac_address = peer_vlan['mac_address']
+        gateway_ip_address = peer_vlan['gateway_ip_address']
+
+        # cli_command = (f"sudo ip neigh add dev 'Vlan{vlan_id}' lladdr '{mac_address}' '{gateway_ip_address}' || "
+        #                f"sudo ip neigh replace dev 'Vlan{vlan_id}' lladdr '{mac_address}' '{gateway_ip_address}'")
+        cli_command = (f"sudo ip neigh add dev 'Vlan{vlan_id}' lladdr '{mac_address}' '{gateway_ip_address}'")
+        logger.info(cli_command)
+        Common_vars.dut_host.shell(cli_command)
+        Common_vars.config_data['neighbor_dev'].append(cli_command.replace('add', 'del'))
+
+    # Vrf1 group2 -> Vrf2 group1, Vrf2 group2 -> Vrf3 group1, ... Vrf6 group2 -> Vrf7 group1
+    for group_index in range(Common_vars.total_vrfs - 1):
+        vrf_name = f'Vrf{group_index + 1}'
+        peer_vrf_name = f'Vrf{group_index + 2}'
+
+        egress_group = vrf_groups[vrf_name][last_subgroup]
+        ingress_group = vrf_groups[peer_vrf_name][first_subgroup]
+
+        # Both subgroups are the same length, the vlans face each other index by index
+        for egress_vlan, ingress_vlan in zip(egress_group, ingress_group):
+            # VrfN group2 learns Vrf(N+1) group1 ...
+            _neigh_add(egress_vlan, ingress_vlan)
+            # ... and Vrf(N+1) group1 learns VrfN group2 back
+            _neigh_add(ingress_vlan, egress_vlan)
+
+
+def add_details_to_snappi_ports(Common_vars):
+    """
+    'tgen_ports_left': [
+        {'src_ip_address': 'fc0a::1/126', 'gateway_ip_address': 'fc0a::2/126',
+         'sid_list': 'fcbb:bbbb:1:2:4:6:8:10', 'srh_sid_list': 'fcbb:bbbb:12:14::',
+         'ip_subnet_prefix': 126,
+         'src_mac_address': src_mac_address, 'dest_mac_address': dest_mac_address
+         ]
+
+    get_snappi_ports:
+         {
+        'ip': '10.36.84.36',
+        'port_id': '1',
+        'peer_port': 'Ethernet0',
+        'peer_device': 'switch-t0-1',
+        'speed': '100000',
+        'location': '10.36.84.36/2.1',
+        'intf_config_changed': False,
+        'api_server_ip': '10.36.79.165',
+        'asic_type': 'mellanox',
+        'duthost': <MultiAsicSonicHost switch-t0-1>,
+        'snappi_speed_type': 'speed_100_gbps',
+        'asic_value': None,
+        'autoneg': False,
+        'fec': False,
+        'ipAddress': 'fc0a::1',
+        'ipGateway': 'fc0a::2',
+        'prefix': '126',
+        'src_mac_address': '00:11:01:00:00:00',
+        'router_mac_address': 'fc0a::2'
+    }
+    """
+    def _add_details(src_ports, dst_ports, src_snappi_ports, dst_snappi_ports):
+        pytest_assert(len(src_snappi_ports) == len(src_ports),
+                      f"{len(src_snappi_ports)} snappi ports but {len(src_ports)} vlans facing "
+                      f"them, the two cannot be aligned by index")
+
+        for index, src_snappi_port in enumerate(src_snappi_ports):
+            # config_snake_vrf_bindings walked the vlans in numerical order, so the snappi
+            # port at this index has to be the one cabled to that vlan's DUT port
+            expected_peer_port = src_ports[index]['peer_port']
+            pytest_assert(src_snappi_port['peer_port'] == expected_peer_port,
+                          f"snappi port {src_snappi_port['location']} at index {index} is cabled to "
+                          f"{src_snappi_port['peer_port']} but the vlan at that index sits on "
+                          f"{expected_peer_port}")
+
+            ipv6_address = src_ports[index]['src_ip_address']
+            ipv6_gateway = src_ports[index]['gateway_ip_address']
+            src_mac_address = src_ports[index]['src_mac_address']
+            dest_mac_address = src_ports[index]['dest_mac_address']
+            ip_subnet_prefix = src_ports[index]['ip_subnet_prefix']
+            rx_port_details = dst_snappi_ports[index]
+            rx_port = rx_port_details['location']
+            rx_port_ip_address = dst_ports[index]['src_ip_address']
+
+            src_ports[index].update({'src_port': src_snappi_ports[index]['location'],
+                                     'dst_port': rx_port,
+                                     'dst_port_ip_address': rx_port_ip_address})
+
+            src_snappi_port.update({'ipAddress': ipv6_address,  # E231
+                                    'ipGateway': ipv6_gateway,  # E231
+                                    'prefix': f'{ip_subnet_prefix}',
+                                    'asic_value': None,
+                                    'src_mac_address': src_mac_address,  # E231
+                                    'router_mac_address': dest_mac_address,  # E231
+                                    'rx_port': rx_port
+                                    })
+
+    _add_details(src_ports=Common_vars.config_data['tgen_ports_left'],
+                 dst_ports=Common_vars.config_data['tgen_ports_right'],
+                 src_snappi_ports=Common_vars.snappi_tx_ports,
+                 dst_snappi_ports=Common_vars.snappi_rx_ports)
+
+    _add_details(src_ports=Common_vars.config_data['tgen_ports_right'],
+                 dst_ports=Common_vars.config_data['tgen_ports_left'],
+                 src_snappi_ports=Common_vars.snappi_rx_ports,
+                 dst_snappi_ports=Common_vars.snappi_tx_ports)
+
+
+def _collect_snake_flow_stats(dut, hops, port_stats):
+    """
+    Read the counters for one direction of one snake flow off the DUT.
+
+    hops is the flow's vlan list in walk order, so the grep lists the ports in the order
+    the traffic walks them.  The parsed counters land in port_stats keyed by port name.
+    """
+    grep_for_ports = 'grep '
+
+    for vrf, vlan_group, vlan in hops:
+        port = vlan['dut_port']
+        port_number = port.split('Ethernet')[1]
+
+        if len(port_number) in [1, 2]:
+            if port_number != '0':
+                port = f"'{port}\\b'"
+
+        grep_for_ports += f'-e {port} '
+
+    cli_command = f'show int counters | {grep_for_ports}'
+    logger.info(cli_command)
+    dut_stats = ('IFACE STATE RX_OK RX_BPS RX_UTIL RX_ERR RX_DRP '
+                 'RX_OVR TX_OK TX_BPS TX_UTIL TX_ERR TX_DRP TX_OVR\n')
+    dut_stats += dut.shell(cli_command)['stdout']
+
+    logger.info(dut_stats)
+
+    # IFACE STATE RX_OK ... RX_OVR TX_OK ... -> RX_OK is column 2, TX_OK is column 9
+    for stat_line in dut_stats.splitlines():
+        columns = stat_line.split()
+        if len(columns) < 10 or not columns[0].startswith('Ethernet'):
+            continue
+
+        port_stats[columns[0]] = {'RX_OK': _num(columns[2]), 'TX_OK': _num(columns[9])}
+
+
+def _log_snake_flow_stats(flow_index, tgen_tx_stat, tgen_rx_stat, hops, port_stats, direction,
+                          next_hop_subgroup, failures):
+    """
+    Trace one direction of a snake flow: each port's ingress (RX_OK) -> egress (TX_OK).
+
+    hops is the flow's vlan list in walk order, each entry a
+    (vrf_name, subgroup_index, vlan) tuple, where vlan is the vrf_groups entry holding
+    the vlan_id, the sid it owns and the dut_port it lives on.  The vlans sitting in
+    next_hop_subgroup are the ones the previous hop routed to, so those ports get the
+    'next-hop' label.
+
+    Every port on the walk carries the whole flow, so each counter has to be at least
+    what the tgen transmitted.  Anything short of that, or missing from the counters
+    altogether, is appended to failures.
+    """
+    for vrf_name, subgroup_index, vlan in hops:
+        port = vlan['dut_port']
+        stats = port_stats.get(port, {})
+        rx_ok = stats.get('RX_OK')
+        tx_ok = stats.get('TX_OK')
+        next_hop_label = 'next-hop' if subgroup_index == next_hop_subgroup else ''
+
+        logger.info(f'Flow {flow_index+1} {direction}: TGEN_TX:{tgen_tx_stat}  TGEN_RX:{tgen_rx_stat}   '
+                    f'{vrf_name:5} Vlan{vlan["vlan_id"]:<5} sid:{vlan["sid"]:<4} {port:12} '
+                    f'{next_hop_label:9} ingress={rx_ok}  ->  egress={tx_ok}')
+
+        for counter_name, counter in [('ingress', rx_ok), ('egress', tx_ok)]:
+            if counter is not None and counter >= tgen_tx_stat:
+                continue
+
+            # Failed dut snake port counter is less than tgen_tx_stat
+            failures.append(f'Failed: Flow {flow_index+1} {direction}: '
+                            f'{vrf_name:5} Vlan{vlan["vlan_id"]:<5} sid:{vlan["sid"]:<4} {port:12} '
+                            f'{next_hop_label:9} {counter_name}={counter}  is less than  '
+                            f'TGEN_TX:{tgen_tx_stat}')
+
+
+def verify_dut_stat_counters_snake(Common_vars, tgen_stats):
+    """
+    Common_vars.config_data['vrf_groups']['Vrf1']
+    'vrf_groups': {
+        'Vrf1': {
+            0: [
+                {'vlan_id': 2, 'dut_port': 'Ethernet0', 'mac_address': '00:11:00:00:00:02',
+                 'sid': 1, 'gateway_ip_address': 'fc0a::2'},
+                {'vlan_id': 3, 'dut_port': 'Ethernet1', 'mac_address': '00:11:00:00:00:03',
+                 'sid': 15, 'gateway_ip_address': 'fc0a::6'},
+                {'vlan_id': 4, 'dut_port': 'Ethernet2', 'mac_address': '00:11:00:00:00:04',
+                 'sid': 29, 'gateway_ip_address': 'fc0a::a'},
+                {'vlan_id': 5, 'dut_port': 'Ethernet3', 'mac_address': '00:11:00:00:00:05',
+                 'sid': 43, 'gateway_ip_address': 'fc0a::e'},
+                {'vlan_id': 6, 'dut_port': 'Ethernet4', 'mac_address': '00:11:00:00:00:06',
+                 'sid': 57, 'gateway_ip_address': 'fc0a::12'},
+                {'vlan_id': 7, 'dut_port': 'Ethernet5', 'mac_address': '00:11:00:00:00:07',
+                 'sid': 71, 'gateway_ip_address': 'fc0a::16'},
+                {'vlan_id': 8, 'dut_port': 'Ethernet6', 'mac_address': '00:11:00:00:00:08',
+                 'sid': 85, 'gateway_ip_address': 'fc0a::1a'},
+                {'vlan_id': 9, 'dut_port': 'Ethernet7', 'mac_address': '00:11:00:00:00:09',
+                 'sid': 99, 'gateway_ip_address': 'fc0a::1e'}
+            ],
+            1: [
+                {'vlan_id': 10, 'dut_port': 'Ethernet384', 'mac_address': '00:11:00:00:00:0a',
+                 'sid': 2, 'gateway_ip_address': 'fc0a::21'},
+                {'vlan_id': 11, 'dut_port': 'Ethernet385', 'mac_address': '00:11:00:00:00:0b',
+                 'sid': 16, 'gateway_ip_address': 'fc0a::25'},
+                {'vlan_id': 12, 'dut_port': 'Ethernet386', 'mac_address': '00:11:00:00:00:0c',
+                 'sid': 30, 'gateway_ip_address': 'fc0a::29'},
+                {'vlan_id': 13, 'dut_port': 'Ethernet387', 'mac_address': '00:11:00:00:00:0d',
+                 'sid': 44, 'gateway_ip_address': 'fc0a::2d'},
+                {'vlan_id': 14, 'dut_port': 'Ethernet388', 'mac_address': '00:11:00:00:00:0e',
+                 'sid': 58, 'gateway_ip_address': 'fc0a::31'},
+                {'vlan_id': 15, 'dut_port': 'Ethernet389', 'mac_address': '00:11:00:00:00:0f',
+                 'sid': 72, 'gateway_ip_address': 'fc0a::35'},
+                {'vlan_id': 16, 'dut_port': 'Ethernet390', 'mac_address': '00:11:00:00:00:10',
+                 'sid': 86, 'gateway_ip_address': 'fc0a::39'},
+                {'vlan_id': 17, 'dut_port': 'Ethernet391', 'mac_address': '00:11:00:00:00:11',
+                 'sid': 100, 'gateway_ip_address': 'fc0a::3d'}
+            ]
+
+    Both directions of the snake are verified, index aligned, and every direction walks
+    the same ports in opposite order:
+
+        forward   tgen_ports_left[i]  -> Vrf1 group1 -> Vrf1 group2 -> ... -> Vrf7 group2 -> tgen_ports_right[i]
+        reverse   tgen_ports_right[i] -> Vrf7 group2 -> Vrf7 group1 -> ... -> Vrf1 group1 -> tgen_ports_left[i]
+
+    Vrf1 group1 faces tgen_ports_left and Vrf7 group2 faces tgen_ports_right, so the
+    vlan group that receives the traffic on each link is the one the previous hop routed
+    to.  The forward walk lands on group1 at every hop and the reverse walk lands on
+    group2, which makes the whole of the first vlan group the next-hops going forward
+    and the whole of the second vlan group the next-hops coming back.  Those ports are
+    tagged 'next-hop' when the stats are displayed.
+    """
+    dut = Common_vars.dut_host
+    vrf_groups = Common_vars.config_data['vrf_groups']
+    vrf_names = list(vrf_groups)
+    first_subgroup = 0
+    last_subgroup = Common_vars.subgroups_per_vrf - 1
+
+    #  Common_vars.config_data['vrf_groups']['Vrf1'][0]
+    #  Each vrf group holds 2 vlan groups of the same length.  Ports at the same
+    #  list index across every vlan group of every vrf group belong to the same
+    #  snake flow, so collect them index by index, in forward walk order.  The vrf and
+    #  the vlan group are kept alongside the whole vlan entry, so the walk can be
+    #  labelled with the vlan_id and the sid, and replayed backwards:
+    #      flow_ports[0] = [('Vrf1', 0, {'vlan_id': 2, 'sid': 1, 'dut_port': 'Ethernet0', ...}), ...]
+    #      flow_ports[1] = [('Vrf1', 0, {'vlan_id': 3, 'sid': 15, 'dut_port': 'Ethernet1', ...}), ...]
+    flow_ports = []
+    for vrf, vlan_groups in vrf_groups.items():
+        for vlan_group, values in vlan_groups.items():
+            for index, item in enumerate(values):
+                if index >= len(flow_ports):
+                    flow_ports.append([])
+                flow_ports[index].append((vrf, vlan_group, item))
+
+    # {'Ethernet0': {'RX_OK': 3451143110, 'TX_OK': 36}, ...}
+    port_stats = Common_vars.config_data.setdefault('dut_stats', {})
+
+    # Every port that carries a flow has to count at least what the tgen transmitted,
+    # so anything short of that is collected here and reported once at the end
+    failures = []
+
+    for flow_index, hops in enumerate(flow_ports):
+        tgen_tx_stat = int(tgen_stats[flow_index].frames_tx)
+        tgen_rx_stat = int(tgen_stats[flow_index].frames_rx)
+
+        # The reverse walk is the same ports the other way round
+        reverse_hops = list(reversed(hops))
+
+        # Vrf1 -> Vrf7, entering on Vrf1 group1 from tgen_ports_left[flow_index] and
+        # leaving out Vrf7 group2 to tgen_ports_right[flow_index], so group1 is the next-hop
+        _collect_snake_flow_stats(dut, hops, port_stats)
+        _log_snake_flow_stats(flow_index, tgen_tx_stat, tgen_rx_stat, hops, port_stats,
+                              direction=f'{vrf_names[0]} -> {vrf_names[-1]}',
+                              next_hop_subgroup=first_subgroup,
+                              failures=failures)
+
+        # Vrf7 -> Vrf1, entering on Vrf7 group2 from tgen_ports_right[flow_index] and
+        # leaving out Vrf1 group1 to tgen_ports_left[flow_index], so this time group2 is
+        # the next-hop.  The counters are read again, in reverse walk order, so this
+        # direction is displayed against its own snapshot
+        _collect_snake_flow_stats(dut, reverse_hops, port_stats)
+        _log_snake_flow_stats(flow_index, tgen_tx_stat, tgen_rx_stat, reverse_hops, port_stats,
+                              direction=f'{vrf_names[-1]} -> {vrf_names[0]}',
+                              next_hop_subgroup=last_subgroup,
+                              failures=failures)
+
+    if failures:
+        logger.warning(f'{len(failures)} snake stat counters came up short of the tgen tx counter:')
+
+        for failure in failures:
+            logger.warning(failure)
+
+        pytest_assert(False, 'Ssnake stat counters came up short of the tgen tx counter')
+
+
 def remove_srv6_config(Common_vars):
     # Remove IPv6 interfaces on DUT
     for dut in Common_vars.dut_hosts:
@@ -1227,3 +2104,70 @@ def remove_srv6_config(Common_vars):
                 #  'port': 'Ethernet128'}
                 logger.info(f'DUT:{dut.hostname}: sudo config int ip remove {port} {ip_address}')  # E231
                 dut.shell(f'sudo config int ip remove {port} {ip_address}')
+
+
+def remove_snake_static_routes(Common_vars):
+    # Remove static routes on DUT
+    for static_route in Common_vars.config_data['static_routes']:
+        logger.info(f'Removing: {static_route}')
+        Common_vars.dut_host.shell(static_route.replace('hset', 'del'))
+
+
+def remove_snake_vrf(Common_vars):
+    """
+    sudo config vrf del Vrf1 2>/dev/null || true
+
+    VRF Vrf7 deleted and all associated IP addresses removed.
+    """
+    for group_index in range(Common_vars.total_vrfs):
+        vrf_name = f'Vrf{group_index + 1}'
+        logger.info(f'sudo config vrf del {vrf_name} 2>/dev/null || true')
+        Common_vars.dut_host.shell(f'sudo config vrf del {vrf_name} 2>/dev/null || true')
+
+
+def remove_snake_vlan(Common_vars):
+    """
+    sudo config vlan member del 138 Ethernet503
+    sudo config vlan del 138
+    """
+    for vrf_group, vlan_groups in Common_vars.config_data['vrf_groups'].items():
+        for vlan_group, properties in vlan_groups.items():
+            for vlan in properties:
+                logger.info(f'sudo config vlan member del {vlan["vlan_id"]} {vlan["dut_port"]} 2>/dev/null || true')
+                Common_vars.dut_host.shell(f'sudo config vlan member del {vlan["vlan_id"]} '
+                                           f'{vlan["dut_port"]} 2>/dev/null || true')
+
+                logger.info(f'sudo config vlan del {vlan["vlan_id"]} 2> /dev/null || true')
+                Common_vars.dut_host.shell(f'sudo config vlan del {vlan["vlan_id"]} 2> /dev/null || true')
+
+
+def remove_snake_sids(Common_vars):
+    """
+    sudo sonic-db-cli CONFIG_DB del 'SRV6_MY_LOCATORS|loc1'
+    sudo sonic-db-cli CONFIG_DB del 'SRV6_MY_SIDS|loc1|fcbb:bbbb:1::/48'
+    """
+    for count in range(1, len(Common_vars.conn_graph_facts['device_vlan_list'][Common_vars.dut_hostname]) + 1):
+        my_sid_locator = f'{Common_vars.sid_prefix}:{count}::/48'
+
+        logger.info(f'sonic-db-cli CONFIG_DB DEL "SRV6_MY_LOCATORS|loc{count}" ')
+        Common_vars.dut_host.shell(f'sonic-db-cli CONFIG_DB DEL "SRV6_MY_LOCATORS|loc{count}" ')
+
+        logger.info(f'sonic-db-cli CONFIG_DB DEL "SRV6_MY_SIDS|loc{count}|{my_sid_locator}"')
+        Common_vars.dut_host.shell(f'sonic-db-cli CONFIG_DB DEL '
+                                   f'"SRV6_MY_SIDS|loc{count}|{my_sid_locator}"')  # E231
+
+
+def remove_ip_neighbor_dev(Common_vars):
+    """
+    Remove: sudo ip neigh add dev 'Vlan{vlan_id}' lladdr '{mac_address}' '{gateway_ip_address}'
+    """
+    for cli_command in Common_vars.config_data['neighbor_dev']:
+        Common_vars.dut_host.shell(cli_command)
+
+
+def remove_snake_configs(Common_vars):
+    remove_snake_static_routes(Common_vars)
+    remove_snake_vrf(Common_vars)
+    remove_snake_vlan(Common_vars)
+    remove_snake_sids(Common_vars)
+    remove_ip_neighbor_dev(Common_vars)

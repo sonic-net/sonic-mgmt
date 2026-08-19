@@ -3,7 +3,6 @@ import logging
 import pytest
 import re
 from itertools import product
-# from rich import print as pr
 import collections
 
 from snappi_tests.dataplane.files.helper import create_traffic_items, start_stop, get_stats
@@ -69,7 +68,7 @@ def local_script_setup_and_teardown():
 srv6_param_values = {
     "subnet_type":     ["IPv6"],
     # "test_duration":    [1 * 60, 5 * 60, 15 * 60, 60 * 60, 24 * 60 * 60, 2 * 24 * 60 * 60],
-    "test_duration":    [10],
+    "test_duration":    [60],
     "packet_size":      ['mix'],
     "collect_interval": [30],
     "topology":         ["nut-2tiers"],
@@ -106,13 +105,14 @@ def test_srv6_nut_topology(snappi_api,                 # noqa F811
     # ['switch-t0-1', 'switch-t0-2', 'switch-t1-1', 'switch-t1-2']
     get_dut_list(conn_graph_facts, Common_vars)
 
-    # Just in case snappi-sonic has more duts than links.csv
+    # In case snappi-sonic has more duts than links.csv
     pop_list = []
     for index, dut in enumerate(duthosts):
         if dut.hostname not in Common_vars.dut_list:
             pop_list.append(index)
 
-    for index in pop_list:
+    # Pop in descending order so that earlier removals do not shift the remaining indexes
+    for index in reversed(pop_list):
         duthosts.pop(index)
 
     # Sort the snappi_port list in numerical natural order
