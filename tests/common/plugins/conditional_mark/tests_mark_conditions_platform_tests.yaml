@@ -1332,11 +1332,11 @@ platform_tests/sfp/test_sfputil.py::test_check_sfputil_reset:
 #######################################
 platform_tests/test_advanced_reboot.py:
   skip:
-    reason: "Unsupported platform / Skip in PR testing as taking too much time. / Warm reboot is not required for 202412 and this test is not run on this topology currently"
+    reason: "Unsupported platform / Skip in PR testing as taking too much time. / Advanced reboot is not supported on dualtor topology."
     conditions_logical_operator: or
     conditions:
       - "platform in ['x86_64-arista_7050_qx32s']"
-      - "'dualtor' in topo_name and release in ['202012']"
+      - "'dualtor' in topo_name"
       - "asic_type in ['vs']"
       - "'isolated' in topo_name"
       - "'f2' in topo_name"
