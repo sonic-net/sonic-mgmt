@@ -1294,6 +1294,7 @@ class DHCPTest(DataplaneBaseTest):
                 self.dataplane.flush()
                 self.server_send_unprocessed_vss_offer()
                 self.verify_unprocessed_vss_offer_dropped()
+                self.dataplane.flush()
             self.server_send_offer()
             self.verify_offer_received()
             self.client_send_request(
