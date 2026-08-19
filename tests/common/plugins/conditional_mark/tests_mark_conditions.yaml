@@ -3754,8 +3754,10 @@ mpls:
   skip:
     reason: "MPLS feature is not enabled with image version, skipped on lossy topologies"
     conditions_logical_operator: or
+    # sonic-vpp supports MPLS in the SAI backend but does not register an "mpls"
+    # FEATURE entry, so exclude it from the feature_status check.
     conditions:
-      - "'mpls' not in feature_status"
+      - "'mpls' not in feature_status and asic_type not in ['vpp']"
       - *lossyTopos
 
 #######################################
