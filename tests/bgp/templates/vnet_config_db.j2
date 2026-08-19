@@ -121,7 +121,8 @@
     },
     "VXLAN_TUNNEL": {
         "vtep_v4": {
-            "src_ip": "10.1.0.32"
+            "src_ip": "10.1.0.32"{% if asic_type == 'cisco-8000' %},
+            "ttl_mode": "pipe"{% endif %}
         }
     }
 }
