@@ -174,7 +174,7 @@
           become: yes
 
         - name: Execute Q3D trap disable script
-          shell: "bcmcmd 'cint q3d_disable_trap.c'"
+          shell: "bcmcmd 'cint /q3d_disable_trap.c'"
           become: yes
       when:
         - fanout_sonic_version.asic_gen is defined
