@@ -77,11 +77,11 @@ parameters:
   # Test timeout
   - name: MAX_RUN_TEST_MINUTES
     type: number
-    default: 4800
+    default: 5600
 
   - name: RETRY_TIMES
     type: string
-    default: 2
+    default: 1
 
   # Retry cases to include, works when retry_times>0, support both feature and script level, such as "bgp,test_features.py"
   - name: RETRY_CASES_INCLUDE
