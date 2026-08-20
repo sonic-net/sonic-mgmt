@@ -246,13 +246,6 @@ def check_interface_status(duthost):
     return False
 
 
-def restart_dhcp_relay_and_check_dhcp6relay(duthost):
-    duthost.shell("sudo systemctl reset-failed dhcp_relay")
-    duthost.shell("sudo systemctl restart dhcp_relay")
-    wait_until(60, 3, 0, lambda: ("RUNNING" in duthost.shell("docker exec dhcp_relay supervisorctl status " +
-                                                             "dhcp-relay:dhcp6relay | awk '{print $2}'")["stdout"]))
-
-
 def ensure_client_reachability(duthost, vlan_name):
     """
     Ensure the DHCP client's link-local address is reachable from the relay agent.
@@ -272,15 +265,24 @@ def setup_and_teardown_no_servers_vlan(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     new_vlan_id = 4001
     new_vlan_ipv6 = "fc01:5000::1/64"
-    duthost.shell("sudo config vlan add {}".format(new_vlan_id))
-    duthost.shell("sudo config interface ip add Vlan{} {}".format(new_vlan_id, new_vlan_ipv6))
-    restart_dhcp_relay_and_check_dhcp6relay(duthost)
+    vlan_created = False
+    vlan_ipv6_assigned = False
 
-    yield new_vlan_id
+    try:
+        duthost.shell("sudo config vlan add {}".format(new_vlan_id))
+        vlan_created = True
+        duthost.shell("sudo config interface ip add Vlan{} {}".format(new_vlan_id, new_vlan_ipv6))
+        vlan_ipv6_assigned = True
+        restart_dhcp_service(duthost, ['v6'])
 
-    duthost.shell("sudo config interface ip remove Vlan{} {}".format(new_vlan_id, new_vlan_ipv6))
-    duthost.shell("sudo config vlan del {}".format(new_vlan_id))
-    restart_dhcp_relay_and_check_dhcp6relay(duthost)
+        yield new_vlan_id
+    finally:
+        if vlan_ipv6_assigned:
+            duthost.shell("sudo config interface ip remove Vlan{} {}".format(new_vlan_id, new_vlan_ipv6),
+                          module_ignore_errors=True)
+        if vlan_created:
+            duthost.shell("sudo config vlan del {}".format(new_vlan_id), module_ignore_errors=True)
+            restart_dhcp_service(duthost, ['v6'])
 
 
 def get_dhcptest_expected_counters(dhcp_server_num):
