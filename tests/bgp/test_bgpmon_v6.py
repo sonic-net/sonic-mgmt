@@ -137,7 +137,7 @@ def common_v6_setup_teardown(duthosts, tbinfo, enum_rand_one_per_hwsku_frontend_
     pytest_assert(local_addr, "Failed to get Loopback4096 IPv6 address for selected ASIC")
 
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
-    # Assign peer addr to an interface on ptf
+    # Assign peer addr to an interface on ptf.
     logger.info("Generated peer address {}".format(peer_addr))
     bgpmon_args = {
         'db_table_name': 'BGP_MONITORS',
