@@ -236,8 +236,16 @@ class TestPcieFailure:
 
         logging.info("Simulating PCIe failure for %s by removing device at %s",
                      target_dpu, bus_info)
-        remove_cmd = f"echo 1 | sudo tee /sys/bus/pci/devices/{bus_info}/remove"
-        duthost.shell(remove_cmd)
+        device_path = f"/sys/bus/pci/devices/{bus_info}"
+        if duthost.shell(f"test -e {device_path}",
+                         module_ignore_errors=True)["rc"] != 0:
+            pytest.skip(f"{target_dpu}: PCIe device {bus_info} not present in sysfs "
+                        "(already detached or stale bus_info); skipping detach test.")
+        remove_result = duthost.shell(f"echo 1 | sudo tee {device_path}/remove",
+                                      module_ignore_errors=True)
+        pytest_assert(remove_result["rc"] == 0,
+                      f"{target_dpu}: failed to remove PCIe device {bus_info}: "
+                      f"{remove_result.get('stderr', '')}")
 
         try:
             logging.info("Verifying pcied detects PCIe detach for %s", target_dpu)
@@ -335,6 +343,8 @@ class TestControlPlaneOnlyDown:
         dpu_id = int(re.search(r'\d+', target_dpu).group())
 
         dpuhost = get_dpuhost_for_dpu(dpuhosts, dpu_id)
+        if dpuhost is None:
+            pytest.skip(f"{target_dpu} not in dpuhosts, no SSH access")
 
         logging.info("Stopping critical container on %s to trigger control-plane-down",
                      target_dpu)
@@ -753,6 +763,8 @@ class TestShutdownDuringAutoRecovery:
         dpu_id = int(re.search(r'\d+', target_dpu).group())
 
         dpuhost = get_dpuhost_for_dpu(dpuhosts, dpu_id)
+        if dpuhost is None:
+            pytest.skip(f"{target_dpu} not in dpuhosts, no SSH access")
 
         logging.info("Stopping swss on %s to trigger auto-recovery", target_dpu)
         dpuhost.shell("sudo systemctl stop swss", module_ignore_errors=True)
@@ -848,6 +860,8 @@ class TestDpuFailureAfterConfigReload:
                                   timeout=DPU_READY_AFTER_RECOVERY_TIMEOUT)
 
         dpuhost = get_dpuhost_for_dpu(dpuhosts, dpu_id)
+        if dpuhost is None:
+            pytest.skip(f"{target_dpu} not in dpuhosts, no SSH access")
 
         logging.info("Triggering DPU failure on %s after config reload", target_dpu)
         dpuhost.shell("sudo systemctl stop swss", module_ignore_errors=True)
