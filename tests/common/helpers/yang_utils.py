@@ -20,7 +20,7 @@ def run_yang_validation(duthost, stage="validation"):
     try:
         result = run_config_db_command(
             duthost,
-            'sh -c \'echo "[]" | config apply-patch /dev/stdin\'',
+            'echo "[]" | config apply-patch /dev/stdin',
             module_ignore_errors=True
         )
 
