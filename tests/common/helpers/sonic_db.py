@@ -2,6 +2,7 @@ import logging
 import json
 import six
 import ast
+import shlex
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.devices.sonic_asic import SonicAsic
 
@@ -257,21 +258,52 @@ def redis_hgetall(duthost, db, key):
 def redis_hset(duthost, db, key, **fields):
     """HSET one or more field=value pairs."""
     if not fields:
-        return
-    parts = ' '.join("{k} {v}".format(k=k, v=v) for k, v in fields.items())
-    duthost.shell(
-        "sonic-db-cli {db} -- HSET '{key}' {parts}".format(db=db, key=key, parts=parts),
+        return None
+    parts = ' '.join(
+        "{key} {value}".format(
+            key=shlex.quote(str(field_name)),
+            value=shlex.quote(str(field_value)),
+        )
+        for field_name, field_value in fields.items()
+    )
+    return duthost.shell(
+        "sonic-db-cli {db} -- HSET {key} {parts}".format(
+            db=db,
+            key=shlex.quote(str(key)),
+            parts=parts,
+        ),
+        module_ignore_errors=True
+    )
+
+
+def redis_hdel(duthost, db, key, *fields):
+    """HDEL one or more fields from a hash."""
+    if not fields:
+        return None
+    return duthost.shell(
+        "sonic-db-cli {db} -- HDEL {key} {fields}".format(
+            db=db,
+            key=shlex.quote(str(key)),
+            fields=' '.join(shlex.quote(str(field)) for field in fields),
+        ),
         module_ignore_errors=True
     )
 
 
 def redis_del(duthost, db, *keys):
     """DEL one or more keys."""
+    results = []
     for k in keys:
-        duthost.shell(
-            "sonic-db-cli {db} DEL '{k}'".format(db=db, k=k),
-            module_ignore_errors=True
+        results.append(
+            duthost.shell(
+                "sonic-db-cli {db} -- DEL {key}".format(
+                    db=db,
+                    key=shlex.quote(str(k)),
+                ),
+                module_ignore_errors=True,
+            )
         )
+    return results
 
 
 def redis_keys(duthost, db, pattern):

@@ -15,40 +15,6 @@ class syslogUtilsConst:
     PACKETS_NUM = 2
 
 
-def add_syslog_server(dut, syslog_server_ip, source=None, vrf=None, port=None):
-    """
-    Add syslog server
-
-    Args:
-        dut (SonicHost): The target device
-        syslog_server_ip (str): Syslog server address
-        source (str): Source ip address
-        vrf (str): Vrf device (default,mgmt,Vrf-data)
-        port (str): Server udp port
-
-    """
-    cmd_add_syslog_server = 'sudo config syslog add {} '.format(syslog_server_ip)
-    if source:
-        cmd_add_syslog_server = "{} --source {} ".format(cmd_add_syslog_server, source)
-    if vrf:
-        cmd_add_syslog_server = "{} --vrf {} ".format(cmd_add_syslog_server, vrf)
-    if port:
-        cmd_add_syslog_server = "{} --port {} ".format(cmd_add_syslog_server, port)
-    logging.debug("add_syslog_server command is: %s", cmd_add_syslog_server)
-    return dut.command(cmd_add_syslog_server, module_ignore_errors=True)
-
-
-def del_syslog_server(dut, syslog_server_ip):
-    """
-    Del syslog server
-
-    Args:
-        dut (SonicHost): The target device
-        syslog_server_ip (str): Syslog server ip
-    """
-    dut.command('sudo config syslog del {} '.format(syslog_server_ip))
-
-
 def create_vrf(dut, vrf):
     """
     Create Vrf
