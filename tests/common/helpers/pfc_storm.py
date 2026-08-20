@@ -15,6 +15,15 @@ RUN_PLAYBOOK = os.path.realpath(os.path.join(os.path.dirname(__file__), "../../s
 
 logger = logging.getLogger(__name__)
 
+# Broadcom part number -> chip name pfc_gen_brcm_xgs.py understands. Read from the
+# fanout ASIC at runtime, so a new HWSKU on a known chip needs no table change.
+BCM_CHIP_NAMES = {
+    'BCM78900': 'Tomahawk5',
+    'BCM78902': 'Tomahawk5',
+    'BCM78910': 'Tomahawk6',
+    'BCM78914': 'Tomahawk6',
+}
+
 
 def get_chip_name_if_asic_pfc_storm_supported(fanout):
     hwSkuInfo = {
@@ -49,6 +58,9 @@ def get_chip_name_if_asic_pfc_storm_supported(fanout):
 class PFCStorm(object):
     """ PFC storm/start on different interfaces on a fanout connected to the DUT"""
 
+    # sentinel so _xgs_chip_name() can cache a legitimate None result
+    _XGS_CHIP_UNRESOLVED = object()
+
     _PFC_GEN_DIR = {
         'sonic': '/tmp',
         'eos': '/mnt/flash',
@@ -78,6 +90,7 @@ class PFCStorm(object):
         self.pfc_gen_file = kwargs.pop('pfc_gen_file', "pfc_gen.py")
         self.pfc_gen_multiprocess = kwargs.pop('pfc_gen_multiprocess', False)
         self.pfc_gen_chip_name = None
+        self._xgs_chip = self._XGS_CHIP_UNRESOLVED
         self.pfc_queue_idx = kwargs.pop('pfc_queue_index', 3)
         self.pfc_frames_number = kwargs.pop('pfc_frames_number', 100000)
         self.send_pfc_frame_interval = kwargs.pop('send_pfc_frame_interval', 0)
@@ -177,6 +190,48 @@ class PFCStorm(object):
             if line.startswith('HwSKU:'):
                 return line.split()[1]
 
+    def _get_sonic_fanout_chip_name(self):
+        """
+        Chip name reported by the fanout ASIC itself, or None.
+
+        Asking the ASIC means a new HWSKU on an already-known chip needs no table
+        change, and it works for any vendor's SONiC fanout. Best effort: bcmcmd is
+        silent on some fanouts (syncd down, non-Broadcom SDK), and parts absent from
+        BCM_CHIP_NAMES fall back to the HWSKU table in _xgs_chip_name().
+        """
+        try:
+            output = self.peer_device.shell('bcmcmd "show unit"')['stdout']
+        except Exception as e:
+            logger.info("Could not read chip from fanout ASIC: {}".format(e))
+            return None
+        # e.g. "Unit 0 chip BCM78900_B0 (current)"
+        mo = re.search(r'chip (BCM\d+)', output)
+        if not mo:
+            logger.info("Fanout ASIC did not report a chip part number")
+            return None
+        chip_name = BCM_CHIP_NAMES.get(mo.group(1))
+        logger.info("Fanout ASIC reports {} -> chip name {}".format(mo.group(1), chip_name))
+        return chip_name
+
+    def _xgs_chip_name(self):
+        """
+        Fanout chip name if its ASIC supports register-based PFC storm generation,
+        else None. Memoized -- resolving it shells out to the fanout.
+        """
+        if self._xgs_chip is self._XGS_CHIP_UNRESOLVED:
+            if self.peer_device.os == 'eos':
+                self._xgs_chip = get_chip_name_if_asic_pfc_storm_supported(
+                    self._get_eos_fanout_version()[0])
+            elif self.peer_device.os == 'sonic':
+                # Prefer what the ASIC reports; fall back to the HWSKU table so
+                # fanouts where bcmcmd is unavailable keep working as before.
+                self._xgs_chip = (self._get_sonic_fanout_chip_name() or
+                                  get_chip_name_if_asic_pfc_storm_supported(
+                                      self._get_sonic_fanout_hwsku()))
+            else:
+                self._xgs_chip = None
+        return self._xgs_chip
+
     def deploy_pfc_gen(self):
         """
         Deploy the pfc generation file on the fanout
@@ -184,12 +239,8 @@ class PFCStorm(object):
         if self.asic_type == 'vs':
             return
         if self.peer_device.os in ('eos', 'sonic'):
-            chip_name = None
-            if self.peer_device.os == 'eos':
-                chip_name = get_chip_name_if_asic_pfc_storm_supported(self._get_eos_fanout_version()[0])
-            elif self.peer_device.os == 'sonic':
-                chip_name = get_chip_name_if_asic_pfc_storm_supported(self._get_sonic_fanout_hwsku())
-            if self.peer_device.os in ('eos', 'sonic') and chip_name:
+            chip_name = self._xgs_chip_name()
+            if chip_name:
                 self.pfc_gen_file = "pfc_gen_brcm_xgs.py"
                 self.pfc_gen_file_test_name = "pfc_gen_brcm_xgs.py"
                 self.pfc_gen_chip_name = chip_name
@@ -275,16 +326,14 @@ class PFCStorm(object):
         if self.asic_type == 'vs':
             self.pfc_start_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_eos.j2")
-        elif self.dut.topo_type == 't2' and self.peer_device.os == 'sonic':
+        elif (self.dut.topo_type == 't2' and self.peer_device.os == 'sonic' and
+              not self._xgs_chip_name()):
             self.pfc_start_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_{}_t2.j2".format(self.peer_device.os))
         elif self.fanout_asic_type == 'mellanox' and self.peer_device.os == 'sonic':
             self.pfc_start_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_mlnx_{}.j2".format(self.peer_device.os))
-        elif ((self.peer_device.os == 'eos' and
-               get_chip_name_if_asic_pfc_storm_supported(self._get_eos_fanout_version()[0])) or
-              (self.peer_device.os == 'sonic' and
-               get_chip_name_if_asic_pfc_storm_supported(self._get_sonic_fanout_hwsku()))):
+        elif self._xgs_chip_name():
             self.pfc_start_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_arista_{}.j2".format(self.peer_device.os))
         else:
@@ -300,16 +349,14 @@ class PFCStorm(object):
         if self.asic_type == 'vs':
             self.pfc_stop_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_stop_eos.j2")
-        elif self.dut.topo_type == 't2' and self.peer_device.os == 'sonic':
+        elif (self.dut.topo_type == 't2' and self.peer_device.os == 'sonic' and
+              not self._xgs_chip_name()):
             self.pfc_stop_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_stop_{}_t2.j2".format(self.peer_device.os))
         elif self.fanout_asic_type == 'mellanox' and self.peer_device.os == 'sonic':
             self.pfc_stop_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_stop_mlnx_{}.j2".format(self.peer_device.os))
-        elif ((self.peer_device.os == 'eos' and
-               get_chip_name_if_asic_pfc_storm_supported(self._get_eos_fanout_version()[0])) or
-              (self.peer_device.os == 'sonic' and
-               get_chip_name_if_asic_pfc_storm_supported(self._get_sonic_fanout_hwsku()))):
+        elif self._xgs_chip_name():
             self.pfc_stop_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_stop_arista_{}.j2".format(self.peer_device.os))
         else:
