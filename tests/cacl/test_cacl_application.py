@@ -12,6 +12,12 @@ from tests.common.helpers.assertions import pytest_assert
 
 logger = logging.getLogger(__name__)
 
+# caclmgrd programs the control plane ACLs asynchronously in response to config/state changes.
+# On multi-ASIC platforms the per-namespace rules can converge noticeably later than the host's,
+# so sampling the rules a single time races the programming and yields spurious failures.
+CACL_RULE_SYNC_TIMEOUT = 120
+CACL_RULE_SYNC_INTERVAL = 5
+
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer globally
     pytest.mark.topology('any', 'bmc')
@@ -1136,22 +1142,43 @@ def verify_cacl_show_acl_rule(duthost, acl_file):
     )
 
 
+def wait_for_expected_rules(duthost, asic_index, command, expected_rules,
+                            timeout=CACL_RULE_SYNC_TIMEOUT, interval=CACL_RULE_SYNC_INTERVAL):
+    """Poll the rules reported by `command` until they converge to `expected_rules`.
+
+    Returns the (missing, unexpected, actual) rules observed by the final poll, so that
+    callers keep reporting the exact same assertion details on failure as a single read would.
+    """
+    last_seen = {"missing": set(expected_rules), "unexpected": set(), "actual": []}
+
+    def _rules_converged():
+        actual_rules = duthost.get_asic_or_sonic_host(asic_index).command(command)["stdout"].strip().split("\n")
+        last_seen["actual"] = actual_rules
+        last_seen["missing"] = set(expected_rules) - set(actual_rules)
+        last_seen["unexpected"] = set(actual_rules) - set(expected_rules)
+        return not last_seen["missing"] and not last_seen["unexpected"]
+
+    if not wait_until(timeout, interval, 0, _rules_converged):
+        logger.error("Rules from '{}' did not converge within {}s. Missing: {}, unexpected: {}"
+                     .format(command, timeout, repr(last_seen["missing"]), repr(last_seen["unexpected"])))
+
+    return last_seen["missing"], last_seen["unexpected"], last_seen["actual"]
+
+
 def verify_cacl(duthost, tbinfo, localhost, creds, docker_network,
                 expected_dhcp_rules_for_standby=None, asic_index=None):
     expected_iptables_rules, expected_ip6tables_rules = \
         generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expected_dhcp_rules_for_standby)
 
-    stdout = duthost.get_asic_or_sonic_host(asic_index).command("iptables -S")["stdout"]
-    actual_iptables_rules = stdout.strip().split("\n")
+    missing_iptables_rules, unexpected_iptables_rules, actual_iptables_rules = \
+        wait_for_expected_rules(duthost, asic_index, "iptables -S", expected_iptables_rules)
 
     logger.info("Number of expected iptable rules:{}, number of actual iptables rules:{}"
                 .format(len(set(expected_iptables_rules)), len(set(actual_iptables_rules))))
 
-    missing_iptables_rules = set(expected_iptables_rules) - set(actual_iptables_rules)
     pytest_assert(len(missing_iptables_rules) == 0, "Missing expected iptables rules: {}"
                   .format(repr(missing_iptables_rules)))
 
-    unexpected_iptables_rules = set(actual_iptables_rules) - set(expected_iptables_rules)
     pytest_assert(len(unexpected_iptables_rules) == 0, "Unexpected iptables rules: {}"
                   .format(repr(unexpected_iptables_rules)))
 
@@ -1163,17 +1190,15 @@ def verify_cacl(duthost, tbinfo, localhost, creds, docker_network,
     # for i in range(len(expected_iptables_rules)):
     #    pytest_assert(actual_iptables_rules[i] == expected_iptables_rules[i], "iptables rules not in expected order")
 
-    stdout = duthost.get_asic_or_sonic_host(asic_index).command("ip6tables -S")["stdout"]
-    actual_ip6tables_rules = stdout.strip().split("\n")
+    missing_ip6tables_rules, unexpected_ip6tables_rules, actual_ip6tables_rules = \
+        wait_for_expected_rules(duthost, asic_index, "ip6tables -S", expected_ip6tables_rules)
 
     logger.info("Number of expected ip6table rules:{}, number of actual ip6tables rules:{}"
                 .format(len(set(expected_ip6tables_rules)), len(set(actual_ip6tables_rules))))
 
-    missing_ip6tables_rules = set(expected_ip6tables_rules) - set(actual_ip6tables_rules)
     pytest_assert(len(missing_ip6tables_rules) == 0, "Missing expected ip6tables rules: {}"
                   .format(repr(missing_ip6tables_rules)))
 
-    unexpected_ip6tables_rules = set(actual_ip6tables_rules) - set(expected_ip6tables_rules)
     pytest_assert(len(unexpected_ip6tables_rules) == 0, "Unexpected ip6tables rules: {}"
                   .format(repr(unexpected_ip6tables_rules)))
 
@@ -1191,29 +1216,25 @@ def verify_nat_cacl(duthost, localhost, creds, docker_network, asic_index):
     expected_iptables_rules, expected_ip6tables_rules = \
          generate_nat_expected_rules(duthost, docker_network, asic_index)
 
-    stdout = duthost.get_asic_or_sonic_host(asic_index).command("iptables -t nat -S")["stdout"]
-    actual_iptables_rules = stdout.strip().split("\n")
+    missing_iptables_rules, unexpected_iptables_rules, _ = \
+        wait_for_expected_rules(duthost, asic_index, "iptables -t nat -S", expected_iptables_rules)
 
     # Ensure all expected iptables rules are present on the DuT
-    missing_iptables_rules = set(expected_iptables_rules) - set(actual_iptables_rules)
     pytest_assert(len(missing_iptables_rules) == 0, "Missing expected iptables nat rules: {}"
                   .format(repr(missing_iptables_rules)))
 
     # Ensure there are no unexpected iptables rules present on the DuT
-    unexpected_iptables_rules = set(actual_iptables_rules) - set(expected_iptables_rules)
     pytest_assert(len(unexpected_iptables_rules) == 0, "Unexpected iptables nat rules: {}"
                   .format(repr(unexpected_iptables_rules)))
 
-    stdout = duthost.get_asic_or_sonic_host(asic_index).command("ip6tables -t nat -S")["stdout"]
-    actual_ip6tables_rules = stdout.strip().split("\n")
+    missing_ip6tables_rules, unexpected_ip6tables_rules, _ = \
+        wait_for_expected_rules(duthost, asic_index, "ip6tables -t nat -S", expected_ip6tables_rules)
 
     # Ensure all expected ip6tables rules are present on the DuT
-    missing_ip6tables_rules = set(expected_ip6tables_rules) - set(actual_ip6tables_rules)
     pytest_assert(len(missing_ip6tables_rules) == 0, "Missing expected ip6tables nat rules: {}"
                   .format(repr(missing_ip6tables_rules)))
 
     # Ensure there are no unexpected ip6tables rules present on the DuT
-    unexpected_ip6tables_rules = set(actual_ip6tables_rules) - set(expected_ip6tables_rules)
     pytest_assert(len(unexpected_ip6tables_rules) == 0, "Unexpected ip6tables nat rules: {}"
                   .format(repr(unexpected_ip6tables_rules)))
 
