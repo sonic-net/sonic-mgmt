@@ -1514,7 +1514,8 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
                     duthost.command('sudo config interface -n {} ip remove {} {}/{} \n' .
                                     format(port['asic_value'], port['peer_port'],
                                            subnet[0].split("/")[0], subnet[0].split("/")[1]))
-                logger.info('Adding IP {}/28 to interface {}'.format(dut_ip_for_non_macsec_port, port['peer_port']))
+                logger.info('Adding IP {}/{} to interface {}'.
+                            format(dut_ip_for_non_macsec_port, static_prefix_length, port['peer_port']))
                 if port['asic_value'] is None:
                     duthost.command('sudo config interface ip add {} {}/{} \n'.
                                     format(port['peer_port'], dut_ip_for_non_macsec_port, static_prefix_length))
@@ -1804,16 +1805,17 @@ def cleanup_config(duthost_list, snappi_ports):
     else:
         if reconfigure_port:
             dut_obj = reconfigure_port['duthost']
+            applied_gateway, applied_prefix = reconfigure_port['subnet'].split('/')
             logger.info('Removing modified IP {} from interface {}'.
                         format(reconfigure_port['subnet'], reconfigure_port['peer_port']))
             if reconfigure_port['asic_value'] is None:
                 dut_obj.command('sudo config interface ip remove {} {}/{} \n'.
                                 format(reconfigure_port['peer_port'],
-                                       dut_ip_for_non_macsec_port, 28))
+                                       applied_gateway, applied_prefix))
             else:
                 dut_obj.command('sudo config interface -n {} ip remove {} {}/{} \n' .
                                 format(reconfigure_port['asic_value'],
-                                       reconfigure_port['peer_port'], dut_ip_for_non_macsec_port, 28))
+                                       reconfigure_port['peer_port'], applied_gateway, applied_prefix))
             logger.info('Adding back the original IP {} to interface {}'.
                         format(reconfigure_port['original_subnet'], reconfigure_port['peer_port']))
             if reconfigure_port['asic_value'] is None:
