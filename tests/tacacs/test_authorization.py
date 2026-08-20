@@ -144,7 +144,9 @@ def check_authorization_tacacs_only(
 
     # Verify TACACS+ user can't run command not in server side whitelist.
     exit_code, stdout, stderr = ssh_run_command(remote_user_client, "cat /etc/passwd", expect_exit_code=1, verify=True)
-    check_ssh_output_any_of(stdout, ['/usr/bin/cat authorize failed by TACACS+ with given arguments, not executing'])
+    exp_outputs = ['/usr/bin/cat not authorized by TACACS+ with given arguments, not executing',
+                   '/usr/bin/cat authorize failed by TACACS+ with given arguments, not executing']
+    check_ssh_output_any_of(stdout, exp_outputs)
 
     # Verify Local user can't login.
     dutip = duthost.mgmt_ip
@@ -305,7 +307,9 @@ def test_authorization_tacacs_and_local(
 
     # Verify TACACS+ user can't run command not in server side whitelist but have local permission.
     exit_code, stdout, stderr = ssh_run_command(remote_user_client, "cat /etc/passwd", expect_exit_code=1, verify=True)
-    check_ssh_output_any_of(stdout, ['/usr/bin/cat authorize failed by TACACS+ with given arguments, not executing'])
+    exp_outputs = ['/usr/bin/cat not authorized by TACACS+ with given arguments, not executing',
+                   '/usr/bin/cat authorize failed by TACACS+ with given arguments, not executing']
+    check_ssh_output_any_of(stdout, exp_outputs)
 
     # Verify Local user can't login.
     dutip = duthost.mgmt_ip
