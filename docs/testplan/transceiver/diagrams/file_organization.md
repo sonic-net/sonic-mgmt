@@ -186,10 +186,8 @@ tests/transceiver/
 │   ├── process_restart/
 │   │   ├── __init__.py
 │   │   ├── conftest.py                      # Overrides per-test health check: expects PID changes
-│   │   ├── test_xcvrd_restart.py            # TC 1-3: xcvrd restart tests
-│   │   ├── test_pmon_restart.py             # TC 4: pmon docker restart
-│   │   ├── test_swss_restart.py             # TC 5: swss docker restart
-│   │   └── test_syncd_restart.py            # TC 6: syncd process restart
+│   │   └── test_processes_restart.py        # TC 1-6: xcvrd/pmon/swss/syncd
+│   │                                        #   restart + xcvrd crash tests
 │   │
 │   ├── recovery/
 │   │   ├── __init__.py

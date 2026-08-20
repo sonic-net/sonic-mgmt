@@ -1368,6 +1368,13 @@ def test_acl_counter(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_f
                                 crm_stats_acl_counter_available"\
                                     .format(db_cli=asichost.sonic_db_cli,
                                             acl_tbl_key=acl_tbl_key)
+
+    wait_for_crm_counter_update(
+        get_acl_counter_stats, duthost,
+        expected_used=crm_stats_acl_counter_used + 2,
+        oper_used=">=", timeout=60, interval=2,
+    )
+
     new_crm_stats_acl_counter_used, new_crm_stats_acl_counter_available = \
         get_crm_stats(get_acl_counter_stats, duthost)
 

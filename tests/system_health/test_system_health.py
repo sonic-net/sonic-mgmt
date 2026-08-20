@@ -125,8 +125,11 @@ def test_service_checker(duthosts, enum_rand_one_per_hwsku_hostname):
                     error, value)
 
         expect_summary = SUMMARY_OK if not expect_error_dict else SUMMARY_NOT_OK
+        polling_interval = get_system_health_config(
+            duthost, 'polling_interval', FAST_INTERVAL)
         result = wait_until(
-            WAIT_TIMEOUT, 10, 2, check_system_health_info, duthost, 'summary', expect_summary)
+            WAIT_TIMEOUT, min(polling_interval, 10), polling_interval,
+            check_system_health_info, duthost, 'summary', expect_summary)
         # Output the content of whole SYSTEM_HEALTH_INFO table for easy debug when test case failed.
         table_output = redis_get_system_health_info(
             duthost, STATE_DB, HEALTH_TABLE_NAME)
