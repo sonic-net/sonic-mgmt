@@ -8,7 +8,6 @@ Parameters:
 
 import logging
 import pytest
-import time
 import math
 import re
 
@@ -70,6 +69,24 @@ class TestContLinkFlap(object):
             frr_daemon_memory_per_asics[asic.asic_index] = total_memory
 
         return frr_daemon_memory_per_asics
+
+    def check_frr_daemon_memory_stable(self, duthost, prev_usages_per_asic, threshold_percent=1):
+        unstable = False
+        for daemon, prev_usage in prev_usages_per_asic.items():
+            current_usage = self.get_frr_daemon_memory_usage(duthost, daemon)
+            pytest_assert(current_usage.keys() == prev_usage.keys(),
+                          "{} ASIC keys changed between frr memory stability checks: "
+                          "expected {}, got {}".format(daemon, set(prev_usage.keys()), set(current_usage.keys())))
+
+            for asic_index, prev_mem in prev_usage.items():
+                curr_mem = current_usage[asic_index]
+                change_percent = float('inf') if prev_mem == 0 else abs(curr_mem - prev_mem) / prev_mem * 100
+                if change_percent > threshold_percent:
+                    unstable = True
+                    logging.debug("asic%s FRR %s memory not stable: %.2f MiB -> %.2f MiB (%.1f%%)",
+                                  asic_index, daemon, prev_mem, curr_mem, change_percent)
+            prev_usages_per_asic[daemon] = current_usage
+        return not unstable
 
     @staticmethod
     def _parse_memory_value(line):
@@ -197,8 +214,13 @@ class TestContLinkFlap(object):
 
             pytest.fail(str(failmsg))
 
-        # Wait 30s for the memory usage to be stable
-        time.sleep(30)
+        # Wait for FRR daemon memory to stabilize
+        wait_timeout = 60 if 't2' in tbinfo['topo']['name'] else 30
+        memory_usages = {}
+        for daemon in frr_demons_to_check:
+            memory_usages[daemon] = self.get_frr_daemon_memory_usage(duthost, daemon)
+        if not wait_until(wait_timeout, 5, 5, self.check_frr_daemon_memory_stable, duthost, memory_usages):
+            logging.warning("FRR daemon memory did not stabilize within {}s, proceeding to check".format(wait_timeout))
 
         # Record memory status at end
         memory_output = duthost.shell("show system-memory")["stdout"]
