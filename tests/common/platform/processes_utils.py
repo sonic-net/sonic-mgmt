@@ -52,15 +52,15 @@ PMON_MIN_UPTIME_MINUTES = 6
 PMON_READY_TIMEOUT_SECS = PMON_MIN_UPTIME_MINUTES * 60 + 120
 
 
-def check_pmon_uptime_minutes(duthost, minimal_runtime=PMON_MIN_UPTIME_MINUTES):
+def check_pmon_uptime_minutes(duthost, minimal_runtime_minutes=PMON_MIN_UPTIME_MINUTES):
     """
     @summary: Check whether the pmon container has been running for at least
-              minimal_runtime minutes, computed from its docker start time.
-    @return: True if pmon's uptime is at least minimal_runtime minutes, False otherwise.
+              minimal_runtime_minutes, computed from its docker start time.
+    @return: True if pmon's uptime is at least minimal_runtime_minutes, False otherwise.
     """
     uptime_seconds = duthost.command(_PMON_UPTIME_SECONDS_CMD, _uses_shell=True)["stdout"].strip()
     try:
-        return int(uptime_seconds) >= minimal_runtime * 60
+        return int(uptime_seconds) >= minimal_runtime_minutes * 60
     except ValueError:
         return False
 
