@@ -115,6 +115,13 @@ class GNMIEnvironment(object):
         if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
             cmd = "docker ps | grep -w {}".format(TELEMETRY_CONTAINER)
             if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
+                # Only select the telemetry container when its feature is actually enabled
+                state = duthost.shell('sonic-db-cli CONFIG_DB HGET "FEATURE|telemetry" state',
+                                      module_ignore_errors=True)['stdout'].strip()
+                if state != "enabled":
+                    logger.info("Telemetry feature state is '%s', not serving; "
+                                "skipping telemetry container", state)
+                    return False
                 self.gnmi_config_table = "TELEMETRY"
                 self.gnmi_container = TELEMETRY_CONTAINER
                 # GNMI program is telemetry or gnmi-native
