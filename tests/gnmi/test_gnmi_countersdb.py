@@ -90,7 +90,6 @@ def test_gnmi_queue_buffer_cnt(duthosts, rand_one_dut_hostname, ptfhost):
     # removing a BUFFER_QUEUE entry must reduce the number of queue counters in
     # COUNTERS_QUEUE_NAME_MAP for that interface.
     # Covers https://github.com/sonic-net/sonic-buildimage/issues/17448
-    #.
     interfaces = duthost.get_interfaces_status()
     pattern = re.compile(r'^Ethernet[0-9]{1,3}$')
     admin_up_interfaces = [i for i, info in interfaces.items()
