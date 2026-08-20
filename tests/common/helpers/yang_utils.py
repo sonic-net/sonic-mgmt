@@ -1,5 +1,7 @@
 import logging
 
+from tests.common.helpers.config_db_utils import run_config_db_command
+
 logger = logging.getLogger(__name__)
 
 
@@ -16,8 +18,9 @@ def run_yang_validation(duthost, stage="validation"):
     """
     logger.info(f"Running YANG validation on {duthost.hostname} ({stage})")
     try:
-        result = duthost.shell(
-            'echo "[]" | sudo config apply-patch /dev/stdin',
+        result = run_config_db_command(
+            duthost,
+            'sh -c \'echo "[]" | config apply-patch /dev/stdin\'',
             module_ignore_errors=True
         )
 

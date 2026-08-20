@@ -6,6 +6,7 @@ import time
 
 from netaddr import IPNetwork, NOHOST
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.config_db_utils import run_config_db_command
 from scapy.all import IP, Ether
 
 logger = logging.getLogger(__name__)
@@ -32,12 +33,12 @@ def vlan_ports_setup(duthosts, rand_one_dut_hostname):
     vlan_up_members = [port for port in vlan_members if ifs_status[port]["admin"] == "up"]
     logger.info(f"Bringing down all member ports of {vlan_name}...")
     for vlan_up_port in vlan_up_members:
-        duthost.shell(f"sudo config interface shutdown {vlan_up_port}")
+        run_config_db_command(duthost, f"config interface shutdown {vlan_up_port}")
     time.sleep(5)  # Sleep for 5 seconds to ensure T1 switches update their routing table
     yield vlan_name
     logger.info(f"Restoring the previous admin state of all member ports of {vlan_name}...")
     for vlan_port in vlan_up_members:
-        duthost.shell(f"sudo config interface startup {vlan_port}")
+        run_config_db_command(duthost, f"config interface startup {vlan_port}")
 
 
 def test_vlan_ports_down(vlan_ports_setup, duthosts, rand_one_dut_hostname, nbrhosts, tbinfo, ptfadapter):
