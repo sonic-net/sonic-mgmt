@@ -88,6 +88,9 @@ class PFCStorm(object):
         self.fanout_info = fanout_graph_facts
         self.fanout_hosts = fanouthosts
         self.pfc_gen_file = kwargs.pop('pfc_gen_file', "pfc_gen.py")
+        # deploy_pfc_gen() overrides pfc_gen_file when the fanout is XGS; keep the
+        # caller's choice so a later, non-XGS fanout can be given it back
+        self._pfc_gen_file_requested = self.pfc_gen_file
         self.pfc_gen_multiprocess = kwargs.pop('pfc_gen_multiprocess', False)
         self.pfc_gen_chip_name = None
         self._xgs_chip = self._XGS_CHIP_UNRESOLVED
@@ -244,6 +247,11 @@ class PFCStorm(object):
                 self.pfc_gen_file = "pfc_gen_brcm_xgs.py"
                 self.pfc_gen_file_test_name = "pfc_gen_brcm_xgs.py"
                 self.pfc_gen_chip_name = chip_name
+            else:
+                # This instance may have been pointed at an XGS fanout before;
+                # a fanout that cannot run that generator must not inherit it.
+                self.pfc_gen_file = self._pfc_gen_file_requested
+                self.pfc_gen_chip_name = None
             src_pfc_gen_file = "common/helpers/{}".format(self.pfc_gen_file)
             self._create_pfc_gen()
             if self.fanout_asic_type == 'mellanox':
@@ -275,6 +283,9 @@ class PFCStorm(object):
             self._populate_peer_hwsku()
         self.update_platform_name()
         self.peer_device = self.fanout_hosts[self.peer_info['peerdevice']]
+        # The fanout may have changed, so the memoized chip answer is no longer
+        # valid; _xgs_chip_name() must ask this fanout.
+        self._xgs_chip = self._XGS_CHIP_UNRESOLVED
 
     def update_platform_name(self):
         """
