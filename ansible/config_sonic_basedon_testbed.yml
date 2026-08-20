@@ -1187,6 +1187,15 @@
             delay: 10
             until: chrony_start_result is succeeded
 
+          - name: Wait for chronyd to accept commands
+            become: true
+            command: chronyc tracking
+            register: chrony_ready_result
+            until: chrony_ready_result.rc == 0
+            retries: 12
+            delay: 5
+            changed_when: false
+
           - name: Force rapid NTP polling with chrony
             become: true
             command: chronyc burst 4/4
