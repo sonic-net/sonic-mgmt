@@ -17,9 +17,13 @@ steps:
     sudo apt-get -o DPkg::Lock::Timeout=600 update || true
     sudo apt-get -o DPkg::Lock::Timeout=600 -y install jq
 
-    echo "$TEST_SCRIPTS" > /tmp/ts.json
-    echo "TEST_SCRIPTS value from file:"
-    cat /tmp/ts.json
+    # TEST_SCRIPTS is shipped gzip+base64 encoded to stay under the agent's 40 KiB output line cap.
+    if ! printf '%s' "$TEST_SCRIPTS" | base64 -d 2>/dev/null | gunzip > /tmp/ts.json 2>/dev/null; then
+      echo "##vso[task.complete result=Failed;]Decode TEST_SCRIPTS fails."
+      exit 1
+    fi
+    echo "TEST_SCRIPTS script count per checker:"
+    jq -r 'to_entries[] | "  \(.key): \(.value | length)"' /tmp/ts.json
     TEST_SCRIPTS=$(jq -r -c '."${{ parameters.TOPOLOGY }}_checker"' /tmp/ts.json)
     rm /tmp/ts.json
     if [[ -z "$TEST_SCRIPTS" ]]; then
@@ -67,8 +71,7 @@ steps:
 - script: |
     set -x
 
-    pip install azure-kusto-data
-    pip install azure-kusto-data azure-identity
+    sudo uv pip install --system azure-kusto-data azure-identity
 
     INSTANCE_NUMBER=$(python ./.azure-pipelines/impacted_area_testing/calculate_instance_number.py --scripts $(SCRIPTS) --topology ${{ parameters.TOPOLOGY }} --branch ${{ parameters.BUILD_BRANCH }} --prepare_time ${{ parameters.PREPARE_TIME }} --target_pr_test_time $(TARGET_PR_TEST_TIME))
 

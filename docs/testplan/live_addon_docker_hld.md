@@ -25,6 +25,7 @@ live in per-ASIC JSON files under `tests/live_addon_docker/files/`.
 | HTTP health endpoint probe from the DUT | Building or publishing docker images |
 | Post-start checks via `verify_live_addon_post_start` (logs and/or supervisord) | Shared tarball distribution between vendors |
 | Optional `version_matrix` skip for image vs SONiC compatibility | |
+| Registry image upgrade test (`test_live_addon_docker_image_upgrade`) | |
 | Registry override per test run (`--live_addon_docker_registry`) | |
 
 **Platform filter:** `asic_type=cisco-8000` only (see
@@ -40,14 +41,19 @@ Post-start validation is **not** duplicated in pytest cases; it runs in the modu
 |------|-----------|
 | `test_live_addon_docker_health_http` | HTTP `/health` returns expected status within probe timeout |
 | `test_live_addon_docker_health_after_config_reload_cycle` | Stop container → `config reload` → `docker run` + full post-start → `config reload` → teardown + `docker run` + restart post-start (120s supervisord) → HTTP health |
+| `test_live_addon_docker_image_upgrade` | Registry pull baseline (`--live_addon_docker_image_tag`) → post-start + health → pull upgrade (`--live_addon_docker_image_upgrade_tag`) → post-start + health (standalone; does not use module fixture) |
 
 **Module fixture** `live_addon_docker_setup_teardown`: install once per module, `docker run`,
 `verify_live_addon_post_start` (full readiness), yield `(duthost, cfg)`, then teardown and
 post-teardown checks.
 
+**Image upgrade test** (`test_live_addon_docker_image_upgrade`) is standalone: it uses
+`live_addon_docker_vendor_cfg_raw`, requires both CLI image tags and registry access, and calls
+`upgrade_live_addon_docker_image` twice (baseline then upgrade).
+
 **Typical runtime (Cisco):** first start may wait up to **900s** for startup logs; config-reload
-cycle adds another full post-start plus a **120s** supervisord poll on restart; HTTP health polls
-up to **900s** when needed.
+cycle adds another full post-start plus a **120s** supervisord poll on restart; upgrade test runs
+two full install cycles; HTTP health polls up to **900s** when needed.
 
 **Topology:** tests are marked `pytest.mark.topology("any")`. Use `-t any` or `-t t1,any` with
 `run_tests.sh` (a bare `-t t1` skips these tests).
@@ -133,14 +139,40 @@ flowchart TD
     P --> Q[Teardown and post checks]
 ```
 
+**Image upgrade test** (`test_live_addon_docker_image_upgrade`) does not use tarball or
+pre-loaded-image fallbacks. It always registry-pulls using explicit CLI tags:
+
+```mermaid
+flowchart TD
+    U0[apply_image_tag_to_config baseline and upgrade tags] --> U0c{same image_ref?}
+    U0c -->|yes| Uskip[pytest.skip]
+    U0c -->|no| U1[registry pull baseline image]
+    U1 --> U2[version_matrix check]
+    U2 --> U3[teardown + rmi stale refs]
+    U3 --> U4[docker run + post-start + HTTP health]
+    U4 -->|run or validation error| Ucleanup[teardown started container and re-raise]
+    U4 --> U5[apply_image_tag_to_config upgrade tag]
+    U5 --> U6[registry pull upgrade image]
+    U6 --> U7[version_matrix check]
+    U7 --> U8[teardown + rmi stale refs keep pulled ref]
+    U8 --> U9[docker run + post-start + HTTP health]
+    U9 -->|run or validation error| Ucleanup
+```
+
+`version_matrix` runs after pull and **before** container teardown during upgrade, so a skip leaves
+the previously running live-addon container in place.
+
 Registry host comes from Ansible `docker_registry_host` or pytest `live_addon_docker_registry`
 (see §7). Tarball path on the DUT is `dut_tarball_home` plus `tarball_filename` from JSON.
 
-**Pull tag selection:**
+**Pull tag selection (module / baseline tests):**
 
-1. `--live_addon_docker_image_tag` if set (CI build id)
+1. `--live_addon_docker_image_tag` if set (baseline / CI build id)
 2. Else tag from `docker_run.image_ref` when not `latest`
 3. Else `duthost.os_version` (same convention as syncd-rpc / `swap_syncd`)
+
+**Image upgrade test** uses `--live_addon_docker_image_tag` for baseline and
+`--live_addon_docker_image_upgrade_tag` for the upgrade pull (both required).
 
 ## 7. Pytest CLI parameters
 
@@ -149,10 +181,11 @@ Registry host comes from Ansible `docker_registry_host` or pytest `live_addon_do
 | `--live-addon-docker-config` | Override path to vendor JSON |
 | `--live-addon-docker-tarball` | Path to `.gz` on the test runner |
 | `--live_addon_docker_registry` | Registry host for pull (overrides Ansible `docker_registry_host` for this module) |
-| `--live_addon_docker_image_tag` | Image tag for pull and `docker_run.image_ref` |
+| `--live_addon_docker_image_tag` | Baseline / module tests: image tag for registry pull and `docker_run.image_ref` |
+| `--live_addon_docker_image_upgrade_tag` | Upgrade test only: target image tag after baseline |
 | `--public_docker_registry` | Use `public_docker_registry_host` without login (same as `swap_syncd`) |
 
-**Example via `run_tests.sh`:**
+**Example via `run_tests.sh` (module tests):**
 
 ```bash
 cd tests
@@ -162,7 +195,15 @@ cd tests
   -t any \
   -c live_addon_docker/test_live_addon_docker.py \
   -i ../ansible/veos \
-  -e "--live_addon_docker_registry=myacr.azurecr.io --live_addon_docker_image_tag=kube-20260527-202505-amd64"
+  -e "--live_addon_docker_registry=myacr.azurecr.io --live_addon_docker_image_tag=baseline-build-001"
+```
+
+**Example (upgrade test):**
+
+```bash
+-e "--live_addon_docker_registry=<ucs-ip>:5000 --public_docker_registry \
+    --live_addon_docker_image_tag=baseline-build-001 \
+    --live_addon_docker_image_upgrade_tag=new-build-002"
 ```
 
 Each vendor or MSFT can point at their own container registry without sharing tarballs.
@@ -265,6 +306,21 @@ Each row may include:
 - Matching row has no `compatible_sonic_globs`
 - DUT SONiC does not match any allowed glob
 
+**Upgrade test skip conditions** (in `test_live_addon_docker_image_upgrade`):
+
+- `pytest.skip` when `--live_addon_docker_image_tag` is omitted (before any DUT steps)
+- `pytest.skip` when `--live_addon_docker_image_upgrade_tag` is omitted (before any DUT steps)
+- `pytest.skip` when baseline and upgrade tags resolve to the same `docker_run.image_ref` (before
+  any DUT steps; compared from config only)
+
+**Upgrade test and `version_matrix`:** `upgrade_live_addon_docker_image` pulls from the registry,
+runs `require_version_matrix_or_skip` on the pulled ref, then tears down the container. If the
+matrix check skips, the prior container (if any) is left running and the test ends without applying
+the incompatible upgrade image.
+
+If `docker run`, post-start validation, or HTTP health raises after a container has been started,
+`upgrade_live_addon_docker_image` tears down that started container before re-raising.
+
 Images built without `com.azure.sonic.manifest` skip until the build pipeline adds standard SONiC
 docker labels.
 
@@ -279,7 +335,32 @@ Example:
 ]
 ```
 
-## 10. Adding a new vendor / ASIC
+## 10. Test cases
+
+Post-start validation is **not** duplicated in pytest cases; it runs in the fixture and inside
+`run_config_reload_live_addon_start_reload_health` on each `docker run`.
+
+| Test | Validates |
+|------|-----------|
+| `test_live_addon_docker_health_http` | HTTP `/health` returns expected status within probe timeout |
+| `test_live_addon_docker_health_after_config_reload_cycle` | Stop container → `config reload` → `docker run` + full post-start → `config reload` → teardown + `docker run` + restart post-start (120s supervisord) → HTTP health |
+| `test_live_addon_docker_image_upgrade` | Registry pull baseline (`--live_addon_docker_image_tag`) → post-start + health → pull upgrade (`--live_addon_docker_image_upgrade_tag`) → post-start + health (standalone; skips without both CLI tags) |
+
+**Module fixture** `live_addon_docker_setup_teardown`: install once per module, `docker run`,
+`verify_live_addon_post_start` (full readiness), yield `(duthost, cfg)`, then teardown and
+post-teardown checks.
+
+**Image upgrade test** uses `live_addon_docker_vendor_cfg_raw` and requires
+`--live_addon_docker_image_tag`, `--live_addon_docker_image_upgrade_tag`, and registry access.
+Each step calls `upgrade_live_addon_docker_image` (registry pull, `version_matrix` check,
+teardown, `docker rmi` of stale refs, `docker run`, post-start, HTTP health). See §9 for skip
+conditions. No `config reload` in this test; default loganalyzer is sufficient.
+
+**Typical runtime (Cisco):** first start may wait up to **900s** for startup logs; config-reload
+cycle adds another full post-start plus a **120s** supervisord poll on restart; upgrade test runs
+two full install cycles; HTTP health polls up to **900s** when needed.
+
+## 11. Adding a new vendor / ASIC
 
 1. Add `tests/live_addon_docker/files/<asic_type>_live_addon_docker.json`.
 2. Set `vendor`, `docker_run.container_name`, `health` port/path, and vendor-specific `cli_args` mounts.
@@ -287,7 +368,7 @@ Example:
 4. Extend `tests_mark_conditions_live_addon_docker.yaml` if the ASIC should not be skipped.
 5. Run with `--live_addon_docker_registry` pointing at the vendor CR.
 
-## 11. Assumptions and constraints
+## 12. Assumptions and constraints
 
 - DUT has Docker and network access to the chosen registry (or a pre-staged image/tarball).
 - Registry credentials come from Ansible `docker_registry_*` in testbed creds unless overridden by CLI.

@@ -12,7 +12,6 @@ from tests.common.platform.device_utils import MGFX_HWSKU, MGFX_XCVR_INTF
 from tests.common.platform.transceiver_utils import get_passive_cable_port_list, get_cmis_cable_ports_and_ver
 from tests.common.helpers.firmware_helper import PLATFORM_COMP_PATH_TEMPLATE
 from tests.common.platform.interface_utils import get_ports_with_flat_memory
-from tests.common.helpers.platform_api import bmc
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +71,10 @@ def xcvr_skip_list(duthosts, dpu_npu_port_list, tbinfo):
                 'Ethernet88', 'Ethernet96', 'Ethernet104', 'Ethernet112',
                 'Ethernet216', 'Ethernet224', 'Ethernet232', 'Ethernet240'
                 ])
+        # For lt2-o256-u32d224 topo, skip Ethernet1008/Ethernet1012 as these ports are not
+        # populated with transceivers by design on this testbed
+        elif tbinfo['topo']['name'] == "lt2-o256-u32d224":
+            intf_skip_list[dut.hostname].extend(['Ethernet1008', 'Ethernet1012'])
 
     return intf_skip_list
 
@@ -277,11 +280,7 @@ def cmis_cable_ports_and_ver(duthosts):
 
 
 @pytest.fixture(scope='module')
-def fw_pkg(duthosts, enum_rand_one_per_hwsku_hostname, fw_pkg_name):
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    if not bmc.is_bmc_exists(duthost):
-        pytest.skip("BMC is not present, skipping BMC platform API tests")
-
+def fw_pkg(fw_pkg_name):
     if fw_pkg_name is None:
         pytest.skip("No fw package specified.")
 

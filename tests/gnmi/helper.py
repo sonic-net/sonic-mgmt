@@ -2,6 +2,7 @@ import time
 import logging
 import pytest
 import json
+import ipaddress
 from tests.common.utilities import wait_until
 from tests.common.platform.device_utils import get_dpu_ip, get_dpu_port
 from tests.common.helpers.gnmi_utils import GNMIEnvironment, add_gnmi_client_common_name, del_gnmi_client_common_name, \
@@ -14,7 +15,7 @@ logger = logging.getLogger(__name__)
 GNMI_CONTAINER_NAME = ''
 GNMI_PROGRAM_NAME = ''
 GNMI_PORT = 0
-# Wait 15 seconds after starting GNMI server
+# Base wait unit (seconds) for GNMI server startup; the listening-port poll allows up to 2x this
 GNMI_SERVER_START_WAIT_TIME = 15
 
 
@@ -64,18 +65,23 @@ def apply_cert_config(duthost, vrf_name=None):
     add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", role)
     add_gnmi_client_common_name(duthost, "test.client.revoked.gnmi.sonic", role)
 
-    time.sleep(GNMI_SERVER_START_WAIT_TIME)
-    dut_command = "sudo netstat -nap | grep %d" % env.gnmi_port
-    output = duthost.shell(dut_command, module_ignore_errors=True)
-    if duthost.facts['platform'] != 'x86_64-kvm_x86_64-r0':
-        is_time_synced = wait_until(80, 3, 0, check_system_time_sync, duthost)
-        assert is_time_synced, "Failed to synchronize DUT system time with NTP Server"
-    if env.gnmi_process not in output['stdout']:
-        # Dump tcp port status and gnmi log
+    # Poll for the listening port instead of a single fixed-delay check: the gnmi server can
+    # briefly drop and rebind its listener while it hot-reloads the freshly copied cert/key pair.
+    def _gnmi_server_listening():
+        cmd = 'sudo ss -ltnp | grep ":{} " | grep {}'.format(env.gnmi_port, env.gnmi_process)
+        return duthost.shell(cmd, module_ignore_errors=True)['stdout'].strip() != ""
+
+    server_started = wait_until(GNMI_SERVER_START_WAIT_TIME * 2, 3, 5, _gnmi_server_listening)
+    if not server_started:
+        # Dump listening port status and gnmi log
+        output = duthost.shell('sudo ss -ltnp | grep ":{} "'.format(env.gnmi_port), module_ignore_errors=True)
         logger.info("TCP port status: " + output['stdout'])
         dump_gnmi_log(duthost)
         dump_system_status(duthost)
         pytest.fail("Failed to start gnmi server")
+    if duthost.facts['platform'] != 'x86_64-kvm_x86_64-r0':
+        is_time_synced = wait_until(80, 3, 0, check_system_time_sync, duthost)
+        assert is_time_synced, "Failed to synchronize DUT system time with NTP Server"
     return stopped_programs
 
 
@@ -279,7 +285,7 @@ def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list, cert=None
     if rc != 0 or "GRPC error" in combined or "rpc error" in combined:
         dump_gnmi_log(duthost)
         dump_system_status(duthost)
-        raise Exception(f"py_gnmicli failed rc={rc}\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}")
+        raise Exception(f"py_gnmicli failed rc={rc}\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}")  # noqa: E231
 
 
 def gnmi_get(duthost, ptfhost, path_list, ip=None):
@@ -329,6 +335,32 @@ def gnmi_get(duthost, ptfhost, path_list, ip=None):
         raise Exception("error:" + msg)
 
 
+def _bracket_ipv6(ip):
+    """Wrap an IPv6 literal in brackets for use in a host:port target.
+
+    gnmi_cli/gnoi_client take the server address as ``-a <host>:<port>``.
+    A bare IPv6 address contains colons that collide with the ``:<port>``
+    separator, so IPv6 literals must be written as ``[<ipv6>]:<port>``.
+    IPv4 addresses, hostnames and already-bracketed IPv6 values are returned
+    unchanged.
+
+    Args:
+        ip: server address (IPv4/IPv6 literal, hostname, or ``[ipv6]``).
+
+    Returns:
+        The address with IPv6 literals wrapped in brackets.
+    """
+    if not ip or ip.startswith('['):
+        return ip
+    try:
+        if ipaddress.ip_address(ip).version == 6:
+            return f"[{ip}]"
+    except ValueError:
+        # Not an IP literal (e.g. a hostname); leave it untouched.
+        pass
+    return ip
+
+
 # py_gnmicli does not fully support POLLING mode
 # Use gnmi_cli instead
 def gnmi_subscribe_polling(duthost, ptfhost, path_list, interval_ms, count, ip=None, vrf_name=None):
@@ -353,8 +385,13 @@ def gnmi_subscribe_polling(duthost, ptfhost, path_list, interval_ms, count, ip=N
         return "", ""
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     if ip is None:
-        dut_facts = duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts']
-        ip = f"[{duthost.mgmt_ip}]" if dut_facts.get('is_mgmt_ipv6_only', False) else duthost.mgmt_ip
+        ip = duthost.mgmt_ip
+    # gnmi_cli expects the target as -a <host>:<port>. IPv6 literals must be
+    # wrapped in brackets ([<ipv6>]:<port>) so the address colons are not
+    # confused with the host:port separator. Normalize here so bracketing is
+    # applied whether `ip` was defaulted from duthost.mgmt_ip or passed in
+    # explicitly (e.g. a bare IPv6 dut_ip from a VRF config).
+    ip = _bracket_ipv6(ip)
     port = env.gnmi_port
     interval = interval_ms / 1000.0
     # For a non-default VRF the gnmi container does not have `ip vrf exec`

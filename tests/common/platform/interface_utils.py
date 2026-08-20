@@ -94,6 +94,36 @@ def expect_interface_status(dut, interface_name, expected_op_status):
     return status['oper'] == expected_op_status
 
 
+def wait_ports_oper_status(duthost, ports, status, wait_sec, poll_interval_sec=2):
+    """Poll until every port in ``ports`` reaches oper-``status``; return failures.
+
+    Issues a single ``show interface description`` per poll (one full-table dump,
+    parsed once) and checks every port against that snapshot, rather than one CLI
+    call per port -- the latter is O(N) redundant dumps per poll and does not
+    scale to hundreds of ports.
+
+    Returns a list with one string per port still not at oper-``status`` after
+    ``wait_sec``; empty once all reach it. A port absent from the dump is reported
+    as a failure (rather than raising) so a missing/renamed port aggregates like
+    any other laggard.
+    """
+    # Imported lazily to avoid a module-load import cycle
+    # (tests.common.utilities <-> tests.common.platform.interface_utils).
+    from tests.common.utilities import wait_until
+
+    def _ports_not_at_status():
+        snapshot = get_dut_interfaces_status(duthost)
+        return [port for port in ports
+                if (snapshot.get(port) or {}).get("oper") != status]
+
+    if wait_until(wait_sec, poll_interval_sec, 0, lambda: not _ports_not_at_status()):
+        return []
+    return [
+        "port {} did not reach oper-{} within {}s".format(port, status, wait_sec)
+        for port in _ports_not_at_status()
+    ]
+
+
 def check_interface_status(dut, asic_index, interfaces, xcvr_skip_list):
     """
     @summary: Check the admin and oper status of the specified interfaces on DUT.
@@ -154,6 +184,9 @@ def check_interface_status(dut, asic_index, interfaces, xcvr_skip_list):
 
 # This API to check the interface information actoss all front end ASIC's
 def check_all_interface_information(dut, interfaces, xcvr_skip_list):
+    # No front-panel interfaces to check (e.g. SONiC BMC has no front-panel ports)
+    if len(interfaces) == 0:
+        return True
     for asic_index in dut.get_frontend_asic_ids():
         # Get the interfaces pertaining to that asic
         interface_list = get_port_map(dut, asic_index)
@@ -344,6 +377,22 @@ def get_lport_to_first_subport_mapping(duthost, logical_intfs=None):
     first_subport_dict = {k: pport_to_lport_mapping[v][0] for k, v in physical_port_indices.items()}
     logging.debug("First subports mapping: {}".format(first_subport_dict))
     return first_subport_dict
+
+
+def is_first_subport(port, lport_to_first_subport):
+    """
+    @summary: Return True iff ``port`` is the first logical sub-port of its
+        breakout group.  "First sub-port" is a DUT-local notion: among the
+        logical ports that share one physical index, it is the lowest-numbered
+        one.  Pairs with :func:`get_lport_to_first_subport_mapping` (which builds
+        the map this predicate consumes): a port is the first sub-port iff it
+        maps to itself.  A port absent from the map is treated as not-first.
+    @param port: logical interface name (e.g. "Ethernet0").
+    @param lport_to_first_subport: mapping from
+        :func:`get_lport_to_first_subport_mapping`.
+    """
+    first = lport_to_first_subport.get(port)
+    return first is not None and first == port
 
 
 def get_xcvr_presence_data(duthost, asic_index=None):

@@ -52,6 +52,9 @@ MIN_OVERHEAD = 3
 # Deliberately generous to avoid false failures.
 FALLBACK_LOADDATA_TIME = 1.0
 
+CTRLPLANE_SERVICES = ["EXTERNAL_CLIENT", "NTP", "SNMP", "SSH"]
+REQUIRED_INGRESS_DATAPLANE_ACL_TABLES = 1
+
 
 @pytest.fixture(autouse=True)
 def ignore_expected_loganalyzer_errors(duthosts, rand_one_dut_front_end_hostname,
@@ -271,6 +274,44 @@ def _cleanup_test_tables(duthost, table_prefix):
         module_ignore_errors=True)
 
 
+def _skip_if_insufficient_acl_table_resources(duthost):
+    """Skip if the dataplane ACL table needed by the test cannot be created."""
+    for namespace in duthost.get_frontend_asic_namespace_list():
+        acl_resources = duthost.get_crm_resources(namespace)["acl_resources"]
+        port_available = 0
+        for resource in acl_resources:
+            if (resource["stage"] == "INGRESS" and
+                    resource["bind_point"] == "PORT" and
+                    resource["resource_name"] == "acl_table"):
+                port_available = resource["available_count"]
+                break
+
+        if port_available < REQUIRED_INGRESS_DATAPLANE_ACL_TABLES:
+            pytest.skip(
+                "Not enough ingress PORT ACL table resources on namespace {} for multi-op test: "
+                "need PORT>={}, got PORT={}".format(
+                    namespace,
+                    REQUIRED_INGRESS_DATAPLANE_ACL_TABLES,
+                    port_available))
+
+
+def _get_free_ctrlplane_service(duthost):
+    """Return a CTRLPLANE ACL service not already bound to an ACL table."""
+    output = duthost.shell("sonic-cfggen -d --var-json ACL_TABLE")
+    acl_tables = json.loads(output["stdout"])
+
+    used_services = set()
+    for table in acl_tables.values():
+        used_services.update(table.get("services", []))
+
+    for service in CTRLPLANE_SERVICES:
+        if service not in used_services:
+            return service
+
+    pytest.skip("No free CTRLPLANE ACL service available for removable table")
+    return None
+
+
 # =============================================================================
 # Test 1: ACL port removal (REPLACE → N REMOVE moves)
 # =============================================================================
@@ -480,7 +521,11 @@ def test_perf_multi_operation(perf_ctx):
     table_a = "{}_MULTI_A".format(table_prefix)
     table_b = "{}_MULTI_B".format(table_prefix)
 
-    # Setup: create two tables — table A with ALL ports
+    _skip_if_insufficient_acl_table_resources(duthost)
+    table_b_service = _get_free_ctrlplane_service(duthost)
+
+    # Setup: create L3 table A with ALL ports. Table B only exists for
+    # table-removal coverage, so use CTRLPLANE to avoid another dataplane ACL table.
     half = num_ports // 2
     setup_patch = [
         {
@@ -497,9 +542,9 @@ def test_perf_multi_operation(perf_ctx):
             "op": "add",
             "path": "/ACL_TABLE/{}".format(table_b),
             "value": {
-                "type": "L3",
+                "type": "CTRLPLANE",
                 "policy_desc": "Multi test B - to be removed",
-                "ports": up_ports[:min(4, len(up_ports))],
+                "services": [table_b_service],
                 "stage": "ingress"
             }
         }

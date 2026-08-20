@@ -75,7 +75,7 @@ steps:
       set -e
       echo "Step: cancel previous testplans for PR"
 
-      pip install PyYAML
+      sudo uv pip install --system PyYAML
 
       rm -f new_test_plan_id.txt
 

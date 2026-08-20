@@ -53,17 +53,12 @@ bgp/test_bgp_gr_helper.py:
     conditions:
     - asic_type in ['vs'] and 't2' in topo_name
     reason: This test case either cannot pass or should be skipped on virtual chassis
-bgp/test_bgp_peer_shutdown.py:
-  skip:
-    conditions:
-    - asic_type in ['vs'] and 't2' in topo_name
-    reason: This test case either cannot pass or should be skipped on virtual chassis
 bgp/test_bgp_port_disable.py:
   skip:
     conditions:
     - asic_type in ['vs'] and 't2' in topo_name
     reason: This test case either cannot pass or should be skipped on virtual chassis
-bgp/test_bgp_router_id.py:
+bgp/test_bgp_suppress_fib.py:
   skip:
     conditions:
     - asic_type in ['vs'] and 't2' in topo_name
@@ -84,11 +79,6 @@ bgp/test_bgpmon_v6.py:
     - asic_type in ['vs'] and 't2' in topo_name
     reason: This test case either cannot pass or should be skipped on virtual chassis
 bgp/test_ipv6_nlri_over_ipv4.py:
-  skip:
-    conditions:
-    - asic_type in ['vs'] and 't2' in topo_name
-    reason: This test case either cannot pass or should be skipped on virtual chassis
-bgp/test_passive_peering.py:
   skip:
     conditions:
     - asic_type in ['vs'] and 't2' in topo_name
@@ -700,7 +690,7 @@ platform_tests/test_chassis_reboot.py:
     conditions:
     - asic_type in ['vs'] and 't2' in topo_name
     reason: This test case either cannot pass or should be skipped on virtual chassis
-platform_tests/test_first_time_boot_password_change/test_first_time_boot_password_change.py:
+platform_tests/test_first_time_boot_password_change/test_password_change.py:
   skip:
     conditions:
     - asic_type in ['vs'] and 't2' in topo_name

@@ -104,7 +104,7 @@ def test_dhcpmon_relay_counters_stress(ptfhost, relay_agent, enable_sonic_dhcpv4
                                                    error_in_percentage=error_margin)
             if testing_mode == DUAL_TOR_MODE:
                 validate_dhcpmon_counters(dhcp_relay, standby_duthost,
-                                          {}, {}, 0)
+                                          {}, {})
 
         def get_ip_link_result(duthost):
             # Get the output of 'ip link' command and parse it to a dictionary of index: name
