@@ -2937,33 +2937,9 @@ gnmi/test_gnmi_configdb.py::test_gnmi_configdb_streaming_sample_01:
     conditions:
       - "'bmc' in topo_type"
 
-gnmi/test_gnmi_countersdb.py::test_gnmi_counterdb_polling_01:
+gnmi/test_gnmi_countersdb.py:
   skip:
-    reason: "Test relies on COUNTERS_PORT_NAME_MAP populated by syncd; not applicable on BMC"
-    conditions:
-      - "'bmc' in topo_type"
-
-gnmi/test_gnmi_countersdb.py::test_gnmi_counterdb_polling_02:
-  skip:
-    reason: "Test relies on COUNTERS_PORT_NAME_MAP populated by syncd; not applicable on BMC"
-    conditions:
-      - "'bmc' in topo_type"
-
-gnmi/test_gnmi_countersdb.py::test_gnmi_counterdb_streaming_sample_01:
-  skip:
-    reason: "not applicable on BMC (no COUNTERS_PORT_NAME_MAP)"
-    conditions:
-      - "'bmc' in topo_type"
-
-gnmi/test_gnmi_countersdb.py::test_gnmi_counterdb_streaming_sample_02:
-  skip:
-    reason: "not applicable on BMC (no COUNTERS_PORT_NAME_MAP)"
-    conditions:
-      - "'bmc' in topo_type"
-
-gnmi/test_gnmi_countersdb.py::test_gnmi_output:
-  skip:
-    reason: "not applicable on BMC (no COUNTERS_PORT_NAME_MAP)"
+    reason: "Not available in BMC"
     conditions:
       - "'bmc' in topo_type"
 
