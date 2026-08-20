@@ -5924,11 +5924,12 @@ vxlan/test_scale_ecmp.py:
 
 vxlan/test_vnet_bgp_route_precedence.py:
   skip:
-    reason: "test_vnet_bgp_route_precedence can only run on cisco, mnlx and VPP platforms. Also skip in 202411"
+    reason: "test_vnet_bgp_route_precedence can only run on cisco, mnlx and VPP platforms. Also skip in 202411 and on cisco-8000 platforms x86_64-8122_64eh_o-r0 and x86_64-8122_64ehf_o-r0 where VXLAN UDP port override is not supported."
     conditions_logical_operator: or
     conditions:
       - "asic_type not in ['cisco-8000', 'mellanox', 'vpp']"
       - "release in ['202411']"
+      - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
   xfail:
     reason: "Testcase ignored due to github issue: https://github.com/sonic-net/sonic-buildimage/issues/23824"
     conditions_logical_operator: or
@@ -6164,9 +6165,11 @@ vxlan/test_vxlan_multiple_tunnels.py:
 
 vxlan/test_vxlan_route_advertisement.py:
   skip:
-    reason: "VxLAN route advertisement can only run on cisco , mnlx and marvell-teralynx platforms. "
+    reason: "VxLAN route advertisement can only run on cisco, mnlx and marvell-teralynx platforms. Also skip on cisco-8000 platforms x86_64-8122_64eh_o-r0 and x86_64-8122_64ehf_o-r0 where VXLAN UDP port override is not supported."
+    conditions_logical_operator: or
     conditions:
       - "asic_type not in ['cisco-8000', 'mellanox' , 'marvell-teralynx' , 'vs', 'vpp']"
+      - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
 
 vxlan/test_vxlan_route_advertisement.py::Test_VxLAN_route_Advertisement::test_basic_route_advertisement[v4_in_v4]:
   xfail:
