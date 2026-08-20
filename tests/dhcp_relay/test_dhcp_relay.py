@@ -448,20 +448,20 @@ def test_dhcp_relay_after_link_flap(ptfhost, dut_dhcp_relay_data, validate_dut_r
     testing_mode, duthost = testing_config
 
     for dhcp_relay in dut_dhcp_relay_data:
-        # Bring all uplink interfaces down
-        for iface in dhcp_relay['uplink_interfaces']:
-            duthost.shell('config interface shutdown {}'.format(iface))
+        uplink_interfaces = dhcp_relay['uplink_interfaces']
 
-        pytest_assert(wait_until(50, 5, 0, check_link_status, duthost, dhcp_relay['uplink_interfaces'], "down"),
-                      "Not all uplinks go down")
+        try:
+            # Bring all uplink interfaces down
+            for iface in uplink_interfaces:
+                duthost.shell('config interface shutdown {}'.format(iface))
 
-        # Bring all uplink interfaces back up
-        for iface in dhcp_relay['uplink_interfaces']:
-            duthost.shell('config interface startup {}'.format(iface))
-
-        # Wait until uplinks are up and routes are recovered
-        pytest_assert(wait_until(50, 5, 0, check_routes_to_dhcp_server, duthost, dut_dhcp_relay_data),
-                      "Not all DHCP servers are routed")
+            pytest_assert(wait_until(50, 5, 0, check_link_status, duthost, uplink_interfaces, "down"),
+                          "Not all uplinks go down")
+        finally:
+            for iface in uplink_interfaces:
+                duthost.shell('config interface startup {}'.format(iface), module_ignore_errors=True)
+            pytest_assert(wait_until(50, 5, 0, check_routes_to_dhcp_server, duthost, dut_dhcp_relay_data),
+                          "Not all DHCP servers are routed")
 
         # Run the DHCP relay test on the PTF host
         ptf_runner(ptfhost,

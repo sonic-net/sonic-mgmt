@@ -580,19 +580,19 @@ def test_dhcp_relay_after_link_flap(ptfhost, dut_dhcp_relay_data, validate_dut_r
 
     try:
         for dhcp_relay in dut_dhcp_relay_data:
-            # Bring all uplink interfaces down
-            for iface in dhcp_relay['uplink_interfaces']:
-                duthost.shell('ifconfig {} down'.format(iface))
+            uplink_interfaces = dhcp_relay['uplink_interfaces']
 
-            # Sleep a bit to ensure uplinks are down
-            time.sleep(20)
+            try:
+                # Bring all uplink interfaces down
+                for iface in uplink_interfaces:
+                    duthost.shell('ifconfig {} down'.format(iface))
 
-            # Bring all uplink interfaces back up
-            for iface in dhcp_relay['uplink_interfaces']:
-                duthost.shell('ifconfig {} up'.format(iface))
-
-            # Sleep a bit to ensure uplinks are up
-            wait_all_bgp_up(duthost)
+                # Sleep a bit to ensure uplinks are down
+                time.sleep(20)
+            finally:
+                for iface in uplink_interfaces:
+                    duthost.shell('ifconfig {} up'.format(iface), module_ignore_errors=True)
+                wait_all_bgp_up(duthost)
 
             dhcp_server_num = len(dhcp_relay['downlink_vlan_iface']['dhcpv6_server_addrs'])
             restart_dhcpmon_in_debug(duthost)
