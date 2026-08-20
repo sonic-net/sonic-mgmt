@@ -205,7 +205,7 @@ everflow:
 fib/test_fib.py::test_ecmp_group_member_flap[True-False-1514]:
   skip:
     reason: >
-            Flaky on t0-vpp. TBD potentially adjust tolerance for vpp.
+            Flaky on t0-vpp.
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp'] and topo_type == 't0'"
