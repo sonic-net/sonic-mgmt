@@ -440,13 +440,10 @@ def perform_gnoi_upgrade(
     # ---- 7) Version validation ----
     images = _get_images_from_sonic_installer_list(duthost)
     logger.info("sonic-installer list parsed: %s", images)
-    if cfg.to_version:
-        pytest_assert(
-            images.get("current") == cfg.to_version,
-            f"Current image mismatch after reboot. current={images.get('current')} expected={cfg.to_version}. full={images}"  # noqa: E501
-        )
-    else:
-        logger.info("to_version not set; skipping version validation. current=%s", images.get("current"))
+    pytest_assert(
+        images.get("current") == target_version,
+        f"Current image mismatch after reboot. current={images.get('current')} expected={target_version}. full={images}"
+    )
 
     return {"transfer_resp": transfer_resp, "setpkg_resp": setpkg_resp}
 

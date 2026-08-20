@@ -100,7 +100,7 @@ def test_upgrade_one_dpu_via_gnoi(
 
     assert to_image, "target_image_list must be set (used as TransferToRemote remote_download.path)"
     if not to_version:
-        logger.warning("target_version not provided; SetPackage version field will be omitted and post-upgrade version validation will be skipped")  # noqa: E501
+        logger.info("target_version not provided; version will be extracted from the transferred image on the DUT")
 
     logger.info("SmartSwitch DPU gNOI upgrade: from=%s to=%s version=%s dpu_index=%s",
                 from_image, to_image, to_version, dpu_index)
@@ -155,7 +155,7 @@ def test_upgrade_multiple_dpus_via_gnoi_parallel(
 
     assert to_image, "target_image_list must be set"
     if not to_version:
-        logger.warning("target_version not provided; SetPackage version field will be omitted and post-upgrade version validation will be skipped")  # noqa: E501
+        logger.info("target_version not provided; version will be extracted from the transferred image on the DUT")
 
     workers = max_workers or len(dpu_indices)
 
