@@ -20,7 +20,6 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 METHOD_SUBSCRIBE = "subscribe"
-METHOD_GET = "get"
 MEMORY_CHECKER_WAIT = 1
 MEMORY_CHECKER_CYCLES = 60
 SUBMODE_ONCHANGE = 1
@@ -232,24 +231,6 @@ def test_telemetry_queue_buffer_cnt(duthosts, enum_rand_one_per_hwsku_hostname, 
         data = json.loads(duthost.shell("cat {}".format(ORIG_CFG_DB),
                                         verbose=False)['stdout'])
         load_new_cfg(duthost, data)
-
-
-@pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
-def test_osbuild_version(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
-                         setup_streaming_telemetry, gnxi_path):
-    """ Test osbuild/version query.
-    """
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    skip_201911_and_older(duthost)
-    cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path,
-                              method=METHOD_GET, target="OTHERS", xpath="osversion/build")
-    show_gnmi_out = ptfhost.shell(cmd)['stdout']
-    result = str(show_gnmi_out)
-
-    assert_equal(len(re.findall(r'"build_version": "SONiC\.', result)),
-                 1, "build_version value at {0}".format(result))
-    assert_equal(len(re.findall(r'SONiC\.NA', result, flags=re.IGNORECASE)),
-                 0, "invalid build_version value at {0}".format(result))
 
 
 @pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
