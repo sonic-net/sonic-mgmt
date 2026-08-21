@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 def test_firmware_activation(
     duthost, port_attributes_dict, cdb_firmware_qualifying_ports, get_lport_to_pport_mapping,
-    required_firmware_metadata_for_all_transceivers,
+    required_firmware_metadata_for_all_transceivers, lport_to_first_subport_mapping,
     dom_polling_disabled,
 ):
     """Activate selected firmware and verify every qualifying module recovers."""
@@ -18,6 +18,7 @@ def test_firmware_activation(
         duthost, port_attributes_dict, cdb_firmware_qualifying_ports,
         get_lport_to_pport_mapping,
         required_firmware_metadata_for_all_transceivers, firmware_operations.activation_op,
+        lport_to_first_subport_mapping,
         verify_post_operation=True,
     )
     logger.info("Firmware activation exercised %d port(s)", num_ports)

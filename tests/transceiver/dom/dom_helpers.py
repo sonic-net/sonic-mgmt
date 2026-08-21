@@ -248,6 +248,38 @@ def parse_min_max_range(mapped_field):
     return min_value, max_value, None
 
 
+def dom_field_available(field, _mapped_field, raw_value):
+    """``field_check`` callback: DOM field is present with a finite numeric value."""
+    value = parse_numeric(raw_value)
+    if value is None or not math.isfinite(value):
+        return "expected DOM field {} has no valid finite value (got {!r})".format(
+            field,
+            raw_value,
+        )
+    return None
+
+
+def dom_field_in_operational_range(field, mapped_field, raw_value):
+    """``field_check`` callback: DOM field is available and within its configured range."""
+    min_value, max_value, range_error = parse_min_max_range(mapped_field)
+    if range_error:
+        return range_error
+
+    error = dom_field_available(field, mapped_field, raw_value)
+    if error:
+        return error
+
+    value = parse_numeric(raw_value)
+    if not min_value <= value <= max_value:
+        return "{} value {} out of range [{}, {}]".format(
+            field,
+            value,
+            min_value,
+            max_value,
+        )
+    return None
+
+
 def validate_dom_plan_fields(
     duthost,
     dom_primary_ports,

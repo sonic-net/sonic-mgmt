@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 def test_firmware_upgrade_distinct_version(
     duthost, port_attributes_dict, cdb_firmware_qualifying_ports, get_lport_to_pport_mapping,
-    required_firmware_metadata_for_all_transceivers,
+    required_firmware_metadata_for_all_transceivers, lport_to_first_subport_mapping,
     dom_polling_disabled,
 ):
     """Upgrade every qualifying module to the fully distinct firmware version."""
@@ -19,6 +19,7 @@ def test_firmware_upgrade_distinct_version(
         get_lport_to_pport_mapping,
         required_firmware_metadata_for_all_transceivers,
         firmware_operations.distinct_version_upgrade_op,
+        lport_to_first_subport_mapping,
         verify_post_operation=True,
     )
     logger.info("Firmware upgrade to distinct version exercised %d port(s)", num_ports)
@@ -28,7 +29,7 @@ def test_firmware_upgrade_distinct_version(
 
 def test_firmware_upgrade_stress(
     duthost, port_attributes_dict, cdb_firmware_qualifying_ports, get_lport_to_pport_mapping,
-    required_firmware_metadata_for_all_transceivers,
+    required_firmware_metadata_for_all_transceivers, lport_to_first_subport_mapping,
     dom_polling_disabled,
 ):
     """Verify repeated full firmware upgrades succeed without drift."""
@@ -37,6 +38,7 @@ def test_firmware_upgrade_stress(
         get_lport_to_pport_mapping,
         required_firmware_metadata_for_all_transceivers,
         firmware_operations.upgrade_stress_op,
+        lport_to_first_subport_mapping,
         verify_post_operation=True,
     )
     logger.info("Firmware upgrade stress exercised %d port(s)", num_ports)

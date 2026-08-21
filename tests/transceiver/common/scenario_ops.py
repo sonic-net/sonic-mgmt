@@ -147,7 +147,8 @@ def perform_daemon_restart(duthost, daemon):
     duthost.restart_service(daemon)
 
 
-def perform_sfputil_reset(duthost, reset_ports, toggle_ports, shutdown_wait_sec, startup_wait_sec):
+def perform_sfputil_reset(duthost, reset_ports, toggle_ports, shutdown_wait_sec, startup_wait_sec,
+                          recover_wait_sec=0):
     """Shut every toggle port, sfputil-reset each module, start them back up.
 
     ``sfputil reset <port>`` resets a whole physical module, dropping every
@@ -161,7 +162,7 @@ def perform_sfputil_reset(duthost, reset_ports, toggle_ports, shutdown_wait_sec,
     Args:
         reset_ports: ports to issue ``sfputil reset`` on (one per module).
         toggle_ports: every subport to shut before / start after the resets.
-
+        recover_wait_sec: settle time between the resets and the startup.
     Returns:
         list[str]: operation failures for the caller to aggregate.
     """
@@ -175,6 +176,8 @@ def perform_sfputil_reset(duthost, reset_ports, toggle_ports, shutdown_wait_sec,
             logger.info("sfputil reset of %s took %ss", port, elapsed)
             if err:
                 failures.append(err)
+        if recover_wait_sec:
+            time.sleep(recover_wait_sec)
     finally:
         failures += perform_ports_startup(duthost, toggle_ports, startup_wait_sec)
 
@@ -239,7 +242,7 @@ def verify_lpmode(duthost, port, low_power):
     return []
 
 
-def perform_lpm_toggle(duthost, port, low_power=True, settle_sec=5):
+def perform_lpmode_set(duthost, port, low_power=True):
     """Move ``port``'s module into (``low_power=True``) or out of low-power mode.
 
     Returns a list of per-port failure strings.
@@ -248,5 +251,4 @@ def perform_lpm_toggle(duthost, port, low_power=True, settle_sec=5):
     logger.info("Port %s: lpmode %s took %ss", port, "on" if low_power else "off", elapsed)
     if err:
         return [err]
-    time.sleep(settle_sec)
     return verify_lpmode(duthost, port, low_power)

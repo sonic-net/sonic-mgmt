@@ -1,14 +1,12 @@
 import logging
-import math
 
 import pytest
 
 from tests.transceiver.attribute_parser.attribute_keys import DOM_ATTRIBUTES_KEY
-from tests.transceiver.common.db_helpers import parse_numeric
 from tests.transceiver.dom.dom_helpers import (
     OPERATIONAL_SUFFIX,
     build_dom_availability_plan,
-    parse_min_max_range,
+    dom_field_in_operational_range,
     read_dom_sensor_data,
     validate_dom_plan_fields,
 )
@@ -23,30 +21,6 @@ def _has_operational_range_attributes(port_attributes_dict, dom_primary_ports):
         if any(attr_name.endswith(OPERATIONAL_SUFFIX) for attr_name in dom_attrs):
             return True
     return False
-
-
-def _operational_range_field_check(field, mapped_field, raw_value):
-    """Validate one DOM sensor value is finite and within its configured range."""
-    min_value, max_value, range_error = parse_min_max_range(mapped_field)
-    if range_error:
-        return range_error
-
-    numeric_value = parse_numeric(raw_value)
-    if numeric_value is None or not math.isfinite(numeric_value):
-        return "{} missing/non-finite operational value in STATE_DB (raw={!r})".format(
-            field,
-            raw_value,
-        )
-
-    if not min_value <= numeric_value <= max_value:
-        return "{} value {} out of range [{}, {}]".format(
-            field,
-            numeric_value,
-            min_value,
-            max_value,
-        )
-
-    return None
 
 
 def test_dom_sensor_operational_range_validation(
@@ -71,7 +45,7 @@ def test_dom_sensor_operational_range_validation(
         dom_primary_ports,
         sensor_by_port,
         availability_plan_by_port,
-        _operational_range_field_check,
+        dom_field_in_operational_range,
     )
     all_failures.extend(range_failures)
 

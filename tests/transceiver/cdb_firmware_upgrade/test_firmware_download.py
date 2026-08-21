@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 def test_firmware_download(
     duthost, port_attributes_dict, cdb_firmware_qualifying_ports, get_lport_to_pport_mapping,
-    required_firmware_metadata_for_all_transceivers,
+    required_firmware_metadata_for_all_transceivers, lport_to_first_subport_mapping,
     dom_polling_disabled,
 ):
     """Download firmware to the target bank and verify every qualifying module."""
@@ -19,6 +19,7 @@ def test_firmware_download(
         duthost, port_attributes_dict, cdb_firmware_qualifying_ports,
         get_lport_to_pport_mapping,
         required_firmware_metadata_for_all_transceivers, firmware_operations.perform_firmware_download,
+        lport_to_first_subport_mapping,
         verify_post_operation=True,
     )
     logger.info("Firmware download exercised %d port(s)", num_ports)
@@ -28,7 +29,7 @@ def test_firmware_download(
 
 def test_firmware_download_post_reset(
     duthost, port_attributes_dict, cdb_firmware_qualifying_ports, get_lport_to_pport_mapping,
-    required_firmware_metadata_for_all_transceivers,
+    required_firmware_metadata_for_all_transceivers, lport_to_first_subport_mapping,
     dom_polling_disabled,
 ):
     """Verify a downloaded firmware image survives a transceiver reset."""
@@ -37,6 +38,7 @@ def test_firmware_download_post_reset(
         get_lport_to_pport_mapping,
         required_firmware_metadata_for_all_transceivers,
         firmware_operations.download_post_reset_op,
+        lport_to_first_subport_mapping,
         verify_post_operation=True,
     )
     logger.info("Firmware download post reset exercised %d port(s)", num_ports)
@@ -46,13 +48,13 @@ def test_firmware_download_post_reset(
 
 def test_firmware_download_low_power(
     duthost, port_attributes_dict, cdb_firmware_qualifying_ports, get_lport_to_pport_mapping,
-    required_firmware_metadata_for_all_transceivers,
+    required_firmware_metadata_for_all_transceivers, lport_to_first_subport_mapping,
     dom_polling_disabled,
 ):
     """Verify firmware downloads succeed while the module is in low-power mode."""
     low_power_ports = [
         port for port in cdb_firmware_qualifying_ports
-        if port_attributes_dict[port].get(SYSTEM_ATTRIBUTES_KEY, {}).get("low_power_mode_supported", False)
+        if port_attributes_dict[port][SYSTEM_ATTRIBUTES_KEY]["low_power_mode_supported"]
     ]
     if not low_power_ports:
         pytest.skip("No qualifying ports have low_power_mode_supported set")
@@ -62,6 +64,7 @@ def test_firmware_download_low_power(
         get_lport_to_pport_mapping,
         required_firmware_metadata_for_all_transceivers,
         firmware_operations.download_low_power_op,
+        lport_to_first_subport_mapping,
         verify_post_operation=True,
     )
     logger.info("Firmware download in low-power mode exercised %d port(s)", num_ports)
@@ -71,7 +74,7 @@ def test_firmware_download_low_power(
 
 def test_firmware_download_admin_down(
     duthost, port_attributes_dict, cdb_firmware_qualifying_ports, get_lport_to_pport_mapping,
-    required_firmware_metadata_for_all_transceivers,
+    required_firmware_metadata_for_all_transceivers, lport_to_first_subport_mapping,
     dom_polling_disabled,
 ):
     """Verify firmware downloads succeed while the port is admin-down."""
@@ -80,6 +83,7 @@ def test_firmware_download_admin_down(
         get_lport_to_pport_mapping,
         required_firmware_metadata_for_all_transceivers,
         firmware_operations.download_admin_down_op,
+        lport_to_first_subport_mapping,
         verify_post_operation=True,
     )
     logger.info("Firmware download with admin-down port exercised %d port(s)", num_ports)
