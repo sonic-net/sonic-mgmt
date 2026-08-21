@@ -17,7 +17,10 @@ from tests.transceiver.common.db_helpers import (
 )
 from tests.transceiver.dom.dom_helpers import (
     STATE_DB_SENSOR_TABLE,
+    STATE_DB_STATUS_TABLE,
     build_dom_sensor_plan,
+    consistency_field_template_for_attr,
+    field_template_is_lane_expanded,
     format_dom_port_failure,
     format_optional_float,
     read_dom_sensor_data,
@@ -26,27 +29,26 @@ from tests.transceiver.dom.dom_helpers import (
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_CONSISTENCY_CHECK_POLL_COUNT = 3
-DEFAULT_MAX_UPDATE_TIME_SEC = 60
 UPDATE_ADVANCE_MARGIN_SEC = 5
 TX_BIAS_THRESHOLD_ATTR = "tx_bias_threshold_range"
 TX_BIAS_CONSISTENCY_ATTR = "tx_bias_consistency_variation_threshold"
 MODE_ABSOLUTE = "absolute"
 MODE_PERCENT = "percent"
 
-CONSISTENCY_FIELD_DEFINITIONS = (
-    ("temperature_consistency_variation_threshold", "temperature", "C", MODE_ABSOLUTE, False),
-    ("voltage_consistency_variation_threshold", "voltage", "V", MODE_ABSOLUTE, False),
-    ("laser_temperature_consistency_variation_threshold", "laser_temperature", "C", MODE_ABSOLUTE, False),
-    ("tx_power_consistency_variation_threshold", "tx{}power", "dB", MODE_ABSOLUTE, True),
-    ("rx_power_consistency_variation_threshold", "rx{}power", "dB", MODE_ABSOLUTE, True),
-    (TX_BIAS_CONSISTENCY_ATTR, "tx{}bias", "percent", MODE_PERCENT, True),
+CONSISTENCY_CHECK_DEFINITIONS = (
+    ("temperature_consistency_variation_threshold", "C", MODE_ABSOLUTE),
+    ("voltage_consistency_variation_threshold", "V", MODE_ABSOLUTE),
+    ("laser_temperature_consistency_variation_threshold", "C", MODE_ABSOLUTE),
+    ("tx_power_consistency_variation_threshold", "dB", MODE_ABSOLUTE),
+    ("rx_power_consistency_variation_threshold", "dB", MODE_ABSOLUTE),
+    (TX_BIAS_CONSISTENCY_ATTR, "percent", MODE_PERCENT),
 )
 
 
-def _parse_positive_int(attr_name, raw_value, default_value, minimum):
+def _parse_positive_int(attr_name, raw_value, minimum):
+    """Return ``(value, error)`` for configured positive integer DOM attributes."""
     if raw_value is None:
-        return default_value, None
+        return None, "{} missing in DOM_ATTRIBUTES".format(attr_name)
 
     value = parse_numeric(raw_value)
     if value is None or not math.isfinite(value) or int(value) != value or value < minimum:
@@ -57,6 +59,7 @@ def _parse_positive_int(attr_name, raw_value, default_value, minimum):
 
 
 def _parse_non_negative_threshold(attr_name, raw_value):
+    """Return ``(threshold, error)`` for configured consistency thresholds."""
     value = parse_numeric(raw_value)
     if value is None or not math.isfinite(value) or value < 0:
         return None, "{} must be a finite non-negative number in DOM_ATTRIBUTES (got {!r})".format(
@@ -66,6 +69,7 @@ def _parse_non_negative_threshold(attr_name, raw_value):
 
 
 def _parse_tx_bias_warning_range(dom_attrs):
+    """Return ``{"low": value, "high": value, "error": reason}`` for Tx-bias gating."""
     attr_value = dom_attrs.get(TX_BIAS_THRESHOLD_ATTR)
     if not isinstance(attr_value, dict):
         return {"low": None, "high": None, "error": "{} not configured as a dict".format(TX_BIAS_THRESHOLD_ATTR)}
@@ -100,23 +104,29 @@ def _build_dom_consistency_plan(port_attributes_dict, dom_primary_ports, sensor_
         poll_count, poll_error = _parse_positive_int(
             "consistency_check_poll_count",
             dom_attrs.get("consistency_check_poll_count"),
-            DEFAULT_CONSISTENCY_CHECK_POLL_COUNT,
             minimum=2,
         )
         if poll_error:
             errors.append(poll_error)
-            poll_count = DEFAULT_CONSISTENCY_CHECK_POLL_COUNT
 
         has_lane_check = any(
-            attr_name in dom_attrs and lane_expanded
-            for attr_name, _field_template, _unit, _mode, lane_expanded in CONSISTENCY_FIELD_DEFINITIONS
+            attr_name in dom_attrs
+            and consistency_field_template_for_attr(attr_name)
+            and field_template_is_lane_expanded(consistency_field_template_for_attr(attr_name))
+            for attr_name, _unit, _mode in CONSISTENCY_CHECK_DEFINITIONS
         )
         if has_lane_check and sensor_plan.get("errors"):
             errors.extend(sensor_plan["errors"])
 
-        for attr_name, field_template, unit, mode, lane_expanded in CONSISTENCY_FIELD_DEFINITIONS:
+        for attr_name, unit, mode in CONSISTENCY_CHECK_DEFINITIONS:
             if attr_name not in dom_attrs:
                 continue
+
+            field_template = consistency_field_template_for_attr(attr_name)
+            if field_template is None:
+                errors.append("{} has no DOM consistency field mapping".format(attr_name))
+                continue
+            lane_expanded = field_template_is_lane_expanded(field_template)
 
             threshold, threshold_error = _parse_non_negative_threshold(attr_name, dom_attrs[attr_name])
             if threshold_error:
@@ -153,6 +163,7 @@ def _build_dom_consistency_plan(port_attributes_dict, dom_primary_ports, sensor_
 
 
 def _collect_dom_samples(duthost, dom_primary_ports, sample_count, interval_sec, read_status):
+    """Return ``(samples_by_port, read_failures)`` for interval-based DOM samples."""
     samples_by_port = {port: [] for port in dom_primary_ports}
     read_failures = []
     sleep_sec = interval_sec + UPDATE_ADVANCE_MARGIN_SEC
@@ -173,8 +184,8 @@ def _collect_dom_samples(duthost, dom_primary_ports, sample_count, interval_sec,
         )
         for port in dom_primary_ports:
             samples_by_port[port].append({
-                "sensor": sensor_by_port.get(port, {}) or {},
-                "status": status_by_port.get(port, {}) or {},
+                "sensor": sensor_by_port.get(port, {}),
+                "status": status_by_port.get(port, {}) if read_status else {},
             })
 
         logger.debug("Collected DOM consistency sample %d/%d", sample_index, sample_count)
@@ -185,11 +196,15 @@ def _collect_dom_samples(duthost, dom_primary_ports, sample_count, interval_sec,
 
 
 def _numeric_sensor_value(sensor_data, field):
+    """Return a finite numeric sensor value, or ``None`` when absent/unparseable."""
+    if not isinstance(sensor_data, dict):
+        return None
     value = parse_numeric(sensor_data.get(field))
     return value if value is not None and math.isfinite(value) else None
 
 
 def _format_delta_failure(field, sample_index, delta, threshold, unit, previous_value, current_value):
+    """Return a formatted sensor-delta threshold failure message."""
     return "{} sample {}->{} delta {}{} exceeds {}{} (prev={}, curr={})".format(
         field,
         sample_index,
@@ -204,8 +219,14 @@ def _format_delta_failure(field, sample_index, delta, threshold, unit, previous_
 
 
 def _validate_pair(port, field, check, previous_sample, current_sample, sample_index, plan):
+    """Return ``(error, checked, skip_reason)`` for one sample pair and field."""
     previous_sensor = previous_sample["sensor"]
     current_sensor = current_sample["sensor"]
+    if previous_sensor is None or current_sensor is None:
+        return None, False, "{} namespace read failed".format(STATE_DB_SENSOR_TABLE)
+    if not previous_sensor or not current_sensor:
+        return None, False, "{} entry missing for one or both samples".format(STATE_DB_SENSOR_TABLE)
+
     previous_value = _numeric_sensor_value(previous_sensor, field)
     current_value = _numeric_sensor_value(current_sensor, field)
 
@@ -230,6 +251,8 @@ def _validate_pair(port, field, check, previous_sample, current_sample, sample_i
     current_status = current_sample["status"]
     if warning_range["error"]:
         skip_reason = warning_range["error"]
+    elif previous_status is None or current_status is None:
+        skip_reason = "{} namespace read failed".format(STATE_DB_STATUS_TABLE)
     elif not (
         is_state_db_dp_state_activated(previous_status, lane)
         and is_state_db_dp_state_activated(current_status, lane)
@@ -274,6 +297,7 @@ def _validate_pair(port, field, check, previous_sample, current_sample, sample_i
 
 
 def _validate_port_samples(port, port_samples, plan):
+    """Return ``(failures, checked_pair_count)`` for one port's collected samples."""
     failures = []
     checked_pair_count = 0
     checked_by_attr = defaultdict(int)
@@ -282,6 +306,12 @@ def _validate_port_samples(port, port_samples, plan):
     parsed_times = []
     for sample_index in range(plan["poll_count"]):
         sensor_data = port_samples[sample_index]["sensor"]
+        if sensor_data is None:
+            failures.append("sample {}: could not read {} for port (namespace read failed)".format(
+                sample_index + 1, STATE_DB_SENSOR_TABLE
+            ))
+            parsed_times.append(None)
+            continue
         if not sensor_data:
             failures.append("sample {}: no {} entry published for port".format(
                 sample_index + 1, STATE_DB_SENSOR_TABLE
@@ -360,7 +390,7 @@ def test_dom_data_consistency_verification(
         None,
     )
     update_interval_sec, update_interval_error = _parse_positive_int(
-        "max_update_time_sec", raw_update_interval, DEFAULT_MAX_UPDATE_TIME_SEC, minimum=1
+        "max_update_time_sec", raw_update_interval, minimum=1
     )
 
     config_failures = [update_interval_error] if update_interval_error else []

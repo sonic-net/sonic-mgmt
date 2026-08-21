@@ -28,6 +28,7 @@ STATE_DB_THRESHOLD_TABLE = "TRANSCEIVER_DOM_THRESHOLD"
 
 OPERATIONAL_SUFFIX = "_operational_range"
 THRESHOLD_SUFFIX = "_threshold_range"
+CONSISTENCY_SUFFIX = "_consistency_variation_threshold"
 LANE_NUM_PLACEHOLDER = "LANE_NUM"
 MEDIA_LANE_MASK_KEY = "media_lane_mask"
 DomMappedField = namedtuple("DomMappedField", ("source_attr", "attr_value"))
@@ -51,6 +52,14 @@ THRESHOLD_TO_OPERATIONAL_ATTR = {
     "rx_power": "rxLANE_NUMpower_operational_range",
 }
 THRESHOLD_VALUE_TOLERANCE = 0.01
+CONSISTENCY_FIELD_TEMPLATES_BY_BASE = {
+    "temperature": "temperature",
+    "voltage": "voltage",
+    "laser_temperature": "laser_temperature",
+    "tx_power": "tx{}power",
+    "rx_power": "rx{}power",
+    "tx_bias": "tx{}bias",
+}
 
 DOM_POLLING_ENABLED_VALUES = ("", "enabled")
 DOM_POLLING_DISABLED_VALUE = "disabled"
@@ -150,6 +159,7 @@ def _map_threshold_attribute_to_fields(attr_name, attr_value):
 
 
 def _map_threshold_attribute_to_fields_for_dispatch(attr_name, attr_value, _active_media_lanes):
+    """Return threshold mapping through the 3-argument DOM field-dispatch contract."""
     return _map_threshold_attribute_to_fields(attr_name, attr_value)
 
 
@@ -178,6 +188,19 @@ def _operational_attr_for_threshold(attr_name):
     """Return the configured operational-range attribute paired with a threshold attribute."""
     base_name = attr_name[:-len(THRESHOLD_SUFFIX)]
     return THRESHOLD_TO_OPERATIONAL_ATTR.get(base_name)
+
+
+def consistency_field_template_for_attr(attr_name):
+    """Return the STATE_DB sensor field template for a consistency attribute."""
+    if not attr_name.endswith(CONSISTENCY_SUFFIX):
+        return None
+    base_name = attr_name[:-len(CONSISTENCY_SUFFIX)]
+    return CONSISTENCY_FIELD_TEMPLATES_BY_BASE.get(base_name)
+
+
+def field_template_is_lane_expanded(field_template):
+    """Return True when a STATE_DB field template expects a lane number."""
+    return "{}" in field_template
 
 
 def build_dom_sensor_plan(port_attributes_dict, dom_primary_ports, lport_to_first_subport_mapping):
@@ -237,30 +260,40 @@ def build_dom_threshold_plan(port_attributes_dict, dom_primary_ports):
     for port in dom_primary_ports:
         dom_attrs = port_attributes_dict.get(port, {}).get(DOM_ATTRIBUTES_KEY, {})
         expected_fields = {}
-        threshold_attrs = {}
-        operational_ranges = {}
+        configured_by_attr = {}
+        db_fields_by_threshold_attr = defaultdict(dict)
+        operational_range_by_threshold_attr = {}
         errors = []
 
         for attr_name, attr_value in sorted(dom_attrs.items()):
             if not attr_name.endswith(THRESHOLD_SUFFIX):
                 continue
 
-            threshold_attrs[attr_name] = attr_value
+            configured_by_attr[attr_name] = attr_value
             mapped_fields, field_errors = map_dom_attribute_to_fields(attr_name, attr_value, active_media_lanes=None)
             expected_fields.update(mapped_fields)
+            for field, mapped_field in mapped_fields.items():
+                db_fields_by_threshold_attr[attr_name][field] = mapped_field
             errors.extend(field_errors)
 
             operational_attr = _operational_attr_for_threshold(attr_name)
             if operational_attr in dom_attrs:
-                operational_ranges[attr_name] = DomMappedField(
+                operational_range_by_threshold_attr[attr_name] = DomMappedField(
                     operational_attr,
                     dom_attrs[operational_attr],
                 )
 
         plan_by_port[port] = {
             "expected_fields": {field: expected_fields[field] for field in sorted(expected_fields)},
-            "threshold_attrs": threshold_attrs,
-            "operational_ranges": operational_ranges,
+            "configured_by_attr": configured_by_attr,
+            "db_fields_by_threshold_attr": {
+                attr_name: {
+                    field: db_fields_by_threshold_attr[attr_name][field]
+                    for field in sorted(db_fields_by_threshold_attr[attr_name])
+                }
+                for attr_name in sorted(db_fields_by_threshold_attr)
+            },
+            "operational_range_by_threshold_attr": operational_range_by_threshold_attr,
             "errors": errors,
         }
         logger.debug(
@@ -268,8 +301,8 @@ def build_dom_threshold_plan(port_attributes_dict, dom_primary_ports):
             "%d paired operational range attr(s)",
             port,
             len(expected_fields),
-            len(threshold_attrs),
-            len(operational_ranges),
+            len(configured_by_attr),
+            len(operational_range_by_threshold_attr),
         )
 
     return plan_by_port
@@ -393,6 +426,13 @@ def validate_dom_plan_fields(
             continue
         checked_port_count += 1
 
+        if sensor_data is None:
+            field_failures.append(
+                "could not read {} for port (namespace read failed)".format(STATE_DB_SENSOR_TABLE)
+            )
+            failures.append(format_dom_port_failure(port, active_lanes, expected_fields, field_failures))
+            continue
+
         if not sensor_data:
             field_failures.append(
                 "no {} entry published for port".format(STATE_DB_SENSOR_TABLE)
@@ -450,7 +490,11 @@ def validate_dom_plan_fields(
 
 
 def _read_dom_table_data(duthost, ports, table_name):
-    """Return ``({port: {field: value}}, errors)`` for a current DOM STATE_DB table."""
+    """Return ``({port: data_or_None}, errors)`` for a current DOM STATE_DB table.
+
+    A value of ``None`` means the namespace-level table read failed, while an
+    empty dict means the table read succeeded and the port entry was absent.
+    """
     ports = list(ports)
     table_data_by_port = {port: {} for port in ports}
     errors = []
@@ -468,12 +512,22 @@ def _read_dom_table_data(duthost, ports, table_name):
         )
         if err:
             errors.append(
-                "{} namespace {}: {}".format(
+                "{} namespace {} ({} port(s) under test): {}".format(
                     table_name,
                     namespace or "default",
+                    len(namespace_ports),
                     err,
                 )
             )
+            logger.warning(
+                "Failed to read %s namespace %s for %d port(s): %s",
+                table_name,
+                namespace or "default",
+                len(namespace_ports),
+                err,
+            )
+            for port in namespace_ports:
+                table_data_by_port[port] = None
             continue
 
         for port in namespace_ports:
@@ -492,17 +546,17 @@ def _read_dom_table_data(duthost, ports, table_name):
 
 
 def read_dom_sensor_data(duthost, ports):
-    """Return ``({port: {field: value}}, errors)`` for current DOM sensor data."""
+    """Return ``({port: data_or_None}, errors)`` for current DOM sensor data."""
     return _read_dom_table_data(duthost, ports, STATE_DB_SENSOR_TABLE)
 
 
 def read_transceiver_status_data(duthost, ports):
-    """Return ``({port: {field: value}}, errors)`` for current transceiver status data."""
+    """Return ``({port: data_or_None}, errors)`` for current transceiver status data."""
     return _read_dom_table_data(duthost, ports, STATE_DB_STATUS_TABLE)
 
 
 def read_dom_threshold_data(duthost, ports):
-    """Return ``({port: {field: value}}, errors)`` for current DOM threshold data."""
+    """Return ``({port: data_or_None}, errors)`` for current DOM threshold data."""
     return _read_dom_table_data(duthost, ports, STATE_DB_THRESHOLD_TABLE)
 
 
