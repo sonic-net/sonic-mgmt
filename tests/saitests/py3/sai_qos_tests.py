@@ -4996,9 +4996,11 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
             print(diff_list, file=sys.stderr)
 
             for dscp, diff in diff_list:
-                if platform_asic and platform_asic == "broadcom-dnx":
+                if ((platform_asic and platform_asic == "broadcom-dnx")
+                        or ('Nokia-IXR7220-H6' in self.test_params.get('hwsku', ''))):
                     logging.info(
-                        "On J2C+ can't control how packets are dequeued (CS00012272267) - so ignoring diff check now")
+                        "On J2C+ and TH asics can't control how packets are dequeued (CS00012272267)"
+                        " - so ignoring diff check now")
                 elif not dry_run:
                     assert diff < limit, "Difference for %d is %d which exceeds limit %d" % (
                         dscp, diff, limit)
