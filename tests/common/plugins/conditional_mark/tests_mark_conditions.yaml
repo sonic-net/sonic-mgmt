@@ -1260,6 +1260,10 @@ dhcp_relay/test_dhcp_relay_stress.py::test_dhcp_relay_stress:
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - "asic_type in ['vs']"
+  xfail:
+    reason: "DHCP relay stress test is unstable on t0-vpp"
+    conditions:
+      - "asic_type in ['vpp']"
 
 dhcp_relay/test_dhcp_relay_stress.py::test_dhcp_relay_stress[discover:
   skip:
