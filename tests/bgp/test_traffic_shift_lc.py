@@ -18,9 +18,16 @@ from tests.bgp.traffic_checker import get_traffic_shift_state, check_tsa_persist
 from tests.bgp.constants import TS_NORMAL, TS_MAINTENANCE, TS_NO_NEIGHBORS
 from tests.conftest import get_hosts_per_hwsku, backup_golden_config, restore_golden_config, \
     update_golden_config_tsa_enabled
+from tests.common.fixtures.frr_config_mode import FRR_BGP_DEVICE_GLOBAL_GAP_REASON
 
 pytestmark = [
-    pytest.mark.topology('t2')
+    pytest.mark.topology('t2'),
+    pytest.mark.frr_bgpcfgd_only(FRR_BGP_DEVICE_GLOBAL_GAP_REASON),
+    # TSA/TSB legitimately produces a dplane_fpm_nl core on some platforms. Declaring it
+    # here rather than only appending to core_dump_and_config_check's pre_core_dumps lets
+    # every core-dump checker honour it -- including the focused frr_dual_mode one, which
+    # runs when skip_check_dut_health has disabled the generic check.
+    pytest.mark.expected_core_dumps("dplane_fpm_nl"),
 ]
 
 logger = logging.getLogger(__name__)
@@ -264,9 +271,12 @@ def test_tsa_b_c_with_no_neighbors(request, duthosts, nbrhosts, core_dump_and_co
                 existing_core_dumps = duthost.shell('ls /var/core/ | grep -v python || true')['stdout'].split()
             else:
                 existing_core_dumps = duthost.shell('ls /var/core/')['stdout'].split()
-            for core_dump in existing_core_dumps:
-                if re.match("dplane_fpm_nl", core_dump):
-                    duts_data[duthost.hostname]["pre_core_dumps"].append(core_dump)
+            # duts_data is {} when the generic check is disabled (skip_check_dut_health);
+            # the expected_core_dumps marker covers that case instead.
+            if duthost.hostname in duts_data:
+                for core_dump in existing_core_dumps:
+                    if re.match("dplane_fpm_nl", core_dump):
+                        duts_data[duthost.hostname]["pre_core_dumps"].append(core_dump)
 
         verify_route_on_neighbors(frontend_nodes_per_hwsku, dut_nbrhosts, orig_v4_routes, orig_v6_routes)
         # Bring back line cards to the BGP operational normal state
@@ -349,7 +359,8 @@ def test_tsa_tsb_with_config_reload(request, duthosts, nbrhosts, traffic_shift_c
 
 
 @pytest.mark.disable_loganalyzer
-def test_load_minigraph_with_traffic_shift_away(request, duthosts, nbrhosts, traffic_shift_community, tbinfo):
+def test_load_minigraph_with_traffic_shift_away(
+        request, duthosts, nbrhosts, traffic_shift_community, tbinfo):
     """
     Test load_minigraph --traffic-shift-away
     Verify all routes are announced to bgp monitor, and only loopback routes are announced to neighs

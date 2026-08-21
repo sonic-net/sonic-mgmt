@@ -28,6 +28,7 @@ from tests.common.dualtor.dual_tor_utils import validate_active_active_dualtor_s
 from tests.common.dualtor.mux_simulator_control import mux_server_url  # noqa:F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m    # noqa:F401 E501
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
+from tests.common.fixtures.frr_config_mode import skip_if_dut_not_switched
 
 
 pytestmark = [
@@ -413,6 +414,7 @@ def match_bgp_update(packet, src_ip, dst_ip, action, route, is_v6_topo):
 
 
 def test_bgp_update_timer_single_route(
+    frr_config_mode,
     common_setup_teardown,
     constants,
     duthosts,
@@ -423,6 +425,11 @@ def test_bgp_update_timer_single_route(
     tbinfo
 ):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    # frr_config_mode switches rand_one_dut_hostname, but this test runs against the DUT
+    # enum_rand_one_per_hwsku_frontend_hostname picked. On a dualtor (two single-ASIC
+    # frontend DUTs) those resolve independently, so skip rather than claim frr coverage
+    # for a DUT still in its original mode.
+    skip_if_dut_not_switched(request, duthost)
     is_v6_topo = is_ipv6_only_topology(tbinfo)
 
     (n0, n1), _ = common_setup_teardown
@@ -543,6 +550,7 @@ def test_bgp_update_timer_single_route(
 
 
 def test_bgp_update_timer_session_down(
+    frr_config_mode,
     common_setup_teardown,
     constants,
     duthosts,
@@ -553,6 +561,11 @@ def test_bgp_update_timer_session_down(
     tbinfo
 ):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    # frr_config_mode switches rand_one_dut_hostname, but this test runs against the DUT
+    # enum_rand_one_per_hwsku_frontend_hostname picked. On a dualtor (two single-ASIC
+    # frontend DUTs) those resolve independently, so skip rather than claim frr coverage
+    # for a DUT still in its original mode.
+    skip_if_dut_not_switched(request, duthost)
     is_v6_topo = is_ipv6_only_topology(tbinfo)
 
     (n0, n1), use_vtysh = common_setup_teardown

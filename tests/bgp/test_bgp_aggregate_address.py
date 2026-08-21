@@ -32,12 +32,16 @@ from bgp_aggregate_helpers import (
     verify_bgp_aggregate_cleanup,
 )
 from tests.common.gcu_utils import create_checkpoint, rollback_or_reload, delete_checkpoint
+from tests.common.fixtures.frr_config_mode import (
+    FRR_BGPCFGD_ONLY_AGGREGATE_REASON,
+)
 
 logger = logging.getLogger(__name__)
 
 # ---- Topology & device-type markers (register in pytest.ini to avoid warnings) ----
 pytestmark = [
     pytest.mark.topology("m1"),
+    pytest.mark.frr_bgpcfgd_only(FRR_BGPCFGD_ONLY_AGGREGATE_REASON),
 ]
 
 

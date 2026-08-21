@@ -29,6 +29,7 @@ from tests.common.utilities import wait_until
 logger = logging.getLogger(__name__)
 
 pytestmark = [
+    pytest.mark.frr_generic,
     pytest.mark.topology('c0'),
 ]
 
@@ -130,7 +131,7 @@ def _get_c0_link_ip_to_neighbor(tbinfo, neighbor_name, ip_version):
 
 
 @pytest.mark.parametrize("ip_version", [4, 6])
-def test_c0_bgp_scenario1_regular_data_path(duthost, ip_version):
+def test_c0_bgp_scenario1_regular_data_path(frr_config_mode, duthost, ip_version):
     """
     Scenario #1 - Regular data path.
 
@@ -149,7 +150,7 @@ def test_c0_bgp_scenario1_regular_data_path(duthost, ip_version):
 
 
 @pytest.mark.parametrize("ip_version", [4, 6])
-def test_c0_bgp_scenario2_backup_data_path(duthost, ip_version):
+def test_c0_bgp_scenario2_backup_data_path(frr_config_mode, duthost, ip_version):
     """
     Scenario #2 - Backup data path.
 
@@ -182,7 +183,7 @@ def test_c0_bgp_scenario2_backup_data_path(duthost, ip_version):
 
 
 @pytest.mark.parametrize("ip_version", [4, 6])
-def test_c0_bgp_scenario3_provision_data_path_for_c0(duthost, ip_version):
+def test_c0_bgp_scenario3_provision_data_path_for_c0(frr_config_mode, duthost, ip_version):
     """
     Scenario #3 - Provision data path (for C0).
 
@@ -220,7 +221,7 @@ def test_c0_bgp_scenario3_provision_data_path_for_c0(duthost, ip_version):
 
 @pytest.mark.parametrize("ip_version", [4, 6])
 def test_c0_bgp_scenario4_provision_data_path_for_m1(
-    duthost, nbrhosts, localhost, ptfhost, tbinfo, ip_version,
+    frr_config_mode, duthost, nbrhosts, localhost, ptfhost, tbinfo, ip_version,
 ):
     """
     Scenario #4 - Provision data path (for M1).

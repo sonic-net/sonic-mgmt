@@ -30,12 +30,17 @@ from tests.common.gcu_utils import create_checkpoint, rollback_or_reload, delete
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.bgp_routing import inject_routes, verify_route_on_neighbors
 from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP
+from tests.common.fixtures.frr_config_mode import (
+    FRR_BGPCFGD_ONLY_AGGREGATE_REASON,
+)
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology("m1"),
+    pytest.mark.frr_bgpcfgd_only(FRR_BGPCFGD_ONLY_AGGREGATE_REASON),
 ]
+
 
 # ---- Test data ----
 AGGR_V4 = "10.100.0.0/16"

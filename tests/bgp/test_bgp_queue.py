@@ -6,6 +6,7 @@ from tests.common.utilities import wait_until
 logger = logging.getLogger(__name__)
 
 pytestmark = [
+    pytest.mark.frr_generic,
     pytest.mark.topology('any'),
     pytest.mark.device_type('vs')
 ]
@@ -49,7 +50,7 @@ def assert_queue_counter_zero(queue_counters, port_name, queue_start=0, queue_en
         ).format(port_name, q, counter_value)
 
 
-def test_bgp_queues(duthosts, enum_frontend_dut_hostname, enum_asic_index, tbinfo):
+def test_bgp_queues(frr_config_mode, duthosts, enum_frontend_dut_hostname, enum_asic_index, tbinfo):
     duthost = duthosts[enum_frontend_dut_hostname]
     asichost = duthost.asic_instance(enum_asic_index)
     clear_queue_counters(asichost)

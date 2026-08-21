@@ -12,9 +12,11 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.utilities import wait_tcp_connection
 from bgp_helpers import BGPMON_TEMPLATE_FILE, BGPMON_CONFIG_FILE, BGP_MONITOR_NAME, BGP_MONITOR_PORT
+from tests.common.fixtures.frr_config_mode import FRR_LEGACY_BGP_MONITORS_REASON
 
 pytestmark = [
     pytest.mark.topology('t2', 'lrh', 'urh'),
+    pytest.mark.frr_bgpcfgd_only(FRR_LEGACY_BGP_MONITORS_REASON),
 ]
 
 BGP_PORT = 179
@@ -184,7 +186,8 @@ def test_bgpmon_v6(duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostnam
         ptfhost.shell("ip -6 addr del %s dev %s" % (peer_addr + "/128", ptf_interface))
 
 
-def test_bgpmon_no_ipv6_resolve_via_default(duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname, ptfhost,
+def test_bgpmon_no_ipv6_resolve_via_default(duthosts, localhost,
+                                            enum_rand_one_per_hwsku_frontend_hostname, ptfhost,
                                             enum_rand_one_frontend_asic_index, common_v6_setup_teardown, ptfadapter):
     """
     Verify no syn for BGP is sent when 'ipv6 nht resolve-via-default' is disabled.

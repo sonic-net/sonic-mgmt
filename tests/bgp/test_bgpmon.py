@@ -14,9 +14,11 @@ from tests.common.utilities import wait_until
 from tests.common.utilities import wait_tcp_connection
 from tests.common.utilities import is_ipv6_only_topology
 from bgp_helpers import BGPMON_TEMPLATE_FILE, BGPMON_CONFIG_FILE, BGP_MONITOR_NAME, BGP_MONITOR_PORT
+from tests.common.fixtures.frr_config_mode import FRR_LEGACY_BGP_MONITORS_REASON
 
 pytestmark = [
     pytest.mark.topology('any'),
+    pytest.mark.frr_bgpcfgd_only(FRR_LEGACY_BGP_MONITORS_REASON),
 ]
 
 BGP_PORT = 179

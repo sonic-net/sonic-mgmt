@@ -5,6 +5,8 @@ import time
 import yaml
 
 from tests.common.gcu_utils import apply_gcu_patch
+from tests.common.helpers.bgp import get_db_cli_prefix_for_namespace
+from tests.common.helpers.constants import DEFAULT_NAMESPACE
 
 CONSTANTS_FILE = "/etc/sonic/constants.yml"
 logger = logging.getLogger(__name__)
@@ -32,6 +34,81 @@ def get_bbr_default_state(duthost):
             return bbr_supported, bbr_default_state
 
     return bbr_supported, bbr_default_state
+
+
+def get_bbr_peer_group_afs(duthost):
+    """Return the BBR-eligible ``{peer-group: [afi_safi, ...]}`` from constants.yml.
+
+    Computed the way ``BBRMgr.__read_pgs`` does: the union of
+    ``constants.bgp.peers.<peer_type>.bbr``, e.g. ``{'PEER_V4': ['ipv4_unicast'],
+    'PEER_V6': ['ipv6_unicast']}``. bgpcfgd applies ``allowas-in 1`` to exactly these
+    peer-group/address-family pairs and no others.
+    """
+    constants = yaml.safe_load(duthost.shell("cat {}".format(CONSTANTS_FILE))["stdout"])
+    peers = (constants.get("constants", {}).get("bgp", {}).get("peers") or {})
+    result = {}
+    for value in peers.values():
+        for pg_name, pg_afs in ((value or {}).get("bbr") or {}).items():
+            result[pg_name] = ["{}_unicast".format(af) for af in (pg_afs or [])]
+    return result
+
+
+def program_bbr_for_mode(duthost, enabled, namespace=DEFAULT_NAMESPACE):
+    """Make BBR take effect regardless of FRR config mode.
+
+    In traditional (bgpcfgd) mode the BGP_BBR table is consumed by bgpcfgd, which
+    applies ``allowas-in 1`` to the BBR-enabled peer-groups -- nothing extra is
+    needed here. In frr_mgmt_framework mode frrcfgd does not consume BGP_BBR, but it
+    *does* support allowas-in natively (BGP_PEER_GROUP_AF ``allow_as_in``), so program
+    the equivalent directly. Callers still set the BGP_BBR table (so its value is
+    asserted / persisted); this just adds the frr-native realization. frrcfgd not
+    consuming BGP_BBR is by design -- it uses the native allowas-in schema rather than
+    the bgpcfgd convenience table.
+
+    Only the peer-group/address-family pairs ``constants.yml`` marks BBR-eligible are
+    touched, matching BBRMgr rather than writing ``allow_as_in`` onto every
+    BGP_PEER_GROUP_AF row. The current BBR tests use only the standard eligible T1
+    groups, so the two agreed by accident; an unrelated peer-group on the DUT would have
+    made them diverge.
+
+    ``namespace`` selects the ASIC whose CONFIG_DB and FRR instance are programmed. It
+    must be the namespace the caller resolved for the peer under test: on a native-frrcfgd
+    multi-ASIC DUT the selected T0 can live on a non-default ASIC, and defaulting to the
+    host CONFIG_DB would silently miss that ASIC's peer-group rows.
+    """
+    if not duthost.get_frr_mgmt_framework_config():
+        return
+    db_cli = get_db_cli_prefix_for_namespace(namespace)
+    eligible = get_bbr_peer_group_afs(duthost)
+    if not eligible:
+        logger.warning("No BBR-eligible peer-groups in %s; nothing to program for frr mode",
+                       CONSTANTS_FILE)
+        return
+    pg_af_keys = [k for k in duthost.shell(
+        '{} CONFIG_DB KEYS "BGP_PEER_GROUP_AF|*"'.format(db_cli))["stdout"].splitlines()
+        if k.strip()]
+    peer_groups = set()
+    for key in pg_af_keys:
+        fields = key.split("|")            # BGP_PEER_GROUP_AF|<vrf>|<pg>|<afi_safi>
+        if len(fields) < 4:
+            continue
+        pg, afi_safi = fields[2], fields[3]
+        if afi_safi not in eligible.get(pg, []):
+            continue
+        peer_groups.add(pg)
+        if enabled:
+            duthost.shell("{} CONFIG_DB hset '{}' allow_as_in true allow_as_count 1".format(
+                db_cli, key))
+        else:
+            duthost.shell("{} CONFIG_DB hdel '{}' allow_as_in allow_as_count".format(
+                db_cli, key))
+    time.sleep(3)
+    # Re-evaluate already-received routes so allowas-in takes effect on live sessions,
+    # mirroring bgpcfgd's BBRMgr restart_peer_groups (clear bgp peer-group <pg> soft in).
+    asichost = duthost.asic_instance_from_namespace(namespace)
+    for pg in sorted(peer_groups):
+        asichost.run_vtysh('-c "clear bgp peer-group {} soft in"'.format(pg))
+    time.sleep(3)
 
 
 def is_bbr_enabled(duthost):

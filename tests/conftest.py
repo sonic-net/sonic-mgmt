@@ -24,6 +24,7 @@ from datetime import datetime
 from ipaddress import ip_interface, IPv4Interface
 from tests.common.multi_servers_utils import MultiServersUtils
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa: F401
+from tests.common.fixtures.frr_config_mode import frr_mode_perturbed, frr_mode_switch_count
 from tests.common.fixtures.vlan_config_swap import parametrize_vlan_config_from_topo  # noqa: F401
 from tests.common.devices.local import Localhost
 from tests.common.devices.ptf import PTFHost
@@ -125,6 +126,7 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.memory_utilization',
                   'tests.common.plugins.proc_mem_cpu_monitor',
                   'tests.common.fixtures.duthost_utils',
+                  'tests.common.fixtures.frr_config_mode',
                   'tests.common.plugins.parallel_fixture',
                   'tests.common.plugins.erspan_mirror')
 
@@ -3192,6 +3194,11 @@ def core_dump_and_config_check(duthosts, tbinfo, parallel_run_context, request,
 
         duts_data = {}
 
+        # Capture the FRR mode-switch count now so teardown can tell whether a switch (and
+        # therefore a `config reload`) happened while this module ran. Always 0 for modules
+        # that do not use frr_config_mode.
+        frr_switch_count = frr_mode_switch_count(request)
+
         if check_flag:
 
             def collect_before_test(dut):
@@ -3308,6 +3315,20 @@ def core_dump_and_config_check(duthosts, tbinfo, parallel_run_context, request,
                 for duthost in duthosts:
                     executor.submit(collect_after_test, duthost)
 
+            # Crash detection always applies. The config comparison does not: it is made
+            # against the testbed-wide pretest baseline, which the FRR mode switch
+            # legitimately diverges from -- see frr_mode_perturbed() for both reasons.
+            # Skipping it here rather than disabling the whole fixture keeps core-dump
+            # detection, and keeps the config check running for every opted-in module the
+            # switch did not touch.
+            skip_config_diff = frr_mode_perturbed(request, frr_switch_count)
+            if skip_config_diff:
+                logger.info(
+                    "%s: skipping the running-config comparison -- the FRR config mode was "
+                    "switched during this module, or the DUT is not in its boot mode, so the "
+                    "pretest config baseline does not apply. Core-dump detection still runs.",
+                    module_name)
+
             for duthost in duthosts:
                 if new_core_dumps[duthost.hostname]:
                     core_dump_check_failed = True
@@ -3315,6 +3336,9 @@ def core_dump_and_config_check(duthosts, tbinfo, parallel_run_context, request,
                     base_dir = os.path.dirname(os.path.realpath(__file__))
                     for new_core_dump in new_core_dumps[duthost.hostname]:
                         duthost.fetch(src="/var/core/{}".format(new_core_dump), dest=os.path.join(base_dir, "logs"))
+
+                if skip_config_diff:
+                    continue
 
                 # The tables that we don't care
                 exclude_config_table_names = set([])
@@ -3686,6 +3710,34 @@ def pytest_collection_modifyitems(config, items):
         for item in items:
             if "stress_test" in item.keywords:
                 item.add_marker(skip_stress_tests)
+
+    # Tests that opt into the frr_config_mode fixture switch BGP config mode mid-module
+    # via a `config reload`. On DUTs holding a large route table (e.g. t1-lag) that
+    # reload drops BGP and then re-learns the full table, and the reconvergence lands
+    # inside the test's memory before/after window -- steady-state footprint, not a
+    # leak. The memory_utilization monitor's percent-increase threshold cannot tell the
+    # two apart and false-fails at teardown, so disable it for these tests (same reason
+    # they already carry skip_check_dut_health for the config-diff / YANG checks).
+    for item in items:
+        if "frr_config_mode" in getattr(item, "fixturenames", ()):
+            item.add_marker("disable_memory_utilization")
+            # NOT skip_check_dut_health. An earlier revision added it here, which suppressed
+            # config-diff, YANG validation and core-dump detection for every module under
+            # tests/bgp -- the fixture is autouse there, so that was the whole BGP suite, and
+            # for both mode variants including native-mode runs that never reload anything.
+            #
+            # Those checks are only untrustworthy while the DUT is away from its boot mode, or
+            # in a module a mode switch actually ran in. Both are runtime facts, so the
+            # decision moved into the checks themselves (see frr_mode_perturbed()), which run
+            # normally the rest of the time. Marking the module frr_dual_mode is what lets
+            # them recognise an opted-in module; it must be on the MODULE node, because those
+            # fixtures are module-scoped and would not see an item-level marker.
+            module = item.getparent(pytest.Module)
+            if module is not None:
+                if not any(m.name == "disable_memory_utilization" for m in module.own_markers):
+                    module.add_marker("disable_memory_utilization")
+                if not any(m.name == "frr_dual_mode" for m in module.own_markers):
+                    module.add_marker("frr_dual_mode")
 
 
 def update_t1_test_ports(duthost, mg_facts, test_ports, tbinfo):
@@ -4239,6 +4291,18 @@ def yang_validation_check(request, duthosts):
             yield
             return
 
+    # The FRR mode switch reloads config, which regenerates telemetry/gnmi certs and re-runs
+    # db_migrator; validation is run against the DUT as it stands, so those artifacts fail it.
+    # Decided at runtime rather than by a marker so it only applies to the modules and mode
+    # variants actually affected -- see frr_mode_perturbed(). At setup only the "DUT is away
+    # from its boot mode" half is knowable; nothing has run yet, so no switch can have
+    # happened during this module.
+    if frr_mode_perturbed(request):
+        logger.info("Skipping YANG validation: the DUT is not in its boot FRR config mode")
+        yield
+        return
+    frr_switch_count = frr_mode_switch_count(request)
+
     def run_yang_validation_all(stage):
         """Run YANG validation on all DUTs and return results"""
         validation_results = {}
@@ -4259,6 +4323,12 @@ def yang_validation_check(request, duthosts):
         pt_assert(False, "pre-test YANG validation failed:\n" + "\n".join(error_summary))
 
     yield
+
+    if frr_mode_perturbed(request, frr_switch_count):
+        logger.info("Skipping post-test YANG validation: the FRR config mode was switched "
+                    "during this module (its config reload regenerates gnmi certs and "
+                    "re-runs db_migrator)")
+        return
 
     # post-test YANG validation
     post_results = run_yang_validation_all("post-test")

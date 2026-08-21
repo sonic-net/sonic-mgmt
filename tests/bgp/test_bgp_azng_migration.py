@@ -6,13 +6,24 @@ from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common import config_reload
 from tests.common.utilities import get_image_type
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.bgp import flatten_bgp_neighbors
 
 pytestmark = [
+    # The AZNG spine policies (v4.spine.ah / v6.spine.ah) that this test validates carry
+    # clauses frrcfgd cannot render -- 'set tag' (a sonic-route-map.yang leaf that frrcfgd's
+    # route_map_key_map never emits) and 'set originator-id' (no field at all). The translator
+    # preserves the route-map NAMES, so the fixture's fingerprint would report success while
+    # the policy the test then asserts on had quietly changed. Until frrcfgd can express
+    # those clauses this module asserts bgpcfgd-rendered policy, so it stays bgpcfgd-only
+    # rather than being run once in frr mode.
+    pytest.mark.frr_bgpcfgd_only(
+        "the AZNG spine policies use route-map clauses frrcfgd cannot render "
+        "('set tag', 'set originator-id'), so frr mode would assert a different policy"),
     pytest.mark.topology('t2')
 ]
 
 
-def test_bgp_azng_migration(duthosts, enum_upstream_dut_hostname):
+def test_bgp_azng_migration(frr_config_mode, duthosts, enum_upstream_dut_hostname):
 
     duthost = duthosts[enum_upstream_dut_hostname]
 
@@ -26,7 +37,7 @@ def test_bgp_azng_migration(duthosts, enum_upstream_dut_hostname):
 
     for peer_device, peer_device_info in config_facts['DEVICE_NEIGHBOR_METADATA'].items():
         if peer_device_info['type'] == "AZNGHub":
-            for peer_device_ip, peer_device_bgp_data in config_facts['BGP_NEIGHBOR'].items():
+            for peer_device_ip, peer_device_bgp_data in flatten_bgp_neighbors(config_facts['BGP_NEIGHBOR']).items():
                 if peer_device_bgp_data["name"] == peer_device:
                     peer_device_ip_set.add(peer_device_ip)
             break

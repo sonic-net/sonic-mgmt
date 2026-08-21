@@ -22,12 +22,19 @@ from ptf.testutils import simple_icmpv6_packet
 from ptf.mask import Mask
 
 pytestmark = [
+    # Not frr_generic: test_bgp_admin_flap drives ansible/library/check_bgp_ipv6_routes_converged.py,
+    # whose toggle_bgp_neighbors_in_parallel() hard-codes the flat 'BGP_NEIGHBOR|$ip' key. Under
+    # frrcfgd the rows are 'BGP_NEIGHBOR|default|$ip', so every EXISTS check misses and the module
+    # fails with "No BGP neighbor keys were toggled" before it can measure convergence.
+    pytest.mark.frr_bgpcfgd_only(
+        "test_bgp_admin_flap toggles neighbors through an ansible module that hard-codes the "
+        "flat BGP_NEIGHBOR|<ip> key, which does not exist under frrcfgd"),
     pytest.mark.disable_memory_utilization,
     pytest.mark.topology(
         't0-isolated-d2u254s1', 't0-isolated-d2u254s2', 't0-isolated-d2u510', 't0-isolated-d2u510s2',
         't1-isolated-d254u2s1', 't1-isolated-d254u2s2', 't1-isolated-d510u2',
         't1-isolated-d254u2', 't1-isolated-d510u2s2'
-    )
+    ),
 ]
 
 logger = logging.getLogger(__name__)
@@ -733,6 +740,7 @@ def flapper(duthost, ptfadapter, bgp_peers_info, transient_setup, flapping_count
 
 
 def test_nexthop_group_member_scale(
+    frr_config_mode,
     duthost,
     ptfadapter,
     ptfhosts,
@@ -898,6 +906,7 @@ def test_nexthop_group_member_scale(
 
 @pytest.mark.parametrize("flapping_neighbor_count", [1, 10, 20, 'all-minus-one', 'all'])
 def test_bgp_admin_flap(
+    frr_config_mode,
     request,
     duthost,
     ptfadapter,
@@ -926,6 +935,7 @@ def test_bgp_admin_flap(
 
 @pytest.mark.parametrize("flapping_port_count", [1, 10, 20, 'all-minus-one', 'all'])
 def test_sessions_flapping(
+    frr_config_mode,
     request,
     duthost,
     ptfadapter,

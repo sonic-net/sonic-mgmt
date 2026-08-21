@@ -39,10 +39,15 @@ from bgp_aggregate_helpers import (
 from natsort import natsorted
 from tests.common.gcu_utils import create_checkpoint, rollback_or_reload, delete_checkpoint
 from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP
+from tests.common.fixtures.frr_config_mode import (
+    FRR_BGPCFGD_ONLY_AGGREGATE_REASON,
+)
 
 pytestmark = [
     pytest.mark.topology("m1"),
+    pytest.mark.frr_bgpcfgd_only(FRR_BGPCFGD_ONLY_AGGREGATE_REASON),
 ]
+
 
 # ---- Test data ----
 AGGR_V4_1 = "10.100.0.0/16"

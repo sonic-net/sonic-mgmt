@@ -11,6 +11,18 @@ from tests.common.helpers.assertions import pytest_assert
 
 pytestmark = [
     pytest.mark.topology('t0', 't1', 't1-lag', 't1-8-lag', 'lma', 'uma'),
+    # Both tests here self-skip when frrcfgd is running (see the
+    # get_frr_mgmt_framework_config() guards below, which predate the dual-mode work): they
+    # compare bgpcfgd's per-daemon config FILES against FRR's running config, and frrcfgd
+    # renders an integrated frr.conf instead, so there is nothing equivalent to compare.
+    #
+    # Without this marker the module is still parametrized over both modes, so the fixture
+    # performs a full config-reload switch into frr mode purely for the test to then skip --
+    # zero coverage for two reloads. Caught on a t0 (gold407): the [frr_mgmt_framework]
+    # variants skipped with "FRR management framework enabled" *after* the switch had run.
+    pytest.mark.frr_bgpcfgd_only(
+        "this module compares bgpcfgd's per-daemon config files against FRR's running "
+        "config; frrcfgd renders an integrated frr.conf, so both tests self-skip under it"),
     pytest.mark.disable_loganalyzer,
 ]
 
@@ -418,7 +430,8 @@ def _collect_missing_frr_configs(duthost):
     return missing_configs
 
 
-def test_frr_config_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname, get_function_completeness_level):
+def test_frr_config_check(
+        frr_config_mode, duthosts, enum_rand_one_per_hwsku_frontend_hostname, get_function_completeness_level):
     """
     Test FRR configuration consistency
     1. Get current FRR running configuration using 'vtysh -c "show running"'
@@ -428,6 +441,15 @@ def test_frr_config_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname, g
     5. Repeat the comparison after config reload
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+    if duthost.get_frr_mgmt_framework_config():
+        pytest.skip("FRR management framework enabled — this test verifies the classic "
+                    "bgpcfgd frr.conf rendering path; frrcfgd generates FRR config "
+                    "differently (e.g. an 'address-family l2vpn evpn' stanza and a "
+                    "redundant 'local-as' that FRR does not echo into running-config), "
+                    "so the frr.conf<->running-config comparison is not meaningful here. "
+                    "Matches the skip in test_frr_large_config_load_stress.")
+
     logger.info("Starting FRR configuration check test on {}".format(duthost.hostname))
 
     # Get completeness level and set number of iterations
@@ -500,7 +522,7 @@ def test_frr_config_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname, g
 
 
 @pytest.mark.topology('t0', 't1', 't2', 'lrh', 'urh', 'lma', 'uma')
-def test_frr_large_config_load_stress(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+def test_frr_large_config_load_stress(frr_config_mode, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                                       get_function_completeness_level):
     """Stress test FRR config file loading with large configuration.
 

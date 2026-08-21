@@ -12,8 +12,13 @@ from tests.common.utilities import pdu_reboot
 from tests.common.reboot import reboot
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
 from tests.common.platform.processes_utils import wait_critical_processes
+from tests.common.fixtures.frr_config_mode import FRR_BGP_DEVICE_GLOBAL_GAP_REASON
 
 pytestmark = [
+    # This module executes TSA and TSB, which write BGP_DEVICE_GLOBAL -- the same table the
+    # dedicated traffic-shift modules are bgpcfgd-only for. Under frrcfgd those writes have
+    # no effect, so the traffic-shift assertions here would be checking a no-op.
+    pytest.mark.frr_bgpcfgd_only(FRR_BGP_DEVICE_GLOBAL_GAP_REASON),
     pytest.mark.topology("t0", "t1"),
     pytest.mark.disable_loganalyzer
 ]
@@ -106,7 +111,7 @@ def post_reboot_healthcheck(duthost, localhost, duthosts, wait_time):
     return True
 
 
-def test_bgp_operations_in_ro(localhost, duthosts, enum_frontend_dut_hostname, pdu_controller):
+def test_bgp_operations_in_ro(frr_config_mode, localhost, duthosts, enum_frontend_dut_hostname, pdu_controller):
     """
     @summary: This test case is to verify the BGP operations can successfully run in Read-Only state
     """

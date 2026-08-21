@@ -12,6 +12,7 @@ from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory  # noqa:
 from tests.common.helpers.assertions import pytest_assert
 from tests.ptf_runner import ptf_runner
 from tests.common.vxlan_ecmp_utils import Ecmp_Utils
+from tests.common.helpers.bgp import flatten_bgp_neighbors
 
 ecmp_utils = Ecmp_Utils()
 logger = logging.getLogger(__name__)
@@ -26,6 +27,15 @@ VNI_BASE = 10000
 CISCO_8000_ASIC = "cisco-8000"
 
 pytestmark = [
+    # Not frr_generic: generate_dut_config_ptf() builds VNET-qualified BGP_PEER_RANGE rows
+    # and vnet_bgp_setup() applies them after the mode has been selected. frrcfgd does not
+    # consume BGP_PEER_RANGE -- it needs BGP_PEER_GROUP / BGP_PEER_GROUP_AF /
+    # BGP_GLOBALS_LISTEN_PREFIX rows under the VNET -- so in frr mode those writes create no
+    # dynamic peers at all. And because frr_generic prefers frrcfgd, that was the only
+    # variant that ran.
+    pytest.mark.frr_bgpcfgd_only(
+        "this module writes VNET-qualified BGP_PEER_RANGE rows, which frrcfgd does not "
+        "consume; the frr schema for VNET listen ranges is not built here"),
     pytest.mark.topology("t0"),
     pytest.mark.disable_loganalyzer,
     pytest.mark.device_type("physical"),
@@ -572,7 +582,7 @@ def vnet_bgp_setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, vnet_count,
             duthost.shell("config vlan member del all {}".format(entry["dut_port"]))
 
         dut_asn = cfg_facts["DEVICE_METADATA"]["localhost"]["bgp_asn"]
-        neighbors = cfg_facts["BGP_NEIGHBOR"]
+        neighbors = flatten_bgp_neighbors(cfg_facts["BGP_NEIGHBOR"])
         peer_asn = list(neighbors.values())[0]["asn"]
         total_sessions = vnet_count * subif_per_vnet
         wait_time = calculate_wait_time(total_sessions)
@@ -689,12 +699,12 @@ def run_vnet_bgp_scale_dataplane_test(vnet_bgp_setup, ptfhost, traffic_test_type
     )
 
 
-def test_vnet_bgp_scale_summary(vnet_bgp_setup):
+def test_vnet_bgp_scale_summary(frr_config_mode, vnet_bgp_setup):
     setup = vnet_bgp_setup
     validate_bgp_summary(setup["duthost"], setup["vnet_count"], setup["subif_per_vnet"])
 
 
-def test_vnet_bgp_scale_config_reload(vnet_bgp_setup):
+def test_vnet_bgp_scale_config_reload(frr_config_mode, vnet_bgp_setup):
     setup = vnet_bgp_setup
     duthost = setup["duthost"]
 
@@ -708,7 +718,9 @@ def test_vnet_bgp_scale_config_reload(vnet_bgp_setup):
     duthost.shell("mv /etc/sonic/config_db.json.bak /etc/sonic/config_db.json")
 
 
-def test_vnet_bgp_scale_vxlan_decap_ecmp_dataplane(vnet_bgp_setup, ptfhost, get_function_completeness_level):
+def test_vnet_bgp_scale_vxlan_decap_ecmp_dataplane(
+    frr_config_mode, vnet_bgp_setup, ptfhost, get_function_completeness_level
+):
     run_vnet_bgp_scale_dataplane_test(
         vnet_bgp_setup,
         ptfhost,
@@ -718,6 +730,7 @@ def test_vnet_bgp_scale_vxlan_decap_ecmp_dataplane(vnet_bgp_setup, ptfhost, get_
 
 
 def test_vnet_bgp_scale_regular_tcp_ecmp_dataplane(
+    frr_config_mode,
     vnet_bgp_setup,
     ptfhost,
     get_function_completeness_level,

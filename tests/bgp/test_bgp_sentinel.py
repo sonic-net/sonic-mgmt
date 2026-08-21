@@ -17,13 +17,16 @@ from bgp_helpers import BGP_SENTINEL_PORT_V4, BGP_SENTINEL_NAME_V4
 from bgp_helpers import BGP_SENTINEL_PORT_V6, BGP_SENTINEL_NAME_V6
 from bgp_helpers import BGPMON_TEMPLATE_FILE, BGPMON_CONFIG_FILE, BGP_MONITOR_NAME
 from tests.common.helpers.generators import generate_ip_through_default_route
+from tests.common.fixtures.frr_config_mode import FRR_BGPCFGD_ONLY_SENTINEL_REASON
 from netaddr import IPNetwork
 
 
 pytestmark = [
     pytest.mark.topology('t1'),
     pytest.mark.device_type('vs'),
+    pytest.mark.frr_bgpcfgd_only(FRR_BGPCFGD_ONLY_SENTINEL_REASON),
 ]
+
 
 BGP_SENTINEL_TMPL = '''\
 {

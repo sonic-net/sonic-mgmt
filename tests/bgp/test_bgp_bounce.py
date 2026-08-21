@@ -12,7 +12,21 @@ from bgp_helpers import get_no_export_output
 from bgp_helpers import BGP_ANNOUNCE_TIME
 
 pytestmark = [
-    pytest.mark.topology('t1')
+    pytest.mark.topology('t1'),
+    # This module configures BGP by copying a config file straight into the bgp container
+    # (apply_bgp_config -> docker_copy_to_all_asics), bypassing CONFIG_DB. The file it writes
+    # is the legacy per-daemon bgpd.conf; frr_mgmt_framework runs FRR in *integrated* config
+    # mode, where the daemons read frr.conf and a dropped-in bgpd.conf is simply never loaded.
+    # So the no-export config never reaches FRR and the test fails with "No-export route state
+    # did not become present".
+    #
+    # (The mode-switch `config reload` is not the cause: it happens during module setup,
+    # before apply_bgp_config() runs. The problem is the renderer mismatch, and no amount of
+    # translation fixes it -- the config was never in CONFIG_DB to translate.)
+    pytest.mark.frr_bgpcfgd_only(
+        "this module injects a legacy bgpd.conf directly into the bgp container; "
+        "frr_mgmt_framework runs FRR in integrated-config mode, which reads frr.conf and "
+        "never loads it"),
 ]
 
 

@@ -7,9 +7,11 @@ from tests.bgp.traffic_checker import get_traffic_shift_state
 from tests.bgp.bgp_helpers import initial_tsa_check_before_and_after_test
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.utilities import wait_until
+from tests.common.fixtures.frr_config_mode import FRR_BGP_DEVICE_GLOBAL_GAP_REASON
 
 pytestmark = [
-    pytest.mark.topology('t2')
+    pytest.mark.topology('t2'),
+    pytest.mark.frr_bgpcfgd_only(FRR_BGP_DEVICE_GLOBAL_GAP_REASON),
 ]
 
 logger = logging.getLogger(__name__)

@@ -8,9 +8,11 @@ from tests.common.helpers.constants import DEFAULT_ASIC_ID
 from tests.common.utilities import wait_until
 from route_checker import assert_only_loopback_routes_announced_to_neighs, parse_routes_on_neighbors
 from route_checker import verify_current_routes_announced_to_neighs, check_and_log_routes_diff
+from tests.common.fixtures.frr_config_mode import FRR_BGP_DEVICE_GLOBAL_GAP_REASON
 
 pytestmark = [
-    pytest.mark.topology('t2', 'lrh', 'urh', 'lt2')
+    pytest.mark.topology('t2', 'lrh', 'urh', 'lt2'),
+    pytest.mark.frr_bgpcfgd_only(FRR_BGP_DEVICE_GLOBAL_GAP_REASON),
 ]
 
 logger = logging.getLogger(__name__)

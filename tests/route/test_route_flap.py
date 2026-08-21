@@ -13,9 +13,12 @@ from tests.common.dualtor.mux_simulator_control import \
 from ptf.mask import Mask
 from natsort import natsorted
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.bgp import flatten_bgp_neighbors
 from tests.common.utilities import wait_until
+from tests.common.fixtures.frr_config_mode import skip_if_dut_not_switched
 
 pytestmark = [
+    pytest.mark.frr_generic,
     pytest.mark.topology("any"),
     pytest.mark.device_type('vs')
 ]
@@ -116,7 +119,7 @@ def get_neighbor_info(duthost, dev_port, tbinfo):
     """
     neighbor_type = ''
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-    neighs = config_facts['BGP_NEIGHBOR']
+    neighs = flatten_bgp_neighbors(config_facts['BGP_NEIGHBOR'])
     dev_neigh_mdata = config_facts['DEVICE_NEIGHBOR_METADATA'] if 'DEVICE_NEIGHBOR_METADATA' in config_facts else {}
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     for neighbor in neighs:
@@ -386,7 +389,7 @@ def get_dev_port_and_route(duthost, asichost, dst_prefix_set):
     return dev_port, route_to_ping
 
 
-def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
+def test_route_flap(request, frr_config_mode, duthosts, tbinfo, ptfhost, ptfadapter,
                     get_function_completeness_level, announce_default_routes,
                     enum_rand_one_per_hwsku_frontend_hostname,
                     enum_upstream_dut_hostname, enum_rand_one_frontend_asic_index,
@@ -397,6 +400,11 @@ def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
         'common', {})
     nexthop = common_config.get('nhipv4', NHIPV4)
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    # frr_config_mode switches rand_one_dut_hostname, but this test drives the DUT
+    # enum_rand_one_per_hwsku_frontend_hostname picked (and an upstream DUT). On a dualtor
+    # (two single-ASIC frontend DUTs) those resolve independently, so skip rather than claim
+    # frr coverage for a DUT still in its original mode.
+    skip_if_dut_not_switched(request, duthost)
     asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
     duthost_upstream = duthosts[enum_upstream_dut_hostname]
     if loganalyzer:
