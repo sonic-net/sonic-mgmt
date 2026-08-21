@@ -184,150 +184,203 @@ def _get_dpu0_lf(local_dir):
     return False
 
 
+HA_SET_ID = "haset0_0"
+
+
+def _get_ha_owner(duthost):
+
+    result = duthost.shell('sonic-cfggen -d --var-json DEVICE_METADATA', module_ignore_errors=True)
+    match = re.search(r'"platform"\s*:\s*"([^"]+)"', result.get('stdout', ''))
+    platform = match.group(1) if match else ''
+    owner = "switch" if "nvidia" in platform.lower() else "dpu"
+    logger.info(f"{duthost.hostname} platform={platform!r} -> ha owner={owner}")
+    return owner
+
+
+def _standby_desired_state(owner):
+
+    return "standalone" if owner == "switch" else "unspecified"
+
+
+def _ha_set_config(vip_v4, vip_v6, scope, preferred_vdpu_id, vdpu_ids):
+
+    key = f"DASH_HA_SET_CONFIG_TABLE:{HA_SET_ID}"  # noqa: E231
+    return {key: {
+        "version": "1",
+        "vip_v4": vip_v4,
+        "vip_v6": vip_v6,
+        "scope": scope,
+        "preferred_vdpu_id": preferred_vdpu_id,
+        "preferred_standalone_vdpu_index": 0,
+        "vdpu_ids": vdpu_ids,
+    }}
+
+
+def _ha_scope_config(vdpu_id, version, disabled, desired_ha_state, owner, approved_pending_operation_ids=None):
+
+    key = f"DASH_HA_SCOPE_CONFIG_TABLE:{vdpu_id}:{HA_SET_ID}"  # noqa: E231
+    fields = {
+        "version": version,
+        "disabled": disabled,
+        "desired_ha_state": desired_ha_state,
+        "ha_set_id": HA_SET_ID,
+        "owner": owner,
+    }
+    if approved_pending_operation_ids is not None:
+        fields["approved_pending_operation_ids"] = approved_pending_operation_ids
+    return {key: fields}
+
+
+def _push_ha_config(duthost, messages, remote_dir="/tmp/dash_ha_config"):
+
+    _ensure_remote_dir_on_dut(duthost, remote_dir)
+    ops = [{key: fields, "OP": "SET"} for key, fields in messages.items()]
+
+    local_path = f"/tmp/{duthost.hostname}_dash_ha_push.json"
+    with open(local_path, "w") as f:
+        json.dump(ops, f)
+    remote_basename = os.path.basename(local_path)
+
+    try:
+        duthost.copy(src=local_path, dest=f"{remote_dir}/{remote_basename}")
+    finally:
+        os.remove(local_path)
+
+    result = _docker_run_config_on_dut(duthost, remote_dir, None, remote_basename)
+    logger.info(f"{duthost.hostname} gnmi_client push output: {result.get('stdout', '')}")
+
+    for key in messages:
+        readback = duthost.shell(f'sonic-db-cli APPL_DB HGETALL "{key}"', module_ignore_errors=True)
+        stdout = readback.get('stdout', '').strip()
+        if stdout:
+            logger.info(f"{duthost.hostname} APPL_DB[{key}] = {stdout}")
+        else:
+            logger.warning(
+                f"{duthost.hostname} APPL_DB[{key}] is empty after push -- gnmi_client.py may have targeted "
+                "DPU_APPL_DB instead of switch-local APPL_DB. Check 'gnmi_client.py --help' on the DUT and "
+                "adjust _docker_run_config_on_dut/_push_ha_config accordingly."
+            )
+
+
+def _get_pending_operation_id(duthost, scope_key, expected_op_type):
+
+    db_key = "DASH_HA_SCOPE_STATE|" + scope_key.replace(":", "|")
+    ids_res = duthost.shell(f'sonic-db-cli STATE_DB HGET "{db_key}" pending_operation_ids',
+                            module_ignore_errors=True)
+    types_res = duthost.shell(f'sonic-db-cli STATE_DB HGET "{db_key}" pending_operation_types',
+                              module_ignore_errors=True)
+    ids = [x.strip() for x in ids_res.get('stdout', '').split(',') if x.strip()]
+    types = [x.strip() for x in types_res.get('stdout', '').split(',') if x.strip()]
+    for op_type, op_id in zip(types, ids):
+        if op_type == expected_op_type:
+            return op_id
+    return None
+
+
+def _wait_for_pending_operation_id(duthost, scope_key, expected_op_type, timeout=90, interval=10):
+
+    found = {}
+
+    def _condition():
+        found['id'] = _get_pending_operation_id(duthost, scope_key, expected_op_type)
+        return found['id'] is not None
+
+    wait_until(timeout, interval, 0, _condition)
+    return found.get('id')
+
+
 def set_ha_roles(duthosts, duthost):
-    if duthost == duthosts[0]:
-        try:
-            # Active side
-            active_cmd1 = r'''docker exec swss python /etc/sonic/proto_utils.py hset DASH_HA_SET_CONFIG_TABLE:haset0_0 version \"1\" vip_v4 "221.0.0.1" scope "dpu" preferred_vdpu_id "vdpu0_0" preferred_standalone_vdpu_index 0 vdpu_ids '["vdpu0_0","vdpu1_0"]' '''  # noqa E501
-            active_cmd2 = r'''docker exec swss python /etc/sonic/proto_utils.py hset DASH_HA_SCOPE_CONFIG_TABLE:vdpu0_0:haset0_0 version \"1\" disabled "true" desired_ha_state "active" ha_set_id "haset0_0" owner "dpu" '''  # noqa E501
 
-            logger.info("Setting up HA creation Active side cmd1")
-            output_cmd1 = duthost.shell(active_cmd1)
-            logger.info(f"Active side cmd1 output: {output_cmd1['stdout']}")
+    owner = _get_ha_owner(duthost)
+    is_active = duthost == duthosts[0]
+    vdpu_id = "vdpu0_0" if is_active else "vdpu1_0"
+    desired_ha_state = "active" if is_active else _standby_desired_state(owner)
+    side = "Active" if is_active else "Standby"
 
-            time.sleep(2)
-            logger.info("Setting up HA creation Active side cmd2")
-            output_cmd2 = duthost.shell(active_cmd2)
-            logger.info(f"Active side cmd2 output: {output_cmd2['stdout']}")
-        except Exception as e:
-            logger.error(f"{duthost.hostname} Error setting HA roles active side: {str(e)}")
-    else:
-        try:
-            # Standby side
-            standby_cmd1 = r'''docker exec swss python /etc/sonic/proto_utils.py hset DASH_HA_SET_CONFIG_TABLE:haset0_0 version \"1\" vip_v4 "221.0.0.1" scope "dpu" preferred_vdpu_id "vdpu0_0" preferred_standalone_vdpu_index 0 vdpu_ids '["vdpu0_0","vdpu1_0"]' '''  # noqa E501
-            standby_cmd2 = r'''docker exec swss python /etc/sonic/proto_utils.py hset DASH_HA_SCOPE_CONFIG_TABLE:vdpu1_0:haset0_0 version \"1\" disabled "true" desired_ha_state "unspecified" ha_set_id "haset0_0" owner "dpu" '''  # noqa E501
-
-            logger.info("Setting up HA creation Standby side cmd1")
-            output_cmd1 = duthost.shell(standby_cmd1)
-            logger.info(f"Standby side cmd1 output: {output_cmd1['stdout']}")
-
-            time.sleep(2)
-            logger.info("Setting up HA creation Standby side cmd2")
-            output_cmd2 = duthost.shell(standby_cmd2)
-            logger.info(f"Standby side cmd2 output: {output_cmd2['stdout']}")
-        except Exception as e:
-            logger.error(f"{duthost.hostname} Error setting HA roles standby side: {str(e)}")
+    try:
+        messages = {}
+        messages.update(_ha_set_config(
+            vip_v4="221.0.0.1",
+            vip_v6="3:2::1:0",
+            scope="dpu",
+            preferred_vdpu_id="vdpu0_0",
+            vdpu_ids=["vdpu0_0", "vdpu1_0"],
+        ))
+        messages.update(_ha_scope_config(
+            vdpu_id=vdpu_id,
+            version="1",
+            disabled=True,
+            desired_ha_state=desired_ha_state,
+            owner=owner,
+        ))
+        logger.info(f"Setting up HA creation {side} side ({owner}-owned)")
+        _push_ha_config(duthost, messages)
+    except Exception as e:
+        logger.error(f"{duthost.hostname} Error setting HA roles {side.lower()} side: {str(e)}")
 
     return
 
 
 def set_ha_admin_up(duthosts, duthost, tbinfo):
 
-    if duthost == duthosts[0]:
-        # Active side
-        try:
-            standby_ethpass_ip = tbinfo['standby_ethpass_ip']
-            standby_mac = tbinfo['standby_mac']
+    owner = _get_ha_owner(duthost)
+    is_active = duthost == duthosts[0]
+    vdpu_id = "vdpu0_0" if is_active else "vdpu1_0"
+    desired_ha_state = "active" if is_active else _standby_desired_state(owner)
+    side = "Active" if is_active else "Standby"
+    peer_ip_key = "standby_ethpass_ip" if is_active else "active_ethpass_ip"
+    peer_mac_key = "standby_mac" if is_active else "active_mac"
 
-            active_cmd1 = r'''docker exec swss python /etc/sonic/proto_utils.py hset DASH_HA_SCOPE_CONFIG_TABLE:vdpu0_0:haset0_0 version \"1\" disabled "false" desired_ha_state "active" ha_set_id "haset0_0" owner "dpu"'''  # noqa E501
-            logger.info("Setting up HA admin up Active side cmd1")
-            output_cmd1 = duthost.shell(active_cmd1)
-            logger.info(f"Active side cmd1 output: {output_cmd1['stdout']}")
+    try:
+        messages = _ha_scope_config(
+            vdpu_id=vdpu_id,
+            version="1",
+            disabled=False,
+            desired_ha_state=desired_ha_state,
+            owner=owner,
+        )
+        logger.info(f"Setting up HA admin up {side} side ({owner}-owned)")
+        _push_ha_config(duthost, messages)
 
-            time.sleep(2)
-            duthost.shell(f'sudo arp -s {standby_ethpass_ip} {standby_mac}')
-            duthost.command(f"ping -c 3 {standby_ethpass_ip}", module_ignore_errors=True)
-        except Exception as e:
-            logger.error(f"{duthost.hostname} Error setting HA admin up active side: {str(e)}")
-    else:
-        # Standby side
-        try:
-            active_ethpass_ip = tbinfo['active_ethpass_ip']
-            active_mac = tbinfo['active_mac']
-
-            standby_cmd1 = r'''docker exec swss python /etc/sonic/proto_utils.py hset DASH_HA_SCOPE_CONFIG_TABLE:vdpu1_0:haset0_0 version \"1\" disabled "false" desired_ha_state "unspecified" ha_set_id "haset0_0" owner "dpu"'''  # noqa E501
-            logger.info("Setting up HA admin up Standby side cmd1")
-            output_cmd1 = duthost.shell(standby_cmd1)
-            logger.info(f"Standby side cmd1 output: {output_cmd1['stdout']}")
-
-            time.sleep(2)
-            duthost.shell(f'sudo arp -s {active_ethpass_ip} {active_mac}')
-            duthost.command(f"ping -c 3 {active_ethpass_ip}", module_ignore_errors=True)
-        except Exception as e:
-            logger.error(f"{duthost.hostname} Error setting HA admin up standby side: {str(e)}")
+        time.sleep(2)
+        peer_ip = tbinfo[peer_ip_key]
+        peer_mac = tbinfo[peer_mac_key]
+        duthost.shell(f'sudo arp -s {peer_ip} {peer_mac}')
+        duthost.command(f"ping -c 3 {peer_ip}", module_ignore_errors=True)
+    except Exception as e:
+        logger.error(f"{duthost.hostname} Error setting HA admin up {side.lower()} side: {str(e)}")
 
     return
 
 
 def set_ha_activate_role(duthosts, duthost):
-    # Extract pending_operation_ids from both Active and Standby sides
-    logger.info(f'{duthost.hostname} Resting for 30 seconds before attempting to set HA activation role for pending '
-                f'operation id is set')
-    time.sleep(30)
-    retries = 3
 
-    if duthost == duthosts[0]:
-        # Active side
-        cmd = r'''docker exec dash-hadpu0 swbus-cli show hamgrd actor /hamgrd/0/ha-scope/vdpu0_0:haset0_0'''
-        logger.info("Setting up HA activation role Active side")
-    else:
-        # Standby side
-        cmd = r'''docker exec dash-hadpu0 swbus-cli show hamgrd actor /hamgrd/0/ha-scope/vdpu1_0:haset0_0'''
-        logger.info("Setting up HA activation role Standby side")
+    owner = _get_ha_owner(duthost)
+    is_active = duthost == duthosts[0]
+    vdpu_id = "vdpu0_0" if is_active else "vdpu1_0"
+    desired_ha_state = "active" if is_active else _standby_desired_state(owner)
+    side = "Active" if is_active else "Standby"
+    scope_key = f"{vdpu_id}:{HA_SET_ID}"  # noqa: E231
 
-    # Extract the pending_operation_ids UUID using regex
-    uuid_pattern = r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
+    logger.info(f"{duthost.hostname} Waiting for the activate_role pending operation on the {side} side")
+    pending_id = _wait_for_pending_operation_id(duthost, scope_key, "activate_role")
 
-    # Execute command (without grep) and parse in Python
-    while retries > 0:
-        # Run the command, tolerating errors (module_ignore_errors=True)
-        result = duthost.shell(cmd, module_ignore_errors=True)
-        rc = result.get('rc', 1)  # Default to 1 if no rc
-        stdout = result.get('stdout', '')
-        stderr = result.get('stderr', '')
+    if not pending_id:
+        logger.error(f"{duthost.hostname} No activate_role pending_operation_id appeared for {scope_key}")
+        return False
 
-        if rc != 0:
-            # Command failed (e.g., docker error) - log and retry
-            logger.warning(f"Command failed on {duthost.hostname} (rc={rc}): {cmd}")
-            logger.info(f"STDERR: {stderr}")
-            logger.info(f"STDOUT (partial): {stdout[:200]}...")  # Partial for brevity
-        else:
-            # Command succeeded - check for the field and extract UUID
-            if 'pending_operation_ids' in stdout:
-                match = re.search(uuid_pattern, stdout)
-                if match:
-                    pending_operation_id = match.group(0)
-                    logger.info(f"Found pending_operation_id on {duthost.hostname}: {pending_operation_id}")
-                    logger.info(f"Applying pending_operation_id on {duthost.hostname}")
-                    if duthost == duthosts[0]:
-                        # Active side
-                        cmd = r'''docker exec swss python /etc/sonic/proto_utils.py hset DASH_HA_SCOPE_CONFIG_TABLE:vdpu0_0:haset0_0 version \"3\" disabled "false" desired_ha_state "active" ha_set_id "haset0_0" owner "dpu" approved_pending_operation_ids [\"{}\"]'''.format(  # noqa E501
-                            pending_operation_id)
-                        logger.info("Setting up HA activation role Active side")
-                        output = duthost.shell(cmd)
-                        logger.info(f"Active side output after cmd output: {output['stdout']}")
-                    else:
-                        cmd = r'''docker exec swss python /etc/sonic/proto_utils.py hset DASH_HA_SCOPE_CONFIG_TABLE:vdpu1_0:haset0_0 version \"3\" disabled "false" desired_ha_state "unspecified" ha_set_id "haset0_0" owner "dpu" approved_pending_operation_ids [\"{}\"]'''.format(  # noqa E501
-                            pending_operation_id)
-                        logger.info("Setting up HA activation role Standby side")
-                        output = duthost.shell(cmd)
-                        logger.info(f"Standby side output after cmd output: {output['stdout']}")
-                    return pending_operation_id  # Success - return the ID
-            else:
-                logger.info(f"pending_operation_ids not found yet in output on {duthost.hostname}")
+    logger.info(f"{duthost.hostname} Approving pending_operation_id {pending_id} on the {side} side")
+    messages = _ha_scope_config(
+        vdpu_id=vdpu_id,
+        version="3",
+        disabled=False,
+        desired_ha_state=desired_ha_state,
+        owner=owner,
+        approved_pending_operation_ids=[pending_id],
+    )
+    _push_ha_config(duthost, messages)
 
-        # No match or error - retry
-        retries -= 1
-        logger.warning(f"Could not extract pending_operation_id from {duthost.hostname} (retries left: {retries})")
-        logger.info(f"Raw output: {stdout}")
-        if retries > 0:
-            logger.info("Sleeping for 10 seconds then trying again")
-            time.sleep(10)
-        else:
-            logger.error(f"Exhausted retries on {duthost.hostname}")
-            return False
-
-    return False
+    return pending_id
 
 
 def _set_routes_on_dut(duthosts, duthost, tbinfo, local_files, local_dir, dpu_index, ha_test_case):
@@ -536,9 +589,11 @@ def _set_routes_on_dut(duthosts, duthost, tbinfo, local_files, local_dir, dpu_in
 
 def _docker_run_config_on_dut(duthost, remote_dir, dpu_index, remote_basename):
 
-    logger.info(f"{duthost.hostname} Docker run config for DPU{dpu_index}, remote_dir={remote_dir}, "
+    scope_desc = f"DPU{dpu_index}" if dpu_index is not None else "switch-local APPL_DB"
+    logger.info(f"{duthost.hostname} Docker run config for {scope_desc}, remote_dir={remote_dir}, "
                 f"remote_basename={remote_basename}")
 
+    dpu_flags = f"--dpu_index {dpu_index} --num_dpus 8 " if dpu_index is not None else ""
     cmd = (
         "docker run --rm --network host "
         f"--mount src={remote_dir},target=/dpu,type=bind,readonly "  # noqa: E231
@@ -546,7 +601,7 @@ def _docker_run_config_on_dut(duthost, remote_dir, dpu_index, remote_basename):
         "target=/usr/lib/python3/dist-packages/gnmi_agent/go_gnmi_utils.py,"
         "type=bind,readonly "
         "-t sonic-gnmi-agent:latest -c "
-        f"'gnmi_client.py --batch_val 500 --dpu_index {dpu_index} --num_dpus 8 "
+        f"'gnmi_client.py --batch_val 500 {dpu_flags}"
         f"--target 127.0.0.1:8080 update --filename /dpu/{remote_basename}'"  # noqa: E231
     )
 
