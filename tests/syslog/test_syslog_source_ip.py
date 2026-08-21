@@ -158,7 +158,7 @@ def skip_ssip_reboot_test_when_dut_mgmt_network_is_sub_network_forced_mgmt(dutho
         """
         Checks if network_a is a subnet of network_b.
         """
-        logger.info(f"dut_mgmt_network:{dut_mgmt_network}, forced_mgmt_route: {forced_mgmt_route}")
+        logger.info("dut_mgmt_network:%s, forced_mgmt_route: %s", dut_mgmt_network, forced_mgmt_route)
         net_dut_mgmt = IPv4Network(dut_mgmt_network, strict=False)
         net_forced_mgmt = IPv4Network(forced_mgmt_route, strict=False)
         return net_dut_mgmt.subnet_of(net_forced_mgmt)
@@ -196,7 +196,7 @@ def handle_thread_exceptions():
     if thread_exceptions:
         error_messages = "\n".join(f"{type(e).__name__}: {e}" for e in thread_exceptions)
         thread_exceptions.clear()
-        pytest.fail(f"Thread Failures Occurred:\n{error_messages}")
+        pytest.fail("Thread Failures Occurred:\n{}".format(error_messages))
 
 
 def attach_pcapfile_to_allure(pcapfile, pcap_name):
@@ -449,7 +449,8 @@ class TestSSIP:
         Returns:
             str or None: The forward type if found, None otherwise
         """
-        forward_type_match = re.search(rf"{self.duthost.hostname} CRIT\s+([^:]+):", syslog_message)
+        forward_type_match = re.search(
+            r"{} CRIT\s+([^:]+):".format(self.duthost.hostname), syslog_message)
         if forward_type_match:
             return forward_type_match.group(1)  # Returns the forward type value
         return 'default'

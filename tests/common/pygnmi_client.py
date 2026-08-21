@@ -181,7 +181,7 @@ class PygnmiClient:
         missing = [name for name, path in certs if not path]
         if missing:
             raise PygnmiClientCallError(
-                f"mTLS mode requires cert paths; missing: {', '.join(missing)}")
+                "mTLS mode requires cert paths; missing: {}".format(', '.join(missing)))
         for name, path in certs:
             if not os.path.isfile(path):
                 raise PygnmiClientCallError(f"{name} file not found: {path}")
