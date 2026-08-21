@@ -434,3 +434,78 @@ class PtfGnoi:
         response = self.grpc_client.call_unary("gnoi.system.System", "RebootStatus", metadata=metadata)
         logger.debug(f"Reboot status: {response}")
         return response
+
+    def oras_pull(
+        self,
+        registry: str,
+        repository: str,
+        local_path: str,
+        tag: str = None,
+        digest: str = None,
+        username: str = None,
+        password: str = None,
+        metadata=None,
+    ) -> list:
+        """
+        Pull an OCI/ORAS artifact from a registry to a local path on the DUT.
+
+        This is a server-streaming RPC: the server sends PullStarted, then
+        zero or more PullProgress messages, and finally a PullResult.
+
+        Args:
+            registry: Registry hostname (e.g. "myregistry.azurecr.io")
+            repository: Repository path (e.g. "sonic-os-images")
+            local_path: Destination path on the DUT (e.g. "/tmp/image.bin")
+            tag: Image tag (e.g. "v1.0"). Mutually exclusive with digest.
+            digest: Image digest (e.g. "sha256:abc..."). Mutually exclusive with tag.
+            username: Basic auth username (omit for anonymous)
+            password: Basic auth password
+
+        Returns:
+            List of streaming response dicts, each containing one of:
+            - {"started": {"manifestDigest": "...", "totalBytes": "..."}}
+            - {"progress": {"bytesTransferred": "...", "totalBytes": "..."}}
+            - {"result": {"manifestDigest": "...", "layerDigest": "...", ...}}
+
+        Raises:
+            ValueError: If neither tag nor digest is provided
+            GrpcConnectionError: If connection fails
+            GrpcCallError: If the gRPC call fails
+            GrpcTimeoutError: If the call times out
+        """
+        if not tag and not digest:
+            raise ValueError("Either tag or digest must be provided")
+
+        # Build the PullRequest message
+        request = {
+            "registry": registry,
+            "repository": repository,
+            "local_path": local_path,
+        }
+
+        # Set the reference (tag or digest)
+        if tag:
+            request["tag"] = tag
+        else:
+            request["digest"] = digest
+
+        # Set auth if credentials provided
+        if username and password:
+            request["auth"] = {
+                "basic": {
+                    "username": username,
+                    "password": password,
+                }
+            }
+
+        logger.info(
+            f"ORAS Pull: registry={registry} repo={repository} "
+            f"ref={tag or digest} -> {local_path}"
+        )
+
+        responses = self.grpc_client.call_server_streaming(
+            "sonic.gnoi.oras.v1.Oras", "Pull", request, metadata=metadata
+        )
+
+        logger.info(f"ORAS Pull completed: received {len(responses)} stream messages")
+        return responses
