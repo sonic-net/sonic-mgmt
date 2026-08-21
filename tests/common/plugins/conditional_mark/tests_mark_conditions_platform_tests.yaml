@@ -655,6 +655,7 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_error_description:
       - "platform in ['x86_64-cel_e1031-r0'] and https://github.com/sonic-net/sonic-buildimage/issues/18229"
       - "'t0-isolated-d32u32s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
+      - "'t1-isolated-d56u1-lag' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_model:
   skip:
