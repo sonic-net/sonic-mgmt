@@ -3,7 +3,7 @@ import pytest
 
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.platform.processes_utils import check_pmon_uptime_minutes
+from tests.common.platform.processes_utils import check_pmon_uptime_minutes, PMON_READY_TIMEOUT_SECS
 
 pytestmark = [
     pytest.mark.topology('any', 't1-multi-asic'),
@@ -16,7 +16,7 @@ def test_interfaces(duthosts, enum_frontend_dut_hostname, tbinfo, enum_asic_inde
 
     duthost = duthosts[enum_frontend_dut_hostname]
 
-    pytest_assert(wait_until(360, 10, 0, check_pmon_uptime_minutes, duthost),
+    pytest_assert(wait_until(PMON_READY_TIMEOUT_SECS, 10, 0, check_pmon_uptime_minutes, duthost),
                   "Pmon docker is not ready for test")
 
     asic_host = duthost.asic_instance(enum_asic_index)
