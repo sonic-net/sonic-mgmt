@@ -1,14 +1,20 @@
 import pytest
 import logging
+import time
+import threading
 
-from tests.common.helpers.gnmi_utils import gnmi_capabilities
-from .helper import gnmi_set, dump_gnmi_log, gnmi_subscribe_streaming_sample
+from tests.common.helpers.gnmi_utils import gnmi_capabilities, GNMIEnvironment
+from .helper import gnmi_set, dump_gnmi_log, gnmi_subscribe_streaming_sample, \
+                    gnmi_subscribe_stream_connections
 from tests.common.utilities import wait_until
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 
 
 logger = logging.getLogger(__name__)
 allure.logger = logger
+
+MEMORY_CHECKER_WAIT = 1
+MEMORY_CHECKER_CYCLES = 60
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -179,3 +185,27 @@ def test_gnmi_authorize_failed_with_revoked_cert(duthosts,
         "'desc = Peer certificate revoked' message not found in GNMI log. "
         "- Actual GNMI log: '{}'"
     ).format(gnmi_log)
+
+
+def test_mem_spike(duthosts, rand_one_dut_hostname, ptfhost):
+    '''
+    The gnmi container memory must stay under threshold when a client continuously
+    creates channels with the gnmi server.
+    '''
+    duthost = duthosts[rand_one_dut_hostname]
+    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+
+    def client_worker():
+        gnmi_subscribe_stream_connections(duthost, ptfhost, ["DOCKER_STATS"], target="STATE_DB",
+                                          create_connections=2000, update_count=1)
+
+    client_thread = threading.Thread(target=client_worker)
+    client_thread.start()
+
+    for _ in range(MEMORY_CHECKER_CYCLES):
+        ret = duthost.shell("python3 /usr/bin/memory_checker %s 419430400" % env.gnmi_container,
+                            module_ignore_errors=True)
+        assert ret["rc"] == 0, "Memory utilization has exceeded threshold"
+        time.sleep(MEMORY_CHECKER_WAIT)
+
+    client_thread.join()

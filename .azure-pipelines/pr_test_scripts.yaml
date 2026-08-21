@@ -120,6 +120,7 @@ t0:
   - gnmi/test_gnmi_appldb.py
   - gnmi/test_gnmi_configdb.py
   - gnmi/test_gnmi_countersdb.py
+  - gnmi/test_gnmi_default.py
   - gnmi/test_gnmi_smartswitch.py
   - gnmi/test_gnoi_killprocess.py
   - gnmi/test_gnoi_os.py
@@ -459,6 +460,7 @@ t1-lag:
   - gnmi/test_gnmi_appldb.py
   - gnmi/test_gnmi_configdb.py
   - gnmi/test_gnmi_countersdb.py
+  - gnmi/test_gnmi_default.py
   - gnmi/test_gnmi_smartswitch.py
   - gnmi/test_gnoi_killprocess.py
   - gnmi/test_gnoi_os.py
@@ -903,6 +905,7 @@ onboarding_t1_multi_asic:
   - gnmi/test_gnmi_appldb.py
   - gnmi/test_gnmi_configdb.py
   - gnmi/test_gnmi_countersdb.py
+  - gnmi/test_gnmi_default.py
   - iface_loopback_action/test_iface_loopback_action.py
   - log_fidelity/test_bgp_shutdown.py
   - memory_checker/test_memory_checker.py
