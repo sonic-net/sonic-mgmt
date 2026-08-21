@@ -240,7 +240,7 @@ The drop monitor feature adds the following fields to the `SFLOW|global` table:
 2. Configure ACL rule to drop traffic:
    ```bash
    config acl add table DROP_TEST L3 -s ingress
-   config acl rule add DROP_TEST RULE1 -p DROP --src-ip 10.10.10.0/24
+   # Define DROP_TEST/RULE1 in /path/to/acl.json and apply it:
    config acl update full /path/to/acl.json
    ```
 3. Start sFlow collector capture (sflowtool)
