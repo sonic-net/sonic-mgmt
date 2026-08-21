@@ -785,6 +785,14 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
     if asic_index is None:
         append_midplane_traffic_rules(duthost, iptables_rules)
 
+    # Add OUTPUT rules to restrict access to FRR daemon ports 2601 (zebra VTY) and 2620 (FPM).
+    # caclmgrd programs these rules in every managed namespace (host and all per-ASIC namespaces).
+    # Ref: https://github.com/sonic-net/sonic-host-services/pull/389
+    iptables_rules.append("-A OUTPUT -o lo -p tcp -m tcp --dport 2620 -m owner --uid-owner 300 -j ACCEPT")
+    iptables_rules.append("-A OUTPUT -o lo -p tcp -m tcp --dport 2601 -m owner --uid-owner 300 -j ACCEPT")
+    iptables_rules.append("-A OUTPUT -o lo -p tcp -m tcp --dport 2620 -j DROP")
+    iptables_rules.append("-A OUTPUT -o lo -p tcp -m tcp --dport 2601 -j DROP")
+
     return iptables_rules, ip6tables_rules
 
 

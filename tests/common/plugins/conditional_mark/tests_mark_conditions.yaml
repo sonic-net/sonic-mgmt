@@ -769,6 +769,12 @@ bgp/test_traffic_shift.py::test_load_minigraph_with_traffic_shift_away:
       - "asic_type in ['vs']"
       - https://github.com/sonic-net/sonic-mgmt/issues/6471
 
+bgp/test_traffic_shift_lc.py:
+  skip:
+    reason: "test_traffic_shift_lc is only applicable to modular chassis platforms"
+    conditions:
+      - "is_chassis==False"
+
 bgp/test_traffic_shift_sup.py:
   skip:
     reason: "Not supported on T2 single node topology"
@@ -803,25 +809,13 @@ cacl/test_cacl_application.py::test_cacl_application_nondualtor:
     reason: "test_cacl_application is only supported on non dualtor topology"
     conditions:
       - "'dualtor' in topo_name"
-  xfail:
-    reason: "sonic-net/sonic-buildimage#28061 adds new protected FRR BGP ports; test update to
-      follow once that image is checked in"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/26908"
 
 cacl/test_cacl_application.py::test_multiasic_cacl_application:
   skip:
-    reason: "test_multiasic_cacl_application is only supported on multi-ASIC platform. Also
-      temporarily skipped while sonic-net/sonic-buildimage#28061 (adds new protected FRR BGP
-      ports) is being validated; test update to follow once that image is checked in."
+    reason: "test_multiasic_cacl_application is only supported on multi-ASIC platform"
     conditions_logical_operator: or
     conditions:
       - "not is_multi_asic"
-  xfail:
-    reason: "sonic-net/sonic-buildimage#28061 adds new protected FRR BGP ports; test update to
-      follow once that image is checked in"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/26908"
 
 cacl/test_cacl_function.py:
   xfail:

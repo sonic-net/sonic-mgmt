@@ -13,23 +13,38 @@ from tests.common.utilities import wait_until, get_plt_reboot_ctrl
 logger = logging.getLogger(__name__)
 
 
-def check_pmon_uptime_minutes(duthost, minimal_runtime=6):
+def check_docker_uptime_minutes(duthost, name, minimal_runtime=6):
     """
-    @summary: This function checks if pmon uptime is at least the minimal_runtime
-    @return: True pmon has been running at least the minimal_runtime, False for otherwise
+    @summary: This function checks if the named docker's uptime is at least the minimal_runtime
+    @return: True if the docker has been running at least the minimal_runtime, False for otherwise
     """
-    result = duthost.command("docker ps | grep pmon", _uses_shell=True)
+    result = duthost.command("docker ps --filter name=^/{}$ --format '{{{{.Status}}}}'".format(name),
+                             _uses_shell=True, module_ignore_errors=True)
     if result["stdout"]:
-        match = re.search(r'Up (\d+) (minutes|hours)', result["stdout"])
+        match = re.search(r'Up (\d+) (minutes|hours|days|weeks|months)', result["stdout"])
         if match:
             if match.group(2) == "hours":
                 return int(match.group(1))*60 >= minimal_runtime
+            elif match.group(2) == "days":
+                return int(match.group(1))*24*60 >= minimal_runtime
+            elif match.group(2) == "weeks":
+                return int(match.group(1))*7*24*60 >= minimal_runtime
+            elif match.group(2) == "months":
+                return int(match.group(1))*30*24*60 >= minimal_runtime
             else:
                 return int(match.group(1)) >= minimal_runtime
         match = re.search(r'Up About an hour', result["stdout"])
         if match:
             return 60 >= minimal_runtime
     return False
+
+
+def check_pmon_uptime_minutes(duthost, minimal_runtime=6):
+    """
+    @summary: This function checks if pmon uptime is at least the minimal_runtime
+    @return: True pmon has been running at least the minimal_runtime, False for otherwise
+    """
+    return check_docker_uptime_minutes(duthost, "pmon", minimal_runtime=minimal_runtime)
 
 
 def reset_timeout(duthost):
