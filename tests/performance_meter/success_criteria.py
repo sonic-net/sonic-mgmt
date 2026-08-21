@@ -1,5 +1,6 @@
 import logging
 import random
+import shlex
 import statistics
 import datetime
 import pandas as pd
@@ -202,6 +203,101 @@ def success_criteria_by_syslog(request, test_result, **kwargs):
     return syslog_checker
 
 
+def _get_syslog_file_state(duthost, syslog_path):
+    command = "stat -c '%i %s' {}".format(shlex.quote(syslog_path))
+    stdout = duthost.shell(command)["stdout"]
+    inode, size = stdout.split()
+    return int(inode), int(size)
+
+
+def _bounded_syslog_command(syslog_path, inode, size, markers):
+    marker_args = " ".join(
+        "-e {}".format(shlex.quote(marker)) for marker in markers
+    )
+    quoted_path = shlex.quote(syslog_path)
+    rotated_path = shlex.quote(syslog_path + ".1")
+    return (
+        "if [ \"$(stat -c %i {path})\" = \"{inode}\" ]; then "
+        "tail -c +{offset} {path}; "
+        "elif [ -f {rotated} ]; then "
+        "cat {rotated} {path}; "
+        "else cat {path}; fi | "
+        "grep -F {markers} | grep -v ansible || true"
+    ).format(path=quoted_path,
+             inode=inode,
+             offset=size + 1,
+             rotated=rotated_path,
+             markers=marker_args)
+
+
+def _select_syslog_window(
+        duthost, output, last_timestamp, start_mark, end_mark, start_policy):
+    starts = []
+    ends = []
+    for line in output.splitlines():
+        if start_mark not in line and end_mark not in line:
+            continue
+        timestamp = _extract_timestamp(duthost, line)
+        if timestamp <= last_timestamp:
+            continue
+        if start_mark in line:
+            starts.append(timestamp)
+        if end_mark in line:
+            ends.append(timestamp)
+    if not starts or not ends:
+        return None
+    end = max(ends)
+    valid_starts = sorted(timestamp for timestamp in starts if timestamp < end)
+    if not valid_starts:
+        return None
+    start = valid_starts[0] if start_policy == "first" else valid_starts[-1]
+    return {
+        "start": start,
+        "end": end,
+        "start_count": len(valid_starts),
+        "end_count": len(ends),
+    }
+
+
+def success_criteria_by_bounded_syslog(request, test_result, **kwargs):
+    duthost = request.getfixturevalue("duthost")
+    last_timestamp = _get_last_timestamp(duthost)
+    syslog_path = kwargs.get("syslog_path", "/var/log/syslog")
+    inode, size = _get_syslog_file_state(duthost, syslog_path)
+    start_policy = kwargs.get("start_policy", "last")
+    if start_policy not in ("first", "last"):
+        raise ValueError(
+            "Unsupported syslog start policy {}".format(start_policy)
+        )
+    command = _bounded_syslog_command(
+        syslog_path,
+        inode,
+        size,
+        [kwargs["syslog_start_mark"], kwargs["syslog_end_mark"]],
+    )
+
+    @suppress_exception
+    def syslog_checker():
+        stdout = duthost.shell(command)["stdout"]
+        window = _select_syslog_window(
+            duthost,
+            stdout,
+            last_timestamp,
+            kwargs["syslog_start_mark"],
+            kwargs["syslog_end_mark"],
+            start_policy,
+        )
+        if window is None:
+            return False
+        result_variable = kwargs["result_variable"]
+        duration = (window["end"] - window["start"]).total_seconds()
+        test_result[result_variable] = duration
+        test_result[result_variable + "_start_count"] = window["start_count"]
+        test_result[result_variable + "_end_count"] = window["end_count"]
+        return True
+    return syslog_checker
+
+
 def swss_up(request, test_result, **kwargs):
     swss_start_cmd = "show logging | grep 'docker cmd: start for swss' | grep -v ansible | tail -n 1"
     swss_end_cmd = "show logging | grep 'Feature swss is enabled and started' | grep -v ansible | tail -n 1"
@@ -213,9 +309,22 @@ def swss_up(request, test_result, **kwargs):
 
 def swss_create_switch(request, test_result, **kwargs):
     start_mark = "create: request switch create with context 0"
-    start_cmd = "show logging | grep '{}' | grep -v ansible | tail -n 1".format(start_mark)
     end_mark = "main: Create a switch, id:"
-    end_cmd = "show logging | grep '{}' | grep -v ansible | tail -n 1".format(end_mark)
+    if kwargs.get("log_read_mode") == "bounded":
+        extra_vars = {"syslog_start_mark": start_mark,
+                      "syslog_end_mark": end_mark,
+                      "result_variable": "swss_create_switch_start_time"}
+        return success_criteria_by_bounded_syslog(
+            request, test_result, **{**kwargs, **extra_vars}
+        )
+    start_cmd = (
+        "show logging | grep '{}' | grep -v ansible | tail -n 1"
+        .format(start_mark)
+    )
+    end_cmd = (
+        "show logging | grep '{}' | grep -v ansible | tail -n 1"
+        .format(end_mark)
+    )
     extra_vars = {"syslog_start_cmd": start_cmd,
                   "syslog_end_cmd": end_cmd,
                   "result_variable": "swss_create_switch_start_time"}
