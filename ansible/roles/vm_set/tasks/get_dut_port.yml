@@ -14,7 +14,7 @@
 - name: determine whether to include internal ports
   set_fact:
     include_internal: true
-  when: is_vs_chassis is defined and is_vs_chassis == true
+  when: (is_vs_chassis is defined and is_vs_chassis == true) or (is_vs_urh is defined and is_vs_urh == true)
 
 - name: determine whether to sort port_alias by index
   set_fact:
