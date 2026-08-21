@@ -302,9 +302,9 @@ def duthost_shutdown_ebgp(duthost):
     v6_routes_count = sumv6.get('ebgp', {'routes': 0})['routes']
     if v4_routes_count > 10000 or v6_routes_count > 10000:
         orch_cpu_timeout = 120
-        if len(duthost.get_admin_up_ports()) > 32:
-            # On topos with a large number of ports and routes it may take longer for routes to reach 0
-            routes_zero_timeout = 120
+        # We saw a 64-port T2 take ~90s for all bgp paths to go to zero routes.
+        # So use that as our timeout benchmark plus a buffer and take 2s per port (min 60s).
+        routes_zero_timeout = max(len(duthost.get_admin_up_ports()) * 2, routes_zero_timeout)
 
 
     # Shutdown all eBGP neighbors
