@@ -529,15 +529,14 @@ sflow/test_sflow.py::TestReboot::testFastreboot:
   skip:
     reason: "Known unrelated VPP reboot issue"
     conditions:
-      - "asic_type in ['vpp']"
-      - "topo_type in ['t0']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/27229 and asic_type in ['vpp']"
+
 
 sflow/test_sflow.py::TestReboot::testWarmreboot:
   skip:
     reason: "Known unrelated VPP reboot issue"
     conditions:
-      - "asic_type in ['vpp']"
-      - "topo_type in ['t0']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/27229 and asic_type in ['vpp']"
 
 
 #######################################
