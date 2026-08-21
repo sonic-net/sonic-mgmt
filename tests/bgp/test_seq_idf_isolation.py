@@ -3,13 +3,14 @@ import pytest
 import random
 from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.bgp import get_db_cli_prefix
 from tests.common.helpers.constants import DEFAULT_ASIC_ID
 from tests.common.utilities import wait_until
 from route_checker import assert_only_loopback_routes_announced_to_neighs, parse_routes_on_neighbors
 from route_checker import verify_current_routes_announced_to_neighs, check_and_log_routes_diff
 
 pytestmark = [
-    pytest.mark.topology('t2', 'lt2')
+    pytest.mark.topology('t2', 'lrh', 'urh', 'lt2')
 ]
 
 logger = logging.getLogger(__name__)
@@ -52,9 +53,7 @@ def get_idf_isolation_state(host, cmd="sudo idf_isolation status"):
 def check_idf_isolation_support(duthost):
     # For multi-asic, check DB in one of the namespaces
     asic_index = 0 if duthost.is_multi_asic else DEFAULT_ASIC_ID
-    namespace = duthost.get_namespace_from_asic_id(asic_index)
-    sonic_db_cmd = "sonic-db-cli {}".format("-n " +
-                                            namespace if namespace else "")
+    sonic_db_cmd = get_db_cli_prefix(duthost, asic_index)
     idf_isolation_state_in_db = duthost.shell(
         '{} CONFIG_DB HGET "BGP_DEVICE_GLOBAL|STATE" "idf_isolation_state"'.format(sonic_db_cmd),
         module_ignore_errors=False)['stdout_lines']

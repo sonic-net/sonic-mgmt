@@ -6,7 +6,10 @@ from pathlib import Path
 
 from .inventory.parser import TransceiverInventory
 
-from tests.common.platform.interface_utils import get_physical_port_indices
+from tests.common.platform.interface_utils import (
+    get_physical_port_indices,
+    get_lport_to_first_subport_mapping,
+)
 
 # Import attribute parser components
 from tests.transceiver.attribute_parser.dut_info_loader import DutInfoLoader
@@ -150,7 +153,7 @@ def _load_platform_hwsku(duthost):
 
 
 @pytest.fixture(scope='session')
-def port_attributes_dict(request, duthost):
+def port_attributes_dict(request, ansible_root, duthost):
     """Session-scoped merged port attributes (BASE + category).
 
     Loads dut_info.json via DutInfoLoader and merges category attribute files via AttributeManager.
@@ -169,7 +172,7 @@ def port_attributes_dict(request, duthost):
         logger.warning("Platform/HWSKU not determined; platform/hwsku specific overrides may not apply")
 
     logger.info("Building transceiver base port attributes for DUT '%s'", dut_name)
-    loader = DutInfoLoader(REPO_ROOT)
+    loader = DutInfoLoader(ansible_root)
     try:
         base_dict = loader.build_base_port_attributes(dut_name)
     except DutInfoError as e:
@@ -178,12 +181,12 @@ def port_attributes_dict(request, duthost):
     if not base_dict:
         pytest.skip(f"No ports found for DUT '{dut_name}' in dut_info.json")
 
-    attr_dir = os.path.join(REPO_ROOT, REL_ATTR_DIR)
+    attr_dir = os.path.join(ansible_root, REL_ATTR_DIR)
     if not os.path.isdir(attr_dir):
-        pytest.skip(f"Attributes directory {attr_dir} absent; returning base attributes only")
+        pytest.skip(f"Attributes directory {attr_dir} absent - returning base attributes only")
 
     logger.info("Merging category attributes from %s", attr_dir)
-    mgr = AttributeManager(REPO_ROOT, base_dict)
+    mgr = AttributeManager(ansible_root, base_dict)
     try:
         merged = mgr.build_port_attributes(dut_name, platform or '', hwsku or '')
     except AttributeMergeError as e:
@@ -192,10 +195,10 @@ def port_attributes_dict(request, duthost):
         pytest.skip(f"No merged attributes found for DUT '{dut_name}'")
 
     # Run compliance validation (validator handles detailed logging and raises on required misses)
-    templates_path = os.path.join(REPO_ROOT, REL_DEPLOYMENT_TEMPLATES_FILE)
+    templates_path = os.path.join(ansible_root, REL_DEPLOYMENT_TEMPLATES_FILE)
     if not request.config.getoption('--skip_transceiver_template_validation') and os.path.isfile(templates_path):
         logger.info("Validating transceiver attributes against templates in %s", templates_path)
-        validator = TemplateValidator(REPO_ROOT)
+        validator = TemplateValidator(ansible_root)
         try:
             # Validate merged attributes; raises on missing required attributes (partials only warn)
             compliance_dict = validator.validate(merged)
@@ -260,6 +263,18 @@ def _skip_transceiver_suite_on_vs(duthost):
         pytest.skip("Transceiver tests are not supported on virtual switch testbed")
 
 
+@pytest.fixture(scope="session")
+def lport_to_first_subport_mapping(duthost):
+    """Map each logical port to its breakout group's first sub-port.
+
+    Resolved once per session (it hits the DUT via ansible facts / sonic-db-cli)
+    and shared by every test that needs first-sub-port filtering, so the mapping
+    is not re-queried per test.  Pair with
+    ``interface_utils.is_first_subport``.
+    """
+    return get_lport_to_first_subport_mapping(duthost)
+
+
 # ──────────────────────────────────────────────────────────────────────
 # Session-scoped prerequisite fixtures (gates).
 # These are session-scoped (computed once per session) but NOT autouse —
@@ -290,7 +305,7 @@ def gold_fw_verified(duthost, port_attributes_dict):
     """Gate: every CMIS active-optical transceiver runs its gold firmware.
 
     A port is in scope iff its ``EEPROM_ATTRIBUTES.cmis_active_optical`` is
-    True; for those ports ``CDB_FW_UPGRADE_ATTRIBUTES.gold_firmware_version``
+    True; for those ports ``CDB_FIRMWARE_UPGRADE_ATTRIBUTES.gold_firmware_version``
     MUST be configured AND must match the active firmware reported by the CLI.
     Other ports are out of scope (no expectation to compare against).
 
@@ -326,8 +341,29 @@ def links_verified(duthost, port_attributes_dict):
 # ──────────────────────────────────────────────────────────────────────
 
 
+@pytest.fixture
+def expected_pid_changes():
+    """Per-test set of monitored-process names allowed to change PID.
+
+    Empty by default, so any monitored-process restart is treated as a
+    regression by the post-test health check — the strict behavior every
+    existing test relies on, unchanged.
+
+    A test (or a subcategory conftest) that intentionally restarts a daemon
+    adds the process name to this set so the parent ``_per_test_health_check``
+    treats the PID change as expected instead of a failure. The set is mutable
+    and shared with the parent fixture for the duration of the test, so it can
+    be populated at runtime — e.g. a test that restarts ``pmon`` (which forces
+    an ``xcvrd`` restart) calls ``expected_pid_changes.add("xcvrd")`` before
+    issuing the restart. This is additive: the parent fixture remains the
+    single owner of the xcvrd/core check; subcategories feed it intent rather
+    than overriding it.
+    """
+    return set()
+
+
 @pytest.fixture(autouse=True)
-def _per_test_health_check(request, duthost):
+def _per_test_health_check(request, duthost, expected_pid_changes):
     """Capture health baseline before each test; verify before and after."""
     baseline = capture_baseline(duthost)
     logger.debug("Health baseline captured for %s", request.node.name)
@@ -341,7 +377,7 @@ def _per_test_health_check(request, duthost):
 
     yield
 
-    result = verify_health(duthost, baseline)
+    result = verify_health(duthost, baseline, expect_pid_change=expected_pid_changes)
     post_checks = [
         ("system_health", result["passed"], "; ".join(result["failures"])),
     ]
@@ -402,12 +438,16 @@ def get_dev_transceiver_details(duthost, get_transceiver_inventory):
     return details
 
 
-@pytest.fixture(scope="module")
-def get_lport_to_pport_mapping(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+@pytest.fixture(scope="session")
+def get_lport_to_pport_mapping(duthost):
     """
     Fixture to get the mapping of logical ports to physical ports.
+
+    Uses the canonical shared ``duthost`` fixture (``duthosts[session.dut_index]``)
+    so this mapping is computed against the same DUT as the rest of the suite —
+    ``port_attributes_dict``, ``lport_to_first_subport_mapping``, the prerequisite
+    gates, and the per-test health checks all resolve their DUT the same way.
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     lport_to_pport_mapping = get_physical_port_indices(duthost)
 
     logging.info("Logical to Physical Port Mapping: {}".format(lport_to_pport_mapping))

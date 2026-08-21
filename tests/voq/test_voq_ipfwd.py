@@ -32,7 +32,7 @@ import re
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t2'),
+    pytest.mark.topology('t2', 'lrh', 'urh'),
     pytest.mark.sanity_check(check_items=["-monit"], allow_recover=False),
     pytest.mark.disable_loganalyzer
 ]
