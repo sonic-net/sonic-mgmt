@@ -722,21 +722,16 @@ bgp/test_bgp_vnet_scale.py:
 
 bgp/test_bgpmon.py:
   skip:
-    reason: "Not supported on T2 topology or topology backend"
+    reason: "Not supported on topology backend"
     conditions:
-      - "'backend' in topo_name or topo_type in ['t2', 'lrh', 'urh']"
+      - "'backend' in topo_name"
 
-bgp/test_bgpmon.py::test_bgpmon:
-  xfail:
-    reason: "xfail for IPv6-only topologies, issue https://github.com/sonic-net/sonic-mgmt/issues/20754"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20754 and '-v6-' in topo_name"
-
-bgp/test_bgpmon_v6.py::test_bgpmon_no_ipv6_resolve_via_default:
+bgp/test_bgpmon.py::test_bgpmon_v4:
   skip:
-    reason: "Not applicable for passive bgpmon_v6 and UT2 does not use bgpmon_v6"
+    reason: "v4 bgpmon is only applicable on t0/t1 topologies"
     conditions:
-      - "platform in ['x86_64-arista_7280dr3am_36']"
+      - "topo_type not in ['t0', 't1']"
+
 
 bgp/test_startup_tsa_tsb_service.py::test_tsa_tsb_service_with_supervisor_abnormal_reboot:
   skip:
