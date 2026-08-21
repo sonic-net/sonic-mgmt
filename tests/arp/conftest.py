@@ -71,6 +71,7 @@ def intfs_for_test(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     ports = list(sorted(external_ports, key=lambda item: int(item.replace('Ethernet', ''))))
     po1 = None
     po2 = None
+    original_intf_macs = {}
 
     is_storage_backend = 'backend' in tbinfo['topo']['name']
     is_isolated_topo = 'isolated' in tbinfo['topo']['name']
@@ -131,6 +132,15 @@ def intfs_for_test(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
             po1 = get_po(mg_facts, intf1)
             po2 = get_po(mg_facts, intf2)
 
+            if duthost.facts['asic_type'] == 'vpp':
+                for intf in (intf1, intf2):
+                    original_mac = duthost.get_dut_iface_mac(intf)
+                    if not original_mac:
+                        pytest.fail(
+                            "Failed to get MAC address for {}".format(intf)
+                        )
+                    original_intf_macs[intf] = original_mac
+
             if po1:
                 asic.config_portchannel_member(po1, intf1, "del")
                 collect_info(duthost)
@@ -159,11 +169,27 @@ def intfs_for_test(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
         asic.config_ip_intf(intf1, "10.10.1.2/28", "add")
         asic.config_ip_intf(intf2, "10.10.1.20/28", "add")
 
+    if original_intf_macs:
+        # VPP can recreate the Linux LCP tap with a per-port MAC after the
+        # port leaves a LAG. Align it with the router MAC expected by SONiC.
+        router_mac = asic.get_router_mac()
+        for intf in (intf1, intf2):
+            duthost.shell(
+                "sudo ip link set dev {0} address {1}".format(
+                    intf, router_mac
+                )
+            )
+
     yield intf1, intf2, intf1_indice, intf2_indice
 
     if tbinfo['topo']['type'] != 't0':
         asic.config_ip_intf(intf1, "10.10.1.2/28", "remove")
         asic.config_ip_intf(intf2, "10.10.1.20/28", "remove")
+
+    for intf, mac in original_intf_macs.items():
+        duthost.shell(
+            "sudo ip link set dev {0} address {1}".format(intf, mac)
+        )
 
     if tbinfo['topo']['type'] != 't0':
         if po1:
