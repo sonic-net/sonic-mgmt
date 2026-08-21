@@ -5,14 +5,7 @@ import logging
 from .common.helpers.assertions import pytest_assert
 from .common.devices.eos import EosHost
 from .common.devices.sonic import SonicHost
-try:
-    # cSONiC (docker-sonic-vs) neighbors are reached via docker exec, not SSH.
-    # Guard the import so upstream trees without CsonicHost are unaffected.
-    from .common.devices.csonic import CsonicHost
-    CSONIC_IMPORT_ERROR = None
-except ImportError as err:
-    CsonicHost = None
-    CSONIC_IMPORT_ERROR = err
+from .common.devices.csonic import CsonicHost
 
 logger = logging.getLogger(__name__)
 
@@ -153,7 +146,7 @@ def test_neighbors_health(duthosts, localhost, nbrhosts, eos, sonic, enum_fronte
             if failmsg:
                 fails.append(failmsg)
 
-        elif CsonicHost is not None and isinstance(nbrhost, CsonicHost):
+        elif isinstance(nbrhost, CsonicHost):
             # A cSONiC (docker-sonic-vs) neighbor is reached via 'docker exec',
             # not SSH: by design it has no dedicated management IP and no
             # SNMP-over-mgmt endpoint (see CsonicHost docstring). The mgmt-addr
@@ -165,9 +158,6 @@ def test_neighbors_health(duthosts, localhost, nbrhosts, eos, sonic, enum_fronte
                 fails.append(failmsg)
 
         else:
-            if CSONIC_IMPORT_ERROR is not None:
-                logger.debug("CsonicHost import failed; treating cSONiC neighbors as unavailable: %r",
-                             CSONIC_IMPORT_ERROR)
             failmsg = "neighbor type {} is unknown".format(k)
             fails.append(failmsg)
 
