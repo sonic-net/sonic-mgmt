@@ -238,18 +238,11 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
                     loganalyzer_standby.expect_regex = [expected_standby_agg_counter_message]
                 restart_dhcpmon_in_debug(duthost)
                 init_dhcpmon_counters(duthost)
-                if testing_mode == DUAL_TOR_MODE:
-                    expected_agg_counter_message = (
-                        r".*dhcp_relay#dhcpmon\[[0-9]+\]: "
-                        r"\[\s*Agg-%s\s*-[\sA-Za-z0-9]+\s*rx/tx\] "
-                        r"Discover: +1/ +\d+, Offer: +1/ +1, Request: +[12]/ +\d+, ACK: +1/ +1"
-                    ) % (dhcp_relay['downlink_vlan_iface']['name'])
-                else:
-                    expected_agg_counter_message = (
-                        r".*dhcp_relay#dhcpmon\[[0-9]+\]: "
-                        r"\[\s*Agg-%s\s*-[\sA-Za-z0-9]+\s*rx/tx\] "
-                        r"Discover: +1/ +\d+, Offer: +1/ +1, Request: +[12]/ +\d+, ACK: +1/ +1"
-                    ) % (dhcp_relay['downlink_vlan_iface']['name'])
+                expected_agg_counter_message = (
+                    r".*dhcp_relay#dhcpmon\[[0-9]+\]: "
+                    r"\[\s*Agg-%s\s*-[\sA-Za-z0-9]+\s*rx/tx\] "
+                    r"Discover: +1/ +\d+, Offer: +1/ +1, Request: +[12]/ +\d+, ACK: +1/ +1"
+                ) % (dhcp_relay['downlink_vlan_iface']['name'])
                 loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="dhcpmon counter")
                 marker = loganalyzer.init()
                 loganalyzer.expect_regex = [expected_agg_counter_message]
@@ -356,18 +349,11 @@ def test_dhcp_relay_with_source_port_ip_in_relay_enabled(
                     loganalyzer_standby.expect_regex = [expected_standby_agg_counter_message]
                 restart_dhcpmon_in_debug(duthost)
                 init_dhcpmon_counters(duthost)
-                if testing_mode == DUAL_TOR_MODE:
-                    expected_agg_counter_message = (
-                        r".*dhcp_relay#dhcpmon\[[0-9]+\]: "
-                        r"\[\s*Agg-%s\s*-[\sA-Za-z0-9]+\s*rx/tx\] "
-                        r"Discover: +1/ +\d+, Offer: +1/ +1, Request: +[12]/ +\d+, ACK: +1/ +1"
-                    ) % (dhcp_relay['downlink_vlan_iface']['name'])
-                else:
-                    expected_agg_counter_message = (
-                        r".*dhcp_relay#dhcpmon\[[0-9]+\]: "
-                        r"\[\s*Agg-%s\s*-[\sA-Za-z0-9]+\s*rx/tx\] "
-                        r"Discover: +1/ +\d+, Offer: +1/ +1, Request: +[12]/ +\d+, ACK: +1/ +1"
-                    ) % (dhcp_relay['downlink_vlan_iface']['name'])
+                expected_agg_counter_message = (
+                    r".*dhcp_relay#dhcpmon\[[0-9]+\]: "
+                    r"\[\s*Agg-%s\s*-[\sA-Za-z0-9]+\s*rx/tx\] "
+                    r"Discover: +1/ +\d+, Offer: +1/ +1, Request: +[12]/ +\d+, ACK: +1/ +1"
+                ) % (dhcp_relay['downlink_vlan_iface']['name'])
                 loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="dhcpmon counter")
                 marker = loganalyzer.init()
                 loganalyzer.expect_regex = [expected_agg_counter_message]
