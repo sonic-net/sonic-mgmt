@@ -1161,7 +1161,7 @@
 
 - conf-name: vmsvc5-rdma-nh5010-macsec-01
   group-name: svc5-rdma-1
-  topo: t2_single_node_tgen_rdma_pizzabox
+  topo: t2_single_node_tgen_rdma_pizzabox_macsec
   ptf_image_name: docker-keysight-api-server
   ptf: svc5-ixia-2-api-serv
   ptf_ip: 10.206.144.17/24
