@@ -202,14 +202,6 @@ def verify_dom_refreshed(duthost, port_attributes_dict, ports, lport_to_first_su
         port: stale_by_port.get(port, {}).get("last_update_time") for port in ports
     }
 
-    enabled_ports = []
-    for port in ports:
-        namespace = resolve_port_namespace(duthost, port)
-        enabled_ports.append((port, namespace))
-        err = cli_helpers.set_dom_polling(duthost, port, enable=True, namespace=namespace)
-        if err:
-            return [f"failed to re-enable DOM polling on {port}: {err}"]
-
     def _check_republished():
         sensor_by_port, read_errors = dom_helpers.read_dom_sensor_data(duthost, ports)
         failures = [f"STATE_DB read: {read_error}" for read_error in read_errors]
@@ -224,7 +216,15 @@ def verify_dom_refreshed(duthost, port_attributes_dict, ports, lport_to_first_su
         )
         return failures + port_failures
 
+    enabled_ports = []
     try:
+        for port in ports:
+            namespace = resolve_port_namespace(duthost, port)
+            enabled_ports.append((port, namespace))
+            err = cli_helpers.set_dom_polling(duthost, port, enable=True, namespace=namespace)
+            if err:
+                return [f"failed to re-enable DOM polling on {port}: {err}"]
+
         failures = scenario_ops.poll_ports_recovered(
             _check_republished, dom_attrs["dom_info_recover_sec"],
             DOM_REFRESH_POLL_INTERVAL_SEC, "DOM refresh",
