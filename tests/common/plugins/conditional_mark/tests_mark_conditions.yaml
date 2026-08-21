@@ -5196,6 +5196,14 @@ snappi_tests/reboot:
     conditions:
       - "'2025' in release"
 
+snappi_tests/test_gcu_port_speed_upgrade.py:
+  skip:
+    reason: "Snappi GCU port speed upgrade test is supported only on T2 testbeds with Cisco 8000 LC platform"
+    conditions_logical_operator: "OR"
+    conditions:
+      - "topo_type != 't2'"
+      - "platform not in ['x86_64-88_lc0_36fh-r0']"
+
 #######################################
 #####            snmp             #####
 #######################################
