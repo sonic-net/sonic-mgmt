@@ -399,14 +399,14 @@ def remove_acl_table(duthost):
         pytest.fail(f"Failed to remove ACL table {ACL_TABLE_NAME}")
 
     def _check_acl_table_absent(duthost, table_name):
-        result = duthost.shell(f'redis-cli -n 6 KEYS "ACL_TABLE_TABLE:{table_name}"')["stdout"]
+        result = duthost.shell(f'redis-cli -n 6 KEYS "ACL_TABLE_TABLE|{table_name}"')["stdout"]
         return table_name not in result
 
     pytest_assert(wait_until(30, 5, 2, _check_acl_table_absent, duthost, ACL_TABLE_NAME),
                   f"ACL table {ACL_TABLE_NAME} still present in STATE_DB after removal")
 
     logger.info(f"Verifying ACL table {ACL_TABLE_NAME} was removed from STATE_DB")
-    db_cmd = f"redis-cli -n 6 KEYS 'ACL_TABLE_TABLE:{ACL_TABLE_NAME}'"
+    db_cmd = f"redis-cli -n 6 KEYS 'ACL_TABLE_TABLE|{ACL_TABLE_NAME}'"
     keys_output = duthost.shell(db_cmd)["stdout_lines"]
 
     if any(keys_output):
@@ -589,7 +589,7 @@ def verify_acl_rules_installation(duthost, expected_count):
         pytest.fail(f"CONFIG_DB has {config_rule_count} rules, expected {expected_count}")
 
     # Check STATE_DB
-    state_rules_cmd = f"redis-cli -n 6 KEYS 'ACL_RULE_TABLE:{ACL_TABLE_NAME}|*'"
+    state_rules_cmd = f"redis-cli -n 6 KEYS 'ACL_RULE_TABLE|{ACL_TABLE_NAME}|*'"
     state_rules = duthost.shell(state_rules_cmd)["stdout_lines"]
     state_rule_count = len([key for key in state_rules if key.strip()])
     logger.info(f"Number of rules in STATE_DB: {state_rule_count}")
@@ -674,7 +674,7 @@ def remove_acl_rules(duthost):
 
     # === STATE_DB Deletion Check ===
     logger.info("Checking STATE_DB to confirm ACL rule deletion...")
-    state_db_key = f"ACL_RULE_TABLE:{ACL_TABLE_NAME}|rule_1"
+    state_db_key = f"ACL_RULE_TABLE|{ACL_TABLE_NAME}|rule_1"
     db_cmd = f"redis-cli -n 6 EXISTS \"{state_db_key}\""
     exists_output = duthost.shell(db_cmd)["stdout"]
 
@@ -684,51 +684,35 @@ def remove_acl_rules(duthost):
 
 def remove_bulk_acl_rules(duthost):
     """
-    Remove all ACL rules for cleanup using direct Redis operations.
+    Remove all ACL rules for cleanup using acl-loader.
     Ensure proper cleanup order: rules first, then table.
     """
     logger.info(f"Removing all ACL rules from table {ACL_TABLE_NAME}")
 
-    # Get all rule keys from CONFIG_DB (not STATE_DB for removal)
-    config_db_cmd = f"redis-cli -n 4 KEYS 'ACL_RULE|{ACL_TABLE_NAME}|*'"
-    rule_keys = duthost.shell(config_db_cmd)["stdout_lines"]
-    rule_count = len([key for key in rule_keys if key.strip()])
+    rule_pattern = f"ACL_RULE|{ACL_TABLE_NAME}|*"
+    count_cmd = f"redis-cli -n 4 --scan --pattern '{rule_pattern}' | wc -l"
+    rule_count = int(duthost.shell(count_cmd)["stdout"].strip() or 0)
 
     logger.info(f"Found {rule_count} rules to remove from CONFIG_DB")
 
-    # Remove rules individually from CONFIG_DB FIRST
-    removed_count = 0
-    for rule_key_line in rule_keys:
-        rule_key = rule_key_line.strip()
-        if rule_key and ACL_TABLE_NAME in rule_key:
-            delete_cmd = f"redis-cli -n 4 DEL '{rule_key}'"
-            result = duthost.shell(delete_cmd)
-            if result["rc"] == 0:
-                removed_count += 1
-            else:
-                logger.warning(f"Failed to delete rule {rule_key}")
+    delete_cmd = f"acl-loader delete {ACL_TABLE_NAME}"
+    result = duthost.shell(delete_cmd, module_ignore_errors=True)
+    pytest_assert(result["rc"] == 0,
+                  f"Failed to delete ACL rules with acl-loader: {result.get('stderr', '')}")
 
-    logger.info(f"Successfully removed {removed_count} ACL rules from CONFIG_DB")
+    def _check_acl_rules_absent(duthost, database, pattern):
+        result = duthost.shell(
+            f"redis-cli -n {database} --scan --pattern '{pattern}' | head -n 1"
+        )
+        return not result["stdout"].strip()
 
-    # Wait for orchagent to process rule deletions
-    time.sleep(10)
+    pytest_assert(wait_until(30, 1, 0, _check_acl_rules_absent, duthost, 4, rule_pattern),
+                  f"ACL rules for {ACL_TABLE_NAME} still present in CONFIG_DB after batch deletion")
+    state_rule_pattern = f"ACL_RULE_TABLE*{ACL_TABLE_NAME}*"
+    pytest_assert(wait_until(60, 2, 0, _check_acl_rules_absent, duthost, 6, state_rule_pattern),
+                  f"ACL rules for {ACL_TABLE_NAME} still present in STATE_DB after batch deletion")
 
-    # Verify rules are gone from CONFIG_DB before removing table
-    remaining_rules_cmd = f"redis-cli -n 4 KEYS 'ACL_RULE|{ACL_TABLE_NAME}|*'"
-    remaining_rules = duthost.shell(remaining_rules_cmd)["stdout_lines"]
-    remaining_count = len([key for key in remaining_rules if key.strip()])
-
-    if remaining_count > 0:
-        logger.warning(f"Still have {remaining_count} rules in CONFIG_DB after deletion attempt")
-        # Try to force delete any remaining rules
-        for rule_key_line in remaining_rules:
-            rule_key = rule_key_line.strip()
-            if rule_key and ACL_TABLE_NAME in rule_key:
-                logger.info(f"Force deleting remaining rule: {rule_key}")
-                duthost.shell(f"redis-cli -n 4 DEL '{rule_key}'")
-        time.sleep(5)
-    else:
-        logger.info("All ACL rules successfully removed from CONFIG_DB")
+    logger.info(f"Successfully removed {rule_count} ACL rules from CONFIG_DB")
 
     logger.info("Bulk ACL rule removal completed")
 
@@ -748,6 +732,18 @@ def create_vxlan_vnet_config(duthost, tunnel_name, src_ip, portchannel_name="Por
     # Set VXLAN decap ttl_mode to pipe so orchagent passes DECAP_TTL_MODE consistently.
     if asic_type == "cisco-8000":
         vxlan_tunnel_entry["ttl_mode"] = "pipe"
+
+    # Switch-level VXLAN params must be programmed before the tunnel and VNET route, otherwise
+    # the tunnel nexthop creation fails and orchagent does not retry it.
+    ecmp_utils.configure_vxlan_switch(duthost, vxlan_port=VXLAN_UDP_PORT, dutmac=router_mac)
+
+    def _check_vxlan_switch_config(duthost):
+        result = duthost.shell('redis-cli -n 0 HGET "SWITCH_TABLE:switch" vxlan_router_mac',
+                               module_ignore_errors=True)
+        return bool(result.get("stdout", "").strip())
+
+    pytest_assert(wait_until(30, 2, 2, _check_vxlan_switch_config, duthost),
+                  "vxlan_router_mac not set in SWITCH_TABLE:switch after configure_vxlan_switch")
 
     # --- Build overlay config JSON ---
     dut_json = {
@@ -782,16 +778,6 @@ def create_vxlan_vnet_config(duthost, tunnel_name, src_ip, portchannel_name="Por
 
     pytest_assert(wait_until(60, 5, 5, _check_vxlan_tunnel_config, duthost, tunnel_name),
                   f"VXLAN_TUNNEL_TABLE:{tunnel_name} not found in APPL_DB after config write")
-
-    ecmp_utils.configure_vxlan_switch(duthost, vxlan_port=VXLAN_UDP_PORT, dutmac=router_mac)
-
-    # Allow time for VXLAN switch config to propagate through swss pipeline
-    def _check_vxlan_switch_config(duthost):
-        result = duthost.shell('redis-cli -n 0 KEYS "SWITCH_TABLE:switch"', module_ignore_errors=True)
-        return "SWITCH_TABLE:switch" in result.get("stdout", "")
-
-    pytest_assert(wait_until(10, 2, 2, _check_vxlan_switch_config, duthost),
-                  "SWITCH_TABLE:switch not found in APP_DB after configure_vxlan_switch")
 
 
 def backup_config(duthost):
@@ -1066,8 +1052,6 @@ def test_scale_acl_rule(setUp, request):
 
     ptf_send_port = setUp['ptf_send_port']
     bind_ports = setUp['bind_ports']
-    loopback_src_ip = setUp['loopback_src_ip']
-    selected_portchannel = setUp['test_port_2']  # Dynamically selected PortChannel
 
     # Configuration values
     vxlan_tunnel_name = setUp['vxlan_tunnel_name']
@@ -1085,22 +1069,10 @@ def test_scale_acl_rule(setUp, request):
 
     try:
         # ===================================================================
-        # STEP 1: Configure VXLAN/VNET infrastructure
+        # STEP 1: Verify VXLAN/VNET infrastructure configured by the module fixture
         # ===================================================================
-        logger.info("STEP 1: Configuring VXLAN/VNET infrastructure")
+        logger.info("STEP 1: Verifying VXLAN/VNET infrastructure")
 
-        create_vxlan_vnet_config(
-            duthost=duthost,
-            tunnel_name=vxlan_tunnel_name,
-            src_ip=loopback_src_ip,
-            portchannel_name=selected_portchannel
-        )
-
-        # Wait for configuration to be applied
-        logger.info("Waiting for VXLAN/VNET configuration to stabilize...")
-        time.sleep(15)
-
-        # Verify infrastructure
         logger.info("Verifying VNET route")
         output = duthost.shell("show vnet route all")["stdout"]
         assert VNET_ROUTE_PREFIX in output and VNET_NAME in output, "VNET route not found"
