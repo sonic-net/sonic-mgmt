@@ -731,6 +731,8 @@ t1-lag-vpp:
   - ssh/test_ssh_stress.py
   - srv6/test_srv6_dataplane.py
   - srv6/test_srv6_static_config.py
+  - sub_port_interfaces/test_show_subinterface.py
+  - sub_port_interfaces/test_sub_port_interfaces.py
   - vxlan/test_vxlan_ecmp.py
   - vxlan/test_vxlan_decap.py
   - vxlan/test_vnet_decap.py
