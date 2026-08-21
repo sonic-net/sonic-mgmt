@@ -11,6 +11,12 @@ def pytest_addoption(parser):
     route_group.addoption("--max_scale", action="store_true",
                           help="Test with maximum possible route scale")
 
+    route_group.addoption("--route_scale", type=int, default=100000,
+                          help="Number of routes to test (default: 100000)")
+
+    route_group.addoption("--perf_policy", type=str, default="",
+                          help="Performance policy name (from tests/route/policies/ directory)")
+
 
 @pytest.fixture(scope='module')
 def get_function_completeness_level(pytestconfig):
