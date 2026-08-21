@@ -977,6 +977,20 @@
         ]
     },
     {
+        "feature": "k8s_container",
+        "owner": "Dawei Huang",
+        "email": "daweihuang@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "k8s_container.test_gnmi"
+                ],
+                "owner": "Dawei Huang",
+                "email": "daweihuang@microsoft.com"
+            }
+        ]
+    },
+    {
         "feature": "kubesonic",
         "owner": "Isabel Li",
         "email": "isl@microsoft.com",

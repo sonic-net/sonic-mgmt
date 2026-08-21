@@ -1,0 +1,257 @@
+schema_version: 1
+
+golden_images:
+  gnmi:
+    amd64: soniccr1.azurecr.io/docker-sonic-gnmi:gnmi-k8s-20260731.01-amd64
+    armhf: soniccr1.azurecr.io/docker-sonic-gnmi:gnmi-k8s-20260731.01-armhf
+    arm64: soniccr1.azurecr.io/docker-sonic-gnmi:gnmi-k8s-20260731.01-arm64
+  gnmi-sidecar:
+    amd64: soniccr1.azurecr.io/docker-gnmi-sidecar:gnmi-k8s-20260731.01-amd64
+    armhf: soniccr1.azurecr.io/docker-gnmi-sidecar:gnmi-k8s-20260731.01-armhf
+    arm64: soniccr1.azurecr.io/docker-gnmi-sidecar:gnmi-k8s-20260731.01-arm64
+  gnmiwatchdog:
+    amd64: soniccr1.azurecr.io/docker-gnmi-watchdog:gnmi-k8s-20260731.01-amd64
+    armhf: soniccr1.azurecr.io/docker-gnmi-watchdog:gnmi-k8s-20260731.01-armhf
+    arm64: soniccr1.azurecr.io/docker-gnmi-watchdog:gnmi-k8s-20260731.01-arm64
+
+# These entries match the native Kubernetes container shape. The framework adds
+# images, ownership, scheduling, and common SONiC environment values.
+containers:
+  - name: gnmi
+    tty: true
+    env:
+      - name: RUNTIME_OWNER
+        value: kube
+    securityContext:
+      capabilities:
+        add:
+          - SYS_ADMIN
+          - SYS_BOOT
+          - SYS_PTRACE
+          - NET_ADMIN
+          - DAC_OVERRIDE
+      seccompProfile:
+        type: Unconfined
+      appArmorProfile:
+        type: Unconfined
+    volumeMounts:
+      - name: warmboot
+        mountPath: /var/warmboot
+      - name: sonic
+        mountPath: /etc/sonic
+        readOnly: true
+      - name: localtime
+        mountPath: /etc/localtime
+        readOnly: true
+      - name: dbus
+        mountPath: /run/dbus
+      - name: redis
+        mountPath: /var/run/redis
+      - name: redis-chassis
+        mountPath: /var/run/redis-chassis
+        readOnly: true
+      - name: fips
+        mountPath: /etc/fips/fips_enable
+        readOnly: true
+      - name: sonic-device
+        mountPath: /usr/share/sonic/device
+        readOnly: true
+      - name: rsyslog
+        mountPath: /usr/share/sonic/templates/rsyslog-container.conf.j2
+        readOnly: true
+      - name: host-root
+        mountPath: /mnt/host
+        readOnly: true
+      - name: host-tmp
+        mountPath: /mnt/host/tmp
+      - name: host-var-tmp
+        mountPath: /mnt/host/var/tmp
+    livenessProbe:
+      exec:
+        command:
+          - /bin/sh
+          - -c
+          - "pgrep -f '^/usr/sbin/telemetry ' >/dev/null"
+      initialDelaySeconds: 25
+      periodSeconds: 60
+      timeoutSeconds: 10
+    readinessProbe:
+      exec:
+        command:
+          - /bin/sh
+          - -c
+          - "pgrep -f '^/usr/sbin/telemetry ' >/dev/null"
+      initialDelaySeconds: 15
+      periodSeconds: 30
+      timeoutSeconds: 10
+      failureThreshold: 5
+
+  - name: gnmi-sidecar
+    tty: true
+    env:
+      - name: RUNTIME_OWNER
+        value: local
+      - name: IS_V1_ENABLED
+        value: "false"
+      - name: CONTAINER_CHECKER_SYNC_ENABLED
+        value: "true"
+      - name: SERVICE_CHECKER_SYNC_ENABLED
+        value: "true"
+    securityContext:
+      capabilities:
+        add:
+          - SYS_ADMIN
+          - SYS_PTRACE
+          - DAC_OVERRIDE
+      seccompProfile:
+        type: Unconfined
+      appArmorProfile:
+        type: Unconfined
+    volumeMounts:
+      - name: warmboot
+        mountPath: /var/warmboot
+      - name: redis
+        mountPath: /var/run/redis
+      - name: redis-chassis
+        mountPath: /var/run/redis-chassis
+        readOnly: true
+      - name: fips
+        mountPath: /etc/fips/fips_enable
+        readOnly: true
+      - name: sonic-device
+        mountPath: /usr/share/sonic/device
+        readOnly: true
+      - name: rsyslog
+        mountPath: /usr/share/sonic/templates/rsyslog-container.conf.j2
+        readOnly: true
+      - name: systemd
+        mountPath: /lib/systemd/system
+      - name: audit
+        mountPath: /etc/audit
+      - name: sonic
+        mountPath: /etc/sonic
+        readOnly: true
+      - name: localtime
+        mountPath: /etc/localtime
+        readOnly: true
+    readinessProbe:
+      exec:
+        command:
+          - /bin/sh
+          - -c
+          - supervisorctl status systemd_stub | grep -q RUNNING
+      initialDelaySeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 12
+
+  - name: gnmiwatchdog
+    tty: true
+    env:
+      - name: RUNTIME_OWNER
+        value: local
+      - name: CONTAINER_NAME
+        value: gnmi_watchdog
+    ports:
+      - name: health
+        containerPort: 51000
+    volumeMounts:
+      - name: warmboot
+        mountPath: /var/warmboot
+      - name: redis
+        mountPath: /var/run/redis
+      - name: redis-chassis
+        mountPath: /var/run/redis-chassis
+        readOnly: true
+      - name: fips
+        mountPath: /etc/fips/fips_enable
+        readOnly: true
+      - name: sonic-device
+        mountPath: /usr/share/sonic/device
+        readOnly: true
+      - name: rsyslog
+        mountPath: /usr/share/sonic/templates/rsyslog-container.conf.j2
+        readOnly: true
+      - name: systemd
+        mountPath: /lib/systemd/system
+      - name: sonic
+        mountPath: /etc/sonic
+        readOnly: true
+      - name: localtime
+        mountPath: /etc/localtime
+        readOnly: true
+    livenessProbe:
+      httpGet:
+        host: localhost
+        path: /
+        port: health
+      initialDelaySeconds: 25
+      periodSeconds: 5
+      timeoutSeconds: 3
+      failureThreshold: 5
+    readinessProbe:
+      httpGet:
+        host: localhost
+        path: /
+        port: health
+      initialDelaySeconds: 25
+      periodSeconds: 5
+      timeoutSeconds: 3
+      failureThreshold: 5
+
+volumes:
+  - name: warmboot
+    hostPath:
+      path: /host/warmboot
+      type: Directory
+  - name: sonic
+    hostPath:
+      path: /etc/sonic
+      type: Directory
+  - name: localtime
+    hostPath:
+      path: /etc/localtime
+      type: File
+  - name: dbus
+    hostPath:
+      path: /run/dbus
+      type: Directory
+  - name: redis
+    hostPath:
+      path: /var/run/redis
+      type: Directory
+  - name: redis-chassis
+    hostPath:
+      path: /var/run/redis-chassis
+      type: Directory
+  - name: fips
+    hostPath:
+      path: /etc/fips/fips_enable
+      type: File
+  - name: sonic-device
+    hostPath:
+      path: /usr/share/sonic/device
+      type: Directory
+  - name: rsyslog
+    hostPath:
+      path: /usr/share/sonic/templates/rsyslog-container.conf.j2
+      type: File
+  - name: host-root
+    hostPath:
+      path: /
+      type: Directory
+  - name: host-tmp
+    hostPath:
+      path: /tmp
+      type: Directory
+  - name: host-var-tmp
+    hostPath:
+      path: /var/tmp
+      type: Directory
+  - name: systemd
+    hostPath:
+      path: /lib/systemd/system
+      type: Directory
+  - name: audit
+    hostPath:
+      path: /etc/audit
+      type: Directory
