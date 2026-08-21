@@ -50,6 +50,7 @@ all:
           - m1-128
           - c0
           - c0-lo
+          - urh
           - dualtor-mixed
           - dualtor-mixed-56
           - dualtor-mixed-120
@@ -88,6 +89,7 @@ all:
         vlab-12:
         vlab-8k-01:
         vlab-c-01:
+        vlab-urh-01:
         vlab-t2-1-1:
         vlab-t2-1-2:
         vlab-t2-1-sup:
@@ -145,6 +147,14 @@ all:
           type: kvm
           hwsku: Force10-S6000
           serial_port: 9000
+          ansible_password: password
+          ansible_user: admin
+        vlab-urh-01:
+          ansible_host: 10.250.0.151
+          ansible_hostv6: fec0::ffff:afa:97
+          type: kvm
+          hwsku: NH-5010-F-O64
+          serial_port: 9096
           ansible_password: password
           ansible_user: admin
         vlab-02:
