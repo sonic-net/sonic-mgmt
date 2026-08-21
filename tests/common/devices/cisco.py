@@ -187,7 +187,9 @@ class CiscoHost(AnsibleHostBase):
                     commands=[command],
                     module_ignore_errors=True)
             logger.debug('cisco lldp output: %s' % (output))
-            return output['stdout_lines'][0]['Response']['Get']['Operational'] if output['failed'] is False else False
+            if output.get('failed', False):
+                return False
+            return output['stdout_lines'][0]['Response']['Get']['Operational']
         except Exception as e:
             logger.error('command {} failed. exception: {}'.format(command, repr(e)))
         return False
@@ -239,7 +241,9 @@ class CiscoHost(AnsibleHostBase):
             command = 'ping {} count 5'.format(dest)
             output = self.commands(commands=[command])
             logger.debug('ping result: %s' % (output))
-            return re.search('!!!!!', output['stdout'][0]) is not None if output['failed'] is False else False
+            if output.get('failed', False):
+                return False
+            return re.search('!!!!!', output['stdout'][0]) is not None
         except Exception as e:
             logger.error('command {} failed. exception: {}'.format(command, repr(e)))
         return False
@@ -387,7 +391,7 @@ class CiscoHost(AnsibleHostBase):
             header_line = "Device ID       Local Intf                      Hold-time  Capability      Port ID"
             end_line = "Total entries displayed:"
             content_idx = 0
-            if not output['failed']:
+            if not output.get('failed', False):
                 output = [line.strip() for line in output['stdout_lines'][0] if len(line) > 0]
                 for idx, line in enumerate(output):
                     if end_line in line:
@@ -413,7 +417,7 @@ class CiscoHost(AnsibleHostBase):
         try:
             command = "show lldp neigh {} detail".format(physical_port)
             output = self.commands(commands=[command], module_ignore_errors=True)
-            if not output['failed']:
+            if not output.get('failed', False):
                 logger.debug('cisco lldp output: %s' % (output))
                 return output['stdout_lines'][0]
             return "Failed to get lldp detail info for {} due to {}".format(physical_port, output)
@@ -427,7 +431,7 @@ class CiscoHost(AnsibleHostBase):
         try:
             command = "show version | i ^cisco | utility head -n 1"
             output = self.commands(commands=[command], module_ignore_errors=True)
-            if not output['failed']:
+            if not output.get('failed', False):
                 logger.debug('cisco lldp output: %s' % (output))
                 return output['stdout_lines'][0][0].split()[1]
             return "Failed to get platform info due to {}".format(output)
@@ -441,7 +445,7 @@ class CiscoHost(AnsibleHostBase):
         try:
             command = 'show version | in "Version      :"'
             output = self.commands(commands=[command], module_ignore_errors=True)
-            if not output['failed']:
+            if not output.get('failed', False):
                 logger.debug('cisco lldp output: %s' % (output))
                 return output['stdout'][0].split()[-1].strip()
             return "Failed to get version info due to {}".format(output)
@@ -455,7 +459,7 @@ class CiscoHost(AnsibleHostBase):
         try:
             command = "show lldp | i Chassis ID:"
             output = self.commands(commands=[command], module_ignore_errors=True)
-            if not output['failed']:
+            if not output.get('failed', False):
                 logger.debug('cisco lldp output: %s' % (output))
                 return output['stdout_lines'][0][0].split()[-1]
             return "Failed to get chassis id info due to {}".format(output)
@@ -625,7 +629,7 @@ class CiscoHost(AnsibleHostBase):
             pc_name = self.convert_pc_to_be(pc_name)
             command = "show lacp {} | begin eceive".format(pc_name)
             output = self.commands(commands=[command], module_ignore_errors=True)
-            if not output["failed"]:
+            if not output.get("failed", False):
                 logger.debug("cisco lldp output: %s" % (output))
                 interface = [
                     self.elongate_cisco_interface(line.split()[0])
@@ -651,7 +655,7 @@ class CiscoHost(AnsibleHostBase):
             command = "show interfaces {}".format(pc_name)
             success_criteria = "line protocol is up"
             intf_status_output = self.commands(commands=[command], module_ignore_errors=True)
-            if not intf_status_output["failed"]:
+            if not intf_status_output.get("failed", False):
                 logger.info("Interface status check: {} sent to {}".format(command, self.hostname))
                 is_up = success_criteria in intf_status_output["stdout"][0].lower()
                 return is_up, intf_status_output["stdout_lines"][0]
@@ -668,7 +672,7 @@ class CiscoHost(AnsibleHostBase):
             logger.info("Gathering ISIS adjacency details")
             command = "show isis adjacency"
             output = self.commands(commands=[command], module_ignore_errors=True)
-            if not output["failed"]:
+            if not output.get("failed", False):
                 for row in output["stdout_lines"][0][3:-2]:
                     row = row.split()
                     isis_details[row[0]] = dict()
@@ -706,7 +710,7 @@ class CiscoHost(AnsibleHostBase):
             command = "show isis database"
             output = self.commands(commands=[command], module_ignore_errors=True)
             lsp_entries = {}
-            if not output["failed"]:
+            if not output.get("failed", False):
                 for line in output["stdout_lines"][0]:
                     if "*" in line:
                         outline = line.replace("*", "").split()
@@ -737,7 +741,7 @@ class CiscoHost(AnsibleHostBase):
         try:
             output = self.commands(commands=[command], module_ignore_errors=True)
             bgp_status = {}
-            if not output["failed"]:
+            if not output.get("failed", False):
                 for line in output["stdout_lines"][0][1:]:
                     line = line.strip().split()
                     if line[-1].isdigit():
@@ -770,7 +774,7 @@ class CiscoHost(AnsibleHostBase):
         """
         bgp_peer_details = self.get_bgp_session_details(peer_ip)
         try:
-            if not bgp_peer_details["failed"]:
+            if not bgp_peer_details.get("failed", False):
                 for line in bgp_peer_details["stdout_lines"][0]:
                     if "BGP state" in line:
                         bgp_session_status = line.strip().split()[3].strip(",")
@@ -792,7 +796,7 @@ class CiscoHost(AnsibleHostBase):
             command = "show bgp advertised neighbor {} summary | in {}".format(peer_ip, prefix)
             output = self.commands(commands=[command], module_ignore_errors=True)
             prefix_adv_status = False
-            if not output["failed"]:
+            if not output.get("failed", False):
                 for line in output["stdout_lines"][0]:
                     if prefix in line:
                         prefix_adv_status = True
@@ -810,7 +814,7 @@ class CiscoHost(AnsibleHostBase):
         try:
             command = 'show mpls ldp neighbor | include "Peer LDP Identifier:|State:"'
             output = self.commands(commands=[command], module_ignore_errors=True)
-            if not output["failed"]:
+            if not output.get("failed", False):
                 ldp_op_list = []
                 for idx in range(0, len(output["stdout_lines"][0]), 2):
                     line1 = output["stdout_lines"][0][idx]
@@ -830,7 +834,7 @@ class CiscoHost(AnsibleHostBase):
             command = "show route {} | include via".format(destination_ip)
             output = self.commands(commands=[command], module_ignore_errors=True)
             interface_list = []
-            if not output["failed"]:
+            if not output.get("failed", False):
                 for line in output["stdout_lines"][0]:
                     if "via" in line:
                         next_hop = line.split("via")[-1].strip()
@@ -873,7 +877,7 @@ class CiscoHost(AnsibleHostBase):
         try:
             command = "show mpls traffic-eng tunnels name {} | include Hop0".format(lsp_name)
             output = self.commands(commands=[command], module_ignore_errors=True)
-            if not output["failed"]:
+            if not output.get("failed", False):
                 list_of_interface = []
                 for line in output["stdout_lines"][0]:
                     if "Hop0" in line:
@@ -963,7 +967,7 @@ class CiscoHost(AnsibleHostBase):
         try:
             command = "macsec-policy {} sak-rekey-interval seconds {}".format(profile_name, rekey_period_value)
             output = self.config(lines=[command])
-            if not output["failed"]:
+            if not output.get("failed", False):
                 return True, output
             return False, output
         except Exception as e:
@@ -984,7 +988,7 @@ class CiscoHost(AnsibleHostBase):
             macsec psk-keychain ptx10k-64hexCAK fallback-psk-keychain ptx10k-64hexCAK-fallback policy macsec-xpn-256
             !
             """
-            if not output["failed"]:
+            if not output.get("failed", False):
                 return True, output['stdout_lines'][0][1].split()[-1].strip()
             return False, output
         except Exception as e:
@@ -1007,7 +1011,7 @@ class CiscoHost(AnsibleHostBase):
                 return True, "log {} not supported on device {}".format(log_type, self.hostname)
             command = "show logging last {} | include {} | include {}".format(last_count, log_type, interface)
             output = self.commands(commands=[command])["stdout"][0]
-            if not output["failed"]:
+            if not output.get("failed", False):
                 return len(output["stdout_lines"][0]) > 0, output["stdout"][0]
             return False, str(output)
         except Exception as e:
@@ -1099,7 +1103,7 @@ class CiscoHost(AnsibleHostBase):
             command = "show running-config formal interface {} macsec psk-keychain".format(interface)
             output = self.commands(commands=[command])
             # Returning only MACSEC config.
-            if not output["failed"]:
+            if not output.get("failed", False):
                 for config in output["stdout_lines"][0]:
                     if "psk" in config:
                         return True, config
@@ -1115,7 +1119,7 @@ class CiscoHost(AnsibleHostBase):
         """
         try:
             output = self.config(lines=commands)
-            if not output["failed"]:
+            if not output.get("failed", False):
                 return True, output
             return False, output
         except Exception as e:
@@ -1129,7 +1133,7 @@ class CiscoHost(AnsibleHostBase):
         try:
             command = "no interface {} macsec ".format(interface)
             output = self.config(lines=command)
-            if not output["failed"]:
+            if not output.get("failed", False):
                 return True, output
             return False, output
         except Exception as e:
@@ -1186,7 +1190,7 @@ class CiscoHost(AnsibleHostBase):
             command = ["no bundle id"]
             parents = ["interface {}".format(interface)]
             output = self.config(lines=command, parents=parents)
-            if not output["failed"]:
+            if not output.get("failed", False):
                 return True, "remove interface {} from ether-bundle {}".format(interface, pcnum)
             else:
                 return False, "Failed to remove interface {} from ether-bundle {}".format(interface, pcnum)
@@ -1205,7 +1209,7 @@ class CiscoHost(AnsibleHostBase):
         try:
             command = ["interface {} bundle id {} mode active".format(interface, pcnum)]
             output = self.config(lines=command)
-            if not output["failed"]:
+            if not output.get("failed", False):
                 return True, "Added interface {} from ether-bundle {}".format(interface, pcnum)
             else:
                 return False, "Failed to add interface {} from ether-bundle {}".format(interface, pcnum)
@@ -1224,7 +1228,7 @@ class CiscoHost(AnsibleHostBase):
         try:
             command = ["alias testversion show version"]
             output = self.config(lines=command)
-            if not output["failed"]:
+            if not output.get("failed", False):
                 rollback_command = ["no alias testversion"]
                 self.config(lines=rollback_command)
                 return True, output
@@ -1292,7 +1296,7 @@ class CiscoHost(AnsibleHostBase):
             command = "show route | include {}".format(agg_prefix)
             agg_route_gen_status = False
             output = self.commands(commands=[command])
-            if not output["failed"]:
+            if not output.get("failed", False):
                 for line in output["stdout_lines"][0]:
                     if agg_prefix in line:
                         agg_route_gen_status = True
@@ -1305,7 +1309,7 @@ class CiscoHost(AnsibleHostBase):
         command = "show platform | include NSHUT | include CPU | exclude RP"
         output = self.commands(commands=[command])
         location_list = []
-        if not output["failed"]:
+        if not output.get("failed", False):
             for line in output["stdout_lines"][0]:
                 if "CPU" in line:
                     location_list.append(line.split()[0])
@@ -1316,7 +1320,7 @@ class CiscoHost(AnsibleHostBase):
             packets_exported = 0
             command = 'show flow exporter IPFIX_MSAZ location {} | include "Packets exported:"'.format(location)
             output = self.commands(commands=[command])
-            if not output["failed"]:
+            if not output.get("failed", False):
                 for line in output["stdout_lines"][0]:
                     if "Packets exported:" in line:
                         packets_exported += int(line.split()[2])
@@ -1350,7 +1354,7 @@ class CiscoHost(AnsibleHostBase):
                 interface, filter_name, filter_name
             )
             output = self.config(lines=[command])
-            if not output["failed"]:
+            if not output.get("failed", False):
                 return True, output
             return False, output
         except Exception as e:
@@ -1360,7 +1364,7 @@ class CiscoHost(AnsibleHostBase):
         try:
             command = "admin hw-module location all reload noprompt"
             output = self.commands(commands=[command])
-            if not output["failed"]:
+            if not output.get("failed", False):
                 return True, output
             return False, output
         except Exception as e:
