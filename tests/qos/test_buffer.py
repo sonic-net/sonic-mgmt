@@ -499,6 +499,23 @@ def check_pool_size(duthost, ingress_lossless_pool_oid, **kwargs):
             pg for pg in lossless_pgs if pg[16:-4] in PORTS_WITH_8LANES]
         return len(lossless_pgs_8lane) * 2 * 9216
 
+    def _fetch_headroom_compensation_difference(duthost):
+        """Extra +2KB xoff per lossless PG when SHP is disabled."""
+        global LOSSLESS_TRAFFIC_PATTERN_KEYS_LOADED, SMALL_PACKET_PERCENTAGE
+        if not LOSSLESS_TRAFFIC_PATTERN_KEYS_LOADED:
+            detect_lossless_traffic_pattern_keys(duthost)
+        if SMALL_PACKET_PERCENTAGE == 100:
+            return 0
+
+        total = 0
+        for pg in duthost.shell('redis-cli keys "BUFFER_PG_TABLE:Ethernet*:3-4"')['stdout'].split():
+            if not pg:
+                continue
+            ok, data = mellanox_calculate_headroom_data(duthost, pg.split(':')[1])
+            if ok:
+                total += 2 * data.get('xoff_compensation', 0)
+        return total
+
     logging.debug("Kwargs {}".format(kwargs))
 
     if duthost.facts['asic_type'] == 'mellanox':
@@ -517,6 +534,8 @@ def check_pool_size(duthost, ingress_lossless_pool_oid, **kwargs):
                     expected_pool_size = expected_pool_size - \
                         _fetch_size_difference_for_8lane_ports(
                             duthost, conn_graph_facts_kwargs)
+                    expected_pool_size = expected_pool_size - \
+                        _fetch_headroom_compensation_difference(duthost)
                 expected_pool_size = expected_pool_size / DEFAULT_INGRESS_POOL_NUMBER
             else:
                 expected_shp_size = curr_shp_size * old_ratio / new_ratio
@@ -3446,7 +3465,18 @@ def mellanox_calculate_headroom_data(duthost, port_to_test):
 
     if shp_enabled:
         headroom_size = xon_value
+        xoff_compensation = 0
     else:
+        # Compensate headroom calculated with a reduced small-packet percentage
+        # when it remains more than 2 kB below the worst case.
+        xoff_compensation = 0
+        if SMALL_PACKET_PERCENTAGE != 100:
+            headroom_compensation = 2 * 1024
+            full_small_packet_xoff = LOSSLESS_MTU + propagation_delay * worst_case_factor
+            full_small_packet_xoff = math.ceil(full_small_packet_xoff / 1024) * 1024
+            if xoff_value + headroom_compensation < full_small_packet_xoff:
+                xoff_value += headroom_compensation
+                xoff_compensation = headroom_compensation
         headroom_size = xoff_value + xon_value + speed_overhead
 
     headroom_size = math.ceil(headroom_size / 1024) * 1024
@@ -3454,6 +3484,7 @@ def mellanox_calculate_headroom_data(duthost, port_to_test):
     head_room_data['size'] = int(headroom_size)
     head_room_data['xon'] = int(xon_value)
     head_room_data['xoff'] = int(xoff_value)
+    head_room_data['xoff_compensation'] = xoff_compensation
     return True, head_room_data
 
 
