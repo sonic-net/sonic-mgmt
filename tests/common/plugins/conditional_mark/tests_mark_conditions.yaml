@@ -4082,9 +4082,11 @@ pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_no_traffic:
 
 pfcwd/test_pfcwd_stat_history.py:
   skip:
-    reason: "PFC statistics history is produced only by the Broadcom PFCWD plugin"
+    reason: "PFC statistics history is produced only by the Broadcom PFCWD plugin on 202511+ images"
+    conditions_logical_operator: or
     conditions:
       - "asic_type != 'broadcom'"
+      - "release != 'master' and release < '202511'"
 
 pfcwd/test_pfcwd_timer_accuracy.py::TestPfcwdAllTimer::test_pfcwd_timer_accuracy:
   skip:

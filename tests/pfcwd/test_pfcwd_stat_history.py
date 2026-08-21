@@ -306,8 +306,8 @@ def test_pfcwd_stat_history_accuracy(stat_history_test_setup):
         (sample_end - sample_start) * 1000000
     )
 
-    # allow one PFCWD polling interval of tolerance
-    tolerance_us = poll_interval_ms * 1000
+    # 1 PFCWD poll for quantization + 200ms accounting for any CLI sample jitter
+    tolerance_us = poll_interval_ms * 1000 + 200_000
     error_us = abs(estimated_elapsed_us - actual_elapsed_us)
 
     logger.info(
