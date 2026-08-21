@@ -295,6 +295,7 @@ t0:
   - tacacs/test_ro_disk.py
   - tacacs/test_ro_user.py
   - tacacs/test_rw_user.py
+  - tacacs/test_secret_masking.py
   - telemetry/test_events.py
   - telemetry/test_telemetry.py
   - telemetry/test_telemetry_cert_rotation.py
@@ -609,6 +610,7 @@ t1-lag:
   - tacacs/test_ro_disk.py
   - tacacs/test_ro_user.py
   - tacacs/test_rw_user.py
+  - tacacs/test_secret_masking.py
   - telemetry/test_events.py
   - telemetry/test_telemetry.py
   - telemetry/test_telemetry_cert_rotation.py
@@ -833,6 +835,7 @@ multi-asic-t1-lag:
   - tacacs/test_jit_user.py
   - tacacs/test_ro_user.py
   - tacacs/test_rw_user.py
+  - tacacs/test_secret_masking.py
   - telemetry/test_telemetry.py
   - telemetry/test_telemetry_cert_rotation.py
   - test_interfaces.py
