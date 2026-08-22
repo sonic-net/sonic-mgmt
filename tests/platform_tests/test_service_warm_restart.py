@@ -4,13 +4,14 @@ import logging
 from tests.common.fixtures.advanced_reboot import get_advanced_reboot       # noqa: F401
 from tests.common.helpers.assertions import pytest_require
 from tests.common.utilities import skip_release
-from tests.common.platform.device_utils import verify_dut_health         # noqa: F401
+from tests.common.platform.device_utils import verify_dut_health_enum_frontend  # noqa: F401
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa: F401
 from tests.common.platform.device_utils import advanceboot_loganalyzer  # noqa: F401
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
-    pytest.mark.topology('t0')
+    pytest.mark.topology('t0'),
+    pytest.mark.dualtor_active_standby_toggle_to_enum_tor_manual_mode
 ]
 
 
@@ -92,11 +93,11 @@ def select_services_to_warmrestart(duthost, request):
     return [service for service in all_services if passes_all_checks(service)]
 
 
-def test_service_warm_restart(request, duthosts, rand_one_dut_hostname,
-                              verify_dut_health, get_advanced_reboot,       # noqa: F811
+def test_service_warm_restart(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                              verify_dut_health_enum_frontend, get_advanced_reboot,  # noqa: F811
                               advanceboot_loganalyzer,  # noqa: F811
                               capture_interface_counters):
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
     candidate_service_list = select_services_to_warmrestart(duthost, request)
     pytest_require(candidate_service_list, 'Skip service warm restart test because candidate_service_list is empty')
