@@ -853,9 +853,10 @@ configlet/test_add_rack.py:
 #######################################
 #####            console          #####
 #######################################
-console/:
+console/(?!test_console_(?:driver|reversessh)\.py):
+  regex: true
   skip:
-    reason: 'Console tests under tests/console/ are designed for c0 topology, not compatible with BMC'
+    reason: 'Only console driver and reverse SSH tests are compatible with BMC'
     conditions:
       - "'bmc' in topo_type"
 
