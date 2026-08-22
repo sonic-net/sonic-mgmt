@@ -7,8 +7,10 @@ import os
 import pytest
 from multiprocessing.pool import ThreadPool
 from collections import deque
+from functools import wraps
 
 from .helpers.assertions import pytest_assert
+from .console_capture import ConsoleCapture
 from .helpers.parallel_utils import synchronized_reboot
 from .platform.interface_utils import check_interface_status_of_up_ports
 from .platform.processes_utils import wait_critical_processes
@@ -322,8 +324,33 @@ def check_dshell_ready(duthost):
     return True
 
 
+def capture_console_during_reboot(reboot_func):
+    @wraps(reboot_func)
+    def wrapper(duthost, localhost, *args, **kwargs):
+        reboot_type = kwargs.get("reboot_type", args[0] if args else REBOOT_TYPE_COLD)
+        try:
+            capture = ConsoleCapture(duthost.hostname, reboot_type)
+        except Exception as err:
+            logger.warning("Unable to initialize console capture: %s; proceeding with reboot", err)
+            return reboot_func(duthost, localhost, *args, **kwargs)
+
+        try:
+            try:
+                console = collect_console_log(duthost, localhost)
+                capture.start(console)
+            except Exception as err:
+                capture.record_event("console setup failed; proceeding with reboot")
+                logger.warning("Console connection failed: %s; proceeding with reboot", err)
+            return reboot_func(duthost, localhost, *args, **kwargs)
+        finally:
+            capture.stop()
+
+    return wrapper
+
+
 @support_ignore_loganalyzer
 @synchronized_reboot
+@capture_console_during_reboot
 def reboot(duthost, localhost, reboot_type='cold', delay=10,
            timeout=0, wait=0, wait_for_ssh=True, wait_warmboot_finalizer=False, warmboot_finalizer_timeout=0,
            reboot_helper=None, reboot_kwargs=None, return_after_reconnect=False,
@@ -385,30 +412,6 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
         logger.info('Fetching reboot cause history before rebooting')
         prev_reboot_cause_history = duthost.show_and_parse("show reboot-cause history")
 
-    console_obj = None
-    # Set right before the reboot to tell a still-running console worker to stop
-    # writing to the DUT serial line (see below): console_thread_res.get(timeout=)
-    # does NOT cancel the ThreadPool task, so the worker can outlive the timeout.
-    reboot_started_event = threading.Event()
-    console_thread_res = pool.apply_async(
-        collect_console_log, args=(duthost, localhost),
-        kwds={"cancel_event": reboot_started_event})
-
-    # Block and wait for console to be ready before starting reboot
-    console_wait_max_seconds = 10
-    logger.info(f"Waiting up to {console_wait_max_seconds}s for console connection before reboot...")
-    try:
-        console_obj = console_thread_res.get(timeout=console_wait_max_seconds)
-    except Exception as e:
-        logger.warning(f"Console connection timed out or failed: {e}, proceeding with reboot anyway")
-        console_obj = None
-
-    # The reboot is about to start. Signal any console worker still running its
-    # session preparation (the get(timeout=) above did not cancel it) to stop
-    # writing to the DUT: a late login/wake-up CR must not land in the bootloader
-    # autoboot window and trap the DUT -- the exact race this fix guards against.
-    reboot_started_event.set()
-
     # Perform reboot
     if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch") \
             and invocation_type != "gnoi_based":
@@ -435,9 +438,6 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     try:
         wait_for_startup(duthost, localhost, delay, timeout)
     except Exception as err:
-        if console_obj:
-            console_obj.disconnect()
-            logger.info('end: collect console log')
         pool.terminate()
         raise Exception(f"dut not start: {err}")
 
@@ -496,9 +496,6 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
 
     DUT_ACTIVE.set()
     logger.info('{} reboot finished on {}'.format(reboot_type, hostname))
-    if console_obj:
-        console_obj.disconnect()
-        logger.info('end: collect console log')
     pool.terminate()
     dut_uptime = duthost.get_up_time(utc_timezone=True)
     logger.info('DUT {} up since {}'.format(hostname, dut_uptime))
@@ -768,31 +765,28 @@ def try_create_dut_console(duthost, localhost, conn_graph_facts, creds, cancel_e
     return dut_console
 
 
-def collect_console_log(duthost, localhost, cancel_event=None):
+def collect_console_log(duthost, localhost):
     """
     Collect console log during reboot.
 
     This function blocks until console connection is established or fails.
-    The caller should use pool.apply_async().get(timeout=X) to wait for the result.
 
     Args:
         duthost: DUT host object
         localhost: localhost object
-        cancel_event: optional threading.Event the caller sets right before it
-            reboots the DUT. Once set, the console connection stops writing to the
-            DUT serial line so a late CR cannot interrupt bootloader autoboot.
 
     Returns:
-        ConsoleHost object if successful, None otherwise
+        Authenticated ConsoleHost object
+
+    Raises:
+        Exception: If the console connection cannot be established
     """
     creds = creds_on_dut(duthost)
     conn_graph_facts = get_graph_facts(duthost, localhost, [duthost.hostname])
-    dut_console = try_create_dut_console(duthost, localhost, conn_graph_facts, creds,
-                                         cancel_event=cancel_event)
-    if dut_console:
-        logger.info("Console connection established successfully")
-    else:
-        logger.warning("dut console is not ready, we cannot get log by console")
+    dut_console = create_duthost_console(
+        duthost, localhost, conn_graph_facts, creds,
+        timeout_s=10, connection_attempts=1)
+    logger.info("Console connection established successfully")
     return dut_console
 
 
