@@ -144,8 +144,14 @@ def run_test(fanouthosts, duthost, conn_graph_facts, enum_fanout_graph_facts, le
     only_lossless_rx_counters = any(sku in asic.sonichost.facts["hwsku"] for sku in only_lossless_rx_counters_hwskus)
     no_xon_counters_hwskus = ["Cisco-8122", "Cisco-8223"]
     no_xon_counters = any(sku in asic.sonichost.facts["hwsku"] for sku in no_xon_counters_hwskus)
-    if only_lossless_rx_counters and asic_type != 'vs':
+    config_facts = None
+    if asic_type != 'vs':
         config_facts = asic.config_facts(host=asic.hostname, source='persistent')['ansible_facts']
+        # PFC Rx counters are only maintained on PFC-enabled ports, so skip ports without
+        # pfc_enable (e.g. lossy breakout ports) to avoid false counter-mismatch failures.
+        pfc_qos_map = config_facts.get("PORT_QOS_MAP", {})
+        active_phy_intfs = [intf for intf in active_phy_intfs
+                            if 'pfc_enable' in pfc_qos_map.get(intf, {})]
     if not check_continuous_pfc:
         if asic_type != 'vs':
             """ Generate PFC or FC packets for active physical interfaces """
