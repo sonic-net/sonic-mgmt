@@ -1114,6 +1114,7 @@ The following child test plans provide comprehensive, attribute-driven test case
 |-----------|-------------|
 | [EEPROM Test Plan](eeprom_test_plan.md) | EEPROM field validation, firmware version checks, hexdump verification, and breakout serial number pattern validation |
 | [DOM Test Plan](dom_test_plan.md) | Digital Optical Monitoring sensor validation, operational and threshold range checks, data consistency, polling control, and interface state change impact on DOM data |
+| [VDM Test Plan](vdm_test_plan.md) | Versatile Diagnostics Monitoring validation for CMIS optics — operational range checks, alarm/warning threshold hierarchy and value validation, statistic freeze/unfreeze coherence, flag lifecycle, and recovery across disruptive operations |
 | [System Test Plan](system_test_plan.md) | System-level transceiver testing including link behavior, process/service restarts, reboot recovery, transceiver event handling (reset, low power mode, loopback), SI settings, C-CMIS tuning, and stress tests |
 | [Port Configuration Test Plan](port_config_test_plan.md) | Validation of per-port speed and FEC configuration in CONFIG_DB against expected values from BASE_ATTRIBUTES |
 | [CDB Firmware Upgrade Test Plan](cdb_firmware_upgrade_test_plan.md) | CMIS CDB firmware upgrade/downgrade testing including stress tests, and EEPROM integrity validation |
