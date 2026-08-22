@@ -68,6 +68,10 @@ class TestPfcXoffProbingInstance(PfcXoffProbing):
         self.packet_size = 64
         self.probe_packet_length = 64
         self.probe_cells_per_packet = 1
+        self.src_dut_index = 0
+        self.src_asic_index = 0
+        self.dst_dut_index = 0
+        self.dst_asic_index = 0
 
         def mock_get_rx_port(src_port, dst_port):
             return dst_port
@@ -130,7 +134,8 @@ class TestPfcXoffProbingConfiguration:
 
         assert isinstance(config, ProbeConfig), \
             f"Expected ProbeConfig, got {type(config)}"
-        assert config.probing_port_ids == [24]
+        assert config.src_port_ids == [24]
+        assert config.dst_port_ids == []
         assert config.asic_type == 'broadcom'
         print("[OK] ProbeConfig correctly created")
 
@@ -687,7 +692,7 @@ class TestPfcXoffProbingProbeMethod:
         print("\n=== Test: probe_config attribute ===")
 
         pfc = TestPfcXoffProbingInstance()
-        config = ProbeConfig([24], Mock(), 'broadcom')
+        config = ProbeConfig([24], [], Mock(), 'broadcom')
         pfc.probe_config = config
 
         assert pfc.probe_config is config, "ProbeConfig should be settable"
@@ -711,7 +716,7 @@ class TestPfcXoffProbingProbeMethod:
         pfc.stream_mgr.get_port_ids.return_value = [28]
 
         # Mock probe_config
-        pfc.probe_config = ProbeConfig([24, 28], Mock(), 'broadcom')
+        pfc.probe_config = ProbeConfig([24], [28], Mock(), 'broadcom')
 
         # Mock algorithm execution
         mock_algorithms = {
@@ -755,7 +760,7 @@ class TestPfcXoffProbingProbeMethod:
 
         pfc.stream_mgr = Mock()
         pfc.stream_mgr.get_port_ids.return_value = [28]
-        pfc.probe_config = ProbeConfig([24, 28], Mock(), 'broadcom')
+        pfc.probe_config = ProbeConfig([24], [28], Mock(), 'broadcom')
 
         # Mock failed algorithm
         mock_algorithms = {
@@ -798,7 +803,7 @@ class TestPfcXoffProbingProbeMethod:
 
         pfc.stream_mgr = Mock()
         pfc.stream_mgr.get_port_ids.return_value = [28]
-        pfc.probe_config = ProbeConfig([24, 28], Mock(), 'broadcom')
+        pfc.probe_config = ProbeConfig([24], [28], Mock(), 'broadcom')
 
         mock_algorithms = {
             "upper_bound": Mock(run=Mock(return_value=(1000, None))),
