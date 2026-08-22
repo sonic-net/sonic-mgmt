@@ -307,8 +307,8 @@ def test_bgp_update_replication(
 
     results = [measure_stats(duthost, is_ipv6)]
     base_rib = int(results[0]["num_rib"])
-    min_expected_rib = base_rib + NUM_ROUTES
-    max_expected_rib = base_rib + (2 * NUM_ROUTES)
+    # FRR "RIB entries" counts radix tree nodes, not prefixes — N routes produce ~2N entries.
+    expected_rib_after_inject = base_rib + (2 * NUM_ROUTES)
 
     # Inject and withdraw routes with a specified interval in between iterations
     for interval in duthost_intervals:
@@ -322,7 +322,7 @@ def test_bgp_update_replication(
                 )
             )
             wait_until(ROUTE_WAIT_TIMEOUT, 2, 0,
-                       _check_rib_routes_received, duthost, is_ipv6, min_expected_rib)
+                       _check_rib_routes_received, duthost, is_ipv6, expected_rib_after_inject)
 
             # Measure after injection
             results.append(measure_stats(duthost, is_ipv6))
@@ -330,13 +330,9 @@ def test_bgp_update_replication(
             # Validate all routes have been received
             curr_num_rib = int(results[-1]["num_rib"])
             pytest_assert(
-                curr_num_rib >= min_expected_rib,
-                f"All routes have not been received: current '{curr_num_rib}', expected: '{min_expected_rib}'"
+                curr_num_rib >= expected_rib_after_inject,
+                f"All routes have not been received: current '{curr_num_rib}', expected: '{expected_rib_after_inject}'"
             )
-            if curr_num_rib < max_expected_rib:
-                logger.warning(
-                    f"All routes have not been announced: current '{curr_num_rib}', expected: '{max_expected_rib}'"
-                )
 
             # Remove routes
             route_injector.withdraw_routes_batch(
@@ -346,7 +342,7 @@ def test_bgp_update_replication(
                 )
             )
             wait_until(ROUTE_WAIT_TIMEOUT, 2, 0,
-                       _check_rib_routes_withdrawn, duthost, is_ipv6, min_expected_rib)
+                       _check_rib_routes_withdrawn, duthost, is_ipv6, base_rib)
 
             # Measure after removal
             results.append(measure_stats(duthost, is_ipv6))
@@ -354,13 +350,9 @@ def test_bgp_update_replication(
             # Validate all routes have been withdrawn
             curr_num_rib = int(results[-1]["num_rib"])
             pytest_assert(
-                curr_num_rib <= min_expected_rib,
-                f"All withdrawls have not been received: current '{curr_num_rib}', expected: '{min_expected_rib}'"
+                curr_num_rib <= base_rib,
+                f"All withdrawals have not been received: current '{curr_num_rib}', expected: '{base_rib}'"
             )
-            if curr_num_rib > base_rib:
-                logger.warning(
-                    f"All announcements have not been withdrawn: current '{curr_num_rib}', expected: '{base_rib}'"
-                )
 
     results.append(measure_stats(duthost, is_ipv6))
 
