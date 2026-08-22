@@ -98,6 +98,12 @@ PHYSICAL_PORT = "physical_port"
 ARP_RESPONDER_CONFIG_PATH = "/tmp/from_t1.json"
 ARP_RESPONDER_CONFIG_PATH_FMT = "/tmp/from_t1_%s.json"
 
+# Starting dumpcap has been observed to fail transiently, so retry before giving up.
+DUMPCAP_START_ATTEMPTS = 3
+DUMPCAP_START_RETRY_INTERVAL = 5
+# Upper bound on how long to wait for the IO sniffer/sender thread bodies to begin running.
+IO_THREAD_START_TIMEOUT = 120
+
 
 class StateMachine():
     def __init__(self, init_state='init'):
@@ -304,6 +310,13 @@ class ReloadTest(BaseTest):
 
         self.sender_thr = threading.Thread(target=self.send_in_background)
         self.sniff_thr = threading.Thread(target=self.sniff_in_background)
+        # Set as soon as the corresponding thread body starts running. Unlike Thread.is_alive(),
+        # these stay set after the thread exits, so a thread that started and then died cannot be
+        # mistaken for one that has not started yet.
+        self.sender_thr_started = threading.Event()
+        self.sniff_thr_started = threading.Event()
+        # Reason the packet capture could not be started, if it failed to start.
+        self.sniffer_error = None
         self.start_sender_delay = 60
 
         # Check if platform type is kvm
@@ -1182,6 +1195,33 @@ class ReloadTest(BaseTest):
         # TODO: add timestamp
         self.log("Service has restarted")
 
+    def wait_for_io_threads_to_start(self, timeout=IO_THREAD_START_TIMEOUT):
+        """
+        @summary: Block until both the sniffer and the sender thread bodies have begun running.
+
+        Thread.is_alive() cannot distinguish "has not started yet" from "already finished", so
+        polling it makes a thread that started and then died indistinguishable from one that is
+        still starting up. Waiting on explicit start events instead - and bounding that wait -
+        keeps a failed IO thread from stalling the test until the global PTF test-case timeout.
+        """
+        deadline = time.time() + timeout
+        for name, started in (('sniffer', self.sniff_thr_started),
+                              ('sender', self.sender_thr_started)):
+            if not started.wait(timeout=max(0, deadline - time.time())):
+                msg = 'IO {} thread failed to start within {}s'.format(name, timeout)
+                self.log(msg)
+                self.fails['dut'].add(msg)
+                raise Exception(msg)
+
+        # The threads are running, but the capture may still have failed to come up. Without a
+        # pcap there is nothing to examine, so fail now with the real reason rather than later
+        # with a generic one.
+        if self.sniffer_error:
+            msg = 'Packet capture failed to start: {}'.format(self.sniffer_error)
+            self.log(msg)
+            self.fails['dut'].add(msg)
+            raise Exception(msg)
+
     def handle_advanced_reboot_health_check(self):
         self.log("Check that device is still forwarding data plane traffic")
         self.fails['dut'].add(
@@ -1190,8 +1230,7 @@ class ReloadTest(BaseTest):
         self.fails['dut'].clear()
 
         # wait until sniffer and sender threads have started
-        while not (self.sniff_thr.is_alive() and self.sender_thr.is_alive()):
-            time.sleep(1)
+        self.wait_for_io_threads_to_start()
 
         self.log("IO sender and sniffer threads have started, wait until completion")
         self.sniff_thr.join()
@@ -1893,9 +1932,12 @@ class ReloadTest(BaseTest):
         """
         This method sends predefined list of packets with predefined interval.
         """
+        self.sender_thr_started.set()
         if not packets_list:
             packets_list = self.packets_list
-        self.sniffer_started.wait(timeout=self.start_sender_delay)
+        if not self.sniffer_started.wait(timeout=self.start_sender_delay):
+            self.log("Sender: gave up waiting for the sniffer to start after {}s".format(
+                self.start_sender_delay))
         with self.dataplane_io_lock:
             # While running fast data plane sender thread there are two reasons for filter to be applied
             #  1. filter out data plane traffic which is tcp to free up the load
@@ -1956,6 +1998,7 @@ class ReloadTest(BaseTest):
         Once found, all packets are dumped to local pcap file,
         and all packets are saved to self.packets as scapy type(pcap format).
         """
+        self.sniff_thr_started.set()
         if not wait:
             wait = self.time_to_listen + self.test_params['sniff_time_incr']
         sniffer_start = datetime.datetime.now()
@@ -1993,6 +2036,10 @@ class ReloadTest(BaseTest):
         except Exception:
             traceback_msg = traceback.format_exc()
             self.log("Error in tcpdump_sniff: {}".format(traceback_msg))
+            if not self.sniffer_error:
+                self.sniffer_error = traceback_msg.strip().splitlines()[-1]
+            # Never leave send_in_background() blocked on a capture that will never start.
+            self.sniffer_started.set()
 
     def start_sniffer_on_vmhost(self, pcap_path, tcpdump_filter, timeout):
         """
@@ -2032,6 +2079,18 @@ class ReloadTest(BaseTest):
         self.vmhost_connection.execCommand(f'sudo pkill -f "{cmd}"')
         self.log("Killed the tcpdump process")
 
+    def drain_dumpcap_stderr(self, process):
+        """
+        @summary: Wait for a dumpcap process to exit and return whatever it wrote to stderr.
+
+        Draining the pipe also keeps dumpcap from blocking on a full stderr buffer.
+        """
+        try:
+            _, stderr = process.communicate(timeout=5)
+        except subprocess.TimeoutExpired:
+            return ''
+        return stderr.decode('utf-8', errors='replace').strip() if stderr else ''
+
     def start_sniffer_on_ptf(self, pcap_path, tcpdump_filter, timeout):
         """
         Start tcpdump sniffer on all data interfaces, and kill them after a specified timeout
@@ -2042,19 +2101,47 @@ class ReloadTest(BaseTest):
         for iface in self.tcpdump_data_ifaces:
             process_args += ['-i', iface]
 
-        process = subprocess.Popen(process_args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        self.log('Dumpcap sniffer process started')
-
+        # stderr is piped rather than discarded so that a failure to start (missing binary,
+        # missing capability, full disk, bad capture filter, ...) is reported instead of lost.
+        # Retries are budgeted so the capture always concludes - and so unblocks
+        # send_in_background() - before the sender gives up on its own after start_sender_delay.
+        start_deadline = time.time() + self.start_sender_delay
         pcap_existence_check_limit = 10
-        pcap_existence_check_count = 0
-        while not os.path.exists(pcap_path) and pcap_existence_check_count < pcap_existence_check_limit:
-            time.sleep(1)
-            pcap_existence_check_count += 1
 
-        if not os.path.exists(pcap_path):
-            self.log("Dumpcap did not create pcap file!")
+        process = None
+        for attempt in range(1, DUMPCAP_START_ATTEMPTS + 1):
+            process = subprocess.Popen(process_args, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+            self.log('Dumpcap sniffer process started')
+
+            pcap_existence_check_count = 0
+            while not os.path.exists(pcap_path) and pcap_existence_check_count < pcap_existence_check_limit:
+                time.sleep(1)
+                pcap_existence_check_count += 1
+
+            if os.path.exists(pcap_path):
+                break
+
             process.terminate()
-            process.kill()
+            stderr = self.drain_dumpcap_stderr(process)
+            # Return code here could be 0, so we need to explicitly check for None
+            if process.returncode is None:
+                process.kill()
+                stderr = self.drain_dumpcap_stderr(process) or stderr
+            self.log("Dumpcap did not create pcap file! (attempt {}/{}, rc={}, stderr={})".format(
+                attempt, DUMPCAP_START_ATTEMPTS, process.returncode, stderr or '<empty>'))
+            process = None
+
+            # Only retry while a further attempt can still finish within the budget.
+            next_attempt_cost = DUMPCAP_START_RETRY_INTERVAL + pcap_existence_check_limit
+            if attempt == DUMPCAP_START_ATTEMPTS or time.time() + next_attempt_cost >= start_deadline:
+                break
+            time.sleep(DUMPCAP_START_RETRY_INTERVAL)
+
+        if process is None:
+            self.sniffer_error = 'dumpcap failed to create {} after {} attempt(s)'.format(
+                pcap_path, DUMPCAP_START_ATTEMPTS)
+            # Unblock the sender, which would otherwise wait out the full start_sender_delay.
+            self.sniffer_started.set()
             return
 
         # Unblock waiter for the send_in_background.
@@ -2069,25 +2156,21 @@ class ReloadTest(BaseTest):
 
         self.log("Going to kill dumpcap process by SIGTERM")
         process.terminate()
-        try:
-            process.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            pass
+        stderr = self.drain_dumpcap_stderr(process)
 
         # Return code here could be 0, so we need to explicitly check for None
         if process.returncode is not None:
             self.log("Dumpcap process terminated")
-            return
+        else:
+            self.log("Killing dumpcap process")
+            process.kill()
+            stderr = self.drain_dumpcap_stderr(process) or stderr
+            # Return code here could be 0, so we need to explicitly check for None
+            if process.returncode is not None:
+                self.log("Dumpcap process killed")
 
-        self.log("Killing dumpcap process")
-        process.kill()
-        try:
-            process.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            pass
-        # Return code here could be 0, so we need to explicitly check for None
-        if process.returncode is not None:
-            self.log("Dumpcap process killed")
+        if stderr:
+            self.log("Dumpcap stderr: {}".format(stderr))
 
     def check_tcp_payload(self, packet):
         """
