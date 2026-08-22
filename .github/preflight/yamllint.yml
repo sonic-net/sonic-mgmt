@@ -1,0 +1,29 @@
+# yamllint configuration for the pre-flight check.
+#
+# Advisory only for now. The repository has ~950 YAML files that have never
+# been linted, so this starts with the structural rules that indicate a real
+# mistake and leaves the purely cosmetic ones off.
+
+extends: default
+
+rules:
+  # Ansible and GitHub Actions files routinely exceed any sane column limit,
+  # and flake8 already governs line length for Python.
+  line-length: disable
+  # 'on:' in a GitHub Actions workflow is a string key, not a boolean.
+  truthy:
+    check-keys: false
+  comments:
+    require-starting-space: true
+    min-spaces-from-content: 1
+  comments-indentation: disable
+  # Existing files use a mix of indentation styles; flagging every one of them
+  # would be noise rather than signal.
+  indentation: disable
+  document-start: disable
+  empty-lines:
+    max: 2
+  braces:
+    max-spaces-inside: 1
+  brackets:
+    max-spaces-inside: 1
