@@ -1,8 +1,11 @@
+import logging
 import pytest
 import ipaddress
 from tests.common.helpers.snmp_helpers import get_snmp_facts, get_snmp_output
 from tests.common.devices.eos import EosHost
 from tests.common.utilities import skip_release
+
+logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('t0', 't1', 't2', 'lrh', 'urh', 'm0', 'mx', 'm1', 't1-multi-asic', 'lt2', 'ft2', 'c0'),
@@ -29,11 +32,25 @@ def test_snmp_loopback(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         host=duthost.hostname, source="persistent")['ansible_facts']
 
     if tbinfo['topo']['type'] == 'lt2':
-        # Get a UT2 nbr to run the test on LT2 topo
+        # For LT2 topo, prefer a UT2 (uplink) neighbor for multi-hop loopback reachability test.
+        # Fall back to a T1 neighbor if no UT2 has BGP established (e.g. UT2 VMs not deployed).
+        nbr = None
+        bgp_neighbors = duthost.bgp_facts()['ansible_facts']['bgp_neighbors']
+        established = {v.get('description', '') for v in bgp_neighbors.values()
+                       if v.get('state', '').lower() == 'established'}
         for nbr_id, nbr_host in nbrhosts.items():
-            if "UT2" in nbr_id:
+            if "UT2" in nbr_id and nbr_id in established:
+                logger.info("Using UT2 neighbor {} for LT2 SNMP loopback test".format(nbr_id))
                 nbr = nbr_host
                 break
+        if nbr is None:
+            logger.info("No established UT2 neighbor found, falling back to first T1 neighbor")
+            for nbr_id, nbr_host in nbrhosts.items():
+                if "T1" in nbr_id and nbr_id in established:
+                    nbr = nbr_host
+                    break
+        if nbr is None:
+            pytest.skip("No neighbor with established BGP found to run SNMP loopback test")
     else:
         # Get first neighbor VM information
         nbr = nbrhosts[list(nbrhosts.keys())[0]]
