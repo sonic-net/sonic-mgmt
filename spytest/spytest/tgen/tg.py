@@ -877,12 +877,19 @@ class TGBase(TGStubs):
 class TGStc(TGBase):
     def __init__(self, tg_type, tg_version, tg_ip=None, tg_port_list=None, **kwargs):
         TGBase.__init__(self, tg_type, tg_version, tg_ip, tg_port_list, **kwargs)
-        logger.info('TG STC Init...done')
+        # initilize self.mapfuncs used for function: trgen_pre_proc
+        self.mapfuncs = None
+        logger.info('TG VIAVI TestCenter Init...done')
 
     def clean_all(self):
 
+        self.tg_save_config(file_name='stc_config.xml')
         ph_list = self.get_port_handle_list()
 
+        # only used for restapi script. Cleanup spytest session.
+        if not ph_list:
+            logger.info("TG CLEAN ALL: no port handles registered, skipping reset")
+            return
         logger.info("TG CLEAN ALL: stop and remove all streams on {}". format(ph_list))
         ret_ds = self.tg_traffic_control(action="reset", port_handle=ph_list)
         logger.debug(ret_ds)
@@ -909,6 +916,28 @@ class TGStc(TGBase):
             retval[port] = ret_ds[port_handle]["link"]
         return retval
 
+    def get_port_handle(self, port):
+        # connect() stores handles under a <chassis>/<slot>/<port> key for
+        # multi-chassis setups and a two-part <slot>/<port> key for single-chassis
+        # setups, while callers may look ports up in either notation. Always try
+        # the exact key first, then bridge the two-vs-three component mismatch so a
+        # lookup resolves regardless of which notation connect() happened to store.
+        handle = self.tg_port_handle.get(port, None)
+        if handle is not None:
+            return handle
+        parts = port.split("/")
+        # three-part lookup against two-part storage: drop the chassis index
+        if len(parts) == 3:
+            handle = self.tg_port_handle.get("/".join(parts[1:]), None)
+            if handle is not None:
+                return handle
+        # two-part lookup against three-part storage: match on the <slot>/<port> tail
+        if len(parts) == 2:
+            for key, val in self.tg_port_handle.items():
+                if key.split("/")[-2:] == parts:
+                    return val
+        return None
+
     def show_status(self):
         pass
 
@@ -918,6 +947,8 @@ class TGStc(TGBase):
         filename = os.path.join(file_path, file_name)
         logger.info('The config file is saved at {}'.format(filename))
         self.tg_save_xml(filename=filename)
+        # donwload files to file_path when using labserver.
+        get_sth().invoke('stc::perform CSSynchronizeFilesCommand -DefaultDownloadDir ' + file_path)
 
     def connect(self):
         self.tg_ns = 'sth'
@@ -925,18 +956,38 @@ class TGStc(TGBase):
         logger.info("TGen: Trying to connect")
         msg = "Executing: stc::connect"
         pid = tgen_profiling_start(msg, max_time=900)
+
+        # MGJ: Modified for multi-chassis support.
+        logger.info("TGen: device:{} port_list: {}".format(self.tg_ip, self.tg_port_list))
         ret_ds = get_sth().connect(device=self.tg_ip, port_list=self.tg_port_list, break_locks=1)
+
         tgen_profiling_stop(pid)
         logger.info("TGen: connect status: {}".format(ret_ds))
+
         if ret_ds.get('status') != '1':
             return ret_ds
+
         port_handle_list = []
-        for port in self.tg_port_list:
-            self.tg_port_handle[port] = ret_ds['port_handle'][self.tg_ip][port]
-            port_handle_list.append(self.tg_port_handle[port])
-        port_details_all = self.tg_interface_stats(port_handle=port_handle_list)
+        chassis_index = 1
+
+        multi_chassis = isinstance(self.tg_ip, list) and len(self.tg_ip) > 1
+        for chassis_ip in ret_ds.get("port_handle", None).keys():
+            for slot_port in ret_ds["port_handle"][chassis_ip].keys():
+                if multi_chassis:
+                    port_location = f"{chassis_index}/{slot_port}"
+                else:
+                    port_location = slot_port
+                self.tg_port_handle[port_location] = ret_ds["port_handle"][chassis_ip][slot_port]
+                port_handle_list.append(self.tg_port_handle[port_location])
+            chassis_index += 1
+
+        logger.info(f"self.tg_port_handle: {self.tg_port_handle}")
+
+        # MGJ: changed to port_handle_list.
+        port_details_all = self.tg_interface_stats(port_handle_list=port_handle_list)
         if port_details_all.get('status', '0') == '1' and port_details_all.get('intf_speed', '') != '':
             intf_speed_list = port_details_all['intf_speed'].split()
+
             for intf_speed, port_handle in zip(intf_speed_list, port_handle_list):
                 if not self.ports_fec_disable.get(intf_speed, []):
                     self.ports_fec_disable[intf_speed] = []
@@ -973,127 +1024,8 @@ class TGStc(TGBase):
         return card_type
 
     def trgen_adjust_mismatch_params(self, fname, **kwargs):
-        if fname == 'tg_traffic_config':
-            self.map_field("ethernet_value", "ether_type", kwargs)
-            self.map_field("data_pattern", "custom_pattern", kwargs)
-            self.map_field("icmp_ndp_nam_o_flag", "icmpv6_oflag", kwargs)
-            self.map_field("icmp_ndp_nam_r_flag", "icmpv6_rflag", kwargs)
-            self.map_field("icmp_ndp_nam_s_flag", "icmpv6_sflag", kwargs)
-            self.map_field("data_pattern_mode", None, kwargs)
-            self.map_field("global_stream_control", None, kwargs)
-            self.map_field("global_stream_control_iterations", None, kwargs)
-            self.map_field("vlan_protocol_tag_id", "vlan_tpid", kwargs)
-            if kwargs.get('vlan_tpid') is not None:
-                if len(str(kwargs['vlan_tpid'])) == 4:
-                    kwargs['vlan_tpid'] = int('0x{}'.format(str(kwargs['vlan_tpid']).lstrip('0x')), 0)
-            if kwargs.get('custom_pattern') is not None:
-                kwargs['custom_pattern'] = kwargs['custom_pattern'].replace(" ", "")
-                kwargs['disable_signature'] = kwargs.get('disable_signature', '1')
-            if kwargs.get("l4_protocol") == "icmp" and kwargs.get("l3_protocol") == "ipv6":
-                kwargs['l4_protocol'] = 'icmpv6'
-                self.map_field("icmp_type", "icmpv6_type", kwargs)
-                self.map_field("icmp_code", "icmpv6_code", kwargs)
-                self.map_field("icmp_target_addr", "icmpv6_target_address", kwargs)
-            if kwargs.get('vlan_id') is not None:
-                if kwargs.get('l2_encap') is None:
-                    kwargs['l2_encap'] = 'ethernet_ii_vlan'
-                if type(kwargs.get('vlan_id')) != list:
-                    x = [kwargs.get('vlan_id')]
-                else:
-                    x = kwargs.get('vlan_id')
-                if len(x) > 1:
-                    vlan_list = kwargs.get('vlan_id')
-                    kwargs['vlan_id'] = vlan_list[0]
-                    kwargs['vlan_id_outer'] = vlan_list[1]
-                    if len(x) > 2:
-                        kwargs['vlan_id_other'] = vlan_list[2:]
-
-            for param in ('enable_time_stamp', 'enable_pgid', 'vlan', 'duration'):
-                if kwargs.get(param) is not None:
-                    kwargs.pop(param)
-
-            for param in ('udp_src_port_mode', 'udp_dst_port_mode',
-                          'tcp_src_port_mode', 'tcp_dst_port_mode'):
-                if kwargs.get(param) == 'incr':
-                    kwargs[param] = 'increment'
-                if kwargs.get(param) == 'decr':
-                    kwargs[param] = 'decrement'
-            if (kwargs.get('transmit_mode') is not None
-                    or kwargs.get('l3_protocol') is not None) and \
-                    kwargs.get('length_mode') is None:
-                kwargs['length_mode'] = 'fixed'
-
-            if kwargs.get('port_handle2') is not None:
-                kwargs['dest_port_list'] = kwargs.pop('port_handle2')
-
-            if kwargs.get('high_speed_result_analysis') is not None and \
-               kwargs.get('track_by') is not None:
-                attr = kwargs.get('track_by')
-                attr = attr.split()[1]
-                kwargs.pop('track_by')
-                kwargs.pop(analyzer_filter[attr])
-            if kwargs.get('circuit_endpoint_type') is not None:
-                kwargs.pop('circuit_endpoint_type')
-
-            if re.search(r'ip_delay |ip_throughput | ip_reliability |ip_cost |ip_reserved ', ' '.join(kwargs.keys())):
-                delay = kwargs.get('ip_delay', 0)
-                throughput = kwargs.get('ip_throughput', 0)
-                reliability = kwargs.get('ip_reliability', 0)
-                cost = kwargs.get('ip_cost', 0)
-                reserved = kwargs.get('ip_reserved', 0)
-
-                bin_val = str(delay) + str(throughput) + str(reliability) + str(cost)
-                kwargs['ip_tos_field'] = int(bin_val, 2)
-                kwargs['ip_mbz'] = reserved
-                # ignore step,mode,count for now
-                for param in ('qos_type_ixn', 'ip_delay', 'ip_delay_mode', 'ip_delay_tracking',
-                              'ip_throughput', 'ip_throughput_mode', 'ip_throughput_tracking',
-                              'ip_reliability', 'ip_reliability_mode', 'ip_reliability_tracking',
-                              'ip_cost', 'ip_cost_mode', 'ip_cost_tracking', 'ip_reserved'):
-
-                    kwargs.pop(param, None)
-
-            if kwargs.get('mac_dst_mode') is not None:
-                if type(kwargs.get('mac_dst')) == list:
-                    kwargs['mac_dst'] = ' '.join(kwargs['mac_dst'])
-                    kwargs.pop('mac_dst_mode', '')
-
-            # disabling high_speed_result_analysis by default, as saw few instances where it is needed and not by disabled by scripts.
-            if kwargs.get('high_speed_result_analysis') is None:
-                kwargs['high_speed_result_analysis'] = 0
-
-        elif fname == 'tg_traffic_stats':
-            if kwargs.get('mode') is None:
-                kwargs['mode'] = 'aggregate'
-            kwargs.pop('csv_path', '')
-        elif fname == 'tg_traffic_control':
-            self.map_field("max_wait_timer", None, kwargs)
-            if kwargs.get('db_file') is None:
-                kwargs['db_file'] = 0
-            if kwargs.get('handle') is not None:
-                kwargs['stream_handle'] = kwargs.pop('handle', '')
-            if kwargs.get('stream_handle'):
-                kwargs['stream_handle'] = kwargs['stream_handle'] if isinstance(kwargs['stream_handle'], str) else list(kwargs['stream_handle'])
-        elif fname == 'tg_interface_config':
-            self.map_field("ipv4_resolve_gateway", "resolve_gateway_mac", kwargs)
-            self.map_field("ipv6_resolve_gateway", "ipv6_resolve_gateway_mac", kwargs)
-            self.map_field("transmit_mode", None, kwargs)
-            self.map_field("ignore_link", None, kwargs)
-            self.map_field("vlan_custom_config", None, kwargs)
-            for param in ['resolve_gateway_mac', 'ipv6_resolve_gateway_mac']:
-                if kwargs.get(param) is not None:
-                    kwargs[param] = 'false' if str(kwargs[param]) in ['false', '0'] else 'true'
-            if "vlan_id_count" in kwargs:
-                kwargs['count'] = '1'
-            if "count" in kwargs:
-                if 'create_host' not in kwargs:
-                    kwargs['create_host'] = 'false'
-            if kwargs.get('create_host') == 'false':
-                if kwargs.get('netmask') is not None:
-                    kwargs['intf_prefix_len'] = IPAddress(kwargs.pop('netmask', '255.255.255.0')).netmask_bits()
-            if kwargs.get('mode') != 'destroy' and kwargs.get('enable_ping_response') is None:
-                kwargs['enable_ping_response'] = 1
-        elif fname == 'tg_emulation_bgp_config':
+        # overwrite these functions in tg_stc_map.py
+        if fname == 'tg_emulation_bgp_config':
             if kwargs.get('enable_4_byte_as') is not None:
                 l_as = int(int(kwargs['local_as']) / 65536)
                 l_nn = int(kwargs['local_as']) - (l_as * 65536)
@@ -1121,13 +1053,6 @@ class TGStc(TGBase):
         elif fname == 'tg_emulation_ospf_config':
             kwargs.pop('validate_received_mtu', '')
             kwargs.pop('max_mtu', '')
-        elif fname == 'tg_emulation_dhcp_server_config':
-            self.map_field("ipaddress_pool_prefix_length", None, kwargs)
-            self.map_field("subnet", None, kwargs)
-            self.map_field("pool_count", None, kwargs)
-            self.map_field("ipaddress_pool_step", None, kwargs)
-            if kwargs.get('mode') == 'reset':
-                kwargs.pop('port_handle', '')
         elif fname == 'tg_emulation_dhcp_config':
             if kwargs.get('mode') == 'reset':
                 kwargs.pop('port_handle', '')
@@ -1230,6 +1155,13 @@ class TGStc(TGBase):
             return 0
         logger.info('Executing: {} {}'.format('sth.cleanup_session', kwargs))
         port_handle_list = self.get_port_handle_list()
+        # handling teardown error info for restapi scripts.
+        if not port_handle_list:
+            logger.info('TGen: no port handles registered, skipping cleanup_session')
+            self.tg_connected = False
+            self.tg_port_handle.clear()
+            return
+
         ret_ds = get_sth().cleanup_session(port_handle=port_handle_list)
         logger.info(ret_ds)
         if ret_ds.get('status') == '1':
@@ -1485,6 +1417,33 @@ class TGStc(TGBase):
                     logger.error("Couldn't get ip prefix for handle: {}".format(handle))
         logger.info('IP PREFIXES: {}'.format(ip_dict))
 
+    def tg_topology_config(self, **kwargs):
+        topology_handle = kwargs.get('topology_handle')
+        return {'topology_handle': topology_handle}
+
+    # import tg_stc_map.py functions to overwrite function in TGStc.
+    def trgen_pre_proc(self, fname, **kwargs):
+        logger.info('TGStc pre proc {}'.format(fname))
+        if self.mapfuncs == None:
+            from spytest.tgen.tg_stc_map import TGStcMapFuncs
+            self.mapfuncs = TGStcMapFuncs(self, logger)
+            if hasattr(self.mapfuncs,"ixiangpf_adapter"):
+                logger.info('override ixiangpf to {}'.format(self.mapfuncs.ixiangpf_adapter))
+                global ixiangpf
+                ixiangpf = self.mapfuncs.ixiangpf_adapter
+
+        if hasattr(self.mapfuncs, fname):
+            method=getattr(self.mapfuncs, fname)
+            if callable(method):
+                tgen_log_call(fname, **kwargs)
+                ret=method(**kwargs)
+                return ret
+
+        return super().trgen_pre_proc(fname, **kwargs)
+
+    def trgen_post_proc(self, fname, **kwargs):
+        logger.info('TGStc post proc {}'.format(fname))
+        return super().trgen_post_proc(fname, **kwargs)
 
 class TGIxia(TGBase):
     def __init__(self, tg_type, tg_version, tg_ip=None, tg_port_list=None, tg_ix_server=None, tg_ix_port=8009, tg_virtual=False, **kwargs):
@@ -3398,23 +3357,108 @@ def load_tgen_int(tgen_dict):
 
     if tg_type == 'stc':
         os.environ['STC_LOG_OUTPUT_DIRECTORY'] = tgen_get_logs_path_folder()
-        logger.debug("STC_TGEN_LOGS_PATH: {}".format(os.getenv('STC_LOG_OUTPUT_DIRECTORY')))
+        logger.debug("VIAVI TestCenter Logs Path: {}".format(os.getenv('STC_LOG_OUTPUT_DIRECTORY')))
         if not tg_stc_pkg_loaded:
             if not tg_stc_load(tg_version, logger, tgen_get_logs_path()):
                 return False
             code = "import sth \n"
             # nosemgrep-next-line
             exec(code, globals(), globals())
+            # STC only. add labserver support for stc
+            # MGJ: Load the Lab Server, if it is specified.
+            if tgen_dict.get('lab_server_ip'):
+                lab_server_ip = tgen_dict['lab_server_ip']
+                session_name = tgen_dict.get('lab_server_session_name', 'sonic')
+                user_name = tgen_dict.get('lab_server_username', 'test')
+
+                # Options are "kill", "join", "new". Default is "kill".
+                existing_session = tgen_dict.get("lab_server_existing_session", "kill")
+
+                cleanup_on_exit = tgen_dict.get('lab_server_cleanup_on_exit', True)
+                if os.getenv('SPYTEST_STC_LS_CLEANUP_ON_EXIT', None) and (os.getenv('SPYTEST_STC_LS_CLEANUP_ON_EXIT') == '0' or os.getenv('SPYTEST_STC_LS_CLEANUP_ON_EXIT').lower() == 'false'):
+                    cleanup_on_exit = False
+
+                logger.info(f"Connecting to Lab Server: {tgen_dict['lab_server_ip']} ({session_name} - {user_name})")
+
+                # First, connect to the Lab Server.
+                # NOTE: I'm using native STC commands because they allow for more flexibility.
+                #       You can't join an existing session with the HLTAPI command.
+                get_sth().invoke(f'stc::perform CSServerConnect -host {lab_server_ip}')
+
+                # Get a list of all sessions on the Lab Server.
+                sessions = get_sth().invoke('stc::get system1.csserver -children-CSTestSession').split()
+                logger.info("Lab Server Sessions:")
+                exiting_session_handle = None
+                for session in sessions:
+                    this_session_id = get_sth().invoke(f'stc::get {session} -name')
+                    tcp_port = get_sth().invoke(f'stc::get {session} -port')
+
+                    if this_session_id == f"{session_name} - {user_name}":
+                        # We found the session we're looking for.
+                        exiting_session_handle = session
+                        logger.info(f"  Session: '{this_session_id}'  TCP Port: {tcp_port} (Found)")
+                    else:
+                        logger.info(f"  Session: '{this_session_id}'  TCP Port: {tcp_port}")
+
+                exists = False
+                if exiting_session_handle:
+                    # The session exists.
+                    if existing_session.lower() == "kill":
+                        # ...so kill it.
+                        logger.info(f"Session {this_session_id} exists, killing it...")
+                        get_sth().invoke(f'stc::perform CSStopTestSession -TestSession {exiting_session_handle}')
+                        get_sth().invoke(f'stc::perform CSDestroyTestSession -TestSession {exiting_session_handle}')
+                    else:
+                        logger.info(f"Session {this_session_id} already exists.")
+                        exists = True
+
+                get_sth().invoke('stc::perform CSServerDisconnect')
+
+                if not exists:
+                    # The session doesn't exist, so create it.
+                    logger.info(f"Creating {session_name} - {user_name}...")
+                    get_sth().invoke(f"stc::perform CSTestSessionConnectCommand -Host {lab_server_ip} -TestSessionName {session_name} -OwnerId {user_name} -CreateNewTestSession TRUE")
+
+                elif existing_session.lower() == "new":
+                    # The session exists, but we want a new one. The API will give it a random session ID.
+                    logger.info(f"Session {session_name} - {user_name} already exists, creating a different session...")
+                    # NOTE: This will create a session with a random name. It would be better to create a new session with a specific name, but that's for another day.
+                    ret_ds = get_sth().invoke(f"stc::perform CSTestSessionConnectCommand -Host {lab_server_ip} -CreateNewTestSession TRUE")
+                    print(f"DEBUG: CSTestSessionConnectCommand Result: {ret_ds}")
+                else:
+                    # The session exists, connect to it.
+                    logger.info(f"Connecting to existing session {session_name} - {user_name}...")
+                    get_sth().invoke(f"stc::perform CSTestSessionConnectCommand -Host {lab_server_ip} -TestSessionName {session_name} -OwnerId {user_name}")
+                    get_sth().invoke("stc::perform ChassisDisconnectAllCommand")
+
+                ## Can add aion login code here or define the env
+                # get_sth().invoke(f"sth::aion_license_server_connect -aion_server *** -user_name *** -password *** -auto_signin true -work_space ***")
+                AION_LICENSE_SERVER_CONNECT = os.environ.get('AION_LICENSE_SERVER_CONNECT', 'novalue')
+                if AION_LICENSE_SERVER_CONNECT != 'novalue':
+                    get_sth().invoke(f"sth::aion_license_server_connect {AION_LICENSE_SERVER_CONNECT}")
+
+                #get_sth().invoke(f"sth::labserver_connect -server_ip {tgen_dict['lab_server_ip']} -session_name {session_name} -user_name {user_name} -create_new_session {create_new_session} -keep_session {keep_session}")
+                #get_sth().labserver_connect(server_ip=tgen_dict['lab_server_ip'], session_name=session_name, user_name=user_name, create_new_session=create_new_session, keep_session=keep_session)
+
+                if cleanup_on_exit:
+                    # This controls when the session will be cleaned up.
+                    # Options: ON_CLIENT_DISCONNECT ON_LAST_CONTROLLER_DISCONNECT ON_LAST_DISCONNECT
+                    get_sth().invoke("stc::perform terminatebll -TerminateType ON_LAST_DISCONNECT")
+                else:
+                    # Leave the session running.
+                    # Options: ON_CLIENT_DISCONNECT ON_LAST_CONTROLLER_DISCONNECT ON_LAST_DISCONNECT
+                    #get_sth().invoke(f"stc::perform terminatebll -Cancel 1")
+                    pass
             if tgen_log_lvl_is_debug():
-                logger.info("Setting Stc Debugs...")
+                logger.info("Setting VIAVI TestCenter Debugs...")
                 hltExportLog = os.path.join(tgen_get_logs_path_folder(), "{}_{}".format(file_prefix, 'hltExportLog'))
                 hltDbgLog = os.path.join(tgen_get_logs_path_folder(), "{}_{}".format(file_prefix, 'hltDbgLog'))
                 stcExportLog = os.path.join(tgen_get_logs_path_folder(), "{}_{}".format(file_prefix, 'stcExportLog'))
                 hltMapLog = os.path.join(tgen_get_logs_path_folder(), "{}_{}".format(file_prefix, 'hltMapLog'))
-                logger.info('STC Cmd Log File: {}*'.format(hltExportLog))
-                logger.info('STC Dbg Log File: {}*'.format(hltDbgLog))
-                logger.info('STC Vendor Log File: {}*'.format(stcExportLog))
-                logger.info('STC Map Log File: {}*'.format(hltMapLog))
+                logger.info('VIAVI TestCenter Cmd Log File: {}*'.format(hltExportLog))
+                logger.info('VIAVI TestCenter Dbg Log File: {}*'.format(hltDbgLog))
+                logger.info('VIAVI TestCenter Vendor Log File: {}*'.format(stcExportLog))
+                logger.info('VIAVI TestCenter Map Log File: {}*'.format(hltMapLog))
                 get_sth().test_config(log=1, log_level=7, logfile=hltDbgLog,
                                       vendorlog=1, vendorlogfile=stcExportLog,
                                       hltlog=1, hltlogfile=hltExportLog,
