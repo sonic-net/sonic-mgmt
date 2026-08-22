@@ -6,7 +6,7 @@ import ptf.testutils as testutils
 from tests.common.helpers.dut_utils import get_available_tech_support_files, get_new_techsupport_files_list, \
     extract_techsupport_tarball_file
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.srv6_helper import SRv6
+from tests.common.helpers.srv6_helper import SRv6, create_srv6_locator, create_srv6_sid, del_srv6_locator, del_srv6_sid
 
 logger = logging.getLogger(__name__)
 LOCATOR_NUM = 128
@@ -27,6 +27,67 @@ class MySIDs(MyLocators):
         [locator_name, sid, SRv6.uN, 'default']
         for locator_name, sid, _ in MyLocators.my_locator_list
     ]
+
+
+def create_all_srv6_locators_and_sids(duthost, decap_dscp_mode):
+    """
+    Create all SRv6 locators and SIDs defined for SRv6 dataplane tests.
+    """
+    for locator_name, locator_prefix, _ in MyLocators.my_locator_list:
+        create_srv6_locator(duthost, locator_name, locator_prefix)
+
+    create_all_srv6_sids(duthost, decap_dscp_mode)
+
+
+def create_all_srv6_sids(duthost, decap_dscp_mode):
+    """
+    Create all SRv6 SIDs defined for SRv6 dataplane tests.
+    """
+    for locator_name, ip_addr, action, vrf in MySIDs.MY_SID_LIST:
+        create_srv6_sid(
+            duthost,
+            locator_name,
+            ip_addr,
+            action,
+            vrf,
+            decap_dscp_mode=decap_dscp_mode
+        )
+
+
+def delete_all_srv6_sids(duthost):
+    """
+    Delete all SRv6 SIDs defined for SRv6 dataplane tests.
+    """
+    for locator_name, ip_addr, _, _ in MySIDs.MY_SID_LIST:
+        del_srv6_sid(duthost, locator_name, ip_addr)
+
+
+def delete_all_srv6_locators_and_sids(duthost):
+    """
+    Delete all SRv6 locators and SIDs defined for SRv6 dataplane tests.
+    """
+    delete_all_srv6_sids(duthost)
+
+    for locator_name, _, _ in MyLocators.my_locator_list:
+        del_srv6_locator(duthost, locator_name)
+
+
+def rebuild_all_srv6_locators_and_sids(duthost, decap_dscp_mode):
+    """
+    Rebuild SRv6 config by deleting all entries then creating new ones.
+    """
+    logger.info("Rebuild SRv6 config: delete all locators/SIDs then create all")
+    delete_all_srv6_locators_and_sids(duthost)
+    create_all_srv6_locators_and_sids(duthost, decap_dscp_mode)
+
+
+def rebuild_all_srv6_sids(duthost, decap_dscp_mode):
+    """
+    Rebuild SRv6 SID config by deleting and recreating all SIDs only.
+    """
+    logger.info("Rebuild SRv6 config: delete all SIDs then create all")
+    delete_all_srv6_sids(duthost)
+    create_all_srv6_sids(duthost, decap_dscp_mode)
 
 
 def validate_sai_sdk_dump_files(duthost, techsupport_folder, feature_list=[]):
