@@ -141,7 +141,7 @@ def _map_operational_attribute_to_fields(attr_name, attr_value, active_media_lan
     }, []
 
 
-def _map_threshold_attribute_to_fields(attr_name, attr_value):
+def _map_threshold_attribute_to_fields(attr_name, attr_value, _active_media_lanes=None):
     """Return ``({field: DomThresholdMappedField(...)}, errors)`` for one threshold range."""
     base_name = attr_name[:-len(THRESHOLD_SUFFIX)]
     prefix = THRESHOLD_FIELD_PREFIXES.get(base_name)
@@ -158,14 +158,9 @@ def _map_threshold_attribute_to_fields(attr_name, attr_value):
     }, []
 
 
-def _map_threshold_attribute_to_fields_for_dispatch(attr_name, attr_value, _active_media_lanes):
-    """Return threshold mapping through the 3-argument DOM field-dispatch contract."""
-    return _map_threshold_attribute_to_fields(attr_name, attr_value)
-
-
 DOM_FIELD_MAPPERS = (
     (OPERATIONAL_SUFFIX, _map_operational_attribute_to_fields),
-    (THRESHOLD_SUFFIX, _map_threshold_attribute_to_fields_for_dispatch),
+    (THRESHOLD_SUFFIX, _map_threshold_attribute_to_fields),
 )
 
 

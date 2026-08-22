@@ -254,6 +254,9 @@ def _validate_pair(port, field, check, previous_sample, current_sample, sample_i
     elif previous_status is None or current_status is None:
         skip_reason = "{} namespace read failed".format(STATE_DB_STATUS_TABLE)
     elif not (
+        # Current TC4 scope covers optics where media lanes map 1:1 to host/datapath
+        # lanes, so the media lane used for tx{lane}bias also selects DP{lane}State.
+        # Gearbox and inverse-gearbox lane translation should be added in a follow-up.
         is_state_db_dp_state_activated(previous_status, lane)
         and is_state_db_dp_state_activated(current_status, lane)
     ):
