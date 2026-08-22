@@ -288,7 +288,8 @@ class BasePacketTrimming:
                                   f"port level trim counters are zero for {port}")
                     verify_queue_and_port_trim_counter_consistency(duthost, port)
 
-    def test_trimming_with_reload_and_reboot(self, duthost, ptfadapter, test_params, localhost, request):
+    def test_trimming_with_reload_and_reboot(self, duthost, ptfadapter, test_params, localhost, request,
+                                             loganalyzer):
         """
         Test Case: Verify Trimming Persistence After Reload and Reboot
 
@@ -296,6 +297,17 @@ class BasePacketTrimming:
         It ensures trimming functionality continues to work normally after the system recovers from
         a configuration reload or cold reboot.
         """
+        if loganalyzer and duthost.hostname in loganalyzer:
+            # thermalctld can throw a transient JSONDecodeError while state-db is being
+            # repopulated right after boot. This is expected and unrelated to packet trimming
+            # (see sonic-buildimage#8984). The exception is caught internally by thermalctld
+            # (the daemon keeps running, per `supervisorctl status`) and it successfully
+            # re-initializes the thermal manager on its next polling cycle once state-db is
+            # repopulated, so this is safe to ignore here.
+            loganalyzer[duthost.hostname].ignore_regex.extend([
+                r".*ERR pmon#thermalctld.*Caught exception while initializing thermal manager - JSONDecodeError.*",
+            ])
+
         with allure.step(f"Configure packet trimming in global level for {self.trimming_mode} mode"):
             self.configure_trimming_global_by_mode(duthost)
 
