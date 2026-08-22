@@ -2426,7 +2426,8 @@ fib/test_fib.py::test_nvgre_hash:
     conditions:
       - "asic_type in ['vs', 'broadcom'] or topo_type in ['m0', 'mx', 'm1']"
       - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
-      - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0', 'x86_64-8223_64e_mo-r0', 'x86_64-8223_64ef_mo-r0']"
+      - "asic_type in ['cisco-8000'] and platform.startswith('x86_64-8122_')"
+      - "asic_type in ['cisco-8000'] and platform.startswith('x86_64-8223_')"
   xfail:
     reason: 'Nvgre hash test is not fully supported on SPC1 platform due to known limitation'
     conditions:
@@ -2532,9 +2533,11 @@ fib/test_fib.py::test_vxlan_hash[ipv6-ipv4]:
 
 fib/test_fib.py::test_vxlan_hash[ipv6-ipv6]:
   skip:
-    reason: 'Skip on t1-isolated-d32/128 topos'
+    reason: 'Skip on t1-isolated-d32/128 topos. Vxlan ipv6-ipv6 Pkt format is not supported on cisco 8122 platform'
+    conditions_logical_operator: or
     conditions:
       - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
+      - "asic_type in ['cisco-8000'] and platform.startswith('x86_64-8122_')"
   xfail:
     reason: "Testcase ignored due to sonic-mgmt issue (https://github.com/sonic-net/sonic-mgmt/issues/18304) or xfail for IPv6-only topologies, still have IPv4 function used. Or test case has issue on the t0-isolated-d256u256s2 topo."
     conditions_logical_operator: or
