@@ -229,7 +229,8 @@ def __tgen_bgp_config(snappi_api, ):
         snappi_api (pytest fixture): snappi API
     """
     config = snappi_api.config()
-    snappi_api.enable_scaling(True)
+    if hasattr(snappi_api, 'enable_scaling'):
+        snappi_api.enable_scaling(True)
 
     p1, p2, p3 = (
         config.ports.port(name="t1", location=temp_tg_port[0]['location'])
@@ -300,7 +301,7 @@ def __tgen_bgp_config(snappi_api, ):
     # T1
     d3 = config.devices.device(name="T1")[-1]
     eth_3 = d3.ethernets.add()
-    eth_3.connection.port_name = lag3.name
+    eth_3.connection.lag_name = lag3.name
     eth_3.name = 'Ethernet 3'
     eth_3.mac = "00:14:01:00:00:01"
     ipv4_3 = eth_3.ipv4_addresses.add()
