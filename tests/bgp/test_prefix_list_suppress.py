@@ -96,6 +96,10 @@ def has_chassisdb_conf(duthost):
     return duthost.stat(path=CHASSISDB_CONF)["stat"]["exists"]
 
 
+def is_chassis_supervisor_host(duthost):
+    return duthost.is_supervisor_node() or has_chassisdb_conf(duthost)
+
+
 def op_prefix_with_cmd(duthost, prefix_type, prefix, action, ignore_error=False):
     """Run ``sudo prefix_list <action> <type> <prefix>``."""
     pytest_assert(
@@ -449,7 +453,7 @@ def rand_one_uplink_duthost(duthosts):
     """Pick one UpstreamLC / UpperSpineRouter duthost. Skip otherwise."""
     candidates = [
         dh for dh in duthosts
-        if not dh.is_supervisor_node() and is_upstream_spine(dh)
+        if not is_chassis_supervisor_host(dh) and is_upstream_spine(dh)
     ]
     if not candidates:
         pytest.skip("No UpstreamLC / UpperSpineRouter duthost in this testbed")
@@ -461,7 +465,7 @@ def rand_one_non_spine_duthost(duthosts):
     """Pick one non-spine, non-supervisor frontend duthost. Skip otherwise."""
     candidates = [
         dh for dh in duthosts
-        if not dh.is_supervisor_node() and not is_upstream_spine(dh)
+        if not is_chassis_supervisor_host(dh) and not is_upstream_spine(dh)
     ]
     if not candidates:
         pytest.skip("No non-spine frontend duthost in this testbed")
@@ -471,7 +475,7 @@ def rand_one_non_spine_duthost(duthosts):
 @pytest.fixture(scope="module")
 def rand_one_frontend_duthost(duthosts):
     """Pick any frontend (non-supervisor) duthost."""
-    candidates = [dh for dh in duthosts if not dh.is_supervisor_node()]
+    candidates = [dh for dh in duthosts if not is_chassis_supervisor_host(dh)]
     if not candidates:
         pytest.skip("No frontend duthost in this testbed")
     return random.choice(candidates)
@@ -480,7 +484,7 @@ def rand_one_frontend_duthost(duthosts):
 @pytest.fixture(scope="module")
 def supervisor_duthost(duthosts):
     """Return the chassis supervisor duthost (skip on non-chassis testbeds)."""
-    candidates = [dh for dh in duthosts if dh.is_supervisor_node()]
+    candidates = [dh for dh in duthosts if is_chassis_supervisor_host(dh)]
     if not candidates:
         pytest.skip("Testbed has no chassis supervisor")
     return candidates[0]
