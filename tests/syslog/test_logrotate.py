@@ -4,7 +4,6 @@ import pytest
 import allure
 
 from tests.common.plugins.loganalyzer.loganalyzer import DisableLogrotateCronContext
-from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 
@@ -51,7 +50,7 @@ def backup_syslog(rand_selected_dut):
 
 
 @pytest.fixture(scope='function')
-def simulate_small_var_log_partition(rand_selected_dut, localhost):
+def simulate_small_var_log_partition(rand_selected_dut):
     """
     Simulate a small var log partition
     :param rand_selected_dut: The fixture returns a randomly selected DUT
@@ -68,7 +67,10 @@ def simulate_small_var_log_partition(rand_selected_dut, localhost):
             duthost.shell('sudo cp -f {} /var/log/syslog'.format(SYSLOG_BACKUP_FILE))
             duthost.shell('sudo rm -f {}'.format(LOGROTATE_TEST_STATE_FILE), module_ignore_errors=True)
 
-            config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+            logger.info(
+                'Restart rsyslog service on the small var log partition'
+            )
+            duthost.shell('sudo service rsyslog restart')
 
             logger.info('Start logrotate-config service')
             duthost.shell('sudo service logrotate-config restart')
@@ -84,13 +86,13 @@ def simulate_small_var_log_partition(rand_selected_dut, localhost):
             logger.info('Remove the small var log partition')
             duthost.shell('sudo rm -f log-new-partition', module_ignore_errors=True)
 
-            if setup_finished:
-                config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
-            else:
-                try:
-                    config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
-                except Exception:
-                    logger.exception('Failed to recover config after small var log setup failure')
+            logger.info(
+                'Restart rsyslog service on the restored var log partition'
+            )
+            duthost.shell(
+                'sudo service rsyslog restart',
+                module_ignore_errors=not setup_finished
+            )
 
             logger.info('Restart logrotate-config service')
             duthost.shell('sudo service logrotate-config restart', module_ignore_errors=not setup_finished)
@@ -329,15 +331,16 @@ def test_logrotate_small_size(rand_selected_dut, simulate_small_var_log_partitio
     """
     Test case of logrotate under a simulated small size /var/log, test steps are listed
 
-    Create a temp device which is around 100MB large, then mount it to /var/log
-    Execute config reload to active the mount
+    Create a temp device which is around 300MB large, then mount it to
+    /var/log
+    Restart logging services to activate the mount
     Stop logrotate cron job, make sure no logrotate executes during this test
     Check current syslog.x file number and save it
     Create a temp file with size of rotate_size * 50%, and rename it as 'syslog', run logrotate command
     There would be no logrotate happens - by checking the 'syslog.x' file number not increased
     Create a temp file with size of rotate_size * 110%, and rename it as 'syslog', run logrotate command
     There would be logrotate happens - by checking the 'syslog.x' file number increased by 1
-    Reboot the dut to recover original /var/log mount
+    Unmount the temp device to recover the original /var/log mount
 
     :param rand_selected_dut: The fixture returns a randomly selected DUT
     :param simulate_small_var_log_partition: The fixture simulates a small var log partition
