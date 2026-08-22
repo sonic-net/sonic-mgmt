@@ -23,12 +23,12 @@ def get_common_supported_speeds(duthost, dut_port_name, fanout, fanout_port_name
 
     fanout_supported_speeds = fanout.get_supported_speeds(fanout_port_name)
     if not fanout_supported_speeds:
-        dut_supported_speeds = [dut_current_port_speed]
+        fanout_supported_speeds = [dut_current_port_speed]
 
     # get supported speeds for the cable
     cable_supported_speeds = get_cable_supported_speeds(duthost, dut_port_name)
     if not cable_supported_speeds:
-        dut_supported_speeds = [dut_current_port_speed]
+        cable_supported_speeds = [dut_current_port_speed]
 
     supported_speeds = set(dut_supported_speeds) & set(fanout_supported_speeds) & set(cable_supported_speeds)
     if not supported_speeds:
