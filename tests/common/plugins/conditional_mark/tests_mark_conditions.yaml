@@ -1730,9 +1730,9 @@ ecmp/inner_hashing/test_inner_hashing.py:
     reason: "PBH introduced in 202111 and skip this test on Mellanox 2700 platform. Test does not support dualtor topology."
     conditions:
       - "branch in ['201811', '201911', '202012', '202106']"
-      - "platform not in ['x86_64-mlnx_msn3800-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-kvm_x86_64-r0']"
+      - "platform not in ['x86_64-mlnx_msn3800-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-wistron_6512_32r-r0', 'x86_64-marvell_d64p512t-r0']"
       - "topo_type not in ['t0']"
-      - "asic_type not in ['mellanox', 'vs']"
+      - "asic_type not in ['mellanox', 'vs', 'marvell-teralynx']"
       - "'dualtor' in topo_name"
 
 ecmp/inner_hashing/test_inner_hashing_lag.py:
@@ -1741,9 +1741,9 @@ ecmp/inner_hashing/test_inner_hashing_lag.py:
     reason: "PBH introduced in 202111 and skip this test on Mellanox 2700 platform. Test does not support dualtor topology."
     conditions:
       - "branch in ['201811', '201911', '202012', '202106']"
-      - "platform not in ['x86_64-mlnx_msn3800-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-kvm_x86_64-r0']"
+      - "platform not in ['x86_64-mlnx_msn3800-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-wistron_6512_32r-r0', 'x86_64-marvell_d64p512t-r0']"
       - "topo_type not in ['t0']"
-      - "asic_type not in ['mellanox', 'vs']"
+      - "asic_type not in ['mellanox', 'vs', 'marvell-teralynx']"
       - "'dualtor' in topo_name"
 
 ecmp/inner_hashing/test_wr_inner_hashing.py:
@@ -1752,9 +1752,9 @@ ecmp/inner_hashing/test_wr_inner_hashing.py:
     reason: "PBH introduced in 202111 and skip this test on Mellanox 2700 platform. Test does not support dualtor topology."
     conditions:
       - "branch in ['201811', '201911', '202012', '202106']"
-      - "platform not in ['x86_64-mlnx_msn3800-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-kvm_x86_64-r0']"
+      - "platform not in ['x86_64-mlnx_msn3800-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-wistron_6512_32r-r0', 'x86_64-marvell_d64p512t-r0']"
       - "topo_type not in ['t0']"
-      - "asic_type not in ['mellanox', 'vs']"
+      - "asic_type not in ['mellanox', 'vs', 'marvell-teralynx']"
       - "'dualtor' in topo_name"
 
 ecmp/inner_hashing/test_wr_inner_hashing_lag.py:
@@ -1763,10 +1763,52 @@ ecmp/inner_hashing/test_wr_inner_hashing_lag.py:
     reason: "PBH introduced in 202111 and skip this test on Mellanox 2700 platform. Test does not support dualtor topology."
     conditions:
       - "branch in ['201811', '201911', '202012', '202106']"
-      - "platform not in ['x86_64-mlnx_msn3800-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-kvm_x86_64-r0']"
+      - "platform not in ['x86_64-mlnx_msn3800-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-wistron_6512_32r-r0', 'x86_64-marvell_d64p512t-r0']"
       - "topo_type not in ['t0']"
-      - "asic_type not in ['mellanox', 'vs']"
+      - "asic_type not in ['mellanox', 'vs', 'marvell-teralynx']"
       - "'dualtor' in topo_name"
+
+ecmp/inner_hashing/test_inner_hashing.py::TestDynamicInnerHashing::test_inner_hashing[ipv6-ipv6]:
+  skip:
+    reason: "IPv6-IPv6 not supported on TL Platform"
+    condition:
+      - "topo_type in ['t0']"
+      - "asic_type in ['marvell-teralynx']"
+
+ecmp/inner_hashing/test_inner_hashing.py::TestStaticInnerHashing::test_inner_hashing[ipv6-ipv6]:
+  skip:
+    reason: "IPv6-IPv6 not supported on TL Platform"
+    condition:
+      - "topo_type in ['t0']"
+      - "asic_type in ['marvell-teralynx']"
+
+ecmp/inner_hashing/test_inner_hashing_lag.py::TestDynamicInnerHashingLag::test_inner_hashing[ipv6-ipv6]:
+  skip:
+    reason: "IPv6-IPv6 not supported on TL Platform"
+    condition:
+      - "topo_type in ['t0']"
+      - "asic_type in ['marvell-teralynx']"
+
+ecmp/inner_hashing/test_wr_inner_hashing.py::TestWRDynamicInnerHashing::test_inner_hashing[ipv6-ipv6]:
+  skip:
+    reason: "IPv6-IPv6 not supported on TL Platform"
+    condition:
+      - "topo_type in ['t0']"
+      - "asic_type in ['marvell-teralynx']"
+
+ecmp/inner_hashing/test_wr_inner_hashing.py::TestWRStaticInnerHashing::test_inner_hashing[ipv6-ipv6]:
+  skip:
+    reason: "IPv6-IPv6 not supported on TL Platform"
+    condition:
+      - "topo_type in ['t0']"
+      - "asic_type in ['marvell-teralynx']"
+
+ecmp/inner_hashing/test_wr_inner_hashing_lag.py::TestWRDynamicInnerHashingLag::test_inner_hashing[ipv6-ipv6]:
+  skip:
+    reason: "IPv6-IPv6 not supported on TL Platform"
+    condition:
+      - "topo_type in ['t0']"
+      - "asic_type in ['marvell-teralynx']"
 
 ecmp/test_ecmp_balance.py:
   skip:
