@@ -4773,6 +4773,11 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         prio_list = self.test_params.get('dscp_list', [])
         q_pkt_cnt = self.test_params.get('q_pkt_cnt', [])
         q_list = self.test_params.get('q_list', [])
+        # Egress shaper (bytes/sec) on the dst port; paces the release so a high-
+        # speed port does not overrun the fanout->PTF path (0 disables). The
+        # base-class helper is broadcom-only and leaves the per-queue DWRR
+        # schedulers untouched, so the weight arbitration under test is preserved.
+        egress_shaper_rate = int(self.test_params.get('egress_shaper_rate', 125000000))
 
         self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id], enable_port_by_unblock_queue=False)
 
@@ -4841,6 +4846,11 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
 
         xmit_counters_base, _ = sai_thrift_read_port_counters(self.dst_client, asic_type, port_list['dst'][dst_port_id])
 
+        # Pace egress on the dst port so the released burst does not overrun the
+        # fanout->PTF path (broadcom-only; no-op otherwise). Applied while the
+        # port is still up so the rate limiter is armed before traffic is released.
+        dut_port = self.get_dut_port(dst_port_id)
+        self.apply_egress_shaper(dut_port, egress_shaper_rate)
         self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id], disable_port_by_block_queue=False)
 
         try:
@@ -5000,7 +5010,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
                     logging.info(
                         "On J2C+ can't control how packets are dequeued (CS00012272267) - so ignoring diff check now")
                 elif not dry_run:
-                    assert diff < limit, "Difference for %d is %d which exceeds limit %d" % (
+                    assert diff <= limit, "Difference for %d is %d which exceeds limit %d" % (
                         dscp, diff, limit)
 
             # Read counters
@@ -5016,6 +5026,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         finally:
             self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id],
                                            enable_port_by_unblock_queue=False)
+            self.clear_egress_shaper(dut_port, egress_shaper_rate)
 
 
 class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
