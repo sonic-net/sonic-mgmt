@@ -64,7 +64,9 @@ def analyzer_logrotate(node=None, results=None):
             logging.warning("logrotate is failed. Command returned:\n"
                             "Stdout: {}\n"
                             "Stderr: {}\n"
-                            "Return code: {}".format(e.results["stdout"], e.results["stderr"], e.results["rc"]))
+                            "Return code: {}".format(e.results.get("stdout", ""),
+                                                     e.results.get("stderr", ""),
+                                                     e.results.get("rc", "")))
 
 
 @reset_ansible_local_tmp
