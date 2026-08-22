@@ -10,6 +10,7 @@ import json
 import ptf.testutils as testutils
 from ptf import mask
 from scapy.all import Ether, IP
+from collections import defaultdict
 
 from tests.common.utilities import wait_until
 from tests.common.config_reload import config_reload
@@ -130,7 +131,23 @@ def vlan_setup_info(rand_selected_dut, tbinfo):
     vlan_setup['default_vlan'] = minigraph_vlan['name']
     # 4 interfaces are required to cover all test scenarios
     pytest_require(len(minigraph_vlan['members']) >= 4, "There is no sufficient ports for testing")
-    ports_for_test = minigraph_vlan['members'][:4]
+
+    # Pick a pair of ports with the same speed for the PortChannel (LAG members must match speed),
+    # then pick 2 more ports for untagged Vlan members.
+    port_table = rand_selected_dut.config_facts(
+        host=rand_selected_dut.hostname, source="running")['ansible_facts'].get('PORT', {})
+    speed_groups = defaultdict(list)
+    for port in minigraph_vlan['members']:
+        speed = port_table.get(port, {}).get('speed')
+        if speed is not None:
+            speed_groups[speed].append(port)
+    lag_pair = next((ports[:2] for ports in speed_groups.values() if len(ports) >= 2), None)
+    pytest_require(lag_pair is not None,
+                   "No pair of Vlan members with matching speed found for PortChannel setup")
+    remaining_ports = [p for p in minigraph_vlan['members'] if p not in lag_pair]
+    pytest_require(len(remaining_ports) >= 2,
+                   "Not enough additional Vlan members for untagged ports")
+    ports_for_test = list(lag_pair) + remaining_ports[:2]
 
     portchannel_setup = {
         DUT_LAG_NAME: {
