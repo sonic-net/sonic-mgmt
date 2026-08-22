@@ -435,7 +435,6 @@ def verify_autorestart_with_critical_process(duthost, container_name, service_na
     @summary: Kill a critical process in a container to verify whether the container
               is stopped and restarted correctly
     """
-    global PROGRAM_STATUS
     pytest_assert(wait_until(40, 3, 0, is_process_running, duthost, container_name, program_name),
                   "Program '{}' in container '{}' is in the '{}' state, expected 'RUNNING'"
                   .format(program_name, container_name, PROGRAM_STATUS))
@@ -746,3 +745,174 @@ def test_containers_autorestart(duthosts, enum_rand_one_per_hwsku_hostname, enum
             # container hung rather than a masked recovery error.
             logger.exception("Recovery after hang on container '%s' failed: %s", container_name, recovery_err)
         pytest.fail(str(timeout_err))
+
+
+@pytest.mark.disable_loganalyzer
+def test_supervisor_listener_syslog_reconnects(
+        duthosts, enum_rand_one_per_hwsku_hostname, enum_rand_one_asic_index, enum_dut_feature, tbinfo):
+    """
+    Verify that the supervisor-proc-exit-listener (Rust variant) correctly shuts down
+    a container after its critical process exits, even when syslog was disrupted
+    mid-run (rsyslogd was stopped and restarted while the listener was running).
+
+    Runs for all containers that have the Rust listener variant and a supervisord-managed
+    rsyslogd. Skips containers in the same skip list as test_containers_autorestart
+    (database, acms, otel, and disabled containers) plus any container without rsyslogd.
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    asic = duthost.asic_instance(enum_rand_one_asic_index)
+    container_name = asic.get_docker_name(enum_dut_feature)
+    feature_name = ''.join(re.match(CONTAINER_NAME_REGEX, container_name).groups()[:-1])
+
+    # Skip the same containers that test_containers_autorestart skips
+    disabled_containers = get_disabled_container_list(duthost)
+    skip_condition = disabled_containers[:]
+    skip_condition.extend(["database", "acms", "otel"])
+    if tbinfo["topo"]["type"] != "t0":
+        skip_condition.append("radv")
+    pytest_require(
+        feature_name not in skip_condition,
+        "Skipping test_supervisor_listener_syslog_reconnects for container '{}'".format(feature_name)
+    )
+
+    # Step 2: confirm Rust listener variant is in use
+    listener_cmd = duthost.shell(
+        "docker exec {} grep -A2 'eventlistener:supervisor-proc-exit-listener' "
+        "/etc/supervisor/conf.d/supervisord.conf | grep '^command='".format(container_name),
+        module_ignore_errors=True
+    )
+    pytest_require(
+        listener_cmd["rc"] == 0 and "-rs" in listener_cmd.get("stdout", ""),
+        "supervisor-proc-exit-listener is not the Rust variant in '{}'; skipping. "
+        "command={}".format(container_name, listener_cmd.get("stdout", "").strip())
+    )
+
+    # Skip if this container has no supervisord-managed rsyslogd (e.g. sflow, telemetry)
+    rsyslogd_check_pre = duthost.command(
+        "docker exec {} supervisorctl status rsyslogd".format(container_name),
+        module_ignore_errors=True
+    )
+    pytest_require(
+        "rsyslogd" in rsyslogd_check_pre.get("stdout", ""),
+        "No supervisord-managed rsyslogd in '{}'; skipping.".format(container_name)
+    )
+
+    # Step 3: baseline — listener must be RUNNING
+    listener_status, listener_pid = get_program_info(duthost, container_name, "supervisor-proc-exit-listener")
+    pytest_assert(
+        listener_status == "RUNNING",
+        "Baseline: supervisor-proc-exit-listener status='{}' (expected RUNNING) in '{}'"
+        .format(listener_status, container_name)
+    )
+    rsyslogd_check = duthost.command(
+        "docker exec {} supervisorctl status rsyslogd".format(container_name)
+    )
+    pytest_assert(
+        "RUNNING" in rsyslogd_check.get("stdout", ""),
+        "Baseline: rsyslogd not RUNNING in '{}': {}".format(container_name, rsyslogd_check.get("stdout"))
+    )
+    logger.info("Baseline: listener RUNNING pid={}, rsyslogd RUNNING in '{}'".format(
+        listener_pid, container_name))
+
+    # Step 4: get the first critical process for this container and wait for it to be RUNNING
+    critical_group_list, critical_process_list, succeeded = duthost.get_critical_group_and_process_lists(container_name)
+    pytest_require(succeeded and (critical_process_list or critical_group_list),
+                   "No critical processes found in '{}'; skipping.".format(container_name))
+    # Pick the first available critical process (same convention as test_containers_autorestart)
+    if critical_process_list:
+        critical_process = critical_process_list[0]
+    else:
+        group_info = get_group_program_info(duthost, container_name, critical_group_list[0])
+        critical_process = next(iter(group_info))
+    logger.info("Using critical process '{}' in '{}'".format(critical_process, container_name))
+    pytest_require(
+        wait_until(40, 3, 0, is_process_running, duthost, container_name, critical_process),
+        "'{}' process not RUNNING in '{}' within 40s (status='{}'); skipping.".format(
+            critical_process, container_name, PROGRAM_STATUS)
+    )
+    _, critical_pid = get_program_info(duthost, container_name, critical_process)
+    logger.info("'{}' process RUNNING with pid={} in '{}'".format(critical_process, critical_pid, container_name))
+
+    # Step 5: stop rsyslogd to remove /dev/log
+    logger.info("Stopping rsyslogd in '{}' to remove /dev/log".format(container_name))
+    duthost.command("docker exec {} supervisorctl stop rsyslogd".format(container_name))
+    time.sleep(2)
+    devlog_check = duthost.command(
+        "docker exec {} ls /dev/log".format(container_name),
+        module_ignore_errors=True
+    )
+    pytest_assert(
+        devlog_check["rc"] != 0,
+        "/dev/log still exists after stopping rsyslogd in '{}': {}".format(
+            container_name, devlog_check.get("stderr", devlog_check.get("stdout", "")))
+    )
+    logger.info("/dev/log confirmed absent after rsyslogd stop")
+
+    # Step 6: listener must still be RUNNING with the same PID
+    time.sleep(2)
+    status_mid, pid_mid = get_program_info(duthost, container_name, "supervisor-proc-exit-listener")
+    pytest_assert(
+        status_mid == "RUNNING",
+        "Listener is not RUNNING while /dev/log is absent in '{}': "
+        "status='{}', pid={}".format(container_name, status_mid, pid_mid)
+    )
+    logger.info("PASS: listener stayed RUNNING while /dev/log was absent (pid={})".format(pid_mid))
+
+    # Step 7: restart rsyslogd to restore /dev/log
+    logger.info("Restarting rsyslogd to restore /dev/log")
+    duthost.command("docker exec {} supervisorctl start rsyslogd".format(container_name))
+    time.sleep(3)
+    devlog_back = duthost.command("docker exec {} ls /dev/log".format(container_name),
+                                  module_ignore_errors=True)
+    pytest_assert(
+        "No such file" not in devlog_back.get("stdout", "") and devlog_back.get("rc", 1) == 0,
+        "/dev/log did not reappear after rsyslogd restart in '{}': {}".format(
+            container_name, devlog_back["stdout"])
+    )
+    logger.info("/dev/log restored: {}".format(devlog_back["stdout"].strip()))
+
+    # Re-read pid in case supervisord restarted the process while rsyslogd was stopped.
+    _, current_critical_pid = get_program_info(duthost, container_name, critical_process)
+    pytest_assert(
+        current_critical_pid and current_critical_pid != -1,
+        "'{}' has no PID before kill in '{}'".format(critical_process, container_name)
+    )
+
+    # Step 8: kill critical process; the listener must call terminate_supervisor().
+    # autorestart is guaranteed enabled for all features by the config_reload_after_tests fixture.
+    logger.info("Killing '{}' (pid={}) in '{}' to verify listener triggers supervisor termination"
+                .format(critical_process, current_critical_pid, container_name))
+    duthost.command(
+        "docker exec {} kill -SIGKILL {}".format(container_name, current_critical_pid),
+        module_ignore_errors=True
+    )
+
+    # Step 9: assert container stops
+    logger.info("Waiting up to {}s for '{}' to stop".format(CONTAINER_STOP_THRESHOLD_SECS, container_name))
+    stopped = wait_until(
+        CONTAINER_STOP_THRESHOLD_SECS, CONTAINER_CHECK_INTERVAL_SECS, 0,
+        check_container_state, duthost, container_name, False
+    )
+    pytest_assert(
+        stopped,
+        "'{}' did not stop within {}s after '{}' was killed — "
+        "listener may not have called terminate_supervisor()".format(
+            container_name, CONTAINER_STOP_THRESHOLD_SECS, critical_process)
+    )
+    logger.info("PASS: '{}' stopped after '{}' kill".format(container_name, critical_process))
+
+    # Step 10: assert container restarts
+    logger.info("Waiting up to {}s for '{}' to restart".format(CONTAINER_RESTART_THRESHOLD_SECS, container_name))
+    restarted = wait_until(
+        CONTAINER_RESTART_THRESHOLD_SECS, CONTAINER_CHECK_INTERVAL_SECS, 0,
+        check_container_state, duthost, container_name, True
+    )
+    if not restarted:
+        service_name = asic.get_service_name(enum_dut_feature)
+        if is_hiting_start_limit(duthost, service_name):
+            clear_failed_flag_and_restart(duthost, service_name, container_name)
+        else:
+            pytest.fail("'{}' did not restart within {}s".format(
+                container_name, CONTAINER_RESTART_THRESHOLD_SECS))
+    logger.info("PASS: '{}' restarted cleanly — listener correctly called terminate_supervisor() "
+                "after rsyslogd restart mid-run".format(container_name))
