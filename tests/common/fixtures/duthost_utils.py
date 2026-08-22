@@ -16,6 +16,7 @@ from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.utilities import wait_until
+from tests.common.utilities import create_proxy_from_ssh_args
 from jinja2 import Template
 from netaddr import valid_ipv4, valid_ipv6
 from tests.common.mellanox_data import is_mellanox_device, get_platform_data
@@ -880,6 +881,8 @@ def duthosts_ipv6_mgmt_only(duthosts, backup_and_restore_ansible_hosts, backup_a
         # "RuntimeError: dictionary changed size during iteration" error
         ssh_client = paramiko.SSHClient()
         ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
+        ssh_common_args = hostvars.get("ansible_ssh_common_args", "")
         has_ipv6_config = False
         for key in list(mgmt_interface):
             ip_addr = key.split("|")[1]
@@ -893,8 +896,15 @@ def duthosts_ipv6_mgmt_only(duthosts, backup_and_restore_ansible_hosts, backup_a
                         # Add a temporary debug log to see if the DUT is reachable via IPv6 mgmt-ip. Will remove later
                         duthost_interface = duthost.shell("sudo ifconfig eth0")['stdout']
                         logging.debug(f"Checking host[{duthost.hostname}] ifconfig eth0:[{duthost_interface}]")
-                        ssh_client.connect(ip_addr_without_mask,
-                                           username="WRONG_USER", password="WRONG_PWD", timeout=15)
+                        connect_kwargs = dict(
+                            hostname=ip_addr_without_mask,
+                            username="WRONG_USER", password="WRONG_PWD", timeout=15
+                        )
+                        proxy_sock = create_proxy_from_ssh_args(
+                            ssh_common_args, ip_addr_without_mask, 22)
+                        if proxy_sock is not None:
+                            connect_kwargs['sock'] = proxy_sock
+                        ssh_client.connect(**connect_kwargs)
                     except AuthenticationException:
                         logger.info(f"Host[{duthost.hostname}] IPv6[{ip_addr_without_mask}] mgmt-ip is available")
                         ipv6_address[duthost.hostname].append(ip_addr_without_mask)
