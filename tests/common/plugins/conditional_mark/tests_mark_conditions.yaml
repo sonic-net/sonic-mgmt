@@ -262,7 +262,7 @@ arp/test_unknown_mac.py::TestUnknownMac::test_unknown_mac:
 
 arp/test_wr_arp.py:
   skip:
-    reason: "Warm reboot is broken on dualtor topology. Device fails to recover by sanity check. Skipping for now. Not supported in standalone topos / Warm reboot is not required for 202412 and this test is not run on this asic type or version or topology currently"
+    reason: "Warm reboot is broken on dualtor topology. Device fails to recover by sanity check. Skipping for now. Not supported in standalone topos / Warm reboot is not required for 202412 and this test is not run on this asic type or version or topology currently / Warm reboot is not currently supported on sn6600_ld platform"
     conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-buildimage/issues/16502 and 'dualtor' in topo_name"
@@ -272,6 +272,7 @@ arp/test_wr_arp.py:
       - *lossyTopos
       - "topo_type not in ['t0']"
       - "'f2' in topo_name"
+      - "'sn6600_ld' in platform"
 
 ########################################
 ######        autorestart          #####
@@ -397,6 +398,12 @@ bgp/test_bgp_aggregate_address_resilience.py:
     reason: "Skip for multi-ASIC testbed"
     conditions:
       - "is_multi_asic==True"
+
+bgp/test_bgp_aggregate_address_resilience.py::test_aggregate_persists_warm_reboot:
+  skip:
+    reason: "Warm reboot is not supported on sn6600_ld platform"
+    conditions:
+      - "'sn6600_ld' in platform"
 
 bgp/test_bgp_aggregate_address_route_withdrawal.py:
   skip:
@@ -597,6 +604,12 @@ bgp/test_bgp_slb.py::test_bgp_slb_neighbor_persistence_across_advanced_reboot:
       - "'backend' in topo_name or 'mgmttor' in topo_name or 'isolated' in topo_name"
       - "hwsku in ['Arista-7050CX3-32S-C28S4']"
       - "'f2' in topo_name"
+
+bgp/test_bgp_slb.py::test_bgp_slb_neighbor_persistence_across_advanced_reboot[warm:
+  skip:
+    reason: "Warm reboot is not supported on sn6600_ld platform"
+    conditions:
+      - "'sn6600_ld' in platform"
 
 bgp/test_bgp_speaker.py:
   skip:
@@ -2986,7 +2999,7 @@ gnmi/test_gnoi_system_reboot.py::test_gnoi_system_reboot_halt:
 
 gnmi/test_gnoi_system_reboot.py::test_gnoi_system_reboot_warm:
   skip:
-    reason: "Warm reboot should only run on t0 topology but not on dualtor"
+    reason: "Warm reboot should only run on t0 topology but not on dualtor / Warm reboot is not supported on sn6600_ld platform"
     conditions_logical_operator: or
     conditions:
       - "topo_type not in ['t0']"
@@ -2994,6 +3007,7 @@ gnmi/test_gnoi_system_reboot.py::test_gnoi_system_reboot_warm:
       - "'isolated' in topo_name"
       - "release in ['202412']"
       - "'f2' in topo_name"
+      - "'sn6600_ld' in platform"
 
 gnmi/test_pygnmi_client.py:
   skip:
@@ -3812,9 +3826,11 @@ mvrf/test_mgmtvrf.py::TestReboot::test_fastboot:
 
 mvrf/test_mgmtvrf.py::TestReboot::test_warmboot:
   skip:
-    reason: "Dualtor topology doesn't support advanced-reboot"
+    reason: "Dualtor topology doesn't support advanced-reboot / Warm reboot is not supported on sn6600_ld platform"
+    conditions_logical_operator: or
     conditions:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
+      - "'sn6600_ld' in platform"
 
 #######################################
 #####           mx              #####
@@ -4088,7 +4104,7 @@ pfcwd/test_pfcwd_timer_accuracy.py::TestPfcwdAllTimer::test_pfcwd_timer_accuracy
 
 pfcwd/test_pfcwd_warm_reboot.py:
    skip:
-     reason: "Warm Reboot is not supported in T2 or in standalone topos. / Pfcwd tests skipped on M* testbed. / Warm reboot is not required for isolated topo / Pfcwd warm reboot is not supported on cisco-8000 platform. Warm reboot is not supported on smartswitch. /  It is skipped  for '202412' for now"
+     reason: "Warm Reboot is not supported in T2 or in standalone topos. / Pfcwd tests skipped on M* testbed. / Warm reboot is not required for isolated topo / Pfcwd warm reboot is not supported on cisco-8000 platform. Warm reboot is not supported on smartswitch. /  It is skipped  for '202412' for now / Warm reboot is not supported on sn6600_ld platform"
      conditions_logical_operator: or
      conditions:
         - "'t2' in topo_name or topo_type in ['lrh', 'urh']"
@@ -4103,6 +4119,7 @@ pfcwd/test_pfcwd_warm_reboot.py:
         - "is_smartswitch==True"
         - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/20675"
         - "release in ['202412']"
+        - "'sn6600_ld' in platform"
    xfail:
      reason: "This case has a known issue. Skipping until the issue is addressed."
      conditions_logical_operator: or
@@ -4151,11 +4168,41 @@ platform_tests/test_advanced_reboot.py:
     conditions:
       - *lossyTopos
 
+platform_tests/test_advanced_reboot.py::test_cancelled_warm_reboot:
+  skip:
+    reason: "Warm reboot is not supported on sn6600_ld platform"
+    conditions:
+      - "'sn6600_ld' in platform"
+
+platform_tests/test_advanced_reboot.py::test_warm_reboot:
+  skip:
+    reason: "Warm reboot is not supported on sn6600_ld platform"
+    conditions:
+      - "'sn6600_ld' in platform"
+
+platform_tests/test_advanced_reboot.py::test_warm_reboot_mac_jump:
+  skip:
+    reason: "Warm reboot is not supported on sn6600_ld platform"
+    conditions:
+      - "'sn6600_ld' in platform"
+
+platform_tests/test_advanced_reboot.py::test_warm_reboot_sad:
+  skip:
+    reason: "Warm reboot is not supported on sn6600_ld platform"
+    conditions:
+      - "'sn6600_ld' in platform"
+
 platform_tests/test_cont_warm_reboot.py:
   skip:
     reason: "Continuous warm reboot tests are not supported on lossy topologies."
     conditions:
       - *lossyTopos
+
+platform_tests/test_cont_warm_reboot.py::test_continuous_reboot:
+  skip:
+    reason: "Warm reboot is not supported on sn6600_ld platform"
+    conditions:
+      - "'sn6600_ld' in platform"
 
 platform_tests/test_intf_fec.py::test_verify_fec_stats_counters:
   skip:
@@ -4183,9 +4230,11 @@ platform_tests/test_reboot.py::test_soft_reboot:
 
 platform_tests/test_reboot.py::test_warm_reboot:
   skip:
-    reason: "warm-reboot is not supported on BMC SONiC image"
+    reason: "warm-reboot is not supported on BMC SONiC image / Warm reboot is not supported on sn6600_ld platform"
+    conditions_logical_operator: or
     conditions:
       - "'bmc' in topo_type"
+      - "'sn6600_ld' in platform"
 
 platform_tests/test_reboot.py::test_watchdog_reboot:
   skip:
@@ -4226,13 +4275,14 @@ process_monitoring/test_critical_process_monitoring.py::test_monitoring_critical
 
 process_monitoring/test_critical_process_monitoring.py::test_orchagent_heartbeat:
   skip:
-    reason: "This test is intended for Orchagent freeze scenario during warm-reboot. It is not required for T1 devices, and not supported on 202412 release. Also not applicable on BMC platforms which have no orchagent."
+    reason: "This test is intended for Orchagent freeze scenario during warm-reboot. It is not required for T1 devices, and not supported on 202412 release. Also not applicable on BMC platforms which have no orchagent. / Warm reboot is not supported on sn6600_ld platform"
     conditions_logical_operator: or
     conditions:
       - "'t1' in topo_name"
       - "release in ['202412']"
       - "is_smartswitch==True" # t0 and t1 should all be skipped on smartswitch
       - "'bmc' in topo_type"
+      - "'sn6600_ld' in platform"
 
 #######################################
 #####     ptftests      #####
@@ -4918,11 +4968,12 @@ route/test_static_route.py::test_static_route_ecmp_ipv6:
 
 route/test_static_route.py::test_static_route_ecmp_warmboot:
   skip:
-    reason: "Warm reboot is not supported on dualtor, m0, m1, or mx topologies"
+    reason: "Warm reboot is not supported on dualtor, m0, m1, or mx topologies / Warm reboot is not supported on sn6600_ld platform"
     conditions_logical_operator: OR
     conditions:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
       - "topo_type in ['m0', 'm1', 'mx']"
+      - "'sn6600_ld' in platform"
 
 route/test_static_route.py::test_static_route_ipv6:
   xfail:
@@ -4932,19 +4983,21 @@ route/test_static_route.py::test_static_route_ipv6:
 
 route/test_static_route.py::test_static_route_ipv6_warmboot:
   skip:
-    reason: "Warm reboot is not supported on dualtor, m0, m1, or mx topologies"
+    reason: "Warm reboot is not supported on dualtor, m0, m1, or mx topologies / Warm reboot is not supported on sn6600_ld platform"
     conditions_logical_operator: OR
     conditions:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
       - "topo_type in ['m0', 'm1', 'mx']"
+      - "'sn6600_ld' in platform"
 
 route/test_static_route.py::test_static_route_warmboot:
   skip:
-    reason: "Warm reboot is not supported on dualtor, m0, m1, or mx topologies"
+    reason: "Warm reboot is not supported on dualtor, m0, m1, or mx topologies / Warm reboot is not supported on sn6600_ld platform"
     conditions_logical_operator: OR
     conditions:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
       - "topo_type in ['m0', 'm1', 'mx']"
+      - "'sn6600_ld' in platform"
 
 #######################################
 #####           sai_qualify       #####
@@ -5002,11 +5055,12 @@ sflow/test_sflow.py::TestReboot::testFastreboot:
 
 sflow/test_sflow.py::TestReboot::testWarmreboot:
   skip:
-    reason: "Dualtor topology doesn't support advanced-reboot or Warmreboot is not supported on sn5640 SP5 platform."
+    reason: "Dualtor topology doesn't support advanced-reboot or Warmreboot is not supported on sn5640 SP5 platform / Warm reboot is not supported on sn6600_ld platform"
     conditions_logical_operator: or
     conditions:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
       - "platform in ['x86_64-nvidia_sn5640-r0']"
+      - "'sn6600_ld' in platform"
   xfail:
     reason: "testWarmreboot sflow failure: VS SAI warm reboot bug (sonic-net/sonic-buildimage#26594)"
     conditions:
@@ -5739,6 +5793,12 @@ upgrade_path/test_multi_hop_upgrade_path.py:
     conditions:
       - "'t0' not in topo_type"
 
+upgrade_path/test_multi_hop_upgrade_path.py::test_multi_hop_warm_upgrade_sad_path:
+  skip:
+    reason: "Warm reboot is not supported on sn6600_ld platform"
+    conditions:
+      - "'sn6600_ld' in platform"
+
 upgrade_path/test_upgrade_path.py::test_upgrade_path_t2:
   skip:
     reason: "Only supported on T2 topology"
@@ -5750,6 +5810,18 @@ upgrade_path/test_upgrade_path.py::test_upgrade_path_t2_delayed:
     reason: "Only supported on T2 topology"
     conditions:
       - "'t2' not in topo_type"
+
+upgrade_path/test_upgrade_path.py::test_warm_upgrade_sad_path:
+  skip:
+    reason: "Warm reboot is not supported on sn6600_ld platform"
+    conditions:
+      - "'sn6600_ld' in platform"
+
+upgrade_path/test_warmboot_data_consistency.py::test_warmboot_data_consistency:
+  skip:
+    reason: "Warm reboot is not supported on sn6600_ld platform"
+    conditions:
+      - "'sn6600_ld' in platform"
 
 #######################################
 #####            vlan             #####
@@ -5889,9 +5961,11 @@ vrf/test_vrf.py::TestVrfWarmReboot::test_vrf_swss_warm_reboot:
 
 vrf/test_vrf.py::TestVrfWarmReboot::test_vrf_system_warm_reboot:
   skip:
-    reason: "Dualtor topology doesn't support advanced-reboot"
+    reason: "Dualtor topology doesn't support advanced-reboot / Warm reboot is not supported on sn6600_ld platform"
+    conditions_logical_operator: or
     conditions:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
+      - "'sn6600_ld' in platform"
 
 vrf/test_vrf_attr.py:
   skip:
