@@ -28,6 +28,7 @@ pytestmark = [
 VIP = "10.1.0.5"
 VNET_NAME = "Vnet1000"
 VNI = 1000
+DEFAULT_VXLAN_UDP_DPORT = 4789
 ENI1_MAC = "F4:93:9F:EF:C4:7F"
 ENI2_MAC = "F4:93:9F:EF:C4:80"
 # ENI that is hosted in the T1 cluster but not the T1 that is tested
@@ -50,6 +51,19 @@ def dpu_num(duthost):
     dpu_num = smartswitch_hwsku_config[npu_hwsku]["dpu_num"]
     logger.info(f"DPU number: {dpu_num}")
     return dpu_num
+
+
+def read_dpu_vxlan_udp_dport(dpuhost):
+    vxlan_port = dpuhost.shell(
+        "redis-cli -n 0 hget SWITCH_TABLE:switch vxlan_port", module_ignore_errors=True
+    )["stdout"].strip()
+    return int(vxlan_port) if vxlan_port else DEFAULT_VXLAN_UDP_DPORT
+
+
+@pytest.fixture(scope="module")
+def dpu_vxlan_udp_dport(dpuhosts, vdpus_info):
+    _, dpu_index, _ = vdpus_info
+    return read_dpu_vxlan_udp_dport(dpuhosts[dpu_index])
 
 
 @pytest.fixture(scope="module")
@@ -256,7 +270,7 @@ def common_setup_teardown(duthost, apply_appl_db_and_check_acl_rules, dpu_num): 
     yield
 
 
-def generate_packet(config, eni_mac, eni_status, loopback_ips=None):
+def generate_packet(config, eni_mac, eni_status, loopback_ips=None, vxlan_udp_dport=DEFAULT_VXLAN_UDP_DPORT):
     inner_packet = generate_inner_packet(packet_type='udp')(
         eth_src=pl.VM_MAC,
         eth_dst=eni_mac,
@@ -269,7 +283,7 @@ def generate_packet(config, eni_mac, eni_status, loopback_ips=None):
         eth_dst=config[DUT_MAC],
         ip_src=pl.VM1_PA,
         ip_dst=VIP,
-        udp_dport=4789,
+        udp_dport=vxlan_udp_dport,
         udp_sport=1234,
         with_udp_chksum=False,
         vxlan_vni=55,
@@ -291,7 +305,7 @@ def generate_packet(config, eni_mac, eni_status, loopback_ips=None):
             ip_src=loopback0_ip,
             ip_dst=peer_loopback0_ip,
             udp_sport=8080,
-            udp_dport=4789,
+            udp_dport=vxlan_udp_dport,
             with_udp_chksum=False,
             vxlan_vni=VNI,
             inner_frame=outer_packet
@@ -311,12 +325,13 @@ def generate_packet(config, eni_mac, eni_status, loopback_ips=None):
     return outer_packet, expected_packet
 
 
-def test_eni_based_forwarding_active_eni(ptfadapter, dash_pl_config):
+def test_eni_based_forwarding_active_eni(ptfadapter, dash_pl_config, dpu_vxlan_udp_dport):
     """
     Validate for the active ENI, the packet is redirected
     to the local DPU(mock local DPU dataplane interface).
     """
-    packet, expected_packet = generate_packet(dash_pl_config, ENI1_MAC, 'active')
+    packet, expected_packet = generate_packet(
+        dash_pl_config, ENI1_MAC, 'active', vxlan_udp_dport=dpu_vxlan_udp_dport)
     logger.info("Send a packet of the active ENI to VIP and expect"
                 " to receive it on the mock local DPU dataplane interface.")
     ptfadapter.dataplane.flush()
@@ -324,12 +339,12 @@ def test_eni_based_forwarding_active_eni(ptfadapter, dash_pl_config):
     testutils.verify_packet(ptfadapter, expected_packet, dash_pl_config[LOCAL_PTF_INTF])
 
 
-def test_eni_based_forwarding_standby_eni(ptfadapter, dash_pl_config, loopback_ips):
+def test_eni_based_forwarding_standby_eni(ptfadapter, dash_pl_config, loopback_ips, dpu_vxlan_udp_dport):
     """
     Validate for the standby ENI, the packet is redirected to the tunnel.
     """
     packet, expected_packet = generate_packet(
-        dash_pl_config, ENI2_MAC, 'standby', loopback_ips)
+        dash_pl_config, ENI2_MAC, 'standby', loopback_ips, dpu_vxlan_udp_dport)
     logger.info("Send a packet of the standby ENI to VIP and expect"
                 " to receive it on the tunnel interface.")
     ptfadapter.dataplane.flush()
@@ -338,14 +353,14 @@ def test_eni_based_forwarding_standby_eni(ptfadapter, dash_pl_config, loopback_i
 
 
 def test_eni_based_forwarding_tunnel_route_update(
-    ptfadapter, dash_pl_config, loopback_ips, update_peer_route  # noqa: F811
+    ptfadapter, dash_pl_config, loopback_ips, update_peer_route, dpu_vxlan_udp_dport  # noqa: F811
 ):
     """
     Validate when the tunnel route is updated,
     the packet can be redirected to the new egress interface.
     """
     packet, expected_packet = generate_packet(
-        dash_pl_config, ENI2_MAC, 'standby', loopback_ips)
+        dash_pl_config, ENI2_MAC, 'standby', loopback_ips, dpu_vxlan_udp_dport)
     expected_packet.exp_pkt['Ethernet'].dst = dash_pl_config[LOCAL_PTF_MAC]
     logger.info("Send a packet of the standby ENI to VIP and expect"
                 " to receive it on the tunnel interface.")
@@ -354,12 +369,12 @@ def test_eni_based_forwarding_tunnel_route_update(
     testutils.verify_packet(ptfadapter, expected_packet, dash_pl_config[LOCAL_PTF_INTF])
 
 
-def test_eni_based_forwarding_non_existing_eni(ptfadapter, dash_pl_config, loopback_ips):
+def test_eni_based_forwarding_non_existing_eni(ptfadapter, dash_pl_config, loopback_ips, dpu_vxlan_udp_dport):
     """
     Validate for the non-existing ENI, the packet is redirected to the tunnel.
     """
     packet, expected_packet = generate_packet(
-        dash_pl_config, NON_EXISTING_ENI_MAC, 'non_existing', loopback_ips)
+        dash_pl_config, NON_EXISTING_ENI_MAC, 'non_existing', loopback_ips, dpu_vxlan_udp_dport)
     logger.info("Send a packet of non-existing ENI to VIP and expect"
                 " to receive it on the tunnel interface.")
     ptfadapter.dataplane.flush()
@@ -368,7 +383,7 @@ def test_eni_based_forwarding_non_existing_eni(ptfadapter, dash_pl_config, loopb
 
 
 def test_eni_based_forwarding_eni_state_change(
-    duthost, ptfadapter, dash_pl_config, vdpus_info, loopback_ips, mock_pa_ipv4
+    duthost, ptfadapter, dash_pl_config, vdpus_info, loopback_ips, mock_pa_ipv4, dpu_vxlan_udp_dport
 ):
     """
     Validate when the ENI state changes, the ACL rules are updated correctly.
@@ -383,13 +398,15 @@ def test_eni_based_forwarding_eni_state_change(
             "ACL rules are not applied correctly.")
         logger.info("Send a packet of the original standby ENI to VIP and expect"
                     " to receive it on the mock local DPU dataplane interface.")
-        packet, expected_packet = generate_packet(dash_pl_config, ENI2_MAC, 'active')
+        packet, expected_packet = generate_packet(
+            dash_pl_config, ENI2_MAC, 'active', vxlan_udp_dport=dpu_vxlan_udp_dport)
         ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, dash_pl_config[REMOTE_PTF_SEND_INTF], packet, 1)
         testutils.verify_packet(ptfadapter, expected_packet, dash_pl_config[LOCAL_PTF_INTF])
         logger.info("Send a packet of the original active ENI to VIP and expect"
                     " to receive it on the tunnel interface.")
-        packet, expected_packet = generate_packet(dash_pl_config, ENI1_MAC, 'standby', loopback_ips)
+        packet, expected_packet = generate_packet(
+            dash_pl_config, ENI1_MAC, 'standby', loopback_ips, dpu_vxlan_udp_dport)
         ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, dash_pl_config[REMOTE_PTF_SEND_INTF], packet, 1)
         testutils.verify_packet_any_port(ptfadapter, expected_packet, dash_pl_config[REMOTE_PTF_RECV_INTF])
@@ -403,7 +420,7 @@ def test_eni_based_forwarding_eni_state_change(
 
 
 def test_eni_based_forwarding_tunnel_termination(
-    ptfadapter, dash_pl_config, loopback_ips, vxlan_udp_dport
+    ptfadapter, dash_pl_config, loopback_ips, vxlan_udp_dport, dpu_vxlan_udp_dport
 ):
     """
     Validate the tunnel termination of the ENI based forwarding.
@@ -413,7 +430,8 @@ def test_eni_based_forwarding_tunnel_termination(
 
     logger.info("Send a double encaped packet of active ENI to VIP and expect to"
                 "receive a decaped packet on the local PTF dataplane interface.")
-    packet, expected_packet = generate_packet(dash_pl_config, ENI1_MAC, 'active')
+    packet, expected_packet = generate_packet(
+        dash_pl_config, ENI1_MAC, 'active', vxlan_udp_dport=dpu_vxlan_udp_dport)
     # The double encapped packet sent from peer T1 will have Inner Dst Mac set to 00:00:00:00:00:00
     # since the Tunnel NH created by EniFwd Orchagent doesn't have mac attribute set
     packet['Ethernet'].dst = "00:00:00:00:00:00"
@@ -434,7 +452,8 @@ def test_eni_based_forwarding_tunnel_termination(
 
     logger.info("Send a double encaped packet of standby ENI to VIP and expect to"
                 "receive a decaped packet on the local PTF dataplane interface.")
-    packet, expected_packet = generate_packet(dash_pl_config, ENI2_MAC, 'active')
+    packet, expected_packet = generate_packet(
+        dash_pl_config, ENI2_MAC, 'active', vxlan_udp_dport=dpu_vxlan_udp_dport)
     packet['Ethernet'].dst = "00:00:00:00:00:00"
     tunnel_packet = testutils.simple_vxlan_packet(
         eth_src="00:aa:bb:cc:dd:ee",
