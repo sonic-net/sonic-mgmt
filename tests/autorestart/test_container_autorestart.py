@@ -429,6 +429,20 @@ def clear_failed_flag_and_restart(duthost, service_name, container_name):
     pytest_assert(restarted, "Failed to restart container '{}' after reset-failed was cleared".format(container_name))
 
 
+def clear_failed_flag_and_restart_swss(duthost, container_name):
+    """
+    @summary: If a container hits the restart limitation, then we clear the failed flag and
+              restart it.
+    """
+    logger.info(f"Clearing and restarting swss on behalf of {container_name}")
+    clear_failed_flag_and_restart(duthost, "swss", "swss")
+
+    logger.info("Waiting until container '{}' is restarted...".format(container_name))
+    restarted = wait_until(CONTAINER_RESTART_THRESHOLD_SECS, CONTAINER_CHECK_INTERVAL_SECS,
+                           0, check_container_state, duthost, container_name, True)
+    pytest_assert(restarted, "Failed to restart container '{}' after reset-failed was cleared".format(container_name))
+
+
 def verify_autorestart_with_critical_process(duthost, container_name, service_name, program_name,
                                              program_pid):
     """
@@ -455,7 +469,10 @@ def verify_autorestart_with_critical_process(duthost, container_name, service_na
                            0,
                            check_container_state, duthost, container_name, True)
     if not restarted:
-        if is_hiting_start_limit(duthost, service_name):
+        # syncd depends on swss to be started
+        if service_name == "syncd" and is_hiting_start_limit(duthost, "swss"):
+            clear_failed_flag_and_restart_swss(duthost, container_name)
+        elif is_hiting_start_limit(duthost, service_name):
             clear_failed_flag_and_restart(duthost, service_name, container_name)
         else:
             pytest.fail("Failed to restart container '{}'".format(container_name))
@@ -578,6 +595,11 @@ def is_process_running(duthost, container_name, program_name):
 
 
 def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
+    # Reset systemd's restart counter for all services so that cascade restarts
+    # from previous test cases don't cause start-limit-hit
+    # when testing dependent services like teamd.
+    duthost.shell("sudo systemctl reset-failed", module_ignore_errors=True)
+
     feature_autorestart_states = duthost.get_container_autorestart_states()
     disabled_containers = get_disabled_container_list(duthost)
 
