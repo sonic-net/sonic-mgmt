@@ -311,7 +311,15 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         cmd = 'config load_minigraph -y'
         if traffic_shift_away:
             cmd += ' -t'
-        if override_config or macsec_en:
+        lt_override = False
+        if is_dut and not override_config:
+            lt_check = sonic_host.shell(
+                'grep -q link_training {}'.format(golden_config_path or DEFAULT_GOLDEN_CONFIG_PATH),
+                module_ignore_errors=True)
+            lt_override = lt_check.get('rc') == 0
+            if lt_override:
+                logger.info("Golden config carries link_training; adding -o to preserve it")
+        if override_config or macsec_en or lt_override:
             cmd += ' -o'
         if golden_config_path:
             cmd += ' -p {} '.format(golden_config_path)
