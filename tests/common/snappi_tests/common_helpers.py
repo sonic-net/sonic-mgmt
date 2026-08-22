@@ -1574,7 +1574,37 @@ def get_queue_scheduler_weight_dict(host_ans, asic_value=None, port=None,
                                              source="running",
                                              namespace=asic_value)["ansible_facts"]
 
-    queue_cfg_all = config_facts.get("QUEUE") or {}
+    def _iter_queue_entries(node, tokens):
+        """Yield ``(tokens, cfg)`` for every leaf queue-config dict in ``node``,
+        accumulating the ``|``-split tokens of every key along the path.
+
+        This copes with any ``QUEUE`` layout config_facts produces:
+        classic ``{port: {queue: cfg}}``, fully nested VOQ
+        ``{host: {asic: {port: {queue: cfg}}}}``, and the multi-asic
+        compound-key form ``{host: {'<asic>|<port>|<queue>': cfg}}`` where
+        only the host prefix is split off and the rest stays a single key.
+        A leaf is a dict whose values are all scalars (the queue's fields,
+        e.g. ``scheduler`` / ``wred_profile``)."""
+        if not isinstance(node, dict) or not node:
+            return
+        if all(not isinstance(v, dict) for v in node.values()):
+            yield tokens, node
+            return
+        for key, val in node.items():
+            yield from _iter_queue_entries(val, tokens + tuple(str(key).split("|")))
+
+    # Normalize QUEUE to {port: {queue: cfg}} from whatever nesting/key format
+    # the platform uses. The port is the interface-looking token; the queue is
+    # the trailing token of the flattened key path.
+    queue_cfg_all = {}
+    for tokens, cfg in _iter_queue_entries(config_facts.get("QUEUE") or {}, ()):
+        if len(tokens) < 2:
+            continue
+        queue_id = tokens[-1]
+        port_tok = next((t for t in reversed(tokens[:-1])
+                         if t.startswith("Ethernet")), tokens[-2])
+        queue_cfg_all.setdefault(port_tok, {})[queue_id] = cfg
+
     scheduler_cfg = config_facts.get("SCHEDULER") or {}
 
     dscp_to_tc = config_facts.get("DSCP_TO_TC_MAP") or {}
