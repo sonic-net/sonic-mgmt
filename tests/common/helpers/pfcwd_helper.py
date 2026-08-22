@@ -638,7 +638,7 @@ def verify_pfc_storm_in_expected_state(dut, port, queue, expected_state):
     if dut.facts['asic_type'] == 'vs':
         return True
     if not pfcwd_stat:
-        logger.info(f'Port {port} Storm verification : no watchdog stats')
+        logger.info("Port {} Storm verification: no watchdog stats".format(port))
         return False
     if expected_state == "storm":
         if ("storm" in pfcwd_stat[0]['status']) and \
@@ -753,7 +753,7 @@ def verify_all_ports_pfc_storm_in_expected_state(dut, storm_hndle, expected_stat
             if expected_state == "storm" and stormed_ports_list is not None and test_port not in stormed_ports_list:
                 stormed_ports_list.append(test_port)
         else:
-            logger.debug(f"Port {test_port}:{queue_idx} not in {expected_state} state")
+            logger.debug("Port {}:{} not in {} state".format(test_port, queue_idx, expected_state))
 
     total_ports = len(ports_to_check)
     if total_ports == 0:
@@ -804,8 +804,8 @@ def verify_all_ports_pfc_storm_in_expected_state(dut, storm_hndle, expected_stat
             total_ports = effective_total
 
     success_percentage = (ports_in_expected_state / total_ports) * 100
-    logger.info(f"{ports_in_expected_state}/{total_ports} ports ({success_percentage:.1f}%) "
-                f"in '{expected_state}' state (threshold: {threshold_percentage}%)")
+    logger.info("{}/{} ports ({:.1f}%) in '{}' state (threshold: {}%)".format(
+                ports_in_expected_state, total_ports, success_percentage, expected_state, threshold_percentage))
 
     return success_percentage >= threshold_percentage
 
@@ -822,7 +822,7 @@ def get_pfc_storm_baseline_counters(dut, storm_hndle):
     for test_port, queue_idx in ports_to_check:
         port_stats = stats_dict.get((test_port, queue_idx))
         baseline[test_port] = port_stats['storm_detect_count'] if port_stats else 0
-        logger.debug(f"Baseline {test_port}:{queue_idx} = {baseline[test_port]}")
+        logger.debug("Baseline {}:{} = {}".format(test_port, queue_idx, baseline[test_port]))
 
     return baseline
 
