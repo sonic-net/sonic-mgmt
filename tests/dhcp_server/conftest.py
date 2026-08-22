@@ -90,8 +90,12 @@ def dhcp_server_setup_teardown(duthost):
 
 
 @pytest.fixture(scope="function", autouse=True)
-def clean_dhcp_server_config_after_test(duthost):
+def clean_dhcp_server_config_after_test(duthost, request):
     clean_dhcp_server_config(duthost)
+
+    if "enable_sonic_dhcpv4_relay_agent" in request.fixturenames:
+        # Make relay restoration run after DHCP server configuration cleanup.
+        request.getfixturevalue("enable_sonic_dhcpv4_relay_agent")
 
     yield
 
