@@ -454,9 +454,11 @@ def setup_po2vlan(duthosts, ptfhost, rand_one_dut_hostname, rand_selected_dut, p
         yield
     # --------------------- Teardown -----------------------
     finally:
-        config_reload(duthost, safe_reload=True)
-        if ptf_lag_map is not None:
-            ptf_teardown(ptfhost, ptf_lag_map)
+        try:
+            config_reload(duthost, safe_reload=True)
+        finally:
+            if ptf_lag_map is not None:
+                ptf_teardown(ptfhost, ptf_lag_map)
 
 
 def has_portchannels(duthosts, rand_one_dut_hostname):
