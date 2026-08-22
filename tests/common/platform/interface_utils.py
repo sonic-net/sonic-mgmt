@@ -13,7 +13,6 @@ from collections import defaultdict
 from natsort import natsorted
 from .transceiver_utils import all_transceivers_detected
 import ast
-from tests.common.mellanox_data import is_mellanox_device
 
 
 def parse_intf_status(lines):
@@ -431,9 +430,7 @@ def get_ports_with_flat_memory(dut, conn_graph_facts):
     """
     This method is to get ports with flat memory
     """
-    port_indexes_with_flat_memory = []
-    if is_mellanox_device(dut):
-        port_indexes_with_flat_memory = get_port_indexes_with_flat_memory(dut)
+    port_indexes_with_flat_memory = get_port_indexes_with_flat_memory(dut)
 
     physical_intfs = conn_graph_facts["device_conn"][dut.hostname]
     physical_port_index_map = get_physical_port_indices(dut, physical_intfs)
