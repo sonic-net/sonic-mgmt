@@ -6,6 +6,7 @@ import netaddr
 import copy
 import logging
 import os
+import shlex
 import tempfile
 
 from jinja2 import Template
@@ -34,6 +35,7 @@ FDB_CLEAR_TIMEOUT = 20
 ROUTE_COUNTER_POLL_TIMEOUT = 15
 CRM_COUNTER_TOLERANCE = 2
 ACL_TABLE_NAME = "DATAACL"
+CRM_THRESHOLD_LOG_TIMEOUT = CRM_UPDATE_TIME * 3
 
 RESTORE_CMDS = {"test_crm_route": [],
                 "test_crm_nexthop": [],
@@ -255,6 +257,27 @@ def get_acl_tbl_key(asichost):
     return "CRM:ACL_TABLE_STATS:{0}".format(oid.replace("oid:", ""))
 
 
+def wait_for_threshold_log(loganalyzer, duthost, asichost, cmd):
+    """Apply CRM thresholds and wait for the expected syslog message."""
+    marker = loganalyzer.init()
+    expect_regex = loganalyzer.expect_regex[0]
+
+    def count_matches():
+        result = duthost.shell(
+            "sudo grep -c -E -- {} /var/log/syslog".format(shlex.quote(expect_regex)),
+            module_ignore_errors=True)
+        return int(result.get("stdout", "").strip() or 0)
+
+    matches_before = count_matches()
+    asichost.command(cmd)
+
+    if not wait_until(CRM_THRESHOLD_LOG_TIMEOUT, CRM_POLLING_INTERVAL,
+                      CRM_POLLING_INTERVAL, lambda: count_matches() > matches_before):
+        logger.warning("CRM threshold message was not observed within {} seconds"
+                       .format(CRM_THRESHOLD_LOG_TIMEOUT))
+    loganalyzer.analyze(marker, fail=True)
+
+
 def verify_thresholds(duthost, asichost, **kwargs):
     """
     Verifies that WARNING message logged if there are any resources that exceeds a pre-defined threshold value.
@@ -309,10 +332,7 @@ def verify_thresholds(duthost, asichost, **kwargs):
         kwargs['crm_used'], kwargs['crm_avail'] = get_crm_stats(kwargs['crm_cmd'], duthost)
         cmd = template.render(**kwargs)
 
-        with loganalyzer:
-            asichost.command(cmd)
-            # Make sure CRM counters updated
-            wait_until(CRM_UPDATE_TIME, CRM_POLLING_INTERVAL, 0, lambda: True)
+        wait_for_threshold_log(loganalyzer, duthost, asichost, cmd)
 
 
 def get_crm_stats(cmd, duthost):
