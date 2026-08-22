@@ -4397,6 +4397,9 @@ qos/test_qos_probe.py:
       - "hwsku in ['Mellanox-SN2700'] and https://github.com/sonic-net/sonic-mgmt/issues/22607"
       # Mellanox SPC3 (Spectrum 3)
       - "hwsku in ['Mellanox-SN4600C-C64'] and https://github.com/sonic-net/sonic-mgmt/issues/22608"
+      # Broadcom-DNX - Test provides duplicate coverage to test_qos_sai.py so disabling on DNX to avoid longer runtimes
+      # If we do want to run this on DNX SKUs we'll need https://github.com/sonic-net/sonic-mgmt/issues/27076 fixed
+      - "asic_subtype in ['broadcom-dnx']"
 
 qos/test_qos_probe.py::TestQosProbe::testQosHeadroomPoolProbe:
   xfail:
