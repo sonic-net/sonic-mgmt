@@ -79,6 +79,7 @@ class IpinIPTunnelTest(BaseTest):
         self.dataplane = ptf.dataplane_instance
         self.is_ipv4 = isinstance(ip_address(self.server_ip), IPv4Address)
         self.completeness_level = self.test_params['completeness_level']
+        self.pktlen = self.test_params.get('pktlen')
 
     def runTest(self):
         """
@@ -105,12 +106,16 @@ class IpinIPTunnelTest(BaseTest):
                    random.randint(0, 255)) if hash_key == 'src-mac' else base_src_mac
         dst_mac = self.standby_tor_mac
         vlan_id = random.randint(1, 4094) if hash_key == 'vlan-id' else 0
+        if self.pktlen:
+            pktlen = self.pktlen
+        else:
+            pktlen = 128 if vlan_id == 0 else 132
 
         if self.is_ipv4:
             ip_src = self.random_ip(
                 SRC_IP_RANGE[0], SRC_IP_RANGE[1]) if hash_key == 'src-ip' else SRC_IP_RANGE[0]
             pkt = simple_tcp_packet(
-                pktlen=128 if vlan_id == 0 else 132,
+                pktlen=pktlen,
                 eth_dst=dst_mac,
                 eth_src=src_mac,
                 dl_vlan_enable=False if vlan_id == 0 else True,
@@ -127,7 +132,7 @@ class IpinIPTunnelTest(BaseTest):
             ip_src = self.random_ip(
                 *SRC_IPV6_RANGE) if hash_key == 'src-ip' else SRC_IPV6_RANGE[0]
             pkt = simple_tcpv6_packet(
-                pktlen=128 if vlan_id == 0 else 132,
+                pktlen=pktlen,
                 eth_dst=dst_mac,
                 eth_src=src_mac,
                 dl_vlan_enable=False if vlan_id == 0 else True,
