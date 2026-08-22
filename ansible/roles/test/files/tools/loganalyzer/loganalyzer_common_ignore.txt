@@ -524,10 +524,6 @@ r, ".* ERR auditd.*: auditd queue full reporting limit reached - ending dropped 
 r, ".* ERR ctrmgrd\.py: Refer file .* for troubleshooting tips.*"
 r, ".* ERR ctrmgrd\.py:.*\[WARNING SystemVerification\]:.*Docker version is not on the list of validated versions.*"
 
-# syncd port serdes lane count info not available (fixed in https://github.com/sonic-net/sonic-sairedis/pull/1945)
-# tracked by https://github.com/sonic-net/sonic-sairedis/issues/1946
-r, ".* ERR syncd\d*#syncd: :- initAttrData: PORT_PHY_SERDES_ATTR: port_serdes_rid:0x\w+ has no lane count information.*"
-
 # Ignore loganalyzer add marker logs in case the test name matches an error pattern
 r, ".*INFO.*ansible.*loganalyzer.py.*--action add.*marker.*"
 
