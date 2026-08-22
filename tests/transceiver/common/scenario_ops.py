@@ -21,6 +21,7 @@ budgets) and ``poll_ports_recovered`` (the verifier recovery-poll loop).
 """
 
 import logging
+import time
 
 from tests.common.config_reload import config_reload
 from tests.common.platform.interface_utils import wait_ports_oper_status
@@ -223,3 +224,29 @@ def perform_ports_startup(duthost, ports, wait_sec):
     else:
         logger.info("All %d port(s) reached oper-up", len(ports))
     return failures
+
+
+def verify_lpmode(duthost, port, low_power):
+    """Return failures if ``port``'s module is not in the expected power mode."""
+    expected = "On" if low_power else "Off"
+    lpmode, err = cli_helpers.sfputil_show_lpmode(duthost, port)
+    if err:
+        return [err]
+    actual = lpmode.get(port)
+    logger.info("Port %s: low-power mode is %s (expected %s)", port, actual, expected)
+    if actual != expected:
+        return [f"port {port} low-power mode is {actual or 'unknown'}, expected {expected}"]
+    return []
+
+
+def perform_lpm_toggle(duthost, port, low_power=True, settle_sec=5):
+    """Move ``port``'s module into (``low_power=True``) or out of low-power mode.
+
+    Returns a list of per-port failure strings.
+    """
+    elapsed, err = cli_helpers.sfputil_set_lpmode(duthost, port, low_power)
+    logger.info("Port %s: lpmode %s took %ss", port, "on" if low_power else "off", elapsed)
+    if err:
+        return [err]
+    time.sleep(settle_sec)
+    return verify_lpmode(duthost, port, low_power)
