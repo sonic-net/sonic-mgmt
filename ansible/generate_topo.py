@@ -7,6 +7,8 @@ from ipaddress import IPv4Network, IPv6Network, IPv4Address
 import click
 import jinja2
 
+# PTF backplane pool is 10.10.244.0/22 (see bounds below). Large topologies that wrap
+# within this pool must use /22 on bp_interface, not /24.
 PTF_BACKPLANE_IPV4 = "10.10.246.254"
 # current PTF subnet is  10.10.246.0/22
 PTF_BACKPLANE_IPV4_LOWER_BOUND = "10.10.244.1"
