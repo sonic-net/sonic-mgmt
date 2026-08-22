@@ -2025,6 +2025,13 @@ def generate_port_lists(request, port_scope, with_completeness_level=False):
         if 'intf_status' not in val:
             continue
         for intf, status in list(val['intf_status'].items()):
+            # Skip internal ports (recirculation / inband). They match the
+            # 'Ethernet' scope (e.g. 'Ethernet-Rec0', 'Ethernet-IB0') and can
+            # be oper/admin up, but they are not front-panel test ports and
+            # have no fanout/TGEN mapping, so tests that pick one (e.g. via
+            # rand_one_dut_portname_oper_up) fail to resolve a port id.
+            if intf.startswith(("Ethernet-Rec", "Ethernet-IB")):
+                continue
             if scope in intf and (not state or status[state] == 'up'):
                 dut_port_pairs.append(encode_dut_port_name(dut, intf))
         dut_port_map[dut] = dut_port_pairs
