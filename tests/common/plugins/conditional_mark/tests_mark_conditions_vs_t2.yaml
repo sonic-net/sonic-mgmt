@@ -53,11 +53,6 @@ bgp/test_bgp_gr_helper.py:
     conditions:
     - asic_type in ['vs'] and 't2' in topo_name
     reason: This test case either cannot pass or should be skipped on virtual chassis
-bgp/test_bgp_peer_shutdown.py:
-  skip:
-    conditions:
-    - asic_type in ['vs'] and 't2' in topo_name
-    reason: This test case either cannot pass or should be skipped on virtual chassis
 bgp/test_bgp_port_disable.py:
   skip:
     conditions:
@@ -79,11 +74,6 @@ bgp/test_bgpmon.py:
     - asic_type in ['vs'] and 't2' in topo_name
     reason: This test case either cannot pass or should be skipped on virtual chassis
 bgp/test_ipv6_nlri_over_ipv4.py:
-  skip:
-    conditions:
-    - asic_type in ['vs'] and 't2' in topo_name
-    reason: This test case either cannot pass or should be skipped on virtual chassis
-bgp/test_passive_peering.py:
   skip:
     conditions:
     - asic_type in ['vs'] and 't2' in topo_name
