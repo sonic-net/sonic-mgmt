@@ -18,7 +18,7 @@ from tests.bgp.bgp_helpers import (
         check_routes_presence
 )
 from tests.common.helpers.bgp import BGPNeighbor
-from tests.common.utilities import wait_until, delete_running_config
+from tests.common.utilities import wait_until
 from tests.common.utilities import is_ipv6_only_topology
 
 from tests.common.helpers.assertions import pytest_assert
@@ -185,6 +185,11 @@ def common_setup_teardown(
 
     if dut_type in ["ToRRouter", "SpineRouter", "BackEndToRRouter", "LowerSpineRouter"]:
         neigh_type = "LeafRouter"
+    elif dut_type == "UpperSpineRouter" and confed_asn is not None:
+        # On confederation-based UT2 topologies the UpperSpineRouter peers with
+        # AZNGHub neighbors using the confederation ASN, not the per-DUT ASN.
+        neigh_type = "AZNGHub"
+        dut_asn = int(confed_asn)
     elif dut_type in ["UpperSpineRouter", "FabricSpineRouter"]:
         neigh_type = "LowerSpineRouter"
         if dut_type == "FabricSpineRouter" and confed_asn is not None:
@@ -196,6 +201,14 @@ def common_setup_teardown(
             use_vtysh = True
     elif dut_type in ["UpperRegionalHub"]:
         neigh_type = "LowerRegionalHub"
+        if confed_asn is not None:
+            use_vtysh = True
+    elif dut_type in ["LowerMgmtAggregator"]:
+        neigh_type = "MgmtSpineRouter"
+        if confed_asn is not None:
+            use_vtysh = True
+    elif dut_type in ["UpperMgmtAggregator"]:
+        neigh_type = "LowerMgmtAggregator"
         if confed_asn is not None:
             use_vtysh = True
     else:
@@ -272,12 +285,6 @@ def common_setup_teardown(
         )
 
     yield bgp_neighbors, use_vtysh
-
-    # Cleanup suppress-fib-pending config
-    delete_tacacs_json = [
-        {"DEVICE_METADATA": {"localhost": {"suppress-fib-pending": "disabled"}}}
-    ]
-    delete_running_config(delete_tacacs_json, duthost)
 
 
 @pytest.fixture

@@ -18,11 +18,14 @@ from tests.common.helpers.srv6_helper import dump_packet_detail, validate_srv6_i
 from tests.common.reboot import reboot
 from tests.packet_trimming.constants import (DEFAULT_SRC_PORT, DEFAULT_DST_PORT, DEFAULT_TTL, DUMMY_MAC, DUMMY_IPV6,
                                              DUMMY_FILL_IPV6, DUMMY_IP, DUMMY_FILL_IP, BATCH_PACKET_COUNT,
-                                             PACKET_COUNT, SEND_MAX_RETRIES, STATIC_THRESHOLD_MULTIPLIER,
+                                             SEND_MAX_RETRIES, STATIC_THRESHOLD_MULTIPLIER,
                                              BLOCK_DATA_PLANE_SCHEDULER_NAME, PACKET_TYPE, SRV6_PACKETS,
                                              TRIM_QUEUE_PROFILE, TRIM_QUEUE_PROFILE_CONFIG, TRIMMING_CAPABILITY,
                                              ACL_TABLE_NAME,
                                              ACL_RULE_PRIORITY, ACL_TABLE_TYPE_NAME, ACL_RULE_NAME, SRV6_MY_SID_LIST,
+                                             SRV6_ROUTE_PREFIX, SRV6_LOOP_BREAK_ACL_TABLE_TYPE_NAME,
+                                             SRV6_LOOP_BREAK_ACL_TABLE_NAME, SRV6_LOOP_BREAK_ACL_RULE_NAME,
+                                             SRV6_LOOP_BREAK_ACL_RULE_PRIORITY,
                                              SRV6_INNER_SRC_IP, SRV6_INNER_DST_IP, DEFAULT_QUEUE_SCHEDULER_CONFIG,
                                              SRV6_UNIFORM_MODE, SRV6_OUTER_SRC_IPV6, SRV6_INNER_SRC_IPV6, ECN,
                                              SRV6_INNER_DST_IPV6, SRV6_UN, ASYM_PORT_1_DSCP, ASYM_PORT_2_DSCP,
@@ -713,7 +716,7 @@ def fill_egress_buffer(duthost, ptfadapter, port_id, buffer_size, target_queue, 
 
     # Check queue counters before filling
     for interface in interfaces:
-        logger.info(f"Queue counters before filling for {interface}:")
+        logger.info(f"Queue counters before filling for {interface}:")  # noqa: E231
         duthost.shell(f"show queue counters {interface}")
         duthost.shell(f"show queue counters {interface} --json")
 
@@ -846,6 +849,9 @@ def fill_egress_buffer(duthost, ptfadapter, port_id, buffer_size, target_queue, 
                 ptfadapter.dataplane.flush()
 
     logger.info(f"Buffer filling completed, sent {total_sent_packets} packets")
+    sleep_time = TRIMMING_COUNTER_INTERVAL / 1000 + 1
+    logger.info(f"Waiting {sleep_time} seconds for the counter to be updated")
+    time.sleep(sleep_time)
 
     # Fail fast when nothing was sent so the buffer never gets filled
     if total_sent_packets == 0:
@@ -853,7 +859,7 @@ def fill_egress_buffer(duthost, ptfadapter, port_id, buffer_size, target_queue, 
 
     # Check queue counters after filling
     for interface in interfaces:
-        logger.info(f"Queue counters after filling for {interface}:")
+        logger.info(f"Queue counters after filling for {interface}:")  # noqa: E231
         duthost.shell(f"show queue counters {interface}")
         duthost.shell(f"show queue counters {interface} --json")
 
@@ -1249,7 +1255,7 @@ def compute_buffer_threshold_for_common_device(duthost, interface, queue_id):
         static_threshold = int(buffer_profile["size"]) + int(buffer_scale * pool_size * STATIC_THRESHOLD_MULTIPLIER)
 
         logger.info(f"Computed buffer threshold for queue {queue_id} on {interface}: {static_threshold}")
-        logger.info(f"Pool size: {pool_size}, Buffer scale: {buffer_scale:.4f}, "
+        logger.info(f"Pool size: {pool_size}, Buffer scale: {buffer_scale:.4f}, "  # noqa: E231
                     f"Buffer size: {static_threshold}")
 
         return static_threshold
@@ -1528,10 +1534,10 @@ def configure_trimming_acl(duthost, test_ports):
     # Verify ACL configuration
     logger.info("Verifying ACL configuration")
     result = duthost.shell("show acl table")
-    logger.info(f"ACL tables:\n{result['stdout']}")
+    logger.info(f"ACL tables:\n{result['stdout']}")  # noqa: E231
 
     result = duthost.shell("show acl rule")
-    logger.info(f"ACL rules:\n{result['stdout']}")
+    logger.info(f"ACL rules:\n{result['stdout']}")  # noqa: E231
 
     # Verify table was created successfully
     if ACL_TABLE_NAME not in result["stdout"]:
@@ -1572,6 +1578,115 @@ def cleanup_trimming_acl(duthost):
     duthost.shell("show acl rule")
 
     logger.info("ACL rules cleanup completed successfully")
+
+
+def configure_srv6_loop_break_acl(duthost, egress_ports):
+    """
+    Add an ingress ACL on the SRv6 egress interface(s) to drop packets bounced
+    back from the neighbor whose destination falls in SRV6_ROUTE_PREFIX. Without this
+    filter, the DUT keeps re-forwarding bounced packets out the same interface, forming a
+    DUT<->neighbor L3 ping-pong loop until hlim hits zero (~32 bounces per packet).
+
+    Matching only on DST_IPV6 is sufficient: SRV6_ROUTE_PREFIX is exclusive to this
+    test, and on this port's ingress side no legitimate traffic should carry such a
+    destination (the legitimate flow is PTF -> DUT -> neighbor, not the reverse).
+
+    The ACL is bound to the logical egress interface(s), i.e. the PortChannel or the
+    physical Ethernet.
+
+    Args:
+        duthost: DUT host object
+        egress_ports (list[str] or str): Logical egress interface name(s) to bind the ACL
+            to as ingress. Accepts a single name or a list. For a PortChannel egress, pass
+            the PortChannel name (e.g. test_params['egress_ports'][0]['name']), not its
+            members.
+    """
+    if isinstance(egress_ports, str):
+        ports_list = [egress_ports]
+    else:
+        ports_list = list(egress_ports)
+
+    logger.info(f"Configuring SRv6 loop-break ACL on {ports_list}, drop dst={SRV6_ROUTE_PREFIX}")
+
+    acl_config = {
+        "ACL_RULE": {
+            f"{SRV6_LOOP_BREAK_ACL_TABLE_NAME}|{SRV6_LOOP_BREAK_ACL_RULE_NAME}": {
+                "PACKET_ACTION": "DROP",
+                "PRIORITY": SRV6_LOOP_BREAK_ACL_RULE_PRIORITY,
+                "DST_IPV6": SRV6_ROUTE_PREFIX
+            }
+        },
+        "ACL_TABLE": {
+            SRV6_LOOP_BREAK_ACL_TABLE_NAME: {
+                "policy_desc": "Drop SRv6 bounced packets to break DUT<->neighbor L3 loop",
+                "ports": ports_list,
+                "stage": "INGRESS",
+                "type": SRV6_LOOP_BREAK_ACL_TABLE_TYPE_NAME
+            }
+        },
+        "ACL_TABLE_TYPE": {
+            SRV6_LOOP_BREAK_ACL_TABLE_TYPE_NAME: {
+                "ACTIONS": [
+                    "PACKET_ACTION",
+                    "COUNTER"
+                ],
+                "BIND_POINTS": [
+                    "PORT",
+                    "PORTCHANNEL"
+                ],
+                "MATCHES": [
+                    "DST_IPV6"
+                ]
+            }
+        }
+    }
+
+    with tempfile.NamedTemporaryFile(mode='w+', suffix='.json', delete=False) as temp_file:
+        temp_file_path = temp_file.name
+        json.dump(acl_config, temp_file, indent=4)
+
+    dut_json_path = f"/tmp/acl_config_{SRV6_LOOP_BREAK_ACL_TABLE_NAME}.json"
+    duthost.copy(src=temp_file_path, dest=dut_json_path)
+    os.unlink(temp_file_path)
+
+    duthost.shell(f"sonic-cfggen -w -j {dut_json_path}")
+
+    # Remove the DUT-side JSON; sonic-cfggen has already loaded it into CONFIG_DB.
+    duthost.shell(f"rm -f {dut_json_path}")
+
+    # Verify the ACL table and rule were actually installed - silent apply failures
+    # would let the bounce loop run unchecked and inflate egress queue counters.
+    table_output = duthost.shell("show acl table")["stdout"]
+    rule_output = duthost.shell("show acl rule")["stdout"]
+    logger.info(f"ACL tables after apply:\n{table_output}")
+    logger.info(f"ACL rules after apply:\n{rule_output}")
+
+    if SRV6_LOOP_BREAK_ACL_TABLE_NAME not in table_output:
+        raise RuntimeError(
+            f"SRv6 loop-break ACL table {SRV6_LOOP_BREAK_ACL_TABLE_NAME} was not installed. "
+            f"show acl table output:\n{table_output}"
+        )
+    if SRV6_LOOP_BREAK_ACL_RULE_NAME not in rule_output:
+        raise RuntimeError(
+            f"SRv6 loop-break ACL rule {SRV6_LOOP_BREAK_ACL_RULE_NAME} was not installed. "
+            f"show acl rule output:\n{rule_output}"
+        )
+
+    logger.info("SRv6 loop-break ACL applied and verified")
+
+
+def cleanup_srv6_loop_break_acl(duthost):
+    """
+    Remove the SRv6 loop-break ACL configuration installed by configure_srv6_loop_break_acl.
+    """
+    logger.info(f"Cleaning up SRv6 loop-break ACL, table: {SRV6_LOOP_BREAK_ACL_TABLE_NAME}")
+    duthost.shell(
+        f"sonic-db-cli CONFIG_DB DEL "
+        f"'ACL_RULE|{SRV6_LOOP_BREAK_ACL_TABLE_NAME}|{SRV6_LOOP_BREAK_ACL_RULE_NAME}'"
+    )
+    duthost.shell(f"sonic-db-cli CONFIG_DB DEL 'ACL_TABLE|{SRV6_LOOP_BREAK_ACL_TABLE_NAME}'")
+    duthost.shell(f"sonic-db-cli CONFIG_DB DEL 'ACL_TABLE_TYPE|{SRV6_LOOP_BREAK_ACL_TABLE_TYPE_NAME}'")
+    logger.info("SRv6 loop-break ACL cleanup completed")
 
 
 def set_buffer_profile_for_block_queue(duthost, interfaces, block_queue_id, block_queue_profile):
@@ -1772,10 +1887,10 @@ def update_service_port_buffer_profile(duthost, service_port):
     # Verify buffer configuration
     logger.info("Verifying buffer configuration")
     result = duthost.shell(f"redis-cli -n 4 HGETALL 'BUFFER_PG|{service_port}|0'")
-    logger.info(f"BUFFER_PG|{service_port}|0 configuration:\n{result['stdout']}")
+    logger.info(f"BUFFER_PG|{service_port}|0 configuration:\n{result['stdout']}")  # noqa: E231
 
     result = duthost.shell(f"redis-cli -n 4 HGETALL 'BUFFER_PORT_INGRESS_PROFILE_LIST|{service_port}'")
-    logger.info(f"BUFFER_PORT_INGRESS_PROFILE_LIST|{service_port} configuration:\n{result['stdout']}")
+    logger.info(f"BUFFER_PORT_INGRESS_PROFILE_LIST|{service_port} configuration:\n{result['stdout']}")  # noqa: E231
 
     if "ingress_lossy_profile" not in result["stdout"]:
         raise RuntimeError(f"Buffer configuration for {service_port} was not applied successfully")
@@ -1830,7 +1945,7 @@ def update_service_port_qos_map(duthost, service_port):
     # Verify QoS map configuration
     logger.info("Verifying QoS map configuration")
     result = duthost.shell(f"redis-cli -n 4 HGETALL 'PORT_QOS_MAP|{service_port}'")
-    logger.info(f"PORT_QOS_MAP|{service_port} configuration:\n{result['stdout']}")
+    logger.info(f"PORT_QOS_MAP|{service_port} configuration:\n{result['stdout']}")  # noqa: E231
 
     if "AZURE" not in result["stdout"]:
         raise RuntimeError(f"QoS map configuration for {service_port} was not applied successfully")
@@ -1930,7 +2045,7 @@ def update_port_info_for_portchannel(port_dict, portchannel_name, portchannel_me
     new_port_info['ptf_port_id'] = member_ptf_ids
     new_port_info['dut_members'] = portchannel_members
 
-    logger.info(f"Updated port info for PortChannel {portchannel_name}: ptf_port_ids={member_ptf_ids},"
+    logger.info(f"Updated port info for PortChannel {portchannel_name}: ptf_port_ids={member_ptf_ids},"  # noqa: E231
                 f"dut_members={portchannel_members}")
 
     return {portchannel_name: new_port_info}
@@ -2076,7 +2191,7 @@ def get_interface_peer_addresses(mg_facts, interface_name):
 
     # Check if the required interface list exists in mg_facts
     if interface_list_key not in mg_facts:
-        logger.warning(f"Interface list '{interface_list_key}' not found in minigraph facts")
+        logger.warning(f"Interface list '{interface_list_key}' not found in minigraph facts")  # noqa: E713
         return ipv4_peer_addr, ipv6_peer_addr
 
     for interface in mg_facts[interface_list_key]:
@@ -2125,10 +2240,12 @@ def validate_srv6_function(duthost, ptfadapter, dscp_mode, ingress_port, egress_
 
     router_mac = duthost.facts["router_mac"]
 
+    packet_count = PacketTrimmingConfig.get_verify_packet_count(duthost)
+
     for srv6_packet in SRV6_PACKETS:
         logger.info('-------------------------------------------------------------------------')
         logger.info(f'SRv6 tunnel decapsulation mode: {dscp_mode}')
-        logger.info(f'Send {PACKET_COUNT} SRv6 packets with action: {srv6_packet["action"]}')
+        logger.info(f'Send {packet_count} SRv6 packets with action: {srv6_packet["action"]}')
         logger.info(f'Pkt Src MAC: {DUMMY_MAC}')
         logger.info(f'Pkt Dst MAC: {router_mac}')
         if srv6_packet['action'] == SRV6_UN:
@@ -2198,7 +2315,7 @@ def validate_srv6_function(duthost, ptfadapter, dscp_mode, ingress_port, egress_
         ptfadapter.dataplane.flush()
 
         logger.info(f"Send SRv6 packet(s) from PTF port {ingress_port['ptf_id']} to upstream")
-        testutils.send(ptfadapter, ingress_port['ptf_id'], srv6_pkt, count=PACKET_COUNT)
+        testutils.send(ptfadapter, ingress_port['ptf_id'], srv6_pkt, count=packet_count)
 
         logger.info('SRv6 packet format:\n ---------------------------')
         logger.info(f'{dump_packet_detail(srv6_pkt)}\n---------------------------')
@@ -2611,6 +2728,8 @@ def verify_trimmed_packet(
     if len(egress_ports) == 2:
         dscp_list.append(recv_pkt_dscp_port2)
 
+    num_verify_packets = PacketTrimmingConfig.get_verify_packet_count(duthost)
+
     for egress_port, dscp in zip(egress_ports, dscp_list):
         logger.info(f"Verifying packet trimming for egress port {egress_port['name']} with DSCP {dscp}")
         verify_packet_trimming(
@@ -2624,12 +2743,12 @@ def verify_trimmed_packet(
             recv_pkt_size=recv_pkt_size,
             recv_pkt_dscp=dscp,
             expect_packets=expect_packets,
-            packet_count=PACKET_COUNT
+            packet_count=num_verify_packets
         )
 
 
 def verify_normal_packet(duthost, ptfadapter, ingress_port, egress_port, send_pkt_size, send_pkt_dscp, recv_pkt_size,
-                         recv_pkt_dscp, packet_count=PACKET_COUNT, timeout=5, expect_packets=True):
+                         recv_pkt_dscp, packet_count, timeout=5, expect_packets=True):
     """
     Verify normal packet transmission and reception.
 
@@ -2949,9 +3068,9 @@ def compare_counters(counter1, counter2, keys_to_compare):
 
     for key in keys_to_compare:
         if key not in counter1:
-            raise KeyError(f"Key '{key}' not found in counter1")
+            raise KeyError(f"Key '{key}' not found in counter1")  # noqa: E713
         if key not in counter2:
-            raise KeyError(f"Key '{key}' not found in counter2")
+            raise KeyError(f"Key '{key}' not found in counter2")  # noqa: E713
 
         value1 = counter1[key]
         value2 = counter2[key]

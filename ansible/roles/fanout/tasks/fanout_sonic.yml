@@ -130,5 +130,10 @@
         sonic/fanout_sonic_202605.yml
       when: dry_run is not defined and incremental is not defined
   when: >
-    ('202605' in fanout_sonic_version['build_version'] or 'master' in fanout_sonic_version['build_version']) and
+    ('202605' in fanout_sonic_version['build_version'] and
     not is_cisco_env
+
+- name: provision console switch on SONiC console fanout (from serial links)
+  include_tasks:
+    sonic/fanout_sonic_console.yml
+  when: dry_run is not defined

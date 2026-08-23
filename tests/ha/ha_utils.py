@@ -1,13 +1,57 @@
 import logging
 import json
 import os
+from concurrent.futures import ThreadPoolExecutor
 
 import configs.privatelink_config as pl
+from tests.common.config_reload import config_reload
 from tests.common.utilities import wait_until
 from tests.ha.ha_gnmi import apply_ha_messages, ha_scope_config, ha_set_config
 from gnmi_utils import apply_messages
 
 logger = logging.getLogger(__name__)
+
+
+def _wait_for_dpuhost_reachable(dpuhost, timeout=300, interval=10):
+    """
+    Wait until ``dpuhost`` is reachable via the Ansible transport.
+    """
+    def _check():
+        try:
+            res = dpuhost.ping(module_ignore_errors=True)
+        except Exception as e:  # noqa: BLE001 - AnsibleConnectionFailure et al
+            logger.info(
+                f"{dpuhost.hostname} not yet reachable: "
+                f"{type(e).__name__}: {e}"
+            )
+            return False
+        if res.get("failed"):
+            logger.info(
+                f"{dpuhost.hostname} ping module reported failed: {res}"
+            )
+            return False
+        return True
+
+    return wait_until(timeout, interval, 0, _check)
+
+
+def _config_reload_dpuhost(dpuhost):
+    logger.info(f"config reload on {dpuhost.hostname}")
+    if not _wait_for_dpuhost_reachable(dpuhost):
+        logger.warning(
+            f"{dpuhost.hostname} did not become reachable before "
+            f"config reload; proceeding anyway"
+        )
+    config_reload(dpuhost, safe_reload=True, yang_validate=False)
+
+
+def parallel_config_reload_dpuhosts(dpuhosts):
+    dpuhosts = list(dpuhosts)
+    if not dpuhosts:
+        return
+
+    with ThreadPoolExecutor(max_workers=len(dpuhosts)) as executor:
+        list(executor.map(_config_reload_dpuhost, dpuhosts))
 
 
 def build_dash_ha_scope_args(fields):
@@ -352,7 +396,68 @@ def wait_for_pending_operation_id(
     return pending_id if success else None
 
 
-def bfd_pin_primary(localhost, ptfhost, duthosts):
+# PMON-derived state fields exposed in NPU STATE_DB DASH_HA_SCOPE_STATE.
+# Values are "up", "down", or "unknown".
+HA_SCOPE_PMON_STATE_FIELDS = (
+    "local_vdpu_midplane_state",
+    "local_vdpu_control_plane_state",
+    "local_vdpu_data_plane_state",
+)
+
+
+def get_ha_scope_pmon_state(duthost, scope_key):
+    """
+    Read the local vDPU PMON state fields from STATE_DB DASH_HA_SCOPE_STATE.
+
+    Args:
+        duthost: NPU DUT host object.
+        scope_key: HA scope key (e.g. "vdpu0_0:haset0_0").
+
+    Returns:
+        dict[str, str]: field name -> value ("up"/"down"/"unknown" or
+        empty string if missing).
+    """
+    db_key = "DASH_HA_SCOPE_STATE|" + scope_key.replace(":", "|")
+    res = duthost.shell(
+        f'sonic-db-cli STATE_DB HMGET "{db_key}" '
+        f'{" ".join(HA_SCOPE_PMON_STATE_FIELDS)}',
+        module_ignore_errors=True,
+    )
+    values = res.get("stdout", "").splitlines()
+    return dict(zip(HA_SCOPE_PMON_STATE_FIELDS, [v.strip() for v in values]))
+
+
+def wait_for_ha_scope_pmon_state(duthost, scope_key, expected_state,
+                                 timeout=120, interval=5):
+    """
+    Wait until every PMON state field in DASH_HA_SCOPE_STATE on `duthost`
+    for `scope_key` equals `expected_state` (e.g. "up" or "down").
+
+    Returns:
+        tuple(bool, dict): (success, last observed state dict). The dict
+        is always returned so callers can include it in error messages.
+    """
+    last_state = {}
+
+    def _check():
+        nonlocal last_state
+        last_state = get_ha_scope_pmon_state(duthost, scope_key)
+        return all(
+            last_state.get(f) == expected_state
+            for f in HA_SCOPE_PMON_STATE_FIELDS
+        )
+
+    success = wait_until(timeout, interval, 0, _check)
+    return success, last_state
+
+
+def set_vdpu_bfd_probe_states(localhost, ptfhost, duthosts, states):
+    """Set DASH_HA_SET_CONFIG_TABLE.pinned_vdpu_bfd_probe_states on both NPUs.
+
+    ``states`` is a two-element list, one entry per vDPU (index 0 = DPU1,
+    index 1 = DPU2), each "down" | "up" | "none". "none" removes the pin so the
+    probe reflects the real BFD session state.
+    """
     current_dir = os.path.dirname(os.path.abspath(__file__))
     base_dir = os.path.join(current_dir, "..", "common", "ha")
     ha_set_file = os.path.join(base_dir, "dash_ha_set_config_table.json")
@@ -361,10 +466,7 @@ def bfd_pin_primary(localhost, ptfhost, duthosts):
 
     for duthost in duthosts:
         for key, fields in ha_set_data.items():
-            if "pinned_vdpu_bfd_probe_states" not in fields:
-                fields["pinned_vdpu_bfd_probe_states"] = ["down", "up"]
-            else:
-                fields.update({"pinned_vdpu_bfd_probe_states": ["down", "up"]})
+            fields["pinned_vdpu_bfd_probe_states"] = list(states)
             ha_set_messages = ha_set_config(ha_set_id=key, **fields)
             apply_ha_messages(
                 localhost=localhost,
@@ -374,70 +476,53 @@ def bfd_pin_primary(localhost, ptfhost, duthosts):
             )
 
 
-def bfd_unpin_primary(localhost, ptfhost, duthosts):
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    base_dir = os.path.join(current_dir, "..", "common", "ha")
-    ha_set_file = os.path.join(base_dir, "dash_ha_set_config_table.json")
-    with open(ha_set_file) as f:
-        ha_set_data = json.load(f)["DASH_HA_SET_CONFIG_TABLE"]
-
-    for duthost in duthosts:
-        for key, fields in ha_set_data.items():
-            if "pinned_vdpu_bfd_probe_states" in fields:
-                fields["pinned_vdpu_bfd_probe_states"] = ["up", "up"]
-            else:
-                fields.update({"pinned_vdpu_bfd_probe_states": ["up", "up"]})
-            ha_set_messages = ha_set_config(ha_set_id=key, **fields)
-            apply_ha_messages(
-                localhost=localhost,
-                duthost=duthost,
-                ptfhost=ptfhost,
-                messages=ha_set_messages,
-            )
+def _dpu_multihop_bfd_peers(dpuhost):
+    """Return [(peer, local_addr), ...] for multihop BFD peers in FRR on the DPU."""
+    out = dpuhost.shell('vtysh -c "show bfd peers json"')["stdout"]
+    peers = []
+    for sess in json.loads(out):
+        if sess.get("multihop") and sess.get("peer") and sess.get("local"):
+            peers.append((sess["peer"], sess["local"]))
+    return peers
 
 
-def bfd_pin_both_sides(localhost, ptfhost, duthosts):
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    base_dir = os.path.join(current_dir, "..", "common", "ha")
-    ha_set_file = os.path.join(base_dir, "dash_ha_set_config_table.json")
-    with open(ha_set_file) as f:
-        ha_set_data = json.load(f)["DASH_HA_SET_CONFIG_TABLE"]
+def set_dpu_bfd_admin_down(dpuhost, shutdown):
+    """Admin-shut (or restore) every multihop BFD peer in FRR on ``dpuhost`` to
+    force its software BFD probe DOWN/UP.
 
-    for duthost in duthosts:
-        for key, fields in ha_set_data.items():
-            if "pinned_vdpu_bfd_probe_states" not in fields:
-                fields["pinned_vdpu_bfd_probe_states"] = ["down", "down"]
-            else:
-                fields.update({"pinned_vdpu_bfd_probe_states": ["down", "down"]})
-            ha_set_messages = ha_set_config(ha_set_id=key, **fields)
-            apply_ha_messages(
-                localhost=localhost,
-                duthost=duthost,
-                ptfhost=ptfhost,
-                messages=ha_set_messages,
-            )
+    This is out-of-band from hamgrd; bgpcfgd's BfdMgr dedupes on unchanged fields,
+    so a hamgrd re-write of the session table will not revert the shutdown.
+    """
+    peers = _dpu_multihop_bfd_peers(dpuhost)
+    if not peers:
+        return
+    cmds = ["configure terminal", "bfd"]
+    for peer, local in peers:
+        cmds.append(f"peer {peer} multihop local-address {local}")
+        cmds.append("shutdown" if shutdown else "no shutdown")
+        cmds.append("exit")
+    cmds.append("end")
+    dpuhost.shell("vtysh " + " ".join('-c "{}"'.format(c) for c in cmds))
 
 
-def bfd_unpin_both_sides(localhost, ptfhost, duthosts):
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    base_dir = os.path.join(current_dir, "..", "common", "ha")
-    ha_set_file = os.path.join(base_dir, "dash_ha_set_config_table.json")
-    with open(ha_set_file) as f:
-        ha_set_data = json.load(f)["DASH_HA_SET_CONFIG_TABLE"]
+def wait_dpu_bfd_peers_down(dpuhost, timeout=60, interval=5):
+    """Wait until no multihop BFD peer on ``dpuhost`` reports status 'up'."""
+    def _check():
+        out = dpuhost.shell('vtysh -c "show bfd peers json"')["stdout"]
+        return all(
+            not sess.get("multihop") or sess.get("status") != "up"
+            for sess in json.loads(out)
+        )
+    return wait_until(timeout, interval, 0, _check)
 
-    for duthost in duthosts:
-        for key, fields in ha_set_data.items():
-            if "pinned_vdpu_bfd_probe_states" in fields:
-                fields["pinned_vdpu_bfd_probe_states"] = ["up", "up"]
-            else:
-                fields.update({"pinned_vdpu_bfd_probe_states": ["up", "up"]})
-            ha_set_messages = ha_set_config(ha_set_id=key, **fields)
-            apply_ha_messages(
-                localhost=localhost,
-                duthost=duthost,
-                ptfhost=ptfhost,
-                messages=ha_set_messages,
-            )
+
+def wait_dpu_bfd_peers_up(dpuhost, timeout=120, interval=5):
+    """Wait until every multihop BFD peer on ``dpuhost`` reports status 'up'."""
+    def _check():
+        out = dpuhost.shell('vtysh -c "show bfd peers json"')["stdout"]
+        sessions = [s for s in json.loads(out) if s.get("multihop")]
+        return bool(sessions) and all(s.get("status") == "up" for s in sessions)
+    return wait_until(timeout, interval, 0, _check)
 
 
 def program_eni_pl_on_dpu(localhost, ptfhost, duthost, dpuhost):

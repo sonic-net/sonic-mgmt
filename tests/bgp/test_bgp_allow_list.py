@@ -63,10 +63,20 @@ def check_routes_on_dut(duthost, setup_info):
             pytest_assert(dut_route, 'Route {} is not found on DUT'.format(prefix))
 
 
+def get_expected_bgpmon_routes(setup_info):
+    """All announced test prefixes should be visible to bgpmon."""
+    expected = []
+    for list_name, prefixes in list(PREFIX_LISTS.items()):
+        if setup_info['is_v6_topo'] and "v6" not in list_name.lower():
+            continue
+        expected.extend(prefixes)
+    return expected
+
+
 def test_default_allow_list_preconfig(duthosts, rand_one_dut_hostname, bgp_allow_list_setup, nbrhosts,  # noqa:F811
                                       ptfhost, bgpmon_setup_teardown):
     """
-    Before applying allow list, verify bgp policy by default config
+    Before applying allow list, verify the bgp policy by default config
     """
     permit = True if get_default_action() == "permit" else False
     duthost = duthosts[rand_one_dut_hostname]
@@ -77,7 +87,12 @@ def test_default_allow_list_preconfig(duthosts, rand_one_dut_hostname, bgp_allow
     # If permit is True, all routes should be forwarded and added drop_community and keep ori community.
     # If permit if False, all routes should not be forwarded.
     check_routes_on_neighbors_empty_allow_list(nbrhosts, bgp_allow_list_setup, permit)
-    checkout_bgp_mon_routes(duthost, ptfhost)
+    checkout_bgp_mon_routes(
+        duthost,
+        ptfhost,
+        asic_namespace=bgp_allow_list_setup['downstream_namespace'],
+        expected_routes=get_expected_bgpmon_routes(bgp_allow_list_setup)
+    )
 
 
 @pytest.mark.parametrize('load_remove_allow_list', ["permit", "deny"], indirect=['load_remove_allow_list'])
@@ -94,7 +109,12 @@ def test_allow_list(duthosts, rand_one_dut_hostname, bgp_allow_list_setup, nbrho
     # If permit is False, Routes in allow_list should be forwarded and keep ori community, routes not in allow_list
     # should not be forwarded.
     check_routes_on_neighbors(nbrhosts, bgp_allow_list_setup, permit)
-    checkout_bgp_mon_routes(duthost, ptfhost)
+    checkout_bgp_mon_routes(
+        duthost,
+        ptfhost,
+        asic_namespace=bgp_allow_list_setup['downstream_namespace'],
+        expected_routes=get_expected_bgpmon_routes(bgp_allow_list_setup)
+    )
 
 
 def test_default_allow_list_postconfig(duthosts, rand_one_dut_hostname, bgp_allow_list_setup,   # noqa:F811

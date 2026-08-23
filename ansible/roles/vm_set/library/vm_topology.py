@@ -1042,6 +1042,7 @@ class VMTopology(object):
 
             self.bind_vm_link(br_name, port1, port2)
 
+        bind_ovs_links_args = []
         for k, attr in self.OVS_LINKs.items():
             logging.info("Create OVS links for {} : {}".format(k, attr))
             br_name = "br_{}".format(k.lower())
@@ -1058,7 +1059,11 @@ class VMTopology(object):
             for vlan in vlans:
                 (_, _, ptf_index) = VMTopology.parse_vm_vlan_port(vlan)
                 injected_iface = adaptive_name(INJECTED_INTERFACES_TEMPLATE, self.vm_set_name, ptf_index)
-                self.bind_ovs_ports(br_name, port1, injected_iface, port2, disconnect_vm)
+                bind_ovs_links_args.append((br_name, port1, injected_iface, port2, disconnect_vm))
+
+        with VMTopologyWorker.safe_subprocess_manager() as [processes, tmpdir]:
+            self.worker.map(lambda args: self.bind_ovs_ports(*args, processes=processes, tmpdir=tmpdir),
+                            bind_ovs_links_args)
 
     def unbind_fp_ports(self):
         logging.info("=== unbind front panel ports ===")
@@ -1092,6 +1097,7 @@ class VMTopology(object):
             else:
                 self.unbind_vm_link(br_name, port1, port2)
 
+        unbind_ovs_links_args = []
         for k, attr in self.OVS_LINKs.items():
             logging.info("Remove OVS links for {} : {}".format(k, attr))
             br_name = "br_{}".format(k.lower())
@@ -1108,9 +1114,12 @@ class VMTopology(object):
             for vlan in vlans:
                 (_, _, ptf_index) = VMTopology.parse_vm_vlan_port(vlan)
                 injected_iface = adaptive_name(INJECTED_INTERFACES_TEMPLATE, self.vm_set_name, ptf_index)
-                self.unbind_ovs_ports(br_name, port1)
-                self.unbind_ovs_ports(br_name, port2)
-                self.unbind_ovs_ports(br_name, injected_iface)
+                unbind_ovs_links_args.append((br_name, port1))
+                unbind_ovs_links_args.append((br_name, port2))
+                unbind_ovs_links_args.append((br_name, injected_iface))
+
+        with VMTopologyWorker.safe_subprocess_manager() as [processes, _]:
+            self.worker.map(lambda args: self.unbind_ovs_ports(*args, processes=processes), unbind_ovs_links_args)
 
     def unbind_vm_link(self, br_name, port1, port2):
         _, if_to_br = VMTopology.brctl_show()
@@ -1233,15 +1242,19 @@ class VMTopology(object):
             VMTopology.cmd('ovs-vsctl --if-exists del-port %s %s' % (br, vm_iface))
 
         ports = VMTopology.get_ovs_br_ports(br_name)
-        if injected_iface not in ports:
-            VMTopology.cmd('ovs-vsctl --may-exist add-port %s %s' %
-                           (br_name, injected_iface))
+        # Combine all pending "add-port" operations into a single ovs-vsctl
+        # transaction instead of issuing them one at a time. Each write
+        # transaction to ovsdb-server/ovs-vswitchd triggers a bridge
+        # reconfiguration whose cost scales with the total number of
+        # bridges/ports on the switch, so batching them cuts that overhead
+        # roughly by the number of ports batched together.
+        add_port_args = []
+        for iface in (injected_iface, dut_iface, vm_iface):
+            if iface not in ports:
+                add_port_args.append('--may-exist add-port %s %s' % (br_name, iface))
 
-        if dut_iface not in ports:
-            VMTopology.cmd('ovs-vsctl --may-exist add-port %s %s' % (br_name, dut_iface))
-
-        if vm_iface not in ports:
-            VMTopology.cmd('ovs-vsctl --may-exist add-port %s %s' % (br_name, vm_iface))
+        if add_port_args:
+            VMTopology.cmd('ovs-vsctl -- %s' % (' -- '.join(add_port_args)))
 
         bindings = VMTopology.get_ovs_port_bindings(br_name, [dut_iface])
         dut_iface_id = bindings[dut_iface]
@@ -1251,24 +1264,32 @@ class VMTopology(object):
         # clear old bindings
         VMTopology.cmd('ovs-ofctl del-flows %s' % br_name)
 
+        # Collect all flow rules and install them with a single batched
+        # "ovs-ofctl add-flows" call instead of one "add-flow" call per
+        # rule. Note: "ovs-ofctl replace-flows" was tried here to also
+        # fold in the "del-flows" above, but it additionally requires the
+        # switch to support the NXM/OXM flow formats (it needs to dump the
+        # current flow table to compute a diff), which freshly created
+        # bridges do not always support, causing bind failures. Keep the
+        # separate "del-flows" call and only batch the "add-flow"s.
+        all_cmds = []
+        bind_helper = lambda cmd: \
+            all_cmds.append(cmd.split()[-1])  # noqa: E731
+
         if disconnect_vm:
             # Drop packets from VM
-            VMTopology.cmd(
+            bind_helper(
                 "ovs-ofctl add-flow %s table=0,in_port=%s,action=drop" % (br_name, vm_iface_id))
         else:
             # Add flow from a VM to an external iface
-            VMTopology.cmd("ovs-ofctl add-flow %s table=0,in_port=%s,action=output:%s" %
-                           (br_name, vm_iface_id, dut_iface_id))
+            bind_helper("ovs-ofctl add-flow %s table=0,in_port=%s,action=output:%s" %
+                        (br_name, vm_iface_id, dut_iface_id))
 
         if disconnect_vm:
             # Add flow from external iface to ptf container
-            VMTopology.cmd("ovs-ofctl add-flow %s table=0,in_port=%s,action=output:%s" %
-                           (br_name, dut_iface_id, injected_iface_id))
+            bind_helper("ovs-ofctl add-flow %s table=0,in_port=%s,action=output:%s" %
+                        (br_name, dut_iface_id, injected_iface_id))
         else:
-            all_cmds = []
-            bind_helper = lambda cmd: \
-                all_cmds.append(cmd.split()[-1])  # noqa: E731
-
             # Add flow from external iface to a VM and a ptf container
             # Allow BGP, IPinIP, fragmented packets, ICMP, SNMP packets and layer2 packets from DUT to neighbors
             # Block other traffic from DUT to EOS for EOS's stability,
@@ -1355,14 +1376,13 @@ class VMTopology(object):
             bind_helper("ovs-ofctl add-flow %s table=0,in_port=%s,action=output:%s" %
                         (br_name, injected_iface_id, dut_iface_id))
 
-            if all_cmds:
-                processes = kwargs.get("processes")
-                tmpdir = kwargs.get("tmpdir")
-                with tempfile.NamedTemporaryFile("w", dir=tmpdir, delete=False) as f:
-                    for rule in all_cmds:
-                        f.write(rule.strip("'") + "\n")
+        processes = kwargs.get("processes")
+        tmpdir = kwargs.get("tmpdir")
+        with tempfile.NamedTemporaryFile("w", dir=tmpdir, delete=False) as f:
+            for rule in all_cmds:
+                f.write(rule.strip("'") + "\n")
 
-                processes.append(VMTopology.fire_and_forget("ovs-ofctl add-flows {} {}".format(br_name, f.name)))
+        processes.append(VMTopology.fire_and_forget("ovs-ofctl add-flows {} {}".format(br_name, f.name)))
 
     def unbind_ovs_ports(self, br_name, vm_port, **kwargs):
         """unbind all ports except the vm port from an ovs bridge"""
@@ -1900,15 +1920,26 @@ class VMTopology(object):
         # Vlan interface addition may take few secs to reflect in OVS Command,
         # Let`s retry few times in that case.
         for retries in range(RETRIES):
-            out = VMTopology.cmd('ovs-ofctl show %s' % bridge)
-            lines = out.split('\n')
+            ports = list(VMTopology.get_ovs_br_ports(bridge))
             result = {}
-            for line in lines:
-                matched = re.match(r'^\s+(\S+)\((\S+)\):\s+addr:.+$', line)
-                if matched:
-                    port_id = matched.group(1)
-                    iface_name = matched.group(2)
-                    result[iface_name] = port_id
+            if ports:
+                # Query the OpenFlow port number (ofport) of every port on
+                # this bridge from the OVSDB directly, batched into a
+                # single "ovs-vsctl" transaction. This avoids "ovs-ofctl
+                # show", which goes through the OpenFlow control channel of
+                # ovs-vswitchd and can be much slower to respond when
+                # ovs-vswitchd is busy (e.g. many bridges/ports on the
+                # host).
+                get_cmd = 'ovs-vsctl ' + ' -- '.join(
+                    'get Interface %s ofport' % port for port in ports)
+                out = VMTopology.cmd(get_cmd)
+                ofports = out.strip('\n').split('\n')
+                for iface_name, ofport in zip(ports, ofports):
+                    ofport = ofport.strip()
+                    # ofport is empty/negative if the interface hasn't been
+                    # fully set up in the datapath yet.
+                    if ofport and ofport != '[]' and int(ofport) >= 0:
+                        result[iface_name] = ofport
             # Check if we have vlan_iface populated
             if len(vlan_iface) == 0 or all([intf in result for intf in vlan_iface]):
                 return result

@@ -341,6 +341,12 @@ class TrafficSendVerify(object):
         stats = self._parseCntrs()
         for key, value in list(self.pkt_map.items()):
             intf = value[1]
+            # Counters read as 'N/A' until the counters poller has populated
+            # COUNTERS_DB (e.g. right after `sonic-clear counters`). Treat that
+            # as "not ready yet" so the wait_until wrappers keep polling instead
+            # of crashing with `int('N/A')`.
+            if stats[intf]['RX_DRP'] == 'N/A':
+                return False
             if pretest:
                 self.pre_rx_drops[intf] = int(stats[intf]['RX_DRP'])
             else:
@@ -366,7 +372,11 @@ class TrafficSendVerify(object):
         if asic_type != "vs":
             time.sleep(1)
             logger.info("Collect drop counters before test run")
-            self._verifyIntfCounters(pretest=True)
+            # Counters can read 'N/A' right after `sonic-clear counters` until the
+            # poller repopulates COUNTERS_DB; wait for them to be ready and fail
+            # loudly if they never are (rather than crashing on `int('N/A')`).
+            pytest_assert(wait_until(10, 2, 0, self._verifyIntfCounters, True),
+                          "Drop counters not ready (still 'N/A') before test run")
             for pkt, exp_pkt in zip(self.pkts, self.exp_pkts):
                 self.ptfadapter.dataplane.flush()
                 out_intf = self.pkt_map[str(pkt)][0]

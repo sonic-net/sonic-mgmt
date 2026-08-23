@@ -85,6 +85,38 @@
   register: bp_ifup_result
   failed_when: false
 
+# The docker-sonic-vs neighbor image does not run hostcfgd, so a MGMT_INTERFACE
+# entry in CONFIG_DB would not be applied to the kernel eth0 on its own (unlike
+# a full SONiC image). Program the IPv4 management address on eth0 directly here
+# so the neighbor is reachable on the mgmt network -- e.g. for the SNMP/LLDP-MIB
+# verification in tests/lldp/test_lldp.py, which queries the neighbor at its
+# advertised mgmt-ip. Mirrors the explicit front-panel/backplane link-up steps
+# above. Gated + idempotent: only runs when the neighbor has a mgmt IP, and
+# 'replace' tolerates the address already being present on re-runs.
+# NOTE: rendering the mgmt address into the neighbor CONFIG_DB (MGMT_INTERFACE/
+# MGMT_PORT) is deferred to the follow-up hostcfgd PR.
+- name: Apply management IPv4 address on eth0 (docker-sonic-vs has no hostcfgd)
+  become: yes
+  command: >
+    docker exec csonic_{{ vm_set_name }}_{{ inventory_hostname }}
+    ip address replace {{ ansible_host }}/{{ mgmt_prefixlen }} dev eth0
+  delegate_to: "{{ VM_host[0] }}"
+  when:
+    - ansible_host is defined and ansible_host | length > 0
+    - mgmt_prefixlen is defined and (mgmt_prefixlen | string) | length > 0
+  register: csonic_mgmt_ip_result
+  failed_when: false
+
+- name: Ensure eth0 is up
+  become: yes
+  command: docker exec csonic_{{ vm_set_name }}_{{ inventory_hostname }} ip link set eth0 up
+  delegate_to: "{{ VM_host[0] }}"
+  when:
+    - ansible_host is defined and ansible_host | length > 0
+    - mgmt_prefixlen is defined and (mgmt_prefixlen | string) | length > 0
+  failed_when: false
+  changed_when: false
+
 - name: Wait for bgpcfgd to configure FRR from ConfigDB
   become: yes
   command: >
