@@ -151,27 +151,37 @@ def test_snmp_lldp(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_
             minigraph_lldp_nei.append(k)
     logger.info('minigraph_lldp_nei: {}'.format(minigraph_lldp_nei))
 
-    # Check if lldpRemTable is present
     active_intf = []
-    for k, v in list(snmp_facts['snmp_interfaces'].items()):
-        if "lldpRemChassisIdSubtype" in v and \
-           "lldpRemChassisId" in v and \
-           "lldpRemPortIdSubtype" in v and \
-           "lldpRemPortId" in v and \
-           "lldpRemPortDesc" in v and \
-           "lldpRemSysName" in v and \
-           "lldpRemSysDesc" in v and \
-           "lldpRemSysCapSupported" in v and \
-           "lldpRemSysCapEnabled" in v:
-            active_intf.append(k)
-    logger.info('lldpRemTable: {}'.format(active_intf))
 
-    assert len(active_intf) >= len(minigraph_lldp_nei) * 0.8, (
-        "Number of active interfaces is less than expected. "
-        "Expected at least 80% of minigraph LLDP neighbors to be active. "
-        "Active interfaces: {} "
-        "Minigraph LLDP neighbors: {}"
-    ).format(len(active_intf), len(minigraph_lldp_nei))
+    def _lldp_rem_table_ready():
+        nonlocal active_intf, snmp_facts
+        snmp_facts.update(get_snmp_facts(
+            duthost, localhost, host=hostip, version="v2c",
+            community=creds_all_duts[duthost.hostname]["snmp_rocommunity"],
+            module_ignore_errors=True).get('ansible_facts', {}))
+        active_intf = []
+        for k, v in list(snmp_facts['snmp_interfaces'].items()):
+            if "lldpRemChassisIdSubtype" in v and \
+               "lldpRemChassisId" in v and \
+               "lldpRemPortIdSubtype" in v and \
+               "lldpRemPortId" in v and \
+               "lldpRemPortDesc" in v and \
+               "lldpRemSysName" in v and \
+               "lldpRemSysDesc" in v and \
+               "lldpRemSysCapSupported" in v and \
+               "lldpRemSysCapEnabled" in v:
+                active_intf.append(k)
+        return len(active_intf) >= len(minigraph_lldp_nei) * 0.8
+
+    if not wait_until(120, 10, 0, _lldp_rem_table_ready):
+        collect_lldp_diagnostics(duthost)
+        pytest.fail(
+            "Number of active interfaces is less than expected. "
+            "Expected at least 80% of minigraph LLDP neighbors to be active. "
+            "Active interfaces: {} "
+            "Minigraph LLDP neighbors: {}".format(len(active_intf), len(minigraph_lldp_nei))
+        )
+    logger.info('lldpRemTable: {}'.format(active_intf))
 
     # skip neighbors that do not send chassis information via lldp
     lldp_facts = {}
