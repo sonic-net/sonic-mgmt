@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"flag"
+	"strings"
 
 	"github.com/bazelbuild/rules_go/go/tools/bazel"
 	log "github.com/golang/glog"
@@ -23,6 +24,52 @@ import (
 )
 
 var insecureMode = flag.Bool("use_binding_insecure_mode", true, "set the flag if the server doesn't support gRPC mTLS.")
+
+var (
+    gnmiUserName string
+    gnmiPassword string
+    authEnabled bool
+)
+
+func init() {
+
+    gnmiUserName = os.Getenv("gnmi_username")
+    if gnmiUserName == "" {
+        gnmiUserName = "admin"
+    }
+
+    gnmiPassword = os.Getenv("gnmi_password")
+    if gnmiPassword == "" {
+        gnmiPassword = "YourPaSsWoRd"
+    }
+
+    // Default to true. Only set to false if explicitly set to "false", "0", "f", or "no"
+    authEnableEnv := strings.ToLower(os.Getenv("auth_enable"))
+    if authEnableEnv == "false" || authEnableEnv == "0" || authEnableEnv == "f" || authEnableEnv == "no" {
+        authEnabled = false
+    } else {
+        authEnabled = true
+    }
+
+}
+
+// userPassCredentials implements credentials.PerRPCCredentials
+// to automatically pass gNMI username/password metadata on every RPC call.
+type userPassCredentials struct {
+	username string
+	password string
+}
+
+func (c userPassCredentials) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
+	return map[string]string{
+		"username": c.username,
+		"password": c.password,
+	}, nil
+}
+
+func (c userPassCredentials) RequireTransportSecurity() bool {
+	return false
+}
 
 // Backend can reserve Ondatra DUTs and provide clients to interact with the DUTs.
 type Backend struct {
@@ -188,13 +235,23 @@ func (b *Backend) Release(ctx context.Context) error {
 
 func (b *Backend) authDialOpts(addr string) ([]grpc.DialOption, error) {
 	if b.insecure {
-		return []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}, nil
+		// P4RT listens on plain TCP (no TLS) on port 9559
+		if strings.HasSuffix(addr, ":9559") {
+			return []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}, nil
+		}
+		skipVerify := b.insecure
+		tlsConfig := &tls.Config{
+			InsecureSkipVerify: skipVerify,
+			MinVersion:         tls.VersionTLS12,
+		}
+		return []grpc.DialOption{grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig))}, nil
 	}
 
-    tlsConfig, ok := b.configs[addr]
-    if !ok {
-        return nil, fmt.Errorf("failed to find TLS config for %s", addr)
-    }
+	tlsConfig, ok := b.configs[addr]
+	if !ok {
+		return nil, fmt.Errorf("failed to find TLS config for %s", addr)
+	}
+
 	return []grpc.DialOption{grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig))}, nil
 }
 
@@ -204,7 +261,15 @@ func (b *Backend) DialGRPC(ctx context.Context, addr string, opts ...grpc.DialOp
 	if err != nil {
 		return nil, err
 	}
+
 	opts = append(opts, authOpts...)
+
+	if authEnabled {
+		opts = append(opts, grpc.WithPerRPCCredentials(userPassCredentials{
+			username: gnmiUserName,
+			password: gnmiPassword,
+		}))
+	}
 
 	conn, err := grpc.DialContext(ctx, addr, opts...)
 	if err != nil {
