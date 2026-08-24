@@ -140,7 +140,7 @@ def __gen_mac(id):
     Returns:
         MAC address (string)
     """
-    return '00:{:02d}:22:33:44:01'.format(id)
+    return '00:{:02x}:22:33:44:01'.format(id)
 
 
 def __gen_pc_mac(id):
@@ -1500,6 +1500,7 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
 
     global macsec_enabled_port, macsec_profile_name, reconfigure_port
     num_of_non_macsec_snappi_devices = 7*(len(snappi_ports) - 1)
+    #num_of_non_macsec_snappi_devices = 7
     # +3 to ignore the network and broadcast address and plus one extra buffer
     # since the address is already configure on the dut interface
     static_prefix_length = str(subnet_mask_from_hosts(num_of_non_macsec_snappi_devices + 3))

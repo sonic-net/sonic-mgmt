@@ -529,7 +529,7 @@ def __gen_data_flow(testbed_config,
     if ptype:
         fp = None
         if 'Test Flow 1 -> 0' in flow.name:
-            index = (1 - 1) * 7 + (flow_prio[0] - 1)
+            index = flow_prio[0]
             flow.tx_rx.device.tx_names = [
                 testbed_config.devices[len(testbed_config.devices)-2].ethernets[0].ipv4_addresses[0].name
             ]
@@ -538,7 +538,7 @@ def __gen_data_flow(testbed_config,
             ]
             fp = flow_prio[0]
         elif 'Test Flow 2 -> 0' in flow.name:
-            index = (2 - 1) * 7 + (flow_prio[1] - 1)
+            index = (2 - 1) * 7 + (flow_prio[1])
             flow.tx_rx.device.tx_names = [
                 testbed_config.devices[len(testbed_config.devices)-1].ethernets[0].ipv4_addresses[0].name
             ]
@@ -556,7 +556,7 @@ def __gen_data_flow(testbed_config,
             elif '4 Background Flow 2 -> 0' in flow.name:
                 fp = flow_prio[3]
             if 'Background Flow 1 -> 0' in flow.name:
-                index = (1 - 1) * 7 + (fp - 1)
+                index = fp
                 flow.tx_rx.device.tx_names = [
                     testbed_config.devices[len(testbed_config.devices)-2].ethernets[0].ipv4_addresses[0].name
                 ]
@@ -564,7 +564,7 @@ def __gen_data_flow(testbed_config,
                     testbed_config.devices[index].ethernets[0].ipv4_addresses[0].name
                 ]
             else:
-                index = (2 - 1) * 7 + (fp - 1)
+                index = (2 - 1) * 7 + fp
                 flow.tx_rx.device.tx_names = [
                     testbed_config.devices[len(testbed_config.devices)-1].ethernets[0].ipv4_addresses[0].name
                 ]
@@ -621,9 +621,9 @@ def __gen_data_flow(testbed_config,
     elif '4 Background Flow 2 -> 0' in flow.name:
         ipv4.priority.dscp.phb.values = prio_dscp_map[flow_prio[3]]
     elif 'Test Flow 1 -> 0' in flow.name:
-        ipv4.priority.dscp.phb.values = [flow_prio[0]]
+        ipv4.priority.dscp.phb.values = prio_dscp_map[flow_prio[0]]
     elif 'Test Flow 2 -> 0' in flow.name:
-        ipv4.priority.dscp.phb.values = [flow_prio[1]]
+        ipv4.priority.dscp.phb.values = prio_dscp_map[flow_prio[1]]
     if len(ipv4.priority.dscp.phb.values) > 1:
         ipv4.priority.dscp.phb.values = ipv4.priority.dscp.phb.values[:1]
     logger.info('{} {} {}'.format(flow.name, flow_prio, ipv4.priority.dscp.phb.values))
