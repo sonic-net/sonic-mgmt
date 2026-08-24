@@ -23,23 +23,24 @@ def pytest_runtest_setup(item):
         item.config.cache.set(_UPGRADE_PATH_RESULT_KEY, {"error_type": ErrorType.UNKNOWN.value})
 
 
-@pytest.hookimpl(hookwrapper=True)
+@pytest.hookimpl(tryfirst=True, hookwrapper=True)
 def pytest_runtest_makereport(item, call):
-    outcome = yield
-    rep = outcome.get_result()
-    # Clear the UNKNOWN seed only once the teardown outcome is known: a test that
-    # passed setup/call but failed in teardown must keep its classification.
-    # Skipped tests must not leave a spurious UNKNOWN behind either.
-    if rep.when == "teardown":
+    # Clear the seed before yield: the repo-level makereport hook in tests/conftest.py
+    # emits CustomMsg from the cache pre-yield on the last test's teardown, so clearing
+    # must happen before that emission. Teardown outcome is known here via call.excinfo.
+    # A test that passed setup/call but failed in teardown keeps its classification,
+    # and skipped tests do not leave a spurious UNKNOWN behind.
+    if call.when == "teardown":
         rep_setup = getattr(item, "rep_setup", None)
         rep_call = getattr(item, "rep_call", None)
         skipped = ((rep_setup is not None and rep_setup.skipped)
                    or (rep_call is not None and rep_call.skipped))
-        passed = (rep.passed
+        passed = (call.excinfo is None
                   and rep_setup is not None and rep_setup.passed
                   and rep_call is not None and rep_call.passed)
         if passed or skipped:
             item.config.cache.set(_UPGRADE_PATH_RESULT_KEY, None)
+    yield
 
 
 @pytest.fixture(scope="module")
