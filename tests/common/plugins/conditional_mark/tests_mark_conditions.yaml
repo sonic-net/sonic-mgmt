@@ -3760,6 +3760,16 @@ mpls:
       - "'mpls' not in feature_status and asic_type not in ['vpp']"
       - *lossyTopos
 
+mpls/test_mpls.py::TestBasicMpls::test_push_label:
+  skip:
+    reason: >
+            MPLS push is not testable here: the test injects the push route
+            directly into ROUTE_TABLE and orchagent does not install that route
+            into ASIC_DB, so it never reaches the SAI backend.
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
 #######################################
 #####           mvrf              #####
 #######################################
