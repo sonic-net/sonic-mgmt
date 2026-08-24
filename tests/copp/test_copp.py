@@ -112,14 +112,16 @@ class TestCOPP(object):
         # UDLD packet will not be forwarded to DUT
         if 'UDLD' == protocol:
             for fanouthost in list(fanouthosts.values()):
-                if fanouthost.get_fanout_os() == 'sonic' and "arista_7060x6_64pe" in fanouthost.facts["platform"]:
-                    pytest.skip("Skip UDLD test for Arista-7060x6 fanout without UDLD forward support")
+                if (fanouthost.get_fanout_os() == 'sonic' and fanouthost.facts["platform"]
+                        in ['arista_7060x6_64pe', 'x86_64-nokia_ixr7220_h5_64o-r0', 'x86_64-nokia_ixr7220_h6_64-r0']):
+                    pytest.skip("Skip UDLD test for Arista-7060x6 and Nokia-H5/H6 fanout without UDLD forward support")
 
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         namespace = DEFAULT_NAMESPACE
         if duthost.is_multi_asic:
             namespace = random.choice(duthost.asics)
 
+        has_trap = True
         # Skip the check if the protocol is "Default"
         if protocol != "Default":
             trap_ids = PROTOCOL_TO_TRAP_ID.get(protocol)
@@ -130,6 +132,7 @@ class TestCOPP(object):
             else:
                 feature_list, _ = duthost.get_feature_status()
                 trap_installed = copp_utils.is_trap_installed(duthost, trap_ids[0], namespace)
+                has_trap = trap_installed
                 if feature_name in feature_list and feature_list[feature_name] == "enabled":
                     pytest_assert(trap_installed,
                                   f"Trap {trap_ids[0]} for protocol {protocol} is not installed")
@@ -147,6 +150,7 @@ class TestCOPP(object):
                      protocol,
                      copp_testbed,
                      dut_type,
+                     has_trap=has_trap,
                      is_smartswitch_light_mode=is_smartswitch_light_mode)
 
     @pytest.mark.parametrize("protocol", ["IP2ME",
@@ -351,7 +355,7 @@ def test_verify_copp_configuration_cli(duthosts, enum_rand_one_per_hwsku_fronten
     show_copp_config = copp_utils.parse_show_copp_configuration(duthost, namespace)
 
     pytest_assert(trap in show_copp_config,
-                  f"Trap {trap} not found in show copp configuration output")
+                  f"Trap {trap} not found as part of show copp configuration output")
     pytest_assert(trap_group == show_copp_config[trap]["trap_group"],
                   f"Trap group mismatch for trap {trap} (expected: \
                   {trap_group}, actual: {show_copp_config[trap]['trap_group']})")

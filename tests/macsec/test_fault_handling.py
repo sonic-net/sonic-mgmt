@@ -138,9 +138,11 @@ class TestFaultHandling():
         )
 
     @pytest.mark.disable_loganalyzer
-    def test_mismatch_macsec_configuration(self, duthost, unctrl_links,
+    def test_mismatch_macsec_configuration(self, duthost, unctrl_links, port_profiles,
                                            profile_name, default_priority, cipher_suite,
                                            primary_cak, primary_ckn, policy, send_sci, wait_mka_establish):
+        if port_profiles:
+            pytest.skip("Mismatch test uses single-profile CAK/CKN fixtures")
         # Only pick one uncontrolled link for mismatch macsec configuration test
         if not unctrl_links:
             pytest.skip('SKIP this test as there are no uncontrolled links in this dut')

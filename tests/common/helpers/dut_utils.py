@@ -1,4 +1,5 @@
 import logging
+import pathlib
 import allure
 import os
 import jinja2
@@ -26,9 +27,12 @@ import random
 CONTAINER_CHECK_INTERVAL_SECS = 1
 CONTAINER_RESTART_THRESHOLD_SECS = 180
 NAT_ENABLE_KEY = "nat_enabled_on_{}"
+# Spacing between console reconnect retries; keep >= getty StartLimitIntervalSec to avoid tripping its start limit.
+CONSOLE_RECONNECT_BACKOFF_SECS = 12
 
 # Ansible config files
-LAB_CONNECTION_GRAPH_PATH = os.path.normpath((os.path.join(os.path.dirname(__file__), "../../../ansible/files")))
+LAB_CONNECTION_GRAPH_PATH = pathlib.Path(
+    os.getenv("ANSIBLE_CONFIG", pathlib.Path(__file__).resolve().parent.joinpath("../../ansible"))).joinpath("files")
 
 BASI_PATH = os.path.dirname(os.path.abspath(__file__))
 
@@ -95,6 +99,22 @@ def check_container_state(duthost, container_name, should_be_running):
     """
     is_running = is_container_running(duthost, container_name)
     return is_running == should_be_running
+
+
+def wait_for_container_running(duthost, container_name, timeout=120, check_interval=5):
+    """Wait until `container_name` is in the running state on `duthost`.
+
+    Polls `is_container_running` every `check_interval` seconds, up to
+    `timeout` seconds total. Raises an Exception if the container is still
+    not running when the timeout expires.
+    """
+    logger.info("Waiting for container %s to be running on %s", container_name, duthost.hostname)
+    if not wait_until(timeout, check_interval, 0, is_container_running, duthost, container_name):
+        raise TimeoutError(
+            "Container {} is not running on {} after {} seconds".format(
+                container_name, duthost.hostname, timeout
+            )
+        )
 
 
 def is_hitting_start_limit(duthost, container_name):
@@ -236,7 +256,9 @@ def get_group_program_info(duthost, container_name, group_name):
     return group_program_info
 
 
-def get_program_info(duthost, container_name, program_name):
+def get_program_info(
+    duthost, container_name, program_name, include_uptime=False
+):
     """Gets program running status and its pid by analyzing the command
        output of "docker exec <container_name> supervisorctl status"
 
@@ -244,26 +266,39 @@ def get_program_info(duthost, container_name, program_name):
         duthost: Hostname of DUT.
         container_name: A string shows container name.
         program_name: A string shows process name.
+        include_uptime: When True, also return the uptime field supervisorctl
+            reports for a RUNNING program (e.g. "0:12:34", or "37 days,
+            17:55:12" past the first day). Defaults to False so existing
+            callers keep unpacking a 2-tuple unchanged.
 
     Return:
-        Program running status and its pid.
+        Program running status and its pid. When include_uptime is True, a
+        third value (uptime string, or None if not RUNNING) is also returned.
     """
     program_status = None
     program_pid = -1
+    program_uptime = None
 
     program_list = duthost.shell("docker exec {} supervisorctl status"
                                  .format(container_name), module_ignore_errors=True)
     for program_info in program_list["stdout_lines"]:
         if program_info.find(program_name) != -1:
-            program_status = program_info.split()[1].strip()
+            fields = program_info.split()
+            program_status = fields[1].strip()
             if program_status == "RUNNING":
-                program_pid = int(program_info.split()[3].strip(','))
+                program_pid = int(fields[3].strip(','))
+                if "uptime" in fields:
+                    program_uptime = " ".join(
+                        fields[fields.index("uptime") + 1:]
+                    )
             break
 
     if program_pid != -1:
         logger.info("Found program '{}' in the '{}' state with pid {}"
                     .format(program_name, program_status, program_pid))
 
+    if include_uptime:
+        return program_status, program_pid, program_uptime
     return program_status, program_pid
 
 
@@ -577,7 +612,7 @@ def create_linecard_console(supervisor, linecard_duthost, inv_files, creds):
         pytest.skip(f"Linecard console not supported: {str(e)}")
 
 
-def create_duthost_console(duthost, localhost, conn_graph_facts, creds):  # noqa: F811
+def create_duthost_console(duthost, localhost, conn_graph_facts, creds, cancel_event=None):  # noqa: F811
     dut_hostname = duthost.hostname
     console_host = conn_graph_facts['device_console_info'][dut_hostname]['ManagementIp']
     if "/" in console_host:
@@ -598,12 +633,37 @@ def create_duthost_console(duthost, localhost, conn_graph_facts, creds):  # noqa
         console_menu_type = console_type
 
     # console password and sonic_password are lists, which may contain more than one password
-    sonicadmin_alt_password = localhost.host.options['variable_manager']._hostvars[dut_hostname].get(
-        "ansible_altpassword")
+    # ansible-core >= 2.21: variable_manager._hostvars is None outside of a play run (it stays
+    # None in the pytest-ansible adhoc context). Fall back to the public get_vars() API, which
+    # resolves inventory + group + host vars for the target host.
+    _vm = localhost.host.options['variable_manager']
+    if _vm._hostvars is not None:
+        _host_vars = _vm._hostvars[dut_hostname]
+    else:
+        _host_obj = localhost.host.options['inventory_manager'].get_host(dut_hostname)
+        _host_vars = _vm.get_vars(host=_host_obj) if _host_obj is not None else {}
+    sonicadmin_alt_password = _host_vars.get("ansible_altpassword")
     sonic_password = [creds['sonicadmin_password'], sonicadmin_alt_password]
 
     if console_type in creds["console_password"]:
         sonic_password.extend(creds["console_password"][console_type])
+
+    # Move the DUT's actual current password to the front so the console login succeeds on the first attempt.
+    try:
+        current_passwd = get_dut_current_passwd(
+            duthost.mgmt_ip,
+            duthost.mgmt_ipv6,
+            creds["sonicadmin_user"],
+            [p for p in sonic_password if p],
+        )
+        if current_passwd and current_passwd in sonic_password:
+            sonic_password.remove(current_passwd)
+        if current_passwd:
+            sonic_password.insert(0, current_passwd)
+    except Exception as e:
+        logger.warning(
+            f"Could not resolve current DUT console password, using default "
+            f"order: {e}")
 
     # Attempt to clear the console port
     try:
@@ -629,9 +689,13 @@ def create_duthost_console(duthost, localhost, conn_graph_facts, creds):  # noqa
                 console_username=console_username,
                 console_password=creds["console_password"][console_type],
                 console_device=console_device,
+                cancel_event=cancel_event,
             )
         except Exception as e:
             logger.warning(f"Attempt {attempt}/3 failed: {e}")
+            # Back off so rapid retries do not trip the DUT serial-getty start limit.
+            if attempt < 3:
+                time.sleep(CONSOLE_RECONNECT_BACKOFF_SECS)
             continue
     else:
         raise Exception("Failed to set up connection to console port. See warning logs for details.")
@@ -676,7 +740,15 @@ def creds_on_dut(duthost):
         "docker_registry_password",
         "public_docker_registry_host"
     ]
-    hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
+    # ansible-core >= 2.21: variable_manager._hostvars is None outside of a play run (it stays
+    # None in the pytest-ansible adhoc context). Fall back to the public get_vars() API, which
+    # resolves inventory + group + host vars for the target host.
+    _vm = duthost.host.options['variable_manager']
+    if _vm._hostvars is not None:
+        hostvars = _vm._hostvars[duthost.hostname]
+    else:
+        _host_obj = duthost.host.options['inventory_manager'].get_host(duthost.hostname)
+        hostvars = _vm.get_vars(host=_host_obj) if _host_obj is not None else {}
     for cred_var in cred_vars:
         if cred_var in creds:
             creds[cred_var] = jinja2.Template(creds[cred_var]).render(**hostvars)  # nosemgrep: direct-use-of-jinja2

@@ -38,11 +38,13 @@ all:
           - t0-backend
           - t0-88-o8c80
           - dualtor
+          - dualtor-vpp
           - dualtor-56
           - dualtor-120
           - t2
           - t2_2lc_min_ports-masic
           - t2_2lc_min_ports
+          - t2-single-node-min
           - m1-48
           - m1-44
           - m1-108
@@ -53,6 +55,7 @@ all:
           - dualtor-mixed-56
           - dualtor-mixed-120
           - dualtor-aa
+          - dualtor-aa-vpp
           - dualtor-aa-56
           - dualtor-aa-64
           - dualtor-aa-120
@@ -89,6 +92,7 @@ all:
         vlab-t2-1-1:
         vlab-t2-1-2:
         vlab-t2-1-sup:
+        vlab-ut2:
         vlab-c-02:
         vlab-vpp-01:
         vlab-vpp-02:
@@ -133,7 +137,7 @@ all:
         mgmt_subnet_mask_length: 24
         mgmt_subnet_v6_mask_length: 64
         ansible_connection: multi_passwd_ssh
-        ansible_altpassword: YourPaSsWoRd
+        ansible_altpassword: "{{ lookup('env', 'SONIC_MGMT_SONIC_ALTPASSWORD') | default('YourPaSsWoRd', true) }}"
       children:
         vms_1:
       hosts:
@@ -287,6 +291,17 @@ all:
           card_type: supervisor
           slot_num: slot0
           switch_type: dummy-sup
+        vlab-ut2:
+          ansible_host: 10.250.0.150
+          ansible_hostv6: fec0::ffff:afa:16
+          type: kvm
+          hwsku: NH-5010-F-O64
+          switch_type: voq
+          num_asics: 1
+          serial_port: 9050
+          switchids: [0]
+          ansible_password: password
+          ansible_user: admin
         vlab-09:
           ansible_host: 10.250.0.115
           ansible_hostv6: fec0::ffff:afb:1
@@ -358,7 +373,7 @@ all:
           type: kvm
           hwsku: Force10-S6000
           asic_type: vpp
-          serial_port: 9001
+          serial_port: 9008
           ansible_password: password
           ansible_user: admin
         vlab-vpp-02:
@@ -367,7 +382,7 @@ all:
           type: kvm
           hwsku: Force10-S6000
           asic_type: vpp
-          serial_port: 9001
+          serial_port: 9091
           ansible_password: password
           ansible_user: admin
         vlab-vpp-03:
@@ -419,8 +434,8 @@ vm_host_1:
   hosts:
     STR-ACS-VSERV-01:
       ansible_host: 172.17.0.1
-      ansible_user: use_own_value
-      vm_host_user: use_own_value
+      ansible_user: "{{ lookup('env', 'SONIC_MGMT_VM_HOST_USER') | default('use_own_value', true) }}"
+      vm_host_user: "{{ lookup('env', 'SONIC_MGMT_VM_HOST_USER') | default('use_own_value', true) }}"
 
 vms_1:
   hosts:

@@ -456,26 +456,22 @@ def test_nhop_group_member_count(duthost, tbinfo, loganalyzer):
             "crm config polling interval {}".format(crm_before["polling"])
         )
 
-    # verify the test used up all the NHOP group resources
-    # skip this check on Mellanox as ASIC resources are shared
-    if is_cisco_device(duthost) or is_high_scale_platform(duthost):
-        pytest_assert(
-            crm_after["available_nhop_grp"] + nhop_group_count == crm_before["available_nhop_grp"],
-            "Unused NHOP group resource:{}, used:{}, nhop_group_count:{}, Unused NHOP group resource before:{}".format(
-                crm_after["available_nhop_grp"], crm_after["used_nhop_grp"], nhop_group_count,
-                crm_before["available_nhop_grp"]
-
-            )
-        )
-    elif is_mellanox_device(duthost):
+    # verify the test used the expected NHOP group resources
+    if is_mellanox_device(duthost):
         logger.info("skip this check on Mellanox as ASIC resources are shared")
     elif is_vs_device(duthost):
         logger.info("skip this check on VS as no real ASIC")
     else:
+        expected_available_nhop_grp = max(
+            crm_before["available_nhop_grp"] - nhop_group_count, 0
+        )
         pytest_assert(
-            crm_after["available_nhop_grp"] == 0,
-            "Unused NHOP group resource:{}, used_nhop_grp:{}".format(
-                crm_after["available_nhop_grp"], crm_after["used_nhop_grp"]
+            crm_after["available_nhop_grp"] == expected_available_nhop_grp,
+            "Unexpected available NHOP group resources:{}, expected:{}, used:{}, "
+            "nhop_group_count:{}, available before:{}".format(
+                crm_after["available_nhop_grp"], expected_available_nhop_grp,
+                crm_after["used_nhop_grp"], nhop_group_count,
+                crm_before["available_nhop_grp"]
             )
         )
 
@@ -850,7 +846,7 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
                                               "gr": gr_asic_flow_map, "spc1": spc_asic_flow_map,
                                               "spc2": spc_asic_flow_map, "spc3": spc_asic_flow_map,
                                               "spc4": spc_asic_flow_map, "spc5": spc_asic_flow_map,
-                                              "gr2": gr2_asic_flow_map}
+                                              "spc6": spc_asic_flow_map, "gr2": gr2_asic_flow_map}
 
     vendor = duthost.facts["asic_type"]
     hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]

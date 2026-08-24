@@ -18,7 +18,7 @@ from tests.bgp.bgp_helpers import (
         check_routes_presence
 )
 from tests.common.helpers.bgp import BGPNeighbor
-from tests.common.utilities import wait_until, delete_running_config
+from tests.common.utilities import wait_until
 from tests.common.utilities import is_ipv6_only_topology
 
 from tests.common.helpers.assertions import pytest_assert
@@ -99,10 +99,14 @@ def _apply_outbound_route_filter(duthost, dut_asn, neighbor_ips, is_v6, namespac
     cmd = "vtysh {} {}".format(ns_option, " ".join("-c '{}'".format(c) for c in vtysh_cmds))
     duthost.shell(cmd)
 
-    # Soft-reset outbound so the filter takes effect immediately
+    # Soft-reset outbound so the filter takes effect immediately.
+    # Note: FRR vtysh syntax differs between v4 and v6:
+    #   v4: clear ip bgp <neighbor> soft out
+    #   v6: clear bgp ipv6 <neighbor> soft out  (word order is 'bgp ipv6', not 'ipv6 bgp')
+    clear_af = "bgp ipv6" if is_v6 else "ip bgp"
     for ip in neighbor_ips:
-        duthost.shell("vtysh {} -c 'clear {} bgp {} soft out'".format(
-            ns_option, "ipv6" if is_v6 else "ip", ip
+        duthost.shell("vtysh {} -c 'clear {} {} soft out'".format(
+            ns_option, clear_af, ip
         ))
 
 
@@ -181,10 +185,31 @@ def common_setup_teardown(
 
     if dut_type in ["ToRRouter", "SpineRouter", "BackEndToRRouter", "LowerSpineRouter"]:
         neigh_type = "LeafRouter"
+    elif dut_type == "UpperSpineRouter" and confed_asn is not None:
+        # On confederation-based UT2 topologies the UpperSpineRouter peers with
+        # AZNGHub neighbors using the confederation ASN, not the per-DUT ASN.
+        neigh_type = "AZNGHub"
+        dut_asn = int(confed_asn)
     elif dut_type in ["UpperSpineRouter", "FabricSpineRouter"]:
         neigh_type = "LowerSpineRouter"
         if dut_type == "FabricSpineRouter" and confed_asn is not None:
             # For FT2, we need to use vtysh to configure an external BGP neighbor
+            use_vtysh = True
+    elif dut_type in ["LowerRegionalHub"]:
+        neigh_type = "SpineRouter"  # or "UpperSpineRouter"
+        if confed_asn is not None:
+            use_vtysh = True
+    elif dut_type in ["UpperRegionalHub"]:
+        neigh_type = "LowerRegionalHub"
+        if confed_asn is not None:
+            use_vtysh = True
+    elif dut_type in ["LowerMgmtAggregator"]:
+        neigh_type = "MgmtSpineRouter"
+        if confed_asn is not None:
+            use_vtysh = True
+    elif dut_type in ["UpperMgmtAggregator"]:
+        neigh_type = "LowerMgmtAggregator"
+        if confed_asn is not None:
             use_vtysh = True
     else:
         neigh_type = "ToRRouter"
@@ -260,12 +285,6 @@ def common_setup_teardown(
         )
 
     yield bgp_neighbors, use_vtysh
-
-    # Cleanup suppress-fib-pending config
-    delete_tacacs_json = [
-        {"DEVICE_METADATA": {"localhost": {"suppress-fib-pending": "disabled"}}}
-    ]
-    delete_running_config(delete_tacacs_json, duthost)
 
 
 @pytest.fixture

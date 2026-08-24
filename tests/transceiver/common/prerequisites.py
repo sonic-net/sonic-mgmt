@@ -6,11 +6,13 @@ the caller decides whether to ``pytest.skip``, ``pytest.fail``, or assert.
 import logging
 
 from tests.common.platform.interface_utils import get_dut_interfaces_status
+from tests.common.utilities import wait_until
 from tests.transceiver.attribute_parser.attribute_keys import (
-    CDB_FW_UPGRADE_ATTRIBUTES_KEY,
+    CDB_FIRMWARE_UPGRADE_ATTRIBUTES_KEY,
     EEPROM_ATTRIBUTES_KEY,
 )
-from tests.transceiver.utils.cli_parser_helper import parse_eeprom
+from tests.transceiver.common import cli_helpers, health_checks
+from tests.transceiver.common.cli_parser_helper import parse_presence
 
 logger = logging.getLogger(__name__)
 
@@ -116,35 +118,15 @@ def check_presence_sfputil(duthost, port_attributes_dict):
             "details": f"sfputil command failed: {output.get('stderr', '')}",
         }
 
-    presence_map = _parse_sfputil_presence(output.get("stdout_lines", []))
+    presence_map = parse_presence(output.get("stdout_lines", []))
 
     return _check_presence_common(presence_map, expected_ports, "sfputil")
-
-
-def _parse_sfputil_presence(stdout_lines):
-    """Parse the fixed-width table output of ``sfputil show presence``.
-
-    Returns:
-        dict: {port_name: presence_status}
-    """
-    presence = {}
-    for line in stdout_lines:
-        stripped = line.strip()
-        # Skip header/separator lines
-        if not stripped or stripped.startswith("Port") or stripped.startswith("---"):
-            continue
-        parts = stripped.split()
-        if len(parts) >= 2:
-            # presence value can be multi-word (e.g. "Not present")
-            presence[parts[0]] = " ".join(parts[1:])
-    return presence
 
 
 # ──────────────────────────────────────────────────────────────────────
 # Gold firmware check
 # ──────────────────────────────────────────────────────────────────────
 
-CMD_SHOW_TRANSCEIVER_INFO = "show interfaces transceiver info"
 CLI_KEY_ACTIVE_FIRMWARE = "Active Firmware"
 
 
@@ -154,7 +136,7 @@ def check_gold_firmware(duthost, port_attributes_dict):
     A port is in scope iff ``EEPROM_ATTRIBUTES.cmis_active_optical`` is True.
     For every in-scope port:
 
-      * ``CDB_FW_UPGRADE_ATTRIBUTES.gold_firmware_version`` MUST be defined -
+      * ``CDB_FIRMWARE_UPGRADE_ATTRIBUTES.gold_firmware_version`` MUST be defined -
         a missing value is a failure (inventory gap).
       * the active firmware reported by the CLI MUST equal that value -
         otherwise the port is a failure (FW mismatch).
@@ -185,7 +167,7 @@ def check_gold_firmware(duthost, port_attributes_dict):
     skipped = [port for port in sorted(expected_ports) if port not in in_scope_set]
 
     if not in_scope:
-        details = f"no CMIS active-optical ports in scope; {len(skipped)} out-of-scope port(s) skipped"
+        details = f"no CMIS active-optical ports in scope ({len(skipped)} out-of-scope port(s) skipped)"
         logger.info("Gold firmware check: %s", details)
         return {
             "passed": True,
@@ -193,22 +175,23 @@ def check_gold_firmware(duthost, port_attributes_dict):
             "details": details,
         }
 
-    output = duthost.command(CMD_SHOW_TRANSCEIVER_INFO, module_ignore_errors=True)
-    if output.get("rc", 1) != 0:
+    # Single source of truth for command string + parser + rc-handling: the
+    # same cli_helpers wrapper the EEPROM-content tests use.
+    parsed, err = cli_helpers.show_interfaces_transceiver_info(duthost)
+    if err:
         return {
             "passed": False,
             "matched": [],
-            "failures": [f"'{CMD_SHOW_TRANSCEIVER_INFO}' failed: {output.get('stderr', '')}"],
+            "failures": [err],
             "skipped": skipped,
-            "details": f"'{CMD_SHOW_TRANSCEIVER_INFO}' failed: {output.get('stderr', '')}",
+            "details": err,
         }
-    parsed = parse_eeprom(output.get("stdout_lines", []))
 
     matched = []
     failures = []
     for port in in_scope:
-        cdb_fw_attrs = port_attributes_dict[port].get(CDB_FW_UPGRADE_ATTRIBUTES_KEY, {})
-        expected_fw = cdb_fw_attrs.get("gold_firmware_version")
+        cdb_firmware_attrs = port_attributes_dict[port].get(CDB_FIRMWARE_UPGRADE_ATTRIBUTES_KEY, {})
+        expected_fw = cdb_firmware_attrs.get("gold_firmware_version")
         if not expected_fw:
             failures.append(f"{port}: gold_firmware_version not configured")
             logger.warning("Port %s: cmis_active_optical=True but gold_firmware_version missing", port)
@@ -246,7 +229,7 @@ def check_gold_firmware(duthost, port_attributes_dict):
 # ──────────────────────────────────────────────────────────────────────
 
 
-def check_links_up(duthost, port_attributes_dict):
+def check_links_up(duthost, port_attributes_dict, suppressWarnings=False):
     """Verify every port in *port_attributes_dict* is admin-up and oper-up.
 
     Uses :func:`tests.common.platform.interface_utils.get_dut_interfaces_status`
@@ -276,7 +259,8 @@ def check_links_up(duthost, port_attributes_dict):
             admin = status.get("admin", "missing") if status else "missing"
             oper = status.get("oper", "missing") if status else "missing"
             down.append(f"{port}(admin={admin}, oper={oper})")
-            logger.warning("Port %s not up: admin=%s oper=%s", port, admin, oper)
+            if not suppressWarnings:
+                logger.warning("Port %s not up: admin=%s oper=%s", port, admin, oper)
 
     passed = len(down) == 0
     total = len(expected_ports)
@@ -289,3 +273,73 @@ def check_links_up(duthost, port_attributes_dict):
         )
     logger.info("Link-up check: %s", details)
     return {"passed": passed, "up": up, "down": down, "details": details}
+
+
+def wait_until_links_up(
+    duthost, port_attributes_dict, timeout_sec, poll_interval_sec=2
+):
+    """Poll :func:`check_links_up` until every port is up or ``timeout_sec``
+    elapses.
+
+    Args:
+        duthost: SONiC DUT host fixture.
+        port_attributes_dict: dict of ``{port: port_attrs}``, as accepted by
+            :func:`check_links_up`.
+        timeout_sec: total time budget to wait for all ports to come up.
+        poll_interval_sec: time between polls.
+
+    Returns:
+        dict: the ``check_links_up`` result from the last poll (i.e. the
+        latest snapshot), regardless of whether it passed.
+    """
+    latest_result = {}
+
+    def _links_up():
+        nonlocal latest_result
+        latest_result = check_links_up(duthost, port_attributes_dict, True)
+        return (latest_result["down"] == [])
+
+    wait_until(timeout_sec, poll_interval_sec, 0, _links_up)
+    for down_port in latest_result.get("down", []):
+        logger.warning("%s", down_port)
+    return latest_result
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Docker/process health check
+# ──────────────────────────────────────────────────────────────────────
+
+
+def wait_until_health_ok(
+    duthost, baseline, timeout_sec, poll_interval_sec=2,
+    monitored_processes=None, expect_pid_change=None,
+):
+    """Poll :func:`health_checks.verify_health` until it passes or
+    ``timeout_sec`` elapses.
+
+    Args:
+        duthost: SONiC DUT host fixture.
+        baseline: baseline dict returned by
+            :func:`health_checks.capture_baseline`.
+        timeout_sec: total time budget to wait for health to pass.
+        poll_interval_sec: time between polls.
+        monitored_processes: dict of ``{process_name: container_name}``.
+        expect_pid_change: set of process names where a PID change is
+            expected (e.g., after an intentional service restart).
+
+    Returns:
+        dict: the ``verify_health`` result from the last poll (i.e. the
+        latest snapshot), regardless of whether it passed.
+    """
+    latest_result = {}
+
+    def _health_ok():
+        nonlocal latest_result
+        latest_result = health_checks.verify_health(
+            duthost, baseline, monitored_processes=monitored_processes,
+            expect_pid_change=expect_pid_change,
+        )
+        return latest_result["passed"]
+
+    wait_until(timeout_sec, poll_interval_sec, 0, _health_ok)
+    return latest_result

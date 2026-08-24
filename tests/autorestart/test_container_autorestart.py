@@ -3,9 +3,13 @@ Test the auto-restart feature of containers
 """
 import logging
 import re
+import signal
+import time
 from collections import defaultdict
+from contextlib import contextmanager
 
 import pytest
+from _pytest.outcomes import OutcomeException
 
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
@@ -29,7 +33,87 @@ DHCP_SERVER = "dhcp_server"
 POST_CHECK_INTERVAL_SECS = 1
 POST_CHECK_THRESHOLD_SECS = 360
 POST_CHECK_THRESHOLD_SECS_T2 = 600
+POST_CHECK_THRESHOLD_SECS_TH6_128 = 600
 PROGRAM_STATUS = "RUNNING"
+
+# Per-container watchdog budget for a single parametrized autorestart case.
+# Each test_containers_autorestart[<feature>] exercises exactly one container; the
+# slowest legitimate container (telemetry) finishes in ~22 min, so 40 min gives a
+# comfortable ~1.8x margin for healthy runs. A container that hangs during
+# stop/restart or post-check is interrupted here and fails with a junit entry,
+# instead of blocking until the framework's module-level timeout (~155 min) kills
+# the run and discards all results as phantom "no xml file" failures.
+SINGLE_CONTAINER_TEST_TIMEOUT_SECS = 2400
+
+# Upper bound for the best-effort config_reload that recovers the DUT after a
+# per-container hang. A healthy `config_reload(safe_reload, wait_for_bgp)` -- even
+# on a slow/modular topology -- completes well within this; if recovery itself
+# exceeds it, something is badly wrong and we just log and fail the case anyway.
+RECOVERY_RELOAD_TIMEOUT_SECS = 600
+
+
+class ContainerAutorestartTimeout(BaseException):
+    """Raised when a single container's autorestart sub-test exceeds its watchdog budget.
+
+    Inherits from BaseException (not Exception) on purpose. The autorestart sub-test
+    polls DUT state through common.utilities.wait_until, whose retry loop catches
+    ``except Exception`` and treats any error as "condition not met yet, keep polling".
+    A plain Exception raised from the SIGALRM handler would be swallowed there, the
+    one-shot alarm consumed, and the case would then run unbounded -- defeating the
+    watchdog. As a BaseException (like KeyboardInterrupt/SystemExit and pytest's own
+    OutcomeException) it bypasses those ``except Exception`` loops and propagates up to
+    the per-case handler in test_containers_autorestart.
+    """
+
+
+@contextmanager
+def single_container_timeout(container_name, timeout_secs=SINGLE_CONTAINER_TEST_TIMEOUT_SECS):
+    """Interrupt a single container's autorestart sub-test if it hangs.
+
+    Uses SIGALRM so a blocked SSH/docker call is actually interrupted -- a thread
+    based timer cannot break out of a blocking C-level read. The signal interrupts
+    the blocking syscall and, because the handler raises, the exception propagates
+    out instead of the call being retried. Only effective on the main thread on
+    POSIX; on platforms without SIGALRM, or when not running on the main thread, it
+    is a no-op and execution falls back to the framework's module-level timeout.
+    """
+    if not hasattr(signal, "SIGALRM"):
+        yield
+        return
+
+    def _on_timeout(signum, frame):
+        raise ContainerAutorestartTimeout(
+            "Autorestart test for container '{}' exceeded {} seconds and was interrupted. "
+            "The container most likely hung during stop/restart or post-check.".format(
+                container_name, timeout_secs)
+        )
+
+    try:
+        previous_handler = signal.signal(signal.SIGALRM, _on_timeout)
+    except ValueError:
+        # signal handlers can only be installed on the main thread.
+        logger.warning("single_container_timeout disabled for '%s': not on main thread", container_name)
+        yield
+        return
+
+    # signal.alarm() returns the seconds left on any previously scheduled alarm
+    # (0 if none). Save it so the watchdog restores -- rather than silently cancels
+    # -- a SIGALRM that pytest, the framework, or another fixture may have armed,
+    # instead of clobbering process-global timer state. Arming inside the try also
+    # keeps the handler restoration in finally even if signal.alarm() ever raised.
+    previous_alarm_remaining = 0
+    armed_at = time.monotonic()
+    try:
+        previous_alarm_remaining = signal.alarm(timeout_secs)
+        yield
+    finally:
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, previous_handler)
+        if previous_alarm_remaining > 0:
+            # Re-arm the pre-existing alarm, debited by the time we held it
+            # (at least 1s -- alarm(0) would cancel it instead).
+            elapsed = int(time.monotonic() - armed_at)
+            signal.alarm(max(1, previous_alarm_remaining - elapsed))
 
 
 @pytest.fixture(autouse=True, scope='module')
@@ -351,7 +435,6 @@ def verify_autorestart_with_critical_process(duthost, container_name, service_na
     @summary: Kill a critical process in a container to verify whether the container
               is stopped and restarted correctly
     """
-    global PROGRAM_STATUS
     pytest_assert(wait_until(40, 3, 0, is_process_running, duthost, container_name, program_name),
                   "Program '{}' in container '{}' is in the '{}' state, expected 'RUNNING'"
                   .format(program_name, container_name, PROGRAM_STATUS))
@@ -461,8 +544,11 @@ def postcheck_critical_processes_status(duthost, feature_autorestart_states, up_
             if is_hiting_start_limit(duthost, feature_name):
                 clear_failed_flag_and_restart(duthost, feature_name, feature_name)
 
-    post_check_threshold = POST_CHECK_THRESHOLD_SECS_T2 if duthost.get_facts().get("modular_chassis") \
-        else POST_CHECK_THRESHOLD_SECS
+    post_check_threshold = POST_CHECK_THRESHOLD_SECS
+    if duthost.get_facts().get("modular_chassis"):
+        post_check_threshold = POST_CHECK_THRESHOLD_SECS_T2
+    if duthost.sonichost.facts['platform'] == 'x86_64-nokia_ixr7220_h6_128-r0':
+        post_check_threshold = POST_CHECK_THRESHOLD_SECS_TH6_128
 
     critical_proceses = wait_until(
         post_check_threshold, POST_CHECK_INTERVAL_SECS, 0,
@@ -587,10 +673,12 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
             ] is False and len(v["exited_critical_process"]) > 0
         ]
 
-        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
-        # after config reload, the feature autorestart config is reset,
-        # so, before next test, enable again
-        enable_autorestart(duthost)
+        try:
+            config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+        finally:
+            # After config reload, the feature autorestart config is reset.
+            # Re-enable it even if reload raises, so the next parameter is not affected.
+            enable_autorestart(duthost)
 
         if (duthost.get_facts().get("modular_chassis") and
                 duthost.facts["asic_type"] == "cisco-8000" and
@@ -628,4 +716,203 @@ def test_containers_autorestart(duthosts, enum_rand_one_per_hwsku_hostname, enum
     asic = duthost.asic_instance(enum_rand_one_asic_index)
     service_name = asic.get_service_name(enum_dut_feature)
     container_name = asic.get_docker_name(enum_dut_feature)
-    run_test_on_single_container(duthost, container_name, service_name, tbinfo)
+    try:
+        with single_container_timeout(container_name):
+            run_test_on_single_container(duthost, container_name, service_name, tbinfo)
+    except ContainerAutorestartTimeout as timeout_err:
+        # Recover the DUT before failing so the remaining per-container cases in this
+        # module are not poisoned by a half-restarted container, then surface the hang
+        # as a normal failure (with junit) instead of a phantom run. The recovery is
+        # itself bounded so it cannot hang the module either.
+        logger.error(str(timeout_err))
+        try:
+            with single_container_timeout(container_name, timeout_secs=RECOVERY_RELOAD_TIMEOUT_SECS):
+                config_reload(duthost, safe_reload=True, wait_for_bgp=True)
+                enable_autorestart(duthost)
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except ContainerAutorestartTimeout as recovery_timeout_err:
+            # Recovery itself exceeded RECOVERY_RELOAD_TIMEOUT_SECS. ContainerAutorestartTimeout
+            # is a BaseException (so wait_until cannot swallow it) and is therefore not caught by
+            # the (Exception, OutcomeException) handler below; catch it explicitly here, log it,
+            # and still fail with the original hang reason rather than letting it propagate raw.
+            logger.error("Recovery after hang on container '%s' itself timed out: %s",
+                         container_name, recovery_timeout_err)
+        except (Exception, OutcomeException) as recovery_err:
+            # Recovery itself failed -- e.g. a config_reload assertion such as BGP-not-converged,
+            # which pytest raises as Failed (an OutcomeException, not a plain Exception). Log it
+            # with the traceback but still fail with the original hang reason so triage sees which
+            # container hung rather than a masked recovery error.
+            logger.exception("Recovery after hang on container '%s' failed: %s", container_name, recovery_err)
+        pytest.fail(str(timeout_err))
+
+
+@pytest.mark.disable_loganalyzer
+def test_supervisor_listener_syslog_reconnects(
+        duthosts, enum_rand_one_per_hwsku_hostname, enum_rand_one_asic_index, enum_dut_feature, tbinfo):
+    """
+    Verify that the supervisor-proc-exit-listener (Rust variant) correctly shuts down
+    a container after its critical process exits, even when syslog was disrupted
+    mid-run (rsyslogd was stopped and restarted while the listener was running).
+
+    Runs for all containers that have the Rust listener variant and a supervisord-managed
+    rsyslogd. Skips containers in the same skip list as test_containers_autorestart
+    (database, acms, otel, and disabled containers) plus any container without rsyslogd.
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    asic = duthost.asic_instance(enum_rand_one_asic_index)
+    container_name = asic.get_docker_name(enum_dut_feature)
+    feature_name = ''.join(re.match(CONTAINER_NAME_REGEX, container_name).groups()[:-1])
+
+    # Skip the same containers that test_containers_autorestart skips
+    disabled_containers = get_disabled_container_list(duthost)
+    skip_condition = disabled_containers[:]
+    skip_condition.extend(["database", "acms", "otel"])
+    if tbinfo["topo"]["type"] != "t0":
+        skip_condition.append("radv")
+    pytest_require(
+        feature_name not in skip_condition,
+        "Skipping test_supervisor_listener_syslog_reconnects for container '{}'".format(feature_name)
+    )
+
+    # Step 2: confirm Rust listener variant is in use
+    listener_cmd = duthost.shell(
+        "docker exec {} grep -A2 'eventlistener:supervisor-proc-exit-listener' "
+        "/etc/supervisor/conf.d/supervisord.conf | grep '^command='".format(container_name),
+        module_ignore_errors=True
+    )
+    pytest_require(
+        listener_cmd["rc"] == 0 and "-rs" in listener_cmd.get("stdout", ""),
+        "supervisor-proc-exit-listener is not the Rust variant in '{}'; skipping. "
+        "command={}".format(container_name, listener_cmd.get("stdout", "").strip())
+    )
+
+    # Skip if this container has no supervisord-managed rsyslogd (e.g. sflow, telemetry)
+    rsyslogd_check_pre = duthost.command(
+        "docker exec {} supervisorctl status rsyslogd".format(container_name),
+        module_ignore_errors=True
+    )
+    pytest_require(
+        "rsyslogd" in rsyslogd_check_pre.get("stdout", ""),
+        "No supervisord-managed rsyslogd in '{}'; skipping.".format(container_name)
+    )
+
+    # Step 3: baseline — listener must be RUNNING
+    listener_status, listener_pid = get_program_info(duthost, container_name, "supervisor-proc-exit-listener")
+    pytest_assert(
+        listener_status == "RUNNING",
+        "Baseline: supervisor-proc-exit-listener status='{}' (expected RUNNING) in '{}'"
+        .format(listener_status, container_name)
+    )
+    rsyslogd_check = duthost.command(
+        "docker exec {} supervisorctl status rsyslogd".format(container_name)
+    )
+    pytest_assert(
+        "RUNNING" in rsyslogd_check.get("stdout", ""),
+        "Baseline: rsyslogd not RUNNING in '{}': {}".format(container_name, rsyslogd_check.get("stdout"))
+    )
+    logger.info("Baseline: listener RUNNING pid={}, rsyslogd RUNNING in '{}'".format(
+        listener_pid, container_name))
+
+    # Step 4: get the first critical process for this container and wait for it to be RUNNING
+    critical_group_list, critical_process_list, succeeded = duthost.get_critical_group_and_process_lists(container_name)
+    pytest_require(succeeded and (critical_process_list or critical_group_list),
+                   "No critical processes found in '{}'; skipping.".format(container_name))
+    # Pick the first available critical process (same convention as test_containers_autorestart)
+    if critical_process_list:
+        critical_process = critical_process_list[0]
+    else:
+        group_info = get_group_program_info(duthost, container_name, critical_group_list[0])
+        critical_process = next(iter(group_info))
+    logger.info("Using critical process '{}' in '{}'".format(critical_process, container_name))
+    pytest_require(
+        wait_until(40, 3, 0, is_process_running, duthost, container_name, critical_process),
+        "'{}' process not RUNNING in '{}' within 40s (status='{}'); skipping.".format(
+            critical_process, container_name, PROGRAM_STATUS)
+    )
+    _, critical_pid = get_program_info(duthost, container_name, critical_process)
+    logger.info("'{}' process RUNNING with pid={} in '{}'".format(critical_process, critical_pid, container_name))
+
+    # Step 5: stop rsyslogd to remove /dev/log
+    logger.info("Stopping rsyslogd in '{}' to remove /dev/log".format(container_name))
+    duthost.command("docker exec {} supervisorctl stop rsyslogd".format(container_name))
+    time.sleep(2)
+    devlog_check = duthost.command(
+        "docker exec {} ls /dev/log".format(container_name),
+        module_ignore_errors=True
+    )
+    pytest_assert(
+        devlog_check["rc"] != 0,
+        "/dev/log still exists after stopping rsyslogd in '{}': {}".format(
+            container_name, devlog_check.get("stderr", devlog_check.get("stdout", "")))
+    )
+    logger.info("/dev/log confirmed absent after rsyslogd stop")
+
+    # Step 6: listener must still be RUNNING with the same PID
+    time.sleep(2)
+    status_mid, pid_mid = get_program_info(duthost, container_name, "supervisor-proc-exit-listener")
+    pytest_assert(
+        status_mid == "RUNNING",
+        "Listener is not RUNNING while /dev/log is absent in '{}': "
+        "status='{}', pid={}".format(container_name, status_mid, pid_mid)
+    )
+    logger.info("PASS: listener stayed RUNNING while /dev/log was absent (pid={})".format(pid_mid))
+
+    # Step 7: restart rsyslogd to restore /dev/log
+    logger.info("Restarting rsyslogd to restore /dev/log")
+    duthost.command("docker exec {} supervisorctl start rsyslogd".format(container_name))
+    time.sleep(3)
+    devlog_back = duthost.command("docker exec {} ls /dev/log".format(container_name),
+                                  module_ignore_errors=True)
+    pytest_assert(
+        "No such file" not in devlog_back.get("stdout", "") and devlog_back.get("rc", 1) == 0,
+        "/dev/log did not reappear after rsyslogd restart in '{}': {}".format(
+            container_name, devlog_back["stdout"])
+    )
+    logger.info("/dev/log restored: {}".format(devlog_back["stdout"].strip()))
+
+    # Re-read pid in case supervisord restarted the process while rsyslogd was stopped.
+    _, current_critical_pid = get_program_info(duthost, container_name, critical_process)
+    pytest_assert(
+        current_critical_pid and current_critical_pid != -1,
+        "'{}' has no PID before kill in '{}'".format(critical_process, container_name)
+    )
+
+    # Step 8: kill critical process; the listener must call terminate_supervisor().
+    # autorestart is guaranteed enabled for all features by the config_reload_after_tests fixture.
+    logger.info("Killing '{}' (pid={}) in '{}' to verify listener triggers supervisor termination"
+                .format(critical_process, current_critical_pid, container_name))
+    duthost.command(
+        "docker exec {} kill -SIGKILL {}".format(container_name, current_critical_pid),
+        module_ignore_errors=True
+    )
+
+    # Step 9: assert container stops
+    logger.info("Waiting up to {}s for '{}' to stop".format(CONTAINER_STOP_THRESHOLD_SECS, container_name))
+    stopped = wait_until(
+        CONTAINER_STOP_THRESHOLD_SECS, CONTAINER_CHECK_INTERVAL_SECS, 0,
+        check_container_state, duthost, container_name, False
+    )
+    pytest_assert(
+        stopped,
+        "'{}' did not stop within {}s after '{}' was killed — "
+        "listener may not have called terminate_supervisor()".format(
+            container_name, CONTAINER_STOP_THRESHOLD_SECS, critical_process)
+    )
+    logger.info("PASS: '{}' stopped after '{}' kill".format(container_name, critical_process))
+
+    # Step 10: assert container restarts
+    logger.info("Waiting up to {}s for '{}' to restart".format(CONTAINER_RESTART_THRESHOLD_SECS, container_name))
+    restarted = wait_until(
+        CONTAINER_RESTART_THRESHOLD_SECS, CONTAINER_CHECK_INTERVAL_SECS, 0,
+        check_container_state, duthost, container_name, True
+    )
+    if not restarted:
+        service_name = asic.get_service_name(enum_dut_feature)
+        if is_hiting_start_limit(duthost, service_name):
+            clear_failed_flag_and_restart(duthost, service_name, container_name)
+        else:
+            pytest.fail("'{}' did not restart within {}s".format(
+                container_name, CONTAINER_RESTART_THRESHOLD_SECS))
+    logger.info("PASS: '{}' restarted cleanly — listener correctly called terminate_supervisor() "
+                "after rsyslogd restart mid-run".format(container_name))

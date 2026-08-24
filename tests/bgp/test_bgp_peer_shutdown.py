@@ -13,11 +13,11 @@ from tests.bgp.bgp_helpers import capture_bgp_packages_to_file, fetch_and_delete
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.bgp import BGPNeighbor
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
-from tests.common.utilities import wait_until, delete_running_config
+from tests.common.utilities import wait_until
 from tests.common.utilities import is_ipv6_only_topology
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1', 't2', 'lrh', 'urh', 'm1', 'lt2', 'ft2', 'c0'),
+    pytest.mark.topology('t0', 't1', 't2', 'lrh', 'urh', 'm1', 'lt2', 'ft2', 'c0', 'lma', 'uma'),
 ]
 
 TEST_ITERATIONS = 5
@@ -59,10 +59,31 @@ def common_setup_teardown(
 
     if dut_type in ["ToRRouter", "SpineRouter", "BackEndToRRouter", "LowerSpineRouter"]:
         neigh_type = "LeafRouter"
+    elif dut_type == "UpperSpineRouter" and confed_asn is not None:
+        # On confederation-based UT2 topologies the UpperSpineRouter peers with
+        # AZNGHub neighbors using the confederation ASN, not the per-DUT ASN.
+        neigh_type = "AZNGHub"
+        dut_asn = int(confed_asn)
     elif dut_type in ["UpperSpineRouter", "FabricSpineRouter"]:
         neigh_type = "LowerSpineRouter"
         if dut_type == "FabricSpineRouter" and confed_asn is not None:
             # For FT2, we need to use vtysh to configure BGP neigh if BGP confed is enabled
+            use_vtysh = True
+    elif dut_type in ["LowerRegionalHub"]:
+        neigh_type = "SpineRouter"  # or "UpperSpineRouter"
+        if confed_asn is not None:
+            use_vtysh = True
+    elif dut_type in ["UpperRegionalHub"]:
+        neigh_type = "LowerRegionalHub"
+        if confed_asn is not None:
+            use_vtysh = True
+    elif dut_type in ["LowerMgmtAggregator"]:
+        neigh_type = "MgmtSpineRouter"
+        if confed_asn is not None:
+            use_vtysh = True
+    elif dut_type in ["UpperMgmtAggregator"]:
+        neigh_type = "LowerMgmtAggregator"
+        if confed_asn is not None:
             use_vtysh = True
     else:
         neigh_type = "ToRRouter"
@@ -98,12 +119,6 @@ def common_setup_teardown(
 
     yield bgp_neighbor, use_vtysh
 
-    # Cleanup suppress-fib-pending config
-    delete_tacacs_json = [
-        {"DEVICE_METADATA": {"localhost": {"suppress-fib-pending": "disabled"}}}
-    ]
-    delete_running_config(delete_tacacs_json, duthost)
-
 
 @pytest.fixture
 def constants(is_quagga, setup_interfaces, pytestconfig):
@@ -130,11 +145,16 @@ def constants(is_quagga, setup_interfaces, pytestconfig):
     return _constants
 
 
+def _get_bgp_neighbors(duthost, neighbor):
+    """Return bgp_neighbors dict for the ASIC where the pseudo-neighbor session lives."""
+    asichost = duthost.asic_instance_from_namespace(neighbor.namespace)
+    return asichost.bgp_facts()['ansible_facts']['bgp_neighbors']
+
+
 def is_neighbor_session_established(duthost, neighbor):
-    # handle both multi-asic and single-asic
-    bgp_facts = duthost.bgp_facts(num_npus=duthost.sonichost.num_asics())["ansible_facts"]
-    return (neighbor.ip in bgp_facts["bgp_neighbors"]
-            and bgp_facts["bgp_neighbors"][neighbor.ip]["state"] == "established")
+    bgp_neighbors = _get_bgp_neighbors(duthost, neighbor)
+    return (neighbor.ip in bgp_neighbors
+            and bgp_neighbors[neighbor.ip]["state"] == "established")
 
 
 def bgp_notification_packets(pcap_file, is_v6_topo):
@@ -173,11 +193,15 @@ def match_bgp_notification(packet, src_ip, dst_ip, action, bgp_session_down_time
 
 
 def is_neighbor_session_down(duthost, neighbor):
-    # handle both multi-asic and single-asic
-    bgp_neighbors = duthost.bgp_facts(num_npus=duthost.sonichost.num_asics())["ansible_facts"]["bgp_neighbors"]
-    return (neighbor.ip in bgp_neighbors and
-            bgp_neighbors[neighbor.ip]["admin"] == "down" and
-            bgp_neighbors[neighbor.ip]["state"] == "idle")
+    bgp_neighbors = _get_bgp_neighbors(duthost, neighbor)
+    return (neighbor.ip in bgp_neighbors
+            and bgp_neighbors[neighbor.ip]["admin"] == "down"
+            and bgp_neighbors[neighbor.ip]["state"] == "idle")
+
+
+def _flush_route(duthost, neighbor, prefix):
+    asichost = duthost.asic_instance_from_namespace(neighbor.namespace)
+    asichost.shell("{} route flush {}".format(asichost.ip_cmd, prefix), module_ignore_errors=True)
 
 
 def get_bgp_down_timestamp(duthost, namespace, peer_ip, timestamp_before_teardown):
@@ -253,6 +277,8 @@ def test_bgp_peer_shutdown(
 
             local_pcap_filename = fetch_and_delete_pcap_file(bgp_pcap, constants.log_dir, duthost, request)
             bpg_notifications = bgp_notification_packets(local_pcap_filename, is_v6_topo)
+            if not bpg_notifications:
+                pytest.fail("No BGP notification packets captured after session teardown")
             for bgp_packet in bpg_notifications:
                 logging.debug(
                     "bgp notification packet, capture time %s, packet details:\n%s",
@@ -274,4 +300,4 @@ def test_bgp_peer_shutdown(
                 pytest.fail("route %s still exists in DUT after BGP shutdown" % announced_route["prefix"])
         finally:
             n0.stop_session()
-            duthost.shell("ip route flush %s" % announced_route["prefix"])
+            _flush_route(duthost, n0, announced_route["prefix"])

@@ -72,17 +72,14 @@ def test_console_loopback_echo(setup_c0, creds, conn_graph_facts, baud_rate, flo
         console_fanout.command("config console flow_control {} {}".format(flow_control, target_line))
         console_fanout.set_loopback(target_line, baud_rate, flow_control_bool)
         delay_factor = 3.2
-        if duthost.facts['platform'] in ['arm64-nokia_ixs7215_c1xa-r0']:
-            delay_factor *= 10.0
-    if duthost.facts['platform'].startswith('arm64-c8220tg_48a'):
-        delay_factor *= 4.0
 
     dutip, dutuser, dutpass = get_host_ip_and_creds(duthost, creds)
 
     packet_size = 64
 
     # Estimate a reasonable data transfer time based on configured baud rate
-    timeout_sec = (packet_size * 10) * delay_factor / int(baud_rate)
+    overhead_seconds = 0.1
+    timeout_sec = overhead_seconds + (packet_size * 10) * delay_factor / int(baud_rate)
     ressh_user = "{}:{}".format(dutuser, target_line)
 
     client = None

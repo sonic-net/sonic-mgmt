@@ -46,7 +46,7 @@ EOF
 
 @pytest.fixture(scope="module")
 def ospf_Bfd_setup(duthosts, rand_one_dut_hostname, nbrhosts, trap_copp_ospf, request):
-    if request.config.getoption("neighbor_type") != "sonic":
+    if request.config.getoption("neighbor_type") not in ("sonic", "csonic"):
         pytest.skip("Neighbor type must be sonic")
 
     duthost = duthosts[rand_one_dut_hostname]
@@ -129,7 +129,7 @@ def get_ospf_neighbor_interface(host):
 def ospf_setup(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo, request):
 
     # verify neighbors are type sonic
-    if request.config.getoption("neighbor_type") != "sonic":
+    if request.config.getoption("neighbor_type") not in ("sonic", "csonic"):
         pytest.skip("Neighbor type must be sonic")
 
     duthost = duthosts[rand_one_dut_hostname]
