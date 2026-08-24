@@ -1,8 +1,13 @@
 """
     Pytest configuration used by the upgrade_strategy_fixture
 """
+import logging
+
 import pytest
 from upgrade_strategies import create_upgrade_strategy
+from utilities import HOST_METADATA_ARCHIVE, HOST_UPGRADE_SCRIPTS_ARCHIVE
+
+logger = logging.getLogger(__name__)
 
 
 def pytest_addoption(parser):
@@ -39,3 +44,26 @@ def upgrade_strategy_fixture(request, ptfhost):
         return create_upgrade_strategy('gnoi', ptf_gnoi)
     else:
         raise ValueError(f"Unknown upgrade strategy '{strategy_type}'. Valid options: script, gnoi")
+
+
+@pytest.fixture(scope="module", autouse=True)
+def cleanup_staged_script_archives(request):
+    """Remove staged script archives after each metadata test module."""
+    if request.config.getoption("metadata_process"):
+        duthosts = request.getfixturevalue("duthosts")
+    else:
+        duthosts = []
+
+    yield
+
+    for duthost in duthosts:
+        for archive in (HOST_METADATA_ARCHIVE, HOST_UPGRADE_SCRIPTS_ARCHIVE):
+            try:
+                duthost.file(path=archive, state="absent", module_ignore_errors=True)
+            except Exception as exc:
+                logger.warning(
+                    "Failed to remove %s from %s: %s",
+                    archive,
+                    duthost.hostname,
+                    exc,
+                )

@@ -15,6 +15,13 @@ logger = logging.getLogger(__name__)
 # Thread lock to prevent concurrent archive creation
 _archive_lock = threading.Lock()
 
+HOST_ARCHIVE_DIR = "/host"
+METADATA_ARCHIVE = "metadata.tar.gz"
+UPGRADE_SCRIPTS_ARCHIVE = "upgrade-scripts.tar.gz"
+HOST_METADATA_ARCHIVE = os.path.join(HOST_ARCHIVE_DIR, METADATA_ARCHIVE)
+HOST_UPGRADE_SCRIPTS_ARCHIVE = os.path.join(
+    HOST_ARCHIVE_DIR, UPGRADE_SCRIPTS_ARCHIVE)
+
 
 def fix_forced_mgmt_routes_config(duthost):
     """
@@ -147,18 +154,31 @@ def cleanup_prev_images(duthost):
 def sonic_update_firmware(duthost, localhost, image_url, upgrade_type, upgrade_strategy):
     base_path = os.path.dirname(__file__)
     metadata_scripts_path = os.path.join(base_path, "../../../sonic-metadata/scripts")
+    upgrade_scripts_path = os.path.join(base_path, "../../../sonic-upgrade-scripts/sonic-upgrade-scripts")
+
     pytest_assert(os.path.exists(metadata_scripts_path),
                   "SONiC Metadata scripts not found in {}".format(metadata_scripts_path))
+    pytest_assert(os.path.exists(upgrade_scripts_path),
+                  "SONiC upgrade scripts not found in {}".format(upgrade_scripts_path))
 
     cleanup_prev_images(duthost)
     logger.info("Step 1 Copy the scripts to the DUT")
+    duthost.file(path=HOST_METADATA_ARCHIVE, state="absent")
+    duthost.file(path=HOST_UPGRADE_SCRIPTS_ARCHIVE, state="absent")
     duthost.file(path="/tmp/anpscripts", state="absent")
     duthost.file(path="/tmp/anpscripts", state="directory")
+
+    # Preserve the production flow by staging sonic-metadata across the reboot.
+    # Stage sonic-upgrade-scripts separately so each post-upgrade action uses
+    # the repository that owns it.
     # Thread-safe: create archive and copy before another thread can overwrite it
     with _archive_lock:
-        localhost.archive(path=metadata_scripts_path + "/", dest="metadata.tar.gz", exclusion_patterns=[".git"])
-        duthost.copy(src="metadata.tar.gz", dest="/host/metadata.tar.gz")
-    duthost.unarchive(src="/host/metadata.tar.gz", dest="/tmp/anpscripts/", remote_src="yes")
+        localhost.archive(path=metadata_scripts_path + "/", dest=METADATA_ARCHIVE, exclusion_patterns=[".git"])
+        duthost.copy(src=METADATA_ARCHIVE, dest=HOST_METADATA_ARCHIVE)
+        localhost.archive(path=upgrade_scripts_path + "/", dest=UPGRADE_SCRIPTS_ARCHIVE, exclusion_patterns=[".git"])
+        duthost.copy(src=UPGRADE_SCRIPTS_ARCHIVE, dest=HOST_UPGRADE_SCRIPTS_ARCHIVE)
+
+    duthost.unarchive(src=HOST_METADATA_ARCHIVE, dest="/tmp/anpscripts/", remote_src="yes")
 
     logger.info("perform a purge based on manifest.json to make sure it is correct")
     duthost.command("python /tmp/anpscripts/tests/purge.py")

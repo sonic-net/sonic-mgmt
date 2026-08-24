@@ -8,6 +8,29 @@ logger = logging.getLogger(__name__)
 # Thread lock to prevent concurrent archive creation
 _archive_lock = threading.Lock()
 
+HOST_ARCHIVE_DIR = "/host"
+METADATA_ARCHIVE = "metadata.tar.gz"
+UPGRADE_SCRIPTS_ARCHIVE = "upgrade-scripts.tar.gz"
+HOST_METADATA_ARCHIVE = os.path.join(HOST_ARCHIVE_DIR, METADATA_ARCHIVE)
+HOST_UPGRADE_SCRIPTS_ARCHIVE = os.path.join(
+    HOST_ARCHIVE_DIR, UPGRADE_SCRIPTS_ARCHIVE)
+
+
+def _extract_script_archive(duthost, localhost, host_archive, source_path):
+    """Extract a staged archive, or create a fresh one from the checkout."""
+    archive_stat = duthost.stat(path=host_archive)
+    if archive_stat["stat"]["exists"]:
+        duthost.unarchive(src=host_archive, dest="/tmp/anpscripts/", remote_src="yes")
+        duthost.file(path=host_archive, state="absent")
+        return
+
+    # The fallback archive is local to the test controller, so remote_src must
+    # remain unset when Ansible transfers and extracts it.
+    with _archive_lock:
+        fallback_archive = os.path.basename(host_archive)
+        localhost.archive(path=source_path + "/", dest=fallback_archive, exclusion_patterns=[".git"])
+        duthost.unarchive(src=fallback_archive, dest="/tmp/anpscripts/")
+
 
 def _failed_due_to_isc_dhcp_relay_fix_server_inaccessible(result) -> bool:
     """
@@ -26,13 +49,15 @@ def _failed_due_to_isc_dhcp_relay_fix_server_inaccessible(result) -> bool:
 def run_postupgrade_actions(duthost, localhost, tbinfo, metadata_process, skip_postupgrade_actions,
                             check_failed=True, check_stderr=True):
     if not metadata_process:
+        duthost.file(path=HOST_UPGRADE_SCRIPTS_ARCHIVE, state="absent")
         return
     if skip_postupgrade_actions:
         logger.info("Skipping postupgrade_actions")
+        duthost.file(path=HOST_UPGRADE_SCRIPTS_ARCHIVE, state="absent")
         return
     base_path = os.path.dirname(__file__)
     if "sonic-mgmt-int" in base_path:
-        metadata_scripts_path = os.path.join(base_path, "../../../sonic-upgrade-scripts/sonic-upgrade-scripts")
+        upgrade_scripts_path = os.path.join(base_path, "../../../sonic-upgrade-scripts/sonic-upgrade-scripts")
         postupgrade_actions_data_dir_path = os.path.join(
             base_path,
             "../../../sonic-upgrade-scripts/sonic-upgrade-scripts/postupgrade_actions_data")
@@ -40,15 +65,15 @@ def run_postupgrade_actions(duthost, localhost, tbinfo, metadata_process, skip_p
             base_path,
             "../../../sonic-upgrade-scripts/sonic-upgrade-scripts/postupgrade_actions")
     else:
-        metadata_scripts_path = os.path.join(base_path, "../../sonic-upgrade-scripts/sonic-upgrade-scripts")
+        upgrade_scripts_path = os.path.join(base_path, "../../sonic-upgrade-scripts/sonic-upgrade-scripts")
         postupgrade_actions_data_dir_path = os.path.join(
             base_path,
             "../../sonic-upgrade-scripts/sonic-upgrade-scripts/postupgrade_actions_data")
         postupgrade_actions_path = os.path.join(
             base_path,
             "../../sonic-upgrade-scripts/sonic-upgrade-scripts/postupgrade_actions")
-    pytest_assert(os.path.exists(metadata_scripts_path), "SONiC upgrade scripts not found in {}"
-                  .format(metadata_scripts_path))
+    pytest_assert(os.path.exists(upgrade_scripts_path), "SONiC upgrade scripts not found in {}"
+                  .format(upgrade_scripts_path))
     pytest_assert(os.path.exists(postupgrade_actions_path), "SONiC upgrade postupgrade_action script not found in {}"
                   .format(postupgrade_actions_path))
     pytest_assert(os.path.exists(postupgrade_actions_data_dir_path),
@@ -58,15 +83,11 @@ def run_postupgrade_actions(duthost, localhost, tbinfo, metadata_process, skip_p
     logger.info("Step 1 Copy the scripts and data directory to the DUT")
     duthost.file(path="/tmp/anpscripts", state="absent")
     duthost.file(path="/tmp/anpscripts", state="directory")
-    metadata_tar_stat = duthost.stat(path="/host/metadata.tar.gz")
-    if metadata_tar_stat["stat"]["exists"]:
-        duthost.unarchive(src="/host/metadata.tar.gz", dest="/tmp/anpscripts/", remote_src="yes")
-        duthost.file(path="/host/metadata.tar.gz", state="absent")
-    else:
-        # Thread-safe: create archive and transfer before another thread can overwrite it
-        with _archive_lock:
-            localhost.archive(path=metadata_scripts_path + "/", dest="metadata.tar.gz", exclusion_patterns=[".git"])
-            duthost.unarchive(src="metadata.tar.gz", dest="/tmp/anpscripts/")
+    _extract_script_archive(
+        duthost,
+        localhost,
+        host_archive=HOST_UPGRADE_SCRIPTS_ARCHIVE,
+        source_path=upgrade_scripts_path)
 
     duthost.command("chmod +x /tmp/anpscripts/postupgrade_actions")
     result = duthost.command("/usr/bin/sudo /tmp/anpscripts/postupgrade_actions", module_ignore_errors=True)
@@ -103,6 +124,7 @@ def run_bgp_neighbor(duthost, localhost, tbinfo, metadata_process, skip_bgp_neig
 
     if not metadata_process or skip_bgp_neighbor:
         logger.info("Skipping bgp_neighbor")
+        duthost.file(path=HOST_METADATA_ARCHIVE, state="absent")
         duthost.shell("config bgp startup all")
         return
     base_path = os.path.dirname(__file__)
@@ -120,15 +142,11 @@ def run_bgp_neighbor(duthost, localhost, tbinfo, metadata_process, skip_bgp_neig
     logger.info("Step 1 Copy the script into DUT")
     duthost.file(path="/tmp/anpscripts", state="absent")
     duthost.file(path="/tmp/anpscripts", state="directory")
-    metadata_tar_stat = duthost.stat(path="/host/metadata.tar.gz")
-    if metadata_tar_stat["stat"]["exists"]:
-        duthost.unarchive(src="/host/metadata.tar.gz", dest="/tmp/anpscripts/", remote_src="yes")
-        duthost.file(path="/host/metadata.tar.gz", state="absent")
-    else:
-        # Thread-safe: create archive and transfer before another thread can overwrite it
-        with _archive_lock:
-            localhost.archive(path=metadata_scripts_path + "/", dest="metadata.tar.gz", exclusion_patterns=[".git"])
-            duthost.unarchive(src="metadata.tar.gz", dest="/tmp/anpscripts/")
+    _extract_script_archive(
+        duthost,
+        localhost,
+        host_archive=HOST_METADATA_ARCHIVE,
+        source_path=metadata_scripts_path)
 
     duthost.command("chmod +x /tmp/anpscripts/bgp_neighbor")
     result = duthost.command("/usr/bin/sudo /tmp/anpscripts/bgp_neighbor startup 0.0.0.0", module_ignore_errors=True)
