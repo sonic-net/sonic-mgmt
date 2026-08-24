@@ -499,6 +499,19 @@ def setup_acl_rules(duthost, inner_src_ip, vni, new_src_mac):
     logger.info("ACL rule STATE_DB verification completed")
 
 
+def count_active_acl_rules(duthost):
+    """
+    Return the number of rules reported as Active for the test ACL table, or -1 if the CLI fails.
+    """
+    result = duthost.shell("show acl rule", module_ignore_errors=True)
+    if result["rc"] != 0:
+        logger.warning("'show acl rule' failed while polling rule status: %s", result.get("stderr", ""))
+        return -1
+
+    rule_lines = [line for line in result["stdout"].splitlines() if ACL_TABLE_NAME in line]
+    return len([line for line in rule_lines if "Active" in line])
+
+
 def setup_bulk_acl_rules(duthost, rule_count, vni=str(VXLAN_VNI), start_index=0):
     """
     Setup ALL ACL rules at once using single JSON operation - maximum performance.
@@ -562,9 +575,18 @@ def setup_bulk_acl_rules(duthost, rule_count, vni=str(VXLAN_VNI), start_index=0)
         rate = rule_count / total_time
         logger.info(f"SUCCESS: {rule_count} ACL rules applied in {total_time:.2f}s ({rate:.0f} rules/sec)")
 
-    # Minimal wait for database consistency (less time needed for single operations)
-    logger.info("Waiting for database consistency...")
-    time.sleep(15 + rule_count // 30)  # Wait longer for larger rule counts
+    # Programming time on the DUT grows with the rule count, so poll instead of sleeping a fixed time
+    active_timeout = 60 + rule_count // 10
+    logger.info(f"Waiting up to {active_timeout}s for all {rule_count} ACL rules to become Active...")
+
+    def _all_rules_active(duthost, expected_count):
+        active_count = count_active_acl_rules(duthost)
+        logger.info(f"ACL rules Active: {active_count}/{expected_count}")
+        return active_count == expected_count
+
+    if not wait_until(active_timeout, 10, 0, _all_rules_active, duthost, rule_count):
+        pytest.fail(f"Only {count_active_acl_rules(duthost)} of {rule_count} ACL rules became Active "
+                    f"within {active_timeout} seconds")
 
     # Verify rules are installed
     logger.info("Verifying ALL rules installation...")
@@ -1074,61 +1096,9 @@ def test_scale_acl_rule(setUp, request):
         logger.info(f"Average time per rule: {(setup_time/scale_rule_count)*1000:.2f} ms")
 
         # ===================================================================
-        # STEP 3: Verify rule status and behavior with same priority
+        # STEP 3: Packet testing with same-priority rules
         # ===================================================================
-        logger.info("STEP 3: Verifying rule status and behavior with SAME PRIORITY")
-        logger.info(f"All {scale_rule_count} rules programmed with priority 1000 - observing system behavior")
-
-        # Check rule status distribution
-        logger.info("Checking rule status distribution...")
-        show_acl_result = duthost.shell("show acl rule", module_ignore_errors=True)
-        if show_acl_result["rc"] == 0:
-            output = show_acl_result["stdout"]
-            total_rules = output.count(ACL_TABLE_NAME)
-            active_count = output.count("Active")
-            inactive_count = output.count("Inactive")
-
-            logger.info("=== SAME PRIORITY BEHAVIOR ANALYSIS ===")
-            logger.info(f"Total rules found: {total_rules}")
-            logger.info(f"Active rules: {active_count}")
-            logger.info(f"Inactive rules: {inactive_count}")
-            logger.info(f"Active percentage: {(active_count/total_rules*100):.1f}%")
-
-            if inactive_count > 0:
-                logger.info(f"OBSERVATION: {inactive_count} rules are INACTIVE with same priority")
-                logger.info("This indicates hardware/software priority conflict behavior")
-
-                # Sample some inactive rules for analysis
-                lines = output.split('\n')
-                inactive_samples = []
-                for line in lines:
-                    if ACL_TABLE_NAME in line and "Inactive" in line:
-                        inactive_samples.append(line.strip())
-                        if len(inactive_samples) >= 5:  # Sample first 5 inactive rules
-                            break
-
-                logger.info("Sample inactive rules:")
-                for sample in inactive_samples:
-                    logger.info(f"  {sample}")
-            else:
-                logger.info("OBSERVATION: All rules are ACTIVE despite same priority")
-                logger.info("System handles same priority gracefully")
-
-            # Show sample of first few rules for analysis
-            logger.info("\nFirst 10 rules status sample:")
-            rule_lines = [line for line in output.split('\n') if ACL_TABLE_NAME in line]
-            for i, rule_line in enumerate(rule_lines[:10]):
-                logger.info(f"  Rule {i+1}: {rule_line.strip()}")
-
-        else:
-            logger.warning(f"Failed to get 'show acl rule' output: {show_acl_result}")
-
-        logger.info("=== SAME PRIORITY ANALYSIS COMPLETED ===")
-
-        # ===================================================================
-        # STEP 4: Packet testing with same-priority rules
-        # ===================================================================
-        logger.info("STEP 4: Testing packet forwarding with same-priority ACL rules")
+        logger.info("STEP 3: Testing packet forwarding with same-priority ACL rules")
 
         # Test a reasonable subset of rules - focus on early rules (most likely to be active)
         test_rule_count = scale_rule_count
@@ -1226,9 +1196,9 @@ def test_scale_acl_rule(setUp, request):
                         f"Verify that rules are properly active and packets are being matched.")
 
         # ===================================================================
-        # STEP 5: Verify system performance and stability
+        # STEP 4: Verify system performance and stability
         # ===================================================================
-        logger.info("STEP 5: Verifying system performance and stability")
+        logger.info("STEP 4: Verifying system performance and stability")
 
         # Check that ACL table is still functional
         logger.info("Verifying ACL table status")
