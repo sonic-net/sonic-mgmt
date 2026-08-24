@@ -230,6 +230,12 @@ def get_bgp_down_timestamp(duthost, namespace, peer_ip, timestamp_before_teardow
     return timestamp_in_sec
 
 
+def is_neighbor_removed(duthost, neighbor):
+    """Return True once the peer no longer shows up in bgp_facts (FRR has finished clearing it)."""
+    bgp_neighbors = _get_bgp_neighbors(duthost, neighbor)
+    return neighbor.ip not in bgp_neighbors
+
+
 def test_bgp_peer_shutdown(
     common_setup_teardown,
     constants,
@@ -301,3 +307,10 @@ def test_bgp_peer_shutdown(
         finally:
             n0.stop_session()
             _flush_route(duthost, n0, announced_route["prefix"])
+            # Ensure FRR has fully cleared the old peer before the next
+            # iteration recreates it, to avoid a recreate-during-clearing
+            # race that can delay re-establishment past WAIT_TIMEOUT.
+            if not wait_until(30, 2, 0, is_neighbor_removed, duthost, n0):
+                logging.warning(
+                    "BGP neighbor %s still present after stop_session, "
+                    "next start_session may be delayed", n0.ip)
