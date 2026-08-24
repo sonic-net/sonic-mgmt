@@ -792,8 +792,8 @@ def test_supervisor_listener_syslog_reconnects(
     )
 
     # Skip if this container has no supervisord-managed rsyslogd (e.g. sflow, telemetry)
-    rsyslogd_check_pre = duthost.shell(
-        "docker exec {} supervisorctl status rsyslogd 2>/dev/null; true".format(container_name),
+    rsyslogd_check_pre = duthost.command(
+        "docker exec {} supervisorctl status rsyslogd".format(container_name),
         module_ignore_errors=True
     )
     pytest_require(
