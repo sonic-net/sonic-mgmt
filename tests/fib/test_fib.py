@@ -852,8 +852,8 @@ def test_ecmp_group_member_flap(
         test_balancing = True
 
     convergence_wait = 60
-    if asic_type == "vpp" and tbinfo['topo']['type'] == "t0":
-        # On t0, VPP is slower to drop the flapped port's nexthop from the ECMP group.
+    if asic_type == "vpp":
+        # VPP can be slower to drop the flapped port's nexthop from the ECMP group.
         convergence_wait = 120
 
     # --- Load initial FIB files ---
