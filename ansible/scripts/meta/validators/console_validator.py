@@ -46,6 +46,9 @@ class ConsoleValidator(GlobalValidator):
             context: ValidatorContext containing testbed and connection graph data
         """
 
+        testbed_info = context.get_testbeds()
+        self._bmc_host_pairs = self._build_bmc_host_pairs(testbed_info)
+
         # Collect console connection data from all groups
         console_data = self._collect_console_data_globally(context)
         if not console_data:
@@ -196,6 +199,14 @@ class ConsoleValidator(GlobalValidator):
                 if port_key in console_port_usage:
                     # Console port conflict detected
                     existing_device = console_port_usage[port_key]
+                    if existing_device == device_name:
+                        continue  # Same device, no conflict
+
+                    # A BMC device and its host can share the same console port,
+                    # so this conflict should be ignored.
+                    if self._is_bmc_host_pair(device_name, existing_device):
+                        continue
+
                     # console_port_conflict: Console port is used by multiple devices
                     self.result.add_issue(
                         'E3005',
@@ -304,3 +315,34 @@ class ConsoleValidator(GlobalValidator):
                     'E3011',
                     {"device": device_name, "console_type": console_type},
                 )
+
+    @staticmethod
+    def _build_bmc_host_pairs(testbed_info):
+        """
+        Build pairs of (bmc_dut, host) from testbed.yaml bmc_host field.
+
+        Returns:
+            list[set]: List of device name sets where each set contains
+                a BMC DUT and its host that share the same chassis.
+        """
+        pairs = []
+        for tb in testbed_info:
+            if not isinstance(tb, dict):
+                continue
+            bmc_host = tb.get('bmc_host')
+            duts = tb.get('duts') or tb.get('dut', [])
+            if isinstance(duts, str):
+                duts = [duts]
+            if not bmc_host or not duts:
+                continue
+            for dut in duts:
+                pairs.append({dut, bmc_host})
+        return pairs
+
+    def _is_bmc_host_pair(self, device1, device2):
+        """Check if two devices are a BMC and its host sharing the
+        same chassis, based on testbed.yaml bmc_host mapping."""
+        for pair in self._bmc_host_pairs:
+            if device1 in pair and device2 in pair:
+                return True
+        return False

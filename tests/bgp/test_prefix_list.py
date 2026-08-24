@@ -150,7 +150,7 @@ def check_route_receive(prefix, expected_community, unexpected_community, neighb
     output_json = node["host"].get_route(prefix)
     logger.info("Neighbor {} route info: {}".format(node["host"].hostname, output_json))
     hostname = node["host"].hostname
-    if neighbor_type == "sonic":
+    if neighbor_type in ("sonic", "csonic"):
         result = check_sonic_route_receive(present, output_json, expected_community, unexpected_community)
     elif neighbor_type == "eos":
         result = check_eos_route_receive(present, output_json, expected_community, unexpected_community, hostname,

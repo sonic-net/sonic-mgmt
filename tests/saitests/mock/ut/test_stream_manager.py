@@ -674,12 +674,12 @@ class TestDetermineTrafficDmac(unittest.TestCase):
 @pytest.mark.order(3790)
 class TestStreamManagerUniformPackets(unittest.TestCase):
     """
-    Test StreamManager enforces uniform 64-byte probe packets.
+    Test StreamManager enforces uniform probe packet length.
 
     Design Doc Reference: §3.2, §3.6
-    Key Design Point: Platform independence through uniform probe packets
-    - Fixed 64-byte length across all platforms
-    - 64 bytes = 1 cell on all platforms (eliminates cell_occupancy variance)
+    Key Design Point: Uniform probe packet length set by ProbeParamsResolver
+    - Default 64-byte length for platforms with 1 cell per packet
+    - Platform-specific packet length (e.g. 1350B for Cisco) when cells_per_packet > 1
     """
 
     def setUp(self):
@@ -725,7 +725,7 @@ class TestStreamManagerUniformPackets(unittest.TestCase):
         # Verify all packets are 64 bytes (uniform)
         assert len(captured_lengths) == 2, "Should generate 2 packets"
         assert all(length == 64 for length in captured_lengths), \
-            f"All packets must be 64 bytes for platform independence, got {captured_lengths}"
+            f"All packets must use uniform length, got {captured_lengths}"
 
     def test_uniform_packet_protocol_consistency(self):
         """Test that packets use consistent protocol (IP) across flows."""
