@@ -406,7 +406,14 @@ def is_hiting_start_limit(duthost, service_name):
     @summary: Determine whether the service can not be restarted is due to
               start-limit-hit or not
     """
-    service_status = duthost.shell("sudo systemctl status {}.service | grep 'Active'".format(service_name))
+    # module_ignore_errors: `systemctl status <svc> | grep 'Active'` returns a non-zero
+    # rc whenever grep finds no match -- e.g. when the unit does not exist on this
+    # platform (bgp.service on a BMC device) or systemctl status itself exits non-zero.
+    # Without ignoring errors, duthost.shell() would raise RunAnsibleModuleFail instead
+    # of letting us conclude the service is simply not start-limit-hit.
+    service_status = duthost.shell(
+        "sudo systemctl status {}.service | grep 'Active'".format(service_name),
+        module_ignore_errors=True)
     for line in service_status["stdout_lines"]:
         if "start-limit-hit" in line:
             return True
@@ -532,6 +539,9 @@ def postcheck_critical_processes_status(duthost, feature_autorestart_states, up_
     )
 
     for feature_name in list(feature_autorestart_states.keys()):
+        # BMC has no bgp container/service; skip the bgp start-limit check on BMC.
+        if duthost.is_bmc() and feature_name == "bgp":
+            continue
         if feature_name in duthost.DEFAULT_ASIC_SERVICES:
             for asic in duthost.asics:
                 service_name = asic.get_service_name(feature_name)
