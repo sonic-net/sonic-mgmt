@@ -4,6 +4,7 @@ from tests.common.snappi_tests.snappi_fixtures import (                         
 from tests.snappi_tests.lacp.files.lacp_dut_helper import run_lacp_add_remove_link_from_dut
 from tests.common.fixtures.conn_graph_facts import (                    # noqa: F401
     conn_graph_facts, fanout_graph_facts)
+from tests.common.helpers.assertions import pytest_require
 import pytest
 
 pytestmark = [pytest.mark.topology('tgen')]
@@ -50,6 +51,9 @@ def test_lacp_add_remove_link_from_dut(snappi_api,                      # noqa: 
         number_of_routes:  Number of IPv4/IPv6 Routes
     """
     # port_count, number_of_routes ,iterations and port_speed parameters can be modified as per user preference
+    pytest_require(len(tgen_ports) >= port_count,
+                   "This test requires at least {} TGEN ports, testbed has {}"
+                   .format(port_count, len(tgen_ports)))
     run_lacp_add_remove_link_from_dut(snappi_api,
                                       duthost,
                                       tgen_ports,
