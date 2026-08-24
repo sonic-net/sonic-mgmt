@@ -15,7 +15,7 @@ steps:
 
 - task: UsePythonVersion@0
   inputs:
-    versionSpec: '3.x'
+    versionSpec: '3.10'
   displayName: 'Set up Python 3'
 
 - script: |
