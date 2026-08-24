@@ -539,9 +539,6 @@ def postcheck_critical_processes_status(duthost, feature_autorestart_states, up_
     )
 
     for feature_name in list(feature_autorestart_states.keys()):
-        # BMC has no bgp container/service; skip the bgp start-limit check on BMC.
-        if duthost.is_bmc() and feature_name == "bgp":
-            continue
         if feature_name in duthost.DEFAULT_ASIC_SERVICES:
             for asic in duthost.asics:
                 service_name = asic.get_service_name(feature_name)
