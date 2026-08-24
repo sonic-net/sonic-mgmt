@@ -46,5 +46,20 @@ Because in non-blocking mode, the CLI output is unpredictable. So we need to moc
 1. Check if the command output not contains `UnexpectedFinished` as expected.
 1. Restore the config file `/etc/sonic/reboot.conf`
 
+#### Test case #2 - Verify a non-zero timeout is honored
+A timeout of `0` cannot distinguish a correctly parsed timeout from a failed parse, because the shell
+evaluates an empty arithmetic operand as `0`. Both exit immediately, so test case #1 passes either way.
+
+1. Backup the config file `/etc/sonic/reboot.conf` if exists. Update the following configs to the config file:
+   ```
+   blocking_mode=true
+   blocking_mode_timeout=50
+   show_timer=true
+   ```
+1. Run command `reboot`, timing how long it blocks before returning. The command needs a timeout
+   comfortably longer than the configured `blocking_mode_timeout`.
+1. Check the command blocked for at least the configured timeout before exiting.
+1. Restore the config file `/etc/sonic/reboot.conf`
+
 ## 4 Cleanup
 Since the reboot script already killed the SONiC modules, we need to do another reboot after restore `/sbin/reboot`.
