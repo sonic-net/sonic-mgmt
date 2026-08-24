@@ -20,13 +20,20 @@ ROUTE_PROPAGATION_TIMEOUT = 60
 
 def verify_route_in_t2(t2device, route, timeout=ROUTE_PROPAGATION_TIMEOUT):
     """
-    Poll until *route* appears in the T2 EOS neighbor's BGP table, or timeout.
+    Check whether *route* is in the T2 EOS neighbor's BGP table.
 
-    Returns True when the route is present, False if timeout is reached.
+    If timeout > 0, poll until the route appears or timeout is reached.
+    If timeout is 0, check once immediately (used when the route is expected
+    to be absent).
+
+    Returns True when the route is present, False otherwise.
     """
-    return wait_until(timeout, 5, 0,
-                      lambda: route in t2device['host'].get_route(route)
-                      .get('vrfs', {}).get('default', {}).get('bgpRouteEntries', {}))
+    def _route_present():
+        return route in t2device['host'].get_route(route).get('vrfs', {}).get('default', {}).get('bgpRouteEntries', {})
+
+    if timeout:
+        return wait_until(timeout, 5, 0, _route_present)
+    return _route_present()
 
 
 # This is the list of encapsulations that will be tested in this script.
@@ -290,7 +297,7 @@ class Test_VxLAN_route_Advertisement():
             for prefix in routes[vnet]:
                 route = f'{prefix}/{prefix_mask}'
                 for t2device in self.vxlan_test_setup['t2']:
-                    py_assert(not verify_route_in_t2(t2device, route),
+                    py_assert(not verify_route_in_t2(t2device, route, timeout=0),
                               "Route not propogated to the T2")
                     if community != "":
                         result = t2device['host'].get_route(route)
