@@ -5,7 +5,7 @@ steps:
   displayName: 'Set up Python 3'
 
 - script: |
-    python -m pip install ipaddr natsort
+    python -m pip install ipaddr natsort PyYAML six
 
     python ./ansible/scripts/meta/meta_validator.py -r errors -c .azure-pipelines/meta_validator.yml
     if [[ $? -ne 0 ]]; then
