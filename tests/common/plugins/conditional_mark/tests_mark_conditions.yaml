@@ -86,9 +86,11 @@ acl/test_acl.py:
       - "'isolated-v6' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/18077"
       - "asic_type in ['broadcom']"
   xfail:
-    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    reason: "Test case has issue on t0-isolated-d256u256s2 topo or t1-d96u4 where port classification does not account for backend neighbor groups"
+    conditions_logical_operator: or
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/26832 and 't1-d96u4' in topo_name"
 
 acl/test_acl.py::.*_forwarded\[ipv6-.*uplink->downlink:
   regex: true
@@ -145,6 +147,10 @@ acl/test_stress_acl.py:
     reason: "skip for IPv6-only topologies"
     conditions:
       - "'-v6-' in topo_name"
+  xfail:
+    reason: "Port classification does not account for backend neighbor groups on t1-d96u4"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/26832 and 't1-d96u4' in topo_name"
 
 acl/test_stress_acl.py::test_acl_add_del_stress:
   xfail:
@@ -412,6 +418,10 @@ bgp/test_bgp_allow_list.py:
       - "'t1' not in topo_type"
       - "platform in ['x86_64-8111_32eh_o-r0', 'x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
       - "'isolated' in topo_name"
+  xfail:
+    reason: "Community 1010:1010 is stripped during route propagation on t1-d96u4 topology"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/26845 and 't1-d96u4' in topo_name"
 
 bgp/test_bgp_bbr.py:
   skip:
@@ -492,12 +502,19 @@ bgp/test_bgp_multipath_relax.py:
     conditions:
       - "'backend' in topo_name"
       - "'t1-isolated' in topo_name"
+      - "'t1-d96u4' in topo_name"
 
 bgp/test_bgp_operation_in_ro.py:
   skip:
     reason: "Feature is reverted and pending enhancement"
     conditions:
       - "https://github.com/sonic-net/sonic-buildimage/issues/23462"
+
+bgp/test_bgp_peer_shutdown.py:
+  xfail:
+    reason: "Test fails on t1-d96u4 topology due to backend neighbor group port classification issues"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/26841 and 't1-d96u4' in topo_name"
 
 bgp/test_bgp_port_disable.py:
   skip:
@@ -548,6 +565,12 @@ bgp/test_bgp_router_id.py::test_bgp_router_id_set_ipv6:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
       - "'t0-isolated-v6-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
+
+bgp/test_bgp_sentinel.py::test_bgp_sentinel[BGP:
+  xfail:
+    reason: "Test fails due to backend neighbor group port classification issues"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/26841 and 't1-d96u4' in topo_name"
 
 bgp/test_bgp_sentinel.py::test_bgp_sentinel[IPv4:
   skip:
@@ -626,11 +649,29 @@ bgp/test_bgp_speaker.py::test_bgp_speaker_bgp_sessions:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19917 and '-v6-' in topo_name"
 
+bgp/test_bgp_stress_link_flap.py::test_bgp_session_interface_down:
+  xfail:
+    reason: "Test fails on t1-d96u4 topology due to backend neighbor group port classification issues"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/26841 and 't1-d96u4' in topo_name"
+
 bgp/test_bgp_stress_link_flap.py::test_bgp_stress_link_flap[all]:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
+
+bgp/test_bgp_stress_link_flap.py::test_bgp_stress_link_flap_with_monitor:
+  xfail:
+    reason: "Test fails on t1-d96u4 topology due to backend neighbor group port classification issues"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/26841 and 't1-d96u4' in topo_name"
+
+bgp/test_bgp_stress_link_flap.py::test_bgp_stress_link_flap_with_sentinel_and_monitor:
+  xfail:
+    reason: "Test fails on t1-d96u4 topology due to backend neighbor group port classification issues"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/26841 and 't1-d96u4' in topo_name"
 
 bgp/test_bgp_suppress_fib.py:
   skip:
@@ -691,9 +732,23 @@ bgp/test_bgp_suppress_fib.py::test_suppress_fib_stress:
 
 bgp/test_bgp_update_replication.py:
   xfail:
-    reason: "Testcase is not stable on dualtor-aa setup due to GH issue: https://github.com/sonic-net/sonic-mgmt/issues/21110"
+    reason: "Testcase is not stable due to GH issues"
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/21110 and 'dualtor-aa' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/26841 and 't1-d96u4' in topo_name"
+
+bgp/test_bgp_update_timer.py::test_bgp_update_timer_session_down:
+  xfail:
+    reason: "Test fails on t1-d96u4 topology due to backend neighbor group port classification issues"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/26841 and 't1-d96u4' in topo_name"
+
+bgp/test_bgp_update_timer.py::test_bgp_update_timer_single_route:
+  xfail:
+    reason: "Test fails on t1-d96u4 topology due to backend neighbor group port classification issues"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/26841 and 't1-d96u4' in topo_name"
 
 bgp/test_bgp_vnet.py:
   skip:
@@ -3510,6 +3565,12 @@ ip/:
     conditions:
       - "'bmc' in topo_type"
 
+ip/link_local/test_link_local_ip.py:
+  xfail:
+    reason: "Test crashes with ValueError on topologies without PortChannels"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/26581 and 't1-d96u4' in topo_name"
+
 ip/test_ip_packet.py:
   skip:
     reason: "Skipping ip packet test since can't provide enough interfaces"
@@ -4393,11 +4454,12 @@ qos/test_qos_dscp_mapping.py::TestQoSSaiDSCPQueueMapping_IPIP_Base::test_dscp_to
       - "'dualtor' in topo_name and asic_type in ['mellanox']"
       - "asic_type in ['marvell-teralynx']"
   xfail:
-    reason: "Test case has issue on the 202412 branch as decap tunnel is disabled."
+    reason: "Test case has issue on the 202412 branch as decap tunnel is disabled or t1-d96u4 due to incorrect port selection"
     conditions_logical_operator: or
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
       - "'isolated' in topo_name and release in ['202412']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/26876 and 't1-d96u4' in topo_name"
 
 qos/test_qos_masic.py:
   skip:
@@ -4447,6 +4509,10 @@ qos/test_qos_sai.py:
       - "asic_type in ['barefoot'] and topo_name in ['t1']"
       - "topo_type in ['m0', 'mx', 'm1']"
       - "release in ['202412']"
+  xfail:
+    reason: "QoS SAI tests fail on t1-d96u4 topology due to incorrect src/dst port selection across backend neighbor groups"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/26876 and 't1-d96u4' in topo_name"
 
 qos/test_qos_sai.py::TestQosSai:
   skip:
@@ -4897,9 +4963,11 @@ route/test_route_flap.py:
       - "'standalone' in topo_name"
       - "topo_name in ['t1-isolated-d128']"
   xfail:
-    reason: "xfail for scale topology, PTF is not stable at the scale testbed"
+    reason: "xfail for scale topology or t1-d96u4 topology where check_route() fails due to mixed nexthop groups"
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/21571 and 't0-isolated-d256u256s2' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/26731 and 't1-d96u4' in topo_name"
 
 route/test_route_flow_counter.py:
   skip:
@@ -5288,6 +5356,12 @@ snmp/test_snmp_lldp.py::test_snmp_lldp:
     reason: "ipv6 mgmt ip is not supported"
     conditions:
       - "is_mgmt_ipv6_only==True"
+
+snmp/test_snmp_loopback.py:
+  xfail:
+    reason: "Test fails on t1-d96u4 topology due to loopback interface handling issues"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/26879 and 't1-d96u4' in topo_name"
 
 snmp/test_snmp_loopback.py::test_snmp_loopback:
   skip:
@@ -6198,6 +6272,18 @@ vxlan/test_vxlan_underlay_ecmp.py:
     reason: "VxLAN underlay ECMP test is not yet supported on multi-ASIC platform. Also this test can only run on some platforms."
     conditions:
       - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0'])"
+
+vxlan/test_vxlan_underlay_ecmp.py::Test_VxLAN_underlay_ecmp::test_underlay_portchannel_shutdown:
+  xfail:
+    reason: "Test fails on t1-d96u4 topology due to backend neighbor group port classification issues"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/26839 and 't1-d96u4' in topo_name"
+
+vxlan/test_vxlan_underlay_ecmp.py::Test_VxLAN_underlay_ecmp::test_underlay_specific_route:
+  xfail:
+    reason: "Test fails on t1-d96u4 topology due to backend neighbor group port classification issues"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/26839 and 't1-d96u4' in topo_name"
 
 vxlan/test_vxlan_vnet_bgp_subintf.py:
   skip:
