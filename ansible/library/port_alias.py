@@ -53,6 +53,7 @@ RETURN = '''
       ansible_facts{
         port_alias: [Ethernet0, Ethernet4, ....],
         port_speed: {'Ethernet0':'40000', 'Ethernet4':'40000', ......]
+        port_speed_is_platform_default: True when port_speed came from platform.json/hwsku.json
       }
 '''
 
@@ -85,6 +86,9 @@ class SonicPortAliasMap():
 
     def __init__(self, hwsku):
         self.hwsku = hwsku
+        # platform.json/hwsku.json carry a speed for every port, so those are platform defaults
+        # rather than the explicit per-port overrides port_config.ini optionally provides.
+        self.speed_is_platform_default = False
         return
 
     def get_platform_type(self):
@@ -145,6 +149,7 @@ class SonicPortAliasMap():
         hwsku_json_path = os.path.join(platform_dir, self.hwsku, HWSKU_JSON)
 
         (ports, _, _) = parse_platform_json_file(hwsku_json_path, platform_json_path)
+        self.speed_is_platform_default = True
 
         aliases = []
         front_panel_aliases = []
@@ -390,6 +395,7 @@ def main():
                                             'port_name_map': portmap,
                                             'port_alias_map': aliasmap,
                                             'port_speed': portspeed,
+                                            'port_speed_is_platform_default': False,
                                             'front_panel_asic_ifnames': [],
                                             'front_panel_asic_ids': [],
                                             'asic_if_names': [],
@@ -509,6 +515,7 @@ def main():
                                         'port_name_map': portmap,
                                         'port_alias_map': aliasmap,
                                         'port_speed': portspeed,
+                                        'port_speed_is_platform_default': allmap.speed_is_platform_default,
                                         'front_panel_asic_ifnames': front_panel_asic_ifnames_list,
                                         'front_panel_asic_ifs_asic_id': front_panel_asic_ifs_asic_id_list,
                                         'asic_if_names': asic_ifnames_list,
