@@ -148,7 +148,7 @@ def test_gnoi_system_reboot_warm(duthosts, rand_one_dut_hostname, localhost):
 
     # Wait for critical processes before ending
     # Warm reboot takes longer for containers to restart; use an extended timeout
-    wait_critical_processes(duthost, timeout=600)
+    wait_critical_processes(duthost, timeout=360)
 
     # Wait for gNMI container to be running
     wait_until(120, 10, 0, is_gnmi_container_running, duthost)

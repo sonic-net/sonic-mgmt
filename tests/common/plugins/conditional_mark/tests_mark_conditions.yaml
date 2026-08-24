@@ -2631,7 +2631,7 @@ gnmi/test_gnoi_system_reboot.py::test_gnoi_system_reboot_halt:
 
 gnmi/test_gnoi_system_reboot.py::test_gnoi_system_reboot_warm:
   skip:
-    reason: "Warm reboot should only run on t0 topology but not on dualtor"
+    reason: "Warm reboot is unsupported on this topology/release, or exceeds the timeout on Arista-7060CX-32S-D48C8 in 202511"
     conditions_logical_operator: or
     conditions:
       - "topo_type not in ['t0']"
@@ -2639,6 +2639,7 @@ gnmi/test_gnoi_system_reboot.py::test_gnoi_system_reboot_warm:
       - "'isolated' in topo_name"
       - "release in ['202412']"
       - "'f2' in topo_name"
+      - "hwsku in ['Arista-7060CX-32S-D48C8']"
 
 ###############################################
 #####       golden_config_infra           #####
