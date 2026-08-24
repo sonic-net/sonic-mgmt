@@ -168,6 +168,11 @@
           state: present  # present contains `supervisorctl reread` and `supervisorctl add`
         delegate_to: "{{ ptf_host }}"
 
+      - name: Update exabgpv4 supervisor processes to apply config changes
+        when: topo_vms | length > 0
+        shell: supervisorctl reread && supervisorctl update exabgpv4
+        delegate_to: "{{ ptf_host }}"
+
     - name: Configure and start gobgp for IPv4 on PTF
       when: ptf_bgp_speaker == 'gobgp'
       block:
@@ -259,6 +264,11 @@
         supervisorctl:
           name: "exabgpv6:"
           state: present  # present contains `supervisorctl reread` and `supervisorctl add`
+        delegate_to: "{{ ptf_host }}"
+
+      - name: Update exabgpv6 supervisor processes to apply config changes
+        when: topo_vms | length > 0
+        shell: supervisorctl reread && supervisorctl update exabgpv6
         delegate_to: "{{ ptf_host }}"
 
     - name: Configure and start gobgp for IPv6 on PTF
