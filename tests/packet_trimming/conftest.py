@@ -17,7 +17,7 @@ from tests.packet_trimming.packet_trimming_helper import (
     create_blocking_scheduler, configure_trimming_action, cleanup_trimming_acl, get_queue_id_by_dscp,
     get_test_ports, configure_srv6_loop_break_acl, cleanup_srv6_loop_break_acl,
     create_trim_queue_test_buffer_profile, delete_trim_queue_test_buffer_profile,
-    is_queue_level_trim_sent_drop_supported)
+    is_queue_level_trim_sent_drop_supported, stop_warm_reboot_traffic)
 
 
 logger = logging.getLogger(__name__)
@@ -334,6 +334,18 @@ def clean_trimming_acl_tables(duthost):
 
     logger.info("Cleaning up ACL tables after testing")
     cleanup_trimming_acl(duthost)
+
+
+@pytest.fixture(scope="function")
+def clean_warm_reboot_traffic(ptfhost):
+    """
+    Stop the traffic and the capture started on the PTF host after testing.
+    """
+
+    yield
+
+    logger.info("Stopping the traffic and the capture on the PTF host after testing")
+    stop_warm_reboot_traffic(ptfhost)
 
 
 def pytest_addoption(parser):
