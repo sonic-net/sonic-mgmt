@@ -594,7 +594,8 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
             asic.start_service("bgp")
             config_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
             bgp_neighbors = config_facts.get("BGP_NEIGHBOR", {}).keys()
-            pytest_assert(wait_until(60, 5, 0, duthost.check_bgp_session_state, bgp_neighbors),
+            bgp_timeout = max(60, len(bgp_neighbors) * 3)
+            pytest_assert(wait_until(bgp_timeout, 5, 0, duthost.check_bgp_session_state, bgp_neighbors),
                           "bgp did not come up in expected time")
             nhop.delete_routes()
             pytest_assert(wait_until(60, 5, 0, validate_asic_route, duthost, ip_prefix, False),
