@@ -4,6 +4,7 @@ from tests.common.snappi_tests.snappi_fixtures import (                         
 from tests.snappi_tests.lacp.files.lacp_physical_helper import run_lacp_add_remove_link_physically
 from tests.common.fixtures.conn_graph_facts import (                # noqa: F401
     conn_graph_facts, fanout_graph_facts)
+from tests.common.helpers.assertions import pytest_require
 import pytest
 
 pytestmark = [pytest.mark.topology('tgen')]
@@ -53,6 +54,9 @@ def test_lacp_add_remove_link_physically(snappi_api,                   # noqa: F
         lacpdu_timeout: LACP Timeout value (0 - Auto, 3 - Short, 90 - Long)
     """
     # port_count, number_of_routes ,iterations and port_speed parameters can be modified as per user preference
+    pytest_require(len(tgen_ports) >= port_count,
+                   "This test requires at least {} TGEN ports, testbed has {}"
+                   .format(port_count, len(tgen_ports)))
     run_lacp_add_remove_link_physically(snappi_api,
                                         duthost,
                                         tgen_ports,
