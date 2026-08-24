@@ -594,29 +594,40 @@ def sonic_dhcpv4_flag_config_and_unconfig(duthost, dhcpv4_config_flag=False):
 
 
 @pytest.fixture()
-def enable_sonic_dhcpv4_relay_agent(rand_selected_dut, request):
+def enable_sonic_dhcpv4_relay_agent(rand_selected_dut, duthosts, tbinfo, request):
     """
-    Fixture to enable the DHCP relay feature flag and restart the service.
+    Enable SONiC DHCPv4 relay on every ToR that receives client traffic.
+
+    Classic dual-ToR tests must run dhcp4relay on both ToRs so their existing
+    standby counter assertions exercise dhcp4relay rather than ISC dhcrelay.
+    Active-active has no standby suppression requirement, so retain the
+    selected-DUT behavior there.
     """
     if "skip_config_dhcpv4_relay_agent" in request.keywords:
         yield
         return
-
-    duthost = rand_selected_dut
 
     if "dut_dhcp_relay_data" in request.fixturenames:
         dut_dhcp_relay_data = request.getfixturevalue("dut_dhcp_relay_data")
     else:
         dut_dhcp_relay_data = None
 
+    duthosts_to_configure = [rand_selected_dut]
+    topo_name = tbinfo["topo"]["name"]
+    if "dualtor" in topo_name and "dualtor-aa" not in topo_name:
+        duthosts_to_configure = duthosts.frontend_nodes
+
+    configured_duthosts = []
     try:
         if request.getfixturevalue("relay_agent") == "sonic-relay-agent":
-            sonic_dhcpv4_flag_config_and_unconfig(duthost, True)
-            sonic_dhcp_relay_config(duthost, dut_dhcp_relay_data, True)
+            for duthost in duthosts_to_configure:
+                sonic_dhcpv4_flag_config_and_unconfig(duthost, True)
+                configured_duthosts.append(duthost)
+                sonic_dhcp_relay_config(duthost, dut_dhcp_relay_data, True)
         yield
     finally:
         # Cleanup: disable the feature flag
-        if request.getfixturevalue("relay_agent") == "sonic-relay-agent":
+        for duthost in configured_duthosts:
             sonic_dhcpv4_flag_config_and_unconfig(duthost, False)
             sonic_dhcp_relay_unconfig(duthost, dut_dhcp_relay_data)
 
