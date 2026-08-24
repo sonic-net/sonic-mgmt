@@ -1,10 +1,15 @@
 steps:
+- task: UsePythonVersion@0
+  inputs:
+    versionSpec: '3.x'
+  displayName: 'Set up Python 3'
+
 - script: |
     set -x
 
-    pip3 install natsort
+    python -m pip install natsort
 
-    python3 ./.azure-pipelines/dependency_check/dependency_check.py tests
+    python ./.azure-pipelines/dependency_check/dependency_check.py tests
     if [[ $? -ne 0 ]]; then
       echo "##vso[task.complete result=Failed;]Condition check failed."
       exit 1

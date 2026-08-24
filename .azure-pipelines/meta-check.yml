@@ -1,8 +1,13 @@
 steps:
-- script: |
-    pip3 install ipaddr natsort
+- task: UsePythonVersion@0
+  inputs:
+    versionSpec: '3.x'
+  displayName: 'Set up Python 3'
 
-    python3 ./ansible/scripts/meta/meta_validator.py -r errors -c .azure-pipelines/meta_validator.yml
+- script: |
+    python -m pip install ipaddr natsort
+
+    python ./ansible/scripts/meta/meta_validator.py -r errors -c .azure-pipelines/meta_validator.yml
     if [[ $? -ne 0 ]]; then
       echo "##vso[task.complete result=Failed;]Meta check fails."
       exit 1
