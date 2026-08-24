@@ -57,14 +57,14 @@ ACL_TABLE_TYPE = "INNER_SRC_MAC_REWRITE_TYPE"
 # Scale test rule count per completeness level. One packet is sent per rule, so the runtime
 # grows linearly with the count; 'thorough' targets the maximum hardware capacity.
 SCALE_RULE_COUNT_LEVEL_MAP = {
-    "debug": 10,
-    "basic": 100,
-    "confident": 1000,
+    "debug": 100,
+    "basic": 2000,
+    "confident": 5000,
     "thorough": 9000
 }
 
 # IP range for scale testing
-SCALE_IP_BASE = "10.0.0.0"
+SCALE_IP_BASE = "201.0.0.0"
 SCALE_IP_PREFIX = 16
 
 
@@ -564,7 +564,7 @@ def setup_bulk_acl_rules(duthost, rule_count, vni=str(VXLAN_VNI), start_index=0)
 
     # Minimal wait for database consistency (less time needed for single operations)
     logger.info("Waiting for database consistency...")
-    time.sleep(15)  # Reduced to 15 seconds for single operations
+    time.sleep(15 + rule_count // 30)  # Wait longer for larger rule counts
 
     # Verify rules are installed
     logger.info("Verifying ALL rules installation...")
@@ -659,46 +659,16 @@ def modify_acl_rule(duthost, inner_src_ip, vni, new_src_mac):
 
 
 def remove_acl_rules(duthost):
-    duthost.copy(src=os.path.join(FILES_DIR, ACL_REMOVE_RULES_FILE), dest=TMP_DIR)
-    remove_rules_dut_path = os.path.join(TMP_DIR, ACL_REMOVE_RULES_FILE)
-    duthost.command("acl-loader update full {} --table_name {}".format(remove_rules_dut_path, ACL_TABLE_NAME))
-
-    def _check_acl_rule_absent(duthost, table_name, rule_name):
-        result = duthost.shell(
-            f'redis-cli -n 6 KEYS "ACL_RULE_TABLE|{table_name}|{rule_name}"'
-        )["stdout"]
-        return rule_name not in result
-
-    pytest_assert(wait_until(30, 5, 2, _check_acl_rule_absent, duthost, ACL_TABLE_NAME, "rule_1"),
-                  "ACL rule still in STATE_DB after removal")
-
-    # === STATE_DB Deletion Check ===
-    logger.info("Checking STATE_DB to confirm ACL rule deletion...")
-    state_db_key = f"ACL_RULE_TABLE|{ACL_TABLE_NAME}|rule_1"
-    db_cmd = f"redis-cli -n 6 EXISTS \"{state_db_key}\""
-    exists_output = duthost.shell(db_cmd)["stdout"]
-
-    logger.info(f"STATE_DB EXISTS check for {state_db_key}: {exists_output}")
-    pytest_assert(exists_output.strip() == "0", f"ACL rule {state_db_key} still exists in STATE_DB")
-
-
-def remove_bulk_acl_rules(duthost):
-    """
-    Remove all ACL rules for cleanup using acl-loader.
-    Ensure proper cleanup order: rules first, then table.
-    """
     logger.info(f"Removing all ACL rules from table {ACL_TABLE_NAME}")
 
     rule_pattern = f"ACL_RULE|{ACL_TABLE_NAME}|*"
     count_cmd = f"redis-cli -n 4 --scan --pattern '{rule_pattern}' | wc -l"
     rule_count = int(duthost.shell(count_cmd)["stdout"].strip() or 0)
-
     logger.info(f"Found {rule_count} rules to remove from CONFIG_DB")
 
-    delete_cmd = f"acl-loader delete {ACL_TABLE_NAME}"
-    result = duthost.shell(delete_cmd, module_ignore_errors=True)
-    pytest_assert(result["rc"] == 0,
-                  f"Failed to delete ACL rules with acl-loader: {result.get('stderr', '')}")
+    duthost.copy(src=os.path.join(FILES_DIR, ACL_REMOVE_RULES_FILE), dest=TMP_DIR)
+    remove_rules_dut_path = os.path.join(TMP_DIR, ACL_REMOVE_RULES_FILE)
+    duthost.command("acl-loader update full {} --table_name {}".format(remove_rules_dut_path, ACL_TABLE_NAME))
 
     def _check_acl_rules_absent(duthost, database, pattern):
         result = duthost.shell(
@@ -706,15 +676,13 @@ def remove_bulk_acl_rules(duthost):
         )
         return not result["stdout"].strip()
 
-    pytest_assert(wait_until(30, 1, 0, _check_acl_rules_absent, duthost, 4, rule_pattern),
+    pytest_assert(wait_until(30 + rule_count // 30, 1, 0, _check_acl_rules_absent, duthost, 4, rule_pattern),
                   f"ACL rules for {ACL_TABLE_NAME} still present in CONFIG_DB after batch deletion")
     state_rule_pattern = f"ACL_RULE_TABLE*{ACL_TABLE_NAME}*"
-    pytest_assert(wait_until(60, 2, 0, _check_acl_rules_absent, duthost, 6, state_rule_pattern),
+    pytest_assert(wait_until(60 + rule_count // 30, 2, 0, _check_acl_rules_absent, duthost, 6, state_rule_pattern),
                   f"ACL rules for {ACL_TABLE_NAME} still present in STATE_DB after batch deletion")
 
-    logger.info(f"Successfully removed {rule_count} ACL rules from CONFIG_DB")
-
-    logger.info("Bulk ACL rule removal completed")
+    logger.info(f"Successfully removed {rule_count} ACL rules")
 
 
 def create_vxlan_vnet_config(duthost, tunnel_name, src_ip, portchannel_name="PortChannel101", router_mac=None,
@@ -1304,7 +1272,7 @@ def test_scale_acl_rule(setUp, request):
         # ===================================================================
         logger.info("CLEANUP: Removing scale test configuration")
         try:
-            remove_bulk_acl_rules(duthost)
+            remove_acl_rules(duthost)
             remove_acl_table(duthost)
             logger.info("Scale test cleanup completed")
         except Exception as e:
