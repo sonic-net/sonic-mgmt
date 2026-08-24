@@ -6,10 +6,7 @@ from tests.common.utilities import wait_until
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.devices.eos import EosHost
-try:
-    from tests.common.devices.csonic import CsonicHost
-except ImportError:  # pragma: no cover - csonic module optional in some trees
-    CsonicHost = None
+from tests.common.devices.csonic import CsonicHost
 
 logger = logging.getLogger(__name__)
 
@@ -103,7 +100,7 @@ def get_snmp_output(ip, duthost, nbr, creds_all_duts, oid='.1.3.6.1.2.1.1.1.0'):
         eos_snmpget = "bash {} snmpget -v2c -c {} {} {}".format(
             vrf_prefix, creds_all_duts[duthost.hostname]['snmp_rocommunity'], ip, oid)
         out = nbr['host'].eos_command(commands=[eos_snmpget])
-    elif CsonicHost is not None and isinstance(nbr["host"], CsonicHost):
+    elif isinstance(nbr["host"], CsonicHost):
         # cSONiC (docker-sonic-vs) neighbor: CsonicHost already runs commands
         # inside the neighbor container, so run net-snmp's snmpwalk directly
         # there. The legacy "docker exec snmp ..." wrapper assumes a nested snmp
