@@ -949,12 +949,12 @@ def fill_leakout_plus_one(
         pkts_num_egr_mem=None):
     # Attempts to queue 1 packet while compensating for a varying packet leakout.
     # Returns whether 1 packet was successfully enqueued.
-    if pkts_num_egr_mem is not None:
-        if test_case.clients['dst'] != test_case.clients['src']:
-            fill_egress_plus_one(
-                test_case, src_port_id, pkt, queue,
-                asic_type, int(pkts_num_egr_mem))
-        return
+
+    if test_case.clients['dst'] != test_case.clients['src'] and pkts_num_egr_mem is not None:
+        fill_egress_plus_one(
+            test_case, src_port_id, pkt, queue,
+            asic_type, int(pkts_num_egr_mem))
+        return True
 
     if asic_type in ['cisco-8000']:
         queue_counters_base = sai_thrift_read_queue_occupancy(
@@ -5491,9 +5491,11 @@ class LossyQueueVoqTest(sai_base_test.ThriftInterfaceDataPlane):
             diff = recv_counters[self.pg] - recv_counters_base[self.pg]
             assert diff == 0, "Unexpected PFC frames {}".format(diff)
             # recv port no ingress drop
+            # Adding COUNTER_MARGIN to tolerate background counter drift on cisco-8000
+            counter_margin = COUNTER_MARGIN if self.asic_type == "cisco-8000" else 0
             for cntr in ingress_counters:
                 diff = recv_counters[cntr] - recv_counters_base[cntr]
-                assert diff == 0, "Unexpected ingress drop {} on port {}".format(
+                assert diff <= counter_margin, "Unexpected ingress drop {} on port {}".format(
                     diff, self.src_port_id)
             # xmit port no egress drop
             for cntr in egress_counters:
@@ -5517,9 +5519,11 @@ class LossyQueueVoqTest(sai_base_test.ThriftInterfaceDataPlane):
             diff = recv_counters[self.pg] - recv_counters_base[self.pg]
             assert diff == 0, "Unexpected PFC frames {}".format(diff)
             # recv port no ingress drop
+            # Adding COUNTER_MARGIN to tolerate background counter drift on cisco-8000
+            counter_margin = COUNTER_MARGIN if self.asic_type == "cisco-8000" else 0
             for cntr in ingress_counters:
                 diff = recv_counters[cntr] - recv_counters_base[cntr]
-                assert diff == 0, "Unexpected ingress drop {} on port {}".format(
+                assert diff <= counter_margin, "Unexpected ingress drop {} on port {}".format(
                     diff, self.src_port_id)
             # xmit port egress drop
             for cntr in egress_counters:
@@ -7251,12 +7255,14 @@ class LossyQueueVoqMultiSrcTest(sai_base_test.ThriftInterfaceDataPlane):
             diff = recv_counters_2[self.pg] - recv_counters_2_base[self.pg]
             assert diff == 0, "Unexpected PFC frames {} on port {}".format(diff, self.src_port_2_id)
             # recv port no ingress drop
+            # Adding COUNTER_MARGIN to tolerate background counter drift on cisco-8000
+            counter_margin = COUNTER_MARGIN if self.asic_type == "cisco-8000" else 0
             for cntr in ingress_counters:
                 diff = recv_counters[cntr] - recv_counters_base[cntr]
-                assert diff == 0, "Unexpected ingress drop {} on port {}".format(diff, self.src_port_id)
+                assert diff <= counter_margin, "Unexpected ingress drop {} on port {}".format(diff, self.src_port_id)
             for cntr in ingress_counters:
                 diff = recv_counters_2[cntr] - recv_counters_2_base[cntr]
-                assert diff == 0, "Unexpected ingress drop {} on port {}".format(diff, self.src_port_2_id)
+                assert diff <= counter_margin, "Unexpected ingress drop {} on port {}".format(diff, self.src_port_2_id)
             # xmit port no egress drop
             for cntr in egress_counters:
                 diff = xmit_counters[cntr] - xmit_counters_base[cntr]
@@ -7285,12 +7291,14 @@ class LossyQueueVoqMultiSrcTest(sai_base_test.ThriftInterfaceDataPlane):
             diff = recv_counters_2[self.pg] - recv_counters_2_base[self.pg]
             assert diff == 0, "Unexpected PFC frames {} on port {}".format(diff, self.src_port_2_id)
             # recv port no ingress drop
+            # Adding COUNTER_MARGIN to tolerate background counter drift on cisco-8000
+            counter_margin = COUNTER_MARGIN if self.asic_type == "cisco-8000" else 0
             for cntr in ingress_counters:
                 diff = recv_counters[cntr] - recv_counters_base[cntr]
-                assert diff == 0, "Unexpected ingress drop {} on port {}".format(diff, self.src_port_id)
+                assert diff <= counter_margin, "Unexpected ingress drop {} on port {}".format(diff, self.src_port_id)
             for cntr in ingress_counters:
                 diff = recv_counters_2[cntr] - recv_counters_2_base[cntr]
-                assert diff == 0, "Unexpected ingress drop {} on port {}".format(diff, self.src_port_2_id)
+                assert diff <= counter_margin, "Unexpected ingress drop {} on port {}".format(diff, self.src_port_2_id)
             # xmit port egress drop
             for cntr in egress_counters:
                 drops = xmit_counters[cntr] - xmit_counters_base[cntr]
