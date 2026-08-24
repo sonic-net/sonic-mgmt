@@ -555,10 +555,15 @@ def postcheck_critical_processes_status(duthost, feature_autorestart_states, up_
         check_all_critical_processes_status, duthost
     )
 
-    bgp_check = wait_until(
-        post_check_threshold, POST_CHECK_INTERVAL_SECS, 0,
-        duthost.check_bgp_session_state_all_asics, up_bgp_neighbors, "established"
-    )
+    if duthost.is_bmc():
+        # No bgp container on BMC; report BGP as passing so post-check reflects only
+        # critical-process health.
+        bgp_check = True
+    else:
+        bgp_check = wait_until(
+            post_check_threshold, POST_CHECK_INTERVAL_SECS, 0,
+            duthost.check_bgp_session_state_all_asics, up_bgp_neighbors, "established"
+        )
 
     return critical_proceses, bgp_check
 
@@ -599,7 +604,10 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
     is_running = is_container_running(duthost, container_name)
     pytest_assert(is_running, "Container '{}' is not running. Exiting...".format(container_name))
 
-    up_bgp_neighbors = duthost.get_bgp_neighbors_per_asic("established")
+    # BMC devices have no front-side ASIC / bgp container, so BGP fact gathering would
+    # error. Skip all BGP-related pre/post checks on BMC.
+    is_bmc = duthost.is_bmc()
+    up_bgp_neighbors = {} if is_bmc else duthost.get_bgp_neighbors_per_asic("established")
 
     logger.info("Start testing the container '{}'...".format(container_name))
 
@@ -656,7 +664,7 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
         # will appear established in the error message after recovery.
         failed_check = "[Critical Process] " if not critical_proceses else ""
         failed_check += "[BGP] " if not bgp_check else ""
-        bgp_failures = [
+        bgp_failures = [] if duthost.is_bmc() else [
             {x: v['state']}
             for x, v in list(duthost.get_bgp_neighbors().items())
             if v['state'] != 'established'

@@ -400,6 +400,13 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
     else:
         time.sleep(wait)
 
+    if wait_for_bgp and sonic_host.is_bmc():
+        # BMC devices have no front-side ASIC and therefore no bgp container/vtysh.
+        # get_bgp_neighbors_per_asic() below would fail collecting bgp facts, so skip
+        # the BGP convergence wait entirely on BMC.
+        logging.info("Skipping wait_for_bgp on BMC device")
+        wait_for_bgp = False
+
     if wait_for_bgp:
         bgp_neighbors = sonic_host.get_bgp_neighbors_per_asic(state="all")
         if not wait_for_ibgp:
