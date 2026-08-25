@@ -36,6 +36,9 @@ Single check item config:
 User can get the item property value by:
 ansible_facts['item_name']['prop_name']
 
+Command rc/stderr for each property is returned as sysfs_metadata with the same key layout:
+sysfs_metadata['item_name']['prop_name'] -> {'rc': <int>, 'stderr': <str>}
+
 Increment check item config:
 {
     'name': 'item_name',
@@ -56,6 +59,7 @@ Increment check item config:
 
 User can get the first property of the first item value by:
 ansible_facts['item_name'][1]['prop1_name']
+sysfs_metadata['item_name'][1]['prop1_name'] -> {'rc': <int>, 'stderr': <str>}
 
 A example that using this facts is at tests/platform_tests/mellanox/check_sysfs.py
 '''
@@ -70,6 +74,7 @@ class SysfsModule(object):
             supports_check_mode=True)
         self.config = self.module.params['config']
         self.facts = {}
+        self.metadata = {}
 
     def run(self):
         for item in self.config:
@@ -85,30 +90,39 @@ class SysfsModule(object):
                 self.module.fail_json(
                     msg='Unsupported check item type {}'.format(item['type']))
 
-        self.module.exit_json(ansible_facts=self.facts)
+        self.module.exit_json(ansible_facts=self.facts, sysfs_metadata=self.metadata)
 
     def collect_single_item(self, item):
         facts = {}
+        metadata = {}
         for prop in item['properties']:
             prop_name = prop['name']
-            facts[prop_name] = self.run_command(prop['cmd_pattern'])
+            rc, out, err = self.run_command(prop['cmd_pattern'])
+            facts[prop_name] = out
+            metadata[prop_name] = {'rc': rc, 'stderr': err}
 
         name = item['name']
         self.facts[name] = facts
+        self.metadata[name] = metadata
 
     def collect_increment_item(self, item):
         facts = {}
+        metadata = {}
         start = item['start']
         count = item['count']
         for index in range(start, start + count):
             facts[index] = {}
+            metadata[index] = {}
             for prop in item['properties']:
                 prop_name = prop['name']
                 cmd = prop['cmd_pattern'].format(index)
-                facts[index][prop_name] = self.run_command(cmd)
+                rc, out, err = self.run_command(cmd)
+                facts[index][prop_name] = out
+                metadata[index][prop_name] = {'rc': rc, 'stderr': err}
 
         name = item['name']
         self.facts[name] = facts
+        self.metadata[name] = metadata
 
     def run_command(self, command):
         try:
@@ -118,7 +132,7 @@ class SysfsModule(object):
             self.module.fail_json(
                 msg='command {} failed with exception {}'.format(command, e))
 
-        return out.strip()
+        return rc, out.strip(), (err or '').strip()
 
 
 def main():
