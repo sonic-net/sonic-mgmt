@@ -98,6 +98,11 @@ def test_neighbors_health(duthosts, localhost, nbrhosts, eos, sonic, enum_fronte
     """Check each neighbor device health"""
 
     fails = []
+    # Physical cEOS VMs already health-checked this run. On converged
+    # multi-VRF topologies, several logical neighbors (nbrhosts entries)
+    # share one physical EosHost VM (same nbrhost.hostname); skip repeating
+    # the device-wide checks for every logical sibling.
+    checked_eos_hosts = set()
     duthost = duthosts[enum_frontend_dut_hostname]
 
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
@@ -120,6 +125,12 @@ def test_neighbors_health(duthosts, localhost, nbrhosts, eos, sonic, enum_fronte
         nbrhost = nbrhosts[k]['host']
 
         if isinstance(nbrhost, EosHost):
+            if nbrhost.hostname in checked_eos_hosts:
+                logger.info("Skipping neighbor {}, physical host {} already checked"
+                            .format(k, nbrhost.hostname))
+                continue
+            checked_eos_hosts.add(nbrhost.hostname)
+
             failmsg = check_snmp(k, v['mgmt_addr'], localhost, eos['snmp_rocommunity'], True)
             if failmsg:
                 fails.append(failmsg)
