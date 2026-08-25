@@ -1,4 +1,5 @@
 import logging
+import re
 import pytest
 
 from tests.common.reboot import REBOOT_TYPE_SUPERVISOR_HEARTBEAT_LOSS, reboot_ctrl_dict, wait_for_startup, \
@@ -8,7 +9,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.psu_helpers import get_grouped_pdus_by_psu
 from tests.platform_tests.test_reboot import check_interfaces_and_services, \
     reboot_and_check
-from tests.common.utilities import get_plt_reboot_ctrl
+from tests.common.utilities import get_plt_reboot_ctrl, wait_until
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -16,6 +17,9 @@ pytestmark = [
 ]
 
 INTERFACE_WAIT_TIME = 300
+
+DPU_STATUS_TIMEOUT = 360
+DPU_STATUS_INTERVAL = 30
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -93,6 +97,65 @@ def adjust_reboot_cause_sequence():
     reboot_ctrl_dict[REBOOT_TYPE_POWEROFF] = reboot_type_poweroff
 
 
+def _get_dpu_module_status(duthost):
+    """
+    @summary: Return the admin/oper status of every DPU module as reported by
+              'show chassis modules status'.
+    @param duthost: NPU (switch) host object
+    @return: dict keyed by DPU name, e.g.
+             {"DPU0": {"admin": "down", "oper": "offline"}, ...}
+    """
+    rows = duthost.show_and_parse("show chassis modules status", module_ignore_errors=True)
+    dpu_status = {}
+    for row in rows:
+        name = row.get("name", "")
+        if not re.match(r"^DPU\d+$", name):
+            continue
+        if "oper-status" not in row or "admin-status" not in row:
+            logging.warning("Skipping unexpected chassis module status row: %s", row)
+            continue
+        dpu_status[name] = {
+            "admin": row["admin-status"].strip().lower(),
+            "oper": row["oper-status"].strip().lower(),
+        }
+    return dpu_status
+
+
+def _dpu_status_matches(duthost, expected_status):
+    """
+    @summary: Return True when every DPU's admin/oper status equals expected_status.
+    """
+    current_status = _get_dpu_module_status(duthost)
+    for dpu_name, expected in expected_status.items():
+        current = current_status.get(dpu_name)
+        if current != expected:
+            logging.info("DPU %s status is %s, waiting for %s", dpu_name, current, expected)
+            return False
+    return True
+
+
+def verify_dpu_status_consistency(duthost, expected_status):
+    """
+    @summary: Assert that all DPU admin/oper statuses returned to their
+              pre-power-off values after a power-cycle.
+
+    On a SmartSwitch the DPUs lose power together with the NPU, so once the NPU
+    is back their admin state must be unchanged and their oper state must return
+    to what it was before the power-off (Offline in dark mode, Online in lit
+    mode). The DPUs may still be booting when the NPU is already up (lit mode),
+    so poll until they settle.
+
+    @param duthost: NPU (switch) host object
+    @param expected_status: DPU status snapshot captured before the power-off
+    """
+    pytest_assert(
+        wait_until(DPU_STATUS_TIMEOUT, DPU_STATUS_INTERVAL, 0,
+                   _dpu_status_matches, duthost, expected_status),
+        "DPU admin/oper status is not consistent after power-off reboot. "
+        "Expected {}, got {}".format(expected_status, _get_dpu_module_status(duthost))
+    )
+
+
 def test_power_off_reboot(duthosts, localhost, enum_supervisor_dut_hostname, conn_graph_facts,
                           xcvr_skip_list, get_pdu_controller, power_off_delay, adjust_reboot_cause_sequence):
     """
@@ -161,6 +224,15 @@ def test_power_off_reboot(duthosts, localhost, enum_supervisor_dut_hostname, con
     poweroff_reboot_kwargs["all_outlets"] = all_outlets
     poweroff_reboot_kwargs["delay_time"] = power_off_delay
 
+    # On a SmartSwitch the on-board DPUs lose power together with the NPU during a
+    # power-off. Snapshot their admin/oper status beforehand so we can assert it is
+    # unchanged after every power-cycle (e.g. DPUs stay down/offline in dark mode).
+    is_smartswitch = duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch")
+    dpu_status_before = {}
+    if is_smartswitch:
+        dpu_status_before = _get_dpu_module_status(duthost)
+        logging.info("SmartSwitch DPU admin/oper status before power-off reboot: %s", dpu_status_before)
+
     try:
         duthosts_arg = duthosts if is_chassis else None
 
@@ -171,6 +243,10 @@ def test_power_off_reboot(duthosts, localhost, enum_supervisor_dut_hostname, con
                     "device_conn", {}).get(duthost.hostname, {}),
                 xcvr_skip_list, REBOOT_TYPE_POWEROFF,
                 _power_off_reboot_helper, poweroff_reboot_kwargs, duthosts=duthosts_arg)
+
+            if is_smartswitch and dpu_status_before:
+                logging.info("Verifying DPU admin/oper status consistency after power-off reboot")
+                verify_dpu_status_consistency(duthost, dpu_status_before)
 
     except Exception as e:
         logging.debug("Restore power after test failure")
