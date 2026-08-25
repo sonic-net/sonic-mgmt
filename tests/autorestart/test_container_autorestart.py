@@ -563,7 +563,7 @@ def postcheck_critical_processes_status(duthost, feature_autorestart_states, up_
     return critical_proceses, bgp_check
 
 
-def recover_dut_after_postcheck_failure(duthost):
+def reload_and_restore_autorestart(duthost):
     try:
         config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
     finally:
@@ -682,7 +682,7 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
             ] is False and len(v["exited_critical_process"]) > 0
         ]
 
-        recover_dut_after_postcheck_failure(duthost)
+        reload_and_restore_autorestart(duthost)
 
         if (duthost.get_facts().get("modular_chassis") and
                 duthost.facts["asic_type"] == "cisco-8000" and
@@ -952,9 +952,13 @@ def test_supervisor_listener_syslog_reconnects(
                     container_name, critical_processes_ok, bgp_ok
                 )
             )
+        if feature_name == "bgp":
+            # The BGP container can pass the immediate post-check and stop again later.
+            # Reload after this destructive case so subsequent parameters start clean.
+            reload_and_restore_autorestart(duthost)
     except (Exception, OutcomeException):
         try:
-            recover_dut_after_postcheck_failure(duthost)
+            reload_and_restore_autorestart(duthost)
         except (Exception, OutcomeException) as recovery_err:
             logger.exception("Recovery after listener test failure on container '%s' failed: %s",
                              container_name, recovery_err)
