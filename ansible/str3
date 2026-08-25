@@ -1039,9 +1039,10 @@ sonic_cisco_8102_t0_smartswitch:
     iface_speed: 100000
   hosts:
     str3-t0-8102-smartswitch-01:
-      ansible_host: 10.3.147.207
-      ansible_hostv6: 2a01:111:e210:b000::a40:f75e
-      mgmt_subnet_mask_length: 24
+      ansible_host: 10.3.150.179
+      ansible_hostv6: 2a01:111:e210:8a::1d3
+      mgmt_subnet_mask_length: 27
+      mgmt_subnet_v6_mask_length: 122
       model: 8102-28FH-DPU-O
       serial: FLM285009VE
       base_mac: C4:AB:4D:B6:37:90
