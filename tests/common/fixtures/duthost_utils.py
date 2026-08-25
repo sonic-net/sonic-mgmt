@@ -310,7 +310,6 @@ def duthost_shutdown_ebgp(duthost):
         # So use that as our timeout benchmark plus a buffer and take 2s per port (min 60s).
         routes_zero_timeout = max(len(duthost.get_admin_up_ports()) * 2, routes_zero_timeout)
 
-
     # Fixture teardown is unavailable when setup fails before yield, so this
     # helper must restore its own partially applied shutdown.
     shutdown_complete = False
