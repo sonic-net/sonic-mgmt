@@ -67,31 +67,7 @@ bgp/test_traffic_shift.py:
             Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['vpp']"
-
-bgp/test_traffic_shift.py::test_TSA_TSB_with_config_reload:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-bgp/test_traffic_shift.py::test_TSB:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-bgp/test_traffic_shift.py::test_load_minigraph_with_traffic_shift_away:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
+      - "asic_type in ['vpp'] and (not platform.startswith('arm64-c8220tg_48a_o'))"
 
 #######################################
 #####            Cacl             #####

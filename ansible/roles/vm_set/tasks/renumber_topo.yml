@@ -15,6 +15,11 @@
       ptf_imagetag: "latest"
     when: ptf_imagetag is not defined
 
+  - name: Enable ptf_use_docker_network for BMC topology
+    set_fact:
+      ptf_use_docker_network: true
+    when: "'bmc' in topo"
+
   - name: Detect Python major version of the existing ptf container
     shell: docker exec ptf_{{ vm_set_name }} python -c 'import sys; print(sys.version_info[0])'
     register: ptf_existing_python_major
