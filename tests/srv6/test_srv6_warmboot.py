@@ -18,15 +18,16 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.srv6_helper import is_bgp_route_synced
-from tests.common.helpers.srv6_io import run_srv6_io_test, format_flow_result, SRV6_FLOW, CONTROL_FLOW
+from tests.common.helpers.srv6_io import run_srv6_io_test, format_flow_result, SRV6_FLOW
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 from tests.common.reboot import reboot
 from tests.common.utilities import wait_until
 from tests.srv6.srv6_utils import UN_SID_APPL_DB_KEY, UN_SID_TRAFFIC_DST, UN_EGRESS_DST, \
-    UN_EGRESS_ROUTE, SRV6_BLACKHOLE_ROUTE, verify_appl_db_sid_entry_exist, \
+    UN_EGRESS_ROUTE, SRV6_BLACKHOLE_ROUTE, CRM_FAST_POLL_INTERVAL, verify_appl_db_sid_entry_exist, \
     verify_asic_db_sid_entry_exist, get_asic_db_mysid_entries, verify_static_route_installed, \
     verify_reboot_cause_warm, collect_warmboot_diagnostics, get_neighbor_mac, \
-    get_srv6_mysid_entry_usage, run_srv6_traffic_test, run_srv6_no_sid_blackhole_test
+    get_srv6_mysid_entry_usage, get_crm_polling_interval, set_crm_polling_interval, \
+    run_srv6_traffic_test, run_srv6_no_sid_blackhole_test
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +42,34 @@ pytestmark = [
 ]
 
 
+@pytest.fixture(autouse=True)
+def fast_crm_polling(setup_uN):
+    """
+    Speed up the CRM polling for the duration of the test, and restore it after.
+
+    CRM refreshes its resource counters on a polling interval which defaults to
+    300s, while setup_uN configures the SID immediately before the test runs. The
+    MY_SID counter read as the reference would therefore still be stale, and the
+    first poll happening during the reboot would show up as a change caused by
+    it. The interval is lowered so that the counter reflects the configured entry
+    before it is snapshotted.
+    """
+    duthost = setup_uN['duthost']
+    previous_interval = get_crm_polling_interval(duthost)
+    set_crm_polling_interval(duthost, CRM_FAST_POLL_INTERVAL)
+
+    # Wait for CRM to account for the SID configured by setup_uN, so that the
+    # reference taken by the test is the settled value
+    if not wait_until(CRM_FAST_POLL_INTERVAL * 6, CRM_FAST_POLL_INTERVAL, CRM_FAST_POLL_INTERVAL,
+                      lambda: (get_srv6_mysid_entry_usage(duthost) or {}).get('used_count', 0) > 0):
+        logger.warning("CRM still does not account for any MY_SID entry, the counter check may be "
+                       "comparing a stale reference")
+    try:
+        yield
+    finally:
+        set_crm_polling_interval(duthost, previous_interval)
+
+
 def warm_reboot_params(request):
     """Collect the tunables of the warm reboot I/O test."""
     return {
@@ -49,7 +78,6 @@ def warm_reboot_params(request):
         'settle_time': request.config.getoption("--srv6_warmboot_settle_time"),
         'allowed_disruption': request.config.getoption("--srv6_warmboot_allowed_disruption"),
         'allowed_duplication': request.config.getoption("--srv6_warmboot_allowed_duplication"),
-        'control_flow': request.config.getoption("--srv6_warmboot_control_flow"),
     }
 
 
@@ -87,6 +115,13 @@ def validate_srv6_state_after_warmboot(setup_uN, sonic_db_cli, asic_sid_entries,
             logger.warning("Attributes of the MY_SID entry {} changed over the warm reboot. "
                            "Before: {}, after: {}".format(key, attributes, entries_after[key]))
 
+    # CRM restarts with the rest of the control plane and needs one poll cycle
+    # before its counters are current again, so give it a bounded chance to
+    # settle on the expected value instead of reading it straight away
+    if crm_usage:
+        wait_until(CRM_FAST_POLL_INTERVAL * 6, CRM_FAST_POLL_INTERVAL, 0,
+                   lambda: (get_srv6_mysid_entry_usage(duthost) or {}).get('used_count')
+                   == crm_usage['used_count'])
     crm_usage_after = get_srv6_mysid_entry_usage(duthost)
     if crm_usage and crm_usage_after:
         pytest_assert(crm_usage_after['used_count'] == crm_usage['used_count'],
@@ -115,7 +150,6 @@ def validate_hitless(results, allowed_disruption, allowed_duplication, is_kvm):
         logger.info("I/O results of the %s flow:\n%s", flow, format_flow_result(result))
 
     srv6_result = results[SRV6_FLOW]
-    control_result = results.get(CONTROL_FLOW)
 
     # A sniffer which captured nothing would make every other check pass silently
     pytest_assert(srv6_result['received_packets'] > 0,
@@ -133,22 +167,15 @@ def validate_hitless(results, allowed_disruption, allowed_duplication, is_kvm):
                        "reboot: the disruption of the SRv6 flow is reported but not asserted")
         return
 
-    hint = ""
-    if control_result and control_result['total_disruption'] > allowed_disruption:
-        hint = (" The plain IPv6 control flow was disrupted as well ({:.4f}s), the disruption is "
-                "not specific to SRv6.".format(control_result['total_disruption']))
-    elif control_result:
-        hint = " The plain IPv6 control flow was not disrupted, the disruption is specific to SRv6."
-
     pytest_assert(srv6_result['mis_forwarded_packets'] == 0,
                   "{} SRv6 packets were forwarded without the uN behavior being applied."
                   .format(srv6_result['mis_forwarded_packets']))
     pytest_assert(srv6_result['total_disruption'] <= allowed_disruption,
                   "The SRv6 flow was disrupted for {:.4f}s over the warm reboot, which is more than "
                   "the allowed {}s. {} packet(s) lost in {} disruption(s), the longest one lasted "
-                  "{:.4f}s.{}".format(srv6_result['total_disruption'], allowed_disruption,
-                                      srv6_result['lost_packets'], srv6_result['disruption_count'],
-                                      srv6_result['longest_disruption'], hint))
+                  "{:.4f}s.".format(srv6_result['total_disruption'], allowed_disruption,
+                                    srv6_result['lost_packets'], srv6_result['disruption_count'],
+                                    srv6_result['longest_disruption']))
     pytest_assert(srv6_result['duplicated_packets'] <= allowed_duplication,
                   "{} SRv6 packets were duplicated over the warm reboot, which is more than the "
                   "allowed {}".format(srv6_result['duplicated_packets'], allowed_duplication))
@@ -163,9 +190,6 @@ def test_srv6_uN_hitless_warmboot(setup_uN, ptfadapter, ptfhost, localhost, requ
     The flow keeps running until after the warm boot finalizer completed, because
     the SID entries are reconciled by bgpcfgd, fpmsyncd and orchagent once the
     device is already reachable again.
-
-    A plain IPv6 flow is sent along with the SRv6 one to tell an SRv6 specific
-    disruption apart from a generic data plane disruption.
     """
     params = warm_reboot_params(request)
     duthost = setup_uN['duthost']
@@ -205,7 +229,6 @@ def test_srv6_uN_hitless_warmboot(setup_uN, ptfadapter, ptfhost, localhost, requ
             router_mac=dut_mac,
             sid_dst=UN_SID_TRAFFIC_DST,
             egress_dst=UN_EGRESS_DST,
-            control_dst=neighbor_ip if params['control_flow'] else None,
             with_srh=with_srh,
             send_interval=params['send_interval'],
             max_duration=params['max_duration'],
@@ -221,7 +244,13 @@ def test_srv6_uN_hitless_warmboot(setup_uN, ptfadapter, ptfhost, localhost, requ
 
         with allure.step('Validate the SRv6 forwarding after the warm reboot'):
             run_srv6_traffic_test(duthost, dut_mac, ptf_src_ports, neighbor_ip, ptfadapter, ptfhost, with_srh)
-    except Exception:
+    except (Exception, pytest.fail.Exception):
+        # pytest.fail.Exception is listed explicitly because it derives from
+        # BaseException, not Exception, so that test outcomes are not swallowed
+        # by a bare except. The checks above all report through pytest_assert, so
+        # catching Exception alone would skip the diagnostics for exactly the
+        # assertion failures they are meant to explain. KeyboardInterrupt and
+        # Skipped are deliberately left out. The re-raise keeps the outcome.
         collect_warmboot_diagnostics(duthost, sonic_db_cli)
         raise
 
@@ -255,6 +284,8 @@ def test_srv6_no_sid_blackhole_after_warmboot(setup_uN, ptfadapter, ptfhost, loc
 
         with allure.step('Validate that the unprogrammed SID is blackholed after the warm reboot'):
             run_srv6_no_sid_blackhole_test(setup_uN, ptfadapter, ptfhost, with_srh=False)
-    except Exception:
+    except (Exception, pytest.fail.Exception):
+        # See the note in test_srv6_uN_hitless_warmboot: pytest_assert raises
+        # pytest.fail.Exception, which does not derive from Exception
         collect_warmboot_diagnostics(duthost, sonic_db_cli)
         raise

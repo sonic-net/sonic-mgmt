@@ -1,6 +1,7 @@
 import json
 import logging
 import random
+import re
 import string
 import time
 import pytest
@@ -23,6 +24,10 @@ from tests.common.helpers.srv6_helper import SRv6
 logger = logging.getLogger(__name__)
 LOCATOR_NUM = 128
 ROUTE_BASE = '2001'
+
+# CRM refreshes its resource counters on this interval, in seconds
+CRM_DEFAULT_POLL_INTERVAL = 300
+CRM_FAST_POLL_INTERVAL = 10
 
 #
 # uN configuration used by the SRv6 data plane and warm reboot tests
@@ -565,6 +570,28 @@ def validate_srv6_counters(duthost, srv6_pkt_list, mysid_list, pkt_num):
         raise Exception(f"Failed to validate SRv6 counters: {str(e)}")
 
 
+def get_crm_polling_interval(duthost):
+    """
+    Return the CRM polling interval, in seconds, configured on the DUT.
+
+    Falls back to the SONiC default when the value cannot be parsed, so that the
+    caller always has something to restore.
+    """
+    output = duthost.command("crm show summary", module_ignore_errors=True)["stdout"]
+    match = re.search(r'Polling Interval:\s*(\d+)\s*second', output)
+    if match:
+        return int(match.group(1))
+    logger.warning("Could not parse the CRM polling interval from {!r}, assuming the default {}s"
+                   .format(output, CRM_DEFAULT_POLL_INTERVAL))
+    return CRM_DEFAULT_POLL_INTERVAL
+
+
+def set_crm_polling_interval(duthost, interval):
+    """Set the CRM polling interval, in seconds, on the DUT."""
+    logger.info("Setting the CRM polling interval to {}s".format(interval))
+    duthost.command("crm config polling interval {}".format(interval))
+
+
 def get_srv6_mysid_entry_usage(duthost):
     """
     Get the usage information of SRv6 MySID Entry resources.
@@ -750,8 +777,10 @@ def _normalize_asic_db_mysid_key(key):
 
     The key embeds the entry definition as a json document, e.g.
     ASIC_STATE:SAI_OBJECT_TYPE_MY_SID_ENTRY:{"switch_id":"oid:0x21...","sid":"fcbb:bbbb:1::",...}
-    The switch object id is dropped so that the comparison only covers the entry
-    itself.
+    The SAI object ids are dropped so that the comparison only covers the entry
+    itself: both the switch id and the virtual router id are allocated by syncd
+    and are legitimately reassigned across a warm reboot, while the SID and its
+    locator, function and argument lengths identify the entry.
     """
     _, _, entry = key.partition('SAI_OBJECT_TYPE_MY_SID_ENTRY:')
     if not entry:
@@ -762,6 +791,7 @@ def _normalize_asic_db_mysid_key(key):
         return entry
     if isinstance(decoded, dict):
         decoded.pop('switch_id', None)
+        decoded.pop('vr_id', None)
         return json.dumps(decoded, sort_keys=True)
     return entry
 

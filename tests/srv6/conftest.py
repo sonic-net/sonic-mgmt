@@ -288,15 +288,6 @@ def pytest_addoption(parser):
         help="Number of duplicated packets tolerated over a warm reboot"
     )
 
-    parser.addoption(
-        "--srv6_warmboot_control_flow",
-        action="store",
-        type=lambda value: str(value).lower() in ('true', 'yes', '1'),
-        default=True,
-        help="Send a plain IPv6 flow along with the SRv6 flow during the warm reboot test, so that "
-             "an SRv6 specific disruption can be told apart from a generic one"
-    )
-
 
 def pytest_generate_tests(metafunc):
     if "srv6_packet_type" in metafunc.fixturenames:

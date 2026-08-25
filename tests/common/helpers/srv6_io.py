@@ -50,15 +50,18 @@ CAPTURE_PCAP = "/tmp/srv6_capture.pcap"
 CAPTURE_LOG = "/tmp/srv6_capture.log"
 
 SRV6_FLOW = "srv6"
-CONTROL_FLOW = "control"
 
 FLOW_MAGIC = {
     SRV6_FLOW: "SRV6HB",
-    CONTROL_FLOW: "CTRLHB",
 }
 
 # Number of digits used to encode the sequence number in the packet payload
 SEQ_DIGITS = 8
+
+# Hop limit of the injected packets. The copy forwarded by the DUT is expected to
+# carry SEND_HLIM - 1, any lower value means the packet went through the DUT more
+# than once.
+SEND_HLIM = 64
 
 UDP_DPORT = 4791
 
@@ -68,7 +71,7 @@ class SRv6IO(object):
 
     def __init__(self, duthost, ptfhost, ptfadapter, io_ready_event,
                  ptf_src_port, router_mac, sid_dst, egress_dst,
-                 control_dst=None, with_srh=False, send_interval=0.01,
+                 with_srh=False, send_interval=0.01,
                  max_duration=1200, sniff_time_incr=60, src_ipv6="1000::1"):
         """
         Args:
@@ -82,13 +85,9 @@ class SRv6IO(object):
                 must match the configured uN SID.
             egress_dst: destination IPv6 address expected after the uN behavior
                 has been applied by the DUT.
-            control_dst: destination IPv6 address of the non SRv6 control flow.
-                The control flow is used to tell an SRv6 specific disruption
-                apart from a generic data plane disruption. Set to None to
-                disable the control flow.
             with_srh: inject the SRv6 packets with a segment routing header.
             send_interval: interval in seconds between two sending rounds. One
-                packet per flow is sent on every round.
+                packet is sent on every round.
             max_duration: upper bound, in seconds, of the sending phase.
             sniff_time_incr: extra time given to the sniffer on top of
                 `max_duration`.
@@ -102,7 +101,6 @@ class SRv6IO(object):
         self.router_mac = router_mac
         self.sid_dst = sid_dst
         self.egress_dst = egress_dst
-        self.control_dst = control_dst
         self.with_srh = with_srh
         self.send_interval = send_interval
         self.max_duration = max_duration
@@ -120,13 +118,13 @@ class SRv6IO(object):
         self.sender_stop = None
         self.action_start = None
         self.action_stop = None
-        self.packets_sent = {SRV6_FLOW: 0, CONTROL_FLOW: 0}
+        self.action_start_seq = None
+        self.action_stop_seq = None
+        self.packets_sent = {SRV6_FLOW: 0}
         self.all_packets = []
         self.test_results = dict()
 
         self.flows = [SRV6_FLOW]
-        if self.control_dst:
-            self.flows.append(CONTROL_FLOW)
 
         self.max_packets = int(self.max_duration / self.send_interval)
 
@@ -147,20 +145,14 @@ class SRv6IO(object):
                 eth_src=src_mac,
                 ipv6_src=self.src_ipv6,
                 ipv6_dst=self.sid_dst,
+                ipv6_hlim=SEND_HLIM,
                 srh_seg_left=1,
                 srh_nh=41,
                 inner_frame=IPv6() / UDP(dport=UDP_DPORT) / Raw(load=payload)
             )
         return Ether(dst=self.router_mac, src=src_mac) \
-            / IPv6(src=self.src_ipv6, dst=self.sid_dst) \
+            / IPv6(src=self.src_ipv6, dst=self.sid_dst, hlim=SEND_HLIM) \
             / IPv6() / UDP(dport=UDP_DPORT) / Raw(load=payload)
-
-    def _build_control_packet(self, src_mac, seq):
-        """Build a plain IPv6 packet routed by the DUT without any SRv6 processing."""
-        payload = self._payload(CONTROL_FLOW, seq)
-        return Ether(dst=self.router_mac, src=src_mac) \
-            / IPv6(src=self.src_ipv6, dst=self.control_dst) \
-            / UDP(dport=UDP_DPORT) / Raw(load=payload)
 
     #
     # Sniffer management
@@ -209,12 +201,18 @@ class SRv6IO(object):
         return (status is None) or ("EXITED" in status or "STOPPED" in status)
 
     def _build_sniff_filter(self):
-        """Capture both the injected and the forwarded copies of every flow."""
+        """Capture both the injected and the forwarded copies of the flow."""
         addresses = [self.sid_dst, self.egress_dst]
-        if self.control_dst:
-            addresses.append(self.control_dst)
         sniff_filter = "ip6 and ({})".format(
             " or ".join("dst host {}".format(addr) for addr in addresses))
+
+        # The egress destination is routed to a neighbor which may not have a
+        # route for it and send it straight back, so a single injected packet can
+        # be forwarded by the DUT once per remaining hop. Only the first pass is
+        # of interest: the later ones are not duplications made by the DUT and
+        # they multiply the load put on the sniffer, which then starts dropping
+        # the copies the measurement is based on. ip6[7] is the hop limit.
+        sniff_filter = "({}) and (ip6[7] >= {})".format(sniff_filter, SEND_HLIM - 1)
 
         # The PTF backplane interface is the next hop of the routes announced to
         # the VMs, so packets sent by the DUT to the VMs are captured both on the
@@ -263,7 +261,7 @@ class SRv6IO(object):
     # Sender
     #
     def send_packets(self):
-        """Inject one packet per flow every `send_interval` until asked to stop."""
+        """Inject one SRv6 packet every `send_interval` until asked to stop."""
         src_mac = self.ptfadapter.dataplane.get_mac(0, self.ptf_src_port)
         if isinstance(src_mac, bytes):
             src_mac = src_mac.decode()
@@ -276,12 +274,9 @@ class SRv6IO(object):
 
         seq = 0
         while seq < self.max_packets and not self.stop_early:
-            packets = [(SRV6_FLOW, self._build_srv6_packet(src_mac, seq))]
-            if self.control_dst:
-                packets.append((CONTROL_FLOW, self._build_control_packet(src_mac, seq)))
-            for flow, packet in packets:
-                testutils.send_packet(self.ptfadapter, self.ptf_src_port, packet)
-                self.packets_sent[flow] += 1
+            testutils.send_packet(self.ptfadapter, self.ptf_src_port,
+                                  self._build_srv6_packet(src_mac, seq))
+            self.packets_sent[SRV6_FLOW] += 1
             seq += 1
             time.sleep(self.send_interval)
 
@@ -295,7 +290,14 @@ class SRv6IO(object):
             raise RuntimeError("ptf sniffer is not running long enough to cover packets sending.")
 
     def start_io_test(self):
-        """Entry point of the I/O thread."""
+        """
+        Entry point of the I/O thread.
+
+        The capture is deliberately not fetched here: reading a pcap of several
+        hundred thousand packets takes minutes and would have to be accounted in
+        the timeout of the thread join, which is only meant to bound the sender
+        and the sniffer. The runner fetches it once the thread has terminated.
+        """
         try:
             self.start_sniffer()
             self.send_packets()
@@ -303,13 +305,14 @@ class SRv6IO(object):
         except Exception:
             self.force_stop_ptf_sniffer()
             raise
-        self.fetch_captured_packets()
 
     def mark_action_start(self):
         self.action_start = datetime.datetime.now()
+        self.action_start_seq = self.packets_sent[SRV6_FLOW]
 
     def mark_action_stop(self):
         self.action_stop = datetime.datetime.now()
+        self.action_stop_seq = self.packets_sent[SRV6_FLOW]
 
     #
     # Flow examination
@@ -350,7 +353,7 @@ class SRv6IO(object):
                 continue
 
             # Copy forwarded by the DUT
-            if flow == SRV6_FLOW and packet[IPv6].dst != self.egress_dst:
+            if packet[IPv6].dst != self.egress_dst:
                 # The packet was forwarded but the uN behavior was not applied,
                 # it must not be accounted as successfully forwarded.
                 logger.warning("Packet {} of flow {} forwarded with unexpected destination {}".format(
@@ -360,7 +363,7 @@ class SRv6IO(object):
             if seq in received[flow]:
                 duplicates[flow] += 1
                 continue
-            if packet[IPv6].hlim >= 64:
+            if packet[IPv6].hlim >= SEND_HLIM:
                 # The forwarded copy is expected to have its hop limit decremented
                 unexpected_hlim[flow] += 1
             received[flow][seq] = timestamp
@@ -379,13 +382,16 @@ class SRv6IO(object):
         If the sender ran out of packets before the action completed, no traffic
         was flowing while the DUT was rebooting and the absence of disruption
         would be meaningless.
+
+        The comparison is made on sequence numbers rather than on timestamps: the
+        capture is timestamped by the PTF host while the action is timed by the
+        test host, and the two clocks are not synchronized.
         """
-        if not self.action_start or not self.action_stop:
+        if self.action_start_seq is None or self.action_stop_seq is None:
             return None
         if not sent:
             return False
-        return (min(sent.values()) <= self.action_start.timestamp()
-                and max(sent.values()) >= self.action_stop.timestamp())
+        return min(sent) < self.action_start_seq and max(sent) >= self.action_stop_seq
 
     def _build_flow_result(self, flow, sent, received, duplicates, mis_forwarded, unexpected_hlim):
         disruptions = self._compute_disruptions(sent, received)
@@ -478,7 +484,7 @@ class SRv6IO(object):
 
 
 def run_srv6_io_test(duthost, ptfhost, ptfadapter, action, ptf_src_port, router_mac,
-                     sid_dst, egress_dst, control_dst=None, with_srh=False,
+                     sid_dst, egress_dst, with_srh=False,
                      send_interval=0.01, max_duration=1200, settle_time=60,
                      warm_up_time=15):
     """
@@ -494,7 +500,7 @@ def run_srv6_io_test(duthost, ptfhost, ptfadapter, action, ptf_src_port, router_
     """
     io_ready = threading.Event()
     srv6_io = SRv6IO(duthost, ptfhost, ptfadapter, io_ready, ptf_src_port, router_mac,
-                     sid_dst, egress_dst, control_dst=control_dst, with_srh=with_srh,
+                     sid_dst, egress_dst, with_srh=with_srh,
                      send_interval=send_interval, max_duration=max_duration)
 
     io_thread = InterruptableThread(target=srv6_io.start_io_test)
@@ -530,6 +536,7 @@ def run_srv6_io_test(duthost, ptfhost, ptfadapter, action, ptf_src_port, router_
     if io_thread.is_alive():
         raise RuntimeError("SRv6 I/O thread did not terminate")
 
+    srv6_io.fetch_captured_packets()
     srv6_io.examine_flow()
     return srv6_io
 
