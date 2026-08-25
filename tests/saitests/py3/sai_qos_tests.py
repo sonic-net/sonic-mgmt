@@ -6739,7 +6739,7 @@ class QSharedWatermarkQuantizedTest(sai_base_test.ThriftInterfaceDataPlane):
 
             # Phase B: per-threshold validation. Skip the final threshold since it
             # has no i+1 neighbor to transition into.
-            for i in range(1, len(thresholds) - 2):
+            for i in range(1, len(thresholds) - 1):
                 threshold_pkts = thr_to_pkts(thresholds[i])
                 for offset, expected_idx in ((-fill_margin, i), (fill_margin, i + 1)):
                     target_pkts = threshold_pkts + offset
