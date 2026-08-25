@@ -732,6 +732,7 @@ def get_ptf_src_port_and_dut_port_and_neighbor(dut, tbinfo):
             return intf, ptf_ports, entry[1]  # local intf, ptf_src_ports (list), neighbor hostname
 
     pytest.skip("No active LLDP neighbor found for {}".format(dut))
+    return None
 
 
 def run_srv6_traffic_test(duthost, dut_mac, ptf_src_ports, neighbor_ip, ptfadapter, ptfhost, with_srh):

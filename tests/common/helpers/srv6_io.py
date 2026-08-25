@@ -21,13 +21,14 @@ jitter of the python sender cannot be mistaken for a data plane outage. This is
 the same approach as the one used by `ptftests/py3/advanced-reboot.py`.
 """
 
+import configparser
 import datetime
+import io
 import logging
 import os
 import threading
 import time
 
-import jinja2
 import scapy.all as scapyall
 import ptf.testutils as testutils
 
@@ -39,9 +40,7 @@ from tests.common.utilities import InterruptableThread, wait_until
 
 logger = logging.getLogger(__name__)
 
-TEMPLATES_DIR = "templates/"
 SUPERVISOR_CONFIG_DIR = "/etc/supervisor/conf.d/"
-SRV6_SNIFFER_CONF_TEMPL = "srv6_sniffer.conf.j2"
 SRV6_SNIFFER_CONF = "srv6_sniffer.conf"
 SRV6_SNIFFER_PROGRAM = "srv6_sniffer"
 
@@ -165,9 +164,25 @@ class SRv6IO(object):
             self.capture_log,
             self.sniff_timeout
         )
-        templ = jinja2.Template(open(os.path.join(TEMPLATES_DIR, SRV6_SNIFFER_CONF_TEMPL)).read())
+        supervisor_config = configparser.ConfigParser(interpolation=None)
+        supervisor_config["program:{}".format(SRV6_SNIFFER_PROGRAM)] = {
+            "command": "{} {}".format(self.ptf_sniffer, ptf_sniffer_args),
+            "process_name": SRV6_SNIFFER_PROGRAM,
+            "stdout_logfile": "/tmp/srv6_sniffer.out.log",
+            "stderr_logfile": "/tmp/srv6_sniffer.err.log",
+            "redirect_stderr": "false",
+            "autostart": "false",
+            "autorestart": "false",
+            "startsecs": "1",
+            "numprocs": "1",
+            "stopsignal": "INT",
+            "stopwaitsecs": "90",
+        }
+        with io.StringIO() as config_stream:
+            supervisor_config.write(config_stream, space_around_delimiters=False)
+            config_content = config_stream.getvalue()
         self.ptfhost.copy(
-            content=templ.render(ptf_sniffer=self.ptf_sniffer, ptf_sniffer_args=ptf_sniffer_args),
+            content=config_content,
             dest=os.path.join(SUPERVISOR_CONFIG_DIR, SRV6_SNIFFER_CONF)
         )
         self.ptfhost.copy(src='scripts/dual_tor_sniffer.py', dest=self.ptf_sniffer)
