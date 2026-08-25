@@ -20,6 +20,19 @@ pytestmark = [
     pytest.mark.skip_check_dut_health
 ]
 
+
+@pytest.fixture(scope="module", autouse=True)
+def skip_on_bmc(duthost):
+    # test_static_dns runs "dhclient eth0" against the DUT mgmt port. On BMC
+    # platforms the mgmt port is typically L2-reachable to an external DHCP
+    # pool that hands out an IP different from the statically-configured mgmt
+    # IP, so dhclient replaces the static IP and renders the DUT unreachable
+    # for the rest of the run. Skip until the upstream test is safe (see
+    # https://github.com/sonic-net/sonic-mgmt/issues/27308).
+    if duthost.is_bmc():
+        pytest.skip("Skip static_dns on BMC: dhclient eth0 can hijack mgmt IP")
+
+
 logger = logging.getLogger(__name__)
 allure.logger = logger
 
