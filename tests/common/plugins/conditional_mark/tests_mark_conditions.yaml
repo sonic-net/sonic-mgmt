@@ -432,6 +432,12 @@ bgp/test_bgp_allow_list_m0_olt.py:
     conditions:
       - "'m0' not in topo_type"
 
+bgp/test_bgp_aspath_prepend_internal_only.py:
+  skip:
+    reason: "lma has no MB (CoreTs) neighbor, so there is no backup upstream path to test. uma is meant to run this with its out-of-band neighbor treated as MB, and will be un-skipped once that neighbor exists in topo_uma.yml"
+    conditions:
+      - "topo_type in ['uma', 'lma']"
+
 bgp/test_bgp_bbr.py:
   skip:
     reason: "Only supported on t1 topo. But Cisco 8111 or 8122 T1(compute ai) platform is not supported. Not needed for isolated topo."
@@ -872,6 +878,15 @@ clock/test_clock.py::test_config_clock_timezone:
     reason: "xfail due to github issue https://github.com/sonic-net/sonic-buildimage/issues/24562"
     conditions:
       - "https://github.com/sonic-net/sonic-buildimage/issues/24562 and asic_type in ['mellanox', 'nvidia', 'vs']"
+
+#######################################
+#####            closa            #####
+#######################################
+closa:
+  skip:
+    reason: "CLOS-A tests need M0 downstream and MA upstream neighbors, which the uma/lma topologies do not have"
+    conditions:
+      - "topo_type in ['uma', 'lma']"
 
 #######################################
 #####           configlet         #####
