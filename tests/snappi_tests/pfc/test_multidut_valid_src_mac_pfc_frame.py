@@ -5,8 +5,9 @@ from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi
     snappi_api, snappi_dut_base_config, get_snappi_ports_for_rdma, cleanup_config, get_snappi_ports_multi_dut, \
     snappi_testbed_config, get_snappi_ports_single_dut, \
     get_snappi_ports, is_snappi_multidut                                        # noqa: F401
-from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, all_prio_list, lossless_prio_list,\
-    lossy_prio_list, disable_pfcwd, disable_voq_watchdog                        # noqa F401
+from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, all_prio_list, lossless_prio_list, \
+    lossy_prio_list, disable_pfcwd                                              # noqa: F401
+from tests.snappi_tests.cisco.helper import disable_voq_watchdog                # noqa: F401
 from tests.snappi_tests.files.helper import multidut_port_info, setup_ports_and_dut  # noqa: F401
 from tests.snappi_tests.pfc.files.helper import run_pfc_test
 import logging
