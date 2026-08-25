@@ -247,14 +247,13 @@ def build_dom_sensor_plan(port_attributes_dict, dom_primary_ports, lport_to_firs
 def build_dom_threshold_plan(port_attributes_dict, dom_primary_ports):
     """Return each port's expected threshold fields and paired operational ranges.
 
-    ``expected_fields`` is a ``{field: DomThresholdMappedField(...)}`` map for
-    ``TRANSCEIVER_DOM_THRESHOLD``. Threshold validation is transceiver-level, so
+    ``db_fields_by_threshold_attr`` groups ``TRANSCEIVER_DOM_THRESHOLD`` fields
+    by source threshold attribute. Threshold validation is transceiver-level, so
     no LANE_NUM expansion is applied here.
     """
     plan_by_port = {}
     for port in dom_primary_ports:
         dom_attrs = port_attributes_dict.get(port, {}).get(DOM_ATTRIBUTES_KEY, {})
-        expected_fields = {}
         configured_by_attr = {}
         db_fields_by_threshold_attr = defaultdict(dict)
         operational_range_by_threshold_attr = {}
@@ -266,7 +265,6 @@ def build_dom_threshold_plan(port_attributes_dict, dom_primary_ports):
 
             configured_by_attr[attr_name] = attr_value
             mapped_fields, field_errors = map_dom_attribute_to_fields(attr_name, attr_value, active_media_lanes=None)
-            expected_fields.update(mapped_fields)
             for field, mapped_field in mapped_fields.items():
                 db_fields_by_threshold_attr[attr_name][field] = mapped_field
             errors.extend(field_errors)
@@ -279,7 +277,6 @@ def build_dom_threshold_plan(port_attributes_dict, dom_primary_ports):
                 )
 
         plan_by_port[port] = {
-            "expected_fields": {field: expected_fields[field] for field in sorted(expected_fields)},
             "configured_by_attr": configured_by_attr,
             "db_fields_by_threshold_attr": {
                 attr_name: {
@@ -295,7 +292,7 @@ def build_dom_threshold_plan(port_attributes_dict, dom_primary_ports):
             "%s DOM threshold plan: %d expected field(s), %d threshold attr(s), "
             "%d paired operational range attr(s)",
             port,
-            len(expected_fields),
+            sum(len(fields) for fields in db_fields_by_threshold_attr.values()),
             len(configured_by_attr),
             len(operational_range_by_threshold_attr),
         )

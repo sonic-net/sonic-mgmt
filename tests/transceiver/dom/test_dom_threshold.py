@@ -132,32 +132,40 @@ def _compare_thresholds(attr_name, configured_values, db_values):
     return errors
 
 
+def _expected_fields_from_threshold_plan(db_fields_by_threshold_attr):
+    """Return a flat ``{db_field: mapped_field}`` view for failure headers."""
+    return {
+        field: db_fields_by_threshold_attr[attr_name][field]
+        for attr_name in sorted(db_fields_by_threshold_attr)
+        for field in sorted(db_fields_by_threshold_attr[attr_name])
+    }
+
+
 def _validate_threshold_attr(attr_name, attr_value, threshold_table_data, db_fields_by_name, operational_mapped_field):
-    """Return ``(errors, checked_fields, skipped_checks)`` for one threshold attribute."""
+    """Return ``(errors, checked_fields, skipped_checks, skip_reasons)`` for one threshold attribute."""
     attr_errors = []
     skipped_checks = 0
+    skip_reasons = []
 
     configured_values, threshold_errors = _parse_threshold_range(attr_name, attr_value)
     attr_errors.extend(threshold_errors)
     if threshold_errors:
-        return attr_errors, 0, skipped_checks
+        return attr_errors, 0, skipped_checks, skip_reasons
 
     if not db_fields_by_name:
-        return ["{} has no expected STATE_DB threshold fields".format(attr_name)], 0, skipped_checks
+        return ["{} has no expected STATE_DB threshold fields".format(attr_name)], 0, skipped_checks, skip_reasons
 
     db_values, db_value_errors = _db_values_for_attr(attr_name, threshold_table_data, db_fields_by_name)
     attr_errors.extend(db_value_errors)
     if len(db_values) != len(THRESHOLD_FIELD_SUFFIXES):
         skipped_checks += 1
+        skip_reasons.append("STATE_DB hierarchy skipped because STATE_DB threshold data is incomplete")
         if operational_mapped_field:
             skipped_checks += 1
-        attr_errors.append(
-            "{} skipped STATE_DB hierarchy{} check(s) because STATE_DB threshold data is incomplete".format(
-                attr_name,
-                " and operational-range-within-warning" if operational_mapped_field else "",
+            skip_reasons.append(
+                "operational-range-within-warning skipped because STATE_DB threshold data is incomplete"
             )
-        )
-        return attr_errors, 0, skipped_checks
+        return attr_errors, 0, skipped_checks, skip_reasons
 
     attr_errors.extend(_compare_thresholds(attr_name, configured_values, db_values))
 
@@ -175,8 +183,9 @@ def _validate_threshold_attr(attr_name, attr_value, threshold_table_data, db_fie
         )
     else:
         skipped_checks += 1
+        skip_reasons.append("no paired operational range configured")
 
-    return attr_errors, len(db_fields_by_name) if not attr_errors else 0, skipped_checks
+    return attr_errors, len(db_fields_by_name) if not attr_errors else 0, skipped_checks, skip_reasons
 
 
 def _validate_dom_threshold_ranges(dom_primary_ports, threshold_table_by_port, threshold_plan_by_port):
@@ -188,14 +197,14 @@ def _validate_dom_threshold_ranges(dom_primary_ports, threshold_table_by_port, t
     skipped_check_count = 0
 
     for port in dom_primary_ports:
-        threshold_table_data = threshold_table_by_port.get(port, {})
+        threshold_table_data = threshold_table_by_port.get(port)
         threshold_plan = threshold_plan_by_port.get(port, {})
-        expected_fields = threshold_plan.get("expected_fields", {})
         configured_by_attr = threshold_plan.get("configured_by_attr", {})
         db_fields_by_threshold_attr = threshold_plan.get("db_fields_by_threshold_attr", {})
+        expected_fields = _expected_fields_from_threshold_plan(db_fields_by_threshold_attr)
         operational_range_by_threshold_attr = threshold_plan.get("operational_range_by_threshold_attr", {})
         field_failures = list(threshold_plan.get("errors", []))
-        has_threshold_checks = bool(expected_fields or configured_by_attr or field_failures)
+        has_threshold_checks = bool(configured_by_attr or field_failures)
 
         if has_threshold_checks:
             checked_port_count += 1
@@ -235,7 +244,7 @@ def _validate_dom_threshold_ranges(dom_primary_ports, threshold_table_by_port, t
         for attr_name, attr_value in sorted(configured_by_attr.items()):
             db_fields_by_name = db_fields_by_threshold_attr.get(attr_name, {})
             operational_mapped_field = operational_range_by_threshold_attr.get(attr_name)
-            attr_errors, checked_fields, skipped_checks = _validate_threshold_attr(
+            attr_errors, checked_fields, skipped_checks, skip_reasons = _validate_threshold_attr(
                 attr_name,
                 attr_value,
                 threshold_table_data,
@@ -244,17 +253,12 @@ def _validate_dom_threshold_ranges(dom_primary_ports, threshold_table_by_port, t
             )
             skipped_check_count += skipped_checks
             if skipped_checks:
-                logger.warning(
-                    "DOM threshold reduced coverage %s %s: %d check(s) skipped",
+                logger.debug(
+                    "DOM threshold reduced coverage %s %s: %d check(s) skipped (%s)",
                     port,
                     attr_name,
                     skipped_checks,
-                )
-            if not operational_mapped_field:
-                logger.warning(
-                    "DOM threshold reduced coverage %s %s: no paired operational range configured",
-                    port,
-                    attr_name,
+                    "; ".join(skip_reasons),
                 )
 
             if attr_errors:

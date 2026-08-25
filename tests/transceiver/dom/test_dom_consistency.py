@@ -218,71 +218,76 @@ def _format_delta_failure(field, sample_index, delta, threshold, unit, previous_
     )
 
 
-def _validate_pair(port, field, check, previous_sample, current_sample, sample_index, plan):
-    """Return ``(error, checked, skip_reason)`` for one sample pair and field."""
-    previous_sensor = previous_sample["sensor"]
-    current_sensor = current_sample["sensor"]
-    if previous_sensor is None or current_sensor is None:
-        return None, False, "{} namespace read failed".format(STATE_DB_SENSOR_TABLE)
-    if not previous_sensor or not current_sensor:
-        return None, False, "{} entry missing for one or both samples".format(STATE_DB_SENSOR_TABLE)
+def _validate_absolute_pair(port, field, check, previous_sensor, current_sensor,
+                            previous_value, current_value, sample_index):
+    """Return ``(error, checked, skip_reason)`` for one absolute-delta check."""
+    if previous_value is None or current_value is None:
+        return "{} sample {}->{}: missing/non-finite value (prev={!r}, curr={!r})".format(
+            field, sample_index, sample_index + 1, previous_sensor.get(field), current_sensor.get(field)
+        ), False, None
+    delta = abs(current_value - previous_value)
+    if delta > check["threshold"]:
+        return _format_delta_failure(
+            field, sample_index, delta, check["threshold"], check["unit"], previous_value, current_value
+        ), True, None
+    logger.debug("DOM consistency PASS %s %s sample %d->%d: delta=%s%s limit=%s%s",
+                 port, field, sample_index, sample_index + 1, format_optional_float(delta),
+                 check["unit"], format_optional_float(check["threshold"]), check["unit"])
+    return None, True, None
 
-    previous_value = _numeric_sensor_value(previous_sensor, field)
-    current_value = _numeric_sensor_value(current_sensor, field)
 
-    if check["mode"] == MODE_ABSOLUTE:
-        if previous_value is None or current_value is None:
-            return "{} sample {}->{}: missing/non-finite value (prev={!r}, curr={!r})".format(
-                field, sample_index, sample_index + 1, previous_sensor.get(field), current_sensor.get(field)
-            ), False, None
-        delta = abs(current_value - previous_value)
-        if delta > check["threshold"]:
-            return _format_delta_failure(
-                field, sample_index, delta, check["threshold"], check["unit"], previous_value, current_value
-            ), True, None
-        logger.debug("DOM consistency PASS %s %s sample %d->%d: delta=%s%s limit=%s%s",
-                     port, field, sample_index, sample_index + 1, format_optional_float(delta),
-                     check["unit"], format_optional_float(check["threshold"]), check["unit"])
-        return None, True, None
-
-    warning_range = plan["tx_bias_warning_range"]
-    lane = check["lane"]
-    previous_status = previous_sample["status"]
-    current_status = current_sample["status"]
+def _tx_bias_percent_skip_reason(field, lane, warning_range, previous_value, current_value,
+                                 previous_sensor, current_sensor, previous_status, current_status):
+    """Return the Tx-bias percent-check skip reason, or ``None`` when checkable."""
     if warning_range["error"]:
-        skip_reason = warning_range["error"]
-    elif previous_status is None or current_status is None:
-        skip_reason = "{} namespace read failed".format(STATE_DB_STATUS_TABLE)
-    elif not (
+        return warning_range["error"]
+    if previous_status is None or current_status is None:
+        return "{} namespace read failed".format(STATE_DB_STATUS_TABLE)
+    if not (
         # Current TC4 scope covers optics where media lanes map 1:1 to host/datapath
         # lanes, so the media lane used for tx{lane}bias also selects DP{lane}State.
         # Gearbox and inverse-gearbox lane translation should be added in a follow-up.
         is_state_db_dp_state_activated(previous_status, lane)
         and is_state_db_dp_state_activated(current_status, lane)
     ):
-        skip_reason = "DP{}State not {} (prev={!r}, curr={!r})".format(
+        return "DP{}State not {} (prev={!r}, curr={!r})".format(
             lane, STATE_DB_DP_STATE_ACTIVATED, previous_status.get("DP{}State".format(lane)),
             current_status.get("DP{}State".format(lane))
         )
-    elif previous_value is None or current_value is None:
-        skip_reason = "missing/non-finite value (prev={!r}, curr={!r})".format(
+    if previous_value is None or current_value is None:
+        return "missing/non-finite value (prev={!r}, curr={!r})".format(
             previous_sensor.get(field), current_sensor.get(field)
         )
-    elif not (warning_range["low"] <= previous_value <= warning_range["high"]
-              and warning_range["low"] <= current_value <= warning_range["high"]):
+    if not (warning_range["low"] <= previous_value <= warning_range["high"]
+            and warning_range["low"] <= current_value <= warning_range["high"]):
         # Tx-bias percent stability is meaningful only in the normal warning range;
         # threshold/alarm tests own values that are already outside this envelope.
-        skip_reason = "value outside tx_bias warning range [{}, {}] (prev={}, curr={})".format(
+        return "value outside tx_bias warning range [{}, {}] (prev={}, curr={})".format(
             format_optional_float(warning_range["low"]),
             format_optional_float(warning_range["high"]),
             format_optional_float(previous_value),
             format_optional_float(current_value),
         )
-    elif previous_value == 0:
-        skip_reason = "previous value is zero; percent change is undefined"
-    else:
-        skip_reason = None
+    if previous_value == 0:
+        return "previous value is zero; percent change is undefined"
+    return None
 
+
+def _validate_tx_bias_percent_pair(port, field, check, previous_sample, current_sample,
+                                   previous_value, current_value, sample_index, plan):
+    """Return ``(error, checked, skip_reason)`` for one Tx-bias percent check."""
+    lane = check["lane"]
+    skip_reason = _tx_bias_percent_skip_reason(
+        field,
+        lane,
+        plan["tx_bias_warning_range"],
+        previous_value,
+        current_value,
+        previous_sample["sensor"],
+        current_sample["sensor"],
+        previous_sample["status"],
+        current_sample["status"],
+    )
     if skip_reason:
         logger.info("DOM consistency SKIP %s %s sample %d->%d: %s",
                     port, field, sample_index, sample_index + 1, skip_reason)
@@ -297,6 +302,26 @@ def _validate_pair(port, field, check, previous_sample, current_sample, sample_i
                  port, field, sample_index, sample_index + 1, delta_percent,
                  format_optional_float(check["threshold"]))
     return None, True, None
+
+
+def _validate_pair(port, field, check, previous_sample, current_sample, sample_index, plan):
+    """Return ``(error, checked, skip_reason)`` for one sample pair and field."""
+    previous_sensor = previous_sample["sensor"]
+    current_sensor = current_sample["sensor"]
+    if previous_sensor is None or current_sensor is None:
+        return None, False, "{} namespace read failed".format(STATE_DB_SENSOR_TABLE)
+    if not previous_sensor or not current_sensor:
+        return None, False, "{} entry missing for one or both samples".format(STATE_DB_SENSOR_TABLE)
+
+    previous_value = _numeric_sensor_value(previous_sensor, field)
+    current_value = _numeric_sensor_value(current_sensor, field)
+    if check["mode"] == MODE_ABSOLUTE:
+        return _validate_absolute_pair(
+            port, field, check, previous_sensor, current_sensor, previous_value, current_value, sample_index
+        )
+    return _validate_tx_bias_percent_pair(
+        port, field, check, previous_sample, current_sample, previous_value, current_value, sample_index, plan
+    )
 
 
 def _validate_port_samples(port, port_samples, plan):
