@@ -142,7 +142,17 @@ jobs:
           git checkout -b $branch --track origin/$branch
           git status | grep "working tree clean"
 
-          if ! git cherry-pick -s $sha; then
+          if ! cherry_pick_output=$(git cherry-pick -s "$sha" 2>&1); then
+            echo "$cherry_pick_output"
+            if echo "$cherry_pick_output" | grep -qiF "cherry-pick is now empty"; then
+              echo "Changes are already present in $branch branch."
+              git cherry-pick --abort
+              git status | grep "working tree clean"
+              gh pr edit "$pr_url" --remove-label "Cherry Pick Conflict_$branch" || true
+              gh pr edit "$pr_url" --add-label "Included in $branch branch"
+              gh pr comment "$pr_url" --body "No cherry-pick PR is needed for $branch because these changes are already present in the target branch. Added the \`Included in $branch branch\` label."
+              return 0
+            fi
             echo 'cherry-pick failed.'
             git cherry-pick --abort
             git status | grep "working tree clean"
