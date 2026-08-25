@@ -17,8 +17,7 @@ from constants import (
 from tests.dash.conftest import get_interface_ip
 from configs.privatelink_config import TUNNEL1_ENDPOINT_IP
 import configs.privatelink_config as pl
-from tests.common.dash_utils import apply_swssconfig_file
-from gnmi_utils import apply_messages
+from tests.common.dash_utils import apply_swssconfig_file, apply_dash_configs
 from packets import (
     get_pl_overlay_dip,
     get_overlay_pkt_details,
@@ -465,74 +464,53 @@ def privatelink_redirect_fnic_config(
         yield
         return
     dpuhost = dpuhosts[dpu_index]
-    logger.info(pl.ROUTING_TYPE_PL_CONFIG)
 
     tunnel_config = pl.TUNNEL1_CONFIG
 
-    base_config_messages = {
-        **pl.APPLIANCE_FNIC_CONFIG,
-        **pl.ROUTING_TYPE_PL_CONFIG,
-        **pl.ROUTING_TYPE_VNET_CONFIG,
-        **pl.VNET_CONFIG,
-        **pl.VNET2_CONFIG,
-        **pl.ROUTE_GROUP1_CONFIG,
-        **pl.METER_POLICY_V4_CONFIG,
-        **pl.RD_PORTMAP_CONFIG,
-        **pl.RD_PORTMAP_RANGE_CONFIG,
-        **tunnel_config
-    }
-    logger.info(base_config_messages)
-
-    apply_messages(
-        localhost, duthost, ptfhost,
-        base_config_messages, dpuhost.dpu_index
-    )
-
-    route_and_mapping_messages = {
-        **pl.PL_REDIRECT_PE_VNET_MAPPING_CONFIG,
-        **pl.PE_SUBNET_ROUTE_CONFIG,
-        **pl.VM_SUBNET_ROUTE_WITH_TUNNEL_SINGLE_ENDPOINT
-    }
-    logger.info(route_and_mapping_messages)
-    apply_messages(
-        localhost, duthost, ptfhost,
-        route_and_mapping_messages, dpuhost.dpu_index
-    )
+    route_and_mapping_messages = [
+        pl.PL_REDIRECT_PE_VNET_MAPPING_CONFIG,
+        pl.PE_SUBNET_ROUTE_CONFIG,
+        pl.VM_SUBNET_ROUTE_WITH_TUNNEL_SINGLE_ENDPOINT
+    ]
 
     # inbound routing not implemented in Pensando SAI yet
+    route_rule_messages = []
     if 'pensando' not in dpuhost.facts['asic_type']:
-        route_rule_messages = {
-            **pl.VM_VNI_ROUTE_RULE_CONFIG,
-            **pl.PL_REDIRECT_BACKEND_IP_ROUTE_RULE_CONFIG,
-            **pl.INBOUND_VNI_ROUTE_RULE_CONFIG,
-            **pl.TRUSTED_VNI_ROUTE_RULE_CONFIG
-        }
-        logger.info(route_rule_messages)
-        apply_messages(
-            localhost, duthost, ptfhost,
-            route_rule_messages, dpuhost.dpu_index
-        )
+        route_rule_messages = [
+            pl.VM_VNI_ROUTE_RULE_CONFIG,
+            pl.PL_REDIRECT_BACKEND_IP_ROUTE_RULE_CONFIG,
+            pl.INBOUND_VNI_ROUTE_RULE_CONFIG,
+            pl.TRUSTED_VNI_ROUTE_RULE_CONFIG
+        ]
 
-    meter_rule_messages = {
-        **pl.METER_RULE1_V4_CONFIG,
-        **pl.METER_RULE2_V4_CONFIG,
-    }
-    logger.info(meter_rule_messages)
-    apply_messages(
-        localhost, duthost, ptfhost,
-        meter_rule_messages, dpuhost.dpu_index
-    )
+    meter_rule_messages = [
+        pl.METER_RULE1_V4_CONFIG,
+        pl.METER_RULE2_V4_CONFIG,
+    ]
 
-    logger.info(pl.ENI_FNIC_CONFIG)
-    apply_messages(
-        localhost, duthost, ptfhost,
-        pl.ENI_FNIC_CONFIG, dpuhost.dpu_index
-    )
+    config_messages = [
+        pl.APPLIANCE_FNIC_CONFIG,
+        pl.ROUTING_TYPE_PL_CONFIG,
+        pl.ROUTING_TYPE_VNET_CONFIG,
+        pl.VNET_CONFIG,
+        pl.VNET2_CONFIG,
+        pl.ROUTE_GROUP1_CONFIG,
+        pl.METER_POLICY_V4_CONFIG,
+        pl.RD_PORTMAP_CONFIG,
+        pl.RD_PORTMAP_RANGE_CONFIG,
+        tunnel_config,
+        *route_and_mapping_messages,
+        *route_rule_messages,
+        *meter_rule_messages,
+        pl.ENI_FNIC_CONFIG,
+        pl.ENI_ROUTE_GROUP1_CONFIG
+    ]
 
-    logger.info(pl.ENI_ROUTE_GROUP1_CONFIG)
-    apply_messages(
+    logger.info(f"config_messages: {config_messages}")
+
+    apply_dash_configs(
         localhost, duthost, ptfhost,
-        pl.ENI_ROUTE_GROUP1_CONFIG, dpuhost.dpu_index
+        dpuhost.dpu_index, *config_messages
     )
 
     yield
@@ -555,72 +533,50 @@ def privatelink_redirect_nsg_config(
         yield
         return
     dpuhost = dpuhosts[dpu_index]
-    logger.info(pl.ROUTING_TYPE_PL_CONFIG)
 
     tunnel_config = pl.TUNNEL3_CONFIG
 
-    base_config_messages = {
-        **pl.APPLIANCE_CONFIG,
-        **pl.ROUTING_TYPE_PL_CONFIG,
-        **pl.ROUTING_TYPE_VNET_CONFIG,
-        **pl.VNET_CONFIG,
-        **pl.VNET2_CONFIG,
-        **pl.ROUTE_GROUP1_CONFIG,
-        **pl.METER_POLICY_V4_CONFIG,
-        **pl.RD_PORTMAP_CONFIG,
-        **pl.RD_PORTMAP_RANGE_CONFIG,
-        **tunnel_config,
-    }
-    logger.info(base_config_messages)
+    route_and_mapping_messages = [
+        pl.PL_REDIRECT_PE_PLNSG_SINGLE_ENDPOINT_VNET_MAPPING_CONFIG,
+        pl.PE_SUBNET_ROUTE_CONFIG,
+        pl.VM_SUBNET_ROUTE_CONFIG,
+    ]
 
-    apply_messages(
-        localhost, duthost, ptfhost,
-        base_config_messages, dpuhost.dpu_index
-    )
-
-    route_and_mapping_messages = {
-        **pl.PL_REDIRECT_PE_PLNSG_SINGLE_ENDPOINT_VNET_MAPPING_CONFIG,
-        **pl.PE_SUBNET_ROUTE_CONFIG,
-        **pl.VM_SUBNET_ROUTE_CONFIG,
-    }
-    logger.info(route_and_mapping_messages)
-    apply_messages(
-        localhost, duthost, ptfhost,
-        route_and_mapping_messages, dpuhost.dpu_index
-    )
-
+    route_rule_messages = []
     if 'pensando' not in dpuhost.facts['asic_type']:
-        route_rule_messages = {
-            **pl.VM_VNI_ROUTE_RULE_CONFIG,
-            **pl.PL_REDIRECT_BACKEND_IP_ROUTE_RULE_CONFIG,
-            **pl.INBOUND_VNI_ROUTE_RULE_CONFIG,
-        }
-        logger.info(route_rule_messages)
-        apply_messages(
-            localhost, duthost, ptfhost,
-            route_rule_messages, dpuhost.dpu_index
-        )
+        route_rule_messages = [
+            pl.VM_VNI_ROUTE_RULE_CONFIG,
+            pl.PL_REDIRECT_BACKEND_IP_ROUTE_RULE_CONFIG,
+            pl.INBOUND_VNI_ROUTE_RULE_CONFIG,
+        ]
 
-    meter_rule_messages = {
-        **pl.METER_RULE1_V4_CONFIG,
-        **pl.METER_RULE2_V4_CONFIG,
-    }
-    logger.info(meter_rule_messages)
-    apply_messages(
-        localhost, duthost, ptfhost,
-        meter_rule_messages, dpuhost.dpu_index
-    )
+    meter_rule_messages = [
+        pl.METER_RULE1_V4_CONFIG,
+        pl.METER_RULE2_V4_CONFIG,
+    ]
 
-    logger.info(pl.ENI_CONFIG)
-    apply_messages(
-        localhost, duthost, ptfhost,
-        pl.ENI_CONFIG, dpuhost.dpu_index
-    )
+    config_messages = [
+        pl.APPLIANCE_CONFIG,
+        pl.ROUTING_TYPE_PL_CONFIG,
+        pl.ROUTING_TYPE_VNET_CONFIG,
+        pl.VNET_CONFIG,
+        pl.VNET2_CONFIG,
+        pl.ROUTE_GROUP1_CONFIG,
+        pl.METER_POLICY_V4_CONFIG,
+        pl.RD_PORTMAP_CONFIG,
+        pl.RD_PORTMAP_RANGE_CONFIG,
+        tunnel_config,
+        *route_and_mapping_messages,
+        *route_rule_messages,
+        *meter_rule_messages,
+        pl.ENI_CONFIG,
+        pl.ENI_ROUTE_GROUP1_CONFIG
+    ]
+    logger.info(f"config_messages: {config_messages}")
 
-    logger.info(pl.ENI_ROUTE_GROUP1_CONFIG)
-    apply_messages(
+    apply_dash_configs(
         localhost, duthost, ptfhost,
-        pl.ENI_ROUTE_GROUP1_CONFIG, dpuhost.dpu_index
+        dpuhost.dpu_index, *config_messages
     )
 
     yield
