@@ -306,7 +306,6 @@ def duthost_shutdown_ebgp(duthost):
         # So use that as our timeout benchmark plus a buffer and take 2s per port (min 60s).
         routes_zero_timeout = max(len(duthost.get_admin_up_ports()) * 2, routes_zero_timeout)
 
-
     # Shutdown all eBGP neighbors
     duthost.command("sudo config bgp shutdown all")
 
