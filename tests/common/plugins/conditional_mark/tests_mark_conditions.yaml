@@ -1259,7 +1259,7 @@ dhcp_relay/test_dhcp_relay_stress.py::test_dhcp_relay_stress:
   xfail:
     reason: "DHCP relay stress test is unstable on t0-vpp"
     conditions:
-      - "asic_type in ['vpp'] and topo_name in ['t0']"
+      - "asic_type in ['vpp'] and topo_name in ['t0-vpp']"
 
 dhcp_relay/test_dhcp_relay_stress.py::test_dhcp_relay_stress[discover:
   skip:
