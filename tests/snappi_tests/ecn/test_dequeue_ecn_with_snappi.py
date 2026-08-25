@@ -21,6 +21,15 @@ logger = logging.getLogger(__name__)
 pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]
 
 
+# Per-ASIC ECN dequeue test parameters.
+# Broadcom devices have a different queue kmin and require more packets to be
+# sent to see the marked packets at the end of the flow.
+ECN_PARAMS_BY_ASIC = {
+    'default':  {'ecn_params': {'kmin': 50000, 'kmax': 51000, 'pmax': 100}, 'pkt_count': 101},
+    'broadcom': {'ecn_params': {'kmin': 40000, 'kmax': 51000, 'pmax': 100}, 'pkt_count': 301},
+}
+
+
 @pytest.mark.parametrize("multidut_port_info", MULTIDUT_PORT_INFO[MULTIDUT_TESTBED])
 def test_dequeue_ecn(request,
                      snappi_api,                    # noqa: F811
@@ -51,6 +60,9 @@ def test_dequeue_ecn(request,
     Returns:
         N/A
     """
+    def _get_ecn_test_params(duthost):
+        asic_type = duthost.facts['asic_type']
+        return ECN_PARAMS_BY_ASIC.get(asic_type, ECN_PARAMS_BY_ASIC['default'])
 
     skip_ecn_tests(duthosts[0])
     for testbed_subtype, rdma_ports in multidut_port_info.items():
@@ -86,9 +98,12 @@ def test_dequeue_ecn(request,
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
     snappi_extra_params.packet_capture_type = packet_capture.IP_CAPTURE
     snappi_extra_params.is_snappi_ingress_port_cap = True
-    snappi_extra_params.ecn_params = {'kmin': 50000, 'kmax': 51000, 'pmax': 100}
+
     data_flow_pkt_size = 1024
-    data_flow_pkt_count = 101
+    ecn_test_params = _get_ecn_test_params(duthosts[0])
+    snappi_extra_params.ecn_params = ecn_test_params['ecn_params']
+    data_flow_pkt_count = ecn_test_params['pkt_count']
+
     num_iterations = 1
     logger.info("Running ECN dequeue test with params: {}".format(snappi_extra_params.ecn_params))
 
