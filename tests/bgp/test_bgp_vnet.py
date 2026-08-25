@@ -141,7 +141,7 @@ def restore_config_db(localhost, duthost):
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_vnet(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, localhost,
-              skip_test_module_over_backend_topologies):        # noqa F811
+              skip_test_module_over_backend_topologies, ansible_root):        # noqa F811
     duthost = duthosts[rand_one_dut_hostname]
 
     # backup config_db.json
@@ -202,7 +202,7 @@ def setup_vnet(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, localhost,
         duthost.shell("sonic-clear nd")
         duthost.shell("sonic-clear fdb all")
 
-        with open("../ansible/vars/topo_{}.yml".format(tbinfo['topo']['name']), 'r') as fh:
+        with open(ansible_root.joinpath("vars/topo_{}.yml".format(tbinfo['topo']['name'])), 'r') as fh:
             g_vars['topo_properties'] = yaml.safe_load(fh)
 
         g_vars['props'] = g_vars['topo_properties']['configuration_properties']['common']

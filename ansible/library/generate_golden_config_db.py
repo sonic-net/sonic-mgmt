@@ -44,7 +44,7 @@ LOSSY_HWSKU = frozenset({'Arista-7060X6-64PE-C256S2', 'Arista-7060X6-64PE-C224O8
                          'Mellanox-SN5600-C256S1', 'Mellanox-SN5600-C224O8',
                          'Arista-7060X6-64PE-B-C512S2', 'Arista-7060X6-64PE-B-C448O16',
                          'Mellanox-SN5640-C512S2', 'Mellanox-SN5640-C448O16',
-                         'Mellanox-SN5640-C508O1X2',
+                         'Mellanox-SN5640-C508O1X2', 'Mellanox-SN5640-O128X2', 'Mellanox-SN5640-C512X2',
                          "Mellanox-SN6600_LD-P64O128C2", "Mellanox-SN6600_LD-P128C2"})
 
 
@@ -477,6 +477,35 @@ class GenerateGoldenConfigDBModule(object):
             gold_config_db = ori_config_db
 
         return json.dumps(gold_config_db, indent=4)
+
+    def apply_bmc_feature_allowlist(self, config, enabled_features):
+        enabled_features = set(enabled_features)
+        full_config = self.get_config_from_minigraph() if config == "{}" else config
+        ori_config_db = json.loads(full_config)
+        minigraph_config = json.loads(self.get_config_from_minigraph())
+        feature_section = copy.deepcopy(minigraph_config.get("FEATURE", {}))
+        feature_section.update(ori_config_db.get("FEATURE", {}))
+        self._apply_bmc_feature_allowlist_to_features(feature_section, enabled_features)
+        ori_config_db["FEATURE"] = feature_section
+
+        if config == "{}":
+            gold_config_db = {
+                "FEATURE": copy.deepcopy(ori_config_db["FEATURE"])
+            }
+        else:
+            gold_config_db = ori_config_db
+
+        return json.dumps(gold_config_db, indent=4)
+
+    def _apply_bmc_feature_allowlist_to_features(self, feature_section, enabled_features):
+        for feature, feature_data in feature_section.items():
+            if not isinstance(feature_data, dict):
+                continue
+            if feature in enabled_features:
+                feature_data["state"] = "enabled"
+            else:
+                feature_data["auto_restart"] = "disabled"
+                feature_data["state"] = "disabled"
 
     def get_portchannle_config(self, vm_configuration):
         portchannel_configs = []
@@ -1325,15 +1354,6 @@ class GenerateGoldenConfigDBModule(object):
                 config = self.overwrite_feature_golden_config_db_singleasic(config, "frr_bmp", "disabled", "enabled")
                 config = self.overwrite_feature_golden_config_db_singleasic(config, "bmp")
 
-        # Disable swss and syncd features on BMC devices.
-        if self.is_bmc_device():
-            if multi_asic.is_multi_asic():
-                config = self.overwrite_feature_golden_config_db_multiasic(config, "swss", "disabled", "disabled")
-                config = self.overwrite_feature_golden_config_db_multiasic(config, "syncd", "disabled", "disabled")
-            else:
-                config = self.overwrite_feature_golden_config_db_singleasic(config, "swss", "disabled", "disabled")
-                config = self.overwrite_feature_golden_config_db_singleasic(config, "syncd", "disabled", "disabled")
-
         # Enable otel feature when docker-sonic-otel image exists
         if self.has_otel_image():
             config = self.overwrite_feature_golden_config_db_singleasic(config, "otel", "enabled", "enabled")
@@ -1347,6 +1367,14 @@ class GenerateGoldenConfigDBModule(object):
                     "has_per_asic_scope": "True",
                 }
             })
+
+        # BMC runs only these services. Disable any other feature present in the image.
+        if self.is_bmc_device():
+            bmc_enabled_features = [
+                "database", "gnmi", "lldp", "pmon", "redfish", "sysmgr",
+                "telemetry", "acms"
+            ]
+            config = self.apply_bmc_feature_allowlist(config, bmc_enabled_features)
 
         # When port override is active, ensure DEVICE_METADATA includes hwsku and
         # platform — config override-config-table replaces the entire table, so
