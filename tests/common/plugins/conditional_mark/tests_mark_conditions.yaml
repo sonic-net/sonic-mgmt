@@ -2631,7 +2631,7 @@ gnmi/test_gnoi_system_reboot.py::test_gnoi_system_reboot_halt:
 
 gnmi/test_gnoi_system_reboot.py::test_gnoi_system_reboot_warm:
   skip:
-    reason: "Warm reboot is unsupported on this topology or release"
+    reason: "Skip gNOI warm reboot on unsupported topologies and releases that use CLI warm reboot"
     conditions_logical_operator: or
     conditions:
       - "topo_type not in ['t0']"
