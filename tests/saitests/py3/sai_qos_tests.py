@@ -6701,11 +6701,14 @@ class QSharedWatermarkQuantizedTest(sai_base_test.ThriftInterfaceDataPlane):
         def thr_to_pkts(threshold_bytes):
             return threshold_bytes // bytes_per_pkt
 
-        # The first non-zero threshold must be reachable while still leaving room
-        # for the fill_margin below it.
-        assert thr_to_pkts(thresholds[1]) > fill_margin, \
-            "First quantized threshold {} is too small for fill_margin {} (bytes_per_pkt {})".format(
-                thresholds[1], fill_margin, bytes_per_pkt)
+        # Confirm that each threshold is separated by at least the fill_margin, otherwise threshold checks will break.
+        for i in range(len(thresholds) - 1):
+            gap_pkts = thr_to_pkts(thresholds[i + 1]) - thr_to_pkts(thresholds[i])
+            assert gap_pkts > fill_margin, \
+                ("Quantized thresholds {} and {} (indices {}, {}) are only {} pkt(s) apart, "
+                 "which does not exceed fill_margin {} (bytes_per_pkt {}); the +/-fill_margin "
+                 "probes would cross between buckets").format(
+                    thresholds[i], thresholds[i + 1], i, i + 1, gap_pkts, fill_margin, bytes_per_pkt)
 
         # Collect every mismatch instead of bailing on the first one so the test
         # reports a complete picture of the device's quantization behavior. Each
