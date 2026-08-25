@@ -1922,6 +1922,17 @@ def get_snappi_ports_single_dut(duthosts,  # noqa: F811
                 port['asic_value'] = duthost.get_port_asic_instance(port['peer_port']).namespace
             else:
                 port['asic_value'] = None
+    # A DUT can be cabled to more than one snappi/ixia chassis; keep only the ports
+    # on the chassis this testbed drives (its ptf/api-server) so ports from another
+    # chassis do not leak in and create duplicate snappi Device names.
+    chassis_ips = {str(port['ip']).split('/')[0] for port in snappi_ports_all}
+    if len(chassis_ips) > 1:
+        ptf_ip = str(tbinfo['ptf_ip']).split('/')[0]
+        scoped_ports = [port for port in snappi_ports_all
+                        if str(port['ip']).split('/')[0] == ptf_ip]
+        logger.info('DUT {} peers snappi chassis {}; scoping to ptf {} ({} of {} ports)'.format(
+            duthost.hostname, sorted(chassis_ips), ptf_ip, len(scoped_ports), len(snappi_ports_all)))
+        snappi_ports_all = scoped_ports
     for index, port in enumerate(snappi_ports_all):
         port['port_id'] = str(index + 1)
     return snappi_ports_all
