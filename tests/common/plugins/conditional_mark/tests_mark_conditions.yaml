@@ -5405,13 +5405,11 @@ srv6/test_srv6_vlan_forwarding.py::test_srv6_uN_no_vlan_flooding[False]:
 
 srv6/test_srv6_warmboot.py:
   skip:
-    reason: "SRv6 over warm reboot is only expected to work on Mellanox/NVIDIA Spectrum-5 and newer platforms, with a master or 202511+ image. Warm reboot itself is not supported on dualtor, m0, m1, mx and isolated topologies."
+    reason: "SRv6 over warm reboot is only expected to work on Mellanox/NVIDIA Spectrum-5 and newer platforms, with a master or 202611+ image."
     conditions_logical_operator: or
     conditions:
-      - "asic_type != 'mellanox' or (release != 'master' and release < '202511')"
+      - "asic_type != 'mellanox' or (release != 'master' and release < '202611')"
       - "asic_gen in ['spc1', 'spc2', 'spc3', 'spc4']"
-      - "topo_type in ['m0', 'm1', 'mx', 'dualtor']"
-      - "'isolated' in topo_name or 'dualtor' in topo_name"
 
 #######################################
 #####             ssh             #####
