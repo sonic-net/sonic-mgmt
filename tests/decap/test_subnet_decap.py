@@ -460,8 +460,10 @@ def setup_IPv6_SLB_connection(rand_selected_dut, ptfhost, prepare_vlan_subnet_te
         content = line.split()
         if len(content) > 0 and content[0] == "PortChannel101":
             neighbor_ip = content[4]
-    duthost.command(f"sonic-db-cli CONFIG_DB hset 'STATIC_ROUTE|default|2::/16' \
-                    nexthop '{neighbor_ip}' ifname 'PortChannel101'")
+    duthost.command(
+        "sonic-db-cli CONFIG_DB hset 'STATIC_ROUTE|default|2::/16' "
+        "nexthop '{}' ifname 'PortChannel101'".format(neighbor_ip)
+    )
 
     yield neighbor_ip
 
