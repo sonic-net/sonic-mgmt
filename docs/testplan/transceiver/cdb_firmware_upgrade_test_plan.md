@@ -278,7 +278,7 @@ Fail the test if the per-PN manifest file is missing, the specified firmware ver
 4. **Module capabilities:** The module must support CMIS CDB firmware operations. For dual-bank specific checks, `dual_bank_supported` must be true.
 5. **Network connectivity:** In download mode, the DUT must have network access to the firmware server specified in `cdb_firmware_upgrade_url.json` for downloading firmware binaries. Not required in pre-staged mode.
 6. **Link state:** The port should be operationally up before firmware download starts and should remain operationally up during and after the firmware download.
-7. **CDB abort before download:** If `firmware_download_cdb_abort_support` is true, the framework must issue a CDB abort command before every firmware download to ensure the module is not in a stale CDB state from a previous interrupted operation. 
+7. **CDB abort before download:** If `firmware_download_cdb_abort_support` is true, the framework must issue a CDB abort command before every firmware download to ensure the module is not in a stale CDB state from a previous interrupted operation.
 
 **Note:** When the abort is issued as a pre-download safeguard (i.e. the test is not validating the abort behavior itself), the framework ignores the command's return value, since the module may return an error when there is no incomplete download to abort.
 
