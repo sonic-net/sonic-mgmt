@@ -56,6 +56,27 @@ if sys.version_info[0] >= 3:
     unicode = str
 
 
+@app.before_request
+def start_request_timer():
+    request.environ['mux_request_start_time'] = time.time()
+
+
+@app.after_request
+def log_request_duration(response):
+    start_time = request.environ.get('mux_request_start_time')
+    if start_time is not None:
+        metric = {
+            'metric': 'mux_http_request',
+            'method': request.method,
+            'path': request.path,
+            'request_id': request.args.get('reqId'),
+            'status_code': response.status_code,
+            'duration_ms': round((time.time() - start_time) * 1000, 3)
+        }
+        app.logger.info('METRIC %s', json.dumps(metric, sort_keys=True))
+    return response
+
+
 # ============================================ Error Handlers ============================================ #
 
 @app.errorhandler(Exception)
@@ -119,6 +140,7 @@ def run_cmd(cmdline):
         string: The stdout of running the command line.
     """
     app.logger.debug(cmdline)
+    start_time = time.time()
     process = subprocess.Popen(
         shlex.split(cmdline),
         stdout=subprocess.PIPE,
@@ -130,9 +152,17 @@ def run_cmd(cmdline):
     msg = {
         'cmd': cmdline,
         'ret_code': ret_code,
+        'duration_ms': round((time.time() - start_time) * 1000, 3),
         'stdout': stdout.decode('utf-8').splitlines(),
         'stderr': stderr.decode('utf-8').splitlines()
     }
+    metric = {
+        'metric': 'mux_ovs_command',
+        'command': cmdline,
+        'return_code': ret_code,
+        'duration_ms': msg['duration_ms']
+    }
+    app.logger.info('METRIC %s', json.dumps(metric, sort_keys=True))
     app.logger.debug(json.dumps(msg, indent=2))
 
     if ret_code != 0:
