@@ -2826,12 +2826,6 @@ generic_config_updater/test_multiasic_linkcrc.py:
       - "(is_multi_asic is False)"
       - "'bmc' in topo_type"
 
-generic_config_updater/test_ntp.py::test_ntp_server_change_source_intf:
-  skip:
-    reason: "Loopback0 is not present on BMC platforms (no routing data plane); sonic-ntp YANG validation rejects src_intf=Loopback0."
-    conditions:
-      - "'bmc' in topo_type"
-
 generic_config_updater/test_pfcwd_interval.py:
   skip:
     reason: "This test can only support mellanox platforms. This test is not run on this hwsku currently"
@@ -2901,6 +2895,12 @@ gnmi:
 gnmi/test_gnmi.py::test_gnmi_subscribe_sample:
   skip:
     reason: "Test relies on Ethernet0 frontpanel port and COUNTERS_DB; not applicable on BMC"
+    conditions:
+      - "'bmc' in topo_type"
+
+gnmi/test_gnmi.py::test_on_change_updates:
+  skip:
+    reason: "Test relies on BGP neighbors; none configured on BMC"
     conditions:
       - "'bmc' in topo_type"
 
@@ -5548,12 +5548,6 @@ telemetry/test_telemetry.py:
     reason: "Skip telemetry test for 201911 and older branches"
     conditions:
       - "(is_multi_asic==True) and (release in ['201811', '201911'])"
-
-telemetry/test_telemetry.py::test_on_change_updates:
-  skip:
-    reason: "Test relies on BGP neighbors; none configured on BMC"
-    conditions:
-      - "'bmc' in topo_type"
 
 telemetry/test_telemetry.py::test_telemetry_queue_buffer_cnt:
   skip:

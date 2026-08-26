@@ -213,7 +213,7 @@ def _error_detail(result):
     if stdout:
         parts.append(f"stdout: {stdout[:CLI_ERROR_DETAIL_MAX_CHARS]}")
     if stderr:
-        parts.append(f"stderr: {stderr[:CLI_ERROR_DETAIL_MAX_CHARS]}")
+        parts.append(f"stderr: {stderr[-CLI_ERROR_DETAIL_MAX_CHARS:]}")
     return "; ".join(parts) if parts else "no stdout/stderr"
 
 
@@ -439,7 +439,10 @@ def _run_firmware_cmd(duthost, cmd, timeout_sec, success_marker):
         return elapsed, f"{cmd} failed with rc={rc} ({_error_detail(result)})"
     stdout = "\n".join(result.get("stdout_lines") or [])
     if success_marker and success_marker not in stdout:
-        return elapsed, f"{cmd} did not report success ('{success_marker}' absent)"
+        return elapsed, (
+            f"{cmd} did not report success ('{success_marker}' absent; "
+            f"{_error_detail(result)})"
+        )
     return elapsed, None
 
 
