@@ -883,10 +883,12 @@
       # golden config for lt2/ft2 modifies the PORT table. To support lt2-isolated
       # which have some interfaces disabled, apply the minigraph config first so that
       # golden config inherits the same admin_status settings
+      # t2_single_node golden_config needs port_config from generated minigraph so
+      # that golden config does not inherit stale admin_status from old minigraph
       - name: Apply minigraph prior to generating golden_config_db.json
         become: true
         shell: config load_minigraph -y
-        when: "'lt2' in topo or 'ft2' in topo"
+        when: "'lt2' in topo or 'ft2' in topo or 'dualtor' in topo or 't2_single_node' in topo"
 
       - name: Extract port speeds and hwsku from lab CSV files for PORT override
         delegate_to: localhost
@@ -939,6 +941,7 @@
           dut_loopbacks: "{{ topology.DUT.loopback | default({}) }}"
           console_ports: "{{ device_serial_link[inventory_hostname] | default(omit) if 'c0' in topo else omit }}"
           enabled_dpu_indices: "{{ (testbed_facts.enabled_dpus[inventory_hostname] | map(attribute='dpu_index') | list) if (testbed_facts.enabled_dpus is defined and inventory_hostname in testbed_facts.enabled_dpus) else omit }}"
+          lacp_fast_rate: "{{ lacp_fast_rate | default(false) }}"
         become: true
         when: enable_macsec is not defined and init_cfg_profile is not defined
 
@@ -1183,6 +1186,15 @@
             retries: 12
             delay: 10
             until: chrony_start_result is succeeded
+
+          - name: Wait for chronyd to accept commands
+            become: true
+            command: chronyc tracking
+            register: chrony_ready_result
+            until: chrony_ready_result.rc == 0
+            retries: 12
+            delay: 5
+            changed_when: false
 
           - name: Force rapid NTP polling with chrony
             become: true
