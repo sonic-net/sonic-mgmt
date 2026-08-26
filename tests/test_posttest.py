@@ -1,13 +1,9 @@
-import json
 import os
 import pytest
 import logging
 import time
 from tests.common import utilities
-from tests.common.dualtor.simulator_metrics import read_metric_records
-from tests.common.dualtor.simulator_metrics import summarize_metric_records
 from tests.common.helpers.assertions import pytest_require
-from tests.common.helpers.custom_msg_utils import add_custom_msg
 
 logger = logging.getLogger(__name__)
 
@@ -104,8 +100,6 @@ def test_collect_dualtor_logs(request, vmhost, tbinfo, active_active_ports, acti
         vm_set = tbinfo['group-name']
         log_names.append("/tmp/nic_simulator_{}.log*".format(vm_set))
 
-    metric_records = []
-    metric_files = []
     for log_name in log_names:
         result = vmhost.shell('ls {}'.format(log_name), module_ignore_errors=True)
         log_files = result.get('stdout', '').split()
@@ -120,18 +114,4 @@ def test_collect_dualtor_logs(request, vmhost, tbinfo, active_active_ports, acti
                 flat=True,
                 fail_on_missing=False
             )
-            if os.path.isfile(local_log_file):
-                metric_records.extend(read_metric_records(local_log_file))
-                metric_files.append(os.path.basename(local_log_file))
             vmhost.shell("rm -f {}".format(log_file))
-
-    metric_summary = summarize_metric_records(metric_records)
-    if metric_summary:
-        custom_msg = {
-            "testbed": tbinfo.get("conf-name"),
-            "server": tbinfo.get("server"),
-            "source_files": sorted(set(metric_files)),
-            "metrics": metric_summary
-        }
-        add_custom_msg(request, "dualtor_simulator_metrics", custom_msg)
-        logger.info("DUALTOR_SIMULATOR_METRICS %s", json.dumps(custom_msg, sort_keys=True))
