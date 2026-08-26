@@ -46,7 +46,7 @@ def _get_target_image(request, installed_images, current_image):
         return second_image_url, None
 
     target_version = get_inactive_image(installed_images, current_image)
-    logger.info("Using preinstalled inactive image %s for the tampered-kernel test", target_version)
+    logger.info("Using preinstalled inactive image %s for the kernel rejection test", target_version)
     return None, target_version
 
 
@@ -90,12 +90,17 @@ def _get_grub_entry_index(duthost, image_name):
     return entries.index(image_name)
 
 
-# Back up the signed kernel and change one payload byte so its signature becomes invalid.
-def _tamper_kernel(duthost, kernel_path, backup_path):
+# Preserve the signed kernel so every mutation can be reverted during cleanup.
+def _backup_kernel(duthost, kernel_path, backup_path):
     quoted_kernel = shlex.quote(kernel_path)
     quoted_backup = shlex.quote(backup_path)
     duthost.command("sudo cp --preserve=all {} {}".format(quoted_kernel, quoted_backup))
 
+
+# Change one signed payload byte so the existing kernel signature becomes invalid.
+def _tamper_kernel(duthost, kernel_path, backup_path):
+    _backup_kernel(duthost, kernel_path, backup_path)
+    quoted_kernel = shlex.quote(kernel_path)
     original_hash = duthost.command("sudo sha256sum {}".format(quoted_kernel))["stdout"].split()[0]
     command = r"""
 sudo python3 - {kernel_path} <<'PY'
@@ -118,6 +123,69 @@ PY
 
     tampered_hash = duthost.command("sudo sha256sum {}".format(quoted_kernel))["stdout"].split()[0]
     pytest_assert(original_hash != tampered_hash, "The target kernel was not modified")
+
+
+# Remove the PE/COFF certificate table so GRUB sees an unsigned kernel.
+def _remove_kernel_signature(duthost, kernel_path, backup_path):
+    _backup_kernel(duthost, kernel_path, backup_path)
+    quoted_kernel = shlex.quote(kernel_path)
+    original_hash = duthost.command("sudo sha256sum {}".format(quoted_kernel))["stdout"].split()[0]
+    command = r"""
+sudo python3 - {kernel_path} <<'PY'
+import os
+import struct
+import sys
+
+kernel_path = sys.argv[1]
+kernel_size = os.path.getsize(kernel_path)
+
+with open(kernel_path, "r+b") as kernel_file:
+    dos_header = kernel_file.read(64)
+    if len(dos_header) != 64 or dos_header[:2] != b"MZ":
+        raise RuntimeError("Kernel is not a PE/COFF image")
+
+    pe_offset = struct.unpack_from("<I", dos_header, 0x3c)[0]
+    kernel_file.seek(pe_offset)
+    if kernel_file.read(4) != b"PE\x00\x00":
+        raise RuntimeError("Kernel has an invalid PE signature")
+
+    optional_header_offset = pe_offset + 24
+    kernel_file.seek(optional_header_offset)
+    optional_magic_data = kernel_file.read(2)
+    if len(optional_magic_data) != 2:
+        raise RuntimeError("Kernel has a truncated PE optional header")
+
+    optional_magic = struct.unpack("<H", optional_magic_data)[0]
+    if optional_magic == 0x20b:
+        data_directory_offset = optional_header_offset + 112
+    elif optional_magic == 0x10b:
+        data_directory_offset = optional_header_offset + 96
+    else:
+        raise RuntimeError("Kernel has an unsupported PE optional header")
+
+    certificate_entry_offset = data_directory_offset + (4 * 8)
+    kernel_file.seek(certificate_entry_offset)
+    certificate_entry = kernel_file.read(8)
+    if len(certificate_entry) != 8:
+        raise RuntimeError("Kernel has a truncated certificate table entry")
+
+    certificate_offset, certificate_size = struct.unpack("<II", certificate_entry)
+    certificate_end = certificate_offset + certificate_size
+    if certificate_offset == 0 or certificate_size == 0:
+        raise RuntimeError("Kernel does not contain an Authenticode signature")
+    if certificate_end > kernel_size:
+        raise RuntimeError("Kernel certificate table extends beyond the file")
+
+    kernel_file.seek(certificate_entry_offset)
+    kernel_file.write(b"\x00" * 8)
+    if certificate_end == kernel_size:
+        kernel_file.truncate(certificate_offset)
+PY
+""".format(kernel_path=quoted_kernel)
+    duthost.shell(command)
+
+    unsigned_hash = duthost.command("sudo sha256sum {}".format(quoted_kernel))["stdout"].split()[0]
+    pytest_assert(original_hash != unsigned_hash, "The target kernel signature was not removed")
 
 
 # Select the known-good image when GRUB returns after rejecting the modified kernel.
@@ -245,11 +313,18 @@ def _recover_kvm(vmhost, duthost, localhost):
     pytest_assert(not startup_result.is_failed, "KVM did not return to the original image after recovery")
 
 
-# Verify that GRUB refuses to boot a kernel whose signed payload was modified.
-def test_tampered_kernel_is_rejected(duthost, localhost, vmhost, request, tbinfo):
-    """Verify that Secure Boot prevents a tampered kernel from booting."""
+# Exercise the common failed-boot and recovery path with the requested kernel mutation.
+def _verify_kernel_is_rejected(
+    duthost,
+    localhost,
+    vmhost,
+    request,
+    tbinfo,
+    kernel_modifier,
+    kernel_description,
+):
     if duthost.facts["asic_type"] != "vs":
-        pytest.skip("The initial tampered kernel test supports KVM only")
+        pytest.skip("The initial {} kernel test supports KVM only".format(kernel_description))
 
     require_secure_boot(duthost)
 
@@ -291,7 +366,7 @@ def test_tampered_kernel_is_rejected(duthost, localhost, vmhost, request, tbinfo
 
         kernel_path = _find_target_kernel(duthost, target_version)
         backup_path = "{}.secure_boot_test_backup".format(kernel_path)
-        _tamper_kernel(duthost, kernel_path, backup_path)
+        kernel_modifier(duthost, kernel_path, backup_path)
 
         duthost.command("sudo sonic-installer set-default {}".format(shlex.quote(original_image)))
         original_index = _get_grub_entry_index(duthost, original_image)
@@ -317,7 +392,10 @@ def test_tampered_kernel_is_rejected(duthost, localhost, vmhost, request, tbinfo
             timeout=60,
             module_ignore_errors=True,
         )
-        pytest_assert(not shutdown_result.is_failed, "KVM did not shut down for the tampered-kernel boot")
+        pytest_assert(
+            not shutdown_result.is_failed,
+            "KVM did not shut down for the {}-kernel boot".format(kernel_description),
+        )
 
         recovery_startup = localhost.wait_for(
             host=duthost.mgmt_ip,
@@ -384,3 +462,31 @@ def test_tampered_kernel_is_rejected(duthost, localhost, vmhost, request, tbinfo
                 ),
                 module_ignore_errors=True,
             )
+
+
+# Verify that GRUB refuses to boot a kernel whose signed payload was modified.
+def test_tampered_kernel_is_rejected(duthost, localhost, vmhost, request, tbinfo):
+    """Verify that Secure Boot prevents a tampered kernel from booting."""
+    _verify_kernel_is_rejected(
+        duthost,
+        localhost,
+        vmhost,
+        request,
+        tbinfo,
+        _tamper_kernel,
+        "tampered",
+    )
+
+
+# Verify that GRUB refuses to boot a kernel with no Authenticode signature.
+def test_unsigned_kernel_is_rejected(duthost, localhost, vmhost, request, tbinfo):
+    """Verify that Secure Boot prevents an unsigned kernel from booting."""
+    _verify_kernel_is_rejected(
+        duthost,
+        localhost,
+        vmhost,
+        request,
+        tbinfo,
+        _remove_kernel_signature,
+        "unsigned",
+    )
