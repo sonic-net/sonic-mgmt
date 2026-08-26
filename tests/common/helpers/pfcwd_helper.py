@@ -566,18 +566,19 @@ numprocs=1
 
 @contextlib.contextmanager
 def send_background_traffic(duthost, ptfhost, storm_hndle, selected_test_ports, test_ports_info, pkt_count=100000):
-    """Send background traffic, stop the background traffic when the context finish """
-    if is_mellanox_device(duthost) or is_cisco_device(duthost):
-        background_traffic_params = _prepare_background_traffic_params(duthost, storm_hndle,
-                                                                       selected_test_ports,
-                                                                       test_ports_info,
-                                                                       pkt_count)
-        background_traffic_log = _send_background_traffic(ptfhost, background_traffic_params)
-        # Ensure the background traffic is running before moving on
-        time.sleep(1)
-    yield
-    if is_mellanox_device(duthost) or is_cisco_device(duthost):
-        _stop_background_traffic(ptfhost, background_traffic_log)
+    """Send background traffic and always stop it when the context exits."""
+    background_traffic_log = None
+    try:
+        if is_mellanox_device(duthost) or is_cisco_device(duthost):
+            background_traffic_params = _prepare_background_traffic_params(duthost, storm_hndle,
+                                                                           selected_test_ports,
+                                                                           test_ports_info,
+                                                                           pkt_count)
+            background_traffic_log = _send_background_traffic(ptfhost, background_traffic_params)
+        yield
+    finally:
+        if background_traffic_log:
+            _stop_background_traffic(ptfhost, background_traffic_log)
 
 
 def _prepare_background_traffic_params(duthost, queues, selected_test_ports, test_ports_info, pkt_count):
@@ -597,12 +598,15 @@ def _prepare_background_traffic_params(duthost, queues, selected_test_ports, tes
 
     router_mac = duthost.get_dut_iface_mac(selected_test_ports[0])
 
+    if not isinstance(queues, (list, tuple, set)):
+        queues = [queues]
+
     ptf_params = {'router_mac': router_mac,
                   'src_ports': src_ports,
                   'dst_ports': dst_ports,
                   'src_ips': src_ips,
                   'dst_ips': dst_ips,
-                  'queues': queues,
+                  'queues': list(queues),
                   'bidirection': False,
                   'pkt_count': pkt_count}
 
@@ -610,18 +614,44 @@ def _prepare_background_traffic_params(duthost, queues, selected_test_ports, tes
 
 
 def _send_background_traffic(ptfhost, ptf_params):
-    timestamp = datetime.datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
+    timestamp = datetime.datetime.now().strftime('%Y-%m-%d-%H:%M:%S.%f')
     log_file = "/tmp/pfc_wd_background_traffic.PfcWdBackgroundTrafficTest.{}.log".format(timestamp)
-    ptf_runner(ptfhost, "ptftests", "pfc_wd_background_traffic.PfcWdBackgroundTrafficTest", "/root/ptftests",
-               params=ptf_params, log_file=log_file, is_python3=True, async_mode=True)
+    started = False
+    try:
+        ptf_runner(ptfhost, "ptftests", "pfc_wd_background_traffic.PfcWdBackgroundTrafficTest", "/root/ptftests",
+                   params=ptf_params, log_file=log_file, is_python3=True, async_mode=True)
 
-    return log_file
+        for _ in range(30):
+            result = ptfhost.shell(
+                f"grep -q 'Start to send the background traffic' {log_file}",
+                module_ignore_errors=True)
+            if result.get("rc") == 0:
+                started = True
+                return log_file
+            time.sleep(1)
+
+        raise RuntimeError(f"PFCWD background traffic did not start: {log_file}")
+    finally:
+        if not started:
+            _stop_background_traffic(ptfhost, log_file)
 
 
 def _stop_background_traffic(ptfhost, background_traffic_log):
-    pids = ptfhost.shell(f"pgrep -f {background_traffic_log}")["stdout_lines"]
+    process_pattern = background_traffic_log.replace("/pfc_", "/[p]fc_", 1)
+    result = ptfhost.shell(f"pgrep -f '{process_pattern}'", module_ignore_errors=True)
+    if result.get("rc") not in (0, 1):
+        raise RuntimeError(f"Failed to query PFCWD background traffic: {background_traffic_log}")
+    pids = result.get("stdout_lines", [])
     for pid in pids:
         ptfhost.shell(f"kill -9 {pid}", module_ignore_errors=True)
+    for _ in range(20):
+        result = ptfhost.shell(f"pgrep -f '{process_pattern}'", module_ignore_errors=True)
+        if result.get("rc") == 1:
+            return
+        if result.get("rc") != 0:
+            raise RuntimeError(f"Failed to query PFCWD background traffic: {background_traffic_log}")
+        time.sleep(0.5)
+    raise RuntimeError(f"Failed to stop PFCWD background traffic: {background_traffic_log}")
 
 
 def has_neighbor_device(setup_pfc_test):

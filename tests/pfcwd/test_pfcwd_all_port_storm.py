@@ -1,6 +1,7 @@
-import ipaddress
+import contextlib
 import logging
 import os
+from collections import defaultdict
 import pytest
 
 from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      # noqa: F401
@@ -180,105 +181,90 @@ def set_storm_params(duthost, fanout_graph, fanouthosts, peer_params):
     return storm_hndle
 
 
-def resolve_arp(duthost, ptfhost, test_ports_info, vlan, ip_version):
-    """
-    Populate ARP info for DUT vlan ports.
-
-    For Cisco-8000: assign a unique IP to each PTF port within the vlan subnet
-    so that background traffic creates independent egress flows on each server port.
-
-    For other platforms: uses the single test_neighbor_addr from the first VLAN port
-
-    Args:
-        duthost: DUT host instance
-        ptfhost: ptf host instance
-        test_ports_info: test ports information (modified in place for Cisco)
-        vlan: vlan info dict with 'addr' and 'prefix'
-        ip_version: "IPv4" or "IPv6"
-    """
-    # In T1, T2 topology there are no VLANs - nothing to resolve
+@contextlib.contextmanager
+def configure_vlan_neighbors(duthost, ptfhost, test_ports_info, vlan, ip_version):
+    """Configure independent PTF neighbors for VLAN ports and clean them up."""
     if vlan is None:
+        yield
         return
 
-    if duthost.facts['asic_type'] == 'cisco-8000':
-        # Assign unique IPs to each VLAN port starting from gateway + 1
-        vlan_addr = vlan['addr']
-        prefix = vlan['prefix']
-        if ip_version == "IPv4":
-            base_ip = ipaddress.IPv4Address(vlan_addr) + 1
-            # Set arp_ignore=1 so each PTF interface only responds to ARP for its own IP.
-            # Without this, Linux's weak host model causes all interfaces to respond to
-            # ARP requests for any local IP, polluting the DUT's ARP table.
+    vlan_ports = [
+        (port, info) for port, info in test_ports_info.items()
+        if info.get('test_port_type') == 'vlan'
+    ]
+    if not vlan_ports:
+        yield
+        return
+
+    original_neighbors = {
+        port: info['test_neighbor_addr'] for port, info in vlan_ports
+    }
+    neighbor_ports = defaultdict(list)
+    for port, info in vlan_ports:
+        neighbor_ports[info['test_neighbor_addr']].append((port, info))
+    duplicate_ports = [
+        item for ports in neighbor_ports.values() if len(ports) > 1
+        for item in ports
+    ]
+    configure_all_ports = duthost.facts['asic_type'] == 'cisco-8000'
+    ports_to_configure = vlan_ports if configure_all_ports else duplicate_ports or vlan_ports[:1]
+    configured = []
+    generated_ports = {port for port, _info in duplicate_ports}
+    restore_arp_settings = configure_all_ports and ip_version == "IPv4"
+    try:
+        if duplicate_ports:
+            generated_ips = duthost.get_ip_in_range(
+                num=len(duplicate_ports),
+                prefix="{}/{}".format(vlan['addr'], vlan['prefix']),
+                exclude_ips=[vlan['addr']] + list(original_neighbors.values())
+            )['ansible_facts']['generated_ips']
+            pytest_assert(
+                len(generated_ips) == len(duplicate_ports),
+                "Failed to generate unique neighbors for duplicate VLAN ports")
+            for (port, info), address in zip(duplicate_ports, generated_ips):
+                info['test_neighbor_addr'] = address.split('/')[0]
+
+        if restore_arp_settings:
             ptfhost.command("sysctl -w net.ipv4.conf.all.arp_ignore=1")
             ptfhost.command("sysctl -w net.ipv4.conf.all.arp_announce=2")
-        else:
-            base_ip = ipaddress.IPv6Address(vlan_addr) + 1
 
-        idx = 0
-        for port, port_info in test_ports_info.items():
-            if port_info['test_port_type'] == 'vlan':
-                unique_ip = str(base_ip + idx)
-                port_info['test_neighbor_addr'] = unique_ip
-                ptf_port = f"eth{port_info['test_port_id']}"
-                if ip_version == "IPv4":
-                    ptfhost.command(f"ifconfig {ptf_port} {unique_ip} netmask "
-                                    f"{ipaddress.IPv4Network(f'0.0.0.0/{prefix}').netmask}")
-                else:
-                    ptfhost.command(f"ip -6 addr add {unique_ip}/{prefix} dev {ptf_port}")
-                idx += 1
-
-        # Resolve ARP/NDP after all IPs are configured so each arping gets a single response
-        if ip_version == "IPv4":
-            for port, port_info in test_ports_info.items():
-                if port_info['test_port_type'] == 'vlan':
-                    duthost.command(f"docker exec -i swss arping {port_info['test_neighbor_addr']} -c 3")
-        else:
-            for port, port_info in test_ports_info.items():
-                if port_info['test_port_type'] == 'vlan':
-                    duthost.command(f"docker exec -i swss ping -6 -c 3 {port_info['test_neighbor_addr']}")
-    else:
-        # Original behavior: resolve ARP for the first VLAN port only
-        for port, port_info in test_ports_info.items():
-            if port_info['test_port_type'] == 'vlan':
-                neighbor_ip = port_info['test_neighbor_addr']
-                ptf_port = f"eth{port_info['test_port_id']}"
-                if ip_version == "IPv4":
-                    ptfhost.command(f"ifconfig {ptf_port} {neighbor_ip}")
-                    duthost.command(f"docker exec -i swss arping {neighbor_ip} -c 5")
-                else:
-                    ptfhost.command(f"ip -6 addr add {neighbor_ip}/{vlan['prefix']} dev {ptf_port}")
-                    duthost.command(f"docker exec -i swss ping -6 -c 5 {neighbor_ip}")
-                break
-
-
-def cleanup_ptf_ips(ptfhost, test_ports_info, vlan, ip_version):
-    """
-    Remove IPs configured on PTF ports by resolve_arp.
-
-    Args:
-        ptfhost: ptf host instance
-        test_ports_info: test ports information
-        vlan: vlan info dict with 'addr' and 'prefix'
-        ip_version: "IPv4" or "IPv6"
-    """
-    if vlan is None:
-        return
-
-    prefix = vlan['prefix']
-    for port, port_info in test_ports_info.items():
-        if port_info['test_port_type'] == 'vlan':
-            ptf_port = f"eth{port_info['test_port_id']}"
-            ip_addr = port_info['test_neighbor_addr']
+        for port, info in ports_to_configure:
+            neighbor_ip = info['test_neighbor_addr']
+            ptf_port = "eth{}".format(info['test_port_id'])
+            address = "{}/{}".format(neighbor_ip, vlan['prefix'])
             if ip_version == "IPv4":
-                ptfhost.command(f"ifconfig {ptf_port} 0.0.0.0", module_ignore_errors=True)
+                ptfhost.command("ip address replace {} dev {}".format(address, ptf_port))
+                configured.append((port, ptf_port, address))
+                ptfhost.command(
+                    "arping -i {port} -S {neighbor} -c 3 -w 5 {dut_ip}".format(
+                        port=ptf_port, neighbor=neighbor_ip, dut_ip=vlan['addr']))
             else:
-                ptfhost.command(f"ip -6 addr del {ip_addr}/{prefix} dev {ptf_port}",
-                                module_ignore_errors=True)
+                ptfhost.command("ip -6 address replace {} dev {} nodad".format(address, ptf_port))
+                configured.append((port, ptf_port, address))
+                ptfhost.command(
+                    "ping -6 -I {port} -I {neighbor} -c 3 -W 2 {dut_ip}".format(
+                        port=ptf_port, neighbor=neighbor_ip, dut_ip=vlan['addr']))
+        yield
+    finally:
+        family = "-6 " if ip_version == "IPv6" else ""
+        for port, ptf_port, address in configured:
+            ptfhost.command(
+                "ip {}address del {} dev {}".format(family, address, ptf_port),
+                module_ignore_errors=True)
+            ptfhost.command(
+                "ip {}neigh del {} dev {}".format(family, vlan['addr'], ptf_port),
+                module_ignore_errors=True)
+            if port in generated_ports:
+                duthost.command(
+                    "ip {}neigh del {} dev {}".format(
+                        family, address.split('/')[0], vlan['dev']),
+                    module_ignore_errors=True)
+        for port, neighbor in original_neighbors.items():
+            test_ports_info[port]['test_neighbor_addr'] = neighbor
 
-    if ip_version == "IPv4":
-        # Restore default arp_ignore/arp_announce settings
-        ptfhost.command("sysctl -w net.ipv4.conf.all.arp_ignore=0", module_ignore_errors=True)
-        ptfhost.command("sysctl -w net.ipv4.conf.all.arp_announce=0", module_ignore_errors=True)
+        if restore_arp_settings:
+            ptfhost.command("sysctl -w net.ipv4.conf.all.arp_ignore=0", module_ignore_errors=True)
+            ptfhost.command("sysctl -w net.ipv4.conf.all.arp_announce=0", module_ignore_errors=True)
 
 
 @pytest.mark.usefixtures('degrade_pfcwd_detection', 'stop_pfcwd', 'storm_test_setup_restore', 'start_background_traffic')  # noqa: E501
@@ -361,21 +347,19 @@ class TestPfcwdAllPortStorm(object):
 
         # get all the tested ports
         queues = []
+        selected_test_ports = []
         for peer in storm_hndle.peer_params.keys():
             fanout_intfs = storm_hndle.peer_params[peer]['intfs'].split(',')
             device_conn = storm_hndle.fanout_graph[peer]['device_conn']
+            if duthost.facts['asic_type'] != 'vs':
+                for intf in fanout_intfs:
+                    test_port = device_conn[intf]['peerport']
+                    if test_port in setup_pfc_test['test_ports']:
+                        selected_test_ports.append(test_port)
             queues.append(storm_hndle.storm_handle[peer].pfc_queue_idx)
         queues = list(set(queues))
-        selected_test_ports = []
-
-        if duthost.facts['asic_type'] != 'vs':
-            for intf in fanout_intfs:
-                test_port = device_conn[intf]['peerport']
-                if test_port in setup_pfc_test['test_ports']:
-                    selected_test_ports.append(test_port)
-        resolve_arp(duthost, ptfhost, setup_pfc_test['test_ports'],
-                    setup_pfc_test["vlan"], setup_pfc_test["ip_version"])
-        try:
+        with configure_vlan_neighbors(duthost, ptfhost, setup_pfc_test['test_ports'],
+                                      setup_pfc_test["vlan"], setup_pfc_test["ip_version"]):
             with send_background_traffic(duthost, ptfhost, queues, selected_test_ports,
                                          setup_pfc_test['test_ports'],
                                          pkt_count=500):
@@ -399,6 +383,3 @@ class TestPfcwdAllPortStorm(object):
                           stormed_ports_list=stormed_ports_list,
                           selected_test_ports=selected_test_ports,
                           tbinfo=tbinfo)
-        finally:
-            cleanup_ptf_ips(ptfhost, setup_pfc_test['test_ports'],
-                            setup_pfc_test["vlan"], setup_pfc_test["ip_version"])

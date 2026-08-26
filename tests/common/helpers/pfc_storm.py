@@ -3,6 +3,8 @@ import os
 import pathlib
 import re
 import json
+import shlex
+import uuid
 
 from jinja2 import Template
 from tests.common.errors import MissingInputError
@@ -82,6 +84,10 @@ class PFCStorm(object):
         self.pfc_frames_number = kwargs.pop('pfc_frames_number', 100000)
         self.send_pfc_frame_interval = kwargs.pop('send_pfc_frame_interval', 0)
         self.pfc_send_period = kwargs.pop('pfc_send_period', None)
+        self._pfc_gen_id = uuid.uuid4().hex
+        self._pfc_gen_pid_file = "/tmp/pfc_storm_{}.pid".format(self._pfc_gen_id)
+        self._pfc_gen_uses_pid = False
+        self._pfc_gen_stop_scheduled = False
         self.peer_info = kwargs.pop('peer_info')
         self._validate_params(expected_args=['pfc_fanout_interface', 'peerdevice'])
         if 'hwsku' not in self.peer_info:
@@ -341,6 +347,108 @@ class PFCStorm(object):
                 self.inventory, **self.extra_vars
                 )
 
+    def _get_arista_pfc_process_args(self):
+        priority = self.pfc_queue_idx if getattr(
+            self, "pfc_asym", False) else 1 << self.pfc_queue_idx
+        interfaces = self.peer_info['pfc_fanout_interface'].replace(
+            "Ethernet", "et").replace("/", "_")
+        args = [
+            "python3", self.pfc_gen_file, "-c", self.pfc_gen_chip_name,
+            "-p", str(priority), "-i", interfaces,
+        ]
+        if not getattr(self, "pfc_asym", False):
+            args.extend(["-r", self.ip_addr])
+        return args
+
+    def _start_deferred_arista_storm(self):
+        process = " ".join(
+            shlex.quote(arg) for arg in self._get_arista_pfc_process_args())
+        defer_time = getattr(self, "pfc_storm_defer_time", None)
+        if defer_time:
+            process = "sleep {} && exec {}".format(
+                shlex.quote(str(defer_time)), process)
+        else:
+            process = "exec {}".format(process)
+
+        launch_script = (
+            "cd {directory} || exit 1; "
+            "PFC_STORM_ID={identity} nohup sh -c {process} >/dev/null 2>&1 & "
+            "echo $! > {pid_file}"
+        ).format(
+            directory=shlex.quote(self._PFC_GEN_DIR['eos']),
+            identity=shlex.quote(self._pfc_gen_id),
+            process=shlex.quote(process),
+            pid_file=shlex.quote(self._pfc_gen_pid_file))
+        result = self.peer_device.shell(
+            "sudo -n sh -c {}".format(shlex.quote(launch_script)),
+            module_ignore_errors=True)
+        if result.get('rc') != 0:
+            raise RuntimeError(
+                "Failed to schedule PFC storm on {}".format(
+                    self.peer_info['peerdevice']))
+        self._pfc_gen_uses_pid = True
+        self._pfc_gen_stop_scheduled = False
+
+    def _stop_deferred_arista_storm(self, force=False):
+        if self._pfc_gen_stop_scheduled and not force:
+            return
+
+        pid_file = shlex.quote(self._pfc_gen_pid_file)
+        stop_script = "pid=$(cat {pid_file} 2>/dev/null) || exit 0; ".format(
+            pid_file=pid_file)
+        defer_time = None if force else getattr(
+            self, "pfc_storm_stop_defer_time", None)
+        if defer_time:
+            stop_script += "sleep {}; ".format(shlex.quote(str(defer_time)))
+        stop_script += (
+            "if ! tr '\\0' '\\n' < /proc/\"$pid\"/environ 2>/dev/null | "
+            "grep -Fqx {identity}; then "
+            "current=$(cat {pid_file} 2>/dev/null || true); "
+            "[ \"$current\" != \"$pid\" ] || rm -f {pid_file}; "
+            "exit 0; fi; "
+            "kill -TERM \"$pid\" 2>/dev/null || true; "
+            "elapsed=0; "
+            "while kill -0 \"$pid\" 2>/dev/null; do "
+            "[ \"$elapsed\" -ge 120 ] && exit 124; "
+            "sleep 1; elapsed=$((elapsed + 1)); "
+            "done; "
+            "current=$(cat {pid_file} 2>/dev/null || true); "
+            "[ \"$current\" != \"$pid\" ] || rm -f {pid_file}"
+        ).format(
+            identity=shlex.quote("PFC_STORM_ID={}".format(self._pfc_gen_id)),
+            pid_file=pid_file)
+
+        if defer_time:
+            launch_script = "nohup sh -c {} >/dev/null 2>&1 &".format(
+                shlex.quote(stop_script))
+            command = "sudo -n sh -c {}".format(shlex.quote(launch_script))
+        else:
+            command = "sudo -n sh -c {}".format(shlex.quote(stop_script))
+
+        result = self.peer_device.shell(command, module_ignore_errors=True)
+        if result.get('rc') != 0:
+            raise RuntimeError(
+                "Failed to stop PFC storm on {}".format(
+                    self.peer_info['peerdevice']))
+        self._pfc_gen_stop_scheduled = True
+
+    def wait_for_deferred_storm_stop(self):
+        """Wait until this handle's scheduled EOS storm has fully stopped."""
+        if not getattr(self, "_pfc_gen_uses_pid", False):
+            return
+
+        timeout = int(getattr(self, "pfc_storm_stop_defer_time", 0) or 0) + 130
+        wait_script = "while [ -e {} ]; do sleep 1; done".format(
+            shlex.quote(self._pfc_gen_pid_file))
+        result = self.peer_device.shell(
+            "timeout {} sh -c {}".format(timeout, shlex.quote(wait_script)),
+            module_ignore_errors=True)
+        if result.get('rc') != 0:
+            self._pfc_gen_stop_scheduled = False
+            self._stop_deferred_arista_storm(force=True)
+        self._pfc_gen_uses_pid = False
+        self._pfc_gen_stop_scheduled = False
+
     def start_storm(self):
         """
         Starts PFC storm on the fanout interfaces
@@ -352,12 +460,43 @@ class PFCStorm(object):
                     .format(self.peer_info['peerdevice'],
                             self.peer_info['pfc_fanout_interface'],
                             self.pfc_queue_idx))
-        self._run_pfc_gen_template()
+        if self.pfc_gen_chip_name and self.peer_device.os == 'eos' and (
+                getattr(self, "pfc_storm_defer_time", None) or
+                getattr(self, "pfc_storm_stop_defer_time", None)):
+            self._start_deferred_arista_storm()
+        else:
+            self._run_pfc_gen_template()
 
     def stop_storm(self):
         """
         Stops PFC storm on the fanout interfaces
         """
+        if self.pfc_gen_chip_name and self.peer_device.os == 'eos' and \
+                getattr(self, "_pfc_gen_uses_pid", False):
+            self._stop_deferred_arista_storm()
+            return
+
+        if self.pfc_gen_chip_name and self.peer_device.os == 'eos' and \
+                not getattr(self, "pfc_storm_defer_time", None) and \
+                not getattr(self, "pfc_storm_stop_defer_time", None):
+            process = " ".join(self._get_arista_pfc_process_args())
+            pattern = "^{}$".format(re.escape(process))
+            wait_command = (
+                "while true; do pgrep -f {pattern} >/dev/null; rc=$?; "
+                "case $rc in 0) sleep 1 ;; 1) exit 0 ;; *) exit $rc ;; esac; "
+                "done"
+            ).format(pattern=shlex.quote(pattern))
+            command = "sudo -n pkill -TERM -f {pattern} >/dev/null 2>&1 || true; " \
+                      "sudo -n timeout 120 sh -c {wait}".format(
+                          pattern=shlex.quote(pattern), wait=shlex.quote(wait_command))
+            result = self.peer_device.shell(
+                command, module_ignore_errors=True)
+            if result.get('rc') != 0:
+                raise RuntimeError(
+                    "Timed out stopping PFC storm on {}".format(
+                        self.peer_info['peerdevice']))
+            return
+
         self._prepare_stop_template()
         if self.asic_type == 'vs':
             return

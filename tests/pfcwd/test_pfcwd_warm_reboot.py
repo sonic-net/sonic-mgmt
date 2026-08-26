@@ -512,6 +512,7 @@ class TestPfcwdWb(SetupPfcwdFunc):
                     if self.storm_handle[port][queue]:
                         logger.info("--- Stop pfc storm on port {} queue {}".format(port, queue))
                         self.storm_handle[port][queue].stop_storm()
+                        self.storm_handle[port][queue].wait_for_deferred_storm_stop()
                     else:
                         logger.info("--- Disabling fake storm on port {} queue {}".format(port, queue))
                         PfcCmd.set_storm_status(self.dut, self.oid_map[(port, queue)], "disabled")
@@ -582,6 +583,10 @@ class TestPfcwdWb(SetupPfcwdFunc):
             if storm_deferred:
                 logger.info("Wait for all the deferred storms to start and stop ...")
                 join_all(self.storm_threads, self.max_wait)
+                for port_handles in self.storm_handle.values():
+                    for storm_handle in port_handles.values():
+                        if storm_handle:
+                            storm_handle.wait_for_deferred_storm_stop()
                 self.storm_threads = []
                 self.storm_handle = dict()
 
