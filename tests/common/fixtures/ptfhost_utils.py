@@ -168,10 +168,13 @@ def remove_ip_addresses(ptfhost):
 def setup_ptf_ip_responder(duthost, ptfhost, responder_conf_path, ip_intf_pairs, route=False):
     # Use route=True when the responder IP is not in the DUT interface subnet/VLAN
     # and needs an explicit host route through that interface.
+    ip_intf_pairs = list(ip_intf_pairs)
     arp_responder_conf = {}
     ping_commands = []
     for ip, dut_intf, ptf_index in ip_intf_pairs:
-        ip_addr = ip_interface(str(ip)).ip
+        ip_addr = ip_interface(ip).ip
+        duthost.shell(
+            "ip -{} neigh flush to {} dev {}".format(ip_addr.version, ip_addr, dut_intf))
         arp_responder_conf.setdefault("eth{}".format(ptf_index), []).append(str(ip_addr))
         ping = "ping6" if ip_addr.version == 6 else "ping"
         ping_commands.append("{} -c 1 -w 1 -I {} {}".format(ping, dut_intf, ip_addr))
@@ -185,16 +188,23 @@ def setup_ptf_ip_responder(duthost, ptfhost, responder_conf_path, ip_intf_pairs,
     if route:
         for ip, dut_intf, _ in ip_intf_pairs:
             duthost.shell(_ptf_ip_route_cmd("replace", ip, dut_intf))
-    duthost.command("sonic-clear fdb all")
-    duthost.command("sonic-clear arp")
-    duthost.command("sonic-clear ndp")
+    # Wait for Scapy/libpcap initialization before probing the PTF responder.
     time.sleep(20)
     for cmd in ping_commands:
         duthost.shell(cmd, module_ignore_errors=True)
 
 
 def teardown_ptf_ip_responder(duthost, ptfhost, responder_conf_path, ip_intf_pairs=None, route=False):
+    if ip_intf_pairs is not None:
+        ip_intf_pairs = list(ip_intf_pairs)
+
     ptfhost.shell("supervisorctl stop arp_responder", module_ignore_errors=True)
+    if ip_intf_pairs:
+        for ip, dut_intf, _ in ip_intf_pairs:
+            ip_addr = ip_interface(ip).ip
+            duthost.shell(
+                "ip -{} neigh flush to {} dev {}".format(ip_addr.version, ip_addr, dut_intf))
+
     ptfhost.file(path=responder_conf_path, state="absent")
     ptfhost.file(path="/etc/supervisor/conf.d/arp_responder.conf", state="absent")
     ptfhost.shell("supervisorctl reread && supervisorctl update", module_ignore_errors=True)
@@ -202,9 +212,6 @@ def teardown_ptf_ip_responder(duthost, ptfhost, responder_conf_path, ip_intf_pai
         assert ip_intf_pairs, "ip_intf_pairs is required when route=True to clean up host routes"
         for ip, dut_intf, _ in ip_intf_pairs:
             duthost.shell(_ptf_ip_route_cmd("del", ip, dut_intf), module_ignore_errors=True)
-    duthost.command("sonic-clear fdb all")
-    duthost.command("sonic-clear arp")
-    duthost.command("sonic-clear ndp")
 
 
 def _ptf_ip_route_cmd(action, ip, dut_intf):

@@ -576,18 +576,22 @@ class SonicAsic(object):
                                             intf=interface_name,
                                             ip=ip_address))
 
-    def config_portchannel(self, pc_name, op):
-        return self.sonichost.shell("sudo config portchannel {ns} {op} {pc}"
-                                    .format(ns=self.cli_ns_option,
-                                            op=op,
-                                            pc=pc_name))
+    def config_portchannel(self, pc_name, op, fast_mode=False, fallback=False, min_links=1):
+        if op == "add":
+            return self.sonichost.command(f"sudo config portchannel {self.cli_ns_option} {op} "
+                                          f"--fast-rate {"true" if fast_mode else "false"} "
+                                          f"{"--fallback true" if fallback else ""} "
+                                          f"--min-links {min_links} "
+                                          f"{pc_name}")
+        else:
+            return self.sonichost.command(f"sudo config portchannel {self.cli_ns_option} {op} {pc_name}")
 
     def config_portchannel_member(self, pc_name, interface_name, op):
-        return self.sonichost.shell("sudo config portchannel {ns} member {op} {pc} {intf}"
-                                    .format(ns=self.cli_ns_option,
-                                            op=op,
-                                            pc=pc_name,
-                                            intf=interface_name))
+        return self.sonichost.command("sudo config portchannel {ns} member {op} {pc} {intf}"
+                                      .format(ns=self.cli_ns_option,
+                                              op=op,
+                                              pc=pc_name,
+                                              intf=interface_name))
 
     def get_portchannel_members(self, pc_name):
         """

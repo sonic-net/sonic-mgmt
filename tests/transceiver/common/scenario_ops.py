@@ -175,6 +175,7 @@ def perform_sfputil_reset(duthost, reset_ports, toggle_ports, shutdown_wait_sec,
             elapsed, err = cli_helpers.sfputil_reset(duthost, port)
             logger.info("sfputil reset of %s took %ss", port, elapsed)
             if err:
+                logger.warning("%s", err)
                 failures.append(err)
         if recover_wait_sec:
             time.sleep(recover_wait_sec)
