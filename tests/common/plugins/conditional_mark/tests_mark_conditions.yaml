@@ -1243,22 +1243,22 @@ dhcp_relay/test_dhcp_relay.py::test_interface_binding:
 
 dhcp_relay/test_dhcp_relay_stress.py::test_dhcp_relay_restart_with_stress:
   skip:
-    reason: "Skip due to flaky issue"
+    reason: "1. Skip due to flaky issue
+             2. Unstable on sonic-vpp KVM, same low-performance reason as the vs skip below"
+    conditions_logical_operator: or
     conditions:
-      - "asic_type in ['vs']"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/16450"
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16450"
+      - "asic_type in ['vpp'] and topo_name in ['t0']"
 
 dhcp_relay/test_dhcp_relay_stress.py::test_dhcp_relay_stress:
   skip:
     reason: "1. Need to skip for platform armhf-nokia_ixs7215_52x-r0 due to buffer issues
-             2. Need to skip for KVM due to low performance"
+             2. Need to skip for KVM due to low performance
+             3. Unstable on sonic-vpp KVM; xfail did not keep PR checks green"
     conditions_logical_operator: or
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - "asic_type in ['vs']"
-  xfail:
-    reason: "DHCP relay stress test is unstable on t0-vpp"
-    conditions:
       - "asic_type in ['vpp'] and topo_name in ['t0']"
 
 dhcp_relay/test_dhcp_relay_stress.py::test_dhcp_relay_stress[discover:
