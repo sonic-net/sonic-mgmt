@@ -1086,12 +1086,13 @@ decap/test_decap.py:
 
 decap/test_subnet_decap.py::test_vip_packet_decap:
   skip:
-    reason: "Supported only on T0 topology with KVM or broadcom td3 asic or mellanox asic, and available for 202405 release and later"
+    reason: "Supported only on T0 topology with KVM or broadcom td3 asic or mellanox asic, and available for 202405 release and later. Broadcom TD3 rejects VIP subnet decap term when the VIP prefix overlaps an existing VLAN subnet decap term"
     conditions_logical_operator: or
     conditions:
       - "topo_type not in ['t0']"
       - "asic_type not in ['vs', 'mellanox'] and asic_gen not in ['td3']"
       - "release in ['202012', '202205', '202305', '202311']"
+      - "asic_type == 'broadcom' and asic_gen == 'td3' and https://github.com/sonic-net/sonic-mgmt/issues/26694"
 
 decap/test_subnet_decap.py::test_vip_packet_decap[IPv6]:
   xfail:
@@ -1255,6 +1256,10 @@ dhcp_relay/test_dhcp_relay_stress.py::test_dhcp_relay_stress:
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - "asic_type in ['vs']"
+  xfail:
+    reason: "DHCP relay stress test is unstable on t0-vpp"
+    conditions:
+      - "asic_type in ['vpp'] and topo_name in ['t0']"
 
 dhcp_relay/test_dhcp_relay_stress.py::test_dhcp_relay_stress[discover:
   skip:
@@ -2932,33 +2937,9 @@ gnmi/test_gnmi_configdb.py::test_gnmi_configdb_streaming_sample_01:
     conditions:
       - "'bmc' in topo_type"
 
-gnmi/test_gnmi_countersdb.py::test_gnmi_counterdb_polling_01:
+gnmi/test_gnmi_countersdb.py:
   skip:
-    reason: "Test relies on COUNTERS_PORT_NAME_MAP populated by syncd; not applicable on BMC"
-    conditions:
-      - "'bmc' in topo_type"
-
-gnmi/test_gnmi_countersdb.py::test_gnmi_counterdb_polling_02:
-  skip:
-    reason: "Test relies on COUNTERS_PORT_NAME_MAP populated by syncd; not applicable on BMC"
-    conditions:
-      - "'bmc' in topo_type"
-
-gnmi/test_gnmi_countersdb.py::test_gnmi_counterdb_streaming_sample_01:
-  skip:
-    reason: "not applicable on BMC (no COUNTERS_PORT_NAME_MAP)"
-    conditions:
-      - "'bmc' in topo_type"
-
-gnmi/test_gnmi_countersdb.py::test_gnmi_counterdb_streaming_sample_02:
-  skip:
-    reason: "not applicable on BMC (no COUNTERS_PORT_NAME_MAP)"
-    conditions:
-      - "'bmc' in topo_type"
-
-gnmi/test_gnmi_countersdb.py::test_gnmi_output:
-  skip:
-    reason: "not applicable on BMC (no COUNTERS_PORT_NAME_MAP)"
+    reason: "Not available in BMC"
     conditions:
       - "'bmc' in topo_type"
 
