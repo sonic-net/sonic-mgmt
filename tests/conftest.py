@@ -71,7 +71,9 @@ from tests.common.cache import FactsCache
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from pytest_ansible.errors import AnsibleConnectionFailure
+from ansible.errors import AnsibleConnectionFailure as AnsibleCoreConnectionFailure
 from tests.common.helpers.inventory_utils import trim_inventory
+from tests.common.helpers.host_failure_utils import stop_on_testbed_unreachable
 from tests.common.utilities import InterruptableThread
 from tests.common.plugins.ptfadapter.dummy_testutils import DummyTestUtils
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
@@ -100,6 +102,10 @@ logger = logging.getLogger(__name__)
 cache = FactsCache()
 
 HOST_FIXTURE_FAILED_RC = 15
+CONNECTION_FAILURE_TYPES = (
+    AnsibleConnectionFailure,
+    AnsibleCoreConnectionFailure,
+)
 CUSTOM_MSG_PREFIX = "sonic_custom_msg"
 GOLDEN_CONFIG_DB_PATH = "/etc/sonic/golden_config_db.json"
 GOLDEN_CONFIG_DB_PATH_ORI = "/etc/sonic/golden_config_db.json.origin.backup"
@@ -695,6 +701,11 @@ def pytest_sessionstart(session):
     for key in keys:
         logger.debug("reset existing key: {}".format(key))
         session.config.cache.set(key, None)
+
+    # A session killed before pytest_sessionfinish leaves these flags in the cache,
+    # reset them so that a later healthy run is not reported as a host failure.
+    session.config.cache.set("duthosts_fixture_failed", None)
+    session.config.cache.set("ptfhost_exception", None)
 
 
 def pytest_sessionfinish(session, exitstatus):
@@ -1494,11 +1505,25 @@ def log_custom_msg(item):
 # messages are logged at the latest possible stage in the test lifecycle.
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
 def pytest_runtest_makereport(item, call):
+    # Check the raw exception here instead of pytest_exception_interact,
+    # which pytest skips for expected failures (xfail).
+    try:
+        stop_on_testbed_unreachable(
+            item,
+            call,
+            CONNECTION_FAILURE_TYPES,
+        )
+    except Exception as e:
+        # This hook runs for every test phase, a failure here would abort the
+        # whole session with an INTERNALERROR instead of reporting the test.
+        logger.exception("Failed to check testbed connectivity failure: {}".format(repr(e)))
 
     if call.when == 'setup':
         item.user_properties.append(('start', str(datetime.fromtimestamp(call.start))))
     elif call.when == 'teardown':
-        if item.nodeid == item.session.items[-1].nodeid:
+        # The remaining items never run once the session is stopped early, so this
+        # is the last chance to attach the custom messages to the test report.
+        if item.nodeid == item.session.items[-1].nodeid or item.session.shouldstop:
             log_custom_msg(item)
         item.user_properties.append(('end', str(datetime.fromtimestamp(call.stop))))
 
