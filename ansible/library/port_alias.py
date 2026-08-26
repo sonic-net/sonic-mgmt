@@ -52,7 +52,7 @@ EXAMPLES = '''
 RETURN = '''
       ansible_facts{
         port_alias: [Ethernet0, Ethernet4, ....],
-        port_speed: {'Ethernet0':'40000', 'Ethernet4':'40000', ......]
+        port_speed: {'Ethernet0':'40000', 'Ethernet4':'40000', ......},
         port_speed_is_platform_default: True when port_speed came from platform.json/hwsku.json
       }
 '''
