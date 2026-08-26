@@ -1222,8 +1222,8 @@ def snappi_dut_base_config(duthost_list,
                 if lt_val is not None:
                     lt_from_dut = str(lt_val).lower() in ['on', 'true', 'yes', '1']
                     break
-    except Exception:
-        pass
+    except Exception as err:
+        logger.warning("Failed to derive link training from DUT CONFIG_DB; using legacy default: %s", err)
 
     if lt_from_dut is not None:
         l1_config.auto_negotiation.link_training = lt_from_dut
