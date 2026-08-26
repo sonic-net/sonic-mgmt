@@ -3,10 +3,11 @@ import logging
 import os
 import pytest
 import random
+import re
 import time
 
 from tests.common.config_reload import config_reload
-from tests.common.utilities import skip_release
+from tests.common.utilities import skip_release, wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.helpers.sonic_db import SonicDbCli
@@ -15,6 +16,8 @@ logger = logging.getLogger(__name__)
 
 RATE_LIMIT_BURST = 100
 RATE_LIMIT_INTERVAL = 10
+SYSLOG_FORWARD_TIMEOUT = 120
+SYSLOG_FORWARD_INTERVAL = 2
 # Generate 101 packets in tests/syslog/log_generator.py, so that 1 log message will be dropped by rsyslogd
 LOG_MESSAGE_GENERATE_COUNT = 101
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -239,6 +242,31 @@ def verify_config_rate_limit_fail(duthost, service_name):
     pytest_assert('Error' in output, 'Error: config syslog rate limit for {}: {}'.format(service_name, output))
 
 
+def _wait_expected_logs_forwarded(duthost, start_marker, expect_log_regex, expect_log_matches):
+    """Wait until every expected message has been forwarded into the host log files for
+    this LogAnalyzer window before the window is closed.
+
+    The log generator runs inside a container; its messages are forwarded to the host
+    syslog asynchronously. A fixed sleep races that forwarding: under load the messages
+    can arrive after the LogAnalyzer end marker, so the window is captured empty and the
+    test fails intermittently. Poll the host syslog, scoped to this window's unique start
+    marker, until every pattern and the full expected match count appear.
+
+    The scoping pattern is the bare marker (``<prefix>.<timestamp>``) rather than the full
+    ``start-LogAnalyzer-<marker>`` line: this shell command is itself echoed into syslog,
+    so matching the full marker string would inject a second ``start-LogAnalyzer-<marker>``
+    line and corrupt the window LogAnalyzer extracts on exit.
+    """
+    def _all_expected_present():
+        escaped_marker = re.escape(start_marker).replace('/', r'\/')
+        captured = duthost.shell("sudo awk '/{}/,0' /var/log/syslog".format(escaped_marker),
+                                 module_ignore_errors=True)['stdout']
+        matches_per_regex = [len(re.findall(regex, captured)) for regex in expect_log_regex]
+        return all(matches_per_regex) and sum(matches_per_regex) >= expect_log_matches
+
+    return wait_until(SYSLOG_FORWARD_TIMEOUT, SYSLOG_FORWARD_INTERVAL, 0, _all_expected_present)
+
+
 def verify_rate_limit_with_log_generator(duthost, service_name, log_marker, expect_log_regex, expect_log_matches,
                                          is_host=False):
     """Generator syslog with a script and verify that syslog rate limit reached
@@ -262,6 +290,8 @@ def verify_rate_limit_with_log_generator(duthost, service_name, log_marker, expe
 
     with loganalyzer:
         duthost.command(run_generator_cmd)
+        _wait_expected_logs_forwarded(duthost, loganalyzer._markers[-1], expect_log_regex,
+                                      expect_log_matches)
 
 
 def get_host_rsyslogd_pid(duthost):
