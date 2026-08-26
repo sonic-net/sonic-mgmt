@@ -41,21 +41,6 @@ def setup(duthost, tbinfo, ptfadapter):
     if tbinfo['topo']['type'] != 't1':
         pytest.skip('Unsupported topology')
 
-    # Enabling MPLS on an interface makes intfmgrd run
-    # "sysctl -w net.mpls.conf.<intf>.input=1", which needs the mpls_router kernel
-    # module. The module ships in the image but nothing loads it, so without this
-    # the sysctl fails and is logged as an ERR. sonic-swss's own MPLS test loads it
-    # the same way. Left loaded on teardown: modprobe is idempotent and unloading
-    # could disrupt anything else using MPLS.
-    if duthost.facts['asic_type'] == 'vpp':
-        result = duthost.shell('modprobe mpls_router', module_ignore_errors=True)
-        if result['rc'] != 0:
-            # Not fatal here: let the test itself fail on the resulting syslog
-            # error rather than hiding a genuine loss of kernel MPLS support
-            # behind a setup failure.
-            logger.warning('Failed to load mpls_router: %s. Enabling MPLS on an '
-                           'interface will log a setIntfMpls error.', result['stderr'])
-
     # gather ansible facts
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
     host_facts = duthost.setup()['ansible_facts']
