@@ -5,7 +5,6 @@ import logging
 import time
 from tests.common import utilities
 from tests.common.dualtor.simulator_metrics import read_metric_records
-from tests.common.dualtor.simulator_metrics import resolve_fetched_log
 from tests.common.dualtor.simulator_metrics import summarize_metric_records
 from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.custom_msg_utils import add_custom_msg
@@ -87,12 +86,12 @@ def test_collect_ptf_logs(ptfhost):
 
 def test_collect_dualtor_logs(request, vmhost, tbinfo, active_active_ports, active_standby_ports):
     """
-    Collect mux/nic simulator logs after test to local logs/server folder.
+    Collect mux/nic simulator logs after test to the local logs folder.
     """
     if 'dualtor' not in tbinfo['topo']['name']:
         return
-    if not os.path.exists("logs/server"):
-        os.makedirs("logs/server")
+    if not os.path.exists("logs"):
+        os.makedirs("logs")
 
     log_names = []
     if active_standby_ports:
@@ -111,9 +110,17 @@ def test_collect_dualtor_logs(request, vmhost, tbinfo, active_active_ports, acti
         result = vmhost.shell('ls {}'.format(log_name), module_ignore_errors=True)
         log_files = result.get('stdout', '').split()
         for log_file in log_files:
-            fetch_result = vmhost.fetch(src=log_file, dest="logs/server", fail_on_missing=False)
-            local_log_file = resolve_fetched_log(fetch_result, log_file)
-            if local_log_file:
+            local_log_file = os.path.join(
+                "logs",
+                "dualtor_simulator_metrics_{}".format(os.path.basename(log_file))
+            )
+            vmhost.fetch(
+                src=log_file,
+                dest=local_log_file,
+                flat=True,
+                fail_on_missing=False
+            )
+            if os.path.isfile(local_log_file):
                 metric_records.extend(read_metric_records(local_log_file))
                 metric_files.append(os.path.basename(local_log_file))
             vmhost.shell("rm -f {}".format(log_file))

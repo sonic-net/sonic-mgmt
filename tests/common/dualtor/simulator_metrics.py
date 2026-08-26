@@ -1,10 +1,8 @@
 """
 Helpers for parsing and summarizing DualToR simulator metrics.
 """
-import glob
 import json
 import logging
-import os
 from collections import defaultdict
 
 
@@ -63,17 +61,3 @@ def summarize_metric_records(records):
             "max_ms": round(max(values), 3)
         }
     return summary
-
-
-def resolve_fetched_log(fetch_result, remote_log_file):
-    """Find the local path produced by the Ansible fetch module."""
-    if isinstance(fetch_result, dict):
-        destination = fetch_result.get("dest")
-        if destination and os.path.isfile(destination):
-            return destination
-
-    matches = glob.glob(
-        os.path.join("logs", "server", "**", os.path.basename(remote_log_file)),
-        recursive=True
-    )
-    return matches[-1] if matches else None
