@@ -1,6 +1,5 @@
 import logging
 import os
-import time
 import pytest
 import yaml
 import re
@@ -243,10 +242,12 @@ def base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, port
         # ACL_COUNTERS_UPDATE_INTERVAL sleep leaves zero margin against that poll interval, so under heavy
         # control-plane load (e.g. route churn on the min-nexthop topo, which keeps syncd busy and delays
         # the counter poll) the read can land before the first poll and fail spuriously. Poll instead.
-        wait_until(ACL_COUNTERS_UPDATE_INTERVAL * 6, ACL_COUNTERS_UPDATE_INTERVAL, ACL_COUNTERS_UPDATE_INTERVAL,
-                   lambda: get_acl_drops() == pkt_number)
-        acl_drops = get_acl_drops()
-        if acl_drops != pkt_number:
+        acl_counter_updated = wait_until(
+            ACL_COUNTERS_UPDATE_INTERVAL * 6, ACL_COUNTERS_UPDATE_INTERVAL, ACL_COUNTERS_UPDATE_INTERVAL,
+            lambda: get_acl_drops() == pkt_number
+        )
+        if not acl_counter_updated:
+            acl_drops = get_acl_drops()
             fail_msg = "ACL drop counter was not incremented on iface {}. DUT ACL counter == {}; Sent pkts == {}"\
                 .format(tx_dut_ports[ports_info["dut_iface"]], acl_drops, pkt_number)
             pytest.fail(fail_msg)
