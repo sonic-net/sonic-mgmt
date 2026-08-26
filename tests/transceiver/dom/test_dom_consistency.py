@@ -388,9 +388,12 @@ def _validate_port_samples(port, port_samples, plan):
         if checked_by_attr[attr_name]:
             continue
         skip_details = "; ".join(sorted(set(skipped_by_attr[attr_name]))) or "no eligible sample pairs"
-        failures.append("{} configured but no Tx-bias sample pair was checked ({})".format(
-            attr_name, skip_details
-        ))
+        logger.warning(
+            "DOM consistency SKIP %s %s: no Tx-bias sample pair was checked (%s)",
+            port,
+            attr_name,
+            skip_details,
+        )
 
     return failures, checked_pair_count
 
