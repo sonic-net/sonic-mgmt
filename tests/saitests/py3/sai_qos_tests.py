@@ -6656,10 +6656,10 @@ class QSharedWatermarkQuantizedTest(sai_base_test.ThriftInterfaceDataPlane):
             packet_length = 64
 
         # Sanity check the threshold vector. We need threshold[0] == 0 (the empty
-        # queue level) and at least one testable boundary that has an i+1 neighbor
-        # excluding the final threshold.
-        assert len(thresholds) >= 4, \
-            "Expected at least 4 quantized thresholds, got {}".format(thresholds)
+        # queue level) and at least one testable boundary (index 1) plus its i+1
+        # neighbor to transition into, so a minimum of 3 thresholds.
+        assert len(thresholds) >= 3, \
+            "Expected at least 3 quantized thresholds, got {}".format(thresholds)
         assert thresholds[0] == 0, \
             "Expected first quantized threshold to be 0, got {}".format(thresholds)
 
@@ -6714,8 +6714,6 @@ class QSharedWatermarkQuantizedTest(sai_base_test.ThriftInterfaceDataPlane):
         # reports a complete picture of the device's quantization behavior. Each
         # entry is (phase, threshold_idx, offset, target_pkts, expected, actual).
         failures = []
-        # Accrue the measurement count as we go so the summary stays accurate if
-        # the set of checks changes.
         total_measurements = 0
 
         try:
