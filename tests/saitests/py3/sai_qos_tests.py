@@ -6714,6 +6714,9 @@ class QSharedWatermarkQuantizedTest(sai_base_test.ThriftInterfaceDataPlane):
         # reports a complete picture of the device's quantization behavior. Each
         # entry is (phase, threshold_idx, offset, target_pkts, expected, actual).
         failures = []
+        # Accrue the measurement count as we go so the summary stays accurate if
+        # the set of checks changes.
+        total_measurements = 0
 
         try:
             # Phase A: uncongested validation. Leave egress enabled and send a burst
@@ -6727,6 +6730,7 @@ class QSharedWatermarkQuantizedTest(sai_base_test.ThriftInterfaceDataPlane):
                 self.dst_client, port_list['dst'][dst_port_id])
             print("Uncongested watermark: sent %d pkts, watermark %d, expected %d" % (
                 uncongested_pkts, q_wm_res[queue], thresholds[1]), file=sys.stderr)
+            total_measurements += 1
             if q_wm_res[queue] != thresholds[1]:
                 failures.append(("uncongested", "-", "-", uncongested_pkts,
                                  thresholds[1], q_wm_res[queue]))
@@ -6752,6 +6756,7 @@ class QSharedWatermarkQuantizedTest(sai_base_test.ThriftInterfaceDataPlane):
                     expected = thresholds[expected_idx]
                     print("Threshold idx %d offset %d: target %d pkts, watermark %d, expected %d" % (
                         i, offset, target_pkts, watermark, expected), file=sys.stderr)
+                    total_measurements += 1
                     if watermark != expected:
                         failures.append(("threshold", i, "{:+d}".format(offset),
                                          target_pkts, expected, watermark))
@@ -6766,7 +6771,7 @@ class QSharedWatermarkQuantizedTest(sai_base_test.ThriftInterfaceDataPlane):
                 fail_tbl.add_row([phase, idx, offset, target_pkts, expected, actual])
             assert False, \
                 "Quantized queue watermark mismatches on hwsku {} ({} of {} measurement(s) failed):\n{}".format(
-                    hwsku, len(failures), 1 + 2 * (len(thresholds) - 3), fail_tbl)
+                    hwsku, len(failures), total_measurements, fail_tbl)
 
 # TODO: buffer pool roid should be obtained via rpc calls
 # based on the pg or queue index
