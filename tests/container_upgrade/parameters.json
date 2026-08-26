@@ -26,7 +26,8 @@
             "--privileged",
             "--pid=host",
             "-v /host/reboot-cause:/host/reboot-cause:rw",
-            "-v /tmp/cache:/tmp/cache:rw"
+            "-v /tmp/cache:/tmp/cache:rw",
+            "-v /host:/host:ro"
         ]
     },
     "docker-sonic-gnmi": {
