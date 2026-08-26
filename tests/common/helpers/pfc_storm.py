@@ -275,7 +275,7 @@ class PFCStorm(object):
         # already-populated peer_info['hwsku'] (avoids a second remote 'show version'
         # and a crash if a live HwSKU lookup returns None).
         sonic_pfc_chip = (get_chip_name_if_asic_pfc_storm_supported(self.peer_info.get('hwsku'))
-                          if self.peer_device.os == 'sonic' else None)
+                          if self.asic_type != 'vs' and self.peer_device.os == 'sonic' else None)
         if self.asic_type == 'vs':
             self.pfc_start_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_eos.j2")
@@ -309,7 +309,7 @@ class PFCStorm(object):
         # already-populated peer_info['hwsku'] (avoids a second remote 'show version'
         # and a crash if a live HwSKU lookup returns None).
         sonic_pfc_chip = (get_chip_name_if_asic_pfc_storm_supported(self.peer_info.get('hwsku'))
-                          if self.peer_device.os == 'sonic' else None)
+                          if self.asic_type != 'vs' and self.peer_device.os == 'sonic' else None)
         if self.asic_type == 'vs':
             self.pfc_stop_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_stop_eos.j2")
