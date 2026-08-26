@@ -1401,7 +1401,9 @@ def fib_t2_lag(topo, ptf_ip, action="announce", topo_routes={}):
         else:
             m = re.match(r"(\d+)\.(\d+)@(\d+)", value['vlans'][0])
             dut_index = int(m.group(1))
-        if 'T1' in key or 'LT2' in key or (key.endswith('T2') or 'LRH' in key):  # Temporarily map DRH to T2 routes
+        vm_properties = topo['configuration'][key].get('properties', [])
+        if 'peer-leaf' in vm_properties or 'T1' in key or 'LT2' in key \
+                or (key.endswith('T2') or 'LRH' in key):  # Temporarily map DRH to T2 routes
             if dut_index not in t1_vms:
                 t1_vms[dut_index] = list()
             t1_vms[dut_index].append(key)
@@ -1520,6 +1522,18 @@ def generate_t2_routes(dut_vm_dict, topo, ptf_ip, action="announce", topo_routes
             aggregate_routes_v4 = get_ipv4_routes(aggregate_routes)
             aggregate_routes_v6 = get_ipv6_routes(aggregate_routes)
             topo_routes[a_vm] = {}
+
+            if 'peer-leaf' in vms_config[a_vm].get('properties', []):
+                default_route_as_path = get_core_uplink_as_path()
+                if enable_ipv4_routes_generation:
+                    routes_v4 = [("0.0.0.0/0", nhipv4, default_route_as_path)]
+                    topo_routes[a_vm][IPV4] = routes_v4
+                    r_set.append((routes_v4, port, action, ptf_ip))
+                if enable_ipv6_routes_generation:
+                    routes_v6 = [("::/0", nhipv6, default_route_as_path)]
+                    topo_routes[a_vm][IPV6] = routes_v6
+                    r_set.append((routes_v6, port6, action, ptf_ip))
+                continue
 
             router_type = None
             if 'leaf' in vms_config[a_vm]['properties']:
