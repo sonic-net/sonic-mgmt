@@ -39,7 +39,7 @@ class DualTorIO:
 
     def __init__(self, activehost, standbyhost, ptfhost, ptfadapter, vmhost, tbinfo,
                  io_ready, tor_vlan_port=None, send_interval=0.01, cable_type=CableType.active_standby,
-                 random_dst=None):
+                 random_dst=None, server_subnet=None):
         self.tor_pc_intf = None
         self.tor_vlan_intf = tor_vlan_port
         self.duthost = activehost
@@ -54,6 +54,11 @@ class DualTorIO:
         self.tcp_sport = 1234
 
         self.cable_type = cable_type
+        # Target the servers' addresses in this VLAN subnet instead of their MUX_CABLE ones.
+        self.server_subnet = server_subnet
+        self.ip_version = ipaddress.ip_network(server_subnet, strict=False).version \
+            if server_subnet else 4
+        self.ip_layer = scapyall.IPv6 if self.ip_version == 6 else scapyall.IP
 
         if random_dst is None:
             # if random_dst is not set, default to true for active standby dualtor.
@@ -69,14 +74,28 @@ class DualTorIO:
 
         # Calculate valid range for T1 src/dst addresses
         mg_facts = self.duthost.get_extended_minigraph_facts(self.tbinfo)
-        prefix_len = mg_facts['minigraph_vlan_interfaces'][VLAN_INDEX]['prefixlen'] - 3
-        test_network = ipaddress.ip_address(
-            mg_facts['minigraph_vlan_interfaces'][VLAN_INDEX]['addr']) +\
-            (1 << (32 - prefix_len))
-        self.default_ip_range = str(ipaddress.ip_interface((str(test_network) + '/{0}'.format(prefix_len))
-                                                           .encode().decode()).network)
-        self.src_addr, mask = self.default_ip_range.split('/')
-        self.n_hosts = 2**(32 - int(mask))
+        # MUX_CABLE stores server addresses as /32 and /128, so the VLAN subnets are what
+        # give each server its host offset.
+        self.vlan_networks = [ipaddress.ip_interface('{}/{}'.format(intf['addr'], intf['prefixlen'])).network
+                              for intf in mg_facts['minigraph_vlan_interfaces']]
+        if self.ip_version == 6:
+            vlan_intf = next(intf for intf in mg_facts['minigraph_vlan_interfaces']
+                             if ipaddress.ip_address(intf['addr']).version == 6)
+            prefix_len = int(vlan_intf['prefixlen']) - 3
+            test_network = ipaddress.ip_address(vlan_intf['addr']) + (1 << (128 - prefix_len))
+            self.default_ip_range = str(ipaddress.ip_interface(
+                '{}/{}'.format(test_network, prefix_len)).network)
+            self.src_addr, mask = self.default_ip_range.split('/')
+            self.n_hosts = 2**(128 - int(mask))
+        else:
+            prefix_len = mg_facts['minigraph_vlan_interfaces'][VLAN_INDEX]['prefixlen'] - 3
+            test_network = ipaddress.ip_address(
+                mg_facts['minigraph_vlan_interfaces'][VLAN_INDEX]['addr']) +\
+                (1 << (32 - prefix_len))
+            self.default_ip_range = str(ipaddress.ip_interface((str(test_network) + '/{0}'.format(prefix_len))
+                                                               .encode().decode()).network)
+            self.src_addr, mask = self.default_ip_range.split('/')
+            self.n_hosts = 2**(32 - int(mask))
 
         self.tor_to_ptf_intf_map = mg_facts['minigraph_ptf_indices']
 
@@ -161,21 +180,70 @@ class DualTorIO:
         logger.info("Force stop the ptf sniffer process by sending SIGTERM")
         self.ptfhost.command("pkill -SIGTERM -f %s" % self.ptf_sniffer, module_ignore_errors=True)
 
+    def _base_tcp_packet(self, eth_dst, eth_src=None, ip_ttl=None):
+        """Build the template TCP packet for the configured address family."""
+        kwargs = dict(eth_dst=eth_dst, tcp_dport=TCP_DST_PORT, tcp_sport=self.tcp_sport)
+        if eth_src is not None:
+            kwargs['eth_src'] = eth_src
+        if self.ip_version == 6:
+            if ip_ttl is not None:
+                kwargs['ipv6_hlim'] = ip_ttl
+            return testutils.simple_tcpv6_packet(**kwargs)
+        if ip_ttl is not None:
+            kwargs['ip_ttl'] = ip_ttl
+        return testutils.simple_tcp_packet(**kwargs)
+
+    def _clear_checksums(self, packet):
+        packet[scapyall.TCP].chksum = None
+        # IPv6 has no header checksum, so scapy's IPv6 layer has no chksum field.
+        if self.ip_version == 4:
+            packet[scapyall.IP].chksum = None
+
+    def _server_address(self, mux_intf):
+        """
+        Resolve the address to use for a server, honouring `server_subnet` when set.
+
+        The mapped address keeps the host offset the server has within its VLAN subnet, so it
+        lands outside every cable's `srv_ip4_`/`srv_ip6_` and exercises muxorch's FDB
+        port-based classification instead of the subnet match.
+        """
+        server_key = 'server_ipv6' if self.ip_version == 6 else 'server_ipv4'
+        server_prefix = self.mux_cable_table[mux_intf][server_key]
+        server_ip = ipaddress.ip_interface(server_prefix).ip
+        if not self.server_subnet:
+            return str(server_ip)
+
+        target_network = ipaddress.ip_network(self.server_subnet, strict=False)
+        if server_ip.version != target_network.version:
+            raise ValueError("server_subnet {} family differs from server address {}"
+                             .format(self.server_subnet, server_prefix))
+
+        anchor = next((net for net in self.vlan_networks
+                       if net.version == server_ip.version and server_ip in net), None)
+        if anchor is None:
+            raise ValueError("server {} is not within any VLAN subnet".format(server_prefix))
+
+        offset = int(server_ip) - int(anchor.network_address)
+        mapped = target_network.network_address + offset
+        if mapped not in target_network:
+            raise ValueError("server {} maps outside server_subnet {}"
+                             .format(server_prefix, self.server_subnet))
+        return str(mapped)
+
     def _generate_vlan_servers(self):
         """
         Create mapping of server IPs to PTF interfaces
         """
         server_ip_list = []
 
-        for _, config in natsorted(list(self.mux_cable_table.items())):
-            server_ip_list.append(str(config['server_ipv4'].split("/")[0]))
+        for mux_intf, _ in natsorted(list(self.mux_cable_table.items())):
+            server_ip_list.append(self._server_address(mux_intf))
         logger.info("ALL server address:\n {}".format(server_ip_list))
 
         ptf_to_server_map = dict()
         for intf in natsorted(self.test_interfaces):
             ptf_intf = self.tor_to_ptf_intf_map[intf]
-            server_ip = str(self.mux_cable_table[intf]['server_ipv4'].split("/")[0])
-            ptf_to_server_map[ptf_intf] = server_ip
+            ptf_to_server_map[ptf_intf] = self._server_address(intf)
 
         logger.debug('VLAN intf to server IP map: {}'.format(json.dumps(ptf_to_server_map, indent=4, sort_keys=True)))
         return ptf_to_server_map
@@ -187,16 +255,19 @@ class DualTorIO:
         if self.cable_type == CableType.active_standby:
             return {}
 
+        soc_key = 'soc_ipv6' if self.ip_version == 6 else 'soc_ipv4'
         soc_ip_list = []
         for _, config in natsorted(list(self.mux_cable_table.items())):
-            if "soc_ipv4" in config:
-                soc_ip_list.append(str(config['soc_ipv4'].split("/")[0]))
+            if soc_key in config:
+                soc_ip_list.append(str(config[soc_key].split("/")[0]))
         logger.info("All soc address:\n {}".format(soc_ip_list))
 
         ptf_to_soc_map = dict()
         for intf in natsorted(self.test_interfaces):
+            if soc_key not in self.mux_cable_table[intf]:
+                continue
             ptf_intf = self.tor_to_ptf_intf_map[intf]
-            soc_ip = str(self.mux_cable_table[intf]['soc_ipv4'].split('/')[0])
+            soc_ip = str(self.mux_cable_table[intf][soc_key].split('/')[0])
             ptf_to_soc_map[ptf_intf] = soc_ip
 
         logger.debug('VLAN intf to soc IP map: {}'.format(json.dumps(ptf_to_soc_map, indent=4, sort_keys=True)))
@@ -300,12 +371,10 @@ class DualTorIO:
         # This way, when sending packets we continuously send for all servers/soc
         # instead of sending all packets for server/soc #1, then all packets for
         # server/soc #2, etc.
-        tcp_tx_packet_orig = testutils.simple_tcp_packet(
+        tcp_tx_packet_orig = self._base_tcp_packet(
             eth_dst=eth_dst,
             eth_src=eth_src,
-            ip_ttl=ip_ttl,
-            tcp_dport=TCP_DST_PORT,
-            tcp_sport=self.tcp_sport
+            ip_ttl=ip_ttl
         )
         tcp_tx_packet_orig = scapyall.Ether(convert_scapy_packet_to_bytes(tcp_tx_packet_orig))
         payload_suffix = "X" * 60
@@ -321,12 +390,11 @@ class DualTorIO:
                         0, ptf_t1_src_intf
                     )
                 packet[scapyall.Ether].src = eth_src
-                packet[scapyall.IP].src = self.random_host_ip()
-                packet[scapyall.IP].dst = server_ip
+                packet[self.ip_layer].src = self.random_host_ip()
+                packet[self.ip_layer].dst = server_ip
                 payload = str(i) + payload_suffix
                 packet.load = payload
-                packet[scapyall.TCP].chksum = None
-                packet[scapyall.IP].chksum = None
+                self._clear_checksums(packet)
                 self.packets_list.append((ptf_t1_src_intf, convert_scapy_packet_to_bytes(packet)))
 
         self.sent_pkt_dst_mac = self.dut_mac
@@ -377,10 +445,8 @@ class DualTorIO:
         # This way, when sending packets we continuously send for all servers/soc
         # instead of sending all packets for server/soc #1, then all packets for
         # server/soc #2, etc.
-        tcp_tx_packet_orig = testutils.simple_tcp_packet(
-            eth_dst=self.vlan_mac,
-            tcp_dport=TCP_DST_PORT,
-            tcp_sport=self.tcp_sport
+        tcp_tx_packet_orig = self._base_tcp_packet(
+            eth_dst=self.vlan_mac
         )
         tcp_tx_packet_orig = scapyall.Ether(convert_scapy_packet_to_bytes(tcp_tx_packet_orig))
         payload_suffix = "X" * 60
@@ -396,14 +462,13 @@ class DualTorIO:
                 payload = str(i) + payload_suffix
                 packet = tcp_tx_packet_orig.copy()
                 packet[scapyall.Ether].src = eth_src
-                packet[scapyall.IP].src = server_ip
+                packet[self.ip_layer].src = server_ip
                 if self.random_dst:
-                    packet[scapyall.IP].dst = self.random_host_ip()
+                    packet[self.ip_layer].dst = self.random_host_ip()
                 else:
-                    packet[scapyall.IP].dst = dst_ips[vlan_intf]
+                    packet[self.ip_layer].dst = dst_ips[vlan_intf]
                 packet.load = payload
-                packet[scapyall.TCP].chksum = None
-                packet[scapyall.IP].chksum = None
+                self._clear_checksums(packet)
                 self.packets_list.append((ptf_src_intf, convert_scapy_packet_to_bytes(packet)))
         self.sent_pkt_dst_mac = self.vlan_mac
         self.received_pkt_src_mac = [self.active_mac, self.standby_mac]
@@ -445,15 +510,24 @@ class DualTorIO:
             get_ovs_port_no_res = self.vmhost.shell("ovs-vsctl get Interface %s ofport" % vmhost_target_dut_port)
             vmhost_target_dut_port_no = get_ovs_port_no_res["stdout"].strip()
 
-            trace_command = ("ovs-appctl ofproto/trace {bridge} in_port={port},tcp,"
-                             "eth_src={eth_src},eth_dst={eth_dst},ip_src={ip_src},"
-                             "ip_dst={ip_dst},tp_src={{tp_src}},tp_dst={tp_dst}").format(
+            # OVS flow syntax differs per family: IPv6 uses tcp6 with ipv6_src/ipv6_dst.
+            if self.ip_version == 6:
+                flow_proto, src_key, dst_key = "tcp6", "ipv6_src", "ipv6_dst"
+            else:
+                flow_proto, src_key, dst_key = "tcp", "ip_src", "ip_dst"
+
+            trace_command = ("ovs-appctl ofproto/trace {bridge} in_port={port},{proto},"
+                             "eth_src={eth_src},eth_dst={eth_dst},{src_key}={ip_src},"
+                             "{dst_key}={ip_dst},tp_src={{tp_src}},tp_dst={tp_dst}").format(
                                  bridge=active_active_vmhost_bridge,
                                  port=active_active_vmhost_ptf_port,
+                                 proto=flow_proto,
+                                 src_key=src_key,
+                                 dst_key=dst_key,
                                  eth_src=packet[scapyall.Ether].src,
                                  eth_dst=packet[scapyall.Ether].dst,
-                                 ip_src=packet[scapyall.IP].src,
-                                 ip_dst=packet[scapyall.IP].dst,
+                                 ip_src=packet[self.ip_layer].src,
+                                 ip_dst=packet[self.ip_layer].dst,
                                  tp_dst=packet[scapyall.TCP].dport)
             sport_upper = min(65535, self.tcp_sport + 100)
             for tcp_sport in range(tcp_packet[scapyall.TCP].sport, sport_upper):
@@ -461,8 +535,7 @@ class DualTorIO:
                 if "output:%s" % vmhost_target_dut_port_no in trace_res["stdout"]:
                     packet[scapyall.TCP].sport = tcp_sport
                     self.tcp_sport = tcp_sport
-                    packet[scapyall.TCP].chksum = None
-                    packet[scapyall.IP].chksum = None
+                    self._clear_checksums(packet)
                     break
             else:
                 raise ValueError("Failed to generate packet destinated to target DUT %s" % self.duthost.hostname)
@@ -494,15 +567,13 @@ class DualTorIO:
         logger.info("-"*50)
 
         self.packets_list = []
-        tcp_tx_packet_orig = testutils.simple_tcp_packet(
-            eth_dst=self.vlan_mac,
-            tcp_dport=TCP_DST_PORT,
-            tcp_sport=self.tcp_sport
+        tcp_tx_packet_orig = self._base_tcp_packet(
+            eth_dst=self.vlan_mac
         )
         tcp_tx_packet_orig = scapyall.Ether(convert_scapy_packet_to_bytes(tcp_tx_packet_orig))
         tcp_tx_packet_orig[scapyall.Ether].src = src_mac
-        tcp_tx_packet_orig[scapyall.IP].src = src_ip
-        tcp_tx_packet_orig[scapyall.IP].dst = dst_ip
+        tcp_tx_packet_orig[self.ip_layer].src = src_ip
+        tcp_tx_packet_orig[self.ip_layer].dst = dst_ip
         tcp_tx_packet_orig = self._generate_upstream_packet_to_target_duthost(vlan_src_intf, tcp_tx_packet_orig)
 
         payload_suffix = "X" * 60
@@ -510,8 +581,7 @@ class DualTorIO:
             payload = str(i) + payload_suffix
             packet = tcp_tx_packet_orig.copy()
             packet.load = payload
-            packet[scapyall.TCP].chksum = None
-            packet[scapyall.IP].chksum = None
+            self._clear_checksums(packet)
             self.packets_list.append((src_ptf_port, convert_scapy_packet_to_bytes(packet)))
 
         self.sent_pkt_dst_mac = self.vlan_mac
@@ -528,6 +598,8 @@ class DualTorIO:
             raise Exception("host number {} is greater than number of hosts {}\
                 in the network {}".format(
                     host_number, self.n_hosts - 2, self.default_ip_range))
+        if self.ip_version == 6:
+            return str(ipaddress.ip_address(self.src_addr) + host_number)
         src_addr_n = struct.unpack(">I", socket.inet_aton(self.src_addr))[0]
         net_addr_n = src_addr_n & (2**32 - self.n_hosts)
         host_addr_n = net_addr_n + host_number
@@ -661,15 +733,15 @@ class DualTorIO:
 
     def get_server_address(self, packet):
         if self.traffic_direction == "t1_to_server":
-            server_addr = packet[scapyall.IP].dst
+            server_addr = packet[self.ip_layer].dst
         elif self.traffic_direction == "server_to_t1":
-            server_addr = packet[scapyall.IP].src
+            server_addr = packet[self.ip_layer].src
         elif self.traffic_direction == "t1_to_soc":
-            server_addr = packet[scapyall.IP].dst
+            server_addr = packet[self.ip_layer].dst
         elif self.traffic_direction == "soc_to_t1":
-            server_addr = packet[scapyall.IP].src
+            server_addr = packet[self.ip_layer].src
         elif self.traffic_direction == "server_to_server":
-            server_addr = packet[scapyall.IP].src
+            server_addr = packet[self.ip_layer].src
         return server_addr
 
     def get_test_results(self):
