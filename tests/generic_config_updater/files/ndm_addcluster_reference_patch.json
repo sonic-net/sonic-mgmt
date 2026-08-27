@@ -1,0 +1,216 @@
+[
+  {
+    "op": "add",
+    "path": "/PORTCHANNEL/PortChannel1015",
+    "value": {
+      "admin_status": "up",
+      "lacp_key": "auto",
+      "min_links": "1",
+      "mtu": "9100",
+      "tpid": "0x8100"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/PORTCHANNEL_INTERFACE/PortChannel1015",
+    "value": {}
+  },
+  {
+    "op": "add",
+    "path": "/ACL_TABLE/EVERFLOW/ports/-",
+    "value": "PortChannel1015"
+  },
+  {
+    "op": "add",
+    "path": "/ACL_TABLE/EVERFLOWV6/ports/-",
+    "value": "PortChannel1015"
+  },
+  {
+    "op": "add",
+    "path": "/PORT/Ethernet316",
+    "value": {
+      "index": "40",
+      "description": "ARISTA01T1:etp14",
+      "alias": "etp40b",
+      "pfc_asym": "off",
+      "fec": "rs",
+      "speed": "100000",
+      "mtu": "9100",
+      "tpid": "0x8100",
+      "subport": "2",
+      "lanes": "309,310,311,312",
+      "admin_status": "up"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/DEVICE_NEIGHBOR/Ethernet316",
+    "value": {
+      "name": "ARISTA01T1",
+      "port": "etp14"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/PORT_QOS_MAP/Ethernet316",
+    "value": {
+      "dscp_to_tc_map": "AZURE",
+      "tc_to_queue_map": "AZURE",
+      "tc_to_pg_map": "AZURE",
+      "pfc_to_queue_map": "AZURE",
+      "pfc_enable": "3,4",
+      "pfcwd_sw_enable": "3,4"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/PFC_WD/Ethernet316",
+    "value": {
+      "action": "drop",
+      "detection_time": "600",
+      "restoration_time": "600"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/CABLE_LENGTH/AZURE/Ethernet316",
+    "value": "500m"
+  },
+  {
+    "op": "add",
+    "path": "/BUFFER_PG/Ethernet316|0",
+    "value": {
+      "profile": "ingress_lossy_profile"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/BUFFER_QUEUE/Ethernet316|0-2",
+    "value": {
+      "profile": "egress_lossy_profile"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/BUFFER_QUEUE/Ethernet316|3-4",
+    "value": {
+      "profile": "egress_lossless_profile"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/BUFFER_QUEUE/Ethernet316|5-6",
+    "value": {
+      "profile": "egress_lossy_profile"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/QUEUE/Ethernet316|0",
+    "value": {
+      "scheduler": "scheduler.0"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/QUEUE/Ethernet316|1",
+    "value": {
+      "scheduler": "scheduler.0"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/QUEUE/Ethernet316|2",
+    "value": {
+      "scheduler": "scheduler.0"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/QUEUE/Ethernet316|3",
+    "value": {
+      "scheduler": "scheduler.1",
+      "wred_profile": "AZURE_LOSSLESS"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/QUEUE/Ethernet316|4",
+    "value": {
+      "scheduler": "scheduler.1",
+      "wred_profile": "AZURE_LOSSLESS"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/QUEUE/Ethernet316|5",
+    "value": {
+      "scheduler": "scheduler.0"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/QUEUE/Ethernet316|6",
+    "value": {
+      "scheduler": "scheduler.0"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/PORTCHANNEL_MEMBER/PortChannel1015|Ethernet316",
+    "value": {}
+  },
+  {
+    "op": "add",
+    "path": "/DEVICE_NEIGHBOR_METADATA/ARISTA01T1",
+    "value": {
+      "cluster": "FID0000001",
+      "deployment_id": "3",
+      "lo_addr_v6": "fc00:1::32/128",
+      "mgmt_addr_v6": "fc00:2::5/64",
+      "lo_addr": "10.1.0.32/32",
+      "mgmt_addr": "0.0.0.0/0",
+      "hwsku": "Cisco-8102-C64",
+      "type": "LeafRouter"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/BGP_NEIGHBOR/10.0.0.57",
+    "value": {
+      "rrclient": "0",
+      "name": "ARISTA01T1",
+      "local_addr": "10.0.0.56",
+      "nhopself": "0",
+      "admin_status": "up",
+      "holdtime": "10",
+      "asn": "65100",
+      "keepalive": "3"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/PORTCHANNEL_INTERFACE/PortChannel1015|10.0.0.56~131",
+    "value": {}
+  },
+  {
+    "op": "add",
+    "path": "/BGP_NEIGHBOR/fc00::72",
+    "value": {
+      "rrclient": "0",
+      "name": "ARISTA01T1",
+      "local_addr": "fc00::71",
+      "nhopself": "0",
+      "admin_status": "up",
+      "holdtime": "10",
+      "asn": "65100",
+      "keepalive": "3"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/PORTCHANNEL_INTERFACE/PortChannel1015|fc00::71~1126",
+    "value": {}
+  }
+]
+
