@@ -57,11 +57,11 @@ def is_dhcprelayd_running(duthost):
 def dhcp_server_setup_teardown(duthost):
     features_state, _ = duthost.get_feature_status()
     py_require(DHCP_SERVER_FEATRUE_NAME in features_state, "Skip on vs testbed without dhcp server feature")
-    restore_state_flag = False
-    if "enabled" not in features_state.get(DHCP_SERVER_FEATRUE_NAME, ""):
-        restore_state_flag = True
+    was_enabled_at_start = "enabled" in features_state.get(DHCP_SERVER_FEATRUE_NAME, "")
+    if not was_enabled_at_start:
         duthost.shell("config feature state dhcp_server enabled")
         duthost.shell("sudo systemctl restart dhcp_relay.service")
+        duthost.critical_services_tracking_list()
 
     def is_supervisor_subprocess_running(duthost, container_name, app_name):
         return "RUNNING" in duthost.shell(f"docker exec {container_name} supervisorctl status {app_name}")["stdout"]
@@ -83,15 +83,23 @@ def dhcp_server_setup_teardown(duthost):
 
     yield
 
-    if restore_state_flag:
-        duthost.shell("config feature state dhcp_server disabled", module_ignore_errors=True)
-        duthost.shell("sudo systemctl restart dhcp_relay.service")
-        duthost.shell("docker rm dhcp_server", module_ignore_errors=True)
+    if not was_enabled_at_start:
+        # Leave dhcp_server enabled on platforms that ship the feature. Disabling
+        # it here persists disabled state in config while pytest may still track
+        # dhcp_server as critical (stale list from when the module enabled it),
+        # so later config_reload waits for a container that will not start.
+        duthost.shell("config feature state dhcp_server enabled", module_ignore_errors=True)
+        duthost.shell("sudo systemctl restart dhcp_relay.service", module_ignore_errors=True)
+        duthost.critical_services_tracking_list()
 
 
 @pytest.fixture(scope="function", autouse=True)
-def clean_dhcp_server_config_after_test(duthost):
+def clean_dhcp_server_config_after_test(duthost, request):
     clean_dhcp_server_config(duthost)
+
+    if "enable_sonic_dhcpv4_relay_agent" in request.fixturenames:
+        # Make relay restoration run after DHCP server configuration cleanup.
+        request.getfixturevalue("enable_sonic_dhcpv4_relay_agent")
 
     yield
 
