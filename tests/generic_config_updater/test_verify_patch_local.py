@@ -15,9 +15,17 @@ import os
 import pytest
 
 from tests.generic_config_updater.util.verify_patch import (
+    buffer_profile_exists,
     compare_touched_entries,
+    config_db_key_exists,
+    expected_lossless_profile_name,
+    get_config_db_field,
+    get_lossless_pg_entries,
     normalize_config,
+    normalize_profile_reference,
+    patch_added_ports,
     patch_cable_length_ports,
+    patch_pushed_lossless_pgs,
     patch_touched_entries,
     unescape_json_pointer,
 )
@@ -250,6 +258,21 @@ class TestPatchCableLengthPorts:
             "Ethernet320": "2000m",
         }
 
+    def test_whole_table_path(self):
+        """Regression: /CABLE_LENGTH is a single-segment path.
+
+        Recognising only the 2- and 3-segment shapes reports a valid patch as missing
+        cable lengths, failing the run on a correct configuration.
+        """
+        patch = [{"op": "add", "path": "/CABLE_LENGTH",
+                  "value": {"AZURE": {"Ethernet316": "500m", "Ethernet320": "2000m"}}}]
+        assert patch_cable_length_ports(patch) == {
+            "Ethernet316": "500m", "Ethernet320": "2000m"}
+
+    def test_whole_table_with_non_dict_profile_is_ignored(self):
+        patch = [{"op": "add", "path": "/CABLE_LENGTH", "value": {"AZURE": "junk"}}]
+        assert patch_cable_length_ports(patch) == {}
+
     def test_remove_reports_none(self):
         patch = [{"op": "remove", "path": "/CABLE_LENGTH/AZURE/Ethernet316"}]
         assert patch_cable_length_ports(patch) == {"Ethernet316": None}
@@ -309,3 +332,244 @@ class TestPatchCableLengthPorts:
                 "profile in {}".format(entry["path"]))
 
         assert {"/BUFFER_QUEUE/Ethernet316|3-4"} <= {e["path"] for e in patch}
+
+
+class TestPatchPushedLosslessPgs:
+    """The patch must not carry pg_lossless_* BUFFER_PG entries itself."""
+
+    PREFIX = "pg_lossless_"
+
+    def test_per_entry_op_is_caught(self):
+        patch = [{"op": "add", "path": "/BUFFER_PG/Ethernet316|3-4",
+                  "value": {"profile": "pg_lossless_100000_500m_profile"}}]
+        assert patch_pushed_lossless_pgs(patch, self.PREFIX) == ["/BUFFER_PG/Ethernet316|3-4"]
+
+    def test_whole_table_op_is_caught(self):
+        """Regression: a '/BUFFER_PG' op has no trailing slash.
+
+        A substring test for '/BUFFER_PG/' silently misses this shape, which would let
+        the very thing this check exists to prevent through untouched.
+        """
+        patch = [{"op": "add", "path": "/BUFFER_PG",
+                  "value": {"Ethernet316|3-4": {"profile": "pg_lossless_100000_500m_profile"}}}]
+        assert patch_pushed_lossless_pgs(patch, self.PREFIX) == ["/BUFFER_PG"]
+
+    def test_localhost_wrapper_is_caught(self):
+        patch = [{"op": "add", "path": "/localhost/BUFFER_PG/Ethernet316|3-4",
+                  "value": {"profile": "pg_lossless_100000_500m_profile"}}]
+        assert patch_pushed_lossless_pgs(patch, self.PREFIX) == [
+            "/localhost/BUFFER_PG/Ethernet316|3-4"]
+
+    def test_bracket_reference_form_is_caught(self):
+        patch = [{"op": "add", "path": "/BUFFER_PG/Ethernet316|3-4",
+                  "value": {"profile": "[BUFFER_PROFILE|pg_lossless_100000_500m_profile]"}}]
+        assert patch_pushed_lossless_pgs(patch, self.PREFIX) == ["/BUFFER_PG/Ethernet316|3-4"]
+
+    def test_lossy_pg_is_allowed(self):
+        """BUFFER_PG|0 uses a fixed profile name and is pushed normally."""
+        patch = [{"op": "add", "path": "/BUFFER_PG/Ethernet316|0",
+                  "value": {"profile": "ingress_lossy_profile"}}]
+        assert patch_pushed_lossless_pgs(patch, self.PREFIX) == []
+
+    def test_table_named_like_a_prefix_is_not_matched(self):
+        """BUFFER_PG_ANOTHER must not match on a startswith-style comparison."""
+        patch = [{"op": "add", "path": "/BUFFER_PG_SOMETHING/Ethernet316|3-4",
+                  "value": {"profile": "pg_lossless_100000_500m_profile"}}]
+        assert patch_pushed_lossless_pgs(patch, self.PREFIX) == []
+
+    def test_ndm_reference_patch_is_clean(self):
+        assert patch_pushed_lossless_pgs(load_ndm_patch(), self.PREFIX) == []
+
+
+class TestPatchAddedPorts:
+    """Preconditions apply to ports the patch *adds*, not every port it touches."""
+
+    def test_whole_entry_add(self):
+        patch = [{"op": "add", "path": "/PORT/Ethernet316",
+                  "value": {"speed": "100000", "mtu": "9100"}}]
+        assert patch_added_ports(patch) == {
+            "Ethernet316": {"speed": "100000", "mtu": "9100"}}
+
+    def test_whole_table_add(self):
+        patch = [{"op": "add", "path": "/PORT",
+                  "value": {"Ethernet316": {"speed": "100000"}}}]
+        assert patch_added_ports(patch) == {"Ethernet316": {"speed": "100000"}}
+
+    def test_single_field_add(self):
+        patch = [{"op": "add", "path": "/PORT/Ethernet316/speed", "value": "100000"}]
+        assert patch_added_ports(patch) == {"Ethernet316": {"speed": "100000"}}
+
+    def test_replace_and_remove_are_not_adds(self):
+        """A patch editing an existing port need not restate cable length or neighbor."""
+        patch = [
+            {"op": "replace", "path": "/PORT/Ethernet316/mtu", "value": "9000"},
+            {"op": "remove", "path": "/PORT/Ethernet320"},
+        ]
+        assert patch_added_ports(patch) == {}
+
+    def test_ndm_reference_patch(self):
+        added = patch_added_ports(load_ndm_patch())
+        assert set(added) == {"Ethernet316"}
+        assert added["Ethernet316"]["speed"] == "100000"
+
+    def test_ndm_added_ports_all_have_speed(self):
+        """Speed is half the lossless profile lookup key; a port added without it
+        gets no lossless BUFFER_PG and reports no error."""
+        added = patch_added_ports(load_ndm_patch())
+        assert added and all(fields.get("speed") for fields in added.values())
+
+
+class FakeDut:
+    """Minimal stand-in for duthost, returning canned results per shell command.
+
+    Lets the CONFIG_DB/APPL_DB parsing run in the hardware-free suite. That parsing is
+    the risky part: each helper collapses a shell result into a boolean or a lookup, and
+    every one of those failure modes is silent on a real device.
+    """
+
+    def __init__(self, responses, default=None):
+        self.responses = responses
+        self.default = default or {"rc": 0, "stdout": ""}
+        self.commands = []
+
+    def shell(self, cmd, module_ignore_errors=False):
+        self.commands.append(cmd)
+        for fragment, result in self.responses.items():
+            if fragment in cmd:
+                return result
+        return self.default
+
+
+def ok(stdout):
+    return {"rc": 0, "stdout": stdout}
+
+
+class TestNormalizeProfileReference:
+    """SONiC writes the profile field as a bare name or as [BUFFER_PROFILE|name]."""
+
+    def test_bare_name(self):
+        assert normalize_profile_reference("pg_lossless_100000_500m_profile") == \
+            "pg_lossless_100000_500m_profile"
+
+    def test_bracket_reference(self):
+        assert normalize_profile_reference("[BUFFER_PROFILE|pg_lossless_100000_500m_profile]") == \
+            "pg_lossless_100000_500m_profile"
+
+    def test_whitespace_and_empty(self):
+        assert normalize_profile_reference("  ingress_lossy_profile \n") == "ingress_lossy_profile"
+        assert normalize_profile_reference("") == ""
+        assert normalize_profile_reference(None) == ""
+
+    def test_bracket_without_table_prefix(self):
+        assert normalize_profile_reference("[pg_lossless_100000_500m_profile]") == \
+            "pg_lossless_100000_500m_profile"
+
+    def test_malformed_reference_with_empty_name(self):
+        """'[BUFFER_PROFILE|]' must normalise to empty, not to the table name.
+
+        Returning 'BUFFER_PROFILE|' would be compared against a real profile name and
+        produce a confusing mismatch rather than an obvious 'no profile' result.
+        """
+        assert normalize_profile_reference("[BUFFER_PROFILE|]") == ""
+        assert normalize_profile_reference("[]") == ""
+
+
+class TestExpectedLosslessProfileName:
+    def test_matches_sonic_naming(self):
+        assert expected_lossless_profile_name("100000", "500m") == \
+            "pg_lossless_100000_500m_profile"
+
+    def test_long_cable(self):
+        assert expected_lossless_profile_name("400000", "20000m") == \
+            "pg_lossless_400000_20000m_profile"
+
+
+class TestGetConfigDbField:
+    def test_returns_value(self):
+        dut = FakeDut({"hget": ok("100000\n")})
+        assert get_config_db_field(dut, "PORT|Ethernet316", "speed") == "100000"
+
+    def test_failed_command_returns_empty(self):
+        dut = FakeDut({"hget": {"rc": 1, "stdout": "boom"}})
+        assert get_config_db_field(dut, "PORT|Ethernet316", "speed") == ""
+
+
+class TestConfigDbKeyExists:
+    def test_exact_match(self):
+        dut = FakeDut({"keys": ok("BUFFER_PROFILE|pg_lossless_100000_500m_profile\n")})
+        assert config_db_key_exists(dut, "BUFFER_PROFILE|pg_lossless_100000_500m_profile")
+
+    def test_absent_key(self):
+        dut = FakeDut({"keys": ok("")})
+        assert not config_db_key_exists(dut, "BUFFER_PROFILE|nope")
+
+    def test_command_failure_is_not_treated_as_present(self):
+        dut = FakeDut({"keys": {"rc": 2, "stdout": ""}})
+        assert not config_db_key_exists(dut, "BUFFER_PROFILE|x")
+
+
+class TestGetLosslessPgEntries:
+    PREFIX = "pg_lossless_"
+
+    def test_finds_lossless_and_skips_lossy(self):
+        dut = FakeDut({
+            'keys "BUFFER_PG|Ethernet316|*"': ok(
+                "BUFFER_PG|Ethernet316|0\nBUFFER_PG|Ethernet316|3-4\n"),
+            'hget "BUFFER_PG|Ethernet316|0"': ok("ingress_lossy_profile"),
+            'hget "BUFFER_PG|Ethernet316|3-4"': ok("pg_lossless_100000_500m_profile"),
+        })
+        assert get_lossless_pg_entries(dut, "Ethernet316", self.PREFIX) == {
+            "BUFFER_PG|Ethernet316|3-4": "pg_lossless_100000_500m_profile"}
+
+    def test_bracket_reference_form_is_recognised(self):
+        """Regression: a startswith() test against the raw field misses this form and
+        would report a correctly-created lossless PG as missing."""
+        dut = FakeDut({
+            'keys "BUFFER_PG|Ethernet316|*"': ok("BUFFER_PG|Ethernet316|3-4\n"),
+            'hget': ok("[BUFFER_PROFILE|pg_lossless_100000_500m_profile]"),
+        })
+        assert get_lossless_pg_entries(dut, "Ethernet316", self.PREFIX) == {
+            "BUFFER_PG|Ethernet316|3-4": "pg_lossless_100000_500m_profile"}
+
+    def test_no_pgs_returns_empty(self):
+        dut = FakeDut({'keys': ok("")})
+        assert get_lossless_pg_entries(dut, "Ethernet316", self.PREFIX) == {}
+
+    def test_command_failure_returns_empty(self):
+        dut = FakeDut({'keys': {"rc": 1, "stdout": ""}})
+        assert get_lossless_pg_entries(dut, "Ethernet316", self.PREFIX) == {}
+
+    def test_only_queries_the_requested_port(self):
+        dut = FakeDut({'keys': ok("")})
+        get_lossless_pg_entries(dut, "Ethernet316", self.PREFIX)
+        assert 'BUFFER_PG|Ethernet316|*' in dut.commands[0]
+
+
+class TestBufferProfileExists:
+    NAME = "pg_lossless_100000_500m_profile"
+
+    def test_present_in_both(self):
+        dut = FakeDut({
+            'CONFIG_DB keys': ok("BUFFER_PROFILE|pg_lossless_100000_500m_profile"),
+            'APPL_DB keys': ok("BUFFER_PROFILE_TABLE:pg_lossless_100000_500m_profile"),
+        })
+        assert buffer_profile_exists(dut, self.NAME) == (True, True)
+
+    def test_config_db_only(self):
+        dut = FakeDut({
+            'CONFIG_DB keys': ok("BUFFER_PROFILE|pg_lossless_100000_500m_profile"),
+            'APPL_DB keys': ok(""),
+        })
+        assert buffer_profile_exists(dut, self.NAME) == (True, False)
+
+    def test_absent_from_both(self):
+        dut = FakeDut({'CONFIG_DB keys': ok(""), 'APPL_DB keys': ok("")})
+        assert buffer_profile_exists(dut, self.NAME) == (False, False)
+
+    def test_similar_longer_name_does_not_count_as_present(self):
+        """A profile whose name merely ends with ours must not satisfy the check."""
+        dut = FakeDut({
+            'CONFIG_DB keys': ok("BUFFER_PROFILE|xx_pg_lossless_100000_500m_profile"),
+            'APPL_DB keys': ok("BUFFER_PROFILE_TABLE:xx_pg_lossless_100000_500m_profile"),
+        })
+        assert buffer_profile_exists(dut, self.NAME) == (False, False)

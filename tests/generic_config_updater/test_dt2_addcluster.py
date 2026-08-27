@@ -58,7 +58,14 @@ from tests.generic_config_updater.util.generate_patch import (
 from tests.generic_config_updater.util.verify_patch import (
     compare_touched_entries,
     patch_touched_entries,
+    patch_added_ports,
     patch_cable_length_ports,
+    patch_pushed_lossless_pgs,
+    get_config_db_field,
+    config_db_key_exists,
+    get_lossless_pg_entries,
+    buffer_profile_exists,
+    expected_lossless_profile_name,
 )
 
 from .util.process_minigraph import MinigraphRefactor
@@ -161,22 +168,6 @@ def get_interfaces_for_neighbor(mg_facts, neighbor_name):
     return interfaces
 
 
-def get_config_db_field(duthost, key, field):
-    """Read a single CONFIG_DB field. Returns '' when the key or field is absent."""
-    cmd = 'sonic-db-cli CONFIG_DB hget "{}" {}'.format(key, field)
-    result = duthost.shell(cmd, module_ignore_errors=True)
-    if result['rc'] != 0:
-        return ''
-    return result['stdout'].strip()
-
-
-def config_db_key_exists(duthost, key):
-    """Check that a CONFIG_DB key exists, without matching on its rendered contents."""
-    cmd = 'sonic-db-cli CONFIG_DB keys "{}"'.format(key)
-    result = duthost.shell(cmd, module_ignore_errors=True)
-    return result['rc'] == 0 and result['stdout'].strip() == key
-
-
 def get_mirror_acl_bindings(duthost):
     """Read MIRROR/MIRRORV6 ACL port bindings straight from CONFIG_DB.
 
@@ -209,58 +200,6 @@ def get_mirror_acl_bindings(duthost):
         mirror_bindings.update(p.strip() for p in ports.split(',') if p.strip())
 
     return mirror_bindings
-
-
-def get_lossless_pg_entries(duthost, port):
-    """Return the auto-generated lossless BUFFER_PG entries for a port.
-
-    These are created by buffermgrd once PORT (speed) and CABLE_LENGTH are set and
-    the port comes up -- they are never pushed by the config patch. A lossless PG is
-    identified by its profile name, "pg_lossless_<speed>_<cable>_profile", rather
-    than by priority number, so a platform that numbers its lossless PGs differently
-    is still handled correctly.
-
-    Args:
-        duthost: DUT host object
-        port: Port name, e.g. "Ethernet316"
-
-    Returns:
-        dict: {buffer_pg_key: profile_name} for lossless PGs on this port only.
-    """
-    entries = {}
-
-    keys_result = duthost.shell('sonic-db-cli CONFIG_DB keys "BUFFER_PG|{}|*"'.format(port),
-                                module_ignore_errors=True)
-    if keys_result['rc'] != 0:
-        return entries
-
-    for key in keys_result['stdout'].splitlines():
-        key = key.strip()
-        if not key:
-            continue
-        profile = get_config_db_field(duthost, key, 'profile')
-        if profile.startswith(AUTOGEN_BUFFER_PG_PROFILE_PREFIX):
-            entries[key] = profile
-
-    return entries
-
-
-def buffer_profile_exists(duthost, profile_name):
-    """Check a buffer profile exists in both CONFIG_DB and APPL_DB.
-
-    Present in CONFIG_DB but absent from APPL_DB means buffermgrd wrote the config
-    but the profile never reached the applied state, which is exactly the partial
-    failure this check exists to catch.
-    """
-    in_config_db = config_db_key_exists(duthost, "BUFFER_PROFILE|{}".format(profile_name))
-
-    appl_result = duthost.shell(
-        'sonic-db-cli APPL_DB keys "BUFFER_PROFILE_TABLE:{}"'.format(profile_name),
-        module_ignore_errors=True)
-    in_appl_db = (appl_result['rc'] == 0
-                  and appl_result['stdout'].strip().endswith(profile_name))
-
-    return in_config_db, in_appl_db
 
 
 @pytest.fixture
@@ -477,16 +416,31 @@ def test_dt2_addcluster_workflow(duthosts, rand_one_dut_hostname, loganalyzer, r
             sorted(ports_to_check)))
 
     # The lossless BUFFER_PG entries are never in the patch -- buffermgrd derives them
-    # from PORT speed plus CABLE_LENGTH once the port is up. That makes CABLE_LENGTH and
-    # DEVICE_NEIGHBOR preconditions rather than incidental tables: if the patch omits
-    # either for a port, no lossless PG is ever created and the port silently runs
-    # without lossless buffers. Nothing else in this test would notice -- the patch
-    # applies, the port comes up, BGP establishes and the config compares equal.
+    # from PORT speed plus CABLE_LENGTH once the port is up. That makes speed,
+    # CABLE_LENGTH and DEVICE_NEIGHBOR preconditions rather than incidental tables: if
+    # the patch omits any of them for a port, no lossless PG is ever created and the port
+    # silently runs without lossless buffers. Nothing else in this test would notice --
+    # the patch applies, the port comes up, BGP establishes and the config compares equal.
+    #
+    # Scoped to ports the patch *adds*. A patch that only edits an existing port is not
+    # required to restate cable length or neighbor, which the device already has; keeping
+    # that distinction matters once the rework/idempotency scenarios are covered.
     patch_cable_lengths = patch_cable_length_ports(patch_data)
     patch_device_neighbors = set(touched_entries.get('DEVICE_NEIGHBOR', ()))
+    added_ports = patch_added_ports(patch_data)
     front_panel_ports = {p for p in ports_to_check if is_front_panel_port(p)}
+    added_front_panel_ports = {p for p in added_ports if is_front_panel_port(p)}
 
-    ports_missing_cable_length = front_panel_ports - set(patch_cable_lengths)
+    # Guard against the checks below passing vacuously. This is an add-cluster patch, so
+    # it must add front-panel ports; if it adds none, the three assertions that follow
+    # would all be satisfied by an empty set and report nothing.
+    pytest_assert(
+        added_front_panel_ports,
+        "Patch adds no front-panel PORT entries, so the cable-length, neighbor and speed "
+        "preconditions below would pass without examining anything. Patch touches PORT "
+        "entries: {}.".format(sorted(ports_to_check)))
+
+    ports_missing_cable_length = added_front_panel_ports - set(patch_cable_lengths)
     pytest_assert(
         not ports_missing_cable_length,
         "Patch adds front-panel port(s) {} without a CABLE_LENGTH entry. buffermgrd needs "
@@ -495,29 +449,37 @@ def test_dt2_addcluster_workflow(duthosts, rand_one_dut_hostname, loganalyzer, r
         "cable lengths for: {}.".format(
             sorted(ports_missing_cable_length), sorted(patch_cable_lengths)))
 
-    ports_missing_neighbor = front_panel_ports - patch_device_neighbors
+    ports_missing_neighbor = added_front_panel_ports - patch_device_neighbors
     pytest_assert(
         not ports_missing_neighbor,
         "Patch adds front-panel port(s) {} without a DEVICE_NEIGHBOR entry. Patch sets "
         "neighbors for: {}.".format(
             sorted(ports_missing_neighbor), sorted(patch_device_neighbors)))
 
+    # Speed is the other half of the lookup key. A PORT entry added without it yields no
+    # pg_lossless_<speed>_<cable>_profile, exactly like a missing cable length would.
+    ports_missing_speed = sorted(
+        port for port in added_front_panel_ports if not added_ports[port].get('speed'))
+    pytest_assert(
+        not ports_missing_speed,
+        "Patch adds front-panel port(s) {} without a 'speed' field. The lossless buffer "
+        "profile is looked up by speed and cable length together, so a port added without "
+        "a speed gets no lossless BUFFER_PG and no error.".format(ports_missing_speed))
+
     # The patch must not carry the lossless PGs itself. Pushing them would reference a
     # pg_lossless_<speed>_<cable>_profile that may not exist yet at apply time, and it
     # diverges from what NDM actually sends in production.
-    pushed_lossless_pgs = [
-        entry.get('path') for entry in patch_data
-        if '/BUFFER_PG/' in entry.get('path', '')
-        and AUTOGEN_BUFFER_PG_PROFILE_PREFIX in json.dumps(entry.get('value', ''))
-    ]
+    pushed_lossless_pgs = patch_pushed_lossless_pgs(
+        patch_data, AUTOGEN_BUFFER_PG_PROFILE_PREFIX)
     pytest_assert(
         not pushed_lossless_pgs,
         "Patch pushes auto-generated lossless BUFFER_PG entries: {}. These are created by "
         "buffermgrd on link-up and are absent from the NDM reference patch; including them "
         "references a buffer profile that may not exist yet.".format(pushed_lossless_pgs))
 
-    logger.info("Patch sets CABLE_LENGTH and DEVICE_NEIGHBOR for all %d front-panel port(s) "
-                "and pushes no auto-generated lossless PGs", len(front_panel_ports))
+    logger.info("Patch supplies speed, CABLE_LENGTH and DEVICE_NEIGHBOR for all %d added "
+                "front-panel port(s) and pushes no auto-generated lossless PGs",
+                len(added_front_panel_ports))
 
     # Apply patch
     # Performance expectation: single T1 addition should complete within this budget.
@@ -693,56 +655,102 @@ def test_dt2_addcluster_workflow(duthosts, rand_one_dut_hostname, loganalyzer, r
         # apply returned rc=0, the port is up, BGP is established and the config matches
         # the baseline -- while the port carries no lossless buffers at all.
         logger.info("Verifying auto-generated lossless BUFFER_PG entries")
+
+        # An absent cable length is a failure, not a skip. Only the explicit "0m"
+        # sentinel means "this port intentionally has no lossless PG" -- treating a
+        # missing entry the same way would skip exactly the port most likely to be broken.
+        ports_without_cable_length = sorted(
+            port for port in front_panel_ports
+            if not get_config_db_field(duthost, "CABLE_LENGTH|AZURE", port))
+        pytest_assert(
+            not ports_without_cable_length,
+            "Port(s) {} have no CABLE_LENGTH entry in CONFIG_DB after the patch applied. "
+            "buffermgrd cannot generate their lossless BUFFER_PG entries without "
+            "one.".format(ports_without_cable_length))
+
+        # Derive the profile name each port should end up with, rather than accepting any
+        # lossless profile. A port that came up with the profile for a different speed or
+        # cable length has the wrong headroom, and checking only for "some lossless PG"
+        # would pass it.
+        expected_profiles = {}
+        for port in sorted(front_panel_ports):
+            cable_length = get_config_db_field(duthost, "CABLE_LENGTH|AZURE", port)
+            if cable_length == '0m':
+                # Legal, and deliberately not a failure -- but a T1-facing uplink with no
+                # lossless buffers is worth seeing in the log, since "0m by mistake" and
+                # "0m on purpose" look identical from here.
+                logger.warning("Port %s has cable length 0m, so it gets no lossless "
+                               "BUFFER_PG. Skipping its lossless buffer checks.", port)
+                continue
+            speed = get_config_db_field(duthost, "PORT|{}".format(port), 'speed')
+            pytest_assert(
+                speed,
+                "Port {} has no 'speed' in CONFIG_DB after the patch applied, so no "
+                "lossless buffer profile can be derived for it.".format(port))
+            expected_profiles[port] = expected_lossless_profile_name(speed, cable_length)
+
+        pytest_assert(
+            expected_profiles,
+            "No front-panel port has both a speed and a non-zero cable length, so the "
+            "lossless BUFFER_PG checks below would verify nothing. Ports considered: "
+            "{}.".format(sorted(front_panel_ports)))
+
+        logger.info("Expecting lossless buffer profiles: %s", expected_profiles)
+
         ports_without_lossless_pg = {}
-        profiles_missing = {}
 
         def check_lossless_pgs_created():
             ports_without_lossless_pg.clear()
-            for port in sorted(front_panel_ports):
-                # "0m" is a deliberate sentinel meaning this port has no lossless PG.
-                cable_length = get_config_db_field(duthost, "CABLE_LENGTH|AZURE", port)
-                if cable_length in ('', '0m'):
-                    continue
-                if not get_lossless_pg_entries(duthost, port):
-                    ports_without_lossless_pg[port] = cable_length
+            for port, expected in sorted(expected_profiles.items()):
+                found = get_lossless_pg_entries(
+                    duthost, port, AUTOGEN_BUFFER_PG_PROFILE_PREFIX)
+                if not found:
+                    ports_without_lossless_pg[port] = "no lossless PG (expected {})".format(expected)
             return not ports_without_lossless_pg
 
         pytest_assert(
             wait_until(300, 20, 0, check_lossless_pgs_created),
-            "Lossless BUFFER_PG entries were never created for port(s) {} (shown with their "
-            "cable length). buffermgrd generates these from PORT speed and CABLE_LENGTH once "
-            "the port is up; the patch intentionally does not carry them. Their absence means "
-            "the port is forwarding without lossless buffers even though the patch applied "
-            "cleanly and the port is up. Likely causes: CABLE_LENGTH missing or wrong for the "
-            "port, or no pg_profile_lookup.ini row for this speed/cable-length "
-            "pair.".format(ports_without_lossless_pg))
+            "Lossless BUFFER_PG entries were never created for port(s) {}. buffermgrd "
+            "generates these from PORT speed and CABLE_LENGTH once the port is up; the patch "
+            "intentionally does not carry them. Their absence means the port is forwarding "
+            "without lossless buffers even though the patch applied cleanly and the port is "
+            "up. Likely causes: CABLE_LENGTH missing or wrong for the port, or no "
+            "pg_profile_lookup.ini row for this speed/cable-length pair.".format(
+                ports_without_lossless_pg))
 
-        # The PG entry existing is not enough -- the profile it points at has to have been
-        # created too, in CONFIG_DB and APPL_DB both. A PG referencing a profile that never
-        # reached APPL_DB is applied config that the dataplane never received.
-        for port in sorted(front_panel_ports):
-            for pg_key, profile in sorted(get_lossless_pg_entries(duthost, port).items()):
+        # The PG must point at the profile derived from *this* port's speed and cable
+        # length, and that profile must exist in CONFIG_DB and APPL_DB both. A PG
+        # referencing a profile that never reached APPL_DB is config the dataplane never got.
+        wrong_profile = {}
+        profiles_missing = {}
+        for port, expected in sorted(expected_profiles.items()):
+            found = get_lossless_pg_entries(duthost, port, AUTOGEN_BUFFER_PG_PROFILE_PREFIX)
+            for pg_key, profile in sorted(found.items()):
+                if profile != expected:
+                    wrong_profile[pg_key] = "{} (expected {})".format(profile, expected)
+                    continue
                 in_config_db, in_appl_db = buffer_profile_exists(duthost, profile)
                 if not in_config_db or not in_appl_db:
-                    profiles_missing[pg_key] = (
-                        "{} (CONFIG_DB: {}, APPL_DB: {})".format(
-                            profile,
-                            "present" if in_config_db else "MISSING",
-                            "present" if in_appl_db else "MISSING"))
+                    profiles_missing[pg_key] = "{} (CONFIG_DB: {}, APPL_DB: {})".format(
+                        profile,
+                        "present" if in_config_db else "MISSING",
+                        "present" if in_appl_db else "MISSING")
+
+        pytest_assert(
+            not wrong_profile,
+            "Lossless BUFFER_PG entries reference a profile that does not match the port's "
+            "speed and cable length: {}. The port has lossless buffers, but sized for a "
+            "different link.".format(wrong_profile))
 
         pytest_assert(
             not profiles_missing,
             "Lossless BUFFER_PG entries reference buffer profiles that were not fully "
             "created: {}. The PG exists but its profile is missing from CONFIG_DB or never "
-            "reached APPL_DB, so the dataplane has no headroom "
-            "configured.".format(profiles_missing))
+            "reached APPL_DB, so the dataplane has no headroom configured.".format(
+                profiles_missing))
 
-        lossless_summary = {
-            port: sorted(get_lossless_pg_entries(duthost, port).values())
-            for port in sorted(front_panel_ports)
-        }
-        logger.info("Lossless BUFFER_PG entries present for all applicable ports: %s",
-                    lossless_summary)
+        logger.info("Lossless BUFFER_PG entries present and correctly sized for %d port(s)",
+                    len(expected_profiles))
 
     # Step 10: Verify BGP sessions establish
     if bgp_neighbors_to_check:

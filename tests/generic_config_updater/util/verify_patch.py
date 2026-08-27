@@ -10,9 +10,71 @@ A patch that adds a neighbor with the wrong speed, wrong MTU, wrong BGP AS, or a
 missing PORTCHANNEL_INTERFACE will happily satisfy an existence check.
 """
 
+import json
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+def _path_segments(path):
+    """Split a JSON pointer into decoded segments, dropping a 'localhost' wrapper."""
+    parts = [p for p in path.split('/') if p]
+    if parts and parts[0] == 'localhost':
+        parts = parts[1:]
+    return [unescape_json_pointer(p) for p in parts]
+
+
+def patch_added_ports(patch_data):
+    """Return {port: fields} for the ports a patch adds to the PORT table.
+
+    A patch can add ports three ways, and a check that only understands one of them
+    fails open:
+
+        /PORT                    -> {"Ethernet316": {...}, ...}   (whole table)
+        /PORT/Ethernet316        -> {"speed": "100000", ...}      (whole entry)
+        /PORT/Ethernet316/speed  -> "100000"                      (single field)
+
+    Only 'add' operations count: a patch that merely edits an existing port is not
+    introducing a port that needs cable length and neighbor data supplied alongside.
+    """
+    ports = {}
+
+    for entry in patch_data:
+        if entry.get('op') != 'add':
+            continue
+
+        parts = _path_segments(entry.get('path', ''))
+        if not parts or parts[0] != 'PORT':
+            continue
+
+        value = entry.get('value')
+        if len(parts) == 1 and isinstance(value, dict):
+            for port, fields in value.items():
+                ports.setdefault(port, {}).update(fields if isinstance(fields, dict) else {})
+        elif len(parts) == 2 and isinstance(value, dict):
+            ports.setdefault(parts[1], {}).update(value)
+        elif len(parts) >= 3:
+            ports.setdefault(parts[1], {})[parts[2]] = value
+
+    return ports
+
+
+def patch_pushed_lossless_pgs(patch_data, profile_prefix):
+    """Return the paths of ops that push auto-generated lossless BUFFER_PG entries.
+
+    Matches on the table segment rather than the substring '/BUFFER_PG/', so a
+    whole-table op at '/BUFFER_PG' -- which has no trailing slash -- is still caught.
+    """
+    pushed = []
+
+    for entry in patch_data:
+        parts = _path_segments(entry.get('path', ''))
+        if not parts or parts[0] != 'BUFFER_PG':
+            continue
+        if profile_prefix in json.dumps(entry.get('value', '')):
+            pushed.append(entry.get('path'))
+
+    return pushed
 
 
 def patch_cable_length_ports(patch_data):
@@ -20,10 +82,14 @@ def patch_cable_length_ports(patch_data):
 
     CABLE_LENGTH is shaped differently from every other table: "CABLE_LENGTH|AZURE"
     is a single CONFIG_DB hash whose *fields* are port names, rather than one entry
-    per port. So a patch can express the same change two ways:
+    per port. So a patch can express the same change three ways:
 
-        /CABLE_LENGTH/AZURE/Ethernet316   -> "500m"          (one port)
-        /CABLE_LENGTH/AZURE               -> {"Ethernet316": "500m", ...}  (whole hash)
+        /CABLE_LENGTH/AZURE/Ethernet316   -> "500m"                       (one port)
+        /CABLE_LENGTH/AZURE               -> {"Ethernet316": "500m", ...} (whole hash)
+        /CABLE_LENGTH                     -> {"AZURE": {"Ethernet316": "500m"}}
+
+    All three are handled. Recognising only some of them would report a valid patch as
+    missing cable lengths, failing the run on a correct configuration.
 
     patch_touched_entries() deliberately stops at the entry level and reports only
     "AZURE", which is the right CONFIG_DB key to verify but says nothing about which
@@ -39,22 +105,25 @@ def patch_cable_length_ports(patch_data):
     cable_lengths = {}
 
     for entry in patch_data:
-        path = entry.get('path', '')
-        parts = [p for p in path.split('/') if p]
-        # Tolerate a leading single-ASIC 'localhost' wrapper, matching verify_patch.
-        if parts and parts[0] == 'localhost':
-            parts = parts[1:]
-        if len(parts) < 2 or parts[0] != 'CABLE_LENGTH':
+        parts = _path_segments(entry.get('path', ''))
+        if not parts or parts[0] != 'CABLE_LENGTH':
             continue
 
+        value = entry.get('value')
         if len(parts) >= 3:
             # Per-port field: /CABLE_LENGTH/<profile>/<port>
-            port = unescape_json_pointer(parts[2])
-            cable_lengths[port] = entry.get('value') if entry.get('op') != 'remove' else None
-        elif isinstance(entry.get('value'), dict):
+            port = parts[2]
+            cable_lengths[port] = value if entry.get('op') != 'remove' else None
+        elif len(parts) == 2 and isinstance(value, dict):
             # Whole hash: /CABLE_LENGTH/<profile>
-            for port, length in entry['value'].items():
+            for port, length in value.items():
                 cable_lengths[port] = length
+        elif len(parts) == 1 and isinstance(value, dict):
+            # Whole table: /CABLE_LENGTH -> {<profile>: {<port>: <length>}}
+            for ports in value.values():
+                if isinstance(ports, dict):
+                    for port, length in ports.items():
+                        cable_lengths[port] = length
 
     return cable_lengths
 
@@ -164,3 +233,102 @@ def compare_touched_entries(baseline_config, actual_config, patch_data, ignore_f
                             table, key, field, expected.get(field), got.get(field)))
 
     return differences
+
+
+# --- Device readers -------------------------------------------------------------
+# These take duthost as a parameter rather than reaching for a global, so the parsing
+# they do can be exercised against a stub in the hardware-free tests. The parsing is
+# where the risk lives: every one of them turns a shell result into a boolean or a
+# lookup, and getting that wrong fails open rather than loudly.
+
+
+def get_config_db_field(duthost, key, field):
+    """Read a single CONFIG_DB field. Returns '' when the key or field is absent."""
+    cmd = 'sonic-db-cli CONFIG_DB hget "{}" {}'.format(key, field)
+    result = duthost.shell(cmd, module_ignore_errors=True)
+    if result['rc'] != 0:
+        return ''
+    return result['stdout'].strip()
+
+
+def config_db_key_exists(duthost, key):
+    """Check that a CONFIG_DB key exists, without matching on its rendered contents."""
+    cmd = 'sonic-db-cli CONFIG_DB keys "{}"'.format(key)
+    result = duthost.shell(cmd, module_ignore_errors=True)
+    return result['rc'] == 0 and result['stdout'].strip() == key
+
+
+def normalize_profile_reference(value):
+    """Return the bare profile name from a CONFIG_DB buffer profile reference.
+
+    SONiC writes this field two ways depending on version and on whether dynamic
+    buffer management is in use:
+
+        pg_lossless_100000_500m_profile
+        [BUFFER_PROFILE|pg_lossless_100000_500m_profile]
+
+    Comparing the raw field against a bare name silently fails on the second form,
+    which would report a correctly-created lossless PG as missing.
+    """
+    value = (value or '').strip()
+    if value.startswith('[') and value.endswith(']'):
+        inner = value[1:-1]
+        # Split rather than falling back to the bracketed text: a reference with an
+        # empty name must normalise to empty, not to the table name it was qualified by.
+        if '|' in inner:
+            return inner.split('|', 1)[1]
+        return inner
+    return value
+
+
+def expected_lossless_profile_name(speed, cable_length):
+    """Build the profile name buffermgrd derives for a given speed and cable length.
+
+    The name encodes both because PFC headroom scales with link speed and with the
+    round-trip time of the cable, so 100G over 500m needs different headroom than
+    100G over 20km. Mirrors the naming used by the port-speed-change test.
+    """
+    return 'pg_lossless_{}_{}_profile'.format(speed, cable_length)
+
+
+def get_lossless_pg_entries(duthost, port, profile_prefix):
+    """Return {buffer_pg_key: profile_name} for the port's lossless BUFFER_PG entries.
+
+    These are created by buffermgrd once PORT speed and CABLE_LENGTH are set and the
+    port comes up; they are never pushed by the config patch. Lossless PGs are
+    identified by profile-name prefix rather than by priority number, so a platform
+    that numbers its lossless PGs differently is still handled.
+    """
+    entries = {}
+
+    keys_result = duthost.shell('sonic-db-cli CONFIG_DB keys "BUFFER_PG|{}|*"'.format(port),
+                                module_ignore_errors=True)
+    if keys_result['rc'] != 0:
+        return entries
+
+    for key in keys_result['stdout'].splitlines():
+        key = key.strip()
+        if not key:
+            continue
+        profile = normalize_profile_reference(get_config_db_field(duthost, key, 'profile'))
+        if profile.startswith(profile_prefix):
+            entries[key] = profile
+
+    return entries
+
+
+def buffer_profile_exists(duthost, profile_name):
+    """Report whether a buffer profile is present in CONFIG_DB and in APPL_DB.
+
+    Present in CONFIG_DB but absent from APPL_DB means buffermgrd wrote the config but
+    the profile never reached the applied state -- config the dataplane never received.
+    """
+    in_config_db = config_db_key_exists(duthost, "BUFFER_PROFILE|{}".format(profile_name))
+
+    expected_key = "BUFFER_PROFILE_TABLE:{}".format(profile_name)
+    appl_result = duthost.shell(
+        'sonic-db-cli APPL_DB keys "{}"'.format(expected_key), module_ignore_errors=True)
+    in_appl_db = (appl_result['rc'] == 0
+                  and expected_key in appl_result['stdout'].split())
+
+    return in_config_db, in_appl_db
