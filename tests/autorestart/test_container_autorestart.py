@@ -7,11 +7,13 @@ import signal
 import time
 from collections import defaultdict
 from contextlib import contextmanager
+from functools import partial
 
 import pytest
 from _pytest.outcomes import OutcomeException
 
 from tests.common.utilities import wait_until
+from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
 from tests.common import config_reload
@@ -420,13 +422,17 @@ def clear_failed_flag_and_restart(duthost, service_name, container_name):
               restart it.
     """
     logger.info("{} hits start limit and clear reset-failed flag".format(service_name))
+    restart_container(duthost, service_name, container_name)
+
+
+def restart_container(duthost, service_name, container_name):
     duthost.shell("sudo systemctl reset-failed {}.service".format(service_name))
     duthost.shell("sudo systemctl start {}.service".format(service_name))
     restarted = wait_until(CONTAINER_RESTART_THRESHOLD_SECS,
                            CONTAINER_CHECK_INTERVAL_SECS,
                            0,
                            check_container_state, duthost, container_name, True)
-    pytest_assert(restarted, "Failed to restart container '{}' after reset-failed was cleared".format(container_name))
+    pytest_assert(restarted, "Failed to restart container '{}'".format(container_name))
 
 
 def verify_autorestart_with_critical_process(duthost, container_name, service_name, program_name,
@@ -509,13 +515,15 @@ def check_all_critical_processes_status(duthost):
     return True
 
 
-def postcheck_critical_processes_status(duthost, feature_autorestart_states, up_bgp_neighbors):
+def postcheck_critical_processes_status(
+        duthost, tested_container_name, feature_autorestart_states, up_bgp_neighbors):
     """Restarts the containers which hit the restart limitation. Then post checks
        to see whether all the critical processes are alive and
        expected BGP sessions are up after testing the autorestart feature.
 
     Args:
       duthost: An ansible object of DuT.
+      tested_container_name: The container exercised by the current test.
       feature_autorestart_states: A dictionary includes the feature name (key) and
         its auto-restart state (value).
       up_bgp_neighbors: A list includes the IP of neighbors whose BGP session are up.
@@ -531,6 +539,12 @@ def postcheck_critical_processes_status(duthost, feature_autorestart_states, up_
         check_all_critical_processes_status, duthost
     )
 
+    processes_status = duthost.all_critical_process_status()
+    stopped_containers = {
+        container_name
+        for container_name, status in list(processes_status.items())
+        if status["status"] is False
+    }
     for feature_name in list(feature_autorestart_states.keys()):
         if feature_name in duthost.DEFAULT_ASIC_SERVICES:
             for asic in duthost.asics:
@@ -538,11 +552,19 @@ def postcheck_critical_processes_status(duthost, feature_autorestart_states, up_
                 container_name = asic.get_docker_name(feature_name)
                 if is_hiting_start_limit(duthost, service_name):
                     clear_failed_flag_and_restart(duthost, service_name, container_name)
+                elif container_name != tested_container_name and container_name in stopped_containers:
+                    logger.warning("Restarting stopped collateral container '%s' after testing '%s'",
+                                   container_name, tested_container_name)
+                    restart_container(duthost, service_name, container_name)
         else:
             # service_name and container_name will be same as feature
             # name for features that are not in DEFAULT_ASIC_SERVICES.
             if is_hiting_start_limit(duthost, feature_name):
                 clear_failed_flag_and_restart(duthost, feature_name, feature_name)
+            elif feature_name != tested_container_name and feature_name in stopped_containers:
+                logger.warning("Restarting stopped collateral container '%s' after testing '%s'",
+                               feature_name, tested_container_name)
+                restart_container(duthost, feature_name, feature_name)
 
     post_check_threshold = POST_CHECK_THRESHOLD_SECS
     if duthost.get_facts().get("modular_chassis"):
@@ -561,6 +583,86 @@ def postcheck_critical_processes_status(duthost, feature_autorestart_states, up_
     )
 
     return critical_proceses, bgp_check
+
+
+def get_bgp_failures(duthost):
+    try:
+        return [
+            {ip: info['state']}
+            for ip, info in list(duthost.get_bgp_neighbors().items())
+            if info['state'] != 'established'
+        ]
+    except RunAnsibleModuleFail as error:
+        logger.warning("Unable to collect BGP failure details before recovery: %s", error)
+        return [{"bgp_facts": "unavailable"}]
+
+
+def get_process_failures(duthost):
+    try:
+        processes_status = duthost.all_critical_process_status()
+    except RunAnsibleModuleFail as error:
+        logger.warning("Unable to collect critical process details before recovery: %s", error)
+        return [{"critical_processes": "unavailable"}]
+
+    return [
+        {
+            name: {
+                "status": status["status"],
+                "exited_critical_process": status["exited_critical_process"]
+            }
+        }
+        for name, status in list(processes_status.items())
+        if status["status"] is False or len(status["exited_critical_process"]) > 0
+    ]
+
+
+def verify_post_autorestart_state(duthost, container_name, feature_autorestart_states, up_bgp_neighbors):
+    logger.info("Post-checking DUT health after testing container '%s'", container_name)
+    try:
+        critical_processes, bgp_check = postcheck_critical_processes_status(
+            duthost, container_name, feature_autorestart_states, up_bgp_neighbors
+        )
+    except (Exception, OutcomeException) as error:
+        logger.exception("Post-check failed before recovery for container '%s': %s", container_name, error)
+        critical_processes = False
+        bgp_check = False
+
+    process_failures = []
+    if not critical_processes:
+        process_failures = get_process_failures(duthost)
+        logger.info("Post-check: critical process failures: %s", process_failures)
+    bgp_failures = []
+    if not bgp_check:
+        bgp_failures = get_bgp_failures(duthost)
+        logger.info("Post-check: BGP sessions not established: %s", bgp_failures)
+    if critical_processes and bgp_check:
+        return
+
+    failed_check = "[Critical Process] " if not critical_processes else ""
+    failed_check += "[BGP] " if not bgp_check else ""
+
+    try:
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+    finally:
+        enable_autorestart(duthost)
+
+    if (duthost.get_facts().get("modular_chassis") and
+            duthost.facts["asic_type"] == "cisco-8000" and
+            "teamd" in container_name and
+            not bgp_check):
+        pytest.xfail(
+            "Known issue: BGP check fails after teamd auto-restart. "
+            "Please refer to https://github.com/sonic-net/sonic-buildimage/issues/10336 for more details."
+        )
+
+    pytest.fail(
+        ("{}check failed, testing feature {}, \nBGP:{}, \nNeighbors:{}"
+         "\nProcess status {}").format(
+            failed_check, container_name,
+            bgp_failures,
+            up_bgp_neighbors, process_failures
+        )
+    )
 
 
 def is_process_running(duthost, container_name, program_name):
@@ -638,68 +740,9 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
             # statement
             break
 
-    critical_proceses, bgp_check = postcheck_critical_processes_status(
-        duthost, feature_autorestart_states, up_bgp_neighbors
+    verify_post_autorestart_state(
+        duthost, container_name, feature_autorestart_states, up_bgp_neighbors
     )
-    if not critical_proceses:
-        processes_status = duthost.all_critical_process_status()
-        for cname, procs in list(processes_status.items()):
-            if procs["status"] is False or len(procs["exited_critical_process"]) > 0:
-                logger.info("Post-check: container '{}' has exited critical processes: {}"
-                            .format(cname, procs["exited_critical_process"]))
-    if not bgp_check:
-        bgp_neigh = duthost.get_bgp_neighbors()
-        down_sessions = {ip: info['state'] for ip, info in list(bgp_neigh.items()) if info['state'] != 'established'}
-        logger.info("Post-check: BGP sessions not established: {}".format(down_sessions))
-    if not (critical_proceses and bgp_check):
-        # Capture diagnostic state BEFORE config_reload, otherwise all sessions
-        # will appear established in the error message after recovery.
-        failed_check = "[Critical Process] " if not critical_proceses else ""
-        failed_check += "[BGP] " if not bgp_check else ""
-        bgp_failures = [
-            {x: v['state']}
-            for x, v in list(duthost.get_bgp_neighbors().items())
-            if v['state'] != 'established'
-        ]
-        processes_status = duthost.all_critical_process_status()
-        pstatus = [
-            {
-                k: {
-                    "status": v["status"],
-                    "exited_critical_process": v["exited_critical_process"]
-                }
-            } for k, v in list(processes_status.items()) if v[
-                "status"
-            ] is False and len(v["exited_critical_process"]) > 0
-        ]
-
-        try:
-            config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
-        finally:
-            # After config reload, the feature autorestart config is reset.
-            # Re-enable it even if reload raises, so the next parameter is not affected.
-            enable_autorestart(duthost)
-
-        if (duthost.get_facts().get("modular_chassis") and
-                duthost.facts["asic_type"] == "cisco-8000" and
-                "teamd" in container_name and
-                not bgp_check):
-            # When teamd container is auto-restarted on Cisco 8800 T2 chassis, BGP sessions may fail to establish
-            # properly due to a known race condition bug. Mark test as xfail in this specific scenario to avoid
-            # false negatives.
-            pytest.xfail(
-                "Known issue: BGP check fails after teamd auto-restart. "
-                "Please refer to https://github.com/sonic-net/sonic-buildimage/issues/10336 for more details."
-            )
-        else:
-            pytest.fail(
-                ("{}check failed, testing feature {}, \nBGP:{}, \nNeighbors:{}"
-                 "\nProcess status {}").format(
-                    failed_check, container_name,
-                    bgp_failures,
-                    up_bgp_neighbors, pstatus
-                )
-            )
 
     logger.info("End of testing the container '{}'".format(container_name))
 
@@ -749,7 +792,7 @@ def test_containers_autorestart(duthosts, enum_rand_one_per_hwsku_hostname, enum
 
 @pytest.mark.disable_loganalyzer
 def test_supervisor_listener_syslog_reconnects(
-        duthosts, enum_rand_one_per_hwsku_hostname, enum_rand_one_asic_index, enum_dut_feature, tbinfo):
+        duthosts, enum_rand_one_per_hwsku_hostname, enum_rand_one_asic_index, enum_dut_feature, tbinfo, request):
     """
     Verify that the supervisor-proc-exit-listener (Rust variant) correctly shuts down
     a container after its critical process exits, even when syslog was disrupted
@@ -796,6 +839,8 @@ def test_supervisor_listener_syslog_reconnects(
         "rsyslogd" in rsyslogd_check_pre.get("stdout", ""),
         "No supervisord-managed rsyslogd in '{}'; skipping.".format(container_name)
     )
+    feature_autorestart_states = duthost.get_container_autorestart_states()
+    up_bgp_neighbors = duthost.get_bgp_neighbors_per_asic("established")
 
     # Step 3: baseline — listener must be RUNNING
     listener_status, listener_pid = get_program_info(duthost, container_name, "supervisor-proc-exit-listener")
@@ -832,6 +877,13 @@ def test_supervisor_listener_syslog_reconnects(
     )
     _, critical_pid = get_program_info(duthost, container_name, critical_process)
     logger.info("'{}' process RUNNING with pid={} in '{}'".format(critical_process, critical_pid, container_name))
+    request.addfinalizer(partial(
+        verify_post_autorestart_state,
+        duthost,
+        container_name,
+        feature_autorestart_states,
+        up_bgp_neighbors
+    ))
 
     # Step 5: stop rsyslogd to remove /dev/log
     logger.info("Stopping rsyslogd in '{}' to remove /dev/log".format(container_name))
