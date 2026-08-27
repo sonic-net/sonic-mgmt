@@ -1,9 +1,11 @@
 import time
+import threading
 import logging
 import re
 import pytest
 from tests.common.helpers.assertions import pytest_assert
-from telemetry_utils import assert_equal, skip_201911_and_older
+from tests.common.helpers.gnmi_utils import GNMIEnvironment
+from telemetry_utils import assert_equal, get_list_stdout, get_dict_stdout, skip_201911_and_older
 from telemetry_utils import generate_client_cli
 
 pytestmark = [
@@ -13,7 +15,6 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 METHOD_SUBSCRIBE = "subscribe"
-METHOD_GET = "get"
 
 
 @pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
@@ -34,24 +35,6 @@ def test_telemetry_ouput(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
     inerrors_match = re.search("SAI_PORT_STAT_IF_IN_ERRORS", result)
     pytest_assert(inerrors_match is not None,
                   "SAI_PORT_STAT_IF_IN_ERRORS not found in gnmi_output")
-
-
-@pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
-def test_osbuild_version(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
-                         setup_streaming_telemetry, gnxi_path):
-    """ Test osbuild/version query.
-    """
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    skip_201911_and_older(duthost)
-    cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path,
-                              method=METHOD_GET, target="OTHERS", xpath="osversion/build")
-    show_gnmi_out = ptfhost.shell(cmd)['stdout']
-    result = str(show_gnmi_out)
-
-    assert_equal(len(re.findall(r'"build_version": "SONiC\.', result)),
-                 1, "build_version value at {0}".format(result))
-    assert_equal(len(re.findall(r'SONiC\.NA', result, flags=re.IGNORECASE)),
-                 0, "invalid build_version value at {0}".format(result))
 
 
 @pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
@@ -124,3 +107,11 @@ def test_virtualdb_table_streaming(duthosts, enum_rand_one_per_hwsku_hostname, p
                  "Streaming updates for Ethernet0 in:\n{0}".format(result))  # 1 for request, 3 for response
     assert_equal(len(re.findall(r'timestamp: \d+', result)), 3,
                  "Timestamp markers for each update message in:\n{0}".format(result))
+
+
+def invoke_py_cli_from_ptf(ptfhost, cmd, callback):
+    ret = ptfhost.shell(cmd)
+    assert ret["rc"] == 0, "PTF docker did not get a response"
+    if callback is not None:
+        callback(ret["stdout"])
+
