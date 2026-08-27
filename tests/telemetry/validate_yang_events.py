@@ -1,4 +1,11 @@
-import libyang as ly
+try:
+    # libyang3 Python bindings (preferred; present in SONiC 202512+)
+    import libyang as ly
+    _LY3 = True
+except ImportError:
+    # libyang1 Python bindings (python3-yang; present in SONiC ≤ 202511)
+    import yang as ly
+    _LY3 = False
 import sys
 import json
 import argparse
@@ -30,7 +37,10 @@ class YangValidator:
         try:
             yangFiles = glob(YANG_DIR + "/*.yang")
             for file in yangFiles:
-                module = self.ctx.parse_module(file, ly.IOType.FILEPATH, "yang")
+                if _LY3:
+                    module = self.ctx.parse_module(file, ly.IOType.FILEPATH, "yang")
+                else:
+                    module = self.ctx.parse_module_path(file, ly.LYS_IN_YANG)
                 if module is None:
                     logging.info("Could not load module from file {}".format(file))
                     raise Exception(INVALID_YANG_ERROR)
@@ -57,9 +67,13 @@ class YangValidator:
             data_json = "{\"" + self.yangModule + ":" + self.yangModule + "\":" + data_json + "}"
 
             try:
-                self.ctx.parse_data_mem(data_json, "json",
-                                        no_state=True, strict=True,
-                                        json_string_datatypes=True)
+                if _LY3:
+                    self.ctx.parse_data_mem(data_json, "json",
+                                            no_state=True, strict=True,
+                                            json_string_datatypes=True)
+                else:
+                    self.ctx.parse_data_mem(data_json, ly.LYD_JSON,
+                                            ly.LYD_OPT_CONFIG | ly.LYD_OPT_STRICT)
             except Exception as e:
                 logging.info("Exception thrown: {}".format(e))
                 raise e

@@ -71,6 +71,7 @@ PROFILE_NAMES = [
     if isinstance(cfg, dict) and (
         cfg.get('config_db_wo_tuning')
         or 'DEVICE_METADATA' in cfg
+        or 'SYSTEM_DEFAULTS' in cfg
     )
 ]
 
@@ -112,6 +113,14 @@ def _apply_config_db_profile(duthost, profile_config, original_config):
         config['DEVICE_METADATA']['localhost'] = {}
     meta = profile_config.get('DEVICE_METADATA', {}).get('localhost', {})
     config['DEVICE_METADATA']['localhost'].update(meta)
+    # SYSTEM_DEFAULTS holds the consolidated swss_zmq route-performance knob
+    # (replaces the removed DEVICE_METADATA.orch_northbond_route_zmq_enabled leaf).
+    sys_defaults = profile_config.get('SYSTEM_DEFAULTS', {})
+    if sys_defaults:
+        if 'SYSTEM_DEFAULTS' not in config:
+            config['SYSTEM_DEFAULTS'] = {}
+        for entry, fields in sys_defaults.items():
+            config['SYSTEM_DEFAULTS'].setdefault(entry, {}).update(fields)
     with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
         json.dump(config, f, indent=4)
         config_tmp_path = f.name
