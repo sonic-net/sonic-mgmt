@@ -24,8 +24,7 @@ from tests.common.helpers.assertions import pytest_assert
 
 
 pytestmark = [
-    pytest.mark.topology("dualtor"),
-    pytest.mark.skip_check_dut_health
+    pytest.mark.topology("dualtor")
 ]
 
 
