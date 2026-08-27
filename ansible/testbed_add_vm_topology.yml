@@ -135,11 +135,6 @@
       is_vs_chassis: true
     when: base_topo == "t2" and (is_vs_testbed | default(false))
 
-  - name: Determine if the testbed needs internal/recirc ports (e.g. urh)
-    set_fact:
-      is_vs_urh: true
-    when: base_topo == "urh" and (is_vs_testbed | default(false))
-
   roles:
     - { role: vm_set, vm_set_action: 'stop_sonic_vm', when force_stop_sonic_vm is defined }
     - { role: vm_set, vm_set_action: 'start_sonic_vm' }
