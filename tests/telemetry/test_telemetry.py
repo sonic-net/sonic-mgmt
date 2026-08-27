@@ -112,4 +112,3 @@ def invoke_py_cli_from_ptf(ptfhost, cmd, callback):
     assert ret["rc"] == 0, "PTF docker did not get a response"
     if callback is not None:
         callback(ret["stdout"])
-
