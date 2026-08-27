@@ -12,12 +12,21 @@ Run with:
 import json
 import os
 
+import pytest
+
 from tests.generic_config_updater.util.verify_patch import (
     compare_touched_entries,
     normalize_config,
     patch_touched_entries,
     unescape_json_pointer,
 )
+
+# Hardware-free unit tests, but every test module under tests/ must carry a topology
+# marker (enforced by .azure-pipelines/markers_check). 'any' is accurate here: these
+# tests never touch a DUT, so no topology excludes them.
+pytestmark = [
+    pytest.mark.topology('any'),
+]
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 NDM_REFERENCE_PATCH = os.path.join(THIS_DIR, "files", "ndm_addcluster_reference_patch.json")

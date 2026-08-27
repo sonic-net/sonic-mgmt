@@ -8,7 +8,16 @@ ordering (PORT -> INTERFACE -> BGP -> others -> ACL_TABLE) instead of two phases
 import json
 import os
 
+import pytest
+
 from tests.generic_config_updater.util.generate_patch import generate_config_patch
+
+# Hardware-free unit tests, but every test module under tests/ must carry a topology
+# marker (enforced by .azure-pipelines/markers_check). 'any' is accurate here: these
+# tests never touch a DUT, so no topology excludes them.
+pytestmark = [
+    pytest.mark.topology('any'),
+]
 
 
 def _make_full_config():
