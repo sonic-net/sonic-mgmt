@@ -11,6 +11,10 @@ import logging
 import re
 import time
 
+import pytest
+
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
 from tests.transceiver.common import db_helpers
 from tests.transceiver.common.prerequisites import (
     wait_until_health_ok, wait_until_links_up,
@@ -20,6 +24,14 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_STABILITY_WINDOW_SEC = 5
 _LLDP_POLL_INTERVAL_SEC = 3
+# SonicAsic.port_exists() (tests/common/devices/sonic_asic.py) snapshots
+# `show interface status` once and caches it forever. Right after a reboot
+# a port that's slower to link-train (e.g. an OSFP breakout port) can be
+# absent from that very first snapshot, permanently and incorrectly marking
+# it as "not found" even though it comes up moments later. Give it a
+# settling window, invalidating the cache each attempt, before giving up.
+_PORT_NAMESPACE_RESOLVE_TIMEOUT_SEC = 30
+_PORT_NAMESPACE_RESOLVE_POLL_INTERVAL_SEC = 5
 _CMIS_DATAPATH_STATE_RE = re.compile(r'^DP(\d+)State$')
 _CMIS_CONFIG_STATE_RE = re.compile(r'^config_state_hostlane(\d+)$')
 # Mirrors the message format produced by wait_ports_oper_status()
@@ -355,6 +367,49 @@ def check_cmis_state(
     return per_port
 
 
+def _resolve_port_namespaces(duthost, ports):
+    """Resolve ``{port: namespace}`` for every port, tolerating ports that
+    haven't finished enumerating in ``show interface status`` yet.
+
+    See the comment above ``_PORT_NAMESPACE_RESOLVE_TIMEOUT_SEC``: without
+    invalidating ``SonicAsic.ports`` between attempts, retrying alone would
+    just keep hitting the same stale cached snapshot.
+    """
+    namespaces = {}
+    unresolved = set()
+
+    def _all_resolved():
+        nonlocal namespaces, unresolved
+        for asic in duthost.asics:
+            asic.ports = None
+        resolved = {}
+        still_missing = set()
+        for port in ports:
+            try:
+                resolved[port] = db_helpers.resolve_port_namespace(duthost, port)
+            except (Exception, pytest.fail.Exception):
+                still_missing.add(port)
+        namespaces = resolved
+        unresolved = still_missing
+        return not unresolved
+
+    wait_until(
+        _PORT_NAMESPACE_RESOLVE_TIMEOUT_SEC,
+        _PORT_NAMESPACE_RESOLVE_POLL_INTERVAL_SEC,
+        0,
+        _all_resolved,
+    )
+
+    if unresolved:
+        pytest_assert(
+            False,
+            "ASIC instance not found for port(s): {}".format(
+                ", ".join(sorted(unresolved))
+            )
+        )
+    return namespaces
+
+
 def standard_port_recovery_and_verification(
     duthost, ports, port_attributes_dict, link_up_timeout_sec, health_baseline,
     lport_to_first_subport_mapping,
@@ -395,9 +450,7 @@ def standard_port_recovery_and_verification(
         'details': str}}, 'details': str}``
     """
     # ``None`` on single-ASIC -> no ``-n`` flag.
-    namespaces = {
-        port: db_helpers.resolve_port_namespace(duthost, port) for port in ports
-    }
+    namespaces = _resolve_port_namespaces(duthost, ports)
 
     per_port_failures = {port: [] for port in ports}
     checks_ran = {port: [] for port in ports}  # human-readable checks ran
