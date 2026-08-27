@@ -78,63 +78,6 @@ def degrade_pfcwd_detection(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     duthost.file(path='/tmp/pfc_detect_mellanox.lua', state='absent')
 
 
-@pytest.fixture(scope='module', autouse=True)
-def setup_lag_hash_for_bg_traffic(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                                  degrade_pfcwd_detection):
-    """
-    Make sure the background traffic is distributed across every LAG member.
-
-    The all-port-storm test routes background traffic to each PortChannel neighbor to
-    build queue occupancy on every member. Both members of a PortChannel share the same
-    neighbor IP, so the DUT LAG-hashes the routed traffic and selects a single egress
-    member. On platforms whose default LAG hash does not key on the L3/L4 fields that the
-    background traffic varies (observed on Mellanox Spectrum, where the default native
-    hash field list is empty), all the traffic egresses one member and the remaining
-    members never build occupancy, so they never enter PFC storm state.
-
-    Configuring the LAG (and ECMP) hash to include the IP and L4 fields makes the already
-    randomized background traffic spread across all members, mirroring how the fanout
-    injects PFC pause on every physical link. The original configuration is restored with
-    a config reload on teardown.
-    """
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    # Broadcom and other ASICs already spread routed traffic across LAG members with their
-    # default hash; only reconfigure where the default does not (Mellanox Spectrum).
-    if duthost.facts["asic_type"].lower() != "mellanox":
-        yield
-        return
-    try:
-        capabilities = duthost.get_switch_hash_capabilities()
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("Could not query switch hash capabilities, skip LAG hash setup: {}".format(exc))
-        yield
-        return
-    desired_fields = ["IN_PORT", "SRC_MAC", "DST_MAC", "ETHERTYPE", "IP_PROTOCOL",
-                      "SRC_IP", "DST_IP", "L4_SRC_PORT", "L4_DST_PORT"]
-    lag_fields = [field for field in desired_fields if field in capabilities.get("lag", [])]
-    ecmp_fields = [field for field in desired_fields if field in capabilities.get("ecmp", [])]
-    if not lag_fields:
-        logger.info("DUT does not support configurable LAG hash fields, skip LAG hash setup")
-        yield
-        return
-    logger.info("Configuring ECMP hash {} and LAG hash {} so background traffic covers every LAG member"
-                .format(ecmp_fields, lag_fields))
-    # Back up the running config so teardown can restore the original hash configuration.
-    config_db_backup = "/etc/sonic/config_db.json.pfcwd_hash_bak"
-    duthost.shell("cp /etc/sonic/config_db.json {}".format(config_db_backup))
-    duthost.set_switch_hash_global("ecmp", ecmp_fields)
-    duthost.set_switch_hash_global("lag", lag_fields)
-    # On Mellanox Spectrum the LAG hash only changes member selection once the PortChannels
-    # are (re)created with the hash active - applying it to an already-running LAG has no
-    # effect. Persist the hash and reload so the LAGs are rebuilt with it programmed.
-    duthost.shell("config save -y")
-    config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
-    yield
-    logger.info("--- Restore switch hash configuration ---")
-    duthost.shell("mv {} /etc/sonic/config_db.json".format(config_db_backup))
-    config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
-
-
 @pytest.fixture(scope='class', autouse=True)
 def stop_pfcwd(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
@@ -338,7 +281,7 @@ def cleanup_ptf_ips(ptfhost, test_ports_info, vlan, ip_version):
         ptfhost.command("sysctl -w net.ipv4.conf.all.arp_announce=0", module_ignore_errors=True)
 
 
-@pytest.mark.usefixtures('degrade_pfcwd_detection', 'setup_lag_hash_for_bg_traffic', 'stop_pfcwd', 'storm_test_setup_restore', 'start_background_traffic')  # noqa: E501
+@pytest.mark.usefixtures('degrade_pfcwd_detection', 'stop_pfcwd', 'storm_test_setup_restore', 'start_background_traffic')  # noqa: E501
 class TestPfcwdAllPortStorm(object):
     """ PFC storm test class """
     # Threshold percentage for port storm verification (75% of ports must reach expected state)

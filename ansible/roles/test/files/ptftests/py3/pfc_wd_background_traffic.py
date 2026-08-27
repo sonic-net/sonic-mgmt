@@ -33,21 +33,6 @@ class PfcWdBackgroundTrafficTest(BaseTest):
             return False
 
     @staticmethod
-    def _rand_src_ip(base_ip):
-        """Randomize the low host bits of the source IP to add L3 hashing entropy.
-
-        Randomizing only the L4 sport/dport is not enough on platforms whose LAG
-        hash does not include L4 ports (observed on Mellanox SN4600C): the second
-        member of each LAG then receives no background traffic and never enters
-        PFC storm state. Varying the source IP as well spreads the flow across all
-        LAG members regardless of which fields the ASIC hashes on.
-        """
-        ip = ipaddress.ip_address(str(base_ip))
-        if ip.version == 4:
-            return str(ipaddress.IPv4Address((int(ip) & 0xFFFFFF00) | random.randint(1, 254)))
-        return str(ipaddress.IPv6Address((int(ip) & ~0xFFFF) | random.randint(1, 0xFFFE)))
-
-    @staticmethod
     def _build_udp_pkt(eth_src, eth_dst, ip_src, ip_dst, dscp, ttl, is_ipv6, ip_ecn=0):
         """Build a UDP packet, choosing IPv4 or IPv6 based on is_ipv6 flag."""
         if is_ipv6:
@@ -122,15 +107,6 @@ class PfcWdBackgroundTrafficTest(BaseTest):
                     while sent_count < self.pkt_count:
                         pkt['UDP'].sport = random.randint(1, 65535)
                         pkt['UDP'].dport = random.randint(1, 65535)
-                        # Also vary the source IP so LAG member selection does not
-                        # depend on the platform hashing L4 ports. Clear the stale
-                        # checksums so scapy recomputes them for the new source IP.
-                        if 'IPv6' in pkt:
-                            pkt['IPv6'].src = self._rand_src_ip(pkt['IPv6'].src)
-                        else:
-                            pkt['IP'].src = self._rand_src_ip(pkt['IP'].src)
-                            del pkt['IP'].chksum
-                        del pkt['UDP'].chksum
                         send_packet(self, port, pkt, pkt_count_in_batch)
                         sent_count += pkt_count_in_batch
 
