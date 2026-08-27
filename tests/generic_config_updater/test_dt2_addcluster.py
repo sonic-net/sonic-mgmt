@@ -39,19 +39,24 @@ See test_dt2_addcluster_workflow() docstring for detailed explanation.
 import json
 import logging
 import os
+import tempfile
 import time
+import uuid
 import pytest
 
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.gu_utils import apply_patch, generate_tmpfile, delete_tmpfile
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint
-from tests.common.plugins.loganalyzer.utils import support_ignore_loganalyzer
 from tests.common.utilities import wait_until
 from tests.generic_config_updater.util.generate_patch import (
     generate_config_patch,
     is_front_panel_port,
     extract_mirror_acl_ports,
+)
+from tests.generic_config_updater.util.verify_patch import (
+    compare_touched_entries,
+    patch_touched_entries,
 )
 
 from .util.process_minigraph import MinigraphRefactor
@@ -68,7 +73,6 @@ logger = logging.getLogger(__name__)
 
 MINIGRAPH = "/etc/sonic/minigraph.xml"
 MINIGRAPH_BACKUP = "/etc/sonic/minigraph.xml.backup"
-THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Loganalyzer ignore patterns for expected TRANSIENT errors during port reconfiguration.
 LOGANALYZER_IGNORE_REGEX = [
@@ -76,28 +80,6 @@ LOGANALYZER_IGNORE_REGEX = [
     ".*createEntry: Failed to start PFC Watchdog on port.*",
     ".*Unable to find key NPU_SI_SETTINGS_SYNC_STATUS.*",
 ]
-
-
-@support_ignore_loganalyzer
-def apply_patch_with_log_ignore(duthost, json_data, dest_file):
-    """Apply GCU patch with loganalyzer temporarily muted.
-
-    YANG validation errors during GCU patch sorting are expected — GCU tries
-    multiple orderings and intermediate states may fail validation. This wrapper
-    mutes the loganalyzer during the GCU apply window.
-
-    Args:
-        duthost: Device Under Test (DUT)
-        json_data: Source json patch to apply
-        dest_file: Destination file on duthost
-
-    Keyword Args (via decorator):
-        ignore_loganalyzer: Dict mapping hostname to loganalyzer instance.
-
-    Returns:
-        dict: Result from apply_patch (shell output with rc, stdout, stderr)
-    """
-    return apply_patch(duthost, json_data=json_data, dest_file=dest_file)
 
 
 @pytest.fixture(autouse=True)
@@ -177,36 +159,79 @@ def get_interfaces_for_neighbor(mg_facts, neighbor_name):
     return interfaces
 
 
-def parse_mirror_acl_bindings(acl_table_output):
-    """Parse 'show acl table' output to extract MIRROR/MIRRORV6 ACL bindings.
+def get_config_db_field(duthost, key, field):
+    """Read a single CONFIG_DB field. Returns '' when the key or field is absent."""
+    cmd = 'sonic-db-cli CONFIG_DB hget "{}" {}'.format(key, field)
+    result = duthost.shell(cmd, module_ignore_errors=True)
+    if result['rc'] != 0:
+        return ''
+    return result['stdout'].strip()
+
+
+def config_db_key_exists(duthost, key):
+    """Check that a CONFIG_DB key exists, without matching on its rendered contents."""
+    cmd = 'sonic-db-cli CONFIG_DB keys "{}"'.format(key)
+    result = duthost.shell(cmd, module_ignore_errors=True)
+    return result['rc'] == 0 and result['stdout'].strip() == key
+
+
+def get_mirror_acl_bindings(duthost):
+    """Read MIRROR/MIRRORV6 ACL port bindings straight from CONFIG_DB.
+
+    Reading CONFIG_DB avoids depending on the column layout of `show acl table`,
+    which is presentation output and free to change between releases.
 
     Args:
-        acl_table_output: String output from 'show acl table' command
+        duthost: DUT host object
 
     Returns:
         set: Set of port/portchannel names bound to MIRROR or MIRRORV6 ACL tables
     """
-    current_table = None
     mirror_bindings = set()
 
-    for line in acl_table_output.splitlines():
-        if not line.strip() or '----' in line:
-            continue
+    keys_result = duthost.shell('sonic-db-cli CONFIG_DB keys "ACL_TABLE|*"',
+                                module_ignore_errors=True)
+    if keys_result['rc'] != 0:
+        return mirror_bindings
 
-        if not line.startswith(' '):
-            fields = [f for f in line.split() if f]
-            if len(fields) >= 2 and fields[1] in ('MIRROR', 'MIRRORV6'):
-                current_table = fields[0]
-                if len(fields) >= 3:
-                    mirror_bindings.add(fields[2])
-            else:
-                current_table = None
-        elif current_table:
-            port = line.strip()
-            if port:
-                mirror_bindings.add(port)
+    for key in keys_result['stdout'].splitlines():
+        key = key.strip()
+        if not key:
+            continue
+        if get_config_db_field(duthost, key, 'type') not in ('MIRROR', 'MIRRORV6'):
+            continue
+        # CONFIG_DB stores list-valued fields under a trailing '@' as a comma-joined string.
+        ports = get_config_db_field(duthost, key, 'ports@')
+        if not ports:
+            ports = get_config_db_field(duthost, key, 'ports')
+        mirror_bindings.update(p.strip() for p in ports.split(',') if p.strip())
 
     return mirror_bindings
+
+
+@pytest.fixture
+def run_scratch(duthosts, rand_one_dut_hostname):
+    """Per-run scratch space for config snapshots and the rewritten minigraph.
+
+    Snapshot paths used to be scoped only by hostname and lived inside the test
+    directory, so two runs against the same DUT overwrote each other's snapshots and
+    the patch could be diffed against another run's config. Scoping by run keeps
+    concurrent runs independent.
+
+    The local directory is deliberately left on disk after the run — these snapshots
+    are the primary triage artifact when a patch turns out wrong.
+
+    Yields:
+        tuple: (local_dir, dut_dir) scratch directories.
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    run_id = uuid.uuid4().hex[:8]
+    local_dir = tempfile.mkdtemp(prefix="dt2-addcluster-{}-".format(run_id))
+    dut_dir = "/tmp/dt2-addcluster-{}".format(run_id)
+    duthost.shell("mkdir -p {}".format(dut_dir))
+    logger.info("Run scratch directories: local=%s dut=%s", local_dir, dut_dir)
+    yield local_dir, dut_dir
+    duthost.shell("rm -rf {}".format(dut_dir), module_ignore_errors=True)
 
 
 @pytest.fixture(autouse=True)
@@ -237,7 +262,7 @@ def setup_env(duthosts, rand_one_dut_hostname):
         delete_checkpoint(duthost)
 
 
-def test_dt2_addcluster_workflow(duthosts, rand_one_dut_hostname, loganalyzer):
+def test_dt2_addcluster_workflow(duthosts, rand_one_dut_hostname, loganalyzer, run_scratch):
     """Test adding a downstream T1 neighbor cluster via GCU on a dt2 single-ASIC device.
 
     This test validates that a T1 neighbor can be added to a single-ASIC disaggregated
@@ -260,12 +285,10 @@ def test_dt2_addcluster_workflow(duthosts, rand_one_dut_hostname, loganalyzer):
         loganalyzer: Loganalyzer utility fixture
     """
     duthost = duthosts[rand_one_dut_hostname]
+    local_dir, dut_dir = run_scratch
 
-    # Skip conditions (also checked in setup_env, but belt-and-suspenders)
-    if duthost.is_multi_asic:
-        pytest.skip("This test is for single-ASIC dt2 devices only")
-    if duthost.get_facts().get("modular_chassis"):
-        pytest.skip("This test is for single-ASIC dt2 devices only")
+    # Platform skips live in setup_env so that a skipped run never reaches
+    # create_checkpoint() and therefore never side-effects the DUT.
 
     # Cache minigraph facts
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
@@ -295,8 +318,8 @@ def test_dt2_addcluster_workflow(duthosts, rand_one_dut_hostname, loganalyzer):
 
     # Step 2: Capture full running configuration (with T1 neighbor)
     logger.info("Capturing full running configuration")
-    dut_config_path = "/tmp/all.json"
-    full_config_path = os.path.join(THIS_DIR, "backup", f"{duthost.hostname}-dt2-all.json")
+    dut_config_path = os.path.join(dut_dir, "all.json")
+    full_config_path = os.path.join(local_dir, "dt2-all.json")
     os.makedirs(os.path.dirname(full_config_path), exist_ok=True)
     duthost.shell(f"show runningconfiguration all > {dut_config_path}")
     duthost.fetch(src=dut_config_path, dest=full_config_path, flat=True)
@@ -305,9 +328,7 @@ def test_dt2_addcluster_workflow(duthosts, rand_one_dut_hostname, loganalyzer):
 
     # Step 3: Modify minigraph to remove target T1 neighbor
     logger.info(f"Modifying minigraph to remove {target_t1}")
-    local_dir = "/tmp/minigraph_modified_dt2"
-    local_minigraph = os.path.join(local_dir, f"{duthost.hostname}-minigraph.xml")
-    os.makedirs(local_dir, exist_ok=True)
+    local_minigraph = os.path.join(local_dir, "minigraph.xml")
     duthost.fetch(src=MINIGRAPH, dest=local_minigraph, flat=True)
     refactor = MinigraphRefactor(target_t1)
     success, affected_ports = refactor.process_minigraph(local_minigraph, local_minigraph)
@@ -322,22 +343,33 @@ def test_dt2_addcluster_workflow(duthosts, rand_one_dut_hostname, loganalyzer):
     if not wait_until(300, 20, 0, duthost.critical_services_fully_started):
         pytest.fail("Critical services not fully started after minigraph reload")
 
-    # Verify affected ports have admin_status=down after minigraph reload
+    # Verify affected ports have admin_status=down after minigraph reload.
+    # This is the premise the whole diff-based approach rests on: removing the T1
+    # from the minigraph must revert its ports to platform defaults. If it does not,
+    # the "without T1" snapshot is wrong and so is every patch derived from it.
     if affected_ports:
         logger.info(f"Verifying admin_status=down for affected ports: {sorted(affected_ports)}")
+        unexpected = {}
         for port in affected_ports:
             redis_cmd = f'sonic-db-cli CONFIG_DB hget "PORT|{port}" admin_status'
             result = duthost.shell(redis_cmd, module_ignore_errors=True)
             admin_status = result['stdout'].strip() if result['rc'] == 0 else "unknown"
             if admin_status != "down":
-                logger.warning(f"Port {port} has admin_status={admin_status}, expected 'down'")
+                unexpected[port] = admin_status
             else:
                 logger.info(f"Verified port {port} has admin_status=down (as expected)")
 
+        pytest_assert(
+            not unexpected,
+            "After removing {} from the minigraph and reloading, these ports did not revert "
+            "to admin_status=down: {}. The baseline configuration is therefore not a clean "
+            "'without T1' state, and any patch generated by diffing against it will be "
+            "incorrect.".format(target_t1, unexpected))
+
     # Step 5: Capture running configuration without T1
     logger.info(f"Capturing running configuration without {target_t1}")
-    dut_config_path = "/tmp/all-without-t1.json"
-    no_t1_config_path = os.path.join(THIS_DIR, "backup", f"{duthost.hostname}-dt2-all-without-t1.json")
+    dut_config_path = os.path.join(dut_dir, "all-without-t1.json")
+    no_t1_config_path = os.path.join(local_dir, "dt2-all-without-t1.json")
     duthost.shell(f"show runningconfiguration all > {dut_config_path}")
     duthost.fetch(src=dut_config_path, dest=no_t1_config_path, flat=True)
     logger.info(f"Saved configuration without {target_t1} to {no_t1_config_path}")
@@ -359,61 +391,36 @@ def test_dt2_addcluster_workflow(duthosts, rand_one_dut_hostname, loganalyzer):
     with open(patch_file) as f:
         patch_data = json.load(f)
 
-    # Extract items to verify from patches
-    # For single-ASIC dt2, paths are flat: /TABLE/key (no namespace prefix)
-    # However, generate_config_patch may use "" or "localhost" as the top-level key
-    # for single-ASIC configs. We handle both cases.
-    ports_to_check = set()
-    portchannels_to_check = set()
-    bgp_neighbors_to_check = set()
+    # Extract items to verify from the patch.
+    # Path parsing lives in patch_touched_entries so that this test and the
+    # equivalence check below cannot disagree about what the patch touched.
+    touched_entries = patch_touched_entries(patch_data)
+    ports_to_check = set(touched_entries.get('PORT', ()))
+    portchannels_to_check = set(touched_entries.get('PORTCHANNEL', ()))
+    bgp_neighbors_to_check = set(touched_entries.get('BGP_NEIGHBOR', ()))
     config_entries_to_check = {
-        'DEVICE_NEIGHBOR_METADATA': set(),
-        'CABLE_LENGTH': set(),
-        'PORT_QOS_MAP': set(),
-        'PFC_WD': set(),
-        'PORTCHANNEL_MEMBER': set(),
-        'DEVICE_NEIGHBOR': set(),
+        table: {"{}|{}".format(table, key) for key in touched_entries.get(table, ())}
+        for table in ('DEVICE_NEIGHBOR_METADATA', 'CABLE_LENGTH', 'PORT_QOS_MAP',
+                      'PFC_WD', 'PORTCHANNEL_MEMBER', 'DEVICE_NEIGHBOR')
     }
-
-    for patch_entry in patch_data:
-        path = patch_entry.get('path', '')
-        parts = path.strip('/').split('/')
-
-        # Determine table and key based on path structure
-        # Single-ASIC: could be /TABLE/key or /localhost/TABLE/key or //TABLE/key
-        if len(parts) >= 2:
-            # Heuristic: if first part looks like a table name (uppercase), it's flat
-            if parts[0].isupper() or parts[0] == '':
-                # Flat path: /TABLE/key
-                table = parts[0] if parts[0] else (parts[1] if len(parts) > 1 else '')
-                key = parts[1] if parts[0] else (parts[2] if len(parts) > 2 else '')
-            else:
-                # Namespaced path: /namespace/TABLE/key (namespace could be 'localhost', '', etc.)
-                table = parts[1] if len(parts) > 1 else ''
-                key = parts[2] if len(parts) > 2 else ''
-
-            if table == 'PORT' and key:
-                ports_to_check.add(key)
-            elif table == 'PORTCHANNEL' and key:
-                portchannels_to_check.add(key)
-            elif table == 'BGP_NEIGHBOR' and key:
-                bgp_neighbors_to_check.add(key)
-            elif table == 'PORTCHANNEL_MEMBER' and key:
-                config_entries_to_check['PORTCHANNEL_MEMBER'].add(f"PORTCHANNEL_MEMBER|{key}")
-            elif table == 'DEVICE_NEIGHBOR_METADATA' and key:
-                config_entries_to_check['DEVICE_NEIGHBOR_METADATA'].add(f"DEVICE_NEIGHBOR_METADATA|{key}")
-            elif table == 'DEVICE_NEIGHBOR' and key:
-                config_entries_to_check['DEVICE_NEIGHBOR'].add(f"DEVICE_NEIGHBOR|{key}")
-            elif table == 'PORT_QOS_MAP' and key:
-                config_entries_to_check['PORT_QOS_MAP'].add(f"PORT_QOS_MAP|{key}")
-            elif table == 'PFC_WD' and key:
-                config_entries_to_check['PFC_WD'].add(f"PFC_WD|{key}")
 
     # Extract ACL-bound ports for verification.
     # Handles both whole-entry adds and per-port appends; see extract_mirror_acl_ports.
     acl_bound_ports = extract_mirror_acl_ports(patch_data, full_config_path)
     logger.info(f"Patch binds {len(acl_bound_ports)} port(s) to MIRROR ACL tables: "
                 f"{sorted(acl_bound_ports)}")
+
+    # The minigraph already told us which ports face this neighbor. Every one of them was
+    # removed when the T1 was refactored out, so the add-cluster patch must bring all of
+    # them back. Checking this catches a patch that is internally consistent but partial.
+    missing_from_patch = set(neighbor_interfaces) - ports_to_check
+    pytest_assert(
+        not missing_from_patch,
+        "Patch does not restore every port facing {}. Missing from the patch's PORT "
+        "operations: {}. Minigraph reports these interfaces on the neighbor: {}. "
+        "Patch touches: {}.".format(
+            target_t1, sorted(missing_from_patch), sorted(neighbor_interfaces),
+            sorted(ports_to_check)))
 
     # Apply patch
     # Performance expectation: single T1 addition should complete within this budget.
@@ -425,10 +432,7 @@ def test_dt2_addcluster_workflow(duthosts, rand_one_dut_hostname, loganalyzer):
     gcu_start = time.time()
     tmpfile = generate_tmpfile(duthost)
     try:
-        apply_result = apply_patch_with_log_ignore(
-            duthost, json_data=patch_data, dest_file=tmpfile,
-            ignore_loganalyzer=loganalyzer
-        )
+        apply_result = apply_patch(duthost, json_data=patch_data, dest_file=tmpfile)
         gcu_elapsed = time.time() - gcu_start
         if apply_result['rc'] != 0 or "Patch applied successfully" not in apply_result['stdout']:
             pytest.fail(f"Failed to apply patch after {gcu_elapsed:.1f}s: {apply_result['stdout']}")
@@ -450,6 +454,37 @@ def test_dt2_addcluster_workflow(duthosts, rand_one_dut_hostname, loganalyzer):
     # No namespace args needed for single-ASIC.
     # -------------------------------------------------------------------------
 
+    # Equivalence check, before any per-table checks.
+    #
+    # The test round-trips through a real minigraph reload precisely so that a
+    # known-good "with T1" configuration is available. Comparing against it is the
+    # only check that proves the patch reproduces that state; verifying that entries
+    # merely exist would pass a patch carrying the wrong speed, MTU or BGP AS, or one
+    # that clobbered an existing ACL binding.
+    #
+    # The comparison is scoped to the entries the patch touched, so unrelated
+    # background churn in the running configuration cannot make this flaky.
+    logger.info("Comparing patched configuration against the with-T1 baseline")
+    after_patch_config_path = os.path.join(local_dir, "dt2-all-after-patch.json")
+    dut_config_path = os.path.join(dut_dir, "all-after-patch.json")
+    duthost.shell(f"show runningconfiguration all > {dut_config_path}")
+    duthost.fetch(src=dut_config_path, dest=after_patch_config_path, flat=True)
+    duthost.shell(f"rm -f {dut_config_path}")
+
+    with open(full_config_path) as f:
+        baseline_config = json.load(f)
+    with open(after_patch_config_path) as f:
+        after_patch_config = json.load(f)
+
+    differences = compare_touched_entries(baseline_config, after_patch_config, patch_data)
+    pytest_assert(
+        not differences,
+        "Configuration after applying the patch does not match the baseline captured "
+        "with {} present. The patch applied, but did not reproduce the intended state.\n"
+        "{}".format(target_t1, "\n".join(differences)))
+    logger.info("Patched configuration matches the with-T1 baseline for all %d touched entries",
+                sum(len(keys) for keys in patch_touched_entries(patch_data).values()))
+
     # Verify port configuration
     if not ports_to_check:
         pytest.fail("No ports found in patch to verify")
@@ -464,11 +499,11 @@ def test_dt2_addcluster_workflow(duthosts, rand_one_dut_hostname, loganalyzer):
 
     for port in front_panel_ports:
         logger.info(f"Verifying configuration for port {port}")
-        redis_cmd = f'sonic-db-cli CONFIG_DB hgetall "PORT|{port}"'
-        redis_output = duthost.shell(redis_cmd, module_ignore_errors=False)['stdout']
-        pytest_assert(redis_output.strip(), f"Port {port} not found in CONFIG_DB after patch")
-        pytest_assert("'admin_status'" in redis_output and "'up'" in redis_output,
-                      f"Port {port} admin_status is not 'up' in CONFIG_DB. Got: {redis_output}")
+        pytest_assert(config_db_key_exists(duthost, f"PORT|{port}"),
+                      f"Port {port} not found in CONFIG_DB after patch")
+        admin_status = get_config_db_field(duthost, f"PORT|{port}", "admin_status")
+        pytest_assert(admin_status == 'up',
+                      f"Port {port} admin_status is '{admin_status}' in CONFIG_DB, expected 'up'")
         logger.info(f"Verified port {port} exists in CONFIG_DB with admin_status=up")
 
     # Verify MIRROR ACL bindings
@@ -479,8 +514,7 @@ def test_dt2_addcluster_workflow(duthosts, rand_one_dut_hostname, loganalyzer):
                   "which would silently skip ACL verification.")
     if acl_bound_ports:
         logger.info(f"Checking MIRROR ACL bindings for {len(acl_bound_ports)} ports")
-        result = duthost.shell("show acl table", module_ignore_errors=False)["stdout"]
-        mirror_bindings = parse_mirror_acl_bindings(result)
+        mirror_bindings = get_mirror_acl_bindings(duthost)
         for port in acl_bound_ports:
             pytest_assert(port in mirror_bindings,
                           f"Port {port} is not bound to any MIRROR ACL table. "
@@ -491,96 +525,96 @@ def test_dt2_addcluster_workflow(duthosts, rand_one_dut_hostname, loganalyzer):
     if portchannels_to_check:
         for portchannel in portchannels_to_check:
             logger.info(f"Verifying PortChannel {portchannel}")
-            redis_cmd = f'sonic-db-cli CONFIG_DB hgetall "PORTCHANNEL|{portchannel}"'
-            redis_output = duthost.shell(redis_cmd, module_ignore_errors=False)['stdout']
-            pytest_assert(redis_output.strip(),
+            pytest_assert(config_db_key_exists(duthost, f"PORTCHANNEL|{portchannel}"),
                           f"PortChannel {portchannel} not found in CONFIG_DB after patch")
-            pytest_assert("'admin_status'" in redis_output and "'up'" in redis_output,
-                          f"PortChannel {portchannel} admin_status is not 'up'. Got: {redis_output}")
+            admin_status = get_config_db_field(duthost, f"PORTCHANNEL|{portchannel}", "admin_status")
+            pytest_assert(admin_status == 'up',
+                          f"PortChannel {portchannel} admin_status is '{admin_status}', expected 'up'")
             logger.info(f"Verified PortChannel {portchannel} in CONFIG_DB with admin_status=up")
 
     # Verify BGP neighbor configuration
     if bgp_neighbors_to_check:
         for neighbor in bgp_neighbors_to_check:
             logger.info(f"Verifying BGP neighbor {neighbor}")
-            redis_cmd = f'sonic-db-cli CONFIG_DB hgetall "BGP_NEIGHBOR|{neighbor}"'
-            redis_output = duthost.shell(redis_cmd, module_ignore_errors=False)['stdout']
-            pytest_assert(redis_output.strip(),
+            pytest_assert(config_db_key_exists(duthost, f"BGP_NEIGHBOR|{neighbor}"),
                           f"BGP neighbor {neighbor} not found in CONFIG_DB after patch")
-            if "'admin_status'" in redis_output:
-                pytest_assert("'up'" in redis_output,
-                              f"BGP neighbor {neighbor} admin_status is not 'up'. Got: {redis_output}")
+            admin_status = get_config_db_field(duthost, f"BGP_NEIGHBOR|{neighbor}", "admin_status")
+            pytest_assert(admin_status in ('', 'up'),
+                          f"BGP neighbor {neighbor} admin_status is '{admin_status}', expected 'up'")
             logger.info(f"Verified BGP neighbor {neighbor} exists in CONFIG_DB")
 
     # Verify other CONFIG_DB entries
     for table, entries in config_entries_to_check.items():
         for entry in entries:
-            if table == 'CABLE_LENGTH':
-                redis_cmd = 'sonic-db-cli CONFIG_DB hgetall "CABLE_LENGTH|AZURE"'
-                redis_output = duthost.shell(redis_cmd, module_ignore_errors=False)['stdout']
-                pytest_assert(entry in redis_output,
-                              f"Key {entry} missing in CABLE_LENGTH. Got: {redis_output}")
-            else:
-                redis_cmd = f'sonic-db-cli CONFIG_DB keys "{entry}"'
-                redis_value = duthost.shell(redis_cmd, module_ignore_errors=False)['stdout'].strip()
-                pytest_assert(redis_value == entry,
-                              f"Key {entry} missing or incorrect in CONFIG_DB. Got: {redis_value}")
+            pytest_assert(config_db_key_exists(duthost, entry),
+                          f"Key {entry} missing or incorrect in CONFIG_DB")
             logger.info(f"Verified {entry} exists in CONFIG_DB")
 
     # Step 9: Verify interfaces come up (wait for convergence)
     logger.info("Waiting for interfaces to converge after patch application")
     if front_panel_ports:
-        def check_interfaces_up():
-            result = duthost.shell("show interfaces status", module_ignore_errors=False)
-            for line in result['stdout'].splitlines():
-                fields = line.split()
-                if len(fields) >= 9 and fields[0] in front_panel_ports:
-                    # Look for oper status field
-                    for i, field in enumerate(fields):
-                        if field.lower() in ('up', 'down') and i >= 7:
-                            if field.lower() != 'up':
-                                return False
-                            break
-            return True
+        ports_not_up = {}
 
-        if not wait_until(300, 20, 0, check_interfaces_up):
-            # Don't fail — oper status depends on peer availability
-            logger.warning("Some interfaces did not come up within timeout (peer may be unavailable)")
-        else:
-            logger.info("All patched front-panel interfaces are operationally up")
+        def check_interfaces_up():
+            ports_not_up.clear()
+            for port in sorted(front_panel_ports):
+                oper_status = duthost.shell(
+                    f'sonic-db-cli APPL_DB hget "PORT_TABLE:{port}" oper_status',
+                    module_ignore_errors=True)
+                status = oper_status['stdout'].strip() if oper_status['rc'] == 0 else 'unknown'
+                if status != 'up':
+                    ports_not_up[port] = status
+            return not ports_not_up
+
+        pytest_assert(
+            wait_until(300, 20, 0, check_interfaces_up),
+            "Interfaces did not come up after the patch was applied: {}. These ports carried "
+            "traffic to {} before it was removed from the minigraph, so they are expected to "
+            "return to oper_status=up. If this testbed has no live peer on these links, the "
+            "test should skip during setup rather than report success.".format(
+                ports_not_up, target_t1))
+        logger.info("All patched front-panel interfaces are operationally up")
 
     # Step 10: Verify BGP sessions establish
     if bgp_neighbors_to_check:
         logger.info("Checking BGP session establishment")
+        bgp_not_established = {}
 
         def check_bgp_established():
+            bgp_not_established.clear()
             result = duthost.shell("vtysh -c 'show bgp summary json'", module_ignore_errors=True)
             if result['rc'] != 0 or not result['stdout'].strip():
+                bgp_not_established['*'] = 'could not read bgp summary'
                 return False
             try:
                 bgp_summary = json.loads(result['stdout'])
-                for af_key in ['ipv4Unicast', 'ipv6Unicast']:
-                    if af_key in bgp_summary:
-                        peers = bgp_summary[af_key].get('peers', {})
-                        for neighbor in bgp_neighbors_to_check:
-                            if neighbor in peers:
-                                state = peers[neighbor].get('state', '')
-                                if state != 'Established':
-                                    return False
-                return True
             except (json.JSONDecodeError, KeyError):
+                bgp_not_established['*'] = 'malformed bgp summary'
                 return False
 
-        if not wait_until(180, 15, 0, check_bgp_established):
-            # Don't fail — BGP establishment depends on peer availability
-            logger.warning("Some BGP sessions did not establish within timeout (peer may be unavailable)")
-        else:
-            logger.info("All patched BGP neighbors have established sessions")
+            peers = {}
+            for af_key in ['ipv4Unicast', 'ipv6Unicast']:
+                if af_key in bgp_summary:
+                    peers.update(bgp_summary[af_key].get('peers', {}))
+
+            for neighbor in sorted(bgp_neighbors_to_check):
+                state = peers.get(neighbor, {}).get('state', 'not present')
+                if state != 'Established':
+                    bgp_not_established[neighbor] = state
+            return not bgp_not_established
+
+        pytest_assert(
+            wait_until(180, 15, 0, check_bgp_established),
+            "BGP sessions did not reach Established after the patch was applied: {}. These "
+            "sessions were up before {} was removed from the minigraph. If this testbed has no "
+            "live peer, the test should skip during setup rather than report success.".format(
+                bgp_not_established, target_t1))
+        logger.info("All patched BGP neighbors have established sessions")
 
     logger.info(f"dt2 addcluster test completed successfully for neighbor {target_t1}")
 
 
-def test_dt2_addcluster_stress(duthosts, rand_one_dut_hostname, loganalyzer):
+def test_dt2_addcluster_stress(duthosts, rand_one_dut_hostname, loganalyzer, run_scratch):
     """Stress test: add ALL T1 neighbors in a single GCU patch.
 
     Measures how many T1s can be added within a 1-hour window on a dt2 device.
@@ -598,8 +632,10 @@ def test_dt2_addcluster_stress(duthosts, rand_one_dut_hostname, loganalyzer):
         duthosts: DUT hosts fixture
         rand_one_dut_hostname: Fixture providing a single random DUT hostname
         loganalyzer: Loganalyzer utility fixture
+        run_scratch: Per-run local and DUT scratch directories
     """
     duthost = duthosts[rand_one_dut_hostname]
+    local_dir, dut_dir = run_scratch
 
     if duthost.is_multi_asic:
         pytest.skip("This test is for single-ASIC dt2 devices only")
@@ -626,28 +662,37 @@ def test_dt2_addcluster_stress(duthosts, rand_one_dut_hostname, loganalyzer):
         pytest.fail("Critical services not fully started after minigraph reload")
 
     # Step 2: Capture full running config (with all T1s)
-    dut_config_path = "/tmp/stress-all.json"
-    full_config_path = os.path.join(THIS_DIR, "backup", f"{duthost.hostname}-dt2-stress-all.json")
+    dut_config_path = os.path.join(dut_dir, "stress-all.json")
+    full_config_path = os.path.join(local_dir, "dt2-stress-all.json")
     os.makedirs(os.path.dirname(full_config_path), exist_ok=True)
     duthost.shell(f"show runningconfiguration all > {dut_config_path}")
     duthost.fetch(src=dut_config_path, dest=full_config_path, flat=True)
     duthost.shell(f"rm -f {dut_config_path}")
 
     # Step 3: Remove ALL T1 neighbors from minigraph
-    local_dir = "/tmp/minigraph_stress_dt2"
-    local_minigraph = os.path.join(local_dir, f"{duthost.hostname}-minigraph.xml")
-    os.makedirs(local_dir, exist_ok=True)
+    local_minigraph = os.path.join(local_dir, "minigraph.xml")
     duthost.fetch(src=MINIGRAPH, dest=local_minigraph, flat=True)
 
     all_affected_ports = set()
+    removed_t1s = []
+    failed_t1s = []
     for t1_name in all_t1s:
         refactor = MinigraphRefactor(t1_name)
         success, affected_ports = refactor.process_minigraph(local_minigraph, local_minigraph)
         if not success:
-            logger.warning(f"Failed to remove {t1_name} from minigraph, skipping")
+            failed_t1s.append(t1_name)
             continue
+        removed_t1s.append(t1_name)
         all_affected_ports.update(affected_ports)
         logger.info(f"Removed {t1_name} from minigraph (affected ports: {sorted(affected_ports)})")
+
+    # A T1 that could not be removed stays in the minigraph, so it never appears in the
+    # diff and never reaches the patch. Counting it would understate time per T1 and
+    # overstate throughput, so the run is measured against what was actually removed.
+    if failed_t1s:
+        logger.warning("Could not remove %d of %d T1 neighbors from the minigraph: %s. "
+                       "Stress metrics are reported for the remaining %d.",
+                       len(failed_t1s), len(all_t1s), failed_t1s, len(removed_t1s))
 
     if not all_affected_ports:
         pytest.skip("Could not remove any T1 neighbors from minigraph")
@@ -661,8 +706,8 @@ def test_dt2_addcluster_stress(duthosts, rand_one_dut_hostname, loganalyzer):
         pytest.fail("Critical services not fully started after minigraph reload")
 
     # Step 5: Capture running config without T1s
-    dut_config_path = "/tmp/stress-no-t1s.json"
-    no_t1_config_path = os.path.join(THIS_DIR, "backup", f"{duthost.hostname}-dt2-stress-no-t1s.json")
+    dut_config_path = os.path.join(dut_dir, "stress-no-t1s.json")
+    no_t1_config_path = os.path.join(local_dir, "dt2-stress-no-t1s.json")
     duthost.shell(f"show runningconfiguration all > {dut_config_path}")
     duthost.fetch(src=dut_config_path, dest=no_t1_config_path, flat=True)
     duthost.shell(f"rm -f {dut_config_path}")
@@ -677,12 +722,12 @@ def test_dt2_addcluster_stress(duthosts, rand_one_dut_hostname, loganalyzer):
     with open(patch_file) as f:
         patch_data = json.load(f)
 
-    logger.info(f"Generated patch: {len(patch_data)} operations for {len(all_t1s)} T1 neighbors")
-    logger.info(f"Operations per T1 (avg): {len(patch_data) / len(all_t1s):.1f}")
+    logger.info(f"Generated patch: {len(patch_data)} operations for {len(removed_t1s)} T1 neighbors")
+    logger.info(f"Operations per T1 (avg): {len(patch_data) / len(removed_t1s):.1f}")
 
     # Step 7: Apply patch — let it run to completion, measure time
     logger.info("Applying stress patch (%d ops, %d T1s), timeout: %ds",
-                len(patch_data), len(all_t1s), STRESS_TIME_BUDGET_SECONDS)
+                len(patch_data), len(removed_t1s), STRESS_TIME_BUDGET_SECONDS)
     gcu_start = time.time()
     tmpfile = generate_tmpfile(duthost)
     try:
@@ -706,7 +751,7 @@ def test_dt2_addcluster_stress(duthosts, rand_one_dut_hostname, loganalyzer):
                 pytest.fail(
                     f"Stress test TIMEOUT: GCU apply-patch did not complete within "
                     f"{STRESS_TIME_BUDGET_SECONDS}s ({STRESS_TIME_BUDGET_SECONDS/3600:.0f}h) "
-                    f"for {len(all_t1s)} T1s ({len(patch_data)} ops)"
+                    f"for {len(removed_t1s)} T1s ({len(patch_data)} ops)"
                 )
 
             apply_result = async_result.get()
@@ -722,13 +767,13 @@ def test_dt2_addcluster_stress(duthosts, rand_one_dut_hostname, loganalyzer):
         delete_tmpfile(duthost, tmpfile)
 
     # Report results
-    time_per_t1 = gcu_elapsed / len(all_t1s)
+    time_per_t1 = gcu_elapsed / len(removed_t1s)
     t1s_per_hour = 3600.0 / time_per_t1 if time_per_t1 > 0 else float('inf')
 
     logger.info("=" * 70)
     logger.info("STRESS TEST RESULTS")
     logger.info("=" * 70)
-    logger.info(f"  T1 neighbors in patch:    {len(all_t1s)}")
+    logger.info(f"  T1 neighbors in patch:    {len(removed_t1s)}")
     logger.info(f"  Total patch operations:   {len(patch_data)}")
     logger.info(f"  Wall-clock time:          {gcu_elapsed:.1f}s")
     logger.info(f"  Time per T1 (avg):        {time_per_t1:.1f}s")
@@ -740,12 +785,12 @@ def test_dt2_addcluster_stress(duthosts, rand_one_dut_hostname, loganalyzer):
     # Fail if exceeded budget
     if gcu_elapsed > STRESS_TIME_BUDGET_SECONDS:
         pytest.fail(
-            f"Stress test: GCU apply-patch took {gcu_elapsed:.1f}s for {len(all_t1s)} T1s, "
+            f"Stress test: GCU apply-patch took {gcu_elapsed:.1f}s for {len(removed_t1s)} T1s, "
             f"exceeded 1-hour budget. Avg {time_per_t1:.1f}s/T1, "
             f"projected {t1s_per_hour:.0f} T1s/hour."
         )
 
     logger.info(
-        f"Stress test PASSED: {len(all_t1s)} T1s added in {gcu_elapsed:.1f}s "
+        f"Stress test PASSED: {len(removed_t1s)} T1s added in {gcu_elapsed:.1f}s "
         f"({time_per_t1:.1f}s/T1, projected {t1s_per_hour:.0f}/hour)"
     )
