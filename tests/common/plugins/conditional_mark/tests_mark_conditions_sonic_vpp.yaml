@@ -272,6 +272,25 @@ gnmi/test_gnmi_appldb.py::test_gnmi_appldb_01:
 #######################################
 #####          GNMI               #####
 #######################################
+gnmi/test_gnmi_cert_rotation.py::test_gnmi_cert_rotate:
+  skip:
+    reason: >
+            Failed/Errored: To be included
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+gnmi/test_gnmi_cert_rotation.py::test_gnmi_post_cert_add:
+  skip:
+    reason: >
+            Failed/Errored: To be included
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+#######################################
+#####          Vxlan              #####
+#######################################
 gnmi/test_gnmi_configdb.py::test_gnmi_configdb_incremental_01:
   skip:
     reason: >
@@ -698,25 +717,6 @@ telemetry/test_telemetry.py::test_telemetry_queue_buffer_cnt:
     conditions:
       - "asic_type in ['vpp']"
 
-telemetry/test_telemetry_cert_rotation.py::test_telemetry_cert_rotate:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-telemetry/test_telemetry_cert_rotation.py::test_telemetry_post_cert_add:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-#######################################
-#####          Vxlan              #####
-#######################################
 vxlan/test_vxlan_ecmp.py::Test_VxLAN_ecmp_random_hash:
   skip:
     reason: >
