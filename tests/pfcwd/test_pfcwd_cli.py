@@ -6,8 +6,8 @@ import time
 from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
-from tests.common.helpers.pfcwd_helper import start_wd_on_ports, send_tx_egress, \
-    shutdown_lag_members, restore_original_config
+from tests.common.helpers.pfcwd_helper import start_wd_on_ports, send_tx_egress
+from tests.common.helpers.pfcwd_helper import manage_lag_config  # noqa: F401
 from tests.common.helpers.pfcwd_helper import has_neighbor_device
 from tests.ptf_runner import ptf_runner
 from tests.common import constants
@@ -305,26 +305,6 @@ class SendVerifyTraffic():
                    log_file=log_file, is_python3=True)
 
 
-@pytest.fixture(scope='function')
-def manage_lag_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, nbrhosts, setup_pfc_test):
-    """Complete LAG config resource manager.
-
-    Setup (before test): backs up config_db and shuts down extra LAG members so
-    only the selected port remains active.
-    Teardown (after test): restores the original config_db, always runs even on failure.
-    """
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    ports = setup_pfc_test['selected_test_ports']
-    port = list(ports.keys())[0]
-
-    vm_host, neigh_port_channel, min_links = shutdown_lag_members(
-        duthost, port, tbinfo, nbrhosts, ports)
-
-    yield
-
-    restore_original_config(duthost, port, vm_host, neigh_port_channel, min_links, ports)
-
-
 class TestPfcwdFunc(SetupPfcwdFunc):
     """ Test PFC function and supporting methods """
     def storm_detect_path(self, dut, port, action):
@@ -475,7 +455,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                              duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts,
                              setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m_unconditionally,
                              toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,  # noqa: F811
-                             manage_lag_config):
+                             manage_lag_config):  # noqa: F811
         """
         PFCwd CLI show pfcwd stats test
 
