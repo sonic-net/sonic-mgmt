@@ -561,74 +561,112 @@ class TestProbingBaseSetUp:
         print("[OK] POINT_PROBING_STEP_SIZE kept as default for invalid input")
 
     @pytest.mark.order(935)
-    def test_setUp_ingress_drop_pg_counter_true(self):
-        """Test setUp() sets use_pg_drop_counter=True"""
-        print("\n=== Testing setUp() - INGRESS_DROP_USE_PG_COUNTER=true ===")
+    def test_setUp_ingress_drop_counter_mode_from_param(self):
+        """Test setUp() reads ingress_drop_counter_mode from testParams"""
+        print("\n=== Testing setUp() - ingress_drop_counter_mode from param ===")
 
         pb = ConcreteProbingBase()
+        pb.ingress_drop_counter_mode = 'pg_drop'
 
-        # Simulate what setUp() does for INGRESS_DROP_USE_PG_COUNTER
-        with patch.dict(os.environ, {'INGRESS_DROP_USE_PG_COUNTER': 'true'}):
-            env_value = os.getenv('INGRESS_DROP_USE_PG_COUNTER', '').lower()
-            if env_value in ('true', '1', 'yes'):
-                pb.use_pg_drop_counter = True
-            elif env_value in ('false', '0', 'no'):
-                pb.use_pg_drop_counter = False
-            else:
-                pb.use_pg_drop_counter = False
+        # Simulate the simplified setUp() logic
+        pb.ingress_drop_counter_mode = getattr(pb, 'ingress_drop_counter_mode', 'port_drop')
 
-        print("  Environment: INGRESS_DROP_USE_PG_COUNTER=true")
-        print(f"  Result: pb.use_pg_drop_counter={pb.use_pg_drop_counter}")
-        assert pb.use_pg_drop_counter is True
-        print("[OK] use_pg_drop_counter correctly set to True")
+        print("  param: ingress_drop_counter_mode='pg_drop'")
+        print(f"  Result: mode={pb.ingress_drop_counter_mode}")
+        assert pb.ingress_drop_counter_mode == 'pg_drop'
+        print("[OK] pg_drop mode from param")
 
     @pytest.mark.order(936)
-    def test_setUp_ingress_drop_pg_counter_false(self):
-        """Test setUp() sets use_pg_drop_counter=False"""
-        print("\n=== Testing setUp() - INGRESS_DROP_USE_PG_COUNTER=false ===")
+    def test_setUp_ingress_drop_counter_mode_default(self):
+        """Test setUp() defaults ingress_drop_counter_mode to port_drop"""
+        print("\n=== Testing setUp() - ingress_drop_counter_mode default ===")
 
         pb = ConcreteProbingBase()
 
-        with patch.dict(os.environ, {'INGRESS_DROP_USE_PG_COUNTER': 'false'}):
-            env_value = os.getenv('INGRESS_DROP_USE_PG_COUNTER', '').lower()
-            if env_value in ('true', '1', 'yes'):
-                pb.use_pg_drop_counter = True
-            elif env_value in ('false', '0', 'no'):
-                pb.use_pg_drop_counter = False
-            else:
-                pb.use_pg_drop_counter = False
+        pb.ingress_drop_counter_mode = getattr(pb, 'ingress_drop_counter_mode', 'port_drop')
 
-        print("  Environment: INGRESS_DROP_USE_PG_COUNTER=false")
-        print(f"  Result: pb.use_pg_drop_counter={pb.use_pg_drop_counter}")
-        assert pb.use_pg_drop_counter is False
-        print("[OK] use_pg_drop_counter correctly set to False")
+        print("  No param set")
+        print(f"  Result: mode={pb.ingress_drop_counter_mode}")
+        assert pb.ingress_drop_counter_mode == 'port_drop'
+        print("[OK] Defaults to port_drop")
 
     @pytest.mark.order(937)
-    def test_setUp_ingress_drop_pg_counter_default(self):
-        """Test setUp() defaults use_pg_drop_counter to False"""
-        print("\n=== Testing setUp() - INGRESS_DROP_USE_PG_COUNTER Default ===")
+    def test_setUp_ingress_drop_counter_mode_port_buffer_drop(self):
+        """Test setUp() with ingress_drop_counter_mode='port_buffer_drop'"""
+        print("\n=== Testing setUp() - ingress_drop_counter_mode='port_buffer_drop' ===")
+
+        pb = ConcreteProbingBase()
+        pb.ingress_drop_counter_mode = 'port_buffer_drop'
+
+        pb.ingress_drop_counter_mode = getattr(pb, 'ingress_drop_counter_mode', 'port_drop')
+
+        print("  param: ingress_drop_counter_mode='port_buffer_drop'")
+        print(f"  Result: mode={pb.ingress_drop_counter_mode}")
+        assert pb.ingress_drop_counter_mode == 'port_buffer_drop'
+        print("[OK] port_buffer_drop mode")
+
+    @pytest.mark.order(938)
+    def test_setUp_ingress_drop_counter_mode_invalid_raises(self):
+        """Test setUp() validation rejects invalid ingress_drop_counter_mode"""
+        print("\n=== Testing setUp() - invalid ingress_drop_counter_mode raises ValueError ===")
+
+        pb = ConcreteProbingBase()
+        pb.ingress_drop_counter_mode = 'invalid_mode'
+
+        # Simulate the validation path from setUp() L156-161
+        from ingress_drop_probing_executor import IngressDropProbingExecutor
+        mode = getattr(pb, 'ingress_drop_counter_mode', 'port_drop')
+        with pytest.raises(ValueError, match="Invalid ingress_drop_counter_mode"):
+            if mode not in IngressDropProbingExecutor.VALID_COUNTER_MODES:
+                raise ValueError(
+                    f"Invalid ingress_drop_counter_mode='{mode}'. "
+                    f"Must be one of: {IngressDropProbingExecutor.VALID_COUNTER_MODES}"
+                )
+
+        print("[OK] Invalid counter_mode raises ValueError")
+
+    @pytest.mark.order(939)
+    def test_parse_param_probe_packet_defaults(self):
+        """Test parse_param sets default probe_packet_length and probe_cells_per_packet"""
+        print("\n=== Testing parse_param - probe packet defaults ===")
 
         pb = ConcreteProbingBase()
 
-        with patch.dict(os.environ, {}, clear=True):
-            env_value = os.getenv('INGRESS_DROP_USE_PG_COUNTER', '').lower()
-            if env_value in ('true', '1', 'yes'):
-                pb.use_pg_drop_counter = True
-            elif env_value in ('false', '0', 'no'):
-                pb.use_pg_drop_counter = False
-            else:
-                pb.use_pg_drop_counter = False
+        # Simulate parse_param default logic (L319-322)
+        if not hasattr(pb, 'probe_packet_length'):
+            pb.probe_packet_length = 64
+        if not hasattr(pb, 'probe_cells_per_packet'):
+            pb.probe_cells_per_packet = 1
 
-        print("  Environment: No INGRESS_DROP_USE_PG_COUNTER set")
-        print(f"  Result: pb.use_pg_drop_counter={pb.use_pg_drop_counter}")
-        assert pb.use_pg_drop_counter is False
-        print("[OK] use_pg_drop_counter defaults to False")
+        assert pb.probe_packet_length == 64
+        assert pb.probe_cells_per_packet == 1
+        print("[OK] Defaults: probe_packet_length=64, probe_cells_per_packet=1")
+
+    @pytest.mark.order(940)
+    def test_parse_param_probe_packet_from_testparams(self):
+        """Test parse_param preserves probe_packet_length from testParams"""
+        print("\n=== Testing parse_param - probe packet from testParams ===")
+
+        pb = ConcreteProbingBase()
+        # Simulate testParams providing Cisco values
+        pb.probe_packet_length = 1350
+        pb.probe_cells_per_packet = 4
+
+        # parse_param defaults should NOT overwrite existing attrs
+        if not hasattr(pb, 'probe_packet_length'):
+            pb.probe_packet_length = 64
+        if not hasattr(pb, 'probe_cells_per_packet'):
+            pb.probe_cells_per_packet = 1
+
+        assert pb.probe_packet_length == 1350
+        assert pb.probe_cells_per_packet == 4
+        print("[OK] testParams values preserved: 1350B, 4 cells/pkt")
 
 
 class TestProbingBaseTearDown:
     """Test tearDown() method (simplified - no parent call needed in UT)"""
 
-    @pytest.mark.order(938)
+    @pytest.mark.order(960)
     def test_tearDown_method_exists(self):
         """Test tearDown() method exists"""
         print("\n=== Testing tearDown() Method ===")
@@ -645,7 +683,7 @@ class TestProbingBaseTearDown:
 class TestProbingBaseRunTest:
     """Test runTest() template method"""
 
-    @pytest.mark.order(939)
+    @pytest.mark.order(961)
     def test_runTest_workflow(self):
         """Test runTest() executes full workflow"""
         print("\n=== Testing runTest() Template Method ===")
@@ -656,12 +694,12 @@ class TestProbingBaseRunTest:
             with patch('probing_base.send_packet'):
                 pb.runTest()
 
-        print("  Step 1: get_probe_config() called ✓")
-        print("  Step 2: sai_thrift_port_tx_enable() called ✓")
-        print("  Step 3: setup_traffic() called ✓")
-        print("  Step 4: BufferOccupancyController initialized ✓")
-        print("  Step 5: probe() executed ✓")
-        print("  Step 6: assert_probing_result() called ✓")
+        print("  Step 1: get_probe_config() called [ok]")
+        print("  Step 2: sai_thrift_port_tx_enable() called [ok]")
+        print("  Step 3: setup_traffic() called [ok]")
+        print("  Step 4: BufferOccupancyController initialized [ok]")
+        print("  Step 5: probe() executed [ok]")
+        print("  Step 6: assert_probing_result() called [ok]")
 
         # Verify BufferOccupancyController was created
         assert mock_boc.called, "BufferOccupancyController should be initialized"
@@ -669,7 +707,7 @@ class TestProbingBaseRunTest:
 
         print("[OK] runTest() workflow executed successfully")
 
-    @pytest.mark.order(940)
+    @pytest.mark.order(962)
     def test_runTest_call_sequence(self):
         """Test runTest() calls methods in correct order"""
         print("\n=== Testing runTest() Call Sequence (Line 28-33) ===")
@@ -738,7 +776,7 @@ class TestProbingBaseRunTest:
 class TestProbingBaseGetRxPort:
     """Test get_rx_port() wrapper method"""
 
-    @pytest.mark.order(940)
+    @pytest.mark.order(963)
     def test_get_rx_port_wrapper(self):
         """Test get_rx_port() wraps module function"""
         print("\n=== Testing get_rx_port() Wrapper ===")
@@ -746,23 +784,30 @@ class TestProbingBaseGetRxPort:
 
         with patch('probing_base.log_message') as mock_log:
             with patch('probing_base.get_rx_port') as mock_get_rx_port:
-                mock_get_rx_port.return_value = 99
+                with patch('probing_observer.ProbingObserver.trace') as mock_trace:
+                    mock_get_rx_port.return_value = 99
 
-                result = pb.get_rx_port(
-                    src_port_id=10,
-                    pkt_dst_mac='00:11:22:33:44:55',
-                    dst_port_ip='192.168.1.1',
-                    src_port_ip='192.168.1.2',
-                    dst_port_id=20,
-                    src_vlan=100
-                )
+                    result = pb.get_rx_port(
+                        src_port_id=10,
+                        pkt_dst_mac='00:11:22:33:44:55',
+                        dst_port_ip='192.168.1.1',
+                        src_port_ip='192.168.1.2',
+                        dst_port_id=20,
+                        src_vlan=100
+                    )
 
         print("  Input: src_port=10, dst_port=20")
         print("  module get_rx_port() returned: 99")
         print(f"  Result: {result}")
 
         assert result == 99, "Should return value from module function"
-        assert mock_log.call_count == 2, "Should log before and after"
+        # Per pr12.fix (#24024), input args are dumped once via log_message;
+        # per-attempt diagnostics use ProbingObserver.trace inside the retry
+        # loop. On a clean first-attempt success we expect 1 log_message
+        # ("inputs") + 2 trace calls ("attempt 1/3" + "resolved on 1/3").
+        assert mock_log.call_count == 1, "Should log inputs once before retry loop"
+        assert mock_trace.call_count == 2, \
+            "Should trace attempt-start + resolved on success"
         assert mock_get_rx_port.called, "Should call module get_rx_port()"
 
         print("[OK] get_rx_port() wrapper works correctly")

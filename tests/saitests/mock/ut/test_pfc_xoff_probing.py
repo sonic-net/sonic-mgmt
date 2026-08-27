@@ -66,8 +66,9 @@ class TestPfcXoffProbingInstance(PfcXoffProbing):
         self.is_dualtor = False
         self.def_vlan_mac = None
         self.packet_size = 64
+        self.probe_packet_length = 64
+        self.probe_cells_per_packet = 1
 
-        # Mock get_rx_port method
         def mock_get_rx_port(src_port, dst_port):
             return dst_port
         self.get_rx_port = mock_get_rx_port
@@ -388,7 +389,7 @@ class TestPfcXoffProbingAlgorithmExecution:
 
             assert lower == 500, f"Expected lower=500, got {lower}"
             assert upper == 1000, f"Expected upper=1000, got {upper}"
-            assert mock_upper_algo.run.called, "Upper bound algorithm should run"
+            mock_upper_algo.run.assert_called_once_with(24, 28, 5000, pool_size=5000, pg=3)
             assert mock_lower_algo.run.called, "Lower bound algorithm should run"
             assert mock_range_algo.run.called, "Range algorithm should run"
             print(f"[OK] Algorithm flow: lower={lower}, upper={upper}")
@@ -622,6 +623,53 @@ class TestPfcXoffProbingAlgorithmExecution:
             assert lower == 900, "Should keep range result"
             assert upper == 1000, "Should keep range result"
             print("[OK] Point probing skipped for large range")
+        finally:
+            probing_observer.ProbingObserver.console = original_console
+
+    @pytest.mark.order(1195)
+    def test_run_algorithms_forwards_pool_size_with_traffic_keys(self):
+        """Test that _run_algorithms passes pool_size kwarg to upper bound along with traffic_keys."""
+        print("\n=== Test: pool_size forwarded to upper bound ===")
+
+        pfc = TestPfcXoffProbingInstance()
+        pfc.ENABLE_PRECISE_DETECTION = False
+        pfc.PROBE_TARGET = "pfc_xoff"
+
+        mock_upper_algo = Mock()
+        mock_upper_algo.run.return_value = (1000, None)
+
+        mock_lower_algo = Mock()
+        mock_lower_algo.run.return_value = (500, None)
+
+        mock_range_algo = Mock()
+        mock_range_algo.run.return_value = (500, 1000, None)
+
+        algorithms = {
+            "upper_bound": mock_upper_algo,
+            "lower_bound": mock_lower_algo,
+            "threshold_range": mock_range_algo
+        }
+
+        import probing_observer
+        original_console = probing_observer.ProbingObserver.console
+        probing_observer.ProbingObserver.console = Mock()
+
+        try:
+            lower, upper = pfc._run_algorithms(
+                algorithms, 24, 28, 8000, pg=4, queue=7
+            )
+
+            # Verify pool_size is forwarded as keyword arg alongside traffic_keys
+            mock_upper_algo.run.assert_called_once_with(
+                24, 28, 8000, pool_size=8000, pg=4, queue=7
+            )
+            # Lower/range should NOT receive pool_size
+            mock_lower_algo.run.assert_called_once_with(
+                24, 28, 1000, pg=4, queue=7
+            )
+            assert lower == 500
+            assert upper == 1000
+            print("[OK] pool_size=8000 forwarded to upper bound with traffic_keys")
         finally:
             probing_observer.ProbingObserver.console = original_console
 

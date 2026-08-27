@@ -3,9 +3,7 @@
         "localhost": {
             "default_pfcwd_status": "disable",
             "hwsku": "{{ fanout_hwsku }}",
-{% if 'marvell-teralynx' in fanout_sonic_version["asic_type"] %}
-            "type": "LeafRouter",
-{% endif %}
+
             "hostname": "{{ inventory_hostname }}"
         }
     },

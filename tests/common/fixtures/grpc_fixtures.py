@@ -5,8 +5,8 @@ This module provides coupled pytest fixtures that bundle server configuration
 with matched clients, preventing misuse from decoupled server/client setup.
 
 Primary fixtures:
-    gnmi_tls:       Module-scoped fixture that sets up TLS and yields GnmiFixture
-    gnmi_plaintext: Module-scoped fixture for plaintext mode, yields GnmiFixture
+    gnmi_tls:       Function-scoped fixture that sets up TLS and yields GnmiFixture
+    gnmi_plaintext: Function-scoped fixture for plaintext mode, yields GnmiFixture
 
 Deprecated fixtures (kept for backward compatibility):
     setup_gnoi_tls_server: Thin wrapper around gnmi_tls, yields None
@@ -18,7 +18,6 @@ import shutil
 import subprocess
 import tarfile
 import tempfile
-import time
 import pytest
 import logging
 from dataclasses import dataclass
@@ -30,9 +29,10 @@ from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
 from tests.common.ptf_grpc import PtfGrpc
 from tests.common.ptf_gnoi import PtfGnoi
-from tests.common.ptf_gnmic import PtfGnmic
+from tests.common.pygnmi_client import PygnmiClient
 from tests.common.dut_grpc import DutGrpc
 from tests.common.dut_gnoi import DutGnoi
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +44,33 @@ _GRPCURL_ARCH_MAP = {
     "arm64": "linux_arm64",
     "armhf": "linux_armv6",
 }
+
+
+def _get_target_duthost(duthosts, request):
+    """
+    Select DUT based on test parametrization or fallback to duthosts[0].
+
+    Args:
+        duthosts: All DUT host instances
+        request: Pytest request object for introspection
+
+    Returns:
+        duthost: The selected DUT host instance
+    """
+    dut_selectors = [
+        'enum_rand_one_per_hwsku_frontend_hostname',
+        'enum_rand_one_per_hwsku_hostname',
+        'rand_one_dut_hostname'
+    ]
+
+    for selector in dut_selectors:
+        if selector in request.fixturenames:
+            dut_name = request.getfixturevalue(selector)
+            duthost = duthosts[dut_name]
+            logger.info(f"_get_target_duthost: selected DUT {duthost.hostname}")
+            return duthost
+
+    return duthosts[0]
 
 
 def _ensure_grpcurl_on_dut(duthost):
@@ -139,38 +166,65 @@ class GnmiFixture:
     cert_paths: Optional[CertPaths]
     grpc: object        # PtfGrpc (TLS/plaintext) or DutGrpc (UDS)
     gnoi: object        # PtfGnoi or DutGnoi
-    gnmic: Optional[PtfGnmic]   # None for UDS transport
-    transport: str = 'tls'      # 'tls' or 'uds'
-    _duthost: object = None  # For post-reboot reconfiguration
+    pygnmi_client: Optional[PygnmiClient]   # None for UDS transport
+    transport: str = 'tls'      # 'tls', 'plaintext' or 'uds'
+    _duthost: object = None  # Fixture-selected DUT (post-reboot reconfig, DB cross-checks)
+    _ptfhost: object = None  # For post-upgrade cert redistribution
+    _cert_dir: Optional[str] = None  # Local cert dir used during setup
+
+    @property
+    def duthost(self):
+        """The DUT this fixture targets; use it for any cross-checks against
+        the device so multi-DUT runs cannot compare against a different DUT."""
+        if self._duthost is None:
+            raise RuntimeError("GnmiFixture was not initialized with duthost reference")
+        return self._duthost
 
     def reconfigure_after_reboot(self):
         """
-        Reconfigure gNMI server after a DUT reboot.
-
-        After a COLD or WARM reboot, the gNMI server may start with default
-        configuration. This method re-applies the TLS configuration and
-        restarts the server so the existing client can reconnect.
-
-        Usage:
-            # After reboot completes and DUT is back up:
-            gnmi_tls.reconfigure_after_reboot()
-            # Now gNOI calls work again:
-            status = gnmi_tls.gnoi.reboot_status()
+        Re-apply TLS config + restart server after a reboot so the client can
+        reconnect. Certs survive the reboot, so they are reused (not regenerated).
         """
+        # Reboot/upgrade helpers need the stored duthost reference.
         if self._duthost is None:
             raise RuntimeError("GnmiFixture was not initialized with duthost reference")
+        # Plaintext transport has no TLS server to reconfigure.
         if not self.tls:
             logger.info("Plaintext mode - no TLS reconfiguration needed")
             return
 
         logger.info("Reconfiguring gNMI server after reboot")
-        _configure_gnoi_tls_server(self._duthost)
-        _restart_gnoi_server(self._duthost)
+        # regen_certs=False: rootfs (and cert files) survived the reboot.
+        _establish_gnoi_tls_handshake(self._duthost, regen_certs=False)
         logger.info("Post-reboot TLS reconfiguration completed")
 
+    def reinstall_certs_after_upgrade(self):
+        """
+        Regenerate certs + re-apply TLS config after an image upgrade. An upgrade
+        replaces the rootfs, wiping the cert files, so reconfigure alone is not
+        enough; certs must be recreated and redistributed to DUT and PTF.
+        """
+        # Cert regen needs duthost, ptfhost and the local cert dir.
+        if self._duthost is None or self._ptfhost is None or self._cert_dir is None:
+            raise RuntimeError(
+                "GnmiFixture was not initialized with duthost/ptfhost/cert_dir "
+                "references required for post-upgrade cert reinstall"
+            )
+        # Plaintext transport has no TLS certs to reinstall.
+        if not self.tls:
+            logger.info("Plaintext mode - no TLS cert reinstall needed")
+            return
 
-@pytest.fixture(scope="module")
-def gnmi_tls(request, duthost, ptfhost):
+        logger.info("Reinstalling gNOI TLS certificates after upgrade")
+        # regen_certs=True: upgrade wiped the certs, so recreate them.
+        _establish_gnoi_tls_handshake(
+            self._duthost, ptfhost=self._ptfhost, cert_dir=self._cert_dir, regen_certs=True
+        )
+        logger.info("Post-upgrade TLS cert reinstall completed")
+
+
+@pytest.fixture(scope="function")
+def gnmi_tls(request, duthosts, ptfhost):
     """
     Set up gNMI/gNOI environment and yield a coupled GnmiFixture.
 
@@ -200,6 +254,8 @@ def gnmi_tls(request, duthost, ptfhost):
             assert isinstance(result["time"], int)
             assert gnmi_tls.port == 50052
     """
+    duthost = _get_target_duthost(duthosts, request)
+
     transport = getattr(request, 'param', 'tls')
 
     if transport == 'uds':
@@ -215,23 +271,17 @@ def gnmi_tls(request, duthost, ptfhost):
     # 1. Create checkpoint for rollback
     create_checkpoint(duthost, checkpoint_name)
 
+    pygnmi_client = None
     try:
-        # 2. Generate and distribute certificates
-        _create_gnoi_certs(duthost, ptfhost, cert_dir)
-
-        # 3. Configure server for TLS mode
-        _configure_gnoi_tls_server(duthost)
-
-        # 4. Restart gNOI server process
-        _restart_gnoi_server(duthost)
-
-        # 5. Verify TLS connectivity
-        _verify_gnoi_tls_connectivity(duthost, ptfhost)
+        # 2-5. Generate/distribute certs, configure + restart server, verify handshake
+        _establish_gnoi_tls_handshake(
+            duthost, ptfhost=ptfhost, cert_dir=cert_dir, regen_certs=True, verify=True
+        )
 
         # Build coupled client with the exact config we just set up
         host = duthost.mgmt_ip
         port = grpc_config.DEFAULT_TLS_PORT
-        target = f"{host}:{port}"
+        target = f"[{host}]:{port}"
 
         ptf_cert_paths = grpc_config.get_ptf_cert_paths()
         cert_paths = CertPaths(
@@ -248,11 +298,13 @@ def gnmi_tls(request, duthost, ptfhost):
         )
         gnoi_client = PtfGnoi(client)
 
-        gnmic_client = PtfGnmic(ptfhost, target, plaintext=False)
-        gnmic_client.configure_tls_certificates(
-            ca_cert=cert_paths.ca_cert,
-            client_cert=cert_paths.client_cert,
-            client_key=cert_paths.client_key,
+        # PygnmiClient runs in the sonic-mgmt orchestrator and reads the locally
+        # generated certs in cert_dir (not the PTF-side copies).
+        pygnmi_client = PygnmiClient(
+            host, port, plaintext=False,
+            ca_cert=f"{cert_dir}/{grpc_config.CA_CERT}",
+            client_cert=f"{cert_dir}/{grpc_config.CLIENT_CERT}",
+            client_key=f"{cert_dir}/{grpc_config.CLIENT_KEY}",
         )
 
         fixture = GnmiFixture(
@@ -262,18 +314,26 @@ def gnmi_tls(request, duthost, ptfhost):
             cert_paths=cert_paths,
             grpc=client,
             gnoi=gnoi_client,
-            gnmic=gnmic_client,
+            pygnmi_client=pygnmi_client,
             transport='tls',
             _duthost=duthost,
+            _ptfhost=ptfhost,
+            _cert_dir=cert_dir,
         )
 
-        logger.info("Constructed PtfGnmic client: %s", gnmic_client)
+        logger.info("Constructed PygnmiClient: %s", pygnmi_client)
         logger.info("gNOI TLS server setup completed successfully")
         yield fixture
 
     finally:
-        # 6. Cleanup: rollback configuration
+        # 6. Cleanup: close the reused gNMI channel, then rollback configuration
         logger.info("Cleaning up gNOI TLS server environment")
+        if pygnmi_client is not None:
+            try:
+                pygnmi_client.close()
+            except Exception as e:
+                logger.error("Failed to close PygnmiClient: %s", e)
+
         try:
             output = rollback(duthost, checkpoint_name)
             stdout = output.get('stdout', '')
@@ -299,8 +359,8 @@ def gnmi_tls(request, duthost, ptfhost):
             logger.error(f"Failed to cleanup certificates: {e}")
 
 
-@pytest.fixture(scope="module")
-def gnmi_plaintext(duthost, ptfhost):
+@pytest.fixture(scope="function")
+def gnmi_plaintext(request, duthosts, ptfhost):
     """
     Plaintext gNMI/gNOI fixture — no TLS, no server reconfiguration.
 
@@ -312,27 +372,30 @@ def gnmi_plaintext(duthost, ptfhost):
         def test_plaintext(gnmi_plaintext):
             services = gnmi_plaintext.grpc.list_services()
     """
+    duthost = _get_target_duthost(duthosts, request)
+
     host = duthost.mgmt_ip
     port = grpc_config.DEFAULT_PLAINTEXT_PORT
     target = f"{host}:{port}"
 
     client = PtfGrpc(ptfhost, target, plaintext=True)
     gnoi_client = PtfGnoi(client)
-    gnmic_client = PtfGnmic(ptfhost, target, plaintext=True)
 
-    fixture = GnmiFixture(
-        host=host,
-        port=port,
-        tls=False,
-        cert_paths=None,
-        grpc=client,
-        gnoi=gnoi_client,
-        gnmic=gnmic_client,
-        transport='plaintext',
-    )
+    with PygnmiClient(host, port, plaintext=True) as pygnmi_client:
+        fixture = GnmiFixture(
+            host=host,
+            port=port,
+            tls=False,
+            cert_paths=None,
+            grpc=client,
+            gnoi=gnoi_client,
+            pygnmi_client=pygnmi_client,
+            transport='plaintext',
+            _duthost=duthost,
+        )
 
-    logger.info(f"Created plaintext GnmiFixture: {target}")
-    yield fixture
+        logger.info(f"Created plaintext GnmiFixture: {target}")
+        yield fixture
 
 
 def _gnmi_uds_flow(duthost):
@@ -359,8 +422,9 @@ def _gnmi_uds_flow(duthost):
         cert_paths=None,
         grpc=grpc_client,
         gnoi=gnoi_client,
-        gnmic=None,
+        pygnmi_client=None,
         transport="uds",
+        _duthost=duthost,
     )
 
     logger.info("UDS transport ready: %s", grpc_client)
@@ -372,7 +436,7 @@ def _gnmi_uds_flow(duthost):
 # Deprecated fixtures — kept for backward compatibility during migration
 # ---------------------------------------------------------------------------
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def setup_gnoi_tls_server(gnmi_tls):
     """
     Deprecated: use gnmi_tls instead.
@@ -385,12 +449,15 @@ def setup_gnoi_tls_server(gnmi_tls):
 
 
 @pytest.fixture
-def ptf_grpc(ptfhost, duthost):
+def ptf_grpc(ptfhost, duthosts, request):
     """
     Deprecated: use gnmi_tls.grpc or gnmi_plaintext.grpc instead.
 
     Auto-configured gRPC client using GNMIEnvironment for discovery.
     """
+
+    duthost = _get_target_duthost(duthosts, request)
+
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     client = PtfGrpc(ptfhost, env, duthost=duthost, insecure=True)
 
@@ -411,8 +478,34 @@ def ptf_gnoi(ptf_grpc):
 
 
 # ---------------------------------------------------------------------------
-# Internal helpers (unchanged)
+# Internal helpers
 # ---------------------------------------------------------------------------
+
+def _establish_gnoi_tls_handshake(duthost, ptfhost=None, cert_dir=None,
+                                  regen_certs=True, verify=False):
+    """
+    Bring the gNOI TLS server into a state where the PTF client can connect.
+    Single source of truth called at setup, after reboot, and after upgrade.
+
+    regen_certs: recreate + redistribute certs (needs ptfhost, cert_dir).
+    verify: check TLS connectivity afterwards (needs ptfhost).
+    """
+    if regen_certs:
+        # Certs are gone (fresh setup / upgrade wiped rootfs) - recreate them.
+        if ptfhost is None or cert_dir is None:
+            raise RuntimeError("regen_certs=True requires ptfhost and cert_dir")
+        duthost.shell(f"mkdir -p {grpc_config.DUT_CERT_DIR}")  # ensure DUT cert dir exists
+        _create_gnoi_certs(duthost, ptfhost, cert_dir)         # gen + copy to DUT/PTF
+
+    _configure_gnoi_tls_server(duthost)  # write TLS settings into CONFIG_DB
+    _restart_gnoi_server(duthost)        # restart so server picks up new config
+
+    if verify:
+        # Confirm the client can actually complete a TLS call before returning.
+        if ptfhost is None:
+            raise RuntimeError("verify=True requires ptfhost")
+        _verify_gnoi_tls_connectivity(duthost, ptfhost)
+
 
 def _create_gnoi_certs(duthost, ptfhost, cert_dir):
     """
@@ -492,44 +585,110 @@ def _restart_gnoi_server(duthost):
     if result['rc'] != 0:
         raise Exception(f"Failed to restart gnmi-native: {result['stderr']}")
 
-    # Verify process is running
-    time.sleep(3)  # Give process time to start
+    # Wait for supervisor to report RUNNING as a guard against immediate
+    # crash loops.
+    def _supervisor_running():
+        status = duthost.shell("docker exec gnmi supervisorctl status gnmi-native",
+                               module_ignore_errors=True)
+        return "RUNNING" in status.get('stdout', '')
 
-    status_result = duthost.shell("docker exec gnmi supervisorctl status gnmi-native", module_ignore_errors=True)
-    if "RUNNING" not in status_result['stdout']:
-        raise Exception(f"gnmi-native failed to start: {status_result['stdout']}")
+    if not wait_until(30, 1, 0, _supervisor_running):
+        status = duthost.shell("docker exec gnmi supervisorctl status gnmi-native",
+                               module_ignore_errors=True)
+        raise Exception(
+            f"gnmi-native failed to reach RUNNING within 30s: {status.get('stdout', '')}"
+        )
 
-    logger.info("gNOI server restart completed")
+    # Supervisor can report RUNNING before telemetry binds its TLS listener,
+    # especially on slower platforms. Do not return until callers can safely
+    # start a client connection. Full TLS/RPC validation remains in
+    # _verify_gnoi_tls_connectivity.
+    def _tls_listener_ready():
+        status = duthost.shell(
+            "sudo ss -ltn | grep -q ':{} '".format(
+                grpc_config.DEFAULT_TLS_PORT
+            ),
+            module_ignore_errors=True,
+        )
+        return status.get('rc', 1) == 0
+
+    if not wait_until(60, 2, 0, _tls_listener_ready):
+        status = duthost.shell(
+            "sudo ss -ltn | grep ':{} '".format(
+                grpc_config.DEFAULT_TLS_PORT
+            ),
+            module_ignore_errors=True,
+        )
+        raise Exception(
+            "gNOI server failed to listen on port {} within 60s: {}".format(
+                grpc_config.DEFAULT_TLS_PORT,
+                status.get('stdout', ''),
+            )
+        )
+
+    logger.info(
+        "gNOI server restart completed (supervisor RUNNING, port %s listening)",
+        grpc_config.DEFAULT_TLS_PORT,
+    )
 
 
 def _verify_gnoi_tls_connectivity(duthost, ptfhost):
-    """Verify TLS connectivity to gNOI server."""
+    """Verify TLS connectivity to gNOI server with retry on transient errors.
+
+    Retries each grpcurl call with a bounded per-attempt timeout. This absorbs
+    the brief window between supervisor reporting gnmi-native RUNNING and the
+    telemetry process actually accepting connections on the TLS port. On slow
+    armhf platforms (e.g. marvell-prestera) that window can be several
+    seconds, manifesting as `connect: connection refused` errors from PTF.
+    """
     logger.info("Verifying gNOI TLS connectivity")
 
-    # Test basic gRPC service listing with TLS
     cacert_arg, cert_arg, key_arg = grpc_config.get_grpcurl_cert_args()
-    test_cmd = f"""grpcurl {cacert_arg} {cert_arg} {key_arg} \
-                         {duthost.mgmt_ip}:{grpc_config.DEFAULT_TLS_PORT} list"""
+    target = f"[{duthost.mgmt_ip}]:{grpc_config.DEFAULT_TLS_PORT}"
 
-    result = ptfhost.shell(test_cmd, module_ignore_errors=True)
+    # -connect-timeout bounds the TCP/TLS handshake portion; -max-time bounds
+    # the whole call. Both keep a single retry attempt from hanging if packets
+    # are blackholed instead of refused.
+    grpcurl_timeouts = "-connect-timeout 5 -max-time 10"
 
-    if result['rc'] != 0:
-        raise Exception(f"TLS connectivity test failed: {result['stderr']}")
+    list_cmd = (
+        f"grpcurl {grpcurl_timeouts} {cacert_arg} {cert_arg} {key_arg} "
+        f"{target} list"
+    )
+    time_cmd = (
+        f"grpcurl {grpcurl_timeouts} {cacert_arg} {cert_arg} {key_arg} "
+        f"{target} gnoi.system.System.Time"
+    )
 
-    if "gnoi.system.System" not in result['stdout']:
-        raise Exception(f"gNOI services not found in response: {result['stdout']}")
+    list_last = {}
 
-    # Test basic gNOI call
-    time_cmd = f"""grpcurl {cacert_arg} {cert_arg} {key_arg} \
-                         {duthost.mgmt_ip}:{grpc_config.DEFAULT_TLS_PORT} gnoi.system.System.Time"""
+    def _list_ok():
+        res = ptfhost.shell(list_cmd, module_ignore_errors=True)
+        list_last.clear()
+        list_last.update(res)
+        return res.get('rc', 1) == 0 and "gnoi.system.System" in res.get('stdout', '')
 
-    result = ptfhost.shell(time_cmd, module_ignore_errors=True)
+    if not wait_until(60, 2, 0, _list_ok):
+        raise Exception(
+            "TLS connectivity test failed after retries: "
+            f"rc={list_last.get('rc')} stderr={list_last.get('stderr', '')} "
+            f"stdout={list_last.get('stdout', '')}"
+        )
 
-    if result['rc'] != 0:
-        raise Exception(f"gNOI System.Time test failed: {result['stderr']}")
+    time_last = {}
 
-    if "time" not in result['stdout']:
-        raise Exception(f"Invalid System.Time response: {result['stdout']}")
+    def _time_ok():
+        res = ptfhost.shell(time_cmd, module_ignore_errors=True)
+        time_last.clear()
+        time_last.update(res)
+        return res.get('rc', 1) == 0 and "time" in res.get('stdout', '')
+
+    if not wait_until(30, 2, 0, _time_ok):
+        raise Exception(
+            "gNOI System.Time test failed after retries: "
+            f"rc={time_last.get('rc')} stderr={time_last.get('stderr', '')} "
+            f"stdout={time_last.get('stdout', '')}"
+        )
 
     logger.info("TLS connectivity verification completed successfully")
 

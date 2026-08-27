@@ -31,7 +31,7 @@ from ipaddress import ip_address, IPv4Address
 from tests.common.fixtures.duthost_utils import is_multi_binding_acl_enabled  # noqa: F401
 
 pytestmark = [
-    pytest.mark.topology("t0", "t1", "t2", "lt2", "ft2", "m0", "m1")
+    pytest.mark.topology("t0", "t1", "t2", "lrh", "urh", "lt2", "ft2", "m0", "m1")
 ]
 
 logger = logging.getLogger(__name__)
@@ -68,7 +68,10 @@ def partial_ptf_runner(request, ptfhost, erspan_ip_ver):  # noqa F811
                   'mirror_stage': mirror_type,
                   'expect_received': expect_receive,
                   'check_ttl': ('False' if setup_info[direction]['everflow_dut'].is_multi_asic or
-                                "t2" in setup_info["topo"] else 'True')}
+                                "t2" in setup_info["topo"] or
+                                setup_info[direction]['everflow_dut'].facts.get('switch_type') == 'voq'
+                                else 'True')
+                    }
         params.update(kwargs)
         # On dualtor testbed, the dst_mac for upstream traffic is vlan MAC,
         # while the src_mac for mirrored traffic is router MAC
@@ -95,7 +98,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
 
     DEFAULT_SRC_IP = "20.0.0.1"
     DEFAULT_DST_IP = "30.0.0.1"
-    MIRROR_POLICER_UNSUPPORTED_ASIC_LIST = ["th5", "th4", "th3", "j2c+", "jr2"]
+    MIRROR_POLICER_UNSUPPORTED_ASIC_LIST = ["th6", "th5", "th4", "th3", "j2c+", "jr2"]
 
     @pytest.fixture(params=[DOWN_STREAM, UP_STREAM])
     def dest_port_type(self, setup_info, setup_mirror_session, tbinfo, request, erspan_ip_ver):        # noqa F811
@@ -259,10 +262,12 @@ class EverflowIPv4Tests(BaseEverflowTest):
         random_upstream_intf = random.choice(list(upstream_links_for_unselected_dut.keys()))
         rx_port_ptf_id = upstream_links_for_unselected_dut[random_upstream_intf]["ptf_port_id"]
         tx_port_ptf_id = setup_info[dest_port_type]["dest_port_ptf_id"][0]
-        try_num = 1
-        if everflow_dut.facts['asic_type'] == 'vs':
-            try_num = 5
-        # Adding retries is required by MSFT to overcome the issue of random packet loss on their simulator
+
+        # Adding retries is required by MSFT to overcome the issue of random packet loss
+        # The dualtor bounced back packet is forwarded by the standby tor firstly to the
+        # T1 VM neighbor and then to the active tor, and then the ptf. There is a chance
+        # that the packet is lost on the VM
+        try_num = 3
         retry_call(
             self._run_everflow_test_scenarios,
             fargs=(
@@ -615,9 +620,8 @@ class EverflowIPv4Tests(BaseEverflowTest):
         everflow_dut = setup_info[dest_port_type]['everflow_dut']
         remote_dut = setup_info[dest_port_type]['remote_dut']
 
-        if tbinfo['topo']['type'] == "t2":
-            if everflow_dut.facts['switch_type'] == "voq":
-                pytest.skip("Skip test as is not supported on a VoQ chassis.")
+        if everflow_dut.facts['switch_type'] == "voq":
+            pytest.skip("Skip test as is not supported on a VoQ chassis.")
 
         # Remaining Scenario not applicable for this topology
         if len(setup_info[dest_port_type]["dest_port"]) <= 2:
@@ -849,10 +853,13 @@ class EverflowIPv4Tests(BaseEverflowTest):
                                send_time=send_time,
                                tolerance=everflow_tolerance)
 
-            # Verify that packets dropped by policer do not increment TX_DROP counters
+            # Skip counter checks on ASICs that count policer-dropped packets as TX drops.
             mirror_port = get_mirror_port(everflow_dut, "TEST_POLICER_SESSION")
-            assert_no_tx_drops_on_mirror_port(everflow_dut, mirror_port)
-            assert_no_tx_queue_drops_on_mirror_port(everflow_dut, mirror_port)
+            asic = everflow_dut.get_asic_name()
+            if asic != "th2":
+                assert_no_tx_drops_on_mirror_port(everflow_dut, mirror_port)
+            if asic not in {"th2", "td3"}:
+                assert_no_tx_queue_drops_on_mirror_port(everflow_dut, mirror_port)
         finally:
             # Clean up ACL rules and routes
             BaseEverflowTest.remove_acl_rule_config(everflow_dut, table_name, config_method)

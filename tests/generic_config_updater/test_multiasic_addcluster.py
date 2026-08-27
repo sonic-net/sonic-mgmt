@@ -51,7 +51,7 @@ from .util.process_minigraph import MinigraphRefactor
 # skip_config_db_check: Skip automatic config_db restoration in core_dump_and_config_check
 #   fixture - this test handles its own cleanup via checkpoint/rollback mechanism.
 pytestmark = [
-    pytest.mark.topology('t2'),
+    pytest.mark.topology('t2', 'lrh', 'urh'),
     pytest.mark.disable_intf_up_check,
     pytest.mark.skip_config_db_check,
 ]

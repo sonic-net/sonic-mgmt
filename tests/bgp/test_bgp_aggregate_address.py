@@ -22,6 +22,7 @@ from bgp_bbr_helpers import config_bbr_by_gcu, get_bbr_default_state, is_bbr_ena
 
 from bgp_aggregate_helpers import (
     BGP_AGGREGATE_ADDRESS,
+    PLACEHOLDER_PREFIX,
     AggregateCfg,
     dump_db,
     gcu_add_aggregate,
@@ -57,7 +58,6 @@ def setup_teardown(duthost):
 # Aggregate prefixes
 AGGR_V4 = "172.16.51.0/24"
 AGGR_V6 = "2000:172:16:50::/64"
-PLACEHOLDER_PREFIX = "192.0.2.0/32"
 
 
 # Test with parameters Combination

@@ -28,6 +28,7 @@ expected_stopped_status = "STOPPED"
 expected_exited_status = "EXITED"
 
 daemon_name = "fancontrol"
+daemon_dut_hostname_fixture = "enum_supervisor_dut_hostname"
 
 SIG_STOP_SERVICE = None
 SIG_TERM = "-15"
@@ -54,15 +55,6 @@ def teardown_module(duthosts, enum_supervisor_dut_hostname):
     logger.info(
         "Tearing down: to make sure all the critical services, interfaces and transceivers are good")
     check_critical_processes(duthost, watch_secs=10)
-
-
-@pytest.fixture()
-def check_daemon_status(duthosts, enum_supervisor_dut_hostname):
-    duthost = duthosts[enum_supervisor_dut_hostname]
-    daemon_status, daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
-    if daemon_status != "RUNNING":
-        duthost.start_pmon_daemon(daemon_name)
-        time.sleep(10)
 
 
 def test_pmon_fancontrol_running_status(duthosts, enum_supervisor_dut_hostname):

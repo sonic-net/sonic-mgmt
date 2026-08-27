@@ -6,6 +6,8 @@ declare -r SCRIPT_DIR="$(dirname "${SCRIPT_PATH}")"
 
 declare -r DOCKER_REGISTRY="sonicdev-microsoft.azurecr.io:443"
 declare -r DOCKER_SONIC_MGMT="docker-sonic-mgmt:latest"
+declare -r DOCKER_PULL_MAX_ATTEMPTS="3"
+declare -r DOCKER_PULL_RETRY_DELAY_SECONDS="10"
 
 declare -r ROOT_PASS="root"
 declare -r USER_PASS="12345"
@@ -149,11 +151,31 @@ function show_local_container_login() {
     fi
 }
 
+function pull_docker_image_with_retry() {
+    local image="$1"
+    local attempt
+
+    for ((attempt = 1; attempt <= DOCKER_PULL_MAX_ATTEMPTS; attempt++)); do
+        log_info "pulling docker image ${image} (attempt ${attempt}/${DOCKER_PULL_MAX_ATTEMPTS}) ..."
+        if docker pull "${image}"; then
+            return "${EXIT_SUCCESS}"
+        fi
+
+        if [[ "${attempt}" -lt "${DOCKER_PULL_MAX_ATTEMPTS}" ]]; then
+            log_notice "docker pull attempt ${attempt}/${DOCKER_PULL_MAX_ATTEMPTS} failed;" \
+                "retrying in ${DOCKER_PULL_RETRY_DELAY_SECONDS} seconds ..."
+            sleep "${DOCKER_PULL_RETRY_DELAY_SECONDS}"
+        fi
+    done
+
+    return "${EXIT_FAILURE}"
+}
+
 function pull_sonic_mgmt_docker_image() {
     if [[ -z "${IMAGE_ID}" ]]; then
         if docker image inspect "${DOCKER_SONIC_MGMT}" &> /dev/null; then
             IMAGE_ID="${DOCKER_SONIC_MGMT}"
-        elif log_info "pulling docker image from a registry ..." && docker pull "${DOCKER_REGISTRY}/${DOCKER_SONIC_MGMT}"; then
+        elif pull_docker_image_with_retry "${DOCKER_REGISTRY}/${DOCKER_SONIC_MGMT}"; then
             IMAGE_ID="${DOCKER_REGISTRY}/${DOCKER_SONIC_MGMT}"
         else
             exit_failure "unable to find a usable default docker image, please specify one manually"
@@ -266,9 +288,19 @@ chmod 0600 /home/${USER}/.ssh/authorized_keys
 chown -R ${HOST_UID}:${HOST_GID} /home/${USER}/.ssh
 SETUP_EOF
 
-    docker cp "${TMP_SETUP}" "${CONTAINER_NAME}:/tmp/setup_user.sh"
-    docker cp "${PRIVKEY_FILE}" "${CONTAINER_NAME}:/tmp/id_ed25519"
-    docker cp "${PUBKEY_FILE}" "${CONTAINER_NAME}:/tmp/id_ed25519.pub"
+    # Use `docker exec -i ... tee` instead of `docker cp` to inject these files.
+    # `docker cp` into a running container goes through the daemon's tar-extract
+    # path, which trips a moby/runc mkdirat bug on the current docker-sonic-mgmt
+    # image ("Error response from daemon: mkdirat var/run: file exists"). The
+    # daemon prints the error but `docker cp` still exits 0, so `set -e` cannot
+    # catch the failure; setup_user.sh later fails with
+    # "/tmp/setup_user.sh: No such file or directory". `docker exec ... tee` does
+    # not use the tar-extract path, propagates the real exit code, and is
+    # already proven on the next line (ssh_pubkey_to_add).
+    docker exec -i --user root "${CONTAINER_NAME}" tee /tmp/setup_user.sh < "${TMP_SETUP}" > /dev/null
+    docker exec -i --user root "${CONTAINER_NAME}" tee /tmp/id_ed25519 < "${PRIVKEY_FILE}" > /dev/null
+    docker exec --user root "${CONTAINER_NAME}" chmod 0600 /tmp/id_ed25519
+    docker exec -i --user root "${CONTAINER_NAME}" tee /tmp/id_ed25519.pub < "${PUBKEY_FILE}" > /dev/null
     echo "${SSH_PUBKEY}" | docker exec -i --user root "${CONTAINER_NAME}" tee /tmp/ssh_pubkey_to_add > /dev/null
     rm -f "${TMP_SETUP}"
     trap - RETURN
