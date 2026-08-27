@@ -2953,6 +2953,22 @@ gnmi/test_gnmi_smartswitch.py:
     conditions:
       - "'bmc' in topo_type"
 
+gnmi/test_gnmi_srv6.py:
+  skip:
+    reason: "SRv6 is not supported on older ASICs (Broadcom TH/TH2/TD3; Mellanox SPC1-3). SRv6 telemetry tests require routing, not available on BMC"
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type == 'broadcom' and asic_gen not in ['th5', 'th6', 'q3d']"
+      - "asic_type == 'mellanox' and asic_gen in ['spc1', 'spc2', 'spc3']"
+      - "'bmc' in topo_type"
+
+gnmi/test_gnmi_srv6.py::test_poll_mode_srv6_sid_counters:
+  skip:
+    reason: "Skip E2E telemetry SRv6 test for non-supported branches and HW"
+    conditions:
+      - "release not in ['202412']"
+      - "asic_type not in ['mellanox', 'broadcom']"
+
 gnmi/test_gnmi_stress.py::test_gnmi_latency_01:
   skip:
     reason: "Test relies on PORT table in CONFIG_DB; not configured on BMC"
@@ -5573,22 +5589,6 @@ telemetry/test_telemetry_poll.py::test_poll_mode_default_route:
     reason: "not applicable on BMC because requires upstream BGP neighbor and default route"
     conditions:
       - "'bmc' in topo_type"
-
-telemetry/test_telemetry_srv6.py:
-  skip:
-    reason: "SRv6 is not supported on older ASICs (Broadcom TH/TH2/TD3; Mellanox SPC1-3). SRv6 telemetry tests require routing, not available on BMC"
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type == 'broadcom' and asic_gen not in ['th5', 'th6', 'q3d']"
-      - "asic_type == 'mellanox' and asic_gen in ['spc1', 'spc2', 'spc3']"
-      - "'bmc' in topo_type"
-
-telemetry/test_telemetry_srv6.py::test_poll_mode_srv6_sid_counters:
-  skip:
-    reason: "Skip E2E telemetry SRv6 test for non-supported branches and HW"
-    conditions:
-      - "release not in ['202412']"
-      - "asic_type not in ['mellanox', 'broadcom']"
 
 test_interfaces.py:
   skip:
