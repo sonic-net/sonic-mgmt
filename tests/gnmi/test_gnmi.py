@@ -204,7 +204,7 @@ def test_osbuild_version(duthosts, rand_one_dut_hostname, ptfhost):
 def _get_sysuptime_total(duthost, ptfhost):
     """GET OTHERS/proc/uptime and return the 'total' field as a float."""
     msg_list = gnmi_get(duthost, ptfhost, ["proc/uptime"], target="OTHERS", origin=None)
-    result = str(msg_list)
+    result = "\n".join(msg_list)
     match = re.search(r'"total":\s*([0-9.]+)', result)
     assert match is not None, (
         "system uptime 'total' field not found in gnmi output: {}".format(result))

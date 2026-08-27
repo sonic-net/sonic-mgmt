@@ -2,7 +2,6 @@
     "telemetry/test_telemetry.py::test_config_db_parameters": 0,
     "telemetry/test_telemetry.py::test_telemetry_enabledbydefault": 0,
     "telemetry/test_telemetry.py::test_telemetry_ouput": 0,
-    "telemetry/test_telemetry.py::test_sysuptime": 0,
     "telemetry/test_telemetry.py::test_virtualdb_table_streaming": 0,
     "telemetry/test_telemetry.py::test_mem_spike": 0,
     "telemetry/test_telemetry_poll.py": 0,
