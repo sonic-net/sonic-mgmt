@@ -36,13 +36,13 @@ def validate_yang(duthost, op_file="", yang_file=""):
     assert ret["rc"] == 0, "Yang validation failed for {}".format(yang_file)
 
 
-def test_events(duthosts, tbinfo, enum_rand_one_per_hwsku_hostname, ptfhost, ptfadapter,
+def test_events(duthosts, tbinfo, rand_one_dut_hostname, ptfhost, ptfadapter,
                 gnxi_path, test_eventd_healthy,
                 toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_host_m,  # noqa: F811
                 setup_standby_ports_on_non_enum_rand_one_per_hwsku_host_m):  # noqa: F811
     """ Run series of events inside duthost and validate that output is correct
     and conforms to YANG schema"""
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    duthost = duthosts[rand_one_dut_hostname]
     logger.info("Start events testing")
 
     # Load rest of events
@@ -57,9 +57,9 @@ def test_events(duthosts, tbinfo, enum_rand_one_per_hwsku_hostname, ptfhost, ptf
             logger.info("Completed test file: {}".format(os.path.join(EVENTS_TESTS_PATH, file)))
 
 
-def test_events_cache_overflow(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_path):
+def test_events_cache_overflow(duthosts, rand_one_dut_hostname, ptfhost, gnxi_path):
     """ Published events till cache overflow, stats should read events missed_to_cache"""
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    duthost = duthosts[rand_one_dut_hostname]
     logger.info("Start events cache overflow testing")
 
     reset_event_counters(duthost)

@@ -150,13 +150,13 @@ def do_init(duthost):
 
 
 @pytest.fixture(scope="module")
-def test_eventd_healthy(duthosts, tbinfo, enum_rand_one_per_hwsku_hostname, ptfhost, ptfadapter, gnxi_path):
+def test_eventd_healthy(duthosts, tbinfo, rand_one_dut_hostname, ptfhost, ptfadapter, gnxi_path):
     """
     @summary: Verify eventd heartbeat before running the events testcases. Ported
     from tests/telemetry; runs against the gnmi container (via the gnmi setup
     fixtures) instead of the deprecated telemetry container.
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    duthost = duthosts[rand_one_dut_hostname]
 
     if duthost.is_multi_asic:
         pytest.skip("Skip eventd testing on multi-asic")
