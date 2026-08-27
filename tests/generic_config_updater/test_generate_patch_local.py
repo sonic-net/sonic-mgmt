@@ -7,10 +7,8 @@ ordering (PORT -> INTERFACE -> BGP -> others -> ACL_TABLE) instead of two phases
 """
 import json
 import os
-import tempfile
-import pytest
 
-from tests.generic_config_updater.util.generate_patch import generate_config_patch, is_front_panel_port
+from tests.generic_config_updater.util.generate_patch import generate_config_patch
 
 
 def _make_full_config():
@@ -173,8 +171,10 @@ class TestGeneratePatchSinglePhase:
                 last_non_acl_idx = i
 
         if first_acl_idx is not None and last_non_acl_idx is not None:
-            assert first_acl_idx > last_non_acl_idx, \
-                f"ACL_TABLE (first at {first_acl_idx}) should come after all non-ACL entries (last at {last_non_acl_idx})"
+            assert first_acl_idx > last_non_acl_idx, (
+                f"ACL_TABLE (first at {first_acl_idx}) should come after "
+                f"all non-ACL entries (last at {last_non_acl_idx})"
+            )
 
     def test_acl_entries_include_new_ports(self, tmp_path):
         full_path = _write_config(str(tmp_path), "full.json", _make_full_config())
@@ -188,16 +188,48 @@ class TestGeneratePatchSinglePhase:
         acl_entries = [e for e in patch if 'ACL_TABLE' in e['path']]
         assert len(acl_entries) > 0, "Expected ACL_TABLE entries in patch"
 
-        # At least one ACL entry should reference Ethernet0 or Ethernet4
+        # At least one ACL entry should reference Ethernet0 or Ethernet4.
+        # Ports are bound either as an append op ("/ports/-" with a scalar value)
+        # for ACL tables that already exist, or inside a whole-entry add for new ones.
         acl_ports = set()
         for entry in acl_entries:
             value = entry.get('value', {})
             if isinstance(value, dict):
-                ports = value.get('ports', [])
-                acl_ports.update(ports)
+                acl_ports.update(value.get('ports', []))
+            elif isinstance(value, str) and entry['path'].endswith('/ports/-'):
+                acl_ports.add(value)
 
         assert 'Ethernet0' in acl_ports or 'Ethernet4' in acl_ports, \
             f"ACL entries should reference new ports. Found ports: {acl_ports}"
+
+    def test_acl_bindings_use_append_semantics(self, tmp_path):
+        """Existing ACL_TABLE entries must be extended with append ops, not replaced.
+
+        NDM binds ports via "add /ACL_TABLE/<name>/ports/-". Replacing the whole
+        'ports' list would clobber bindings made concurrently by another process
+        and rewrite unrelated fields such as 'type' and 'policy_desc'.
+        """
+        full_path = _write_config(str(tmp_path), "full.json", _make_full_config())
+        no_leaf_path = _write_config(str(tmp_path), "no_leaf.json", _make_no_leaf_config())
+
+        patch_file = generate_config_patch(full_path, no_leaf_path)
+        with open(patch_file) as f:
+            patch = json.load(f)
+
+        acl_entries = [e for e in patch if 'ACL_TABLE' in e['path']]
+        assert len(acl_entries) > 0, "Expected ACL_TABLE entries in patch"
+
+        # DATAACL and EVERFLOW both pre-exist in the no-leaf config, so every
+        # ACL op must be an append rather than a whole-entry or whole-list write.
+        for entry in acl_entries:
+            assert entry['path'].endswith('/ports/-'), \
+                f"Expected append op for pre-existing ACL table, got: {entry}"
+            assert isinstance(entry.get('value'), str), \
+                f"Append op value must be a single port name, got: {entry}"
+
+        appended = {e['value'] for e in acl_entries}
+        assert {'Ethernet0', 'Ethernet4'}.issubset(appended), \
+            f"Both restored ports should be bound. Found: {appended}"
 
     def test_metadata_file_generated(self, tmp_path):
         full_path = _write_config(str(tmp_path), "full.json", _make_full_config())

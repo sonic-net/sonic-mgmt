@@ -39,7 +39,6 @@ See test_dt2_addcluster_workflow() docstring for detailed explanation.
 import json
 import logging
 import os
-import shutil
 import time
 import pytest
 
