@@ -1032,57 +1032,35 @@ def restore_original_config(duthost, selected_port, vm_host, neigh_port_channel,
                   check_intf_up_ports=True, wait_for_bgp=True)
 
 
+def _is_multi_member_lag(duthost, port, ports):
+    if ports[port]['test_port_type'] != 'portchannel':
+        return False
+    pc_members = duthost.config_facts(
+        host=duthost.hostname, source="persistent"
+    )['ansible_facts'].get('PORTCHANNEL_MEMBER', {})
+    return any(port in members and len(members) > 1 for members in pc_members.values())
+
+
 @pytest.fixture(scope='module')
 def manage_lag_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, nbrhosts, setup_pfc_test):
-    """Common LAG config manager for PFCwd tests.
+    """LAG config resource manager for PFCwd tests.
 
-    PFCwd needs deterministic per-physical-link egress. The fanout injects PFC
-    pause on every physical link, but routed test/background traffic to a
-    PortChannel is LAG-hashed onto a single member, so the other members never
-    build egress queue occupancy and never enter storm state. LAG hashing cannot
-    be relied on to spread that traffic (e.g. Mellanox Spectrum's default native
-    LAG hash field list is empty).
-
-    Setup: for every multi-member PortChannel on the DUT, shut down all members
-    except one and lower min-links to 1 on both the DUT and the EOS neighbor, so
-    the PortChannel stays up over a single link and all its traffic egresses
-    that member. The surviving member is a selected test port when the
-    PortChannel owns one (so per-port tests still exercise their target),
-    otherwise the first member.
-
-    Teardown: restore the neighbor min-links and the DUT config with a single
-    config_reload; runs even on test failure.
-
-    Yields:
-        dict: {'shutdown_ports': set(str)} - the DUT ports that were shut down,
-        so callers can exclude them from the ports they verify.
+    Setup: shuts down extra LAG members so only the selected port remains active.
+    Teardown: restores the original config_db; runs even on test failure.
+    Yields (vm_host, neigh_port_channel, min_links). Skips setup/teardown when
+    the selected port is not in a multi-member portchannel.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    selected_ports = set(setup_pfc_test['selected_test_ports'].keys())
+    ports = setup_pfc_test['selected_test_ports']
+    port = list(ports.keys())[0]
 
-    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    multi_member_lags = {
-        pc: list(meta['members'])
-        for pc, meta in mg_facts['minigraph_portchannels'].items()
-        if len(meta.get('members', [])) > 1
-    }
+    if not _is_multi_member_lag(duthost, port, ports):
+        yield None, None, None
+        return
 
-    tokens = []
-    shutdown_ports = set()
-    for members in multi_member_lags.values():
-        keep = next((m for m in members if m in selected_ports), members[0])
-        vm_host, neigh_port_channel, min_links = shutdown_lag_members(
-            duthost, keep, tbinfo, nbrhosts, {keep: {'test_port_type': 'portchannel'}})
-        tokens.append((vm_host, neigh_port_channel, min_links))
-        shutdown_ports.update(m for m in members if m != keep)
-
+    vm_host, neigh_port_channel, min_links = shutdown_lag_members(
+        duthost, port, tbinfo, nbrhosts, ports)
     try:
-        yield {'shutdown_ports': shutdown_ports}
+        yield vm_host, neigh_port_channel, min_links
     finally:
-        for vm_host, neigh_port_channel, min_links in tokens:
-            if isinstance(vm_host, EosHost) and neigh_port_channel and min_links:
-                vm_host.eos_config(lines=[f'port-channel min-links {min_links}'],
-                                   parents=[f'int {neigh_port_channel}'])
-        if multi_member_lags:
-            config_reload(duthost, config_source='config_db', safe_reload=True,
-                          check_intf_up_ports=True, wait_for_bgp=True)
+        restore_original_config(duthost, port, vm_host, neigh_port_channel, min_links, ports)
