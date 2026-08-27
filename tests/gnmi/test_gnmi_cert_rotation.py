@@ -81,14 +81,25 @@ def test_gnmi_post_cert_add(duthosts, rand_one_dut_hostname, ptfhost, localhost)
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
 
     archive_gnmi_certs(duthost)
-    pytest_assert(not _gnmi_get_ok(duthost, ptfhost),
-                  "gnmi request should fail without certs")
+    try:
+        pytest_assert(not _gnmi_get_ok(duthost, ptfhost),
+                      "gnmi request should fail without certs")
 
-    rotate_gnmi_certs(duthost, localhost, ptfhost)
-    wait_tcp_connection(localhost, duthost.mgmt_ip, env.gnmi_port, timeout_s=60)
+        rotate_gnmi_certs(duthost, localhost, ptfhost)
+        wait_tcp_connection(localhost, duthost.mgmt_ip, env.gnmi_port, timeout_s=60)
 
-    pytest_assert(wait_until(30, 5, 0, _gnmi_get_ok, duthost, ptfhost),
-                  "gnmi request should complete after cert rotation")
+        pytest_assert(wait_until(30, 5, 0, _gnmi_get_ok, duthost, ptfhost),
+                      "gnmi request should complete after cert rotation")
+    finally:
+        # Guarantee recovery no matter where the test failed: drop the archive
+        # left by archive_gnmi_certs, re-establish a valid matched cert pair
+        # (restoring the DUT certs alone would mismatch the ptf client cert) and
+        # restart the server, then confirm it serves again.
+        duthost.shell("rm -rf /etc/sonic/telemetry/old_certs", module_ignore_errors=True)
+        rotate_gnmi_certs(duthost, localhost, ptfhost)
+        apply_cert_config(duthost)
+        pytest_assert(wait_until(30, 5, 0, _gnmi_get_ok, duthost, ptfhost),
+                      "gnmi server did not recover after cert restoration")
 
 
 def test_gnmi_cert_rotate(duthosts, rand_one_dut_hostname, ptfhost, localhost):
