@@ -1,0 +1,235 @@
+{% set host = configuration[hostname] %}
+{# cSONiC exabgp route-injector -- iBGP via the INTERNAL peer-group.            #}
+{#                                                                              #}
+{# The injector must stay iBGP (remote-as == this neighbor's own bgp_asn) so    #}
+{# the DUT never sees exabgp as a BGP peer -- it only learns the routes the     #}
+{# neighbor re-originates, exactly like a cEOS neighbor.                        #}
+{#                                                                              #}
+{# Problem: SONiC bgpcfgd's general/instance.conf.j2 binds every BGP_NEIGHBOR   #}
+{# entry into the eBGP PEER_V4/V6 peer-group, and FRR rejects a peer-group      #}
+{# with mixed internal/external members. An iBGP injector in BGP_NEIGHBOR       #}
+{# therefore poisons PEER_V4/V6 and (on the nondeterministic apply race) can    #}
+{# get the real eBGP DUT peer refused -> 0 routes advertised to the DUT.        #}
+{#                                                                              #}
+{# Fix: put the injector in BGP_INTERNAL_NEIGHBOR instead. bgpcfgd renders      #}
+{# those via internal/instance.conf.j2 into the separate INTERNAL_PEER_V4/V6    #}
+{# peer-group, so the injector (iBGP) and the DUT peer (eBGP in PEER_V4/V6)     #}
+{# live in different, each-homogeneous peer-groups and never conflict. The      #}
+{# internal manager hard-requires a Loopback4096 (see LOOPBACK_INTERFACE        #}
+{# below); its update-source use is chassis-gated and inert here.               #}
+{% set exabgp_asn = host['bgp']['asn'] %}
+{# Loopback4096 addresses for the internal peer manager dependency. Reuse the   #}
+{# neighbor's Loopback0 addresses (already unique/valid); the loopback is only  #}
+{# needed to satisfy the dependency + as an (inert) update-source.              #}
+{% set _lo0 = host['interfaces'].get('Loopback0', {}) %}
+{% set _role_type_map = {'leaf': 'LeafRouter', 'spine': 'SpineRouter', 'tor': 'ToRRouter', 'core': 'SpineRouter'} %}
+{% set device_type = _role_type_map.get(props.swrole | default('leaf'), 'LeafRouter') %}
+{# Count front-panel Ethernet interfaces so the backplane can be placed past   #}
+{# them (Ethernet{K+1}). For single-link neighbors K==1 -> Ethernet2 (same as  #}
+{# before); for multi-link LAG neighbors (T1-LAG/T2) the backplane moves up so  #}
+{# it never collides with the second front-panel port.                         #}
+{% set _fp_eths = [] %}
+{% for name, iface in host['interfaces'].items() %}
+{% if name.startswith('Ethernet') %}{% if _fp_eths.append(name) %}{% endif %}{% endif %}
+{% endfor %}
+{% set _bp_num = (_fp_eths | length) + 1 %}
+{% set _bp_eth = 'Ethernet' ~ _bp_num %}
+{# Lane numbering matches the SONiC-VM hwsku lanemap: Ethernet<N> (1-based)      #}
+{# occupies 4 synthetic lanes starting at (N-1)*4 + 25 (the first usable VS     #}
+{# lane). These lanes are not real hardware serdes; they only need to be unique #}
+{# and consistent with the image's lanemap.ini.                                 #}
+{% set _bp_lane0 = (_bp_num - 1) * 4 + 25 %}
+{
+    "PORT": {
+{% set port_comma = joiner(",") %}
+{% for name, iface in host['interfaces'].items() %}
+{% if name.startswith('Ethernet') %}
+{{ port_comma() }}
+        "{{ name }}": {
+            "admin_status": "up",
+            "alias": "fortyGigE0/{{ (name | replace('Ethernet','') | int - 1) * 4 }}",
+            "lanes": "{{ (name | replace('Ethernet','') | int - 1) * 4 + 25 }},{{ (name | replace('Ethernet','') | int - 1) * 4 + 26 }},{{ (name | replace('Ethernet','') | int - 1) * 4 + 27 }},{{ (name | replace('Ethernet','') | int - 1) * 4 + 28 }}",
+            "mtu": "9100",
+            "speed": "40000"
+        }
+{% endif %}
+{% endfor %}
+{% if host['bp_interface'] is defined %}
+,
+        "{{ _bp_eth }}": {
+            "admin_status": "up",
+            "alias": "fortyGigE0/{{ (_bp_num - 1) * 4 }}",
+            "lanes": "{{ _bp_lane0 }},{{ _bp_lane0 + 1 }},{{ _bp_lane0 + 2 }},{{ _bp_lane0 + 3 }}",
+            "mtu": "9100",
+            "speed": "40000"
+        }
+{% endif %}
+    },
+    "DEVICE_METADATA": {
+        "localhost": {
+            "bgp_asn": "{{ host['bgp']['asn'] }}",
+            "hostname": "{{ hostname }}",
+            "type": "{{ device_type }}",
+            "hwsku": "SONiC-VM",
+            "platform": "x86_64-kvm_x86_64-r0"
+        }
+    },
+    "LOOPBACK_INTERFACE": {
+{% set loopback_comma = joiner(",") %}
+{% for name, iface in host['interfaces'].items() %}
+{% if name.startswith('Loopback') %}
+{{ loopback_comma() }}
+        "{{ name }}": {}
+{% if iface['ipv4'] is defined %}
+{{ loopback_comma() }}
+        "{{ name }}|{{ iface['ipv4'] }}": {}
+{% endif %}
+{% if iface['ipv6'] is defined %}
+{{ loopback_comma() }}
+        "{{ name }}|{{ iface['ipv6'] }}": {}
+{% endif %}
+{% endif %}
+{% endfor %}
+{# Synthetic Loopback4096 required by bgpcfgd's internal peer manager (used for #}
+{# the exabgp iBGP injector in BGP_INTERNAL_NEIGHBOR). Reuses Loopback0 addrs.  #}
+{{ loopback_comma() }}
+        "Loopback4096": {}
+{% if _lo0['ipv4'] is defined %}
+{{ loopback_comma() }}
+        "Loopback4096|{{ _lo0['ipv4'] }}": {}
+{% endif %}
+{% if _lo0['ipv6'] is defined %}
+{{ loopback_comma() }}
+        "Loopback4096|{{ _lo0['ipv6'] }}": {}
+{% endif %}
+    },
+{% set has_portchannel = [] %}
+{% for name, iface in host['interfaces'].items() %}
+{% if name.startswith('Port-Channel') %}
+{% if has_portchannel.append(1) %}{% endif %}
+{% endif %}
+{% endfor %}
+{% if has_portchannel %}
+    "PORTCHANNEL": {
+{% set pc_comma = joiner(",") %}
+{% for name, iface in host['interfaces'].items() %}
+{% if name.startswith('Port-Channel') %}
+{% set pc_name = 'PortChannel' ~ name.split('Port-Channel')[1] %}
+{{ pc_comma() }}
+        "{{ pc_name }}": {
+            "admin_status": "up",
+            "mtu": "9100",
+            "min_links": "1",
+            "lacp_key": "auto"
+        }
+{% endif %}
+{% endfor %}
+    },
+    "PORTCHANNEL_MEMBER": {
+{% set pcm_comma = joiner(",") %}
+{% for name, iface in host['interfaces'].items() %}
+{% if name.startswith('Ethernet') and iface is mapping and 'lacp' in iface %}
+{% set pc_name = 'PortChannel' ~ iface['lacp'] %}
+{{ pcm_comma() }}
+        "{{ pc_name }}|{{ name }}": {}
+{% endif %}
+{% endfor %}
+    },
+    "PORTCHANNEL_INTERFACE": {
+{% set pci_comma = joiner(",") %}
+{% for name, iface in host['interfaces'].items() %}
+{% if name.startswith('Port-Channel') %}
+{% set pc_name = 'PortChannel' ~ name.split('Port-Channel')[1] %}
+{{ pci_comma() }}
+        "{{ pc_name }}": {}
+{% if iface['ipv4'] is defined %}
+{{ pci_comma() }}
+        "{{ pc_name }}|{{ iface['ipv4'] }}": {}
+{% endif %}
+{% if iface['ipv6'] is defined %}
+{{ pci_comma() }}
+        "{{ pc_name }}|{{ iface['ipv6'] }}": {}
+{% endif %}
+{% endif %}
+{% endfor %}
+    },
+{% endif %}
+    "INTERFACE": {
+{% set iface_comma = joiner(",") %}
+{% for name, iface in host['interfaces'].items() %}
+{% if name.startswith('Ethernet') and (iface is not mapping or 'lacp' not in iface) %}
+{{ iface_comma() }}
+        "{{ name }}": {}
+{% if iface is mapping and iface.get('ipv4') %}
+{{ iface_comma() }}
+        "{{ name }}|{{ iface['ipv4'] }}": {}
+{% endif %}
+{% if iface is mapping and iface.get('ipv6') %}
+{{ iface_comma() }}
+        "{{ name }}|{{ iface['ipv6'] }}": {}
+{% endif %}
+{% endif %}
+{% endfor %}
+{% if host['bp_interface'] is defined %}
+{{ iface_comma() }}
+        "{{ _bp_eth }}": {}
+{% if host['bp_interface']['ipv4'] is defined %}
+{{ iface_comma() }}
+        "{{ _bp_eth }}|{{ host['bp_interface']['ipv4'] }}": {}
+{% endif %}
+{% if host['bp_interface']['ipv6'] is defined %}
+{{ iface_comma() }}
+        "{{ _bp_eth }}|{{ host['bp_interface']['ipv6'] }}": {}
+{% endif %}
+{% endif %}
+    },
+    "SNMP_COMMUNITY": {
+        "{{ snmp_rocommunity | default('public') }}": {
+            "TYPE": "RO"
+        }
+    },
+    "BGP_NEIGHBOR": {
+{% set bgp_comma = joiner(",") %}
+{% for asn, remote_ips in host['bgp']['peers'].items() %}
+{% for remote_ip in remote_ips %}
+{{ bgp_comma() }}
+        "{{ remote_ip }}": {
+            "asn": "{{ asn }}",
+            "name": "{{ asn }}",
+            "admin_status": "up",
+            "holdtime": "10",
+            "keepalive": "3"
+        }
+{% endfor %}
+{% endfor %}
+    },
+    "BGP_INTERNAL_NEIGHBOR": {
+{% set bgp_int_comma = joiner(",") %}
+{# exabgp route-injector as iBGP (own ASN) in the INTERNAL peer-group, so the   #}
+{# DUT never sees exabgp and PEER_V4/V6 stays uniformly eBGP. local_addr binds  #}
+{# the session to the neighbor's loopback/backplane address (not Loopback4096,  #}
+{# whose update-source use is chassis-gated off here).                          #}
+{% if props.nhipv4 is defined and props.nhipv4 %}
+{{ bgp_int_comma() }}
+        "{{ props.nhipv4 }}": {
+            "asn": "{{ exabgp_asn }}",
+            "name": "exabgp_v4",
+            "local_addr": "{{ (_lo0['ipv4'] | default(host['bp_interface']['ipv4'], true)).split('/')[0] }}",
+            "admin_status": "up",
+            "holdtime": "10",
+            "keepalive": "3"
+        }
+{% endif %}
+{% if props.nhipv6 is defined and props.nhipv6 %}
+{{ bgp_int_comma() }}
+        "{{ props.nhipv6 }}": {
+            "asn": "{{ exabgp_asn }}",
+            "name": "exabgp_v6",
+            "local_addr": "{{ (_lo0['ipv6'] | default(host['bp_interface']['ipv6'], true)).split('/')[0] }}",
+            "admin_status": "up",
+            "holdtime": "10",
+            "keepalive": "3"
+        }
+{% endif %}
+    }
+}

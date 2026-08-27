@@ -6,6 +6,8 @@ declare -r SCRIPT_DIR="$(dirname "${SCRIPT_PATH}")"
 
 declare -r DOCKER_REGISTRY="sonicdev-microsoft.azurecr.io:443"
 declare -r DOCKER_SONIC_MGMT="docker-sonic-mgmt:latest"
+declare -r DOCKER_PULL_MAX_ATTEMPTS="3"
+declare -r DOCKER_PULL_RETRY_DELAY_SECONDS="10"
 
 declare -r ROOT_PASS="root"
 declare -r USER_PASS="12345"
@@ -149,11 +151,31 @@ function show_local_container_login() {
     fi
 }
 
+function pull_docker_image_with_retry() {
+    local image="$1"
+    local attempt
+
+    for ((attempt = 1; attempt <= DOCKER_PULL_MAX_ATTEMPTS; attempt++)); do
+        log_info "pulling docker image ${image} (attempt ${attempt}/${DOCKER_PULL_MAX_ATTEMPTS}) ..."
+        if docker pull "${image}"; then
+            return "${EXIT_SUCCESS}"
+        fi
+
+        if [[ "${attempt}" -lt "${DOCKER_PULL_MAX_ATTEMPTS}" ]]; then
+            log_notice "docker pull attempt ${attempt}/${DOCKER_PULL_MAX_ATTEMPTS} failed;" \
+                "retrying in ${DOCKER_PULL_RETRY_DELAY_SECONDS} seconds ..."
+            sleep "${DOCKER_PULL_RETRY_DELAY_SECONDS}"
+        fi
+    done
+
+    return "${EXIT_FAILURE}"
+}
+
 function pull_sonic_mgmt_docker_image() {
     if [[ -z "${IMAGE_ID}" ]]; then
         if docker image inspect "${DOCKER_SONIC_MGMT}" &> /dev/null; then
             IMAGE_ID="${DOCKER_SONIC_MGMT}"
-        elif log_info "pulling docker image from a registry ..." && docker pull "${DOCKER_REGISTRY}/${DOCKER_SONIC_MGMT}"; then
+        elif pull_docker_image_with_retry "${DOCKER_REGISTRY}/${DOCKER_SONIC_MGMT}"; then
             IMAGE_ID="${DOCKER_REGISTRY}/${DOCKER_SONIC_MGMT}"
         else
             exit_failure "unable to find a usable default docker image, please specify one manually"

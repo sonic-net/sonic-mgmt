@@ -11,6 +11,7 @@ from tests.common.broadcom_data import LOSSY_ONLY_HWSKUS as BROADCOM_LOSSY_ONLY_
 from tests.common.mellanox_data import NO_QOS_HWSKUS as MELLANOX_NO_QOS_HWSKUS
 from tests.common.broadcom_data import NO_QOS_HWSKUS as BROADCOM_NO_QOS_HWSKUS
 from tests.common.marvell_prestera_data import NO_QOS_HWSKUS as MARVELL_PRESTERA_NO_QOS_HWSKUS
+from tests.common.nokia_data import NO_QOS_HWSKUS as NOKIA_NO_QOS_HWSKUS
 from tests.common.utilities import wait_until
 
 random.seed(10)
@@ -45,6 +46,8 @@ def test_event(duthost, tbinfo, gnxi_path, ptfhost, ptfadapter, data_dir, valida
         skip_pfc_hwskus = [*BROADCOM_LOSSY_ONLY_HWSKUS, *BROADCOM_NO_QOS_HWSKUS]
     elif asic_type == "marvell-prestera":
         skip_pfc_hwskus = MARVELL_PRESTERA_NO_QOS_HWSKUS
+    elif asic_type == "nokia-vs":
+        skip_pfc_hwskus = NOKIA_NO_QOS_HWSKUS
     else:
         skip_pfc_hwskus = []
 

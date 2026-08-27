@@ -1,3 +1,8 @@
+{# Converged (multi-VRF) topologies render the shared converged config; the
+   stock body below is used unchanged on non-converged topologies. #}
+{% if topo_is_multi_vrf | default(false) | bool %}
+{% include 'ceos_converged.j2' %}
+{% else %}
 {% set host = configuration[hostname] %}
 {% set mgmt_ip = ansible_host %}
 {% if vm_type is defined and vm_type == "ceos" %}
@@ -160,3 +165,4 @@ management api http-commands
  no shutdown
 !
 end
+{% endif %}
