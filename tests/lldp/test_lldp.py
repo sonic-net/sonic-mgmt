@@ -131,40 +131,12 @@ def test_lldp(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost,
                 )
 
 
-def _resolve_neighbor_lldp_key(lldp_facts, neighbor_interface, dut_hostname, dut_port_alias):
-    """Resolve the key under which the neighbor's SNMP LLDP facts store the
-    entry for the link to the DUT.
-
-    On a SONiC (cSONiC/docker-sonic-vs) neighbor the DUT-side lldpctl reports
-    the neighbor's local port by its SONiC name (e.g. 'Ethernet1', taken from
-    the LLDP port-description TLV), but the neighbor's own SNMP LLDP-MIB local
-    port table -- and therefore ansible_lldp_facts -- is keyed by the port
-    ifDescr, which SONiC populates from the port *alias* (e.g. 'fortyGigE0/0').
-    So a direct 'Ethernet1 in ansible_lldp_facts' lookup misses.
-
-    Resolve deterministically by finding the fact entry whose remote side points
-    back at the DUT link: neighbor_sys_name == DUT hostname and
-    neighbor_port_id == the DUT's port alias for this link. Fall back to the
-    literal neighbor_interface key when present (EOS neighbors, or SONiC
-    neighbors whose name already matches the fact key).
-    """
-    facts = lldp_facts.get('ansible_lldp_facts', {})
-    if neighbor_interface in facts:
-        return neighbor_interface
-    for key, entry in facts.items():
-        if (entry.get('neighbor_sys_name') == dut_hostname
-                and entry.get('neighbor_port_id') == dut_port_alias):
-            return key
-    return None
-
-
 def _neighbor_has_lldp_entry(localhost, hostip, snmp_community, neighbor_interface,
                              dut_hostname, dut_port_alias):
     """Return True if the neighbor's LLDP table has an entry for the DUT link."""
     nei_lldp_facts = localhost.lldp_facts(
         host=hostip, version='v2c', community=snmp_community)['ansible_facts']
-    return _resolve_neighbor_lldp_key(
-        nei_lldp_facts, neighbor_interface, dut_hostname, dut_port_alias) is not None
+    return neighbor_interface in nei_lldp_facts.get('ansible_lldp_facts', {})
 
 
 def check_lldp_neighbor(duthost, localhost, eos, sonic, collect_techsupport_all_duts,
@@ -266,20 +238,6 @@ def check_lldp_neighbor(duthost, localhost, eos, sonic, collect_techsupport_all_
 
         nei_lldp_facts = localhost.lldp_facts(
             host=hostip, version='v2c', community=snmp_community)['ansible_facts']
-
-        # A cSONiC neighbor keys its SNMP LLDP facts by the port ifDescr (alias,
-        # e.g. 'fortyGigE0/0') while lldpctl reported the SONiC name (e.g.
-        # 'Ethernet1'). Resolve to the actual facts key for the DUT link.
-        if request.config.getoption("--neighbor_type") != 'eos':
-            resolved = _resolve_neighbor_lldp_key(
-                nei_lldp_facts, neighbor_interface, duthost.hostname, dut_port_alias)
-            assert resolved is not None, (
-                "Neighbor {} SNMP LLDP facts have no entry for DUT '{}' port alias "
-                "'{}' (looked up neighbor interface '{}'). Keys: {}"
-            ).format(
-                hostip, duthost.hostname, dut_port_alias, neighbor_interface,
-                sorted(nei_lldp_facts.get('ansible_lldp_facts', {}).keys()))
-            neighbor_interface = resolved
 
         # Verify the published DUT system name field is correct
         assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_sys_name'] == duthost.hostname, (
