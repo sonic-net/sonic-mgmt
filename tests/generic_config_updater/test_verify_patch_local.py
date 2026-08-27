@@ -17,6 +17,7 @@ import pytest
 from tests.generic_config_updater.util.verify_patch import (
     compare_touched_entries,
     normalize_config,
+    patch_cable_length_ports,
     patch_touched_entries,
     unescape_json_pointer,
 )
@@ -221,3 +222,90 @@ class TestCompareTouchedEntries:
         differences = compare_touched_entries(baseline, actual, patch)
         assert len(differences) == 1
         assert "40m" in differences[0] and "5m" in differences[0]
+
+
+class TestPatchCableLengthPorts:
+    """CABLE_LENGTH is the one table whose ports are fields rather than keys.
+
+    Getting this wrong is silent: the lossless BUFFER_PG precondition check would
+    pass vacuously because it saw no ports to demand a cable length for.
+    """
+
+    def test_per_port_paths(self):
+        patch = [
+            {"op": "add", "path": "/CABLE_LENGTH/AZURE/Ethernet316", "value": "500m"},
+            {"op": "add", "path": "/CABLE_LENGTH/AZURE/Ethernet320", "value": "2000m"},
+        ]
+        assert patch_cable_length_ports(patch) == {
+            "Ethernet316": "500m",
+            "Ethernet320": "2000m",
+        }
+
+    def test_whole_hash_path(self):
+        """A patch may add the entire AZURE hash in one op instead of per port."""
+        patch = [{"op": "add", "path": "/CABLE_LENGTH/AZURE",
+                  "value": {"Ethernet316": "500m", "Ethernet320": "2000m"}}]
+        assert patch_cable_length_ports(patch) == {
+            "Ethernet316": "500m",
+            "Ethernet320": "2000m",
+        }
+
+    def test_remove_reports_none(self):
+        patch = [{"op": "remove", "path": "/CABLE_LENGTH/AZURE/Ethernet316"}]
+        assert patch_cable_length_ports(patch) == {"Ethernet316": None}
+
+    def test_localhost_prefix_tolerated(self):
+        patch = [{"op": "add", "path": "/localhost/CABLE_LENGTH/AZURE/Ethernet316",
+                  "value": "500m"}]
+        assert patch_cable_length_ports(patch) == {"Ethernet316": "500m"}
+
+    def test_other_tables_ignored(self):
+        patch = [
+            {"op": "add", "path": "/PORT/Ethernet316", "value": {"speed": "100000"}},
+            {"op": "add", "path": "/BUFFER_PG/Ethernet316|0", "value": {"profile": "x"}},
+        ]
+        assert patch_cable_length_ports(patch) == {}
+
+    def test_zero_metre_is_reported_not_dropped(self):
+        """0m means "no lossless PG" and must reach the caller as a real value.
+
+        Treating it as absent would make the precondition check report a missing
+        cable length, which is a different and misleading failure.
+        """
+        patch = [{"op": "add", "path": "/CABLE_LENGTH/AZURE/Ethernet316", "value": "0m"}]
+        assert patch_cable_length_ports(patch) == {"Ethernet316": "0m"}
+
+    def test_ndm_reference_patch(self):
+        """The real NDM patch sets a cable length for exactly the port it adds."""
+        patch = load_ndm_patch()
+        cable_lengths = patch_cable_length_ports(patch)
+
+        ports_added = {
+            entry["path"].split("/")[-1] for entry in patch
+            if entry["path"].startswith("/PORT/")
+        }
+        assert set(cable_lengths) == ports_added, (
+            "NDM sets cable lengths for {} but adds ports {}".format(
+                sorted(cable_lengths), sorted(ports_added)))
+        assert cable_lengths == {"Ethernet316": "500m"}
+
+    def test_ndm_reference_patch_pushes_no_lossless_pg(self):
+        """NDM never pushes the auto-generated lossless PGs; buffermgrd creates them.
+
+        BUFFER_PG|<port>|0 (lossy) is pushed, BUFFER_PG|<port>|3-4 is not -- while
+        BUFFER_QUEUE|3-4 *is* pushed, because egress profiles are fixed names and the
+        ingress lossless profile is parameterised by speed and cable length.
+        """
+        patch = load_ndm_patch()
+        buffer_pg_paths = {
+            entry["path"] for entry in patch if entry["path"].startswith("/BUFFER_PG/")
+        }
+        assert buffer_pg_paths == {"/BUFFER_PG/Ethernet316|0"}
+
+        for entry in patch:
+            value = json.dumps(entry.get("value", ""))
+            assert "pg_lossless_" not in value, (
+                "NDM reference patch unexpectedly references an auto-generated lossless "
+                "profile in {}".format(entry["path"]))
+
+        assert {"/BUFFER_QUEUE/Ethernet316|3-4"} <= {e["path"] for e in patch}

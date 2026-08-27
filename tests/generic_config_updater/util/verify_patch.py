@@ -15,6 +15,50 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def patch_cable_length_ports(patch_data):
+    """Extract the ports a patch sets a cable length for.
+
+    CABLE_LENGTH is shaped differently from every other table: "CABLE_LENGTH|AZURE"
+    is a single CONFIG_DB hash whose *fields* are port names, rather than one entry
+    per port. So a patch can express the same change two ways:
+
+        /CABLE_LENGTH/AZURE/Ethernet316   -> "500m"          (one port)
+        /CABLE_LENGTH/AZURE               -> {"Ethernet316": "500m", ...}  (whole hash)
+
+    patch_touched_entries() deliberately stops at the entry level and reports only
+    "AZURE", which is the right CONFIG_DB key to verify but says nothing about which
+    ports were covered. This walks the paths to recover that.
+
+    Args:
+        patch_data: List of RFC 6902 operations
+
+    Returns:
+        dict: {port_name: cable_length_value}. The value is None when the patch
+            removes the port's cable length.
+    """
+    cable_lengths = {}
+
+    for entry in patch_data:
+        path = entry.get('path', '')
+        parts = [p for p in path.split('/') if p]
+        # Tolerate a leading single-ASIC 'localhost' wrapper, matching verify_patch.
+        if parts and parts[0] == 'localhost':
+            parts = parts[1:]
+        if len(parts) < 2 or parts[0] != 'CABLE_LENGTH':
+            continue
+
+        if len(parts) >= 3:
+            # Per-port field: /CABLE_LENGTH/<profile>/<port>
+            port = unescape_json_pointer(parts[2])
+            cable_lengths[port] = entry.get('value') if entry.get('op') != 'remove' else None
+        elif isinstance(entry.get('value'), dict):
+            # Whole hash: /CABLE_LENGTH/<profile>
+            for port, length in entry['value'].items():
+                cable_lengths[port] = length
+
+    return cable_lengths
+
+
 def unescape_json_pointer(token):
     """Decode a JSON pointer reference token (RFC 6901).
 
