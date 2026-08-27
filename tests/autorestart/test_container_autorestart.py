@@ -952,9 +952,9 @@ def test_supervisor_listener_syslog_reconnects(
                     container_name, critical_processes_ok, bgp_ok
                 )
             )
-        if feature_name == "bgp":
-            # The BGP container can pass the immediate post-check and stop again later.
-            # Reload after this destructive case so subsequent parameters start clean.
+        if duthost.facts["asic_type"] == "vs" and feature_name in ("bgp", "swss", "syncd"):
+            # Restarting the VS routing stack can pass the immediate post-check
+            # and destabilize BGP later, so isolate subsequent parameters.
             reload_and_restore_autorestart(duthost)
     except (Exception, OutcomeException):
         try:
