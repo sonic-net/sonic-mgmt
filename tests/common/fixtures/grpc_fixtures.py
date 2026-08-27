@@ -13,20 +13,29 @@ Deprecated fixtures (kept for backward compatibility):
     ptf_grpc:              Auto-configured gRPC client via GNMIEnvironment
     ptf_gnoi:              gNOI wrapper around ptf_grpc
 """
+import ipaddress
 import os
+import shlex
 import shutil
 import subprocess
 import tarfile
 import tempfile
+import uuid
 import pytest
 import logging
 from dataclasses import dataclass
 from typing import Optional
 from tests.common.cert_utils import create_gnmi_cert_generator
 from tests.common.grpc_config import grpc_config
-from tests.common.gu_utils import create_checkpoint, rollback
+from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
+from tests.common.helpers.gnmi_log import (
+    MARK_LOG_SCRIPT,
+    READ_LOG_SCRIPT,
+    decode_log_bytes,
+    parse_log_marker,
+)
 from tests.common.ptf_grpc import PtfGrpc
 from tests.common.ptf_gnoi import PtfGnoi
 from tests.common.pygnmi_client import PygnmiClient
@@ -37,6 +46,10 @@ from tests.common.utilities import wait_until
 logger = logging.getLogger(__name__)
 
 GRPCURL_VERSION = "1.9.3"
+REVOKED_CLIENT_CERT = "gnmiclient.revoked.cer"
+REVOKED_CLIENT_KEY = "gnmiclient.revoked.key"
+CRL_FILE = "sonic.crl.pem"
+CRL_PORT = 1234
 
 # Architecture mapping: dpkg --print-architecture → grpcurl release suffix
 _GRPCURL_ARCH_MAP = {
@@ -167,10 +180,11 @@ class GnmiFixture:
     grpc: object        # PtfGrpc (TLS/plaintext) or DutGrpc (UDS)
     gnoi: object        # PtfGnoi or DutGnoi
     pygnmi_client: Optional[PygnmiClient]   # None for UDS transport
-    transport: str = 'tls'      # 'tls', 'plaintext' or 'uds'
+    transport: str = 'tls'      # 'tls', 'tls_crl', 'plaintext' or 'uds'
     _duthost: object = None  # Fixture-selected DUT (post-reboot reconfig, DB cross-checks)
     _ptfhost: object = None  # For post-upgrade cert redistribution
     _cert_dir: Optional[str] = None  # Local cert dir used during setup
+    _crl_enabled: bool = False
 
     @property
     def duthost(self):
@@ -179,6 +193,58 @@ class GnmiFixture:
         if self._duthost is None:
             raise RuntimeError("GnmiFixture was not initialized with duthost reference")
         return self._duthost
+
+    def revoked_client(self):
+        """Construct a lazy PygnmiClient using the CRL-revoked identity."""
+        if not self._crl_enabled or self._cert_dir is None:
+            raise RuntimeError("gnmi_tls was not configured with CRL support")
+        return PygnmiClient(
+            self.host,
+            self.port,
+            plaintext=False,
+            ca_cert=os.path.join(self._cert_dir, grpc_config.CA_CERT),
+            client_cert=os.path.join(self._cert_dir, REVOKED_CLIENT_CERT),
+            client_key=os.path.join(self._cert_dir, REVOKED_CLIENT_KEY),
+            connect=False,
+        )
+
+    def mark_gnmi_log(self):
+        """Record a rotation-aware byte position in /var/log/gnmi.log."""
+        result = self.duthost.shell(
+            "sudo python3 -c {} {}".format(
+                shlex.quote(MARK_LOG_SCRIPT),
+                shlex.quote("/var/log/gnmi.log"),
+            ),
+            module_ignore_errors=True,
+        )
+        if result.get("rc") != 0:
+            raise RuntimeError(
+                "Failed to mark /var/log/gnmi.log: {}".format(result)
+            )
+        return parse_log_marker(result.get("stdout", ""))
+
+    def gnmi_log_since(self, marker):
+        """Read only log bytes after marker, including across rotation/truncation."""
+        result = self.duthost.shell(
+            "sudo python3 -c {} {} {} {} {}".format(
+                shlex.quote(READ_LOG_SCRIPT),
+                shlex.quote("/var/log/gnmi.log"),
+                marker.inode,
+                marker.offset,
+                shlex.quote(marker.anchor),
+            ),
+            module_ignore_errors=True,
+        )
+        if result.get("rc") != 0:
+            raise RuntimeError(
+                "Failed to read new gNMI log bytes: {}".format(result)
+            )
+        try:
+            return decode_log_bytes(result.get("stdout", ""))
+        except (ValueError, TypeError):
+            raise RuntimeError(
+                "Failed to decode new gNMI log bytes: {}".format(result)
+            )
 
     def reconfigure_after_reboot(self):
         """
@@ -195,7 +261,11 @@ class GnmiFixture:
 
         logger.info("Reconfiguring gNMI server after reboot")
         # regen_certs=False: rootfs (and cert files) survived the reboot.
-        _establish_gnoi_tls_handshake(self._duthost, regen_certs=False)
+        _establish_gnoi_tls_handshake(
+            self._duthost,
+            regen_certs=False,
+            enable_crl=self._crl_enabled,
+        )
         logger.info("Post-reboot TLS reconfiguration completed")
 
     def reinstall_certs_after_upgrade(self):
@@ -214,6 +284,8 @@ class GnmiFixture:
         if not self.tls:
             logger.info("Plaintext mode - no TLS cert reinstall needed")
             return
+        if self._crl_enabled:
+            raise RuntimeError("CRL-enabled gnmi_tls does not support image upgrades")
 
         logger.info("Reinstalling gNOI TLS certificates after upgrade")
         # regen_certs=True: upgrade wiped the certs, so recreate them.
@@ -228,8 +300,9 @@ def gnmi_tls(request, duthosts, ptfhost):
     """
     Set up gNMI/gNOI environment and yield a coupled GnmiFixture.
 
-    Supports two transports:
+    Supports three transports:
     - 'tls' (default): TCP+TLS from PTF container (existing behavior)
+    - 'tls_crl': TLS plus a revoked client identity and bounded CRL server
     - 'uds': Unix domain socket from DUT host (no TLS, no server restart)
 
     Opt-in to UDS via indirect parametrize:
@@ -257,6 +330,8 @@ def gnmi_tls(request, duthosts, ptfhost):
     duthost = _get_target_duthost(duthosts, request)
 
     transport = getattr(request, 'param', 'tls')
+    if transport not in ('tls', 'tls_crl', 'uds'):
+        raise ValueError("Unsupported gnmi_tls transport: {}".format(transport))
 
     if transport == 'uds':
         yield from _gnmi_uds_flow(duthost)
@@ -265,6 +340,12 @@ def gnmi_tls(request, duthosts, ptfhost):
     # --- existing TLS flow below (unchanged) ---
     checkpoint_name = "gnoi_tls_setup"
     cert_dir = "/tmp/gnoi_certs"
+    enable_crl = transport == 'tls_crl'
+    crl_server = None
+    teardown_errors = []
+    rollback_succeeded = False
+    restored_service_running = False
+    critical_processes_healthy = False
 
     logger.info("Setting up gNOI TLS server environment")
 
@@ -274,9 +355,26 @@ def gnmi_tls(request, duthosts, ptfhost):
     pygnmi_client = None
     try:
         # 2-5. Generate/distribute certs, configure + restart server, verify handshake
-        _establish_gnoi_tls_handshake(
-            duthost, ptfhost=ptfhost, cert_dir=cert_dir, regen_certs=True, verify=True
-        )
+        if enable_crl:
+            crl_url, crl_bind_address = _get_crl_endpoint(duthost, ptfhost)
+            _create_gnoi_certs(
+                duthost, ptfhost, cert_dir, crl_url=crl_url
+            )
+            crl_server = _start_crl_server(
+                duthost, ptfhost, cert_dir, crl_url, crl_bind_address
+            )
+            _establish_gnoi_tls_handshake(
+                duthost,
+                ptfhost=ptfhost,
+                regen_certs=False,
+                verify=True,
+                enable_crl=True,
+            )
+        else:
+            _establish_gnoi_tls_handshake(
+                duthost, ptfhost=ptfhost, cert_dir=cert_dir,
+                regen_certs=True, verify=True
+            )
 
         # Build coupled client with the exact config we just set up
         host = duthost.mgmt_ip
@@ -315,10 +413,11 @@ def gnmi_tls(request, duthosts, ptfhost):
             grpc=client,
             gnoi=gnoi_client,
             pygnmi_client=pygnmi_client,
-            transport='tls',
+            transport=transport,
             _duthost=duthost,
             _ptfhost=ptfhost,
             _cert_dir=cert_dir,
+            _crl_enabled=enable_crl,
         )
 
         logger.info("Constructed PygnmiClient: %s", pygnmi_client)
@@ -340,23 +439,69 @@ def gnmi_tls(request, duthosts, ptfhost):
             if output.get('rc') or "Config rolled back successfully" not in stdout:
                 error_msg = output.get('stdout', output.get('msg', 'unknown error'))
                 logger.error("Configuration rollback failed: %s", error_msg)
+                teardown_errors.append(
+                    "configuration rollback failed: {}".format(error_msg)
+                )
             else:
                 logger.info("Configuration rollback completed")
+                rollback_succeeded = True
         except Exception as e:
             logger.error("Configuration rollback failed with exception: %s", e)
+            teardown_errors.append(
+                "configuration rollback failed with exception: {}".format(e)
+            )
 
-        try:
-            logger.info("Waiting for critical processes to be healthy after rollback")
-            wait_critical_processes(duthost)
-            logger.info("All critical processes are healthy")
-        except Exception as e:
-            logger.error("Waiting for critical processes failed with exception: %s", e)
+        if enable_crl and rollback_succeeded:
+            try:
+                _restart_gnoi_server(
+                    duthost,
+                    expected_port=_get_configured_gnmi_port(duthost),
+                )
+                restored_service_running = True
+            except Exception as e:
+                logger.error("Failed to restart restored gNMI server: %s", e)
+                teardown_errors.append(
+                    "restart restored gNMI server failed: {}".format(e)
+                )
+
+        if crl_server is not None:
+            try:
+                _stop_crl_server(ptfhost, *crl_server)
+            except Exception as e:
+                logger.error("Failed to stop CRL server: %s", e)
+                teardown_errors.append("stop CRL server failed: {}".format(e))
+
+        if rollback_succeeded:
+            try:
+                logger.info("Waiting for critical processes to be healthy after rollback")
+                wait_critical_processes(duthost)
+                logger.info("All critical processes are healthy")
+                critical_processes_healthy = True
+            except Exception as e:
+                logger.error("Waiting for critical processes failed with exception: %s", e)
+                teardown_errors.append(
+                    "critical process recovery failed: {}".format(e)
+                )
+
+        if (enable_crl and rollback_succeeded and restored_service_running
+                and critical_processes_healthy):
+            try:
+                delete_checkpoint(duthost, checkpoint_name)
+                logger.info("Configuration checkpoint deleted")
+            except Exception as e:
+                logger.error("Failed to delete configuration checkpoint: %s", e)
+                teardown_errors.append(
+                    "delete configuration checkpoint failed: {}".format(e)
+                )
 
         try:
             _delete_gnoi_certs(cert_dir)
             logger.info("Certificate cleanup completed")
         except Exception as e:
             logger.error(f"Failed to cleanup certificates: {e}")
+
+        if enable_crl and teardown_errors:
+            raise RuntimeError("; ".join(teardown_errors))
 
 
 @pytest.fixture(scope="function")
@@ -482,7 +627,8 @@ def ptf_gnoi(ptf_grpc):
 # ---------------------------------------------------------------------------
 
 def _establish_gnoi_tls_handshake(duthost, ptfhost=None, cert_dir=None,
-                                  regen_certs=True, verify=False):
+                                  regen_certs=True, verify=False,
+                                  enable_crl=False):
     """
     Bring the gNOI TLS server into a state where the PTF client can connect.
     Single source of truth called at setup, after reboot, and after upgrade.
@@ -497,7 +643,9 @@ def _establish_gnoi_tls_handshake(duthost, ptfhost=None, cert_dir=None,
         duthost.shell(f"mkdir -p {grpc_config.DUT_CERT_DIR}")  # ensure DUT cert dir exists
         _create_gnoi_certs(duthost, ptfhost, cert_dir)         # gen + copy to DUT/PTF
 
-    _configure_gnoi_tls_server(duthost)  # write TLS settings into CONFIG_DB
+    _configure_gnoi_tls_server(
+        duthost, enable_crl=enable_crl
+    )  # write TLS settings into CONFIG_DB
     _restart_gnoi_server(duthost)        # restart so server picks up new config
 
     if verify:
@@ -507,7 +655,7 @@ def _establish_gnoi_tls_handshake(duthost, ptfhost=None, cert_dir=None,
         _verify_gnoi_tls_connectivity(duthost, ptfhost)
 
 
-def _create_gnoi_certs(duthost, ptfhost, cert_dir):
+def _create_gnoi_certs(duthost, ptfhost, cert_dir, crl_url=None):
     """
     Generate and distribute gNOI TLS certificates.
 
@@ -520,9 +668,14 @@ def _create_gnoi_certs(duthost, ptfhost, cert_dir):
     """
     logger.info("Generating gNOI TLS certificates")
 
-    # Generate certificates with 1-day backdating to handle clock skew
-    generator = create_gnmi_cert_generator(server_ip=duthost.mgmt_ip)
+    # Match the existing gNMI test PKI's tolerance for lab clock skew.
+    generator = create_gnmi_cert_generator(
+        server_ip=duthost.mgmt_ip,
+        backdate_days=7,
+    )
     generator.write_all(cert_dir)
+    if crl_url:
+        generator.generate_revoked_cert_with_crl(crl_url, cert_dir)
 
     logger.info(f"Certificates generated in {cert_dir}")
 
@@ -542,14 +695,19 @@ def _create_gnoi_certs(duthost, ptfhost, cert_dir):
     logger.info("Certificate generation and distribution completed")
 
 
-def _configure_gnoi_tls_server(duthost):
+def _configure_gnoi_tls_server(duthost, enable_crl=False):
     """Configure CONFIG_DB for TLS mode."""
     logger.info("Configuring gNOI server for TLS mode")
 
     # Configure GNMI table for TLS mode
     duthost.shell('sonic-db-cli CONFIG_DB hset "GNMI|gnmi" port 50052')
     duthost.shell('sonic-db-cli CONFIG_DB hset "GNMI|gnmi" client_auth true')
-    duthost.shell('sonic-db-cli CONFIG_DB hset "GNMI|gnmi" log_level 2')
+    log_level = 10 if enable_crl else 2
+    duthost.shell(
+        'sonic-db-cli CONFIG_DB hset "GNMI|gnmi" log_level {}'.format(
+            log_level
+        )
+    )
     duthost.shell('sonic-db-cli CONFIG_DB hset "GNMI|gnmi" user_auth cert')
 
     # Configure certificate paths using centralized config
@@ -565,10 +723,165 @@ def _configure_gnoi_tls_server(duthost):
         '''gnmi_dpu_appl_db_readwrite,gnoi_readwrite"'''
     )
 
+    if enable_crl:
+        duthost.shell('sonic-db-cli CONFIG_DB hset "GNMI|gnmi" enable_crl true')
+        duthost.shell(
+            '''sonic-db-cli CONFIG_DB hset "GNMI_CLIENT_CERT|'''
+            '''test.client.revoked.gnmi.sonic" "role@" '''
+            '''"gnmi_readwrite,gnmi_config_db_readwrite,'''
+            '''gnmi_appl_db_readwrite,gnmi_dpu_appl_db_readwrite,'''
+            '''gnoi_readwrite"'''
+        )
+
     logger.info("TLS configuration completed")
 
 
-def _restart_gnoi_server(duthost):
+def _get_crl_endpoint(duthost, ptfhost):
+    """Return the DUT-reachable CRL URL and optional IPv6 bind address."""
+    facts = duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts']
+    if facts.get('is_mgmt_ipv6_only', False):
+        if not ptfhost.mgmt_ipv6:
+            raise RuntimeError("IPv6-only DUT requires a PTF management IPv6 address")
+        ptf_ipv6 = str(ipaddress.ip_interface(ptfhost.mgmt_ipv6).ip)
+        return (
+            "http://[{}]:{}/crl".format(ptf_ipv6, CRL_PORT),
+            ptf_ipv6,
+        )
+    return "http://{}:{}/crl".format(ptfhost.mgmt_ip, CRL_PORT), None
+
+
+def _start_crl_server(duthost, ptfhost, cert_dir, crl_url,
+                      bind_address=None):
+    """Start an isolated PTF CRL server and return its exact PID and directory."""
+    listener = ptfhost.shell(
+        "ss -ltnH | grep -E '[:.]{}[[:space:]]'".format(CRL_PORT),
+        module_ignore_errors=True,
+    )
+    if listener.get('rc') not in (0, 1):
+        raise RuntimeError("Failed to inspect CRL port on the PTF: {}".format(listener))
+    if listener.get('rc') == 0:
+        raise RuntimeError("CRL port {} is already in use on the PTF".format(CRL_PORT))
+
+    server_dir = "/root/sonic-mgmt-gnmi-crl-{}".format(uuid.uuid4().hex[:8])
+    ptfhost.shell("mkdir -p {}".format(server_dir))
+    server_source = os.path.normpath(os.path.join(
+        os.path.dirname(__file__), "..", "..", "gnmi", "crl", "crl_server.py"
+    ))
+    pid = None
+    try:
+        ptfhost.copy(src=server_source, dest="{}/crl_server.py".format(server_dir))
+        ptfhost.copy(
+            src=os.path.join(cert_dir, CRL_FILE),
+            dest="{}/{}".format(server_dir, CRL_FILE),
+        )
+        bind_arg = ""
+        if bind_address:
+            bind_arg = " --bind {}".format(shlex.quote(bind_address))
+        result = ptfhost.shell(
+            "cd {directory}; /root/env-python3/bin/python crl_server.py "
+            "--port {port}{bind} </dev/null >/dev/null 2>&1 & echo $!".format(
+                directory=shlex.quote(server_dir),
+                port=CRL_PORT,
+                bind=bind_arg,
+            )
+        )
+        pid = int(result.get('stdout', '').strip())
+
+        def _server_ready():
+            process = ptfhost.shell(
+                "kill -0 {} 2>/dev/null".format(pid),
+                module_ignore_errors=True,
+            )
+            ready = ptfhost.shell(
+                "grep -q 'Ready handle request' {}/crl.log".format(
+                    shlex.quote(server_dir)
+                ),
+                module_ignore_errors=True,
+            )
+            return process.get('rc') == 0 and ready.get('rc') == 0
+
+        if not wait_until(30, 1, 0, _server_ready):
+            raise RuntimeError("CRL server failed to become ready")
+
+        def _server_reachable_from_dut():
+            result = duthost.shell(
+                "curl --noproxy '*' -fsS --max-time 5 {} >/dev/null".format(
+                    shlex.quote(crl_url)
+                ),
+                module_ignore_errors=True,
+            )
+            return result.get('rc') == 0
+
+        if not wait_until(30, 2, 0, _server_reachable_from_dut):
+            raise RuntimeError(
+                "CRL endpoint is not reachable from the DUT: {}".format(
+                    crl_url
+                )
+            )
+        logger.info("CRL server started with PID %s in %s", pid, server_dir)
+        return pid, server_dir
+    except Exception:
+        if pid is not None:
+            _stop_crl_server(ptfhost, pid, server_dir)
+        else:
+            ptfhost.shell(
+                "rm -rf {}".format(shlex.quote(server_dir)),
+                module_ignore_errors=True,
+            )
+        raise
+
+
+def _stop_crl_server(ptfhost, pid, server_dir):
+    """Stop only the CRL server started by this fixture and remove its files."""
+    ptfhost.shell("kill {} 2>/dev/null || true".format(pid),
+                  module_ignore_errors=True)
+
+    def _server_stopped():
+        result = ptfhost.shell(
+            "kill -0 {} 2>/dev/null".format(pid),
+            module_ignore_errors=True,
+        )
+        return result.get('rc') != 0
+
+    if not wait_until(10, 1, 0, _server_stopped):
+        ptfhost.shell("kill -9 {} 2>/dev/null || true".format(pid),
+                      module_ignore_errors=True)
+        if not wait_until(5, 1, 0, _server_stopped):
+            raise RuntimeError("CRL server PID {} did not stop".format(pid))
+    remove_result = ptfhost.shell(
+        "rm -rf {}".format(shlex.quote(server_dir)),
+        module_ignore_errors=True,
+    )
+    if remove_result.get('rc') != 0:
+        raise RuntimeError(
+            "Failed to remove CRL server directory: {}".format(
+                remove_result
+            )
+        )
+    verify_result = ptfhost.shell(
+        "test ! -e {}".format(shlex.quote(server_dir)),
+        module_ignore_errors=True,
+    )
+    if verify_result.get('rc') != 0:
+        raise RuntimeError(
+            "CRL server directory still exists: {}".format(server_dir)
+        )
+
+
+def _get_configured_gnmi_port(duthost):
+    """Return the restored configured gNMI port, or the image default."""
+    result = duthost.shell(
+        'sonic-db-cli CONFIG_DB hget "GNMI|gnmi" port',
+        module_ignore_errors=True,
+    )
+    value = (result.get('stdout') or '').strip()
+    if value.isdigit():
+        return int(value)
+    return grpc_config.DEFAULT_PLAINTEXT_PORT
+
+
+def _restart_gnoi_server(duthost,
+                         expected_port=grpc_config.DEFAULT_TLS_PORT):
     """Restart gNOI server to pick up new TLS configuration."""
     logger.info("Restarting gNOI server process")
 
@@ -606,7 +919,7 @@ def _restart_gnoi_server(duthost):
     def _tls_listener_ready():
         status = duthost.shell(
             "sudo ss -ltn | grep -q ':{} '".format(
-                grpc_config.DEFAULT_TLS_PORT
+                expected_port
             ),
             module_ignore_errors=True,
         )
@@ -615,20 +928,20 @@ def _restart_gnoi_server(duthost):
     if not wait_until(60, 2, 0, _tls_listener_ready):
         status = duthost.shell(
             "sudo ss -ltn | grep ':{} '".format(
-                grpc_config.DEFAULT_TLS_PORT
+                expected_port
             ),
             module_ignore_errors=True,
         )
         raise Exception(
             "gNOI server failed to listen on port {} within 60s: {}".format(
-                grpc_config.DEFAULT_TLS_PORT,
+                expected_port,
                 status.get('stdout', ''),
             )
         )
 
     logger.info(
         "gNOI server restart completed (supervisor RUNNING, port %s listening)",
-        grpc_config.DEFAULT_TLS_PORT,
+        expected_port,
     )
 
 
