@@ -131,11 +131,11 @@ def load_minigraph_with_golden_partial_config(duthost, wait_for_bgp):
     )
 
 
-def load_minigraph_with_golden_full_config(duthost, full_config, wait_for_bgp):
+def load_minigraph_with_golden_full_config(duthost, full_config):
     """Test Golden Config fully override minigraph config
     """
     # Test if the config has been override by full_config
-    reload_minigraph_with_golden_config(duthost, full_config, wait_for_bgp=wait_for_bgp)
+    reload_minigraph_with_golden_config(duthost, full_config)
 
     current_config = get_running_config(duthost)
     for table in full_config:
@@ -185,10 +185,10 @@ def test_load_minigraph_with_golden_config(duthosts, setup_env,
         loganalyzer[duthost.hostname].ignore_regex = []
 
     # CONFED BGP config will be lost during this test causing bgp sessions to not come up
-    wait_for_bgp = False if duthost.get_bgp_confed_asn() else True
+    wait_for_bgp = not duthost.get_bgp_confed_asn()
 
     load_minigraph_with_golden_empty_input(duthost, wait_for_bgp)
     load_minigraph_with_golden_partial_config(duthost, wait_for_bgp)
     full_config = setup_env
-    load_minigraph_with_golden_full_config(duthost, full_config, wait_for_bgp)
+    load_minigraph_with_golden_full_config(duthost, full_config)
     load_minigraph_with_golden_empty_table_removal(duthost, wait_for_bgp)
