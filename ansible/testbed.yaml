@@ -7123,3 +7123,19 @@
   auto_recover: 'False'
   comment: zegan
   tb_owner: zegan
+
+- conf-name: testbed-host2-chipmunk-bmc
+  group-name: pg-bmc-c
+  topo: bmc-dual-mgmt
+  ptf_image_name: docker-ptf
+  ptf: ptf_bmc01
+  ptf_ip: 192.168.101.10/24
+  ptf_ipv6:
+  server: PLAYGROUND-yinxi-HP-Z440-Workstation
+  vm_base:
+  dut:
+  - host2-chipmunk-bmc
+  bmc_host: host2-chipmunk-switch
+  inv_name: playground
+  auto_recover: 'False'
+  comment: BMC dual-mgmt testbed for Chipmunk
