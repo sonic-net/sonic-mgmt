@@ -10,6 +10,15 @@ platform_tests/api:
       - "asic_type in ['vs']"
 
 #######################################
+#####      api/test_bmc.py        #####
+#######################################
+platform_tests/api/test_bmc.py:
+  skip:
+    reason: "Not available on BMC"
+    conditions:
+      - "'bmc' in topo_type"
+
+#######################################
 #####      api/test_chassis.py    #####
 #######################################
 platform_tests/api/test_chassis.py::TestChassisApi::test_components:
