@@ -241,7 +241,8 @@ def test_upgrade_smartswitch_all_dpus_then_npu(
 
     if not dpu_indices:
         pytest.fail(
-            "Could not determine DPU indices: CONFIG_DB DPU(S) table is empty and "
+            "Could not determine DPU indices: CONFIG_DB DPU(S) table is empty or no "
+            "configured DPU has a verifiable CHASSIS_MODULE admin_status of 'up', and "
             "--ss_target_indices was not provided. Pass e.g. --ss_target_indices=0,1,2,3"
         )
 

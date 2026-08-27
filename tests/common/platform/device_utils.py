@@ -1378,8 +1378,11 @@ def get_configured_dpu_indices(duthost, include_admin_down=False):
 
     Indices are parsed from the real DPU identities, not a positional count,
     so a non-contiguous table (dpu1, dpu3) yields [1, 3] rather than [0, 1].
-    By default admin-down DPUs (CHASSIS_MODULE admin_status='down') are skipped;
-    pass include_admin_down=True to return every configured index.
+    By default only DPUs whose CHASSIS_MODULE admin_status is affirmatively
+    'up' are returned (fail closed): entries that are admin-down, missing
+    from CHASSIS_MODULE, or missing admin_status are skipped so unverified
+    DPUs are never selected implicitly. Pass include_admin_down=True to
+    return every configured index regardless of admin state.
     """
     # Reuse the DPU/DPUS table selection + ordering from get_configured_dpu_names.
     names = get_configured_dpu_names(duthost)
@@ -1398,11 +1401,21 @@ def get_configured_dpu_indices(duthost, include_admin_down=False):
             logger.warning("Skipping DPU entry without a numeric index: %r", name)
             continue
         idx = int(m.group(1))
-        # Look up admin state; treat a missing entry as 'up' (enabled by default).
-        admin_status = chassis_modules.get('DPU{}'.format(idx), {}).get('admin_status', 'up')
-        # Skip administratively-down DPUs unless the caller wants them all.
-        if not include_admin_down and str(admin_status).lower() == 'down':
-            logger.info("Skipping admin-down DPU%d", idx)
+        if include_admin_down:
+            # Caller explicitly asked for every configured index.
+            indices.append(idx)
+            continue
+        # Fail closed: only an affirmative admin_status == 'up' selects a DPU
+        # for discovery. A missing CHASSIS_MODULE entry or missing/unexpected
+        # admin_status means the DPU's state cannot be verified, and it must
+        # not be picked up implicitly (e.g. for a firmware upgrade); use
+        # include_admin_down=True or explicit target indices to override.
+        admin_status = chassis_modules.get('DPU{}'.format(idx), {}).get('admin_status')
+        if admin_status is None:
+            logger.warning("Skipping DPU%d: no admin_status in CHASSIS_MODULE; state cannot be verified", idx)
+            continue
+        if str(admin_status).lower() != 'up':
+            logger.info("Skipping DPU%d with admin_status=%r", idx, admin_status)
             continue
         indices.append(idx)
 
