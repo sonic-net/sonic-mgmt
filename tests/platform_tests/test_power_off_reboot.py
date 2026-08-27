@@ -231,6 +231,12 @@ def test_power_off_reboot(duthosts, localhost, enum_supervisor_dut_hostname, con
     dpu_status_before = {}
     if is_smartswitch:
         dpu_status_before = _get_dpu_module_status(duthost)
+        pytest_assert(
+            dpu_status_before,
+            "Failed to read any DPU module status before power-off reboot; "
+            "'show chassis modules status' returned no DPU entries. Cannot verify "
+            "post-reboot DPU consistency."
+        )
         logging.info("SmartSwitch DPU admin/oper status before power-off reboot: %s", dpu_status_before)
 
     try:
@@ -244,7 +250,7 @@ def test_power_off_reboot(duthosts, localhost, enum_supervisor_dut_hostname, con
                 xcvr_skip_list, REBOOT_TYPE_POWEROFF,
                 _power_off_reboot_helper, poweroff_reboot_kwargs, duthosts=duthosts_arg)
 
-            if is_smartswitch and dpu_status_before:
+            if is_smartswitch:
                 logging.info("Verifying DPU admin/oper status consistency after power-off reboot")
                 verify_dpu_status_consistency(duthost, dpu_status_before)
 
