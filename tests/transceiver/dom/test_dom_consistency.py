@@ -6,10 +6,6 @@ from collections import defaultdict
 import pytest
 
 from tests.transceiver.attribute_parser.attribute_keys import DOM_ATTRIBUTES_KEY
-from tests.transceiver.common.cmis_helper import (
-    STATE_DB_DP_STATE_ACTIVATED,
-    is_state_db_dp_state_activated,
-)
 from tests.transceiver.common.db_helpers import (
     STATE_DB_UPDATE_TIME_FIELD,
     parse_numeric,
@@ -17,14 +13,12 @@ from tests.transceiver.common.db_helpers import (
 )
 from tests.transceiver.dom.dom_helpers import (
     STATE_DB_SENSOR_TABLE,
-    STATE_DB_STATUS_TABLE,
     build_dom_sensor_plan,
     consistency_field_template_for_attr,
     field_template_is_lane_expanded,
     format_dom_port_failure,
     format_optional_float,
     read_dom_sensor_data,
-    read_transceiver_status_data,
 )
 
 logger = logging.getLogger(__name__)
@@ -145,7 +139,6 @@ def _build_dom_consistency_plan(port_attributes_dict, dom_primary_ports, sensor_
                     "threshold": threshold,
                     "mode": mode,
                     "unit": unit,
-                    "lane": lane,
                 }
 
         plan_by_port[port] = {
@@ -162,7 +155,7 @@ def _build_dom_consistency_plan(port_attributes_dict, dom_primary_ports, sensor_
     return plan_by_port
 
 
-def _collect_dom_samples(duthost, dom_primary_ports, sample_count, interval_sec, read_status):
+def _collect_dom_samples(duthost, dom_primary_ports, sample_count, interval_sec):
     """Return ``(samples_by_port, read_failures)`` for interval-based DOM samples."""
     samples_by_port = {port: [] for port in dom_primary_ports}
     read_failures = []
@@ -170,22 +163,14 @@ def _collect_dom_samples(duthost, dom_primary_ports, sample_count, interval_sec,
 
     for sample_index in range(1, sample_count + 1):
         sensor_by_port, sensor_errors = read_dom_sensor_data(duthost, dom_primary_ports)
-        status_by_port, status_errors = ({}, [])
-        if read_status:
-            status_by_port, status_errors = read_transceiver_status_data(duthost, dom_primary_ports)
 
         read_failures.extend(
             "STATE_DB sample {} sensor read:\n  {}".format(sample_index, error)
             for error in sensor_errors
         )
-        read_failures.extend(
-            "STATE_DB sample {} status read:\n  {}".format(sample_index, error)
-            for error in status_errors
-        )
         for port in dom_primary_ports:
             samples_by_port[port].append({
                 "sensor": sensor_by_port.get(port, {}),
-                "status": status_by_port.get(port, {}) if read_status else {},
             })
 
         logger.debug("Collected DOM consistency sample %d/%d", sample_index, sample_count)
@@ -236,24 +221,11 @@ def _validate_absolute_pair(port, field, check, previous_sensor, current_sensor,
     return None, True, None
 
 
-def _tx_bias_percent_skip_reason(field, lane, warning_range, previous_value, current_value,
-                                 previous_sensor, current_sensor, previous_status, current_status):
+def _tx_bias_percent_skip_reason(field, warning_range, previous_value, current_value,
+                                 previous_sensor, current_sensor):
     """Return the Tx-bias percent-check skip reason, or ``None`` when checkable."""
     if warning_range["error"]:
         return warning_range["error"]
-    if previous_status is None or current_status is None:
-        return "{} namespace read failed".format(STATE_DB_STATUS_TABLE)
-    if not (
-        # Current TC4 scope covers optics where media lanes map 1:1 to host/datapath
-        # lanes, so the media lane used for tx{lane}bias also selects DP{lane}State.
-        # Gearbox and inverse-gearbox lane translation should be added in a follow-up.
-        is_state_db_dp_state_activated(previous_status, lane)
-        and is_state_db_dp_state_activated(current_status, lane)
-    ):
-        return "DP{}State not {} (prev={!r}, curr={!r})".format(
-            lane, STATE_DB_DP_STATE_ACTIVATED, previous_status.get("DP{}State".format(lane)),
-            current_status.get("DP{}State".format(lane))
-        )
     if previous_value is None or current_value is None:
         return "missing/non-finite value (prev={!r}, curr={!r})".format(
             previous_sensor.get(field), current_sensor.get(field)
@@ -276,17 +248,13 @@ def _tx_bias_percent_skip_reason(field, lane, warning_range, previous_value, cur
 def _validate_tx_bias_percent_pair(port, field, check, previous_sample, current_sample,
                                    previous_value, current_value, sample_index, plan):
     """Return ``(error, checked, skip_reason)`` for one Tx-bias percent check."""
-    lane = check["lane"]
     skip_reason = _tx_bias_percent_skip_reason(
         field,
-        lane,
         plan["tx_bias_warning_range"],
         previous_value,
         current_value,
         previous_sample["sensor"],
         current_sample["sensor"],
-        previous_sample["status"],
-        current_sample["status"],
     )
     if skip_reason:
         logger.info("DOM consistency SKIP %s %s sample %d->%d: %s",
@@ -439,23 +407,17 @@ def test_dom_data_consistency_verification(
         pytest.fail("DOM consistency configuration failures:\n" + "\n".join(config_failures))
 
     sample_count = max(plan["poll_count"] for plan in consistency_plan_by_port.values())
-    read_status = any(
-        check["mode"] == MODE_PERCENT
-        for plan in consistency_plan_by_port.values()
-        for check in plan["field_checks"].values()
-    )
     if not any(plan["field_checks"] for plan in consistency_plan_by_port.values()):
         logger.info("No DOM consistency variation thresholds configured; validating last_update_time cadence only")
     logger.info(
-        "DOM consistency sampling: %d sample(s), %d second interval, %d second margin, status_table=%s",
+        "DOM consistency sampling: %d sample(s), %d second interval, %d second margin",
         sample_count,
         update_interval_sec,
         UPDATE_ADVANCE_MARGIN_SEC,
-        read_status,
     )
 
     samples_by_port, all_failures = _collect_dom_samples(
-        duthost, dom_primary_ports, sample_count, update_interval_sec, read_status
+        duthost, dom_primary_ports, sample_count, update_interval_sec
     )
     checked_pair_count = 0
     checked_port_count = 0
