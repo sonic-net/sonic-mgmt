@@ -1,27 +1,24 @@
 import pytest
 import logging
 import random
-from tests.common.helpers.assertions import pytest_require, pytest_assert                   # noqa: F401
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts_multidut, \
-    fanout_graph_facts   # noqa: F401
+    fanout_graph_facts                                                                              # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
     snappi_api, snappi_multi_base_config, cleanup_config, get_snappi_ports_for_rdma, \
     get_snappi_ports, get_snappi_ports_multi_dut, clear_fabric_counters, check_fabric_counters, \
-    get_snappi_ports_single_dut      # noqa: F401
+    get_snappi_ports_single_dut, tgen_port_info, snappi_port_selection                               # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_list, \
     lossy_prio_list, all_prio_list                                                                  # noqa: F401
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.snappi_tests.common_helpers import get_pfcwd_stats
-from tests.snappi_tests.pfcwd.files.pfcwd_actions_helper import run_pfc_test
-from tests.common.config_reload import config_reload
+from tests.snappi_tests.pfcwd.files.pfcwd_actions_helper import run_pfcwd_test
+from tests.snappi_tests.pfc.files.pfc_congestion_helper import get_test_subtype_from_ports
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
-from tests.snappi_tests.cisco.helper import modify_voq_watchdog_cisco_8000              # noqa: F401
-from tests.snappi_tests.files.helper import setup_ports_and_dut, multidut_port_info     # noqa: F401
-from tests.common.helpers.parallel import parallel_run
-from tests.snappi_tests.variables import MULTIDUT_PORT_INFO, MULTIDUT_TESTBED
+from tests.snappi_tests.cisco.helper import modify_voq_watchdog_cisco_8000                          # noqa: F401
 
 logger = logging.getLogger(__name__)
 
-pytestmark = [pytest.mark.topology('multidut-tgen')]
+pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]
 
 
 # Testplan: docs/testplan/PFC_Snappi_Additional_Testcases.md
@@ -29,57 +26,86 @@ pytestmark = [pytest.mark.topology('multidut-tgen')]
 # This test-script also covers testcase#11: PFCWD-enabled FWD mode test.
 
 
-port_map = [[1, 100, 1, 100], [1, 400, 1, 400]]
-over_subs_port_map = [[1, 100, 2, 100], [1, 400, 2, 400]]
+def create_port_map(snappi_ports, tx_count, rx_count):
+    """Build port_map [tx_count, speed_gbps, rx_count, speed_gbps] from snappi_ports."""
+    port = snappi_ports[0]
+    if 'snappi_speed_type' in port:
+        speed_gbps = int(port['snappi_speed_type'].split('_')[1])
+    else:
+        speed_gbps = int(int(port['speed']) / 1000)
+    return [tx_count, speed_gbps, rx_count, speed_gbps]
 
 
-def _verify_port_speed(port_list, tbinfo, port_map):
-
-    # port_map is defined as port-speed combination.
-    # first two parameters are count of egress links and its speed.
-    # last two parameters are count of ingress links and its speed.
-    speed_specific_port_list = []
-    tx_port_count = port_map[0]
-    rx_port_count = port_map[2]
-    for item in port_list:
-        if (int(item['speed']) == (port_map[1] * 1000)):
-            speed_specific_port_list.append(item)
-    pytest_require(MULTIDUT_TESTBED == tbinfo['conf-name'],
-                   "The testbed name from testbed name in testbed.yaml doesn't"
-                   " match with MULTIDUT_TESTBED in variables.py ")
-    pytest_require(
-        len(speed_specific_port_list) >= tx_port_count + rx_port_count,
-        "Need Minimum of {} ports of speed {}G defined in "
-        "ansible/files/*links.csv file".format(
-            tx_port_count + rx_port_count, port_map[1]))
-    return (port_map, speed_specific_port_list)
+def _parse_storm_detect_restore(pfcwd_stats):
+    """Return (storm_detect, storm_restore); missing or empty stats are (0, 0)."""
+    if not pfcwd_stats:
+        return 0, 0
+    storm_val = pfcwd_stats.get("STORM_DETECTED/RESTORED", "0/0")
+    if isinstance(storm_val, int):
+        return 0, 0
+    parts = str(storm_val).split("/")
+    try:
+        det = int(parts[0]) if parts else 0
+    except (TypeError, ValueError):
+        det = 0
+    try:
+        rest = int(parts[1]) if len(parts) > 1 else 0
+    except (TypeError, ValueError):
+        rest = 0
+    return det, rest
 
 
-@pytest.fixture(params=port_map, autouse=False)
-def verify_port_speed(setup_ports_and_dut, tbinfo, request):  # noqa: F811
-    return (_verify_port_speed(setup_ports_and_dut[2], tbinfo, request.param))
+def log_pfcwd_stats(test_prio_list, snappi_ports, dut_list, when='start', egress_count=1):
+    """
+    Log PFC-WD stats on DUT egress ports and return storm counters.
+
+    Pause is received on the egress port(s) (snappi_ports[:egress_count]).
+    Ingress ports are not included, so a +1 assert is not a false negative.
+
+    Returns:
+        dict: {(peer_port, prio): (storm_detect, storm_restore)}
+        Missing stats rows are returned as (0, 0).
+    """
+    label = 'start' if when == 'start' else 'end'
+    logger.info('PFC-WD stats at the {} of the test:'.format(label))
+    storm_counts = {}
+    for prio in test_prio_list:
+        for port in snappi_ports[:egress_count]:
+            for dut in dut_list:
+                if dut.hostname == port['peer_device']:
+                    pfcwd_stats = get_pfcwd_stats(
+                        dut, port['peer_port'], prio, asic_value=port.get('asic_value'))
+                    det, rest = _parse_storm_detect_restore(pfcwd_stats)
+                    storm_counts[(port['peer_port'], prio)] = (det, rest)
+                    logger.info(
+                        'PFCWD stats for dut:{}, port:{}, prio:{} detect:{} restore:{} stats:{}'.
+                        format(dut.hostname, port['peer_port'], prio, det, rest, pfcwd_stats))
+    return storm_counts
 
 
-@pytest.fixture(params=over_subs_port_map, autouse=False)
-def verify_port_speed_oversubscribe(setup_ports_and_dut, tbinfo, request):   # noqa: F811
-    return (_verify_port_speed(setup_ports_and_dut[2], tbinfo, request.param))
+def verify_pfcwd_storm_increment(before, after):
+    """Assert storm_detect and storm_restore each increment by 1 per egress port/prio."""
+    for key, (bef_det, bef_rest) in before.items():
+        port, prio = key
+        pytest_assert(key in after, 'Missing PFCWD stats after test for {}:{}'.format(port, prio))
+        aft_det, aft_rest = after[key]
+        pytest_assert(
+            aft_det - bef_det == 1,
+            'storm_detect did not increment by 1 on {}:{} (before={}, after={})'.format(
+                port, prio, bef_det, aft_det))
+        pytest_assert(
+            aft_rest - bef_rest == 1,
+            'storm_restore did not increment by 1 on {}:{} (before={}, after={})'.format(
+                port, prio, bef_rest, aft_rest))
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(autouse=True, scope='module')
 def number_of_tx_rx_ports(request):
-
+    # over_subs tests: (1, 2); rest: (1, 1)
     if request.param:
-        yield (2, 1)
+        yield (1, 2)
     else:
         yield (1, 1)
-
-
-def pfcwd_actions_cleanup(duthosts, get_snappi_ports, setup_ports_and_dut):  # noqa: F811
-    cleanup_config(duthosts, get_snappi_ports)
-
-    def do_config_reload(node, results):
-        return (config_reload(sonic_host=node))
-    parallel_run(do_config_reload, [], {}, list(set([get_snappi_ports[0]['duthost'], get_snappi_ports[1]['duthost']])))
 
 
 @pytest.fixture(autouse=False)
@@ -91,7 +117,7 @@ def disable_voq_wd_cisco_8000(duthosts):
 
 
 # This is a single-tx-single-rx test.
-@pytest.mark.parametrize("number_of_tx_rx_ports", ["False"], indirect=True)
+@pytest.mark.parametrize("number_of_tx_rx_ports", [False], indirect=True)
 def test_pfcwd_drop_90_10(snappi_api,                  # noqa: F811
                           conn_graph_facts,             # noqa: F811
                           fanout_graph_facts_multidut,  # noqa: F811
@@ -100,8 +126,7 @@ def test_pfcwd_drop_90_10(snappi_api,                  # noqa: F811
                           lossless_prio_list,           # noqa: F811
                           lossy_prio_list,              # noqa: F811
                           tbinfo,
-                          verify_port_speed,
-                          setup_ports_and_dut):         # noqa: F811
+                          tgen_port_info):              # noqa: F811
     """
     Purpose of the test case is to enable PFCWD in drop mode and send 90% lossless traffic and 10%
     lossy traffic and check the behavior. DUT is receiving pause storm on the egress port. DUT should
@@ -110,21 +135,22 @@ def test_pfcwd_drop_90_10(snappi_api,                  # noqa: F811
     Args:
         snappi_api (pytest fixture): SNAPPI session
         conn_graph_facts (pytest fixture): connection graph
-        fanout_graph_facts_multidut_multidut (pytest fixture): fanout graph
+        fanout_graph_facts_multidut (pytest fixture): fanout graph
         duthosts (pytest fixture): list of DUTs
         prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
         lossless_prio_list(list): list of lossless priorities
         lossy_prio_list(list): list of lossy priorities.
         tbinfo(key): element to identify testbed info name.
-        multidut_port_info : Line card classification along with ports selected as Rx and Tx port.
+        tgen_port_info (pytest fixture): (testbed_config, port_config_list, snappi_ports).
 
     Returns:
         N/A
     """
 
     pkt_size = 1024
-    testbed_config, port_config_list, _ = setup_ports_and_dut
-    port_map, snappi_ports = verify_port_speed
+    testbed_config, port_config_list, snappi_ports = tgen_port_info
+    port_map = create_port_map(snappi_ports, 1, 1)
+    testbed_type = get_test_subtype_from_ports(snappi_ports, port_map, tbinfo)
 
     # Percentage drop expected for lossless and lossy traffic.
     # speed_tol is speed tolerance between egress link speed and actual speed.
@@ -138,7 +164,7 @@ def test_pfcwd_drop_90_10(snappi_api,                  # noqa: F811
                 'data_flow_delay_sec': 1,
                 'SNAPPI_POLL_DELAY_SEC': 60,
                 'test_type': 'logs/snappi_tests/pfcwd/One_Ingress_Egress_pfcwd_drop_90_10_dist'+str(port_map[1])+'Gbps',
-                'line_card_choice': "ixia_testbed",
+                'line_card_choice': testbed_type,
                 'port_map': port_map,
                 'enable_pfcwd_drop': True,
                 'enable_pfcwd_fwd': False,
@@ -160,66 +186,41 @@ def test_pfcwd_drop_90_10(snappi_api,                  # noqa: F811
 
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
 
-    if (snappi_ports[0]['peer_device'] == snappi_ports[-1]['peer_device']):
-        dut_list = [snappi_ports[0]['duthost']]
-    else:
-        dut_list = [snappi_ports[0]['duthost'], snappi_ports[-1]['duthost']]
+    dut_list = list(set([snappi_ports[0]['duthost'], snappi_ports[-1]['duthost']]))
 
     for dut in duthosts:
         clear_fabric_counters(dut)
 
-    logger.info('PFC-WD stats at the start of the test:')
-    for prio in test_prio_list:
-        for port in snappi_ports:
-            if len(dut_list) == 1:
-                if dut_list[0].hostname == port['peer_device']:
-                    logger.info('PFCWD stats for dut:{}, port:{},prio:{}'.
-                                format(dut_list[0].hostname, port['peer_port'], prio))
-                    pfcwd_stats = get_pfcwd_stats(dut_list[0], port['peer_port'], prio)
-                    logger.info('PFCWD Stats:{}'.format(pfcwd_stats))
-            else:
-                for dut in dut_list:
-                    if dut.hostname == port['peer_device']:
-                        logger.info('PFCWD stats for dut:{}, port:{},prio:{}'.
-                                    format(dut.hostname, port['peer_port'], prio))
-                        pfcwd_stats = get_pfcwd_stats(dut, port['peer_port'], prio)
-                        logger.info('PFCWD Stats::{}'.format(pfcwd_stats))
+    bef_pfcwd_stats = log_pfcwd_stats(test_prio_list, snappi_ports, dut_list, when='start',
+                                      egress_count=port_map[0])
 
-    run_pfc_test(api=snappi_api,
-                 testbed_config=testbed_config,
-                 port_config_list=port_config_list,
-                 conn_data=conn_graph_facts,
-                 fanout_data=fanout_graph_facts_multidut,
-                 global_pause=False,
-                 pause_prio_list=pause_prio_list,
-                 test_prio_list=test_prio_list,
-                 bg_prio_list=bg_prio_list,
-                 prio_dscp_map=prio_dscp_map,
-                 test_traffic_pause=True,
-                 test_def=test_def,
-                 snappi_extra_params=snappi_extra_params)
+    try:
+        run_pfcwd_test(api=snappi_api,
+                       testbed_config=testbed_config,
+                       port_config_list=port_config_list,
+                       conn_data=conn_graph_facts,
+                       fanout_data=fanout_graph_facts_multidut,
+                       global_pause=False,
+                       pause_prio_list=pause_prio_list,
+                       test_prio_list=test_prio_list,
+                       bg_prio_list=bg_prio_list,
+                       prio_dscp_map=prio_dscp_map,
+                       test_traffic_pause=True,
+                       test_def=test_def,
+                       snappi_extra_params=snappi_extra_params)
 
-    logger.info('PFC-WD stats at the end of the test:')
-    for prio in test_prio_list:
-        for port in snappi_ports:
-            if len(dut_list) == 1:
-                if dut_list[0].hostname == port['peer_device']:
-                    pfcwd_stats = get_pfcwd_stats(dut_list[0], port['peer_port'], prio)
-                    logger.info('PFCWD Stats:for dut:{}, port:{},prio:{}, stats::{}'.
-                                format(dut_list[0].hostname, port['peer_port'], prio, pfcwd_stats))
-            else:
-                for dut in dut_list:
-                    if dut.hostname == port['peer_device']:
-                        pfcwd_stats = get_pfcwd_stats(dut, port['peer_port'], prio)
-                        logger.info('PFCWD Stats:for dut:{}, port:{},prio:{}, stats::{}'.
-                                    format(dut.hostname, port['peer_port'], prio, pfcwd_stats))
+        aft_pfcwd_stats = log_pfcwd_stats(test_prio_list, snappi_ports, dut_list, when='end',
+                                          egress_count=port_map[0])
+        verify_pfcwd_storm_increment(bef_pfcwd_stats, aft_pfcwd_stats)
 
-    for dut in duthosts:
-        check_fabric_counters(dut)
+        for dut in duthosts:
+            check_fabric_counters(dut)
+    finally:
+        cleanup_config(dut_list, snappi_ports)
 
 
 # This is a single-tx-single-rx test.
-@pytest.mark.parametrize("number_of_tx_rx_ports", ["False"], indirect=True)
+@pytest.mark.parametrize("number_of_tx_rx_ports", [False], indirect=True)
 def test_pfcwd_drop_uni(snappi_api,                  # noqa: F811
                         conn_graph_facts,             # noqa: F811
                         fanout_graph_facts_multidut,  # noqa: F811
@@ -228,32 +229,31 @@ def test_pfcwd_drop_uni(snappi_api,                  # noqa: F811
                         lossless_prio_list,           # noqa: F811
                         lossy_prio_list,              # noqa: F811
                         tbinfo,
-                        verify_port_speed,
-                        setup_ports_and_dut):          # noqa: F811
+                        tgen_port_info):              # noqa: F811
     """
-    Purpose of the test case is to enable PFCWD in drop mode and send 90% lossless traffic and 10%
+    Purpose of the test case is to enable PFCWD in drop mode and send 40% lossless traffic and 60%
     lossy traffic and check the behavior. DUT is receiving pause storm on the egress port. DUT should
     drop the lossless packets without generating any pause towards IXIA transmitter. No loss for lossy traffic.
 
     Args:
         snappi_api (pytest fixture): SNAPPI session
         conn_graph_facts (pytest fixture): connection graph
-        fanout_graph_facts_multidut_multidut (pytest fixture): fanout graph
+        fanout_graph_facts_multidut (pytest fixture): fanout graph
         duthosts (pytest fixture): list of DUTs
         prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
         lossless_prio_list(list): list of lossless priorities
         lossy_prio_list(list): list of lossy priorities.
         tbinfo(key): element to identify testbed info name.
-        port_map(list): list for port-speed combination.
-        multidut_port_info : Line card classification along with ports selected as Rx and Tx port.
+        tgen_port_info (pytest fixture): (testbed_config, port_config_list, snappi_ports).
 
     Returns:
         N/A
     """
 
     pkt_size = 1024
-    testbed_config, port_config_list, _ = setup_ports_and_dut
-    port_map, snappi_ports = verify_port_speed
+    testbed_config, port_config_list, snappi_ports = tgen_port_info
+    port_map = create_port_map(snappi_ports, 1, 1)
+    testbed_type = get_test_subtype_from_ports(snappi_ports, port_map, tbinfo)
 
     # Percentage drop expected for lossless and lossy traffic.
     # speed_tol is speed tolerance between egress link speed and actual speed.
@@ -267,7 +267,7 @@ def test_pfcwd_drop_uni(snappi_api,                  # noqa: F811
                 'data_flow_delay_sec': 1,
                 'SNAPPI_POLL_DELAY_SEC': 60,
                 'test_type': 'logs/snappi_tests/pfcwd/One_Ingress_Egress_pfcwd_drop_uni_dist'+str(port_map[1])+'Gbps',
-                'line_card_choice': "ixia_dut_tb",
+                'line_card_choice': testbed_type,
                 'port_map': port_map,
                 'enable_pfcwd_drop': True,
                 'enable_pfcwd_fwd': False,
@@ -289,67 +289,41 @@ def test_pfcwd_drop_uni(snappi_api,                  # noqa: F811
 
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
 
-    if (snappi_ports[0]['peer_device'] == snappi_ports[-1]['peer_device']):
-        dut_list = [snappi_ports[0]['duthost']]
-    else:
-        dut_list = [snappi_ports[0]['duthost'], snappi_ports[-1]['duthost']]
+    dut_list = list(set([snappi_ports[0]['duthost'], snappi_ports[-1]['duthost']]))
 
     for dut in duthosts:
         clear_fabric_counters(dut)
 
-    logger.info('PFC-WD stats at the start of the test:')
-    for prio in test_prio_list:
-        for port in snappi_ports:
-            if len(dut_list) == 1:
-                if dut_list[0].hostname == port['peer_device']:
-                    logger.info('PFCWD stats for dut:{}, port:{},prio:{}'.
-                                format(dut_list[0].hostname, port['peer_port'], prio))
-                    pfcwd_stats = get_pfcwd_stats(dut_list[0], port['peer_port'], prio)
-                    logger.info('PFCWD Stats:{}'.format(pfcwd_stats))
-            else:
-                for dut in dut_list:
-                    if dut.hostname == port['peer_device']:
-                        logger.info('PFCWD stats for dut:{}, port:{},prio:{}'.
-                                    format(dut.hostname, port['peer_port'], prio))
-                        pfcwd_stats = get_pfcwd_stats(dut, port['peer_port'], prio)
-                        logger.info('PFCWD Stats::{}'.format(pfcwd_stats))
+    bef_pfcwd_stats = log_pfcwd_stats(test_prio_list, snappi_ports, dut_list, when='start',
+                                      egress_count=port_map[0])
 
-    run_pfc_test(api=snappi_api,
-                 testbed_config=testbed_config,
-                 port_config_list=port_config_list,
-                 conn_data=conn_graph_facts,
-                 fanout_data=fanout_graph_facts_multidut,
-                 global_pause=False,
-                 pause_prio_list=pause_prio_list,
-                 test_prio_list=test_prio_list,
-                 bg_prio_list=bg_prio_list,
-                 prio_dscp_map=prio_dscp_map,
-                 test_traffic_pause=True,
-                 test_def=test_def,
-                 snappi_extra_params=snappi_extra_params)
+    try:
+        run_pfcwd_test(api=snappi_api,
+                       testbed_config=testbed_config,
+                       port_config_list=port_config_list,
+                       conn_data=conn_graph_facts,
+                       fanout_data=fanout_graph_facts_multidut,
+                       global_pause=False,
+                       pause_prio_list=pause_prio_list,
+                       test_prio_list=test_prio_list,
+                       bg_prio_list=bg_prio_list,
+                       prio_dscp_map=prio_dscp_map,
+                       test_traffic_pause=True,
+                       test_def=test_def,
+                       snappi_extra_params=snappi_extra_params)
 
-    logger.info('PFC-WD stats at the end of the test:')
-    for prio in test_prio_list:
-        for port in snappi_ports:
-            if len(dut_list) == 1:
-                if dut_list[0].hostname == port['peer_device']:
-                    pfcwd_stats = get_pfcwd_stats(dut_list[0], port['peer_port'], prio)
-                    logger.info('PFCWD Stats:for dut:{}, port:{},prio:{}, stats::{}'.
-                                format(dut_list[0].hostname, port['peer_port'], prio, pfcwd_stats))
-            else:
-                for dut in dut_list:
-                    if dut.hostname == port['peer_device']:
-                        pfcwd_stats = get_pfcwd_stats(dut, port['peer_port'], prio)
-                        logger.info('PFCWD Stats:for dut:{}, port:{},prio:{}, stats::{}'.
-                                    format(dut.hostname, port['peer_port'], prio, pfcwd_stats))
+        aft_pfcwd_stats = log_pfcwd_stats(test_prio_list, snappi_ports, dut_list, when='end',
+                                          egress_count=port_map[0])
+        verify_pfcwd_storm_increment(bef_pfcwd_stats, aft_pfcwd_stats)
 
-    for dut in duthosts:
-        check_fabric_counters(dut)
+        for dut in duthosts:
+            check_fabric_counters(dut)
+    finally:
+        cleanup_config(dut_list, snappi_ports)
 
 
-@pytest.mark.parametrize('port_map', port_map)
-@pytest.mark.parametrize("multidut_port_info", MULTIDUT_PORT_INFO[MULTIDUT_TESTBED])
-@pytest.mark.parametrize("number_of_tx_rx_ports", ["False"], indirect=True)
+# This is a single-tx-single-rx test.
+@pytest.mark.parametrize("number_of_tx_rx_ports", [False], indirect=True)
 def test_pfcwd_frwd_90_10(snappi_api,                  # noqa: F811
                           conn_graph_facts,             # noqa: F811
                           fanout_graph_facts_multidut,  # noqa: F811
@@ -358,9 +332,7 @@ def test_pfcwd_frwd_90_10(snappi_api,                  # noqa: F811
                           lossless_prio_list,           # noqa: F811
                           lossy_prio_list,              # noqa: F811
                           tbinfo,
-                          get_snappi_ports,             # noqa: F811
-                          port_map,
-                          multidut_port_info):          # noqa: F811
+                          tgen_port_info):              # noqa: F811
 
     """
     Purpose of the test case is to check behavior of the DUT when PFCWD is enabled in FORWARD mode and egress port
@@ -376,58 +348,19 @@ def test_pfcwd_frwd_90_10(snappi_api,                  # noqa: F811
         lossless_prio_list(list): list of lossless priorities
         lossy_prio_list(list): list of lossy priorities.
         tbinfo(key): element to identify testbed info name.
-        get_snappi_ports(pytest fixture): returns list of ports based on linecards selected.
-        port_map(list): list for port-speed combination.
-        multidut_port_info : Line card classification along with ports selected as Rx and Tx port.
+        tgen_port_info (pytest fixture): (testbed_config, port_config_list, snappi_ports).
     Returns:
         N/A
 
     """
 
-    # port_map is defined as port-speed combination.
-    # first two parameters are count of egress links and its speed.
-    # last two parameters are count of ingress links and its speed.
-
     # pkt_size of 1024B will be used unless imix flag is set.
     # With imix flag set, the traffic_generation.py uses IMIX profile.
     pkt_size = 1024
 
-    for testbed_subtype, rdma_ports in multidut_port_info.items():
-        tx_port_count = port_map[0]
-        rx_port_count = port_map[2]
-        tmp_snappi_port_list = get_snappi_ports
-        snappi_port_list = []
-        for item in tmp_snappi_port_list:
-            if (int(item['speed']) == (port_map[1] * 1000)):
-                snappi_port_list.append(item)
-        pytest_require(
-            MULTIDUT_TESTBED == tbinfo['conf-name'],
-            "The testbed name from testbed file doesn't match with "
-            "MULTIDUT_TESTBED in variables.py ")
-        pytest_require(
-            len(snappi_port_list) >= tx_port_count + rx_port_count,
-            "Need Minimum of {} ports defined in ansible/files/*links.csv"
-            " file, snappi_port_list={}".format(
-                tx_port_count + rx_port_count,
-                snappi_port_list))
-
-        pytest_require(len(rdma_ports['tx_ports']) >= tx_port_count,
-                       'MULTIDUT_PORT_INFO doesn\'t have the required Tx ports defined for \
-                       testbed {}, subtype {} in variables.py'.
-                       format(MULTIDUT_TESTBED, testbed_subtype))
-
-        pytest_require(len(rdma_ports['rx_ports']) >= rx_port_count,
-                       'MULTIDUT_PORT_INFO doesn\'t have the required Rx ports defined for \
-                       testbed {}, subtype {} in variables.py'.
-                       format(MULTIDUT_TESTBED, testbed_subtype))
-        logger.info('Running test for testbed subtype: {}'.format(testbed_subtype))
-
-        snappi_ports = get_snappi_ports_for_rdma(snappi_port_list, rdma_ports,
-                                                 tx_port_count, rx_port_count, MULTIDUT_TESTBED)
-
-        testbed_config, port_config_list, snappi_ports = snappi_multi_base_config(duthosts,
-                                                                                  snappi_ports,
-                                                                                  snappi_api)
+    testbed_config, port_config_list, snappi_ports = tgen_port_info
+    port_map = create_port_map(snappi_ports, 1, 1)
+    testbed_type = get_test_subtype_from_ports(snappi_ports, port_map, tbinfo)
 
     # Percentage drop expected for lossless and lossy traffic.
     # speed_tol is speed tolerance between egress link speed and actual speed.
@@ -441,7 +374,7 @@ def test_pfcwd_frwd_90_10(snappi_api,                  # noqa: F811
                 'data_flow_delay_sec': 1,
                 'SNAPPI_POLL_DELAY_SEC': 60,
                 'test_type': 'logs/snappi_tests/pfcwd/One_Ingress_Egress_pfcwd_frwd_90_10_dist'+str(port_map[1])+'Gbps',
-                'line_card_choice': testbed_subtype,
+                'line_card_choice': testbed_type,
                 'port_map': port_map,
                 'enable_pfcwd_drop': False,
                 'enable_pfcwd_fwd': True,
@@ -462,66 +395,41 @@ def test_pfcwd_frwd_90_10(snappi_api,                  # noqa: F811
     snappi_extra_params.multi_dut_params.duthost2 = snappi_ports[-1]['duthost']
 
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
-    if (snappi_ports[0]['peer_device'] == snappi_ports[-1]['peer_device']):
-        dut_list = [snappi_ports[0]['duthost']]
-    else:
-        dut_list = [snappi_ports[0]['duthost'], snappi_ports[-1]['duthost']]
+    dut_list = list(set([snappi_ports[0]['duthost'], snappi_ports[-1]['duthost']]))
 
     for dut in duthosts:
         clear_fabric_counters(dut)
 
-    logger.info('PFC-WD stats at the start of the test:')
-    for prio in test_prio_list:
-        for port in snappi_ports:
-            if len(dut_list) == 1:
-                if dut_list[0].hostname == port['peer_device']:
-                    logger.info('PFCWD stats for dut:{}, port:{},prio:{}'.
-                                format(dut_list[0].hostname, port['peer_port'], prio))
-                    pfcwd_stats = get_pfcwd_stats(dut_list[0], port['peer_port'], prio)
-                    logger.info('PFCWD Stats:{}'.format(pfcwd_stats))
-            else:
-                for dut in dut_list:
-                    if dut.hostname == port['peer_device']:
-                        logger.info('PFCWD stats for dut:{}, port:{},prio:{}'.
-                                    format(dut.hostname, port['peer_port'], prio))
-                        pfcwd_stats = get_pfcwd_stats(dut, port['peer_port'], prio)
-                        logger.info('PFCWD Stats::{}'.format(pfcwd_stats))
+    bef_pfcwd_stats = log_pfcwd_stats(test_prio_list, snappi_ports, dut_list, when='start',
+                                      egress_count=port_map[0])
 
-    run_pfc_test(api=snappi_api,
-                 testbed_config=testbed_config,
-                 port_config_list=port_config_list,
-                 conn_data=conn_graph_facts,
-                 fanout_data=fanout_graph_facts_multidut,
-                 global_pause=False,
-                 pause_prio_list=pause_prio_list,
-                 test_prio_list=test_prio_list,
-                 bg_prio_list=bg_prio_list,
-                 prio_dscp_map=prio_dscp_map,
-                 test_traffic_pause=True,
-                 test_def=test_def,
-                 snappi_extra_params=snappi_extra_params)
+    try:
+        run_pfcwd_test(api=snappi_api,
+                       testbed_config=testbed_config,
+                       port_config_list=port_config_list,
+                       conn_data=conn_graph_facts,
+                       fanout_data=fanout_graph_facts_multidut,
+                       global_pause=False,
+                       pause_prio_list=pause_prio_list,
+                       test_prio_list=test_prio_list,
+                       bg_prio_list=bg_prio_list,
+                       prio_dscp_map=prio_dscp_map,
+                       test_traffic_pause=True,
+                       test_def=test_def,
+                       snappi_extra_params=snappi_extra_params)
 
-    logger.info('PFC-WD stats at the end of the test:')
-    for prio in test_prio_list:
-        for port in snappi_ports:
-            if len(dut_list) == 1:
-                if dut_list[0].hostname == port['peer_device']:
-                    pfcwd_stats = get_pfcwd_stats(dut_list[0], port['peer_port'], prio)
-                    logger.info('PFCWD Stats:for dut:{}, port:{},prio:{}, stats::{}'.
-                                format(dut_list[0].hostname, port['peer_port'], prio, pfcwd_stats))
-            else:
-                for dut in dut_list:
-                    if dut.hostname == port['peer_device']:
-                        pfcwd_stats = get_pfcwd_stats(dut, port['peer_port'], prio)
-                        logger.info('PFCWD Stats:for dut:{}, port:{},prio:{}, stats::{}'.
-                                    format(dut.hostname, port['peer_port'], prio, pfcwd_stats))
+        aft_pfcwd_stats = log_pfcwd_stats(test_prio_list, snappi_ports, dut_list, when='end',
+                                          egress_count=port_map[0])
+        verify_pfcwd_storm_increment(bef_pfcwd_stats, aft_pfcwd_stats)
 
-    for dut in duthosts:
-        check_fabric_counters(dut)
+        for dut in duthosts:
+            check_fabric_counters(dut)
+    finally:
+        cleanup_config(dut_list, snappi_ports)
 
 
 # This is an oversubscribe-testcase.
-@pytest.mark.parametrize("number_of_tx_rx_ports", ["True"], indirect=True)
+@pytest.mark.parametrize("number_of_tx_rx_ports", [True], indirect=True)
 def test_pfcwd_drop_over_subs_40_09(snappi_api,                  # noqa: F811
                                     conn_graph_facts,             # noqa: F811
                                     fanout_graph_facts_multidut,  # noqa: F811
@@ -530,8 +438,7 @@ def test_pfcwd_drop_over_subs_40_09(snappi_api,                  # noqa: F811
                                     lossless_prio_list,           # noqa: F811
                                     lossy_prio_list,              # noqa: F811
                                     tbinfo,
-                                    verify_port_speed_oversubscribe,
-                                    setup_ports_and_dut):          # noqa: F811
+                                    tgen_port_info):              # noqa: F811
 
     """
     Purpose of the testcase is to check PFCWD behavior in DROP mode with over-subscription.
@@ -547,30 +454,25 @@ def test_pfcwd_drop_over_subs_40_09(snappi_api,                  # noqa: F811
         lossless_prio_list(list): list of lossless priorities
         lossy_prio_list(list): list of lossy priorities.
         tbinfo(key): element to identify testbed info name.
-        port_map(list): list for port-speed combination.
-        multidut_port_info : Line card classification along with ports selected as Rx and Tx port.
+        tgen_port_info (pytest fixture): (testbed_config, port_config_list, snappi_ports).
 
     Returns:
         N/A
     """
 
-    # port_map is defined as port-speed combination.
-    # first two parameters are count of egress links and its speed.
-    # last two parameters are count of ingress links and its speed.
-
     # pkt_size of 1024B will be used unless imix flag is set.
     # With imix flag set, the traffic_generation.py uses IMIX profile.
     pkt_size = 1024
 
-    testbed_config, port_config_list, _ = setup_ports_and_dut
-    port_map, snappi_ports = verify_port_speed_oversubscribe
+    testbed_config, port_config_list, snappi_ports = tgen_port_info
+    port_map = create_port_map(snappi_ports, 1, 2)
+    testbed_type = get_test_subtype_from_ports(snappi_ports, port_map, tbinfo)
 
     # Percentage drop expected for lossless and lossy traffic.
     # speed_tol is speed tolerance between egress link speed and actual speed.
     # loss_expected to check losses on DUT and TGEN.
     test_check = {'lossless': 100, 'lossy': 0, 'speed_tol': 83, 'loss_expected': True, 'pfc': True}
 
-    test_def = {}
     test_def = {
         'TEST_FLOW_AGGR_RATE_PERCENT': 40,
         'BG_FLOW_AGGR_RATE_PERCENT': 9,
@@ -579,7 +481,7 @@ def test_pfcwd_drop_over_subs_40_09(snappi_api,                  # noqa: F811
         'data_flow_delay_sec': 1,
         'SNAPPI_POLL_DELAY_SEC': 60,
         'test_type': 'logs/snappi_tests/pfcwd/Two_Ingress_Single_Egress_pfcwd_drop_40_9_dist'+str(port_map[1])+'Gbps',
-        'line_card_choice': "ixia_dut_tb",
+        'line_card_choice': testbed_type,
         'port_map': port_map,
         'enable_pfcwd_drop': True,
         'enable_pfcwd_fwd': False,
@@ -601,67 +503,41 @@ def test_pfcwd_drop_over_subs_40_09(snappi_api,                  # noqa: F811
     snappi_extra_params.multi_dut_params.duthost2 = snappi_ports[-1]['duthost']
 
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
-    if (snappi_ports[0]['peer_device'] == snappi_ports[-1]['peer_device']):
-        dut_list = [snappi_ports[0]['duthost']]
-    else:
-        dut_list = [snappi_ports[0]['duthost'], snappi_ports[-1]['duthost']]
+    dut_list = list(set([snappi_ports[0]['duthost'], snappi_ports[-1]['duthost']]))
 
     for dut in duthosts:
         clear_fabric_counters(dut)
 
-    logger.info('PFC-WD stats at the start of the test:')
-    for prio in test_prio_list:
-        for port in snappi_ports:
-            if len(dut_list) == 1:
-                if dut_list[0].hostname == port['peer_device']:
-                    logger.info('PFCWD stats for dut:{}, port:{},prio:{}'.
-                                format(dut_list[0].hostname, port['peer_port'], prio))
-                    pfcwd_stats = get_pfcwd_stats(dut_list[0], port['peer_port'], prio)
-                    logger.info('PFCWD Stats:{}'.format(pfcwd_stats))
-            else:
-                for dut in dut_list:
-                    if dut.hostname == port['peer_device']:
-                        logger.info('PFCWD stats for dut:{}, port:{},prio:{}'.
-                                    format(dut.hostname, port['peer_port'], prio))
-                        pfcwd_stats = get_pfcwd_stats(dut, port['peer_port'], prio)
-                        logger.info('PFCWD Stats::{}'.format(pfcwd_stats))
+    bef_pfcwd_stats = log_pfcwd_stats(test_prio_list, snappi_ports, dut_list, when='start',
+                                      egress_count=port_map[0])
 
-    run_pfc_test(api=snappi_api,
-                 testbed_config=testbed_config,
-                 port_config_list=port_config_list,
-                 conn_data=conn_graph_facts,
-                 fanout_data=fanout_graph_facts_multidut,
-                 global_pause=False,
-                 pause_prio_list=pause_prio_list,
-                 test_prio_list=test_prio_list,
-                 bg_prio_list=bg_prio_list,
-                 prio_dscp_map=prio_dscp_map,
-                 test_traffic_pause=True,
-                 test_def=test_def,
-                 snappi_extra_params=snappi_extra_params)
+    try:
+        run_pfcwd_test(api=snappi_api,
+                       testbed_config=testbed_config,
+                       port_config_list=port_config_list,
+                       conn_data=conn_graph_facts,
+                       fanout_data=fanout_graph_facts_multidut,
+                       global_pause=False,
+                       pause_prio_list=pause_prio_list,
+                       test_prio_list=test_prio_list,
+                       bg_prio_list=bg_prio_list,
+                       prio_dscp_map=prio_dscp_map,
+                       test_traffic_pause=True,
+                       test_def=test_def,
+                       snappi_extra_params=snappi_extra_params)
 
-    logger.info('PFC-WD stats at the end of the test:')
-    for prio in test_prio_list:
-        for port in snappi_ports:
-            if len(dut_list) == 1:
-                if dut_list[0].hostname == port['peer_device']:
-                    pfcwd_stats = get_pfcwd_stats(dut_list[0], port['peer_port'], prio)
-                    logger.info('PFCWD Stats:for dut:{}, port:{},prio:{}, stats::{}'.
-                                format(dut_list[0].hostname, port['peer_port'], prio, pfcwd_stats))
-            else:
-                for dut in dut_list:
-                    if dut.hostname == port['peer_device']:
-                        pfcwd_stats = get_pfcwd_stats(dut, port['peer_port'], prio)
-                        logger.info('PFCWD Stats:for dut:{}, port:{},prio:{}, stats::{}'.
-                                    format(dut.hostname, port['peer_port'], prio, pfcwd_stats))
+        aft_pfcwd_stats = log_pfcwd_stats(test_prio_list, snappi_ports, dut_list, when='end',
+                                          egress_count=port_map[0])
+        verify_pfcwd_storm_increment(bef_pfcwd_stats, aft_pfcwd_stats)
 
-    for dut in duthosts:
-        check_fabric_counters(dut)
+        for dut in duthosts:
+            check_fabric_counters(dut)
+    finally:
+        cleanup_config(dut_list, snappi_ports)
 
 
-@pytest.mark.parametrize('port_map', over_subs_port_map)
-@pytest.mark.parametrize("multidut_port_info", MULTIDUT_PORT_INFO[MULTIDUT_TESTBED])
-@pytest.mark.parametrize("number_of_tx_rx_ports", ["True"], indirect=True)
+# This is an oversubscribe-testcase.
+@pytest.mark.parametrize("number_of_tx_rx_ports", [True], indirect=True)
 def test_pfcwd_frwd_over_subs_40_09(snappi_api,                  # noqa: F811
                                     conn_graph_facts,             # noqa: F811
                                     fanout_graph_facts_multidut,  # noqa: F811
@@ -670,9 +546,7 @@ def test_pfcwd_frwd_over_subs_40_09(snappi_api,                  # noqa: F811
                                     lossless_prio_list,           # noqa: F811
                                     lossy_prio_list,              # noqa: F811
                                     tbinfo,
-                                    get_snappi_ports,             # noqa: F811
-                                    port_map,
-                                    multidut_port_info):          # noqa: F811
+                                    tgen_port_info):              # noqa: F811
 
     """
     Purpose of testcase is to test behavior of DUT in PFCWD-FORWARD mode in oversubscription mode.
@@ -689,52 +563,19 @@ def test_pfcwd_frwd_over_subs_40_09(snappi_api,                  # noqa: F811
         lossless_prio_list(list): list of lossless priorities
         lossy_prio_list(list): list of lossy priorities.
         tbinfo(key): element to identify testbed info name.
-        get_snappi_ports(pytest fixture): returns list of ports based on linecards selected.
-        port_map(list): list for port-speed combination.
-        multidut_port_info : Line card classification along with ports selected as Rx and Tx port.
+        tgen_port_info (pytest fixture): (testbed_config, port_config_list, snappi_ports).
 
     Returns:
         N/A
     """
 
-    # port_map is defined as port-speed combination.
-    # first two parameters are count of egress links and its speed.
-    # last two parameters are count of ingress links and its speed.
-
     # pkt_size of 1024B will be used unless imix flag is set.
     # With imix flag set, the traffic_generation.py uses IMIX profile.
     pkt_size = 1024
 
-    for testbed_subtype, rdma_ports in multidut_port_info.items():
-        tx_port_count = port_map[0]
-        rx_port_count = port_map[2]
-        tmp_snappi_port_list = get_snappi_ports
-        snappi_port_list = []
-        for item in tmp_snappi_port_list:
-            if (int(item['speed']) == (port_map[1] * 1000)):
-                snappi_port_list.append(item)
-        pytest_require(MULTIDUT_TESTBED == tbinfo['conf-name'],
-                       "The testbed name from testbed file doesn't match with MULTIDUT_TESTBED in variables.py ")
-        pytest_require(len(snappi_port_list) >= tx_port_count + rx_port_count,
-                       "Need Minimum of 2 ports defined in ansible/files/*links.csv file")
-
-        pytest_require(len(rdma_ports['tx_ports']) >= tx_port_count,
-                       'MULTIDUT_PORT_INFO doesn\'t have the required Tx ports defined for \
-                       testbed {}, subtype {} in variables.py'.
-                       format(MULTIDUT_TESTBED, testbed_subtype))
-
-        pytest_require(len(rdma_ports['rx_ports']) >= rx_port_count,
-                       'MULTIDUT_PORT_INFO doesn\'t have the required Rx ports defined for \
-                       testbed {}, subtype {} in variables.py'.
-                       format(MULTIDUT_TESTBED, testbed_subtype))
-        logger.info('Running test for testbed subtype: {}'.format(testbed_subtype))
-
-        snappi_ports = get_snappi_ports_for_rdma(snappi_port_list, rdma_ports,
-                                                 tx_port_count, rx_port_count, MULTIDUT_TESTBED)
-
-        testbed_config, port_config_list, snappi_ports = snappi_multi_base_config(duthosts,
-                                                                                  snappi_ports,
-                                                                                  snappi_api)
+    testbed_config, port_config_list, snappi_ports = tgen_port_info
+    port_map = create_port_map(snappi_ports, 1, 2)
+    testbed_type = get_test_subtype_from_ports(snappi_ports, port_map, tbinfo)
 
     # Percentage drop expected for lossless and lossy traffic.
     # speed_tol is speed tolerance between egress link speed and actual speed.
@@ -749,7 +590,7 @@ def test_pfcwd_frwd_over_subs_40_09(snappi_api,                  # noqa: F811
         'data_flow_delay_sec': 1,
         'SNAPPI_POLL_DELAY_SEC': 60,
         'test_type': 'logs/snappi_tests/pfcwd/Two_Ingress_Single_Egress_pfcwd_frwd_40_9_dist'+str(port_map[1])+'Gbps',
-        'line_card_choice': testbed_subtype,
+        'line_card_choice': testbed_type,
         'port_map': port_map,
         'enable_pfcwd_drop': False,
         'enable_pfcwd_fwd': True,
@@ -772,65 +613,40 @@ def test_pfcwd_frwd_over_subs_40_09(snappi_api,                  # noqa: F811
     snappi_extra_params.multi_dut_params.duthost2 = snappi_ports[-1]['duthost']
 
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
-    if (snappi_ports[0]['peer_device'] == snappi_ports[-1]['peer_device']):
-        dut_list = [snappi_ports[0]['duthost']]
-    else:
-        dut_list = [snappi_ports[0]['duthost'], snappi_ports[-1]['duthost']]
+    dut_list = list(set([snappi_ports[0]['duthost'], snappi_ports[-1]['duthost']]))
 
     for dut in duthosts:
         clear_fabric_counters(dut)
 
-    logger.info('PFC-WD stats at the start of the test:')
-    for prio in test_prio_list:
-        for port in snappi_ports:
-            if len(dut_list) == 1:
-                if dut_list[0].hostname == port['peer_device']:
-                    logger.info('PFCWD stats for dut:{}, port:{},prio:{}'.
-                                format(dut_list[0].hostname, port['peer_port'], prio))
-                    pfcwd_stats = get_pfcwd_stats(dut_list[0], port['peer_port'], prio)
-                    logger.info('PFCWD Stats:{}'.format(pfcwd_stats))
-            else:
-                for dut in dut_list:
-                    if dut.hostname == port['peer_device']:
-                        logger.info('PFCWD stats for dut:{}, port:{},prio:{}'.
-                                    format(dut.hostname, port['peer_port'], prio))
-                        pfcwd_stats = get_pfcwd_stats(dut, port['peer_port'], prio)
-                        logger.info('PFCWD Stats::{}'.format(pfcwd_stats))
+    bef_pfcwd_stats = log_pfcwd_stats(test_prio_list, snappi_ports, dut_list, when='start',
+                                      egress_count=port_map[0])
 
-    run_pfc_test(api=snappi_api,
-                 testbed_config=testbed_config,
-                 port_config_list=port_config_list,
-                 conn_data=conn_graph_facts,
-                 fanout_data=fanout_graph_facts_multidut,
-                 global_pause=False,
-                 pause_prio_list=pause_prio_list,
-                 test_prio_list=test_prio_list,
-                 bg_prio_list=bg_prio_list,
-                 prio_dscp_map=prio_dscp_map,
-                 test_traffic_pause=True,
-                 test_def=test_def,
-                 snappi_extra_params=snappi_extra_params)
+    try:
+        run_pfcwd_test(api=snappi_api,
+                       testbed_config=testbed_config,
+                       port_config_list=port_config_list,
+                       conn_data=conn_graph_facts,
+                       fanout_data=fanout_graph_facts_multidut,
+                       global_pause=False,
+                       pause_prio_list=pause_prio_list,
+                       test_prio_list=test_prio_list,
+                       bg_prio_list=bg_prio_list,
+                       prio_dscp_map=prio_dscp_map,
+                       test_traffic_pause=True,
+                       test_def=test_def,
+                       snappi_extra_params=snappi_extra_params)
 
-    logger.info('PFC-WD stats at the end of the test:')
-    for prio in test_prio_list:
-        for port in snappi_ports:
-            if len(dut_list) == 1:
-                if dut_list[0].hostname == port['peer_device']:
-                    pfcwd_stats = get_pfcwd_stats(dut_list[0], port['peer_port'], prio)
-                    logger.info('PFCWD Stats:for dut:{}, port:{},prio:{}, stats::{}'.
-                                format(dut_list[0].hostname, port['peer_port'], prio, pfcwd_stats))
-            else:
-                for dut in dut_list:
-                    if dut.hostname == port['peer_device']:
-                        pfcwd_stats = get_pfcwd_stats(dut, port['peer_port'], prio)
-                        logger.info('PFCWD Stats:for dut:{}, port:{},prio:{}, stats::{}'.
-                                    format(dut.hostname, port['peer_port'], prio, pfcwd_stats))
-    for dut in duthosts:
-        check_fabric_counters(dut)
+        aft_pfcwd_stats = log_pfcwd_stats(test_prio_list, snappi_ports, dut_list, when='end',
+                                          egress_count=port_map[0])
+        verify_pfcwd_storm_increment(bef_pfcwd_stats, aft_pfcwd_stats)
+        for dut in duthosts:
+            check_fabric_counters(dut)
+    finally:
+        cleanup_config(dut_list, snappi_ports)
 
 
-# This is an non-oversubscribe-testcase.
-@pytest.mark.parametrize("number_of_tx_rx_ports", ["True"], indirect=True)
+# Two ingress ports, one egress port (oversubscription layout; number_of_tx_rx_ports -> (1, 2)).
+@pytest.mark.parametrize("number_of_tx_rx_ports", [True], indirect=True)
 def test_pfcwd_disable_pause_cngtn(snappi_api,                  # noqa: F811
                                    conn_graph_facts,             # noqa: F811
                                    fanout_graph_facts_multidut,  # noqa: F811
@@ -839,15 +655,15 @@ def test_pfcwd_disable_pause_cngtn(snappi_api,                  # noqa: F811
                                    lossless_prio_list,           # noqa: F811
                                    lossy_prio_list,              # noqa: F811
                                    tbinfo,
-                                   verify_port_speed,
-                                   disable_voq_wd_cisco_8000,
-                                   setup_ports_and_dut):          # noqa: F811
+                                   tgen_port_info,               # noqa: F811
+                                   disable_voq_wd_cisco_8000):   # noqa: F811
 
     """
-    Purpose of the test case is to test oversubscription with two ingresses and single ingress.
-    Traffic pattern has 18% lossless priority and 27% lossy priority traffic.
-    Total ingress link is sending only 45% link capacity and hence egress will not be congested.
-    No losses for both lossless and lossy priority traffic.
+    Purpose of the test case is to exercise pause congestion with PFCWD and credit watchdog
+    disabled, two TGEN-facing ingress ports and one egress port on the DUT. Traffic is 40%
+    aggregate on lossless priorities and 60% on lossy background priorities (see test_def).
+    On Cisco 8000, VoQ watchdog is turned off for the run and restored by the
+    disable_voq_wd_cisco_8000 fixture teardown.
 
     Args:
         snappi_api (pytest fixture): SNAPPI session
@@ -858,6 +674,7 @@ def test_pfcwd_disable_pause_cngtn(snappi_api,                  # noqa: F811
         lossless_prio_list(list): list of lossless priorities
         lossy_prio_list(list): list of lossy priorities.
         tbinfo(key): element to identify testbed info name.
+        tgen_port_info (pytest fixture): (testbed_config, port_config_list, snappi_ports).
 
     Returns:
         N/A
@@ -867,8 +684,9 @@ def test_pfcwd_disable_pause_cngtn(snappi_api,                  # noqa: F811
     # With imix flag set, the traffic_generation.py uses IMIX profile.
     pkt_size = 1024
 
-    testbed_config, port_config_list, _ = setup_ports_and_dut
-    port_map, snappi_ports = verify_port_speed
+    testbed_config, port_config_list, snappi_ports = tgen_port_info
+    port_map = create_port_map(snappi_ports, 1, 2)
+    testbed_type = get_test_subtype_from_ports(snappi_ports, port_map, tbinfo)
 
     # Percentage drop expected for lossless and lossy traffic.
     # speed_tol is speed tolerance between egress link speed and actual speed.
@@ -882,8 +700,8 @@ def test_pfcwd_disable_pause_cngtn(snappi_api,                  # noqa: F811
         'DATA_FLOW_DURATION_SEC': 300,
         'data_flow_delay_sec': 1,
         'SNAPPI_POLL_DELAY_SEC': 60,
-        'test_type': 'logs/snappi_tests/pfcwd/Single_Ingress_Single_Egress_pause_cngstn_'+str(port_map[1])+'Gbps',
-        'line_card_choice': "ixia_dut_tb",
+        'test_type': 'logs/snappi_tests/pfcwd/Two_Ingress_Single_Egress_pause_cngstn_'+str(port_map[1])+'Gbps',
+        'line_card_choice': testbed_type,
         'port_map': port_map,
         'enable_pfcwd_drop': False,
         'enable_pfcwd_fwd': False,
@@ -906,25 +724,29 @@ def test_pfcwd_disable_pause_cngtn(snappi_api,                  # noqa: F811
     snappi_extra_params.multi_dut_params.duthost2 = snappi_ports[-1]['duthost']
 
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
+    dut_list = list(set([snappi_ports[0]['duthost'], snappi_ports[-1]['duthost']]))
 
     for dut in duthosts:
         clear_fabric_counters(dut)
         if dut.facts.get('asic_type') == "cisco-8000":
             modify_voq_watchdog_cisco_8000(dut, False)
 
-    run_pfc_test(api=snappi_api,
-                 testbed_config=testbed_config,
-                 port_config_list=port_config_list,
-                 conn_data=conn_graph_facts,
-                 fanout_data=fanout_graph_facts_multidut,
-                 global_pause=False,
-                 pause_prio_list=pause_prio_list,
-                 test_prio_list=test_prio_list,
-                 bg_prio_list=bg_prio_list,
-                 prio_dscp_map=prio_dscp_map,
-                 test_traffic_pause=True,
-                 test_def=test_def,
-                 snappi_extra_params=snappi_extra_params)
+    try:
+        run_pfcwd_test(api=snappi_api,
+                       testbed_config=testbed_config,
+                       port_config_list=port_config_list,
+                       conn_data=conn_graph_facts,
+                       fanout_data=fanout_graph_facts_multidut,
+                       global_pause=False,
+                       pause_prio_list=pause_prio_list,
+                       test_prio_list=test_prio_list,
+                       bg_prio_list=bg_prio_list,
+                       prio_dscp_map=prio_dscp_map,
+                       test_traffic_pause=True,
+                       test_def=test_def,
+                       snappi_extra_params=snappi_extra_params)
 
-    for dut in duthosts:
-        check_fabric_counters(dut)
+        for dut in duthosts:
+            check_fabric_counters(dut)
+    finally:
+        cleanup_config(dut_list, snappi_ports)
