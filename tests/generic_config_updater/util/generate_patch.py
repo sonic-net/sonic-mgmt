@@ -538,9 +538,95 @@ def split_existing_acl_table_patches(acl_patches, no_leaf_config, is_multi_asic)
     return whole_entry_patches, append_patches
 
 
-def generate_config_patch(full_config_path, no_leaf_config_path, buffer_model=None):
+def _acl_table_types(config_path):
+    """Map ACL table name -> table type from a config_db JSON file."""
+    with open(config_path) as config_file:
+        config = json.load(config_file)
+
+    tables = config.get('ACL_TABLE')
+    if tables is None:
+        # Multi-ASIC configs are namespaced; take the first namespace defining ACL_TABLE.
+        for section in config.values():
+            if isinstance(section, dict) and isinstance(section.get('ACL_TABLE'), dict):
+                tables = section['ACL_TABLE']
+                break
+
+    return {name: entry.get('type', '')
+            for name, entry in (tables or {}).items()
+            if isinstance(entry, dict)}
+
+
+def extract_mirror_acl_ports(patch_data, target_config_path):
+    """Collect front-panel ports that the patch binds to MIRROR/MIRRORV6 ACL tables.
+
+    ACL bindings appear in the patch in two shapes:
+
+      whole-entry add, for an ACL table that does not exist yet:
+          {"op": "add", "path": "/ACL_TABLE/EVERFLOW",
+           "value": {"type": "MIRROR", "ports": ["PortChannel1015"], ...}}
+
+      per-port append, for an ACL table that already exists:
+          {"op": "add", "path": "/ACL_TABLE/EVERFLOW/ports/-",
+           "value": "PortChannel1015"}
+
+    The append form carries no table type, so the type is resolved from the
+    target configuration.
+
+    Args:
+        patch_data: The generated patch, as a list of RFC 6902 operations
+        target_config_path: Path to the target (with-T1) config_db JSON
+
+    Returns:
+        set: Port and PortChannel names bound to a MIRROR or MIRRORV6 table
     """
-    Generate a JSON patch file by comparing two configuration files.
+    acl_types = _acl_table_types(target_config_path)
+
+    def acl_name_and_remainder(path):
+        segments = [segment for segment in path.split('/') if segment]
+        if 'ACL_TABLE' not in segments:
+            return None, []
+        index = segments.index('ACL_TABLE')
+        if len(segments) <= index + 1:
+            return None, []
+        return segments[index + 1], segments[index + 2:]
+
+    # A patch may create the ACL table itself, so learn types from it too.
+    for entry in patch_data:
+        name, remainder = acl_name_and_remainder(entry.get('path', ''))
+        value = entry.get('value')
+        if name and not remainder and isinstance(value, dict) and 'type' in value:
+            acl_types.setdefault(name, value['type'])
+
+    bound_ports = set()
+    for entry in patch_data:
+        name, remainder = acl_name_and_remainder(entry.get('path', ''))
+        if not name or acl_types.get(name) not in ('MIRROR', 'MIRRORV6'):
+            continue
+
+        value = entry.get('value')
+        if not remainder and isinstance(value, dict):
+            candidates = value.get('ports', [])
+        elif remainder and remainder[0] == 'ports':
+            candidates = value if isinstance(value, list) else [value]
+        else:
+            continue
+
+        for port in candidates:
+            if isinstance(port, str) and is_front_panel_port(port):
+                bound_ports.add(port)
+
+    return bound_ports
+
+
+def generate_config_patch(full_config_path, no_leaf_config_path, buffer_model=None,
+                          split_phases=False):
+    """
+    Generate JSON patch file(s) that transform the "no leaf" configuration into
+    the full configuration.
+
+    Note on argument order: the patch produced is no_leaf -> full, i.e. it ADDS
+    the leaf. The arguments are deliberately (full, no_leaf) rather than the
+    jsonpatch.from_diff(src, dst) order, so read them as (target, current).
 
     This function:
     1. Coalesces property-level patches into entry-level patches for YANG validation
@@ -549,13 +635,21 @@ def generate_config_patch(full_config_path, no_leaf_config_path, buffer_model=No
     4. Includes buffer/queue tables on traditional buffer platforms only
 
     Args:
-        full_config_path (str): Path to the full configuration JSON file
-        no_leaf_config_path (str): Path to the configuration JSON file without leaf
+        full_config_path (str): Path to the target configuration JSON file
+        no_leaf_config_path (str): Path to the current configuration JSON file,
+            without the leaf being added
         buffer_model (str): 'dynamic' or 'traditional'. Defaults to auto-detection
             from DEVICE_METADATA|localhost|buffer_model in the full config.
+        split_phases (bool): When True, emit two patch files instead of one --
+            core config first, ACL_TABLE bindings second. This works around a GCU
+            sorter bug that fails with "'PortX' is not in list" when a PORT is
+            added in the same batch as an ACL_TABLE referencing that PORT. Only
+            needed when ACLs bind physical ports; when they bind a PortChannel
+            created earlier in the same patch, a single patch applies cleanly.
 
     Returns:
-        str: Path to the generated patch file
+        list[str]: Paths to the generated patch files, in the order they must be
+            applied. One element when split_phases is False, two when it is True.
     """
     # Load full configuration
     with open(full_config_path, 'r') as file:
@@ -801,13 +895,13 @@ def generate_config_patch(full_config_path, no_leaf_config_path, buffer_model=No
             if (patch_namespace, patch_acl_name) not in coalesced_acl_tables:
                 acl_binding_patches.append(patch)
 
-    # Single unified patch: core config first, ACL entries last
-    final_patch_list = (coalesced_port_only + all_interface_patches +
-                        coalesced_bgp_neighbor + filtered_patch_list +
-                        coalesced_acl_table + coalesced_acl_appends +
-                        acl_binding_patches)
+    # Core config first, ACL entries last.
+    core_patch_list = (coalesced_port_only + all_interface_patches +
+                       coalesced_bgp_neighbor + filtered_patch_list)
+    acl_patch_list = (coalesced_acl_table + coalesced_acl_appends +
+                      acl_binding_patches)
 
-    final_patch = jsonpatch.JsonPatch(final_patch_list)
+    final_patch_list = core_patch_list + acl_patch_list
 
     # Log the complete patch for diagnostic purposes
     logger.info("Generated patch with %d total operations:", len(final_patch_list))
@@ -816,16 +910,28 @@ def generate_config_patch(full_config_path, no_leaf_config_path, buffer_model=No
     logger.info("  - BGP_NEIGHBOR entries: %d", len(coalesced_bgp_neighbor))
     logger.info("  - Other entries: %d", len(filtered_patch_list))
     logger.info("  - ACL_TABLE entries: %d", len(coalesced_acl_table))
+    logger.info("  - ACL binding appends: %d", len(coalesced_acl_appends))
     logger.info("  - ACL binding updates: %d", len(acl_binding_patches))
 
-    logger.debug("Patch content:\n%s", json.dumps(final_patch.patch, indent=2))
+    logger.debug("Patch content:\n%s",
+                 json.dumps(jsonpatch.JsonPatch(final_patch_list).patch, indent=2))
 
     # Generate output path in same directory as full config
     output_dir = os.path.dirname(full_config_path)
-    patch_file = os.path.join(output_dir, 'generated_patch.json')
 
-    with open(patch_file, 'w') as file:
-        json.dump(final_patch.patch, file, indent=4)
+    if split_phases:
+        patch_files = [os.path.join(output_dir, 'generated_patch_phase1.json'),
+                       os.path.join(output_dir, 'generated_patch_phase2.json')]
+        patch_lists = [core_patch_list, acl_patch_list]
+        logger.info("Split into two phases (Phase 1: %d, Phase 2: %d)",
+                    len(core_patch_list), len(acl_patch_list))
+    else:
+        patch_files = [os.path.join(output_dir, 'generated_patch.json')]
+        patch_lists = [final_patch_list]
+
+    for target_file, patch_list in zip(patch_files, patch_lists):
+        with open(target_file, 'w') as file:
+            json.dump(jsonpatch.JsonPatch(patch_list).patch, file, indent=4)
 
     # Also write metadata file with information about patch generation
     metadata = {
@@ -835,10 +941,13 @@ def generate_config_patch(full_config_path, no_leaf_config_path, buffer_model=No
         'interface_patches': len(all_interface_patches),
         'bgp_neighbor_patches': len(coalesced_bgp_neighbor),
         'acl_binding_patches': len(acl_binding_patches),
-        'is_multi_asic': is_multi_asic
+        'acl_append_patches': len(coalesced_acl_appends),
+        'is_multi_asic': is_multi_asic,
+        'split_phases': split_phases,
+        'patch_files': [os.path.basename(path) for path in patch_files],
     }
     metadata_file = os.path.join(output_dir, 'generated_patch_metadata.json')
     with open(metadata_file, 'w') as file:
         json.dump(metadata, file, indent=4)
 
-    return patch_file
+    return patch_files

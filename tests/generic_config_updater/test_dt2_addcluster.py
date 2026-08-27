@@ -48,7 +48,11 @@ from tests.common.gu_utils import apply_patch, generate_tmpfile, delete_tmpfile
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint
 from tests.common.plugins.loganalyzer.utils import support_ignore_loganalyzer
 from tests.common.utilities import wait_until
-from tests.generic_config_updater.util.generate_patch import generate_config_patch, is_front_panel_port
+from tests.generic_config_updater.util.generate_patch import (
+    generate_config_patch,
+    is_front_panel_port,
+    extract_mirror_acl_ports,
+)
 
 from .util.process_minigraph import MinigraphRefactor
 
@@ -348,7 +352,7 @@ def test_dt2_addcluster_workflow(duthosts, rand_one_dut_hostname, loganalyzer):
     # If either is incomplete, the generated patch will be incomplete. A future
     # improvement is to use strict per-platform/topology patch templates instead.
     logger.info("Generating GCU patch")
-    patch_file = generate_config_patch(full_config_path, no_t1_config_path)
+    patch_file, = generate_config_patch(full_config_path, no_t1_config_path)
 
     # Step 7: Apply patch
     logger.info("Loading generated patch")
@@ -405,19 +409,11 @@ def test_dt2_addcluster_workflow(duthosts, rand_one_dut_hostname, loganalyzer):
             elif table == 'PFC_WD' and key:
                 config_entries_to_check['PFC_WD'].add(f"PFC_WD|{key}")
 
-    # Extract ACL-bound ports for verification
-    acl_bound_ports = set()
-    for patch_entry in patch_data:
-        path = patch_entry.get('path', '')
-        value = patch_entry.get('value', {})
-        if isinstance(value, dict):
-            acl_type = value.get('type', '')
-            if acl_type in ('MIRROR', 'MIRRORV6'):
-                ports_list = value.get('ports', [])
-                if isinstance(ports_list, list):
-                    for port in ports_list:
-                        if is_front_panel_port(port):
-                            acl_bound_ports.add(port)
+    # Extract ACL-bound ports for verification.
+    # Handles both whole-entry adds and per-port appends; see extract_mirror_acl_ports.
+    acl_bound_ports = extract_mirror_acl_ports(patch_data, full_config_path)
+    logger.info(f"Patch binds {len(acl_bound_ports)} port(s) to MIRROR ACL tables: "
+                f"{sorted(acl_bound_ports)}")
 
     # Apply patch
     # Performance expectation: single T1 addition should complete within this budget.
@@ -476,6 +472,11 @@ def test_dt2_addcluster_workflow(duthosts, rand_one_dut_hostname, loganalyzer):
         logger.info(f"Verified port {port} exists in CONFIG_DB with admin_status=up")
 
     # Verify MIRROR ACL bindings
+    patch_has_acl_ops = any('/ACL_TABLE' in entry.get('path', '') for entry in patch_data)
+    pytest_assert(not patch_has_acl_ops or acl_bound_ports,
+                  "Patch contains ACL_TABLE operations but no MIRROR-bound ports were "
+                  "extracted from it. The extraction is out of sync with the patch format, "
+                  "which would silently skip ACL verification.")
     if acl_bound_ports:
         logger.info(f"Checking MIRROR ACL bindings for {len(acl_bound_ports)} ports")
         result = duthost.shell("show acl table", module_ignore_errors=False)["stdout"]
@@ -671,7 +672,7 @@ def test_dt2_addcluster_stress(duthosts, rand_one_dut_hostname, loganalyzer):
     # NOTE: Same diff-based limitation as the single-T1 test applies here.
     # Patch quality depends on MinigraphRefactor removing all traces cleanly.
     logger.info("Generating single GCU patch for all T1 neighbors")
-    patch_file = generate_config_patch(full_config_path, no_t1_config_path)
+    patch_file, = generate_config_patch(full_config_path, no_t1_config_path)
 
     with open(patch_file) as f:
         patch_data = json.load(f)

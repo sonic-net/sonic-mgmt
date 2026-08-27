@@ -106,15 +106,47 @@ class TestGeneratePatchSinglePhase:
 
         result = generate_config_patch(full_path, no_leaf_path)
 
-        # Should return a single string path, not a tuple
-        assert isinstance(result, str), f"Expected str, got {type(result)}: {result}"
-        assert os.path.exists(result)
+        # Default is one unified patch, returned as a single-element list
+        assert isinstance(result, list), f"Expected list, got {type(result)}: {result}"
+        assert len(result) == 1, f"Expected 1 patch file, got {len(result)}: {result}"
+        assert os.path.exists(result[0])
+
+    def test_split_phases_returns_two_files(self, tmp_path):
+        """split_phases=True must keep producing two configlets for the multi-ASIC caller."""
+        full_path = _write_config(str(tmp_path), "full.json", _make_full_config())
+        no_leaf_path = _write_config(str(tmp_path), "no_leaf.json", _make_no_leaf_config())
+
+        result = generate_config_patch(full_path, no_leaf_path, split_phases=True)
+
+        assert isinstance(result, list)
+        assert len(result) == 2, f"Expected 2 patch files, got {len(result)}: {result}"
+        phase1_file, phase2_file = result
+        assert os.path.exists(phase1_file)
+        assert os.path.exists(phase2_file)
+
+        with open(phase1_file) as f:
+            phase1 = json.load(f)
+        with open(phase2_file) as f:
+            phase2 = json.load(f)
+
+        # Phase 1 carries core config and no ACL_TABLE ops; phase 2 is ACL only.
+        assert all('/ACL_TABLE' not in entry['path'] for entry in phase1), \
+            "Phase 1 must not contain ACL_TABLE operations"
+        assert all('/ACL_TABLE' in entry['path'] for entry in phase2), \
+            "Phase 2 must contain only ACL_TABLE operations"
+
+        # Splitting must not lose or invent operations.
+        single, = generate_config_patch(full_path, no_leaf_path)
+        with open(single) as f:
+            unified = json.load(f)
+        assert phase1 + phase2 == unified, \
+            "Phase 1 + Phase 2 must equal the unified patch"
 
     def test_patch_is_valid_json(self, tmp_path):
         full_path = _write_config(str(tmp_path), "full.json", _make_full_config())
         no_leaf_path = _write_config(str(tmp_path), "no_leaf.json", _make_no_leaf_config())
 
-        patch_file = generate_config_patch(full_path, no_leaf_path)
+        patch_file, = generate_config_patch(full_path, no_leaf_path)
         with open(patch_file) as f:
             patch = json.load(f)
 
@@ -129,7 +161,7 @@ class TestGeneratePatchSinglePhase:
         full_path = _write_config(str(tmp_path), "full.json", _make_full_config())
         no_leaf_path = _write_config(str(tmp_path), "no_leaf.json", _make_no_leaf_config())
 
-        patch_file = generate_config_patch(full_path, no_leaf_path)
+        patch_file, = generate_config_patch(full_path, no_leaf_path)
         with open(patch_file) as f:
             patch = json.load(f)
 
@@ -153,7 +185,7 @@ class TestGeneratePatchSinglePhase:
         full_path = _write_config(str(tmp_path), "full.json", _make_full_config())
         no_leaf_path = _write_config(str(tmp_path), "no_leaf.json", _make_no_leaf_config())
 
-        patch_file = generate_config_patch(full_path, no_leaf_path)
+        patch_file, = generate_config_patch(full_path, no_leaf_path)
         with open(patch_file) as f:
             patch = json.load(f)
 
@@ -180,7 +212,7 @@ class TestGeneratePatchSinglePhase:
         full_path = _write_config(str(tmp_path), "full.json", _make_full_config())
         no_leaf_path = _write_config(str(tmp_path), "no_leaf.json", _make_no_leaf_config())
 
-        patch_file = generate_config_patch(full_path, no_leaf_path)
+        patch_file, = generate_config_patch(full_path, no_leaf_path)
         with open(patch_file) as f:
             patch = json.load(f)
 
@@ -212,7 +244,7 @@ class TestGeneratePatchSinglePhase:
         full_path = _write_config(str(tmp_path), "full.json", _make_full_config())
         no_leaf_path = _write_config(str(tmp_path), "no_leaf.json", _make_no_leaf_config())
 
-        patch_file = generate_config_patch(full_path, no_leaf_path)
+        patch_file, = generate_config_patch(full_path, no_leaf_path)
         with open(patch_file) as f:
             patch = json.load(f)
 
@@ -294,10 +326,11 @@ class TestGeneratePatchMultiAsic:
         no_leaf_path = _write_config(str(tmp_path), "no_leaf.json", self._make_multi_asic_no_leaf())
 
         result = generate_config_patch(full_path, no_leaf_path)
-        assert isinstance(result, str)
-        assert os.path.exists(result)
+        assert isinstance(result, list)
+        assert len(result) == 1
+        assert os.path.exists(result[0])
 
-        with open(result) as f:
+        with open(result[0]) as f:
             patch = json.load(f)
         assert isinstance(patch, list)
         assert len(patch) > 0
