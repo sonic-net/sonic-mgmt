@@ -1,0 +1,7 @@
+{
+    "platform_hwsku_overrides": {
+        "x86_64-arista_7060x6_64pe_b+Arista-7060X6-64PE-B-C512S2": {
+            "transceiver_reset_supported": false
+        }
+    }
+}

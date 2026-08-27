@@ -13,5 +13,10 @@
         "firmware_download_interrupt_percentage": [10, 30, 50, 90],
         "sleep_after_dom_disable_sec": 5,
         "thermalctld_disabling_required": false
+    },
+    "dut": {
+        "str43-7060x6-512-c17-u10": {
+            "ports_under_test": [1]
+        }
     }
 }
