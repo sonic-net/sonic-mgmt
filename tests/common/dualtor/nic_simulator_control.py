@@ -66,10 +66,9 @@ def _log_grpc_metric(func, attempt, timeout, start_time, error=None):
     }
     if error is not None:
         metric["error"] = repr(error)
-        try:
-            metric["status_code"] = str(error.code())
-        except Exception:
-            pass
+        get_status_code = getattr(error, "code", None)
+        if callable(get_status_code):
+            metric["status_code"] = str(get_status_code())
     logger.info("METRIC %s", json.dumps(metric, sort_keys=True))
 
 
