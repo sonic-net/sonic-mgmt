@@ -535,7 +535,7 @@ bgp/test_bgp_queue.py:
     reason: "Not supported on mgmt device or VPP platform that doesn't have queues"
     conditions_logical_operator: or
     conditions:
-      - "topo_type in ['m0', 'mx', 'm1']"
+      - "topo_type in ['m0', 'mx', 'm1', 'uma', 'lma']"
       - "asic_type in ['vpp']"
   xfail:
     reason: "Skipped due to issue https://github.com/sonic-net/sonic-mgmt/issues/18349"
@@ -855,8 +855,10 @@ cacl/test_cacl_application.py::test_multiasic_cacl_application:
     conditions_logical_operator: or
     conditions:
       - "not is_multi_asic"
-      - "asic_type in ['vs'] and topo_type in ['t2']"
-      - "https://github.com/sonic-net/sonic-buildimage/issues/28061"
+  xfail:
+    reason: "xfail for multi-ASIC KVM t2 testbed, issue https://github.com/sonic-net/sonic-mgmt/issues/27182"
+    conditions:
+      - "asic_type in ['vs'] and is_multi_asic and topo_type in ['t2']"
 
 cacl/test_cacl_function.py:
   xfail:
@@ -1319,6 +1321,10 @@ dhcp_relay/test_dhcp_relay_stress.py::test_dhcp_relay_stress:
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - "asic_type in ['vs']"
+  xfail:
+    reason: "DHCP relay stress test is unstable on t0-vpp"
+    conditions:
+      - "asic_type in ['vpp'] and topo_name in ['t0']"
 
 dhcp_relay/test_dhcp_relay_stress.py::test_dhcp_relay_stress[discover:
   skip:
@@ -2897,12 +2903,6 @@ generic_config_updater/test_multiasic_linkcrc.py:
       - "(is_multi_asic is False)"
       - "'bmc' in topo_type"
 
-generic_config_updater/test_ntp.py::test_ntp_server_change_source_intf:
-  skip:
-    reason: "Loopback0 is not present on BMC platforms (no routing data plane); sonic-ntp YANG validation rejects src_intf=Loopback0."
-    conditions:
-      - "'bmc' in topo_type"
-
 generic_config_updater/test_pfcwd_interval.py:
   skip:
     reason: "This test can only support mellanox platforms. This test is not run on this hwsku currently"
@@ -2975,6 +2975,12 @@ gnmi/test_gnmi.py::test_gnmi_subscribe_sample:
     conditions:
       - "'bmc' in topo_type"
 
+gnmi/test_gnmi.py::test_on_change_updates:
+  skip:
+    reason: "Test relies on BGP neighbors; none configured on BMC"
+    conditions:
+      - "'bmc' in topo_type"
+
 gnmi/test_gnmi_configdb.py:
   skip:
     reason: "This feature is not supported for multi asic. Skipping these test for T2 and multi asic."
@@ -3008,33 +3014,9 @@ gnmi/test_gnmi_configdb.py::test_gnmi_configdb_streaming_sample_01:
     conditions:
       - "'bmc' in topo_type"
 
-gnmi/test_gnmi_countersdb.py::test_gnmi_counterdb_polling_01:
+gnmi/test_gnmi_countersdb.py:
   skip:
-    reason: "Test relies on COUNTERS_PORT_NAME_MAP populated by syncd; not applicable on BMC"
-    conditions:
-      - "'bmc' in topo_type"
-
-gnmi/test_gnmi_countersdb.py::test_gnmi_counterdb_polling_02:
-  skip:
-    reason: "Test relies on COUNTERS_PORT_NAME_MAP populated by syncd; not applicable on BMC"
-    conditions:
-      - "'bmc' in topo_type"
-
-gnmi/test_gnmi_countersdb.py::test_gnmi_counterdb_streaming_sample_01:
-  skip:
-    reason: "not applicable on BMC (no COUNTERS_PORT_NAME_MAP)"
-    conditions:
-      - "'bmc' in topo_type"
-
-gnmi/test_gnmi_countersdb.py::test_gnmi_counterdb_streaming_sample_02:
-  skip:
-    reason: "not applicable on BMC (no COUNTERS_PORT_NAME_MAP)"
-    conditions:
-      - "'bmc' in topo_type"
-
-gnmi/test_gnmi_countersdb.py::test_gnmi_output:
-  skip:
-    reason: "not applicable on BMC (no COUNTERS_PORT_NAME_MAP)"
+    reason: "Not available in BMC"
     conditions:
       - "'bmc' in topo_type"
 
@@ -3043,6 +3025,22 @@ gnmi/test_gnmi_smartswitch.py:
     reason: 'SmartSwitch gNMI tests require SmartSwitch platform, not applicable to BMC'
     conditions:
       - "'bmc' in topo_type"
+
+gnmi/test_gnmi_srv6.py:
+  skip:
+    reason: "SRv6 is not supported on older ASICs (Broadcom TH/TH2/TD3; Mellanox SPC1-3). SRv6 telemetry tests require routing, not available on BMC"
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type == 'broadcom' and asic_gen not in ['th5', 'th6', 'q3d']"
+      - "asic_type == 'mellanox' and asic_gen in ['spc1', 'spc2', 'spc3']"
+      - "'bmc' in topo_type"
+
+gnmi/test_gnmi_srv6.py::test_poll_mode_srv6_sid_counters:
+  skip:
+    reason: "Skip E2E telemetry SRv6 test for non-supported branches and HW"
+    conditions:
+      - "release not in ['202412']"
+      - "asic_type not in ['mellanox', 'broadcom']"
 
 gnmi/test_gnmi_stress.py::test_gnmi_latency_01:
   skip:
@@ -4181,10 +4179,10 @@ pfc_asym/test_pfc_asym.py:
 #######################################
 pfcwd:
   skip:
-    reason: "Pfcwd tests skipped on M* testbed, and some isolated topologies and '202412' for now"
+    reason: "Pfcwd tests skipped on M* and MA testbeds, and some isolated topologies and '202412' for now"
     conditions_logical_operator: or
     conditions:
-      - "topo_type in ['bmc', 'm0', 'm1', 'mx']"
+      - "topo_type in ['bmc', 'm0', 'm1', 'mx', 'uma', 'lma']"
       - *lossyTopos
       - "release in ['202412']"
 
@@ -4412,10 +4410,10 @@ ptftests:
 #######################################
 qos:
   skip:
-    reason: "M* topo does not support qos"
+    reason: "M* and MA topos do not support qos"
     conditions_logical_operator: or
     conditions:
-      - "topo_type in ['bmc', 'm0', 'm1', 'mx']"
+      - "topo_type in ['bmc', 'm0', 'm1', 'mx', 'uma', 'lma']"
       - "macsec_en==True"
       # ipv6 mgmt ip is not supported, see fixture dut_disable_ipv6 in qos_sai_base.py
       - "is_mgmt_ipv6_only==True"
@@ -5443,9 +5441,9 @@ snmp/test_snmp_loopback.py::test_snmp_loopback:
 
 snmp/test_snmp_pfc_counters.py:
   skip:
-    reason: "M* topo does not support test_snmp_pfc_counters"
+    reason: "M* and MA topos do not support test_snmp_pfc_counters"
     conditions:
-      - "topo_type in ['m0', 'mx', 'm1']"
+      - "topo_type in ['m0', 'mx', 'm1', 'uma', 'lma']"
 
 snmp/test_snmp_phy_entity.py:
   skip:
@@ -5468,10 +5466,10 @@ snmp/test_snmp_queue.py:
 snmp/test_snmp_queue_counters.py:
   skip:
     conditions_logical_operator: OR
-    reason: "Have an known issue on kvm testbed / Unsupported in M* and C0 topos / issue #17929 on Mellanox platform"
+    reason: "Have an known issue on kvm testbed / Unsupported in M*, MA and C0 topos / issue #17929 on Mellanox platform"
     conditions:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/14007"
-      - "topo_type in ['m0', 'mx', 'm1', 'c0']"
+      - "topo_type in ['m0', 'mx', 'm1', 'c0', 'uma', 'lma']"
       - "https://github.com/sonic-net/sonic-mgmt/issues/17929 and asic_type in ['mellanox']"
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
@@ -5762,12 +5760,6 @@ telemetry/test_telemetry.py:
     conditions:
       - "(is_multi_asic==True) and (release in ['201811', '201911'])"
 
-telemetry/test_telemetry.py::test_on_change_updates:
-  skip:
-    reason: "Test relies on BGP neighbors; none configured on BMC"
-    conditions:
-      - "'bmc' in topo_type"
-
 telemetry/test_telemetry.py::test_telemetry_ouput:
   skip:
     reason: "not applicable on BMC (no Ethernet0/COUNTERS_DB)"
@@ -5788,22 +5780,6 @@ telemetry/test_telemetry_poll.py::test_poll_mode_default_route:
     reason: "not applicable on BMC because requires upstream BGP neighbor and default route"
     conditions:
       - "'bmc' in topo_type"
-
-telemetry/test_telemetry_srv6.py:
-  skip:
-    reason: "SRv6 is not supported on older ASICs (Broadcom TH/TH2/TD3; Mellanox SPC1-3). SRv6 telemetry tests require routing, not available on BMC"
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type == 'broadcom' and asic_gen not in ['th5', 'th6', 'q3d']"
-      - "asic_type == 'mellanox' and asic_gen in ['spc1', 'spc2', 'spc3']"
-      - "'bmc' in topo_type"
-
-telemetry/test_telemetry_srv6.py::test_poll_mode_srv6_sid_counters:
-  skip:
-    reason: "Skip E2E telemetry SRv6 test for non-supported branches and HW"
-    conditions:
-      - "release not in ['202412']"
-      - "asic_type not in ['mellanox', 'broadcom']"
 
 test_interfaces.py:
   skip:

@@ -858,6 +858,12 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_tx_disable_channel:
 #######################################
 #####     api/test_thermal.py     #####
 #######################################
+platform_tests/api/test_thermal.py:
+  skip:
+    reason: "Not available in BMC"
+    conditions:
+      - "'bmc' in topo_type"
+
 platform_tests/api/test_thermal.py::TestThermalApi::test_get_high_critical_threshold:
   skip:
     reason: "Unsupported platform API"
@@ -1197,6 +1203,12 @@ platform_tests/daemon/test_pcied.py:
 platform_tests/daemon/test_psud.py:
   skip:
     reason: "Not available on BMC"
+    conditions:
+      - "'bmc' in topo_type"
+
+platform_tests/daemon/test_sensord.py:
+  skip:
+    reason: "Not available in BMC"
     conditions:
       - "'bmc' in topo_type"
 
