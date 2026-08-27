@@ -8,6 +8,7 @@ import os
 
 from tests.common.helpers.gnmi_utils import gnmi_capabilities, GNMIEnvironment
 from .helper import gnmi_set, dump_gnmi_log, gnmi_subscribe_streaming_sample, gnmi_get, \
+                    apply_cert_config, \
                     gnmi_subscribe_streaming_onchange
 from . import cli_helpers as helper
 from tests.common.utilities import wait_until
@@ -291,6 +292,9 @@ def test_telemetry_show_get(duthosts, localhost, rand_one_dut_hostname, ptfhost,
         if test_config["setup"]:
             setup_fixtures = [request.getfixturevalue(fx) for fx in test_config["setup_fixtures"]]
             getattr(helper, test_config["setup"])(*setup_fixtures, *test_config["setup_args"])
+            # The setup step reboots the DUT, which drops the non-persistent gnmi
+            # cert server; re-apply it so the SHOW GET runs against the configured server.
+            apply_cert_config(duthost)
 
         show_gnmi_out = gnmi_get(duthost, ptfhost, [path], target="SHOW", origin=None, raw=True)
 
