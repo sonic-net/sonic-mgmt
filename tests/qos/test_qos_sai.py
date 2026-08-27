@@ -48,6 +48,7 @@ from tests.common.helpers.ptf_tests_helper import (downstream_links, upstream_li
 from tests.common.utilities import get_ipv4_loopback_ip
 from tests.common.helpers.base_helper import read_logs
 from tests.common.mellanox_data import is_mellanox_device
+from tests.common.cisco_data import get_voq_quant_thresholds_cisco
 
 logger = logging.getLogger(__name__)
 
@@ -2133,6 +2134,85 @@ class TestQosSai(QosSaiBase):
             testParams=testParams
         )
 
+    @pytest.mark.parametrize("queueProfile", ["wm_q_shared_quant_lossless", "wm_q_shared_quant_lossy"])
+    def testQosSaiQSharedWatermarkQuantized(
+        self, get_src_dst_asic_and_duts, queueProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
+        resetWatermark, skip_src_dst_different_asic, skip_pacific_dst_asic, change_lag_lacp_timer,
+        blockGrpcTraffic
+    ):
+        """
+            Test QoS SAI quantized queue shared watermark for lossless/lossy traffic.
+
+            Some asics have a quantized queue watermark that jumps between a list of
+            thresholds. This test reads the exact congestion level thresholds at runtime
+            from an asic-specific CLI and verifies that the watermark jumps to the next
+            threshold as occupancy crosses each boundary.
+
+            Args:
+                queueProfile (pytest parameter): queue profile
+                ptfhost (AnsibleHost): Packet Test Framework (PTF)
+                dutTestParams (Fixture, dict): DUT host test params
+                dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
+                    and test ports
+                dutQosConfig (Fixture, dict): Map containing DUT host QoS configuration
+                resetWatermark (Fixture): reset queue watermarks
+
+            Returns:
+                None
+
+            Raises:
+                RunAnsibleModuleFail if ptf test fails
+        """
+        if dutConfig["dutAsic"] != "p200":
+            pytest.skip("Quantized queue watermark test is only supported on the Cisco-8000 p200 ASIC")
+
+        portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        if queueProfile == "wm_q_shared_quant_lossless":
+            skip_test_on_no_lossless_pg(portSpeedCableLength)
+
+        qosConfig = dutQosConfig["param"][portSpeedCableLength]
+        if queueProfile not in list(qosConfig.keys()):
+            pytest.skip("Queue profile {} is not defined for this testbed".format(queueProfile))
+
+        self.updateTestPortIdIp(dutConfig, get_src_dst_asic_and_duts)
+
+        duthost = get_src_dst_asic_and_duts['dst_dut']
+        dst_asic_index = get_src_dst_asic_and_duts['dst_asic_index']
+        dst_port_id = dutConfig["testPorts"]["dst_port_id"]
+        dst_port_name = dutConfig["dutInterfaces"][dst_port_id]
+        queue = qosConfig[queueProfile]["queue"]
+        quant_thresholds = get_voq_quant_thresholds_cisco(duthost, dst_port_name, queue, dst_asic_index)
+
+        testParams = dict()
+        testParams.update(dutTestParams["basicParams"])
+        testParams.update({
+            "dscp": qosConfig[queueProfile]["dscp"],
+            "ecn": qosConfig[queueProfile]["ecn"],
+            "queue": queue,
+            "dst_port_id": dst_port_id,
+            "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
+            "src_port_id": dutConfig["testPorts"]["src_port_id"],
+            "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
+            "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
+            "pkts_num_leak_out": dutQosConfig["param"][portSpeedCableLength]["pkts_num_leak_out"],
+            "cell_size": qosConfig[queueProfile]["cell_size"],
+            "fill_margin": qosConfig[queueProfile]["fill_margin"],
+            "quant_thresholds": quant_thresholds,
+            "hwsku": dutTestParams['hwsku'],
+            "dut_asic": dutConfig["dutAsic"],
+            "ip_type": dutConfig["ip_type"]
+        })
+
+        if "packet_size" in list(qosConfig[queueProfile].keys()):
+            testParams["packet_size"] = qosConfig[queueProfile]["packet_size"]
+
+        self.set_test_params_descriptor_size(dutQosConfig, testParams)
+
+        self.runPtfTest(
+            ptfhost, testCase="sai_qos_tests.QSharedWatermarkQuantizedTest",
+            testParams=testParams
+        )
+
     def testQosSaiDscpToPgMapping(
         self, get_src_dst_asic_and_duts, duthost,
         request, ptfhost, dutTestParams, dutConfig, dut_qos_maps,  # noqa: F811
@@ -2488,6 +2568,9 @@ class TestQosSai(QosSaiBase):
 
         if "pkts_num_margin" in qosConfig[queueProfile].keys():
             testParams["pkts_num_margin"] = qosConfig[queueProfile]["pkts_num_margin"]
+
+        if "ignore_upper_bound" in qosConfig[queueProfile].keys():
+            testParams["ignore_upper_bound"] = qosConfig[queueProfile]["ignore_upper_bound"]
 
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.QWatermarkAllPortTest",
