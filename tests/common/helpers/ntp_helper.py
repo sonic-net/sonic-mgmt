@@ -1,9 +1,12 @@
 from enum import Enum
+import logging
 import pytest
 import time
 from contextlib import contextmanager
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
+
+logger = logging.getLogger(__name__)
 
 
 class NtpDaemon(Enum):
@@ -116,6 +119,13 @@ def setup_ntp_context(ptfhost, duthost, ptf_use_ipv6):
     duthost.command("config ntp del %s" % (ptfhost.mgmt_ipv6 if ptf_use_ipv6 else ptfhost.mgmt_ip))
     for ntp_server in ntp_servers:
         duthost.command("config ntp add %s %s" % ("--iburst" if ntp_add_iburst_present else "", ntp_server))
+
+    # Resync the DUT off the PTF clock, as chrony only slews and would carry that offset for hours. Best
+    # effort only: deploy treats NTP as optional, and an unreachable server leaves no backwards jump at boot.
+    if not run_ntp(duthost, get_ntp_daemon_in_use(duthost), required=False):
+        logger.warning(f"DUT {duthost.hostname} did not resync against its configured NTP servers, "
+                       "so the clock is left as the test left it")
+
     # The time jump leads to exception in lldp_syncd. The exception has been handled by lldp_syncd,
     # but it will leave error messages in syslog, which will cause subsequent test cases to fail.
     # So we need to wait for a while to make sure the error messages are flushed.
@@ -171,7 +181,7 @@ def check_max_root_dispersion(host, max_dispersion, ntp_daemon_in_use):
         return False
 
 
-def run_ntp(duthost, ntp_daemon_in_use):
+def run_ntp(duthost, ntp_daemon_in_use, required=True):
     """ Verify that DUT is synchronized with configured NTP server """
 
     if ntp_daemon_in_use == NtpDaemon.NTPSEC:
@@ -187,5 +197,7 @@ def run_ntp(duthost, ntp_daemon_in_use):
         duthost.service(name='chrony', state='stopped')
         duthost.command("timeout 20 chronyd -q -F 1")
         duthost.service(name='chrony', state='restarted')
-    pytest_assert(wait_until(720, 10, 0, check_ntp_status, duthost, ntp_daemon_in_use),
-                  "NTP not in sync")
+    synced = wait_until(720, 10, 0, check_ntp_status, duthost, ntp_daemon_in_use)
+    if required:
+        pytest_assert(synced, "NTP not in sync")
+    return synced

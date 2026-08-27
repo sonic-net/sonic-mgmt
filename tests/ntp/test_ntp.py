@@ -2,7 +2,6 @@ from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.ntp_helper import check_ntp_status, run_ntp, setup_ntp_context, NtpDaemon, ntp_daemon_in_use  # noqa: F401, E501
 import logging
-import time
 import pytest
 
 
@@ -95,7 +94,6 @@ def setup_long_jump_config(duthosts, rand_one_dut_hostname, ntp_daemon_in_use): 
 
     # get time before set time
     start_time_dut = int(duthost.command("date +%s")['stdout'])
-    start_time = time.time()
 
     # stop NTP and set time on DUT
     if ntp_daemon_in_use == NtpDaemon.CHRONY:
@@ -107,13 +105,8 @@ def setup_long_jump_config(duthosts, rand_one_dut_hostname, ntp_daemon_in_use): 
     # set long jump config with variable
     yield
 
-    # set DUT's time back after long jump test
-    if ntp_daemon_in_use == NtpDaemon.CHRONY:
-        duthost.service(name='chrony', state='stopped')
-    elif ntp_daemon_in_use == NtpDaemon.NTP or ntp_daemon_in_use == NtpDaemon.NTPSEC:
-        duthost.service(name='ntp', state='stopped')
-    dut_end_time = int(time.time()) - int(start_time) + start_time_dut
-    duthost.command("date -s '@{}'".format(dut_end_time))
+    # Restore the long jump config only. The DUT's clock is deliberately left as the test leaves it;
+    # setup_ntp_context's teardown resyncs it once, against the real NTP servers.
     config_long_jump(duthost, ntp_daemon_in_use, long_jump_enable)
 
 

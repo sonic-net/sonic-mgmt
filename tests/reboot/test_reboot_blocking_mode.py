@@ -10,6 +10,15 @@ pytestmark = [
 
 COMMAND_TIMEOUT = 90  # seconds
 
+# A SmartSwitch halts every DPU before the script reaches the blocking loop, ~140s on SN4280 when
+# gNOI is up. Must also stay under that plus blocking_mode_timeout, or the loop exits on its own.
+SMARTSWITCH_COMMAND_TIMEOUT = 200  # seconds
+
+
+def get_command_timeout(duthost) -> int:
+    basic_facts = duthost.dut_basic_facts()["ansible_facts"]["dut_basic_facts"]
+    return SMARTSWITCH_COMMAND_TIMEOUT if basic_facts.get("is_smartswitch") else COMMAND_TIMEOUT
+
 
 def check_if_platform_reboot_enabled(duthost) -> bool:
     platform = get_command_result(duthost, "sonic-cfggen -H -v DEVICE_METADATA.localhost.platform")
@@ -112,7 +121,7 @@ class TestRebootBlockingModeCLI:
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         result = get_command_result(
             duthost,
-            f"sudo timeout {COMMAND_TIMEOUT}s bash -c 'sudo reboot; echo \"ExpectedFinished\"'")
+            f"sudo timeout {get_command_timeout(duthost)}s bash -c 'sudo reboot; echo \"ExpectedFinished\"'")
         pytest_assert("ExpectedFinished" in result, "Reboot didn't exited as expected.")
 
     def test_blocking_mode(
@@ -123,7 +132,7 @@ class TestRebootBlockingModeCLI:
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         result = get_command_result(
             duthost,
-            f"sudo timeout {COMMAND_TIMEOUT}s bash -c 'sudo reboot -b -v; echo \"UnexpectedFinished\"'")
+            f"sudo timeout {get_command_timeout(duthost)}s bash -c 'sudo reboot -b -v; echo \"UnexpectedFinished\"'")
         pytest_assert("UnexpectedFinished" not in result, "Reboot script didn't blocked as expected.")
         pattern = r".*\n[.]+$"
         pytest_assert(re.search(pattern, result), "Cannot find dots as expected in output: {}".format(result))
@@ -156,5 +165,5 @@ class TestRebootBlockingModeConfigFile:
         mock_reboot_config_file_with_0_timeout(duthost)
         result = get_command_result(
             duthost,
-            f"sudo timeout {COMMAND_TIMEOUT}s bash -c 'sudo reboot; echo \"ExpectedFinished\"'")
+            f"sudo timeout {get_command_timeout(duthost)}s bash -c 'sudo reboot; echo \"ExpectedFinished\"'")
         pytest_assert("ExpectedFinished" in result, "Reboot didn't exited as expected.")

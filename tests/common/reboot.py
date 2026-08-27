@@ -515,12 +515,12 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     else:
         if float(dut_uptime.strftime("%s")) < float(dut_datetime.strftime("%s")):
             logger.info('DUT {} timestamp went backwards'.format(hostname))
-            wait_until(120, 5, 0, positive_uptime, duthost, dut_datetime)
-
-        dut_uptime = duthost.get_up_time()
-
-        assert float(dut_uptime.strftime("%s")) > float(dut_datetime.strftime("%s")), "Device {} did not reboot". \
-            format(hostname)
+            if not wait_until(120, 5, 0, positive_uptime, duthost, dut_datetime):
+                # SONiC only slews the clock; correct time is restored at boot (RTC, or NTP where there is
+                # none), so it can legitimately move backwards. /dev/shm/test_reboot already proved the reboot.
+                logger.warning('DUT {} timestamp is still behind the pre-reboot timestamp {}. The reboot '
+                               'was already confirmed by the /dev/shm/test_reboot check, so the DUT clock '
+                               'was most likely corrected during boot'.format(hostname, dut_datetime))
 
     if wait_for_bgp:
         bgp_neighbors = duthost.get_bgp_neighbors_per_asic(state="all")
@@ -545,7 +545,8 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
 
 
 def positive_uptime(duthost, dut_datetime):
-    dut_uptime = duthost.get_up_time()
+    # dut_datetime is captured with utc_timezone=True, so read the uptime the same way.
+    dut_uptime = duthost.get_up_time(utc_timezone=True)
     if float(dut_uptime.strftime("%s")) < float(dut_datetime.strftime("%s")):
         return False
 
