@@ -17,4 +17,4 @@ def test_gnmi_enabled_by_default(duthosts, rand_one_dut_hostname):
     '''
     duthost = duthosts[rand_one_dut_hostname]
     state = duthost.shell('sonic-db-cli CONFIG_DB HGET "FEATURE|gnmi" state')['stdout'].strip()
-    assert state == "enabled", "gnmi feature is not enabled by default, state={}".format(state)
+    assert state in ("enabled", "always_enabled"), "gnmi feature is not enabled by default, state={}".format(state)
