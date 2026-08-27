@@ -190,4 +190,3 @@ jobs:
           echo Begin to parse Branch: $branch
           cherry_pick
         done
-
