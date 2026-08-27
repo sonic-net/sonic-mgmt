@@ -630,12 +630,22 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
             port_alias_to_name_map["etp64e"] = "Ethernet508"
             port_alias_to_name_map['etp65'] = "Ethernet512"
             port_alias_to_name_map['etp66'] = "Ethernet520"
-        elif hwsku in ["Mellanox-SN5640-C512S2"]:
+        elif hwsku in ["Mellanox-SN5640-C512S2", "Mellanox-SN5640-C512X2"]:
             split_alias_list = ["a", "b", "c", "d", "e", "f", "g", "h"]
             for i in range(1, 65):
                 for idx, split_alias in enumerate(split_alias_list):
                     alias = "etp{}{}".format(i, split_alias)
                     eth_name = "Ethernet{}".format((i - 1) * 8 + idx)
+                    port_alias_to_name_map[alias] = eth_name
+            port_alias_to_name_map['etp65'] = "Ethernet512"
+            port_alias_to_name_map['etp66'] = "Ethernet520"
+        elif hwsku in ["Mellanox-SN5640-O128X2"]:
+            # 64 OSFP x 2x400G (etpNa/etpNb); mgmt etp65/etp66
+            split_alias_list = ["a", "b"]
+            for i in range(1, 65):
+                for idx, split_alias in enumerate(split_alias_list):
+                    alias = "etp{}{}".format(i, split_alias)
+                    eth_name = "Ethernet{}".format((i - 1) * 8 + idx * 4)
                     port_alias_to_name_map[alias] = eth_name
             port_alias_to_name_map['etp65'] = "Ethernet512"
             port_alias_to_name_map['etp66'] = "Ethernet520"
@@ -771,6 +781,24 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
             # adding 25G ports
             port_alias_to_name_map["Port65"] = "Ethernet512"
             port_alias_to_name_map["Port66"] = "Ethernet513"
+
+        elif "NH-4210-F" in hwsku:
+            logical_num = 1
+            max_sub_intfs = 8
+
+            # Default is P128 no subintfs
+            sub_intfs = ("",)
+            if "O256" in hwsku:
+                sub_intfs = ("a", "b")
+
+            for i in range(0, 1017, 8):
+                for idx in range(len(sub_intfs)):
+                    name = f"Ethernet{i + (idx * max_sub_intfs // len(sub_intfs))}"
+                    port_alias_to_name_map[f"etp{logical_num}{sub_intfs[idx]}"] = name
+                logical_num += 1
+            # adding 100G management port
+            if "C1" in hwsku:
+                port_alias_to_name_map["etp129"] = "Ethernet1024"
 
         elif "NH-5010" in hwsku:
             logical_num = 1

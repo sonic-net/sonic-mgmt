@@ -336,6 +336,10 @@
     when: hostvars[item]['slot_num'] is defined
     loop: "{{ ansible_play_batch }}"
 
+  - name: set is_tor_dut fact (aggregator dut_types contain the 'tor' substring but are NOT ToRs)
+    set_fact:
+      is_tor_dut: "{{ ('tor' in vm_topo_config['dut_type'] | lower) and ('aggregator' not in vm_topo_config['dut_type'] | lower) }}"
+
   - name: find all enabled host_interfaces
     set_fact:
       host_if_indexes: "{{ vm_topo_config['host_interfaces_by_dut'][dut_index|int] | difference(vm_topo_config['disabled_host_interfaces_by_dut'][dut_index|int]) }}"
@@ -344,7 +348,7 @@
     set_fact:
       vlan_intfs: "{{ vlan_intfs|default([]) + [port_alias[item]] }}"
     with_items: "{{ host_if_indexes }}"
-    when: "('host_interfaces_by_dut' in vm_topo_config) and ('tor' in vm_topo_config['dut_type'] | lower)"
+    when: "('host_interfaces_by_dut' in vm_topo_config) and (is_tor_dut | bool)"
 
   - name: set default dualtor facts
     set_fact:
@@ -415,13 +419,13 @@
       port_alias: "{{ port_alias }}"
       vlan_config: "{{ vlan_config | default(None) }}"
     delegate_to: localhost
-    when: "('host_interfaces_by_dut' in vm_topo_config) and ('tor' in vm_topo_config['dut_type'] | lower)"
+    when: "('host_interfaces_by_dut' in vm_topo_config) and  (is_tor_dut | bool)"
 
   - name: find downlink portchannel configuration for T0 topology
     set_fact:
       portchannel_config: "{{ vm_topo_config['DUT']['portchannel_config'] | default({})}}"
     delegate_to: localhost
-    when: "('host_interfaces_by_dut' in vm_topo_config) and ('tor' in vm_topo_config['dut_type'] | lower)"
+    when: "('host_interfaces_by_dut' in vm_topo_config) and  (is_tor_dut | bool)"
 
   - name: find any tunnel configurations
     tunnel_config:
@@ -879,10 +883,12 @@
       # golden config for lt2/ft2 modifies the PORT table. To support lt2-isolated
       # which have some interfaces disabled, apply the minigraph config first so that
       # golden config inherits the same admin_status settings
+      # t2_single_node golden_config needs port_config from generated minigraph so
+      # that golden config does not inherit stale admin_status from old minigraph
       - name: Apply minigraph prior to generating golden_config_db.json
         become: true
         shell: config load_minigraph -y
-        when: "'lt2' in topo or 'ft2' in topo"
+        when: "'lt2' in topo or 'ft2' in topo or 'dualtor' in topo or 't2_single_node' in topo"
 
       - name: Extract port speeds and hwsku from lab CSV files for PORT override
         delegate_to: localhost
@@ -927,6 +933,7 @@
           prober_type: "{{ prober_type | default(omit) }}"
           neighbor_mode: "{{ neighbor_mode | default(omit) }}"
           is_lit_mode: "{{ is_lit_mode | default(true) }}"
+          num_asics: "{{ num_asics }}"
           npu_index: "{{ dut_index | default(0) | int }}"
           bgp_confd_asn: "{{ bgp_confd_asn }}"
           bgp_confd_peers: "{{ bgp_confd_peers }}"
@@ -934,6 +941,7 @@
           dut_loopbacks: "{{ topology.DUT.loopback | default({}) }}"
           console_ports: "{{ device_serial_link[inventory_hostname] | default(omit) if 'c0' in topo else omit }}"
           enabled_dpu_indices: "{{ (testbed_facts.enabled_dpus[inventory_hostname] | map(attribute='dpu_index') | list) if (testbed_facts.enabled_dpus is defined and inventory_hostname in testbed_facts.enabled_dpus) else omit }}"
+          lacp_fast_rate: "{{ lacp_fast_rate | default(false) }}"
         become: true
         when: enable_macsec is not defined and init_cfg_profile is not defined
 
@@ -1178,6 +1186,15 @@
             retries: 12
             delay: 10
             until: chrony_start_result is succeeded
+
+          - name: Wait for chronyd to accept commands
+            become: true
+            command: chronyc tracking
+            register: chrony_ready_result
+            until: chrony_ready_result.rc == 0
+            retries: 12
+            delay: 5
+            changed_when: false
 
           - name: Force rapid NTP polling with chrony
             become: true

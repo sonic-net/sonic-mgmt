@@ -219,7 +219,7 @@ qos_params:
                     dscps: [3, 4]
                     dst_port_id: 0
                     ecn: 1
-                    margin: 4
+                    margin: 40
                     pgs: [3, 4]
                     pgs_num: 13
                     pkts_num_hdrm_full: 2853
@@ -339,16 +339,16 @@ qos_params:
                     dscps: [3, 4]
                     dst_port_id: 0
                     ecn: 1
-                    margin: 4
+                    margin: 40
                     pgs: [3, 4]
-                    pgs_num: 24
+                    pgs_num: 22
                     pkts_num_hdrm_full: 2853
                     pkts_num_hdrm_partial: 701
                     pkts_num_trig_pfc: 125589
                     pkts_num_trig_pfc_multi: [125589, 62811, 31423, 15728, 7881, 3958,
                         1996, 1015, 524, 279, 157, 95, 65, 49, 42, 38, 36, 35, 34,
-                        34, 34, 34, 34, 34]
-                    src_port_ids: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+                        34, 34, 34]
+                    src_port_ids: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
                 lossy_queue_1:
                     dscp: 8
                     ecn: 1
