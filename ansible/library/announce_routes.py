@@ -663,10 +663,11 @@ def fib_uma(topo, ptf_ip, action="announce", topo_routes={}):
         port, port6 = get_change_routes_ports(k, topo)
         routes_v4 = []
         routes_v6 = []
-        # The upstream RegionalWANAggregator (RWA) neighbors originate the default
-        # route toward the UpperMgmtAggregator DUT. Downstream leaf (LMA/M1)
-        # neighbors advertise only their own loopbacks via their own BGP.
-        if "core" in v["properties"]:
+        # The upstream RegionalWANAggregator (RWA) and out-of-band neighbors
+        # originate the default route toward the UpperMgmtAggregator DUT.
+        # Downstream leaf (LMA/M1) neighbors advertise only their own loopbacks
+        # via their own BGP.
+        if "core" in v["properties"] or "oob" in v["properties"]:
             routes_v4 = [("0.0.0.0/0", nhipv4, None)]
             routes_v6 = [("::/0", nhipv6, None)]
         topo_routes[k] = {}
