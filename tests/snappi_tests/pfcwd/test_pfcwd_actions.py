@@ -664,6 +664,8 @@ def test_pfcwd_disable_pause_cngtn(snappi_api,                  # noqa: F811
     aggregate on lossless priorities and 60% on lossy background priorities (see test_def).
     On Cisco 8000, VoQ watchdog is turned off for the run and restored by the
     disable_voq_wd_cisco_8000 fixture teardown.
+    BG flows occupy total of 54% of egress BW and hence speed_tol is set to 46%.
+    Test lossless flows generate PFCs on ingress and hence are stalled.
 
     Args:
         snappi_api (pytest fixture): SNAPPI session
@@ -691,11 +693,11 @@ def test_pfcwd_disable_pause_cngtn(snappi_api,                  # noqa: F811
     # Percentage drop expected for lossless and lossy traffic.
     # speed_tol is speed tolerance between egress link speed and actual speed.
     # loss_expected to check losses on DUT and TGEN.
-    test_check = {'lossless': 0, 'lossy': 0, 'speed_tol': 41, 'loss_expected': False, 'pfc': True}
+    test_check = {'lossless': 0, 'lossy': 0, 'speed_tol': 46, 'loss_expected': False, 'pfc': True}
 
     test_def = {
-        'TEST_FLOW_AGGR_RATE_PERCENT': 40,
-        'BG_FLOW_AGGR_RATE_PERCENT': 60,
+        'TEST_FLOW_AGGR_RATE_PERCENT': 18,
+        'BG_FLOW_AGGR_RATE_PERCENT': 27,
         'data_flow_pkt_size': pkt_size,
         'DATA_FLOW_DURATION_SEC': 300,
         'data_flow_delay_sec': 1,
