@@ -137,6 +137,39 @@ def _neighbor_has_lldp_entry(localhost, hostip, snmp_community, neighbor_interfa
     return neighbor_interface in nei_lldp_facts.get('ansible_lldp_facts', {})
 
 
+def _get_port_field(port, neighbor_type):
+    """Return the LLDP PortID field the test compares against, tolerating an
+    incompletely repopulated lldpctl entry.
+
+    For ``eos`` neighbors the test keys off ``port['ifname']``. Right after a
+    swss restart lldpd may briefly advertise only the port description, so the
+    ``ifname`` key is not present yet. Return ``None`` in that case so the
+    caller can wait/retry instead of raising ``KeyError``.
+    """
+    if neighbor_type == 'eos':
+        return port.get('ifname')
+    return port.get('local')
+
+
+def _lldpctl_ports_ready(duthost, asic, skip_interface_pattern_list, neighbor_type):
+    """Re-fetch lldpctl facts and return them once every neighbor entry exposes
+    the PortID field required for ``neighbor_type``; otherwise return None.
+
+    Guards against the post-swss-restart window where lldpd has re-learned the
+    neighbor but has not yet populated ``port['ifname']``.
+    """
+    lldpctl_facts = duthost.lldpctl_facts(
+        asic_instance_id=asic,
+        skip_interface_pattern_list=skip_interface_pattern_list)['ansible_facts']
+    entries = list(lldpctl_facts['lldpctl'].items())
+    if not entries:
+        return None
+    for _, v in entries:
+        if _get_port_field(v.get('port', {}), neighbor_type) is None:
+            return None
+    return lldpctl_facts
+
+
 def check_lldp_neighbor(duthost, localhost, eos, sonic, collect_techsupport_all_duts,
                         enum_rand_one_frontend_asic_index, tbinfo, request):
     """ verify LLDP information on neighbors """
@@ -147,9 +180,19 @@ def check_lldp_neighbor(duthost, localhost, eos, sonic, collect_techsupport_all_
             '' if asic is None else asic))
     dut_system_description = res['stdout']
     internal_port_list = get_dpu_npu_ports_from_hwsku(duthost)
-    lldpctl_facts = duthost.lldpctl_facts(
-        asic_instance_id=asic,
-        skip_interface_pattern_list=["eth0", "Ethernet-BP", "Ethernet-IB"] + internal_port_list)['ansible_facts']
+    skip_interface_pattern_list = ["eth0", "Ethernet-BP", "Ethernet-IB"] + internal_port_list
+    neighbor_type = request.config.getoption("--neighbor_type")
+    # After a swss restart, lldpd may have re-learned the neighbor but not yet
+    # repopulated the PortID field (for eos neighbors, port['ifname']); it can
+    # briefly advertise only the port description. Wait until every neighbor
+    # entry exposes the required PortID field before parsing, instead of hitting
+    # a KeyError on the transient half-populated entry.
+    lldpctl_facts = wait_until(
+        60, 5, 0, _lldpctl_ports_ready, duthost, asic, skip_interface_pattern_list, neighbor_type)
+    assert lldpctl_facts, (
+        "lldpctl neighbor entries did not expose the '{}' PortID field within 60s "
+        "(neighbor_type={}). LLDP info may not have fully repopulated after swss restart."
+    ).format('ifname' if neighbor_type == 'eos' else 'local', neighbor_type)
     config_facts = duthost.asic_instance(asic).config_facts(host=duthost.hostname, source="running")['ansible_facts']
     if not list(lldpctl_facts['lldpctl'].items()):
         pytest.fail("No LLDP neighbors received (lldpctl_facts are empty)")
@@ -173,12 +216,16 @@ def check_lldp_neighbor(duthost, localhost, eos, sonic, collect_techsupport_all_
             logger.info("Neighbor device {} does not sent management IP via lldp".format(v['chassis']['name']))
             hostip = nei_meta[v['chassis']['name']]['mgmt_addr']
 
-        if request.config.getoption("--neighbor_type") == 'eos':
-            neighbor_interface = v['port']['ifname']
+        if neighbor_type == 'eos':
+            neighbor_interface = _get_port_field(v['port'], 'eos')
             snmp_community = eos['snmp_rocommunity']
         else:
-            neighbor_interface = v['port']['local']
+            neighbor_interface = _get_port_field(v['port'], 'sonic')
             snmp_community = sonic['snmp_rocommunity']
+        assert neighbor_interface is not None, (
+            "LLDP neighbor '{}' entry is missing the PortID field "
+            "(neighbor_type={}, port={}).").format(
+                v.get('chassis', {}).get('name', k), neighbor_type, v.get('port'))
 
         # After swss restart, the DUT's LLDP entry on the neighbor may have aged out
         # during the restart window. Wait until the neighbor re-learns DUT's LLDP info.
