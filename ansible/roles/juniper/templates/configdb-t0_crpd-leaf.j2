@@ -1,0 +1,130 @@
+{% set mgmt_ip = ansible_host %}
+{% set mgmt_if_index = 1 %}
+{% set ssh_filter = configuration[hostname].get('ssh_filter') %}
+{# Set common property shortcuts #}
+{% set local_asn = configuration[hostname].get('bgp', {}).get('asn', configuration_properties.common.get('dut_asn', configuration_properties.common.get('leaf_asn_start'))) %}
+{% set nhipv4 = configuration_properties.common.nhipv4 %}
+{% set nhipv6 = configuration_properties.common.nhipv6 %}
+
+{# DYNAMIC INTERFACE SELECTION: prefer Port-Channel1, else first non-Loopback0 with ipv4 #}
+{% set host_config = configuration[hostname] %}
+{% set target_intf = 'Port-Channel1' if 'Port-Channel1' in host_config['interfaces'] else (host_config['interfaces'].keys() | reject('equalto', 'Loopback0') | list | first | default('Loopback0')) %}
+
+system {
+    host-name {{ hostname }};
+    root-authentication {
+        encrypted-password "{{ junos_root_hash }}";
+    }
+    services {
+        netconf {
+            ssh;
+        }
+        ssh {
+            root-login allow;
+        }
+    }
+}
+
+interfaces {
+    eth0 {
+        unit 0 {
+            family inet {
+                address {{ mgmt_ip }}/{{ mgmt_prefixlen }};
+                {% if ssh_filter is defined %}
+                filter {
+                    input {{ ssh_filter }};
+                }
+                {% endif %}
+            }
+        }
+    }
+
+    {% if configuration[hostname].get('bp_interface') is defined %}
+    eth_bp {
+        unit 0 {
+            family inet {
+                address {{ configuration[hostname]['bp_interface']['ipv4'] }};
+            }
+            family inet6 {
+                address {{ configuration[hostname]['bp_interface']['ipv6'] }};
+            }
+        }
+    }
+    {% endif %}
+}
+
+routing-options {
+    autonomous-system {{ local_asn }};
+    static {
+        route 0.0.0.0/0 next-hop {{ mgmt_gw }};
+    }
+}
+
+policy-options {
+    policy-statement EXPORT-ALL {
+        term 1 {
+            from {
+                protocol direct;
+                protocol bgp;
+            }
+            then {
+                next-hop self;
+                accept;
+            }
+        }
+        then reject;
+    }
+}
+
+
+protocols {
+    bgp {
+        group IBGP {
+            type internal;
+            export EXPORT-ALL;
+            neighbor {{nhipv4}} {
+                peer-as {{ local_asn }};
+                local-as {{ local_asn }};
+            }
+            neighbor {{nhipv6}} {
+                peer-as {{ local_asn }};
+                local-as {{ local_asn }};
+           }
+        }
+
+        {% if configuration[hostname].get('bgp') is defined %}
+
+        {% for peer_asn, peer_list in configuration[hostname]['bgp']['peers'].items() %}
+        group ASN_{{ peer_asn }} {
+            type {% if (peer_asn | string) == (local_asn | string) %}internal{% else %}external{% endif %};
+            description "Peers in ASN {{ peer_asn }}";
+            export EXPORT-ALL;
+
+            {% for peer_ip in peer_list %}
+            neighbor {{ peer_ip }} {
+                peer-as {{ peer_asn }};
+                description "Peer {{ peer_ip }}";
+                
+                {# Handle IPv6 specific requirements #}
+                {% if ':' in peer_ip %}
+                local-ipv4-address {{ host_config['interfaces'][target_intf].get('ipv4', '127.0.0.1/32') | ipaddr('address') }};
+                local-address {{ host_config['interfaces'][target_intf].get('ipv6', '::1/128') | ipaddr('address') }};
+                
+                family inet6 {
+                    unicast;
+                }
+                {% else %}
+                local-address {{ host_config['interfaces'][target_intf].get('ipv4', '127.0.0.1/32') | ipaddr('address') }};
+                
+                family inet {
+                    unicast;
+                }
+                {% endif %}
+            }
+            {% endfor %}
+        }
+        {% endfor %}
+
+        {% endif %}
+    }
+}
