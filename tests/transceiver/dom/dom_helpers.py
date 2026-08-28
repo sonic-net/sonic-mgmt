@@ -32,32 +32,41 @@ LANE_NUM_PLACEHOLDER = "LANE_NUM"
 MEDIA_LANE_MASK_KEY = "media_lane_mask"
 DomMappedField = namedtuple("DomMappedField", ("source_attr", "attr_value"))
 DomThresholdMappedField = namedtuple("DomThresholdMappedField", ("source_attr", "attr_value", "threshold_key"))
+DomQuantitySpec = namedtuple(
+    "DomQuantitySpec",
+    ("threshold_db_prefix", "sensor_field_template", "operational_attr", "consistency_unit"),
+)
 
 THRESHOLD_FIELD_SUFFIXES = ("lowalarm", "lowwarning", "highwarning", "highalarm")
+DOM_QUANTITY_REGISTRY = {
+    "temperature": DomQuantitySpec("temp", "temperature", "temperature_operational_range", "C"),
+    "voltage": DomQuantitySpec("vcc", "voltage", "voltage_operational_range", "V"),
+    "laser_temperature": DomQuantitySpec(
+        "lasertemp",
+        "laser_temperature",
+        "laser_temperature_operational_range",
+        "C",
+    ),
+    "tx_power": DomQuantitySpec("txpower", "tx{}power", "txLANE_NUMpower_operational_range", "dB"),
+    "rx_power": DomQuantitySpec("rxpower", "rx{}power", "rxLANE_NUMpower_operational_range", "dB"),
+    "tx_bias": DomQuantitySpec("txbias", "tx{}bias", "txLANE_NUMbias_operational_range", "percent"),
+}
 THRESHOLD_FIELD_PREFIXES = {
-    "temperature": "temp",
-    "voltage": "vcc",
-    "laser_temperature": "lasertemp",
-    "tx_bias": "txbias",
-    "tx_power": "txpower",
-    "rx_power": "rxpower",
+    base_name: spec.threshold_db_prefix
+    for base_name, spec in DOM_QUANTITY_REGISTRY.items()
 }
 THRESHOLD_TO_OPERATIONAL_ATTR = {
-    "temperature": "temperature_operational_range",
-    "voltage": "voltage_operational_range",
-    "laser_temperature": "laser_temperature_operational_range",
-    "tx_bias": "txLANE_NUMbias_operational_range",
-    "tx_power": "txLANE_NUMpower_operational_range",
-    "rx_power": "rxLANE_NUMpower_operational_range",
+    base_name: spec.operational_attr
+    for base_name, spec in DOM_QUANTITY_REGISTRY.items()
 }
 THRESHOLD_VALUE_TOLERANCE = 0.01
 CONSISTENCY_FIELD_TEMPLATES_BY_BASE = {
-    "temperature": "temperature",
-    "voltage": "voltage",
-    "laser_temperature": "laser_temperature",
-    "tx_power": "tx{}power",
-    "rx_power": "rx{}power",
-    "tx_bias": "tx{}bias",
+    base_name: spec.sensor_field_template
+    for base_name, spec in DOM_QUANTITY_REGISTRY.items()
+}
+CONSISTENCY_UNITS_BY_BASE = {
+    base_name: spec.consistency_unit
+    for base_name, spec in DOM_QUANTITY_REGISTRY.items()
 }
 
 DOM_POLLING_ENABLED_VALUES = ("", "enabled")
@@ -190,6 +199,22 @@ def consistency_field_template_for_attr(attr_name):
         return None
     base_name = attr_name[:-len(CONSISTENCY_SUFFIX)]
     return CONSISTENCY_FIELD_TEMPLATES_BY_BASE.get(base_name)
+
+
+def consistency_unit_for_attr(attr_name):
+    """Return the output unit for a configured consistency attribute."""
+    if not attr_name.endswith(CONSISTENCY_SUFFIX):
+        return None
+    base_name = attr_name[:-len(CONSISTENCY_SUFFIX)]
+    return CONSISTENCY_UNITS_BY_BASE.get(base_name)
+
+
+def dom_consistency_attributes():
+    """Return DOM consistency attribute names derived from the quantity registry."""
+    return tuple(
+        "{}{}".format(base_name, CONSISTENCY_SUFFIX)
+        for base_name in DOM_QUANTITY_REGISTRY
+    )
 
 
 def field_template_is_lane_expanded(field_template):

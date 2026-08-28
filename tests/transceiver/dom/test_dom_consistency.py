@@ -15,6 +15,8 @@ from tests.transceiver.dom.dom_helpers import (
     STATE_DB_SENSOR_TABLE,
     build_dom_sensor_plan,
     consistency_field_template_for_attr,
+    consistency_unit_for_attr,
+    dom_consistency_attributes,
     field_template_is_lane_expanded,
     format_dom_port_failure,
     format_optional_float,
@@ -29,14 +31,21 @@ TX_BIAS_CONSISTENCY_ATTR = "tx_bias_consistency_variation_threshold"
 MODE_ABSOLUTE = "absolute"
 MODE_PERCENT = "percent"
 
-CONSISTENCY_CHECK_DEFINITIONS = (
-    ("temperature_consistency_variation_threshold", "C", MODE_ABSOLUTE),
-    ("voltage_consistency_variation_threshold", "V", MODE_ABSOLUTE),
-    ("laser_temperature_consistency_variation_threshold", "C", MODE_ABSOLUTE),
-    ("tx_power_consistency_variation_threshold", "dB", MODE_ABSOLUTE),
-    ("rx_power_consistency_variation_threshold", "dB", MODE_ABSOLUTE),
-    (TX_BIAS_CONSISTENCY_ATTR, "percent", MODE_PERCENT),
-)
+CONSISTENCY_CHECK_MODES_BY_ATTR = {
+    TX_BIAS_CONSISTENCY_ATTR: MODE_PERCENT,
+}
+
+
+def _consistency_check_definitions():
+    """Return ``(attr_name, unit, mode)`` definitions from the DOM quantity registry."""
+    return tuple(
+        (
+            attr_name,
+            consistency_unit_for_attr(attr_name),
+            CONSISTENCY_CHECK_MODES_BY_ATTR.get(attr_name, MODE_ABSOLUTE),
+        )
+        for attr_name in dom_consistency_attributes()
+    )
 
 
 def _parse_positive_int(attr_name, raw_value, minimum):
@@ -88,6 +97,7 @@ def _parse_tx_bias_warning_range(dom_attrs):
 def _build_dom_consistency_plan(port_attributes_dict, dom_primary_ports, sensor_plan_by_port):
     """Build per-port update-count and variation checks from DOM attributes."""
     plan_by_port = {}
+    consistency_checks = _consistency_check_definitions()
     for port in dom_primary_ports:
         dom_attrs = port_attributes_dict.get(port, {}).get(DOM_ATTRIBUTES_KEY, {})
         sensor_plan = sensor_plan_by_port.get(port, {})
@@ -107,18 +117,21 @@ def _build_dom_consistency_plan(port_attributes_dict, dom_primary_ports, sensor_
             attr_name in dom_attrs
             and consistency_field_template_for_attr(attr_name)
             and field_template_is_lane_expanded(consistency_field_template_for_attr(attr_name))
-            for attr_name, _unit, _mode in CONSISTENCY_CHECK_DEFINITIONS
+            for attr_name, _unit, _mode in consistency_checks
         )
         if has_lane_check and sensor_plan.get("errors"):
             errors.extend(sensor_plan["errors"])
 
-        for attr_name, unit, mode in CONSISTENCY_CHECK_DEFINITIONS:
+        for attr_name, unit, mode in consistency_checks:
             if attr_name not in dom_attrs:
                 continue
 
             field_template = consistency_field_template_for_attr(attr_name)
             if field_template is None:
                 errors.append("{} has no DOM consistency field mapping".format(attr_name))
+                continue
+            if unit is None:
+                errors.append("{} has no DOM consistency unit mapping".format(attr_name))
                 continue
             lane_expanded = field_template_is_lane_expanded(field_template)
 
