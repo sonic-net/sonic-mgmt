@@ -1976,6 +1976,36 @@
         ]
     },
     {
+        "feature": "transceiver",
+        "owner": "Prince George",
+        "email": "prgeor@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "transceiver.cdb_firmware_upgrade.test_firmware_abort_versions",
+                    "transceiver.cdb_firmware_upgrade.test_firmware_activation",
+                    "transceiver.cdb_firmware_upgrade.test_firmware_download",
+                    "transceiver.cdb_firmware_upgrade.test_firmware_upgrade",
+                    "transceiver.cli.show.test_transceiver_info_cli",
+                    "transceiver.dom.test_dom_availability",
+                    "transceiver.dom.test_dom_operational_range",
+                    "transceiver.eeprom.cmis.test_cdb_background_mode",
+                    "transceiver.eeprom.test_breakout_serial",
+                    "transceiver.eeprom.test_eeprom_content",
+                    "transceiver.eeprom.test_eeprom_scenario",
+                    "transceiver.eeprom.test_error_handling",
+                    "transceiver.eeprom.test_hexdump",
+                    "transceiver.eeprom.test_presence",
+                    "transceiver.eeprom.test_vdm_consistency",
+                    "transceiver.oir.test_sfp_oir",
+                    "transceiver.system.process_restart.test_processes_restart"
+                ],
+                "owner": "Prince George",
+                "email": "prgeor@microsoft.com"
+            }
+        ]
+    },
+    {
         "feature": "vlan",
         "owner": "Prince Sunny",
         "email": "prsunny@microsoft.com",
