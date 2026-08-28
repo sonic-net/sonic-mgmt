@@ -4,10 +4,10 @@ import time
 import logging
 import ipaddress
 import json
-import sys
 from collections import Counter
 
 from tests.common.helpers.assertions import pytest_assert, pytest_require
+from tests.common.helpers.constants import ARP_RESPONDER_DEFAULT_CONFIG
 from tests.ptf_runner import ptf_runner
 from tests.common.utilities import wait_until
 from tests.common.fixtures.ptfhost_utils import \
@@ -19,12 +19,6 @@ logger = logging.getLogger(__name__)
 pytestmark = [
     pytest.mark.topology("t0")
 ]
-
-# TODO: Remove this once we no longer support Python 2
-if sys.version_info.major >= 3:
-    UNICODE_TYPE = str
-else:
-    UNICODE_TYPE = unicode      # noqa: F821
 
 PTF_LAG_NAME = "bond1"
 PTF_LAG_MAC = "00:11:22:33:44:66"
@@ -115,7 +109,11 @@ def set_arp_reply(ptfhost, interface_list, value):
     """
     for interface in interface_list:
         ptfhost.shell("sysctl -w net.ipv4.conf.{}.arp_ignore={}".format(interface, value))
-    ptfhost.shell("sysctl -p")
+    # "sysctl -w" already applies each setting live. A bare "sysctl -p" only
+    # reads the legacy /etc/sysctl.conf, which Debian trixie's procps no longer
+    # ships, so it fails on newer PTF images. Reload from the drop-in dirs
+    # instead, tolerating their absence.
+    ptfhost.shell("sysctl --system", module_ignore_errors=True)
 
 
 def ptf_teardown(ptfhost, ptf_ports):
@@ -141,6 +139,10 @@ def ptf_teardown(ptfhost, ptf_ports):
                                                  ptf_ports[ATTR_PORT_NOT_BEHIND_LAG]["port_name"]))
     ptfhost.ptf_nn_agent()
     ptfhost.shell('supervisorctl stop arp_responder', module_ignore_errors=True)
+    # Remove the arp_responder config rendered during setup_ptf_lag so it cannot
+    # be re-used by a subsequent test that starts arp_responder with the default
+    # config path.
+    ptfhost.file(path=ARP_RESPONDER_DEFAULT_CONFIG, state="absent")
 
 
 def setup_dut_lag(duthost, dut_ports, vlan, src_vlan_id):
@@ -224,9 +226,9 @@ def setup_arp_responder(ptf_ports, ptfhost):
     arp_responder_conf[PTF_LAG_NAME] = [ptf_ports["ip"]["lag"].split("/")[0]]
     arp_responder_conf[ptf_ports[ATTR_PORT_NOT_BEHIND_LAG]["port_name"]] = \
         [ptf_ports["ip"]["port_not_behind_lag"].split("/")[0]]
-    with open("/tmp/from_t1.json", "w") as ar_config:
+    with open(ARP_RESPONDER_DEFAULT_CONFIG, "w") as ar_config:
         json.dump(arp_responder_conf, ar_config)
-    ptfhost.copy(src="/tmp/from_t1.json", dest="/tmp/from_t1.json")
+    ptfhost.copy(src=ARP_RESPONDER_DEFAULT_CONFIG, dest=ARP_RESPONDER_DEFAULT_CONFIG)
     ptfhost.host.options["variable_manager"].extra_vars.update({"arp_responder_args": ""})
     ptfhost.template(src="templates/arp_responder.conf.j2", dest="/etc/supervisor/conf.d/arp_responder.conf")
 
@@ -311,7 +313,7 @@ def generate_port_config(duthost, tbinfo, most_common_port_speed):
         "ip": "192.168.9.1/24"
     }
     ip_splits = vlan["ip"].split("/")
-    vlan_ip = ipaddress.ip_address(UNICODE_TYPE(ip_splits[0]))
+    vlan_ip = ipaddress.ip_address(str(ip_splits[0]))
     lag_ip = "{}/{}".format(vlan_ip + 1, ip_splits[1])
     port_not_behind_lag_ip = "{}/{}".format(vlan_ip + 2, ip_splits[1])
     ptf_ports["ip"] = {
@@ -352,13 +354,6 @@ def get_vlan_id(cfg_facts, number_of_lag_member):
         if src_vlan_id != -1:
             break
     return src_vlan_id
-
-
-@pytest.fixture(scope="module")
-def common_setup_teardown(copy_acstests_directory, ptfhost):  # noqa: F811
-    logger.info("########### Setup for lag testing ###########")
-
-    yield ptfhost
 
 
 @pytest.fixture(scope="module")
@@ -467,7 +462,7 @@ def run_lag_member_traffic_test(duthost, dut_vlan, ptf_ports, ptfhost):
     ptf_runner(ptfhost, 'acstests', "lag_test.LagMemberTrafficTest", "/root/ptftests", params=params, is_python3=True)
 
 
-def test_lag_member_traffic(common_setup_teardown, duthost, ptf_dut_setup_and_teardown):
+def test_lag_member_traffic(copy_acstests_directory, ptfhost, duthost, ptf_dut_setup_and_teardown):  # noqa: F811
     """
     Test traffic about ports in a lag
 
@@ -480,7 +475,6 @@ def test_lag_member_traffic(common_setup_teardown, duthost, ptf_dut_setup_and_te
         4.) Send ICMP request packet from port not behind lag in PTF to port behind lag in PTF,
             and then verify recieve the packet in port behind lag
     """
-    ptfhost = common_setup_teardown
     dut_ports, ptf_ports, vlan = ptf_dut_setup_and_teardown
     ping_format = "ping -c 5 -w 2 -l 5 -I {} {}"
 

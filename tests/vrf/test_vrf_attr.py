@@ -44,12 +44,20 @@ class TestVrfAttrSrcMac():
         yield
 
         # -------- Teardown ----------
-        extra_vars = {'router_mac': dut_facts['router_mac']}
-        duthost.host.options['variable_manager'].extra_vars.update(extra_vars)
-        duthost.template(src="vrf/vrf_attr_src_mac.j2",
-                         dest="/tmp/vrf_attr_src_mac.json")
+        try:
+            extra_vars = {'router_mac': dut_facts['router_mac']}
+            duthost.host.options['variable_manager'].extra_vars.update(extra_vars)
+            duthost.template(src="vrf/vrf_attr_src_mac.j2",
+                             dest="/tmp/vrf_attr_src_mac.json")
 
-        duthost.shell("config load -y /tmp/vrf_attr_src_mac.json")
+            duthost.shell("config load -y /tmp/vrf_attr_src_mac.json")
+        finally:
+            # Remove the rendered VRF neighbor files we generated above. The
+            # module-level setup_vrf teardown removes them too via cleanup_vlan_peer,
+            # but doing it here as well guarantees no residue if the DUT teardown
+            # path errors out and the test framework skips the module finalizer.
+            ptfhost.shell("rm -f /tmp/vrf1_neigh.txt /tmp/vrf2_neigh.txt",
+                          module_ignore_errors=True)
 
     def test_vrf_src_mac_cfg(self, duthosts, rand_one_dut_hostname):
         duthost = duthosts[rand_one_dut_hostname]

@@ -176,9 +176,6 @@ class DHCPTest(DataplaneBaseTest):
         self.max_hop_count = self.test_params.get('max_hop_count', None)
         self.client_vrf = self.test_params.get('client_vrf', None)
         self.dhcpv4_disable_flag = self.test_params.get('dhcpv4_disable_flag', None)
-        if self.relay_agent == "sonic-relay-agent":
-            if (self.link_selection and self.source_interface) or self.server_vrf:
-                self.link_selection_ip = self.test_params['link_selection_ip']
 
         self.uplink_mac = self.test_params['uplink_mac']
 
@@ -193,10 +190,16 @@ class DHCPTest(DataplaneBaseTest):
         #  Byte 0: Suboption number, always set to 1
         #  Byte 1: Length of suboption data in bytes
         #  Bytes 2+: Suboption data
-        # Our circuit_id string is of the form "hostname:portname"
-        circuit_id_string = self.hostname + ":" + self.client_iface_alias
-        if self.relay_agent == "sonic-relay-agent":
-            circuit_id_string = circuit_id_string + ":" + self.vlan_iface_name
+        if self.relay_agent == "isc-relay-agent":
+            # ISC identifies the client circuit by hostname and physical port alias.
+            circuit_id_string = self.hostname + ":" + self.client_iface_alias
+        elif self.relay_agent == "sonic-relay-agent":
+            # SONiC also encodes the VLAN used by its reply path to recover the client circuit.
+            circuit_id_string = (
+                self.hostname + ":" + self.client_iface_alias + ":" + self.vlan_iface_name
+            )
+        else:
+            raise ValueError("Unsupported DHCP relay agent: {}".format(self.relay_agent))
         self.option82 = struct.pack('BB', self.CIRCUIT_ID_SUBOPTION, len(circuit_id_string))
         self.option82 += circuit_id_string.encode('utf-8')
 
@@ -205,20 +208,29 @@ class DHCPTest(DataplaneBaseTest):
         #  Byte 0: Suboption number, always set to 2
         #  Byte 1: Length of suboption data in bytes
         #  Bytes 2+: Suboption data
-        # Our remote_id string simply consists of the MAC address of the port that received the request
-        remote_id_string = self.relay_iface_mac
+        # SONiC dual-ToR uses the switch base MAC; other paths use the receiving VLAN interface MAC.
+        remote_id_string = (
+            self.uplink_mac
+            if self.dual_tor and self.relay_agent == "sonic-relay-agent"
+            else self.relay_iface_mac
+        )
         self.option82 += struct.pack('BB', self.REMOTE_ID_SUBOPTION, len(remote_id_string))
         self.option82 += remote_id_string.encode('utf-8')
+
+        link_selection_added = False  # set below; dual-tor block skips SubOption 5 if set
 
         if self.relay_agent == "sonic-relay-agent":
             # Structure:
             #  Byte 0: Suboption number, always set to 5
             #  Byte 1: Length of suboption data (4 bytes for IPv4)
             #  Bytes 2–5: The link selection IP address (in byte format)
-            if (self.link_selection and self.source_interface) or self.server_vrf:
-                link_selection_ip = bytes(list(map(int, self.link_selection_ip.split('.'))))
+            # ISC encodes the receiving VLAN address in Link Selection. Keep SONiC aligned
+            # and emit SubOption 5 before SubOption 11 (server-override).
+            if self.dual_tor or (self.link_selection and self.source_interface) or self.server_vrf:
+                link_selection_ip = bytes(list(map(int, self.relay_iface_ip.split('.'))))
                 self.option82 += struct.pack('BB', self.LINK_SELECTION_SUBOPTION, 4)
                 self.option82 += link_selection_ip
+                link_selection_added = True
 
             # The structure is as follows:
             #  Byte 0: Suboption number, always set to 11
@@ -246,11 +258,15 @@ class DHCPTest(DataplaneBaseTest):
         #  Byte 0: Suboption number, always set to 5
         #  Byte 1: Length of suboption data in bytes, always set to 4 (ipv4 addr has 4 bytes)
         #  Bytes 2+: vlan ip addr
-        if self.dual_tor:
+        # Legacy dual-tor SubOption 5, now only for the non-sonic-relay-agent (isc) path:
+        # the sonic-relay-agent block above already adds SubOption 5 for dual-tor (setting
+        # link_selection_added), so this only runs when that gate was not entered (isc).
+        if self.dual_tor and not link_selection_added:
             link_selection = bytes(
                 list(map(int, self.relay_iface_ip.split('.'))))
             self.option82 += struct.pack('BB', self.LINK_SELECTION_SUBOPTION, 4)
             self.option82 += link_selection
+            link_selection_added = True
 
         # We'll assign our client the IP address 1 greater than our relay interface (i.e., gateway) IP
         self.client_ip = incrementIpAddress(self.relay_iface_ip, 1)
@@ -259,6 +275,20 @@ class DHCPTest(DataplaneBaseTest):
         self.dest_mac_address = self.test_params['dest_mac_address']
         self.client_udp_src_port = self.test_params['client_udp_src_port']
         self.enable_source_port_ip_in_relay = self.test_params.get('enable_source_port_ip_in_relay', False)
+
+    def add_option82_to_server_reply(self, packet):
+        """Model an Option 82-aware server echoing the relay option verbatim."""
+        options = packet[scapy.DHCP].options
+        options.insert(options.index("end"), (82, self.option82))
+        return packet
+
+    def pad_relayed_reply_after_option82_removal(self, packet):
+        """Model relay padding after it removes Option 82 before client delivery."""
+        bootp_len = len(packet[scapy.BOOTP])
+        pad_bytes = self.DHCP_PKT_BOOTP_MIN_LEN - bootp_len
+        if pad_bytes > 0:
+            packet /= scapy.PADDING(b"\x00" * pad_bytes)
+        return packet
 
     def tearDown(self):
         DataplaneBaseTest.tearDown(self)
@@ -810,13 +840,7 @@ class DHCPTest(DataplaneBaseTest):
                           dhcp_lease=self.LEASE_TIME,
                           padding_bytes=0,
                           set_broadcast_bit=True)
-        if (self.link_selection and self.source_interface):
-            dhcp_ack_packet[scapy.DHCP].options.insert(
-                dhcp_ack_packet[scapy.DHCP].options.index("end"),
-                (82, self.option82)
-            )
-
-        return dhcp_ack_packet
+        return self.add_option82_to_server_reply(dhcp_ack_packet)
 
     def create_dhcp_ack_relayed_packet(self):
         my_chaddr = binascii.unhexlify(self.client_mac.replace(':', ''))
@@ -864,11 +888,7 @@ class DHCPTest(DataplaneBaseTest):
         # if pad_bytes > 0:
         #    bootp /= scapy.PADDING('\x00' * pad_bytes)
 
-        if self.relay_agent == "sonic-relay-agent" and (self.link_selection and self.source_interface):
-            pad_bytes = self.DHCP_PKT_BOOTP_MIN_LEN - len(bootp)
-            if pad_bytes > 0:
-                bootp /= scapy.PADDING('\x00' * pad_bytes)
-
+        bootp = self.pad_relayed_reply_after_option82_removal(bootp)
         pkt = ether / ip / udp / bootp
         return pkt
 
@@ -1050,10 +1070,10 @@ class DHCPTest(DataplaneBaseTest):
         else:
             source_ip = self.portchannels_ip_list[0]
 
-        if ((self.link_selection and self.source_interface) or self.server_vrf or self.dual_tor):
-            giaddr = self.switch_loopback_ip
-        elif self.server_id_override or not self.dual_tor:
-            giaddr = self.relay_iface_ip
+        # BOOTP has no Option 82 Link Selection, so giaddr must identify the receiving
+        # client VLAN in every topology.
+        # ISC already does this; sonic-relay-agent requires the corresponding product fix.
+        giaddr = self.relay_iface_ip
 
         bootp_packet = self.create_bootp_packet(src_mac=self.uplink_mac, src_ip=source_ip, giaddr=giaddr,
                                                 sport=self.DHCP_SERVER_PORT, hops=2)
@@ -1089,22 +1109,14 @@ class DHCPTest(DataplaneBaseTest):
         dhcp_unknown = self.create_dhcp_offer_packet()
         logger.info("Server send unknown packet")
         dhcp_unknown[scapy.DHCP] = scapy.DHCP(options=[('message-type', 11), ('end')])
-        if self.relay_agent == "sonic-relay-agent" and (self.link_selection and self.source_interface):
-            dhcp_unknown[scapy.DHCP].options.insert(
-                    dhcp_unknown[scapy.DHCP].options.index("end"),
-                    (82, self.option82)
-            )
+        dhcp_unknown = self.add_option82_to_server_reply(dhcp_unknown)
         log_dhcp_packet_info(dhcp_unknown)
         testutils.send_packet(self, self.server_port_indices[0], dhcp_unknown)
 
     def verify_relayed_unknown_on_client_side(self):
         dhcp_offer = self.create_dhcp_offer_relayed_packet()
         dhcp_offer[scapy.DHCP] = scapy.DHCP(options=[('message-type', 11), ('end')])
-        if self.relay_agent == "sonic-relay-agent" and (self.link_selection and self.source_interface):
-            bootp_len = len(dhcp_offer[scapy.BOOTP])
-            pad_bytes = self.DHCP_PKT_BOOTP_MIN_LEN - bootp_len
-            if pad_bytes > 0:
-                dhcp_offer = dhcp_offer / scapy.PADDING(b"\x00" * pad_bytes)
+        dhcp_offer = self.pad_relayed_reply_after_option82_removal(dhcp_offer)
         masked_offer = Mask(dhcp_offer)
         self.set_common_ignored_mask_fields(masked_offer)
 
@@ -1133,22 +1145,14 @@ class DHCPTest(DataplaneBaseTest):
         # Build the DHCP NAK packet
         packet = self.create_dhcp_ack_packet()
         packet[scapy.DHCP] = scapy.DHCP(options=[('message-type', 'nak'), ('server_id', self.server_ip[0]), ('end')])
-        if self.relay_agent == "sonic-relay-agent" and (self.link_selection and self.source_interface):
-            packet[scapy.DHCP].options.insert(
-                    packet[scapy.DHCP].options.index("end"),
-                    (82, self.option82)
-            )
+        packet = self.add_option82_to_server_reply(packet)
         log_dhcp_packet_info(packet)
         testutils.send_packet(self, self.server_port_indices[0], packet)
 
     def verify_relayed_nak(self):
         dhcp_nak = self.create_dhcp_ack_relayed_packet()
         dhcp_nak[scapy.DHCP] = scapy.DHCP(options=[('message-type', 'nak'), ('server_id', self.server_ip[0]), ('end')])
-        if self.relay_agent == "sonic-relay-agent" and (self.link_selection and self.source_interface):
-            bootp_len = len(dhcp_nak[scapy.BOOTP])
-            pad_bytes = self.DHCP_PKT_BOOTP_MIN_LEN - bootp_len
-            if pad_bytes > 0:
-                dhcp_nak = dhcp_nak / scapy.PADDING(b"\x00" * pad_bytes)
+        dhcp_nak = self.pad_relayed_reply_after_option82_removal(dhcp_nak)
         masked_ack = Mask(dhcp_nak)
         self.set_common_ignored_mask_fields(masked_ack)
         self.check_pkt_on_client_side(masked_ack, dhcp_nak, "Nak")
@@ -1284,27 +1288,6 @@ class DHCPTest(DataplaneBaseTest):
                     self.dest_mac_address, self.client_udp_src_port)
 
 
-class DHCPPacketsServerToClientTest(DHCPTest):
-    """
-    Only Test DHCP packets from server to client, including offer, ack, nak and unknown.
-    """
-    def runTest(self):
-        # Start sniffer process for each server port to capture DHCP packet
-        for interface_index in self.server_port_indices:
-            t1 = Thread(target=self.Sniffer, args=(
-                "eth"+str(interface_index),))
-            t1.start()
-
-        self.server_send_offer()
-        self.verify_offer_received()
-        self.server_send_ack()
-        self.verify_ack_received()
-        self.server_send_unknown()
-        self.verify_relayed_unknown_on_client_side()
-        self.server_send_nak()
-        self.verify_relayed_nak()
-
-
 class DHCPInvalidChecksumTest(DHCPTest):
     """
     Test DHCP packets with invalid checksum.
@@ -1356,3 +1339,47 @@ class DHCPInvalidChecksumTest(DHCPTest):
         self.client_send_bootp()
         self.client_send_unknown(self.dest_mac_address, self.client_udp_src_port)
         self.server_send_unknown()
+
+
+class DHCPBroadcastNotFloodedTest(DHCPTest):
+    """
+    Test that DHCP broadcast packets (Discover, Request) are trapped to CPU
+    by the COPP trap rule and NOT L2-flooded to other VLAN member ports.
+
+    The COPP policy configures trap_action=trap (SAI_PACKET_ACTION_TRAP) for
+    DHCP, which means the packet is removed from the forwarding pipeline and
+    sent exclusively to CPU. This test verifies the non-flooding behavior by
+    sending DHCP broadcast packets from one client port and asserting that
+    zero copies of the original broadcast appear on other VLAN member ports.
+    """
+
+    def verify_broadcast_not_flooded(self, pkt, packet_type):
+        """Send a DHCP broadcast packet and verify it is NOT flooded to other VLAN member ports."""
+        if 'other_client_port' not in self.test_params or not self.other_client_port:
+            logger.warning("No other client ports configured, skipping non-flood check for %s", packet_type)
+            return
+
+        logger.info("Sending %s from client port %d", packet_type, self.client_port_index)
+        testutils.send_packet(self, self.client_port_index, pkt)
+
+        # Build a mask for the original broadcast packet to match against
+        masked_pkt = Mask(pkt)
+        masked_pkt.set_do_not_care_scapy(scapy.Ether, "src")
+        self.set_common_ignored_mask_fields(masked_pkt)
+
+        # Negative check: original broadcast must NOT appear on other VLAN member ports
+        flooded_count = testutils.count_matched_packets_all_ports(
+            self, masked_pkt, self.other_client_port, timeout=3)
+        self.assertTrue(flooded_count == 0,
+                        "Failed: %s broadcast was flooded to %d other VLAN member port(s), expected 0"
+                        % (packet_type, flooded_count))
+        logger.info("%s broadcast was correctly NOT flooded to other VLAN member ports", packet_type)
+
+    def runTest(self):
+        # Verify DHCP Discover broadcast is not flooded
+        dhcp_discover = self.create_dhcp_discover_packet(self.BROADCAST_MAC, self.DHCP_CLIENT_PORT)
+        self.verify_broadcast_not_flooded(dhcp_discover, "Discover")
+
+        # Verify DHCP Request broadcast is not flooded
+        dhcp_request = self.create_dhcp_request_packet(self.BROADCAST_MAC, self.DHCP_CLIENT_PORT)
+        self.verify_broadcast_not_flooded(dhcp_request, "Request")

@@ -5,7 +5,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.platform_tests.cli.util import get_skip_mod_list
 
 pytestmark = [
-    pytest.mark.topology('t2')
+    pytest.mark.topology('t2', 'lrh', 'urh')
 ]
 
 

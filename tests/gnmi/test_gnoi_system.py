@@ -1,29 +1,26 @@
 """
-Simple integration tests for gNOI System service.
+Integration tests for gNOI System service.
 
-All tests automatically run with TLS server configuration by default.
-Users don't need to worry about TLS configuration.
+Tests run with TLS by default. Opt-in to dual transport (TLS + UDS)
+via the parametrize decorator on individual tests.
 """
 import pytest
 import logging
 
-# Import fixtures to ensure pytest discovers them
-from tests.common.fixtures.grpc_fixtures import (  # noqa: F401
-    setup_gnoi_tls_server, ptf_gnoi, ptf_grpc
-)
+from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
-# Enable TLS fixture by default for all tests in this module
 pytestmark = [
     pytest.mark.topology('any'),
-    pytest.mark.usefixtures("setup_gnoi_tls_server")
 ]
 
 
-def test_system_time(ptf_gnoi):  # noqa: F811
-    """Test System.Time RPC with TLS enabled by default."""
-    result = ptf_gnoi.system_time()
+@pytest.mark.parametrize("gnmi_tls", ["tls", "uds"], indirect=True)
+def test_system_time(gnmi_tls):  # noqa: F811
+    """Test System.Time RPC works over both TLS and UDS transports."""
+    result = gnmi_tls.gnoi.system_time()
     assert "time" in result
     assert isinstance(result["time"], int)
-    logger.info(f"System time: {result['time']} nanoseconds since epoch")
+    assert result["time"] > 0
+    logger.info("System time via %s: %d ns", gnmi_tls.transport, result["time"])

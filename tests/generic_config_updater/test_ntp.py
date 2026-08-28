@@ -80,7 +80,7 @@ def server_exist_in_conf(duthost, server_pattern):
     """
     content = duthost.command("cat {}".format(NTP_CONF))
     for line in content['stdout_lines']:
-        if re.search(server_pattern, line):
+        if re.search(server_pattern, line, re.MULTILINE):
             return True
     return False
 
@@ -305,12 +305,8 @@ def ntp_server_set_intf(duthost, ntp_service, src_intf):
     json_patch = [
         {
             "op": "add",
-            "path": "/NTP",
-            "value": {
-                "global": {
-                    "src_intf": src_intf
-                }
-            }
+            "path": "/NTP/global/src_intf",
+            "value": src_intf
         }
     ]
     json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_host_specific=True)
@@ -332,7 +328,8 @@ def ntp_server_set_intf(duthost, ntp_service, src_intf):
 
         if ntp_daemon == NtpDaemon.CHRONY:
             pytest_assert(
-                server_exist_in_conf(duthost, f"bindacqdevice {src_intf}"),
+                server_exist_in_conf(duthost, f"^bindacqdevice {src_intf}")
+                or server_exist_in_conf(duthost, "^bindacqaddress "),
                 f"Failed to set source interface to {src_intf}"
             )
 
@@ -346,5 +343,7 @@ def test_ntp_server_change_source_intf(rand_selected_front_end_dut):
     """
     ntp_service = get_ntp_service_name(rand_selected_front_end_dut)
 
-    ntp_server_set_intf(rand_selected_front_end_dut, ntp_service, "Loopback0")
+    # A BMC has no Loopback0, so the src_intf leafref has nothing to resolve against.
+    if not rand_selected_front_end_dut.is_bmc():
+        ntp_server_set_intf(rand_selected_front_end_dut, ntp_service, "Loopback0")
     ntp_server_set_intf(rand_selected_front_end_dut, ntp_service, "eth0")

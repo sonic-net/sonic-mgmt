@@ -5,8 +5,10 @@
         --enable_sflow_feature: Enable sFlow feature on DUT. Default is disabled
 """
 
+import ast
 import pytest
 import logging
+import time
 import json
 import re
 
@@ -21,6 +23,9 @@ from tests.common.utilities import get_neighbor_port_list
 from tests.common.helpers.assertions import pytest_assert
 
 SFLOW_RATE_DEFAULT = 512
+# Seconds to wait for hsflowd to quiesce counter polling after it is disabled.
+# See TestSflowPolling.testDisablePolling for the rationale.
+SFLOW_DISABLE_POLL_SETTLE_TIME = 40
 
 pytestmark = [
     pytest.mark.topology('t0', 'm0', 'mx')
@@ -90,7 +95,7 @@ def setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, config_sflow_feature
     # -------- Testing ----------
     yield
     # -------- Teardown ----------
-    config_reload(duthost, config_source='minigraph', wait=120)
+    config_reload(duthost, config_source='minigraph', wait=120, override_config=True)
 
 # ----------------------------------------------------------------------------------
 
@@ -147,9 +152,33 @@ def get_default_agent(duthost):
 # ----------------------------------------------------------------------------------
 
 
+def wait_until_hsflowd_applied_agent(duthost, expected_agent_ip):
+    # hsflowd (host-sflow >= 2.1.26, pulled in by sonic-buildimage PR #27806) applies a
+    # runtime "config sflow agent-id" change asynchronously: it rewrites /etc/hsflowd.auto
+    # through its tick-driven reconfig state machine. verify_show_sflow only confirms that
+    # CONFIG_DB was updated, so a trailing counter-poll round can still emit the previously
+    # auto-selected agent right after the change. Wait until hsflowd.auto advertises the
+    # expected agentIP before running the PTF check so any in-flight sample drains first.
+    read_agent_cmd = "docker exec sflow grep -w 'agentIP' /etc/hsflowd.auto 2>/dev/null | cut -d '=' -f 2"
+    pytest_assert(
+        wait_until(60, 2, 0, lambda: duthost.shell(
+            read_agent_cmd, module_ignore_errors=True)['stdout'].strip() == expected_agent_ip),
+        "hsflowd did not apply agentIP {} in /etc/hsflowd.auto".format(expected_agent_ip))
+
+# ----------------------------------------------------------------------------------
+
+
 def get_ifindex(duthost, port):
     ifindex = duthost.shell('cat /sys/class/net/%s/ifindex' % port)['stdout']
     return ifindex
+
+
+def sflow_intfs_exist(duthost, interfaces):
+    for intf in interfaces:
+        res = duthost.shell(f"test -e /sys/class/net/{intf}", module_ignore_errors=True)
+        if res['rc'] != 0:
+            return False
+    return True
 
 # ----------------------------------------------------------------------------------
 
@@ -229,6 +258,58 @@ def config_sflow_interfaces(duthost, intf, **kwargs):
 # ----------------------------------------------------------------------------------
 
 
+def verify_hsflowd_ready(duthost, collector_ips):
+    """
+    Verify hsflowd has fully initialized with all specified collector configurations.
+    This is done by checking if /etc/hsflowd.auto contains an entry for each collector IP.
+
+    Args:
+        duthost: DUT host object
+        collector_ips: List of collector IP addresses to check for
+
+    Returns:
+        True if hsflowd.auto contains entries for all collector IPs, False otherwise
+    """
+    return all(
+        duthost.shell(
+            f"docker exec sflow grep -q 'collector={ip}' /etc/hsflowd.auto 2>/dev/null",
+            module_ignore_errors=True
+        )['rc'] == 0
+        for ip in collector_ips
+    )
+
+
+def wait_until_hsflowd_ready(duthost, collector_ips):
+    """
+    Wait until hsflowd has fully initialized with all specified collector configurations.
+
+    Retries every 10 seconds for up to 240 seconds (4 minutes). This timeout accounts for
+    cases where hsflowd takes over 3 minutes to initialize (e.g., first-time sflow config
+    enable or device reboot).
+
+    Args:
+        duthost: DUT host object
+        collector_ips: List of collector IP addresses that must all be present in hsflowd.auto
+
+    Raises:
+        AssertionError: If not all collectors are initialized within 240 seconds
+    """
+    logger.info(f"Waiting for hsflowd to initialize with collector(s): {collector_ips}")
+    start_time = time.time()
+    pytest_assert(
+        wait_until(
+            240, 10, 0,  # 4 minutes max, check every 10 seconds
+            verify_hsflowd_ready,
+            duthost,
+            collector_ips,
+        ),
+        f"hsflowd failed to initialize collector(s) {collector_ips} within 240 seconds. "
+        f"Check /etc/hsflowd.auto in sflow container."
+    )
+    elapsed = time.time() - start_time
+    logger.info("hsflowd initialized with all collector(s) after {:.1f} seconds".format(elapsed))
+
+
 def config_sflow_collector(duthost, collector, config):
     collector = var[collector]
     if config == 'add':
@@ -282,15 +363,27 @@ def verify_sflow_interfaces(duthost, intf, status, sampling_rate):
 
 
 @pytest.fixture
-def partial_ptf_runner(request, ptfhost, tbinfo):
+def partial_ptf_runner(request, duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
+    duthost = duthosts[rand_one_dut_hostname]
+
     def _partial_ptf_runner(**kwargs):
         logger.info(f'The enabled sflow interface is: {kwargs}')
         params = {'testbed_type': tbinfo['topo']['name'],
                   'router_mac': var['router_mac'],
                   'dst_port': var['ptf_test_indices'][2],
                   'agent_id': var['lo_ip'],
-                  'sflow_ports_file': "/tmp/sflow_ports.json"}
+                  'sflow_ports_file': "/tmp/sflow_ports.json",
+                  'kvm_support': True}
         params.update(kwargs)
+
+        # Make sure hsflowd daemon has processed collector config before
+        # proceeding with traffic verification.
+        collectors = kwargs.get('active_collectors', '[]')
+        collector_list = ast.literal_eval(collectors or '[]') if isinstance(collectors, str) else collectors
+        collector_ips = [var[collector]['ip_addr'] for collector in collector_list]
+        if collector_ips:
+            wait_until_hsflowd_ready(duthost, collector_ips)
+
         ptf_runner(host=ptfhost,
                    testdir="ptftests",
                    platform_dir="ptftests",
@@ -479,6 +572,14 @@ class TestSflowPolling():
         duthost.shell("config sflow polling-interval 0")
 
         verify_show_sflow(duthost, status='up', polling_int=0)
+        # verify_show_sflow only confirms CONFIG_DB was updated. hsflowd (host-sflow
+        # >= 2.1.26, sonic-buildimage PR #27806) applies a runtime polling-interval
+        # change asynchronously via its tick-driven reconfig state machine, so counter
+        # polling is not torn down instantly. The preceding testPolling leaves 20s
+        # counter pollers active, so wait for at least the previous polling interval
+        # plus hsflowd settling time to let any trailing counter-poll round drain
+        # before verifying that the DUT sends no counter samples.
+        time.sleep(SFLOW_DISABLE_POLL_SETTLE_TIME)
         partial_ptf_runner(
             polling_int=0,
             active_collectors="['collector0','collector1']")
@@ -585,6 +686,7 @@ class TestAgentId():
         duthost.shell(" config sflow agent-id del")
         duthost.shell(" config sflow agent-id  add Loopback0")
         verify_show_sflow(duthost, status='up', agent_id='Loopback0')
+        wait_until_hsflowd_applied_agent(duthost, agent_ip)
         partial_ptf_runner(
             polling_int=20,
             agent_id=agent_ip,
@@ -592,9 +694,15 @@ class TestAgentId():
 
     def testDelAgent(self, duthosts, rand_one_dut_hostname, partial_ptf_runner):
         duthost = duthosts[rand_one_dut_hostname]
+        read_agent_cmd = "docker exec sflow grep -w 'agentIP' /etc/hsflowd.auto 2>/dev/null | cut -d '=' -f 2"
+        previous_agent_ip = duthost.shell(read_agent_cmd, module_ignore_errors=True)['stdout'].strip()
         duthost.shell(" config sflow agent-id del")
         verify_show_sflow(duthost, status='up', agent_id='default')
         wait_until(30, 5, 0, verify_sflow_config_apply, duthost)
+        # Wait for hsflowd to rewrite /etc/hsflowd.auto with the new agentIP,
+        # otherwise get_default_agent below reads the stale previous value.
+        wait_until(60, 2, 0, lambda: duthost.shell(
+            read_agent_cmd, module_ignore_errors=True)['stdout'].strip() not in ('', previous_agent_ip))
         agent_ip = get_default_agent(duthost)
         # Verify  whether the samples are received with previously configured agent ip
         partial_ptf_runner(
@@ -607,6 +715,7 @@ class TestAgentId():
         agent_ip = var['mgmt_ip']
         duthost.shell(" config sflow agent-id  add  eth0")
         verify_show_sflow(duthost, status='up', agent_id='eth0')
+        wait_until_hsflowd_applied_agent(duthost, agent_ip)
         partial_ptf_runner(
             polling_int=20,
             agent_id=agent_ip,
@@ -684,6 +793,8 @@ class TestReboot():
             300, 20, 0, duthost.critical_services_fully_started), "Not all critical services are fully started"
         verify_show_sflow(duthost, status='up', collector=[
                           'collector0', 'collector1'])
+        all_intfs_present = wait_until(120, 10, 0, sflow_intfs_exist, duthost, list(var['sflow_ports'].keys()))
+        assert all_intfs_present, "Not all sflow interfaces present in sysfs after fast reboot"
         for intf in var['sflow_ports']:
             var['sflow_ports'][intf]['ifindex'] = get_ifindex(duthost, intf)
             var['sflow_ports'][intf]['port_index'] = get_port_index(
@@ -708,6 +819,8 @@ class TestReboot():
             300, 20, 0, duthost.critical_services_fully_started), "Not all critical services are fully started"
         verify_show_sflow(duthost, status='up', collector=[
                           'collector0', 'collector1'])
+        all_intfs_present = wait_until(120, 10, 0, sflow_intfs_exist, duthost, list(var['sflow_ports'].keys()))
+        assert all_intfs_present, "Not all sflow interfaces present in sysfs after warm reboot"
         for intf in var['sflow_ports']:
             var['sflow_ports'][intf]['ifindex'] = get_ifindex(duthost, intf)
             var['sflow_ports'][intf]['port_index'] = get_port_index(

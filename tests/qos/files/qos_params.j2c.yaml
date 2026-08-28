@@ -129,14 +129,14 @@ qos_params:
                     dscps: [3, 4]
                     ecn: 1
                     pgs: [3, 4]
-                    src_port_ids: [0, 2, 4, 6, 8, 10, 12, 14, 16]
+                    src_port_ids: [0]
                     dst_port_id: 18
-                    pgs_num: 18
-                    packet_size: 1246
+                    pgs_num: 2
+                    packet_size: 2430
                     cell_size: 4096
-                    pkts_num_trig_pfc: 60391
-                    pkts_num_hdrm_full: 1153
-                    pkts_num_hdrm_partial: 1143
+                    pkts_num_trig_pfc: 33415
+                    pkts_num_hdrm_full: 602
+                    pkts_num_hdrm_partial: 592
                     margin: 30
                 wm_pg_headroom:
                     dscp: 3
@@ -238,14 +238,14 @@ qos_params:
                     dscps: [3, 4]
                     ecn: 1
                     pgs: [3, 4]
-                    src_port_ids: [0, 2, 4, 6, 8, 10, 12, 14, 16]
+                    src_port_ids: [0]
                     dst_port_id: 18
-                    pgs_num: 18
-                    packet_size: 1246
+                    pgs_num: 2
+                    packet_size: 2430
                     cell_size: 4096
-                    pkts_num_trig_pfc: 60391
-                    pkts_num_hdrm_full: 61692
-                    pkts_num_hdrm_partial: 61682
+                    pkts_num_trig_pfc: 33415
+                    pkts_num_hdrm_full: 32239
+                    pkts_num_hdrm_partial: 32229
                     margin: 10
                 wm_pg_headroom:
                     dscp: 3
@@ -514,14 +514,14 @@ qos_params:
                     dscps: [3, 4]
                     ecn: 1
                     pgs: [3, 4]
-                    src_port_ids: [0, 2, 4, 6, 8, 10, 12, 14, 16]
+                    src_port_ids: [0]
                     dst_port_id: 18
-                    pgs_num: 18
-                    packet_size: 1246
+                    pgs_num: 2
+                    packet_size: 2430
                     cell_size: 4096
-                    pkts_num_trig_pfc: 60391
-                    pkts_num_hdrm_full: 1153
-                    pkts_num_hdrm_partial: 1143
+                    pkts_num_trig_pfc: 33415
+                    pkts_num_hdrm_full: 602
+                    pkts_num_hdrm_partial: 592
                     margin: 30
                 wm_pg_headroom:
                     dscp: 3
@@ -623,14 +623,14 @@ qos_params:
                     dscps: [3, 4]
                     ecn: 1
                     pgs: [3, 4]
-                    src_port_ids: [0, 2, 4, 6, 8, 10, 12, 14, 16]
+                    src_port_ids: [0]
                     dst_port_id: 18
-                    pgs_num: 18
-                    packet_size: 1246
+                    pgs_num: 2
+                    packet_size: 2430
                     cell_size: 4096
-                    pkts_num_trig_pfc: 60391
-                    pkts_num_hdrm_full: 61692
-                    pkts_num_hdrm_partial: 61682
+                    pkts_num_trig_pfc: 33415
+                    pkts_num_hdrm_full: 32239
+                    pkts_num_hdrm_partial: 32229
                     margin: 10
                 wm_pg_headroom:
                     dscp: 3

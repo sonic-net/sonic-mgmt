@@ -22,10 +22,10 @@ import json
 import re
 from netaddr import IPNetwork
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
-from ipaddress import IPv6Network, IPv6Address
+from tests.common.broadcom_data import is_broadcom_dnx_device
+from ipaddress import IPv6Network
 import ipaddress
-from random import getrandbits
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.portstat_utilities import parse_portstat
 from collections import defaultdict
 from tests.conftest import parse_override
@@ -263,7 +263,7 @@ def get_peer_snappi_chassis(conn_data, dut_hostname):
     peer_devices = list(set(peer_devices))
     peer_snappi_devices = []
     for peer in peer_devices:
-        if 'snappi' in peer or 'ixia' in peer:
+        if 'snappi' in peer or 'ixia' in peer or 'stc' in peer:
             peer_snappi_devices.append(peer)
     if len(peer_snappi_devices) >= 1:
         return peer_snappi_devices
@@ -762,6 +762,34 @@ def get_pfcwd_restore_time(host_ans, intf, asic_value=None):
     return None
 
 
+def get_pfcwd_timers(host_ans, intf, asic_value=None):
+    """
+    Get PFC watchdog timers for a given interface, skipping the test if they are
+    not configured.
+
+    PFC watchdog config is only populated when 'default_pfcwd_status' is enabled
+    on the DUT; otherwise the timers read back as None and any pfcwd test cannot
+    run. Reusable by any pfcwd test that needs the timers.
+
+    Args:
+        host_ans: Ansible host instance of the device
+        intf (str): interface name
+        asic_value: asic value of the host
+
+    Returns:
+        dict with 'poll_interval', 'detection_time' and 'restoration_time' in seconds.
+    """
+    timers = {
+        'poll_interval': get_pfcwd_poll_interval(host_ans, asic_value),
+        'detection_time': get_pfcwd_detect_time(host_ans, intf, asic_value),
+        'restoration_time': get_pfcwd_restore_time(host_ans, intf, asic_value),
+    }
+    pytest_require(None not in timers.values(),
+                   "PFC watchdog is not configured on {} port {}: {}; skipping test"
+                   .format(host_ans.hostname, intf, timers))
+    return {key: val / 1000.0 for key, val in timers.items()}
+
+
 def get_pfcwd_stats(duthost, port, prio, asic_value=None):
     """
     Get PFC watchdog statistics for given interface:prio
@@ -831,6 +859,47 @@ def stop_pfcwd(duthost, asic_value=None):
         duthost.shell('sudo ip netns exec {} pfcwd stop'.format(asic_value))
 
 
+def _set_credit_watchdog(duthost, enable, asic_value=None):
+    """
+    Enable/disable the VOQ credit watchdog by setting the SWITCH_TABLE:switch 'credit_watchdog'
+    field in APPL_DB, which SwitchOrch maps to the SAI_SWITCH_ATTR_CREDIT_WD switch attribute.
+
+    Args:
+        duthost (AnsibleHost): Device Under Test (DUT)
+        enable (bool): True to enable the watchdog, False to disable it
+        asic_value (str): asic namespace to target (e.g. 'asic0'). None targets the
+            default namespace, or every asic namespace on a multi-asic DUT.
+    """
+    if not is_broadcom_dnx_device(duthost):
+        logger.info("Credit watchdog not applicable on platform %s; skipping",
+                    duthost.facts.get("platform_asic"))
+        return
+    if asic_value:
+        namespaces = [asic_value]
+    elif duthost.is_multi_asic:
+        namespaces = [asic.namespace for asic in duthost.frontend_asics]
+    else:
+        namespaces = ['']
+    value = "1" if enable else "0"
+    for ns in namespaces:
+        # 'credit_watchdog' is the exact SWITCH_TABLE field SwitchOrch consumes and maps
+        # to SAI_SWITCH_ATTR_CREDIT_WD (sonic-swss #4658; on images without that support
+        # SwitchOrch logs 'Unsupported switch attribute' and the write is a no-op).
+        pyscript = (
+            "from swsscommon.swsscommon import SonicDBConfig, DBConnector, ProducerStateTable; "
+            # Namespaced redis is reached via unix socket and needs the global db config;
+            # the default namespace keeps the existing TCP connection unchanged.
+            + ("SonicDBConfig.load_sonic_global_db_config(); "
+               "db = DBConnector('APPL_DB', 0, False, '{}'); ".format(ns) if ns
+               else "db = DBConnector('APPL_DB', 0, True); ")
+            + "p = ProducerStateTable(db, 'SWITCH_TABLE'); "
+              "p.set('switch', [('credit_watchdog', '{}')])".format(value)
+        )
+        duthost.shell('sudo python3 -c "{}"'.format(pyscript))
+        logger.info("%s VOQ credit watchdog via APPL_DB SWITCH_TABLE credit_watchdog=%s (namespace: %s)",
+                    'Enabled' if enable else 'Disabled', value, ns or 'default')
+
+
 def disable_packet_aging(duthost, asic_value=None):
     """
     Disable packet aging feature
@@ -845,20 +914,11 @@ def disable_packet_aging(duthost, asic_value=None):
         duthost.command("docker cp /tmp/packets_aging.py syncd:/")
         duthost.command("docker exec syncd python /packets_aging.py disable")
         duthost.command("docker exec syncd rm -rf /packets_aging.py")
-    elif "platform_asic" in duthost.facts and duthost.facts["platform_asic"] == "broadcom-dnx":
-        # if asic_value is present, disable packet aging for specific asic_value.
-        if (asic_value):
-            try:
-                duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog disable"'.format(asic_value))
-            except Exception:
-                duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog disable"'.format(asic_value[-1]))
-        else:
-            # Disabling packet aging for all asics on given DUT.
-            for asic_value in duthost.facts['asics_present']:
-                try:
-                    duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog disable"'.format(asic_value))
-                except Exception:
-                    duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog disable"'.format(asic_value[-1]))
+    elif is_broadcom_dnx_device(duthost):
+        _set_credit_watchdog(duthost, enable=False, asic_value=asic_value)
+    else:
+        logger.info("Packet aging disable not needed on this platform (%s)",
+                    duthost.facts.get("platform_asic"))
 
 
 def enable_packet_aging(duthost, asic_value=None):
@@ -875,42 +935,36 @@ def enable_packet_aging(duthost, asic_value=None):
         duthost.command("docker cp /tmp/packets_aging.py syncd:/")
         duthost.command("docker exec syncd python /packets_aging.py enable")
         duthost.command("docker exec syncd rm -rf /packets_aging.py")
-    elif "platform_asic" in duthost.facts and duthost.facts["platform_asic"] == "broadcom-dnx":
-        # if asic_value is present, enable packet aging for specific asic_value.
-        if (asic_value):
-            try:
-                duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog enable"'.format(asic_value))
-            except Exception:
-                duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog enable"'.format(asic_value[-1]))
-        else:
-            # Enabling packet aging for all asics on given DUT.
-            for asic_value in duthost.facts['asics_present']:
-                try:
-                    duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog enable"'.format(asic_value))
-                except Exception:
-                    duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog enable"'.format(asic_value[-1]))
+    elif is_broadcom_dnx_device(duthost):
+        _set_credit_watchdog(duthost, enable=True, asic_value=asic_value)
+    else:
+        logger.info("Packet aging enable not needed on this platform (%s)",
+                    duthost.facts.get("platform_asic"))
 
 
-def get_ipv6_addrs_in_subnet(subnet, number_of_ip):
+def get_ipv6_addrs_in_subnet(subnet, number_of_ip, exclude_ips=None):
     """
-    Get N IPv6 addresses in a subnet.
+    Get N IPv6 addresses in a subnet, sequentially iterating hosts
+    and skipping excluded IPs. Consistent with get_addrs_in_subnet behavior.
     Args:
         subnet (str): IPv6 subnet, e.g., '2001::1/64'
         number_of_ip (int): Number of IP addresses to get
+        exclude_ips (list): Optional list of IPs to exclude
     Return:
         Return n IPv6 addresses in this subnet in a list.
     """
 
     subnet = str(IPNetwork(subnet).network) + "/" + str(subnet.split("/")[1])
     subnet = subnet.encode().decode("utf-8")
-    ipv6_list = []
-    for i in range(number_of_ip):
-        network = IPv6Network(subnet)
-        address = IPv6Address(
-            network.network_address + getrandbits(
-                network.max_prefixlen - network.prefixlen))
-        ipv6_list.append(str(address))
+    network = IPv6Network(subnet)
+    exclude_set = set(exclude_ips) if exclude_ips else set()
 
+    ipv6_list = []
+    for addr in network.hosts():
+        if str(addr) not in exclude_set:
+            ipv6_list.append(str(addr))
+            if len(ipv6_list) == number_of_ip:
+                break
     return ipv6_list
 
 
@@ -1058,6 +1112,7 @@ def check_tx_drp_counts(
     raw_out = duthost.shell(cmd)["stdout"]
 
     raw_json_str = re.sub(r"^(?:(?!{).)*\n", "", raw_out, count=1)
+    stats = {}
     try:
         stats = json.loads(raw_json_str)
     except Exception as e:
@@ -1071,7 +1126,7 @@ def check_tx_drp_counts(
     details = {} if verbose else None
 
     for p in ports:
-        pytest_assert(p in stats, f"Port {p} not found in portstat output")
+        pytest_assert(p in stats, f"Port {p} missing from portstat output")
         tx_drp_raw = stats[p].get("TX_DRP")
         pytest_assert(tx_drp_raw is not None, f"TX_DRP field missing for port {p}")
         try:
@@ -1237,7 +1292,7 @@ def config_capture_settings(api,
     for port_name in port_names:
         port = ixnet_session.Vport.find(Name=port_name)
         if not port:
-            raise ValueError(f"Port '{port_name}' not found in IxNetwork session")
+            raise ValueError(f"Port '{port_name}' missing from IxNetwork session")
 
         port.Capture.HardwareEnabled = True  # enables data plane capture
         port.Capture.Filter.CaptureFilterEnable = True
@@ -1476,12 +1531,138 @@ def get_pfc_count(duthost, port):
     return pfc_dict
 
 
+@lru_cache
 def get_pfcQueueGroupSize(default=8):
     testbed_name = get_testbed_from_args()
     is_override, override_data = parse_override(testbed_name, 'pfcQueueGroupSize')
-    if is_override and override_data is not None:
+    if is_override and override_data is not None and override_data != []:
         return override_data
     return default
+
+
+def get_queue_scheduler_weight_dict(host_ans, asic_value=None, port=None,
+                                    qos_map_profile=None):
+    """
+    Build a per-queue scheduler/weight map for an interface by joining the
+    ``QUEUE`` and ``SCHEDULER`` config-DB tables, and optionally annotating
+    each queue with one of its DSCP values via ``DSCP_TO_TC_MAP`` and
+    ``TC_TO_QUEUE_MAP``.
+
+    Args:
+        host_ans: Ansible host instance of the device.
+        asic_value: asic namespace; pass ``None`` (default) or the string
+            ``"None"`` for single-asic devices.
+        port (str, optional): interface name to read ``QUEUE`` for. Defaults
+            to the first interface present in ``QUEUE``.
+        qos_map_profile (str, optional): name of the profile inside
+            ``DSCP_TO_TC_MAP`` / ``TC_TO_QUEUE_MAP`` to use for the ``dscp``
+            field. Defaults to the first profile (typically ``"AZURE"``).
+            If the maps are missing, ``dscp`` is set to ``None``.
+
+    Returns:
+        dict[int, dict]: ``{queue: {"scheduler": <name>, "type": <DWRR/...>,
+        "weight": <int>, "dscp": <int|None>}}``. The result always covers
+        queues 0-7; any queue not present in the per-port ``QUEUE`` config
+        (or whose scheduler is missing from ``SCHEDULER``) falls back to a
+        default entry with equal DWRR weight 15.
+    """
+    if asic_value in (None, "None"):
+        config_facts = host_ans.config_facts(host=host_ans.hostname,
+                                             source="running")["ansible_facts"]
+    else:
+        config_facts = host_ans.config_facts(host=host_ans.hostname,
+                                             source="running",
+                                             namespace=asic_value)["ansible_facts"]
+
+    queue_cfg_all = config_facts.get("QUEUE") or {}
+    scheduler_cfg = config_facts.get("SCHEDULER") or {}
+
+    dscp_to_tc = config_facts.get("DSCP_TO_TC_MAP") or {}
+    tc_to_queue = config_facts.get("TC_TO_QUEUE_MAP") or {}
+    if qos_map_profile is None and dscp_to_tc:
+        qos_map_profile = next(iter(dscp_to_tc))
+    dscp_to_tc_map = dscp_to_tc.get(qos_map_profile, {}) if qos_map_profile else {}
+    tc_to_queue_map = tc_to_queue.get(qos_map_profile, {}) if qos_map_profile else {}
+
+    queue_to_dscp = {}
+    for dscp, tc in dscp_to_tc_map.items():
+        q = tc_to_queue_map.get(str(tc))
+        if q is not None:
+            queue_to_dscp.setdefault(int(q), int(dscp))
+
+    # default entry with equal DWRR weight 15
+    result = {
+        q: {"scheduler": None, "type": "DWRR", "weight": 15,
+            "dscp": queue_to_dscp.get(q)}
+        for q in range(8)
+    }
+
+    if not queue_cfg_all:
+        return result
+
+    if port is None:
+        port = next(iter(queue_cfg_all))
+    if port not in queue_cfg_all:
+        raise KeyError("Port {} not found in QUEUE config (available: {})".format(port, sorted(queue_cfg_all)))
+
+    for q, value in queue_cfg_all[port].items():
+        scheduler = value.get("scheduler")
+        if scheduler is None or scheduler not in scheduler_cfg:
+            continue
+        sched = scheduler_cfg[scheduler]
+        result[int(q)] = {
+            "scheduler": scheduler,
+            "type": sched.get("type"),
+            "weight": int(sched["weight"]),
+            "dscp": queue_to_dscp.get(int(q)),
+        }
+    return result
+
+
+_pfc_queue_group_size = None  # session cache for pfc_queue_group_size()
+
+
+def pfc_queue_group_size(api=None, config=None, default=8):
+    """PFC TX queue-group size for the tgen ports.
+
+    Resolution order: per-testbed override > size detected from the live tgen
+    port > ``default``. The resolved value is cached for the session. Detection
+    runs only when ``api`` is passed (fixtures do this once while building the
+    testbed config); plain ``pfc_queue_group_size()`` calls return the cached
+    value, or the override/default if resolution has not happened yet.
+
+    The cache is a process global that is never reset: the first resolved value
+    holds for the rest of the pytest run. That matches the one-testbed-per-run
+    model; a run spanning tgens with different queue-group sizes would keep the
+    first size only.
+    """
+    global _pfc_queue_group_size
+    if _pfc_queue_group_size is not None:
+        return _pfc_queue_group_size
+
+    size = get_pfcQueueGroupSize(default=0) or None  # 0 = no override; never a real size
+    if size is not None:
+        logger.info("pfcQueueGroupSize=%s from testbed override (auto-detect skipped)", size)
+    elif api is not None:
+        # Imported here: snappi_helpers imports common_helpers at module level.
+        from tests.common.snappi_tests.snappi_helpers import fetch_pfc_queue_group_size
+        size = fetch_pfc_queue_group_size(api, config)
+        if size is None:
+            size = default  # cache it: detection will not succeed on a later attempt either
+            logger.warning("pfcQueueGroupSize: auto-detect unavailable; using default %d. Set the "
+                           "per-testbed override in tests/snappi_tests/variables.override.yml if the "
+                           "tgen ports honor only 4 PFC TX queue groups.", default)
+        elif size != default:
+            logger.warning("pfcQueueGroupSize: selecting %d over default %d — the tgen port honors %d "
+                           "PFC TX queue groups; with %d, pause frames for priorities mapped above "
+                           "queue %d would not be honored", size, default, size, default, size - 1)
+        else:
+            logger.info("pfcQueueGroupSize: auto-detected %d (matches default)", size)
+
+    if size is None:
+        return default  # consumer call before resolution: fall back without caching
+    _pfc_queue_group_size = size
+    return size
 
 
 @lru_cache

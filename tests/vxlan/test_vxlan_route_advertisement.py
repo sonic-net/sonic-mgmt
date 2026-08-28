@@ -86,7 +86,7 @@ def fixture_setUp(duthosts,
             data['t2'].append(nbrhosts[name])
 
     asic_type = duthosts[rand_one_dut_hostname].facts["asic_type"]
-    if asic_type not in ["cisco-8000", "mellanox", "marvell-teralynx", "vs"]:
+    if asic_type not in ["cisco-8000", "mellanox", "marvell-teralynx", "vs", "vpp"]:
         pytest.skip(f"{asic_type} is not a supported platform for this test. \
                 Only support MNLX, CISCO and marvell-teralynx platforms.")
 
@@ -131,7 +131,8 @@ def fixture_setUp(duthosts,
         tunnel_names[outer_layer_version] = ecmp_utils.create_vxlan_tunnel(
             data['duthost'],
             minigraph_data=minigraph_facts,
-            af=outer_layer_version)
+            af=outer_layer_version,
+            ttl_mode="pipe" if data['duthost'].facts.get("asic_type") == "cisco-8000" else None)
 
     payload_version = ecmp_utils.get_payload_version(encap_type)
     encap_type = "{}_in_{}".format(payload_version, outer_layer_version)
@@ -300,7 +301,7 @@ class Test_VxLAN_route_Advertisement():
             result = t2device['host'].run_command(cmd)
             while len(result['stdout'][0]) == 0 and retry_count > 0:
                 time.sleep(10)
-                result = self.vxlan_test_setup['t2']['host'].run_command(cmd)
+                result = t2device['host'].run_command(cmd)
                 retry_count = retry_count - 1
             if len(result['stdout'][0]) == 0:
                 py_assert(False, "Routes not propogated to the T2.")

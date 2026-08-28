@@ -40,6 +40,9 @@
 
   - set_fact:
       base_topo: "{{ topo.split('_') | first }}"
+  - set_fact:
+      base_topo: "{{ base_topo.split('-') | first }}"
+    when: base_topo not in topologies
 
   - name: Check that variable topo is defined
     fail: msg="Define topo variable with -e topo=something"
@@ -61,4 +64,4 @@
     when: duts_name.split(',')|length > 1
 
   roles:
-    - { role: vm_set, action: 'disconnect_vms' }
+    - { role: vm_set, vm_set_action: 'disconnect_vms' }

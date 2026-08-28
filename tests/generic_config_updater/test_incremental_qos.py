@@ -169,10 +169,10 @@ def calculate_field_value(duthost, tbinfo, field):
     config_headroom_int_sum = 0
     neighbor_type_to_pg_headroom_map = get_neighbor_type_to_pg_headroom_map(duthost)
     for neighbor_type in neighbor_type_to_pg_headroom_map:
-        if neighbor_type == "SpineRouter" or "LeafRouter":
+        if neighbor_type in ("SpineRouter", "LeafRouter"):
             config_headroom_uplink_multiplier = neighbor_type_to_pg_headroom_map[neighbor_type]
             config_headroom_int_sum = uplink * config_headroom_uplink_multiplier + config_headroom_int_sum
-        elif neighbor_type == "LeafRouter" or "Server":
+        elif neighbor_type in ("LeafRouter", "Server"):
             config_headroom_downlink_multiplier = neighbor_type_to_pg_headroom_map[neighbor_type]
             config_headroom_int_sum = downlink * config_headroom_downlink_multiplier + config_headroom_int_sum
     config_headroom = LOSSLESS_PGS * config_headroom_int_sum
@@ -269,6 +269,14 @@ def test_buffer_profile_create_remove_rollback(duthost, ensure_dut_readiness, cl
     3. Remove new profile using jsonpatch, check operation success
     4. Rollback checkpoint
     """
+    os_version = duthost.os_version
+    if "master" not in os_version and "internal" not in os_version:
+        is_chassis = duthost.get_facts().get("modular_chassis")
+        min_version = "202405" if is_chassis else "202605"
+        if os_version.split('.')[0][:6] < min_version:
+            pytest.skip("Test requires SONiC version >= {} (chassis: {}), current version: {}"
+                        .format(min_version, bool(is_chassis), os_version))
+
     tmpfile = generate_tmpfile(duthost)
     profile_name = "pg_lossless_99999_99m_profile"
     profile_data = {

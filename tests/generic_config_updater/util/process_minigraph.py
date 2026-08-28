@@ -1,4 +1,5 @@
 import xml.etree.ElementTree as ET
+import defusedxml.ElementTree as SafeET
 import json
 import shutil
 import os
@@ -224,7 +225,7 @@ class MinigraphRefactor:
         ET.register_namespace('', NS_VAL)
         ET.register_namespace('a', NS_A_VAL)
 
-        tree = ET.parse(input_file)
+        tree = SafeET.parse(input_file)
         root = tree.getroot()
 
         # Order matters: remove links first to collect affected ports,

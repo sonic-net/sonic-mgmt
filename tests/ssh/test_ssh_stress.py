@@ -5,11 +5,15 @@ import time
 import pytest
 import logging
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.constants import DEFAULT_SSH_CONNECT_PARAMS
+from tests.common.utilities import get_image_type
+from tests.common.fixtures.tacacs import get_aaa_sub_options_value
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
     pytest.mark.topology("any"),
     pytest.mark.device_type("vs"),
+    pytest.mark.device_type("vpp"),
 ]
 
 START_BGP_NBRS = "sudo config bgp startup all"
@@ -31,10 +35,33 @@ done = False
 max_cpu = 0
 max_mem = 0
 
+# After the stress test, CPU and memory should drop back close to where they started.
+# We take a few readings while things settle and keep the lowest one, then allow it to
+# sit at most RECOVER_THRESHOLD above the pre-test baseline before calling it a failure.
+RECOVER_THRESHOLD = 0.2    # how far a metric may stay above its pre-test baseline (fraction)
+SETTLE_POLLS = 6           # how many readings to take while waiting for usage to settle
+SETTLE_INTERVAL = 5        # seconds to wait between those readings
+
 
 @pytest.fixture
 def setup_teardown(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
+
+    # Ensure the DUT password matches DEFAULT_SSH_CONNECT_PARAMS
+    creds = DEFAULT_SSH_CONNECT_PARAMS[get_image_type(duthost=duthost)]
+
+    # Capture the pre-test password so we can restore it in teardown
+    hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
+    original_password = hostvars.get('ansible_password', hostvars.get('ansible_ssh_pass', 'password'))
+
+    duthost.shell("echo '{}:{}' | sudo chpasswd".format(creds["username"], creds["password"]))
+
+    # Disable TACACS if configured (follows same pattern as test_ssh_limit.py)
+    aaa_login_disabled = False
+    aaa_login_value = get_aaa_sub_options_value(duthost, "authentication", "login")
+    if aaa_login_value.startswith("tacacs+"):
+        duthost.shell("sudo config aaa authentication login default")
+        aaa_login_disabled = True
 
     # Copies over ACL configs for the ACL commands
     duthost.host.options["variable_manager"].extra_vars.update({"dualtor": False})
@@ -45,14 +72,29 @@ def setup_teardown(duthosts, rand_one_dut_hostname):
 
     duthost.file(path="/tmp/acl.json", state="absent")
 
-    duthost.shell_cmds(cmds=[START_BGP_NBRS, STARTUP_INTERFACE, REMOVE_ACL,
-                       REMOVE_ROUTE, REMOVE_PORTCHANNEL], module_ignore_errors=True)
+    for cmd in [START_BGP_NBRS, STARTUP_INTERFACE, REMOVE_ACL, REMOVE_ROUTE, REMOVE_PORTCHANNEL]:
+        duthost.shell(cmd, module_ignore_errors=True)
+
+    # Restore pre-test password and TACACS state
+    try:
+        duthost.shell("echo '{}:{}' | sudo chpasswd".format(creds["username"], original_password))
+    finally:
+        if aaa_login_disabled:
+            duthost.shell("sudo config aaa authentication login tacacs+")
 
 
 def get_system_stats(duthost):
-    """Gets Memory and CPU usage from DUT"""
-    stdout_lines = duthost.command("vmstat")["stdout_lines"]
-    data = list(map(float, stdout_lines[2].split()))
+    """Return the DUT's current memory and CPU usage, each as a fraction (0-1).
+
+    Plain ``vmstat`` reports CPU usage averaged since boot. Over a short test that
+    average barely moves, so the peak seen during the test and the reading taken
+    afterwards look almost the same. ``vmstat 1 2`` adds a second row measured over
+    one second, so we read that last row to get the load right now.
+    """
+    # The last line of `vmstat 1 2` is the 1-second (current) sample; line [2] would
+    # be the since-boot average.
+    stdout_lines = duthost.command("vmstat 1 2")["stdout_lines"]
+    data = list(map(float, stdout_lines[-1].split()))
 
     total_memory = sum(data[2:6])
     used_memory = sum(data[4:6])
@@ -63,11 +105,11 @@ def get_system_stats(duthost):
     return used_memory/total_memory, used_cpu/total_cpu
 
 
-def start_SSH_connection(dut_mgmt_ip):
+def start_SSH_connection(dut_mgmt_ip, username, password):
     """Starts SSH connection to provided IP"""
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(dut_mgmt_ip, username="admin", password="password",
+    ssh.connect(dut_mgmt_ip, username=username, password=password,
                 allow_agent=False, look_for_keys=False)
 
     return ssh
@@ -87,11 +129,11 @@ def monitor_system(duthost):
         time.sleep(1)
 
 
-def work(dut_mgmt_ip, commands, baselines):
+def work(dut_mgmt_ip, commands, baselines, username, password):
     """Runs commands over ssh on the DUT"""
     command_ind = 0
 
-    ssh = start_SSH_connection(dut_mgmt_ip)
+    ssh = start_SSH_connection(dut_mgmt_ip, username, password)
 
     while not done:
         if not commands:
@@ -117,26 +159,46 @@ def work(dut_mgmt_ip, commands, baselines):
     ssh.close()
 
 
+def _assert_usage_recovered(resource, baseline, peak, lowest):
+    """Fail if a resource did not settle back near its pre-test baseline after the test.
+
+    ``resource`` is a label used only in the message ("CPU" / "Memory"); ``baseline``,
+    ``peak`` and ``lowest`` are usage fractions (0-1).
+    """
+    pytest_assert(
+        lowest - baseline < RECOVER_THRESHOLD,
+        "{} usage did not recover after the test: it stayed more than {:.0f} points above the "
+        "pre-test baseline.\nBaseline: {}, In-test peak: {}, Lowest after test: {}".format(
+            resource, RECOVER_THRESHOLD * 100, baseline, peak, lowest))
+
+
 def run_post_test_system_check(init_mem, init_cpu, duthost):
-    time.sleep(10)
+    """Check that CPU and memory settle back near their pre-test baseline.
 
-    post_mem, post_cpu = get_system_stats(duthost)
+    The SSH worker threads stop asynchronously, so the first reading taken after the
+    test can still be high. We take several readings, keep the lowest (most recovered)
+    one, and compare it to the pre-test baseline.
 
-    if post_mem-init_mem >= 0.2:
-        pytest_assert(max_mem-post_mem > 0.1,
-                      "Memory increased by more than 20 points during test and did not reduce from raised value\n\
-                      Initial Value: {}, Max value: {}, Post-Test Value: {}".format(init_mem, max_mem, post_mem))
-        logging.warning(
-            "Memory usage did not reduce to original value after test. "
-            "Initial Value: {}, Max value: {}, Post-Test Value: {}".format(init_mem, max_mem, post_mem))
+    We compare against the baseline on purpose, not against the in-test peak. The old
+    check ("peak minus a single later reading") failed whenever that later reading
+    happened to be at or above the peak -- reporting a problem even when usage had
+    actually recovered.
+    """
+    lowest_mem, lowest_cpu = 1.0, 1.0
+    for _ in range(SETTLE_POLLS):
+        time.sleep(SETTLE_INTERVAL)
+        mem, cpu = get_system_stats(duthost)
+        lowest_mem = min(lowest_mem, mem)
+        lowest_cpu = min(lowest_cpu, cpu)
+        logging.info(
+            "Waiting for usage to settle: CPU={:.3f} MEM={:.3f} (lowest so far CPU={:.3f} MEM={:.3f})".format(
+                cpu, mem, lowest_cpu, lowest_mem))
+        # Stop early once both have come back down near the baseline.
+        if lowest_cpu - init_cpu < RECOVER_THRESHOLD and lowest_mem - init_mem < RECOVER_THRESHOLD:
+            break
 
-    if post_cpu-init_cpu >= 0.2:
-        pytest_assert(max_cpu-post_cpu > 0.1,
-                      "CPU usage increased by more than 20 points during test and did not reduce from raised value\n\
-                      Initial Value: {}, Max value: {}, Post-Test Value: {}".format(init_cpu, max_cpu, post_cpu))
-        logging.warning(
-            "CPU usage did not reduce to original value after test. "
-            "Initial Value: {}, Max value: {}, Post-Test Value: {}".format(init_cpu, max_cpu, post_cpu))
+    _assert_usage_recovered("CPU", init_cpu, max_cpu, lowest_cpu)
+    _assert_usage_recovered("Memory", init_mem, max_mem, lowest_mem)
 
 
 def get_baseline_time(ssh, command):
@@ -159,6 +221,11 @@ def test_ssh_stress(duthosts, rand_one_dut_hostname, setup_teardown):
     duthost = duthosts[rand_one_dut_hostname]
     dut_mgmt_ip = duthost.mgmt_ip
 
+    # Get SSH credentials from image type
+    creds = DEFAULT_SSH_CONNECT_PARAMS[get_image_type(duthost=duthost)]
+    username = creds["username"]
+    password = creds["password"]
+
     # Gets initial memory and CPU stats
     init_mem, init_cpu = get_system_stats(duthost)
 
@@ -175,7 +242,7 @@ def test_ssh_stress(duthosts, rand_one_dut_hostname, setup_teardown):
     ]
 
     logging.info("Collecting baseline times for commands")
-    ssh = start_SSH_connection(dut_mgmt_ip)
+    ssh = start_SSH_connection(dut_mgmt_ip, username, password)
     baseline_times = [tuple((get_baseline_time(ssh, com)
                             for com in pair)) for pair in command_pairs]
 
@@ -189,7 +256,7 @@ def test_ssh_stress(duthosts, rand_one_dut_hostname, setup_teardown):
     # Initiates threads
     for ind in range(len(command_pairs)):
         new_thread = threading.Thread(target=work, args=(
-            dut_mgmt_ip, command_pairs[ind], baseline_times[ind],))
+            dut_mgmt_ip, command_pairs[ind], baseline_times[ind], username, password,))
         new_thread.start()
         threads.append(new_thread)
 
@@ -223,7 +290,7 @@ def test_ssh_stress(duthosts, rand_one_dut_hostname, setup_teardown):
     ssh_connections = []
 
     for ind in range(20):
-        ssh = start_SSH_connection(dut_mgmt_ip)
+        ssh = start_SSH_connection(dut_mgmt_ip, username, password)
         ssh_connections.append(ssh)
         try:
             stdin, stdout, stderr = ssh.exec_command("show mac", timeout=10)

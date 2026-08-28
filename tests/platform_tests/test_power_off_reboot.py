@@ -51,6 +51,7 @@ def _power_off_reboot_helper(kwargs, power_on_event=None):
     """
     pdu_ctrl = kwargs["pdu_ctrl"]
     all_outlets = kwargs["all_outlets"]
+    power_on_seq = kwargs["power_on_seq"]
     for outlet in all_outlets:
         logging.debug("turning off {}".format(outlet))
         pdu_ctrl.turn_off_outlet(outlet)
@@ -64,8 +65,8 @@ def _power_off_reboot_helper(kwargs, power_on_event=None):
     for outlet in outlet_status:
         logging.debug("After turn off outlet, its status is {}".format(outlet))
 
-    logging.info("Power on {}".format(all_outlets))
-    for outlet in all_outlets:
+    logging.info("Power on {}".format(power_on_seq))
+    for outlet in power_on_seq:
         logging.debug("turning on {}".format(outlet))
         pdu_ctrl.turn_on_outlet(outlet)
 
@@ -108,16 +109,35 @@ def test_power_off_reboot(duthosts, localhost, enum_supervisor_dut_hostname, con
     if pdu_ctrl is None:
         pytest.skip(
             "No PSU controller for %s, skip rest of the testing in this case" % duthost.hostname)
+    # Fail fast with a clear reason when a PDU is configured for one of the DUT's
+    # PSUs but the PDU could not be reached (typically an SNMP timeout). Without
+    # this check, the test would silently power-cycle only the reachable PSU and
+    # later fail with the misleading "DUT did not shutdown" message.
+    if hasattr(pdu_ctrl, "get_unreachable_psus"):
+        unreachable_psus = pdu_ctrl.get_unreachable_psus()
+        if unreachable_psus:
+            pytest.fail(
+                "PDU is not accessible for DUT {} PSU(s) {}. The configured peer "
+                "PDU(s) {} could not be initialized (most likely SNMP is not "
+                "reachable or the credentials are wrong). Power-off reboot cannot "
+                "guarantee a full power loss while any PSU remains powered, so "
+                "the test is failing early instead of reporting the misleading "
+                "'DUT did not shutdown' error. Please verify the PDU "
+                "reachability and re-run.".format(
+                    duthost.hostname,
+                    list(unreachable_psus.keys()),
+                    unreachable_psus,
+                )
+            )
     is_chassis = duthost.get_facts().get("modular_chassis")
     if is_chassis and duthost.is_supervisor_node():
         # Following is to accomodate for chassis, when no '--power_off_delay' option is given on pipeline run
         power_off_delay = 60
     all_outlets = pdu_ctrl.get_outlet_status()
+    pytest_assert(all_outlets, "No outlets found for {}".format(duthost.hostname))
+
     # If PDU supports returning output_watts, making sure that all PSUs has power.
     psu_to_pdus = get_grouped_pdus_by_psu(pdu_ctrl)
-    for psu, pdus in psu_to_pdus.items():
-        pytest_assert(any(int(pdu.get('output_watts', '1')) !=
-                      0 for pdu in pdus), "Not all PSUs are getting power")
 
     # Purpose of this list is to control sequence of turning on PSUs in power off testing.
     # If there are 2 PSUs, then 3 scenarios would be covered:
@@ -125,36 +145,32 @@ def test_power_off_reboot(duthosts, localhost, enum_supervisor_dut_hostname, con
     # 2. Turn off all PSUs, turn on PSU2, then check.
     # 3. Turn off all PSUs, turn on one of the PSU, then turn on the other PSU, then check.
     power_on_seq_list = []
-    if all_outlets:
-        power_on_seq_list = [pdus for pdus in psu_to_pdus.values()]
+    for psu, pdus in psu_to_pdus.items():
+        pytest_assert(any(int(pdu.get('output_watts', '1')) !=
+                      0 for pdu in pdus), "PSU {} is not getting power".format(psu))
+        if not is_chassis:
+            power_on_seq_list.append(pdus)
+    # Append all_outlets unless it would duplicate the single existing entry
+    # For chassis the list is empty here, so all_outlets becomes the only entry
+    if len(power_on_seq_list) != 1:
         power_on_seq_list.append(all_outlets)
-
     logging.info("Got all power on sequences {}".format(power_on_seq_list))
 
     poweroff_reboot_kwargs = {"dut": duthost}
+    poweroff_reboot_kwargs["pdu_ctrl"] = pdu_ctrl
+    poweroff_reboot_kwargs["all_outlets"] = all_outlets
+    poweroff_reboot_kwargs["delay_time"] = power_off_delay
 
     try:
-        if is_chassis:
-            poweroff_reboot_kwargs["pdu_ctrl"] = pdu_ctrl
-            poweroff_reboot_kwargs["all_outlets"] = all_outlets
-            poweroff_reboot_kwargs["power_on_seq"] = all_outlets
-            poweroff_reboot_kwargs["delay_time"] = power_off_delay
+        duthosts_arg = duthosts if is_chassis else None
+
+        for power_on_seq in power_on_seq_list:
+            poweroff_reboot_kwargs["power_on_seq"] = power_on_seq
             reboot_and_check(
                 localhost, duthost, conn_graph_facts.get(
                     "device_conn", {}).get(duthost.hostname, {}),
                 xcvr_skip_list, REBOOT_TYPE_POWEROFF,
-                _power_off_reboot_helper, poweroff_reboot_kwargs, duthosts=duthosts)
-        else:
-            for power_on_seq in power_on_seq_list:
-                poweroff_reboot_kwargs["pdu_ctrl"] = pdu_ctrl
-                poweroff_reboot_kwargs["all_outlets"] = all_outlets
-                poweroff_reboot_kwargs["power_on_seq"] = power_on_seq
-                poweroff_reboot_kwargs["delay_time"] = power_off_delay
-                reboot_and_check(
-                    localhost, duthost, conn_graph_facts.get(
-                        "device_conn", {}).get(duthost.hostname, {}),
-                    xcvr_skip_list, REBOOT_TYPE_POWEROFF,
-                    _power_off_reboot_helper, poweroff_reboot_kwargs)
+                _power_off_reboot_helper, poweroff_reboot_kwargs, duthosts=duthosts_arg)
 
     except Exception as e:
         logging.debug("Restore power after test failure")
