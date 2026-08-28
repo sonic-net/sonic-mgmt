@@ -59,7 +59,7 @@ def _validate_relay_types(caller, relay_types):
     if not relay_types:
         raise ValueError("%s: relay_types must be a non-empty iterable" % caller)
     relay_types = list(relay_types)
-    valid = {'isc', 'isc-internal', 'sonic', 'v6', 'orchestrator'}
+    valid = {'isc', 'isc-internal', 'sonic', 'v6'}
     bad = [t for t in relay_types if t not in valid]
     if bad:
         raise ValueError("%s: invalid relay_types %s; allowed %s"
@@ -140,11 +140,6 @@ def restart_dhcp_service(duthost, relay_types):
                               will need to be extended to mirror the 'isc'
                               dhcpmon-<Vlan> check above.
                           TODO: revisit when dhcpv6mon ships.
-
-        'orchestrator' -> Only the dhcprelayd orchestrator is required RUNNING.
-                          Use after dhcp_server teardown or when the relay
-                          container has no v4/v6 helper programs in supervisord
-                          (e.g. multi_vlan tests that reshape VLAN relay layout).
 
     The orchestrator (`dhcprelayd`) is always required RUNNING. There is intentionally
     no default; each caller must declare which agent(s) it expects to be active.
@@ -582,25 +577,6 @@ def merge_counters(source_counter, merge_counter, is_v6=False):
                                                                     merge_counter.get(dir, {}).get(dhcp_type, 0)
 
 
-def _dhcp_server_feature_enabled(duthost):
-    features_state, _ = duthost.get_feature_status()
-    return 'enabled' in features_state.get('dhcp_server', '')
-
-
-def _relay_types_after_sonic_disable(duthost):
-    """
-    Readiness contract after removing has_sonic_dhcpv4_relay.
-
-    When the dhcp_server feature is enabled, dhcprelayd keeps supervisord
-    isc-dhcpv4-relay-* / dhcpmon-* STOPPED and manages v4 relay itself (or
-    none at all once DHCP_SERVER_IPV4 config is cleaned). Waiting for
-    relay_types=['isc'] is unsatisfiable in that mode.
-    """
-    if _dhcp_server_feature_enabled(duthost):
-        return ['orchestrator']
-    return ['isc']
-
-
 def sonic_dhcpv4_flag_config_and_unconfig(duthost, dhcpv4_config_flag=False):
     """
     Enable or disable the SONiC DHCPv4 feature flag and restart the DHCP service on the DUT.
@@ -614,11 +590,7 @@ def sonic_dhcpv4_flag_config_and_unconfig(duthost, dhcpv4_config_flag=False):
 
     # Save the config and restart DHCP relay service
     duthost.shell('sudo config save -y', module_ignore_errors=True)
-    if dhcpv4_config_flag:
-        relay_types = ['sonic']
-    else:
-        relay_types = _relay_types_after_sonic_disable(duthost)
-    restart_dhcp_service(duthost, relay_types)
+    restart_dhcp_service(duthost, ['sonic'] if dhcpv4_config_flag else ['isc'])
 
 
 @pytest.fixture()
