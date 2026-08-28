@@ -198,7 +198,7 @@ def lab_vlan_setup(duthosts, rand_one_dut_hostname, vlan_intfs_dict, first_avai_
 
     # --------------------- Setup -----------------------
     create_test_vlans(duthost, cfg_facts, vlan_intfs_dict, first_avai_vlan_port)
-    
+
     yield
 
     try:
