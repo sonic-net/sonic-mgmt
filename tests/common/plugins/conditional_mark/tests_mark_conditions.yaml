@@ -4120,6 +4120,10 @@ pfcwd/test_pfcwd_timer_accuracy.py::TestPfcwdAllTimer::test_pfcwd_timer_accuracy
     reason: "ipv6 mgmt ip is not supported, see check_timer_accuracy_test.yml#43"
     conditions:
     - "is_mgmt_ipv6_only==True"
+  xfail:
+    reason: "pfcwd timer accuracy test fails intermittently"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/27459"
 
 pfcwd/test_pfcwd_warm_reboot.py:
    skip:
