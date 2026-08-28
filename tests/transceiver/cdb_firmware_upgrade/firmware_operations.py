@@ -161,8 +161,9 @@ def verify_dom_recovered_after_operation(duthost, port_attributes_dict, ports,
                                          lport_to_first_subport_mapping):
     """Re-enable DOM polling and verify DOM values recovered after a firmware operation.
 
-    Leaves polling enabled; the caller's ``dom_polling_disabled_on_ports`` context
-    manager restores the original state on exit.
+    Leaves polling enabled. ``dom_polling_disabled_on_ports`` re-enables only the ports
+    it disabled, so a port that was already disabled before that context manager ran is
+    left enabled here rather than restored.
     """
     baseline_sensor_data, read_errors = dom_helpers.read_dom_sensor_data(duthost, ports)
     if read_errors:
@@ -533,10 +534,14 @@ def execute_on_ports(duthost, port_attributes_dict, qualifying_ports, lport_to_p
     loop and its result is exposed as ``port_context["prefetched"]``.
 
     ``verify_post_operation`` runs the checks once every port is done: static
-    EEPROM unchanged, then DOM polling re-enabled and in operational range.
+    EEPROM unchanged, then DOM polling re-enabled and in operational range. It
+    requires ``lport_to_first_subport_mapping``.
 
     Returns ``(all_failures, num_ports)``, the caller ``pytest.fail``s or logs.
     """
+    if verify_post_operation and lport_to_first_subport_mapping is None:
+        raise ValueError("lport_to_first_subport_mapping is required when verify_post_operation is set")
+
     pport_to_lport = get_physical_to_logical_port_mapping(lport_to_pport)
     prefetched = prefetch(duthost, qualifying_ports, lport_to_pport) if prefetch else None
     all_failures = []

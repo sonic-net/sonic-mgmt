@@ -4,7 +4,7 @@ import pytest
 from natsort import natsorted
 
 from tests.transceiver.dom.dom_helpers import (
-    build_dom_availability_plan,
+    build_dom_sensor_plan,
     dom_field_available,
     read_dom_sensor_data,
     validate_dom_plan_fields,
@@ -47,7 +47,7 @@ def test_dom_data_availability_verification(
     """Verify configured DOM sensor data is present and fresh in STATE_DB."""
     sensor_ports = natsorted(set(dom_primary_ports) | set(dom_non_primary_ports))
     sensor_by_port, sensor_read_errors = read_dom_sensor_data(duthost, sensor_ports)
-    availability_plan_by_port = build_dom_availability_plan(
+    sensor_plan_by_port = build_dom_sensor_plan(
         port_attributes_dict,
         dom_primary_ports,
         lport_to_first_subport_mapping,
@@ -58,7 +58,7 @@ def test_dom_data_availability_verification(
         duthost,
         dom_primary_ports,
         sensor_by_port,
-        availability_plan_by_port,
+        sensor_plan_by_port,
         dom_field_available,
         include_freshness_only=True,
     )

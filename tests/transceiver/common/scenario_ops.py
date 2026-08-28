@@ -163,6 +163,7 @@ def perform_sfputil_reset(duthost, reset_ports, toggle_ports, shutdown_wait_sec,
         reset_ports: ports to issue ``sfputil reset`` on (one per module).
         toggle_ports: every subport to shut before / start after the resets.
         recover_wait_sec: settle time between the resets and the startup.
+
     Returns:
         list[str]: operation failures for the caller to aggregate.
     """

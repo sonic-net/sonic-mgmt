@@ -24,11 +24,42 @@ from tests.transceiver.common.db_helpers import (
 logger = logging.getLogger(__name__)
 
 STATE_DB_SENSOR_TABLE = "TRANSCEIVER_DOM_SENSOR"
+STATE_DB_THRESHOLD_TABLE = "TRANSCEIVER_DOM_THRESHOLD"
 
 OPERATIONAL_SUFFIX = "_operational_range"
+THRESHOLD_SUFFIX = "_threshold_range"
+CONSISTENCY_SUFFIX = "_consistency_variation_threshold"
 LANE_NUM_PLACEHOLDER = "LANE_NUM"
 MEDIA_LANE_MASK_KEY = "media_lane_mask"
 DomMappedField = namedtuple("DomMappedField", ("source_attr", "attr_value"))
+DomThresholdMappedField = namedtuple("DomThresholdMappedField", ("source_attr", "attr_value", "threshold_key"))
+
+THRESHOLD_FIELD_SUFFIXES = ("lowalarm", "lowwarning", "highwarning", "highalarm")
+THRESHOLD_FIELD_PREFIXES = {
+    "temperature": "temp",
+    "voltage": "vcc",
+    "laser_temperature": "lasertemp",
+    "tx_bias": "txbias",
+    "tx_power": "txpower",
+    "rx_power": "rxpower",
+}
+THRESHOLD_TO_OPERATIONAL_ATTR = {
+    "temperature": "temperature_operational_range",
+    "voltage": "voltage_operational_range",
+    "laser_temperature": "laser_temperature_operational_range",
+    "tx_bias": "txLANE_NUMbias_operational_range",
+    "tx_power": "txLANE_NUMpower_operational_range",
+    "rx_power": "rxLANE_NUMpower_operational_range",
+}
+THRESHOLD_VALUE_TOLERANCE = 0.01
+CONSISTENCY_FIELD_TEMPLATES_BY_BASE = {
+    "temperature": "temperature",
+    "voltage": "voltage",
+    "laser_temperature": "laser_temperature",
+    "tx_power": "tx{}power",
+    "rx_power": "rx{}power",
+    "tx_bias": "tx{}bias",
+}
 
 DOM_POLLING_ENABLED_VALUES = ("", "enabled")
 DOM_POLLING_DISABLED_VALUE = "disabled"
@@ -112,17 +143,36 @@ def _map_operational_attribute_to_fields(attr_name, attr_value, active_media_lan
     }, []
 
 
+def _map_threshold_attribute_to_fields(attr_name, attr_value, _active_media_lanes=None):
+    """Return ``({field: DomThresholdMappedField(...)}, errors)`` for one threshold range."""
+    base_name = attr_name[:-len(THRESHOLD_SUFFIX)]
+    prefix = THRESHOLD_FIELD_PREFIXES.get(base_name)
+    if prefix is None:
+        return {}, ["{} has no DOM threshold field mapping".format(attr_name)]
+
+    return {
+        "{}{}".format(prefix, suffix): DomThresholdMappedField(
+            attr_name,
+            attr_value,
+            suffix,
+        )
+        for suffix in THRESHOLD_FIELD_SUFFIXES
+    }, []
+
+
 DOM_FIELD_MAPPERS = (
     (OPERATIONAL_SUFFIX, _map_operational_attribute_to_fields),
+    (THRESHOLD_SUFFIX, _map_threshold_attribute_to_fields),
 )
 
 
 def map_dom_attribute_to_fields(attr_name, attr_value, active_media_lanes):
     """Map one DOM attribute to current STATE_DB field metadata.
 
-    The suffix dispatch is DOM-local: TC1/TC2 use the operational mapper today,
-    and future threshold/consistency families can add their own mapper here
-    without duplicating the LANE_NUM expansion path.
+    The suffix dispatch is DOM-local. Sensor-table operational ranges expand
+    ``LANE_NUM`` across active media lanes. Threshold ranges are transceiver-
+    level and return ``DomThresholdMappedField`` entries without lane expansion.
+    Callers build table-specific plans from the mapped field type they need.
     """
     for suffix, mapper in DOM_FIELD_MAPPERS:
         if attr_name.endswith(suffix):
@@ -131,7 +181,26 @@ def map_dom_attribute_to_fields(attr_name, attr_value, active_media_lanes):
     return {}, []
 
 
-def build_dom_availability_plan(port_attributes_dict, dom_primary_ports, lport_to_first_subport_mapping):
+def _operational_attr_for_threshold(attr_name):
+    """Return the configured operational-range attribute paired with a threshold attribute."""
+    base_name = attr_name[:-len(THRESHOLD_SUFFIX)]
+    return THRESHOLD_TO_OPERATIONAL_ATTR.get(base_name)
+
+
+def consistency_field_template_for_attr(attr_name):
+    """Return the STATE_DB sensor field template for a consistency attribute."""
+    if not attr_name.endswith(CONSISTENCY_SUFFIX):
+        return None
+    base_name = attr_name[:-len(CONSISTENCY_SUFFIX)]
+    return CONSISTENCY_FIELD_TEMPLATES_BY_BASE.get(base_name)
+
+
+def field_template_is_lane_expanded(field_template):
+    """Return True when a STATE_DB field template expects a lane number."""
+    return "{}" in field_template
+
+
+def build_dom_sensor_plan(port_attributes_dict, dom_primary_ports, lport_to_first_subport_mapping):
     """Return each port's expected DOM fields, active lanes, errors, and age limit.
 
     ``expected_fields`` is a ``{field: DomMappedField(source_attr, attr_value)}``
@@ -150,6 +219,8 @@ def build_dom_availability_plan(port_attributes_dict, dom_primary_ports, lport_t
         errors = list(lane_errors)
 
         for attr_name, attr_value in sorted(dom_attrs.items()):
+            if not attr_name.endswith(OPERATIONAL_SUFFIX):
+                continue
             mapped_fields, field_errors = map_dom_attribute_to_fields(
                 attr_name,
                 attr_value,
@@ -170,6 +241,62 @@ def build_dom_availability_plan(port_attributes_dict, dom_primary_ports, lport_t
             len(expected_fields),
             active_media_lanes or "none",
             dom_attrs.get("data_max_age_min"),
+        )
+
+    return plan_by_port
+
+
+def build_dom_threshold_plan(port_attributes_dict, dom_primary_ports):
+    """Return each port's expected threshold fields and paired operational ranges.
+
+    ``db_fields_by_threshold_attr`` groups ``TRANSCEIVER_DOM_THRESHOLD`` fields
+    by source threshold attribute. Threshold validation is transceiver-level, so
+    no LANE_NUM expansion is applied here.
+    """
+    plan_by_port = {}
+    for port in dom_primary_ports:
+        dom_attrs = port_attributes_dict.get(port, {}).get(DOM_ATTRIBUTES_KEY, {})
+        configured_by_attr = {}
+        db_fields_by_threshold_attr = defaultdict(dict)
+        operational_range_by_threshold_attr = {}
+        errors = []
+
+        for attr_name, attr_value in sorted(dom_attrs.items()):
+            if not attr_name.endswith(THRESHOLD_SUFFIX):
+                continue
+
+            configured_by_attr[attr_name] = attr_value
+            mapped_fields, field_errors = map_dom_attribute_to_fields(attr_name, attr_value, active_media_lanes=None)
+            for field, mapped_field in mapped_fields.items():
+                db_fields_by_threshold_attr[attr_name][field] = mapped_field
+            errors.extend(field_errors)
+
+            operational_attr = _operational_attr_for_threshold(attr_name)
+            if operational_attr in dom_attrs:
+                operational_range_by_threshold_attr[attr_name] = DomMappedField(
+                    operational_attr,
+                    dom_attrs[operational_attr],
+                )
+
+        plan_by_port[port] = {
+            "configured_by_attr": configured_by_attr,
+            "db_fields_by_threshold_attr": {
+                attr_name: {
+                    field: db_fields_by_threshold_attr[attr_name][field]
+                    for field in sorted(db_fields_by_threshold_attr[attr_name])
+                }
+                for attr_name in sorted(db_fields_by_threshold_attr)
+            },
+            "operational_range_by_threshold_attr": operational_range_by_threshold_attr,
+            "errors": errors,
+        }
+        logger.debug(
+            "%s DOM threshold plan: %d expected field(s), %d threshold attr(s), "
+            "%d paired operational range attr(s)",
+            port,
+            sum(len(fields) for fields in db_fields_by_threshold_attr.values()),
+            len(configured_by_attr),
+            len(operational_range_by_threshold_attr),
         )
 
     return plan_by_port
@@ -217,12 +344,21 @@ def format_optional_float(value):
     return "{:.2f}".format(value) if value is not None else "not-available"
 
 
-def format_dom_port_failure(port, active_lanes, expected_fields, field_failures):
+def format_dom_port_failure(
+    port,
+    active_lanes,
+    expected_fields,
+    field_failures,
+    field_label="expected field(s)",
+    include_lanes=True,
+):
     """Prefix a port's failure block with its expected shape."""
-    return "{} [{} expected field(s), lanes {}]:\n  {}".format(
+    lane_context = ", lanes {}".format(active_lanes or "none") if include_lanes else ""
+    return "{} [{} {}{}]:\n  {}".format(
         port,
         len(expected_fields),
-        active_lanes or "none",
+        field_label,
+        lane_context,
         "\n  ".join(field_failures),
     )
 
@@ -316,6 +452,13 @@ def validate_dom_plan_fields(
             continue
         checked_port_count += 1
 
+        if sensor_data is None:
+            field_failures.append(
+                "could not read {} for port (namespace read failed)".format(STATE_DB_SENSOR_TABLE)
+            )
+            failures.append(format_dom_port_failure(port, active_lanes, expected_fields, field_failures))
+            continue
+
         if not sensor_data:
             field_failures.append(
                 "no {} entry published for port".format(STATE_DB_SENSOR_TABLE)
@@ -324,7 +467,7 @@ def validate_dom_plan_fields(
             continue
 
         freshness_age_min = None
-        if max_age_min is not None and (has_field_checks or include_freshness_only):
+        if max_age_min is not None:
             if now_utc is None:
                 now_utc = duthost.get_now_time(utc_timezone=True)
             freshness_result = check_dom_sensor_freshness(sensor_data, max_age_min, now_utc)
@@ -372,10 +515,14 @@ def validate_dom_plan_fields(
     return failures, checked_field_count, checked_port_count
 
 
-def read_dom_sensor_data(duthost, ports):
-    """Return ``({port: {field: value}}, errors)`` for current DOM sensor data."""
+def _read_dom_table_data(duthost, ports, table_name):
+    """Return ``({port: data_or_None}, errors)`` for a current DOM STATE_DB table.
+
+    A value of ``None`` means the namespace-level table read failed, while an
+    empty dict means the table read succeeded and the port entry was absent.
+    """
     ports = list(ports)
-    sensor_data = {port: {} for port in ports}
+    table_data_by_port = {port: {} for port in ports}
     errors = []
     ports_by_namespace = defaultdict(list)
 
@@ -384,33 +531,54 @@ def read_dom_sensor_data(duthost, ports):
         ports_by_namespace[namespace].append(port)
 
     for namespace, namespace_ports in ports_by_namespace.items():
-        sensor_table, err = get_state_db_table(
+        dom_table, err = get_state_db_table(
             duthost,
-            STATE_DB_SENSOR_TABLE,
+            table_name,
             namespace=namespace,
         )
         if err:
             errors.append(
-                "{} namespace {}: {}".format(
-                    STATE_DB_SENSOR_TABLE,
+                "{} namespace {} ({} port(s) under test): {}".format(
+                    table_name,
                     namespace or "default",
+                    len(namespace_ports),
                     err,
                 )
             )
+            logger.warning(
+                "Failed to read %s namespace %s for %d port(s): %s",
+                table_name,
+                namespace or "default",
+                len(namespace_ports),
+                err,
+            )
+            for port in namespace_ports:
+                table_data_by_port[port] = None
             continue
 
         for port in namespace_ports:
-            sensor_data[port] = sensor_table.get(port, {}) or {}
+            table_data_by_port[port] = dom_table.get(port, {}) or {}
 
     logger.debug(
-        "Read DOM sensor data for %d port(s) across %d namespace(s); "
+        "Read %s data for %d port(s) across %d namespace(s); "
         "%d port(s) returned data",
+        table_name,
         len(ports),
         len(ports_by_namespace),
-        sum(1 for port_data in sensor_data.values() if port_data),
+        sum(1 for port_data in table_data_by_port.values() if port_data),
     )
 
-    return sensor_data, errors
+    return table_data_by_port, errors
+
+
+def read_dom_sensor_data(duthost, ports):
+    """Return ``({port: data_or_None}, errors)`` for current DOM sensor data."""
+    return _read_dom_table_data(duthost, ports, STATE_DB_SENSOR_TABLE)
+
+
+def read_dom_threshold_data(duthost, ports):
+    """Return ``({port: data_or_None}, errors)`` for current DOM threshold data."""
+    return _read_dom_table_data(duthost, ports, STATE_DB_THRESHOLD_TABLE)
 
 
 def check_dom_sensor_freshness(sensor_data, max_age_min, now_utc):
@@ -435,7 +603,7 @@ def verify_dom_recovered(duthost, port_attributes_dict, ports,
     if dom_attrs.get("data_max_age_min") is None:
         return [f"{ports[0]}: {DOM_ATTRIBUTES_KEY} is missing data_max_age_min"]
 
-    plan_by_port = build_dom_availability_plan(
+    plan_by_port = build_dom_sensor_plan(
         port_attributes_dict, ports, lport_to_first_subport_mapping,
     )
 
@@ -443,8 +611,8 @@ def verify_dom_recovered(duthost, port_attributes_dict, ports,
         sensor_by_port, read_errors = read_dom_sensor_data(duthost, ports)
         failures = [f"DOM sensor read error: {read_error}" for read_error in read_errors]
         for port in ports:
-            updated = sensor_by_port.get(port, {}).get("last_update_time")
-            baseline = baseline_sensor_data.get(port, {}).get("last_update_time")
+            updated = (sensor_by_port.get(port) or {}).get("last_update_time")
+            baseline = (baseline_sensor_data.get(port) or {}).get("last_update_time")
             if updated is not None and updated == baseline:
                 failures.append(f"{port}: DOM data not republished; last_update_time still {updated}")
         port_failures, _, _ = validate_dom_plan_fields(
