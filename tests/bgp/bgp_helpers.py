@@ -77,6 +77,8 @@ ACTION_NOT_IN = "not"
 ACTION_STOP = "stop"
 WAIT_TIMEOUT = 120
 TCPDUMP_WAIT_TIMEOUT = 20
+LLDP_RETRY_INTERVAL = 60
+LLDP_RETRY_TIMEOUT = 300
 LOCAL_PCAP_FILE_TEMPLATE = "%s_dump.pcap"
 
 
@@ -681,6 +683,70 @@ def get_ptf_recv_port(duthost, vm_name, tbinfo, multi_vrf_topo=False):
     ports = [line.strip() for line in ports_output.split('\n') if line.strip()]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     return [mg_facts['minigraph_ptf_indices'][port] for port in ports]
+
+
+def get_lldp_total_entries(duthost):
+    """
+    Get the neighbor count that `show lldp table` reports in its 'Total entries displayed' footer.
+
+    Returns:
+        int, or None when the footer is absent (older SONiC images).
+    """
+    output = duthost.shell("show lldp table")["stdout"]
+    match = re.search(r"Total entries displayed:\s*(\d+)", output)
+    return int(match.group(1)) if match else None
+
+
+def get_topo_lldp_neighbors(duthost, nbrhosts, count=1, retry_timeout=LLDP_RETRY_TIMEOUT,
+                            retry_interval=LLDP_RETRY_INTERVAL):
+    """
+    Get the first `count` distinct LLDP neighbors that belong to the test topology.
+
+    `show lldp table` also reports the management port's neighbor (the lab OOB switch), which is
+    not part of the topology and therefore absent from nbrhosts. Selecting rows by position picks
+    that entry up whenever the fabric neighbors are missing, so filter by nbrhosts membership
+    instead. Neighbors reached over several links are returned once.
+
+    A single reported entry means only the management port neighbor is known, so the table is
+    re-read until the fabric neighbors appear or `retry_timeout` expires.
+
+    Returns:
+        list of dicts with keys 'dut_int', 'neigh_name' and 'neigh_int'.
+    """
+    deadline = time.time() + retry_timeout
+    while True:
+        total_entries = get_lldp_total_entries(duthost)
+        if total_entries is None or total_entries > 1 or time.time() >= deadline:
+            break
+        logging.info("Only %s LLDP entry reported on %s, waiting %ss for the topology neighbors "
+                     "to be discovered", total_entries, duthost.hostname, retry_interval)
+        time.sleep(retry_interval)
+
+    lldp_entries = duthost.show_and_parse("show lldp table")
+
+    neighbors = []
+    for entry in lldp_entries:
+        dut_int = entry.get("localport")
+        neigh_name = entry.get("remotedevice")
+        if not dut_int or neigh_name not in nbrhosts:
+            continue
+        if any(neighbor["neigh_name"] == neigh_name for neighbor in neighbors):
+            continue
+        neighbors.append({
+            "dut_int": dut_int,
+            "neigh_name": neigh_name,
+            "neigh_int": entry.get("remoteportid"),
+        })
+        if len(neighbors) == count:
+            break
+
+    pytest_assert(
+        len(neighbors) == count,
+        "Found {} topology LLDP neighbor(s) on {}, expected {}. Verify the topology links and "
+        "neighbors are up. 'show lldp table' returned: {}".format(
+            len(neighbors), duthost.hostname, count, lldp_entries))
+
+    return neighbors
 
 
 def get_eth_port(duthost, tbinfo):
