@@ -8,7 +8,6 @@ from tests.common.platform.interface_utils import (
 from tests.transceiver.attribute_parser.attribute_keys import (
     BASE_ATTRIBUTES_KEY,
     CDB_FIRMWARE_UPGRADE_ATTRIBUTES_KEY,
-    DOM_ATTRIBUTES_KEY,
     SYSTEM_ATTRIBUTES_KEY,
 )
 from tests.transceiver.common import cli_helpers, dmesg_helpers, scenario_ops
@@ -27,7 +26,6 @@ logger = logging.getLogger(__name__)
 
 I2C_ERROR_PATTERN = r"i2c.*(error|fail|timeout|nack)|(error|fail).*i2c"
 THERMALCTLD = "thermalctld"
-DOM_REFRESH_POLL_INTERVAL_SEC = 20
 
 
 def select_target_version(firmware_versions, banks):
@@ -159,64 +157,31 @@ def verify_static_eeprom_unchanged(duthost, port_attributes_dict, ports, lport_t
     return [f"static EEPROM check failed after firmware operation: {failure}" for failure in failures]
 
 
-def verify_dom_refreshed(duthost, port_attributes_dict, ports, lport_to_first_subport_mapping):
-    """Re-enable DOM polling, then confirm sensor data is republished and in range."""
-    dom_attrs = port_attributes_dict[ports[0]].get(DOM_ATTRIBUTES_KEY, {})
-    if dom_attrs.get("data_max_age_min") is None:
-        logger.info("No data_max_age_min configured; skipping DOM refresh verification")
-        return []
+def verify_dom_recovered_after_operation(duthost, port_attributes_dict, ports,
+                                         lport_to_first_subport_mapping):
+    """Re-enable DOM polling and verify DOM values recovered after a firmware operation.
 
-    plan_by_port = dom_helpers.build_dom_availability_plan(
-        port_attributes_dict, ports, lport_to_first_subport_mapping,
+    Leaves polling enabled; the caller's ``dom_polling_disabled_on_ports`` context
+    manager restores the original state on exit.
+    """
+    baseline_sensor_data, read_errors = dom_helpers.read_dom_sensor_data(duthost, ports)
+    if read_errors:
+        return [f"DOM sensor read error before re-enabling polling: {read_error}" for read_error in read_errors]
+
+    failures = []
+    for port in ports:
+        err = cli_helpers.set_dom_polling(
+            duthost, port, enable=True, namespace=resolve_port_namespace(duthost, port),
+        )
+        if err:
+            failures.append(f"failed to enable DOM polling on {port}: {err}")
+    if failures:
+        return failures
+
+    return dom_helpers.verify_dom_recovered(
+        duthost, port_attributes_dict, ports,
+        lport_to_first_subport_mapping, baseline_sensor_data,
     )
-
-    stale_by_port, _ = dom_helpers.read_dom_sensor_data(duthost, ports)
-    stale_timestamps = {
-        port: stale_by_port.get(port, {}).get("last_update_time") for port in ports
-    }
-
-    def _check_republished():
-        sensor_by_port, read_errors = dom_helpers.read_dom_sensor_data(duthost, ports)
-        failures = [f"STATE_DB read: {read_error}" for read_error in read_errors]
-        for port in ports:
-            updated = sensor_by_port.get(port, {}).get("last_update_time")
-            if updated is not None and updated == stale_timestamps[port]:
-                failures.append(f"{port}: DOM data not republished since polling was re-enabled")
-        port_failures, _, _ = dom_helpers.validate_dom_plan_fields(
-            duthost, ports, sensor_by_port, plan_by_port,
-            dom_helpers.dom_field_available,
-            include_freshness_only=True,
-        )
-        return failures + port_failures
-
-    enabled_ports = []
-    try:
-        for port in ports:
-            namespace = resolve_port_namespace(duthost, port)
-            enabled_ports.append((port, namespace))
-            err = cli_helpers.set_dom_polling(duthost, port, enable=True, namespace=namespace)
-            if err:
-                return [f"failed to re-enable DOM polling on {port}: {err}"]
-
-        failures = scenario_ops.poll_ports_recovered(
-            _check_republished, dom_attrs["dom_info_recover_sec"],
-            DOM_REFRESH_POLL_INTERVAL_SEC, "DOM refresh",
-        )
-        if failures:
-            return failures
-
-        sensor_by_port, read_errors = dom_helpers.read_dom_sensor_data(duthost, ports)
-        port_failures, _, _ = dom_helpers.validate_dom_plan_fields(
-            duthost, ports, sensor_by_port, plan_by_port,
-            dom_helpers.dom_field_in_operational_range,
-            include_freshness_only=True,
-        )
-        return [f"STATE_DB read: {read_error}" for read_error in read_errors] + port_failures
-    finally:
-        for port, namespace in enabled_ports:
-            err = cli_helpers.set_dom_polling(duthost, port, enable=False, namespace=namespace)
-            if err:
-                logger.warning("Failed to restore DOM polling disabled on %s: %s", port, err)
 
 
 def verify_firmware_downloaded(duthost, port, before_banks, target_version, download_err):
@@ -596,7 +561,7 @@ def execute_on_ports(duthost, port_attributes_dict, qualifying_ports, lport_to_p
         all_failures += verify_static_eeprom_unchanged(
             duthost, port_attributes_dict, qualifying_ports, lport_to_first_subport_mapping,
         )
-        all_failures += verify_dom_refreshed(
+        all_failures += verify_dom_recovered_after_operation(
             duthost, port_attributes_dict, qualifying_ports, lport_to_first_subport_mapping,
         )
     return all_failures, len(qualifying_ports)

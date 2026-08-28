@@ -12,6 +12,7 @@ from tests.transceiver.attribute_parser.attribute_keys import (
     BASE_ATTRIBUTES_KEY,
     DOM_ATTRIBUTES_KEY,
 )
+from tests.transceiver.common import scenario_ops
 from tests.transceiver.common.db_helpers import (
     check_entry_freshness,
     get_config_db_port_table,
@@ -31,6 +32,8 @@ DomMappedField = namedtuple("DomMappedField", ("source_attr", "attr_value"))
 
 DOM_POLLING_ENABLED_VALUES = ("", "enabled")
 DOM_POLLING_DISABLED_VALUE = "disabled"
+
+DOM_RECOVERY_POLL_INTERVAL_SEC = 20
 
 
 def _active_media_lanes(primary_port, port_attributes_dict, lport_to_first_subport_mapping):
@@ -418,3 +421,50 @@ def check_dom_sensor_freshness(sensor_data, max_age_min, now_utc):
         now_utc,
         table_name=STATE_DB_SENSOR_TABLE,
     )
+
+
+def verify_dom_recovered(duthost, port_attributes_dict, ports,
+                         lport_to_first_subport_mapping, baseline_sensor_data):
+    """Confirm DOM data recovered after a disruptive operation. Polls until the sensor
+    entry is republished and every configured field is readable, then asserts each field
+    is within its operational range.
+
+    Returns a list of failure strings (empty on success).
+    """
+    dom_attrs = port_attributes_dict[ports[0]].get(DOM_ATTRIBUTES_KEY, {})
+    if dom_attrs.get("data_max_age_min") is None:
+        return [f"{ports[0]}: {DOM_ATTRIBUTES_KEY} is missing data_max_age_min"]
+
+    plan_by_port = build_dom_availability_plan(
+        port_attributes_dict, ports, lport_to_first_subport_mapping,
+    )
+
+    def _check_republished():
+        sensor_by_port, read_errors = read_dom_sensor_data(duthost, ports)
+        failures = [f"DOM sensor read error: {read_error}" for read_error in read_errors]
+        for port in ports:
+            updated = sensor_by_port.get(port, {}).get("last_update_time")
+            baseline = baseline_sensor_data.get(port, {}).get("last_update_time")
+            if updated is not None and updated == baseline:
+                failures.append(f"{port}: DOM data not republished; last_update_time still {updated}")
+        port_failures, _, _ = validate_dom_plan_fields(
+            duthost, ports, sensor_by_port, plan_by_port,
+            dom_field_available,
+            include_freshness_only=True,
+        )
+        return failures + port_failures
+
+    failures = scenario_ops.poll_ports_recovered(
+        _check_republished, dom_attrs["dom_info_recover_sec"],
+        DOM_RECOVERY_POLL_INTERVAL_SEC, "DOM recovery",
+    )
+    if failures:
+        return failures
+
+    sensor_by_port, read_errors = read_dom_sensor_data(duthost, ports)
+    port_failures, _, _ = validate_dom_plan_fields(
+        duthost, ports, sensor_by_port, plan_by_port,
+        dom_field_in_operational_range,
+        include_freshness_only=True,
+    )
+    return [f"DOM sensor read error: {read_error}" for read_error in read_errors] + port_failures
