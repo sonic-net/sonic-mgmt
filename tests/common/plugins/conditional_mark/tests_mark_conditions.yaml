@@ -3774,6 +3774,15 @@ memory_checker/test_memory_checker.py:
       - "release in ['202412']"
 
 #######################################
+#####       metadata-scripts      #####
+#######################################
+metadata-scripts/test_metadata_bgp.py:
+  skip:
+    reason: "BGP is not running on BMC topology"
+    conditions:
+      - "'bmc' in topo_type"
+
+#######################################
 #####            mpls             #####
 #######################################
 mpls:
