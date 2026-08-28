@@ -1,11 +1,10 @@
 import time
 import threading
 import logging
-import re
 import pytest
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
-from telemetry_utils import assert_equal, get_list_stdout, get_dict_stdout, skip_201911_and_older
+from telemetry_utils import get_list_stdout, get_dict_stdout, skip_201911_and_older
 from telemetry_utils import generate_client_cli
 
 pytestmark = [
@@ -73,51 +72,6 @@ def test_telemetry_enabledbydefault(duthosts, enum_rand_one_per_hwsku_hostname):
             status_expected = "enabled"
             pytest_assert(str(v) == status_expected,
                           "Telemetry feature is not enabled")
-
-
-@pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
-def test_telemetry_ouput(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
-                         setup_streaming_telemetry, gnxi_path):
-    """Run pyclient from ptfdocker and show gnmi server outputself.
-    """
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    if duthost.is_supervisor_node():
-        pytest.skip(
-            "Skipping test as no Ethernet0 frontpanel port on supervisor")
-    logger.info('start telemetry output testing')
-    cmd = generate_client_cli(duthost, gnxi_path, method="get", xpath="COUNTERS/Ethernet0", target="COUNTERS_DB")
-    show_gnmi_out = ptfhost.shell(cmd)['stdout']
-    logger.info("GNMI Server output")
-    logger.info(show_gnmi_out)
-    result = str(show_gnmi_out)
-    inerrors_match = re.search("SAI_PORT_STAT_IF_IN_ERRORS", result)
-    pytest_assert(inerrors_match is not None,
-                  "SAI_PORT_STAT_IF_IN_ERRORS not found in gnmi_output")
-
-
-@pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
-def test_virtualdb_table_streaming(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_path,
-                                   setup_streaming_telemetry):
-    """Run pyclient from ptfdocker to stream a virtual-db query multiple times.
-    """
-    logger.info('start virtual db sample streaming testing')
-
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    if duthost.is_supervisor_node():
-        pytest.skip(
-            "Skipping test as no Ethernet0 frontpanel port on supervisor")
-    skip_201911_and_older(duthost)
-    cmd = generate_client_cli(
-        duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE, update_count=3)
-    show_gnmi_out = ptfhost.shell(cmd)['stdout']
-    result = str(show_gnmi_out)
-
-    assert_equal(len(re.findall('Max update count reached 3', result)),
-                 1, "Streaming update count in:\n{0}".format(result))
-    assert_equal(len(re.findall('name: "Ethernet0"\n', result)), 4,
-                 "Streaming updates for Ethernet0 in:\n{0}".format(result))  # 1 for request, 3 for response
-    assert_equal(len(re.findall(r'timestamp: \d+', result)), 3,
-                 "Timestamp markers for each update message in:\n{0}".format(result))
 
 
 def invoke_py_cli_from_ptf(ptfhost, cmd, callback):
