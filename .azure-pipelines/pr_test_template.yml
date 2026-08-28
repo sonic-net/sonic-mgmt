@@ -2,7 +2,7 @@ parameters:
 - name: RUN_TEST_AGENT_POOL
   type: object
   default:
-    name: sonic-ubuntu-1c     # temporarily switch from sonic-ubuntu-1c-2 to sonic-ubuntu-1c to help share the workload
+    name: sonic-ubuntu-1c-2
 
 - name: PRE_TEST_AGENT_POOL
   type: object
