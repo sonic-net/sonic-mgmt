@@ -222,14 +222,17 @@ def run_pfc_test(api,
     # rx_port_id and tx_port_id belong to IXIA chassis.
     rx_port_id = 0
 
-    # Normalize the offered rate to the egress line rate for no-loss cases so the
-    # ingress-port count returned by create_port_map() does not oversubscribe the
-    # single egress port (sonic-mgmt#27399). Floor to 2 decimals so an N-way ingress
-    # split still sums to ~line rate instead of being truncated to an integer.
-    if not test_def['test_check']['loss_expected']:
-        flow_factor = port_map[2] * (TEST_FLOW_AGGR_RATE_PERCENT + BG_FLOW_AGGR_RATE_PERCENT) / 100.0
-    else:
-        flow_factor = 1
+    # Make the offered load invariant to the number of ingress ports discovered by
+    # create_port_map(): the aggregate injected into the single egress is
+    # port_map[2] * (TEST + BG), so divide each ingress' rate by the oversubscription
+    # ratio (actual ingress count / the ingress count the test was calibrated for).
+    # 'designed_ingress_count' defaults to 1 (line-rate throughput) for the
+    # no-congestion tests; the port-congestion tests set it to their calibrated
+    # ingress count so their loss tolerances stay valid regardless of testbed size
+    # (sonic-mgmt#27399). Floor to 2 decimals so an N-way split still sums to ~the
+    # intended load instead of being int-truncated.
+    designed_ingress_count = test_def.get('designed_ingress_count', 1)
+    flow_factor = port_map[2] / designed_ingress_count
     bg_flow_rate_percent = int(BG_FLOW_AGGR_RATE_PERCENT / len(bg_prio_list) / flow_factor * 100) / 100
     test_flow_rate_percent = int(TEST_FLOW_AGGR_RATE_PERCENT / len(test_prio_list) / flow_factor * 100) / 100
     # Generate base traffic config
@@ -421,10 +424,6 @@ def run_pfc_test(api,
         lossy_drop = round((1 - float(test_stats['tgen_lossy_rx_pkts']) / test_stats['tgen_lossy_tx_pkts']), 2)
         logger.info('Lossless Drop %:{}, Lossy Drop %:{}'.format(lossless_drop, lossy_drop))
         pytest_assert((lossless_drop*100) <= test_check['lossless'], 'Lossless packet drop outside tolerance limit')
-        # TODO(sonic-mgmt#27399): test_check['lossy'] was calibrated for a fixed ingress
-        # count; with create_port_map() yielding N ingress ports the expected lossy drop
-        # scales with the oversubscription ratio and needs a topology-aware tolerance
-        # (pending WRR-based calibration for the intentionally-congested cases).
         pytest_assert((lossy_drop*100) <= test_check['lossy'], 'Lossy packet drop outside tolerance limit')
 
     # Checking if the actual line rate on egress is within tolerable limit of egress line speed.
