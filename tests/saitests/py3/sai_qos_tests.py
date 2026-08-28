@@ -4770,6 +4770,8 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         pkts_num_egr_mem = int(self.test_params.get('pkts_num_egr_mem', 0))
         topo = self.test_params['topo']
         platform_asic = self.test_params['platform_asic']
+        hwsku = self.test_params.get('hwsku', '')
+        use_set_scheduler = asic_type == 'cisco-8000' and 'Cisco-8223' not in hwsku
         prio_list = self.test_params.get('dscp_list', [])
         q_pkt_cnt = self.test_params.get('q_pkt_cnt', [])
         q_list = self.test_params.get('q_list', [])
@@ -4898,19 +4900,31 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
             for p in list(self.dataplane.ports.values()):
                 p.socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 41943040)
 
-            # recv packets for leakout
-            if 'cisco-8000' in asic_type:
-                recv_pkt = scapy.Ether()
-
-                while recv_pkt:
+            def poll_test_pkts():
+                """Drain the dst port, returning the packets that belong to this test flow."""
+                received_pkts = []
+                while True:
                     received = self.dataplane.poll(
                         device_number=0, port_number=dst_port_id, timeout=2)
                     if isinstance(received, self.dataplane.PollFailure):
-                        recv_pkt = None
                         break
                     recv_pkt = scapy.Ether(received.packet)
+                    try:
+                        if recv_pkt[scapy.IP].src == src_port_ip and recv_pkt[scapy.IP].dst == dst_port_ip and \
+                                recv_pkt[scapy.IP].id == exp_ip_id:
+                            received_pkts.append(recv_pkt)
+                    except AttributeError:
+                        continue
+                    except IndexError:
+                        # Ignore captured non-IP packet
+                        continue
+                return received_pkts
 
-            if asic_type == 'cisco-8000':
+            # recv packets for leakout
+            if 'cisco-8000' in asic_type:
+                leakout_pkts_received = len(poll_test_pkts())
+                print("Leakout pkts received:", leakout_pkts_received, file=sys.stderr)
+            if use_set_scheduler:
                 out, err, ret = self.exec_cmd_on_dut(
                     self.dst_server_ip,
                     self.test_params['dut_username'],
@@ -4937,30 +4951,9 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
                     [dst_port_id],
                     enable_port_by_unblock_queue=False)
 
-            cnt = 0
-            pkts = []
-            recv_pkt = scapy.Ether()
+            pkts = poll_test_pkts()
 
-            while recv_pkt:
-                received = self.dataplane.poll(
-                    device_number=0, port_number=dst_port_id, timeout=2)
-                if isinstance(received, self.dataplane.PollFailure):
-                    recv_pkt = None
-                    break
-                recv_pkt = scapy.Ether(received.packet)
-
-                try:
-                    if recv_pkt[scapy.IP].src == src_port_ip and recv_pkt[scapy.IP].dst == dst_port_ip and \
-                            recv_pkt[scapy.IP].id == exp_ip_id:
-                        cnt += 1
-                        pkts.append(recv_pkt)
-                except AttributeError:
-                    continue
-                except IndexError:
-                    # Ignore captured non-IP packet
-                    continue
-
-            if asic_type == 'cisco-8000':
+            if use_set_scheduler:
                 # Release port
                 self.sai_thrift_port_tx_enable(
                     self.dst_client,
@@ -4973,9 +4966,13 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
             for prio, q_cnt in zip(prio_list, q_pkt_cnt):
                 queue_num_of_pkts[prio] = q_cnt
 
+            dscp_to_queue = dict(zip(prio_list, q_list))
+
             total_pkts = 0
 
             diff_list = []
+            dscp_order = []
+            terminating_indices = set()
 
             for pkt_to_inspect in pkts:
                 if 'backend' in topo:
@@ -4983,25 +4980,63 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
                 else:
                     dscp_of_pkt = pkt_to_inspect.payload.tos >> 2
                 total_pkts += 1
+                dscp_order.append(dscp_of_pkt)
 
                 # Count packet ordering
-
                 queue_pkt_counters[dscp_of_pkt] += 1
                 if queue_pkt_counters[dscp_of_pkt] == queue_num_of_pkts[dscp_of_pkt]:
                     diff_list.append((dscp_of_pkt, q_cnt_sum - total_pkts))
+                    terminating_indices.add(total_pkts - 1)
 
-                print(queue_pkt_counters, file=sys.stderr)
+            # Print the received ordering as a compact table: 40 two-char columns per
+            # row (~119 chars wide), so the scheduling pattern is visible at a glance
+            # even for thousands of packets. The separator after a packet is "E" when it
+            # is the last packet of its DSCP/queue, otherwise a space.
+            def format_packet_table(values, terminators, per_row=40):
+                lines = []
+                for start in range(0, len(values), per_row):
+                    row_end = min(start + per_row, len(values))
+                    parts = []
+                    for idx in range(start, row_end):
+                        parts.append("{:2d}".format(values[idx]))
+                        if idx in terminators:
+                            parts.append("E")
+                        elif idx < row_end - 1:
+                            parts.append(" ")
+                    lines.append("".join(parts))
+                return "\n".join(lines)
+
+            queue_order = [dscp_to_queue.get(d, d) for d in dscp_order]
+            print("Packet ordering (DSCP):\n{}".format(
+                format_packet_table(dscp_order, terminating_indices)), file=sys.stderr)
+            print("Packet ordering (Queue):\n{}".format(
+                format_packet_table(queue_order, terminating_indices)), file=sys.stderr)
+
+            queue_pkt_count = {q: queue_pkt_counters[d] for d, q in zip(prio_list, q_list)}
+            queue_sent_count = {q: cnt for q, cnt in zip(q_list, q_pkt_cnt)}
+            print("Sent packet count per queue: {}".format(queue_sent_count), file=sys.stderr)
+            print("Received packet count per queue: {}".format(queue_pkt_count), file=sys.stderr)
 
             print("Difference for each dscp: ", file=sys.stderr)
             print(diff_list, file=sys.stderr)
 
+            failures = []
+
+            # All packets sent should be received intact
+            print([q_cnt_sum, total_pkts], file=sys.stderr)
+            if q_cnt_sum != total_pkts:
+                failures.append("Not all packets received: sent %d but received %d" % (
+                    q_cnt_sum, total_pkts))
+
+            # Difference for each dscp should be within the scheduling limit
             for dscp, diff in diff_list:
                 if platform_asic and platform_asic == "broadcom-dnx":
                     logging.info(
                         "On J2C+ can't control how packets are dequeued (CS00012272267) - so ignoring diff check now")
                 elif not dry_run:
-                    assert diff < limit, "Difference for %d is %d which exceeds limit %d" % (
-                        dscp, diff, limit)
+                    if diff >= limit:
+                        failures.append("Difference for %d is %d which exceeds limit %d" % (
+                            dscp, diff, limit))
 
             # Read counters
             print("DST port counters: ")
@@ -5010,9 +5045,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
             print(list(map(operator.sub, queue_counters,
                            queue_counters_base)), file=sys.stderr)
 
-            print([q_cnt_sum, total_pkts], file=sys.stderr)
-            # All packets sent should be received intact
-            assert (q_cnt_sum == total_pkts)
+            assert len(failures) == 0, "WRRtest failures:\n" + "\n".join(failures)
         finally:
             self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id],
                                            enable_port_by_unblock_queue=False)
