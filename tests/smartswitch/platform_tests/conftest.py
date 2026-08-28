@@ -14,11 +14,14 @@ from tests.smartswitch.common.device_utils_dpu import (  # noqa: F401
     check_dpu_ready_state,
     dpus_startup_and_check,
     get_dpu_auto_recovery,
+    get_dpu_id_from_hostname,
     get_dpuhost_for_dpu,
+    is_dpu_db_state_supported,
     num_dpu_modules,
     set_dpu_auto_recovery,
     unset_dpu_auto_recovery,
     DPU_AUTO_RECOVERY_ENABLE,
+    DPU_DB_STATE_PROBE_TIMEOUT,
     DPU_MAX_ONLINE_TIMEOUT,
     DPU_READY_AFTER_RECOVERY_TIMEOUT,
     DPU_TIME_INT,
@@ -66,12 +69,29 @@ def prepare_testable_dpus(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname,
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
-    # Build list of all DPUs in dpuhosts
+    # Build testable DPUs from the DPU hosts we have SSH access to, deriving each
+    # real module id from its hostname so a subset maps to correct ids (not indexes).
     testable_dpus = []
-    for dpu_id in range(num_dpu_modules):
-        if get_dpuhost_for_dpu(dpuhosts, dpu_id) is not None:
+    for dpuhost in dpuhosts:
+        dpu_id = get_dpu_id_from_hostname(getattr(dpuhost, "hostname", ""))
+        if dpu_id is not None:
             testable_dpus.append(f"DPU{dpu_id}")
+    # Fall back to positional enumeration for non-standard DPU hostnames.
+    if not testable_dpus:
+        testable_dpus = [f"DPU{dpu_id}" for dpu_id in range(len(dpuhosts))]
+    testable_dpus = sorted(set(testable_dpus), key=lambda name: int(name[len("DPU"):]))
     pt_assert(testable_dpus, "No DPUs available in dpuhosts")
+
+    # Skip (before mutating any state) on images lacking the CHASSIS_STATE_DB
+    # DPU_STATE schema, so the failure-mode suite doesn't hard-fail on old images.
+    for dpu_name in testable_dpus:
+        if not wait_until(DPU_DB_STATE_PROBE_TIMEOUT, DPU_TIME_INT, 0,
+                          is_dpu_db_state_supported, duthost, dpu_name):
+            pytest.skip(
+                f"{dpu_name}: CHASSIS_STATE_DB DPU_STATE schema not present; "
+                "image does not support the DPU robustness enhancement. "
+                "Skipping DPU failure-mode tests."
+            )
 
     # Enable auto-recovery so chassisd recovers failed DPUs; save original for teardown.
     original_auto_recovery = get_dpu_auto_recovery(duthost)

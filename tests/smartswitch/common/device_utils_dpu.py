@@ -37,6 +37,8 @@ PING_TIMEOUT = 30
 PING_TIME_INT = 10
 # Max time to wait for a DPU to return to ready after recovery/power-cycle.
 DPU_READY_AFTER_RECOVERY_TIMEOUT = 1200
+# Max time to wait for chassisd to populate the CHASSIS_STATE_DB DPU_STATE schema.
+DPU_DB_STATE_PROBE_TIMEOUT = 120
 
 # chassisd reads DPU auto-recovery from CONFIG_DB DEVICE_METADATA|localhost
 # field 'dpu_auto_recovery'; recovery is enabled only when it equals 'enable'
@@ -516,20 +518,31 @@ def check_dpu_health_status(duthost, dpu_name,
     return
 
 
+def get_dpu_id_from_hostname(hostname):
+    """Return the integer DPU id encoded in a DPU host's name (`*-dpu-<id>`),
+    or None if the hostname doesn't follow that convention."""
+    match = re.search(r"-dpu-(\d+)$", hostname or "")
+    return int(match.group(1)) if match else None
+
+
 def get_dpuhost_for_dpu(dpuhosts, dpu_id):
     """
     Get the dpuhost that corresponds to the given dpu_id.
-    dpuhosts may have fewer nodes than platform slots when the testbed
-    does not define SSH access for all DPUs. Tries integer index first,
-    then hostname match (e.g. *-dpu-0 for DPU0).
+
+    Match by the DPU id encoded in the hostname (`*-dpu-<id>`) first, so a
+    subset or out-of-order dpuhosts still maps each dpu_id to the correct host.
+    Fall back to positional index only when hostnames don't follow that convention.
     """
-    if dpu_id < len(dpuhosts):
-        return dpuhosts[dpu_id]
-    dpu_suffix = f"-dpu-{dpu_id}"
-    # If index lookup fails (e.g. dpu_id=3 but len(dpuhosts)=1), search by hostname.
+    hostnames_encode_dpu_id = False
     for node in dpuhosts:
-        if getattr(node, 'hostname', '').endswith(dpu_suffix):
-            return node
+        node_dpu_id = get_dpu_id_from_hostname(getattr(node, 'hostname', ''))
+        if node_dpu_id is not None:
+            hostnames_encode_dpu_id = True
+            if node_dpu_id == dpu_id:
+                return node
+    # Positional index only for non-standard hostnames; otherwise absence means absent.
+    if not hostnames_encode_dpu_id and dpu_id < len(dpuhosts):
+        return dpuhosts[dpu_id]
     return None
 
 
