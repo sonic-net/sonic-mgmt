@@ -326,4 +326,11 @@ class StpTestBase:
             yield
         finally:
             stop[0] = True
-            thread.join(timeout=3)
+            # Each loop iteration is a blocking PTF invocation that can run for
+            # tens of seconds; a short join lets the thread outlive its test and
+            # keep injecting into the next one, which shows up as order-dependent
+            # failures. Wait the send out.
+            thread.join(timeout=60)
+            if thread.is_alive():
+                logger.warning("periodic superior sender still alive after 60s; "
+                               "its last send may leak into the next test")

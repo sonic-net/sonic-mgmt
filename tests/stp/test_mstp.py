@@ -52,6 +52,10 @@ CIST = 0
 # hence a very low MAC. (A normal switch MAC is far above 00:00:00:00:00:01.)
 FOREIGN_BRIDGE_MAC = "00:00:00:00:00:01"
 SUPERIOR_PRIORITY = 0
+# A neighbour the DUT can actually outrank. Bridge IDs compare as priority then
+# MAC, and FOREIGN_BRIDGE_MAC is lower than any real system MAC, so a neighbour
+# at priority 0 wins even when the DUT is also at 0.
+BEATABLE_PRIORITY = 8192
 # RSTP/MST flags for an injected designated-forwarding bridge: Proposal (0x02) +
 # port-role Designated (0x0C) + Learning (0x10) + Forwarding (0x20) + Agreement
 # (0x40). A BPDU with role "Unknown" (flags 0x00) is discarded by the daemon, so
@@ -91,6 +95,30 @@ class TestMstp(StpTestBase):
         params.update(overrides)
         return params
 
+    @pytest.fixture(autouse=True)
+    def mstp_quiesced(self, duthosts, rand_one_dut_hostname, setup_stp_test_data):
+        """Start every test from the same converged baseline: the lone DUT is
+        its own CIST root. BPDUs injected by the previous test influence the
+        daemon until they age out, so without this gate leftovers leak into the
+        next test as order-dependent failures."""
+        duthost = duthosts[rand_one_dut_hostname]
+        if not wait_until(60, 3, 0, lambda: self.is_self_root(duthost, CIST)):
+            self._bounce_and_restore_region(duthost, setup_stp_test_data)
+            pytest_assert(
+                wait_until(60, 3, 0, lambda: self.is_self_root(duthost, CIST)),
+                "DUT did not return to CIST root before the test started")
+        yield
+
+    def _bounce_and_restore_region(self, duthost, data):
+        """`config spanning-tree disable mst` deletes the STP_MST tables, region
+        name and revision included, so a bare bounce silently drops the DUT into
+        the MAC-derived default region and every region-dependent test after it
+        fails. Any bounce must therefore re-apply the region."""
+        self.bounce_stp(duthost)
+        mst = data["mst"]
+        self.setup_region(duthost, mst["region_name"], mst["revision"],
+                          mst["instance_vlan_map"])
+
     # =========================== MST-specific tests =========================
     def test_mstp_validate_root_bridge(self, duthosts, rand_one_dut_hostname, ptfhost,
                                        setup_stp_test_data):
@@ -100,7 +128,7 @@ class TestMstp(StpTestBase):
         d = setup_stp_test_data
         dut_port_1, dut_port_2 = d["dut_ports"]["dut_port_1"], d["dut_ports"]["dut_port_2"]
 
-        self.bounce_stp(duthost)
+        self._bounce_and_restore_region(duthost, d)
 
         pytest_assert(wait_until(60, 2, 0, lambda: self.is_self_root(duthost, CIST)),
                       "DUT is not the CIST root")
@@ -123,42 +151,59 @@ class TestMstp(StpTestBase):
                                       setup_stp_test_data):
         """The configured region + instance-1 VLAN mapping is reflected in the
         DUT's operational state and its emitted BPDU."""
-        pytest.skip(
-            "Build supports only the CIST (instance 0): MSTIs beyond the CIST "
-            "cannot be created (no config-CLI path, and stpd ignores a direct "
-            "CONFIG_DB instance write), so no non-CIST instance/VLAN mapping is "
-            "observable. Tracked as a product gap.")
         duthost = duthosts[rand_one_dut_hostname]
         d = setup_stp_test_data
         inst = d["mst"]["instance"]
         vlan_id = d["vlan"]["id"]
 
-        instances = stp_utils.get_mst_instances(duthost)
-        pytest_assert(inst in instances,
-                      "MST instance {} not present (have {})".format(inst, instances))
-        vlans = stp_utils.get_instance_vlans(duthost, inst)
-        pytest_assert(vlan_id in vlans,
-                      "VLAN {} not mapped to instance {} (mapped: {})".format(vlan_id, inst, vlans))
+        # An MSTI is created by setting its priority. A build without that CLI
+        # refuses with "does not exist", which is the real capability gate.
+        create = duthost.shell(
+            "config spanning-tree mst instance priority {} 32768".format(inst),
+            module_ignore_errors=True)
+        if create["rc"] != 0:
+            pytest.skip("this build cannot create MST instance {}: {}".format(
+                inst, (create.get("stderr") or "").strip().splitlines()[-1]))
 
-        # BPDU carries the region identity we configured.
-        self.run_bpdu(
-            ptfhost, duthost, "validate_bpdu_packet",
-            dict(self._region_params(d),
-                 expected_region_name=d["mst"]["region_name"],
-                 expected_revision=d["mst"]["revision"],
-                 capture_port=d["dut_ports"]["ptf_port_1"],
-                 capture_duration=self.PKT_CAPTURE_DURATION),
-            "/tmp/mstp_region_instance.log")
+        try:
+            duthost.shell(
+                "config spanning-tree mst instance vlan add {} {}".format(inst, vlan_id))
+
+            pytest_assert(
+                wait_until(30, 2, 0,
+                           lambda: inst in stp_utils.get_mst_instances(duthost)),
+                "MST instance {} not present (have {})".format(
+                    inst, stp_utils.get_mst_instances(duthost)))
+            vlans = stp_utils.get_instance_vlans(duthost, inst)
+            pytest_assert(vlan_id in vlans,
+                          "VLAN {} not mapped to instance {} (mapped: {})".format(
+                              vlan_id, inst, vlans))
+
+            # BPDU carries the region identity; the digest now reflects the
+            # VLAN-to-instance mapping, so the PTF must expect the same map.
+            self.run_bpdu(
+                ptfhost, duthost, "validate_bpdu_packet",
+                dict(self._region_params(d),
+                     vid_to_mstid=json.dumps({vlan_id: inst}),
+                     expected_region_name=d["mst"]["region_name"],
+                     expected_revision=d["mst"]["revision"],
+                     capture_port=d["dut_ports"]["ptf_port_1"],
+                     capture_duration=self.PKT_CAPTURE_DURATION),
+                "/tmp/mstp_region_instance.log")
+        finally:
+            # Unmap, then drop the instance row. There is no CLI delete verb for
+            # an instance yet, so the row is removed directly.
+            duthost.shell(
+                "config spanning-tree mst instance vlan del {} {}".format(inst, vlan_id),
+                module_ignore_errors=True)
+            duthost.shell(
+                "redis-cli -n 4 del 'STP_MST_INST|{}'".format(inst),
+                module_ignore_errors=True)
 
     def test_mstp_boundary_on_region_mismatch(self, duthosts, rand_one_dut_hostname, ptfhost,
                                               setup_stp_test_data):
         """A BPDU from a *different* region (mismatched digest) makes the DUT mark
         the receiving port an MST region boundary."""
-        pytest.skip(
-            "Build supports only the CIST (instance 0): MSTIs beyond the CIST "
-            "cannot be created (no config-CLI path, and stpd ignores a direct "
-            "CONFIG_DB instance write), so no non-CIST instance/VLAN mapping is "
-            "observable. Tracked as a product gap.")
         duthost = duthosts[rand_one_dut_hostname]
         d = setup_stp_test_data
         dut_port_1 = d["dut_ports"]["dut_port_1"]
@@ -181,11 +226,6 @@ class TestMstp(StpTestBase):
     def test_mstp_superior_root_takes_over(self, duthosts, rand_one_dut_hostname, ptfhost,
                                            setup_stp_test_data):
         """An in-region superior CIST BPDU makes the DUT yield the CIST root."""
-        pytest.skip(
-            "MST region-boundary detection does not trigger on this build: a "
-            "foreign-region BPDU leaves `_STP_PORT_TABLE.mst_boundary` at 'no'. "
-            "Region config is ignored (DUT advertises a MAC-derived region name), "
-            "so a distinct region can't be established. Product gap.")
         duthost = duthosts[rand_one_dut_hostname]
         d = setup_stp_test_data
 
@@ -243,12 +283,6 @@ class TestMstp(StpTestBase):
         """Mirror of test_bridge_priority_change_in_bpdu: a superior neighbor is
         root until the DUT's CIST priority is lowered past it; then the DUT is
         root, all ports forward, and its emitted BPDU carries the new priority."""
-        pytest.skip(
-            "Build ignores MST CIST bridge-priority config: `config spanning-tree "
-            "mst instance priority 0 <v>` updates CONFIG_DB but the DUT keeps "
-            "advertising CIST priority 0 (verified by BPDU decode), so it can't be "
-            "made to win the root back from a superior neighbor. Tracked as a "
-            "product gap.")
         duthost = duthosts[rand_one_dut_hostname]
         d = setup_stp_test_data
         dut_port_1, dut_port_2 = d["dut_ports"]["dut_port_1"], d["dut_ports"]["dut_port_2"]
@@ -257,7 +291,9 @@ class TestMstp(StpTestBase):
         try:
             with self.periodic_superior_sender(
                     ptfhost, duthost,
-                    self._superior_params(d, [ptf_port_1, ptf_port_2]),
+                    self._superior_params(d, [ptf_port_1, ptf_port_2],
+                                          cist_root_priority=BEATABLE_PRIORITY,
+                                          cist_bridge_priority=BEATABLE_PRIORITY),
                     "/tmp/mstp_bridge_priority_periodic.log"):
 
                 pytest_assert(
@@ -271,7 +307,11 @@ class TestMstp(StpTestBase):
                 pytest_assert(
                     wait_until(60, 2, 0, lambda: self.is_self_root(duthost, CIST)),
                     "DUT did not become CIST root after lowering its priority")
-                self.verify_stp_state(duthost, CIST, [dut_port_1, dut_port_2], "FORWARDING")
+
+            # FORWARDING is asserted only after the sender stops: while it keeps
+            # injecting inferior designated BPDUs with learn/forward set, the
+            # dispute mechanism correctly holds the receiving port DISCARDING.
+            self.verify_stp_state(duthost, CIST, [dut_port_1, dut_port_2], "FORWARDING")
 
             # BPDU the DUT now emits carries its (new) CIST bridge priority. Only
             # the priority is checked: the CIST bridge MAC is the DUT *system* MAC,
@@ -291,11 +331,6 @@ class TestMstp(StpTestBase):
         """Mirror of test_port_priority_change_in_bpdu: with equal path cost the
         DUT roots on port_1 (lower neighbor port id); sending a *better* CIST port
         priority on port_2 moves the root port there and blocks port_1."""
-        pytest.skip(
-            "Needs the redundant port to go alternate/DISCARDING when a superior "
-            "root is reachable via both ports. On this build the injected superior "
-            "is always external (region config ignored), so both ports stay "
-            "FORWARDING and the alternate-port role can't be exercised. Product gap.")
         duthost = duthosts[rand_one_dut_hostname]
         d = setup_stp_test_data
         dut_port_1, dut_port_2 = d["dut_ports"]["dut_port_1"], d["dut_ports"]["dut_port_2"]
@@ -335,10 +370,6 @@ class TestMstp(StpTestBase):
         """Mirror of test_pvst_path_cost_validation: raise the CIST cost of the
         root port and verify the CIST internal root path cost the DUT advertises
         on its designated port tracks the change."""
-        pytest.skip(
-            "CIST internal root path cost stays 0: the injected superior is seen as "
-            "external (region config ignored -> different region), so the DUT is its "
-            "own regional root and never accumulates internal path cost. Product gap.")
         duthost = duthosts[rand_one_dut_hostname]
         d = setup_stp_test_data
         dut_port_1 = d["dut_ports"]["dut_port_1"]
@@ -559,15 +590,13 @@ class TestMstp(StpTestBase):
             # Restore SONiC defaults (hello 2, max_age 20, forward_delay 15).
             self.set_timers(duthost, vlan_id, hello=2, max_age=20, fwd_delay=15)
 
+    @pytest.mark.xfail(strict=False,
+                       reason="hardware MAC learning is disabled while MSTP is enabled, "
+                              "so the learn step cannot pass")
     def test_mstp_mac_flush(self, duthosts, rand_one_dut_hostname, ptfhost,
                             setup_stp_test_data):
         """Mirror of test_pvst_mac_flush: learn a MAC via L2 traffic, then a
         topology-change (TC-flagged CIST) BPDU flushes it."""
-        pytest.skip(
-            "L2 data-plane does not forward here (0/100 frames -- a VLAN-tagged frame "
-            "on an untagged access port), and a config_reload YANG-validation error "
-            "fires in teardown; both are environment/product issues orthogonal to the "
-            "MST topology-change logic under test.")
         duthost = duthosts[rand_one_dut_hostname]
         d = setup_stp_test_data
         dut_port_1, dut_port_2 = d["dut_ports"]["dut_port_1"], d["dut_ports"]["dut_port_2"]
@@ -596,7 +625,10 @@ class TestMstp(StpTestBase):
                       dict(self._region_params(d), send_port=[ptf_port_1]),
                       "/tmp/mstp_mac_flush_tcn.log")
 
-        after_flush = _mac_count()
-        pytest_assert(after_flush <= after,
-                      "MACs not flushed on {} (before flush {}, after flush {})".format(
-                          dut_port_1, after, after_flush))
+        # A real flush removes the learned entries; `<=` would pass when the
+        # flush does nothing, which is how this assertion stayed green for so
+        # long. The flush is asynchronous, so poll for the drop.
+        pytest_assert(
+            wait_until(30, 2, 0, lambda: _mac_count() < after),
+            "MACs not flushed on {} (before flush {}, still {})".format(
+                dut_port_1, after, _mac_count()))

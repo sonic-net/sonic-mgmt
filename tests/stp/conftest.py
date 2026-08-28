@@ -141,6 +141,17 @@ def enable_stp_and_verify(request, duthosts, rand_one_dut_hostname, setup_stp_te
         duthost.shell("config vlan member del {} {}".format(vlan_id, port), module_ignore_errors=True)
         duthost.shell("config vlan member add {} {} --untagged".format(vlan_id, port),
                       module_ignore_errors=True)
+    # The re-add must be seen by orchagent before any test sends traffic. In the
+    # window where CONFIG_DB has the member back but APPL_DB does not, hardware
+    # still floods and learns, while fdborch drops the learn events for a port it
+    # no longer considers a member: frames forward but `show mac` never learns,
+    # which reads as a MAC-learning defect.
+    for port in test_ports:
+        py_assert(
+            wait_until(30, 2, 0, lambda p=port: duthost.shell(
+                "redis-cli -n 0 exists 'VLAN_MEMBER_TABLE:Vlan{}:{}'".format(vlan_id, p),
+                module_ignore_errors=True).get("stdout", "").strip() == "1"),
+            "VLAN member {} did not reach APPL_DB after the membership bounce".format(port))
     for port in test_ports:
         if not wait_until(60, 2, 0,
                           lambda p=port: stp_utils.get_port_data(duthost, mode, enrol_scope, p) != {}):

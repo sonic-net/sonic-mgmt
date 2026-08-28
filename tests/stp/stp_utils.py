@@ -97,8 +97,13 @@ def verify_stp_state(duthost, mode, scope, ports, expected_state, timeout=120, i
 
 # --- MST-only ---------------------------------------------------------------
 def get_mst_boundary(duthost, port):
-    """`_STP_PORT_TABLE:<port>.mst_boundary` (yes/no), instance-independent."""
-    return _hgetall(duthost, "_STP_PORT_TABLE:{}".format(port)).get("mst_boundary")
+    """`STP_PORT_TABLE:<port>.mst_boundary` (yes/no), instance-independent.
+
+    Note the bare name: unlike the MST instance and port tables, this one
+    materialises without a leading underscore. The underscored name is only
+    the ProducerStateTable key set and always reads back empty.
+    """
+    return _hgetall(duthost, "STP_PORT_TABLE:{}".format(port)).get("mst_boundary")
 
 
 def get_mst_instances(duthost):
