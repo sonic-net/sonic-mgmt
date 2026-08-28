@@ -16,6 +16,7 @@ import logging
 import pytest
 import time
 import textfsm
+from tests.bgp.bgp_helpers import get_topo_lldp_neighbors
 from tests.common.config_reload import config_reload
 
 logger = logging.getLogger(__name__)
@@ -43,8 +44,9 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_
         cli_options = ''
 
     dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
-    neigh1 = duthost.shell("show lldp table")['stdout'].split("\n")[3].split()[1]
-    neigh2 = duthost.shell("show lldp table")['stdout'].split("\n")[5].split()[1]
+    lldp_neighbors = get_topo_lldp_neighbors(duthost, nbrhosts, count=2)
+    neigh1 = lldp_neighbors[0]["neigh_name"]
+    neigh2 = lldp_neighbors[1]["neigh_name"]
 
     neighbors = dict()
     skip_hosts = duthost.get_asic_namespace_list()
