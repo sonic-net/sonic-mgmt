@@ -8,6 +8,7 @@ SERVER_FILE = 'platform_api_server.py'
 SERVER_PORT = 8000
 
 IPTABLES_DELETE_RULE_CMD = 'iptables -D INPUT -p tcp -m tcp --dport {} -j ACCEPT'.format(SERVER_PORT)
+IP6TABLES_DELETE_RULE_CMD = 'ip6tables -D INPUT -p tcp -m tcp --dport {} -j ACCEPT'.format(SERVER_PORT)
 
 
 def skip_absent_psu(psu_num, platform_api_conn, psu_skip_list, logger):    # noqa: F811
@@ -45,10 +46,16 @@ def stop_platform_api_service(duthosts):
                 duthost.command('docker exec -i pmon supervisorctl reread')
                 duthost.command('docker exec -i pmon supervisorctl update')
 
-                # We ignore errors here because after a reboot test, the DUT will have power-cycled and will
-                # no longer have the rule we added in the start_platform_api_service fixture, even if the
-                # platform_api_server is running.
-                duthost.command(IPTABLES_DELETE_RULE_CMD, module_ignore_errors=True)
+            # Always remove the rules, regardless of the server state. start_platform_api_service
+            # adds them before the server is started, so a server that is no longer RUNNING at
+            # teardown (pmon restarted, the server crashed, or a reboot test intervened) would
+            # otherwise leave them behind for the rest of the session.
+            #
+            # We ignore errors here because after a reboot test, the DUT will have power-cycled and will
+            # no longer have the rule we added in the start_platform_api_service fixture, even if the
+            # platform_api_server is running.
+            duthost.command(IPTABLES_DELETE_RULE_CMD, module_ignore_errors=True)
+            duthost.command(IP6TABLES_DELETE_RULE_CMD, module_ignore_errors=True)
 
 
 @pytest.fixture(autouse=True)
