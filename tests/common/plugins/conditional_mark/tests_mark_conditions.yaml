@@ -5576,12 +5576,6 @@ telemetry/test_telemetry.py:
     conditions:
       - "(is_multi_asic==True) and (release in ['201811', '201911'])"
 
-telemetry/test_telemetry.py::test_telemetry_ouput:
-  skip:
-    reason: "not applicable on BMC (no Ethernet0/COUNTERS_DB)"
-    conditions:
-      - "'bmc' in topo_type"
-
 telemetry/test_telemetry.py::test_telemetry_queue_buffer_cnt:
   skip:
     conditions_logical_operator: or
