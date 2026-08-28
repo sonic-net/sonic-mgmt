@@ -782,6 +782,12 @@ bmp/:
     conditions:
       - "release in ['master']"
 
+bmp/test_docker_restart.py:
+  skip:
+    reason: "BMP docker/service is not available on BMC"
+    conditions:
+      - "'bmc' in topo_type"
+
 #######################################
 #####            cacl             #####
 #######################################
@@ -2585,6 +2591,10 @@ generic_config_updater/add_cluster/test_port_speed_upgrade.py:
       - "hwsku not in ['x86_64-88_lc0_36fh-r0']"
 
 generic_config_updater/test_apply_patch_perf.py:
+  skip:
+    reason: "BMC has no front-panel PORT table or dataplane ACL resources"
+    conditions:
+      - "'bmc' in topo_type"
   xfail:
     reason: "This test has been failing since https://github.com/sonic-net/sonic-buildimage/pull/26584, awaiting feature owner to triage, tracked by https://github.com/sonic-net/sonic-mgmt/issues/24984"
     conditions:
