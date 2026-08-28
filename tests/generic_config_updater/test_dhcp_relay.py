@@ -2,14 +2,14 @@ import logging
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
 from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_orig, \
-    utils_vlan_intfs_dict_add # noqa: F401
+    utils_vlan_intfs_dict_add  # noqa: F401
 from tests.common.gu_utils import apply_patch, expect_op_success, expect_res_success, expect_op_failure
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.common.gu_utils import format_json_patch_for_multiasic
-from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload, rollback
+from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback
 from tests.common.dhcp_relay_utils import restart_dhcp_service, wait_dhcp_relay_ready
-
 
 
 pytestmark = [
@@ -99,6 +99,7 @@ def create_test_vlans(duthost, cfg_facts, vlan_intfs_dict, first_avai_vlan_port)
 
     logger.info("CREATE TEST VLANS DONE")
 
+
 def _wait_for_vlan_rif_and_route(duthost, vlan_id, ip):
     """Wait until VLAN connected route is programmed in ASIC_DB."""
     import ipaddress
@@ -110,7 +111,6 @@ def _wait_for_vlan_rif_and_route(duthost, vlan_id, ip):
         route_cmd = 'sonic-db-cli ASIC_DB keys "ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY:*{}*"'.format(network)
         result = duthost.shell(route_cmd, module_ignore_errors=True)
         return bool(result['stdout'].strip())
-
 
     pytest_assert(
         wait_until(30, 2, 0, _check_ready),
