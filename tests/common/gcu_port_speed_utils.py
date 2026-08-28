@@ -92,6 +92,29 @@ def _get_portchannel_for_member(config_facts, port):
     return None
 
 
+def _get_external_portchannel_members(config_facts, portchannel):
+    """
+    Return sorted external member ports for a PortChannel.
+    """
+    members = [
+        member_port
+        for pc_name, member_port, _ in _iter_portchannel_members(config_facts)
+        if pc_name == portchannel and not member_port.startswith("Ethernet-BP")
+    ]
+    return sorted(members)
+
+
+def _get_portchannel_config(config_facts, portchannel):
+    """
+    Return a PortChannel config dictionary without embedded member data.
+    """
+    portchannel_config = dict(
+        config_facts.get("PORTCHANNEL", {}).get(portchannel, {})
+    )
+    portchannel_config.pop("members", None)
+    return portchannel_config
+
+
 def _get_portchannel_member_value(config_facts, portchannel, port):
     """
     Return the PORTCHANNEL_MEMBER value for a selected member port.
@@ -115,6 +138,29 @@ def _append_portchannel_add_ops(
     pc_member_value = _get_portchannel_member_value(
         config_facts, portchannel, port
     )
+
+    if portchannel in config_facts.get("PORTCHANNEL", {}):
+        json_patch.append({
+            "op": "add",
+            "path": "{}/PORTCHANNEL/{}".format(json_namespace, portchannel),
+            "value": _get_portchannel_config(config_facts, portchannel),
+        })
+
+    portchannel_interface_dict = {
+        _escape_json_pointer_key(key): value
+        for key, value in _format_sonic_interface_dict(
+            config_facts.get("PORTCHANNEL_INTERFACE", {})
+        ).items()
+        if key == portchannel or key.startswith("{}|".format(portchannel))
+    }
+    for interface_key, interface_value in portchannel_interface_dict.items():
+        json_patch.append({
+            "op": "add",
+            "path": "{}/PORTCHANNEL_INTERFACE/{}".format(
+                json_namespace, interface_key
+            ),
+            "value": interface_value,
+        })
 
     json_patch.append({
         "op": "add",
@@ -311,6 +357,7 @@ def validate_patch_scoped_to_ports(json_patch, ports, mg_facts=None):
     Assert selected-port table operations do not target unrelated ports.
     """
     allowed_ports = set(ports)
+    allowed_portchannels = set()
     allowed_bgp_neighbors = set()
     allowed_neighbor_metadata = set()
     if mg_facts is not None:
@@ -321,6 +368,20 @@ def validate_patch_scoped_to_ports(json_patch, ports, mg_facts=None):
             allowed_bgp_neighbors.update(
                 addr.lower() for addr in neighbor_addrs
             )
+
+    for operation in json_patch:
+        path = operation.get("path", "")
+        path_parts = path.strip('/').split('/')
+        if len(path_parts) < 2:
+            continue
+        table_index = 1 if path_parts[0].startswith(ASIC_PREFIX) else 0
+        if table_index + 1 >= len(path_parts):
+            continue
+        if path_parts[table_index] != "PORTCHANNEL_MEMBER":
+            continue
+        key = path_parts[table_index + 1].replace('~1', '/')
+        if '|' in key:
+            allowed_portchannels.add(key.split('|', 1)[0])
 
     selected_port_tables = [
         "PORT",
@@ -376,6 +437,19 @@ def validate_patch_scoped_to_ports(json_patch, ports, mg_facts=None):
                 "one of {}".format(
                     operation, metadata_key, sorted(allowed_neighbor_metadata)
                 ),
+            )
+            continue
+        if table_name in ["PORTCHANNEL", "PORTCHANNEL_INTERFACE"]:
+            if table_index + 1 >= len(path_parts):
+                continue
+            key = path_parts[table_index + 1].replace('~1', '/')
+            portchannel = key.split('|', 1)[0]
+            pytest_assert(
+                portchannel in allowed_portchannels,
+                "Patch operation {} targets {}, expected one of selected "
+                "PortChannels {}".format(
+                    operation, portchannel, sorted(allowed_portchannels)
+                )
             )
             continue
         if table_name == "CABLE_LENGTH":

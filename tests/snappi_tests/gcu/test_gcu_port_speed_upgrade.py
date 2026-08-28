@@ -23,6 +23,8 @@ from tests.common.fixtures.conn_graph_facts import (  # noqa: F401
     fanout_graph_facts_multidut,
 )
 from tests.common.gcu_port_speed_utils import (
+    _get_external_portchannel_members,
+    _get_portchannel_for_member,
     apply_patch_port_configs,
     verify_port_show_interface_status,
 )
@@ -48,7 +50,7 @@ from tests.common.snappi_tests.snappi_fixtures import (  # noqa: F401
 )
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp
 from tests.conftest import generate_skeleton_port_info, parse_override
-from tests.snappi_tests.gcu_port_speed_platform_config import (
+from tests.snappi_tests.gcu.gcu_port_speed_platform_config import (
     get_fec_modes_for_speed,
     get_num_lanes_for_speed,
 )
@@ -62,6 +64,7 @@ SPEED_100G = "100000"
 SPEED_400G = "400000"
 SNAPPI_SPEED_400G = "speed_400_gbps"
 SNAPPI_POLL_DELAY_SEC = 2
+GCU_SPEED_PATCH_SETTLE_DELAY_SEC = 100
 MIN_DOWNLINK_SNAPPIPORTS = 1
 GCU_TARGET_PORT_FIELD = "gcu_target"
 SNAPPI_CATEGORY_SINGLE_LC_SINGLE_ASIC = "single_linecard_single_asic"
@@ -69,6 +72,7 @@ SNAPPI_CATEGORY_SINGLE_LC_MULTIPLE_ASIC = "single_linecard_multiple_asic"
 SNAPPI_CATEGORY_MULTIPLE_LC_MULTIPLE_ASIC = "multiple_linecard_multiple_asic"
 
 LOGANALYZER_IGNORE_REGEX = [
+    ".*ERR sonic_yang.*",
     ".*doPortTask: Unsupported port .* speed.*",
     ".*createEntry: Failed to start PFC Watchdog on port.*",
     ".*Unable to find key NPU_SI_SETTINGS_SYNC_STATUS.*",
@@ -159,6 +163,27 @@ def _get_port_lanes(duthost, cli_namespace_prefix, port):
         "No lanes in CONFIG_DB for port {}: {}".format(port, output),
     )
     return output["stdout_lines"][0].split(",")
+
+
+def _wait_before_gcu_speed_patch(stage, contexts, ports_by_context):
+    """
+    Add spacing before a GCU speed patch.
+    """
+    selected = [
+        "{}:{}:{}".format(
+            contexts[key]["duthost"].hostname,
+            contexts[key]["namespace"] or "default",
+            ",".join(ports),
+        )
+        for key, ports in ports_by_context.items()
+    ]
+    logger.info(
+        "Waiting %s seconds before %s GCU speed patch for %s",
+        GCU_SPEED_PATCH_SETTLE_DELAY_SEC,
+        stage,
+        selected,
+    )
+    time.sleep(GCU_SPEED_PATCH_SETTLE_DELAY_SEC)
 
 
 def _get_supported_port_fecs(duthost, cli_namespace_prefix, port):
@@ -365,6 +390,36 @@ def _snappi_port_identity(port):
     Return the DUT-side identity for a Snappi port.
     """
     return port.get("peer_device"), port.get("peer_port")
+
+
+def _snappi_port_context_identity(port):
+    """
+    Return a DUT/ASIC/port identity for a Snappi port.
+    """
+    duthost = port.get("duthost")
+    hostname = getattr(duthost, "hostname", port.get("peer_device"))
+    return (
+        _normalize_hostname(hostname),
+        port.get("asic_value"),
+        port.get("peer_port"),
+    )
+
+
+def _find_available_snappi_port(
+        available_snappi_ports, duthost, namespace, dut_port):
+    """
+    Return the Snappi port connected to a DUT/ASIC port, if available.
+    """
+    hostname = _normalize_hostname(duthost.hostname)
+    for snappi_port in available_snappi_ports:
+        if _normalize_hostname(snappi_port.get("peer_device")) != hostname:
+            continue
+        if snappi_port.get("peer_port") != dut_port:
+            continue
+        if snappi_port.get("asic_value") != namespace:
+            continue
+        return dict(snappi_port)
+    return None
 
 
 def _mark_gcu_target_ports(snappi_ports, is_gcu_target):
@@ -742,14 +797,23 @@ def gcu_100g_to_400g_snappi_testbed(
     contexts = {}
     touched_duts = {}
     ports_by_context = defaultdict(list)
+    selected_snappi_port_by_identity = {
+        _snappi_port_context_identity(port): port
+        for port in selected_snappi_ports
+    }
+    selected_gcu_identities = {
+        _snappi_port_context_identity(port) for port in gcu_target_ports
+    }
 
-    for port in gcu_target_ports:
+    port_index = 0
+    while port_index < len(gcu_target_ports):
+        port = gcu_target_ports[port_index]
+        port_index += 1
         duthost = port["duthost"]
         namespace = port.get("asic_value")
         peer_port = port["peer_port"]
         key = (duthost.hostname, namespace)
         touched_duts[duthost.hostname] = duthost
-        ports_by_context[key].append(peer_port)
 
         if key not in contexts:
             contexts[key] = {
@@ -763,6 +827,47 @@ def gcu_100g_to_400g_snappi_testbed(
                 "mg_facts": duthost.get_extended_minigraph_facts(
                     tbinfo, namespace=namespace),
             }
+
+        portchannel = _get_portchannel_for_member(
+            contexts[key]["config_facts"], peer_port)
+        if portchannel:
+            member_ports = _get_external_portchannel_members(
+                contexts[key]["config_facts"], portchannel)
+            missing_member_ports = []
+            for member_port in member_ports:
+                member_snappi_port = _find_available_snappi_port(
+                    get_snappi_ports, duthost, namespace, member_port)
+                if (member_snappi_port is None or
+                        str(member_snappi_port.get("speed")) != SPEED_400G):
+                    missing_member_ports.append(member_port)
+                    continue
+
+                member_identity = _snappi_port_context_identity(
+                    member_snappi_port)
+                existing_member_port = selected_snappi_port_by_identity.get(
+                    member_identity)
+                if existing_member_port is None:
+                    member_snappi_port[GCU_TARGET_PORT_FIELD] = True
+                    selected_snappi_port_by_identity[
+                        member_identity] = member_snappi_port
+                    selected_snappi_ports.append(member_snappi_port)
+                    existing_member_port = member_snappi_port
+                else:
+                    existing_member_port[GCU_TARGET_PORT_FIELD] = True
+
+                if member_identity not in selected_gcu_identities:
+                    selected_gcu_identities.add(member_identity)
+                    gcu_target_ports.append(existing_member_port)
+
+            pytest_require(
+                not missing_member_ports,
+                "Selected 400G port {} is member of {}, but not all external "
+                "members have 400G Snappi links: missing/non-400G {}".format(
+                    peer_port, portchannel, missing_member_ports),
+            )
+
+        if peer_port not in ports_by_context[key]:
+            ports_by_context[key].append(peer_port)
 
         port_config = (
             contexts[key]["config_facts"].get("PORT", {}).get(peer_port)
@@ -813,6 +918,9 @@ def gcu_100g_to_400g_snappi_testbed(
                     peer_port,
                 )
 
+        _wait_before_gcu_speed_patch(
+            "400G->100G downgrade", contexts, ports_by_context)
+
         for key, port_configs in configs_100g.items():
             ctx = contexts[key]
             apply_patch_port_configs(
@@ -833,6 +941,9 @@ def gcu_100g_to_400g_snappi_testbed(
                     port_config_100g.get("fec"),
                     require_oper_up=False,
                 )
+
+        _wait_before_gcu_speed_patch(
+            "100G->400G restore", contexts, ports_by_context)
 
         configs_400g = defaultdict(dict)
         for key, ports in ports_by_context.items():

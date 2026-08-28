@@ -34,6 +34,7 @@ In scope:
 - Select a Snappi-connected 400G port on the T2 downlink line card.
 - Convert the selected DUT port from 400G to 100G by applying a PORT-only GCU patch.
 - Convert the selected DUT port from 100G to 400G by applying a GCU patch that includes applicable selected-port restore data, including `QUEUE`.
+- When the selected 400G port is a PortChannel member, convert all external members of that PortChannel together and restore PortChannel configuration as part of the 400G patch.
 - Verify speed, lanes, FEC, and oper state after the GCU transitions.
 - Reuse an existing downlink Snappi 100G port as a traffic peer when the setup has one.
 - Run Snappi all-to-all traffic when at least two Snappi ports are selected.
@@ -60,6 +61,7 @@ Required physical setup:
 - A T2 chassis testbed with Snappi/Ixia connectivity.
 - The testbed DUT list must include the downlink LC as the second DUT entry in `tbinfo["duts"]`.
 - At least one Snappi-connected 400G port must exist on the downlink LC.
+- If the selected 400G port is a PortChannel member, all external members of that PortChannel must have 400G Snappi links.
 - For traffic validation, at least one additional Snappi-connected downlink LC port should exist. This peer may already be 100G and is not modified by GCU.
 
 Minimum setup:
@@ -70,14 +72,14 @@ Minimum setup:
 ## Assumptions
 
 - The selected 400G GCU target port is present in the DUT `PORT` table and in Snappi port metadata.
-- The platform has lane-count data for 100G and 400G conversion in `tests/snappi_tests/gcu_port_speed_platform_config.py`.
+- The platform has lane-count data for 100G and 400G conversion in `tests/snappi_tests/gcu/files/gcu_port_speed_platforms.yaml`.
 - The selected port supports a FEC mode that is valid for the target speed.
-- Running config and minigraph facts are available as sources for applicable selected-port restore data.
-- Expected transient errors can appear while `PORT`, `BUFFER_PG`, `QUEUE`, `PORT_QOS_MAP`, `PFC_WD`, and related tables converge during speed changes; the test configures loganalyzer ignores for those known transient patterns.
+- Running config and minigraph facts are available as sources for applicable selected-port and PortChannel restore data.
+- Expected transient errors can appear while `PORT`, `BUFFER_PG`, `QUEUE`, `PORT_QOS_MAP`, `PFC_WD`, and related tables converge during speed changes; the test configures loganalyzer ignores for those known transient patterns, including transient `sonic_yang` validation messages emitted while GCU tries patch orderings.
 
 ## High Level Design
 
-The test implementation is in `tests/snappi_tests/test_gcu_port_speed_upgrade.py`.
+The test implementation is in `tests/snappi_tests/gcu/test_gcu_port_speed_upgrade.py`.
 
 The design has four phases:
 
@@ -85,17 +87,18 @@ The design has four phases:
    - Restrict execution to T2.
    - Select only downlink LC Snappi ports.
    - Select at least one 400G downlink LC Snappi port as the GCU target.
+   - If the selected target is a PortChannel member, include all external PortChannel members in the GCU target set.
    - If fewer 400G target ports exist than the traffic shape prefers, select additional downlink LC Snappi ports as non-GCU traffic peers.
    - Prefer a 100G peer when one is available.
 
 2. GCU speed transition
    - Snapshot running CONFIG_DB and minigraph facts for each target DUT/ASIC context.
-   - Read platform lane-count and FEC data from `tests/snappi_tests/gcu_port_speed_platform_config.py`.
+   - Read platform lane-count and FEC data from `tests/snappi_tests/gcu/files/gcu_port_speed_platforms.yaml`.
    - Build a 100G PORT entry preserving non-speed fields and updating speed, lanes, and FEC.
    - Apply the 100G PORT-only patch through GCU.
    - Verify the selected port is configured as 100G. Oper-up is not required after the downgrade.
    - Build the 400G restore patch from the current 100G state and original 400G port data.
-   - Include applicable selected-port restore data for the 400G upgrade patch, including `DEVICE_NEIGHBOR`, `INTERFACE`, `BUFFER_PG`, `QUEUE`, `PORT_QOS_MAP`, `PFC_WD`, `CABLE_LENGTH`, and neighbor metadata when present.
+   - Include applicable selected-port restore data for the 400G upgrade patch, including `DEVICE_NEIGHBOR`, `INTERFACE`, `BUFFER_PG`, `QUEUE`, `PORT_QOS_MAP`, `PFC_WD`, `CABLE_LENGTH`, PortChannel tables, and neighbor metadata when present.
    - Apply the 400G patch through GCU.
    - Verify the selected port is 400G and oper-up.
 
@@ -120,7 +123,7 @@ The test uses existing sonic-mgmt Snappi setup files and fixtures:
 
 - Snappi device inventory and link metadata from the lab inventory.
 - `get_snappi_ports` to discover Snappi-connected DUT ports.
-- `gcu_port_speed_platform_config.py` for platform lane-count and FEC data used by the Snappi GCU conversion.
+- `tests/snappi_tests/gcu/files/gcu_port_speed_platforms.yaml` for platform lane-count and FEC data used by the Snappi GCU conversion.
 - `snappi_dut_base_config` for same-speed selected ports.
 - `snappi_multi_base_config` for mixed-speed selected ports.
 - `lossless_prio_list` and `prio_dscp_map` for traffic priority and DSCP mapping.
@@ -140,6 +143,7 @@ Verify that a Snappi-connected downlink LC 400G port can be moved to a temporary
 - Select Snappi ports for the `multidut-tgen` topology.
 - Detect the T2 downlink LC.
 - Select at least one 400G Snappi port on the downlink LC as the GCU target.
+- If the selected 400G target is a PortChannel member, add all external PortChannel members to the GCU target set.
 - Select a non-GCU downlink traffic peer if available, preferring an existing 100G peer.
 - Capture running config facts and extended minigraph facts for each target DUT/ASIC context.
 - Register loganalyzer ignores for expected transient speed-change messages.
@@ -151,7 +155,7 @@ Verify that a Snappi-connected downlink LC 400G port can be moved to a temporary
 3. Apply the 100G PORT-only GCU patch.
 4. Verify the target port shows 100G speed, expected lanes, and expected FEC.
 5. Build the 400G PORT config using the original 400G PORT data and the current 100G config.
-6. Build applicable selected-port restore patch data from the original running config and minigraph facts, including `QUEUE` entries for the selected port.
+6. Build applicable selected-port restore patch data from the original running config and minigraph facts, including `QUEUE` entries for the selected port and PortChannel restore data when the selected target is a PortChannel member.
 7. Apply the 400G GCU patch.
 8. Verify the target port shows 400G speed, expected lanes, expected FEC, and oper-up.
 9. Build Snappi base config from the selected target and optional peer ports.
@@ -181,7 +185,9 @@ Pass criteria:
 
 Skip criteria:
 
+- The topology is not T2.
 - No downlink LC 400G Snappi port is available.
+- The selected 400G target is a PortChannel member and not all external PortChannel members have 400G Snappi links.
 
 Fail criteria:
 
@@ -199,7 +205,7 @@ Run from the `tests` directory in the sonic-mgmt container. Replace inventory, D
 ./run_tests.sh \
   -n <testbed-name> \
   -d <dut-hostname> \
-  -c snappi_tests/test_gcu_port_speed_upgrade.py \
+  -c snappi_tests/gcu/test_gcu_port_speed_upgrade.py \
   -f ../ansible/testbed.yaml \
   -i ../ansible/<inventory> \
   -u \
