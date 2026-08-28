@@ -225,11 +225,6 @@ def setup_vlan(duthosts, rand_one_dut_hostname, vlan_intfs_list):
     yield
 
     # --------------------- Teardown -----------------------
-    # Rollback twice: (1) undo GCU test changes to lab baseline; (2) remove lab VLANs.
-    # For (2), upstream used ``rollback_or_reload(duthost)`` → ``config rollback test``.
-    # ``rollback_or_reload`` only runs ``config_reload`` when that rollback *fails*; on success it never
-    # reloads. We replace the successful-rollback path with ordered CLI deletes to avoid orchagent
-    # ``removeVlan: Failed to remove ref count 1 VLAN Vlan108`` seen with bulk rollback teardown.
     try:
         output = rollback(duthost, SETUP_ENV_CP)
         pytest_assert(
@@ -242,9 +237,6 @@ def setup_vlan(duthosts, rand_one_dut_hostname, vlan_intfs_list):
             dhcp_relay_info_before_test == dhcp_relay_info_after_test,
             "dhcp relay info should be the same after rollback"
         )
-        logger.info("Removing lab VLANs via CLI (member, IP, vlan) instead of checkpoint rollback")
-        _delete_lab_vlans_cli(duthost, first_avai_vlan_port, vlan_intfs_dict)
-
     finally:
         delete_checkpoint(duthost, SETUP_ENV_CP)
 
