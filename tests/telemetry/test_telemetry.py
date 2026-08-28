@@ -4,7 +4,7 @@ import logging
 import pytest
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
-from telemetry_utils import get_list_stdout, get_dict_stdout, skip_201911_and_older
+from telemetry_utils import get_list_stdout, get_dict_stdout
 from telemetry_utils import generate_client_cli
 
 pytestmark = [
