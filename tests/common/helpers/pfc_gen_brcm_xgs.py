@@ -141,11 +141,14 @@ class FanoutPfcStorm():
         The users of this class are only expected to call
         startPfcStorm and endAllPfcStorm
         '''
-        mmuPort = self.intfToMmuPort[intf]
+        mmuPort = self.intfToMmuPort.get(intf)
         port = self.intfToPort[intf]
         if self.switchChip.startswith(("Tomahawk6", "Tomahawk5", "Tomahawk4")):
             self._bcmltshellCmd(f"pt MMU_INTFO_XPORT_BKP_HW_UPDATE_DISr set BCMLT_PT_PORT={mmuPort} PAUSE_PFC_BKP=0")
             self._bcmltshellCmd(f"pt MMU_INTFO_TO_XPORT_BKPr set BCMLT_PT_PORT={mmuPort} PAUSE_PFC_BKP=0")
+        elif self.os == 'sonic' and self.switchChip.startswith("Tomahawk3"):
+            self._cliCmd(f"setreg MMU_INTFO_TO_XPORT_BKP.{port} PAUSE_PFC_BKP=0")
+            self._cliCmd(f"setreg MMU_INTFO_XPORT_BKP_HW_UPDATE_DIS.{port} PAUSE_PFC_BKP=0")
         else:
             self._bcmshellCmd(f"setreg CHFC2PFC_STATE.{port} PRI_BKP=0")
         if self.os == 'sonic':
@@ -162,7 +165,7 @@ class FanoutPfcStorm():
             return
         self.intfsEnabled.append(intf)
 
-        mmuPort = self.intfToMmuPort[intf]
+        mmuPort = self.intfToMmuPort.get(intf)
         port = self.intfToPort[intf]
         if self.os == 'sonic':
             self._shellCmd(f"redis-cli -n 4 HSET \"PORT_QOS_MAP|{intf}\" \"pfc_enable\" \"\"")
@@ -178,6 +181,9 @@ class FanoutPfcStorm():
         if self.switchChip.startswith(("Tomahawk6", "Tomahawk5", "Tomahawk4")):
             self._bcmltshellCmd(f"pt MMU_INTFO_XPORT_BKP_HW_UPDATE_DISr set BCMLT_PT_PORT={mmuPort} PAUSE_PFC_BKP=1")
             self._bcmltshellCmd(f"pt MMU_INTFO_TO_XPORT_BKPr set BCMLT_PT_PORT={mmuPort} PAUSE_PFC_BKP={self.priority}")
+        elif self.os == 'sonic' and self.switchChip.startswith("Tomahawk3"):
+            self._cliCmd(f"setreg MMU_INTFO_XPORT_BKP_HW_UPDATE_DIS.{port} PAUSE_PFC_BKP=1")
+            self._cliCmd(f"setreg MMU_INTFO_TO_XPORT_BKP.{port} PAUSE_PFC_BKP={self.priority}")
         else:
             self._bcmshellCmd(f"setreg CHFC2PFC_STATE.{port} PRI_BKP={self.priority}")
 

@@ -37,6 +37,7 @@ def get_chip_name_if_asic_pfc_storm_supported(fanout):
         "M2-W6940-64X1-FR4": "Tomahawk5",
         "Nokia-IXR7220": "Tomahawk6",
         "NH-4210-F-O256": "Tomahawk6",
+        "DellEMC-Z9332f": "Tomahawk3",
         }
 
     for sku, chip in hwSkuInfo.items():
@@ -275,7 +276,11 @@ class PFCStorm(object):
         if self.asic_type == 'vs':
             self.pfc_start_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_eos.j2")
-        elif self.dut.topo_type == 't2' and self.peer_device.os == 'sonic':
+        elif (self.dut.topo_type == 't2' and self.peer_device.os == 'sonic'
+              and not get_chip_name_if_asic_pfc_storm_supported(self._get_sonic_fanout_hwsku())):
+            # Chip-capable SONiC fanouts fall through to the chip-side (bcmcmd) path below,
+            # which delivers gapless hardware pause. The raw-socket software t2 path produces
+            # choppy pause that the strict Broadcom pfcwd detector catches only intermittently.
             self.pfc_start_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_{}_t2.j2".format(self.peer_device.os))
         elif self.fanout_asic_type == 'mellanox' and self.peer_device.os == 'sonic':
@@ -300,7 +305,9 @@ class PFCStorm(object):
         if self.asic_type == 'vs':
             self.pfc_stop_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_stop_eos.j2")
-        elif self.dut.topo_type == 't2' and self.peer_device.os == 'sonic':
+        elif (self.dut.topo_type == 't2' and self.peer_device.os == 'sonic'
+              and not get_chip_name_if_asic_pfc_storm_supported(self._get_sonic_fanout_hwsku())):
+            # Mirror _prepare_start_template: chip-capable SONiC fanouts use the bcmcmd path.
             self.pfc_stop_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_stop_{}_t2.j2".format(self.peer_device.os))
         elif self.fanout_asic_type == 'mellanox' and self.peer_device.os == 'sonic':
