@@ -285,12 +285,18 @@ def test_telemetry_show_get(duthosts, localhost, rand_one_dut_hostname, ptfhost,
     '''
     duthost = duthosts[rand_one_dut_hostname]
 
+    # Resolve "duthost" to the DUT selected for this test so setup/verify act on
+    # the same host the GET queries (request.getfixturevalue("duthost") would
+    # resolve to the session DUT index, which can differ on multi-DUT testbeds).
+    def resolve_fixture(fx):
+        return duthost if fx == "duthost" else request.getfixturevalue(fx)
+
     with open(SHOW_PATHS_FILE, 'r') as show_paths_file:
         show_paths_data = json.load(show_paths_file)
 
     for path, test_config in show_paths_data.items():
         if test_config["setup"]:
-            setup_fixtures = [request.getfixturevalue(fx) for fx in test_config["setup_fixtures"]]
+            setup_fixtures = [resolve_fixture(fx) for fx in test_config["setup_fixtures"]]
             getattr(helper, test_config["setup"])(*setup_fixtures, *test_config["setup_args"])
             # The setup step reboots the DUT, which drops the non-persistent gnmi
             # cert server; re-apply it so the SHOW GET runs against the configured server.
@@ -300,5 +306,5 @@ def test_telemetry_show_get(duthosts, localhost, rand_one_dut_hostname, ptfhost,
 
         if test_config["verify"]:
             output = helper.get_json_from_gnmi_output(show_gnmi_out)
-            verify_fixtures = [request.getfixturevalue(fx) for fx in test_config["verify_fixtures"]]
+            verify_fixtures = [resolve_fixture(fx) for fx in test_config["verify_fixtures"]]
             getattr(helper, test_config["verify"])(*verify_fixtures, *test_config["verify_args"], output)
