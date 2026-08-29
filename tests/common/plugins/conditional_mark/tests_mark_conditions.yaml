@@ -2976,6 +2976,22 @@ gnmi/test_gnmi_smartswitch.py:
     conditions:
       - "'bmc' in topo_type"
 
+gnmi/test_gnmi_srv6.py:
+  skip:
+    reason: "SRv6 is not supported on older ASICs (Broadcom TH/TH2/TD3; Mellanox SPC1-3). SRv6 telemetry tests require routing, not available on BMC"
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type == 'broadcom' and asic_gen not in ['th5', 'th6', 'q3d']"
+      - "asic_type == 'mellanox' and asic_gen in ['spc1', 'spc2', 'spc3']"
+      - "'bmc' in topo_type"
+
+gnmi/test_gnmi_srv6.py::test_poll_mode_srv6_sid_counters:
+  skip:
+    reason: "Skip E2E telemetry SRv6 test for non-supported branches and HW"
+    conditions:
+      - "release not in ['202412']"
+      - "asic_type not in ['mellanox', 'broadcom']"
+
 gnmi/test_gnmi_stress.py::test_gnmi_latency_01:
   skip:
     reason: "Test relies on PORT table in CONFIG_DB; not configured on BMC"
@@ -4615,6 +4631,13 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiPgSharedWatermark:
     conditions:
       - "asic_type in ['marvell-teralynx'] and platform in ['x86_64-wistron_6512_32r-r0', 'x86_64-wistron_sw_to3200k-r0']"
 
+qos/test_qos_sai.py::TestQosSai::testQosSaiQSharedWatermark(\[|$):
+  regex: true
+  skip:
+    reason: "Test case replaced by testQosSaiQSharedWatermarkQuantized for Cisco-8223."
+    conditions:
+      - "asic_type in ['cisco-8000'] and platform.startswith('x86_64-8223')"
+
 qos/test_qos_sai.py::TestQosSai::testQosSaiQWatermarkAllPorts:
   skip:
     reason: "All Port Watermark test is verified only on Cisco Platforms."
@@ -5115,6 +5138,12 @@ snappi_tests/bgp/test_bgp_rib_in_convergence.py:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/23857"
 
+snappi_tests/bgp/test_bgp_rib_route_optimztn_perf.py:
+  skip:
+    reason: "IxNetwork Error in L2/L3 Traffic Apply - https://github.com/sonic-net/sonic-mgmt/issues/23857"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/23857"
+
 snappi_tests/bgp/test_bgp_scalability.py:
   xfail:
     reason: "IxNetwork Error in L2/L3 Traffic Apply - https://github.com/sonic-net/sonic-mgmt/issues/23857"
@@ -5163,9 +5192,9 @@ snappi_tests/ecn/test_red_accuracy_with_snappi:
 
 snappi_tests/lacp:
   skip:
-    reason: "Skipping dash on 2025 releases"
+    reason: "Skipping snappi lacp on 2025, 202605 and 202608 releases"
     conditions:
-      - "'2025' in release"
+      - "'2025' in release or '202605' in release or '202608' in release"
 
 snappi_tests/pfc/test_global_pause_with_snappi.py:
   skip:
@@ -5195,9 +5224,11 @@ snappi_tests/pfcwd/test_pfcwd_actions.py::test_pfcwd_frwd_over_subs_40_09:
 
 snappi_tests/reboot:
   skip:
-    reason: "Skipping dash on 2025 releases"
+    reason: "Skipping snappi reboot on 2025 releases and while https://github.com/sonic-net/sonic-mgmt/issues/27415 is open"
+    conditions_logical_operator: or
     conditions:
       - "'2025' in release"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/27415"
 
 #######################################
 #####            snmp             #####
@@ -5553,12 +5584,6 @@ telemetry/test_telemetry.py:
     conditions:
       - "(is_multi_asic==True) and (release in ['201811', '201911'])"
 
-telemetry/test_telemetry.py::test_telemetry_ouput:
-  skip:
-    reason: "not applicable on BMC (no Ethernet0/COUNTERS_DB)"
-    conditions:
-      - "'bmc' in topo_type"
-
 telemetry/test_telemetry.py::test_telemetry_queue_buffer_cnt:
   skip:
     conditions_logical_operator: or
@@ -5573,22 +5598,6 @@ telemetry/test_telemetry_poll.py::test_poll_mode_default_route:
     reason: "not applicable on BMC because requires upstream BGP neighbor and default route"
     conditions:
       - "'bmc' in topo_type"
-
-telemetry/test_telemetry_srv6.py:
-  skip:
-    reason: "SRv6 is not supported on older ASICs (Broadcom TH/TH2/TD3; Mellanox SPC1-3). SRv6 telemetry tests require routing, not available on BMC"
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type == 'broadcom' and asic_gen not in ['th5', 'th6', 'q3d']"
-      - "asic_type == 'mellanox' and asic_gen in ['spc1', 'spc2', 'spc3']"
-      - "'bmc' in topo_type"
-
-telemetry/test_telemetry_srv6.py::test_poll_mode_srv6_sid_counters:
-  skip:
-    reason: "Skip E2E telemetry SRv6 test for non-supported branches and HW"
-    conditions:
-      - "release not in ['202412']"
-      - "asic_type not in ['mellanox', 'broadcom']"
 
 test_interfaces.py:
   skip:
