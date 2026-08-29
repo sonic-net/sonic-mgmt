@@ -120,6 +120,7 @@ t0:
   - gnmi/test_gnmi_appldb.py
   - gnmi/test_gnmi_configdb.py
   - gnmi/test_gnmi_countersdb.py
+  - gnmi/test_gnmi_poll.py
   - gnmi/test_gnmi_smartswitch.py
   - gnmi/test_gnoi_killprocess.py
   - gnmi/test_gnoi_os.py
@@ -298,7 +299,6 @@ t0:
   - telemetry/test_events.py
   - telemetry/test_telemetry.py
   - telemetry/test_telemetry_cert_rotation.py
-  - telemetry/test_telemetry_poll.py
   - test_features.py
   - test_interfaces.py
   - test_nbr_health.py
@@ -459,6 +459,7 @@ t1-lag:
   - gnmi/test_gnmi_appldb.py
   - gnmi/test_gnmi_configdb.py
   - gnmi/test_gnmi_countersdb.py
+  - gnmi/test_gnmi_poll.py
   - gnmi/test_gnmi_smartswitch.py
   - gnmi/test_gnoi_killprocess.py
   - gnmi/test_gnoi_os.py
@@ -612,7 +613,6 @@ t1-lag:
   - telemetry/test_events.py
   - telemetry/test_telemetry.py
   - telemetry/test_telemetry_cert_rotation.py
-  - telemetry/test_telemetry_poll.py
   - test_features.py
   - test_interfaces.py
   - test_nbr_health.py
@@ -628,7 +628,6 @@ t1-lag:
   - vxlan/test_vxlan_ecmp_switchover.py
   - vxlan/test_vxlan_route_advertisement.py
   - zmq/test_gnmi_zmq.py
-
 
 t1-lag-vpp:
   - acl/test_acl.py
@@ -740,13 +739,13 @@ t1-lag-vpp:
   - vxlan/test_vxlan_route_advertisement.py
   - vxlan/test_vnet_route_leak.py
   - vxlan/test_vxlan_crm.py
-  - vxlan/test_vnet_bgp_route_precedence.py
   - vxlan/test_vxlan_multi_tunnel.py
-  - vxlan/test_vxlan_route_advertisement.py
 
 
 t0-vpp:
   - acl/test_acl.py
+  - arp/test_arp_update.py
+  - arp/test_neighbor_mac_aging.py
   - arp/test_neighbor_mac_noptf.py
   - arp/test_tagged_arp.py
   - autorestart/test_container_autorestart.py
@@ -772,6 +771,7 @@ t0-vpp:
   - db_migrator/test_migrate_dns.py
   - decap/test_decap.py
   - dhcp_relay/test_dhcp_relay.py
+  - dhcp_relay/test_dhcp_relay_stress.py
   - disk/test_disk_exhaustion.py
   - dns/test_dns_resolv_conf.py
   - fdb/test_fdb_flush.py
@@ -805,6 +805,7 @@ t0-vpp:
   - ip/test_ip_packet.py
   - ip/test_mgmt_ipv6_only.py
   - ipfwd/test_dip_sip.py
+  - span/test_port_mirroring.py
 
 
 multi-asic-t1-lag:

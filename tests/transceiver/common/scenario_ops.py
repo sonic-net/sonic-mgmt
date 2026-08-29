@@ -170,16 +170,11 @@ def perform_sfputil_reset(duthost, reset_ports, toggle_ports, shutdown_wait_sec,
 
     try:
         for port in reset_ports:
-            command = cli_helpers.sfputil_reset_cmd(port)
-            result = duthost.command(command, module_ignore_errors=True)
-            if result.get("rc", 1) != 0:
-                failures.append(
-                    "{} failed with rc={}: {}".format(
-                        command,
-                        result.get("rc"),
-                        (result.get("stderr") or result.get("stdout") or "").strip(),
-                    )
-                )
+            elapsed, err = cli_helpers.sfputil_reset(duthost, port)
+            logger.info("sfputil reset of %s took %ss", port, elapsed)
+            if err:
+                logger.warning("%s", err)
+                failures.append(err)
     finally:
         failures += perform_ports_startup(duthost, toggle_ports, startup_wait_sec)
 
