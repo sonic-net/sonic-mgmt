@@ -28,28 +28,55 @@ STATE_DB_THRESHOLD_TABLE = "TRANSCEIVER_DOM_THRESHOLD"
 OPERATIONAL_SUFFIX = "_operational_range"
 THRESHOLD_SUFFIX = "_threshold_range"
 CONSISTENCY_SUFFIX = "_consistency_variation_threshold"
+CONSISTENCY_MODE_ABSOLUTE = "absolute"
+CONSISTENCY_MODE_PERCENT = "percent"
 LANE_NUM_PLACEHOLDER = "LANE_NUM"
 MEDIA_LANE_MASK_KEY = "media_lane_mask"
 DomMappedField = namedtuple("DomMappedField", ("source_attr", "attr_value"))
 DomThresholdMappedField = namedtuple("DomThresholdMappedField", ("source_attr", "attr_value", "threshold_key"))
 DomQuantitySpec = namedtuple(
     "DomQuantitySpec",
-    ("threshold_db_prefix", "sensor_field_template", "operational_attr", "consistency_unit"),
+    ("threshold_db_prefix", "sensor_field_template", "operational_attr", "consistency_unit", "consistency_mode"),
 )
 
 THRESHOLD_FIELD_SUFFIXES = ("lowalarm", "lowwarning", "highwarning", "highalarm")
 DOM_QUANTITY_REGISTRY = {
-    "temperature": DomQuantitySpec("temp", "temperature", "temperature_operational_range", "C"),
-    "voltage": DomQuantitySpec("vcc", "voltage", "voltage_operational_range", "V"),
+    "temperature": DomQuantitySpec(
+        "temp",
+        "temperature",
+        "temperature_operational_range",
+        "C",
+        CONSISTENCY_MODE_ABSOLUTE,
+    ),
+    "voltage": DomQuantitySpec("vcc", "voltage", "voltage_operational_range", "V", CONSISTENCY_MODE_ABSOLUTE),
     "laser_temperature": DomQuantitySpec(
         "lasertemp",
         "laser_temperature",
         "laser_temperature_operational_range",
         "C",
+        CONSISTENCY_MODE_ABSOLUTE,
     ),
-    "tx_power": DomQuantitySpec("txpower", "tx{}power", "txLANE_NUMpower_operational_range", "dB"),
-    "rx_power": DomQuantitySpec("rxpower", "rx{}power", "rxLANE_NUMpower_operational_range", "dB"),
-    "tx_bias": DomQuantitySpec("txbias", "tx{}bias", "txLANE_NUMbias_operational_range", "percent"),
+    "tx_power": DomQuantitySpec(
+        "txpower",
+        "tx{}power",
+        "txLANE_NUMpower_operational_range",
+        "dB",
+        CONSISTENCY_MODE_ABSOLUTE,
+    ),
+    "rx_power": DomQuantitySpec(
+        "rxpower",
+        "rx{}power",
+        "rxLANE_NUMpower_operational_range",
+        "dB",
+        CONSISTENCY_MODE_ABSOLUTE,
+    ),
+    "tx_bias": DomQuantitySpec(
+        "txbias",
+        "tx{}bias",
+        "txLANE_NUMbias_operational_range",
+        "%",
+        CONSISTENCY_MODE_PERCENT,
+    ),
 }
 THRESHOLD_FIELD_PREFIXES = {
     base_name: spec.threshold_db_prefix
@@ -66,6 +93,10 @@ CONSISTENCY_FIELD_TEMPLATES_BY_BASE = {
 }
 CONSISTENCY_UNITS_BY_BASE = {
     base_name: spec.consistency_unit
+    for base_name, spec in DOM_QUANTITY_REGISTRY.items()
+}
+CONSISTENCY_MODES_BY_BASE = {
+    base_name: spec.consistency_mode
     for base_name, spec in DOM_QUANTITY_REGISTRY.items()
 }
 
@@ -207,6 +238,14 @@ def consistency_unit_for_attr(attr_name):
         return None
     base_name = attr_name[:-len(CONSISTENCY_SUFFIX)]
     return CONSISTENCY_UNITS_BY_BASE.get(base_name)
+
+
+def consistency_mode_for_attr(attr_name):
+    """Return the validation mode for a configured consistency attribute."""
+    if not attr_name.endswith(CONSISTENCY_SUFFIX):
+        return None
+    base_name = attr_name[:-len(CONSISTENCY_SUFFIX)]
+    return CONSISTENCY_MODES_BY_BASE.get(base_name)
 
 
 def dom_consistency_attributes():
