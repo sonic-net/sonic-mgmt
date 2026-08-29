@@ -560,6 +560,8 @@ def gnmi_subscribe_stream_connections(duthost, ptfhost, path_list, target, creat
     cmd += '-m subscribe '
     cmd += '-x %s ' % " ".join('"{}"'.format(p) for p in path_list)
     cmd += '-xt %s%s ' % (target, ns)
+    cmd += '--timeout 30 '
+    cmd += '--encoding 4 '
     cmd += '--subscribe_mode 0 --submode 2 '  # STREAM / SAMPLE
     cmd += '--create_connections %d --update_count %d' % (create_connections, update_count)
     return ptfhost.shell(cmd, module_ignore_errors=True)
