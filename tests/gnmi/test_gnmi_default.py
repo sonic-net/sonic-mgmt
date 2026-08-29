@@ -6,7 +6,7 @@ pytestmark = [
 ]
 
 
-def test_gnmi_enabled_by_default(duthosts, rand_one_dut_hostname):
+def test_gnmi_enabled_by_default(duthosts, enum_rand_one_per_hwsku_hostname):
     '''
     Verify the gnmi feature is enabled by default.
 
@@ -15,6 +15,6 @@ def test_gnmi_enabled_by_default(duthosts, rand_one_dut_hostname):
     (which skip when the gnmi container is not running): the test must fail,
     not pass against FEATURE|telemetry or skip, when gnmi is disabled.
     '''
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     state = duthost.shell('sonic-db-cli CONFIG_DB HGET "FEATURE|gnmi" state')['stdout'].strip()
     assert state in ("enabled", "always_enabled"), "gnmi feature is not enabled by default, state={}".format(state)
