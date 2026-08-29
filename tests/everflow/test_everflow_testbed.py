@@ -323,6 +323,12 @@ class EverflowIPv4Tests(BaseEverflowTest):
         pytest_assert(
             wait_until(120, 10, 0, everflow_utils.validate_asic_route, remote_dut, session_prefixes[0])
         )
+        # Mirror-action ACL rules cannot program until the mirror session resolves its
+        # next-hop; on PortChannel neighbors this lags the route, so wait for it here.
+        pytest_assert(
+            wait_until(120, 10, 0, everflow_utils.validate_mirror_session_up,
+                       remote_dut, setup_mirror_session["session_name"])
+        )
         everflow_utils.wait_for_acl_rules_in_asic_db(everflow_dut)
 
         # Verify that mirrored traffic is sent along the route we installed
@@ -435,6 +441,10 @@ class EverflowIPv4Tests(BaseEverflowTest):
                                  setup_info[dest_port_type]["remote_namespace"])
         pytest_assert(
             wait_until(120, 10, 0, everflow_utils.validate_asic_route, remote_dut, session_prefixes[0])
+        )
+        pytest_assert(
+            wait_until(120, 10, 0, everflow_utils.validate_mirror_session_up,
+                       remote_dut, setup_mirror_session["session_name"])
         )
         everflow_utils.wait_for_acl_rules_in_asic_db(everflow_dut)
 
@@ -898,6 +908,10 @@ class EverflowIPv4Tests(BaseEverflowTest):
         pytest_assert(
             wait_until(120, 10, 0, everflow_utils.validate_asic_route, remote_dut, session_prefixes[0])
         )
+        pytest_assert(
+            wait_until(120, 10, 0, everflow_utils.validate_mirror_session_up,
+                       remote_dut, setup_mirror_session["session_name"])
+        )
         everflow_utils.wait_for_acl_rules_in_asic_db(everflow_dut)
 
         # Verify that mirrored traffic is sent along the route we installed
@@ -1138,12 +1152,23 @@ class EverflowIPv4Tests(BaseEverflowTest):
             else setup_mirror_session["session_prefixes_ipv6"]
         everflow_utils.add_route(remote_dut, session_prefixes[0], peer_ip,
                                  setup_info[dest_port_type]["remote_namespace"])
+        # With "no ip nht resolve-via-default" set, the static route only installs once peer_ip's
+        # neighbor is resolved; over a PortChannel that ARP can take ~1 min to appear passively,
+        # during which the mirror dst falls back to the mgmt route and the session stays inactive.
+        # Ping the peer to resolve the neighbor immediately.
+        remote_dut.get_asic_or_sonic_host_from_namespace(
+            setup_info[dest_port_type]["remote_namespace"]).command(
+            "ping {} -c 3".format(peer_ip), module_ignore_errors=True)
 
         pytest_assert(
             wait_until(
                 120, 10, 0,
                 everflow_utils.validate_asic_route, remote_dut, session_prefixes[0]
             )
+        )
+        pytest_assert(
+            wait_until(120, 10, 0, everflow_utils.validate_mirror_session_up,
+                       remote_dut, setup_mirror_session["session_name"])
         )
         everflow_utils.wait_for_acl_rules_in_asic_db(remote_dut)
 
@@ -1161,20 +1186,27 @@ class EverflowIPv4Tests(BaseEverflowTest):
             recircle_port = "Ethernet-Rec0"
 
         try:
-            everflow_utils.verify_mirror_packets_on_recircle_port(
-                self,
-                ptfadapter,
-                setup_info,
-                setup_mirror_session,
-                everflow_dut,
-                rx_port_ptf_id,
-                [tx_port_ptf_id],
-                dest_port_type,
-                queue,
-                asic_ns,
-                recircle_port,
-                erspan_ip_ver,
-                valid_across_namespace=everflow_dut.is_multi_asic,
+            retry_call(
+                everflow_utils.verify_mirror_packets_on_recircle_port,
+                fargs=(
+                    self,
+                    ptfadapter,
+                    setup_info,
+                    setup_mirror_session,
+                    everflow_dut,
+                    rx_port_ptf_id,
+                    [tx_port_ptf_id],
+                    dest_port_type,
+                    queue,
+                    asic_ns,
+                    recircle_port,
+                    erspan_ip_ver,
+                ),
+                fkwargs={"valid_across_namespace": everflow_dut.is_multi_asic},
+                exceptions=Exception,
+                tries=3,
+                delay=10,
+                logger=logger,
             )
         finally:
             everflow_utils.remove_route(remote_dut, session_prefixes[0],
@@ -1186,6 +1218,20 @@ class EverflowIPv4Tests(BaseEverflowTest):
     def _run_everflow_test_scenarios(self, ptfadapter, setup, mux_config, mirror_session, duthost, rx_port,  # noqa F811
                                      tx_ports, direction, expect_recv=True, valid_across_namespace=True,
                                      erspan_ip_ver=4, multi_binding_acl=False):  # noqa F811
+        # Mirror-over-LAG monitor-port/neighbor resolution can lag the mirror session becoming
+        # active, so a first traffic check may miss. Retry positive checks to absorb the
+        # convergence window; negative (absence) checks run once so real leaks are not masked.
+        fargs = (ptfadapter, setup, mux_config, mirror_session, duthost, rx_port, tx_ports, direction)
+        fkwargs = dict(expect_recv=expect_recv, valid_across_namespace=valid_across_namespace,
+                       erspan_ip_ver=erspan_ip_ver, multi_binding_acl=multi_binding_acl)
+        if not expect_recv:
+            return self._run_everflow_test_scenarios_impl(*fargs, **fkwargs)
+        retry_call(self._run_everflow_test_scenarios_impl, fargs=fargs, fkwargs=fkwargs,
+                   exceptions=Exception, tries=3, delay=10, logger=logger)
+
+    def _run_everflow_test_scenarios_impl(self, ptfadapter, setup, mux_config, mirror_session, duthost, rx_port,  # noqa F811,E501
+                                          tx_ports, direction, expect_recv=True, valid_across_namespace=True,
+                                          erspan_ip_ver=4, multi_binding_acl=False):  # noqa F811
         # FIXME: In the ptf_runner version of these tests, LAGs were passed down to the tests
         # as comma-separated strings of LAG member port IDs (e.g. portchannel0001 -> "2,3").
         # Because the DSCP test is still using ptf_runner we will preserve this for now,
