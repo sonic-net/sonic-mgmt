@@ -4200,6 +4200,12 @@ platform_tests/test_advanced_reboot.py:
     conditions:
       - *lossyTopos
 
+platform_tests/test_advanced_reboot.py::test_warm_reboot:
+  xfail:
+    reason: "xfail due to PTF SSH storm on t0-isolated-d256u256s2 packed cEOS VMs - GH https://github.com/sonic-net/sonic-mgmt/issues/27132"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/27132 and 't0-isolated-d256u256s2' in topo_name"
+
 platform_tests/test_cont_warm_reboot.py:
   skip:
     reason: "Continuous warm reboot tests are not supported on lossy topologies."
@@ -4235,10 +4241,6 @@ platform_tests/test_reboot.py::test_warm_reboot:
     reason: "warm-reboot is not supported on BMC SONiC image"
     conditions:
       - "'bmc' in topo_type"
-  xfail:
-    reason: "xfail due to PTF SSH storm on t0-isolated-d256u256s2 packed cEOS VMs - GH https://github.com/sonic-net/sonic-mgmt/issues/27132"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/27132 and 't0-isolated-d256u256s2' in topo_name"
 
 platform_tests/test_reboot.py::test_watchdog_reboot:
   skip:
