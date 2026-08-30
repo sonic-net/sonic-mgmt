@@ -40,14 +40,6 @@ def unique_dut_asic_pairs_from_snappi_ports(snappi_ports):
     return pairs
 
 
-def _resolve_asic_instance(duthost, asic=None):
-    if asic is None:
-        return duthost.asic_instance()
-    if hasattr(asic, "asic_index"):
-        return asic
-    return duthost.asic_instance(asic)
-
-
 def _counterpoll_target(duthost, asic_inst):
     """Return SonicHost or SonicAsic for ConterpollHelper on master API."""
     return asic_inst if duthost.is_multi_asic else duthost
@@ -59,15 +51,18 @@ def _get_parsed_counterpoll_show(duthost, asic_inst):
     return ConterpollHelper.get_parsed_counterpoll_show(counterpoll_show)
 
 
-def is_wred_ecn_counterpoll_enabled(duthost, asic_inst, stat_type):
+def is_wred_ecn_counterpoll_enabled(parsed_counterpoll_show, stat_type):
     """
-    Return True when stat_type is present in counterpoll show and status is enable.
-    Missing entries are treated as not enabled.
+    Return True when stat_type is present in parsed counterpoll show output and
+    its status is enable. Missing entries are treated as not enabled.
+
+    Args:
+        parsed_counterpoll_show (dict): output of _get_parsed_counterpoll_show()
+        stat_type (str): counterpoll stat type, e.g. WRED_ECN_QUEUE_STAT
     """
-    parsed = _get_parsed_counterpoll_show(duthost, asic_inst)
-    if stat_type not in parsed:
+    if stat_type not in parsed_counterpoll_show:
         return False
-    return parsed[stat_type][CounterpollConstants.STATUS] == 'enable'
+    return parsed_counterpoll_show[stat_type][CounterpollConstants.STATUS] == 'enable'
 
 
 def _ensure_wred_ecn_counterpoll_available(duthost):
@@ -100,9 +95,10 @@ def enable_wred_ecn_counterpoll_for_snappi_ports(snappi_ports):
             checked_duts.add(duthost.hostname)
 
         target = _counterpoll_target(duthost, asic_inst)
+        parsed_counterpoll_show = _get_parsed_counterpoll_show(duthost, asic_inst)
         to_enable = []
         for stat_type, cli_type in WRED_ECN_COUNTERPOLLS:
-            if is_wred_ecn_counterpoll_enabled(duthost, asic_inst, stat_type):
+            if is_wred_ecn_counterpoll_enabled(parsed_counterpoll_show, stat_type):
                 logger.info(
                     "WRED ECN %s already enabled on %s asic%s",
                     cli_type, duthost.hostname, asic_inst.asic_index)
@@ -133,23 +129,3 @@ def disable_wred_ecn_counterpoll_entries(enabled_by_us):
         logger.info(
             "Disabled WRED ECN %s on %s asic%s",
             cli_type, duthost.hostname, asic_inst.asic_index)
-
-
-def disable_wred_ecn_counterpoll(duthost, asic=None):
-    """
-    Explicitly disable wredqueue and wredport counterpoll on a DUT/ASIC.
-    """
-    _ensure_wred_ecn_counterpoll_available(duthost)
-    counter_types = [cli_type for _, cli_type in WRED_ECN_COUNTERPOLLS]
-
-    if asic is not None:
-        asic_inst = _resolve_asic_instance(duthost, asic)
-        ConterpollHelper.disable_counterpoll(
-            _counterpoll_target(duthost, asic_inst), counter_types)
-        return
-
-    if duthost.is_multi_asic:
-        for asic_inst in duthost.asics:
-            ConterpollHelper.disable_counterpoll(asic_inst, counter_types)
-    else:
-        ConterpollHelper.disable_counterpoll(duthost, counter_types)
