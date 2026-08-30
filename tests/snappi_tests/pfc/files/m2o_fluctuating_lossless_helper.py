@@ -325,6 +325,17 @@ def run_m2o_fluctuating_lossless_test(api,
     logger.info('Expected per-Background-Flow loss: {:.2f}% (tolerance +/- {}%)'.format(
         expected_bg_loss_percent, BG_LOSS_TOLERANCE_PERCENT))
 
+    expected_bg_loss_percent = get_expected_bg_loss_percent(
+        egress_duthost=egress_duthost,
+        test_prio_list=test_prio_list,
+        test_flow_rate_percent=TEST_FLOW_AGGR_RATE_PERCENT,
+        bg_prio_list=bg_prio_list,
+        bg_flow_rate_percent=BG_FLOW_AGGR_RATE_PERCENT,
+        asic_value=rx_port.get('asic_value'),
+        port=dut_tx_port)
+    logger.info('Expected per-Background-Flow loss: {:.2f}% (tolerance +/- {}%)'.format(
+        expected_bg_loss_percent, BG_LOSS_TOLERANCE_PERCENT))
+
     """ Verify Results """
     verify_m2o_fluctuating_lossless_result(flow_stats,
                                            tx_port,
