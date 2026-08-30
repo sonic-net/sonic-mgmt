@@ -1,4 +1,5 @@
 import contextlib
+import ipaddress
 import logging
 import re
 import pytest
@@ -130,8 +131,9 @@ def test_lldp(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost,
                 )
 
 
-def _neighbor_has_lldp_entry(localhost, hostip, snmp_community, neighbor_interface):
-    """Return True if the neighbor's LLDP table contains the expected interface."""
+def _neighbor_has_lldp_entry(localhost, hostip, snmp_community, neighbor_interface,
+                             dut_hostname, dut_port_alias):
+    """Return True if the neighbor's LLDP table has an entry for the DUT link."""
     nei_lldp_facts = localhost.lldp_facts(
         host=hostip, version='v2c', community=snmp_community)['ansible_facts']
     return neighbor_interface in nei_lldp_facts.get('ansible_lldp_facts', {})
@@ -173,17 +175,64 @@ def check_lldp_neighbor(duthost, localhost, eos, sonic, collect_techsupport_all_
             logger.info("Neighbor device {} does not sent management IP via lldp".format(v['chassis']['name']))
             hostip = nei_meta[v['chassis']['name']]['mgmt_addr']
 
+        # The lldp_facts SNMP module only supports IPv4 UDP transport. A SONiC
+        # neighbor may advertise an IPv6 management address via LLDP, which the
+        # module cannot query ([Errno -9] Address family for hostname not
+        # supported). When the advertised mgmt-ip is not usable for IPv4 SNMP,
+        # fall back to the IPv4 mgmt_addr from DEVICE_NEIGHBOR_METADATA.
+        def _is_ipv4(addr):
+            try:
+                return isinstance(ipaddress.ip_address(str(addr)), ipaddress.IPv4Address)
+            except ValueError:
+                return False
+
+        if not _is_ipv4(hostip):
+            nei_name = v['chassis'].get('name')
+            fallback = nei_meta.get(nei_name, {}).get('mgmt_addr')
+            if _is_ipv4(fallback):
+                logger.info(
+                    "Neighbor {} advertised non-IPv4 LLDP mgmt-ip '{}'; using IPv4 "
+                    "mgmt_addr '{}' from DEVICE_NEIGHBOR_METADATA for SNMP".format(
+                        nei_name, hostip, fallback))
+                hostip = fallback
+            else:
+                pytest.fail(
+                    "Neighbor {} has no IPv4 management address usable for SNMP: "
+                    "LLDP mgmt-ip='{}', DEVICE_NEIGHBOR_METADATA mgmt_addr='{}'".format(
+                        nei_name, hostip, fallback))
+
         if request.config.getoption("--neighbor_type") == 'eos':
             neighbor_interface = v['port']['ifname']
             snmp_community = eos['snmp_rocommunity']
         else:
-            neighbor_interface = v['port']['local']
+            # A SONiC (cSONiC/docker-sonic-vs) neighbor advertises its LLDP
+            # port-id with the MAC subtype, so the DUT-side lldpctl 'port' dict
+            # carries neither 'local' (EOS ifname subtype) nor 'ifname'. In that
+            # case the neighbor's own local interface name is exposed via the
+            # port description ('descr', e.g. 'Ethernet1'), which is what indexes
+            # its SNMP LLDP local-port table below. Fall back local -> ifname ->
+            # descr so both EOS-style and MAC-subtype (cSONiC) neighbors resolve.
+            port = v['port']
+            neighbor_interface = (
+                port.get('local') or port.get('ifname') or port.get('descr')
+            )
+            if not neighbor_interface:
+                pytest.fail(
+                    "Neighbor LLDP 'port' dict for DUT iface '{}' exposes no "
+                    "local/ifname/descr port identifier: keys={}".format(
+                        k, sorted(port.keys())))
             snmp_community = sonic['snmp_rocommunity']
 
         # After swss restart, the DUT's LLDP entry on the neighbor may have aged out
         # during the restart window. Wait until the neighbor re-learns DUT's LLDP info.
+        dut_port_alias = config_facts.get('PORT', {}).get(k, {}).get('alias')
+        if request.config.getoption("--neighbor_type") != 'eos' and not dut_port_alias:
+            pytest.fail(
+                "DUT iface '{}' has no PORT alias in CONFIG_DB; cannot resolve SONiC "
+                "neighbor SNMP LLDP local-port key".format(k))
         assert wait_until(30, 5, 0, _neighbor_has_lldp_entry,
-                          localhost, hostip, snmp_community, neighbor_interface), \
+                          localhost, hostip, snmp_community, neighbor_interface,
+                          duthost.hostname, dut_port_alias), \
             "Neighbor {} did not learn LLDP on interface '{}' within 30s".format(
                 hostip, neighbor_interface)
 

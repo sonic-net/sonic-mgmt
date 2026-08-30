@@ -2,6 +2,7 @@ import logging
 import pytest
 import copy
 
+from tests.common.config_reload import config_reload
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 from tests.common.utilities import configure_packet_aging
 from tests.common.helpers.ptf_tests_helper import downstream_links, upstream_links, peer_links    # noqa F401
@@ -269,8 +270,16 @@ def setup_trimming(duthost, test_params, trim_counter_params, request):
 
     with allure.step("Restore original configuration"):
         logger.info("Restoring original configuration")
-        duthost.shell("sudo config load -y /etc/sonic/config_db_before_trimming_test.json")
-        duthost.shell("sudo config save -y")
+        duthost.shell(
+            "sudo cp /etc/sonic/config_db_before_trimming_test.json /etc/sonic/config_db.json"
+        )
+        config_reload(
+            duthost,
+            config_source="config_db",
+            safe_reload=True,
+            wait_for_bgp=True,
+            check_intf_up_ports=True
+        )
 
 
 @pytest.fixture(params=SRV6_TUNNEL_MODE)

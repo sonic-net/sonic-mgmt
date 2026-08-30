@@ -7,7 +7,7 @@ from tests.transceiver.attribute_parser.attribute_keys import DOM_ATTRIBUTES_KEY
 from tests.transceiver.common.db_helpers import parse_numeric
 from tests.transceiver.dom.dom_helpers import (
     OPERATIONAL_SUFFIX,
-    build_dom_availability_plan,
+    build_dom_sensor_plan,
     parse_min_max_range,
     read_dom_sensor_data,
     validate_dom_plan_fields,
@@ -55,22 +55,22 @@ def test_dom_sensor_operational_range_validation(
     port_attributes_dict,
     lport_to_first_subport_mapping,
 ):
-    """Verify configured DOM sensor values are fresh and within operational ranges."""
-    availability_plan_by_port = build_dom_availability_plan(
+    """Validate configured DOM operational ranges; freshness is checked with range fields."""
+    if not _has_operational_range_attributes(port_attributes_dict, dom_primary_ports):
+        pytest.skip("No *_operational_range attributes configured for DOM operational range validation")
+
+    sensor_plan_by_port = build_dom_sensor_plan(
         port_attributes_dict,
         dom_primary_ports,
         lport_to_first_subport_mapping,
     )
-    if not _has_operational_range_attributes(port_attributes_dict, dom_primary_ports):
-        pytest.skip("No *_operational_range attributes configured for DOM operational range validation")
-
     sensor_by_port, sensor_read_errors = read_dom_sensor_data(duthost, dom_primary_ports)
     all_failures = ["STATE_DB read:\n  {}".format(read_error) for read_error in sensor_read_errors]
     range_failures, checked_field_count, checked_port_count = validate_dom_plan_fields(
         duthost,
         dom_primary_ports,
         sensor_by_port,
-        availability_plan_by_port,
+        sensor_plan_by_port,
         _operational_range_field_check,
     )
     all_failures.extend(range_failures)
