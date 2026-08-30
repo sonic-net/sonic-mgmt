@@ -16,13 +16,21 @@ The design deliberately separates concerns:
 | ----- | -------- | -------------- |
 | Counterpoll setup/teardown | `snappi_tests/ecn/files/ecn_counterpoll_helpers.py` | Enable/disable `counterpoll wredqueue` / `wredport` |
 | Pytest fixture wiring | `snappi_tests/ecn/conftest.py` | Opt-in module fixture for tests |
-| Counter read/clear + JSON parsing | `common/snappi_tests/common_helpers.py` | CLI read/clear and normalized counter dict |
+| Counter read/clear + JSON parsing | `common/helpers/ecn_wred_counters.py` | CLI read/clear and normalized counter dict |
 | Unit tests | `snappi_tests/unit_tests/ecn/` | VS-independent parsing validation |
+
+Counter read/clear lives in `tests/common/helpers/` rather than
+`tests/common/snappi_tests/` because it is plain SONiC CLI access with no
+snappi dependency; any test can reuse it.
 
 Counterpoll management reuses upstream `ConterpollHelper` from
 `tests/common/helpers/counterpoll_helper.py` (master API). On multi-ASIC
 platforms, commands are issued by passing a `SonicAsic` instance as the
 command target rather than using a separate `asic` function argument.
+
+Both read and clear run through `duthost.shell(..., module_ignore_errors=True)`
+and call `pytest.skip()` when the image does not support the WRED counter CLI,
+so tests degrade to a skip instead of an error on older images.
 
 ---
 
@@ -44,7 +52,7 @@ flowchart TB
         PAIRS[unique_dut_asic_pairs_from_snappi_ports]
     end
 
-    subgraph common ["common_helpers.py"]
+    subgraph common ["common/helpers/ecn_wred_counters.py"]
         GET[get_ecn_wred_counters]
         CLR[clear_ecn_wred_counters]
         PARSE[_parse_wred_counters_json]
@@ -100,7 +108,7 @@ Teardown (fixture)
 | ---- | ---- |
 | `tests/snappi_tests/ecn/conftest.py` | Defines `enable_wred_ecn_counterpoll` pytest fixture |
 | `tests/snappi_tests/ecn/files/ecn_counterpoll_helpers.py` | Counterpoll enable/disable logic scoped to snappi ports |
-| `tests/common/snappi_tests/common_helpers.py` | `get_ecn_wred_counters`, `clear_ecn_wred_counters`, JSON parsers |
+| `tests/common/helpers/ecn_wred_counters.py` | `get_ecn_wred_counters`, `clear_ecn_wred_counters`, JSON parsers |
 | `tests/common/helpers/counterpoll_helper.py` | Upstream `ConterpollHelper` (reused, not modified by this feature) |
 | `tests/common/constants.py` | `WRED_QUEUE`, `WRED_PORT`, stat type constants |
 | `tests/snappi_tests/unit_tests/ecn/unit_test_ecn_wred_counter_parsing.py` | Unit tests for parsing helpers |
@@ -190,10 +198,13 @@ Runs `counterpoll show` on the correct target and returns a parsed dict:
 
 ---
 
-#### `is_wred_ecn_counterpoll_enabled(duthost, asic_inst, stat_type)`
+#### `is_wred_ecn_counterpoll_enabled(parsed_counterpoll_show, stat_type)`
 
-Returns `True` if `stat_type` exists in `counterpoll show` output and `status == 'enable'`.
-Missing entries are treated as not enabled.
+Returns `True` if `stat_type` exists in the parsed `counterpoll show` output and
+`status == 'enable'`. Missing entries are treated as not enabled.
+
+Takes the already-parsed dict rather than a `(duthost, asic_inst)` pair so the
+caller runs `counterpoll show` once per ASIC instead of once per stat type.
 
 ---
 
@@ -215,6 +226,7 @@ either is missing on the platform.
 FOR each unique (duthost, asic_inst) in snappi_ports:
     IF first time seeing duthost:
         skip test if wredqueue/wredport not supported
+    parsed_counterpoll_show = counterpoll show on this ASIC   # once per ASIC
     FOR each (stat_type, cli_type) in WRED_ECN_COUNTERPOLLS:
         IF already enabled on this ASIC:
             log and continue
@@ -226,13 +238,13 @@ FOR each unique (duthost, asic_inst) in snappi_ports:
 RETURN enabled_by_us
 ```
 
-**Returns:** `[(duthost, asic_inst, cli_type), ...]` — used for selective teardown.
+**Returns:** `[(duthost, asic_inst, cli_type), ...]`  used for selective teardown.
 
 ---
 
 #### `disable_wred_ecn_counterpoll_entries(enabled_by_us)` (primary)
 
-**Purpose:** Teardown helper — disable only what the fixture enabled.
+**Purpose:** Teardown helper  disable only what the fixture enabled.
 
 **Algorithm:**
 
@@ -242,24 +254,25 @@ FOR each (duthost, asic_inst, cli_type) in enabled_by_us:
     ConterpollHelper.disable_counterpoll(target, [cli_type])
 ```
 
----
-
-#### `disable_wred_ecn_counterpoll(duthost, asic=None)` (primary)
-
-**Purpose:** Explicit disable API for tests that need manual control (outside the fixture).
-
-- **`asic` specified:** disable both `wredqueue` and `wredport` on that ASIC.
-- **`asic` is None, multi-ASIC:** loop all `duthost.asics`.
-- **`asic` is None, single-ASIC:** disable on `duthost`.
+This is the only disable path. There is deliberately no "disable everything"
+helper: unconditionally disabling `wredqueue`/`wredport` would clobber DUTs that
+already had them enabled before the test ran.
 
 ---
 
 ## 5. Counter read / clear / parse
 
-### 5.1 `tests/common/snappi_tests/common_helpers.py`
+### 5.1 `tests/common/helpers/ecn_wred_counters.py`
 
-All WRED counter read/clear logic lives here. This file does **not** use
+All WRED counter read/clear logic lives here. This module does **not** use
 `ConterpollHelper`; it calls SONiC CLI directly.
+
+---
+
+#### `_namespace_arg(asic_namespace=None)` (internal)
+
+Returns `" -n <namespace>"`, or `""` when `asic_namespace` is falsy. Single place
+that builds the namespace CLI fragment, shared by the read and clear paths.
 
 ---
 
@@ -343,8 +356,24 @@ show queue wredcounters --json [-n <asic>] [<interface>] [--nonzero] [--voq]
 
 #### `_run_show_queue_wredcounters_json(...)` (internal)
 
-Executes the CLI via `duthost.shell()`, parses JSON stdout, calls
-`_parse_wred_counters_json()`.
+Executes the CLI via `duthost.shell(cmd, module_ignore_errors=True)`, parses JSON
+stdout, calls `_parse_wred_counters_json()`.
+
+Capability guard  calls `pytest.skip()` when:
+
+| Condition | Meaning |
+| --------- | ------- |
+| `rc != 0` | `show queue wredcounters` unsupported or failed on this image |
+| stdout is not valid JSON | image predates `--json` (prints usage or a table) |
+
+Empty stdout is *not* a skip; it returns `{}`.
+
+---
+
+#### `_run_sonic_clear_wredcounters(duthost, asic_namespace=None)` (internal)
+
+Runs `sonic-clear queue wredcounters` with the same `duthost.shell()` +
+`pytest.skip()` contract as the read path.
 
 ---
 
@@ -384,6 +413,8 @@ show queue wredcounters --json [-n <asic>] [<port>] [--nonzero] [--voq]
 
 **Returns:** nested dict `{port: {txq: {counter_fields}}}` or `{}` if no counters.
 
+**Skips** the test if the image does not support the WRED counter CLI.
+
 ---
 
 #### `clear_ecn_wred_counters(duthost, asic=None)` (primary)
@@ -402,6 +433,8 @@ sonic-clear queue wredcounters [-n <asic>]
 | `None`, multi-ASIC | Clear on every ASIC |
 | `None`, single-ASIC | Clear globally |
 
+**Skips** the test if the image does not support the WRED counter CLI.
+
 ---
 
 ## 6. Unit tests
@@ -409,7 +442,9 @@ sonic-clear queue wredcounters [-n <asic>]
 ### 6.1 `tests/snappi_tests/unit_tests/ecn/unit_test_ecn_wred_counter_parsing.py`
 
 Lightweight unit tests for parsing helpers only. Uses `ast` to extract functions
-from `common_helpers.py` without importing heavy sonic-mgmt dependencies.
+from `ecn_wred_counters.py` without importing heavy sonic-mgmt dependencies 
+importing the module would initialize the `tests.common` package, which pulls in
+those dependencies at import time.
 
 **Run:**
 
@@ -445,10 +480,10 @@ See `tests/snappi_tests/unit_tests/ecn/README.md` for full details.
 import pytest
 
 from tests.common.snappi_tests.snappi_fixtures import (
-    get_snappi_ports,   # noqa: F401 — required for fixture chain
+    get_snappi_ports,   # noqa: F401  required for fixture chain
     snappi_api,         # noqa: F811
 )
-from tests.common.snappi_tests.common_helpers import (
+from tests.common.helpers.ecn_wred_counters import (
     clear_ecn_wred_counters,
     get_ecn_wred_counters,
 )
@@ -456,7 +491,7 @@ from tests.common.snappi_tests.common_helpers import (
 
 def test_my_ecn_wred_counters(
         get_snappi_ports,              # noqa: F811
-        enable_wred_ecn_counterpoll):   # noqa: F811 — opt-in fixture
+        enable_wred_ecn_counterpoll):   # noqa: F811  opt-in fixture
 
     duthost = get_snappi_ports[0]['duthost']
     interface = get_snappi_ports[0]['peer_port']
@@ -494,15 +529,12 @@ test collection
        -> disable only counter types enabled by fixture
 ```
 
-### 7.4 Manual disable (without fixture)
+### 7.4 Unsupported images
 
-```python
-from tests.snappi_tests.ecn.files.ecn_counterpoll_helpers import (
-    disable_wred_ecn_counterpoll,
-)
-
-disable_wred_ecn_counterpoll(duthost, asic=0)
-```
+If the DUT image lacks `show queue wredcounters --json` or
+`sonic-clear queue wredcounters`, the first read or clear call raises
+`pytest.skip()` and the test is reported as skipped rather than failed. No
+explicit version check is needed in the test.
 
 ---
 
@@ -513,7 +545,7 @@ disable_wred_ecn_counterpoll(duthost, asic=0)
 | Enable counterpoll | `ConterpollHelper` on `duthost` | `ConterpollHelper` on `asic_inst` |
 | Read counters | `show queue wredcounters --json <port>` | `show queue wredcounters --json -n asic0 <port>` |
 | Clear counters | `sonic-clear queue wredcounters` | `sonic-clear queue wredcounters -n asic0` |
-| Scope | From `snappi_ports` `(duthost, asic_value)` | Same — only ASICs used by test ports |
+| Scope | From `snappi_ports` `(duthost, asic_value)` | Same  only ASICs used by test ports |
 
 ---
 
@@ -522,8 +554,13 @@ disable_wred_ecn_counterpoll(duthost, asic=0)
 | Decision | Rationale |
 | -------- | ----------- |
 | JSON-only parsing (no table parser) | Avoids `N/A` crash and `"Last cached time was..."` banner crash from human-readable output |
-| Counterpoll in ECN conftest, not `common_helpers` | ECN-specific setup; avoids duplication with `ConterpollHelper` |
+| Read/clear in `common/helpers/`, not `common/snappi_tests/` | No snappi dependency; usable by any test, not just snappi |
+| Counterpoll in ECN conftest, not shared helpers | ECN-specific setup; avoids duplication with `ConterpollHelper` |
 | Conditional enable / selective disable | Does not disturb DUTs that already had counterpoll enabled; true before/after consistency |
+| No standalone "disable everything" helper | Would clobber pre-existing counterpoll state; teardown only reverts what the fixture enabled |
+| `counterpoll show` parsed once per ASIC | One CLI round trip per ASIC instead of one per stat type |
+| `pytest.skip()` on unsupported CLI | Old images report as skipped, not failed; no version gate needed in tests |
+| Single `duthost.shell()` path for read and clear | Uniform error handling and `module_ignore_errors` support for the capability guard |
 | `voq` parameter (default `False`) | Explicit chassis control per issue #25595 multi-line platform requirement |
 | Unit tests via `ast` extraction | No DUT/Snappi/Ansible required; fast CI-friendly validation |
 | Master `ConterpollHelper` API | Aligns with upstream sonic-mgmt; multi-ASIC via `SonicAsic` command target |
@@ -532,7 +569,8 @@ disable_wred_ecn_counterpoll(duthost, asic=0)
 
 ## 10. Related upstream references
 
-- Issue: [sonic-mgmt #25595](https://github.com/sonic-net/sonic-mgmt/issues/25595) — ECN WRED counter infra
+- Issue: [sonic-mgmt #25595](https://github.com/sonic-net/sonic-mgmt/issues/25595)  ECN WRED counter infra
 - CLI source: `sonic-utilities/scripts/wredstat`
 - Existing pattern: `tests/wred/test_wred_counters.py` (JSON read)
 - Counterpoll helper: [counterpoll_helper.py](https://github.com/sonic-net/sonic-mgmt/blob/master/tests/common/helpers/counterpoll_helper.py)
+

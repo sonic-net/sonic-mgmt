@@ -1,4 +1,4 @@
-"""Unit tests for ECN/WRED counter parsing in ``common_helpers.py``.
+"""Unit tests for ECN/WRED counter parsing in ``ecn_wred_counters.py``.
 
 The helpers under test normalize ``show queue wredcounters --json`` output:
 
@@ -8,9 +8,10 @@ The helpers under test normalize ``show queue wredcounters --json`` output:
   (``wreddroppacket`` -> ``wred_drop_pkts``, etc.)
 - optional TxQ filtering by priority label (``UC3``, ``VOQ3``, ...)
 
-``tests/common/snappi_tests/common_helpers.py`` imports heavy sonic-mgmt
-deps at top level, so we extract only the parsing helpers via ``ast`` and
-exec them into a shared namespace, mirroring the pattern in
+Importing ``tests.common.helpers.ecn_wred_counters`` initializes the
+``tests.common`` package, which pulls in heavy sonic-mgmt deps at top level,
+so we extract only the parsing helpers via ``ast`` and exec them into a shared
+namespace, mirroring the pattern in
 ``tests/snappi_tests/unit_tests/pfc/unit_test_m2o_fluctuating_lossless_helper.py``.
 
 Run with::
@@ -27,7 +28,7 @@ import pytest
 
 
 MODULE_PATH = (Path(__file__).resolve().parents[3] /
-               "common/snappi_tests/common_helpers.py")
+               "common/helpers/ecn_wred_counters.py")
 
 FUNCTION_NAMES = (
     "_parse_int_counter",

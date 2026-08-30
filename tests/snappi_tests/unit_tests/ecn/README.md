@@ -1,7 +1,7 @@
 # Unit Tests for ECN WRED counter parsing
 
 This directory contains unit tests for the ECN/WRED counter parsing
-helpers in `tests/common/snappi_tests/common_helpers.py`.
+helpers in `tests/common/helpers/ecn_wred_counters.py`.
 
 ## Running Unit Tests
 
@@ -50,10 +50,10 @@ Sample JSON under test:
 `--noconftest` keeps the run lightweight and avoids unrelated import
 failures.
 
-The target module `tests/common/snappi_tests/common_helpers.py` itself
-imports heavy sonic-mgmt deps at import time. To stay dependency-free, the
-test parses the source with `ast`, extracts only the top-level parsing
-helpers, and `exec`s them into a fresh namespace:
+Importing `tests/common/helpers/ecn_wred_counters.py` also initializes the
+`tests.common` package, which imports heavy sonic-mgmt deps at import time.
+To stay dependency-free, the test parses the source with `ast`, extracts only
+the top-level parsing helpers, and `exec`s them into a fresh namespace:
 
 - `_parse_int_counter`
 - `_txq_from_priority`
