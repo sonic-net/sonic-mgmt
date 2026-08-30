@@ -330,7 +330,9 @@ def check_if_skip():
 
 
 @pytest.fixture(scope='module')
-def do_test(duthosts, weak_server):
+def do_test(duthosts, enum_rand_one_per_hwsku_frontend_hostname, weak_server):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
     def do_counters_test(discard_group, pkt, ptfadapter, ports_info, sniff_ports, tx_dut_ports=None,    # noqa: F811
                          comparable_pkt=None, skip_counter_check=False, drop_information=None, ip_ver='ipv4'):
         """
@@ -344,7 +346,7 @@ def do_test(duthosts, weak_server):
         @param ip_ver: A string, ipv4 or ipv6
         """
         check_if_skip()
-        asic_type = duthosts[0].facts["asic_type"]
+        asic_type = duthost.facts["asic_type"]
         if asic_type == "vs":
             skip_counter_check = True
 
