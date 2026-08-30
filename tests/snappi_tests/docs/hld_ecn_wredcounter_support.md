@@ -238,13 +238,13 @@ FOR each unique (duthost, asic_inst) in snappi_ports:
 RETURN enabled_by_us
 ```
 
-**Returns:** `[(duthost, asic_inst, cli_type), ...]`  used for selective teardown.
+**Returns:** `[(duthost, asic_inst, cli_type), ...]` — used for selective teardown.
 
 ---
 
 #### `disable_wred_ecn_counterpoll_entries(enabled_by_us)` (primary)
 
-**Purpose:** Teardown helper  disable only what the fixture enabled.
+**Purpose:** Teardown helper — disable only what the fixture enabled.
 
 **Algorithm:**
 
@@ -359,7 +359,7 @@ show queue wredcounters --json [-n <asic>] [<interface>] [--nonzero] [--voq]
 Executes the CLI via `duthost.shell(cmd, module_ignore_errors=True)`, parses JSON
 stdout, calls `_parse_wred_counters_json()`.
 
-Capability guard  calls `pytest.skip()` when:
+Capability guard — calls `pytest.skip()` when:
 
 | Condition | Meaning |
 | --------- | ------- |
@@ -442,7 +442,7 @@ sonic-clear queue wredcounters [-n <asic>]
 ### 6.1 `tests/snappi_tests/unit_tests/ecn/unit_test_ecn_wred_counter_parsing.py`
 
 Lightweight unit tests for parsing helpers only. Uses `ast` to extract functions
-from `ecn_wred_counters.py` without importing heavy sonic-mgmt dependencies 
+from `ecn_wred_counters.py` without importing heavy sonic-mgmt dependencies —
 importing the module would initialize the `tests.common` package, which pulls in
 those dependencies at import time.
 
@@ -480,7 +480,7 @@ See `tests/snappi_tests/unit_tests/ecn/README.md` for full details.
 import pytest
 
 from tests.common.snappi_tests.snappi_fixtures import (
-    get_snappi_ports,   # noqa: F401  required for fixture chain
+    get_snappi_ports,   # noqa: F401 — required for fixture chain
     snappi_api,         # noqa: F811
 )
 from tests.common.helpers.ecn_wred_counters import (
@@ -491,7 +491,7 @@ from tests.common.helpers.ecn_wred_counters import (
 
 def test_my_ecn_wred_counters(
         get_snappi_ports,              # noqa: F811
-        enable_wred_ecn_counterpoll):   # noqa: F811  opt-in fixture
+        enable_wred_ecn_counterpoll):   # noqa: F811 — opt-in fixture
 
     duthost = get_snappi_ports[0]['duthost']
     interface = get_snappi_ports[0]['peer_port']
@@ -545,7 +545,7 @@ explicit version check is needed in the test.
 | Enable counterpoll | `ConterpollHelper` on `duthost` | `ConterpollHelper` on `asic_inst` |
 | Read counters | `show queue wredcounters --json <port>` | `show queue wredcounters --json -n asic0 <port>` |
 | Clear counters | `sonic-clear queue wredcounters` | `sonic-clear queue wredcounters -n asic0` |
-| Scope | From `snappi_ports` `(duthost, asic_value)` | Same  only ASICs used by test ports |
+| Scope | From `snappi_ports` `(duthost, asic_value)` | Same — only ASICs used by test ports |
 
 ---
 
@@ -569,8 +569,7 @@ explicit version check is needed in the test.
 
 ## 10. Related upstream references
 
-- Issue: [sonic-mgmt #25595](https://github.com/sonic-net/sonic-mgmt/issues/25595)  ECN WRED counter infra
+- Issue: [sonic-mgmt #25595](https://github.com/sonic-net/sonic-mgmt/issues/25595) — ECN WRED counter infra
 - CLI source: `sonic-utilities/scripts/wredstat`
 - Existing pattern: `tests/wred/test_wred_counters.py` (JSON read)
 - Counterpoll helper: [counterpoll_helper.py](https://github.com/sonic-net/sonic-mgmt/blob/master/tests/common/helpers/counterpoll_helper.py)
-

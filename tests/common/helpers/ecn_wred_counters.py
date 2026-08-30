@@ -145,7 +145,8 @@ def _run_show_queue_wredcounters_json(
         pytest.skip(
             "'{}' on {} did not return JSON; image may not support --json".format(
                 cmd, duthost.hostname))
-    return _parse_wred_counters_json(data)
+    else:
+        return _parse_wred_counters_json(data)
 
 
 def _run_sonic_clear_wredcounters(duthost, asic_namespace=None):
