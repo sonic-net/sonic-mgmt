@@ -336,7 +336,8 @@ r, ".* ERR syncd\d*#syncd:.* SAI_API_SWITCH:brcm_sai_get_switch_attribute.* Get 
 
 # Ignore rsyslog librelp error if rsyslogd on host or container is down or going down
 r, ".* ERR .*#rsyslogd: librelp error 10008 forwarding to server .* - suspending.*"
-r, ".* ERR rsyslogd: imrelp.*error 'error when receiving data, session broken', object .* - input may not work as intended.*"
+# The same imrelp session-broken error may be compressed as "message repeated N times".
+r, ".* ERR rsyslogd:\s*(message repeated \d+ times: \[)?imrelp.*error 'error when receiving data, session broken', object\s+.* - input may not work as intended.*"
 # Ignore related rsyslog librelp error, which is caused by the session closed by peer when receiving data, and it will cause the input not work as intended, but it is safe to ignore the error for now to unblock the test, and we will address the root cause later. (PBI https://msazure.visualstudio.com/One/_workitems/edit/37879332)
 r, ".* ERR rsyslogd: imrelp.*error 'server closed relp session, session broken', object .* - input may not work as intended.*"
 
@@ -529,3 +530,8 @@ r, ".* ERR syncd\d*#syncd: :- initAttrData: PORT_PHY_SERDES_ATTR: port_serdes_ri
 
 # Ignore loganalyzer add marker logs in case the test name matches an error pattern
 r, ".*INFO.*ansible.*loganalyzer.py.*--action add.*marker.*"
+
+# ignore journalctl tac_connect_single and nss_tacplus errors during config reload
+# TACACS+ is temporarily unreachable while the SONiC network stack restarts
+r, ".* ERR journalctl: tac_connect_single: connection failed with .*Transport endpoint is not connected"
+r, ".* ERR journalctl: nss_tacplus: failed to connect TACACS\+ server .*Transport endpoint is not connected"

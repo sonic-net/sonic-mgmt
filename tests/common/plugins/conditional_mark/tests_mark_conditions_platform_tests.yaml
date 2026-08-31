@@ -10,6 +10,15 @@ platform_tests/api:
       - "asic_type in ['vs']"
 
 #######################################
+#####      api/test_bmc.py        #####
+#######################################
+platform_tests/api/test_bmc.py:
+  skip:
+    reason: "Not available on BMC"
+    conditions:
+      - "'bmc' in topo_type"
+
+#######################################
 #####      api/test_chassis.py    #####
 #######################################
 platform_tests/api/test_chassis.py::TestChassisApi::test_components:
@@ -655,6 +664,7 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_error_description:
       - "platform in ['x86_64-cel_e1031-r0'] and https://github.com/sonic-net/sonic-buildimage/issues/18229"
       - "'t0-isolated-d32u32s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
+      - "'t1-isolated-d56u1-lag' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_model:
   skip:
@@ -858,6 +868,12 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_tx_disable_channel:
 #######################################
 #####     api/test_thermal.py     #####
 #######################################
+platform_tests/api/test_thermal.py:
+  skip:
+    reason: "Not available in BMC"
+    conditions:
+      - "'bmc' in topo_type"
+
 platform_tests/api/test_thermal.py::TestThermalApi::test_get_high_critical_threshold:
   skip:
     reason: "Unsupported platform API"
@@ -1051,6 +1067,12 @@ platform_tests/cli/test_show_chassis_module.py::test_show_chassis_module_status:
 #######################################
 #####  cli/test_show_platform.py  #####
 #######################################
+platform_tests/cli/test_show_platform.py::test_show_platform_current:
+  skip:
+    reason: "Current sensor CLI is not available on BMC"
+    conditions:
+      - "'bmc' in topo_type"
+
 platform_tests/cli/test_show_platform.py::test_show_platform_fan:
   skip:
     reason: "Unsupported platform API"
@@ -1063,6 +1085,12 @@ platform_tests/cli/test_show_platform.py::test_show_platform_firmware_status:
     reason: "Unsupported platform API"
     conditions:
       - "is_multi_asic==True and release in ['201911']"
+
+platform_tests/cli/test_show_platform.py::test_show_platform_pcieinfo:
+  skip:
+    reason: "PCIe info is not available on BMC"
+    conditions:
+      - "'bmc' in topo_type"
 
 platform_tests/cli/test_show_platform.py::test_show_platform_psustatus:
   xfail:
@@ -1092,6 +1120,12 @@ platform_tests/cli/test_show_platform.py::test_show_platform_psustatus_json:
       - "platform in ['arm64-elba-asic-flash128-r0']"
       - "'bmc' in topo_type"
 
+platform_tests/cli/test_show_platform.py::test_show_platform_ssdhealth:
+  skip:
+    reason: "SSD health check is not available on BMC"
+    conditions:
+      - "'bmc' in topo_type"
+
 platform_tests/cli/test_show_platform.py::test_show_platform_syseeprom:
   xfail:
     reason: "Testcase consistently fails, raised issue to track. Or test case has issue on the t0-isolated-d256u256s2 topo."
@@ -1099,6 +1133,12 @@ platform_tests/cli/test_show_platform.py::test_show_platform_syseeprom:
     conditions:
       - "hwsku in ['Celestica-DX010-C32'] and https://github.com/sonic-net/sonic-mgmt/issues/6518"
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
+
+platform_tests/cli/test_show_platform.py::test_show_platform_voltage:
+  skip:
+    reason: "Voltage sensor CLI is not available on BMC"
+    conditions:
+      - "'bmc' in topo_type"
 
 ###############################################
 ## counterpoll/test_counterpoll_watermark.py ##
@@ -1173,6 +1213,12 @@ platform_tests/daemon/test_pcied.py:
 platform_tests/daemon/test_psud.py:
   skip:
     reason: "Not available on BMC"
+    conditions:
+      - "'bmc' in topo_type"
+
+platform_tests/daemon/test_sensord.py:
+  skip:
+    reason: "Not available in BMC"
     conditions:
       - "'bmc' in topo_type"
 

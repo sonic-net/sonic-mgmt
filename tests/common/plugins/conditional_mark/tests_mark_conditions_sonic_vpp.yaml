@@ -53,6 +53,12 @@ bgp/test_bgp_bbr.py::test_bbr_status_consistent_after_reload[:
     conditions:
       - "asic_type in ['vpp']"
 
+bgp/test_bgp_session.py::test_bgp_session_interface_down:
+  xfail:
+    reason: "VPP BGP sessions intermittently fail to establish during module setup"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/27487 and asic_type in ['vpp']"
+
 bgp/test_bgp_suppress_fib.py:
   skip:
     reason: >
@@ -272,6 +278,25 @@ gnmi/test_gnmi_appldb.py::test_gnmi_appldb_01:
 #######################################
 #####          GNMI               #####
 #######################################
+gnmi/test_gnmi_cert_rotation.py::test_gnmi_cert_rotate:
+  skip:
+    reason: >
+            Failed/Errored: To be included
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+gnmi/test_gnmi_cert_rotation.py::test_gnmi_post_cert_add:
+  skip:
+    reason: >
+            Failed/Errored: To be included
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+#######################################
+#####          Vxlan              #####
+#######################################
 gnmi/test_gnmi_configdb.py::test_gnmi_configdb_incremental_01:
   skip:
     reason: >
@@ -450,14 +475,6 @@ override_config_table/test_override_config_table.py::test_load_minigraph_with_go
 #######################################
 #####          PC                 #####
 #######################################
-pc/test_lag_member_forwarding.py::test_lag_member_forwarding_packets:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
 pc/test_po_cleanup.py::test_po_cleanup_after_reload:
   disable_memory_utilization:
     reason: >
@@ -698,25 +715,6 @@ telemetry/test_telemetry.py::test_telemetry_queue_buffer_cnt:
     conditions:
       - "asic_type in ['vpp']"
 
-telemetry/test_telemetry_cert_rotation.py::test_telemetry_cert_rotate:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-telemetry/test_telemetry_cert_rotation.py::test_telemetry_post_cert_add:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-#######################################
-#####          Vxlan              #####
-#######################################
 vxlan/test_vxlan_ecmp.py::Test_VxLAN_ecmp_random_hash:
   skip:
     reason: >

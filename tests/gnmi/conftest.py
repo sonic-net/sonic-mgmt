@@ -89,6 +89,19 @@ def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost, vrf_c
     recover_cert_config(duthost, stopped_programs)
 
 
+def rotate_gnmi_certs(duthost, localhost, ptfhost):
+    '''
+    Regenerate the GNMI PKI and push the fresh certs to the DUT and ptf. Plain
+    helper (not a fixture) so tests can trigger a cert rotation mid-test.
+    '''
+    prepare_root_cert(localhost)
+    prepare_server_cert(duthost, localhost)
+    prepare_client_cert(localhost)
+    copy_certificate_to_ptf(ptfhost)
+    create_revoked_cert_and_crl(localhost, ptfhost, duthost)
+    copy_certificate_to_dut(duthost)
+
+
 @pytest.fixture(scope="module")
 def setup_gnmi_rotated_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
     '''
@@ -101,12 +114,7 @@ def setup_gnmi_rotated_server(duthosts, rand_one_dut_hostname, localhost, ptfhos
         check_container_state(duthost, gnmi_container(duthost), should_be_running=True),
         "Test was not supported on devices which do not support GNMI!"
     )
-    prepare_root_cert(localhost)
-    prepare_server_cert(duthost, localhost)
-    prepare_client_cert(localhost)
-    copy_certificate_to_ptf(ptfhost)
-    create_revoked_cert_and_crl(localhost, ptfhost, duthost)
-    copy_certificate_to_dut(duthost)
+    rotate_gnmi_certs(duthost, localhost, ptfhost)
 
 
 @pytest.fixture(scope="module")
