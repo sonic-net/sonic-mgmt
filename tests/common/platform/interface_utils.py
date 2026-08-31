@@ -466,7 +466,10 @@ print(port_indexes_with_flat_memory)
 EOF
 """
     dut.shell(cmd)
-    port_indexes_with_flat_memory = dut.shell("python3 get_port_indexes_with_flat_memory.py")["stdout"]
-    port_indexes_with_flat_memory = ast.literal_eval(port_indexes_with_flat_memory)
+    output = dut.shell("python3 get_port_indexes_with_flat_memory.py", module_ignore_errors=True)
+    if output["rc"] != 0:
+        logging.warning(f"Failed to get port indexes with flat memory on {dut.hostname}: {output['stderr']}")
+        return []
+    port_indexes_with_flat_memory = ast.literal_eval(output["stdout"])
     logging.info(f"Port indexes with flat memory: {port_indexes_with_flat_memory}")
     return port_indexes_with_flat_memory
