@@ -586,6 +586,11 @@ def is_process_running(duthost, container_name, program_name):
 
 
 def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
+    # Reset systemd's restart counter for all services so that cascade restarts
+    # from previous test cases don't cause start-limit-hit
+    # when testing dependent services like teamd.
+    duthost.shell("sudo systemctl reset-failed", module_ignore_errors=True)
+
     feature_autorestart_states = duthost.get_container_autorestart_states()
     disabled_containers = get_disabled_container_list(duthost)
 
