@@ -49,14 +49,17 @@ def find_nearest_cable_length(pg_profile_info_dict, speed, cable_length):
     filtered_dict = {key: value for key, value in pg_profile_info_dict.items() if key[0] == speed}
     if not filtered_dict:
         pytest.skip("Speed {} is not present in pg_profile_lookup.ini".format(speed))
+        return None
 
     sorted_cable_lengths_for_speed = sorted([int(key[1][:-1]) for key in filtered_dict.keys()])
+    index = None
     try:
         current_length = int(cable_length[:-1])
         index = sorted_cable_lengths_for_speed.index(current_length)
     except (TypeError, ValueError):
         pytest.skip("Current cable length {} is not in pg_profile_lookup.ini for speed {}".format(
             cable_length, speed))
+        return None
 
     if index > 0:
         return sorted_cable_lengths_for_speed[index - 1]
@@ -64,6 +67,7 @@ def find_nearest_cable_length(pg_profile_info_dict, speed, cable_length):
         return sorted_cable_lengths_for_speed[index + 1]
 
     pytest.skip("Cannot change cable length; only one supported length for speed {}".format(speed))
+    return None
 
 
 def _apply_cable_length_patch(duthost, json_namespace, cable_length_config):
@@ -107,6 +111,7 @@ def test_update_cable_length(duthosts,
         selected_intf = select_random_active_interface(duthost, enum_rand_one_asic_namespace)
     except IndexError:
         pytest.skip("No active Ethernet interfaces available for cable length update")
+        return
 
     supported_pg_profile_info_dict = load_lossless_info_from_pg_profile_lookup(
         duthost, duthost.asic_instance(enum_rand_one_frontend_asic_index))
