@@ -35,6 +35,10 @@ KERNEL_REJECTION_MESSAGES = (
     "prohibited by secure boot policy",
 )
 GRUB_CONTINUE_PATTERN = "(?i)press any key to continue"
+UNTRUSTED_KERNEL_SIGNER = "SONiC Secure Boot Untrusted Kernel Test"
+UNTRUSTED_KERNEL_KEY_PATH = "/tmp/secure_boot_untrusted_kernel.key"
+UNTRUSTED_KERNEL_CERT_PATH = "/tmp/secure_boot_untrusted_kernel.crt"
+UNTRUSTED_SIGNED_KERNEL_PATH = "/tmp/secure_boot_untrusted_kernel.signed"
 
 logger = logging.getLogger(__name__)
 
@@ -186,6 +190,50 @@ PY
 
     unsigned_hash = duthost.command("sudo sha256sum {}".format(quoted_kernel))["stdout"].split()[0]
     pytest_assert(original_hash != unsigned_hash, "The target kernel signature was not removed")
+
+
+# Replace the trusted Authenticode signature with one from a temporary untrusted certificate.
+def _sign_kernel_with_untrusted_key(duthost, kernel_path, backup_path):
+    signing_tools = duthost.shell(
+        "command -v openssl && command -v sbsign && command -v sbverify",
+        module_ignore_errors=True,
+    )
+    pytest_assert(
+        signing_tools["rc"] == 0,
+        "The DUT requires openssl, sbsign, and sbverify",
+    )
+
+    enrolled_db = duthost.command("sudo efi-readvar -v db")["stdout"]
+    pytest_assert(
+        UNTRUSTED_KERNEL_SIGNER not in enrolled_db,
+        "The temporary test signer is already enrolled in the UEFI db",
+    )
+
+    _remove_kernel_signature(duthost, kernel_path, backup_path)
+    command = r"""
+set -eu
+kernel={kernel}
+key={key}
+cert={cert}
+signed_kernel={signed_kernel}
+cleanup() {{
+    sudo rm -f "$key" "$cert" "$signed_kernel"
+}}
+trap cleanup EXIT
+
+openssl req -new -x509 -newkey rsa:2048 -nodes -days 1 -sha256 \
+    -subj {subject} -keyout "$key" -out "$cert" >/dev/null 2>&1
+sudo sbsign --key "$key" --cert "$cert" --output "$signed_kernel" "$kernel"
+sudo sbverify --cert "$cert" "$signed_kernel"
+sudo mv "$signed_kernel" "$kernel"
+""".format(
+        kernel=shlex.quote(kernel_path),
+        key=shlex.quote(UNTRUSTED_KERNEL_KEY_PATH),
+        cert=shlex.quote(UNTRUSTED_KERNEL_CERT_PATH),
+        signed_kernel=shlex.quote(UNTRUSTED_SIGNED_KERNEL_PATH),
+        subject=shlex.quote("/CN={}/".format(UNTRUSTED_KERNEL_SIGNER)),
+    )
+    duthost.shell(command)
 
 
 # Select the known-good image when GRUB returns after rejecting the modified kernel.
@@ -489,4 +537,18 @@ def test_unsigned_kernel_is_rejected(duthost, localhost, vmhost, request, tbinfo
         tbinfo,
         _remove_kernel_signature,
         "unsigned",
+    )
+
+
+# Verify that GRUB refuses a valid kernel signature from a certificate outside UEFI db.
+def test_untrusted_signed_kernel_is_rejected(duthost, localhost, vmhost, request, tbinfo):
+    """Verify that Secure Boot prevents a kernel signed by an untrusted key from booting."""
+    _verify_kernel_is_rejected(
+        duthost,
+        localhost,
+        vmhost,
+        request,
+        tbinfo,
+        _sign_kernel_with_untrusted_key,
+        "untrusted-signed",
     )
