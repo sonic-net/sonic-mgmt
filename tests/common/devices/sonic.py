@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import re
+import shlex
 import socket
 import time
 import sys
@@ -1092,6 +1093,29 @@ class SonicHost(AnsibleHostBase):
 
         ret['installed_list'] = images
         return ret
+
+    def get_inactive_image(self) -> Optional[str]:
+        """Return an installed image other than the running image."""
+        image_info = self.get_image_info()
+        current_image = image_info.get("current")
+        return next(
+            (
+                image
+                for image in image_info["installed_list"]
+                if image != current_image
+            ),
+            None,
+        )
+
+    def set_image_selection(self, image):
+        """Set an image as both the default and next boot selection."""
+        quoted_image = shlex.quote(image)
+        self.command(
+            "sudo sonic-installer set-default {}".format(quoted_image)
+        )
+        self.command(
+            "sudo sonic-installer set-next-boot {}".format(quoted_image)
+        )
 
     def shutdown(self, ifname):
         """
