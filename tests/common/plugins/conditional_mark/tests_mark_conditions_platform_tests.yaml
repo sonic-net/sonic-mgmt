@@ -1388,7 +1388,7 @@ platform_tests/sfp/test_sfputil.py::test_check_sfputil_reset:
 #######################################
 platform_tests/test_advanced_reboot.py:
   skip:
-    reason: "Unsupported platform / Skip in PR testing as taking too much time. / Advanced reboot is not supported on dualtor topology. / Warm reboot is not supported on x86_64-nvidia_sn6600_ld-r0"
+    reason: "Unsupported platform / Skip in PR testing as taking too much time. / Advanced reboot is not supported on dualtor topology."
     conditions_logical_operator: or
     conditions:
       - "platform in ['x86_64-arista_7050_qx32s']"
@@ -1396,6 +1396,11 @@ platform_tests/test_advanced_reboot.py:
       - "asic_type in ['vs']"
       - "'f2' in topo_name"
       - "topo_type not in ['t0','t0-sonic']"
+
+platform_tests/test_advanced_reboot.py::test_cancelled_warm_reboot:
+  skip:
+    reason: "Warm reboot is not supported on x86_64-nvidia_sn6600_ld-r0"
+    conditions:
       - "platform in ['x86_64-nvidia_sn6600_ld-r0']"
 
 platform_tests/test_advanced_reboot.py::test_fast_reboot:
@@ -1419,29 +1424,32 @@ platform_tests/test_advanced_reboot.py::test_fast_reboot_from_other_vendor:
 
 platform_tests/test_advanced_reboot.py::test_warm_reboot:
   skip:
-    reason: "Skip in PR testing as taking too much time. / Warm reboot is not required for 202412 / Skip for smartswitch topology."
+    reason: "Skip in PR testing as taking too much time. / Warm reboot is not required for 202412 / Skip for smartswitch topology. / Warm reboot is not supported on x86_64-nvidia_sn6600_ld-r0"
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vs'] and 't0' not in topo_name"
       - "is_smartswitch==True"
       - "'f2' in topo_name"
+      - "platform in ['x86_64-nvidia_sn6600_ld-r0']"
 
 platform_tests/test_advanced_reboot.py::test_warm_reboot_mac_jump:
   skip:
-    reason: "Skip in PR testing as taking too much time. / Warm reboot is not required for 202412"
+    reason: "Skip in PR testing as taking too much time. / Warm reboot is not required for 202412 / Warm reboot is not supported on x86_64-nvidia_sn6600_ld-r0"
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vs']"
       - "'f2' in topo_name"
+      - "platform in ['x86_64-nvidia_sn6600_ld-r0']"
 
 platform_tests/test_advanced_reboot.py::test_warm_reboot_sad:
   skip:
-    reason: "Skip in PR testing as taking too much time. / Warm reboot is not required for 202412 / Skip for smartswitch topology."
+    reason: "Skip in PR testing as taking too much time. / Warm reboot is not required for 202412 / Skip for smartswitch topology. / Warm reboot is not supported on x86_64-nvidia_sn6600_ld-r0"
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vs']"
       - "'f2' in topo_name"
       - "is_smartswitch==True"
+      - "platform in ['x86_64-nvidia_sn6600_ld-r0']"
 
 #######################################
 #####   test_auto_negotiation.py  #####
