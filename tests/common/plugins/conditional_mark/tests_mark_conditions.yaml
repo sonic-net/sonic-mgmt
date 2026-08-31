@@ -782,6 +782,12 @@ bmp/:
     conditions:
       - "release in ['master']"
 
+bmp/test_docker_restart.py::test_restart_bmp_docker:
+  skip:
+    reason: "BMP service is not present on bmc topology"
+    conditions:
+      - "topo_type in ['bmc']"
+
 #######################################
 #####            cacl             #####
 #######################################
