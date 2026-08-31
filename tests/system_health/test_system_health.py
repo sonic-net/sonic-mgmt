@@ -72,15 +72,17 @@ DEFAULT_LED_CONFIG = {
 
 
 @pytest.fixture(autouse=True, scope="module")
-def check_image_version(duthost):
+def check_image_version(duthosts, enum_rand_one_per_hwsku_hostname):
     """Skip the test for unsupported images."""
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     pytest_require(parse_version(duthost.kernel_version) > parse_version('4.9.0'),
                    "Test not supported for 201911 images. Skipping the test")
     yield
 
 
 @pytest.fixture(autouse=True, scope='module')
-def config_reload_after_tests(duthost):
+def config_reload_after_tests(duthosts, enum_rand_one_per_hwsku_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     yield
     config_reload(duthost)
 
