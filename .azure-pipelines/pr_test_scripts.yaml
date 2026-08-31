@@ -740,6 +740,9 @@ t1-lag-vpp:
   - vxlan/test_vnet_route_leak.py
   - vxlan/test_vxlan_crm.py
   - vxlan/test_vxlan_multi_tunnel.py
+  - vxlan/test_vxlan_route_advertisement.py
+  - vxlan/test_vxlan_multiple_tunnels.py
+  - vxlan/test_vxlan_bfd_tsa.py
 
 
 t0-vpp:

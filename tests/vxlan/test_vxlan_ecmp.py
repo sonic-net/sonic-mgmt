@@ -192,6 +192,30 @@ def fixture_setUp(duthosts,
     else:
         raise RuntimeError("Pls update this script for your platform.")
 
+    # Relaxed uniformity parameters for the random-hash / entropy distribution
+    # checks, scoped to VPP only.
+    #
+    # VPP splits an N-way equal-cost group into a power-of-2 load-balance bucket
+    # array sized by ip_multipath_normalize_next_hops() (default
+    # multipath_next_hop_error_tolerance 0.1). The 3-way overlay ECMP group in
+    # the random-hash test lands on 16 buckets split 6/5/5, so the busiest
+    # next-hop deterministically receives 6/16 * 3 = 1.125x its ideal share
+    # (~12.5% skew) regardless of hash quality or packet count. The random-hash
+    # tolerance therefore has to clear that structural skew plus binomial noise,
+    # so VPP uses 0.20 there. The 2-way entropy groups are a power of 2 and split
+    # evenly, so those checks only need extra packets to tame binomial variance
+    # and keep a tight 0.07 tolerance. Other ASICs spread the sequentially
+    # incrementing ports uniformly and keep the tighter 3% checks with the
+    # shorter (1000-packet) runtime.
+    if asic_type == "vpp":
+        data['ecmp_hash_tolerance'] = 0.07
+        data['ecmp_random_hash_tolerance'] = 0.20
+        data['ecmp_hash_packet_count'] = 2000
+    else:
+        data['ecmp_hash_tolerance'] = 0.03
+        data['ecmp_random_hash_tolerance'] = 0.03
+        data['ecmp_hash_packet_count'] = 1000
+
     platform = duthosts[rand_one_dut_hostname].facts['platform']
     if platform in ['x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0'] and encap_type in ['v4_in_v6', 'v6_in_v6']:
         pytest.skip("Skipping test. v6 underlay is not supported on Mlnx 2700")
@@ -1497,11 +1521,22 @@ class Test_VxLAN_ecmp_random_hash(Test_VxLAN):
             "Apply the config in the DUT and verify traffic. "
             "The random hash and ECMP check is already taken care of in the "
             "VxLAN PTF script.")
+        # Overlay ECMP distribution over N nexthops is multinomial: each
+        # nexthop's received count has std/mean = sqrt((N-1)/(N*packet_count)).
+        # With N=3 and packet_count=1000 that is ~2.6%, so the default 3%
+        # tolerance is only ~1.1 sigma and this check flakes on a perfectly
+        # healthy dataplane. On VPP the 3-way group is additionally quantized
+        # into a 16-bucket 6/5/5 load-balance split (see setUp), so the busiest
+        # next-hop sits ~12.5% above its ideal share before any noise; VPP sends
+        # more packets and uses a 0.20 tolerance to clear that structural skew
+        # with ~4 sigma of headroom while still catching a grossly broken hash.
+        # Other ASICs keep the tighter 3% / 1000.
         self.dump_self_info_and_run_ptf(
             "tc11",
             encap_type,
             True,
-            packet_count=1000)
+            packet_count=self.vxlan_test_setup['ecmp_hash_packet_count'],
+            tolerance=self.vxlan_test_setup['ecmp_random_hash_tolerance'])
 
 
 @pytest.mark.skipif(
@@ -1563,7 +1598,11 @@ class Test_VxLAN_entropy(Test_VxLAN):
             random_sport=random_sport,
             random_dport=random_dport,
             random_src_ip=random_src_ip,
-            packet_count=1000,
+            # On VPP send 2000 pkts/endpoint (vs 1000) to halve the relative
+            # binomial variance of the 2-way endpoint split so the inner-field
+            # entropy checks are statistically robust rather than flaky at their
+            # tolerance bound; other ASICs keep 1000 (see setUp).
+            packet_count=self.vxlan_test_setup['ecmp_hash_packet_count'],
             tolerance=tolerance)
 
     def test_verify_entropy(self, setUp, encap_type):
@@ -1585,7 +1624,7 @@ class Test_VxLAN_entropy(Test_VxLAN):
         route 4's prefix dst
         '''
         self.vxlan_test_setup = setUp
-        self.verify_entropy(encap_type, tolerance=0.03)
+        self.verify_entropy(encap_type, tolerance=self.vxlan_test_setup['ecmp_hash_tolerance'])
 
     def test_vxlan_random_src_port(self, setUp, encap_type):
         '''
@@ -1597,7 +1636,7 @@ class Test_VxLAN_entropy(Test_VxLAN):
             encap_type,
             random_dport=False,
             random_sport=True,
-            tolerance=0.03)
+            tolerance=self.vxlan_test_setup['ecmp_hash_tolerance'])
 
     def test_vxlan_varying_src_ip(self, setUp, encap_type):
         '''
@@ -1609,4 +1648,4 @@ class Test_VxLAN_entropy(Test_VxLAN):
             encap_type,
             random_dport=False,
             random_src_ip=True,
-            tolerance=0.03)
+            tolerance=self.vxlan_test_setup['ecmp_hash_tolerance'])
