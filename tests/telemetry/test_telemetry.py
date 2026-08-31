@@ -119,9 +119,19 @@ def test_telemetry_ouput(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     if duthost.is_supervisor_node():
         pytest.skip(
-            "Skipping test as no Ethernet0 frontpanel port on supervisor")
+            "Skipping test as no frontpanel ports on supervisor")
+
+    # Dynamically find an active Ethernet port to test
+    interfaces = duthost.get_interfaces_status()
+    active_ports = [iface for iface, info in interfaces.items()
+                    if iface.startswith('Eth') and info.get('oper') == 'up' and info.get('admin') == 'up']
+    if not active_ports:
+        pytest.skip("Skipping test as no active Ethernet ports found")
+    
+    test_port = active_ports[0]
+
     logger.info('start telemetry output testing')
-    cmd = generate_client_cli(duthost, gnxi_path, method="get", xpath="COUNTERS/Ethernet0", target="COUNTERS_DB")
+    cmd = generate_client_cli(duthost, gnxi_path, method="get", xpath="COUNTERS/{}".format(test_port), target="COUNTERS_DB")
     show_gnmi_out = ptfhost.shell(cmd)['stdout']
     logger.info("GNMI Server output")
     logger.info(show_gnmi_out)
@@ -407,3 +417,4 @@ def test_mem_spike(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_pat
         time.sleep(MEMORY_CHECKER_WAIT)
 
     client_thread.join()
+read.join()
