@@ -1,0 +1,450 @@
+[
+        {
+                "DASH_ENI_TABLE:001111110001" : {
+                        "eni_id":"0000a1a1-0000-0000-fb00-007000000002",
+                        "mac_address":"00:11:11:11:00:01",
+                        {% if dpu_index == 0 %}
+                        "underlay_ip":"19.19.101.1",
+                        {% else %}
+                        "underlay_ip":"3.2.1.{{ dpu_index-1 }}",
+                        {% endif %}
+                        "admin_state":"enabled",
+                        "vnet":"Vnet1"
+                },
+                "OP": "{{ op }}"
+        },
+        {
+                "DASH_ENI_TABLE:001111110002" : {
+                        "eni_id":"0000a1a1-0000-0000-fb00-007000000003",
+                        "mac_address":"00:11:11:11:00:02",
+                        {% if dpu_index == 0 %}
+                        "underlay_ip":"19.19.101.2",
+                        {% else %}
+                        "underlay_ip":"3.2.1.{{ dpu_index-1 }}",
+                        {% endif %}
+                        "admin_state":"enabled",
+                        "vnet":"Vnet2"
+                },
+                "OP": "{{ op }}"
+        },
+        {
+                "DASH_ENI_TABLE:001111110003" : {
+                        "eni_id":"0000a1a1-0000-0000-fb00-007000000004",
+                        "mac_address":"00:11:11:11:00:03",
+                        {% if dpu_index == 0 %}
+                        "underlay_ip":"19.19.101.3",
+                        {% else %}
+                        "underlay_ip":"3.2.1.{{ dpu_index-1 }}",
+                        {% endif %}
+                        "admin_state":"enabled",
+                        "vnet":"Vnet3"
+                },
+                "OP": "{{ op }}"
+        },
+        {
+                "DASH_ENI_TABLE:001111110004" : {
+                        "eni_id":"0000a1a1-0000-0000-fb00-007000000005",
+                        "mac_address":"00:11:11:11:00:04",
+                        {% if dpu_index == 0 %}
+                        "underlay_ip":"19.19.101.4",
+                        {% else %}
+                        "underlay_ip":"3.2.1.{{ dpu_index-1 }}",
+                        {% endif %}
+                        "admin_state":"enabled",
+                        "vnet":"Vnet4"
+                },
+                "OP": "{{ op }}"
+        },
+        {
+                "DASH_ENI_TABLE:001111110005" : {
+                        "eni_id":"0000a1a1-0000-0000-fb00-007000000006",
+                        "mac_address":"00:11:11:11:00:05",
+                        {% if dpu_index == 0 %}
+                        "underlay_ip":"19.19.101.5",
+                        {% else %}
+                        "underlay_ip":"3.2.1.{{ dpu_index-1 }}",
+                        {% endif %}
+                        "admin_state":"enabled",
+                        "vnet":"Vnet5"
+                },
+                "OP": "{{ op }}"
+        },
+        {
+                "DASH_ENI_TABLE:001111110006" : {
+                        "eni_id":"0000a1a1-0000-0000-fb00-007000000007",
+                        "mac_address":"00:11:11:11:00:06",
+                        {% if dpu_index == 0 %}
+                        "underlay_ip":"19.19.101.6",
+                        {% else %}
+                        "underlay_ip":"3.2.1.{{ dpu_index-1 }}",
+                        {% endif %}
+                        "admin_state":"enabled",
+                        "vnet":"Vnet6"
+                },
+                "OP": "{{ op }}"
+        },
+        {
+                "DASH_ENI_TABLE:001111110007" : {
+                        "eni_id":"0000a1a1-0000-0000-fb00-007000000008",
+                        "mac_address":"00:11:11:11:00:07",
+                        {% if dpu_index == 0 %}
+                        "underlay_ip":"19.19.101.7",
+                        {% else %}
+                        "underlay_ip":"3.2.1.{{ dpu_index-1 }}",
+                        {% endif %}
+                        "admin_state":"enabled",
+                        "vnet":"Vnet7"
+                },
+                "OP": "{{ op }}"
+        },
+        {
+                "DASH_ENI_TABLE:001111110008" : {
+                        "eni_id":"0000a1a1-0000-0000-fb00-007000000009",
+                        "mac_address":"00:11:11:11:00:08",
+                        {% if dpu_index == 0 %}
+                        "underlay_ip":"19.19.101.8",
+                        {% else %}
+                        "underlay_ip":"3.2.1.{{ dpu_index-1 }}",
+                        {% endif %}
+                        "admin_state":"enabled",
+                        "vnet":"Vnet8"
+                },
+                "OP": "{{ op }}"
+        },
+        {
+                "DASH_ENI_TABLE:001111110009" : {
+                        "eni_id":"0000a1a1-0000-0000-fb00-00700000000a",
+                        "mac_address":"00:11:11:11:00:09",
+                        {% if dpu_index == 0 %}
+                        "underlay_ip":"19.19.101.9",
+                        {% else %}
+                        "underlay_ip":"3.2.1.{{ dpu_index-1 }}",
+                        {% endif %}
+                        "admin_state":"enabled",
+                        "vnet":"Vnet9"
+                },
+                "OP": "{{ op }}"
+        },
+        {
+                "DASH_ENI_TABLE:00111111000a" : {
+                        "eni_id":"0000a1a1-0000-0000-fb00-00700000000b",
+                        "mac_address":"00:11:11:11:00:0a",
+                        {% if dpu_index == 0 %}
+                        "underlay_ip":"19.19.101.10",
+                        {% else %}
+                        "underlay_ip":"3.2.1.{{ dpu_index-1 }}",
+                        {% endif %}
+                        "admin_state":"enabled",
+                        "vnet":"Vnet10"
+                },
+                "OP": "{{ op }}"
+        },
+        {
+                "DASH_ENI_TABLE:00111111000b" : {
+                        "eni_id":"0000a1a1-0000-0000-fb00-00700000000c",
+                        "mac_address":"00:11:11:11:00:0b",
+                        {% if dpu_index == 0 %}
+                        "underlay_ip":"19.19.101.11",
+                        {% else %}
+                        "underlay_ip":"3.2.1.{{ dpu_index-1 }}",
+                        {% endif %}
+                        "admin_state":"enabled",
+                        "vnet":"Vnet11"
+                },
+                "OP": "{{ op }}"
+        },
+        {
+                "DASH_ENI_TABLE:00111111000c" : {
+                        "eni_id":"0000a1a1-0000-0000-fb00-00700000000d",
+                        "mac_address":"00:11:11:11:00:0c",
+                        {% if dpu_index == 0 %}
+                        "underlay_ip":"19.19.101.12",
+                        {% else %}
+                        "underlay_ip":"3.2.1.{{ dpu_index-1 }}",
+                        {% endif %}
+                        "admin_state":"enabled",
+                        "vnet":"Vnet12"
+                },
+                "OP": "{{ op }}"
+        },
+        {
+                "DASH_ENI_TABLE:00111111000d" : {
+                        "eni_id":"0000a1a1-0000-0000-fb00-00700000000e",
+                        "mac_address":"00:11:11:11:00:0d",
+                        {% if dpu_index == 0 %}
+                        "underlay_ip":"19.19.101.13",
+                        {% else %}
+                        "underlay_ip":"3.2.1.{{ dpu_index-1 }}",
+                        {% endif %}
+                        "admin_state":"enabled",
+                        "vnet":"Vnet13"
+                },
+                "OP": "{{ op }}"
+        },
+        {
+                "DASH_ENI_TABLE:00111111000e" : {
+                        "eni_id":"0000a1a1-0000-0000-fb00-00700000000f",
+                        "mac_address":"00:11:11:11:00:0e",
+                        {% if dpu_index == 0 %}
+                        "underlay_ip":"19.19.101.14",
+                        {% else %}
+                        "underlay_ip":"3.2.1.{{ dpu_index-1 }}",
+                        {% endif %}
+                        "admin_state":"enabled",
+                        "vnet":"Vnet14"
+                },
+                "OP": "{{ op }}"
+        },
+        {
+                "DASH_ENI_TABLE:00111111000f" : {
+                        "eni_id":"0000a1a1-0000-0000-fb00-007000000010",
+                        "mac_address":"00:11:11:11:00:0f",
+                        {% if dpu_index == 0 %}
+                        "underlay_ip":"19.19.101.15",
+                        {% else %}
+                        "underlay_ip":"3.2.1.{{ dpu_index-1 }}",
+                        {% endif %}
+                        "admin_state":"enabled",
+                        "vnet":"Vnet15"
+                },
+                "OP": "{{ op }}"
+        },
+        {
+                "DASH_ENI_TABLE:001111110010" : {
+                        "eni_id":"0000a1a1-0000-0000-fb00-007000000011",
+                        "mac_address":"00:11:11:11:00:10",
+                        {% if dpu_index == 0 %}
+                        "underlay_ip":"19.19.101.16",
+                        {% else %}
+                        "underlay_ip":"3.2.1.{{ dpu_index-1 }}",
+                        {% endif %}
+                        "admin_state":"enabled",
+                        "vnet":"Vnet16"
+                },
+                "OP": "{{ op }}"
+        },
+        {
+                "DASH_ENI_TABLE:001111110011" : {
+                        "eni_id":"0000a1a1-0000-0000-fb00-007000000012",
+                        "mac_address":"00:11:11:11:00:11",
+                        {% if dpu_index == 0 %}
+                        "underlay_ip":"19.19.101.17",
+                        {% else %}
+                        "underlay_ip":"3.2.1.{{ dpu_index-1 }}",
+                        {% endif %}
+                        "admin_state":"enabled",
+                        "vnet":"Vnet17"
+                },
+                "OP": "{{ op }}"
+        },
+        {
+                "DASH_ENI_TABLE:001111110012" : {
+                        "eni_id":"0000a1a1-0000-0000-fb00-007000000013",
+                        "mac_address":"00:11:11:11:00:12",
+                        {% if dpu_index == 0 %}
+                        "underlay_ip":"19.19.101.18",
+                        {% else %}
+                        "underlay_ip":"3.2.1.{{ dpu_index-1 }}",
+                        {% endif %}
+                        "admin_state":"enabled",
+                        "vnet":"Vnet18"
+                },
+                "OP": "{{ op }}"
+        },
+        {
+                "DASH_ENI_TABLE:001111110013" : {
+                        "eni_id":"0000a1a1-0000-0000-fb00-007000000014",
+                        "mac_address":"00:11:11:11:00:13",
+                        {% if dpu_index == 0 %}
+                        "underlay_ip":"19.19.101.19",
+                        {% else %}
+                        "underlay_ip":"3.2.1.{{ dpu_index-1 }}",
+                        {% endif %}
+                        "admin_state":"enabled",
+                        "vnet":"Vnet19"
+                },
+                "OP": "{{ op }}"
+        },
+        {
+                "DASH_ENI_TABLE:001111110014" : {
+                        "eni_id":"0000a1a1-0000-0000-fb00-007000000015",
+                        "mac_address":"00:11:11:11:00:14",
+                        {% if dpu_index == 0 %}
+                        "underlay_ip":"19.19.101.20",
+                        {% else %}
+                        "underlay_ip":"3.2.1.{{ dpu_index-1 }}",
+                        {% endif %}
+                        "admin_state":"enabled",
+                        "vnet":"Vnet20"
+                },
+                "OP": "{{ op }}"
+        },
+        {
+                "DASH_ENI_TABLE:001111110015" : {
+                        "eni_id":"0000a1a1-0000-0000-fb00-007000000016",
+                        "mac_address":"00:11:11:11:00:15",
+                        {% if dpu_index == 0 %}
+                        "underlay_ip":"19.19.101.21",
+                        {% else %}
+                        "underlay_ip":"3.2.1.{{ dpu_index-1 }}",
+                        {% endif %}
+                        "admin_state":"enabled",
+                        "vnet":"Vnet21"
+                },
+                "OP": "{{ op }}"
+        },
+        {
+                "DASH_ENI_TABLE:001111110016" : {
+                        "eni_id":"0000a1a1-0000-0000-fb00-007000000017",
+                        "mac_address":"00:11:11:11:00:16",
+                        {% if dpu_index == 0 %}
+                        "underlay_ip":"19.19.101.22",
+                        {% else %}
+                        "underlay_ip":"3.2.1.{{ dpu_index-1 }}",
+                        {% endif %}
+                        "admin_state":"enabled",
+                        "vnet":"Vnet22"
+                },
+                "OP": "{{ op }}"
+        },
+        {
+                "DASH_ENI_TABLE:001111110017" : {
+                        "eni_id":"0000a1a1-0000-0000-fb00-007000000018",
+                        "mac_address":"00:11:11:11:00:17",
+                        {% if dpu_index == 0 %}
+                        "underlay_ip":"19.19.101.23",
+                        {% else %}
+                        "underlay_ip":"3.2.1.{{ dpu_index-1 }}",
+                        {% endif %}
+                        "admin_state":"enabled",
+                        "vnet":"Vnet23"
+                },
+                "OP": "{{ op }}"
+        },
+        {
+                "DASH_ENI_TABLE:001111110018" : {
+                        "eni_id":"0000a1a1-0000-0000-fb00-007000000019",
+                        "mac_address":"00:11:11:11:00:18",
+                        {% if dpu_index == 0 %}
+                        "underlay_ip":"19.19.101.24",
+                        {% else %}
+                        "underlay_ip":"3.2.1.{{ dpu_index-1 }}",
+                        {% endif %}
+                        "admin_state":"enabled",
+                        "vnet":"Vnet24"
+                },
+                "OP": "{{ op }}"
+        },
+        {
+                "DASH_ENI_TABLE:001111110019" : {
+                        "eni_id":"0000a1a1-0000-0000-fb00-00700000001a",
+                        "mac_address":"00:11:11:11:00:19",
+                        {% if dpu_index == 0 %}
+                        "underlay_ip":"19.19.101.25",
+                        {% else %}
+                        "underlay_ip":"3.2.1.{{ dpu_index-1 }}",
+                        {% endif %}
+                        "admin_state":"enabled",
+                        "vnet":"Vnet25"
+                },
+                "OP": "{{ op }}"
+        },
+        {
+                "DASH_ENI_TABLE:00111111001a" : {
+                        "eni_id":"0000a1a1-0000-0000-fb00-00700000001b",
+                        "mac_address":"00:11:11:11:00:1a",
+                        {% if dpu_index == 0 %}
+                        "underlay_ip":"19.19.101.26",
+                        {% else %}
+                        "underlay_ip":"3.2.1.{{ dpu_index-1 }}",
+                        {% endif %}
+                        "admin_state":"enabled",
+                        "vnet":"Vnet26"
+                },
+                "OP": "{{ op }}"
+        },
+        {
+                "DASH_ENI_TABLE:00111111001b" : {
+                        "eni_id":"0000a1a1-0000-0000-fb00-00700000001c",
+                        "mac_address":"00:11:11:11:00:1b",
+                        {% if dpu_index == 0 %}
+                        "underlay_ip":"19.19.101.27",
+                        {% else %}
+                        "underlay_ip":"3.2.1.{{ dpu_index-1 }}",
+                        {% endif %}
+                        "admin_state":"enabled",
+                        "vnet":"Vnet27"
+                },
+                "OP": "{{ op }}"
+        },
+        {
+                "DASH_ENI_TABLE:00111111001c" : {
+                        "eni_id":"0000a1a1-0000-0000-fb00-00700000001d",
+                        "mac_address":"00:11:11:11:00:1c",
+                        {% if dpu_index == 0 %}
+                        "underlay_ip":"19.19.101.28",
+                        {% else %}
+                        "underlay_ip":"3.2.1.{{ dpu_index-1 }}",
+                        {% endif %}
+                        "admin_state":"enabled",
+                        "vnet":"Vnet28"
+                },
+                "OP": "{{ op }}"
+        },
+        {
+                "DASH_ENI_TABLE:00111111001d" : {
+                        "eni_id":"0000a1a1-0000-0000-fb00-00700000001e",
+                        "mac_address":"00:11:11:11:00:1d",
+                        {% if dpu_index == 0 %}
+                        "underlay_ip":"19.19.101.29",
+                        {% else %}
+                        "underlay_ip":"3.2.1.{{ dpu_index-1 }}",
+                        {% endif %}
+                        "admin_state":"enabled",
+                        "vnet":"Vnet29"
+                },
+                "OP": "{{ op }}"
+        },
+        {
+                "DASH_ENI_TABLE:00111111001e" : {
+                        "eni_id":"0000a1a1-0000-0000-fb00-00700000001f",
+                        "mac_address":"00:11:11:11:00:1e",
+                        {% if dpu_index == 0 %}
+                        "underlay_ip":"19.19.101.30",
+                        {% else %}
+                        "underlay_ip":"3.2.1.{{ dpu_index-1 }}",
+                        {% endif %}
+                        "admin_state":"enabled",
+                        "vnet":"Vnet30"
+                },
+                "OP": "{{ op }}"
+        },
+        {
+                "DASH_ENI_TABLE:00111111001f" : {
+                        "eni_id":"0000a1a1-0000-0000-fb00-007000000020",
+                        "mac_address":"00:11:11:11:00:1f",
+                        {% if dpu_index == 0 %}
+                        "underlay_ip":"19.19.101.31",
+                        {% else %}
+                        "underlay_ip":"3.2.1.{{ dpu_index-1 }}",
+                        {% endif %}
+                        "admin_state":"enabled",
+                        "vnet":"Vnet31"
+                },
+                "OP": "{{ op }}"
+        },
+        {
+                "DASH_ENI_TABLE:001111110020" : {
+                        "eni_id":"0000a1a1-0000-0000-fb00-007000000021",
+                        "mac_address":"00:11:11:11:00:20",
+                        {% if dpu_index == 0 %}
+                        "underlay_ip":"19.19.101.32",
+                        {% else %}
+                        "underlay_ip":"3.2.1.{{ dpu_index-1 }}",
+                        {% endif %}
+                        "admin_state":"enabled",
+                        "vnet":"Vnet32"
+                },
+                "OP": "{{ op }}"
+        }
+]
