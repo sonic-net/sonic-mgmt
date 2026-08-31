@@ -5071,6 +5071,12 @@ snappi_tests/bgp/test_bgp_rib_in_convergence.py:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/23857"
 
+snappi_tests/bgp/test_bgp_rib_route_optimztn_perf.py:
+  skip:
+    reason: "IxNetwork Error in L2/L3 Traffic Apply - https://github.com/sonic-net/sonic-mgmt/issues/23857"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/23857"
+
 snappi_tests/bgp/test_bgp_scalability.py:
   xfail:
     reason: "IxNetwork Error in L2/L3 Traffic Apply - https://github.com/sonic-net/sonic-mgmt/issues/23857"
@@ -5119,9 +5125,9 @@ snappi_tests/ecn/test_red_accuracy_with_snappi:
 
 snappi_tests/lacp:
   skip:
-    reason: "Skipping dash on 2025 releases"
+    reason: "Skipping snappi lacp on 2025, 202605 and 202608 releases"
     conditions:
-      - "'2025' in release"
+      - "'2025' in release or '202605' in release or '202608' in release"
 
 snappi_tests/pfc/test_global_pause_with_snappi.py:
   skip:
@@ -5151,9 +5157,11 @@ snappi_tests/pfcwd/test_pfcwd_actions.py::test_pfcwd_frwd_over_subs_40_09:
 
 snappi_tests/reboot:
   skip:
-    reason: "Skipping dash on 2025 releases"
+    reason: "Skipping snappi reboot on 2025 releases and while https://github.com/sonic-net/sonic-mgmt/issues/27415 is open"
+    conditions_logical_operator: or
     conditions:
       - "'2025' in release"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/27415"
 
 #######################################
 #####            snmp             #####
