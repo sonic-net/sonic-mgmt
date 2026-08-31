@@ -259,14 +259,6 @@ gnmi/test_gnmi.py::test_gnmi_authorize_failed_with_invalid_cname:
     conditions:
       - "asic_type in ['vpp']"
 
-gnmi/test_gnmi.py::test_gnmi_authorize_failed_with_revoked_cert:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
 gnmi/test_gnmi_appldb.py::test_gnmi_appldb_01:
   skip:
     reason: >
@@ -343,6 +335,14 @@ gnmi/test_gnmi_countersdb.py::test_gnmi_output:
       - "asic_type in ['vpp']"
 
 gnmi/test_gnmi_countersdb.py::test_gnmi_queue_buffer_cnt:
+  skip:
+    reason: >
+            Failed/Errored: To be included
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+gnmi/test_gnmi_crl.py::test_gnmi_authorize_failed_with_revoked_cert:
   skip:
     reason: >
             Failed/Errored: To be included
