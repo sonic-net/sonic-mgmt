@@ -8,6 +8,7 @@ from tests.common.helpers.dut_utils import (
     is_container_running,
     is_hitting_start_limit,
 )
+from tests.common.devices.eos import EosHost
 from tests.common.macsec.macsec_helper import (
     check_appl_db,
     get_sci,
@@ -165,7 +166,10 @@ def snapshot_appl_db_saks(duthost, ctrl_links):
     saks = {}
     for port_name, nbr in ctrl_links.items():
         host_sci = get_sci(duthost.get_dut_iface_mac(port_name))
-        peer_sci = get_sci(nbr["host"].get_dut_iface_mac(nbr["port"]))
+        if isinstance(nbr["host"], EosHost):
+            peer_sci = get_sci(nbr["host"].get_bridge_mac(nbr["port"]))
+        else:
+            peer_sci = get_sci(nbr["host"].get_dut_iface_mac(nbr["port"]))
         for an in range(4):
             v = _get_appl_db_sa_sak(duthost, port_name, host_sci, an, egress=True)
             if v:
