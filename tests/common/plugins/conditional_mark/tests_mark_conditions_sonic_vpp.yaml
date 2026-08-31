@@ -53,6 +53,12 @@ bgp/test_bgp_bbr.py::test_bbr_status_consistent_after_reload[:
     conditions:
       - "asic_type in ['vpp']"
 
+bgp/test_bgp_session.py::test_bgp_session_interface_down:
+  xfail:
+    reason: "VPP BGP sessions intermittently fail to establish during module setup"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/27487 and asic_type in ['vpp']"
+
 bgp/test_bgp_suppress_fib.py:
   skip:
     reason: >
