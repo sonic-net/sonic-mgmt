@@ -4,10 +4,14 @@ import re
 import random
 import time
 import threading
+import json
+import os
 
 from tests.common.helpers.gnmi_utils import gnmi_capabilities, GNMIEnvironment
 from .helper import gnmi_set, dump_gnmi_log, gnmi_subscribe_streaming_sample, gnmi_get, \
+                    apply_cert_config, \
                     gnmi_subscribe_streaming_onchange, gnmi_subscribe_stream_connections
+from . import cli_helpers as helper
 from tests.common.utilities import wait_until
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 
@@ -17,6 +21,15 @@ allure.logger = logger
 
 MEMORY_CHECKER_WAIT = 1
 MEMORY_CHECKER_CYCLES = 60
+
+SHOW_PATHS_FILE = os.path.join(os.path.dirname(os.path.realpath(__file__)), "cli_paths.json")
+
+
+@pytest.fixture
+def skip_non_container_test(request):
+    if not request.config.getoption("--container_test", default=""):
+        pytest.skip("Testcase skipped for non container test")
+
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -279,3 +292,47 @@ def test_mem_spike(duthosts, rand_one_dut_hostname, ptfhost):
         time.sleep(MEMORY_CHECKER_WAIT)
 
     client_thread.join()
+
+
+def test_telemetry_show_non_get(duthosts, rand_one_dut_hostname, ptfhost, skip_non_container_test):
+    '''
+    The SHOW target only supports GET; a SUBSCRIBE must fail.
+    '''
+    duthost = duthosts[rand_one_dut_hostname]
+    msg, _ = gnmi_subscribe_streaming_sample(duthost, ptfhost, ["reboot-cause"], 0, 1,
+                                             origin=None, target="SHOW")
+    assert "error" in msg.lower(), (
+        "SHOW subscribe should fail, but got: {}".format(msg))
+
+
+def test_telemetry_show_get(duthosts, localhost, rand_one_dut_hostname, ptfhost, request,
+                            skip_non_container_test):
+    '''
+    Test all SHOW GET paths from cli_paths.json: run each path's setup, gnmi GET
+    against the SHOW target, and verify.
+    '''
+    duthost = duthosts[rand_one_dut_hostname]
+
+    # Resolve "duthost" to the DUT selected for this test so setup/verify act on
+    # the same host the GET queries (request.getfixturevalue("duthost") would
+    # resolve to the session DUT index, which can differ on multi-DUT testbeds).
+    def resolve_fixture(fx):
+        return duthost if fx == "duthost" else request.getfixturevalue(fx)
+
+    with open(SHOW_PATHS_FILE, 'r') as show_paths_file:
+        show_paths_data = json.load(show_paths_file)
+
+    for path, test_config in show_paths_data.items():
+        if test_config["setup"]:
+            setup_fixtures = [resolve_fixture(fx) for fx in test_config["setup_fixtures"]]
+            getattr(helper, test_config["setup"])(*setup_fixtures, *test_config["setup_args"])
+            # The setup step reboots the DUT, which drops the non-persistent gnmi
+            # cert server; re-apply it so the SHOW GET runs against the configured server.
+            apply_cert_config(duthost)
+
+        show_gnmi_out = gnmi_get(duthost, ptfhost, [path], target="SHOW", origin=None, raw=True)
+
+        if test_config["verify"]:
+            output = helper.get_json_from_gnmi_output(show_gnmi_out)
+            verify_fixtures = [resolve_fixture(fx) for fx in test_config["verify_fixtures"]]
+            getattr(helper, test_config["verify"])(*verify_fixtures, *test_config["verify_args"], output)
