@@ -118,6 +118,7 @@ t0:
   - generic_config_updater/test_vlan_interface.py
   - gnmi/test_gnmi.py
   - gnmi/test_gnmi_appldb.py
+  - gnmi/test_gnmi_cert_rotation.py
   - gnmi/test_gnmi_configdb.py
   - gnmi/test_gnmi_countersdb.py
   - gnmi/test_gnmi_poll.py
@@ -298,7 +299,6 @@ t0:
   - tacacs/test_rw_user.py
   - telemetry/test_events.py
   - telemetry/test_telemetry.py
-  - telemetry/test_telemetry_cert_rotation.py
   - test_features.py
   - test_interfaces.py
   - test_nbr_health.py
@@ -457,6 +457,7 @@ t1-lag:
   - generic_config_updater/test_syslog.py
   - gnmi/test_gnmi.py
   - gnmi/test_gnmi_appldb.py
+  - gnmi/test_gnmi_cert_rotation.py
   - gnmi/test_gnmi_configdb.py
   - gnmi/test_gnmi_countersdb.py
   - gnmi/test_gnmi_poll.py
@@ -612,7 +613,6 @@ t1-lag:
   - tacacs/test_rw_user.py
   - telemetry/test_events.py
   - telemetry/test_telemetry.py
-  - telemetry/test_telemetry_cert_rotation.py
   - test_features.py
   - test_interfaces.py
   - test_nbr_health.py
@@ -815,6 +815,7 @@ multi-asic-t1-lag:
   - bmp/test_frr_bmp_sanity.py
   - cacl/test_cacl_function.py
   - container_checker/test_container_checker.py
+  - gnmi/test_gnmi_cert_rotation.py
   - http/test_http_copy.py
   - iface_namingmode/test_iface_namingmode.py
   - monit/test_monit_status.py
@@ -833,9 +834,7 @@ multi-asic-t1-lag:
   - tacacs/test_ro_user.py
   - tacacs/test_rw_user.py
   - telemetry/test_telemetry.py
-  - telemetry/test_telemetry_cert_rotation.py
   - test_interfaces.py
-
 
 dpu:
   - dash/crm/test_dash_crm.py
