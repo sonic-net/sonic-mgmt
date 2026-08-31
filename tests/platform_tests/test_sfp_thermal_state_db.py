@@ -27,6 +27,11 @@ class TestSfpThermalStateDb:
     TRANSCEIVER_DOM_FLAG tables in STATE_DB.
     """
 
+    SFP_SENSOR_PATTERN = re.compile(
+        r"\bxsfp\s+module\s+\d+\b|transceiver|optic",
+        re.IGNORECASE
+    )
+
     def _get_sfp_ports_with_dom_temperature(self, duthost):
         """Return list of port names that have TRANSCEIVER_DOM_TEMPERATURE entries."""
         result = duthost.shell(
@@ -88,11 +93,9 @@ class TestSfpThermalStateDb:
     def _is_sfp_sensor(self, sensor_name):
         """
         Determine if a sensor name refers to an SFP/transceiver temperature.
-        Matches patterns like 'xSFP module N Temp'.
+        Matches canonical 'xSFP module N Temp' names and transceiver/optic aliases.
         """
-        sensor_lower = sensor_name.lower()
-        return ("sfp" in sensor_lower or "transceiver" in sensor_lower or
-                "optic" in sensor_lower)
+        return bool(self.SFP_SENSOR_PATTERN.search(sensor_name))
 
     def test_sfp_temperature_present_in_show_platform_temperature(
             self, duthosts, enum_rand_one_per_hwsku_hostname):
@@ -500,10 +503,7 @@ class TestSfpThermalStateDb:
         )
 
         keys = result["stdout"].strip().split("\n")
-        sfp_keys = [
-            k for k in keys
-            if any(pattern in k.lower() for pattern in ["sfp", "transceiver", "xsfp", "optic"])
-        ]
+        sfp_keys = [k for k in keys if self._is_sfp_sensor(k)]
 
         logger.info("TEMPERATURE_INFO keys: %d total, %d SFP-related",
                     len(keys), len(sfp_keys))
@@ -542,7 +542,7 @@ class TestSfpThermalStateDb:
 
         non_sfp_sensors = [
             name for name in sensor_names
-            if not any(p in name.lower() for p in ["sfp", "transceiver", "xsfp", "optic"])
+            if not self._is_sfp_sensor(name)
         ]
 
         pytest_assert(
