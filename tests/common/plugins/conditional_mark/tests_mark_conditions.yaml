@@ -2560,6 +2560,12 @@ generic_config_updater/add_cluster/test_add_cluster.py:
     conditions:
       - asic_type in ['vs']
 
+generic_config_updater/add_cluster/test_update_cable_length.py:
+  skip:
+    reason: This test case either cannot pass or should be skipped on virtual chassis
+    conditions:
+      - asic_type in ['vs']
+
 generic_config_updater/add_cluster/test_port_speed_change.py:
   skip:
     reason: "This test case right now only supported for Nokia Chassis"
