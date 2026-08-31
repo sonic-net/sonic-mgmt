@@ -1,5 +1,6 @@
 import logging
 import random
+import shlex
 import statistics
 import datetime
 import pandas as pd
@@ -161,7 +162,10 @@ def bgp_up(request, test_result, **kwargs):
 
 # utility function to extract timestamp from syslog line
 def _extract_timestamp(duthost, line):
-    timestamp = line[:line.index(duthost.hostname) - 1]
+    hostname_index = line.find(duthost.hostname)
+    if hostname_index <= 0:
+        raise ValueError("Unable to locate hostname in {}".format(line))
+    timestamp = line[:hostname_index - 1]
     formats = ["%Y %b %d %H:%M:%S.%f", "%b %d %H:%M:%S.%f", "%b %d %H:%M:%S"]
     for f in formats:
         try:
@@ -169,6 +173,17 @@ def _extract_timestamp(duthost, line):
         except ValueError:
             continue
     raise ValueError("Unable to parse {}".format(timestamp))
+
+
+# utility function to turn a pair of syslog timestamps into a duration.
+# timedelta.seconds is the wrong attribute here. It drops the fractional part
+# and reports a negative delta as a large positive number, so two markers read
+# out of order surface as roughly 86400 seconds rather than as an error.
+def _syslog_duration(start, end):
+    duration = (end - start).total_seconds()
+    if duration < 0:
+        raise ValueError("End marker {} precedes start marker {}".format(end, start))
+    return duration
 
 
 # utility function to get last syslog timestamp
@@ -196,9 +211,102 @@ def success_criteria_by_syslog(request, test_result, **kwargs):
             stdout = duthost.shell(syslog_end_cmd)["stdout"]
             timestamp = _extract_timestamp(duthost, stdout)
             if timestamp > syslog_start:
-                test_result[kwargs["result_variable"]] = (timestamp - syslog_start).seconds
+                test_result[kwargs["result_variable"]] = _syslog_duration(syslog_start, timestamp)
                 return True
         return False
+    return syslog_checker
+
+
+DEFAULT_SYSLOG_PATH = "/var/log/syslog"
+
+
+# Record where syslog has reached before the operation starts, so that every
+# later read only has to cover the lines the operation itself produces.
+def _get_syslog_position(duthost, syslog_path):
+    stdout = duthost.shell("stat -c '%i %s' {}".format(shlex.quote(syslog_path)))["stdout"]
+    inode, size = stdout.split()
+    return int(inode), int(size)
+
+
+# Build a read that starts from the recorded offset instead of re-reading the
+# whole log. "show logging" concatenates the rotated files and re-scans all of
+# them on every poll, which is the dominant cost on a low performance CPU while
+# the device is already busy reloading. If the file was rotated the inode no
+# longer matches, so fall back to the rotated file plus the current one.
+def _bounded_syslog_command(syslog_path, inode, size, marks):
+    path = shlex.quote(syslog_path)
+    rotated = shlex.quote(syslog_path + ".1")
+    mark_args = " ".join("-e {}".format(shlex.quote(mark)) for mark in marks)
+    return ('if [ "$(stat -c %i {path} 2>/dev/null)" = "{inode}" ]; then '
+            'tail -c +{offset} {path}; '
+            'elif [ -f {rotated} ]; then cat {rotated} {path}; '
+            'else cat {path}; fi '
+            '| grep -F {marks} | grep -v ansible || true').format(
+                path=path, inode=inode, offset=size + 1, rotated=rotated, marks=mark_args)
+
+
+# Pick the measurement window out of the collected marker lines. A single
+# config reload can log more than one start marker, so which one is used has to
+# be stated explicitly rather than left to whichever line happened to be read
+# first. "last" pairs the final start with the final end, which is the window a
+# manual reproduction measures.
+def _select_syslog_window(duthost, output, baseline, start_mark, end_mark, start_policy):
+    starts = []
+    ends = []
+    for line in output.splitlines():
+        is_start = start_mark in line
+        is_end = end_mark in line
+        if not is_start and not is_end:
+            continue
+        try:
+            timestamp = _extract_timestamp(duthost, line)
+        except ValueError:
+            logging.debug("Skipping unparsable syslog line {}".format(line))
+            continue
+        if timestamp <= baseline:
+            continue
+        if is_start:
+            starts.append(timestamp)
+        if is_end:
+            ends.append(timestamp)
+    if not starts or not ends:
+        return None
+    end = max(ends)
+    candidates = sorted(timestamp for timestamp in starts if timestamp <= end)
+    if not candidates:
+        return None
+    start = candidates[0] if start_policy == "first" else candidates[-1]
+    return {"start": start, "end": end, "start_count": len(candidates), "end_count": len(ends)}
+
+
+# Same contract as success_criteria_by_syslog, but each poll reads only the
+# newly appended syslog bytes and looks for both markers in one pass. The
+# measured value comes from timestamps the device itself wrote, so the polling
+# should stay as close to free as possible: any load it adds lands inside the
+# very interval being measured and inflates the result.
+def success_criteria_by_bounded_syslog(request, test_result, **kwargs):
+    duthost = request.getfixturevalue("duthost")
+    baseline = _get_last_timestamp(duthost)
+    syslog_path = kwargs.get("syslog_path", DEFAULT_SYSLOG_PATH)
+    start_policy = kwargs.get("start_policy", "last")
+    if start_policy not in ("first", "last"):
+        raise ValueError("Unsupported start_policy {}".format(start_policy))
+    start_mark = kwargs["syslog_start_mark"]
+    end_mark = kwargs["syslog_end_mark"]
+    inode, size = _get_syslog_position(duthost, syslog_path)
+    command = _bounded_syslog_command(syslog_path, inode, size, [start_mark, end_mark])
+    result_variable = kwargs["result_variable"]
+
+    @suppress_exception
+    def syslog_checker():
+        stdout = duthost.shell(command)["stdout"]
+        window = _select_syslog_window(duthost, stdout, baseline, start_mark, end_mark, start_policy)
+        if window is None:
+            return False
+        test_result[result_variable] = _syslog_duration(window["start"], window["end"])
+        test_result[result_variable + "_start_count"] = window["start_count"]
+        test_result[result_variable + "_end_count"] = window["end_count"]
+        return True
     return syslog_checker
 
 
@@ -213,8 +321,13 @@ def swss_up(request, test_result, **kwargs):
 
 def swss_create_switch(request, test_result, **kwargs):
     start_mark = "create: request switch create with context 0"
-    start_cmd = "show logging | grep '{}' | grep -v ansible | tail -n 1".format(start_mark)
     end_mark = "main: Create a switch, id:"
+    if kwargs.get("log_read_mode") == "bounded":
+        extra_vars = {"syslog_start_mark": start_mark,
+                      "syslog_end_mark": end_mark,
+                      "result_variable": "swss_create_switch_start_time"}
+        return success_criteria_by_bounded_syslog(request, test_result, **{**kwargs, **extra_vars})
+    start_cmd = "show logging | grep '{}' | grep -v ansible | tail -n 1".format(start_mark)
     end_cmd = "show logging | grep '{}' | grep -v ansible | tail -n 1".format(end_mark)
     extra_vars = {"syslog_start_cmd": start_cmd,
                   "syslog_end_cmd": end_cmd,
