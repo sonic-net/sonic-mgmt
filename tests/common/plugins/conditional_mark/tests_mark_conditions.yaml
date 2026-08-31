@@ -2889,6 +2889,29 @@ gnmi:
     conditions:
       - "release in ['202412']"
 
+gnmi/test_events.py:
+  skip:
+    reason: "Skip telemetry test events for 202211 and older branches"
+    conditions:
+      - "release in ['201811', '201911', '202012', '202205', '202211']"
+  xfail:
+    reason: "Test events is flaky in PR test, xfail until issue resolved"
+    conditions:
+      - "asic_type in ['vs']"
+      - https://github.com/sonic-net/sonic-buildimage/issues/19943
+
+gnmi/test_events.py::test_events:
+  skip:
+    reason: "Sub-event bgp_events requires BGP neighbors, not applicable on BMC."
+    conditions:
+      - "'bmc' in topo_type"
+
+gnmi/test_events.py::test_events_cache_overflow:
+  skip:
+    reason: "Requires eventd systemd unit which is not loaded on BMC."
+    conditions:
+      - "'bmc' in topo_type"
+
 gnmi/test_gnmi.py::test_gnmi_subscribe_sample:
   skip:
     reason: "Test relies on Ethernet0 frontpanel port and COUNTERS_DB; not applicable on BMC"
@@ -5548,29 +5571,6 @@ tacacs/test_ro_disk.py:
 #######################################
 #####           telemetry         #####
 #######################################
-telemetry/test_events.py:
-  skip:
-    reason: "Skip telemetry test events for 202211 and older branches"
-    conditions:
-      - "release in ['201811', '201911', '202012', '202205', '202211']"
-  xfail:
-    reason: "Test events is flaky in PR test, xfail until issue resolved"
-    conditions:
-      - "asic_type in ['vs']"
-      - https://github.com/sonic-net/sonic-buildimage/issues/19943
-
-telemetry/test_events.py::test_events:
-  skip:
-    reason: "Sub-event bgp_events requires BGP neighbors, not applicable on BMC."
-    conditions:
-      - "'bmc' in topo_type"
-
-telemetry/test_events.py::test_events_cache_overflow:
-  skip:
-    reason: "Requires eventd systemd unit which is not loaded on BMC."
-    conditions:
-      - "'bmc' in topo_type"
-
 telemetry/test_telemetry.py:
   skip:
     reason: "Skip telemetry test for 201911 and older branches"
