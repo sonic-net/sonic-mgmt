@@ -3345,12 +3345,6 @@ hash/test_generic_hash.py::test_reboot[CRC_CCITT-INNER_IP_PROTOCOL:
     conditions:
     - "asic_type in ['broadcom', 'mellanox']"
 
-hash/test_generic_hash.py::test_reboot[CRC_CCITT-INNER_L4_SRC_PORT-ipv6-ipv4-vxlan-warm]:
-  skip:
-    reason: "Warm reboot is not supported on x86_64-nvidia_sn6600_ld-r0"
-    conditions:
-      - "platform in ['x86_64-nvidia_sn6600_ld-r0']"
-
 hash/test_generic_hash.py::test_reboot[CRC_CCITT-IN_PORT:
   skip:
     reason: "On Mellanox platforms, due to HW limitation, when ecmp and lag hash at the same time, it would not support
@@ -3363,6 +3357,13 @@ hash/test_generic_hash.py::test_reboot[CRC_CCITT-IP_PROTOCOL-ipv4:
     reason: "With IP Protocol alone, we don't have enough entropy to distribute the packets evenly"
     conditions:
       - "asic_type in ['cisco-8000']"
+
+hash/test_generic_hash.py::test_reboot\[.*-warm\]:
+  regex: true
+  skip:
+    reason: "Warm reboot is not supported on x86_64-nvidia_sn6600_ld-r0"
+    conditions:
+      - "platform in ['x86_64-nvidia_sn6600_ld-r0']"
 
 #######################################
 #####             hft             #####
@@ -4871,12 +4872,12 @@ route/test_route_perf.py:
 
 route/test_static_route.py:
   skip:
-    reason: "Test not supported for 201911 images or older. Does not apply to standalone topos. Not supported on cisco-8122 platform. Warm reboot is not supported on x86_64-nvidia_sn6600_ld-r0"
+    reason: "Test not supported for 201911 images or older. Does not apply to standalone topos. Not supported on cisco-8122 platform"
     conditions_logical_operator: OR
     conditions:
       - "release in ['201811', '201911']"
       - "'standalone' in topo_name"
-      - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0', 'x86_64-nvidia_sn6600_ld-r0']"
+      - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
 
 route/test_static_route.py::test_static_route[:
   xfail:
@@ -4903,11 +4904,12 @@ route/test_static_route.py::test_static_route_ecmp_ipv6:
 
 route/test_static_route.py::test_static_route_ecmp_warmboot:
   skip:
-    reason: "Warm reboot is not supported on dualtor, m0, m1, or mx topologies"
+    reason: "Warm reboot is not supported on dualtor, m0, m1, or mx topologies, or on x86_64-nvidia_sn6600_ld-r0"
     conditions_logical_operator: OR
     conditions:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
       - "topo_type in ['m0', 'm1', 'mx']"
+      - "platform in ['x86_64-nvidia_sn6600_ld-r0']"
 
 route/test_static_route.py::test_static_route_ipv6:
   xfail:
@@ -4917,19 +4919,21 @@ route/test_static_route.py::test_static_route_ipv6:
 
 route/test_static_route.py::test_static_route_ipv6_warmboot:
   skip:
-    reason: "Warm reboot is not supported on dualtor, m0, m1, or mx topologies"
+    reason: "Warm reboot is not supported on dualtor, m0, m1, or mx topologies, or on x86_64-nvidia_sn6600_ld-r0"
     conditions_logical_operator: OR
     conditions:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
       - "topo_type in ['m0', 'm1', 'mx']"
+      - "platform in ['x86_64-nvidia_sn6600_ld-r0']"
 
 route/test_static_route.py::test_static_route_warmboot:
   skip:
-    reason: "Warm reboot is not supported on dualtor, m0, m1, or mx topologies"
+    reason: "Warm reboot is not supported on dualtor, m0, m1, or mx topologies, or on x86_64-nvidia_sn6600_ld-r0"
     conditions_logical_operator: OR
     conditions:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
       - "topo_type in ['m0', 'm1', 'mx']"
+      - "platform in ['x86_64-nvidia_sn6600_ld-r0']"
 
 #######################################
 #####           sai_qualify       #####
