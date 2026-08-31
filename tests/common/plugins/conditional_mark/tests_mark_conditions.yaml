@@ -262,7 +262,7 @@ arp/test_unknown_mac.py::TestUnknownMac::test_unknown_mac:
 
 arp/test_wr_arp.py:
   skip:
-    reason: "Warm reboot is broken on dualtor topology. Device fails to recover by sanity check. Skipping for now. Not supported in standalone topos / Warm reboot is not required for 202412 and this test is not run on this asic type or version or topology currently"
+    reason: "Warm reboot is broken on dualtor topology. Device fails to recover by sanity check. Skipping for now. Not supported in standalone topos / Warm reboot is not required for 202412 and this test is not run on this asic type or version or topology currently. Warm reboot is not supported on x86_64-nvidia_sn6600_ld-r0"
     conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-buildimage/issues/16502 and 'dualtor' in topo_name"
@@ -272,6 +272,7 @@ arp/test_wr_arp.py:
       - *lossyTopos
       - "topo_type not in ['t0']"
       - "'f2' in topo_name"
+      - "platform in ['x86_64-nvidia_sn6600_ld-r0']"
 
 ########################################
 ######        autorestart          #####
@@ -397,6 +398,12 @@ bgp/test_bgp_aggregate_address_resilience.py:
     reason: "Skip for multi-ASIC testbed"
     conditions:
       - "is_multi_asic==True"
+
+bgp/test_bgp_aggregate_address_resilience.py::test_aggregate_persists_warm_reboot:
+  skip:
+    reason: "Warm reboot is not supported on x86_64-nvidia_sn6600_ld-r0"
+    conditions:
+      - "platform in ['x86_64-nvidia_sn6600_ld-r0']"
 
 bgp/test_bgp_aggregate_address_route_withdrawal.py:
   skip:
@@ -3009,7 +3016,7 @@ gnmi/test_gnoi_system_reboot.py::test_gnoi_system_reboot_halt:
 
 gnmi/test_gnoi_system_reboot.py::test_gnoi_system_reboot_warm:
   skip:
-    reason: "Warm reboot should only run on t0 topology but not on dualtor"
+    reason: "Warm reboot should only run on t0 topology but not on dualtor. Warm reboot is not supported on x86_64-nvidia_sn6600_ld-r0"
     conditions_logical_operator: or
     conditions:
       - "topo_type not in ['t0']"
@@ -3017,6 +3024,7 @@ gnmi/test_gnoi_system_reboot.py::test_gnoi_system_reboot_warm:
       - "'isolated' in topo_name"
       - "release in ['202412']"
       - "'f2' in topo_name"
+      - "platform in ['x86_64-nvidia_sn6600_ld-r0']"
 
 gnmi/test_pygnmi_client.py:
   skip:
@@ -4129,7 +4137,7 @@ pfcwd/test_pfcwd_timer_accuracy.py::TestPfcwdAllTimer::test_pfcwd_timer_accuracy
 
 pfcwd/test_pfcwd_warm_reboot.py:
    skip:
-     reason: "Warm Reboot is not supported in T2 or in standalone topos. / Pfcwd tests skipped on M* testbed. / Warm reboot is not required for isolated topo / Pfcwd warm reboot is not supported on cisco-8000 platform. Warm reboot is not supported on smartswitch. /  It is skipped  for '202412' for now"
+     reason: "Warm Reboot is not supported in T2 or in standalone topos. / Pfcwd tests skipped on M* testbed. / Warm reboot is not required for isolated topo / Pfcwd warm reboot is not supported on cisco-8000 platform. Warm reboot is not supported on smartswitch. /  It is skipped  for '202412' for now. Warm reboot is not supported on x86_64-nvidia_sn6600_ld-r0"
      conditions_logical_operator: or
      conditions:
         - "'t2' in topo_name or topo_type in ['lrh', 'urh']"
@@ -4144,6 +4152,7 @@ pfcwd/test_pfcwd_warm_reboot.py:
         - "is_smartswitch==True"
         - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/20675"
         - "release in ['202412']"
+        - "platform in ['x86_64-nvidia_sn6600_ld-r0']"
    xfail:
      reason: "This case has a known issue. Skipping until the issue is addressed."
      conditions_logical_operator: or
@@ -4188,10 +4197,32 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_transceiver_info:
 
 platform_tests/test_advanced_reboot.py:
   skip:
-    reason: "Advanced reboot tests are not supported on lossy topologies. Warm reboot is not supported on x86_64-nvidia_sn6600_ld-r0"
-    conditions_logical_operator: or
+    reason: "Advanced reboot tests are not supported on lossy topologies."
     conditions:
       - *lossyTopos
+
+platform_tests/test_advanced_reboot.py::test_cancelled_warm_reboot:
+  skip:
+    reason: "Warm reboot is not supported on x86_64-nvidia_sn6600_ld-r0"
+    conditions:
+      - "platform in ['x86_64-nvidia_sn6600_ld-r0']"
+
+platform_tests/test_advanced_reboot.py::test_warm_reboot:
+  skip:
+    reason: "Warm reboot is not supported on x86_64-nvidia_sn6600_ld-r0"
+    conditions:
+      - "platform in ['x86_64-nvidia_sn6600_ld-r0']"
+
+platform_tests/test_advanced_reboot.py::test_warm_reboot_mac_jump:
+  skip:
+    reason: "Warm reboot is not supported on x86_64-nvidia_sn6600_ld-r0"
+    conditions:
+      - "platform in ['x86_64-nvidia_sn6600_ld-r0']"
+
+platform_tests/test_advanced_reboot.py::test_warm_reboot_sad:
+  skip:
+    reason: "Warm reboot is not supported on x86_64-nvidia_sn6600_ld-r0"
+    conditions:
       - "platform in ['x86_64-nvidia_sn6600_ld-r0']"
 
 platform_tests/test_cont_warm_reboot.py:
@@ -5754,6 +5785,12 @@ upgrade_path/test_multi_hop_upgrade_path.py:
     conditions:
       - "'t0' not in topo_type"
 
+upgrade_path/test_multi_hop_upgrade_path.py::test_multi_hop_warm_upgrade_sad_path:
+  skip:
+    reason: "Warm reboot is not supported on x86_64-nvidia_sn6600_ld-r0"
+    conditions:
+      - "platform in ['x86_64-nvidia_sn6600_ld-r0']"
+
 upgrade_path/test_upgrade_path.py::test_upgrade_path_t2:
   skip:
     reason: "Only supported on T2 topology"
@@ -5765,6 +5802,18 @@ upgrade_path/test_upgrade_path.py::test_upgrade_path_t2_delayed:
     reason: "Only supported on T2 topology"
     conditions:
       - "'t2' not in topo_type"
+
+upgrade_path/test_upgrade_path.py::test_warm_upgrade_sad_path:
+  skip:
+    reason: "Warm reboot is not supported on x86_64-nvidia_sn6600_ld-r0"
+    conditions:
+      - "platform in ['x86_64-nvidia_sn6600_ld-r0']"
+
+upgrade_path/test_warmboot_data_consistency.py::test_warmboot_data_consistency:
+  skip:
+    reason: "Warm reboot is not supported on x86_64-nvidia_sn6600_ld-r0"
+    conditions:
+      - "platform in ['x86_64-nvidia_sn6600_ld-r0']"
 
 #######################################
 #####            vlan             #####
@@ -5904,9 +5953,11 @@ vrf/test_vrf.py::TestVrfWarmReboot::test_vrf_swss_warm_reboot:
 
 vrf/test_vrf.py::TestVrfWarmReboot::test_vrf_system_warm_reboot:
   skip:
-    reason: "Dualtor topology doesn't support advanced-reboot"
+    reason: "Dualtor topology doesn't support advanced-reboot. Warm reboot is not supported on x86_64-nvidia_sn6600_ld-r0"
+    conditions_logical_operator: or
     conditions:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
+      - "platform in ['x86_64-nvidia_sn6600_ld-r0']"
 
 vrf/test_vrf_attr.py:
   skip:
