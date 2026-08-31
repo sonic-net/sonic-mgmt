@@ -335,11 +335,16 @@ def test_bgp_session_interface_down(duthosts, rand_one_dut_hostname, fanouthosts
     elif test_type == "reboot":
         # Use warm reboot for t0, cold reboot for others
         topo_name = tbinfo["topo"]["name"]
-        logger.info("Rebooting DUT {} with type {}".format(duthost.hostname, topo_name))
         if topo_name.startswith("t0"):
             reboot_type = "warm"
         else:
             reboot_type = "cold"
+        # Remove this override once warm reboot is supported on SN6600 LD.
+        if reboot_type == "warm" and "sn6600_ld" in duthost.facts.get("platform", ""):
+            logger.info("Overriding warm reboot with cold reboot on SN6600 LD because "
+                        "warm reboot is unsupported on this platform")
+            reboot_type = "cold"
+        logger.info("Rebooting DUT {} with type {}".format(duthost.hostname, reboot_type))
         reboot(duthost, localhost, reboot_type=reboot_type, wait_warmboot_finalizer=True,
                warmboot_finalizer_timeout=360)
 

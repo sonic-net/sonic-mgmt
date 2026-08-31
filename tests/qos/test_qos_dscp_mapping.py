@@ -646,6 +646,8 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
             and not is_th5_device
             and "dualtor" not in topo_name
             and "t1" not in topo_name
+            # Remove this check once warm reboot is supported on SN6600 LD.
+            and "sn6600_ld" not in duthost.facts.get("platform", "")
         ):
             with allure.step("Do warm-reboot"):
                 reboot(duthost, localhost, reboot_type="warm", safe_reboot=True, check_intf_up_ports=True,

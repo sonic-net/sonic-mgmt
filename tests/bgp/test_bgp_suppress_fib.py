@@ -817,9 +817,17 @@ def param_reboot(request, duthost, localhost, loganalyzer):
     """
     reboot_type = request.config.getoption("--bgp_suppress_fib_reboot_type")
     reboot_type_list = ["reload", "cold", "warm", "fast"]
+    # Remove this override once warm/fast reboot is supported on SN6600 LD.
+    sn6600_ld_warm_unsupported = "sn6600_ld" in duthost.facts.get("platform", "")
+    if sn6600_ld_warm_unsupported:
+        reboot_type_list = [rt for rt in reboot_type_list if rt not in ("warm", "fast")]
     if reboot_type == "random":
         reboot_type = random.choice(reboot_type_list)
-        logger.info("Randomly choose {} from reload, cold, warm, fast".format(reboot_type))
+        logger.info("Randomly choose {} from {}".format(reboot_type, reboot_type_list))
+    elif reboot_type in ("warm", "fast") and sn6600_ld_warm_unsupported:
+        logger.info("Overriding {} reboot with cold reboot on SN6600 LD because "
+                    "warm/fast reboot is unsupported on this platform".format(reboot_type))
+        reboot_type = "cold"
 
     if reboot_type == "reload":
         config_reload(duthost, safe_reload=True, ignore_loganalyzer=loganalyzer)
