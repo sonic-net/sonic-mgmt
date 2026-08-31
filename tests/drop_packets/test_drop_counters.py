@@ -9,7 +9,7 @@ import ptf.testutils as testutils
 from collections import defaultdict
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.utilities import wait_until
-from tests.common.helpers.drop_counters.drop_counters import verify_drop_counters, \
+from tests.common.helpers.drop_counters.drop_counters import verify_drop_counters, get_pkt_drops, \
     ensure_no_l3_drops, ensure_no_l2_drops, ensure_no_l3_and_l2_drops, ensure_no_l2_and_l3_drops
 from .drop_packets import L2_COL_KEY, L3_COL_KEY, RX_ERR, RX_DRP, ACL_COUNTERS_UPDATE_INTERVAL, \
     MELLANOX_MAC_UPDATE_SCRIPT, expected_packet_mask, log_pkt_params, setup, fanouthost, pkt_fields, \
@@ -46,6 +46,50 @@ LOG_EXPECT_PORT_ADMIN_UP_RE = ".*Port {} oper state set from down to up.*"
 
 COMBINED_L2L3_DROP_COUNTER = False
 COMBINED_ACL_DROP_COUNTER = False
+
+MTU_DROP_COUNTER_KEY = "TX_DRP"
+
+
+def _get_dut_hostvars(duthost):
+    _vm = duthost.host.options['variable_manager']
+    if _vm._hostvars is not None:
+        return _vm._hostvars[duthost.hostname]
+    _host_obj = duthost.host.options['inventory_manager'].get_host(duthost.hostname)
+    return _vm.get_vars(host=_host_obj) if _host_obj is not None else {}
+
+
+def get_ipv4_peer_for_interface(mg_facts, iface):
+    """Return directly connected IPv4 peer for the L3 interface where MTU is configured."""
+    for intf_list_key in ("minigraph_interfaces", "minigraph_portchannel_interfaces"):
+        for intf in mg_facts.get(intf_list_key, []):
+            peer_addr = intf.get("peer_addr")
+            if intf.get("attachto") == iface and peer_addr and "." in peer_addr:
+                return peer_addr
+    return None
+
+
+def verify_mtu_drop_counters(duthosts, packets_count):
+    """
+    Verify MTU exceeded TX_DRP on any port. On Cisco-8000 non-GB platforms, drops may be
+    counted on a port other than the ingress interface where MTU was configured.
+    """
+    def _find_mtu_drop():
+        for duthost in duthosts.frontend_nodes:
+            pkt_drops = get_pkt_drops(duthost, GET_L2_COUNTERS)
+            for iface, stats in pkt_drops.items():
+                try:
+                    val = int(stats.get(MTU_DROP_COUNTER_KEY, "0").replace(",", ""))
+                except ValueError:
+                    continue
+                if val >= packets_count:
+                    logger.info("MTU drop on {} {}={}".format(iface, MTU_DROP_COUNTER_KEY, val))
+                    return True
+        return False
+
+    pytest_assert(
+        wait_until(25, 1, 0, _find_mtu_drop),
+        "MTU drop counter {} not found on any port. Sent == {}".format(MTU_DROP_COUNTER_KEY, packets_count)
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -167,7 +211,7 @@ def handle_backend_acl(duthost, tbinfo):
 
 def base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, ports_info,     # noqa: F811
                       tx_dut_ports=None, skip_counter_check=False, drop_information=None,  # noqa: F811
-                      weak_server=False):  # noqa: F811
+                      weak_server=False, verify_mtu_drop=False):  # noqa: F811
     """
     Base test function for verification of L2 or L3 packet drops. Verification type depends on 'discard_group' value.
     Supported 'discard_group' values: 'L2', 'L3', 'ACL', 'NO_DROPS'
@@ -197,8 +241,11 @@ def base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, port
         return None
 
     if discard_group == "L2":
-        verify_drop_counters(duthosts, asic_index, ports_info["dut_iface"],
-                             GET_L2_COUNTERS, L2_COL_KEY, packets_count=pkt_number)
+        if verify_mtu_drop:
+            verify_mtu_drop_counters(duthosts, packets_count=pkt_number)
+        else:
+            verify_drop_counters(duthosts, asic_index, ports_info["dut_iface"],
+                                 GET_L2_COUNTERS, L2_COL_KEY, packets_count=pkt_number)
 
         with SafeThreadPoolExecutor(max_workers=8) as executor:
             for duthost in duthosts.frontend_nodes:
@@ -308,6 +355,8 @@ def mtu_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
 
         @classmethod
         def restore_mtu(cls):
+            if cls.iface is None or cls.key is None:
+                return
             duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
             namespace = duthost.get_namespace_from_asic_id(
                 cls.asic_index
@@ -332,7 +381,8 @@ def check_if_skip():
 @pytest.fixture(scope='module')
 def do_test(duthosts, weak_server):
     def do_counters_test(discard_group, pkt, ptfadapter, ports_info, sniff_ports, tx_dut_ports=None,    # noqa: F811
-                         comparable_pkt=None, skip_counter_check=False, drop_information=None, ip_ver='ipv4'):
+                         comparable_pkt=None, skip_counter_check=False, drop_information=None,
+                         ip_ver='ipv4', verify_mtu_drop=False):
         """
         Execute test - send packet, check that expected discard counters were incremented and packet was dropped
         @param discard_group: Supported 'discard_group' values: 'L2', 'L3', 'ACL', 'NO_DROPS'
@@ -351,7 +401,7 @@ def do_test(duthosts, weak_server):
         asic_index = ports_info["asic_index"]
         base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, ports_info, tx_dut_ports,
                           skip_counter_check=skip_counter_check, drop_information=drop_information,
-                          weak_server=weak_server)
+                          weak_server=weak_server, verify_mtu_drop=verify_mtu_drop)
 
         # Verify packets were not egresed the DUT
         if discard_group != "NO_DROPS":
@@ -463,30 +513,42 @@ def test_ip_pkt_with_exceeded_mtu(do_test, duthosts, enum_rand_one_per_hwsku_fro
     if "vlan" in tx_dut_ports[ports_info["dut_iface"]].lower():
         pytest.skip("Test case is not supported on VLAN interface")
 
+    mtu_iface = tx_dut_ports[ports_info["dut_iface"]]
+    ip_dst = get_ipv4_peer_for_interface(setup["mg_facts"], mtu_iface)
+    pytest_require(ip_dst, "IPv4 peer is not defined for interface {}".format(mtu_iface))
+
+    verify_mtu_drop = False
+    if duthost.facts["asic_type"] == "cisco-8000":
+        hostvars = _get_dut_hostvars(duthost)
+        verify_mtu_drop = duthost.facts["hwsku"] not in hostvars.get("cisco-8000_gb_hwskus", [])
     tmp_port_mtu = 1500
 
     log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], ports_info["src_mac"],
-                   pkt_fields["ipv4_dst"], pkt_fields["ipv4_src"])
+                   ip_dst, pkt_fields["ipv4_src"])
 
-    # Get the asic_index
     asic_index = ports_info["asic_index"]
 
     # Set temporal MTU. This will be restored by 'mtu' fixture
-    mtu_config.set_mtu(tmp_port_mtu, tx_dut_ports[ports_info["dut_iface"]], asic_index)
+    mtu_config.set_mtu(tmp_port_mtu, mtu_iface, asic_index)
 
     pkt = testutils.simple_tcp_packet(
         pktlen=9100,
         eth_dst=ports_info["dst_mac"],  # DUT port
         eth_src=ports_info["src_mac"],  # PTF port
         ip_src=pkt_fields["ipv4_src"],  # PTF source
-        ip_dst=pkt_fields["ipv4_dst"],  # VM IP address
+        ip_dst=ip_dst,
         tcp_sport=pkt_fields["tcp_sport"],
         tcp_dport=pkt_fields["tcp_dport"]
     )
-    L2_COL_KEY = RX_ERR
+    saved_l2_col_key = L2_COL_KEY
+    if not verify_mtu_drop:
+        L2_COL_KEY = RX_ERR
     try:
         do_test("L2", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"],
-                # VPP drops the packet but does not increment the drop counter
-                skip_counter_check=(duthost.facts["asic_type"] == "vpp"))
+                skip_counter_check=(duthost.facts["asic_type"] == "vpp"),
+                verify_mtu_drop=verify_mtu_drop)
     finally:
-        L2_COL_KEY = RX_DRP
+        if not verify_mtu_drop:
+            L2_COL_KEY = RX_DRP
+        else:
+            L2_COL_KEY = saved_l2_col_key
