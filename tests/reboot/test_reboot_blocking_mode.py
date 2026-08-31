@@ -11,8 +11,8 @@ pytestmark = [
 COMMAND_TIMEOUT = 90  # seconds
 
 # Must be well within COMMAND_TIMEOUT so the script exits on its own deadline rather than being
-# killed. The blocking loop checks every 10s, so a correct script exits at roughly 51s.
-BLOCKING_TIMEOUT = 50  # seconds
+# killed. The blocking loop checks every 10s, so a correct script exits at roughly 31s.
+BLOCKING_TIMEOUT = 30  # seconds
 
 
 def check_if_platform_reboot_enabled(duthost) -> bool:
@@ -56,7 +56,7 @@ def mock_reboot_config_file(duthost):
         "echo -e \"blocking_mode=true\\nshow_timer=true\" > /etc/sonic/reboot.conf")
 
 
-def mock_reboot_config_file_with_timeout(duthost, timeout_in_second=0):
+def mock_reboot_config_file_with_timeout(duthost, timeout_in_seconds=0):
     if (
         check_if_dut_file_exist(duthost, "/etc/sonic/reboot.conf")
         and not check_if_dut_file_exist(duthost, "/etc/sonic/reboot.conf.bak")
@@ -65,7 +65,7 @@ def mock_reboot_config_file_with_timeout(duthost, timeout_in_second=0):
     execute_command(
         duthost,
         "echo -e \"blocking_mode=true\\nblocking_mode_timeout={}\\nshow_timer=true\" > /etc/sonic/reboot.conf".format(
-            timeout_in_second))
+            timeout_in_seconds))
 
 
 def restore_reboot_config_file(duthost):

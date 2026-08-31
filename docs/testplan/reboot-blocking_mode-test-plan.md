@@ -53,7 +53,7 @@ evaluates an empty arithmetic operand as `0`. Both exit immediately, so test cas
 1. Backup the config file `/etc/sonic/reboot.conf` if exists. Update the following configs to the config file:
    ```
    blocking_mode=true
-   blocking_mode_timeout=50
+   blocking_mode_timeout=30
    show_timer=true
    ```
 1. Run command `reboot`, timing how long it blocks before returning. The command needs a timeout
