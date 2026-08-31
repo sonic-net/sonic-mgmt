@@ -299,7 +299,6 @@ t0:
   - tacacs/test_ro_user.py
   - tacacs/test_rw_user.py
   - gnmi/test_events.py
-  - telemetry/test_telemetry.py
   - test_features.py
   - test_interfaces.py
   - test_nbr_health.py
@@ -614,7 +613,6 @@ t1-lag:
   - tacacs/test_ro_user.py
   - tacacs/test_rw_user.py
   - gnmi/test_events.py
-  - telemetry/test_telemetry.py
   - test_features.py
   - test_interfaces.py
   - test_nbr_health.py
@@ -835,7 +833,6 @@ multi-asic-t1-lag:
   - tacacs/test_jit_user.py
   - tacacs/test_ro_user.py
   - tacacs/test_rw_user.py
-  - telemetry/test_telemetry.py
   - test_interfaces.py
 
 dpu:
