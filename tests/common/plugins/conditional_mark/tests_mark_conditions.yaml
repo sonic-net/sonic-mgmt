@@ -3395,13 +3395,6 @@ hash/test_generic_hash.py::test_reboot[CRC_CCITT-IP_PROTOCOL-ipv4:
     conditions:
       - "asic_type in ['cisco-8000']"
 
-hash/test_generic_hash.py::test_reboot\[.*-warm\]:
-  regex: true
-  skip:
-    reason: "Warm reboot is not supported on x86_64-nvidia_sn6600_ld-r0"
-    conditions:
-      - "platform in ['x86_64-nvidia_sn6600_ld-r0']"
-
 #######################################
 #####             hft             #####
 #######################################

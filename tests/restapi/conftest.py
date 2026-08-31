@@ -167,10 +167,14 @@ def vlan_members(duthosts, rand_one_dut_hostname, tbinfo):
 def is_support_warm_fast_reboot(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     support_warm_fast_reboot = True
+    # Remove the SN6600 LD check once warm/fast reboot is supported on the platform.
+    sn6600_ld_warm_unsupported = "sn6600_ld" in duthost.facts.get("platform", "")
     if 'isolated' in duthosts.tbinfo['topo']['name'] or \
-            duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch"):
+            duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch") or \
+            sn6600_ld_warm_unsupported:
         support_warm_fast_reboot = False
-        logging.info("Skipping warm and fast reboot tests for isolated topology or smartswitch")
+        logging.info("Skipping warm and fast reboot tests for isolated topology, smartswitch, "
+                     "or unsupported SN6600 LD platform")
         logging.info("Applying cert config")
         apply_cert_config(duthost)
 
