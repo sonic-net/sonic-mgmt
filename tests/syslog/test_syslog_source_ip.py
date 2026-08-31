@@ -6,10 +6,10 @@ import allure
 import re
 import time
 from scapy.all import rdpcap
-from .syslog_utils import create_vrf, remove_vrf, add_syslog_server, del_syslog_server, capture_syslog_packets, \
+from .syslog_utils import create_vrf, remove_vrf, capture_syslog_packets, \
     replace_ip_neigh, bind_interface_to_vrf, check_vrf, syslogUtilsConst
 from tests.common.utilities import wait_until
-from tests.common.helpers.syslog_helpers import is_mgmt_vrf_enabled
+from tests.common.helpers.syslog_helpers import add_syslog_server, del_syslog_server, is_mgmt_vrf_enabled
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.reboot import reboot, SONIC_SSH_PORT, SONIC_SSH_REGEX
 from ipaddress import IPv4Address, IPv6Address, ip_address, ip_network, IPv6Network
@@ -158,7 +158,7 @@ def skip_ssip_reboot_test_when_dut_mgmt_network_is_sub_network_forced_mgmt(dutho
         """
         Checks if network_a is a subnet of network_b.
         """
-        logger.info(f"dut_mgmt_network:{dut_mgmt_network}, forced_mgmt_route: {forced_mgmt_route}")
+        logger.info("dut_mgmt_network:%s, forced_mgmt_route: %s", dut_mgmt_network, forced_mgmt_route)
         net_dut_mgmt = IPv4Network(dut_mgmt_network, strict=False)
         net_forced_mgmt = IPv4Network(forced_mgmt_route, strict=False)
         return net_dut_mgmt.subnet_of(net_forced_mgmt)
@@ -196,7 +196,7 @@ def handle_thread_exceptions():
     if thread_exceptions:
         error_messages = "\n".join(f"{type(e).__name__}: {e}" for e in thread_exceptions)
         thread_exceptions.clear()
-        pytest.fail(f"Thread Failures Occurred:\n{error_messages}")
+        pytest.fail("Thread Failures Occurred:\n{}".format(error_messages))
 
 
 def attach_pcapfile_to_allure(pcapfile, pcap_name):
@@ -449,7 +449,8 @@ class TestSSIP:
         Returns:
             str or None: The forward type if found, None otherwise
         """
-        forward_type_match = re.search(rf"{self.duthost.hostname} CRIT\s+([^:]+):", syslog_message)
+        forward_type_match = re.search(
+            r"{} CRIT\s+([^:]+):".format(self.duthost.hostname), syslog_message)
         if forward_type_match:
             return forward_type_match.group(1)  # Returns the forward type value
         return 'default'
