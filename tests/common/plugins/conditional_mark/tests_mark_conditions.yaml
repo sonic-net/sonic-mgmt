@@ -598,6 +598,12 @@ bgp/test_bgp_slb.py::test_bgp_slb_neighbor_persistence_across_advanced_reboot:
       - "hwsku in ['Arista-7050CX3-32S-C28S4']"
       - "'f2' in topo_name"
 
+bgp/test_bgp_slb.py::test_bgp_slb_neighbor_persistence_across_advanced_reboot[warm:
+  skip:
+    reason: "Warm reboot is not supported on x86_64-nvidia_sn6600_ld-r0"
+    conditions:
+      - "platform in ['x86_64-nvidia_sn6600_ld-r0']"
+
 bgp/test_bgp_speaker.py:
   skip:
     reason: "Not supported on topology backend."
@@ -3368,6 +3374,12 @@ hash/test_generic_hash.py::test_reboot[CRC_CCITT-INNER_IP_PROTOCOL:
     conditions:
     - "asic_type in ['broadcom', 'mellanox']"
 
+hash/test_generic_hash.py::test_reboot[CRC_CCITT-INNER_L4_SRC_PORT-ipv6-ipv4-vxlan-warm]:
+  skip:
+    reason: "Warm reboot is not supported on x86_64-nvidia_sn6600_ld-r0"
+    conditions:
+      - "platform in ['x86_64-nvidia_sn6600_ld-r0']"
+
 hash/test_generic_hash.py::test_reboot[CRC_CCITT-IN_PORT:
   skip:
     reason: "On Mellanox platforms, due to HW limitation, when ecmp and lag hash at the same time, it would not support
@@ -3838,9 +3850,11 @@ mvrf/test_mgmtvrf.py::TestReboot::test_fastboot:
 
 mvrf/test_mgmtvrf.py::TestReboot::test_warmboot:
   skip:
-    reason: "Dualtor topology doesn't support advanced-reboot"
+    reason: "Dualtor topology doesn't support advanced-reboot. Warm reboot is not supported on x86_64-nvidia_sn6600_ld-r0"
+    conditions_logical_operator: or
     conditions:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
+      - "platform in ['x86_64-nvidia_sn6600_ld-r0']"
 
 #######################################
 #####           mx              #####
@@ -4173,15 +4187,19 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_transceiver_info:
 
 platform_tests/test_advanced_reboot.py:
   skip:
-    reason: "Advanced reboot tests are not supported on lossy topologies."
+    reason: "Advanced reboot tests are not supported on lossy topologies. Warm reboot is not supported on x86_64-nvidia_sn6600_ld-r0"
+    conditions_logical_operator: or
     conditions:
       - *lossyTopos
+      - "platform in ['x86_64-nvidia_sn6600_ld-r0']"
 
 platform_tests/test_cont_warm_reboot.py:
   skip:
-    reason: "Continuous warm reboot tests are not supported on lossy topologies."
+    reason: "Continuous warm reboot tests are not supported on lossy topologies. Warm reboot is not supported on x86_64-nvidia_sn6600_ld-r0"
+    conditions_logical_operator: or
     conditions:
       - *lossyTopos
+      - "platform in ['x86_64-nvidia_sn6600_ld-r0']"
 
 platform_tests/test_intf_fec.py::test_verify_fec_stats_counters:
   skip:
@@ -4209,9 +4227,11 @@ platform_tests/test_reboot.py::test_soft_reboot:
 
 platform_tests/test_reboot.py::test_warm_reboot:
   skip:
-    reason: "warm-reboot is not supported on BMC SONiC image"
+    reason: "warm-reboot is not supported on BMC SONiC image. Warm reboot is not supported on x86_64-nvidia_sn6600_ld-r0"
+    conditions_logical_operator: or
     conditions:
       - "'bmc' in topo_type"
+      - "platform in ['x86_64-nvidia_sn6600_ld-r0']"
 
 platform_tests/test_reboot.py::test_watchdog_reboot:
   skip:
@@ -4252,13 +4272,14 @@ process_monitoring/test_critical_process_monitoring.py::test_monitoring_critical
 
 process_monitoring/test_critical_process_monitoring.py::test_orchagent_heartbeat:
   skip:
-    reason: "This test is intended for Orchagent freeze scenario during warm-reboot. It is not required for T1 devices, and not supported on 202412 release. Also not applicable on BMC platforms which have no orchagent."
+    reason: "This test is intended for Orchagent freeze scenario during warm-reboot. It is not required for T1 devices, and not supported on 202412 release. Also not applicable on BMC platforms which have no orchagent. Warm reboot is not supported on x86_64-nvidia_sn6600_ld-r0"
     conditions_logical_operator: or
     conditions:
       - "'t1' in topo_name"
       - "release in ['202412']"
       - "is_smartswitch==True" # t0 and t1 should all be skipped on smartswitch
       - "'bmc' in topo_type"
+      - "platform in ['x86_64-nvidia_sn6600_ld-r0']"
 
 #######################################
 #####     ptftests      #####
@@ -4919,12 +4940,12 @@ route/test_route_perf.py:
 
 route/test_static_route.py:
   skip:
-    reason: "Test not supported for 201911 images or older. Does not apply to standalone topos. Not supported on cisco-8122 platform"
+    reason: "Test not supported for 201911 images or older. Does not apply to standalone topos. Not supported on cisco-8122 platform. Warm reboot is not supported on x86_64-nvidia_sn6600_ld-r0"
     conditions_logical_operator: OR
     conditions:
       - "release in ['201811', '201911']"
       - "'standalone' in topo_name"
-      - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
+      - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0', 'x86_64-nvidia_sn6600_ld-r0']"
 
 route/test_static_route.py::test_static_route[:
   xfail:
@@ -5035,11 +5056,11 @@ sflow/test_sflow.py::TestReboot::testFastreboot:
 
 sflow/test_sflow.py::TestReboot::testWarmreboot:
   skip:
-    reason: "Dualtor topology doesn't support advanced-reboot or Warmreboot is not supported on sn5640 SP5 platform."
+    reason: "Dualtor topology doesn't support advanced-reboot or Warmreboot is not supported on sn5640 SP5 / sn6600_ld platforms."
     conditions_logical_operator: or
     conditions:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
-      - "platform in ['x86_64-nvidia_sn5640-r0']"
+      - "platform in ['x86_64-nvidia_sn5640-r0', 'x86_64-nvidia_sn6600_ld-r0']"
   xfail:
     reason: "testWarmreboot sflow failure: VS SAI warm reboot bug (sonic-net/sonic-buildimage#26594)"
     conditions:
