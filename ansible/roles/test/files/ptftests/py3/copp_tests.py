@@ -386,11 +386,8 @@ class DHCPTest(PolicyTest):
         # Marvell based platforms have cir/cbs in steps of 125
         if self.hw_sku in {"Nokia-M0-7215", "Nokia-7215"} or self.hw_sku.startswith("Nokia-7215-A1"):
             self.PPS_LIMIT = 250
-        # Cisco G100 based platform has CIR 600
-        elif self.asic_type == "cisco-8000" and "8111" in self.platform:
-            self.PPS_LIMIT = 600
         elif self.asic_type == "cisco-8000":
-            self.PPS_LIMIT = 400
+            self.PPS_LIMIT = 600
         # M0 devices have CIR of 300 for DHCP
         elif self.topo_type in {"m0", "mx", "m1"}:
             self.PPS_LIMIT = 300
@@ -435,11 +432,8 @@ class DHCP6Test(PolicyTest):
         # Marvell based platforms have cir/cbs in steps of 125
         if self.hw_sku in {"Nokia-M0-7215", "Nokia-7215"} or self.hw_sku.startswith("Nokia-7215-A1"):
             self.PPS_LIMIT = 250
-        # Cisco G100 based platform has CIR 600
-        elif self.asic_type == "cisco-8000" and "8111" in self.platform:
-            self.PPS_LIMIT = 600
         elif self.asic_type == "cisco-8000":
-            self.PPS_LIMIT = 400
+            self.PPS_LIMIT = 600
         # M0 devices have CIR of 300 for DHCP
         elif self.topo_type in {"m0", "mx", "m1"}:
             self.PPS_LIMIT = 300
@@ -537,11 +531,8 @@ class LLDPTest(PolicyTest):
         # Marvell based platforms have cir/cbs in steps of 125
         if self.hw_sku in {"Nokia-M0-7215", "Nokia-7215"} or self.hw_sku.startswith("Nokia-7215-A1"):
             self.PPS_LIMIT = 250
-        # Cisco G100 based platform has CIR 600
-        elif self.asic_type == "cisco-8000" and "8111" in self.platform:
-            self.PPS_LIMIT = 600
         elif self.asic_type == "cisco-8000":
-            self.PPS_LIMIT = 400
+            self.PPS_LIMIT = 600
         # M0 devices have CIR of 300 for DHCP
         elif self.topo_type in {"m0", "mx", "m1"}:
             self.PPS_LIMIT = 300
@@ -573,11 +564,8 @@ class UDLDTest(PolicyTest):
         # Marvell based platforms have cir/cbs in steps of 125
         if self.hw_sku in {"Nokia-M0-7215", "Nokia-7215"} or self.hw_sku.startswith("Nokia-7215-A1"):
             self.PPS_LIMIT = 250
-        # Cisco G100 based platform has CIR 600
-        elif self.asic_type == "cisco-8000" and "8111" in self.platform:
-            self.PPS_LIMIT = 600
         elif self.asic_type == "cisco-8000":
-            self.PPS_LIMIT = 400
+            self.PPS_LIMIT = 600
         # M0 devices have CIR of 300 for DHCP
         elif self.topo_type in {"m0", "mx", "m1"}:
             self.PPS_LIMIT = 300
@@ -811,7 +799,10 @@ class VlanSubnetTest(PolicyTest):
 
         # Verify with different PPS if neighbor miss trap is supported by the platform
         if self.neighbor_miss_trap_supported:
-            self.PPS_LIMIT = 200
+            if self.asic_type == "cisco-8000":
+                self.PPS_LIMIT = 600
+            else:
+                self.PPS_LIMIT = 200
             self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.9
             self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.3
 
@@ -853,7 +844,10 @@ class VlanSubnetIPinIPTest(PolicyTest):
 
         # Verify with different PPS if neighbor miss trap is supported by the platform
         if self.neighbor_miss_trap_supported:
-            self.PPS_LIMIT = 200
+            if self.asic_type == "cisco-8000":
+                self.PPS_LIMIT = 600
+            else:
+                self.PPS_LIMIT = 200
             self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.9
             self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.3
 

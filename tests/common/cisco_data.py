@@ -2,10 +2,26 @@ import json
 import re
 from tests.common.reboot import reboot
 from tests.common.utilities import wait_until
+from tests.common.cisco_s1_cli import CiscoS1Cli
+
+
+# =============================================================================
+# Cisco 8000 Constants
+# =============================================================================
+CISCO_ASIC_TYPE = "cisco-8000"
+
+# Platform prefixes for conditional_mark and other test infrastructure.
+CISCO_8122_PREFIX = "x86_64-8122"        # Matches both GR2 (x86_64-8122_*) and GR2X (x86_64-8122x*)
+CISCO_8122_GR2_PREFIX = "x86_64-8122_"   # GR2 only (note trailing underscore)
+CISCO_8122_GR2X_PREFIX = "x86_64-8122x"  # GR2X only (note 'x' suffix)
+
+# Legacy aliases (kept for backward compatibility)
+GR2X_PLATFORM_PREFIX = CISCO_8122_GR2X_PREFIX
+GR2X_HWSKU_PREFIX = "Cisco-8122X"
 
 
 def is_cisco_device(dut):
-    return dut.facts["asic_type"] == "cisco-8000"
+    return dut.facts["asic_type"] == CISCO_ASIC_TYPE
 
 
 def is_model_json_format(duthost):
@@ -17,7 +33,7 @@ def get_markings_config_file(duthost):
     """
         Get the config file where the ECN markings are enabled or disabled.
     """
-    if duthost.facts["asic_type"] != "cisco-8000":
+    if duthost.facts["asic_type"] != CISCO_ASIC_TYPE:
         raise RuntimeError("This is applicable only to cisco platforms.")
     platform = duthost.facts['platform']
     hwsku = duthost.facts['hwsku']
@@ -74,7 +90,7 @@ def setup_markings_dut(duthost, localhost, **kwargs):
 
 
 def copy_dshell_script_cisco_8000(dut, asic, dshell_script, script_name):
-    if dut.facts['asic_type'] != "cisco-8000":
+    if dut.facts['asic_type'] != CISCO_ASIC_TYPE:
         raise RuntimeError("This function should have been called only for cisco-8000.")
 
     script_path = "/tmp/{}".format(script_name)
@@ -83,7 +99,7 @@ def copy_dshell_script_cisco_8000(dut, asic, dshell_script, script_name):
         dest = f"syncd{asic}"
     else:
         dest = "syncd"
-    dut.shell(f"docker cp {script_path} {dest}:/")
+    dut.shell(f"docker cp {script_path} {dest}:/")  # noqa: E231
 
 
 def copy_set_voq_watchdog_script_cisco_8000(dut, asic="", enable=True):
@@ -110,3 +126,25 @@ def run_dshell_command(duthost, command):
     if not wait_until(300, 20, 0, check_dshell_ready, duthost):
         raise RuntimeError("Debug shell is not ready on {}".format(duthost.hostname))
     return duthost.shell(command)
+
+
+def get_voq_quant_thresholds_cisco(duthost, interface, traffic_class, asic_index=None):
+    """
+        Return the quantized queue watermark thresholds (in bytes) for a given
+        interface and traffic class on a Cisco-8000 device.
+
+        Args:
+            duthost: The DUT host handle.
+            interface (str): The egress interface name.
+            traffic_class (int): The traffic class / queue index.
+            asic_index (int, optional): ASIC index for multi-ASIC platforms.
+                Ignored on single-ASIC platforms.
+
+        Returns:
+            list[int]: The congestion-level thresholds in bytes, ordered from
+                lowest to highest.
+    """
+    s1cli = CiscoS1Cli(duthost, asic_index=asic_index)
+    port_oid = s1cli.get_port_oid(interface)
+    queue_oid = s1cli.get_queue_oid(port_oid, traffic_class)
+    return s1cli.get_queue_watermark_thresholds(queue_oid)

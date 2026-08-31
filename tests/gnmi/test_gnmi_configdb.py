@@ -85,6 +85,8 @@ def setup_vrf_configuration(duthosts, rand_one_dut_hostname, vrf_config):
             duthost.shell('sudo systemctl stop snmpd snmp-subagent', module_ignore_errors=True)
             duthost.shell('sonic-db-cli CONFIG_DB hset "MGMT_VRF_CONFIG|vrf_global" "mgmtVrfEnabled" "false"')
             duthost.shell('sonic-db-cli CONFIG_DB hdel "MGMT_VRF_CONFIG|vrf_global" "mgmtVrfEnabled"')
+            # setup_gnmi_server saves while the management VRF is enabled.
+            duthost.shell("sudo config save -y")
             duthost.shell('sudo systemctl start snmpd snmp-subagent', module_ignore_errors=True)
 
 

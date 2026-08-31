@@ -13,9 +13,9 @@ import pytest
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa: F401
 from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
 from tests.common.utilities import wait_until, get_plt_reboot_ctrl
-from tests.common.reboot import check_reboot_cause, get_reboot_cause,\
-    check_reboot_cause_history, check_determine_reboot_cause_service, reboot_ctrl_dict,\
-    wait_for_startup, REBOOT_TYPE_HISTOYR_QUEUE, REBOOT_TYPE_COLD,\
+from tests.common.reboot import check_reboot_cause, get_reboot_cause, \
+    check_reboot_cause_history, check_determine_reboot_cause_service, reboot_ctrl_dict, \
+    wait_for_startup, REBOOT_TYPE_HISTOYR_QUEUE, REBOOT_TYPE_COLD, \
     REBOOT_TYPE_SOFT, REBOOT_TYPE_FAST, REBOOT_TYPE_WARM, REBOOT_TYPE_WATCHDOG
 from tests.common.platform.transceiver_utils import check_transceiver_basic
 from tests.common.platform.interface_utils import check_all_interface_information, get_port_map
@@ -135,7 +135,7 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list,
         if dut.facts["platform"] == "x86_64-cel_e1031-r0":
             result = wait_until(300, 20, 0, check_pmon_daemon_status, dut)
         else:
-            result = check_pmon_daemon_status(dut)
+            result = wait_until(60, 5, 0, check_pmon_daemon_status, dut)
         assert result, "Not all pmon daemons running."
 
     if dut.facts["asic_type"] in ["mellanox"]:

@@ -11,8 +11,8 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.utilities import wait_until
 from tests.common.helpers.drop_counters.drop_counters import verify_drop_counters, \
     ensure_no_l3_drops, ensure_no_l2_drops, ensure_no_l3_and_l2_drops, ensure_no_l2_and_l3_drops
-from .drop_packets import L2_COL_KEY, L3_COL_KEY, RX_ERR, RX_DRP, ACL_COUNTERS_UPDATE_INTERVAL,\
-    MELLANOX_MAC_UPDATE_SCRIPT, expected_packet_mask, log_pkt_params, setup, fanouthost, pkt_fields,\
+from .drop_packets import L2_COL_KEY, L3_COL_KEY, RX_ERR, RX_DRP, ACL_COUNTERS_UPDATE_INTERVAL, \
+    MELLANOX_MAC_UPDATE_SCRIPT, expected_packet_mask, log_pkt_params, setup, fanouthost, pkt_fields, \
     send_packets, ports_info, tx_dut_ports, rif_port_down, sai_acl_drop_adj_enabled, acl_ingress, \
     acl_egress, configure_copp_drop_for_ttl_error, test_equal_smac_dmac_drop, test_multicast_smac_drop, \
     test_not_expected_vlan_tag_drop, test_dst_ip_is_loopback_addr, test_src_ip_is_loopback_addr, \
