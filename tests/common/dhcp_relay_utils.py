@@ -610,9 +610,9 @@ def merge_counters(source_counter, merge_counter, is_v6=False):
                                                                     merge_counter.get(dir, {}).get(dhcp_type, 0)
 
 
-def sonic_dhcpv4_flag_config_and_unconfig(duthost, dhcpv4_config_flag=False):
+def sonic_dhcpv4_flag_config_and_unconfig(duthost, dhcpv4_config_flag, relay_type):
     """
-    Enable or disable the SONiC DHCPv4 feature flag and restart the DHCP service on the DUT.
+    Set the SONiC DHCPv4 feature flag and restart for the caller's explicit relay mode.
     """
     if dhcpv4_config_flag:
         duthost.shell('sonic-db-cli CONFIG_DB hset "DEVICE_METADATA|localhost" "has_sonic_dhcpv4_relay" "True"',
@@ -623,7 +623,20 @@ def sonic_dhcpv4_flag_config_and_unconfig(duthost, dhcpv4_config_flag=False):
 
     # Save the config and restart DHCP relay service
     duthost.shell('sudo config save -y', module_ignore_errors=True)
-    restart_dhcp_service(duthost, ['sonic'] if dhcpv4_config_flag else ['isc'])
+    restart_dhcp_service(duthost, [relay_type])
+
+
+def get_isc_relay_type(duthost):
+    """Return the external, active internal, or idle internal ISC layout."""
+    features_state, _ = duthost.get_feature_status()
+    if 'enabled' not in features_state.get('dhcp_server', ''):
+        return 'isc'
+
+    config_facts = duthost.config_facts(host=duthost.hostname, source='running')['ansible_facts']
+    dhcp_server_ipv4 = config_facts.get('DHCP_SERVER_IPV4', {})
+    if any(config.get('state') == 'enabled' for config in dhcp_server_ipv4.values()):
+        return 'isc-internal'
+    return 'isc-internal-idle'
 
 
 @pytest.fixture()
@@ -644,14 +657,15 @@ def enable_sonic_dhcpv4_relay_agent(rand_selected_dut, request):
 
     try:
         if request.getfixturevalue("relay_agent") == "sonic-relay-agent":
-            sonic_dhcpv4_flag_config_and_unconfig(duthost, True)
+            sonic_dhcpv4_flag_config_and_unconfig(duthost, True, 'sonic')
             sonic_dhcp_relay_config(duthost, dut_dhcp_relay_data, True)
         yield
     finally:
-        # Cleanup: disable the feature flag
         if request.getfixturevalue("relay_agent") == "sonic-relay-agent":
-            sonic_dhcpv4_flag_config_and_unconfig(duthost, False)
             sonic_dhcp_relay_unconfig(duthost, dut_dhcp_relay_data)
+            # Resolve live state so teardown is independent of DHCP-server cleanup fixture ordering.
+            target_relay_type = get_isc_relay_type(duthost)
+            sonic_dhcpv4_flag_config_and_unconfig(duthost, False, target_relay_type)
 
 
 def check_dhcpv4_socket_status(duthost, dut_dhcp_relay_data=None, process_and_socket_check=None):
