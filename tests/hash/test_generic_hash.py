@@ -692,6 +692,10 @@ def test_reboot(rand_selected_dut, tbinfo, ptfhost, localhost, fine_params, mg_f
         restore_vxlan_port: fixture to restore vxlan port to default
         global_hash_capabilities: module level fixture to get the dut hash capabilities
     """
+    # Remove this skip once warm/fast reboot is supported on SN6600 LD.
+    if reboot_type in ("warm", "fast") \
+            and "sn6600_ld" in rand_selected_dut.facts.get("platform", ""):
+        pytest.skip("warm/fast reboot is not supported on SN6600 LD")
     ecmp_algorithm, ecmp_test_hash_field, ipver, inner_ipver, encap_type = fine_params.split('-')
     skip_unsupported_field_for_ecmp_test(ecmp_test_hash_field, encap_type)
     with allure.step('Randomly select an ecmp hash field to test '
