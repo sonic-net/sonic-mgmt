@@ -90,6 +90,10 @@ def dscp_config(dscp_mode, rand_selected_dut, loganalyzer):
     """
     duthost = rand_selected_dut
     asic_type = duthost.facts['asic_type']
+    ip_decap_status = duthost.shell("sonic-cfggen -d -v 'SYSTEM_DEFAULTS.ip_decap.status'",
+                                    module_ignore_errors=True)["stdout"].strip()
+    if ip_decap_status == 'disabled':
+        pytest.skip("ip_decap is not enabled in SYSTEM_DEFAULTS")
 
     # global DSCP_TO_TC_MAP update is not supported on Broadcom platforms
     # Broadcom ASICs do not support inner DSCP-based queue remapping for IPIP pipe mode.

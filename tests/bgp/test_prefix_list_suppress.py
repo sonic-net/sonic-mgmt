@@ -322,6 +322,10 @@ def restart_bgp_container(duthost):
     # 1. Restart all ASICs in parallel
     for service, _ in service_container_pairs:
         duthost.shell(
+            "sudo systemctl reset-failed {}".format(service),
+            module_ignore_errors=True,
+        )
+        duthost.shell(
             "sudo systemctl restart {}".format(service),
             module_ignore_errors=True,
         )

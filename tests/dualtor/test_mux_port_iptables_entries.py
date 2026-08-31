@@ -18,9 +18,20 @@ pytestmark = [
         ]
 
 
+@pytest.fixture(scope="function")
+def backup_minigraph(duthost):
+    """Restore minigraph even if setup_multiple_vlans fails before yield."""
+    duthost.command("cp /etc/sonic/minigraph.xml /etc/sonic/minigraph.xml.bak")
+
+    yield
+
+    duthost.command("cp /etc/sonic/minigraph.xml.bak /etc/sonic/minigraph.xml")
+    config_reload(duthost, config_source="minigraph")
+
+
 # This is only supposed to be run on tor
 @pytest.fixture(scope="function")
-def setup_multiple_vlans(request, duthost, localhost, tbinfo):
+def setup_multiple_vlans(request, duthost, localhost, tbinfo, backup_minigraph):
     hostname = duthost.hostname
     # inventory = tbinfo["inv_name"]
     topo = tbinfo["topo"]["name"]
@@ -92,16 +103,12 @@ def setup_multiple_vlans(request, duthost, localhost, tbinfo):
     minigraph_xml = re.sub("[ \t]*<DeviceDataPlaneInfo>(.|\n)*</DeviceDataPlaneInfo>[ \t]*",
                            multivlan_mux_config_xml, minigraph_xml)
     minigraph_xml = minigraph_xml.replace("PLACEHOLDER", first_match)
-    duthost.command("cp /etc/sonic/minigraph.xml /etc/sonic/minigraph.xml.bak")
     duthost.copy(content=minigraph_xml, dest="/etc/sonic/minigraph.xml")
     config_reload(duthost, config_source='minigraph')
     config_facts = duthost.get_running_config_facts()
     pytest_assert(len(config_facts['VLAN_INTERFACE']) == 4, "Configuring multivlan is not successful")
 
     yield
-
-    duthost.command("cp /etc/sonic/minigraph.xml.bak /etc/sonic/minigraph.xml")
-    config_reload(duthost, config_source='minigraph')
 
 
 def verify_mux_port_iptables_entries(duthost):
