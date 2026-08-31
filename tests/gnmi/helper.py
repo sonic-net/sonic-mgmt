@@ -571,6 +571,25 @@ def gnmi_subscribe_stream_connections(duthost, ptfhost, path_list, target, creat
     return ptfhost.shell(cmd, module_ignore_errors=True)
 
 
+def archive_gnmi_certs(duthost):
+    """Move the gnmi server/CA certs aside so the server has no certs."""
+    path = "/etc/sonic/telemetry/"
+    archive_dir = path + "old_certs"
+    duthost.shell("mkdir -p {}".format(archive_dir))
+    for filename in duthost.shell("ls {}".format(path))['stdout_lines']:
+        if filename.startswith("gnmi") and filename.endswith((".crt", ".key", ".pem")):
+            duthost.shell("mv {} {}".format(path + filename, archive_dir))
+
+
+def unarchive_gnmi_certs(duthost):
+    """Restore the gnmi certs previously moved aside by archive_gnmi_certs."""
+    path = "/etc/sonic/telemetry/"
+    archive_dir = path + "old_certs"
+    for filename in duthost.shell("ls {}".format(archive_dir))['stdout_lines']:
+        duthost.shell("mv {}/{} {}".format(archive_dir, filename, path))
+    duthost.shell("rm -rf {}".format(archive_dir))
+
+
 def gnoi_reboot(duthost, method, delay, message):
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     dut_facts = duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts']
