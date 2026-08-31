@@ -1388,7 +1388,7 @@ platform_tests/sfp/test_sfputil.py::test_check_sfputil_reset:
 #######################################
 platform_tests/test_advanced_reboot.py:
   skip:
-    reason: "Unsupported platform / Skip in PR testing as taking too much time. / Advanced reboot is not supported on dualtor topology."
+    reason: "Unsupported platform / Skip in PR testing as taking too much time. / Advanced reboot is not supported on dualtor topology. / Warm reboot is not supported on x86_64-nvidia_sn6600_ld-r0"
     conditions_logical_operator: or
     conditions:
       - "platform in ['x86_64-arista_7050_qx32s']"
@@ -1396,6 +1396,7 @@ platform_tests/test_advanced_reboot.py:
       - "asic_type in ['vs']"
       - "'f2' in topo_name"
       - "topo_type not in ['t0','t0-sonic']"
+      - "platform in ['x86_64-nvidia_sn6600_ld-r0']"
 
 platform_tests/test_advanced_reboot.py::test_fast_reboot:
   skip:
@@ -1467,13 +1468,14 @@ platform_tests/test_chassis_reboot.py:
 
 platform_tests/test_cont_warm_reboot.py:
   skip:
-    reason: "Warm Reboot is not supported in dualtor and this test is not run on this topology currently"
+    reason: "Warm Reboot is not supported in dualtor and this test is not run on this topology currently / Warm reboot is not supported on x86_64-nvidia_sn6600_ld-r0"
     conditions_logical_operator: or
     conditions:
       - "'dualtor' in topo_name"
       - "topo_type not in ['t0']"
       - "'x86_64-nexthop_' in platform and not platform.startswith('x86_64-nexthop_4010')"
       - "is_smartswitch==True"
+      - "platform in ['x86_64-nvidia_sn6600_ld-r0']"
 
 #######################################
 #####       test_intf_fec.py      #####
