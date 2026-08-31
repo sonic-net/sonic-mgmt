@@ -64,8 +64,10 @@ all:
           ansible_hostv6: 2a01:111:e205:100::ace:9068
         svc12-1:
           ansible_host: 10.206.144.113
+          ansible_hostv6: 2a01:111:e205:100::ace:9071
         svc11-1:
           ansible_host: 10.206.144.114
+          ansible_hostv6: 2a01:111:e205:100::ace:9072
     pdu:
       hosts:
         pdu-16:
@@ -1201,13 +1203,13 @@ sonic_arista_7280r4_400G:
       sonic_hw_platform: Arista-7280R4K-32QF-32DF-64O
       switchids: [0]
       serial: SSN25462007
-      base_mac:
+      base_mac: b8:a1:b8:a4:36:21
       ansible_host: 10.206.144.51
       ansible_hostv6: 2a01:111:e205:100::ace:9033
       model: 'DCS-7280R4K-32QF-32DF'
       syseeprom_info:
         "0x21": "DCS-7280R4K-32QF-32DF"
-        "0x22": ""
+        "0x22": "ASY094550112"
         "0x23": "SSN25462007"
         "0x24": ""
         "0x26": ""
