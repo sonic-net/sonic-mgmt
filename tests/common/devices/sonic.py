@@ -8,6 +8,7 @@ import time
 import sys
 
 from collections import defaultdict
+from collections.abc import Mapping
 from datetime import datetime, timedelta
 
 from ansible import constants as ansible_constants
@@ -472,15 +473,23 @@ class SonicHost(AnsibleHostBase):
         pattern = r"OCI runtime exec failed:.*(starting setns process|fork/exec /proc/self/fd)"
 
         def _is_oci(res):
-            if not (isinstance(res, dict) and res.get("rc") == 127):
+            if not (isinstance(res, Mapping) and res.get("rc") == 127):
                 return False
             output = (res.get("stdout") or "") + "\n" + (res.get("stderr") or "")
             return bool(re.search(pattern, output, flags=re.DOTALL))
 
         if not _is_oci(result):
             return result
+
+        retry = result
         for attempt in range(1, attempts + 1):
             time.sleep(delay)
+            logging.info(
+                "Executing OCI race retry attempt %d/%d for cmd: %s",
+                attempt,
+                attempts,
+                cmd,
+            )
             retry = self.shell(cmd, module_ignore_errors=True)
             if not _is_oci(retry):
                 logging.info(
@@ -488,7 +497,8 @@ class SonicHost(AnsibleHostBase):
                     attempt, cmd,
                 )
                 return retry
-        return result
+        # Return the final retried result
+        return retry
 
     def get_critical_group_and_process_lists(self, container_name):
         """
