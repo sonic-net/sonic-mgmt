@@ -15,11 +15,13 @@ KEY_DOWN = "\x1b[B"
 GRUB_CONSOLE_SCRIPT_PATH = "/tmp/sonic_grub_console.py"
 
 
-def start_grub_entry_selection(
+def start_grub_entry_sequence(
     vmhost,
     serial_port,
-    current_index,
+    initial_index,
     target_index,
+    recovery_current_index,
+    recovery_target_index,
     menu_pattern=GRUB_MENU_READY,
     menu_occurrence=1,
     wait_pattern=None,
@@ -28,7 +30,7 @@ def start_grub_entry_selection(
     timeout=180,
     log_path="/tmp/sonic_grub_console.log",
 ):
-    """Start a VM-host process that selects a GRUB entry through serial."""
+    """Start a VM-host process that selects target and recovery GRUB entries."""
     vmhost.copy(src=os.path.abspath(__file__), dest=GRUB_CONSOLE_SCRIPT_PATH)
     wait_option = (
         ""
@@ -44,8 +46,10 @@ def start_grub_entry_selection(
     command = (
         "rm -f {log}; "
         "nohup timeout {process_timeout} python3 {script} "
-        "--port {port} --current-index {current_index} "
+        "--port {port} --initial-index {initial_index} "
         "--target-index {target_index} "
+        "--recovery-current-index {recovery_current_index} "
+        "--recovery-target-index {recovery_target_index} "
         "--menu-pattern {menu_pattern} --menu-occurrence {menu_occurrence} "
         "{wait_option}{acknowledge_option}"
         "--timeout {timeout} "
@@ -55,8 +59,10 @@ def start_grub_entry_selection(
         process_timeout=int(timeout) + 10,
         script=shlex.quote(GRUB_CONSOLE_SCRIPT_PATH),
         port=int(serial_port),
-        current_index=int(current_index),
+        initial_index=int(initial_index),
         target_index=int(target_index),
+        recovery_current_index=int(recovery_current_index),
+        recovery_target_index=int(recovery_target_index),
         menu_pattern=shlex.quote(menu_pattern),
         menu_occurrence=int(menu_occurrence),
         wait_option=wait_option,
@@ -94,10 +100,27 @@ def _connect(port, timeout):
     )
 
 
-def select_grub_entry(
+def _wait_for_menu(console, menu_pattern, menu_occurrence):
+    for unused in range(menu_occurrence):
+        console.expect_exact(menu_pattern)
+    time.sleep(0.5)
+
+
+def _select_grub_entry(console, current_index, target_index):
+    offset = target_index - current_index
+    key = KEY_DOWN if offset > 0 else KEY_UP
+    for unused in range(abs(offset)):
+        console.send(key)
+    console.sendline()
+    time.sleep(1)
+
+
+def select_grub_entry_sequence(
     port,
-    current_index,
+    initial_index,
     target_index,
+    recovery_current_index,
+    recovery_target_index,
     menu_pattern=GRUB_MENU_READY,
     menu_occurrence=1,
     wait_pattern=None,
@@ -105,32 +128,32 @@ def select_grub_entry(
     acknowledge_wait_pattern=False,
     timeout=180,
 ):
-    """Select a zero-based entry when the requested GRUB menu appears."""
+    """Select a target entry, then a recovery entry after an expected failure."""
     console = _connect(port, timeout)
     try:
+        _wait_for_menu(console, menu_pattern, menu_occurrence)
+        _select_grub_entry(console, initial_index, target_index)
+
         if wait_pattern:
             for unused in range(wait_pattern_occurrence):
                 console.expect(wait_pattern)
             if acknowledge_wait_pattern:
                 time.sleep(1)
                 console.sendline()
-        for unused in range(menu_occurrence):
-            console.expect_exact(menu_pattern)
-        time.sleep(0.5)
 
-        offset = target_index - current_index
-        key = KEY_DOWN if offset > 0 else KEY_UP
-        for unused in range(abs(offset)):
-            console.send(key)
-        console.sendline()
-        time.sleep(1)
+        _wait_for_menu(console, menu_pattern, menu_occurrence)
+        _select_grub_entry(
+            console,
+            recovery_current_index,
+            recovery_target_index,
+        )
     finally:
         console.close()
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Select a GRUB entry through a Telnet serial console"
+        description="Select target and recovery GRUB entries through a Telnet serial console"
     )
     parser.add_argument(
         "--port",
@@ -139,7 +162,7 @@ def main():
         help="Local Telnet serial-console port",
     )
     parser.add_argument(
-        "--current-index",
+        "--initial-index",
         type=int,
         required=True,
         help="Initially highlighted entry index",
@@ -148,7 +171,19 @@ def main():
         "--target-index",
         type=int,
         required=True,
-        help="Entry index to select",
+        help="Initial target entry index to select",
+    )
+    parser.add_argument(
+        "--recovery-current-index",
+        type=int,
+        required=True,
+        help="Highlighted entry index when the recovery menu appears",
+    )
+    parser.add_argument(
+        "--recovery-target-index",
+        type=int,
+        required=True,
+        help="Recovery entry index to select",
     )
     parser.add_argument(
         "--menu-pattern",
@@ -159,14 +194,11 @@ def main():
         "--menu-occurrence",
         type=int,
         default=1,
-        help="Select the entry when this occurrence of the GRUB menu appears",
+        help="Wait for this occurrence each time the GRUB menu appears",
     )
     parser.add_argument(
         "--wait-pattern",
-        help=(
-            "Wait for this regular expression before looking for the GRUB "
-            "menu"
-        ),
+        help="Regular expression expected between target and recovery selections",
     )
     parser.add_argument(
         "--wait-pattern-occurrence",
@@ -187,10 +219,12 @@ def main():
     )
     args = parser.parse_args()
 
-    select_grub_entry(
+    select_grub_entry_sequence(
         port=args.port,
-        current_index=args.current_index,
+        initial_index=args.initial_index,
         target_index=args.target_index,
+        recovery_current_index=args.recovery_current_index,
+        recovery_target_index=args.recovery_target_index,
         menu_pattern=args.menu_pattern,
         menu_occurrence=args.menu_occurrence,
         wait_pattern=args.wait_pattern,
