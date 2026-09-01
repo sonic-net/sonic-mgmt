@@ -22,6 +22,10 @@ pytestmark = [
 
 DOWNLOADED_IMAGE_PATH = "/host/secure_boot_duplicate_db_test_image"
 EXTRACTED_DB_AUTH_PATH = "/tmp/secure_boot_duplicate_db_test.auth"
+REMOVE_ALL_DB_AUTH_PATH = "/host/db-auth/remove-all-db.auth"
+REMOVE_ALL_DB_AUTH_BACKUP_PATH = "/host/db-auth/remove-all-db.auth.secure_boot_test_backup"
+REMOVE_STALE_DB_CERTS_SCRIPT = "/usr/local/bin/remove_stale_db_certs.sh"
+TRUSTED_DB_AUTH_PATH = "/boot/DB.auth"
 UEFI_DB_VARIABLE = (
     "/sys/firmware/efi/efivars/"
     "db-d719b2cb-3d3a-4596-a3bc-dad00e67656f"
@@ -118,6 +122,94 @@ def _apply_installed_image_db_auth(duthost, image_name):
         )
 
 
+def _require_db_pruning_script(duthost):
+    script_exists = duthost.command(
+        "test -x {}".format(shlex.quote(REMOVE_STALE_DB_CERTS_SCRIPT)),
+        module_ignore_errors=True,
+    )
+    if script_exists["rc"] != 0:
+        pytest.skip("{} is unavailable".format(REMOVE_STALE_DB_CERTS_SCRIPT))
+
+
+def _backup_remove_all_db_auth(duthost):
+    backup_exists = duthost.command(
+        "sudo test -e {}".format(shlex.quote(REMOVE_ALL_DB_AUTH_BACKUP_PATH)),
+        module_ignore_errors=True,
+    )
+    pytest_assert(
+        backup_exists["rc"] != 0,
+        "Stale Secure Boot test backup exists at {}".format(REMOVE_ALL_DB_AUTH_BACKUP_PATH),
+    )
+
+    remove_all_exists = duthost.command(
+        "sudo test -e {}".format(shlex.quote(REMOVE_ALL_DB_AUTH_PATH)),
+        module_ignore_errors=True,
+    )
+    if remove_all_exists["rc"] != 0:
+        return False
+
+    duthost.command(
+        "sudo mv {} {}".format(
+            shlex.quote(REMOVE_ALL_DB_AUTH_PATH),
+            shlex.quote(REMOVE_ALL_DB_AUTH_BACKUP_PATH),
+        )
+    )
+    return True
+
+
+def _restore_remove_all_db_auth(duthost, remove_all_was_present):
+    duthost.command(
+        "sudo rm -f {}".format(shlex.quote(REMOVE_ALL_DB_AUTH_PATH)),
+        module_ignore_errors=True,
+    )
+    if remove_all_was_present:
+        duthost.command(
+            "sudo mv {} {}".format(
+                shlex.quote(REMOVE_ALL_DB_AUTH_BACKUP_PATH),
+                shlex.quote(REMOVE_ALL_DB_AUTH_PATH),
+            ),
+            module_ignore_errors=True,
+        )
+
+
+def _run_db_pruning(duthost):
+    return duthost.command(
+        "sudo {} --commit".format(shlex.quote(REMOVE_STALE_DB_CERTS_SCRIPT)),
+        module_ignore_errors=True,
+    )
+
+
+def _create_invalid_remove_all_db_auth(duthost):
+    trusted_auth_exists = duthost.command(
+        "test -s {}".format(shlex.quote(TRUSTED_DB_AUTH_PATH)),
+        module_ignore_errors=True,
+    )
+    if trusted_auth_exists["rc"] != 0:
+        pytest.skip("{} is unavailable".format(TRUSTED_DB_AUTH_PATH))
+
+    duthost.command(
+        "sudo cp {} {}".format(
+            shlex.quote(TRUSTED_DB_AUTH_PATH),
+            shlex.quote(REMOVE_ALL_DB_AUTH_PATH),
+        )
+    )
+
+
+def _get_command_output(result):
+    return "{}\n{}".format(result["stdout"], result["stderr"]).lower()
+
+
+def _assert_db_state_unchanged(duthost, firmware_db_before, persisted_auth_before, scenario):
+    pytest_assert(
+        _get_firmware_db_state(duthost) == firmware_db_before,
+        "{} changed the UEFI db variable".format(scenario),
+    )
+    pytest_assert(
+        _get_persisted_db_auth_state(duthost) == persisted_auth_before,
+        "{} changed persisted signer files".format(scenario),
+    )
+
+
 def test_reinstall_identical_db_certificate(duthost, request, tbinfo):
     """Verify that reinstalling an identical DB certificate creates no duplicate."""
     require_secure_boot(duthost)
@@ -192,3 +284,71 @@ def test_reinstall_identical_db_certificate(duthost, request, tbinfo):
                 "sudo sonic-installer remove {} -y".format(shlex.quote(target_version)),
                 module_ignore_errors=True,
             )
+
+
+def test_db_pruning_without_remove_all_auth(duthost):
+    """Verify missing remove-all-db.auth prevents pruning without changing UEFI db."""
+    require_secure_boot(duthost)
+    _require_db_pruning_script(duthost)
+
+    firmware_db_before = _get_firmware_db_state(duthost)
+    persisted_auth_before = _get_persisted_db_auth_state(duthost)
+    remove_all_was_present = _backup_remove_all_db_auth(duthost)
+
+    try:
+        prune_result = _run_db_pruning(duthost)
+        prune_output = _get_command_output(prune_result)
+
+        pytest_assert(
+            prune_result["rc"] != 0,
+            "DB pruning succeeded without remove-all-db.auth",
+        )
+        pytest_assert(
+            "remove-all .auth not found" in prune_output,
+            "DB pruning did not report the missing remove-all-db.auth: {}".format(
+                prune_output
+            ),
+        )
+        _assert_db_state_unchanged(
+            duthost,
+            firmware_db_before,
+            persisted_auth_before,
+            "DB pruning without remove-all-db.auth",
+        )
+    finally:
+        _restore_remove_all_db_auth(duthost, remove_all_was_present)
+
+
+def test_db_pruning_with_invalid_remove_all_auth(duthost):
+    """Verify malformed remove-all-db.auth fails without changing UEFI db."""
+    require_secure_boot(duthost)
+    _require_db_pruning_script(duthost)
+
+    firmware_db_before = _get_firmware_db_state(duthost)
+    persisted_auth_before = _get_persisted_db_auth_state(duthost)
+    remove_all_was_present = _backup_remove_all_db_auth(duthost)
+
+    try:
+        _create_invalid_remove_all_db_auth(duthost)
+
+        prune_result = _run_db_pruning(duthost)
+        prune_output = _get_command_output(prune_result)
+
+        pytest_assert(
+            prune_result["rc"] != 0,
+            "DB pruning succeeded with invalid remove-all-db.auth",
+        )
+        pytest_assert(
+            "remove-all .auth must contain an empty signature-list payload" in prune_output,
+            "DB pruning did not report invalid remove-all-db.auth: {}".format(
+                prune_output
+            ),
+        )
+        _assert_db_state_unchanged(
+            duthost,
+            firmware_db_before,
+            persisted_auth_before,
+            "DB pruning with invalid remove-all-db.auth",
+        )
+    finally:
+        _restore_remove_all_db_auth(duthost, remove_all_was_present)
