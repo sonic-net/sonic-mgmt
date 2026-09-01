@@ -245,10 +245,10 @@ def wait_for_startup(duthost, localhost, delay, timeout, port=SONIC_SSH_PORT,
         result = duthost.command("true", module_ignore_errors=True)
         return result.is_successful
 
-    pytest_assert(
-        wait_until(ANSIBLE_READY_TIMEOUT, ANSIBLE_READY_INTERVAL, 0, is_ansible_ready),
-        "DUT {} did not become ready for Ansible commands after SSH startup".format(hostname),
-    )
+    if not wait_until(ANSIBLE_READY_TIMEOUT, ANSIBLE_READY_INTERVAL, 0, is_ansible_ready):
+        raise Exception(
+            "DUT {} did not become ready for Ansible commands after SSH startup".format(hostname)
+        )
     logger.info('Ansible commands are ready on {}'.format(hostname))
 
 
