@@ -28,7 +28,16 @@ def setup_ntp_context(ptfhost, duthost, ptf_use_ipv6):
         ntp_conf_path = '/etc/ntp.conf'
         ntp_service_name = 'ntp'
 
-    if ntp_daemon_type in (NtpDaemon.NTPSEC, NtpDaemon.NTP):
+    # Whether the PTF host exposes an interface literally named "mgmt".
+    # Full-topology PTFs have a `mgmt` veth pair; standalone Docker PTF
+    # containers typically only have `eth0`, and ntpsec cannot bind to those
+    # aliases. Restrict listen directives to the `mgmt` interface only when
+    # it actually exists; otherwise fall through to the default wildcard bind
+    # so the daemon can still serve on eth0.
+    ptf_has_mgmt_iface = ptfhost.command(
+        "ip link show mgmt", module_ignore_errors=True).get("rc", 1) == 0
+
+    if ntp_daemon_type in (NtpDaemon.NTPSEC, NtpDaemon.NTP) and ptf_has_mgmt_iface:
         # Limit listening to the mgmt interface, to prevent socket allocation
         # exhaustion
         ptfhost.lineinfile(path=ntp_conf_path, line="interface ignore wildcard")
@@ -106,7 +115,7 @@ def setup_ntp_context(ptfhost, duthost, ptf_use_ipv6):
 
     ptfhost.lineinfile(path=ntp_conf_path, line="", regexp="^server.*127.127.1.0.*prefer")
 
-    if ntp_daemon_type in (NtpDaemon.NTPSEC, NtpDaemon.NTP):
+    if ntp_daemon_type in (NtpDaemon.NTPSEC, NtpDaemon.NTP) and ptf_has_mgmt_iface:
         ptfhost.lineinfile(path=ntp_conf_path, line="", regexp="^interface.ignore.wildcard")
         ptfhost.lineinfile(path=ntp_conf_path, line="", regexp="^interface.listen.mgmt")
         if ptf_use_ipv6 and ptfhost.mgmt_ipv6:
