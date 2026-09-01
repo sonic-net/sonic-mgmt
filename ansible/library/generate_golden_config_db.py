@@ -911,6 +911,10 @@ class GenerateGoldenConfigDBModule(object):
                 "main_dpu_ids": self._format_dpu_key(hostname_1, idx)
             }
 
+        vxlan_tunnel_entry = {"src_ip": vxlan_src_ip}
+        if (device_info.get_sonic_version_info() or {}).get("asic_type") == "cisco-8000":
+            vxlan_tunnel_entry["ttl_mode"] = "pipe"
+
         ha_config = {
             "REMOTE_DPU": remote_dpu_table,
             "VDPU": vdpu_table,
@@ -956,7 +960,7 @@ class GenerateGoldenConfigDBModule(object):
                 }
             },
             "VXLAN_TUNNEL": {
-                "t4": {"src_ip": vxlan_src_ip}
+                "t4": vxlan_tunnel_entry
             }
         }
 
