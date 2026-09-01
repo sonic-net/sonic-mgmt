@@ -1540,6 +1540,27 @@ def get_pfcQueueGroupSize(default=8):
     return default
 
 
+def _parse_queue_table_key(queue_key):
+    """
+    Parse a QUEUE table entry key into (asic_namespace, interface, queue_index).
+
+    Pizza-box DUTs use numeric queue keys (e.g. ``"3"``). VOQ multi-asic linecards
+    use ``<asic_ns>|<interface>|<queue>`` (e.g. ``asic1|Ethernet144|0``).
+    """
+    parts = str(queue_key).split('|')
+    if len(parts) == 1:
+        try:
+            return None, None, int(parts[0])
+        except ValueError:
+            return None, None, None
+    if len(parts) == 3 and parts[0].startswith('asic') and parts[1].startswith('Ethernet'):
+        try:
+            return parts[0], parts[1], int(parts[2])
+        except ValueError:
+            return None, None, None
+    return None, None, None
+
+
 def get_queue_scheduler_weight_dict(host_ans, asic_value=None, port=None,
                                     qos_map_profile=None):
     """
@@ -1600,21 +1621,39 @@ def get_queue_scheduler_weight_dict(host_ans, asic_value=None, port=None,
     if not queue_cfg_all:
         return result
 
+    requested_port = port
+    interface_filter = None
     if port is None:
         port = next(iter(queue_cfg_all))
     if port not in queue_cfg_all:
-        raise KeyError("Port {} not found in QUEUE config (available: {})".format(port, sorted(queue_cfg_all)))
+        # On VOQ chassis platforms the QUEUE table is keyed by linecard
+        # hostname (e.g. ixre-egl-board74) rather than front-panel interface
+        # name (e.g. Ethernet40).
+        if host_ans.hostname in queue_cfg_all:
+            if requested_port and str(requested_port).startswith('Ethernet'):
+                interface_filter = requested_port
+            port = host_ans.hostname
+        else:
+            raise KeyError("Port {} not found in QUEUE config (available: {})".format(
+                requested_port, sorted(queue_cfg_all)))
 
-    for q, value in queue_cfg_all[port].items():
+    for queue_key, value in queue_cfg_all[port].items():
+        asic_ns, interface_name, queue_idx = _parse_queue_table_key(queue_key)
+        if queue_idx is None:
+            continue
+        if asic_value not in (None, "None") and asic_ns and asic_ns != asic_value:
+            continue
+        if interface_filter and interface_name and interface_name != interface_filter:
+            continue
         scheduler = value.get("scheduler")
         if scheduler is None or scheduler not in scheduler_cfg:
             continue
         sched = scheduler_cfg[scheduler]
-        result[int(q)] = {
+        result[queue_idx] = {
             "scheduler": scheduler,
             "type": sched.get("type"),
             "weight": int(sched["weight"]),
-            "dscp": queue_to_dscp.get(int(q)),
+            "dscp": queue_to_dscp.get(queue_idx),
         }
     return result
 
