@@ -12,6 +12,7 @@ from tests.transceiver.attribute_parser.attribute_keys import (
     BASE_ATTRIBUTES_KEY,
     DOM_ATTRIBUTES_KEY,
 )
+from tests.transceiver.common import scenario_ops
 from tests.transceiver.common.db_helpers import (
     check_entry_freshness,
     get_config_db_port_table,
@@ -28,40 +29,82 @@ STATE_DB_THRESHOLD_TABLE = "TRANSCEIVER_DOM_THRESHOLD"
 OPERATIONAL_SUFFIX = "_operational_range"
 THRESHOLD_SUFFIX = "_threshold_range"
 CONSISTENCY_SUFFIX = "_consistency_variation_threshold"
+CONSISTENCY_MODE_ABSOLUTE = "absolute"
+CONSISTENCY_MODE_PERCENT = "percent"
 LANE_NUM_PLACEHOLDER = "LANE_NUM"
 MEDIA_LANE_MASK_KEY = "media_lane_mask"
 DomMappedField = namedtuple("DomMappedField", ("source_attr", "attr_value"))
 DomThresholdMappedField = namedtuple("DomThresholdMappedField", ("source_attr", "attr_value", "threshold_key"))
+DomQuantitySpec = namedtuple(
+    "DomQuantitySpec",
+    ("threshold_db_prefix", "sensor_field_template", "operational_attr", "consistency_unit", "consistency_mode"),
+)
 
 THRESHOLD_FIELD_SUFFIXES = ("lowalarm", "lowwarning", "highwarning", "highalarm")
+DOM_QUANTITY_REGISTRY = {
+    "temperature": DomQuantitySpec(
+        "temp",
+        "temperature",
+        "temperature_operational_range",
+        "C",
+        CONSISTENCY_MODE_ABSOLUTE,
+    ),
+    "voltage": DomQuantitySpec("vcc", "voltage", "voltage_operational_range", "V", CONSISTENCY_MODE_ABSOLUTE),
+    "laser_temperature": DomQuantitySpec(
+        "lasertemp",
+        "laser_temperature",
+        "laser_temperature_operational_range",
+        "C",
+        CONSISTENCY_MODE_ABSOLUTE,
+    ),
+    "tx_power": DomQuantitySpec(
+        "txpower",
+        "tx{}power",
+        "txLANE_NUMpower_operational_range",
+        "dB",
+        CONSISTENCY_MODE_ABSOLUTE,
+    ),
+    "rx_power": DomQuantitySpec(
+        "rxpower",
+        "rx{}power",
+        "rxLANE_NUMpower_operational_range",
+        "dB",
+        CONSISTENCY_MODE_ABSOLUTE,
+    ),
+    "tx_bias": DomQuantitySpec(
+        "txbias",
+        "tx{}bias",
+        "txLANE_NUMbias_operational_range",
+        "%",
+        CONSISTENCY_MODE_PERCENT,
+    ),
+}
 THRESHOLD_FIELD_PREFIXES = {
-    "temperature": "temp",
-    "voltage": "vcc",
-    "laser_temperature": "lasertemp",
-    "tx_bias": "txbias",
-    "tx_power": "txpower",
-    "rx_power": "rxpower",
+    base_name: spec.threshold_db_prefix
+    for base_name, spec in DOM_QUANTITY_REGISTRY.items()
 }
 THRESHOLD_TO_OPERATIONAL_ATTR = {
-    "temperature": "temperature_operational_range",
-    "voltage": "voltage_operational_range",
-    "laser_temperature": "laser_temperature_operational_range",
-    "tx_bias": "txLANE_NUMbias_operational_range",
-    "tx_power": "txLANE_NUMpower_operational_range",
-    "rx_power": "rxLANE_NUMpower_operational_range",
+    base_name: spec.operational_attr
+    for base_name, spec in DOM_QUANTITY_REGISTRY.items()
 }
 THRESHOLD_VALUE_TOLERANCE = 0.01
 CONSISTENCY_FIELD_TEMPLATES_BY_BASE = {
-    "temperature": "temperature",
-    "voltage": "voltage",
-    "laser_temperature": "laser_temperature",
-    "tx_power": "tx{}power",
-    "rx_power": "rx{}power",
-    "tx_bias": "tx{}bias",
+    base_name: spec.sensor_field_template
+    for base_name, spec in DOM_QUANTITY_REGISTRY.items()
+}
+CONSISTENCY_UNITS_BY_BASE = {
+    base_name: spec.consistency_unit
+    for base_name, spec in DOM_QUANTITY_REGISTRY.items()
+}
+CONSISTENCY_MODES_BY_BASE = {
+    base_name: spec.consistency_mode
+    for base_name, spec in DOM_QUANTITY_REGISTRY.items()
 }
 
 DOM_POLLING_ENABLED_VALUES = ("", "enabled")
 DOM_POLLING_DISABLED_VALUE = "disabled"
+
+DOM_RECOVERY_POLL_INTERVAL_SEC = 20
 
 
 def _active_media_lanes(primary_port, port_attributes_dict, lport_to_first_subport_mapping):
@@ -190,6 +233,30 @@ def consistency_field_template_for_attr(attr_name):
         return None
     base_name = attr_name[:-len(CONSISTENCY_SUFFIX)]
     return CONSISTENCY_FIELD_TEMPLATES_BY_BASE.get(base_name)
+
+
+def consistency_unit_for_attr(attr_name):
+    """Return the output unit for a configured consistency attribute."""
+    if not attr_name.endswith(CONSISTENCY_SUFFIX):
+        return None
+    base_name = attr_name[:-len(CONSISTENCY_SUFFIX)]
+    return CONSISTENCY_UNITS_BY_BASE.get(base_name)
+
+
+def consistency_mode_for_attr(attr_name):
+    """Return the validation mode for a configured consistency attribute."""
+    if not attr_name.endswith(CONSISTENCY_SUFFIX):
+        return None
+    base_name = attr_name[:-len(CONSISTENCY_SUFFIX)]
+    return CONSISTENCY_MODES_BY_BASE.get(base_name)
+
+
+def dom_consistency_attributes():
+    """Return DOM consistency attribute names derived from the quantity registry."""
+    return tuple(
+        "{}{}".format(base_name, CONSISTENCY_SUFFIX)
+        for base_name in DOM_QUANTITY_REGISTRY
+    )
 
 
 def field_template_is_lane_expanded(field_template):
@@ -384,6 +451,38 @@ def parse_min_max_range(mapped_field):
     return min_value, max_value, None
 
 
+def dom_field_available(field, _mapped_field, raw_value):
+    """``field_check`` callback: DOM field is present with a finite numeric value."""
+    value = parse_numeric(raw_value)
+    if value is None or not math.isfinite(value):
+        return "expected DOM field {} has no valid finite value (got {!r})".format(
+            field,
+            raw_value,
+        )
+    return None
+
+
+def dom_field_in_operational_range(field, mapped_field, raw_value):
+    """``field_check`` callback: DOM field is available and within its configured range."""
+    min_value, max_value, range_error = parse_min_max_range(mapped_field)
+    if range_error:
+        return range_error
+
+    error = dom_field_available(field, mapped_field, raw_value)
+    if error:
+        return error
+
+    value = parse_numeric(raw_value)
+    if not min_value <= value <= max_value:
+        return "{} value {} out of range [{}, {}]".format(
+            field,
+            value,
+            min_value,
+            max_value,
+        )
+    return None
+
+
 def validate_dom_plan_fields(
     duthost,
     dom_primary_ports,
@@ -554,3 +653,50 @@ def check_dom_sensor_freshness(sensor_data, max_age_min, now_utc):
         now_utc,
         table_name=STATE_DB_SENSOR_TABLE,
     )
+
+
+def verify_dom_recovered(duthost, port_attributes_dict, ports,
+                         lport_to_first_subport_mapping, baseline_sensor_data):
+    """Confirm DOM data recovered after a disruptive operation. Polls until the sensor
+    entry is republished and every configured field is readable, then asserts each field
+    is within its operational range.
+
+    Returns a list of failure strings (empty on success).
+    """
+    dom_attrs = port_attributes_dict[ports[0]].get(DOM_ATTRIBUTES_KEY, {})
+    if dom_attrs.get("data_max_age_min") is None:
+        return [f"{ports[0]}: {DOM_ATTRIBUTES_KEY} is missing data_max_age_min"]
+
+    plan_by_port = build_dom_sensor_plan(
+        port_attributes_dict, ports, lport_to_first_subport_mapping,
+    )
+
+    def _check_republished():
+        sensor_by_port, read_errors = read_dom_sensor_data(duthost, ports)
+        failures = [f"DOM sensor read error: {read_error}" for read_error in read_errors]
+        for port in ports:
+            updated = (sensor_by_port.get(port) or {}).get("last_update_time")
+            baseline = (baseline_sensor_data.get(port) or {}).get("last_update_time")
+            if updated is not None and updated == baseline:
+                failures.append(f"{port}: DOM data not republished; last_update_time still {updated}")
+        port_failures, _, _ = validate_dom_plan_fields(
+            duthost, ports, sensor_by_port, plan_by_port,
+            dom_field_available,
+            include_freshness_only=True,
+        )
+        return failures + port_failures
+
+    failures = scenario_ops.poll_ports_recovered(
+        _check_republished, dom_attrs["dom_info_recover_sec"],
+        DOM_RECOVERY_POLL_INTERVAL_SEC, "DOM recovery",
+    )
+    if failures:
+        return failures
+
+    sensor_by_port, read_errors = read_dom_sensor_data(duthost, ports)
+    port_failures, _, _ = validate_dom_plan_fields(
+        duthost, ports, sensor_by_port, plan_by_port,
+        dom_field_in_operational_range,
+        include_freshness_only=True,
+    )
+    return [f"DOM sensor read error: {read_error}" for read_error in read_errors] + port_failures

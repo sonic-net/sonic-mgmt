@@ -74,7 +74,15 @@ reboot_ctrl_dict = {
         "wait": 90,
         "warmboot_finalizer_timeout": 180,
         "cause": "warm-reboot",
-        "test_reboot_cause_only": False
+        "test_reboot_cause_only": False,
+        "gnoi_api": {
+            "service": "gnoi.system.System",
+            "method": "Reboot",
+            "params": {
+                "method": 4,  # WARM Reboot
+                "message": "gNOI reboot test"
+            }
+        }
     },
     REBOOT_TYPE_WATCHDOG: {
         "command": "watchdogutil arm -s 5",
