@@ -76,7 +76,7 @@ The following table summarizes the key attributes used in system testing. This t
 | power_cycle_iterations | integer | 3 | O | hwsku | Number of power cycle iterations for recovery/stress validation |
 | transceiver_reset_supported | boolean | True | O | transceivers | Whether transceiver supports reset functionality |
 | transceiver_reset_i2c_recover_sec | integer | 5 | O | transceivers | Time to wait for I2C recovery after transceiver state changes (reset, low power mode) before verification |
-| low_power_mode_supported | boolean | False | O | transceivers | Whether transceiver supports low power mode |
+| low_power_mode_supported | boolean | True | O | transceivers | Whether transceiver supports low power mode |
 | loopback_supported | boolean | False | O | transceivers | Whether transceiver supports loopback functionality |
 | supported_loopback_modes | list | [] | O | transceivers | List of supported loopback modes. Possible values include, but are not limited to: ["host-side-input", "media-side-input", "host-side-output", "media-side-output"]. |
 | loopback_settle_sec | integer | 15 | O | transceivers | Time to wait after loopback mode changes |
