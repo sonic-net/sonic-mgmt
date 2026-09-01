@@ -10,6 +10,32 @@ SERVER_PORT = 8000
 IPTABLES_DELETE_RULE_CMD = 'iptables -D INPUT -p tcp -m tcp --dport {} -j ACCEPT'.format(SERVER_PORT)
 IP6TABLES_DELETE_RULE_CMD = 'ip6tables -D INPUT -p tcp -m tcp --dport {} -j ACCEPT'.format(SERVER_PORT)
 
+# Upper bound on how many copies of the rule we try to remove. start_platform_api_service
+# is function scoped and re-adds the rule every time the server is unreachable, so a server
+# that dies part way through a module can leave more than one copy behind.
+MAX_RULE_DELETE_ATTEMPTS = 10
+
+
+def _remove_server_port_rules(duthost):
+    """
+    Remove every copy of the port 8000 ACCEPT rule this test run may have added.
+
+    start_platform_api_service adds either the IPv4 or the IPv6 rule depending on the
+    management address family, never both, so one of these deletes is expected to be a
+    no-op. "iptables -D" removes a single matching rule, so keep deleting until there is
+    nothing left to remove.
+
+    Errors are ignored throughout: after a reboot test the DUT has power cycled and the
+    rule is already gone, which is not a failure.
+    """
+    for delete_cmd in (IPTABLES_DELETE_RULE_CMD, IP6TABLES_DELETE_RULE_CMD):
+        for _ in range(MAX_RULE_DELETE_ATTEMPTS):
+            result = duthost.command(delete_cmd, module_ignore_errors=True)
+            # Default to non-zero so anything that does not report an rc, such as an
+            # unreachable host, stops the loop instead of raising KeyError.
+            if result.get('rc', 1) != 0:
+                break
+
 
 def skip_absent_psu(psu_num, platform_api_conn, psu_skip_list, logger):    # noqa: F811
     name = psu.get_name(platform_api_conn, psu_num)
@@ -25,6 +51,13 @@ def stop_platform_api_service(duthosts):
         yield
     finally:
         for duthost in duthosts:
+            # Remove the port 8000 rules first. The checks below can raise, for example when
+            # pmon is not running and the supervisorctl status output is empty, and the rules
+            # have to come off regardless or they leak into the rest of the session and trip a
+            # later cacl run. Nothing after this point needs the port: the remaining commands
+            # all go over SSH via "docker exec".
+            _remove_server_port_rules(duthost)
+
             # Stop the server and remove our supervisor config changes
             pmon_path_supervisor = os.path.join(os.sep, 'etc', 'supervisor', 'conf.d', 'platform_api_server.conf')
             pmon_path_script = os.path.join(os.sep, 'opt', SERVER_FILE)
@@ -45,17 +78,6 @@ def stop_platform_api_service(duthosts):
                 duthost.command('docker exec -i pmon rm -f {}'.format(pmon_path_script))
                 duthost.command('docker exec -i pmon supervisorctl reread')
                 duthost.command('docker exec -i pmon supervisorctl update')
-
-            # Always remove the rules, regardless of the server state. start_platform_api_service
-            # adds them before the server is started, so a server that is no longer RUNNING at
-            # teardown (pmon restarted, the server crashed, or a reboot test intervened) would
-            # otherwise leave them behind for the rest of the session.
-            #
-            # We ignore errors here because after a reboot test, the DUT will have power-cycled and will
-            # no longer have the rule we added in the start_platform_api_service fixture, even if the
-            # platform_api_server is running.
-            duthost.command(IPTABLES_DELETE_RULE_CMD, module_ignore_errors=True)
-            duthost.command(IP6TABLES_DELETE_RULE_CMD, module_ignore_errors=True)
 
 
 @pytest.fixture(autouse=True)
