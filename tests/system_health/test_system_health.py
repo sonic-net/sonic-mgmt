@@ -507,41 +507,9 @@ def check_health_field_not_equal(duthost, field, unexpected):
     return not value or value != unexpected
 
 
-# Some platforms (e.g. certain BMC-based SKUs) do not implement
-# the system status LED chassis APIs. On those platforms 'show system-health summary'
-# exits non-zero with one of these markers. Treat that as "LED not supported" and
-# skip the LED check instead of failing the test.
-LED_UNSUPPORTED_MARKERS = [
-    "set_status_led is not implemented",
-    "get_status_led is not implemented",
-    "initizalize_system_led",   # upstream typo present in some platform APIs
-    "initialize_system_led",
-]
-
-
-def _system_health_summary(duthost):
-    """Run 'show system-health summary'.
-
-    Returns a tuple (supported, output):
-    - supported is False when the platform doesn't implement the system status
-      LED APIs (command exits non-zero with a known marker).
-    - output is the command stdout when supported, otherwise the combined
-      stdout/stderr for logging.
-    """
-    res = duthost.shell('show system-health summary', module_ignore_errors=True)
-    if res['rc'] != 0:
-        combined = "{}\n{}".format(res.get('stdout', ''), res.get('stderr', ''))
-        if any(marker in combined for marker in LED_UNSUPPORTED_MARKERS):
-            return False, combined
-        pytest_assert(
-            False,
-            "'show system-health summary' failed unexpectedly (rc={}): {}".format(res['rc'], combined))
-    return True, res['stdout']
-
-
 def _fetch_led_and_status(duthost):
     """Fetch system health summary and return (led_color_lower, status_dict)."""
-    _, summary = _system_health_summary(duthost)
+    summary = duthost.shell('show system-health summary')['stdout']
     # Use [\w ]+ to capture multi-word colors like "blinking green"
     led_res = re.findall(r"System status LED\s+([\w ]+)", summary)
     led_status = led_res[0].strip().lower() if led_res else ""
@@ -551,12 +519,12 @@ def _fetch_led_and_status(duthost):
 
 
 def check_system_health_led_info(duthost):
-    supported, output = _system_health_summary(duthost)
-    if not supported:
+    # BMC platforms do not implement the system status LED chassis APIs, so
+    # 'show system-health summary' fails on them. Skip the LED check there.
+    if duthost.is_bmc():
         logger.warning(
-            "Skipping system status LED check: platform '%s' does not implement "
-            "the system status LED APIs ('show system-health summary' not supported). Output: %s",
-            duthost.facts.get('platform'), output)
+            "Skipping system status LED check: BMC platform '%s' does not implement "
+            "the system status LED APIs.", duthost.facts.get('platform'))
         return True
 
     led_cfg = get_system_health_config(duthost, "led_color", DEFAULT_LED_CONFIG)
