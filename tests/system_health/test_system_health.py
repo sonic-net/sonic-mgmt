@@ -521,6 +521,14 @@ def _fetch_led_and_status(duthost):
 
 
 def check_system_health_led_info(duthost):
+    # BMC platforms do not implement the system status LED chassis APIs, so
+    # 'show system-health summary' fails on them. Skip the LED check there.
+    if duthost.is_bmc():
+        logger.warning(
+            "Skipping system status LED check: BMC platform '%s' does not implement "
+            "the system status LED APIs.", duthost.facts.get('platform'))
+        return True
+
     led_cfg = get_system_health_config(duthost, "led_color", DEFAULT_LED_CONFIG)
     expected_normal = led_cfg["normal"].lower()
     not_normal = {color.lower() for key, color in led_cfg.items() if key != "normal"}
