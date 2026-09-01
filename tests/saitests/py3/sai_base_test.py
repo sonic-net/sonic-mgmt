@@ -234,6 +234,21 @@ class ThriftInterface(BaseTest):
             return '-n asic{} '.format(dst_asic_index)
         return ''
 
+    def _read_dut_value(self, cmd):
+        """Run cmd on the dst DUT and return its first stdout line, stripped.
+
+        Returns '' when the command produced no output, which is what
+        'sonic-db-cli ... hget' yields for an unset field -- so callers must not
+        index into the result unconditionally.
+        """
+        stdOut, stdErr, retValue = self.exec_cmd_on_dut(
+            self.dst_server_ip, self.test_params['dut_username'],
+            self.test_params['dut_password'], cmd)
+        if stdErr:
+            print("_read_dut_value: command failed (retValue={}, stdErr={}): {}".format(
+                retValue, stdErr, cmd))
+        return stdOut[0].strip() if stdOut else ''
+
     def _run_shaper_cmds(self, cmds, caller):
         """Run the shaper's CONFIG_DB writes, logging any that fail."""
         for cmd in cmds:
@@ -270,6 +285,12 @@ class ThriftInterface(BaseTest):
             burst = max(max_rate // 100, 8192)
         sched_name = "egress_shaper_{}".format(dut_port)
         ns_opt = self._dst_ns_opt()
+        # Remember any pre-existing port-level scheduler binding so cleanup can
+        # restore it.
+        saved = self._read_dut_value(
+            'sudo sonic-db-cli {}CONFIG_DB hget "PORT_QOS_MAP|{}" scheduler'.format(
+                ns_opt, dut_port))
+        self.saved_port_scheduler = '' if saved == sched_name else saved
         cmds = [
             'sudo sonic-db-cli {}CONFIG_DB hset "SCHEDULER|{}" meter_type bytes pir {} pbs {}'.format(
                 ns_opt, sched_name, int(max_rate), int(burst)),
@@ -281,15 +302,23 @@ class ThriftInterface(BaseTest):
         time.sleep(3)
 
     def clear_egress_shaper(self, dut_port, max_rate):
-        """Remove the shaper applied by apply_egress_shaper(). No-op when max_rate
+        """Remove the shaper applied by apply_egress_shaper(), putting back any
+        port-level scheduler binding that was there before. No-op when max_rate
         is falsy or the platform is not Broadcom, mirroring apply_egress_shaper()
         so it is safe to call unconditionally in a finally block."""
         if not max_rate or self.test_params.get('sonic_asic_type') != 'broadcom':
             return
         sched_name = "egress_shaper_{}".format(dut_port)
         ns_opt = self._dst_ns_opt()
+        saved = getattr(self, 'saved_port_scheduler', '')
+        if saved:
+            unbind_cmd = 'sudo sonic-db-cli {}CONFIG_DB hset "PORT_QOS_MAP|{}" scheduler {}'.format(
+                ns_opt, dut_port, saved)
+        else:
+            unbind_cmd = 'sudo sonic-db-cli {}CONFIG_DB hdel "PORT_QOS_MAP|{}" scheduler'.format(
+                ns_opt, dut_port)
         cmds = [
-            'sudo sonic-db-cli {}CONFIG_DB hdel "PORT_QOS_MAP|{}" scheduler'.format(ns_opt, dut_port),
+            unbind_cmd,
             'sudo sonic-db-cli {}CONFIG_DB del "SCHEDULER|{}"'.format(ns_opt, sched_name),
         ]
         self._run_shaper_cmds(cmds, 'clear_egress_shaper')

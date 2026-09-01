@@ -4513,6 +4513,11 @@ class DscpEcnSend(sai_base_test.ThriftInterfaceDataPlane):
         label = ('VOQ' if voq else 'UC') + str(dscp)
         for line in stdOut:
             fields = line.split()
+            # Column order is fixed by sonic-utilities scripts/wredstat:
+            # port, <queuetype><idx>, WredDrp/pkts, WredDrp/bytes,
+            # EcnMarked/pkts, EcnMarked/bytes -- so the drop count is always
+            # fields[2] and the ECN count fields[4]. The port column is a
+            # single token in both layouts:
             # DNX VOQ chassis row: <host>|<asic>|<port>  VOQ<idx>  WredDrp/pkts ...
             # XGS row:             <port>                UC<idx>   WredDrp/pkts ...
             if len(fields) < 3:
@@ -4701,6 +4706,13 @@ class DscpEcnSend(sai_base_test.ThriftInterfaceDataPlane):
                     if err:
                         raise RuntimeError(
                             "show queue wredcounters failed: stdErr={}, retValue={}".format(err, ret))
+                    # wredstat always prints a 6-column row per queue, so a
+                    # matched row yields a value: the literal 'N/A' when the
+                    # counter is not in COUNTERS_DB (flex counters not polled,
+                    # or no WRED/ECN counter support on the platform), which is
+                    # the case this cross-check is skipped for. None means no
+                    # row matched at all -- a wrong namespace or queue-type
+                    # label -- which is a genuine failure, not 'unsupported'.
                     f = out[0].split() if out else []
                     return f[4] if len(f) > 5 else None
                 if ecn_queue_status == 'off':
@@ -4708,14 +4720,24 @@ class DscpEcnSend(sai_base_test.ThriftInterfaceDataPlane):
                     limit = 0
                 ecn_marked_pkts = self._poll_until(
                     read_ecn_marked,
-                    lambda v: v is None or v == 'N/A' or int(v.replace(',', '')) == marked_cnt)
+                    lambda v: v == 'N/A' or (v is not None and int(v.replace(',', '')) == marked_cnt))
                 print("ECNMarked pkts: {}".format(ecn_marked_pkts))
-                if ecn_marked_pkts is not None and ecn_marked_pkts != 'N/A':
-                    assert (int(ecn_marked_pkts.replace(',', '')) == marked_cnt)
+                if ecn_marked_pkts == 'N/A':
+                    print("Skipping wred counter assertion: ECN counters unavailable on this "
+                          "platform (flex counters not polled, or unsupported)")
                 else:
-                    print("Skipping wred counter assertion: counter unavailable (stdOut={})".format(ecn_marked_pkts))
+                    assert ecn_marked_pkts is not None, \
+                        "no 'show queue wredcounters' row matched port={} UC{}".format(dut_port, dscp)
+                    assert (int(ecn_marked_pkts.replace(',', '')) == marked_cnt)
 
             transmitted_pkts = port_counters[TRANSMITTED_PKTS] - port_counters_base[TRANSMITTED_PKTS]
+
+            # The full burst is expected to egress on every variant except the
+            # one that deliberately overruns the WRED drop threshold. Scoped to
+            # 'verify_wred_drops' rather than to 'ecn != 0' so the non-ECT
+            # variants keep this bound as well.
+            if not verify_wred_drops:
+                assert (transmitted_pkts >= num_of_pkts)
 
             # Tuned for q3d: assumes num_of_pkts exceeds the platform's WRED
             # drop threshold by a small, bounded margin. Retune before enabling
@@ -4754,8 +4776,8 @@ class DscpEcnSend(sai_base_test.ThriftInterfaceDataPlane):
             else:
                 # ECN-capable flow: packets are marked, not dropped, so all
                 # should egress (the egress shaper paces the release so the
-                # full burst reaches the PTF without loss).
-                assert (transmitted_pkts >= num_of_pkts)
+                # full burst reaches the PTF without loss). The full-burst
+                # assertion is made above, for the non-ECT variants too.
                 non_marked_data = not_marked_cnt * cell_occupancy
                 assert (limit * 0.95 <= non_marked_data)
                 # If the number of packets in the queue is below the minimum threshold
