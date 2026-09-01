@@ -10,7 +10,7 @@ import os
 from tests.common.helpers.gnmi_utils import gnmi_capabilities, GNMIEnvironment
 from .helper import gnmi_set, dump_gnmi_log, gnmi_subscribe_streaming_sample, gnmi_get, \
                     apply_cert_config, \
-                    gnmi_subscribe_streaming_onchange
+                    gnmi_subscribe_streaming_onchange, gnmi_subscribe_stream_connections
 from . import cli_helpers as helper
 from tests.common.utilities import wait_until
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
@@ -18,6 +18,9 @@ from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 
 logger = logging.getLogger(__name__)
 allure.logger = logger
+
+MEMORY_CHECKER_WAIT = 1
+MEMORY_CHECKER_CYCLES = 60
 
 SHOW_PATHS_FILE = os.path.join(os.path.dirname(os.path.realpath(__file__)), "cli_paths.json")
 
@@ -291,6 +294,30 @@ def test_on_change_updates(duthosts, rand_one_dut_hostname, ptfhost):
     assert msg != "", "Did not get output from PTF on-change client"
     assert bgp_neighbor in msg, (
         "Did not find neighbor {} in on-change update: {}".format(bgp_neighbor, msg))
+
+
+def test_mem_spike(duthosts, rand_one_dut_hostname, ptfhost):
+    '''
+    The gnmi container memory must stay under threshold when a client continuously
+    creates channels with the gnmi server.
+    '''
+    duthost = duthosts[rand_one_dut_hostname]
+    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+
+    def client_worker():
+        gnmi_subscribe_stream_connections(duthost, ptfhost, ["DOCKER_STATS"], target="STATE_DB",
+                                          create_connections=2000, update_count=1)
+
+    client_thread = threading.Thread(target=client_worker)
+    client_thread.start()
+
+    for _ in range(MEMORY_CHECKER_CYCLES):
+        ret = duthost.shell("python3 /usr/bin/memory_checker %s 419430400" % env.gnmi_container,
+                            module_ignore_errors=True)
+        assert ret["rc"] == 0, "Memory utilization has exceeded threshold"
+        time.sleep(MEMORY_CHECKER_WAIT)
+
+    client_thread.join()
 
 
 def test_telemetry_show_non_get(duthosts, rand_one_dut_hostname, ptfhost, skip_non_container_test):
