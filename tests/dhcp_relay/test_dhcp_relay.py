@@ -442,6 +442,41 @@ def test_dhcp_relay_with_source_port_ip_in_relay_enabled(
         pytest_assert(wait_until(120, 5, 0, check_interface_status, duthost, relay_agent))
 
 
+def test_dhcp_relay_bootz_option_transparency(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist,
+                                              testing_config,
+                                              setup_standby_ports_on_rand_unselected_tor,  # noqa: F811
+                                              toggle_all_simulator_ports_to_rand_selected_tor_m,  # noqa: F811
+                                              relay_agent):  # noqa: F811
+    """Verify BootZ/PXE DHCPv4 option payloads are retained across relay forwarding."""
+    testing_mode, duthost = testing_config
+
+    for dhcp_relay in dut_dhcp_relay_data:
+        ptf_runner(ptfhost,
+                   "ptftests",
+                   "dhcp_relay_test.DHCPBootZOptionTest",
+                   platform_dir="ptftests",
+                   params={"hostname": duthost.hostname,
+                           "client_port_index": dhcp_relay['client_iface']['port_idx'],
+                           "client_iface_alias": str(dhcp_relay['client_iface']['alias']),
+                           "leaf_port_indices": repr(dhcp_relay['uplink_port_indices']),
+                           "num_dhcp_servers": len(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs']),
+                           "server_ip": dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'],
+                           "relay_iface_ip": str(dhcp_relay['downlink_vlan_iface']['addr']),
+                           "relay_iface_mac": str(dhcp_relay['downlink_vlan_iface']['mac']),
+                           "relay_iface_netmask": str(dhcp_relay['downlink_vlan_iface']['mask']),
+                           "dest_mac_address": BROADCAST_MAC,
+                           "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
+                           "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
+                           "uplink_mac": str(dhcp_relay['uplink_mac']),
+                           "testing_mode": testing_mode,
+                           "kvm_support": True,
+                           "relay_agent": relay_agent,
+                           "downlink_vlan_iface_name": str(dhcp_relay['downlink_vlan_iface']['name'])},
+                   log_file=("/tmp/dhcp_relay_test.DHCPBootZOptionTest.{}.log"
+                             .format(dhcp_relay["downlink_vlan_iface"]["name"])),
+                   is_python3=True)
+
+
 def test_dhcp_relay_after_link_flap(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist,
                                     testing_config, relay_agent):
     """Test DHCP relay functionality on T0 topology after uplinks flap
