@@ -40,8 +40,7 @@ CONFIG_DB_PATH = "/etc/sonic/config_db.json"
 PTF_VTEP_IP = "100.0.1.10"  # PTF VTEP endpoint IP
 VXLAN_UDP_PORT = 4789       # Standard VXLAN UDP port
 VXLAN_VNI = 10000           # Primary VXLAN Network Identifier
-VXLAN_VNI_2 = 20000         # Secondary VNI for multi-VNI testing
-VXLAN_VNI_3 = 30000         # Tertiary VNI for multi-VNI testing
+UNPROVISIONED_VNI = 30000   # VNI intentionally not provisioned; used to test the VNI-mismatch (no-rewrite) case
 VNET_PRIMARY_NAME = "Vnet-0"          # Primary VNET name (ecmp_utils default naming)
 VNET_PRIMARY_ROUTE_IP = "150.0.3.1"   # Primary VNET route destination IP
 VNET_PRIMARY_ROUTE_PREFIX = f"{VNET_PRIMARY_ROUTE_IP}/32"
@@ -491,46 +490,6 @@ def apply_config_chunk(duthost, payload, config_name):
                   f"config load failed for {file_dest}: {result.get('stderr', result.get('stdout', ''))}")
 
 
-def create_additional_vnets(duthost, tunnel_name):
-    """Create additional VNETs for multi-VNI testing"""
-    ptf_vtep = PTF_VTEP_IP
-
-    logger.info("Creating additional VNETs and routes")
-
-    combined_config = {
-        "VNET": {
-            "Vnet2-0": {
-                "vni": str(VXLAN_VNI_2),
-                "vxlan_tunnel": tunnel_name
-            },
-            "Vnet3-0": {
-                "vni": str(VXLAN_VNI_3),
-                "vxlan_tunnel": tunnel_name
-            }
-        },
-        "VNET_ROUTE_TUNNEL": {
-            "Vnet2-0|151.0.3.1/32": {
-                "endpoint": ptf_vtep,
-                "vni": str(VXLAN_VNI_2)
-            },
-            "Vnet3-0|152.0.3.1/32": {
-                "endpoint": ptf_vtep,
-                "vni": str(VXLAN_VNI_3)
-            }
-        }
-    }
-
-    apply_config_chunk(duthost, combined_config, "additional_vnets")
-
-    logger.info("Waiting for additional VNET routes to become active in STATE_DB...")
-    pytest_assert(wait_until(60, 5, 5, _check_vnet_route, duthost, "Vnet2-0", "151.0.3.1/32"),
-                  "VNET route for Vnet2-0|151.0.3.1/32 is not active in STATE_DB")
-    pytest_assert(wait_until(60, 5, 5, _check_vnet_route, duthost, "Vnet3-0", "152.0.3.1/32"),
-                  "VNET route for Vnet3-0|152.0.3.1/32 is not active in STATE_DB")
-
-    logger.info(f"Created additional VNETs: Vnet2-0 (VNI {VXLAN_VNI_2}), Vnet3-0 (VNI {VXLAN_VNI_3})")
-
-
 def backup_config(duthost):
     logger.info("Creating configuration backup...")
     try:
@@ -575,9 +534,6 @@ def cleanup_test_configuration(duthost, vxlan_tunnel_name=None):
                 f"/tmp/{ACL_REMOVE_RULES_FILE}",  # acl_rules_del.json
                 "/tmp/inner_src_mac_rewrite_type_acl_type.json",  # Created by setup_acl_table_type
                 "/tmp/vxlan_tunnel_chunk.json",  # Created by create_vxlan_vnet_config
-                "/tmp/additional_vnets_chunk.json",  # Created by create_additional_vnets
-                "/tmp/additional_vnet_routes_chunk.json",  # Created by create_additional_vnets
-
             ]
 
             for file_path in temp_files:
@@ -826,8 +782,6 @@ def test_partial_match(setUp):
     rule_name_2 = "rule_ip_match_no_vni"
 
     try:
-        create_additional_vnets(duthost=duthost, tunnel_name=setUp['vxlan_tunnel_name'])
-
         setup_acl_table_type(duthost, acl_type_name=ACL_TABLE_TYPE)
         setup_acl_table(duthost, bind_ports)
 
@@ -843,9 +797,11 @@ def test_partial_match(setUp):
         )
         logger.info("=== Case 1 completed successfully ===")
 
-        # Case 2: Source IP matches but VNI does not match
+        # Case 2: Source IP matches but VNI does not match. UNPROVISIONED_VNI is never provisioned
+        # as a VNET; traffic is encapped with the primary VNET's VNI, so the rule can't match and
+        # no extra VNET provisioning is needed.
         logger.info("=== Case 2: IP matches but VNI does not ===")
-        setup_acl_rule(duthost, "202.2.2.100/32", str(VXLAN_VNI_3), rewrite_mac_2, rule_name_2)
+        setup_acl_rule(duthost, "202.2.2.100/32", str(UNPROVISIONED_VNI), rewrite_mac_2, rule_name_2)
         _send_and_verify_mac_rewrite(
             ptfadapter, ptf_port_1, ptf_port_2, duthost,
             "202.2.2.100", VNET_PRIMARY_ROUTE_IP, original_inner_src_mac,
