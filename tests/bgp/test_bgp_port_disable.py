@@ -25,6 +25,43 @@ def generate_iptables_rule():
     return iptables_rules
 
 
+def get_asic_namespace_hosts(duthost):
+    if duthost.is_multi_asic:
+        return duthost.asics
+    return [duthost.sonichost]
+
+
+def get_cacl_namespace_hosts(duthost):
+    hosts = get_asic_namespace_hosts(duthost)
+    if duthost.is_multi_asic:
+        return [duthost.sonichost, *hosts]
+    return hosts
+
+
+def check_iptables_rules_exist(duthost):
+    expected_rules = {"-A OUTPUT {}".format(rule) for rule in generate_iptables_rule()}
+    for host in get_cacl_namespace_hosts(duthost):
+        result = host.command("iptables -S")
+        if not expected_rules.issubset(result["stdout_lines"]):
+            return False
+    return True
+
+
+def wait_for_iptables_rules(duthost):
+    consecutive_passes = 0
+
+    def _rules_are_stable():
+        nonlocal consecutive_passes
+        # Require consecutive passes to avoid treating stale rules as a completed caclmgrd update.
+        if check_iptables_rules_exist(duthost):
+            consecutive_passes += 1
+        else:
+            consecutive_passes = 0
+        return consecutive_passes >= 3
+
+    return wait_until(60, 1, 0, _rules_are_stable)
+
+
 def restart_caclmgrd(duthost):
     def _check_caclmgrd_running():
         command = 'pgrep -f -c caclmgrd'
@@ -33,6 +70,7 @@ def restart_caclmgrd(duthost):
     duthost.shell('sudo systemctl restart caclmgrd')
     time.sleep(10)
     pytest_assert(wait_until(20, 1, 0, _check_caclmgrd_running), "caclmgrd not running")
+    pytest_assert(wait_for_iptables_rules(duthost), "FRR access-control rules did not stabilize")
 
 
 def setup_iptables_rule(duthost, action="add"):
@@ -40,65 +78,96 @@ def setup_iptables_rule(duthost, action="add"):
         restart_caclmgrd(duthost)
     else:
         iptables_rules = generate_iptables_rule()
-
-        # Dynamically construct and execute iptables deletion commands
-        for rule in iptables_rules:
-            command = "sudo iptables -D OUTPUT {}".format(rule)
-            duthost.shell(command)
+        for host in get_cacl_namespace_hosts(duthost):
+            for rule in iptables_rules:
+                host.command("iptables -D OUTPUT {}".format(rule))
 
 
 def verify_daemon_tcp_ports(duthost):
-    # Capture local address/port to verify restrictions
-    netstat_outputs = duthost.shell("sudo netstat -tlnp |  awk '{print $4}'", module_ignore_errors=True)["stdout"]
+    for host in get_asic_namespace_hosts(duthost):
+        namespace = getattr(host, "namespace", None) or "host"
+        netstat_outputs = []
+        for line in host.command("netstat -tlnp")["stdout_lines"]:
+            fields = line.split()
+            if len(fields) >= 4 and fields[0] in ("tcp", "tcp6"):
+                netstat_outputs.append(fields[3])
 
-    for port in RESTRICTED_ACCESS_PORTS:
-        pytest_assert(port not in netstat_outputs, "port {} is accessable".format(port))
+        for port in RESTRICTED_ACCESS_PORTS:
+            pytest_assert(
+                not any(address.endswith(":{}".format(port)) for address in netstat_outputs),
+                "port {} is accessible in namespace {}".format(port, namespace)
+            )
 
-    for port in UID_RESTRICTED_PORTS:
-        pytest_assert(port in netstat_outputs, "port {} is not accessable".format(port))
+        for port in UID_RESTRICTED_PORTS:
+            pytest_assert(
+                any(address.endswith(":{}".format(port)) for address in netstat_outputs),
+                "port {} is not accessible in namespace {}".format(port, namespace)
+            )
 
 
 def verify_iptables_rules_exist(duthost):
     expected_rules = generate_iptables_rule()
-    iptables_output = duthost.command("sudo iptables -S")["stdout_lines"]
+    for host in get_cacl_namespace_hosts(duthost):
+        namespace = getattr(host, "namespace", None) or "host"
+        iptables_output = host.command("iptables -S")["stdout_lines"]
+        logger.info("iptables output in namespace %s: %s", namespace, iptables_output)
 
-    logger.info('iptables_output = {}'.format(iptables_output))
-
-    for rule in expected_rules:
-        command = "-A OUTPUT {}".format(rule)
-        pytest_assert(command in iptables_output, "'{}' is missing".format(rule))
+        for rule in expected_rules:
+            command = "-A OUTPUT {}".format(rule)
+            pytest_assert(
+                command in iptables_output,
+                "'{}' is missing in namespace {}".format(rule, namespace)
+            )
 
 
 def verify_port_accessibility_for_other_users(duthost, port, restrict=True):
-    command = ('timeout 5s bash -c "until </dev/tcp/localhost/{}; do sleep 0.1; done" '
-               '&& echo "success" || echo "fail"'.format(port))
-    output = duthost.shell(command)["stdout"]
-    if restrict:
-        pytest_assert("fail" in output, "Port {} is accessible by users other than FRR_USER_UID".format(port))
-    else:
-        pytest_assert("success" in output, "Port {} is not accessible".format(port))
+    command = (
+        "bash -c 'timeout 5s bash -c "
+        "\"until </dev/tcp/localhost/{}; do sleep 0.1; done\" "
+        "&& echo success || echo fail'"
+    ).format(port)
+    for host in get_asic_namespace_hosts(duthost):
+        namespace = getattr(host, "namespace", None) or "host"
+        output = host.command(command)["stdout"]
+        if restrict:
+            pytest_assert(
+                "fail" in output,
+                "Port {} is accessible by users other than FRR_USER_UID in namespace {}".format(port, namespace)
+            )
+        else:
+            pytest_assert(
+                "success" in output,
+                "Port {} is not accessible in namespace {}".format(port, namespace)
+            )
+
+
+def check_fpmsyncd_connection(namespace, host):
+    cmd = "ss -tupn '( sport = :2620 or dport = :2620 )'"
+    output = host.command(cmd)["stdout"]
+    logger.info("cmd = %s, namespace = %s, output = %s", cmd, namespace, output)
+    return "fpmsyncd" in output and "zebra" in output
 
 
 def verify_port_accessibility_fpmsyncd(duthost):
-    cmd = "docker exec -it bgp bash -c 'supervisorctl restart fpmsyncd'"
+    duthost.docker_cmds_on_all_asics("supervisorctl restart fpmsyncd", "bgp")
 
-    duthost.command(cmd, module_ignore_errors=True)
-    time.sleep(5)
-
-    # verify the connection between fpmsyncd and zebra
-    cmd = 'sudo ss -tupn | grep 2620'
-    output = duthost.shell(cmd)['stdout']
-    logger.info("cmd = {}, output = {}".format(cmd, output))
-    pytest_assert("fpmsyncd" in output and "zebra" in output, "Connection issue detected")
+    for host in get_asic_namespace_hosts(duthost):
+        namespace = getattr(host, "namespace", None) or "host"
+        pytest_assert(
+            wait_until(20, 1, 0, check_fpmsyncd_connection, namespace, host),
+            "Connection issue detected in namespace {}".format(namespace)
+        )
 
 
 def test_zebra_uid(duthost):
     uid_command = "ps -ef | grep /usr/lib/frr/zebra | grep -v grep | awk '{print $1}'"
-    uid_output = duthost.shell(uid_command)["stdout"].strip()
+    uid_output = duthost.shell(uid_command)["stdout_lines"]
     if not uid_output:
         pytest.fail("Failed to get zebra uid")
-    pytest_assert(uid_output == FRR_USER_UID, "uid output = {} are not equal to expected zebra uid = {}"
-                  .format(uid_output, FRR_USER_UID))
+    pytest_assert(
+        all(uid == FRR_USER_UID for uid in uid_output),
+        "uid output = {} are not equal to expected zebra uid = {}".format(uid_output, FRR_USER_UID)
+    )
 
 
 def test_daemon_tcp_port_access_restrictions(duthost):
@@ -133,4 +202,4 @@ def test_add_remove_stress(duthost, restart_caclmgrd_after_stress_test):
 def restart_caclmgrd_after_stress_test(duthost):
     yield
     # Ensure recovery action is always performed
-    duthost.shell('sudo systemctl restart caclmgrd')
+    restart_caclmgrd(duthost)
