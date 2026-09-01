@@ -1,20 +1,27 @@
-import pytest
-import logging
-import re
-import time
-import random
-import threading
 import json
+import logging
 import os
+import random
+import re
+import threading
+import time
 
-from tests.common.helpers.gnmi_utils import gnmi_capabilities, GNMIEnvironment
-from .helper import gnmi_set, dump_gnmi_log, gnmi_subscribe_streaming_sample, gnmi_get, \
-                    apply_cert_config, \
-                    gnmi_subscribe_streaming_onchange, gnmi_subscribe_stream_connections
-from . import cli_helpers as helper
-from tests.common.utilities import wait_until
+import pytest
+
+from tests.common.helpers.gnmi_utils import GNMIEnvironment, gnmi_capabilities
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
+from tests.common.utilities import wait_until
 
+from . import cli_helpers as helper
+from .helper import (
+    apply_cert_config,
+    dump_gnmi_log,
+    gnmi_get,
+    gnmi_set,
+    gnmi_subscribe_stream_connections,
+    gnmi_subscribe_streaming_onchange,
+    gnmi_subscribe_streaming_sample,
+)
 
 logger = logging.getLogger(__name__)
 allure.logger = logger
@@ -32,41 +39,37 @@ def skip_non_container_test(request):
 
 
 pytestmark = [
-    pytest.mark.topology('any'),
+    pytest.mark.topology("any"),
     pytest.mark.disable_loganalyzer,
-    pytest.mark.usefixtures("setup_gnmi_ntp_client_server", "setup_gnmi_server",
-                            "setup_gnmi_rotated_server", "check_dut_timestamp")
+    pytest.mark.usefixtures(
+        "setup_gnmi_ntp_client_server", "setup_gnmi_server", "setup_gnmi_rotated_server", "check_dut_timestamp"
+    ),
 ]
 
 
 def test_gnmi_capabilities(duthosts, rand_one_dut_hostname, localhost):
-    '''
+    """
     Verify GNMI capabilities
-    '''
+    """
     duthost = duthosts[rand_one_dut_hostname]
     ret, msg = gnmi_capabilities(duthost, localhost)
-    assert ret == 0, (
-        "GNMI capabilities command failed (non-zero return code).\n"
-        "- Error message: {}"
-    ).format(msg)
+    assert ret == 0, ("GNMI capabilities command failed (non-zero return code).\n" "- Error message: {}").format(msg)
 
     assert "sonic-db" in msg, (
-        "'sonic-db' not found in GNMI capabilities response message.\n"
-        "- Actual message: {}"
+        "'sonic-db' not found in GNMI capabilities response message.\n" "- Actual message: {}"
     ).format(msg)
 
     assert "JSON_IETF" in msg, (
-        "'JSON_IETF' not found in GNMI capabilities response message.\n"
-        "- Actual message: {}"
+        "'JSON_IETF' not found in GNMI capabilities response message.\n" "- Actual message: {}"
     ).format(msg)
 
 
 def gnmi_create_vnet(duthost, ptfhost, cert=None):
     file_name = "vnet.txt"
-    text = "{\"Vnet1\": {\"vni\": \"1000\", \"guid\": \"559c6ce8-26ab-4193-b946-ccc6e8f930b2\"}}"
-    with open(file_name, 'w') as file:
+    text = '{"Vnet1": {"vni": "1000", "guid": "559c6ce8-26ab-4193-b946-ccc6e8f930b2"}}'
+    with open(file_name, "w") as file:
         file.write(text)
-    ptfhost.copy(src=file_name, dest='/root')
+    ptfhost.copy(src=file_name, dest="/root")
     # Add DASH_VNET_TABLE
     update_list = ["/sonic-db:APPL_DB/localhost/DASH_VNET_TABLE:@/root/%s" % (file_name)]
     msg = ""
@@ -86,8 +89,8 @@ def setup_crl_server_on_ptf(ptfhost, duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
 
     # Determine which address to bind the CRL server to
-    dut_facts = duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts']
-    is_mgmt_ipv6_only = dut_facts.get('is_mgmt_ipv6_only', False)
+    dut_facts = duthost.dut_basic_facts()["ansible_facts"]["dut_basic_facts"]
+    is_mgmt_ipv6_only = dut_facts.get("is_mgmt_ipv6_only", False)
 
     if is_mgmt_ipv6_only and ptfhost.mgmt_ipv6:
         # Bind to IPv6 address when DUT is IPv6-only
@@ -95,16 +98,16 @@ def setup_crl_server_on_ptf(ptfhost, duthosts, rand_one_dut_hostname):
         logger.info(f"DUT is IPv6-only, binding CRL server to IPv6: {bind_addr}")
     else:
         # Bind to all interfaces (default behavior) for IPv4 or mixed environments
-        bind_addr = ''
+        bind_addr = ""
         logger.info("Binding CRL server to all interfaces (IPv4 compatible)")
 
-    ptfhost.shell('rm -f /root/crl.log')
+    ptfhost.shell("rm -f /root/crl.log")
 
     # Start CRL server with appropriate bind address
     if bind_addr:
-        ptfhost.shell(f'nohup /root/env-python3/bin/python /root/crl_server.py --bind {bind_addr} &')
+        ptfhost.shell(f"nohup /root/env-python3/bin/python /root/crl_server.py --bind {bind_addr} &")
     else:
-        ptfhost.shell('nohup /root/env-python3/bin/python /root/crl_server.py &')
+        ptfhost.shell("nohup /root/env-python3/bin/python /root/crl_server.py &")
 
     logger.warning("crl server started")
 
@@ -124,9 +127,9 @@ def setup_crl_server_on_ptf(ptfhost, duthosts, rand_one_dut_hostname):
 
 
 def test_gnmi_subscribe_sample(duthosts, rand_one_dut_hostname, ptfhost):
-    '''
+    """
     Verify GNMI subscribe sample request
-    '''
+    """
     duthost = duthosts[rand_one_dut_hostname]
 
     # Skip test for supervisor nodes as they don't have Ethernet0 frontpanel port
@@ -147,8 +150,8 @@ def test_gnmi_subscribe_sample(duthosts, rand_one_dut_hostname, ptfhost):
             if i == 0:
                 break
             # format "timestamp: <timestamp in nanoseconds>"
-            currTs = int(timestamps[i].split(': ')[1])
-            nextTs = int(timestamps[i + 1].split(': ')[1])
+            currTs = int(timestamps[i].split(": ")[1])
+            nextTs = int(timestamps[i + 1].split(": ")[1])
             # round to the nearest second
             assert round(nextTs - currTs, -8) == 5000000000, (
                 "expected 5 second timestamp diff," f"currTs: {currTs}, nextTs: {nextTs}"
@@ -158,7 +161,7 @@ def test_gnmi_subscribe_sample(duthosts, rand_one_dut_hostname, ptfhost):
 
     with allure.step("Perform gNMI subscribe sample request to state DB"):
         stdout_msg, _ = gnmi_subscribe_streaming_sample(
-            duthost, ptfhost,  ["/PSU_INFO"], interval_ms, count, target="STATE_DB"
+            duthost, ptfhost, ["/PSU_INFO"], interval_ms, count, target="STATE_DB"
         )
         logger.debug("gNMI subscribe response: %s", stdout_msg)
         validates_subscribe_sample(stdout_msg)
@@ -171,14 +174,11 @@ def test_gnmi_subscribe_sample(duthosts, rand_one_dut_hostname, ptfhost):
         validates_subscribe_sample(stdout_msg)
 
 
-def test_gnmi_authorize_failed_with_revoked_cert(duthosts,
-                                                 rand_one_dut_hostname,
-                                                 ptfhost,
-                                                 setup_crl_server_on_ptf):
-    '''
+def test_gnmi_authorize_failed_with_revoked_cert(duthosts, rand_one_dut_hostname, ptfhost, setup_crl_server_on_ptf):
+    """
     Verify GNMI native write, incremental config for configDB
     GNMI set request with invalid path
-    '''
+    """
     duthost = duthosts[rand_one_dut_hostname]
 
     retry = 3
@@ -192,29 +192,29 @@ def test_gnmi_authorize_failed_with_revoked_cert(duthosts,
             break
 
     assert "Unauthenticated" in msg, (
-        "'Unauthenticated' error message not found in GNMI response. "
-        "- Actual message: '{}'"
+        "'Unauthenticated' error message not found in GNMI response. " "- Actual message: '{}'"
     ).format(msg)
 
     assert "desc = Peer certificate revoked" in gnmi_log, (
-        "'desc = Peer certificate revoked' message not found in GNMI log. "
-        "- Actual GNMI log: '{}'"
+        "'desc = Peer certificate revoked' message not found in GNMI log. " "- Actual GNMI log: '{}'"
     ).format(gnmi_log)
 
 
 def test_osbuild_version(duthosts, rand_one_dut_hostname, ptfhost):
-    '''
+    """
     Verify GNMI GET of the OTHERS/osversion/build non-DB path returns a valid
     SONiC build_version.
-    '''
+    """
     duthost = duthosts[rand_one_dut_hostname]
     msg_list = gnmi_get(duthost, ptfhost, ["osversion/build"], target="OTHERS", origin=None)
     result = "\n".join(msg_list)
 
-    assert len(re.findall(r'"build_version": "SONiC\.', result)) == 1, (
-        "build_version value not found in gnmi output: {}".format(result))
-    assert len(re.findall(r'SONiC\.NA', result, flags=re.IGNORECASE)) == 0, (
-        "invalid build_version value in gnmi output: {}".format(result))
+    assert (
+        len(re.findall(r'"build_version": "SONiC\.', result)) == 1
+    ), "build_version value not found in gnmi output: {}".format(result)
+    assert (
+        len(re.findall(r"SONiC\.NA", result, flags=re.IGNORECASE)) == 0
+    ), "invalid build_version value in gnmi output: {}".format(result)
 
 
 def _get_sysuptime_total(duthost, ptfhost):
@@ -222,39 +222,37 @@ def _get_sysuptime_total(duthost, ptfhost):
     msg_list = gnmi_get(duthost, ptfhost, ["proc/uptime"], target="OTHERS", origin=None)
     result = "\n".join(msg_list)
     match = re.search(r'"total":\s*([0-9.]+)', result)
-    assert match is not None, (
-        "system uptime 'total' field not found in gnmi output: {}".format(result))
+    assert match is not None, "system uptime 'total' field not found in gnmi output: {}".format(result)
     return float(match.group(1))
 
 
 def test_sysuptime(duthosts, rand_one_dut_hostname, ptfhost):
-    '''
+    """
     Verify GNMI GET of the OTHERS/proc/uptime non-DB path returns a float that
     increases over time.
-    '''
+    """
     duthost = duthosts[rand_one_dut_hostname]
 
     uptime_first = _get_sysuptime_total(duthost, ptfhost)
     time.sleep(10)
     uptime_second = _get_sysuptime_total(duthost, ptfhost)
 
-    assert uptime_second - uptime_first >= 10, (
-        "system uptime did not advance by at least 10s: {} -> {}".format(
-            uptime_first, uptime_second))
+    assert uptime_second - uptime_first >= 10, "system uptime did not advance by at least 10s: {} -> {}".format(
+        uptime_first, uptime_second
+    )
 
 
 def _gnmi_client_connected(duthost, ptfhost):
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    res = ptfhost.shell('netstat -tn | grep ":{} .*ESTABLISHED"'.format(env.gnmi_port),
-                        module_ignore_errors=True)
+    res = ptfhost.shell('netstat -tn | grep ":{} .*ESTABLISHED"'.format(env.gnmi_port), module_ignore_errors=True)
     return res["rc"] == 0
 
 
 def test_on_change_updates(duthosts, rand_one_dut_hostname, ptfhost):
-    '''
+    """
     Verify GNMI subscribe ON_CHANGE on STATE_DB NEIGH_STATE_TABLE reports a BGP
     neighbor state change.
-    '''
+    """
     duthost = duthosts[rand_one_dut_hostname]
     if duthost.is_supervisor_node():
         pytest.skip("Skipping test as no Ethernet0 frontpanel port on supervisor")
@@ -280,40 +278,41 @@ def test_on_change_updates(duthosts, rand_one_dut_hostname, ptfhost):
         # Wait for the subscribe client to connect before triggering the change,
         # otherwise the on-change update can be missed.
         wait_until(60, 1, 0, _gnmi_client_connected, duthost, ptfhost)
-        cmd = "sonic-db-cli STATE_DB HSET \"NEIGH_STATE_TABLE|{}\" \"state\" {}".format(bgp_neighbor, new_state)
+        cmd = 'sonic-db-cli STATE_DB HSET "NEIGH_STATE_TABLE|{}" "state" {}'.format(bgp_neighbor, new_state)
         cmd = duthost.get_cli_cmd_for_namespace(cmd, ns)
         duthost.shell(cmd)
         client_thread.join(60)  # max timeout of 60s, expect update to come in <=30s
     finally:
         # Restore the original neighbor state.
-        cmd = "sonic-db-cli STATE_DB HSET \"NEIGH_STATE_TABLE|{}\" \"state\" {}".format(bgp_neighbor, original_state)
+        cmd = 'sonic-db-cli STATE_DB HSET "NEIGH_STATE_TABLE|{}" "state" {}'.format(bgp_neighbor, original_state)
         cmd = duthost.get_cli_cmd_for_namespace(cmd, ns)
         duthost.shell(cmd)
 
     msg = result_holder.get("msg", "")
     assert msg != "", "Did not get output from PTF on-change client"
-    assert bgp_neighbor in msg, (
-        "Did not find neighbor {} in on-change update: {}".format(bgp_neighbor, msg))
+    assert bgp_neighbor in msg, "Did not find neighbor {} in on-change update: {}".format(bgp_neighbor, msg)
 
 
 def test_mem_spike(duthosts, rand_one_dut_hostname, ptfhost):
-    '''
+    """
     The gnmi container memory must stay under threshold when a client continuously
     creates channels with the gnmi server.
-    '''
+    """
     duthost = duthosts[rand_one_dut_hostname]
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
 
     def client_worker():
-        gnmi_subscribe_stream_connections(duthost, ptfhost, ["DOCKER_STATS"], target="STATE_DB",
-                                          create_connections=2000, update_count=1)
+        gnmi_subscribe_stream_connections(
+            duthost, ptfhost, ["DOCKER_STATS"], target="STATE_DB", create_connections=2000, update_count=1
+        )
 
     client_thread = threading.Thread(target=client_worker)
     client_thread.start()
 
     for _ in range(MEMORY_CHECKER_CYCLES):
-        ret = duthost.shell("python3 /usr/bin/memory_checker %s 419430400" % env.gnmi_container,
-                            module_ignore_errors=True)
+        ret = duthost.shell(
+            "python3 /usr/bin/memory_checker %s 419430400" % env.gnmi_container, module_ignore_errors=True
+        )
         assert ret["rc"] == 0, "Memory utilization has exceeded threshold"
         time.sleep(MEMORY_CHECKER_WAIT)
 
@@ -321,22 +320,19 @@ def test_mem_spike(duthosts, rand_one_dut_hostname, ptfhost):
 
 
 def test_telemetry_show_non_get(duthosts, rand_one_dut_hostname, ptfhost, skip_non_container_test):
-    '''
+    """
     The SHOW target only supports GET; a SUBSCRIBE must fail.
-    '''
+    """
     duthost = duthosts[rand_one_dut_hostname]
-    msg, _ = gnmi_subscribe_streaming_sample(duthost, ptfhost, ["reboot-cause"], 0, 1,
-                                             origin=None, target="SHOW")
-    assert "error" in msg.lower(), (
-        "SHOW subscribe should fail, but got: {}".format(msg))
+    msg, _ = gnmi_subscribe_streaming_sample(duthost, ptfhost, ["reboot-cause"], 0, 1, origin=None, target="SHOW")
+    assert "error" in msg.lower(), "SHOW subscribe should fail, but got: {}".format(msg)
 
 
-def test_telemetry_show_get(duthosts, localhost, rand_one_dut_hostname, ptfhost, request,
-                            skip_non_container_test):
-    '''
+def test_telemetry_show_get(duthosts, localhost, rand_one_dut_hostname, ptfhost, request, skip_non_container_test):
+    """
     Test all SHOW GET paths from cli_paths.json: run each path's setup, gnmi GET
     against the SHOW target, and verify.
-    '''
+    """
     duthost = duthosts[rand_one_dut_hostname]
 
     # Resolve "duthost" to the DUT selected for this test so setup/verify act on
@@ -345,7 +341,7 @@ def test_telemetry_show_get(duthosts, localhost, rand_one_dut_hostname, ptfhost,
     def resolve_fixture(fx):
         return duthost if fx == "duthost" else request.getfixturevalue(fx)
 
-    with open(SHOW_PATHS_FILE, 'r') as show_paths_file:
+    with open(SHOW_PATHS_FILE, "r") as show_paths_file:
         show_paths_data = json.load(show_paths_file)
 
     for path, test_config in show_paths_data.items():
