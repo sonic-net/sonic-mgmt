@@ -830,6 +830,7 @@ def get_pfcwd_stats(duthost, port, prio, asic_value=None):
 def start_pfcwd(duthost, asic_value=None):
     """
     Start PFC watchdog with default setting
+    Stops the PFCWD cleanly before restarting it with the default (drop) action.
     Args:
         duthost (AnsibleHost): Device Under Test (DUT)
         asic_value: asic value of the host
@@ -837,9 +838,13 @@ def start_pfcwd(duthost, asic_value=None):
     Returns:
         N/A
     """
+    # 'pfcwd start_default' is a no-op if PFCWD is already running, so a prior
+    # forward-mode run would leak into a drop test. Stop first to force the reset.
     if asic_value is None:
+        stop_pfcwd(duthost)
         duthost.shell('sudo pfcwd start_default')
     else:
+        stop_pfcwd(duthost, asic_value)
         duthost.shell('sudo ip netns exec {} pfcwd start_default'.format(asic_value))
 
 
