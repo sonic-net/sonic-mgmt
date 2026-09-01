@@ -5578,15 +5578,6 @@ tacacs/test_ro_disk.py:
     conditions:
       - https://github.com/sonic-net/sonic-mgmt/issues/20787
 
-#######################################
-#####           telemetry         #####
-#######################################
-telemetry/test_telemetry_poll.py::test_poll_mode_default_route:
-  skip:
-    reason: "not applicable on BMC because requires upstream BGP neighbor and default route"
-    conditions:
-      - "'bmc' in topo_type"
-
 test_interfaces.py:
   skip:
     reason: 'Interface tests require ASIC interfaces, not available on BMC'
