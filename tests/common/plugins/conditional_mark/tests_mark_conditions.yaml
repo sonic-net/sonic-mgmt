@@ -2892,7 +2892,7 @@ gnmi:
 
 gnmi/test_events.py:
   skip:
-    reason: "Skip telemetry test events for 202211 and older branches"
+    reason: "Skip gnmi test events for 202211 and older branches"
     conditions:
       - "release in ['201811', '201911', '202012', '202205', '202211']"
   xfail:
@@ -2981,7 +2981,7 @@ gnmi/test_gnmi_srv6.py:
 
 gnmi/test_gnmi_srv6.py::test_poll_mode_srv6_sid_counters:
   skip:
-    reason: "Skip E2E telemetry SRv6 test for non-supported branches and HW"
+    reason: "Skip E2E gnmi SRv6 test for non-supported branches and HW"
     conditions:
       - "release not in ['202412']"
       - "asic_type not in ['mellanox', 'broadcom']"
