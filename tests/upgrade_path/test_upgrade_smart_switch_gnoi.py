@@ -14,7 +14,7 @@ from tests.common.helpers.upgrade_helpers import (
 )
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.platform.device_utils import get_configured_dpu_indices
+from tests.common.platform.device_utils import resolve_upgrade_dpu_indices
 
 logger = logging.getLogger(__name__)
 
@@ -67,12 +67,8 @@ def smartswitch_upgrade_params(request, duthost):
     ss_max_workers = request.config.getoption("ss_max_workers")
 
     ss_target_indices = request.config.getoption("ss_target_indices")
-    if ss_target_indices:
-        # Operator explicitly selected DPUs -> honor exactly that selection, never override.
-        dpu_indices = [int(x.strip()) for x in ss_target_indices.split(",") if x.strip()]
-    else:
-        # No explicit selection -> upgrade the actual admin-up DPUs discovered from CONFIG_DB.
-        dpu_indices = get_configured_dpu_indices(duthost)
+    # Explicit --ss_target_indices wins; otherwise auto-discover admin-up DPUs from CONFIG_DB.
+    dpu_indices = resolve_upgrade_dpu_indices(duthost, ss_target_indices)
     logger.debug("smartswitch_upgrade_params: dpu_indices=%s", dpu_indices)
 
     return SmartSwitchUpgradeParams(

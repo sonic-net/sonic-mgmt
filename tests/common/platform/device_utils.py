@@ -1423,6 +1423,25 @@ def get_configured_dpu_indices(duthost, include_admin_down=False):
     return sorted(set(indices))
 
 
+def resolve_upgrade_dpu_indices(duthost, ss_target_indices=None):
+    """
+    Resolve which DPU indices a SmartSwitch upgrade should target.
+
+    Precedence: an explicit --ss_target_indices selection always wins and is
+    honored exactly as given; only when it is absent do we fall back to the
+    admin-up DPUs auto-discovered from CONFIG_DB.
+
+    ss_target_indices is the raw option value (comma-separated string such as
+    "0,3,5"); returns a list of ints. Kept as a standalone helper so this
+    precedence is unit-testable without importing the pytest test module.
+    """
+    # Operator explicitly selected DPUs -> honor exactly that selection, never override.
+    if ss_target_indices:
+        return [int(x.strip()) for x in ss_target_indices.split(",") if x.strip()]
+    # No explicit selection -> upgrade the actual admin-up DPUs discovered from CONFIG_DB.
+    return get_configured_dpu_indices(duthost)
+
+
 def check_dpu_reachable_from_npu(duthost, dpuhost_name, dpu_index):
     # Check DPU ping status
     logging.info("Checking DPU ping status")
