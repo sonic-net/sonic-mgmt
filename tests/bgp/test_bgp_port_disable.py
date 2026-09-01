@@ -3,7 +3,7 @@ import logging
 import time
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import wait_until
+from tests.common.utilities import get_image_type, wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -14,6 +14,12 @@ pytestmark = [
 FRR_USER_UID = '300'
 RESTRICTED_ACCESS_PORTS = ['2605', '2616']
 UID_RESTRICTED_PORTS = ['2601', '2620']
+
+
+@pytest.fixture(scope="module", autouse=True)
+def skip_public_image(duthost):
+    if get_image_type(duthost) == "public":
+        pytest.skip("Not supported on public images")
 
 
 def generate_iptables_rule():
