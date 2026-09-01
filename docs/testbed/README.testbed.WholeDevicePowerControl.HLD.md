@@ -1,35 +1,25 @@
 # Backend-Neutral Whole-Device Power Control
 ## High Level Design
 
-| Rev  | Date       | Author(s)   | Description     |
-| ---- | ---------- | ----------- | --------------- |
-| v0.1 | 2026-09-01 | Itamar Yair | Initial version |
-
 ## Overview
 
-Many sonic-mgmt tests need to remove and restore power to the entire DUT — usually not as
-the subject of the test, but as a last-resort recovery step after the test has deliberately
-pushed the DUT into an unusable state: a read-only root filesystem, an out-of-memory
-condition, a kernel panic, or a critical process that will not restart.
+sonic-mgmt currently has one way to describe how a DUT receives power: PDU outlets,
+controlled through the `pdu_controller` fixture. There is no way to declare that a DUT's
+power is controlled by a BMC.
 
-All of them reach for the `pdu_controller` fixture, which models power as individually
-switchable PDU outlets. That assumption does not hold everywhere. Some switches ship with
-no PDU wiring to the DUT, and their only out-of-band power path is a BMC reachable over
-Redfish. On those testbeds `pdu_controller` returns nothing and the affected tests skip or
-fail during recovery — the worst possible moment, since the DUT is left in the broken state
-the test created.
+That gap matters because a number of tests depend on power cycling the DUT. In most of them
+the power cycle is not the subject of the test but the recovery step that runs after the
+test has deliberately put the DUT into an unusable state, such as a read-only root
+filesystem, an out of memory condition, a kernel panic, or a critical process that will not
+restart.
 
-This document proposes a whole-device power abstraction that lets a test say *power the box
-off and back on* without naming the mechanism.
+On a testbed whose DUT has no PDU wiring, `pdu_controller` returns nothing. The affected
+tests either skip or fail while attempting to recover, and the DUT is not restored.
 
-### Relationship to existing BMC documentation
+This document proposes adding the BMC as a second power backend, behind a small abstraction
+that lets a test request whole-device power without naming the mechanism.
 
-`docs/testplan/bmc/` and `docs/testplan/redfish/` treat the **BMC as the DUT** and verify
-BMC features and Redfish conformance. This document treats the **switch as the DUT** and
-uses the BMC merely as one backend for powering it. In short: those documents test the BMC,
-this one uses the BMC to test something else.
-
-## Today: everything goes through the PDU
+## Today: power control is PDU only
 
 ```mermaid
 flowchart TD
@@ -42,75 +32,64 @@ flowchart TD
     F --> G
 ```
 
-Both kinds of test depend on physical PDU outlets, and no BMC backend exists.
+Every power operation ends at a physical PDU, whether it targets the whole DUT or a single
+outlet. A DUT without PDU wiring therefore has no power path at all.
 
-The problem is visible in the diagram: two very different intents — "reboot the box" and
-"toggle one PSU" — enter through the same door and are expressed in the same per-outlet
-vocabulary. A platform that can satisfy the first but not the second has no way to say so.
+The connection graph can already describe a BMC link, but nothing on the test side reads it
+and no controller exists to act on it. The information is present in the testbed data and
+currently unused.
 
-## Proposed: separate the two power models
+## Proposed: add a BMC backend behind a common interface
 
 ```mermaid
 flowchart TD
-    subgraph WD["Whole-device power (new)"]
-        A["Whole-device tests and recovery<br/><i>Power off/on the complete DUT</i>"] --> PC["<b>power_controller</b>"]
-        PC --> AD["PduWholeDeviceAdapter"]
-        PC --> BM["RedfishPowerController"]
-        AD --> PM1["PduManager"]
-        BM --> RF["BMC / Redfish"]
-        PM1 --> O1["All DUT outlets"]
-        RF --> O2["Complete DUT power"]
-        API["Common API: power_off, power_on, get_power_state, close"]
-    end
-
-    subgraph PO["Per-outlet power (unchanged)"]
-        B["PSU / outlet-specific tests<br/><i>Control one PSU or outlet</i>"] --> PDC["<b>pdu_controller</b>"]
-        PDC --> PM2["PduManager"]
-        PM2 --> O3["Individual PDU outlet"]
-    end
-
+    T["Tests needing whole-device power"] --> PC["<b>power_controller</b>"]
     CG["Connection graph:<br/>PDU or BMC topology"] -.-> PC
     INV["Inventory:<br/>BMC credentials"] -.-> PC
+    PC --> AD["PduWholeDeviceAdapter"]
+    PC --> BM["RedfishPowerController"]
+    AD --> PM["PduManager"]
+    BM --> RF["BMC Redfish"]
+    PM --> O1["All DUT outlets"]
+    RF --> O2["Complete DUT power"]
 ```
 
-Whole-device power becomes backend-neutral; per-outlet PDU behaviour remains unchanged.
+A test asks `power_controller` to power the DUT off or on. The fixture reads the connection
+graph, determines which backend the testbed provides, and returns an object exposing the
+same four methods in either case.
 
-Walking the left branch: a test asks `power_controller` for power off or on. The fixture
-consults the connection graph, decides which backend this testbed actually has, and returns
-one of two objects behind an identical four-method API. `PduWholeDeviceAdapter` holds no
-power logic of its own — it calls the existing `PduManager` with no outlet argument, which
-the manager already interprets as "every outlet belonging to this DUT".
-`RedfishPowerController` issues `ComputerSystem.Reset` actions against the BMC.
+`PduWholeDeviceAdapter` contains no power logic of its own. It calls the existing
+`PduManager` without an outlet argument, which the manager already treats as every outlet
+belonging to the DUT. `RedfishPowerController` issues `ComputerSystem.Reset` actions against
+the BMC.
 
-The right branch is deliberately untouched. Tests that toggle one PSU keep using
-`pdu_controller` directly, because their intent genuinely is outlet-level and a
-whole-device API cannot express it.
+The BMC is deliberately not modelled as another PDU protocol. A BMC controls the whole
+device and has no concept of an outlet, so presenting it as one would mean inventing outlet
+identities that do not exist, and would hide the difference between a testbed that can
+control individual PSUs and one that cannot.
 
-## Backend selection flow
+`pdu_controller` is unchanged and continues to serve tests that operate on individual
+outlets. The two fixtures coexist, so existing PDU-wired testbeds keep their current
+behaviour and tests can move to `power_controller` individually rather than in a single
+sweep.
 
-```mermaid
-flowchart TD
-    A["power_controller fixture"] --> B{"device_pdu_links<br/>present for DUT?"}
-    B -- yes --> C{"PduManager<br/>created?"}
-    C -- yes --> D["PduWholeDeviceAdapter"]
-    C -- no --> E{"device_bmc_link<br/>present for DUT?"}
-    B -- no --> E
-    E -- yes --> F["RedfishPowerController"]
-    E -- no --> G["None — caller skips"]
-```
+## Backend selection
 
-PDU is tried first, for two reasons. Practically, every testbed in the community today is
-PDU wired, so this ordering guarantees no existing testbed changes behaviour. Technically, a
-PDU genuinely removes AC from the chassis whereas Redfish `ForceOff` powers down the host
-while the BMC stays alive — the PDU is the more faithful power loss and should win where
-it exists.
+For a given DUT the fixture prefers the PDU when the connection graph lists PDU links, falls
+back to the BMC when it lists a BMC link, and returns nothing when neither is present so
+that the caller can skip.
 
-Both inputs already exist: `device_pdu_links` and `device_bmc_link` are produced today by
-`ansible/module_utils/graph_utils.py`. This design adds no new graph plumbing, no new CSV
-format, and no new credentials — BMC links use the existing
-`ansible/files/sonic_lab_bmc_links.csv` format, and credentials reuse the
-`sonic_bmc_root_user` / `sonic_bmc_root_password` variables already consumed by
-`tests/platform_tests/api/test_bmc.py`.
+PDU takes priority for two reasons. Every community testbed today is PDU wired, so this
+ordering leaves existing behaviour untouched. Beyond that, a PDU removes AC from the
+chassis, whereas Redfish `ForceOff` powers down the host while the BMC keeps running, which
+makes the PDU the more faithful reproduction of a power loss.
+
+Both inputs already exist. `device_pdu_links` and `device_bmc_link` are produced today by
+`ansible/module_utils/graph_utils.py` from the CSV files under `ansible/files/`. Credentials
+reuse `sonic_bmc_root_user` and `sonic_bmc_root_password`, which are already defined in
+`ansible/group_vars/lab/secrets.yml` and already read by
+`tests/platform_tests/api/test_bmc.py`. No new graph plumbing, CSV format or credential is
+introduced.
 
 ## Interface
 
@@ -121,24 +100,28 @@ format, and no new credentials — BMC links use the existing
 | `get_power_state()` | `str` | `"On"`, `"Off"`, or `"Unknown"`. |
 | `close()` | `None` | Release backend resources. |
 
-The fixture is module-scoped and restores power at teardown, so a test failing between
-`power_off()` and `power_on()` cannot leave the DUT dark for later modules.
+The fixture is module-scoped and restores power at teardown, so a test that fails between
+`power_off()` and `power_on()` cannot leave the DUT without power for later modules.
 
-**Redfish paths are discovered, not hard-coded.** BMC implementations name the system
-resource differently — both `System_0` and `system` occur in practice, the latter being what
-`tests/redfish/test_redfish_computer_reset.py` already expects. The controller therefore
-resolves the member from `GET /redfish/v1/Systems`, reads the action target from
-`Actions["#ComputerSystem.Reset"]["target"]`, and picks the power-off type from
-`ResetType@Redfish.AllowableValues` rather than assuming `ForceOff`. Discovery happens at
-construction and raises on failure, so an unreachable BMC or a bad credential surfaces up
-front instead of as a silent `False` during recovery.
+A shared helper combines the two calls into a single power cycle and waits between them,
+since hardware needs a gap before power is reapplied. That interval is a parameter of the
+helper rather than a fixed sleep, so callers whose hardware needs longer can extend it.
 
-## Scope
+Redfish resource paths are resolved at runtime rather than hard coded, because BMC
+implementations name the system resource differently. Both `System_0` and `system` occur in
+practice, the latter being what `tests/redfish/test_redfish_computer_reset.py` already
+expects. The controller resolves the member from `GET /redfish/v1/Systems`, reads the action
+target from `Actions["#ComputerSystem.Reset"]["target"]`, and selects the power-off type
+from `ResetType@Redfish.AllowableValues` instead of assuming `ForceOff`. Resolution happens
+when the controller is created and fails loudly, so an unreachable BMC or a wrong credential
+is reported up front rather than as a silent failure during recovery.
 
-Migrated — these use power cycling purely as recovery, so the mechanism can change without
-altering what they verify:
+## Planned scope
 
-- `tests/common/utilities.py` — the shared `power_cycle()` helper
+The consumers below use power cycling purely as a recovery step, so the backend can change
+without altering what they verify. They are the intended first migration.
+
+- `tests/common/utilities.py`, the shared `power_cycle()` helper
 - `tests/process_monitoring/test_critical_process_monitoring.py`
 - `tests/platform_tests/test_memory_exhaustion.py`
 - `tests/platform_tests/test_kdump.py`
@@ -146,43 +129,40 @@ altering what they verify:
 - `tests/bgp/test_bgp_operation_in_ro.py`
 - `tests/platform_tests/fwutil/test_fwutil.py`
 
-Out of scope, each for a technical reason:
+## Open issues
 
-- **Per-PSU tests** (`test_platform_info.py`, `test_snmp_phy_entity.py`,
-  `test_power_off_reboot.py`) assert on individual PSU state. Mapping them onto a
-  whole-device API would silently turn a redundancy test into a reboot test.
-- **`test_bmcctld.py`** needs power removed from the BMC itself. A BMC cannot do that to
-  itself, so this test requires a PDU by construction.
-- **`test_tor_failure.py`** runs on dual-ToR testbeds, which are PDU wired, so the fallback
-  would never engage.
-- **`test_fwutil_cisco.py`** carries vendor-specific power handling; migrating it adds churn
-  without establishing anything new.
+**Per-PSU tests.** `test_platform_info.py`, `test_snmp_phy_entity.py` and
+`test_power_off_reboot.py` switch individual PSUs and assert on per-PSU state. A BMC cannot
+express that operation. It is not yet decided whether these should skip on BMC-managed
+testbeds, be split so their whole-device portions still run, or be gated by an explicit
+capability flag on the controller.
 
-## Alternatives considered
+**Power loss at the BMC itself.** `test_bmcctld.py` verifies behaviour across an
+interruption to the BMC's own power. A BMC cannot remove power from itself, so there is no
+path for this test on a testbed without a PDU. The open question is how such tests should
+declare that they require a PDU specifically.
 
-The BMC could instead be implemented as another `PduControllerBase` protocol, requiring no
-test changes at all. This was rejected because it is dishonest about the hardware:
-`get_outlet_status()` must return a synthetic outlet list, so callers that group outlets by
-PSU receive entries with no `psu_name` and either misbehave or quietly do nothing. It also
-makes a testbed that can do per-PSU work indistinguishable from one that cannot. The failure
-mode is a redundancy test that passes without testing redundancy — worse than one that
-skips.
+**Remaining whole-device callers.** `test_tor_failure.py` and `test_fwutil_cisco.py` also
+power cycle the DUT but are not part of the first migration. They run on PDU-wired testbeds
+today so nothing breaks, but leaving them behind means two mechanisms coexist for the same
+operation.
+
+**BMC link naming.** The `EndPort` column of the BMC CSV becomes the key that identifies a
+BMC link, and the one existing upstream example uses `iDRAC`. A convention needs to be
+agreed so that lookups do not depend on a particular label.
+
+**Automated recovery tooling.** The scripts under `.azure-pipelines/` that recover or
+reimage a testbed still assume a PDU, so a BMC-managed DUT that goes down needs manual
+intervention.
+
+## Follow-up work
+
+Consolidate with `tests/redfish/redfish_utils.py`, which is currently mTLS only, once the
+authentication mechanism is pluggable.
 
 ## Validation
 
-The Redfish backend was exercised on a platform with a BMC link and no PDU wiring, using the
-critical-process test because its database-container phase always forces a real power cycle
-during recovery. The same test was then run on a conventionally PDU-wired testbed to confirm
-the PDU path is still selected and unchanged. A deliberately wrong BMC credential produced
-an HTTP 401, which is what motivated the fail-fast discovery step above.
-
-## Future work
-
-- Share one auth-agnostic Redfish helper with `tests/redfish/redfish_utils.py`, which is
-  currently mTLS-only while OpenBMC uses basic auth.
-- Migrate the remaining whole-device callers listed as out of scope.
-- Give per-PSU tests a capability flag so they skip explicitly on BMC-only platforms rather
-  than by absence of a fixture.
-- Extend the fallback to the testbed recovery tooling under `.azure-pipelines/`, which still
-  assumes a PDU.
-- Remove the temporary `pdu_reboot()` shim once all callers are migrated.
+Both backends have been exercised on internal testbeds. The Redfish path was driven through
+a real power off and power on using the critical process monitoring test, whose database
+container phase always forces a power cycle during recovery. The same test was then run on a
+PDU-wired testbed to confirm the existing path is selected and unchanged.
