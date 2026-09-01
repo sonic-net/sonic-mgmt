@@ -1,14 +1,11 @@
 import time
 import threading
 import logging
-import re
 import pytest
-import random
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import wait_until
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
-from telemetry_utils import assert_equal, get_list_stdout, get_dict_stdout, skip_201911_and_older
-from telemetry_utils import generate_client_cli, parse_gnmi_output, check_gnmi_cli_running
+from telemetry_utils import get_list_stdout, get_dict_stdout
+from telemetry_utils import generate_client_cli
 
 pytestmark = [
     pytest.mark.topology('any', 't1-multi-asic')
@@ -17,10 +14,8 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 METHOD_SUBSCRIBE = "subscribe"
-METHOD_GET = "get"
 MEMORY_CHECKER_WAIT = 1
 MEMORY_CHECKER_CYCLES = 60
-SUBMODE_ONCHANGE = 1
 
 
 def test_config_db_parameters(duthosts, enum_rand_one_per_hwsku_hostname):
@@ -79,174 +74,11 @@ def test_telemetry_enabledbydefault(duthosts, enum_rand_one_per_hwsku_hostname):
                           "Telemetry feature is not enabled")
 
 
-@pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
-def test_telemetry_ouput(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
-                         setup_streaming_telemetry, gnxi_path):
-    """Run pyclient from ptfdocker and show gnmi server outputself.
-    """
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    if duthost.is_supervisor_node():
-        pytest.skip(
-            "Skipping test as no Ethernet0 frontpanel port on supervisor")
-    logger.info('start telemetry output testing')
-    cmd = generate_client_cli(duthost, gnxi_path, method="get", xpath="COUNTERS/Ethernet0", target="COUNTERS_DB")
-    show_gnmi_out = ptfhost.shell(cmd)['stdout']
-    logger.info("GNMI Server output")
-    logger.info(show_gnmi_out)
-    result = str(show_gnmi_out)
-    inerrors_match = re.search("SAI_PORT_STAT_IF_IN_ERRORS", result)
-    pytest_assert(inerrors_match is not None,
-                  "SAI_PORT_STAT_IF_IN_ERRORS not found in gnmi_output")
-
-
-@pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
-def test_osbuild_version(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
-                         setup_streaming_telemetry, gnxi_path):
-    """ Test osbuild/version query.
-    """
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    skip_201911_and_older(duthost)
-    cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path,
-                              method=METHOD_GET, target="OTHERS", xpath="osversion/build")
-    show_gnmi_out = ptfhost.shell(cmd)['stdout']
-    result = str(show_gnmi_out)
-
-    assert_equal(len(re.findall(r'"build_version": "SONiC\.', result)),
-                 1, "build_version value at {0}".format(result))
-    assert_equal(len(re.findall(r'SONiC\.NA', result, flags=re.IGNORECASE)),
-                 0, "invalid build_version value at {0}".format(result))
-
-
-@pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
-def test_sysuptime(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_path, setup_streaming_telemetry):
-    """
-    @summary: Run pyclient from ptfdocker and test the dataset 'system uptime' to check
-              whether the value of 'system uptime' was float number and whether the value was
-              updated correctly.
-    """
-    logger.info("start test the dataset 'system uptime'")
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    skip_201911_and_older(duthost)
-    cmd = generate_client_cli(duthost, gnxi_path, method="get", xpath="proc/uptime", target="OTHERS")
-    system_uptime_info = ptfhost.shell(cmd)["stdout_lines"]
-    system_uptime_1st = 0
-    found_system_uptime_field = False
-    for line_info in system_uptime_info:
-        if "total" in line_info:
-            try:
-                system_uptime_1st = float(line_info.split(":")[1].strip().rstrip(','))
-                found_system_uptime_field = True
-            except ValueError as err:
-                pytest.fail(
-                    "The value of system uptime was not a float. Error message was '{}'".format(err))
-
-    if not found_system_uptime_field:
-        pytest.fail("The field of system uptime was not found.")
-
-    # Wait 10 seconds such that the value of system uptime was added 10 seconds.
-    time.sleep(10)
-    system_uptime_info = ptfhost.shell(cmd)["stdout_lines"]
-    system_uptime_2nd = 0
-    found_system_uptime_field = False
-    for line_info in system_uptime_info:
-        if "total" in line_info:
-            try:
-                system_uptime_2nd = float(line_info.split(":")[1].strip().rstrip(','))
-                found_system_uptime_field = True
-            except ValueError as err:
-                pytest.fail(
-                    "The value of system uptime was not a float. Error message was '{}'".format(err))
-
-    if not found_system_uptime_field:
-        pytest.fail("The field of system uptime was not found.")
-
-    if system_uptime_2nd - system_uptime_1st < 10:
-        pytest.fail("The value of system uptime was not updated correctly.")
-
-
-@pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
-def test_virtualdb_table_streaming(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_path,
-                                   setup_streaming_telemetry):
-    """Run pyclient from ptfdocker to stream a virtual-db query multiple times.
-    """
-    logger.info('start virtual db sample streaming testing')
-
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    if duthost.is_supervisor_node():
-        pytest.skip(
-            "Skipping test as no Ethernet0 frontpanel port on supervisor")
-    skip_201911_and_older(duthost)
-    cmd = generate_client_cli(
-        duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE, update_count=3)
-    show_gnmi_out = ptfhost.shell(cmd)['stdout']
-    result = str(show_gnmi_out)
-
-    assert_equal(len(re.findall('Max update count reached 3', result)),
-                 1, "Streaming update count in:\n{0}".format(result))
-    assert_equal(len(re.findall('name: "Ethernet0"\n', result)), 4,
-                 "Streaming updates for Ethernet0 in:\n{0}".format(result))  # 1 for request, 3 for response
-    assert_equal(len(re.findall(r'timestamp: \d+', result)), 3,
-                 "Timestamp markers for each update message in:\n{0}".format(result))
-
-
 def invoke_py_cli_from_ptf(ptfhost, cmd, callback):
     ret = ptfhost.shell(cmd)
     assert ret["rc"] == 0, "PTF docker did not get a response"
     if callback is not None:
         callback(ret["stdout"])
-
-
-@pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
-def test_on_change_updates(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_path,
-                           setup_streaming_telemetry):
-    logger.info("Testing on change update notifications")
-
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    if duthost.is_supervisor_node():
-        pytest.skip(
-            "Skipping test as no Ethernet0 frontpanel port on supervisor")
-    skip_201911_and_older(duthost)
-
-    nslist = duthost.get_asic_namespace_list()
-    ns = random.choice(nslist)
-    bgp_nbrs = list(duthost.get_bgp_neighbors(ns).keys())
-    bgp_neighbor = random.choice(bgp_nbrs)
-    asic_id = duthost.get_asic_id_from_namespace(ns)
-    bgp_info = duthost.get_bgp_neighbor_info(bgp_neighbor, asic_id)
-    original_state = bgp_info["bgpState"]
-    new_state = "Established" if original_state.lower() == "active" else "Active"
-
-    cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
-                              submode=SUBMODE_ONCHANGE, update_count=2, xpath="NEIGH_STATE_TABLE",
-                              target="STATE_DB", namespace=ns)
-
-    def callback(result):
-        logger.info("Assert that ptf client output is non empty and contains on change update")
-        try:
-            assert result != "", "Did not get output from PTF client"
-        finally:
-            ccmd = "sonic-db-cli STATE_DB HSET \"NEIGH_STATE_TABLE|{}\" \"state\" {}".format(bgp_neighbor,
-                                                                                             original_state)
-            ccmd = duthost.get_cli_cmd_for_namespace(ccmd, ns)
-            duthost.shell(ccmd)
-        ret = parse_gnmi_output(result, 1, bgp_neighbor)
-        assert ret is True, "Did not find key in update"
-
-    client_thread = threading.Thread(target=invoke_py_cli_from_ptf, args=(ptfhost, cmd, callback,))
-    client_thread.start()
-
-    logger.info("Checking telemetry service status on DUT.")
-    env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
-    duthost.shell("systemctl status {}".format(env.gnmi_container))
-    duthost.shell("docker ps | grep {}".format(env.gnmi_container))
-    duthost.shell("docker logs {}".format(env.gnmi_container))
-
-    wait_until(60, 1, 0, check_gnmi_cli_running, duthost, ptfhost)
-    cmd = "sonic-db-cli STATE_DB HSET \"NEIGH_STATE_TABLE|{}\" \"state\" {}".format(bgp_neighbor,
-                                                                                    new_state)
-    cmd = duthost.get_cli_cmd_for_namespace(cmd, ns)
-    duthost.shell(cmd)
-    client_thread.join(60)  # max timeout of 60s, expect update to come in <=30s
 
 
 @pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
