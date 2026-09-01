@@ -18,7 +18,7 @@ from tests.common.snappi_tests.common_helpers import packet_capture, get_wred_pr
 from tests.common.config_reload import config_reload
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 logger = logging.getLogger(__name__)
-pytestmark = [pytest.mark.topology('multidut-tgen')]
+pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]
 
 
 @pytest.fixture(autouse=True, scope='module')
@@ -203,7 +203,8 @@ def test_dequeue_ecn_default(request,
         dut_list = [snappi_ports[0]['duthost'], snappi_ports[1]['duthost']]
 
     # Reading WRED profile to get the default values.
-    asic_value = 'asic{}'.format(duthosts[0].get_asic_ids()[0])
+    asic_id = duthosts[0].get_asic_ids()[0]
+    asic_value = 'asic{}'.format(asic_id) if asic_id is not None else "None"
     wred_profile = get_wred_profiles(duthosts[0], asic_value=asic_value)
 
     # Selecting DEFAULT Kmin, Kmax and Pmax for the test.
