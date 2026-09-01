@@ -140,7 +140,7 @@ def __gen_mac(id):
     Returns:
         MAC address (string)
     """
-    return '00:{:02d}:22:33:44:01'.format(id)
+    return '00:{:02x}:22:33:44:01'.format(id)
 
 
 def __gen_pc_mac(id):
@@ -1499,10 +1499,15 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
         return True
 
     global macsec_enabled_port, macsec_profile_name, reconfigure_port
-    ptype = "--snappi_macsec" in sys.argv
-    num_of_non_macsec_snappi_devices = 7
-    static_prefix_length = str(subnet_mask_from_hosts(num_of_non_macsec_snappi_devices))
-    for index, port in enumerate(snappi_ports):
+    num_of_non_macsec_snappi_devices = 7*(len(snappi_ports) - 1)
+    # +3 to ignore the network and broadcast address and plus one extra buffer
+    # since the address is already configure on the dut interface
+    static_prefix_length = str(subnet_mask_from_hosts(num_of_non_macsec_snappi_devices + 3))
+    ports = []
+    for port in snappi_ports:
+        if port['peer_device'] == duthost.hostname:
+            ports.append(port)
+    for index, port in enumerate(ports):
         if port['duthost'] == duthost:
             peer_port = port['peer_port']
             asic_inst = duthost.get_port_asic_instance(peer_port)
@@ -1551,7 +1556,7 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
         if setup:
             gen_data_flow_dest_ip(tgenIp, duthost, port['peer_port'], port['asic_value'], setup)
         port['intf_config_changed'] = True
-        if ptype and port_id == 1:
+        if port_id >= 1:
             device = config.devices.device(name='Device Port {}'.format(port_id))[-1]
             ethernet = device.ethernets.add()
             ethernet.name = 'Ethernet Port {}'.format(port_id)
@@ -1590,7 +1595,7 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
                             format(port['asic_value'], port['peer_port'], tgenIp, mac))
             # Tx Port
             ip1 = ethernet.ipv4_addresses.add()
-            ip1.name = "ip2"
+            ip1.name = "ip_{}".format(port_id)
             ip1.address = tgenIp
             ip1.prefix = int(prefix_length)
             ip1.gateway = dutIp
@@ -1603,7 +1608,7 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
             macsec1_int = macsec1.ethernet_interfaces.add()
             macsec1_int.eth_name = ethernet.name
             secy1 = macsec1_int.secure_entity
-            secy1.name = "macsec1"
+            secy1.name = "macsec{}".format(port_id)
 
             # Data plane and crypto engine
             secy1.data_plane.choice = "encapsulation"
@@ -1625,7 +1630,7 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
             secy1_key_gen_proto = secy1.key_generation_protocol
             secy1_key_gen_proto.choice = "mka"
             kay1 = secy1_key_gen_proto.mka
-            kay1.name = "mka1"
+            kay1.name = "mka1_{}".format(port_id)
             # Basic properties
             kay1.basic.key_derivation_function = all_values['snappi']['key_derivation_function']
             kay1.basic.actor_priority = all_values['snappi']['actor_priority']
@@ -1661,24 +1666,8 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
             # Tx SC
             kay1_tx = kay1.tx
             kay1_txsc1 = kay1_tx.secure_channels.add()
-            kay1_txsc1.name = "txsc1"
+            kay1_txsc1.name = "txsc{}".format(port_id)
             kay1_txsc1.system_id = mac
-            # Remaining Tx SC settings autofilled
-            eotr = config.egress_only_tracking
-            eotr1 = eotr.add()
-            eotr1.port_name = config.ports[port_id].name
-
-            # eotr filter
-            eotr1_filter1 = eotr1.filters.add()
-            eotr1_filter1.choice = "auto_macsec"
-
-            # eotr metric tag for destination MAC 3rd byte from MSB: LS 4 bits
-            eotr1_mt1 = eotr1.metric_tags.add()
-            eotr1_mt1.name = "pause traffic"
-            eotr1_mt1.rx_offset = 0
-            eotr1_mt1.length = 8
-            eotr1_mt1.tx_offset.choice = "custom"
-            eotr1_mt1.tx_offset.custom.value = 0
             port_config = SnappiPortConfig(
                                 id=port_id,
                                 ip=tgenIp,
@@ -1690,7 +1679,7 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
                                 peer_port=port['peer_port']
                             )
             port_config_list.append(port_config)
-        elif ptype and port_id == 0:
+        elif port_id == 0:
             ip_values = get_ip_addresses(tgenIp, num_of_non_macsec_snappi_devices)
             for nd in range(0, num_of_non_macsec_snappi_devices):
                 device = config.devices.device(name='Device Port {}_{}'.format(port_id, nd))[-1]
@@ -1699,7 +1688,8 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
                 ethernet.connection.port_name = config.ports[port_id].name
                 ethernet.mac = __gen_mac(nd)
                 ip_stack = ethernet.ipv4_addresses.add()
-                ip_stack.name = 'Ipv4 Port {}_{}'.format(port_id, nd)
+                left, right = divmod(nd, 7)
+                ip_stack.name = f"Ipv4 Port {left}_{right}"
                 ip_stack.address = ip_values[nd]
                 ip_stack.prefix = int(prefix_length)
                 ip_stack.gateway = dutIp
