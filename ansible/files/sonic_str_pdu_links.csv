@@ -101,3 +101,7 @@ pdu-46,20,str-azd-t0-8101-01,PSU1
 pdu-45,14,str-azd-t0-8101-01,PSU2
 pdu-45,18,str-azd-t0-8101-fanout-01,PSU1
 pdu-45,19,str-azd-t0-8101-fanout-01,PSU2
+pdu-46,19,str-8101-azd-t0-02,PSU1
+pdu-45,14,str-8101-azd-t0-02,PSU2
+pdu-46,21,str-8101-fanout-02,PSU1
+pdu-46,22,str-8101-fanout-02,PSU2

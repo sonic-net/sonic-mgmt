@@ -141,5 +141,7 @@ pdu-132,10.3.154.132,ApcRPDU,Pdu,snmp,
 pdu-133,10.3.154.135,ApcRPDU,Pdu,snmp,
 str-azd-t0-8101-01,10.3.150.170/27,Cisco-8101-C32,DevSonic,,sonic
 str-azd-t0-8101-fanout-01,10.3.150.172/27,Cisco-8101-C32,FanoutLeafSonic,,sonic
+str-8101-azd-t0-02,10.3.150.171/27,Cisco-8101-O32,DevSonic,,sonic
+str-8101-fanout-02,10.3.150.173/27,Cisco-8101-O32,FanoutLeafSonic,,sonic
 pdu-45,10.3.154.45,Sentry,Pdu,snmp,
 pdu-46,10.3.154.46,Sentry,Pdu,snmp,
