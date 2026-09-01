@@ -383,6 +383,7 @@ validators:
       - str4-7060x6-64pe-10       # conflicts with str2-7260cx3-64-19
       - str4-7060x6-512-2         # conflicts with str4-7060x6-64pe-11
       - svcstr-7260cx3-acs-11     # conflicts with str2-7260cx3-acs-fan-07 and str2-7060cx-32s-29
+      - str-8101-azd-t0-02        # shares pdu-45:14 with str-azd-t0-8101-01 via a Y cable (per lab)
       - svcstr-z9332f-01          # conflicts with svcstr-7260cx3-acs-5
       - svcstr-n3164-acs-2        # conflicts with str2-7050cx3-acs-12
       - svcstr-7250x3b-2          # conflicts with str3-msn4700-11

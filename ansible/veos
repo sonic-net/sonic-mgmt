@@ -1910,6 +1910,14 @@ vms_11:
       ansible_host: 172.16.145.143
     VM11134:
       ansible_host: 172.16.145.144
+    VM11135:
+      ansible_host: 172.16.145.145
+    VM11136:
+      ansible_host: 172.16.145.146
+    VM11137:
+      ansible_host: 172.16.145.147
+    VM11138:
+      ansible_host: 172.16.145.148
 vms_12:
   hosts:
     VM12000:
