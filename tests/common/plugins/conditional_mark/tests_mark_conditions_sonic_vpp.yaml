@@ -704,17 +704,6 @@ syslog/test_syslog_source_ip.py:
     conditions:
       - "asic_type in ['vpp']"
 
-#######################################
-#####          Telemetry          #####
-#######################################
-telemetry/test_telemetry.py::test_telemetry_queue_buffer_cnt:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
 vxlan/test_vxlan_ecmp.py::Test_VxLAN_ecmp_random_hash:
   skip:
     reason: >
