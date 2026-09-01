@@ -510,7 +510,7 @@ bgp/test_bgp_queue.py:
     reason: "Not supported on mgmt device or VPP platform that doesn't have queues"
     conditions_logical_operator: or
     conditions:
-      - "topo_type in ['m0', 'mx', 'm1']"
+      - "topo_type in ['m0', 'mx', 'm1', 'uma', 'lma']"
       - "asic_type in ['vpp']"
   xfail:
     reason: "Skipped due to issue https://github.com/sonic-net/sonic-mgmt/issues/18349"
@@ -638,23 +638,16 @@ bgp/test_bgp_suppress_fib.py:
              (2) suppress-fib dynamic-toggle offload/propagation race: the module toggles
              suppress-fib-pending dynamically at runtime, causing an orchagent/fpmsyncd/FRR race
              where routes are intermittently not offloaded in FRR / not propagated to the upstream VM.
-             The product fix that makes suppress-fib static (sonic-swss#4333 + sonic-mgmt#22916) is
-             merging to master only and is not backported. Therefore master auto-lifts once the fix
-             lands and the tracking issue is closed, while the release branches 202505/202511/202605
-             never receive the fix and stay skipped for the life of the branch.
-             Tracked by https://github.com/sonic-net/sonic-mgmt/issues/26175"
+             The fix that makes suppress-fib static (sonic-swss#4333) landed on master only and was
+             not backported, so release images remain skipped here."
     conditions_logical_operator: or
     conditions:
       - "release in ['201811', '201911', '202012', '202205', '202211', '202305', '202311', '202405']"
       - "release in ['202505', '202511', '202605']"
-      - "release in ['master'] and https://github.com/sonic-net/sonic-mgmt/issues/26175"
-      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/26175"
   xfail:
-    reason: "xfail for IPv6-only topologies, issue https://github.com/sonic-net/sonic-mgmt/issues/20756 or Mellanox platform due to https://github.com/sonic-net/sonic-buildimage/issues/24679"
-    conditions_logical_operator: or
+    reason: "xfail for IPv6-only topologies, issue https://github.com/sonic-net/sonic-mgmt/issues/20756"
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/20756 and '-v6-' in topo_name"
-      - "https://github.com/sonic-net/sonic-buildimage/issues/24679 and asic_type in ['mellanox', 'nvidia']"
 
 bgp/test_bgp_suppress_fib.py::test_bgp_route_with_suppress:
   skip:
@@ -673,12 +666,6 @@ bgp/test_bgp_suppress_fib.py::test_bgp_route_with_suppress_negative_operation:
              hold on VS. See https://github.com/sonic-net/sonic-mgmt/issues/14449"
     conditions:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/14449"
-
-bgp/test_bgp_suppress_fib.py::test_bgp_route_without_suppress:
-  xfail:
-    reason: "Testcase ignored due to https://github.com/sonic-net/sonic-buildimage/issues/24679"
-    conditions:
-      - "https://github.com/sonic-net/sonic-buildimage/issues/24679 and asic_type in ['mellanox', 'nvidia']"
 
 bgp/test_bgp_suppress_fib.py::test_credit_loop:
   skip:
@@ -782,6 +769,12 @@ bmp/:
     conditions:
       - "release in ['master']"
 
+bmp/test_docker_restart.py::test_restart_bmp_docker:
+  skip:
+    reason: "BMP service is not present on bmc topology"
+    conditions:
+      - "topo_type in ['bmc']"
+
 #######################################
 #####            cacl             #####
 #######################################
@@ -811,6 +804,10 @@ cacl/test_cacl_application.py::test_multiasic_cacl_application:
     conditions_logical_operator: or
     conditions:
       - "not is_multi_asic"
+  xfail:
+    reason: "xfail for multi-ASIC KVM t2 testbed, issue https://github.com/sonic-net/sonic-mgmt/issues/27182"
+    conditions:
+      - "asic_type in ['vs'] and is_multi_asic and topo_type in ['t2']"
 
 cacl/test_cacl_function.py:
   xfail:
@@ -853,9 +850,10 @@ configlet/test_add_rack.py:
 #######################################
 #####            console          #####
 #######################################
-console/:
+console/(?!test_console_(?:driver|reversessh)\.py):
+  regex: true
   skip:
-    reason: 'Console tests under tests/console/ are designed for c0 topology, not compatible with BMC'
+    reason: 'Only console driver and reverse SSH tests are compatible with BMC'
     conditions:
       - "'bmc' in topo_type"
 
@@ -2826,12 +2824,6 @@ generic_config_updater/test_multiasic_linkcrc.py:
       - "(is_multi_asic is False)"
       - "'bmc' in topo_type"
 
-generic_config_updater/test_ntp.py::test_ntp_server_change_source_intf:
-  skip:
-    reason: "Loopback0 is not present on BMC platforms (no routing data plane); sonic-ntp YANG validation rejects src_intf=Loopback0."
-    conditions:
-      - "'bmc' in topo_type"
-
 generic_config_updater/test_pfcwd_interval.py:
   skip:
     reason: "This test can only support mellanox platforms. This test is not run on this hwsku currently"
@@ -2898,9 +2890,38 @@ gnmi:
     conditions:
       - "release in ['202412']"
 
+gnmi/test_events.py:
+  skip:
+    reason: "Skip telemetry test events for 202211 and older branches"
+    conditions:
+      - "release in ['201811', '201911', '202012', '202205', '202211']"
+  xfail:
+    reason: "Test events is flaky in PR test, xfail until issue resolved"
+    conditions:
+      - "asic_type in ['vs']"
+      - https://github.com/sonic-net/sonic-buildimage/issues/19943
+
+gnmi/test_events.py::test_events:
+  skip:
+    reason: "Sub-event bgp_events requires BGP neighbors, not applicable on BMC."
+    conditions:
+      - "'bmc' in topo_type"
+
+gnmi/test_events.py::test_events_cache_overflow:
+  skip:
+    reason: "Requires eventd systemd unit which is not loaded on BMC."
+    conditions:
+      - "'bmc' in topo_type"
+
 gnmi/test_gnmi.py::test_gnmi_subscribe_sample:
   skip:
     reason: "Test relies on Ethernet0 frontpanel port and COUNTERS_DB; not applicable on BMC"
+    conditions:
+      - "'bmc' in topo_type"
+
+gnmi/test_gnmi.py::test_on_change_updates:
+  skip:
+    reason: "Test relies on BGP neighbors; none configured on BMC"
     conditions:
       - "'bmc' in topo_type"
 
@@ -2948,6 +2969,22 @@ gnmi/test_gnmi_smartswitch.py:
     reason: 'SmartSwitch gNMI tests require SmartSwitch platform, not applicable to BMC'
     conditions:
       - "'bmc' in topo_type"
+
+gnmi/test_gnmi_srv6.py:
+  skip:
+    reason: "SRv6 is not supported on older ASICs (Broadcom TH/TH2/TD3; Mellanox SPC1-3). SRv6 telemetry tests require routing, not available on BMC"
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type == 'broadcom' and asic_gen not in ['th5', 'th6', 'q3d']"
+      - "asic_type == 'mellanox' and asic_gen in ['spc1', 'spc2', 'spc3']"
+      - "'bmc' in topo_type"
+
+gnmi/test_gnmi_srv6.py::test_poll_mode_srv6_sid_counters:
+  skip:
+    reason: "Skip E2E telemetry SRv6 test for non-supported branches and HW"
+    conditions:
+      - "release not in ['202412']"
+      - "asic_type not in ['mellanox', 'broadcom']"
 
 gnmi/test_gnmi_stress.py::test_gnmi_latency_01:
   skip:
@@ -3754,6 +3791,15 @@ memory_checker/test_memory_checker.py:
       - "release in ['202412']"
 
 #######################################
+#####       metadata-scripts      #####
+#######################################
+metadata-scripts/test_metadata_bgp.py:
+  skip:
+    reason: "BGP is not running on BMC topology"
+    conditions:
+      - "'bmc' in topo_type"
+
+#######################################
 #####            mpls             #####
 #######################################
 mpls:
@@ -3999,10 +4045,10 @@ pfc_asym/test_pfc_asym.py:
 #######################################
 pfcwd:
   skip:
-    reason: "Pfcwd tests skipped on M* testbed, and some isolated topologies and '202412' for now"
+    reason: "Pfcwd tests skipped on M* and MA testbeds, and some isolated topologies and '202412' for now"
     conditions_logical_operator: or
     conditions:
-      - "topo_type in ['bmc', 'm0', 'm1', 'mx']"
+      - "topo_type in ['bmc', 'm0', 'm1', 'mx', 'uma', 'lma']"
       - *lossyTopos
       - "release in ['202412']"
 
@@ -4229,10 +4275,10 @@ ptftests:
 #######################################
 qos:
   skip:
-    reason: "M* topo does not support qos"
+    reason: "M* and MA topos do not support qos"
     conditions_logical_operator: or
     conditions:
-      - "topo_type in ['bmc', 'm0', 'm1', 'mx']"
+      - "topo_type in ['bmc', 'm0', 'm1', 'mx', 'uma', 'lma']"
       - "macsec_en==True"
       # ipv6 mgmt ip is not supported, see fixture dut_disable_ipv6 in qos_sai_base.py
       - "is_mgmt_ipv6_only==True"
@@ -4587,6 +4633,13 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiPgSharedWatermark:
     reason: "PG Shared Watermark not supported."
     conditions:
       - "asic_type in ['marvell-teralynx'] and platform in ['x86_64-wistron_6512_32r-r0', 'x86_64-wistron_sw_to3200k-r0']"
+
+qos/test_qos_sai.py::TestQosSai::testQosSaiQSharedWatermark(\[|$):
+  regex: true
+  skip:
+    reason: "Test case replaced by testQosSaiQSharedWatermarkQuantized for Cisco-8223."
+    conditions:
+      - "asic_type in ['cisco-8000'] and platform.startswith('x86_64-8223')"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiQWatermarkAllPorts:
   skip:
@@ -5088,6 +5141,12 @@ snappi_tests/bgp/test_bgp_rib_in_convergence.py:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/23857"
 
+snappi_tests/bgp/test_bgp_rib_route_optimztn_perf.py:
+  skip:
+    reason: "IxNetwork Error in L2/L3 Traffic Apply - https://github.com/sonic-net/sonic-mgmt/issues/23857"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/23857"
+
 snappi_tests/bgp/test_bgp_scalability.py:
   xfail:
     reason: "IxNetwork Error in L2/L3 Traffic Apply - https://github.com/sonic-net/sonic-mgmt/issues/23857"
@@ -5136,9 +5195,9 @@ snappi_tests/ecn/test_red_accuracy_with_snappi:
 
 snappi_tests/lacp:
   skip:
-    reason: "Skipping dash on 2025 releases"
+    reason: "Skipping snappi lacp on 2025, 202605 and 202608 releases"
     conditions:
-      - "'2025' in release"
+      - "'2025' in release or '202605' in release or '202608' in release"
 
 snappi_tests/pfc/test_global_pause_with_snappi.py:
   skip:
@@ -5168,9 +5227,11 @@ snappi_tests/pfcwd/test_pfcwd_actions.py::test_pfcwd_frwd_over_subs_40_09:
 
 snappi_tests/reboot:
   skip:
-    reason: "Skipping dash on 2025 releases"
+    reason: "Skipping snappi reboot on 2025 releases and while https://github.com/sonic-net/sonic-mgmt/issues/27415 is open"
+    conditions_logical_operator: or
     conditions:
       - "'2025' in release"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/27415"
 
 #######################################
 #####            snmp             #####
@@ -5236,9 +5297,9 @@ snmp/test_snmp_loopback.py::test_snmp_loopback:
 
 snmp/test_snmp_pfc_counters.py:
   skip:
-    reason: "M* topo does not support test_snmp_pfc_counters"
+    reason: "M* and MA topos do not support test_snmp_pfc_counters"
     conditions:
-      - "topo_type in ['m0', 'mx', 'm1']"
+      - "topo_type in ['m0', 'mx', 'm1', 'uma', 'lma']"
 
 snmp/test_snmp_phy_entity.py:
   skip:
@@ -5261,10 +5322,10 @@ snmp/test_snmp_queue.py:
 snmp/test_snmp_queue_counters.py:
   skip:
     conditions_logical_operator: OR
-    reason: "Have an known issue on kvm testbed / Unsupported in M* and C0 topos / issue #17929 on Mellanox platform"
+    reason: "Have an known issue on kvm testbed / Unsupported in M*, MA and C0 topos / issue #17929 on Mellanox platform"
     conditions:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/14007"
-      - "topo_type in ['m0', 'mx', 'm1', 'c0']"
+      - "topo_type in ['m0', 'mx', 'm1', 'c0', 'uma', 'lma']"
       - "https://github.com/sonic-net/sonic-mgmt/issues/17929 and asic_type in ['mellanox']"
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
@@ -5520,46 +5581,11 @@ tacacs/test_ro_disk.py:
 #######################################
 #####           telemetry         #####
 #######################################
-telemetry/test_events.py:
-  skip:
-    reason: "Skip telemetry test events for 202211 and older branches"
-    conditions:
-      - "release in ['201811', '201911', '202012', '202205', '202211']"
-  xfail:
-    reason: "Test events is flaky in PR test, xfail until issue resolved"
-    conditions:
-      - "asic_type in ['vs']"
-      - https://github.com/sonic-net/sonic-buildimage/issues/19943
-
-telemetry/test_events.py::test_events:
-  skip:
-    reason: "Sub-event bgp_events requires BGP neighbors, not applicable on BMC."
-    conditions:
-      - "'bmc' in topo_type"
-
-telemetry/test_events.py::test_events_cache_overflow:
-  skip:
-    reason: "Requires eventd systemd unit which is not loaded on BMC."
-    conditions:
-      - "'bmc' in topo_type"
-
 telemetry/test_telemetry.py:
   skip:
     reason: "Skip telemetry test for 201911 and older branches"
     conditions:
       - "(is_multi_asic==True) and (release in ['201811', '201911'])"
-
-telemetry/test_telemetry.py::test_on_change_updates:
-  skip:
-    reason: "Test relies on BGP neighbors; none configured on BMC"
-    conditions:
-      - "'bmc' in topo_type"
-
-telemetry/test_telemetry.py::test_telemetry_ouput:
-  skip:
-    reason: "not applicable on BMC (no Ethernet0/COUNTERS_DB)"
-    conditions:
-      - "'bmc' in topo_type"
 
 telemetry/test_telemetry.py::test_telemetry_queue_buffer_cnt:
   skip:
@@ -5575,22 +5601,6 @@ telemetry/test_telemetry_poll.py::test_poll_mode_default_route:
     reason: "not applicable on BMC because requires upstream BGP neighbor and default route"
     conditions:
       - "'bmc' in topo_type"
-
-telemetry/test_telemetry_srv6.py:
-  skip:
-    reason: "SRv6 is not supported on older ASICs (Broadcom TH/TH2/TD3; Mellanox SPC1-3). SRv6 telemetry tests require routing, not available on BMC"
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type == 'broadcom' and asic_gen not in ['th5', 'th6', 'q3d']"
-      - "asic_type == 'mellanox' and asic_gen in ['spc1', 'spc2', 'spc3']"
-      - "'bmc' in topo_type"
-
-telemetry/test_telemetry_srv6.py::test_poll_mode_srv6_sid_counters:
-  skip:
-    reason: "Skip E2E telemetry SRv6 test for non-supported branches and HW"
-    conditions:
-      - "release not in ['202412']"
-      - "asic_type not in ['mellanox', 'broadcom']"
 
 test_interfaces.py:
   skip:
