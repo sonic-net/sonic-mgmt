@@ -467,15 +467,14 @@ def test_dt2_addcluster_workflow(duthosts, rand_one_dut_hostname, loganalyzer, r
         "a speed gets no lossless BUFFER_PG and no error.".format(ports_missing_speed))
 
     # The patch must not carry the lossless PGs itself. Pushing them would reference a
-    # pg_lossless_<speed>_<cable>_profile that may not exist yet at apply time, and it
-    # diverges from what NDM actually sends in production.
+    # pg_lossless_<speed>_<cable>_profile that may not exist yet at apply time.
     pushed_lossless_pgs = patch_pushed_lossless_pgs(
         patch_data, AUTOGEN_BUFFER_PG_PROFILE_PREFIX)
     pytest_assert(
         not pushed_lossless_pgs,
         "Patch pushes auto-generated lossless BUFFER_PG entries: {}. These are created by "
-        "buffermgrd on link-up and are absent from the NDM reference patch; including them "
-        "references a buffer profile that may not exist yet.".format(pushed_lossless_pgs))
+        "buffermgrd on link-up; including them in the patch references a buffer profile "
+        "that may not exist yet.".format(pushed_lossless_pgs))
 
     logger.info("Patch supplies speed, CABLE_LENGTH and DEVICE_NEIGHBOR for all %d added "
                 "front-panel port(s) and pushes no auto-generated lossless PGs",

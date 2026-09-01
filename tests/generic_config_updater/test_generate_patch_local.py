@@ -246,7 +246,7 @@ class TestGeneratePatchSinglePhase:
     def test_acl_bindings_use_append_semantics(self, tmp_path):
         """Existing ACL_TABLE entries must be extended with append ops, not replaced.
 
-        NDM binds ports via "add /ACL_TABLE/<name>/ports/-". Replacing the whole
+        Ports are bound via "add /ACL_TABLE/<name>/ports/-". Replacing the whole
         'ports' list would clobber bindings made concurrently by another process
         and rewrite unrelated fields such as 'type' and 'policy_desc'.
         """

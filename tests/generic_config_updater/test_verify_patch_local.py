@@ -38,11 +38,18 @@ pytestmark = [
 ]
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
-NDM_REFERENCE_PATCH = os.path.join(THIS_DIR, "files", "ndm_addcluster_reference_patch.json")
+REFERENCE_PATCH = os.path.join(THIS_DIR, "files", "addcluster_reference_patch.json")
 
 
-def load_ndm_patch():
-    with open(NDM_REFERENCE_PATCH) as f:
+def load_reference_patch():
+    """A representative add-cluster patch: one T1 attached to one port via a LAG.
+
+    Hand-written fixtures drift towards whatever the code already does. This one is
+    shaped like a full add-cluster payload -- every table an added port touches, in
+    the order a real patch carries them -- so the checks below are pinned against a
+    realistic whole rather than against per-case snippets.
+    """
+    with open(REFERENCE_PATCH) as f:
         return json.load(f)
 
 
@@ -117,10 +124,10 @@ class TestPatchTouchedEntries:
         # A path with a single segment addresses a whole table and has no entry key.
         assert patch_touched_entries([{"op": "add", "path": "/PORT", "value": {}}]) == {}
 
-    def test_ndm_reference_patch_covers_every_table_it_touches(self):
-        # Pins the verification scope against the real NDM patch. If patch generation
-        # grows a new table, this test fails until verification covers it too.
-        touched = patch_touched_entries(load_ndm_patch())
+    def test_reference_patch_covers_every_table_it_touches(self):
+        # Pins the verification scope against a full add-cluster patch. If patch
+        # generation grows a new table, this test fails until verification covers it too.
+        touched = patch_touched_entries(load_reference_patch())
         assert set(touched) == {
             "PORTCHANNEL", "PORTCHANNEL_INTERFACE", "ACL_TABLE", "PORT",
             "DEVICE_NEIGHBOR", "PORT_QOS_MAP", "PFC_WD", "CABLE_LENGTH",
@@ -128,10 +135,11 @@ class TestPatchTouchedEntries:
             "DEVICE_NEIGHBOR_METADATA", "BGP_NEIGHBOR",
         }
 
-    def test_ndm_reference_patch_buffer_and_queue_entries(self):
-        # The buffer/queue operations were added when patch generation was aligned with
-        # NDM. Verification must see them, or that alignment goes unchecked on hardware.
-        touched = patch_touched_entries(load_ndm_patch())
+    def test_reference_patch_buffer_and_queue_entries(self):
+        # A port added without its buffer/queue entries comes up with default
+        # buffering and no PFC. Verification must see these, or that goes unchecked
+        # on hardware.
+        touched = patch_touched_entries(load_reference_patch())
         assert touched["BUFFER_PG"] == {"Ethernet316|0"}
         assert touched["BUFFER_QUEUE"] == {
             "Ethernet316|0-2", "Ethernet316|3-4", "Ethernet316|5-6"}
@@ -298,9 +306,13 @@ class TestPatchCableLengthPorts:
         patch = [{"op": "add", "path": "/CABLE_LENGTH/AZURE/Ethernet316", "value": "0m"}]
         assert patch_cable_length_ports(patch) == {"Ethernet316": "0m"}
 
-    def test_ndm_reference_patch(self):
-        """The real NDM patch sets a cable length for exactly the port it adds."""
-        patch = load_ndm_patch()
+    def test_reference_patch(self):
+        """Every port the patch adds gets a cable length in the same patch.
+
+        Cable length is half the lossless profile lookup key. A port added without
+        one gets no lossless BUFFER_PG, and nothing reports an error.
+        """
+        patch = load_reference_patch()
         cable_lengths = patch_cable_length_ports(patch)
 
         ports_added = {
@@ -308,18 +320,19 @@ class TestPatchCableLengthPorts:
             if entry["path"].startswith("/PORT/")
         }
         assert set(cable_lengths) == ports_added, (
-            "NDM sets cable lengths for {} but adds ports {}".format(
+            "cable lengths set for {} but ports added are {}".format(
                 sorted(cable_lengths), sorted(ports_added)))
         assert cable_lengths == {"Ethernet316": "500m"}
 
-    def test_ndm_reference_patch_pushes_no_lossless_pg(self):
-        """NDM never pushes the auto-generated lossless PGs; buffermgrd creates them.
+    def test_reference_patch_pushes_no_lossless_pg(self):
+        """An add-cluster patch must not carry the auto-generated lossless PGs.
 
         BUFFER_PG|<port>|0 (lossy) is pushed, BUFFER_PG|<port>|3-4 is not -- while
         BUFFER_QUEUE|3-4 *is* pushed, because egress profiles are fixed names and the
-        ingress lossless profile is parameterised by speed and cable length.
+        ingress lossless profile is parameterised by speed and cable length, so
+        buffermgrd has to derive it on link-up.
         """
-        patch = load_ndm_patch()
+        patch = load_reference_patch()
         buffer_pg_paths = {
             entry["path"] for entry in patch if entry["path"].startswith("/BUFFER_PG/")
         }
@@ -328,7 +341,7 @@ class TestPatchCableLengthPorts:
         for entry in patch:
             value = json.dumps(entry.get("value", ""))
             assert "pg_lossless_" not in value, (
-                "NDM reference patch unexpectedly references an auto-generated lossless "
+                "reference patch unexpectedly references an auto-generated lossless "
                 "profile in {}".format(entry["path"]))
 
         assert {"/BUFFER_QUEUE/Ethernet316|3-4"} <= {e["path"] for e in patch}
@@ -377,8 +390,8 @@ class TestPatchPushedLosslessPgs:
                   "value": {"profile": "pg_lossless_100000_500m_profile"}}]
         assert patch_pushed_lossless_pgs(patch, self.PREFIX) == []
 
-    def test_ndm_reference_patch_is_clean(self):
-        assert patch_pushed_lossless_pgs(load_ndm_patch(), self.PREFIX) == []
+    def test_reference_patch_is_clean(self):
+        assert patch_pushed_lossless_pgs(load_reference_patch(), self.PREFIX) == []
 
 
 class TestPatchAddedPorts:
@@ -407,15 +420,15 @@ class TestPatchAddedPorts:
         ]
         assert patch_added_ports(patch) == {}
 
-    def test_ndm_reference_patch(self):
-        added = patch_added_ports(load_ndm_patch())
+    def test_reference_patch(self):
+        added = patch_added_ports(load_reference_patch())
         assert set(added) == {"Ethernet316"}
         assert added["Ethernet316"]["speed"] == "100000"
 
-    def test_ndm_added_ports_all_have_speed(self):
+    def test_reference_added_ports_all_have_speed(self):
         """Speed is half the lossless profile lookup key; a port added without it
         gets no lossless BUFFER_PG and reports no error."""
-        added = patch_added_ports(load_ndm_patch())
+        added = patch_added_ports(load_reference_patch())
         assert added and all(fields.get("speed") for fields in added.values())
 
 

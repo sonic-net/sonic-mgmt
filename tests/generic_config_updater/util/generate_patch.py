@@ -112,14 +112,14 @@ BASE_FILTERED_TABLES = [
 # profiles that do not exist yet and fail YANG validation.
 #
 # On traditional buffer platforms (Arista/Nokia LT2) the opposite is true:
-# NDM does push these tables, so omitting them produces a patch that covers
-# only part of the production change.
+# the buffer manager does not derive these entries, so omitting them leaves the
+# new port with default buffering and no PFC.
 STATIC_BUFFER_TABLES = ["BUFFER_PG", "BUFFER_QUEUE", "QUEUE"]
 
 # Lossless PG entries are created by the buffer manager on link-up / cable
 # length change, not by the config push. They must never appear in a generated
-# patch even on traditional platforms, or the patch will diverge from what NDM
-# actually sends.
+# patch even on traditional platforms: the profile name encodes port speed and
+# cable length, so a pushed entry would reference a profile that may not exist.
 AUTOGEN_BUFFER_PG_PROFILE_PREFIX = "pg_lossless_"
 
 
@@ -457,7 +457,7 @@ def find_acl_table_bindings_for_ports(full_config, no_leaf_config, namespace, po
             if port in ports and port not in no_leaf_ports:
                 ports_to_add.append(port)
 
-        # Emit one append op per port, matching how NDM binds ports to ACLs.
+        # Emit one append op per port so existing bindings are preserved.
         patches.extend(
             build_acl_ports_append_patches(namespace, acl_name, ports_to_add, is_multi_asic)
         )
@@ -468,7 +468,7 @@ def find_acl_table_bindings_for_ports(full_config, no_leaf_config, namespace, po
 def build_acl_ports_append_patches(namespace, acl_name, ports_to_add, is_multi_asic):
     """Build RFC 6902 append operations binding ports to an existing ACL_TABLE.
 
-    NDM binds ports with "add /ACL_TABLE/<name>/ports/-", an append. Replacing
+    Ports are bound with "add /ACL_TABLE/<name>/ports/-", an append. Replacing
     the whole 'ports' list instead would clobber bindings written concurrently
     by another process and would rewrite unrelated fields such as 'type',
     'stage' and 'policy_desc'.
@@ -497,7 +497,7 @@ def split_existing_acl_table_patches(acl_patches, no_leaf_config, is_multi_asic)
     A coalesced whole-entry "add" is necessary when the ACL_TABLE entry is new,
     because YANG requires the 'type' field to be present. When the entry already
     exists on the device only the new port bindings should be sent, so those
-    patches are rewritten into "/ports/-" appends to match NDM.
+    patches are rewritten into "/ports/-" appends.
 
     Args:
         acl_patches: Coalesced entry-level ACL_TABLE patches
