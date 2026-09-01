@@ -456,6 +456,12 @@ def verify_lldpcli_interfaces(duthost, asic, intf_status_output, test_name=""):
         )
     )['stdout']
 
+    # On multi-ASIC, verify the presence of eth0 on the main lldp instance
+    # instead of the asic indexed one
+    if duthost.is_multi_asic:
+        lldpcli_output += '\n' + duthost.shell(
+            "docker exec lldp lldpcli show interfaces")['stdout']
+
     lldpcli_interfaces = set()
     for line in lldpcli_output.split('\n'):
         if line.startswith('Interface:'):
@@ -542,6 +548,13 @@ def verify_lldpctl_facts(duthost, enum_frontend_asic_index, intf_status_output, 
         asic_instance_id=enum_frontend_asic_index,
         skip_interface_pattern_list=["Ethernet-BP", "Ethernet-IB"] + internal_port_list
     )['ansible_facts']
+
+    # On multi-ASIC, verify the presence of eth0 on the main lldp instance
+    # instead of the asic indexed one
+    if duthost.is_multi_asic:
+        lldpctl_facts['lldpctl'].update(duthost.lldpctl_facts(
+            skip_interface_pattern_list=["Ethernet-BP", "Ethernet-IB"] + internal_port_list
+        )['ansible_facts']['lldpctl'])
 
     # Verify eth0 is in lldpctl_facts (only on physical testbeds)
     if is_virtual_platform(duthost):
