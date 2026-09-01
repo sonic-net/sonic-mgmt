@@ -723,19 +723,24 @@ def verify_all_ports_pfc_storm_in_expected_state(dut, storm_hndle, expected_stat
         logger.warning("No ports found to verify")
         return False
 
-    # On non-dualtor t0 topologies, setup_pfc_test assigns a single VLAN neighbor IP
-    # (self.vlan_nw) to every VLAN port, so at most one of those ports can actually
-    # receive PTF background traffic -- the DUT does one ND/ARP lookup and routes all
-    # traffic out a single port. Counting every such VLAN port individually against the
-    # storm threshold inflates the denominator and causes false failures.
+    # Some port types are assigned a single shared neighbor IP by design, so only one
+    # of the ports sharing that IP can actually receive the routed PTF background
+    # traffic and build the egress queue occupancy that PFCWD needs to declare a storm:
+    #   * VLAN ports - on non-dualtor t0, setup_pfc_test assigns self.vlan_nw to every
+    #     VLAN port and the DUT does a single ND/ARP lookup for it.
+    #   * PortChannel members - parse_pc_list assigns the PortChannel's single BGP peer
+    #     address to every member, so the DUT LAG-hashes the flow onto one member.
+    # Counting each of those ports individually inflates the denominator and causes
+    # false failures even though the fanout is pausing every physical link.
     #
-    # To keep the numerator and denominator consistent, group VLAN ports that share a
-    # test_neighbor_addr and treat each group as one "effective" port (success = any
-    # member reached the expected state). Non-VLAN ports (routed interfaces and
-    # PortChannel members, which also share a neighbor IP by design in parse_pc_list)
-    # are always counted individually. This adjustment only applies to the storm phase.
+    # To keep the numerator and denominator consistent, group ports of those types that
+    # share a test_neighbor_addr and treat each group as one "effective" port (success =
+    # any member reached the expected state). Routed interfaces get a unique neighbor
+    # address each, so they always form single-port groups and are counted individually.
+    # This adjustment only applies to the storm phase.
     if expected_state == "storm" and test_ports_info:
-        vlan_ip_groups = {}
+        shared_ip_types = ('vlan', 'portchannel')
+        shared_ip_groups = {}
         standalone_ports = []
         seen_ports = set()
         for port, _queue_idx in ports_to_check:
@@ -744,23 +749,24 @@ def verify_all_ports_pfc_storm_in_expected_state(dut, storm_hndle, expected_stat
             seen_ports.add(port)
             info = test_ports_info.get(port, {}) or {}
             ip = info.get('test_neighbor_addr')
-            if info.get('test_port_type') == 'vlan' and ip:
-                vlan_ip_groups.setdefault(ip, []).append(port)
+            port_type = info.get('test_port_type')
+            if port_type in shared_ip_types and ip:
+                shared_ip_groups.setdefault((port_type, ip), []).append(port)
             else:
                 standalone_ports.append(port)
 
-        # Only adjust when VLAN ports actually share an IP (the non-dualtor case).
-        if any(len(ports) > 1 for ports in vlan_ip_groups.values()):
-            effective_total = len(vlan_ip_groups) + len(standalone_ports)
+        # Only adjust when ports actually share a neighbor IP.
+        if any(len(ports) > 1 for ports in shared_ip_groups.values()):
+            effective_total = len(shared_ip_groups) + len(standalone_ports)
             effective_success = 0
-            for ip, ports in vlan_ip_groups.items():
+            for _group_key, ports in shared_ip_groups.items():
                 if any(port_results.get(p, False) for p in ports):
                     effective_success += 1
             for port in standalone_ports:
                 if port_results.get(port, False):
                     effective_success += 1
             logger.info(
-                "Adjusting for duplicate VLAN neighbor IPs: ports_in_expected_state %d->%d, "
+                "Adjusting for duplicate neighbor IPs: ports_in_expected_state %d->%d, "
                 "total_ports %d->%d",
                 ports_in_expected_state, effective_success, total_ports, effective_total)
             ports_in_expected_state = effective_success
