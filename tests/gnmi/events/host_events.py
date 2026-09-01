@@ -5,7 +5,7 @@ import time
 from run_events_test import run_test
 from event_utils import backup_monit_config, customize_monit_config, restore_monit_config
 from event_utils import add_test_watchdog_timeout_service, delete_test_watchdog_timeout_service
-from telemetry_utils import trigger_logger
+from event_utils import trigger_logger
 from tests.common.helpers.dut_utils import is_container_running
 from tests.common.utilities import wait_until
 
@@ -56,11 +56,7 @@ def test_event(duthost, tbinfo, gnxi_path, ptfhost, ptfadapter, data_dir, valida
 
 def trigger_mem_threshold_exceeded_alert(duthost, tbinfo):
     logger.info("Invoking memory checker with low threshold")
-    cmd = "docker images | grep -w sonic-gnmi"
-    if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
-        duthost.shell("/usr/bin/memory_checker gnmi 100", module_ignore_errors=True)
-    else:
-        duthost.shell("/usr/bin/memory_checker telemetry 100", module_ignore_errors=True)
+    duthost.shell("/usr/bin/memory_checker gnmi 100", module_ignore_errors=True)
 
 
 def trigger_kernel_event(duthost, tbinfo):
