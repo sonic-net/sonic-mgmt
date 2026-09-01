@@ -237,9 +237,9 @@ def compare_touched_entries(baseline_config, actual_config, patch_data, ignore_f
 
 # --- Device readers -------------------------------------------------------------
 # These take duthost as a parameter rather than reaching for a global, so the parsing
-# they do can be exercised against a stub in the hardware-free tests. The parsing is
-# where the risk lives: every one of them turns a shell result into a boolean or a
-# lookup, and getting that wrong fails open rather than loudly.
+# they do stays independently testable against a stub. The parsing is where the risk
+# lives: every one of them turns a shell result into a boolean or a lookup, and getting
+# that wrong fails open rather than loudly.
 
 
 def get_config_db_field(duthost, key, field):
