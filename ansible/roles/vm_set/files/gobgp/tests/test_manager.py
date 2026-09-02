@@ -11,6 +11,7 @@ math, these fail.
 """
 import ast
 import hashlib
+import itertools
 import json
 import os
 import sys
@@ -159,7 +160,7 @@ def test_configure_writes_toml_program_and_spool_entry(tree):
     entry = json.loads(read(tree.spool / "ARISTA01T1.json"))
     assert entry == {
         "5000": {
-            "grpc": "127.0.0.1:50000",
+            "grpc": "127.0.0.1:61000",
             "family": "v4",
             "name": "ARISTA01T1",
             "peer": "10.0.0.1",
@@ -180,25 +181,17 @@ def test_configure_rejects_passive(tree):
     assert not (tree.conf / "N.toml").exists()
 
 
-def test_pprof_relocated_clear_of_shim_and_grpc_ranges(tree):
-    """gobgpd's default pprof port (6060) is a v6 shim HTTP port.
+def test_gobgpd_http_listener_is_disabled(tree):
+    """gobgpd serves pprof and prometheus metrics from one HTTP listener.
 
-    ``--pprof-disable`` is ineffective in the binary, so the manager relocates
-    the listener instead. The collision is invisible until a route POST lands on
-    the squatted port, which makes it worth pinning down here.
+    Disabling either alone leaves it bound, and its default port 6060 is the v6
+    shim HTTP port at offset 60. Both flags are required to remove it.
     """
-    grpc_lo = mgr.SHIM_PORT_MIN + mgr.GRPC_PORT_OFFSET
-    grpc_hi = mgr.SHIM_PORT_MAX + mgr.GRPC_PORT_OFFSET
-    for port in (5000, 5060, 6000, 6060, 6071):
-        pprof = mgr.pprof_port_for(port)
-        grpc = mgr.grpc_port_for(port)
-        assert not mgr.SHIM_PORT_MIN <= pprof <= mgr.SHIM_PORT_MAX
-        assert not grpc_lo <= pprof <= grpc_hi
-        assert pprof != grpc
-
     configure(1)
     program = read(tree.supervisor / "gobgpd-ARISTA01T1.conf")
-    assert "--pprof-host=127.0.0.1:60000" in program
+    assert "--pprof-disable" in program
+    assert '--metrics-path ""' in program
+    assert "--pprof-host" not in program
     assert ":6060" not in program
 
 
@@ -271,7 +264,7 @@ def test_fleet_pool_is_sized_by_cores_not_sessions(tree):
     for off in range(144):
         for base, family in ((5000, "v4"), (6000, "v6")):
             portmap[str(base + off)] = {
-                "grpc": "127.0.0.1:%d" % (base + off + 45000),
+                "grpc": "127.0.0.1:%d" % mgr.grpc_port_for(base + off),
                 "family": family, "name": "ARISTA%03dT1" % (off + 1),
             }
     assert len(portmap) == 288
@@ -445,6 +438,15 @@ def test_wait_treats_a_silent_group_as_pending(tree, monkeypatch):
     assert "UNKNOWN" in module.failed
 
 
+def test_wait_deadline_survives_a_wall_clock_jump(tree, monkeypatch):
+    """Bring-up takes minutes, and an NTP step must not end the wait early."""
+    monkeypatch.setattr(mgr.time, "sleep", lambda _s: None)
+    jumped = itertools.count(0, 3600)
+    monkeypatch.setattr(mgr.time, "time", lambda: 1e9 + next(jumped))
+    module = FakeModule(statuses={"gobgpv4": ["gobgpd-ARISTA01T1   STARTING", RUNNING]})
+    mgr.wait_groups_running(module, ["gobgpv4"], timeout=30)
+
+
 def test_wait_polls_the_group_not_each_program(tree, monkeypatch):
     """Per-program waits serialize hundreds of timeouts at fleet scale."""
     monkeypatch.setattr(mgr.time, "sleep", lambda _s: None)
@@ -453,60 +455,6 @@ def test_wait_polls_the_group_not_each_program(tree, monkeypatch):
 
     status_cmds = [c for c in module.commands if c.startswith("supervisorctl status")]
     assert status_cmds == ["supervisorctl status gobgpv4:"]
-
-
-# --- fd ceiling ---------------------------------------------------------------
-
-def test_fd_ceiling_clears_the_scale_that_failed_on_hardware(tree):
-    """288 processes overran the default 1024 limit and left 87 children FATAL.
-
-    Sizing purely off the process count would land at ~1.1k here -- just above
-    the limit that already failed -- so the floor carries the fleet case.
-    """
-    module = FakeModule()
-    needed = mgr.raise_fd_ceiling(module, 288)
-
-    assert needed >= 65536
-    assert any("prlimit" in c and "--nofile=%d:" % needed in c
-               for c in module.commands)
-
-
-@pytest.mark.parametrize("count,expected", [
-    (2, "floor"),                    # a 2-neighbor topology still gets the floor
-    (8192, "linear"),                # mid-range scales with the process count
-    (10 ** 6, "cap"),                # beyond the hard limit, prlimit would reject
-])
-def test_fd_ceiling_sizing_is_floor_then_linear_then_capped(tree, count, expected):
-    """The ceiling is piecewise: max(FD_FLOOR, per_process * n), capped at FD_HARD.
-
-    All three segments matter. Without the floor a fleet-sized run lands just
-    above the limit that already failed on hardware; without the cap the request
-    exceeds the hard limit and prlimit rejects it, which a best-effort call
-    swallows -- leaving the ceiling unraised.
-    """
-    module = FakeModule()
-    needed = mgr.raise_fd_ceiling(module, count)
-
-    if expected == "floor":
-        assert needed == mgr.FD_FLOOR
-    elif expected == "linear":
-        assert needed == mgr.FD_PER_PROCESS * count
-        assert needed <= mgr.FD_HARD
-    else:
-        assert needed == mgr.FD_HARD
-
-
-def test_fd_ceiling_is_best_effort(tree, monkeypatch):
-    """Small topologies never hit the limit; failing to raise it must not
-    regress them for a problem they do not have."""
-    class Failing(FakeModule):
-        def run_command(self, cmd):
-            self.commands.append(cmd)
-            return 1, "", "prlimit: not permitted"
-
-    module = Failing()
-    mgr.raise_fd_ceiling(module, 16)     # must not raise
-    assert module.failed is None
 
 
 # --- regression: portmap digest and group integrity ---------------------------
@@ -525,7 +473,7 @@ def test_growing_the_portmap_restarts_the_pool_even_when_k_is_saturated(tree):
         for off in range(72):
             for base, family in families:
                 out[str(base + off)] = {
-                    "grpc": "127.0.0.1:%d" % (base + off + 45000),
+                    "grpc": "127.0.0.1:%d" % mgr.grpc_port_for(base + off),
                     "family": family, "name": "ARISTA%02dT1" % off,
                 }
         return out
@@ -580,93 +528,43 @@ def test_absent_leaves_no_group_pointing_at_a_deleted_program(tree):
             "group references %s but its program file is gone" % program
 
 
-# --- ephemeral-port reservation ------------------------------------------------
+# --- derived listener ports ---------------------------------------------------
 
-def test_reserved_ports_cover_every_derived_listener(tree):
-    """The gRPC and pprof bands are derived, so the reservation must be too.
+def test_derived_grpc_ports_avoid_the_ephemeral_range(tree):
+    """The gRPC band must sit outside net.ipv4.ip_local_port_range.
 
-    Writing the ranges out by hand would let a change to either offset leave the
-    reservation pointing at the window the daemons no longer use.
-    """
-    module = FakeModule()
-    ranges = mgr.reserve_listener_ports(module)
-
-    reserved = set()
-    for span in ranges.split(","):
-        lo, hi = (int(x) for x in span.split("-"))
-        reserved.update(range(lo, hi + 1))
-
-    for port in (mgr.SHIM_PORT_MIN, 5500, 6000, mgr.SHIM_PORT_MAX):
-        assert mgr.grpc_port_for(port) in reserved
-        assert mgr.pprof_port_for(port) in reserved
-
-    assert any("ip_local_reserved_ports=%s" % ranges in c
-               for c in module.commands)
-
-
-def test_reserved_ports_cover_the_ephemeral_overlap(tree):
-    """Everything the daemons bind inside 32768-60999 must be reserved.
-
-    That window is the container default for net.ipv4.ip_local_port_range; a
-    fixed port inside it can be held by an outbound socket when a daemon
-    restarts, which is the failure this reservation exists to prevent.
+    Its per-netns kernel default is 32768-60999. A fixed port inside that window
+    can be held by a loopback ephemeral socket when a daemon restarts, so the
+    band is placed above it.
     """
     EPHEMERAL_LO, EPHEMERAL_HI = 32768, 60999
 
-    reserved = set()
-    for span in mgr.reserve_listener_ports(FakeModule()).split(","):
-        lo, hi = (int(x) for x in span.split("-"))
-        reserved.update(range(lo, hi + 1))
-
-    exposed = set()
     for port in range(mgr.SHIM_PORT_MIN, mgr.SHIM_PORT_MAX + 1):
-        for listener in (mgr.grpc_port_for(port), mgr.pprof_port_for(port)):
-            if EPHEMERAL_LO <= listener <= EPHEMERAL_HI:
-                exposed.add(listener)
-
-    assert exposed                      # the overlap is real, not hypothetical
-    assert exposed <= reserved
+        listener = mgr.grpc_port_for(port)
+        assert not EPHEMERAL_LO <= listener <= EPHEMERAL_HI
+        assert listener <= 65535
 
 
-def test_every_derived_listener_is_a_legal_port(tree):
-    """Guards the rejected fix for the overlap.
+def test_shim_and_grpc_bands_are_disjoint(tree):
+    """A derived gRPC port must never land on another neighbor's shim port."""
+    shim = set(range(mgr.SHIM_PORT_MIN, mgr.SHIM_PORT_MAX + 1))
+    grpc = {mgr.grpc_port_for(port) for port in shim}
+    assert not shim & grpc
 
-    Shifting the gRPC base above the ephemeral window would need an offset of
-    56000, which puts pprof (grpc + 10000) at 71000 -- past the 16-bit ceiling.
-    The reservation is used precisely because the bases cannot move.
+
+# --- filesystem helpers -------------------------------------------------------
+
+def test_remove_is_silent_only_for_a_missing_file(tmp_path):
+    """Callers delete paths that may be absent, so only that case is absorbed.
+
+    Anything else -- an unwritable directory, a path component that is a file --
+    would otherwise leave a supervisord program file behind while teardown
+    reported success.
     """
-    for port in (mgr.SHIM_PORT_MIN, mgr.SHIM_PORT_MAX):
-        assert mgr.grpc_port_for(port) <= 65535
-        assert mgr.pprof_port_for(port) <= 65535
+    mgr._remove(str(tmp_path / "never-written.conf"))
 
-
-def test_reserving_ports_is_best_effort(tree):
-    """A container without permission to set the sysctl must still deploy."""
-    class Failing(FakeModule):
-        def run_command(self, cmd):
-            self.commands.append(cmd)
-            return 1, "", "sysctl: permission denied"
-
-    module = Failing()
-    mgr.reserve_listener_ports(module)   # must not raise
-    assert module.failed is None
-
-
-def test_pool_reserves_the_listener_ports_before_the_fleet_spawns(tree):
-    """The reservation is useless once the daemons are already binding."""
-    configure(2)
-    module = FakeModule(statuses={g: [RUNNING] for g in ("gobgpv4", "gobgpshim")})
-    portmap = mgr.collect_portmap()
-    shards = mgr.render_pool(portmap, core_count=2)
-    mgr.raise_fd_ceiling(module, len(portmap) + shards)
-    mgr.reserve_listener_ports(module)
-    mgr.start_gobgp(module, mgr.existing_groups())
-
-    reserved_at = next(i for i, c in enumerate(module.commands)
-                       if "ip_local_reserved_ports" in c)
-    started_at = next(i for i, c in enumerate(module.commands)
-                      if c.startswith("supervisorctl start"))
-    assert reserved_at < started_at
+    with pytest.raises(IsADirectoryError):
+        mgr._remove(str(tmp_path))
 
 
 # --- deployed-package layout ---------------------------------------------------

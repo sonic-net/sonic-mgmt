@@ -70,7 +70,7 @@ options:
     port:
         description:
             - HTTP port the shim serves this neighbor on; also derives the
-              gRPC and pprof ports.
+              gRPC port.
         required: false
         default: 5000
     passive:
@@ -113,13 +113,12 @@ EXAMPLES = '''
 
 DEFAULT_BGP_LISTEN_PORT = 179
 # gRPC port derived deterministically from the HTTP port so it never collides:
-#   v4 http 5000+off -> grpc 50000+off ;  v6 http 6000+off -> grpc 51000+off
-GRPC_PORT_OFFSET = 45000
-# gobgpd's pprof listener defaults to 6060, which is exactly the v6 shim HTTP
-# port for offset 60 (6000+60), and --pprof-disable is ineffective in the
-# binary. Relocating pprof by a further +10000 puts it on 60000+off / 61000+off,
-# clear of both the shim (5000-6999) and gRPC (50000-51999) ranges.
-PPROF_PORT_OFFSET = 10000
+#   v4 http 5000+off -> grpc 61000+off ;  v6 http 6000+off -> grpc 62000+off
+# The offset also places the band above net.ipv4.ip_local_port_range, whose
+# per-netns kernel default is 32768-60999, and inside the 16-bit port space. The
+# shims hold one loopback gRPC channel per neighbor, so an ephemeral source port
+# could otherwise take the API port a restarting gobgpd must re-bind.
+GRPC_PORT_OFFSET = 56000
 
 GOBGP_BIN = "/usr/local/bin/gobgpd"
 GOBGP_CLI = "/usr/local/bin/gobgp"
@@ -141,19 +140,8 @@ SHIM_GROUP = "gobgpshim"
 # cannot be split into v4/v6 groups the way the gobgpd programs are.
 ALL_GROUPS = (V4_GROUP, V6_GROUP, SHIM_GROUP)
 
-# supervisord holds a stdout and a stderr pipe per child, so its descriptor use
-# scales with the program count: a 288-process fleet overran the default 1024
-# soft limit and left 87 children FATAL. FD_FLOOR is the value proven on
-# hardware; the per-process term only takes over beyond that scale.
-FD_PER_PROCESS = 16
-FD_FLOOR = 65536
-FD_HARD = 524288
-
-# The shim HTTP ports sit below the ephemeral range, but the ports derived from
-# them do not: grpc lands at 50000-51999 and pprof at 60000-61999, against a
-# default net.ipv4.ip_local_port_range of 32768-60999. An outbound socket can
-# therefore hold a port a restarting daemon must re-bind. The bases cannot move
-# -- clearing 60999 would push pprof past 65535 -- so the ranges are reserved.
+# Bounds of the shim HTTP band the manager is given ports from (filters.py port
+# math), and the basis of the derived gRPC band.
 SHIM_PORT_MIN = 5000
 SHIM_PORT_MAX = 6999
 
@@ -186,10 +174,13 @@ gobgpd_config_template = '''\
       afi-safi-name = "ipv6-unicast"
 '''
 
+# supervisord program for one gobgpd. Both HTTP flags are required: pprof and
+# prometheus metrics share a single listener that starts unless both are off,
+# and its 127.0.0.1:6060 default is the v6 shim port at offset 60.
 gobgpd_supervisord_tmpl = '''\
 [program:gobgpd-{{ name }}]
 command={{ gobgpd }} -f {{ conf_dir }}/{{ name }}.toml -t toml \
---api-hosts 127.0.0.1:{{ grpc_port }} --pprof-host=127.0.0.1:{{ pprof_port }}\
+--api-hosts 127.0.0.1:{{ grpc_port }} --pprof-disable --metrics-path ""\
 {% if debug %} --log-level debug{% endif %}
 stdout_logfile=/tmp/gobgpd-{{ name }}.out.log
 stderr_logfile=/tmp/gobgpd-{{ name }}.err.log
@@ -266,10 +257,6 @@ def grpc_port_for(port):
     return int(port) + GRPC_PORT_OFFSET
 
 
-def pprof_port_for(port):
-    return grpc_port_for(port) + PPROF_PORT_OFFSET
-
-
 def family_for(port):
     # v6 speakers use the 6000+ HTTP port range (see filters.py port math)
     return "v6" if int(port) >= 6000 else "v4"
@@ -281,13 +268,6 @@ def exec_command(module, cmd, ignore_error=False, msg="executing command"):
         module.fail_json(msg="Failed %s: rc=%d, out=%s, err=%s" %
                          (msg, rc, out, err))
     return out
-
-
-def _mkdir(path):
-    try:
-        os.makedirs(path, 0o755)
-    except OSError:
-        pass  # already present
 
 
 def _write(path, data):
@@ -312,8 +292,8 @@ def _write(path, data):
 def _remove(path):
     try:
         os.remove(path)
-    except OSError:
-        pass  # already gone
+    except FileNotFoundError:
+        pass
 
 
 def refresh_supervisord(module):
@@ -344,9 +324,9 @@ def wait_groups_running(module, groups, timeout=300):
     fleet scale: a per-program wait serializes hundreds of timeouts, and a
     single slow bind under load would blow the play's budget on its own.
     """
-    deadline = time.time() + timeout
+    deadline = time.monotonic() + timeout
     pending = {}
-    while time.time() < deadline:
+    while time.monotonic() < deadline:
         pending = {}
         for group in groups:
             out = exec_command(module, cmd="supervisorctl status %s:" % group,
@@ -367,54 +347,6 @@ def wait_groups_running(module, groups, timeout=300):
                          % (timeout, pending))
 
 
-def raise_fd_ceiling(module, process_count):
-    """Raise supervisord's descriptor ceiling ahead of a fleet-scale spawn.
-
-    Best-effort: small topologies never reach the default limit, so a hard
-    failure here would regress them for a problem they do not have.
-    """
-    # A soft limit above the hard limit is rejected outright, which -- being
-    # best-effort -- would be swallowed and leave the ceiling unraised.
-    needed = min(max(FD_FLOOR, FD_PER_PROCESS * int(process_count)), FD_HARD)
-    pid = None
-    for candidate in ("/var/run/supervisord.pid", "/run/supervisord.pid"):
-        try:
-            with open(candidate) as f:
-                pid = int(f.read().strip())
-            break
-        except (IOError, OSError, ValueError):
-            continue
-    if pid is None:
-        # supervisord is pid 1 in docker-ptf, so this is normally right. If it is
-        # not, we raise init's limit and achieve nothing; wait_groups_running()
-        # still catches the resulting FATAL children.
-        pid = 1
-        module.log("gobgp: no supervisord pidfile; raising fd ceiling on pid 1")
-    exec_command(module,
-                 cmd="prlimit --pid %d --nofile=%d:%d" % (pid, needed, FD_HARD),
-                 ignore_error=True)
-    return needed
-
-
-def reserve_listener_ports(module):
-    """Keep the derived gRPC/pprof ports out of the ephemeral allocator.
-
-    Best-effort, like ``raise_fd_ceiling``: small topologies never lose the race.
-    The sysctl is network-namespaced, so only the PTF container is affected.
-    Ranges are derived from the port helpers so they cannot drift from the
-    bases; reserving ports outside the ephemeral window is a no-op.
-    """
-    ranges = "%d-%d,%d-%d" % (
-        grpc_port_for(SHIM_PORT_MIN), grpc_port_for(SHIM_PORT_MAX),
-        pprof_port_for(SHIM_PORT_MIN), pprof_port_for(SHIM_PORT_MAX))
-    # Assignment rather than merge: the PTF container reserves nothing else, and
-    # a read-modify-write would add a failure mode to a best-effort call.
-    exec_command(module,
-                 cmd="sysctl -w net.ipv4.ip_local_reserved_ports=%s" % ranges,
-                 ignore_error=True)
-    return ranges
-
-
 def setup_gobgp_conf(name, router_id, local_ip, peer_ip, local_asn, peer_asn,
                      port, passive=False, debug=False):
     """Phase 1: everything that concerns exactly one neighbor."""
@@ -427,8 +359,8 @@ def setup_gobgp_conf(name, router_id, local_ip, peer_ip, local_asn, peer_asn,
             "every neighbor's daemon can share one local_ip. Passive mode "
             "suppresses the outbound connect, leaving no way to establish.")
 
-    _mkdir(GOBGP_CONF_DIR)
-    _mkdir(PORTMAP_SPOOL_DIR)
+    os.makedirs(GOBGP_CONF_DIR, 0o755, exist_ok=True)
+    os.makedirs(PORTMAP_SPOOL_DIR, 0o755, exist_ok=True)
 
     data = jinja2.Template(gobgpd_config_template, autoescape=True).render(  # nosemgrep: direct-use-of-jinja2
         local_asn=local_asn, router_id=router_id, local_ip=local_ip,
@@ -437,8 +369,7 @@ def setup_gobgp_conf(name, router_id, local_ip, peer_ip, local_asn, peer_asn,
 
     block = jinja2.Template(gobgpd_supervisord_tmpl, autoescape=True).render(  # nosemgrep: direct-use-of-jinja2
         name=name, gobgpd=GOBGP_BIN, conf_dir=GOBGP_CONF_DIR,
-        grpc_port=grpc_port_for(port), pprof_port=pprof_port_for(port),
-        debug=debug)
+        grpc_port=grpc_port_for(port), debug=debug)
     _write("%s/gobgpd-%s.conf" % (SUPERVISOR_CONF_DIR, name), block)
 
     # This neighbor's contribution to the topology-wide portmap.
@@ -475,7 +406,7 @@ def render_pool(portmap, core_count=None, debug=False):
     ``supervisorctl update`` restarts the pool onto the new map.
     """
     shardmap = load_shardmap()
-    _mkdir(GOBGP_CONF_DIR)
+    os.makedirs(GOBGP_CONF_DIR, 0o755, exist_ok=True)
     serialized = json.dumps(portmap, indent=2, sort_keys=True)
     _write(PORTMAP_PATH, serialized)
     digest = hashlib.sha256(serialized.encode("utf-8")).hexdigest()[:16]
@@ -605,8 +536,6 @@ def main():
             portmap = collect_portmap()
             shards = render_pool(portmap, debug=p['debug'])
             result = {'shards': shards, 'ports': len(portmap)}
-            result['nofile'] = raise_fd_ceiling(module, len(portmap) + shards)
-            result['reserved_ports'] = reserve_listener_ports(module)
             refresh_supervisord(module)
             groups = existing_groups()
             if state == 'restarted':
