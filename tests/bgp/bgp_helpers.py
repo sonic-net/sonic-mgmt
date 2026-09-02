@@ -713,15 +713,20 @@ def get_topo_lldp_neighbors(duthost, nbrhosts, count=1, retry_timeout=LLDP_RETRY
     Returns:
         list of dicts with keys 'dut_int', 'neigh_name' and 'neigh_int'.
     """
-    deadline = time.time() + retry_timeout
-    while True:
+    pytest_assert(
+        get_lldp_total_entries(duthost) is not None,
+        "'show lldp table' on {} did not report a 'Total entries displayed' footer, so the "
+        "topology neighbor count cannot be determined.".format(duthost.hostname))
+
+    def _topo_neighbors_discovered():
         total_entries = get_lldp_total_entries(duthost)
-        if total_entries is None or total_entries > 1 or time.time() >= deadline:
-            break
+        if total_entries > 1:
+            return True
         logging.info("Only %s LLDP entry reported on %s, waiting %ss for the topology neighbors "
                      "to be discovered", total_entries, duthost.hostname, retry_interval)
-        time.sleep(retry_interval)
+        return False
 
+    wait_until(retry_timeout, retry_interval, 0, _topo_neighbors_discovered)
     lldp_entries = duthost.show_and_parse("show lldp table")
 
     neighbors = []
