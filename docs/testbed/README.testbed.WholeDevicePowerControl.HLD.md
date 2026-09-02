@@ -47,11 +47,12 @@ flowchart TD
     CG["Connection graph:<br/>PDU or BMC topology"] -.-> PC
     INV["Inventory:<br/>BMC credentials"] -.-> PC
     PC --> AD["PduWholeDeviceAdapter"]
-    PC --> BM["RedfishPowerController"]
+    PC --> BM["BmcController"]
     AD --> PM["PduManager"]
-    BM --> RF["BMC Redfish"]
-    PM --> O1["All DUT outlets"]
-    RF --> O2["Complete DUT power"]
+    PM -->|SNMP| PDU["Physical PDU"]
+    BM -->|Redfish| BMC["BMC"]
+    PDU --> P["Whole-device power"]
+    BMC --> P
 ```
 
 A test asks `power_controller` to power the DUT off or on. The fixture reads the connection
@@ -60,8 +61,8 @@ same four methods in either case.
 
 `PduWholeDeviceAdapter` contains no power logic of its own. It calls the existing
 `PduManager` without an outlet argument, which the manager already treats as every outlet
-belonging to the DUT. `RedfishPowerController` issues `ComputerSystem.Reset` actions against
-the BMC.
+belonging to the DUT. `BmcController` issues `ComputerSystem.Reset` actions against the BMC
+over Redfish.
 
 The BMC is deliberately not modelled as another PDU protocol. A BMC controls the whole
 device and has no concept of an outlet, so presenting it as one would mean inventing outlet
