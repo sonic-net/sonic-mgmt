@@ -1,0 +1,17 @@
+{
+    "Ethernet48,Ethernet52": {
+        "vendor_name": "PINEWAVE",
+        "vendor_pn": "T-OH8CNT-NMT",
+        "vendor_sn": "IDOBIS050112",
+        "vendor_date": "2024-09-10",
+        "vendor_oui": "34-36-07",
+        "vendor_rev": "1A",
+        "hardware_rev": "1.10"
+    },
+    "Ethernet48": {
+        "transceiver_configuration": "DR8-800-OSFP-8x100G_DR8-0x0F-0x0F"
+    },
+    "Ethernet52": {
+        "transceiver_configuration": "DR8-800-OSFP-8x100G_DR8-0xF0-0xF0"
+    }
+}

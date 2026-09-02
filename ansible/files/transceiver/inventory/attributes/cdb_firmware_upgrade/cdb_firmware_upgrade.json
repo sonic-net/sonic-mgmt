@@ -15,6 +15,9 @@
         "thermalctld_disabling_required": false
     },
     "dut": {
+        "str3-7060x6-64pe-5": {
+            "ports_under_test": [7]
+        },
         "str43-7060x6-512-c17-u10": {
             "ports_under_test": [1]
         }
