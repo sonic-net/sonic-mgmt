@@ -1,3 +1,4 @@
+import ast
 import logging
 import pytest
 import re
@@ -1129,6 +1130,72 @@ class TestShowVlan():
         ).format(v_intf, show_vlan)
 
 
+# CMIS host-side electrical interface identifiers (application_advertisement's
+# host_electrical_interface_id) that indicate 40G/100G host-side support, per
+# https://github.com/sonic-net/sonic-mgmt/issues/27568. Only the canonical
+# families named in that issue are recognized; matching is done against the
+# uppercased identifier so e.g. "40GBASE-CR4" matches the "40GBASE" token.
+CMIS_HOST_INTERFACE_SPEED_TOKENS = {
+    '40000': ('XLAUI', 'XLPPI', '40GBASE'),
+    '100000': ('CAUI-4', '100GAUI', '100GBASE'),
+}
+
+
+def parse_cmis_advertised_speeds(application_advertisement):
+    """
+    Parse a STATE_DB application_advertisement dict into the set of advertised
+    SONiC speed strings ('40000'/'100000'), inspecting only
+    host_electrical_interface_id per #27568.
+
+    Returns None if the schema can't be understood (not a dict, or no entry
+    has a usable host_electrical_interface_id) so callers preserve old
+    behavior. Otherwise returns the (possibly empty) set of recognized
+    speeds -- empty legitimately means "advertisement seen, but no 40G/100G
+    family recognized in it".
+    """
+    if not isinstance(application_advertisement, dict):
+        return None
+    speeds = set()
+    usable = False
+    for app in application_advertisement.values():
+        if not isinstance(app, dict):
+            continue
+        host_if = str(app.get('host_electrical_interface_id') or '').upper()
+        if not host_if:
+            continue
+        usable = True
+        for speed, tokens in CMIS_HOST_INTERFACE_SPEED_TOKENS.items():
+            if host_if.startswith(tokens):
+                speeds.add(speed)
+    if not usable:
+        return None
+    return speeds
+
+
+def get_cmis_advertised_speeds(duthost, asic_index, interface):
+    """
+    Read and parse STATE_DB TRANSCEIVER_INFO|<interface> application_advertisement
+    for the transceiver currently inserted in `interface`.
+
+    Returns the set of advertised speeds recognized by
+    parse_cmis_advertised_speeds(), or None when the field is absent, empty,
+    or cannot be parsed -- callers should preserve pre-#27568 behavior (i.e.
+    not skip on account of this check) when None is returned.
+    """
+    db_cmd = 'sudo {} STATE_DB HGET "TRANSCEIVER_INFO|{}" application_advertisement'\
+        .format(duthost.asic_instance(asic_index).sonic_db_cli, interface)
+    result = duthost.shell(db_cmd, module_ignore_errors=True)
+    raw = result.get('stdout', '').strip()
+    if not raw:
+        return None
+    try:
+        application_advertisement = ast.literal_eval(raw)
+    except (SyntaxError, ValueError):
+        logger.warning('Could not parse application_advertisement for %s: %s', interface, raw)
+        return None
+    return parse_cmis_advertised_speeds(application_advertisement)
+
+
 # Tests to be run in t1 topology
 @pytest.mark.topology('t1', 'lt2', 'ft2')
 class TestConfigInterface():
@@ -1401,6 +1468,20 @@ class TestConfigInterface():
             pytest.skip(f"Supported speeds for {interface} are None on fanout")
         if (native_speed not in supported_speeds_fanout or target_speed not in supported_speeds_fanout):
             pytest.skip(f"Native speed {native_speed} or target speed {target_speed} is not supported on fanout")
+
+        # The DUT/fanout supported_speeds checks above only reflect NPU and fanout
+        # port capability -- they don't account for the inserted CMIS transceiver,
+        # which may not advertise a host-side application for target_speed (see
+        # https://github.com/sonic-net/sonic-mgmt/issues/27568). If the advertisement
+        # is unavailable or unparsable, cmis_advertised_speeds is None and behavior
+        # is unchanged; only a successfully parsed advertisement lacking the target
+        # speed causes a skip.
+        cmis_advertised_speeds = get_cmis_advertised_speeds(duthost, asic_index, interface)
+        if cmis_advertised_speeds is not None and target_speed not in cmis_advertised_speeds:
+            pytest.skip(
+                "Transceiver on {} does not advertise a CMIS host application for target speed {} "
+                "(advertised: {})".format(interface, target_speed, sorted(cmis_advertised_speeds))
+            )
 
         def _set_speed(speed):
             # Configure speed on the DUT and Fanout
