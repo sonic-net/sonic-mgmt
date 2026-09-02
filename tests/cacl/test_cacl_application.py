@@ -566,11 +566,11 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
                                    .format(v['IPv6Address'],
                                            docker_network['bridge']['IPv6Address']))
 
-        # dhcp_server uses bridge networking; its startup script adds an iptables
-        # rule to allow syslog (UDP 514) past caclmgrd's catch-all DROP.
-        if "dhcp_server" in docker_network['container']:
+        # dhcp_server forwards rsyslog to the host over docker0 (tcp/2514); caclmgrd adds this ACCEPT when enabled
+        feature_status, _ = duthost.get_feature_status()
+        if feature_status.get("dhcp_server") == "enabled":
             iptables_rules.append(
-                "-A INPUT -i docker0 -p udp -m udp --dport 514"
+                "-A INPUT -i docker0 -p tcp -m tcp --dport 2514"
                 " -m comment --comment dhcp_server_syslog -j ACCEPT")
 
     else:
@@ -660,6 +660,20 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
     # Generate control plane rules from device config
     rules_applied_from_config = 0
 
+    # On multi-asic platforms, caclmgrd forwards namespace-originated control-plane traffic
+    # for select services (e.g. SSH/SNMP) to the host via the FORWARD chain.
+    if asic_index is not None:
+        for acl_service, acl_service_info in ACL_SERVICES.items():
+            if acl_service_info["multi_asic_ns_to_host_fwd"]:
+                for ip_protocol in acl_service_info["ip_protocols"]:
+                    for dst_port in acl_service_info["dst_ports"]:
+                        iptables_rules.append(
+                            "-A FORWARD -s {}/32 -p {} -m {} --sport {} -j ACCEPT"
+                            .format(docker_network['bridge']['IPv4Address'], ip_protocol, ip_protocol, dst_port))
+                        ip6tables_rules.append(
+                            "-A FORWARD -s {}/128 -p {} -m {} --sport {} -j ACCEPT"
+                            .format(docker_network['bridge']['IPv6Address'], ip_protocol, ip_protocol, dst_port))
+
     cacl_tables = get_cacl_tables_and_rules(duthost)
 
     # Walk the ACL tables and generate an iptables rule for each rule
@@ -707,7 +721,10 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
                 # Apply the rule to the default protocol(s) for this ACL service
                 for ip_protocol in ip_protocols:
                     for dst_port in dst_ports:
-                        new_iptables_rule = "-A INPUT"
+                        if asic_index is not None:
+                            new_iptables_rule = "-A FORWARD"
+                        else:
+                            new_iptables_rule = "-A INPUT"
 
                         iface_cidr = None
                         if table_ip_version == 6 and "SRC_IPV6" in rule and rule["SRC_IPV6"]:
@@ -760,10 +777,21 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
         # Default drop rules
         iptables_rules.append("-A INPUT -j DROP")
         ip6tables_rules.append("-A INPUT -j DROP")
+        if asic_index is not None:
+            iptables_rules.append("-A FORWARD -j DROP")
+            ip6tables_rules.append("-A FORWARD -j DROP")
 
     # IP Table rule to allow eth1-midplane traffic for chassis
     if asic_index is None:
         append_midplane_traffic_rules(duthost, iptables_rules)
+
+    # Add OUTPUT rules to restrict access to FRR daemon ports 2601 (zebra VTY) and 2620 (FPM).
+    # caclmgrd programs these rules in every managed namespace (host and all per-ASIC namespaces).
+    # Ref: https://github.com/sonic-net/sonic-host-services/pull/389
+    iptables_rules.append("-A OUTPUT -o lo -p tcp -m tcp --dport 2620 -m owner --uid-owner 300 -j ACCEPT")
+    iptables_rules.append("-A OUTPUT -o lo -p tcp -m tcp --dport 2601 -m owner --uid-owner 300 -j ACCEPT")
+    iptables_rules.append("-A OUTPUT -o lo -p tcp -m tcp --dport 2620 -j DROP")
+    iptables_rules.append("-A OUTPUT -o lo -p tcp -m tcp --dport 2601 -j DROP")
 
     return iptables_rules, ip6tables_rules
 
@@ -1116,14 +1144,13 @@ def verify_cacl(duthost, tbinfo, localhost, creds, docker_network,
     stdout = duthost.get_asic_or_sonic_host(asic_index).command("iptables -S")["stdout"]
     actual_iptables_rules = stdout.strip().split("\n")
 
-    # Ensure all expected iptables rules are present on the DuT
     logger.info("Number of expected iptable rules:{}, number of actual iptables rules:{}"
                 .format(len(set(expected_iptables_rules)), len(set(actual_iptables_rules))))
+
     missing_iptables_rules = set(expected_iptables_rules) - set(actual_iptables_rules)
     pytest_assert(len(missing_iptables_rules) == 0, "Missing expected iptables rules: {}"
                   .format(repr(missing_iptables_rules)))
 
-    # Ensure there are no unexpected iptables rules present on the DuT
     unexpected_iptables_rules = set(actual_iptables_rules) - set(expected_iptables_rules)
     pytest_assert(len(unexpected_iptables_rules) == 0, "Unexpected iptables rules: {}"
                   .format(repr(unexpected_iptables_rules)))
@@ -1139,14 +1166,13 @@ def verify_cacl(duthost, tbinfo, localhost, creds, docker_network,
     stdout = duthost.get_asic_or_sonic_host(asic_index).command("ip6tables -S")["stdout"]
     actual_ip6tables_rules = stdout.strip().split("\n")
 
-    # Ensure all expected ip6tables rules are present on the DuT
     logger.info("Number of expected ip6table rules:{}, number of actual ip6tables rules:{}"
                 .format(len(set(expected_ip6tables_rules)), len(set(actual_ip6tables_rules))))
+
     missing_ip6tables_rules = set(expected_ip6tables_rules) - set(actual_ip6tables_rules)
     pytest_assert(len(missing_ip6tables_rules) == 0, "Missing expected ip6tables rules: {}"
                   .format(repr(missing_ip6tables_rules)))
 
-    # Ensure there are no unexpected ip6tables rules present on the DuT
     unexpected_ip6tables_rules = set(actual_ip6tables_rules) - set(expected_ip6tables_rules)
     pytest_assert(len(unexpected_ip6tables_rules) == 0, "Unexpected ip6tables rules: {}"
                   .format(repr(unexpected_ip6tables_rules)))

@@ -2,9 +2,11 @@ import pytest
 import random
 import time
 import logging
-import re
+import sys
 
-from tests.common.dhcp_relay_utils import init_dhcpmon_counters, validate_dhcpmon_counters
+from _pytest.outcomes import OutcomeException
+
+from tests.common.dhcp_relay_utils import init_dhcpmon_counters, validate_dhcpmon_counters, restart_dhcpmon_in_debug
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
@@ -165,35 +167,6 @@ def test_interface_binding(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data,
                 assert "{}:67".format(iface) in output, "{} is not found in {}".format("{}:67".format(iface), output)
 
 
-def restart_dhcpmon_in_debug(duthost):
-    program_name = "dhcpmon"
-    program_pid_list = []
-    program_list = duthost.shell("ps aux | grep {}".format(program_name))
-    matches = re.findall(r'/usr/sbin/dhcpmon.*', program_list["stdout"])
-
-    for program_info in program_list["stdout_lines"]:
-        if program_name in program_info:
-            program_pid = int(program_info.split()[1])
-            program_pid_list.append(program_pid)
-
-    for program_pid in program_pid_list:
-        kill_cmd_result = duthost.shell("sudo kill -9 {} || true".format(program_pid), module_ignore_errors=True)
-        # Get the exit code of 'kill' command
-        exit_code = kill_cmd_result["rc"]
-        if exit_code != 0:
-            stderr = kill_cmd_result.get("stderr", "")
-            if "No such process" not in stderr:
-                pytest.fail("Failed to stop program '{}' before test. Error: {}".format(program_name, stderr))
-
-    if matches:
-        for dhcpmon_cmd in matches:
-            if "-D" not in dhcpmon_cmd:
-                dhcpmon_cmd += " -D"
-            duthost.shell("docker exec -d dhcp_relay %s" % dhcpmon_cmd)
-    else:
-        assert False, "Failed to start dhcpmon in debug counter mode\n"
-
-
 def get_acl_count_by_mark(rand_unselected_dut, mark):
     output = rand_unselected_dut.shell("iptables -nvL DHCP | grep 'DROP' | grep '{}' | awk '{{print $1}}'"
                                        .format(mark))
@@ -310,7 +283,7 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
                                  .format(dhcp_relay["downlink_vlan_iface"]["name"])),
                        is_python3=True)
             if not skip_dhcpmon:
-                time.sleep(36)      # dhcpmon debug counter prints every 18 seconds
+                time.sleep(36)      # dhcpmon: health check every 18s, DB write every 20s
                 loganalyzer.analyze(marker)
                 dhcp_server_sum = len(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'])
                 dhcp_relay_request_times = 2
@@ -432,7 +405,7 @@ def test_dhcp_relay_with_source_port_ip_in_relay_enabled(
                        is_python3=True)
 
             if not skip_dhcpmon:
-                time.sleep(36)      # dhcpmon debug counter prints every 18 seconds
+                time.sleep(36)      # dhcpmon: health check every 18s, DB write every 20s
                 loganalyzer.analyze(marker)
                 dhcp_server_sum = len(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'])
                 dhcp_relay_request_times = 2
@@ -530,30 +503,44 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
     testing_mode, duthost = testing_config
 
     for dhcp_relay in dut_dhcp_relay_data:
-        # Bring all uplink interfaces down
-        for iface in dhcp_relay['uplink_interfaces']:
-            duthost.shell('config interface shutdown {}'.format(iface))
+        uplink_interfaces = dhcp_relay['uplink_interfaces']
 
-        pytest_assert(wait_until(50, 5, 0, check_link_status, duthost, dhcp_relay['uplink_interfaces'], "down"),
-                      "Not all uplinks go down")
+        def restore_uplinks():
+            first_cleanup_error = None
 
-        # Restart DHCP relay service on DUT
-        # dhcp_relay service has 3 times restart limit in 20 mins, for 4 vlans config it will hit the maximum limit
-        # reset-failed before restart service
-        cmds = ['systemctl reset-failed dhcp_relay', 'systemctl restart dhcp_relay']
-        duthost.shell_cmds(cmds=cmds)
+            def cleanup_step(step_name, callback):
+                nonlocal first_cleanup_error
+                try:
+                    callback()
+                except (Exception, OutcomeException) as cleanup_error:
+                    logger.exception("DHCP relay uplink cleanup step '%s' failed", step_name)
+                    if first_cleanup_error is None:
+                        first_cleanup_error = cleanup_error
 
-        # Sleep to give the DHCP relay container time to start up and
-        # allow the relay agent to begin listening on the down interfaces
-        time.sleep(40)
+            for iface in uplink_interfaces:
+                cleanup_step('startup {}'.format(iface),
+                             lambda iface=iface: duthost.shell('config interface startup {}'.format(iface)))
+            cleanup_step('verify routes',
+                         lambda: pytest_assert(
+                             wait_until(50, 5, 0, check_routes_to_dhcp_server, duthost, dut_dhcp_relay_data),
+                             "Not all DHCP servers are routed"))
+            return first_cleanup_error
 
-        # Bring all uplink interfaces back up
-        for iface in dhcp_relay['uplink_interfaces']:
-            duthost.shell('config interface startup {}'.format(iface))
+        try:
+            # Bring all uplink interfaces down
+            for iface in uplink_interfaces:
+                duthost.shell('config interface shutdown {}'.format(iface))
 
-        # Wait until uplinks are up and routes are recovered
-        pytest_assert(wait_until(50, 5, 0, check_routes_to_dhcp_server, duthost, dut_dhcp_relay_data),
-                      "Not all DHCP servers are routed")
+            pytest_assert(wait_until(50, 5, 0, check_link_status, duthost, uplink_interfaces, "down"),
+                          "Not all uplinks go down")
+
+            relay_types = ['sonic' if relay_agent == 'sonic-relay-agent' else 'isc']
+            restart_dhcp_service(duthost, relay_types)
+        finally:
+            original_error = sys.exc_info()[1]
+            cleanup_error = restore_uplinks()
+            if cleanup_error is not None and original_error is None:
+                raise cleanup_error
 
         # Run the DHCP relay test on the PTF host
         ptf_runner(ptfhost,
@@ -706,7 +693,7 @@ def test_dhcp_relay_monitor_checksum_validation(ptfhost, dut_dhcp_relay_data, va
                        log_file=("/tmp/dhcp_relay_test.DHCPTest.default.{}.log"
                                  .format(dhcp_relay["downlink_vlan_iface"]["name"])),
                        is_python3=True)
-            time.sleep(36)      # dhcpmon debug counter prints every 18 seconds
+            time.sleep(36)      # dhcpmon: health check every 18s, DB write every 20s
             if testing_mode == DUAL_TOR_MODE:
                 # If the testing mode is DUAL_TOR_MODE, standby tor's dhcpmon relay counters should all be 0
                 validate_dhcpmon_counters(dhcp_relay, standby_duthost, {}, {})

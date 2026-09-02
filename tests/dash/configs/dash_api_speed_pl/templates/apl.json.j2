@@ -1,0 +1,18 @@
+[
+    {
+        "DASH_APPLIANCE_TABLE:appliance-{{ eni_start }}": {
+            "sip": "{{ loopback }}",
+            "vm_vni": {{ eni_start }},
+            "local_region_id": 100,
+            "trusted_vnis_list": [
+                { "range": {"min": 100, "max": 100} },
+                { "range": {"min": 250, "max": 511} }
+            ]
+        },
+        "OP": "SET"
+    },
+    {
+        "DASH_ROUTING_TYPE_TABLE:privatelink": [{"action_name": "action-1", "action_type": "4_to_6"}, {"action_name": "action-2", "action_type": "staticencap", "encap_type": "nvgre", "vni": 100}],
+        "OP": "SET"
+    }
+]

@@ -548,3 +548,6 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                     self.storm_hndle.stop_storm()
                 logger.info("--- Stop PFC WD ---")
                 self.dut.command("pfcwd stop")
+                # Reset global ARP settings modified by resolve_arp
+                self.ptf.command("sysctl -w net.ipv4.conf.all.arp_ignore=0",
+                                 module_ignore_errors=True)
