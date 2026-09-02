@@ -34,7 +34,16 @@ ansible/files/transceiver/inventory/
 │   ├── system/                             # Same shape as eeprom/
 │   ├── physical_oir/
 │   ├── remote_reseat/
-│   ├── cdb_firmware_upgrade/
+│   ├── cdb_firmware_upgrade/               # Same shape as eeprom/; per-PN dirs also contain manifest
+│   │   ├── cdb_firmware_upgrade.json       # Category-level shard
+│   │   ├── cdb_firmware_upgrade_url.json   # Optional; presence selects download vs pre-staged mode
+│   │   └── transceivers/
+│   │       └── vendors/
+│   │           └── <NORMALIZED_VENDOR_NAME>/
+│   │               └── part_numbers/
+│   │                   └── <NORMALIZED_VENDOR_PN>/
+│   │                       ├── cdb_firmware_upgrade.json           # Per-PN attribute shard
+│   │                       └── cdb_firmware_upgrade_manifest.json  # Per-PN firmware binary metadata
 │   ├── dom/
 │   ├── vdm/
 │   ├── pm/
@@ -177,10 +186,8 @@ tests/transceiver/
 │   ├── process_restart/
 │   │   ├── __init__.py
 │   │   ├── conftest.py                      # Overrides per-test health check: expects PID changes
-│   │   ├── test_xcvrd_restart.py            # TC 1-3: xcvrd restart tests
-│   │   ├── test_pmon_restart.py             # TC 4: pmon docker restart
-│   │   ├── test_swss_restart.py             # TC 5: swss docker restart
-│   │   └── test_syncd_restart.py            # TC 6: syncd process restart
+│   │   └── test_processes_restart.py        # TC 1-6: xcvrd/pmon/swss/syncd
+│   │                                        #   restart + xcvrd crash tests
 │   │
 │   ├── recovery/
 │   │   ├── __init__.py

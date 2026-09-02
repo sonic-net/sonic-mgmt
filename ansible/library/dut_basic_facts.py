@@ -4,11 +4,13 @@
 # Example output:
 try:
     from ansible.module_utils.parse_utils import parse_tabular_output
+    from ansible.module_utils.sonic_release_utils import guess_release_from_build_version
 except ImportError:
     # Add parent dir for using outside Ansible
     import sys
     sys.path.append('..')
     from module_utils.parse_utils import parse_tabular_output
+    from module_utils.sonic_release_utils import guess_release_from_build_version
 
 import os
 
@@ -76,16 +78,8 @@ def main():
             results['eth_mgmt_ctrl_available'] = True
 
         # In case a image does not have /etc/sonic/sonic_release, guess release from 'build_version'
-        if 'release' not in results or not results['release'] or results['release'] == 'none':
-            if 'build_version' in results:
-                if '201811' in results['build_version']:
-                    results['release'] = '201811'
-                elif '201911' in results['build_version']:
-                    results['release'] = '201911'
-                elif 'master' in results['build_version']:
-                    results['release'] = 'master'
-                else:
-                    results['release'] = 'unknown'
+        results['release'] = guess_release_from_build_version(
+            results.get('release'), results.get('build_version', ''))
 
         # get dut feature status
         command_list = ['show feature status', 'show features']
