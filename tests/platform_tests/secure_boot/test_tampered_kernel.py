@@ -9,13 +9,13 @@ from tests.common.helpers.grub_console import (
     start_grub_entry_sequence,
 )
 from tests.common.helpers.secure_boot import (
-    get_current_image,
-    get_inactive_image,
-    get_installed_images,
     require_secure_boot,
-    restore_image_selection,
 )
-from tests.common.helpers.upgrade_helpers import install_sonic
+from tests.common.helpers.upgrade_helpers import (
+    get_inactive_images,
+    install_sonic,
+    set_default_and_next_image,
+)
 from tests.common.utilities import get_host_visible_vars, get_inventory_files
 
 
@@ -40,12 +40,16 @@ logger = logging.getLogger(__name__)
 
 
 # Select the configured second image URL or fall back to an inactive image already on the DUT.
-def _get_target_image(request, installed_images, current_image):
+def _get_target_image(request, duthost):
     second_image_url = request.config.getoption("secure_boot_second_image_url")
     if second_image_url:
         return second_image_url, None
 
-    target_version = get_inactive_image(installed_images, current_image)
+    inactive_images = get_inactive_images(duthost)
+    if not inactive_images:
+        pytest.skip("--secure_boot_second_image_url or an installed inactive image is required")
+
+    target_version = inactive_images[0]
     logger.info("Using preinstalled inactive image %s for the tampered-kernel test", target_version)
     return None, target_version
 
@@ -218,9 +222,10 @@ def test_tampered_kernel_is_rejected(duthost, localhost, vmhost, request, tbinfo
     pytest_assert(pexpect["rc"] == 0, "The KVM host requires the Python pexpect module")
 
     serial_port = _get_serial_port(request, duthost)
-    original_image = get_current_image(duthost)
-    installed_images = get_installed_images(duthost)
-    target_image, preinstalled_target = _get_target_image(request, installed_images, original_image)
+    image_info = duthost.get_image_info()
+    original_image = image_info["current"]
+    installed_images = image_info["installed_list"]
+    target_image, preinstalled_target = _get_target_image(request, duthost)
 
     target_version = preinstalled_target
     installed_by_test = False
@@ -300,7 +305,7 @@ def test_tampered_kernel_is_rejected(duthost, localhost, vmhost, request, tbinfo
             any(message in normalized_console for message in KERNEL_REJECTION_MESSAGES),
             "The serial console did not report a kernel signature rejection:\n{}".format(console_output),
         )
-        current_image = get_current_image(duthost)
+        current_image = duthost.get_image_info()["current"]
         pytest_assert(current_image == original_image, "KVM did not recover to the original image")
         reboot_attempted = False
     finally:
@@ -317,7 +322,7 @@ def test_tampered_kernel_is_rejected(duthost, localhost, vmhost, request, tbinfo
             )
             pytest_assert(restore_result["rc"] == 0, "Failed to restore the signed target kernel")
 
-        restore_image_selection(duthost, original_image)
+        set_default_and_next_image(duthost, original_image)
 
         if target_version and installed_by_test:
             remove_result = duthost.command(
