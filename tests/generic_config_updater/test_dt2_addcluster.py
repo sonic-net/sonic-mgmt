@@ -70,10 +70,12 @@ from tests.generic_config_updater.util.verify_patch import (
 
 from .util.process_minigraph import MinigraphRefactor
 
-# dt2 addcluster tests target single-ASIC pizza box switches in the T2 role.
+# dt2 addcluster tests target single-ASIC pizza box switches in the T2 role. 'lt2' is
+# listed alongside 't2' because a lower-T2 testbed is where the downstream T1 neighbours
+# this test needs actually exist; without it the topology marker skips the test there.
 # Skip multi-ASIC and modular chassis platforms — those are covered by test_multiasic_addcluster.py.
 pytestmark = [
-    pytest.mark.topology('t2'),
+    pytest.mark.topology('t2', 'lt2'),
     pytest.mark.disable_intf_up_check,
     pytest.mark.skip_config_db_check,
 ]
