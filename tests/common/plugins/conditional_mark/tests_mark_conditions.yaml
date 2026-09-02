@@ -3892,6 +3892,18 @@ memory_checker/test_memory_checker.py:
 #######################################
 #####      metadata-scripts       #####
 #######################################
+metadata-scripts/test_metadata_bgp.py::test_bgp_traffic_shift_away:
+  skip:
+    reason: "Skipped on BMC topology"
+    conditions:
+      - "topo_type in ['bmc']"
+
+metadata-scripts/test_metadata_bgp.py::test_bgp_traffic_shift_away_timeout:
+  skip:
+    reason: "Skipped on BMC topology"
+    conditions:
+      - "topo_type in ['bmc']"
+
 metadata-scripts/test_metadata_upgrade_path.py::test_upgrade_path_t2:
   skip:
     reason: "Only supported on T2 topology"
