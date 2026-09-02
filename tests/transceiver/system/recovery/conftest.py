@@ -1,8 +1,8 @@
-"""Process Restart category conftest.
-Opts the Process Restart test category into the cross-category session-level
+"""System Recovery category conftest.
+Opts the System Recovery test category into the cross-category session-level
 prerequisites defined in ``tests/transceiver/conftest.py``.
 Per the prerequisite matrix in ``docs/testplan/transceiver/test_plan.md``,
-Process Restart consumes the ``presence_verified, gold_fw_verified, links_verified`` gates.
+System Recovery consumes the ``presence_verified, gold_fw_verified, links_verified`` gates.
 """
 
 import pytest

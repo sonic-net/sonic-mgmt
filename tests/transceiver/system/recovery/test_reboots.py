@@ -24,7 +24,7 @@ Execution order::
          `- final link + LLDP check
 
 Failure handling: failures are accumulated per test case and reported in a single
-pytest.fail at the end, so a single run surfaces all issues across all ports.
+pytest.fail at the end, so a single run shows all issues across all ports.
 """
 import logging
 

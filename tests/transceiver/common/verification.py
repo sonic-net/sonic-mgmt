@@ -24,12 +24,6 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_STABILITY_WINDOW_SEC = 5
 _LLDP_POLL_INTERVAL_SEC = 3
-# SonicAsic.port_exists() (tests/common/devices/sonic_asic.py) snapshots
-# `show interface status` once and caches it forever. Right after a reboot
-# a port that's slower to link-train (e.g. an OSFP breakout port) can be
-# absent from that very first snapshot, permanently and incorrectly marking
-# it as "not found" even though it comes up moments later. Give it a
-# settling window, invalidating the cache each attempt, before giving up.
 _PORT_NAMESPACE_RESOLVE_TIMEOUT_SEC = 30
 _PORT_NAMESPACE_RESOLVE_POLL_INTERVAL_SEC = 5
 _CMIS_DATAPATH_STATE_RE = re.compile(r'^DP(\d+)State$')
