@@ -40,6 +40,7 @@ LOG_EXPECT_ACL_RULE_FAILED_RE = ".*Failed to create ACL rule.*"
 ACL_RULE_NUMS = 10
 
 DEFAULT_MAX_ACL_ENTRIES = 200
+PTF_TIMEOUT = 10
 
 # key: platform name
 # value: max number of ACL entries supported by the platform
@@ -176,7 +177,15 @@ def prepare_test_port(rand_selected_dut, tbinfo):
 
     ports = list(mg_facts['minigraph_portchannels'])
     if not ports:
-        ports = mg_facts["minigraph_acls"]["DataAcl"]
+        # minigraph_acls only contains a data-plane ACL entry when that ACL has
+        # front-panel members attached, so the key can be legitimately absent.
+        # Match case-insensitively and default to an empty list so we fall through
+        # to the pytest.skip below instead of raising KeyError.
+        ports = next(
+            (members for name, members in mg_facts["minigraph_acls"].items()
+             if name.lower() == "dataacl"),
+            [],
+        )
 
     dut_port = ports[0] if ports else None
 
@@ -200,7 +209,8 @@ def prepare_test_port(rand_selected_dut, tbinfo):
                 (topo == "t0" and ("T1" in neighbor["name"] or "PT0" in neighbor["name"])) or \
                 (topo == "m0" and "M1" in neighbor["name"]) or (topo == "mx" and "M0" in neighbor["name"]) or \
                 (topo == "m1" and ("MA" in neighbor["name"] or "MB" in neighbor["name"])) or \
-                (topo_name in ("t1-isolated-d32", "t1-isolated-d128") and "T0" in neighbor["name"]):
+                (topo_name in ("t1-isolated-d32", "t1-isolated-d128", "t1-isolated-d32u1s2")
+                 and "T0" in neighbor["name"]):
             upstream_ports[neighbor['namespace']].append(interface)
             upstream_port_ids.append(port_id)
             ipv4_addr = [bgp_neighbor['addr'] for bgp_neighbor in mg_facts['minigraph_bgp']
@@ -210,7 +220,7 @@ def prepare_test_port(rand_selected_dut, tbinfo):
 
     dst_ip_addr = None
     if tbinfo["topo"]['name'] in ["t1-isolated-d28u1", "t1-isolated-d56u2", "t1-isolated-d448u15-lag",
-                                  "t1-isolated-d56u1-lag"] or topo == "m1":
+                                  "t1-isolated-d56u1-lag", "t1-f2-d10u8"] or topo == "m1":
         dst_ip_addr = random.choices(list(upstream_port_neighbor_ips.values()))
     return ptf_src_port, upstream_port_ids, dut_port, dst_ip_addr
 
@@ -247,18 +257,36 @@ def verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port, ptf_dst_ports,
         ptfadapter.dataplane.flush()
         testutils.send(test=ptfadapter, port_id=ptf_src_port, pkt=pkt)
         if verity_status == "forward" or acl_id == del_rule_id:
-            testutils.verify_packet_any_port(test=ptfadapter, pkt=exp_pkt, ports=ptf_dst_ports)
+            testutils.verify_packet_any_port(test=ptfadapter, pkt=exp_pkt, ports=ptf_dst_ports, timeout=PTF_TIMEOUT)
         elif verity_status == "drop" and acl_id != del_rule_id:
             testutils.verify_no_packet_any(test=ptfadapter, pkt=exp_pkt, ports=ptf_dst_ports)
+
+
+def acl_table_created(rand_selected_dut, table_name):
+    acl_table_infos = rand_selected_dut.show_and_parse("show acl table {}".format(table_name))
+    for info in acl_table_infos:
+        if info.get('name') == table_name:
+            if info.get('status', '').lower() != 'active':
+                logger.debug("ACL table {} exists but not yet active (status: {})".format(
+                    table_name, info.get('status')))
+                return False
+            return True
+    return False
 
 
 def acl_rule_loaded(rand_selected_dut, acl_rule_list):
     acl_rule_infos = rand_selected_dut.show_and_parse("show acl rule")
     acl_id_list = []
+    inactive_rules = []
     for acl_info in acl_rule_infos:
         acl_id = int(acl_info['rule'][len('RULE_'):])
         acl_id_list.append(acl_id)
+        if acl_info.get('status', '').lower() != 'active':
+            inactive_rules.append(acl_id)
     if sorted(acl_id_list) != sorted(acl_rule_list):
+        return False
+    if inactive_rules:
+        logger.debug("ACL rules not yet active: {}".format(inactive_rules))
         return False
     return True
 
@@ -282,6 +310,7 @@ def test_acl_add_del_stress(rand_selected_dut, tbinfo, ptfadapter, prepare_test_
 
     rand_selected_dut.shell(cmd_create_table)
     acl_rule_list = list(range(1, ACL_RULE_NUMS + 1))
+    wait_until(wait_timeout, 2, 0, acl_table_created, rand_selected_dut, "STRESS_ACL")
     verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port, ptf_dst_ports,
                      acl_rule_list, 0, "forward", dst_ip_addr=dst_ip_addr)
     try:

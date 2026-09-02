@@ -1,3 +1,8 @@
+{# HWSKUs whose port-alias namespace overlaps the SONiC port-name namespace.
+   Patterns in this list are matched as SUBSTRINGS against the DUT hwsku.
+   See ansible/templates/minigraph_dpg.j2 for the full rationale. #}
+{% set alias_name_collision_hwsku_patterns = ['Arista-7050CX3'] %}
+{% set hwsku_has_alias_name_collision = (alias_name_collision_hwsku_patterns | select('in', hwsku) | list | length > 0) %}
   <PngDec>
     <DeviceInterfaceLinks>
 {% if card_type is not defined or card_type != 'supervisor' %}
@@ -10,7 +15,11 @@
         <EndDevice>{{ vms[index] }}</EndDevice>
         <EndPort>{{ vm_intfs[if_index] }}</EndPort>
         <StartDevice>{{ inventory_hostname }}</StartDevice>
+        {% if num_asics > 1 or hwsku_has_alias_name_collision %}
         <StartPort>{{ port_alias[dut_intfs[if_index]] }}</StartPort>
+        {% else %}
+        <StartPort>{{ port_alias_map[port_alias[dut_intfs[if_index]]] }}</StartPort>
+        {% endif %}
 {% if device_conn[inventory_hostname][port_alias_map[port_alias[dut_intfs[if_index]]]] is defined %}
         <Bandwidth>{{ device_conn[inventory_hostname][port_alias_map[port_alias[dut_intfs[if_index]]]]['speed'] }}</Bandwidth>
 {% endif %}
@@ -93,6 +102,7 @@
 {% endfor %}
 {% endfor %}
 {% endif %}
+{% if front_panel_asic_ifnames is defined and front_panel_asic_ifnames | length > 0 %}
 {% for if_index in range(front_panel_asic_ifnames | length) %}
       <DeviceLinkBase i:type="DeviceInterfaceLink">
         <ElementType>DeviceInterfaceLink</ElementType>
@@ -106,10 +116,15 @@
         <EndPort>{{ front_panel_asic_ifnames[if_index] }}</EndPort>
         <FlowControl>true</FlowControl>
         <StartDevice>{{ inventory_hostname }}</StartDevice>
+        {% if num_asics > 1 or hwsku_has_alias_name_collision %}
         <StartPort>{{ port_alias[loop.index - 1] }}</StartPort>
+        {% else %}
+        <StartPort>{{ port_alias_map[port_alias[loop.index - 1]] }}</StartPort>
+        {% endif %}
         <Validate>true</Validate>
       </DeviceLinkBase>
 {% endfor %}
+{% endif %}
 {% endif %}
     </DeviceInterfaceLinks>
     <Devices>
@@ -209,6 +224,14 @@
 {% set dev_type = 'FabricSpineRouter' %}
 {% elif 'UT2' in dev %}
 {% set dev_type = 'UpperSpineRouter' %}
+{% elif 'LRH' in dev %}
+{% set dev_type = 'LowerRegionalHub' %}
+{% elif 'FRH' in dev %}
+{% set dev_type = 'FabricRegionalHub' %}
+{% elif 'URH' in dev %}
+{% set dev_type = 'UpperRegionalHub' %}
+{% elif 'RWA' in dev %}
+{% set dev_type = 'RegionalWANAggregator' %}
 {% elif 'T2' in dev %}
 {% set dev_type = 'SpineRouter' %}
 {% elif 'Snappi_T3' in dev %}
@@ -231,6 +254,8 @@
 {% set dev_type = 'BmcMgmtToRRouter' %}
 {% elif 'M0' in dev %}
 {% set dev_type = 'MgmtToRRouter' %}
+{% elif 'C0' in dev %}
+{% set dev_type = 'MiniTs' %}
 {% else %}
 {% set dev_type = 'Unknown' %}
 {% endif %}

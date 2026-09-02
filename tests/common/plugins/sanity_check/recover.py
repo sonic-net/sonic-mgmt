@@ -2,6 +2,7 @@ import json
 import logging
 import time
 
+from pytest_ansible.results import ModuleResult
 from tests.common import config_reload
 from tests.common.devices.sonic import SonicHost
 from tests.common.helpers.parallel import parallel_run, reset_ansible_local_tmp
@@ -13,6 +14,21 @@ from . import constants
 from ...helpers.multi_thread_utils import SafeThreadPoolExecutor
 
 logger = logging.getLogger(__name__)
+
+
+def _make_results_serializable(obj):
+    """Recursively convert objects to JSON-serializable form."""
+    if isinstance(obj, ModuleResult):
+        return _make_results_serializable(dict(obj))
+    if isinstance(obj, dict):
+        return {k: _make_results_serializable(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_make_results_serializable(x) for x in obj]
+    if isinstance(obj, (str, int, float, bool, type(None))):
+        return obj
+    if obj is None:
+        return None
+    return str(obj)
 
 
 def reboot_dut(dut, localhost, cmd, reboot_with_running_golden_config=False):
@@ -66,6 +82,16 @@ def _recover_interfaces(dut, fanouthosts, result, wait_time):
         else:
             dut.no_shutdown(port)
     wait(wait_time, msg="Wait {} seconds for interface(s) to restore.".format(wait_time))
+    return action
+
+
+def _recover_monit(dut, result):
+    services_status = result.get('services_status', {})
+    action = 'reboot'
+    if services_status.get('var-log') == 'Resource limit matched':
+        logging.warning("var-log filesystem full on %s, forcing logrotate", dut.hostname)
+        dut.shell("logrotate -f /etc/logrotate.conf", module_ignore_errors=True)
+        action = None
     return action
 
 
@@ -139,7 +165,9 @@ def neighbor_vm_restore(duthost, nbrhosts, tbinfo, result=None):
                 logger.debug('Results of restoring neighbor VMs: {}'.format(unhealthy_nbrs))
         else:
             results = parallel_run(_neighbor_vm_recover_bgpd, (), {}, list(nbrhosts.values()), timeout=300)
-            logger.debug('Results of restoring neighbor VMs: {}'.format(json.dumps(dict(results))))
+            logger.debug(
+                'Results of restoring neighbor VMs: {}'.format(
+                    json.dumps(_make_results_serializable(dict(results)))))
     return 'config_reload'  # May still need to do a config reload
 
 
@@ -190,6 +218,33 @@ def re_announce_routes(ptfhost, localhost, topo_name, ptf_ip, neighbor_number):
     return None
 
 
+def _recover_bgp(ptfhost, dut, localhost, nbrhosts, tbinfo, result):
+    bgp_result = result.get('bgp')
+    if not bgp_result:
+        logging.warning(
+            "BGP status details unavailable on %s, using config reload",
+            dut.hostname
+        )
+        return 'config_reload'
+
+    default_route_failures = {
+        "no_v4_default_route",
+        "no_v6_default_route",
+    }
+    is_single_asic = dut.facts["num_asic"] == 1
+    is_default_route_only = set(bgp_result).issubset(default_route_failures)
+    if is_single_asic and is_default_route_only:
+        return re_announce_routes(
+            ptfhost,
+            localhost,
+            tbinfo["topo"]["name"],
+            tbinfo["ptf_ip"],
+            len(nbrhosts)
+        )
+
+    return neighbor_vm_restore(dut, nbrhosts, tbinfo, result)
+
+
 def adaptive_recover(ptfhost, dut, localhost, fanouthosts, nbrhosts, tbinfo, check_results, wait_time):
     outstanding_action = None
     for result in check_results:
@@ -199,19 +254,13 @@ def adaptive_recover(ptfhost, dut, localhost, fanouthosts, nbrhosts, tbinfo, che
             elif result['check_item'] == 'services':
                 action = _recover_services(dut, result)
             elif result['check_item'] == 'bgp':
-                # If there is only default route missing issue, only need to re-announce routes to recover
-                # Currently only support single asic
-                if (dut.facts["num_asic"] == 1 and
-                    ("no_v4_default_route" in result['bgp'] and len(result['bgp']) == 1 or
-                     "no_v6_default_route" in result['bgp'] and len(result['bgp']) == 1 or
-                    ("no_v4_default_route" in result['bgp'] and "no_v6_default_route" in result['bgp'] and
-                     len(result['bgp']) == 2))):
-                    action = re_announce_routes(ptfhost, localhost, tbinfo["topo"]["name"], tbinfo["ptf_ip"],
-                                                len(nbrhosts))
-                else:
-                    action = neighbor_vm_restore(dut, nbrhosts, tbinfo, result)
+                action = _recover_bgp(
+                    ptfhost, dut, localhost, nbrhosts, tbinfo, result
+                )
             elif result['check_item'] == "neighbor_macsec_empty":
                 action = neighbor_vm_restore(dut, nbrhosts, tbinfo, result)
+            elif result['check_item'] == 'monit':
+                action = _recover_monit(dut, result)
             elif result['check_item'] in ['processes', 'mux_simulator']:
                 action = 'config_reload'
             else:

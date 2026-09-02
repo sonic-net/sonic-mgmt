@@ -16,12 +16,17 @@ def _read_appl_db_field(duthost, key, field):
 
 
 def _should_use_pipe_for_dscp(duthost):
+    asic_type = (duthost.facts.get('asic_type') or '').lower()
+
+    # cisco-8000 uses dscp uniform mode for IP-in-IP decap.
+    if asic_type == 'cisco-8000':
+        return False
+
     # Prefer the live default from APP_DB if present
     dscp_mode = _read_appl_db_field(duthost, 'TUNNEL_DECAP_TABLE:IPINIP_TUNNEL', 'dscp_mode')
     if dscp_mode in ('pipe', 'uniform'):
         return dscp_mode == 'pipe'
 
-    asic_type = (duthost.facts.get('asic_type') or '').lower()
     os_version = duthost.os_version if hasattr(duthost, 'os_version') else ''
 
     if asic_type in ('mellanox', 'innovium'):
