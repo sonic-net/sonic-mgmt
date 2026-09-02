@@ -79,10 +79,8 @@ For a given DUT the fixture prefers the PDU when the connection graph lists PDU 
 back to the BMC when it lists a BMC link, and returns nothing when neither is present so
 that the caller can skip.
 
-PDU takes priority for two reasons. Every community testbed today is PDU wired, so this
-ordering leaves existing behaviour untouched. Beyond that, a PDU removes AC from the
-chassis, whereas Redfish `ForceOff` powers down the host while the BMC keeps running, which
-makes the PDU the more faithful reproduction of a power loss.
+PDU takes priority because every community testbed today is PDU wired, so this ordering
+leaves existing behaviour untouched.
 
 Both inputs already exist. `device_pdu_links` and `device_bmc_link` are produced today by
 `ansible/module_utils/graph_utils.py` from the CSV files under `ansible/files/`. Credentials
@@ -107,12 +105,8 @@ A shared helper combines the two calls into a single power cycle and waits betwe
 since hardware needs a gap before power is reapplied. That interval is a parameter of the
 helper rather than a fixed sleep, so callers whose hardware needs longer can extend it.
 
-Redfish resource paths are resolved at runtime rather than hard coded, because BMC
-implementations name the system resource differently. Both `System_0` and `system` occur in
-practice, the latter being what `tests/redfish/test_redfish_computer_reset.py` already
-expects. The controller resolves the member from `GET /redfish/v1/Systems`, reads the action
-target from `Actions["#ComputerSystem.Reset"]["target"]`, and selects the power-off type
-from `ResetType@Redfish.AllowableValues` instead of assuming `ForceOff`. Resolution happens
+BMC power operations are performed over Redfish. Resource paths are resolved at runtime
+rather than hard coded, since BMC implementations name them differently. Resolution happens
 when the controller is created and fails loudly, so an unreachable BMC or a wrong credential
 is reported up front rather than as a silent failure during recovery.
 
@@ -135,30 +129,14 @@ without altering what they verify. They are the intended first migration.
 `test_power_off_reboot.py` switch individual PSUs and assert on per-PSU state. A BMC cannot
 express that operation. It is not yet decided whether these should skip on BMC-managed
 testbeds, be split so their whole-device portions still run, or be gated by an explicit
-capability flag on the controller.
-
-**Power loss at the BMC itself.** `test_bmcctld.py` verifies behaviour across an
-interruption to the BMC's own power. A BMC cannot remove power from itself, so there is no
-path for this test on a testbed without a PDU. The open question is how such tests should
-declare that they require a PDU specifically.
+capability flag on the controller. Recommendation: skip on BMC-managed testbeds, driven by
+a capability flag on the controller rather than by platform name.
 
 **Remaining whole-device callers.** `test_tor_failure.py` and `test_fwutil_cisco.py` also
-power cycle the DUT but are not part of the first migration. They run on PDU-wired testbeds
-today so nothing breaks, but leaving them behind means two mechanisms coexist for the same
-operation.
-
-**BMC link naming.** The `EndPort` column of the BMC CSV becomes the key that identifies a
-BMC link, and the one existing upstream example uses `iDRAC`. A convention needs to be
-agreed so that lookups do not depend on a particular label.
-
-**Automated recovery tooling.** The scripts under `.azure-pipelines/` that recover or
-reimage a testbed still assume a PDU, so a BMC-managed DUT that goes down needs manual
-intervention.
-
-## Follow-up work
-
-Consolidate with `tests/redfish/redfish_utils.py`, which is currently mTLS only, once the
-authentication mechanism is pluggable.
+power cycle the DUT but are not part of the first migration. `test_fwutil_cisco.py` shares
+the `complete_install()` helper with `test_fwutil.py`, so those two cannot move
+independently. Recommendation: migrate `test_fwutil_cisco.py` together with
+`test_fwutil.py`, and `test_tor_failure.py` in a follow-up change.
 
 ## Validation
 
