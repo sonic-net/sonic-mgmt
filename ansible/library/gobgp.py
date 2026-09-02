@@ -293,7 +293,7 @@ def _remove(path):
     try:
         os.remove(path)
     except FileNotFoundError:
-        pass
+        pass  # teardown is idempotent, so an already-deleted path is expected
 
 
 def refresh_supervisord(module):
