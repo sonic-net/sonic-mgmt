@@ -956,6 +956,7 @@ sonic_nokia_ixr7220_th6p:
       mgmt_subnet_v6_mask_length: 64
       hwsku: Nokia-BMC-H6-128
       serial: NK261230208
+      base_mac: 88:18:f1:e4:27:60
       console_baudrate: 115200
     str4-Nokia-7220-Th6p-leaf-1:
       ansible_host: 10.3.154.233
