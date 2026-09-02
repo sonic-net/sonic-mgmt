@@ -46,7 +46,7 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_
     dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
     lldp_neighbors = get_topo_lldp_neighbors(duthost, nbrhosts, count=2)
     neigh1 = lldp_neighbors[0]["neigh_name"]
-    neigh2 = lldp_neighbors[1]["neigh_name"]
+    neigh2 = lldp_neighbors[2]["neigh_name"] # pick 3rd neighbor to match original design in PR 8973
 
     neighbors = dict()
     skip_hosts = duthost.get_asic_namespace_list()
@@ -81,7 +81,7 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_
 
     dut_ip_bgp_sum = duthost.shell('show ip bgp summary')['stdout']
     neigh_ip_bgp_sum = nbrhosts[neigh1]["host"].shell('show ip bgp summary')['stdout']
-    neigh2_ip_bgp_sum = nbrhosts[neigh1]["host"].shell('show ip bgp summary')['stdout']
+    neigh2_ip_bgp_sum = nbrhosts[neigh2]["host"].shell('show ip bgp summary')['stdout']
     with open(bgp_id_textfsm) as template:
         fsm = textfsm.TextFSM(template)
         dut_bgp_id = fsm.ParseText(dut_ip_bgp_sum)[0][0]
