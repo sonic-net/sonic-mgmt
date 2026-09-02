@@ -23,25 +23,11 @@ from tests.common.platform.interface_utils import (
     get_lport_to_first_subport_mapping,
 )
 from tests.transceiver.attribute_parser.attribute_keys import EEPROM_ATTRIBUTES_KEY
-from tests.transceiver.common import cli_helpers
+from tests.transceiver.common import cli_helpers, db_helpers
 from tests.transceiver.common.prerequisites import check_links_up
 from tests.transceiver.common.verification import check_cmis_state
 
 logger = logging.getLogger(__name__)
-
-
-def _port_namespace(duthost, port):
-    """Return the ASIC network namespace owning ``port``.
-
-    Resolved the same way as the System tests
-    (``tests/transceiver/system/link_behavior/test_port_link_toggle.py`` and the
-    EEPROM tests): map the port to its ASIC instance, then to that ASIC's
-    namespace.  On a single-ASIC DUT this is ``""``, so ``cli_helpers`` emits no
-    ``-n`` flag and the command stays ``config interface startup <port>``.
-    """
-    return duthost.get_namespace_from_asic_id(
-        duthost.get_port_asic_instance(port).asic_index
-    )
 
 
 def _is_oper_up(duthost, port):
@@ -99,7 +85,8 @@ def post_state_restoration(duthost, port_attributes_dict):
         if not _is_oper_up(duthost, port):
             logger.info("Restoration: issuing 'config interface startup %s'", port)
             cli_helpers.config_interface_startup(
-                duthost, port, namespace=_port_namespace(duthost, port)
+                duthost, port,
+                namespace=db_helpers.resolve_port_namespace(duthost, port),
             )
             summary["admin_up_restored"].append(port)
 
@@ -134,7 +121,7 @@ def post_state_restoration(duthost, port_attributes_dict):
                     "Restoration: recycling datapath on %s (shutdown+startup)",
                     port,
                 )
-                namespace = _port_namespace(duthost, port)
+                namespace = db_helpers.resolve_port_namespace(duthost, port)
                 cli_helpers.config_interface_shutdown(
                     duthost, port, namespace=namespace
                 )
