@@ -89,6 +89,8 @@ class TestLinkLocalIPacket:
             pytest.skip(f'Test case not supported at {tbinfo["topo"]["name"]} topology')
 
         # Get 2 Port Channels to send traffic
+        if len(pc_ports_map) < 2:
+            pytest.skip(f'SKIP: Not enough PortChannels for this test, need at least 2. Found {len(pc_ports_map)}')
         rx_pc, tx_pc = random.sample(list(pc_ports_map.keys()), 2)
         dut_pc_rx_iface = pc_ports_map[rx_pc][0]
         ptf_pc_port_idx = mg_facts["minigraph_ptf_indices"][dut_pc_rx_iface]
