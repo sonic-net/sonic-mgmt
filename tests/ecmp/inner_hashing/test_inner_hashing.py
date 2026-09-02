@@ -11,7 +11,7 @@ import random
 from datetime import datetime
 from retry.api import retry_call
 from tests.ptf_runner import ptf_runner
-from tests.ecmp.inner_hashing.conftest import get_src_dst_ip_range, FIB_INFO_FILE_DST,\
+from tests.ecmp.inner_hashing.conftest import get_src_dst_ip_range, FIB_INFO_FILE_DST, \
     VXLAN_PORT, PTF_QLEN, check_pbh_counters, OUTER_ENCAP_FORMATS, NVGRE_TNI, IP_VERSIONS_LIST, config_pbh
 
 logger = logging.getLogger(__name__)

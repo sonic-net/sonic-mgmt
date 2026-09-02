@@ -71,6 +71,10 @@ def xcvr_skip_list(duthosts, dpu_npu_port_list, tbinfo):
                 'Ethernet88', 'Ethernet96', 'Ethernet104', 'Ethernet112',
                 'Ethernet216', 'Ethernet224', 'Ethernet232', 'Ethernet240'
                 ])
+        # For lt2-o256-u32d224 topo, skip Ethernet1008/Ethernet1012 as these ports are not
+        # populated with transceivers by design on this testbed
+        elif tbinfo['topo']['name'] == "lt2-o256-u32d224":
+            intf_skip_list[dut.hostname].extend(['Ethernet1008', 'Ethernet1012'])
 
     return intf_skip_list
 
@@ -183,8 +187,9 @@ def check_pmon_uptime_minutes(duthost, minimal_runtime=6):
 
 def pytest_generate_tests(metafunc):
     val = metafunc.config.getoption('--fw-pkg')
-    if 'fw_pkg_name' in metafunc.fixturenames and val:
-        metafunc.parametrize('fw_pkg_name', val.split(','), scope="module")
+    if 'fw_pkg_name' in metafunc.fixturenames:
+        param_values = val.split(',') if val else [None]
+        metafunc.parametrize('fw_pkg_name', param_values, scope="module")
 
     if 'power_off_delay' in metafunc.fixturenames:
         delays = metafunc.config.getoption('power_off_delay')

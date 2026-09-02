@@ -9,6 +9,7 @@ import sys
 import random
 import pandas as pd
 from datetime import datetime
+from pathlib import Path
 from tests.common.utilities import (wait, wait_until)   # noqa: F401
 from tabulate import tabulate
 
@@ -20,8 +21,9 @@ from tests.common.snappi_tests.common_helpers import config_capture_settings, ge
     get_pfcwd_stats, get_interface_counters_detailed
 from tests.common.snappi_tests.port import select_ports, select_tx_port
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp, fetch_snappi_flow_metrics, \
-    fetch_flow_metrics_for_macsec    # noqa: F401
-from .variables import pfcQueueGroupSize, pfcQueueValueDict
+    fetch_flow_metrics_for_macsec, set_flow_transmit_state, are_flows_stopped    # noqa: F401
+from .variables import pfcQueueValueDict
+from .common_helpers import pfc_queue_group_size
 from tests.common.snappi_tests.snappi_fixtures import gen_data_flow_dest_ip
 from tests.common.cisco_data import is_cisco_device
 from tests.common.reboot import reboot
@@ -226,7 +228,7 @@ def generate_test_flows(testbed_config,
             test_flow.packet.ethernet().ipv4()
             ip = test_flow.packet[-1]
             eth = test_flow.packet[-2]
-            if pfcQueueGroupSize == 8:
+            if pfc_queue_group_size() == 8:
                 eth.pfc_queue.value = prio
             else:
                 eth.pfc_queue.value = pfcQueueValueDict[prio]
@@ -252,7 +254,7 @@ def generate_test_flows(testbed_config,
 
             eth.src.value = base_flow_config["tx_mac"]
             eth.dst.value = base_flow_config["rx_mac"]
-            if pfcQueueGroupSize == 8:
+            if pfc_queue_group_size() == 8:
                 eth.pfc_queue.value = prio
             else:
                 eth.pfc_queue.value = pfcQueueValueDict[prio]
@@ -360,7 +362,7 @@ def generate_background_flows(testbed_config,
             bg_flow.packet.ethernet().ipv4()
             ip = bg_flow.packet[-1]
             eth = bg_flow.packet[-2]
-            if pfcQueueGroupSize == 8:
+            if pfc_queue_group_size() == 8:
                 eth.pfc_queue.value = prio
             else:
                 eth.pfc_queue.value = pfcQueueValueDict[prio]
@@ -384,17 +386,17 @@ def generate_background_flows(testbed_config,
 
             eth.src.value = base_flow_config["tx_mac"]
             eth.dst.value = base_flow_config["rx_mac"]
-            if pfcQueueGroupSize == 8:
+            if pfc_queue_group_size() == 8:
                 eth.pfc_queue.value = prio
             else:
                 eth.pfc_queue.value = pfcQueueValueDict[prio]
 
-                ipv4.src.value = base_flow_config["tx_port_config"].ip
-                ipv4.dst.value = gen_data_flow_dest_ip(base_flow_config["rx_port_config"].ip)
-                ipv4.priority.choice = ipv4.priority.DSCP
-                ipv4.priority.dscp.phb.values = prio_dscp_map[prio]
-                ipv4.priority.dscp.ecn.value = (
-                    ipv4.priority.dscp.ecn.CAPABLE_TRANSPORT_1)
+            ipv4.src.value = base_flow_config["tx_port_config"].ip
+            ipv4.dst.value = gen_data_flow_dest_ip(base_flow_config["rx_port_config"].ip)
+            ipv4.priority.choice = ipv4.priority.DSCP
+            ipv4.priority.dscp.phb.values = prio_dscp_map[prio]
+            ipv4.priority.dscp.ecn.value = (
+                ipv4.priority.dscp.ecn.CAPABLE_TRANSPORT_1)
 
         bg_flow.size.fixed = bg_flow_config["flow_pkt_size"]
         bg_flow.rate.percentage = bg_flow_config["flow_rate_percent"]
@@ -645,6 +647,113 @@ def check_for_crc_errors(api, snappi_extra_params):
                                 row['CRC Errors'], m_port['peer_port'], m_port['peer_device'], row['Port Name']))
 
 
+def _eth_matches_macsec_port(eth, static_macsec, port):
+    """Return True if an IxNetwork Ethernet/StaticMacsec endpoint matches a MACsec port."""
+    port_id = int(port['port_id'])
+    eth_name = str(eth.Name)
+    if re.match(r'Ethernet Port {}$'.format(port_id), eth_name):
+        return True
+    tgen_ip = port.get('ipAddress')
+    if tgen_ip:
+        try:
+            return static_macsec.SourceIp.Values[0] == tgen_ip
+        except (AttributeError, IndexError, TypeError):
+            pass
+    return False
+
+
+def _configure_macsec_dut_sci_macs(ixnet, multi_dut_ports):
+    """
+    Set DutSciMac on each TGEN MACsec endpoint to the interface MAC of the DUT or
+    line-card that owns the corresponding ingress MACsec port (port_id >= 1).
+    """
+    macsec_ports = [p for p in multi_dut_ports if int(p['port_id']) >= 1]
+    pytest_assert(macsec_ports, "No MACsec ports (port_id >= 1) found for DutSciMac configuration")
+
+    eths = ixnet.Topology.find().DeviceGroup.find().Ethernet.find()
+    for port in macsec_ports:
+        port_id = int(port['port_id'])
+        sci_mac = port['duthost'].get_dut_iface_mac(port['peer_port'])
+        pytest_assert(
+            sci_mac,
+            "dut_sci_mac not found for port_id {} peer_port {} on {}".format(
+                port_id, port['peer_port'], port['duthost'].hostname))
+        matched = False
+        for eth in eths:
+            static_macsec_list = eth.StaticMacsec.find()
+            if not static_macsec_list:
+                continue
+            static_macsec = static_macsec_list[0]
+            if not _eth_matches_macsec_port(eth, static_macsec, port):
+                continue
+            static_macsec.DutSciMac.Single(sci_mac)
+            matched = True
+            logger.info(
+                "Set DutSciMac to %s for port_id %s (%s on %s)",
+                sci_mac, port_id, port['peer_port'], port['duthost'].hostname)
+            break
+        pytest_assert(
+            matched,
+            "No TGEN MACsec endpoint found for port_id {} peer_port {} on {}".format(
+                port_id, port['peer_port'], port['duthost'].hostname))
+
+
+def _log_in_flight_tgen_stats(tgen_stats, data_flow_names):
+    """Log per-flow TX/RX frame counts and throughput from ``tgen_curr_stats`` output."""
+    rows = []
+    for flow_name in data_flow_names:
+        key = flow_name.replace(' ', '_').lower()
+        rows.append([
+            flow_name,
+            tgen_stats.get(key + '_tx_pkts', 'n/a'),
+            tgen_stats.get(key + '_rx_pkts', 'n/a'),
+            tgen_stats.get(key + '_txrate_Gbps', 'n/a'),
+            tgen_stats.get(key + '_rxrate_Gbps', 'n/a'),
+        ])
+    logger.info(
+        "In-flight traffic statistics for flows:\n%s",
+        tabulate(rows, headers=["Flow", "Tx", "Rx", "Tx Gbps", "Rx Gbps"], tablefmt="psql"),
+    )
+
+
+def _capture_in_flight_tgen_stats(api, all_flow_names, ptype):
+    """Sample in-flight TGEN statistics for downstream verification.
+
+    Non-MACsec: Snappi flow metric objects (``.name``, ``.frames_tx``, etc.).
+    MACsec: IxNetwork Flow Statistics rows from ``fetch_flow_metrics_for_macsec``.
+    """
+    if not ptype:
+        return fetch_snappi_flow_metrics(api, all_flow_names)
+    return fetch_flow_metrics_for_macsec(api).Rows
+
+
+def _log_in_flight_stats(api, in_flight_flow_metrics, data_flow_names, ptype, snappi_extra_params):
+    """Log in-flight traffic statistics (format depends on MACsec vs non-MACsec)."""
+    if not ptype:
+        traf_metrics = StatViewAssistant(
+            api._ixnetwork, 'Traffic Item Statistics').Rows
+        log_stats = tgen_curr_stats(traf_metrics, in_flight_flow_metrics, data_flow_names)
+        _log_in_flight_tgen_stats(log_stats, data_flow_names)
+    else:
+        _log_in_flight_macsec_flow_stats(in_flight_flow_metrics, data_flow_names, snappi_extra_params)
+
+
+def _log_in_flight_macsec_flow_stats(in_flight_flow_metrics, data_flow_names, snappi_extra_params):
+    """Log per-flow TX/RX frame counts from in-flight MACsec TGEN flow statistics."""
+    flow_names, tx_frames, rx_frames = [], [], []
+    for fs in in_flight_flow_metrics:
+        if int(fs['PGID']) in snappi_extra_params.flow_name_prio_map.values() and \
+           fs['Rx Port'] == snappi_extra_params.base_flow_config["rx_port_name"]:
+            flow_names.append(fs['Traffic Item'] + "-" + fs['PGID'])
+            tx_frames.append(fs['Tx Frames'])
+            rx_frames.append(fs['Rx Frames'])
+    rows = list(zip(flow_names, tx_frames, rx_frames))
+    logger.info(
+        "In-flight traffic statistics for flows:\n%s",
+        tabulate(rows, headers=["Flow", "Tx", "Rx"], tablefmt="psql"),
+    )
+
+
 def run_traffic(duthost,
                 api,
                 config,
@@ -676,9 +785,8 @@ def run_traffic(duthost,
         ixnet = api._ixnetwork
         dp = ixnet.Topology.find().DeviceGroup.find().Ethernet.find().Mka.find().DelayProtect
         dp.Single(False)
-        sci_id = ixnet.Topology.find()[1].DeviceGroup.find()[0].Ethernet.find()[0].StaticMacsec.find()[0].DutSciMac
-        dut_port = snappi_extra_params.base_flow_config["tx_port_config"].peer_port
-        sci_id.Single(duthost.get_dut_iface_mac(dut_port))
+        _configure_macsec_dut_sci_macs(
+            ixnet, snappi_extra_params.multi_dut_params.multi_dut_ports)
         for ti in ixnet.Traffic.TrafficItem.find():
             ti.EnableMacsecEgressOnlyAutoConfig = False
             ti.Tracking.find()[0].TrackBy = []
@@ -756,9 +864,7 @@ def run_traffic(duthost,
 
     if not ptype:
         logger.info("Starting transmit on all flows ...")
-        cs = api.control_state()
-        cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START
-        api.set_control_state(cs)
+        set_flow_transmit_state(api, "start")
     else:
         print('Generating Traffic Item')
         trafficItems = ixnet.Traffic.TrafficItem.find()
@@ -801,58 +907,33 @@ def run_traffic(duthost,
 
             if poll_iter == 5:
                 logger.info("Polling TGEN for in-flight traffic statistics...")
-                if not ptype:
-                    in_flight_flow_metrics = fetch_snappi_flow_metrics(api, all_flow_names)
-                    flow_names = [
-                        metric.name for metric in in_flight_flow_metrics if metric.name in data_flow_names
-                    ]
-                    tx_frames = [
-                        metric.frames_tx for metric in in_flight_flow_metrics if metric.name in data_flow_names
-                    ]
-                    rx_frames = [
-                        metric.frames_rx for metric in in_flight_flow_metrics if metric.name in data_flow_names
-                    ]
-                else:
-                    flow_names, tx_frames, rx_frames = [], [], []
-                    in_flight_flow_metrics = fetch_flow_metrics_for_macsec(api).Rows
-                    for fs in in_flight_flow_metrics:
-                        if int(fs['PGID']) in snappi_extra_params.flow_name_prio_map.values() and \
-                           fs['Rx Port'] == snappi_extra_params.base_flow_config["rx_port_name"]:
-                            flow_names.append(fs['Traffic Item'] + "-" + fs['PGID'])
-                            tx_frames.append(fs['Tx Frames'])
-                            rx_frames.append(fs['Rx Frames'])
-                logger.info("In-flight traffic statistics for flows: {}".format(flow_names))
-                logger.info("In-flight TX frames: {}".format(tx_frames))
-                logger.info("In-flight RX frames: {}".format(rx_frames))
-                in_flight_flow_metrics = fetch_snappi_flow_metrics(api, all_flow_names)
-                flow_names = [metric.name for metric in in_flight_flow_metrics if metric.name in data_flow_names]
-                tx_frames = [metric.frames_tx for metric in in_flight_flow_metrics if metric.name in data_flow_names]
-                rx_frames = [metric.frames_rx for metric in in_flight_flow_metrics if metric.name in data_flow_names]
-                rows = list(zip(flow_names, tx_frames, rx_frames))
-                logger.info(
-                    "In-flight traffic statistics for flows:\n%s",
-                    tabulate(rows, headers=["Flow", "Tx", "Rx"], tablefmt="psql"),
-                    )
+                in_flight_flow_metrics = _capture_in_flight_tgen_stats(
+                    api, all_flow_names, ptype)
+                _log_in_flight_stats(
+                    api, in_flight_flow_metrics, data_flow_names, ptype, snappi_extra_params)
 
         logger.info("DUT polling complete")
     else:
         time.sleep(exp_dur_sec*(2/5))  # no switch polling required, only TGEN polling
         logger.info("Polling TGEN for in-flight traffic statistics...")
-        if not ptype:
-            in_flight_flow_metrics = fetch_snappi_flow_metrics(api, all_flow_names)  # fetch in-flight metrics from TGEN
-        else:
-            in_flight_flow_metrics = fetch_flow_metrics_for_macsec(api).Rows
+        in_flight_flow_metrics = _capture_in_flight_tgen_stats(api, all_flow_names, ptype)
+        _log_in_flight_stats(
+            api, in_flight_flow_metrics, data_flow_names, ptype, snappi_extra_params)
         time.sleep(exp_dur_sec*(3/5))
+
+    # A flow held under PFC flow control never transitions to 'stopped' on its own, so stop
+    # transmit here. Only the data flows: the pause storm must keep DUT egress paused.
+    if snappi_extra_params.stop_data_flows_before_final_stats and not ptype:
+        logger.info("Stopping transmit on data flows after in-flight stats collection")
+        set_flow_transmit_state(api, "stop", flow_names=data_flow_names)
 
     attempts = 0
     max_attempts = 20
     while attempts < max_attempts:
         logger.info("Checking if all flows have stopped. Attempt #{}".format(attempts + 1))
         if not ptype:
-            flow_metrics = fetch_snappi_flow_metrics(api, data_flow_names)
             # If all the data flows have stopped
-            transmit_states = [metric.transmit for metric in flow_metrics]
-            if len(flow_metrics) == len(data_flow_names) and list(set(transmit_states)) == ['stopped']:
+            if are_flows_stopped(api, data_flow_names):
                 logger.info("All test and background traffic flows stopped")
                 time.sleep(SNAPPI_POLL_DELAY_SEC)
                 break
@@ -878,6 +959,19 @@ def run_traffic(duthost,
     pytest_assert(attempts < max_attempts,
                   "Flows do not stop in {} seconds".format(max_attempts))
 
+    # Capture stop + retrieval is slow enough to outlast the pause storm, which would let the
+    # DUT drain buffered frames and push a paused flow's rx_frames above 0. Read metrics first.
+    read_stats_before_capture_stop = (
+        snappi_extra_params.stop_data_flows_before_final_stats
+        and not ptype
+        and pcap_type != packet_capture.NO_CAPTURE
+    )
+
+    flow_metrics = None
+    if read_stats_before_capture_stop:
+        logger.info("Dumping per-flow statistics")
+        flow_metrics = fetch_snappi_flow_metrics(api, all_flow_names)
+
     if pcap_type != packet_capture.NO_CAPTURE:
         logger.info("Stopping packet capture ...")
         request = api.capture_request()
@@ -890,16 +984,15 @@ def run_traffic(duthost,
         with open(snappi_extra_params.packet_capture_file + ".pcapng", 'wb') as fid:
             fid.write(pcap_bytes.getvalue())
 
-    # Dump per-flow statistics
-    logger.info("Dumping per-flow statistics")
-    if not ptype:
-        flow_metrics = fetch_snappi_flow_metrics(api, all_flow_names)
-    else:
-        flow_metrics = fetch_flow_metrics_for_macsec(api).Rows
+    # Dump per-flow statistics (unless already collected above before capture teardown)
+    if flow_metrics is None:
+        logger.info("Dumping per-flow statistics")
+        if not ptype:
+            flow_metrics = fetch_snappi_flow_metrics(api, all_flow_names)
+        else:
+            flow_metrics = fetch_flow_metrics_for_macsec(api).Rows
     logger.info("Stopping transmit on all remaining flows")
-    cs = api.control_state()
-    cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.STOP
-    api.set_control_state(cs)
+    set_flow_transmit_state(api, "stop")
     check_for_crc_errors(api, snappi_extra_params)
     return flow_metrics, switch_device_results, in_flight_flow_metrics
 
@@ -1384,6 +1477,14 @@ def verify_pause_frame_count_dut(rx_dut,
                               "PFC pause frames should not be transmitted and counted in TX PFC counters")
 
 
+def _int_if_str(v):
+    """
+    Converts string to integer if value is string.
+    No change if value is integer.
+    """
+    return int(v) if isinstance(v, str) else v
+
+
 def verify_tx_frame_count_dut(duthost,
                               api,
                               snappi_extra_params,
@@ -1428,6 +1529,9 @@ def verify_tx_frame_count_dut(duthost,
 
         # Collect metrics from DUT once all flows have stopped
         tx_dut_frames, tx_dut_drop_frames = get_tx_frame_count(duthost, peer_port)
+
+        tgen_tx_frames = _int_if_str(tgen_tx_frames)
+        tx_dut_frames = _int_if_str(tx_dut_frames)
 
         # Verify metrics between TGEN and DUT
         pytest_assert(abs(tgen_tx_frames - tx_dut_frames)/tgen_tx_frames <= tx_frame_count_deviation,
@@ -1477,10 +1581,13 @@ def verify_rx_frame_count_dut(duthost,
                     break
 
         # Collect metrics from DUT once all flows have stopped
-        rx_frames, rx_drop_frames = get_rx_frame_count(duthost, peer_port)
+        rx_dut_frames, rx_drop_frames = get_rx_frame_count(duthost, peer_port)
+
+        tgen_rx_frames = _int_if_str(tgen_rx_frames)
+        rx_dut_frames = _int_if_str(rx_dut_frames)
 
         # Verify metrics between TGEN and DUT
-        pytest_assert(abs(tgen_rx_frames - rx_frames)/tgen_rx_frames <= rx_frame_count_deviation,
+        pytest_assert(abs(tgen_rx_frames - rx_dut_frames)/tgen_rx_frames <= rx_frame_count_deviation,
                       "Additional frames are received outside of deviation. Possible PFC frames are counted.")
         pytest_assert(rx_drop_frames <= rx_drop_frame_count_tol, "No frames should be dropped")
 
@@ -1845,6 +1952,8 @@ def run_traffic_and_collect_stats(rx_duthost,
         flow_list.append(item.replace(' ', '_').lower())
     results = list(df_t.columns)
     fname = fname + '-' + datetime.now().strftime('%Y-%m-%d-%H-%M')
+    # Callers compose fname from nested log dirs that may not exist yet.
+    Path(fname).parent.mkdir(parents=True, exist_ok=True)
     with open(fname+'.txt', 'w') as f:
         f.write('Captured data for {} iterations at {} seconds interval \n'.format(m, stats_interval))
         test_stats = {}
@@ -2011,13 +2120,20 @@ def multi_base_traffic_config(testbed_config,
                 rx_mac (str): MAC address of ixia RX port ex. '00:00:fa:ce:fa:ce'
                 tx_port_name (str): name of ixia TX port ex. 'Port 1'
                 rx_port_name (str): name of ixia RX port ex. 'Port 2'
-                dut_port_config (list): a list of two dictionaries of tx and rx ports on the peer (switch) side,
-                                        and the associated test priorities
-                                        ex. [{'Ethernet4':[3, 4]}, {'Ethernet8':[3, 4]}]
+                dut_port_config (dict): a dictionary with "Tx" and "Rx" keys, each containing a list of dictionaries
+                                        of tx and rx ports on the peer (switch) side, and the associated test
+                                        priorities ex. {"Tx": [{'Ethernet4':[3, 4]}],
+                                        "Rx": [{'Ethernet8':[3, 4]}]}
                 test_flow_name_dut_rx_port_map (dict): Mapping of test flow name to DUT RX port(s)
                                                   ex. {'flow1': [Ethernet4, Ethernet8]}
                 test_flow_name_dut_tx_port_map (dict): Mapping of test flow name to DUT TX port(s)
                                                   ex. {'flow1': [Ethernet4, Ethernet8]}
+
+    Note:
+        This helper currently creates a single port-mapping dictionary under each
+        of the "Tx" and "Rx" lists. In contrast, setup_base_traffic_config() may
+        produce multiple port-mapping dictionaries per direction. Both helpers
+        follow the same {"Tx", "Rx"} contract.
     """
     base_flow_config = {}
     base_flow_config["rx_port_id"] = rx_port_id
@@ -2029,11 +2145,11 @@ def multi_base_traffic_config(testbed_config,
     base_flow_config["rx_port_config"] = rx_port_config
 
     # Instantiate peer ports in dut_port_config
-    dut_port_config = []
+    dut_port_config = {"Tx": [], "Rx": []}
     tx_dict = {str(tx_port_config.peer_port): []}
     rx_dict = {str(rx_port_config.peer_port): []}
-    dut_port_config.append(tx_dict)
-    dut_port_config.append(rx_dict)
+    dut_port_config["Tx"].append(tx_dict)
+    dut_port_config["Rx"].append(rx_dict)
     base_flow_config["dut_port_config"] = dut_port_config
 
     base_flow_config["tx_mac"] = tx_port_config.mac

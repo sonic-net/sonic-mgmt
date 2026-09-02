@@ -197,23 +197,13 @@ class HeadroomPoolProbing(ProbingBase):
 
         log_message(f"Setup traffic: src_ports={src_port_ids}, dst_port={dst_port_id}", to_stderr=False)
 
-        # Platform-independent: 64-byte packets = 1 cell
-        packet_length = 64
+        # Probe packet config (resolved by ProbeParamsResolver in test_qos_probe.py)
+        packet_length = self.probe_packet_length
         ttl = 64
 
-        # Log platform info
-        original_packet_length = getattr(self, "packet_size", 64)
-        original_cell_occupancy = (
-            (original_packet_length + self.cell_size - 1) // self.cell_size
-            if hasattr(self, "cell_size") else 1
-        )
         log_message(
-            f"Platform-specific: packet_length={original_packet_length}, "
-            f"cell_occupancy={original_cell_occupancy}", to_stderr=True
-        )
-        log_message(
-            f"Probing uses: packet_length={packet_length}, cell_occupancy=1",
-            to_stderr=True
+            f"Probe config: packet_length={packet_length}, "
+            f"cells_per_packet={self.probe_cells_per_packet}", to_stderr=True
         )
 
         is_dualtor = getattr(self, "is_dualtor", False)
@@ -276,14 +266,17 @@ class HeadroomPoolProbing(ProbingBase):
         Returns:
             ThresholdResult: Pool size result (point format: lower == upper)
         """
-        # Get pool size
-        pool_size = self.get_pool_size()
+        # Convert pool size from cells to packets
+        pool_size_cells = self.get_pool_size()
+        pool_size = pool_size_cells // self.probe_cells_per_packet
 
         # Log probing start
         ProbingObserver.console("=" * 80)
         ProbingObserver.console(f"[{self.PROBE_TARGET}] Starting Headroom Pool Size probing")
         ProbingObserver.console("  Traffic pattern: N src -> 1 dst")
-        ProbingObserver.console(f"  pool_size={pool_size}")
+        ProbingObserver.console(
+            f"  pool_size_cells={pool_size_cells}, cells_per_packet={self.probe_cells_per_packet}, "
+            f"pool_size_pkts={pool_size}")
         ProbingObserver.console(f"  precision_target_ratio={self.PRECISION_TARGET_RATIO}")
         ProbingObserver.console(f"  enable_precise_detection={self.ENABLE_PRECISE_DETECTION}")
         ProbingObserver.console(f"  executor_env={self.EXECUTOR_ENV}")
@@ -313,7 +306,7 @@ class HeadroomPoolProbing(ProbingBase):
             dscp = flow_config.dscp
 
             ProbingObserver.console(f"\n{'='*60}")
-            ProbingObserver.console(f"PG #{i+1}/{num_flows}: src={src_port_id}, dst={dst_port_id}, pg={pg}")
+            ProbingObserver.console(f"Iter #{i+1}/{num_flows}: src={src_port_id}, dst={dst_port_id}, pg={pg}")
             ProbingObserver.console(f"{'='*60}")
 
             # Set ptftest context for this flow
@@ -378,7 +371,8 @@ class HeadroomPoolProbing(ProbingBase):
                     pg_results[-1]['pfc_xoff_threshold'] if pg_results else pool_size
                 )
                 pfc_upper, pfc_upper_time = pfc_algos['upper'].run(
-                    src_port_id, dst_port_id, pfc_upper_init, **traffic_keys
+                    src_port_id, dst_port_id, pfc_upper_init,
+                    pool_size=pool_size, **traffic_keys
                 )
                 total_time += pfc_upper_time
                 if pfc_upper is None:
@@ -486,7 +480,8 @@ class HeadroomPoolProbing(ProbingBase):
                     pg_results[-1]['ingress_drop_threshold'] if pg_results else pool_size
                 )
                 drop_upper, drop_upper_time = drop_algos['upper'].run(
-                    src_port_id, dst_port_id, drop_upper_init, **traffic_keys
+                    src_port_id, dst_port_id, drop_upper_init,
+                    pool_size=pool_size, **traffic_keys
                 )
                 total_time += drop_upper_time
                 if drop_upper is None:
@@ -567,7 +562,7 @@ class HeadroomPoolProbing(ProbingBase):
                     'headroom': pg_headroom
                 })
 
-                ProbingObserver.console(f"\n[Result] PG #{i+1} Headroom = {pg_headroom} cells")
+                ProbingObserver.console(f"\n[Result] Iter #{i+1} Headroom = {pg_headroom} cells")
                 ProbingObserver.console(f"         Total accumulated = {total_headroom} cells")
 
                 pg_success = True
@@ -575,7 +570,7 @@ class HeadroomPoolProbing(ProbingBase):
 
             # Unified cleanup on PG failure
             if not pg_success:
-                ProbingObserver.console(f"  Skipping PG #{i+1} due to {fail_reason}")
+                ProbingObserver.console(f"  Skipping Iter #{i+1} due to {fail_reason}")
                 self.buffer_ctrl.drain_buffer([dst_port_id])
                 continue
 

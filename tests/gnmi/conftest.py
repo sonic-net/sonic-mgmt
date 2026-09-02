@@ -1,11 +1,16 @@
+import os
+import sys
 import pytest
 import logging
 
 from tests.common.helpers.assertions import pytest_require as pyrequire
+from tests.common.helpers.assertions import pytest_assert as py_assert
 from tests.common.helpers.dut_utils import check_container_state
-from tests.gnmi.helper import gnmi_container, apply_cert_config, recover_cert_config
+from tests.common.helpers.gnmi_utils import gnmi_container
+from tests.gnmi.helper import apply_cert_config, recover_cert_config
 from tests.gnmi.helper import GNMI_SERVER_START_WAIT_TIME, check_ntp_sync_status
 from tests.common.gu_utils import create_checkpoint, rollback
+from tests.common.utilities import wait_until
 from tests.common.helpers.gnmi_utils import create_revoked_cert_and_crl, create_gnmi_certs, \
     delete_gnmi_certs, prepare_root_cert, prepare_server_cert, prepare_client_cert, copy_certificate_to_dut, \
     copy_certificate_to_ptf
@@ -14,6 +19,24 @@ from tests.common.helpers.ntp_helper import setup_ntp_context
 
 logger = logging.getLogger(__name__)
 SETUP_ENV_CP = "test_setup_checkpoint"
+
+VRF_SCENARIOS = [
+    {"name": "default_1", "vrf": None, "description": "Default (no VRF)"},
+]
+
+
+@pytest.fixture(scope="module", params=VRF_SCENARIOS, ids=lambda scenario: f"vrf_{scenario['name']}")
+def vrf_config(request):
+    return request.param
+
+
+@pytest.fixture(scope="module", autouse=True)
+def setup_vrf_configuration(vrf_config):
+    """
+    This fixture runs before setup_gnmi_server to ensure VRF config is in place.
+    It gets overridden in tests that parameterize the gNMI server VRF binding.
+    """
+    return vrf_config
 
 
 @pytest.fixture(scope="module")
@@ -42,7 +65,7 @@ def setup_gnmi_ntp_client_server(duthosts, rand_one_dut_hostname, ptfhost):
 
 
 @pytest.fixture(scope="module")
-def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
+def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost, vrf_config, setup_vrf_configuration):
     '''
     Setup GNMI server with client certificates
     '''
@@ -53,10 +76,10 @@ def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
         check_container_state(duthost, gnmi_container(duthost), should_be_running=True),
         "Test was not supported on devices which do not support GNMI!")
 
-    create_gnmi_certs(duthost, localhost, ptfhost)
+    create_gnmi_certs(duthost, localhost, ptfhost, dut_ip=vrf_config.get("dut_ip"))
 
     create_checkpoint(duthost, SETUP_ENV_CP)
-    stopped_programs = apply_cert_config(duthost)
+    stopped_programs = apply_cert_config(duthost, vrf_config.get("vrf"))
 
     yield
 
@@ -68,6 +91,19 @@ def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
     cmd = "config save -y"
     duthost.shell(cmd, module_ignore_errors=True)
     recover_cert_config(duthost, stopped_programs)
+
+
+def rotate_gnmi_certs(duthost, localhost, ptfhost):
+    '''
+    Regenerate the GNMI PKI and push the fresh certs to the DUT and ptf. Plain
+    helper (not a fixture) so tests can trigger a cert rotation mid-test.
+    '''
+    prepare_root_cert(localhost)
+    prepare_server_cert(duthost, localhost)
+    prepare_client_cert(localhost)
+    copy_certificate_to_ptf(ptfhost)
+    create_revoked_cert_and_crl(localhost, ptfhost)
+    copy_certificate_to_dut(duthost)
 
 
 @pytest.fixture(scope="module")
@@ -82,12 +118,7 @@ def setup_gnmi_rotated_server(duthosts, rand_one_dut_hostname, localhost, ptfhos
         check_container_state(duthost, gnmi_container(duthost), should_be_running=True),
         "Test was not supported on devices which do not support GNMI!"
     )
-    prepare_root_cert(localhost)
-    prepare_server_cert(duthost, localhost)
-    prepare_client_cert(localhost)
-    copy_certificate_to_ptf(ptfhost)
-    create_revoked_cert_and_crl(localhost, ptfhost)
-    copy_certificate_to_dut(duthost)
+    rotate_gnmi_certs(duthost, localhost, ptfhost)
 
 
 @pytest.fixture(scope="module")
@@ -106,3 +137,48 @@ def check_dut_timestamp(duthosts, rand_one_dut_hostname, localhost):
     time_diff = local_time - dut_time
     if time_diff >= GNMI_SERVER_START_WAIT_TIME:
         logger.warning("DUT time is wrong (%d), please check NTP" % (-time_diff))
+
+
+# --- events test support ---
+EVENTS_TESTS_PATH = "./gnmi/events"
+if EVENTS_TESTS_PATH not in sys.path:
+    sys.path.append(EVENTS_TESTS_PATH)
+EVENTS_BASE_DIR = "logs/gnmi"
+EVENTS_DATA_DIR = os.path.join(EVENTS_BASE_DIR, "files")
+
+
+def do_init(duthost):
+    for i in [EVENTS_BASE_DIR, EVENTS_DATA_DIR]:
+        try:
+            os.makedirs(i, exist_ok=True)
+        except OSError as e:
+            logger.error("Unexpected error while creating directory: {}".format(e))
+    # Copy validate_yang_events.py from sonic-mgmt to DUT
+    duthost.copy(src="gnmi/validate_yang_events.py", dest="~/")
+
+
+@pytest.fixture(scope="module")
+def test_eventd_healthy(duthosts, tbinfo, rand_one_dut_hostname, ptfhost, ptfadapter, gnxi_path):
+    """
+    @summary: Verify eventd heartbeat before running the events testcases. Ported
+    from tests/telemetry; runs against the gnmi container (via the gnmi setup
+    fixtures) instead of the deprecated telemetry container.
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+
+    if duthost.is_multi_asic:
+        pytest.skip("Skip eventd testing on multi-asic")
+
+    features_dict, succeeded = duthost.get_feature_status()
+    if succeeded and ('eventd' not in features_dict or features_dict['eventd'] == 'disabled'):
+        pytest.skip("eventd is disabled on the system")
+
+    do_init(duthost)
+
+    module = __import__("eventd_events")
+
+    duthost.shell("systemctl restart eventd")
+
+    py_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, "eventd"), "eventd not started.")
+
+    module.test_event(duthost, tbinfo, gnxi_path, ptfhost, ptfadapter, EVENTS_DATA_DIR, None)

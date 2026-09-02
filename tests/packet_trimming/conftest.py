@@ -2,6 +2,7 @@ import logging
 import pytest
 import copy
 
+from tests.common.config_reload import config_reload
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 from tests.common.utilities import configure_packet_aging
 from tests.common.helpers.ptf_tests_helper import downstream_links, upstream_links, peer_links    # noqa F401
@@ -15,7 +16,9 @@ from tests.packet_trimming.packet_trimming_helper import (
     delete_blocking_scheduler, check_trimming_capability, prepare_service_port, get_interface_peer_addresses,
     configure_tc_to_dscp_map, set_buffer_profile_for_block_queue, set_buffer_profile_for_trim_queue,
     create_blocking_scheduler, configure_trimming_action, cleanup_trimming_acl, get_queue_id_by_dscp,
-    get_test_ports)
+    get_test_ports, configure_srv6_loop_break_acl, cleanup_srv6_loop_break_acl,
+    create_trim_queue_test_buffer_profile, delete_trim_queue_test_buffer_profile,
+    is_queue_level_trim_sent_drop_supported)
 
 
 logger = logging.getLogger(__name__)
@@ -151,8 +154,21 @@ def trim_counter_params(duthost, test_params, dut_qos_maps_module):
     return counter_param
 
 
+@pytest.fixture(scope="module")
+def queue_level_trim_supported(duthost):
+    """
+    Whether the platform supports queue-level TrimSent / TrimDrop counters.
+
+    Computed once per module (lazy init) so the per-port consistency checks do not repeat the
+    same platform lookup on every call.
+    """
+    supported = is_queue_level_trim_sent_drop_supported(duthost)
+    logger.info(f"Queue-level TrimSent/TrimDrop counters supported on this platform: {supported}")
+    return supported
+
+
 @pytest.fixture(scope="module", autouse=True)
-def setup_trimming(duthost, test_params, trim_counter_params):
+def setup_trimming(duthost, test_params, trim_counter_params, request):
     """
     Set up all prerequisites for packet trimming tests.
 
@@ -161,6 +177,12 @@ def setup_trimming(duthost, test_params, trim_counter_params):
         test_params: Test parameters from test_params fixture
         trim_counter_params: Test parameters from trim_counter_params fixture (for counter tests)
     """
+    if request.module.__name__ == "tests.packet_trimming.test_packet_trimming_config_symmetric" or \
+       request.module.__name__ == "tests.packet_trimming.test_packet_trimming_config_asymmetric":
+        # Skip the setup for GCU config tests.
+        yield
+        return
+
     logger.info("Prepare packet trimming related configurations")
     platform = duthost.facts['platform']
 
@@ -193,6 +215,7 @@ def setup_trimming(duthost, test_params, trim_counter_params):
                                            test_params['trim_buffer_profiles']['uplink'])
         set_buffer_profile_for_block_queue(duthost, counter_block_interface, trim_counter_params['block_queue'],
                                            trim_counter_params['trim_buffer_profiles']['uplink'])
+        create_trim_queue_test_buffer_profile(duthost)
         set_buffer_profile_for_trim_queue(duthost, block_interface)
 
         # The second interface is downlink interface. If the second interface exists, use downlink buffer profile
@@ -202,6 +225,7 @@ def setup_trimming(duthost, test_params, trim_counter_params):
             logger.info(f"Apply downlink buffer profile to {block_interface}:{test_params['block_queue']}")
             set_buffer_profile_for_block_queue(duthost, block_interface, test_params['block_queue'],
                                                test_params['trim_buffer_profiles']['downlink'])
+            set_buffer_profile_for_trim_queue(duthost, block_interface)
 
         # Also set the downlink buffer profile for the block queue used in counter tests, if applicable.
         if len(trim_counter_params['egress_ports']) > 1:
@@ -234,6 +258,9 @@ def setup_trimming(duthost, test_params, trim_counter_params):
         for buffer_profile in trim_counter_params['trim_buffer_profiles']:
             configure_trimming_action(duthost, trim_counter_params['trim_buffer_profiles'][buffer_profile], "off")
 
+    with allure.step("Delete trim queue test buffer profile"):
+        delete_trim_queue_test_buffer_profile(duthost)
+
     with allure.step("Delete the blocking scheduler"):
         delete_blocking_scheduler(duthost)
 
@@ -243,8 +270,16 @@ def setup_trimming(duthost, test_params, trim_counter_params):
 
     with allure.step("Restore original configuration"):
         logger.info("Restoring original configuration")
-        duthost.shell("sudo config load -y /etc/sonic/config_db_before_trimming_test.json")
-        duthost.shell("sudo config save -y")
+        duthost.shell(
+            "sudo cp /etc/sonic/config_db_before_trimming_test.json /etc/sonic/config_db.json"
+        )
+        config_reload(
+            duthost,
+            config_source="config_db",
+            safe_reload=True,
+            wait_for_bgp=True,
+            check_intf_up_ports=True
+        )
 
 
 @pytest.fixture(params=SRV6_TUNNEL_MODE)
@@ -277,9 +312,14 @@ def setup_srv6(duthost, request, rand_selected_dut, upstream_links, peer_links, 
     )
     logger.info(f"Added static route {SRV6_ROUTE_PREFIX} -> {nexthop} via {egress_intf}")
 
+    # Install ingress ACL on the egress logical interface (PortChannel or physical Ethernet)
+    # to drop decap SRv6 packets coming back from the neighbor.
+    configure_srv6_loop_break_acl(rand_selected_dut, test_params['egress_ports'][0]['name'])
+
     yield dscp_mode
 
-    # Cleanup: Remove static route
+    # Cleanup: remove ingress ACL first, then the static route
+    cleanup_srv6_loop_break_acl(rand_selected_dut)
     rand_selected_dut.command(f'sonic-db-cli CONFIG_DB DEL "STATIC_ROUTE|default|{SRV6_ROUTE_PREFIX}"')
     logger.info(f"Removed static route {SRV6_ROUTE_PREFIX}")
 
@@ -320,10 +360,15 @@ def pytest_addoption(parser):
 
 
 @pytest.fixture(scope="function", autouse=True)
-def clear_counters(duthost):
+def clear_counters(duthost, request):
     """
     Clear all counters on the DUT.
     """
+    if request.module.__name__ == "tests.packet_trimming.test_packet_trimming_config_symmetric" or \
+       request.module.__name__ == "tests.packet_trimming.test_packet_trimming_config_asymmetric":
+        # Skip for GCU config tests.
+        return
+
     duthost.shell("sonic-clear counters")
     duthost.shell("sonic-clear queuecounters")
     duthost.shell("sonic-clear switchcounters")

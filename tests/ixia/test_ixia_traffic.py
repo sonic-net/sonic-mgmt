@@ -16,13 +16,13 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_grap
 from tests.common.helpers.assertions import pytest_require
 from tests.common.reboot import logger
 
-from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_user,\
+from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_user, \
     ixia_api_serv_passwd, ixia_api_serv_port, ixia_api_serv_session_id, \
     ixia_api_server_session                                                                 # noqa: F401
-from tests.common.ixia.ixia_helpers import IxiaFanoutManager, configure_ports,\
+from tests.common.ixia.ixia_helpers import IxiaFanoutManager, configure_ports, \
     create_topology, create_ipv4_traffic, start_protocols, start_traffic, \
     stop_traffic, stop_protocols, dump_flow_statistics
-from tests.common.ixia.common_helpers import get_vlan_subnet, get_addrs_in_subnet,\
+from tests.common.ixia.common_helpers import get_vlan_subnet, get_addrs_in_subnet, \
     get_peer_ixia_chassis
 
 
