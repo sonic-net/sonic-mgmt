@@ -1,10 +1,10 @@
 import logging
-import os
 
 import pytest
 
-from tests.transceiver.cmis_cdb_firmware_upgrade.parser import TransceiverFirmwareInfoParser
-from tests.transceiver.cmis_cdb_firmware_upgrade.utils.firmware_utils import (
+from tests.transceiver.attribute_parser.paths import get_repo_root
+from tests.transceiver.cdb_firmware_upgrade.parser import TransceiverFirmwareInfoParser
+from tests.transceiver.cdb_firmware_upgrade.utils.firmware_utils import (
     get_latest_two_firmware_metadata_for_all_transceivers,
     get_dut_firmware_base_url,
     prepare_firmware_base_directory_on_dut,
@@ -20,11 +20,8 @@ logger = logging.getLogger(__name__)
 
 @pytest.fixture(scope="session")
 def transceiver_firmware_info_parser():
-    curr_dir = os.path.dirname(os.path.realpath(__file__))
-    ansible_path = os.path.join(curr_dir, '../../../ansible')
-    if not os.path.exists(ansible_path):
-        pytest.fail("Ansible path does not exist, please check the path: {}".format(ansible_path))
-    firmware_info_parser = TransceiverFirmwareInfoParser(ansible_path)
+    repo_root = get_repo_root()
+    firmware_info_parser = TransceiverFirmwareInfoParser(repo_root)
 
     if not firmware_info_parser.transceiver_firmware_info:
         pytest.skip("No transceiver firmware information found, skipping test.")

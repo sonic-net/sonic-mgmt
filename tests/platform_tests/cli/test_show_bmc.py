@@ -16,6 +16,8 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.bmc_utils import (
+    CAUSE_GRACEFUL_SHUTDOWN_FROM_BMC,
+    CAUSE_POWER_DOWN_FROM_BMC,
     get_host_uptime,
     get_switch_host_or_skip_test,
     verify_bmc_initiated_reboot,
@@ -236,7 +238,7 @@ class TestBmcCliCommands:
                 "SWITCH-HOST did not reach Offline/off (or Offline/down) after shutdown"
             )
 
-            wait_host_off(host, timeout=300)
+            wait_host_off(self.duthost, host, timeout=300)
 
             startup_result = self.duthost.shell("config chassis modules startup SWITCH-HOST",
                                                 module_ignore_errors=True)
@@ -259,7 +261,12 @@ class TestBmcCliCommands:
                 "SWITCH-HOST did not return to Online/on (or Online/up) after startup"
             )
 
-            verify_bmc_initiated_reboot(host, pre_boot)
+            # CLI config shutdown takes the graceful path, which always falls back to
+            # power_off() if GNOI times out/fails, so accept either the graceful or the
+            # hard power-down cause.
+            verify_bmc_initiated_reboot(
+                host, pre_boot,
+                (CAUSE_GRACEFUL_SHUTDOWN_FROM_BMC, CAUSE_POWER_DOWN_FROM_BMC))
         finally:
             self.duthost.shell("config chassis modules startup SWITCH-HOST",
                                module_ignore_errors=True)

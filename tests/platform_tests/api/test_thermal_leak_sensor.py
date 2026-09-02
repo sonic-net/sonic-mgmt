@@ -72,7 +72,6 @@ class TestLeakSensorApi(PlatformApiTestBase):
     def test_leak_sensor_status_attributes(self, duthosts, enum_rand_one_per_hwsku_hostname,
                                            platform_api_conn):  # noqa: F811
         """Verify is_leak(), is_leak_sensor_ok(), get_leak_severity()."""
-        valid_severities = ['MINOR', 'CRITICAL', None]
 
         for sensor_index in range(self.num_leak_sensors):
             # is_leak()
@@ -87,8 +86,25 @@ class TestLeakSensorApi(PlatformApiTestBase):
 
             # get_leak_severity() — None is allowed (e.g. when not currently leaking)
             severity = leak_sensor.get_leak_severity(platform_api_conn, sensor_index)
-            self.expect(severity in valid_severities,
-                        f"Sensor {sensor_index} get_leak_severity()={severity!r} not in {valid_severities}")
+            # On the DUT this returns a LeakSeverity enum (liquid_cooling_base.py). The
+            # platform API RPC cannot JSON-serialize a plain Enum, so obj_serialize turns
+            # it into a dict {'__class__': 'LeakSeverity', ...} — the MINOR/CRITICAL value
+            # is not preserved across the wire. A non-leaking sensor returns None. Accept
+            # None, the serialized-enum dict, or a plain string (if a vendor returns one).
+            if severity is None:
+                pass
+            elif isinstance(severity, dict):
+                self.expect(severity.get('__class__') == 'LeakSeverity',
+                            f"Sensor {sensor_index} get_leak_severity() returned unexpected "
+                            f"object {severity!r}, expected a serialized LeakSeverity")
+            elif isinstance(severity, str):
+                self.expect(severity in ('MINOR', 'CRITICAL'),
+                            f"Sensor {sensor_index} get_leak_severity()={severity!r} is not a "
+                            f"MINOR/CRITICAL severity")
+            else:
+                self.expect(False,
+                            f"Sensor {sensor_index} get_leak_severity() returned unexpected "
+                            f"type {type(severity).__name__}: {severity!r}")
 
     def test_leak_sensor_profile(self, duthosts, enum_rand_one_per_hwsku_hostname, platform_api_conn):  # noqa: F811
         """Verify per-sensor profile (get_type, get_leak_max_minor_duration_sec) and get_all_profiles()."""

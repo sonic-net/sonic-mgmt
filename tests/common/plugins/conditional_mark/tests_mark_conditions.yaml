@@ -627,9 +627,20 @@ bgp/test_bgp_stress_link_flap.py::test_bgp_stress_link_flap[all]:
 
 bgp/test_bgp_suppress_fib.py:
   skip:
-    reason: "Not supported before release 202411."
+    reason: "(1) Not supported before release 202411.
+             (2) suppress-fib dynamic-toggle offload/propagation race: the module toggles
+             suppress-fib-pending dynamically at runtime, causing an orchagent/fpmsyncd/FRR race
+             where routes are intermittently not offloaded in FRR / not propagated to the upstream VM.
+             The product fix that makes suppress-fib static (sonic-swss#4333 + sonic-mgmt#22916) is
+             merging to master only and is not backported. Therefore master auto-lifts once the fix
+             lands and the tracking issue is closed, while the release branches 202505/202511/202605
+             never receive the fix and stay skipped for the life of the branch.
+             Tracked by https://github.com/sonic-net/sonic-mgmt/issues/26175"
+    conditions_logical_operator: or
     conditions:
       - "release in ['201811', '201911', '202012', '202205', '202211', '202305', '202311', '202405']"
+      - "release in ['202505', '202511', '202605']"
+      - "release in ['master'] and https://github.com/sonic-net/sonic-mgmt/issues/26175"
   xfail:
     reason: "xfail for IPv6-only topologies, issue https://github.com/sonic-net/sonic-mgmt/issues/20756 or Mellanox platform due to https://github.com/sonic-net/sonic-buildimage/issues/24679"
     conditions_logical_operator: or
@@ -5730,6 +5741,24 @@ tests/ha/test_ha_bfd_pin.py:
     conditions:
       - "is_smartswitch == True and platform in ['x86_64-8102_28fh_dpu_o-r0'] and branch in ['202511', 'internal-202511']"
 
+tests/ha/test_ha_bfd_pin.py::test_ha_bfd_pin[Primary Traffic-Both Sides Pinned]:
+  xfail:
+    reason: "Test scenario does not apply to NVIDIA SmartSwitch"
+    conditions:
+      - "hwsku in ['Mellanox-SN4280-O28', 'Mellanox-SN4280-O8C40']"
+
+tests/ha/test_ha_bfd_pin.py::test_ha_bfd_pin[Standby Traffic-Both Sides Pinned]:
+  xfail:
+    reason: "Test scenario does not apply to NVIDIA SmartSwitch"
+    conditions:
+      - "hwsku in ['Mellanox-SN4280-O28', 'Mellanox-SN4280-O8C40']"
+
+tests/ha/test_ha_eni_out_of_order.py:
+  skip:
+    reason: "Test scenario does not apply to NPU-driven NVIDIA SmartSwitch"
+    conditions:
+      - "hwsku in ['Mellanox-SN4280-O28', 'Mellanox-SN4280-O8C40']"
+
 tests/ha/test_ha_npu_process_crash.py::TestNpuProcessCrash::test_crash_active_npu_traffic_on_active[bgp]:
   skip:
     reason: "BGP process crash is only tested when HA owner is 'dpu'; skip on switch-owner SmartSwitch"
@@ -5759,6 +5788,12 @@ tests/ha/test_ha_repairing_dpu.py:
     reason: "HA repairing DPU test is expected to fail on Cisco 8102 SmartSwitch with SONiC 202511"
     conditions:
       - "is_smartswitch == True and platform in ['x86_64-8102_28fh_dpu_o-r0'] and branch in ['202511', 'internal-202511']"
+
+tests/ha/test_ha_split_brain.py:
+  skip:
+    reason: "Test scenario does not apply to NPU-driven NVIDIA SmartSwitch"
+    conditions:
+      - "hwsku in ['Mellanox-SN4280-O28', 'Mellanox-SN4280-O8C40']"
 
 #######################################
 #####         upgrade_path        #####
