@@ -1,7 +1,8 @@
 import pytest
 import logging
 import time
-from tests.common.utilities import wait_until
+
+from tests.high_frequency_telemetry.utilities import restart_otel_collector
 
 logger = logging.getLogger(__name__)
 
@@ -48,16 +49,14 @@ def suppress_otel_debug_logging(duthosts, enum_rand_one_per_hwsku_hostname):
         f"sed -i 's/verbosity: detailed/verbosity: basic/' {OTEL_CONFIG_PATH}",
         module_ignore_errors=False
     )
-    duthost.shell('docker restart otel', module_ignore_errors=True)
-    wait_until(60, 2, 0, duthost.is_service_fully_started, "otel")
+    restart_otel_collector(duthost)
 
     yield
 
     # Restore original config
     logger.info("Restoring original OTEL collector config")
     duthost.copy(content=original_config, dest=OTEL_CONFIG_PATH)
-    duthost.shell('docker restart otel', module_ignore_errors=True)
-    wait_until(60, 2, 0, duthost.is_service_fully_started, "otel")
+    restart_otel_collector(duthost)
 
 
 @pytest.fixture(autouse=True)

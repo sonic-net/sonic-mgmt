@@ -33,9 +33,12 @@ transceiver test aggregates per-port failures into a single
 ``pytest.fail`` at the end, and an exception inside the loop would
 short-circuit that pattern.
 """
+import time
+
 from tests.transceiver.common.cli_parser_helper import (
     parse_fwversion,
     parse_hexdump,
+    parse_lpmode,
     parse_read_eeprom,
     RC_FAILURE,
 )
@@ -63,8 +66,14 @@ SFPUTIL_SHOW_EEPROM_HEXDUMP = "sfputil show eeprom-hexdump"
 SFPUTIL_READ_EEPROM = "sfputil read-eeprom"
 SFPUTIL_SHOW_FWVERSION = "sfputil show fwversion"
 SFPUTIL_SHOW_PRESENCE = "sfputil show presence"
+SFPUTIL_RESET = "sfputil reset"
+SFPUTIL_SHOW_LPMODE = "sfputil show lpmode"
+SFPUTIL_LPMODE = "sfputil lpmode"
 SHOW_TRANSCEIVER_INFO = "show interfaces transceiver info"
 SHOW_TRANSCEIVER_PRESENCE = "show interfaces transceiver presence"
+SFPUTIL_FIRMWARE_DOWNLOAD = "sfputil firmware download"
+SFPUTIL_FIRMWARE_RUN = "sfputil firmware run"
+SFPUTIL_FIRMWARE_COMMIT = "sfputil firmware commit"
 
 # Max characters of stdout/stderr echoed into a failure message.  Some sfputil
 # errors dump the full 500+ port list, which would bury the failure summary in
@@ -72,6 +81,15 @@ SHOW_TRANSCEIVER_PRESENCE = "show interfaces transceiver presence"
 # "Error: invalid port ..." / "Root privileges are required") while keeping the
 # aggregated per-port failure report readable.
 CLI_ERROR_DETAIL_MAX_CHARS = 200
+TIMEOUT_RC = 124
+FW_RUN_DELAY_SEC = 10
+
+# Success markers for the firmware sfputil commands
+FW_DOWNLOAD_SUCCESS_MARKER = "Firmware download complete success"
+FW_RUN_SUCCESS_MARKER = "Firmware run in mode=0 success"
+FW_COMMIT_SUCCESS_MARKER = "Firmware commit successful"
+SFPUTIL_RESET_SUCCESS_MARKER = "OK"
+SFPUTIL_LPMODE_SUCCESS_MARKER = "OK"
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -199,7 +217,7 @@ def _error_detail(result):
     if stdout:
         parts.append(f"stdout: {stdout[:CLI_ERROR_DETAIL_MAX_CHARS]}")
     if stderr:
-        parts.append(f"stderr: {stderr[:CLI_ERROR_DETAIL_MAX_CHARS]}")
+        parts.append(f"stderr: {stderr[-CLI_ERROR_DETAIL_MAX_CHARS:]}")
     return "; ".join(parts) if parts else "no stdout/stderr"
 
 
@@ -361,6 +379,34 @@ def set_dom_polling(duthost, port, enable, namespace=None):
     """
     action = "enable" if enable else "disable"
     cmd = f"config interface{_ns_flag(namespace)} transceiver dom {port} {action}"
+    result = duthost.command(cmd, module_ignore_errors=True)
+    if result.get("rc", RC_FAILURE) != 0:
+        return f"{cmd} failed with rc={result.get('rc')} ({_error_detail(result)})"
+    return None
+
+
+def config_interface_shutdown(duthost, port, namespace=None):
+    """Run ``sudo config interface [-n <ns>] shutdown <port>``.
+
+    On multi-ASIC the ``-n <namespace>`` option is mandatory and must follow
+    ``config interface``, so it cannot use the trailing ``_ns_flag`` used by
+    the ``show`` commands (see :func:`set_dom_polling`).
+    Returns ``None`` on success, or a short error string.
+    """
+    cmd = f"sudo config interface{_ns_flag(namespace)} shutdown {port}"
+    result = duthost.shell(cmd, module_ignore_errors=True)
+    if result.get("rc", RC_FAILURE) != 0:
+        return f"{cmd} failed with rc={result.get('rc')} ({_error_detail(result)})"
+    return None
+
+
+def config_interface_startup(duthost, port, namespace=None):
+    """Run ``sudo config interface [-n <ns>] startup <port>``.
+
+    See :func:`config_interface_shutdown` for the namespace-placement note.
+    Returns ``None`` on success, or a short error string.
+    """
+    cmd = f"sudo config interface{_ns_flag(namespace)} startup {port}"
     result = duthost.shell(cmd, module_ignore_errors=True)
     if result.get("rc", RC_FAILURE) != 0:
         return f"{cmd} failed with rc={result.get('rc')} ({_error_detail(result)})"
@@ -371,3 +417,87 @@ def show_interfaces_transceiver_info(duthost, port=None, namespace=None):
     """Run ``show interfaces transceiver info [-n <ns>] [<port>]`` → ``({port: {field: value}}, err)``."""
     cmd = show_interfaces_transceiver_info_cmd(port, namespace=namespace)
     return _run_and_parse(duthost, cmd, parse_eeprom)
+
+
+_CDB_FW_ABORT_PYCODE = (
+    "import sonic_platform.platform as P\n"
+    "api = P.Platform().get_chassis().get_sfp({idx}).get_xcvr_api()\n"
+    "cdb = getattr(api, 'cdb', None)\n"
+    "if cdb is None:\n"
+    "    cdb = getattr(api, 'cdb_fw_hdlr', None)\n"
+    "print(cdb.abort_fw_download() if cdb is not None else 'NO_CDB')\n"
+)
+
+
+def _run_firmware_cmd(duthost, cmd, timeout_sec, success_marker):
+    """Run ``cmd`` under a hard ``timeout``; returns ``(elapsed_sec, err)``.
+
+    ``err`` is ``None`` only when rc is 0 AND ``success_marker`` is in stdout.
+    """
+    wrapped = f"timeout {timeout_sec} {cmd}"
+    start = time.time()
+    result = duthost.command(wrapped, module_ignore_errors=True)
+    elapsed = round(time.time() - start, 1)
+    rc = result.get("rc", RC_FAILURE)
+    if rc == TIMEOUT_RC:
+        return elapsed, f"{cmd} timed out after {timeout_sec}s"
+    if rc != 0:
+        return elapsed, f"{cmd} failed with rc={rc} ({_error_detail(result)})"
+    stdout = "\n".join(result.get("stdout_lines") or [])
+    if success_marker and success_marker not in stdout:
+        return elapsed, (
+            f"{cmd} did not report success ('{success_marker}' absent; "
+            f"{_error_detail(result)})"
+        )
+    return elapsed, None
+
+
+def sfputil_firmware_download(duthost, port, fwfile, timeout_sec):
+    """Run ``sfputil firmware download <port> "<fwfile>"``
+
+    Returns ``(elapsed_sec, err)``.
+    """
+    cmd = f'{SFPUTIL_FIRMWARE_DOWNLOAD} {port} "{fwfile}"'
+    return _run_firmware_cmd(duthost, cmd, timeout_sec, FW_DOWNLOAD_SUCCESS_MARKER)
+
+
+def sfputil_firmware_run(duthost, port, timeout_sec):
+    """Run ``sfputil firmware run --delay <delay_sec> <port>`` returns ``(elapsed_sec, err)``."""
+    cmd = f"{SFPUTIL_FIRMWARE_RUN} --delay {FW_RUN_DELAY_SEC} {port}"
+    return _run_firmware_cmd(duthost, cmd, timeout_sec, FW_RUN_SUCCESS_MARKER)
+
+
+def sfputil_firmware_commit(duthost, port, timeout_sec):
+    """Run ``sfputil firmware commit <port>`` returns ``(elapsed_sec, err)``."""
+    cmd = f"{SFPUTIL_FIRMWARE_COMMIT} {port}"
+    return _run_firmware_cmd(duthost, cmd, timeout_sec, FW_COMMIT_SUCCESS_MARKER)
+
+
+def sfputil_reset(duthost, port, timeout_sec=60):
+    """Run ``sfputil reset <port>`` returns ``(elapsed_sec, err)``."""
+    cmd = f"{SFPUTIL_RESET} {port}"
+    return _run_firmware_cmd(duthost, cmd, timeout_sec, SFPUTIL_RESET_SUCCESS_MARKER)
+
+
+def sfputil_show_lpmode(duthost, port):
+    """Run ``sfputil show lpmode -p <port>`` returns ``({port: low_power_mode}, err)``."""
+    cmd = f"{SFPUTIL_SHOW_LPMODE} -p {port}"
+    return _run_and_parse(duthost, cmd, parse_lpmode)
+
+
+def sfputil_set_lpmode(duthost, port, low_power, timeout_sec=60):
+    """Run ``sfputil lpmode on|off <port>`` returns ``(elapsed_sec, err)``."""
+    cmd = f"{SFPUTIL_LPMODE} {'on' if low_power else 'off'} {port}"
+    return _run_firmware_cmd(duthost, cmd, timeout_sec, SFPUTIL_LPMODE_SUCCESS_MARKER)
+
+
+def issue_cdb_fw_abort(duthost, physical_index):
+    """``status`` is the raw ``abort_fw_download()`` reply."""
+    pycode = _CDB_FW_ABORT_PYCODE.format(idx=int(physical_index))
+    result = duthost.shell('python3 -c "{}"'.format(pycode), module_ignore_errors=True)
+    if result.get("rc", RC_FAILURE) != 0:
+        return None, f"CDB abort failed with rc={result.get('rc')} ({_error_detail(result)})"
+    status = " ".join(result.get("stdout_lines") or []).strip()
+    if status == "NO_CDB":
+        return None, "CDB not supported on module"
+    return status, None

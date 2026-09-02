@@ -566,11 +566,11 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
                                    .format(v['IPv6Address'],
                                            docker_network['bridge']['IPv6Address']))
 
-        # dhcp_server uses bridge networking; its startup script adds an iptables
-        # rule to allow syslog (UDP 514) past caclmgrd's catch-all DROP.
-        if "dhcp_server" in docker_network['container']:
+        # dhcp_server forwards rsyslog to the host over docker0 (tcp/2514); caclmgrd adds this ACCEPT when enabled
+        feature_status, _ = duthost.get_feature_status()
+        if feature_status.get("dhcp_server") == "enabled":
             iptables_rules.append(
-                "-A INPUT -i docker0 -p udp -m udp --dport 514"
+                "-A INPUT -i docker0 -p tcp -m tcp --dport 2514"
                 " -m comment --comment dhcp_server_syslog -j ACCEPT")
 
     else:
@@ -784,6 +784,14 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
     # IP Table rule to allow eth1-midplane traffic for chassis
     if asic_index is None:
         append_midplane_traffic_rules(duthost, iptables_rules)
+
+    # Add OUTPUT rules to restrict access to FRR daemon ports 2601 (zebra VTY) and 2620 (FPM).
+    # caclmgrd programs these rules in every managed namespace (host and all per-ASIC namespaces).
+    # Ref: https://github.com/sonic-net/sonic-host-services/pull/389
+    iptables_rules.append("-A OUTPUT -o lo -p tcp -m tcp --dport 2620 -m owner --uid-owner 300 -j ACCEPT")
+    iptables_rules.append("-A OUTPUT -o lo -p tcp -m tcp --dport 2601 -m owner --uid-owner 300 -j ACCEPT")
+    iptables_rules.append("-A OUTPUT -o lo -p tcp -m tcp --dport 2620 -j DROP")
+    iptables_rules.append("-A OUTPUT -o lo -p tcp -m tcp --dport 2601 -j DROP")
 
     return iptables_rules, ip6tables_rules
 
