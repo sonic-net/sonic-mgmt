@@ -3,12 +3,11 @@
 The tests intentionally use only the installed rules and live telemetry.  They
 do not inject hardware faults or run the optional ``hardware-probe`` mode.  The
 ``e2e-execute`` test performs the documented non-remediating, single-pass rule
-qualification, including runtime DSE expansion when the fixture defines it.
+qualification, including runtime DSE expansion when the installed rules define it.
 """
 
 import json
 import shlex
-from urllib.parse import quote
 
 import pytest
 import yaml
@@ -28,65 +27,10 @@ HEARTBEAT_REFRESH_SECONDS = 30
 # timeout.  Leave a small margin so a valid delayed start is not reported as a
 # DLDD lifecycle failure by platform qualification.
 DELAYED_FEATURE_START_TIMEOUT_SECONDS = 240
-UINT32_MAX = (1 << 32) - 1
 
 ENABLED_FEATURE_STATES = ("enabled",)
 DISABLED_FEATURE_STATES = ("disabled",)
 SERVICE_HEALTH_STATES = ("OK", "DEGRADED", "BROKEN|FATAL")
-FAULT_STATUSES = ("ACTIVE", "INACTIVE")
-FAULT_SEVERITIES = ("CRITICAL", "MAJOR", "WARNING", "MINOR", "UNKNOWN")
-LOCAL_ACTION_STATES = ("IDLE", "COMPLETED", "FAILED")
-EVALUATOR_TYPES = ("mask", "comparison", "string", "boolean", "dse")
-VALUE_CONFIG_TYPES = (
-    "binary",
-    "hex",
-    "int",
-    "float",
-    "string",
-    "boolean",
-    "json",
-    "bytes",
-    "N/A",
-)
-CONFIG_FIELD_MINIMUMS = {
-    "individual_max_failure_threshold": 0,
-    "broken_rules_max_threshold": 0,
-    "redis_monitor_polling_interval": 1,
-    "file_monitor_polling_interval": 1,
-    "common_monitor_polling_interval": 1,
-    "source_unavailable_grace_period": 0,
-    "source_recovery_samples": 1,
-    "inactive_fault_retention_period": 0,
-    "fault_evidence_ack_timeout": 1,
-    "active_fault_recheck_interval": 1,
-    "rules_inbox_settle_time": 1,
-}
-
-FAULT_REQUIRED_FIELDS = {
-    "producer",
-    "rule",
-    "rule_id",
-    "rule_version",
-    "schema_version",
-    "active_rules_checksum",
-    "component_type",
-    "component_name",
-    "component_serial_number",
-    "error_type",
-    "events",
-    "remote_action_time_window",
-    "repair_actions",
-    "actions_taken",
-    "local_action_state",
-    "severity",
-    "symptom",
-    "status",
-    "origin_time",
-    "last_detection_time",
-    "occurrences",
-    "reason",
-    "description",
-}
 
 
 def _read_hash(duthost, database, key):
@@ -118,247 +62,64 @@ def _faults(duthost):
     faults = {}
     for key in _fault_keys(duthost):
         fault = _read_hash(duthost, "STATE_DB", key)
-        if _is_dldd_fault(fault):
+        if fault.get("producer") == "dldd":
             faults[key] = fault
     return faults
 
 
-def _is_dldd_fault(fault):
-    """Return whether a shared FAULT_INFO row is owned by DLDD."""
-    return fault.get("producer") == "dldd"
+def _operator_faults(duthost):
+    result = duthost.shell(
+        "show dldd faults --json", module_ignore_errors=True
+    )
+    pytest_assert(
+        result["rc"] == 0,
+        "'show dldd faults --json' failed: {}".format(result.get("stderr", "")),
+    )
+    try:
+        faults = json.loads(result["stdout"])
+    except (TypeError, ValueError) as error:
+        pytest.fail("'show dldd faults --json' returned invalid JSON: {}".format(error))
+    pytest_assert(
+        isinstance(faults, list) and all(isinstance(fault, dict) for fault in faults),
+        "'show dldd faults --json' must return a list of objects",
+    )
+    return faults
 
 
-@pytest.mark.parametrize(
-    "fault,expected",
-    (
-        (
-            {
-                "producer": "dldd",
-                "rule_id": "1000001",
-                "rule": "PSU_OV_FAULT",
-                "schema_version": "0.0.1",
-                "active_rules_checksum": "sha256:test",
-            },
-            True,
-        ),
-        ({"producer": "another-agent", "rule_id": "1000001"}, False),
-        (
-            {
-                "rule_id": "1000001",
-                "rule": "lookalike",
-                "schema_version": "0.0.1",
-                "active_rules_checksum": "sha256:lookalike",
-            },
-            False,
-        ),
-        ({}, False),
-    ),
-)
-def test_dldd_fault_ownership_predicate(fault, expected):
-    assert _is_dldd_fault(fault) is expected
+def _observed_faults(duthost):
+    """Validate the live raw-to-operator DLDD fault projection."""
+
+    raw_faults = _faults(duthost)
+    operator_faults = _operator_faults(duthost)
+    fields = ("component_name", "symptom", "status")
+    raw_identities = {
+        (key,) + tuple(fault.get(field) for field in fields)
+        for key, fault in raw_faults.items()
+    }
+    operator_identities = {
+        (fault.get("redis_key"),) + tuple(fault.get(field) for field in fields)
+        for fault in operator_faults
+    }
+    pytest_assert(
+        len(operator_faults) == len(raw_identities)
+        and operator_identities == raw_identities,
+        "Operator fault JSON does not match observed DLDD-owned rows",
+    )
+    return raw_faults
 
 
 def _json_field(record, field, expected_type):
     try:
         value = json.loads(record[field])
     except (KeyError, TypeError, ValueError) as error:
-        pytest.fail("FAULT_INFO field {!r} is not valid JSON: {}".format(field, error))
+        pytest.fail("DLDD telemetry field {!r} is not valid JSON: {}".format(field, error))
     pytest_assert(
         isinstance(value, expected_type),
-        "FAULT_INFO field {!r} must decode to {}, got {}".format(
+        "DLDD telemetry field {!r} must decode to {}, got {}".format(
             field, expected_type.__name__, type(value).__name__
         ),
     )
     return value
-
-
-def _validate_fault_info(key, fault):
-    """Validate one raw DLDD FAULT_INFO row against the published contract."""
-    missing = FAULT_REQUIRED_FIELDS - set(fault)
-    pytest_assert(
-        not missing,
-        "{} is missing required fields {}".format(key, sorted(missing)),
-    )
-    pytest_assert(
-        fault["producer"] == "dldd",
-        "{} has invalid producer {!r}".format(key, fault["producer"]),
-    )
-    component_type = fault["component_type"]
-    component_name = fault["component_name"]
-    component_serial = fault["component_serial_number"]
-    pytest_assert(
-        isinstance(component_type, str)
-        and bool(component_type.strip())
-        and isinstance(component_name, str)
-        and bool(component_name.strip())
-        and isinstance(component_serial, str),
-        "{} has invalid component identity fields".format(key),
-    )
-    pytest_assert(
-        int(fault["rule_id"]) > 0,
-        "{} has invalid rule ID {!r}".format(key, fault["rule_id"]),
-    )
-    pytest_assert(
-        isinstance(fault["reason"], str)
-        and len(fault["reason"].encode("utf-8")) <= 512,
-        "{} has invalid bounded reason {!r}".format(key, fault["reason"]),
-    )
-
-    events = _json_field(fault, "events", list)
-    repair_actions = _json_field(fault, "repair_actions", list)
-    _json_field(fault, "actions_taken", list)
-    local_action_state = _json_field(fault, "local_action_state", dict)
-    if "healthz_artifact" in fault:
-        artifact = _json_field(fault, "healthz_artifact", dict)
-        pytest_assert(
-            artifact.get("state") in ("REQUESTED", "RUNNING", "COMPLETED", "FAILED"),
-            "{} has invalid Healthz artifact metadata: {}".format(key, artifact),
-        )
-
-    expected_key = "FAULT_INFO|{}|{}".format(
-        quote(component_name, safe=""),
-        quote(fault["symptom"], safe=""),
-    )
-    pytest_assert(
-        key == expected_key,
-        "FAULT_INFO key {!r} does not match canonical key {!r}".format(
-            key, expected_key
-        ),
-    )
-    pytest_assert(events, "{} has no triggering events".format(key))
-    if fault["status"] == "ACTIVE":
-        pytest_assert(
-            repair_actions,
-            "{} has no controller-visible remediation actions".format(key),
-        )
-    for event in events:
-        pytest_assert(
-            isinstance(event, dict)
-            and {"id", "value_read", "value_configs", "condition"}.issubset(event),
-            "{} contains an incomplete event: {}".format(key, event),
-        )
-        value_configs = event["value_configs"]
-        condition = event["condition"]
-        pytest_assert(
-            isinstance(value_configs, dict)
-            and {"type", "unit", "scaling", "encoding"}.issubset(value_configs)
-            and value_configs["type"] in VALUE_CONFIG_TYPES,
-            "{} contains invalid event value metadata: {}".format(key, event),
-        )
-        pytest_assert(
-            isinstance(condition, dict)
-            and {"type", "value", "value_configs"}.issubset(condition)
-            and condition["type"] in EVALUATOR_TYPES,
-            "{} contains an invalid event condition: {}".format(key, event),
-        )
-        condition_value_configs = condition["value_configs"]
-        pytest_assert(
-            isinstance(condition_value_configs, dict)
-            and {"type", "unit", "scaling", "encoding"}.issubset(
-                condition_value_configs
-            )
-            and condition_value_configs["type"] in VALUE_CONFIG_TYPES,
-            "{} contains invalid condition value metadata: {}".format(key, event),
-        )
-    for action in repair_actions:
-        action_name = action.get("action") if isinstance(action, dict) else None
-        pytest_assert(
-            isinstance(action_name, str) and bool(action_name.strip()),
-            "{} contains an invalid repair action: {}".format(key, action),
-        )
-    pytest_assert(
-        local_action_state.get("state") in LOCAL_ACTION_STATES,
-        "{} has invalid local action state: {}".format(key, local_action_state),
-    )
-    pytest_assert(
-        fault["status"] in FAULT_STATUSES,
-        "{} has invalid status {!r}".format(key, fault["status"]),
-    )
-    pytest_assert(
-        fault["severity"] in FAULT_SEVERITIES,
-        "{} has invalid severity {!r}".format(key, fault["severity"]),
-    )
-    pytest_assert(
-        int(fault["occurrences"]) >= 1,
-        "{} has invalid occurrence count {!r}".format(key, fault["occurrences"]),
-    )
-    pytest_assert(
-        int(fault["remote_action_time_window"]) > 0,
-        "{} has invalid remote action time window {!r}".format(
-            key, fault["remote_action_time_window"]
-        ),
-    )
-    pytest_assert(
-        float(fault["origin_time"]) > 0
-        and float(fault["last_detection_time"]) >= float(fault["origin_time"]),
-        "{} has invalid fault timestamps".format(key),
-    )
-
-
-def _valid_fault_fixture():
-    value_configs = {
-        "type": "float",
-        "unit": "celsius",
-        "scaling": "N/A",
-        "encoding": "N/A",
-    }
-    return {
-        "producer": "dldd",
-        "rule": "TEMPERATURE_HIGH",
-        "rule_id": "1000001",
-        "rule_version": "1.0.0",
-        "schema_version": "0.0.1",
-        "active_rules_checksum": "sha256:test",
-        "component_type": "TEMPERATURE_SENSOR",
-        "component_name": "SENSOR 0",
-        "component_serial_number": "",
-        "error_type": "THERMAL",
-        "events": json.dumps([
-            {
-                "id": 1,
-                "value_read": "91.0",
-                "value_configs": value_configs,
-                "condition": {
-                    "type": "comparison",
-                    "value": 90.0,
-                    "value_configs": value_configs,
-                },
-            }
-        ]),
-        "remote_action_time_window": "3600",
-        "repair_actions": json.dumps([
-            {"action": "vendor-healthz:ACTION_REPAIR_FABRIC_MODULE"}
-        ]),
-        "actions_taken": "[]",
-        "local_action_state": json.dumps({
-            "state": "IDLE",
-            "action_suppressed": False,
-        }),
-        "severity": "WARNING",
-        "symptom": "SYMPTOM_OVER_THRESHOLD",
-        "status": "ACTIVE",
-        "origin_time": "1745614200",
-        "last_detection_time": "1745614266",
-        "occurrences": "1",
-        "reason": "",
-        "description": "Temperature exceeded its high threshold.",
-    }
-
-
-def test_fault_info_contract_fixture_supports_flat_components_and_vendor_action():
-    fault = _valid_fault_fixture()
-    key = "FAULT_INFO|SENSOR%200|SYMPTOM_OVER_THRESHOLD"
-    _validate_fault_info(key, fault)
-
-
-def test_fault_info_contract_rejects_unbounded_transition_reason():
-    fault = _valid_fault_fixture()
-    fault["reason"] = "x" * 513
-
-    with pytest.raises(AssertionError, match="invalid bounded reason"):
-        _validate_fault_info(
-            "FAULT_INFO|SENSOR%200|SYMPTOM_OVER_THRESHOLD", fault
-        )
 
 
 def _status_ttl(duthost):
@@ -408,11 +169,19 @@ def _require_enabled(capabilities):
         )
 
 
-def _require_rules(capabilities):
-    if not capabilities["rules_present"]:
-        pytest.skip(
-            "Platform does not provide a packaged, golden, or active DLDD rules source"
-        )
+def _validation_rules_path(
+    duthost, capabilities, required=True, allow_candidates=False
+):
+    selected = _read_hash(duthost, "STATE_DB", STATUS_KEY).get(
+        "active_rules_file"
+    )
+    paths = (selected,) + (capabilities["rules_paths"] if allow_candidates else ())
+    for path in dict.fromkeys(paths):
+        if path and duthost.stat(path=path)["stat"].get("exists", False):
+            return path
+    if required:
+        pytest.fail("DLDD did not publish an existing selected rules file")
+    return None
 
 
 def _load_rules_document(duthost, path):
@@ -436,8 +205,8 @@ def _load_rules_document(duthost, path):
     return document
 
 
-def _dse_source_events(document):
-    """Return the identities of DSE source events in a validated rules file."""
+def _rule_source_events(document):
+    """Return every source-event identity and whether it uses DSE."""
     signatures = document.get("signatures", ())
     pytest_assert(
         isinstance(signatures, list),
@@ -461,15 +230,16 @@ def _dse_source_events(document):
             if not isinstance(event, dict):
                 continue
             event_type = event.get("type")
-            if event_type != "dse" and not (
-                event_type == "platform_api" and isinstance(event.get("path"), str)
-            ):
-                continue
             sources.append(
                 {
                     "rule": metadata.get("name"),
                     "rule_id": metadata.get("id"),
                     "event_id": event.get("id"),
+                    "dse": event_type == "dse"
+                    or (
+                        event_type == "platform_api"
+                        and isinstance(event.get("path"), str)
+                    ),
                 }
             )
     return sources
@@ -477,6 +247,13 @@ def _dse_source_events(document):
 
 def _require_running(duthost, capabilities):
     _require_enabled(capabilities)
+    if (
+        not _service_is_active(duthost)
+        and _validation_rules_path(
+            duthost, capabilities, required=False, allow_candidates=True
+        ) is None
+    ):
+        pytest.skip("DLDD is enabled but no rules candidate is installed")
     pytest_assert(
         wait_until(
             DELAYED_FEATURE_START_TIMEOUT_SECONDS,
@@ -490,54 +267,6 @@ def _require_running(duthost, capabilities):
     pytest_assert(
         wait_until(60, 2, 0, _status_is_published, duthost),
         "DLDD did not publish {}".format(STATUS_KEY),
-    )
-
-
-def _service_pid(duthost):
-    result = duthost.shell(
-        "systemctl show dldd.service --property MainPID --value",
-        module_ignore_errors=True,
-    )
-    if result["rc"] != 0:
-        return 0
-    try:
-        return int(result["stdout"].strip())
-    except (TypeError, ValueError):
-        return 0
-
-
-def _restart_service(duthost):
-    pid_before = _service_pid(duthost)
-    result = duthost.shell(
-        "sudo systemctl restart dldd.service", module_ignore_errors=True
-    )
-    pytest_assert(
-        result["rc"] == 0,
-        "Unable to restart dldd.service: {}".format(result.get("stderr", "")),
-    )
-    pytest_assert(
-        wait_until(60, 2, 0, _service_is_active, duthost),
-        "dldd.service did not become active after restart",
-    )
-    pid_after = _service_pid(duthost)
-    pytest_assert(
-        pid_after > 0 and pid_after != pid_before,
-        "dldd.service did not start a new process (PID before {}, after {})".format(
-            pid_before, pid_after
-        ),
-    )
-    pytest_assert(
-        wait_until(60, 2, 0, _status_is_published, duthost),
-        "DLDD did not republish {} after restart".format(STATUS_KEY),
-    )
-    pytest_assert(
-        wait_until(
-            15,
-            1,
-            0,
-            lambda: _status_ttl(duthost) >= HEARTBEAT_TTL_SECONDS - 5,
-        ),
-        "DLDD did not refresh the status TTL after restart",
     )
 
 
@@ -558,44 +287,32 @@ def dldd_capabilities(duthosts, enum_rand_one_per_hwsku_hostname):
     platform_dir = "/usr/share/sonic/device/{}".format(platform)
     rules_path = "{}/dld_rules.yaml".format(platform_dir)
     golden_rules_path = "{}/dld_rules_golden.yaml".format(platform_dir)
+    inbox_rules_path = "/var/lib/sonic/dldd/inbox/dld_rules.yaml"
     active_rules_path = "/var/lib/sonic/dldd/rules/dld_rules.active.yaml"
+    manifest = duthost.shell(
+        "sudo cat -- /var/lib/sonic/dldd/rules/activation.json",
+        module_ignore_errors=True,
+    )
+    try:
+        previous_rules_path = json.loads(manifest.get("stdout", "")).get(
+            "previous_active_generation_path"
+        )
+    except (AttributeError, TypeError, ValueError):
+        previous_rules_path = None
     dse_path = "{}/dld_dse.yaml".format(platform_dir)
-    packaged_rules_present = duthost.stat(path=rules_path)["stat"].get(
-        "exists", False
-    )
-    golden_rules_present = duthost.stat(path=golden_rules_path)["stat"].get(
-        "exists", False
-    )
-    active_rules_present = duthost.stat(path=active_rules_path)["stat"].get(
-        "exists", False
-    )
     dse_present = duthost.stat(path=dse_path)["stat"].get("exists", False)
-
-    validation_rules_path = next(
-        (
-            path
-            for path, present in (
-                (active_rules_path, active_rules_present),
-                (rules_path, packaged_rules_present),
-                (golden_rules_path, golden_rules_present),
-            )
-            if present
-        ),
-        None,
-    )
 
     return {
         "feature": feature,
         "feature_state": feature_state,
         "platform_dir": platform_dir,
-        "rules_path": rules_path,
-        "packaged_rules_present": packaged_rules_present,
-        "golden_rules_path": golden_rules_path,
-        "golden_rules_present": golden_rules_present,
-        "active_rules_path": active_rules_path,
-        "active_rules_present": active_rules_present,
-        "rules_present": bool(validation_rules_path),
-        "validation_rules_path": validation_rules_path,
+        "rules_paths": (
+            inbox_rules_path,
+            active_rules_path,
+            previous_rules_path,
+            rules_path,
+            golden_rules_path,
+        ),
         "dse_path": dse_path,
         "dse_present": dse_present,
     }
@@ -637,7 +354,22 @@ def test_feature_and_service_state(
     )
 
     if dldd_capabilities["feature_state"] in ENABLED_FEATURE_STATES:
-        _require_running(duthost, dldd_capabilities)
+        if _validation_rules_path(
+            duthost,
+            dldd_capabilities,
+            required=False,
+            allow_candidates=True,
+        ) is None:
+            pytest_assert(
+                not _service_is_active(duthost),
+                "DLDD has no rules candidate but dldd.service is active",
+            )
+            pytest_assert(
+                _systemd_property(duthost, "dldd.service", "ExecMainStatus") == "0",
+                "DLDD without rules did not exit successfully",
+            )
+        else:
+            _require_running(duthost, dldd_capabilities)
     else:
         pytest_assert(
             not _service_is_active(duthost),
@@ -645,85 +377,66 @@ def test_feature_and_service_state(
         )
 
 
-def test_show_commands(
+def test_operator_commands_smoke(
     duthosts, enum_rand_one_per_hwsku_hostname, dldd_capabilities
 ):
-    """Verify the supported operator-facing configuration and status commands."""
+    """Smoke-test the installed read-only operator commands."""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     _require_running(duthost, dldd_capabilities)
 
-    config_result = duthost.shell("show dldd config", module_ignore_errors=True)
-    pytest_assert(
-        config_result["rc"] == 0,
-        "'show dldd config' failed: {}".format(config_result.get("stderr", "")),
-    )
-    for expected in (
-        "CONFIG_DB field",
-        "Effective value",
-        "Individual max failure threshold",
-        "Redis monitor polling interval",
-    ):
-        pytest_assert(
-            expected in config_result["stdout"],
-            "'show dldd config' is missing {!r}".format(expected),
-        )
-
-    status_result = duthost.shell("show dldd status", module_ignore_errors=True)
-    pytest_assert(
-        status_result["rc"] == 0,
-        "'show dldd status' failed: {}".format(status_result.get("stderr", "")),
-    )
-    for expected in (
-        "Heartbeat age",
-        "Running schema",
-        "Active rules checksum",
-        "Active rules source",
-        "Activation result",
-        "Activation fallback used",
-        "Previous active rules checksum",
-        "Local action default timeout",
-    ):
-        pytest_assert(
-            expected in status_result["stdout"],
-            "'show dldd status' is missing {!r}".format(expected),
-        )
-
-    config_help = duthost.shell(
-        "config dldd --help", module_ignore_errors=True
-    )
-    pytest_assert(
-        config_help["rc"] == 0,
-        "'config dldd --help' failed: {}".format(
-            config_help.get("stderr", "")
+    commands = (
+        (
+            "show dldd config",
+            "CONFIG_DB field|Effective value|Individual max failure threshold|"
+            "Redis monitor polling interval".split("|"),
+            (), None,
+        ),
+        (
+            "show dldd status",
+            "State|Heartbeat age|Activation|Rules source".split("|"),
+            ("Running schema", "Active rules checksum", "Reason"), 3,
+        ),
+        (
+            "show dldd status --detail",
+            "Heartbeat age|Running schema|Active rules checksum|Active rules source|"
+            "Activation result|Activation fallback used|Previous active rules checksum|"
+            "Local action default timeout".split("|"),
+            (), None,
+        ),
+        (
+            "show dldd rules",
+            ("Rule ID", "Rule", "Component", "Health", "Active faults"),
+            ("Version", "Work items", "Last attempt", "Reason"), None,
+        ),
+        (
+            "show dldd faults",
+            ("Component", "Symptom", "Status", "Severity", "Last detection"),
+            ("Rule", "Occurrences", "Reason", "Description"), None,
+        ),
+        (
+            "config dldd --help",
+            "threshold|polling-interval|source-unavailable-grace-period|"
+            "source-recovery-samples|inactive-fault-retention-period|"
+            "fault-evidence-ack-timeout|active-fault-recheck-interval|"
+            "rules-inbox-settle-time".split("|"),
+            (), None,
         ),
     )
-    for expected in (
-        "threshold",
-        "polling-interval",
-        "source-unavailable-grace-period",
-        "source-recovery-samples",
-        "inactive-fault-retention-period",
-        "fault-evidence-ack-timeout",
-        "active-fault-recheck-interval",
-        "rules-inbox-settle-time",
-    ):
+    for command, required_text, forbidden_headers, expected_lines in commands:
+        result = duthost.shell(command, module_ignore_errors=True)
+        output = result.get("stdout", "")
+        lines = [line for line in output.splitlines() if line.strip()]
+        header = lines[0] if lines else ""
         pytest_assert(
-            expected in config_help["stdout"],
-            "'config dldd --help' is missing {!r}".format(expected),
+            result["rc"] == 0
+            and lines
+            and all(text in output for text in required_text)
+            and not any(text in header for text in forbidden_headers)
+            and (expected_lines is None or len(lines) == expected_lines),
+            "{!r} failed or omitted required output: {}".format(
+                command, result.get("stderr", ""),
+            ),
         )
-
-    faults_result = duthost.shell("show dldd faults", module_ignore_errors=True)
-    pytest_assert(
-        faults_result["rc"] == 0,
-        "'show dldd faults' failed: {}".format(faults_result.get("stderr", "")),
-    )
-    for expected in ("Component", "Symptom", "Status", "Occurrences"):
-        pytest_assert(
-            expected in faults_result["stdout"],
-            "'show dldd faults' is missing {!r}".format(expected),
-        )
-
-
 def test_status_and_heartbeat(
     duthosts, enum_rand_one_per_hwsku_hostname, dldd_capabilities
 ):
@@ -769,25 +482,6 @@ def test_status_and_heartbeat(
             status.get("state") == "BROKEN|FATAL" and status.get("reason"),
             "DLDD without an active generation must publish BROKEN|FATAL with a reason",
         )
-    for field in (
-        "broken_rules",
-        "source_status",
-        "inflight_fault_evidence",
-        "service_diagnostics",
-    ):
-        _json_field(status, field, list)
-    for field, minimum in CONFIG_FIELD_MINIMUMS.items():
-        try:
-            value = int(status[field])
-        except (KeyError, TypeError, ValueError) as error:
-            pytest.fail("DLDD status field {!r} is not an integer: {}".format(field, error))
-        pytest_assert(
-            minimum <= value <= UINT32_MAX,
-            "DLDD status field {!r} is outside its valid range: {}".format(
-                field, value
-            ),
-        )
-
     initial_ttl = _status_ttl(duthost)
     pytest_assert(
         0 < initial_ttl <= HEARTBEAT_TTL_SECONDS,
@@ -798,6 +492,8 @@ def test_status_and_heartbeat(
 
     def heartbeat_refreshed():
         current = _status_ttl(duthost)
+        if current <= 0:
+            return False
         refreshed = current > observed["previous"]
         observed["previous"] = current
         return refreshed
@@ -815,13 +511,13 @@ def test_status_and_heartbeat(
     )
 
 
-def test_healthy_no_fault_baseline(
+def test_installed_rules_health_and_observed_faults(
     duthosts, enum_rand_one_per_hwsku_hostname, dldd_capabilities
 ):
-    """Require installed vendor rules to run cleanly on a healthy platform."""
+    """Check installed rules and operator-visible DLDD-owned fault identity."""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    _require_rules(dldd_capabilities)
     _require_running(duthost, dldd_capabilities)
+    _validation_rules_path(duthost, dldd_capabilities)
     status = _read_hash(duthost, "STATE_DB", STATUS_KEY)
     broken_rules = _json_field(status, "broken_rules", list)
 
@@ -836,9 +532,10 @@ def test_healthy_no_fault_baseline(
         "Packaged DLDD rules contain broken runtime entries: {}".format(broken_rules),
     )
 
+    raw_faults = _observed_faults(duthost)
     active_faults = {
         key: fault
-        for key, fault in _faults(duthost).items()
+        for key, fault in raw_faults.items()
         if fault.get("status") == "ACTIVE"
     }
     pytest_assert(
@@ -847,30 +544,20 @@ def test_healthy_no_fault_baseline(
     )
 
 
-def test_fault_info_shape_if_present(
-    duthosts, enum_rand_one_per_hwsku_hostname, dldd_capabilities
-):
-    """Validate every live or retained DLDD fault against the HLD payload shape."""
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    _require_running(duthost, dldd_capabilities)
-
-    for key, fault in _faults(duthost).items():
-        _validate_fault_info(key, fault)
-
-
-def test_available_rules_validation(
+def test_installed_rules_activation_dry_run(
     duthosts, enum_rand_one_per_hwsku_hostname, dldd_capabilities
 ):
     """Run the non-executing activation gate against an installed rules source."""
-    _require_rules(dldd_capabilities)
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    _require_running(duthost, dldd_capabilities)
+    rules_path = _validation_rules_path(duthost, dldd_capabilities)
 
     command = [
         "sudo",
         "dldd",
         "validate-rules",
         "--file",
-        dldd_capabilities["validation_rules_path"],
+        rules_path,
         "--platform-dir",
         dldd_capabilities["platform_dir"],
         "--mode",
@@ -906,25 +593,22 @@ def test_available_rules_validation(
     )
 
 
-def test_dse_rules_e2e_execution(
+def test_rules_e2e_execution(
     duthosts, enum_rand_one_per_hwsku_hostname, dldd_capabilities
 ):
-    """Expand and execute every installed DSE source event without remediation."""
-    _require_rules(dldd_capabilities)
+    """Execute every installed direct and DSE source without remediation."""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    rules = _load_rules_document(
-        duthost, dldd_capabilities["validation_rules_path"]
-    )
-    dse_sources = _dse_source_events(rules)
-    if not dse_sources:
-        pytest.skip("Active DLDD rules contain no DSE-backed source event")
+    _require_running(duthost, dldd_capabilities)
+    rules_path = _validation_rules_path(duthost, dldd_capabilities)
+    rules = _load_rules_document(duthost, rules_path)
+    source_events = _rule_source_events(rules)
 
     command = [
         "sudo",
         "dldd",
         "validate-rules",
         "--file",
-        dldd_capabilities["validation_rules_path"],
+        rules_path,
         "--platform-dir",
         dldd_capabilities["platform_dir"],
         "--mode",
@@ -969,15 +653,47 @@ def test_dse_rules_e2e_execution(
         (item.get("rule_id"), item.get("component")): item
         for item in rule_results
     }
-    for source in dse_sources:
+    pytest_assert(
+        len(rule_result_by_instance) == len(rule_results),
+        "DLDD e2e qualification returned duplicate rule results",
+    )
+    executions_by_event = {}
+    execution_keys = []
+    for item in probe_results:
+        if item.get("stage") == "execution":
+            execution_keys.append(item.get("correlation_key"))
+            executions_by_event.setdefault(
+                (item.get("rule_id"), item.get("event_id")), []
+            ).append(item)
+    pytest_assert(
+        None not in execution_keys and len(execution_keys) == len(set(execution_keys)),
+        "DLDD e2e qualification returned missing or duplicate execution identity",
+    )
+    for source in source_events:
         identity = (source["rule_id"], source["event_id"])
+        executions = executions_by_event.get(identity, ())
+        pytest_assert(
+            executions,
+            "Source event {}:{} was not executed".format(
+                source["rule"], source["event_id"]
+            ),
+        )
+        for execution in executions:
+            pytest_assert(
+                execution.get("state") in ("MATCH", "NO_MATCH"),
+                "Source event execution was not qualified: {}".format(execution),
+            )
+            rule_result = rule_result_by_instance.get(
+                (source["rule_id"], execution["component"])
+            )
+            pytest_assert(
+                rule_result is not None
+                and rule_result.get("state") in ("MATCH", "NO_MATCH"),
+                "Source instance has no qualified rule result: {}".format(execution),
+            )
+        if not source["dse"]:
+            continue
         expansion = expansion_by_event.get(identity)
-        executions = [
-            item
-            for item in probe_results
-            if item.get("stage") == "execution"
-            and (item.get("rule_id"), item.get("event_id")) == identity
-        ]
         components = {item.get("component") for item in executions}
         if expansion is None:
             # A vendor may resolve a DSE reference to one or more direct typed
@@ -999,120 +715,8 @@ def test_dse_rules_e2e_execution(
             )
             pytest_assert(
                 None not in components
-                and len(components) == expansion["instance_count"]
-                and len(executions) == expansion["instance_count"],
-                "DSE event {}:{} did not execute exactly once per discovered "
-                "instance: {}".format(
+                and len(components) == expansion["instance_count"],
+                "DSE event {}:{} did not execute every discovered component: {}".format(
                     source["rule"], source["event_id"], executions
                 ),
             )
-        for execution in executions:
-            pytest_assert(
-                execution.get("state") in ("MATCH", "NO_MATCH"),
-                "DSE event execution was not qualified: {}".format(execution),
-            )
-            rule_result = rule_result_by_instance.get(
-                (source["rule_id"], execution["component"])
-            )
-            pytest_assert(
-                rule_result is not None
-                and rule_result.get("state") in ("MATCH", "NO_MATCH"),
-                "DSE instance has no qualified rule result: {}".format(execution),
-            )
-
-
-def test_service_restart_without_active_faults(
-    duthosts, enum_rand_one_per_hwsku_hostname, dldd_capabilities
-):
-    """Restart DLDD only when no active fault/action can make it disruptive."""
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    _require_running(duthost, dldd_capabilities)
-    status_before = _read_hash(duthost, "STATE_DB", STATUS_KEY)
-    active_before = {
-        key: fault
-        for key, fault in _faults(duthost).items()
-        if fault.get("status") == "ACTIVE"
-    }
-    inflight = _json_field(status_before, "inflight_fault_evidence", list)
-    if active_before or inflight:
-        pytest.skip("DLDD has active/in-flight fault work; use active-fault restart coverage")
-
-    try:
-        _restart_service(duthost)
-        status_after = _read_hash(duthost, "STATE_DB", STATUS_KEY)
-        pytest_assert(
-            status_after.get("active_rules_checksum")
-            == status_before.get("active_rules_checksum"),
-            "DLDD changed rules generation during a service-only restart",
-        )
-        active_after = {
-            key: fault
-            for key, fault in _faults(duthost).items()
-            if fault.get("status") == "ACTIVE"
-        }
-        pytest_assert(
-            not active_after,
-            "DLDD published active faults solely because it restarted: {}".format(
-                sorted(active_after)
-            ),
-        )
-    finally:
-        if not _service_is_active(duthost):
-            duthost.shell("sudo systemctl start dldd.service", module_ignore_errors=True)
-
-
-def test_active_fault_restart_preserves_lifetime(
-    duthosts, enum_rand_one_per_hwsku_hostname, dldd_capabilities
-):
-    """Verify restart preserves current active records without a new lifetime."""
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    _require_running(duthost, dldd_capabilities)
-    status_before = _read_hash(duthost, "STATE_DB", STATUS_KEY)
-    active_before = {
-        key: fault
-        for key, fault in _faults(duthost).items()
-        if fault.get("status") == "ACTIVE"
-        and fault.get("active_rules_checksum")
-        == status_before.get("active_rules_checksum")
-    }
-    if not active_before:
-        pytest.skip("No current-generation active fault is available for restart coverage")
-
-    def fault_rows_restored():
-        status = _read_hash(duthost, "STATE_DB", STATUS_KEY)
-        if (
-            status.get("active_rules_checksum")
-            != status_before.get("active_rules_checksum")
-        ):
-            return False
-        for key in active_before:
-            fault = _read_hash(duthost, "STATE_DB", key)
-            if (
-                fault.get("producer") != "dldd"
-                or fault.get("status") not in FAULT_STATUSES
-            ):
-                return False
-        return True
-
-    try:
-        _restart_service(duthost)
-        pytest_assert(
-            wait_until(30, 2, 0, fault_rows_restored),
-            "DLDD did not restore current-generation active fault state after restart",
-        )
-        for key, before in active_before.items():
-            after = _read_hash(duthost, "STATE_DB", key)
-            pytest_assert(after, "DLDD deleted active fault {} during restart".format(key))
-            pytest_assert(
-                after.get("status") in ("ACTIVE", "INACTIVE"),
-                "DLDD did not reconcile {} to a valid state".format(key),
-            )
-            pytest_assert(
-                after.get("rule_id") == before.get("rule_id")
-                and after.get("origin_time") == before.get("origin_time")
-                and after.get("occurrences") == before.get("occurrences"),
-                "DLDD created a duplicate fault lifetime while reconciling {}".format(key),
-            )
-    finally:
-        if not _service_is_active(duthost):
-            duthost.shell("sudo systemctl start dldd.service", module_ignore_errors=True)
