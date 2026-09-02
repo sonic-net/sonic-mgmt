@@ -58,9 +58,6 @@ def get_chip_name_if_asic_pfc_storm_supported(fanout):
 class PFCStorm(object):
     """ PFC storm/start on different interfaces on a fanout connected to the DUT"""
 
-    # sentinel so _xgs_chip_name() can cache a legitimate None result
-    _XGS_CHIP_UNRESOLVED = object()
-
     _PFC_GEN_DIR = {
         'sonic': '/tmp',
         'eos': '/mnt/flash',
@@ -93,7 +90,11 @@ class PFCStorm(object):
         self._pfc_gen_file_requested = self.pfc_gen_file
         self.pfc_gen_multiprocess = kwargs.pop('pfc_gen_multiprocess', False)
         self.pfc_gen_chip_name = None
-        self._xgs_chip = self._XGS_CHIP_UNRESOLVED
+        # Chip answer per fanout: one instance can walk several, and revisiting one
+        # should not ask it again.
+        self._xgs_chip_cache = {}
+        # Fanout deploy_pfc_gen() last ran against, so a fanout switch redeploys.
+        self._deployed_peer = None
         self.pfc_queue_idx = kwargs.pop('pfc_queue_index', 3)
         self.pfc_frames_number = kwargs.pop('pfc_frames_number', 100000)
         self.send_pfc_frame_interval = kwargs.pop('send_pfc_frame_interval', 0)
@@ -219,21 +220,24 @@ class PFCStorm(object):
     def _xgs_chip_name(self):
         """
         Fanout chip name if its ASIC supports register-based PFC storm generation,
-        else None. Memoized -- resolving it shells out to the fanout.
+        else None. Cached per fanout -- resolving it shells out to the fanout, and
+        callers update the fanout interface far more often than the fanout itself.
         """
-        if self._xgs_chip is self._XGS_CHIP_UNRESOLVED:
+        peer = self.peer_info['peerdevice']
+        if peer not in self._xgs_chip_cache:
             if self.peer_device.os == 'eos':
-                self._xgs_chip = get_chip_name_if_asic_pfc_storm_supported(
+                chip_name = get_chip_name_if_asic_pfc_storm_supported(
                     self._get_eos_fanout_version()[0])
             elif self.peer_device.os == 'sonic':
                 # Prefer what the ASIC reports; fall back to the HWSKU table so
                 # fanouts where bcmcmd is unavailable keep working as before.
-                self._xgs_chip = (self._get_sonic_fanout_chip_name() or
-                                  get_chip_name_if_asic_pfc_storm_supported(
-                                      self._get_sonic_fanout_hwsku()))
+                chip_name = (self._get_sonic_fanout_chip_name() or
+                             get_chip_name_if_asic_pfc_storm_supported(
+                                 self._get_sonic_fanout_hwsku()))
             else:
-                self._xgs_chip = None
-        return self._xgs_chip
+                chip_name = None
+            self._xgs_chip_cache[peer] = chip_name
+        return self._xgs_chip_cache[peer]
 
     def deploy_pfc_gen(self):
         """
@@ -251,6 +255,7 @@ class PFCStorm(object):
                 # This instance may have been pointed at an XGS fanout before;
                 # a fanout that cannot run that generator must not inherit it.
                 self.pfc_gen_file = self._pfc_gen_file_requested
+                self.pfc_gen_file_test_name = self._pfc_gen_file_requested
                 self.pfc_gen_chip_name = None
             src_pfc_gen_file = "common/helpers/{}".format(self.pfc_gen_file)
             self._create_pfc_gen()
@@ -263,6 +268,21 @@ class PFCStorm(object):
             if self.fanout_asic_type == 'mellanox':
                 cmd = f"docker cp {self._PFC_GEN_DIR[self.peer_device.os]}/{self.pfc_gen_file} syncd:/root/"
                 self.peer_device.shell(cmd)
+        self._deployed_peer = self.peer_info['peerdevice']
+
+    def _ensure_pfc_gen_deployed(self):
+        """
+        Deploy the generator if the fanout changed since the last deploy.
+
+        Callers that walk several fanouts do not all call deploy_pfc_gen() again on a
+        fanout they have visited before, but the generator on the fanout, the file
+        name rendered into the template and the chip name passed to it all have to
+        describe the same fanout.
+        """
+        if self.asic_type == 'vs':
+            return
+        if self._deployed_peer != self.peer_info['peerdevice']:
+            self.deploy_pfc_gen()
 
     def update_queue_index(self, q_idx):
         """
@@ -283,9 +303,11 @@ class PFCStorm(object):
             self._populate_peer_hwsku()
         self.update_platform_name()
         self.peer_device = self.fanout_hosts[self.peer_info['peerdevice']]
-        # The fanout may have changed, so the memoized chip answer is no longer
-        # valid; _xgs_chip_name() must ask this fanout.
-        self._xgs_chip = self._XGS_CHIP_UNRESOLVED
+        # The fanout may have changed, and this was resolved once in __init__ and
+        # never since. _xgs_chip_name() and the deployed generator key off the
+        # fanout themselves.
+        self.fanout_asic_type = self.peer_device.facts['asic_type'] \
+            if isinstance(self.peer_device.host, SonicHost) else None
 
     def update_platform_name(self):
         """
@@ -338,13 +360,13 @@ class PFCStorm(object):
             self.pfc_start_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_eos.j2")
         elif (self.dut.topo_type == 't2' and self.peer_device.os == 'sonic' and
-              not self._xgs_chip_name()):
+              not self.pfc_gen_chip_name):
             self.pfc_start_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_{}_t2.j2".format(self.peer_device.os))
         elif self.fanout_asic_type == 'mellanox' and self.peer_device.os == 'sonic':
             self.pfc_start_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_mlnx_{}.j2".format(self.peer_device.os))
-        elif self._xgs_chip_name():
+        elif self.pfc_gen_chip_name:
             self.pfc_start_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_arista_{}.j2".format(self.peer_device.os))
         else:
@@ -361,13 +383,13 @@ class PFCStorm(object):
             self.pfc_stop_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_stop_eos.j2")
         elif (self.dut.topo_type == 't2' and self.peer_device.os == 'sonic' and
-              not self._xgs_chip_name()):
+              not self.pfc_gen_chip_name):
             self.pfc_stop_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_stop_{}_t2.j2".format(self.peer_device.os))
         elif self.fanout_asic_type == 'mellanox' and self.peer_device.os == 'sonic':
             self.pfc_stop_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_stop_mlnx_{}.j2".format(self.peer_device.os))
-        elif self._xgs_chip_name():
+        elif self.pfc_gen_chip_name:
             self.pfc_stop_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_stop_arista_{}.j2".format(self.peer_device.os))
         else:
@@ -403,6 +425,7 @@ class PFCStorm(object):
         """
         Starts PFC storm on the fanout interfaces
         """
+        self._ensure_pfc_gen_deployed()
         self._prepare_start_template()
         if self.asic_type == 'vs':
             return

@@ -163,16 +163,6 @@ class FanoutPfcStorm():
                 if (1 << prio) & self.priority:
                     self._cliCmd(f"en\nconf\n\nint {intf}\nno priority-flow-control priority {prio} no-drop")
 
-    def _endPfcStorm(self, intf):
-        '''
-        Intf format is Ethernet1/1
-
-        The users of this class are only expected to call
-        startPfcStorm and endAllPfcStorm
-        '''
-        self._clearPfcBackpressure(intf)
-        self._restorePfcConfig(intf)
-
     def startPfcStorm(self, intf):
         if intf in self.intfsEnabled:
             return
