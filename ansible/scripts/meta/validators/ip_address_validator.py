@@ -66,6 +66,8 @@ class IpAddressValidator(GlobalValidator):
             context: ValidatorContext containing testbed and connection graph data
         """
         testbed_info = context.get_testbeds()
+        self._bmc_device_groups = self._build_bmc_device_groups(
+            testbed_info)
 
         # Collect all IP addresses from all groups
         ip_addresses, device_ips = self._collect_all_ip_addresses_globally(context, testbed_info)
@@ -294,6 +296,17 @@ class IpAddressValidator(GlobalValidator):
             device1_name = existing_source_name.split(':')[0] if ':' in existing_source_name else existing_source_name
             device2_name = source_name.split(':')[0] if ':' in source_name else source_name
 
+            # Check if this is a BMC device and its console server counterpart sharing the same IP.
+            # A BMC device (e.g., switch01-bmc) and its console server role (e.g., switch01-bmc-con)
+            # are the same physical device and legitimately share the same management IP.
+            if (source_type == "device" and existing_source_type == "device" and
+                    self._is_bmc_con_pair(device1_name, device2_name)):
+                self.logger.debug(
+                    f"BMC device and its console server share the same IP: "
+                    f"{device1_name} and {device2_name} ({ip_addr})"
+                )
+                return
+
             if self._should_allow_conflict(device1_name, device2_name):
                 # Conflict is allowed, skip reporting the error
                 self.logger.debug(
@@ -332,6 +345,51 @@ class IpAddressValidator(GlobalValidator):
         if source_type not in device_ips[device_name][group_name]:
             device_ips[device_name][group_name][source_type] = {}
         device_ips[device_name][group_name][source_type][ip_type] = ip_addr
+
+    def _build_bmc_device_groups(self, testbed_info):
+        """
+        Build groups of devices that are the same BMC physical device
+        from testbed.yaml entries.
+
+        A BMC DUT and its console server counterpart (e.g., switch01-bmc
+        and switch01-bmc-con) share the same management IP. This method
+        reads the testbed entries to find BMC DUTs (those with bmc_host)
+        and their associated console server devices from devices.csv.
+
+        Returns:
+            list[set]: List of device name sets that share the same
+                physical BMC device and may legitimately share IPs.
+        """
+        groups = []
+        for tb in testbed_info:
+            if not isinstance(tb, dict):
+                continue
+            bmc_host = tb.get('bmc_host')
+            duts = tb.get('duts', tb.get('dut', []))
+            if not bmc_host or not duts:
+                continue
+            # The BMC DUT and its -con counterpart are the same device
+            for dut in duts:
+                groups.append({dut, dut + '-con'})
+        return groups
+
+    def _is_bmc_con_pair(self, device1_name, device2_name):
+        """
+        Check if two devices are a BMC device and its console server
+        counterpart based on testbed.yaml configuration.
+
+        Args:
+            device1_name: Name of the first device
+            device2_name: Name of the second device
+
+        Returns:
+            bool: True if both devices belong to the same BMC device
+                group as defined in testbed.yaml.
+        """
+        for group in self._bmc_device_groups:
+            if device1_name in group and device2_name in group:
+                return True
+        return False
 
     def _should_allow_conflict(self, device1_name, device2_name):
         """

@@ -44,6 +44,7 @@ class OndatraGenericTestbedFixture : public thinkit::GenericTestbedInterface {
 
  private:
   OndatraHooks ondatra_hooks_;
+  int teardown_handler_id_ = 0;
 };
 
 }  // namespace pins_test

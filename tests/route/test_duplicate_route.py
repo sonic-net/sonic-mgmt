@@ -99,11 +99,17 @@ def verify_expected_loganalyzer_logs(
         ".*ERR.* api SAI_COMMON_API_BULK_CREATE failed in syncd mode.*",
         ".*ERR.* flush_creating_entries: EntityBulker.flush create entries failed.*",
         ".*ERR.* handleSaiFailure: Encountered failure in create operation.*",
+        ".*ERR.* start: Encountered failure in create operation.*",
         ".*ERR.* Failed to add UC route .* Entry Already Exists.",
         r".*ERR.* uc_route_set_async_pre_send_validate .* \[Entry Already Exists\].",
         ".*ERR.* mlnx_create_route_async.* Entry Already Exists.",
         ".*ERR.* object key SAI_OBJECT_TYPE_ROUTE_ENTRY:.* already exists.*",  # TODO move to expectRegex
         ".*ERR.* addRoutePost: Failed to create route.*",  # TODO move to expectRegex
+        r".*ERR pidof\[\d+\]: can't read from \d+\/stat.*",
+        ".*ERR.* ipv4_route_bulk_updates API returned.*Key already exists in table.*",
+        ".*ERR syncd#SDK:.*mlnx_route_pre_create: Route entry already exists in the Route DB.*",
+        ".*ERR syncd#SDK:.*mlnx_route_bulk_set_impl: Failed to prepare route data for bulk operation. index:.*",
+        ".*ERR syncd#SDK:.*mlnx_route_bulk_set_impl: No valid route entries for bulk operation in chunk starting at.*"
     ]
     if loganalyzer:
         # Skip if loganalyzer is disabled
@@ -133,19 +139,17 @@ def setup_routes(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     if interface_types == 'Loopback':
         # Get loopback ips
         intf_ips = get_intf_ips('Loopback', cfg_facts)
-        pytest_require((len(intf_ips['ipv4']) + len(intf_ips['ipv6'])) > 0, "No IP configured on Loopback0")
     else:
         # Get vlan ips
         intf_ips = get_intf_ips('Vlan', cfg_facts)
-        pytest_require((len(intf_ips['ipv4']) + len(intf_ips['ipv6'])) > 0, "No IP configured on any Vlan")
+
+    ip_key = 'ipv4' if ip_versions == 4 else 'ipv6'
+    pytest_require(len(intf_ips[ip_key]) > 0, "No {} configured on {}".format(ip_key, interface_types))
 
     # Generate interfaces and neighbors
     intf_neighs, str_intf_nexthop = generate_intf_neigh(
         asichost, 1, ip_versions)
-    if ip_versions == 4:
-        prefixes.append(str(random.choice(intf_ips['ipv4'])).split("/")[0])
-    else:
-        prefixes.append(str(random.choice(intf_ips['ipv6'])).split("/")[0])
+    prefixes.append(str(random.choice(intf_ips[ip_key])).split("/")[0])
 
     # Setup interface IPs and neighbors
     prepare_dut(asichost, intf_neighs)

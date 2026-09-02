@@ -1,0 +1,140 @@
+# Host setup tasks -- run once, skipped via version-stamped flag file.
+# To force re-run: export FORCE_HOST_SETUP=true
+# To trigger re-run after changes: bump host_setup_version in main.yml
+
+# ---- System packages ----
+- name: Install necessary system packages
+  apt:
+    update_cache: yes
+    cache_valid_time: 86400
+    pkg:
+      - ifupdown
+      - openvswitch-switch
+      - net-tools
+      - bridge-utils
+      - util-linux
+      - iproute2
+      - vlan
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - libvirt-clients
+      - python3-libvirt
+      - python3-lxml
+      - libvirt-daemon-system
+      - qemu-system-x86
+      - acl
+  register: apt_res
+  retries: 2
+  delay: 30
+  until: apt_res is success
+  become: yes
+
+# ---- Docker ----
+- include_tasks: docker.yml
+
+# ---- Kernel tuning ----
+- name: Set kernel.pty.max to 8192
+  become: true
+  sysctl:
+    name: kernel.pty.max
+    value: 8192
+    state: present
+    sysctl_set: true
+    reload: true
+    sysctl_file: /etc/sysctl.d/99-pty.conf
+
+- name: Install br_netfilter kernel module
+  become: yes
+  modprobe: name=br_netfilter state=present
+
+- name: Set sysctl bridge parameters for testbed
+  sysctl:
+    name: "{{ item }}"
+    value: "0"
+    sysctl_set: yes
+  become: yes
+  with_items:
+   - net.bridge.bridge-nf-call-arptables
+   - net.bridge.bridge-nf-call-ip6tables
+   - net.bridge.bridge-nf-call-iptables
+
+- name: Set sysctl RCVBUF max parameter for testbed
+  sysctl:
+    name: "net.core.rmem_max"
+    value: "509430500"
+    sysctl_set: yes
+  become: yes
+
+- name: Set sysctl RCVBUF default parameter for testbed
+  sysctl:
+    name: "net.core.rmem_default"
+    value: "31457280"
+    sysctl_set: yes
+  become: yes
+
+- name: Increase IPv6 route cache size
+  sysctl:
+    name: "net.ipv6.route.max_size"
+    value: "16384"
+    sysctl_set: yes
+  become: yes
+
+- name: Increase neighbor gc_thresh1
+  sysctl:
+    sysctl_set: yes
+    name: "{{ item }}"
+    value: "8192"
+  become: yes
+  with_items:
+    - net.ipv4.neigh.default.gc_thresh1
+    - net.ipv6.neigh.default.gc_thresh1
+
+- name: Increase neighbor gc_thresh2
+  sysctl:
+    sysctl_set: yes
+    name: "{{ item }}"
+    value: "16384"
+  become: yes
+  with_items:
+    - net.ipv4.neigh.default.gc_thresh2
+    - net.ipv6.neigh.default.gc_thresh2
+
+- name: Increase neighbor gc_thresh3
+  sysctl:
+    sysctl_set: yes
+    name: "{{ item }}"
+    value: "32768"
+  become: yes
+  with_items:
+    - net.ipv4.neigh.default.gc_thresh3
+    - net.ipv6.neigh.default.gc_thresh3
+
+- name: increase kernel pid max
+  sysctl:
+    name: "kernel.pid_max"
+    value: "4194304"
+    sysctl_set: yes
+  become: yes
+
+- name: Increase fs limitation
+  sysctl:
+    name: "fs.inotify.max_user_instances"
+    value: "62800"
+    sysctl_set: yes
+  become: yes
+
+# ---- Write flag file ----
+- name: Ensure /opt/sonic-testbed directory exists
+  file:
+    path: /opt/sonic-testbed
+    state: directory
+    mode: '0755'
+  become: yes
+
+- name: Write host setup done flag with version
+  copy:
+    content: "{{ host_setup_version }}"
+    dest: /opt/sonic-testbed/.host_setup_done
+    mode: '0644'
+  become: yes

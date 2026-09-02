@@ -9,7 +9,9 @@ import tech_support_cmds as cmds
 from random import randint
 from collections import defaultdict
 from tests.common.helpers.assertions import pytest_assert, pytest_require
-from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
+from tests.common.helpers.platform_api import bmc
+from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service    # noqa: F401
+from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError, get_bughandler_instance
 from tests.common.utilities import is_ipv6_only_topology, wait_until, check_msg_in_syslog
 from log_messages import LOG_EXPECT_ACL_RULE_CREATE_RE, LOG_EXPECT_ACL_RULE_REMOVE_RE, LOG_EXCEPT_MIRROR_SESSION_REMOVE
 from pkg_resources import parse_version
@@ -85,23 +87,23 @@ def setup_acl_rules(duthost, acl_setup):
 
 
 @pytest.fixture(scope='module')
-def skip_on_dpu(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+def skip_on_dpu(duthosts, enum_rand_one_per_hwsku_hostname):
     """
     When dut is dpu, skip the case
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_dpu"):
         pytest.skip("Skip the test, as it is not supported on DPU.")
 
 
 @pytest.fixture(scope='function')
-def acl_setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+def acl_setup(duthosts, enum_rand_one_per_hwsku_hostname):
     """
     setup fixture gathers all test required information from DUT facts and testbed
     :param duthost: DUT host object
     :return: dictionary with all test required information
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     logger.info('Creating temporary folder for test {}'.format(ACL_RUN_DIR))
     duthost.command("mkdir -p {}".format(ACL_RUN_DIR))
     tmp_path = duthost.tempfile(path=ACL_RUN_DIR, state='directory', prefix='acl', suffix="")['path']
@@ -129,18 +131,19 @@ def teardown_acl(dut, acl_setup):
 
 
 @pytest.fixture(scope='function')
-def acl(duthosts, enum_rand_one_per_hwsku_frontend_hostname, acl_setup, request):
+def acl(duthosts, enum_rand_one_per_hwsku_hostname, acl_setup, request):
     """
     setup/teardown ACL rules based on test class requirements
     :param duthost: DUT host object
     :param acl_setup: setup information
     :return:
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     acl_facts = duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"]
     pytest_require(ACL_TABLE_NAME in acl_facts, "{} acl table not exists")
 
-    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='acl', request=request)
+    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='acl', request=request,
+                              bughandler=get_bughandler_instance({"type": "default"}))
     loganalyzer.load_common_config()
 
     try:
@@ -164,8 +167,8 @@ def acl(duthosts, enum_rand_one_per_hwsku_frontend_hostname, acl_setup, request)
 # MIRRORING PART #
 
 @pytest.fixture(scope='function')
-def neighbor_ip(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+def neighbor_ip(duthosts, enum_rand_one_per_hwsku_hostname, tbinfo):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     # ptf-32 topo is not supported in mirroring
     if tbinfo['topo']['name'] == 'ptf32':
         pytest.skip('Unsupported Topology')
@@ -185,11 +188,11 @@ def neighbor_ip(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
 
 
 @pytest.fixture(scope='function')
-def mirror_setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+def mirror_setup(duthosts, enum_rand_one_per_hwsku_hostname):
     """
     setup fixture
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     duthost.command('mkdir -p {}'.format(MIRROR_RUN_DIR))
     tmp_path = duthost.tempfile(path=MIRROR_RUN_DIR, state='directory', prefix='mirror', suffix="")['path']
 
@@ -200,8 +203,8 @@ def mirror_setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
 
 
 @pytest.fixture(scope='function')
-def gre_version(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+def gre_version(duthosts, enum_rand_one_per_hwsku_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     asic_type = duthost.facts['asic_type']
     if asic_type in ["mellanox"]:
         SESSION_INFO['gre'] = 0x8949  # Mellanox specific
@@ -214,15 +217,16 @@ def gre_version(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
 
 
 @pytest.fixture(scope='function')
-def mirroring(duthosts, enum_rand_one_per_hwsku_frontend_hostname, neighbor_ip,
-              mirror_setup, gre_version, request, tbinfo):
+def mirroring(duthosts, enum_rand_one_per_hwsku_hostname, neighbor_ip, mirror_setup, gre_version, request, tbinfo):
     """
     fixture gathers all configuration fixtures
     :param duthost: DUT host
     :param mirror_setup: mirror_setup fixture
     :param mirror_config: mirror_config fixture
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    if duthost.facts['asic_type'] == 'vpp':
+        pytest.skip('Mirroring is not supported on VPP platform')
     logger.info("Adding mirror_session to DUT")
     acl_rule_file = os.path.join(mirror_setup['dut_tmp_dir'], ACL_RULE_PERSISTENT_FILE)
     extra_vars = {
@@ -255,7 +259,8 @@ def mirroring(duthosts, enum_rand_one_per_hwsku_frontend_hostname, neighbor_ip,
     try:
         yield
     finally:
-        loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='acl', request=request)
+        loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='acl', request=request,
+                                  bughandler=get_bughandler_instance({"type": "default"}))
         loganalyzer.load_common_config()
 
         try:
@@ -362,22 +367,26 @@ def validate_platform_dump_files(duthost, dump_folder_path, platform_dump_folder
 
 def gen_dump_file(duthost, since):
     logger.debug("Running show techsupport ... ")
-    wait_until(300, 20, 0, execute_command, duthost, str(since))
+    pytest_assert(wait_until(300, 20, 0, execute_command, duthost, str(since)),
+                  "show techsupport command failed to succeed within timeout")
     tar_file = [j for j in pytest.tar_stdout.split('\n') if j != ''][-1]
     return tar_file
 
 
-def test_techsupport(request, config, duthosts, enum_rand_one_per_hwsku_frontend_hostname, skip_on_dpu):  # noqa F811
+def test_techsupport(request, config, duthosts, enum_rand_one_per_hwsku_hostname, skip_on_dpu,  # noqa F811
+                     platform_api_conn):     # noqa F811
     """
     test the "show techsupport" command in a loop
     :param config: fixture to configure additional setups_list on dut.
     :param duthost: DUT host
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     loop_range = request.config.getoption("--loop_num") or DEFAULT_LOOP_RANGE
     loop_delay = request.config.getoption("--loop_delay") or DEFAULT_LOOP_DELAY
     since = request.config.getoption("--logs_since") or str(randint(1, 5)) + " minute ago"
-
+    is_bmc_present = False
+    if bmc.is_bmc_exists(duthost):
+        is_bmc_present = True
     logger.debug("Loop_range is {} and loop_delay is {}".format(loop_range, loop_delay))
 
     for i in range(loop_range):
@@ -386,7 +395,7 @@ def test_techsupport(request, config, duthosts, enum_rand_one_per_hwsku_frontend
         extracted_dump_folder_name = tar_file.lstrip('/var/dump/').split('.')[0]
         extracted_dump_folder_path = '/tmp/{}'.format(extracted_dump_folder_name)
         try:
-            validate_dump_file_content(duthost, extracted_dump_folder_path)
+            validate_dump_file_content(duthost, extracted_dump_folder_path, is_bmc_present)
         except AssertionError as err:
             raise AssertionError(err)
         finally:
@@ -396,7 +405,7 @@ def test_techsupport(request, config, duthosts, enum_rand_one_per_hwsku_frontend
             time.sleep(loop_delay)
 
 
-def validate_dump_file_content(duthost, dump_folder_path):
+def validate_dump_file_content(duthost, dump_folder_path, is_bmc_present):
     """
     Validate generated dump file content
     :param duthost: duthost object
@@ -415,7 +424,14 @@ def validate_dump_file_content(duthost, dump_folder_path):
             # sai XML dump is only support on the switch
             sai_xml_regex = re.compile(r'sai_[\w-]+\.xml(?:\.gz)?')
             assert any(sai_xml_regex.fullmatch(file_name) for file_name in sai_sdk_dump), \
-                   "No SAI XML file found in sai_sdk_dump folder"
+                "No SAI XML file found in sai_sdk_dump folder"
+        if is_bmc_present:
+            bmc_dump = duthost.command(f"ls {dump_folder_path}/bmc/")["stdout_lines"]
+            logger.info("BMC is present, validate BMC dump files existence")
+            assert len(bmc_dump), "Folder 'bmc_dump' in dump archive is empty. Expected not empty folder"
+            bmc_regex = re.compile(r'bmc_[\w-]+\.tar.xz')
+            assert any(bmc_regex.fullmatch(file_name) for file_name in bmc_dump), "No BMC dump file found in bmc folder"
+
     assert len(dump) > MIN_FILES_NUM, "Seems like not all expected files available in 'dump' folder in dump archive. " \
                                       "Test expects not less than 50 files. Available files: {}".format(dump)
     assert len(etc) > MIN_FILES_NUM, "Seems like not all expected files available in 'etc' folder in dump archive. " \
@@ -459,7 +475,7 @@ def add_asic_arg(format_str, cmds_list, asic_num):
 
 
 @pytest.fixture(scope='function')
-def commands_to_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+def commands_to_check(duthosts, enum_rand_one_per_hwsku_hostname):
     """
     Prepare a list of commands to be expected in the
     show techsupport output. All the expected commands are
@@ -474,7 +490,7 @@ def commands_to_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         A dict of command groups with each group containing a list of commands
     """
 
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     num = duthost.num_asics()
 
     cmds_to_check = {
@@ -515,6 +531,30 @@ def commands_to_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
             asic_cmds = cmds.broadcom_cmd_bcmcmd_dnx
         else:
             asic_cmds = cmds.broadcom_cmd_bcmcmd_xgs
+
+            # Check if soc commands should be supported
+            soc_supported = None
+            try:
+                soc_supported = duthost.shell(r'bcmcmd bsh -c SOC')
+            except Exception:
+                pass
+            else:
+                if (soc_supported and soc_supported['rc'] == 0
+                        and 'Unknown command: SOC' not in ' '.join(soc_supported["stdout_lines"])):
+                    asic_cmds += cmds.broadcom_cmd_bcmcmd_xgs_soc
+                else:
+                    asic_cmds += cmds.broadcom_cmd_bcmcmd_xgs_th5
+
+            # Check if nat commands should be supported
+            nat_supported = None
+            try:
+                nat_supported = duthost.shell(r'bcmcmd "show feature" | grep -i nat')
+            except Exception:
+                pass
+            else:
+                if (nat_supported and nat_supported['rc'] == 0):
+                    asic_cmds += cmds.broadcom_cmd_bcmcmd_xgs_nat
+
         cmds_to_check.update(
             {
                 "broadcom_cmd_bcmcmd":
@@ -523,7 +563,7 @@ def commands_to_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
                     add_asic_arg("{}", cmds.broadcom_cmd_misc, num),
             }
         )
-        if duthost.topo_type in ["mx", "m0", "m1"]:
+        if duthost.topo_type in ["mx", "m0", "m1", "uma", "lma"]:
             cmds_to_check.update(
                 {
                     "copy_config_cmds":
@@ -538,8 +578,11 @@ def commands_to_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
                 }
             )
     # Remove /proc/dma for armh
-    elif duthost.facts["asic_type"] in ["marvell-prestera", "marvell"]:
+    elif duthost.facts["asic_type"] in ["marvell-prestera", "marvell", "nokia-vs"]:
         if 'armhf-' in duthost.facts["platform"] or 'arm64-' in duthost.facts["platform"]:
+            cmds.copy_proc_files.remove("/proc/dma")
+    elif duthost.facts["asic_type"] == "vpp":
+        if 'arm64-' in duthost.facts["platform"] or 'kvm' in duthost.facts["platform"]:
             cmds.copy_proc_files.remove("/proc/dma")
 
     return cmds_to_check
@@ -586,7 +629,7 @@ def check_cmds(cmd_group_name, cmd_group_to_check, cmdlist, strbash_in_cmdlist, 
 
 
 def test_techsupport_commands(
-        duthosts, enum_rand_one_per_hwsku_frontend_hostname, commands_to_check, skip_on_dpu, tbinfo):  # noqa F811
+        duthosts, enum_rand_one_per_hwsku_hostname, commands_to_check, skip_on_dpu, tbinfo):  # noqa F811
     """
     This test checks list of commands that will be run when executing
     'show techsupport' CLI against a standard expected list of commands
@@ -602,7 +645,7 @@ def test_techsupport_commands(
     """
 
     cmd_not_found = defaultdict(list)
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     stdout = duthost.shell(r'sudo generate_dump -n | grep -v "^mkdir\|^rm\|^tar\|^gzip"')
 
@@ -628,7 +671,7 @@ def test_techsupport_commands(
     pytest_assert(len(cmd_not_found) == 0, error_message)
 
 
-def test_techsupport_on_dpu(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+def test_techsupport_on_dpu(duthosts, enum_rand_one_per_hwsku_hostname):
     """
     This test is to check some files exist or not in the dump file generated by show techsupport on DPU
     1. Generate dump file by " show techsupport -r --since 'xx xxx xxx' " ( select 1-5 minutes ago randomly)
@@ -639,7 +682,7 @@ def test_techsupport_on_dpu(duthosts, enum_rand_one_per_hwsku_frontend_hostname)
     5. Validate that sai_sdk_dump is not empty folder
     :param duthosts: DUT host
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     if not duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_dpu"):
         pytest.skip("Skip the test, as it is supported only on DPU.")
 

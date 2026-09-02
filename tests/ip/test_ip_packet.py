@@ -10,7 +10,7 @@ from collections import defaultdict
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.portstat_utilities import parse_portstat
 from tests.common.helpers.dut_utils import is_mellanox_fanout
-from tests.common.utilities import parse_rif_counters
+from tests.common.utilities import parse_rif_counters, wait_until
 from tests.ip.ip_util import parse_interfaces, sum_ifaces_counts, random_mac
 
 
@@ -28,6 +28,55 @@ class TestIPPacket(object):
     PKT_NUM_MAX = PKT_NUM * 1.5
     # a number <= PKT_NUM * 0.1 can be considered as 0
     PKT_NUM_ZERO = PKT_NUM * 0.1
+
+    # Chunk size for VPP on KVM: virtio without indirect descriptors uses
+    # 2 vring descriptors per packet; with tx_queue_size=1024 the effective
+    # capacity is ~512 packets.  Sending in 200-packet chunks with a short
+    # inter-chunk delay keeps the vring from overflowing.
+    VPP_KVM_CHUNK_SIZE = 200
+    VPP_KVM_CHUNK_DELAY = 0.02   # seconds between chunks
+
+    @staticmethod
+    def check_rx_ok(duthost, ingress_iface, pkt_num_min):
+        """Check if the ingress port has received enough packets."""
+        portstat_out = parse_portstat(duthost.command("portstat")["stdout_lines"])
+        rx_ok_raw = portstat_out[ingress_iface]["rx_ok"].replace(",", "")
+        # Counters read as 'N/A' until the poller has populated COUNTERS_DB;
+        # treat that as "not ready yet" so the wait_until caller keeps polling.
+        if rx_ok_raw == "N/A":
+            return False
+        rx_ok = int(rx_ok_raw)
+        return rx_ok >= pkt_num_min
+
+    @staticmethod
+    def check_rx_drop(duthost, ingress_iface, rif_support, rif_rx_ifaces, pkt_num_min):
+        """Check if the ingress drop counter (rx_drp / rif rx_err) has caught up.
+        On some ASICs the drop counter updates a few seconds after rx_ok, so reading
+        it immediately yields a flaky 0. Poll until it settles."""
+        portstat_out = parse_portstat(duthost.command("portstat")["stdout_lines"])
+        rx_drp = int(portstat_out[ingress_iface]["rx_drp"].replace(",", ""))
+        rx_err = 0
+        if rif_support:
+            rif_counter_out = parse_rif_counters(
+                duthost.command("show interfaces counters rif")["stdout_lines"])
+            rx_err = int(rif_counter_out[rif_rx_ifaces]["rx_err"].replace(",", ""))
+        return max(rx_drp, rx_err) >= pkt_num_min
+
+    @staticmethod
+    def send_packets(duthost, ptfadapter, ptf_port_idx, pkt, count):
+        """Send packets, using chunked sends on VPP/KVM to avoid virtio TX ring overflow."""
+        platform = duthost.facts.get("platform", "")
+        asic_type = duthost.facts.get("asic_type", "")
+        if asic_type == "vpp" and "kvm" in platform:
+            sent = 0
+            while sent < count:
+                chunk = min(TestIPPacket.VPP_KVM_CHUNK_SIZE, count - sent)
+                testutils.send(ptfadapter, ptf_port_idx, pkt, chunk)
+                sent += chunk
+                if sent < count:
+                    time.sleep(TestIPPacket.VPP_KVM_CHUNK_DELAY)
+        else:
+            testutils.send(ptfadapter, ptf_port_idx, pkt, count)
 
     @pytest.fixture(scope="class")
     def common_param(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
@@ -87,12 +136,14 @@ class TestIPPacket(object):
         asic_id = duthost.get_asic_id_from_namespace(ptf_port_idx_namespace)
         ingress_router_mac = duthost.asic_instance(asic_id).get_router_mac()
 
-        # Some platforms do not support rif counter
+        # Some platforms do not support rif counters.
+        # Check via the interfaces and fields the test actually uses (rx_err, tx_err)
         try:
             rif_counter_out = parse_rif_counters(
                 duthost.command("show interfaces counters rif")["stdout_lines"])
-            rif_iface = list(rif_counter_out.keys())[0]
-            rif_support = False if rif_counter_out[rif_iface]['rx_err'] == 'N/A' else True
+            rif_iface_data = rif_counter_out.get(rif_rx_ifaces, {})
+            rif_support = (rif_iface_data.get('rx_err') not in (None, 'N/A')
+                           and rif_iface_data.get('tx_err') not in (None, 'N/A'))
         except Exception as e:
             logger.info("Show rif counters failed with exception: {}".format(repr(e)))
             rif_support = False
@@ -114,6 +165,9 @@ class TestIPPacket(object):
         # GIVEN a ip packet with checksum 0x0000(compute from scratch)
         # WHEN send the packet to DUT
         # THEN DUT should forward it as normal ip packet
+        # NOTE: ip_src and ip_ttl are chosen so that the input checksum is 0x0000 and the
+        #   output checksum (after TTL decrement) is 0x0100.  TTL=2 ensures the peer drops
+        #   the forwarded packet (TTL=1) instead of routing it back, preventing a loop.
 
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         asic_type = duthost.facts["asic_type"]
@@ -123,17 +177,17 @@ class TestIPPacket(object):
             eth_dst=ingress_router_mac,
             eth_src=ptfadapter.dataplane.get_mac(0, ptf_port_idx),
             pktlen=1246,
-            ip_src="10.250.136.195",
+            ip_src="10.250.255.195",
             ip_dst="10.156.94.34",
             ip_proto=47,
             ip_tos=0x84,
             ip_id=0,
             ip_ihl=5,
-            ip_ttl=121,
+            ip_ttl=2,
         )
         pkt.payload.flags = 2
         exp_pkt = pkt.copy()
-        exp_pkt.payload.ttl = 120
+        exp_pkt.payload.ttl = 1
         exp_pkt.payload.chksum = 0x0100
         exp_pkt = mask.Mask(exp_pkt)
         exp_pkt.set_do_not_care_scapy(packet.Ether, 'dst')
@@ -149,8 +203,10 @@ class TestIPPacket(object):
             duthost.command("sonic-clear rifcounters")
         ptfadapter.dataplane.flush()
 
-        testutils.send(ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
-        time.sleep(5)
+        self.send_packets(duthost, ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
+        # Wait for port counters to update (non-asserting, real checks follow below)
+        if not wait_until(30, 1, 0, self.check_rx_ok, duthost, peer_ip_ifaces_pair[0][1][0], self.PKT_NUM_MIN):
+            logger.warning("Port counter polling timed out for %s", peer_ip_ifaces_pair[0][1][0])
         match_cnt = testutils.count_matched_packets_all_ports(ptfadapter, exp_pkt, ports=list(out_ptf_indices))
 
         portstat_out = parse_portstat(duthost.command("portstat")["stdout_lines"])
@@ -187,6 +243,7 @@ class TestIPPacket(object):
         # GIVEN a ip packet with checksum 0x0000(compute from scratch)
         # WHEN manually set checksum as 0xffff and send the packet to DUT
         # THEN DUT should tolerant packet with 0xffff, forward it as normal packet
+        # NOTE: TTL=2 prevents routing loop (peer receives TTL=1 and drops).
 
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         asic_type = duthost.facts["asic_type"]
@@ -196,18 +253,18 @@ class TestIPPacket(object):
             eth_dst=ingress_router_mac,
             eth_src=ptfadapter.dataplane.get_mac(0, ptf_port_idx),
             pktlen=1246,
-            ip_src="10.250.136.195",
+            ip_src="10.250.255.195",
             ip_dst="10.156.94.34",
             ip_proto=47,
             ip_tos=0x84,
             ip_id=0,
             ip_ihl=5,
-            ip_ttl=121,
+            ip_ttl=2,
         )
         pkt.payload.flags = 2
         pkt.payload.chksum = 0xffff
         exp_pkt = pkt.copy()
-        exp_pkt.payload.ttl = 120
+        exp_pkt.payload.ttl = 1
         exp_pkt.payload.chksum = 0x0100
         exp_pkt = mask.Mask(exp_pkt)
         exp_pkt.set_do_not_care_scapy(packet.Ether, 'dst')
@@ -222,8 +279,10 @@ class TestIPPacket(object):
             duthost.command("sonic-clear rifcounters")
         ptfadapter.dataplane.flush()
 
-        testutils.send(ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
-        time.sleep(5)
+        self.send_packets(duthost, ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
+        # Wait for port counters to update (non-asserting, real checks follow below)
+        if not wait_until(30, 1, 0, self.check_rx_ok, duthost, peer_ip_ifaces_pair[0][1][0], self.PKT_NUM_MIN):
+            logger.warning("Port counter polling timed out for %s", peer_ip_ifaces_pair[0][1][0])
         match_cnt = testutils.count_matched_packets_all_ports(ptfadapter, exp_pkt, ports=list(out_ptf_indices))
 
         portstat_out = parse_portstat(duthost.command("portstat")["stdout_lines"])
@@ -273,18 +332,18 @@ class TestIPPacket(object):
             eth_dst=ingress_router_mac,
             eth_src=ptfadapter.dataplane.get_mac(0, ptf_port_idx),
             pktlen=1246,
-            ip_src="10.250.136.195",
+            ip_src="10.250.255.195",
             ip_dst="10.156.94.34",
             ip_proto=47,
             ip_tos=0x84,
             ip_id=0,
             ip_ihl=5,
-            ip_ttl=121,
+            ip_ttl=2,
         )
         pkt.payload.flags = 2
         pkt.payload.chksum = 0xffff
         exp_pkt = pkt.copy()
-        exp_pkt.payload.ttl = 120
+        exp_pkt.payload.ttl = 1
         exp_pkt.payload.chksum = 0x0100
         exp_pkt = mask.Mask(exp_pkt)
         exp_pkt.set_do_not_care_scapy(packet.Ether, 'dst')
@@ -299,7 +358,9 @@ class TestIPPacket(object):
             duthost.command("sonic-clear rifcounters")
         ptfadapter.dataplane.flush()
 
-        testutils.send(ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
+        self.send_packets(duthost, ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
+        # Drop test: on some platforms packets are dropped at L2 so rx_ok never reaches PKT_NUM_MIN.
+        # Use a short fixed sleep instead of wait_until to avoid a 30s timeout regression.
         time.sleep(5)
         match_cnt = testutils.count_matched_packets_all_ports(ptfadapter, exp_pkt, ports=list(out_ptf_indices))
 
@@ -344,7 +405,9 @@ class TestIPPacket(object):
         # GIVEN a ip packet, after forwarded(ttl-1) by DUT,
         #   it's checksum will be 0xffff after wrongly incrementally recomputed
         #   ref to https://datatracker.ietf.org/doc/html/rfc1624
-        #   HC' = HC(0xff00) + m(0x7a2f) + ~m'(~0x792f)= 0xffff
+        #   HC' = HC(0xff00) + m(0x022f) + ~m'(~0x012f)
+        #   ip_src and ip_ttl chosen so that HC=0xFF00, output checksum=0x0001.
+        #   TTL=2 prevents routing loop (peer receives TTL=1 and drops).
         # WHEN send the packet to DUT
         # THEN DUT recompute new checksum correctly and forward packet as expected.
 
@@ -356,17 +419,17 @@ class TestIPPacket(object):
             eth_dst=ingress_router_mac,
             eth_src=ptfadapter.dataplane.get_mac(0, ptf_port_idx),
             pktlen=1246,
-            ip_src="10.250.40.40",
+            ip_src="10.250.160.40",
             ip_dst="10.156.190.188",
             ip_proto=47,
             ip_tos=0x84,
             ip_id=0,
             ip_ihl=5,
-            ip_ttl=122,
+            ip_ttl=2,
         )
         pkt.payload.flags = 2
         exp_pkt = pkt.copy()
-        exp_pkt.payload.ttl = 121
+        exp_pkt.payload.ttl = 1
         exp_pkt.payload.chksum = 0x0001
         exp_pkt = mask.Mask(exp_pkt)
         exp_pkt.set_do_not_care_scapy(packet.Ether, 'dst')
@@ -381,8 +444,10 @@ class TestIPPacket(object):
             duthost.command("sonic-clear rifcounters")
         ptfadapter.dataplane.flush()
 
-        testutils.send(ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
-        time.sleep(5)
+        self.send_packets(duthost, ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
+        # Wait for port counters to update (non-asserting, real checks follow below)
+        if not wait_until(30, 1, 0, self.check_rx_ok, duthost, peer_ip_ifaces_pair[0][1][0], self.PKT_NUM_MIN):
+            logger.warning("Port counter polling timed out for %s", peer_ip_ifaces_pair[0][1][0])
         match_cnt = testutils.count_matched_packets_all_ports(ptfadapter, exp_pkt, ports=list(out_ptf_indices))
 
         portstat_out = parse_portstat(duthost.command("portstat")["stdout_lines"])
@@ -419,6 +484,8 @@ class TestIPPacket(object):
         # GIVEN a ip packet, after forwarded(ttl-1) by DUT, it's checksum will be 0x0000 after recompute from scratch
         # WHEN send the packet to DUT
         # THEN DUT recompute new checksum as 0x0000 and forward packet as expected.
+        # NOTE: ip_src and ip_ttl chosen so output checksum=0x0000.
+        #   TTL=2 prevents routing loop (peer receives TTL=1 and drops).
 
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         asic_type = duthost.facts["asic_type"]
@@ -428,17 +495,17 @@ class TestIPPacket(object):
             eth_dst=ingress_router_mac,
             eth_src=ptfadapter.dataplane.get_mac(0, ptf_port_idx),
             pktlen=1246,
-            ip_src="10.250.136.195",
+            ip_src="130.250.136.195",
             ip_dst="10.156.94.34",
             ip_proto=47,
             ip_tos=0x84,
             ip_id=0,
             ip_ihl=5,
-            ip_ttl=122,
+            ip_ttl=2,
         )
         pkt.payload.flags = 2
         exp_pkt = pkt.copy()
-        exp_pkt.payload.ttl = 121
+        exp_pkt.payload.ttl = 1
         exp_pkt.payload.chksum = 0x0000
         exp_pkt = mask.Mask(exp_pkt)
         exp_pkt.set_do_not_care_scapy(packet.Ether, 'dst')
@@ -453,8 +520,10 @@ class TestIPPacket(object):
             duthost.command("sonic-clear rifcounters")
         ptfadapter.dataplane.flush()
 
-        testutils.send(ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
-        time.sleep(5)
+        self.send_packets(duthost, ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
+        # Wait for port counters to update (non-asserting, real checks follow below)
+        if not wait_until(30, 1, 0, self.check_rx_ok, duthost, peer_ip_ifaces_pair[0][1][0], self.PKT_NUM_MIN):
+            logger.warning("Port counter polling timed out for %s", peer_ip_ifaces_pair[0][1][0])
         match_cnt = testutils.count_matched_packets_all_ports(ptfadapter, exp_pkt, ports=list(out_ptf_indices))
 
         portstat_out = parse_portstat(duthost.command("portstat")["stdout_lines"])
@@ -518,8 +587,10 @@ class TestIPPacket(object):
             duthost.command("sonic-clear rifcounters")
         ptfadapter.dataplane.flush()
 
-        testutils.send(ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
-        time.sleep(5)
+        self.send_packets(duthost, ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
+        # Wait for port counters to update (non-asserting, real checks follow below)
+        if not wait_until(30, 1, 0, self.check_rx_ok, duthost, peer_ip_ifaces_pair[0][1][0], self.PKT_NUM_MIN):
+            logger.warning("Port counter polling timed out for %s", peer_ip_ifaces_pair[0][1][0])
         match_cnt = testutils.count_matched_packets_all_ports(ptfadapter, exp_pkt, ports=list(out_ptf_indices))
 
         portstat_out = parse_portstat(duthost.command("portstat")["stdout_lines"])
@@ -576,8 +647,19 @@ class TestIPPacket(object):
             duthost.command("sonic-clear rifcounters")
         ptfadapter.dataplane.flush()
 
-        testutils.send(ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
-        time.sleep(5)
+        self.send_packets(duthost, ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
+        # Wait for port counters to update (non-asserting, real checks follow below)
+        if not wait_until(30, 1, 0, self.check_rx_ok, duthost, peer_ip_ifaces_pair[0][1][0], self.PKT_NUM_MIN):
+            logger.warning("Port counter polling timed out for %s", peer_ip_ifaces_pair[0][1][0])
+
+        # The drop counter (rx_drp / rif rx_err) can lag rx_ok by a few seconds on some
+        # ASICs, producing a flaky 0 read. Wait for it to settle before asserting.
+        # Platforms that tolerate/forward the packet (marvell) never drop it, so they
+        # are excluded to avoid an unnecessary 30s timeout.
+        if asic_type not in ["marvell", "marvell-prestera"]:
+            if not wait_until(30, 1, 0, self.check_rx_drop, duthost, peer_ip_ifaces_pair[0][1][0],
+                              rif_support, rif_rx_ifaces, self.PKT_NUM_MIN):
+                logger.warning("Drop counter polling timed out for %s", peer_ip_ifaces_pair[0][1][0])
 
         portstat_out = parse_portstat(duthost.command("portstat")["stdout_lines"])
         if rif_support:
@@ -593,8 +675,8 @@ class TestIPPacket(object):
         tx_drp = sum_ifaces_counts(portstat_out, out_ifaces, "tx_drp")
         tx_err = sum_ifaces_counts(rif_counter_out, out_rif_ifaces, "tx_err") if rif_support else 0
 
-        if asic_type == "vs":
-            logger.info("Skipping packet count check on VS platform")
+        if asic_type in ["vs", "nokia-vs"]:
+            logger.info("Skipping packet count check on {} platform".format(asic_type))
             return
         pytest_assert(rx_ok >= self.PKT_NUM_MIN,
                       "Received {} packets in rx, not in expected range".format(rx_ok))
@@ -635,7 +717,9 @@ class TestIPPacket(object):
             duthost.command("sonic-clear rifcounters")
         ptfadapter.dataplane.flush()
 
-        testutils.send(ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
+        self.send_packets(duthost, ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
+        # Drop test: on some platforms packets are dropped at L2 so rx_ok never reaches PKT_NUM_MIN.
+        # Use a short fixed sleep instead of wait_until to avoid a 30s timeout regression.
         time.sleep(5)
 
         portstat_out = parse_portstat(duthost.command("portstat")["stdout_lines"])
@@ -651,8 +735,8 @@ class TestIPPacket(object):
         tx_drp = sum_ifaces_counts(portstat_out, out_ifaces, "tx_drp")
         tx_rif_err = sum_ifaces_counts(rif_counter_out, out_rif_ifaces, "tx_err") if rif_support else 0
 
-        if asic_type == "vs":
-            logger.info("Skipping packet count check on VS platform")
+        if asic_type in ["vs", "nokia-vs"]:
+            logger.info("Skipping packet count check on {} platform".format(asic_type))
             return
         pytest_assert(rx_ok >= self.PKT_NUM_MIN,
                       "Received {} packets in rx, not in expected range".format(rx_ok))

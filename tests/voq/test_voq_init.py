@@ -14,7 +14,7 @@ from tests.common.helpers.voq_helpers import dump_and_verify_neighbors_on_asic
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t2')
+    pytest.mark.topology('t2', 'lrh', 'urh')
 ]
 
 
@@ -106,7 +106,7 @@ def test_voq_system_port_create(duthosts, enum_frontend_dut_hostname, enum_asic_
                     )
                 else:
                     host_name, asic_str, portname = cfg_port.split("|")
-                    asic_idx = int(asic_str.replace("asic", ""))
+                    asic_idx = int(asic_str.lower().replace("asic", ""))
 
                     if host_name == per_host.hostname and asic_idx == asic.asic_index:
                         port_table = all_cfg_facts[host_name][asic_idx]['ansible_facts']['PORT']

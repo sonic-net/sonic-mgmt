@@ -20,7 +20,7 @@ from collections import OrderedDict
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t2'),
+    pytest.mark.topology('t2', 'lrh', 'urh'),
     pytest.mark.device_type('physical')
 ]
 
@@ -29,6 +29,7 @@ expected_stopped_status = "STOPPED"
 expected_exited_status = "EXITED"
 
 daemon_name = "chassisd"
+daemon_dut_hostname_fixture = "enum_rand_one_per_hwsku_hostname"
 
 SIG_STOP_SERVICE = None
 SIG_TERM = "-15"
@@ -57,15 +58,6 @@ def teardown_module(duthosts, enum_rand_one_per_hwsku_hostname):
         time.sleep(10)
     logger.info("Tearing down: to make sure all the critical services, interfaces and transceivers are good")
     check_critical_processes(duthost, watch_secs=10)
-
-
-@pytest.fixture
-def check_daemon_status(duthosts, enum_rand_one_per_hwsku_hostname):
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    daemon_status, daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
-    if daemon_status != "RUNNING":
-        duthost.start_pmon_daemon(daemon_name)
-        time.sleep(10)
 
 
 def check_expected_daemon_status(duthost, expected_daemon_status):

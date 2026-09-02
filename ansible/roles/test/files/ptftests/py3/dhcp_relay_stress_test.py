@@ -56,8 +56,10 @@ class DHCPStressTest(DHCPTest):
     def client_send_packet_stress(self):
         server_ports = "|".join(["eth{}".format(idx) for idx in self.receive_port_indices])
         tcpdump_cmd = (
-            "tcpdump -i any -n -q -l 'inbound and udp and (port 67 or port 68) and (udp[249:2] = 0x01{})' "
-            "| grep -w -E '{}' > /tmp/dhcp_stress_test_{}.log"
+            "tcpdump --buffer-size=102400 --immediate-mode -U "
+            "-i any -n -q -l "
+            "'inbound and udp and (port 67 or port 68) and (udp[249:2] = 0x01{})' "
+            "| grep --line-buffered -w -E '{}' > /tmp/dhcp_stress_test_{}.log"
         ).format(self.packet_type_hex, server_ports, self.packet_type)
         tcpdump_proc = subprocess.Popen(tcpdump_cmd, shell=True)
         if self.packet_type == "discover" or self.packet_type == "request":
@@ -67,20 +69,34 @@ class DHCPStressTest(DHCPTest):
         end_time = time.time() + self.packets_send_duration
         xid = 0
         while time.time() < end_time:
-            # Set a unique transaction ID for each DHCPOFFER packet for making sure no packet miss
             dhcp_packet[scapy.BOOTP].xid = xid
             xid += 1
             testutils.send_packet(self, self.send_port_indices[0], dhcp_packet)
             time.sleep(1/self.client_packets_per_sec)
 
-        time.sleep(15)
+        # Wait until tcpdump stops receiving packets (idle for 5s, max 120s)
+        log_file = "/tmp/dhcp_stress_test_{}.log".format(self.packet_type)
+        last_size = 0
+        idle_count = 0
+        deadline = time.time() + 120
+        while idle_count < 5 and time.time() < deadline:
+            time.sleep(1)
+            try:
+                current_size = os.path.getsize(log_file)
+            except OSError:
+                current_size = 0
+            if current_size == last_size:
+                idle_count += 1
+            else:
+                idle_count = 0
+            last_size = current_size
 
         pids = subprocess.check_output("pgrep tcpdump", shell=True).split()
         for pid in pids:
             os.kill(int(pid), signal.SIGINT)
         tcpdump_proc.wait()
 
-        wc_cmd = f"wc -l /tmp/dhcp_stress_test_{self.packet_type}.log"
+        wc_cmd = "wc -l /tmp/dhcp_stress_test_{}.log".format(self.packet_type)
         wc_output = subprocess.check_output(wc_cmd, shell=True)
         line_cnt = wc_output.decode().split()[0]
         os.remove("/tmp/dhcp_stress_test_{}.log".format(self.packet_type))

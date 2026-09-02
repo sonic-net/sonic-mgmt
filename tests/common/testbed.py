@@ -25,8 +25,8 @@ class TestbedInfo(object):
     TESTBED_FIELDS_RECOMMENDED = ('conf-name', 'group-name', 'topo', 'ptf_image_name', 'ptf',
                                   'ptf_ip', 'ptf_ipv6', 'server', 'vm_base', 'dut',
                                   'inv_name', 'auto_recover', 'is_smartswitch', 'comment')
-    TOPOLOGY_FILEPATH = "../../ansible/vars/"
-    NUT_TOPOLOGY_FILEPATH = "../../ansible/vars/nut_topos"
+    TOPOLOGY_FILEPATH = "../ansible/vars/"
+    NUT_TOPOLOGY_FILEPATH = "../ansible/vars/nut_topos"
 
     def __init__(self, testbed_file):
         if testbed_file.endswith(".csv"):
@@ -275,7 +275,8 @@ class TestbedInfo(object):
 
     def get_testbed_type(self, topo_name):
         pattern = re.compile(
-            r'^(wan|t0|t1|ptf|fullmesh|dualtor|ciscovs|t2|lt2|ft2|tgen|mgmttor|m0|mc0|mx|m1|c0|dpu|ptp|smartswitch|nut)'
+            r'^(wan|t0|t1|ptf|fullmesh|dualtor|ciscovs|force10-7nodes|t2|lt2|ft2|tgen|'
+            r'mgmttor|m0|mc0|mx|m1|c0|dpu|ptp|smartswitch|nut|bmc|urh|lrh|lma|uma)'
         )
         match = pattern.match(topo_name)
         if match is None:
@@ -384,12 +385,12 @@ class TestbedInfo(object):
             tb["topo"]["type"] = self.get_testbed_type(topo)
 
             if topo.startswith("nut-"):
-                topo_dir = os.path.join(os.path.dirname(__file__), self.NUT_TOPOLOGY_FILEPATH)
+                topo_dir = os.path.join(os.path.dirname(self.testbed_filename), self.NUT_TOPOLOGY_FILEPATH)
                 topo_file = os.path.join(topo_dir, "{}.yml".format(topo))
                 with open(topo_file, 'r') as fh:
                     tb['topo']['properties'] = yaml.safe_load(fh)
             else:
-                topo_dir = os.path.join(os.path.dirname(__file__), self.TOPOLOGY_FILEPATH)
+                topo_dir = os.path.join(os.path.dirname(self.testbed_filename), self.TOPOLOGY_FILEPATH)
                 topo_file = os.path.join(topo_dir, "topo_{}.yml".format(topo))
                 with open(topo_file, 'r') as fh:
                     tb['topo']['properties'] = yaml.safe_load(fh)

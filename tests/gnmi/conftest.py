@@ -1,18 +1,17 @@
+import os
+import sys
 import pytest
 import logging
-import os
-import glob
-import grpc
-import ipaddress
-
-from grpc_tools import protoc
 
 from tests.common.helpers.assertions import pytest_require as pyrequire
+from tests.common.helpers.assertions import pytest_assert as py_assert
 from tests.common.helpers.dut_utils import check_container_state
-from tests.gnmi.helper import gnmi_container, apply_cert_config, recover_cert_config
+from tests.common.helpers.gnmi_utils import gnmi_container
+from tests.gnmi.helper import apply_cert_config, recover_cert_config
 from tests.gnmi.helper import GNMI_SERVER_START_WAIT_TIME, check_ntp_sync_status
 from tests.common.gu_utils import create_checkpoint, rollback
-from tests.common.helpers.gnmi_utils import GNMIEnvironment, create_revoked_cert_and_crl, create_gnmi_certs, \
+from tests.common.utilities import wait_until
+from tests.common.helpers.gnmi_utils import create_revoked_cert_and_crl, create_gnmi_certs, \
     delete_gnmi_certs, prepare_root_cert, prepare_server_cert, prepare_client_cert, copy_certificate_to_dut, \
     copy_certificate_to_ptf
 from tests.common.helpers.ntp_helper import setup_ntp_context
@@ -21,8 +20,26 @@ from tests.common.helpers.ntp_helper import setup_ntp_context
 logger = logging.getLogger(__name__)
 SETUP_ENV_CP = "test_setup_checkpoint"
 
+VRF_SCENARIOS = [
+    {"name": "default_1", "vrf": None, "description": "Default (no VRF)"},
+]
+
+
+@pytest.fixture(scope="module", params=VRF_SCENARIOS, ids=lambda scenario: f"vrf_{scenario['name']}")
+def vrf_config(request):
+    return request.param
+
 
 @pytest.fixture(scope="module", autouse=True)
+def setup_vrf_configuration(vrf_config):
+    """
+    This fixture runs before setup_gnmi_server to ensure VRF config is in place.
+    It gets overridden in tests that parameterize the gNMI server VRF binding.
+    """
+    return vrf_config
+
+
+@pytest.fixture(scope="module")
 def setup_gnmi_ntp_client_server(duthosts, rand_one_dut_hostname, ptfhost):
     """Auto-setup NTP for all gNMI tests using existing helper."""
     duthost = duthosts[rand_one_dut_hostname]
@@ -37,12 +54,18 @@ def setup_gnmi_ntp_client_server(duthosts, rand_one_dut_hostname, ptfhost):
         yield
         return
 
-    with setup_ntp_context(ptfhost, duthost, False):
+    duthost_mgmt_info = duthost.get_mgmt_ip()
+    use_v6 = duthost_mgmt_info["version"] == "v6"
+    with setup_ntp_context(ptfhost, duthost, use_v6):
+        # Persist NTP config so it survives DUT reboot (gNOI reboot tests)
+        duthost.shell("config save -y", module_ignore_errors=True)
         yield
+    # After teardown restores original NTP servers, save again
+    duthost.shell("config save -y", module_ignore_errors=True)
 
 
-@pytest.fixture(scope="module", autouse=True)
-def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
+@pytest.fixture(scope="module")
+def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost, vrf_config, setup_vrf_configuration):
     '''
     Setup GNMI server with client certificates
     '''
@@ -53,10 +76,10 @@ def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
         check_container_state(duthost, gnmi_container(duthost), should_be_running=True),
         "Test was not supported on devices which do not support GNMI!")
 
-    create_gnmi_certs(duthost, localhost, ptfhost)
+    create_gnmi_certs(duthost, localhost, ptfhost, dut_ip=vrf_config.get("dut_ip"))
 
     create_checkpoint(duthost, SETUP_ENV_CP)
-    apply_cert_config(duthost)
+    stopped_programs = apply_cert_config(duthost, vrf_config.get("vrf"))
 
     yield
 
@@ -67,10 +90,23 @@ def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
     # Save the configuration
     cmd = "config save -y"
     duthost.shell(cmd, module_ignore_errors=True)
-    recover_cert_config(duthost)
+    recover_cert_config(duthost, stopped_programs)
 
 
-@pytest.fixture(scope="module", autouse=True)
+def rotate_gnmi_certs(duthost, localhost, ptfhost):
+    '''
+    Regenerate the GNMI PKI and push the fresh certs to the DUT and ptf. Plain
+    helper (not a fixture) so tests can trigger a cert rotation mid-test.
+    '''
+    prepare_root_cert(localhost)
+    prepare_server_cert(duthost, localhost)
+    prepare_client_cert(localhost)
+    copy_certificate_to_ptf(ptfhost)
+    create_revoked_cert_and_crl(localhost, ptfhost)
+    copy_certificate_to_dut(duthost)
+
+
+@pytest.fixture(scope="module")
 def setup_gnmi_rotated_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
     '''
     Create GNMI client certificates
@@ -82,15 +118,10 @@ def setup_gnmi_rotated_server(duthosts, rand_one_dut_hostname, localhost, ptfhos
         check_container_state(duthost, gnmi_container(duthost), should_be_running=True),
         "Test was not supported on devices which do not support GNMI!"
     )
-    prepare_root_cert(localhost)
-    prepare_server_cert(duthost, localhost)
-    prepare_client_cert(localhost)
-    copy_certificate_to_ptf(ptfhost)
-    create_revoked_cert_and_crl(localhost, ptfhost)
-    copy_certificate_to_dut(duthost)
+    rotate_gnmi_certs(duthost, localhost, ptfhost)
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="module")
 def check_dut_timestamp(duthosts, rand_one_dut_hostname, localhost):
     '''
     Check DUT time to detect NTP issue
@@ -108,93 +139,46 @@ def check_dut_timestamp(duthosts, rand_one_dut_hostname, localhost):
         logger.warning("DUT time is wrong (%d), please check NTP" % (-time_diff))
 
 
-def compile_protos(proto_files, proto_root):
-    """Compile all .proto files using grpc_tools.protoc."""
-    for proto_file in proto_files:
-
-        # Command arguments for protoc
-        args = [
-            "grpc_tools.protoc",
-            f"--proto_path={proto_root}",  # Root directory for proto imports
-            f"--python_out={proto_root}",     # Output for message classes
-            f"--grpc_python_out={proto_root}",  # Output for gRPC stubs
-            proto_file                     # Input .proto file
-        ]
-
-        print(f"Compiling: {proto_file}")
-        ret_code = protoc.main(args)
-        if ret_code != 0:
-            raise Exception(f"Failed to compile {proto_file} with return code {ret_code}")
+# --- events test support ---
+EVENTS_TESTS_PATH = "./gnmi/events"
+if EVENTS_TESTS_PATH not in sys.path:
+    sys.path.append(EVENTS_TESTS_PATH)
+EVENTS_BASE_DIR = "logs/gnmi"
+EVENTS_DATA_DIR = os.path.join(EVENTS_BASE_DIR, "files")
 
 
-def cleanup_generated_files():
-    """Remove all generated proto .py files."""
-    generated_files = glob.glob("gnmi/protos/**/*.py")
-    for file in generated_files:
-        os.remove(file)
+def do_init(duthost):
+    for i in [EVENTS_BASE_DIR, EVENTS_DATA_DIR]:
+        try:
+            os.makedirs(i, exist_ok=True)
+        except OSError as e:
+            logger.error("Unexpected error while creating directory: {}".format(e))
+    # Copy validate_yang_events.py from sonic-mgmt to DUT
+    duthost.copy(src="gnmi/validate_yang_events.py", dest="~/")
 
 
-@pytest.fixture(scope="module", autouse=True)
-def setup_and_cleanup_protos():
-    """Compile proto files before running tests and remove them afterward."""
-    PROTO_ROOT = "gnmi/protos"
-    PROTO_FILES = ["gnmi/protos/gnoi/system/system.proto"]
-
-    # Compile proto files into Python gRPC stubs
-    compile_protos(PROTO_FILES, PROTO_ROOT)
-
-    # Run tests, then clean up
-    yield
-    cleanup_generated_files()
-
-
-@pytest.fixture(scope="function")
-def grpc_channel(duthosts, rand_one_dut_hostname):
+@pytest.fixture(scope="module")
+def test_eventd_healthy(duthosts, tbinfo, rand_one_dut_hostname, ptfhost, ptfadapter, gnxi_path):
     """
-    Fixture to set up a gRPC channel with secure credentials.
+    @summary: Verify eventd heartbeat before running the events testcases. Ported
+    from tests/telemetry; runs against the gnmi container (via the gnmi setup
+    fixtures) instead of the deprecated telemetry container.
     """
     duthost = duthosts[rand_one_dut_hostname]
 
-    # Get DUT gRPC server address and port
-    ip = duthost.mgmt_ip
-    # Format IPv6 addresses with brackets for URL
-    try:
-        if isinstance(ipaddress.ip_address(ip), ipaddress.IPv6Address):
-            ip = f"[{ip}]"
-    except ValueError:
-        # If parsing fails, use the address as-is
-        pass
-    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    port = env.gnmi_port
-    target = f"{ip}:{port}"
+    if duthost.is_multi_asic:
+        pytest.skip("Skip eventd testing on multi-asic")
 
-    # Load the TLS certificates
-    with open("gnmiCA.pem", "rb") as f:
-        root_certificates = f.read()
-    with open("gnmiclient.crt", "rb") as f:
-        client_certificate = f.read()
-    with open("gnmiclient.key", "rb") as f:
-        client_key = f.read()
+    features_dict, succeeded = duthost.get_feature_status()
+    if succeeded and ('eventd' not in features_dict or features_dict['eventd'] == 'disabled'):
+        pytest.skip("eventd is disabled on the system")
 
-    # Create SSL credentials
-    credentials = grpc.ssl_channel_credentials(
-        root_certificates=root_certificates,
-        private_key=client_key,
-        certificate_chain=client_certificate,
-    )
+    do_init(duthost)
 
-    # Create gRPC channel
-    logging.info("Creating gRPC secure channel to %s", target)
-    channel = grpc.secure_channel(target, credentials)
+    module = __import__("eventd_events")
 
-    try:
-        grpc.channel_ready_future(channel).result(timeout=10)
-        logging.info("gRPC channel is ready")
-    except grpc.FutureTimeoutError as e:
-        logging.error("Error: gRPC channel not ready: %s", e)
-        pytest.fail("Failed to connect to gRPC server")
+    duthost.shell("systemctl restart eventd")
 
-    yield channel
+    py_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, "eventd"), "eventd not started.")
 
-    # Close the channel
-    channel.close()
+    module.test_event(duthost, tbinfo, gnxi_path, ptfhost, ptfadapter, EVENTS_DATA_DIR, None)

@@ -10,15 +10,14 @@ Options with (*) are required
 
 -i <image ID>         : specify Docker image to use. This can be an image ID (hashed value) or an image name.
                       | If no value is provided, defaults to the following images in the specified order:
-                      |   1. The local image named \"docker-sonic-mgmt\"
-                      |   2. The local image named \"sonicdev-microsoft.azurecr.io:443/docker-sonic-mgmt\"
-                      |   3. The remote image at \"sonicdev-microsoft.azurecr.io:443/docker-sonic-mgmt\"
+                      |   1. The local image named "docker-sonic-mgmt"
+                      |   2. The remote image at "sonicdev-microsoft.azurecr.io:443/docker-sonic-mgmt:latest"
 
 -d <directory>        : specify directory inside container to bind mount to sonic-mgmt root (default "/var/src/")
 ```
 
-After running the script, you should be able to enter the container using the `-u` option and your username:
+After running the script, you should be able to enter the container using the `--user` option and your username:
 
 ```
-docker exec -u <user> -it <container name> bash
+docker exec --user $USER -it <container name> bash
 ```

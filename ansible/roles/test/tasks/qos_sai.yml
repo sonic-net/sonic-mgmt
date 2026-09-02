@@ -268,7 +268,7 @@
         - pkts_num_hdrm_full={{qp_sc.hdrm_pool_size.pkts_num_hdrm_full}}
         - pkts_num_hdrm_partial={{qp_sc.hdrm_pool_size.pkts_num_hdrm_partial}}
       when: minigraph_hwsku is defined and
-            minigraph_hwsku in ['Arista-7060CX-32S-C32', 'Celestica-DX010-C32', 'Arista-7260CX3-D108C8', 'Arista-7260CX3-D108C10', 'Force10-S6100', 'Arista-7260CX3-Q64']
+            minigraph_hwsku in ['Arista-7060CX-32S-C32', 'Celestica-DX010-C32', 'Arista-7260CX3-D108C8', 'Arista-7260CX3-D108C10', 'Force10-S6100', 'Arista-7260CX3-Q44', 'Arista-7260CX3-Q64']
 
     # Lossy queue
     - include_tasks: qos_sai_ptf.yml
@@ -348,11 +348,11 @@
         - packet_size='{{qp.wm_pg_shared_lossless.packet_size}}'
         - cell_size='{{qp.wm_pg_shared_lossless.cell_size}}'
       when: minigraph_hwsku is defined and
-            (minigraph_hwsku not in ['Arista-7260CX3-Q64', 'Arista-7260CX3-D108C8', 'Arista-7260CX3-D108C10'])
+            (minigraph_hwsku not in ['Arista-7260CX3-Q44', 'Arista-7260CX3-Q64', 'Arista-7260CX3-D108C8', 'Arista-7260CX3-D108C10'])
     - debug:
         var: out.stdout_lines
       when: minigraph_hwsku is defined and
-            (minigraph_hwsku not in ['Arista-7260CX3-Q64', 'Arista-7260CX3-D108C8', 'Arista-7260CX3-D108C10'])
+            (minigraph_hwsku not in ['Arista-7260CX3-Q44', 'Arista-7260CX3-Q64', 'Arista-7260CX3-D108C8', 'Arista-7260CX3-D108C10'])
 
     # Clear all watermarks before each watermark test
     # because of the clear on read polling mode
@@ -378,11 +378,11 @@
         - packet_size='{{qp.wm_pg_shared_lossy.packet_size}}'
         - cell_size='{{qp.wm_pg_shared_lossy.cell_size}}'
       when: minigraph_hwsku is defined and
-            minigraph_hwsku not in ['Arista-7260CX3-Q64', 'Arista-7260CX3-D108C8', 'Arista-7260CX3-D108C10']
+            minigraph_hwsku not in ['Arista-7260CX3-Q44', 'Arista-7260CX3-Q64', 'Arista-7260CX3-D108C8', 'Arista-7260CX3-D108C10']
     - debug:
         var: out.stdout_lines
       when: minigraph_hwsku is defined and
-            minigraph_hwsku not in ['Arista-7260CX3-Q64', 'Arista-7260CX3-D108C8', 'Arista-7260CX3-D108C10']
+            minigraph_hwsku not in ['Arista-7260CX3-Q44', 'Arista-7260CX3-Q64', 'Arista-7260CX3-D108C8', 'Arista-7260CX3-D108C10']
 
     # Clear all watermarks before each watermark test
     # because of the clear on read polling mode

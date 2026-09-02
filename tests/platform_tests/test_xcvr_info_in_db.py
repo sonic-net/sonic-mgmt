@@ -11,7 +11,7 @@ from tests.common.platform.interface_utils import get_port_map, get_lport_to_fir
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa F401
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
-from tests.platform_tests.conftest import check_pmon_uptime_minutes
+from tests.common.platform.processes_utils import check_pmon_uptime_minutes
 
 pytestmark = [
     pytest.mark.topology('any')

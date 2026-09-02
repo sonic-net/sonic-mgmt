@@ -154,8 +154,13 @@ def verify_lag_member_in_app_db(asic, pc_member, pc=TMP_PC, expected=True):
 
 def verify_lag_member_in_chassis_db(duthosts, pc_member, pc=TMP_PC, expected=True):
     """Verifies if LAG member exists or not in CHASSIS DB"""
-    for sup in duthosts.supervisor_nodes:
-        voqdb = VoqDbCli(sup)
+    if len(duthosts) == 1:
+        nodes = duthosts.frontend_nodes
+    else:
+        nodes = duthosts.supervisor_nodes
+
+    for dut in nodes:
+        voqdb = VoqDbCli(dut)
         lag_member_list = voqdb.get_lag_member_list()
         exists = False
         pattern = "{}.*{}".format(pc, pc_member)
@@ -164,8 +169,8 @@ def verify_lag_member_in_chassis_db(duthosts, pc_member, pc=TMP_PC, expected=Tru
                 exists = True
                 break
 
-        lag_member_exists_msg = "LAG {} member {} exists in {} CHASSIS_APP_DB".format(pc, pc_member, sup)
-        lag_member_missing_msg = "LAG {} member {} doesn't exist in {} CHASSIS_APP_DB".format(pc, pc_member, sup)
+        lag_member_exists_msg = "LAG {} member {} exists in {} CHASSIS_APP_DB".format(pc, pc_member, dut)
+        lag_member_missing_msg = "LAG {} member {} doesn't exist in {} CHASSIS_APP_DB".format(pc, pc_member, dut)
         lag_member_msg = lag_member_exists_msg if exists else lag_member_missing_msg
         if exists == expected:
             logging.info(lag_member_msg)

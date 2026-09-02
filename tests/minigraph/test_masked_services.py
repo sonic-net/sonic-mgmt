@@ -33,26 +33,18 @@ def change_service_state(duthost, service, enable):
 @pytest.mark.disable_loganalyzer
 def test_masked_services(duthosts, rand_one_dut_hostname):
     """
-    @summary: This test case will mask telemetry/gnmi service, then test load_minigraph and check its success
+    @summary: This test case will mask gnmi service, then test load_minigraph and check its success
     """
     duthost = duthosts[rand_one_dut_hostname]
-    cmd = "docker images | grep -w sonic-telemetry"
+    cmd = "docker images | grep -w sonic-gnmi"
     if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
-        cmd = "docker ps | grep -w telemetry"
+        cmd = "docker ps | grep -w gnmi"
         if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
-            test_service = "telemetry"
+            test_service = "gnmi"
         else:
-            pytest.fail("Telemetry is not running")
+            pytest.fail("GNMI is not running")
     else:
-        cmd = "docker images | grep -w sonic-gnmi"
-        if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
-            cmd = "docker ps | grep -w gnmi"
-            if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
-                test_service = "gnmi"
-            else:
-                pytest.fail("GNMI is not running")
-        else:
-            pytest.fail("Can't find telemetry and gnmi image")
+        pytest.fail("Can't find gnmi image")
     logging.info("Bringing down {} service".format(test_service))
     service_status = duthost.critical_process_status(test_service)
 
@@ -69,7 +61,13 @@ def test_masked_services(duthosts, rand_one_dut_hostname):
 
     logging.info("Starting load_minigraph")
     try:
-        config_reload(duthost, config_source='minigraph')
+        # If golden config exists, call with override. Otherwise, call without
+        # override to avoid failure due to missing golden config.
+        golden_cfg = duthost.stat(path="/etc/sonic/golden_config_db.json")
+        if golden_cfg.get('stat', {}).get('exists', False):
+            config_reload(duthost, config_source='minigraph', override_config=True)
+        else:
+            config_reload(duthost, config_source='minigraph')
     except Exception as e:
         pytest.fail("Test failed as load_minigraph was not successful and got exception {}".format(e))
     finally:

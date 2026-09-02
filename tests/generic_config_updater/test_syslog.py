@@ -1,5 +1,6 @@
 import logging
 import pytest
+import time
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.gu_utils import apply_patch, expect_res_success, expect_op_failure, expect_op_success
@@ -297,12 +298,27 @@ def syslog_server_tc1_remove(duthost):
         delete_tmpfile(duthost, tmpfile)
 
 
-def test_syslog_server_tc1_suite(rand_selected_dut, cfg_facts):
+def test_syslog_server_tc1_suite(rand_selected_dut, cfg_facts, loganalyzer):
     """ Test syslog server config from clean config
     """
+    # Adding/removing syslog servers may cause rsyslog omrelp to attempt connections to
+    # unreachable peers, which logs ERR messages that are expected and harmless here.
+    if loganalyzer:
+        ignoreRegex = [
+            r".*omrelp\[.*\]: error 'error opening connection to remote peer'.*",
+            r".*omrelp\[.*\]: error 'server closed relp session, session broken', object .* - action may not work as intended.*",  # noqa: E501
+            r".*omrelp\[.*\]: error 'error waiting on required session state, session broken', object .* - action may not work as intended.*",  # noqa: E501
+        ]
+        loganalyzer[rand_selected_dut.hostname].ignore_regex.extend(ignoreRegex)
+
     syslog_config_cleanup(rand_selected_dut, cfg_facts)
     syslog_server_tc1_add_init(rand_selected_dut)
     syslog_server_tc1_add_duplicate(rand_selected_dut)
     syslog_server_tc1_xfail(rand_selected_dut)
     syslog_server_tc1_replace(rand_selected_dut)
+
+    # Adding a sleep of 5 seconds to avoid syslog_server_tc1_replace & syslog_server_tc1_remove triggering too close
+    # This would avoid systemd kill core_uploader.service since it was restarted more than 5 times within 10 second time
+    # window
+    time.sleep(5)
     syslog_server_tc1_remove(rand_selected_dut)

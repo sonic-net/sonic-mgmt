@@ -61,4 +61,4 @@
     when: duts_name.split(',')|length > 1
 
   roles:
-    - { role: vm_set, action: 'connect_vms' }
+    - { role: vm_set, vm_set_action: 'connect_vms' }
