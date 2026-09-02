@@ -76,14 +76,12 @@ def test_fixture_scopes_and_signatures(grpc_fixtures):
         return (marker or fixture._pytestfixturefunction).scope
 
     assert scope(grpc_fixtures.gnmi_tls) == "function"
-    assert scope(grpc_fixtures.gnmi_tls_module) == "module"
     assert list(inspect.signature(grpc_fixtures.gnmi_tls).parameters) == [
         "request", "duthosts", "ptfhost"]
-    assert list(inspect.signature(grpc_fixtures.gnmi_tls_module).parameters) == [
-        "duthosts", "ptfhost", "rand_one_dut_hostname"]
+    assert not hasattr(grpc_fixtures, "gnmi_tls_module")
 
 
-def test_wrappers_delegate_to_same_lifecycle_for_rand_dut(grpc_fixtures, monkeypatch):
+def test_gnmi_tls_delegates_to_lifecycle_for_selected_dut(grpc_fixtures, monkeypatch):
     selected = SimpleNamespace(hostname="selected")
     ptfhost = object()
     calls = []
@@ -100,9 +98,7 @@ def test_wrappers_delegate_to_same_lifecycle_for_rand_dut(grpc_fixtures, monkeyp
 
     assert list(grpc_fixtures.gnmi_tls.__wrapped__(
         request, duthosts, ptfhost)) == ["fixture"]
-    assert list(grpc_fixtures.gnmi_tls_module.__wrapped__(
-        duthosts, ptfhost, "selected")) == ["fixture"]
-    assert calls == [(selected, ptfhost), (selected, ptfhost)]
+    assert calls == [(selected, ptfhost)]
     request.getfixturevalue.assert_called_once_with("rand_one_dut_hostname")
 
 

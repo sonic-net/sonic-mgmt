@@ -5,9 +5,8 @@ This module provides coupled pytest fixtures that bundle server configuration
 with matched clients, preventing misuse from decoupled server/client setup.
 
 Primary fixtures:
-    gnmi_tls:        Function-scoped fixture that sets up TLS and yields GnmiFixture
-    gnmi_tls_module: Module-scoped fixture that sets up TLS and yields GnmiFixture
-    gnmi_plaintext:  Function-scoped fixture for plaintext mode, yields GnmiFixture
+    gnmi_tls:       Function-scoped fixture that sets up TLS and yields GnmiFixture
+    gnmi_plaintext: Function-scoped fixture for plaintext mode, yields GnmiFixture
 
 Deprecated fixtures (kept for backward compatibility):
     setup_gnoi_tls_server: Thin wrapper around gnmi_tls, yields None
@@ -263,18 +262,6 @@ def gnmi_tls(request, duthosts, ptfhost):
         yield from _gnmi_uds_flow(duthost)
         return
 
-    yield from _gnmi_tls_lifecycle(duthost, ptfhost)
-
-
-@pytest.fixture(scope="module")
-def gnmi_tls_module(duthosts, ptfhost, rand_one_dut_hostname):
-    """Module-scoped managed TLS fixture for ``rand_one_dut_hostname`` modules.
-
-    A test module must not request both ``gnmi_tls`` and ``gnmi_tls_module``.
-    Enum-per-hwsku modules need an explicitly parameter-bound wrapper or the
-    function-scoped fixture.
-    """
-    duthost = duthosts[rand_one_dut_hostname]
     yield from _gnmi_tls_lifecycle(duthost, ptfhost)
 
 
