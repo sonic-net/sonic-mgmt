@@ -1,0 +1,7 @@
+{
+    "firmware_versions": ["2.3.6", "1.2.4", "1.2.5"],
+    "gold_firmware_version": "1.2.5",
+    "inactive_firmware_version": "1.2.4",
+    "firmware_download_timeout_minutes": 45,
+    "cdb_background_mode_supported": true
+}

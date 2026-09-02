@@ -13,11 +13,12 @@ from scapy.all import sniff
 from tests.common import utilities
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.portstat_utilities import parse_portstat
-from tests.common.utilities import parse_rif_counters
+from tests.common.utilities import parse_rif_counters, wait_until
 from tests.ip.ip_util import sum_ifaces_counts
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.dualtor_active_active_setup_standby_on_random_unselected_tor
 ]
 
 logger = logging.getLogger(__name__)
@@ -69,8 +70,8 @@ class TestLinkLocalIPacket:
             pytest.skip("Test is not supported, SAI_NOT_DROP_SIP_DIP_LINK_LOCAL is not equal 1 or not specified")
 
     @pytest.fixture(scope="class", autouse=True)
-    def common_params(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, ptfadapter, ptfhost):
-        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    def common_params(self, duthosts, rand_one_dut_hostname, tbinfo, ptfadapter, ptfhost):
+        duthost = duthosts[rand_one_dut_hostname]
         self.check_if_test_is_supported(duthost)
         mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
@@ -115,16 +116,18 @@ class TestLinkLocalIPacket:
         duthost.command("rm -rf {}".format(PACKET_SAVE_PATH))
 
         # Get 2 downlinks
-        rx_iface, tx_iface = random.sample(downlinks, 2)
+        rx_iface, tx_iface = random.sample(sorted(downlinks), 2)
         ptf_rx_idx = mg_facts["minigraph_ptf_indices"][rx_iface]
         ptf_tx_idx = mg_facts["minigraph_ptf_indices"][tx_iface]
+        downlink_router_mac = self.get_downlink_router_mac(duthost, rx_iface, ingress_router_mac)
         link_local_src = self.get_port_default_ipv6_link_local_address(ptfhost, 'eth{}'.format(ptf_rx_idx))
         link_local_dst = self.get_port_default_ipv6_link_local_address(ptfhost, 'eth{}'.format(ptf_tx_idx))
         ptf_rx_mac = ptfadapter.dataplane.get_mac(0, ptf_rx_idx).decode("utf-8")
         ptf_tx_mac = ptfadapter.dataplane.get_mac(0, ptf_tx_idx).decode("utf-8")
-        downlink_uplink_rx_info = [(ptf_pc_port_mac, ptf_pc_port_idx, dut_pc_rx_iface, rx_pc, out_rif_ifaces,
-                                    out_ifaces, out_ptf_indices),
-                                   (ptf_rx_mac, ptf_rx_idx, rx_iface, None, out_rif_ifaces, out_ifaces, out_ptf_indices)
+        downlink_uplink_rx_info = [(ptf_pc_port_mac, ingress_router_mac, ptf_pc_port_idx, dut_pc_rx_iface, rx_pc,
+                                    out_rif_ifaces, out_ifaces, out_ptf_indices),
+                                   (ptf_rx_mac, downlink_router_mac, ptf_rx_idx, rx_iface, None, out_rif_ifaces,
+                                    out_ifaces, out_ptf_indices)
                                    ]
         yield duthost, mg_facts, pc_ports_map, ptf_indices, ingress_router_mac, rx_iface, tx_iface, ptf_rx_mac, \
             ptf_rx_idx, ptf_tx_mac, ptf_tx_idx, link_local_src, link_local_dst, downlink_uplink_rx_info, rif_support
@@ -164,6 +167,17 @@ class TestLinkLocalIPacket:
         for addr_dict in mg_facts['minigraph_portchannel_interfaces']:
             if addr_dict['attachto'] == pc and int(addr_dict['prefixlen']) == prefixlen:
                 return addr_dict['peer_addr']
+
+    @staticmethod
+    def get_downlink_router_mac(duthost, member_iface, default_router_mac):
+        config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+        vlan_member = config_facts.get('VLAN_MEMBER') or {}
+        vlan_facts = config_facts.get('VLAN') or {}
+        for vlan_interface, vlan_members in vlan_member.items():
+            if member_iface in vlan_members:
+                vlan = vlan_facts.get(vlan_interface) or {}
+                return vlan.get('mac', default_router_mac)
+        return default_router_mac
 
     @staticmethod
     def is_rif_supported(duthost):
@@ -206,12 +220,12 @@ class TestLinkLocalIPacket:
          ptf_rx_mac, ptf_rx_idx, _, ptf_tx_idx, link_local_src,
          link_local_dst, downlink_uplink_rx_info, rif_support) = common_params
 
-        for ptf_mac, ptf_idx, dut_rx_iface, rif_rx_iface, out_rif_ifaces, out_ifaces, out_ptf_indices \
+        for ptf_mac, router_mac, ptf_idx, dut_rx_iface, rif_rx_iface, out_rif_ifaces, out_ifaces, out_ptf_indices \
                 in downlink_uplink_rx_info:
 
             logger.info("Sending IPV4 Packet from dut interface {}, rif interface {}".format(dut_rx_iface,
                                                                                              rif_rx_iface))
-            pkt = testutils.simple_ip_packet(eth_dst=ingress_router_mac,
+            pkt = testutils.simple_ip_packet(eth_dst=router_mac,
                                              eth_src=ptf_mac,
                                              ip_src=IPV4_LINK_LOCAL_ADDRESS,
                                              ip_dst=IPV4_ROUTE)
@@ -222,7 +236,6 @@ class TestLinkLocalIPacket:
             ptfadapter.dataplane.flush()
 
             testutils.send(ptfadapter, ptf_idx, pkt, PKT_NUM)
-            time.sleep(1)
             self.validate_counters(duthost, ptfadapter, exp_pkt, dut_rx_iface, rif_rx_iface,
                                    out_ptf_indices, out_ifaces, out_rif_ifaces, rif_support)
 
@@ -231,11 +244,11 @@ class TestLinkLocalIPacket:
          ptf_rx_mac, ptf_rx_idx, _, ptf_tx_idx, link_local_src,
          link_local_dst, downlink_uplink_rx_info, rif_support) = common_params
 
-        for ptf_mac, ptf_idx, dut_rx_iface, rif_rx_iface, out_rif_ifaces, out_ifaces, out_ptf_indices\
+        for ptf_mac, router_mac, ptf_idx, dut_rx_iface, rif_rx_iface, out_rif_ifaces, out_ifaces, out_ptf_indices\
                 in downlink_uplink_rx_info:
             logger.info("Sending IPV6 Packet from dut interface {}, rif interface {}".format(dut_rx_iface,
                                                                                              rif_rx_iface))
-            pkt = testutils.simple_ipv6ip_packet(eth_dst=ingress_router_mac,
+            pkt = testutils.simple_ipv6ip_packet(eth_dst=router_mac,
                                                  eth_src=ptf_mac,
                                                  ipv6_src=IPV6_LINK_LOCAL_ADDRESS,
                                                  ipv6_dst=IPV6_ROUTE)
@@ -245,7 +258,6 @@ class TestLinkLocalIPacket:
             self.clear_counters(duthost, rif_support)
             ptfadapter.dataplane.flush()
             testutils.send(ptfadapter, ptf_idx, pkt, PKT_NUM)
-            time.sleep(1)
             self.validate_counters(duthost, ptfadapter, exp_pkt, dut_rx_iface, rif_rx_iface,
                                    out_ptf_indices, out_ifaces, out_rif_ifaces, rif_support)
 
@@ -255,9 +267,10 @@ class TestLinkLocalIPacket:
          link_local_dst, downlink_uplink_rx_info, rif_support) = common_params
 
         dut_link_local_dst = self.get_port_default_ipv6_link_local_address(duthost, rx_iface)
+        downlink_router_mac = self.get_downlink_router_mac(duthost, rx_iface, ingress_router_mac)
 
         logger.info("Sending IPV6 Packet to dut interface {},".format(rx_iface))
-        pkt = testutils.simple_ipv6ip_packet(eth_dst=ingress_router_mac,
+        pkt = testutils.simple_ipv6ip_packet(eth_dst=downlink_router_mac,
                                              eth_src=ptf_rx_mac,
                                              ipv6_src=link_local_src,
                                              ipv6_dst=dut_link_local_dst)
@@ -271,11 +284,9 @@ class TestLinkLocalIPacket:
         self.clear_counters(duthost, rif_support)
         ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, ptf_rx_idx, pkt, PKT_NUM)
-        time.sleep(1)
-        portstat_out = parse_portstat(duthost.command("portstat")["stdout_lines"])
-        rx_ok = int(portstat_out[rx_iface]["rx_ok"].replace(",", ""))
-        pytest_assert(rx_ok >= PKT_NUM,
-                      "Received {} packets in rx counters, expected >= {}".format(rx_ok, PKT_NUM))
+        # Wait for portstat rx_ok counter to converge before checking
+        pytest_assert(wait_until(3, 1, 1, self.check_portstat_rx_ok, duthost, rx_iface),
+                      f"portstat rx_ok on {rx_iface} did not converge to >= {PKT_NUM} within 3s timeout")
         # Sleep to ensure all packets will be captured
         time.sleep(TCPDUMP_WAIT_TIME)
         duthost.shell(stop_pcap, module_ignore_errors=True)
@@ -314,7 +325,6 @@ class TestLinkLocalIPacket:
         ptfadapter.dataplane.flush()
 
         testutils.send(ptfadapter, ptf_rx_idx, pkt, PKT_NUM)
-        time.sleep(1)
         self.validate_counters(duthost, ptfadapter, exp_pkt, rx_iface, None,
                                out_ptf_indices, out_ifaces, out_rif_ifaces, rif_support)
 
@@ -338,7 +348,6 @@ class TestLinkLocalIPacket:
         self.clear_counters(duthost, rif_support)
         ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, ptf_rx_idx, pkt, PKT_NUM)
-        time.sleep(1)
         self.validate_counters(duthost, ptfadapter, exp_pkt, rx_iface, None,
                                out_ptf_indices, out_ifaces, out_rif_ifaces, rif_support)
 
@@ -348,6 +357,7 @@ class TestLinkLocalIPacket:
         config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
 
         vlan_member = config_facts.get('VLAN_MEMBER')
+        ports_added = False
         if vlan_member:
             for vlan_interface, vlan_members in vlan_member.items():
                 vlan_id = re.search(r"Vlan(\d+)", vlan_interface).group(1)
@@ -361,7 +371,9 @@ class TestLinkLocalIPacket:
                         cleanup_list.append((duthost.command,
                                              ("config vlan member add {} {} {}".format(vlan_id,
                                                                                        iface, tagging_mode), ), {}))
-        else:
+                    ports_added = True
+                    break
+        if not ports_added:
             for iface in [rx_iface, tx_iface]:
                 duthost.command("config vlan member add {} {} -u".format(VLAN_ID, iface))
                 cleanup_list.append((duthost.command,
@@ -409,21 +421,31 @@ class TestLinkLocalIPacket:
         return exp_pkt
 
     @staticmethod
+    def check_portstat_rx_ok(duthost, dut_rx_iface):
+        """Check if portstat rx_ok counter has converged to expected packet count."""
+        portstat_out = parse_portstat(duthost.command("portstat")["stdout_lines"])
+        rx_ok = int(portstat_out[dut_rx_iface]["rx_ok"].replace(",", ""))
+        logger.debug(f"portstat rx_ok={rx_ok} on {dut_rx_iface}, expected >= {PKT_NUM}")
+        return rx_ok >= PKT_NUM
+
+    @staticmethod
     def validate_counters(duthost, ptfadapter, exp_pkt, dut_rx_iface, rif_rx_ifaces, out_ptf_indices,
                           out_ifaces, out_rif_ifaces, rif_support):
+        # Wait for portstat rx_ok counter to converge. On shared servers with slow PTF,
+        # PORT_STAT flex counters may need multiple polling cycles to reflect all packets.
+        pytest_assert(wait_until(3, 1, 1, TestLinkLocalIPacket.check_portstat_rx_ok, duthost, dut_rx_iface),
+                      f"portstat rx_ok on {dut_rx_iface} did not converge to >= {PKT_NUM} within 3s timeout")
+
         portstat_out = parse_portstat(duthost.command("portstat")["stdout_lines"])
         if rif_support:
             rif_counter_out = parse_rif_counters(duthost.command("show interfaces counters rif")["stdout_lines"])
 
         # Rx counters Validations
-        rx_ok = int(portstat_out[dut_rx_iface]["rx_ok"].replace(",", ""))
         rx_drp = int(portstat_out[dut_rx_iface]["rx_drp"].replace(",", ""))
         rx_err = int(rif_counter_out[rif_rx_ifaces]["rx_err"].replace(",", "")) \
             if rif_support and rif_rx_ifaces else 0
-        pytest_assert(rx_ok >= PKT_NUM,
-                      "Received {} packets in rx, expected >= {}".format(rx_ok, PKT_NUM))
         pytest_assert(max(rx_drp, rx_err) <= PKT_NUM_ZERO,
-                      "Dropped {} packets in rx, expected range <= {}".format(rx_err, PKT_NUM_ZERO))
+                      f"Dropped packets in rx: rx_drp={rx_drp}, rx_err={rx_err}, expected both <= {PKT_NUM_ZERO}")
 
         # Match packets by PTF Validation
         match_cnt = testutils.count_matched_packets_all_ports(ptfadapter, exp_pkt, ports=list(out_ptf_indices))

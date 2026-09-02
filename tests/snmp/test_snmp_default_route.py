@@ -4,7 +4,7 @@ from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.snmp_helpers import get_snmp_facts
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1', 't2', 'm0', 'mx', 'm1', 't1-multi-asic', 'lt2', 'ft2'),
+    pytest.mark.topology('t0', 't1', 't2', 'lrh', 'urh', 'm0', 'mx', 'm1', 't1-multi-asic', 'lt2', 'ft2', 'c0'),
     pytest.mark.device_type('vs')
 ]
 
@@ -47,7 +47,7 @@ def test_snmp_default_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         for ip in dut_result_nexthops:
             assert ip in snmp_facts['snmp_cidr_route'], "{} ip not found in snmp_facts".format(
                 ip)
-            assert snmp_facts['snmp_cidr_route'][ip]['route_dest'] == '0.0.0.0',\
+            assert snmp_facts['snmp_cidr_route'][ip]['route_dest'] == '0.0.0.0', \
                 "Incorrect route_dest for {} ip".format(ip)
             assert snmp_facts['snmp_cidr_route'][ip]['status'] == '1', "Incorrect status for {} ip".format(
                 ip)

@@ -1,8 +1,10 @@
 import pytest
 import time
+import shlex
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import check_output
 from tests.common.helpers.tacacs.tacacs_helper import ssh_remote_run, ssh_remote_run_retry, check_tacacs  # noqa: F401
+from tests.common.plugins.sanity_check.constants import SUPERVISOR_REXEC_COMMAND_PATTERNS
 
 import logging
 
@@ -59,10 +61,11 @@ def wait_for_tacacs(localhost, remote_ip, username, password):
         # Wait for tacacs to finish configuration from hostcfgd
         logger.info("Check if hostcfgd started and configured tacac attempt = {}".format(current_attempt))
         time.sleep(SLEEP_TIME)
+        cmd_quoted = shlex.quote(cmd)
         output = localhost.shell(
             "sshpass -p {} ssh "
             "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "
-            "{}@{} {}".format(password, username, remote_ip, cmd), module_ignore_errors=True)['stdout_lines']
+            "{}@{} {}".format(password, username, remote_ip, cmd_quoted), module_ignore_errors=True)['stdout_lines']
         if "active (running)" in str(output):
             return
         else:
@@ -141,6 +144,11 @@ def test_ro_user_allowed_command(localhost, duthosts, enum_rand_one_per_hwsku_ho
         if does_command_exist(localhost, dutip, tacacs_creds['tacacs_ro_user'],
                               tacacs_creds['tacacs_ro_user_passwd'], command):
             for subcommand in commands[command]:
+                # Skip commands that trigger rexec on supervisor
+                if duthost.is_supervisor_node() and any(p.search(subcommand)
+                                                        for p in SUPERVISOR_REXEC_COMMAND_PATTERNS):
+                    logger.info("Skipping '{}' on supervisor node — triggers rexec".format(subcommand))
+                    continue
                 allowed = ssh_remote_allow_run(localhost, dutip, tacacs_creds['tacacs_ro_user'],
                                                tacacs_creds['tacacs_ro_user_passwd'], subcommand)
                 pytest_assert(allowed, "command '{}' not authorized".format(subcommand))

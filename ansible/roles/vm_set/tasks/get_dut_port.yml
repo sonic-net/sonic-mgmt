@@ -11,20 +11,19 @@
     dut_mgmt_port: ""
   when: external_port is defined
 
-- name: determine whether to include internal ports
-  set_fact:
-    include_internal: true
-  when: is_vs_chassis is defined and is_vs_chassis == true
-
-- name: determine whether to sort port_alias by index
-  set_fact:
-    sort_by_index: false
-  when: is_vs_chassis is defined and is_vs_chassis == true
-
 - set_fact:
     hwsku: "{{ hostvars[dut_name].hwsku }}"
     num_asic: "{{ hostvars[dut_name]['num_asics'] | default(1) }}"
     card_type: "{{ hostvars[dut_name]['card_type'] | default('pizzabox') }}"
+    # Internal (Int/Inb/Rec) ports exist on chassis members, which declare card_type, and on
+    # VOQ systems. Both are properties of the DUT itself, unlike the topology name that
+    # is_vs_chassis was derived from.
+    include_internal: "{{ hostvars[dut_name]['card_type'] is defined
+      or hostvars[dut_name]['switch_type'] | default('') == 'voq' }}"
+    # Chassis members and VOQ systems keep port_config.ini order so per-asic ports stay
+    # grouped. Matches config_sonic_basedon_testbed.yml, which already keys this on switch_type.
+    sort_by_index: "{{ hostvars[dut_name]['card_type'] is not defined
+      and hostvars[dut_name]['switch_type'] | default('') != 'voq' }}"
   when: dut_name in hostvars
 
 - name: Get DUT port alias

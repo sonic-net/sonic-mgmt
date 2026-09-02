@@ -5,6 +5,7 @@ import logging
 from .common.helpers.assertions import pytest_assert
 from .common.devices.eos import EosHost
 from .common.devices.sonic import SonicHost
+from .common.devices.csonic import CsonicHost
 
 logger = logging.getLogger(__name__)
 
@@ -58,17 +59,32 @@ def check_sonic_facts(hostname, mgmt_addr, host):
     if len(mgmt_addrs) == 0:
         return "there is no management interface in neighbor {}".format(hostname)
     for addr in mgmt_addrs:
-        if addr == mgmt_addr:
+        if addr.split('/')[0] == mgmt_addr:
             return
     return "neighbor {} has no management address {}".format(hostname, mgmt_addr)
 
 
 def check_eos_bgp_facts(hostname, host):
     logger.info("Check neighbor {} bgp facts".format(hostname))
-    res = host.eos_command(commands=['show ip bgp sum'])
-    logger.info("bgp: {}".format(res))
-    if 'stdout_lines' not in res or u'BGP summary' not in res['stdout_lines'][0][0]:
-        return "neighbor {} bgp not configured correctly".format(hostname)
+
+    vrf_output = host.eos_command(commands=['show vrf | json'])
+    if 'stdout_lines' in vrf_output and len(vrf_output['stdout_lines'][0].get('vrfs', {})) > 2:
+        err = "neighbor {} bgp not configured correctly".format(hostname)
+        output = host.eos_command(commands=['show ip bgp summary vrf all | json'])
+        logger.info("bgp: {}".format(output))
+        if "stdout_lines" not in output:
+            return err
+
+        output = output["stdout_lines"][0]
+        for vrf, data in output["vrfs"].items():
+            for _, peerData in data["peers"].items():
+                if peerData["peerState"] != "Established":
+                    return err
+    else:
+        res = host.eos_command(commands=['show ip bgp summary vrf all'])
+        logger.info("bgp: {}".format(res))
+        if 'stdout_lines' not in res or u'BGP summary' not in res['stdout_lines'][0][0]:
+            return "neighbor {} bgp not configured correctly".format(hostname)
 
 
 def check_sonic_bgp_facts(hostname, host):
@@ -126,6 +142,17 @@ def test_neighbors_health(duthosts, localhost, nbrhosts, eos, sonic, enum_fronte
             if failmsg:
                 fails.append(failmsg)
 
+            failmsg = check_sonic_bgp_facts(k, nbrhost)
+            if failmsg:
+                fails.append(failmsg)
+
+        elif isinstance(nbrhost, CsonicHost):
+            # A cSONiC (docker-sonic-vs) neighbor is reached via 'docker exec',
+            # not SSH: by design it has no dedicated management IP and no
+            # SNMP-over-mgmt endpoint (see CsonicHost docstring). The mgmt-addr
+            # and SNMP checks used for EOS/SonicHost neighbors therefore do not
+            # apply. Its health is verified by confirming BGP is configured
+            # correctly via vtysh (the same check used for SonicHost neighbors).
             failmsg = check_sonic_bgp_facts(k, nbrhost)
             if failmsg:
                 fails.append(failmsg)

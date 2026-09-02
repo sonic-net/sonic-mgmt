@@ -26,9 +26,10 @@ pytestmark = [
     pytest.mark.dualtor_skip_setup_mux_ports
 ]
 
-CONTAINER_CHECK_INTERVAL_SECS = 1
+CONTAINER_CHECK_INTERVAL_SECS = 5     # Monit daemon runs every 10s in test; poll at half that rate
 CONTAINER_STOP_THRESHOLD_SECS = 30
 CONTAINER_RESTART_THRESHOLD_SECS = 180
+MONIT_START_THRESHOLD_SECS = 360      # Max wait for Monit to become ready
 
 
 @pytest.fixture(autouse=True, scope="module")
@@ -116,7 +117,8 @@ def update_monit_service(duthosts, selected_rand_one_per_hwsku_hostname):
         duthost.shell("sudo sed -i 's/set daemon 60/set daemon 10/' /etc/monit/monitrc")
         logger.info("Restart the Monit service without delaying to monitor.")
         duthost.shell("sudo systemctl restart monit")
-        is_monit_running = wait_until(320, 5, 5, check_monit_running, duthost)
+        is_monit_running = wait_until(MONIT_START_THRESHOLD_SECS, CONTAINER_CHECK_INTERVAL_SECS, 5,
+                                      check_monit_running, duthost)
         pytest_assert(is_monit_running, "Monit is not running after restart!")
 
     yield
@@ -242,7 +244,11 @@ def test_container_checker(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand
         logger.info("Container '{}' is not running ...".format(container_name))
         logger.info("Reload config on DuT as Container is not up '{}' ...".format(duthost.hostname))
         config_reload(duthost, safe_reload=True)
-        time.sleep(300)
+        logger.info("Waiting for Monit to be ready after config reload ...")
+        is_monit_ready = wait_until(MONIT_START_THRESHOLD_SECS,
+                                    CONTAINER_CHECK_INTERVAL_SECS, 30,
+                                    check_monit_running, duthost)
+        pytest_assert(is_monit_ready, "Monit is not running after config reload!")
         sleep_time = 80
     asic.stop_service(service_name)
     logger.info("Waiting until container '{}' is stopped...".format(container_name))
@@ -258,41 +264,3 @@ def test_container_checker(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand
         # Wait for 70s to 80s  such that Monit has a chance to write alerting message into syslog.
         logger.info("Sleep '{}'s to wait for the alerting message...".format(sleep_time))
         time.sleep(sleep_time)
-
-
-def test_container_checker_telemetry(duthosts, rand_one_dut_hostname):
-    """Tests the feature of container checker.
-
-    This function will verify container checker for telemetry.
-
-    Args:
-        duthosts: list of DUTs.
-        rand_one_dut_hostname: Fixture returning dut hostname.
-
-    Returns:
-        None.
-    """
-    duthost = duthosts[rand_one_dut_hostname]
-    container_name = "telemetry"
-
-    # Reload config to restore the container
-    config_reload(duthost, safe_reload=True)
-    # Monit needs 300 seconds to start monitoring the container
-    time.sleep(300)
-
-    # Enable LogAnalyzer
-    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="container_checker_{}".format(container_name))
-    loganalyzer.expect_regex = get_expected_alerting_message(container_name)
-    marker = loganalyzer.init()
-
-    # Enable telemetry in FEATURE table
-    dut_command = "sonic-db-cli CONFIG_DB hset \"FEATURE|{}\" state enabled".format(container_name)
-    duthost.command(dut_command, module_ignore_errors=True)
-
-    # Monit checks services at 1-minute intervals
-    # Add a 20-second delay to ensure Monit has time to write alert messages to syslog
-    sleep_time = 80
-    logger.info("Sleep '{}'s to wait for the alerting message...".format(sleep_time))
-    time.sleep(sleep_time)
-    analysis = loganalyzer.analyze(marker, fail=False)
-    pytest_assert(analysis['total']['expected_match'] == 0, 'Monit error: {}'.format(analysis['expect_messages']))

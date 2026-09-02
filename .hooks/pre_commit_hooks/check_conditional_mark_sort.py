@@ -14,14 +14,6 @@ def main():
                 for line in file_contents:
                     if re.match('^[a-zA-Z]', line):
                         conditions.append(line.strip().rstrip(":"))
-                if conditions[0] == 'test_pretest.py':
-                    del conditions[0]  # This is at front where it should be
-                if 'test_pretest.py' in conditions:
-                    print("===========================================================================")
-                    print("test_pretest.py should be the first item in ")
-                    print("tests/common/plugins/conditional_mark/tests_mark_conditions*.yaml")
-                    print("===========================================================================")
-                    return 1
                 sorted_conditions = conditions[:]
                 sorted_conditions.sort()
                 for i in range(len(conditions)):

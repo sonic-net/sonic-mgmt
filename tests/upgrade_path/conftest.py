@@ -1,5 +1,7 @@
 import pytest
 
+from tests.common.helpers.upgrade_helpers import xcvr_skip_list  # noqa: F401
+
 
 def pytest_runtest_setup(item):
     from_list = item.config.getoption('base_image_list')

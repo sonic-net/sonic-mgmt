@@ -8,7 +8,7 @@ import json
 from constants import LOCAL_PTF_INTF, REMOTE_PA_IP, REMOTE_PTF_RECV_INTF, REMOTE_DUT_INTF, \
     VXLAN_UDP_BASE_SRC_PORT, VXLAN_UDP_SRC_PORT_MASK
 from gnmi_utils import apply_gnmi_file
-from dash_utils import render_template_to_host, apply_swssconfig_file
+from tests.common.dash_utils import render_template_to_host, apply_swssconfig_file
 from tests.dash.conftest import get_interface_ip
 from tests.common import config_reload
 
@@ -43,8 +43,10 @@ def dpu_setup_vnet(duthost, dpuhosts, dpu_index, skip_config):
         dpu_cmds.append("config loopback add Loopback0")
         dpu_cmds.append(f"config int ip add Loopback0 {APPLIANCE_VIP}/32")
 
-    dpu_cmds.append(f"ip route replace default via {dpuhost.npu_data_port_ip}")
-    dpuhost.shell_cmds(cmds=dpu_cmds)
+    if dpuhost.npu_data_port_ip:
+        dpu_cmds.append(f"ip route replace default via {dpuhost.npu_data_port_ip}")
+    if len(dpu_cmds) > 0:
+        dpuhost.shell_cmds(cmds=dpu_cmds)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -54,7 +56,8 @@ def add_npu_static_routes_vnet(duthost, dash_smartswitch_vnet_config, skip_confi
         cmds = []
         pe_nexthop_ip = get_interface_ip(duthost, dash_smartswitch_vnet_config[REMOTE_DUT_INTF]).ip + 1
         cmds.append(f"ip route replace {dash_smartswitch_vnet_config[REMOTE_PA_IP]}/32 via {pe_nexthop_ip}")
-        cmds.append(f"ip route replace {APPLIANCE_VIP}/32 via {dpuhost.dpu_data_port_ip}")
+        if dpuhost.dpu_data_port_ip:
+            cmds.append(f"ip route replace {APPLIANCE_VIP}/32 via {dpuhost.dpu_data_port_ip}")
         logger.info(f"Adding static routes: {cmds}")
         duthost.shell_cmds(cmds=cmds)
 
@@ -63,7 +66,8 @@ def add_npu_static_routes_vnet(duthost, dash_smartswitch_vnet_config, skip_confi
     if not skip_config and not skip_cleanup:
         dpuhost = dpuhosts[dpu_index]
         cmds = []
-        cmds.append(f"ip route del {dash_smartswitch_vnet_config[REMOTE_PA_IP]}/32 via {pe_nexthop_ip}")
+        if dpuhost.dpu_data_port_ip:
+            cmds.append(f"ip route del {dash_smartswitch_vnet_config[REMOTE_PA_IP]}/32 via {pe_nexthop_ip}")
         cmds.append(f"ip route del {APPLIANCE_VIP}/32 via {dpuhost.dpu_data_port_ip}")
         logger.info(f"Removing static routes: {cmds}")
         duthost.shell_cmds(cmds=cmds)
@@ -82,13 +86,20 @@ def set_vxlan_udp_sport_range(dpuhosts, dpu_index):
                 "vxlan_mask": VXLAN_UDP_SRC_PORT_MASK
             },
             "OP": "SET"
+        },
+        {
+            "SWITCH_TABLE:switch": {
+                "vxlan_security": "false"
+            },
+            "OP": "SET"
         }
     ]
 
     logger.info(f"Setting VXLAN source port config: {vxlan_sport_config}")
     config_path = "/tmp/vxlan_sport_config.json"
-    dpuhost.copy(content=json.dumps(vxlan_sport_config, indent=4), dest=config_path, verbose=False)
-    apply_swssconfig_file(dpuhost, config_path)
+    for config in vxlan_sport_config:
+        dpuhost.copy(content=json.dumps([config], indent=4), dest=config_path, verbose=False)
+        apply_swssconfig_file(dpuhost, config_path)
     if 'pensando' in dpuhost.facts['asic_type']:
         logger.warning("Applying Pensando DPU VXLAN sport workaround")
         dpuhost.shell("pdsctl debug update device --vxlan-port 4789 --vxlan-src-ports 5120-5247")

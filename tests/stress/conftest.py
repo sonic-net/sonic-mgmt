@@ -57,10 +57,28 @@ def withdraw_and_announce_existing_routes(duthosts, localhost, tbinfo, enum_rand
     logger.info("withdraw existing ipv4 and ipv6 routes")
     localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action="withdraw", path="../ansible/")
 
-    wait_until(MAX_WAIT_TIME, CRM_POLLING_INTERVAL, 0, lambda: check_queue_status(duthost, "inq") is True)
-    sleep_to_wait(CRM_POLLING_INTERVAL * 100)
+    result = wait_until(MAX_WAIT_TIME, CRM_POLLING_INTERVAL, 0, lambda: check_queue_status(duthost, "inq") is True)
+    if not result:
+        logger.warning("Failed to process all withdraw requests in {} seconds".format(MAX_WAIT_TIME))
+
     ipv4_route_used_before = get_crm_resource_status(duthost, "ipv4_route", "used", namespace)
     ipv6_route_used_before = get_crm_resource_status(duthost, "ipv6_route", "used", namespace)
+
+    def routes_stable():
+        nonlocal ipv4_route_used_before, ipv6_route_used_before
+        ipv4_route_used_now = get_crm_resource_status(duthost, "ipv4_route", "used", namespace)
+        ipv6_route_used_now = get_crm_resource_status(duthost, "ipv6_route", "used", namespace)
+        ipv4_stable = ipv4_route_used_now == ipv4_route_used_before
+        ipv6_stable = ipv6_route_used_now == ipv6_route_used_before
+        ipv4_route_used_before = ipv4_route_used_now
+        ipv6_route_used_before = ipv6_route_used_now
+        return ipv4_stable and ipv6_stable
+
+    full_wait_time = MAX_WAIT_TIME + CRM_POLLING_INTERVAL * 100
+    result = wait_until(full_wait_time, CRM_POLLING_INTERVAL, CRM_POLLING_INTERVAL, routes_stable)
+    if not result:
+        pytest.fail("Routes failed to withdraw in {} seconds".format(full_wait_time))
+
     logger.info("ipv4 route used {}".format(ipv4_route_used_before))
     logger.info("ipv6 route used {}".format(ipv6_route_used_before))
 

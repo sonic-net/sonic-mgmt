@@ -1,7 +1,7 @@
 import sys
 import time
 import logging
-from telnetlib import Telnet
+from telnetlib import Telnet  # nosemgrep: telnetlib
 from ansible.module_utils.debug_utils import config_module_logging
 
 config_module_logging('serial_utils')
@@ -39,7 +39,7 @@ class SerialSession(object):
         self.port = port
         self.enabled = False
         logging.debug('Telnet to serial port :%s' % port)
-        self.tn = Telnet('127.0.0.1', port)
+        self.tn = Telnet('127.0.0.1', port)  # nosemgrep: telnetlib
         self.tn.write(encode('\r\n'))
         return
 

@@ -1,5 +1,6 @@
 import logging
 import os
+import pathlib
 import re
 import json
 
@@ -8,7 +9,8 @@ from tests.common.errors import MissingInputError
 from tests.common.devices.sonic import SonicHost
 
 TEMPLATES_DIR = os.path.realpath((os.path.join(os.path.dirname(__file__), "../../common/templates")))
-ANSIBLE_ROOT = os.path.realpath((os.path.join(os.path.dirname(__file__), "../../../ansible")))
+ANSIBLE_ROOT = pathlib.Path(os.getenv("ANSIBLE_CONFIG",
+                                      pathlib.Path(__file__).resolve().parent.joinpath("../../ansible")))
 RUN_PLAYBOOK = os.path.realpath(os.path.join(os.path.dirname(__file__), "../../scripts/exec_template.yml"))
 
 logger = logging.getLogger(__name__)
@@ -24,11 +26,17 @@ def get_chip_name_if_asic_pfc_storm_supported(fanout):
         "Arista-7060X6-64PE-O128": "Tomahawk5",
         "Arista-7060X6-64PE-O128S2": "Tomahawk5",
         "Arista-7060X6-64PE-P64": "Tomahawk5",
+        "Arista-7060X6-64PE-B-P32O64": "Tomahawk5",
+        "Arista-7060X6-64PE-B-O128": "Tomahawk5",
+        "Arista-7060X6-64PE-B-P64": "Tomahawk5",
         "Arista DCS-7060CX": "Tomahawk",
         "Arista-7060CX": "Tomahawk",
         "Arista DCS-7260CX3": "Tomahawk2",
         "Arista-7260CX3": "Tomahawk2",
         "Arista-7260QX3": "Tomahawk2",
+        "M2-W6940-64X1-FR4": "Tomahawk5",
+        "Nokia-IXR7220": "Tomahawk6",
+        "NH-4210-F-O256": "Tomahawk6",
         }
 
     for sku, chip in hwSkuInfo.items():
@@ -250,7 +258,7 @@ class PFCStorm(object):
             self.extra_vars.update({"pfc_storm_stop_defer_time": self.pfc_storm_stop_defer_time})
         if getattr(self, "pfc_asym", None):
             self.extra_vars.update({"pfc_asym": self.pfc_asym})
-        if self.asic_type == "mellanox":
+        if self.asic_type in ["mellanox", "broadcom"]:
             self.extra_vars.update({"pfc_gen_multiprocess": True})
 
         if self.asic_type != 'vs':

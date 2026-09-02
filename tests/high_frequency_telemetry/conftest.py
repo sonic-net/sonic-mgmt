@@ -2,7 +2,91 @@ import pytest
 import logging
 import time
 
+from tests.high_frequency_telemetry.utilities import restart_otel_collector
+
 logger = logging.getLogger(__name__)
+
+OTEL_CONFIG_PATH = "/etc/sonic/otel_config.yml"
+
+
+@pytest.fixture(scope="module", autouse=True)
+def suppress_otel_debug_logging(duthosts, enum_rand_one_per_hwsku_hostname):
+    """Suppress verbose OTEL debug exporter logging to prevent /var/log disk exhaustion.
+
+    The default OTEL collector config uses a debug exporter with 'verbosity: detailed',
+    which dumps every metric (~14 lines each) to otel.log. During HFT tests with thousands
+    of counters at 10ms polling, this generates ~40 million log lines in minutes and fills
+    /var/log, causing rsyslog to drop messages (including LogAnalyzer markers).
+
+    This fixture changes the verbosity to 'basic' (one summary line per batch) before
+    HFT tests run, and restores the original config afterward.
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    # Check if otel container is running
+    if not duthost.is_container_running("otel"):
+        logger.info("OTEL container is not running, skipping debug logging suppression")
+        yield
+        return
+
+    # Read the current otel config
+    result = duthost.shell(f'cat {OTEL_CONFIG_PATH}', module_ignore_errors=True)
+    if result['rc'] != 0:
+        logger.warning(f"Failed to read {OTEL_CONFIG_PATH}, skipping debug logging suppression")
+        yield
+        return
+
+    original_config = result['stdout']
+
+    if 'verbosity: detailed' not in original_config:
+        logger.info("OTEL config does not have 'verbosity: detailed', no change needed")
+        yield
+        return
+
+    # Change verbosity from detailed to basic
+    logger.info("Changing OTEL debug exporter verbosity from 'detailed' to 'basic'")
+    duthost.shell(
+        f"sed -i 's/verbosity: detailed/verbosity: basic/' {OTEL_CONFIG_PATH}",
+        module_ignore_errors=False
+    )
+    restart_otel_collector(duthost)
+
+    yield
+
+    # Restore original config
+    logger.info("Restoring original OTEL collector config")
+    duthost.copy(content=original_config, dest=OTEL_CONFIG_PATH)
+    restart_otel_collector(duthost)
+
+
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exceptions(duthosts, enum_rand_one_per_hwsku_hostname, loganalyzer):
+    """
+    Ignore expected SAI_TAM errors during HFT test execution.
+
+    When HFT is enabled, SONiC initially sends a buffer size of 65535 for IPFIX templates,
+    but SAI requires a larger buffer (e.g., 119352). SAI returns SAI_STATUS_BUFFER_OVERFLOW
+    with the required size, and SONiC retries with the correct size. This is normal behavior,
+    not a functional issue. The error logs can be safely ignored.
+
+    Args:
+        duthosts: list of DUTs.
+        enum_rand_one_per_hwsku_hostname: Hostname of a random chosen dut
+        loganalyzer: Loganalyzer utility fixture
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    if loganalyzer:
+        ignoreRegex = [
+            # SAI prints ERR when IPFIX template buffer is too small on first probe;
+            # SONiC retries with the correct size and succeeds - not a functional issue
+            ".*ERR syncd#SDK.*SAI_TAM.*mlnx_generate_ipfix_templates.*Buffer size is too small"
+            " to hold IPFIX template.*",
+            ".*ERR syncd#SDK.*SAI_TAM.*mlnx_tam_tel_type_get_ipfix_templates.*Failed to generate"
+            " IPFIX templates.*",
+            ".*ERR syncd#SDK.*SAI_TAM.*mlnx_tam_tel_type_attrib_get.*Failed to get attribute.*",
+            ".*ERR syncd#SDK.*SAI_UTILS.*get_dispatch_attribs_handler.*Failed Get.*IPFIX_TEMPLATES.*",
+        ]
+        loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
 
 
 @pytest.fixture(scope="function")
@@ -14,58 +98,33 @@ def ensure_swss_ready(duthosts, enum_rand_one_per_hwsku_hostname):
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
+    if not duthost.is_service_fully_started("swss"):
+        pytest.fail("swss container is not running")
+
     def get_swss_uptime_seconds():
-        """Get swss container uptime in seconds from docker ps"""
+        """Get swss container uptime in seconds via docker inspect."""
         try:
-            # Use docker ps to get status info - avoid template conflicts
+            # Step 1: Get container start time from docker inspect JSON
             result = duthost.shell(
-                'docker ps --filter "name=swss"',
+                "docker inspect swss | grep StartedAt | head -1 | cut -d'\"' -f4",
                 module_ignore_errors=True
             )
-            if result['rc'] != 0:
+            if result['rc'] != 0 or not result['stdout'].strip():
+                return 0
+            started_at = result['stdout'].strip()
+
+            # Step 2: Calculate uptime on DUT to avoid clock differences
+            result = duthost.shell(
+                f'started=$(date -ud "{started_at}" +%s) && '
+                'echo $(($(date -u +%s) - started))',
+                module_ignore_errors=True
+            )
+            if result['rc'] != 0 or not result['stdout'].strip():
                 return 0
 
-            stdout_lines = result['stdout_lines']
-            if len(stdout_lines) < 2:  # No container found (only header)
-                return 0
-
-            # Find the swss container line and extract status
-            for line in stdout_lines[1:]:  # Skip header
-                if 'swss' in line:
-                    # Line format: CONTAINER_ID IMAGE COMMAND
-                    # CREATED STATUS PORTS NAMES
-                    # Example: d0a33fe4d37f docker-orchagent:latest
-                    # "/usr/bin/docker-ini…" 8 days ago Up 18 minutes swss
-                    parts = line.split()
-
-                    # Find "Up" and get the next parts for time
-                    try:
-                        up_index = parts.index('Up')
-                        if up_index + 2 < len(parts):
-                            time_value = parts[up_index + 1]
-                            time_unit = parts[up_index + 2]
-
-                            logger.debug(f"swss container status: "
-                                         f"Up {time_value} {time_unit}")
-
-                            # Convert to seconds
-                            time_num = int(time_value)
-                            if 'second' in time_unit:
-                                return time_num
-                            elif 'minute' in time_unit:
-                                return time_num * 60
-                            elif 'hour' in time_unit:
-                                return time_num * 3600
-                            elif 'day' in time_unit:
-                                return time_num * 86400
-                            else:
-                                return 20  # Unknown format, assume long enough
-                    except (ValueError, IndexError):
-                        logger.warning(f"Failed to parse status line: {line}")
-                        return 0
-
-            return 0  # No swss container found
-
+            uptime = int(result['stdout'].strip())
+            logger.debug(f"swss container uptime: {uptime}s")
+            return uptime
         except Exception as e:
             logger.warning(f"Failed to get swss uptime: {e}")
             return 0
@@ -77,28 +136,7 @@ def ensure_swss_ready(duthosts, enum_rand_one_per_hwsku_hostname):
     min_uptime = 10  # Require at least 10 seconds uptime
 
     if uptime == 0:
-        logger.warning("swss container is not running, attempting to start...")
-
-        # Try to restart swss service
-        duthost.shell('sudo systemctl restart swss',
-                      module_ignore_errors=True)
-
-        # Wait for container to start and stabilize
-        max_wait = 40  # Total wait time
-        logger.info(f"Waiting up to {max_wait} seconds for swss container "
-                    f"to start and stabilize...")
-
-        for i in range(max_wait):
-            time.sleep(1)
-            current_uptime = get_swss_uptime_seconds()
-            if current_uptime >= min_uptime:
-                logger.info(f"swss container is stable "
-                            f"(uptime: {current_uptime}s)")
-                break
-        else:
-            raise RuntimeError(f"swss container failed to stabilize "
-                               f"after {max_wait} seconds")
-
+        pytest.fail("Failed to determine swss container uptime")
     elif uptime < min_uptime:
         wait_time = min_uptime - uptime + 1  # +1 for safety margin
         logger.info(f"swss container uptime is {uptime}s, "
@@ -203,7 +241,8 @@ def cleanup_high_frequency_telemetry(
 @pytest.fixture(scope="function")
 def disable_flex_counters(
     duthosts, enum_rand_one_per_hwsku_hostname,
-    cleanup_high_frequency_telemetry
+    cleanup_high_frequency_telemetry,
+    suppress_otel_debug_logging
 ):
     """
     Function-level fixture to disable all flex counters and restore

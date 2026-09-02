@@ -7,4 +7,4 @@
   vars_files:
     - group_vars/all/creds.yml
   roles:
-    - { role: vm_set, action: 'start_k8s' }
+    - { role: vm_set, vm_set_action: 'start_k8s' }

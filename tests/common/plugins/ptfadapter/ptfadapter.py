@@ -129,6 +129,39 @@ class PtfTestAdapter(BaseTest):
                 packet
             )
         self.dataplane = ptf.dataplane_instance
+        self._attach_cleanup_helpers()
+
+    def _attach_cleanup_helpers(self):
+        dp = self.dataplane
+
+        def drain(max_per_port=800):
+            """
+            Best-effort non-blocking drain of residual queued packets per port.
+            Prevents backlog from prior test affecting pps/downtime.
+            """
+            try:
+                for (dev, port) in list(getattr(dp, "ports", {}).keys()):
+                    drained = 0
+                    while drained < max_per_port:
+                        pkt = dp.poll(device_number=dev, port_number=port, timeout=0)
+                        if pkt is None:
+                            break
+                        drained += 1
+            except Exception:
+                pass
+
+        def clear_masks():
+            """
+            Remove any previously registered Mask counters to avoid cumulative match overhead.
+            """
+            try:
+                dp.mask_rx_cnt.clear()
+                dp.mask_tx_cnt.clear()
+                dp.masked_packets.clear()
+            except Exception:
+                pass
+        dp.drain = drain
+        dp.clear_masks = clear_masks
 
     def kill(self):
         """ Close dataplane socket and kill data plane thread """

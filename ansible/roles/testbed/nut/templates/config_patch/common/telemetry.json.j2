@@ -1,0 +1,16 @@
+{
+  "op": "add",
+  "path": "/TELEMETRY",
+  "value": {
+    "certs": {
+      "ca_crt": "{{ cert_telemetry.dsmsroot_cer }}",
+      "server_crt": "{{ cert_telemetry.server_cer }}",
+      "server_key": "{{ cert_telemetry.server_key }}"
+    },
+    "gnmi": {
+      "client_auth": "true",
+      "log_level": "2",
+      "port": "50051"
+    }
+  }
+},

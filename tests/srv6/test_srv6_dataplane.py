@@ -3,7 +3,7 @@ import time
 import random
 import logging
 import string
-import json
+
 from scapy.all import Raw
 from scapy.layers.inet6 import IPv6, UDP
 from scapy.layers.l2 import Ether
@@ -21,7 +21,7 @@ from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 from tests.common.mellanox_data import is_mellanox_device
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa: F401
 from tests.common.helpers.srv6_helper import create_srv6_packet, send_verify_srv6_packet, \
-    validate_srv6_in_appl_db, validate_srv6_in_asic_db, validate_srv6_route
+    validate_srv6_in_appl_db, validate_srv6_in_asic_db, validate_srv6_route, is_bgp_route_synced
 
 logger = logging.getLogger(__name__)
 
@@ -29,33 +29,6 @@ pytestmark = [
     pytest.mark.asic("mellanox", "broadcom", "vpp"),
     pytest.mark.topology("t0", "t1")
 ]
-
-
-def is_bgp_route_synced(duthost):
-    cmd = 'vtysh -c "show ip bgp neighbors json"'
-    output = duthost.command(cmd)['stdout']
-    bgp_info = json.loads(output)
-    for neighbor, info in bgp_info.items():
-        if 'gracefulRestartInfo' in info:
-            if "ipv4Unicast" in info['gracefulRestartInfo']:
-                if not info['gracefulRestartInfo']["ipv4Unicast"]['endOfRibStatus']['endOfRibSend']:
-                    logger.info(f"BGP neighbor {neighbor} is sending updates")
-                    return False
-                if not info['gracefulRestartInfo']["ipv4Unicast"]['endOfRibStatus']['endOfRibRecv']:
-                    logger.info(
-                        f"BGP neighbor {neighbor} is receiving updates")
-                    return False
-
-            if "ipv6Unicast" in info['gracefulRestartInfo']:
-                if not info['gracefulRestartInfo']["ipv6Unicast"]['endOfRibStatus']['endOfRibSend']:
-                    logger.info(f"BGP neighbor {neighbor} is sending updates")
-                    return False
-                if not info['gracefulRestartInfo']["ipv6Unicast"]['endOfRibStatus']['endOfRibRecv']:
-                    logger.info(
-                        f"BGP neighbor {neighbor} is receiving updates")
-                    return False
-    logger.info("BGP routes are synced")
-    return True
 
 
 def get_ptf_src_port_and_dut_port_and_neighbor(dut, tbinfo):
@@ -142,12 +115,12 @@ def setup_uN(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, tbi
 
     if duthost.is_multi_asic:
         cli_options = " -n " + duthost.get_namespace_from_asic_id(asic_index)
-        dut_asic = duthost.asic_instance[asic_index]
+        dut_asic = duthost.asic_instance(asic_index)
         dut_mac = dut_asic.get_router_mac()
         dut_port, ptf_src_ports, neighbor = get_ptf_src_port_and_dut_port_and_neighbor(dut_asic, tbinfo)
     else:
         cli_options = ''
-        dut_mac = duthost._get_router_mac()
+        dut_mac = duthost.facts["router_mac"]
         dut_port, ptf_src_ports, neighbor = get_ptf_src_port_and_dut_port_and_neighbor(duthost, tbinfo)
 
     logger.info("Doing test on DUT port {} | PTF ports {}".format(dut_port, ptf_src_ports))
@@ -219,7 +192,7 @@ class SRv6Base():
     def use_param(self, prepare_param):
         self.params = prepare_param
 
-    def _validate_srv6_function(self, duthost, ptfadapter, dscp_mode):
+    def _validate_srv6_function(self, duthost, ptfadapter, dscp_mode, weak_server):
         srv6_pkt_list = []
         logger.info('Clear the SRv6 counters')
         clear_srv6_counters(duthost)
@@ -236,6 +209,10 @@ class SRv6Base():
         pytest_assert(wait_until(120, 5, 0, validate_srv6_route, duthost, ROUTE_BASE),
                       "SRv6 route in ASIC DB is not as expected")
 
+        delay_interval = 0
+        if weak_server:
+            delay_interval = 0.4
+            self.params['packet_num'] = 10
         ptf_src_mac = ptfadapter.dataplane.get_mac(0, self.params['ptf_downlink_port']).decode('utf-8')
         for srv6_packet in self.params['srv6_packets']:
             if duthost.facts["asic_type"] == "broadcom" and \
@@ -313,19 +290,21 @@ class SRv6Base():
             )
 
             srv6_pkt_list.append(srv6_pkt)
+            time.sleep(delay_interval)
 
         return srv6_pkt_list
 
 
 class TestSRv6DataPlaneBase(SRv6Base):
 
+    @pytest.mark.enable_monit_refresh
     def test_srv6_full_func(self, config_setup, srv6_crm_total_sids,
                             setup_standby_ports_on_rand_unselected_tor,       # noqa: F811
                             toggle_all_simulator_ports_to_rand_selected_tor,  # noqa: F811
-                            ptfadapter, rand_selected_dut, localhost, request, enum_frontend_asic_index):
+                            ptfadapter, rand_selected_dut, localhost, request, enum_frontend_asic_index, weak_server):
 
         with allure.step('Validate SRv6 packet process'):
-            srv6_pkt_list = self._validate_srv6_function(rand_selected_dut, ptfadapter, config_setup)
+            srv6_pkt_list = self._validate_srv6_function(rand_selected_dut, ptfadapter, config_setup, weak_server)
 
         with allure.step('Validate SRv6 counters'):
             pytest_assert(wait_until(60, 5, 0, validate_srv6_counters, rand_selected_dut, srv6_pkt_list,
@@ -365,7 +344,7 @@ class TestSRv6DataPlaneBase(SRv6Base):
                                              rand_selected_dut), "BGP route is not synced")
 
                 with allure.step('Validate SRv6 packet process'):
-                    self._validate_srv6_function(rand_selected_dut, ptfadapter, config_setup)
+                    self._validate_srv6_function(rand_selected_dut, ptfadapter, config_setup, weak_server)
 
                 with allure.step('Validate SRv6 counters'):
                     pytest_assert(wait_until(60, 5, 0, validate_srv6_counters, rand_selected_dut, srv6_pkt_list,

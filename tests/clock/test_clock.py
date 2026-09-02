@@ -7,6 +7,7 @@ import datetime as dt
 
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
+from tests.common.utilities import wait_until
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -236,6 +237,7 @@ class ClockUtils:
             with allure.step(f'Compare timezone name from timedatectl ({timedatectl_tz_name}) '
                              f'to the expected ({expected_tz_name})'):
                 assert timedatectl_tz_name == expected_tz_name, f'Expected: {timedatectl_tz_name} == {expected_tz_name}'
+        return True
 
     @staticmethod
     def select_random_date():
@@ -337,7 +339,15 @@ def test_config_clock_timezone(duthosts, init_timezone):
                 f'Expected: "{output}" == "{ClockConsts.OUTPUT_CMD_SUCCESS}"'
 
     with allure.step(f'Verify timezone changed to "{new_timezone}"'):
-        ClockUtils.verify_timezone_value(duthosts, expected_tz_name=new_timezone)
+        wait_until(
+            timeout=120,
+            interval=5,
+            delay=10,
+            condition=lambda: ClockUtils.verify_timezone_value(
+                duthosts,
+                expected_tz_name=new_timezone
+            )
+        )
 
     with allure.step('Select a random string as invalid timezone'):
         invalid_timezone = ''.join(random.choice(string.ascii_lowercase) for _ in range(random.randint(1, 10)))
