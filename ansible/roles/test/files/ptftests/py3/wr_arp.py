@@ -32,10 +32,10 @@ import ipaddress
 
 
 class ArpTest(BaseTest):
-    COUNTERS_UPDATE_INTERVAL = 10
-    RETRIVE_COUNTER_UPLIMIT = 10
-    EVERFLOW_TABLE_WAIT = 30
     VXLAN_TUNNEL_NAME = 'neigh_adv'
+    PING_TIMEOUT = 0.2
+    PING_STABLE_COUNT = 3
+    STATE_POLL_INTERVAL = 1
 
     def __init__(self):
         BaseTest.__init__(self)
@@ -195,6 +195,7 @@ class ArpTest(BaseTest):
 
     def generatePackets(self):
         self.gen_pkts = {}
+        self.gen_erspan_pkts = {}
         for test in self.tests:
             for port in test['acc_ports']:
                 gw = test['vlan_gw']
@@ -207,8 +208,53 @@ class ArpTest(BaseTest):
                     vlan_id = 0
                 self.gen_pkts[port] = self.generatePkts(
                     gw, port_ip, port_mac, vlan_id)
+                if self.advance:
+                    pkt, _ = self.gen_pkts[port]
+                    self.gen_erspan_pkts[port] = self.generateErspanRequest(pkt)
 
         return
+
+    def generateErspanRequest(self, arp_request):
+        payload = arp_request
+        if self.asic_type == 'mellanox':
+            payload = b'\x00' * 22 + bytes(arp_request)
+
+        if self.asic_type == 'barefoot':
+            exp_pkt = testutils.ipv4_erspan_pkt(
+                eth_src=self.dut_mac,
+                ip_src=self.dut_loopback_ip,
+                ip_dst=self.ferret_endpoint_ip,
+                inner_frame=bytes(arp_request)
+            )
+        elif self.asic_type == 'cisco-8000':
+            exp_pkt = testutils.ipv4_erspan_pkt(
+                eth_src=self.dut_mac,
+                ip_src=self.dut_loopback_ip,
+                ip_dst=self.ferret_endpoint_ip,
+                inner_frame=bytes(arp_request),
+                version=1
+            )
+            exp_pkt['ERSPAN II'].ver = 1
+        else:
+            exp_pkt = testutils.simple_gre_packet(
+                pktlen=0,
+                eth_src=self.dut_mac,
+                ip_src=self.dut_loopback_ip,
+                ip_dst=self.ferret_endpoint_ip,
+                inner_frame=payload
+            )
+
+        masked_exp_pkt = Mask(exp_pkt)
+        inner_frame_offset = len(bytes(exp_pkt)) - len(bytes(arp_request))
+
+        # Match only outer Ethernet source, outer IP source/destination, and
+        # the complete inner ARP request.
+        masked_exp_pkt.set_do_not_care(0, 6 * 8)
+        masked_exp_pkt.set_do_not_care(12 * 8, 14 * 8)
+        masked_exp_pkt.set_do_not_care(
+            34 * 8, (inner_frame_offset - 34) * 8)
+        masked_exp_pkt.set_ignore_extra_bytes()
+        return masked_exp_pkt
 
     def get_param(self, param_name, required=True, default=None):
         params = testutils.test_params_get()
@@ -223,11 +269,6 @@ class ArpTest(BaseTest):
 
     def setUp(self):
         self.dataplane = ptf.dataplane_instance
-
-        # Apply filters
-        for p in self.dataplane.ports.values():
-            port = p.get_packet_source()
-            attach_filter(port.socket, 'arp and not ether dst ff:ff:ff:ff:ff:ff', port.interface_name)
 
         config = self.get_param('config_file')
         self.ferret_ip = self.get_param('ferret_ip')
@@ -248,6 +289,29 @@ class ArpTest(BaseTest):
 
         with open(config) as fp:
             graph = json.load(fp)
+
+        packet_filter = 'arp and not ether dst ff:ff:ff:ff:ff:ff'
+        if self.advance:
+            self.asic_type = self.get_param('asic_type')
+            self.ferret_endpoint_ip = self.get_param('ferret_endpoint_ip')
+            for data in graph['minigraph_lo_interfaces']:
+                if int(data['prefixlen']) == 32:
+                    self.dut_loopback_ip = data['addr']
+                    break
+            else:
+                raise Exception("IPv4 loopback interface not found")
+
+            packet_filter = '({}) or ip proto 47'.format(packet_filter)
+        for p in self.dataplane.ports.values():
+            packet_source = p.get_packet_source()
+            attach_filter(packet_source.socket, packet_filter,
+                          packet_source.interface_name)
+
+        self.portchannel_ports = sorted({
+            graph['minigraph_port_indices'][member]
+            for portchannel in graph['minigraph_portchannels'].values()
+            for member in portchannel['members']
+        })
 
         self.tests = []
         vni_base = 0
@@ -422,8 +486,17 @@ class ArpTest(BaseTest):
                 self.log(f"Sleeping for {self.how_long - final_elapsed} seconds before next test")
                 time.sleep(self.how_long - final_elapsed)
             port = random.choice(test['acc_ports'])
-            test_non_broadcast_reply_thread = threading.Thread(target=self.test_non_broadcast_reply_thr,
-                                                               kwargs={'port': port})
+            thread_errors = []
+
+            def _run_non_broadcast_reply():
+                try:
+                    self.test_non_broadcast_reply_thr(port=port)
+                except Exception as e:
+                    self.log("test_non_broadcast_reply_thr failed: {!r}".format(e))
+                    thread_errors.append(e)
+
+            test_non_broadcast_reply_thread = threading.Thread(
+                target=_run_non_broadcast_reply)
             test_non_broadcast_reply_thread.setDaemon(True)
             test_non_broadcast_reply_thread.start()
 
@@ -441,6 +514,11 @@ class ArpTest(BaseTest):
                 self.assertTrue(
                     False, "Timed out waiting for test_non_broadcast_reply_thread")
 
+            if thread_errors:
+                self.assertTrue(
+                    False,
+                    "test_non_broadcast_reply_thr failed: {}".format(thread_errors[0]))
+
             uptime_after = self.get_uptime()
             if uptime_before == uptime_after:
                 self.log("The DUT wasn't rebooted. Uptime: %s vs %s" %
@@ -452,76 +530,133 @@ class ArpTest(BaseTest):
 
     def test_non_broadcast_reply_thr(self, port):
         pkt, exp_pkt = self.gen_pkts[port]
+        exp_erspan_pkt = self.gen_erspan_pkts[port]
 
-        # everflow table creation check
         stop_at = time.time() + self.how_long
-        while True:
-            # 1 second as interval to check if everflow created
-            if self.get_everflow_acl_counter(1) == -1:
-                if time.time() >= stop_at:
-                    self.log("ERR: everflow rule_arp table seems not up")
-                    self.assertTrue(
-                        False, "everflow rule_arp table seems not up")
-                else:
-                    continue
-            else:
-                break
+        reachable = None
+        reboot_downtime_observed = False
 
-        failure_check = 0
-        while True:
-            ef_count_before = self.get_everflow_acl_counter(1)
-            if ef_count_before == -1:
-                if failure_check >= self.RETRIVE_COUNTER_UPLIMIT:
-                    self.log("everflow rule_arp seems closed, test will close")
-                    return
-                else:
-                    failure_check += 1
-                    continue
-
-            # vxlan tunnel should be there
-            self.check_neighbor_advertise_vxlan()
-
-            testutils.send_packet(self, port, pkt)
-            # check arp reply should come from same port
-            # clean arp, test broadcast reply if needed
-            testutils.verify_packet_any_port(self, exp_pkt, ports=[port])
-
-            ef_count_after = self.get_everflow_acl_counter()
-            if ef_count_after == -1:
+        while time.time() < stop_at:
+            send_pkt = False
+            reachable = self.get_stable_ping_state(reachable)
+            if reachable is None:
+                # Test just started and ping is not stable
+                time.sleep(self.STATE_POLL_INTERVAL)
                 continue
 
-            self.assertTrue(ef_count_after >= ef_count_before + 1,
-                            "Unexpected results, counter_after {} <= counter_before {}".format(
-                                ef_count_after, ef_count_before))
+            if not reachable:
+                # DUT is rebooting, CPA should work
+                if not reboot_downtime_observed:
+                    self.log("DUT becomes unreachable; reboot downtime detected")
+                self.log("DUT is unreachable; sending ARP")
+                reboot_downtime_observed = True
+                send_pkt = True
+            elif not reboot_downtime_observed:
+                # Reboot has not started; CPA state may be transient, so do not query it or send traffic.
+                self.log("Wait for reboot to begin")
+            else:
+                cpa_state = self.get_cpa_state()
+                if cpa_state is True:
+                    self.log("CPA is still enabled; keep sending ARP")
+                    send_pkt = True
+                elif cpa_state is None:
+                    self.log("CPA state is unavailable after downtime; continue sending ARP while DUT recovers")
+                    send_pkt = True
+                else:
+                    self.log("DUT finalized warm reboot and disabled CPA; stopping test")
+                    return
 
-    def get_everflow_acl_counter(self, timeout=COUNTERS_UPDATE_INTERVAL):
-        # Wait for orchagent to update the ACL counters
-        time.sleep(timeout)
-        output, _, _ = self.dut_connection.execCommand('aclshow -a')
+            if not send_pkt:
+                time.sleep(self.STATE_POLL_INTERVAL)
+                continue
+
+            self.dataplane.flush()
+            testutils.send_packet(self, port, pkt)
+            try:
+                self.log("Verifying mirrored ARP request in ERSPAN packet")
+                testutils.verify_packet_any_port(
+                    self, exp_erspan_pkt, ports=self.portchannel_ports)
+                # check arp reply should come from same port
+                # clean arp, test broadcast reply if needed
+                self.log("Verifying ARP reply on requester port {}".format(port))
+                testutils.verify_packet_any_port(self, exp_pkt, ports=[port])
+            except AssertionError:
+                # CPA may be disabled between the state check and ARP transmission.
+                # Recheck its state to determine whether verification overlapped teardown.
+                if reboot_downtime_observed:
+                    time.sleep(self.STATE_POLL_INTERVAL)
+                    if self.ping_dut() and self.get_cpa_state() is False:
+                        self.log("Packet verification overlapped CPA teardown; stopping test")
+                        return
+                raise
+
+        self.assertTrue(False, "Timed out waiting for CPA teardown")
+
+    def ping_dut(self):
+        _, _, return_code = self.cmd([
+            'ping', '-n', '-q', '-c', '1',
+            '-W', str(self.PING_TIMEOUT), self.dut_ssh
+        ])
+        return return_code == 0
+
+    def get_stable_ping_state(self, current_state):
+        observed_state = self.ping_dut()
+        if observed_state == current_state:
+            return current_state
+
+        for _ in range(self.PING_STABLE_COUNT - 1):
+            if self.ping_dut() != observed_state:
+                return current_state
+
+        self.log("DUT ping state changed to {}".format(
+            "reachable" if observed_state else "unreachable"))
+        return observed_state
+
+    def get_cpa_state(self):
+        everflow_acl_state = self.get_everflow_acl_state()
+        vxlan_state = self.check_neighbor_advertise_vxlan()
+
+        if everflow_acl_state is None or vxlan_state is None:
+            return None
+        elif everflow_acl_state and vxlan_state:
+            return True
+        return False
+
+    def get_everflow_acl_state(self):
+        try:
+            output, _, return_code = self.dut_connection.execCommand(
+                'aclshow -a', timeout=3)
+        except Exception:
+            return None
+        if not output or return_code != 0:
+            return None
         result = parse_show(output)
 
         if len(result) == 0:
             self.log("Failed to retrieve acl counter {}".format(output))
-            return -1
+            return False
         for rule in result:
             if "EVERFLOW" == rule['table name'] and "rule_arp" == rule['rule name']:
                 self.log("retrieve rule_arp EVERFLOW counter {}".format(
                     rule['packets count']))
                 if rule['packets count'] == 'N/A':
-                    return 0
+                    return False
                 else:
-                    return int(rule['packets count'])
+                    return True
         # warm reboot may not started, or warm reboot finished
         self.log("Failed to retrieve acl counter for EVERFLOW|rule_arp")
-        return -1
+        return False
 
     def check_neighbor_advertise_vxlan(self):
-        output, _, _ = self.dut_connection.execCommand(
-            'show vxlan name {}'.format(self.VXLAN_TUNNEL_NAME))
+        try:
+            output, _, return_code = self.dut_connection.execCommand(
+                'show vxlan name {}'.format(self.VXLAN_TUNNEL_NAME), timeout=3)
+        except Exception:
+            return None
+        if not output or return_code != 0:
+            return None
         result = parse_show(output)
-        if len(result) == 0:
-            self.assertTrue(False, "vxlan tunnel {} not exists".format(
-                self.VXLAN_TUNNEL_NAME))
+        return len(result) > 0
 
     # master branch return None
     def get_release_version(self):
