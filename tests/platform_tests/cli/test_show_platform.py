@@ -453,6 +453,7 @@ def verify_show_platform_fan_output(duthost, raw_output_lines):
 
     return fans
 
+
 def is_liquid_cooled(duthost):
     output = duthost.shell(
         "python3 -c 'from sonic_platform.chassis import Chassis; "
@@ -460,6 +461,7 @@ def is_liquid_cooled(duthost):
         module_ignore_errors=True
     )
     return output.get("stdout", "").strip() == "True"
+
 
 def check_fan_status(duthost, cmd):
     logging.info("Verifying output of '{}' on '{}' ...".format(cmd, duthost.hostname))
