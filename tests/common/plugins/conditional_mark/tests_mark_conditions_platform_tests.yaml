@@ -1750,7 +1750,7 @@ platform_tests/test_service_warm_restart.py:
 ##########################################
 #####  test_sfp_thermal_state_db.py  #####
 ##########################################
-platform_tests/test_sfp_thermal_state_db.py::TestSfpThermalStateDb::test_no_sfp_entries_in_temperature_info:
+platform_tests/test_sfp_thermal_state_db.py:
   skip:
     reason: "SFP thermal state DB test is not supported on BMC"
     conditions:
