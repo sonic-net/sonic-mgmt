@@ -135,7 +135,7 @@ done | sort -u
         result["rc"] == 0,
         "Failed to read DB.auth fingerprints from {}: {}".format(
             auth_path,
-            result["stderr"],
+            _get_command_output(result),
         ),
     )
     return set(result["stdout_lines"])
@@ -420,3 +420,68 @@ def test_db_pruning_with_invalid_remove_all_auth(duthost):
         )
     finally:
         _restore_remove_all_db_auth(duthost, remove_all_was_present)
+
+
+def test_db_pruning_preserves_retained_image_signers(duthost):
+    """Verify pruning preserves every DB signer required by retained images."""
+    require_secure_boot(duthost)
+    _require_db_pruning_script(duthost)
+
+    original_image = get_current_image(duthost)
+    installed_images = get_installed_images(duthost)
+    if len(installed_images) < 2:
+        pytest.skip("At least two retained images are required for DB signer preservation")
+
+    required_fingerprints = set()
+    for image in installed_images:
+        auth_path = _get_image_db_auth_path(image)
+        auth_exists = duthost.command(
+            "sudo test -s {}".format(shlex.quote(auth_path)),
+            module_ignore_errors=True,
+        )
+        if auth_exists["rc"] != 0:
+            pytest.skip("Retained image {} does not contain DB.auth".format(image))
+        required_fingerprints.update(_get_db_auth_fingerprints(duthost, auth_path))
+
+    if len(required_fingerprints) < 2:
+        pytest.skip("Retained images must use at least two distinct DB signers")
+
+    remove_all_exists = duthost.command(
+        "sudo test -s {}".format(shlex.quote(REMOVE_ALL_DB_AUTH_PATH)),
+        module_ignore_errors=True,
+    )
+    if remove_all_exists["rc"] != 0:
+        pytest.skip("A valid remove-all-db.auth is required for DB pruning")
+
+    firmware_fingerprints_before = set(_get_firmware_db_fingerprints(duthost))
+    missing_before = required_fingerprints - firmware_fingerprints_before
+    pytest_assert(
+        not missing_before,
+        "Required retained-image DB signers are not enrolled before pruning: {}".format(
+            sorted(missing_before)
+        ),
+    )
+    persisted_auth_before = _get_persisted_db_auth_state(duthost)
+
+    prune_result = _run_db_pruning(duthost)
+    pytest_assert(
+        prune_result["rc"] == 0,
+        "DB pruning failed: {}".format(_get_command_output(prune_result)),
+    )
+
+    firmware_fingerprints_after = set(_get_firmware_db_fingerprints(duthost))
+    missing_after = required_fingerprints - firmware_fingerprints_after
+    pytest_assert(
+        not missing_after,
+        "DB pruning removed signers required by retained images: {}".format(
+            sorted(missing_after)
+        ),
+    )
+    pytest_assert(
+        _get_persisted_db_auth_state(duthost) == persisted_auth_before,
+        "DB pruning changed persisted signer authentication files",
+    )
+    pytest_assert(
+        get_current_image(duthost) == original_image,
+        "DB pruning changed the running SONiC image",
+    )
