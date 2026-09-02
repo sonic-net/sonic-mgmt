@@ -448,6 +448,23 @@ def get_queue_counters(dut, asic_ns, port, queue):
     return -1
 
 
+def is_queue_counter_polling_enabled(duthost):
+    """
+    Check whether QUEUE flex counter polling is enabled on the DUT.
+
+    Only an explicit "disable" counts as off. If the key is missing we assume polling is on,
+    which matches the image default in init_cfg.json.j2 and keeps existing coverage intact.
+
+    Args:
+        duthost: DUT fixture
+    """
+    status = duthost.shell(
+        "sonic-db-cli CONFIG_DB hget 'FLEX_COUNTER_TABLE|QUEUE' FLEX_COUNTER_STATUS",
+        module_ignore_errors=True
+    )['stdout'].strip()
+    return status != "disable"
+
+
 def assert_no_tx_queue_drops_on_mirror_port(duthost, mirror_port):
     """
     Assert that there are no tx drops on the mirror port.
@@ -456,6 +473,16 @@ def assert_no_tx_queue_drops_on_mirror_port(duthost, mirror_port):
         duthost: DUT fixture
         mirror_port: The mirror port to check
     """
+    # Management devices have QUEUE flex counters disabled by minigraph.py, so
+    # "show queue counters" returns nothing and there is no drop data to check.
+    if not is_queue_counter_polling_enabled(duthost):
+        logging.warning("Skipping tx queue drop check on mirror port %s: QUEUE flex counter polling is "
+                        "disabled on %s (CONFIG_DB FLEX_COUNTER_TABLE|QUEUE FLEX_COUNTER_STATUS=disable). "
+                        "Port-level tx drops are still checked separately. If this device is not a "
+                        "management device, the disabled counter is unexpected and worth investigating.",
+                        mirror_port, duthost.hostname)
+        return
+
     cmd = f"show queue counters {mirror_port}"
     output = duthost.command(cmd)['stdout']
 

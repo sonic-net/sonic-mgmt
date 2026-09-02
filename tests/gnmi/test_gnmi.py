@@ -1,14 +1,35 @@
 import pytest
 import logging
+import re
+import time
+import random
+import threading
+import json
+import os
 
-from tests.common.helpers.gnmi_utils import gnmi_capabilities
-from .helper import gnmi_set, dump_gnmi_log, gnmi_subscribe_streaming_sample
+from tests.common.helpers.gnmi_utils import gnmi_capabilities, GNMIEnvironment
+from .helper import gnmi_set, dump_gnmi_log, gnmi_subscribe_streaming_sample, gnmi_get, \
+                    apply_cert_config, \
+                    gnmi_subscribe_streaming_onchange, gnmi_subscribe_stream_connections
+from . import cli_helpers as helper
 from tests.common.utilities import wait_until
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 
 
 logger = logging.getLogger(__name__)
 allure.logger = logger
+
+MEMORY_CHECKER_WAIT = 1
+MEMORY_CHECKER_CYCLES = 60
+
+SHOW_PATHS_FILE = os.path.join(os.path.dirname(os.path.realpath(__file__)), "cli_paths.json")
+
+
+@pytest.fixture
+def skip_non_container_test(request):
+    if not request.config.getoption("--container_test", default=""):
+        pytest.skip("Testcase skipped for non container test")
+
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -179,3 +200,165 @@ def test_gnmi_authorize_failed_with_revoked_cert(duthosts,
         "'desc = Peer certificate revoked' message not found in GNMI log. "
         "- Actual GNMI log: '{}'"
     ).format(gnmi_log)
+
+
+def test_osbuild_version(duthosts, rand_one_dut_hostname, ptfhost):
+    '''
+    Verify GNMI GET of the OTHERS/osversion/build non-DB path returns a valid
+    SONiC build_version.
+    '''
+    duthost = duthosts[rand_one_dut_hostname]
+    msg_list = gnmi_get(duthost, ptfhost, ["osversion/build"], target="OTHERS", origin=None)
+    result = "\n".join(msg_list)
+
+    assert len(re.findall(r'"build_version": "SONiC\.', result)) == 1, (
+        "build_version value not found in gnmi output: {}".format(result))
+    assert len(re.findall(r'SONiC\.NA', result, flags=re.IGNORECASE)) == 0, (
+        "invalid build_version value in gnmi output: {}".format(result))
+
+
+def _get_sysuptime_total(duthost, ptfhost):
+    """GET OTHERS/proc/uptime and return the 'total' field as a float."""
+    msg_list = gnmi_get(duthost, ptfhost, ["proc/uptime"], target="OTHERS", origin=None)
+    result = "\n".join(msg_list)
+    match = re.search(r'"total":\s*([0-9.]+)', result)
+    assert match is not None, (
+        "system uptime 'total' field not found in gnmi output: {}".format(result))
+    return float(match.group(1))
+
+
+def test_sysuptime(duthosts, rand_one_dut_hostname, ptfhost):
+    '''
+    Verify GNMI GET of the OTHERS/proc/uptime non-DB path returns a float that
+    increases over time.
+    '''
+    duthost = duthosts[rand_one_dut_hostname]
+
+    uptime_first = _get_sysuptime_total(duthost, ptfhost)
+    time.sleep(10)
+    uptime_second = _get_sysuptime_total(duthost, ptfhost)
+
+    assert uptime_second - uptime_first >= 10, (
+        "system uptime did not advance by at least 10s: {} -> {}".format(
+            uptime_first, uptime_second))
+
+
+def _gnmi_client_connected(duthost, ptfhost):
+    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+    res = ptfhost.shell('netstat -tn | grep ":{} .*ESTABLISHED"'.format(env.gnmi_port),
+                        module_ignore_errors=True)
+    return res["rc"] == 0
+
+
+def test_on_change_updates(duthosts, rand_one_dut_hostname, ptfhost):
+    '''
+    Verify GNMI subscribe ON_CHANGE on STATE_DB NEIGH_STATE_TABLE reports a BGP
+    neighbor state change.
+    '''
+    duthost = duthosts[rand_one_dut_hostname]
+    if duthost.is_supervisor_node():
+        pytest.skip("Skipping test as no Ethernet0 frontpanel port on supervisor")
+
+    ns = random.choice(duthost.get_asic_namespace_list())
+    bgp_neighbor = random.choice(list(duthost.get_bgp_neighbors(ns).keys()))
+    asic_id = duthost.get_asic_id_from_namespace(ns)
+    original_state = duthost.get_bgp_neighbor_info(bgp_neighbor, asic_id)["bgpState"]
+    new_state = "Established" if original_state.lower() == "active" else "Active"
+
+    namespace_name = ns if ns else "localhost"
+    path_list = ["/sonic-db:STATE_DB/{}/NEIGH_STATE_TABLE".format(namespace_name)]
+
+    result_holder = {}
+
+    def subscribe_worker():
+        msg, _ = gnmi_subscribe_streaming_onchange(duthost, ptfhost, path_list, 2)
+        result_holder["msg"] = msg
+
+    client_thread = threading.Thread(target=subscribe_worker)
+    client_thread.start()
+    try:
+        # Wait for the subscribe client to connect before triggering the change,
+        # otherwise the on-change update can be missed.
+        wait_until(60, 1, 0, _gnmi_client_connected, duthost, ptfhost)
+        cmd = "sonic-db-cli STATE_DB HSET \"NEIGH_STATE_TABLE|{}\" \"state\" {}".format(bgp_neighbor, new_state)
+        cmd = duthost.get_cli_cmd_for_namespace(cmd, ns)
+        duthost.shell(cmd)
+        client_thread.join(60)  # max timeout of 60s, expect update to come in <=30s
+    finally:
+        # Restore the original neighbor state.
+        cmd = "sonic-db-cli STATE_DB HSET \"NEIGH_STATE_TABLE|{}\" \"state\" {}".format(bgp_neighbor, original_state)
+        cmd = duthost.get_cli_cmd_for_namespace(cmd, ns)
+        duthost.shell(cmd)
+
+    msg = result_holder.get("msg", "")
+    assert msg != "", "Did not get output from PTF on-change client"
+    assert bgp_neighbor in msg, (
+        "Did not find neighbor {} in on-change update: {}".format(bgp_neighbor, msg))
+
+
+def test_mem_spike(duthosts, rand_one_dut_hostname, ptfhost):
+    '''
+    The gnmi container memory must stay under threshold when a client continuously
+    creates channels with the gnmi server.
+    '''
+    duthost = duthosts[rand_one_dut_hostname]
+    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+
+    def client_worker():
+        gnmi_subscribe_stream_connections(duthost, ptfhost, ["DOCKER_STATS"], target="STATE_DB",
+                                          create_connections=2000, update_count=1)
+
+    client_thread = threading.Thread(target=client_worker)
+    client_thread.start()
+
+    for _ in range(MEMORY_CHECKER_CYCLES):
+        ret = duthost.shell("python3 /usr/bin/memory_checker %s 419430400" % env.gnmi_container,
+                            module_ignore_errors=True)
+        assert ret["rc"] == 0, "Memory utilization has exceeded threshold"
+        time.sleep(MEMORY_CHECKER_WAIT)
+
+    client_thread.join()
+
+
+def test_telemetry_show_non_get(duthosts, rand_one_dut_hostname, ptfhost, skip_non_container_test):
+    '''
+    The SHOW target only supports GET; a SUBSCRIBE must fail.
+    '''
+    duthost = duthosts[rand_one_dut_hostname]
+    msg, _ = gnmi_subscribe_streaming_sample(duthost, ptfhost, ["reboot-cause"], 0, 1,
+                                             origin=None, target="SHOW")
+    assert "error" in msg.lower(), (
+        "SHOW subscribe should fail, but got: {}".format(msg))
+
+
+def test_telemetry_show_get(duthosts, localhost, rand_one_dut_hostname, ptfhost, request,
+                            skip_non_container_test):
+    '''
+    Test all SHOW GET paths from cli_paths.json: run each path's setup, gnmi GET
+    against the SHOW target, and verify.
+    '''
+    duthost = duthosts[rand_one_dut_hostname]
+
+    # Resolve "duthost" to the DUT selected for this test so setup/verify act on
+    # the same host the GET queries (request.getfixturevalue("duthost") would
+    # resolve to the session DUT index, which can differ on multi-DUT testbeds).
+    def resolve_fixture(fx):
+        return duthost if fx == "duthost" else request.getfixturevalue(fx)
+
+    with open(SHOW_PATHS_FILE, 'r') as show_paths_file:
+        show_paths_data = json.load(show_paths_file)
+
+    for path, test_config in show_paths_data.items():
+        if test_config["setup"]:
+            setup_fixtures = [resolve_fixture(fx) for fx in test_config["setup_fixtures"]]
+            getattr(helper, test_config["setup"])(*setup_fixtures, *test_config["setup_args"])
+            # The setup step reboots the DUT, which drops the non-persistent gnmi
+            # cert server; re-apply it so the SHOW GET runs against the configured server.
+            apply_cert_config(duthost)
+
+        show_gnmi_out = gnmi_get(duthost, ptfhost, [path], target="SHOW", origin=None, raw=True)
+
+        if test_config["verify"]:
+            output = helper.get_json_from_gnmi_output(show_gnmi_out)
+            verify_fixtures = [resolve_fixture(fx) for fx in test_config["verify_fixtures"]]
+            getattr(helper, test_config["verify"])(*verify_fixtures, *test_config["verify_args"], output)
