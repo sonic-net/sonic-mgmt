@@ -34,7 +34,7 @@ pytestmark = [
 
 REGEX_MAC_ADDRESS = r'^([0-9A-Fa-f]{2}:){5}([0-9A-Fa-f]{2})$'
 REGEX_SERIAL_NUMBER = r'^[A-Za-z0-9\-]+$'
-PLATFORMS_WITHOUT_BASE_MAC_TLV = {'arm64-arista_goldfinch-r0',}
+PLATFORMS_WITHOUT_BASE_MAC_TLV = {'arm64-arista_goldfinch-r0', }
 
 # Chassis API tests that are not available/applicable on BMC topologies
 BMC_SKIPPED_CHASSIS_TESTS = {
