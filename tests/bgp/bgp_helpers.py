@@ -717,7 +717,7 @@ def get_topo_lldp_neighbors(duthost, nbrhosts, count=1, retry_timeout=LLDP_RETRY
         total_entries = get_lldp_total_entries(duthost)
         if total_entries is None or total_entries <= 1:
             logging.info("Only %s LLDP entry reported on %s, waiting %ss for the topology neighbors "
-                     "to be discovered", total_entries, duthost.hostname, retry_interval)
+                         "to be discovered", total_entries, duthost.hostname, retry_interval)
             return False
         return True
 
