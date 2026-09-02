@@ -554,7 +554,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
         # gets recycled.
         if everflow_dut.facts['switch_type'] == "voq":
             pytest.skip("Skip test as is not supported on a VoQ switch.")
-            
+
         if setup_info['topo'] == 't2':
             if everflow_dut.facts['switch_type'] == "chassis-packet":
                 pytest.skip("Skip test as is not supported on a T2 with chassis-packet mode switch.")
