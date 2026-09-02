@@ -8,7 +8,7 @@ import threading
 import time
 
 from tests.common.utilities import wait_until
-from telemetry_utils import listen_for_events
+from event_utils import listen_for_events
 logger = logging.getLogger(__name__)
 
 

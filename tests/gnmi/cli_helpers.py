@@ -2,6 +2,14 @@ import json
 import re
 from tests.common.reboot import reboot
 
+__all__ = [
+    "get_json_from_gnmi_output",
+    "reboot_device",
+    "transform_reboot_cause_output",
+    "check_reboot_cause",
+    "check_reboot_cause_history",
+]
+
 
 # Format-valid but unlikely-to-exist values, substituted when a device-derived
 # getter returns nothing. This keeps the gNMI path exercised: a well-formed

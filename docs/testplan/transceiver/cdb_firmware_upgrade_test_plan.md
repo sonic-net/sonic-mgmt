@@ -13,7 +13,7 @@ The scope of this test plan includes the following:
 - Firmware download interruption and CDB abort handling
 - EEPROM static field integrity during firmware operations
 - Firmware download, activation, and read stress testing
-- Firmware upgrade across firmware versions differing in major, minor, and point numbers
+- Firmware upgrade across firmware versions differing in minor and point numbers
 - Validating invalid firmware binary rejection
 - CDB background mode capability verification and stress testing
 
@@ -42,7 +42,7 @@ Please refer to the [Testbed Topology](./test_plan.md#testbed-topology) section 
 
 1. All the pre-requisites mentioned in [Transceiver Onboarding Test Infrastructure and Framework](./test_plan.md#test-prerequisites-and-configuration-files) must be met.
 
-2. A per-PN `cdb_firmware_upgrade_manifest.json` file must exist for every transceiver that supports CMIS CDB firmware upgrade. The file lives in the same per-PN directory as the `cdb_firmware_upgrade.json` attribute shard (under `attributes/cdb_firmware_upgrade/transceivers/vendors/<VENDOR>/part_numbers/<PN>/`). The manifest must contain exactly 3 firmware versions (1 gold firmware version plus 2 additional firmware versions) so that upgrade and downgrade paths can be tested. At least one of the 2 additional firmware versions must differ from the gold firmware version in all three of the major, minor, and point numbers. The file should follow this format:
+2. A per-PN `cdb_firmware_upgrade_manifest.json` file must exist for every transceiver that supports CMIS CDB firmware upgrade. The file lives in the same per-PN directory as the `cdb_firmware_upgrade.json` attribute shard (under `attributes/cdb_firmware_upgrade/transceivers/vendors/<VENDOR>/part_numbers/<PN>/`). The manifest must contain exactly 3 firmware versions (1 gold firmware version plus 2 additional firmware versions) so that upgrade and downgrade paths can be tested. At least one of the 2 additional firmware versions must differ from the gold firmware version in both the minor and point numbers. The file should follow this format:
 
 ```json
 {
@@ -125,7 +125,7 @@ The following table summarizes the key attributes used in CDB firmware upgrade t
 
 > **Note:** The `transceiver_reset_i2c_recover_sec`, `port_startup_wait_sec`, and `low_power_mode_supported` attributes are defined in the [System test attributes](system_test_plan.md#attributes) and are reused here. The `cmis_active_optical` attribute is defined in the [EEPROM test attributes](eeprom_test_plan.md#attributes).
 
-> **Attribute invariants:** `firmware_versions` must contain exactly 3 entries (1 gold plus 2 additional firmware versions). `gold_firmware_version` must equal `firmware_versions[-1]`, and `inactive_firmware_version` must equal `firmware_versions[-2]`. Additionally, at least one of the entries in `firmware_versions` must differ from `gold_firmware_version` in all three of the major, minor, and point numbers. A mismatch skips the CDB firmware test suite with a clear configuration error. The actual module firmware state is verified at runtime.
+> **Attribute invariants:** `firmware_versions` must contain exactly 3 entries (1 gold plus 2 additional firmware versions). `gold_firmware_version` must equal `firmware_versions[-1]`, and `inactive_firmware_version` must equal `firmware_versions[-2]`. Additionally, at least one of the entries in `firmware_versions` must differ from `gold_firmware_version` in both the minor and point numbers. A mismatch skips the CDB firmware test suite with a clear configuration error. The actual module firmware state is verified at runtime.
 
 ## CMIS CDB Firmware Binary Management
 
@@ -278,7 +278,7 @@ Fail the test if the per-PN manifest file is missing, the specified firmware ver
 4. **Module capabilities:** The module must support CMIS CDB firmware operations. For dual-bank specific checks, `dual_bank_supported` must be true.
 5. **Network connectivity:** In download mode, the DUT must have network access to the firmware server specified in `cdb_firmware_upgrade_url.json` for downloading firmware binaries. Not required in pre-staged mode.
 6. **Link state:** The port should be operationally up before firmware download starts and should remain operationally up during and after the firmware download.
-7. **CDB abort before download:** If `firmware_download_cdb_abort_support` is true, the framework must issue a CDB abort command before every firmware download to ensure the module is not in a stale CDB state from a previous interrupted operation. 
+7. **CDB abort before download:** If `firmware_download_cdb_abort_support` is true, the framework must issue a CDB abort command before every firmware download to ensure the module is not in a stale CDB state from a previous interrupted operation.
 
 **Note:** When the abort is issued as a pre-download safeguard (i.e. the test is not validating the abort behavior itself), the framework ignores the command's return value, since the module may return an error when there is no incomplete download to abort.
 
@@ -353,7 +353,7 @@ For firmware download, run, and commit operations, the test framework must repor
 | 2 | CDB abort support test | 1. Read the EEPROM CDB abort advertisement register to determine the CDB abort capability.<br>2. Compare the advertisement against the default `firmware_download_cdb_abort_support` value. | 1. For default value, page 9Fh byte 137 bit 0 reads 1.<br>2. For `firmware_download_cdb_abort_support` = false, page 9Fh byte 137 bit 0 reads 0.<br>3. Any mismatch between the configured attribute and EEPROM is logged and reported as a failure. |
 | 3 | Firmware download validation | 1. Start firmware download of the next firmware specified in `firmware_versions` using `sfputil firmware download <port>`.<br>2. Wait until CLI execution completes.<br><br>**Note:** Version selection cycles through `firmware_versions` in round-robin order, skipping the version already present in the target bank (inactive bank for dual-bank modules, active bank for single-bank modules). | **Firmware Downloaded Verification** must hold. |
 | 4 | Firmware activation validation | 1. Shut down all interfaces that are part of the physical port.<br>2. Execute firmware run.<br>3. Execute firmware commit.<br>4. Reset the transceiver and wait for `transceiver_reset_i2c_recover_sec` seconds.<br>5. Startup all the interfaces in Step 1. | **Firmware Activation Verification** must hold. |
-| 5 | Firmware upgrade to a fully distinct version | 1. From `firmware_versions`, select the version that differs from the gold firmware version in all three of the major, minor, and point numbers.<br>2. Perform steps in TC #3 followed by TC #4 using that firmware version. | All expectations of TC #3 and TC #4 must be met. |
+| 5 | Firmware upgrade to a distinct version | 1. From `firmware_versions`, select the version that differs from the gold firmware version in both the minor and point numbers.<br>2. Perform steps in TC #3 followed by TC #4 using that firmware version. | All expectations of TC #3 and TC #4 must be met. |
 | 6 | Firmware download with invalid binary | **TC 6a:**<br>1. Generate a zero-filled `.bin` file on the DUT that has no valid firmware header.<br>2. Start firmware download using `sfputil firmware download <port>`. <br><br>**TC 6b:**<br>1. Take a good firmware binary for this module and flip a few bytes in the payload region of the binary. <br>2. Start firmware download using `sfputil firmware download <port>`. | **TC 6a:**<br>1. `sfputil firmware download <port>` returns a non-zero return code.<br>2. If `dual_bank_supported` is true, inactive firmware version remains unchanged. <br>3. **Firmware State Unchanged Verification** must hold (except for inactive firmware version).<br><br>**TC 6b:**<br>1. `sfputil firmware download <port>` returns a non-zero return code.<br>2. **Firmware State Unchanged Verification** must hold. |
 | 7 | Firmware download interruption | 1. Start the firmware download and interrupt at the percentages specified by `firmware_download_interrupt_percentage`.<br>2. Use the method specified in `firmware_download_interrupt_method` to interrupt the process. | **Firmware State Unchanged Verification** must hold. |
 | 8 | Firmware download after interruption | 1. Perform steps in TC #7 to leave the module in a post-interrupt state.<br>2. Run the CDB abort command to recover the module.<br>3. Perform steps in TC #3. | 1. After step 1, **Firmware State Unchanged Verification** must hold.<br>2. The CDB abort command must be successful.<br>3. After step 3, **Firmware Downloaded Verification** must hold. |

@@ -38,6 +38,7 @@ import time
 from tests.transceiver.common.cli_parser_helper import (
     parse_fwversion,
     parse_hexdump,
+    parse_lpmode,
     parse_read_eeprom,
     RC_FAILURE,
 )
@@ -66,6 +67,8 @@ SFPUTIL_READ_EEPROM = "sfputil read-eeprom"
 SFPUTIL_SHOW_FWVERSION = "sfputil show fwversion"
 SFPUTIL_SHOW_PRESENCE = "sfputil show presence"
 SFPUTIL_RESET = "sfputil reset"
+SFPUTIL_SHOW_LPMODE = "sfputil show lpmode"
+SFPUTIL_LPMODE = "sfputil lpmode"
 SHOW_TRANSCEIVER_INFO = "show interfaces transceiver info"
 SHOW_TRANSCEIVER_PRESENCE = "show interfaces transceiver presence"
 SFPUTIL_FIRMWARE_DOWNLOAD = "sfputil firmware download"
@@ -86,6 +89,7 @@ FW_DOWNLOAD_SUCCESS_MARKER = "Firmware download complete success"
 FW_RUN_SUCCESS_MARKER = "Firmware run in mode=0 success"
 FW_COMMIT_SUCCESS_MARKER = "Firmware commit successful"
 SFPUTIL_RESET_SUCCESS_MARKER = "OK"
+SFPUTIL_LPMODE_SUCCESS_MARKER = "OK"
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -419,6 +423,8 @@ _CDB_FW_ABORT_PYCODE = (
     "import sonic_platform.platform as P\n"
     "api = P.Platform().get_chassis().get_sfp({idx}).get_xcvr_api()\n"
     "cdb = getattr(api, 'cdb', None)\n"
+    "if cdb is None:\n"
+    "    cdb = getattr(api, 'cdb_fw_hdlr', None)\n"
     "print(cdb.abort_fw_download() if cdb is not None else 'NO_CDB')\n"
 )
 
@@ -473,8 +479,20 @@ def sfputil_reset(duthost, port, timeout_sec=60):
     return _run_firmware_cmd(duthost, cmd, timeout_sec, SFPUTIL_RESET_SUCCESS_MARKER)
 
 
+def sfputil_show_lpmode(duthost, port):
+    """Run ``sfputil show lpmode -p <port>`` returns ``({port: low_power_mode}, err)``."""
+    cmd = f"{SFPUTIL_SHOW_LPMODE} -p {port}"
+    return _run_and_parse(duthost, cmd, parse_lpmode)
+
+
+def sfputil_set_lpmode(duthost, port, low_power, timeout_sec=60):
+    """Run ``sfputil lpmode on|off <port>`` returns ``(elapsed_sec, err)``."""
+    cmd = f"{SFPUTIL_LPMODE} {'on' if low_power else 'off'} {port}"
+    return _run_firmware_cmd(duthost, cmd, timeout_sec, SFPUTIL_LPMODE_SUCCESS_MARKER)
+
+
 def issue_cdb_fw_abort(duthost, physical_index):
-    """``status`` is the raw ``api.cdb.abort_fw_download()`` reply."""
+    """``status`` is the raw ``abort_fw_download()`` reply."""
     pycode = _CDB_FW_ABORT_PYCODE.format(idx=int(physical_index))
     result = duthost.shell('python3 -c "{}"'.format(pycode), module_ignore_errors=True)
     if result.get("rc", RC_FAILURE) != 0:
