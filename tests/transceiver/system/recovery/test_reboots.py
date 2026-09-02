@@ -101,7 +101,6 @@ def _reboot_link_recovery(
         link_up_timeout_sec=reboot_wait,
         health_baseline=health_baseline,
         lport_to_first_subport_mapping=lport_to_first_subport_mapping,
-        expected_pid_changes=expected_pid_changes,
     )
 
     failures = []  # collected across every (port, step) tuple

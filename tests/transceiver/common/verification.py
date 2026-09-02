@@ -443,9 +443,6 @@ def standard_port_recovery_and_verification(
         dict: ``{'passed': bool, 'per_port': {port: {'passed': bool,
         'details': str}}, 'details': str}``
     """
-    # ``None`` on single-ASIC -> no ``-n`` flag.
-    namespaces = _resolve_port_namespaces(duthost, ports)
-
     per_port_failures = {port: [] for port in ports}
     checks_ran = {port: [] for port in ports}  # human-readable checks ran
 
@@ -460,6 +457,9 @@ def standard_port_recovery_and_verification(
     down_ports = [port.split("(")[0] for port in down_ports_raw]
     for port in down_ports:
         per_port_failures[port].append(f"{port} is down")
+
+    # ``None`` on single-ASIC -> no ``-n`` flag.
+    namespaces = _resolve_port_namespaces(duthost, up_ports) if up_ports else {}
 
     # 2a/2b setup - one shared flap/last_up_time sentinel per up port, captured
     # right after link-up.
