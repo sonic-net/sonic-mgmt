@@ -4554,11 +4554,12 @@ class DscpEcnSend(sai_base_test.ThriftInterfaceDataPlane):
         src_port_ip = self.test_params['src_port_ip']
         src_port_mac = self.dataplane.get_mac(0, src_port_id)
         num_of_pkts = self.test_params['num_of_pkts']
-        # Egress shaper (bytes/sec) on the dst port, applied by default to pace
-        # the release so a high-speed port does not overrun the fanout->PTF path.
-        # The base-class helper no-ops on non-Broadcom platforms; 0 disables it.
-        egress_shaper_rate = int(self.test_params.get('egress_shaper_rate', 125000000))
-        cell_size = self.test_params['cell_size']
+        # Egress shaper (bytes/sec) on the dst port, to pace the release so a
+        # high-speed port does not overrun the fanout->PTF path. Opt-in per
+        # platform via 'egress_shaper_rate' in that platform's qos_params: it
+        # defaults to 0 (disabled) so a platform that does not need it is left
+        # untouched. The base-class helper also no-ops on non-Broadcom.
+        egress_shaper_rate = int(self.test_params.get('egress_shaper_rate', 0))
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
         src_port_vlan = self.test_params['src_port_vlan']
         limit = self.test_params['limit']
