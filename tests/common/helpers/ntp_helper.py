@@ -29,6 +29,9 @@ def setup_ntp_context(ptfhost, duthost, ptf_use_ipv6):
         ntp_conf_path = '/etc/ntp.conf'
         ntp_service_name = 'ntp'
 
+    ntp_conf_backup_path = "{}.sonicmgmt.bak".format(ntp_conf_path)
+    ptfhost.command("cp {} {}".format(ntp_conf_path, ntp_conf_backup_path))
+
     if ntp_daemon_type in (NtpDaemon.NTPSEC, NtpDaemon.NTP):
         # Limit listening to the mgmt interface, to prevent socket allocation
         # exhaustion
@@ -94,34 +97,22 @@ def setup_ntp_context(ptfhost, duthost, ptf_use_ipv6):
         yield
     finally:
         restore_ntp_context(
-            ptfhost, duthost, ptf_use_ipv6, ntp_daemon_type, ntp_conf_path, ntp_service_name,
-            ntp_servers, ntp_add_iburst_present)
+            ptfhost, duthost, ptf_use_ipv6, ntp_conf_path, ntp_service_name,
+            ntp_servers, ntp_add_iburst_present, ntp_conf_backup_path)
 
 
 def restore_ntp_context(
-        ptfhost, duthost, ptf_use_ipv6, ntp_daemon_type, ntp_conf_path, ntp_service_name,
-        ntp_servers, ntp_add_iburst_present):
+        ptfhost, duthost, ptf_use_ipv6, ntp_conf_path, ntp_service_name,
+        ntp_servers, ntp_add_iburst_present, ntp_conf_backup_path):
     """Restore PTF and DUT NTP configuration after setup_ntp_context."""
     # stop ntp server
     ptfhost.service(name=ntp_service_name, state="stopped")
 
-    # restore the default pool configuration
-    ptfhost.lineinfile(
-        path=ntp_conf_path, line="pool 0.debian.pool.ntp.org iburst", regexp="#pool.*0.debian.*pool.*ntp.*org.*")
-    ptfhost.lineinfile(
-        path=ntp_conf_path, line="pool 1.debian.pool.ntp.org iburst", regexp="#pool.*1.debian.*pool.*ntp.*org.*")
-    ptfhost.lineinfile(
-        path=ntp_conf_path, line="pool 2.debian.pool.ntp.org iburst", regexp="#pool.*2.debian.*pool.*ntp.*org.*")
-    ptfhost.lineinfile(
-        path=ntp_conf_path, line="pool 3.debian.pool.ntp.org iburst", regexp="#pool.*3.debian.*pool.*ntp.*org.*")
-
-    ptfhost.lineinfile(path=ntp_conf_path, line="", regexp="^server.*127.127.1.0.*prefer")
-
-    if ntp_daemon_type in (NtpDaemon.NTPSEC, NtpDaemon.NTP):
-        ptfhost.lineinfile(path=ntp_conf_path, line="", regexp="^interface.ignore.wildcard")
-        ptfhost.lineinfile(path=ntp_conf_path, line="", regexp="^interface.listen.mgmt")
-        if ptf_use_ipv6 and ptfhost.mgmt_ipv6:
-            ptfhost.lineinfile(path=ntp_conf_path, line="", regexp="^interface listen %s" % ptfhost.mgmt_ipv6)
+    # Restore the ntp config from the backup taken during setup, then remove
+    # the backup. Using an atomic move here means any pre-existing package
+    # defaults (e.g. ntpsec's `restrict 127.0.0.1` / `restrict ::1`) are
+    # preserved regardless of what setup added or modified.
+    ptfhost.command("mv -f {} {}".format(ntp_conf_backup_path, ntp_conf_path))
 
     # reset ntp client configuration
     duthost.command("config ntp del %s" % (ptfhost.mgmt_ipv6 if ptf_use_ipv6 else ptfhost.mgmt_ip))
