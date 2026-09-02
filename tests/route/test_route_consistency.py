@@ -226,7 +226,15 @@ class TestRouteConsistency():
             logger.info("advertise ipv4 and ipv6 routes for {}".format(topo_name))
             localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action="announce", path="../ansible/")
 
-            assert wait_until(self.sleep_interval + 300, 10, 0, self.route_snapshots_match,
+            # The withdraw + re-advertise cycle re-installs the entire route table twice. On very
+            # large-scale VOQ topologies (~100k+ prefixes) exact ASIC_DB reconvergence takes far longer
+            # than the default margin (measured ~1400s for ~102k prefixes on a large-scale VOQ max topology,
+            # where sleep_interval + 300 = 455s was not enough). wait_until() returns as soon as the
+            # route snapshots match, so smaller/faster testbeds are unaffected by the larger ceiling.
+            route_reconverge_timeout = self.sleep_interval + 300
+            if self.sleep_interval > 150:
+                route_reconverge_timeout = self.sleep_interval + 1500
+            assert wait_until(route_reconverge_timeout, 10, 0, self.route_snapshots_match,
                               duthosts, self.pre_test_route_snapshot), (
                 "Route snapshots did not match within the specified timeout for DUT hosts: '{}'.".format(
                     duthosts
