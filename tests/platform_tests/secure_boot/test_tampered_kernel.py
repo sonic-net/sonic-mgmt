@@ -1,13 +1,11 @@
 import logging
+import re
 import shlex
+import time
 
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.grub_console import (
-    GRUB_CONSOLE_SCRIPT_PATH,
-    start_grub_entry_sequence,
-)
 from tests.common.helpers.secure_boot import (
     require_secure_boot,
 )
@@ -16,7 +14,6 @@ from tests.common.helpers.upgrade_helpers import (
     install_sonic,
     set_default_and_next_image,
 )
-from tests.common.utilities import get_host_visible_vars, get_inventory_files
 
 
 pytestmark = [
@@ -35,6 +32,8 @@ KERNEL_REJECTION_MESSAGES = (
     "prohibited by secure boot policy",
 )
 GRUB_CONTINUE_PATTERN = "(?i)press any key to continue"
+KEY_UP = "\x1b[A"
+KEY_DOWN = "\x1b[B"
 
 logger = logging.getLogger(__name__)
 
@@ -52,14 +51,6 @@ def _get_target_image(request, duthost):
     target_version = inactive_images[0]
     logger.info("Using preinstalled inactive image %s for the tampered-kernel test", target_version)
     return None, target_version
-
-
-# Resolve the TCP serial port assigned to the KVM from the test inventory.
-def _get_serial_port(request, duthost):
-    host_vars = get_host_visible_vars(get_inventory_files(request), duthost.hostname)
-    serial_port = host_vars.get("serial_port") if host_vars else None
-    pytest_assert(serial_port, "The KVM inventory does not define a serial_port")
-    return serial_port
 
 
 # Locate the kernel installed under the inactive target image.
@@ -124,44 +115,54 @@ PY
     pytest_assert(original_hash != tampered_hash, "The target kernel was not modified")
 
 
+def _wait_for_console_pattern(duthost_console, pattern, occurrence=1):
+    output = ""
+    for unused in range(occurrence):
+        output += duthost_console.read_until_pattern(
+            pattern=pattern,
+            read_timeout=CONSOLE_CAPTURE_TIMEOUT,
+        )
+    return output
+
+
+def _select_grub_entry(duthost_console, current_index, target_index):
+    offset = target_index - current_index
+    key = KEY_DOWN if offset > 0 else KEY_UP
+    for unused in range(abs(offset)):
+        duthost_console.write_channel(key)
+    duthost_console.write_channel(duthost_console.RETURN)
+    time.sleep(1)
+
+
 # Select the tampered image, then the known-good image after Secure Boot rejects it.
-def _start_console_boot_sequence(
-    vmhost,
-    duthost,
-    serial_port,
+def _run_console_boot_sequence(
+    duthost_console,
     target_index,
     original_index,
     original_image,
 ):
-    console_log = "/tmp/secure_boot_{}_console.log".format(duthost.hostname)
-    return start_grub_entry_sequence(
-        vmhost,
-        serial_port,
-        original_index,
-        target_index,
-        original_index,
-        original_index,
-        menu_pattern=original_image,
-        menu_occurrence=2,
-        wait_pattern=GRUB_CONTINUE_PATTERN,
-        acknowledge_wait_pattern=True,
-        timeout=CONSOLE_CAPTURE_TIMEOUT,
-        log_path=console_log,
+    menu_pattern = re.escape(original_image)
+    console_output = _wait_for_console_pattern(
+        duthost_console,
+        menu_pattern,
+        occurrence=2,
     )
+    _select_grub_entry(duthost_console, original_index, target_index)
 
-
-# Stop the exact capture process and return all serial output collected so far.
-def _stop_console_capture(vmhost, capture_pid, console_log):
-    if capture_pid:
-        vmhost.shell("kill {}".format(capture_pid), module_ignore_errors=True)
-    result = vmhost.shell(
-        "LC_ALL=C tr -cd '\\11\\12\\15\\40-\\176' < {}".format(shlex.quote(console_log)),
-        module_ignore_errors=True,
+    console_output += _wait_for_console_pattern(
+        duthost_console,
+        GRUB_CONTINUE_PATTERN,
     )
-    pytest_assert(result.get("rc") == 0, "Failed to read the KVM serial console log: {}".format(
-        result.get("msg", result.get("stderr", "unknown error"))
-    ))
-    return result["stdout"]
+    time.sleep(1)
+    duthost_console.write_channel(duthost_console.RETURN)
+
+    console_output += _wait_for_console_pattern(
+        duthost_console,
+        menu_pattern,
+        occurrence=2,
+    )
+    _select_grub_entry(duthost_console, original_index, original_index)
+    return console_output
 
 
 # Power-cycle the KVM so it boots the unchanged default image.
@@ -206,7 +207,14 @@ def _recover_kvm(vmhost, duthost, localhost):
 
 
 # Verify that GRUB refuses to boot a kernel whose signed payload was modified.
-def test_tampered_kernel_is_rejected(duthost, localhost, vmhost, request, tbinfo):
+def test_tampered_kernel_is_rejected(
+    duthost,
+    duthost_console,
+    localhost,
+    vmhost,
+    request,
+    tbinfo,
+):
     """Verify that Secure Boot prevents a tampered kernel from booting."""
     if duthost.facts["asic_type"] != "vs":
         pytest.skip("The initial tampered kernel test supports KVM only")
@@ -216,12 +224,6 @@ def test_tampered_kernel_is_rejected(duthost, localhost, vmhost, request, tbinfo
     if not vmhost:
         pytest.skip("The KVM host is unavailable")
 
-    telnet = vmhost.shell("command -v telnet", module_ignore_errors=True)
-    pytest_assert(telnet["rc"] == 0, "The KVM host requires telnet to capture the serial console")
-    pexpect = vmhost.shell("python3 -c 'import pexpect'", module_ignore_errors=True)
-    pytest_assert(pexpect["rc"] == 0, "The KVM host requires the Python pexpect module")
-
-    serial_port = _get_serial_port(request, duthost)
     image_info = duthost.get_image_info()
     original_image = image_info["current"]
     installed_images = image_info["installed_list"]
@@ -231,8 +233,6 @@ def test_tampered_kernel_is_rejected(duthost, localhost, vmhost, request, tbinfo
     installed_by_test = False
     kernel_path = None
     backup_path = None
-    capture_pid = None
-    console_log = None
     reboot_attempted = False
 
     try:
@@ -253,26 +253,14 @@ def test_tampered_kernel_is_rejected(duthost, localhost, vmhost, request, tbinfo
         original_index = _get_grub_entry_index(duthost, original_image)
         target_index = _get_grub_entry_index(duthost, target_version)
 
-        capture_pid, console_log = _start_console_boot_sequence(
-            vmhost,
-            duthost,
-            serial_port,
+        reboot_attempted = True
+        duthost.shell("sudo nohup sh -c 'sleep 2; reboot' >/dev/null 2>&1 &")
+        console_output = _run_console_boot_sequence(
+            duthost_console,
             target_index,
             original_index,
             original_image,
         )
-        reboot_attempted = True
-        duthost.shell("sudo nohup sh -c 'sleep 2; reboot' >/dev/null 2>&1 &")
-
-        shutdown_result = localhost.wait_for(
-            host=duthost.mgmt_ip,
-            port=22,
-            state="stopped",
-            delay=5,
-            timeout=60,
-            module_ignore_errors=True,
-        )
-        pytest_assert(not shutdown_result.is_failed, "KVM did not shut down for the tampered-kernel boot")
 
         recovery_startup = localhost.wait_for(
             host=duthost.mgmt_ip,
@@ -283,13 +271,6 @@ def test_tampered_kernel_is_rejected(duthost, localhost, vmhost, request, tbinfo
             module_ignore_errors=True,
         )
         if recovery_startup.is_failed:
-            stopped_capture_pid = capture_pid
-            capture_pid = None
-            console_output = _stop_console_capture(
-                vmhost,
-                stopped_capture_pid,
-                console_log,
-            )
             pytest_assert(
                 False,
                 "KVM did not boot the known-good image after rejection:\n{}".format(
@@ -297,9 +278,6 @@ def test_tampered_kernel_is_rejected(duthost, localhost, vmhost, request, tbinfo
                 ),
             )
 
-        stopped_capture_pid = capture_pid
-        capture_pid = None
-        console_output = _stop_console_capture(vmhost, stopped_capture_pid, console_log)
         normalized_console = console_output.lower()
         pytest_assert(
             any(message in normalized_console for message in KERNEL_REJECTION_MESSAGES),
@@ -309,9 +287,6 @@ def test_tampered_kernel_is_rejected(duthost, localhost, vmhost, request, tbinfo
         pytest_assert(current_image == original_image, "KVM did not recover to the original image")
         reboot_attempted = False
     finally:
-        if capture_pid and console_log:
-            _stop_console_capture(vmhost, capture_pid, console_log)
-
         if reboot_attempted:
             _recover_kvm(vmhost, duthost, localhost)
 
@@ -330,12 +305,3 @@ def test_tampered_kernel_is_rejected(duthost, localhost, vmhost, request, tbinfo
                 module_ignore_errors=True,
             )
             pytest_assert(remove_result["rc"] == 0, "Failed to remove the image installed by the test")
-
-        if console_log:
-            vmhost.command(
-                "rm -f {} {}".format(
-                    shlex.quote(console_log),
-                    shlex.quote(GRUB_CONSOLE_SCRIPT_PATH),
-                ),
-                module_ignore_errors=True,
-            )
