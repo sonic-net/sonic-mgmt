@@ -4,6 +4,7 @@ from tests.snappi_tests.files.helper import get_fabric_mapping, load_port_stats,
     infer_ecmp_backplane_ports, set_cir_cisco_8000, get_npu_voq_queue_counters, compute_expected_packets
 from tests.common.snappi_tests.traffic_generation import setup_base_traffic_config, generate_test_flows
 from tests.snappi_tests.ecn.files.helper import run_traffic
+from tests.common.snappi_tests.snappi_test_params import SnappiTestParams  # noqa: F401
 from tests.common.snappi_tests.common_helpers import traffic_flow_mode, get_all_port_stats
 import time
 
