@@ -90,6 +90,25 @@ def check_sonic_version(duthost, target_version):
         "Upgrade sonic failed: target={} current={}".format(target_version, current_version)
 
 
+def get_inactive_images(duthost):
+    """Return installed SONiC images other than the running image."""
+    image_info = duthost.get_image_info()
+    return [
+        image
+        for image in image_info["installed_list"]
+        if image != image_info["current"]
+    ]
+
+
+def set_default_and_next_image(duthost, image):
+    """Select an image for both the next reboot and subsequent boots."""
+    duthost.command(
+        argv=["sudo", "sonic-installer", "set-default", image],
+        module_ignore_errors=True,
+    )
+    duthost.command(argv=["sudo", "sonic-installer", "set-next-boot", image])
+
+
 def install_sonic(duthost, image_url, tbinfo, skip_platform_check=False):
     new_route_added = False
     if urlparse(image_url).scheme in ('http', 'https',):
