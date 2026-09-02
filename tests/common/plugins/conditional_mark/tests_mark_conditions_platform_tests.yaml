@@ -1040,37 +1040,7 @@ platform_tests/broadcom/test_ser.py:
 ####################################
 #####  cli/test_pddf_ledutil.py  #####
 ####################################
-platform_tests/cli/test_pddf_ledutil.py::test_pddf_ledutil_leds:
-  skip:
-    reason: "LED util tests are not supported on BMC"
-    conditions:
-      - "'bmc' in topo_type"
-
-platform_tests/cli/test_pddf_ledutil.py::test_getstatusled_valid_led:
-  skip:
-    reason: "LED util tests are not supported on BMC"
-    conditions:
-      - "'bmc' in topo_type"
-
-platform_tests/cli/test_pddf_ledutil.py::test_getstatusled_invalid_led:
-  skip:
-    reason: "LED util tests are not supported on BMC"
-    conditions:
-      - "'bmc' in topo_type"
-
-platform_tests/cli/test_pddf_ledutil.py::test_setstatusled_valid_led_valid_color:
-  skip:
-    reason: "LED util tests are not supported on BMC"
-    conditions:
-      - "'bmc' in topo_type"
-
-platform_tests/cli/test_pddf_ledutil.py::test_setstatusled_valid_led_invalid_color:
-  skip:
-    reason: "LED util tests are not supported on BMC"
-    conditions:
-      - "'bmc' in topo_type"
-
-platform_tests/cli/test_pddf_ledutil.py::test_setstatusled_invalid_led:
+platform_tests/cli/test_pddf_ledutil.py:
   skip:
     reason: "LED util tests are not supported on BMC"
     conditions:
