@@ -4772,7 +4772,7 @@ reboot/test_reboot_blocking_mode.py:
 #######################################
 #####           redfish           #####
 #######################################
-redfish/test_redfish_computer_reset.py::TestRedfishComputerReset::test_reset_power_cycle
+redfish/test_redfish_computer_reset.py::TestRedfishComputerReset::test_reset_power_cycle:
   xfail:
     reason: "Xfail due to GitHub issue https://github.com/sonic-net/sonic-mgmt/issues/27212"
     conditions:
