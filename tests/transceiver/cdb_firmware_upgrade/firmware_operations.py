@@ -257,12 +257,10 @@ def perform_firmware_download(duthost, port, port_context, metadata_map,
     if err:
         return [err]
 
-    flap_sentinels = {}
     if expect_link_up:
         down_subports = wait_ports_oper_status(duthost, subports, "up", 0)
         if down_subports:
             return [f"sub-port not up before download: {failure}" for failure in down_subports]
-        flap_sentinels = capture_flap_sentinels(duthost, subports)
 
     failures = []
     with thermalctld_stopped_if_required(duthost, cdb_attrs, failures):
@@ -279,6 +277,7 @@ def perform_firmware_download(duthost, port, port_context, metadata_map,
                 failures.append(dmesg_start_err)
             else:
                 timeout_sec = cdb_attrs["firmware_download_timeout_minutes"] * 60
+                flap_sentinels = capture_flap_sentinels(duthost, subports) if expect_link_up else {}
                 elapsed, dl_err = cli_helpers.sfputil_firmware_download(duthost, port, fwfile, timeout_sec)
                 logger.info("Port %s: firmware download %s took %ss", port, target_version, elapsed)
 
