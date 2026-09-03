@@ -2578,6 +2578,12 @@ generic_config_updater/add_cluster/test_port_speed_upgrade.py:
       - "switch_type != 'chassis-packet'"
       - "hwsku not in ['x86_64-88_lc0_36fh-r0']"
 
+generic_config_updater/add_cluster/test_update_cable_length.py:
+  skip:
+    reason: This test case either cannot pass or should be skipped on virtual chassis
+    conditions:
+      - asic_type in ['vs']
+
 generic_config_updater/test_apply_patch_perf.py:
   xfail:
     reason: "This test has been failing since https://github.com/sonic-net/sonic-buildimage/pull/26584, awaiting feature owner to triage, tracked by https://github.com/sonic-net/sonic-mgmt/issues/24984"
