@@ -460,7 +460,8 @@ def check_fan_status(duthost, cmd):
     fans = verify_show_platform_fan_output(duthost, fan_status_output_lines)
 
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-    if not fans and config_facts['DEVICE_METADATA']['localhost'].get('switch_type', '') == 'dpu':
+    if not fans and (config_facts['DEVICE_METADATA']['localhost'].get('switch_type', '') == 'dpu'
+                     or duthost.is_bmc()):
         return True
     if duthost.facts["asic_type"] == "vs":
         return True
@@ -700,6 +701,8 @@ def test_show_platform_pcieinfo(duthosts, enum_rand_one_per_hwsku_hostname):
     @summary: Verify output of `show platform pcieinfo`
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    if duthost.is_bmc():
+        pytest.skip("PCIe config (pcie.yaml) is not provided on the BMC, skip the case on BMC")
 
     cmd = "show platform pcieinfo -c"
 
