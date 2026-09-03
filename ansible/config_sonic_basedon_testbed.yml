@@ -737,6 +737,7 @@
           hwsku: "{{ hwsku }}"
           vm_configuration: "{{ configuration if topo == 't1-filterleaf-lag' else omit }}"
           is_lit_mode: "{{ is_lit_mode | default(true) }}"
+          num_asics: "{{ num_asics }}"
           npu_index: "{{ dut_index | default(0) | int }}"
           duts_list: "{{ testbed_facts['duts'] | default([]) }}"
           dut_loopbacks: "{{ topology.DUT.loopback | default({}) }}"
