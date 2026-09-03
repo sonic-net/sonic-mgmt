@@ -644,6 +644,7 @@ t1-lag-vpp:
   - bgp/test_bgp_session.py
   - bgp/test_bgp_operation_in_ro.py
   - bgp/test_bgp_queue.py
+  - copp/test_copp.py
   - bgp/test_bgp_session_flap.py
   - bgp/test_ipv6_nlri_over_ipv4.py
   - bgp/test_bgp_allow_list.py
