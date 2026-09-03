@@ -1,4 +1,6 @@
 import logging
+from collections import namedtuple
+
 import pytest
 
 from tests.common.fixtures.grpc_fixtures import (  # noqa: F401
@@ -12,7 +14,7 @@ from tests.common.helpers.upgrade_helpers import (
 )
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.platform.device_utils import get_configured_dpu_names
+from tests.common.platform.device_utils import resolve_upgrade_dpu_indices
 
 logger = logging.getLogger(__name__)
 
@@ -30,55 +32,57 @@ def _build_dpu_metadata(dpu_index: int):
     ]
 
 
+# Unified parameter set shared by all SmartSwitch upgrade tests.
+#   DPU image/version : --target_image_list / --target_version
+#   NPU image/version : --ss_npu_target_image / --ss_npu_target_version
+#   ss_target_index   : single DPU index (default 3)
+#   dpu_indices       : DPU indices to upgrade (--ss_target_indices if given, else admin-up DPUs from CONFIG_DB)
+SmartSwitchUpgradeParams = namedtuple("SmartSwitchUpgradeParams", [
+    "upgrade_type",
+    "from_image",
+    "dpu_to_image",
+    "dpu_to_version",
+    "npu_to_image",
+    "npu_to_version",
+    "dut_image_path",
+    "ss_target_index",
+    "dpu_indices",
+    "reboot_ready_timeout",
+    "max_workers",
+])
+
+
 @pytest.fixture(scope="module")
-def smartswitch_gnoi_upgrade_lists(request, duthost):
+def smartswitch_upgrade_params(request, duthost):
+    """Unified parameters for all SmartSwitch upgrade tests.
+
+    DPU indices come from the explicit --ss_target_indices option when provided;
+    otherwise they are the admin-up DPU indices discovered from the CONFIG_DB
+    DPU(S) table (parsed from the actual DPU identities).
     """
-    Same style as tests/upgrade_path/test_upgrade_gnoi.py:
-      - upgrade_type: warm/cold -> passed into cfg.upgrade_type (helper maps to reboot method)
-      - target_image_list: used for TransferToRemote remote_download.path
-      - target_version: used for SetPackage package.version
-    SmartSwitch-only:
-      - ss_target_index: single DPU index
-      - ss_target_indices: comma-separated list for parallel
-      - ss_dut_image_path: local_path on DPU
-      - ss_reboot_ready_timeout: wait for gNOI Time back
-      - ss_max_workers: thread count for parallel
-    """
-    upgrade_type = request.config.getoption("upgrade_type")          # "warm" / "cold"
-    from_image = request.config.getoption("base_image_list")
-    to_image = request.config.getoption("target_image_list")
-    to_version = request.config.getoption("target_version")
-
-    ss_target_index = request.config.getoption("ss_target_index")          # int
-    ss_target_indices = request.config.getoption("ss_target_indices")      # "0,1,2,3"
-    ss_reboot_ready_timeout = 600
-    ss_max_workers = request.config.getoption("ss_max_workers")
-
-    ss_dut_image_path = "/var/tmp/sonic_image.bin"
-
-    # defaults
+    ss_target_index = request.config.getoption("ss_target_index")
     if ss_target_index in (None, ""):
         ss_target_index = 3
 
-    names = get_configured_dpu_names(duthost)
-    parsed_indices = None
-    if not ss_target_indices:
-        parsed_indices = list(range(len(names)))        # 4 -> [0, 1, 2, 3]]
-    else:
-        parsed_indices = [int(x.strip()) for x in ss_target_indices.split(",") if x.strip()]
-        if not parsed_indices:
-            parsed_indices = None
+    ss_max_workers = request.config.getoption("ss_max_workers")
 
-    return (
-        upgrade_type,
-        from_image,
-        to_image,
-        to_version,
-        ss_dut_image_path,
-        int(ss_target_index),
-        parsed_indices,
-        int(ss_reboot_ready_timeout),
-        int(ss_max_workers) if ss_max_workers else None,
+    ss_target_indices = request.config.getoption("ss_target_indices")
+    # Explicit --ss_target_indices wins; otherwise auto-discover admin-up DPUs from CONFIG_DB.
+    dpu_indices = resolve_upgrade_dpu_indices(duthost, ss_target_indices)
+    logger.debug("smartswitch_upgrade_params: dpu_indices=%s", dpu_indices)
+
+    return SmartSwitchUpgradeParams(
+        upgrade_type=request.config.getoption("upgrade_type"),
+        from_image=request.config.getoption("base_image_list"),
+        dpu_to_image=request.config.getoption("target_image_list"),
+        dpu_to_version=request.config.getoption("target_version"),
+        npu_to_image=request.config.getoption("ss_npu_target_image"),
+        npu_to_version=request.config.getoption("ss_npu_target_version"),
+        dut_image_path="/var/tmp/sonic_image.bin",
+        ss_target_index=int(ss_target_index),
+        dpu_indices=dpu_indices,
+        reboot_ready_timeout=600,
+        max_workers=int(ss_max_workers) if ss_max_workers else None,
     )
 
 
@@ -86,17 +90,21 @@ def smartswitch_gnoi_upgrade_lists(request, duthost):
 def test_upgrade_one_dpu_via_gnoi(
     localhost, duthosts, ptfhost, enum_rand_one_per_hwsku_hostname,
     tbinfo, request,
-    smartswitch_gnoi_upgrade_lists, ptf_gnoi  # noqa: F811
+    smartswitch_upgrade_params, ptf_gnoi  # noqa: F811
 ):
     """
     SmartSwitch: upgrade ONE DPU via gNOI (plaintext + DPU routing headers).
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
-    (
-        upgrade_type, from_image, to_image, to_version,
-        dut_image_path, dpu_index, _, reboot_ready_timeout, _
-    ) = smartswitch_gnoi_upgrade_lists
+    p = smartswitch_upgrade_params
+    upgrade_type = p.upgrade_type
+    from_image = p.from_image
+    to_image = p.dpu_to_image
+    to_version = p.dpu_to_version
+    dut_image_path = p.dut_image_path
+    dpu_index = p.ss_target_index
+    reboot_ready_timeout = p.reboot_ready_timeout
 
     assert to_image, "target_image_list must be set (used as TransferToRemote remote_download.path)"
     assert to_version, "target_version must be set (used as SetPackage package.version)"
@@ -134,7 +142,7 @@ def test_upgrade_one_dpu_via_gnoi(
 def test_upgrade_multiple_dpus_via_gnoi_parallel(
     localhost, duthosts, ptfhost, enum_rand_one_per_hwsku_hostname,
     tbinfo, request,
-    smartswitch_gnoi_upgrade_lists, ptf_gnoi  # noqa: F811
+    smartswitch_upgrade_params, ptf_gnoi  # noqa: F811
 ):
     """
     SmartSwitch: upgrade MULTIPLE DPUs via gNOI in parallel.
@@ -144,10 +152,14 @@ def test_upgrade_multiple_dpus_via_gnoi_parallel(
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
-    (
-        upgrade_type, from_image, to_image, to_version,
-        dut_image_path, _, dpu_indices, reboot_ready_timeout, max_workers
-    ) = smartswitch_gnoi_upgrade_lists
+    p = smartswitch_upgrade_params
+    upgrade_type = p.upgrade_type
+    to_image = p.dpu_to_image
+    to_version = p.dpu_to_version
+    dut_image_path = p.dut_image_path
+    dpu_indices = p.dpu_indices
+    reboot_ready_timeout = p.reboot_ready_timeout
+    max_workers = p.max_workers
 
     if not dpu_indices:
         pytest.skip("--ss-target-indices not set; skipping parallel multi-DPU gNOI upgrade")
@@ -187,43 +199,11 @@ def test_upgrade_multiple_dpus_via_gnoi_parallel(
     )
 
 
-@pytest.fixture(scope="module")
-def smartswitch_full_upgrade_lists(request, duthost):
-    """
-    Parameters for the full SmartSwitch upgrade test.
-    DPU image/version come from --target_image_list / --target_version.
-    NPU image/version come from --ss_npu_target_image / --ss_npu_target_version.
-    """
-    upgrade_type = request.config.getoption("upgrade_type")
-    dpu_to_image = request.config.getoption("target_image_list")
-    dpu_to_version = request.config.getoption("target_version")
-    npu_to_image = request.config.getoption("ss_npu_target_image")
-    npu_to_version = request.config.getoption("ss_npu_target_version")
-    ss_reboot_ready_timeout = 600
-
-    # Try to get DPU indices from CONFIG_DB first.
-    # If that returns empty (DPU table not populated), fall back to --ss_target_indices.
-    names = get_configured_dpu_names(duthost)
-    if names:
-        dpu_indices = list(range(len(names)))
-    else:
-        ss_target_indices = request.config.getoption("ss_target_indices")
-        if not ss_target_indices:
-            pytest.fail(
-                "Could not determine DPU indices: CONFIG_DB DPU table is empty and "
-                "--ss_target_indices was not provided. Pass e.g. --ss_target_indices=0,1,2,3"
-            )
-        dpu_indices = [int(x.strip()) for x in ss_target_indices.split(",") if x.strip()]
-
-    return (upgrade_type, dpu_to_image, dpu_to_version, npu_to_image, npu_to_version,
-            dpu_indices, ss_reboot_ready_timeout)
-
-
 @pytest.mark.device_type("smartswitch")
 def test_upgrade_smartswitch_all_dpus_then_npu(
     localhost, duthosts, ptfhost, enum_rand_one_per_hwsku_hostname,
     tbinfo, conn_graph_facts, xcvr_skip_list, request,
-    smartswitch_full_upgrade_lists, gnmi_tls  # noqa: F811
+    smartswitch_upgrade_params, gnmi_tls  # noqa: F811
 ):
     """
     Full SmartSwitch upgrade: stage all DPUs first, then upgrade the NPU.
@@ -245,14 +225,25 @@ def test_upgrade_smartswitch_all_dpus_then_npu(
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
-    (upgrade_type, dpu_to_image, dpu_to_version,
-     npu_to_image, npu_to_version,
-     dpu_indices, reboot_ready_timeout) = smartswitch_full_upgrade_lists
+    p = smartswitch_upgrade_params
+    upgrade_type = p.upgrade_type
+    dpu_to_image = p.dpu_to_image
+    dpu_to_version = p.dpu_to_version
+    npu_to_image = p.npu_to_image
+    npu_to_version = p.npu_to_version
+    dpu_indices = p.dpu_indices
+    reboot_ready_timeout = p.reboot_ready_timeout
+    dut_image_path = p.dut_image_path
+
+    if not dpu_indices:
+        pytest.fail(
+            "Could not determine DPU indices: CONFIG_DB DPU(S) table is empty or no "
+            "configured DPU has a verifiable CHASSIS_MODULE admin_status of 'up', and "
+            "--ss_target_indices was not provided. Pass e.g. --ss_target_indices=0,1,2,3"
+        )
 
     assert dpu_to_image, "--target_image_list is required (DPU image URL)"
     assert npu_to_image, "--ss_npu_target_image is required (NPU image URL)"
-
-    dut_image_path = "/var/tmp/sonic_image.bin"
 
     # ------------------------------------------------------------------
     # Phase 1: Stage image on all DPUs in parallel (no reboot yet).
