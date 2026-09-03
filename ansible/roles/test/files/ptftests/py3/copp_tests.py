@@ -42,6 +42,7 @@ import ptf.testutils as testutils
 
 from ptf.base_tests import BaseTest
 from ptf import config
+from ptf.mask import Mask
 
 
 class ControlPlaneBaseTest(BaseTest):
@@ -189,10 +190,29 @@ class ControlPlaneBaseTest(BaseTest):
             time.sleep(1.0 / float(self.default_server_send_rate_limit_pps))
 
         self.log("Sent out %d packets in %ds" % (send_count, self.DEFAULT_SEND_INTERVAL_SEC))
+        # The policer only emits trapped frames while the send loop pressures it,
+        # so the send-loop duration is the correct rx_pps divisor. Capture it here,
+        # before the drain sleep and packet-parse overhead below inflate the window
+        # (and deflate the measured rate toward the PPS_LIMIT_MIN boundary).
+        recv_window_sec = (datetime.datetime.now() - start_time).total_seconds()
         # Wait a little bit for all the packets to make it through
         time.sleep(self.DEFAULT_RECEIVE_WAIT_TIME)
+        # Wildcard the outer Ether.src field when matching. macsec.py:macsec_send
+        # overrides the outer source MAC to the peer's MAC for the Broadcom ASIC
+        # ingress-SCI quirk, so the wire frame -- and the trapped frame that comes
+        # back through swap_syncd -- carries peer_MAC instead of the value used to
+        # build `packet`. On non-MACsec testbeds the mask is a no-op (incoming
+        # frame's src already equals packet.src).
+        # `packet` is bytes here (one_port_test passes bytes(packet)); rehydrate
+        # before wrapping in Mask. Some tests use simple_eth_packet with an
+        # eth_type < 0x0600 (e.g. UDLD uses 0x0067 as 802.3 length), which
+        # scapy parses as Dot3, not Ether -- use the parsed outermost layer's
+        # class so the Mask field lookup succeeds for both encapsulations.
+        parsed = scapy.Ether(packet)
+        match_pkt = Mask(parsed)
+        match_pkt.set_do_not_care_scapy(type(parsed), "src")
         recv_count = testutils.count_matched_packets_all_ports(
-            self, packet, [recv_intf[1]], recv_intf[0], timeout=self.PTF_TIMEOUT)
+            self, match_pkt, [recv_intf[1]], recv_intf[0], timeout=self.PTF_TIMEOUT)
         self.log("Received %d packets after sleep %ds" % (recv_count, self.DEFAULT_RECEIVE_WAIT_TIME))
 
         ptf_tx_count = int(post_test_ptf_tx_counter[1] - pre_test_ptf_tx_counter[1])
@@ -221,7 +241,28 @@ class ControlPlaneBaseTest(BaseTest):
         time_delta = second_capture_time - first_capture_time
         time_delta_ms = (time_delta.microseconds + time_delta.seconds * 10**6) / 1000
         tx_pps = int(nn_tx_count / (float(time_delta_ms) / 1000))
-        rx_pps = int(nn_rx_count / (float(time_delta_ms) / 1000))
+        # Count only test-protocol-classified packets, not raw interface receives.
+        # On MACsec-enabled links the ptftests/macsec.py dp_poll wrapper decrypts
+        # background control-plane frames (BGP keepalives, MKA hellos, LLDP) and
+        # delivers them to the dataplane, where they get tallied into nn_rx_count
+        # but never match the test packet template. Using nn_rx_count made the
+        # NoPolicyApplied constraint (rx_pps <= PPS_LIMIT_MIN = 0) fail with a
+        # couple of pps of background noise even when zero protocol responses
+        # came back. recv_count comes from count_matched_packets_all_ports and
+        # only includes frames matching the expected reply.
+        #
+        # recv_count is accumulated by the dataplane queue from dataplane.flush()
+        # until count_matched_packets_all_ports returns, not over the bracketed
+        # time_delta_ms (~20s middle window) that nn_tx/nn_rx counters use, so
+        # we divide by the wall-clock recv window captured above.
+        # Keep the original nn-counter measurement on non-MACsec testbeds:
+        # matched counting is only needed where decrypted background frames
+        # pollute nn_rx_count, and some trap paths may legitimately mutate
+        # the returned frame beyond the masked src field.
+        if getattr(macsec, 'MACSEC_INFOS', None):
+            rx_pps = int(recv_count / recv_window_sec) if recv_window_sec > 0 else 0
+        else:
+            rx_pps = int(nn_rx_count / (float(time_delta_ms) / 1000))
 
         return send_count, recv_count, time_delta, time_delta_ms, tx_pps, rx_pps
 

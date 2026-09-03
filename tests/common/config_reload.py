@@ -295,11 +295,22 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         # Extend ignore fabric port msgs for T2 chassis with DNX chipset on Linecards
         ignore_t2_syslog_msgs(sonic_host)
 
-    # Retrieve the enable_macsec passed by user for this test run
-    # If macsec is enabled, use the override option to get macsec profile from golden config
-    request = sonic_host.duthosts.request
+    # If MACsec is in play, use the override option so load_minigraph re-applies
+    # the golden config that carries MACSEC_PROFILE/PORT.macsec. Detect it from
+    # the DUT itself (any PORT.macsec binding in CONFIG_DB) as well as from the
+    # --enable_macsec option: always-on MACsec testbeds rely on auto-detection
+    # and pass no flag, and a plain load_minigraph would silently strip MACsec
+    # and then persist the stripped config via 'config save' below.
+    macsec_en = False
+    request = getattr(sonic_host.duthosts, "request", None)
     if request:
         macsec_en = request.config.getoption("--enable_macsec", default=False)
+    if not macsec_en:
+        out = sonic_host.shell(
+            "sonic-db-cli CONFIG_DB KEYS 'PORT|*' | while read k; do "
+            "sonic-db-cli CONFIG_DB HGET \"$k\" macsec; done | grep -c . || true",
+            module_ignore_errors=True)
+        macsec_en = bool(int((out.get("stdout") or "0").strip() or 0))
 
     if config_source == 'minigraph':
         if start_dynamic_buffer and sonic_host.facts['asic_type'] == 'mellanox':
@@ -326,6 +337,25 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
                 'sonic-db-cli CONFIG_DB hset "DEVICE_METADATA|localhost" zebra_nexthop {}'.format(zebra_nexthop)
             )
         time.sleep(60)
+
+        # Restore MACsec on PortChannel-member ports after load_minigraph.  On
+        # images without the wpa_supplicant CP state-machine fix
+        # (sonic-net/sonic-wpa-supplicant#122) MKA can wedge on PC-member ports;
+        # the bootstrap detaches the members, re-pokes PORT.macsec, waits for
+        # MACSEC_PORT_TABLE.state=ok, and reattaches.  No-op when there are no
+        # PC-member macsec ports or MKA is already ok on them; the bootstrap
+        # raises when MKA never establishes.  Log that at ERROR but still finish the reload
+        # (bgp startup / config save below), so a MACsec failure doesn't also
+        # leave BGP administratively down with unsaved config.
+        # Only this minigraph reload path restores PC-member MACsec; plain
+        # 'config reload' sources are not covered.
+        if is_dut:
+            from tests.common.macsec.macsec_pc_bootstrap import bootstrap_pc_member_macsec
+            try:
+                bootstrap_pc_member_macsec(sonic_host)
+            except Exception:
+                logger.error("MACsec PC bootstrap failed", exc_info=True)
+
         if start_bgp:
             sonic_host.shell('config bgp startup all')
         if is_buffer_model_dynamic:

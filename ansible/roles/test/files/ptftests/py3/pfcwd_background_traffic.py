@@ -23,13 +23,17 @@
         --relax --platform remote
 '''
 
+# macsec must be imported BEFORE any `from ptf.testutils import ...` that pulls
+# in send_packet/dp_poll: it monkeypatches those functions in ptf.testutils to
+# MACsec-encrypt injected frames / decrypt sniffed frames on macsec-enabled
+# ports. A from-import binds the original object if it runs first.
+import macsec  # noqa F401
 from ptf.testutils import test_params_get, verify_packet, simple_udp_packet
 from ptf.base_tests import BaseTest
 from scapy.all import sendp
 import ptf.packet as scapy
 from ptf.mask import Mask
 import ptf
-import macsec  # noqa F401
 
 
 class BG_pkt_sender(BaseTest):

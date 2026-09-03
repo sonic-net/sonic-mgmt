@@ -48,6 +48,13 @@ SRC_IP_RANGE = ['8.0.0.0', '8.255.255.255']
 DST_IP_RANGE = ['9.0.0.0', '9.255.255.255']
 SRC_IPV6_RANGE = ['20D0:A800:0:00::', '20D0:FFFF:0:00::FFFF']
 DST_IPV6_RANGE = ['20D0:A800:0:01::', '20D0:FFFF:0:01::FFFF']
+
+# T2: outer IPs in the default-route space (8.x/9.x, 20D0:*) so both the exported FIB
+# and the ASIC LPM lookup consistently hit 0.0.0.0/0 [T3-ports] / ::/0 for outer headers.
+T2_VXLAN_OUTER_SRC_IPV4 = '8.0.0.1'
+T2_VXLAN_OUTER_DST_IPV4 = '9.0.0.1'
+T2_VXLAN_OUTER_SRC_IPV6 = '20D0:A800:0:00::1'
+T2_VXLAN_OUTER_DST_IPV6 = '20D0:A800:0:01::1'
 VLANIDS = list(range(1032, 1279))
 VLANIP = '192.168.{}.1/24'
 PTF_QLEN = 20000
@@ -423,9 +430,13 @@ def hash_keys(duthost, tbinfo):
     # In multi asic platform each asic has different hash seed,
     # the same packet coming in different asic
     # could egress out of different port
-    # the hash_test condition for hash_key == ingress_port will fail
-    if duthost.sonichost.is_multi_asic:
-        hash_keys.remove('ingress-port')
+    # the hash_test condition for hash_key == ingress_port will fail.
+    # VoQ (switch_type=voq) exhibits the same per-port hash seed variation
+    # even on single-ASIC platforms, so skip the ingress-port test there too.
+    dut_switch_type = duthost.facts.get('switch_type', '')
+    if duthost.sonichost.is_multi_asic or dut_switch_type == 'voq':
+        if 'ingress-port' in hash_keys:
+            hash_keys.remove('ingress-port')
 
     return hash_keys
 
@@ -668,27 +679,36 @@ def test_ipinip_hash_negative(add_default_route_to_dut, duthosts,           # no
     else:
         src_ip_range = SRC_IPV6_RANGE
         dst_ip_range = DST_IPV6_RANGE
+    ptf_params = {"fib_info_files": fib_files[:3],   # Test at most 3 DUTs
+                  "ptf_test_port_map": ptf_test_port_map_active_active(
+                      ptfhost, tbinfo, duthosts, mux_server_url,
+                      duts_running_config_facts, duts_minigraph_facts,
+                      mux_status_from_nic_simulator()
+                  ),
+                  "hash_keys": hash_keys,
+                  "src_ip_range": ",".join(src_ip_range),
+                  "dst_ip_range": ",".join(dst_ip_range),
+                  "vlan_ids": VLANIDS,
+                  "ignore_ttl": ignore_ttl,
+                  "single_fib_for_duts": single_fib_for_duts,
+                  "ipver": ipver,
+                  "topo_name": tbinfo['topo']['name'],
+                  "topo_type": tbinfo['topo']['type'],
+                  "is_v6_topo": is_ipv6_only_topology(tbinfo),
+                  }
+    if tbinfo['topo']['type'] == 't2':
+        # IPinIPHashTest picks the OUTER header version from is_v6_topo, not ipver.
+        if is_ipv6_only_topology(tbinfo):
+            ptf_params["outer_src_ip"] = T2_VXLAN_OUTER_SRC_IPV6
+            ptf_params["outer_dst_ip"] = T2_VXLAN_OUTER_DST_IPV6
+        else:
+            ptf_params["outer_src_ip"] = T2_VXLAN_OUTER_SRC_IPV4
+            ptf_params["outer_dst_ip"] = T2_VXLAN_OUTER_DST_IPV4
     ptf_runner(ptfhost,
                "ptftests",
                "hash_test.IPinIPHashTest",
                platform_dir="ptftests",
-               params={"fib_info_files": fib_files[:3],   # Test at most 3 DUTs
-                       "ptf_test_port_map": ptf_test_port_map_active_active(
-                           ptfhost, tbinfo, duthosts, mux_server_url,
-                           duts_running_config_facts, duts_minigraph_facts,
-                           mux_status_from_nic_simulator()
-               ),
-                   "hash_keys": hash_keys,
-                   "src_ip_range": ",".join(src_ip_range),
-                   "dst_ip_range": ",".join(dst_ip_range),
-                   "vlan_ids": VLANIDS,
-                   "ignore_ttl": ignore_ttl,
-                   "single_fib_for_duts": single_fib_for_duts,
-                   "ipver": ipver,
-                   "topo_name": tbinfo['topo']['name'],
-                   "topo_type": tbinfo['topo']['type'],
-                   "is_v6_topo": is_ipv6_only_topology(tbinfo),
-               },
+               params=ptf_params,
                log_file=log_file,
                qlen=PTF_QLEN,
                socket_recv_size=16384,
@@ -728,28 +748,37 @@ def test_vxlan_hash(add_default_route_to_dut, duthost, duthosts,                
         src_ip_range = SRC_IPV6_RANGE
         dst_ip_range = DST_IPV6_RANGE
     switch_type = duthosts[0].facts.get('switch_type')
+    vxlan_params = {
+        "fib_info_files": fib_files[:3],   # Test at most 3 DUTs
+        "ptf_test_port_map": ptf_test_port_map_active_active(
+            ptfhost, tbinfo, duthosts, mux_server_url,
+            duts_running_config_facts, duts_minigraph_facts,
+            mux_status_from_nic_simulator()),
+        "hash_keys": hash_keys,
+        "src_ip_range": ",".join(src_ip_range),
+        "dst_ip_range": ",".join(dst_ip_range),
+        "vxlan_dest_port": vxlan_dest_port,
+        "vlan_ids": VLANIDS,
+        "ignore_ttl": ignore_ttl,
+        "single_fib_for_duts": single_fib_for_duts,
+        "switch_type": switch_type,
+        "ipver": vxlan_ipver,
+        "topo_name": tbinfo['topo']['name'],
+        "topo_type": tbinfo['topo']['type'],
+        "is_v6_topo": is_ipv6_only_topology(tbinfo),
+    }
+    if tbinfo['topo']['type'] == 't2':
+        if vxlan_ipver in ("ipv4-ipv4", "ipv4-ipv6"):
+            vxlan_params["outer_src_ip"] = T2_VXLAN_OUTER_SRC_IPV4
+            vxlan_params["outer_dst_ip"] = T2_VXLAN_OUTER_DST_IPV4
+        else:
+            vxlan_params["outer_src_ip"] = T2_VXLAN_OUTER_SRC_IPV6
+            vxlan_params["outer_dst_ip"] = T2_VXLAN_OUTER_DST_IPV6
     ptf_runner(ptfhost,
                "ptftests",
                "hash_test.VxlanHashTest",
                platform_dir="ptftests",
-               params={"fib_info_files": fib_files[:3],   # Test at most 3 DUTs
-                       "ptf_test_port_map": ptf_test_port_map_active_active(
-                                                                    ptfhost, tbinfo, duthosts, mux_server_url,
-                                                                    duts_running_config_facts, duts_minigraph_facts,
-                                                                    mux_status_from_nic_simulator()),
-                       "hash_keys": hash_keys,
-                       "src_ip_range": ",".join(src_ip_range),
-                       "dst_ip_range": ",".join(dst_ip_range),
-                       "vxlan_dest_port": vxlan_dest_port,
-                       "vlan_ids": VLANIDS,
-                       "ignore_ttl": ignore_ttl,
-                       "single_fib_for_duts": single_fib_for_duts,
-                       "switch_type": switch_type,
-                       "ipver": vxlan_ipver,
-                       "topo_name": tbinfo['topo']['name'],
-                       "topo_type": tbinfo['topo']['type'],
-                       "is_v6_topo": is_ipv6_only_topology(tbinfo),
-                       },
+               params=vxlan_params,
                log_file=log_file,
                qlen=PTF_QLEN,
                socket_recv_size=16384,

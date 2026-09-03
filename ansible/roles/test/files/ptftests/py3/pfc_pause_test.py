@@ -11,8 +11,12 @@ import scapy as sc
 
 from ptf.base_tests import BaseTest
 from ptf.mask import Mask
-from ptf.testutils import add_filter, reset_filters, dp_poll, simple_udp_packet, send_packet, test_params_get
+# macsec must be imported BEFORE any `from ptf.testutils import ...` that pulls
+# in send_packet/dp_poll: it monkeypatches those functions in ptf.testutils to
+# MACsec-encrypt injected frames / decrypt sniffed frames on macsec-enabled
+# ports. A from-import binds the original object if it runs first.
 import macsec  # noqa F401
+from ptf.testutils import add_filter, reset_filters, dp_poll, simple_udp_packet, send_packet, test_params_get
 
 
 def udp_filter(pkt_str):
