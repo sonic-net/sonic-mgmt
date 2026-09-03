@@ -106,6 +106,28 @@ def check_lldp_neighbors_present(duthost, port_timeouts, namespaces=None):
 # ──────────────────────────────────────────────────────────────────────
 
 
+def _get_appl_db_port_entries(duthost, ports, namespaces):
+    """Read APPL_DB PORT_TABLE entries once per ASIC namespace."""
+    ports_by_namespace = {}
+    for port in ports:
+        namespace = namespaces.get(port)
+        if port not in namespaces:
+            namespace = db_helpers.resolve_port_namespace(duthost, port)
+        ports_by_namespace.setdefault(namespace, []).append(port)
+
+    entries = {}
+    for namespace, namespace_ports in ports_by_namespace.items():
+        port_table, err = db_helpers.get_db_table(
+            duthost, "APPL_DB", "PORT_TABLE", namespace=namespace, sep=":"
+        )
+        if err:
+            logger.warning("Failed to read APPL_DB PORT_TABLE: %s", err)
+            port_table = {}
+        for port in namespace_ports:
+            entries[port] = port_table.get(port, {})
+    return entries
+
+
 def capture_flap_sentinels(duthost, ports, namespaces=None):
     """
     Snapshot every port's APPL_DB ``PORT_TABLE:<port>`` ``flap_count``/
@@ -125,21 +147,14 @@ def capture_flap_sentinels(duthost, ports, namespaces=None):
     if namespaces is None:
         namespaces = {}
 
-    def _namespace_for(port):
-        if port in namespaces:
-            return namespaces[port]
-        return db_helpers.resolve_port_namespace(duthost, port)
-
-    sentinels = {}
-    for port in ports:
-        port_table = db_helpers.hgetall_dict(
-            duthost, "APPL_DB", f"PORT_TABLE:{port}",
-            namespace=_namespace_for(port)
+    port_entries = _get_appl_db_port_entries(duthost, ports, namespaces)
+    return {
+        port: (
+            port_entries[port].get("flap_count"),
+            port_entries[port].get("last_up_time"),
         )
-        sentinels[port] = (
-            port_table.get("flap_count"), port_table.get("last_up_time")
-        )
-    return sentinels
+        for port in ports
+    }
 
 
 def assert_no_flap_since(
@@ -163,23 +178,16 @@ def assert_no_flap_since(
     if namespaces is None:
         namespaces = {}
 
-    def _namespace_for(port):
-        if port in namespaces:
-            return namespaces[port]
-        return db_helpers.resolve_port_namespace(duthost, port)
-
     window_desc = (
         f"{elapsed_sec}s window" if elapsed_sec is not None
         else "observation window"
     )
 
+    port_entries = _get_appl_db_port_entries(duthost, ports, namespaces)
     per_port = {}
     for port in ports:
         baseline_flap, baseline_up = sentinels.get(port, (None, None))
-        port_table = db_helpers.hgetall_dict(
-            duthost, "APPL_DB", f"PORT_TABLE:{port}",
-            namespace=_namespace_for(port)
-        )
+        port_table = port_entries[port]
         current_flap = port_table.get("flap_count")
         current_up = port_table.get("last_up_time")
 
