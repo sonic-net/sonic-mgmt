@@ -457,16 +457,23 @@ def find_acl_table_bindings_for_ports(full_config, no_leaf_config, namespace, po
             if port in ports and port not in no_leaf_ports:
                 ports_to_add.append(port)
 
-        # Emit one append op per port so existing bindings are preserved.
+        # Emit one append op per port so existing bindings are preserved. When the
+        # entry carries no 'ports' member the member has to be created instead.
+        if not ports_to_add:
+            continue
+
         patches.extend(
-            build_acl_ports_append_patches(namespace, acl_name, ports_to_add, is_multi_asic)
+            build_acl_ports_append_patches(
+                namespace, acl_name, ports_to_add, is_multi_asic,
+                create_member=bool(no_leaf_acl_entry) and "ports" not in no_leaf_acl_entry)
         )
 
     return patches
 
 
-def build_acl_ports_append_patches(namespace, acl_name, ports_to_add, is_multi_asic):
-    """Build RFC 6902 append operations binding ports to an existing ACL_TABLE.
+def build_acl_ports_append_patches(namespace, acl_name, ports_to_add, is_multi_asic,
+                                   create_member=False):
+    """Build RFC 6902 operations binding ports to an existing ACL_TABLE.
 
     Ports are bound with "add /ACL_TABLE/<name>/ports/-", an append. Replacing
     the whole 'ports' list instead would clobber bindings written concurrently
@@ -478,17 +485,28 @@ def build_acl_ports_append_patches(namespace, acl_name, ports_to_add, is_multi_a
         acl_name: ACL_TABLE entry name
         ports_to_add: Ordered list of port names to bind
         is_multi_asic: Whether config uses multi-ASIC structure
+        create_member: True when the target entry has no 'ports' member at all,
+            in which case the member must be created rather than appended to
 
     Returns:
-        list: One append patch operation per port
+        list: One append patch operation per port, or a single operation
+            creating the whole 'ports' member when create_member is set
     """
     escaped_acl_name = escape_json_pointer(acl_name)
     if is_multi_asic and namespace:
-        path = "/{}/ACL_TABLE/{}/ports/-".format(namespace, escaped_acl_name)
+        base_path = "/{}/ACL_TABLE/{}/ports".format(namespace, escaped_acl_name)
     else:
-        path = "/ACL_TABLE/{}/ports/-".format(escaped_acl_name)
+        base_path = "/ACL_TABLE/{}/ports".format(escaped_acl_name)
 
-    return [{"op": "add", "path": path, "value": port} for port in ports_to_add]
+    if create_member:
+        # ConfigDB drops empty lists, so an ACL_TABLE whose every bound port was
+        # removed comes back with no 'ports' member at all. Appending to
+        # "/ports/-" then fails with "member 'ports' not found". Create the
+        # member in a single op; sibling fields such as 'type' and 'stage' are
+        # still left untouched.
+        return [{"op": "add", "path": base_path, "value": list(ports_to_add)}]
+
+    return [{"op": "add", "path": base_path + "/-", "value": port} for port in ports_to_add]
 
 
 def split_existing_acl_table_patches(acl_patches, no_leaf_config, is_multi_asic):
@@ -532,7 +550,9 @@ def split_existing_acl_table_patches(acl_patches, no_leaf_config, is_multi_asic)
             continue
 
         append_patches.extend(
-            build_acl_ports_append_patches(namespace, acl_name, ports_to_add, is_multi_asic)
+            build_acl_ports_append_patches(
+                namespace, acl_name, ports_to_add, is_multi_asic,
+                create_member="ports" not in existing_entry)
         )
 
     return whole_entry_patches, append_patches
