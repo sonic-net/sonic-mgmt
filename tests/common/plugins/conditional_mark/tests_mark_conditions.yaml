@@ -2964,6 +2964,12 @@ gnmi/test_gnmi_countersdb.py:
     conditions:
       - "'bmc' in topo_type"
 
+gnmi/test_gnmi_countersdb_config_reload.py:
+  skip:
+    reason: "Not available in BMC"
+    conditions:
+      - "'bmc' in topo_type"
+
 gnmi/test_gnmi_smartswitch.py:
   skip:
     reason: 'SmartSwitch gNMI tests require SmartSwitch platform, not applicable to BMC'

@@ -369,7 +369,7 @@ gnmi/test_gnmi_countersdb.py::test_gnmi_output:
     conditions:
       - "asic_type in ['vpp']"
 
-gnmi/test_gnmi_countersdb.py::test_gnmi_queue_buffer_cnt:
+gnmi/test_gnmi_countersdb_config_reload.py::test_gnmi_queue_buffer_cnt:
   skip:
     reason: >
             Failed/Errored: To be included
