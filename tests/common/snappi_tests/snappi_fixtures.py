@@ -2505,7 +2505,6 @@ def tgen_port_info(request: pytest.FixtureRequest, snappi_port_selection, get_sn
                 "testbed {}, subtype {} in variables.override.yml".format(
                     testbed, testbed_subtype))
 
-        snappi_ports = get_snappi_ports
         snappi_ports = get_snappi_ports_for_rdma(
             get_snappi_ports,
             rdma_ports,
