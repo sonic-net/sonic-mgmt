@@ -11,7 +11,6 @@ import logging
 
 import pytest
 
-from tests.common.platform.interface_utils import get_pport_presence_data
 from tests.transceiver.attribute_parser.attribute_keys import (
     PHYSICAL_OIR_ATTRIBUTES_KEY,
     SYSTEM_ATTRIBUTES_KEY,
@@ -19,6 +18,15 @@ from tests.transceiver.attribute_parser.attribute_keys import (
 from tests.transceiver.oir import oir_helpers
 
 logger = logging.getLogger(__name__)
+
+_DUT_SCOPED_OIR_ATTRIBUTES = (
+    "ports_under_test",
+    "oir_method",
+    "physical_oir_timeout_min",
+    "simultaneous_oir",
+    "physical_oir_stress_iteration",
+    "hot_swap_ports_under_test",
+)
 
 
 @pytest.fixture(autouse=True, scope="package")
@@ -29,13 +37,36 @@ def _oir_session_prerequisites(presence_verified, links_verified):
 
 @pytest.fixture(scope="session")
 def physical_oir_attributes(port_attributes_dict):
-    """Representative ``PHYSICAL_OIR_ATTRIBUTES`` shard (uniform across ports)."""
-    if not port_attributes_dict:
-        pytest.skip("No transceiver ports in the inventory")
-    attrs = next(iter(port_attributes_dict.values())).get(PHYSICAL_OIR_ATTRIBUTES_KEY, {})
-    if not attrs:
+    """Resolved ``PHYSICAL_OIR_ATTRIBUTES`` shard for each logical port."""
+    attrs_by_port = {
+        port: attrs[PHYSICAL_OIR_ATTRIBUTES_KEY]
+        for port, attrs in port_attributes_dict.items()
+        if attrs.get(PHYSICAL_OIR_ATTRIBUTES_KEY)
+    }
+    if not attrs_by_port:
         pytest.skip("No PHYSICAL_OIR_ATTRIBUTES configured for this DUT")
-    return attrs
+    return attrs_by_port
+
+
+@pytest.fixture(scope="session")
+def physical_oir_dut_attributes(physical_oir_attributes):
+    """DUT/platform-scoped physical OIR settings, identical across port shards."""
+    reference_port, reference_attrs = next(iter(physical_oir_attributes.items()))
+    missing = [key for key in _DUT_SCOPED_OIR_ATTRIBUTES if key not in reference_attrs]
+    if missing:
+        pytest.fail(
+            f"PHYSICAL_OIR_ATTRIBUTES for {reference_port} missing DUT-scoped setting(s): {missing}"
+        )
+
+    dut_attrs = {key: reference_attrs[key] for key in _DUT_SCOPED_OIR_ATTRIBUTES}
+    inconsistent = {
+        port: [key for key, value in dut_attrs.items() if attrs.get(key) != value]
+        for port, attrs in physical_oir_attributes.items()
+    }
+    inconsistent = {port: keys for port, keys in inconsistent.items() if keys}
+    if inconsistent:
+        pytest.fail(f"DUT-scoped PHYSICAL_OIR_ATTRIBUTES differ by port: {inconsistent}")
+    return dut_attrs
 
 
 @pytest.fixture(scope="session")
@@ -45,17 +76,17 @@ def oir_system_attributes(port_attributes_dict):
 
 
 @pytest.fixture(autouse=True, scope="package")
-def _skip_unimplemented_oir_method(physical_oir_attributes):
+def _skip_unimplemented_oir_method(physical_oir_dut_attributes):
     """Only the operator-driven ``manual`` method is implemented today."""
-    method = physical_oir_attributes["oir_method"]
+    method = physical_oir_dut_attributes["oir_method"]
     if method != oir_helpers.OIR_METHOD_MANUAL:
         pytest.skip(f"oir_method '{method}' is not implemented yet")
 
 
 @pytest.fixture(scope="session")
-def oir_pport_to_lports(physical_oir_attributes, get_lport_to_pport_mapping):
+def oir_pport_to_lports(physical_oir_dut_attributes, get_lport_to_pport_mapping):
     """``{physical index: [logical ports]}`` for the configured ``ports_under_test``."""
-    pports = physical_oir_attributes["ports_under_test"]
+    pports = physical_oir_dut_attributes["ports_under_test"]
     if not pports:
         pytest.skip("physical OIR 'ports_under_test' is empty")
     mapping = oir_helpers.resolve_pport_to_lports(get_lport_to_pport_mapping, pports)
@@ -67,17 +98,17 @@ def oir_pport_to_lports(physical_oir_attributes, get_lport_to_pport_mapping):
 
 
 @pytest.fixture(autouse=True)
-def _restore_transceivers(request, duthost, physical_oir_attributes, oir_pport_to_lports):
+def _restore_transceivers(request, duthost, physical_oir_dut_attributes, oir_pport_to_lports):
     """Re-seat any module a test left out of its cage before the next test runs."""
     yield
 
-    presence = get_pport_presence_data(duthost)
+    presence = oir_helpers.get_pport_presence_all_asics(duthost)
     absent = [pport for pport in oir_pport_to_lports if not presence.get(pport)]
     if not absent:
         return
     logger.warning("Physical OIR teardown: re-seating %d module(s) left removed", len(absent))
     failures = oir_helpers.perform_oir(
-        request, duthost, physical_oir_attributes, absent, present=True,
+        request, duthost, physical_oir_dut_attributes, absent, present=True,
         action="INSERT the original transceiver(s) - test teardown",
     )
     if failures:
