@@ -5000,9 +5000,9 @@ sai_qualify:
 #######################################
 #####              saitests         #####
 #######################################
-saitests:
+saitests/:
   skip:
-    reason: "It is not tested for now"
+    reason: "saitests are PTF/unit test scripts, not collected as pytest test cases for BMC"
     conditions:
       - "True"
 
