@@ -107,8 +107,8 @@ function show_help_and_exit() {
     echo "  -e <VAR=value>      set environment variable inside the container (can be used multiple times)"
     echo "  -i <image_id>        specify Docker image to use. This can be an image ID (hashed value) or an image name."
     echo "                       If no value is provided, defaults to the following images in the specified order:"
-    echo "                         1. The local image named \"docker-sonic-mgmt\""
-    echo "                         2. The remote image at \"sonicdev-microsoft.azurecr.io:443/docker-sonic-mgmt:latest\""
+    echo "                         1. The latest remote image at \"sonicdev-microsoft.azurecr.io:443/docker-sonic-mgmt:latest\""
+    echo "                         2. The cached local image named \"docker-sonic-mgmt\" if the remote image cannot be pulled"
     echo "  -d <directory>       specify directory inside container to bind mount to sonic-mgmt root (default: \"/var/src\")"
     echo "  -m <mount_point>     specify directory to bind mount to container"
     echo "  -p <port>            publish container port to the host"
@@ -173,10 +173,11 @@ function pull_docker_image_with_retry() {
 
 function pull_sonic_mgmt_docker_image() {
     if [[ -z "${IMAGE_ID}" ]]; then
-        if docker image inspect "${DOCKER_SONIC_MGMT}" &> /dev/null; then
-            IMAGE_ID="${DOCKER_SONIC_MGMT}"
-        elif pull_docker_image_with_retry "${DOCKER_REGISTRY}/${DOCKER_SONIC_MGMT}"; then
+        if pull_docker_image_with_retry "${DOCKER_REGISTRY}/${DOCKER_SONIC_MGMT}"; then
             IMAGE_ID="${DOCKER_REGISTRY}/${DOCKER_SONIC_MGMT}"
+        elif docker image inspect "${DOCKER_SONIC_MGMT}" &> /dev/null; then
+            log_notice "unable to pull the latest default docker image; using cached local image"
+            IMAGE_ID="${DOCKER_SONIC_MGMT}"
         else
             exit_failure "unable to find a usable default docker image, please specify one manually"
         fi
