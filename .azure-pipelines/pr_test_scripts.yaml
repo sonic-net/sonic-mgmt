@@ -810,6 +810,12 @@ t0-vpp:
   - lldp/test_lldp.py
   - lldp/test_lldp_syncd.py
   - span/test_port_mirroring.py
+  - vlan/test_autostate_disabled.py
+  - vlan/test_host_vlan.py
+  - vlan/test_secondary_subnet.py
+  - vlan/test_vlan.py
+  - vlan/test_vlan_ping.py
+  - vlan/test_vlan_ports_down.py
 
 
 multi-asic-t1-lag:
