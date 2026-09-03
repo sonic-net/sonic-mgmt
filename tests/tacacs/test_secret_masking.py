@@ -184,7 +184,7 @@ def require_passwd_cmds(duthost):
     count = 0
     try:
         count = int(result.get("stdout", "0").strip())
-    except ValueError:
+    except ValueError:  # non-integer output (e.g. permission denied) — treat as 0
         pass
     if count == 0:
         pytest.skip(
