@@ -5729,6 +5729,16 @@ upgrade_path/test_upgrade_path.py::test_upgrade_path_t2_delayed:
     conditions:
       - "'t2' not in topo_type"
 
+upgrade_path/test_warmboot_data_consistency.py::test_warmboot_data_consistency:
+  xfail:
+    reason: >
+      Keep 202605 runs non-blocking while collecting warm-vs-cold snapshots for
+      the assertion-mask gaps tracked by
+      https://github.com/sonic-net/sonic-mgmt/issues/27541.
+    strict: false
+    conditions:
+      - "release in ['202605'] and https://github.com/sonic-net/sonic-mgmt/issues/27541"
+
 #######################################
 #####            vlan             #####
 #######################################
