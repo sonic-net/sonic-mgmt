@@ -134,7 +134,7 @@ copp/test_copp.py::TestCOPP::test_policer[ARP]:
     reason: >
             Passes: CoPP dataplane enforcement implemented via the
             copp_punt_policer VPP device-input plugin (see
-            doc/vpp/vpp_copp_HLD.md in nhegde-microsoft/SONiC).
+            doc/vpp/vpp_copp_HLD.md).
     conditions_logical_operator: or
     conditions:
       - "False"
