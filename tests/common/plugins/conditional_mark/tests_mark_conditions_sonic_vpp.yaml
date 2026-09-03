@@ -119,13 +119,15 @@ container_checker/test_container_checker.py::test_container_checker_telemetry:
 #######################################
 #####           COPP              #####
 #######################################
-copp/test_copp.py::test_verify_copp_configuration_cli:
+copp:
   skip:
     reason: >
-            Passes: config-plane-only verification, no traffic policing.
+            Unsupported: no VPP dataplane classify/policer feature exists
+            yet for these traps (IP2ME/SNMP/SSH/BGP MTU variants, neighbor
+            miss, dynamic trap add/remove, config-save-after-reboot).
     conditions_logical_operator: or
     conditions:
-      - "False"
+      - "asic_type in ['vpp']"
 
 copp/test_copp.py::TestCOPP::test_policer[ARP]:
   skip:
@@ -133,6 +135,33 @@ copp/test_copp.py::TestCOPP::test_policer[ARP]:
             Passes: CoPP dataplane enforcement implemented via the
             copp_punt_policer VPP device-input plugin (see
             doc/vpp/vpp_copp_HLD.md in nhegde-microsoft/SONiC).
+    conditions_logical_operator: or
+    conditions:
+      - "False"
+
+copp/test_copp.py::TestCOPP::test_policer[DHCP6]:
+  skip:
+    reason: >
+            Passes: rides the pre-existing ip6-unicast policer-classify
+            feature, unaffected by the copp_punt_policer plugin.
+    conditions_logical_operator: or
+    conditions:
+      - "False"
+
+copp/test_copp.py::TestCOPP::test_policer[DHCP]:
+  skip:
+    reason: >
+            Passes: rides the pre-existing ip4-unicast policer-classify
+            feature, unaffected by the copp_punt_policer plugin.
+    conditions_logical_operator: or
+    conditions:
+      - "False"
+
+copp/test_copp.py::TestCOPP::test_policer[Default]:
+  skip:
+    reason: >
+            Passes: CoPP dataplane enforcement implemented via the
+            copp_punt_policer VPP device-input plugin (TTL_ERROR trap).
     conditions_logical_operator: or
     conditions:
       - "False"
@@ -164,42 +193,13 @@ copp/test_copp.py::TestCOPP::test_policer[UDLD]:
     conditions:
       - "False"
 
-copp/test_copp.py::TestCOPP::test_policer[Default]:
+copp/test_copp.py::test_verify_copp_configuration_cli:
   skip:
     reason: >
-            Passes: CoPP dataplane enforcement implemented via the
-            copp_punt_policer VPP device-input plugin (TTL_ERROR trap).
+            Passes: config-plane-only verification, no traffic policing.
     conditions_logical_operator: or
     conditions:
       - "False"
-
-copp/test_copp.py::TestCOPP::test_policer[DHCP]:
-  skip:
-    reason: >
-            Passes: rides the pre-existing ip4-unicast policer-classify
-            feature, unaffected by the copp_punt_policer plugin.
-    conditions_logical_operator: or
-    conditions:
-      - "False"
-
-copp/test_copp.py::TestCOPP::test_policer[DHCP6]:
-  skip:
-    reason: >
-            Passes: rides the pre-existing ip6-unicast policer-classify
-            feature, unaffected by the copp_punt_policer plugin.
-    conditions_logical_operator: or
-    conditions:
-      - "False"
-
-copp:
-  skip:
-    reason: >
-            Unsupported: no VPP dataplane classify/policer feature exists
-            yet for these traps (IP2ME/SNMP/SSH/BGP MTU variants, neighbor
-            miss, dynamic trap add/remove, config-save-after-reboot).
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
 
 #######################################
 #####           Decap             #####
