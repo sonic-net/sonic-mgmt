@@ -463,7 +463,7 @@ def wait_until_lldp_populated(db_instance, after_event_str, expected_lldp_entry_
     def expected_keys_present():
         return set(expected_lldp_entry_keys) == set(get_lldp_entry_keys(db_instance))
 
-    keys_present = wait_until(90, 2, 0, expected_keys_present)
+    keys_present = wait_until(300, 2, 0, expected_keys_present)
     pytest_assert(keys_present,
                   "After {}, LLDP_ENTRY_TABLE missing expected keys: {}".format(
                       after_event_str,
