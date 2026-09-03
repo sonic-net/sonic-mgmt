@@ -8,6 +8,9 @@ pytestmark = [
     pytest.mark.topology('any'),
 ]
 
+# Matches EXIT_TIMEOUT returned by sonic-utilities/scripts/reboot
+# when blocking mode reaches its configured timeout.
+REBOOT_EXIT_TIMEOUT_RC = 2
 COMMAND_TIMEOUT = 90  # seconds
 
 # Must be well within COMMAND_TIMEOUT so the script exits on its own deadline rather than being
@@ -174,8 +177,12 @@ class TestRebootBlockingModeConfigFile:
         result = get_command_result(
             duthost,
             f"sudo timeout {COMMAND_TIMEOUT}s bash -c "
-            f"'SECONDS=0; sudo reboot; echo \"BLOCKED_FOR=$SECONDS\"'")
-        blocked_for = int(result.rsplit("BLOCKED_FOR=", 1)[1]) if "BLOCKED_FOR=" in result else -1
+            f"'SECONDS=0; sudo reboot; echo \"$?\"; echo \"$SECONDS\"'")
+        result_lines = result.splitlines()
+        reboot_rc, blocked_for = int(result_lines[-2]), int(result_lines[-1])
+        pytest_assert(
+            reboot_rc == REBOOT_EXIT_TIMEOUT_RC,
+            "Reboot exited with an unexpected rc. Output: {}".format(result))
         pytest_assert(
             blocked_for >= BLOCKING_TIMEOUT,
             "Reboot blocked for {}s, expected at least the configured {}s. Output: {}".format(
