@@ -126,7 +126,7 @@ The following table summarizes the key attributes used in CDB firmware upgrade t
 
 > **Note:** The `transceiver_reset_i2c_recover_sec`, `port_startup_wait_sec`, and `low_power_mode_supported` attributes are defined in the [System test attributes](system_test_plan.md#attributes) and are reused here. The `cmis_active_optical` attribute is defined in the [EEPROM test attributes](eeprom_test_plan.md#attributes).
 
-> **Attribute invariants:** `firmware_versions` must contain exactly 3 entries (1 gold plus 2 additional firmware versions). `gold_firmware_version` must equal `firmware_versions[-1]`, and `inactive_firmware_version` must equal `firmware_versions[-2]`. Additionally, at least one of the entries in `firmware_versions` must differ from `gold_firmware_version` in both the minor and point numbers. A mismatch skips the CDB firmware test suite with a clear configuration error. The actual module firmware state is verified at runtime.
+> **Attribute invariants:** `firmware_versions` must contain exactly 3 entries (1 gold plus 2 additional firmware versions). `gold_firmware_version` must equal `firmware_versions[-1]`, and `inactive_firmware_version` must equal `firmware_versions[-2]`. Additionally, at least one of the entries in `firmware_versions` must differ from `gold_firmware_version` in both the minor and point numbers. `old_gold_firmware_version`, when configured, must differ from `gold_firmware_version`. A mismatch skips the CDB firmware test suite with a clear configuration error.
 
 ## CMIS CDB Firmware Binary Management
 
@@ -259,7 +259,7 @@ To ensure only the necessary firmware binaries are present for each transceiver:
 
 1. **Resolve transport mode** based on Pre-requisite: if `cdb_firmware_upgrade_url.json` exists for the current inventory, use download mode; otherwise use pre-staged mode (binaries under `/host/cmis_cdb_firmware/`).
 2. **Use `port_attributes_dict`** (built from `dut_info/<dut_hostname>.json`) to identify the transceivers present on the DUT. If `ports_under_test` attribute is specified, only those ports are considered. The normalized vendor name and part number are available in `BASE_ATTRIBUTES`.
-3. **Parse `firmware_versions` test attribute** from `CDB_FIRMWARE_UPGRADE_ATTRIBUTES` to get the firmware versions needed for the transceiver type.
+3. **Parse the version attributes** from `CDB_FIRMWARE_UPGRADE_ATTRIBUTES` to get the firmware versions needed for the transceiver type: the entries of `firmware_versions` and, when configured, `old_gold_firmware_version`.
 4. **Load the per-PN `cdb_firmware_upgrade_manifest.json`** to obtain the firmware binary metadata for each version specified in step 3. If the firmware version exists in the manifest:
    - **Download mode:** fetch the binary from `<fw_base_url>/<NORMALIZED_VENDOR>/<NORMALIZED_PN>/<VERSION>/<fw_binary_name>` into the target directory structure on the DUT (`/tmp/cmis_cdb_firmware/...`).
    - **Pre-staged mode:** copy the binary from `/host/cmis_cdb_firmware/<NORMALIZED_VENDOR>/<NORMALIZED_PN>/<VERSION>/<fw_binary_name>` into the target directory structure on the DUT (`/tmp/cmis_cdb_firmware/...`).
@@ -348,7 +348,7 @@ For firmware download, run, and commit operations, the test framework must repor
 
 **CDB abort for failure tests:** Test cases that intentionally fail or interrupt a firmware download (TC #6, TC #7, and TC #8) run only on modules where `firmware_download_cdb_abort_support` is true. On modules without CDB abort support, these test cases fail immediately.
 
-**Configuring the fleet gold-to-gold upgrade:** TC #15 reproduces the transition from the previously gold firmware to the current one. The inventory needs no special staging, keep `gold_firmware_version` and the rest of the attributes describing the **current** gold as usual, and set `old_gold_firmware_version` to the gold it replaced.
+**Configuring the fleet gold-to-gold upgrade:** TC #15 reproduces the transition from the previously gold firmware to the current one. The inventory needs no special staging; keep `gold_firmware_version` and the rest of the attributes describing the **current** gold as usual, and set `old_gold_firmware_version` to the gold it replaced.
 
 | TC No. | Test | Steps | Expected Results |
 |------|------|------|------------------|
