@@ -219,12 +219,6 @@ def disable_accounting_after_test(duthosts, enum_rand_one_per_hwsku_hostname):
 # Tests — TACACS passkey
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(
-    reason="audisp-tacplus PASSWD_CMDS masking may not be active in the VS CI image "
-           "(sonic-buildimage cached audisp-tacplus_1.0.2 may predate masking patches). "
-           "Will xpass once VS image is rebuilt with the patched binary.",
-    strict=False,
-)
 def test_tacacs_passkey_secret_masked(
     duthosts,
     enum_rand_one_per_hwsku_hostname,
@@ -255,12 +249,6 @@ def test_tacacs_passkey_secret_masked(
 # Tests — RADIUS passkey
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(
-    reason="audisp-tacplus PASSWD_CMDS masking may not be active in the VS CI image "
-           "(sonic-buildimage cached audisp-tacplus_1.0.2 may predate masking patches). "
-           "Will xpass once VS image is rebuilt with the patched binary.",
-    strict=False,
-)
 def test_radius_passkey_secret_masked(
     duthosts,
     enum_rand_one_per_hwsku_hostname,
@@ -287,12 +275,6 @@ def test_radius_passkey_secret_masked(
 # Tests — SNMP community add
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(
-    reason="audisp-tacplus PASSWD_CMDS masking may not be active in the VS CI image "
-           "(sonic-buildimage cached audisp-tacplus_1.0.2 may predate masking patches). "
-           "Will xpass once VS image is rebuilt with the patched binary.",
-    strict=False,
-)
 def test_snmp_community_add_secret_masked(
     duthosts,
     enum_rand_one_per_hwsku_hostname,
@@ -320,12 +302,6 @@ def test_snmp_community_add_secret_masked(
 # Tests — SNMP community del
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(
-    reason="audisp-tacplus PASSWD_CMDS masking may not be active in the VS CI image "
-           "(sonic-buildimage cached audisp-tacplus_1.0.2 may predate masking patches). "
-           "Will xpass once VS image is rebuilt with the patched binary.",
-    strict=False,
-)
 def test_snmp_community_del_secret_masked(
     duthosts,
     enum_rand_one_per_hwsku_hostname,
