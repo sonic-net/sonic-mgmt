@@ -727,7 +727,6 @@ t1-lag-vpp:
   - ssh/test_ssh_ciphers.py
   - ssh/test_ssh_default_password.py
   - ssh/test_ssh_limit.py
-  - ssh/test_ssh_stress.py
   - srv6/test_srv6_dataplane.py
   - srv6/test_srv6_static_config.py
   - sub_port_interfaces/test_show_subinterface.py

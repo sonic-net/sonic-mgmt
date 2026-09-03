@@ -5439,10 +5439,11 @@ ssh/test_ssh_default_password:
       - "asic_type not in ['vpp']"
 
 ssh/test_ssh_stress.py::test_ssh_stress:
+  # This test is not stable, skip it for now.
+  # known issue: https://github.com/paramiko/paramiko/issues/1508
   skip:
     reason: "This test failed intermittent due to known issue of paramiko, skip for now"
-    conditions:
-      - "asic_type not in ['vpp']"
+    conditions: https://github.com/paramiko/paramiko/issues/1508
 
 #######################################
 #####             stress          #####
