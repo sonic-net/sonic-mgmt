@@ -7,7 +7,7 @@ import pytest
 import time
 import re
 
-import cli_helpers as helper
+from tests.gnmi import cli_helpers as helper
 from telemetry_utils import generate_client_cli
 from show_cli_to_gnmi_path import ShowCliToGnmiPathConverter, OptionException
 
