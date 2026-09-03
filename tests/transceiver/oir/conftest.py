@@ -25,7 +25,6 @@ _DUT_SCOPED_OIR_ATTRIBUTES = (
     "physical_oir_timeout_min",
     "simultaneous_oir",
     "physical_oir_stress_iteration",
-    "hot_swap_ports_under_test",
 )
 
 
@@ -112,4 +111,10 @@ def _restore_transceivers(request, duthost, physical_oir_dut_attributes, oir_ppo
         action="INSERT the original transceiver(s) - test teardown",
     )
     if failures:
-        logger.warning("Physical OIR teardown could not restore: %s", "; ".join(failures))
+        # The session-scoped presence/link gates do not re-run, so continuing
+        # would test a switch with modules still out of their cages.
+        pytest.exit(
+            "Physical OIR teardown could not re-seat the transceiver(s): "
+            + "; ".join(failures),
+            returncode=1,
+        )

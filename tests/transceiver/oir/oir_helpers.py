@@ -51,12 +51,21 @@ TRANSCEIVER_STATUS_SW = "TRANSCEIVER_STATUS_SW"
 # The only transceiver state table that survives a removal.
 STATUS_SW_REMOVED = {"cmis_state": "REMOVED", "status": "0", "error": "N/A"}
 STATUS_SW_READY = {"cmis_state": "READY", "status": "1", "error": "N/A"}
-INSERTED_TABLES = ("TRANSCEIVER_INFO", "TRANSCEIVER_STATUS", "TRANSCEIVER_DOM_SENSOR")
+# Published by every module.  DOM / PM / VDM and the flag tables are module
+# dependent (a non-DOM DAC publishes none of them), so they are required only
+# when the pre-removal baseline shows the module published them.
+INSERTED_TABLES = ("TRANSCEIVER_INFO", "TRANSCEIVER_STATUS")
 
 
 def _reduce_eeprom(output_lines):
-    """Reduce an ``... eeprom`` / ``... info`` / ``... dom`` dump to ``{port: status_line}``."""
+    """Reduce an ``... eeprom`` / ``... info`` dump to ``{port: status_line}``."""
     return {port: fields.get("status") for port, fields in parse_eeprom(output_lines).items()}
+
+
+def _show_eeprom_dom_cmd(port=None, namespace=None):
+    """Return the eeprom dump with DOM data included."""
+    return cli_helpers.show_interfaces_transceiver_eeprom_cmd(
+        port=port, namespace=namespace, dom=True)
 
 
 # (label, command builder, lines->{port: status} reducer, empty-cage status,
@@ -73,7 +82,7 @@ _STATUS_CLIS = (
     ("show interfaces transceiver info", cli_helpers.show_interfaces_transceiver_info_cmd,
      _reduce_eeprom, ABSENT_MSG_CLI_INFO, None, True),
     # TC1 step 3: DOM values must read back empty once the cage is empty.
-    ("show interfaces transceiver dom", cli_helpers.show_interfaces_transceiver_dom_cmd,
+    ("show interfaces transceiver eeprom -d", _show_eeprom_dom_cmd,
      _reduce_eeprom, ABSENT_MSG_CLI_INFO, None, True),
 )
 
