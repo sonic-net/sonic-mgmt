@@ -324,7 +324,7 @@ def gen_setup_information(dutHost, downStreamDutHost, upStreamDutHost, tbinfo, t
                 "vlan_mac": upstream_vlan_mac,
                 "src_port": downstream_ports[0],
                 # DUT whose downstream are servers doesn't have lag connect to server
-                "src_port_lag_name": "Not Applicable" \
+                "src_port_lag_name": "Not Applicable"
                 if topo_type in DOWNSTREAM_SERVER_TOPO else downstream_dest_lag_name[0],
                 "src_port_ptf_id": str(mg_facts_list[0]["minigraph_ptf_indices"][downstream_ports[0]]),
                 "dest_port": upstream_dest_ports,
