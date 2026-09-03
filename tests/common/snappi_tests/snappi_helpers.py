@@ -361,3 +361,57 @@ def fetch_snappi_flow_metrics(api, flow_names):
     flow_metrics = api.get_metrics(request).flow_metrics
 
     return flow_metrics
+
+
+def set_flow_transmit_state(api, operation, flow_names=None):
+    """
+    Start or stop transmit, optionally scoped to specific flows.
+
+    Scoping matters when some flows must keep running: stopping every flow also
+    stops a PFC pause storm, letting the DUT drain frames it was holding.
+
+    Args:
+    api: snappi api
+    operation (str): 'start' or 'stop'
+    flow_names (list): flows to act on; None acts on all flows. An empty list
+                       is rejected — a scoped call that resolved to no flows
+                       is a caller bug, not a stop-all.
+
+    Returns:
+    None
+    """
+    if flow_names is not None and not flow_names:
+        raise ValueError(
+            "set_flow_transmit_state: flow_names=[] would have been treated as "
+            "'{} ALL flows' (including any PFC pause storm). If you meant all "
+            "flows, pass flow_names=None; otherwise check why the scoped flow "
+            "list resolved to empty.".format(operation)
+        )
+    cs = api.control_state()
+    if flow_names is not None:
+        cs.traffic.flow_transmit.flow_names = flow_names
+    if operation == "start":
+        cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START
+    elif operation == "stop":
+        cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.STOP
+    else:
+        raise ValueError("operation must be 'start' or 'stop', got {}".format(operation))
+    api.set_control_state(cs)
+
+
+def are_flows_stopped(api, flow_names):
+    """
+    Whether every named flow has reached the 'stopped' transmit state.
+
+    Args:
+    api: snappi api
+    flow_names (list): list of flow names
+
+    Returns:
+    bool: True when a metric was returned for every named flow and all report 'stopped'
+    """
+    flow_metrics = fetch_snappi_flow_metrics(api, flow_names)
+    if len(flow_metrics) != len(flow_names):
+        return False
+
+    return {metric.transmit for metric in flow_metrics} == {'stopped'}
