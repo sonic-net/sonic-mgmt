@@ -560,22 +560,7 @@ even after traffic generation or verification fails.
 - Statistics are filtered by Tx port and Rx port before PGID normalization.
 - Teardown executes even if setup, traffic, or verification fails.
 
-## 16. Current implementation risks
-
-| Risk | Impact | Recommended hardening |
-| --- | --- | --- |
-| DUT iteration order controls `config.devices` order | Negative source indexes and destination indexes can select the wrong devices | Sort DUTs by minimum `port_id` or build an explicit endpoint registry |
-| Priority block size 7 is repeated | Priority 7 is unsupported and inconsistent constants can misattribute rows | Use one `PRIORITY_COUNT` constant and shared encode/decode helpers |
-| Common flow generators select only the final MACsec source | Both ingress ports are not automatically exercised | Select the source from an explicit `port_id` mapping |
-| Some verification uses `PGID == priority` | Second-ingress PGIDs 7-13 are omitted | Filter ports and normalize `PGID % 7` |
-| MACsec stop condition uses nonzero Tx rate as stopped | Completion can be reported while traffic remains active | Require selected rows and all rates equal zero |
-| Feature detection reads `sys.argv` directly | Options supplied indirectly may not activate every branch | Pass the parsed pytest option through fixtures and runtime parameters |
-| `found_ports()` compares only physical-port count | The much larger MACsec endpoint list can satisfy a weak completeness check | Validate exact physical roles and endpoint counts |
-| Profile path is working-directory relative | Setup can fail when pytest starts from another directory | Resolve the profile relative to the Python module |
-| Egress gateway uses the static `40.1.1.0` network | It can overlap existing lab addressing | Validate availability or allocate from testbed configuration |
-| MACsec counter verification is incomplete | Flow statistics and DUT MACsec counters are not fully cross-checked | Add per-ingress secure-association counter assertions |
-
-## 17. Code ownership
+## 16. Code ownership
 
 | File | Responsibility |
 | --- | --- |
