@@ -4770,6 +4770,15 @@ reboot/test_reboot_blocking_mode.py:
       - "(is_multi_asic==True) and (asic_type in ['vs']) and https://github.com/sonic-net/sonic-mgmt/issues/23879"
 
 #######################################
+#####           redfish           #####
+#######################################
+redfish/test_redfish_computer_reset.py::TestRedfishComputerReset::test_reset_power_cycle:
+  xfail:
+    reason: "Xfail due to GitHub issue https://github.com/sonic-net/sonic-mgmt/issues/27212"
+    conditions:
+      - "('bmc' in topo_type) and https://github.com/sonic-net/sonic-mgmt/issues/27212"
+
+#######################################
 #####      reset_factory          #####
 #######################################
 reset_factory:
