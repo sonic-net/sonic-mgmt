@@ -123,8 +123,13 @@ copp:
   skip:
     reason: >
             Unsupported: no VPP dataplane classify/policer feature exists
-            yet for these traps (IP2ME/SNMP/SSH/BGP MTU variants, neighbor
-            miss, dynamic trap add/remove, config-save-after-reboot).
+            yet for these traps (neighbor miss, dynamic trap add/remove).
+            test_policer_mtu (IP2ME/SNMP/SSH/BGP MTU variants) stays
+            skipped too: BGP passes at all packet sizes, but IP2ME/SNMP/SSH
+            all fail with zero packets received (a real, separate,
+            pre-existing gap in the ip4/ip6-unicast policer-classify path
+            unrelated to the copp_punt_policer plugin this effort adds;
+            root cause not yet identified).
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -189,6 +194,16 @@ copp/test_copp.py::TestCOPP::test_policer[UDLD]:
     reason: >
             Passes: CoPP dataplane enforcement implemented via the
             copp_punt_policer VPP device-input plugin.
+    conditions_logical_operator: or
+    conditions:
+      - "False"
+
+copp/test_copp.py::TestCOPP::test_trap_config_save_after_reboot:
+  skip:
+    reason: >
+            Passes: verified via a real DUT reboot (config save + reboot
+            + wait + verify trap persists); CoPP trap/policer config
+            survives reboot correctly.
     conditions_logical_operator: or
     conditions:
       - "False"
