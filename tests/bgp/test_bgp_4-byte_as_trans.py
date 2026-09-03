@@ -46,8 +46,7 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_
     dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
     lldp_neighbors = get_topo_lldp_neighbors(duthost, nbrhosts, count=3)
     neigh1 = lldp_neighbors[0]["neigh_name"]
-    neigh2 = lldp_neighbors[2]["neigh_name"] # pick 3rd neighbor to match original design in PR 8973
-
+    neigh2 = lldp_neighbors[2]["neigh_name"]
     neighbors = dict()
     skip_hosts = duthost.get_asic_namespace_list()
     bgp_facts = duthost.bgp_facts(instance_id=asic_index)['ansible_facts']
