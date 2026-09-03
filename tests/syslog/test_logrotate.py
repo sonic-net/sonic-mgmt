@@ -299,8 +299,14 @@ def clear_pending_entries(duthost):
         duthost.shell('sonic-db-cli APPL_DB publish "NEIGH_TABLE_CHANNEL" ""')
 
 
-def no_pending_entries(duthost, ignore_list=None):
-    return not bool(get_pending_entries(duthost, ignore_list=ignore_list))
+def neigh_entry_processed(duthost, target_port, namespace=''):
+    key = "_NEIGH_TABLE:{}:{}".format(target_port, FAKE_IP)
+    if namespace:
+        cmd = 'sonic-db-cli -n asic{} APPL_DB EXISTS "{}"'.format(namespace, key)
+    else:
+        cmd = 'sonic-db-cli APPL_DB EXISTS "{}"'.format(key)
+    result = duthost.shell(cmd)
+    return int(result['stdout'].strip()) == 0
 
 
 @pytest.fixture
@@ -346,7 +352,7 @@ def test_orchagent_logrotate(orch_logrotate_setup, duthosts, enum_rand_one_per_h
         asic_id = enum_rand_one_frontend_asic_index
     else:
         asic_id = ''
-    ignore_entries, target_port = orch_logrotate_setup
+    _, target_port = orch_logrotate_setup
     duthost.control_process('orchagent', pause=True, namespace=asic_id)
     duthost.control_process('orchagent', namespace=asic_id, signal='SIGHUP')
     if duthost.sonichost.is_multi_asic:
@@ -355,7 +361,8 @@ def test_orchagent_logrotate(orch_logrotate_setup, duthosts, enum_rand_one_per_h
     else:
         duthost.shell('sudo ip neigh add {} lladdr {} dev {}'.format(FAKE_IP, FAKE_MAC, target_port))
     duthost.control_process('orchagent', pause=False, namespace=asic_id)
+
     pytest_assert(
-        wait_until(30, 1, 0, no_pending_entries, duthost, ignore_list=ignore_entries),
-        "Found pending entries in APPL_DB"
+        wait_until(40, 1, 0, neigh_entry_processed, duthost, target_port, asic_id),
+        "Pending NEIGH_TABLE entry not processed by orchagent"
     )
