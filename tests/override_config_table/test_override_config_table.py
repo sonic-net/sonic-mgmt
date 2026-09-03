@@ -12,7 +12,8 @@ from tests.common import broadcom_data
 
 # Tables known to be overriden in run-time config, which will appear different
 # if the golden config is overridden empty.
-GOLDEN_OVERRRIDDEN_TABLES = ["FEATURE", "PORT", "BGP_DEVICE_GLOBAL", "DNS_NAMESERVER"]
+GOLDEN_OVERRRIDDEN_TABLES = ["FEATURE", "PORT", "BGP_DEVICE_GLOBAL", "DNS_NAMESERVER",
+                             "MACSEC_PROFILE"]
 
 GOLDEN_CONFIG = "/etc/sonic/golden_config_db.json"
 GOLDEN_CONFIG_BACKUP = "/etc/sonic/golden_config_db.json_before_override"

@@ -640,7 +640,9 @@ def test_fallback_to_local_authorization_with_config_reload(
         }
     }
     try:
-        reload_minigraph_with_golden_config(duthost, override_config)
+        # CONFED BGP config will be lost during this test causing bgp sessions to not come up
+        wait_for_bgp = not duthost.get_bgp_confed_asn()
+        reload_minigraph_with_golden_config(duthost, override_config, wait_for_bgp=wait_for_bgp)
 
         # Shutdown tacacs server to simulate network unreachable because BGP shutdown
         stop_tacacs_server(ptfhost)
