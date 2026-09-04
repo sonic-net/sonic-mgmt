@@ -256,6 +256,27 @@ def test_xunit2_testcases_without_file_or_line_are_parsed():
     assert result["test_summary"]["xfails"] == "0"
 
 
+def test_multiple_testsuites_are_aggregated():
+    first_suite = VALID_TEST_RESULT.replace('<?xml version="1.0" encoding="utf-8"?>', "")
+    second_suite = first_suite.replace('classname="bgp.', 'classname="second_bgp.').replace(
+        'classname="acl.', 'classname="second_acl.'
+    )
+    root = validate_junit_xml_stream(f"<testsuites>{first_suite}{second_suite}</testsuites>")
+
+    result = parse_test_result([(root, "multiple-suites.xml")])
+
+    assert set(result["test_cases"]) == {"acl", "bgp", "second_acl", "second_bgp"}
+    assert sum(len(cases) for cases in result["test_cases"].values()) == 8
+    assert result["test_summary"] == {
+        "errors": "2",
+        "failures": "2",
+        "skipped": "2",
+        "tests": "8",
+        "time": "428.108",
+        "xfails": "0",
+    }
+
+
 def test_empty_testsuite_is_parsed():
     root = validate_junit_xml_stream(
         '<testsuite errors="0" failures="0" skipped="0" tests="0" time="0"/>'

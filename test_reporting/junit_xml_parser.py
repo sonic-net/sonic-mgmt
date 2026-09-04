@@ -229,18 +229,17 @@ def validate_junit_xml_path(path, strict=False):
 
 
 def _validate_junit_xml(root):
-    _validate_test_summary(root)
-
     if root.tag == TESTSUITES_TAG:
         suites = root.findall(TESTSUITE_TAG)
         if not suites:
             raise JUnitXMLValidationError(f"{TESTSUITE_TAG} tag not found")
-        for suite in suites:
-            _validate_test_metadata(suite)
-            _validate_test_cases(suite)
     else:
-        _validate_test_metadata(root)
-        _validate_test_cases(root)
+        suites = [root]
+
+    for suite in suites:
+        _validate_test_summary(suite)
+        _validate_test_metadata(suite)
+        _validate_test_cases(suite)
 
     return root
 
@@ -369,19 +368,18 @@ def parse_test_result(roots):
         return
 
     for root, document in roots:
-        if root.tag == TESTSUITES_TAG:
-            root = root.find(TESTSUITE_TAG)
-
-        test_result_json["test_metadata"] = _update_test_metadata(test_result_json["test_metadata"],
-                                                                  _parse_test_metadata(root))
-        test_cases = _parse_test_cases(root)
-        test_result_json["test_cases"] = _update_test_cases(test_result_json["test_cases"], test_cases)
-        parsed_summary = _parse_test_summary(root)
-        # xfails is not a testsuite root attribute; derive it from the per-case
-        # results so xfailed/xpassed (native pytest marks) are surfaced instead of 0.
-        parsed_summary["xfails"] = _extract_test_summary(test_cases).get("xfails", "0")
-        test_result_json["test_summary"] = _update_test_summary(test_result_json["test_summary"],
-                                                                parsed_summary)
+        suites = root.findall(TESTSUITE_TAG) if root.tag == TESTSUITES_TAG else [root]
+        for suite in suites:
+            test_result_json["test_metadata"] = _update_test_metadata(test_result_json["test_metadata"],
+                                                                      _parse_test_metadata(suite))
+            test_cases = _parse_test_cases(suite)
+            test_result_json["test_cases"] = _update_test_cases(test_result_json["test_cases"], test_cases)
+            parsed_summary = _parse_test_summary(suite)
+            # xfails is not a testsuite root attribute; derive it from the per-case
+            # results so xfailed/xpassed (native pytest marks) are surfaced instead of 0.
+            parsed_summary["xfails"] = _extract_test_summary(test_cases).get("xfails", "0")
+            test_result_json["test_summary"] = _update_test_summary(test_result_json["test_summary"],
+                                                                    parsed_summary)
     print(f"Parsed {len(roots)} XML document(s) into test result JSON.")
     return test_result_json
 
