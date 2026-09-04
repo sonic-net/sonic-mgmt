@@ -861,11 +861,11 @@ def test_supervisor_listener_syslog_reconnects(
         time.sleep(2)
         status_mid, pid_mid = get_program_info(duthost, container_name, "supervisor-proc-exit-listener")
         pytest_assert(
-            status_mid == "RUNNING",
-            "Listener is not RUNNING while /dev/log is absent in '{}': "
-            "status='{}', pid={}".format(container_name, status_mid, pid_mid)
+            status_mid == "RUNNING" and pid_mid == listener_pid,
+            "Listener is not RUNNING (or restarted) while /dev/log is absent in '{}': "
+            "status='{}', pid={} (was {})".format(container_name, status_mid, pid_mid, listener_pid)
         )
-        logger.info("PASS: listener stayed RUNNING while /dev/log was absent (pid={})".format(pid_mid))
+        logger.info("PASS: listener stayed RUNNING (same pid={}) while /dev/log was absent".format(pid_mid))
 
         # Step 7: restart rsyslogd to restore /dev/log
         logger.info("Restarting rsyslogd to restore /dev/log")
