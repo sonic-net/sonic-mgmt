@@ -459,18 +459,23 @@ def verify_all_interfaces_lldp_content(db_instance, lldp_entry_keys, lldpctl_out
         verify_each_interface_lldp_content(db_instance, interface, lldpctl_interfaces)
 
 
-def wait_until_lldp_populated(duthost, db_instance, after_event_str):
-    keys_match = wait_until(90, 2, 0, check_lldp_table_keys, duthost, db_instance)
-    pytest_assert(keys_match, "LLDP_ENTRY_TABLE keys do not match 'show lldp table' output")
-    lldp_entry_keys = get_lldp_entry_keys(db_instance)
-    # Wait until all interfaces are up and lldp entries are populated
-    result = wait_until(300, 2, 0, verify_lldp_entry, db_instance, lldp_entry_keys)
+def wait_until_lldp_populated(db_instance, after_event_str, expected_lldp_entry_keys):
+    def expected_keys_present():
+        return set(expected_lldp_entry_keys) == set(get_lldp_entry_keys(db_instance))
+
+    keys_present = wait_until(300, 2, 0, expected_keys_present)
+    pytest_assert(keys_present,
+                  "After {}, LLDP_ENTRY_TABLE missing expected keys: {}".format(
+                      after_event_str,
+                      sorted(set(expected_lldp_entry_keys) - set(get_lldp_entry_keys(db_instance)))))
+
+    result = wait_until(300, 2, 0, verify_lldp_entry, db_instance, expected_lldp_entry_keys)
     if not result:
         failed_entries = {}
-        for interface in lldp_entry_keys:
+        for interface in expected_lldp_entry_keys:
             if not verify_lldp_entry(db_instance, [interface]):
                 failed_entries[interface] = get_lldp_entry_content(db_instance, interface)
-        msg = (f"After {after_event_str}, not all LLDP_ENTRY_TABLE entries are not correct: {failed_entries}")
+        msg = (f"After {after_event_str}, not all LLDP_ENTRY_TABLE entries are correct: {failed_entries}")
         pytest_assert(False, msg)
 
 
@@ -525,7 +530,7 @@ def test_lldp_entry_table_after_syncd_orchagent(
         wait_until(300, 10, 30, duthost.check_bgp_session_state, bgp_neighbors),
         "BGP sessions did not reach Established state after swss restart",
     )
-    wait_until_lldp_populated(duthost, db_instance, "restart swss and syncd")
+    wait_until_lldp_populated(db_instance, "restart swss and syncd", lldp_entry_keys)
 
     # To get lldp entry keys again after all interfaces are up
     lldp_entry_keys, show_lldp_table_int_list, lldpctl_output = get_lldp_data(duthost, db_instance)
@@ -610,7 +615,7 @@ def test_lldp_entry_table_after_lldp_restart(
             "active (running)" in result,
             "LLDP service is not running",
         )
-    wait_until_lldp_populated(duthost, db_instance, "lldp restart")
+    wait_until_lldp_populated(db_instance, "lldp restart", lldp_entry_keys)
     verify_all_interfaces_lldp_content(db_instance, lldp_entry_keys, lldpctl_output, show_lldp_table_int_list)
 
 
@@ -620,6 +625,7 @@ def test_lldp_entry_table_after_reboot(
     localhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname, db_instance
 ):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    lldp_entry_keys = get_lldp_entry_keys(db_instance)
 
     # reboot
     logging.info("Run cold reboot on DUT")
@@ -635,6 +641,6 @@ def test_lldp_entry_table_after_reboot(
 
     # Wait till we have all lldp entries in the DB after reboot. It's found in scaling
     # setup this may take some time to happen.
-    wait_until_lldp_populated(duthost, db_instance, "cold reboot")
+    wait_until_lldp_populated(db_instance, "cold reboot", lldp_entry_keys)
     lldp_entry_keys, show_lldp_table_int_list, lldpctl_output = get_lldp_data(duthost, db_instance)
     verify_all_interfaces_lldp_content(db_instance, lldp_entry_keys, lldpctl_output, show_lldp_table_int_list)
