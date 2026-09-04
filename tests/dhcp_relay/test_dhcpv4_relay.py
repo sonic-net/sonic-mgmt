@@ -17,8 +17,57 @@ from tests.common.dhcp_relay_utils import (
         sonic_dhcp_relay_config,
         sonic_dhcp_relay_unconfig
 )
+from tests.common.dhcp_relay_utils import wait_dhcp_relay_ready
 from tests.common.dhcp_relay_utils import enable_sonic_dhcpv4_relay_agent  # noqa: F401
 import json
+
+
+# both the VRF master and the expected IP before sending PTF traffic.
+def _interface_ready_in_vrf(duthost, iface, vrf_name, ip_addr):
+    vrf_ok = duthost.shell(
+        f"ip -d link show dev {iface} | grep -w 'master {vrf_name}'",
+        module_ignore_errors=True
+    )["rc"] == 0
+    ip_ok = duthost.shell(
+        f"ip -4 addr show dev {iface} | grep -w '{ip_addr}'",
+        module_ignore_errors=True
+    )["rc"] == 0
+    return vrf_ok and ip_ok
+
+
+def _all_portchannels_up(duthost, portchannels):
+    int_status = duthost.show_interface(command="status")["ansible_facts"]["int_status"]
+    for pc in portchannels:
+        if pc not in int_status:
+            return False
+        if int_status[pc].get("admin_state") != "up":
+            return False
+        if int_status[pc].get("oper_state") != "up":
+            return False
+    return True
+
+
+def _remove_saved_interface_ips(duthost, saved_entries, interface):
+    for key in list(saved_entries.keys()):
+        parts = key.split("|", 2)
+        if len(parts) == 3 and parts[1] == interface:
+            duthost.shell(
+                f"sudo config interface ip remove {interface} {parts[2]}",
+                module_ignore_errors=True)
+
+
+def _swss_process_running(duthost, process):
+    output = duthost.shell(
+        f"docker exec swss supervisorctl status {process}",
+        module_ignore_errors=True)["stdout"]
+    return "RUNNING" in output
+
+
+def _restart_tunnel_packet_handler(duthost):
+    duthost.shell(
+        "docker exec swss supervisorctl restart tunnel_packet_handler",
+        module_ignore_errors=True)
+    return wait_until(60, 5, 0, _swss_process_running, duthost, "tunnel_packet_handler")
 
 
 def _save_interface_ip_entries(duthost, table, interface):
@@ -552,9 +601,17 @@ def test_dhcp_relay_with_non_default_vrf(
                     duthost.shell(
                         f"sudo config interface ip remove {loopback_for_src} {ip_with_mask}",
                         module_ignore_errors=True)
+            # source_intf makes dhcp4relay use Loopback as giaddr. Move Loopback into the
+            # client VRF so the server reply to Loopback is trapped in the correct VRF.
             duthost.shell(
                 f"sudo config interface vrf bind {loopback_for_src} {CLIENT_VRF_NAME}")
             _restore_interface_ip_entries(duthost, saved_loopback_ips)
+            pytest_assert(
+                wait_until(60, 5, 0, _interface_ready_in_vrf,
+                           duthost, loopback_for_src, CLIENT_VRF_NAME,
+                           dut_dhcp_relay_data[0]["switch_loopback_ip"]),
+                f"{loopback_for_src} is not ready in {CLIENT_VRF_NAME}"
+            )
 
         for dhcp_relay in dut_dhcp_relay_data:
             dhcp_servers = ",".join(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'])
@@ -575,6 +632,7 @@ def test_dhcp_relay_with_non_default_vrf(
                 duthost.shell(f'config dhcpv4_relay add --dhcpv4-servers {dhcp_servers}'
                               f' --vrf-selection enable --server-id-override enable {vlan_iface}')
                 server_id_override = True
+            wait_dhcp_relay_ready(duthost, ['sonic' if relay_agent == 'sonic-relay-agent' else 'isc'])
 
             # Run the DHCP relay test on the PTF host
             ptf_runner(ptfhost,
@@ -621,21 +679,28 @@ def test_dhcp_relay_with_non_default_vrf(
         # deleting the VRF so it has no remaining member interfaces.
         # Only needed when we rebound it (source_intf testcase).
         if saved_loopback_ips:
-            loopback_ip_key_prefix = "LOOPBACK_INTERFACE|{}|".format(loopback_for_src)
-            for key in list(saved_loopback_ips.keys()):
-                if key.startswith(loopback_ip_key_prefix):
-                    ip_with_mask = key.split("|", 2)[2]
-                    duthost.shell(
-                        f"sudo config interface ip remove {loopback_for_src} {ip_with_mask}",
-                        module_ignore_errors=True)
+            _remove_saved_interface_ips(duthost, saved_loopback_ips, loopback_for_src)
             duthost.shell(
                 f"sudo config interface vrf unbind {loopback_for_src}",
                 module_ignore_errors=True)
 
-        # VRF config cleanup
+        # VRF config cleanup. Unbind interfaces explicitly before deleting the
+        # VRF to avoid transient kernel/FRR/tunnel handler races.
         duthost.shell(f"sudo config route del prefix vrf {CLIENT_VRF_NAME} 0.0.0.0/0 nexthop"
-                      f" vrf {CLIENT_VRF_NAME} {first_params['nexthop']}")
-        duthost.shell(f"sudo config vrf del {CLIENT_VRF_NAME}")
+                      f" vrf {CLIENT_VRF_NAME} {first_params['nexthop']}",
+                      module_ignore_errors=True)
+        _remove_saved_interface_ips(duthost, saved_vlan_ips, vlan_iface)
+        duthost.shell(
+            f"sudo config interface vrf unbind {vlan_iface}",
+            module_ignore_errors=True)
+
+        for pc in portchannels:
+            _remove_saved_interface_ips(duthost, saved_pc_ips, pc)
+            duthost.shell(
+                f"sudo config interface vrf unbind {pc}",
+                module_ignore_errors=True)
+
+        duthost.shell(f"sudo config vrf del {CLIENT_VRF_NAME}", module_ignore_errors=True)
 
         # Restore all interface CONFIG_DB entries (base entry, IPs, and attributes).
         # "config interface vrf bind" strips ALL IPs (secondary IPv4, IPv6, etc.),
@@ -647,6 +712,17 @@ def test_dhcp_relay_with_non_default_vrf(
         _restore_interface_ip_entries(duthost, saved_loopback_ips)
         _restore_interface_ip_entries(duthost, saved_vlan_ips)
         _restore_interface_ip_entries(duthost, saved_pc_ips)
+        duthost.shell("sudo config save -y")
+        # PortChannels can flap during VRF cleanup. Wait for them to recover before
+        # restarting tunnel_packet_handler so later tests do not inherit stale state.
+        pytest_assert(
+            wait_until(150, 5, 0, _all_portchannels_up, duthost, list(portchannels.keys())),
+            "PortChannels did not recover to admin/oper up after VRF cleanup"
+        )
+        pytest_assert(
+            _restart_tunnel_packet_handler(duthost),
+            "tunnel_packet_handler did not recover after PortChannels came up"
+        )
         duthost.shell("sudo config save -y")
 
 
@@ -760,9 +836,17 @@ def test_dhcp_relay_with_different_non_default_vrf(
                 duthost.shell(
                     f"sudo config interface ip remove {loopback_for_src} {ip_with_mask}",
                     module_ignore_errors=True)
+        # Server replies enter through SERVER_VRF_NAME and target Loopback giaddr.
+        # Bind Loopback to the server VRF so IP2ME/trap handling exists in that VRF.
         duthost.shell(
             f"sudo config interface vrf bind {loopback_for_src} {SERVER_VRF_NAME}")
         _restore_interface_ip_entries(duthost, saved_loopback_ips)
+        pytest_assert(
+            wait_until(60, 5, 0, _interface_ready_in_vrf,
+                       duthost, loopback_for_src, SERVER_VRF_NAME,
+                       dut_dhcp_relay_data[0]["switch_loopback_ip"]),
+            f"{loopback_for_src} is not ready in {SERVER_VRF_NAME}"
+        )
 
         for dhcp_relay in dut_dhcp_relay_data:
             dhcp_servers = ",".join(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'])
@@ -821,27 +905,33 @@ def test_dhcp_relay_with_different_non_default_vrf(
         duthost.shell(f"config dhcpv4_relay del {vlan_iface}", module_ignore_errors=True)
 
         # Unbind the source-interface Loopback from SERVER_VRF_NAME before
-        # deleting the VRF so it has no remaining member interfaces. Restore
-        # the saved CONFIG_DB entries so all original Loopback IP attributes
-        # (IPv4, IPv6, secondary flag, etc.) come back.
+        # deleting the VRF so it has no remaining member interfaces.
         if saved_loopback_ips:
-            for key in list(saved_loopback_ips.keys()):
-                if key.startswith(loopback_ip_key_prefix):
-                    ip_with_mask = key.split("|", 2)[2]
-                    duthost.shell(
-                        f"sudo config interface ip remove {loopback_for_src} {ip_with_mask}",
-                        module_ignore_errors=True)
+            _remove_saved_interface_ips(duthost, saved_loopback_ips, loopback_for_src)
             duthost.shell(
                 f"sudo config interface vrf unbind {loopback_for_src}",
                 module_ignore_errors=True)
             _restore_interface_ip_entries(duthost, saved_loopback_ips)
 
-        # VRF config cleanup
+        # VRF config cleanup. Unbind interfaces explicitly before deleting the
+        # VRFs to avoid transient kernel/FRR/tunnel handler races.
         duthost.shell(f"sudo config route del prefix vrf {SERVER_VRF_NAME} 0.0.0.0/0 nexthop"
-                      f" vrf {SERVER_VRF_NAME} {first_params['nexthop']}")
+                      f" vrf {SERVER_VRF_NAME} {first_params['nexthop']}",
+                      module_ignore_errors=True)
 
-        duthost.shell(f"sudo config vrf del {CLIENT_VRF_NAME}")
-        duthost.shell(f"sudo config vrf del {SERVER_VRF_NAME}")
+        _remove_saved_interface_ips(duthost, saved_vlan_ips, vlan_iface)
+        duthost.shell(
+            f"sudo config interface vrf unbind {vlan_iface}",
+            module_ignore_errors=True)
+
+        for pc in portchannels:
+            _remove_saved_interface_ips(duthost, saved_pc_ips, pc)
+            duthost.shell(
+                f"sudo config interface vrf unbind {pc}",
+                module_ignore_errors=True)
+
+        duthost.shell(f"sudo config vrf del {CLIENT_VRF_NAME}", module_ignore_errors=True)
+        duthost.shell(f"sudo config vrf del {SERVER_VRF_NAME}", module_ignore_errors=True)
 
         # Restore all interface CONFIG_DB entries (base entry, IPs, and attributes).
         # "config interface vrf bind" strips ALL IPs (secondary IPv4, IPv6, etc.),
@@ -850,9 +940,20 @@ def test_dhcp_relay_with_different_non_default_vrf(
         # Instead, we save and restore the exact CONFIG_DB entries via redis-cli,
         # preserving all attributes (e.g. the secondary flag). intfmgrd then
         # automatically applies the restored entries to the kernel.
+        _restore_interface_ip_entries(duthost, saved_loopback_ips)
         _restore_interface_ip_entries(duthost, saved_vlan_ips)
         _restore_interface_ip_entries(duthost, saved_pc_ips)
         duthost.shell("sudo config save -y")
+        # PortChannels can flap during VRF cleanup. Wait for them to recover before
+        # restarting tunnel_packet_handler so later tests do not inherit stale state.
+        pytest_assert(
+            wait_until(150, 5, 0, _all_portchannels_up, duthost, list(portchannels.keys())),
+            "PortChannels did not recover to admin/oper up after VRF cleanup"
+        )
+        pytest_assert(
+            _restart_tunnel_packet_handler(duthost),
+            "tunnel_packet_handler did not recover after PortChannels came up"
+        )
 
 
 @pytest.mark.parametrize("max_hop_count", [CONFIG_HOP_COUNT, MAX_HOP_COUNT])
