@@ -204,6 +204,9 @@ def run_pfc_test(api,
 
     pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
 
+    rx_port_asic_value = rx_port['asic_value'] if egress_duthost.is_multi_asic else None
+    tx_port_asic_value = tx_port['asic_value'] if ingress_duthost.is_multi_asic else None
+
     if (test_def['enable_pfcwd']):
         start_pfcwd(egress_duthost)
         start_pfcwd(ingress_duthost)
@@ -212,11 +215,11 @@ def run_pfc_test(api,
         stop_pfcwd(ingress_duthost)
 
     if (test_def['enable_credit_wd']):
-        enable_packet_aging(egress_duthost, rx_port['asic_value'])
-        enable_packet_aging(ingress_duthost, tx_port['asic_value'])
+        enable_packet_aging(egress_duthost, rx_port_asic_value)
+        enable_packet_aging(ingress_duthost, tx_port_asic_value)
     else:
-        disable_packet_aging(egress_duthost, rx_port['asic_value'])
-        disable_packet_aging(ingress_duthost, tx_port['asic_value'])
+        disable_packet_aging(egress_duthost, rx_port_asic_value)
+        disable_packet_aging(ingress_duthost, tx_port_asic_value)
 
     # Port id of Rx port for traffic config
     # rx_port_id and tx_port_id belong to IXIA chassis.
