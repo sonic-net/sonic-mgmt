@@ -1,0 +1,290 @@
+---
+# config_macsec_neighbors.yml
+#
+# Configure the NEIGHBOR side of per-interface MACsec (cEOS or vSONiC VMs).
+# Intended to run at add-topo time: it derives everything it needs from the
+# topology file and controller-side testbed data, and never contacts the DUT.
+#
+# Inputs (all available at add-topo):
+#   - topology 'macsec_links' + 'configuration[<vm>].interfaces'  (topo vars)
+#   - VM name -> mgmt IP mapping                                   (testbed_vm_info / veos)
+#   - MACsec profiles                                             (profile.json)
+#   - vm_type                                                     (-k, passed as -e vm_type)
+#
+# The DUT side is bound by golden config at deploy-mg; config_macsec_basedon_minigraph.yml
+# then only waits for MKA. Each end configures its own ports, so no DUT<->VM
+# port map is needed here; the neighbor cares only about its own interfaces.
+# PortChannel members are left attached: macsecmgrd/wpa_supplicant negotiate
+# MKA on member ports directly. This relies on the wpa_supplicant CP state
+# machine fix in sonic-net/sonic-wpa-supplicant#122; without it MKA can wedge
+# on PortChannel-member ports.
+#
+# Usage:
+#   ansible-playbook -i <inventory> config_macsec_neighbors.yml \
+#     --vault-password-file=<pass> -l <dut> \
+#     -e testbed_name=<name> -e testbed_file=<file> -e vm_file=veos
+
+- name: Configure neighbor VMs for MACsec (add-topo phase)
+  hosts: sonic
+  gather_facts: no
+  vars:
+    profile_json_path: "{{ playbook_dir }}/../tests/common/macsec/profile.json"
+    macsec_mtu: 9068
+    _neighbor_ssh: &neighbor_ssh
+      ansible_user: "{{ sonic_login }}"
+      ansible_password: "{{ sonic_password }}"
+      ansible_connection: ssh
+      ansible_ssh_extra_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+    _eos_cli: &eos_cli
+      ansible_connection: network_cli
+      ansible_network_os: eos
+      ansible_user: "{{ eos_login }}"
+      ansible_password: "{{ eos_password }}"
+    eos_cipher_map:
+      GCM-AES-128: aes128-gcm
+      GCM-AES-256: aes256-gcm
+      GCM-AES-XPN-128: aes128-gcm-xpn
+      GCM-AES-XPN-256: aes256-gcm-xpn
+
+  tasks:
+    - name: Set default testbed file
+      set_fact:
+        testbed_file: testbed.yaml
+      when: testbed_file is not defined
+
+    - name: Gather testbed facts
+      test_facts:
+        testbed_name: "{{ testbed_name }}"
+        testbed_file: "{{ testbed_file }}"
+      delegate_to: localhost
+
+    - name: Load topology variables (macsec_links + configuration)
+      include_vars: "vars/topo_{{ testbed_facts['topo'] }}.yml"
+      delegate_to: localhost
+
+    - name: Exit early — no MACsec links declared in topology
+      meta: end_play
+      when: macsec_links is not defined or not macsec_links
+
+    - name: Gather VM management IP mapping (controller-side; no DUT contact)
+      testbed_vm_info:
+        base_vm: "{{ testbed_facts['vm_base'] if 'vm_base' in testbed_facts else '' }}"
+        topo: "{{ testbed_facts['topo'] }}"
+        vm_file: "{{ vm_file | default('veos') }}"
+        servers_info: "{{ testbed_facts['servers'] | default({}) }}"
+      delegate_to: localhost
+
+    - name: Load MACsec profile definitions
+      set_fact:
+        macsec_profiles: "{{ lookup('file', profile_json_path) | from_json }}"
+      delegate_to: localhost
+
+    - name: Fail fast — macsec_links entry without a profile
+      fail:
+        msg: "macsec_links entry for vm '{{ item.vm | default('?') }}' has no 'profile'; neighbors need an explicit profile"
+      loop: "{{ macsec_links }}"
+      loop_control:
+        label: "{{ item.vm | default('?') }}"
+      when: item.profile is not defined
+
+    - name: Fail fast — macsec_links references a profile missing from profile.json
+      fail:
+        msg: "macsec_links profile '{{ item }}' not found in {{ profile_json_path }}"
+      loop: "{{ macsec_links | map(attribute='profile') | unique | list }}"
+      when: item not in macsec_profiles
+
+    # Build the neighbor map straight from the topology: for each macsec_link VM,
+    # enumerate its DUT-facing physical ports (Ethernet* interfaces in the topo's
+    # configuration block) and carry the LACP id (0 = standalone) for the
+    # PC-member handling below. No DUT minigraph is consulted.
+    - name: Init neighbor map
+      set_fact:
+        macsec_nbr: []
+
+    - name: Flatten macsec_links x Ethernet ports into neighbor map
+      include_tasks: _macsec_nbr_append.yml
+      loop: "{{ macsec_links }}"
+      loop_control:
+        loop_var: mlink
+
+    - name: Fail fast — macsec_links declared but no neighbor ports resolved
+      fail:
+        msg: >-
+          Topology declares macsec_links={{ macsec_links | map(attribute='vm') | list }}
+          but no DUT-facing Ethernet ports were resolved from configuration[<vm>].interfaces.
+          Check that every macsec_links vm matches a topology.configuration key.
+      when: not macsec_nbr
+
+    - name: Derive per-VM list and neighbor type
+      set_fact:
+        macsec_nbr_vms: "{{ macsec_nbr | groupby('vm') | map(attribute=1) | map('first') | list }}"
+        nbr_vm_type: "{{ vm_type | default('ceos') }}"
+
+    - name: Show resolved neighbor map
+      debug:
+        msg: "{{ macsec_nbr | map(attribute='vm') | zip(macsec_nbr | map(attribute='port'), macsec_nbr | map(attribute='lacp')) | list }}"
+
+    - name: Fail fast — unsupported neighbor vm_type
+      fail:
+        msg: "MACsec neighbor configuration supports vm_type vsonic or ceos, got '{{ nbr_vm_type }}'"
+      when: nbr_vm_type not in ['vsonic', 'ceos']
+
+    # ---- vSONiC neighbor configuration (topology-driven) --------------------
+    - name: Deploy MACsec profile store to vSONiC neighbor
+      delegate_to: "{{ item.ip }}"
+      become: true
+      become_method: sudo
+      vars: *neighbor_ssh
+      copy:
+        src: "{{ profile_json_path }}"
+        dest: /etc/sonic/macsec_profiles.json
+        mode: '0644'
+      loop: "{{ macsec_nbr_vms }}"
+      loop_control:
+        label: "{{ item.vm }}"
+      when: nbr_vm_type == 'vsonic'
+
+    - name: Enable MACsec feature on vSONiC neighbor
+      delegate_to: "{{ item.ip }}"
+      become: true
+      become_method: sudo
+      vars: *neighbor_ssh
+      shell: config feature state macsec enabled
+      register: nbr_feat
+      failed_when:
+        - nbr_feat.rc != 0
+        - "'already enabled' not in (nbr_feat.stderr | default(''))"
+      loop: "{{ macsec_nbr_vms }}"
+      loop_control:
+        label: "{{ item.vm }}"
+      when: nbr_vm_type == 'vsonic'
+
+    - name: Wait for MACsec docker on vSONiC neighbor
+      delegate_to: "{{ item.ip }}"
+      become: true
+      become_method: sudo
+      vars: *neighbor_ssh
+      shell: docker ps | grep macsec | grep -v grep
+      register: nbr_docker
+      until: nbr_docker.rc == 0
+      retries: 36
+      delay: 5
+      loop: "{{ macsec_nbr_vms }}"
+      loop_control:
+        label: "{{ item.vm }}"
+      when: nbr_vm_type == 'vsonic'
+
+    # Priority alternation per neighbor VM (the profile row is host-wide): MKA
+    # elects the LOWEST priority value as key server. Even index -> neighbor
+    # priority-1 (neighbor is KS); odd -> +1 (DUT is KS).
+    - name: Set MACsec profile in vSONiC neighbor CONFIG_DB
+      delegate_to: "{{ item.ip }}"
+      become: true
+      become_method: sudo
+      vars: *neighbor_ssh
+      shell: >-
+        sonic-db-cli CONFIG_DB HMSET
+        'MACSEC_PROFILE|{{ item.profile }}'
+        'priority' '{{ (macsec_profiles[item.profile]["priority"] | int) - 1 if nbr_idx % 2 == 0 else (macsec_profiles[item.profile]["priority"] | int) + 1 }}'
+        'cipher_suite' '{{ macsec_profiles[item.profile]["cipher_suite"] }}'
+        'primary_cak' '{{ macsec_profiles[item.profile]["primary_cak"] }}'
+        'primary_ckn' '{{ macsec_profiles[item.profile]["primary_ckn"] }}'
+        'policy' '{{ macsec_profiles[item.profile].get("policy", "security") }}'
+        'send_sci' '{{ macsec_profiles[item.profile]["send_sci"] }}'
+        'rekey_period' '{{ macsec_profiles[item.profile].get("rekey_period", 0) }}'
+        'enable_replay_protect' '{{ macsec_profiles[item.profile].get("enable_replay_protect", "false") }}'
+        {{ ("'replay_window' '" + (macsec_profiles[item.profile].get("replay_window", 0) | string) + "'") if macsec_profiles[item.profile].get("enable_replay_protect", "false") == "true" else "" }}
+      loop: "{{ macsec_nbr_vms }}"
+      loop_control:
+        label: "{{ item.vm }}"
+        index_var: nbr_idx
+      when: nbr_vm_type == 'vsonic'
+
+    - name: Remove replay_window when replay protect disabled (YANG)
+      delegate_to: "{{ item.ip }}"
+      become: true
+      become_method: sudo
+      vars: *neighbor_ssh
+      shell: sonic-db-cli CONFIG_DB HDEL 'MACSEC_PROFILE|{{ item.profile }}' replay_window
+      loop: "{{ macsec_nbr_vms }}"
+      loop_control:
+        label: "{{ item.vm }}"
+      when: nbr_vm_type == 'vsonic' and macsec_profiles[item.profile].get("enable_replay_protect", "false") != "true"
+
+    - name: Bind MACsec profile on vSONiC neighbor port
+      delegate_to: "{{ item.ip }}"
+      become: true
+      become_method: sudo
+      vars: *neighbor_ssh
+      shell: sonic-db-cli CONFIG_DB HSET 'PORT|{{ item.port }}' 'macsec' '{{ item.profile }}'
+      loop: "{{ macsec_nbr }}"
+      loop_control:
+        label: "{{ item.vm }}:{{ item.port }}"
+      when: nbr_vm_type == 'vsonic'
+
+    # CONFIG_DB write rather than `config interface mtu`: the CLI refuses MTU
+    # changes on PortChannel members, and members stay attached here.
+    - name: Reduce vSONiC neighbor port MTU
+      delegate_to: "{{ item.ip }}"
+      become: true
+      become_method: sudo
+      vars: *neighbor_ssh
+      shell: sonic-db-cli CONFIG_DB HSET 'PORT|{{ item.port }}' mtu {{ macsec_mtu }}
+      loop: "{{ macsec_nbr }}"
+      loop_control:
+        label: "{{ item.vm }}:{{ item.port }}"
+      when: nbr_vm_type == 'vsonic'
+
+    - name: Reduce vSONiC neighbor PortChannel MTU
+      delegate_to: "{{ item.ip }}"
+      become: true
+      become_method: sudo
+      vars: *neighbor_ssh
+      shell: sonic-db-cli CONFIG_DB HSET 'PORTCHANNEL|PortChannel{{ item.lacp }}' mtu {{ macsec_mtu }}
+      loop: "{{ macsec_nbr }}"
+      loop_control:
+        label: "{{ item.vm }}: PortChannel{{ item.lacp }}"
+      when: nbr_vm_type == 'vsonic' and item.lacp != 0
+
+    # ---- cEOS neighbor configuration (topology-driven) ----------------------
+    # One eos_config per neighbor for the profile (cipher/key/priority/rekey/sci),
+    # one per port for the bind + MTU.
+    - name: Configure MACsec profile on cEOS neighbor
+      delegate_to: "{{ item.ip }}"
+      become: true
+      become_method: enable
+      vars: *eos_cli
+      arista.eos.eos_config:
+        lines: >-
+          {{ [
+               'cipher ' ~ eos_cipher_map[macsec_profiles[item.profile]['cipher_suite']],
+               'key ' ~ macsec_profiles[item.profile]['primary_ckn'] ~ ' 7 ' ~ macsec_profiles[item.profile]['primary_cak'],
+               'mka key-server priority ' ~ ((macsec_profiles[item.profile]['priority'] | int) - 1 if nbr_idx % 2 == 0 else (macsec_profiles[item.profile]['priority'] | int) + 1)
+             ]
+             + (['mka session rekey-period ' ~ macsec_profiles[item.profile]['rekey_period']]
+                if (macsec_profiles[item.profile].get('rekey_period', 0) | int) > 0 else [])
+             + (['sci'] if macsec_profiles[item.profile]['send_sci'] == 'true' else []) }}
+        parents:
+          - "mac security"
+          - "profile {{ item.profile }}"
+      loop: "{{ macsec_nbr_vms }}"
+      loop_control:
+        label: "{{ item.vm }}"
+        index_var: nbr_idx
+      when: nbr_vm_type == 'ceos'
+
+    - name: Bind MACsec profile and set MTU on cEOS interface
+      delegate_to: "{{ item.ip }}"
+      become: true
+      become_method: enable
+      vars: *eos_cli
+      arista.eos.eos_config:
+        lines:
+          - "mac security profile {{ item.profile }}"
+          - "mtu {{ macsec_mtu }}"
+        parents:
+          - "interface {{ item.port }}"
+      loop: "{{ macsec_nbr }}"
+      loop_control:
+        label: "{{ item.vm }}:{{ item.port }}"
+      when: nbr_vm_type == 'ceos'

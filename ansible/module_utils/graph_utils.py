@@ -265,6 +265,7 @@ class LabGraph(object):
             autoneg_mode = link.get("AutoNeg")
             fec_disable = link.get("FECDisable", False)
             linktraining_mode = link.get("LinkTraining", "")
+            macsec_profile = link.get("MacSecProfile")
 
             links.setdefault(start_device, {})
             links.setdefault(end_device, {})
@@ -303,6 +304,10 @@ class LabGraph(object):
 
             if end_port_mac:
                 end_port_linked_port.update({"mac": end_port_mac})
+
+            if macsec_profile:
+                start_port_linked_port.update({"macsec_profile": macsec_profile})
+                end_port_linked_port.update({"macsec_profile": macsec_profile})
 
             links[start_device][start_port] = start_port_linked_port
             links[end_device][end_port] = end_port_linked_port
