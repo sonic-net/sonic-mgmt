@@ -65,7 +65,7 @@ WAIT_TIMEOUT = 120
 
 def _apply_outbound_route_filter(duthost, dut_asn, neighbor_ips, is_v6, namespace=DEFAULT_NAMESPACE):
     """Apply an outbound route-map to ExaBGP neighbors so the DUT only
-    advertises the test prefixes (10.10.100.0/24 or fc00:10::/44) instead
+    advertises the test prefixes (10.10.100.0/24 or fc00:10::/28) instead
     of the full routing table.  Without this, ExaBGP sessions flap on
     topologies where the test neighbors share routed interfaces with real
     BGP peers (e.g. M0 L3 scenario).
@@ -73,8 +73,8 @@ def _apply_outbound_route_filter(duthost, dut_asn, neighbor_ips, is_v6, namespac
     See: https://github.com/sonic-net/sonic-mgmt/issues/22391
     """
     if is_v6:
-        # Cover fc00:10::/64 through fc00:14::/64 (and the whole fc00:10::/44 block)
-        prefix_match = "fc00:10::/44 le 64"
+        # Cover fc00:10::/64 through fc00:14::/64 (and the whole fc00:10::/28 block)
+        prefix_match = "fc00:10::/28 le 64"
     else:
         prefix_match = "10.10.100.0/24 le 32"
 
