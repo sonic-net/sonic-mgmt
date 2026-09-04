@@ -33,7 +33,8 @@ from tests.common.helpers.assertions import pytest_require
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.usefixtures('skip_t2_isolated_topo')
 ]
 
 # Usually src-mac, dst-mac, vlan-id are optional hash keys. Not all the platform supports these optional hash keys.
