@@ -16,6 +16,7 @@ from tests.smartswitch.common.device_utils_dpu import (  # noqa: F401
     get_dpu_auto_recovery,
     get_dpu_id_from_hostname,
     get_dpuhost_for_dpu,
+    is_dark_mode_enabled,
     is_dpu_db_state_supported,
     num_dpu_modules,
     set_dpu_auto_recovery,
@@ -57,17 +58,21 @@ def _reset_dpu_recovery_state(duthost, dpuhosts, testable_dpus):
 
 @pytest.fixture()
 def prepare_testable_dpus(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname,
-                          num_dpu_modules):  # noqa: F811
+                          platform_api_conn, num_dpu_modules):  # noqa: F811
     """
     Ensure all DPUs present in dpuhosts are admin-up, online, and DB-ready.
-    If any DPU is admin down, bring it up. Fail early if any DPU does not
-    come online.
+    Skip in dark mode (all DPUs admin down); otherwise bring up any individually
+    admin-down DPU and fail early if a DPU does not come online.
 
     Yields:
         (duthost, testable_dpus, testable_ips) where testable_dpus is the list
         of DPU names available in dpuhosts and testable_ips their midplane IPs.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    if is_dark_mode_enabled(duthost, platform_api_conn, num_dpu_modules):
+        pytest.skip("SmartSwitch is in dark mode (all DPUs admin down); "
+                    "skipping DPU failure-mode tests.")
 
     # Build testable DPUs from the DPU hosts we have SSH access to, deriving each
     # real module id from its hostname so a subset maps to correct ids (not indexes).
