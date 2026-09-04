@@ -18,6 +18,23 @@ default:
   too_big_timeout: 100          # A timeout which is too big for HW watchdog, put None if there is no such limitation
   watchdog_punching_period_seconds: null  # How often (seconds) the watchdog is punched; null means no punching
 
+# Shared defaults for any BMC using the sonic-platform-common BMCWatchdog base
+# class (hw-watchdog-mgrd owns /dev/watchdog0).  These values are dictated by the
+# daemon, not by any vendor: timeouts must stay within the 30-300s range
+# (MIN_TIMEOUT..MAX_TIMEOUT, default boot arm 180s) and the daemon pets the
+# watchdog every KEEPALIVE_INTERVAL (60s) while armed, so 90s guarantees at least
+# one pet lands inside the punching window.  A new BMC vendor should reference this
+# anchor from its platform entry (see arm64-nexthop_b27-r0) instead of copying the
+# values.  The '.'-prefixed key is only an anchor holder: the fixture treats every
+# top-level key as a platform regex (re.match(key, platform)), and no real SONiC
+# platform string ('<arch>-<vendor>_<model>-<rev>') begins with
+# '<anychar>bmc_watchdog_defaults', so this key never matches a live DUT.
+.bmc_watchdog_defaults: &bmc_watchdog_defaults
+  valid_timeout: 30
+  greater_timeout: 60
+  too_big_timeout: 301
+  watchdog_punching_period_seconds: 90
+
 # Mellanox watchdog type 1
 x86_64-mlnx_msn2.*-r0:
   default:
@@ -232,6 +249,11 @@ x86_64-nexthop_.*:
     greater_timeout: 16777
     too_big_timeout: 16778
     watchdog_punching_period_seconds: 60
+
+# Nexthop B27 BMC (Aspeed AST2700).  Uses the shared BMC watchdog defaults; see
+# the .bmc_watchdog_defaults anchor above for the rationale behind the values.
+arm64-nexthop_b27-r0:
+  default: *bmc_watchdog_defaults
 
 # th6-128 Nokia
 x86_64-nokia_ixr7220_h6_128-r0:
