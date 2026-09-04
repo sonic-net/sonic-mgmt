@@ -4268,6 +4268,10 @@ process_monitoring/test_critical_process_monitoring.py::test_orchagent_heartbeat
       - "release in ['202412']"
       - "is_smartswitch==True" # t0 and t1 should all be skipped on smartswitch
       - "'bmc' in topo_type"
+  xfail:
+    reason: "orchagent heartbeat check fails during warm-reboot"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/27418"
 
 #######################################
 #####     ptftests      #####
