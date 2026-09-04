@@ -2,5 +2,5 @@
     "syncd_restart_supported": false,
     "swss_restart_settle_sec": 540,
     "syncd_restart_settle_sec": 540,
-    "expect_pmon_restart_with_swss_or_syncd": true
+    "expect_xcvrd_restart_with_swss_or_syncd": true
 }

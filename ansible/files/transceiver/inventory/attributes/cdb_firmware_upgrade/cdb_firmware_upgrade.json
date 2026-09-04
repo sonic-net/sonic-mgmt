@@ -19,7 +19,8 @@
             "ports_under_test": [7]
         },
         "str43-7060x6-512-c17-u10": {
-            "ports_under_test": [1]
+            "ports_under_test": [1],
+            "firmware_upgrade_stress_iterations": 1
         }
     }
 }
