@@ -178,6 +178,7 @@ class DHCPTest(DataplaneBaseTest):
         self.dhcpv4_disable_flag = self.test_params.get('dhcpv4_disable_flag', None)
 
         self.uplink_mac = self.test_params['uplink_mac']
+        self.host_mac = self.test_params.get('host_mac')
 
         # 'dual' for dual tor testing
         # 'single' for regular single tor testing
@@ -209,11 +210,10 @@ class DHCPTest(DataplaneBaseTest):
         #  Byte 1: Length of suboption data in bytes
         #  Bytes 2+: Suboption data
         # SONiC dual-ToR uses the switch base MAC; other paths use the receiving VLAN interface MAC.
-        remote_id_string = (
-            self.uplink_mac
-            if self.dual_tor and self.relay_agent == "sonic-relay-agent"
-            else self.relay_iface_mac
-        )
+        # Our remote_id string simply consists of the MAC address of the port that received the request
+        remote_id_string = self.relay_iface_mac
+        if self.relay_agent == "sonic-relay-agent":
+            remote_id_string = self.host_mac
         self.option82 += struct.pack('BB', self.REMOTE_ID_SUBOPTION, len(remote_id_string))
         self.option82 += remote_id_string.encode('utf-8')
 
