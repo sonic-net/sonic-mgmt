@@ -22,6 +22,7 @@ import sys
 import struct
 import subprocess
 import threading
+import time
 
 from concurrent import futures
 from logging.handlers import RotatingFileHandler
@@ -60,6 +61,33 @@ GRPC_CLIENT_OPTIONS = [
 ]
 
 
+class RpcTimingInterceptor(grpc.ServerInterceptor):
+    """Log the handling time of unary gRPC requests."""
+
+    def intercept_service(self, continuation, handler_call_details):
+        handler = continuation(handler_call_details)
+        if handler is None or handler.unary_unary is None:
+            return handler
+
+        def timed_unary_unary(request, context):
+            start_time = time.time()
+            try:
+                return handler.unary_unary(request, context)
+            finally:
+                metric = {
+                    "metric": "nic_grpc_request",
+                    "method": handler_call_details.method,
+                    "duration_ms": round((time.time() - start_time) * 1000, 3)
+                }
+                logging.info("METRIC %s", json.dumps(metric, sort_keys=True))
+
+        return grpc.unary_unary_rpc_method_handler(
+            timed_unary_unary,
+            request_deserializer=handler.request_deserializer,
+            response_serializer=handler.response_serializer
+        )
+
+
 def get_ip_address(ifname):
     """Get interface IP address."""
     ifname = ifname.encode()
@@ -78,13 +106,32 @@ def get_ip_address(ifname):
 def run_command(cmd, check=True):
     """Run a command."""
     logging.debug("COMMAND: %s", cmd)
-    result = subprocess.run(
-        cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        shell=True,  # nosemgrep: subprocess-shell-true
-        check=check
-    )
+    start_time = time.time()
+    try:
+        result = subprocess.run(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            shell=True,  # nosemgrep: subprocess-shell-true
+            check=check
+        )
+    except subprocess.CalledProcessError as e:
+        metric = {
+            "metric": "nic_ovs_command",
+            "command": cmd,
+            "return_code": e.returncode,
+            "duration_ms": round((time.time() - start_time) * 1000, 3)
+        }
+        logging.info("METRIC %s", json.dumps(metric, sort_keys=True))
+        raise
+
+    metric = {
+        "metric": "nic_ovs_command",
+        "command": cmd,
+        "return_code": result.returncode,
+        "duration_ms": round((time.time() - start_time) * 1000, 3)
+    }
+    logging.info("METRIC %s", json.dumps(metric, sort_keys=True))
     result.stdout = result.stdout.decode()
     result.stderr = result.stderr.decode()
     logging.debug("COMMAND STDOUT:\n%s\n", result.stdout)
@@ -930,7 +977,8 @@ class NiCServer(nic_simulator_grpc_service_pb2_grpc.DualToRActiveServicer):
         self.server = grpc.server(
             futures.ThreadPoolExecutor(
                 max_workers=THREAD_CONCURRENCY_PER_SERVER),
-            options=GRPC_SERVER_OPTIONS
+            options=GRPC_SERVER_OPTIONS,
+            interceptors=(RpcTimingInterceptor(),)
         )
         nic_simulator_grpc_service_pb2_grpc.add_DualToRActiveServicer_to_server(
             self,
@@ -1166,7 +1214,8 @@ class MgmtServer(nic_simulator_grpc_mgmt_service_pb2_grpc.DualTorMgmtServiceServ
         self.server = grpc.server(
             futures.ThreadPoolExecutor(
                 max_workers=THREAD_CONCURRENCY_PER_SERVER),
-            options=GRPC_SERVER_OPTIONS
+            options=GRPC_SERVER_OPTIONS,
+            interceptors=(RpcTimingInterceptor(),)
         )
         nic_simulator_grpc_mgmt_service_pb2_grpc.add_DualTorMgmtServiceServicer_to_server(
             self, self.server)
