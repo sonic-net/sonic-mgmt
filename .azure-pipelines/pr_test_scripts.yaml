@@ -776,6 +776,7 @@ t0-vpp:
   - disk/test_disk_exhaustion.py
   - dns/test_dns_resolv_conf.py
   - fdb/test_fdb_flush.py
+  - fib/test_fib.py
   - fips/test_fips.py
   - generic_config_updater/test_aaa.py
   - generic_config_updater/test_bgp_speaker.py
