@@ -4115,7 +4115,7 @@ pfcwd/test_pfcwd_stat_history.py:
       - "asic_type != 'broadcom'"
       - "release != 'master' and release < '202511'"
 
-pfcwd/test_pfcwd_timer_accuracy.py::TestPfcwdAllTimer::test_pfcwd_timer_accuracy:
+pfcwd/test_pfcwd_timer_accuracy.py::TestPfcwdAllTimer:
   skip:
     reason: "ipv6 mgmt ip is not supported, see check_timer_accuracy_test.yml#43"
     conditions:
