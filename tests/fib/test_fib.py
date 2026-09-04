@@ -585,6 +585,7 @@ def test_hash(add_default_route_to_dut, duthosts, tbinfo, setup_vlan,      # noq
             "ignore_ttl": ignore_ttl,
             "single_fib_for_duts": single_fib_for_duts,
             "switch_type": switch_type,
+            "asic_type": duthosts[0].facts["asic_type"],
             "is_active_active_dualtor": is_active_active_dualtor,
             "topo_name": updated_tbinfo['topo']['name'],
             "topo_type": updated_tbinfo['topo']['type'],
