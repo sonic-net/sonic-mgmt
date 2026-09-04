@@ -4,10 +4,18 @@ import time
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.console_helper import get_target_lines, handle_pexpect_exceptions
+from tests.common.mellanox_data import is_mellanox_device
 
 pytestmark = [
     pytest.mark.topology("t2", "lrh", "urh")  # Test is only for T2 Chassis
 ]
+
+
+@pytest.fixture(scope="module", autouse=True)
+def skip_mellanox_device(duthosts, enum_supervisor_dut_hostname):
+    duthost = duthosts[enum_supervisor_dut_hostname]
+    if is_mellanox_device(duthost):
+        pytest.skip("Skipping test because test is not supported on Mellanox device.")
 
 
 def test_console_availability_serial_ports(duthost, duthosts, creds, enum_supervisor_dut_hostname):
