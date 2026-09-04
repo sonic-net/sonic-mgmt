@@ -4,17 +4,19 @@ Simple integration tests for gNOI File service.
 All tests automatically run with TLS server configuration by default.
 Users don't need to worry about TLS configuration.
 """
-import pytest
+
 import logging
 
+import pytest
+
+from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
-from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('any'),
+    pytest.mark.topology("any"),
 ]
 
 
@@ -50,21 +52,19 @@ def test_file_transfer_to_remote(gnmi_tls, ptfhost, duthosts, rand_one_dut_hostn
 
         def server_ready():
             try:
-                result = ptfhost.command("curl -f --max-time 2 {}:{}".format(ptf_ip, http_port),
-                                         module_ignore_errors=True)
+                result = ptfhost.command(
+                    "curl -f --max-time 2 {}:{}".format(ptf_ip, http_port), module_ignore_errors=True
+                )
                 return result["rc"] == 0
             except Exception:
                 return False
+
         wait_until(30, 2, 2, server_ready)
         logger.info("HTTP server is ready")
         # 4. Test TransferToRemote
         remote_url = "http://{}:{}/{}".format(ptf_ip, http_port, test_filename)
         logger.info(f"Testing TransferToRemote: {remote_url} -> {local_path}")
-        result = gnmi_tls.gnoi.file_transfer_to_remote(
-            local_path=local_path,
-            remote_url=remote_url,
-            protocol="HTTP"
-        )
+        result = gnmi_tls.gnoi.file_transfer_to_remote(local_path=local_path, remote_url=remote_url, protocol="HTTP")
         # 5. Verify response has hash
         pytest_assert("hash" in result, "TransferToRemote response missing hash field")
         logger.info(f"TransferToRemote response: {result}")
@@ -74,8 +74,10 @@ def test_file_transfer_to_remote(gnmi_tls, ptfhost, duthosts, rand_one_dut_hostn
         logger.info(f"File successfully downloaded to DUT: {local_path}")
         # 7. Verify downloaded content
         downloaded_content = duthost.shell(f"cat {local_path}")["stdout"].strip()
-        pytest_assert(test_content in downloaded_content,
-                      f"Content mismatch. Expected: '{test_content}', Got: '{downloaded_content}'")
+        pytest_assert(
+            test_content in downloaded_content,
+            f"Content mismatch. Expected: '{test_content}', Got: '{downloaded_content}'",
+        )
         logger.info(f"File content verified: {downloaded_content}")
         logger.info("TransferToRemote test completed successfully")
     except Exception as e:
@@ -86,8 +88,7 @@ def test_file_transfer_to_remote(gnmi_tls, ptfhost, duthosts, rand_one_dut_hostn
         logger.info("Cleaning up test resources")
         try:
             # Stop HTTP server
-            ptfhost.command(f"pkill -f 'python.*http.server.*{http_port}'",
-                            module_ignore_errors=True)
+            ptfhost.command(f"pkill -f 'python.*http.server.*{http_port}'", module_ignore_errors=True)
             # Remove test file from PTF
             ptfhost.shell(f"rm -f /tmp/{test_filename}", module_ignore_errors=True)
             # Remove downloaded file from DUT
@@ -109,21 +110,25 @@ def test_gnoi_file_stat_regular_file(gnmi_tls):  # noqa: F811
     resp = gnmi_tls.gnoi.file_stat("/etc/hostname")
 
     stats = resp.get("stats", [])
-    pytest_assert(len(stats) == 1,
-                  "Expected exactly 1 StatInfo for regular file, got {}: {}".format(len(stats), resp))
+    pytest_assert(len(stats) == 1, "Expected exactly 1 StatInfo for regular file, got {}: {}".format(len(stats), resp))
 
     entry = stats[0]
     logger.info("File.Stat regular file entry: {}".format(entry))
 
-    pytest_assert(entry.get("path") == "/etc/hostname",
-                  "Expected path '/etc/hostname', got: {}".format(entry.get("path")))
-    pytest_assert(int(entry.get("size", 0)) > 0,
-                  "Expected non-zero size for /etc/hostname, got: {}".format(entry.get("size")))
-    pytest_assert(int(entry.get("last_modified") or entry.get("lastModified") or 0) > 0,
-                  "Expected positive last_modified timestamp, got: {}".format(entry.get("lastModified")))
+    pytest_assert(
+        entry.get("path") == "/etc/hostname", "Expected path '/etc/hostname', got: {}".format(entry.get("path"))
+    )
+    pytest_assert(
+        int(entry.get("size", 0)) > 0, "Expected non-zero size for /etc/hostname, got: {}".format(entry.get("size"))
+    )
+    pytest_assert(
+        int(entry.get("last_modified") or entry.get("lastModified") or 0) > 0,
+        "Expected positive last_modified timestamp, got: {}".format(entry.get("lastModified")),
+    )
     pytest_assert("permissions" in entry, "stat entry missing 'permissions'")
-    pytest_assert(int(entry.get("umask", -1)) == 18,
-                  "Expected umask=18 (0022 octal), got: {}".format(entry.get("umask")))
+    pytest_assert(
+        int(entry.get("umask", -1)) == 18, "Expected umask=18 (0022 octal), got: {}".format(entry.get("umask"))
+    )
 
 
 def test_gnoi_file_stat_directory(gnmi_tls):  # noqa: F811
@@ -138,25 +143,30 @@ def test_gnoi_file_stat_directory(gnmi_tls):  # noqa: F811
     resp = gnmi_tls.gnoi.file_stat("/etc/sonic")
 
     stats = resp.get("stats", [])
-    pytest_assert(len(stats) >= 1,
-                  "Expected at least one child entry for /etc/sonic, got: {}".format(resp))
+    pytest_assert(len(stats) >= 1, "Expected at least one child entry for /etc/sonic, got: {}".format(resp))
     logger.info("File.Stat directory returned {} entries".format(len(stats)))
 
     self_paths = [e.get("path") for e in stats if e.get("path") == "/etc/sonic"]
-    pytest_assert(len(self_paths) == 0,
-                  "Directory /etc/sonic must not appear in its own listing, but found: {}".format(self_paths))
+    pytest_assert(
+        len(self_paths) == 0,
+        "Directory /etc/sonic must not appear in its own listing, but found: {}".format(self_paths),
+    )
 
     for entry in stats:
         child_path = entry.get("path", "")
         logger.info("Directory child entry: {}".format(entry))
-        pytest_assert(child_path.startswith("/etc/sonic/"),
-                      "Child path '{}' does not start with '/etc/sonic/'".format(child_path))
-        pytest_assert(int(entry.get("last_modified") or entry.get("lastModified") or 0) > 0,
-                      "Child '{}' missing valid last_modified".format(child_path))
-        pytest_assert("permissions" in entry,
-                      "Child '{}' missing 'permissions'".format(child_path))
-        pytest_assert(int(entry.get("umask", -1)) == 18,
-                      "Child '{}' expected umask=18, got: {}".format(child_path, entry.get("umask")))
+        pytest_assert(
+            child_path.startswith("/etc/sonic/"), "Child path '{}' does not start with '/etc/sonic/'".format(child_path)
+        )
+        pytest_assert(
+            int(entry.get("last_modified") or entry.get("lastModified") or 0) > 0,
+            "Child '{}' missing valid last_modified".format(child_path),
+        )
+        pytest_assert("permissions" in entry, "Child '{}' missing 'permissions'".format(child_path))
+        pytest_assert(
+            int(entry.get("umask", -1)) == 18,
+            "Child '{}' expected umask=18, got: {}".format(child_path, entry.get("umask")),
+        )
 
 
 def test_gnoi_file_stat_not_found(gnmi_tls):  # noqa: F811
@@ -169,27 +179,30 @@ def test_gnoi_file_stat_not_found(gnmi_tls):  # noqa: F811
         logger.info("File.Stat NOT_FOUND response: {}".format(err))
         pytest_assert(
             "NotFound" in err or "not found" in err.lower() or "no such file" in err.lower(),
-            "Expected NOT_FOUND error, got: {}".format(err)
+            "Expected NOT_FOUND error, got: {}".format(err),
         )
 
 
-@pytest.mark.parametrize("bad_path,reason", [
-    ("", "empty path"),
-    ("etc/hostname", "relative path"),
-    ("/mnt/host/etc/hostname", "/mnt/host-prefixed path"),
-], ids=["empty", "relative", "mnt-host"])
+@pytest.mark.parametrize(
+    "bad_path,reason",
+    [
+        ("", "empty path"),
+        ("etc/hostname", "relative path"),
+        ("/mnt/host/etc/hostname", "/mnt/host-prefixed path"),
+    ],
+    ids=["empty", "relative", "mnt-host"],
+)
 def test_gnoi_file_stat_invalid_argument(gnmi_tls, bad_path, reason):  # noqa: F811
     """Stat with invalid path arguments; expect INVALID_ARGUMENT error."""
     try:
         gnmi_tls.gnoi.file_stat(bad_path)
-        pytest_assert(False,
-                      "File.Stat should have failed for {} ('{}') but returned success".format(reason, bad_path))
+        pytest_assert(False, "File.Stat should have failed for {} ('{}') but returned success".format(reason, bad_path))
     except Exception as e:
         err = str(e)
         logger.info("File.Stat INVALID_ARGUMENT ({}) response: {}".format(reason, err))
         pytest_assert(
             "InvalidArgument" in err or "invalid argument" in err.lower() or "invalid" in err.lower(),
-            "Expected INVALID_ARGUMENT error for {} ('{}'): {}".format(reason, bad_path, err)
+            "Expected INVALID_ARGUMENT error for {} ('{}'): {}".format(reason, bad_path, err),
         )
 
 
@@ -206,8 +219,7 @@ def test_gnoi_file_stat_permissions_decimal_octal(gnmi_tls, duthosts, rand_one_d
     actual_octal = duthost.shell("stat -c %a /etc/hostname")["stdout"].strip()
     # decimal-octal encoding: the octal string is re-read as a decimal integer
     expected_permissions = int(actual_octal)
-    logger.info("DUT /etc/hostname mode: octal={} expected_permissions={}".format(
-        actual_octal, expected_permissions))
+    logger.info("DUT /etc/hostname mode: octal={} expected_permissions={}".format(actual_octal, expected_permissions))
 
     resp = gnmi_tls.gnoi.file_stat("/etc/hostname")
 
@@ -218,12 +230,14 @@ def test_gnoi_file_stat_permissions_decimal_octal(gnmi_tls, duthosts, rand_one_d
     permissions = int(entry.get("permissions", -1))
     logger.info("File.Stat permissions field value: {}".format(permissions))
 
-    pytest_assert(permissions == expected_permissions,
-                  "Expected permissions={} (decimal-octal of mode 0{}) got: {} "
-                  "(hint: {} means raw decimal encoding is in use)".format(
-                      expected_permissions, actual_octal, permissions,
-                      int(actual_octal, 8)))
+    pytest_assert(
+        permissions == expected_permissions,
+        "Expected permissions={} (decimal-octal of mode 0{}) got: {} "
+        "(hint: {} means raw decimal encoding is in use)".format(
+            expected_permissions, actual_octal, permissions, int(actual_octal, 8)
+        ),
+    )
     pytest_assert(
         all(d in "01234567" for d in str(permissions)),
-        "permissions '{}' contains digit 8 or 9 — not a valid decimal-octal value".format(permissions)
+        "permissions '{}' contains digit 8 or 9 — not a valid decimal-octal value".format(permissions),
     )

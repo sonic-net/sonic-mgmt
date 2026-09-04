@@ -1,4 +1,5 @@
 """Integration tests for the PygnmiClient gNMI client via the gnmi_tls fixture."""
+
 import logging
 import threading
 
@@ -16,7 +17,7 @@ from tests.common.pygnmi_client import (
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('any'),
+    pytest.mark.topology("any"),
 ]
 
 
@@ -25,14 +26,11 @@ def test_pygnmi_capabilities(gnmi_tls):  # noqa: F811
     result = gnmi_tls.pygnmi_client.capabilities()
     logger.info("Capabilities response: %s", result)
 
-    assert "gnmi_version" in result, \
-        f"Missing gnmi_version in response: {list(result.keys())}"
-    assert result.get("supported_models"), \
-        f"supported_models should not be empty: {list(result.keys())}"
+    assert "gnmi_version" in result, f"Missing gnmi_version in response: {list(result.keys())}"
+    assert result.get("supported_models"), f"supported_models should not be empty: {list(result.keys())}"
 
     encodings = result.get("supported_encodings", [])
-    assert "json_ietf" in encodings, \
-        f"json_ietf not in supported_encodings: {encodings}"
+    assert "json_ietf" in encodings, f"json_ietf not in supported_encodings: {encodings}"
 
     logger.info("gnmi_version: %s", result["gnmi_version"])
     logger.info("supported_encodings: %s", encodings)
@@ -117,10 +115,7 @@ def test_pygnmi_get_interface_mtu(gnmi_tls):  # noqa: F811
 
     # Read the compared value from the same DUT the fixture targets, so
     # multi-DUT runs cannot cross-compare against a different device.
-    expected_mtu = int(
-        gnmi_tls.duthost.shell(
-            "sonic-db-cli CONFIG_DB hget 'PORT|Ethernet0' mtu")["stdout"].strip()
-    )
+    expected_mtu = int(gnmi_tls.duthost.shell("sonic-db-cli CONFIG_DB hget 'PORT|Ethernet0' mtu")["stdout"].strip())
 
     result = gnmi_tls.pygnmi_client.get(path)
     logger.info("GET mtu response: %s (expected mtu=%d)", result, expected_mtu)
@@ -128,8 +123,7 @@ def test_pygnmi_get_interface_mtu(gnmi_tls):  # noqa: F811
     updates = list(_iter_get_updates(result))
     assert updates, f"No updates in get() response: {result}"
     assert any(
-        (_as_int(val) == expected_mtu
-         or _as_int(_find_leaf(val, "mtu")) == expected_mtu)
+        (_as_int(val) == expected_mtu or _as_int(_find_leaf(val, "mtu")) == expected_mtu)
         and "mtu" in (str(prefix or "") + str(path_str or ""))
         for prefix, path_str, val in updates
     ), f"No 'mtu' update equal to CONFIG_DB mtu {expected_mtu} in: {result}"
@@ -145,13 +139,10 @@ def test_pygnmi_get_interface_counters(gnmi_tls):  # noqa: F811
     payloads = [val for _, _, val in _iter_get_updates(result)]
     assert payloads, f"No update payloads in get() response: {result}"
 
-    for leaf in ["in-pkts", "out-pkts", "in-octets", "out-octets",
-                 "in-errors", "out-errors"]:
-        val = next((_find_leaf(payload, leaf) for payload in payloads
-                    if _find_leaf(payload, leaf) is not None), None)
+    for leaf in ["in-pkts", "out-pkts", "in-octets", "out-octets", "in-errors", "out-errors"]:
+        val = next((_find_leaf(payload, leaf) for payload in payloads if _find_leaf(payload, leaf) is not None), None)
         assert val is not None, f"Missing counter {leaf} in response: {result}"
-        assert _as_int(val) is not None, \
-            f"Counter {leaf} value is not numeric: {val!r}"
+        assert _as_int(val) is not None, f"Counter {leaf} value is not numeric: {val!r}"
 
 
 def test_pygnmi_get_empty_paths_raises(gnmi_tls):  # noqa: F811
@@ -162,12 +153,14 @@ def test_pygnmi_get_empty_paths_raises(gnmi_tls):  # noqa: F811
 
 def test_pygnmi_subscribe_sample_queue_counters(gnmi_tls):  # noqa: F811
     """Test subscribe() STREAM+SAMPLE collects COUNTERS_DB queue stats."""
-    result = list(gnmi_tls.pygnmi_client.subscribe(
-        "COUNTERS/Ethernet0/Queues",
-        target="COUNTERS_DB",
-        sample_interval=1,
-        collect_seconds=6,
-    ))
+    result = list(
+        gnmi_tls.pygnmi_client.subscribe(
+            "COUNTERS/Ethernet0/Queues",
+            target="COUNTERS_DB",
+            sample_interval=1,
+            collect_seconds=6,
+        )
+    )
     logger.info("SUBSCRIBE queue counters response: %s", result)
 
     keys = set()
@@ -177,25 +170,26 @@ def test_pygnmi_subscribe_sample_queue_counters(gnmi_tls):  # noqa: F811
             keys.add(path_str)
     assert keys, f"No update payloads collected: {result}"
 
-    assert any("Ethernet0:0" in key for key in keys), \
-        f"Missing queue Ethernet0:0 in keys: {sorted(keys)}"
-    assert any("SAI_QUEUE_STAT_PACKETS" in key for key in keys), \
-        f"Missing SAI_QUEUE_STAT_PACKETS in keys: {sorted(keys)}"
+    assert any("Ethernet0:0" in key for key in keys), f"Missing queue Ethernet0:0 in keys: {sorted(keys)}"
+    assert any(
+        "SAI_QUEUE_STAT_PACKETS" in key for key in keys
+    ), f"Missing SAI_QUEUE_STAT_PACKETS in keys: {sorted(keys)}"
 
 
 def test_pygnmi_subscribe_stream_count(gnmi_tls):  # noqa: F811
     """Test subscribe() STREAM stops after `count` notifications."""
     count = 3
-    result = list(gnmi_tls.pygnmi_client.subscribe(
-        "COUNTERS/Ethernet0",
-        target="COUNTERS_DB",
-        sample_interval=1,
-        count=count,
-        collect_seconds=30,
-    ))
+    result = list(
+        gnmi_tls.pygnmi_client.subscribe(
+            "COUNTERS/Ethernet0",
+            target="COUNTERS_DB",
+            sample_interval=1,
+            count=count,
+            collect_seconds=30,
+        )
+    )
     logger.info("SUBSCRIBE stream count collected %d notifications", len(result))
-    assert len(result) == count, \
-        f"Expected exactly {count} notifications, got {len(result)}: {result}"
+    assert len(result) == count, f"Expected exactly {count} notifications, got {len(result)}: {result}"
 
 
 def test_pygnmi_subscribe_early_break(gnmi_tls):  # noqa: F811
@@ -212,23 +206,23 @@ def test_pygnmi_subscribe_early_break(gnmi_tls):  # noqa: F811
         if len(collected) >= want:
             break
     logger.info("SUBSCRIBE yielded %d notifications before break", len(collected))
-    assert len(collected) == want, \
-        f"Expected to break after {want} notifications, got {len(collected)}"
+    assert len(collected) == want, f"Expected to break after {want} notifications, got {len(collected)}"
 
 
 def test_pygnmi_subscribe_poll(gnmi_tls):  # noqa: F811
     """Test subscribe() POLL returns one coalesced update per poll."""
     poll_count = 2
-    result = list(gnmi_tls.pygnmi_client.subscribe(
-        "COUNTERS/Ethernet0",
-        target="COUNTERS_DB",
-        mode=SubscribeMode.POLL,
-        poll_count=poll_count,
-        poll_interval=0.5,
-    ))
+    result = list(
+        gnmi_tls.pygnmi_client.subscribe(
+            "COUNTERS/Ethernet0",
+            target="COUNTERS_DB",
+            mode=SubscribeMode.POLL,
+            poll_count=poll_count,
+            poll_interval=0.5,
+        )
+    )
     logger.info("SUBSCRIBE poll response: %s", result)
-    assert len(result) == poll_count, \
-        f"Expected {poll_count} poll responses, got {len(result)}"
+    assert len(result) == poll_count, f"Expected {poll_count} poll responses, got {len(result)}"
     for notif in result:
         assert "update" in notif, f"Poll response missing update payload: {notif}"
 
@@ -242,10 +236,12 @@ def test_pygnmi_subscribe_once(gnmi_tls):  # noqa: F811
     "/module:element" path would emit origin="openconfig-interfaces" and be
     rejected as an unsupported origin).
     """
-    result = list(gnmi_tls.pygnmi_client.subscribe(
-        "openconfig://interfaces/interface[name=Ethernet0]/state/counters",
-        mode=SubscribeMode.ONCE,
-    ))
+    result = list(
+        gnmi_tls.pygnmi_client.subscribe(
+            "openconfig://interfaces/interface[name=Ethernet0]/state/counters",
+            mode=SubscribeMode.ONCE,
+        )
+    )
     logger.info("SUBSCRIBE once collected %d notifications", len(result))
     assert result, "ONCE subscription returned no notifications"
     updates = list(_iter_subscribe_updates(result))
@@ -334,15 +330,13 @@ def test_subscribe_requires_paths():
 def test_subscribe_poll_rejects_negative_interval():
     """Test POLL rejects a negative trigger interval before connecting."""
     with pytest.raises(PygnmiClientCallError, match="poll_interval must be >= 0"):
-        _offline_client().subscribe("path", mode=SubscribeMode.POLL,
-                                    poll_interval=-1)
+        _offline_client().subscribe("path", mode=SubscribeMode.POLL, poll_interval=-1)
 
 
 def test_subscribe_poll_rejects_non_positive_count():
     """Test POLL rejects a non-positive trigger count before connecting."""
     with pytest.raises(PygnmiClientCallError, match="poll_count must be > 0"):
-        _offline_client().subscribe("path", mode=SubscribeMode.POLL,
-                                    poll_count=0)
+        _offline_client().subscribe("path", mode=SubscribeMode.POLL, poll_count=0)
 
 
 def test_get_requires_paths():
