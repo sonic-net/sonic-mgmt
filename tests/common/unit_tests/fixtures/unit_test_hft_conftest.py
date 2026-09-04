@@ -126,7 +126,7 @@ def test_otel_container_status_rejects_probe_errors(hft_conftest):
         "stdout": "",
         "stderr": "Cannot connect to the Docker daemon",
     }
-    with pytest.raises(pytest.fail.Exception):
+    with pytest.raises(AssertionError):
         hft_conftest._get_otel_container_running(duthost)
 
 
@@ -138,7 +138,7 @@ def test_otel_container_status_rejects_probe_errors(hft_conftest):
     {"rc": 3, "stdout": "otel RUNNING", "stderr": ""},
 ])
 def test_collector_status_rejects_unknown_results(hft_conftest, status):
-    with pytest.raises(pytest.fail.Exception):
+    with pytest.raises(AssertionError):
         hft_conftest._collector_running_from_status(status)
 
 

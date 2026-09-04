@@ -63,7 +63,7 @@ def _collector_running_from_status(status):
         return True
     if rc == 3 and state in STOPPED_COLLECTOR_STATES:
         return False
-    pytest.fail(
+    raise AssertionError(
         "Unable to determine original OTEL collector state: "
         f"rc={rc!r}, stdout={status.get('stdout', '')!r}, "
         f"stderr={status.get('stderr', '')!r}"
@@ -99,7 +99,7 @@ def _get_otel_container_running(duthost):
     if result.get("rc") != 0 and (
             "no such object" in error or "no such container" in error):
         return False
-    pytest.fail(f"Unable to determine OTEL container state: {result}")
+    raise AssertionError(f"Unable to determine OTEL container state: {result}")
 
 
 def _is_otel_container_stopped(duthost):
@@ -373,6 +373,13 @@ def hft_influxdb(request, ptfhost, skip_unsupported_hft_test,
     sink = InfluxDbSink(ptfhost, bucket=bucket, port=INFLUXDB_PORT)
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     database_created = False
+
+    def cleanup_stop_collector():
+        stop_otel_collector(duthost)
+
+    def cleanup_verify_countersyncd():
+        ensure_countersyncd_daemon(duthost)
+
     try:
         ensure_countersyncd_daemon(duthost)
         stop_otel_collector(duthost)
@@ -404,15 +411,14 @@ def hft_influxdb(request, ptfhost, skip_unsupported_hft_test,
         # separately from any teardown error raised below.
         original_error = sys.exc_info()[1]
         cleanup_steps = [
-            ("stop OTEL collector", lambda: stop_otel_collector(duthost)),
+            ("stop OTEL collector", cleanup_stop_collector),
         ]
         if database_created:
             cleanup_steps.append(
                 (f"drop InfluxDB database {bucket}", sink.drop)
             )
         cleanup_steps.append(
-            ("verify countersyncd daemon",
-             lambda: ensure_countersyncd_daemon(duthost))
+            ("verify countersyncd daemon", cleanup_verify_countersyncd)
         )
         cleanup_error = _run_cleanup_steps(cleanup_steps)
         if cleanup_error is not None and original_error is None:
