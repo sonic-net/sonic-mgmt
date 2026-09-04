@@ -325,5 +325,18 @@ def test_bgp_session_interface_down(duthosts, enum_frontend_dut_hostname, fanout
     if test_type == "swss_docker":
         # It may take up to 6 minutes after restarting swss for BGP sessions to be up
         timeout = 360
+
+    # Dynamically adjust timeout based on route table size.
+    try:
+        route_summary = duthost.shell("show ip route summary")['stdout']
+        for line in route_summary.splitlines():
+            if line.strip().startswith("Totals"):
+                route_count = int(line.split()[1])
+                timeout = max(timeout, route_count // 200)
+                logger.info("Adjusted BGP recovery timeout to {}s based on {} routes".format(timeout, route_count))
+                break
+    except Exception as e:
+        logger.warning("Failed to get route count for dynamic timeout: {}".format(e))
+
     pytest_assert(wait_until(timeout, 10, 0, asichost.check_bgp_session_state, list(setup['neighhosts'].keys())),
                   "Not all BGP sessions are established on DUT ASIC {}".format(asic_index))
