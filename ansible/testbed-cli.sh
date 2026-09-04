@@ -562,6 +562,12 @@ function add_topo
     ip neighbor flush $ptf_ip || true
   done
 
+  # Neighbor side of per-interface MACsec is a test-server concern: configure
+  # the VMs now, from topology data alone, so deploy-mg only touches the DUT.
+  # Exits cleanly (meta: end_play) when the topology declares no macsec_links.
+  ansible-playbook -i "$inv_name" config_macsec_neighbors.yml --vault-password-file="$passwd" -l "$duts" \
+        -e testbed_name="$testbed_name" -e testbed_file="$tbfile" -e vm_file="$vmfile" -e vm_type="$vm_type"
+
   cache_files_path_value=$(is_cache_exist)
   if [[ -n $cache_files_path_value ]]; then
     echo "$testbed_name" > $cache_files_path_value/$duts
@@ -853,6 +859,14 @@ function deploy_minigraph
   fi
 
   ansible-playbook -i "$inventory" config_sonic_basedon_testbed.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile -e deploy=true -e save=true $ipv6_mgmt_flag $lab_name_flag "${filtered_args[@]}"
+
+  # DUT side of per-interface MACsec: golden config (above) bound PORT.macsec;
+  # this only waits for MKA to establish against the neighbors configured at
+  # add-topo. DUT-only — never touches the test server or VMs. Neighbors must
+  # already be configured: re-running deploy-mg alone after the VMs were
+  # rebuilt waits here until timeout until add-topo has run again.
+  # Exits cleanly (meta: end_play) when the topology declares no macsec_links.
+  ansible-playbook -i "$inventory" config_macsec_basedon_minigraph.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile $ipv6_mgmt_flag "${filtered_args[@]}"
 
   echo Done
 }
