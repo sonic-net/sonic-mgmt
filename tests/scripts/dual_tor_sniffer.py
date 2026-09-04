@@ -17,6 +17,15 @@ class L2ListenAllSocket(scapyarchlinux.L2ListenSocket):
         # by default.
         socket.socket.bind = lambda *_: None
         super(L2ListenAllSocket, self).__init__(*args, **kwargs)
+        # Increase socket receive buffer to prevent kernel packet drops.
+        # The default SO_RCVBUF (~128KB) is too small when all interfaces
+        # share a single PF_PACKET socket, brief scapy processing pauses
+        # cause the buffer to overflow and packets to be silently dropped.
+        try:
+            self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF,
+                                32 * 1024 * 1024)
+        except OSError:
+            pass
 
     def recv_raw(self, x=MTU):
         # NOTE: override the L2ListenSocket.recv_raw to map to correct

@@ -15,6 +15,8 @@ pytestmark = [
     pytest.mark.topology('any'),
     # Reboot triggers kernel warnings on VS.
     pytest.mark.disable_loganalyzer,
+    pytest.mark.usefixtures("setup_gnmi_ntp_client_server", "setup_gnmi_server",
+                            "setup_gnmi_rotated_server", "check_dut_timestamp")
 ]
 
 
@@ -145,7 +147,8 @@ def test_gnoi_system_reboot_warm(duthosts, rand_one_dut_hostname, localhost):
     logging.info("System is back up after reboot")
 
     # Wait for critical processes before ending
-    wait_critical_processes(duthost)
+    # Warm reboot takes longer for containers to restart; use an extended timeout
+    wait_critical_processes(duthost, timeout=360)
 
     # Wait for gNMI container to be running
     wait_until(120, 10, 0, is_gnmi_container_running, duthost)

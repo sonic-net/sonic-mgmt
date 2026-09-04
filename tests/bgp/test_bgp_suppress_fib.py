@@ -9,6 +9,7 @@ import time
 
 from scapy.all import sniff, IP, IPv6
 from scapy.contrib import bgp
+from scapy.config import conf
 import ptf.testutils as testutils
 import ptf.packet as scapy
 from copy import deepcopy
@@ -17,6 +18,7 @@ from ptf.mask import Mask
 from natsort import natsorted
 from tests.common.reboot import reboot
 from tests.common.utilities import wait_until
+from tests.common.utilities import is_ipv6_only_topology
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.tcpdump_sniff_helper import TcpdumpSniffHelper
@@ -55,15 +57,29 @@ DEFAULT = "default"
 VRF_TYPES = [DEFAULT, USER_DEFINED_VRF]
 BGP_FILTER = 'tcp port 179'
 STATIC_ROUTE_PREFIX = "1.1.1.0/24"
+STATIC_ROUTE_PREFIX_V6 = "2001:db8:1:1::/64"
 BASE_IP_ROUTE = '91.0.1.0/24'
 BASE_IPV6_ROUTE = '1000:1001::/64'
 BULK_ROUTE_COUNT = 512  # 512 ipv4 route and 512 ipv6 route
 FUNCTION = "function"
 STRESS = "stress"
 TRAFFIC_WAIT_TIME = 0.1
-BULK_TRAFFIC_WAIT_TIME = 0.004
+BULK_TRAFFIC_WAIT_TIME = 0.01
 BGP_ROUTE_FLAP_TIMES = 5
 UPDATE_WITHDRAW_THRESHOLD = 5  # consider the switch with low power cpu and a lot of bgp neighbors
+
+
+@pytest.fixture(autouse=True, scope="module")
+def scapy_max_list_count():
+    """
+    Scapy 2.6.0+ uses conf.max_list_count (default 100) as global size limit for PacketListField/FieldListField
+    scapy.contrib.bgp overrides it with max_count=20000 for nlri, but not for withdrawn_routes
+    Set conf.max_list_count to 20000 to parse BGP update packets with 100+ withdrawn routes
+    """
+    original = conf.max_list_count
+    conf.max_list_count = 20000
+    yield
+    conf.max_list_count = original
 
 
 # Returns True if the topology has a spine layer, else returns False
@@ -79,14 +95,18 @@ def topo_has_spine_layer(tbinfo):
 
 
 @pytest.fixture(scope="module")
-def generate_route_and_traffic_data():
+def generate_route_and_traffic_data(tbinfo):
     """
     Generate route and traffic data
     """
-    ip_routes_ipv4 = generate_routes(BASE_IP_ROUTE)
-    ip_routes_ipv6 = generate_routes(BASE_IPV6_ROUTE)
+    if is_ipv6_only_topology(tbinfo):
+        ip_routes_ipv4 = []
+        ipv4_routes_stress_and_perf = []
+    else:
+        ip_routes_ipv4 = generate_routes(BASE_IP_ROUTE)
+        ipv4_routes_stress_and_perf = generate_routes(BASE_IP_ROUTE, BULK_ROUTE_COUNT)
 
-    ipv4_routes_stress_and_perf = generate_routes(BASE_IP_ROUTE, BULK_ROUTE_COUNT)
+    ip_routes_ipv6 = generate_routes(BASE_IPV6_ROUTE)
     ipv6_routes_stress_and_perf = generate_routes(BASE_IPV6_ROUTE, BULK_ROUTE_COUNT)
 
     route_and_traffic_data = {
@@ -129,7 +149,8 @@ def ignore_expected_loganalyzer_errors(duthosts, rand_one_dut_hostname, loganaly
             "\\(.* minutes\\).*",
             r".* ERR memory_checker: \[memory_checker\] Failed to get container ID of.*",
             r".* ERR memory_checker: \[memory_checker\] cgroup memory usage file.*",
-            r".*ERR teamd#teamsyncd: :- readData: netlink reports an error=.*"
+            r".*ERR teamd#teamsyncd: :- readData: netlink reports an error=.*",
+            r".*ERR bgp#fpmsyncd: .*zmq send failed.*zmqerrno: 11:Resource temporarily unavailable.*"
         ]
         loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
 
@@ -272,7 +293,7 @@ def is_orchagent_stopped(duthost):
     """
     Check if process 'orchagent' is stopped
     """
-    out = duthost.shell('cat /proc/$(pidof orchagent)/status | grep State')['stdout']
+    out = duthost.shell('cat /proc/$(pgrep -x orchagent)/status | grep State')['stdout']
     logger.info('Orchagent process - {}'.format(out))
     return ACTION_STOP in out
 
@@ -321,14 +342,17 @@ def check_interface_status(duthost, expected_oper='up'):
     return True
 
 
-def get_port_connected_with_vm(duthost, nbrhosts, vm_type='T0'):
+def get_port_connected_with_vm(duthost, tbinfo, nbrhosts, vm_type='T0'):
     """
     Get ports that connects with T0 VM
     """
     port_list = []
     vm_list = [vm_name for vm_name in nbrhosts.keys() if vm_name.endswith(vm_type)]
     for vm in vm_list:
-        port = duthost.shell("show ip interface | grep -w {} | awk '{{print $1}}'".format(vm))['stdout']
+        if is_ipv6_only_topology(tbinfo):
+            port = duthost.shell("show ipv6 interface | grep -w {} | awk '{{print $1}}'".format(vm))['stdout']
+        else:
+            port = duthost.shell("show ip interface | grep -w {} | awk '{{print $1}}'".format(vm))['stdout']
         port_list.append(port)
     logger.info("Ports connected with {} VMs: {}".format(vm_type, port_list))
     return port_list
@@ -356,12 +380,12 @@ def setup_vrf_cfg(duthost, cfg_facts, nbrhosts, tbinfo, loganalyzer):
     for bgp_neighbor in cfg_t1['BGP_NEIGHBOR']:
         cfg_t1['BGP_NEIGHBOR'][bgp_neighbor].pop('nhopself', None)
         cfg_t1['BGP_NEIGHBOR'][bgp_neighbor].pop('rrclient', None)
-    port_list = get_port_connected_with_vm(duthost, nbrhosts)
+    port_list = get_port_connected_with_vm(duthost, tbinfo, nbrhosts)
     vm_list = nbrhosts.keys()
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     port_channel_list = mg_facts['minigraph_portchannels'].keys()
     if len(port_channel_list) == 0:
-        upstream_port_list = get_port_connected_with_vm(duthost, nbrhosts, vm_type="T2")
+        upstream_port_list = get_port_connected_with_vm(duthost, tbinfo, nbrhosts, vm_type="T2")
         port_list.extend(upstream_port_list)
 
     extra_vars = {'cfg_t1': cfg_t1, 'port_list': port_list, 'vm_list': vm_list, 'pc_list': port_channel_list}
@@ -528,10 +552,14 @@ def parse_time_stamp(bgp_packets, ipv4_route_list, ipv6_route_list):
                 layer = bgp_updates[i].getlayer(bgp.BGPUpdate, nb=layer_index)
                 if layer.nlri:
                     for route in layer.nlri:
+                        if not hasattr(route, 'prefix'):  # skip malformed/segmented routes
+                            continue
                         if route.prefix in ipv4_route_list:
                             update_time_stamp(announce_prefix_time_stamp, route.prefix, bgp_packets[i].time)
                 if layer.withdrawn_routes:
                     for route in layer.withdrawn_routes:
+                        if not hasattr(route, 'prefix'):  # skip malformed/segmented routes
+                            continue
                         if route.prefix in ipv4_route_list:
                             update_time_stamp(withdraw_prefix_time_stamp, route.prefix, bgp_packets[i].time)
                 layer_index += 1
@@ -560,8 +588,17 @@ def parse_time_stamp(bgp_packets, ipv4_route_list, ipv6_route_list):
 
 def compute_middle_average_time(time_stamp_dict):
     time_delta_list = []
-    for _, timestamp_list in time_stamp_dict.items():
+    for prefix, timestamp_list in time_stamp_dict.items():
+        if len(timestamp_list) < 2:
+            logger.warning("Prefix {} has only {} timestamp(s) in PCAP, skipping.".format(
+                prefix, len(timestamp_list)))
+            continue
         time_delta_list.append(abs(timestamp_list[1] - timestamp_list[0]))
+    if not time_delta_list:
+        logger.warning("No valid timestamp pairs found in PCAP after all retry attempts; "
+                       "cannot compute BGP route process performance.")
+        pytest.fail("No valid timestamp pairs found in PCAP after all retry attempts; "
+                    "cannot compute BGP route process performance.")
     time_delta_list.sort()
 
     mid_delta_time = time_delta_list[(len(time_delta_list) - 1) // 2]
@@ -670,8 +707,10 @@ def announce_ipv4_ipv6_routes(ptf_ip, ipv4_route_list, exabgp_port, ipv6_route_l
     """
     Announce or withdraw ipv4 and ipv6 routes by exabgp
     """
-    announce_route(ptf_ip, ipv4_route_list, exabgp_port, action)
-    announce_route(ptf_ip, ipv6_route_list, exabgp_port_v6, action)
+    if ipv4_route_list:
+        announce_route(ptf_ip, ipv4_route_list, exabgp_port, action)
+    if ipv6_route_list:
+        announce_route(ptf_ip, ipv6_route_list, exabgp_port_v6, action)
 
 
 def config_bgp_suppress_fib(duthost, enable=True, validate_result=False):
@@ -734,6 +773,12 @@ def param_reboot(request, duthost, localhost, loganalyzer):
     if reboot_type == "reload":
         config_reload(duthost, safe_reload=True, ignore_loganalyzer=loganalyzer)
         wait_until(120, 10, 0, check_interface_status, duthost)
+        # Wait for BGP sessions to re-establish, consistent with do_and_wait_reboot()
+        bgp_neighbors = duthost.get_bgp_neighbors_per_asic(state="all")
+        pytest_assert(
+            wait_until(180, 10, 0, duthost.check_bgp_session_state_all_asics, bgp_neighbors),
+            "Not all bgp sessions are established after config reload"
+        )
     else:
         do_and_wait_reboot(duthost, localhost, reboot_type)
 
@@ -763,35 +808,43 @@ def validate_route_propagate(duthost, nbrhosts, tbinfo, ipv4_route_list, ipv6_ro
     t2_vm_list = get_vm_name_list(tbinfo)
     for t2_vm in t2_vm_list:
         bgp_neighbor_v4, bgp_neighbor_v6 = get_bgp_neighbor_ip(duthost, t2_vm, vrf)
-        validate_route_propagate_status(nbrhosts[t2_vm], ipv4_route_list, bgp_neighbor_v4, vrf, exist=exist)
+        if not is_ipv6_only_topology:
+            validate_route_propagate_status(nbrhosts[t2_vm], ipv4_route_list, bgp_neighbor_v4, vrf, exist=exist)
         validate_route_propagate_status(nbrhosts[t2_vm], ipv6_route_list, bgp_neighbor_v6, vrf, ip_ver=IPV6_VER,
                                         exist=exist)
 
 
-def redistribute_static_route_to_bgp(duthost, redistribute=True):
+def redistribute_static_route_to_bgp(duthost, is_v6_topo, redistribute=True):
     """
     Enable or disable redistribute static route to BGP
     """
     vtysh_cmd = "sudo vtysh"
     config_terminal = " -c 'config'"
     enter_bgp_mode = " -c 'router bgp'"
-    enter_address_family_ipv4 = " -c 'address-family ipv4'"
+    if is_v6_topo:
+        enter_address_family = " -c 'address-family ipv6'"
+    else:
+        enter_address_family = " -c 'address-family ipv4'"
     redistribute_static = " -c 'redistribute static'"
     no_redistribute_static = " -c 'no redistribute static'"
     if redistribute:
-        duthost.shell(vtysh_cmd + config_terminal + enter_bgp_mode + enter_address_family_ipv4 + redistribute_static)
+        duthost.shell(vtysh_cmd + config_terminal + enter_bgp_mode + enter_address_family + redistribute_static)
     else:
-        duthost.shell(vtysh_cmd + config_terminal + enter_bgp_mode + enter_address_family_ipv4 + no_redistribute_static)
+        duthost.shell(vtysh_cmd + config_terminal + enter_bgp_mode + enter_address_family + no_redistribute_static)
 
 
-def remove_static_route_and_redistribute(duthost):
+def remove_static_route_and_redistribute(duthost, is_v6_topo):
     """
     Remove static route and stop redistribute it to BGP
     """
-    out = duthost.shell("show ip route {}".format(STATIC_ROUTE_PREFIX), verbose=False)['stdout']
+    if is_v6_topo:
+        out = duthost.shell("show ipv6 route {}".format(STATIC_ROUTE_PREFIX_V6), verbose=False)['stdout']
+    else:
+        out = duthost.shell("show ip route {}".format(STATIC_ROUTE_PREFIX), verbose=False)['stdout']
     if STATIC_ROUTE_PREFIX in out:
-        duthost.shell("sudo config route del prefix {}".format(STATIC_ROUTE_PREFIX))
-        redistribute_static_route_to_bgp(duthost, redistribute=False)
+        duthost.shell("sudo config route del prefix {}".
+                      format(STATIC_ROUTE_PREFIX_V6 if is_v6_topo else STATIC_ROUTE_PREFIX))
+        redistribute_static_route_to_bgp(duthost, is_v6_topo, redistribute=False)
 
 
 def bgp_route_flap_with_stress(duthost, tbinfo, nbrhosts, ptf_ip, ipv4_route_list, exabgp_port, ipv6_route_list,
@@ -814,8 +867,8 @@ def bgp_route_flap_with_stress(duthost, tbinfo, nbrhosts, ptf_ip, ipv4_route_lis
             check_bgp_neighbor(duthost)
 
 
-def perf_sniffer_prepare(tcpdump_sniffer, duthost, nbrhosts, mg_facts, recv_port):
-    eths_to_t2_vm = get_port_connected_with_vm(duthost, nbrhosts, vm_type='T2')
+def perf_sniffer_prepare(tcpdump_sniffer, duthost, tbinfo, nbrhosts, mg_facts, recv_port):
+    eths_to_t2_vm = get_port_connected_with_vm(duthost, tbinfo, nbrhosts, vm_type='T2')
     eths_to_t0_vm = get_eth_name_from_ptf_port(mg_facts, [port for port in recv_port.values()])
     tcpdump_sniffer.out_direct_ifaces = [random.choice(eths_to_t2_vm)]
     tcpdump_sniffer.in_direct_ifaces = eths_to_t0_vm
@@ -959,7 +1012,9 @@ def test_bgp_route_without_suppress(duthost, tbinfo, nbrhosts, ptfadapter, prepa
 
 
 def test_bgp_route_with_suppress_negative_operation(duthost, tbinfo, nbrhosts, ptfadapter, localhost, prepare_param,
-                                                    restore_bgp_suppress_fib, generate_route_and_traffic_data):
+                                                    restore_bgp_suppress_fib, generate_route_and_traffic_data,
+                                                    loganalyzer):
+    is_v6_topo = is_ipv6_only_topology(tbinfo)
     try:
         with allure.step("Prepare needed parameters"):
             router_mac, mg_facts, ptf_ip, exabgp_port_list, exabgp_port_list_v6, recv_port_list = prepare_param
@@ -995,12 +1050,16 @@ def test_bgp_route_with_suppress_negative_operation(duthost, tbinfo, nbrhosts, p
                 with allure.step("Config static route and redistribute to BGP"):
                     port = get_eth_port(duthost, tbinfo)
                     logger.info("Config static route - sudo config route add prefix {} nexthop dev {}".
-                                format(STATIC_ROUTE_PREFIX, port))
-                    duthost.shell("sudo config route add prefix {} nexthop dev {}".format(STATIC_ROUTE_PREFIX, port))
-                    redistribute_static_route_to_bgp(duthost)
+                                format(STATIC_ROUTE_PREFIX_V6 if is_v6_topo else STATIC_ROUTE_PREFIX, port))
+                    duthost.shell("sudo config route add prefix {} nexthop dev {}".
+                                  format(STATIC_ROUTE_PREFIX_V6 if is_v6_topo else STATIC_ROUTE_PREFIX, port))
+                    redistribute_static_route_to_bgp(duthost, is_v6_topo)
 
                 with allure.step("Validate redistributed static route is propagate to T2 VM peer"):
-                    validate_route_propagate(duthost, nbrhosts, tbinfo, [STATIC_ROUTE_PREFIX], [])
+                    if is_v6_topo:
+                        validate_route_propagate(duthost, nbrhosts, tbinfo, [], [STATIC_ROUTE_PREFIX_V6])
+                    else:
+                        validate_route_propagate(duthost, nbrhosts, tbinfo, [STATIC_ROUTE_PREFIX], [])
 
                 with allure.step("Validate traffic could not be forwarded to T0 VM"):
                     ptf_interfaces = get_t2_ptf_intfs(mg_facts)
@@ -1030,7 +1089,7 @@ def test_bgp_route_with_suppress_negative_operation(duthost, tbinfo, nbrhosts, p
                                               action=WITHDRAW)
     finally:
         with allure.step("Delete static route and remove redistribute to BGP"):
-            remove_static_route_and_redistribute(duthost)
+            remove_static_route_and_redistribute(duthost, is_v6_topo)
 
 
 def test_credit_loop(duthost, tbinfo, nbrhosts, ptfadapter, prepare_param, generate_route_and_traffic_data,
@@ -1178,30 +1237,53 @@ def test_suppress_fib_performance(tcpdump_helper, duthost, tbinfo, nbrhosts, ptf
             with allure.step("Config bgp suppress-fib-pending function"):
                 config_bgp_suppress_fib(duthost)
 
-            with allure.step("Start sniffer"):
-                tcpdump_sniffer = tcpdump_helper
-                perf_sniffer_prepare(tcpdump_sniffer, duthost, nbrhosts, mg_facts, recv_port)
-                tcpdump_sniffer.start_sniffer(host='dut')
+            MAX_CAPTURE_ATTEMPTS = 3
+            pcap_file = None
+            for attempt in range(1, MAX_CAPTURE_ATTEMPTS + 1):
+                if attempt > 1:
+                    logger.warning(
+                        "Attempt {}/{}: PCAP had no valid timestamp pairs, retrying capture...".format(
+                            attempt, MAX_CAPTURE_ATTEMPTS))
 
-            with allure.step(f"Announce BGP ipv4 and ipv6 routes to DUT from T0 VM by ExaBGP - "
-                             f"v4: {exabgp_port} v6: {exabgp_port_v6}"):
-                announce_ipv4_ipv6_routes(ptf_ip, ipv4_route_list, exabgp_port, ipv6_route_list, exabgp_port_v6)
+                with allure.step("Start sniffer (attempt {}/{})".format(attempt, MAX_CAPTURE_ATTEMPTS)):
+                    tcpdump_sniffer = tcpdump_helper
+                    perf_sniffer_prepare(tcpdump_sniffer, duthost, tbinfo, nbrhosts, mg_facts, recv_port)
+                    tcpdump_sniffer.start_sniffer(host='dut')
 
-            with allure.step("Validate the BGP routes are propagated to T2 VM"):
-                validate_route_propagate(duthost, nbrhosts, tbinfo, ipv4_route_list, ipv6_route_list)
+                with allure.step(f"Announce BGP ipv4 and ipv6 routes to DUT from T0 VM by ExaBGP - "
+                                 f"v4: {exabgp_port} v6: {exabgp_port_v6}"):
+                    announce_ipv4_ipv6_routes(ptf_ip, ipv4_route_list, exabgp_port, ipv6_route_list, exabgp_port_v6)
 
-            with allure.step(f"Withdraw BGP ipv4 and ipv6 routes from T0 VM by ExaBGP - "
-                             f"v4: {exabgp_port} v6: {exabgp_port_v6}"):
-                announce_ipv4_ipv6_routes(ptf_ip, ipv4_route_list, exabgp_port, ipv6_route_list, exabgp_port_v6,
-                                          action=WITHDRAW)
-            with allure.step("Validate the BGP routes are withdrawn from T2 VM"):
-                validate_route_propagate(duthost, nbrhosts, tbinfo, ipv4_route_list, ipv6_route_list, exist=False)
+                with allure.step("Validate the BGP routes are propagated to T2 VM"):
+                    validate_route_propagate(duthost, nbrhosts, tbinfo, ipv4_route_list, ipv6_route_list)
 
-            with allure.step("Stop sniffer"):
-                tcpdump_sniffer.stop_sniffer(host='dut')
+                with allure.step(f"Withdraw BGP ipv4 and ipv6 routes from T0 VM by ExaBGP - "
+                                 f"v4: {exabgp_port} v6: {exabgp_port_v6}"):
+                    announce_ipv4_ipv6_routes(ptf_ip, ipv4_route_list, exabgp_port, ipv6_route_list, exabgp_port_v6,
+                                              action=WITHDRAW)
+                with allure.step("Validate the BGP routes are withdrawn from T2 VM"):
+                    validate_route_propagate(duthost, nbrhosts, tbinfo, ipv4_route_list, ipv6_route_list, exist=False)
+
+                with allure.step("Stop sniffer"):
+                    tcpdump_sniffer.stop_sniffer(host='dut')
+
+                bgp_packets_check = sniff(
+                    offline=tcpdump_sniffer.pcap_path,
+                    lfilter=lambda p: (IP or IPv6 in p) and bgp.BGPHeader in p and p[bgp.BGPHeader].type == 2)
+                announce_ts, _ = parse_time_stamp(bgp_packets_check, ipv4_route_list, ipv6_route_list)
+                valid_pairs = sum(1 for v in announce_ts.values() if len(v) >= 2)
+                if valid_pairs > 0:
+                    pcap_file = tcpdump_sniffer.pcap_path
+                    break
+                logger.warning("Attempt {}/{}: PCAP captured no valid prefix timestamp pairs.".format(
+                    attempt, MAX_CAPTURE_ATTEMPTS))
+            else:
+                pytest.fail(
+                    "PCAP capture yielded no valid prefix timestamp pairs after {} attempts.".format(
+                        MAX_CAPTURE_ATTEMPTS))
 
             with allure.step("Validate BGP route process performance"):
-                validate_route_process_perf(tcpdump_sniffer.pcap_path, ipv4_route_list, ipv6_route_list)
+                validate_route_process_perf(pcap_file, ipv4_route_list, ipv6_route_list)
         finally:
             with allure.step("Disable bgp suppress-fib-pending function"):
                 config_bgp_suppress_fib(duthost, False, validate_result=True)

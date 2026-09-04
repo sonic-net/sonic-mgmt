@@ -51,13 +51,15 @@ def load_remove_allow_list(duthosts, bgp_allow_list_setup, rand_one_dut_hostname
     remove_allow_list(duthost, namespace, ALLOW_LIST_PREFIX_JSON_FILE)
 
 
-def check_routes_on_dut(duthost, namespace):
+def check_routes_on_dut(duthost, setup_info):
     """
     Verify routes on dut
     """
-    for prefixes in list(PREFIX_LISTS.values()):
+    for list_name, prefixes in list(PREFIX_LISTS.items()):
+        if setup_info['is_v6_topo'] and "v6" not in list_name.lower():
+            continue
         for prefix in prefixes:
-            dut_route = duthost.get_route(prefix, namespace)
+            dut_route = duthost.get_route(prefix, setup_info['downstream_namespace'])
             pytest_assert(dut_route, 'Route {} is not found on DUT'.format(prefix))
 
 
@@ -71,7 +73,7 @@ def test_default_allow_list_preconfig(duthosts, rand_one_dut_hostname, bgp_allow
     # All routes should be found on from neighbor.
     check_routes_on_from_neighbor(bgp_allow_list_setup, nbrhosts)
     # All routes should be found in dut.
-    check_routes_on_dut(duthost, bgp_allow_list_setup['downstream_namespace'])
+    check_routes_on_dut(duthost, bgp_allow_list_setup)
     # If permit is True, all routes should be forwarded and added drop_community and keep ori community.
     # If permit if False, all routes should not be forwarded.
     check_routes_on_neighbors_empty_allow_list(nbrhosts, bgp_allow_list_setup, permit)
@@ -86,7 +88,7 @@ def test_allow_list(duthosts, rand_one_dut_hostname, bgp_allow_list_setup, nbrho
     # All routes should be found on from neighbor.
     check_routes_on_from_neighbor(bgp_allow_list_setup, nbrhosts)
     # All routes should be found in dut.
-    check_routes_on_dut(duthost, bgp_allow_list_setup['downstream_namespace'])
+    check_routes_on_dut(duthost, bgp_allow_list_setup)
     # If permit is True, all routes should be forwarded. Routs that in allow list should not be add drop_community
     # and keep ori community.
     # If permit is False, Routes in allow_list should be forwarded and keep ori community, routes not in allow_list

@@ -8,6 +8,7 @@ ASICS_PRESENT = 'asics_present'
 RANDOM_SEED = 'random_seed'
 CUSTOM_MSG_PREFIX = "sonic_custom_msg"
 DUT_CHECK_NAMESPACE = "dut_check_result"
+PTF_TIMEOUT = 60
 
 # Describe upstream neighbor of dut in different topos
 UPSTREAM_NEIGHBOR_MAP = {
@@ -36,7 +37,7 @@ UPSTREAM_ALL_NEIGHBOR_MAP = {
     "m0_vlan": ["m1"],
     "m0_l3": ["m1"],
     'lt2': ['ut2'],
-    'ft2': ['ut2']
+    'ft2': ['lt2']
 }
 
 # Describe downstream neighbor of dut in different topos

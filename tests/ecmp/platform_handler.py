@@ -20,14 +20,15 @@ class ECMPHashPlatformHandler(ABC):
         pass
 
     @abstractmethod
-    def is_supported(self, duthost=None, hwsku=None, asic_type=None, topology=None):
+    def is_supported(self, duthost=None, hwsku=None, asic_type=None, topology=None, topo_name=None):
         """Check if the given hardware configuration is supported.
 
         Args:
             duthost: DUT host object (optional, for extracting facts)
             hwsku: Hardware SKU string (optional)
             asic_type: ASIC type string (optional)
-            topology: Topology name string (optional)
+            topology: Topology type string (optional, e.g. "t0", "t1")
+            topo_name: Topology name string (optional, e.g. "dualtor-aa-56")
         """
         pass
 
@@ -66,14 +67,15 @@ class BroadcomPlatformHandler(ECMPHashPlatformHandler):
         """Return list of supported Broadcom hardware SKUs."""
         return self.SUPPORTED_SKUS
 
-    def is_supported(self, duthost=None, hwsku=None, asic_type=None, topology=None):
+    def is_supported(self, duthost=None, hwsku=None, asic_type=None, topology=None, topo_name=None):
         """Check if the given hardware configuration is supported by Broadcom platform.
 
         Args:
             duthost: DUT host object (optional, for extracting facts)
             hwsku: Hardware SKU string (optional)
             asic_type: ASIC type string (optional)
-            topology: Topology name string (optional)
+            topology: Topology type string (optional, e.g. "t0", "t1")
+            topo_name: Topology name string (optional, e.g. "dualtor-aa-56")
         """
         # Check ASIC type - must be Broadcom
         if asic_type and asic_type.lower() != "broadcom":
@@ -83,6 +85,13 @@ class BroadcomPlatformHandler(ECMPHashPlatformHandler):
         # Check topology - must be t0 or t1
         if topology and not any(topo in topology.lower() for topo in ["t0", "t1"]):
             logger.info(f"Topology '{topology}' not supported by Broadcom platform handler")
+            return False
+
+        # Skip dualtor topologies - ECMP balance test sends traffic from downstream PTF ports
+        # which connect through mux cables in dualtor. Without mux cable state management,
+        # packets don't reach the DUT correctly, causing consistent test failures.
+        if topo_name and "dualtor" in topo_name.lower():
+            logger.info(f"Topology '{topo_name}' (dualtor) not supported for ECMP hash testing")
             return False
 
         # Check hardware SKU
@@ -132,14 +141,15 @@ class MellanoxPlatformHandler(ECMPHashPlatformHandler):
         """Return list of supported Mellanox hardware SKUs."""
         return self.SUPPORTED_SKUS
 
-    def is_supported(self, duthost=None, hwsku=None, asic_type=None, topology=None):
+    def is_supported(self, duthost=None, hwsku=None, asic_type=None, topology=None, topo_name=None):
         """Check if the given hardware configuration is supported by Mellanox platform.
 
         Args:
             duthost: DUT host object (optional, for extracting facts)
             hwsku: Hardware SKU string (optional)
             asic_type: ASIC type string (optional)
-            topology: Topology name string (optional)
+            topology: Topology type string (optional, e.g. "t0", "t1")
+            topo_name: Topology name string (optional, e.g. "dualtor-aa-56")
         """
         # Check ASIC type - must be Mellanox
         if asic_type and asic_type.lower() != "mellanox":
@@ -149,6 +159,13 @@ class MellanoxPlatformHandler(ECMPHashPlatformHandler):
         # Check topology - must be t0 or t1
         if topology and not any(topo in topology.lower() for topo in ["t0", "t1"]):
             logger.info(f"Topology '{topology}' not supported by Mellanox platform handler")
+            return False
+
+        # Skip dualtor topologies - ECMP balance test sends traffic from downstream PTF ports
+        # which connect through mux cables in dualtor. Without mux cable state management,
+        # packets don't reach the DUT correctly, causing consistent test failures.
+        if topo_name and "dualtor" in topo_name.lower():
+            logger.info(f"Topology '{topo_name}' (dualtor) not supported for ECMP hash testing")
             return False
 
         # Check if we have any supported SKUs at all - if not, Mellanox platform is not implemented yet
@@ -212,11 +229,14 @@ class PlatformHandlerFactory:
             hwsku = duthost.facts.get('hwsku', 'unknown')
             asic_type = duthost.facts.get('asic_type', 'unknown')
             topo_type = tbinfo["topo"]["type"]
+            topo_name = tbinfo.get("topo", {}).get("name", "")
         else:
             asic_type = 'unknown'
             topo_type = 'unknown'
+            topo_name = ''
 
-        logger.info(f"Auto-detecting platform handler for: ASIC={asic_type}, SKU={hwsku}, Topology Type={topo_type}")
+        logger.info(f"Auto-detecting platform handler for: ASIC={asic_type}, SKU={hwsku}, "
+                    f"Topology Type={topo_type}, Topology Name={topo_name}")
 
         # Direct ASIC type to platform mapping for faster and more accurate detection
         asic_to_platform_map = {
@@ -231,7 +251,8 @@ class PlatformHandlerFactory:
                 handler_class = cls._handlers[platform_name]
                 handler = handler_class()
                 logger.info(f"Trying {platform_name} platform handler based on ASIC type '{asic_type}'...")
-                if handler.is_supported(duthost=duthost, hwsku=hwsku, asic_type=asic_type, topology=topo_type):
+                if handler.is_supported(duthost=duthost, hwsku=hwsku, asic_type=asic_type,
+                                        topology=topo_type, topo_name=topo_name):
                     logger.info(f"Auto-detected platform: {platform_name}")
                     return handler
                 else:
@@ -302,7 +323,8 @@ class ECMPHashManager:
         return self.handler.is_supported(duthost=self.duthost,
                                          hwsku=self.hwsku,
                                          asic_type=self.asic_type,
-                                         topology=self.topo_type)
+                                         topology=self.topo_type,
+                                         topo_name=self.topology)
 
     def get_current_offset(self):
         """Get the current ECMP hash offset value."""

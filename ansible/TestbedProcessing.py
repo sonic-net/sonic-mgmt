@@ -297,7 +297,8 @@ error handling: checks if attribute values are None type or string "None"
 
 
 def makeTestbed(data, outfile):
-    csv_columns = "# conf-name,group-name,topo,ptf_image_name,ptf,ptf_ip,ptf_ipv6,server,vm_base,dut,comment"
+    csv_columns = ("# conf-name,group-name,topo,ptf_image_name,ptf,ptf_ip,ptf_ipv6,server,vm_base,dut,comment,"
+                   "use_converged_peers")
     topology = data
     csv_file = outfile
 
@@ -316,6 +317,7 @@ def makeTestbed(data, outfile):
                 dut = groupDetails.get("dut")
                 ptf = groupDetails.get("ptf")
                 comment = groupDetails.get("comment")
+                use_converged_peers = str(groupDetails.get("use_converged_peers", False)).lower()
 
                 # catch empty types
                 if not groupName:
@@ -346,7 +348,7 @@ def makeTestbed(data, outfile):
 
                 row = confName + "," + groupName + "," + topo + "," + ptf_image_name + "," + ptf + \
                     "," + ptf_ip + "," + ptf_ipv6 + "," + server + \
-                    "," + vm_base + "," + dut + "," + comment
+                    "," + vm_base + "," + dut + "," + comment + "," + use_converged_peers
                 f.write(row + "\n")
     except IOError:
         print("I/O error: issue creating testbed.yaml")

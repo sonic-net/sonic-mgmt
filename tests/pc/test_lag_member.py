@@ -115,7 +115,11 @@ def set_arp_reply(ptfhost, interface_list, value):
     """
     for interface in interface_list:
         ptfhost.shell("sysctl -w net.ipv4.conf.{}.arp_ignore={}".format(interface, value))
-    ptfhost.shell("sysctl -p")
+    # "sysctl -w" already applies each setting live. A bare "sysctl -p" only
+    # reads the legacy /etc/sysctl.conf, which Debian trixie's procps no longer
+    # ships, so it fails on newer PTF images. Reload from the drop-in dirs
+    # instead, tolerating their absence.
+    ptfhost.shell("sysctl --system", module_ignore_errors=True)
 
 
 def ptf_teardown(ptfhost, ptf_ports):
@@ -141,6 +145,10 @@ def ptf_teardown(ptfhost, ptf_ports):
                                                  ptf_ports[ATTR_PORT_NOT_BEHIND_LAG]["port_name"]))
     ptfhost.ptf_nn_agent()
     ptfhost.shell('supervisorctl stop arp_responder', module_ignore_errors=True)
+    # Remove the arp_responder config rendered during setup_ptf_lag so it cannot
+    # be re-used by a subsequent test that starts arp_responder with the default
+    # config path.
+    ptfhost.file(path="/tmp/from_t1.json", state="absent")
 
 
 def setup_dut_lag(duthost, dut_ports, vlan, src_vlan_id):

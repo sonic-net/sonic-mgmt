@@ -73,7 +73,9 @@ def _wait_until_pc_members_removed(asichost, pc_names):
         pytest.fail("Portchannel members are not removed from {}".format(pc_names))
 
 
-def has_bgp_neighbors(duthost, portchannel):
+def has_bgp_neighbors(duthost, portchannel, is_ipv6=False):
+    if is_ipv6:
+        return duthost.shell("show ipv6 int | grep {} | awk '{{print $4}}'".format(portchannel))['stdout'] != 'N/A'
     return duthost.shell("show ip int | grep {} | awk '{{print $4}}'".format(portchannel))['stdout'] != 'N/A'
 
 
@@ -96,17 +98,37 @@ def test_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
 
     portchannel = None
     portchannel_members = None
+    is_ipv6 = False
     for portchannel in port_channels_data:
         logging.info('Trying to get PortChannel: {} for test'.format(portchannel))
         if int_facts['ansible_interface_facts'][portchannel].get('ipv4'):
             portchannel_members = port_channels_data[portchannel]
             break
+        elif int_facts['ansible_interface_facts'][portchannel].get('ipv6'):
+            # Check for non-link-local IPv6 address
+            for ipv6_info in int_facts['ansible_interface_facts'][portchannel]['ipv6']:
+                if not ipaddress.ip_address(ipv6_info['address']).is_link_local:
+                    portchannel_members = port_channels_data[portchannel]
+                    is_ipv6 = True
+                    break
+            if portchannel_members:
+                break
 
     pytest_assert(portchannel and portchannel_members, 'Can not get PortChannel interface for test')
 
     tmp_portchannel = "PortChannel999"
-    # Initialize portchannel_ip and portchannel_members
-    portchannel_ip = int_facts['ansible_interface_facts'][portchannel]['ipv4']['address']
+    # Initialize portchannel_ip and prefix_len based on IP version
+    if is_ipv6:
+        # Find non-link-local IPv6 address
+        for ipv6_info in int_facts['ansible_interface_facts'][portchannel]['ipv6']:
+            if not ipaddress.ip_address(ipv6_info['address']).is_link_local:
+                portchannel_ip = ipv6_info['address']
+                prefix_len = str(ipv6_info['prefix'])
+                break
+    else:
+        portchannel_ip = int_facts['ansible_interface_facts'][portchannel]['ipv4']['address']
+        prefix_len = "31"
+    bgp_state_key = 'ipv6_idle' if is_ipv6 else 'ipv4_idle'
 
     # Initialize flags
     remove_portchannel_members = False
@@ -118,6 +140,7 @@ def test_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     logging.info("portchannel=%s" % portchannel)
     logging.info("portchannel_ip=%s" % portchannel_ip)
     logging.info("portchannel_members=%s" % portchannel_members)
+    logging.info("is_ipv6=%s" % is_ipv6)
 
     try:
         # Step 1: Remove portchannel members from portchannel
@@ -126,15 +149,15 @@ def test_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
         remove_portchannel_members = True
 
         # Step 2: Remove portchannel ip from portchannel
-        asichost.config_ip_intf(portchannel, portchannel_ip + "/31", "remove")
+        asichost.config_ip_intf(portchannel, portchannel_ip + "/" + prefix_len, "remove")
         remove_portchannel_ip = True
 
         time.sleep(30)
         int_facts = asichost.interface_facts()['ansible_facts']
         pytest_assert(not int_facts['ansible_interface_facts'][portchannel]['link'])
         pytest_assert(
-            has_bgp_neighbors(duthost, portchannel) and
-            wait_until(120, 10, 0, asichost.check_bgp_statistic, 'ipv4_idle', 1)
+            has_bgp_neighbors(duthost, portchannel, is_ipv6) and
+            wait_until(120, 10, 0, asichost.check_bgp_statistic, bgp_state_key, 1)
             or not wait_until(10, 10, 0, pc_active, asichost, portchannel))
 
         # Step 3: Create tmp portchannel
@@ -147,22 +170,44 @@ def test_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
         add_tmp_portchannel_members = True
 
         # Step 5: Add portchannel ip to tmp portchannel
-        asichost.config_ip_intf(tmp_portchannel, portchannel_ip + "/31", "add")
+        asichost.config_ip_intf(tmp_portchannel, portchannel_ip + "/" + prefix_len, "add")
         int_facts = asichost.interface_facts()['ansible_facts']
-        pytest_assert(int_facts['ansible_interface_facts'][tmp_portchannel]['ipv4']['address'] == portchannel_ip)
+        if is_ipv6:
+            tmp_pc_ipv6_addrs = [ipv6_info['address']
+                                 for ipv6_info in int_facts['ansible_interface_facts'][tmp_portchannel].get('ipv6', [])]
+            pytest_assert(portchannel_ip in tmp_pc_ipv6_addrs,
+                          "IPv6 address {} not found on {}".format(portchannel_ip, tmp_portchannel))
+        else:
+            pytest_assert(int_facts['ansible_interface_facts'][tmp_portchannel]['ipv4']['address'] == portchannel_ip)
         add_tmp_portchannel_ip = True
 
         time.sleep(30)
         int_facts = asichost.interface_facts()['ansible_facts']
         pytest_assert(int_facts['ansible_interface_facts'][tmp_portchannel]['link'])
         pytest_assert(
-            has_bgp_neighbors(duthost, tmp_portchannel) and
-            wait_until(120, 10, 0, asichost.check_bgp_statistic, 'ipv4_idle', 0)
+            has_bgp_neighbors(duthost, tmp_portchannel, is_ipv6) and
+            wait_until(120, 10, 0, asichost.check_bgp_statistic, bgp_state_key, 0)
             or wait_until(10, 10, 0, pc_active, asichost, tmp_portchannel))
     finally:
         # Recover all states
+        # The T1 topology golden config (smartswitch_t1.json) installs a static route
+        # "10.2.0.1/32 via 18.0.202.1" whose nexthop is resolved recursively. While
+        # PortChannel999 is operationally up and holds the 10.0.0.0/31 subnet, FRR
+        # resolves that static route through PortChannel999. sonic-utilities
+        # config/main.py checks "show ip route vrf all static" before removing the
+        # last IP on an interface and raises:
+        #   "Cannot remove the last IP entry of interface PortChannel999.
+        #    A static ip route is still bound to the RIF."
+        # Issuing admin-down on PortChannel999 first drops the LAG link, tears down
+        # BGP, and causes FRR to withdraw PortChannel999 from the recursive nexthop
+        # resolution. A brief sleep allows FRR to update its routing table before
+        # the IP removal is attempted, preserving the original cleanup order
+        # (IP removed before members).
+        if create_tmp_portchannel:
+            asichost.shutdown_interface(tmp_portchannel)
+            time.sleep(5)
         if add_tmp_portchannel_ip:
-            asichost.config_ip_intf(tmp_portchannel, portchannel_ip + "/31", "remove")
+            asichost.config_ip_intf(tmp_portchannel, portchannel_ip + "/" + prefix_len, "remove")
 
         time.sleep(5)
         if add_tmp_portchannel_members:
@@ -173,15 +218,15 @@ def test_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
         if create_tmp_portchannel:
             asichost.config_portchannel(tmp_portchannel, "del")
         if remove_portchannel_ip:
-            asichost.config_ip_intf(portchannel, portchannel_ip + "/31", "add")
+            asichost.config_ip_intf(portchannel, portchannel_ip + "/" + prefix_len, "add")
         if remove_portchannel_members:
             for member in portchannel_members:
                 asichost.config_portchannel_member(portchannel, member, "add")
 
         time.sleep(5)
         pytest_assert(
-            has_bgp_neighbors(duthost, portchannel) and
-            wait_until(120, 10, 0, asichost.check_bgp_statistic, 'ipv4_idle', 0)
+            has_bgp_neighbors(duthost, portchannel, is_ipv6) and
+            wait_until(120, 10, 0, asichost.check_bgp_statistic, bgp_state_key, 0)
             or wait_until(10, 10, 0, pc_active, asichost, portchannel))
 
 
@@ -213,7 +258,8 @@ def test_po_update_io_no_loss(
 
     if len(pcs) < 2:
         pytest.skip(
-            "Skip test due to there is no enough port channel with at least 2 members exists in current topology.")
+            "Skip test as there are not enough port channels with members on asic {} on dut {}"
+            .format(enum_frontend_asic_index, duthost))
 
     # generate out_pc tuples similar to pc tuples, but that are on the same asic as asichost
     out_pcs = [
@@ -224,7 +270,7 @@ def test_po_update_io_no_loss(
 
     if len(out_pcs) < 1:
         pytest.skip(
-            "Skip test as there are no port channels on asic {} on dut {}".format(enum_frontend_asic_index, duthost))
+            "Skip test as there are not enough port channels with at least 2 members in current topology.")
     # Select out pc from the port channels that are on the same asic as asichost
     out_pc = random.sample(out_pcs, k=1)[0]
     selected_pcs = random.sample(pcs, k=2)
@@ -354,6 +400,22 @@ def test_po_update_io_no_loss(
                       "Packets lost rate > {} during pc members add/removal, send_count: {}, match_count: {}".format(
                           max_loss_rate, send_count, match_count))
     finally:
+        # The T1 topology golden config (smartswitch_t1.json) installs a static route
+        # "10.2.0.1/32 via 18.0.202.1" whose nexthop is resolved recursively. While
+        # PortChannel999 is operationally up and holds the 10.0.0.0/31 subnet, FRR
+        # resolves that static route through PortChannel999. sonic-utilities
+        # config/main.py checks "show ip route vrf all static" before removing the
+        # last IP on an interface and raises:
+        #   "Cannot remove the last IP entry of interface PortChannel999.
+        #    A static ip route is still bound to the RIF."
+        # Issuing admin-down on PortChannel999 first drops the LAG link, tears down
+        # BGP, and causes FRR to withdraw PortChannel999 from the recursive nexthop
+        # resolution. A brief sleep allows FRR to update its routing table before
+        # the IP removal is attempted, preserving the original cleanup order
+        # (IP removed before members).
+        if create_tmp_pc:
+            asichost.shutdown_interface(tmp_pc)
+            time.sleep(5)
         if add_tmp_pc_ip:
             asichost.config_ip_intf(tmp_pc, pc_ip + "/31", "remove")
             time.sleep(2)

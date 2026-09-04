@@ -152,8 +152,8 @@ def apply_dut_config_files(duthost, vnet_test_params, num_routes):
         duthost.shell(
             "docker exec swss sh -c \"swssconfig /vnet.switch.json\"")
         duthost.shell("docker exec swss sh -c \"swssconfig /vnet.route.json\"")
-        pytest_assert(wait_until(timeout, 20, 0, verify_routes_configured, duthost, num_routes,
-                      num_routes_before_add, 'add'), "Routes weren't configured successfully, test Failed.")
+        pytest_assert(wait_until(timeout, 20, 0, verify_routes_configured, duthost, num_routes_before_add, 'add'),
+                      "Routes weren't configured successfully, test Failed.")
         routes_after = count_routes_from_asic_db(duthost)
         logger.info("Routes number after adding: {}".format(routes_after))
 
@@ -232,15 +232,26 @@ def cleanup_vnet_routes(duthost, vnet_config, num_routes):
         vnet_config: VNET configuration generated from templates/vnet_config.j2
     """
 
+    current_route_num = count_routes_from_asic_db(duthost)
+    logger.info("Routes number before deleting: {}".format(current_route_num))
     render_template_to_host("vnet_routes.j2", duthost,
                             DUT_VNET_ROUTE_JSON, vnet_config, op="DEL")
     duthost.shell(
         "docker cp {} swss:/vnet.route.json".format(DUT_VNET_ROUTE_JSON))
     duthost.shell("docker exec swss sh -c \"swssconfig /vnet.route.json\"")
-    current_route_num = count_routes_from_asic_db(duthost)
     timeout = num_routes/50
-    pytest_assert(wait_until(timeout, 20, 0, verify_routes_configured, duthost, num_routes,
-                  current_route_num, 'clean'), "Routes weren't configured successfully, test Failed.")
+    pytest_assert(wait_until(timeout, 20, 0, verify_routes_configured, duthost, current_route_num, 'clean'),
+                  "Routes weren't configured successfully, test Failed.")
+
+
+def count_hosts_from_conf(duthost):
+    num_hosts = int(duthost.shell("cat {} | grep Vlan | wc -l".format(DUT_VNET_INTF_JSON))['stdout_lines'][0])
+    return num_hosts
+
+
+def count_routes_from_conf(duthost):
+    num_routes = int(duthost.shell("cat {} | grep VNET_ROUTE | wc -l".format(DUT_VNET_ROUTE_JSON))['stdout_lines'][0])
+    return num_routes
 
 
 def count_routes_from_asic_db(duthost):
@@ -248,11 +259,18 @@ def count_routes_from_asic_db(duthost):
     return num_routes
 
 
-def verify_routes_configured(duthost, expected_routes, routes_num_before_change, action):
+def verify_routes_configured(duthost, routes_num_before_change, action):
+    expected_routes_num = 0
     configured_routes_num = count_routes_from_asic_db(duthost)
     actual_routes_changed = abs(configured_routes_num - routes_num_before_change)
-    if not (actual_routes_changed >= expected_routes):
-        logger.warning("Expected {} routes to be {}ed, but actually {}ed only {}"
-                       .format(expected_routes, action, action, actual_routes_changed))
+
+    expected_routes_num = count_routes_from_conf(duthost)
+    if action == "add":
+        expected_routes_num += count_hosts_from_conf(duthost)
+
+    if not (actual_routes_changed == expected_routes_num):
+        logger.warning("Vnet routes {} error, expected routes {}, configured routes {}, before change {}"
+                       .format(action, expected_routes_num, actual_routes_changed, routes_num_before_change))
         return False
+    logger.info("Vnet routes added {}".format(actual_routes_changed))
     return True

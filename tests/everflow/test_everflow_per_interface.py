@@ -105,6 +105,10 @@ def setup_mirror_session_dest_ip_route(tbinfo, setup_info, apply_mirror_session,
     Setup the route for mirror session destination ip and update monitor port list.
     Remove the route as part of cleanup.
     """
+    duthost_set = BaseEverflowTest.get_duthost_set(setup_info)
+    for duthost in duthost_set:
+        if duthost.facts['platform'] in ('x86_64-arista_7260cx3_64', 'x86_64-arista_7060_cx32s') and erspan_ip_ver == 6: # noqa E501
+            pytest.skip("Skip IPv6 mirror session on unsupported platforms")
     ip = "ipv4" if erspan_ip_ver == 4 else "ipv6"
     namespace = setup_info[UP_STREAM]['remote_namespace']
     tx_port = setup_info[UP_STREAM]["dest_port"][0]

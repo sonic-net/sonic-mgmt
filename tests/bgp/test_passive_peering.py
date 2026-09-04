@@ -32,6 +32,7 @@ def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_front_end_hostname, request):
 
     duthost = duthosts[rand_one_dut_front_end_hostname]
     dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
+    confed_asn = duthost.get_bgp_confed_asn()
 
     lldp_table = duthost.shell("show lldp table")['stdout'].split("\n")[3].split()
     neigh_name = lldp_table[1]
@@ -66,8 +67,14 @@ def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_front_end_hostname, request):
                     assert v['state'] == 'established'
             neigh_asn[v['description']] = v['remote AS']
 
-    dut_ip_v4 = tbinfo['topo']['properties']['configuration'][neigh_name]['bgp']['peers'][dut_asn][0]
-    dut_ip_v6 = tbinfo['topo']['properties']['configuration'][neigh_name]['bgp']['peers'][dut_asn][1]
+    neigh_bgp_config = tbinfo['topo']['properties']['configuration'][neigh_name]['bgp']
+    peer_in_bgp_confed = neigh_bgp_config.get('peer_in_bgp_confed', False)
+    if peer_in_bgp_confed:
+        asn = int(confed_asn)
+    else:
+        asn = int(dut_asn)
+    dut_ip_v4 = tbinfo['topo']['properties']['configuration'][neigh_name]['bgp']['peers'][asn][0]
+    dut_ip_v6 = tbinfo['topo']['properties']['configuration'][neigh_name]['bgp']['peers'][asn][1]
 
     # verify sessions are established
     logger.debug(duthost.shell('show ip bgp summary')['stdout'])

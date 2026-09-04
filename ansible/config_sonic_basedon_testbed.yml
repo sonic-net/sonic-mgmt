@@ -61,10 +61,9 @@
       set_fact:
         topo: "{{ testbed_facts['topo'] }}"
 
-    - name: set default light mode
+    - name: set lit mode
       set_fact:
-        is_light_mode: true
-      when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1", "t1-48-lag"] and is_light_mode is not defined
+        is_lit_mode: "{{ testbed_facts.get('is_lit_mode', topo in ['t1-smartswitch-ha', 't1-28-lag', 'smartswitch-t1', 't1-48-lag']) }}"
 
     - name: set ptf image name
       set_fact:
@@ -73,6 +72,10 @@
     - name: check if testbed is an ixia testbed
       set_fact:
         is_ixia_testbed: "{{ true if ptf_image == 'docker-keysight-api-server' else false }}"
+
+    - name: check if testbed has L1 switches
+      set_fact:
+        is_l1_testbed: "{{ testbed_facts.l1s is defined and (testbed_facts.l1s | length > 0) }}"
 
     - block:
         - name: Set L1 connection script path
@@ -116,10 +119,10 @@
   - topo_facts: topo={{ topo }} hwsku={{ hwsku }} testbed_name={{ testbed_name | default(None) }} asics_present={{ asics_present | default([]) }} card_type={{ card_type | default('fixed') }}
     delegate_to: localhost
 
-  - name: override group_file for route-conv
+  - name: override group_file for snappi testbed
     set_fact:
       conn_graph_group: "{{ testbed_facts['inv_name'] }}"
-    when: is_ixia_testbed
+    when: is_ixia_testbed or is_l1_testbed
 
   - name: get connection graph if defined for dut (ignore any errors)
     conn_graph_facts:
@@ -671,7 +674,7 @@
               dest=/tmp/smartswitch.json
         become: true
         # t1-28-lag is smartswitch topo only
-        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1", "t1-48-lag"] and is_light_mode|bool == true
+        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1", "t1-48-lag"] and is_lit_mode|bool == true
 
       - name: Create dns config
         template: src=templates/dns_config.j2
@@ -720,13 +723,25 @@
         rescue:
           - debug: msg="SOC properties may not be defined in the device config file. Skipping adjustment of SOC properties."
 
+      # t2_single_node golden_config needs port_config from generated minigraph so
+      # that golden config does not inherit stale admin_status from old minigraph
+      - name: Apply minigraph prior to generating golden_config_db.json
+        become: true
+        shell: config load_minigraph -y
+        when: "'t2_single_node' in topo"
+
       - name: Generate golden_config_db.json
         generate_golden_config_db:
           topo_name: "{{ topo }}"
           port_index_map: "{{ port_index_map | default({}) }}"
           hwsku: "{{ hwsku }}"
           vm_configuration: "{{ configuration if topo == 't1-filterleaf-lag' else omit }}"
-          is_light_mode: "{{ is_light_mode | default(true) }}"
+          is_lit_mode: "{{ is_lit_mode | default(true) }}"
+          num_asics: "{{ num_asics }}"
+          npu_index: "{{ dut_index | default(0) | int }}"
+          duts_list: "{{ testbed_facts['duts'] | default([]) }}"
+          dut_loopbacks: "{{ topology.DUT.loopback | default({}) }}"
+          console_ports: "{{ device_serial_link[inventory_hostname] | default(omit) if 'c0' in topo else omit }}"
         become: true
 
       - name: Copy macsec profile json to dut
@@ -747,7 +762,7 @@
           macsec_profile: "{{ macsec_profile }}"
           num_asics: "{{ num_asics }}"
         become: true
-        when: "('t2' in topo) and (enable_macsec is defined)"
+        when: "('t2' in topo) and (macsec_profile is defined)"
 
       - name: Use minigraph case
         block:
@@ -900,21 +915,29 @@
         become: true
         shell: config bgp startup all
 
+      - name: Wait for DPU control planes to boot after config reload
+        pause:
+          seconds: 300
+        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1", "t1-48-lag"] and is_lit_mode|bool == true
+        tags: [ dpu_config ]
+
       - name: Copy smartswitch dpu config
         copy: src=golden_config_db/smartswitch_dpu_extra.json
               dest=/tmp/dpu_extra.json
         become: true
         # t1-28-lag is smartswitch topo only
-        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1", "t1-48-lag"] and is_light_mode|bool == true
+        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1", "t1-48-lag"] and is_lit_mode|bool == true
 
       - name: Load DPU config in smartswitch
         load_extra_dpu_config:
           hwsku: "{{ hwsku }}"
+          hostname: "{{ inventory_hostname }}"
           host_username: "{{ sonic_login }}"
           host_passwords: "{{ sonic_default_passwords }}"
+          npu_index: "{{ dut_index | default(0) | int }}"
         become: true
         # t1-28-lag is smartswitch topo only
-        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1", "t1-48-lag"] and is_light_mode|bool == true
+        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1", "t1-48-lag"] and is_lit_mode|bool == true
 
       - name: Configure TACACS
         become: true
@@ -1009,10 +1032,22 @@
               var: grpc_secrets_after
 
           - name: restart the pmon service
-            service:
-              name: pmon
-              state: restarted
-            become: true
+            block:
+              - name: attempt to restart pmon service
+                service:
+                  name: pmon
+                  state: restarted
+                become: true
+            rescue:
+              - name: reset failed state for pmon service
+                command: systemctl reset-failed pmon.service
+                become: true
+
+              - name: start pmon service after reset
+                service:
+                  name: pmon
+                  state: started
+                become: true
 
           when: stat_result.stat.exists
 

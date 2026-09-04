@@ -41,8 +41,17 @@ else:
         SnmpEngine,
         ContextData,
         ObjectType,
-        ObjectIdentity
+        ObjectIdentity,
+        usmHMACMD5AuthProtocol,
+        usmHMACSHAAuthProtocol,
+        usmDESPrivProtocol,
+        usmAesCfb128Protocol
     )
+    # For pysnmp v5+, add the protocol constants to cmdgen module for compatibility
+    cmdgen.usmHMACMD5AuthProtocol = usmHMACMD5AuthProtocol
+    cmdgen.usmHMACSHAAuthProtocol = usmHMACSHAAuthProtocol
+    cmdgen.usmDESPrivProtocol = usmDESPrivProtocol
+    cmdgen.usmAesCfb128Protocol = usmAesCfb128Protocol
 
 DOCUMENTATION = '''
 ---
@@ -952,7 +961,7 @@ def main_legacy(module):
 
     errorIndication, errorStatus, errorIndex, varTable = cmdGen.nextCmd(
         snmp_auth,
-        cmdgen.UdpTransportTarget((m_args['host'], 161), timeout=m_args['timeout']),
+        _create_transport_target(m_args['host'], 161, m_args['timeout']),
         cmdgen.MibVariable(p.csqIfQosGroupStatsValue,),
         lookupMib=False,
     )
@@ -991,7 +1000,7 @@ def main_legacy(module):
 
     errorIndication, errorStatus, errorIndex, varTable = cmdGen.nextCmd(
         snmp_auth,
-        cmdgen.UdpTransportTarget((m_args['host'], 161), timeout=m_args['timeout']),
+        _create_transport_target(m_args['host'], 161, m_args['timeout']),
         cmdgen.MibVariable(p.ipCidrRouteDest,),
         cmdgen.MibVariable(p.ipCidrRouteStatus,),
         lookupMib=False,
@@ -1070,7 +1079,7 @@ def main_legacy(module):
 
         errorIndication, errorStatus, errorIndex, varTable = cmdGen.nextCmd(
             snmp_auth,
-            cmdgen.UdpTransportTarget((m_args['host'], 161), timeout=m_args['timeout']),
+            _create_transport_target(m_args['host'], 161, m_args['timeout']),
             cmdgen.MibVariable(p.dot1qTpFdbPort,),
             lookupMib=False,
         )

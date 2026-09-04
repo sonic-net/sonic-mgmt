@@ -62,19 +62,32 @@ def skip_when_buffer_is_dynamic_model(duthost):
 
 # Function Fixture
 @pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_exceptions(duthosts, selected_dut_hostname, loganalyzer):
+def ignore_expected_loganalyzer_exceptions(request, duthosts, loganalyzer):
     """
        Ignore expected yang validation failure during test execution
 
        GCU will try several sortings of JsonPatch until the sorting passes yang validation
 
        Args:
+            request: Pytest request object to detect which DUT fixture is being used
             duthosts: list of DUTs.
-            selected_dut_hostname: Hostname of a random chosen dut
            loganalyzer: Loganalyzer utility fixture
     """
+    # Determine which DUT hostname fixture is being used
+    if "enum_rand_one_per_hwsku_frontend_hostname" in request.fixturenames:
+        dut_hostname = request.getfixturevalue("enum_rand_one_per_hwsku_frontend_hostname")
+    elif "selected_dut_hostname" in request.fixturenames:
+        dut_hostname = request.getfixturevalue("selected_dut_hostname")
+    elif "rand_one_dut_front_end_hostname" in request.fixturenames:
+        dut_hostname = request.getfixturevalue("rand_one_dut_front_end_hostname")
+    elif "rand_one_dut_hostname" in request.fixturenames:
+        dut_hostname = request.getfixturevalue("rand_one_dut_hostname")
+    else:
+        # Fallback - try to get any available DUT
+        return
+
+    duthost = duthosts[dut_hostname]
     # When loganalyzer is disabled, the object could be None
-    duthost = duthosts[selected_dut_hostname]
     if loganalyzer:
         ignoreRegex = [
             ".*ERR sonic_yang.*",
@@ -99,6 +112,15 @@ def ignore_expected_loganalyzer_exceptions(duthosts, selected_dut_hostname, loga
             # sonic-swss/orchagent/crmorch.cpp
             ".*ERR swss[0-9]*#orchagent.*getResAvailableCounters.*",  # test_monitor_config
             ".*ERR swss[0-9]*#orchagent.*objectTypeGetAvailability.*",  # test_monitor_config
+            # GCU tries several JsonPatch sortings when rolling back the ACL rule/mirror
+            # session/policer config added by test_monitor_config; some transient
+            # orderings apply the ACL rule removal before the mirror session removal
+            # (or vice versa), which orchagent logs as an ERR before the final,
+            # correctly-ordered patch converges to the expected state.
+            r".*ERR swss[0-9]*#orchagent.*activate: Mirror rule references mirror session "
+            r"\"mirror_session_dscp\" that does not exist yet.*",  # test_monitor_config
+            r".*ERR swss[0-9]*#orchagent.*add: Failed to create ACL rule RULE_1 "
+            r"in table EVERFLOW_DSCP.*",  # test_monitor_config
             ".*ERR dhcp_relay[0-9]*#dhcrelay.*",  # test_dhcp_relay
 
             # sonic-sairedis/vslib/HostInterfaceInfo.cpp: Need investigation

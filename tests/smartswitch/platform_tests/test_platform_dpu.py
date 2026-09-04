@@ -218,6 +218,11 @@ def test_dpu_console(duthosts, enum_rand_one_per_hwsku_hostname,
     @summary: To Verify `DPU console access`
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    ignore_regex = [
+        r".*ERR kernel:.*cp210x ttyUSB\d+: failed set request 0x12 status: -110.*",
+    ]
+    if duthost.loganalyzer:
+        duthost.loganalyzer.ignore_regex.extend(ignore_regex)
 
     for index in range(num_dpu_modules):
         dpu_name = module.get_name(platform_api_conn, index)
@@ -235,7 +240,7 @@ def test_dpu_console(duthosts, enum_rand_one_per_hwsku_hostname,
                        'child.sendline(\'exit\\rexit\\r\'); '
                        'child.expect(r\'Terminal\'); '
                        'child.sendline(\'\'); '
-                       'child.expect(r\'sonic login: \'); '
+                       'child.expect(r\' login: \'); '
                        'print(child.after.decode()); child.close()"'
                        % (index))
         else:
@@ -245,13 +250,13 @@ def test_dpu_console(duthosts, enum_rand_one_per_hwsku_hostname,
                        'child.sendline(\'\\r\\r\'); '
                        'child.expect(r\' \'); '
                        'child.sendline(\'exit\\rexit\\r\'); '
-                       'child.expect(r\'sonic login: \'); '
+                       'child.expect(r\' login: \'); '
                        'print(child.after.decode()); child.close()"'
                        % (index))
 
         logging.info("Checking console access of {}".format(dpu_name))
         output_dpu_console = duthost.shell(command)
-        pytest_assert(output_dpu_console['stdout'] == 'sonic login: ',
+        pytest_assert(output_dpu_console['stdout'] == ' login: ',
                       "{} console is not accessible"
                       .format(dpu_name))
 

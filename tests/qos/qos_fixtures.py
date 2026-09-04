@@ -60,3 +60,63 @@ def leaf_fanouts(conn_graph_facts):         # noqa: F811
                 leaf_fanouts.append(peer_device)
 
     return leaf_fanouts
+
+
+@pytest.fixture(scope="module")
+def lossless_prio_list(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_rand_one_frontend_asic_index):
+    """
+    This fixture returns the list of lossless priorities
+
+    Args:
+       duthosts (pytest fixture) : list of DUTs
+       enum_rand_one_per_hwsku_frontend_hostname (pytest fixture): DUT hostname
+
+    Returns:
+        Lossless priorities (list)
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
+    config_facts = duthost.config_facts(host=duthost.hostname, asic_index=asichost.asic_index,
+                                        source="running")['ansible_facts']
+
+    if "PORT_QOS_MAP" not in list(config_facts.keys()):
+        return None
+
+    port_qos_map = config_facts["PORT_QOS_MAP"]
+    if len(list(port_qos_map.keys())) == 0:
+        return None
+
+    """ Here we assume all the ports have the same lossless priorities """
+    intf = list(port_qos_map.keys())[0]
+    if 'pfc_enable' not in port_qos_map[intf]:
+        return None
+
+    result = [int(x) for x in port_qos_map[intf]['pfc_enable'].split(',')]
+    return result
+
+
+@pytest.fixture(scope="module")
+def all_queues_list(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_rand_one_frontend_asic_index):
+    """
+    This fixture returns the list of all queues
+
+    Args:
+       duthosts (pytest fixture) : list of DUTs
+       enum_rand_one_per_hwsku_frontend_hostname (pytest fixture): DUT hostname
+
+    Returns:
+        All queues (list)
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
+    config_facts = duthost.config_facts(host=duthost.hostname, asic_index=asichost.asic_index,
+                                        source="running")['ansible_facts']
+
+    tc_to_queue_maps = config_facts.get("TC_TO_QUEUE_MAP", {})
+    if not tc_to_queue_maps:
+        return []
+    # Assuming that all mappings have the same set of queue values.
+    mapping_name = next(iter(tc_to_queue_maps))
+    tc_to_queue_map = tc_to_queue_maps[mapping_name]
+    queues = [int(q) for q in list(tc_to_queue_map.values())]
+    return list(set(queues))

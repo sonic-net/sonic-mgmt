@@ -518,19 +518,26 @@ def expect_acl_table_match_multiple_bindings(duthost,
                 return False
 
             first_line = output[0]
-            first_line_diff = set(first_line.values()) ^ set(expected_first_line_content)
-            pytest_assert(set(first_line.values()) == set(expected_first_line_content),
-                          "First line content does not match. Difference: {}".format(first_line_diff))
+            table_bindings = [line["binding"] for line in output if line.get("binding")]
 
-            table_bindings = [first_line["binding"]]
-            for i in range(len(output)):
-                table_bindings.append(output[i]["binding"])
+            if first_line["binding"] not in expected_bindings:
+                logger.warning(f"Unexpected first ACL table binding: {first_line['binding']}")
+                return False
+
+            actual_first_line = set(first_line.values()) - set(expected_bindings)
+            expected_first_line = set(expected_first_line_content) - set(expected_bindings)
+            first_line_diff = actual_first_line ^ expected_first_line
+            if actual_first_line != expected_first_line:
+                logger.warning(f"First line content does not match. Difference: {first_line_diff}")
+                return False
+
             table_bindings_diff = set(table_bindings) ^ set(expected_bindings)
-            pytest_assert(set(table_bindings) == set(expected_bindings),
-                          "ACL Table bindings don't fully match. Difference: {}".format(table_bindings_diff))
+            if not set(table_bindings) == set(expected_bindings):
+                logger.warning(f"ACL Table bindings don't fully match. Difference: {table_bindings_diff}")
+                return False
             return True
 
-        wait_until(30, 5, 0, check_table)
+        pytest_assert(wait_until(30, 5, 0, check_table), "ACL table does not contain expected bindings")
 
 
 def expect_acl_rule_match(duthost, rulename, expected_content_list, setup):
@@ -649,4 +656,9 @@ def get_bgp_speaker_runningconfig(duthost):
 
 
 def get_gcu_timeout(duthost):
-    return GCUTIMEOUT_MAP.get(duthost.facts['platform'], 600)
+    """Return the GCU apply-patch timeout (in seconds) for this platform.
+
+    Platforms listed in GCUTIMEOUT_MAP get a custom value; everything
+    else defaults to 900 s.
+    """
+    return GCUTIMEOUT_MAP.get(duthost.facts['platform'], 900)

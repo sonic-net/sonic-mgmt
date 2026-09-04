@@ -13,11 +13,11 @@ logger = logging.getLogger(__name__)
 tag = "sonic-events-host"
 
 
-def test_event(duthost, gnxi_path, ptfhost, ptfadapter, data_dir, validate_yang):
+def test_event(duthost, tbinfo, gnxi_path, ptfhost, ptfadapter, data_dir, validate_yang):
     logger.info("Beginning to test host events")
-    run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, trigger_kernel_event,
+    run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, trigger_kernel_event,
              "event_kernel.json", "sonic-events-host:event-kernel", tag, False)
-    run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, kill_critical_process,
+    run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, kill_critical_process,
              "process_exited_unexpectedly.json", "sonic-events-host:process-exited-unexpectedly",
              tag, False)
     backup_monit_config(duthost)
@@ -29,17 +29,17 @@ def test_event(duthost, gnxi_path, ptfhost, ptfadapter, data_dir, validate_yang)
         ]
     )
     try:
-        run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, None,
+        run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, None,
                  "memory_usage.json", "sonic-events-host:memory-usage", tag, False)
-        run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, None,
+        run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, None,
                  "disk_usage.json", "sonic-events-host:disk-usage", tag, False)
-        run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, None,
+        run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, None,
                  "cpu_usage.json", "sonic-events-host:cpu-usage", tag, False)
-        run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, trigger_mem_threshold_exceeded_alert,
+        run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, trigger_mem_threshold_exceeded_alert,
                  "mem_threshold_exceeded.json", "sonic-events-host:mem-threshold-exceeded", tag)
-        run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, restart_container,
+        run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, restart_container,
                  "event_stopped_ctr.json", "sonic-events-host:event-stopped-ctr", tag, False)
-        run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, stop_container,
+        run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, stop_container,
                  "event_down_ctr.json", "sonic-events-host:event-down-ctr", tag, False)
     finally:
         restore_monit_config(duthost)
@@ -47,13 +47,13 @@ def test_event(duthost, gnxi_path, ptfhost, ptfadapter, data_dir, validate_yang)
     try:
         # We need to alot flat 60 seconds for watchdog timeout to fire since the timer is set to 60\
         # With a base limit of 30 seconds, we will use 90 seconds
-        run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, None,
+        run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, None,
                  "watchdog_timeout.json", "sonic-events-host:watchdog-timeout", tag, False, 90)
     finally:
         delete_test_watchdog_timeout_service(duthost)
 
 
-def trigger_mem_threshold_exceeded_alert(duthost):
+def trigger_mem_threshold_exceeded_alert(duthost, tbinfo):
     logger.info("Invoking memory checker with low threshold")
     cmd = "docker images | grep -w sonic-gnmi"
     if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
@@ -62,7 +62,7 @@ def trigger_mem_threshold_exceeded_alert(duthost):
         duthost.shell("/usr/bin/memory_checker telemetry 100", module_ignore_errors=True)
 
 
-def trigger_kernel_event(duthost):
+def trigger_kernel_event(duthost, tbinfo):
     logger.info("Invoking logger for kernel events")
     # syslog at github.com/torvalds/linux/blob/master/fs/squashfs/decompressor_multi.c#L193
     trigger_logger(duthost, "zlib decompression failed, data probably corrupt", "kernel")
@@ -95,7 +95,7 @@ def get_critical_process(duthost):
     return "", ""
 
 
-def restart_container(duthost):
+def restart_container(duthost, tbinfo):
     logger.info("Stopping container for event stopped event")
     container = get_running_container(duthost)
     assert container != "", "No available container for testing"
@@ -105,7 +105,7 @@ def restart_container(duthost):
     assert is_container_running, "{} not running after restart".format(container)
 
 
-def stop_container(duthost):
+def stop_container(duthost, tbinfo):
     logger.info("Stop container for event down event")
     container = get_running_container(duthost)
     assert container != "", "No available container for testing"
@@ -125,7 +125,7 @@ def stop_container(duthost):
     duthost.shell("systemctl restart {}".format(container))
 
 
-def kill_critical_process(duthost):
+def kill_critical_process(duthost, tbinfo):
     logger.info("Killing critical process for exited unexpectedly event")
     pid, container = get_critical_process(duthost)
     assert pid != "", "No available process for testing"

@@ -52,6 +52,10 @@ def pytest_runtest_setup(item):
         if duthost.topo_type == 't2':
             continue
 
+        # Trigger monit to refresh its cache so subsequent collection reads fresh data
+        logger.info("Triggering monit refresh on {} before collecting memory data".format(duthost.hostname))
+        memory_monitors[duthost.hostname].execute_command("sudo monit validate")
+
         # Initial memory check for all registered commands
         for name, cmd, memory_params, memory_check in memory_monitors[duthost.hostname].commands:
             try:
@@ -90,6 +94,10 @@ def pytest_runtest_teardown(item, nextitem):
     for duthost in duthosts:
         if duthost.topo_type == 't2':
             continue
+
+        # Trigger monit to refresh its cache so subsequent collection reads fresh data
+        logger.info("Triggering monit refresh on {} before collecting memory data".format(duthost.hostname))
+        memory_monitors[duthost.hostname].execute_command("sudo monit validate")
 
         # memory check for all registered commands
         for name, cmd, memory_params, memory_check in memory_monitors[duthost.hostname].commands:

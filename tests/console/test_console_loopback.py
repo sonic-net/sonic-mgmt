@@ -22,6 +22,8 @@ def test_console_loopback_echo(duthost, creds, target_line):
 
     packet_size = 64
     delay_factor = 2.0
+    if "arm64-c8220tg_48a_o" in duthost.facts['platform']:
+        delay_factor = 50.0
 
     # Estimate a reasonable data transfer time based on configured baud rate
     if target_line not in console_facts['lines']:
@@ -74,11 +76,14 @@ def test_console_loopback_pingpong(duthost, creds, src_line, dst_line):
 
         ensure_console_session_up(sender, src_line)
         ensure_console_session_up(receiver, dst_line)
+        timeout_sec = 0.1
+        if "arm64-c8220tg_48a_o" in duthost.facts['platform']:
+            timeout_sec = 0.4
 
         sender.sendline('ping')
-        assert_expect_text(receiver, 'ping', dst_line)
+        assert_expect_text(receiver, 'ping', dst_line, timeout_sec)
         receiver.sendline('pong')
-        assert_expect_text(sender, 'pong', src_line)
+        assert_expect_text(sender, 'pong', src_line, timeout_sec)
     except Exception:
         pytest.fail("Not able to communicate DUT via reverse SSH")
 

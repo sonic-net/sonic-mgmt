@@ -69,7 +69,13 @@ def test_masked_services(duthosts, rand_one_dut_hostname):
 
     logging.info("Starting load_minigraph")
     try:
-        config_reload(duthost, config_source='minigraph')
+        # If golden config exists, call with override. Otherwise, call without
+        # override to avoid failure due to missing golden config.
+        golden_cfg = duthost.stat(path="/etc/sonic/golden_config_db.json")
+        if golden_cfg.get('stat', {}).get('exists', False):
+            config_reload(duthost, config_source='minigraph', override_config=True)
+        else:
+            config_reload(duthost, config_source='minigraph')
     except Exception as e:
         pytest.fail("Test failed as load_minigraph was not successful and got exception {}".format(e))
     finally:

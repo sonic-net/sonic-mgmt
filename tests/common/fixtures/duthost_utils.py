@@ -8,7 +8,6 @@ import collections
 import ipaddress
 import time
 import json
-import re
 
 from pytest_ansible.errors import AnsibleConnectionFailure
 from paramiko.ssh_exception import AuthenticationException
@@ -93,12 +92,31 @@ def backup_and_restore_config_db_session(duthosts):
         yield func
 
 
-def stop_route_checker_on_duthost(duthost):
+def _is_route_checker_in_status(duthost, expected_status_substrings):
+    """
+    Check if routeCheck service status contains any expected substring.
+    """
+    route_checker_status = duthost.get_monit_services_status().get("routeCheck", {})
+    status = route_checker_status.get("service_status", "").lower()
+    return any(status_fragment in status for status_fragment in expected_status_substrings)
+
+
+def stop_route_checker_on_duthost(duthost, wait_for_status=False):
     duthost.command("sudo monit stop routeCheck", module_ignore_errors=True)
+    if wait_for_status:
+        pt_assert(
+            wait_until(600, 15, 0, _is_route_checker_in_status, duthost, ("not monitored",)),
+            "routeCheck service did not stop on {}".format(duthost.hostname),
+        )
 
 
-def start_route_checker_on_duthost(duthost):
+def start_route_checker_on_duthost(duthost, wait_for_status=False):
     duthost.command("sudo monit start routeCheck", module_ignore_errors=True)
+    if wait_for_status:
+        pt_assert(
+            wait_until(900, 20, 0, _is_route_checker_in_status, duthost, ("status ok",)),
+            "routeCheck service did not start on {}".format(duthost.hostname),
+        )
 
 
 def _disable_route_checker(duthost):
@@ -580,6 +598,65 @@ def is_support_psu(duthosts, rand_one_dut_hostname):
         return True
 
 
+@pytest.fixture(scope='module')
+def frontend_asic_index_with_portchannel(request, duthosts, tbinfo):
+    """
+    Select a frontend ASIC that has portchannels configured.
+    Returns the ASIC index or None for single-ASIC devices.
+
+    This fixture is useful for tests that require portchannels on multi-ASIC devices,
+    ensuring the test runs on an ASIC that actually has portchannels configured.
+
+    Args:
+        request: Pytest request object to detect which DUT fixture is being used
+        duthosts: Fixture for DUT hosts
+        tbinfo: Testbed info fixture
+
+    Returns:
+        int: ASIC index for multi-ASIC devices with portchannels
+        None: For single-ASIC devices
+
+    Raises:
+        pytest_require: If no frontend ASIC with external portchannels is found
+    """
+    # Determine which DUT hostname fixture is being used
+    if "enum_rand_one_per_hwsku_frontend_hostname" in request.fixturenames:
+        dut_hostname = request.getfixturevalue("enum_rand_one_per_hwsku_frontend_hostname")
+    elif "rand_one_dut_front_end_hostname" in request.fixturenames:
+        dut_hostname = request.getfixturevalue("rand_one_dut_front_end_hostname")
+    elif "enum_frontend_dut_hostname" in request.fixturenames:
+        dut_hostname = request.getfixturevalue("enum_frontend_dut_hostname")
+    else:
+        # Fallback to rand_one_dut_hostname if no frontend-specific fixture is found
+        dut_hostname = request.getfixturevalue("rand_one_dut_hostname")
+
+    duthost = duthosts[dut_hostname]
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+
+    if duthost.is_multi_asic:
+        # For multi-ASIC, find an ASIC with portchannels
+        for asic_index in duthost.get_frontend_asic_ids():
+            asic_namespace = duthost.get_namespace_from_asic_id(asic_index)
+            asic_cfg_facts = duthost.config_facts(
+                host=duthost.hostname,
+                source="persistent",
+                namespace=asic_namespace
+            )['ansible_facts']
+
+            portchannel_dict = asic_cfg_facts.get('PORTCHANNEL', {})
+            if portchannel_dict:
+                # Check if there are external (non-backend) portchannels
+                for portchannel_key in portchannel_dict:
+                    if not duthost.is_backend_portchannel(portchannel_key, mg_facts):
+                        logger.info(f"Selected ASIC {asic_index} with external portchannel: {portchannel_key}")
+                        return asic_index
+
+        pt_assert(False, "No frontend ASIC with external portchannels found")
+    else:
+        # For single-ASIC, return None
+        return None
+
+
 def separated_dscp_to_tc_map_on_uplink(dut_qos_maps_module):
     """
     A helper function to check if separated DSCP_TO_TC_MAP is applied to
@@ -864,27 +941,184 @@ def duthosts_ipv6_mgmt_only(duthosts, backup_and_restore_config_db_on_duts):
 
 
 @pytest.fixture(scope="module")
-def duthost_mgmt_ip(duthost):
+def duthosts_ipv4_mgmt_only(duthosts):
+    """Convert the DUTs mgmt-ip to IPv4 only
+
+    Since the change commands is distributed by IPv6 mgmt-ip,
+    the fixture will detect the IPv4 availability first,
+    only remove the IPv6 mgmt-ip when the IPv4 mgmt-ip is available,
+    and will re-establish the connection to the DUTs with IPv4 mgmt-ip.
     """
-    Gets the management IP address (v4 or v6) on eth0.
-    Defaults to IPv4 on a dual stack configuration.
-    """
-    ipv4_regex = re.compile(r"(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/\d+")
-    ipv6_regex = re.compile(r"([a-fA-F0-9:]+)/\d+")
+    config_db_file = "/etc/sonic/config_db.json"
 
-    mgmt_interface = duthost.shell("show ip interface | egrep '^eth0 '", module_ignore_errors=True)["stdout"]
-    if mgmt_interface:
-        match = ipv4_regex.search(mgmt_interface)
-        if match:
-            return {"mgmt_ip": match.group(1), "version": "v4"}
+    # Sample MGMT_INTERFACE:
+    #     "MGMT_INTERFACE": {
+    #         "eth0|192.168.0.2/24": {
+    #             "forced_mgmt_routes": [
+    #                 "192.168.1.1/24"
+    #             ],
+    #             "gwaddr": "192.168.0.1"
+    #         },
+    #         "eth0|fc00:1234:5678:abcd::2/64": {
+    #             "gwaddr": "fc00:1234:5678:abcd::1",
+    #             "forced_mgmt_routes": [
+    #                 "fc00:1234:5678:abc1::1/64"
+    #             ]
+    #         }
+    #     }
+    #
+    # Sample SNMP_AGENT_ADDRESS_CONFIG:
+    #   "SNMP_AGENT_ADDRESS_CONFIG": {
+    #    "10.1.0.32|161|": {},
+    #    "10.250.0.101|161|": {},
+    #    "FC00:1::32|161|": {},
+    #    "fec0::ffff:afa:1|161|": {}
+    #    },                                         },
 
-    mgmt_interface = duthost.shell("show ipv6 interface | egrep '^eth0 '", module_ignore_errors=True)["stdout"]
-    if mgmt_interface:
-        match = ipv6_regex.search(mgmt_interface)
-        if match:
-            return {"mgmt_ip": match.group(1), "version": "v6"}
+    # duthost_name: config_db_modified
+    config_db_modified: Dict[str, bool] = {duthost.hostname: False
+                                           for duthost in duthosts.nodes}
+    # duthost_name: [ip_addr]
+    ipv4_address: Dict[str, List] = {duthost.hostname: []
+                                     for duthost in duthosts.nodes}
+    ipv6_address: Dict[str, List] = {duthost.hostname: []
+                                     for duthost in duthosts.nodes}
+    # Check IPv4 mgmt-ip is set and available, otherwise the DUT will lose control after v6 mgmt-ip is removed
+    for duthost in duthosts.nodes:
+        mgmt_interface = json.loads(duthost.shell(f"jq '.MGMT_INTERFACE' {config_db_file}",
+                                                  module_ignore_errors=True)["stdout"])
+        # Use list() to make a copy of mgmt_interface.keys() to avoid
+        # "RuntimeError: dictionary changed size during iteration" error
+        ssh_client = paramiko.SSHClient()
+        ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        has_available_ipv4_addr = False
+        for key in list(mgmt_interface):
+            ip_addr = key.split("|")[1]
+            ip_addr_without_mask = ip_addr.split('/')[0]
+            if ip_addr:
+                is_ipv4 = valid_ipv4(ip_addr_without_mask)
+                if is_ipv4:
+                    logger.info(f"Host[{duthost.hostname}] IPv4[{ip_addr}]")
+                    ipv4_address[duthost.hostname].append(ip_addr_without_mask)
+                    try:
+                        # Add a temporary debug log to see if the DUT is reachable via IPv4 mgmt-ip. Will remove later
+                        duthost_interface = duthost.shell("sudo ifconfig eth0")['stdout']
+                        logger.debug(f"Checking host[{duthost.hostname}] ifconfig eth0:[{duthost_interface}]")
+                        ssh_client.connect(ip_addr_without_mask,
+                                           username="WRONG_USER", password="WRONG_PWD", timeout=15)
+                    except AuthenticationException:
+                        logger.info(f"Host[{duthost.hostname}] IPv4[{ip_addr_without_mask}] mgmt-ip is available")
+                        has_available_ipv4_addr = True
+                    except BaseException as e:
+                        logger.info(f"Host[{duthost.hostname}] IPv4[{ip_addr_without_mask}] mgmt-ip is unavailable, "
+                                    f"exception[{type(e)}], msg[{str(e)}]")
+                    finally:
+                        ssh_client.close()
 
-    pt_assert(False, "Failed to find duthost mgmt ip")
+        pt_assert(len(ipv4_address[duthost.hostname]) > 0,
+                  f"{duthost.hostname} doesn't have IPv4 Management IP address")
+        pt_assert(has_available_ipv4_addr,
+                  f"{duthost.hostname} doesn't have available IPv4 Management IP address")
+
+    # Remove IPv6 mgmt-ip
+    for duthost in duthosts.nodes:
+        mgmt_interface = json.loads(duthost.shell(f"jq '.MGMT_INTERFACE' {config_db_file}",
+                                                  module_ignore_errors=True)["stdout"])
+
+        # Use list() to make a copy of mgmt_interface.keys() to avoid
+        # "RuntimeError: dictionary changed size during iteration" error
+        for key in list(mgmt_interface):
+            ip_addr = key.split("|")[1]
+            ip_addr_without_mask = ip_addr.split('/')[0]
+            if ip_addr:
+                is_ipv6 = valid_ipv6(ip_addr_without_mask)
+                if is_ipv6:
+                    ipv6_address[duthost.hostname].append(ip_addr_without_mask)
+                    logger.info(f"Removing host[{duthost.hostname}] IPv6[{ip_addr}]")
+                    duthost.shell(f"""jq 'del(."MGMT_INTERFACE"."{key}")' {config_db_file} > temp.json"""
+                                  f"""&& mv temp.json {config_db_file}""", module_ignore_errors=True)
+                    config_db_modified[duthost.hostname] = True
+
+    # Save both IPv4 and IPv6 SNMP address for verification purpose.
+    snmp_ipv4_address: Dict[str, List] = {duthost.hostname: []
+                                          for duthost in duthosts.nodes}
+    snmp_ipv6_address: Dict[str, List] = {duthost.hostname: []
+                                          for duthost in duthosts.nodes}
+    for duthost in duthosts.nodes:
+        snmp_address = json.loads(duthost.shell(f"jq '.SNMP_AGENT_ADDRESS_CONFIG' {config_db_file}",
+                                                module_ignore_errors=True)["stdout"])
+        # In case device doesn't have SNMP_AGENT_CONFIG: this could happen if
+        # DUT is running old image.
+        if not snmp_address:
+            logger.info(f"No SNMP_AGENT_ADDRESS_CONFIG found in host[{duthost.hostname}] {config_db_file}, continue.")
+            continue
+        for key in list(snmp_address):
+            ip_addr = key.split("|")[0]
+            if ip_addr:
+                if valid_ipv6(ip_addr):
+                    snmp_ipv6_address[duthost.hostname].append(ip_addr)
+                    logger.info(f"Removing host[{duthost.hostname}] SNMP IPv6 address {ip_addr}")
+                    duthost.shell(f"""jq 'del(."SNMP_AGENT_ADDRESS_CONFIG"."{key}")' {config_db_file} > temp.json"""
+                                  f"""&& mv temp.json {config_db_file}""", module_ignore_errors=True)
+                    config_db_modified[duthost.hostname] = True
+                elif valid_ipv4(ip_addr):
+                    snmp_ipv4_address[duthost.hostname].append(ip_addr.lower())
+
+    # Do config_reload after processing BOTH SNMP and MGMT config
+    def config_reload_if_modified(dut):
+        if config_db_modified[dut.hostname]:
+            logger.info(f"config changed. Doing config reload for {dut.hostname}")
+            try:
+                config_reload(dut, safe_reload=True, wait_for_bgp=True)
+            except AnsibleConnectionFailure as e:
+                # IPV6 mgmt interface been deleted by config reload
+                # In latest SONiC, config reload command will exit after mgmt interface restart
+                # Then 'duthost' will lost IPV6 connection and throw exception
+                logger.warning(f'Exception after config reload: {e}')
+
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for duthost in duthosts.nodes:
+            executor.submit(config_reload_if_modified, duthost)
+
+    duthosts.reset()
+
+    def wait_for_processes_and_bgp(dut):
+        if config_db_modified[dut.hostname]:
+            # Wait until all critical processes are up,
+            # especially snmpd as it needs to be up for SNMP status verification
+            wait_critical_processes(dut)
+            if not dut.is_supervisor_node():
+                wait_bgp_sessions(dut)
+
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for duthost in duthosts.nodes:
+            executor.submit(wait_for_processes_and_bgp, duthost)
+
+    # Verify mgmt-interface status
+    mgmt_intf_name = "eth0"
+    for duthost in duthosts.nodes:
+        logger.info(f"Checking host[{duthost.hostname}] mgmt interface[{mgmt_intf_name}]")
+        mgmt_intf_ifconfig = duthost.shell(f"ifconfig {mgmt_intf_name}", module_ignore_errors=True)["stdout"]
+        assert_addr_in_output(addr_set=ipv4_address, hostname=duthost.hostname,
+                              expect_exists=True, cmd_output=mgmt_intf_ifconfig,
+                              cmd_desc="ifconfig")
+        assert_addr_in_output(addr_set=ipv6_address, hostname=duthost.hostname,
+                              expect_exists=False, cmd_output=mgmt_intf_ifconfig,
+                              cmd_desc="ifconfig")
+
+    # Verify SNMP address status
+    for duthost in duthosts.nodes:
+        logger.info(f"Checking host[{duthost.hostname}] SNMP status in netstat output")
+        snmp_netstat_output = duthost.shell("sudo netstat -tulnpW | grep snmpd",
+                                            module_ignore_errors=True)["stdout"]
+        assert_addr_in_output(addr_set=snmp_ipv4_address, hostname=duthost.hostname,
+                              expect_exists=True, cmd_output=snmp_netstat_output,
+                              cmd_desc="netstat")
+        assert_addr_in_output(addr_set=snmp_ipv6_address, hostname=duthost.hostname,
+                              expect_exists=False, cmd_output=snmp_netstat_output,
+                              cmd_desc="netstat")
+
+    return duthosts
 
 
 def assert_addr_in_output(addr_set: Dict[str, List], hostname: str,

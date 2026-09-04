@@ -6,7 +6,7 @@ import packets
 from constants import LOCAL_PTF_INTF, REMOTE_PTF_INTF
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 from gnmi_utils import apply_gnmi_file
-from dash_utils import render_template_to_host
+from tests.common.dash_utils import render_template_to_host
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 

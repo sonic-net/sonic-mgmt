@@ -59,11 +59,11 @@ roles_cfg = {
         "peer": {"role": "pt0", "asn": 65100, "asn_v6": 64620, "asn_increment": 1},
     },
     "t1": {
-        "asn": 65100,
+        "asn": 4200100000,
         "asn_v6": 4200100000,
-        "downlink": {"role": "t0", "asn": 64000, "asn_v6": 4200000000, "asn_increment": 1},
-        "uplink": {"role": "t2", "asn": 65200, "asn_v6": 4200200000, "asn_increment": 0},
-        "peer": None,
+        "downlink": {"role": "t0", "asn": 4200000000, "asn_v6": 4200000000, "asn_increment": 1},
+        "uplink": {"role": "t2", "asn": 4200200000, "asn_v6": 4200200000, "asn_increment": 0},
+        "peer": {"role": "pt1", "asn": 65100, "asn_v6": 65100, "asn_increment": 1},
     },
     "lt2": {
         "asn": 4200100000,
@@ -73,6 +73,22 @@ roles_cfg = {
         "fabric": {"role": "ft2", "asn": 4200100000, "asn_v6": 4200100000, "asn_increment": 0},
         "peer": None
     },
+    "t2": {
+        "asn": 4200200000,
+        "asn_v6": 4200200000,
+        "downlink": {"role": "t1", "asn": 4200100000, "asn_v6": 4200100000, "asn_increment": 1},
+        "uplink": None,
+        "peer": {"role": "pt1", "asn": 65000, "asn_v6": 65000, "asn_increment": 1},
+    },
+}
+
+# Backend (BT) neighbor role definitions. These are referenced by the
+# "downlink_role_ports" setting in hw_port_cfg, which assigns specific downlink
+# panel ports to backend neighbors instead of the DUT role's default downlink.
+backend_roles_cfg = {
+    "bt0": {"role": "bt0", "asn": 4200000000, "asn_v6": 4200000000, "asn_increment": 1},
+    "bt1": {"role": "bt1", "asn": 4200100000, "asn_v6": 4200100000, "asn_increment": 1},
+    "bt2": {"role": "bt2", "asn": 4200200000, "asn_v6": 4200200000, "asn_increment": 1},
 }
 
 hw_port_cfg = {
@@ -96,6 +112,11 @@ hw_port_cfg = {
     'o128t1':           {"ds_breakout": 2, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 1,
                          'uplink_ports': [],
                          'peer_ports': [],
+                         'skip_ports': [],
+                         "panel_port_step": 1},
+    'o128t2':           {"ds_breakout": 2, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 1,
+                         'uplink_ports': [],
+                         'peer_ports': [64, 65],
                          'skip_ports': [],
                          "panel_port_step": 1},
     'c256-sparse':      {"ds_breakout": 8, "us_breakout": 8, "ds_link_step": 8, "us_link_step": 8,
@@ -153,12 +174,11 @@ hw_port_cfg = {
                          "panel_port_step": 1},
     'p32v128f2':        {"ds_breakout": 4, "us_breakout": 1, "ds_link_step": 1, "us_link_step": 1,
                          'uplink_ports': PortList(*list(range(0, 32))),
-                         'lag_list': LinkList(LagLink(0, 1), LagLink(2, 3), LagLink(4, 5), LagLink(6, 7),
+                         'lag_list': LinkList(LagLink(8, 9), LagLink(10, 11), LagLink(12, 13), LagLink(14, 15),
                                               LagLink(16, 17), LagLink(18, 19), LagLink(20, 21), LagLink(22, 23)),
-                         'skip_ports': PortList(*list(range(8, 16)), *list(range(24, 32)),
-                                                34, 35, 36, 37, 38, 57, 58, 59, 62, 63),
-                         'skip_links': ([33, 34, 35, 37, 38, 39, 145, 146, 147, 149, 150, 151] +
-                                        [link for port in range(39, 57)
+                         'skip_ports': PortList(*list(range(0, 8)), *list(range(24, 32))),
+                         'skip_links': (
+                                        [link for port in range(32, 64)
                                          for link in [32 + (port - 32) * 4 + 2, 32 + (port - 32) * 4 + 3]]),
                          'peer_ports': [],
                          'continuous_vms': True,
@@ -177,12 +197,44 @@ hw_port_cfg = {
                           'continuous_vms': True,
                           "panel_port_step": 1,
                           "link_based": True},
+    'd508u1s2':         {"ds_breakout": 1, "us_breakout": 1, "ds_link_step": 1, "us_link_step": 1,
+                         "uplink_ports": [508],
+                         "peer_ports": [509, 510],
+                         "skip_ports": [],
+                         "panel_port_step": 1},
+    'd32u1s2':          {"ds_breakout": 1, "us_breakout": 1, "ds_link_step": 1, "us_link_step": 1,
+                         "uplink_ports": [508],
+                         "peer_ports": [509, 510],
+                         # Reduced from d508u1s2: keep only the 1st and 25th downlink port of every
+                         # 32-port block (i.e. p % 32 in {0, 24}), giving 32 T0 downlinks total.
+                         "skip_ports": [p for p in range(508) if p % 32 not in (0, 24)],
+                         "panel_port_step": 1},
+    # t1 with 96 backend downlinks + 4 T2 uplinks on a 28-port device.
+    # The middle 4 panel ports (12..15) have no breakout and connect to T2
+    # (SpineRouter), while the other 24 panel ports use 4-port breakout for the
+    # backend downlinks: 60 BT0 links (ports 0..11, 16..18), 32 BT1 links
+    # (ports 19..26) and 4 BT2 links (port 27).
+    'd96u4':            {"ds_breakout": 4, "us_breakout": 1, "ds_link_step": 1, "us_link_step": 1,
+                         "uplink_ports": [12, 13, 14, 15],
+                         "uplink_role": {"role": "t2", "asn": 65200, "asn_v6": 65200,
+                                         "asn_increment": 0},
+                         "peer_ports": [],
+                         "skip_ports": [],
+                         "downlink_role_ports": {
+                             "bt0": list(range(0, 12)) + list(range(16, 19)),
+                             "bt1": list(range(19, 27)),
+                             "bt2": [27],
+                         },
+                         "panel_port_step": 1},
 }
 
 overwrite_file_name = {
     'lt2': {
         'p32o64': "lt2-p32o64",
         'o128': "lt2-o128",
+    },
+    't0': {
+        'f2': "t0-f2-d40u8"
     }
 }
 
@@ -236,7 +288,7 @@ class VM:
         self.link_id = link_id
         self.vm_offset = vm_id
         self.ip_offset = vm_id if ip_offset is None else ip_offset
-        self.name = f"ARISTA{name_id:02d}{self.role.upper()}"
+        self.name = f"ARISTA{name_id:02d}{self.role.upper()}"  # noqa: E231
         self.tornum = tornum
 
         # VLAN configuration
@@ -342,7 +394,6 @@ def generate_topo_link_based(role: str,
                              ) -> Tuple[List[VM], List[HostInterface]]:
 
     def _find_lag_link(link_id: int) -> bool:
-        nonlocal port_cfg
         if not isinstance(port_cfg["lag_list"], LinkList):
             return False, None
 
@@ -377,7 +428,7 @@ def generate_topo_link_based(role: str,
                 raise ValueError(
                     "Uplink port specified for a role that doesn't have an uplink")
 
-            vm_role_cfg = dut_role_cfg["uplink"]
+            vm_role_cfg = port_cfg.get("uplink_role", dut_role_cfg["uplink"])
 
             link_id_end = link_id_start + port_cfg['us_breakout']
             link_step = port_cfg['us_link_step']
@@ -471,7 +522,6 @@ def generate_topo(role: str,
                   ) -> Tuple[List[VM], List[HostInterface]]:
 
     def _find_lag_port(port_id: int) -> bool:
-        nonlocal port_cfg
         if not isinstance(port_cfg["uplink_ports"], PortList):
             return False, None
 
@@ -505,7 +555,7 @@ def generate_topo(role: str,
                 raise ValueError(
                     "Uplink port specified for a role that doesn't have an uplink")
 
-            vm_role_cfg = dut_role_cfg["uplink"]
+            vm_role_cfg = port_cfg.get("uplink_role", dut_role_cfg["uplink"])
 
             link_id_end = link_id_start + port_cfg['us_breakout']
             num_breakout = port_cfg['us_breakout']
@@ -531,6 +581,13 @@ def generate_topo(role: str,
             # If downlink is not specified, we consider it is host interface
             if dut_role_cfg["downlink"] is not None:
                 vm_role_cfg = dut_role_cfg["downlink"]
+
+            # If the port is assigned to a specific downlink neighbor role,
+            # e.g. backend routers (bt0/bt1/bt2), use that role instead.
+            for backend_role, backend_ports in port_cfg.get("downlink_role_ports", {}).items():
+                if panel_port_id in backend_ports:
+                    vm_role_cfg = backend_roles_cfg[backend_role]
+                    break
 
             link_id_end = link_id_start + port_cfg['ds_breakout']
             num_breakout = port_cfg['ds_breakout']
@@ -668,7 +725,7 @@ def write_topo_file(role: str,
 
 
 @click.command()
-@click.option("--role", "-r", required=True, type=click.Choice(['t0', 't1', 'lt2']), help="Role of the device")
+@click.option("--role", "-r", required=True, type=click.Choice(['t0', 't1', 't2', 'lt2']), help="Role of the device")
 @click.option("--keyword", "-k", required=False, type=str, default="", help="Keyword for the topology file")
 @click.option("--template", "-t", required=True, type=str, help="Path to the Jinja template file")
 @click.option("--port-count", "-c", required=True, type=int, help="Number of physical ports used on the device")
@@ -704,6 +761,9 @@ def main(role: str, keyword: str, template: str, port_count: int, uplinks: str, 
     - ./generate_topo.py -r t0 -k isolated-v6 -t t0-isolated-v6 -c 64 -l 'c512s2-sparse'
     - ./generate_topo.py -r t1 -k isolated-v6 -t t1-isolated-v6 -c 64 -l 'c448o16-lag'
     - ./generate_topo.py -r t1 -k isolated-v6 -t t1-isolated-v6 -c 64 -l 'c448o16-lag-sparse'
+    - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 509 -l 'd508u1s2'
+    - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 509 -l 'd32u1s2'  # 509 matches d508u1s2 IPs
+    - ./generate_topo.py -r t1 -t t1-hub -c 28 -l 'd96u4'  # 96 backend DLs (60 BT0 + 32 BT1 + 4 BT2) + 4 T2 ULs
     - ./generate_topo.py -r lt2 -k o128 -t lt2_128 -c 64 -l 'o128lt2'
     - ./generate_topo.py -r lt2 -k p32o64 -t lt2_p32o64 -c 64 -l 'p32o64lt2'
     - ./generate_topo.py -r t0 -k f2 -t t0 -c 64 -l 'p32v128f2'

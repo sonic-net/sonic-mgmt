@@ -38,6 +38,7 @@ THERMAL_CONTROL_TEST_CHECK_INTERVAL = 5
 VPD_DATA_FILE = "/var/run/hw-management/eeprom/vpd_data"
 
 BF_3_PLATFORM = 'arm64-nvda_bf-bf3comdpu'
+AMD_ELBA_PLATFORM = 'arm64-elba-asic-flash128-r0'
 
 
 @pytest.fixture(scope='module')
@@ -498,10 +499,10 @@ def test_show_platform_ssdhealth(duthosts, enum_supervisor_dut_hostname):
     """
     duthost = duthosts[enum_supervisor_dut_hostname]
     cmds_list = [CMD_SHOW_PLATFORM, "ssdhealth"]
-    supported_disks = ["SATA", "NVME"]
+    supported_disks = ["SATA", "NVME", "EMMC", "MMC"]
 
     platform_ssd_device_path_dict = {BF_3_PLATFORM: "/dev/nvme0"}
-    unsupported_ssd_values_per_platform = {}
+    unsupported_ssd_values_per_platform = {AMD_ELBA_PLATFORM: ["Temperature"]}
 
     # Build specific path to SSD device based on platform/ssd path mapping dict
     platform = duthost.facts['platform']
@@ -513,8 +514,12 @@ def test_show_platform_ssdhealth(duthosts, enum_supervisor_dut_hostname):
     logging.info("Verifying output of '{}' on ''{}'...".format(cmd, duthost.hostname))
 
     ssdhealth_output_lines = duthost.command(cmd)["stdout_lines"]
+    disk = ssdhealth_output_lines[0].split(':')[-1].strip()
     if not any(disk_type in ssdhealth_output_lines[0] for disk_type in supported_disks):
-        pytest.skip("Disk Type {} is not supported".format(ssdhealth_output_lines[0].split(':')[-1]))
+        pytest.skip("Disk Type {} is not supported".format(disk))
+    if disk in ["EMMC", "MMC"] and platform != AMD_ELBA_PLATFORM:
+        pytest.skip("'{}' disk health check is not supported on platform {}".format(disk, platform))
+
     ssdhealth_dict = util.parse_colon_speparated_lines(ssdhealth_output_lines)
     expected_fields = {"Disk Type", "Device Model", "Health", "Temperature"}
     actual_fields = set(ssdhealth_dict.keys())

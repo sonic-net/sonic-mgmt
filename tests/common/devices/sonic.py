@@ -27,7 +27,6 @@ from tests.common.errors import RunAnsibleModuleFail
 from tests.common import constants
 
 logger = logging.getLogger(__name__)
-
 PROCESS_TO_CONTAINER_MAP = {
     "orchagent": "swss",
     "syncd": "syncd"
@@ -88,8 +87,15 @@ class SonicHost(AnsibleHostBase):
         self._os_version = self._get_os_version()
 
         device_metadata = self.get_running_config_facts().get('DEVICE_METADATA', {}).get('localhost', {})
+        switch_type = device_metadata.get('switch_type', '')
         device_type = device_metadata.get('type')
         device_subtype = device_metadata.get('subtype')
+
+        if switch_type == "dpu":
+            logger.info("Removing teamd and lldp from default services for switch_type DPU")
+            self.DEFAULT_ASIC_SERVICES.remove("lldp")
+            self.DEFAULT_ASIC_SERVICES.remove("teamd")
+
         if (device_type == 'UpperSpineRouter') or (device_subtype in ['UpstreamLC', 'DownstreamLC']):
             self.DEFAULT_ASIC_SERVICES.append("macsec")
 
@@ -734,7 +740,33 @@ class SonicHost(AnsibleHostBase):
                 'exited_critical_process': [],
                 'running_critical_process': []
             }
-            if service not in group_process_results or service not in service_results:
+            if service not in group_process_results:
+                # Container may have started between the critical_processes
+                # file read and the supervisorctl status batch. Retry reading
+                # the critical_processes file for this specific service.
+                if (service in service_results
+                        and service_results[service].get('stdout_lines')):
+                    logging.info(
+                        "Service '%s' was not available during initial "
+                        "critical_processes batch read, retrying.", service
+                    )
+                    critical_group_list, critical_process_list, succeeded = \
+                        self.get_critical_group_and_process_lists(service)
+                    if succeeded:
+                        group_process_results[service] = {
+                            'groups': critical_group_list,
+                            'processes': critical_process_list
+                        }
+                    else:
+                        service_critical_process['status'] = False
+                        all_critical_process[service] = service_critical_process
+                        continue
+                else:
+                    service_critical_process['status'] = False
+                    all_critical_process[service] = service_critical_process
+                    continue
+
+            if service not in service_results:
                 service_critical_process['status'] = False
                 all_critical_process[service] = service_critical_process
                 continue
@@ -1364,22 +1396,47 @@ default nhid 224 proto bgp src fc00:1::32 metric 20 pref medium
 
     def check_default_route(self, ipv4=True, ipv6=True):
         """
-        @summary: return default route status
+        @summary: return default route status with namespace awareness for multi-ASIC
+
+        For multi-ASIC devices, checks default routes in all ASIC namespaces.
+        For single-ASIC devices, checks default routes in the global namespace.
 
         @param ipv4: check ipv4 default
         @param ipv6: check ipv6 default
+        @return: True if default route(s) exist in all required namespaces, False otherwise
         """
-        if ipv4:
-            rtinfo_v4 = self.get_ip_route_info(ipaddress.ip_network('0.0.0.0/0'))
-            if len(rtinfo_v4['nexthops']) == 0:
-                return False
+        if self.is_multi_asic:
+            # For multi-ASIC, check default routes in each ASIC namespace
+            for asic_index in range(self.facts['num_asic']):
+                # Construct namespace option like "-n asic0", "-n asic1", etc.
+                ns_option = "-n asic{}".format(asic_index)
 
-        if ipv6:
-            rtinfo_v6 = self.get_ip_route_info(ipaddress.ip_network('::/0'))
-            if len(rtinfo_v6['nexthops']) == 0:
-                return False
+                if ipv4:
+                    rtinfo_v4 = self.get_ip_route_info(ipaddress.ip_network('0.0.0.0/0'), ns=ns_option)
+                    if len(rtinfo_v4['nexthops']) == 0:
+                        logger.info("ASIC{}: No IPv4 default route".format(asic_index))
+                        return False
 
-        return True
+                if ipv6:
+                    rtinfo_v6 = self.get_ip_route_info(ipaddress.ip_network('::/0'), ns=ns_option)
+                    if len(rtinfo_v6['nexthops']) == 0:
+                        logger.info("ASIC{}: No IPv6 default route".format(asic_index))
+                        return False
+
+            return True
+        else:
+            # For single ASIC, check default routes in global namespace
+            if ipv4:
+                rtinfo_v4 = self.get_ip_route_info(ipaddress.ip_network('0.0.0.0/0'))
+                if len(rtinfo_v4['nexthops']) == 0:
+                    return False
+
+            if ipv6:
+                rtinfo_v6 = self.get_ip_route_info(ipaddress.ip_network('::/0'))
+                if len(rtinfo_v6['nexthops']) == 0:
+                    return False
+
+            return True
 
     def check_intf_link_state(self, interface_name):
         intf_status = self.show_interface(command="status", interfaces=[interface_name])["ansible_facts"]['int_status']
@@ -1496,12 +1553,12 @@ Totals               6450                 6449
         if skip_kernel_linkdown is True:
             output = self.shell("show ip route kernel")["stdout_lines"]
             ipv4_route_kernel_skip_count = 0
-            pattern = re.compile(r'^K\s+.*directly connected.*linkdown')
+            pattern = re.compile(r'^K\s+.*directly connected')
 
             for line in output:
                 if pattern.search(line):
                     ipv4_route_kernel_skip_count += 1
-                    logging.debug("skip IPv4 route kernel for linkdown: {}".format(line))
+                    logging.debug("skip IPv4 route kernel for directly connected but not selected: {}".format(line))
 
             if ipv4_route_kernel_skip_count > 0:
                 ipv4_summary['kernel']['routes'] -= ipv4_route_kernel_skip_count
@@ -1527,12 +1584,12 @@ Totals               6450                 6449
         if skip_kernel_linkdown is True:
             output = self.shell("show ipv6 route kernel")["stdout_lines"]
             ipv6_route_kernel_skip_count = 0
-            pattern = re.compile(r'^K\s+.*directly connected.*linkdown')
+            pattern = re.compile(r'^K\s+.*directly connected')
 
             for line in output:
                 if pattern.search(line):
                     ipv6_route_kernel_skip_count += 1
-                    logging.debug("skip IPv6 route kernel for linkdown: {}".format(line))
+                    logging.debug("skip IPv6 route kernel for directly connected but not selected: {}".format(line))
 
             if ipv6_route_kernel_skip_count > 0:
                 ipv6_summary['kernel']['routes'] -= ipv6_route_kernel_skip_count
@@ -1838,6 +1895,7 @@ Totals               6450                 6449
             "th3": {"b98", "BCM5698"},
             "th4": {"b99", "BCM5699"},
             "th5": {"f90", "BCM7890"},
+            "q3d": {"8870", "8872"},
         }
         for asic in search_sets.keys():
             for search_term in search_sets[asic]:
@@ -2194,7 +2252,9 @@ Totals               6450                 6449
         Returns:
             True or False
         """
-        bgp_summary = self.command("show ip bgp summary")["stdout_lines"]
+        bgp_summary_v4 = self.command("show ip bgp summary")["stdout_lines"]
+        bgp_summary_v6 = self.command("show ipv6 bgp summary")["stdout_lines"]
+        bgp_summary = bgp_summary_v4 + bgp_summary_v6
 
         idle_count = 0
         expected_idle_count = 0
@@ -2205,7 +2265,7 @@ Totals               6450                 6449
 
             if "Total number of neighbors" in line:
                 tokens = line.split()
-                expected_idle_count = int(tokens[-1])
+                expected_idle_count += int(tokens[-1])
 
             if "BGPMonitor" in line:
                 bgp_monitor_count += 1
@@ -2367,7 +2427,7 @@ Totals               6450                 6449
             ))
         except RunAnsibleModuleFail:
             return False
-        return not rc['failed']
+        return not rc.get('failed', False)
 
     def ping_v6(self, ipv6, count=1, ns_arg=""):
         """
@@ -2393,7 +2453,7 @@ Totals               6450                 6449
             ))
         except RunAnsibleModuleFail:
             return False
-        return not rc['failed']
+        return not rc.get('failed', False)
 
     def is_backend_portchannel(self, port_channel, mg_facts):
         ports = mg_facts["minigraph_portchannels"].get(port_channel)
@@ -2405,6 +2465,17 @@ Totals               6450                 6449
     def is_backend_port(self, port, mg_facts):
         return True if "Ethernet-BP" in port else False
 
+    def get_backplane_ports(self):
+        # get current interface data from config_db.json
+        config_facts = self.config_facts(host=self.hostname, source='running', verbose=False)['ansible_facts']
+        config_db_ports = config_facts["PORT"]
+        # Build set of Ethernet ports with 18.x.202.0/31 IPs to exclude
+        excluded_ports = set()
+        for port, val in config_db_ports.items():
+            if "role" in val and val["role"] != "Ext":
+                excluded_ports.add(port)
+        return excluded_ports
+
     def active_ip_interfaces(self, ip_ifs, tbinfo, ns_arg=DEFAULT_NAMESPACE, intf_num="all", ip_type="ipv4"):
         """
         Return a dict of active IP (Ethernet or PortChannel) interfaces, with
@@ -2415,10 +2486,10 @@ Totals               6450                 6449
         """
         active_ip_intf_cnt = 0
         mg_facts = self.get_extended_minigraph_facts(tbinfo, ns_arg)
-        config_facts_ports = self.config_facts(host=self.hostname, source="running")["ansible_facts"].get("PORT", {})
+        excluded_ports = self.get_backplane_ports()
         ip_ifaces = {}
         for k, v in list(ip_ifs.items()):
-            if ((k.startswith("Ethernet") and config_facts_ports.get(k, {}).get("role", "") != "Dpc" and
+            if ((k.startswith("Ethernet") and (k not in excluded_ports) and
                  (not k.startswith("Ethernet-BP")) and not is_inband_port(k)) or
                (k.startswith("PortChannel") and not self.is_backend_portchannel(k, mg_facts))):
                 if ip_type == "ipv4":
@@ -2944,6 +3015,28 @@ Totals               6450                 6449
             except Exception as e:
                 logging.error(f"Error starting bgpd process: {str(e)}")
                 return {'rc': 1, 'stdout': '', 'stderr': str(e)}
+
+    def get_mgmt_ip(self):
+        """
+        Gets the management IP address (v4 or v6) on eth0.
+        Defaults to IPv4 on a dual stack configuration.
+        """
+        ipv4_regex = re.compile(r"(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/\d+")
+        ipv6_regex = re.compile(r"([a-fA-F0-9:]+)/\d+")
+
+        mgmt_interface = self.shell("show ip interface | egrep '^eth0 '", module_ignore_errors=True)["stdout"]
+        if mgmt_interface:
+            match = ipv4_regex.search(mgmt_interface)
+            if match:
+                return {"mgmt_ip": match.group(1), "version": "v4"}
+
+        mgmt_interface = self.shell("show ipv6 interface | egrep '^eth0 '", module_ignore_errors=True)["stdout"]
+        if mgmt_interface:
+            match = ipv6_regex.search(mgmt_interface)
+            if match:
+                return {"mgmt_ip": match.group(1), "version": "v6"}
+
+        assert False, "Failed to find duthost mgmt ip"  # noqa: F631
 
 
 def assert_exit_non_zero(shell_output):

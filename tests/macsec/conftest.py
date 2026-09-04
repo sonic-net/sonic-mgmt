@@ -23,6 +23,23 @@ def profile_name(macsec_profile):
 
 
 @pytest.fixture(scope="module")
+def get_port_profile_name(macsec_profile, port_profiles):
+    """Return a callable ``f(dut_port)`` that resolves the MACsec profile
+    name for a given port.  In single-profile mode this always returns the
+    same name.  Tests that disable/re-enable MACsec on a port should use
+    this instead of ``profile_name``.
+    """
+    if port_profiles:
+        def _resolve(dut_port):
+            return port_profiles[dut_port]['name']
+    else:
+        name = macsec_profile['name']
+        def _resolve(dut_port):       # noqa: E306
+            return name
+    return _resolve
+
+
+@pytest.fixture(scope="module")
 def default_priority(macsec_profile):
     return macsec_profile['priority']
 
@@ -58,5 +75,21 @@ def rekey_period(macsec_profile):
 
 
 @pytest.fixture(scope="module")
-def wait_mka_establish(duthost, ctrl_links, policy, cipher_suite, send_sci):
-    assert wait_until(300, 6, 12, check_appl_db, duthost, ctrl_links, policy, cipher_suite, send_sci)
+def wait_mka_establish(duthost, ctrl_links, port_profiles, policy,
+                       cipher_suite, send_sci):
+    if port_profiles:
+        # If per interface, verify that each port is bound to its
+        # per-interface profile in CONFIG_DB.
+        from tests.common.macsec.macsec_helper import getns_prefix
+        for dut_port, profile in port_profiles.items():
+            cmd = "sonic-db-cli {} CONFIG_DB HGET 'PORT|{}' 'macsec'".format(
+                getns_prefix(duthost, dut_port), dut_port)
+            bound_profile = duthost.command(cmd)['stdout'].strip()
+            assert bound_profile == profile['name'], \
+                "Port {} bound to '{}', expected '{}'".format(
+                    dut_port, bound_profile, profile['name'])
+
+    # Validate APPL_DB tables — works for both single-profile and
+    # per-interface mode since cipher_suite/policy/send_sci are uniform.
+    assert wait_until(300, 6, 12, check_appl_db, duthost, ctrl_links,
+                      policy, cipher_suite, send_sci)

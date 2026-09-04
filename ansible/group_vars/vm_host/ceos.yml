@@ -9,3 +9,16 @@ ceos_image_url:
   - "http://example1.com/cEOS64-lab-4.32.5M.tar"
   - "http://example2.com/cEOS64-lab-4.32.5M.tar"
 skip_ceos_image_downloading: false
+
+# Registry settings for pulling ceos docker image. If ceos_registry is defined, the code will first
+# check whether ceos_image is already cached locally from the registry, and if not, try to pull it
+# from the registry before falling back to the download-and-build approach.
+#
+# Uncomment ceos_registry and set it to your registry URL to enable registry pulling.
+# If the registry requires authentication, also uncomment and set ceos_registry_username and
+# ceos_registry_password. If the registry is publicly accessible without authentication, leave the
+# username and password commented out.
+#
+# ceos_registry: "your-registry.example.com"
+# ceos_registry_username: "your-username"
+# ceos_registry_password: "your-password"

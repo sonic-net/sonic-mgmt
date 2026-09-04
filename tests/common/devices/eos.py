@@ -202,7 +202,7 @@ class EosHost(AnsibleHostBase):
         # FIXME: out['failed'] will be False even when a command is deprecated, so we have to check out['changed']
         # However, if the lacp rate is already in expected state, out['changed'] will be False and treated as
         # error.
-        if out['failed'] is True or out['changed'] is False:
+        if out.get('failed', False) is True or out['changed'] is False:
             # new eos deprecate lacp rate and use lacp timer command
             out = self.eos_config(
                 lines=['lacp timer %s' % mode],
@@ -252,7 +252,8 @@ class EosHost(AnsibleHostBase):
         logging.info('No shut BGP neighbors: {}'.format(json.dumps(neighbors)))
         return out
 
-    def check_bgp_session_state(self, neigh_ips, neigh_desc, state="established"):
+    def check_bgp_session_state(self, neigh_ips, neigh_desc,
+                                state="established", vrf="default"):
         """
         @summary: check if current bgp session equals to the target state
 
@@ -266,11 +267,11 @@ class EosHost(AnsibleHostBase):
         neigh_desc_available = False
 
         out_v4 = self.eos_command(
-            commands=['show ip bgp summary | json'])
+            commands=['show ip bgp summary vrf {} | json'.format(vrf)])
         logging.info("ip bgp summary: {}".format(out_v4))
 
         out_v6 = self.eos_command(
-            commands=['show ipv6 bgp summary | json'])
+            commands=['show ipv6 bgp summary vrf {} | json'.format(vrf)])
         logging.info("ipv6 bgp summary: {}".format(out_v6))
 
         # when bgpd is inactive, the bgp summary output: [{u'vrfs': {}, u'warnings': [u'BGP inactive']}]
@@ -279,7 +280,7 @@ class EosHost(AnsibleHostBase):
             return False
 
         try:
-            for k, v in list(out_v4['stdout'][0]['vrfs']['default']['peers'].items()):
+            for k, v in list(out_v4['stdout'][0]['vrfs'][vrf]['peers'].items()):
                 if v['peerState'].lower() == state.lower():
                     if k in neigh_ips:
                         neigh_ips_ok.append(k)
@@ -288,7 +289,7 @@ class EosHost(AnsibleHostBase):
                         if v['description'] in neigh_desc:
                             neigh_desc_ok.append(v['description'])
 
-            for k, v in list(out_v6['stdout'][0]['vrfs']['default']['peers'].items()):
+            for k, v in list(out_v6['stdout'][0]['vrfs'][vrf]['peers'].items()):
                 if v['peerState'].lower() == state.lower():
                     if k.lower() in neigh_ips:
                         neigh_ips_ok.append(k)
@@ -321,10 +322,13 @@ class EosHost(AnsibleHostBase):
         if res["localhost"]["rc"] != 0:
             raise Exception("Unable to execute template\n{}".format(res["localhost"]["stdout"]))
 
-    def get_route(self, prefix):
+    def get_route(self, prefix, vrf=None):
         cmd = 'show ip bgp' if ipaddress.ip_network(prefix.encode().decode()).version == 4 else 'show ipv6 bgp'
+        cmd = '{} {}'.format(cmd, prefix)
+        if vrf:
+            cmd = '{} vrf {}'.format(cmd, vrf)
         return self.eos_command(commands=[{
-            'command': '{} {}'.format(cmd, prefix),
+            'command': cmd,
             'output': 'json'
         }])['stdout'][0]
 
@@ -388,7 +392,7 @@ class EosHost(AnsibleHostBase):
         err_out = False
         if 'stdout' in cmd_output_obj:
             stdout = cmd_output_obj['stdout']
-            msg = stdout[-1] if type(stdout) == list else stdout
+            msg = stdout[-1] if isinstance(stdout, list) else stdout
             err_out = 'Cannot advertise' in msg
 
         return ('failed' in cmd_output_obj and cmd_output_obj['failed']) or err_out
@@ -583,7 +587,7 @@ class EosHost(AnsibleHostBase):
             lines=['lacp timer multiplier %d' % multiplier],
             parents='interface %s' % interface_name)
 
-        if out['failed'] is True or out['changed'] is False:
+        if out.get('failed', False) is True or out['changed'] is False:
             logging.warning("Unable to set interface [%s] lacp timer multiplier to [%d]" % (interface_name, multiplier))
         else:
             logging.info("Set interface [%s] lacp timer to [%d]" % (interface_name, multiplier))

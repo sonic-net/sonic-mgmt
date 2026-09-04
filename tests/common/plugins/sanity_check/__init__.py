@@ -96,11 +96,11 @@ def print_logs(duthosts, ptfhost, print_dual_tor_logs=False, check_ptf_mgmt=True
             # check PTF device reachability
             if ptf.mgmt_ip:
                 cmds.append("ping {} -c 1 -W 3".format(ptf.mgmt_ip))
-                cmds.append("traceroute {}".format(ptf.mgmt_ip))
+                cmds.append("traceroute -n {}".format(ptf.mgmt_ip))
 
             if ptf.mgmt_ipv6:
                 cmds.append("ping6 {} -c 1 -W 3".format(ptf.mgmt_ipv6))
-                cmds.append("traceroute6 {}".format(ptf.mgmt_ipv6))
+                cmds.append("traceroute6 -n {}".format(ptf.mgmt_ipv6))
 
         results = dut.shell_cmds(cmds=cmds, module_ignore_errors=True, verbose=False)['results']
         outputs = []
@@ -221,10 +221,11 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
         return
 
     skip_sanity = False
+    skip_pre_sanity = True
     allow_recover = False
     recover_method = "adaptive"
     pre_check_items = copy.deepcopy(SUPPORTED_CHECKS)  # Default check items
-    post_check = False
+    post_check = True
     nbr_hosts = None
 
     customized_sanity_check = None
@@ -238,6 +239,7 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
         logger.info("Process marker {} in script. m.args={}, m.kwargs={}"
                     .format(customized_sanity_check.name, customized_sanity_check.args, customized_sanity_check.kwargs))
         skip_sanity = customized_sanity_check.kwargs.get("skip_sanity", False)
+        skip_pre_sanity = customized_sanity_check.kwargs.get("skip_pre_sanity", True)
         allow_recover = customized_sanity_check.kwargs.get("allow_recover", False)
         recover_method = customized_sanity_check.kwargs.get("recover_method", "adaptive")
         if allow_recover and recover_method not in constants.RECOVER_METHODS:
@@ -250,12 +252,18 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
             customized_sanity_check.kwargs.get("check_items", []),
             SUPPORTED_CHECKS)
 
-        post_check = customized_sanity_check.kwargs.get("post_check", False)
+        post_check = customized_sanity_check.kwargs.get("post_check", True)
 
     if skip_sanity:
         logger.info("Skip sanity check according to configuration of test script.")
         yield
         return
+
+    if request.config.option.skip_pre_sanity:
+        skip_pre_sanity = True
+
+    if request.config.option.enable_pre_sanity:
+        skip_pre_sanity = False
 
     if request.config.option.allow_recover:
         allow_recover = True
@@ -266,6 +274,9 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
 
     if request.config.option.post_check:
         post_check = True
+
+    if request.config.option.skip_post_check:
+        post_check = False
 
     if not request.config.option.enable_macsec:
         pre_check_items.remove("check_neighbor_macsec_empty")
@@ -298,9 +309,10 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
     else:
         post_check_items = set()
 
-    logger.info("Sanity check settings: skip_sanity=%s, pre_check_items=%s, allow_recover=%s, recover_method=%s, "
-                "post_check=%s, post_check_items=%s" %
-                (skip_sanity, pre_check_items, allow_recover, recover_method, post_check, post_check_items))
+    logger.info("Sanity check settings: skip_sanity=%s, skip_pre_sanity=%s, pre_check_items=%s, "
+                "allow_recover=%s, recover_method=%s, post_check=%s, post_check_items=%s" %
+                (skip_sanity, skip_pre_sanity, pre_check_items, allow_recover,
+                 recover_method, post_check, post_check_items))
 
     pre_post_check_items = pre_check_items + [item for item in post_check_items if item not in pre_check_items]
     for item in pre_post_check_items:
@@ -310,7 +322,7 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
         # Each possibly used check fixture must be executed in setup phase. Otherwise there could be teardown error.
         request.getfixturevalue(item)
 
-    if pre_check_items:
+    if not skip_pre_sanity and pre_check_items:
         logger.info("Start pre-test sanity checks")
 
         # Dynamically attach selected check fixtures to node
@@ -346,7 +358,19 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
     else:
         if post_check_items:
             logger.info("Start post-test sanity check")
-            post_check_results = do_checks(request, post_check_items, stage=STAGE_POST_TEST)
+            try:
+                post_check_results = do_checks(request, post_check_items, stage=STAGE_POST_TEST)
+            except Exception as e:
+                logger.error(
+                    "Post-test sanity check crashed (DUT may be unreachable): %s", repr(e)
+                )
+                request.config.cache.set("post_sanity_check_failed", True)
+                add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.post_sanity_check_failed", True)
+                pt_assert(
+                    False,
+                    "!!!!!!!!!!!!!!!! Post-test sanity check crashed: !!!!!!!!!!!!!!!!\n{}".format(repr(e))
+                )
+                return
             logger.debug("Post-test sanity check results:\n%s" %
                          json.dumps(post_check_results, indent=4, default=fallback_serializer))
 
@@ -366,7 +390,7 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
 
             logger.info("Done post-test sanity check")
         else:
-            logger.info('No post-test sanity check item, skip post-test sanity check.')
+            logger.info('No post-test sanity check item failed, post-test sanity check passed.')
 
 
 def recover_on_sanity_check_failure(ptfhost, duthosts, failed_results, fanouthosts, localhost, nbrhosts, check_items,

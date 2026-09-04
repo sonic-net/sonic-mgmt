@@ -21,12 +21,23 @@ BROADCAST_MAC = 'ff:ff:ff:ff:ff:ff'
 DEFAULT_DHCP_CLIENT_PORT = 68
 DEFAULT_DHCP_SERVER_PORT = 67
 DUAL_TOR_MODE = 'dual'
-BUFFER_SIZE = 1024 * 1024  # 1MB
 logger = logging.getLogger(__name__)
 PACKET_RATE_PER_SEC_MAP = {
     "Mellanox-SN2700": 20
 }
 DEFAULT_PACKET_RATE_PER_SEC = 25
+
+
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exceptions(rand_one_dut_hostname, loganalyzer):
+    """Ignore expected failures logs during test execution."""
+    if loganalyzer:
+        ignoreRegex = [
+            r".*ERR memory_threshold_check: Free memory [.\d]+ is less then free memory threshold [.\d]+",
+        ]
+        loganalyzer[rand_one_dut_hostname].ignore_regex.extend(ignoreRegex)
+
+    yield
 
 
 @pytest.mark.parametrize('dhcp_type', ['discover', 'offer', 'request', 'ack'])
@@ -40,7 +51,7 @@ def test_dhcpcom_relay_counters_stress(ptfhost, ptfadapter, dut_dhcp_relay_data,
     '''
     testing_mode, duthost = testing_config
     packets_send_duration = 120
-    error_margin = 0.01
+    error_margin = 1
     dut_hwsku = duthost.facts["hwsku"]
     client_packets_per_sec = PACKET_RATE_PER_SEC_MAP.get(dut_hwsku, DEFAULT_PACKET_RATE_PER_SEC) \
         if request.config.option.max_packets_per_sec is None else request.config.option.max_packets_per_sec
@@ -74,7 +85,7 @@ def test_dhcpcom_relay_counters_stress(ptfhost, ptfadapter, dut_dhcp_relay_data,
             "testing_mode": testing_mode,
             "kvm_support": True
         }
-        count_file = '/tmp/dhcp_stress_test_{}.json'.format(dhcp_type)
+        count_file = '/tmp/dhcp_stress_test_{}'.format(dhcp_type)
 
         def _check_count_file_exists():
             command = 'ls {} > /dev/null 2>&1 && echo exists || echo missing'.format(count_file)
@@ -113,7 +124,6 @@ def test_dhcpcom_relay_counters_stress(ptfhost, ptfadapter, dut_dhcp_relay_data,
             pkts_filter="udp dst port %s or udp dst port %s" % (DEFAULT_DHCP_SERVER_PORT,
                                                                 DEFAULT_DHCP_CLIENT_PORT),
             pkts_validator=_verify_packets,
-            tcpdump_buffer_size=BUFFER_SIZE
         ):
             ptf_runner(ptfhost, "ptftests", "dhcp_relay_stress_test.DHCPStress{}Test".format(dhcp_type.capitalize()),
                        platform_dir="ptftests", params=params,

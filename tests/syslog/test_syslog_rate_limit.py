@@ -262,6 +262,10 @@ def verify_rate_limit_with_log_generator(duthost, service_name, log_marker, expe
 
     with loganalyzer:
         duthost.command(run_generator_cmd)
+        # Wait for rsyslogd to forward the rate-limiting notification from the container
+        # to the host syslog. Without this, the notification may arrive after the
+        # LogAnalyzer end marker, causing intermittent test failures.
+        time.sleep(5)
 
 
 def get_host_rsyslogd_pid(duthost):
@@ -296,14 +300,24 @@ def wait_rsyslogd_restart(duthost, service_name, old_pid):
     wait_time = 30
     while wait_time > 0:
         wait_time -= 1
-        if get_rsyslogd_pid(duthost, service_name) == old_pid:
+        # Check if new PID obtained (old process replaced)
+        new_pid = get_rsyslogd_pid(duthost, service_name)
+        if not new_pid or new_pid == old_pid:
             time.sleep(1)
             continue
 
         output = duthost.command(cmd, module_ignore_errors=True)['stdout'].strip()
         if 'RUNNING' in output:
-            logger.info('Rsyslogd restarted')
-            return True
+            logger.info('Rsyslogd restarted with new PID: {}'.format(new_pid))
+            # Test if rsyslog is actually ready by sending a test log message
+            test_cmd = "docker exec -i {} bash -c 'echo test | logger -t rate-limit-test'".format(service_name)
+            result = duthost.command(test_cmd, module_ignore_errors=True)
+            if result.get('rc', 1) == 0:
+                logger.info('Rsyslogd restarted and ready')
+                return True
+            else:
+                logger.info('Rsyslog not ready yet, test log failed')
+                continue
 
         time.sleep(1)
 

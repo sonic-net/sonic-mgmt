@@ -35,6 +35,7 @@ from tests.common.reboot import reboot
 from tests.common.utilities import skip_release
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.utilities import find_duthost_on_role
 from tests.common.utilities import get_upstream_neigh_type
 
@@ -115,21 +116,26 @@ class TestCOPP(object):
         # UDLD packet will not be forwarded to DUT
         if 'UDLD' == protocol:
             for fanouthost in list(fanouthosts.values()):
-                if fanouthost.get_fanout_os() == 'sonic' and "arista_7060x6_64pe_b" in fanouthost.facts["platform"]:
+                if fanouthost.get_fanout_os() == 'sonic' and "arista_7060x6_64pe" in fanouthost.facts["platform"]:
                     pytest.skip("Skip UDLD test for Arista-7060x6 fanout without UDLD forward support")
 
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        namespace = DEFAULT_NAMESPACE
+        if duthost.is_multi_asic:
+            namespace = random.choice(duthost.asics)
 
+        has_trap = True
         # Skip the check if the protocol is "Default"
         if protocol != "Default":
             trap_ids = PROTOCOL_TO_TRAP_ID.get(protocol)
             is_always_enabled, feature_name = copp_utils.get_feature_name_from_trap_id(duthost, trap_ids[0])
             if is_always_enabled:
-                pytest_assert(copp_utils.is_trap_installed(duthost, trap_ids[0]),
+                pytest_assert(copp_utils.is_trap_installed(duthost, trap_ids[0], namespace),
                               f"Trap {trap_ids[0]} for protocol {protocol} is not installed")
             else:
                 feature_list, _ = duthost.get_feature_status()
-                trap_installed = copp_utils.is_trap_installed(duthost, trap_ids[0])
+                trap_installed = copp_utils.is_trap_installed(duthost, trap_ids[0], namespace)
+                has_trap = trap_installed
                 if feature_name in feature_list and feature_list[feature_name] == "enabled":
                     pytest_assert(trap_installed,
                                   f"Trap {trap_ids[0]} for protocol {protocol} is not installed")
@@ -137,11 +143,18 @@ class TestCOPP(object):
                     pytest_assert(not trap_installed,
                                   f"Trap {trap_ids[0]} for protocol {protocol} is unexpectedly installed")
 
+        is_smartswitch_light_mode = False
+        if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch"):
+            if "dhcp_server" in duthost.critical_services_status():
+                is_smartswitch_light_mode = True
+
         _copp_runner(duthost,
                      ptfhost,
                      protocol,
                      copp_testbed,
-                     dut_type)
+                     dut_type,
+                     has_trap=has_trap,
+                     is_smartswitch_light_mode=is_smartswitch_light_mode)
 
     @pytest.mark.disable_loganalyzer
     def test_trap_neighbor_miss(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
@@ -303,13 +316,16 @@ def test_verify_copp_configuration_cli(duthosts, enum_rand_one_per_hwsku_fronten
     """
 
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    namespace = DEFAULT_NAMESPACE
+    if duthost.is_multi_asic:
+        namespace = random.choice(duthost.asics)
 
     trap, trap_group, copp_group_cfg = copp_utils.get_random_copp_trap_config(duthost)
-    hw_status = copp_utils.get_trap_hw_status(duthost)
-    show_copp_config = copp_utils.parse_show_copp_configuration(duthost)
+    hw_status = copp_utils.get_trap_hw_status(duthost, namespace)
+    show_copp_config = copp_utils.parse_show_copp_configuration(duthost, namespace)
 
     pytest_assert(trap in show_copp_config,
-                  f"Trap {trap} not found in show copp configuration output")
+                  f"Trap {trap} not found as part of show copp configuration output")
     pytest_assert(trap_group == show_copp_config[trap]["trap_group"],
                   f"Trap group mismatch for trap {trap} (expected: \
                   {trap_group}, actual: {show_copp_config[trap]['trap_group']})")
@@ -364,6 +380,9 @@ def copp_testbed(
     # Store test_params in the TestCOPP class
     TestCOPP.test_params = test_params
 
+    if duthost.get_mgmt_ip()["version"] == "v6":
+        pytest.skip("mgmt IPv6 only runs are not supported for COPP tests")
+
     if not is_backend_topology:
         # There is no upstream neighbor in T1 backend topology. Test is skipped on T0 backend.
         # For Non T2 topologies, setting upStreamDuthost as duthost to cover dualTOR and MLAG scenarios.
@@ -403,13 +422,12 @@ def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_host
 
 
 def _copp_runner(dut, ptf, protocol, test_params, dut_type, has_trap=True,
-                 ip_version="4"):    # noqa: F811
+                 ip_version="4", is_smartswitch_light_mode=False):    # noqa: F811
     """
         Configures and runs the PTF test cases.
     """
 
     is_ipv4 = True if ip_version == "4" else False
-
     params = {"verbose": False,
               "target_port": test_params.nn_target_port,
               "myip": test_params.myip if is_ipv4 else test_params.myip6,
@@ -420,6 +438,7 @@ def _copp_runner(dut, ptf, protocol, test_params, dut_type, has_trap=True,
               "has_trap": has_trap,
               "hw_sku": dut.facts["hwsku"],
               "asic_type": dut.facts["asic_type"],
+              "is_smartswitch_light_mode": is_smartswitch_light_mode,
               "platform": dut.facts["platform"],
               "topo_type": test_params.topo_type,
               "ip_version": ip_version,

@@ -312,6 +312,7 @@ class TestPfcConfig(object):
 
 
 @pytest.mark.usefixtures('mg_cfg_setup')
+@pytest.mark.disable_memory_utilization
 class TestDefaultPfcConfig(object):
     def test_default_cfg_after_load_mg(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         """

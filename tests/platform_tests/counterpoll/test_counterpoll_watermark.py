@@ -65,12 +65,15 @@ def get_keys_on_asics(duthost, db_id, key):
     return {asic.asic_index: SonicDbCli(asic, db_id).get_keys(key) for asic in duthost.asics}
 
 
-def check_counters_populated(duthost, key):
+def check_counters_populated(duthost, key, num_expected_entries):
     try:
         keys = get_keys_on_asics(duthost, "COUNTERS_DB", key)
-        return bool(keys.values())
+        for counters in keys.values():
+            if len(counters) < num_expected_entries:
+                return False
     except SonicDbKeyNotFound:
         return False
+    return True
 
 
 def test_counterpoll_queue_watermark_pg_drop(duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname, dut_vars):
@@ -133,8 +136,15 @@ def test_counterpoll_queue_watermark_pg_drop(duthosts, localhost, enum_rand_one_
     # Delay to allow the counterpoll to generate the maps in COUNTERS_DB
     with allure.step("waiting {} seconds for counterpoll to generate maps in COUNTERS_DB"):
         delay = RELEVANT_MAPS[tested_counterpoll][DELAY]
-        pytest_assert(wait_until(120, 5, delay, check_counters_populated, duthost, MAPS_LONG_PREFIX.format('*')),
+        pytest_assert(wait_until(120, 5, delay, check_counters_populated, duthost, MAPS_LONG_PREFIX.format('*'), 1),
                       "COUNTERS_DB failed to populate")
+        for counters_maps in RELEVANT_MAPS[tested_counterpoll][MAPS]:
+            prefix = counters_maps['prefix']
+            num_expected_counters = len(counters_maps[MAPS])
+            pytest_assert(wait_until(120, 5, 0, check_counters_populated, duthost,
+                                     MAPS_LONG_PREFIX.format(prefix), num_expected_counters),
+                          "Expected {} entries matching {}".format(
+                              num_expected_counters, MAPS_LONG_PREFIX.format(prefix)))
     # verify QUEUE or PG maps are generated into COUNTERS_DB after enabling relevant counterpoll
     with allure.step("Verifying MAPS in COUNTERS_DB on {}...".format(duthost.hostname)):
         maps_dict = RELEVANT_MAPS[tested_counterpoll]
@@ -202,8 +212,8 @@ def test_counterpoll_queue_watermark_pg_drop(duthosts, localhost, enum_rand_one_
     with allure.step("enable and verify all {} counterpolls on {} ..."
                      .format(RELEVANT_COUNTERPOLLS, duthost.hostname)):
         for asic in duthost.asics:
-            ConterpollHelper.enable_counterpoll(duthost, RELEVANT_COUNTERPOLLS)
-            verify_counterpoll_status(duthost, RELEVANT_COUNTERPOLLS, ENABLE)
+            ConterpollHelper.enable_counterpoll(asic, RELEVANT_COUNTERPOLLS)
+            verify_counterpoll_status(asic, RELEVANT_COUNTERPOLLS, ENABLE)
     # count FLEXCOUNTER_DB countrpolls and put in results dict key per countrpoll
     with allure.step("check all counterpolls {} results on {} ...".format(RELEVANT_COUNTERPOLLS, duthost.hostname)):
         for counterpoll in RELEVANT_COUNTERPOLLS:

@@ -7,7 +7,7 @@ import ipaddress
 import random
 from collections.abc import Iterable
 from constants import *  # noqa: F403
-from dash_utils import render_template
+from tests.common.dash_utils import render_template
 from gnmi_utils import apply_gnmi_file
 import packets
 import ptf.testutils as testutils
