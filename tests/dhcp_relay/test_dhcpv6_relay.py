@@ -647,29 +647,21 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
 
     try:
         for dhcp_relay in dut_dhcp_relay_data:
-            # Bring all uplink interfaces down
-            for iface in dhcp_relay['uplink_interfaces']:
-                duthost.shell('ifconfig {} down'.format(iface))
+            uplink_interfaces = dhcp_relay['uplink_interfaces']
 
-            # Sleep a bit to ensure uplinks are down
-            time.sleep(20)
+            try:
+                # Bring all uplink interfaces down
+                for iface in uplink_interfaces:
+                    duthost.shell('ifconfig {} down'.format(iface))
 
-            # Restart DHCP relay service on DUT
-            # dhcp_relay service has 3 times restart limit in 20 mins, for 4 vlans config it will hit the maximum limit
-            # reset-failed before restart service
-            cmds = ['systemctl reset-failed dhcp_relay', 'systemctl restart dhcp_relay']
-            duthost.shell_cmds(cmds=cmds)
+                # Sleep a bit to ensure uplinks are down
+                time.sleep(20)
 
-            # Sleep to give the DHCP relay container time to start up and
-            # allow the relay agent to begin listening on the down interfaces
-            time.sleep(40)
-
-            # Bring all uplink interfaces back up
-            for iface in dhcp_relay['uplink_interfaces']:
-                duthost.shell('ifconfig {} up'.format(iface))
-
-            # Sleep a bit to ensure uplinks are up
-            wait_all_bgp_up(duthost)
+                restart_dhcp_service(duthost, ['v6'])
+            finally:
+                for iface in uplink_interfaces:
+                    duthost.shell('ifconfig {} up'.format(iface), module_ignore_errors=True)
+                wait_all_bgp_up(duthost)
 
             dhcp_server_num = len(dhcp_relay['downlink_vlan_iface']['dhcpv6_server_addrs'])
             restart_dhcpmon_in_debug(duthost)
