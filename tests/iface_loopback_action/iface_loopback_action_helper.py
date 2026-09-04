@@ -196,6 +196,7 @@ def remove_orig_dut_port_config(duthost, orig_ports_configuration):
     :param orig_ports_configuration: original ports configuration parameters
     """
     remove_acl_tables(duthost)
+    ip_ports = {}
     for _, port_dict in list(orig_ports_configuration.items()):
         port = port_dict['port']
         if port_dict['vlan']:
@@ -210,8 +211,17 @@ def remove_orig_dut_port_config(duthost, orig_ports_configuration):
                 duthost.shell('sudo config portchannel del {}'.format(port_dict['portchannel']))
 
         elif port_dict['ip_addr']:
-            for ip in port_dict['ip_addr']:
+            ip_ports[port] = port_dict['ip_addr']
+
+    if ip_ports:
+        # The routed ports must be down before their IPs are removed. Otherwise a neighbor SET
+        # can reach APP_DB after the INTF_TABLE DEL and leave a zombie NEIGHBOR/NEXT_HOP entry
+        # in ASIC_DB, which holds the RIF ref count above zero so orchagent never removes the RIF.
+        shutdown_rif_interfaces(duthost, list(ip_ports.keys()))
+        for port, ips in list(ip_ports.items()):
+            for ip in ips:
                 remove_dut_ip_from_port(duthost, port, ip)
+        startup_rif_interfaces(duthost, list(ip_ports.keys()))
 
 
 def get_portchannel_peer_port_map(duthost, orig_ports_configuration, tbinfo, nbrhosts):
