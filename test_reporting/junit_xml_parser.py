@@ -76,11 +76,13 @@ REQUIRED_METADATA_PROPERTIES = [
 TESTCASE_TAG = "testcase"
 REQUIRED_TESTCASE_ATTRIBUTES = [
     "classname",
-    "file",
-    "line",
     "name",
     "time",
 ]
+OPTIONAL_TESTCASE_ATTRIBUTES = {
+    "file": "",
+    "line": "0",
+}
 
 # Fields found in the testcase/properties section of the JUnit XML file.
 # FIXME: These are specific to pytest, needs to be extended to support spytest.
@@ -227,9 +229,17 @@ def validate_junit_xml_path(path, strict=False):
 
 
 def _validate_junit_xml(root):
-    _validate_test_summary(root)
-    _validate_test_metadata(root)
-    _validate_test_cases(root)
+    if root.tag == TESTSUITES_TAG:
+        suites = root.findall(TESTSUITE_TAG)
+        if not suites:
+            raise JUnitXMLValidationError(f"{TESTSUITE_TAG} tag not found")
+    else:
+        suites = [root]
+
+    for suite in suites:
+        _validate_test_summary(suite)
+        _validate_test_metadata(suite)
+        _validate_test_cases(suite)
 
     return root
 
@@ -358,19 +368,18 @@ def parse_test_result(roots):
         return
 
     for root, document in roots:
-        if root.tag == TESTSUITES_TAG:
-            root = root.find(TESTSUITE_TAG)
-
-        test_result_json["test_metadata"] = _update_test_metadata(test_result_json["test_metadata"],
-                                                                  _parse_test_metadata(root))
-        test_cases = _parse_test_cases(root)
-        test_result_json["test_cases"] = _update_test_cases(test_result_json["test_cases"], test_cases)
-        parsed_summary = _parse_test_summary(root)
-        # xfails is not a testsuite root attribute; derive it from the per-case
-        # results so xfailed/xpassed (native pytest marks) are surfaced instead of 0.
-        parsed_summary["xfails"] = _extract_test_summary(test_cases).get("xfails", "0")
-        test_result_json["test_summary"] = _update_test_summary(test_result_json["test_summary"],
-                                                                parsed_summary)
+        suites = root.findall(TESTSUITE_TAG) if root.tag == TESTSUITES_TAG else [root]
+        for suite in suites:
+            test_result_json["test_metadata"] = _update_test_metadata(test_result_json["test_metadata"],
+                                                                      _parse_test_metadata(suite))
+            test_cases = _parse_test_cases(suite)
+            test_result_json["test_cases"] = _update_test_cases(test_result_json["test_cases"], test_cases)
+            parsed_summary = _parse_test_summary(suite)
+            # xfails is not a testsuite root attribute; derive it from the per-case
+            # results so xfailed/xpassed (native pytest marks) are surfaced instead of 0.
+            parsed_summary["xfails"] = _extract_test_summary(test_cases).get("xfails", "0")
+            test_result_json["test_summary"] = _update_test_summary(test_result_json["test_summary"],
+                                                                    parsed_summary)
     print(f"Parsed {len(roots)} XML document(s) into test result JSON.")
     return test_result_json
 
@@ -384,9 +393,18 @@ def _parse_test_summary(root):
 
 
 def _extract_test_summary(test_cases):
-    test_result_summary = defaultdict(int)
+    test_result_summary = {
+        "tests": 0,
+        "failures": 0,
+        "skipped": 0,
+        "errors": 0,
+        "xfails": 0,
+        "time": 0.0,
+    }
+    last_case = None
     for _, cases in test_cases.items():
         for case in cases:
+            last_case = case
             # Error may occur along with other test results, to count error separately.
             # The result field is unique per test case, either error or failure.
             # xfails is the counter for all kinds of xfail results (include success/failure/error/skipped)
@@ -404,9 +422,9 @@ def _extract_test_summary(test_cases):
         + int(test_result_summary["errors"]) + int(test_result_summary["xfails"])
     passed = int(test_result_summary["tests"]) - int(total)
     passed = max(0, passed)
-    if case is None:
+    if last_case is None:
         return test_result_summary
-    name = case['file']
+    name = last_case['file']
     REPORT_LIST.append("{}, {}, {}, {}, {}, {}, {}, {}".
                        format(name, test_result_summary["tests"],
                               passed, test_result_summary["failures"],
@@ -469,6 +487,8 @@ def _parse_test_cases(root):
 
         for attribute in REQUIRED_TESTCASE_ATTRIBUTES:
             result[attribute] = test_case.get(attribute)
+        for attribute, default in OPTIONAL_TESTCASE_ATTRIBUTES.items():
+            result[attribute] = test_case.get(attribute, default)
         for attribute in REQUIRED_TESTCASE_PROPERTIES:
             testcase_properties = _parse_testcase_properties(test_case)
             if attribute in testcase_properties:
@@ -651,7 +671,8 @@ def _validate_json_cases(test_result_json):
         raise TestResultJSONValidationError("test_cases section not found in provided JSON file")
 
     def _validate_test_case(test_case):
-        for attribute in REQUIRED_TESTCASE_ATTRIBUTES + REQUIRED_TESTCASE_JSON_FIELDS:
+        testcase_attributes = REQUIRED_TESTCASE_ATTRIBUTES + list(OPTIONAL_TESTCASE_ATTRIBUTES)
+        for attribute in testcase_attributes + REQUIRED_TESTCASE_JSON_FIELDS:
             if attribute not in test_case:
                 raise TestResultJSONValidationError(
                     f'"{attribute}" not found in test case '

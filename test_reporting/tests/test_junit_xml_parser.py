@@ -238,6 +238,56 @@ def test_json_output_from_file():
     assert ordered(parse_test_result([root])) == ordered(EXPECTED_JSON_OUTPUT)
 
 
+def test_xunit2_testcases_without_file_or_line_are_parsed():
+    xml = "<testsuites>" + VALID_TEST_RESULT.replace(
+        '<?xml version="1.0" encoding="utf-8"?>', ""
+    ).replace(' file="bgp/test_bgp.py"', "").replace(
+        ' file="acl/test_acl.py"', ""
+    ).replace(' line="161"', "").replace(' line="248"', "").replace(
+        ' line="257"', ""
+    ).replace(' line="369"', "") + "</testsuites>"
+
+    root = validate_junit_xml_stream(xml)
+    result = parse_test_result([(root, "xunit2.xml")])
+
+    cases = [case for feature_cases in result["test_cases"].values() for case in feature_cases]
+    assert len(cases) == 4
+    assert all(case["file"] == "" and case["line"] == "0" for case in cases)
+    assert result["test_summary"]["xfails"] == "0"
+
+
+def test_multiple_testsuites_are_aggregated():
+    first_suite = VALID_TEST_RESULT.replace('<?xml version="1.0" encoding="utf-8"?>', "")
+    second_suite = first_suite.replace('classname="bgp.', 'classname="second_bgp.').replace(
+        'classname="acl.', 'classname="second_acl.'
+    )
+    root = validate_junit_xml_stream(f"<testsuites>{first_suite}{second_suite}</testsuites>")
+
+    result = parse_test_result([(root, "multiple-suites.xml")])
+
+    assert set(result["test_cases"]) == {"acl", "bgp", "second_acl", "second_bgp"}
+    assert sum(len(cases) for cases in result["test_cases"].values()) == 8
+    assert result["test_summary"] == {
+        "errors": "2",
+        "failures": "2",
+        "skipped": "2",
+        "tests": "8",
+        "time": "428.108",
+        "xfails": "0",
+    }
+
+
+def test_empty_testsuite_is_parsed():
+    root = validate_junit_xml_stream(
+        '<testsuite errors="0" failures="0" skipped="0" tests="0" time="0"/>'
+    )
+
+    result = parse_test_result([(root, "empty.xml")])
+
+    assert result["test_cases"] == {}
+    assert result["test_summary"]["xfails"] == "0"
+
+
 def test_json_output_from_archive():
     roots = validate_junit_xml_archive(VALID_TEST_RESULT_ARCHIVE)
     assert ordered(parse_test_result(roots)) == ordered(EXPECTED_JSON_OUTPUT)
