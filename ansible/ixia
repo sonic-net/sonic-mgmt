@@ -674,7 +674,7 @@ sonic_nvidia_sn5640_stress:
       hwsku: Mellanox-SN5640-C512S2
       mgmt_subnet_mask_length: 26
     str-sn5640-stress-t0-2:
-      ansible_host: 10.64.247.39
+      ansible_host: 10.64.247.29
       hwsku: Mellanox-SN5640-C512S2
       mgmt_subnet_mask_length: 26
     str-sn5640-stress-t0-3:
