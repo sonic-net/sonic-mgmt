@@ -6,12 +6,13 @@ import netaddr
 import copy
 import logging
 import os
-import shlex
+import re
 import tempfile
 
+from contextlib import contextmanager
 from jinja2 import Template
 from tests.common.cisco_data import is_cisco_device
-from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
+from tests.common.plugins.loganalyzer.loganalyzer import DisableLogrotateCronContext, LogAnalyzer
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.crm import get_used_percent, CRM_UPDATE_TIME, CRM_POLLING_INTERVAL, EXPECT_EXCEEDED, \
      EXPECT_CLEAR, THR_VERIFY_CMDS
@@ -257,25 +258,110 @@ def get_acl_tbl_key(asichost):
     return "CRM:ACL_TABLE_STATS:{0}".format(oid.replace("oid:", ""))
 
 
+@contextmanager
+def disable_swss_syslog_rate_limit(duthost, asichost):
+    """Prevent SWSS threshold messages from being dropped during CRM verification."""
+    swss_container = asichost.get_docker_name("swss")
+    config_file = "/etc/rsyslog.conf"
+
+    def restart_rsyslog():
+        duthost.shell(
+            "docker exec {} supervisorctl restart rsyslogd".format(swss_container)
+        )
+
+        def is_rsyslog_running():
+            status = duthost.shell(
+                "docker exec {} supervisorctl status rsyslogd".format(swss_container),
+                module_ignore_errors=True
+            )
+            return status.get("rc") == 0 and "RUNNING" in status.get("stdout", "")
+
+        pytest_assert(
+            wait_until(10, 1, 0, is_rsyslog_running),
+            "SWSS rsyslogd did not return to RUNNING state"
+        )
+
+    check_cmd = (
+        r"docker exec {} grep -oE "
+        r"'SysSock\.RateLimit\.Interval=\"[0-9]+\"' {} | head -1"
+        .format(swss_container, config_file)
+    )
+    result = duthost.shell(check_cmd, module_ignore_errors=True)
+    interval_match = re.fullmatch(
+        r'SysSock\.RateLimit\.Interval="([0-9]+)"',
+        result.get("stdout", "").strip()
+    )
+    pytest_assert(
+        result.get("rc") == 0 and interval_match is not None,
+        "Failed to determine SWSS syslog rate-limit state"
+    )
+    original_interval = int(interval_match.group(1))
+    rate_limit_enabled = original_interval != 0
+    logger.info(
+        "SWSS syslog rate-limit interval is {} in container {}"
+        .format(original_interval, swss_container)
+    )
+
+    try:
+        if rate_limit_enabled:
+            disable_cmd = (
+                r"docker exec {} sed -i "
+                r"'s/SysSock\.RateLimit\.Interval=\"{}\"/"
+                r"SysSock.RateLimit.Interval=\"0\"/g' {}"
+                .format(swss_container, original_interval, config_file)
+            )
+            duthost.shell(disable_cmd)
+            restart_rsyslog()
+
+        yield
+    finally:
+        if rate_limit_enabled:
+            restore_cmd = (
+                r"docker exec {} sed -i "
+                r"'s/SysSock\.RateLimit\.Interval=\"0\"/"
+                r"SysSock.RateLimit.Interval=\"{}\"/g' {}"
+                .format(swss_container, original_interval, config_file)
+            )
+            duthost.shell(restore_cmd)
+            restart_rsyslog()
+
+
 def wait_for_threshold_log(loganalyzer, duthost, asichost, cmd):
     """Apply CRM thresholds and wait for the expected syslog message."""
-    marker = loganalyzer.init()
     expect_regex = loganalyzer.expect_regex[0]
 
-    def count_matches():
+    def has_expected_log(first_line):
         result = duthost.shell(
-            "sudo grep -c -E -- {} /var/log/syslog".format(shlex.quote(expect_regex)),
+            "sudo tail -n +{} /var/log/syslog".format(first_line),
             module_ignore_errors=True)
-        return int(result.get("stdout", "").strip() or 0)
+        return re.search(expect_regex, result.get("stdout", "")) is not None
 
-    matches_before = count_matches()
-    asichost.command(cmd)
+    with DisableLogrotateCronContext(duthost):
+        marker = loganalyzer.init()
+        result = duthost.shell(
+            "sudo wc -l < /var/log/syslog",
+            module_ignore_errors=True
+        )
+        pytest_assert(
+            result.get("rc", 1) == 0 and result.get("stdout", "").strip().isdigit(),
+            "Failed to determine the current syslog position"
+        )
+        first_line = int(result["stdout"].strip()) + 1
+        asichost.command(cmd)
+        observed = wait_until(
+            CRM_THRESHOLD_LOG_TIMEOUT,
+            CRM_POLLING_INTERVAL,
+            CRM_POLLING_INTERVAL,
+            has_expected_log,
+            first_line
+        )
 
-    if not wait_until(CRM_THRESHOLD_LOG_TIMEOUT, CRM_POLLING_INTERVAL,
-                      CRM_POLLING_INTERVAL, lambda: count_matches() > matches_before):
-        logger.warning("CRM threshold message was not observed within {} seconds"
-                       .format(CRM_THRESHOLD_LOG_TIMEOUT))
-    loganalyzer.analyze(marker, fail=True)
+        if not observed:
+            logger.warning(
+                "CRM threshold message was not observed within {} seconds"
+                .format(CRM_THRESHOLD_LOG_TIMEOUT)
+            )
+        loganalyzer.analyze(marker, fail=True)
 
 
 def verify_thresholds(duthost, asichost, **kwargs):
@@ -1201,7 +1287,8 @@ def test_crm_nexthop_group(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
 
         RESTORE_CMDS["wait"] = SONIC_RES_CLEANUP_UPDATE_TIME
 
-    verify_thresholds(duthost, asichost, crm_cli_res=redis_threshold, crm_cmd=get_nexthop_group_stats)
+    with disable_swss_syslog_rate_limit(duthost, asichost):
+        verify_thresholds(duthost, asichost, crm_cli_res=redis_threshold, crm_cmd=get_nexthop_group_stats)
 
 
 def recreate_acl_table(duthost, ports):
