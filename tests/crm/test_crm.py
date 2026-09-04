@@ -339,7 +339,7 @@ def wait_for_threshold_log(loganalyzer, duthost, asichost, cmd):
     with DisableLogrotateCronContext(duthost):
         marker = loganalyzer.init()
         result = duthost.shell(
-            "sudo wc -l < /var/log/syslog",
+            "sudo wc -l /var/log/syslog | awk '{print $1}'",
             module_ignore_errors=True
         )
         pytest_assert(
