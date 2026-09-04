@@ -3933,6 +3933,16 @@ packet_trimming/test_packet_trimming_symmetric.py::TestPacketTrimmingSymmetric::
       - "'isolated' in topo_name and release in ['202412']"
 
 #######################################
+#####            ntp              #####
+#######################################
+
+ntp/test_ntp.py:
+  xfail:
+    reason: "Failed to restart chrony.service on NTP server add"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/23904"
+      
+#######################################
 #####           pc               #####
 #######################################
 
