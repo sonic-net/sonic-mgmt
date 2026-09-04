@@ -4,6 +4,11 @@ import ptf.packet as scapy
 from ptf.mask import Mask
 from ptf import config
 from ptf.base_tests import BaseTest
+# macsec must be imported BEFORE any `from ptf.testutils import ...` that pulls
+# in send_packet/dp_poll: it monkeypatches those functions in ptf.testutils to
+# MACsec-encrypt injected frames / decrypt sniffed frames on macsec-enabled
+# ports. A from-import binds the original object if it runs first.
+import macsec  # noqa F401
 import ptf.testutils as testutils
 from ptf.testutils import test_params_get, MINSIZE, ip_make_tos, reset_filters, send, send_packet, dp_poll, \
     simple_udp_packet, simple_udpv6_packet, simple_icmp_packet, simple_icmpv6_packet, simple_ip_packet, \
@@ -11,7 +16,6 @@ from ptf.testutils import test_params_get, MINSIZE, ip_make_tos, reset_filters, 
 from scapy.all import Ether
 from scapy.layers.l2 import Dot1Q
 from scapy.layers.inet6 import IPv6, ICMPv6ND_NA, ICMPv6NDOptDstLLAddr
-import macsec  # noqa F401
 
 import logging
 
