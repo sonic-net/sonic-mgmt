@@ -128,6 +128,7 @@ test_t0() {
       ntp/test_ntp.py \
       pc/test_po_cleanup.py \
       pc/test_po_update.py \
+      platform_tests/link_flap/test_link_flap_dedup.py \
       platform_tests/test_advanced_reboot.py::test_warm_reboot \
       platform_tests/test_cpu_memory_usage.py \
       route/test_default_route.py \
