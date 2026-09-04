@@ -37,7 +37,7 @@ BGP Unnumbered configs:
    no bgp ebgp-requires-policy
 
    neighbor Ethernet48 interface remote-as 65200
-   neighbor Ethernet48 description ARISTA-Et1-UNNUMBERED
+   neighbor Ethernet48 description SONiC_Ethernet48_UNNUMBERED
    neighbor Ethernet48 capability extended-nexthop
 
    address-family ipv4 unicast
@@ -51,7 +51,27 @@ BGP Unnumbered configs:
 
 ## Setup configuration
 
-This test requires configuring BGP unnumbered on both DUT and peer devices. Interfaces must be enabled for IPv6, as BGP unnumbered relies on IPv6 link-local addressing. Ensure neighbor relationships are established using interface-based configuration.
+This test requires configuring BGP unnumbered on both DUT and peer devices. Interfaces must be enabled for IPv6 link-local addressing, as BGP unnumbered relies on IPv6 link-local addresses. Ensure neighbor relationships are established using interface-based configuration.
+
+### Interface configuration
+
+Enable IPv6 link-local-only on each interface that participates in BGP unnumbered peering (no explicit IPv4/IPv6 address is assigned to the interface):
+
+```
+sudo config interface ipv6 enable use-link-local-only <intf name>
+```
+
+Example:
+```
+sudo config interface ipv6 enable use-link-local-only Ethernet48
+```
+
+Verify the interface has an IPv6 link-local address and is up:
+```
+show ipv6 interfaces
+```
+
+Apply the same interface configuration on the peer device before establishing the BGP unnumbered session.
 
 ## Test cases
 ### Test case #1 - BGP Unnumbered 
@@ -124,7 +144,7 @@ Verify BGP session resiliency when the BGP container (bgp docker) is restarted
 Steps:
 1. Establish BGP session
 2. Restart BGP container on DUT
-   * `docker restart bgp`
+   * `sudo systemctl restart bgp`
 4. Monitor BGP session state
 5. Verify route table before and after restart
 
