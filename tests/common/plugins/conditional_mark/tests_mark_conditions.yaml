@@ -5397,7 +5397,7 @@ srv6/test_srv6_dataplane.py::TestSRv6DataPlaneBase::test_srv6_full_func:
 
 srv6/test_srv6_static_config.py:
   skip:
-    reason: "Only target mellanox SPC4+ platform with 202412 or 202511+ image. Requires particular image support (202412 or 202511+). SRv6 is not supported on older ASICs (Broadcom TH/TH2/TD3; Mellanox SPC1-3). Skip for non Arista-7060X6-64PE-B-* TH5 SKUs. Skip for t0-isolated-d96u32, t1-isolated-d32/128"
+    reason: "Only target mellanox SPC4+ platform with 202412 or 202511+ image. Requires particular image support (202412 or 202511+). SRv6 is not supported on older ASICs (Broadcom TH/TH2/TD3; Mellanox SPC1-3). Skip for non Arista-7060X6-64PE-B-* TH5 SKUs. Skip for t0-isolated-d96u32, t1-isolated-d32/128, Skipped because SRv6 is not supported on marvell-teralynx platform."
     conditions_logical_operator: or
     conditions:
       - "(release != 'master' and release != '202412' and release < '202511') and asic_type not in ['vpp']"
@@ -5405,12 +5405,13 @@ srv6/test_srv6_static_config.py:
       - "'Arista-7060X6-64PE' in hwsku and 'Arista-7060X6-64PE-B' not in hwsku"
       - "topo_name in ['t0-isolated-d96u32s2', 't1-isolated-d128', 't1-isolated-d32']"
       - "asic_type == 'broadcom' and asic_gen not in ['th5', 'th6', 'q3d']"
+      - "asic_type in ['marvell-teralynx']"
 
 srv6/test_srv6_static_config.py::test_uDT46_config:
   skip:
     reason: "Unsupported platform"
     conditions:
-      - "asic_type in ['mellanox', 'vpp']"
+      - "asic_type in ['mellanox', 'vpp', 'marvell-teralynx']"
 
 srv6/test_srv6_vlan_forwarding.py:
   skip:
