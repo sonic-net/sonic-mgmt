@@ -765,9 +765,9 @@ bgp/test_traffic_shift_sup.py:
 
 bmp/:
   skip:
-    reason: "https://github.com/sonic-net/sonic-buildimage/issues/23777"
+    reason: 'BMP tests require BGP routing, not available on BMC'
     conditions:
-      - "release in ['master']"
+      - "'bmc' in topo_type"
 
 bmp/test_docker_restart.py::test_restart_bmp_docker:
   skip:
