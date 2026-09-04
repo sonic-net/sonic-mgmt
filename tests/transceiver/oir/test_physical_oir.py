@@ -104,7 +104,7 @@ def _verify_removal(duthost, port_attributes_dict, lports, flap_baseline, waterm
 
 def _verify_insertion(duthost, port_attributes_dict, lport_to_first_subport_mapping,
                       oir_attrs_by_port, lports, health_baseline, watermark, wait_sec,
-                      baseline_tables=None, insert_flap_baseline=None):
+                      baseline_tables=None, insert_flap_baseline=None, expected_flap_increment=1):
     """TC2 expected results for the ports whose module was just inserted."""
     failures = oir_helpers.verify_presence_clis(duthost, lports, present=True)
     failures += oir_helpers.verify_state_tables_present(
@@ -124,7 +124,7 @@ def _verify_insertion(duthost, port_attributes_dict, lport_to_first_subport_mapp
     # insertion itself, which a post-recovery sentinel alone cannot see.
     if insert_flap_baseline is not None:
         failures += oir_helpers.verify_flap_count_increment(
-            duthost, lports, insert_flap_baseline, expected_increment=0)
+            duthost, lports, insert_flap_baseline, expected_increment=expected_flap_increment)
 
     failures += _verify_eeprom_recovered(
         duthost, port_attributes_dict, lport_to_first_subport_mapping, lports, wait_sec)
