@@ -1,10 +1,14 @@
-import json
 import os
 import pytest
 import logging
 from tests.common.helpers.snapshot_warm_vs_cold_boot_helpers import backup_device_logs, record_diff, \
     run_presnapshot_checks, write_upgrade_path_summary
-from tests.common.snapshot_comparison.warm_vs_cold import AFTER_COLDBOOT, AFTER_WARMBOOT, prune_expected_from_diff
+from tests.common.snapshot_comparison.warm_vs_cold import (
+    AFTER_COLDBOOT,
+    AFTER_WARMBOOT,
+    assert_no_unmasked_regressions,
+    prune_expected_from_diff,
+)
 from tests.upgrade_path.utilities import boot_into_base_image, cleanup_prev_images
 from tests.common.db_comparison import SonicRedisDBSnapshotter, DBType
 from tests.common import reboot
@@ -140,10 +144,5 @@ def test_warmboot_data_consistency(localhost, duthosts, rand_one_dut_hostname, t
     # Write metrics to custom message and dump snapshots to disk after pruning
     record_diff(request, diff, data_dir, "post_prune")
 
-    # Log warn any diffs after pruning
-    for db_type, db_snapshot in diff.items():
-        if db_snapshot.diff:
-            pretty_diff = json.dumps(db_snapshot.diff, indent=4)
-            logger.warning(f"Differences found in {db_type.name} DB:\n{pretty_diff}")
-        else:
-            logger.info(f"No differences found in {db_type.name} DB")
+    # Apply assertion mask and assert no unmasked regressions remain.
+    assert_no_unmasked_regressions(diff, duthost.facts["platform"])
