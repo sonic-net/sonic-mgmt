@@ -864,6 +864,10 @@ def _get_interface_neighbor_and_port(duthost, tbinfo, dut_interface, nbrhosts):
     neighbor_name, neighbor_interface = neighbor_name['name'], neighbor_name['port']
     neighbor = nbrhosts[neighbor_name]
     lacp_num = neighbor['conf']['interfaces'][neighbor_interface].get('lacp')
+    # For converged peers, translate the original interface to the actual interface on the prime device
+    if neighbor.get('is_multi_vrf_peer') and neighbor.get('multi_vrf_data'):
+        orig_intf_map = neighbor['multi_vrf_data'].get('orig_intf_map', {})
+        neighbor_interface = orig_intf_map.get(neighbor_interface, neighbor_interface)
     if lacp_num:
         neighbor_interface = f'po{lacp_num}'
     elif neighbor_interface.startswith('Ethernet'):
