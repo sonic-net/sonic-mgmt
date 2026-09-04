@@ -14,8 +14,8 @@ Design notes (mirrors tools/skip_expiry/.../reporting.py conventions):
 * Fields are discovered from the Project. Any column that does not exist yet is
   skipped with a warning (so the script still works while you add columns).
 * The built-in **Status** field is treated as human-owned: it is set to
-  ``Todo`` only when a card is first created and to ``Done`` for already-migrated
-  modules; it is otherwise left alone so contributor progress is preserved.
+    ``Todo`` only when a card is first created and is otherwise left alone so
+    contributor progress is preserved.
 * Only the Python standard library is used (urllib) -- no pip install needed.
 """
 
@@ -119,10 +119,9 @@ def graphql(token: str, query: str, variables: dict) -> dict:
     max_retries = 3
     for attempt in range(max_retries + 1):
         try:
-            opener = urllib.request.build_opener()
-            with opener.open(
+            with urllib.request.urlopen(
                 urllib.request.Request(
-                    "https://api.github.com/graphql",
+                    GITHUB_GRAPHQL_URL,
                     data=body,
                     headers=headers,
                 ),
