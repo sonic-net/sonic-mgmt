@@ -126,10 +126,11 @@ average source interval and CPS within 10%. Ingress-PG requires at least 20
 samples for every series but does not enforce cadence. Port, poll-interval, and
 end-to-end cadence checks use at least 100 samples and a 5% tolerance.
 
-The full Queue coverage case executes after every other active HFT case. Target
-hardware accepts transitions into a full Queue session, while a full Queue
-session can leave a subsequent object-type session without data even after
-ordered session cleanup.
+Session cleanup first disables the profile and waits for `STATE_DB` to report
+the stream as disabled. It then deletes the group, waits for the session entry
+to disappear, and deletes the profile. The Queue coverage case runs before the
+other active cases so the full directory verifies that a non-Queue session can
+start after the highest-fanout session is removed.
 
 ### Basic Functionality Tests
 
@@ -148,7 +149,8 @@ ordered session cleanup.
 3. Atomically create an HFT profile (`queue_profile`) and QUEUE group with poll interval 10ms, stream state `enabled`, all discovered queue objects, and supported counters.
 4. Wait for at least 100 points in every configured queue/counter series.
 5. Validate complete series/tag coverage, nonnegative values, and average source interval and CPS within 10%.
-6. Clean up HFT configuration.
+6. Disable the profile and wait for the session to stop, then delete the group
+   and profile.
 
 **Expected Results**
 - Every configured queue/counter combination is present with nonnegative values.

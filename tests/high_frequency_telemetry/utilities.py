@@ -5,6 +5,7 @@ import json
 import logging
 import re
 import shlex
+import sys
 import threading
 import time
 from collections import namedtuple
@@ -13,6 +14,7 @@ from datetime import datetime
 
 import ptf.testutils as testutils
 import pytest
+from _pytest.outcomes import OutcomeException
 from natsort import natsorted
 
 from tests.common.helpers.assertions import pytest_assert
@@ -180,24 +182,28 @@ def _normalize_hft_group_type(group_name):
 
 
 def _get_hft_config_keys(duthost):
-    result = duthost.shell(
-        "printf '__PROFILES__\\n'; "
-        "redis-cli -n 4 --raw KEYS 'HIGH_FREQUENCY_TELEMETRY_PROFILE|*'; "
-        "printf '__GROUPS__\\n'; "
-        "redis-cli -n 4 --raw KEYS 'HIGH_FREQUENCY_TELEMETRY_GROUP|*'",
-        module_ignore_errors=False,
+    def query_keys(pattern):
+        result = duthost.shell(
+            f"redis-cli -n 4 --raw KEYS {shlex.quote(pattern)}",
+            module_ignore_errors=True,
+        )
+        lines = [
+            line for line in result.get("stdout_lines", []) if line
+        ]
+        redis_errors = [
+            line for line in lines
+            if line.startswith("ERR ") or line.startswith("(error)")
+        ]
+        pytest_assert(
+            result.get("rc") == 0 and not redis_errors,
+            f"Failed to query CONFIG_DB keys for {pattern}: {result}",
+        )
+        return lines
+
+    return (
+        query_keys("HIGH_FREQUENCY_TELEMETRY_PROFILE|*"),
+        query_keys("HIGH_FREQUENCY_TELEMETRY_GROUP|*"),
     )
-    profiles = []
-    groups = []
-    destination = profiles
-    for line in result.get("stdout_lines", []):
-        if line == "__PROFILES__":
-            destination = profiles
-        elif line == "__GROUPS__":
-            destination = groups
-        elif line:
-            destination.append(line)
-    return profiles, groups
 
 
 def _apply_hft_patch(duthost, operations):
@@ -285,9 +291,37 @@ def setup_hft_stream_state(duthost, profile_name, stream_state):
 
 
 def cleanup_hft_config(duthost, profile_name, group_names=None):
-    """Delete groups, wait for session cleanup, then delete the profile."""
+    """Stop the stream, delete its groups, then delete the profile."""
+    original_error = sys.exc_info()[1]
+    first_cleanup_error = None
+
+    def cleanup_step(step_name, callback):
+        nonlocal first_cleanup_error
+        try:
+            callback()
+            return True
+        except (Exception, OutcomeException) as error:
+            logger.exception("HFT cleanup step '%s' failed", step_name)
+            if first_cleanup_error is None:
+                first_cleanup_error = error
+            return False
+
+    def run_command(command, failure_message):
+        result = duthost.shell(command, module_ignore_errors=True)
+        pytest_assert(result.get("rc") == 0, f"{failure_message}: {result}")
+
     profile_arg = shlex.quote(str(profile_name))
-    _, group_keys = _get_hft_config_keys(duthost)
+    profile_keys = []
+    group_keys = []
+    config_known = False
+
+    def inspect_config():
+        nonlocal profile_keys, group_keys, config_known
+        profile_keys, group_keys = _get_hft_config_keys(duthost)
+        config_known = True
+
+    cleanup_step("inspect HFT configuration", inspect_config)
+
     if group_names is None:
         group_names = [
             key.split("|", 2)[2] for key in group_keys
@@ -296,36 +330,124 @@ def cleanup_hft_config(duthost, profile_name, group_names=None):
     elif isinstance(group_names, str):
         group_names = [group_names]
 
-    for group_name in group_names:
-        group_type = _normalize_hft_group_type(group_name)
-        group_key = (
-            f"HIGH_FREQUENCY_TELEMETRY_GROUP|{profile_name}|{group_type}"
+    requested_groups = [
+        _normalize_hft_group_type(group_name) for group_name in group_names
+    ]
+    if config_known:
+        configured_groups = [
+            group_type for group_type in requested_groups
+            if f"HIGH_FREQUENCY_TELEMETRY_GROUP|{profile_name}|{group_type}"
+            in group_keys
+        ]
+    else:
+        configured_groups = requested_groups
+
+    profile_key = f"HIGH_FREQUENCY_TELEMETRY_PROFILE|{profile_name}"
+    profile_may_exist = not config_known or profile_key in profile_keys
+    if profile_may_exist:
+        cleanup_step(
+            f"disable profile {profile_name}",
+            lambda: run_command(
+                f"sudo config hft disable {profile_arg}",
+                f"Failed to disable HFT profile {profile_name}",
+            ),
         )
-        if group_key not in group_keys:
-            continue
-        duthost.shell(
-            f"sudo config hft del group {profile_arg} {group_type}",
-            module_ignore_errors=True,
-        )
+
+    def wait_for_session_state(group_type, expected_state):
         session_key = shlex.quote(
             "HIGH_FREQUENCY_TELEMETRY_SESSION_TABLE|"
             f"{profile_name}|{group_type}"
         )
-        result = duthost.shell(
+        if expected_state == "disabled":
+            condition = '[ "$state" = disabled ] || [ "$state" = missing ]'
+        else:
+            condition = '[ "$state" = missing ]'
+        command = (
             "for i in $(seq 1 30); do "
-            f"[ \"$(redis-cli -n 6 EXISTS {session_key})\" = 0 ] && exit 0; "
-            "sleep 1; done; exit 1",
-            module_ignore_errors=True,
+            "state=$(redis-cli -n 6 --raw EVAL "
+            "'if redis.call(\"EXISTS\", KEYS[1]) == 0 then "
+            "return \"missing\" end; return redis.call(\"HGET\", KEYS[1], "
+            "ARGV[1]) or \"invalid\"' "
+            f"1 {session_key} stream_status) || exit 2; "
+            f"if {condition}; then exit 0; fi; "
+            "sleep 1; done; exit 1"
         )
-        pytest_assert(
-            result.get("rc") == 0,
-            f"HFT session {profile_name}|{group_type} was not removed",
+        run_command(
+            command,
+            f"HFT session {profile_name}|{group_type} did not reach "
+            f"{expected_state}",
         )
 
-    duthost.shell(
-        f"sudo config hft del profile {profile_arg}",
-        module_ignore_errors=True,
-    )
+    stopped_groups = {}
+    for group_type in configured_groups:
+        stopped_groups[group_type] = cleanup_step(
+            f"wait for session {profile_name}|{group_type} to stop",
+            lambda group_type=group_type: wait_for_session_state(
+                group_type, "disabled"
+            ),
+        )
+    removed_groups = {}
+    for group_type in configured_groups:
+        if not stopped_groups[group_type]:
+            logger.error(
+                "Not deleting HFT group %s|%s because its session did not stop",
+                profile_name,
+                group_type,
+            )
+            removed_groups[group_type] = False
+            continue
+        group_deleted = cleanup_step(
+            f"delete group {profile_name}|{group_type}",
+            lambda group_type=group_type: run_command(
+                f"sudo config hft del group {profile_arg} {group_type}",
+                f"Failed to delete HFT group {profile_name}|{group_type}",
+            ),
+        )
+        removed_groups[group_type] = group_deleted and cleanup_step(
+                f"wait for session {profile_name}|{group_type} removal",
+                lambda group_type=group_type: wait_for_session_state(
+                    group_type, "removed"
+                ),
+            )
+
+    groups_removed = all(removed_groups.values())
+    if profile_may_exist and groups_removed:
+        cleanup_step(
+            f"delete profile {profile_name}",
+            lambda: run_command(
+                f"sudo config hft del profile {profile_arg}",
+                f"Failed to delete HFT profile {profile_name}",
+            ),
+        )
+    elif profile_may_exist:
+        logger.error(
+            "Not deleting HFT profile %s because group cleanup was incomplete",
+            profile_name,
+        )
+
+    def verify_config_removed():
+        remaining_profiles, remaining_groups = _get_hft_config_keys(duthost)
+        stale_groups = [
+            key for key in remaining_groups
+            if key.startswith(
+                f"HIGH_FREQUENCY_TELEMETRY_GROUP|{profile_name}|"
+            )
+        ]
+        pytest_assert(
+            profile_key not in remaining_profiles and not stale_groups,
+            f"HFT configuration remains after cleanup: profile="
+            f"{profile_key in remaining_profiles}, groups={stale_groups}",
+        )
+
+    cleanup_step("verify HFT configuration removal", verify_config_removed)
+    if first_cleanup_error is not None:
+        if original_error is None:
+            raise first_cleanup_error
+        logger.error(
+            "Preserving active test failure after HFT cleanup also failed: %s",
+            first_cleanup_error,
+        )
+        return
     logger.info("Cleaned HFT profile %s", profile_name)
 
 
@@ -461,10 +583,11 @@ def enable_otel_collector(duthost, timeout=60, check_image=True):
     end_time = time.time() + timeout
     while time.time() < end_time:
         running = duthost.shell(
-            'docker ps -q --filter "name=otel"',
+            r"docker inspect -f \{\{.State.Running\}\} otel",
             module_ignore_errors=True,
         )
-        if running.get("rc") == 0 and running.get("stdout", "").strip():
+        if running.get("rc") == 0 \
+                and running.get("stdout", "").strip() == "true":
             return True
         time.sleep(2)
     raise AssertionError("OTEL container did not become ready")

@@ -1,6 +1,8 @@
 import logging
+import sys
 
 import pytest
+from _pytest.outcomes import OutcomeException
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
@@ -53,6 +55,32 @@ def _configure_and_validate(duthost, sink, profile_name, group_name,
         f"Validated {len(stats)} series, expected {len(expected)}",
     )
     return expected, stats
+
+
+@pytest.mark.hft_requirements(CounterObjectType.QUEUE)
+def test_hft_full_queue_counters(
+        duthosts, enum_rand_one_per_hwsku_hostname, hft_influxdb,
+        skip_unsupported_hft_test):
+    """Verify every supported counter for every configured queue."""
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    profile_name = "queue_profile"
+    queue_objects = skip_unsupported_hft_test["objects"]
+    counters = skip_unsupported_hft_test["counters"]
+    try:
+        _configure_and_validate(
+            duthost,
+            hft_influxdb,
+            profile_name,
+            "QUEUE",
+            CounterObjectType.QUEUE,
+            queue_objects,
+            counters,
+            min_points=100,
+            timeout=120,
+            interval_tolerance=0.10,
+        )
+    finally:
+        cleanup_hft_config(duthost, profile_name, ["QUEUE"])
 
 
 @pytest.mark.hft_requirements(CounterObjectType.INGRESS_PRIORITY_GROUP)
@@ -330,34 +358,31 @@ def test_hft_port_shutdown_stream(
             f"PTF traffic sender errors: {traffic.errors[:10]}",
         )
     finally:
+        original_error = sys.exc_info()[1]
+        first_cleanup_error = None
         traffic.stop()
-        duthost.shell(
-            f"config interface startup {test_port}", module_ignore_errors=True
-        )
-        cleanup_hft_config(duthost, profile_name, ["PORT"])
-
-
-@pytest.mark.hft_requirements(CounterObjectType.QUEUE)
-def test_hft_full_queue_counters(
-        duthosts, enum_rand_one_per_hwsku_hostname, hft_influxdb,
-        skip_unsupported_hft_test):
-    """Verify every supported counter for every configured queue."""
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    profile_name = "queue_profile"
-    queue_objects = skip_unsupported_hft_test["objects"]
-    counters = skip_unsupported_hft_test["counters"]
-    try:
-        _configure_and_validate(
-            duthost,
-            hft_influxdb,
-            profile_name,
-            "QUEUE",
-            CounterObjectType.QUEUE,
-            queue_objects,
-            counters,
-            min_points=100,
-            timeout=120,
-            interval_tolerance=0.10,
-        )
-    finally:
-        cleanup_hft_config(duthost, profile_name, ["QUEUE"])
+        try:
+            result = duthost.shell(
+                f"config interface startup {test_port}",
+                module_ignore_errors=True,
+            )
+            pytest_assert(
+                result.get("rc") == 0,
+                f"Failed to restore {test_port}: {result}",
+            )
+            pytest_assert(
+                wait_until(
+                    15, 1, 0, duthost.is_interface_status_up, test_port
+                ),
+                f"{test_port} did not recover during cleanup",
+            )
+        except (Exception, OutcomeException) as error:
+            logger.exception("Failed to restore HFT test port %s", test_port)
+            first_cleanup_error = error
+        try:
+            cleanup_hft_config(duthost, profile_name, ["PORT"])
+        except (Exception, OutcomeException) as error:
+            if first_cleanup_error is None:
+                first_cleanup_error = error
+        if first_cleanup_error is not None and original_error is None:
+            raise first_cleanup_error
