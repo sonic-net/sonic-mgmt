@@ -874,7 +874,7 @@ def _get_interface_neighbor_and_port(duthost, tbinfo, dut_interface, nbrhosts):
 @pytest.mark.parametrize("ip_ver,nexthop", [("4", "2.2.2.2"), ("6", "2001::1")])
 def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                      enum_frontend_asic_index, crm_interface, ip_ver, nexthop, ptfhost, cleanup_ptf_interface, tbinfo,
-                     nbrhosts):
+                     nbrhosts, request):
 
     if ip_ver == "4" and is_ipv6_only_topology(tbinfo):
         pytest.skip("Skipping IPv4 test on IPv6-only topology")
@@ -904,6 +904,66 @@ def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
 
         if duthost.facts["asic_type"] == "mellanox":
             vmhost, vm_interface = _get_interface_neighbor_and_port(duthost, tbinfo, dut_interface, nbrhosts)
+            vm_ip_remove_cmd = f"ip addr del {nexthop}/{mask} dev {vm_interface}"
+            cleanup_state = {"vm_ip": False, "dut_ip": False, "route": False}
+
+            def cleanup_mellanox_nexthop():
+                failures = []
+
+                def state_is_absent(host, verify_cmd, match):
+                    result = host.shell(verify_cmd, module_ignore_errors=True)
+                    output = result.get("stdout", "")
+                    state_remains = bool(output.strip()) if match is None else match in output
+                    return result.get("rc", 1) == 0 and not state_remains
+
+                cleanup_checks = [
+                    (
+                        cleanup_state["route"],
+                        asichost,
+                        nexthop_del_cmd,
+                        f"{asichost.ip_cmd} -{ip_ver} route show {route_prefix}/{mask}",
+                        None,
+                        f"{route_prefix}/{mask}",
+                        "test route"
+                    ),
+                    (
+                        cleanup_state["dut_ip"],
+                        asichost,
+                        ip_remove_cmd,
+                        f"{asichost.ip_cmd} -o -{ip_ver} addr show dev {dut_interface}",
+                        f"{dut_interface_ip}/{mask}",
+                        f"{dut_interface_ip}/{mask}",
+                        "DUT interface IP"
+                    ),
+                    (
+                        cleanup_state["vm_ip"],
+                        vmhost,
+                        vm_ip_remove_cmd,
+                        f"ip -o -{ip_ver} addr show dev {vm_interface}",
+                        f"{nexthop}/{mask}",
+                        f"{nexthop}/{mask}",
+                        "neighbor VM IP"
+                    )
+                ]
+                for should_cleanup, host, cleanup_cmd, verify_cmd, match, value, description in cleanup_checks:
+                    if not should_cleanup:
+                        continue
+                    host.shell(cleanup_cmd, module_ignore_errors=True)
+                    if not wait_until(
+                            SONIC_RES_CLEANUP_UPDATE_TIME,
+                            CRM_POLLING_INTERVAL,
+                            0,
+                            state_is_absent,
+                            host,
+                            verify_cmd,
+                            match):
+                        failures.append("Failed to remove {} '{}'".format(description, value))
+
+                pytest_assert(not failures, "; ".join(failures))
+
+            request.addfinalizer(cleanup_mellanox_nexthop)
+            vmhost.shell(vm_ip_remove_cmd, module_ignore_errors=True)
+            cleanup_state["vm_ip"] = True
             vmhost.shell(f"ip addr add {nexthop}/{mask} dev {vm_interface}")
             vmhost.shell(f"ip link set {vm_interface} up")
         else:
@@ -911,6 +971,8 @@ def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
             ptfhost.set_dev_up_or_down('eth1', 'is_up')
             asichost.sonichost.del_member_from_vlan(1000, 'Ethernet1')
 
+        if duthost.facts["asic_type"] == "mellanox":
+            cleanup_state["dut_ip"] = True
         asichost.shell(ip_add_cmd)
         asichost.shell(f"config interface startup {dut_interface}")
     else:
@@ -925,6 +987,8 @@ def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                                     nexthop=nexthop,
                                     iface=crm_interface[0])
     # Add nexthop
+    if duthost.facts["asic_type"] == "mellanox":
+        cleanup_state["route"] = True
     asichost.shell(nexthop_add_cmd)
 
     logger.info("original crm_stats_nexthop_used is: {}, original crm_stats_nexthop_available is {}".format(
@@ -932,7 +996,7 @@ def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     crm_stats_checker = wait_until(60, 5, 0, check_crm_stats, get_nexthop_stats, duthost,
                                    crm_stats_nexthop_used + 1, crm_stats_nexthop_available - 1, ">=", "<=",
                                    skip_stats_check=skip_stats_check)
-    if not crm_stats_checker:
+    if not crm_stats_checker and duthost.facts["asic_type"] != "mellanox":
         RESTORE_CMDS["test_crm_nexthop"].append(nexthop_del_cmd)
     pytest_assert(crm_stats_checker,
                   "\"crm_stats_ipv{}_nexthop_used\" counter was not incremented or "
@@ -953,6 +1017,8 @@ def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     pytest_assert(crm_stats_checker,
                   "\"crm_stats_ipv{}_nexthop_used\" counter was not decremented or "
                   "\"crm_stats_ipv{}_nexthop_available\" counter was not incremented".format(ip_ver, ip_ver))
+    if duthost.facts["asic_type"] == "mellanox":
+        cleanup_state.update(vm_ip=False, dut_ip=False, route=False)
 
     # Get new "crm_stats_ipv[4/6]_nexthop" used and available counter value
     new_crm_stats_nexthop_used, new_crm_stats_nexthop_available = get_crm_stats(get_nexthop_stats, duthost)
