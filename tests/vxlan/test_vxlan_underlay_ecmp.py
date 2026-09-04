@@ -5,12 +5,22 @@ import logging
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                             # noqa: F401
+from tests.common.vs_data import is_vs_device
 from tests.vxlan.test_vxlan_ecmp import Test_VxLAN, fixture_encap_type, _ignore_route_sync_errlogs  # noqa: F401
 from tests.vxlan.test_vxlan_ecmp import fixture_setUp, _reset_test_routes, ecmp_utils               # noqa: F401
 from tests.vxlan.test_vxlan_ecmp import default_routes, routes_for_cleanup                          # noqa: F401
 
 
 Logger = logging.getLogger(__name__)
+
+# On VS/KVM (PR tests), reduce test scope to speed up execution.
+# Full scope is preserved on physical hardware (nightly tests).
+VS_MAX_T2_INTFS = 3
+VS_PACKET_COUNT = 4000
+VS_MAX_ENDPOINTS = 2
+DEFAULT_PACKET_COUNT = 10000
+# Note: check_underlay_ecmp uses ratio-based tolerance (underlay_tolerance=0.25, i.e. 25%
+# deviation per path). Reducing packet_count is safe as the threshold scales with total packets.
 
 pytestmark = [
     # This script supports any T1 topology: t1, t1-64-lag, t1-56-lag, t1-lag.
@@ -52,6 +62,15 @@ class Test_VxLAN_underlay_ecmp(Test_VxLAN):
             raise RuntimeError(
                 "No interface found connected to t2 neighbors. "
                 "pls check the testbed, aborting.")
+
+        duthost = self.vxlan_test_setup['duthost']
+        vs_device = is_vs_device(duthost)
+        if vs_device and len(all_t2_intfs) > VS_MAX_T2_INTFS:
+            Logger.info("VS device: limiting T2 interfaces from %d to %d",
+                        len(all_t2_intfs), VS_MAX_T2_INTFS)
+            all_t2_intfs = all_t2_intfs[:VS_MAX_T2_INTFS]
+
+        packet_count = VS_PACKET_COUNT if vs_device else DEFAULT_PACKET_COUNT
 
         # Keep a copy of the internal housekeeping list of t2 ports.
         # This is the full list of DUT ports connected to T2 neighbors.
@@ -95,7 +114,7 @@ class Test_VxLAN_underlay_ecmp(Test_VxLAN):
                 "tc12",
                 encap_type,
                 True,
-                packet_count=10000,
+                packet_count=packet_count,
                 check_underlay_ecmp=True)
 
             Logger.info(
@@ -143,7 +162,7 @@ class Test_VxLAN_underlay_ecmp(Test_VxLAN):
                 "tc12",
                 encap_type,
                 True,
-                packet_count=10000,
+                packet_count=packet_count,
                 check_underlay_ecmp=True)
 
             Logger.info("Recovery. Bring all up, and verify traffic works.")
@@ -172,7 +191,7 @@ class Test_VxLAN_underlay_ecmp(Test_VxLAN):
                 "tc12",
                 encap_type,
                 True,
-                packet_count=10000,
+                packet_count=packet_count,
                 check_underlay_ecmp=True)
 
         except Exception:
@@ -223,6 +242,16 @@ class Test_VxLAN_underlay_ecmp(Test_VxLAN):
             raise RuntimeError(
                 "No interface found connected to t2 neighbors."
                 "Pls check the testbed, aborting.")
+
+        duthost = self.vxlan_test_setup['duthost']
+        vs_device = is_vs_device(duthost)
+        if vs_device and len(all_t2_intfs) > VS_MAX_T2_INTFS:
+            Logger.info("VS device: limiting T2 interfaces from %d to %d",
+                        len(all_t2_intfs), VS_MAX_T2_INTFS)
+            all_t2_intfs = all_t2_intfs[:VS_MAX_T2_INTFS]
+
+        packet_count = VS_PACKET_COUNT if vs_device else DEFAULT_PACKET_COUNT
+
         try:
             Logger.info("Bring down the T2 interfaces.")
             for intf in all_t2_intfs:
@@ -264,7 +293,7 @@ class Test_VxLAN_underlay_ecmp(Test_VxLAN):
                 "tc14",
                 encap_type,
                 True,
-                packet_count=10000,
+                packet_count=packet_count,
                 check_underlay_ecmp=True)
         except Exception:
             Logger.info(
@@ -292,6 +321,18 @@ class Test_VxLAN_underlay_ecmp(Test_VxLAN):
         self.vxlan_test_setup = setUp
         vnet = list(self.vxlan_test_setup[encap_type]['vnet_vni_map'].keys())[0]
         endpoint_nhmap = self.vxlan_test_setup[encap_type]['dest_to_nh_map'][vnet]
+
+        duthost = self.vxlan_test_setup['duthost']
+        # Save original dest_to_nh_map for this vnet; dump_self_info_and_run_ptf reads it
+        # directly from self.vxlan_test_setup, so we must narrow it to match the routes
+        # actually installed, keeping route-add and PTF verification in sync.
+        original_nhmap = endpoint_nhmap
+        if is_vs_device(duthost) and len(endpoint_nhmap) > VS_MAX_ENDPOINTS:
+            Logger.info("VS device: limiting endpoint_nhmap from %d to %d entries",
+                        len(endpoint_nhmap), VS_MAX_ENDPOINTS)
+            endpoint_nhmap = dict(list(endpoint_nhmap.items())[:VS_MAX_ENDPOINTS])
+            self.vxlan_test_setup[encap_type]['dest_to_nh_map'][vnet] = endpoint_nhmap
+
         backup_t2_ports = self.vxlan_test_setup[encap_type]['t2_ports']
         # Gathering all T2 Neighbors
         all_t2_neighbors = ecmp_utils.get_all_bgp_neighbors(
@@ -406,6 +447,9 @@ class Test_VxLAN_underlay_ecmp(Test_VxLAN):
             encap_type,
             True,
             check_underlay_ecmp=True)
+
+        # Restore original dest_to_nh_map so other tests are not affected.
+        self.vxlan_test_setup[encap_type]['dest_to_nh_map'][vnet] = original_nhmap
 
     def test_underlay_portchannel_shutdown(self,
                                            setUp,
