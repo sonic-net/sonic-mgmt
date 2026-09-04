@@ -243,6 +243,8 @@ def test_setup_and_cleanup(memory_checker_dut_and_container, request):
     backup_monit_config_files(duthost)
     customize_monit_config_files(duthost, container, *request.param)
     restart_monit_service(duthost)
+    logger.info("Ensuring Monit monitors %s", container.memory_service_name)
+    duthost.shell("sudo monit monitor {}".format(container.memory_service_name))
 
     yield
 

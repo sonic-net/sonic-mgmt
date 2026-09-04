@@ -3,6 +3,7 @@ import pytest
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.utilities import wait_until
 from tests.common.gu_utils import get_asic_name
+from tests.common.plugins.conditional_mark import read_asic_name
 
 
 logger = logging.getLogger(__name__)
@@ -38,6 +39,9 @@ def test_voq_queue_counter(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     duthost.shell("sonic-clear queuecounters")
 
     asic_name = get_asic_name(duthost).lower()
+    if asic_name == "unknown":
+        hwsku = duthost.facts.get("hwsku", "")
+        asic_name = (read_asic_name(hwsku) or "unknown").lower()
     is_q3d_single_asic = ("q3d" in asic_name) and (not duthost.is_multi_asic)
 
     if is_q3d_single_asic:
