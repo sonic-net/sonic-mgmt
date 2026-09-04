@@ -461,9 +461,23 @@ bgp/test_bgp_gr_helper.py:
 
 bgp/test_bgp_gr_helper.py::test_bgp_gr_helper_routes_perserved:
   xfail:
-    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo. Also xfail on scale multi-VRF topologies due to timeout restoring GR https://github.com/sonic-net/sonic-mgmt/issues/27135"
+    conditions_logical_operator: or
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/27135 and topo_name in ['t1-isolated-d448u15-lag', 't1-isolated-v6-d448u15-lag']"
+
+bgp/test_bgp_gr_suppress_fib.py::test_bgp_gr_suppress_fib_neighbor_restart:
+  xfail:
+    reason: "Converged topo timeout in setup_bgp_graceful_restart on scale neighbors https://github.com/sonic-net/sonic-mgmt/issues/27135"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/27135 and topo_name in ['t0-isolated-d256u256s2', 't0-isolated-v6-d256u256s2']"
+
+bgp/test_bgp_gr_suppress_fib.py::test_bgp_gr_with_suppress_fib:
+  xfail:
+    reason: "Converged topo timeout in setup_bgp_graceful_restart on scale neighbors https://github.com/sonic-net/sonic-mgmt/issues/27135"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/27135 and topo_name in ['t0-isolated-d256u256s2', 't0-isolated-v6-d256u256s2']"
 
 bgp/test_bgp_link_local.py::test_bgp_link_local[ethernet]:
   skip:
@@ -697,9 +711,13 @@ bgp/test_bgp_update_replication.py:
 
 bgp/test_bgp_vnet.py:
   skip:
-    reason: "Test is only enabled for VS, Cisco and Nvidia mellanox platforms"
+    reason: "Test is only enabled for VS, Cisco and Nvidia mellanox platforms."
     conditions:
       - "asic_type not in ['vs', 'cisco-8000', 'mellanox']"
+  xfail:
+    reason: "Not supported on topologies without PortChannel uplinks due to GH issue https://github.com/sonic-net/sonic-mgmt/issues/26523."
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/26523 and topo_name in ['t0-isolated-d32u32s2-mix', 't0-isolated-d256u256s2', 't0-isolated-v6-d256u256s2']"
 
 bgp/test_bgp_vnet_scale.py:
   skip:
@@ -942,6 +960,12 @@ crm/test_crm.py::test_crm_fdb_entry:
     reason: "Unsupported topology, expected to run only on 'T0*' or 'M0/MX' topology"
     conditions:
       - "'t0' not in topo_name and topo_type not in ['m0', 'mx']"
+
+crm/test_crm.py::test_crm_nexthop:
+  xfail:
+    reason: "On multi-VRF (converged) cEOS, IPv6 is disabled on remapped neighbor iface; Linux ip addr add fails. https://github.com/sonic-net/sonic-mgmt/issues/27131"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/27131 and topo_name in ['t0-isolated-d256u256s2', 't1-isolated-d448u15-lag']"
 
 crm/test_crm_available.py:
   xfail:
@@ -4186,6 +4210,12 @@ platform_tests/test_advanced_reboot.py:
     conditions:
       - *lossyTopos
 
+platform_tests/test_advanced_reboot.py::test_warm_reboot:
+  xfail:
+    reason: "xfail due to PTF SSH storm on t0-isolated-d256u256s2 packed cEOS VMs - GH https://github.com/sonic-net/sonic-mgmt/issues/27132"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/27132 and 't0-isolated-d256u256s2' in topo_name"
+
 platform_tests/test_cont_warm_reboot.py:
   skip:
     reason: "Continuous warm reboot tests are not supported on lossy topologies."
@@ -4897,9 +4927,11 @@ route/test_route_flap.py:
       - "'standalone' in topo_name"
       - "topo_name in ['t1-isolated-d128']"
   xfail:
-    reason: "xfail for scale topology, PTF is not stable at the scale testbed"
+    reason: "xfail for scale topology, PTF is not stable at the scale testbed. Also xfail on scale multi-VRF topologies due to https://github.com/sonic-net/sonic-mgmt/issues/27134 (withdraw uses wrong ExaBGP port)"
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/21571 and 't0-isolated-d256u256s2' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/27134 and topo_name in ['t1-isolated-d448u15-lag', 't1-isolated-v6-d448u15-lag']"
 
 route/test_route_flow_counter.py:
   skip:
@@ -5607,9 +5639,11 @@ test_interfaces.py:
 #######################################
 test_nbr_health.py:
   xfail:
-    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo. Also xfail on scale multi-VRF topologies due to timeout waiting for all neighbors healthy https://github.com/sonic-net/sonic-mgmt/issues/27135"
+    conditions_logical_operator: or
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/27135 and topo_name in ['t1-isolated-d448u15-lag', 't1-isolated-v6-d448u15-lag']"
 
 #######################################
 #####         pktgen              #####
@@ -5773,6 +5807,10 @@ vlan/test_vlan_ping.py:
     reason: "Skip on dualtor topo https://github.com/sonic-net/sonic-mgmt/issues/15061"
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/15061 and 'dualtor-aa' in topo_name"
+  xfail:
+    reason: "xfail on T0 scale multi-VRF topos due to https://github.com/sonic-net/sonic-mgmt/issues/27133"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/27133 and topo_name in ['t0-isolated-d256u256s2', 't0-isolated-v6-d256u256s2']"
 
 #######################################
 #####             voq             #####
@@ -5964,6 +6002,10 @@ vxlan/test_vxlan_bfd_tsa.py:
     reason: "VxLAN ECMP BFD TSA test is not yet supported on multi-ASIC platform. Also this test can only run on some platforms."
     conditions:
       - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0'])"
+  xfail:
+    reason: "xfail on scale topologies due to https://github.com/sonic-net/sonic-mgmt/issues/27136"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/27136 and topo_name in ['t1-isolated-d448u15-lag', 't1-isolated-v6-d448u15-lag']"
 
 vxlan/test_vxlan_bfd_tsa.py::Test_VxLAN_BFD_TSA::test_tsa_case4:
   skip:
@@ -6113,12 +6155,20 @@ vxlan/test_vxlan_ecmp.py:
     reason: "VxLAN ECMP test is not yet supported on multi-ASIC platform. Also this test can only run on some platforms."
     conditions:
       - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0'])"
+  xfail:
+    reason: "xfail on scale topologies due to https://github.com/sonic-net/sonic-mgmt/issues/27136"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/27136 and topo_name in ['t1-isolated-d448u15-lag', 't1-isolated-v6-d448u15-lag']"
 
 vxlan/test_vxlan_ecmp_switchover.py:
   skip:
     reason: "VxLAN ECMP switchover test is not yet supported on multi-ASIC platform. Also this test can only run on some platforms."
     conditions:
       - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0'] and (asic_type not in ['marvell-teralynx']))"
+  xfail:
+    reason: "xfail on scale topologies due to https://github.com/sonic-net/sonic-mgmt/issues/27136"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/27136 and topo_name in ['t1-isolated-d448u15-lag', 't1-isolated-v6-d448u15-lag']"
 
 vxlan/test_vxlan_ecmp_switchover.py::Test_VxLAN_ECMP_Priority_endpoints::test_vxlan_priority_multi_pri_sec_switchover[v4_in_v4]:
   skip:
@@ -6199,6 +6249,10 @@ vxlan/test_vxlan_underlay_ecmp.py:
     reason: "VxLAN underlay ECMP test is not yet supported on multi-ASIC platform. Also this test can only run on some platforms."
     conditions:
       - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0'])"
+  xfail:
+    reason: "xfail on scale topologies due to https://github.com/sonic-net/sonic-mgmt/issues/27136"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/27136 and topo_name in ['t1-isolated-d448u15-lag', 't1-isolated-v6-d448u15-lag']"
 
 vxlan/test_vxlan_vnet_bgp_subintf.py:
   skip:
