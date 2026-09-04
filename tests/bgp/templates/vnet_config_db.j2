@@ -3,11 +3,10 @@
 {%     if k == 'BGP_NEIGHBOR' %}
     "BGP_NEIGHBOR": {
 {%         set neighbors = cfg_t0['BGP_NEIGHBOR'] %}
-{%         set vnet1_names = ['ARISTA01T1', 'ARISTA02T1'] %}
 {%         set ns = namespace(entries=[]) %}
 {%         for neigh, data in neighbors.items() | sort %}
 {%             set is_ipv6 = ':' in neigh %}
-{%             set is_vnet1 = data['name'] in vnet1_names %}
+{%             set is_vnet1 = data['name'] in vnet1_neighbor_names %}
 {%             if is_vnet1 %}
 {%                 set ns.entries = ns.entries + [('Vnet1|' ~ neigh, data)] %}
 {%             elif is_ipv6 %}
@@ -22,7 +21,7 @@
     "BGP_PEER_RANGE": {
 {%         set neighbors = cfg_t0['BGP_NEIGHBOR'] %}
 {%         for neigh, data in neighbors.items() %}
-{%             if data['name'] == 'ARISTA03T1' and ':' not in neigh %}
+{%             if data['name'] == vnet2_dynamic_peer_name and ':' not in neigh %}
         "Vnet2|BGPSLBPassive": {
             "ip_range": [
                 "{{ data['local_addr'] }}/29"
@@ -46,23 +45,12 @@
 {%     elif k == 'PORTCHANNEL_INTERFACE' %}
     "PORTCHANNEL_INTERFACE": {
 {%        for pc in cfg_t0['PORTCHANNEL_INTERFACE'] | sort %}
-{#     each pc have 3 keys: pc, pc|ipv4 and pc|ipv6 #}
-{%             if cfg_t0['PORTCHANNEL_INTERFACE'] | length == 12  %}
-{%                 if pc in ['PortChannel101', 'PortChannel102'] %}
+{%             if pc in vnet1_portchannels %}
         "{{ pc }}": {"vnet_name": "Vnet1"}
-{%-                elif pc in ['PortChannel103', 'PortChannel104'] %}
+{%-            elif pc in vnet2_portchannels %}
         "{{ pc }}": {"vnet_name": "Vnet2"}
-{%-                else %}
-        "{{ pc }}": {{ cfg_t0['PORTCHANNEL_INTERFACE'][pc] }}
-{%-                endif %}
 {%-            else %}
-{%                 if pc in ['PortChannel101', 'PortChannel102', 'PortChannel103', 'PortChannel104'] %}
-        "{{ pc }}": {"vnet_name": "Vnet1"}
-{%-                elif pc in ['PortChannel105', 'PortChannel106', 'PortChannel107', 'PortChannel108'] %}
-        "{{ pc }}": {"vnet_name": "Vnet2"}
-{%-                else %}
         "{{ pc }}": {{ cfg_t0['PORTCHANNEL_INTERFACE'][pc] }}
-{%-                endif %}
 {%-            endif %}
 {%-            if not loop.last %},{% endif %}
 
