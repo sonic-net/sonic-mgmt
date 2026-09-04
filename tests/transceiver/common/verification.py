@@ -480,7 +480,7 @@ def standard_port_recovery_and_verification(
             logger.warning("Standard Port Recovery FAILED: %s", details)
         else:
             details = f"{port}: " + " + ".join(checks_ran[port]) + " all OK"
-            logger.info("Standard Port Recovery PASSED: %s", details)
+            logger.debug("Standard Port Recovery PASSED: %s", details)
         per_port[port] = {"passed": not failures, "details": details}
 
     return {
