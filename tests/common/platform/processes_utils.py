@@ -39,12 +39,30 @@ def check_docker_uptime_minutes(duthost, name, minimal_runtime=6):
     return False
 
 
-def check_pmon_uptime_minutes(duthost, minimal_runtime=6):
+# Runs on the DUT to avoid clock skew; uses State.StartedAt (not `docker ps` text) for precision.
+_PMON_UPTIME_SECONDS_CMD = (
+    'if [ "$(docker inspect -f \\{\\{.State.Running\\}\\} pmon 2>/dev/null)" = "true" ]; then '
+    'echo $(( $(date -u +%s) - $(date -u -d "$(docker inspect -f \\{\\{.State.StartedAt\\}\\} pmon)" +%s) )); '
+    'fi'
+)
+
+PMON_MIN_UPTIME_MINUTES = 6
+# Wait budget must exceed the uptime threshold, else a pmon that (re)started just before
+# the test can never accrue PMON_MIN_UPTIME_MINUTES within the window and the wait times out.
+PMON_READY_TIMEOUT_SECS = PMON_MIN_UPTIME_MINUTES * 60 + 120
+
+
+def check_pmon_uptime_minutes(duthost, minimal_runtime_minutes=PMON_MIN_UPTIME_MINUTES):
     """
-    @summary: This function checks if pmon uptime is at least the minimal_runtime
-    @return: True pmon has been running at least the minimal_runtime, False for otherwise
+    @summary: Check whether the pmon container has been running for at least
+              minimal_runtime_minutes, computed from its docker start time.
+    @return: True if pmon's uptime is at least minimal_runtime_minutes, False otherwise.
     """
-    return check_docker_uptime_minutes(duthost, "pmon", minimal_runtime=minimal_runtime)
+    uptime_seconds = duthost.command(_PMON_UPTIME_SECONDS_CMD, _uses_shell=True)["stdout"].strip()
+    try:
+        return int(uptime_seconds) >= minimal_runtime_minutes * 60
+    except ValueError:
+        return False
 
 
 def reset_timeout(duthost):
