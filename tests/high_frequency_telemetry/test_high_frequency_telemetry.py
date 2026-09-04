@@ -59,28 +59,25 @@ def _configure_and_validate(duthost, sink, profile_name, group_name,
 
 @pytest.mark.hft_requirements(CounterObjectType.QUEUE)
 def test_hft_full_queue_counters(
-        duthosts, enum_rand_one_per_hwsku_hostname, hft_influxdb,
+        duthosts, enum_rand_one_per_hwsku_hostname, hft_queue_influxdb,
         skip_unsupported_hft_test):
     """Verify every supported counter for every configured queue."""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     profile_name = "queue_profile"
     queue_objects = skip_unsupported_hft_test["objects"]
     counters = skip_unsupported_hft_test["counters"]
-    try:
-        _configure_and_validate(
-            duthost,
-            hft_influxdb,
-            profile_name,
-            "QUEUE",
-            CounterObjectType.QUEUE,
-            queue_objects,
-            counters,
-            min_points=100,
-            timeout=120,
-            interval_tolerance=0.10,
-        )
-    finally:
-        cleanup_hft_config(duthost, profile_name, ["QUEUE"])
+    _configure_and_validate(
+        duthost,
+        hft_queue_influxdb,
+        profile_name,
+        "QUEUE",
+        CounterObjectType.QUEUE,
+        queue_objects,
+        counters,
+        min_points=100,
+        timeout=120,
+        interval_tolerance=0.10,
+    )
 
 
 @pytest.mark.hft_requirements(CounterObjectType.INGRESS_PRIORITY_GROUP)

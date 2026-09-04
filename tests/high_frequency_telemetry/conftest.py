@@ -23,6 +23,7 @@ from tests.high_frequency_telemetry.utilities import (
     install_otel_collector_config,
     is_otel_image_available,
     render_otel_collector_config,
+    restart_countersyncd_daemon,
     restart_otel_service,
     setup_influxdb,
     start_influxdb,
@@ -390,6 +391,13 @@ def hft_influxdb(request, ptfhost, skip_unsupported_hft_test,
         )
         install_otel_collector_config(duthost, rendered_config)
         restart_otel_service(duthost)
+        time.sleep(2)
+        if not sink.is_empty():
+            pytest.fail(
+                f"InfluxDB database {bucket} received stale HFT data before "
+                "the test configured a session: "
+                f"measurements={sorted(sink.measurements())}"
+            )
         yield sink
     finally:
         # Setup failures are active here; pytest reports call-phase failures
@@ -409,6 +417,16 @@ def hft_influxdb(request, ptfhost, skip_unsupported_hft_test,
         cleanup_error = _run_cleanup_steps(cleanup_steps)
         if cleanup_error is not None and original_error is None:
             raise cleanup_error
+
+
+@pytest.fixture(scope="function")
+def hft_queue_influxdb(hft_influxdb, duthosts,
+                       enum_rand_one_per_hwsku_hostname):
+    """Reset countersyncd after the exhaustive Queue export is removed."""
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    yield hft_influxdb
+    cleanup_hft_config(duthost, "queue_profile", ["QUEUE"])
+    restart_countersyncd_daemon(duthost)
 
 
 @pytest.fixture(autouse=True)

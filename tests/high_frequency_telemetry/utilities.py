@@ -475,6 +475,56 @@ def ensure_countersyncd_daemon(duthost):
     return True
 
 
+def _get_running_countersyncd_pid(duthost):
+    status = duthost.shell(
+        "docker exec swss supervisorctl status countersyncd",
+        module_ignore_errors=True,
+    )
+    fields = status.get("stdout", "").split()
+    if status.get("rc") != 0 or len(fields) < 2 \
+            or fields[0] != "countersyncd" or fields[1] != "RUNNING":
+        return None
+    pid = duthost.shell(
+        "docker exec swss supervisorctl pid countersyncd",
+        module_ignore_errors=True,
+    )
+    try:
+        value = int(pid.get("stdout", "").strip())
+    except (TypeError, ValueError):
+        return None
+    return value if pid.get("rc") == 0 and value > 0 else None
+
+
+def restart_countersyncd_daemon(duthost, timeout=30):
+    """Restart only countersyncd and verify its supervisor-owned process."""
+    old_pid = _get_running_countersyncd_pid(duthost)
+    pytest_assert(
+        old_pid is not None,
+        "Unable to determine the running countersyncd PID before restart",
+    )
+    result = duthost.shell(
+        "docker exec swss supervisorctl restart countersyncd",
+        module_ignore_errors=True,
+    )
+    pytest_assert(
+        result.get("rc") == 0,
+        f"Failed to restart countersyncd: {result}",
+    )
+
+    def restarted():
+        pid = _get_running_countersyncd_pid(duthost)
+        return pid is not None and pid != old_pid
+
+    pytest_assert(
+        wait_until(timeout, 1, 0, restarted),
+        f"countersyncd did not restart from PID {old_pid}",
+    )
+    new_pid = _get_running_countersyncd_pid(duthost)
+    ensure_countersyncd_daemon(duthost)
+    logger.info("Restarted countersyncd from PID %d to PID %d", old_pid, new_pid)
+    return old_pid, new_pid
+
+
 def render_otel_collector_config(template_path, **kwargs):
     """Render the test OTEL collector configuration."""
     from jinja2 import Environment, StrictUndefined, select_autoescape

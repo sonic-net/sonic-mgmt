@@ -73,7 +73,9 @@ HFT Phase 1 supports key AI data center statistics across four object types:
 ### Prerequisites
 - DUT must have the `swss` container running and stable (uptime ≥ 10 seconds).
 - The `countersyncd` daemon must be functional inside the `swss` container.
-- The supervisor-owned `countersyncd` daemon must be running with `--enable-otel`; tests never start or stop it.
+- The supervisor-owned `countersyncd` daemon must be running with `--enable-otel`.
+  Tests keep it continuous except for one explicit restart after the exhaustive
+  Queue case, once that case's configuration and STATE_DB session are gone.
 - The DUT must provide the `otel` container image.
 - InfluxDB 3 Core (`influxdb3`) must be installed on the PTF host.
 - HFT CLI commands (`config hft add/del/enable/disable`) must be available on the DUT.
@@ -100,8 +102,9 @@ Per-platform supported counters are defined in `tests/high_frequency_telemetry/c
 
 Each HFT test module starts one test-owned in-memory InfluxDB process. Every
 case creates a uniquely named database, proves it is empty, installs an OTEL
-configuration targeting it, restarts the systemd-managed OTEL service, and
-hard-deletes the database during teardown. Unique databases prevent delayed
+configuration targeting it, restarts the systemd-managed OTEL service, proves
+the database is still empty after startup, and hard-deletes the database during
+teardown. Unique databases detect delayed
 high-fanout exporter data from leaking across hardware sessions without paying
 the process startup cost for every case. The fixture stops only the InfluxDB PID
 it owns at module teardown. Multi-phase cases retain data between phases and
@@ -128,9 +131,13 @@ end-to-end cadence checks use at least 100 samples and a 5% tolerance.
 
 Session cleanup first disables the profile and waits for `STATE_DB` to report
 the stream as disabled. It then deletes the group, waits for the session entry
-to disappear, and deletes the profile. The Queue coverage case runs before the
-other active cases so the full directory verifies that a non-Queue session can
-start after the highest-fanout session is removed.
+to disappear, and deletes the profile. On older images, `countersyncd` can keep
+an in-flight OTLP request across collector reconfiguration after the exhaustive
+Queue export. The Queue fixture therefore restarts only the supervisor-owned
+`countersyncd` process after session removal; SWSS, orchagent, syncd, and ports
+remain running. The Queue case runs before the other active cases so the full
+directory verifies that a non-Queue session can start after this isolation
+boundary.
 
 ### Basic Functionality Tests
 
@@ -151,6 +158,8 @@ start after the highest-fanout session is removed.
 5. Validate complete series/tag coverage, nonnegative values, and average source interval and CPS within 10%.
 6. Disable the profile and wait for the session to stop, then delete the group
    and profile.
+7. Restart only `countersyncd`, require a new running PID with `--enable-otel`,
+   and leave the SWSS container and forwarding state intact.
 
 **Expected Results**
 - Every configured queue/counter combination is present with nonnegative values.

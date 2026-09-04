@@ -51,6 +51,7 @@ def _load_target_module():
         "install_otel_collector_config",
         "is_otel_image_available",
         "render_otel_collector_config",
+        "restart_countersyncd_daemon",
         "restart_otel_service",
         "setup_influxdb",
         "start_influxdb",
