@@ -258,17 +258,23 @@ def test_stop_pfcwd(duthost, enum_rand_one_frontend_asic_index,
     # Removing the JSON patch formatting because the above patch includes interfaces
     # that may belong to multiple ASICs, and the formatting has already been handled per interface.
     # json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
+    op = 'remove'
+    tmpfile = None
     try:
         tmpfile = generate_tmpfile(duthost)
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-        expect_op_success(duthost, output)
-        pfcwd_updated_config = duthost.shell("show pfcwd config")
-        pytest_assert(not pfcwd_updated_config['rc'], "Unable to read updated pfcwd config")
-        pytest_assert(exp_str not in pfcwd_updated_config['stdout'].split(),
-                      "pfcwd unexpectedly still running")
-        check_config_update(duthost, expected_count)
+        if is_valid_platform_and_version(duthost, "PFC_WD", "PFCWD enable/disable", op):
+            expect_op_success(duthost, output)
+            pfcwd_updated_config = duthost.shell("show pfcwd config")
+            pytest_assert(not pfcwd_updated_config['rc'], "Unable to read updated pfcwd config")
+            pytest_assert(exp_str not in pfcwd_updated_config['stdout'].split(),
+                          "pfcwd unexpectedly still running")
+            check_config_update(duthost, expected_count)
+        else:
+            expect_op_failure(output)
     finally:
-        delete_tmpfile(duthost, tmpfile)
+        if tmpfile:
+            delete_tmpfile(duthost, tmpfile)
 
 
 @pytest.mark.parametrize('port', ['single', 'all'])
@@ -310,6 +316,7 @@ def test_start_pfcwd(duthost, enum_rand_one_frontend_asic_index,
     # Removing the JSON patch formatting because the above patch includes interfaces
     # that may belong to multiple ASICs, and the formatting has already been handled per interface.
     # json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
+    tmpfile = None
     try:
         tmpfile = generate_tmpfile(duthost)
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
@@ -323,4 +330,5 @@ def test_start_pfcwd(duthost, enum_rand_one_frontend_asic_index,
         else:
             expect_op_failure(output)
     finally:
-        delete_tmpfile(duthost, tmpfile)
+        if tmpfile:
+            delete_tmpfile(duthost, tmpfile)
