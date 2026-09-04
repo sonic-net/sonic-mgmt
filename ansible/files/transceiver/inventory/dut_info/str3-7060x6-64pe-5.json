@@ -1,17 +1,38 @@
 {
-    "Ethernet48,Ethernet52": {
+    "Ethernet48:56,Ethernet64:72,Ethernet80:88,Ethernet96:104,Ethernet112:120": {
         "vendor_name": "PINEWAVE",
         "vendor_pn": "T-OH8CNT-NMT",
-        "vendor_sn": "IDOBIS050112",
-        "vendor_date": "2024-09-10",
         "vendor_oui": "34-36-07",
         "vendor_rev": "1A",
         "hardware_rev": "1.10"
     },
-    "Ethernet48": {
-        "transceiver_configuration": "DR8-800-OSFP-8x100G_DR8-0x0F-0x0F"
+    "Ethernet48:56": {"vendor_sn": "IDOBIS050112", "vendor_date": "2024-09-10"},
+    "Ethernet64:72": {"vendor_sn": "IDOBIS130404", "vendor_date": "2024-09-02"},
+    "Ethernet80:88": {"vendor_sn": "IDOBIS050154", "vendor_date": "2024-09-14"},
+    "Ethernet96:104": {"vendor_sn": "IDOBIS130405", "vendor_date": "2024-09-02"},
+    "Ethernet112:120": {"vendor_sn": "IDOBIS050192", "vendor_date": "2024-09-03"},
+    "Ethernet48:120:16": {
+        "transceiver_configuration": "DR8-800-OSFP-8x100G_DR8-0x1-0x1"
     },
-    "Ethernet52": {
-        "transceiver_configuration": "DR8-800-OSFP-8x100G_DR8-0xF0-0xF0"
+    "Ethernet49:121:16": {
+        "transceiver_configuration": "DR8-800-OSFP-8x100G_DR8-0x2-0x2"
+    },
+    "Ethernet50:122:16": {
+        "transceiver_configuration": "DR8-800-OSFP-8x100G_DR8-0x4-0x4"
+    },
+    "Ethernet51:123:16": {
+        "transceiver_configuration": "DR8-800-OSFP-8x100G_DR8-0x8-0x8"
+    },
+    "Ethernet52:124:16": {
+        "transceiver_configuration": "DR8-800-OSFP-8x100G_DR8-0x10-0x10"
+    },
+    "Ethernet53:125:16": {
+        "transceiver_configuration": "DR8-800-OSFP-8x100G_DR8-0x20-0x20"
+    },
+    "Ethernet54:126:16": {
+        "transceiver_configuration": "DR8-800-OSFP-8x100G_DR8-0x40-0x40"
+    },
+    "Ethernet55:127:16": {
+        "transceiver_configuration": "DR8-800-OSFP-8x100G_DR8-0x80-0x80"
     }
 }
