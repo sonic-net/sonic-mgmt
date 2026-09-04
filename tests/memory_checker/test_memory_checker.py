@@ -223,13 +223,14 @@ def restart_monit_service(duthost):
 
 
 @pytest.fixture
-def test_setup_and_cleanup(memory_checker_dut_and_container, request):
-    """Backups Monit configuration files, customizes Monit configuration files and
-    restarts Monit service before testing. Restores original Monit configuration files
-    and restart Monit service after testing.
+def monit_config_cleanup(memory_checker_dut_and_container):
+    """Backs up Monit configuration files before testing and guarantees
+    they are restored afterwards, regardless of whether intermediate
+    setup steps (e.g. restart_monit_service) succeed or fail.
 
     Args:
-        duthost: Hostname of DuT.
+        memory_checker_dut_and_container: Fixture providing the duthost
+            and container to test.
 
     Returns:
         None.
@@ -241,10 +242,6 @@ def test_setup_and_cleanup(memory_checker_dut_and_container, request):
     container.post_check()
 
     backup_monit_config_files(duthost)
-    customize_monit_config_files(duthost, container, *request.param)
-    restart_monit_service(duthost)
-    logger.info("Ensuring Monit monitors %s", container.memory_service_name)
-    duthost.shell("sudo monit monitor {}".format(container.memory_service_name))
 
     yield
 
@@ -254,6 +251,32 @@ def test_setup_and_cleanup(memory_checker_dut_and_container, request):
     if not container.is_running():
         container.restart()
     container.post_check()
+
+
+@pytest.fixture
+def test_setup(memory_checker_dut_and_container, monit_config_cleanup, request):
+    """Customizes Monit configuration files and restarts Monit service
+    before testing. Config backup and restore is handled by the
+    monit_config_cleanup fixture to ensure cleanup always runs.
+
+    Args:
+        memory_checker_dut_and_container: Fixture providing the duthost
+            and container to test.
+        monit_config_cleanup: Fixture that backs up and restores Monit
+            configuration files.
+        request: Pytest request object carrying parametrize values.
+
+    Returns:
+        None.
+    """
+    duthost, container = memory_checker_dut_and_container
+
+    customize_monit_config_files(duthost, container, *request.param)
+    restart_monit_service(duthost)
+    logger.info("Ensuring Monit monitors %s", container.memory_service_name)
+    duthost.shell(f"sudo monit monitor {container.memory_service_name}")
+
+    yield
 
 
 @pytest.fixture
@@ -627,15 +650,15 @@ def consumes_memory_and_checks_monit(duthost, container):
     logger.info("Monit was able to restart '%s'", container.name)
 
 
-@pytest.mark.parametrize("test_setup_and_cleanup", [(1, 0, None)], indirect=True, ids=[''])
-def test_memory_checker(memory_checker_dut_and_container, test_setup_and_cleanup):
+@pytest.mark.parametrize("test_setup", [(1, 0, None)], indirect=True, ids=[''])
+def test_memory_checker(memory_checker_dut_and_container, test_setup):
     """Checks whether the container can be restarted or not if the memory
     usage of it is beyond its threshold for specfic times within a sliding window.
     A command is used to generate memory allocations beyond the limits.
 
     Args:
         memory_checker_dut_and_container: Fixture providing a duthost and container to test
-        test_setup_and_cleanup: Fixture setting up the test environment
+        test_setup: Fixture setting up the test environment
 
     Returns:
         None.
@@ -645,15 +668,15 @@ def test_memory_checker(memory_checker_dut_and_container, test_setup_and_cleanup
     consumes_memory_and_checks_container_restart(duthost, container)
 
 
-@pytest.mark.parametrize("test_setup_and_cleanup", [(5, 0, None)], indirect=True, ids=[''])
-def test_memory_checker_recover(memory_checker_dut_and_container, test_setup_and_cleanup):
+@pytest.mark.parametrize("test_setup", [(5, 0, None)], indirect=True, ids=[''])
+def test_memory_checker_recover(memory_checker_dut_and_container, test_setup):
     """Checks whether the container can be restarted or not if the memory
     usage of it is beyond its threshold for specfic times within a sliding window.
     A command is used to generate memory allocations beyond the limits.
 
     Args:
         memory_checker_dut_and_container: Fixture providing a duthost and container to test
-        test_setup_and_cleanup: Fixture setting up the test environment
+        test_setup: Fixture setting up the test environment
 
     Returns:
         None.
@@ -695,8 +718,8 @@ def test_memory_checker_recover(memory_checker_dut_and_container, test_setup_and
                   "Container {} restarted during the test which was not expected".format(container.name))
 
 
-@pytest.mark.parametrize("test_setup_and_cleanup", [(60, 0, 2)], indirect=True, ids=[''])
-def test_monit_reset_counter_failure(memory_checker_dut_and_container, test_setup_and_cleanup):
+@pytest.mark.parametrize("test_setup", [(60, 0, 2)], indirect=True, ids=[''])
+def test_monit_reset_counter_failure(memory_checker_dut_and_container, test_setup):
     """Checks that Monit was unable to reset its counter. Specifically Monit will restart
     the container if memory usage of it is larger than the threshold for specific times within
     a sliding window. However, Monit was unable to restart the container anymore if memory usage is
@@ -705,7 +728,7 @@ def test_monit_reset_counter_failure(memory_checker_dut_and_container, test_setu
 
     Args:
         memory_checker_dut_and_container: Fixture providing a duthost and container to test
-        test_setup_and_cleanup: Fixture setting up the test environment
+        test_setup: Fixture setting up the test environment
 
     Returns:
         None.
@@ -735,9 +758,9 @@ def check_log_message(duthost, container, wait_time):
         time.sleep(wait_time)
 
 
-@pytest.mark.parametrize("test_setup_and_cleanup", [(1, 0, None)], indirect=True, ids=[''])
+@pytest.mark.parametrize("test_setup", [(1, 0, None)], indirect=True, ids=[''])
 def test_memory_checker_without_container_created(memory_checker_dut_and_container,
-                                                  test_setup_and_cleanup,
+                                                  test_setup,
                                                   remove_and_restart_container):
     """Checks whether 'memory_checker' script can log an message into syslog if
     one container is not created during device is booted/reooted. This test case will
@@ -746,7 +769,7 @@ def test_memory_checker_without_container_created(memory_checker_dut_and_contain
 
     Args:
         memory_checker_dut_and_container: Fixture providing a duthost and container to test
-        test_setup_and_cleanup: Fixture setting up the test environment
+        test_setup: Fixture setting up the test environment
         remove_and_restart_container: Fixture removing the container before the test
                                       and restarting it after
 
