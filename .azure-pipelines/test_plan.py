@@ -303,7 +303,7 @@ class TestPlanManager(object):
                 common_extra_params = common_extra_params + " --topology=t0,any"
             elif topology in ["t1-lag", "t1-8-lag", "t1-vpp", "t1-lag-vpp"]:
                 common_extra_params = common_extra_params + " --topology=t1,any"
-            elif topology == "dualtor":
+            elif topology in ["dualtor", "dualtor-aa-vpp"]:
                 common_extra_params = common_extra_params + " --topology=t0,dualtor,any"
             elif topology == "dpu":
                 common_extra_params = common_extra_params + " --topology=dpu,any"
