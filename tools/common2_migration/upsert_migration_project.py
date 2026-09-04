@@ -119,7 +119,8 @@ def graphql(token: str, query: str, variables: dict) -> dict:
     max_retries = 3
     for attempt in range(max_retries + 1):
         try:
-            with urllib.request.urlopen(
+            # The endpoint is a module constant and cannot be influenced by dashboard input.
+            with urllib.request.urlopen(  # nosemgrep: dynamic-urllib-use-detected
                 urllib.request.Request(
                     GITHUB_GRAPHQL_URL,
                     data=body,
