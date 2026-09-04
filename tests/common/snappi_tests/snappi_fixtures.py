@@ -2505,15 +2505,13 @@ def tgen_port_info(request: pytest.FixtureRequest, snappi_port_selection, get_sn
                 "testbed {}, subtype {} in variables.override.yml".format(
                     testbed, testbed_subtype))
 
-        snappi_ports = get_snappi_ports
-        if is_snappi_multidut(duthosts):
-            snappi_ports = get_snappi_ports_for_rdma(
-                get_snappi_ports,
-                rdma_ports,
-                tx_port_count,
-                rx_port_count,
-                testbed
-            )
+        snappi_ports = get_snappi_ports_for_rdma(
+            get_snappi_ports,
+            rdma_ports,
+            tx_port_count,
+            rx_port_count,
+            testbed
+        )
         testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(
             duthosts, snappi_ports, snappi_api, setup=True)
         yield (testbed_config, port_config_list, snappi_ports)
