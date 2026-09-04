@@ -969,6 +969,14 @@ onboarding_t1_multi_asic:
   - pfcwd/test_pfcwd_function.py
   - pfcwd/test_pfcwd_timer_accuracy.py
 
+dualtor-aa-vpp:
+  - dualtor_io/test_grpc_server_failure.py
+  - dualtor_io/test_heartbeat_failure.py
+  - dualtor_io/test_link_drop.py
+  - dualtor_io/test_normal_op.py
+  - dualtor_io/test_tor_bgp_failure.py
+  - dualtor_io/test_tor_failure.py
+
 specific_param:
   t0-sonic:
   - name: bgp/test_bgp_fact.py
