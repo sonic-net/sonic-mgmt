@@ -37,7 +37,7 @@ from tests.common.utilities import wait_until
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology("m1"),
+    pytest.mark.topology("m1", "uma", "lma"),
     pytest.mark.disable_loganalyzer,
 ]
 
