@@ -7,6 +7,7 @@
         "swss_restart_settle_sec": 180,
         "syncd_restart_settle_sec": 180,
         "syncd_restart_supported": true,
+        "expect_pmon_restart_with_swss_or_syncd": false,
         "config_reload_settle_sec": 300,
         "cold_reboot_settle_sec": 400,
         "warm_reboot_supported": false,
