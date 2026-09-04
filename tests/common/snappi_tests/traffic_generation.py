@@ -977,8 +977,10 @@ def run_traffic(duthost,
         request = api.capture_request()
         request.port_name = snappi_extra_params.packet_capture_ports[0]
         cs = api.control_state()
+        cs.port.capture.port_names = snappi_extra_params.packet_capture_ports
         cs.port.capture.state = cs.port.capture.STOP
         api.set_control_state(cs)
+        time.sleep(SNAPPI_POLL_DELAY_SEC)
         logger.info("Retrieving and saving packet capture to {}.pcapng".format(snappi_extra_params.packet_capture_file))
         pcap_bytes = api.get_capture(request)
         with open(snappi_extra_params.packet_capture_file + ".pcapng", 'wb') as fid:
