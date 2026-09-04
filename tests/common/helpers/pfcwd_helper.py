@@ -860,6 +860,64 @@ def get_pfc_storm_baseline_counters(dut, storm_hndle):
     return baseline
 
 
+def is_acl_table_active(duthost, table_name):
+    """
+    True if the ACL table is Active per STATE_DB.
+
+    Reads the same source 'show acl table' renders: orchagent writes STATE_DB
+    ACL_TABLE_TABLE|<name> field 'status' ('Active' on a successful SAI create,
+    'Inactive'/'Pending creation' otherwise). A direct DB read avoids CLI text parsing.
+
+    Args:
+        duthost(AnsibleHost): DUT instance
+        table_name(string): ACL table name
+
+    Returns:
+        bool: True if status == 'Active'
+    """
+    status = duthost.shell(
+        "sonic-db-cli STATE_DB hget 'ACL_TABLE_TABLE|{}' status".format(table_name),
+        module_ignore_errors=True)["stdout"].strip()
+    return status == "Active"
+
+
+def get_acl_bind_port(duthost, port):
+    """
+    ACL bind point for a port: the parent PortChannel if the port is a LAG member.
+
+    A LAG member is not a valid ACL bind point, so egress ACL tables must bind to the
+    PortChannel instead of the physical member port.
+
+    Args:
+        duthost(AnsibleHost): DUT instance
+        port(string): physical port name
+
+    Returns:
+        string: parent PortChannel name, or the port itself if it is not a LAG member
+    """
+    pc_members = duthost.config_facts(
+        host=duthost.hostname, source="running")['ansible_facts'].get('PORTCHANNEL_MEMBER', {})
+    return next((pc for pc, members in pc_members.items() if port in members), port)
+
+
+def get_process_cores(duthost, process_name):
+    """
+    Set of core files currently under /var/core for the given process name.
+
+    Args:
+        duthost(AnsibleHost): DUT instance
+        process_name(string): process name to match (e.g. 'orchagent')
+
+    Returns:
+        set(str): core file names
+    """
+    # Anchor to the '<exe>.<time>.<pid>...core.gz' convention so we match this process's own
+    # cores, not any filename that merely contains the name as a substring.
+    out = duthost.shell("ls -1 /var/core/ 2>/dev/null | grep -E '^{}\\.' || true".format(process_name),
+                        module_ignore_errors=True)["stdout"]
+    return set(out.split())
+
+
 def parser_show_pfcwd_stat(dut, select_port, select_queue):
     """
     CLI "show pfcwd stats" output:
