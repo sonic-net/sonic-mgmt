@@ -514,7 +514,7 @@ class Test_VxLAN():
                    else "vxlan_traffic.VXLAN",
                    platform_dir="ptftests",
                    params=ptf_params,
-                   qlen=1000,
+                   qlen=4096,
                    log_file="/tmp/vxlan-tests.{}.{}.{}.log".format(
                        tcname,
                        encap_type,
