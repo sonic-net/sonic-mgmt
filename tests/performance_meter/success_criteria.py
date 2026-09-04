@@ -1,5 +1,7 @@
+import collections
 import logging
 import random
+import shlex
 import statistics
 import datetime
 import pandas as pd
@@ -161,7 +163,10 @@ def bgp_up(request, test_result, **kwargs):
 
 # utility function to extract timestamp from syslog line
 def _extract_timestamp(duthost, line):
-    timestamp = line[:line.index(duthost.hostname) - 1]
+    hostname_index = line.find(duthost.hostname)
+    if hostname_index <= 0:
+        raise ValueError("No hostname in syslog line: {}".format(line))
+    timestamp = line[:hostname_index - 1]
     formats = ["%Y %b %d %H:%M:%S.%f", "%b %d %H:%M:%S.%f", "%b %d %H:%M:%S"]
     for f in formats:
         try:
@@ -169,6 +174,18 @@ def _extract_timestamp(duthost, line):
         except ValueError:
             continue
     raise ValueError("Unable to parse {}".format(timestamp))
+
+
+def _syslog_duration(start, end):
+    """Seconds between two syslog timestamps, rejecting an inverted pair.
+
+    timedelta.seconds truncates the fraction and wraps a negative delta to about
+    86400, so an out of order pair looks like a plausible result. Fail instead.
+    """
+    duration = (end - start).total_seconds()
+    if duration < 0:
+        raise ValueError("End marker {} precedes start marker {}".format(end, start))
+    return duration
 
 
 # utility function to get last syslog timestamp
@@ -196,9 +213,110 @@ def success_criteria_by_syslog(request, test_result, **kwargs):
             stdout = duthost.shell(syslog_end_cmd)["stdout"]
             timestamp = _extract_timestamp(duthost, stdout)
             if timestamp > syslog_start:
-                test_result[kwargs["result_variable"]] = (timestamp - syslog_start).seconds
+                test_result[kwargs["result_variable"]] = _syslog_duration(syslog_start, timestamp)
                 return True
         return False
+    return syslog_checker
+
+
+DEFAULT_SYSLOG_PATH = "/var/log/syslog"
+START_POLICIES = ("first", "last")
+
+SyslogWindow = collections.namedtuple(
+    "SyslogWindow", ["start", "end", "start_count", "end_count"])
+
+
+def _read_syslog_position(duthost, syslog_path):
+    """Inode and byte length of syslog, so later reads can skip what is already there."""
+    stat = duthost.shell("stat -c '%i %s' {}".format(shlex.quote(syslog_path)))["stdout"]
+    inode, size = stat.split()
+    return int(inode), int(size)
+
+
+def _appended_lines_command(syslog_path, inode, size, marks):
+    """Shell command yielding marker lines appended to syslog since (inode, size).
+
+    Replaces "show logging", which concatenates the rotated and current logs in
+    full on every call. Falls back to both files if the log rotated meanwhile.
+    """
+    path = shlex.quote(syslog_path)
+    rotated = shlex.quote(syslog_path + ".1")
+    patterns = " ".join("-e {}".format(shlex.quote(mark)) for mark in marks)
+
+    not_rotated = '[ "$(stat -c %i {} 2>/dev/null)" = "{}" ]'.format(path, inode)
+    read_appended = "tail -c +{} {}".format(size + 1, path)
+    read_both_files = "cat {} {}".format(rotated, path)
+
+    return ("if {}; then {}; elif [ -f {} ]; then {}; else cat {}; fi"
+            " | grep -F {} | grep -v ansible || true").format(
+                not_rotated, read_appended, rotated, read_both_files, path, patterns)
+
+
+def _select_syslog_window(duthost, output, baseline, start_mark, end_mark, start_policy):
+    """Pick the measurement window from collected marker lines, or None if incomplete.
+
+    A single reload can log more than one start marker, so start_policy decides
+    which one pairs with the final end marker rather than leaving it to read order.
+    """
+    starts = []
+    ends = []
+    for line in output.splitlines():
+        if start_mark not in line and end_mark not in line:
+            continue
+        try:
+            timestamp = _extract_timestamp(duthost, line)
+        except ValueError:
+            logging.debug("Skipping unparsable syslog line %s", line)
+            continue
+        if timestamp <= baseline:
+            continue
+        if start_mark in line:
+            starts.append(timestamp)
+        if end_mark in line:
+            ends.append(timestamp)
+
+    if not starts or not ends:
+        return None
+    end = max(ends)
+    candidates = sorted(timestamp for timestamp in starts if timestamp <= end)
+    if not candidates:
+        return None
+    start = candidates[0] if start_policy == "first" else candidates[-1]
+    return SyslogWindow(start, end, len(candidates), len(ends))
+
+
+def success_criteria_by_bounded_syslog(request, test_result, **kwargs):
+    """success_criteria_by_syslog, but each poll reads only newly appended syslog.
+
+    The result comes from timestamps the DUT wrote itself, so work done while
+    polling lands inside the interval being measured and inflates it.
+    """
+    duthost = request.getfixturevalue("duthost")
+    start_mark = kwargs["syslog_start_mark"]
+    end_mark = kwargs["syslog_end_mark"]
+    result_variable = kwargs["result_variable"]
+
+    start_policy = kwargs.get("start_policy", "last")
+    if start_policy not in START_POLICIES:
+        raise ValueError("start_policy must be one of {}, got {}".format(
+            START_POLICIES, start_policy))
+
+    syslog_path = kwargs.get("syslog_path", DEFAULT_SYSLOG_PATH)
+    baseline = _get_last_timestamp(duthost)
+    inode, size = _read_syslog_position(duthost, syslog_path)
+    command = _appended_lines_command(syslog_path, inode, size, [start_mark, end_mark])
+
+    @suppress_exception
+    def syslog_checker():
+        output = duthost.shell(command)["stdout"]
+        window = _select_syslog_window(
+            duthost, output, baseline, start_mark, end_mark, start_policy)
+        if window is None:
+            return False
+        test_result[result_variable] = _syslog_duration(window.start, window.end)
+        test_result[result_variable + "_start_count"] = window.start_count
+        test_result[result_variable + "_end_count"] = window.end_count
+        return True
     return syslog_checker
 
 
@@ -213,13 +331,22 @@ def swss_up(request, test_result, **kwargs):
 
 def swss_create_switch(request, test_result, **kwargs):
     start_mark = "create: request switch create with context 0"
-    start_cmd = "show logging | grep '{}' | grep -v ansible | tail -n 1".format(start_mark)
     end_mark = "main: Create a switch, id:"
-    end_cmd = "show logging | grep '{}' | grep -v ansible | tail -n 1".format(end_mark)
-    extra_vars = {"syslog_start_cmd": start_cmd,
-                  "syslog_end_cmd": end_cmd,
-                  "result_variable": "swss_create_switch_start_time"}
-    return success_criteria_by_syslog(request, test_result, **{**kwargs, **extra_vars})
+    result_variable = "swss_create_switch_start_time"
+
+    if kwargs.get("log_read_mode") == "bounded":
+        return success_criteria_by_bounded_syslog(request, test_result, **dict(
+            kwargs,
+            syslog_start_mark=start_mark,
+            syslog_end_mark=end_mark,
+            result_variable=result_variable))
+
+    show_logging = "show logging | grep '{}' | grep -v ansible | tail -n 1"
+    return success_criteria_by_syslog(request, test_result, **dict(
+        kwargs,
+        syslog_start_cmd=show_logging.format(start_mark),
+        syslog_end_cmd=show_logging.format(end_mark),
+        result_variable=result_variable))
 
 
 def swss_create_switch_stats(passed_op_precheck, **kwargs):
