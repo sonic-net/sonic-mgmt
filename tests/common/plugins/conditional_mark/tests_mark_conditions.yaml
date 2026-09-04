@@ -943,6 +943,12 @@ crm/test_crm.py::test_crm_fdb_entry:
     conditions:
       - "'t0' not in topo_name and topo_type not in ['m0', 'mx']"
 
+crm/test_crm.py::test_crm_nexthop:
+  xfail:
+    reason: "On multi-VRF (converged) cEOS, IPv6 is disabled on remapped neighbor iface; Linux ip addr add fails. https://github.com/sonic-net/sonic-mgmt/issues/27131"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/27131 and topo_name == 't1-d96u4'"
+
 crm/test_crm_available.py:
   xfail:
     reason: "There is a known issue with broadcom dualtor (https://github.com/sonic-net/sonic-mgmt/issues/18873) or xfail for IPv6-only topologies, as it try to excute ipv4 command"
