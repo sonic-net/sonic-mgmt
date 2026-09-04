@@ -508,6 +508,9 @@ r, ".*ERR swss#orchagent:.*SAI_API_QUEUE, status: SAI_STATUS_INVALID_PARAMETER.*
 # SAI cannot read LT registers while the port serdes is mid-transition
 r, ".* ERR swss\d*#orchagent:.*getPortLinkTrainingFailure: Failed to get LT failure status for .*"
 
+# Ignore crash kernel message generated with kdump config
+r, ".*crashkernel.*SONIC_BOOT_TYPE=warm"
+
 # Ignore RX signal detect and RX SNR feature unavailable errors on broadcom platforms
 # and the corresponding collectData failure from FlexCounter PORT_PHY_ATTR polling
 # https://github.com/sonic-net/sonic-mgmt/issues/24023
