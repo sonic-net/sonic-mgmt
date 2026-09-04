@@ -1932,6 +1932,11 @@ class QosSaiBase(QosBase):
                 ".*ERR monit.*'lldp_syncd' process is not running.*",
                 ".*ERR monit.*'lldp\\|lldp_syncd' status failed.*-- 'python.* -m lldp_syncd' is not running.*",
 
+                # Related to https://github.com/sonic-net/sonic-buildimage/issues/13265
+                ".*ERR lldp[0-9]*#lldpmgrd.*Command failed.*lldpcli.*configure.*ports.*unable to connect to socket.*",
+                ".*ERR lldp[0-9]*#lldpmgrd.*Command failed.*lldpcli.*configure.*ports.*lldp.*unknown command from argument"
+                ".*configure.*command was failed.*times, disabling retry.*",
+
                 ".*ERR monit.*'bgpd' process is not running.*",
                 ".*ERR monit.*'bgp\\|bgpd' status failed.*-- '/usr/lib/frr/bgpd' is not running.*",
 
@@ -1939,7 +1944,7 @@ class QosSaiBase(QosBase):
                 ".*ERR monit.*'bgp\\|bgpcfgd' status failed.*-- "
                 "'/usr/bin/python.* /usr/local/bin/bgpcfgd' is not running.*",
 
-                ".*ERR syncd#syncd:.*brcm_sai_set_switch_attribute:.*updating switch mac addr failed.*",
+                ".*ERR syncd[0-9]*#syncd.*brcm_sai_set_switch_attribute.*updating switch mac addr failed.*",
 
                 ".*ERR monit.*'bgp\\|bgpmon' status failed.*'/usr/bin/python.* /usr/local/bin/bgpmon' is not running.*",
                 ".*ERR monit.*bgp\\|fpmsyncd.*status failed.*NoSuchProcess process no longer exists.*",
