@@ -1831,7 +1831,7 @@ Totals               6450                 6449
     def _try_get_brcm_asic_name(self, output):
         search_sets = {
             "td2": {"b85", "BCM5685"},
-            "td3": {"b87", "BCM5687"},
+            "td3": {"b87", "BCM5687", "b274", "BCM56274"},
             "td4": {"b78", "BCM5678"},
             "th":  {"b96", "BCM5696"},
             "th2": {"b97", "BCM5697"},

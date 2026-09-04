@@ -425,22 +425,35 @@ class DualTorIO:
 
             # get the dut ports that is connected to the bridge
             list_ports_res = self.vmhost.shell("ovs-vsctl list-ports %s" % active_active_vmhost_bridge)
-            active_active_vmhost_dut_ports = [port for port in list_ports_res["stdout_lines"] if "." in port]
+            bridge_ports = list_ports_res["stdout_lines"]
 
-            # NOTE: Let's assume that the upper ToR's port is always ending with
-            # smaller vlan suffix, so active_active_vmhost_dut_ports[0] is connected
-            # to the upper ToR and active_active_vmhost_dut_ports[1] is connected
-            # to the lower ToR.
-            active_active_vmhost_dut_ports.sort()
-            for dut, vmhost_dut_port in zip(self.tbinfo["duts"], active_active_vmhost_dut_ports):
-                if self.duthost.hostname == dut:
-                    vmhost_target_dut_port = vmhost_dut_port
+            # On a KVM testbed each ToR port is a tap named after the DUT itself
+            # (sonic.xml.j2 names them <dut_name>-<port number>), so the port of the
+            # target ToR can be picked directly and no ordering assumption is needed.
+            for port in bridge_ports:
+                if port.startswith("%s-" % self.duthost.hostname):
+                    vmhost_target_dut_port = port
                     break
             else:
-                raise ValueError(
-                    "Failed to find the port connected to DUT %s in bridge %s" %
-                    (self.duthost.hostname, active_active_vmhost_bridge)
-                )
+                # On a physical testbed the ToR ports are VLAN subinterfaces of the
+                # server NIC (<port>.<vlan id>) and carry no DUT name, so fall back to
+                # picking them by order.
+                active_active_vmhost_dut_ports = [port for port in bridge_ports if "." in port]
+
+                # NOTE: Let's assume that the upper ToR's port is always ending with
+                # smaller vlan suffix, so active_active_vmhost_dut_ports[0] is connected
+                # to the upper ToR and active_active_vmhost_dut_ports[1] is connected
+                # to the lower ToR.
+                active_active_vmhost_dut_ports.sort()
+                for dut, vmhost_dut_port in zip(self.tbinfo["duts"], active_active_vmhost_dut_ports):
+                    if self.duthost.hostname == dut:
+                        vmhost_target_dut_port = vmhost_dut_port
+                        break
+                else:
+                    raise ValueError(
+                        "Failed to find the port connected to DUT %s in bridge %s, ports are %s" %
+                        (self.duthost.hostname, active_active_vmhost_bridge, bridge_ports)
+                    )
 
             get_ovs_port_no_res = self.vmhost.shell("ovs-vsctl get Interface %s ofport" % vmhost_target_dut_port)
             vmhost_target_dut_port_no = get_ovs_port_no_res["stdout"].strip()

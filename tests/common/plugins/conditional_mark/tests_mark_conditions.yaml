@@ -850,9 +850,10 @@ configlet/test_add_rack.py:
 #######################################
 #####            console          #####
 #######################################
-console/:
+console/(?!test_console_(?:driver|reversessh)\.py):
+  regex: true
   skip:
-    reason: 'Console tests under tests/console/ are designed for c0 topology, not compatible with BMC'
+    reason: 'Only console driver and reverse SSH tests are compatible with BMC'
     conditions:
       - "'bmc' in topo_type"
 
@@ -3790,6 +3791,15 @@ memory_checker/test_memory_checker.py:
       - "release in ['202412']"
 
 #######################################
+#####       metadata-scripts      #####
+#######################################
+metadata-scripts/test_metadata_bgp.py:
+  skip:
+    reason: "BGP is not running on BMC topology"
+    conditions:
+      - "'bmc' in topo_type"
+
+#######################################
 #####            mpls             #####
 #######################################
 mpls:
@@ -4056,7 +4066,7 @@ pfcwd/test_pfcwd_.*\[IPv6.*:
    xfail:
      reason: "Xfail due to https://github.com/sonic-net/sonic-mgmt/issues/21082"
      conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/21082 and asic_type in ['mellanox', 'cisco-8000']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/21082 and asic_type in ['mellanox']"
 
 pfcwd/test_pfcwd_all_port_storm.py:
    skip:
@@ -4096,6 +4106,14 @@ pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_no_traffic:
         - "asic_type != 'cisco-8000'"
         - "topo_type in ['m0', 'mx', 'm1']"
         - *lossyTopos
+
+pfcwd/test_pfcwd_stat_history.py:
+  skip:
+    reason: "PFC statistics history is produced only by the Broadcom PFCWD plugin on 202511+ images"
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type != 'broadcom'"
+      - "release != 'master' and release < '202511'"
 
 pfcwd/test_pfcwd_timer_accuracy.py::TestPfcwdAllTimer::test_pfcwd_timer_accuracy:
   skip:
@@ -5421,10 +5439,11 @@ ssh/test_ssh_default_password:
       - "asic_type not in ['vpp']"
 
 ssh/test_ssh_stress.py::test_ssh_stress:
+  # This test is not stable, skip it for now.
+  # known issue: https://github.com/paramiko/paramiko/issues/1508
   skip:
     reason: "This test failed intermittent due to known issue of paramiko, skip for now"
-    conditions:
-      - "asic_type not in ['vpp']"
+    conditions: https://github.com/paramiko/paramiko/issues/1508
 
 #######################################
 #####             stress          #####
@@ -5571,21 +5590,6 @@ tacacs/test_ro_disk.py:
 #######################################
 #####           telemetry         #####
 #######################################
-telemetry/test_telemetry.py:
-  skip:
-    reason: "Skip telemetry test for 201911 and older branches"
-    conditions:
-      - "(is_multi_asic==True) and (release in ['201811', '201911'])"
-
-telemetry/test_telemetry.py::test_telemetry_queue_buffer_cnt:
-  skip:
-    conditions_logical_operator: or
-    reason: "Testcase ignored due to switch type is voq / Unsupported in M* topos / multi-asic issue 15393"
-    conditions:
-      - "(switch_type=='voq')"
-      - "topo_type in ['m0', 'mx', 'm1']"
-      - "(is_multi_asic==True) and https://github.com/sonic-net/sonic-mgmt/issues/15393"
-
 telemetry/test_telemetry_poll.py::test_poll_mode_default_route:
   skip:
     reason: "not applicable on BMC because requires upstream BGP neighbor and default route"
@@ -5731,6 +5735,16 @@ upgrade_path/test_upgrade_path.py::test_upgrade_path_t2_delayed:
     reason: "Only supported on T2 topology"
     conditions:
       - "'t2' not in topo_type"
+
+upgrade_path/test_warmboot_data_consistency.py::test_warmboot_data_consistency:
+  xfail:
+    reason: >
+      Keep 202605 runs non-blocking while collecting warm-vs-cold snapshots for
+      the assertion-mask gaps tracked by
+      https://github.com/sonic-net/sonic-mgmt/issues/27541.
+    strict: false
+    conditions:
+      - "release in ['202605'] and https://github.com/sonic-net/sonic-mgmt/issues/27541"
 
 #######################################
 #####            vlan             #####

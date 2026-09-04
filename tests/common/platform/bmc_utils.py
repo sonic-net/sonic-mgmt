@@ -265,6 +265,14 @@ def get_host_uptime(host):
     return host.shell("uptime -s", module_ignore_errors=True).get('stdout', '').strip()
 
 
+def get_host_boot_id(host):
+    """Return the kernel boot ID; and '' on failure."""
+    return host.shell(
+        "cat /proc/sys/kernel/random/boot_id",
+        module_ignore_errors=True
+    ).get('stdout', '').strip()
+
+
 def wait_host_off(duthost, host, timeout=180, interval=10, delay=30):
     """Wait until the paired Switch-Host is powered off, as observed by the BMC.
 

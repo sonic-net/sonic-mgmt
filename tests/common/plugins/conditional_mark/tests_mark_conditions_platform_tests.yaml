@@ -1037,6 +1037,15 @@ platform_tests/broadcom/test_ser.py:
     conditions:
       - "release in ['202412','202503'] and 'Arista-7060X6' in hwsku"
 
+####################################
+#####  cli/test_pddf_ledutil.py  #####
+####################################
+platform_tests/cli/test_pddf_ledutil.py:
+  skip:
+    reason: "LED util tests are not supported on BMC"
+    conditions:
+      - "'bmc' in topo_type"
+
 ##################################
 #####  cli/test_show_bmc.py  #####
 ##################################
@@ -1737,6 +1746,15 @@ platform_tests/test_service_warm_restart.py:
     conditions:
       - "asic_type in ['mellanox', 'nvidia']"
       - "topo_type not in ['t0']"
+
+##########################################
+#####  test_sfp_thermal_state_db.py  #####
+##########################################
+platform_tests/test_sfp_thermal_state_db.py:
+  skip:
+    reason: "SFP thermal state DB test is not supported on BMC"
+    conditions:
+      - "'bmc' in topo_type"
 
 #######################################
 #####   test_xcvr_info_in_db.py   #####
