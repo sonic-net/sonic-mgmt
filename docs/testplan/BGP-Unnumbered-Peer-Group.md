@@ -37,25 +37,45 @@ BGP Unnumbered using peer group:
    bgp router-id 10.1.0.1
    no bgp ebgp-requires-policy
 
-   neighbor ARISTA-UNNUM peer-group
-   neighbor ARISTA-UNNUM remote-as 65200
-   neighbor ARISTA-UNNUM capability extended-nexthop
+   neighbor SONiC-UNNUM peer-group
+   neighbor SONiC-UNNUM remote-as 65200
+   neighbor SONiC-UNNUM capability extended-nexthop
   
-   neighbor Ethernet48 interface peer-group ARISTA-UNNUM
-   neighbor Ethernet48 description ARISTA_Ethernet1_UNNUMBERED
+   neighbor Ethernet48 interface peer-group SONiC-UNNUM
+   neighbor Ethernet48 description SONiC_Ethernet48_UNNUMBERED
 
    address-family ipv4 unicast
-    neighbor ARISTA-UNNUM activate
+    neighbor SONiC-UNNUM activate
    exit-address-family
 
    address-family ipv6 unicast
-    neighbor ARISTA-UNNUM activate
+    neighbor SONiC-UNNUM activate
    exit-address-family
 ```
 
 ## Setup configuration
 
-This test requires configuring BGP unnumbered using peer group on both DUT and peer devices. Interfaces must be enabled for IPv6, as BGP unnumbered relies on IPv6 link-local addressing. Ensure neighbor relationships are established using interface-based configuration.
+This test requires configuring BGP unnumbered using peer group on both DUT and peer devices. Interfaces must be enabled for IPv6 link-local addressing, as BGP unnumbered relies on IPv6 link-local addresses. Ensure neighbor relationships are established using interface-based configuration.
+
+### Interface configuration
+
+Enable IPv6 link-local-only on each interface that participates in BGP unnumbered peering (no explicit IPv4/IPv6 address is assigned to the interface):
+
+```
+sudo config interface ipv6 enable use-link-local-only <intf name>
+```
+
+Example:
+```
+sudo config interface ipv6 enable use-link-local-only Ethernet48
+```
+
+Verify the interface has an IPv6 link-local address and is up:
+```
+show ipv6 interfaces
+```
+
+Apply the same interface configuration on the peer device before establishing the BGP unnumbered session.
 
 ## Test cases
 ### Test case #1 - BGP Unnumbered using peer-group
@@ -128,7 +148,7 @@ Verify BGP session resiliency when the BGP container (bgp docker) is restarted
 Steps:
 1. Establish BGP session
 2. Restart BGP container on DUT
-   * `docker restart bgp`
+   * `sudo systemctl restart bgp`
 4. Monitor BGP session state
 5. Verify route table before and after restart
 
