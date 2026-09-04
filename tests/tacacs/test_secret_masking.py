@@ -70,8 +70,8 @@ _RETRY_COUNT = 3
 
 def _flush_syslog(duthost):
     """Force rsyslogd to flush buffered writes (same as test_accounting.py's flush_log)."""
-    duthost.shell("sudo kill -HUP $(cat /var/run/rsyslogd.pid) 2>/dev/null || true")
-    duthost.shell("sudo sync /var/log/syslog 2>/dev/null || true")
+    duthost.shell("sudo kill -HUP $(cat /var/run/rsyslogd.pid)", module_ignore_errors=True)
+    duthost.shell("sudo sync /var/log/syslog", module_ignore_errors=True)
 
 
 def _wait_for_log(duthost, pattern, timeout=_SYSLOG_WAIT_TIMEOUT):
