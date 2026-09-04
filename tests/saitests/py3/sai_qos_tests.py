@@ -6855,18 +6855,6 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         buf_pool_roid = int(self.test_params['buf_pool_roid'], 0)
         print("buf_pool_roid: 0x%lx" % (buf_pool_roid), file=sys.stderr)
 
-        buffer_pool_wm_base = 0
-        if 'cisco-8000' in asic_type:
-            # Some small amount of memory is always occupied
-            # We use dst client for cisco 8000.
-            client_to_use = self.dst_client
-            sai_thrift_clear_buffer_pool_watermark(client_to_use, buf_pool_roid)
-            buffer_pool_wm_base = sai_thrift_read_buffer_pool_watermark(
-                client_to_use, buf_pool_roid)
-        else:
-            client_to_use = self.src_client
-        print("Initial watermark: {}".format(buffer_pool_wm_base))
-
         # Prepare TCP packet data
         tos = dscp << 2
         tos |= ecn
@@ -6903,6 +6891,18 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                                     ip_dst=dst_port_ip,
                                     ip_tos=tos,
                                     ip_ttl=ttl)
+
+        buffer_pool_wm_base = 0
+        if 'cisco-8000' in asic_type:
+            # Some small amount of memory is always occupied
+            # We use dst client for cisco 8000.
+            client_to_use = self.dst_client
+            sai_thrift_clear_buffer_pool_watermark(client_to_use, buf_pool_roid)
+            buffer_pool_wm_base = sai_thrift_read_buffer_pool_watermark(
+                client_to_use, buf_pool_roid)
+        else:
+            client_to_use = self.src_client
+        print("Initial watermark: {}".format(buffer_pool_wm_base))
 
         # Add slight tolerance in threshold characterization to consider
         # the case that cpu puts packets in the egress queue after we pause the egress
