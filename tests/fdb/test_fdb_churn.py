@@ -276,6 +276,22 @@ def fdb_table_has_mac_on_port(duthost, vlan_id, mac, port):
     return "port" in text and port in text
 
 
+def get_fdb_table_macs(duthost, vlan_id):
+    """Return MAC addresses currently present in STATE_DB for `vlan_id`."""
+    prefix = "FDB_TABLE|Vlan{}:".format(vlan_id)
+    out = duthost.command(
+        "redis-cli -n 6 --scan --pattern '{}*'".format(prefix),
+        module_ignore_errors=True,
+    )
+    if out.get("rc") != 0:
+        return set()
+    return {
+        key[len(prefix):].lower()
+        for key in out.get("stdout_lines", [])
+        if key.startswith(prefix)
+    }
+
+
 def inject_learn_frames(ptfadapter, port, src_mac, vlan_id, count=1):
     """Inject `count` ARP requests with given src_mac on PTF `port`."""
     for _ in range(count):
@@ -590,8 +606,24 @@ def test_fdb_distinct_macs_bulk_learn(
                 ptfadapter, topo["ptf_port_a"], mac, topo["inject_vlan_a"]
             )
 
-    # Sample a handful of the MACs we injected and verify their
-    # presence -- checking all 1000 individually would be slow.
+    # Query all VLAN FDB keys in one scan so the exact bulk-learning
+    # result, rather than a vendor-specific envelope count, is the
+    # primary correctness gate.
+    expected_macs = set(macs)
+    pytest_assert(
+        wait_until(
+            STATS_PUBLISH_SEC + 60, 1, 0,
+            lambda: expected_macs.issubset(
+                get_fdb_table_macs(duthost, topo["vlan_id"])
+            ),
+        ),
+        "Not all {} injected MACs are present in STATE_DB; {} missing".format(
+            count,
+            len(expected_macs - get_fdb_table_macs(duthost, topo["vlan_id"])),
+        ),
+    )
+
+    # Verify representative entries also point to the expected port.
     sample = [macs[0], macs[count // 2], macs[-1]]
     for mac in sample:
         pytest_assert(
@@ -610,12 +642,11 @@ def test_fdb_distinct_macs_bulk_learn(
     logger.info("bulk-distinct: pushed=%d, hits=%d, injected=%d", pushed, hits, count)
     # `lru_pushed` counts envelopes, not events; on batching SAI adapters
     # one envelope carries N sub-events, so ``pushed`` can be far below
-    # `count`. Use a proportional lower bound while still catching total
-    # pipeline outages.  The STATE_DB sample check above is the strict correctness gate.
-    min_pushed = max(1, count // 10)
+    # `count`. The complete STATE_DB check above is the strict correctness
+    # gate; requiring one envelope still catches total pipeline outages.
     pytest_assert(
-        pushed >= min_pushed,
-        "Expected at least {} pushes; got {}".format(min_pushed, pushed),
+        pushed >= 1,
+        "Expected at least one push; got {}".format(pushed),
     )
     # Within one pass every MAC's LEARN is a distinct payload; the test
     # does two passes over the same MAC list (workaround for KVM/libsaivs
