@@ -699,6 +699,27 @@ def backup_bgp_config(duthost):
         apply_default_bgp_config(duthost)
 
 
+def get_running_bgp_asn(duthost, namespace=None):
+    """Return the AS the DUT is actually running BGP in, or None if it cannot be read.
+
+    Reading it from the device avoids having to know which config field a given
+    topology keeps the local AS in. On a confederation member, BGP_DEVICE_GLOBAL
+    holds the confederation identifier, which is what external peers see and is
+    not the AS bgpd runs with.
+    """
+    try:
+        asichost = duthost.asic_instance_from_namespace(namespace)
+        summary = json.loads(asichost.run_vtysh("-c 'show bgp summary json'")['stdout'])
+    except Exception:
+        logger.warning("Could not read the running BGP AS from the DUT")
+        return None
+    for af in ('ipv4Unicast', 'ipv6Unicast'):
+        local_as = summary.get(af, {}).get('as')
+        if local_as:
+            return local_as
+    return None
+
+
 @pytest.fixture(scope="module")
 def bgpmon_setup_teardown(ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost, setup_interfaces,
                           tbinfo):
@@ -708,10 +729,10 @@ def bgpmon_setup_teardown(ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_ho
     dut_lo_addr = connection["loopback_ip"].split("/")[0]
     peer_addr = connection['neighbor_addr'].split("/")[0]
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
-    asn = mg_facts['minigraph_bgp_asn']
-    confed_asn = duthost.get_bgp_confed_asn()
-    if confed_asn:
-        asn = confed_asn
+    # BGPMonitor is an iBGP session, so it has to use the AS the DUT actually
+    # runs BGP in. Ask the device rather than picking a config field, and fall
+    # back to the minigraph if it cannot be read.
+    asn = get_running_bgp_asn(duthost, connection['namespace']) or mg_facts['minigraph_bgp_asn']
     # TODO: Add a common method to load BGPMON config for test_bgpmon and test_traffic_shift
     logger.info("Configuring bgp monitor session on DUT")
     bgpmon_args = {
