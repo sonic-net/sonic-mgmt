@@ -771,8 +771,6 @@ t0-vpp:
   - database/test_db_scripts.py
   - db_migrator/test_migrate_dns.py
   - decap/test_decap.py
-  - dhcp_relay/test_dhcp_relay.py
-  - dhcp_relay/test_dhcp_relay_stress.py
   - disk/test_disk_exhaustion.py
   - dns/test_dns_resolv_conf.py
   - fdb/test_fdb_flush.py
