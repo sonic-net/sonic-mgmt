@@ -14,9 +14,11 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release, wait_until, paramiko_ssh
 from .utils import check_server_received
 from tests.common.utilities import backup_config, restore_config, \
-        reload_minigraph_with_golden_config
+        reload_minigraph_with_golden_config, file_exists_on_dut
 from tests.common.helpers.dut_utils import is_container_running
 from .utils import duthost_shell_with_unreachable_retry
+from tests.conftest import backup_golden_config, restore_golden_config, GOLDEN_CONFIG_DB_PATH
+from tests.common.config_reload import config_reload
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -621,6 +623,9 @@ def test_fallback_to_local_authorization_with_config_reload(
     CONFIG_DB = "/etc/sonic/config_db.json"
     CONFIG_DB_BACKUP = "/etc/sonic/config_db.json_before_override"
     backup_config(duthost, CONFIG_DB, CONFIG_DB_BACKUP)
+    golden_config_db_exists = file_exists_on_dut(duthost, GOLDEN_CONFIG_DB_PATH)
+    if golden_config_db_exists:
+        backup_golden_config(duthost)
 
     # Reload minigraph with override per-command authorization to "tacacs+,local"
     duthost_mgmt_info = duthost.get_mgmt_ip()
@@ -640,7 +645,9 @@ def test_fallback_to_local_authorization_with_config_reload(
         }
     }
     try:
-        reload_minigraph_with_golden_config(duthost, override_config)
+        # CONFED BGP config will be lost during this test causing bgp sessions to not come up
+        wait_for_bgp = not duthost.get_bgp_confed_asn()
+        reload_minigraph_with_golden_config(duthost, override_config, wait_for_bgp=wait_for_bgp)
 
         # Shutdown tacacs server to simulate network unreachable because BGP shutdown
         stop_tacacs_server(ptfhost)
@@ -654,6 +661,9 @@ def test_fallback_to_local_authorization_with_config_reload(
     finally:
         #  Restore config after test finish
         restore_config(duthost, CONFIG_DB, CONFIG_DB_BACKUP)
+        if golden_config_db_exists:
+            restore_golden_config(duthost)
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
 
 def test_tacacs_authorization_commands_during_login(
