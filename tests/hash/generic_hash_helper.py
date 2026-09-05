@@ -31,6 +31,15 @@ VPP_SUPPORTED_HASH_ALGORITHM = ['CRC']
 MARVELL_TERALYNX_HASH_ALGORITHM = ['CRC', 'XOR']
 DEFAULT_SUPPORTED_HASH_ALGORITHM = ['CRC', 'CRC_CCITT', 'RANDOM', 'XOR']
 VPP_SUPPORTED_REBOOT_TYPES = ['cold', 'reload']
+# On VS/KVM, cold/warm/fast reboots take 5-8 minutes each. Combined with hash
+# configuration and two PTF traffic runs, test_reboot easily exceeds the 20-minute
+# per-module timeout enforced by Elastictest (see #23637). Restrict VS to 'reload'
+# only: config reload exercises the CONFIG_DB save/restore path that hash
+# persistence depends on, without the slow VM reboot overhead. SAI warm-restart
+# semantics are not covered, which is acceptable on VS because the virtual switch
+# does not model hardware warm-boot anyway. On real hardware all reboot types
+# (cold/warm/fast/reload) still run as before.
+VS_SUPPORTED_REBOOT_TYPES = ['reload']
 DEFAULT_SUPPORTED_REBOOT_TYPES = ['cold', 'warm', 'fast', 'reload']
 
 MELLANOX_ECMP_HASH_FIELDS = [
@@ -690,6 +699,8 @@ def get_reboot_type_from_option(request, reboot_option):
     asic_type = get_asic_type(request)
     if asic_type == 'vpp':
         supported_reboot_types = VPP_SUPPORTED_REBOOT_TYPES
+    elif asic_type == 'vs':
+        supported_reboot_types = VS_SUPPORTED_REBOOT_TYPES
     else:
         supported_reboot_types = DEFAULT_SUPPORTED_REBOOT_TYPES
 
@@ -700,7 +711,10 @@ def get_reboot_type_from_option(request, reboot_option):
     elif reboot_option in supported_reboot_types:
         return [reboot_option]
     else:
-        return [reboot_option]
+        # Explicitly requested reboot type is not supported on this asic
+        # (e.g. cold/warm/fast on VS). Fall back to the supported set so the
+        # asic-specific restriction cannot be bypassed via the --reboot option.
+        return supported_reboot_types[:]
 
 
 def get_encap_type_from_option(encap_type_option):
