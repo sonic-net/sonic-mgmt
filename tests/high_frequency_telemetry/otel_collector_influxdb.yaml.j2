@@ -8,13 +8,15 @@ receivers:
 
 exporters:
   influxdb:
-    endpoint: http://{{ ptf_ip }}:8181
+    endpoint: http://{{ ptf_ip }}:{{ influxdb_port }}
     org: ""
     bucket: {{ influxdb_bucket }}
     token: ""
     timeout: 10s
-  debug:
-    verbosity: detailed
+    retry_on_failure:
+      enabled: false
+    sending_queue:
+      enabled: false
 
 processors:
   batch:
@@ -26,4 +28,4 @@ service:
     metrics:
       receivers: [otlp]
       processors: [batch]
-      exporters: [debug, influxdb]
+      exporters: [influxdb]
