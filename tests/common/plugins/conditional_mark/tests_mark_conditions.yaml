@@ -499,12 +499,6 @@ bgp/test_bgp_operation_in_ro.py:
     conditions:
       - "https://github.com/sonic-net/sonic-buildimage/issues/23462"
 
-bgp/test_bgp_port_disable.py:
-  skip:
-    reason: "Not supported on public branches."
-    conditions:
-      - "'internal' not in branch"
-
 bgp/test_bgp_queue.py:
   skip:
     reason: "Not supported on mgmt device or VPP platform that doesn't have queues"
