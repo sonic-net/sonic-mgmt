@@ -12,7 +12,8 @@ import six
 
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from tests.common.platform.ssh_utils import prepare_testbed_ssh_keys as prepareTestbedSshKeys
-from tests.common.reboot import reboot as rebootDut
+from tests.common.console_capture import ConsoleCapture
+from tests.common.reboot import collect_console_log, reboot as rebootDut
 from tests.common.helpers.sad_path import SadOperation
 from tests.ptf_runner import ptf_runner
 from tests.common.helpers.assertions import pytest_assert
@@ -993,22 +994,33 @@ class AdvancedReboot:
         else:
             logger.info('Run advanced-reboot ReloadTest on the PTF host. TestCase: {}, '
                         'sub-case: {}'.format(self.request.node.name, str(rebootOper)))
-        result = ptf_runner(
-            self.ptfhost,
-            "ptftests",
-            "advanced-reboot.ReloadTest",
-            qlen=PTFRUNNER_QLEN,
-            platform_dir="ptftests",
-            platform="remote",
-            params=params,
-            log_file='/tmp/advanced-reboot.ReloadTest.log',
-            ptf_collect_dir=ptf_collect_dir,
-            module_ignore_errors=self.moduleIgnoreErrors,
-            timeout=REBOOT_CASE_TIMEOUT,
-            is_python3=True
-        )
+        capture = None
+        try:
+            capture = ConsoleCapture(self.duthost.hostname, self.rebootType)
+            capture.start(collect_console_log(self.duthost, self.localhost))
+        except Exception as err:
+            if capture:
+                capture.record_event("console setup failed; proceeding with advanced reboot")
+            logger.warning("Console capture setup failed: %s; proceeding with advanced reboot", err)
 
-        return result
+        try:
+            return ptf_runner(
+                self.ptfhost,
+                "ptftests",
+                "advanced-reboot.ReloadTest",
+                qlen=PTFRUNNER_QLEN,
+                platform_dir="ptftests",
+                platform="remote",
+                params=params,
+                log_file='/tmp/advanced-reboot.ReloadTest.log',
+                ptf_collect_dir=ptf_collect_dir,
+                module_ignore_errors=self.moduleIgnoreErrors,
+                timeout=REBOOT_CASE_TIMEOUT,
+                is_python3=True
+            )
+        finally:
+            if capture:
+                capture.stop()
 
     def __restorePrevImage(self):
         """
