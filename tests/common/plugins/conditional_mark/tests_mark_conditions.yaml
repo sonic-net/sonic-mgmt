@@ -4253,12 +4253,6 @@ portstat/test_portstat.py:
 #######################################
 #####     process_monitoring      #####
 #######################################
-process_monitoring/test_critical_process_monitoring.py::test_monitoring_critical_processes:
-  skip:
-    reason: "BMC platforms have no swss/orchagent/syncd containers. This test kills critical processes and relies on auto-restart to recover, which fails on BMC due to reduced container set and lack of PDU controller."
-    conditions:
-      - "'bmc' in topo_type"
-
 process_monitoring/test_critical_process_monitoring.py::test_orchagent_heartbeat:
   skip:
     reason: "This test is intended for Orchagent freeze scenario during warm-reboot. It is not required for T1 devices, and not supported on 202412 release. Also not applicable on BMC platforms which have no orchagent."
