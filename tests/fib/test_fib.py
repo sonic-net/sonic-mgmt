@@ -99,6 +99,23 @@ def check_default_route_from_fib_info(ptfhost, file_path):
     return ports
 
 
+def skip_if_no_ecmp_to_hash_over(ptfhost, fib_file):
+    """Skip when the topology offers no ECMP set for the hash tests to work with.
+
+    The hash tests send traffic to destinations reached via the default route and
+    check it is distributed across the nexthops. hash_test.py asserts outright if a
+    destination resolves to a single nexthop, which reports a failure for a topology
+    that simply has one path rather than for anything the device did wrong.
+
+    Checking the installed FIB rather than the topology name keeps this correct if a
+    topology gains or loses upstream links. This mirrors what test_ecmp_group_member_flap
+    already does with the same helper.
+    """
+    if not check_default_route_from_fib_info(ptfhost, fib_file):
+        pytest.skip("Hash tests need an ECMP set to hash across, and the default route on this "
+                    "topology resolves to fewer than two nexthops.")
+
+
 def get_all_ptf_port_indices_from_mg_facts(mg_facts):
     """
     Retrieve all ptf port indices from the minigraph facts.
@@ -550,6 +567,8 @@ def test_hash(add_default_route_to_dut, duthosts, tbinfo, setup_vlan,      # noq
     fib_files = fib_info_files_per_function(duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts,
                                             tbinfo, request)
 
+    skip_if_no_ecmp_to_hash_over(ptfhost, fib_files[0])
+
     is_active_active_dualtor = bool(active_active_ports)
     switch_type = duthosts[0].facts.get('switch_type')
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
@@ -658,6 +677,9 @@ def test_ipinip_hash_negative(add_default_route_to_dut, duthosts,           # no
     hash_keys = ['inner_length']
     fib_files = fib_info_files_per_function(duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts,
                                             tbinfo, request)
+
+    skip_if_no_ecmp_to_hash_over(ptfhost, fib_files[0])
+
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
     log_file = "/tmp/hash_test.IPinIPHashTest.{}.{}.log".format(
         ipver, timestamp)
@@ -709,6 +731,9 @@ def test_vxlan_hash(add_default_route_to_dut, duthost, duthosts,                
 
     fib_files = fib_info_files_per_function(duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts,
                                             tbinfo, request)
+
+    skip_if_no_ecmp_to_hash_over(ptfhost, fib_files[0])
+
     # Query the default VxLAN UDP port from switch's APPL_DB
     vxlan_dport_check = duthost.shell('redis-cli -n 0 hget "SWITCH_TABLE:switch" "vxlan_port"')
     if 'stdout' in vxlan_dport_check and vxlan_dport_check['stdout'].isdigit():
