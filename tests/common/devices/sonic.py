@@ -2389,7 +2389,7 @@ Totals               6450                 6449
             ))
         except RunAnsibleModuleFail:
             return False
-        return not rc['failed']
+        return not rc.get('failed', False)
 
     def ping_v6(self, ipv6, count=1, ns_arg=""):
         """
@@ -2415,7 +2415,7 @@ Totals               6450                 6449
             ))
         except RunAnsibleModuleFail:
             return False
-        return not rc['failed']
+        return not rc.get('failed', False)
 
     def is_backend_portchannel(self, port_channel, mg_facts):
         ports = mg_facts["minigraph_portchannels"].get(port_channel)
@@ -3060,7 +3060,7 @@ print(device_prefix)
         )
 
         res: ShellResult = self.shell(command, module_ignore_errors=True)
-        if res['failed']:
+        if res.get('failed', False):
             error_msg = f"Failed to start socat on port {port}: {res.get('stderr', '')}"
             logging.error(error_msg)
             raise RuntimeError(error_msg)
@@ -3141,7 +3141,7 @@ print(device_prefix)
         )
 
         res: ShellResult = self.shell(command, module_ignore_errors=True)
-        if res['failed']:
+        if res.get('failed', False):
             error_msg = f"Failed to bridge ports {port1} and {port2}: {res.get('stderr', '')}"
             logging.error(error_msg)
             raise RuntimeError(error_msg)
@@ -3235,7 +3235,7 @@ print(device_prefix)
         )
 
         res: ShellResult = self.shell(command, module_ignore_errors=True)
-        if res['failed']:
+        if res.get('failed', False):
             error_msg = f"Failed to bridge port {port} to {remote_host}:{remote_port}: {res.get('stderr', '')}"
             logging.error(error_msg)
             raise RuntimeError(error_msg)
