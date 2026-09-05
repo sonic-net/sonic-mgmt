@@ -2539,7 +2539,7 @@ gnmi/test_gnoi_system_reboot.py::test_gnoi_system_reboot_halt:
 
 gnmi/test_gnoi_system_reboot.py::test_gnoi_system_reboot_warm:
   skip:
-    reason: "Warm reboot should only run on t0 topology but not on dualtor"
+    reason: "Skip gNOI warm reboot on unsupported topologies and releases that use CLI warm reboot"
     conditions_logical_operator: or
     conditions:
       - "topo_type not in ['t0']"
@@ -2547,6 +2547,7 @@ gnmi/test_gnoi_system_reboot.py::test_gnoi_system_reboot_warm:
       - "'isolated' in topo_name"
       - "release in ['202412']"
       - "'f2' in topo_name"
+      - "release in ['202511']"
 
 ###############################################
 #####       golden_config_infra           #####
