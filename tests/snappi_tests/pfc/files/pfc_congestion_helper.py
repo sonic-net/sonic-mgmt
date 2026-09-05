@@ -222,9 +222,19 @@ def run_pfc_test(api,
     # rx_port_id and tx_port_id belong to IXIA chassis.
     rx_port_id = 0
 
-    # Rate percent must be an integer
-    bg_flow_rate_percent = int(BG_FLOW_AGGR_RATE_PERCENT / len(bg_prio_list))
-    test_flow_rate_percent = int(TEST_FLOW_AGGR_RATE_PERCENT / len(test_prio_list))
+    # Make the offered load invariant to the number of ingress ports discovered by
+    # create_port_map(): the aggregate injected into the single egress is
+    # port_map[2] * (TEST + BG), so divide each ingress' rate by the oversubscription
+    # ratio (actual ingress count / the ingress count the test was calibrated for).
+    # 'designed_ingress_count' defaults to 1 (line-rate throughput) for the
+    # no-congestion tests; the port-congestion tests set it to their calibrated
+    # ingress count so their loss tolerances stay valid regardless of testbed size
+    # (sonic-mgmt#27399). Floor to 2 decimals so an N-way split still sums to ~the
+    # intended load instead of being int-truncated.
+    designed_ingress_count = test_def.get('designed_ingress_count', 1)
+    flow_factor = port_map[2] / designed_ingress_count
+    bg_flow_rate_percent = int(BG_FLOW_AGGR_RATE_PERCENT / len(bg_prio_list) / flow_factor * 100) / 100
+    test_flow_rate_percent = int(TEST_FLOW_AGGR_RATE_PERCENT / len(test_prio_list) / flow_factor * 100) / 100
     # Generate base traffic config
     for i in range(port_map[2]):
         tx_port_id = i+1
@@ -389,7 +399,13 @@ def run_pfc_test(api,
     if (not test_check['loss_expected']):
         # Check for loss packets on IXIA and DUT.
         pytest_assert(test_stats['tgen_loss_pkts'] == 0, 'Loss seen on TGEN')
-        pytest_assert(test_stats['dut_loss_pkts'] == 0, 'Loss seen on DUT')
+        # dut_loss_pkts is derived from raw port IF_IN/OUT_DISCARDS which include
+        # incidental non-test-flow packets (e.g. IPv6 link-local ND on broadcom-dnx)
+        # unrelated to the snappi flows (sonic-mgmt#27403); the authoritative flow loss
+        # is already checked via tgen_loss_pkts above, so tolerate a negligible fraction.
+        dut_loss_tol = int((test_stats['tgen_lossless_tx_pkts'] +
+                            test_stats['tgen_lossy_tx_pkts']) * 0.00001)
+        pytest_assert(test_stats['dut_loss_pkts'] <= dut_loss_tol, 'Loss seen on DUT')
 
         # Check for Tx and Rx packets on IXIA for lossless and lossy streams.
         pytest_assert(test_stats['tgen_lossless_rx_pkts'] == test_stats['tgen_lossless_tx_pkts'],
