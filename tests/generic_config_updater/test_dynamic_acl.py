@@ -57,6 +57,8 @@ CREATE_THREE_DROP_RULES_TEMPLATE = "create_three_drop_rules.j2"
 CREATE_ARP_FORWARD_RULE_FILE = "create_arp_forward_rule.json"
 CREATE_NDP_FORWARD_RULE_FILE = "create_ndp_forward_rule.json"
 CREATE_DHCP_FORWARD_RULE_FILE = "create_dhcp_forward_rule_both.json"
+ADD_ICMPV6_TYPE_MATCH_FILE = "add_icmpv6_type_match.json"
+CREATE_ICMPV6_TYPE_FORWARD_RULES_FILE = "create_icmpv6_type_forward_rules.json"
 REPLACE_RULES_TEMPLATE = "replace_rules.j2"
 REPLACE_NONEXISTENT_RULE_FILE = "replace_nonexistent_rule.json"
 REMOVE_RULE_TEMPLATE = "remove_rule.j2"
@@ -925,6 +927,39 @@ def dynamic_acl_create_ndp_forward_rule(duthost, setup):
     expect_acl_rule_match(duthost, "NDP_RULE", expected_rule_content, setup)
 
 
+def dynamic_acl_add_icmpv6_type_match(duthost, setup):
+    """Add ICMPV6_TYPE to the custom ACL table type."""
+
+    outputs = load_and_apply_json_patch(duthost, ADD_ICMPV6_TYPE_MATCH_FILE, setup, is_asic_specific=True)
+
+    for output in outputs:
+        expect_op_success(duthost, output)
+
+
+def dynamic_acl_create_icmpv6_type_forward_rules(duthost, setup):
+    """Create forwarding rules for NDP ICMPv6 types."""
+
+    outputs = load_and_apply_json_patch(duthost,
+                                        CREATE_ICMPV6_TYPE_FORWARD_RULES_FILE,
+                                        setup,
+                                        is_asic_specific=True)
+
+    for output in outputs:
+        expect_op_success(duthost, output)
+
+    expected_rules = {
+        "NDP_RS_RULE": ["DYNAMIC_ACL_TABLE", "NDP_RS_RULE", "900", "FORWARD",
+                        "IP_PROTOCOL: 58", "ICMPV6_TYPE: 133", "Active"],
+        "NDP_NS_RULE": ["DYNAMIC_ACL_TABLE", "NDP_NS_RULE", "899", "FORWARD",
+                        "IP_PROTOCOL: 58", "ICMPV6_TYPE: 135", "Active"],
+        "NDP_NA_RULE": ["DYNAMIC_ACL_TABLE", "NDP_NA_RULE", "898", "FORWARD",
+                        "IP_PROTOCOL: 58", "ICMPV6_TYPE: 136", "Active"]
+    }
+
+    for rule_name, expected_content in expected_rules.items():
+        expect_acl_rule_match(duthost, rule_name, expected_content, setup)
+
+
 def dynamic_acl_create_dhcp_forward_rule(duthost, setup):
     """Create DHCP forwarding rules"""
 
@@ -1205,6 +1240,38 @@ def test_gcu_acl_arp_rule_creation(rand_selected_dut,
 
     time.sleep(10)
     output = rand_selected_dut.show_and_parse("{} {}".format(show_cmd, ip_address_for_test))
+
+    pytest_assert(len(output) >= 1, "MAC for {} was not learned!".format(ip_address_for_test))
+    pytest_assert(output[0]["iface"] == port_name, "MAC was learned for wrong port!")
+
+    dynamic_acl_verify_packets(setup,
+                               ptfadapter,
+                               packets=generate_packets(setup, tbinfo, DST_IP_BLOCKED, DST_IPV6_BLOCKED),
+                               packets_dropped=True,
+                               src_port=ptf_intf_index)
+
+
+@pytest.mark.parametrize("prepare_ptf_intf_and_ip", ["IPV6"], indirect=True)
+def test_gcu_acl_table_type_match_update(rand_selected_dut,
+                                         rand_unselected_dut,
+                                         ptfadapter,
+                                         setup,
+                                         dynamic_acl_create_table,
+                                         prepare_ptf_intf_and_ip,
+                                         toggle_all_simulator_ports_to_rand_selected_tor,  # noqa: F811
+                                         tbinfo):
+    """Test adding ICMPV6_TYPE to an ACL table type while the table has an existing rule."""
+
+    ip_address_for_test, _, ptf_intf_index, port_name = prepare_ptf_intf_and_ip
+
+    dynamic_acl_create_secondary_drop_rule(rand_selected_dut, setup, port_name)
+    dynamic_acl_add_icmpv6_type_match(rand_selected_dut, setup)
+    dynamic_acl_create_icmpv6_type_forward_rules(rand_selected_dut, setup)
+
+    rand_selected_dut.shell("ping -6 -c 3 {}".format(ip_address_for_test), module_ignore_errors=True)
+
+    time.sleep(10)
+    output = rand_selected_dut.show_and_parse("nbrshow -6 -ip {}".format(ip_address_for_test))
 
     pytest_assert(len(output) >= 1, "MAC for {} was not learned!".format(ip_address_for_test))
     pytest_assert(output[0]["iface"] == port_name, "MAC was learned for wrong port!")

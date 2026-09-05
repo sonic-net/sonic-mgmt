@@ -1,0 +1,7 @@
+[
+    {
+        "op": "add",
+        "path": "/ACL_TABLE_TYPE/DYNAMIC_ACL_TABLE_TYPE/MATCHES/-",
+        "value": "ICMPV6_TYPE"
+    }
+]
