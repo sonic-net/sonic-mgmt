@@ -14,6 +14,22 @@ LABEL_SWAP_ROUTES = 'label_swap_routes'
 LABEL_DEL_ROUTES = 'label_del_routes'
 
 
+def _resolve_ptf_port_ids(dut_port, mg_facts):
+    """Resolve a DUT L3 interface to its PTF port indices.
+
+    On t1-lag the spine/tor facing interfaces can be PortChannels, which are not
+    present in minigraph_port_indices. Resolve such a PortChannel to the PTF port
+    indices of its physical member ports. A physical interface resolves to a
+    single-element list.
+    """
+    portchannels = mg_facts.get('minigraph_portchannels', {})
+    if dut_port in portchannels:
+        members = portchannels[dut_port]['members']
+    else:
+        members = [dut_port]
+    return [mg_facts['minigraph_port_indices'][member] for member in members]
+
+
 @pytest.fixture(scope='module')
 def setup(duthost, tbinfo, ptfadapter):
     """
@@ -22,7 +38,7 @@ def setup(duthost, tbinfo, ptfadapter):
     :param tbinfo: fixture provides information about testbed
     :return: dictionary with all test required information
     """
-    if tbinfo['topo']['name'] not in ('t1'):
+    if tbinfo['topo']['type'] != 't1':
         pytest.skip('Unsupported topology')
 
     # gather ansible facts
@@ -60,15 +76,20 @@ def setup(duthost, tbinfo, ptfadapter):
     logger.info('spine_ports: {}'.format(spine_ports))
     logger.info('tor_addr: {}'.format(tor_addr))
 
+    # The test needs both a T2-facing ingress and a T0-facing egress interface.
+    # Some t1 variants (e.g. t1-backend, whose neighbors are all BT0) have no T2
+    # peer at all, so bail out cleanly instead of failing later in random.choice().
+    if not spine_ports or not tor_ports:
+        pytest.skip('Topology has no T2-facing ({}) or T0-facing ({}) interface'
+                    .format(len(spine_ports), len(tor_ports)))
+
     for dut_port in tor_ports:
-        port_id = mg_facts['minigraph_port_indices'][dut_port]
-        tor_ports_ids[dut_port] = port_id
+        tor_ports_ids[dut_port] = _resolve_ptf_port_ids(dut_port, mg_facts)
         ansible_port = 'ansible_'+dut_port
         tor_mac[dut_port] = host_facts[ansible_port]['macaddress']
 
     for dut_port in spine_ports:
-        port_id = mg_facts['minigraph_port_indices'][dut_port]
-        spine_ports_ids[dut_port] = port_id
+        spine_ports_ids[dut_port] = _resolve_ptf_port_ids(dut_port, mg_facts)
         ansible_port = 'ansible_'+dut_port
         spine_mac[dut_port] = host_facts[ansible_port]['macaddress']
 
@@ -78,8 +99,10 @@ def setup(duthost, tbinfo, ptfadapter):
     src_port = random.choice(spine_ports)
     dst_port = random.choice(tor_ports)
 
+    # dst_pid is the list of egress PortChannel member PTF ports (verify on any member).
+    # src_pid is a single ingress member PTF port used to inject the test packet.
     dst_pid = tor_ports_ids[dst_port]
-    src_pid = spine_ports_ids[src_port]
+    src_pid = spine_ports_ids[src_port][0]
 
     dst_mac = tor_mac[dst_port]
     src_mac = spine_mac[src_port]
