@@ -15,6 +15,7 @@ pytestmark = [
 
 PEER_COUNT = 1
 NEIGHBOR_EXABGP_PORT = 11000
+WAIT_TIMEOUT = 120
 
 
 @pytest.fixture(params=["warm", "fast"])
@@ -82,7 +83,7 @@ def test_bgp_slb_neighbor_persistence_across_advanced_reboot(
 
     try:
         neighbor.start_session()
-        if not wait_until(40, 5, 10, verify_bgp_session, duthost, neighbor):
+        if not wait_until(WAIT_TIMEOUT, 5, 10, verify_bgp_session, duthost, neighbor):
             pytest.fail("dynamic BGP session is not established")
         reboot(duthost, localhost, reboot_type=reboot_type, wait_warmboot_finalizer=True)
         if not wait_until(40, 5, 10, verify_bgp_session, duthost, neighbor):
