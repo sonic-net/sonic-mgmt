@@ -197,7 +197,8 @@ def is_the_sku_need_to_remove_node_ip_param(duthost):
         "Arista-7060CX-32S-C32",
         "Arista-7060X6-64PE-B-C512S2",
         "Mellanox-SN5640-C512S2",
-        "Mellanox-SN5640-C448O16"
+        "Mellanox-SN5640-C448O16",
+        "Nokia-BMC-H6-128"
     )
 
 
