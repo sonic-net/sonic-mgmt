@@ -4974,6 +4974,12 @@ route/test_static_route.py::test_static_route_ipv6_warmboot:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
       - "topo_type in ['m0', 'm1', 'mx']"
 
+route/test_static_route.py::test_static_route_removal_after_config_reload:
+  skip:
+    reason: "IPv4 static route test is not applicable to IPv6-only topology; covered by test_static_route_removal_after_config_reload_ipv6"
+    conditions:
+      - "'-v6-' in topo_name"
+
 route/test_static_route.py::test_static_route_warmboot:
   skip:
     reason: "Warm reboot is not supported on dualtor, m0, m1, or mx topologies"
