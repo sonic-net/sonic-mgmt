@@ -535,14 +535,16 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
         curr_reboot_cause_history = duthost.show_and_parse("show reboot-cause history")
         pytest_assert(prev_reboot_cause_history != curr_reboot_cause_history, "No new input into history-queue")
     else:
-        if float(dut_uptime.strftime("%s")) < float(dut_datetime.strftime("%s")):
-            logger.info('DUT {} timestamp went backwards'.format(hostname))
-            wait_until(120, 5, 0, positive_uptime, duthost, dut_datetime)
-
-        dut_uptime = duthost.get_up_time()
-
-        assert float(dut_uptime.strftime("%s")) > float(dut_datetime.strftime("%s")), "Device {} did not reboot". \
-            format(hostname)
+        # Use /proc/uptime (monotonic, immune to RTC drift and NTP sync delays)
+        # to verify the device rebooted. A freshly-rebooted device must have an uptime
+        # less than the total time we spent waiting for it to come back (timeout + wait).
+        max_expected_uptime = timeout + wait
+        uptime_seconds = float(duthost.command("awk '{print $1}' /proc/uptime")["stdout"])
+        logger.info('DUT {} uptime after reboot: {:.1f}s (max expected: {}s)'.format(
+            hostname, uptime_seconds, max_expected_uptime))
+        assert uptime_seconds < max_expected_uptime, \
+            "Device {} did not reboot: uptime {:.0f}s exceeds max expected {}s".format(
+                hostname, uptime_seconds, max_expected_uptime)
 
     if wait_for_bgp:
         bgp_neighbors = duthost.get_bgp_neighbors_per_asic(state="all")
