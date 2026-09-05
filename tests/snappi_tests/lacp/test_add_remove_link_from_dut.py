@@ -50,6 +50,7 @@ def test_lacp_add_remove_link_from_dut(snappi_api,                      # noqa: 
         number_of_routes:  Number of IPv4/IPv6 Routes
     """
     # port_count, number_of_routes ,iterations and port_speed parameters can be modified as per user preference
+    port_count = min(port_count, len(tgen_ports))
     run_lacp_add_remove_link_from_dut(snappi_api,
                                       duthost,
                                       tgen_ports,
