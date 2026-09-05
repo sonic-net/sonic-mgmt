@@ -5423,6 +5423,14 @@ srv6/test_srv6_vlan_forwarding.py::test_srv6_uN_no_vlan_flooding[False]:
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
+srv6/test_srv6_warmboot.py:
+  skip:
+    reason: "SRv6 over warm reboot is only expected to work on Mellanox/NVIDIA Spectrum-5 and newer platforms, with a master or 202611+ image."
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type != 'mellanox' or (release != 'master' and release < '202611')"
+      - "asic_gen in ['spc1', 'spc2', 'spc3', 'spc4']"
+
 #######################################
 #####             ssh             #####
 #######################################
