@@ -1,0 +1,1 @@
+Interface Ethernet4 is down after config reload. Expected state: up, actual state: down. Waited 120 seconds.
