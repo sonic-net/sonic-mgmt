@@ -4696,6 +4696,16 @@ qos/test_voq_watchdog.py:
       - "asic_type not in ['cisco-8000']"
 
 #######################################
+#####          radius            #####
+#######################################
+
+radius/:
+  skip:
+    reason: 'RADIUS tests require routing and switch CLI, not available on BMC'
+    conditions:
+      - "'bmc' in topo_type"
+
+#######################################
 #####           radv             #####
 #######################################
 
