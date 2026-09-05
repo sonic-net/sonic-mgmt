@@ -412,6 +412,31 @@ def match_bgp_update(packet, src_ip, dst_ip, action, route, is_v6_topo):
         return False
 
 
+def _clear_bgp_neighbor_counters(asichost, neighbor_ips):
+    """Reset BGP message-stats counters (session untouched)."""
+    for ip in neighbor_ips:
+        try:
+            asichost.run_vtysh(" -c 'clear bgp {} message-stats'".format(ip))
+        except Exception as e:
+            logging.warning("Failed to clear BGP message-stats for %s: %s", ip, e)
+
+
+def _dump_bgp_neighbor_counters(asichost, neighbor_ips, is_v6_topo):
+    """Return per-neighbor BGP message statistics as text."""
+    neighbor_cmd = (
+        "show bgp ipv6 neighbors {}" if is_v6_topo else "show ip bgp neighbors {}"
+    )
+    sections = []
+    for ip in neighbor_ips:
+        try:
+            res = asichost.run_vtysh(" -c '{}'".format(neighbor_cmd.format(ip)))
+            stdout = res["stdout"]
+        except Exception as e:
+            stdout = "failed to collect counters: {}".format(e)
+        sections.append("===== BGP neighbor {} =====\n{}".format(ip, stdout))
+    return "\n".join(sections)
+
+
 def test_bgp_update_timer_single_route(
     common_setup_teardown,
     constants,
@@ -457,6 +482,8 @@ def test_bgp_update_timer_single_route(
             bgp_pcap = BGP_LOG_TMPL % i
             with capture_bgp_packages_to_file(duthost, "any", bgp_pcap, n0.namespace):
                 asichost = duthost.asic_instance_from_namespace(n0.namespace)
+                # Clear counters so Sent/Rcvd reflect only this route's exchange.
+                _clear_bgp_neighbor_counters(asichost, [n0.ip, n1.ip])
                 n0.announce_route(route)
                 time.sleep(constants.sleep_interval)
                 res = asichost.run_vtysh(
@@ -509,7 +536,10 @@ def test_bgp_update_timer_single_route(
                 err_msg %= ("withdraw", route, n1.peer_ip, n1.ip)
                 no_update = True
             if no_update:
-                pytest.fail(err_msg)
+                # Dump counters to distinguish control-plane vs capture issue.
+                counters = _dump_bgp_neighbor_counters(asichost, [n0.ip, n1.ip], is_v6_topo)
+                logging.error("pcap validation failed: %s\ncounters:\n%s", err_msg, counters)
+                pytest.fail("{}\nBGP neighbor counters:\n{}".format(err_msg, counters))
 
             announce_intervals.append(
                 announce_from_dut_to_n1[0].time - announce_from_n0_to_dut[0].time
