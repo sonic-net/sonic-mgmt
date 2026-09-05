@@ -122,10 +122,99 @@ container_checker/test_container_checker.py::test_container_checker_telemetry:
 copp:
   skip:
     reason: >
-            Unsupported
+            Unsupported: no VPP dataplane classify/policer feature exists
+            yet for these traps (neighbor miss, dynamic trap add/remove).
+            test_policer_mtu (IP2ME/SNMP/SSH/BGP MTU variants) stays
+            skipped too: BGP passes at all packet sizes, but IP2ME/SNMP/SSH
+            all fail with zero packets received (a real, separate,
+            pre-existing gap in the ip4/ip6-unicast policer-classify path
+            unrelated to the copp_punt_policer plugin this effort adds;
+            root cause not yet identified).
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
+
+copp/test_copp.py::TestCOPP::test_policer[ARP]:
+  skip:
+    reason: >
+            Passes: CoPP dataplane enforcement implemented via the
+            copp_punt_policer VPP device-input plugin (see
+            doc/vpp/vpp_copp_HLD.md).
+    conditions_logical_operator: or
+    conditions:
+      - "False"
+
+copp/test_copp.py::TestCOPP::test_policer[DHCP6]:
+  skip:
+    reason: >
+            Passes: rides the pre-existing ip6-unicast policer-classify
+            feature, unaffected by the copp_punt_policer plugin.
+    conditions_logical_operator: or
+    conditions:
+      - "False"
+
+copp/test_copp.py::TestCOPP::test_policer[DHCP]:
+  skip:
+    reason: >
+            Passes: rides the pre-existing ip4-unicast policer-classify
+            feature, unaffected by the copp_punt_policer plugin.
+    conditions_logical_operator: or
+    conditions:
+      - "False"
+
+copp/test_copp.py::TestCOPP::test_policer[Default]:
+  skip:
+    reason: >
+            Passes: CoPP dataplane enforcement implemented via the
+            copp_punt_policer VPP device-input plugin (TTL_ERROR trap).
+    conditions_logical_operator: or
+    conditions:
+      - "False"
+
+copp/test_copp.py::TestCOPP::test_policer[LACP]:
+  skip:
+    reason: >
+            Passes: CoPP dataplane enforcement implemented via the
+            copp_punt_policer VPP device-input plugin.
+    conditions_logical_operator: or
+    conditions:
+      - "False"
+
+copp/test_copp.py::TestCOPP::test_policer[LLDP]:
+  skip:
+    reason: >
+            Passes: CoPP dataplane enforcement implemented via the
+            copp_punt_policer VPP device-input plugin.
+    conditions_logical_operator: or
+    conditions:
+      - "False"
+
+copp/test_copp.py::TestCOPP::test_policer[UDLD]:
+  skip:
+    reason: >
+            Passes: CoPP dataplane enforcement implemented via the
+            copp_punt_policer VPP device-input plugin.
+    conditions_logical_operator: or
+    conditions:
+      - "False"
+
+copp/test_copp.py::TestCOPP::test_trap_config_save_after_reboot:
+  skip:
+    reason: >
+            Passes: verified via a real DUT reboot (config save + reboot
+            + wait + verify trap persists); CoPP trap/policer config
+            survives reboot correctly.
+    conditions_logical_operator: or
+    conditions:
+      - "False"
+
+copp/test_copp.py::test_verify_copp_configuration_cli:
+  skip:
+    reason: >
+            Passes: config-plane-only verification, no traffic policing.
+    conditions_logical_operator: or
+    conditions:
+      - "False"
 
 #######################################
 #####           Decap             #####
