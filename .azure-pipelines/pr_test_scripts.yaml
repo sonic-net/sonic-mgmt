@@ -741,6 +741,7 @@ t1-lag-vpp:
   - vxlan/test_vnet_route_leak.py
   - vxlan/test_vxlan_crm.py
   - vxlan/test_vxlan_multi_tunnel.py
+  - iface_loopback_action/test_iface_loopback_action.py
 
 
 t0-vpp:
