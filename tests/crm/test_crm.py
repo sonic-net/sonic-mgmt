@@ -16,7 +16,7 @@ from tests.common.helpers.crm import get_used_percent, CRM_UPDATE_TIME, CRM_POLL
      EXPECT_CLEAR, THR_VERIFY_CMDS
 from tests.common.fixtures.duthost_utils import disable_route_checker   # noqa: F401
 from tests.common.fixtures.duthost_utils import disable_fdb_aging       # noqa: F401
-from tests.common.utilities import wait_until, get_data_acl, is_ipv6_only_topology
+from tests.common.utilities import wait_until, get_data_acl, is_ipv6_only_topology, get_plt_wait_time
 from tests.common.mellanox_data import is_mellanox_device
 from tests.common.helpers.dut_utils import get_sai_sdk_dump_file
 
@@ -1266,8 +1266,12 @@ def verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hos
         # Wait for ACL entry resources to stabilize using polling
         expected_acl_used = new_crm_stats_acl_entry_used + nexthop_group_num - CRM_COUNTER_TOLERANCE
         logger.info("Waiting for {} ACL entry resources to stabilize".format(nexthop_group_num))
+        # ACL rule programming can be very slow on some platforms (e.g. Broadcom DNX on the
+        # max topology) where the full batch takes ~2min to land in the ASIC. Allow the
+        # stabilization timeout to be overridden per-testbed via inventory plt_wait_time.
+        acl_stabilize_timeout = get_plt_wait_time(duthost, "crm/test_crm.py").get("timeout", 60)
         wait_for_crm_counter_update(get_acl_entry_stats, duthost, expected_used=expected_acl_used,
-                                    oper_used=">=", timeout=60, interval=5)
+                                    oper_used=">=", timeout=acl_stabilize_timeout, interval=5)
 
     # Verify thresholds for "ACL entry" CRM resource
     verify_thresholds(duthost, asichost, crm_cli_res="acl group entry", crm_cmd=get_acl_entry_stats)
