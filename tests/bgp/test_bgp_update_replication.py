@@ -284,7 +284,9 @@ def test_bgp_update_replication(
     setup_duthost_intervals,
 ):
     NUM_ROUTES = 10_000
-    ROUTE_WAIT_TIMEOUT = 60
+    # Large-scale single-node topologies with a high base route count need a
+    # longer RIB convergence window than the default to avoid false failures.
+    ROUTE_WAIT_TIMEOUT = 120
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     bgp_peers: list[BGPNeighbor] = setup_bgp_peers
     duthost_intervals: list[float] = setup_duthost_intervals
