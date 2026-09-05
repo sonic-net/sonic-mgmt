@@ -94,6 +94,45 @@ def test_get_queue_scheduler_weight_dict():
     assert _load("get_queue_scheduler_weight_dict")(host) == EXPECTED
 
 
+def test_get_queue_scheduler_weight_dict_voq_key_format():
+    """VOQ / multi-ASIC platforms may key ``QUEUE`` as
+    ``QUEUE|<host>|<asic>|<port>|<queue>``, so config_facts may nest it as
+    ``{host: {asic: {port: {queue: cfg}}}}``. The port lookup must still work."""
+    voq_facts = {k: v for k, v in CONFIG_FACTS.items() if k != "QUEUE"}
+    voq_facts["QUEUE"] = {
+        "sonic_dut": {
+            "Asic0": CONFIG_FACTS["QUEUE"],
+        },
+    }
+    host = MagicMock()
+    host.hostname = "sonic_dut"
+    host.config_facts.return_value = {"ansible_facts": voq_facts}
+
+    assert _load("get_queue_scheduler_weight_dict")(
+        host, port="Ethernet100") == EXPECTED
+
+
+def test_get_queue_scheduler_weight_dict_compound_key_format():
+    """VOQ / multi-ASIC hosts can return ``QUEUE`` from
+    config_facts as ``{host: {'<asic>|<port>|<queue>': cfg}}`` -- only the host
+    prefix is split off and the ``asic|port|queue`` remainder stays a single
+    compound key with a scalar-leaf cfg. The port/queue must be parsed out of
+    that compound key."""
+    compound_facts = {k: v for k, v in CONFIG_FACTS.items() if k != "QUEUE"}
+    compound_facts["QUEUE"] = {
+        "sonic_dut": {
+            "Asic0|Ethernet100|{}".format(q): cfg
+            for q, cfg in CONFIG_FACTS["QUEUE"]["Ethernet100"].items()
+        },
+    }
+    host = MagicMock()
+    host.hostname = "sonic_dut"
+    host.config_facts.return_value = {"ansible_facts": compound_facts}
+
+    assert _load("get_queue_scheduler_weight_dict")(
+        host, port="Ethernet100") == EXPECTED
+
+
 def test_get_queue_scheduler_weight_dict_defaults_when_unconfigured():
     """When QUEUE/SCHEDULER are absent, fall back to 8 queues w/ equal weights."""
     host = MagicMock()
