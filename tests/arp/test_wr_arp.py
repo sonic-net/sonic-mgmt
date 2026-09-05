@@ -21,7 +21,7 @@ pytestmark = [
 @pytest.fixture(scope='class', autouse=True)
 def setupFerretFixture(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
-    setupFerret(duthost, ptfhost, tbinfo)
+    return setupFerret(duthost, ptfhost, tbinfo)
 
 
 @pytest.fixture(scope='class', autouse=True)
@@ -87,7 +87,7 @@ def test_wr_arp(request, duthost, ptfhost, creds):
     testWrArp(request, duthost, ptfhost, creds)
 
 
-def test_wr_arp_advance(request, duthost, ptfhost, creds):
+def test_wr_arp_advance(request, duthost, ptfhost, creds, setupFerretFixture):
     testDuration = request.config.getoption('--test_duration', default=DEFAULT_TEST_DURATION)
     ptfIp = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars['ansible_host']
     dutIp = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
@@ -105,6 +105,8 @@ def test_wr_arp_advance(request, duthost, ptfhost, creds):
         platform='remote',
         params={
             'ferret_ip': ptfIp,
+            'ferret_endpoint_ip': setupFerretFixture,
+            'asic_type': duthost.facts['asic_type'],
             'dut_ssh': dutIp,
             'dut_username': creds['sonicadmin_user'],
             'dut_password': creds['sonicadmin_password'],
