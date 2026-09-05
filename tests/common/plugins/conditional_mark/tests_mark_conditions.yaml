@@ -3897,16 +3897,22 @@ override_config_table/test_override_config_table.py::test_load_minigraph_with_go
 ########################################
 packet_trimming:
   skip:
-    reason: "Packet trimming is not supported on 202505. Packet trimming cases require PR https://github.com/sonic-net/sonic-buildimage/pull/22869, but KVM does not support it, so skip trimming case on KVM. Packet-trimming tests are only supported on certain Mellanox SN5640 and Arista 7060X6 SKUs."
+    reason: "Packet trimming is not supported on 202505. Packet trimming cases require PR https://github.com/sonic-net/sonic-buildimage/pull/22869, but KVM does not support it, so skip trimming case on KVM. Packet-trimming tests are only supported on certain Mellanox SN5640 and Arista 7060X6 SKUs. On sonic-vpp (asic_type 'vpp') the symmetric core trimming cases are enabled; deferred cases are skipped per-test (tracking sonic-net/sonic-buildimage#25789)."
     conditions_logical_operator: or
     conditions:
       - "release in ['202505']"
       - "asic_type in ['vs']"
-      - "hwsku not in ['Arista-7060X6-64PE-B-C448O16', 'Arista-7060X6-64PE-B-C512S2', 'Mellanox-SN5640-C448O16', 'Mellanox-SN5640-C512S2']"
+      - "hwsku not in ['Arista-7060X6-64PE-B-C448O16', 'Arista-7060X6-64PE-B-C512S2', 'Mellanox-SN5640-C448O16', 'Mellanox-SN5640-C512S2'] and asic_type != 'vpp'"
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
+
+packet_trimming/test_packet_trimming_asymmetric.py:
+  skip:
+    reason: "Asymmetric (per-port DSCP) packet trimming is deferred on sonic-vpp; only symmetric core trimming is enabled (tracking sonic-net/sonic-buildimage#25789)."
+    conditions:
+      - "asic_type in ['vpp']"
 
 packet_trimming/test_packet_trimming_asymmetric.py::TestPacketTrimmingAsymmetric::test_trimming_counters_with_feature_toggle:
   skip:
@@ -3920,13 +3926,67 @@ packet_trimming/test_packet_trimming_asymmetric.py::TestPacketTrimmingAsymmetric
     conditions:
       - "'isolated' in topo_name and release in ['202412']"
 
+packet_trimming/test_packet_trimming_config_asymmetric.py:
+  skip:
+    reason: "Asymmetric (FROM_TC) packet-trimming GCU config validation is deferred on sonic-vpp; only symmetric core trimming is enabled (tracking sonic-net/sonic-buildimage#25789)."
+    conditions:
+      - "asic_type in ['vpp']"
+
+packet_trimming/test_packet_trimming_config_symmetric.py:
+  skip:
+    reason: "Symmetric packet-trimming GCU config validation is deferred on sonic-vpp; out of scope for the initial dataplane enablement (tracking sonic-net/sonic-buildimage#25789)."
+    conditions:
+      - "asic_type in ['vpp']"
+
+packet_trimming/test_packet_trimming_symmetric.py::TestPacketTrimmingSymmetric::test_acl_action_with_trimming:
+  skip:
+    reason: "ACL DISABLE_TRIM action with packet trimming is deferred on sonic-vpp; not yet implemented in the VPP dataplane (tracking sonic-net/sonic-buildimage#25789)."
+    conditions:
+      - "asic_type in ['vpp']"
+
+packet_trimming/test_packet_trimming_symmetric.py::TestPacketTrimmingSymmetric::test_port_mirror_with_trimming:
+  skip:
+    reason: "Port mirroring with packet trimming is deferred on sonic-vpp; the mirror trim path is not yet implemented (tracking sonic-net/sonic-buildimage#25789)."
+    conditions:
+      - "asic_type in ['vpp']"
+
+packet_trimming/test_packet_trimming_symmetric.py::TestPacketTrimmingSymmetric::test_stability_during_feature_toggles:
+  skip:
+    reason: "Feature-toggle stability with packet trimming is deferred on sonic-vpp; not yet validated (tracking sonic-net/sonic-buildimage#25789)."
+    conditions:
+      - "asic_type in ['vpp']"
+
+packet_trimming/test_packet_trimming_symmetric.py::TestPacketTrimmingSymmetric::test_trimming_counters:
+  skip:
+    reason: "Trim counters are deferred on sonic-vpp; trim drop/sent counters are not yet implemented (tracking sonic-net/sonic-buildimage#25789)."
+    conditions:
+      - "asic_type in ['vpp']"
+
 packet_trimming/test_packet_trimming_symmetric.py::TestPacketTrimmingSymmetric::test_trimming_counters_with_feature_toggle:
   skip:
-    reason: "TH5 clears trim counters when packet trimming is turned off, skipping until trim counter persistance is supported."
+    reason: "TH5 clears trim counters when packet trimming is turned off, skipping until trim counter persistance is supported. Trim counters are also deferred on sonic-vpp (tracking sonic-net/sonic-buildimage#25789)."
+    conditions_logical_operator: or
     conditions:
       - "asic_gen in ['th5']"
+      - "asic_type in ['vpp']"
+
+packet_trimming/test_packet_trimming_symmetric.py::TestPacketTrimmingSymmetric::test_trimming_during_port_admin_toggle:
+  skip:
+    reason: "Port admin-toggle with packet trimming is deferred on sonic-vpp; not yet validated (tracking sonic-net/sonic-buildimage#25789)."
+    conditions:
+      - "asic_type in ['vpp']"
+
+packet_trimming/test_packet_trimming_symmetric.py::TestPacketTrimmingSymmetric::test_trimming_with_reload_and_reboot:
+  skip:
+    reason: "Reload/reboot persistence of packet trimming is deferred on sonic-vpp; config persistence not yet validated (tracking sonic-net/sonic-buildimage#25789)."
+    conditions:
+      - "asic_type in ['vpp']"
 
 packet_trimming/test_packet_trimming_symmetric.py::TestPacketTrimmingSymmetric::test_trimming_with_srv6:
+  skip:
+    reason: "SRv6 with packet trimming is deferred on sonic-vpp; the SRv6 trim path is not yet implemented in the VPP dataplane (tracking sonic-net/sonic-buildimage#25789)."
+    conditions:
+      - "asic_type in ['vpp']"
   xfail:
     reason: "vlan decap is disabled in 202412 image"
     conditions:
