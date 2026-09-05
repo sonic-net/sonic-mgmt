@@ -4426,6 +4426,8 @@ qos/test_qos_probe.py:
       - "hwsku in ['Mellanox-SN2700'] and https://github.com/sonic-net/sonic-mgmt/issues/22607"
       # Mellanox SPC3 (Spectrum 3)
       - "hwsku in ['Mellanox-SN4600C-C64'] and https://github.com/sonic-net/sonic-mgmt/issues/22608"
+      # Nexthop (NH-4010 / NH-4210 / NH-4220 / NH-5010)
+      - "platform in ['x86_64-nexthop_4010-r0', 'x86_64-nexthop_4010-r1', 'x86_64-nexthop_4210-r0021', 'x86_64-nexthop_4220-r1021', 'x86_64-nexthop_5010-r0'] and https://github.com/sonic-net/sonic-mgmt/issues/27057"
 
 qos/test_qos_probe.py::TestQosProbe::testQosHeadroomPoolProbe:
   xfail:
