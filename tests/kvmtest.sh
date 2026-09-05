@@ -176,6 +176,7 @@ test_t0() {
       gnmi/test_gnmi_configdb.py \
       gnmi/test_gnmi_appldb.py \
       gnmi/test_gnmi_countersdb.py \
+      gnmi/test_gnmi_countersdb_config_reload.py \
       gnmi_e2e/test_gnmi_auth.py \
       override_config_table/test_override_config_table.py \
       process_monitoring/test_critical_process_monitoring.py \
@@ -237,6 +238,7 @@ test_t2() {
     gnmi/test_gnmi.py \
     gnmi/test_gnmi_appldb.py \
     gnmi/test_gnmi_countersdb.py \
+    gnmi/test_gnmi_countersdb_config_reload.py \
     voq/test_voq_init.py"
 
     pushd $SONIC_MGMT_DIR/tests
@@ -265,6 +267,7 @@ test_t1_lag() {
     gnmi/test_gnmi_configdb.py \
     gnmi/test_gnmi_appldb.py \
     gnmi/test_gnmi_countersdb.py \
+    gnmi/test_gnmi_countersdb_config_reload.py \
     http/test_http_copy.py \
     ipfwd/test_mtu.py \
     lldp/test_lldp.py \
@@ -292,6 +295,7 @@ test_multi_asic_t1_lag() {
     gnmi/test_gnmi.py \
     gnmi/test_gnmi_appldb.py \
     gnmi/test_gnmi_countersdb.py \
+    gnmi/test_gnmi_countersdb_config_reload.py \
     snmp/test_snmp_default_route.py \
     snmp/test_snmp_loopback.py \
     snmp/test_snmp_pfc_counters.py \

@@ -121,6 +121,7 @@ t0:
   - gnmi/test_gnmi_cert_rotation.py
   - gnmi/test_gnmi_configdb.py
   - gnmi/test_gnmi_countersdb.py
+  - gnmi/test_gnmi_countersdb_config_reload.py
   - gnmi/test_gnmi_default.py
   - gnmi/test_gnmi_poll.py
   - gnmi/test_gnmi_smartswitch.py
@@ -460,6 +461,7 @@ t1-lag:
   - gnmi/test_gnmi_cert_rotation.py
   - gnmi/test_gnmi_configdb.py
   - gnmi/test_gnmi_countersdb.py
+  - gnmi/test_gnmi_countersdb_config_reload.py
   - gnmi/test_gnmi_default.py
   - gnmi/test_gnmi_poll.py
   - gnmi/test_gnmi_smartswitch.py
@@ -799,6 +801,7 @@ t0-vpp:
   - gnmi/test_gnmi.py
   - gnmi/test_gnmi_configdb.py
   - gnmi/test_gnmi_countersdb.py
+  - gnmi/test_gnmi_countersdb_config_reload.py
   - gnmi/test_gnoi_os.py
   - gnmi/test_gnoi_system.py
   - hash/test_generic_hash.py
@@ -904,6 +907,7 @@ onboarding_t1_multi_asic:
   - gnmi/test_gnmi_appldb.py
   - gnmi/test_gnmi_configdb.py
   - gnmi/test_gnmi_countersdb.py
+  - gnmi/test_gnmi_countersdb_config_reload.py
   - gnmi/test_gnmi_default.py
   - iface_loopback_action/test_iface_loopback_action.py
   - log_fidelity/test_bgp_shutdown.py
