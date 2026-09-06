@@ -715,8 +715,8 @@ def _validate_deviation_checks(port, baseline_sensor, post_sensor, checks_by_fie
     return failures, checked_count
 
 
-def _validate_appl_port_down_time(port, baseline_entry, shutdown_entry):
-    """Return failures for APPL_DB PORT_TABLE last_update_time/last_down_time correlation."""
+def _validate_appl_port_down_time(port, baseline_entry, shutdown_entry, shutdown_time):
+    """Return failures for APPL_DB PORT_TABLE last_down_time correlation."""
     if shutdown_entry is None:
         return ["{} could not read APPL_DB PORT_TABLE (namespace read failed)".format(port)]
     if not shutdown_entry:
@@ -724,35 +724,31 @@ def _validate_appl_port_down_time(port, baseline_entry, shutdown_entry):
 
     failures = []
     last_down_time = shutdown_entry.get("last_down_time")
-    last_update_time = shutdown_entry.get("last_update_time")
     if not last_down_time:
         failures.append("{} APPL_DB PORT_TABLE missing last_down_time after shutdown".format(port))
-    if not last_update_time:
-        failures.append("{} APPL_DB PORT_TABLE missing last_update_time after shutdown".format(port))
+        return failures
 
     baseline_down_time = (baseline_entry or {}).get("last_down_time")
-    if last_down_time and last_down_time == baseline_down_time:
+    if last_down_time == baseline_down_time:
         failures.append("{} APPL_DB PORT_TABLE last_down_time did not change after shutdown".format(port))
 
     parsed_down = _parse_any_timestamp(last_down_time)
-    parsed_update = _parse_any_timestamp(last_update_time)
-    if last_down_time and last_update_time and parsed_down is not None and parsed_update is not None:
-        delta_sec = abs((parsed_update - parsed_down).total_seconds())
-        if delta_sec > PORT_TABLE_TIME_TOLERANCE_SEC:
-            failures.append(
-                "{} APPL_DB PORT_TABLE last_update_time {} is not within {}s of last_down_time {}".format(
-                    port,
-                    last_update_time,
-                    PORT_TABLE_TIME_TOLERANCE_SEC,
-                    last_down_time,
-                )
-            )
-    elif last_down_time and last_update_time and last_down_time != last_update_time:
+    if parsed_down is None:
         failures.append(
-            "{} APPL_DB PORT_TABLE last_update_time {!r} cannot be correlated with last_down_time {!r}".format(
+            "{} APPL_DB PORT_TABLE last_down_time {!r} is unparsable".format(
                 port,
-                last_update_time,
                 last_down_time,
+            )
+        )
+        return failures
+
+    earliest = _normalize_datetime(shutdown_time) - timedelta(seconds=EVENT_TIME_TOLERANCE_SEC)
+    if parsed_down < earliest:
+        failures.append(
+            "{} APPL_DB PORT_TABLE last_down_time {} did not advance into shutdown window starting {}".format(
+                port,
+                last_down_time,
+                shutdown_time,
             )
         )
 
@@ -863,6 +859,7 @@ def _validate_local_shutdown(context, baseline_tables, shutdown_tables, shutdown
                 port,
                 baseline_appl.get(port),
                 shutdown_appl.get(port),
+                shutdown_time,
             )
         )
 

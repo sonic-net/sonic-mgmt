@@ -172,28 +172,51 @@ def _operational_attr_for_threshold(attr_name):
     return THRESHOLD_TO_OPERATIONAL_ATTR.get(base_name)
 
 
+def _quantity_base_name_for_attr(attr_name, suffix):
+    """Return the DOM quantity registry key for an attribute name."""
+    if not attr_name.endswith(suffix):
+        return None
+
+    attr_base_name = attr_name[:-len(suffix)]
+    if attr_base_name in DOM_QUANTITY_REGISTRY:
+        return attr_base_name
+
+    for base_name, spec in DOM_QUANTITY_REGISTRY.items():
+        operational_base_name = spec.operational_attr[:-len(OPERATIONAL_SUFFIX)]
+        if attr_base_name == operational_base_name:
+            return base_name
+
+    return None
+
+
 def consistency_field_template_for_attr(attr_name):
     """Return the STATE_DB sensor field template for a consistency attribute."""
-    if not attr_name.endswith(CONSISTENCY_SUFFIX):
-        return None
-    base_name = attr_name[:-len(CONSISTENCY_SUFFIX)]
+    base_name = _quantity_base_name_for_attr(attr_name, CONSISTENCY_SUFFIX)
     return CONSISTENCY_FIELD_TEMPLATES_BY_BASE.get(base_name)
 
 
 def consistency_unit_for_attr(attr_name):
     """Return the output unit for a configured consistency attribute."""
-    if not attr_name.endswith(CONSISTENCY_SUFFIX):
-        return None
-    base_name = attr_name[:-len(CONSISTENCY_SUFFIX)]
+    base_name = _quantity_base_name_for_attr(attr_name, CONSISTENCY_SUFFIX)
     return CONSISTENCY_UNITS_BY_BASE.get(base_name)
 
 
 def consistency_mode_for_attr(attr_name):
     """Return the validation mode for a configured consistency attribute."""
-    if not attr_name.endswith(CONSISTENCY_SUFFIX):
-        return None
-    base_name = attr_name[:-len(CONSISTENCY_SUFFIX)]
+    base_name = _quantity_base_name_for_attr(attr_name, CONSISTENCY_SUFFIX)
     return CONSISTENCY_MODES_BY_BASE.get(base_name)
+
+
+def deviation_field_template_for_attr(attr_name):
+    """Return the STATE_DB sensor field template for a deviation-range attribute."""
+    base_name = _quantity_base_name_for_attr(attr_name, DEVIATION_SUFFIX)
+    return CONSISTENCY_FIELD_TEMPLATES_BY_BASE.get(base_name)
+
+
+def deviation_unit_for_attr(attr_name):
+    """Return the output unit for a configured deviation-range attribute."""
+    base_name = _quantity_base_name_for_attr(attr_name, DEVIATION_SUFFIX)
+    return DEVIATION_UNITS_BY_BASE.get(base_name)
 
 
 def dom_consistency_attributes():
