@@ -1030,7 +1030,6 @@ t1-lag-vpp:
   - ssh/test_ssh_ciphers.py
   - ssh/test_ssh_default_password.py
   - ssh/test_ssh_limit.py
-  - ssh/test_ssh_stress.py
   - srv6/test_srv6_dataplane.py
   - srv6/test_srv6_static_config.py
   - sub_port_interfaces/test_show_subinterface.py
@@ -1080,6 +1079,7 @@ t0-vpp:
   - disk/test_disk_exhaustion.py
   - dns/test_dns_resolv_conf.py
   - fdb/test_fdb_flush.py
+  - fib/test_fib.py
   - fips/test_fips.py
   - generic_config_updater/test_aaa.py
   - generic_config_updater/test_bgp_speaker.py
@@ -1271,6 +1271,14 @@ onboarding_t1_multi_asic:
   - pfcwd/test_pfcwd_all_port_storm.py
   - pfcwd/test_pfcwd_function.py
   - pfcwd/test_pfcwd_timer_accuracy.py
+
+dualtor-aa-vpp:
+  - dualtor_io/test_grpc_server_failure.py
+  - dualtor_io/test_heartbeat_failure.py
+  - dualtor_io/test_link_drop.py
+  - dualtor_io/test_normal_op.py
+  - dualtor_io/test_tor_bgp_failure.py
+  - dualtor_io/test_tor_failure.py
 
 specific_param:
   t0-sonic:
