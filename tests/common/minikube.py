@@ -1132,10 +1132,10 @@ mv -fT "$tmp" "$source"; systemctl daemon-reload
         script = r"""set -eu
 baseline="$1" token="$2"
 systemctl stop kubelet ctrmgrd
-rm -rf -- /etc/sonic/credentials
 if [ -f "$baseline/credentials.present" ]; then
+  find /etc/sonic/credentials -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +
   tar --acls --xattrs --numeric-owner -xpf "$baseline/credentials.tar" -C /etc/sonic
-fi
+else rm -rf -- /etc/sonic/credentials; fi
 for item in hosts:/etc/hosts kubelet:/etc/default/kubelet; do
   name=${item%%:*}; path=${item#*:}; tmp="${path%/*}/.$name.$token.tmp"
   if [ -f "$baseline/$name.present" ]; then
