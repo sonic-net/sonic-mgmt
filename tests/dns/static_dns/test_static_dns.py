@@ -47,6 +47,7 @@ REMOTE_DHCLIENT_RESTORE_SCRIPT = "/tmp/dhclient-dns-test-restore.sh"
 MGMT_PORT = "eth0"
 DHCLIENT_PID_FILE = "/run/dhclient-dns-test.pid"
 DHCLIENT_DONE_FILE = "/tmp/dhclient-dns-test.done"
+DHCLIENT_LOG_FILE = "/tmp/dhclient-dns-test.log"
 
 
 def start_dhclient(duthost):
@@ -63,24 +64,29 @@ def start_dhclient(duthost):
                  dest=REMOTE_DHCLIENT_RESTORE_SCRIPT,
                  mode="0755")
     cmd = (
-        f"rm -f {DHCLIENT_DONE_FILE}\n"
+        f"rm -f {DHCLIENT_DONE_FILE} {DHCLIENT_LOG_FILE}\n"
         f"nohup bash {REMOTE_DHCLIENT_RESTORE_SCRIPT} "
         f"{MGMT_PORT} {DHCLIENT_PID_FILE} {DHCLIENT_DONE_FILE} "
-        "> /dev/null 2>&1 &"
+        f"> {DHCLIENT_LOG_FILE} 2>&1 &"
     )
     duthost.shell(cmd)
     try:
         pytest_assert(wait_until(180, 5, 5, is_dhclient_restore_done, duthost),
-                      f"DHCP renew did not complete on {MGMT_PORT}")
+                      f"DHCP renew did not complete on {MGMT_PORT}\n{get_dhclient_restore_output(duthost)}")
     finally:
         duthost.shell(
-            f"sudo rm -f {DHCLIENT_DONE_FILE} {REMOTE_DHCLIENT_RESTORE_SCRIPT}",
+            f"sudo rm -f {DHCLIENT_DONE_FILE} {DHCLIENT_LOG_FILE} {REMOTE_DHCLIENT_RESTORE_SCRIPT}",
             module_ignore_errors=True)
 
 
 def is_dhclient_restore_done(duthost):
     return duthost.shell(f"test -f {DHCLIENT_DONE_FILE}",
                          module_ignore_errors=True, verbose=False).get("rc") == 0
+
+
+def get_dhclient_restore_output(duthost):
+    return duthost.shell(f"test -f {DHCLIENT_LOG_FILE} && sudo cat {DHCLIENT_LOG_FILE} || true",
+                         module_ignore_errors=True, verbose=False).get("stdout", "")
 
 
 @pytest.mark.disable_loganalyzer
