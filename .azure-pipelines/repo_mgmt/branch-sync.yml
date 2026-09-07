@@ -4,6 +4,9 @@ name: SyncAndMerge$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$
 trigger: none
 pr: none
 
+variables:
+  - group: sonicbld
+
 schedules:
   - cron: "30 2 * * *"
     displayName: Sync and Merge
@@ -104,10 +107,50 @@ stages:
             displayName: Prepare git
 
           - script: |
-              set -ex
+              set -e
 
               echo "=== Sync source branch to target branch ==="
-              git merge --no-edit source/$(SOURCE_BRANCH)
+              merge_rc=0
+              git merge --no-edit source/$(SOURCE_BRANCH) || merge_rc=$?
+
+              unmerged_paths=$(git diff --name-only --diff-filter=U)
+              if [[ $merge_rc -ne 0 && -n "$unmerged_paths" ]]; then
+                echo "##vso[task.logissue type=warning]Code sync conflict: source/$(SOURCE_BRANCH) -> origin/$(TARGET_BRANCH)"
+                echo "======Unmerged paths for $(TARGET_BRANCH)======"
+                echo "$unmerged_paths"
+
+                head_commit=$(git rev-parse source/$(SOURCE_BRANCH))
+                client="$(System.CollectionUri)$(System.TeamProject)/_build/results?buildId=$(Build.BuildId)"
+                payload=$(python3 -c 'import json, sys; print(json.dumps({"name": "code_conflict", "repo": sys.argv[1], "branch": sys.argv[2], "commit": sys.argv[3], "client": sys.argv[4]}))' \
+                  "sonic-mgmt-int" \
+                  "$(TARGET_BRANCH)" \
+                  "$head_commit" \
+                  "$client")
+
+                set +x
+                cert_pfx="$(mktemp -t cert.XXXXXX.pfx)"
+                trap 'rm -f "$cert_pfx"' EXIT
+                printf '%s' "$CERT" | base64 -d > "$cert_pfx"
+                cert=$(openssl pkcs12 -in "$cert_pfx" -nokeys -nodes -passin pass: | openssl x509 -noout -fingerprint -sha1 | sed 's/^.*=//' | tr -d ':' | tr 'A-Z' 'a-z')
+                notification_rc=0
+                response=$(curl --fail-with-body --silent --show-error \
+                  -H 'Content-Type: application/json' \
+                  -H "thumbprint: $cert" \
+                  -X POST https://notice-center.azurewebsites.net/noti_center/notice \
+                  -d "$payload") || notification_rc=$?
+                if [[ $notification_rc -eq 0 ]]; then
+                  RESPONSE="$response" python3 -c 'import json, os, sys; sys.exit(0 if json.loads(os.environ["RESPONSE"]).get("success") is True else 1)' || notification_rc=$?
+                fi
+                set -x
+
+                if [[ $notification_rc -ne 0 ]]; then
+                  echo "##vso[task.logissue type=warning]Failed to send the code sync conflict notification"
+                fi
+              fi
+
+              exit $merge_rc
+            env:
+              CERT: $(cert-noti)
             displayName: "Merge branch"
 
           - script: |
