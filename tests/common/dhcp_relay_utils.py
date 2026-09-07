@@ -628,7 +628,8 @@ def sonic_dhcpv4_flag_config_and_unconfig(duthost, dhcpv4_config_flag, relay_typ
 
 def get_isc_relay_type(duthost):
     """Return the external, active internal, or idle internal ISC layout."""
-    features_state, _ = duthost.get_feature_status()
+    features_state, succeeded = duthost.get_feature_status()
+    pytest_assert(succeeded, "Failed to determine dhcp_server feature state")
     if 'enabled' not in features_state.get('dhcp_server', ''):
         return 'isc'
 
