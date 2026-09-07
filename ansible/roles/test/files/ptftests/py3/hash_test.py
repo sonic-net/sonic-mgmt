@@ -19,6 +19,11 @@ import ptf.packet as scapy
 from utilities import retry_call
 from ptf.base_tests import BaseTest
 from ptf.mask import Mask
+# macsec must be imported BEFORE any `from ptf.testutils import ...` that pulls
+# in send_packet/dp_poll: it monkeypatches those functions in ptf.testutils to
+# MACsec-encrypt injected frames / decrypt sniffed frames on macsec-enabled
+# ports. A from-import binds the original object if it runs first.
+import macsec  # noqa F401
 from ptf.testutils import test_params_get
 from ptf.testutils import simple_tcp_packet
 from ptf.testutils import simple_tcpv6_packet
@@ -31,7 +36,6 @@ from ptf.testutils import simple_vxlanv6_packet
 from ptf.testutils import simple_nvgre_packet
 import fib
 import lpm
-import macsec  # noqa F401
 
 
 class HashTest(BaseTest):
@@ -772,14 +776,17 @@ class IPinIPHashTest(HashTest):
         return (matched_port, received)
 
     def check_hash(self, hash_key):
-        # Use dummy IPv4 address for outer_src_ip and outer_dst_ip
-        # We don't care the actually value as long as the outer_dst_ip is routed by default routed
-        # The outer_src_ip and outer_dst_ip are fixed
-        outer_src_ip = '80.1.0.31'
-        outer_dst_ip = '80.1.0.32'
-        if self.is_v6_topo:
-            outer_src_ip = '80::31'
-            outer_dst_ip = '80::32'
+        # Use routable outer IPs from test params if provided (e.g. for T2 topologies).
+        # Fall back to dummy IPs that assume a default route is present.
+        outer_src_ip = self.test_params.get('outer_src_ip', None)
+        outer_dst_ip = self.test_params.get('outer_dst_ip', None)
+        if outer_src_ip is None or outer_dst_ip is None:
+            if self.is_v6_topo:
+                outer_src_ip = '80::31'
+                outer_dst_ip = '80::32'
+            else:
+                outer_src_ip = '80.1.0.31'
+                outer_dst_ip = '80.1.0.32'
         src_port, exp_port_lists, next_hops = self.get_src_and_exp_ports(
             outer_dst_ip)
         if self.switch_type == "chassis-packet":
@@ -984,15 +991,17 @@ class VxlanHashTest(HashTest):
         return (matched_port, received)
 
     def check_hash(self, hash_key):
-        # Use dummy IPv4/v6 address for outer_src_ip and outer_dst_ip
-        # We don't care the actually value as long as the outer_dst_ip is routed by default routed
-        # The outer_src_ip and outer_dst_ip are fixed
-        if self.ipver == 'ipv4-ipv4' or self.ipver == 'ipv4-ipv6':
-            outer_src_ip = '80.1.0.31'
-            outer_dst_ip = '80.1.0.32'
-        else:
-            outer_src_ip = '80::31'
-            outer_dst_ip = '80::32'
+        # Use routable outer IPs from test params if provided (e.g. for T2 topologies without a
+        # default route).  Fall back to dummy IPs that assume a default route is present.
+        outer_src_ip = self.test_params.get('outer_src_ip', None)
+        outer_dst_ip = self.test_params.get('outer_dst_ip', None)
+        if outer_src_ip is None or outer_dst_ip is None:
+            if self.ipver == 'ipv4-ipv4' or self.ipver == 'ipv4-ipv6':
+                outer_src_ip = '80.1.0.31'
+                outer_dst_ip = '80.1.0.32'
+            else:
+                outer_src_ip = '80::31'
+                outer_dst_ip = '80::32'
         src_port, exp_port_lists, next_hops = self.get_src_and_exp_ports(
             outer_dst_ip)
         if self.switch_type == "chassis-packet":

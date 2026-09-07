@@ -9,6 +9,11 @@ import ptf.packet as scapy
 
 from ptf.base_tests import BaseTest
 from ptf.mask import Mask
+# macsec must be imported BEFORE any `from ptf.testutils import ...` that pulls
+# in send_packet/dp_poll: it monkeypatches those functions in ptf.testutils to
+# MACsec-encrypt injected frames / decrypt sniffed frames on macsec-enabled
+# ports. A from-import binds the original object if it runs first.
+import macsec  # noqa F401
 from ptf.testutils import (
     test_params_get,
     simple_tcp_packet,
@@ -17,7 +22,6 @@ from ptf.testutils import (
     verify_no_packet_any,
     verify_packet_any_port
 )
-import macsec  # noqa F401
 
 
 class PfcWdTest(BaseTest):
