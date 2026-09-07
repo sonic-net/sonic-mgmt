@@ -767,7 +767,7 @@ def test_console_feature_toggle(
     """
     SETTLE_TIME = 3  # Time for services to start/stop
 
-    device_prefix = duthost._get_serial_device_prefix()
+    device_prefix = duthost.get_serial_device_prefix()
 
     # Pre-build service and device path lists
     all_services = []
@@ -1112,7 +1112,7 @@ def test_cpu_usage(
     # Step 6: Assert total CPU usage is below threshold
     pytest_assert(
         total_cpu_percent < CPU_THRESHOLD_PERCENT,
-        f"Total CPU usage {total_cpu_percent:.3f}% >= {CPU_THRESHOLD_PERCENT}% threshold "
+        f"Total CPU usage {format(total_cpu_percent, '.3f')}% >= {CPU_THRESHOLD_PERCENT}% threshold "
         f"for services: {list(service_pids.keys())}"
     )
 
