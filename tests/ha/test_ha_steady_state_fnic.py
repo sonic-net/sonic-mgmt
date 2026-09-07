@@ -12,7 +12,7 @@ from gnmi_utils import apply_messages
 from packets import inbound_pl_packets, outbound_pl_packets
 from tests.common.config_reload import config_reload
 from tests.common.dash_utils import verify_tunnel_packets
-from ha_dash_flow_utils import compare_flow_tables_pdsctl
+from ha_dash_flow_utils import compare_flow_tables
 
 logger = logging.getLogger(__name__)
 
@@ -147,7 +147,7 @@ def test_fnic_basic_transform(
 
     pytest_assert(sum(tunnel_endpoint_counts.values()) == NUM_PACKETS, "Expected active return-path packets")
 
-    flow_op = compare_flow_tables_pdsctl(dpuhosts[0], dpuhosts[1])
+    flow_op = compare_flow_tables(dpuhosts[0], dpuhosts[1])
     pytest_assert(flow_op, "Expected identical flow tables on primary and standby")
 
     # traffic to standby DPU (forwarded through active for processing)
@@ -167,5 +167,5 @@ def test_fnic_basic_transform(
 
     pytest_assert(sum(tunnel_endpoint_counts.values()) == NUM_PACKETS, "Expected standby return-path packets")
 
-    flow_op = compare_flow_tables_pdsctl(dpuhosts[0], dpuhosts[1])
+    flow_op = compare_flow_tables(dpuhosts[0], dpuhosts[1])
     pytest_assert(flow_op, "Expected identical flow tables on primary and standby")
