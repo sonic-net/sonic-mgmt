@@ -19,6 +19,25 @@ _PARSER_PARAMETERS = {
 _SHOW_CAPABILITIES = "show dropcounters capabilities"
 _CREATE_COUNTER = "config dropcounters install {} {} {}"
 _DELETE_COUNTER = "config dropcounters delete {}"
+_ENABLE_GLOBAL_MONITOR = "config dropcounters enable-monitor"
+_DISABLE_GLOBAL_MONITOR = "config dropcounters disable-monitor"
+_ENABLE_COUNTER_MONITOR = (
+    "config dropcounters enable-monitor -c {} -w {} "
+    "-dct {} -ict {}"
+)
+_DISABLE_COUNTER_MONITOR = "config dropcounters disable-monitor -c {}"
+_SHOW_CONFIGURATION = "show dropcounters configuration"
+_SHOW_PERSISTENT_DROPS = "show dropcounters persistent-drops {}"
+
+_CONFIG_DB_GLOBAL_MONITOR_STATUS = (
+    "sonic-db-cli CONFIG_DB HGET 'DEBUG_DROP_MONITOR|CONFIG' status"
+)
+_CONFIG_DB_COUNTER_FIELD = (
+    "sonic-db-cli CONFIG_DB HGET 'DEBUG_COUNTER|{}' {}"
+)
+_COUNTERS_DB_INCIDENT_COUNT = (
+    "sonic-db-cli COUNTERS_DB LLEN 'DEBUG_DROP_MONITOR_STATS|{}|{}|incidents'"
+)
 
 
 def get_device_capabilities(dut):
@@ -135,6 +154,59 @@ def get_drop_counts(dut, counter_type, counter_name, interface):
     counts = _parse_drop_counts(counter_type, output)
 
     return int(counts[bind_point.upper()].get(counter_name))
+
+
+def enable_global_monitor(dut):
+    return dut.command(_ENABLE_GLOBAL_MONITOR)
+
+
+def disable_global_monitor(dut):
+    return dut.command(_DISABLE_GLOBAL_MONITOR)
+
+def enable_counter_monitor(
+    dut,
+    counter_name,
+    window,
+    drop_count_threshold,
+    incident_count_threshold,
+):
+    return dut.command(
+        _ENABLE_COUNTER_MONITOR.format(
+            counter_name,
+            window,
+            drop_count_threshold,
+            incident_count_threshold,
+        )
+    )
+
+def disable_counter_monitor(dut, counter_name):
+    return dut.command(_DISABLE_COUNTER_MONITOR.format(counter_name))
+
+
+def show_dropcounter_configuration(dut):
+    return dut.command(_SHOW_CONFIGURATION)
+
+
+def show_persistent_drops(dut, counter_name):
+    return dut.command(_SHOW_PERSISTENT_DROPS.format(counter_name), module_ignore_errors=True)
+
+
+def get_global_monitor_status(dut):
+    return dut.command(_CONFIG_DB_GLOBAL_MONITOR_STATUS)["stdout"].strip()
+
+
+def get_counter_config_field(dut, counter_name, field):
+    return dut.command(_CONFIG_DB_COUNTER_FIELD.format(counter_name, field))["stdout"].strip()
+
+
+def get_incident_count(dut, counter_name, port):
+    """
+    Get the number of currently tracked (i.e. not yet outside the configured window)
+    incidents for a given counter/port pair.
+    """
+    output = dut.command(_COUNTERS_DB_INCIDENT_COUNT.format(counter_name, port),
+                         module_ignore_errors=True)
+    return int(output["stdout"].strip() or 0)
 
 
 def _parse_drop_counts(counter_type, counts_output):
