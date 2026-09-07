@@ -22,6 +22,7 @@ resources:
 variables:
   - group: SONIC_IMAGE_URLS
   - group: SAITHRIFT_URLS
+  - group: sonicbld
 
 parameters:
   - name: TESTBED_NAME
@@ -146,3 +147,42 @@ stages:
         parameters:
           MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
           FORCE_PUSH: NO
+
+  - job: NotifyFailure
+    displayName: "Notify pipeline failure"
+    dependsOn:
+      - ValidateTestCases
+      - SmokeTest
+      - PushSonicMgmt
+    condition: failed()
+    pool: sonic-ubuntu-1c
+    steps:
+      - checkout: none
+      - script: |
+          set -e
+          pipeline="8102.t1 Smoke Test Part 2"
+          url="$(System.CollectionUri)$(System.TeamProject)/_build/results?buildId=$(Build.BuildId)"
+          payload=$(python3 -c 'import json, sys; print(json.dumps({"name": "smoke_test_pipeline_failure", "pipeline": sys.argv[1], "url": sys.argv[2]}))' "$pipeline" "$url")
+
+          set +x
+          printf '%s' "$CERT" | base64 -d > cert.pfx
+          cert=$(openssl pkcs12 -in cert.pfx -nokeys -nodes -passin pass: | openssl x509 -noout -fingerprint -sha1 | sed 's/^.*=//' | tr -d ':' | tr 'A-Z' 'a-z')
+          rm -f cert.pfx
+          notification_rc=0
+          response=$(curl --fail-with-body --silent --show-error \
+            -H 'Content-Type: application/json' \
+            -H "thumbprint: $cert" \
+            -X POST https://notice-center.azurewebsites.net/noti_center/notice \
+            -d "$payload") || notification_rc=$?
+          if [[ $notification_rc -eq 0 ]]; then
+            RESPONSE="$response" python3 -c 'import json, os, sys; sys.exit(0 if json.loads(os.environ["RESPONSE"]).get("success") is True else 1)' || notification_rc=$?
+          fi
+          set -x
+
+          if [[ $notification_rc -ne 0 ]]; then
+            echo "##vso[task.logissue type=warning]Failed to send the smoke test pipeline failure notification"
+          fi
+          exit 0
+        env:
+          CERT: $(cert-noti)
+        displayName: "Send failure notification"
