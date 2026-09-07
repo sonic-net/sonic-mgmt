@@ -43,11 +43,11 @@ def delete_gnmi_config(duthost):
     duthost.shell(cmd, module_ignore_errors=True)
 
 
-def setup_telemetry_forpyclient(duthost):
+def setup_gnmi_forpyclient(duthost):
     """ Set client_auth=false. This is needed for pyclient to successfully set up channel with gnmi server.
-        Restart telemetry process
+        Restart the gnmi container.
     """
-    env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
+    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     client_auth_out = duthost.shell('sonic-db-cli CONFIG_DB HGET "%s|gnmi" "client_auth"' % (env.gnmi_config_table),
                                     module_ignore_errors=False)['stdout_lines']
     client_auth = str(client_auth_out[0])
@@ -57,18 +57,18 @@ def setup_telemetry_forpyclient(duthost):
                       module_ignore_errors=False)
         duthost.shell("systemctl reset-failed %s" % (env.gnmi_container))
         duthost.service(name=env.gnmi_container, state="restarted")
-        # Wait until telemetry was restarted
+        # Wait until the gnmi container was restarted
         py_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, env.gnmi_container),
                   "%s not started." % (env.gnmi_container))
-        logger.info("telemetry process restarted")
+        logger.info("gnmi container restarted")
     else:
-        logger.info('client auth is false. No need to restart telemetry')
+        logger.info('client auth is false. No need to restart gnmi')
 
     return client_auth
 
 
-def restore_telemetry_forpyclient(duthost, default_client_auth):
-    env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
+def restore_gnmi_forpyclient(duthost, default_client_auth):
+    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     client_auth_out = duthost.shell('sonic-db-cli CONFIG_DB HGET "%s|gnmi" "client_auth"' % (env.gnmi_config_table),
                                     module_ignore_errors=False)['stdout_lines']
     client_auth = str(client_auth_out[0])
@@ -81,16 +81,16 @@ def restore_telemetry_forpyclient(duthost, default_client_auth):
 
 
 @contextmanager
-def setup_streaming_telemetry_context(is_ipv6, duthost, localhost, ptfhost, gnxi_path):
+def setup_gnmi_streaming_context(is_ipv6, duthost, localhost, ptfhost, gnxi_path):
     """
-    @summary: Post setting up the streaming telemetry before running the test.
+    @summary: Post setting up the gnmi streaming subscription before running the test.
     """
     try:
         has_gnmi_config = check_gnmi_config(duthost)
         if not has_gnmi_config:
             create_gnmi_config(duthost)
-        env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
-        default_client_auth = setup_telemetry_forpyclient(duthost)
+        env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+        default_client_auth = setup_gnmi_forpyclient(duthost)
 
         # Wait until the TCP port was opened
         dut_ip = duthost.mgmt_ip
@@ -107,11 +107,11 @@ def setup_streaming_telemetry_context(is_ipv6, duthost, localhost, ptfhost, gnxi
             file_exists = ptfhost.stat(path=gnxi_path + "gnmi_cli_py/py_gnmicli.py")
             py_assert(file_exists["stat"]["exists"] is True)
     except RunAnsibleModuleFail as e:
-        logger.info("Error happens in the setup period of setup_streaming_telemetry, recover the telemetry.")
-        restore_telemetry_forpyclient(duthost, default_client_auth)
+        logger.info("Error happens in the setup period of setup_gnmi_streaming_context, recover the gnmi config.")
+        restore_gnmi_forpyclient(duthost, default_client_auth)
         raise e
 
     yield
-    restore_telemetry_forpyclient(duthost, default_client_auth)
+    restore_gnmi_forpyclient(duthost, default_client_auth)
     if not has_gnmi_config:
         delete_gnmi_config(duthost)
