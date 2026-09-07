@@ -42,6 +42,7 @@ DOM_POLLING_CONFIG_VALUES = [DOM_DISABLED, DOM_ENABLED]
 
 WAIT_TIME_AFTER_LPMODE_SET = 3  # in seconds
 PARTIAL_INTERFACES_MAX_COUNT = 64
+SFP_PRESENCE_MAX_ATTEMPTS = 3
 
 logger = logging.getLogger(__name__)
 
@@ -521,25 +522,30 @@ def test_check_sfputil_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname
                 time.sleep(WAIT_TIME_AFTER_LPMODE_SET)
 
             logging.info("Check sfp presence again after reset")
-            sfp_presence = duthost.command(cmd_sfp_presence_per_intf, module_ignore_errors=True)
+            for _ in range(SFP_PRESENCE_MAX_ATTEMPTS):
+                sfp_presence = duthost.command(cmd_sfp_presence_per_intf, module_ignore_errors=True)
 
-            # For vs testbed, we will get expected Error code `ERROR_CHASSIS_LOAD = 2` here.
-            if duthost.facts["asic_type"] == "vs" and sfp_presence['rc'] == 2:
-                pass
-            else:
-                assert sfp_presence['rc'] == 0, (
-                    "Run command '{}' failed with return code {}."
-                ).format(cmd_sfp_presence_per_intf, sfp_presence.get('rc', 'N/A'))
+                # For vs testbed, we will get expected Error code `ERROR_CHASSIS_LOAD = 2` here.
+                if duthost.facts["asic_type"] == "vs" and sfp_presence['rc'] == 2:
+                    pass
+                else:
+                    assert sfp_presence['rc'] == 0, (
+                        "Run command '{}' failed with return code {}."
+                    ).format(cmd_sfp_presence_per_intf, sfp_presence.get('rc', 'N/A'))
 
-            parsed_presence = parse_output(sfp_presence["stdout_lines"][2:])
-            assert logical_intf in parsed_presence, (
-                "Interface '{}' is not in output of '{}'. "
-                "- Parsed Presence Output: {}\n"
-            ).format(
-                logical_intf,
-                cmd_sfp_presence_per_intf,
-                parsed_presence
-            )
+                parsed_presence = parse_output(sfp_presence["stdout_lines"][2:])
+                assert logical_intf in parsed_presence, (
+                    "Interface '{}' is not in output of '{}'. "
+                    "- Parsed Presence Output: {}\n"
+                ).format(
+                    logical_intf,
+                    cmd_sfp_presence_per_intf,
+                    parsed_presence
+                )
+
+                if parsed_presence[logical_intf] == "Present":
+                    break
+                time.sleep(1)
 
             assert parsed_presence[logical_intf] == "Present", (
                 "Interface presence is not 'Present' for '{}'. Got: '{}'."
