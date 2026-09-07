@@ -37,6 +37,8 @@ from tests.common.cache import FactsCache
 from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, UPSTREAM_ALL_NEIGHBOR_MAP
 from tests.common.helpers.constants import DOWNSTREAM_NEIGHBOR_MAP, DOWNSTREAM_ALL_NEIGHBOR_MAP
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.latency_metrics import format_caller
+from tests.common.latency_metrics import log_latency_metric
 from tests.common.portstat_utilities import parse_column_positions
 from netaddr import valid_ipv6
 
@@ -54,6 +56,12 @@ DEFAULT_VRF_NAME = "default"
 MGMT_VRF_NAME = "mgmt"
 
 NON_USER_CONFIG_TABLES = ["FLEX_COUNTER_TABLE", "ASIC_SENSORS", "LOGGER"]
+
+
+def _caller_location():
+    caller_frame = inspect.currentframe().f_back.f_back
+    filename, line_number, function_name, _, _ = inspect.getframeinfo(caller_frame)
+    return format_caller(filename, function_name, line_number)
 
 
 def check_skip_release(duthost, release_list):
@@ -121,7 +129,23 @@ def wait(seconds, msg=""):
     @param msg: Optional extra message for pause reason
     """
     logger.info("Pause %d seconds, reason: %s" % (seconds, msg))
-    time.sleep(seconds)
+    caller = _caller_location()
+    start_time = time.monotonic()
+    completed = False
+    try:
+        time.sleep(seconds)
+        completed = True
+    finally:
+        log_latency_metric(
+            logger,
+            "framework_wait",
+            (time.monotonic() - start_time) * 1000,
+            success=completed,
+            requested_seconds=seconds,
+            reason=str(msg),
+            caller=caller,
+            test=os.environ.get("PYTEST_CURRENT_TEST")
+        )
 
 
 def wait_until(timeout, interval, delay, condition, *args, **kwargs):
@@ -139,6 +163,28 @@ def wait_until(timeout, interval, delay, condition, *args, **kwargs):
     logger.debug("Wait until %s is True, timeout is %s seconds, checking interval is %s, delay is %s seconds" %
                  (condition.__name__, timeout, interval, delay))
 
+    metric_start_time = time.monotonic()
+    caller = _caller_location()
+    condition_name = "{}.{}".format(condition.__module__, condition.__qualname__)
+    attempts = 0
+    exceptions = 0
+
+    def log_result(success):
+        log_latency_metric(
+            logger,
+            "framework_wait_until",
+            (time.monotonic() - metric_start_time) * 1000,
+            success=success,
+            condition=condition_name,
+            caller=caller,
+            test=os.environ.get("PYTEST_CURRENT_TEST"),
+            timeout_seconds=timeout,
+            interval_seconds=interval,
+            delay_seconds=delay,
+            attempts=attempts,
+            exceptions=exceptions
+        )
+
     if delay > 0:
         logger.debug("Delay for %s seconds first" % delay)
         time.sleep(delay)
@@ -147,10 +193,12 @@ def wait_until(timeout, interval, delay, condition, *args, **kwargs):
     elapsed_time = 0
     while elapsed_time < timeout:
         logger.debug("Time elapsed: %f seconds" % elapsed_time)
+        attempts += 1
 
         try:
             check_result = condition(*args, **kwargs)
         except (Exception, pytest.fail.Exception) as e:
+            exceptions += 1
             exc_info = sys.exc_info()
             details = traceback.format_exception(*exc_info)
             logger.error(
@@ -162,6 +210,7 @@ def wait_until(timeout, interval, delay, condition, *args, **kwargs):
 
         if check_result:
             logger.debug("%s is True, exit early with True" % condition.__name__)
+            log_result(True)
             return True
         else:
             logger.debug("%s is False, wait %d seconds and check again" % (condition.__name__, interval))
@@ -170,6 +219,7 @@ def wait_until(timeout, interval, delay, condition, *args, **kwargs):
 
     if elapsed_time >= timeout:
         logger.debug("%s is still False after %d seconds, exit with False" % (condition.__name__, timeout))
+        log_result(False)
         return False
 
 
@@ -220,6 +270,28 @@ async def async_wait_until(timeout, interval, delay, condition, *args, **kwargs)
     logger.debug("Wait until %s is True, timeout is %s seconds, checking interval is %s, delay is %s seconds" %
                  (condition.__name__, timeout, interval, delay))
 
+    metric_start_time = time.monotonic()
+    caller = _caller_location()
+    condition_name = "{}.{}".format(condition.__module__, condition.__qualname__)
+    attempts = 0
+    exceptions = 0
+
+    def log_result(success):
+        log_latency_metric(
+            logger,
+            "framework_async_wait_until",
+            (time.monotonic() - metric_start_time) * 1000,
+            success=success,
+            condition=condition_name,
+            caller=caller,
+            test=os.environ.get("PYTEST_CURRENT_TEST"),
+            timeout_seconds=timeout,
+            interval_seconds=interval,
+            delay_seconds=delay,
+            attempts=attempts,
+            exceptions=exceptions
+        )
+
     if delay > 0:
         logger.debug("Delay for %s seconds first" % delay)
         await asyncio.sleep(delay)
@@ -228,10 +300,12 @@ async def async_wait_until(timeout, interval, delay, condition, *args, **kwargs)
     elapsed_time = 0
     while elapsed_time < timeout:
         logger.debug("Time elapsed: %f seconds" % elapsed_time)
+        attempts += 1
 
         try:
             check_result = condition(*args, **kwargs)
         except Exception as e:
+            exceptions += 1
             exc_info = sys.exc_info()
             details = traceback.format_exception(*exc_info)
             logger.error(
@@ -243,6 +317,7 @@ async def async_wait_until(timeout, interval, delay, condition, *args, **kwargs)
 
         if check_result:
             logger.debug("%s is True, exit early with True" % condition.__name__)
+            log_result(True)
             return True
         else:
             logger.debug("%s is False, wait %d seconds and check again" % (condition.__name__, interval))
@@ -251,6 +326,7 @@ async def async_wait_until(timeout, interval, delay, condition, *args, **kwargs)
 
     if elapsed_time >= timeout:
         logger.debug("%s is still False after %d seconds, exit with False" % (condition.__name__, timeout))
+        log_result(False)
         return False
 
 

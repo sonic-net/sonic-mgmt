@@ -139,6 +139,20 @@ The "stdout" section mainly contains ansible debug messages for establishing con
 
 The code for removing these sections is added to hook function tests/conftest.py::pytest_runtest_makereport
 
+## Structured latency metrics
+
+The framework logs slow and failed operations as single-line `METRIC` JSON records. These records identify latency
+outside simulator processes without including command arguments or credentials:
+
+* `ansible_module`: Ansible module duration, target host, caller, return code, and synchronous/asynchronous mode.
+* `framework_wait`, `framework_wait_until`, and `framework_async_wait_until`: explicit waits, convergence conditions,
+  attempts, and timeouts.
+* `pytest_fixture`: individual fixture setup duration.
+* `pytest_phase`: total setup, call, and teardown duration for each test.
+
+Successful operations are logged when they take at least 5000 milliseconds. Failed operations are always logged.
+Use `--latency-metric-threshold-ms <milliseconds>` to change the threshold, or set it to `0` to log every operation.
+
 # Logging tips
 
 ## Use logger instead of `print` in scripts
