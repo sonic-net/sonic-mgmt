@@ -10,7 +10,7 @@ from tests.common.devices.base import RunAnsibleModuleFail
 from tests.common.utilities import wait_until
 from tests.common.utilities import skip_release
 from tests.common.utilities import wait
-from tests.common.utilities import pdu_reboot
+from tests.common.utilities import power_cycle
 from tests.common.reboot import reboot
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.tacacs.tacacs_helper import ssh_remote_run, check_tacacs  # noqa: F401
@@ -60,9 +60,9 @@ def chk_ssh_remote_run(localhost, remote_ip, username, password, cmd):
     return rc == 0
 
 
-def do_pdu_reboot(duthost, localhost, duthosts, pdu_controller):
-    if not pdu_reboot(pdu_controller):
-        logger.error("Failed to do PDU reboot for {}".format(duthost.hostname))
+def do_power_cycle_recovery(duthost, localhost, duthosts, power_controller):
+    if not power_cycle(power_controller):
+        logger.error("Failed to power cycle {}".format(duthost.hostname))
         return
     return post_reboot_healthcheck(duthost, localhost, duthosts, 20)
 
@@ -175,7 +175,7 @@ def log_rotate(duthost):
 
 
 def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
-                 tacacs_creds, check_tacacs, pdu_controller):  # noqa: F811
+                 tacacs_creds, check_tacacs, power_controller):  # noqa: F811
     """test tacacs rw user
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -297,11 +297,11 @@ def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
             if not do_reboot(duthost, localhost, duthosts):
                 logger.warning("Failed to reboot {}, try PDU reboot to restore disk RW state".
                                format(enum_rand_one_per_hwsku_hostname))
-                do_pdu_reboot(duthost, localhost, duthosts, pdu_controller)
+                do_power_cycle_recovery(duthost, localhost, duthosts, power_controller)
         except Exception as e:
             logger.warning("Failed to reboot {}, got exception {}, try PDU reboot to restore disk RW state".
                            format(enum_rand_one_per_hwsku_hostname, e))
-            do_pdu_reboot(duthost, localhost, duthosts, pdu_controller)
+            do_power_cycle_recovery(duthost, localhost, duthosts, power_controller)
         logger.debug("  END: reboot {} to restore disk RW state".
                      format(enum_rand_one_per_hwsku_hostname))
 

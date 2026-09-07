@@ -103,51 +103,51 @@ def test_fwutil_update_bad_config(duthost, component):
 
 
 @pytest.mark.disable_memory_utilization
-def test_fwutil_install_file(request, duthost, localhost, pdu_controller, component, fw_pkg,
+def test_fwutil_install_file(request, duthost, localhost, power_controller, component, fw_pkg,
                              ignore_fwutil_expected_dpu_reset_errors):
     """Tests manually installing firmware to a component from a file."""
     call_fwutil(request,
                 duthost,
                 localhost,
-                pdu_controller,
+                power_controller,
                 fw_pkg,
                 component=component,
                 basepath=os.path.join(DEVICES_PATH, duthost.facts['platform']))
 
 
 @pytest.mark.disable_memory_utilization
-def test_fwutil_install_url(request, duthost, localhost, pdu_controller, component, fw_pkg, host_firmware,
+def test_fwutil_install_url(request, duthost, localhost, power_controller, component, fw_pkg, host_firmware,
                             ignore_fwutil_expected_dpu_reset_errors):
     """Tests manually installing firmware to a component from a URL."""
     call_fwutil(request,
                 duthost,
                 localhost,
-                pdu_controller,
+                power_controller,
                 fw_pkg,
                 component=component,
                 basepath=host_firmware)
 
 
 @pytest.mark.disable_memory_utilization
-def test_fwutil_update_current(request, duthost, localhost, pdu_controller, component, fw_pkg,
+def test_fwutil_update_current(request, duthost, localhost, power_controller, component, fw_pkg,
                                ignore_fwutil_expected_dpu_reset_errors):
     """Tests updating firmware from current image using fwutil update"""
     call_fwutil(request,
                 duthost,
                 localhost,
-                pdu_controller,
+                power_controller,
                 fw_pkg,
                 component=component)
 
 
 @pytest.mark.disable_memory_utilization
-def test_fwutil_update_next(request, duthost, localhost, pdu_controller, component, next_image, fw_pkg,
+def test_fwutil_update_next(request, duthost, localhost, power_controller, component, next_image, fw_pkg,
                             ignore_fwutil_expected_dpu_reset_errors):
     """Tests updating firmware from the "next" image using fwutil update"""
     call_fwutil(request,
                 duthost,
                 localhost,
-                pdu_controller,
+                power_controller,
                 fw_pkg,
                 component=component,
                 next_image=next_image)
@@ -157,11 +157,11 @@ def test_fwutil_update_next(request, duthost, localhost, pdu_controller, compone
     "none",
     pytest.param("cold", marks=pytest.mark.disable_memory_utilization)
 ])
-def test_fwutil_auto(request, duthost, localhost, pdu_controller, fw_pkg, reboot_type):
+def test_fwutil_auto(request, duthost, localhost, power_controller, fw_pkg, reboot_type):
     """Tests fwutil update all command ability to properly select firmware for install based on boot type."""
     call_fwutil(request,
                 duthost,
                 localhost,
-                pdu_controller,
+                power_controller,
                 fw_pkg,
                 boot=reboot_type)

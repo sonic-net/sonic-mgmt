@@ -46,23 +46,21 @@ def get_hw_revision(duthost):
     return rev_line.split(": ")[1]
 
 
-def power_cycle(duthost=None, pdu_ctrl=None, delay_time=60):
-    assert pdu_ctrl, "pdu_ctrl is not ready, fail test"
+def power_cycle(power_controller, delay_time=60):
+    assert power_controller, "power_controller is not ready, fail test"
 
-    all_outlets = pdu_ctrl.get_outlet_status()
-
-    logger.info("Powering off the PDU outlets.")
-    for outlet in all_outlets:
-        pdu_ctrl.turn_off_outlet(outlet)
+    logger.info("Powering off the DUT.")
+    if not power_controller.power_off():
+        pytest.fail("Power off failed for {}".format(power_controller.dut_hostname))
     time.sleep(delay_time)
-    logger.info("Powering on the PDU outlets.")
-    for outlet in all_outlets:
-        pdu_ctrl.turn_on_outlet(outlet)
+    logger.info("Powering on the DUT.")
+    if not power_controller.power_on():
+        pytest.fail("Power on failed for {}".format(power_controller.dut_hostname))
 
 
-def reboot(duthost, pdu_ctrl, reboot_type, pdu_delay=60):
+def reboot(duthost, power_controller, reboot_type, pdu_delay=60):
     if reboot_type == POWER_CYCLE:
-        power_cycle(duthost, pdu_ctrl, pdu_delay)
+        power_cycle(power_controller, pdu_delay)
         return
 
     if reboot_type not in REBOOT_TYPES:
@@ -72,7 +70,7 @@ def reboot(duthost, pdu_ctrl, reboot_type, pdu_delay=60):
     duthost.command(REBOOT_TYPES[reboot_type], module_ignore_errors=True, module_async=True)
 
 
-def complete_install(duthost, localhost, boot_type, res, pdu_ctrl, component, auto_reboot=False, current=None,
+def complete_install(duthost, localhost, boot_type, res, power_controller, component, auto_reboot=False, current=None,
                      next_image=None, timeout=TIMEOUT, pdu_delay=60):
     hn = duthost.mgmt_ip
 
@@ -84,7 +82,7 @@ def complete_install(duthost, localhost, boot_type, res, pdu_ctrl, component, au
                 pytest.fail(f"The component installation is not successful: {res._value}")
             logger.info("Rebooting switch using {} boot".format(boot_type))
             duthost.command("sonic-installer set-default {}".format(current))
-            reboot(duthost, pdu_ctrl, boot_type, pdu_delay)
+            reboot(duthost, power_controller, boot_type, pdu_delay)
             logger.info("Waiting on switch to shutdown...")
             localhost.wait_for(host=hn, port=22, state='stopped', delay=1, timeout=60)
             # Wait for 30s in case there is ssh flap
@@ -124,7 +122,7 @@ def complete_install(duthost, localhost, boot_type, res, pdu_ctrl, component, au
         if next_image and auto_reboot:
             logger.info("We booted into the new image... booting back into the image under test.")
             duthost.command("sonic-installer set-default {}".format(current))
-            reboot(duthost, pdu_ctrl, COLD_REBOOT, pdu_delay)
+            reboot(duthost, power_controller, COLD_REBOOT, pdu_delay)
             logger.info("Waiting on switch to shutdown....")
             localhost.wait_for(host=hn, port=22, state='stopped', delay=10, timeout=150)
             time.sleep(100)
@@ -231,7 +229,7 @@ def validate_versions(final, config, chassis, boot):
             pytest.fail("Failed to install FW verison {} on {}".format(dat["version"], comp))
 
 
-def call_fwutil(request, duthost, localhost, pdu_ctrl, fw_pkg,
+def call_fwutil(request, duthost, localhost, power_controller, fw_pkg,
                 component=None, next_image=None, boot=None, basepath=None):
     allure.step("Collect firmware versions")
     logger.info("Calling fwutil with component: {} | next_image: {} | boot: {} | basepath: {}".format(component,
@@ -246,7 +244,7 @@ def call_fwutil(request, duthost, localhost, pdu_ctrl, fw_pkg,
         pytest.skip("No available firmware to install on {}. Skipping".format(component))
     boot_type = boot if boot else paths[component]["reboot"][0]
     if boot_type == POWER_CYCLE:
-        assert pdu_ctrl, "pdu_ctrl is not ready, fail test"
+        assert power_controller, "power_controller is not ready, fail test"
 
     current = duthost.shell('sonic_installer list | grep Current | cut -f2 -d " "')['stdout']
 
@@ -288,7 +286,7 @@ def call_fwutil(request, duthost, localhost, pdu_ctrl, fw_pkg,
     allure.step("Perform Neccesary Reboot")
     timeout = max([v.get("timeout", TIMEOUT) for k, v in list(paths.items())])
     pdu_delay = fw_pkg["chassis"][chassis].get("power_cycle_delay", 60)
-    complete_install(duthost, localhost, boot_type, res, pdu_ctrl, component,
+    complete_install(duthost, localhost, boot_type, res, power_controller, component,
                      auto_reboot, current, next_image, timeout, pdu_delay)
 
     allure.step("Collect Updated Firmware Versions")
@@ -314,5 +312,5 @@ def call_fwutil(request, duthost, localhost, pdu_ctrl, fw_pkg,
             update_needed["chassis"][chassis]["component"][comp] = defined_components[comp]
     if len(list(update_needed["chassis"][chassis]["component"].keys())) > 0:
         logger.info("Latest firmware not installed after test. Installing....")
-        call_fwutil(request, duthost, localhost, pdu_ctrl, update_needed, component, None, boot,
+        call_fwutil(request, duthost, localhost, power_controller, update_needed, component, None, boot,
                     os.path.join("/", DEVICES_PATH, duthost.facts['platform']) if basepath is not None else None)

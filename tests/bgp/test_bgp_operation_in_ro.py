@@ -8,7 +8,7 @@ from tests.common.devices.base import RunAnsibleModuleFail
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait
-from tests.common.utilities import pdu_reboot
+from tests.common.utilities import power_cycle
 from tests.common.reboot import reboot
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
 from tests.common.platform.processes_utils import wait_critical_processes
@@ -39,9 +39,9 @@ def simulate_ro(duthost):
     time.sleep(10)
 
 
-def do_pdu_reboot(duthost, localhost, duthosts, pdu_controller):
-    if not pdu_reboot(pdu_controller):
-        logger.error("Failed to do PDU reboot for {}".format(duthost.hostname))
+def do_power_cycle_recovery(duthost, localhost, duthosts, power_controller):
+    if not power_cycle(power_controller):
+        logger.error("Failed to power cycle {}".format(duthost.hostname))
         return
     return post_reboot_healthcheck(duthost, localhost, duthosts, 20)
 
@@ -106,7 +106,7 @@ def post_reboot_healthcheck(duthost, localhost, duthosts, wait_time):
     return True
 
 
-def test_bgp_operations_in_ro(localhost, duthosts, enum_frontend_dut_hostname, pdu_controller):
+def test_bgp_operations_in_ro(localhost, duthosts, enum_frontend_dut_hostname, power_controller):
     """
     @summary: This test case is to verify the BGP operations can successfully run in Read-Only state
     """
@@ -167,10 +167,10 @@ def test_bgp_operations_in_ro(localhost, duthosts, enum_frontend_dut_hostname, p
             if not do_reboot(duthost, localhost, duthosts):
                 logger.warning("Failed to reboot {}, try PDU reboot to restore disk RW state".
                                format(enum_frontend_dut_hostname))
-                do_pdu_reboot(duthost, localhost, duthosts, pdu_controller)
+                do_power_cycle_recovery(duthost, localhost, duthosts, power_controller)
         except Exception as e:
             logger.warning("Failed to reboot {}, got exception {}, try PDU reboot to restore disk RW state".
                            format(enum_frontend_dut_hostname, e))
-            do_pdu_reboot(duthost, localhost, duthosts, pdu_controller)
+            do_power_cycle_recovery(duthost, localhost, duthosts, power_controller)
         logger.debug("END: reboot {} to restore disk RW state".
                      format(enum_frontend_dut_hostname))
