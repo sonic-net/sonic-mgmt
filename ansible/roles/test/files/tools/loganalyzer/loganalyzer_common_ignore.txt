@@ -376,6 +376,11 @@ r, ".* ERR audisp-tacplus: tac_connect_single: connection failed with.*Transport
 # Errors for syncd shutdown on mellanox platform
 r, ".* ERR kernel:.*sxd_kernel: \[error\] SDK main monitor thread does not respond"
 r, ".* ERR kernel:.*sxd_kernel: \[error\] Health-Check: device=1, cause=10 \['SDK thread issue'\] - stopping further device monitoring"
+# Newer SDK versions log the same syncd shutdown health check in a different format:
+# a dev_id=<N> prefix and dev_id [<N>] in place of device=<N> - raised as either
+# cause=10 (SDK thread issue) or cause=12 (SDK watchdog).
+r, ".* ERR kernel:.*sxd_kernel: \[error\] dev_id=\d+: Health check: dev_id \[\d+\], SDK thread \[.*\] TID \[.*\] does not respond.*"
+r, ".* ERR kernel:.*sxd_kernel: \[error\] dev_id=\d+: Health-Check: dev_id \[\d+\], cause=\d+ \['(?:SDK thread issue|SDK watchdog)'\] - stopping further device monitoring.*"
 
 # Ignore gbsynd error for 720DT
 r, ".*ERR gbsyncd#syncd: :- collectData: Failed to get stats of Port Counter.*"
