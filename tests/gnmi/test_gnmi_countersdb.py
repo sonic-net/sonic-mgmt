@@ -2,7 +2,7 @@ import logging
 import pytest
 
 from .countersdb_helpers import countersdb_prefix, response_has_update
-from tests.common.fixtures.grpc_fixtures import _gnmi_tls_lifecycle
+from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.pygnmi_client import SubscribeMode
 
@@ -10,17 +10,17 @@ from tests.common.pygnmi_client import SubscribeMode
 logger = logging.getLogger(__name__)
 
 pytestmark = [
+    pytest.mark.parametrize(
+        "gnmi_tls", ["tls"], indirect=True, scope="module"
+    ),
     pytest.mark.topology('any'),
     pytest.mark.disable_loganalyzer,
+    pytest.mark.usefixtures(
+        "rand_one_dut_hostname",
+        "setup_gnmi_ntp_client_server",
+        "check_dut_timestamp",
+    ),
 ]
-
-
-@pytest.fixture(scope="module")
-def gnmi_tls(duthosts, rand_one_dut_hostname, ptfhost,
-             setup_gnmi_ntp_client_server, check_dut_timestamp):
-    """Share one managed TLS lifecycle across the read-only COUNTERS_DB tests."""
-    duthost = duthosts[rand_one_dut_hostname]
-    yield from _gnmi_tls_lifecycle(duthost, ptfhost)
 
 
 def _assert_responses_contain(result, text, expected):
