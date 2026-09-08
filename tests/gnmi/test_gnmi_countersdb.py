@@ -10,6 +10,9 @@ from tests.common.pygnmi_client import SubscribeMode
 logger = logging.getLogger(__name__)
 
 pytestmark = [
+    pytest.mark.parametrize(
+        "gnmi_tls", ["tls"], indirect=True, scope="module"
+    ),
     pytest.mark.topology('any'),
     pytest.mark.disable_loganalyzer,
     pytest.mark.usefixtures(
