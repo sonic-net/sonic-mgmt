@@ -262,11 +262,7 @@ def gnmi_tls(request, duthosts, ptfhost):
         yield from _gnmi_uds_flow(duthost)
         return
 
-    yield from _gnmi_tls_lifecycle(duthost, ptfhost)
-
-
-def _gnmi_tls_lifecycle(duthost, ptfhost):
-    """Set up, yield, and clean up the managed gNMI TLS environment."""
+    # --- existing TLS flow below (unchanged) ---
     checkpoint_name = "gnoi_tls_setup"
     cert_dir = "/tmp/gnoi_certs"
 
