@@ -147,6 +147,10 @@ class DHCPTest(DataplaneBaseTest):
         # These are the interfaces we are injected into that link to out leaf switches
         self.server_port_indices = ast.literal_eval(
             self.test_params['leaf_port_indices'])
+        self.standby_server_port_indices = []
+        if 'standby_leaf_port_indices' in self.test_params:
+            self.standby_server_port_indices = ast.literal_eval(
+                self.test_params['standby_leaf_port_indices'])
         self.num_dhcp_servers = int(self.test_params['num_dhcp_servers'])
 
         self.assertTrue(self.num_dhcp_servers > 0,
@@ -1208,6 +1212,22 @@ class DHCPTest(DataplaneBaseTest):
         self.assertTrue(captured_count == num_expected_packets,
                         "Failed: %s packet counts are not equal %d != %d"
                         % (packet_type, captured_count, num_expected_packets))
+
+        if self.standby_server_port_indices:
+            standby_mask = Mask(pkt)
+            self.set_common_ignored_mask_fields(standby_mask)
+            standby_mask.set_do_not_care_scapy(scapy.Ether, "src")
+            standby_mask.set_do_not_care_scapy(scapy.Ether, "dst")
+            standby_mask.set_do_not_care_scapy(scapy.IP, "src")
+            standby_mask.set_do_not_care_scapy(scapy.BOOTP, "giaddr")
+            standby_mask.set_do_not_care_scapy(scapy.DHCP, "options")
+            standby_count = testutils.count_matched_packets_all_ports(
+                self, standby_mask, self.standby_server_port_indices)
+            self.assertEqual(
+                standby_count,
+                0,
+                "Failed: standby ToR relayed {} matching {} packet(s)".format(
+                    standby_count, packet_type))
 
     def check_pkt_on_client_side(self, mask, pkt, packet_type):
         logger.info("Expect receiving relayed {} packet from port {}".format(packet_type, self.client_port_index))
