@@ -479,9 +479,11 @@ def sfputil_reset(duthost, port, timeout_sec=60):
     return _run_firmware_cmd(duthost, cmd, timeout_sec, SFPUTIL_RESET_SUCCESS_MARKER)
 
 
-def sfputil_show_lpmode(duthost, port):
-    """Run ``sfputil show lpmode -p <port>`` returns ``({port: low_power_mode}, err)``."""
-    cmd = f"{SFPUTIL_SHOW_LPMODE} -p {port}"
+def sfputil_show_lpmode(duthost, port=None):
+    """Run ``sfputil show lpmode`` for one port or all ports."""
+    cmd = SFPUTIL_SHOW_LPMODE
+    if port is not None:
+        cmd = f"{cmd} -p {port}"
     return _run_and_parse(duthost, cmd, parse_lpmode)
 
 
