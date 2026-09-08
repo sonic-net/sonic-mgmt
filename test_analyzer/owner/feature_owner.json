@@ -256,8 +256,8 @@
     },
     {
         "feature": "console",
-        "owner": "Yutong Zhang",
-        "email": "yutongzhang@microsoft.com",
+        "owner": "Storm Liang",
+        "email": "stormliang@microsoft.com",
         "scripts": [
             {
                 "scripts": [
@@ -267,8 +267,8 @@
                     "console.test_console_reversessh",
                     "console.test_console_udevrule"
                 ],
-                "owner": "Zhijian Li",
-                "email": "zhijianli@microsoft.com"
+                "owner": "Storm Liang",
+                "email": "stormliang@microsoft.com"
             }
         ]
     },
@@ -546,23 +546,17 @@
     },
     {
         "feature": "dut_console",
-        "owner": "Yutong Zhang",
-        "email": "yutongzhang@microsoft.com",
+        "owner": "Storm Liang",
+        "email": "stormliang@microsoft.com",
         "scripts": [
             {
                 "scripts": [
-                    "dut_console.test_console_baud_rate"
-                ],
-                "owner": "Zhijian Li",
-                "email": "zhijianli@microsoft.com"
-            },
-            {
-                "scripts": [
+                    "dut_console.test_console_baud_rate",
                     "dut_console.test_escape_character",
                     "dut_console.test_idle_timeout"
                 ],
-                "owner": "Yutong Zhang",
-                "email": "yutongzhang@microsoft.com"
+                "owner": "Storm Liang",
+                "email": "stormliang@microsoft.com"
             }
         ]
     },
@@ -1195,28 +1189,28 @@
     },
     {
         "feature": "mx",
-        "owner": "Zhijian Li",
-        "email": "zhijianli@microsoft.com",
+        "owner": "Jianquan Ye",
+        "email": "jianquanye@microsoft.com",
         "scripts": [
             {
                 "scripts": [
                     "mx.test_acl_rules",
-                    "mx.test_acl_rules_internal_only"
+                    "mx.test_acl_rules_internal_only",
+                    "mx.test_bgp_policy_private_ip",
+                    "mx.test_bgp_policy_private_ip_internal_only"
                 ],
-                "owner": "Zhijian Li",
-                "email": "zhijianli@microsoft.com"
+                "owner": "Jianquan Ye",
+                "email": "jianquanye@microsoft.com"
             },
             {
                 "scripts": [
-                    "mx.test_bgp_policy_private_ip",
                     "mx.test_dhcp_server",
                     "mx.test_dhcp_server_init",
-                    "mx.test_bgp_policy_private_ip_internal_only",
                     "mx.test_dhcp_server_init_internal_only",
                     "mx.test_dhcp_server_internal_only"
                 ],
-                "owner": "Zhijian Li",
-                "email": "zhijianli@microsoft.com"
+                "owner": "Xichen Lin",
+                "email": "xichenlin@microsoft.com"
             }
         ]
     },
@@ -1640,8 +1634,8 @@
     },
     {
         "feature": "saitests",
-        "owner": "Xu Chen",
-        "email": "xuchen3@microsoft.com",
+        "owner": "Liping Xu",
+        "email": "xuliping@microsoft.com",
         "scripts": [
             {
                 "scripts": [
@@ -1649,8 +1643,8 @@
                     "saitests.mock.it.test_ingress_drop_probing",
                     "saitests.mock.it.test_pfc_xoff_probing"
                 ],
-                "owner": "Xu Chen",
-                "email": "xuchen3@microsoft.com"
+                "owner": "Liping Xu",
+                "email": "xuliping@microsoft.com"
             }
         ]
     },

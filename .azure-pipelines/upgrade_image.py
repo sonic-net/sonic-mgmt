@@ -261,12 +261,17 @@ def main(args):
         # Upgrade to prev image
         if not args.skip_prev_image:
             logger.info("upgrade to prev image at {}".format(args.prev_image_url))
+            # The prev image is a full install too, so it resets /etc/shadow to the
+            # image default just like the target image does. Roll the credentials
+            # forward here as well, otherwise the DUT becomes unreachable after this
+            # reboot and the target-image upgrade below is never reached.
             upgrade_success = upgrade_image(
                 sonichosts,
                 localhost,
                 args.prev_image_url,
                 upgrade_type=args.upgrade_type,
-                onie_pause_time=args.onie_pause_time
+                onie_pause_time=args.onie_pause_time,
+                preserve_shadow=args.preserve_shadow
             )
 
             if not upgrade_success:
@@ -510,9 +515,13 @@ if __name__ == "__main__":
         type=distutils.util.strtobool,
         dest="preserve_shadow",
         required=False,
+        nargs="?",
+        const=1,
         default=0,
         help="Preserve the running base-OS /etc/shadow into the target image overlay before reboot, "
-             "so user credentials (e.g. admin) survive the upgrade."
+             "so user credentials (e.g. admin) survive the upgrade. "
+             "May be passed as a bare flag (--preserve-shadow) or with an explicit "
+             "value (--preserve-shadow true|false)."
     )
 
     parser.add_argument(

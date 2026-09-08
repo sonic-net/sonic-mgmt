@@ -524,7 +524,7 @@ sonic_arista_7050C_C28S16:
       ansible_hostv6: 2404:f801:10:16::a96:ee59
       mgmt_subnet_mask_length: 23
       model: DCS-7050CX3-32C
-      serial: ASY0746402C0
+      serial: HBG2435008D
       base_mac: 68:bf:6c:ae:88:70
       syseeprom_info:
         "0x21": "DCS-7050CX3-32C"

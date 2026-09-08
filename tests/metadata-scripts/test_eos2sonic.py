@@ -35,7 +35,7 @@ MINIGRAPH_LOCATION_DEVICE_EXISTING = 1
 MINIGRAPH_NGS_DOWNLOAD = 2  # Don't use until proxy authentication updated
 
 TSB_TIMER = 900  # TSB timer in seconds
-CONVERSION_WAIT_SONIC = 600  # Wait time after SONiC conversion in seconds
+CONVERSION_WAIT_SONIC = 900  # Wait time after SONiC conversion in seconds
 CONVERSION_WAIT_EOS = 420  # Wait time after EOS conversion in seconds
 
 
