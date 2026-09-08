@@ -1020,12 +1020,17 @@ def shutdown_lag_members(duthost, selected_port, tbinfo, nbrhosts, ports):
     return vm_host, neigh_port_channel, min_links
 
 
-def restore_original_config(duthost, selected_port, vm_host, neigh_port_channel, min_links, ports):
+def restore_original_config(duthost, selected_port, vm_host, neigh_port_channel, min_links, ports,
+                            loganalyzer=None):
     """Revert LAG/min-links edits made by shutdown_lag_members.
 
     Since shutdown_lag_members modifies running CONFIG_DB only (no on-disk
     edits), config_reload from the on-disk config_db is sufficient to bring
     members back up and restore the original min_links.
+
+    Passing the `loganalyzer` fixture suppresses syslog analysis for the duration of the
+    reload, which bounces containers and makes monit's memory_checker probe log benign
+    ERRs for containers that are momentarily gone.
     """
     if ports[selected_port]['test_port_type'] != 'portchannel':
         return
@@ -1035,7 +1040,8 @@ def restore_original_config(duthost, selected_port, vm_host, neigh_port_channel,
                            parents=[f'int {neigh_port_channel}'])
 
     config_reload(duthost, config_source='config_db', safe_reload=True,
-                  check_intf_up_ports=True, wait_for_bgp=True)
+                  check_intf_up_ports=True, wait_for_bgp=True,
+                  ignore_loganalyzer=loganalyzer)
 
 
 def _is_multi_member_lag(duthost, port, ports):
