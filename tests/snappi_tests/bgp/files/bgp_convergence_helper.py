@@ -876,9 +876,7 @@ def get_rib_in_convergence(snappi_api,
             tx_frame_rate = flow_stats[0].frames_tx_rate
             rx_frame_rate = flow_stats[0].frames_rx_rate
             assert tx_frame_rate != 0, "Traffic has not started"
-            # Routes are withdrawn but traffic still flows via existing forwarding;
-            # convergence is measured from here until rx catches up after ADVERTISE.
-            assert rx_frame_rate != 0, "Traffic is not received"
+            assert rx_frame_rate == 0
 
             """ Advertise All Routes """
             logger.info('Advertising all Routes from {}'.format(route_names))
