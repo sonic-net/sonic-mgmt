@@ -1,0 +1,15 @@
+diff --git a/resourcegroup.py b/resourcegroup.py
+index 98261c63..6990fb11 100644
+--- a/resourcegroup.py
++++ b/resourcegroup.py
+@@ -184,8 +184,8 @@ class ResourceGroup(object):
+             for available_setting in supported_group["availableSettings"]:
+                 group_mode = available_setting["resourceGroupMode"]
+                 for panel_info in available_setting["panelInfo"]:
+-                    for display_name in panel_info["activePortsDisplayNames"]:
+-                        if property.port == display_name:
++                    for port_id in panel_info["activePorts"]:
++                        if str(property.port) == str(port_id):
+                             l1_name = property.set_property(
+                                 chassis_id,
+                                 card,
