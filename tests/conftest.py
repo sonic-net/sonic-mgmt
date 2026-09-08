@@ -251,6 +251,14 @@ def pytest_addoption(parser):
                      help="Enable QoS PTF test debugging mode with pdb breakpoint")
     parser.addoption("--ingress_drop_probing", action="store_true", default=False,
                      help="Enable ingress drop threshold probing instead of PFC xoff probing")
+    parser.addoption("--tunnel-scale-limit", action="store", default=256, type=int,
+                     help="Maximum number of IP-in-IP tunnels created by the tunnel scale test")
+    parser.addoption("--tunnel-scale-batch-size", action="store", default=8, type=int,
+                     help="Number of IP-in-IP tunnels created per tunnel scale test batch")
+    parser.addoption("--vxlan-tunnel-scale-limit", action="store", default=256, type=int,
+                     help="Maximum number of VNET-activated VXLAN tunnels created by the scale test")
+    parser.addoption("--vxlan-tunnel-scale-batch-size", action="store", default=8, type=int,
+                     help="Number of VNET-activated VXLAN tunnels created per scale test batch")
 
     #########################
     #   post-test options   #
