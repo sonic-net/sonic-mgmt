@@ -6,10 +6,10 @@ import allure
 import re
 import time
 from scapy.all import rdpcap
-from .syslog_utils import create_vrf, remove_vrf, add_syslog_server, del_syslog_server, capture_syslog_packets, \
+from .syslog_utils import create_vrf, remove_vrf, capture_syslog_packets, \
     replace_ip_neigh, bind_interface_to_vrf, check_vrf, syslogUtilsConst
 from tests.common.utilities import wait_until
-from tests.common.helpers.syslog_helpers import is_mgmt_vrf_enabled
+from tests.common.helpers.syslog_helpers import add_syslog_server, del_syslog_server, is_mgmt_vrf_enabled
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.reboot import reboot, SONIC_SSH_PORT, SONIC_SSH_REGEX
 from ipaddress import IPv4Address, IPv6Address, ip_address, ip_network, IPv6Network

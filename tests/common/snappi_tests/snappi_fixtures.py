@@ -565,8 +565,8 @@ def snappi_testbed_config(conn_graph_facts, fanout_graph_facts,     # noqa: F811
         if port_speed is None:
             port_speed = int(snappi_ports[i]['speed'])
 
-        pytest_assert(port_speed == int(snappi_ports[i]['speed']),
-                      'Ports have different link speeds')
+        pytest_require(port_speed == int(snappi_ports[i]['speed']),
+                       'Ports have different link speeds')
 
     speed_gbps = int(port_speed/1000)
 
@@ -1197,7 +1197,7 @@ def snappi_dut_base_config(duthost_list,
 
     new_snappi_ports = [dict(list(sp.items()) + [('port_id', i)])
                         for i, sp in enumerate(snappi_ports) if sp['location'] in tgen_ports]
-    pytest_assert(len(set([sp['speed'] for sp in new_snappi_ports])) == 1, 'Ports have different link speeds')
+    pytest_require(len(set([sp['speed'] for sp in new_snappi_ports])) == 1, 'Ports have different link speeds')
     [config.ports.port(name='Port {}'.format(sp['port_id']), location=sp['location']) for sp in new_snappi_ports]
     speed_gbps = int(int(new_snappi_ports[0]['speed'])/1000)
 
@@ -1489,6 +1489,15 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
     Returns:
         True if we successfully configure the interfaces or False
     """
+    ports = []
+    for port in snappi_ports:
+        if port['peer_device'] == duthost.hostname:
+            ports.append(port)
+    if not setup:
+        for port in ports:
+            gen_data_flow_dest_ip(port['ipAddress'], duthost, port['peer_port'], port['asic_value'], setup)
+        return True
+
     global macsec_enabled_port, macsec_profile_name, reconfigure_port
     ptype = "--snappi_macsec" in sys.argv
     num_of_non_macsec_snappi_devices = 7
@@ -1503,7 +1512,7 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
             config_facts = facts['ansible_facts']
             int_addrs = list(config_facts['INTERFACE'][peer_port].keys())
             subnet = [ele for ele in int_addrs if "." in ele]
-            if port['port_id'] == 0 and int(subnet[0].split("/")[1]) > int(static_prefix_length):
+            if int(port['port_id']) == 0 and int(subnet[0].split("/")[1]) > int(static_prefix_length):
                 logger.info('Removing existing IP {} from interface {}'.format(subnet[0], port['peer_port']))
                 reconfigure_port = port
                 reconfigure_port['original_subnet'] = subnet[0]
@@ -1528,26 +1537,19 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
                 pytest_assert(False, "No IP address found for peer port {}".format(peer_port))
             port['ipGateway'], port['prefix'] = subnet[0].split("/")
             port['subnet'] = subnet[0]
-    ports = []
-    for port in snappi_ports:
-        if port['peer_device'] == duthost.hostname:
-            ports.append(port)
-    if ptype:
-        macsec_var_file = os.path.expanduser("../tests/snappi_tests/macsec_profile.json")
-        with open(macsec_var_file, "r") as f:
-            all_values = json.load(f)
+
+    macsec_var_file = os.path.expanduser("../tests/snappi_tests/macsec_profile.json")
+    with open(macsec_var_file, "r") as f:
+        all_values = json.load(f)
+
     for port in ports:
-        port_id = port['port_id']
+        port_id = int(port['port_id'])
         dutIp = port['ipGateway']
         tgenIp = port['ipAddress']
         prefix_length = int(port['prefix'])
         mac = __gen_mac(port_id+num_of_non_macsec_snappi_devices)
-        if not setup:
-            gen_data_flow_dest_ip(tgenIp, duthost, port['peer_port'], port['asic_value'], setup)
         if setup:
             gen_data_flow_dest_ip(tgenIp, duthost, port['peer_port'], port['asic_value'], setup)
-        if setup is False:
-            continue
         port['intf_config_changed'] = True
         if ptype and port_id == 1:
             device = config.devices.device(name='Device Port {}'.format(port_id))[-1]
@@ -1826,9 +1828,6 @@ def cleanup_config(duthost_list, snappi_ports):
                                 format(reconfigure_port['asic_value'], reconfigure_port['peer_port'],
                                        reconfigure_port['original_subnet'].split('/')[0],
                                        reconfigure_port['original_subnet'].split('/')[1]))
-            logger.info('Disabling MACsec on {} port {}'.
-                        format(macsec_enabled_port['duthost'].hostname,
-                               macsec_enabled_port['peer_port']))
         logger.info('Disabling MACsec on {} port {}'.
                     format(macsec_enabled_port['duthost'].hostname,
                            macsec_enabled_port['peer_port']))

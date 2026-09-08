@@ -5,7 +5,10 @@ from collections import namedtuple
 
 from natsort import natsorted
 
-from tests.common.platform.interface_utils import is_first_subport
+from tests.common.platform.interface_utils import (
+    get_physical_to_logical_port_mapping,
+    is_first_subport,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -75,3 +78,23 @@ def select_attribute_ports(
         primary_ports=natsorted(primary_ports),
         non_primary_ports=natsorted(non_primary_ports),
     )
+
+
+def resolve_ports_under_test(lport_to_pport, port_attributes_dict, attribute_key):
+    """Resolve a suite's configured ``ports_under_test`` to logical ports.
+
+    Returns:
+        set | None: the logical ports the configured physical indices map to,
+        or ``None`` when ``ports_under_test`` is absent/empty.
+    """
+    if not port_attributes_dict:
+        return None
+    attrs = next(iter(port_attributes_dict.values())).get(attribute_key, {})
+    ports_under_test = attrs.get("ports_under_test")
+    if not ports_under_test:
+        return None
+    pport_to_lport_mapping = get_physical_to_logical_port_mapping(lport_to_pport)
+    resolved_ports = set()
+    for pindex in ports_under_test:
+        resolved_ports.update(pport_to_lport_mapping.get(pindex, []))
+    return resolved_ports

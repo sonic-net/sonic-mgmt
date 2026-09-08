@@ -457,7 +457,7 @@ def get_dpu_link_status(duthost, num_dpu_modules,
 
     for index in range(num_dpu_modules):
         dpu_name = module.get_name(platform_api_conn, index)
-        if configured_dpus and dpu_name.lower() not in configured_dpus:
+        if configured_dpus and not any(dpu.endswith(dpu_name.lower()) for dpu in configured_dpus):
             logging.info("Skipping unconfigured module %s (index=%d)", dpu_name, index)
             continue
         ip_address = module.get_midplane_ip(platform_api_conn, index)
@@ -605,6 +605,7 @@ def pre_test_check(duthost,
     ip_address_list, dpu_on_list, dpu_off_list = get_dpu_link_status(
                                                  duthost, num_dpu_modules,
                                                  platform_api_conn)
+    pytest_assert(dpu_on_list and ip_address_list, "No DPUs are ON or IP address list is empty")
 
     logging.info("Checking DPU connectivity before the operation")
     pytest_assert(wait_until(PING_TIMEOUT, PING_TIME_INT, 0,

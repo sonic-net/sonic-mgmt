@@ -1051,7 +1051,7 @@ def ptfhosts(enhance_inventory, ansible_adhoc, tbinfo, duthost, request):
 
 
 @pytest.fixture(scope="module")
-def k8smasters(enhance_inventory, ansible_adhoc, request):
+def k8smasters(enhance_inventory, ansible_adhoc, request, ansible_root):
     """
     Shortcut fixture for getting Kubernetes master hosts
     """
@@ -1064,7 +1064,7 @@ def k8smasters(enhance_inventory, ansible_adhoc, request):
             k8s_inv_file = inv_file
     if not k8s_inv_file:
         pytest.skip("k8s inventory not found, skipping tests")
-    with open('../ansible/{}'.format(k8s_inv_file), 'r') as kinv:
+    with open(os.path.join(ansible_root, k8s_inv_file), 'r') as kinv:
         k8sinventory = yaml.safe_load(kinv)
         for hostname, attributes in list(k8sinventory[k8s_master_ansible_group]['hosts'].items()):
             if 'haproxy' in attributes:
@@ -1336,6 +1336,10 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
         logging.info("Nut topology has no fanout")
         return fanout_hosts
 
+    if tbinfo['topo']['name'].startswith('smartswitch'):
+        logging.info("SmartSwitch topology has no fanout")
+        return fanout_hosts
+
     # Process Ethernet connections
 
     dev_conn = conn_graph_facts.get('device_conn', {})
@@ -1460,9 +1464,9 @@ def sonic():
 
 
 @pytest.fixture(scope='session')
-def pdu():
+def pdu(ansible_root):
     """ read and yield pdu configuration """
-    with open('../ansible/group_vars/pdu/pdu.yml') as stream:
+    with open(ansible_root.joinpath("group_vars/pdu/pdu.yml")) as stream:
         pdu = yaml.safe_load(stream)
         return pdu
 
@@ -1473,7 +1477,7 @@ def creds(duthost):
 
 
 @pytest.fixture(scope="session")
-def topo_bgp_routes(localhost, ptfhosts, tbinfo):
+def topo_bgp_routes(localhost, ptfhosts, tbinfo, ansible_root):
     bgp_routes = {}
     topo_name = tbinfo['topo']['name']
     servers_dut_interfaces = None
@@ -1490,7 +1494,7 @@ def topo_bgp_routes(localhost, ptfhosts, tbinfo):
             topo_name=topo_name,
             ptf_ip=ptf_ip,
             action='generate',
-            path="../ansible/",
+            path=str(ansible_root),
             log_path=log_path,
             dut_interfaces=servers_dut_interfaces.get(ptf_ip, '') if servers_dut_interfaces else '',
             verbose=False
@@ -4285,3 +4289,16 @@ def restore_counter_poll(rand_selected_dut):
         parsed_counterpoll_before,
         parsed_counterpoll_after
     )
+
+
+@pytest.fixture(scope="session")
+def ansible_root(request):
+    """
+    Returns the ansible directory.
+    """
+    ansible_config_path = os.getenv("ANSIBLE_CONFIG", None)
+    if ansible_config_path:
+        return pathlib.Path(ansible_config_path)
+    else:
+        tbfile = request.config.getoption("testbed_file")
+        return pathlib.Path(tbfile).parent
