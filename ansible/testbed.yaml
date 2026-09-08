@@ -366,6 +366,7 @@
 - conf-name: vms26-dual-t0-7050-3
   group-name: vms26-3
   topo: dualtor-aa
+  neighbor_mode: prefix-route
   ptf_image_name: docker-ptf
   ptf: vms26-3
   ptf_ip: 10.64.246.151/25
@@ -491,6 +492,7 @@
 - conf-name: vms66-dual-t0-8101c1-05
   group-name: vms66-1
   topo: dualtor
+  neighbor_mode: prefix-route
   ptf_image_name: docker-ptf
   ptf: vms66-1
   ptf_ip: 10.64.247.117/26
@@ -716,6 +718,7 @@
 - conf-name: vms28-dual-t0-7260
   group-name: vms28-6
   topo: dualtor-120
+  neighbor_mode: prefix-route
   ptf_image_name: docker-ptf
   ptf: vms28-6
   ptf_ip: 10.64.246.164/25
@@ -781,6 +784,7 @@
 - conf-name: vms26-dual-t0-7260
   group-name: vms26-4
   topo: dualtor-120
+  neighbor_mode: prefix-route
   ptf_image_name: docker-ptf
   ptf: vms26-4
   ptf_ip: 10.64.246.152/25
@@ -798,6 +802,7 @@
 - conf-name: vms24-dual-t0-7050-1
   group-name: vms24-7
   topo: dualtor
+  neighbor_mode: prefix-route
   ptf_image_name: docker-ptf
   ptf: vms24-7
   ptf_ip: 10.64.246.142/25
@@ -815,6 +820,7 @@
 - conf-name: vms24-dual-t0-7050-2
   group-name: vms24-8
   topo: dualtor
+  neighbor_mode: prefix-route
   ptf_image_name: docker-ptf
   ptf: vms24-8
   ptf_ip: 10.64.246.143/25
@@ -1228,6 +1234,7 @@
 - conf-name: vmsvc1-dual-t0-7050-1
   group-name: svc1-3
   topo: dualtor-aa
+  neighbor_mode: prefix-route
   ptf_image_name: docker-ptf
   ptf: svc1-3
   ptf_ip: 10.206.144.140/24
@@ -1246,6 +1253,7 @@
 - conf-name: vmsvc1-dual-t0-7050-2
   group-name: svc1-4
   topo: dualtor
+  neighbor_mode: prefix-route
   ptf_image_name: docker-ptf
   ptf: svc1-4
   ptf_ip: 10.206.144.142/24
@@ -1895,6 +1903,7 @@
 - conf-name: vms64-dual-t0-7260-1
   group-name: vms64-2
   topo: dualtor-aa-56
+  neighbor_mode: prefix-route
   ptf_image_name: docker-ptf
   ptf: vms64-2
   ptf_ip: 10.64.247.9/26
@@ -2120,6 +2129,7 @@
 - conf-name: vms20-dual-t0-4700-7
   group-name: vms20-10
   topo: dualtor-aa-64-breakout
+  neighbor_mode: prefix-route
   ptf_image_name: docker-ptf
   ptf: vms20-10
   ptf_ip: 10.64.246.39/25
@@ -2138,6 +2148,7 @@
 - conf-name: vms12-dual-t0-4700-8
   group-name: vms12-5
   topo: dualtor-aa-64-breakout
+  neighbor_mode: prefix-route
   ptf_image_name: docker-ptf
   ptf: vms12-5
   ptf_ip: 10.64.247.154/26
@@ -3390,6 +3401,7 @@
 - conf-name: bjw-can-dual-t0-7260-1
   group-name: bjw13-7
   topo: dualtor-aa-56
+  neighbor_mode: prefix-route
   ptf_image_name: docker-ptf
   ptf: bjw13-7
   ptf_ip: 10.150.23.75/23
@@ -3544,6 +3556,7 @@
 - conf-name: bjw2-can-dual-t0-7260-1
   group-name: bjw2-2-7
   topo: dualtor-120
+  neighbor_mode: prefix-route
   ptf_image_name: docker-ptf
   ptf: bjw2-2-7
   ptf_ip: 10.150.23.100/23
@@ -3562,6 +3575,7 @@
 - conf-name: bjw2-can-dual-t0-7260-2
   group-name: bjw2-2-8
   topo: dualtor-aa-56
+  neighbor_mode: prefix-route
   ptf_image_name: docker-ptf
   ptf: bjw2-2-8
   ptf_ip: 10.150.23.101/23
@@ -4193,6 +4207,7 @@
 - conf-name: vms18-dual-t0-8101c1-01
   group-name: vms18-3
   topo: dualtor
+  neighbor_mode: prefix-route
   ptf_image_name: docker-ptf
   ptf: vms18-3
   ptf_ip: 10.64.246.22/25
@@ -4229,6 +4244,7 @@
 - conf-name: tbtk5-dual-t0-7050-1
   group-name: tk5-7-4
   topo: dualtor
+  neighbor_mode: prefix-route
   ptf_image_name: docker-ptf
   ptf: ptf7-4
   ptf_ip: 172.16.177.14/18
@@ -4281,6 +4297,7 @@
 - conf-name: testbed-bjw2-can-dual-t0-7050-1
   group-name: bjw2-2-a
   topo: dualtor-aa
+  neighbor_mode: prefix-route
   ptf_image_name: docker-ptf
   ptf: bjw2-2-a
   ptf_ip: 10.150.23.126/23
@@ -4644,6 +4661,7 @@
 - conf-name: testbed-bjw3-can-dual-t0-7260-1
   group-name: bjw3-1-2
   topo: dualtor-120
+  neighbor_mode: prefix-route
   ptf_image_name: docker-ptf
   ptf: bjw3-1-2
   ptf_ip: 10.150.239.8/23
@@ -4663,6 +4681,7 @@
 - conf-name: testbed-bjw3-can-dual-t0-7260-2
   group-name: bjw3-2-2
   topo: dualtor-aa-56
+  neighbor_mode: prefix-route
   ptf_image_name: docker-ptf
   ptf: bjw3-2-2
   ptf_ip: 10.150.239.5/23
@@ -6380,6 +6399,7 @@
 - conf-name: vms93-dual-t0-7050-4
   group-name: vms93-4
   topo: dualtor-aa
+  neighbor_mode: prefix-route
   ptf_image_name: docker-ptf
   ptf: vms93-4
   ptf_ip: 10.64.247.166/25
@@ -6398,6 +6418,7 @@
 - conf-name: vms93-dual-t0-7050-5
   group-name: vms93-6
   topo: dualtor-aa
+  neighbor_mode: prefix-route
   ptf_image_name: docker-ptf
   ptf: vms93-6
   ptf_ip: 10.64.247.184/25
@@ -6416,6 +6437,7 @@
 - conf-name: vms95-dual-t0-7050-6
   group-name: vms95-2
   topo: dualtor-aa
+  neighbor_mode: prefix-route
   ptf_image_name: docker-ptf
   ptf: vms95-2
   ptf_ip: 10.64.247.186/25
@@ -6826,6 +6848,7 @@
 - conf-name: tbtk5a-dual-7050-1
   group-name: tk5a-104
   topo: dualtor
+  neighbor_mode: prefix-route
   ptf_image_name: docker-ptf
   ptf: tk5a-104
   ptf_ip: 172.16.201.14/18
@@ -6843,6 +6866,7 @@
 - conf-name: tbtk5a-dual-7050-2
   group-name: tk5a-105
   topo: dualtor
+  neighbor_mode: prefix-route
   ptf_image_name: docker-ptf
   ptf: tk5a-105
   ptf_ip: 172.16.201.15/18
@@ -6860,6 +6884,7 @@
 - conf-name: tbtk5a-dual-7050-3
   group-name: tk5a-106
   topo: dualtor
+  neighbor_mode: prefix-route
   ptf_image_name: docker-ptf
   ptf: tk5a-106
   ptf_ip: 172.16.201.16/18
@@ -6957,6 +6982,7 @@
 - conf-name: tbtk5a-dual-7260-1
   group-name: tk5a-112
   topo: dualtor-120
+  neighbor_mode: prefix-route
   ptf_image_name: docker-ptf
   ptf: tk5a-112
   ptf_ip: 172.16.201.22/18
@@ -6974,6 +7000,7 @@
 - conf-name: tbtk5a-dual-7260-2
   group-name: tk5a-113
   topo: dualtor-120
+  neighbor_mode: prefix-route
   ptf_image_name: docker-ptf
   ptf: tk5a-113
   ptf_ip: 172.16.201.23/18
@@ -7007,6 +7034,7 @@
 - conf-name: tbtk5a-aa-7260-1
   group-name: tk5a-202
   topo: dualtor-aa-56
+  neighbor_mode: prefix-route
   ptf_image_name: docker-ptf
   ptf: tk5a-202
   ptf_ip: 172.16.218.12/18
