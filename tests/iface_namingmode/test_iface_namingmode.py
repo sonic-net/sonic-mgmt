@@ -444,40 +444,62 @@ class TestShowInterfaces():
     def test_show_interfaces_counter(self, setup, setup_config_mode):
         """
         Checks whether 'show interfaces counter' lists the interface names
-        as per the configured naming mode
+        as per the configured naming mode.
+
+        Interfaces not present in the frontend port mappings, such as
+        SmartSwitch internal backplane ports, are ignored. At least one
+        mapped frontend interface must be present for the test to pass.
         """
         dutHostGuest, mode, ifmode = setup_config_mode
         regex_int = re.compile(r'(\S+)(\d+)')
-        interfaces = list()
+        interfaces = []
 
-        show_intf_counter = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show interfaces counter'.format(ifmode))
-        logger.info('show_intf_counter:\n{}'.format(show_intf_counter['stdout']))
+        show_intf_counter = dutHostGuest.shell(
+            'SONIC_CLI_IFACE_MODE={} show interfaces counter'.format(ifmode)
+        )
+        logger.info(
+            'show_intf_counter:\n{}'.format(show_intf_counter['stdout'])
+        )
 
         for line in show_intf_counter['stdout_lines']:
-            line = line.strip()
-            if regex_int.match(line):
-                interfaces.append(regex_int.match(line).group(0))
+            match = regex_int.match(line.strip())
+            if match:
+                interfaces.append(match.group(0))
 
-        assert (len(interfaces) > 0), (
-            "No interfaces were found in the output of 'show interfaces counter'. "
+        assert interfaces, (
+            "No interfaces were found in the output of "
+            "'show interfaces counter'. "
             "Expected at least one interface entry, but none were found.\n"
             "Parsed interfaces: {}"
         ).format(interfaces)
 
-        for item in interfaces:
-            if mode == 'alias':
-                assert item in setup['port_alias'], (
-                    "Interface '{}' not found in the list of port aliases. "
-                    "Expected the interface to match a known port alias in the test setup.\n"
-                    "Port aliases in setup: {}"
-                ).format(item, setup['port_alias'])
+        expected_interfaces = None
+        if mode == 'alias':
+            expected_interfaces = setup['port_alias']
+        elif mode == 'default':
+            expected_interfaces = setup['default_interfaces']
+        else:
+            pytest.fail(
+                "Unsupported interface naming mode: '{}'".format(mode)
+            )
 
-            elif mode == 'default':
-                assert item in setup['default_interfaces'], (
-                    "Interface '{}' not found in the list of default interfaces. "
-                    "Expected the interface to match a known default interface in the test setup.\n"
-                    "Default interfaces in setup: {}"
-                ).format(item, setup['default_interfaces'])
+        assert expected_interfaces is not None, (
+            "Failed to resolve expected interfaces for naming mode '{}'"
+        ).format(mode)
+
+        matched_interfaces = set(interfaces) & set(expected_interfaces)
+
+        assert matched_interfaces, (
+            "No mapped frontend interfaces were found in the output of "
+            "'show interfaces counter'.\n"
+            "Naming mode: {}\n"
+            "Parsed interfaces: {}\n"
+            "Expected interfaces: {}"
+        ).format(
+            mode,
+            interfaces,
+            expected_interfaces
+        )
 
     def test_show_interfaces_description(self, setup_config_mode, sample_intf):
         """
@@ -798,10 +820,12 @@ class TestShowQueue():
                     # On non-T2 multi-ASIC, SonicDbCli(asic) already queries per-ASIC CONFIG_DB,
                     # keys are just BUFFER_QUEUE|Ethernet0|0-2, so fields[-3] is "BUFFER_QUEUE"
                     # and must NOT be filtered.
-                    if (duthost.is_multi_asic and tbinfo["topo"]["type"] == "t2"
-                            and fields[-3] != asic.namespace):
-                        continue
-                    interfaces.add(fields[-2])
+                    if len(fields) == 5:
+                        if fields[-3] == asic.namespace:
+                            interfaces.add(fields[-2])
+                    else:
+                        # The output simply looks like: BUFFER_QUEUE|<interface>|<queue>
+                        interfaces.add(fields[-2])
                 except IndexError:
                     pass
 
@@ -815,6 +839,8 @@ class TestShowQueue():
             intfsChecked = 0
             if mode == 'alias':
                 for intf in interfaces:
+                    if intf not in setup['port_name_map']:
+                        continue
                     alias = setup['port_name_map'][intf]
                     assert (
                         re.search(QUEUE_COUNTERS_RE_FMT.format(alias), queue_counter) is not None

@@ -120,6 +120,15 @@ def ignore_expected_loganalyzer_exceptions(request, duthosts, loganalyzer):
             # sonic-swss/orchagent/crmorch.cpp
             ".*ERR swss[0-9]*#orchagent.*getResAvailableCounters.*",  # test_monitor_config
             ".*ERR swss[0-9]*#orchagent.*objectTypeGetAvailability.*",  # test_monitor_config
+            # GCU tries several JsonPatch sortings when rolling back the ACL rule/mirror
+            # session/policer config added by test_monitor_config; some transient
+            # orderings apply the ACL rule removal before the mirror session removal
+            # (or vice versa), which orchagent logs as an ERR before the final,
+            # correctly-ordered patch converges to the expected state.
+            r".*ERR swss[0-9]*#orchagent.*activate: Mirror rule references mirror session "
+            r"\"mirror_session_dscp\" that does not exist yet.*",  # test_monitor_config
+            r".*ERR swss[0-9]*#orchagent.*add: Failed to create ACL rule RULE_1 "
+            r"in table EVERFLOW_DSCP.*",  # test_monitor_config
             ".*ERR dhcp_relay[0-9]*#dhcrelay.*",  # test_dhcp_relay
 
             # sonic-sairedis/vslib/HostInterfaceInfo.cpp: Need investigation

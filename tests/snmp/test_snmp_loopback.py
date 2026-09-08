@@ -54,7 +54,7 @@ def test_snmp_loopback(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
             stdout_lines = result['stdout_lines'][0][0]
         else:
             stdout_lines = result['stdout_lines'][0]
-        assert "SONiC Software Version" in stdout_lines,\
+        assert "SONiC Software Version" in stdout_lines, \
             "Sysdescr not found in SNMP result from IP {}".format(ip)
-        assert snmp_facts['ansible_sysdescr'] in stdout_lines,\
+        assert snmp_facts['ansible_sysdescr'] in stdout_lines, \
             "Sysdescr from IP{} not matching with result from Mgmt IPv4.".format(ip)

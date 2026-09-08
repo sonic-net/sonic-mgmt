@@ -35,12 +35,25 @@ DUT_ABSENT_TIMEOUT_FOR_MEMORY_EXHAUSTION = 240
 MAX_COOL_OFF_TIME = 300
 EXTRA_DPU_ONLINE_TIMEOUT_FOR_WATCHDOG = 40
 MAX_DPU_DOWN_TIME_SPREAD_SECS = 20
+SN4280_HWSKU_PREFIX = "Mellanox-SN4280"
 
 
 @pytest.fixture(params=["gnoi_based", "cli_based"])
 def invocation_type(request):
     """Parametrize reboot tests to run with both gNOI and CLI reboot paths."""
     return request.param
+
+
+def expects_dpu_reboot_after_npu_crash(duthost):
+    """Return whether DPUs are expected to reboot after an NPU crash/recovery."""
+    hwsku = duthost.facts.get('hwsku', '')
+    if hwsku.startswith(SN4280_HWSKU_PREFIX):
+        logging.info(
+            "Skipping DPU uptime reboot validation: %s keeps DPUs up during NPU crash recovery",
+            hwsku
+        )
+        return False
+    return True
 
 
 @contextmanager
@@ -51,7 +64,7 @@ def mellanox_dpu_shutdown_check(duthost, dpu_on_list):
     yield
 
     dpu_down_log_pattern = r"dpuctl_plat.*(dpu\d).*Total time taken = (\d+\.\d+) for going down"
-    syslog = duthost.shell(f"grep -E '{dpu_down_log_pattern}' /var/log/syslog")['stdout']
+    syslog = duthost.shell(f"grep -P '{dpu_down_log_pattern}' /var/log/syslog")['stdout']
     matches = re.findall(dpu_down_log_pattern, syslog)
     logging.info(f"Found {len(matches)} DPU down logs")
     logging.info(f"Time taken for DPUs to shutdown: {matches}")
@@ -155,8 +168,10 @@ def test_dpu_status_post_switch_mem_exhaustion(duthosts, dpuhosts,
                                                  platform_api_conn,
                                                  num_dpu_modules)
 
-    logging.info("Recording DPU boot times before NPU memory exhaustion")
-    pre_boot_times = get_all_dpu_uptimes(dpuhosts, dpu_on_list)
+    pre_boot_times = None
+    if expects_dpu_reboot_after_npu_crash(duthost):
+        logging.info("Recording DPU boot times before NPU memory exhaustion")
+        pre_boot_times = get_all_dpu_uptimes(dpuhosts, dpu_on_list)
 
     logging.info("Starting memory exhaustion test on NPU by running \
                   a large process...")
@@ -203,8 +218,10 @@ def test_dpu_status_post_switch_kernel_panic(duthosts, dpuhosts,
                                                  platform_api_conn,
                                                  num_dpu_modules)
 
-    logging.info("Recording DPU boot times before NPU kernel panic")
-    pre_boot_times = get_all_dpu_uptimes(dpuhosts, dpu_on_list)
+    pre_boot_times = None
+    if expects_dpu_reboot_after_npu_crash(duthost):
+        logging.info("Recording DPU boot times before NPU kernel panic")
+        pre_boot_times = get_all_dpu_uptimes(dpuhosts, dpu_on_list)
 
     logging.info("Triggering kernel panic on NPU...")
     duthost.shell(kernel_panic_cmd, executable="/bin/bash")
@@ -246,6 +263,9 @@ def test_dpu_status_post_dpu_kernel_panic(duthosts, dpuhosts,
                                                  platform_api_conn,
                                                  num_dpu_modules)
 
+    logging.info("Recording DPU boot times before DPU kernel panic")
+    pre_boot_times = get_all_dpu_uptimes(dpuhosts, dpu_on_list)
+
     triggered_dpu_on_list = []
     triggered_ip_list = []
     for index in range(len(dpu_on_list)):
@@ -261,9 +281,6 @@ def test_dpu_status_post_dpu_kernel_panic(duthosts, dpuhosts,
         triggered_ip_list.append(ip_address_list[index])
 
     pytest_assert(triggered_dpu_on_list, "No DPUs were triggered; all skipped due to missing dpuhosts")
-
-    logging.info("Recording DPU boot times before DPU kernel panic")
-    pre_boot_times = get_all_dpu_uptimes(dpuhosts, triggered_dpu_on_list)
 
     logging.info("Checking DPUs are not pingable")
     check_dpus_are_not_pingable(duthost, triggered_ip_list)

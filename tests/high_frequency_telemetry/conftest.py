@@ -1,15 +1,15 @@
 import pytest
 import logging
 import time
-from datetime import datetime, timezone
-from tests.common.utilities import wait_until
+
+from tests.high_frequency_telemetry.utilities import restart_otel_collector
 
 logger = logging.getLogger(__name__)
 
 OTEL_CONFIG_PATH = "/etc/sonic/otel_config.yml"
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="module", autouse=True)
 def suppress_otel_debug_logging(duthosts, enum_rand_one_per_hwsku_hostname):
     """Suppress verbose OTEL debug exporter logging to prevent /var/log disk exhaustion.
 
@@ -49,16 +49,14 @@ def suppress_otel_debug_logging(duthosts, enum_rand_one_per_hwsku_hostname):
         f"sed -i 's/verbosity: detailed/verbosity: basic/' {OTEL_CONFIG_PATH}",
         module_ignore_errors=False
     )
-    duthost.shell('docker restart otel', module_ignore_errors=True)
-    wait_until(60, 2, 0, duthost.is_service_fully_started, "otel")
+    restart_otel_collector(duthost)
 
     yield
 
     # Restore original config
     logger.info("Restoring original OTEL collector config")
     duthost.copy(content=original_config, dest=OTEL_CONFIG_PATH)
-    duthost.shell('docker restart otel', module_ignore_errors=True)
-    wait_until(60, 2, 0, duthost.is_service_fully_started, "otel")
+    restart_otel_collector(duthost)
 
 
 @pytest.fixture(autouse=True)
@@ -100,6 +98,9 @@ def ensure_swss_ready(duthosts, enum_rand_one_per_hwsku_hostname):
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
+    if not duthost.is_service_fully_started("swss"):
+        pytest.fail("swss container is not running")
+
     def get_swss_uptime_seconds():
         """Get swss container uptime in seconds via docker inspect."""
         try:
@@ -112,18 +113,16 @@ def ensure_swss_ready(duthosts, enum_rand_one_per_hwsku_hostname):
                 return 0
             started_at = result['stdout'].strip()
 
-            # Step 2: Convert start time to epoch seconds on DUT
+            # Step 2: Calculate uptime on DUT to avoid clock differences
             result = duthost.shell(
-                f'date -ud "{started_at}" +%s',
+                f'started=$(date -ud "{started_at}" +%s) && '
+                'echo $(($(date -u +%s) - started))',
                 module_ignore_errors=True
             )
             if result['rc'] != 0 or not result['stdout'].strip():
                 return 0
 
-            # Step 3: Calculate uptime = current UTC epoch - start epoch
-            started_epoch = int(result['stdout'].strip())
-            now_epoch = int(datetime.now(timezone.utc).timestamp())
-            uptime = now_epoch - started_epoch
+            uptime = int(result['stdout'].strip())
             logger.debug(f"swss container uptime: {uptime}s")
             return uptime
         except Exception as e:
@@ -137,28 +136,7 @@ def ensure_swss_ready(duthosts, enum_rand_one_per_hwsku_hostname):
     min_uptime = 10  # Require at least 10 seconds uptime
 
     if uptime == 0:
-        logger.warning("swss container is not running, attempting to start...")
-
-        # Try to restart swss service
-        duthost.shell('sudo systemctl restart swss',
-                      module_ignore_errors=True)
-
-        # Wait for container to start and stabilize
-        max_wait = 40  # Total wait time
-        logger.info(f"Waiting up to {max_wait} seconds for swss container "
-                    f"to start and stabilize...")
-
-        for i in range(max_wait):
-            time.sleep(1)
-            current_uptime = get_swss_uptime_seconds()
-            if current_uptime >= min_uptime:
-                logger.info(f"swss container is stable "
-                            f"(uptime: {current_uptime}s)")
-                break
-        else:
-            raise RuntimeError(f"swss container failed to stabilize "
-                               f"after {max_wait} seconds")
-
+        pytest.fail("Failed to determine swss container uptime")
     elif uptime < min_uptime:
         wait_time = min_uptime - uptime + 1  # +1 for safety margin
         logger.info(f"swss container uptime is {uptime}s, "

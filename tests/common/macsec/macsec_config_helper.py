@@ -6,6 +6,7 @@ from passlib.hash import cisco_type7
 from tests.common.macsec.macsec_helper import get_mka_session, getns_prefix, wait_all_complete, \
      submit_async_task
 from tests.common.macsec.macsec_platform_helper import global_cmd, find_portchannel_from_member, get_portchannel
+from tests.common.config_reload import config_reload
 from tests.common.devices.eos import EosHost
 from tests.common.utilities import wait_until
 
@@ -214,6 +215,45 @@ def disable_macsec_feature(duthost, macsec_nbrhosts):
     global_cmd(duthost, macsec_nbrhosts, "sudo config feature state macsec disabled")
 
 
+def _wait_for_macsec_cleanup_with_vs_recovery(host, interfaces, is_dut):
+    if wait_for_macsec_cleanup(host, interfaces):
+        return False
+
+    if host.facts["asic_type"] != "vs":
+        return False
+
+    logger.warning(
+        "MACsec cleanup timed out on %s; reloading config to clear "
+        "stale VS state",
+        host.hostname,
+    )
+    if is_dut:
+        config_reload(
+            host,
+            config_source="config_db",
+            safe_reload=True,
+            yang_validate=False,
+        )
+    else:
+        host.shell("sudo config reload -y -f", executable="/bin/bash")
+        assert wait_until(
+            200, 10, 0, host.is_service_fully_started, "database"), \
+            "Database did not recover on {}".format(host.hostname)
+        assert wait_until(
+            420, 10, 0, host.critical_processes_running, "swss"), \
+            "Swss did not recover on {}".format(host.hostname)
+
+    assert wait_for_macsec_cleanup(host, interfaces), \
+        "MACsec entries remain on {} after config reload".format(host.hostname)
+    return True
+
+
+def _restore_macsec_feature_after_cleanup_recovery(
+        duthost, ctrl_links):
+    nbrhosts = {nbr["name"]: nbr for nbr in ctrl_links.values()}
+    enable_macsec_feature(duthost, nbrhosts)
+
+
 def cleanup_macsec_configuration(duthost, ctrl_links, profile_name):
     devices = set()
     if duthost.facts["asic_type"] == "vs":
@@ -242,12 +282,19 @@ def cleanup_macsec_configuration(duthost, ctrl_links, profile_name):
     # Extract DUT interface names from ctrl_links and wait for automatic
     # MACsec cleanup on the DUT side.
     interfaces = list(ctrl_links.keys())
-    wait_for_macsec_cleanup(duthost, interfaces)
+    recovered = _wait_for_macsec_cleanup_with_vs_recovery(
+        duthost, interfaces, is_dut=True)
 
     # Also wait for neighbor devices to complete automatic cleanup for their
     # corresponding ports.
     for dut_port, nbr in list(ctrl_links.items()):
-        wait_for_macsec_cleanup(nbr["host"], [nbr["port"]])
+        neighbor_recovered = _wait_for_macsec_cleanup_with_vs_recovery(
+            nbr["host"], [nbr["port"]], is_dut=False)
+        recovered = neighbor_recovered or recovered
+
+    if recovered:
+        _restore_macsec_feature_after_cleanup_recovery(
+            duthost, ctrl_links)
 
     logger.info("Cleanup macsec configuration finished")
 
@@ -448,10 +495,17 @@ def cleanup_macsec_multi_profile_configuration(duthost, ctrl_links, port_profile
     logger.info("Multi-profile cleanup step 3: wait for automatic cleanup")
 
     interfaces = list(ctrl_links.keys())
-    wait_for_macsec_cleanup(duthost, interfaces)
+    recovered = _wait_for_macsec_cleanup_with_vs_recovery(
+        duthost, interfaces, is_dut=True)
 
     for dut_port, nbr in list(ctrl_links.items()):
-        wait_for_macsec_cleanup(nbr["host"], [nbr["port"]])
+        neighbor_recovered = _wait_for_macsec_cleanup_with_vs_recovery(
+            nbr["host"], [nbr["port"]], is_dut=False)
+        recovered = neighbor_recovered or recovered
+
+    if recovered:
+        _restore_macsec_feature_after_cleanup_recovery(
+            duthost, ctrl_links)
 
     logger.info("Multi-profile cleanup finished")
 

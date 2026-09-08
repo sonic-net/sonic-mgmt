@@ -204,14 +204,25 @@ def remove_dataacl_table(duthosts):
     with SafeThreadPoolExecutor(max_workers=8) as executor:
         # Recover DUT by reloading minigraph
         for duthost in duthosts:
-            executor.submit(
-                config_reload,
-                duthost,
-                config_source="minigraph",
-                safe_reload=True,
-                override_config=True,
-                check_intf_up_ports=True
-            )
+            executor.submit(reload_minigraph_with_optional_override, duthost)
+
+
+def reload_minigraph_with_optional_override(duthost):
+    """
+    Reload minigraph, applying golden config override only if the golden
+    config file actually exists on the DUT. Passing override_config=True
+    causes config_reload/load_minigraph to abort test with
+    "Cannot find 'golden_config_db.json'!".
+    """
+    golden_cfg = duthost.stat(path="/etc/sonic/golden_config_db.json")
+    override_config = golden_cfg.get("stat", {}).get("exists", False)
+    config_reload(
+        duthost,
+        config_source="minigraph",
+        safe_reload=True,
+        override_config=override_config,
+        check_intf_up_ports=True
+    )
 
 
 def remove_dataacl_table_single_dut(table_name, duthost):
@@ -525,9 +536,34 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
         # For LT2, add portchannels for downstream links
         for k, v in list(port_channels.items()):
             acl_table_ports[v['namespace']].append(k)
-        # Add RIF for upstream links
+        # Add standalone RIFs for upstream links. PortChannel members cannot
+        # also be bound to the ACL table as physical interfaces.
+        pc_members = defaultdict(set)
+        for pc in port_channels.values():
+            pc_members[pc['namespace']].update(pc.get('members', []))
         for namespace, port in list(upstream_ports.items()):
-            acl_table_ports[namespace] += port
+            acl_table_ports[namespace] += [
+                interface for interface in port if interface not in pc_members[namespace]
+            ]
+    elif topo in ("urh", "lrh"):
+        # For URH/LRH, ports may be in portchannels — raw PC member interfaces
+        # cannot bind ACLs, so add PortChannel names and filter out ports in portchannels.
+        ports_in_pc = set()
+        for pc_name, pc_info in list(port_channels.items()):
+            pc_namespace = pc_info.get('namespace', '')
+            acl_table_ports[pc_namespace].append(pc_name)
+            if pc_namespace:
+                acl_table_ports[''].append(pc_name)
+            ports_in_pc.update(pc_info.get('members', []))
+
+        # Add any standalone interfaces not in a portchannel
+        for namespace, ports in list(upstream_ports.items()) + list(downstream_ports.items()):
+            for port in ports:
+                if port in ports_in_pc:
+                    continue
+                acl_table_ports[namespace].append(port)
+                if namespace:
+                    acl_table_ports[''].append(port)
     else:
         for namespace, port in list(upstream_ports.items()):
             acl_table_ports[namespace] += port

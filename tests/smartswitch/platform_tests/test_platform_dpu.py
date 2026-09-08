@@ -4,20 +4,18 @@ Tests for the `platform cli ...` commands in DPU
 
 import logging
 import pytest
-import time
 import re
 from datetime import datetime
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.platform_api import module
 from tests.common.mellanox_data import is_mellanox_device
-from tests.common.cisco_data import is_cisco_device
-from tests.smartswitch.common.device_utils_dpu import check_dpu_ping_status,\
-    check_dpu_module_status, check_dpu_reboot_cause, check_pmon_status,\
-    parse_dpu_memory_usage, parse_system_health_summary,\
-    pre_test_check, post_test_dpus_check,\
-    dpus_shutdown_and_check, dpus_startup_and_check,\
-    check_dpu_health_status, check_midplane_status, num_dpu_modules, dpu_setup,\
+from tests.smartswitch.common.device_utils_dpu import check_dpu_ping_status, \
+    check_dpu_module_status, check_dpu_reboot_cause, check_pmon_status, \
+    parse_dpu_memory_usage, parse_system_health_summary, \
+    pre_test_check, post_test_dpus_check, \
+    dpus_shutdown_and_check, dpus_startup_and_check, check_dpu_system_health_summary, \
+    check_dpu_health_status, check_midplane_status, num_dpu_modules, dpu_setup, \
     get_dpuhost_for_dpu  # noqa: F401
 from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service  # noqa: F401,F403
 
@@ -28,9 +26,6 @@ pytestmark = [
 # Timeouts, Delays and Time Intervals in secs
 DPU_MAX_TIMEOUT = 360
 DPU_TIME_INT = 30
-
-# Cool off time period after shutting down DPUs
-COOL_OFF_TIME = 300
 
 # DPU Memory Threshold
 DPU_MEMORY_THRESHOLD = 90
@@ -155,15 +150,6 @@ def test_system_health_state(duthosts, dpuhosts,
 
     logging.info("Shutting DOWN the DPUs in parallel")
     dpus_shutdown_and_check(duthost, dpu_on_list, num_dpu_modules)
-
-    """
-    Sleep time of 5 mins is added to get the system health state
-    is reflected in the cli after dpus are shutdown
-    """
-    # Check if it's a Cisco ASIC
-    if is_cisco_device(duthost):
-        logging.info("5 minutes Cool off period after shutdown")
-        time.sleep(COOL_OFF_TIME)
 
     try:
         for index in range(len(dpu_on_list)):
@@ -342,23 +328,14 @@ def test_system_health_summary(duthosts, dpuhosts,
 
     pytest_assert(result, "Switch health status is not ok")
 
+    # Checking system-health summary on DPU
     for index in range(len(dpu_on_list)):
         dpu_name = dpu_on_list[index]
         dpu_id = int(re.search(r'\d+', dpu_name).group())
-        dpuhost = get_dpuhost_for_dpu(dpuhosts, dpu_id)
-        if dpuhost is None:
-            logging.warning("DPU%d not in dpuhosts (len=%d); skipping health summary check", dpu_id, len(dpuhosts))
-            continue
 
-        logging.info("Checking show system-health summary on {}"
-                     .format(dpu_name))
-        output_health_summary = dpuhost.command(
-                                "sudo show system-health summary")['stdout']
-
-        result = parse_system_health_summary(output_health_summary)
-
-        logging.info(output_health_summary)
-        pytest_assert(result,
+        pytest_assert(wait_until(DPU_MAX_TIMEOUT, DPU_TIME_INT, 0,
+                                 check_dpu_system_health_summary, dpuhosts,
+                                 dpu_id, dpu_name),
                       "{} health status is not ok"
                       .format(dpu_name))
 

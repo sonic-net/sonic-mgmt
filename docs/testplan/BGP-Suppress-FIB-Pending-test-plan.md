@@ -41,6 +41,8 @@ Command to disable the feature:
 admin@sonic:~$ sudo config suppress-fib-pending disabled
 ```
 
+> Note: changing the `suppress-fib-pending` configuration requires reload to become operational.
+
 ### Supported Topology
 The tests will be supported on t1 topo.
 
@@ -135,15 +137,7 @@ show ip route 1.1.1.0/24 json
 7. Make sure the routes are programmed in FIB by checking __offloaded__ flag in the DUT routing table
 8. Send traffic matching the prefixes and verify packets are forwarded to T0 VM
 
-### Test case # 4 - Test BGP test work with suppress
-1. No BGP suppress-fib-pending function configured at DUT
-2. Run BGP test suite
-3. Make sure BGP tests are not affected
-4. Enable BGP suppress-fib-pending function at DUT
-5. Run BGP test suite
-6. Make sure BGP tests are not affected
-
-### Test case # 5 - Test BGP route suppress under negative operation
+### Test case # 4 - Test BGP route suppress under negative operation
 1. Enable BGP suppress-fib-pending function at DUT
 2. Suspend orchagent process to simulate a delay
 3. Announce BGP prefixes to DUT from T0 VM by exabgp
@@ -160,7 +154,7 @@ show ip route 1.1.1.0/24 json
 14. Verify the BGP routes are announced to T2 peer
 15. Send traffic matching the prefixes and verify packets are forwarded to T0 VM
 
-### Test case # 6 - Test BGP route suppress in credit loops scenario
+### Test case # 5 - Test BGP route suppress in credit loops scenario
 1. No BGP suppress-fib-pending function configured at DUT
 2. Suspend orchagent process to simulate a delay
 3. Announce a default route to DUT from T2 VM
@@ -168,24 +162,23 @@ show ip route 1.1.1.0/24 json
 5. Verify the BGP routes are announced to T2 VM peer
 6. Send traffic matching the prefixes and verify packets are forwarded __back to T2 VM__
 7. Enable BGP suppress-fib-pending function at DUT
-8. Restore orchagent process
-9. Make sure the routes are programmed in FIB by checking __offloaded__ flag in the DUT routing table
-10. Send traffic matching the prefixes and verify packets are forwarded to __T0 VM__
+8. Make sure the routes are programmed in FIB by checking __offloaded__ flag in the DUT routing table
+9. Send traffic matching the prefixes and verify packets are forwarded to __T0 VM__
 
-### Test case # 7 - Test BGP route suppress under stress
-1. Do BGP route flap 5 times
-2. Disable BGP suppress-fib-pending function
-3. Send traffic matching the prefixes in the BGP route flap and verify packets are forwarded __back to T2 VM__
-4. Suspend orchagent process to simulate a delay
-5. Announce 1K BGP prefixes to DUT from T0 VM by exabgp
-6. Verify the BGP routes are announced to T2 VM peer
-7. Send traffic matching the prefixes in the BGP route flap and verify packets are forwarded __back to T2 VM__
-8. Enable BGP suppress-fib-pending function at DUT
-9. Restore orchagent process
-10. Verify the routes are programmed in FIB by checking __offloaded__ flag in the DUT routing table
+### Test case # 6 - Test BGP route suppress under stress
+1. Enable BGP suppress-fib-pending function at DUT
+2. Do BGP route flap 5 times (announce + withdraw 1K BGP prefixes) to stress the route processing pipeline
+3. Suspend orchagent process to simulate a route install delay
+4. Announce 1K BGP prefixes to DUT from T0 VM by exabgp
+5. Verify the BGP routes are in __queued__ state in the DUT routing table
+6. Verify the BGP routes are NOT announced to T2 VM peer
+7. Send traffic matching the prefixes and verify packets are NOT forwarded to T0 VM (blackholing)
+8. Restore orchagent process
+9. Verify the BGP routes are in __offloaded__ state in the DUT routing table
+10. Verify the BGP routes are announced to T2 VM peer
 11. Send traffic matching the prefixes and verify packets are forwarded to __T0 VM__
 
-### Test case # 8 - Test BGP route suppress performance
+### Test case # 7 - Test BGP route suppress performance
 1. Enable BGP suppress-fib-pending function at DUT
 2. Start tcpdump capture at the ingress and egress port at DUT
 3. Announce 1K BGP prefixes to DUT from T0 VM by exabgp
