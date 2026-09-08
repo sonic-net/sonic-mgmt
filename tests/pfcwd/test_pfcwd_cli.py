@@ -306,7 +306,8 @@ class SendVerifyTraffic():
 
 
 @pytest.fixture(scope='function')
-def manage_lag_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, nbrhosts, setup_pfc_test):
+def manage_lag_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, nbrhosts, setup_pfc_test,
+                      loganalyzer):
     """Complete LAG config resource manager.
 
     Setup (before test): backs up config_db and shuts down extra LAG members so
@@ -322,7 +323,8 @@ def manage_lag_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinf
 
     yield
 
-    restore_original_config(duthost, port, vm_host, neigh_port_channel, min_links, ports)
+    restore_original_config(duthost, port, vm_host, neigh_port_channel, min_links, ports,
+                            loganalyzer=loganalyzer)
 
 
 class TestPfcwdFunc(SetupPfcwdFunc):
