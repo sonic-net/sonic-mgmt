@@ -105,6 +105,8 @@ def parse_update_time(value):
 
 def resolve_port_namespace(duthost, port):
     """Return the ASIC namespace for a logical port, or ``None`` on single-ASIC."""
+    if not duthost.is_multi_asic:
+        return None
     return duthost.get_port_asic_instance(port).namespace
 
 

@@ -10,6 +10,15 @@ platform_tests/api:
       - "asic_type in ['vs']"
 
 #######################################
+#####      api/test_bmc.py        #####
+#######################################
+platform_tests/api/test_bmc.py:
+  skip:
+    reason: "Not available on BMC"
+    conditions:
+      - "'bmc' in topo_type"
+
+#######################################
 #####      api/test_chassis.py    #####
 #######################################
 platform_tests/api/test_chassis.py::TestChassisApi::test_components:
@@ -655,6 +664,7 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_error_description:
       - "platform in ['x86_64-cel_e1031-r0'] and https://github.com/sonic-net/sonic-buildimage/issues/18229"
       - "'t0-isolated-d32u32s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
+      - "'t1-isolated-d56u1-lag' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_model:
   skip:
@@ -1026,6 +1036,15 @@ platform_tests/broadcom/test_ser.py:
     reason: "Testcase consistently fails, CSP raised to follow up"
     conditions:
       - "release in ['202412','202503'] and 'Arista-7060X6' in hwsku"
+
+####################################
+#####  cli/test_pddf_ledutil.py  #####
+####################################
+platform_tests/cli/test_pddf_ledutil.py:
+  skip:
+    reason: "LED util tests are not supported on BMC"
+    conditions:
+      - "'bmc' in topo_type"
 
 ##################################
 #####  cli/test_show_bmc.py  #####
@@ -1727,6 +1746,15 @@ platform_tests/test_service_warm_restart.py:
     conditions:
       - "asic_type in ['mellanox', 'nvidia']"
       - "topo_type not in ['t0']"
+
+##########################################
+#####  test_sfp_thermal_state_db.py  #####
+##########################################
+platform_tests/test_sfp_thermal_state_db.py:
+  skip:
+    reason: "SFP thermal state DB test is not supported on BMC"
+    conditions:
+      - "'bmc' in topo_type"
 
 #######################################
 #####   test_xcvr_info_in_db.py   #####
