@@ -220,7 +220,6 @@ class AnsibleHostBase(object):
 
         def log_module_metric(success, is_async, return_code=None, result_failed=False):
             log_latency_metric(
-                logger,
                 "ansible_module",
                 (time.monotonic() - operation_start) * 1000,
                 success=success,

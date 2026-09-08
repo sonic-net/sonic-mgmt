@@ -137,7 +137,6 @@ def wait(seconds, msg=""):
         completed = True
     finally:
         log_latency_metric(
-            logger,
             "framework_wait",
             (time.monotonic() - start_time) * 1000,
             success=completed,
@@ -171,7 +170,6 @@ def wait_until(timeout, interval, delay, condition, *args, **kwargs):
 
     def log_result(success):
         log_latency_metric(
-            logger,
             "framework_wait_until",
             (time.monotonic() - metric_start_time) * 1000,
             success=success,
@@ -278,7 +276,6 @@ async def async_wait_until(timeout, interval, delay, condition, *args, **kwargs)
 
     def log_result(success):
         log_latency_metric(
-            logger,
             "framework_async_wait_until",
             (time.monotonic() - metric_start_time) * 1000,
             success=success,
