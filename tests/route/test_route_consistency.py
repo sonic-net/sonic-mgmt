@@ -2,7 +2,6 @@ import pytest
 import logging
 import re
 import math
-import time
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.dut_utils import get_program_info
 from tests.common.config_reload import config_reload
