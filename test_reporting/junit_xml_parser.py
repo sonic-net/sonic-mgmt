@@ -241,6 +241,17 @@ def _validate_junit_xml(root):
         _validate_test_metadata(suite)
         _validate_test_cases(suite)
 
+    metadata = None
+    for suite in suites:
+        suite_metadata = {k: v for k, v in _parse_test_metadata(suite).items()
+                          if k in REQUIRED_METADATA_PROPERTIES and k != "timestamp"}
+        if not suite_metadata:
+            continue
+        if metadata is None:
+            metadata = suite_metadata
+        elif suite_metadata != metadata:
+            raise JUnitXMLValidationError("testsuite metadata differs between child suites")
+
     return root
 
 

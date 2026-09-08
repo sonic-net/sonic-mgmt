@@ -277,6 +277,14 @@ def test_multiple_testsuites_are_aggregated():
     }
 
 
+def test_multiple_testsuites_with_mismatched_metadata_are_rejected():
+    first_suite = VALID_TEST_RESULT.replace('<?xml version="1.0" encoding="utf-8"?>', "")
+    second_suite = first_suite.replace('value="vms-kvm-t0"', 'value="vms-kvm-t1"')
+
+    with pytest.raises(JUnitXMLValidationError, match="testsuite metadata differs between child suites"):
+        validate_junit_xml_stream(f"<testsuites>{first_suite}{second_suite}</testsuites>")
+
+
 def test_empty_testsuite_is_parsed():
     root = validate_junit_xml_stream(
         '<testsuite errors="0" failures="0" skipped="0" tests="0" time="0"/>'
