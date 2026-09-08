@@ -4,8 +4,8 @@ import logging
 from jinja2 import Template
 from os import path
 from time import sleep
-from .vnet_constants import TEMPLATE_DIR, VXLAN_UDP_SPORT_KEY, VXLAN_UDP_SPORT_MASK_KEY,\
-    DUT_VXLAN_RANGE_JSON, DUT_VNET_SWITCH_JSON, DUT_VNET_CONF_JSON, DUT_VNET_INTF_JSON,\
+from .vnet_constants import TEMPLATE_DIR, VXLAN_UDP_SPORT_KEY, VXLAN_UDP_SPORT_MASK_KEY, \
+    DUT_VXLAN_RANGE_JSON, DUT_VNET_SWITCH_JSON, DUT_VNET_CONF_JSON, DUT_VNET_INTF_JSON, \
     DUT_VNET_NBR_JSON, DUT_VNET_ROUTE_JSON, APPLY_NEW_CONFIG_KEY, VXLAN_RANGE_ENABLE_KEY, IPV6_VXLAN_TEST_KEY
 from .vnet_constants import VXLAN_PORT, VXLAN_MAC
 from tests.common.helpers.assertions import pytest_assert

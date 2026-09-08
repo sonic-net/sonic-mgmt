@@ -162,7 +162,7 @@ def test_ha_planned_shutdown(
         while packet_sending_flag.empty() or (not packet_sending_flag.get()):
             time.sleep(0.2)
         logging.info("HA: Set standby to dead")
-        set_dead_dash_ha_scope(localhost, duthosts[1], ptfhost, standby_vdpu_key, ha_owner)
+        set_dash_ha_scope(localhost, duthosts[1], ptfhost, standby_vdpu_key, "dead", ha_owner, disabled=False)
 
     t = threading.Thread(target=standby_ha_action, name="standby_ha_action_thread")
     t.start()

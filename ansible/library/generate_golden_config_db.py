@@ -44,6 +44,7 @@ LOSSY_HWSKU = frozenset({'Arista-7060X6-64PE-C256S2', 'Arista-7060X6-64PE-C224O8
                          'Mellanox-SN5600-C256S1', 'Mellanox-SN5600-C224O8',
                          'Arista-7060X6-64PE-B-C512S2', 'Arista-7060X6-64PE-B-C448O16',
                          'Mellanox-SN5640-C512S2', 'Mellanox-SN5640-C448O16',
+                         'Mellanox-SN5640-C508O1X2', 'Mellanox-SN5640-O128X2', 'Mellanox-SN5640-C512X2',
                          "Mellanox-SN6600_LD-P64O128C2", "Mellanox-SN6600_LD-P128C2"})
 
 
@@ -183,6 +184,7 @@ class GenerateGoldenConfigDBModule(object):
                                     hwsku=dict(required=False, type='str', default=None),
                                     vm_configuration=dict(required=False, type='dict', default={}),
                                     prober_type=dict(required=False, type='str', default=None),
+                                    neighbor_mode=dict(required=False, type='str', default=None),
                                     is_lit_mode=dict(required=False, type='bool', default=True),
                                     npu_index=dict(required=False, type='int', default=0),
                                     duts_list=dict(required=False, type='list', default=[]),
@@ -191,7 +193,8 @@ class GenerateGoldenConfigDBModule(object):
                                     bgp_confd_asn=dict(required=False, type='str', default=None),
                                     bgp_confd_peers=dict(required=False, type='str', default=None),
                                     enabled_dpu_indices=dict(required=False, type='list',
-                                                             elements='int', default=None)),
+                                                             elements='int', default=None),
+                                    lacp_fast_rate=dict(required=False, type='bool', default=False)),
                                     supports_check_mode=True)
         self.topo_name = self.module.params['topo_name']
         self.port_index_map = self.module.params['port_index_map']
@@ -207,6 +210,7 @@ class GenerateGoldenConfigDBModule(object):
 
         self.vm_configuration = self.module.params['vm_configuration']
         self.prober_type = self.module.params['prober_type']
+        self.neighbor_mode = self.module.params['neighbor_mode']
         self.is_lit_mode = self.module.params['is_lit_mode']
         self.bgp_confd_asn = self.module.params['bgp_confd_asn']
         self.bgp_confd_peers = self.module.params['bgp_confd_peers']
@@ -215,6 +219,7 @@ class GenerateGoldenConfigDBModule(object):
         self.dut_loopbacks = self.module.params['dut_loopbacks']
         self.console_ports = self.module.params['console_ports']
         self.enabled_dpu_indices = self.module.params['enabled_dpu_indices']
+        self.lacp_fast_rate = self.module.params['lacp_fast_rate']
 
     def _update_config_db_in_ns(self, config, table, value, namespaces_to_update='asic'):
         """Update a table entry across all ASIC namespaces for multi-ASIC platforms.
@@ -337,16 +342,23 @@ class GenerateGoldenConfigDBModule(object):
                 golden_config_db["DEVICE_METADATA"]["localhost"]["default_pfcwd_status"] = "disable"
                 golden_config_db["DEVICE_METADATA"]["localhost"]["buffer_model"] = "traditional"
 
-        # set counterpoll interval to 2000ms as workaround for Slowness observed in nexthop group and member programming
-        if "FLEX_COUNTER_TABLE" in ori_config_db and 'sn5640' in self.platform:
-            golden_config_db["FLEX_COUNTER_TABLE"] = ori_config_db["FLEX_COUNTER_TABLE"]
-            golden_config_db["FLEX_COUNTER_TABLE"]["PORT"]["POLL_INTERVAL"] = "2000"
-
         return json.dumps(golden_config_db, indent=4)
 
     def check_version_for_bmp(self):
-        # disable bmp feature table first
-        return False
+        output_version = device_info.get_sonic_version_info()
+        build_version = output_version['build_version']
+
+        if re.match(r'^(\d{6})', build_version):
+            version_number = int(re.findall(r'\d{6}', build_version)[0])
+            if version_number < 202411:
+                return False
+        elif re.match(r'^internal-(\d{6})', build_version):
+            internal_version_number = int(re.findall(r'\d{6}', build_version)[0])
+            if internal_version_number < 202411:
+                return False
+        else:
+            return True
+        return True
 
     def is_bmc_device(self):
         return device_info.get_localhost_info('type') == 'NetworkBmc'
@@ -477,6 +489,35 @@ class GenerateGoldenConfigDBModule(object):
             gold_config_db = ori_config_db
 
         return json.dumps(gold_config_db, indent=4)
+
+    def apply_bmc_feature_allowlist(self, config, enabled_features):
+        enabled_features = set(enabled_features)
+        full_config = self.get_config_from_minigraph() if config == "{}" else config
+        ori_config_db = json.loads(full_config)
+        minigraph_config = json.loads(self.get_config_from_minigraph())
+        feature_section = copy.deepcopy(minigraph_config.get("FEATURE", {}))
+        feature_section.update(ori_config_db.get("FEATURE", {}))
+        self._apply_bmc_feature_allowlist_to_features(feature_section, enabled_features)
+        ori_config_db["FEATURE"] = feature_section
+
+        if config == "{}":
+            gold_config_db = {
+                "FEATURE": copy.deepcopy(ori_config_db["FEATURE"])
+            }
+        else:
+            gold_config_db = ori_config_db
+
+        return json.dumps(gold_config_db, indent=4)
+
+    def _apply_bmc_feature_allowlist_to_features(self, feature_section, enabled_features):
+        for feature, feature_data in feature_section.items():
+            if not isinstance(feature_data, dict):
+                continue
+            if feature in enabled_features:
+                feature_data["state"] = "enabled"
+            else:
+                feature_data["auto_restart"] = "disabled"
+                feature_data["state"] = "disabled"
 
     def get_portchannle_config(self, vm_configuration):
         portchannel_configs = []
@@ -882,6 +923,10 @@ class GenerateGoldenConfigDBModule(object):
                 "main_dpu_ids": self._format_dpu_key(hostname_1, idx)
             }
 
+        vxlan_tunnel_entry = {"src_ip": vxlan_src_ip}
+        if (device_info.get_sonic_version_info() or {}).get("asic_type") == "cisco-8000":
+            vxlan_tunnel_entry["ttl_mode"] = "pipe"
+
         ha_config = {
             "REMOTE_DPU": remote_dpu_table,
             "VDPU": vdpu_table,
@@ -927,7 +972,7 @@ class GenerateGoldenConfigDBModule(object):
                 }
             },
             "VXLAN_TUNNEL": {
-                "t4": {"src_ip": vxlan_src_ip}
+                "t4": vxlan_tunnel_entry
             }
         }
 
@@ -1004,6 +1049,12 @@ class GenerateGoldenConfigDBModule(object):
             return json.dumps(ori_config_db, indent=4)
         else:
             return config
+
+    def set_switch_host_admin_up_config(self, config):
+        """Set switch-host admin_up by default"""
+        ori_config_db = json.loads(config)
+        ori_config_db.setdefault("CHASSIS_MODULE", {}).setdefault("SWITCH-HOST", {})["admin_status"] = "up"
+        return json.dumps(ori_config_db, indent=4)
 
     def generate_default_init_config_db(self):
         rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
@@ -1091,7 +1142,8 @@ class GenerateGoldenConfigDBModule(object):
     def generate_drh_golden_config_db(self):
         """
         Generate golden_config for disaggregated Regional Hub (LRH/URH) topologies.
-        Only sets BGP confederation config.
+        Sets BGP confederation config, and optionally enables LACP fast rate on all
+        PortChannels when lacp_fast_rate is requested.
         """
         ori_config = json.loads(self.get_config_from_minigraph())
         golden_config = ori_config
@@ -1101,6 +1153,12 @@ class GenerateGoldenConfigDBModule(object):
             golden_config["BGP_DEVICE_GLOBAL"]["CONFED"] = \
                 {"asn": str(self.bgp_confd_asn), "peers": str(self.bgp_confd_peers).replace(' ', ';')}
 
+        # Enable LACP fast rate on all PortChannels so neighbor-facing LAGs run 1s LACPDUs.
+        if self.lacp_fast_rate:
+            golden_config["PORTCHANNEL"] = ori_config.get("PORTCHANNEL", {})
+            for portchannel_config in golden_config["PORTCHANNEL"].values():
+                portchannel_config["fast_rate"] = "true"
+
         return json.dumps(golden_config, indent=4)
 
     def generate_lt2_ft2_golden_config_db(self):
@@ -1109,8 +1167,8 @@ class GenerateGoldenConfigDBModule(object):
         Enables FEC for high-speed ports. PORT table rebuild from platform.json
         is handled separately by override_port_table_from_platform().
         """
-        SUPPORTED_TOPO = ["ft2-64", "ft2-16", "lt2-p32o64", "lt2-o128", "lt2-o128-d110u14",
-                          "ft2-o128", "lt2-o256-u32d224"]
+        SUPPORTED_TOPO = ["lt2-min", "ft2-64", "ft2-16", "lt2-p32o64", "lt2-o128", "lt2-o128-d110u14",
+                          "ft2-o128", "lt2-o256-u32d224", "lt2-u32d128"]
         if self.topo_name not in SUPPORTED_TOPO:
             return "{}"
         SUPPORTED_PORT_SPEED = ["200000", "400000", "800000"]
@@ -1133,7 +1191,9 @@ class GenerateGoldenConfigDBModule(object):
 
     def generate_dualtor_golden_config_db(self):
         """
-        Generate golden config for dualtor topology with prober_type support.
+        Generate golden config for dualtor topology with prober_type and
+        neighbor_mode support.
+
         This adds prober_type to existing MUX_CABLE entries from minigraph.
         """
         rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
@@ -1148,14 +1208,18 @@ class GenerateGoldenConfigDBModule(object):
             golden_config_db["DEVICE_METADATA"] = ori_config_db["DEVICE_METADATA"]
         golden_config_db["DEVICE_METADATA"]["localhost"]["buffer_model"] = "traditional"
 
-        # Add prober_type to MUX_CABLE if it exists and prober_type is specified
-        if ("MUX_CABLE" in ori_config_db and "PORT" in ori_config_db
-           and self.prober_type != "" and self.prober_type is not None):
+        if "MUX_CABLE" in ori_config_db and "PORT" in ori_config_db:
             mux_cable_config = copy.deepcopy(ori_config_db["MUX_CABLE"])
             port_config = copy.deepcopy(ori_config_db["PORT"])
-            # Add prober_type to each interface
+
             for intf_name, intf_config in mux_cable_config.items():
-                intf_config["prober_type"] = self.prober_type
+                # Set prober_type only when explicitly provided
+                if self.prober_type and self.prober_type != "":
+                    intf_config["prober_type"] = self.prober_type
+                # Set neighbor_mode only when explicitly provided
+                if self.neighbor_mode and self.neighbor_mode != "":
+                    intf_config["neighbor_mode"] = self.neighbor_mode
+
             golden_config_db["MUX_CABLE"] = mux_cable_config
             golden_config_db["PORT"] = port_config
 
@@ -1279,6 +1343,10 @@ class GenerateGoldenConfigDBModule(object):
         else:
             config = self.generate_default_init_config_db()
 
+        # set switch-host admin_up by default for BMC
+        if "bmc" in self.topo_name:
+            config = self.set_switch_host_admin_up_config(config)
+
         # update dns config
         config = self.update_dns_config(config)
 
@@ -1302,15 +1370,6 @@ class GenerateGoldenConfigDBModule(object):
                 config = self.overwrite_feature_golden_config_db_singleasic(config, "frr_bmp", "disabled", "enabled")
                 config = self.overwrite_feature_golden_config_db_singleasic(config, "bmp")
 
-        # Disable swss and syncd features on BMC devices.
-        if self.is_bmc_device():
-            if multi_asic.is_multi_asic():
-                config = self.overwrite_feature_golden_config_db_multiasic(config, "swss", "disabled", "disabled")
-                config = self.overwrite_feature_golden_config_db_multiasic(config, "syncd", "disabled", "disabled")
-            else:
-                config = self.overwrite_feature_golden_config_db_singleasic(config, "swss", "disabled", "disabled")
-                config = self.overwrite_feature_golden_config_db_singleasic(config, "syncd", "disabled", "disabled")
-
         # Enable otel feature when docker-sonic-otel image exists
         if self.has_otel_image():
             config = self.overwrite_feature_golden_config_db_singleasic(config, "otel", "enabled", "enabled")
@@ -1324,6 +1383,14 @@ class GenerateGoldenConfigDBModule(object):
                     "has_per_asic_scope": "True",
                 }
             })
+
+        # BMC runs only these services. Disable any other feature present in the image.
+        if self.is_bmc_device():
+            bmc_enabled_features = [
+                "database", "gnmi", "lldp", "pmon", "redfish", "sysmgr",
+                "telemetry", "acms"
+            ]
+            config = self.apply_bmc_feature_allowlist(config, bmc_enabled_features)
 
         # When port override is active, ensure DEVICE_METADATA includes hwsku and
         # platform — config override-config-table replaces the entire table, so

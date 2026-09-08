@@ -551,7 +551,7 @@ class LogAnalyzer:
 
         @param dest: File path to store downloaded log file.
         """
-        self.ansible_host.fetch(dest=dest, src=self.extracted_syslog, flat="yes")
+        self.ansible_host.fetch_no_slurp(src=self.extracted_syslog, dest=dest, flat=True)
 
     def save_extracted_file(self, dest, src):
         """
@@ -561,4 +561,4 @@ class LogAnalyzer:
 
         @param src: Source path to store downloaded file.
         """
-        self.ansible_host.fetch(dest=dest, src=src, flat="yes")
+        self.ansible_host.fetch_no_slurp(src=src, dest=dest, flat=True)

@@ -73,7 +73,7 @@ def test_radv_swss(duthost):
     datetime_swss_before = datetime.strptime(swss_status_dict_before.get("ActiveEnterTimestamp"), date_format)
     datetime_swss = datetime.strptime(swss_status_dict.get("ActiveEnterTimestamp"), date_format)
     datetime_radv = datetime.strptime(radv_status_dict.get("ActiveEnterTimestamp"), date_format)
-    assert datetime_swss < datetime_radv and datetime_swss == datetime_swss_before,\
+    assert datetime_swss < datetime_radv and datetime_swss == datetime_swss_before, \
         "service swss also restarted while radv restarting"
 
 

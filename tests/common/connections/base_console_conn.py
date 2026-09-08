@@ -52,6 +52,12 @@ class BaseConsoleConn(CiscoBaseConnection):
             if key in kwargs:
                 del kwargs[key]
 
+        # netmiko's fast_cli=True default silently sets global_delay_factor
+        # to 0.1, which shrinks login polling budgets too tightly for
+        # serial-console getty timing. Default it off; callers can still
+        # opt in via kwargs.
+        kwargs.setdefault('fast_cli', False)
+
         # Allow legacy KEX and host key algorithms for older console servers
         # (e.g. Cisco SSH-2.0-Cisco-1.25) that only support legacy crypto.
         # paramiko 5.x removed these from _preferred_kex, _kex_info,

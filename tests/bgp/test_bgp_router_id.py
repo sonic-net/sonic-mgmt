@@ -1,8 +1,8 @@
 import pytest
 import logging
 import re
-import time
 
+from tests.common.fixtures.duthost_utils import wait_bgp_sessions
 from tests.common.helpers.assertions import pytest_require, pytest_assert
 from tests.common.helpers.bgp import (
     get_asic_config_facts,
@@ -22,6 +22,8 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 CUSTOMIZED_BGP_ROUTER_ID = "8.8.8.8"
+VTYSH_SHOW_CMD_TIMEOUT_SEC = 60
+VTYSH_SHOW_CMD_KILL_GRACE_SEC = 5
 
 
 def run_config_db_cmd(duthost, enum_asic_index, cmd, module_ignore_errors=True):
@@ -51,9 +53,16 @@ def verify_bgp_peer(neighbor_type, nbrhost, localip, expected_bgp_router_id, is_
 
 def verify_bgp(enum_asic_index, duthost, expected_bgp_router_id, neighbor_type, nbrhosts, tbinfo):
     is_v6_topo = is_ipv6_only_topology(tbinfo)
-    cmd = "vtysh -c \"show ipv6 bgp summary\"" if is_v6_topo else "vtysh -c \"show ip bgp summary\""
-    cmd = get_vtysh_cmd_for_asic(duthost, enum_asic_index, cmd)
-    output = duthost.shell(cmd, module_ignore_errors=True)["stdout"]
+    vtysh_cmd = "vtysh -c \"show ipv6 bgp summary\"" if is_v6_topo else "vtysh -c \"show ip bgp summary\""
+    vtysh_cmd = get_vtysh_cmd_for_asic(duthost, enum_asic_index, vtysh_cmd)
+    bounded_cmd = "timeout -k {} {} {}".format(
+        VTYSH_SHOW_CMD_KILL_GRACE_SEC, VTYSH_SHOW_CMD_TIMEOUT_SEC, vtysh_cmd)
+    res = duthost.shell(bounded_cmd, module_ignore_errors=True)
+    rc = res.get("rc")
+    output = res.get("stdout", "") or ""
+    pytest_assert(rc == 0, (
+        "Failed to run '{}' (rc={}). stderr: {}; stdout: {}"
+    ).format(vtysh_cmd, rc, res.get("stderr", ""), output[:200]))
 
     # Verify router id from DUT itself
     pattern = r"BGP router identifier (\d+\.\d+\.\d+\.\d+)"
@@ -128,7 +137,7 @@ def default_bgp_router_id(duthosts, enum_frontend_dut_hostname, enum_frontend_as
     cfg_facts = get_asic_config_facts(duthost, enum_frontend_asic_index)
     dev_meta = cfg_facts.get('DEVICE_METADATA', {}).get('localhost', {})
 
-    if dev_meta.get('switch_type') in ['voq', 'chassis-packet']:
+    if dev_meta.get('switch_type') in ['voq', 'chassis-packet'] and duthost.is_multi_asic:
         host_vars = get_host_visible_vars(duthost.host.options['inventory'], duthost.hostname)
         loopback4096_ips = host_vars.get('loopback4096_ip', [])
         if len(loopback4096_ips) > enum_frontend_asic_index:
@@ -159,14 +168,18 @@ def loopback_ipv6(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index
     yield loopback_ip
 
 
-def restart_bgp(duthost, tbinfo):
-    duthost.reset_service("bgp")
-    duthost.restart_service("bgp")
-    pytest_assert(wait_until(100, 10, 10, duthost.is_service_fully_started_per_asic_or_host, "bgp"), "BGP not started.")
+def restart_bgp(duthost, enum_asic_index, tbinfo):
+    asichost = duthost.asic_instance(enum_asic_index)
+
+    asichost.reset_service("bgp")
+    asichost.restart_service("bgp")
+    pytest_assert(
+        wait_until(100, 10, 10, asichost.is_container_running, "bgp"),
+        "BGP not started.",
+    )
     pytest_assert(wait_until(100, 10, 10, duthost.check_default_route,
                              ipv4=not is_ipv6_only_topology(tbinfo)), "Default route not ready")
-    # After restarting bgp, add time wait for bgp_facts to fetch latest status
-    time.sleep(20)
+    wait_bgp_sessions(duthost, asic_index=enum_asic_index)
 
 
 @pytest.fixture()
@@ -175,13 +188,13 @@ def router_id_setup_and_teardown(duthosts, enum_frontend_dut_hostname, enum_fron
     run_config_db_cmd(duthost, enum_frontend_asic_index,
                       "hset \"DEVICE_METADATA|localhost\" \"bgp_router_id\" \"{}\""
                       .format(CUSTOMIZED_BGP_ROUTER_ID))
-    restart_bgp(duthost, tbinfo)
+    restart_bgp(duthost, enum_frontend_asic_index, tbinfo)
 
     yield
 
     run_config_db_cmd(duthost, enum_frontend_asic_index,
                       "hdel \"DEVICE_METADATA|localhost\" \"bgp_router_id\"")
-    restart_bgp(duthost, tbinfo)
+    restart_bgp(duthost, enum_frontend_asic_index, tbinfo)
 
 
 @pytest.fixture(scope="function")
@@ -194,7 +207,7 @@ def router_id_loopback_setup_and_teardown(duthosts, enum_frontend_dut_hostname, 
     run_config_db_cmd(duthost, enum_frontend_asic_index,
                       "del \"LOOPBACK_INTERFACE|Loopback0|{}/32\"".format(loopback_ip),
                       module_ignore_errors=False)
-    restart_bgp(duthost, tbinfo)
+    restart_bgp(duthost, enum_frontend_asic_index, tbinfo)
 
     yield
 
@@ -203,7 +216,7 @@ def router_id_loopback_setup_and_teardown(duthosts, enum_frontend_dut_hostname, 
     run_config_db_cmd(duthost, enum_frontend_asic_index,
                       "hset \"LOOPBACK_INTERFACE|Loopback0|{}/32\" \"NULL\" \"NULL\""
                       .format(loopback_ip))
-    restart_bgp(duthost, tbinfo)
+    restart_bgp(duthost, enum_frontend_asic_index, tbinfo)
 
 
 def test_bgp_router_id_default(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, nbrhosts, request,

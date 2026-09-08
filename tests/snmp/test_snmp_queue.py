@@ -97,6 +97,6 @@ def test_snmp_queues(duthosts, enum_rand_one_per_hwsku_hostname, localhost, cred
             else:
                 show_cli = 'show queue counters {} | grep "UC" | wc -l'.format(intf)
             result = duthost.shell(show_cli)
-            assert len(v['queues'][direction_type].keys()) == int(result[u'stdout']),\
+            assert len(v['queues'][direction_type].keys()) == int(result[u'stdout']), \
                    "Port {} does not have expected number of queue \
                    indexes in SNMP result".format(intf)

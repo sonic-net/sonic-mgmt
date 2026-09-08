@@ -2,9 +2,9 @@ import time
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert, pytest_require
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts, \
     fanout_graph_facts                  # noqa: F401
-from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port,\
+from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
     snappi_api, snappi_testbed_config   # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp
 from tests.common.snappi_tests.port import select_ports

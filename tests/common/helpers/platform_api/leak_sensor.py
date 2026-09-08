@@ -71,7 +71,15 @@ def get_leak_sensor_location(conn, index):
 
 
 def get_leak_severity(conn, index):
-    """LeakageSensorBase.get_leak_severity() — LeakSeverity ('MINOR' or 'CRITICAL')"""
+    """LeakageSensorBase.get_leak_severity().
+
+    Returns None when the sensor is not leaking. When leaking, the DUT returns a
+    LeakSeverity enum which is NOT JSON-serializable, so the platform API server
+    serializes it via obj_serialize into a dict {'__class__': 'LeakSeverity', ...};
+    the MINOR/CRITICAL value is not preserved across the wire. Callers must handle
+    None or the serialized-enum dict — do NOT compare against plain 'MINOR'/'CRITICAL'
+    strings.
+    """
     return leak_sensor_api(conn, index, 'get_leak_severity')
 
 

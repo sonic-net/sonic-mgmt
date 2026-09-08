@@ -366,11 +366,54 @@ class EosHost(AnsibleHostBase):
         ansible_eos_command = self.__getattr__('eos_command')
         return ansible_eos_command(*args, **kwargs)
 
+    def _abort_pending_config_sessions(self):
+        """Best-effort abort of stale pending EOS ``configure session``s.
+
+        EOS permits only a handful of pending config sessions. When an
+        ``eos_config`` commit times out it strands its ``ansible_*`` session;
+        enough stranded sessions exhaust the pool and every later
+        ``eos_config`` fails with "Maximum number of pending sessions has been
+        reached". Aborting them frees the pool so a retry can succeed.
+        """
+        try:
+            out = self.eos_command(
+                commands=['show configuration sessions detail | json']
+            )
+            sessions = out['stdout'][0].get('sessions', {})
+        except Exception as e:
+            logging.warning('Could not list EOS config sessions on %s: %s',
+                            self.hostname, e)
+            return
+        for sess_name, sess_info in sessions.items():
+            # Only reclaim sessions this framework created; never touch a
+            # session that has already been committed ('completed').
+            if not sess_name.startswith('ansible_'):
+                continue
+            if sess_info.get('state') == 'completed':
+                continue
+            try:
+                self.eos_command(
+                    commands=['configure session {} abort'.format(sess_name)]
+                )
+                logging.info('Aborted stale EOS config session [%s] on %s',
+                             sess_name, self.hostname)
+            except Exception as e:
+                logging.warning('Failed to abort EOS config session [%s] on %s: %s',
+                                sess_name, self.hostname, e)
+
     @retry(RunAnsibleModuleFail, tries=3, delay=5)
     def shutdown(self, interface_name):
-        out = self.eos_config(
-            lines=['shutdown'],
-            parents=['interface {}'.format(interface_name)])
+        try:
+            out = self.eos_config(
+                lines=['shutdown'],
+                parents=['interface {}'.format(interface_name)],
+                diff_against='running')
+        except RunAnsibleModuleFail:
+            # A timed-out commit strands a pending 'configure session'; free
+            # stale sessions so the @retry attempt is not blocked by
+            # 'Maximum number of pending sessions has been reached'.
+            self._abort_pending_config_sessions()
+            raise
         logging.info('Shut interface [%s]' % interface_name)
         return out
 
@@ -380,9 +423,15 @@ class EosHost(AnsibleHostBase):
 
     @retry(RunAnsibleModuleFail, tries=3, delay=5)
     def no_shutdown(self, interface_name):
-        out = self.eos_config(
-            lines=['no shutdown'],
-            parents=['interface {}'.format(interface_name)])
+        try:
+            out = self.eos_config(
+                lines=['no shutdown'],
+                parents=['interface {}'.format(interface_name)],
+                diff_against='running')
+        except RunAnsibleModuleFail:
+            # See shutdown(): reclaim stranded sessions before @retry re-runs.
+            self._abort_pending_config_sessions()
+            raise
         logging.info('No shut interface [%s]' % interface_name)
         return out
 
@@ -701,7 +750,7 @@ class EosHost(AnsibleHostBase):
         err_out = False
         if 'stdout' in cmd_output_obj:
             stdout = cmd_output_obj['stdout']
-            msg = stdout[-1] if type(stdout) == list else stdout
+            msg = stdout[-1] if isinstance(stdout, list) else stdout
             err_out = 'Cannot advertise' in msg
 
         return ('failed' in cmd_output_obj and cmd_output_obj['failed']) or err_out

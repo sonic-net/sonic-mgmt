@@ -8,7 +8,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory, copy_arp_responder_py         # noqa: F401
 from tests.ptf_runner import ptf_runner
-from .vnet_constants import CLEANUP_KEY, VXLAN_UDP_SPORT_KEY,\
+from .vnet_constants import CLEANUP_KEY, VXLAN_UDP_SPORT_KEY, \
     VXLAN_UDP_SPORT_MASK_KEY, VXLAN_RANGE_ENABLE_KEY, DUT_VNET_NBR_JSON
 
 from .vnet_utils import generate_dut_config_files, safe_open_template, \

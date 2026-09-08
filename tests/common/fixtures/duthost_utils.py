@@ -92,6 +92,43 @@ def backup_and_restore_config_db_session(duthosts):
         yield func
 
 
+@pytest.fixture(scope="module")
+def backup_and_restore_ansible_hosts(duthosts):
+    """
+    Back up the current ansible_host config for each duthost and restore it on
+    cleanup and reloads config_db
+    """
+    original_ansible_hosts = get_ansible_hosts(duthosts)
+    logger.info("Backup ansible hosts: {}".format(original_ansible_hosts))
+
+    yield
+
+    # Reload to bring IPv4 mgmt back and then restore the ansible host to IPv4
+    current_ansible_hosts = get_ansible_hosts(duthosts)
+
+    def reload_config_and_addr(duthost, ip_address):
+        try:
+            config_reload(duthost, safe_reload=True, wait_for_bgp=True)
+        except AnsibleConnectionFailure as e:
+            logger.warning(f'Exception after config reload: {e}')
+        finally:
+            host = duthost.host.options['inventory_manager'].get_host(duthost.hostname)
+            host.vars['ansible_host'] = ip_address
+
+    restoring_ansible = False
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for duthost in duthosts.nodes:
+            original_ip = original_ansible_hosts[duthost.hostname]
+            current_ip = current_ansible_hosts[duthost.hostname]
+            if current_ip != original_ip:
+                executor.submit(reload_config_and_addr, duthost, original_ip)
+                restoring_ansible = True
+
+    if restoring_ansible:
+        logger.info("Restore ansible_hosts from {} to {}"
+                    .format(current_ansible_hosts, original_ansible_hosts))
+
+
 def _is_route_checker_in_status(duthost, expected_status_substrings):
     """
     Check if routeCheck service status contains any expected substring.
@@ -752,23 +789,48 @@ def check_bgp_router_id(duthost, mgFacts):
         logger.error("Error loading BGP routerID - {}".format(e))
 
 
-def wait_bgp_sessions(duthost, timeout=120):
+def wait_bgp_sessions(duthost, timeout=120, asic_index=None):
     """
     A helper function to wait bgp sessions on DUT
     """
-    bgp_neighbors = duthost.get_bgp_neighbors_per_asic(state="all")
+    if asic_index is None:
+        bgp_neighbors = duthost.get_bgp_neighbors_per_asic(state="all")
+        check_bgp_session_state = duthost.check_bgp_session_state_all_asics
+    else:
+        asichost = duthost.asic_instance(asic_index)
+        bgp_neighbors = [
+            neighbor_ip.lower()
+            for neighbor_ip in asichost.bgp_facts()["ansible_facts"]["bgp_neighbors"].keys()
+        ]
+        check_bgp_session_state = asichost.check_bgp_session_state
+
     if duthost.get_facts().get("modular_chassis"):
         timeout = 900
     logging.info("Wait until all bgp sessions are up in {} sec"
                  .format(timeout))
     pt_assert(
-        wait_until(timeout, 10, 0, duthost.check_bgp_session_state_all_asics, bgp_neighbors),
+        wait_until(timeout, 10, 0, check_bgp_session_state, bgp_neighbors),
         "Not all bgp sessions are established after config reload",
     )
 
 
+def get_ansible_hosts(duthosts):
+    ansible_hosts = {}
+    for duthost in duthosts.nodes:
+        host = duthost.host.options['inventory_manager'].get_host(duthost.hostname)
+        ansible_hosts[duthost.hostname] = host.vars['ansible_host']
+    return ansible_hosts
+
+
+def set_ansible_hosts(duthosts, ip_address):
+    for duthost in duthosts.nodes:
+        host = duthost.host.options['inventory_manager'].get_host(duthost.hostname)
+        addr = ip_address[duthost.hostname]
+        host.vars['ansible_host'] = addr[0] if isinstance(addr, list) else addr
+
+
 @pytest.fixture(scope="module")
-def duthosts_ipv6_mgmt_only(duthosts, backup_and_restore_config_db_on_duts):
+def duthosts_ipv6_mgmt_only(duthosts, backup_and_restore_ansible_hosts, backup_and_restore_config_db_on_duts):
     """Convert the DUTs mgmt-ip to IPv6 only
 
     Since the change commands is distributed by IPv4 mgmt-ip,
@@ -818,7 +880,7 @@ def duthosts_ipv6_mgmt_only(duthosts, backup_and_restore_config_db_on_duts):
         # "RuntimeError: dictionary changed size during iteration" error
         ssh_client = paramiko.SSHClient()
         ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        has_available_ipv6_addr = False
+        has_ipv6_config = False
         for key in list(mgmt_interface):
             ip_addr = key.split("|")[1]
             ip_addr_without_mask = ip_addr.split('/')[0]
@@ -826,7 +888,7 @@ def duthosts_ipv6_mgmt_only(duthosts, backup_and_restore_config_db_on_duts):
                 is_ipv6 = valid_ipv6(ip_addr_without_mask)
                 if is_ipv6:
                     logger.info(f"Host[{duthost.hostname}] IPv6[{ip_addr}]")
-                    ipv6_address[duthost.hostname].append(ip_addr_without_mask)
+                    has_ipv6_config = True
                     try:
                         # Add a temporary debug log to see if the DUT is reachable via IPv6 mgmt-ip. Will remove later
                         duthost_interface = duthost.shell("sudo ifconfig eth0")['stdout']
@@ -835,16 +897,16 @@ def duthosts_ipv6_mgmt_only(duthosts, backup_and_restore_config_db_on_duts):
                                            username="WRONG_USER", password="WRONG_PWD", timeout=15)
                     except AuthenticationException:
                         logger.info(f"Host[{duthost.hostname}] IPv6[{ip_addr_without_mask}] mgmt-ip is available")
-                        has_available_ipv6_addr = True
+                        ipv6_address[duthost.hostname].append(ip_addr_without_mask)
                     except BaseException as e:
                         logger.info(f"Host[{duthost.hostname}] IPv6[{ip_addr_without_mask}] mgmt-ip is unavailable, "
                                     f"exception[{type(e)}], msg[{str(e)}]")
                     finally:
                         ssh_client.close()
 
-        if not ipv6_address[duthost.hostname]:
+        if not has_ipv6_config:
             pytest.skip(f"{duthost.hostname} doesn't have IPv6 Management IP address")
-        if not has_available_ipv6_addr:
+        if not ipv6_address[duthost.hostname]:
             pytest.skip(f"{duthost.hostname} doesn't have available IPv6 Management IP address")
 
     # Remove IPv4 mgmt-ip
@@ -903,11 +965,13 @@ def duthosts_ipv6_mgmt_only(duthosts, backup_and_restore_config_db_on_duts):
                 # Then 'duthost' will lost IPV4 connection and throw exception
                 logger.warning(f'Exception after config reload: {e}')
 
+    set_ansible_hosts(duthosts, ipv6_address)
     with SafeThreadPoolExecutor(max_workers=8) as executor:
         for duthost in duthosts.nodes:
             executor.submit(config_reload_if_modified, duthost)
 
-    duthosts.reset()
+    duthosts.meta("reset_connection")
+    set_ansible_hosts(duthosts, ipv6_address)
 
     def wait_for_processes_and_bgp(dut):
         if config_db_modified[dut.hostname]:
