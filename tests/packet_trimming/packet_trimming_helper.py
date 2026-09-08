@@ -413,6 +413,14 @@ def create_blocking_scheduler(duthost):
         duthost.shell(cmd_create)
         logger.info(f"Successfully created blocking scheduler: {BLOCK_DATA_PLANE_SCHEDULER_NAME}")
 
+    pytest_assert(
+        wait_until(
+            60, 5, 0, get_scheduler_oid_by_attributes, duthost,
+            type=SCHEDULER_TYPE, weight=SCHEDULER_WEIGHT, pir=SCHEDULER_PIR
+        ),
+        f"Blocking scheduler {BLOCK_DATA_PLANE_SCHEDULER_NAME} was not programmed in ASIC_DB"
+    )
+
 
 def delete_blocking_scheduler(duthost):
     """

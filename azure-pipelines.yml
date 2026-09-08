@@ -81,6 +81,43 @@ stages:
       name: DetectChanges
       displayName: "Check changed files under tools/skip_expiry"
 
+  - job: detect_gobgp_shim_changes
+    displayName: "Detect GoBGP shim changes"
+    timeoutInMinutes: 10
+    continueOnError: false
+    pool: sonic-ubuntu-1c
+    steps:
+    - checkout: self
+      clean: true
+
+    - script: |
+        set -euo pipefail
+
+        TARGET_BRANCH="${SYSTEM_PULLREQUEST_TARGETBRANCH:-refs/heads/master}"
+        TARGET_BRANCH="${TARGET_BRANCH#refs/heads/}"
+        SHIM_PATH="ansible/roles/vm_set/files/gobgp"
+
+        # Default to running the tests. A gate that cannot work out its own
+        # base must not drop coverage, and must not fail the pipeline either.
+        CHANGED="true"
+
+        if git fetch origin "${TARGET_BRANCH}" --depth=1 &&
+           BASE_COMMIT=$(git merge-base "origin/${TARGET_BRANCH}" HEAD 2>/dev/null) &&
+           CHANGED_FILES=$(git diff --name-only "${BASE_COMMIT}" HEAD -- "${SHIM_PATH}" | tr '\n' ' '); then
+          if [[ -n "${CHANGED_FILES}" ]]; then
+            echo "Detected changes under ${SHIM_PATH}: ${CHANGED_FILES}"
+          else
+            CHANGED="false"
+            echo "No changes detected under ${SHIM_PATH}"
+          fi
+        else
+          echo "Cannot diff against origin/${TARGET_BRANCH}; running the tests"
+        fi
+
+        echo "##vso[task.setvariable variable=GOBGP_SHIM_CHANGED;isOutput=true]${CHANGED}"
+      name: DetectChanges
+      displayName: "Check changed files under ansible/roles/vm_set/files/gobgp"
+
   - job: static_analysis
     displayName: "Static Analysis"
     timeoutInMinutes: 10
@@ -154,6 +191,36 @@ stages:
         set -euo pipefail
         python -m pytest tools/skip_expiry/tests/unit_test_*.py -q
       displayName: "Run skip_expiry unit tests"
+
+
+- stage: GoBGP_Shim_Unit_Tests
+  displayName: "GoBGP Shim Unit Tests"
+  dependsOn: Pre_test
+  condition: >-
+    and(
+      succeeded(),
+      not(canceled()),
+      eq(dependencies.Pre_test.outputs['detect_gobgp_shim_changes.DetectChanges.GOBGP_SHIM_CHANGED'], 'true')
+    )
+  jobs:
+  - job: run_gobgp_shim_unit_tests
+    displayName: "Run GoBGP shim unit tests"
+    timeoutInMinutes: 15
+    continueOnError: false
+    pool: sonic-ubuntu-1c
+    steps:
+    - checkout: self
+      clean: true
+
+    - script: |
+        set -euo pipefail
+        sudo uv pip install --system pytest
+      displayName: "Install unit test dependencies"
+
+    - script: |
+        set -euo pipefail
+        python -m pytest ansible/roles/vm_set/files/gobgp/tests -q -rs
+      displayName: "Run GoBGP shim unit tests"
 
 
 - stage: Test

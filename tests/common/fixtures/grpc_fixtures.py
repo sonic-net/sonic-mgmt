@@ -585,13 +585,8 @@ def _restart_gnoi_server(duthost):
     if result['rc'] != 0:
         raise Exception(f"Failed to restart gnmi-native: {result['stderr']}")
 
-    # Wait for supervisor to report RUNNING. This is a fast guard against
-    # immediate crash loops; it does NOT prove that telemetry has actually
-    # bound its TLS listener (supervisor flips RUNNING after startsecs=1,
-    # but on slow armhf platforms the gnmi-native wrapper + Go telemetry
-    # startup can take longer than that to call listen()). The end-to-end
-    # readiness check lives in _verify_gnoi_tls_connectivity, which retries
-    # bounded grpcurl calls from PTF.
+    # Wait for supervisor to report RUNNING as a guard against immediate
+    # crash loops.
     def _supervisor_running():
         status = duthost.shell("docker exec gnmi supervisorctl status gnmi-native",
                                module_ignore_errors=True)
@@ -604,7 +599,37 @@ def _restart_gnoi_server(duthost):
             f"gnmi-native failed to reach RUNNING within 30s: {status.get('stdout', '')}"
         )
 
-    logger.info("gNOI server restart completed (supervisor reports RUNNING)")
+    # Supervisor can report RUNNING before telemetry binds its TLS listener,
+    # especially on slower platforms. Do not return until callers can safely
+    # start a client connection. Full TLS/RPC validation remains in
+    # _verify_gnoi_tls_connectivity.
+    def _tls_listener_ready():
+        status = duthost.shell(
+            "sudo ss -ltn | grep -q ':{} '".format(
+                grpc_config.DEFAULT_TLS_PORT
+            ),
+            module_ignore_errors=True,
+        )
+        return status.get('rc', 1) == 0
+
+    if not wait_until(60, 2, 0, _tls_listener_ready):
+        status = duthost.shell(
+            "sudo ss -ltn | grep ':{} '".format(
+                grpc_config.DEFAULT_TLS_PORT
+            ),
+            module_ignore_errors=True,
+        )
+        raise Exception(
+            "gNOI server failed to listen on port {} within 60s: {}".format(
+                grpc_config.DEFAULT_TLS_PORT,
+                status.get('stdout', ''),
+            )
+        )
+
+    logger.info(
+        "gNOI server restart completed (supervisor RUNNING, port %s listening)",
+        grpc_config.DEFAULT_TLS_PORT,
+    )
 
 
 def _verify_gnoi_tls_connectivity(duthost, ptfhost):

@@ -266,7 +266,7 @@ class LagTest:
         try:
             host.shutdown(neighbor_intf)
 
-            # Let PortalChannel react to neighbor interface shutdown
+            # Let PortChannel react to neighbor interface shutdown
             time.sleep(deselect_time)
             intf, po_interfaces = self.__get_lag_intf_info(lag_facts, lag_name)
             po_flap = self.__check_flap(lag_facts, lag_name)
@@ -392,9 +392,9 @@ class LagTest:
             # Refresh lag facts
             lag_facts = self.__get_lag_facts()
 
-            # Get teamshow result
-            teamshow_result = self.duthost.shell('teamshow')
-            logger.debug("Teamshow result: %s" % teamshow_result)
+            # Get show interface portchannel result
+            show_intf_pc_result = self.duthost.command('show interface portchannel')
+            logger.debug("Portchannel status: %s" % show_intf_pc_result)
 
             # Verify lag members
             # 1. All other lag should keep selected state

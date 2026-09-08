@@ -311,6 +311,7 @@ class QosParamCisco(object):
         self.__define_pg_shared_watermark()
         self.__define_buffer_pool_watermark()
         self.__define_q_shared_watermark()
+        self.__define_q_shared_watermark_quant()
         self.__define_lossy_queue_voq()
         self.__define_lossy_queue()
         self.__define_lossless_voq()
@@ -589,6 +590,25 @@ class QosParamCisco(object):
                 lossy_params["pkts_num_margin"] = 9
             self.write_params("wm_q_shared_lossy", lossy_params)
 
+    def __define_q_shared_watermark_quant(self):
+        quant_fill_margin = 10
+        if self.should_autogen(["wm_q_shared_quant_lossless"]):
+            lossless_params = {"dscp": 3,
+                               "ecn": 1,
+                               "queue": 3,
+                               "pkts_num_fill_min": 0,
+                               "fill_margin": quant_fill_margin,
+                               "cell_size": self.buffer_size}
+            self.write_params("wm_q_shared_quant_lossless", lossless_params)
+        if self.should_autogen(["wm_q_shared_quant_lossy"]):
+            lossy_params = {"dscp": self.dscp_queue0,
+                            "ecn": 1,
+                            "queue": 0,
+                            "pkts_num_fill_min": 0,
+                            "fill_margin": quant_fill_margin,
+                            "cell_size": self.buffer_size}
+            self.write_params("wm_q_shared_quant_lossy", lossy_params)
+
     def __define_lossy_queue_voq(self):
         if self.should_autogen(["lossy_queue_voq_1"]):
             params = {"dscp": self.dscp_queue0,
@@ -686,6 +706,12 @@ class QosParamCisco(object):
             if self.dutAsic in ["gr2", "gr2x"]:
                 # Send a burst of leakout packets to optimize runtime. Expected leakout is around 250
                 params["pkts_num_leak_out"] = 200
+            if self.dutAsic == "p200":
+                # Watermark is quantized, functionality is validated by
+                # testQosSaiQSharedWatermarkQuantized. Maintain the watermark check on all
+                # ports by removing the upper bound restriction. This allows the lower
+                # bound to still be validated across the device.
+                params["ignore_upper_bound"] = True
             self.write_params("wm_q_wm_all_ports", params)
 
     def __define_pg_drop(self):

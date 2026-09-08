@@ -4770,6 +4770,8 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         pkts_num_egr_mem = int(self.test_params.get('pkts_num_egr_mem', 0))
         topo = self.test_params['topo']
         platform_asic = self.test_params['platform_asic']
+        hwsku = self.test_params.get('hwsku', '')
+        use_set_scheduler = asic_type == 'cisco-8000' and 'Cisco-8223' not in hwsku
         prio_list = self.test_params.get('dscp_list', [])
         q_pkt_cnt = self.test_params.get('q_pkt_cnt', [])
         q_list = self.test_params.get('q_list', [])
@@ -4898,19 +4900,31 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
             for p in list(self.dataplane.ports.values()):
                 p.socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 41943040)
 
-            # recv packets for leakout
-            if 'cisco-8000' in asic_type:
-                recv_pkt = scapy.Ether()
-
-                while recv_pkt:
+            def poll_test_pkts():
+                """Drain the dst port, returning the packets that belong to this test flow."""
+                received_pkts = []
+                while True:
                     received = self.dataplane.poll(
                         device_number=0, port_number=dst_port_id, timeout=2)
                     if isinstance(received, self.dataplane.PollFailure):
-                        recv_pkt = None
                         break
                     recv_pkt = scapy.Ether(received.packet)
+                    try:
+                        if recv_pkt[scapy.IP].src == src_port_ip and recv_pkt[scapy.IP].dst == dst_port_ip and \
+                                recv_pkt[scapy.IP].id == exp_ip_id:
+                            received_pkts.append(recv_pkt)
+                    except AttributeError:
+                        continue
+                    except IndexError:
+                        # Ignore captured non-IP packet
+                        continue
+                return received_pkts
 
-            if asic_type == 'cisco-8000':
+            # recv packets for leakout
+            if 'cisco-8000' in asic_type:
+                leakout_pkts_received = len(poll_test_pkts())
+                print("Leakout pkts received:", leakout_pkts_received, file=sys.stderr)
+            if use_set_scheduler:
                 out, err, ret = self.exec_cmd_on_dut(
                     self.dst_server_ip,
                     self.test_params['dut_username'],
@@ -4937,30 +4951,9 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
                     [dst_port_id],
                     enable_port_by_unblock_queue=False)
 
-            cnt = 0
-            pkts = []
-            recv_pkt = scapy.Ether()
+            pkts = poll_test_pkts()
 
-            while recv_pkt:
-                received = self.dataplane.poll(
-                    device_number=0, port_number=dst_port_id, timeout=2)
-                if isinstance(received, self.dataplane.PollFailure):
-                    recv_pkt = None
-                    break
-                recv_pkt = scapy.Ether(received.packet)
-
-                try:
-                    if recv_pkt[scapy.IP].src == src_port_ip and recv_pkt[scapy.IP].dst == dst_port_ip and \
-                            recv_pkt[scapy.IP].id == exp_ip_id:
-                        cnt += 1
-                        pkts.append(recv_pkt)
-                except AttributeError:
-                    continue
-                except IndexError:
-                    # Ignore captured non-IP packet
-                    continue
-
-            if asic_type == 'cisco-8000':
+            if use_set_scheduler:
                 # Release port
                 self.sai_thrift_port_tx_enable(
                     self.dst_client,
@@ -4973,9 +4966,13 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
             for prio, q_cnt in zip(prio_list, q_pkt_cnt):
                 queue_num_of_pkts[prio] = q_cnt
 
+            dscp_to_queue = dict(zip(prio_list, q_list))
+
             total_pkts = 0
 
             diff_list = []
+            dscp_order = []
+            terminating_indices = set()
 
             for pkt_to_inspect in pkts:
                 if 'backend' in topo:
@@ -4983,25 +4980,63 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
                 else:
                     dscp_of_pkt = pkt_to_inspect.payload.tos >> 2
                 total_pkts += 1
+                dscp_order.append(dscp_of_pkt)
 
                 # Count packet ordering
-
                 queue_pkt_counters[dscp_of_pkt] += 1
                 if queue_pkt_counters[dscp_of_pkt] == queue_num_of_pkts[dscp_of_pkt]:
                     diff_list.append((dscp_of_pkt, q_cnt_sum - total_pkts))
+                    terminating_indices.add(total_pkts - 1)
 
-                print(queue_pkt_counters, file=sys.stderr)
+            # Print the received ordering as a compact table: 40 two-char columns per
+            # row (~119 chars wide), so the scheduling pattern is visible at a glance
+            # even for thousands of packets. The separator after a packet is "E" when it
+            # is the last packet of its DSCP/queue, otherwise a space.
+            def format_packet_table(values, terminators, per_row=40):
+                lines = []
+                for start in range(0, len(values), per_row):
+                    row_end = min(start + per_row, len(values))
+                    parts = []
+                    for idx in range(start, row_end):
+                        parts.append("{:2d}".format(values[idx]))
+                        if idx in terminators:
+                            parts.append("E")
+                        elif idx < row_end - 1:
+                            parts.append(" ")
+                    lines.append("".join(parts))
+                return "\n".join(lines)
+
+            queue_order = [dscp_to_queue.get(d, d) for d in dscp_order]
+            print("Packet ordering (DSCP):\n{}".format(
+                format_packet_table(dscp_order, terminating_indices)), file=sys.stderr)
+            print("Packet ordering (Queue):\n{}".format(
+                format_packet_table(queue_order, terminating_indices)), file=sys.stderr)
+
+            queue_pkt_count = {q: queue_pkt_counters[d] for d, q in zip(prio_list, q_list)}
+            queue_sent_count = {q: cnt for q, cnt in zip(q_list, q_pkt_cnt)}
+            print("Sent packet count per queue: {}".format(queue_sent_count), file=sys.stderr)
+            print("Received packet count per queue: {}".format(queue_pkt_count), file=sys.stderr)
 
             print("Difference for each dscp: ", file=sys.stderr)
             print(diff_list, file=sys.stderr)
 
+            failures = []
+
+            # All packets sent should be received intact
+            print([q_cnt_sum, total_pkts], file=sys.stderr)
+            if q_cnt_sum != total_pkts:
+                failures.append("Not all packets received: sent %d but received %d" % (
+                    q_cnt_sum, total_pkts))
+
+            # Difference for each dscp should be within the scheduling limit
             for dscp, diff in diff_list:
                 if platform_asic and platform_asic == "broadcom-dnx":
                     logging.info(
                         "On J2C+ can't control how packets are dequeued (CS00012272267) - so ignoring diff check now")
                 elif not dry_run:
-                    assert diff < limit, "Difference for %d is %d which exceeds limit %d" % (
-                        dscp, diff, limit)
+                    if diff >= limit:
+                        failures.append("Difference for %d is %d which exceeds limit %d" % (
+                            dscp, diff, limit))
 
             # Read counters
             print("DST port counters: ")
@@ -5010,9 +5045,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
             print(list(map(operator.sub, queue_counters,
                            queue_counters_base)), file=sys.stderr)
 
-            print([q_cnt_sum, total_pkts], file=sys.stderr)
-            # All packets sent should be received intact
-            assert (q_cnt_sum == total_pkts)
+            assert len(failures) == 0, "WRRtest failures:\n" + "\n".join(failures)
         finally:
             self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id],
                                            enable_port_by_unblock_queue=False)
@@ -6592,6 +6625,189 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         finally:
             self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])
 
+
+class QSharedWatermarkQuantizedTest(sai_base_test.ThriftInterfaceDataPlane):
+    """
+    Validate quantized queue shared watermark behavior.
+
+    Rule under test: if occupancy exceeds threshold[i], the reported watermark
+    must display exactly threshold[i+1]. As a corollary, since threshold[0] == 0,
+    any traffic at all - even uncongested - must report a non-zero watermark equal
+    to threshold[1].
+    """
+
+    def fill_to_target(self, src_port_id, dst_port_id, pkt, queue, asic_type,
+                       target_pkts, refill_queue):
+        """
+        Fill the egress queue to 'target_pkts' packets of occupancy, then return
+        the queue shared watermark (bytes) for 'queue' on the dst port.
+        """
+        if refill_queue:
+            self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id])
+            # Enqueue exactly one packet past the (variable) leakout.
+            fill_leakout_plus_one(self, src_port_id, dst_port_id, pkt, queue, asic_type)
+            to_send = target_pkts - 1
+            if to_send > 0:
+                send_packet(self, src_port_id, pkt, to_send)
+            self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])
+        else:
+            delta = target_pkts - self.cur_pkts
+            if delta > 0:
+                send_packet(self, src_port_id, pkt, delta)
+                self.cur_pkts = target_pkts
+        time.sleep(3)
+        q_wm_res, _, _ = sai_thrift_read_port_watermarks(
+            self.dst_client, port_list['dst'][dst_port_id])
+        return q_wm_res[queue]
+
+    def runTest(self):
+        time.sleep(5)
+        switch_init(self.clients)
+
+        # Parse input parameters
+        dscp = int(self.test_params['dscp'])
+        ecn = int(self.test_params['ecn'])
+        router_mac = self.test_params['router_mac']
+        print("router_mac: %s" % (router_mac), file=sys.stderr)
+        queue = int(self.test_params['queue'])
+        dst_port_id = int(self.test_params['dst_port_id'])
+        dst_port_ip = self.test_params['dst_port_ip']
+        dst_port_mac = self.dataplane.get_mac(0, dst_port_id)
+        src_port_id = int(self.test_params['src_port_id'])
+        src_port_ip = self.test_params['src_port_ip']
+        src_port_vlan = self.test_params['src_port_vlan']
+        src_port_mac = self.dataplane.get_mac(0, src_port_id)
+
+        asic_type = self.test_params['sonic_asic_type']
+        cell_size = int(self.test_params['cell_size'])
+        hwsku = self.test_params['hwsku']
+        dut_asic = self.test_params['dut_asic']
+        ip_type = self.test_params.get('ip_type', 'ipv4')
+        descriptor_size = int(self.test_params.get('descriptor_size', 0))
+        fill_margin = int(self.test_params.get('fill_margin', 10))
+        thresholds = [int(value) for value in self.test_params['quant_thresholds']]
+
+        if 'packet_size' in list(self.test_params.keys()):
+            packet_length = int(self.test_params['packet_size'])
+        else:
+            packet_length = 64
+
+        # Sanity check the threshold vector. We need threshold[0] == 0 (the empty
+        # queue level) and at least one testable boundary (index 1) plus its i+1
+        # neighbor to transition into, so a minimum of 3 thresholds.
+        assert len(thresholds) >= 3, \
+            "Expected at least 3 quantized thresholds, got {}".format(thresholds)
+        assert thresholds[0] == 0, \
+            "Expected first quantized threshold to be 0, got {}".format(thresholds)
+
+        cell_occupancy = (packet_length + cell_size + descriptor_size - 1) // cell_size
+        bytes_per_pkt = cell_occupancy * cell_size
+
+        # Prepare packet data
+        ttl = 64
+        pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
+        is_dualtor = self.test_params.get('is_dualtor', False)
+        def_vlan_mac = self.test_params.get('def_vlan_mac', None)
+        if is_dualtor and def_vlan_mac is not None:
+            pkt_dst_mac = def_vlan_mac
+
+        if ip_type == 'ipv6':
+            pkt = construct_ipv6_pkt(packet_length, pkt_dst_mac, src_port_mac,
+                                     src_port_ip, dst_port_ip, dscp, src_port_vlan,
+                                     ecn=ecn, ttl=ttl)
+        else:
+            pkt = construct_ip_pkt(packet_length, pkt_dst_mac, src_port_mac,
+                                   src_port_ip, dst_port_ip, dscp, src_port_vlan,
+                                   ecn=ecn, ttl=ttl)
+
+        print("dst_port_id: %d, src_port_id: %d, src_port_vlan: %s" %
+              (dst_port_id, src_port_id, src_port_vlan), file=sys.stderr)
+        # In case dst_port_id is part of a LAG, find out the actual dst port for
+        # the given IP parameters so egress blocking and queue reads target the
+        # correct member port.
+        if ip_type == 'ipv6':
+            dst_port_id = get_rx_port_ipv6(
+                self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip, src_port_vlan)
+        else:
+            dst_port_id = get_rx_port(
+                self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip, src_port_vlan)
+        print("actual dst_port_id: %d" % (dst_port_id), file=sys.stderr)
+
+        refill_queue = 'cisco-8000' in asic_type and dut_asic != 'gr2'
+
+        def thr_to_pkts(threshold_bytes):
+            return threshold_bytes // bytes_per_pkt
+
+        # Confirm that each threshold is separated by at least the fill_margin, otherwise threshold checks will break.
+        for i in range(len(thresholds) - 1):
+            gap_pkts = thr_to_pkts(thresholds[i + 1]) - thr_to_pkts(thresholds[i])
+            assert gap_pkts > fill_margin, \
+                ("Quantized thresholds {} and {} (indices {}, {}) are only {} pkt(s) apart, "
+                 "which does not exceed fill_margin {} (bytes_per_pkt {}); the +/-fill_margin "
+                 "probes would cross between buckets").format(
+                    thresholds[i], thresholds[i + 1], i, i + 1, gap_pkts, fill_margin, bytes_per_pkt)
+
+        # Collect every mismatch instead of bailing on the first one so the test
+        # reports a complete picture of the device's quantization behavior. Each
+        # entry is (phase, threshold_idx, offset, target_pkts, expected, actual).
+        failures = []
+        total_measurements = 0
+
+        try:
+            # Phase A: uncongested validation. Leave egress enabled and send a burst
+            # bounded strictly below threshold[1]. Even though traffic flows
+            # unimpeded, any transient occupancy must push the quantized watermark
+            # to exactly threshold[1].
+            uncongested_pkts = thr_to_pkts(thresholds[1]) - fill_margin
+            send_packet(self, src_port_id, pkt, uncongested_pkts)
+            time.sleep(3)
+            q_wm_res, _, _ = sai_thrift_read_port_watermarks(
+                self.dst_client, port_list['dst'][dst_port_id])
+            print("Uncongested watermark: sent %d pkts, watermark %d, expected %d" % (
+                uncongested_pkts, q_wm_res[queue], thresholds[1]), file=sys.stderr)
+            total_measurements += 1
+            if q_wm_res[queue] != thresholds[1]:
+                failures.append(("uncongested", "-", "-", uncongested_pkts,
+                                 thresholds[1], q_wm_res[queue]))
+
+            # Establish the leakout baseline once for non-refill devices, which keep
+            # egress disabled and accumulate occupancy across measurements.
+            self.cur_pkts = 0
+            if not refill_queue:
+                self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id])
+                if 'cisco-8000' in asic_type:
+                    fill_leakout_plus_one(self, src_port_id, dst_port_id, pkt, queue, asic_type)
+                    self.cur_pkts = 1
+
+            # Phase B: per-threshold validation. Skip the final threshold since it
+            # has no i+1 neighbor to transition into.
+            for i in range(1, len(thresholds) - 1):
+                threshold_pkts = thr_to_pkts(thresholds[i])
+                for offset, expected_idx in ((-fill_margin, i), (fill_margin, i + 1)):
+                    target_pkts = threshold_pkts + offset
+                    watermark = self.fill_to_target(
+                        src_port_id, dst_port_id, pkt, queue, asic_type,
+                        target_pkts, refill_queue)
+                    expected = thresholds[expected_idx]
+                    print("Threshold idx %d offset %d: target %d pkts, watermark %d, expected %d" % (
+                        i, offset, target_pkts, watermark, expected), file=sys.stderr)
+                    total_measurements += 1
+                    if watermark != expected:
+                        failures.append(("threshold", i, "{:+d}".format(offset),
+                                         target_pkts, expected, watermark))
+        finally:
+            self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])
+
+        if failures:
+            fail_tbl = texttable.TextTable(
+                ['Phase', 'Threshold Idx', 'Offset (pkts)', 'Target Pkts',
+                 'Expected (bytes)', 'Actual (bytes)'])
+            for phase, idx, offset, target_pkts, expected, actual in failures:
+                fail_tbl.add_row([phase, idx, offset, target_pkts, expected, actual])
+            assert False, \
+                "Quantized queue watermark mismatches on hwsku {} ({} of {} measurement(s) failed):\n{}".format(
+                    hwsku, len(failures), total_measurements, fail_tbl)
+
 # TODO: buffer pool roid should be obtained via rpc calls
 # based on the pg or queue index
 # rather than fed in as test parameters due to the lack in SAI implement
@@ -7045,6 +7261,7 @@ class QWatermarkAllPortTest(sai_base_test.ThriftInterfaceDataPlane):
         queue_list = [int(x) for x in queue_list]
         packet_length = self.test_params.get('packet_size', 64)
         pkts_num_leak_out = self.test_params.get('pkts_num_leak_out', 0)
+        ignore_upper_bound = self.test_params.get('ignore_upper_bound', False)
 
         cell_occupancy = (packet_length + cell_size - 1) // cell_size
         # Special tuning for cisco gr2 lossy traffic: subtract egress_lossy_pool
@@ -7117,12 +7334,19 @@ class QWatermarkAllPortTest(sai_base_test.ThriftInterfaceDataPlane):
                     qwm = qwms[queue]
                     lower = (expected_wm - margin) * cell_size
                     upper = (expected_wm + margin) * cell_size
-                    msg = "Queue: {}, lower {} {} = queue_wm {} = upper {} {}".format(
-                        queue, lower, offset_text(qwm - lower), qwm, upper, offset_text(qwm - upper))
+                    if ignore_upper_bound:
+                        msg = "Queue: {}, lower {} {} = queue_wm {}, upper ignored due to asic type".format(
+                            queue, lower, offset_text(qwm - lower), qwm)
+                    else:
+                        msg = "Queue: {}, lower {} {} = queue_wm {} = upper {} {}".format(
+                            queue, lower, offset_text(qwm - lower), qwm, upper, offset_text(qwm - upper))
                     log_message(msg, to_stderr=True)
-                    if not (lower <= qwm <= upper):
+                    if not (lower <= qwm):
                         failures.append((dst_port_ids[dst_i], queue))
-                        log_message("Failed check", to_stderr=True)
+                        log_message("Failed lower bound check", to_stderr=True)
+                    if not ignore_upper_bound and not (qwm <= upper):
+                        failures.append((dst_port_ids[dst_i], queue))
+                        log_message("Failed upper bound check", to_stderr=True)
             assert len(failures) == 0, "Failed on (dst port id, queue) for the following: {}".format(failures)
 
         finally:

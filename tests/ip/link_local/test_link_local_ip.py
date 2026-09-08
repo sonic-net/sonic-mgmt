@@ -61,7 +61,15 @@ class TestLinkLocalIPacket:
         hwsku = duthost.facts['hwsku']
         sai_settings = {}
         sai_profile = "/usr/share/sonic/device/{}/{}/sai.profile".format(platform, hwsku)
-        for line in duthost.command("cat %s" % sai_profile)["stdout_lines"]:
+        sai_profile_template = "{}.j2".format(sai_profile)
+        if duthost.stat(path=sai_profile)["stat"]["exists"]:
+            sai_profile_cmd = "cat {}".format(sai_profile)
+        elif duthost.stat(path=sai_profile_template)["stat"]["exists"]:
+            sai_profile_cmd = "sonic-cfggen -d -t {}".format(sai_profile_template)
+        else:
+            pytest.skip("Unable to determine link-local support: sai.profile or sai.profile.j2 is not present")
+            return
+        for line in duthost.command(sai_profile_cmd)["stdout_lines"]:
             if (not re.match("^[ \t]*#", line)) and re.search("=", line):
                 # line should not a comment, and must contain the "=".
                 key, value = line.split("=")
@@ -357,6 +365,7 @@ class TestLinkLocalIPacket:
         config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
 
         vlan_member = config_facts.get('VLAN_MEMBER')
+        ports_added = False
         if vlan_member:
             for vlan_interface, vlan_members in vlan_member.items():
                 vlan_id = re.search(r"Vlan(\d+)", vlan_interface).group(1)
@@ -370,7 +379,9 @@ class TestLinkLocalIPacket:
                         cleanup_list.append((duthost.command,
                                              ("config vlan member add {} {} {}".format(vlan_id,
                                                                                        iface, tagging_mode), ), {}))
-        else:
+                    ports_added = True
+                    break
+        if not ports_added:
             for iface in [rx_iface, tx_iface]:
                 duthost.command("config vlan member add {} {} -u".format(VLAN_ID, iface))
                 cleanup_list.append((duthost.command,
