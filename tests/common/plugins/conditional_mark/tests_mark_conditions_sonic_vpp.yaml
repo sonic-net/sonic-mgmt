@@ -198,6 +198,18 @@ copp/test_copp.py::TestCOPP::test_policer[UDLD]:
     conditions:
       - "False"
 
+copp/test_copp.py::TestCOPP::test_policer_mtu[BGP]:
+  skip:
+    reason: >
+            Passes at all 3 packet sizes (64/1514/4096): rides the
+            pre-existing ip4/ip6-unicast policer-classify path via the
+            TTL_ERROR trap match (misleadingly named "BGP" in the test
+            harness; it is not real BGP session traffic), unaffected by
+            the copp_punt_policer VPP plugin.
+    conditions_logical_operator: or
+    conditions:
+      - "False"
+
 copp/test_copp.py::TestCOPP::test_trap_config_save_after_reboot:
   skip:
     reason: >
