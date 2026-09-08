@@ -14,6 +14,7 @@ from tests.common.vxlan_ecmp_utils import Ecmp_Utils
 pytestmark = [
     pytest.mark.topology("any"),
     pytest.mark.asic("cisco-8000", "broadcom", "mellanox"),
+    pytest.mark.stress_test,
     pytest.mark.disable_loganalyzer
 ]
 

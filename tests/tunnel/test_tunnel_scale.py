@@ -12,6 +12,7 @@ from tests.common.utilities import wait_until
 
 pytestmark = [
     pytest.mark.topology("any"),
+    pytest.mark.stress_test,
     pytest.mark.disable_loganalyzer
 ]
 
