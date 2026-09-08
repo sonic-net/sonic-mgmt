@@ -15,9 +15,6 @@ logger = logging.getLogger(__name__)
 CFG_DB_BACKUP_SUFFIX = ".gnmi_countersdb_backup"
 
 pytestmark = [
-    pytest.mark.parametrize(
-        "gnmi_tls", ["tls"], indirect=True, scope="module"
-    ),
     pytest.mark.topology('any'),
     pytest.mark.disable_loganalyzer,
     pytest.mark.usefixtures(
@@ -26,6 +23,10 @@ pytestmark = [
         "check_dut_timestamp",
     ),
 ]
+
+module_scoped_gnmi_tls = pytest.mark.parametrize(
+    "gnmi_tls", ["tls"], indirect=True, scope="module"
+)
 
 
 def iter_response_text(value):
@@ -231,6 +232,7 @@ def _assert_responses_contain(result, text, expected):
     ).format(text, result))
 
 
+@module_scoped_gnmi_tls
 def test_gnmi_output(gnmi_tls):  # noqa: F811
     """
     Read COUNTERS table
@@ -270,6 +272,7 @@ test_data_counters_port_name_map = [
 
 
 @pytest.mark.parametrize('test_data', test_data_counters_port_name_map)
+@module_scoped_gnmi_tls
 def test_gnmi_counterdb_polling_01(gnmi_tls, test_data):  # noqa: F811
     '''
     Verify GNMI subscribe API
@@ -288,6 +291,7 @@ def test_gnmi_counterdb_polling_01(gnmi_tls, test_data):  # noqa: F811
     _assert_responses_contain(result, "oid", exp_cnt)
 
 
+@module_scoped_gnmi_tls
 def test_gnmi_counterdb_polling_02(gnmi_tls):  # noqa: F811
     '''
     Verify GNMI subscribe API
@@ -332,6 +336,7 @@ def test_gnmi_counterdb_polling_02(gnmi_tls):  # noqa: F811
 
 
 @pytest.mark.parametrize('test_data', test_data_counters_port_name_map)
+@module_scoped_gnmi_tls
 def test_gnmi_counterdb_streaming_sample_01(
         gnmi_tls, test_data):  # noqa: F811
     '''
@@ -351,6 +356,7 @@ def test_gnmi_counterdb_streaming_sample_01(
     _assert_responses_contain(result, "oid", exp_cnt)
 
 
+@module_scoped_gnmi_tls
 def test_gnmi_counterdb_streaming_sample_02(gnmi_tls):  # noqa: F811
     '''
     Verify GNMI subscribe API
