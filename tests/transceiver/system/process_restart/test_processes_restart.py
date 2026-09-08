@@ -140,7 +140,7 @@ def _process_restart_tester(
             logger.info(
                 "Verifying pmon restart after %s restart...", process_name
             )
-            if check_pmon_uptime_minutes(duthost, minimal_runtime=3):
+            if check_pmon_uptime_minutes(duthost, minimal_runtime_minutes=3):
                 failures.append("pmon did not restart as expected")
                 logger.warning(
                     "pmon FAILED to restart when"
