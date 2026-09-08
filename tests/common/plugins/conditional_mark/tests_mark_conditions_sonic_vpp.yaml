@@ -119,12 +119,6 @@ container_checker/test_container_checker.py::test_container_checker_telemetry:
 #######################################
 #####           COPP              #####
 #######################################
-# NOTE: unlike most sections in this file, COPP is NOT blanket-skipped.
-# CoPP dataplane enforcement on vpp is implemented (copp_punt_policer VPP
-# device-input plugin, see doc/vpp/vpp_copp_HLD.md) and the large majority
-# of copp/test_copp.py passes. Only the 3 specific gaps below are listed
-# (denylist style, matching cacl's convention above) -- everything else
-# under copp/test_copp.py runs unconditionally.
 copp/test_copp.py::TestCOPP::test_policer_mtu\[.*-IP2ME\]:
   regex: true
   skip:
