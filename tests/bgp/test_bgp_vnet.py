@@ -93,8 +93,18 @@ def setup_vnet_cfg(duthost, localhost, cfg_facts):
     vlan_ports = {'Vlan1000': ports[:len(ports)//2],
                   'Vlan2000': ports[len(ports)//2:]}
 
+    portchannels = natsorted([pc for pc in cfg_t0.get('PORTCHANNEL_INTERFACE', {}) if '|' not in pc])
+    all_t1_names = natsorted(set(
+        attrs['name'] for attrs in cfg_t0.get('BGP_NEIGHBOR', {}).values() if attrs.get('name')
+    ))
+    vnet1_num = 2
+
     extra_vars = {'cfg_t0': cfg_t0,
-                  'vlan_ports': vlan_ports}
+                  'vlan_ports': vlan_ports,
+                  'vnet1_portchannels': portchannels[:vnet1_num],
+                  'vnet2_portchannels': portchannels[vnet1_num:],
+                  'vnet1_neighbor_names': all_t1_names[:vnet1_num],
+                  'vnet2_dynamic_peer_name': all_t1_names[vnet1_num]}
 
     duthost.host.options['variable_manager'].extra_vars.update(extra_vars)
 
