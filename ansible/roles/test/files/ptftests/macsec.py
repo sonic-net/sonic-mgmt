@@ -4,6 +4,7 @@ import cryptography.exceptions
 import time
 
 import ptf
+import ptf.dataplane
 import scapy.all as scapy
 MACSEC_SUPPORTED = False
 if hasattr(scapy, "VERSION") and tuple(map(int, scapy.VERSION.split('.'))) >= (2, 4, 5):
@@ -18,7 +19,20 @@ MACSEC_GLOBAL_PN_INCR = 100
 MACSEC_INFOS = {}
 
 
+# When the PTF image carries the native MACsec codec (per-port DataPlane
+# transforms registered from macsec_info.pickle — see
+# ptf.dataplane.NATIVE_MACSEC_CAPABLE, added by sonic-buildimage
+# src/ptf-py3.patch), this module must NOT also encrypt: both layers active
+# would encrypt every injected frame twice. NATIVE_MACSEC_CAPABLE is only set
+# once a DataPlane is constructed, which happens after this module is
+# imported — so it must be read lazily at call time, never snapshotted here.
+def _native_macsec_active():
+    return bool(getattr(ptf.dataplane, "NATIVE_MACSEC_CAPABLE", False))
+
+
 def macsec_send(test, port_id, pkt, count=1):
+    if _native_macsec_active():
+        return __origin_send_packet(test, port_id, pkt, count)
     # Check if the port is macsec enabled, if so send the macsec encap/encrypted frame
     global MACSEC_GLOBAL_PN_OFFSET
     global MACSEC_GLOBAL_PN_INCR
@@ -82,6 +96,9 @@ def __decap_macsec_pkt(macsec_pkt, sci, an, sak, encrypt, send_sci, pn, xpn_en=F
 
 
 def __macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_pkt=None):
+    if _native_macsec_active():
+        return __origin_dp_poll(test, device_number=device_number, port_number=port_number,
+                                timeout=timeout, exp_pkt=exp_pkt)
     recent_packets = []
     packet_count = 0
     if timeout is None:
@@ -122,7 +139,15 @@ def __macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_
     return test.dataplane.PollFailure(exp_pkt, recent_packets, packet_count)
 
 
-if MACSEC_SUPPORTED and os.path.exists(MACSEC_INFO_FILE):
+# Native-codec opt-in: when sonic-mgmt requests native mode (--macsec_ptf_native)
+# it drops this marker before launching PTF; the codec-carrying docker-ptf image
+# activates its DataPlane transforms and this monkeypatch must stand down
+# entirely. Without the marker (the default) this module behaves exactly as
+# before, so existing runs are undisturbed even on codec-carrying images.
+MACSEC_NATIVE_MODE_FLAG = "/root/macsec_native_codec"
+
+if MACSEC_SUPPORTED and os.path.exists(MACSEC_INFO_FILE) \
+        and not os.path.exists(MACSEC_NATIVE_MODE_FLAG):
     with open(MACSEC_INFO_FILE, "rb") as f:
         MACSEC_INFOS = pickle.load(f, encoding="bytes")
         if MACSEC_INFOS:

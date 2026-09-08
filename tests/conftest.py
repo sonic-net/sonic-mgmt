@@ -296,6 +296,9 @@ def pytest_addoption(parser):
                      help="Enable macsec on tgen links of testbed")
     parser.addoption("--enable_macsec", action="store_true", default=False,
                      help="Enable macsec on some links of testbed")
+    parser.addoption("--macsec_ptf_native", action="store_true", default=False,
+                     help="Use the docker-ptf native MACsec codec instead of the "
+                          "ptftests/macsec.py monkeypatch (requires a codec-carrying PTF image)")
     parser.addoption("--macsec_profile", action="store", default="all",
                      type=str, help="profile name list in macsec/profile.json")
     parser.addoption("--per_interface_macsec", action="store_true", default=False,
@@ -877,14 +880,42 @@ def macsec_duthost(duthosts, tbinfo):
     return macsec_dut
 
 
+def _macsec_port_states(duthost):
+    """{port: MACSEC_PORT_TABLE state} for every MACsec port, one SSH call.
+
+    Key presence signals a MACsec testbed (stable across MKA renegotiation);
+    state == 'ok' additionally guarantees the SAK is available in APP_DB.
+    """
+    namespaces = ['']
+    try:
+        if duthost.is_multi_asic:
+            namespaces += duthost.get_asic_namespace_list()
+    except Exception:
+        pass
+    states = {}
+    for ns in namespaces:
+        ns_arg = "-n {} ".format(ns) if ns else ""
+        out = duthost.shell(
+            "for k in $(sonic-db-cli {ns}STATE_DB KEYS 'MACSEC_PORT_TABLE|*'); do "
+            "echo \"${{k#MACSEC_PORT_TABLE|}}=$(sonic-db-cli {ns}STATE_DB HGET \"$k\" state)\"; "
+            "done; true".format(ns=ns_arg),
+            module_ignore_errors=True,
+        ).get("stdout", "").strip()
+        states.update(line.split("=", 1) for line in out.splitlines() if "=" in line)
+    return states
+
+
 @pytest.fixture(scope="session")
 def is_macsec_enabled_for_test(duthosts):
-    # If macsec is enabled, use the override option to get macsec profile from golden config
-    macsec_en = False
+    # True if MACsec is active for this run: either --enable_macsec was passed
+    # (intent), or STATE_DB has MKA sessions
     request = duthosts.request
-    if request:
-        macsec_en = request.config.getoption("--enable_macsec", default=False)
-    return macsec_en
+    if request and request.config.getoption("--enable_macsec", default=False):
+        return True
+    for duthost in duthosts:
+        if _macsec_port_states(duthost):
+            return True
+    return False
 
 
 # Make sure in same test module, always use same random DUT
@@ -1022,7 +1053,7 @@ def ptfhost(ptfhosts):
 
 
 @pytest.fixture(scope="session")
-def ptfhosts(enhance_inventory, ansible_adhoc, tbinfo, duthost, request):
+def ptfhosts(enhance_inventory, ansible_adhoc, tbinfo, duthost, duthosts, request):
     _hosts = []
     if 'ptp' in tbinfo['topo']['name']:
         return None
@@ -1032,22 +1063,77 @@ def ptfhosts(enhance_inventory, ansible_adhoc, tbinfo, duthost, request):
             and ("docker-keysight-api-server" in tbinfo["ptf_image_name"]
                  or "docker-stc-api-server" in tbinfo["ptf_image_name"])):
         return None
+    _macsec_enabled = request.config.option.enable_macsec
+    if not _macsec_enabled:
+        # Probe every DUT: on multi-DUT/chassis testbeds the MACsec-enabled
+        # linecard is not necessarily duthosts[0] (e.g. the supervisor).
+        _macsec_enabled = any(bool(_macsec_port_states(dut)) for dut in duthosts)
+    # Always-on MACsec topologies (topology yaml declares macsec_links) default to
+    # the docker-ptf native codec; min-topo runs, where tests/macsec enables MACsec
+    # itself, keep the ptftests/macsec.py monkeypatch. --macsec_ptf_native forces
+    # native mode on any topology. PTFHost.create_macsec_info falls back to the
+    # monkeypatch when the PTF image carries no codec.
+    _topo_macsec = bool(tbinfo["topo"].get("properties", {}).get("macsec_links"))
+    _macsec_native = request.config.option.macsec_ptf_native or _topo_macsec
+    if _macsec_enabled:
+        logger.info("PTF MACsec mode: %s (%s)",
+                    "native codec" if _macsec_native else "monkeypatch",
+                    "--macsec_ptf_native" if request.config.option.macsec_ptf_native
+                    else ("topology declares macsec_links" if _topo_macsec else "default"))
     if "ptf" in tbinfo:
         _hosts.append(PTFHost(ansible_adhoc, tbinfo["ptf"], duthost, tbinfo,
-                              macsec_enabled=request.config.option.enable_macsec))
+                              macsec_enabled=_macsec_enabled, macsec_native=_macsec_native))
     elif "servers" in tbinfo:
         for server in tbinfo["servers"].values():
             if "ptf" in server and server["ptf"]:
                 _host = PTFHost(ansible_adhoc, server["ptf"], duthost, tbinfo,
-                                macsec_enabled=request.config.option.enable_macsec)
+                                macsec_enabled=_macsec_enabled, macsec_native=_macsec_native)
                 _hosts.append(_host)
     else:
         # when no ptf defined in testbed.csv
         # try to parse it from inventory
         ptf_host = duthost.host.options["inventory_manager"].get_host(duthost.hostname).get_vars()["ptf_host"]
         _hosts.append(PTFHost(ansible_adhoc, ptf_host, duthost, tbinfo,
-                              macsec_enabled=request.config.option.enable_macsec))
+                              macsec_enabled=_macsec_enabled, macsec_native=_macsec_native))
+    if not _macsec_enabled:
+        for _host in _hosts:
+            _host.clear_macsec_info()
     return _hosts
+
+
+@pytest.fixture(scope="session", autouse=True)
+def auto_populate_macsec_info(duthosts, tbinfo):
+    """Populate MACSEC_INFO for ports with active MACsec sessions.
+
+    Activates the macsec_helper monkeypatch transparently for all tests that
+    sniff DUT-to-neighbor ports, without requiring --enable_macsec.
+    Only ports with a live MKA session (present in STATE_DB MACSEC_PORT_TABLE)
+    are included so that the SAK is guaranteed to be available in APP_DB.
+    """
+    from tests.common.macsec.macsec_helper import MACSEC_INFO, get_macsec_attr
+    _logger = logging.getLogger(__name__)
+    for duthost in duthosts:
+        # Only state=ok ports: the SAK must already be present in APP_DB.
+        live_ports = [p for p, s in _macsec_port_states(duthost).items() if s == "ok"]
+        if not live_ports:
+            continue
+        mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+        ptf_indices = mg_facts.get("minigraph_ptf_indices", {})
+        active_ports = 0
+        for port in live_ports:
+            if port not in ptf_indices:
+                continue
+            ptf_id = ptf_indices[port]
+            try:
+                MACSEC_INFO[ptf_id] = get_macsec_attr(duthost, port)
+                active_ports += 1
+            except Exception:
+                _logger.warning("get_macsec_attr failed for %s on %s",
+                                port, duthost.hostname, exc_info=True)
+        if active_ports:
+            _logger.info(
+                "MACsec auto-detected: populated MACSEC_INFO for %d port(s) on %s",
+                active_ports, duthost.hostname)
 
 
 @pytest.fixture(scope="module")
