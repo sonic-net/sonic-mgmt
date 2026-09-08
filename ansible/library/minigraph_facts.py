@@ -478,6 +478,8 @@ def parse_dpg(dpg, hname):
                           " is attached to a Vlan interface, which is currently not supported", file=sys.stderr)
                 elif member in port_alias_to_name_map:
                     acl_intfs.append(port_alias_to_name_map[member])
+                elif member in ports:
+                    acl_intfs.append(member)
             if acl_intfs:
                 acls[aclname] = acl_intfs
 
