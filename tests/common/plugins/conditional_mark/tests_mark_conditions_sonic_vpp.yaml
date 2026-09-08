@@ -119,141 +119,51 @@ container_checker/test_container_checker.py::test_container_checker_telemetry:
 #######################################
 #####           COPP              #####
 #######################################
-copp:
+# NOTE: unlike most sections in this file, COPP is NOT blanket-skipped.
+# CoPP dataplane enforcement on vpp is implemented (copp_punt_policer VPP
+# device-input plugin, see doc/vpp/vpp_copp_HLD.md) and the large majority
+# of copp/test_copp.py passes. Only the 3 specific gaps below are listed
+# (denylist style, matching cacl's convention above) -- everything else
+# under copp/test_copp.py runs unconditionally.
+copp/test_copp.py::TestCOPP::test_policer_mtu\[.*-IP2ME\]:
+  regex: true
   skip:
     reason: >
-            Unsupported: no VPP dataplane classify/policer feature exists
-            yet for these traps (neighbor miss).
-            test_policer_mtu (IP2ME/SNMP/SSH MTU variants) stays
-            skipped too: IP2ME/SNMP/SSH all fail with zero packets received
-            (a real, separate, pre-existing gap in the ip4/ip6-unicast
-            policer-classify path unrelated to the copp_punt_policer plugin
-            this effort adds; root cause not yet identified).
+            Failed/Errored: fails at all 3 packet sizes (64/1514/4096),
+            zero packets received (Actual PPS: 0, Expected: 540-780). A
+            real, separate, pre-existing gap in the ip4-unicast
+            policer-classify path (suspected classify-binding-scope issue:
+            VPP's built-in classify feature only binds to the one hw
+            interface owning the destination IP, not the actual ingress
+            interface), unrelated to the copp_punt_policer plugin this
+            effort adds. Root cause not yet fixed.
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
 
-copp/test_copp.py::TestCOPP::test_add_new_trap:
+copp/test_copp.py::TestCOPP::test_policer_mtu\[.*-SNMP\]:
+  regex: true
   skip:
     reason: >
-            Passes: verified live (bgp trap uninstall/reinstall via
-            always_enabled, traffic check before/after). The BGP PTF test
-            packet uses ip_ttl=1, which also matches the separate,
-            always-installed TTL_ERROR default trap independent of the BGP
-            trap's own state -- the same platform behavior real
-            broadcom/marvell-teralynx hardware exhibits, for which the test
-            harness already carries an asic_type exception; added 'vpp' to
-            that exception list in copp_tests.py.
+            Failed/Errored: same root cause as test_policer_mtu[IP2ME]
+            (SNMP/SSH/IP2ME all map to the same SAI ip2me trap per
+            PROTOCOL_TO_TRAP_ID in the PTF copp_tests.py) -- fails at all
+            3 packet sizes, zero packets received.
     conditions_logical_operator: or
     conditions:
-      - "False"
+      - "asic_type in ['vpp']"
 
-copp/test_copp.py::TestCOPP::test_policer[ARP]:
+copp/test_copp.py::TestCOPP::test_policer_mtu\[.*-SSH\]:
+  regex: true
   skip:
     reason: >
-            Passes: CoPP dataplane enforcement implemented via the
-            copp_punt_policer VPP device-input plugin (see
-            doc/vpp/vpp_copp_HLD.md).
+            Failed/Errored: same root cause as test_policer_mtu[IP2ME]
+            (SNMP/SSH/IP2ME all map to the same SAI ip2me trap per
+            PROTOCOL_TO_TRAP_ID in the PTF copp_tests.py) -- fails at all
+            3 packet sizes, zero packets received.
     conditions_logical_operator: or
     conditions:
-      - "False"
-
-copp/test_copp.py::TestCOPP::test_policer[DHCP6]:
-  skip:
-    reason: >
-            Passes: rides the pre-existing ip6-unicast policer-classify
-            feature, unaffected by the copp_punt_policer plugin.
-    conditions_logical_operator: or
-    conditions:
-      - "False"
-
-copp/test_copp.py::TestCOPP::test_policer[DHCP]:
-  skip:
-    reason: >
-            Passes: rides the pre-existing ip4-unicast policer-classify
-            feature, unaffected by the copp_punt_policer plugin.
-    conditions_logical_operator: or
-    conditions:
-      - "False"
-
-copp/test_copp.py::TestCOPP::test_policer[Default]:
-  skip:
-    reason: >
-            Passes: CoPP dataplane enforcement implemented via the
-            copp_punt_policer VPP device-input plugin (TTL_ERROR trap).
-    conditions_logical_operator: or
-    conditions:
-      - "False"
-
-copp/test_copp.py::TestCOPP::test_policer[LACP]:
-  skip:
-    reason: >
-            Passes: CoPP dataplane enforcement implemented via the
-            copp_punt_policer VPP device-input plugin.
-    conditions_logical_operator: or
-    conditions:
-      - "False"
-
-copp/test_copp.py::TestCOPP::test_policer[LLDP]:
-  skip:
-    reason: >
-            Passes: CoPP dataplane enforcement implemented via the
-            copp_punt_policer VPP device-input plugin.
-    conditions_logical_operator: or
-    conditions:
-      - "False"
-
-copp/test_copp.py::TestCOPP::test_policer[UDLD]:
-  skip:
-    reason: >
-            Passes: CoPP dataplane enforcement implemented via the
-            copp_punt_policer VPP device-input plugin.
-    conditions_logical_operator: or
-    conditions:
-      - "False"
-
-copp/test_copp.py::TestCOPP::test_policer_mtu[BGP]:
-  skip:
-    reason: >
-            Passes at all 3 packet sizes (64/1514/4096): rides the
-            pre-existing ip4/ip6-unicast policer-classify path via the
-            TTL_ERROR trap match (misleadingly named "BGP" in the test
-            harness; it is not real BGP session traffic), unaffected by
-            the copp_punt_policer VPP plugin.
-    conditions_logical_operator: or
-    conditions:
-      - "False"
-
-copp/test_copp.py::TestCOPP::test_remove_trap:
-  skip:
-    reason: >
-            Passes: verified live for both removal paths (delete feature
-            entry, disable feature status) -- bgp trap uninstall via
-            feature-table removal, traffic check confirms trap uninstalled.
-            Same asic_type exception in copp_tests.py's BGPTest as
-            test_add_new_trap (ttl_error default trap vs. ttl=1 BGP test
-            packet, matching real broadcom/marvell-teralynx behavior).
-    conditions_logical_operator: or
-    conditions:
-      - "False"
-
-copp/test_copp.py::TestCOPP::test_trap_config_save_after_reboot:
-  skip:
-    reason: >
-            Passes: verified via a real DUT reboot (config save + reboot
-            + wait + verify trap persists); CoPP trap/policer config
-            survives reboot correctly.
-    conditions_logical_operator: or
-    conditions:
-      - "False"
-
-copp/test_copp.py::test_verify_copp_configuration_cli:
-  skip:
-    reason: >
-            Passes: config-plane-only verification, no traffic policing.
-    conditions_logical_operator: or
-    conditions:
-      - "False"
+      - "asic_type in ['vpp']"
 
 #######################################
 #####           Decap             #####
