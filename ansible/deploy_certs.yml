@@ -10,6 +10,7 @@
       -x509 \
       -sha256 \
       -nodes \
+      -days 365 \
       -newkey rsa:2048 \
       -keyout "{{ server_key }}"
       -subj "/CN={{ cert_subject }}"
@@ -21,6 +22,7 @@
       -x509 \
       -sha256 \
       -nodes \
+      -days 365 \
       -newkey rsa:2048 \
       -keyout "{{ dsmsroot_key }}"
       -subj "/CN={{ root_subject }}"
