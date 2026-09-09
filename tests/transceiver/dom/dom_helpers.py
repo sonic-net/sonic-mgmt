@@ -97,7 +97,7 @@ DOM_QUANTITY_REGISTRY = {
         "txLANE_NUMpower_operational_range",
         "dB",
         CONSISTENCY_MODE_ABSOLUTE,
-        "dBm",
+        "dB",
     ),
     "rx_power": DomQuantitySpec(
         "rxpower",
@@ -105,7 +105,7 @@ DOM_QUANTITY_REGISTRY = {
         "rxLANE_NUMpower_operational_range",
         "dB",
         CONSISTENCY_MODE_ABSOLUTE,
-        "dBm",
+        "dB",
     ),
     "tx_bias": DomQuantitySpec(
         "txbias",
@@ -771,6 +771,7 @@ def _validate_event_timestamp(port, candidate_fields, baseline_entry, current_en
     parsed_time = parse_sonic_timestamp(current_raw)
     if parsed_time is None:
         return ["{} {} timestamp is unparsable: {!r}".format(table_name, field, current_raw)]
+    parsed_time = normalize_datetime(parsed_time)
 
     earliest = normalize_datetime(event_time) - timedelta(seconds=DOM_EVENT_TIME_TOLERANCE_SEC)
     if parsed_time < earliest:
@@ -1142,6 +1143,7 @@ def validate_appl_port_down_time(port, baseline_entry, shutdown_entry, shutdown_
             )
         )
         return failures
+    parsed_down = normalize_datetime(parsed_down)
 
     earliest = normalize_datetime(shutdown_time) - timedelta(seconds=DOM_EVENT_TIME_TOLERANCE_SEC)
     if parsed_down < earliest:
