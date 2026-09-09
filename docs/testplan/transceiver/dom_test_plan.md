@@ -76,8 +76,8 @@ The following table summarizes the key attributes used in DOM testing. This tabl
 | voltage_deviation_range | dict `{"min": <float>, "max": <float>}` | - | O | transceivers | Acceptable post-test deviation from baseline for `voltage` in volts. The difference `post-test value − baseline value` must satisfy `min <= difference <= max`. Omit to skip this post-test check. |
 | laser_temperature_deviation_range | dict `{"min": <float>, "max": <float>}` | - | O | transceivers | Acceptable post-test deviation from baseline for `laser_temperature` in Celsius. `min <= (post-test − baseline) <= max`. Omit to skip this post-test check. |
 | txLANE_NUMbias_deviation_range | dict `{"min": <float>, "max": <float>}` | - | O | transceivers | Acceptable post-test deviation from baseline for `tx{lane}bias` in mA, validated per lane. `min <= (post-test − baseline) <= max`. Omit to skip this per-lane post-test check. |
-| txLANE_NUMpower_deviation_range | dict `{"min": <float>, "max": <float>}` | - | O | transceivers | Acceptable post-test deviation from baseline for `tx{lane}power` in dBm, validated per lane. `min <= (post-test − baseline) <= max`. Omit to skip this per-lane post-test check. |
-| rxLANE_NUMpower_deviation_range | dict `{"min": <float>, "max": <float>}` | - | O | transceivers | Acceptable post-test deviation from baseline for `rx{lane}power` in dBm, validated per lane. `min <= (post-test − baseline) <= max`. Omit to skip this per-lane post-test check. |
+| txLANE_NUMpower_deviation_range | dict `{"min": <float>, "max": <float>}` | - | O | transceivers | Acceptable post-test deviation from baseline for `tx{lane}power` in dB, validated per lane. Each reading is in dBm, while their difference `post-test − baseline` is in dB. `min <= difference <= max`. Omit to skip this per-lane post-test check. |
+| rxLANE_NUMpower_deviation_range | dict `{"min": <float>, "max": <float>}` | - | O | transceivers | Acceptable post-test deviation from baseline for `rx{lane}power` in dB, validated per lane. Each reading is in dBm, while their difference `post-test − baseline` is in dB. `min <= difference <= max`. Omit to skip this per-lane post-test check. |
 | telemetry_profile_poll_interval_sec | integer | 10 | O | transceivers or platform | Polling interval in seconds for the telemetry update profiling test |
 | telemetry_profile_duration_min | integer | 10 | O | transceivers or platform | Duration in minutes to run the telemetry update profiling test |
 
@@ -203,6 +203,8 @@ Inherits the [Common Session-Level Prerequisites](test_plan.md#common-session-le
 ### Advanced DOM Testing
 
 > **Note:** Each test case's steps include the TC-specific baselines it needs (e.g., remote-side DOM values, link flap counts). Failure-path recovery (restoring shutdown interfaces, re-enabling DOM polling) is handled by the session-level [Cleanup](#cleanup-and-post-test-verification).
+
+Advanced TC 1 resolves all local/remote operation contexts first and groups them into peer-safe batches. Logical ports that share a physical module are toggled together, while same-DUT local endpoints whose remote observation endpoint would be toggled by another context are placed in different batches. Each batch uses one bulk shutdown/startup and waits once per participating DUT for all primary-port DOM timestamps to advance; validation and failure reporting remain per local port. Cross-DUT remote plans, lane masks, thresholds, and breakout-primary mappings are always sourced from the remote DUT's own resolved attributes.
 
 | TC No. | Test | Steps | Expected Results |
 |------|------|------|------------------|
