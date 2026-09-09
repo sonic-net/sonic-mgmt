@@ -36,6 +36,8 @@ logger = logging.getLogger(__name__)
 # Full-system disruptions (reboot / config reload) may restart every
 # framework-monitored process, so their PID changes are all expected.
 _ALL_MONITORED_PROCESSES = set(DEFAULT_MONITORED_PROCESSES)
+
+
 def _representative_attribute(port_attributes_dict, scope_key, attribute):
     """Read an operation-scoped attribute (uniform across ports) from a
     representative port's ``scope_key`` shard."""
@@ -62,6 +64,7 @@ def _verify_recovery(
     lport_to_first_subport_mapping,
     wait_sec,
     scenario,
+    live_i2c_confirm=False,
 ):
     """Verify EEPROM static content + CMIS active-optical DataPath + firmware recovery.
 
@@ -76,14 +79,12 @@ def _verify_recovery(
     settle_deadline = start + wait_sec
     failures = []
     item_start = time.monotonic()
-    # Pre-check (wait_sec == 0) uses the cheap STATE_DB baseline; the post-op
-    # check adds the live-I2C sfputil pass (physical re-readability proof).
     static_failures = verify_eeprom_static_recovered(
         duthost,
         port_attributes_dict,
         lport_to_first_subport_mapping,
         max(0, settle_deadline - time.monotonic()),
-        live_i2c_confirm=wait_sec > 0,
+        live_i2c_confirm=live_i2c_confirm,
         # Reboot / config reload / daemon restart reload the driver, so the first
         # I2C read is legitimately slow — don't enforce the dump-latency SLA.
         enforce_timeout=False,
@@ -225,6 +226,7 @@ def test_eeprom_recovery_after_reboot(
         lport_to_first_subport_mapping,
         _system_attribute(port_attributes_dict, "{}_reboot_settle_sec".format(reboot_type)),
         "after {} reboot".format(reboot_type),
+        live_i2c_confirm=True,
     )
 
 
@@ -257,6 +259,7 @@ def test_eeprom_recovery_after_config_reload(
         lport_to_first_subport_mapping,
         _system_attribute(port_attributes_dict, "config_reload_settle_sec"),
         "after config reload",
+        live_i2c_confirm=True,
     )
 
 
@@ -288,16 +291,23 @@ def test_eeprom_recovery_after_daemon_restart(
         "before {} restart".format(daemon),
     )
 
-    expected_pid_changes.update(scenario_ops.DAEMON_RESTART_PROCESSES[daemon])
+    affected_processes = set(scenario_ops.DAEMON_RESTART_PROCESSES[daemon])
     if daemon in ("swss", "syncd") and _system_attribute(
         port_attributes_dict, "expect_xcvrd_restart_with_swss_or_syncd"
     ):
-        expected_pid_changes.add("xcvrd")
-    restart_settle_sec = _system_attribute(
-        port_attributes_dict, "{}_restart_settle_sec".format(daemon)
-    )
+        affected_processes.add("xcvrd")
+    expected_pid_changes.update(affected_processes)
+    if daemon in ("swss", "syncd"):
+        restart_settle_sec = max(
+            _system_attribute(port_attributes_dict, "swss_restart_settle_sec"),
+            _system_attribute(port_attributes_dict, "syncd_restart_settle_sec"),
+        )
+    else:
+        restart_settle_sec = _system_attribute(
+            port_attributes_dict, "{}_restart_settle_sec".format(daemon)
+        )
     remaining_settle_sec = scenario_ops.perform_daemon_restart(
-        duthost, daemon, restart_settle_sec
+        duthost, daemon, restart_settle_sec, affected_processes=affected_processes
     )
 
     _verify_recovery(
@@ -306,6 +316,7 @@ def test_eeprom_recovery_after_daemon_restart(
         lport_to_first_subport_mapping,
         remaining_settle_sec,
         "after {} restart".format(daemon),
+        live_i2c_confirm=True,
     )
 
 

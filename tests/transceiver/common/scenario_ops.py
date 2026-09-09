@@ -146,7 +146,7 @@ def perform_config_reload(duthost):
     config_reload(duthost, wait=0, yang_validate=False)
 
 
-def perform_daemon_restart(duthost, daemon, settle_sec):
+def perform_daemon_restart(duthost, daemon, settle_sec, affected_processes=None):
     """Restart a transceiver-related process/container and return the unused
     portion of its post-command settle budget.
 
@@ -155,17 +155,22 @@ def perform_daemon_restart(duthost, daemon, settle_sec):
             (``pmon`` / ``swss`` / ``syncd``).
         settle_sec: maximum time for affected processes to complete their
             restart transitions.
+        affected_processes: monitored processes that must return to ``RUNNING``.
+            Defaults to the processes directly affected by ``daemon``.
 
     Returns:
         float: seconds remaining in ``settle_sec`` after process restart
             polling.
     """
+    if affected_processes is None:
+        affected_processes = DAEMON_RESTART_PROCESSES[daemon]
     monitored_processes = tuple(
         (process, DEFAULT_MONITORED_PROCESSES[process])
-        for process in DAEMON_RESTART_PROCESSES[daemon]
+        for process in affected_processes
     )
     monitored_containers = {
-        container for _process, container in monitored_processes
+        DEFAULT_MONITORED_PROCESSES[process]
+        for process in DAEMON_RESTART_PROCESSES[daemon]
     } if daemon != "xcvrd" else set()
     baseline_started_at = {
         container: get_docker_started_at(duthost, container)
