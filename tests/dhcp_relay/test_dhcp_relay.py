@@ -27,7 +27,7 @@ from tests.common.dhcp_relay_utils import restart_dhcp_service, wait_dhcp_relay_
 from tests.common.dhcp_relay_utils import enable_sonic_dhcpv4_relay_agent  # noqa: F401
 
 pytestmark = [
-    pytest.mark.topology('t0', 'm0'),
+    pytest.mark.topology('t0', 'm0', 'dualtor'),
     pytest.mark.device_type('vs'),
     pytest.mark.parametrize("relay_agent", ["isc-relay-agent", "sonic-relay-agent"]),
 ]
