@@ -6,6 +6,14 @@ name: $(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMM
 trigger: none
 pr: none
 
+schedules:
+  - cron: '0 2 * * *'
+    displayName: 'Daily 02:00 UTC run'
+    branches:
+      include:
+        - internal
+    always: true
+
 stages:
   - stage: SonicShiftETL
     displayName: 'SONiC Shift ETL - Proof of Connection'
