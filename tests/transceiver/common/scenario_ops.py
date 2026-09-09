@@ -28,6 +28,7 @@ from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.dut_utils import get_program_info
 from tests.common.platform.interface_utils import wait_ports_oper_status
+from tests.common.platform.processes_utils import get_docker_started_at
 from tests.common.reboot import reboot
 from tests.common.utilities import wait_until
 from tests.transceiver.common import cli_helpers
@@ -163,10 +164,18 @@ def perform_daemon_restart(duthost, daemon, settle_sec):
         (process, DEFAULT_MONITORED_PROCESSES[process])
         for process in DAEMON_RESTART_PROCESSES[daemon]
     )
-    baseline_pids = {
-        process: get_program_info(duthost, container, process)[1]
-        for process, container in monitored_processes
+    monitored_containers = {
+        container for _process, container in monitored_processes
+    } if daemon != "xcvrd" else set()
+    baseline_started_at = {
+        container: get_docker_started_at(duthost, container)
+        for container in monitored_containers
     }
+    pytest_assert(
+        all(baseline_started_at.values()),
+        "Could not capture container start times before {} restart: {}"
+        .format(daemon, baseline_started_at),
+    )
 
     if daemon == "xcvrd":
         logger.info("Restarting xcvrd inside pmon for transceiver scenario")
@@ -177,20 +186,29 @@ def perform_daemon_restart(duthost, daemon, settle_sec):
 
     settle_deadline = time.monotonic() + settle_sec
     observed = {}
+    observed_started_at = {}
 
     def _processes_restarted():
         observed.clear()
         for process, container in monitored_processes:
             observed[process] = get_program_info(duthost, container, process)
+        if not all(status == "RUNNING" for status, _pid in observed.values()):
+            return False
+        if daemon == "xcvrd":
+            return True
+        observed_started_at.clear()
+        for container in monitored_containers:
+            observed_started_at[container] = get_docker_started_at(duthost, container)
         return all(
-            status == "RUNNING" and pid != baseline_pids[process]
-            for process, (status, pid) in observed.items()
+            observed_started_at[container]
+            and observed_started_at[container] != baseline_started_at[container]
+            for container in monitored_containers
         )
 
     pytest_assert(
         wait_until(settle_sec, DAEMON_RESTART_POLL_INTERVAL_SEC, 0, _processes_restarted),
-        "Processes did not complete restart after {} restart: {}"
-        .format(daemon, observed),
+        "Processes did not complete restart after {} restart: processes={}, containers={}"
+        .format(daemon, observed, observed_started_at),
     )
     return max(0, settle_deadline - time.monotonic())
 
