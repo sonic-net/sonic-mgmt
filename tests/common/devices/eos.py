@@ -815,8 +815,34 @@ class EosHost(AnsibleHostBase):
         """
         Gets the MAC address of specified interface.
 
+        For a routed interface this is the interface's own routed MAC, not
+        the bridge/system MAC (see get_bridge_mac() for that).
+
         Returns:
             str: The MAC address of the specified interface, or None if it is not found.
+        """
+        try:
+            command = 'show interfaces {} | json'.format(interface_name)
+            output = self.eos_command(commands=[command])['stdout'][0]
+            mac = output["interfaces"][interface_name]["physicalAddress"]
+            return mac
+        except Exception as e:
+            logger.error('Failed to get MAC address for interface "{}", exception: {}'.format(interface_name, repr(e)))
+            return None
+
+    def get_bridge_mac(self, interface_name):
+        """
+        Gets the bridge/system MAC address EOS uses for the interface in L2/switchport mode.
+
+        For an already-switchport interface this is just its physicalAddress.
+        For a routed interface, EOS only reports the bridge MAC while the
+        interface is temporarily in switchport mode, so this briefly toggles
+        the interface to switchport, re-reads it, then restores routed mode.
+        The 'no switchport' restoration is always attempted once 'switchport'
+        has been applied, even if the intervening read fails.
+
+        Returns:
+            str: The bridge MAC address of the specified interface, or None if it is not found.
         """
         try:
             command = 'show interfaces {} | json'.format(interface_name)
@@ -826,14 +852,17 @@ class EosHost(AnsibleHostBase):
                 self.eos_config(
                     lines=['switchport'],
                     parents=['interface {}'.format(interface_name)])
-                output = self.eos_command(commands=[command])['stdout'][0]
-                self.eos_config(
-                    lines=['no switchport'],
-                    parents=['interface {}'.format(interface_name)])
+                try:
+                    output = self.eos_command(commands=[command])['stdout'][0]
+                finally:
+                    self.eos_config(
+                        lines=['no switchport'],
+                        parents=['interface {}'.format(interface_name)])
             mac = output["interfaces"][interface_name]["physicalAddress"]
             return mac
         except Exception as e:
-            logger.error('Failed to get MAC address for interface "{}", exception: {}'.format(interface_name, repr(e)))
+            logger.error('Failed to get bridge MAC address for interface "{}", exception: {}'.format(
+                interface_name, repr(e)))
             return None
 
     def iface_macsec_ok(self, interface_name):
