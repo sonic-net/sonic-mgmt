@@ -85,6 +85,19 @@ def run_lifecycle(tmp_path):
             if scope in CLEANUP_FAILURES:
                 if CLEANUP_ERROR == "pytest_fail":
                     pytest.fail(scope + " cleanup failed")
+                if CLEANUP_ERROR == "pytest_skip":
+                    pytest.skip(scope + " cleanup failed")
+                if CLEANUP_ERROR == "mixed_group":
+                    try:
+                        from builtins import BaseExceptionGroup
+                    except ImportError:
+                        from exceptiongroup import BaseExceptionGroup
+                    raise BaseExceptionGroup(scope + " cleanup failed", [
+                        RuntimeError(scope + " ordinary cleanup error"),
+                        pytest.fail.Exception(scope + " outcome cleanup error"),
+                    ])
+                if CLEANUP_ERROR == "system_exit":
+                    raise SystemExit(7)
                 if CLEANUP_ERROR == "keyboard_interrupt":
                     raise KeyboardInterrupt()
                 if CLEANUP_ERROR == "pytest_exit":
@@ -97,9 +110,24 @@ def run_lifecycle(tmp_path):
             finish(request, "session")
 
         @pytest.fixture(scope="module", autouse=True)
+        def independent_module_probe(request, session_probe):
+            yield
+            if CLEANUP_ERROR == "mixed_group":
+                record("module-sibling-cleanup")
+                logger.warning("cleanup-module-sibling")
+                request.config.cache.set("sonic_custom_msg.cleanup.module_sibling", "complete")
+
+        @pytest.fixture(scope="module", autouse=True)
         def module_probe(request, session_probe):
             yield
             finish(request, "module")
+
+        @pytest.fixture(scope="module", autouse=True)
+        def later_module_probe(module_probe):
+            yield
+            if CLEANUP_ERROR == "mixed_group":
+                record("module-earlier-error")
+                raise RuntimeError("earlier module cleanup failed")
 
         @pytest.fixture(autouse=True)
         def function_probe(request, module_probe):
@@ -189,10 +217,11 @@ def _assert_stopped_with_complete_cleanup(result, first_failure, cleanup_failure
 
     properties = result.xml.findall(".//testcase/properties/property[@name='CustomMsg']")
     assert properties
+    cleanup = {scope: "complete" for scope in ("function", "module", "session")}
+    if "module-sibling-cleanup" in result.events:
+        cleanup["module_sibling"] = "complete"
     for prop in properties:
-        assert json.loads(prop.attrib["value"]) == {
-            "cleanup": {scope: "complete" for scope in ("function", "module", "session")},
-        }
+        assert json.loads(prop.attrib["value"]) == {"cleanup": cleanup}
     assert all(case.attrib["name"] == "test_first" for case in result.xml.findall(".//testcase"))
 
 
@@ -218,10 +247,32 @@ def test_last_item_teardown_is_not_repeated(run_lifecycle, cleanup_failures):
     _assert_stopped_with_complete_cleanup(result, "function", cleanup_failures)
 
 
-def test_pytest_fail_in_late_cleanup_preserves_original_error(run_lifecycle):
-    """Keep pytest outcome exceptions and the original unreachable failure together."""
-    result = run_lifecycle("function", ("module", "session"), cleanup_error="pytest_fail")
+@pytest.mark.parametrize("cleanup_error", ["pytest_fail", "pytest_skip", "mixed_group"])
+def test_pytest_outcomes_in_late_cleanup_preserve_original_error(run_lifecycle, cleanup_error):
+    """Keep pytest outcome exceptions and mixed groups alongside the original failure."""
+    result = run_lifecycle("function", ("module", "session"), cleanup_error=cleanup_error)
     _assert_stopped_with_complete_cleanup(result, "function", ("module", "session"))
+    if cleanup_error == "mixed_group":
+        errors = "\n".join(report["longrepr"] for report in result.reports)
+        assert "earlier module cleanup failed" in errors
+        assert result.events.index("module-earlier-error") < result.events.index("finalize-module")
+        assert result.events.index("finalize-module") < result.events.index("module-sibling-cleanup")
+        assert result.events.count("module-sibling-cleanup") == 1
+        for scope in ("module", "session"):
+            assert scope + " ordinary cleanup error" in errors
+            assert scope + " outcome cleanup error" in errors
+
+
+def test_system_exit_is_forwarded_with_original_failure_context(run_lifecycle):
+    """Leave SystemExit to pytest without wrapping it or losing the unreachable context."""
+    result = run_lifecycle("function", ("module",), cleanup_error="system_exit")
+    assert result.process.returncode == 15, result.process.stdout
+    assert "body-next" not in result.events
+    assert "PluggyTeardownRaisedWarning" not in result.process.stdout
+    teardown = next(report for report in result.reports if report["when"] == "teardown")
+    assert "SystemExit: 7" in teardown["longrepr"]
+    assert "Host unreachable in the inventory: function" in teardown["longrepr"]
+    assert "Testbed unreachable and remaining fixture cleanup failed" not in teardown["longrepr"]
 
 
 @pytest.mark.parametrize("cleanup_error, exit_code", [("keyboard_interrupt", 2), ("pytest_exit", 7)])

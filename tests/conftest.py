@@ -1559,33 +1559,48 @@ def log_custom_msg(item):
         item.user_properties.append(('CustomMsg', json.dumps(custom_msg)))
 
 
-@pytest.hookimpl(trylast=True, hookwrapper=True)
+@pytest.hookimpl(trylast=True, wrapper=True)
 def pytest_runtest_teardown(item, nextitem):
     """Finish retained fixtures before reporting a teardown-first host failure."""
-    outcome = yield
-    if nextitem is None or outcome.excinfo is None:
-        return
-
-    original_error = outcome.excinfo[1]
-    if not is_testbed_unreachable_exception(original_error, CONNECTION_FAILURE_TYPES):
-        return
-
-    # pytest chose nextitem before this failure, so shared fixtures may remain.
-    # Drain only the fixture stack, without running other teardown hooks twice.
-    # trylast keeps this inside pytest's teardown log/capture wrappers.
     try:
-        item.session._setupstate.teardown_exact(None)
-    except (KeyboardInterrupt, pytest.exit.Exception) as control_error:
-        outcome.force_exception(control_error)
-    except BaseException as cleanup_error:
-        try:
-            from builtins import BaseExceptionGroup
-        except ImportError:
-            from exceptiongroup import BaseExceptionGroup
-        outcome.force_exception(BaseExceptionGroup(
-            "Testbed unreachable and remaining fixture cleanup failed",
-            [original_error, cleanup_error],
-        ))
+        from builtins import BaseExceptionGroup
+    except ImportError:
+        from exceptiongroup import BaseExceptionGroup
+    cleanup_exceptions = (Exception, pytest.fail.Exception, pytest.skip.Exception, BaseExceptionGroup)
+
+    # Native wrapper propagation keeps control-flow exceptions unchanged and
+    # preserves the original failure as their context during remaining cleanup.
+    try:
+        return (yield)
+    except pytest.exit.Exception:
+        raise
+    except cleanup_exceptions as original_error:
+        if nextitem is None or not is_testbed_unreachable_exception(original_error, CONNECTION_FAILURE_TYPES):
+            raise
+
+        # pytest chose nextitem before this failure, so shared fixtures may remain.
+        # Drain only the fixture stack, without running other teardown hooks twice.
+        # trylast keeps this inside pytest's teardown log/capture wrappers.
+        cleanup_errors = [original_error]
+        setup_state = item.session._setupstate
+        while setup_state.stack:
+            # Match pytest's LIFO stack drain, but retain sibling finalizers
+            # and earlier errors when a mixed BaseExceptionGroup is raised.
+            _, (finalizers, _) = setup_state.stack.popitem()
+            while finalizers:
+                finalizer = finalizers.pop()
+                try:
+                    finalizer()
+                except pytest.exit.Exception:
+                    raise
+                except cleanup_exceptions as cleanup_error:
+                    cleanup_errors.append(cleanup_error)
+        if len(cleanup_errors) > 1:
+            raise BaseExceptionGroup(
+                "Testbed unreachable and remaining fixture cleanup failed",
+                cleanup_errors,
+            ) from None
+        raise
 
 
 # This function is a pytest hook implementation that is called to create a test report.

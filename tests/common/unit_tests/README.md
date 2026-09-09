@@ -49,4 +49,8 @@ python3 -m pytest --noconftest --confcutdir=tests/common/unit_tests \
 the production hooks from `tests/conftest.py` and run them in isolated pytest
 subprocesses with real function/module/session fixtures. They cover teardown-first
 unreachability, later cleanup failures, exit code 15, complete final `CustomMsg`
-and captured cleanup logs, and preservation of normal test execution.
+and captured cleanup logs, and preservation of normal test execution. Exception
+coverage includes `pytest.fail`, `pytest.skip`, mixed exception groups, and
+unchanged propagation of `SystemExit`, `KeyboardInterrupt`, and `pytest.exit`.
+Mixed-group coverage also checks independent same-scope finalizers and errors
+raised before the group, so completing ancestor scopes alone is not sufficient.
