@@ -8,12 +8,13 @@ wraps the canonical repo helper (``reboot`` / ``config_reload`` /
 ``restart_service`` / ...) — never an inlined reboot/reload/restart.
 
 Two operation shapes:
-  * Whole-DUT operations (reboot, config reload, daemon restart) return ``None``
-    and raise (via the wrapped repo helper) on failure — there is no per-port
-    outcome to aggregate; the feature verifier owns pass/fail.
-  * Port-scoped operations (bulk shut/startup, sfputil reset) act on a list of
-    ports and return per-port failure strings for the caller to aggregate into
-    one ``pytest.fail``.
+* Whole-DUT operations (reboot, config reload, daemon restart) raise (via the
+    wrapped repo helper) on failure — there is no per-port outcome to aggregate;
+    the feature verifier owns pass/fail. Daemon restart returns its unused settle
+    budget so the operation and verifier share one deadline.
+* Port-scoped operations (bulk shut/startup, sfputil reset) act on a list of
+    ports and return per-port failure strings for the caller to aggregate into one
+    ``pytest.fail``.
 
 Alongside the operations this module holds the feature-agnostic wait/poll
 utilities both halves compose with: ``scale_bulk_wait`` (operation settle
@@ -24,12 +25,24 @@ import logging
 import time
 
 from tests.common.config_reload import config_reload
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.dut_utils import get_program_info
 from tests.common.platform.interface_utils import wait_ports_oper_status
 from tests.common.reboot import reboot
 from tests.common.utilities import wait_until
 from tests.transceiver.common import cli_helpers
+from tests.transceiver.common.health_checks import DEFAULT_MONITORED_PROCESSES
 
 logger = logging.getLogger(__name__)
+
+# Processes expected to restart for each supported daemon operation.
+DAEMON_RESTART_PROCESSES = {
+    "xcvrd": ("xcvrd",),
+    "pmon": ("xcvrd",),
+    "swss": ("syncd", "orchagent"),
+    "syncd": ("syncd", "orchagent"),
+}
+DAEMON_RESTART_POLL_INTERVAL_SEC = 5
 
 # Base port count for scaling a *per-port* settle wait up to a *bulk*
 # (all-at-once) operation, matching ``tests/common/port_toggle.BASE_PORT_COUNT``
@@ -132,19 +145,54 @@ def perform_config_reload(duthost):
     config_reload(duthost, wait=0, yang_validate=False)
 
 
-def perform_daemon_restart(duthost, daemon):
-    """Restart a transceiver-related process/container.
+def perform_daemon_restart(duthost, daemon, settle_sec):
+    """Restart a transceiver-related process/container and return the unused
+    portion of its post-command settle budget.
 
     Args:
         daemon: ``xcvrd`` (supervisor process in ``pmon``) or a container
             (``pmon`` / ``swss`` / ``syncd``).
+        settle_sec: maximum time for affected processes to complete their
+            restart transitions.
+
+    Returns:
+        float: seconds remaining in ``settle_sec`` after process restart
+            polling.
     """
+    monitored_processes = tuple(
+        (process, DEFAULT_MONITORED_PROCESSES[process])
+        for process in DAEMON_RESTART_PROCESSES[daemon]
+    )
+    baseline_pids = {
+        process: get_program_info(duthost, container, process)[1]
+        for process, container in monitored_processes
+    }
+
     if daemon == "xcvrd":
         logger.info("Restarting xcvrd inside pmon for transceiver scenario")
         duthost.command("docker exec pmon supervisorctl restart xcvrd")
-        return
-    logger.info("Restarting %s container for transceiver scenario", daemon)
-    duthost.restart_service(daemon)
+    else:
+        logger.info("Restarting %s container for transceiver scenario", daemon)
+        duthost.restart_service(daemon)
+
+    settle_deadline = time.monotonic() + settle_sec
+    observed = {}
+
+    def _processes_restarted():
+        observed.clear()
+        for process, container in monitored_processes:
+            observed[process] = get_program_info(duthost, container, process)
+        return all(
+            status == "RUNNING" and pid != baseline_pids[process]
+            for process, (status, pid) in observed.items()
+        )
+
+    pytest_assert(
+        wait_until(settle_sec, DAEMON_RESTART_POLL_INTERVAL_SEC, 0, _processes_restarted),
+        "Processes did not complete restart after {} restart: {}"
+        .format(daemon, observed),
+    )
+    return max(0, settle_deadline - time.monotonic())
 
 
 def perform_sfputil_reset(duthost, reset_ports, toggle_ports, shutdown_wait_sec, startup_wait_sec,
