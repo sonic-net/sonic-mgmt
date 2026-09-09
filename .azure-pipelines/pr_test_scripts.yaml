@@ -341,6 +341,7 @@ dualtor:
   - arp/test_arp_dualtor.py
   - arp/test_arp_extended.py
   - decap/test_subnet_decap.py
+  - dhcp_relay/test_dhcp_relay.py
   - dualtor/test_ipinip.py
   - dualtor/test_mux_port_iptables_entries.py
   - dualtor/test_orchagent_slb.py
