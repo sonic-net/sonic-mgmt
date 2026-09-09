@@ -6,11 +6,11 @@ Run one shim process of the POOL::
 
 ``--shard i/k`` means "this is shim ``i`` of ``k``": the process serves only the
 ports :func:`gobgp.shardmap.shard_for` assigns to shard ``i`` of a ``k``-way
-split of the full portmap. The manager (``gobgp`` ansible module, landing in a
-follow-up change) launches ``k = min(cores, sessions)`` supervisord programs, one per shard, so the pool
-collectively covers every neighbor port with no overlap and no single-process
-GIL bottleneck. ``--shard`` defaults to ``0/1`` (serve the whole portmap), which
-is handy for local testing.
+split of the full portmap. The manager (the ``gobgp`` ansible module) launches
+``k = min(cores, sessions, pool_max)`` supervisord programs, one per shard, so
+the pool collectively covers every neighbor port with no overlap and no
+single-process GIL bottleneck. ``--shard`` defaults to ``0/1`` (serve the whole
+portmap), which is handy for local testing.
 """
 import argparse
 import json

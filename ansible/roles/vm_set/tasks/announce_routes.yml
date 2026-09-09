@@ -29,7 +29,91 @@
     vm_offsets: "{{ convergence_data['vm_offset_mapping']|default({}) }}"
 
 - block:
-  - name: Configure and start exabpg process for IPV4
+  - name: Check which speaker the PTF container already runs
+    stat:
+      path: "/etc/supervisor/conf.d/{{ item }}"
+    register: ptf_speaker_conf
+    loop:
+      # gobgpshim.conf covers both families; exabgp renders one group per family
+      # and a topology may enable only one.
+      - gobgpshim.conf
+      - exabgpv4.conf
+      - exabgpv6.conf
+    delegate_to: "{{ ptf_host }}"
+
+  - name: Note which speakers the PTF container already runs
+    set_fact:
+      ptf_gobgp_installed: "{{ ptf_speaker_conf.results[0].stat.exists }}"
+      ptf_exabgp_installed: "{{ ptf_speaker_conf.results[1].stat.exists or
+                                ptf_speaker_conf.results[2].stat.exists }}"
+
+  # The selection arrives as an extra-var scoped to this play, so the container's
+  # own state carries it across runs. `announce-routes` re-runs these tasks
+  # against a live container, where defaulting to exabgp would start a second
+  # speaker on ports the shims already hold. `renumber-topo` recreates the
+  # container, so that subcommand takes the extra-var again.
+  - name: Set default PTF BGP speaker
+    set_fact:
+      ptf_bgp_speaker: "{{ 'gobgp' if ptf_gobgp_installed else 'exabgp' }}"
+    when: ptf_bgp_speaker is not defined
+
+  # Both speakers bind the same neighbor ports. Whichever loses the bind dies,
+  # and the surviving one answers `wait_for`, so the mismatch is otherwise
+  # reported 300s later as a generic readiness timeout.
+  - name: Refuse to run a second BGP speaker in the PTF container
+    fail:
+      msg: >-
+        ptf_bgp_speaker is {{ ptf_bgp_speaker }} and the PTF container already
+        runs the other speaker. Both bind the same neighbor ports. Remove the
+        topology before switching speakers.
+    when: >-
+      (ptf_bgp_speaker == 'exabgp' and ptf_gobgp_installed) or
+      (ptf_bgp_speaker == 'gobgp' and ptf_exabgp_installed)
+
+  - name: Deploy the GoBGP shim package into the PTF container
+    when: ptf_bgp_speaker == 'gobgp'
+    block:
+
+    # The daemon ships in the PTF image. Without this the absence surfaces as a
+    # supervisord SPAWN_ERROR after the readiness timeout.
+    - name: Verify the PTF image provides gobgpd
+      stat:
+        path: "/usr/local/bin/gobgpd"
+      register: ptf_gobgpd_bin
+      failed_when: not ptf_gobgpd_bin.stat.exists
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Create the GoBGP package root
+      file:
+        path: "/usr/share/gobgp"
+        state: directory
+        mode: "0755"
+      delegate_to: "{{ ptf_host }}"
+
+    # GOBGP_PKG_DIR is the import root for the manager and the PYTHONPATH handed
+    # to every shim, so it must be the package's parent: the tree lands at
+    # /usr/share/gobgp/gobgp/. A flat copy fails in both.
+    - name: Copy the GoBGP shim package
+      copy:
+        src: "roles/vm_set/files/gobgp"
+        dest: "/usr/share/gobgp/"
+        mode: "0644"
+        directory_mode: "0755"
+      delegate_to: "{{ ptf_host }}"
+
+    # `announce-routes` and an `add-topo` that reuses the container both land on
+    # a spool that still names the previous fleet, and the spool is what starts
+    # the daemons, so those entries would run alongside the new ones. Passing
+    # the topology's own neighbors makes this a no-op when nothing changed.
+    - name: Drop neighbors left by a previous topology
+      gobgp:
+        name: "fleet"
+        state: "reset"
+        neighbors: "{{ (topo_vms.keys() | list) + (topo_vms.keys() | map('regex_replace', '^(.*)$', '\\1-v6') | list) }}"
+        pool_max: "{{ ptf_gobgp_pool_max | default(omit) }}"
+      delegate_to: "{{ ptf_host }}"
+
+  - name: Configure and start the IPv4 BGP speakers
     when: configuration_properties.common.enable_ipv4_routes_generation | default(True)
     block:
 
@@ -50,26 +134,53 @@
       loop_control:
         loop_var: vm_item
       delegate_to: "{{ ptf_host }}"
+      when: ptf_bgp_speaker == 'exabgp'
+
+    - name: Configure gobgp processes for IPV4 on PTF
+      gobgp:
+        name: "{{ vm_item.key }}"
+        state: "configure"
+        router_id: "{{ vm_item.key|get_exabgp_router_id(convergence_data|default({}))|default(ptf_local_ipv4, true) }}"
+        local_ip: "{{ vm_item.key|get_exabgp_local_ip_v4(convergence_data|default({}))|default(ptf_local_ipv4, true) }}"
+        peer_ip: "{{ vm_item.key|get_exabgp_peer_v4(convergence_data|default({}))|default(configuration[vm_item.key].bp_interface.ipv4.split('/')[0], true) }}"
+        local_asn: "{{ configuration[vm_item.key].bgp.asn }}"
+        peer_asn: "{{ configuration[vm_item.key].bgp.asn }}"
+        port: "{{ vm_item.key|get_exabgp_v4_port(topology, vm_offsets|default({}))|int }}"
+      loop: "{{ topo_vms|dict2items }}"
+      loop_control:
+        loop_var: vm_item
+      delegate_to: "{{ ptf_host }}"
+      when: ptf_bgp_speaker == 'gobgp'
 
     - name: Gather exabgp v4 programs
+      when: ptf_bgp_speaker == 'exabgp'
       set_fact:
         program_group_name: "exabgpv4"
         program_group_programs: "{{ topo_vms.keys() | map('regex_replace', '^(.*)$', 'exabgp-\\1') | join(',')}}"
 
     - name: Configure exabgpv4 group
+      when: ptf_bgp_speaker == 'exabgp'
       template:
         src: "roles/vm_set/templates/exabgp.conf.j2"
         dest: "/etc/supervisor/conf.d/exabgpv4.conf"
       delegate_to: "{{ ptf_host }}"
 
     - name: Add exabgpv4 supervisor config and start related processes
-      when: "{{ topo_vms | length > 0 }}"
+      when: ptf_bgp_speaker == 'exabgp' and topo_vms | length > 0
       supervisorctl:
         name: "exabgpv4:"
         state: present  # present contains `supervisorctl reread` and `supervisorctl add`
       delegate_to: "{{ ptf_host }}"
 
-    - name: Verify that exabgp processes for IPv4 are started
+    - name: Start the gobgp v4 speakers and the shim pool
+      gobgp:
+        name: "gobgpv4"
+        state: "started"
+        pool_max: "{{ ptf_gobgp_pool_max | default(omit) }}"
+      delegate_to: "{{ ptf_host }}"
+      when: ptf_bgp_speaker == 'gobgp' and topo_vms | length > 0
+
+    - name: Verify that the IPv4 BGP speakers are listening
       wait_for:
         host: "{{ ptf_host_ip }}"
         port: "{{ vm_item.key|get_exabgp_v4_port(topology, vm_offsets|default({}))|int }}"
@@ -88,7 +199,7 @@
         configuration: "{{ configuration }}"
       delegate_to: "{{ ptf_host }}"
 
-  - name: Configure and start exabpg process for IPV6
+  - name: Configure and start the IPv6 BGP speakers
     when: configuration_properties.common.enable_ipv6_routes_generation | default(True)
     block:
 
@@ -112,26 +223,53 @@
       loop_control:
         loop_var: vm_item
       delegate_to: "{{ ptf_host }}"
+      when: ptf_bgp_speaker == 'exabgp'
+
+    - name: Configure gobgp processes for IPV6 on PTF
+      gobgp:
+        name: "{{ vm_item.key }}-v6"
+        state: "configure"
+        router_id: "{{ vm_item.key|get_exabgp_router_id(convergence_data|default({}))|default(ptf_router_id, true) }}"
+        local_ip: "{{ vm_item.key|get_exabgp_local_ip_v6(convergence_data|default({}))|default(ptf_local_ipv6, true) }}"
+        peer_ip: "{{ vm_item.key | get_exabgp_peer_v6(convergence_data|default({})) | default(configuration[vm_item.key].bp_interface.ipv6.split('/')[0], true) }}"
+        local_asn: "{{ configuration[vm_item.key].bgp.asn }}"
+        peer_asn: "{{ configuration[vm_item.key].bgp.asn }}"
+        port: "{{ vm_item.key|get_exabgp_v6_port(topology, vm_offsets|default({}))|int }}"
+      loop: "{{ topo_vms|dict2items }}"
+      loop_control:
+        loop_var: vm_item
+      delegate_to: "{{ ptf_host }}"
+      when: ptf_bgp_speaker == 'gobgp'
 
     - name: Gather exabgp v6 programs
+      when: ptf_bgp_speaker == 'exabgp'
       set_fact:
         program_group_name: "exabgpv6"
         program_group_programs: "{{ topo_vms.keys() | map('regex_replace', '^(.*)$', 'exabgp-\\1-v6') | join(',')}}"
 
     - name: Configure exabgpv6 group
+      when: ptf_bgp_speaker == 'exabgp'
       template:
         src: "roles/vm_set/templates/exabgp.conf.j2"
         dest: "/etc/supervisor/conf.d/exabgpv6.conf"
       delegate_to: "{{ ptf_host }}"
 
     - name: Add exabgpv6 supervisor config and start related processes
-      when: "{{ topo_vms | length > 0 }}"
+      when: ptf_bgp_speaker == 'exabgp' and topo_vms | length > 0
       supervisorctl:
         name: "exabgpv6:"
         state: present  # present contains `supervisorctl reread` and `supervisorctl add`
       delegate_to: "{{ ptf_host }}"
 
-    - name: Verify that exabgp processes for IPv6 are started
+    - name: Start the gobgp v6 speakers and the shim pool
+      gobgp:
+        name: "gobgpv6"
+        state: "started"
+        pool_max: "{{ ptf_gobgp_pool_max | default(omit) }}"
+      delegate_to: "{{ ptf_host }}"
+      when: ptf_bgp_speaker == 'gobgp' and topo_vms | length > 0
+
+    - name: Verify that the IPv6 BGP speakers are listening
       wait_for:
         host: "{{ ptf_host_ip }}"
         port: "{{ vm_item.key|get_exabgp_v6_port(topology, vm_offsets|default({}))|int }}"
