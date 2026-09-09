@@ -252,7 +252,7 @@ class SendVerifyTraffic():
         on the number of ports. Send extra in case of imperfect hashing.
         """
         factor = 1
-        num_dst_ports = 1 if type(self.pfc_wd_test_port_ids) != list else len(self.pfc_wd_test_port_ids)
+        num_dst_ports = 1 if not isinstance(self.pfc_wd_test_port_ids, list) else len(self.pfc_wd_test_port_ids)
         if num_dst_ports > 1:
             factor = 1.25 * num_dst_ports
         return factor
@@ -267,7 +267,7 @@ class SendVerifyTraffic():
         """
         logger.info("Check for egress {} on Tx port {}".format(action, self.pfc_wd_test_port))
         dst_port = "[" + str(self.pfc_wd_test_port_id) + "]"
-        if action == "forward" and type(self.pfc_wd_test_port_ids) == list:
+        if action == "forward" and isinstance(self.pfc_wd_test_port_ids, list):
             dst_port = "".join(str(self.pfc_wd_test_port_ids)).replace(',', '')
         ptf_params = {'router_mac': self.router_mac,
                       'vlan_mac': self.vlan_mac,
@@ -297,7 +297,7 @@ class SendVerifyTraffic():
             action(string) : PTF test action
         """
         logger.info("Check for ingress {} on Rx port {}".format(action, self.pfc_wd_test_port))
-        if type(self.pfc_wd_rx_port_id) == list:
+        if isinstance(self.pfc_wd_rx_port_id, list):
             dst_port = "".join(str(self.pfc_wd_rx_port_id)).replace(',', '')
         else:
             dst_port = "[ " + str(self.pfc_wd_rx_port_id) + " ]"
@@ -321,7 +321,7 @@ class SendVerifyTraffic():
                    log_file=log_file, is_python3=True)
 
 
-def _shutdown_lag_members(duthost, port, tbinfo, nbrhosts, port_type):
+def _shutdown_lag_members(duthost, port, tbinfo, nbrhosts, port_type, loganalyzer=None):
     """Backs up config_db and modifies LAG members to isolate the selected port for PFCwd testing."""
     if port_type != 'portchannel':
         return None, None, None
@@ -367,7 +367,8 @@ def _shutdown_lag_members(duthost, port, tbinfo, nbrhosts, port_type):
     _backup_original_config(duthost)
     duthost.command(cmd, _uses_shell=True)
     duthost.command("sudo cp /tmp/config_db.json /etc/sonic/config_db.json", _uses_shell=True)
-    config_reload(duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+    config_reload(duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True,
+                  ignore_loganalyzer=loganalyzer)
     return vm_host, neigh_port_channel, min_links
 
 
@@ -376,7 +377,7 @@ def _backup_original_config(duthost):
     duthost.command("cp /etc/sonic/config_db.json /tmp/config_db_backup.json", _uses_shell=True)
 
 
-def _restore_original_config(duthost, port, vm_host, neigh_port_channel, min_links, port_type):
+def _restore_original_config(duthost, port, vm_host, neigh_port_channel, min_links, port_type, loganalyzer=None):
     """Restores config_db and original LAG config after PFCwd testing."""
     if port_type != 'portchannel':
         return
@@ -385,16 +386,22 @@ def _restore_original_config(duthost, port, vm_host, neigh_port_channel, min_lin
         vm_host.eos_config(lines=[f'port-channel min-links {min_links}'], parents=[f'int {neigh_port_channel}'])
 
     duthost.command("sudo mv /tmp/config_db_backup.json /etc/sonic/config_db.json", _uses_shell=True)
-    config_reload(duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+    config_reload(duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True,
+                  ignore_loganalyzer=loganalyzer)
 
 
 @pytest.fixture(scope='function')
-def manage_lag_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, nbrhosts, setup_pfc_test):
+def manage_lag_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, nbrhosts, setup_pfc_test,
+                      loganalyzer):
     """Complete LAG config resource manager.
 
     Setup (before test): backs up config_db and shuts down extra LAG members so
     only the selected port remains active.
     Teardown (after test): restores the original config_db, always runs even on failure.
+
+    The loganalyzer fixture is forwarded so syslog analysis is suppressed for the duration of
+    each config_reload, which bounces containers and makes monit's memory_checker probe log
+    benign ERRs for containers that are momentarily gone.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     ports = setup_pfc_test['selected_test_ports']
@@ -402,11 +409,12 @@ def manage_lag_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinf
     port_type = ports[port]['test_port_type']
 
     vm_host, neigh_port_channel, min_links = _shutdown_lag_members(
-        duthost, port, tbinfo, nbrhosts, port_type)
+        duthost, port, tbinfo, nbrhosts, port_type, loganalyzer=loganalyzer)
 
     yield
 
-    _restore_original_config(duthost, port, vm_host, neigh_port_channel, min_links, port_type)
+    _restore_original_config(duthost, port, vm_host, neigh_port_channel, min_links, port_type,
+                             loganalyzer=loganalyzer)
 
 
 class TestPfcwdFunc(SetupPfcwdFunc):
