@@ -230,6 +230,42 @@ def get_bgp_down_timestamp(duthost, namespace, peer_ip, timestamp_before_teardow
     return timestamp_in_sec
 
 
+def is_neighbor_removed(duthost, neighbor):
+    """Return True once the peer no longer shows up in bgp_facts (FRR has finished clearing it)."""
+    bgp_neighbors = _get_bgp_neighbors(duthost, neighbor)
+    return neighbor.ip not in bgp_neighbors
+
+
+def _dump_establish_failure_diagnostics(duthost, neighbor):
+    """Best-effort diagnostic dump for a failed-to-establish session, so the
+    evidence lands directly in the pytest log even if the elastictest run's
+    other artifacts (syslog, pcaps) aren't retrievable afterward.
+    """
+    try:
+        asichost = duthost.asic_instance_from_namespace(neighbor.namespace)
+        vtysh_cmd = duthost.get_vtysh_cmd_for_namespace(
+            "vtysh -c 'show bgp neighbor {}'".format(neighbor.ip),
+            neighbor.namespace
+        )
+        bgp_nbr_state = duthost.shell(
+            vtysh_cmd, module_ignore_errors=True)['stdout']
+        logging.warning(
+            "bgp neighbor state on failure:\n%s", bgp_nbr_state)
+
+        sock_state = asichost.shell(
+            "ss -tn '( dst {}:179 )'".format(neighbor.ip),
+            module_ignore_errors=True)['stdout']
+        logging.warning("socket state on failure:\n%s", sock_state)
+
+        exabgp_status = neighbor.ptfhost.shell(
+            "supervisorctl status exabgp-{}".format(neighbor.name),
+            module_ignore_errors=True)['stdout']
+        logging.warning("exabgp status on failure:\n%s", exabgp_status)
+    except Exception as e:
+        logging.warning(
+            "Failed to collect establish-failure diagnostics: %s", repr(e))
+
+
 def test_bgp_peer_shutdown(
     common_setup_teardown,
     constants,
@@ -254,6 +290,7 @@ def test_bgp_peer_shutdown(
                 20,
                 lambda: is_neighbor_session_established(duthost, n0),
             ):
+                _dump_establish_failure_diagnostics(duthost, n0)
                 pytest.fail("Could not establish bgp sessions")
 
             n0.announce_route(announced_route)
@@ -301,3 +338,10 @@ def test_bgp_peer_shutdown(
         finally:
             n0.stop_session()
             _flush_route(duthost, n0, announced_route["prefix"])
+            # Ensure FRR has fully cleared the old peer before the next
+            # iteration recreates it, to avoid a recreate-during-clearing
+            # race that can delay re-establishment past WAIT_TIMEOUT.
+            if not wait_until(30, 2, 0, is_neighbor_removed, duthost, n0):
+                pytest.fail(
+                    "BGP neighbor %s was not fully removed after "
+                    "stop_session" % n0.ip)

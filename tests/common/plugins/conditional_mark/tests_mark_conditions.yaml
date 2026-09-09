@@ -765,9 +765,9 @@ bgp/test_traffic_shift_sup.py:
 
 bmp/:
   skip:
-    reason: "https://github.com/sonic-net/sonic-buildimage/issues/23777"
+    reason: 'BMP tests require BGP routing, not available on BMC'
     conditions:
-      - "release in ['master']"
+      - "'bmc' in topo_type"
 
 bmp/test_docker_restart.py::test_restart_bmp_docker:
   skip:
@@ -2579,6 +2579,10 @@ generic_config_updater/add_cluster/test_port_speed_upgrade.py:
       - "hwsku not in ['x86_64-88_lc0_36fh-r0']"
 
 generic_config_updater/test_apply_patch_perf.py:
+  skip:
+    reason: "GCU apply-patch perf test relies on ACL tables and front-panel data ports; not applicable on BMC"
+    conditions:
+      - "'bmc' in topo_type"
   xfail:
     reason: "This test has been failing since https://github.com/sonic-net/sonic-buildimage/pull/26584, awaiting feature owner to triage, tracked by https://github.com/sonic-net/sonic-mgmt/issues/24984"
     conditions:
@@ -4066,7 +4070,7 @@ pfcwd/test_pfcwd_.*\[IPv6.*:
    xfail:
      reason: "Xfail due to https://github.com/sonic-net/sonic-mgmt/issues/21082"
      conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/21082 and asic_type in ['mellanox', 'cisco-8000']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/21082 and asic_type in ['mellanox']"
 
 pfcwd/test_pfcwd_all_port_storm.py:
    skip:
@@ -4106,6 +4110,14 @@ pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_no_traffic:
         - "asic_type != 'cisco-8000'"
         - "topo_type in ['m0', 'mx', 'm1']"
         - *lossyTopos
+
+pfcwd/test_pfcwd_stat_history.py:
+  skip:
+    reason: "PFC statistics history is produced only by the Broadcom PFCWD plugin on 202511+ images"
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type != 'broadcom'"
+      - "release != 'master' and release < '202511'"
 
 pfcwd/test_pfcwd_timer_accuracy.py::TestPfcwdAllTimer::test_pfcwd_timer_accuracy:
   skip:
@@ -4245,12 +4257,6 @@ portstat/test_portstat.py:
 #######################################
 #####     process_monitoring      #####
 #######################################
-process_monitoring/test_critical_process_monitoring.py::test_monitoring_critical_processes:
-  skip:
-    reason: "BMC platforms have no swss/orchagent/syncd containers. This test kills critical processes and relies on auto-restart to recover, which fails on BMC due to reduced container set and lack of PDU controller."
-    conditions:
-      - "'bmc' in topo_type"
-
 process_monitoring/test_critical_process_monitoring.py::test_orchagent_heartbeat:
   skip:
     reason: "This test is intended for Orchagent freeze scenario during warm-reboot. It is not required for T1 devices, and not supported on 202412 release. Also not applicable on BMC platforms which have no orchagent."
@@ -5431,10 +5437,11 @@ ssh/test_ssh_default_password:
       - "asic_type not in ['vpp']"
 
 ssh/test_ssh_stress.py::test_ssh_stress:
+  # This test is not stable, skip it for now.
+  # known issue: https://github.com/paramiko/paramiko/issues/1508
   skip:
     reason: "This test failed intermittent due to known issue of paramiko, skip for now"
-    conditions:
-      - "asic_type not in ['vpp']"
+    conditions: https://github.com/paramiko/paramiko/issues/1508
 
 #######################################
 #####             stress          #####
@@ -5581,21 +5588,6 @@ tacacs/test_ro_disk.py:
 #######################################
 #####           telemetry         #####
 #######################################
-telemetry/test_telemetry.py:
-  skip:
-    reason: "Skip telemetry test for 201911 and older branches"
-    conditions:
-      - "(is_multi_asic==True) and (release in ['201811', '201911'])"
-
-telemetry/test_telemetry.py::test_telemetry_queue_buffer_cnt:
-  skip:
-    conditions_logical_operator: or
-    reason: "Testcase ignored due to switch type is voq / Unsupported in M* topos / multi-asic issue 15393"
-    conditions:
-      - "(switch_type=='voq')"
-      - "topo_type in ['m0', 'mx', 'm1']"
-      - "(is_multi_asic==True) and https://github.com/sonic-net/sonic-mgmt/issues/15393"
-
 telemetry/test_telemetry_poll.py::test_poll_mode_default_route:
   skip:
     reason: "not applicable on BMC because requires upstream BGP neighbor and default route"
@@ -5741,6 +5733,16 @@ upgrade_path/test_upgrade_path.py::test_upgrade_path_t2_delayed:
     reason: "Only supported on T2 topology"
     conditions:
       - "'t2' not in topo_type"
+
+upgrade_path/test_warmboot_data_consistency.py::test_warmboot_data_consistency:
+  xfail:
+    reason: >
+      Keep 202605 runs non-blocking while collecting warm-vs-cold snapshots for
+      the assertion-mask gaps tracked by
+      https://github.com/sonic-net/sonic-mgmt/issues/27541.
+    strict: false
+    conditions:
+      - "release in ['202605'] and https://github.com/sonic-net/sonic-mgmt/issues/27541"
 
 #######################################
 #####            vlan             #####

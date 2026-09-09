@@ -35,6 +35,8 @@ PR_TEST_SCRIPTS_FILE = "pr_test_scripts.yaml"
 SPECIFIC_PARAM_KEYWORD = "specific_param"
 MAX_POLL_RETRY_TIMES = 10
 MAX_GET_TOKEN_RETRY_TIMES = 3
+POLL_CONNECT_TIMEOUT_SECONDS = 10
+POLL_READ_TIMEOUT_SECONDS = 60
 TEST_PLAN_STATUS_UNSUCCESSFUL_FINISHED = ["FAILED", "CANCELLED"]
 TEST_PLAN_STEP_STATUS_UNFINISHED = ["EXECUTING", None]
 
@@ -493,7 +495,13 @@ class TestPlanManager(object):
 
             resp = None
             try:
-                resp = requests.get(poll_url, headers=headers, timeout=10).json()
+                raw_resp = requests.get(
+                    poll_url,
+                    headers=headers,
+                    timeout=(POLL_CONNECT_TIMEOUT_SECONDS, POLL_READ_TIMEOUT_SECONDS)
+                )
+                raw_resp.raise_for_status()
+                resp = raw_resp.json()
 
                 if not resp:
                     raise Exception("Poll test plan status failed with request error, no response!")
@@ -505,18 +513,22 @@ class TestPlanManager(object):
                 if not resp_data:
                     raise Exception("No valid data in response.")
 
+                poll_retry_times = 0
+
             except Exception as exception:
                 print(f"Failed to get valid response, url: {poll_url}, raw_resp: {resp}, exception: {str(exception)}")
 
-                # Refresh headers token to address token expiration issue
-                headers = {
-                    "Authorization": f"Bearer {self.get_token()}",
-                    "Content-Type": "application/json"
-                }
+                if isinstance(exception, requests.exceptions.HTTPError):
+                    error_response = exception.response
+                    if error_response is not None and error_response.status_code == requests.codes.unauthorized:
+                        headers = {
+                            "Authorization": f"Bearer {self.get_token()}",
+                            "Content-Type": "application/json"
+                        }
 
                 poll_retry_times = poll_retry_times + 1
                 if poll_retry_times >= MAX_POLL_RETRY_TIMES:
-                    raise Exception("Poll test plan status failed, exceeded the maximum number of retries.")
+                    raise Exception("Poll test plan status failed, exceeded the maximum number of consecutive retries.")
                 else:
                     time.sleep(interval)
                 continue
