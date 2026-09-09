@@ -4,7 +4,6 @@ import ipaddress
 import binascii
 import os
 import logging
-import time
 
 # Packet Test Framework imports
 import ptf
@@ -1208,46 +1207,27 @@ class DHCPTest(DataplaneBaseTest):
         if self.agent_relay_mode == "discard" or self.dhcpv4_disable_flag or self.max_hop_count == self.MAX_HOP_COUNT:
             # Expected result: No packet sent
             num_expected_packets = 0
-
-        standby_mask = Mask(pkt)
-        self.set_common_ignored_mask_fields(standby_mask)
-        standby_mask.set_do_not_care_scapy(scapy.Ether, "src")
-        standby_mask.set_do_not_care_scapy(scapy.Ether, "dst")
-        standby_mask.set_do_not_care_scapy(scapy.IP, "src")
-        standby_mask.set_do_not_care_scapy(scapy.BOOTP, "giaddr")
-        standby_mask.set_do_not_care_scapy(scapy.DHCP, "options")
-
-        captured_count = 0
-        standby_count = 0
-        timeout = ptf.ptfutils.default_timeout
-        last_matched_packet_time = time.time()
-        while time.time() - last_matched_packet_time <= timeout:
-            result = testutils.dp_poll(self, device_number=0, timeout=timeout)
-            if not isinstance(result, self.dataplane.PollSuccess):
-                break
-
-            matched = False
-            if (result.port in self.server_port_indices
-                    and ptf.dataplane.match_exp_pkt(mask, result.packet)):
-                captured_count += 1
-                matched = True
-            elif (result.port in self.standby_server_port_indices
-                  and ptf.dataplane.match_exp_pkt(
-                      standby_mask, result.packet)):
-                standby_count += 1
-                matched = True
-
-            if matched:
-                last_matched_packet_time = time.time()
-
+        captured_count = testutils.count_matched_packets_all_ports(
+            self, mask, self.server_port_indices)
         self.assertTrue(captured_count == num_expected_packets,
                         "Failed: %s packet counts are not equal %d != %d"
                         % (packet_type, captured_count, num_expected_packets))
-        self.assertEqual(
-            standby_count,
-            0,
-            "Failed: standby ToR relayed {} matching {} packet(s)".format(
-                standby_count, packet_type))
+
+        if self.standby_server_port_indices:
+            standby_mask = Mask(pkt)
+            self.set_common_ignored_mask_fields(standby_mask)
+            standby_mask.set_do_not_care_scapy(scapy.Ether, "src")
+            standby_mask.set_do_not_care_scapy(scapy.Ether, "dst")
+            standby_mask.set_do_not_care_scapy(scapy.IP, "src")
+            standby_mask.set_do_not_care_scapy(scapy.BOOTP, "giaddr")
+            standby_mask.set_do_not_care_scapy(scapy.DHCP, "options")
+            standby_count = testutils.count_matched_packets_all_ports(
+                self, standby_mask, self.standby_server_port_indices)
+            self.assertEqual(
+                standby_count,
+                0,
+                "Failed: standby ToR relayed {} matching {} packet(s)".format(
+                    standby_count, packet_type))
 
     def check_pkt_on_client_side(self, mask, pkt, packet_type):
         logger.info("Expect receiving relayed {} packet from port {}".format(packet_type, self.client_port_index))
