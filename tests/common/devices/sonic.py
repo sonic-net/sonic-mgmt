@@ -234,7 +234,7 @@ class SonicHost(AnsibleHostBase):
 
         self.critical_services = service_list
 
-    @cached(name='basic_facts')
+    @cached(name='sonic_basic_facts')
     def _gather_facts(self):
         """
         Gather facts about the platform for this SONiC device.
