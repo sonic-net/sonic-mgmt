@@ -1,6 +1,7 @@
-"""System / System Recovery - cold/warm/fast reboot link recovery validations.
+"""System / System Recovery - config reload / cold/warm/fast reboot link recovery validations.
 
-Implements the "cold/warm/fast reboot link recovery" test case from
+Implements the "config reload impact" and "cold/warm/fast reboot link
+recovery" test cases from
     ``docs/testplan/transceiver/system_test_plan.md``
     (System Recovery Test Cases).
 
@@ -11,6 +12,11 @@ Execution order::
                                                  ``links_verified`` in
                                                  tests/transceiver/conftest.py
                                                  (failure skips every System test)
+    `- test_system_config_reload_link_recovery
+         |- run_pre_check  (health OK)         <- _per_test_health_check
+         |- <body>: verify links up -> config reload (scenario_ops) ->
+            Standard Port Recovery and Verification
+         `- run_post_check
     `- test_system_cold_warm_fast_reboot_link_recovery
          |- skip if {reboot_type}_reboot_supported is False
          |- run_pre_check  (health OK)         <- _per_test_health_check
@@ -44,6 +50,77 @@ from tests.transceiver.common.verification import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _config_reload_link_recovery(
+    duthost, port_attributes_dict, lport_to_first_subport_mapping, expected_pid_changes,
+):
+    """Config-reload the DUT and verify all transceiver ports recover cleanly.
+
+    See the module docstring for the full execution tree.  Steps:
+
+      * verify all ports are oper-up before the config reload,
+      * reload CONFIG_DB via ``scenario_ops.perform_config_reload`` (shared
+        with ``tests/transceiver/eeprom/test_eeprom_scenario.py``),
+      * run Standard Port Recovery and Verification for every port against a
+        fresh post-reload health baseline.
+
+    All (port, step) failures are accumulated and reported in a single
+    ``pytest.fail`` so one run surfaces every issue.
+    """
+    ports = sorted(port_attributes_dict.keys())
+    assert ports, "port_attributes_dict is empty - nothing to validate"
+    system_attributes = port_attributes_dict[ports[0]].get(
+        SYSTEM_ATTRIBUTES_KEY, {}
+    )
+
+    # A config reload restarts every monitored process; tell the autouse
+    # per-test health check to expect it rather than flag it as a regression.
+    expected_pid_changes.update(DEFAULT_MONITORED_PROCESSES)
+
+    reload_wait = system_attributes.get("config_reload_settle_sec", 300)
+
+    logger.info("Verifying link states for %d port(s) before config reload", len(ports))
+    if not check_links_up(duthost, port_attributes_dict)["passed"]:
+        logger.warning("Validation on Start FAILED: some ports are down")
+
+    logger.info("Config reloading %s, verifying recovery within %ss",
+                duthost.hostname, reload_wait)
+    scenario_ops.perform_config_reload(duthost)
+
+    # capture a fresh post-reload baseline for the health step below.
+    health_baseline = capture_baseline(duthost)
+
+    logger.info("Running Standard Port Recovery and Verification for %d port(s)", len(ports))
+    result = standard_port_recovery_and_verification(
+        duthost, ports, port_attributes_dict,
+        link_up_timeout_sec=reload_wait,
+        health_baseline=health_baseline,
+        lport_to_first_subport_mapping=lport_to_first_subport_mapping,
+    )
+
+    failures = []  # collected across every (port, step) tuple
+    if not result["passed"]:
+        failures.append(f"[post-config-reload] {result['details']}")
+        logger.warning("Post-config-reload validation FAILED: %s", result["details"])
+    else:
+        logger.info("Post-config-reload validation PASSED: %s", result["details"])
+
+    if failures:
+        pytest.fail(
+            f"Config reload link recovery FAILED on {len(failures)} port(s):\n  - "
+            + "\n  - ".join(failures)
+        )
+
+
+@pytest.mark.disable_loganalyzer
+def test_system_config_reload_link_recovery(
+    duthost, port_attributes_dict, lport_to_first_subport_mapping, expected_pid_changes,
+):
+    """Config reload the DUT and verify all transceiver ports recover cleanly."""
+    _config_reload_link_recovery(
+        duthost, port_attributes_dict, lport_to_first_subport_mapping, expected_pid_changes,
+    )
 
 
 def _reboot_link_recovery(
