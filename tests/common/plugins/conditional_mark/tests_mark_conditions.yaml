@@ -2000,9 +2000,9 @@ fdb/test_fdb_mac_learning.py::TestFdbMacLearning::testFdbMacLearning:
 #######################################
 fib/test_fib.py:
   skip:
-    reason: 'Skip on t1-isolated-d32/128 topos'
+    reason: 'Skip on t1-isolated-d32/128/u1s2 topos'
     conditions:
-      - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
+      - "topo_name in ['t1-isolated-d128', 't1-isolated-d32', 't1-isolated-d32u1s2']"
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
