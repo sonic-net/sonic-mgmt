@@ -1,6 +1,14 @@
 import json
 from tests.common.reboot import reboot
 
+__all__ = [
+    "get_json_from_gnmi_output",
+    "reboot_device",
+    "transform_reboot_cause_output",
+    "check_reboot_cause",
+    "check_reboot_cause_history",
+]
+
 
 def get_json_from_gnmi_output(stdout):
     marker_pos = stdout.find("The GetResponse is below")

@@ -1,5 +1,4 @@
 import logging
-import time
 from contextlib import contextmanager
 
 from tests.common.platform.interface_utils import (
@@ -12,7 +11,10 @@ from tests.transceiver.attribute_parser.attribute_keys import (
     SYSTEM_ATTRIBUTES_KEY,
 )
 from tests.transceiver.common import cli_helpers, dmesg_helpers, scenario_ops
+from tests.transceiver.common.db_helpers import resolve_port_namespace
 from tests.transceiver.cdb_firmware_upgrade.utils.firmware_utils import resolve_binary_path
+from tests.transceiver.dom import dom_helpers
+from tests.transceiver.eeprom import eeprom_content
 from tests.transceiver.common.cli_parser_helper import (
     FW_ACTIVE,
     FW_COMMITTED_IMAGE,
@@ -36,6 +38,19 @@ def select_target_version(firmware_versions, banks):
         if next_version not in (active, inactive):
             return next_version
     return firmware_versions[0]
+
+
+def select_distinct_version(firmware_versions, gold_version):
+    """Select the version differing from ``gold_version`` in minor AND point.
+
+    Returns ``None`` when no entry qualifies.
+    """
+    gold_parts = gold_version.split(".")[1:] if gold_version else []
+    for version in firmware_versions or []:
+        parts = version.split(".")[1:]
+        if parts and len(parts) == len(gold_parts) and all(p != g for p, g in zip(parts, gold_parts)):
+            return version
+    return None
 
 
 def _verify_running_committed_unchanged(after_banks, before_banks):
@@ -128,6 +143,46 @@ def _scan_i2c_errors(duthost, dmesg_start_uptime, operation):
     if i2c_errors:
         return [f"I2C error(s) in dmesg during {operation}: {'; '.join(i2c_errors[:3])}"]
     return []
+
+
+def verify_static_eeprom_unchanged(duthost, port_attributes_dict, ports, lport_to_first_subport_mapping):
+    """Static EEPROM content still matches inventory after a firmware operation."""
+    failures = eeprom_content.verify_eeprom_static_recovered(
+        duthost,
+        port_attributes_dict,
+        lport_to_first_subport_mapping,
+        wait_sec=0,
+        ports=ports,
+    )
+    return [f"static EEPROM check failed after firmware operation: {failure}" for failure in failures]
+
+
+def verify_dom_recovered_after_operation(duthost, port_attributes_dict, ports,
+                                         lport_to_first_subport_mapping):
+    """Re-enable DOM polling and verify DOM values recovered after a firmware operation.
+
+    Leaves polling enabled. ``dom_polling_disabled_on_ports`` re-enables only the ports
+    it disabled, so a port that was already disabled before that context manager ran is
+    left enabled here rather than restored.
+    """
+    baseline_sensor_data, read_errors = dom_helpers.read_dom_sensor_data(duthost, ports)
+    if read_errors:
+        return [f"DOM sensor read error before re-enabling polling: {read_error}" for read_error in read_errors]
+
+    failures = []
+    for port in ports:
+        err = cli_helpers.set_dom_polling(
+            duthost, port, enable=True, namespace=resolve_port_namespace(duthost, port),
+        )
+        if err:
+            failures.append(f"failed to enable DOM polling on {port}: {err}")
+    if failures:
+        return failures
+
+    return dom_helpers.verify_dom_recovered(
+        duthost, port_attributes_dict, ports,
+        lport_to_first_subport_mapping, baseline_sensor_data,
+    )
 
 
 def verify_firmware_downloaded(duthost, port, before_banks, target_version, download_err):
@@ -289,9 +344,9 @@ def perform_firmware_activation(duthost, port, port_context,
 
         if not failures:
             failures += scenario_ops.perform_sfputil_reset(
-                duthost, [port], [], shutdown_wait, startup_wait
+                duthost, [port], [], shutdown_wait, startup_wait,
+                recover_wait_sec=recover_sec,
             )
-            time.sleep(recover_sec)
     finally:
         failures += scenario_ops.perform_ports_startup(duthost, subports, startup_wait)
 
@@ -302,25 +357,129 @@ def perform_firmware_activation(duthost, port, port_context,
     return failures
 
 
-def activation_op(duthost, port, port_context, metadata_map):
-    """``execute_on_ports`` per-port callable: activate selected firmware."""
-    cdb_attrs = port_context["cdb_attrs"]
-    if not cdb_attrs.get("dual_bank_supported", True):
+def perform_firmware_upgrade(duthost, port, port_context, metadata_map, target_version=None):
+    """Download ``target_version`` then activate it."""
+    if target_version is None:
         banks, err = cli_helpers.sfputil_show_fwversion(duthost, port)
         if err:
             return [err]
         target_version = select_target_version(
-            cdb_attrs.get("firmware_versions"), banks,
+            port_context["cdb_attrs"].get("firmware_versions"), banks,
         )
-        failures = perform_firmware_download(
-            duthost, port, port_context, metadata_map, target_version=target_version,
-        )
-        if failures:
-            return failures
-        return perform_firmware_activation(
-            duthost, port, port_context, activated_version=target_version,
-        )
+
+    failures = perform_firmware_download(
+        duthost, port, port_context, metadata_map, target_version=target_version,
+    )
+    if failures:
+        return failures
+    return perform_firmware_activation(
+        duthost, port, port_context, activated_version=target_version,
+    )
+
+
+def activation_op(duthost, port, port_context, metadata_map):
+    """``execute_on_ports`` per-port callable: activate selected firmware."""
+    if not port_context["cdb_attrs"].get("dual_bank_supported", True):
+        return perform_firmware_upgrade(duthost, port, port_context, metadata_map)
     return perform_firmware_activation(duthost, port, port_context)
+
+
+def distinct_version_upgrade_op(duthost, port, port_context, metadata_map):
+    """TC5 per-port op: full upgrade to the version fully distinct from gold."""
+    cdb_attrs = port_context["cdb_attrs"]
+    target_version = select_distinct_version(
+        cdb_attrs.get("firmware_versions"), cdb_attrs.get("gold_firmware_version"),
+    )
+    if target_version is None:
+        return ["no firmware version differs from gold in both minor and point"]
+    logger.info("Port %s: upgrading to distinct version %s", port, target_version)
+    return perform_firmware_upgrade(
+        duthost, port, port_context, metadata_map, target_version=target_version,
+    )
+
+
+def download_post_reset_op(duthost, port, port_context, metadata_map):
+    """TC9 per-port op: download, reset the module, then re-verify the download."""
+    cdb_attrs = port_context["cdb_attrs"]
+    system_attrs = port_context["system_attrs"]
+    subports = port_context["subports"]
+
+    before_banks, err = cli_helpers.sfputil_show_fwversion(duthost, port)
+    if err:
+        return [err]
+    target_version = select_target_version(cdb_attrs.get("firmware_versions"), before_banks)
+
+    failures = perform_firmware_download(
+        duthost, port, port_context, metadata_map, target_version=target_version,
+    )
+    if failures:
+        return failures
+
+    failures += scenario_ops.perform_sfputil_reset(
+        duthost, [port], subports,
+        system_attrs["port_shutdown_wait_sec"],
+        system_attrs["port_startup_wait_sec"],
+        recover_wait_sec=system_attrs["transceiver_reset_i2c_recover_sec"],
+    )
+    return failures + verify_firmware_downloaded(
+        duthost, port, before_banks, target_version, None,
+    )
+
+
+def download_low_power_op(duthost, port, port_context, metadata_map):
+    """TC10 per-port op: download while the module is held in low-power mode."""
+    system_attrs = port_context["system_attrs"]
+
+    failures = []
+    try:
+        failures += scenario_ops.perform_lpmode_set(duthost, port, low_power=True)
+        if not failures:
+            failures += perform_firmware_download(
+                duthost, port, port_context, metadata_map, expect_link_up=False,
+            )
+        if not failures:
+            failures += scenario_ops.verify_lpmode(duthost, port, low_power=True)
+    finally:
+        failures += scenario_ops.perform_lpmode_set(duthost, port, low_power=False)
+        failures += wait_ports_oper_status(
+            duthost, port_context["subports"], "up",
+            system_attrs["port_startup_wait_sec"],
+        )
+    return failures
+
+
+def download_admin_down_op(duthost, port, port_context, metadata_map):
+    """TC11 per-port op: download while every subport is admin-down."""
+    system_attrs = port_context["system_attrs"]
+    subports = port_context["subports"]
+
+    failures = []
+    try:
+        failures += scenario_ops.perform_ports_shutdown(
+            duthost, subports, system_attrs["port_shutdown_wait_sec"],
+        )
+        if not failures:
+            failures += perform_firmware_download(
+                duthost, port, port_context, metadata_map, expect_link_up=False,
+            )
+        if not failures:
+            failures += wait_ports_oper_status(duthost, subports, "down", 1)
+    finally:
+        failures += scenario_ops.perform_ports_startup(
+            duthost, subports, system_attrs["port_startup_wait_sec"],
+        )
+    return failures
+
+
+def upgrade_stress_op(duthost, port, port_context, metadata_map):
+    """TC14 per-port op: repeat the full upgrade, stopping at the first bad iteration."""
+    iterations = port_context["cdb_attrs"]["firmware_upgrade_stress_iterations"]
+    for iteration in range(1, iterations + 1):
+        logger.info("Port %s: firmware upgrade stress iteration %d/%d", port, iteration, iterations)
+        failures = perform_firmware_upgrade(duthost, port, port_context, metadata_map)
+        if failures:
+            return [f"iteration {iteration}/{iterations}: {failure}" for failure in failures]
+    return []
 
 
 def restore_module_to_original(duthost, port, port_context, metadata_map):
@@ -367,14 +526,22 @@ def restore_module_to_original(duthost, port, port_context, metadata_map):
 
 
 def execute_on_ports(duthost, port_attributes_dict, qualifying_ports, lport_to_pport,
-                     metadata_map, per_port_fn, prefetch=None):
+                     metadata_map, per_port_fn, lport_to_first_subport_mapping=None,
+                     prefetch=None, verify_post_operation=False):
     """Invoke ``per_port_fn`` on every qualifying CDB firmware port and aggregate failures.
 
     ``prefetch(duthost, qualifying_ports, lport_to_pport)`` runs once before the
     loop and its result is exposed as ``port_context["prefetched"]``.
 
+    ``verify_post_operation`` runs the checks once every port is done: static
+    EEPROM unchanged, then DOM polling re-enabled and in operational range. It
+    requires ``lport_to_first_subport_mapping``.
+
     Returns ``(all_failures, num_ports)``, the caller ``pytest.fail``s or logs.
     """
+    if verify_post_operation and lport_to_first_subport_mapping is None:
+        raise ValueError("lport_to_first_subport_mapping is required when verify_post_operation is set")
+
     pport_to_lport = get_physical_to_logical_port_mapping(lport_to_pport)
     prefetched = prefetch(duthost, qualifying_ports, lport_to_pport) if prefetch else None
     all_failures = []
@@ -394,4 +561,12 @@ def execute_on_ports(duthost, port_attributes_dict, qualifying_ports, lport_to_p
             "prefetched": prefetched,
         }
         all_failures += [f"{port}: {f}" for f in per_port_fn(duthost, port, port_context, metadata_map)]
+
+    if verify_post_operation and qualifying_ports and not all_failures:
+        all_failures += verify_static_eeprom_unchanged(
+            duthost, port_attributes_dict, qualifying_ports, lport_to_first_subport_mapping,
+        )
+        all_failures += verify_dom_recovered_after_operation(
+            duthost, port_attributes_dict, qualifying_ports, lport_to_first_subport_mapping,
+        )
     return all_failures, len(qualifying_ports)

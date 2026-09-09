@@ -12,9 +12,14 @@ from tests.transceiver.common.db_helpers import (
     parse_update_time,
 )
 from tests.transceiver.dom.dom_helpers import (
+    CONSISTENCY_MODE_ABSOLUTE,
+    CONSISTENCY_MODE_PERCENT,
     STATE_DB_SENSOR_TABLE,
     build_dom_sensor_plan,
     consistency_field_template_for_attr,
+    consistency_mode_for_attr,
+    consistency_unit_for_attr,
+    dom_consistency_attributes,
     field_template_is_lane_expanded,
     format_dom_port_failure,
     format_optional_float,
@@ -26,17 +31,18 @@ logger = logging.getLogger(__name__)
 UPDATE_ADVANCE_MARGIN_SEC = 5
 TX_BIAS_THRESHOLD_ATTR = "tx_bias_threshold_range"
 TX_BIAS_CONSISTENCY_ATTR = "tx_bias_consistency_variation_threshold"
-MODE_ABSOLUTE = "absolute"
-MODE_PERCENT = "percent"
 
-CONSISTENCY_CHECK_DEFINITIONS = (
-    ("temperature_consistency_variation_threshold", "C", MODE_ABSOLUTE),
-    ("voltage_consistency_variation_threshold", "V", MODE_ABSOLUTE),
-    ("laser_temperature_consistency_variation_threshold", "C", MODE_ABSOLUTE),
-    ("tx_power_consistency_variation_threshold", "dB", MODE_ABSOLUTE),
-    ("rx_power_consistency_variation_threshold", "dB", MODE_ABSOLUTE),
-    (TX_BIAS_CONSISTENCY_ATTR, "percent", MODE_PERCENT),
-)
+
+def _consistency_check_definitions():
+    """Return ``(attr_name, unit, mode)`` definitions from the DOM quantity registry."""
+    return tuple(
+        (
+            attr_name,
+            consistency_unit_for_attr(attr_name),
+            consistency_mode_for_attr(attr_name),
+        )
+        for attr_name in dom_consistency_attributes()
+    )
 
 
 def _parse_positive_int(attr_name, raw_value, minimum):
@@ -88,6 +94,7 @@ def _parse_tx_bias_warning_range(dom_attrs):
 def _build_dom_consistency_plan(port_attributes_dict, dom_primary_ports, sensor_plan_by_port):
     """Build per-port update-count and variation checks from DOM attributes."""
     plan_by_port = {}
+    consistency_checks = _consistency_check_definitions()
     for port in dom_primary_ports:
         dom_attrs = port_attributes_dict.get(port, {}).get(DOM_ATTRIBUTES_KEY, {})
         sensor_plan = sensor_plan_by_port.get(port, {})
@@ -107,19 +114,16 @@ def _build_dom_consistency_plan(port_attributes_dict, dom_primary_ports, sensor_
             attr_name in dom_attrs
             and consistency_field_template_for_attr(attr_name)
             and field_template_is_lane_expanded(consistency_field_template_for_attr(attr_name))
-            for attr_name, _unit, _mode in CONSISTENCY_CHECK_DEFINITIONS
+            for attr_name, _unit, _mode in consistency_checks
         )
         if has_lane_check and sensor_plan.get("errors"):
             errors.extend(sensor_plan["errors"])
 
-        for attr_name, unit, mode in CONSISTENCY_CHECK_DEFINITIONS:
+        for attr_name, unit, mode in consistency_checks:
             if attr_name not in dom_attrs:
                 continue
 
             field_template = consistency_field_template_for_attr(attr_name)
-            if field_template is None:
-                errors.append("{} has no DOM consistency field mapping".format(attr_name))
-                continue
             lane_expanded = field_template_is_lane_expanded(field_template)
 
             threshold, threshold_error = _parse_non_negative_threshold(attr_name, dom_attrs[attr_name])
@@ -264,11 +268,11 @@ def _validate_tx_bias_percent_pair(port, field, check, previous_sample, current_
     delta_percent = abs(current_value - previous_value) / abs(previous_value) * 100
     if delta_percent > check["threshold"]:
         return _format_delta_failure(
-            field, sample_index, delta_percent, check["threshold"], "%", previous_value, current_value
+            field, sample_index, delta_percent, check["threshold"], check["unit"], previous_value, current_value
         ), True, None
-    logger.debug("DOM consistency PASS %s %s sample %d->%d: delta=%.2f%% limit=%s%%",
+    logger.debug("DOM consistency PASS %s %s sample %d->%d: delta=%.2f%s limit=%s%s",
                  port, field, sample_index, sample_index + 1, delta_percent,
-                 format_optional_float(check["threshold"]))
+                 check["unit"], format_optional_float(check["threshold"]), check["unit"])
     return None, True, None
 
 
@@ -283,7 +287,7 @@ def _validate_pair(port, field, check, previous_sample, current_sample, sample_i
 
     previous_value = _numeric_sensor_value(previous_sensor, field)
     current_value = _numeric_sensor_value(current_sensor, field)
-    if check["mode"] == MODE_ABSOLUTE:
+    if check["mode"] == CONSISTENCY_MODE_ABSOLUTE:
         return _validate_absolute_pair(
             port, field, check, previous_sensor, current_sensor, previous_value, current_value, sample_index
         )
@@ -350,7 +354,7 @@ def _validate_port_samples(port, port_samples, plan):
                 failures.append(error)
 
     percent_attrs = {
-        check["source_attr"] for check in plan["field_checks"].values() if check["mode"] == MODE_PERCENT
+        check["source_attr"] for check in plan["field_checks"].values() if check["mode"] == CONSISTENCY_MODE_PERCENT
     }
     for attr_name in sorted(percent_attrs):
         if checked_by_attr[attr_name]:

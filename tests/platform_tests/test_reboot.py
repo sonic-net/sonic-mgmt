@@ -236,7 +236,7 @@ def test_fast_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
 
 
 def test_warm_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
-                     localhost, conn_graph_facts, xcvr_skip_list):      # noqa: F811
+                     localhost, conn_graph_facts, xcvr_skip_list, invocation_type, gnmi_tls):      # noqa: F811
     """
     @summary: This test case is to perform warm reboot and check platform status
     """
@@ -255,7 +255,8 @@ def test_warm_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
                 "ISSU is not supported on this DUT, skip this test case")
 
     reboot_and_check(localhost, duthost, conn_graph_facts.get("device_conn", {}).get(duthost.hostname, {}),
-                     xcvr_skip_list, reboot_type=REBOOT_TYPE_WARM, duthosts=duthosts)
+                     xcvr_skip_list, reboot_type=REBOOT_TYPE_WARM, duthosts=duthosts,
+                     invocation_type=invocation_type, ptf_gnoi=gnmi_tls.gnoi)
 
 
 def test_watchdog_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
