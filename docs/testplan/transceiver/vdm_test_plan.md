@@ -13,7 +13,8 @@ The scope of this test plan includes the following:
 
 ## Optics Scope
 
-All the optics covered in the parent [Transceiver Onboarding Test Infrastructure and Framework](test_plan.md#scope)
+- All the optics covered in the parent [Transceiver Onboarding Test Infrastructure and Framework](test_plan.md#scope)
+- Additionally, this covers coherent (ZR) optics and their coherent-specific monitors (see [Data Path Monitors](#attributes))
 
 ## Testbed Topology
 
@@ -146,7 +147,7 @@ xcvrd publishes vendor-configured alarm/warning thresholds — for any field wit
 
 `TRANSCEIVER_VDM_LALARM_THRESHOLD`, `TRANSCEIVER_VDM_LWARN_THRESHOLD`, `TRANSCEIVER_VDM_HWARN_THRESHOLD`, `TRANSCEIVER_VDM_HALARM_THRESHOLD`
 
-For every such field, the correct ordering is `LALARM < LWARN < HWARN < HALARM`.
+For every such field, the correct ordering is `LALARM <= LWARN <= HWARN <= HALARM`. A severity reported as `N/A` (the module does not implement that severity for the field) is excluded from the ordering check.
 
 **Optional value comparison (DOM parity):** Any field may additionally declare a `_threshold_range` attribute — `{"lowalarm": <float>, "lowwarning": <float>, "highwarning": <float>, "highalarm": <float>}`, lane-indexed the same way as `_operational_range` (e.g. `esnr_media_inputLANE_NUM_threshold_range`), matching DOM's dual-range model. When configured, validation additionally asserts the configured values equal the live STATE_DB threshold values for each severity, on top of the hierarchy check — this catches xcvrd threshold parse/publish or EEPROM-programming errors where the ordering is internally valid but the values themselves are wrong. Skip-when-absent (the default, since these values are module-reported with no universal default — see [Attributes](#attributes)): validation then stays hierarchy-only, adding no forced authoring cost.
 

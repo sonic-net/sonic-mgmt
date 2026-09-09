@@ -763,6 +763,7 @@ attributes/
 - `dom/` (DOM)
 - `vdm/` (VDM)
 - `pm/` (PM)
+- `signal_integrity/` (Signal Integrity tests)
 - `port_config/` (Port configuration tests)
 
 #### Loader Validation
