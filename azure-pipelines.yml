@@ -95,7 +95,7 @@ stages:
 
         TARGET_BRANCH="${SYSTEM_PULLREQUEST_TARGETBRANCH:-refs/heads/master}"
         TARGET_BRANCH="${TARGET_BRANCH#refs/heads/}"
-        SHIM_PATH="ansible/roles/vm_set/files/gobgp"
+        SHIM_PATHS=("ansible/roles/vm_set/files/gobgp" "ansible/library/gobgp.py")
 
         # Default to running the tests. A gate that cannot work out its own
         # base must not drop coverage, and must not fail the pipeline either.
@@ -103,12 +103,12 @@ stages:
 
         if git fetch origin "${TARGET_BRANCH}" --depth=1 &&
            BASE_COMMIT=$(git merge-base "origin/${TARGET_BRANCH}" HEAD 2>/dev/null) &&
-           CHANGED_FILES=$(git diff --name-only "${BASE_COMMIT}" HEAD -- "${SHIM_PATH}" | tr '\n' ' '); then
+           CHANGED_FILES=$(git diff --name-only "${BASE_COMMIT}" HEAD -- "${SHIM_PATHS[@]}" | tr '\n' ' '); then
           if [[ -n "${CHANGED_FILES}" ]]; then
-            echo "Detected changes under ${SHIM_PATH}: ${CHANGED_FILES}"
+            echo "Detected changes under ${SHIM_PATHS[*]}: ${CHANGED_FILES}"
           else
             CHANGED="false"
-            echo "No changes detected under ${SHIM_PATH}"
+            echo "No changes detected under ${SHIM_PATHS[*]}"
           fi
         else
           echo "Cannot diff against origin/${TARGET_BRANCH}; running the tests"
@@ -116,7 +116,7 @@ stages:
 
         echo "##vso[task.setvariable variable=GOBGP_SHIM_CHANGED;isOutput=true]${CHANGED}"
       name: DetectChanges
-      displayName: "Check changed files under ansible/roles/vm_set/files/gobgp"
+      displayName: "Check changed files under the GoBGP shim and speaker manager"
 
   - job: static_analysis
     displayName: "Static Analysis"
@@ -204,7 +204,7 @@ stages:
     )
   jobs:
   - job: run_gobgp_shim_unit_tests
-    displayName: "Run GoBGP shim unit tests"
+    displayName: "Run GoBGP shim and speaker manager unit tests"
     timeoutInMinutes: 15
     continueOnError: false
     pool: sonic-ubuntu-1c
@@ -214,13 +214,15 @@ stages:
 
     - script: |
         set -euo pipefail
-        sudo uv pip install --system pytest
+        # jinja2 backs the speaker manager's config rendering; pyyaml backs the
+        # DOCUMENTATION schema test.
+        sudo uv pip install --system pytest jinja2 pyyaml
       displayName: "Install unit test dependencies"
 
     - script: |
         set -euo pipefail
         python -m pytest ansible/roles/vm_set/files/gobgp/tests -q -rs
-      displayName: "Run GoBGP shim unit tests"
+      displayName: "Run GoBGP shim and speaker manager unit tests"
 
 
 - stage: Test

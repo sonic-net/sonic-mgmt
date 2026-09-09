@@ -40,11 +40,10 @@ _DAEMON_EXPECTED_PID_CHANGES = {
     # xcvrd (supervisor process) and its pmon container restart xcvrd only.
     "xcvrd": {"xcvrd"},
     "pmon": {"xcvrd"},
-    # swss/syncd are tightly coupled and may cascade to pmon (hence xcvrd) on
-    # platforms where expect_pmon_restart_with_swss_or_syncd is set, so any
-    # monitored process may legitimately restart.
-    "swss": _ALL_MONITORED_PROCESSES,
-    "syncd": _ALL_MONITORED_PROCESSES,
+    # swss/syncd are tightly coupled. The platform attribute separately
+    # controls whether xcvrd is also expected to restart inside pmon.
+    "swss": {"syncd", "orchagent"},
+    "syncd": {"syncd", "orchagent"},
 }
 
 
@@ -297,6 +296,10 @@ def test_eeprom_recovery_after_daemon_restart(
     )
 
     expected_pid_changes.update(_DAEMON_EXPECTED_PID_CHANGES[daemon])
+    if daemon in ("swss", "syncd") and _system_attribute(
+        port_attributes_dict, "expect_xcvrd_restart_with_swss_or_syncd"
+    ):
+        expected_pid_changes.add("xcvrd")
     scenario_ops.perform_daemon_restart(duthost, daemon)
 
     _verify_recovery(
