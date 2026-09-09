@@ -24,9 +24,10 @@ Counter read/clear lives in `tests/common/helpers/` rather than
 snappi dependency; any test can reuse it.
 
 Counterpoll management reuses upstream `ConterpollHelper` from
-`tests/common/helpers/counterpoll_helper.py` (master API). On multi-ASIC
-platforms, commands are issued by passing a `SonicAsic` instance as the
-command target rather than using a separate `asic` function argument.
+`tests/common/helpers/counterpoll_helper.py` (master API). Commands are issued
+by passing a `SonicAsic` instance as the command target rather than using a
+separate `asic` function argument. `SonicAsic` scopes the namespace itself and
+is a no-op on single-ASIC, so no `is_multi_asic` branching is needed.
 
 Both read and clear run through `duthost.shell(..., module_ignore_errors=True)`
 and call `pytest.skip()` when the image does not support the WRED counter CLI,
@@ -92,7 +93,7 @@ Setup (fixture)
     -> counterpoll wredqueue/wredport enable (if needed)
 
 Test body
-  clear_ecn_wred_counters(duthost, asic=...)
+  clear_ecn_wred_counters(duthost)
   ... send traffic ...
   get_ecn_wred_counters(duthost, interface=..., priority=..., ...)
 
@@ -155,38 +156,22 @@ Maps counterpoll **show** stat types to CLI subcommands:
 
 ---
 
-#### `_asic_instance_from_snappi_port(duthost, port)`
-
-Resolves the `SonicAsic` instance for a snappi port entry.
-
-- **Single-ASIC:** returns `duthost.asic_instance()`.
-- **Multi-ASIC:** uses `port['asic_value']` (e.g. `asic0`) or infers from `port['peer_port']`.
-
----
-
 #### `unique_dut_asic_pairs_from_snappi_ports(snappi_ports)`
 
 Returns deduplicated `[(duthost, asic_inst), ...]` from the snappi port list.
 
+- ASIC resolution: `duthost.asic_instance_from_namespace(port['asic_value'])`.
+  `get_snappi_ports` always sets `asic_value` — the ASIC namespace (e.g. `asic0`)
+  on multi-ASIC and `None` on single-ASIC — which is exactly the input
+  `asic_instance_from_namespace()` takes, so no index conversion is needed.
 - Dedup key: `(duthost.hostname, asic_index)`.
 - Ensures counterpoll is scoped to ASICs the test actually uses, not every ASIC on the DUT.
 
 ---
 
-#### `_counterpoll_target(duthost, asic_inst)`
+#### `_get_parsed_counterpoll_show(asic_inst)`
 
-Returns the object passed to `ConterpollHelper` for CLI execution:
-
-- **Multi-ASIC:** `asic_inst` (`SonicAsic`)
-- **Single-ASIC:** `duthost` (`SonicHost`)
-
-This matches the master `ConterpollHelper` API which has no separate `asic` parameter.
-
----
-
-#### `_get_parsed_counterpoll_show(duthost, asic_inst)`
-
-Runs `counterpoll show` on the correct target and returns a parsed dict:
+Runs `counterpoll show` on the given `SonicAsic` and returns a parsed dict:
 
 ```python
 {
@@ -233,7 +218,7 @@ FOR each unique (duthost, asic_inst) in snappi_ports:
         ELSE:
             add cli_type to to_enable list
     IF to_enable not empty:
-        ConterpollHelper.enable_counterpoll(target, to_enable)
+        ConterpollHelper.enable_counterpoll(asic_inst, to_enable)
         track each enabled cli_type in enabled_by_us
 RETURN enabled_by_us
 ```
@@ -251,7 +236,7 @@ RETURN enabled_by_us
 ```text
 FOR each (duthost, asic_inst, cli_type) in enabled_by_us:
     skip duplicates
-    ConterpollHelper.disable_counterpoll(target, [cli_type])
+    ConterpollHelper.disable_counterpoll(asic_inst, [cli_type])
 ```
 
 This is the only disable path. There is deliberately no "disable everything"
@@ -269,10 +254,34 @@ All WRED counter read/clear logic lives here. This module does **not** use
 
 ---
 
-#### `_namespace_arg(asic_namespace=None)` (internal)
+#### `_asics_for_read(duthost, interface=None, asic=None)` (internal)
 
-Returns `" -n <namespace>"`, or `""` when `asic_namespace` is falsy. Single place
-that builds the namespace CLI fragment, shared by the read and clear paths.
+Resolves which `SonicAsic` instances a read targets, and is the only place ASIC
+selection happens:
+
+| `asic` | Result |
+| ------ | ------ |
+| `SonicAsic` | used as-is |
+| `int` | `duthost.asic_instance(asic)` |
+| `str` (namespace, e.g. `asic0`) | `duthost.asic_instance_from_namespace(asic)` |
+| `None`, `interface` set, multi-ASIC | `duthost.get_port_asic_instance(interface)` |
+| `None`, no `interface` | `duthost.asics` (every ASIC) |
+
+`duthost.asics` holds exactly one instance on a single-ASIC DUT, and
+`SonicAsic.cli_ns_option` is `""` in the default namespace, so callers loop
+unconditionally with no `is_multi_asic` branch.
+
+---
+
+#### `_run_wred_counter_cli(duthost, cmd)` (internal)
+
+Single execution path for both read and clear:
+`duthost.shell(cmd, module_ignore_errors=True)`, `pytest.skip()` with the
+captured stderr on non-zero rc, stripped stdout otherwise.
+
+`duthost.shell` is used rather than `SonicAsic.command()` because the latter
+accepts no `module_ignore_errors`, which the capability guard depends on. The
+namespace comes from `SonicAsic.cli_ns_option` rather than a hand-built string.
 
 ---
 
@@ -356,8 +365,8 @@ show queue wredcounters --json [-n <asic>] [<interface>] [--nonzero] [--voq]
 
 #### `_run_show_queue_wredcounters_json(...)` (internal)
 
-Executes the CLI via `duthost.shell(cmd, module_ignore_errors=True)`, parses JSON
-stdout, calls `_parse_wred_counters_json()`.
+Runs the CLI through `_run_wred_counter_cli()` and parses the JSON stdout via
+`_parse_wred_counters_json()`.
 
 Capability guard — calls `pytest.skip()` when:
 
@@ -367,13 +376,6 @@ Capability guard — calls `pytest.skip()` when:
 | stdout is not valid JSON | image predates `--json` (prints usage or a table) |
 
 Empty stdout is *not* a skip; it returns `{}`.
-
----
-
-#### `_run_sonic_clear_wredcounters(duthost, asic_namespace=None)` (internal)
-
-Runs `sonic-clear queue wredcounters` with the same `duthost.shell()` +
-`pytest.skip()` contract as the read path.
 
 ---
 
@@ -400,16 +402,18 @@ show queue wredcounters --json [-n <asic>] [<port>] [--nonzero] [--voq]
 | --------- | ----------- |
 | `duthost` | SONiC host under test |
 | `interface` | Port name (e.g. `Ethernet8`). `None` = all ports |
-| `asic` | Target ASIC (`SonicAsic`, index, or namespace string). Inferred from `interface` on multi-ASIC if omitted |
+| `asic` | Target ASIC (`SonicAsic`, index, or namespace string such as a snappi port's `asic_value`). Inferred from `interface` on multi-ASIC if omitted |
 | `priority` | Queue priority / TxQ filter (`3`, `UC3`, `VOQ3`, etc.). `None` = all TxQs |
 | `nonzero` | Pass `--nonzero` to CLI |
 | `voq` | Pass `--voq` to CLI; numeric priority maps to `VOQ<n>` |
 
-**Read paths:**
+**Read paths:** one unconditional loop over `_asics_for_read()`, merging results
+per port. On a single-ASIC DUT that is one iteration with no `-n` on the command.
 
-1. **`interface` or `asic` set:** single targeted read.
-2. **Both `None`, multi-ASIC:** loop all ASICs, merge results per port.
-3. **Both `None`, single-ASIC:** one global read.
+Each ASIC is read separately rather than in one namespace-less call, because
+`wredstat` prints one JSON document per namespace — a namespace-less read on a
+multi-ASIC DUT would emit several concatenated documents that `json.loads()`
+cannot parse.
 
 **Returns:** nested dict `{port: {txq: {counter_fields}}}` or `{}` if no counters.
 
@@ -417,21 +421,22 @@ show queue wredcounters --json [-n <asic>] [<port>] [--nonzero] [--voq]
 
 ---
 
-#### `clear_ecn_wred_counters(duthost, asic=None)` (primary)
+#### `clear_ecn_wred_counters(duthost)` (primary)
 
 **Purpose:** Clear WRED queue counters before/after traffic.
 
 **CLI:**
 
 ```text
-sonic-clear queue wredcounters [-n <asic>]
+sonic-clear queue wredcounters
 ```
 
-| `asic` | Behavior |
-| ------ | -------- |
-| Specified | Clear on that ASIC (multi-ASIC uses `-n`) |
-| `None`, multi-ASIC | Clear on every ASIC |
-| `None`, single-ASIC | Clear globally |
+There is deliberately **no** `asic` parameter. Unlike `show queue wredcounters`,
+`sonic-clear queue wredcounters` is declared with only a `--voq` option and takes
+no `-n/--namespace` — passing one makes click reject the command. The `wredstat`
+script behind it is decorated `@run_on_multi_asic` with no namespace option, so a
+single invocation already clears every namespace, and its cache files are keyed
+per port so ASICs do not collide.
 
 **Skips** the test if the image does not support the WRED counter CLI.
 
@@ -497,8 +502,8 @@ def test_my_ecn_wred_counters(
     interface = get_snappi_ports[0]['peer_port']
     asic = get_snappi_ports[0].get('asic_value')  # e.g. 'asic0' or None
 
-    # Clear before traffic
-    clear_ecn_wred_counters(duthost, asic=asic)
+    # Clear before traffic (covers every ASIC on the DUT)
+    clear_ecn_wred_counters(duthost)
 
     # ... run traffic ...
 
@@ -542,9 +547,9 @@ explicit version check is needed in the test.
 
 | Operation | Single-ASIC | Multi-ASIC |
 | --------- | ----------- | ---------- |
-| Enable counterpoll | `ConterpollHelper` on `duthost` | `ConterpollHelper` on `asic_inst` |
-| Read counters | `show queue wredcounters --json <port>` | `show queue wredcounters --json -n asic0 <port>` |
-| Clear counters | `sonic-clear queue wredcounters` | `sonic-clear queue wredcounters -n asic0` |
+| Enable counterpoll | `ConterpollHelper` on `asic_inst` (no namespace prefix) | `ConterpollHelper` on `asic_inst` |
+| Read counters | `show queue wredcounters --json <port>` | `show queue wredcounters --json -n asic0 <port>`, once per ASIC |
+| Clear counters | `sonic-clear queue wredcounters` | `sonic-clear queue wredcounters` (one call clears all ASICs) |
 | Scope | From `snappi_ports` `(duthost, asic_value)` | Same — only ASICs used by test ports |
 
 ---
@@ -561,6 +566,9 @@ explicit version check is needed in the test.
 | `counterpoll show` parsed once per ASIC | One CLI round trip per ASIC instead of one per stat type |
 | `pytest.skip()` on unsupported CLI | Old images report as skipped, not failed; no version gate needed in tests |
 | Single `duthost.shell()` path for read and clear | Uniform error handling and `module_ignore_errors` support for the capability guard |
+| Namespace from `SonicAsic.cli_ns_option` | The framework already precomputes `-n <ns>` / `""`; no hand-built fragment and no `is_multi_asic` guard |
+| No `asic` argument on clear | `sonic-clear queue wredcounters` has no `-n` option; `wredstat` already clears every namespace in one call |
+| Per-ASIC read loop | `wredstat` emits one JSON document per namespace, so a namespace-less read on multi-ASIC is not parseable |
 | `voq` parameter (default `False`) | Explicit chassis control per issue #25595 multi-line platform requirement |
 | Unit tests via `ast` extraction | No DUT/Snappi/Ansible required; fast CI-friendly validation |
 | Master `ConterpollHelper` API | Aligns with upstream sonic-mgmt; multi-ASIC via `SonicAsic` command target |

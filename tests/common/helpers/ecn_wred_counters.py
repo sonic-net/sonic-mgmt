@@ -2,7 +2,7 @@
 
 CLI reference:
     show queue wredcounters --json [-n <asic>] [<port>] [--nonzero] [--voq]
-    sonic-clear queue wredcounters [-n <asic>]
+    sonic-clear queue wredcounters
 
 Counterpoll for wredqueue/wredport must be enabled before these counters
 report data. For snappi ECN tests that is handled by the
@@ -13,28 +13,7 @@ import json
 
 import pytest
 
-
-def _resolve_asic_instance(duthost, asic=None):
-    """
-    Resolve asic argument to a SonicAsic instance.
-    Args:
-        duthost: SONiC host under test
-        asic: SonicAsic instance, asic index (int), or None
-    Returns:
-        SonicAsic instance
-    """
-    if asic is None:
-        return duthost.asic_instance()
-    if hasattr(asic, "asic_index"):
-        return asic
-    return duthost.asic_instance(asic)
-
-
-def _namespace_arg(asic_namespace=None):
-    """Return the ' -n <namespace>' CLI fragment, or '' when not namespaced."""
-    if not asic_namespace:
-        return ""
-    return " -n {}".format(asic_namespace)
+from tests.common.helpers.assertions import pytest_assert
 
 
 def _parse_int_counter(value):
@@ -106,11 +85,56 @@ def _parse_wred_counters_json(data):
     return counters
 
 
+def _asics_for_read(duthost, interface=None, asic=None):
+    """
+    Resolve the SonicAsic instances a read should be issued against.
+
+    Args:
+        duthost: SONiC host under test
+        interface (str/None): port name; its owning ASIC is used when asic is None
+        asic (SonicAsic/int/str/None): explicit target as an instance, an ASIC
+            index, or a namespace string such as a snappi port's 'asic_value'
+    Returns:
+        list of SonicAsic. duthost.asics holds one instance on a single-ASIC
+        DUT, and cli_ns_option is '' there, so callers need no is_multi_asic
+        branch.
+    """
+    if asic is not None:
+        if hasattr(asic, "asic_index"):
+            return [asic]
+        if isinstance(asic, str):
+            asic_inst = duthost.asic_instance_from_namespace(asic)
+            pytest_assert(
+                asic_inst is not None,
+                "No ASIC with namespace '{}' on {}".format(asic, duthost.hostname))
+            return [asic_inst]
+        return [duthost.asic_instance(asic)]
+    if interface and duthost.is_multi_asic:
+        return [duthost.get_port_asic_instance(interface)]
+    return list(duthost.asics)
+
+
+def _run_wred_counter_cli(duthost, cmd):
+    """
+    Run a WRED counter CLI command and return its stripped stdout.
+
+    Skips the test when the command fails, which is how an image without WRED
+    counter support surfaces.
+    """
+    result = duthost.shell(cmd, module_ignore_errors=True)
+    if result["rc"] != 0:
+        pytest.skip(
+            "'{}' failed on {} with rc={} ({}); image may not support WRED counters".format(
+                cmd, duthost.hostname, result["rc"],
+                (result.get("stderr") or result.get("stdout") or "").strip()))
+    return result["stdout"].strip()
+
+
 def _build_show_queue_wredcounters_cmd(
-        duthost, asic_namespace=None, interface=None, nonzero=False, voq=False):
+        cli_ns_option="", interface=None, nonzero=False, voq=False):
     cmd = "show queue wredcounters --json"
-    if duthost.is_multi_asic:
-        cmd += _namespace_arg(asic_namespace)
+    if cli_ns_option:
+        cmd += " {}".format(cli_ns_option)
     if interface:
         cmd += " {}".format(interface)
     if nonzero:
@@ -121,21 +145,14 @@ def _build_show_queue_wredcounters_cmd(
 
 
 def _run_show_queue_wredcounters_json(
-        duthost, asic_namespace=None, interface=None, nonzero=False, voq=False):
+        duthost, cli_ns_option="", interface=None, nonzero=False, voq=False):
     cmd = _build_show_queue_wredcounters_cmd(
-        duthost,
-        asic_namespace=asic_namespace,
+        cli_ns_option=cli_ns_option,
         interface=interface,
         nonzero=nonzero,
         voq=voq,
     )
-    result = duthost.shell(cmd, module_ignore_errors=True)
-    if result["rc"] != 0:
-        pytest.skip(
-            "'{}' failed on {} with rc={}; image may not support WRED counters".format(
-                cmd, duthost.hostname, result["rc"]))
-
-    stdout = result["stdout"].strip()
+    stdout = _run_wred_counter_cli(duthost, cmd)
     if not stdout:
         return {}
 
@@ -149,15 +166,6 @@ def _run_show_queue_wredcounters_json(
         return _parse_wred_counters_json(data)
 
 
-def _run_sonic_clear_wredcounters(duthost, asic_namespace=None):
-    cmd = "sonic-clear queue wredcounters" + _namespace_arg(asic_namespace)
-    result = duthost.shell(cmd, module_ignore_errors=True)
-    if result["rc"] != 0:
-        pytest.skip(
-            "'{}' failed on {} with rc={}; image may not support WRED counters".format(
-                cmd, duthost.hostname, result["rc"]))
-
-
 def _filter_wred_counters_by_priority(counters, txq_filter):
     if txq_filter is None:
         return counters
@@ -168,25 +176,23 @@ def _filter_wred_counters_by_priority(counters, txq_filter):
     return filtered
 
 
-def _asic_namespace_for_read(duthost, interface=None, asic=None):
-    if asic is not None:
-        return _resolve_asic_instance(duthost, asic).get_asic_namespace()
-    if interface and duthost.is_multi_asic:
-        return duthost.get_port_asic_instance(interface).get_asic_namespace()
-    return None
-
-
 def get_ecn_wred_counters(
         duthost, interface=None, asic=None, priority=None, nonzero=False, voq=False):
     """
     Get ECN/WRED queue counters from SONiC CLI.
     CLI:
         show queue wredcounters --json [-n <asic>] [<port>] [--nonzero] [--voq]
+
+    Each ASIC is read separately because 'show queue wredcounters --json'
+    prints one JSON document per namespace, so a namespace-less read on a
+    multi-ASIC DUT emits several concatenated documents.
+
     Args:
         duthost: SONiC host under test
         interface (str/None): port name, e.g. 'Ethernet0'. None = all interfaces.
-        asic (SonicAsic/int/None): target ASIC for read. If None with interface set,
-            ASIC is inferred from the port. If both None on multi-ASIC, reads all ASICs.
+        asic (SonicAsic/int/str/None): target ASIC for read, as an instance, an
+            index, or a namespace string. If None with interface set, the ASIC
+            is inferred from the port. If both None, reads every ASIC.
         priority (int/str/None): queue priority / TxQ, e.g. 3 or 'UC3'. None = all TxQs.
         nonzero (bool): pass --nonzero to CLI when True
         voq (bool): pass --voq to CLI when True
@@ -208,60 +214,30 @@ def get_ecn_wred_counters(
     txq_filter = _txq_from_priority(priority, voq=voq)
     result = {}
 
-    if interface or asic is not None:
-        asic_namespace = _asic_namespace_for_read(duthost, interface=interface, asic=asic)
+    for asic_inst in _asics_for_read(duthost, interface=interface, asic=asic):
         parsed = _run_show_queue_wredcounters_json(
             duthost,
-            asic_namespace=asic_namespace,
+            cli_ns_option=asic_inst.cli_ns_option,
             interface=interface,
             nonzero=nonzero,
             voq=voq,
         )
-        result.update(_filter_wred_counters_by_priority(parsed, txq_filter))
-        return result
-
-    if duthost.is_multi_asic:
-        for asic_inst in duthost.asics:
-            parsed = _run_show_queue_wredcounters_json(
-                duthost,
-                asic_namespace=asic_inst.get_asic_namespace(),
-                interface=None,
-                nonzero=nonzero,
-                voq=voq,
-            )
-            for port, prio_map in _filter_wred_counters_by_priority(parsed, txq_filter).items():
-                result.setdefault(port, {}).update(prio_map)
-    else:
-        parsed = _run_show_queue_wredcounters_json(
-            duthost,
-            asic_namespace=None,
-            interface=None,
-            nonzero=nonzero,
-            voq=voq,
-        )
-        result.update(_filter_wred_counters_by_priority(parsed, txq_filter))
+        for port, prio_map in _filter_wred_counters_by_priority(parsed, txq_filter).items():
+            result.setdefault(port, {}).update(prio_map)
     return result
 
 
-def clear_ecn_wred_counters(duthost, asic=None):
+def clear_ecn_wred_counters(duthost):
     """
-    Clear WRED queue counters.
+    Clear WRED queue counters on every ASIC of duthost.
     CLI:
-        sonic-clear queue wredcounters [-n <asic>]
+        sonic-clear queue wredcounters
+
+    The CLI takes no -n/--namespace option, and the wredstat script behind it
+    already runs against every namespace, so one invocation covers all ASICs.
+
     Args:
         duthost: SONiC host under test
-        asic (SonicAsic/int/None): target ASIC. If None on multi-ASIC, clears all ASICs.
     Skips the test when the image does not support the WRED counter CLI.
     """
-    if asic is not None:
-        asic_inst = _resolve_asic_instance(duthost, asic)
-        namespace = asic_inst.get_asic_namespace() if duthost.is_multi_asic else None
-        _run_sonic_clear_wredcounters(duthost, asic_namespace=namespace)
-        return
-
-    if duthost.is_multi_asic:
-        for asic_inst in duthost.asics:
-            _run_sonic_clear_wredcounters(
-                duthost, asic_namespace=asic_inst.get_asic_namespace())
-    else:
-        _run_sonic_clear_wredcounters(duthost)
+    _run_wred_counter_cli(duthost, "sonic-clear queue wredcounters")

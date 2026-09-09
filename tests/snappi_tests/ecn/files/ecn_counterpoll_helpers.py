@@ -13,26 +13,19 @@ WRED_ECN_COUNTERPOLLS = [
 ]
 
 
-def _asic_instance_from_snappi_port(duthost, port):
-    if not duthost.is_multi_asic:
-        return duthost.asic_instance()
-    asic_value = port.get('asic_value')
-    if asic_value:
-        asic_index = int(str(asic_value).replace('asic', ''))
-        return duthost.asic_instance(asic_index)
-    return duthost.get_port_asic_instance(port['peer_port'])
-
-
 def unique_dut_asic_pairs_from_snappi_ports(snappi_ports):
     """
     Return unique (duthost, asic_instance) pairs referenced by snappi_ports.
+
+    A snappi port's 'asic_value' is the ASIC namespace on multi-ASIC and None
+    on single-ASIC, which is what asic_instance_from_namespace() expects.
     """
     seen = set()
     pairs = []
     for port in snappi_ports:
         duthost = port['duthost']
-        asic_inst = _asic_instance_from_snappi_port(duthost, port)
-        key = (duthost.hostname, asic_inst.asic_index if duthost.is_multi_asic else 0)
+        asic_inst = duthost.asic_instance_from_namespace(port.get('asic_value'))
+        key = (duthost.hostname, asic_inst.asic_index)
         if key in seen:
             continue
         seen.add(key)
@@ -40,14 +33,8 @@ def unique_dut_asic_pairs_from_snappi_ports(snappi_ports):
     return pairs
 
 
-def _counterpoll_target(duthost, asic_inst):
-    """Return SonicHost or SonicAsic for ConterpollHelper on master API."""
-    return asic_inst if duthost.is_multi_asic else duthost
-
-
-def _get_parsed_counterpoll_show(duthost, asic_inst):
-    target = _counterpoll_target(duthost, asic_inst)
-    counterpoll_show = ConterpollHelper.get_counterpoll_show_output(target)
+def _get_parsed_counterpoll_show(asic_inst):
+    counterpoll_show = ConterpollHelper.get_counterpoll_show_output(asic_inst)
     return ConterpollHelper.get_parsed_counterpoll_show(counterpoll_show)
 
 
@@ -94,8 +81,7 @@ def enable_wred_ecn_counterpoll_for_snappi_ports(snappi_ports):
             _ensure_wred_ecn_counterpoll_available(duthost)
             checked_duts.add(duthost.hostname)
 
-        target = _counterpoll_target(duthost, asic_inst)
-        parsed_counterpoll_show = _get_parsed_counterpoll_show(duthost, asic_inst)
+        parsed_counterpoll_show = _get_parsed_counterpoll_show(asic_inst)
         to_enable = []
         for stat_type, cli_type in WRED_ECN_COUNTERPOLLS:
             if is_wred_ecn_counterpoll_enabled(parsed_counterpoll_show, stat_type):
@@ -106,7 +92,7 @@ def enable_wred_ecn_counterpoll_for_snappi_ports(snappi_ports):
                 to_enable.append(cli_type)
 
         if to_enable:
-            ConterpollHelper.enable_counterpoll(target, to_enable)
+            ConterpollHelper.enable_counterpoll(asic_inst, to_enable)
             for cli_type in to_enable:
                 enabled_by_us.append((duthost, asic_inst, cli_type))
                 logger.info(
@@ -124,8 +110,7 @@ def disable_wred_ecn_counterpoll_entries(enabled_by_us):
         if key in disabled:
             continue
         disabled.add(key)
-        target = _counterpoll_target(duthost, asic_inst)
-        ConterpollHelper.disable_counterpoll(target, [cli_type])
+        ConterpollHelper.disable_counterpoll(asic_inst, [cli_type])
         logger.info(
             "Disabled WRED ECN %s on %s asic%s",
             cli_type, duthost.hostname, asic_inst.asic_index)
