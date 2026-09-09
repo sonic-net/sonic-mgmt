@@ -75,7 +75,9 @@ from tests.common.helpers.assertions import pytest_assert as pt_assert
 from pytest_ansible.errors import AnsibleConnectionFailure
 from ansible.errors import AnsibleConnectionFailure as AnsibleCoreConnectionFailure
 from tests.common.helpers.inventory_utils import trim_inventory
-from tests.common.helpers.host_failure_utils import stop_on_testbed_unreachable
+from tests.common.helpers.host_failure_utils import (
+    is_testbed_unreachable_exception, stop_on_testbed_unreachable,
+)
 from tests.common.utilities import InterruptableThread
 from tests.common.plugins.ptfadapter.dummy_testutils import DummyTestUtils
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
@@ -1555,6 +1557,35 @@ def log_custom_msg(item):
     if custom_msg:
         logger.debug("append custom_msg: {}".format(custom_msg))
         item.user_properties.append(('CustomMsg', json.dumps(custom_msg)))
+
+
+@pytest.hookimpl(trylast=True, hookwrapper=True)
+def pytest_runtest_teardown(item, nextitem):
+    """Finish retained fixtures before reporting a teardown-first host failure."""
+    outcome = yield
+    if nextitem is None or outcome.excinfo is None:
+        return
+
+    original_error = outcome.excinfo[1]
+    if not is_testbed_unreachable_exception(original_error, CONNECTION_FAILURE_TYPES):
+        return
+
+    # pytest chose nextitem before this failure, so shared fixtures may remain.
+    # Drain only the fixture stack, without running other teardown hooks twice.
+    # trylast keeps this inside pytest's teardown log/capture wrappers.
+    try:
+        item.session._setupstate.teardown_exact(None)
+    except (KeyboardInterrupt, pytest.exit.Exception) as control_error:
+        outcome.force_exception(control_error)
+    except BaseException as cleanup_error:
+        try:
+            from builtins import BaseExceptionGroup
+        except ImportError:
+            from exceptiongroup import BaseExceptionGroup
+        outcome.force_exception(BaseExceptionGroup(
+            "Testbed unreachable and remaining fixture cleanup failed",
+            [original_error, cleanup_error],
+        ))
 
 
 # This function is a pytest hook implementation that is called to create a test report.

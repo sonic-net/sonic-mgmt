@@ -33,3 +33,20 @@ If your environment has the full sonic-mgmt test dependencies installed and you 
 - Python 3
 - `pytest`
 - `unittest.mock` (built into Python standard library)
+
+## Host-failure lifecycle regressions
+
+Run the classifier unit tests and the real pytest lifecycle regressions together:
+
+```bash
+python3 -m pytest --noconftest --confcutdir=tests/common/unit_tests \
+  tests/common/unit_tests/helpers/unit_test_host_failure_utils.py \
+  tests/common/unit_tests/helpers/unit_test_host_failure_lifecycle.py -q
+```
+
+`--confcutdir` also excludes parent package setup, so these tests do not load
+`tests/common/__init__.py` or require a SONiC container. The lifecycle tests extract
+the production hooks from `tests/conftest.py` and run them in isolated pytest
+subprocesses with real function/module/session fixtures. They cover teardown-first
+unreachability, later cleanup failures, exit code 15, complete final `CustomMsg`
+and captured cleanup logs, and preservation of normal test execution.
