@@ -43,7 +43,14 @@ DAEMON_RESTART_PROCESSES = {
     "swss": ("syncd", "orchagent"),
     "syncd": ("syncd", "orchagent"),
 }
+DAEMON_RESTART_CONTAINERS = {
+    "xcvrd": (),
+    "pmon": ("pmon",),
+    "swss": ("swss",),
+    "syncd": ("syncd",),
+}
 DAEMON_RESTART_POLL_INTERVAL_SEC = 5
+SUPERVISOR_UPTIME_PRECISION_SEC = 1
 
 
 def _parse_supervisor_uptime_seconds(uptime):
@@ -179,10 +186,7 @@ def perform_daemon_restart(duthost, daemon, settle_sec, affected_processes=None)
         (process, DEFAULT_MONITORED_PROCESSES[process])
         for process in affected_processes
     )
-    directly_restarted_containers = {
-        DEFAULT_MONITORED_PROCESSES[process]
-        for process in DAEMON_RESTART_PROCESSES[daemon]
-    } if daemon != "xcvrd" else set()
+    directly_restarted_containers = DAEMON_RESTART_CONTAINERS[daemon]
     indirectly_restarted_processes = (
         set(affected_processes) - set(DAEMON_RESTART_PROCESSES[daemon])
     )
@@ -195,7 +199,22 @@ def perform_daemon_restart(duthost, daemon, settle_sec, affected_processes=None)
         "Could not capture container start times before {} restart: {}"
         .format(daemon, baseline_container_start_times),
     )
-    restart_command_started_at = time.monotonic()
+    # Supervisor reports whole-second uptime, so compare conservative bounds
+    # for the possible process start times instead of point estimates.
+    baseline_process_latest_started_at = {}
+    for process in indirectly_restarted_processes:
+        container = DEFAULT_MONITORED_PROCESSES[process]
+        status, _pid, uptime = get_program_info(
+            duthost, container, process, include_uptime=True
+        )
+        pytest_assert(
+            status == "RUNNING" and uptime,
+            "Could not capture {} uptime before {} restart: status={}, uptime={}"
+            .format(process, daemon, status, uptime),
+        )
+        baseline_process_latest_started_at[process] = (
+            time.monotonic() - _parse_supervisor_uptime_seconds(uptime)
+        )
     if daemon == "xcvrd":
         logger.info("Restarting xcvrd inside pmon for transceiver scenario")
         duthost.command("docker exec pmon supervisorctl restart xcvrd")
@@ -215,17 +234,23 @@ def perform_daemon_restart(duthost, daemon, settle_sec, affected_processes=None)
         if not all(status == "RUNNING" for status, _pid in last_process_states.values()):
             return False
         last_process_uptime_seconds.clear()
-        elapsed = time.monotonic() - restart_command_started_at
         for process in indirectly_restarted_processes:
             container = DEFAULT_MONITORED_PROCESSES[process]
+            uptime_query_started_at = time.monotonic()
             _status, _pid, uptime = get_program_info(
                 duthost, container, process, include_uptime=True
             )
             last_process_uptime_seconds[process] = (
                 _parse_supervisor_uptime_seconds(uptime) if uptime else None
             )
+            process_earliest_started_at = (
+                uptime_query_started_at - last_process_uptime_seconds[process]
+                - SUPERVISOR_UPTIME_PRECISION_SEC
+                if last_process_uptime_seconds[process] is not None else None
+            )
             if (last_process_uptime_seconds[process] is None
-                    or last_process_uptime_seconds[process] > elapsed + 1):
+                    or process_earliest_started_at
+                    <= baseline_process_latest_started_at[process]):
                 return False
         if daemon == "xcvrd":
             return True
