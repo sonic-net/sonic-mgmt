@@ -8,6 +8,7 @@ import re
 logger = logging.getLogger(__name__)
 ENI_COUNTER_POLL_INTERVAL = 1000  # 1 second
 ENI_COUNTER_READY_MAX_TIME = 10  # 10 seconds
+CT_AGING_TEST_INTERVAL = 1  # 1 second aging interval for ENI counter test
 
 
 def get_eni_counter_status(dpuhost):
@@ -43,6 +44,45 @@ def get_eni_counters(dpuhost, eni_counter_oid):
     dash_counter_dict = dpuhost.shell(cmd_get_eni_counter)['stdout']
     dash_counter_dict = ast.literal_eval(dash_counter_dict)
     return dash_counter_dict
+
+
+def get_ct_aging_interval(dpuhost, use_udp=False):
+    """Get the current CT aging interval from sai.profile via nasa-cli-helper. Bluefield only.
+
+    Args:
+        dpuhost: DPU host object
+        use_udp: If True, get UDP aging interval; otherwise get TCP aging interval
+
+    Returns:
+        int: Current aging interval in seconds, or None if not supported
+    """
+    if 'bluefield' not in dpuhost.facts['asic_type']:
+        return None
+    cmd = "nasa-cli-helper.py get_aging_interval"
+    if use_udp:
+        cmd += " -u"
+    result = dpuhost.shell(cmd)
+    return int(result['stdout'].strip())
+
+
+def set_ct_aging_interval(dpuhost, seconds, use_udp=False):
+    """Set the CT aging interval in sai.profile via nasa-cli-helper. Bluefield only.
+
+    Note: Requires syncd restart or config reload to take effect.
+
+    Args:
+        dpuhost: DPU host object
+        seconds: Aging interval in seconds
+        use_udp: If True, set UDP aging interval; otherwise set TCP aging interval
+    """
+    if 'bluefield' not in dpuhost.facts['asic_type']:
+        return
+    cmd = f"nasa-cli-helper.py set_aging_interval {seconds}"
+    if use_udp:
+        cmd += " -u"
+    protocol = "UDP" if use_udp else "TCP"
+    logger.info(f"Setting CT {protocol} aging interval to {seconds}s")
+    dpuhost.shell(cmd)
 
 
 def verify_eni_counter(eni_counter_check_point_dict, eni_counter_before_sending_pkt, eni_counter_after_sending_pkt):

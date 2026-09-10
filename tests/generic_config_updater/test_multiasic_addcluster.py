@@ -1404,7 +1404,8 @@ def test_addcluster_workflow(duthosts, enum_downstream_dut_hostname, loganalyzer
     # Phase 1: Core config (PORT, INTERFACE, BGP_NEIGHBOR, etc.)
     # Phase 2: ACL_TABLE entries (applied after ports exist)
     logger.info("Generating patch files (two phases)")
-    phase1_file, phase2_file = generate_config_patch(full_config_path, no_t1_config_path)
+    phase1_file, phase2_file = generate_config_patch(full_config_path, no_t1_config_path,
+                                                     split_phases=True)
 
     # Capture the generated patch files
     if CAPTURE_CONFIGS and capture_dir:

@@ -300,7 +300,7 @@ def run_bulk_eeprom_check(
     invocation per sub-port (hundreds of Click spawns on a high-radix DUT), this
     issues ONE bulk ``show interfaces transceiver info`` (no port arg) per ASIC
     namespace and then does a per-port dict lookup — the same shape
-    ``test_vdm_consistency`` / ``test_transceiver_info_cli`` use.
+    ``test_vdm_consistency`` uses.
 
     Per-namespace iteration via ``get_asic_namespace_list`` (``[None]`` on
     single-ASIC → one barefoot call, ``['asic0', ...]`` on multi-ASIC → one
