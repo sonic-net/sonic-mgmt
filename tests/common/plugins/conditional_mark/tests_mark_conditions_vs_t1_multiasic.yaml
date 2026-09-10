@@ -613,11 +613,6 @@ tacacs/test_ro_disk.py:
     conditions:
     - asic_type in ['vs'] and 't1-8-lag' in topo_name
     reason: This test case either cannot pass or should be skipped on virtual chassis
-telemetry/test_telemetry_poll.py:
-  skip:
-    conditions:
-    - asic_type in ['vs'] and 't1-8-lag' in topo_name
-    reason: This test case either cannot pass or should be skipped on virtual chassis
 upgrade_path/test_multi_hop_upgrade_path.py:
   skip:
     conditions:
