@@ -117,49 +117,6 @@ container_checker/test_container_checker.py::test_container_checker_telemetry:
       - "asic_type in ['vpp']"
 
 #######################################
-#####           COPP              #####
-#######################################
-copp/test_copp.py::TestCOPP::test_policer_mtu\[.*-IP2ME\]:
-  regex: true
-  skip:
-    reason: >
-            Failed/Errored: fails at all 3 packet sizes (64/1514/4096),
-            zero packets received (Actual PPS: 0, Expected: 540-780). A
-            real, separate, pre-existing gap in the ip4-unicast
-            policer-classify path (suspected classify-binding-scope issue:
-            VPP's built-in classify feature only binds to the one hw
-            interface owning the destination IP, not the actual ingress
-            interface), unrelated to the copp_punt_policer plugin this
-            effort adds. Root cause not yet fixed.
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-copp/test_copp.py::TestCOPP::test_policer_mtu\[.*-SNMP\]:
-  regex: true
-  skip:
-    reason: >
-            Failed/Errored: same root cause as test_policer_mtu[IP2ME]
-            (SNMP/SSH/IP2ME all map to the same SAI ip2me trap per
-            PROTOCOL_TO_TRAP_ID in the PTF copp_tests.py) -- fails at all
-            3 packet sizes, zero packets received.
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-copp/test_copp.py::TestCOPP::test_policer_mtu\[.*-SSH\]:
-  regex: true
-  skip:
-    reason: >
-            Failed/Errored: same root cause as test_policer_mtu[IP2ME]
-            (SNMP/SSH/IP2ME all map to the same SAI ip2me trap per
-            PROTOCOL_TO_TRAP_ID in the PTF copp_tests.py) -- fails at all
-            3 packet sizes, zero packets received.
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-#######################################
 #####           Decap             #####
 #######################################
 decap/test_subnet_decap.py:

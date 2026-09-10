@@ -689,19 +689,20 @@ class SNMPTest(PolicyTest):  # FIXME: trapped as ip2me. mellanox should add supp
     def construct_packet(self, port_number):
         src_mac = self.my_mac[port_number]
         dst_mac = self.peer_mac[port_number]
+        src_ip = self.myip
         dst_ip = self.peerip
 
         packet = testutils.simple_udp_packet(
             eth_dst=dst_mac,
-            ip_dst=dst_ip,
             eth_src=src_mac,
+            ip_src=src_ip,
+            ip_dst=dst_ip,
             udp_dport=161
         )
 
         return packet
 
 
-# SONIC config contains policer CIR=600 for SSH
 class SSHTest(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
@@ -754,12 +755,14 @@ class IP2METest(PolicyTest):
     def construct_packet(self, port_number):
         src_mac = self.my_mac[port_number]
         dst_mac = self.peer_mac[port_number]
+        src_ip = self.myip
         dst_ip = self.peerip
 
         packet = testutils.simple_tcp_packet(
             pktlen=self.packet_size,
             eth_src=src_mac,
             eth_dst=dst_mac,
+            ip_src=src_ip,
             ip_dst=dst_ip
         )
 
