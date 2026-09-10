@@ -45,6 +45,17 @@ DAEMON_RESTART_PROCESSES = {
 }
 DAEMON_RESTART_POLL_INTERVAL_SEC = 5
 
+
+def _parse_supervisor_uptime_seconds(uptime):
+    """Convert supervisor's ``[N days, ]H:MM:SS`` uptime to seconds."""
+    days = 0
+    if "day" in uptime:
+        day_part, uptime = uptime.split(", ", 1)
+        days = int(day_part.split()[0])
+    hours, minutes, seconds = (int(part) for part in uptime.split(":"))
+    return ((days * 24 + hours) * 60 + minutes) * 60 + seconds
+
+
 # Base port count for scaling a *per-port* settle wait up to a *bulk*
 # (all-at-once) operation, matching ``tests/common/port_toggle.BASE_PORT_COUNT``
 # (the default t0 topology's ~28 toggled ports).
@@ -164,24 +175,27 @@ def perform_daemon_restart(duthost, daemon, settle_sec, affected_processes=None)
     """
     if affected_processes is None:
         affected_processes = DAEMON_RESTART_PROCESSES[daemon]
-    monitored_processes = tuple(
+    affected_process_containers = tuple(
         (process, DEFAULT_MONITORED_PROCESSES[process])
         for process in affected_processes
     )
-    monitored_containers = {
+    directly_restarted_containers = {
         DEFAULT_MONITORED_PROCESSES[process]
         for process in DAEMON_RESTART_PROCESSES[daemon]
     } if daemon != "xcvrd" else set()
-    baseline_started_at = {
+    indirectly_restarted_processes = (
+        set(affected_processes) - set(DAEMON_RESTART_PROCESSES[daemon])
+    )
+    baseline_container_start_times = {
         container: get_docker_started_at(duthost, container)
-        for container in monitored_containers
+        for container in directly_restarted_containers
     }
     pytest_assert(
-        all(baseline_started_at.values()),
+        all(baseline_container_start_times.values()),
         "Could not capture container start times before {} restart: {}"
-        .format(daemon, baseline_started_at),
+        .format(daemon, baseline_container_start_times),
     )
-
+    restart_command_started_at = time.monotonic()
     if daemon == "xcvrd":
         logger.info("Restarting xcvrd inside pmon for transceiver scenario")
         duthost.command("docker exec pmon supervisorctl restart xcvrd")
@@ -190,30 +204,46 @@ def perform_daemon_restart(duthost, daemon, settle_sec, affected_processes=None)
         duthost.restart_service(daemon)
 
     settle_deadline = time.monotonic() + settle_sec
-    observed = {}
-    observed_started_at = {}
+    last_process_states = {}
+    last_container_start_times = {}
+    last_process_uptime_seconds = {}
 
     def _processes_restarted():
-        observed.clear()
-        for process, container in monitored_processes:
-            observed[process] = get_program_info(duthost, container, process)
-        if not all(status == "RUNNING" for status, _pid in observed.values()):
+        last_process_states.clear()
+        for process, container in affected_process_containers:
+            last_process_states[process] = get_program_info(duthost, container, process)
+        if not all(status == "RUNNING" for status, _pid in last_process_states.values()):
             return False
+        last_process_uptime_seconds.clear()
+        elapsed = time.monotonic() - restart_command_started_at
+        for process in indirectly_restarted_processes:
+            container = DEFAULT_MONITORED_PROCESSES[process]
+            _status, _pid, uptime = get_program_info(
+                duthost, container, process, include_uptime=True
+            )
+            last_process_uptime_seconds[process] = (
+                _parse_supervisor_uptime_seconds(uptime) if uptime else None
+            )
+            if (last_process_uptime_seconds[process] is None
+                    or last_process_uptime_seconds[process] > elapsed + 1):
+                return False
         if daemon == "xcvrd":
             return True
-        observed_started_at.clear()
-        for container in monitored_containers:
-            observed_started_at[container] = get_docker_started_at(duthost, container)
+        last_container_start_times.clear()
+        for container in directly_restarted_containers:
+            last_container_start_times[container] = get_docker_started_at(duthost, container)
         return all(
-            observed_started_at[container]
-            and observed_started_at[container] != baseline_started_at[container]
-            for container in monitored_containers
+            last_container_start_times[container]
+            and last_container_start_times[container] != baseline_container_start_times[container]
+            for container in directly_restarted_containers
         )
 
     pytest_assert(
         wait_until(settle_sec, DAEMON_RESTART_POLL_INTERVAL_SEC, 0, _processes_restarted),
-        "Processes did not complete restart after {} restart: processes={}, containers={}"
-        .format(daemon, observed, observed_started_at),
+        "Processes did not complete restart after {} restart: processes={}, "
+        "process_uptimes={}, containers={}"
+        .format(daemon, last_process_states, last_process_uptime_seconds,
+                last_container_start_times),
     )
     return max(0, settle_deadline - time.monotonic())
 
