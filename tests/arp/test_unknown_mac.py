@@ -14,7 +14,6 @@ import ptf.packet as packet
 from tests.common import constants
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses    # noqa: F401
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py   # noqa: F401
-from tests.common.fixtures.ptfhost_utils import iptables_drop_ipv6_tx   # noqa: F401
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa: F401
@@ -25,6 +24,10 @@ logger = logging.getLogger(__name__)
 pytestmark = [pytest.mark.topology("t0")]
 
 TEST_PKT_CNT = 10
+
+# Locally administered unicast MAC. Nothing on the testbed ever sources it, so once the FDB is
+# flushed the DUT can never re-learn it while the test is running.
+UNKNOWN_DST_MAC = "02:00:00:11:22:33"
 
 
 def initClassVars(func):
@@ -96,6 +99,7 @@ def unknownMacSetup(duthosts, rand_one_dut_hostname, tbinfo):
     vlan = dict()
     vlan['addr'] = mg_facts['minigraph_vlan_interfaces'][0]['addr']
     vlan['pfx'] = mg_facts['minigraph_vlan_interfaces'][0]['prefixlen']
+    vlan['intf'] = mg_facts['minigraph_vlan_interfaces'][0]['attachto']
     vlan['ips'] = duthost.get_ip_in_range(num=1, prefix="{}/{}".format(vlan['addr'], vlan['pfx']),
                                           exclude_ips=[vlan['addr']] + server_ips)['ansible_facts']['generated_ips']
     vlan['hostip'] = vlan['ips'][0].split('/')[0]
@@ -175,32 +179,37 @@ def flushArpFdb(duthosts, rand_one_dut_hostname, dut_disable_arp_update):
 
 
 @pytest.fixture(autouse=True)
-def populateArp(unknownMacSetup, flushArpFdb, ptfhost, duthosts, rand_one_dut_hostname,
+def populateArp(unknownMacSetup, flushArpFdb, duthosts, rand_one_dut_hostname,
                 toggle_all_simulator_ports_to_rand_selected_tor_m,              # noqa: F811
-                setup_standby_ports_on_rand_unselected_tor_unconditionally,     # noqa: F811
-                iptables_drop_ipv6_tx):                                         # noqa: F811
+                setup_standby_ports_on_rand_unselected_tor_unconditionally):    # noqa: F811
     """
-    Fixture to populate ARP entry on the DUT for the traffic destination
+    Fixture to populate a static ARP entry on the DUT for the traffic destination
+
+    The neighbor is pinned to a synthetic MAC instead of being resolved against a PTF
+    interface. On dualtor the PTF interface that owns the destination IP is also the live
+    server NIC, so its MAC is re-learned into the FDB within seconds of `sonic-clear fdb all`
+    and the traffic gets forwarded instead of dropped.
 
     Args:
         unknownMacSetup(fixture) : module scope autouse fixture for test setup
         flushArpFdb(fixture) : func scope fixture
-        ptfhost(AnsibleHost) : ptf host instance
         duthosts(AnsibleHost) : multi dut instance
         rand_one_dut_hostname(string) : one of the dut instances from the multi dut
     """
     # Wait 5 seconds for mux to toggle
     time.sleep(5)
     setup = unknownMacSetup
-    ptfhost.script("./scripts/remove_ip.sh")
-    logger.info("Populate ARP entry for dest port")
-    ptfhost.command("ifconfig eth{} {}".format(setup['ptf_dst_port'], setup['vlan']['ips'][0]))
-    ptfhost.command("ping {} -c 3".format(setup['vlan']['addr']))
-    # Wait 5 seconds for secondary ARP before proceeding to clear FDB
-    time.sleep(5)
+    duthost = duthosts[rand_one_dut_hostname]
+    dst_ip = setup['vlan']['hostip']
+    vlan_intf = setup['vlan']['intf']
 
-    logger.info("Clean up all ips on the PTF")
-    ptfhost.script("./scripts/remove_ip.sh")
+    logger.info("Populate ARP entry {} -> {} on {}".format(dst_ip, UNKNOWN_DST_MAC, vlan_intf))
+    duthost.shell("sudo ip neigh replace {} lladdr {} nud permanent dev {}"
+                  .format(dst_ip, UNKNOWN_DST_MAC, vlan_intf))
+
+    yield
+
+    duthost.shell("sudo ip neigh del {} dev {}".format(dst_ip, vlan_intf), module_ignore_errors=True)
 
 
 class PreTestVerify(object):
