@@ -66,14 +66,14 @@ def _parse_supervisor_uptime_seconds(uptime):
 def _get_process_start_time_range(duthost, container, process):
     """Estimate process start-time bounds from whole-second supervisor uptime."""
     query_started_at = time.monotonic()
-    status, _pid, uptime = get_program_info(
+    status, pid, uptime = get_program_info(
         duthost, container, process, include_uptime=True
     )
     query_finished_at = time.monotonic()
     if status != "RUNNING" or not uptime:
-        return status, uptime, None
+        return status, pid, uptime, None
     uptime_seconds = _parse_supervisor_uptime_seconds(uptime)
-    return status, uptime, (
+    return status, pid, uptime, (
         query_started_at - uptime_seconds - 1,
         query_finished_at - uptime_seconds,
     )
@@ -220,23 +220,23 @@ def perform_daemon_restart(duthost, daemon, settle_sec, affected_processes=None)
     """
     if affected_processes is None:
         affected_processes = DAEMON_READY_PROCESSES[daemon]
-    affected_process_containers = tuple(
-        (process, container)
+    monitored_processes = {
+        "{}@{}".format(process, container): (process, container)
         for process in affected_processes
         for container in _get_service_containers(
             duthost, DEFAULT_MONITORED_PROCESSES[process]
         )
-    )
-    directly_restarted_containers = tuple(
+    }
+    directly_restarted_containers = {
         container
         for service in DAEMON_RESTART_CONTAINERS[daemon]
         for container in _get_service_containers(duthost, service)
-    )
-    indirectly_restarted_process_containers = tuple(
-        (process, container)
-        for process, container in affected_process_containers
-        if container not in directly_restarted_containers
-    )
+    }
+    indirectly_restarted_processes = {
+        process_key: process_container
+        for process_key, process_container in monitored_processes.items()
+        if process_container[1] not in directly_restarted_containers
+    }
     baseline_container_start_times = {
         container: get_docker_started_at(duthost, container)
         for container in directly_restarted_containers
@@ -247,11 +247,10 @@ def perform_daemon_restart(duthost, daemon, settle_sec, affected_processes=None)
         .format(daemon, baseline_container_start_times),
     )
     baseline_process_latest_started_at = {}
-    for process, container in indirectly_restarted_process_containers:
-        status, uptime, start_time_range = _get_process_start_time_range(
+    for process_key, (process, container) in indirectly_restarted_processes.items():
+        status, _pid, uptime, start_time_range = _get_process_start_time_range(
             duthost, container, process
         )
-        process_key = "{}@{}".format(process, container)
         pytest_assert(
             start_time_range is not None,
             "Could not capture {} uptime before {} restart: status={}, uptime={}"
@@ -268,26 +267,23 @@ def perform_daemon_restart(duthost, daemon, settle_sec, affected_processes=None)
     settle_deadline = time.monotonic() + settle_sec
     last_process_states = {}
     last_container_start_times = {}
-    last_process_uptimes = {}
 
     def _processes_restarted():
         last_process_states.clear()
-        for process, container in affected_process_containers:
-            last_process_states["{}@{}".format(process, container)] = get_program_info(
-                duthost, container, process
-            )
-        if not all(status == "RUNNING" for status, _pid in last_process_states.values()):
-            return False
-        last_process_uptimes.clear()
-        for process, container in indirectly_restarted_process_containers:
-            _status, uptime, start_time_range = _get_process_start_time_range(
-                duthost, container, process
-            )
-            process_key = "{}@{}".format(process, container)
-            last_process_uptimes[process_key] = uptime
-            if (start_time_range is None
-                    or start_time_range[0]
-                    <= baseline_process_latest_started_at[process_key]):
+        for process_key, (process, container) in monitored_processes.items():
+            if process_key in indirectly_restarted_processes:
+                status, pid, uptime, start_time_range = _get_process_start_time_range(
+                    duthost, container, process
+                )
+                last_process_states[process_key] = (status, pid, uptime)
+                if (start_time_range is None
+                        or start_time_range[0]
+                        <= baseline_process_latest_started_at[process_key]):
+                    return False
+            else:
+                status, pid = get_program_info(duthost, container, process)
+                last_process_states[process_key] = (status, pid)
+            if status != "RUNNING":
                 return False
         last_container_start_times.clear()
         for container in directly_restarted_containers:
@@ -302,10 +298,8 @@ def perform_daemon_restart(duthost, daemon, settle_sec, affected_processes=None)
         _wait_until_deadline(
             settle_deadline, DAEMON_RESTART_POLL_INTERVAL_SEC, _processes_restarted
         ),
-        "Processes did not complete restart after {} restart: processes={}, "
-        "process_uptimes={}, containers={}"
-        .format(daemon, last_process_states, last_process_uptimes,
-                last_container_start_times),
+        "Processes did not complete restart after {} restart: processes={}, containers={}"
+        .format(daemon, last_process_states, last_container_start_times),
     )
     return max(0, settle_deadline - time.monotonic())
 
