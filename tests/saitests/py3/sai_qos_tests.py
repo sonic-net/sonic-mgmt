@@ -4857,8 +4857,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
                                                port_list['dst'][dst_port_id], TRANSMITTED_PKTS,
                                                xmit_counters_base, self, src_port_id, pkt, 10)
 
-            if 'hwsku' in self.test_params and 'Arista-7060X6' in self.test_params['hwsku']:
-
+            if 'dut_asic' in self.test_params and self.test_params['dut_asic'] in ('th5', 'th6'):
                 n_prio = [int(n / sum(q_pkt_cnt) * pkts_num_egr_mem) for n in q_pkt_cnt]
                 for i in range(pkts_num_egr_mem - sum(n_prio)):
                     n_prio[i] += 1
