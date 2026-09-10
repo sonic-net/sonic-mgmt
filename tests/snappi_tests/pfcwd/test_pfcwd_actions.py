@@ -6,7 +6,7 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_grap
     fanout_graph_facts   # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
     snappi_api, snappi_multi_base_config, cleanup_config, get_snappi_ports_for_rdma, \
-    get_snappi_ports, get_snappi_ports_multi_dut, clear_fabric_counters, check_fabric_counters, \
+    get_snappi_ports, get_snappi_ports_multi_dut, get_fabric_counter_scope, \
     get_snappi_ports_single_dut      # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_list, \
     lossy_prio_list, all_prio_list                                                                  # noqa: F401
@@ -165,8 +165,7 @@ def test_pfcwd_drop_90_10(snappi_api,                  # noqa: F811
     else:
         dut_list = [snappi_ports[0]['duthost'], snappi_ports[-1]['duthost']]
 
-    for dut in duthosts:
-        clear_fabric_counters(dut)
+    get_fabric_counter_scope(duthosts).clear()
 
     logger.info('PFC-WD stats at the start of the test:')
     for prio in test_prio_list:
@@ -214,8 +213,7 @@ def test_pfcwd_drop_90_10(snappi_api,                  # noqa: F811
                         logger.info('PFCWD Stats:for dut:{}, port:{},prio:{}, stats::{}'.
                                     format(dut.hostname, port['peer_port'], prio, pfcwd_stats))
 
-    for dut in duthosts:
-        check_fabric_counters(dut)
+    get_fabric_counter_scope(duthosts).check()
 
 
 # This is a single-tx-single-rx test.
@@ -294,8 +292,7 @@ def test_pfcwd_drop_uni(snappi_api,                  # noqa: F811
     else:
         dut_list = [snappi_ports[0]['duthost'], snappi_ports[-1]['duthost']]
 
-    for dut in duthosts:
-        clear_fabric_counters(dut)
+    get_fabric_counter_scope(duthosts).clear()
 
     logger.info('PFC-WD stats at the start of the test:')
     for prio in test_prio_list:
@@ -343,8 +340,7 @@ def test_pfcwd_drop_uni(snappi_api,                  # noqa: F811
                         logger.info('PFCWD Stats:for dut:{}, port:{},prio:{}, stats::{}'.
                                     format(dut.hostname, port['peer_port'], prio, pfcwd_stats))
 
-    for dut in duthosts:
-        check_fabric_counters(dut)
+    get_fabric_counter_scope(duthosts).check()
 
 
 @pytest.mark.parametrize('port_map', port_map)
@@ -467,8 +463,7 @@ def test_pfcwd_frwd_90_10(snappi_api,                  # noqa: F811
     else:
         dut_list = [snappi_ports[0]['duthost'], snappi_ports[-1]['duthost']]
 
-    for dut in duthosts:
-        clear_fabric_counters(dut)
+    get_fabric_counter_scope(duthosts).clear()
 
     logger.info('PFC-WD stats at the start of the test:')
     for prio in test_prio_list:
@@ -516,8 +511,7 @@ def test_pfcwd_frwd_90_10(snappi_api,                  # noqa: F811
                         logger.info('PFCWD Stats:for dut:{}, port:{},prio:{}, stats::{}'.
                                     format(dut.hostname, port['peer_port'], prio, pfcwd_stats))
 
-    for dut in duthosts:
-        check_fabric_counters(dut)
+    get_fabric_counter_scope(duthosts).check()
 
 
 # This is an oversubscribe-testcase.
@@ -606,8 +600,7 @@ def test_pfcwd_drop_over_subs_40_09(snappi_api,                  # noqa: F811
     else:
         dut_list = [snappi_ports[0]['duthost'], snappi_ports[-1]['duthost']]
 
-    for dut in duthosts:
-        clear_fabric_counters(dut)
+    get_fabric_counter_scope(duthosts).clear()
 
     logger.info('PFC-WD stats at the start of the test:')
     for prio in test_prio_list:
@@ -655,8 +648,7 @@ def test_pfcwd_drop_over_subs_40_09(snappi_api,                  # noqa: F811
                         logger.info('PFCWD Stats:for dut:{}, port:{},prio:{}, stats::{}'.
                                     format(dut.hostname, port['peer_port'], prio, pfcwd_stats))
 
-    for dut in duthosts:
-        check_fabric_counters(dut)
+    get_fabric_counter_scope(duthosts).check()
 
 
 @pytest.mark.parametrize('port_map', over_subs_port_map)
@@ -777,8 +769,7 @@ def test_pfcwd_frwd_over_subs_40_09(snappi_api,                  # noqa: F811
     else:
         dut_list = [snappi_ports[0]['duthost'], snappi_ports[-1]['duthost']]
 
-    for dut in duthosts:
-        clear_fabric_counters(dut)
+    get_fabric_counter_scope(duthosts).clear()
 
     logger.info('PFC-WD stats at the start of the test:')
     for prio in test_prio_list:
@@ -825,8 +816,7 @@ def test_pfcwd_frwd_over_subs_40_09(snappi_api,                  # noqa: F811
                         pfcwd_stats = get_pfcwd_stats(dut, port['peer_port'], prio)
                         logger.info('PFCWD Stats:for dut:{}, port:{},prio:{}, stats::{}'.
                                     format(dut.hostname, port['peer_port'], prio, pfcwd_stats))
-    for dut in duthosts:
-        check_fabric_counters(dut)
+    get_fabric_counter_scope(duthosts).check()
 
 
 # This is an non-oversubscribe-testcase.
@@ -907,8 +897,8 @@ def test_pfcwd_disable_pause_cngtn(snappi_api,                  # noqa: F811
 
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
 
+    get_fabric_counter_scope(duthosts).clear()
     for dut in duthosts:
-        clear_fabric_counters(dut)
         if dut.facts.get('asic_type') == "cisco-8000":
             modify_voq_watchdog_cisco_8000(dut, False)
 
@@ -926,5 +916,4 @@ def test_pfcwd_disable_pause_cngtn(snappi_api,                  # noqa: F811
                  test_def=test_def,
                  snappi_extra_params=snappi_extra_params)
 
-    for dut in duthosts:
-        check_fabric_counters(dut)
+    get_fabric_counter_scope(duthosts).check()
