@@ -57,6 +57,24 @@ def skip_non_th5_asics(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
                    "This test is not supported on {} asic".format(asic_type))
 
 
+@pytest.fixture(scope="module", autouse=True)
+def backup_and_restore_config_db(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                                 skip_non_th5_asics):
+    """Restore the persistent and running configuration changed by this module."""
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    config_db = '/etc/sonic/config_db.json'
+    backup_path = duthost.shell(
+        'mktemp /host/config_db.json.before_counterpoll_phy_serdes_attr.XXXXXX')['stdout'].strip()
+
+    duthost.shell('cp -p {} {}'.format(config_db, backup_path))
+
+    try:
+        yield
+    finally:
+        duthost.shell('mv {} {}'.format(backup_path, config_db))
+        config_reload(duthost, config_source='config_db', safe_reload=True, yang_validate=False)
+
+
 def verify_phy_attr_in_cli(duthost, expected_status):
     """
     Verify counterpoll show output for PHY counters
