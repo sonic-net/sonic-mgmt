@@ -160,9 +160,8 @@ def do_init(duthost):
 @pytest.fixture(scope="module")
 def test_eventd_healthy(duthosts, tbinfo, rand_one_dut_hostname, ptfhost, ptfadapter, gnxi_path):
     """
-    @summary: Verify eventd heartbeat before running the events testcases. Ported
-    from tests/telemetry; runs against the gnmi container (via the gnmi setup
-    fixtures) instead of the deprecated telemetry container.
+    @summary: Verify eventd heartbeat before running the events testcases against
+    the gnmi container (via the gnmi setup fixtures).
     """
     duthost = duthosts[rand_one_dut_hostname]
 
