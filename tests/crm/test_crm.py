@@ -1,4 +1,5 @@
 import pytest
+import re
 import time
 import json
 import ipaddress
@@ -34,6 +35,13 @@ FDB_CLEAR_TIMEOUT = 20
 ROUTE_COUNTER_POLL_TIMEOUT = 15
 CRM_COUNTER_TOLERANCE = 2
 ACL_TABLE_NAME = "DATAACL"
+
+# CRM THRESHOLD_EXCEEDED/CLEAR messages are emitted by orchagent once per CRM polling
+# cycle, so poll syslog for them (up to CRM_THRESHOLD_LOG_TIMEOUT, checking every
+# CRM_THRESHOLD_LOG_INTERVAL) instead of relying on a single fixed-window read. This
+# removes the dependency on the poll happening to fall inside a fixed window.
+CRM_THRESHOLD_LOG_TIMEOUT = CRM_UPDATE_TIME * 3
+CRM_THRESHOLD_LOG_INTERVAL = 3
 
 RESTORE_CMDS = {"test_crm_route": [],
                 "test_crm_nexthop": [],
@@ -255,6 +263,38 @@ def get_acl_tbl_key(asichost):
     return "CRM:ACL_TABLE_STATS:{0}".format(oid.replace("oid:", ""))
 
 
+def get_crm_polling_interval(duthost):
+    """Return the currently configured CRM polling interval (in seconds) on the DUT."""
+    output = duthost.command('crm show summary')['stdout']
+    parsed = re.findall(r'Polling Interval: +(\d+) +second', output)
+    return int(parsed[0]) if parsed else None
+
+
+def wait_for_threshold_log(loganalyzer, asichost, cmd):
+    """
+    Apply a CRM threshold-config command and wait until the expected THRESHOLD_EXCEEDED /
+    THRESHOLD_CLEAR message appears in syslog.
+
+    orchagent emits these messages only on a CRM polling cycle, so relying on a single
+    fixed-window read (time.sleep + one analyze) can intermittently miss the message when
+    the poll lands just outside the window. Instead, add a start marker, run the command,
+    and poll loganalyzer until the expected message is present (or time out).
+    """
+    marker = loganalyzer.init()
+    asichost.command(cmd)
+
+    def _expected_log_present():
+        summary = loganalyzer.analyze(marker, fail=False)
+        return (summary["total"]["expected_missing_match"] == 0 and
+                summary["total"]["expected_match"] > 0)
+
+    if not wait_until(CRM_THRESHOLD_LOG_TIMEOUT, CRM_THRESHOLD_LOG_INTERVAL,
+                      CRM_POLLING_INTERVAL, _expected_log_present):
+        # Final strict analysis to raise LogAnalyzerError with full details if the
+        # expected message is still missing after the timeout.
+        loganalyzer.analyze(marker, fail=True)
+
+
 def verify_thresholds(duthost, asichost, **kwargs):
     """
     Verifies that WARNING message logged if there are any resources that exceeds a pre-defined threshold value.
@@ -268,6 +308,16 @@ def verify_thresholds(duthost, asichost, **kwargs):
         )
         return
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='crm_test')
+    # THRESHOLD_EXCEEDED/CLEAR messages are emitted by orchagent only on a CRM polling
+    # cycle. If the polling interval is not the expected low value, those messages may not
+    # appear within the verification window, causing false failures. Fail early with a
+    # clear message. The set_polling_interval fixture (crm/conftest.py) configures this.
+    polling_interval = get_crm_polling_interval(duthost)
+    pytest_assert(
+        polling_interval == CRM_POLLING_INTERVAL,
+        "CRM polling interval is {}s, expected {}s. THRESHOLD_EXCEEDED/CLEAR syslog messages "
+        "may not appear within the verification window; ensure the set_polling_interval "
+        "fixture is active.".format(polling_interval, CRM_POLLING_INTERVAL))
     for key, value in list(THR_VERIFY_CMDS.items()):
         logger.info("Verifying CRM threshold '{}'".format(key))
         template = Template(value)
@@ -309,10 +359,9 @@ def verify_thresholds(duthost, asichost, **kwargs):
         kwargs['crm_used'], kwargs['crm_avail'] = get_crm_stats(kwargs['crm_cmd'], duthost)
         cmd = template.render(**kwargs)
 
-        with loganalyzer:
-            asichost.command(cmd)
-            # Make sure CRM counters updated
-            wait_until(CRM_UPDATE_TIME, CRM_POLLING_INTERVAL, 0, lambda: True)
+        # Poll for the expected THRESHOLD_EXCEEDED/CLEAR message instead of relying on a
+        # single fixed-window read, so a slow/late CRM poll does not cause a false failure.
+        wait_for_threshold_log(loganalyzer, asichost, cmd)
 
 
 def get_crm_stats(cmd, duthost):
