@@ -134,9 +134,11 @@ platform_tests/api/test_chassis.py::TestChassisApi::test_status_led:
 #######################################
 platform_tests/api/test_chassis_fans.py:
   skip:
-    reason: "Skip on BMC as no fan"
+    reason: "Skip on BMC as no fan, or on Mellanox LD platform which has no chassis fans"
+    conditions_logical_operator: or
     conditions:
       - "'bmc' in topo_type"
+      - "asic_type in ['mellanox'] and 'sn6600_ld' in platform"
 
 platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_direction:
   xfail:
@@ -320,9 +322,11 @@ platform_tests/api/test_component.py::TestComponentApi::test_update_firmware:
 #######################################
 platform_tests/api/test_fan_drawer.py:
   skip:
-    reason: "Skip on BMC as no fan"
+    reason: "Skip on BMC as no fan, or on Mellanox LD platform which has no fan drawer"
+    conditions_logical_operator: or
     conditions:
       - "'bmc' in topo_type"
+      - "asic_type in ['mellanox'] and 'sn6600_ld' in platform"
 
 platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_get_maximum_consumed_power:
   skip:
@@ -376,9 +380,11 @@ platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_set_fan_drawers_le
 #######################################
 platform_tests/api/test_fan_drawer_fans.py:
   skip:
-    reason: "Skip on BMC as no fan"
+    reason: "Skip on BMC as no fan, or on Mellanox LD platform which has no fan drawer fans"
+    conditions_logical_operator: or
     conditions:
       - "'bmc' in topo_type"
+      - "asic_type in ['mellanox'] and 'sn6600_ld' in platform"
 
 platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_get_model:
   skip:
@@ -479,9 +485,11 @@ platform_tests/api/test_pdb.py:
 #######################################
 platform_tests/api/test_psu.py:
   skip:
-    reason: "Skip on BMC as no psu"
+    reason: "Skip on BMC as no psu, or on Mellanox LD platform which has no PSUs"
+    conditions_logical_operator: or
     conditions:
       - "'bmc' in topo_type"
+      - "asic_type in ['mellanox'] and 'sn6600_ld' in platform"
 
 platform_tests/api/test_psu.py::TestPsuApi::test_fans:
   skip:
@@ -568,9 +576,11 @@ platform_tests/api/test_psu.py::test_temperature:
 
 platform_tests/api/test_psu_fans.py:
   skip:
-    reason: "Skip on BMC as no psu fan"
+    reason: "Skip on BMC as no psu fan, or on Mellanox LD platform which has no PSU fans"
+    conditions_logical_operator: or
     conditions:
       - "'bmc' in topo_type"
+      - "asic_type in ['mellanox'] and 'sn6600_ld' in platform"
 
 platform_tests/api/test_psu_fans.py::TestPsuFans::test_get_error_description:
   xfail:
@@ -1084,10 +1094,12 @@ platform_tests/cli/test_show_platform.py::test_show_platform_current:
 
 platform_tests/cli/test_show_platform.py::test_show_platform_fan:
   skip:
-    reason: "Unsupported platform API"
+    reason: "Unsupported platform API, BMC, or Mellanox LD platform which has no fans"
+    conditions_logical_operator: or
     conditions:
       - "is_multi_asic==True and release in ['201911']"
       - "'bmc' in topo_type"
+      - "asic_type in ['mellanox'] and 'sn6600_ld' in platform"
 
 platform_tests/cli/test_show_platform.py::test_show_platform_firmware_status:
   skip:
@@ -1108,12 +1120,13 @@ platform_tests/cli/test_show_platform.py::test_show_platform_psustatus:
       - "hwsku in ['Celestica-DX010-C32']"
       - https://github.com/sonic-net/sonic-mgmt/issues/6518
   skip:
-    reason: "Test should be skipped on DPU for it doesn't have PSUs."
+    reason: "Test should be skipped on DPU, BMC, or Mellanox LD for it doesn't have PSUs."
     conditions_logical_operator: or
     conditions:
       - "'nvda_bf' in platform"
       - "platform in ['arm64-elba-asic-flash128-r0']"
       - "'bmc' in topo_type"
+      - "asic_type in ['mellanox'] and 'sn6600_ld' in platform"
 
 platform_tests/cli/test_show_platform.py::test_show_platform_psustatus_json:
   xfail:
@@ -1122,12 +1135,13 @@ platform_tests/cli/test_show_platform.py::test_show_platform_psustatus_json:
       - "hwsku in ['Celestica-DX010-C32']"
       - https://github.com/sonic-net/sonic-mgmt/issues/6518
   skip:
-    reason: "Test should be skipped on DPU for it doesn't have PSUs."
+    reason: "Test should be skipped on DPU, BMC, or Mellanox LD for it doesn't have PSUs."
     conditions_logical_operator: or
     conditions:
       - "'nvda_bf' in platform"
       - "platform in ['arm64-elba-asic-flash128-r0']"
       - "'bmc' in topo_type"
+      - "asic_type in ['mellanox'] and 'sn6600_ld' in platform"
 
 platform_tests/cli/test_show_platform.py::test_show_platform_ssdhealth:
   skip:
