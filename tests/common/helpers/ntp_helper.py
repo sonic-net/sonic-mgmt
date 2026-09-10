@@ -199,3 +199,13 @@ def run_ntp(duthost, ntp_daemon_in_use):
         duthost.service(name='chrony', state='restarted')
     pytest_assert(wait_until(720, 10, 0, check_ntp_status, duthost, ntp_daemon_in_use),
                   "NTP not in sync")
+
+
+def stop_ntp(duthost, ntp_daemon_in_use):
+    """Stop the NTP daemon on the DUT so it does not adjust the system clock.
+
+    Intended for tests that deliberately change the clock. The daemon is expected
+    to be restarted afterwards (e.g. via run_ntp) to restore the correct time.
+    """
+    service_name = 'chrony' if ntp_daemon_in_use == NtpDaemon.CHRONY else 'ntp'
+    duthost.service(name=service_name, state='stopped')
