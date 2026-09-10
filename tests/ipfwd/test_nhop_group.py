@@ -834,6 +834,32 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
                          47: 'c0:ff:ee:00:00:0d', 48: 'c0:ff:ee:00:00:0e',
                          49: 'c0:ff:ee:00:00:0e'}
 
+    tl7_asic_flow_map = {0: 'c0:ff:ee:00:00:0d',  1: 'c0:ff:ee:00:00:0f',
+                         2: 'c0:ff:ee:00:00:0c',  3: 'c0:ff:ee:00:00:0e',
+                         4: 'c0:ff:ee:00:00:11',  5: 'c0:ff:ee:00:00:0b',
+                         6: 'c0:ff:ee:00:00:0b',  7: 'c0:ff:ee:00:00:0b',
+                         8: 'c0:ff:ee:00:00:0f',  9: 'c0:ff:ee:00:00:0d',
+                         10: 'c0:ff:ee:00:00:12', 11: 'c0:ff:ee:00:00:10',
+                         12: 'c0:ff:ee:00:00:0c', 13: 'c0:ff:ee:00:00:12',
+                         14: 'c0:ff:ee:00:00:12', 15: 'c0:ff:ee:00:00:0f',
+                         16: 'c0:ff:ee:00:00:0c', 17: 'c0:ff:ee:00:00:12',
+                         18: 'c0:ff:ee:00:00:0d', 19: 'c0:ff:ee:00:00:0b',
+                         20: 'c0:ff:ee:00:00:10', 21: 'c0:ff:ee:00:00:0e',
+                         22: 'c0:ff:ee:00:00:0f', 23: 'c0:ff:ee:00:00:0c',
+                         24: 'c0:ff:ee:00:00:0d', 25: 'c0:ff:ee:00:00:0f',
+                         26: 'c0:ff:ee:00:00:0c', 27: 'c0:ff:ee:00:00:0e',
+                         28: 'c0:ff:ee:00:00:0c', 29: 'c0:ff:ee:00:00:12',
+                         30: 'c0:ff:ee:00:00:12', 31: 'c0:ff:ee:00:00:0f',
+                         32: 'c0:ff:ee:00:00:0c', 33: 'c0:ff:ee:00:00:12',
+                         34: 'c0:ff:ee:00:00:0d', 35: 'c0:ff:ee:00:00:0b',
+                         36: 'c0:ff:ee:00:00:10', 37: 'c0:ff:ee:00:00:0e',
+                         38: 'c0:ff:ee:00:00:11', 39: 'c0:ff:ee:00:00:10',
+                         40: 'c0:ff:ee:00:00:12', 41: 'c0:ff:ee:00:00:0c',
+                         42: 'c0:ff:ee:00:00:0f', 43: 'c0:ff:ee:00:00:11',
+                         44: 'c0:ff:ee:00:00:0f', 45: 'c0:ff:ee:00:00:0d',
+                         46: 'c0:ff:ee:00:00:0d', 47: 'c0:ff:ee:00:00:0c',
+                         48: 'c0:ff:ee:00:00:0f', 49: 'c0:ff:ee:00:00:0d'}
+
     # Make sure a given flow always hash to same nexthop/neighbor. This is done to try to find issue
     # where SAI vendor changes Hash Function across SAI releases. Please note this will not catch the issue every time
     # as there is always probability even after change of Hash Function same nexthop/neighbor is selected.
@@ -846,7 +872,8 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
                                               "gr": gr_asic_flow_map, "spc1": spc_asic_flow_map,
                                               "spc2": spc_asic_flow_map, "spc3": spc_asic_flow_map,
                                               "spc4": spc_asic_flow_map, "spc5": spc_asic_flow_map,
-                                              "spc6": spc_asic_flow_map, "gr2": gr2_asic_flow_map}
+                                              "spc6": spc_asic_flow_map, "gr2": gr2_asic_flow_map,
+                                              "tl7": tl7_asic_flow_map}
 
     vendor = duthost.facts["asic_type"]
     hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
