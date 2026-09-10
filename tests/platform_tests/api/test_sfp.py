@@ -19,7 +19,7 @@ from tests.common.platform.transceiver_utils import is_sw_control_enabled, \
     get_port_expected_error_state_for_mellanox_device_on_sw_control_enabled
 from tests.common.mellanox_data import is_mellanox_device
 from collections import defaultdict
-from tests.platform_tests.mellanox.conftest import is_sw_control_feature_enabled  # noqa: F401
+from tests.platform_tests.mellanox.conftest import is_sw_control_feature_enabled
 
 from .platform_api_test_base import PlatformApiTestBase
 
@@ -826,13 +826,13 @@ class TestSfpApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_tx_disable(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
-                        platform_api_conn, is_sw_control_feature_enabled):    # noqa: F811
+                        platform_api_conn):    # noqa: F811
         """This function tests both the get_tx_disable() and tx_disable() APIs"""
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
         if is_mellanox_device(duthost):
             port_indices_to_tested = self.get_port_indices_to_tested_for_mellanox_device(
-                duthost, is_sw_control_feature_enabled)
+                duthost, is_sw_control_feature_enabled(duthost))
         else:
             port_indices_to_tested = self.sfp_setup["sfp_test_port_indices"]
 
@@ -859,13 +859,13 @@ class TestSfpApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_tx_disable_channel(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
-                                platform_api_conn, is_sw_control_feature_enabled):     # noqa: F811
+                                platform_api_conn):     # noqa: F811
         """This function tests both the get_tx_disable_channel() and tx_disable_channel() APIs"""
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx", "nokia"])
         if is_mellanox_device(duthost):
             port_indices_to_tested = self.get_port_indices_to_tested_for_mellanox_device(
-                duthost, is_sw_control_feature_enabled)
+                duthost, is_sw_control_feature_enabled(duthost))
         else:
             port_indices_to_tested = self.sfp_setup["sfp_test_port_indices"]
 
@@ -960,13 +960,13 @@ class TestSfpApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_power_override(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
-                            platform_api_conn, is_sw_control_feature_enabled):    # noqa: F811
+                            platform_api_conn):    # noqa: F811
         """This function tests both the get_power_override() and set_power_override() APIs"""
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx", "nokia"])
         if is_mellanox_device(duthost):
             port_indices_to_tested = self.get_port_indices_to_tested_for_mellanox_device(
-                duthost, is_sw_control_feature_enabled)
+                duthost, is_sw_control_feature_enabled(duthost))
         else:
             port_indices_to_tested = self.sfp_setup["sfp_test_port_indices"]
 
