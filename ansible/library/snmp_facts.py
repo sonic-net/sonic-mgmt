@@ -115,6 +115,11 @@ options:
         description:
             - Encryption key, required if version is authPriv
         required: false
+    collect_only:
+        description:
+            - Restrict collection to the given fact groups, for example ['fdb'].
+              All groups are collected when not set. Requires pysnmp v5+.
+        required: false
 '''
 
 EXAMPLES = '''
@@ -413,6 +418,9 @@ def main_legacy(module):
     m_args = module.params
 
     cmdGen = cmdgen.CommandGenerator()
+
+    if m_args['collect_only']:
+        module.fail_json(msg='collect_only requires pysnmp v5+')
 
     # Verify that we receive a community when using snmp v2
     if m_args['version'] == "v2" or m_args['version'] == "v2c":
@@ -1872,6 +1880,14 @@ class SnmpFactsCollector:
     async def collect_all(self):
         if self.transport is None:
             raise Exception("Transport not initialized. Call setup() first.")
+        collect_only = self.m_args['collect_only']
+        if collect_only:
+            for name in collect_only:
+                if not hasattr(self, f'_collect_{name}'):
+                    self.module.fail_json(msg=f"Unknown collect_only value: {name}")
+            await asyncio.gather(*[getattr(self, f'_collect_{name}')() for name in collect_only])
+            return
+
         await asyncio.gather(
             self._collect_system(),
             self._collect_interfaces(),
@@ -1921,6 +1937,7 @@ if __name__ == "__main__":
             is_dell=dict(required=False, default=False, type='bool'),
             is_eos=dict(required=False, default=False, type='bool'),
             include_swap=dict(required=False, default=False, type='bool'),
+            collect_only=dict(required=False, default=None, type='list'),
             removeplaceholder=dict(required=False)
         ),
         required_together=(

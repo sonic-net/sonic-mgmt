@@ -92,17 +92,17 @@ def is_port_channel_up(duthost, config_portchannels):
     return True
 
 
-def check_snmp_facts(duthost, localhost, hostip, creds_all_duts, config_portchannels, send_cnt, send_portchannels_cnt):
+def check_snmp_facts(duthost, localhost, host_ip, creds_all_duts, snmp_interfaces, config_portchannels,
+                     send_cnt, send_portchannels_cnt):
     dummy_mac_cnt = 0
     recv_portchannels_cnt = 0
+    # Collect the FDB table only.
     snmp_facts = get_snmp_facts(
-        duthost, localhost, host=hostip, version="v2c",
-        community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
+        duthost, localhost, host=host_ip, version="v2c",
+        community=creds_all_duts[duthost.hostname]["snmp_rocommunity"],
+        collect_only=['fdb'])['ansible_facts']
     if 'snmp_fdb' not in snmp_facts:
         logger.info("'snmp_fdb' not in snmp_facts")
-        return False
-    if 'snmp_interfaces' not in snmp_facts:
-        logger.info("'snmp_interfaces' not in snmp_facts")
         return False
     for key in snmp_facts['snmp_fdb']:
         # key is string: vlan.mac
@@ -112,13 +112,13 @@ def check_snmp_facts(duthost, localhost, hostip, creds_all_duts, config_portchan
         if DUMMY_MAC_PREFIX in items[1]:
             dummy_mac_cnt += 1
             idx = str(snmp_facts['snmp_fdb'][key])
-            if idx not in snmp_facts['snmp_interfaces']:
-                logger.info(f"{idx} not in snmp_facts['snmp_interfaces']")
+            if idx not in snmp_interfaces:
+                logger.info(f"{idx} not in snmp_interfaces")
                 return False
-            if 'name' not in snmp_facts['snmp_interfaces'][idx]:
-                logger.info(f"'name' not in snmp_facts['snmp_interfaces'][{idx}]")
+            if 'name' not in snmp_interfaces[idx]:
+                logger.info(f"'name' not in snmp_interfaces[{idx}]")
                 return False
-            if snmp_facts['snmp_interfaces'][idx]['name'] in config_portchannels:
+            if snmp_interfaces[idx]['name'] in config_portchannels:
                 recv_portchannels_cnt += 1
     if send_cnt != dummy_mac_cnt:
         logger.info("Dummy MAC count does not match")
@@ -144,6 +144,15 @@ def test_snmp_fdb_send_tagged(ptfadapter, duthosts, rand_one_dut_hostname,      
         'ansible_facts']
     config_portchannels = cfg_facts.get('PORTCHANNEL', {})
     assert wait_until(60, 2, 0, is_port_channel_up, duthost, config_portchannels), "Portchannel is not up"
+
+    host_ip = duthost.mgmt_ip
+    # The ifIndex to name mapping does not change while the FDB is polled, so collect it once.
+    snmp_interfaces = get_snmp_facts(
+        duthost, localhost, host=host_ip, version="v2c",
+        community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True,
+        collect_only=['interfaces'])['ansible_facts'].get('snmp_interfaces')
+    pytest_assert(snmp_interfaces, "'snmp_interfaces' not in snmp_facts")
+
     send_cnt = 0
     send_portchannels_cnt = 0
     vlan_ports_list = running_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, ports_list)
@@ -173,8 +182,5 @@ def test_snmp_fdb_send_tagged(ptfadapter, duthosts, rand_one_dut_hostname,      
         "The dummy MACs are not fully populated."
     )
 
-    hostip = duthost.host.options['inventory_manager'].get_host(
-        duthost.hostname).vars['ansible_host']
-
-    assert wait_until(90, 5, 0, check_snmp_facts, duthost, localhost, hostip, creds_all_duts,
+    assert wait_until(100, 5, 0, check_snmp_facts, duthost, localhost, host_ip, creds_all_duts, snmp_interfaces,
                       config_portchannels, send_cnt, send_portchannels_cnt), "SNMP facts validation failure"
