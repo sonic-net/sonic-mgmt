@@ -24,8 +24,6 @@ budgets) and ``poll_ports_recovered`` (the verifier recovery-poll loop).
 import logging
 import time
 
-import pytest
-
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.dut_utils import get_program_info
@@ -89,14 +87,8 @@ def _get_service_containers(duthost, service):
 def _wait_until_deadline(deadline, interval, condition):
     """Poll ``condition`` without sleeping past a monotonic deadline."""
     while time.monotonic() < deadline:
-        try:
-            if condition():
-                return time.monotonic() <= deadline
-        except (Exception, pytest.fail.Exception):
-            logger.exception(
-                "Error while polling %s",
-                getattr(condition, "__name__", type(condition).__name__),
-            )
+        if condition():
+            return time.monotonic() <= deadline
         remaining_sec = deadline - time.monotonic()
         if remaining_sec > 0:
             time.sleep(min(interval, remaining_sec))
