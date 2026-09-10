@@ -960,12 +960,17 @@ class TestSfpApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_power_override(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
-                            platform_api_conn):    # noqa: F811
+                            platform_api_conn, is_sw_control_feature_enabled):    # noqa: F811
         """This function tests both the get_power_override() and set_power_override() APIs"""
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx", "nokia"])
+        if is_mellanox_device(duthost):
+            port_indices_to_tested = self.get_port_indices_to_tested_for_mellanox_device(
+                duthost, is_sw_control_feature_enabled)
+        else:
+            port_indices_to_tested = self.sfp_setup["sfp_test_port_indices"]
 
-        for i in self.sfp_setup["sfp_test_port_indices"]:
+        for i in port_indices_to_tested:
             info_dict = sfp.get_transceiver_info(platform_api_conn, i)
             if not self.expect(info_dict is not None, "Unable to retrieve transceiver {} info".format(i)):
                 continue
