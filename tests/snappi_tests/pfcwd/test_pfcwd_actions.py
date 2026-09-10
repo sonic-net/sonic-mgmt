@@ -5,7 +5,7 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_grap
     fanout_graph_facts                                                                              # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
     snappi_api, snappi_multi_base_config, cleanup_config, get_snappi_ports_for_rdma, \
-    get_snappi_ports, get_snappi_ports_multi_dut, clear_fabric_counters, check_fabric_counters, \
+    get_snappi_ports, get_snappi_ports_multi_dut, get_fabric_counter_scope, \
     get_snappi_ports_single_dut, tgen_port_info, snappi_port_selection                               # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_list, \
     lossy_prio_list, all_prio_list                                                                  # noqa: F401
@@ -188,8 +188,7 @@ def test_pfcwd_drop_90_10(snappi_api,                  # noqa: F811
 
     dut_list = list(set([snappi_ports[0]['duthost'], snappi_ports[-1]['duthost']]))
 
-    for dut in duthosts:
-        clear_fabric_counters(dut)
+    get_fabric_counter_scope(duthosts).clear()
 
     bef_pfcwd_stats = log_pfcwd_stats(test_prio_list, snappi_ports, dut_list, when='start',
                                       egress_count=port_map[0])
@@ -213,8 +212,7 @@ def test_pfcwd_drop_90_10(snappi_api,                  # noqa: F811
                                           egress_count=port_map[0])
         verify_pfcwd_storm_increment(bef_pfcwd_stats, aft_pfcwd_stats)
 
-        for dut in duthosts:
-            check_fabric_counters(dut)
+        get_fabric_counter_scope(duthosts).check()
     finally:
         cleanup_config(dut_list, snappi_ports)
 
@@ -291,8 +289,7 @@ def test_pfcwd_drop_uni(snappi_api,                  # noqa: F811
 
     dut_list = list(set([snappi_ports[0]['duthost'], snappi_ports[-1]['duthost']]))
 
-    for dut in duthosts:
-        clear_fabric_counters(dut)
+    get_fabric_counter_scope(duthosts).clear()
 
     bef_pfcwd_stats = log_pfcwd_stats(test_prio_list, snappi_ports, dut_list, when='start',
                                       egress_count=port_map[0])
@@ -316,8 +313,7 @@ def test_pfcwd_drop_uni(snappi_api,                  # noqa: F811
                                           egress_count=port_map[0])
         verify_pfcwd_storm_increment(bef_pfcwd_stats, aft_pfcwd_stats)
 
-        for dut in duthosts:
-            check_fabric_counters(dut)
+        get_fabric_counter_scope(duthosts).check()
     finally:
         cleanup_config(dut_list, snappi_ports)
 
@@ -397,8 +393,7 @@ def test_pfcwd_frwd_90_10(snappi_api,                  # noqa: F811
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
     dut_list = list(set([snappi_ports[0]['duthost'], snappi_ports[-1]['duthost']]))
 
-    for dut in duthosts:
-        clear_fabric_counters(dut)
+    get_fabric_counter_scope(duthosts).clear()
 
     bef_pfcwd_stats = log_pfcwd_stats(test_prio_list, snappi_ports, dut_list, when='start',
                                       egress_count=port_map[0])
@@ -422,8 +417,7 @@ def test_pfcwd_frwd_90_10(snappi_api,                  # noqa: F811
                                           egress_count=port_map[0])
         verify_pfcwd_storm_increment(bef_pfcwd_stats, aft_pfcwd_stats)
 
-        for dut in duthosts:
-            check_fabric_counters(dut)
+        get_fabric_counter_scope(duthosts).check()
     finally:
         cleanup_config(dut_list, snappi_ports)
 
@@ -505,8 +499,7 @@ def test_pfcwd_drop_over_subs_40_09(snappi_api,                  # noqa: F811
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
     dut_list = list(set([snappi_ports[0]['duthost'], snappi_ports[-1]['duthost']]))
 
-    for dut in duthosts:
-        clear_fabric_counters(dut)
+    get_fabric_counter_scope(duthosts).clear()
 
     bef_pfcwd_stats = log_pfcwd_stats(test_prio_list, snappi_ports, dut_list, when='start',
                                       egress_count=port_map[0])
@@ -530,8 +523,7 @@ def test_pfcwd_drop_over_subs_40_09(snappi_api,                  # noqa: F811
                                           egress_count=port_map[0])
         verify_pfcwd_storm_increment(bef_pfcwd_stats, aft_pfcwd_stats)
 
-        for dut in duthosts:
-            check_fabric_counters(dut)
+        get_fabric_counter_scope(duthosts).check()
     finally:
         cleanup_config(dut_list, snappi_ports)
 
@@ -615,8 +607,7 @@ def test_pfcwd_frwd_over_subs_40_09(snappi_api,                  # noqa: F811
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
     dut_list = list(set([snappi_ports[0]['duthost'], snappi_ports[-1]['duthost']]))
 
-    for dut in duthosts:
-        clear_fabric_counters(dut)
+    get_fabric_counter_scope(duthosts).clear()
 
     bef_pfcwd_stats = log_pfcwd_stats(test_prio_list, snappi_ports, dut_list, when='start',
                                       egress_count=port_map[0])
@@ -639,8 +630,7 @@ def test_pfcwd_frwd_over_subs_40_09(snappi_api,                  # noqa: F811
         aft_pfcwd_stats = log_pfcwd_stats(test_prio_list, snappi_ports, dut_list, when='end',
                                           egress_count=port_map[0])
         verify_pfcwd_storm_increment(bef_pfcwd_stats, aft_pfcwd_stats)
-        for dut in duthosts:
-            check_fabric_counters(dut)
+        get_fabric_counter_scope(duthosts).check()
     finally:
         cleanup_config(dut_list, snappi_ports)
 
@@ -728,8 +718,8 @@ def test_pfcwd_disable_pause_cngtn(snappi_api,                  # noqa: F811
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
     dut_list = list(set([snappi_ports[0]['duthost'], snappi_ports[-1]['duthost']]))
 
+    get_fabric_counter_scope(duthosts).clear()
     for dut in duthosts:
-        clear_fabric_counters(dut)
         if dut.facts.get('asic_type') == "cisco-8000":
             modify_voq_watchdog_cisco_8000(dut, False)
 
@@ -748,7 +738,6 @@ def test_pfcwd_disable_pause_cngtn(snappi_api,                  # noqa: F811
                        test_def=test_def,
                        snappi_extra_params=snappi_extra_params)
 
-        for dut in duthosts:
-            check_fabric_counters(dut)
+        get_fabric_counter_scope(duthosts).check()
     finally:
         cleanup_config(dut_list, snappi_ports)
