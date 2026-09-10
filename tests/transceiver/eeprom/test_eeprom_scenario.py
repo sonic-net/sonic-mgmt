@@ -291,7 +291,7 @@ def test_eeprom_recovery_after_daemon_restart(
         "before {} restart".format(daemon),
     )
 
-    affected_processes = set(scenario_ops.DAEMON_RESTART_PROCESSES[daemon])
+    affected_processes = set(scenario_ops.DAEMON_READY_PROCESSES[daemon])
     if daemon in ("swss", "syncd") and _system_attribute(
         port_attributes_dict, "expect_xcvrd_restart_with_swss_or_syncd"
     ):

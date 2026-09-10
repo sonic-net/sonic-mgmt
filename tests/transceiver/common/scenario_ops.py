@@ -30,14 +30,13 @@ from tests.common.helpers.dut_utils import get_program_info
 from tests.common.platform.interface_utils import wait_ports_oper_status
 from tests.common.platform.processes_utils import get_docker_started_at
 from tests.common.reboot import reboot
-from tests.common.utilities import wait_until
 from tests.transceiver.common import cli_helpers
 from tests.transceiver.common.health_checks import DEFAULT_MONITORED_PROCESSES
 
 logger = logging.getLogger(__name__)
 
-# Processes expected to restart for each supported daemon operation.
-DAEMON_RESTART_PROCESSES = {
+# Processes that must be RUNNING after each supported daemon operation.
+DAEMON_READY_PROCESSES = {
     "xcvrd": ("xcvrd",),
     "pmon": ("xcvrd",),
     "swss": ("syncd", "orchagent"),
@@ -60,6 +59,29 @@ def _parse_supervisor_uptime_seconds(uptime):
         days = int(day_part.split()[0])
     hours, minutes, seconds = (int(part) for part in uptime.split(":"))
     return ((days * 24 + hours) * 60 + minutes) * 60 + seconds
+
+
+def _get_process_start_time_range(duthost, container, process):
+    """Estimate process start-time bounds from whole-second supervisor uptime."""
+    query_started_at = time.monotonic()
+    status, _pid, uptime = get_program_info(
+        duthost, container, process, include_uptime=True
+    )
+    query_finished_at = time.monotonic()
+    if status != "RUNNING" or not uptime:
+        return status, uptime, None
+    uptime_seconds = _parse_supervisor_uptime_seconds(uptime)
+    return status, uptime, (
+        query_started_at - uptime_seconds - 1,
+        query_finished_at - uptime_seconds,
+    )
+
+
+def _get_service_containers(duthost, service):
+    """Return the host-level or per-ASIC container names for ``service``."""
+    if service in duthost.get_default_critical_services_list():
+        return (service,)
+    return tuple(asic.get_docker_name(service) for asic in duthost.asics)
 
 
 def _wait_until_deadline(deadline, interval, condition):
@@ -112,6 +134,7 @@ def poll_ports_recovered(check_fn, wait_sec, interval_sec, label):
     Returns:
         list[str]: the final per-port failures, or ``[]`` once all recover.
     """
+    deadline = time.monotonic() + wait_sec
     failures = check_fn()
     if not failures or wait_sec <= 0:
         return failures
@@ -126,7 +149,7 @@ def poll_ports_recovered(check_fn, wait_sec, interval_sec, label):
         state["last_count"] = count
         return not state["latest"]
 
-    if not wait_until(wait_sec, interval_sec, 0, _recovered):
+    if not _wait_until_deadline(deadline, interval_sec, _recovered):
         return state["latest"]
     return []
 
@@ -191,14 +214,21 @@ def perform_daemon_restart(duthost, daemon, settle_sec, affected_processes=None)
             polling.
     """
     if affected_processes is None:
-        affected_processes = DAEMON_RESTART_PROCESSES[daemon]
+        affected_processes = DAEMON_READY_PROCESSES[daemon]
     affected_process_containers = tuple(
-        (process, DEFAULT_MONITORED_PROCESSES[process])
+        (process, container)
         for process in affected_processes
+        for container in _get_service_containers(
+            duthost, DEFAULT_MONITORED_PROCESSES[process]
+        )
     )
-    directly_restarted_containers = DAEMON_RESTART_CONTAINERS[daemon]
+    directly_restarted_containers = tuple(
+        container
+        for service in DAEMON_RESTART_CONTAINERS[daemon]
+        for container in _get_service_containers(duthost, service)
+    )
     indirectly_restarted_processes = (
-        set(affected_processes) - set(DAEMON_RESTART_PROCESSES[daemon])
+        set(affected_processes) - set(DAEMON_READY_PROCESSES[daemon])
     )
     baseline_container_start_times = {
         container: get_docker_started_at(duthost, container)
@@ -209,18 +239,18 @@ def perform_daemon_restart(duthost, daemon, settle_sec, affected_processes=None)
         "Could not capture container start times before {} restart: {}"
         .format(daemon, baseline_container_start_times),
     )
-    baseline_process_uptime_seconds = {}
+    baseline_process_latest_started_at = {}
     for process in indirectly_restarted_processes:
         container = DEFAULT_MONITORED_PROCESSES[process]
-        status, _pid, uptime = get_program_info(
-            duthost, container, process, include_uptime=True
+        status, uptime, start_time_range = _get_process_start_time_range(
+            duthost, container, process
         )
         pytest_assert(
-            status == "RUNNING" and uptime,
+            start_time_range is not None,
             "Could not capture {} uptime before {} restart: status={}, uptime={}"
             .format(process, daemon, status, uptime),
         )
-        baseline_process_uptime_seconds[process] = _parse_supervisor_uptime_seconds(uptime)
+        baseline_process_latest_started_at[process] = start_time_range[1]
     if daemon == "xcvrd":
         logger.info("Restarting xcvrd inside pmon for transceiver scenario")
         duthost.command("docker exec pmon supervisorctl restart xcvrd")
@@ -236,21 +266,23 @@ def perform_daemon_restart(duthost, daemon, settle_sec, affected_processes=None)
     def _processes_restarted():
         last_process_states.clear()
         for process, container in affected_process_containers:
-            last_process_states[process] = get_program_info(duthost, container, process)
+            last_process_states["{}@{}".format(process, container)] = get_program_info(
+                duthost, container, process
+            )
         if not all(status == "RUNNING" for status, _pid in last_process_states.values()):
             return False
         last_process_uptime_seconds.clear()
         for process in indirectly_restarted_processes:
             container = DEFAULT_MONITORED_PROCESSES[process]
-            _status, _pid, uptime = get_program_info(
-                duthost, container, process, include_uptime=True
+            _status, uptime, start_time_range = _get_process_start_time_range(
+                duthost, container, process
             )
             last_process_uptime_seconds[process] = (
                 _parse_supervisor_uptime_seconds(uptime) if uptime else None
             )
-            if (last_process_uptime_seconds[process] is None
-                    or last_process_uptime_seconds[process]
-                    >= baseline_process_uptime_seconds[process]):
+            if (start_time_range is None
+                    or start_time_range[0]
+                    <= baseline_process_latest_started_at[process]):
                 return False
         if daemon == "xcvrd":
             return True
