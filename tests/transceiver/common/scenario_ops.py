@@ -46,11 +46,10 @@ DAEMON_RESTART_PROCESSES = {
 DAEMON_RESTART_CONTAINERS = {
     "xcvrd": (),
     "pmon": ("pmon",),
-    "swss": ("swss",),
+    "swss": ("swss", "syncd"),
     "syncd": ("syncd",),
 }
 DAEMON_RESTART_POLL_INTERVAL_SEC = 5
-SUPERVISOR_UPTIME_PRECISION_SEC = 1
 
 
 def _parse_supervisor_uptime_seconds(uptime):
@@ -61,6 +60,17 @@ def _parse_supervisor_uptime_seconds(uptime):
         days = int(day_part.split()[0])
     hours, minutes, seconds = (int(part) for part in uptime.split(":"))
     return ((days * 24 + hours) * 60 + minutes) * 60 + seconds
+
+
+def _wait_until_deadline(deadline, interval, condition):
+    """Poll ``condition`` without sleeping past a monotonic deadline."""
+    while time.monotonic() < deadline:
+        if condition():
+            return time.monotonic() <= deadline
+        remaining_sec = deadline - time.monotonic()
+        if remaining_sec > 0:
+            time.sleep(min(interval, remaining_sec))
+    return False
 
 
 # Base port count for scaling a *per-port* settle wait up to a *bulk*
@@ -199,9 +209,7 @@ def perform_daemon_restart(duthost, daemon, settle_sec, affected_processes=None)
         "Could not capture container start times before {} restart: {}"
         .format(daemon, baseline_container_start_times),
     )
-    # Supervisor reports whole-second uptime, so compare conservative bounds
-    # for the possible process start times instead of point estimates.
-    baseline_process_latest_started_at = {}
+    baseline_process_uptime_seconds = {}
     for process in indirectly_restarted_processes:
         container = DEFAULT_MONITORED_PROCESSES[process]
         status, _pid, uptime = get_program_info(
@@ -212,9 +220,7 @@ def perform_daemon_restart(duthost, daemon, settle_sec, affected_processes=None)
             "Could not capture {} uptime before {} restart: status={}, uptime={}"
             .format(process, daemon, status, uptime),
         )
-        baseline_process_latest_started_at[process] = (
-            time.monotonic() - _parse_supervisor_uptime_seconds(uptime)
-        )
+        baseline_process_uptime_seconds[process] = _parse_supervisor_uptime_seconds(uptime)
     if daemon == "xcvrd":
         logger.info("Restarting xcvrd inside pmon for transceiver scenario")
         duthost.command("docker exec pmon supervisorctl restart xcvrd")
@@ -236,21 +242,15 @@ def perform_daemon_restart(duthost, daemon, settle_sec, affected_processes=None)
         last_process_uptime_seconds.clear()
         for process in indirectly_restarted_processes:
             container = DEFAULT_MONITORED_PROCESSES[process]
-            uptime_query_started_at = time.monotonic()
             _status, _pid, uptime = get_program_info(
                 duthost, container, process, include_uptime=True
             )
             last_process_uptime_seconds[process] = (
                 _parse_supervisor_uptime_seconds(uptime) if uptime else None
             )
-            process_earliest_started_at = (
-                uptime_query_started_at - last_process_uptime_seconds[process]
-                - SUPERVISOR_UPTIME_PRECISION_SEC
-                if last_process_uptime_seconds[process] is not None else None
-            )
             if (last_process_uptime_seconds[process] is None
-                    or process_earliest_started_at
-                    <= baseline_process_latest_started_at[process]):
+                    or last_process_uptime_seconds[process]
+                    >= baseline_process_uptime_seconds[process]):
                 return False
         if daemon == "xcvrd":
             return True
@@ -264,7 +264,9 @@ def perform_daemon_restart(duthost, daemon, settle_sec, affected_processes=None)
         )
 
     pytest_assert(
-        wait_until(settle_sec, DAEMON_RESTART_POLL_INTERVAL_SEC, 0, _processes_restarted),
+        _wait_until_deadline(
+            settle_deadline, DAEMON_RESTART_POLL_INTERVAL_SEC, _processes_restarted
+        ),
         "Processes did not complete restart after {} restart: processes={}, "
         "process_uptimes={}, containers={}"
         .format(daemon, last_process_states, last_process_uptime_seconds,
