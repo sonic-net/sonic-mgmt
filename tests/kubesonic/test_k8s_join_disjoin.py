@@ -35,7 +35,13 @@ VMHOST_PARAM_DEFAULT = None
 DUT_CERT_DIR = "/etc/sonic/credentials"
 DUT_CERT_BAK = f"{DUT_CERT_DIR}.bak"
 DUT_HOSTS_FILE = "/etc/hosts"
+# Fallback only. Prefer resolving the pause image actually present on the DUT
+# via get_dut_pause_image(): on internal builds the image is preloaded under
+# the DEFAULT_CONTAINER_REGISTRY name (e.g. publicmirror.azurecr.io/pause:3.5),
+# not under this deprecated k8s.gcr.io name, so hardcoding this would force a
+# runtime pull from the frozen k8s.gcr.io registry and fail (ImagePullBackOff).
 DUT_PAUSE_IMAGE = "k8s.gcr.io/pause:3.5"
+DUT_KUBEADM_FLAGS_FILE = "/var/lib/kubelet/kubeadm-flags.env"
 
 
 def check_dut_k8s_version_supported(duthost):
@@ -233,7 +239,34 @@ def restore_node_ip_param(duthost):
     logger.info("Kubelet config node ip param restore completed")
 
 
-def deploy_test_daemonset(vmhost):
+def get_dut_pause_image(duthost):
+    """Resolve the pause/sandbox image that is actually present on the DUT.
+
+    kubelet's configured --pod-infra-container-image reflects the image name
+    that was preloaded into the SONiC image. On internal builds this is the
+    DEFAULT_CONTAINER_REGISTRY name (e.g. publicmirror.azurecr.io/pause:3.5);
+    on community builds it is k8s.gcr.io/pause:3.5. Using this value keeps the
+    test daemonset from requesting an image name that cannot be resolved
+    locally (which would trigger a doomed pull from the frozen k8s.gcr.io).
+    Falls back to DUT_PAUSE_IMAGE if the flag cannot be read.
+    """
+    result = duthost.shell(
+        "grep -o -- '--pod-infra-container-image=[^ \"]*' "
+        f"{DUT_KUBEADM_FLAGS_FILE} | head -n1 | cut -d= -f2",
+        module_ignore_errors=True,
+    )
+    pause_image = result["stdout"].strip() if result["rc"] == 0 else ""
+    if not pause_image:
+        logger.warning(
+            f"Could not resolve pause image from {DUT_KUBEADM_FLAGS_FILE}, "
+            f"falling back to {DUT_PAUSE_IMAGE}"
+        )
+        pause_image = DUT_PAUSE_IMAGE
+    logger.info(f"Using pause image for test daemonset: {pause_image}")
+    return pause_image
+
+
+def deploy_test_daemonset(vmhost, pause_image):
     logger.info("Start to deploy daemonset and check the status")
     daemonset_yaml = "/tmp/daemonset.yaml"
     daemonset_content = f'''
@@ -254,8 +287,9 @@ spec:
         {DAEMONSET_NODE_LABEL}: "true"
       hostNetwork: true
       containers:
-      - image: {DUT_PAUSE_IMAGE}
+      - image: {pause_image}
         name: {DAEMONSET_CONTAINER_NAME}
+        imagePullPolicy: IfNotPresent
     '''
 
     vmhost.shell(f"echo -n '{daemonset_content}' > {daemonset_yaml}")
@@ -368,7 +402,8 @@ def setup_and_teardown(duthost, vmhost, creds):
     update_kubelet_config(vmhost, creds)
 
     # Deploy test daemonset
-    deploy_test_daemonset(vmhost)
+    pause_image = get_dut_pause_image(duthost)
+    deploy_test_daemonset(vmhost, pause_image)
 
     # Check k8s state db
     check_k8s_state_db(duthost)
