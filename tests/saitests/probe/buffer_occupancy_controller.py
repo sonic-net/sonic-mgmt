@@ -148,7 +148,7 @@ class BufferOccupancyController:
         count: int = 1,
         auto_restore: bool = True,
         **traffic_keys
-    ) -> None:
+    ) -> str:
         """
         Send traffic from src_port to dst_port with automatic buffer restoration.
 
@@ -181,6 +181,8 @@ class BufferOccupancyController:
         if self.is_buffer_held(dst_port_id):
             key = (src_port_id, dst_port_id, frozenset(traffic_keys.items()))
             self._actual_cached_packets[key] = self._actual_cached_packets.get(key, 0) + count
+
+         return pkt
 
     def persist_buffer_occupancy(
         self,
