@@ -24,6 +24,8 @@ budgets) and ``poll_ports_recovered`` (the verifier recovery-poll loop).
 import logging
 import time
 
+import pytest
+
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.dut_utils import get_program_info
@@ -87,8 +89,11 @@ def _get_service_containers(duthost, service):
 def _wait_until_deadline(deadline, interval, condition):
     """Poll ``condition`` without sleeping past a monotonic deadline."""
     while time.monotonic() < deadline:
-        if condition():
-            return time.monotonic() <= deadline
+        try:
+            if condition():
+                return time.monotonic() <= deadline
+        except (Exception, pytest.fail.Exception):
+            logger.exception("Exception while polling condition")
         remaining_sec = deadline - time.monotonic()
         if remaining_sec > 0:
             time.sleep(min(interval, remaining_sec))
@@ -227,8 +232,10 @@ def perform_daemon_restart(duthost, daemon, settle_sec, affected_processes=None)
         for service in DAEMON_RESTART_CONTAINERS[daemon]
         for container in _get_service_containers(duthost, service)
     )
-    indirectly_restarted_processes = (
-        set(affected_processes) - set(DAEMON_READY_PROCESSES[daemon])
+    indirectly_restarted_process_containers = tuple(
+        (process, container)
+        for process, container in affected_process_containers
+        if container not in directly_restarted_containers
     )
     baseline_container_start_times = {
         container: get_docker_started_at(duthost, container)
@@ -240,17 +247,17 @@ def perform_daemon_restart(duthost, daemon, settle_sec, affected_processes=None)
         .format(daemon, baseline_container_start_times),
     )
     baseline_process_latest_started_at = {}
-    for process in indirectly_restarted_processes:
-        container = DEFAULT_MONITORED_PROCESSES[process]
+    for process, container in indirectly_restarted_process_containers:
         status, uptime, start_time_range = _get_process_start_time_range(
             duthost, container, process
         )
+        process_key = "{}@{}".format(process, container)
         pytest_assert(
             start_time_range is not None,
             "Could not capture {} uptime before {} restart: status={}, uptime={}"
-            .format(process, daemon, status, uptime),
+            .format(process_key, daemon, status, uptime),
         )
-        baseline_process_latest_started_at[process] = start_time_range[1]
+        baseline_process_latest_started_at[process_key] = start_time_range[1]
     if daemon == "xcvrd":
         logger.info("Restarting xcvrd inside pmon for transceiver scenario")
         duthost.command("docker exec pmon supervisorctl restart xcvrd")
@@ -272,18 +279,16 @@ def perform_daemon_restart(duthost, daemon, settle_sec, affected_processes=None)
         if not all(status == "RUNNING" for status, _pid in last_process_states.values()):
             return False
         last_process_uptimes.clear()
-        for process in indirectly_restarted_processes:
-            container = DEFAULT_MONITORED_PROCESSES[process]
+        for process, container in indirectly_restarted_process_containers:
             _status, uptime, start_time_range = _get_process_start_time_range(
                 duthost, container, process
             )
-            last_process_uptimes[process] = uptime
+            process_key = "{}@{}".format(process, container)
+            last_process_uptimes[process_key] = uptime
             if (start_time_range is None
                     or start_time_range[0]
-                    <= baseline_process_latest_started_at[process]):
+                    <= baseline_process_latest_started_at[process_key]):
                 return False
-        if daemon == "xcvrd":
-            return True
         last_container_start_times.clear()
         for container in directly_restarted_containers:
             last_container_start_times[container] = get_docker_started_at(duthost, container)
