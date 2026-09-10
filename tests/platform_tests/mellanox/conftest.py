@@ -37,6 +37,7 @@ def get_sw_control_ports(duthosts, rand_one_dut_hostname, conn_graph_facts):
     if is_sw_control_feature_enabled(duthost):
         sw_ports = get_ports_supporting_sc(duthost)
         return sw_ports
+    return []
 
 
 @pytest.fixture(scope="module")
