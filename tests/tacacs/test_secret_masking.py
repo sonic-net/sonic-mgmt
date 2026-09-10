@@ -215,6 +215,55 @@ def disable_accounting_after_test(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost.shell("sudo config aaa accounting default", module_ignore_errors=True)
 
 
+@pytest.fixture
+def restore_tacacs_passkey(duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds):
+    """Restore the original TACACS+ passkey after the test, even if it fails.
+
+    _assert_secret_masked raises via pytest_assert on failure, so any restore
+    code placed after the call in the test body would never run. Doing the
+    restore in fixture teardown guarantees it always runs.
+    """
+    yield
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    original_passkey = tacacs_creds.get(duthost.hostname, {}).get("tacacs_passkey", "")
+    if original_passkey:
+        duthost.shell("sudo config tacacs passkey {0}".format(original_passkey),
+                      module_ignore_errors=True)
+
+
+@pytest.fixture
+def restore_radius_passkey(duthosts, enum_rand_one_per_hwsku_hostname):
+    """Restore the default RADIUS passkey after the test, even if it fails."""
+    yield
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    duthost.shell("sudo config radius default passkey", module_ignore_errors=True)
+
+
+@pytest.fixture
+def cleanup_snmp_community_add(duthosts, enum_rand_one_per_hwsku_hostname):
+    """Remove the SNMP community added by the test, even if the test fails."""
+    yield
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    duthost.shell("sudo config snmp community del {0}".format(_SNMP_SECRET_ADD),
+                  module_ignore_errors=True)
+
+
+@pytest.fixture
+def cleanup_snmp_community_replace(duthosts, enum_rand_one_per_hwsku_hostname):
+    """Remove the SNMP community left behind by the replace test, even if it fails.
+
+    On success the community exists under _SNMP_SECRET_REPLACE_NEW; on failure
+    before the replace runs, it may still be under _SNMP_SECRET_REPLACE_OLD.
+    Clean up both names to be safe.
+    """
+    yield
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    duthost.shell("sudo config snmp community del {0}".format(_SNMP_SECRET_REPLACE_NEW),
+                  module_ignore_errors=True)
+    duthost.shell("sudo config snmp community del {0}".format(_SNMP_SECRET_REPLACE_OLD),
+                  module_ignore_errors=True)
+
+
 # ---------------------------------------------------------------------------
 # Tests — TACACS passkey
 # ---------------------------------------------------------------------------
@@ -231,6 +280,7 @@ def test_tacacs_passkey_secret_masked(
     ptfhost,
     check_tacacs,  # noqa: F811
     rw_user_client,
+    restore_tacacs_passkey,
 ):
     """'config tacacs passkey SECRET' must not leak SECRET in syslog accounting."""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -242,12 +292,6 @@ def test_tacacs_passkey_secret_masked(
         secret=_TACACS_SECRET,
         description="tacacs passkey",
     )
-
-    # Restore original passkey so subsequent tests are not broken.
-    original_passkey = tacacs_creds.get(duthost.hostname, {}).get("tacacs_passkey", "")
-    if original_passkey:
-        duthost.shell("sudo config tacacs passkey {0}".format(original_passkey),
-                      module_ignore_errors=True)
 
 
 # ---------------------------------------------------------------------------
@@ -266,6 +310,7 @@ def test_radius_passkey_secret_masked(
     ptfhost,
     check_tacacs,  # noqa: F811
     rw_user_client,
+    restore_radius_passkey,
 ):
     """'config radius passkey SECRET' must not leak SECRET in syslog accounting."""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -277,8 +322,6 @@ def test_radius_passkey_secret_masked(
         secret=_RADIUS_SECRET,
         description="radius passkey",
     )
-
-    duthost.shell("sudo config radius default passkey", module_ignore_errors=True)
 
 
 # ---------------------------------------------------------------------------
@@ -297,6 +340,7 @@ def test_snmp_community_add_secret_masked(
     ptfhost,
     check_tacacs,  # noqa: F811
     rw_user_client,
+    cleanup_snmp_community_add,
 ):
     """'config snmp community add SECRET RO' must not leak SECRET in syslog accounting."""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -308,9 +352,6 @@ def test_snmp_community_add_secret_masked(
         secret=_SNMP_SECRET_ADD,
         description="snmp community add",
     )
-
-    duthost.shell("sudo config snmp community del {0}".format(_SNMP_SECRET_ADD),
-                  module_ignore_errors=True)
 
 
 # ---------------------------------------------------------------------------
@@ -344,6 +385,11 @@ def test_snmp_community_del_secret_masked(
         description="snmp community del",
     )
 
+    # If the del command itself failed to run (e.g. earlier assertion raised
+    # before it got here), make sure we don't leave the community behind.
+    duthost.shell("sudo config snmp community del {0}".format(_SNMP_SECRET_DEL),
+                  module_ignore_errors=True)
+
 
 # ---------------------------------------------------------------------------
 # Tests — SNMP community replace (two-secret case)
@@ -361,6 +407,7 @@ def test_snmp_community_replace_both_secrets_masked(
     ptfhost,
     check_tacacs,  # noqa: F811
     rw_user_client,
+    cleanup_snmp_community_replace,
 ):
     """
     'config snmp community replace OLD NEW' must not leak EITHER secret in syslog accounting.
@@ -410,6 +457,3 @@ def test_snmp_community_replace_both_secrets_masked(
     masked = [r for r in logs if re.search(r"\*{3,}", r)]
     pytest_assert(len(masked) > 0,
                   "snmp community replace: no masked ('***+') form found: {}".format(logs))
-
-    duthost.shell("sudo config snmp community del {0}".format(_SNMP_SECRET_REPLACE_NEW),
-                  module_ignore_errors=True)
