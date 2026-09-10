@@ -146,12 +146,18 @@ class TestWatchdogApi(PlatformApiTestBase):
             self.expect(remaining_time is -1,
                         "Watchdog remaining_time {} seconds is wrong for disarmed state".format(remaining_time))
 
-        is_dpu = duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_dpu")
-        ansible_ssh_port = get_ansible_ssh_port(duthost, ansible_adhoc) if is_dpu else 22
-        res = localhost.wait_for(host=duthost.mgmt_ip, port=ansible_ssh_port, state="stopped", delay=5,
-                                 timeout=watchdog_timeout + TIMEOUT_DEVIATION, module_ignore_errors=True)
+        # The reboot-based teardown below stops petting and waits for the DUT to
+        # reboot when the watchdog expires.  On a BMC the hw-watchdog-mgrd daemon
+        # owns /dev/watchdog0 and keeps petting it independently of the platform
+        # API disarm, so the box never reboots here; watchdogutil arm/disarm/status
+        # behaviour is covered by test_bmc_watchdog.py and test_hw_watchdog.py.
+        if not duthost.is_bmc():
+            is_dpu = duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_dpu")
+            ansible_ssh_port = get_ansible_ssh_port(duthost, ansible_adhoc) if is_dpu else 22
+            res = localhost.wait_for(host=duthost.mgmt_ip, port=ansible_ssh_port, state="stopped", delay=5,
+                                     timeout=watchdog_timeout + TIMEOUT_DEVIATION, module_ignore_errors=True)
 
-        self.expect('Timeout' in res.get('msg', ''), "unexpected disconnection from dut")
+            self.expect('Timeout' in res.get('msg', ''), "unexpected disconnection from dut")
         self.assert_expectations()
 
     @pytest.mark.dependency(depends=["test_arm_disarm_states"])
