@@ -295,6 +295,8 @@ def perform_reboot(duthost, pool, reboot_command, reboot_helper=None, reboot_kwa
             reboot_res = pool.apply_async(execute_reboot_command)
         elif invocation_type == "gnoi_based":
             reboot_res = pool.apply_async(execute_gnoi_reboot_command)
+        else:
+            raise ValueError("Unsupported invocation_type: {}".format(invocation_type))
     else:
         assert reboot_helper is not None, "A reboot function must be provided for power off/on reboot"
         reboot_res = pool.apply_async(execute_reboot_helper)
