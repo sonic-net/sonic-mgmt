@@ -6,11 +6,11 @@ import os
 from tests.configlet.util import strip
 from tests.configlet.util import generic_patch
 from tests.configlet.util import configlet
-from tests.common.configlet.helpers import set_log_prefix_msg, get_prefix_lvl, set_prefix_lvl, append_log_prefix_msg,\
+from tests.common.configlet.helpers import set_log_prefix_msg, get_prefix_lvl, set_prefix_lvl, append_log_prefix_msg, \
                     log_info, log_debug
-from tests.common.configlet.utils import base_dir, data_dir, orig_db_dir, no_t0_db_dir, clet_db_dir, managed_files,\
+from tests.common.configlet.utils import base_dir, data_dir, orig_db_dir, no_t0_db_dir, clet_db_dir, managed_files, \
                    patch_add_t0_dir, patch_rm_t0_dir, files_dir, tor_data, init_data, \
-                   RELOAD_WAIT_TIME, PAUSE_INTF_DOWN, PAUSE_INTF_UP, PAUSE_CLET_APPLY, DB_COMP_WAIT_TIME,\
+                   RELOAD_WAIT_TIME, PAUSE_INTF_DOWN, PAUSE_INTF_UP, PAUSE_CLET_APPLY, DB_COMP_WAIT_TIME, \
                    do_pause, db_comp, chk_any_bgp_session, chk_for_pfc_wd, report_error, take_DB_dumps, init_global_data
 
 
@@ -188,15 +188,18 @@ def apply_clet(duthost, skip_test=False):
     # Apply delete
     duthost.shell("configlet -d -j {}".format(del_sonic_clet_file))
 
-    tor_ifname = tor_data["links"][0]["local"]["sonic_name"]
-    duthost.shell("config interface shutdown {}".format(tor_ifname))
-    do_pause(PAUSE_INTF_DOWN, "pause upon i/f {} shutdown".format(tor_ifname))
+    for link in tor_data["links"]:
+        tor_ifname = link["local"]["sonic_name"]
+        duthost.shell("config interface shutdown {}".format(tor_ifname))
+        do_pause(PAUSE_INTF_DOWN, "pause upon i/f {} shutdown".format(tor_ifname))
 
     duthost.shell("configlet -u -j {}".format(sonic_clet_file))
     do_pause(PAUSE_CLET_APPLY, "Pause after applying configlet")
 
-    duthost.shell("config interface startup {}".format(tor_ifname))
-    do_pause(PAUSE_INTF_UP, "pause upon i/f {} startup".format(tor_ifname))
+    for link in tor_data["links"]:
+        tor_ifname = link["local"]["sonic_name"]
+        duthost.shell("config interface startup {}".format(tor_ifname))
+        do_pause(PAUSE_INTF_UP, "pause upon i/f {} startup".format(tor_ifname))
 
     append_log_prefix_msg("checking_dump", pfx_lvl)
     assert wait_until(DB_COMP_WAIT_TIME, 20, 0, db_comp, duthost, clet_db_dir,
