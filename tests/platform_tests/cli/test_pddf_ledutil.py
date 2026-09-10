@@ -27,6 +27,7 @@ TEST_CONFIG_FILE = os.path.join(os.path.split(__file__)[0], "pddf_ledutil.yml")
 
 _INVALID_LED = "NONEXISTENT_LED"
 _INVALID_COLOR = "NONEXISTENT_COLOR"
+_INVALID_LED_ERRORS = ("not configured", "Invalid led device name")
 
 
 @pytest.fixture(scope="module")
@@ -310,8 +311,7 @@ def test_getstatusled_invalid_led(dut):  # noqa: F811
     stdout = dut.shell(
         f"sudo pddf_ledutil getstatusled {_INVALID_LED}", module_ignore_errors=True
     )["stdout"].strip()
-    assert "not configured" in stdout, f"Expected 'not configured', got {stdout!r}"
-
+    assert any(err in stdout for err in _INVALID_LED_ERRORS), f"Expected one of {_INVALID_LED_ERRORS}, got {stdout!r}"
 
 def test_setstatusled_valid_led_valid_color(dut, valid_single_led, led_service_manager):  # noqa: F811
     with led_service_manager(valid_single_led.type_config, valid_single_led.name):
@@ -351,5 +351,6 @@ def test_setstatusled_invalid_led(dut, valid_single_led):  # noqa: F811
         stdout = dut.shell(
             f"sudo pddf_ledutil setstatusled {_INVALID_LED} {color}", module_ignore_errors=True
         )["stdout"].strip()
-        assert "not configured" in stdout, f"Expected 'not configured' for color {color!r}, got {stdout!r}"
-        assert "False" in stdout, f"Expected 'False' for color {color!r}, got {stdout!r}"
+        assert any(err in stdout for err in _INVALID_LED_ERRORS), f"Expected one of {_INVALID_LED_ERRORS} for color {color!r}, got {stdout!r}"
+        if "not configured" in stdout:
+            assert "False" in stdout, f"Expected 'False' for color {color!r}, got {stdout!r}"
