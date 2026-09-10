@@ -32,7 +32,8 @@ from tests.common.snappi_tests.uhd.uhd_helpers import (NetworkConfigSettings, cr
 logger = logging.getLogger(__name__)
 _next_system_id = 1
 
-macsec_enabled_port = {}
+macsec_enabled_ports = []
+macsec_profile_duthosts = []
 macsec_profile_name = ""
 
 speed_type = {
@@ -1228,6 +1229,23 @@ def snappi_dut_base_config(duthost_list,
         snappi_ports=new_snappi_ports))
 
 
+def _skip_macsec_portchannel_members(duthost_list, snappi_ports):
+    for duthost in duthost_list:
+        mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+        selected_ports = {
+            port['peer_port']
+            for port in snappi_ports
+            if port['peer_device'] == duthost.hostname
+        }
+
+        for portchannel, portchannel_data in (mg_facts.get('minigraph_portchannels') or {}).items():
+            unsupported_ports = selected_ports & set(portchannel_data.get('members', []))
+            if unsupported_ports:
+                pytest.skip(
+                    'Snappi MACsec supports Ethernet interfaces only; {} on {} are members of {}'.format(
+                        sorted(unsupported_ports), duthost.hostname, portchannel))
+
+
 def setup_dut_ports(
         setup,
         duthost_list,
@@ -1270,6 +1288,9 @@ def setup_dut_ports(
         return found_ports()
 
     ptype = "--snappi_macsec" in sys.argv
+
+    if ptype and setup:
+        _skip_macsec_portchannel_members(duthost_list, snappi_ports)
 
     # if not MACSEC and setup=True, find usual ports for the test.
     if ((not ptype) and setup):
@@ -1498,7 +1519,7 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
             gen_data_flow_dest_ip(port['ipAddress'], duthost, port['peer_port'], port['asic_value'], setup)
         return True
 
-    global macsec_enabled_port, macsec_profile_name, reconfigure_port
+    global macsec_enabled_ports, macsec_profile_duthosts, macsec_profile_name, reconfigure_port
     num_of_non_macsec_snappi_devices = 7*(len(snappi_ports) - 1)
     # +3 to ignore the network and broadcast address and plus one extra buffer
     # since the address is already configure on the dut interface
@@ -1569,7 +1590,6 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
                     profile_name = line.split()[1]
                     logger.info('Removing already configured Macsec profile {}'.format(profile_name))
                     delete_macsec_profile(port['duthost'], profile_name)
-            macsec_enabled_port = port
             macsec_profile_name = '256_XPN_SCI'
             cipher = all_values[macsec_profile_name]['cipher_suite']
             primary_cak = all_values[macsec_profile_name]['primary_cak']
@@ -1582,7 +1602,13 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
             logger.info('Configuring MACSEC on DUT Interfaces: {}'.format(port['peer_port']))
             set_macsec_profile(port['duthost'], macsec_profile_name, priority,
                                cipher, primary_cak, primary_ckn, policy, send_sci, rekey_period)
+            if all(dut.hostname != port['duthost'].hostname for dut in macsec_profile_duthosts):
+                macsec_profile_duthosts.append(port['duthost'])
             enable_macsec_port(port['duthost'], port['peer_port'], macsec_profile_name)
+            if all(enabled_port['duthost'].hostname != port['duthost'].hostname
+                   or enabled_port['peer_port'] != port['peer_port']
+                   for enabled_port in macsec_enabled_ports):
+                macsec_enabled_ports.append(port)
             if port['asic_value'] is None:
                 duthost.command("sudo arp -i {} -s {} {} \n".
                                 format(port['peer_port'], tgenIp, mac))
@@ -1753,6 +1779,8 @@ def create_ip_list(value, count, mask=32, incr=0):
 
 
 def cleanup_config(duthost_list, snappi_ports):
+    global macsec_enabled_ports, macsec_profile_duthosts
+
     ptype = "--snappi_macsec" in sys.argv
     if not ptype:
         if (duthost_list[0].facts['asic_type'] == "cisco-8000" and
@@ -1818,14 +1846,17 @@ def cleanup_config(duthost_list, snappi_ports):
                                 format(reconfigure_port['asic_value'], reconfigure_port['peer_port'],
                                        reconfigure_port['original_subnet'].split('/')[0],
                                        reconfigure_port['original_subnet'].split('/')[1]))
-        logger.info('Disabling MACsec on {} port {}'.
-                    format(macsec_enabled_port['duthost'].hostname,
-                           macsec_enabled_port['peer_port']))
-        disable_macsec_port(macsec_enabled_port['duthost'],  macsec_enabled_port['peer_port'])
-        logger.info('Deleting macsec profile {} on {} port {}'.format(macsec_profile_name,
-                                                                      macsec_enabled_port['duthost'].hostname,
-                                                                      macsec_enabled_port['peer_port']))
-        delete_macsec_profile(macsec_enabled_port['duthost'], macsec_profile_name)
+        for port in reversed(macsec_enabled_ports):
+            logger.info('Disabling MACsec on {} port {}'.
+                        format(port['duthost'].hostname, port['peer_port']))
+            disable_macsec_port(port['duthost'], port['peer_port'])
+        macsec_enabled_ports = []
+
+        for dut in macsec_profile_duthosts:
+            logger.info('Deleting macsec profile {} on {}'.
+                        format(macsec_profile_name, dut.hostname))
+            delete_macsec_profile(dut, macsec_profile_name)
+        macsec_profile_duthosts = []
 
 
 @pytest.fixture(scope="module")
