@@ -41,6 +41,11 @@ REBOOT_TYPE_KERNEL_PANIC = "Kernel Panic"
 REBOOT_TYPE_SUPERVISOR = "Reboot from Supervisor"
 REBOOT_TYPE_SUPERVISOR_HEARTBEAT_LOSS = "Heartbeat with the Supervisor card lost"
 
+# Grace margin (seconds) added to the elapsed-time bound when validating post-reboot
+# /proc/uptime. Absorbs the delay between issuing the reboot command and the DUT
+# actually going down, plus minor clock resolution differences.
+REBOOT_UPTIME_GRACE_SECONDS = 60
+
 # Event to signal DUT activeness
 DUT_ACTIVE = threading.Event()
 DUT_ACTIVE.set()
@@ -398,6 +403,9 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
         logger.warning(f"Console connection timed out or failed: {e}, proceeding with reboot anyway")
         console_obj = None
 
+    # Capture a monotonic timestamp on the test host right before issuing the reboot.
+    reboot_start_time = time.monotonic()
+
     # Perform reboot
     if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch") \
             and invocation_type != "gnoi_based":
@@ -504,14 +512,20 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     else:
         # Use /proc/uptime (monotonic, immune to RTC drift and NTP sync delays)
         # to verify the device rebooted. A freshly-rebooted device must have an uptime
-        # less than the total time we spent waiting for it to come back (timeout + wait).
-        max_expected_uptime = timeout + wait
+        # less than the time we have spent since issuing the reboot (measured on the test
+        # host). Deriving the bound from the elapsed wall time keeps it correct across all
+        # post-reboot wait paths (safe_reboot, interface/dshell checks, warmboot-finalizer)
+        # instead of assuming a static timeout + wait budget. A grace margin absorbs the
+        # small delay between issuing the command and the DUT actually going down.
+        elapsed_since_reboot = time.monotonic() - reboot_start_time
+        max_expected_uptime = elapsed_since_reboot + REBOOT_UPTIME_GRACE_SECONDS
         uptime_seconds = float(duthost.command("awk '{print $1}' /proc/uptime")["stdout"])
-        logger.info('DUT {} uptime after reboot: {:.1f}s (max expected: {}s)'.format(
+        logger.info('DUT {} uptime after reboot: {:.1f}s (max expected: {:.1f}s)'.format(
             hostname, uptime_seconds, max_expected_uptime))
-        assert uptime_seconds < max_expected_uptime, \
-            "Device {} did not reboot: uptime {:.0f}s exceeds max expected {}s".format(
-                hostname, uptime_seconds, max_expected_uptime)
+        pytest_assert(
+            uptime_seconds < max_expected_uptime,
+            "Device {} did not reboot: uptime {:.0f}s exceeds max expected {:.0f}s".format(
+                hostname, uptime_seconds, max_expected_uptime))
 
     if wait_for_bgp:
         bgp_neighbors = duthost.get_bgp_neighbors_per_asic(state="all")
