@@ -22,11 +22,34 @@ from ptf.mask import Mask
 logger = logging.getLogger('EverflowPolicerTest')
 
 
+def _send_original_flow_paced(send_batch, total_packets, batch_size, batch_interval, sleep=time.sleep):
+    """
+    @summary: Send total_packets by calling send_batch(count) repeatedly, capping
+    each call at batch_size and pacing calls by batch_interval. This avoids
+    handing PTF a single unpaced send of total_packets, which can generate an
+    unpaced microburst and intermittently cause the PTF-side capture to lose
+    some packets (see sonic-net/sonic-mgmt#27708).
+    """
+    remaining = total_packets
+    while remaining > 0:
+        count = min(batch_size, remaining)
+        send_batch(count)
+        remaining -= count
+        if remaining > 0:
+            sleep(batch_interval)
+
+
 class EverflowPolicerTest(BaseTest):
 
     GRE_PROTOCOL_NUMBER = 47
     NUM_OF_TOTAL_PACKETS = 10000
     METER_TYPES = ['packets', 'bytes']
+    # Cap on packets sent per pacing batch, and the delay between batches, when
+    # sending the original (non-mirrored) flow. This keeps PTF from generating
+    # an unpaced send microburst, which can intermittently cause the PTF-side
+    # capture to lose some original-flow packets (see sonic-net/sonic-mgmt#27708).
+    ORIGINAL_FLOW_BATCH_SIZE = 60
+    ORIGINAL_FLOW_BATCH_INTERVAL = 0.01
 
     def __init__(self):
         '''
@@ -180,7 +203,12 @@ class EverflowPolicerTest(BaseTest):
         self.dataplane.flush()
 
         count = 0
-        testutils.send_packet(self, self.src_port, self.base_pkt, count=self.NUM_OF_TOTAL_PACKETS)
+        _send_original_flow_paced(
+            lambda n: testutils.send_packet(self, self.src_port, self.base_pkt, count=n),
+            self.NUM_OF_TOTAL_PACKETS,
+            self.ORIGINAL_FLOW_BATCH_SIZE,
+            self.ORIGINAL_FLOW_BATCH_INTERVAL,
+        )
         for i in range(0, self.NUM_OF_TOTAL_PACKETS):
             (rcv_device, rcv_port, rcv_pkt, pkt_time) = testutils.dp_poll(self, timeout=0.1, exp_pkt=masked_exp_pkt)
             if rcv_pkt is not None:
