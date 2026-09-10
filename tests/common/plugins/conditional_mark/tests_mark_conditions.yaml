@@ -850,7 +850,7 @@ configlet/test_add_rack.py:
 #######################################
 #####            console          #####
 #######################################
-console/(?!test_console_(?:driver|reversessh)\.py):
+^console/(?!test_console_(?:driver|reversessh)\.py):
   regex: true
   skip:
     reason: 'Only console driver and reverse SSH tests are compatible with BMC'
