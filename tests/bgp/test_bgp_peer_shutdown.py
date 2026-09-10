@@ -13,11 +13,11 @@ from tests.bgp.bgp_helpers import capture_bgp_packages_to_file, fetch_and_delete
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.bgp import BGPNeighbor
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
-from tests.common.utilities import wait_until, delete_running_config
+from tests.common.utilities import wait_until
 from tests.common.utilities import is_ipv6_only_topology
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1', 't2', 'lrh', 'urh', 'm1', 'lt2', 'ft2', 'c0'),
+    pytest.mark.topology('t0', 't1', 't2', 'lrh', 'urh', 'm1', 'lt2', 'ft2', 'c0', 'lma', 'uma'),
 ]
 
 TEST_ITERATIONS = 5
@@ -77,6 +77,14 @@ def common_setup_teardown(
         neigh_type = "LowerRegionalHub"
         if confed_asn is not None:
             use_vtysh = True
+    elif dut_type in ["LowerMgmtAggregator"]:
+        neigh_type = "MgmtSpineRouter"
+        if confed_asn is not None:
+            use_vtysh = True
+    elif dut_type in ["UpperMgmtAggregator"]:
+        neigh_type = "LowerMgmtAggregator"
+        if confed_asn is not None:
+            use_vtysh = True
     else:
         neigh_type = "ToRRouter"
     logging.info(
@@ -111,12 +119,6 @@ def common_setup_teardown(
 
     yield bgp_neighbor, use_vtysh
 
-    # Cleanup suppress-fib-pending config
-    delete_tacacs_json = [
-        {"DEVICE_METADATA": {"localhost": {"suppress-fib-pending": "disabled"}}}
-    ]
-    delete_running_config(delete_tacacs_json, duthost)
-
 
 @pytest.fixture
 def constants(is_quagga, setup_interfaces, pytestconfig):
@@ -143,11 +145,16 @@ def constants(is_quagga, setup_interfaces, pytestconfig):
     return _constants
 
 
+def _get_bgp_neighbors(duthost, neighbor):
+    """Return bgp_neighbors dict for the ASIC where the pseudo-neighbor session lives."""
+    asichost = duthost.asic_instance_from_namespace(neighbor.namespace)
+    return asichost.bgp_facts()['ansible_facts']['bgp_neighbors']
+
+
 def is_neighbor_session_established(duthost, neighbor):
-    # handle both multi-asic and single-asic
-    bgp_facts = duthost.bgp_facts(num_npus=duthost.sonichost.num_asics())["ansible_facts"]
-    return (neighbor.ip in bgp_facts["bgp_neighbors"]
-            and bgp_facts["bgp_neighbors"][neighbor.ip]["state"] == "established")
+    bgp_neighbors = _get_bgp_neighbors(duthost, neighbor)
+    return (neighbor.ip in bgp_neighbors
+            and bgp_neighbors[neighbor.ip]["state"] == "established")
 
 
 def bgp_notification_packets(pcap_file, is_v6_topo):
@@ -186,11 +193,15 @@ def match_bgp_notification(packet, src_ip, dst_ip, action, bgp_session_down_time
 
 
 def is_neighbor_session_down(duthost, neighbor):
-    # handle both multi-asic and single-asic
-    bgp_neighbors = duthost.bgp_facts(num_npus=duthost.sonichost.num_asics())["ansible_facts"]["bgp_neighbors"]
-    return (neighbor.ip in bgp_neighbors and
-            bgp_neighbors[neighbor.ip]["admin"] == "down" and
-            bgp_neighbors[neighbor.ip]["state"] == "idle")
+    bgp_neighbors = _get_bgp_neighbors(duthost, neighbor)
+    return (neighbor.ip in bgp_neighbors
+            and bgp_neighbors[neighbor.ip]["admin"] == "down"
+            and bgp_neighbors[neighbor.ip]["state"] == "idle")
+
+
+def _flush_route(duthost, neighbor, prefix):
+    asichost = duthost.asic_instance_from_namespace(neighbor.namespace)
+    asichost.shell("{} route flush {}".format(asichost.ip_cmd, prefix), module_ignore_errors=True)
 
 
 def get_bgp_down_timestamp(duthost, namespace, peer_ip, timestamp_before_teardown):
@@ -219,6 +230,42 @@ def get_bgp_down_timestamp(duthost, namespace, peer_ip, timestamp_before_teardow
     return timestamp_in_sec
 
 
+def is_neighbor_removed(duthost, neighbor):
+    """Return True once the peer no longer shows up in bgp_facts (FRR has finished clearing it)."""
+    bgp_neighbors = _get_bgp_neighbors(duthost, neighbor)
+    return neighbor.ip not in bgp_neighbors
+
+
+def _dump_establish_failure_diagnostics(duthost, neighbor):
+    """Best-effort diagnostic dump for a failed-to-establish session, so the
+    evidence lands directly in the pytest log even if the elastictest run's
+    other artifacts (syslog, pcaps) aren't retrievable afterward.
+    """
+    try:
+        asichost = duthost.asic_instance_from_namespace(neighbor.namespace)
+        vtysh_cmd = duthost.get_vtysh_cmd_for_namespace(
+            "vtysh -c 'show bgp neighbor {}'".format(neighbor.ip),
+            neighbor.namespace
+        )
+        bgp_nbr_state = duthost.shell(
+            vtysh_cmd, module_ignore_errors=True)['stdout']
+        logging.warning(
+            "bgp neighbor state on failure:\n%s", bgp_nbr_state)
+
+        sock_state = asichost.shell(
+            "ss -tn '( dst {}:179 )'".format(neighbor.ip),
+            module_ignore_errors=True)['stdout']
+        logging.warning("socket state on failure:\n%s", sock_state)
+
+        exabgp_status = neighbor.ptfhost.shell(
+            "supervisorctl status exabgp-{}".format(neighbor.name),
+            module_ignore_errors=True)['stdout']
+        logging.warning("exabgp status on failure:\n%s", exabgp_status)
+    except Exception as e:
+        logging.warning(
+            "Failed to collect establish-failure diagnostics: %s", repr(e))
+
+
 def test_bgp_peer_shutdown(
     common_setup_teardown,
     constants,
@@ -243,6 +290,7 @@ def test_bgp_peer_shutdown(
                 20,
                 lambda: is_neighbor_session_established(duthost, n0),
             ):
+                _dump_establish_failure_diagnostics(duthost, n0)
                 pytest.fail("Could not establish bgp sessions")
 
             n0.announce_route(announced_route)
@@ -266,6 +314,8 @@ def test_bgp_peer_shutdown(
 
             local_pcap_filename = fetch_and_delete_pcap_file(bgp_pcap, constants.log_dir, duthost, request)
             bpg_notifications = bgp_notification_packets(local_pcap_filename, is_v6_topo)
+            if not bpg_notifications:
+                pytest.fail("No BGP notification packets captured after session teardown")
             for bgp_packet in bpg_notifications:
                 logging.debug(
                     "bgp notification packet, capture time %s, packet details:\n%s",
@@ -287,4 +337,11 @@ def test_bgp_peer_shutdown(
                 pytest.fail("route %s still exists in DUT after BGP shutdown" % announced_route["prefix"])
         finally:
             n0.stop_session()
-            duthost.shell("ip route flush %s" % announced_route["prefix"])
+            _flush_route(duthost, n0, announced_route["prefix"])
+            # Ensure FRR has fully cleared the old peer before the next
+            # iteration recreates it, to avoid a recreate-during-clearing
+            # race that can delay re-establishment past WAIT_TIMEOUT.
+            if not wait_until(30, 2, 0, is_neighbor_removed, duthost, n0):
+                pytest.fail(
+                    "BGP neighbor %s was not fully removed after "
+                    "stop_session" % n0.ip)

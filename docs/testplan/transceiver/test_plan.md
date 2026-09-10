@@ -763,6 +763,7 @@ attributes/
 - `dom/` (DOM)
 - `vdm/` (VDM)
 - `pm/` (PM)
+- `signal_integrity/` (Signal Integrity tests)
 - `port_config/` (Port configuration tests)
 
 #### Loader Validation
@@ -844,6 +845,7 @@ The category-level shard carries `mandatory`, `defaults`, `dut`, and `transceive
 **Key Design Rules:**
 
 - **No Overlap (mandatory vs defaults)**: A field must never appear in both `mandatory` and `defaults`. A field cannot simultaneously require explicit specification and have a fallback value.
+- **Defaults are the presence guarantee**: An attribute documented with a "Default Value" in a category plan is seeded in that category's `defaults` block, which resolves as the lowest-priority layer for **every** port. `O` (Optional) therefore means the attribute need not be *overridden* at a narrower scope — not that it may be absent from the resolved attributes. Test code reads such attributes directly, with no local fallback: a missing key means the category shard was not loaded (or the port was not resolved for that category) and must fail loudly rather than silently substituting a value.
 - **Category Isolation**: Each category directory only contains attributes relevant to its specific test domain.
 - **Optional Sections**: Any optional section listed above may be omitted; the loader silently ignores missing slots.
 
@@ -1113,6 +1115,7 @@ The following child test plans provide comprehensive, attribute-driven test case
 |-----------|-------------|
 | [EEPROM Test Plan](eeprom_test_plan.md) | EEPROM field validation, firmware version checks, hexdump verification, and breakout serial number pattern validation |
 | [DOM Test Plan](dom_test_plan.md) | Digital Optical Monitoring sensor validation, operational and threshold range checks, data consistency, polling control, and interface state change impact on DOM data |
+| [VDM Test Plan](vdm_test_plan.md) | Versatile Diagnostics Monitoring validation for CMIS optics — operational range checks, alarm/warning threshold hierarchy and value validation, statistic freeze/unfreeze coherence, flag lifecycle, and recovery across disruptive operations |
 | [System Test Plan](system_test_plan.md) | System-level transceiver testing including link behavior, process/service restarts, reboot recovery, transceiver event handling (reset, low power mode, loopback), SI settings, C-CMIS tuning, and stress tests |
 | [Port Configuration Test Plan](port_config_test_plan.md) | Validation of per-port speed and FEC configuration in CONFIG_DB against expected values from BASE_ATTRIBUTES |
 | [CDB Firmware Upgrade Test Plan](cdb_firmware_upgrade_test_plan.md) | CMIS CDB firmware upgrade/downgrade testing including stress tests, and EEPROM integrity validation |

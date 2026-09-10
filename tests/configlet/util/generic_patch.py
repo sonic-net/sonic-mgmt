@@ -86,6 +86,39 @@ def create_patch(src_dir, dst_dir, patch_dir, hack_apply=False):
                 (not re.search(rm_pattern, e["path"]))):
             jpatch.append(e)
 
+    # For ports being decommissioned (T0 removal), explicitly include
+    # admin_status=down in the patch. Without this, GCU's patch sorter
+    # injects a temporary admin_status=down (for YANG dependency ordering
+    # when removing buffers) followed by a restore to admin_status=up,
+    # leaving the port up in CONFIG_DB. The patch should specify the
+    # desired final state — GCU should not need to invent operations.
+    decommissioned_ports = set()
+    for link in tor_data.get("links", []):
+        port_name = link.get("local", {}).get("sonic_name", "")
+        if port_name:
+            decommissioned_ports.add(port_name)
+
+    if decommissioned_ports:
+        admin_status_paths = set()
+        for e in jpatch:
+            if re.match(r"^/PORT/Ethernet[0-9]+/admin_status$", e["path"]):
+                admin_status_paths.add(e["path"])
+
+        for port_name in decommissioned_ports:
+            path = "/PORT/{}/admin_status".format(port_name)
+            if path not in admin_status_paths:
+                # Only inject admin_status=down for removal patches (port
+                # exists in source but is being removed in destination).
+                # Skip for add patches where the port is being restored.
+                src_port = src_json.get("PORT", {}).get(port_name, {})
+                dst_port = dst_json.get("PORT", {}).get(port_name, {})
+                if src_port and not dst_port and src_port.get("admin_status", "up") != "down":
+                    jpatch.append({
+                        "op": "replace",
+                        "path": path,
+                        "value": "down"
+                    })
+
     if not hack_apply:
         patch_file = os.path.join(patch_dir, "patch_0_all.json")
         with open(patch_file, "w") as s:
@@ -126,6 +159,26 @@ def create_patch(src_dir, dst_dir, patch_dir, hack_apply=False):
 
 def _list_patch_files(patch_dir):
     return sorted(fnmatch.filter(os.listdir(patch_dir), "patch_[0-9]_*.json"))
+
+
+def _restore_interface_admin_status(duthost, target_dir):
+    with open(os.path.join(target_dir, "config_db.json"), "r") as stream:
+        target_ports = json.load(stream).get("PORT", {})
+
+    for link in tor_data["links"]:
+        interface = link["local"]["sonic_name"]
+        port_config = target_ports.get(interface)
+        assert isinstance(port_config, dict), \
+            "Missing PORT configuration for interface {}".format(interface)
+
+        admin_status = port_config.get("admin_status", "down")
+        assert admin_status in ("up", "down"), \
+            "Unexpected admin_status '{}' for interface {}".format(admin_status, interface)
+
+        action = "startup" if admin_status == "up" else "shutdown"
+        pause = PAUSE_INTF_UP if admin_status == "up" else PAUSE_INTF_DOWN
+        duthost.shell("config interface {} {}".format(action, interface))
+        do_pause(pause, "pause upon i/f {} {} after remove patch".format(interface, action))
 
 
 def generic_patch_add_t0(duthost, skip_load=False, hack_apply=False):
@@ -221,13 +274,10 @@ def generic_patch_rm_t0(duthost, skip_load=False, hack_apply=False):
         # We can ignore rc, as DB comp is the final check. So skip it.
         # assert res["rc"] == 0, "Failed to apply patch"
 
-    # Manual shutdown needed because the removal of admin_status won't operate shutdown. It will
-    # by default keep the previous admin_status state. Thus making app-db comparison fail.
-    for link in tor_data["links"]:
-        tor_ifname = link["local"]["sonic_name"]
-        duthost.shell("config interface shutdown {}".format(tor_ifname))
-        do_pause(PAUSE_INTF_DOWN, "pause upon i/f {} shutdown before add patch".format(tor_ifname))
+    # Applying a remove patch can preserve a transient interface state when admin_status
+    # is removed or reordered. Restore the state captured from the no-T0 configuration.
+    _restore_interface_admin_status(duthost, no_t0_db_dir)
 
     assert wait_until(DB_COMP_WAIT_TIME, 20, 0, db_comp, duthost, patch_rm_t0_dir,
                       no_t0_db_dir, "generic_patch_rm_t0"), \
-        "DB compare failed after adding T0 via generic patch updater"
+        "DB compare failed after removing T0 via generic patch updater"

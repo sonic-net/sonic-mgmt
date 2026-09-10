@@ -65,7 +65,7 @@ def get_keys_on_asics(duthost, db_id, key):
     return {asic.asic_index: SonicDbCli(asic, db_id).get_keys(key) for asic in duthost.asics}
 
 
-def check_counters_populated(duthost, key):
+def check_counters_populated(duthost, key, num_expected_entries):
     """Check that COUNTERS_DB keys matching pattern exist on every ASIC.
 
     The original ``bool(keys.values())`` check was wrong: dict.values()
@@ -80,9 +80,9 @@ def check_counters_populated(duthost, key):
     for asic in duthost.asics:
         try:
             asic_keys = SonicDbCli(asic, "COUNTERS_DB").get_keys(key)
-            if not asic_keys:
+            if len(asic_keys) < num_expected_entries:
                 logging.debug(
-                    "No keys matching '%s' on asic%s yet",
+                    "Not enough keys matching '%s' on asic%s yet",
                     key, asic.asic_index)
                 return False
         except SonicDbKeyNotFound:
@@ -162,11 +162,19 @@ def test_counterpoll_queue_watermark_pg_drop(duthosts, localhost, enum_rand_one_
         timeout = 180 if duthost.is_multi_asic else 120
         pytest_assert(
             wait_until(timeout, 5, delay, check_counters_populated,
-                       duthost, MAPS_LONG_PREFIX.format('*')),
+                       duthost, MAPS_LONG_PREFIX.format('*'), 1),
             "COUNTERS_DB failed to populate after {}s "
             "(counterpoll: {}, method: {}, multi_asic: {})".format(
                 timeout, tested_counterpoll, config_apply_method,
                 duthost.is_multi_asic))
+        # Check each individual counter prefix for the right number of counters in COUNTERS_DB
+        for counters_maps in RELEVANT_MAPS[tested_counterpoll][MAPS]:
+            prefix = counters_maps['prefix']
+            num_expected_counters = len(counters_maps[MAPS])
+            pytest_assert(wait_until(120, 5, 0, check_counters_populated, duthost,
+                                     MAPS_LONG_PREFIX.format(prefix), num_expected_counters),
+                          "Expected {} entries matching {}".format(
+                              num_expected_counters, MAPS_LONG_PREFIX.format(prefix)))
     # verify QUEUE or PG maps are generated into COUNTERS_DB after enabling relevant counterpoll
     with allure.step("Verifying MAPS in COUNTERS_DB on {}...".format(duthost.hostname)):
         maps_dict = RELEVANT_MAPS[tested_counterpoll]

@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 vrfname = 'default'
 
 pytestmark = [
-    pytest.mark.topology("t0", "t1", 'm1', 'lt2', 'ft2', 'c0'),
+    pytest.mark.topology("t0", "t1", 'm1', 'lt2', 'ft2', 'c0', 'lma', 'uma'),
 ]
 
 

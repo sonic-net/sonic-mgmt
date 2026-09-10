@@ -375,9 +375,20 @@ class PDUValidator(GlobalValidator):
                 pairs.append({dut, bmc_host})
         return pairs
 
+    _BMC_SUFFIX = "-bmc"
+
+    def _is_bmc_host_pair_by_naming(self, device1, device2):
+        """Check if two devices are a BMC and its host based on the
+        naming convention where the BMC device name is
+        '<host>' + '-bmc'."""
+        return (device1 + self._BMC_SUFFIX == device2) or (device2 + self._BMC_SUFFIX == device1)
+
     def _is_bmc_host_pair(self, device1, device2):
         """Check if two devices are a BMC and its host sharing the
-        same chassis, based on testbed.yaml bmc_host mapping."""
+        same chassis, either via the '<host>-bmc' naming convention or
+        based on testbed.yaml bmc_host mapping."""
+        if self._is_bmc_host_pair_by_naming(device1, device2):
+            return True
         for pair in self._bmc_host_pairs:
             if device1 in pair and device2 in pair:
                 return True

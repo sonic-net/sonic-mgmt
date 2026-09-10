@@ -184,6 +184,14 @@ class TestCOPP(object):
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
+        if packet_type == "VlanSubnetIPinIP":
+            ip_decap_status = duthost.shell(
+                "sonic-cfggen -d -v 'SYSTEM_DEFAULTS.ip_decap.status'",
+                module_ignore_errors=True
+            )["stdout"].strip()
+            if ip_decap_status == "disabled":
+                pytest.skip("IP-in-IP decapsulation is disabled on this DUT")
+
         # Access test_params from the class-level variable
         test_params = self.test_params
 
