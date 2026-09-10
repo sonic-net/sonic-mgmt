@@ -1,6 +1,7 @@
 import ipaddress
 import logging
 import re
+import shlex
 from datetime import datetime, timedelta, timezone
 
 from cryptography import x509
@@ -544,7 +545,50 @@ def gnmi_capabilities(duthost, localhost):
         return 0, output['stdout']
 
 
-def ensure_gnmi_insecure_mode(duthost, mode=GNMIEnvironment.GNMI_MODE):
+def _capture_hash_fields(duthost, table, fields):
+    """Capture whether each hash field exists and its current value."""
+    state = {}
+    for field in fields:
+        result = duthost.shell(
+            f'sonic-db-cli CONFIG_DB hexists "{table}" "{field}"',
+            module_ignore_errors=False
+        )
+        if result['stdout'].strip() == "1":
+            result = duthost.shell(
+                f'sonic-db-cli CONFIG_DB hget "{table}" "{field}"',
+                module_ignore_errors=False
+            )
+            state[field] = result['stdout'].strip()
+        else:
+            state[field] = None
+    return state
+
+
+def _restore_hash_fields(duthost, table, state):
+    """Restore hash fields to their captured values or remove them if absent."""
+    for field, value in state.items():
+        if value is None:
+            command = f'sonic-db-cli CONFIG_DB hdel "{table}" "{field}"'
+        else:
+            command = (
+                f'sonic-db-cli CONFIG_DB hset "{table}" "{field}" '
+                f'{shlex.quote(value)}'
+            )
+        duthost.shell(command, module_ignore_errors=False)
+
+
+def _set_hash_fields(duthost, table, fields):
+    """Set hash fields to the supplied values."""
+    parts = " ".join(
+        f'"{field}" {shlex.quote(value)}' for field, value in fields.items()
+    )
+    duthost.shell(
+        f'sonic-db-cli CONFIG_DB hset "{table}" {parts}',
+        module_ignore_errors=False
+    )
+
+
+def ensure_gnmi_insecure_mode(duthost, mode=GNMIEnvironment.GNMI_MODE, gnmi_config=None):
     """
     Configure GNMI/TELEMETRY certs table in CONFIG_DB with empty cert fields.
     This causes the startup script to use --insecure (TLS with self-signed cert)
@@ -553,29 +597,46 @@ def ensure_gnmi_insecure_mode(duthost, mode=GNMIEnvironment.GNMI_MODE):
     Args:
         duthost: DUT host object
         mode: GNMI_MODE uses GNMI|certs table; TELEMETRY_MODE uses TELEMETRY|certs
+        gnmi_config: Temporary fields to configure in the matching gnmi table
     """
     if mode == GNMIEnvironment.GNMI_MODE:
-        table = "GNMI|certs"
+        prefix = "GNMI"
     else:
-        table = "TELEMETRY|certs"
+        prefix = "TELEMETRY"
 
-    logger.info(f"Configuring {table} with empty cert fields to enable --insecure mode")
+    certs_table = f"{prefix}|certs"
+    gnmi_table = f"{prefix}|gnmi"
+    original_gnmi_config = (
+        _capture_hash_fields(duthost, gnmi_table, gnmi_config)
+        if gnmi_config else {}
+    )
+
+    logger.info(f"Configuring {certs_table} with empty cert fields to enable --insecure mode")
     # Include ca_crt "" to avoid jq returning string "null" for missing key,
     # which would cause telemetry startup script to pass --ca_crt null and block port binding.
-    duthost.shell(f'sonic-db-cli CONFIG_DB hset "{table}" server_crt "" server_key "" ca_crt ""',
+    duthost.shell(f'sonic-db-cli CONFIG_DB hset "{certs_table}" server_crt "" server_key "" ca_crt ""',
                   module_ignore_errors=True)
+    if gnmi_config:
+        _set_hash_fields(duthost, gnmi_table, gnmi_config)
+    return original_gnmi_config
 
 
-def cleanup_gnmi_insecure_mode(duthost, mode=GNMIEnvironment.GNMI_MODE):
-    """Remove the empty cert config added by ensure_gnmi_insecure_mode."""
+def cleanup_gnmi_insecure_mode(duthost, mode=GNMIEnvironment.GNMI_MODE, original_gnmi_config=None):
+    """Remove empty certs and restore the temporary gNMI configuration."""
     if mode == GNMIEnvironment.GNMI_MODE:
-        table = "GNMI|certs"
+        prefix = "GNMI"
     else:
-        table = "TELEMETRY|certs"
+        prefix = "TELEMETRY"
+
+    certs_table = f"{prefix}|certs"
+    gnmi_table = f"{prefix}|gnmi"
 
     # Only remove if no real certs are configured
-    result = duthost.shell(f'sonic-db-cli CONFIG_DB hget "{table}" server_crt',
+    result = duthost.shell(f'sonic-db-cli CONFIG_DB hget "{certs_table}" server_crt',
                            module_ignore_errors=True)
     if result['stdout'].strip() == "":
-        logger.info(f"Removing empty cert config from {table}")
-        duthost.shell(f'sonic-db-cli CONFIG_DB del "{table}"', module_ignore_errors=True)
+        logger.info(f"Removing empty cert config from {certs_table}")
+        duthost.shell(f'sonic-db-cli CONFIG_DB del "{certs_table}"', module_ignore_errors=True)
+
+    if original_gnmi_config:
+        _restore_hash_fields(duthost, gnmi_table, original_gnmi_config)

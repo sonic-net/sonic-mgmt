@@ -16,6 +16,19 @@ def setup_gnmi_insecure(duthosts, rand_one_dut_hostname):
     --insecure mode rather than full certificate management.
     """
     duthost = duthosts[rand_one_dut_hostname]
-    ensure_gnmi_insecure_mode(duthost, mode=GNMIEnvironment.GNMI_MODE)
+    gnmi_config = {
+        "port": "8080",
+        "client_auth": "false",
+        "user_auth": "none",
+    }
+    original_gnmi_config = ensure_gnmi_insecure_mode(
+        duthost,
+        mode=GNMIEnvironment.GNMI_MODE,
+        gnmi_config=gnmi_config
+    )
     yield
-    cleanup_gnmi_insecure_mode(duthost, mode=GNMIEnvironment.GNMI_MODE)
+    cleanup_gnmi_insecure_mode(
+        duthost,
+        mode=GNMIEnvironment.GNMI_MODE,
+        original_gnmi_config=original_gnmi_config
+    )
