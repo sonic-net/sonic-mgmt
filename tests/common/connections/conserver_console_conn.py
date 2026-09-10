@@ -1,6 +1,7 @@
 import logging
 import pexpect
 import os
+import select
 import time
 
 CONSERVER_CLI_PROMPT = "admin@[a-zA-Z0-9]{1,10}:~\\$"
@@ -80,12 +81,68 @@ class ConserverConsoleConn():
         self.console_cli.close(force=True)
         self.logger.debug("Conserver connection closed.")
 
+    def _sendline_with_timeout(self, cmd, timeout):
+        """Send one command line to conserver without an unbounded PTY write.
+
+        pexpect.sendline() can block inside os.write() before read_timeout is
+        applied. Use nonblocking partial writes so the DUT still receives one
+        logical command line, while the local write path is bounded by timeout.
+        """
+        child_fd = getattr(self.console_cli, "child_fd", None)
+        if child_fd is None:
+            self.console_cli.sendline(cmd)
+            return
+
+        def to_bytes(data):
+            """Convert console data to bytes using the pexpect encoding."""
+            if isinstance(data, bytes):
+                return data
+            encoding = getattr(self.console_cli, "encoding", None) or "utf-8"
+            return str(data).encode(encoding)
+
+        data = to_bytes(cmd) + to_bytes(self.console_cli.linesep)
+        write_start = time.monotonic()
+        deadline = write_start + timeout
+        sent = 0
+        was_blocking = os.get_blocking(child_fd)
+
+        os.set_blocking(child_fd, False)
+        try:
+            while sent < len(data):
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    self.logger.info(
+                        "Timed out writing console command after %s seconds "
+                        "(%s/%s bytes sent)",
+                        timeout, sent, len(data)
+                    )
+                    raise TimeoutError(
+                        "Timed out writing console command after {} seconds "
+                        "({}/{} bytes sent)".format(timeout, sent, len(data))
+                    )
+
+                _, writable, _ = select.select([], [child_fd], [], remaining)
+                if not writable:
+                    continue
+
+                try:
+                    sent += os.write(child_fd, data[sent:])
+                except (BlockingIOError, InterruptedError):
+                    continue
+        finally:
+            os.set_blocking(child_fd, was_blocking)
+
+        self.logger.info(
+            "Console command write completed in %.1fs, %d bytes sent",
+            time.monotonic() - write_start, sent
+        )
+
     def send_command_timing(self, cmd, read_timeout=30, last_read=1.0):
         """Send command and read output until no data for 'last_read' seconds."""
         self.logger.debug("send_command_timing: cmd='%s'", cmd[:80])
 
         start_time = time.monotonic()
-        self.console_cli.sendline(cmd)
+        self._sendline_with_timeout(cmd, read_timeout)
 
         output = ""
         deadline = start_time + read_timeout
