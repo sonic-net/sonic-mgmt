@@ -261,7 +261,7 @@ def perform_daemon_restart(duthost, daemon, settle_sec, affected_processes=None)
     settle_deadline = time.monotonic() + settle_sec
     last_process_states = {}
     last_container_start_times = {}
-    last_process_uptime_seconds = {}
+    last_process_uptimes = {}
 
     def _processes_restarted():
         last_process_states.clear()
@@ -271,15 +271,13 @@ def perform_daemon_restart(duthost, daemon, settle_sec, affected_processes=None)
             )
         if not all(status == "RUNNING" for status, _pid in last_process_states.values()):
             return False
-        last_process_uptime_seconds.clear()
+        last_process_uptimes.clear()
         for process in indirectly_restarted_processes:
             container = DEFAULT_MONITORED_PROCESSES[process]
             _status, uptime, start_time_range = _get_process_start_time_range(
                 duthost, container, process
             )
-            last_process_uptime_seconds[process] = (
-                _parse_supervisor_uptime_seconds(uptime) if uptime else None
-            )
+            last_process_uptimes[process] = uptime
             if (start_time_range is None
                     or start_time_range[0]
                     <= baseline_process_latest_started_at[process]):
@@ -301,7 +299,7 @@ def perform_daemon_restart(duthost, daemon, settle_sec, affected_processes=None)
         ),
         "Processes did not complete restart after {} restart: processes={}, "
         "process_uptimes={}, containers={}"
-        .format(daemon, last_process_states, last_process_uptime_seconds,
+        .format(daemon, last_process_states, last_process_uptimes,
                 last_container_start_times),
     )
     return max(0, settle_deadline - time.monotonic())
