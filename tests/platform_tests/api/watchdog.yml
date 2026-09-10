@@ -239,3 +239,10 @@ x86_64-nokia_ixr7220_h6_128-r0:
     valid_timeout: 30
     greater_timeout: 170
     too_big_timeout: 350
+
+# Arista Goldfinch watchdog
+arm64-arista_goldfinch-r0:
+  default:
+    valid_timeout: 30
+    greater_timeout: 60
+    too_big_timeout: 301
