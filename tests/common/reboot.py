@@ -285,7 +285,6 @@ def perform_reboot(duthost, pool, reboot_command, reboot_helper=None, reboot_kwa
         logger.info('rebooting {} with helper "{}"'.format(hostname, reboot_helper))
         return reboot_helper(reboot_kwargs, power_on_event)
 
-    dut_datetime = duthost.get_now_time(utc_timezone=True)
     DUT_ACTIVE.clear()
 
     # Extend ignore fabric port msgs for T2 chassis with DNX chipset on Linecards
@@ -299,7 +298,7 @@ def perform_reboot(duthost, pool, reboot_command, reboot_helper=None, reboot_kwa
     else:
         assert reboot_helper is not None, "A reboot function must be provided for power off/on reboot"
         reboot_res = pool.apply_async(execute_reboot_helper)
-    return [reboot_res, dut_datetime]
+    return reboot_res
 
 
 def execute_reboot_smartswitch_command(duthost, reboot_type, hostname):
@@ -324,7 +323,6 @@ def reboot_smartswitch(duthost, pool, reboot_type=REBOOT_TYPE_COLD, reboot_helpe
         return
 
     hostname = duthost.hostname
-    dut_datetime = duthost.get_now_time(utc_timezone=True)
 
     logging.info("Rebooting the DUT {} with type {}".format(hostname, reboot_type))
 
@@ -337,7 +335,7 @@ def reboot_smartswitch(duthost, pool, reboot_type=REBOOT_TYPE_COLD, reboot_helpe
         reboot_res = pool.apply_async(execute_reboot_smartswitch_command,
                                       (duthost, reboot_type, hostname))
 
-    return [reboot_res, dut_datetime]
+    return reboot_res
 
 
 def check_dshell_ready(duthost):
@@ -442,11 +440,11 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     # Perform reboot
     if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch") \
             and invocation_type != "gnoi_based":
-        reboot_res, dut_datetime = reboot_smartswitch(duthost, pool, reboot_type, reboot_helper, reboot_kwargs)
+        reboot_res = reboot_smartswitch(duthost, pool, reboot_type, reboot_helper, reboot_kwargs)
     else:
-        reboot_res, dut_datetime = perform_reboot(duthost, pool, reboot_command, reboot_helper,
-                                                  reboot_kwargs, reboot_type, invocation_type, localhost,
-                                                  ptf_gnoi=ptf_gnoi)
+        reboot_res = perform_reboot(duthost, pool, reboot_command, reboot_helper,
+                                    reboot_kwargs, reboot_type, invocation_type, localhost,
+                                    ptf_gnoi=ptf_gnoi)
 
     is_dpu_reboot = (invocation_type == "gnoi_based"
                      and ptf_gnoi is not None
@@ -552,7 +550,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
         # small delay between issuing the command and the DUT actually going down.
         elapsed_since_reboot = time.monotonic() - reboot_start_time
         max_expected_uptime = elapsed_since_reboot + REBOOT_UPTIME_GRACE_SECONDS
-        uptime_seconds = float(duthost.command("awk '{print $1}' /proc/uptime")["stdout"])
+        uptime_seconds = duthost.get_uptime().total_seconds()
         logger.info('DUT {} uptime after reboot: {:.1f}s (max expected: {:.1f}s)'.format(
             hostname, uptime_seconds, max_expected_uptime))
         pytest_assert(
@@ -580,14 +578,6 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
             wait_until(wait + 300, 10, 0, duthost.check_bgp_session_state_all_asics, bgp_neighbors),
             "Not all bgp sessions are established after reboot",
         )
-
-
-def positive_uptime(duthost, dut_datetime):
-    dut_uptime = duthost.get_up_time()
-    if float(dut_uptime.strftime("%s")) < float(dut_datetime.strftime("%s")):
-        return False
-
-    return True
 
 
 def get_reboot_cause(dut):
