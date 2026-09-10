@@ -1091,6 +1091,10 @@ decap/test_subnet_decap.py::test_vip_packet_decap:
       - "asic_type not in ['vs', 'mellanox'] and asic_gen not in ['td3']"
       - "release in ['202012', '202205', '202305', '202311']"
       - "asic_type == 'broadcom' and asic_gen == 'td3' and https://github.com/sonic-net/sonic-mgmt/issues/26694"
+  xfail:
+    reason: "SLB peer address falls into BGPVac instead of BGPSLBPassive, VIP decap term not programmed"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/27852 and 'dualtor' in topo_name"
 
 decap/test_subnet_decap.py::test_vip_packet_decap[IPv6]:
   xfail:
