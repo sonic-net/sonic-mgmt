@@ -520,12 +520,14 @@ def _validate_operational_range_within_warning(threshold_attr, thresholds, opera
     ]
 
 
+def _threshold_plan_has_checks(threshold_plan):
+    """Return True when one port has configured threshold-range checks."""
+    return bool(threshold_plan.get("configured_by_attr") or threshold_plan.get("errors"))
+
+
 def has_dom_threshold_range_attributes(threshold_plan_by_port):
     """Return True when any primary port has configured threshold-range checks."""
-    return any(
-        plan.get("configured_by_attr") or plan.get("errors")
-        for plan in threshold_plan_by_port.values()
-    )
+    return any(_threshold_plan_has_checks(plan) for plan in threshold_plan_by_port.values())
 
 
 def _db_values_for_threshold_attr(attr_name, threshold_table_data, db_fields_by_name):
@@ -627,7 +629,8 @@ def _validate_threshold_attr(attr_name, attr_value, threshold_table_data, db_fie
     return attr_errors, len(db_fields_by_name) if not attr_errors else 0, skipped_checks, skip_reasons
 
 
-def validate_dom_threshold_ranges(dom_primary_ports, threshold_table_by_port, threshold_plan_by_port):
+def validate_dom_threshold_ranges(dom_primary_ports, threshold_table_by_port, threshold_plan_by_port,
+                                  availability_only=False):
     """Validate configured DOM threshold fields against STATE_DB threshold data."""
     failures = []
     checked_attr_count = 0
@@ -642,8 +645,8 @@ def validate_dom_threshold_ranges(dom_primary_ports, threshold_table_by_port, th
         db_fields_by_threshold_attr = threshold_plan.get("db_fields_by_threshold_attr", {})
         expected_fields = _expected_fields_from_threshold_plan(db_fields_by_threshold_attr)
         operational_range_by_threshold_attr = threshold_plan.get("operational_range_by_threshold_attr", {})
-        field_failures = list(threshold_plan.get("errors", []))
-        has_threshold_checks = bool(configured_by_attr or field_failures)
+        field_failures = [] if availability_only else list(threshold_plan.get("errors", []))
+        has_threshold_checks = _threshold_plan_has_checks(threshold_plan)
 
         if has_threshold_checks:
             checked_port_count += 1
@@ -683,13 +686,20 @@ def validate_dom_threshold_ranges(dom_primary_ports, threshold_table_by_port, th
         for attr_name, attr_value in sorted(configured_by_attr.items()):
             db_fields_by_name = db_fields_by_threshold_attr.get(attr_name, {})
             operational_mapped_field = operational_range_by_threshold_attr.get(attr_name)
-            attr_errors, checked_fields, skipped_checks, skip_reasons = _validate_threshold_attr(
-                attr_name,
-                attr_value,
-                threshold_table_data,
-                db_fields_by_name,
-                operational_mapped_field,
-            )
+            if availability_only:
+                _, attr_errors = _db_values_for_threshold_attr(
+                    attr_name, threshold_table_data, db_fields_by_name,
+                )
+                checked_fields = len(db_fields_by_name) if not attr_errors else 0
+                skipped_checks, skip_reasons = 0, []
+            else:
+                attr_errors, checked_fields, skipped_checks, skip_reasons = _validate_threshold_attr(
+                    attr_name,
+                    attr_value,
+                    threshold_table_data,
+                    db_fields_by_name,
+                    operational_mapped_field,
+                )
             skipped_check_count += skipped_checks
             if skipped_checks:
                 logger.debug(
@@ -702,9 +712,13 @@ def validate_dom_threshold_ranges(dom_primary_ports, threshold_table_by_port, th
 
             if attr_errors:
                 field_failures.extend(attr_errors)
-            else:
+            elif checked_fields:
                 checked_attr_count += 1
                 checked_field_count += checked_fields
+                if availability_only:
+                    logger.debug("DOM threshold availability PASS %s %s fields=%s",
+                                 port, attr_name, sorted(db_fields_by_name))
+                    continue
                 logger.debug(
                     "DOM threshold PASS %s %s fields=%s operational_attr=%s",
                     port,
@@ -950,8 +964,7 @@ def verify_dom_recovered(duthost, port_attributes_dict, ports,
     threshold_plan_by_port = build_dom_threshold_plan(port_attributes_dict, ports)
     threshold_ports = [
         port for port in ports
-        if threshold_plan_by_port[port].get("configured_by_attr")
-        or threshold_plan_by_port[port].get("errors")
+        if _threshold_plan_has_checks(threshold_plan_by_port[port])
     ]
     if not threshold_ports:
         logger.info("DOM threshold recovery skipped: no *_threshold_range attributes configured")
@@ -974,9 +987,8 @@ def verify_dom_recovered(duthost, port_attributes_dict, ports,
         if threshold_ports:
             threshold_table_by_port, threshold_read_errors = read_dom_threshold_data(duthost, threshold_ports)
             threshold_failures, _, _, _, _ = validate_dom_threshold_ranges(
-                threshold_ports,
-                threshold_table_by_port,
-                threshold_plan_by_port,
+                threshold_ports, threshold_table_by_port, threshold_plan_by_port,
+                availability_only=True,
             )
             failures += [
                 f"DOM threshold read error: {read_error}"
@@ -999,4 +1011,17 @@ def verify_dom_recovered(duthost, port_attributes_dict, ports,
         dom_field_in_operational_range,
         include_freshness_only=True,
     )
-    return [f"DOM sensor read error: {read_error}" for read_error in read_errors] + port_failures
+    failures = [f"DOM sensor read error: {read_error}" for read_error in read_errors] + port_failures
+
+    if threshold_ports:
+        threshold_table_by_port, threshold_read_errors = read_dom_threshold_data(duthost, threshold_ports)
+        threshold_failures, _, _, _, _ = validate_dom_threshold_ranges(
+            threshold_ports,
+            threshold_table_by_port,
+            threshold_plan_by_port,
+        )
+        failures += [
+            f"DOM threshold read error: {read_error}" for read_error in threshold_read_errors
+        ] + threshold_failures
+
+    return failures
