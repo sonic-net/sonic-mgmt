@@ -75,6 +75,8 @@ def run_bgp_scalability_v4_v6(snappi_api,
         ipv6_prefix: ipv6 prefix length
     """
 
+    global temp_tg_port
+    temp_tg_port = tgen_ports
     port_count = multipath + 1
 
     """ Create bgp config on dut """
