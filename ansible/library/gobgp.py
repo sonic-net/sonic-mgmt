@@ -25,10 +25,10 @@ description:
       provides. In front of them sits a pool of HTTP shim processes
       (ansible/roles/vm_set/files/gobgp) that accept the ExaBGP HTTP grammar and
       translate it into gobgpd gRPC AddPath/DeletePath.
-    - The shim pool is sized min(cores, ports), each member owning a disjoint
-      shard of the neighbor ports per gobgp.shardmap. That module is imported
-      rather than reimplemented, so the manager and the shims cannot disagree
-      about which shim owns which port.
+    - The shim pool is sized min(cores, ports, pool_max), each member owning a
+      disjoint shard of the neighbor ports per gobgp.shardmap. That module is
+      imported rather than reimplemented, so the manager and the shims cannot
+      disagree about which shim owns which port.
     - Configuration is two-phase, because the pool spans the whole topology.
       state=configure runs once per neighbor and only writes files, then
       state=pool (or started) runs once to merge every neighbor's contribution
@@ -81,9 +81,9 @@ options:
         default: []
     pool_max:
         description:
-            - Ceiling on the shim process pool. Defaults to the package's
-              DEFAULT_POOL_MAX. Raise it on a dedicated server whose cores are
-              not shared with other PTF containers.
+            - Ceiling on the shim process pool, defaulting to 8. Raise it on a
+              dedicated server whose cores are not shared with other PTF
+              containers.
         required: false
     passive:
         description:

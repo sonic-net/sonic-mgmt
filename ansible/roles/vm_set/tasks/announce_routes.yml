@@ -58,8 +58,7 @@
     when: ptf_bgp_speaker is not defined
 
   # Every configure and start task is gated on one of the two names, so an
-  # unsupported value skips them all and surfaces only as a readiness timeout
-  # once `wait_for` gives up on the first port.
+  # unsupported value has no task to run.
   - name: Check that ptf_bgp_speaker names a supported speaker
     fail:
       msg: >-

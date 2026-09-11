@@ -1075,8 +1075,8 @@ def test_the_speaker_default_is_taken_from_the_container():
 def test_an_unsupported_speaker_value_is_rejected_before_the_branches():
     """Every configure and start task is gated on one of the two names.
 
-    An unsupported value therefore skips all of them silently and surfaces only
-    when the ungated readiness check gives up, one timeout per port.
+    An unsupported value therefore has no task to run, so the playbook rejects
+    it up front.
     """
     guards = [task for task, _ in _announce_routes_tasks() if 'fail' in task]
     conditions = " ".join(str(t.get('when', '')) for t in guards)
