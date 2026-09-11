@@ -192,6 +192,7 @@ jobs:
           PTF_MODIFIED: ${{ parameters.PTF_MODIFIED }}
           EXPECTED_RESULT: ${{ parameters.EXPECTED_RESULT }}
           TOPOLOGY: t0
+          TESTBED_NAME: vms-kvm-t0-csonic
           VM_TYPE: csonic
           SCRIPTS: $(SCRIPTS)
           MIN_WORKER: $(INSTANCE_NUMBER)
