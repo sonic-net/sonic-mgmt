@@ -41,6 +41,11 @@ REBOOT_TYPE_KERNEL_PANIC = "Kernel Panic"
 REBOOT_TYPE_SUPERVISOR = "Reboot from Supervisor"
 REBOOT_TYPE_SUPERVISOR_HEARTBEAT_LOSS = "Heartbeat with the Supervisor card lost"
 
+# Grace margin (seconds) added to the elapsed-time bound when validating post-reboot
+# /proc/uptime. Absorbs the delay between issuing the reboot command and the DUT
+# actually going down, plus minor clock resolution differences.
+REBOOT_UPTIME_GRACE_SECONDS = 60
+
 # Event to signal DUT activeness
 DUT_ACTIVE = threading.Event()
 DUT_ACTIVE.set()
@@ -280,7 +285,6 @@ def perform_reboot(duthost, pool, reboot_command, reboot_helper=None, reboot_kwa
         logger.info('rebooting {} with helper "{}"'.format(hostname, reboot_helper))
         return reboot_helper(reboot_kwargs, power_on_event)
 
-    dut_datetime = duthost.get_now_time(utc_timezone=True)
     DUT_ACTIVE.clear()
 
     # Extend ignore fabric port msgs for T2 chassis with DNX chipset on Linecards
@@ -291,10 +295,12 @@ def perform_reboot(duthost, pool, reboot_command, reboot_helper=None, reboot_kwa
             reboot_res = pool.apply_async(execute_reboot_command)
         elif invocation_type == "gnoi_based":
             reboot_res = pool.apply_async(execute_gnoi_reboot_command)
+        else:
+            raise ValueError("Unsupported invocation_type: {}".format(invocation_type))
     else:
         assert reboot_helper is not None, "A reboot function must be provided for power off/on reboot"
         reboot_res = pool.apply_async(execute_reboot_helper)
-    return [reboot_res, dut_datetime]
+    return reboot_res
 
 
 def execute_reboot_smartswitch_command(duthost, reboot_type, hostname):
@@ -319,7 +325,6 @@ def reboot_smartswitch(duthost, pool, reboot_type=REBOOT_TYPE_COLD, reboot_helpe
         return
 
     hostname = duthost.hostname
-    dut_datetime = duthost.get_now_time(utc_timezone=True)
 
     logging.info("Rebooting the DUT {} with type {}".format(hostname, reboot_type))
 
@@ -332,7 +337,7 @@ def reboot_smartswitch(duthost, pool, reboot_type=REBOOT_TYPE_COLD, reboot_helpe
         reboot_res = pool.apply_async(execute_reboot_smartswitch_command,
                                       (duthost, reboot_type, hostname))
 
-    return [reboot_res, dut_datetime]
+    return reboot_res
 
 
 def check_dshell_ready(duthost):
@@ -431,14 +436,17 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     # autoboot window and trap the DUT -- the exact race this fix guards against.
     reboot_started_event.set()
 
+    # Capture a monotonic timestamp on the test host right before issuing the reboot.
+    reboot_start_time = time.monotonic()
+
     # Perform reboot
     if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch") \
             and invocation_type != "gnoi_based":
-        reboot_res, dut_datetime = reboot_smartswitch(duthost, pool, reboot_type, reboot_helper, reboot_kwargs)
+        reboot_res = reboot_smartswitch(duthost, pool, reboot_type, reboot_helper, reboot_kwargs)
     else:
-        reboot_res, dut_datetime = perform_reboot(duthost, pool, reboot_command, reboot_helper,
-                                                  reboot_kwargs, reboot_type, invocation_type, localhost,
-                                                  ptf_gnoi=ptf_gnoi)
+        reboot_res = perform_reboot(duthost, pool, reboot_command, reboot_helper,
+                                    reboot_kwargs, reboot_type, invocation_type, localhost,
+                                    ptf_gnoi=ptf_gnoi)
 
     is_dpu_reboot = (invocation_type == "gnoi_based"
                      and ptf_gnoi is not None
@@ -535,14 +543,22 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
         curr_reboot_cause_history = duthost.show_and_parse("show reboot-cause history")
         pytest_assert(prev_reboot_cause_history != curr_reboot_cause_history, "No new input into history-queue")
     else:
-        if float(dut_uptime.strftime("%s")) < float(dut_datetime.strftime("%s")):
-            logger.info('DUT {} timestamp went backwards'.format(hostname))
-            wait_until(120, 5, 0, positive_uptime, duthost, dut_datetime)
-
-        dut_uptime = duthost.get_up_time()
-
-        assert float(dut_uptime.strftime("%s")) > float(dut_datetime.strftime("%s")), "Device {} did not reboot". \
-            format(hostname)
+        # Use /proc/uptime (monotonic, immune to RTC drift and NTP sync delays)
+        # to verify the device rebooted. A freshly-rebooted device must have an uptime
+        # less than the time we have spent since issuing the reboot (measured on the test
+        # host). Deriving the bound from the elapsed wall time keeps it correct across all
+        # post-reboot wait paths (safe_reboot, interface/dshell checks, warmboot-finalizer)
+        # instead of assuming a static timeout + wait budget. A grace margin absorbs the
+        # small delay between issuing the command and the DUT actually going down.
+        elapsed_since_reboot = time.monotonic() - reboot_start_time
+        max_expected_uptime = elapsed_since_reboot + REBOOT_UPTIME_GRACE_SECONDS
+        uptime_seconds = duthost.get_uptime().total_seconds()
+        logger.info('DUT {} uptime after reboot: {:.1f}s (max expected: {:.1f}s)'.format(
+            hostname, uptime_seconds, max_expected_uptime))
+        pytest_assert(
+            uptime_seconds < max_expected_uptime,
+            "Device {} did not reboot: uptime {:.0f}s exceeds max expected {:.0f}s".format(
+                hostname, uptime_seconds, max_expected_uptime))
 
     if wait_for_bgp:
         bgp_neighbors = duthost.get_bgp_neighbors_per_asic(state="all")
@@ -564,14 +580,6 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
             wait_until(wait + 300, 10, 0, duthost.check_bgp_session_state_all_asics, bgp_neighbors),
             "Not all bgp sessions are established after reboot",
         )
-
-
-def positive_uptime(duthost, dut_datetime):
-    dut_uptime = duthost.get_up_time()
-    if float(dut_uptime.strftime("%s")) < float(dut_datetime.strftime("%s")):
-        return False
-
-    return True
 
 
 def get_reboot_cause(dut):
