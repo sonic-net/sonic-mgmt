@@ -3,6 +3,9 @@ import pytest
 import pprint
 import random
 import os
+from ipaddress import ip_address
+
+from tests.common.helpers.assertions import pytest_assert
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +46,16 @@ def setup(duthost, tbinfo, ptfadapter):
 
     # gather ansible facts
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+
+    # Determine applicability from configured peers, not current interface health.
+    configured_peers = {
+        peer['name'] for peer in mg_facts['minigraph_bgp']
+        if ip_address(str(peer['addr'])).version == 4
+    }
+    if (not any('T0' in peer for peer in configured_peers)
+            or not any('T2' in peer for peer in configured_peers)):
+        pytest.skip('Topology requires configured IPv4 BGP peers toward both T0 and T2')
+
     host_facts = duthost.setup()['ansible_facts']
 
     tor_ports_ids = {}
@@ -76,12 +89,10 @@ def setup(duthost, tbinfo, ptfadapter):
     logger.info('spine_ports: {}'.format(spine_ports))
     logger.info('tor_addr: {}'.format(tor_addr))
 
-    # The test needs both a T2-facing ingress and a T0-facing egress interface.
-    # Some t1 variants (e.g. t1-backend, whose neighbors are all BT0) have no T2
-    # peer at all, so bail out cleanly instead of failing later in random.choice().
-    if not spine_ports or not tor_ports:
-        pytest.skip('Topology has no T2-facing ({}) or T0-facing ({}) interface'
-                    .format(len(spine_ports), len(tor_ports)))
+    pytest_assert(tor_ports,
+                  'No active IPv4 interface toward configured T0 peers; check interface state and peer connectivity')
+    pytest_assert(spine_ports,
+                  'No active IPv4 interface toward configured T2 peers; check interface state and peer connectivity')
 
     for dut_port in tor_ports:
         tor_ports_ids[dut_port] = _resolve_ptf_port_ids(dut_port, mg_facts)
