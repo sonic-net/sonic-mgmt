@@ -249,6 +249,19 @@ def cleanup_snmp_community_add(duthosts, enum_rand_one_per_hwsku_hostname):
 
 
 @pytest.fixture
+def cleanup_snmp_community_del(duthosts, enum_rand_one_per_hwsku_hostname):
+    """Remove the SNMP community used by the del test, even if the test fails.
+
+    The del test's own `config snmp community del` may not have run if an
+    earlier assertion raised, so clean it up here regardless of outcome.
+    """
+    yield
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    duthost.shell("sudo config snmp community del {0}".format(_SNMP_SECRET_DEL),
+                  module_ignore_errors=True)
+
+
+@pytest.fixture
 def cleanup_snmp_community_replace(duthosts, enum_rand_one_per_hwsku_hostname):
     """Remove the SNMP community left behind by the replace test, even if it fails.
 
