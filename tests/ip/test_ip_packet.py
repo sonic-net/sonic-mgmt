@@ -675,7 +675,7 @@ class TestIPPacket(object):
         tx_drp = sum_ifaces_counts(portstat_out, out_ifaces, "tx_drp")
         tx_err = sum_ifaces_counts(rif_counter_out, out_rif_ifaces, "tx_err") if rif_support else 0
 
-        if asic_type in ["vs", "nokia-vs"]:
+        if asic_type in ["vs", "nokia-vs", "micas-vs"]:
             logger.info("Skipping packet count check on {} platform".format(asic_type))
             return
         pytest_assert(rx_ok >= self.PKT_NUM_MIN,
@@ -735,7 +735,7 @@ class TestIPPacket(object):
         tx_drp = sum_ifaces_counts(portstat_out, out_ifaces, "tx_drp")
         tx_rif_err = sum_ifaces_counts(rif_counter_out, out_rif_ifaces, "tx_err") if rif_support else 0
 
-        if asic_type in ["vs", "nokia-vs"]:
+        if asic_type in ["vs", "nokia-vs", "micas-vs"]:
             logger.info("Skipping packet count check on {} platform".format(asic_type))
             return
         pytest_assert(rx_ok >= self.PKT_NUM_MIN,
