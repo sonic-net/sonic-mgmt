@@ -143,55 +143,11 @@ jobs:
           PTF_MODIFIED: ${{ parameters.PTF_MODIFIED }}
           EXPECTED_RESULT: ${{ parameters.EXPECTED_RESULT }}
           TOPOLOGY: t0
-          SCRIPTS: $(SCRIPTS)
-          MIN_WORKER: $(INSTANCE_NUMBER)
-          MAX_WORKER: $(INSTANCE_NUMBER)
-          KVM_IMAGE_BRANCH: ${{ parameters.KVM_IMAGE_BRANCH }}
-          KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
-          MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
-          COMMON_EXTRA_PARAMS: "--disable_sai_validation "
-          ${{ each param in parameters.OVERRIDE_PARAMS }}:
-            ${{ param.key }}: ${{ param.value }}
-
-  # cSONiC (docker-sonic-vs SONiC-on-SONiC) neighbors instead of cEOS, running
-  # the SAME t0 impacted-area test scripts/topology as impacted_area_t0_elastictest
-  # above -- only the neighbor VM_TYPE/testbed differ. Non-blocking
-  # (continueOnError: true) while this is validated in real CI; see
-  # docs/testbed/README.testbed.cSONiC.md for background.
-  - job: impacted_area_t0_csonic_elastictest
-    displayName: "impacted-area-kvmtest-t0-csonic by Elastictest"
-    dependsOn:
-    - get_impacted_area
-    - cancel_previous_test_plan_for_same_pr
-    variables:
-      TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
-      RUN_BY_INCLUDE_JOBS: ${{ or(eq(parameters.INCLUDE_JOBS, 'all'), contains(parameters.INCLUDE_JOBS, 't0_csonic_job')) }}
-    condition: and(not(canceled()), succeeded(), contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't0_checker'), eq(variables['RUN_BY_INCLUDE_JOBS'], 'True'))
-    timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
-    continueOnError: true
-    pool: ${{ parameters.RUN_TEST_AGENT_POOL }}
-    steps:
-      - ${{ if eq(parameters.CHECKOUT_SONIC_MGMT, true) }}:
-        - checkout: ${{ parameters.SONIC_MGMT_NAME }}
-          displayName: "Checkout sonic-mgmt repository"
-
-      - template: impacted_area_testing/calculate-instance-numbers.yml
-        parameters:
-          TOPOLOGY: t0
-          BUILD_BRANCH: $(BUILD_BRANCH)
-
-      - template: run-test-elastictest-template.yml
-        parameters:
-          BUILD_REASON: ${{ parameters.BUILD_REASON }}
-          RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
-          STOP_ON_FAILURE: ${{ parameters.STOP_ON_FAILURE }}
-          TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
-          MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
-          MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
-          PTF_IMAGE_TAG: ${{ parameters.PTF_IMAGE_TAG }}
-          PTF_MODIFIED: ${{ parameters.PTF_MODIFIED }}
-          EXPECTED_RESULT: ${{ parameters.EXPECTED_RESULT }}
-          TOPOLOGY: t0
+          # DIAGNOSTIC ONLY (draft branch, not for merge as-is): VM_TYPE: csonic
+          # added here -- on the SAME job/pool that already successfully serves
+          # plain t0 requests every day -- to test whether the scheduler's t0
+          # VM pool can honor a csonic neighbor-type request at all, versus
+          # needing a dedicated pool. See sonic-net/sonic-buildimage#29467.
           VM_TYPE: csonic
           SCRIPTS: $(SCRIPTS)
           MIN_WORKER: $(INSTANCE_NUMBER)
