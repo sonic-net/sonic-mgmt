@@ -123,3 +123,13 @@ test_conditional_mark.py::test_mark_9_2:
     reason: "Xfail test_conditional_mark.py::test_mark_9_2"
     conditions:
       - "asic_type in ['vs']"
+
+# Mirrors the shape of the production regex added for
+# https://github.com/sonic-net/sonic-mgmt/issues/26793 (conditional_mark rules
+# that must match regardless of which order pytest joins two independently
+# parametrized fixtures into the nodeid, e.g. pytest <=8 "ipv6-erspan_ipv4" vs
+# pytest 9 "erspan_ipv4-ipv6").
+test_everflow_reorder_mark.py::test_everflow_reorder_mark\[(?:ipv6-erspan_ipv[46]|erspan_ipv[46]-ipv6)(?:-|\]):
+  regex: true
+  skip:
+    reason: "Skip test_everflow_reorder_mark.py::test_everflow_reorder_mark"
