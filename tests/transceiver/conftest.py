@@ -236,6 +236,51 @@ def port_attributes_dict(request, ansible_root, duthost):
     return merged
 
 
+@pytest.fixture(scope='session')
+def port_attributes_by_dut(ansible_root, duthost, duthosts, port_attributes_dict):
+    """Return merged transceiver attributes keyed by DUT hostname.
+
+    ``port_attributes_dict`` remains the canonical attributes for the selected
+    DUT.  Peer-aware tests also need attributes from other DUTs in the testbed;
+    load those from their own DUT inventory and platform/HWSKU context so an
+    identically named port on another DUT cannot resolve to local attributes.
+    """
+    attributes_by_dut = {duthost.hostname: port_attributes_dict}
+    loader = DutInfoLoader(ansible_root)
+    attr_dir = os.path.join(ansible_root, REL_ATTR_DIR)
+
+    for host in duthosts:
+        if host.hostname in attributes_by_dut:
+            continue
+
+        platform, hwsku = _load_platform_hwsku(host)
+        try:
+            base_dict = loader.build_base_port_attributes(host.hostname)
+            merged = (
+                AttributeManager(ansible_root, base_dict).build_port_attributes(
+                    host.hostname,
+                    platform or '',
+                    hwsku or '',
+                )
+                if os.path.isdir(attr_dir)
+                else base_dict
+            )
+        except (DutInfoError, AttributeMergeError) as error:
+            pytest.fail(
+                "Failed loading transceiver attributes for peer DUT '{}': {}".format(
+                    host.hostname,
+                    error,
+                )
+            )
+
+        if not merged:
+            pytest.fail("No merged transceiver attributes found for peer DUT '{}'".format(host.hostname))
+        attributes_by_dut[host.hostname] = merged
+        logger.info("Loaded transceiver attributes for peer DUT %s: %d port(s)", host.hostname, len(merged))
+
+    return attributes_by_dut
+
+
 # Ensure infra initialized before any test in this package
 @pytest.fixture(autouse=True, scope='session')
 def _ensure_transceiver_infra_initialized(port_attributes_dict):
@@ -271,6 +316,20 @@ def lport_to_first_subport_mapping(duthost):
     ``interface_utils.is_first_subport``.
     """
     return get_lport_to_first_subport_mapping(duthost)
+
+
+@pytest.fixture(scope="session")
+def lport_to_first_subport_mapping_by_dut(
+    duthost,
+    duthosts,
+    lport_to_first_subport_mapping,
+):
+    """Return each DUT's logical-port to primary-subport mapping."""
+    mappings_by_dut = {duthost.hostname: lport_to_first_subport_mapping}
+    for host in duthosts:
+        if host.hostname not in mappings_by_dut:
+            mappings_by_dut[host.hostname] = get_lport_to_first_subport_mapping(host)
+    return mappings_by_dut
 
 
 # ──────────────────────────────────────────────────────────────────────

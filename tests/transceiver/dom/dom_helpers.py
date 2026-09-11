@@ -7,17 +7,24 @@ final per-test failure message instead of raising immediately.
 import logging
 import math
 from collections import defaultdict, namedtuple
+from datetime import datetime, timedelta
 
+from tests.common.utilities import wait_until
 from tests.transceiver.attribute_parser.attribute_keys import (
     BASE_ATTRIBUTES_KEY,
     DOM_ATTRIBUTES_KEY,
+    SYSTEM_ATTRIBUTES_KEY,
 )
 from tests.transceiver.common import scenario_ops
 from tests.transceiver.common.db_helpers import (
+    STATE_DB_UPDATE_TIME_FIELD,
     check_entry_freshness,
     get_config_db_port_table,
+    get_db_table,
     get_state_db_table,
     parse_numeric,
+    parse_state_db_bool,
+    parse_update_time,
     resolve_port_namespace,
 )
 
@@ -25,10 +32,21 @@ logger = logging.getLogger(__name__)
 
 STATE_DB_SENSOR_TABLE = "TRANSCEIVER_DOM_SENSOR"
 STATE_DB_THRESHOLD_TABLE = "TRANSCEIVER_DOM_THRESHOLD"
+STATE_DB_STATUS_TABLE = "TRANSCEIVER_STATUS"
+STATE_DB_DOM_FLAG_TABLE = "TRANSCEIVER_DOM_FLAG"
+STATE_DB_DOM_FLAG_CHANGE_COUNT_TABLE = "TRANSCEIVER_DOM_FLAG_CHANGE_COUNT"
+STATE_DB_DOM_FLAG_SET_TIME_TABLE = "TRANSCEIVER_DOM_FLAG_SET_TIME"
+STATE_DB_DOM_FLAG_CLEAR_TIME_TABLE = "TRANSCEIVER_DOM_FLAG_CLEAR_TIME"
+STATE_DB_STATUS_FLAG_TABLE = "TRANSCEIVER_STATUS_FLAG"
+STATE_DB_STATUS_FLAG_CHANGE_COUNT_TABLE = "TRANSCEIVER_STATUS_FLAG_CHANGE_COUNT"
+STATE_DB_STATUS_FLAG_SET_TIME_TABLE = "TRANSCEIVER_STATUS_FLAG_SET_TIME"
+STATE_DB_STATUS_FLAG_CLEAR_TIME_TABLE = "TRANSCEIVER_STATUS_FLAG_CLEAR_TIME"
+APPL_DB_PORT_TABLE = "PORT_TABLE"
 
 OPERATIONAL_SUFFIX = "_operational_range"
 THRESHOLD_SUFFIX = "_threshold_range"
 CONSISTENCY_SUFFIX = "_consistency_variation_threshold"
+DEVIATION_SUFFIX = "_deviation_range"
 CONSISTENCY_MODE_ABSOLUTE = "absolute"
 CONSISTENCY_MODE_PERCENT = "percent"
 LANE_NUM_PLACEHOLDER = "LANE_NUM"
@@ -37,7 +55,14 @@ DomMappedField = namedtuple("DomMappedField", ("source_attr", "attr_value"))
 DomThresholdMappedField = namedtuple("DomThresholdMappedField", ("source_attr", "attr_value", "threshold_key"))
 DomQuantitySpec = namedtuple(
     "DomQuantitySpec",
-    ("threshold_db_prefix", "sensor_field_template", "operational_attr", "consistency_unit", "consistency_mode"),
+    (
+        "threshold_db_prefix",
+        "sensor_field_template",
+        "operational_attr",
+        "consistency_unit",
+        "consistency_mode",
+        "deviation_unit",
+    ),
 )
 
 THRESHOLD_FIELD_SUFFIXES = ("lowalarm", "lowwarning", "highwarning", "highalarm")
@@ -48,14 +73,23 @@ DOM_QUANTITY_REGISTRY = {
         "temperature_operational_range",
         "C",
         CONSISTENCY_MODE_ABSOLUTE,
+        "C",
     ),
-    "voltage": DomQuantitySpec("vcc", "voltage", "voltage_operational_range", "V", CONSISTENCY_MODE_ABSOLUTE),
+    "voltage": DomQuantitySpec(
+        "vcc",
+        "voltage",
+        "voltage_operational_range",
+        "V",
+        CONSISTENCY_MODE_ABSOLUTE,
+        "V",
+    ),
     "laser_temperature": DomQuantitySpec(
         "lasertemp",
         "laser_temperature",
         "laser_temperature_operational_range",
         "C",
         CONSISTENCY_MODE_ABSOLUTE,
+        "C",
     ),
     "tx_power": DomQuantitySpec(
         "txpower",
@@ -63,6 +97,7 @@ DOM_QUANTITY_REGISTRY = {
         "txLANE_NUMpower_operational_range",
         "dB",
         CONSISTENCY_MODE_ABSOLUTE,
+        "dB",
     ),
     "rx_power": DomQuantitySpec(
         "rxpower",
@@ -70,6 +105,7 @@ DOM_QUANTITY_REGISTRY = {
         "rxLANE_NUMpower_operational_range",
         "dB",
         CONSISTENCY_MODE_ABSOLUTE,
+        "dB",
     ),
     "tx_bias": DomQuantitySpec(
         "txbias",
@@ -77,6 +113,7 @@ DOM_QUANTITY_REGISTRY = {
         "txLANE_NUMbias_operational_range",
         "%",
         CONSISTENCY_MODE_PERCENT,
+        "mA",
     ),
 }
 THRESHOLD_FIELD_PREFIXES = {
@@ -100,11 +137,16 @@ CONSISTENCY_MODES_BY_BASE = {
     base_name: spec.consistency_mode
     for base_name, spec in DOM_QUANTITY_REGISTRY.items()
 }
+DEVIATION_UNITS_BY_BASE = {
+    base_name: spec.deviation_unit
+    for base_name, spec in DOM_QUANTITY_REGISTRY.items()
+}
 
 DOM_POLLING_ENABLED_VALUES = ("", "enabled")
 DOM_POLLING_DISABLED_VALUE = "disabled"
 
 DOM_RECOVERY_POLL_INTERVAL_SEC = 20
+DOM_EVENT_TIME_TOLERANCE_SEC = 5
 
 
 def _active_media_lanes(primary_port, port_attributes_dict, lport_to_first_subport_mapping):
@@ -227,28 +269,51 @@ def _operational_attr_for_threshold(attr_name):
     return THRESHOLD_TO_OPERATIONAL_ATTR.get(base_name)
 
 
+def _quantity_base_name_for_attr(attr_name, suffix):
+    """Return the DOM quantity registry key for an attribute name."""
+    if not attr_name.endswith(suffix):
+        return None
+
+    attr_base_name = attr_name[:-len(suffix)]
+    if attr_base_name in DOM_QUANTITY_REGISTRY:
+        return attr_base_name
+
+    for base_name, spec in DOM_QUANTITY_REGISTRY.items():
+        operational_base_name = spec.operational_attr[:-len(OPERATIONAL_SUFFIX)]
+        if attr_base_name == operational_base_name:
+            return base_name
+
+    return None
+
+
 def consistency_field_template_for_attr(attr_name):
     """Return the STATE_DB sensor field template for a consistency attribute."""
-    if not attr_name.endswith(CONSISTENCY_SUFFIX):
-        return None
-    base_name = attr_name[:-len(CONSISTENCY_SUFFIX)]
+    base_name = _quantity_base_name_for_attr(attr_name, CONSISTENCY_SUFFIX)
     return CONSISTENCY_FIELD_TEMPLATES_BY_BASE.get(base_name)
 
 
 def consistency_unit_for_attr(attr_name):
     """Return the output unit for a configured consistency attribute."""
-    if not attr_name.endswith(CONSISTENCY_SUFFIX):
-        return None
-    base_name = attr_name[:-len(CONSISTENCY_SUFFIX)]
+    base_name = _quantity_base_name_for_attr(attr_name, CONSISTENCY_SUFFIX)
     return CONSISTENCY_UNITS_BY_BASE.get(base_name)
 
 
 def consistency_mode_for_attr(attr_name):
     """Return the validation mode for a configured consistency attribute."""
-    if not attr_name.endswith(CONSISTENCY_SUFFIX):
-        return None
-    base_name = attr_name[:-len(CONSISTENCY_SUFFIX)]
+    base_name = _quantity_base_name_for_attr(attr_name, CONSISTENCY_SUFFIX)
     return CONSISTENCY_MODES_BY_BASE.get(base_name)
+
+
+def deviation_field_template_for_attr(attr_name):
+    """Return the STATE_DB sensor field template for a deviation-range attribute."""
+    base_name = _quantity_base_name_for_attr(attr_name, DEVIATION_SUFFIX)
+    return CONSISTENCY_FIELD_TEMPLATES_BY_BASE.get(base_name)
+
+
+def deviation_unit_for_attr(attr_name):
+    """Return the output unit for a configured deviation-range attribute."""
+    base_name = _quantity_base_name_for_attr(attr_name, DEVIATION_SUFFIX)
+    return DEVIATION_UNITS_BY_BASE.get(base_name)
 
 
 def dom_consistency_attributes():
@@ -406,6 +471,691 @@ def build_dom_polling_failures(duthost, dom_primary_ports):
 
 def format_optional_float(value):
     return "{:.2f}".format(value) if value is not None else "not-available"
+
+
+def normalize_datetime(value):
+    """Return a timezone-naive datetime for arithmetic with xcvrd timestamps."""
+    if value is None:
+        return None
+    if value.tzinfo is not None:
+        return value.replace(tzinfo=None)
+    return value
+
+
+def parse_sonic_timestamp(value):
+    """Return a parsed SONiC timestamp, or ``None`` when it is absent/unparseable."""
+    parsed = parse_update_time(value)
+    if parsed is not None:
+        return parsed
+
+    if value is None:
+        return None
+    raw = str(value).strip()
+    if not raw or raw.lower() == "never":
+        return None
+
+    for time_format in ("%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S"):
+        try:
+            return datetime.strptime(raw, time_format)
+        except ValueError:
+            continue
+
+    try:
+        return datetime.fromisoformat(raw)
+    except ValueError:
+        return None
+
+
+def ports_for_primary(primary_port, port_attributes_dict, lport_to_first_subport_mapping):
+    """Return logical subports that share ``primary_port`` as their first subport."""
+    mapping = lport_to_first_subport_mapping or {}
+    return sorted(
+        port
+        for port in port_attributes_dict
+        if mapping.get(port, port) == primary_port
+    ) or [primary_port]
+
+
+def active_lanes_from_group_mask(primary_port, port_attributes_dict, lport_to_first_subport_mapping, mask_key):
+    """Return ``(lanes, errors)`` from the union of a breakout group's lane masks."""
+    mask_union = 0
+    errors = []
+    for port in ports_for_primary(primary_port, port_attributes_dict, lport_to_first_subport_mapping):
+        base_attrs = port_attributes_dict.get(port, {}).get(BASE_ATTRIBUTES_KEY, {})
+        raw_mask = base_attrs.get(mask_key)
+        if raw_mask is None:
+            errors.append("{} missing {} in {}".format(port, mask_key, BASE_ATTRIBUTES_KEY))
+            continue
+        try:
+            mask_union |= int(str(raw_mask), 16)
+        except (TypeError, ValueError):
+            errors.append("{} has unparsable {}={!r}".format(port, mask_key, raw_mask))
+
+    return [bit + 1 for bit in range(mask_union.bit_length()) if mask_union & (1 << bit)], errors
+
+
+def parse_required_number(attrs, attr_name, category_name=DOM_ATTRIBUTES_KEY):
+    """Return ``(value, error)`` for a required finite numeric attribute."""
+    raw_value = attrs.get(attr_name)
+    value = parse_numeric(raw_value)
+    if value is None or not math.isfinite(value):
+        return None, "{} must be configured as a finite number in {} (got {!r})".format(
+            attr_name,
+            category_name,
+            raw_value,
+        )
+    return value, None
+
+
+def parse_required_positive_int(attrs, attr_name, minimum=1):
+    """Return ``(value, error)`` for a required integer attribute."""
+    raw_value = attrs.get(attr_name)
+    value = parse_numeric(raw_value)
+    if value is None or not math.isfinite(value) or int(value) != value or value < minimum:
+        return None, "{} must be an integer >= {} (got {!r})".format(attr_name, minimum, raw_value)
+    return int(value), None
+
+
+def max_system_wait(port_attributes_dict, ports, attr_name):
+    """Return ``(wait_sec, errors)`` for a system timing attribute across ports."""
+    values = []
+    errors = []
+    for port in ports:
+        system_attrs = port_attributes_dict.get(port, {}).get(SYSTEM_ATTRIBUTES_KEY, {})
+        value, error = parse_required_positive_int(system_attrs, attr_name, minimum=0)
+        if error:
+            errors.append("{} {}".format(port, error))
+        else:
+            values.append(value)
+    return (max(values) if values else None), errors
+
+
+def _read_appl_port_table_data(duthost, ports):
+    """Return ``({port: data_or_None}, errors)`` for APPL_DB PORT_TABLE rows."""
+    ports = list(ports)
+    table_by_port = {port: {} for port in ports}
+    errors = []
+    ports_by_namespace = defaultdict(list)
+
+    for port in ports:
+        ports_by_namespace[resolve_port_namespace(duthost, port)].append(port)
+
+    for namespace, namespace_ports in ports_by_namespace.items():
+        port_table, err = get_db_table(
+            duthost,
+            "APPL_DB",
+            APPL_DB_PORT_TABLE,
+            namespace=namespace,
+            sep=":",
+        )
+        if err:
+            errors.append(
+                "{} namespace {} ({} port(s) under test): {}".format(
+                    APPL_DB_PORT_TABLE,
+                    namespace or "default",
+                    len(namespace_ports),
+                    err,
+                )
+            )
+            for port in namespace_ports:
+                table_by_port[port] = None
+            continue
+
+        for port in namespace_ports:
+            table_by_port[port] = port_table.get(port, {}) or {}
+
+    return table_by_port, errors
+
+
+def read_dom_interface_state_tables(duthost, ports, include_appl_port=False):
+    """Return ``(tables, errors)`` for STATE_DB/APPL_DB tables Advanced TC1 consumes."""
+    table_readers = (
+        ("sensor", read_dom_sensor_data),
+        ("dom_flag", read_dom_flag_data),
+        ("dom_flag_count", read_dom_flag_change_count_data),
+        ("dom_flag_set_time", read_dom_flag_set_time_data),
+        ("dom_flag_clear_time", read_dom_flag_clear_time_data),
+        ("status", read_transceiver_status_data),
+        ("status_flag", read_transceiver_status_flag_data),
+        ("status_flag_count", read_transceiver_status_flag_change_count_data),
+        ("status_flag_set_time", read_transceiver_status_flag_set_time_data),
+        ("status_flag_clear_time", read_transceiver_status_flag_clear_time_data),
+    )
+    tables = {}
+    errors = []
+    for table_key, reader in table_readers:
+        data_by_port, read_errors = reader(duthost, ports)
+        tables[table_key] = data_by_port
+        errors.extend("STATE_DB read:\n  {}".format(error) for error in read_errors)
+
+    if include_appl_port:
+        appl_port_by_port, read_errors = _read_appl_port_table_data(duthost, ports)
+        tables["appl_port"] = appl_port_by_port
+        errors.extend("APPL_DB read:\n  {}".format(error) for error in read_errors)
+
+    return tables, errors
+
+
+def _lookup_case_insensitive(entry, candidate_fields):
+    """Return ``(actual_field, raw_value)`` for the first matching field candidate."""
+    if not isinstance(entry, dict):
+        return None, None
+    for candidate in candidate_fields:
+        if candidate in entry:
+            return candidate, entry[candidate]
+    lowered = {field.lower(): field for field in entry}
+    for candidate in candidate_fields:
+        actual = lowered.get(candidate.lower())
+        if actual is not None:
+            return actual, entry[actual]
+    return None, None
+
+
+def dom_tx_los_hostlane_candidates(lane):
+    """Return candidate STATE_DB names for the Tx LOS host-lane flag."""
+    return (
+        "tx{}los_hostlane".format(lane),
+        "tx{}losHostlane".format(lane),
+        "tx{}losHostLane".format(lane),
+    )
+
+
+def dom_rx_power_flag_candidates(lane, suffix):
+    """Return candidate DOM flag names for one Rx power low-alarm/warning flag."""
+    return (
+        "rx{}power{}".format(lane, suffix),
+        "rx{}Power{}".format(lane, suffix),
+    )
+
+
+def _flag_entry_failure(table_name, entry):
+    """Return a table-presence failure for a flag/metadata entry, or ``None``."""
+    if entry is None:
+        return "could not read {} for port (namespace read failed)".format(table_name)
+    if not entry:
+        return "no {} entry published for port".format(table_name)
+    return None
+
+
+def _parse_count(value):
+    """Return an integer metadata count, or ``None`` when absent/unparseable."""
+    parsed = parse_numeric(value)
+    if parsed is None or not math.isfinite(parsed) or int(parsed) != parsed:
+        return None
+    return int(parsed)
+
+
+def validate_dom_flag_state(port, table_name, entry, candidate_fields, expected_state):
+    """Return failures for one expected boolean flag state."""
+    failure = _flag_entry_failure(table_name, entry)
+    if failure:
+        return [failure]
+
+    actual_field, raw_value = _lookup_case_insensitive(entry, candidate_fields)
+    if actual_field is None:
+        return ["{} missing flag field {}".format(table_name, "/".join(candidate_fields))]
+
+    actual_state = parse_state_db_bool(str(raw_value))
+    if actual_state is None:
+        return ["{} {} has unrecognized boolean value {!r}".format(table_name, actual_field, raw_value)]
+    if actual_state != expected_state:
+        return [
+            "{} {} expected {}, got {}".format(
+                table_name,
+                actual_field,
+                expected_state,
+                raw_value,
+            )
+        ]
+    logger.debug("DOM flag PASS %s %s %s=%s", port, table_name, actual_field, raw_value)
+    return []
+
+
+def _metadata_raw_value(table_name, entry, candidate_fields):
+    """Return ``(field, raw_value, error)`` from one flag metadata table."""
+    failure = _flag_entry_failure(table_name, entry)
+    if failure:
+        return None, None, failure
+    actual_field, raw_value = _lookup_case_insensitive(entry, candidate_fields)
+    if actual_field is None:
+        return None, None, "{} missing metadata field {}".format(table_name, "/".join(candidate_fields))
+    return actual_field, raw_value, None
+
+
+def _validate_count_increment(port, candidate_fields, baseline_entry, current_entry, table_name):
+    """Return failures if a flag metadata change count did not increment."""
+    field, baseline_raw, error = _metadata_raw_value(table_name, baseline_entry, candidate_fields)
+    if error:
+        return [error]
+    _field, current_raw, error = _metadata_raw_value(table_name, current_entry, candidate_fields)
+    if error:
+        return [error]
+
+    baseline_count = _parse_count(baseline_raw)
+    current_count = _parse_count(current_raw)
+    if baseline_count is None or current_count is None:
+        return [
+            "{} {} count is non-integer (baseline={!r}, current={!r})".format(
+                table_name,
+                field,
+                baseline_raw,
+                current_raw,
+            )
+        ]
+    if current_count <= baseline_count:
+        return [
+            "{} {} did not increment (baseline={}, current={})".format(
+                table_name,
+                field,
+                baseline_count,
+                current_count,
+            )
+        ]
+    logger.debug("DOM flag metadata PASS %s %s %s count %s->%s",
+                 port, table_name, field, baseline_count, current_count)
+    return []
+
+
+def _validate_event_timestamp(port, candidate_fields, baseline_entry, current_entry, table_name, event_time):
+    """Return failures if an event timestamp did not update after the operation."""
+    field, baseline_raw, error = _metadata_raw_value(table_name, baseline_entry, candidate_fields)
+    if error:
+        return [error]
+    _field, current_raw, error = _metadata_raw_value(table_name, current_entry, candidate_fields)
+    if error:
+        return [error]
+
+    if current_raw == baseline_raw:
+        return ["{} {} did not update from baseline {!r}".format(table_name, field, baseline_raw)]
+
+    parsed_time = parse_sonic_timestamp(current_raw)
+    if parsed_time is None:
+        return ["{} {} timestamp is unparsable: {!r}".format(table_name, field, current_raw)]
+    parsed_time = normalize_datetime(parsed_time)
+
+    earliest = normalize_datetime(event_time) - timedelta(seconds=DOM_EVENT_TIME_TOLERANCE_SEC)
+    if parsed_time < earliest:
+        return [
+            "{} {} timestamp {} is before operation window {}".format(
+                table_name,
+                field,
+                current_raw,
+                event_time,
+            )
+        ]
+    logger.debug("DOM flag metadata PASS %s %s %s timestamp %s",
+                 port, table_name, field, current_raw)
+    return []
+
+
+def _validate_timestamp_unchanged(candidate_fields, baseline_entry, current_entry, table_name):
+    """Return failures if an unchanged metadata timestamp changed."""
+    field, baseline_raw, error = _metadata_raw_value(table_name, baseline_entry, candidate_fields)
+    if error:
+        return [error]
+    _field, current_raw, error = _metadata_raw_value(table_name, current_entry, candidate_fields)
+    if error:
+        return [error]
+    if current_raw != baseline_raw:
+        return ["{} {} changed unexpectedly (baseline={!r}, current={!r})".format(
+            table_name,
+            field,
+            baseline_raw,
+            current_raw,
+        )]
+    return []
+
+
+def validate_dom_flag_lifecycle(port, candidate_fields, baseline_tables, current_tables,
+                                family, expected_state, event, event_time,
+                                require_clear_time_unchanged=False):
+    """Return flag state/count/timestamp failures for one expected flag event."""
+    if family == "dom":
+        flag_table = STATE_DB_DOM_FLAG_TABLE
+        flag_entry = current_tables["dom_flag"].get(port)
+        count_table = STATE_DB_DOM_FLAG_CHANGE_COUNT_TABLE
+        set_time_table = STATE_DB_DOM_FLAG_SET_TIME_TABLE
+        clear_time_table = STATE_DB_DOM_FLAG_CLEAR_TIME_TABLE
+        baseline_count = baseline_tables["dom_flag_count"].get(port)
+        current_count = current_tables["dom_flag_count"].get(port)
+        baseline_set = baseline_tables["dom_flag_set_time"].get(port)
+        current_set = current_tables["dom_flag_set_time"].get(port)
+        baseline_clear = baseline_tables["dom_flag_clear_time"].get(port)
+        current_clear = current_tables["dom_flag_clear_time"].get(port)
+    else:
+        flag_table = STATE_DB_STATUS_FLAG_TABLE
+        flag_entry = current_tables["status_flag"].get(port)
+        if not flag_entry:
+            flag_table = STATE_DB_STATUS_TABLE
+            flag_entry = current_tables["status"].get(port)
+        count_table = STATE_DB_STATUS_FLAG_CHANGE_COUNT_TABLE
+        set_time_table = STATE_DB_STATUS_FLAG_SET_TIME_TABLE
+        clear_time_table = STATE_DB_STATUS_FLAG_CLEAR_TIME_TABLE
+        baseline_count = baseline_tables["status_flag_count"].get(port)
+        current_count = current_tables["status_flag_count"].get(port)
+        baseline_set = baseline_tables["status_flag_set_time"].get(port)
+        current_set = current_tables["status_flag_set_time"].get(port)
+        baseline_clear = baseline_tables["status_flag_clear_time"].get(port)
+        current_clear = current_tables["status_flag_clear_time"].get(port)
+
+    failures = []
+    failures.extend(validate_dom_flag_state(port, flag_table, flag_entry, candidate_fields, expected_state))
+    failures.extend(_validate_count_increment(port, candidate_fields, baseline_count, current_count, count_table))
+    if event == "set":
+        failures.extend(
+            _validate_event_timestamp(
+                port,
+                candidate_fields,
+                baseline_set,
+                current_set,
+                set_time_table,
+                event_time,
+            )
+        )
+    else:
+        failures.extend(
+            _validate_event_timestamp(
+                port,
+                candidate_fields,
+                baseline_clear,
+                current_clear,
+                clear_time_table,
+                event_time,
+            )
+        )
+
+    if require_clear_time_unchanged:
+        failures.extend(
+            _validate_timestamp_unchanged(
+                candidate_fields,
+                baseline_clear,
+                current_clear,
+                clear_time_table,
+            )
+        )
+    return failures
+
+
+def validate_dom_baseline_flags(port, tables, active_host_lanes, active_media_lanes):
+    """Return failures if TC1 starts with local/remote flags already asserted."""
+    failures = []
+    for lane in active_host_lanes:
+        table_name = STATE_DB_STATUS_FLAG_TABLE
+        flag_entry = tables["status_flag"].get(port)
+        if not flag_entry:
+            table_name = STATE_DB_STATUS_TABLE
+            flag_entry = tables["status"].get(port)
+        failures.extend(
+            validate_dom_flag_state(
+                port,
+                table_name,
+                flag_entry,
+                dom_tx_los_hostlane_candidates(lane),
+                False,
+            )
+        )
+    for lane in active_media_lanes:
+        for suffix in ("LAlarm", "LWarn"):
+            failures.extend(
+                validate_dom_flag_state(
+                    port,
+                    STATE_DB_DOM_FLAG_TABLE,
+                    tables["dom_flag"].get(port),
+                    dom_rx_power_flag_candidates(lane, suffix),
+                    False,
+                )
+            )
+    return failures
+
+
+def validate_sensor_freshness_after(duthost, port, sensor_data, max_age_min, operation_time, label):
+    """Return freshness/update-timing failures for one DOM sensor snapshot."""
+    if sensor_data is None:
+        return ["{}: could not read {} for port (namespace read failed)".format(label, STATE_DB_SENSOR_TABLE)]
+    if not sensor_data:
+        return ["{}: no {} entry published for port".format(label, STATE_DB_SENSOR_TABLE)]
+
+    now_utc = duthost.get_now_time(utc_timezone=True)
+    freshness = check_dom_sensor_freshness(sensor_data, max_age_min, now_utc)
+    failures = ["{}: {}".format(label, failure) for failure in freshness["failures"]]
+
+    update_time = parse_update_time(sensor_data.get(STATE_DB_UPDATE_TIME_FIELD))
+    if update_time is None:
+        failures.append(
+            "{}: {} missing or unparsable (raw={!r})".format(
+                label,
+                STATE_DB_UPDATE_TIME_FIELD,
+                sensor_data.get(STATE_DB_UPDATE_TIME_FIELD),
+            )
+        )
+        return failures
+
+    earliest = normalize_datetime(operation_time) - timedelta(seconds=DOM_EVENT_TIME_TOLERANCE_SEC)
+    if update_time < earliest:
+        failures.append(
+            "{}: {}={!r} did not advance into operation window starting {}".format(
+                label,
+                STATE_DB_UPDATE_TIME_FIELD,
+                sensor_data.get(STATE_DB_UPDATE_TIME_FIELD),
+                operation_time,
+            )
+        )
+    return failures
+
+
+def wait_for_dom_sensor_update(duthost, ports, operation_time, timeout_sec, label):
+    """Return ``(sensor_by_port, failures)`` after polling for post-operation DOM data."""
+    state = {"sensor_by_port": {}, "failures": []}
+
+    def _all_ports_updated():
+        sensor_by_port, read_errors = read_dom_sensor_data(duthost, ports)
+        failures = ["{} STATE_DB read:\n  {}".format(label, error) for error in read_errors]
+        for port in ports:
+            sensor_data = sensor_by_port.get(port)
+            if sensor_data is None:
+                failures.append("{} {}: namespace read failed".format(label, port))
+                continue
+            if not sensor_data:
+                failures.append("{} {}: no {} entry published".format(label, port, STATE_DB_SENSOR_TABLE))
+                continue
+            parsed_update_time = parse_update_time(sensor_data.get(STATE_DB_UPDATE_TIME_FIELD))
+            if parsed_update_time is None:
+                failures.append(
+                    "{} {}: {} missing or unparsable (raw={!r})".format(
+                        label,
+                        port,
+                        STATE_DB_UPDATE_TIME_FIELD,
+                        sensor_data.get(STATE_DB_UPDATE_TIME_FIELD),
+                    )
+                )
+                continue
+            earliest = normalize_datetime(operation_time) - timedelta(seconds=DOM_EVENT_TIME_TOLERANCE_SEC)
+            if parsed_update_time < earliest:
+                failures.append(
+                    "{} {}: {}={!r} is still older than operation start {}".format(
+                        label,
+                        port,
+                        STATE_DB_UPDATE_TIME_FIELD,
+                        sensor_data.get(STATE_DB_UPDATE_TIME_FIELD),
+                        operation_time,
+                    )
+                )
+
+        state["sensor_by_port"] = sensor_by_port
+        state["failures"] = failures
+        return not failures
+
+    if wait_until(timeout_sec, DOM_RECOVERY_POLL_INTERVAL_SEC, 0, _all_ports_updated):
+        return state["sensor_by_port"], []
+    return state["sensor_by_port"], state["failures"]
+
+
+def numeric_sensor_value(sensor_data, field):
+    """Return a finite numeric sensor value, or ``None`` when absent/unparseable."""
+    if not isinstance(sensor_data, dict):
+        return None
+    value = parse_numeric(sensor_data.get(field))
+    return value if value is not None and math.isfinite(value) else None
+
+
+def validate_sensor_below_threshold(port, sensor_data, field, threshold, label):
+    """Return failures if one sensor field is not below its shutdown threshold."""
+    value = numeric_sensor_value(sensor_data, field)
+    if value is None:
+        raw_value = sensor_data.get(field) if isinstance(sensor_data, dict) else None
+        return ["{} {} missing/non-finite in {} state (raw={!r})".format(label, field, port, raw_value)]
+    if value >= threshold:
+        return [
+            "{} {} value {} is not below shutdown threshold {}".format(
+                label,
+                field,
+                format_optional_float(value),
+                format_optional_float(threshold),
+            )
+        ]
+    logger.debug("DOM interface-state PASS %s %s: %s < %s",
+                 port, field, format_optional_float(value), format_optional_float(threshold))
+    return []
+
+
+def validate_sensor_operational_fields(port, sensor_data, expected_fields, field_filter, label):
+    """Return failures for configured operational-range fields selected by ``field_filter``."""
+    failures = []
+    checked = 0
+    for field, mapped_field in expected_fields.items():
+        if not field_filter(field):
+            continue
+        if field not in sensor_data:
+            failures.append("{} expected DOM field missing in STATE_DB sensor data: {}".format(label, field))
+            continue
+        error = dom_field_in_operational_range(field, mapped_field, sensor_data[field])
+        if error:
+            failures.append("{} {}".format(label, error))
+            continue
+        checked += 1
+
+    logger.debug("DOM interface-state checked %d operational field(s) for %s %s", checked, port, label)
+    return failures, checked
+
+
+def build_dom_deviation_checks(dom_attrs, active_lanes, attr_names):
+    """Return ``(checks_by_field, errors)`` for configured deviation-range attributes."""
+    checks_by_field = {}
+    errors = []
+    for attr_name in attr_names:
+        if attr_name not in dom_attrs:
+            continue
+
+        field_template = deviation_field_template_for_attr(attr_name)
+        if field_template is None:
+            errors.append("{} has no DOM deviation field mapping".format(attr_name))
+            continue
+
+        min_value, max_value, range_error = parse_min_max_range(DomMappedField(attr_name, dom_attrs[attr_name]))
+        if range_error:
+            errors.append(range_error)
+            continue
+
+        if field_template_is_lane_expanded(field_template):
+            if not active_lanes:
+                errors.append("{} configured but no active media lanes resolved".format(attr_name))
+                continue
+            lanes = active_lanes
+        else:
+            lanes = [None]
+
+        for lane in lanes:
+            field = field_template.format(lane) if lane is not None else field_template
+            checks_by_field[field] = {
+                "source_attr": attr_name,
+                "min": min_value,
+                "max": max_value,
+                "unit": deviation_unit_for_attr(attr_name) or "",
+            }
+
+    return {field: checks_by_field[field] for field in sorted(checks_by_field)}, errors
+
+
+def validate_dom_deviation_checks(port, baseline_sensor, post_sensor, checks_by_field, label):
+    """Return ``(failures, checked_count)`` for configured post-startup deviations."""
+    failures = []
+    checked_count = 0
+    for field, check in checks_by_field.items():
+        baseline_value = numeric_sensor_value(baseline_sensor, field)
+        post_value = numeric_sensor_value(post_sensor, field)
+        if baseline_value is None or post_value is None:
+            failures.append(
+                "{} {} deviation cannot be checked (baseline={!r}, post={!r})".format(
+                    label,
+                    field,
+                    baseline_sensor.get(field) if isinstance(baseline_sensor, dict) else None,
+                    post_sensor.get(field) if isinstance(post_sensor, dict) else None,
+                )
+            )
+            continue
+
+        deviation = post_value - baseline_value
+        if not check["min"] <= deviation <= check["max"]:
+            failures.append(
+                "{} {} deviation {}{} is outside [{}, {}]{} from {}".format(
+                    label,
+                    field,
+                    format_optional_float(deviation),
+                    check["unit"],
+                    format_optional_float(check["min"]),
+                    format_optional_float(check["max"]),
+                    check["unit"],
+                    check["source_attr"],
+                )
+            )
+            continue
+
+        checked_count += 1
+        logger.debug("DOM deviation PASS %s %s: %s%s within [%s, %s]%s",
+                     port, field, format_optional_float(deviation), check["unit"],
+                     format_optional_float(check["min"]), format_optional_float(check["max"]), check["unit"])
+    return failures, checked_count
+
+
+def validate_appl_port_down_time(port, baseline_entry, shutdown_entry, shutdown_time):
+    """Return failures for APPL_DB PORT_TABLE last_down_time correlation."""
+    if shutdown_entry is None:
+        return ["{} could not read APPL_DB PORT_TABLE (namespace read failed)".format(port)]
+    if not shutdown_entry:
+        return ["{} no APPL_DB PORT_TABLE entry published".format(port)]
+
+    failures = []
+    last_down_time = shutdown_entry.get("last_down_time")
+    if not last_down_time:
+        failures.append("{} APPL_DB PORT_TABLE missing last_down_time after shutdown".format(port))
+        return failures
+
+    baseline_down_time = (baseline_entry or {}).get("last_down_time")
+    if last_down_time == baseline_down_time:
+        failures.append("{} APPL_DB PORT_TABLE last_down_time did not change after shutdown".format(port))
+
+    parsed_down = parse_sonic_timestamp(last_down_time)
+    if parsed_down is None:
+        failures.append(
+            "{} APPL_DB PORT_TABLE last_down_time {!r} is unparsable".format(
+                port,
+                last_down_time,
+            )
+        )
+        return failures
+    parsed_down = normalize_datetime(parsed_down)
+
+    earliest = normalize_datetime(shutdown_time) - timedelta(seconds=DOM_EVENT_TIME_TOLERANCE_SEC)
+    if parsed_down < earliest:
+        failures.append(
+            "{} APPL_DB PORT_TABLE last_down_time {} did not advance into shutdown window starting {}".format(
+                port,
+                last_down_time,
+                shutdown_time,
+            )
+        )
+
+    return failures
 
 
 def format_dom_port_failure(
@@ -643,6 +1393,51 @@ def read_dom_sensor_data(duthost, ports):
 def read_dom_threshold_data(duthost, ports):
     """Return ``({port: data_or_None}, errors)`` for current DOM threshold data."""
     return _read_dom_table_data(duthost, ports, STATE_DB_THRESHOLD_TABLE)
+
+
+def read_transceiver_status_data(duthost, ports):
+    """Return ``({port: data_or_None}, errors)`` for current transceiver status data."""
+    return _read_dom_table_data(duthost, ports, STATE_DB_STATUS_TABLE)
+
+
+def read_dom_flag_data(duthost, ports):
+    """Return ``({port: data_or_None}, errors)`` for current DOM flag data."""
+    return _read_dom_table_data(duthost, ports, STATE_DB_DOM_FLAG_TABLE)
+
+
+def read_dom_flag_change_count_data(duthost, ports):
+    """Return ``({port: data_or_None}, errors)`` for current DOM flag change counts."""
+    return _read_dom_table_data(duthost, ports, STATE_DB_DOM_FLAG_CHANGE_COUNT_TABLE)
+
+
+def read_dom_flag_set_time_data(duthost, ports):
+    """Return ``({port: data_or_None}, errors)`` for current DOM flag set timestamps."""
+    return _read_dom_table_data(duthost, ports, STATE_DB_DOM_FLAG_SET_TIME_TABLE)
+
+
+def read_dom_flag_clear_time_data(duthost, ports):
+    """Return ``({port: data_or_None}, errors)`` for current DOM flag clear timestamps."""
+    return _read_dom_table_data(duthost, ports, STATE_DB_DOM_FLAG_CLEAR_TIME_TABLE)
+
+
+def read_transceiver_status_flag_data(duthost, ports):
+    """Return ``({port: data_or_None}, errors)`` for current transceiver status flags."""
+    return _read_dom_table_data(duthost, ports, STATE_DB_STATUS_FLAG_TABLE)
+
+
+def read_transceiver_status_flag_change_count_data(duthost, ports):
+    """Return ``({port: data_or_None}, errors)`` for transceiver status flag change counts."""
+    return _read_dom_table_data(duthost, ports, STATE_DB_STATUS_FLAG_CHANGE_COUNT_TABLE)
+
+
+def read_transceiver_status_flag_set_time_data(duthost, ports):
+    """Return ``({port: data_or_None}, errors)`` for transceiver status flag set timestamps."""
+    return _read_dom_table_data(duthost, ports, STATE_DB_STATUS_FLAG_SET_TIME_TABLE)
+
+
+def read_transceiver_status_flag_clear_time_data(duthost, ports):
+    """Return ``({port: data_or_None}, errors)`` for transceiver status flag clear timestamps."""
+    return _read_dom_table_data(duthost, ports, STATE_DB_STATUS_FLAG_CLEAR_TIME_TABLE)
 
 
 def check_dom_sensor_freshness(sensor_data, max_age_min, now_utc):
