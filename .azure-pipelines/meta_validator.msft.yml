@@ -172,6 +172,8 @@ validators:
       - str-7280dr3-3             # IPv4/IPv6 mismatch
       - str-7280dr3-4             # IPv4/IPv6 mismatch
       - str-msn4700-02            # IPv4/IPv6 mismatch
+      - str-8101-azd-t0-02        # IPv4/IPv6 mismatch (compact numbering on 10.3.150.160/27)
+      - str-8101-fanout-02        # IPv4/IPv6 mismatch (compact numbering on 10.3.150.160/27)
       - strtk5-4600c-07           # IPv4/IPv6 mismatch
       - strtk5-4600c-08           # IPv4/IPv6 mismatch
       - strtk5-7050-02            # IPv4/IPv6 mismatch
