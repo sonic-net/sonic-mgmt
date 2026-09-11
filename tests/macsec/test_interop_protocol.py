@@ -23,7 +23,7 @@ class TestInteropProtocol():
     '''
 
     @pytest.mark.disable_loganalyzer
-    def test_port_channel(self, duthost, profile_name, ctrl_links, wait_mka_establish):
+    def test_port_channel(self, duthost, get_port_profile_name, ctrl_links, wait_mka_establish):
         '''Verify lacp
         '''
         ctrl_port, _ = list(ctrl_links.items())[0]
@@ -44,7 +44,7 @@ class TestInteropProtocol():
             )
         )
 
-        enable_macsec_port(duthost, ctrl_port, profile_name)
+        enable_macsec_port(duthost, ctrl_port, get_port_profile_name(ctrl_port))
         # Add ethernet interface <ctrl_port> back to PortChannel interface <pc>
         duthost.command("sudo config portchannel {} member add {} {}"
                         .format(getns_prefix(duthost, ctrl_port), pc["name"], ctrl_port))
@@ -59,7 +59,7 @@ class TestInteropProtocol():
         )
 
     @pytest.mark.disable_loganalyzer
-    def test_lldp(self, duthost, ctrl_links, profile_name, wait_mka_establish):
+    def test_lldp(self, duthost, ctrl_links, get_port_profile_name, wait_mka_establish):
         '''Verify lldp
         '''
         LLDP_ADVERTISEMENT_INTERVAL = 30  # default interval in seconds
@@ -100,8 +100,8 @@ class TestInteropProtocol():
                     nbr["name"], get_lldp_list(duthost)
                 )
 
-            enable_macsec_port(duthost, ctrl_port, profile_name)
-            enable_macsec_port(nbr["host"], nbr["port"], profile_name)
+            enable_macsec_port(duthost, ctrl_port, get_port_profile_name(ctrl_port))
+            enable_macsec_port(nbr["host"], nbr["port"], get_port_profile_name(ctrl_port))
             wait_until(20, 3, 0,
                        lambda: duthost.iface_macsec_ok(ctrl_port) and
                        nbr["host"].iface_macsec_ok(nbr["port"]))
@@ -117,7 +117,7 @@ class TestInteropProtocol():
             )
 
     @pytest.mark.disable_loganalyzer
-    def test_bgp(self, duthost, ctrl_links, upstream_links, profile_name, wait_mka_establish):
+    def test_bgp(self, duthost, ctrl_links, upstream_links, get_port_profile_name, wait_mka_establish):
         '''Verify BGP neighbourship
         '''
         bgp_config = list(duthost.get_running_config_facts()[
@@ -171,8 +171,8 @@ class TestInteropProtocol():
 
         # Check the BGP sessions are present after port macsec enabled
         for ctrl_port, nbr in list(ctrl_links.items()):
-            enable_macsec_port(duthost, ctrl_port, profile_name)
-            enable_macsec_port(nbr["host"], nbr["port"], profile_name)
+            enable_macsec_port(duthost, ctrl_port, get_port_profile_name(ctrl_port))
+            enable_macsec_port(nbr["host"], nbr["port"], get_port_profile_name(ctrl_port))
             wait_until(BGP_TIMEOUT, 3, 0,
                        lambda: duthost.iface_macsec_ok(ctrl_port) and
                        nbr["host"].iface_macsec_ok(nbr["port"]))
