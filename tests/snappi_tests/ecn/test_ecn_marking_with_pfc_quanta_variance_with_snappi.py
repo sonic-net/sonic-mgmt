@@ -1,23 +1,13 @@
 import pytest
 import logging
 import os
-from tabulate import tabulate  # noqa: F401
-from tests.common.helpers.assertions import pytest_assert     # noqa: F401
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts, \
-                fanout_graph_facts_multidut         # noqa: F401
-from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
-    snappi_api, snappi_dut_base_config, get_snappi_ports, get_snappi_ports_for_rdma, cleanup_config, \
-    is_snappi_multidut, get_snappi_ports_multi_dut, get_snappi_ports_single_dut   # noqa: F401
-from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, \
-    lossless_prio_list, disable_pfcwd   # noqa: F401
-from tests.snappi_tests.files.helper import multidut_port_info, setup_ports_and_dut, enable_debug_shell  # noqa: F401
 from tests.snappi_tests.ecn.files.helper import run_ecn_marking_with_pfc_quanta_variance
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 logger = logging.getLogger(__name__)
 pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(autouse=True, scope="module")
 def number_of_tx_rx_ports():
     yield (1, 1)
 
@@ -29,15 +19,15 @@ test_ecn_config = [(1, 4, 5), (1, 4, 10), (2, 4, 5), (2, 4, 10)]
 @pytest.mark.parametrize("test_ecn_config", test_ecn_config)
 def test_ecn_marking_with_pfc_quanta_variance(
                                 request,
-                                snappi_api,                       # noqa: F811
-                                conn_graph_facts,                 # noqa: F811
-                                fanout_graph_facts_multidut,               # noqa: F811
+                                snappi_api,
+                                conn_graph_facts,
+                                fanout_graph_facts_multidut,
                                 duthosts,
-                                lossless_prio_list,     # noqa: F811
-                                tbinfo,      # noqa: F811
+                                lossless_prio_list,
+                                tbinfo,
                                 test_ecn_config,
-                                prio_dscp_map,  # noqa: F811
-                                setup_ports_and_dut):                    # noqa: F811
+                                prio_dscp_map,
+                                tgen_port_info):
 
     """
     Verify ECN marking on lossless prio with varying XOFF quanta
@@ -46,17 +36,18 @@ def test_ecn_marking_with_pfc_quanta_variance(
         request (pytest fixture): pytest request object
         snappi_api (pytest fixture): SNAPPI session
         conn_graph_facts (pytest fixture): connection graph
-        fanout_graph_facts (pytest fixture): fanout graph
+        fanout_graph_facts_multidut (pytest fixture): fanout graph
         duthosts (pytest fixture): list of DUTs
         lossless_prio_list (pytest fixture): list of all the lossless priorities
-        prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
         tbinfo (pytest fixture): fixture provides information about testbed
-        test_flow_percent: Percentage of flow rate used for the two lossless prio
+        test_ecn_config (tuple): ECN config tuple of (gmin MB, gmax MB, gdrop %)
+        prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority)
+        tgen_port_info (pytest fixture): Snappi testbed and port details
     Returns:
         N/A
     """
 
-    testbed_config, port_config_list, snappi_ports = setup_ports_and_dut
+    testbed_config, port_config_list, snappi_ports = tgen_port_info
     log_file_path = request.config.getoption("--log-file", default=None)
 
     logger.info("Snappi Ports : {}".format(snappi_ports))
