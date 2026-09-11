@@ -24,7 +24,9 @@ from tests.common.platform.processes_utils import wait_critical_processes
 from tests.smartswitch.common.device_utils_dpu import (
     post_test_dpus_check,
     check_dpu_module_status,
+    check_dpu_reboot_cause,
     get_dpuhost_for_dpu,
+    get_dpu_pci_bus_info,
     get_dpu_state_from_chassis_state_db,
     sonic_db_hgetall,
     check_dpu_ready_state, check_dpu_not_ready_state,
@@ -33,6 +35,7 @@ from tests.smartswitch.common.device_utils_dpu import (
     DPU_AUTO_RECOVERY_ENABLE, DPU_AUTO_RECOVERY_DISABLE,
     DPU_MAX_ONLINE_TIMEOUT, DPU_TIME_INT,
     DPU_READY_AFTER_RECOVERY_TIMEOUT,
+    REBOOT_CAUSE_TIMEOUT, REBOOT_CAUSE_INT,
 )
 # Fixtures — imported for pytest discovery, not called directly
 from tests.smartswitch.common.device_utils_dpu import num_dpu_modules  # noqa: F401
@@ -165,96 +168,112 @@ class TestPcieFailure:
     verify chassisd detects the failure, power-cycles the DPU, performs PCIe
     rescan, and recovers.
 
+    PCIE_DETACH_INFO contract (ModuleBase.pci_entry_state_db in
+    sonic-platform-common): records are keyed by PCI address, not DPU name;
+    a detach writes dpu_state='detaching', and a successful reattach *deletes*
+    the record (there is no 'detached'/'reattached' state). We therefore
+    discover PCI addresses via the platform API and validate the actual device
+    and chassisd state rather than those transient notifications.
+
     Expected behavior per HLD:
-      - pcied detects PCIe link down → PCIE_DETACH_INFO|DPU<N> dpu_state=detached
+      - the DPU's PCIe endpoint is removed from the NPU (gone from sysfs)
       - chassisd detects midplane loss → ready_status=false
       - chassisd power-cycles DPU + PCIe rescan
-      - DPU boots and reports ready_status=true
+      - the device re-enumerates, pcied clears PCIE_DETACH_INFO|<pci_addr>,
+        and chassisd reports ready_status=true
     """
 
-    def _get_pcie_detach_info(self, duthost, dpu_name):
-        """Read PCIE_DETACH_INFO from STATE_DB for a given DPU."""
-        return sonic_db_hgetall(duthost, "STATE_DB", f"PCIE_DETACH_INFO|{dpu_name}")
+    def _get_pcie_detach_info(self, duthost, pci_addr):
+        """Read PCIE_DETACH_INFO|<pci_addr> from STATE_DB (keyed by PCI address,
+        as written by ModuleBase.pci_entry_state_db)."""
+        return sonic_db_hgetall(duthost, "STATE_DB", f"PCIE_DETACH_INFO|{pci_addr}")
 
-    def _get_dpu_pcie_bus_info(self, duthost, dpu_name):
-        """
-        Get the PCIe bus address for a DPU from PCIE_DETACH_INFO (populated by
-        pcied). Returns a bus_info string like '0000:03:00.0', or None when the
-        platform does not populate it (the caller then skips the test).
-        """
-        return self._get_pcie_detach_info(duthost, dpu_name).get("bus_info") or None
+    def _device_present(self, duthost, pci_addr):
+        """True if the PCI device is currently enumerated in sysfs."""
+        return duthost.shell(
+            f"test -e /sys/bus/pci/devices/{pci_addr}",
+            module_ignore_errors=True).get("rc", 1) == 0
 
-    def _check_pcie_detached(self, duthost, dpu_name):
-        """Check if PCIe state is 'detached' in STATE_DB."""
-        info = self._get_pcie_detach_info(duthost, dpu_name)
-        return info.get("dpu_state", "").lower() == "detached"
+    def _device_absent(self, duthost, pci_addr):
+        """True if the PCI device is not present in sysfs."""
+        return not self._device_present(duthost, pci_addr)
 
-    def _check_pcie_reattached(self, duthost, dpu_name):
-        """Check if PCIe state is 'reattached' in STATE_DB."""
-        info = self._get_pcie_detach_info(duthost, dpu_name)
-        return info.get("dpu_state", "").lower() == "reattached"
+    def _pcie_detach_record_cleared(self, duthost, pci_addr):
+        """The producer deletes PCIE_DETACH_INFO|<pci_addr> once the device is
+        reattached, so an empty record confirms pcied observed the reattach."""
+        return not self._get_pcie_detach_info(duthost, pci_addr)
 
-    def _ensure_pcie_reattached(self, duthost, dpu_name, bus_info):
-        """Best-effort finally-block cleanup: rescan the PCI bus if the DPU's
-        device is still missing from sysfs. Idempotent and never raises."""
+    def _ensure_pcie_present(self, duthost, pci_addrs):
+        """Best-effort finally-block cleanup: rescan the PCI bus if any of the
+        DPU's devices are still missing from sysfs. Idempotent, never raises."""
         try:
-            device_present = duthost.shell(
-                f"test -e /sys/bus/pci/devices/{bus_info}",
-                module_ignore_errors=True).get("rc", 1) == 0
-            if device_present:
+            missing = [addr for addr in pci_addrs
+                       if not self._device_present(duthost, addr)]
+            if not missing:
                 return
             logging.warning(
-                "%s: PCIe device %s still detached after test, forcing bus rescan",
-                dpu_name, bus_info)
+                "PCIe device(s) %s still detached after test, forcing bus rescan",
+                missing)
             duthost.shell("echo 1 | sudo tee /sys/bus/pci/rescan",
                           module_ignore_errors=True)
         except Exception as e:
-            logging.warning("%s: best-effort PCIe rescan failed: %s", dpu_name, e)
+            logging.warning("best-effort PCIe rescan failed: %s", e)
 
     @pytest.mark.disable_loganalyzer
     def test_dpu_recovery_after_pcie_detach(
-        self, dpuhosts, prepare_testable_dpus, num_dpu_modules  # noqa: F811
+        self, dpuhosts, prepare_testable_dpus, platform_api_conn,
+        num_dpu_modules  # noqa: F811
     ):
         """
         Steps:
         1. Pre-test: verify all DPUs are ready.
-        2. For one DPU, remove its PCIe device via sysfs to simulate PCIe failure.
-        3. Verify pcied detects: PCIE_DETACH_INFO dpu_state = detached.
-        4. Verify chassisd detects: ready_status = false.
+        2. Discover the target DPU's PCIe bus address(es) via the platform API.
+        3. Remove the device(s) via sysfs to simulate a PCIe link failure.
+        4. Verify the device is gone from sysfs and chassisd detects the failure
+           (ready_status = false).
         5. Wait for chassisd to power-cycle the DPU and perform PCIe rescan.
-        6. Verify recovery: ready_status = true, PCIE_DETACH_INFO = reattached.
+        6. Verify recovery: the device re-enumerates in sysfs, pcied clears
+           PCIE_DETACH_INFO for the address(es), and ready_status = true.
         """
         duthost, testable_dpus, testable_ips = prepare_testable_dpus
 
         # Test on the first DPU
         target_dpu = testable_dpus[0]
 
-        bus_info = self._get_dpu_pcie_bus_info(duthost, target_dpu)
-        if not bus_info:
-            pytest.skip(f"Cannot determine PCIe bus_info for {target_dpu}. "
-                        "PCIE_DETACH_INFO not populated. Platform may not support this test.")
+        pci_addrs = get_dpu_pci_bus_info(platform_api_conn, num_dpu_modules, target_dpu)
+        if not pci_addrs:
+            pytest.skip(
+                f"Cannot determine PCIe bus address for {target_dpu} via the platform "
+                "API (get_pci_bus_info); platform may not support this test.")
 
-        logging.info("Simulating PCIe failure for %s by removing device at %s",
-                     target_dpu, bus_info)
-        device_path = f"/sys/bus/pci/devices/{bus_info}"
-        if duthost.shell(f"test -e {device_path}",
-                         module_ignore_errors=True)["rc"] != 0:
-            pytest.skip(f"{target_dpu}: PCIe device {bus_info} not present in sysfs "
-                        "(already detached or stale bus_info); skipping detach test.")
-        remove_result = duthost.shell(f"echo 1 | sudo tee {device_path}/remove",
-                                      module_ignore_errors=True)
-        pytest_assert(remove_result["rc"] == 0,
-                      f"{target_dpu}: failed to remove PCIe device {bus_info}: "
-                      f"{remove_result.get('stderr', '')}")
+        # Only detach devices that are actually present in sysfs.
+        present = [addr for addr in pci_addrs if self._device_present(duthost, addr)]
+        if not present:
+            pytest.skip(
+                f"{target_dpu}: none of its PCIe devices {pci_addrs} are present in "
+                "sysfs (already detached or stale mapping); skipping detach test.")
 
+        logging.info("Simulating PCIe failure for %s by removing device(s) %s",
+                     target_dpu, present)
         try:
-            logging.info("Verifying pcied detects PCIe detach for %s", target_dpu)
-            pytest_assert(
-                wait_until(PCIE_RECOVERY_TIMEOUT, DPU_TIME_INT, 0,
-                           self._check_pcie_detached, duthost, target_dpu),
-                f"{target_dpu}: PCIE_DETACH_INFO did not show 'detached' after PCIe removal. "
-                f"Info: {self._get_pcie_detach_info(duthost, target_dpu)}"
-            )
+            for addr in present:
+                remove_result = duthost.shell(
+                    f"echo 1 | sudo tee /sys/bus/pci/devices/{addr}/remove",
+                    module_ignore_errors=True)
+                pytest_assert(
+                    remove_result["rc"] == 0,
+                    f"{target_dpu}: failed to remove PCIe device {addr}: "
+                    f"{remove_result.get('stderr', '')}")
+
+            logging.info("Verifying PCIe device(s) removed from sysfs for %s", target_dpu)
+            for addr in present:
+                pytest_assert(
+                    wait_until(PCIE_RECOVERY_TIMEOUT, DPU_TIME_INT, 0,
+                               self._device_absent, duthost, addr),
+                    f"{target_dpu}: PCIe device {addr} still present in sysfs after removal")
+                # Best-effort visibility into pcied's detach record (keyed by PCI address).
+                logging.info("%s PCIE_DETACH_INFO|%s = %s", target_dpu, addr,
+                             self._get_pcie_detach_info(duthost, addr))
 
             logging.info("Verifying chassisd detects %s failure (ready_status=false)", target_dpu)
             pytest_assert(
@@ -269,21 +288,26 @@ class TestPcieFailure:
             assert_dpu_db_state_ready(duthost, target_dpu,
                                       timeout=DPU_READY_AFTER_RECOVERY_TIMEOUT)
 
-            logging.info("Verifying PCIe is reattached for %s", target_dpu)
-            pytest_assert(
-                wait_until(DPU_MAX_ONLINE_TIMEOUT, DPU_TIME_INT, 0,
-                           self._check_pcie_reattached, duthost, target_dpu),
-                f"{target_dpu}: PCIE_DETACH_INFO did not return to 'reattached'. "
-                f"Info: {self._get_pcie_detach_info(duthost, target_dpu)}"
-            )
+            logging.info("Verifying PCIe device(s) re-enumerated and pcied cleared its record")
+            for addr in present:
+                pytest_assert(
+                    wait_until(DPU_MAX_ONLINE_TIMEOUT, DPU_TIME_INT, 0,
+                               self._device_present, duthost, addr),
+                    f"{target_dpu}: PCIe device {addr} did not re-enumerate in sysfs after recovery")
+                pytest_assert(
+                    wait_until(DPU_MAX_ONLINE_TIMEOUT, DPU_TIME_INT, 0,
+                               self._pcie_detach_record_cleared, duthost, addr),
+                    f"{target_dpu}: PCIE_DETACH_INFO|{addr} not cleared after reattach. "
+                    f"Info: {self._get_pcie_detach_info(duthost, addr)}"
+                )
 
             logging.info("Post-test: verifying DPU connectivity and state")
             post_test_dpus_check(duthost, dpuhosts,
                                  testable_dpus, testable_ips,
                                  num_dpu_modules, None)
         finally:
-            # Re-enumerate the PCIe device if the test aborted after removing it.
-            self._ensure_pcie_reattached(duthost, target_dpu, bus_info)
+            # Re-enumerate the PCIe device(s) if the test aborted after removal.
+            self._ensure_pcie_present(duthost, present)
 
 
 # ---------------------------------------------------------------------------
@@ -384,8 +408,14 @@ class TestControlPlaneOnlyDown:
         logging.info("Post-test: verifying full DPU state and connectivity")
         post_test_dpus_check(duthost, dpuhosts,
                              testable_dpus, testable_ips,
-                             num_dpu_modules,
-                             re.compile(r"reboot|Non-Hardware", re.IGNORECASE))
+                             num_dpu_modules, None)
+        # Only target_dpu was failed/rebooted; assert its reboot cause specifically
+        # (other DPUs in testable_dpus were untouched and keep their prior cause).
+        pytest_assert(
+            wait_until(REBOOT_CAUSE_TIMEOUT, REBOOT_CAUSE_INT, 0,
+                       check_dpu_reboot_cause, duthost, target_dpu,
+                       re.compile(r"reboot|Non-Hardware", re.IGNORECASE)),
+            f"{target_dpu}: reboot cause did not match 'reboot|Non-Hardware'")
 
 
 # ---------------------------------------------------------------------------
@@ -471,8 +501,14 @@ class TestAutoRecoveryDisabled:
         logging.info("Post-test: verifying DPU connectivity")
         post_test_dpus_check(duthost, dpuhosts,
                              testable_dpus, testable_ips,
-                             num_dpu_modules,
-                             re.compile(r"reboot|Non-Hardware", re.IGNORECASE))
+                             num_dpu_modules, None)
+        # Only target_dpu was failed/rebooted; assert its reboot cause specifically
+        # (other DPUs in testable_dpus were untouched and keep their prior cause).
+        pytest_assert(
+            wait_until(REBOOT_CAUSE_TIMEOUT, REBOOT_CAUSE_INT, 0,
+                       check_dpu_reboot_cause, duthost, target_dpu,
+                       re.compile(r"reboot|Non-Hardware", re.IGNORECASE)),
+            f"{target_dpu}: reboot cause did not match 'reboot|Non-Hardware'")
 
 
 # ---------------------------------------------------------------------------
@@ -724,8 +760,14 @@ class TestStateMachineTransitions:
         logging.info("Post-test: verifying full connectivity")
         post_test_dpus_check(duthost, dpuhosts,
                              testable_dpus, testable_ips,
-                             num_dpu_modules,
-                             re.compile(r"reboot|Non-Hardware", re.IGNORECASE))
+                             num_dpu_modules, None)
+        # Only target_dpu was failed/rebooted; assert its reboot cause specifically
+        # (other DPUs in testable_dpus were untouched and keep their prior cause).
+        pytest_assert(
+            wait_until(REBOOT_CAUSE_TIMEOUT, REBOOT_CAUSE_INT, 0,
+                       check_dpu_reboot_cause, duthost, target_dpu,
+                       re.compile(r"reboot|Non-Hardware", re.IGNORECASE)),
+            f"{target_dpu}: reboot cause did not match 'reboot|Non-Hardware'")
 
 
 # ---------------------------------------------------------------------------
@@ -804,8 +846,14 @@ class TestShutdownDuringAutoRecovery:
         logging.info("Post-test: verifying full DPU state and connectivity")
         post_test_dpus_check(duthost, dpuhosts,
                              testable_dpus, testable_ips,
-                             num_dpu_modules,
-                             re.compile(r"reboot|Non-Hardware", re.IGNORECASE))
+                             num_dpu_modules, None)
+        # Only target_dpu was failed/rebooted; assert its reboot cause specifically
+        # (other DPUs in testable_dpus were untouched and keep their prior cause).
+        pytest_assert(
+            wait_until(REBOOT_CAUSE_TIMEOUT, REBOOT_CAUSE_INT, 0,
+                       check_dpu_reboot_cause, duthost, target_dpu,
+                       re.compile(r"reboot|Non-Hardware", re.IGNORECASE)),
+            f"{target_dpu}: reboot cause did not match 'reboot|Non-Hardware'")
 
 
 # ---------------------------------------------------------------------------
@@ -892,5 +940,11 @@ class TestDpuFailureAfterConfigReload:
         logging.info("Post-test: verifying full DPU state and connectivity")
         post_test_dpus_check(duthost, dpuhosts,
                              testable_dpus, testable_ips,
-                             num_dpu_modules,
-                             re.compile(r"reboot|Non-Hardware", re.IGNORECASE))
+                             num_dpu_modules, None)
+        # Only target_dpu was failed/rebooted; assert its reboot cause specifically
+        # (other DPUs in testable_dpus were untouched and keep their prior cause).
+        pytest_assert(
+            wait_until(REBOOT_CAUSE_TIMEOUT, REBOOT_CAUSE_INT, 0,
+                       check_dpu_reboot_cause, duthost, target_dpu,
+                       re.compile(r"reboot|Non-Hardware", re.IGNORECASE)),
+            f"{target_dpu}: reboot cause did not match 'reboot|Non-Hardware'")

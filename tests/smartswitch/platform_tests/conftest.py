@@ -102,63 +102,70 @@ def prepare_testable_dpus(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname,
     original_auto_recovery = get_dpu_auto_recovery(duthost)
     set_dpu_auto_recovery(duthost, DPU_AUTO_RECOVERY_ENABLE)
 
-    # Bring up any admin-down DPUs
-    dpus_brought_up = []
-    for dpu_name in testable_dpus:
-        if check_dpu_module_status(duthost, "off", dpu_name):
-            logging.info("%s is admin down, bringing it admin up", dpu_name)
-            duthost.shell(f"sudo config chassis modules startup {dpu_name}")
-            dpus_brought_up.append(dpu_name)
+    try:
+        # Bring up any admin-down DPUs
+        dpus_brought_up = []
+        for dpu_name in testable_dpus:
+            if check_dpu_module_status(duthost, "off", dpu_name):
+                logging.info("%s is admin down, bringing it admin up", dpu_name)
+                duthost.shell(f"sudo config chassis modules startup {dpu_name}")
+                dpus_brought_up.append(dpu_name)
 
-    for dpu_name in dpus_brought_up:
-        logging.info("Waiting for %s to come online after admin up", dpu_name)
+        for dpu_name in dpus_brought_up:
+            logging.info("Waiting for %s to come online after admin up", dpu_name)
+            pt_assert(
+                wait_until(DPU_MAX_ONLINE_TIMEOUT, DPU_TIME_INT, 0,
+                           check_dpu_module_status, duthost, "on", dpu_name),
+                f"{dpu_name} did not come online after admin up"
+            )
+
+        # Fail early if any DPU is not online
+        dpus_not_online = [dpu for dpu in testable_dpus
+                           if not check_dpu_module_status(duthost, "on", dpu)]
         pt_assert(
-            wait_until(DPU_MAX_ONLINE_TIMEOUT, DPU_TIME_INT, 0,
-                       check_dpu_module_status, duthost, "on", dpu_name),
-            f"{dpu_name} did not come online after admin up"
+            not dpus_not_online,
+            f"DPUs failed to come online: {dpus_not_online}"
         )
 
-    # Fail early if any DPU is not online
-    dpus_not_online = [dpu for dpu in testable_dpus
-                       if not check_dpu_module_status(duthost, "on", dpu)]
-    pt_assert(
-        not dpus_not_online,
-        f"DPUs failed to come online: {dpus_not_online}"
-    )
+        # Wait for all testable DPUs to be ready in DB
+        for dpu_name in testable_dpus:
+            assert_dpu_db_state_ready(duthost, dpu_name,
+                                      timeout=DPU_READY_AFTER_RECOVERY_TIMEOUT)
 
-    # Wait for all testable DPUs to be ready in DB
-    for dpu_name in testable_dpus:
-        assert_dpu_db_state_ready(duthost, dpu_name,
-                                  timeout=DPU_READY_AFTER_RECOVERY_TIMEOUT)
+        # Gather midplane IPs, index-aligned with testable_dpus.
+        midplane_output = duthost.show_and_parse("show chassis modules midplane-status")
+        midplane_ip_by_dpu = {
+            entry.get("name", "").lower(): entry.get("ip-address", "")
+            for entry in midplane_output
+        }
+        testable_ips = []
+        missing_ip_dpus = []
+        for dpu_name in testable_dpus:
+            ip = midplane_ip_by_dpu.get(dpu_name.lower(), "")
+            if not ip:
+                missing_ip_dpus.append(dpu_name)
+            testable_ips.append(ip)
+        pt_assert(not missing_ip_dpus,
+                  f"Could not resolve midplane IPs for DPUs: {missing_ip_dpus}")
 
-    # Gather midplane IPs, index-aligned with testable_dpus.
-    midplane_output = duthost.show_and_parse("show chassis modules midplane-status")
-    midplane_ip_by_dpu = {
-        entry.get("name", "").lower(): entry.get("ip-address", "")
-        for entry in midplane_output
-    }
-    testable_ips = []
-    missing_ip_dpus = []
-    for dpu_name in testable_dpus:
-        ip = midplane_ip_by_dpu.get(dpu_name.lower(), "")
-        if not ip:
-            missing_ip_dpus.append(dpu_name)
-        testable_ips.append(ip)
-    pt_assert(not missing_ip_dpus,
-              f"Could not resolve midplane IPs for DPUs: {missing_ip_dpus}")
+        yield duthost, testable_dpus, testable_ips
+    finally:
+        # Teardown: reset chassisd DPU recovery state so tests are order-independent;
+        # runs even if setup or the test body raised. Best-effort (see helper).
+        _reset_dpu_recovery_state(duthost, dpuhosts, testable_dpus)
 
-    yield duthost, testable_dpus, testable_ips
-
-    # Teardown: reset chassisd DPU recovery state so tests are order-independent;
-    # runs even if the test body raised. Best-effort (see helper).
-    _reset_dpu_recovery_state(duthost, dpuhosts, testable_dpus)
-
-    # Restore auto-recovery exactly: re-apply the original value, or delete the
-    # field if it was unset before the fixture enabled it.
-    if original_auto_recovery:
-        set_dpu_auto_recovery(duthost, original_auto_recovery)
-    else:
-        unset_dpu_auto_recovery(duthost)
+        # Restore auto-recovery exactly: re-apply the original value, or delete the
+        # field if it was unset before the fixture enabled it. Tolerate failures so a
+        # restore error in teardown cannot surface as an error masking the real result.
+        try:
+            if original_auto_recovery:
+                set_dpu_auto_recovery(duthost, original_auto_recovery)
+            else:
+                unset_dpu_auto_recovery(duthost)
+        except Exception as e:
+            logging.warning(
+                "Failed to restore DPU auto-recovery to '%s' in teardown (non-fatal): %s",
+                original_auto_recovery or "<unset>", e)
 
 
 @pytest.fixture(autouse=True)
@@ -167,20 +174,39 @@ def ensure_all_dpus_ready(duthosts,
                           localhost,
                           num_dpu_modules):  # noqa: F811
     """
-    Teardown fixture: after each test case, ensure all DPUs are back online.
-    If any DPU is found offline at the end of a test, it will be started up
-    before the next test begins.
-    """
-    yield
+    Teardown safety net: after each test case, restore only DPUs that were
+    administratively up before the test but are offline afterwards.
 
+    DPUs that were admin-down at setup (e.g. dark mode, or an individually
+    shut DPU) are never powered on, so a skipped or DPU-untouched test cannot
+    defeat dark-mode protection or start DPUs whose images are not installed.
+    """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dpu_names = ["DPU{}".format(i) for i in range(num_dpu_modules)]
 
+    def _admin_up_dpus():
+        """DPUs not explicitly admin-down in CONFIG_DB. An absent admin_status
+        is treated as up, matching is_dark_mode_enabled's convention."""
+        up = []
+        for dpu in dpu_names:
+            admin_status = duthost.shell(
+                f"sonic-db-cli CONFIG_DB hget 'CHASSIS_MODULE|{dpu}' admin_status",
+                module_ignore_errors=True).get("stdout", "").strip().lower()
+            if admin_status != "down":
+                up.append(dpu)
+        return up
+
+    # Capture the original admin state before the test mutates anything.
+    original_admin_up = _admin_up_dpus()
+
+    yield
+
     def _get_offline_dpus():
-        """Single shell call to find all offline DPUs."""
+        """Offline DPUs limited to those that were admin-up at setup, so we
+        never power on a DPU that was intentionally left admin-down."""
         output = duthost.shell("show chassis module status")["stdout"]
         return [
-            dpu for dpu in dpu_names
+            dpu for dpu in original_admin_up
             if any(dpu in line and "offline" in line.lower()
                    for line in output.splitlines())
         ]
@@ -192,7 +218,7 @@ def ensure_all_dpus_ready(duthosts,
             dpus_startup_and_check(duthost, offline, num_dpu_modules)
             logging.info("All DPUs are back online after recovery.")
         else:
-            logging.info("All DPUs are online after test. No recovery needed.")
+            logging.info("No admin-up DPUs require recovery after test.")
 
     try:
         _do_dpu_recovery()

@@ -1135,3 +1135,58 @@ def filter_dpus_in_dpuhosts(dpu_on_list, ip_address_list, dpuhosts):
             filtered_dpus.append(dpu_name)
             filtered_ips.append(ip_address_list[idx])
     return filtered_dpus, filtered_ips
+
+
+def get_dpu_module_index(platform_api_conn, num_dpu_modules, dpu_name):  # noqa: F811
+    """
+    Resolve the platform-API module index whose name matches dpu_name.
+
+    Args:
+        platform_api_conn: platform API connection
+        num_dpu_modules: number of DPU modules
+        dpu_name: DPU name, e.g. 'DPU0'
+    Returns:
+        The matching module index, or None if no module reports that name.
+    """
+    for index in range(num_dpu_modules):
+        try:
+            name = module.get_name(platform_api_conn, index)
+        except Exception as e:
+            logging.warning("get_name failed for module index %s: %s", index, e)
+            continue
+        if name and str(name).strip().upper() == dpu_name.upper():
+            return index
+    return None
+
+
+def get_dpu_pci_bus_info(platform_api_conn, num_dpu_modules, dpu_name):  # noqa: F811
+    """
+    Discover a DPU's PCIe bus address(es) via the platform API
+    (ModuleBase.get_pci_bus_info) rather than from the transient
+    PCIE_DETACH_INFO STATE_DB table (which only exists after a detach and is
+    keyed by PCI address, not DPU name).
+
+    Args:
+        platform_api_conn: platform API connection
+        num_dpu_modules: number of DPU modules
+        dpu_name: DPU name, e.g. 'DPU0'
+    Returns:
+        A list of PCI bus address strings (e.g. ['0000:03:00.0']), or an empty
+        list when the platform does not implement get_pci_bus_info or has no
+        mapping for the DPU (caller should skip the test in that case).
+    """
+    index = get_dpu_module_index(platform_api_conn, num_dpu_modules, dpu_name)
+    if index is None:
+        logging.warning("Could not resolve platform-API module index for %s", dpu_name)
+        return []
+    try:
+        bus_info = module.get_pci_bus_info(platform_api_conn, index)
+    except Exception as e:
+        logging.warning("get_pci_bus_info failed for %s (module %s): %s",
+                        dpu_name, index, e)
+        return []
+    if not bus_info:
+        return []
+    if isinstance(bus_info, str):
+        bus_info = [bus_info]
+    return [str(bus).strip() for bus in bus_info if str(bus).strip()]
