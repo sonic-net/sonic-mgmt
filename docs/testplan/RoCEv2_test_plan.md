@@ -38,25 +38,35 @@ ports (Topology 1) or leaf-facing ports (Topology 2) accordingly.
 | **V2 – Inter-ASIC, same linecard** | Test ports span two (or more) forwarding ASICs that sit on the same linecard. | Local/on-linecard ASIC-to-ASIC interconnect, if present, without crossing to a fabric card. |
 | **V3 – Inter-linecard (cross-fabric)** | Test ports span forwarding ASICs on two different linecards. | Full fabric path: ingress ASIC → fabric card(s)/fabric ASIC → egress ASIC. This is the worst-case, most representative path for a disaggregated chassis and shall be treated as the mandatory minimum variant when time does not permit all three. |
 
-```
-                 +-------------------- T2 Chassis --------------------+
-                 |                                                    |
-                 |   Linecard 1              Linecard 2               |
-                 |  +---------+            +---------+                |
-                 |  | ASIC 1a |            | ASIC 2a |                |
-                 |  |  P1  P2 |            |  P5  P6 |                |
-                 |  +----+----+            +----+----+                |
-                 |       |     Fabric Card(s)   |                     |
-                 |  +----+----+   (fabric ASIC) +----+----+           |
-                 |  | ASIC 1b |<---------------->| ASIC 2b |          |
-                 |  |  P3  P4 |                  |  P7  P8 |          |
-                 |  +---------+                  +---------+          |
-                 +----------------------------------------------------+
+<div align="center">
 
-  V1: P1 <-> P2   (same ASIC, ASIC 1a)
-  V2: P1 <-> P3   (same linecard, ASIC 1a <-> ASIC 1b)
-  V3: P1 <-> P5   (different linecard, via fabric card)
 ```
++-------------------- T2 Chassis --------------------+
+|       Linecard 1                 Linecard 2        |
+|       +---------+                +---------+       |
+|       | ASIC 1a |                | ASIC 2a |       |
+|       |  P1  P2 |                |  P5  P6 |       |
+|       +----+----+                +----+----+       |
+|            |                          |            |
+|       +----+----+                +----+----+       |
+|       | ASIC 1b |                | ASIC 2b |       |
+|       |  P3  P4 |                |  P7  P8 |       |
+|       +----+----+                +----+----+       |
+|            |                          |            |
+|            +------------+-------------+            |
+|                         |                          |
+|                  +-------------+                   |
+|                  | Fabric Card |                   |
+|                  |(fabric ASIC)|                   |
+|                  +-------------+                   |
++----------------------------------------------------+
+
+V1: P1 <-> P2   (same ASIC, ASIC 1a)
+V2: P1 <-> P3   (same linecard, ASIC 1a <-> ASIC 1b, via local interconnect)
+V3: P1 <-> P5   (different linecard, ASIC 1a -> Fabric Card -> ASIC 2a)
+```
+
+</div>
 
 ### Applying this to Topology 1 (single-DUT, 4-port) test cases
 
