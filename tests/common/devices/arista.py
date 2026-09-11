@@ -101,7 +101,7 @@ class AristaHost(AnsibleHostBase):
             else:
                 command = "show lldp neighbors | json"
             output = self.commands(commands=[command])
-            return output["stdout_lines"][0] if output["failed"] is False else False
+            return output["stdout_lines"][0] if output.get("failed", False) is False else False
         except Exception as e:
             logger.error("command {} failed. exception: {}".format(command, repr(e)))
             return False
@@ -228,7 +228,7 @@ class AristaHost(AnsibleHostBase):
             logger.info("Gathering LLDP details")
             command = "show lldp neighbors | json"
             json_output = self.commands(commands=[command])
-            if not json_output["failed"]:
+            if not json_output.get("failed", False):
                 for row in json_output["stdout_lines"][0]["lldpNeighbors"]:
                     lldp_details.update(
                         {
@@ -262,7 +262,7 @@ class AristaHost(AnsibleHostBase):
         command = "show lldp neighbors {} detail | json".format(physical_port)
         try:
             json_output = self.commands(commands=[command])
-            if not json_output["failed"]:
+            if not json_output.get("failed", False):
                 return json_output["stdout_lines"][0]
             return "Failed to get lldp neighbor details due to {}".format(json_output)
         except Exception as e:
@@ -276,7 +276,7 @@ class AristaHost(AnsibleHostBase):
         try:
             command = "show lldp local-info | json"
             json_output = self.commands(commands=[command])
-            if not json_output["failed"]:
+            if not json_output.get("failed", False):
                 return json_output["stdout_lines"][0]["chassisId"]
             return "Failed to get chassis id due to {}".format(json_output)
         except Exception as e:
@@ -289,7 +289,7 @@ class AristaHost(AnsibleHostBase):
         try:
             command = "show lldp local-info | json"
             json_output = self.commands(commands=[command])
-            if not json_output["failed"]:
+            if not json_output.get("failed", False):
                 return json_output["stdout_lines"][0]["managementAddresses"][0]["address"]
             return "Failed to get mgmt IP due to {}".format(json_output)
         except Exception as e:
@@ -302,7 +302,7 @@ class AristaHost(AnsibleHostBase):
         try:
             command = "show version | json"
             json_output = self.commands(commands=[command])
-            if not json_output["failed"]:
+            if not json_output.get("failed", False):
                 return json_output["stdout_lines"][0]["modelName"]
             return "Failed to get platform info due to {}".format(json_output)
         except Exception as e:
@@ -315,7 +315,7 @@ class AristaHost(AnsibleHostBase):
         try:
             command = "show version | json"
             json_output = self.commands(commands=[command])
-            if not json_output["failed"]:
+            if not json_output.get("failed", False):
                 return json_output["stdout_lines"][0]["version"]
             return "Failed to get platform info due to {}".format(json_output)
         except Exception as e:
@@ -440,7 +440,7 @@ class AristaHost(AnsibleHostBase):
             pc_on = pc_name.replace("Port-Channel", "")
             command = "show lacp {} aggregates | json".format(pc_on)
             json_output = self.commands(commands=[command])
-            if not json_output["failed"]:
+            if not json_output.get("failed", False):
                 return json_output["stdout_lines"][0]["portChannels"][pc_name]["bundledPorts"]
             return "Failed to get interfaces in port chancel due to {}".format(json_output)
         except Exception as e:
@@ -460,7 +460,7 @@ class AristaHost(AnsibleHostBase):
         try:
             success_criteria = "line protocol is up"
             intf_status_output = self.commands(commands=[command])
-            if not intf_status_output["failed"]:
+            if not intf_status_output.get("failed", False):
                 logger.info("Interface status check: {} sent to {}".format(command, self.hostname))
                 is_up = success_criteria in intf_status_output["stdout"][0].lower()
                 return is_up, intf_status_output["stdout_lines"][0]
@@ -475,7 +475,7 @@ class AristaHost(AnsibleHostBase):
             logger.info("Gathering ISIS adjacency details")
             command = "show isis neighbors| json"
             output = self.commands(commands=[command])
-            if not output["failed"]:
+            if not output.get("failed", False):
                 isis_instances = output["stdout"][0]["vrfs"]["default"]["isisInstances"].keys()
                 for instance in isis_instances:
                     for key, line in output["stdout"][0]["vrfs"]["default"]["isisInstances"][instance][
@@ -515,7 +515,7 @@ class AristaHost(AnsibleHostBase):
             command = "show isis database"
             output = self.commands(commands=[command])
             lsp_entries = {}
-            if not output["failed"]:
+            if not output.get("failed", False):
                 for line in output["stdout_lines"][0]:
                     if "00-0" in line:
                         outline = line.strip().split()
@@ -540,7 +540,7 @@ class AristaHost(AnsibleHostBase):
         try:
             output = self.commands(commands=[command])
             bgp_status = {}
-            if not output["failed"]:
+            if not output.get("failed", False):
                 bgp_peer_info = output["stdout"][0]["vrfs"]["default"]["peers"]
                 for peer_ip, peer_info in bgp_peer_info.items():
                     bgp_status[peer_ip] = peer_info["peerState"]
@@ -569,7 +569,7 @@ class AristaHost(AnsibleHostBase):
         """
         try:
             bgp_peer_details = self.get_bgp_session_details(peer_ip)
-            if not bgp_peer_details["failed"]:
+            if not bgp_peer_details.get("failed", False):
                 bgp_session_status = bgp_peer_details["stdout"][0]["vrfs"]["default"]["peerList"][0]["state"]
 
             else:
@@ -588,7 +588,7 @@ class AristaHost(AnsibleHostBase):
         try:
             json_output = self.commands(commands=[command])
             prefix_adv_status = False
-            if not json_output["failed"]:
+            if not json_output.get("failed", False):
                 bgp_route_entries = json_output["stdout"][0]["vrfs"]["default"]["bgpRouteEntries"]
                 if len(bgp_route_entries) > 0 and prefix in bgp_route_entries:
                     prefix_adv_status = True
@@ -611,7 +611,7 @@ class AristaHost(AnsibleHostBase):
             command = "show mpls ldp neighbor summary | json"
             json_output = self.commands(commands=[command])
             ldp_op_list = []
-            if not json_output["failed"]:
+            if not json_output.get("failed", False):
                 for neighbor in json_output["stdout"][0]["vrfs"]["default"]["neighbors"]:
                     if "state" in neighbor and neighbor["state"] == "stateOperational":
                         ldp_op_list.append(neighbor["tcpPeerIp"]["ip"])
@@ -637,7 +637,7 @@ class AristaHost(AnsibleHostBase):
             for ldpneighbor in ldp_op_list:
                 command = "show ip route {}".format(ldpneighbor)
                 output = self.commands(commands=[command])
-                if not output["failed"]:
+                if not output.get("failed", False):
                     for line in output["stdout_lines"][0]:
                         if "Port-Channel" in line:
                             ldp_int_list.append(line.split(",")[1].strip())
@@ -751,7 +751,7 @@ class AristaHost(AnsibleHostBase):
             commands = ["mka session rekey-period {}".format(rekey_period_value)]
             parents = ["mac security", "profile {}".format(profile_name)]
             output = self.config(lines=commands, parents=parents)
-            if not output["failed"]:
+            if not output.get("failed", False):
                 return True, output
             return False, "Failed to set rekey period due to {}".format(output)
         except Exception as e:
@@ -768,7 +768,7 @@ class AristaHost(AnsibleHostBase):
             """example of output:
             mac security profile macsec-profile-juniper-256-64CKN-64CAK-fallback
             """
-            if not output["failed"]:
+            if not output.get("failed", False):
                 return True, output["stdout_lines"][0][-1].split()[-1]
             return False, "Failed to get macsec profile due to {}".format(output)
         except Exception as e:
@@ -788,7 +788,7 @@ class AristaHost(AnsibleHostBase):
                 return True, "Device {} not support {} log".format(self.hostname, log_type)
             command = "show logging all | grep MKA | grep {} | grep {}".format(interface, log_type)
             output = self.commands(commands=[command])
-            if not output["failed"]:
+            if not output.get("failed", False):
                 return len(output["stdout_lines"][0]) > 0, output["stdout"][0]
             return False, "Failed to get macsec status logs due to {}".format(output)
         except Exception as e:
@@ -848,7 +848,7 @@ class AristaHost(AnsibleHostBase):
             """example of output:
             mac security profile macsec-profile-juniper-256-64CKN-64CAK-fallback
             """
-            if not output["failed"]:
+            if not output.get("failed", False):
                 # Returning only MACSEC config.
                 for config in output["stdout_lines"][0]:
                     if "security" in config:
@@ -873,7 +873,7 @@ class AristaHost(AnsibleHostBase):
                     list_command.append(line[1])
             if len(list_command) > 0:
                 output = self.config(lines=commands, parents=parents)
-                if not output["failed"]:
+                if not output.get("failed", False):
                     return True, output
                 return False, "Failed to apply macsec interface config due to {}".format(output)
             return False, "Failed to apply macsec interface config due to no commmand available."
@@ -889,7 +889,7 @@ class AristaHost(AnsibleHostBase):
             parents = ["interface {}".format(interface)]
             commands = ["no mac security profile"]
             output = self.config(lines=commands, parents=parents)
-            if not output["failed"]:
+            if not output.get("failed", False):
                 return True, output
             return False, "Failed to delete macsec interface config due to {}".format(output)
         except Exception as e:
@@ -930,7 +930,7 @@ class AristaHost(AnsibleHostBase):
                 }
             }
             """
-            if not json_output["failed"]:
+            if not json_output.get("failed", False):
                 counter = json_output["stdout"][0]["interfaces"][interface]
                 validated_bytes = counter["countersDetail"]["inPktsOK"]
                 decrypted_bytes = counter["inPktsDecrypted"]
@@ -975,7 +975,7 @@ class AristaHost(AnsibleHostBase):
         try:
             command = "show running-config interfaces loopback 99"
             output = self.commands(commands=[command])
-            if not output["failed"]:
+            if not output.get("failed", False):
                 for line in output["stdout_lines"][0]:
                     if "ip address" in line:
                         lb_ipv4_addr = line.split()[-1].strip("/32")
@@ -995,7 +995,7 @@ class AristaHost(AnsibleHostBase):
             command = ["no channel-group"]
             parents = ["interface {}".format(interface)]
             output = self.config(lines=command, parents=parents)
-            if not output["failed"]:
+            if not output.get("failed", False):
                 return True, "remove interface {} from ether-bundle {}".format(interface, pcnum)
             else:
                 return False, "Failed to remove interface {} from ether-bundle {}".format(interface, pcnum)
@@ -1015,7 +1015,7 @@ class AristaHost(AnsibleHostBase):
             command = ["channel-group {} mode active".format(pcnum)]
             parents = ["interface {}".format(interface)]
             output = self.config(lines=command, parents=parents)
-            if not output["failed"]:
+            if not output.get("failed", False):
                 return True, "Added interface {} from channel-group  {}".format(interface, pcnum)
             else:
                 return False, "Failed to add interface {} to channel-group {}".format(interface, pcnum)
@@ -1035,7 +1035,7 @@ class AristaHost(AnsibleHostBase):
             parents = []
             command = ["alias testversion show version"]
             output = self.config(lines=command, parents=parents)
-            if not output["failed"]:
+            if not output.get("failed", False):
                 rollback_command = "no alias testversion"
                 self.config(lines=[rollback_command], parents=parents)
                 return True, output
@@ -1099,7 +1099,7 @@ class AristaHost(AnsibleHostBase):
             command = "show ip route aggregate | include {}".format(agg_prefix)
             agg_route_gen_status = False
             output = self.commands(commands=[command])
-            if not output["failed"]:
+            if not output.get("failed", False):
                 for line in output["stdout_lines"][0]:
                     if agg_prefix in line:
                         agg_route_gen_status = True
@@ -1113,7 +1113,7 @@ class AristaHost(AnsibleHostBase):
             packets_exported = 0
             command = "show flow tracking sampled counters | include messages"
             output = self.commands(commands=[command])
-            if not output["failed"]:
+            if not output.get("failed", False):
                 for line in output["stdout_lines"][0]:
                     if "messages" in line:
                         counter = line.split()[1].lstrip("(").rstrip(")")
@@ -1137,7 +1137,7 @@ class AristaHost(AnsibleHostBase):
             parents = ["interface {}".format(interface)]
             commands = ["flow tracker sampled {}".format(filter_name)]
             output = self.config(lines=commands, parents=parents)
-            if not output["failed"]:
+            if not output.get("failed", False):
                 return True, output
             return False, output
         except Exception as e:
@@ -1147,7 +1147,7 @@ class AristaHost(AnsibleHostBase):
         try:
             command = "reload all now"
             output = self.commands(commands=[command])
-            if not output["failed"]:
+            if not output.get("failed", False):
                 return True, output
             return False, output
         except Exception as e:
