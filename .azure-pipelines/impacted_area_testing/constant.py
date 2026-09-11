@@ -45,4 +45,8 @@ CONTROL_PLANE_DEDUP_RULES = [
 ]
 
 MAX_INSTANCE_NUMBER = 40
+WORKER_COUNT_DIVISOR_BY_TOPOLOGY = {
+    "dualtor-vpp": 2,
+    "dualtor-aa-vpp": 2,
+}
 MAX_GET_TOKEN_RETRY_TIMES = 3
