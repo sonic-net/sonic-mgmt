@@ -486,9 +486,9 @@ def setup_vrf_cfg(duthost, cfg_facts, nbrhosts, tbinfo, loganalyzer):
         cfg_t1['BGP_NEIGHBOR'][bgp_neighbor].pop('nhopself', None)
         cfg_t1['BGP_NEIGHBOR'][bgp_neighbor].pop('rrclient', None)
     port_list = get_port_connected_with_vm(duthost, tbinfo, nbrhosts)
-    vm_list = nbrhosts.keys()
+    vm_list = list(nbrhosts.keys())
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    port_channel_list = mg_facts['minigraph_portchannels'].keys()
+    port_channel_list = list(mg_facts['minigraph_portchannels'].keys())
     if len(port_channel_list) == 0:
         upstream_port_list = get_port_connected_with_vm(duthost, tbinfo, nbrhosts, vm_type="T2")
         port_list.extend(upstream_port_list)
