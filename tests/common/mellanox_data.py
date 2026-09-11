@@ -19,13 +19,19 @@ SPC6_HWSKUS = ["ACS-SN6600", "ACS-SN6600_LD", "Mellanox-SN6600_LD-V512C2", "Mell
 
 SWITCH_HWSKUS = SPC1_HWSKUS + SPC2_HWSKUS + SPC3_HWSKUS + SPC4_HWSKUS + SPC5_HWSKUS + SPC6_HWSKUS
 
-LOSSY_ONLY_HWSKUS = ['Mellanox-SN5600-C256S1', 'Mellanox-SN5600-C224O8', 'Mellanox-SN5640-C512S2',
-                     'Mellanox-SN5640-C448O16', 'Mellanox-SN5640-C508O1X2', 'Mellanox-SN5640-O128X2']
+LOSSY_ONLY_HWSKUS = [
+    'Mellanox-SN5600-C256S1', 'Mellanox-SN5600-C224O8',
+    'Mellanox-SN5640-C512S2', 'Mellanox-SN5640-C448O16',
+    'Mellanox-SN5640-C508O1X2', 'Mellanox-SN5640-O128X2',
+    'Mellanox-SN4280-O4X96',
+]
 NO_QOS_HWSKUS = []
 
 PSU_CAPABILITIES = [
-    ['psu{}_curr', 'psu{}_curr_in', 'psu{}_power', 'psu{}_power_in', 'psu{}_volt', 'psu{}_volt_in', 'psu{}_volt_out'],
-    ['psu{}_curr', 'psu{}_curr_in', 'psu{}_power', 'psu{}_power_in', 'psu{}_volt', 'psu{}_volt_in', 'psu{}_volt_out2']
+    ['psu{}_curr', 'psu{}_curr_in', 'psu{}_power', 'psu{}_power_in',
+     'psu{}_volt', 'psu{}_volt_in', 'psu{}_volt_out'],
+    ['psu{}_curr', 'psu{}_curr_in', 'psu{}_power', 'psu{}_power_in',
+     'psu{}_volt', 'psu{}_volt_in', 'psu{}_volt_out2'],
 ]
 MULTI_HARDWARE_TYPE_PLATFORMS = ['x86_64-mlnx_msn4700-r0',
                                  'x86_64-mlnx_msn4410-r0',
@@ -1431,10 +1437,16 @@ def get_chip_type(dut):
 @read_only_cache()
 def get_hardware_version(duthost, platform):
     if platform in MULTI_HARDWARE_TYPE_PLATFORMS:
-        config1 = duthost.command('cat /run/hw-management/system/config1', module_ignore_errors=True)
-        config3 = duthost.command('cat /run/hw-management/system/config3', module_ignore_errors=True)
+        config1 = duthost.command(
+            'cat /run/hw-management/system/config1',
+            module_ignore_errors=True)
+        config3 = duthost.command(
+            'cat /run/hw-management/system/config3',
+            module_ignore_errors=True)
         if platform in ('x86_64-mlnx_msn4700-r0', 'x86_64-mlnx_msn4410-r0'):
-            return 'a1' if config1['rc'] == 0 and config1['stdout'] == '1' else ''
+            if config1['rc'] == 0 and config1['stdout'] == '1':
+                return 'a1'
+            return ''
         elif platform == 'x86_64-mlnx_msn4600c-r0':
             if config1['rc'] == 0:
                 if config1['stdout'] == '1':
@@ -1447,7 +1459,8 @@ def get_hardware_version(duthost, platform):
                         return 'respined'
             return ''
         elif platform in ('x86_64-mlnx_msn3700-r0', 'x86_64-mlnx_msn3700c-r0'):
-            if config1['rc'] == 0 and (config1['stdout'] == '2' or config1['stdout'] == '6'):
+            if (config1['rc'] == 0 and
+                    (config1['stdout'] == '2' or config1['stdout'] == '6')):
                 return 'swb-respined'
             if config3['rc'] == 0 and config3['stdout'] == '1':
                 return 'respined'
@@ -1458,7 +1471,8 @@ def get_hardware_version(duthost, platform):
 
 @read_only_cache()
 def get_hw_management_version(duthost):
-    full_version = duthost.shell('dpkg-query --showformat=\'${Version}\' --show hw-management')['stdout']
+    cmd = "dpkg-query --showformat='${Version}' --show hw-management"
+    full_version = duthost.shell(cmd)['stdout']
     return full_version[len('1.mlnx.'):]
 
 
@@ -1467,13 +1481,20 @@ def is_issu_enabled(duthost):
     dut_platform = duthost.facts["platform"]
     dut_hwsku = duthost.facts["hwsku"]
 
-    sai_profile = f"/usr/share/sonic/device/{dut_platform}/{dut_hwsku}/sai.profile"
-    cmd_get_sai_xml_filename = f"basename $(cat {sai_profile} | grep SAI_INIT_CONFIG_FILE | cut -d'=' -f2)"
-    sai_xml_filename = duthost.shell(cmd_get_sai_xml_filename)["stdout"].strip()
-    sai_xml_path = f"/usr/share/sonic/device/{dut_platform}/{dut_hwsku}/{sai_xml_filename}"
+    sai_profile = (
+        f"/usr/share/sonic/device/{dut_platform}/{dut_hwsku}/sai.profile")
+    cmd_get_sai_xml_filename = (
+        f"basename $(cat {sai_profile} | grep SAI_INIT_CONFIG_FILE "
+        f"| cut -d'=' -f2)")
+    sai_xml_filename = duthost.shell(
+        cmd_get_sai_xml_filename)["stdout"].strip()
+    sai_xml_path = (
+        f"/usr/share/sonic/device/{dut_platform}/{dut_hwsku}/"
+        f"{sai_xml_filename}")
 
     pattern = r"<issu-enabled>*1*<\/issu-enabled>"
-    output = duthost.shell(f'egrep "{pattern}" {sai_xml_path} | wc -l')['stdout'].strip()
+    output = duthost.shell(
+        f'egrep "{pattern}" {sai_xml_path} | wc -l')['stdout'].strip()
     logger.info(f"ISSU is enabled: {output == '1'}")
 
     return True if output == "1" else False
