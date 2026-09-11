@@ -165,8 +165,8 @@ def test_ssh_listen_addresses(duthosts, rand_one_dut_hostname, creds, restore_ss
     keep_addresses, omit_address = _pick_assigned_addresses(duthost)
     pytest_assert(len(keep_addresses) > 0,
                   "Could not identify an assigned management/loopback address to keep listening on")
-    pytest_assert(omit_address is not None,
-                  "Could not identify an assigned VLAN gateway address to intentionally omit")
+    if omit_address is None:
+        pytest.skip("No VLAN gateway address available to use as omit target")
 
     # Sanity: sshd should currently be listening on the wildcards (default,
     # untouched state) before we narrow it down.
