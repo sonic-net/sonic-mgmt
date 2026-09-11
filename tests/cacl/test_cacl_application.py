@@ -12,9 +12,15 @@ from tests.common.helpers.assertions import pytest_assert
 
 logger = logging.getLogger(__name__)
 
+# caclmgrd programs the control plane ACLs asynchronously in response to config/state changes.
+# On multi-ASIC platforms the per-namespace rules can converge noticeably later than the host's,
+# so sampling the rules a single time races the programming and yields spurious failures.
+CACL_RULE_SYNC_TIMEOUT = 120
+CACL_RULE_SYNC_INTERVAL = 5
+
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer globally
-    pytest.mark.topology('any')
+    pytest.mark.topology('any', 'bmc')
 ]
 
 
@@ -165,11 +171,13 @@ def dummy_acl_rules(duthosts, enum_rand_one_per_hwsku_hostname):
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     file_path = "/tmp/generated_acl.json"
+    dut_is_bmc = duthost.is_bmc()
 
     rules_data = {}
     snmp_acl_entry = {}
     ssh_acl_entry = {}
     ntp_acl_entry = {}
+    redfish_acl_entry = {}
 
     for index in range(1, 22):
         acl_entry = {}
@@ -199,35 +207,65 @@ def dummy_acl_rules(duthosts, enum_rand_one_per_hwsku_hostname):
         snmp_acl_entry.update(acl_entry)
         ssh_acl_entry.update(acl_entry)
         ntp_acl_entry.update(acl_entry)
+        if dut_is_bmc:
+            redfish_acl_entry.update(acl_entry)
+
+    acl_set = {
+        "SNMP-ACL": {
+            "acl-entries": {
+                "acl-entry": snmp_acl_entry
+            },
+            "config": {
+                "name": "SNMP-ACL"
+            }
+        },
+        "ssh-only": {
+            "acl-entries": {
+                "acl-entry": ssh_acl_entry
+            },
+            "config": {
+                "name": "ssh-only"
+            }
+        },
+        "ntp-acl": {
+            "acl-entries": {
+                "acl-entry": ntp_acl_entry
+            },
+            "config": {
+                "name": "ntp-acl"
+            }
+        }
+    }
+
+    # REDFISH_ACL is only present on BMC. It is not in CONFIG_DB by default,
+    # so pre-create the table before acl-loader runs.
+    if dut_is_bmc:
+        redfish_acl_table = {
+            "ACL_TABLE": {
+                "REDFISH_ACL": {
+                    "policy_desc": "REDFISH_ACL",
+                    "type": "CTRLPLANE",
+                    "stage": "ingress",
+                    "services": ["REDFISH"],
+                }
+            }
+        }
+        redfish_table_path = "/tmp/redfish_acl_table.json"
+        duthost.copy(content=json.dumps(redfish_acl_table, indent=4),
+                     dest=redfish_table_path)
+        duthost.command("config load {} -y".format(redfish_table_path))
+        acl_set["REDFISH-ACL"] = {
+            "acl-entries": {
+                "acl-entry": redfish_acl_entry
+            },
+            "config": {
+                "name": "REDFISH-ACL"
+            }
+        }
 
     rules_data['acl'] = {
         "acl-sets": {
-            "acl-set": {
-                "SNMP-ACL": {
-                    "acl-entries": {
-                        "acl-entry": snmp_acl_entry
-                    },
-                    "config": {
-                        "name": "SNMP-ACL"
-                    }
-                },
-                "ssh-only": {
-                    "acl-entries": {
-                        "acl-entry": ssh_acl_entry
-                    },
-                    "config": {
-                        "name": "ssh-only"
-                    }
-                },
-                "ntp-acl": {
-                    "acl-entries": {
-                        "acl-entry": ntp_acl_entry
-                    },
-                    "config": {
-                        "name": "ntp-acl"
-                    }
-                }
-            }
+            "acl-set": acl_set
         }
     }
 
@@ -518,8 +556,8 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
     if asic_index is None:
         # Allow Communication among docker containers
         for k, v in list(docker_network['container'].items()):
-            # network mode for dhcp_server container is bridge, but this rule is not expected to be seen
-            if k == "dhcp_server":
+            # network mode for dhcp_server and redfish containers is bridge, but this rule is not expected to be seen
+            if k in ("dhcp_server", "redfish"):
                 continue
             iptables_rules.append("-A INPUT -s {}/32 -d {}/32 -j ACCEPT"
                                   .format(docker_network['bridge']['IPv4Address'],
@@ -534,11 +572,11 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
                                    .format(v['IPv6Address'],
                                            docker_network['bridge']['IPv6Address']))
 
-        # dhcp_server uses bridge networking; its startup script adds an iptables
-        # rule to allow syslog (UDP 514) past caclmgrd's catch-all DROP.
-        if "dhcp_server" in docker_network['container']:
+        # dhcp_server forwards rsyslog to the host over docker0 (tcp/2514); caclmgrd adds this ACCEPT when enabled
+        feature_status, _ = duthost.get_feature_status()
+        if feature_status.get("dhcp_server") == "enabled":
             iptables_rules.append(
-                "-A INPUT -i docker0 -p udp -m udp --dport 514"
+                "-A INPUT -i docker0 -p tcp -m tcp --dport 2514"
                 " -m comment --comment dhcp_server_syslog -j ACCEPT")
 
     else:
@@ -628,6 +666,20 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
     # Generate control plane rules from device config
     rules_applied_from_config = 0
 
+    # On multi-asic platforms, caclmgrd forwards namespace-originated control-plane traffic
+    # for select services (e.g. SSH/SNMP) to the host via the FORWARD chain.
+    if asic_index is not None:
+        for acl_service, acl_service_info in ACL_SERVICES.items():
+            if acl_service_info["multi_asic_ns_to_host_fwd"]:
+                for ip_protocol in acl_service_info["ip_protocols"]:
+                    for dst_port in acl_service_info["dst_ports"]:
+                        iptables_rules.append(
+                            "-A FORWARD -s {}/32 -p {} -m {} --sport {} -j ACCEPT"
+                            .format(docker_network['bridge']['IPv4Address'], ip_protocol, ip_protocol, dst_port))
+                        ip6tables_rules.append(
+                            "-A FORWARD -s {}/128 -p {} -m {} --sport {} -j ACCEPT"
+                            .format(docker_network['bridge']['IPv6Address'], ip_protocol, ip_protocol, dst_port))
+
     cacl_tables = get_cacl_tables_and_rules(duthost)
 
     # Walk the ACL tables and generate an iptables rule for each rule
@@ -675,7 +727,10 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
                 # Apply the rule to the default protocol(s) for this ACL service
                 for ip_protocol in ip_protocols:
                     for dst_port in dst_ports:
-                        new_iptables_rule = "-A INPUT"
+                        if asic_index is not None:
+                            new_iptables_rule = "-A FORWARD"
+                        else:
+                            new_iptables_rule = "-A INPUT"
 
                         iface_cidr = None
                         if table_ip_version == 6 and "SRC_IPV6" in rule and rule["SRC_IPV6"]:
@@ -728,10 +783,21 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
         # Default drop rules
         iptables_rules.append("-A INPUT -j DROP")
         ip6tables_rules.append("-A INPUT -j DROP")
+        if asic_index is not None:
+            iptables_rules.append("-A FORWARD -j DROP")
+            ip6tables_rules.append("-A FORWARD -j DROP")
 
     # IP Table rule to allow eth1-midplane traffic for chassis
     if asic_index is None:
         append_midplane_traffic_rules(duthost, iptables_rules)
+
+    # Add OUTPUT rules to restrict access to FRR daemon ports 2601 (zebra VTY) and 2620 (FPM).
+    # caclmgrd programs these rules in every managed namespace (host and all per-ASIC namespaces).
+    # Ref: https://github.com/sonic-net/sonic-host-services/pull/389
+    iptables_rules.append("-A OUTPUT -o lo -p tcp -m tcp --dport 2620 -m owner --uid-owner 300 -j ACCEPT")
+    iptables_rules.append("-A OUTPUT -o lo -p tcp -m tcp --dport 2601 -m owner --uid-owner 300 -j ACCEPT")
+    iptables_rules.append("-A OUTPUT -o lo -p tcp -m tcp --dport 2620 -j DROP")
+    iptables_rules.append("-A OUTPUT -o lo -p tcp -m tcp --dport 2601 -j DROP")
 
     return iptables_rules, ip6tables_rules
 
@@ -1076,23 +1142,43 @@ def verify_cacl_show_acl_rule(duthost, acl_file):
     )
 
 
+def wait_for_expected_rules(duthost, asic_index, command, expected_rules,
+                            timeout=CACL_RULE_SYNC_TIMEOUT, interval=CACL_RULE_SYNC_INTERVAL):
+    """Poll the rules reported by `command` until they converge to `expected_rules`.
+
+    Returns the (missing, unexpected, actual) rules observed by the final poll, so that
+    callers keep reporting the exact same assertion details on failure as a single read would.
+    """
+    last_seen = {"missing": set(expected_rules), "unexpected": set(), "actual": []}
+
+    def _rules_converged():
+        actual_rules = duthost.get_asic_or_sonic_host(asic_index).command(command)["stdout"].strip().split("\n")
+        last_seen["actual"] = actual_rules
+        last_seen["missing"] = set(expected_rules) - set(actual_rules)
+        last_seen["unexpected"] = set(actual_rules) - set(expected_rules)
+        return not last_seen["missing"] and not last_seen["unexpected"]
+
+    if not wait_until(timeout, interval, 0, _rules_converged):
+        logger.error("Rules from '{}' did not converge within {}s. Missing: {}, unexpected: {}"
+                     .format(command, timeout, repr(last_seen["missing"]), repr(last_seen["unexpected"])))
+
+    return last_seen["missing"], last_seen["unexpected"], last_seen["actual"]
+
+
 def verify_cacl(duthost, tbinfo, localhost, creds, docker_network,
                 expected_dhcp_rules_for_standby=None, asic_index=None):
     expected_iptables_rules, expected_ip6tables_rules = \
         generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expected_dhcp_rules_for_standby)
 
-    stdout = duthost.get_asic_or_sonic_host(asic_index).command("iptables -S")["stdout"]
-    actual_iptables_rules = stdout.strip().split("\n")
+    missing_iptables_rules, unexpected_iptables_rules, actual_iptables_rules = \
+        wait_for_expected_rules(duthost, asic_index, "iptables -S", expected_iptables_rules)
 
-    # Ensure all expected iptables rules are present on the DuT
     logger.info("Number of expected iptable rules:{}, number of actual iptables rules:{}"
                 .format(len(set(expected_iptables_rules)), len(set(actual_iptables_rules))))
-    missing_iptables_rules = set(expected_iptables_rules) - set(actual_iptables_rules)
+
     pytest_assert(len(missing_iptables_rules) == 0, "Missing expected iptables rules: {}"
                   .format(repr(missing_iptables_rules)))
 
-    # Ensure there are no unexpected iptables rules present on the DuT
-    unexpected_iptables_rules = set(actual_iptables_rules) - set(expected_iptables_rules)
     pytest_assert(len(unexpected_iptables_rules) == 0, "Unexpected iptables rules: {}"
                   .format(repr(unexpected_iptables_rules)))
 
@@ -1104,18 +1190,15 @@ def verify_cacl(duthost, tbinfo, localhost, creds, docker_network,
     # for i in range(len(expected_iptables_rules)):
     #    pytest_assert(actual_iptables_rules[i] == expected_iptables_rules[i], "iptables rules not in expected order")
 
-    stdout = duthost.get_asic_or_sonic_host(asic_index).command("ip6tables -S")["stdout"]
-    actual_ip6tables_rules = stdout.strip().split("\n")
+    missing_ip6tables_rules, unexpected_ip6tables_rules, actual_ip6tables_rules = \
+        wait_for_expected_rules(duthost, asic_index, "ip6tables -S", expected_ip6tables_rules)
 
-    # Ensure all expected ip6tables rules are present on the DuT
     logger.info("Number of expected ip6table rules:{}, number of actual ip6tables rules:{}"
                 .format(len(set(expected_ip6tables_rules)), len(set(actual_ip6tables_rules))))
-    missing_ip6tables_rules = set(expected_ip6tables_rules) - set(actual_ip6tables_rules)
+
     pytest_assert(len(missing_ip6tables_rules) == 0, "Missing expected ip6tables rules: {}"
                   .format(repr(missing_ip6tables_rules)))
 
-    # Ensure there are no unexpected ip6tables rules present on the DuT
-    unexpected_ip6tables_rules = set(actual_ip6tables_rules) - set(expected_ip6tables_rules)
     pytest_assert(len(unexpected_ip6tables_rules) == 0, "Unexpected ip6tables rules: {}"
                   .format(repr(unexpected_ip6tables_rules)))
 
@@ -1133,29 +1216,25 @@ def verify_nat_cacl(duthost, localhost, creds, docker_network, asic_index):
     expected_iptables_rules, expected_ip6tables_rules = \
          generate_nat_expected_rules(duthost, docker_network, asic_index)
 
-    stdout = duthost.get_asic_or_sonic_host(asic_index).command("iptables -t nat -S")["stdout"]
-    actual_iptables_rules = stdout.strip().split("\n")
+    missing_iptables_rules, unexpected_iptables_rules, _ = \
+        wait_for_expected_rules(duthost, asic_index, "iptables -t nat -S", expected_iptables_rules)
 
     # Ensure all expected iptables rules are present on the DuT
-    missing_iptables_rules = set(expected_iptables_rules) - set(actual_iptables_rules)
     pytest_assert(len(missing_iptables_rules) == 0, "Missing expected iptables nat rules: {}"
                   .format(repr(missing_iptables_rules)))
 
     # Ensure there are no unexpected iptables rules present on the DuT
-    unexpected_iptables_rules = set(actual_iptables_rules) - set(expected_iptables_rules)
     pytest_assert(len(unexpected_iptables_rules) == 0, "Unexpected iptables nat rules: {}"
                   .format(repr(unexpected_iptables_rules)))
 
-    stdout = duthost.get_asic_or_sonic_host(asic_index).command("ip6tables -t nat -S")["stdout"]
-    actual_ip6tables_rules = stdout.strip().split("\n")
+    missing_ip6tables_rules, unexpected_ip6tables_rules, _ = \
+        wait_for_expected_rules(duthost, asic_index, "ip6tables -t nat -S", expected_ip6tables_rules)
 
     # Ensure all expected ip6tables rules are present on the DuT
-    missing_ip6tables_rules = set(expected_ip6tables_rules) - set(actual_ip6tables_rules)
     pytest_assert(len(missing_ip6tables_rules) == 0, "Missing expected ip6tables nat rules: {}"
                   .format(repr(missing_ip6tables_rules)))
 
     # Ensure there are no unexpected ip6tables rules present on the DuT
-    unexpected_ip6tables_rules = set(actual_ip6tables_rules) - set(expected_ip6tables_rules)
     pytest_assert(len(unexpected_ip6tables_rules) == 0, "Unexpected ip6tables nat rules: {}"
                   .format(repr(unexpected_ip6tables_rules)))
 

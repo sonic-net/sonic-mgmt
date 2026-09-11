@@ -141,22 +141,27 @@ def bgp_prefix_tc1_add_config(duthost, community, community_table, cli_namespace
 def bgp_prefix_tc1_xfail(duthost, community_table, namespace=None):
     """ Test input with invalid prefixes
     """
+    # A remove op is resolved by index, not by value, so the index decides whether the op is
+    # expected to fail. Each leaf-list holds exactly one element here, so index 1 is out of range
+    # and is what actually exercises "remove an unexisting prefix". Index 0 would remove the last
+    # element instead, which is a supported operation and is covered by
+    # bgp_prefix_tc1_remove_last_prefix.
     xfail_input = [
-        ("add", "10.256.0.0/16", PREFIXES_V6_DUMMY),        # Invalid v4 prefix
-        ("add", PREFIXES_V4_DUMMY, "fc01:xyz::/64"),        # Invalid v6 prefix
-        ("remove", PREFIXES_V4_DUMMY, PREFIXES_V6_INIT),    # Unexisted v4 prefix
-        ("remove", PREFIXES_V4_INIT, PREFIXES_V6_DUMMY)     # Unexisted v6 prefix
+        ("add", 0, "10.256.0.0/16", PREFIXES_V6_DUMMY),        # Invalid v4 prefix
+        ("add", 0, PREFIXES_V4_DUMMY, "fc01:xyz::/64"),        # Invalid v6 prefix
+        ("remove", 1, PREFIXES_V4_DUMMY, PREFIXES_V6_INIT),    # Unexisted v4 prefix
+        ("remove", 1, PREFIXES_V4_INIT, PREFIXES_V6_DUMMY)     # Unexisted v6 prefix
     ]
-    for op, prefixes_v4, prefixes_v6 in xfail_input:
+    for op, index, prefixes_v4, prefixes_v6 in xfail_input:
         json_patch = [
             {
                 "op": op,
-                "path": "/BGP_ALLOWED_PREFIXES/DEPLOYMENT_ID|0{}/prefixes_v6/0".format(community_table),
+                "path": "/BGP_ALLOWED_PREFIXES/DEPLOYMENT_ID|0{}/prefixes_v6/{}".format(community_table, index),
                 "value": prefixes_v6
             },
             {
                 "op": op,
-                "path": "/BGP_ALLOWED_PREFIXES/DEPLOYMENT_ID|0{}/prefixes_v4/0".format(community_table),
+                "path": "/BGP_ALLOWED_PREFIXES/DEPLOYMENT_ID|0{}/prefixes_v4/{}".format(community_table, index),
                 "value": prefixes_v4
             }
         ]
@@ -229,6 +234,110 @@ def bgp_prefix_tc1_replace(duthost, community, community_table, cli_namespace_pr
         delete_tmpfile(duthost, tmpfile)
 
 
+def get_bgp_prefix_config_db_entry(duthost, community_table, cli_namespace_prefix):
+    """ Get the CONFIG_DB entry backing the bgp prefix config
+    """
+    cmds = 'sonic-db-cli {} CONFIG_DB hgetall "BGP_ALLOWED_PREFIXES|DEPLOYMENT_ID|0{}"'.format(
+        cli_namespace_prefix, community_table)
+    output = duthost.shell(cmds)
+    pytest_assert(not output['rc'], "'{}' failed with rc={}".format(cmds, output['rc']))
+    return output['stdout']
+
+
+def check_bgp_prefix_v4_withdrawn_v6_intact(duthost, community, cli_namespace_prefix):
+    """ Check the v4 prefix is withdrawn from FRR while the v6 prefix in the same entry survives
+
+    Both halves are matched against a single snapshot of the running config. The v6 half matters
+    because an invalid empty value left in prefixes_v4 makes bgpcfgd reject the whole
+    BGP_ALLOWED_PREFIXES entry, taking a valid prefixes_v6 down with it. Checking only that v4 is
+    gone would pass in exactly that case.
+    """
+    bgp_config = show_bgp_running_config(duthost, cli_namespace_prefix)
+    return (not re.search(PREFIXES_V4_RE.format(community, PREFIXES_V4_DUMMY), bgp_config) and
+            bool(re.search(PREFIXES_V6_RE.format(community, PREFIXES_V6_DUMMY), bgp_config)))
+
+
+def check_bgp_prefix_v4_programmed(duthost, community, cli_namespace_prefix):
+    """ Check the v4 prefix is programmed into FRR alongside the v6 prefix in the same entry
+    """
+    bgp_config = show_bgp_running_config(duthost, cli_namespace_prefix)
+    return (bool(re.search(PREFIXES_V4_RE.format(community, PREFIXES_V4_DUMMY), bgp_config)) and
+            bool(re.search(PREFIXES_V6_RE.format(community, PREFIXES_V6_DUMMY), bgp_config)))
+
+
+def bgp_prefix_tc1_remove_last_prefix(duthost, community, community_table, cli_namespace_prefix, namespace=None):
+    """ Test to remove the last element of a prefix leaf-list
+
+    CONFIG_DB cannot represent an empty leaf-list, so emptying prefixes_v4 has to drop the field
+    altogether. Leaving an empty value behind makes the entry read back as a list holding one empty
+    string, which corrupts the entry and blocks any later update of the same field.
+    See sonic-net/sonic-buildimage#27818.
+    """
+    json_patch = [
+        {
+            "op": "remove",
+            "path": "/BGP_ALLOWED_PREFIXES/DEPLOYMENT_ID|0{}/prefixes_v4/0".format(community_table)
+        }
+    ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[namespace])
+
+    tmpfile = generate_tmpfile(duthost)
+    logger.info("tmpfile {}".format(tmpfile))
+
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+
+        config_db_entry = get_bgp_prefix_config_db_entry(duthost, community_table, cli_namespace_prefix)
+        pytest_assert("prefixes_v4" not in config_db_entry,
+                      "Emptied prefixes_v4 was not removed from CONFIG_DB: {}".format(config_db_entry))
+        pytest_assert(PREFIXES_V6_DUMMY in config_db_entry,
+                      "prefixes_v6 was not left untouched in CONFIG_DB: {}".format(config_db_entry))
+
+        pytest_assert(wait_until(60, 5, 0, check_bgp_prefix_v4_withdrawn_v6_intact, duthost, community,
+                                 cli_namespace_prefix),
+                      "BGP prefix v4 not withdrawn, or v6 in the same entry was dropped with it")
+
+    finally:
+        delete_tmpfile(duthost, tmpfile)
+
+
+def bgp_prefix_tc1_readd_prefix(duthost, community, community_table, cli_namespace_prefix, namespace=None):
+    """ Test to add a prefix leaf-list back after it was emptied
+
+    This is the follow up operation reported in sonic-net/sonic-buildimage#27818: once the leaf-list
+    had been emptied, adding a prefix back was rejected because the leftover empty value failed
+    validation.
+    """
+    json_patch = [
+        {
+            "op": "add",
+            "path": "/BGP_ALLOWED_PREFIXES/DEPLOYMENT_ID|0{}/prefixes_v4".format(community_table),
+            "value": [PREFIXES_V4_DUMMY]
+        }
+    ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[namespace])
+
+    tmpfile = generate_tmpfile(duthost)
+    logger.info("tmpfile {}".format(tmpfile))
+
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+
+        config_db_entry = get_bgp_prefix_config_db_entry(duthost, community_table, cli_namespace_prefix)
+        pytest_assert(PREFIXES_V4_DUMMY in config_db_entry,
+                      "prefixes_v4 was not added back to CONFIG_DB: {}".format(config_db_entry))
+
+        pytest_assert(wait_until(60, 5, 0, check_bgp_prefix_v4_programmed, duthost, community, cli_namespace_prefix),
+                      "BGP prefix v4 config not added back successfully")
+
+    finally:
+        delete_tmpfile(duthost, tmpfile)
+
+
 def check_bgp_prefix_config_remove(duthost, community, cli_namespace_prefix):
     """ Check bgp prefix config for remove op
     """
@@ -293,4 +402,8 @@ def test_bgp_prefix_tc1_suite(rand_selected_front_end_dut, enum_rand_one_fronten
     bgp_prefix_tc1_xfail(rand_selected_front_end_dut, community_table, namespace=asic_namespace)
     bgp_prefix_tc1_replace(rand_selected_front_end_dut, community, community_table, cli_namespace_prefix,
                            namespace=asic_namespace)
+    bgp_prefix_tc1_remove_last_prefix(rand_selected_front_end_dut, community, community_table, cli_namespace_prefix,
+                                      namespace=asic_namespace)
+    bgp_prefix_tc1_readd_prefix(rand_selected_front_end_dut, community, community_table, cli_namespace_prefix,
+                                namespace=asic_namespace)
     bgp_prefix_tc1_remove(rand_selected_front_end_dut, community, cli_namespace_prefix, namespace=asic_namespace)

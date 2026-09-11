@@ -106,4 +106,4 @@ def test_cpu_queue_shaper(duthosts, localhost, enum_rand_one_per_hwsku_frontend_
 
     finally:
         duthost.shell("rm -f {}/{}".format(DEST_DIR, BCM_CINT_FILENAME))
-        config_reload(duthost)
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True)

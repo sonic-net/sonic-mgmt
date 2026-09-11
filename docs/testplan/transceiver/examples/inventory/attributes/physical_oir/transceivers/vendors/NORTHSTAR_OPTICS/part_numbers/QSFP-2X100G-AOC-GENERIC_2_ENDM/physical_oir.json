@@ -1,0 +1,4 @@
+{
+    "monitor_kernel_errors": true,
+    "link_flap_monitor_timeout_sec": 20
+}

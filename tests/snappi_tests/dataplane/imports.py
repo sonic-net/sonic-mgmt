@@ -42,6 +42,7 @@ from ixnetwork_restpy import SessionAssistant, BatchUpdate, BatchAdd
 from ixnetwork_restpy.assistants.statistics.statviewassistant import (
     StatViewAssistant,
 )   # noqa: F403, F401, F405
+from tests.common.snappi_tests.common_helpers import pfc_queue_group_size
 
 # ==============================
 #  Common Test Utilities
@@ -175,7 +176,6 @@ from tests.common.snappi_tests.variables import (
     dut_ipv6_start,
     snappi_ipv6_start,
     v6_prefix_length,
-    pfcQueueGroupSize,
     pfcQueueValueDict,
 )   # noqa: F403, F401, F405
 
@@ -239,7 +239,7 @@ __all__ = [
     # Variables
     "dut_ip_start", "snappi_ip_start", "prefix_length",
     "dut_ipv6_start", "snappi_ipv6_start", "v6_prefix_length",
-    "pfcQueueGroupSize", "pfcQueueValueDict",
+    "pfc_queue_group_size", "pfcQueueValueDict",
     # MAC management
     "get_macs",
 ]

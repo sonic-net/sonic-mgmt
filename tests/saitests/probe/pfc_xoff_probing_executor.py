@@ -56,6 +56,28 @@ except ImportError:
     port_list = {"src": {}}
 
 
+def _get_fill_leakout_plus_one():
+    """
+    Lazy import of fill_leakout_plus_one at call time.
+
+    Module-load-time imports failed silently in some deployments (probably a
+    sys.path ordering issue between the probe/ and py3/ directories). By the
+    time an executor's check() runs, the probing test module has already
+    imported sai_qos_tests successfully, so this lookup is reliable.
+
+    Returns the function on success, or None with the real exception written
+    to stderr on failure (so we can diagnose instead of silently no-op'ing).
+    """
+    try:
+        from sai_qos_tests import fill_leakout_plus_one as _fn
+        return _fn
+    except Exception as e:  # noqa: BLE001 — we want to see the actual error
+        sys.stderr.write(
+            f"[PFC Xoff Executor] lazy import of fill_leakout_plus_one failed: "
+            f"{type(e).__name__}: {e}\n")
+        return None
+
+
 @ExecutorRegistry.register(probe_type='pfc_xoff', executor_env='physical')
 class PfcXoffProbingExecutor:
     """
@@ -145,6 +167,35 @@ class PfcXoffProbingExecutor:
                     self.ptftest.buffer_ctrl.hold_buffer([dst_port])     # Simulate congestion condition
                     time.sleep(PORT_TX_CTRL_DELAY)
 
+                # ===== Step 1.5: Leakout compensation (cisco-8000) =====
+                # Mirror PfcStdTest's compensation stack for cisco-8000:
+                #   1. fill_leakout_plus_one() primes the queue with ~1 cell (dynamic
+                #      "initial burst" leakout).
+                #   2. Add pkts_num_leak_out (static per-platform value from qos.yaml)
+                #      to compensate for the ongoing trickle-out during the burst.
+                # Net effect: after send, buffer occupancy ~= `value` cells.
+                # Use substring match to cover variants like 'cisco-8000-gr2'.
+                # Skipped for incremental (drain_buffer=False) sends since the buffer
+                # is already primed from a prior drained iteration.
+                send_count = value
+                asic_type = getattr(self.ptftest, 'asic_type', '') or ''
+                fill_leakout_fn = _get_fill_leakout_plus_one()
+                if (drain_buffer and value > 0
+                        and 'cisco-8000' in asic_type
+                        and fill_leakout_fn is not None):
+                    pkt = self.ptftest.stream_mgr.get_packet(
+                        src_port, dst_port, **traffic_keys)
+                    if pkt is not None:
+                        pkts_num_leak_out = int(getattr(self.ptftest, 'pkts_num_leak_out', 0) or 0)
+                        fill_leakout_fn(
+                            self.ptftest, src_port, dst_port, pkt,
+                            traffic_keys.get('pg', 0), asic_type)
+                        # Compensation math:
+                        #   -1  : fill_leakout_plus_one primed the queue with 1 cell
+                        #   +pkts_num_leak_out : ongoing leakout absorbs this many
+                        #                        cells during the burst
+                        send_count = max(0, value + pkts_num_leak_out - 1)
+
                 # ===== Step 2: Baseline measurement =====
                 sport_cnt_base, _ = sai_thrift_read_port_counters(
                     self.ptftest.src_client,
@@ -153,8 +204,8 @@ class PfcXoffProbingExecutor:
                 )
 
                 # ===== Step 3: Traffic injection =====
-                if value > 0:
-                    self.ptftest.buffer_ctrl.send_traffic(src_port, dst_port, value, **traffic_keys)
+                if send_count > 0:
+                    self.ptftest.buffer_ctrl.send_traffic(src_port, dst_port, send_count, **traffic_keys)
 
                 # ===== Step 4: Wait for counter refresh =====
                 time.sleep(PFC_TRIGGER_DELAY)
@@ -173,7 +224,7 @@ class PfcXoffProbingExecutor:
                     self.observer.trace(
                         f"[PFC Xoff Executor] Verification {attempt + 1}/{attempts}: "
                         f"src={src_port}, dst={dst_port}, value={value}, "
-                        f"pfc_triggered={pfc_triggered}")
+                        f"send_count={send_count}, pfc_triggered={pfc_triggered}")
 
             # Result analysis based on attempts
             return_result = (True, results[0])

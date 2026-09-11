@@ -101,7 +101,7 @@ def check_default_route_from_fib_info(ptfhost, file_path):
 
 def get_all_ptf_port_indices_from_mg_facts(mg_facts):
     """
-    Retrieve all ptf port indices from the minigraph facts.
+    Retrieve all front end ptf port indices from the minigraph facts.
 
     Args:
         mg_facts: The minigraph facts containing ASIC information.
@@ -118,6 +118,9 @@ def get_all_ptf_port_indices_from_mg_facts(mg_facts):
 
         # Store (port_index: (asic_id, port_name)) in the dictionary
         for port_name, port_index in minigraph_indices.items():
+            if port_name.startswith(("Ethernet-Rec", "Ethernet-IB", "Ethernet-BP")):
+                logger.debug("Skipping special port {} in ptf port indecies".format(port_name))
+                continue
             all_port_indices[port_index] = (asic_id, port_name)
 
     return all_port_indices
@@ -851,6 +854,11 @@ def test_ecmp_group_member_flap(
     else:
         test_balancing = True
 
+    convergence_wait = 60
+    if asic_type == "vpp":
+        # VPP can be slower to drop the flapped port's nexthop from the ECMP group.
+        convergence_wait = 120
+
     # --- Load initial FIB files ---
     fib_files = fib_info_files_per_function(
         duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts, tbinfo, request
@@ -921,7 +929,7 @@ def test_ecmp_group_member_flap(
     logging.info("Shutting down port {}".format(nh_dut_ports[port_index_to_shut][1]))
     duthosts[0].shell("sudo config interface {} shutdown {}".format(asic_ns, nh_dut_ports[port_index_to_shut][1]))
 
-    time.sleep(60)  # Allow time for the state to stabilize
+    time.sleep(convergence_wait)  # Allow time for the state to stabilize
 
     # Get all PTF ports for the port and its port channel members (if applicable)
     ptf_ports_to_filter = get_port_and_portchannel_members(
@@ -980,7 +988,7 @@ def test_ecmp_group_member_flap(
         if ptf_port in filtered_ports:
             filtered_ports.remove(ptf_port)
 
-    time.sleep(60)  # Allow time for the state to stabilize
+    time.sleep(convergence_wait)  # Allow time for the state to stabilize
 
     # --- Re-run the PTF test after member is back up ---
     logging.info("Re-verifying ECMP behavior after member up.")

@@ -11,7 +11,12 @@ Tests cover:
 
 import logging
 import pytest
+import random
+import re
 import time
+from tests.common.helpers.liquid_leakage_control_test_helper import get_liquid_cooling_update_interval
+from tests.common.helpers.sensor_control_test_helper import mocker_factory  # noqa: F401
+from tests.common.platform.bmc_utils import recover_switch_host_after_power_off
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.sonic_db import (
@@ -44,6 +49,93 @@ SYSTEM_LEAK_STATUS_TABLE = 'SYSTEM_LEAK_STATUS'
 LIQUID_COOLING_INFO_TABLE = 'LIQUID_COOLING_INFO'
 LEAK_PROFILE_TABLE = 'LEAK_PROFILE'
 
+LEAK_SEVERITY_AGGREGATION_PARAMS = [
+    pytest.param(['CRITICAL'], 'CRITICAL', None, id='rule1_one_critical'),
+    pytest.param(['MINOR', 'MINOR'], 'CRITICAL', None, id='rule2_two_minor'),
+    pytest.param(['MINOR', 'CRITICAL'], 'CRITICAL', None, id='rule2_minor_critical'),
+    pytest.param(['CRITICAL', 'CRITICAL'], 'CRITICAL', None, id='rule2_two_critical'),
+    pytest.param(['MINOR'], 'MINOR', True, id='rule3_minor_escalation'),
+    pytest.param(['MINOR'], 'MINOR', False, id='rule4_minor_no_escalation')
+]
+# the time window to observe the escalation from MINOR to CRITICAL
+MIN_ESCALATION_TIMEOUT_SEC = 5  # 5 seconds is the minimum time window to observe the MINOR state
+MAX_ESCALATION_TIMEOUT_SEC = 120  # 120 seconds is the maximum time window to observe the CRITICAL state
+
+
+# https://github.com/sonic-net/sonic-platform-daemons/blob/master/sonic-thermalctld/scripts/thermalctld#L1438
+DEFAULT_LIQUID_COOLING_POLL_INTERVAL_SEC = 0.5
+
+
+def _is_eligible_leak_sensor_duration(max_minor_duration_sec, max_minor_duration_sec_lb, max_minor_duration_sec_ub):
+    """Return True if the sensor won't escalate MINOR during the test window."""
+    # No limits, always match
+    if max_minor_duration_sec_lb is None and max_minor_duration_sec_ub is None:
+        return True
+    # No max_minor_duration_sec only matches if no upper limit is specified
+    if max_minor_duration_sec is None or max_minor_duration_sec == 0:
+        return max_minor_duration_sec_ub is None
+
+    # Lower bound violation
+    if max_minor_duration_sec_lb is not None and max_minor_duration_sec_lb > max_minor_duration_sec:
+        return False
+
+    # Upper bound violation
+    if max_minor_duration_sec_ub is not None and max_minor_duration_sec_ub < max_minor_duration_sec:
+        return False
+
+    return True
+
+
+def _select_leak_sensor_indices(leak_mocker, num_sensors, max_minor_duration_sec_lb, max_minor_duration_sec_ub):
+    """Randomly pick sensor indices that won't escalate during the test window."""
+    candidates = [
+        index for index, name in enumerate(leak_mocker.sensor_names)
+        if _is_eligible_leak_sensor_duration(
+            leak_mocker.sensors[name]['max_minor_duration_sec'], max_minor_duration_sec_lb, max_minor_duration_sec_ub)
+    ]
+
+    if len(candidates) < num_sensors:
+        pytest.skip(
+            "Need {} leak sensor(s) with max_minor_duration_sec in bounds"
+            "[{}, {}], but only {} candidate(s) available".format(
+                num_sensors, max_minor_duration_sec_lb, max_minor_duration_sec_ub, len(candidates)))
+
+    selected_indices = random.sample(candidates, num_sensors)
+    selected_sensors = []
+    for index in selected_indices:
+        name = leak_mocker.get_sensor_name(index)
+        selected_sensors.append({
+            'index': index,
+            'name': name,
+            'max_minor_duration_sec': leak_mocker.sensors[name]['max_minor_duration_sec'],
+        })
+    logger.info("Selected %d leak sensor(s): %s", num_sensors, selected_sensors)
+    return selected_indices
+
+
+def _leak_reported_syslog_regex(sensor_name):
+    """Regex for thermalctld leak syslog: 'Liquid cooling leakage sensor <name> reported leaking'."""
+    return r".*Liquid cooling leakage sensor {} reported leaking.*".format(
+        re.escape(sensor_name))
+
+
+def _leak_recovered_syslog_regex(sensor_name, is_critical):
+    """Regex for thermalctld recovery syslog after clearing a mocked leak."""
+    if is_critical:
+        recovery_message = "recovered from CRITICAL leak"
+    else:
+        recovery_message = "recovered from leaking"
+    return r".*Liquid cooling leakage sensor {} {}.*".format(
+        re.escape(sensor_name), recovery_message)
+
+
+def _wait_for_system_leak_status(leak_mocker, expected_status, timeout_sec, poll_interval_sec):
+    """Wait until SYSTEM_LEAK_STATUS matches the expected aggregated severity."""
+    def status_matches():
+        return leak_mocker.get_device_leak_status() == expected_status
+
+    return wait_until(timeout_sec, poll_interval_sec, 0, status_matches)
+
 
 class TestThermalctldDaemon:
     """
@@ -74,7 +166,12 @@ class TestThermalctldDaemon:
         - Severity levels are valid (MINOR|CRITICAL)
         - Escalation timeout is configured in LEAK_PROFILE
         - Critical leak events propagate to bmcctld (HOST_STATE consistency)
+
         """
+        # Need a way to induce real leak or mock the leak for system_leak to be updated.
+        # Just updating LIQUID_COOLING_INFO sensors in DB will not populate SYSTEM_LEAK_STATUS:system
+        pytest.skip("SKIP as we cannot induce a CRITICAL or MINOR leak now")
+
         # Get system leak status
         status = get_system_leak_status(self.duthost)
         if status:
@@ -101,8 +198,8 @@ class TestThermalctldDaemon:
                               f"leak_sensor_status '{sensor_status}' "
                               f"not in ['Good', 'Fault']")
 
-            leak_severity = fields.get('leak_severity', '').strip()
-            if leak_severity:
+            leak_severity = fields.get('leak_severity', 'None').strip()
+            if leak_severity != "None":
                 pytest_assert(leak_severity in ['MINOR', 'CRITICAL'],
                               f"leak_severity '{leak_severity}' not in ['MINOR', 'CRITICAL']")
 
@@ -161,7 +258,12 @@ class TestThermalctldDaemon:
         test_thermalctld_faulty_sensor.
 
         The injected key is deleted in a finally block.
+
         """
+        # Need a way to induce real leak or mock the leak for system_leak to be updated.
+        # Just updating LIQUID_COOLING_INFO sensors in DB will not populate SYSTEM_LEAK_STATUS:system
+        pytest.skip("SKIP as we cannot induce a CRITICAL or MINOR leak now")
+
         LEAKING_SENSOR_KEY = f"{LIQUID_COOLING_INFO_TABLE}|test_sensor_leaking"
 
         def sensor_has_value(key, field, value):
@@ -194,11 +296,11 @@ class TestThermalctldDaemon:
             tail=10,
         )
         if existing:
-            logger.info(f"Existing thermalctld leaking-sensor events:\n{existing}")
+            logger.info("Existing thermalctld leaking-sensor events:\n%s", existing)
 
         logged = [t for t, v in trigger_results.items() if v]
         not_logged = [t for t, v in trigger_results.items() if not v]
-        logger.info(f"Confirmed: {logged}; not confirmed: {not_logged}")
+        logger.info("Confirmed: %s; not confirmed: %s", logged, not_logged)
         pytest_assert(
             any(trigger_results.values()),
             f"thermalctld event trigger test found no evidence for: {list(trigger_results.keys())}"
@@ -221,7 +323,11 @@ class TestThermalctldDaemon:
           - Checks syslog for any existing 'reported faulty' entries from real hardware
           - Verifies SYSTEM_LEAK_STATUS:system timestamp is present (thermalctld still
             updates the system table even when sensors are faulty)
+
         """
+        # Need a way to induce real faulty leak sensor or mock the faulty leak sensor.
+        pytest.skip("SKIP as we cannot induce a faulty leak sensor now")
+
         FAULTY_KEY = f"{LIQUID_COOLING_INFO_TABLE}|test_faulty_sensor_check"
 
         def sensor_field_equals(key, field, value):
@@ -254,7 +360,7 @@ class TestThermalctldDaemon:
             tail=10,
         )
         if existing:
-            logger.info(f"Real faulty sensor events in syslog:\n{existing}")
+            logger.info("Real faulty sensor events in syslog:\n%s", existing)
         else:
             logger.info("No faulty sensor syslog events found - liquid cooling hardware not present or all sensors ok")
 
@@ -266,14 +372,91 @@ class TestThermalctldDaemon:
         else:
             logger.info("SYSTEM_LEAK_STATUS not populated - liquid cooling not active on this platform")
 
-    def test_thermalctld_leak_severity_aggregation(self):
-        """Verify is_leak() → LIQUID_COOLING_INFO → SYSTEM_LEAK_STATUS aggregation
+    @pytest.mark.parametrize(
+        'leak_severities,expected_system_leak_status,escalation',
+        LEAK_SEVERITY_AGGREGATION_PARAMS,
+    )
+    def test_thermalctld_leak_severity_aggregation(
+            self, mocker_factory, leak_severities, expected_system_leak_status, escalation):  # noqa: F811
+        """Verify is_leak() → LIQUID_COOLING_INFO → SYSTEM_LEAK_STATUS aggregation."""
+        if get_system_leak_status(self.duthost) == 'CRITICAL':
+            pytest.skip("System leak status is already CRITICAL")
 
-        Deferred: requires a vendor LiquidLeakageMocker (or equivalent generic
-        leak-injection mechanism) to flip is_leak() on real sensor objects.
-        STATE_DB-only injection cannot drive thermalctld's in-memory aggregator.
-        """
-        pytest.skip("Not supported until generic leak injection is available")
+        leak_mocker = mocker_factory(self.duthost, 'LiquidLeakageMockerBMC')
+        if leak_mocker is None:
+            pytest.skip("No LiquidLeakageMockerBMC available on this platform")
+
+        host = self.duthost.get_bmc_host()
+        poll_interval = get_liquid_cooling_update_interval(self.duthost) or DEFAULT_LIQUID_COOLING_POLL_INTERVAL_SEC
+
+        if escalation is None:
+            # aggregation cases, any sensors will work, as long as they do not escalate too quickly
+            sensor_indices = _select_leak_sensor_indices(
+                leak_mocker, len(leak_severities), None, None)
+        elif escalation is True:
+            # MINOR sensor will escalate to CRITICAL
+            sensor_indices = _select_leak_sensor_indices(
+                leak_mocker, len(leak_severities), MIN_ESCALATION_TIMEOUT_SEC, MAX_ESCALATION_TIMEOUT_SEC)
+        else:
+            # MINOR sensor will not escalate to CRITICAL
+            sensor_indices = _select_leak_sensor_indices(
+                leak_mocker, len(leak_severities), MIN_ESCALATION_TIMEOUT_SEC, None)
+
+        selected_sensor_names = [leak_mocker.get_sensor_name(index) for index in sensor_indices]
+        la = make_bmc_loganalyzer(self.duthost, "thermalctld_leak_severity_aggregation")
+        marker = la.init(log_target='syslog')
+
+        try:
+            for sensor_index, leak_severity in zip(sensor_indices, leak_severities):
+                leak_mocker.set_sensor_state(sensor_index, leak_severity)
+                leak, sensor_severity, leak_sensor_status = leak_mocker.get_sensor_status(sensor_index)
+                pytest_assert(
+                    leak and sensor_severity == leak_severity and leak_sensor_status == 'Good',
+                    "Sensor {} expected leak=True, severity {}, leak_sensor_status=Good; "
+                    "got leak={} severity {} leak_sensor_status={}".format(
+                        leak_mocker.get_sensor_name(sensor_index),
+                        leak_severity, leak, sensor_severity, leak_sensor_status))
+
+            time.sleep(2 * poll_interval)
+
+            status_reached = _wait_for_system_leak_status(
+                leak_mocker, expected_system_leak_status, 2 * poll_interval, poll_interval)
+            pytest_assert(
+                status_reached,
+                "Expected SYSTEM_LEAK_STATUS={}, got {}".format(
+                    expected_system_leak_status, leak_mocker.get_device_leak_status()))
+
+            for sensor_index, leak_severity in zip(sensor_indices, leak_severities):
+                leak, sensor_severity, leak_sensor_status = leak_mocker.get_sensor_status(sensor_index)
+                pytest_assert(
+                    leak and sensor_severity == leak_severity and leak_sensor_status == 'Good',
+                    "Sensor {} expected leak=True, severity {}, leak_sensor_status=Good; "
+                    "got leak={} severity {} leak_sensor_status={}".format(
+                        leak_mocker.get_sensor_name(sensor_index),
+                        leak_severity, leak, sensor_severity, leak_sensor_status))
+
+            # if escalation is True, wait for the sensor to escalate to CRITICAL
+            if escalation is True:
+                time.sleep(leak_mocker.sensors[selected_sensor_names[0]]["max_minor_duration_sec"])
+                _wait_for_system_leak_status(leak_mocker, 'CRITICAL', 2 * poll_interval, poll_interval)
+
+            syslog_la = la._get_syslog_analyzer()
+            syslog_la.expect_regex = [
+                _leak_reported_syslog_regex(name) for name in selected_sensor_names]
+            la.analyze(marker, fail=True, log_target='syslog')
+        finally:
+            recovery_marker = la.init(log_target='syslog')
+            for sensor_index in sensor_indices:
+                leak_mocker.set_sensor_state(sensor_index, 'None')
+            leak_mocker.restore_all_sensors()
+            _wait_for_system_leak_status(leak_mocker, 'None', 2 * poll_interval, poll_interval)
+            recover_switch_host_after_power_off(self.duthost, host)
+
+            recovery_syslog_la = la._get_syslog_analyzer()
+            recovery_syslog_la.expect_regex = [
+                _leak_recovered_syslog_regex(name, leak_severity == 'CRITICAL')
+                for name, leak_severity in zip(selected_sensor_names, leak_severities)]
+            la.analyze(recovery_marker, fail=True, log_target='syslog')
 
     def test_thermalctld_chassis_thermal_monitoring(self):
         """
@@ -305,7 +488,7 @@ class TestThermalctldDaemon:
             pytest.skip(f"Switch-Host {switch_host.hostname} syslog has no "
                         "'Mirroring TEMPERATURE_INFO to BMC STATE_DB' entry — "
                         "BMC mirror not active on this platform or log has rotated")
-        logger.info(f"Switch-Host mirror push confirmed:\n{mirror_init_log}")
+        logger.info("Switch-Host mirror push confirmed:\n%s", mirror_init_log)
 
         # Step 2: Push was initiated — data MUST have landed in the BMC STATE_DB.
         # If absent here it is a real failure (push initiated but data missing).
@@ -327,14 +510,14 @@ class TestThermalctldDaemon:
                       "BMC syslog missing 'Monitoring chassis thermals' — "
                       "thermalctld may not have initialized chassis-thermal monitoring "
                       "(check switch_bmc=1 in platform_env.conf)")
-        logger.info(f"Chassis-thermal monitoring init confirmed:\n{init_log}")
+        logger.info("Chassis-thermal monitoring init confirmed:\n%s", init_log)
 
         # Informational: any pre-existing CRITICAL events in event.log.
         existing = bmc_log_zgrep(
             self.duthost, r"CRITICAL chassis thermal", tail=5, files=BMC_EVENT_LOG,
         )
         if existing:
-            logger.info(f"Pre-existing CRITICAL chassis thermal events:\n{existing}")
+            logger.info("Pre-existing CRITICAL chassis thermal events:\n%s", existing)
 
         # Steps 4-6: inject a breach and verify the CRITICAL log.
         # Key uses | separator: TEMPERATURE_INFO|<sensor_name> (sonic TABLE_NAME_SEPARATOR).
@@ -361,7 +544,8 @@ class TestThermalctldDaemon:
         match_count = breach_result.get("total", {}).get("match", 0)
         pytest_assert(match_count > 0,
                       "Expected 'CRITICAL chassis thermal' log for injected sensor "
-                      f"{TEST_SENSOR} (120C > 80C threshold) not found in syslog within 90s")
+                      f"{TEST_SENSOR} "
+                      "(120C > 80C threshold) not found in syslog within 90s")
 
 
 # ---------------------------------------------------------------------------

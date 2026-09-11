@@ -35,6 +35,10 @@ from devutil.devices.dpu_utils import (  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
+ANSIBLE_POLL_INTERVAL_SECONDS = 5
+CONFIG_DB_CHECK_TIMEOUT_SECONDS = 30
+DUT_BASIC_FACTS_TIMEOUT_SECONDS = 120
+
 
 def get_timestamp_utcnow():
     return datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
@@ -101,6 +105,7 @@ class TestbedHealthChecker:
         self.log_verbosity = log_verbosity
         self.output_file = output_file
         self.is_snappi_testbed = 'rdma' in testbed_name or 'ixia' in testbed_name
+        self.is_bmc_testbed = 'bmc' in testbed_name.lower()
 
         # DPU-related state
         self.dpu_hosts = []
@@ -127,6 +132,36 @@ class TestbedHealthChecker:
         except Exception as e:
             logger.error("Failed to read testbed file {}: {}".format(testbed_file_path, repr(e)))
         return []
+
+    def _get_dut_basic_facts(self, sonichosts):
+        """Gather DUT facts without waiting indefinitely for CONFIG_DB."""
+        config_db_status = sonichosts.command(
+            "sonic-db-cli CONFIG_DB GET CONFIG_DB_INITIALIZED",
+            module_attrs={
+                "async": CONFIG_DB_CHECK_TIMEOUT_SECONDS,
+                "poll": ANSIBLE_POLL_INTERVAL_SECONDS,
+            },
+        )
+        uninitialized_hosts = [
+            hostname
+            for hostname in sonichosts.hostnames
+            if str(
+                config_db_status.get(hostname, {}).get("stdout", "")
+            ).strip() != "1"
+        ]
+        if uninitialized_hosts:
+            raise HostInitFailed(
+                "CONFIG_DB is not initialized on host(s): {}".format(
+                    ", ".join(uninitialized_hosts)
+                )
+            )
+
+        return sonichosts.dut_basic_facts(
+            module_attrs={
+                "async": DUT_BASIC_FACTS_TIMEOUT_SECONDS,
+                "poll": ANSIBLE_POLL_INTERVAL_SECONDS,
+            },
+        )
 
     def init_hosts(self):
 
@@ -158,7 +193,7 @@ class TestbedHealthChecker:
                 raise HostInitFailed("Failed to initialize NPU hosts: {}".format(npu_hostnames))
 
             # Get basic facts from NPU hosts
-            npu_basic_facts = npu_sonichosts.dut_basic_facts()
+            npu_basic_facts = self._get_dut_basic_facts(npu_sonichosts)
             self.duts_basic_facts = npu_basic_facts
 
             # Store NPU hosts
@@ -186,13 +221,13 @@ class TestbedHealthChecker:
                     if not dpu_sh:
                         logger.warning("Failed to create SonicHosts for %s, skipping.", dpu_hostname)
                         continue
-                    dpu_facts = dpu_sh.dut_basic_facts()
+                    dpu_facts = self._get_dut_basic_facts(dpu_sh)
                     self.duts_basic_facts.update(dpu_facts)
                     for sonichost in dpu_sh:
                         self.dpu_hosts.append(sonichost)
                     reachable_dpu_hostnames.append(dpu_hostname)
                     logger.info("DPU host %s is reachable and initialized.", dpu_hostname)
-                except (HostsUnreachable, RunAnsibleModuleFailed) as e:
+                except (HostsUnreachable, RunAnsibleModuleFailed, HostInitFailed) as e:
                     logger.warning("DPU host %s is unreachable, skipping: %s", dpu_hostname, repr(e))
 
             if not reachable_dpu_hostnames:
@@ -442,6 +477,10 @@ class TestbedHealthChecker:
             logger.info("======================= skip check_bgp_session_state for snappi =======================")
             return
 
+        if self.is_bmc_testbed:
+            logger.info("======================= skip check_bgp_session_state for bmc =======================")
+            return
+
         def find_unexpected_bgp_neighbors(neigh_bgp_facts, expected_state, unexpected_neighbors):
             for k, v in list(neigh_bgp_facts['bgp_neighbors'].items()):
                 if v['state'] != expected_state:
@@ -531,6 +570,10 @@ class TestbedHealthChecker:
         """
         if self.is_snappi_testbed:
             logger.info("=================== skip check_interface_status_of_up_ports for snappi ===================")
+            return
+
+        if self.is_bmc_testbed:
+            logger.info("=================== skip check_interface_status_of_up_ports for bmc ===================")
             return
 
         failed = False
@@ -637,7 +680,18 @@ class TestbedHealthChecker:
 
         # Set default critical containers to check
         if not critical_containers:
-            critical_containers = ["syncd", "swss", "bgp"]
+            if self.is_bmc_testbed:
+                critical_containers = [
+                    "gnmi",
+                    "pmon",
+                    "telemetry",
+                    "sysmgr",
+                    "redfish",
+                    "acms",
+                    "database"
+                ]
+            else:
+                critical_containers = ["syncd", "swss", "bgp"]
 
         failed = False
         running_containers_facts_on_hosts = {}

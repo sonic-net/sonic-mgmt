@@ -177,7 +177,15 @@ def prepare_test_port(rand_selected_dut, tbinfo):
 
     ports = list(mg_facts['minigraph_portchannels'])
     if not ports:
-        ports = mg_facts["minigraph_acls"]["DataAcl"]
+        # minigraph_acls only contains a data-plane ACL entry when that ACL has
+        # front-panel members attached, so the key can be legitimately absent.
+        # Match case-insensitively and default to an empty list so we fall through
+        # to the pytest.skip below instead of raising KeyError.
+        ports = next(
+            (members for name, members in mg_facts["minigraph_acls"].items()
+             if name.lower() == "dataacl"),
+            [],
+        )
 
     dut_port = ports[0] if ports else None
 

@@ -175,7 +175,7 @@ def gnmi_tls(request, duthost, ptfhost):
 2. Validate UDS socket exists: `duthost.shell("test -S /var/run/gnmi/gnmi.sock")`
 3. Create `DutGrpc` → `DutGnoi`
 4. Yield `GnmiFixture(host='localhost', port=0, tls=False, cert_paths=None,
-   grpc=dut_grpc, gnoi=dut_gnoi, gnmic=None)`
+   grpc=dut_grpc, gnoi=dut_gnoi, pygnmi_client=None)`
 5. No teardown needed (no CONFIG_DB changes, no certs)
 
 **TLS flow** (`_gnmi_tls_flow`): Existing behavior, unchanged.
@@ -191,12 +191,12 @@ class GnmiFixture:
     cert_paths: Optional[CertPaths]
     grpc: Union[PtfGrpc, DutGrpc]    # was: PtfGrpc
     gnoi: Union[PtfGnoi, DutGnoi]    # was: PtfGnoi
-    gnmic: Optional[PtfGnmic]        # None for UDS transport
+    pygnmi_client: Optional[PygnmiClient]   # None for UDS transport
     transport: str = 'tls'           # new field: 'tls' or 'uds'
 ```
 
 The `transport` field lets tests that need transport-specific behavior branch on it.
-The `gnmic` field is `None` for UDS since gnmic isn't installed on the DUT.
+The `pygnmi_client` field is `None` for UDS since the pygnmi client targets the TLS endpoint.
 
 ### 6. Test Opt-In Pattern
 
@@ -215,8 +215,8 @@ def test_cert_validation(gnmi_tls):
     assert gnmi_tls.cert_paths is not None
 ```
 
-Tests that use `gnmic` should either:
-- Skip UDS: `if gnmi_tls.gnmic is None: pytest.skip("gnmic not available on UDS")`
+Tests that use `pygnmi_client` should either:
+- Skip UDS: `if gnmi_tls.pygnmi_client is None: pytest.skip("pygnmi not available on UDS")`
 - Or not parametrize with UDS
 
 ## Directory Structure
@@ -227,7 +227,7 @@ tests/common/
 ├── dut_gnoi.py              # NEW: DUT-local gNOI wrapper
 ├── ptf_grpc.py              # Existing: PTF grpcurl client (unchanged)
 ├── ptf_gnoi.py              # Existing: PTF gNOI wrapper (unchanged)
-├── ptf_gnmic.py             # Existing: PTF gnmic wrapper (unchanged)
+├── pygnmi_client.py         # NEW: native pygnmi gNMI client
 └── fixtures/
     └── grpc_fixtures.py     # Modified: transport param + grpcurl install
 ```
@@ -255,8 +255,8 @@ The UDS server skips all authentication (no TLS, no JWT, no PAM, no client certs
 Security relies on filesystem permissions (0660, root:root). Tests running over UDS
 exercise gRPC service logic but NOT authentication paths.
 
-### gnmic Not Available
-`GnmiFixture.gnmic` is `None` for UDS transport. Tests using gnmic must handle this
+### pygnmi Not Available
+`GnmiFixture.pygnmi_client` is `None` for UDS transport. Tests using pygnmi must handle this
 (skip or don't parametrize with UDS).
 
 ### Module-Scoped Fixture with Parametrize
