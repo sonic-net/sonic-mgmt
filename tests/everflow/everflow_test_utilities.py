@@ -1379,8 +1379,12 @@ class BaseEverflowTest(object):
 
         if (('t2' in setup['topo'] and 'lt2' not in setup['topo'] and 'ft2' not in setup['topo'])
                 or duthost.facts.get('switch_type') == 'voq'):
+            device_type = duthost.get_running_config_facts().get(
+                'DEVICE_METADATA', {}).get('localhost', {}).get('type')
+            is_upper_spine = (device_type == 'UpperSpineRouter')
+            ttl_dec = 0 if is_upper_spine else 1
             src_port_set.add(src_port)
-            src_port_metadata_map[src_port] = (None, 1, setup[direction]['everflow_dut'],
+            src_port_metadata_map[src_port] = (None, ttl_dec, setup[direction]['everflow_dut'],
                                                setup[direction]['everflow_namespace'])
             if valid_across_namespace is True:
                 # Add the dest_port to src_port_set only in non MACSEC testbed scenarios
