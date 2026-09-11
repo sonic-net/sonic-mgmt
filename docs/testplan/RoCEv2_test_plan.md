@@ -22,6 +22,55 @@
   <img src="Img/RoCEv2_Topology_2.png" width="350"  hspace="200"/>
 </p>
 
+## Port Placement for T2 (Multi-ASIC / Multi-Linecard) Chassis
+
+A T2 DUT is a single logical switch built from multiple linecards, each carrying one or more
+forwarding ASICs, interconnected internally by fabric cards/fabric ASICs. Two ports that are
+both "on the DUT" can therefore take very different internal datapaths depending on where they
+sit, so a single run of Topology 1 or Topology 2 with an arbitrary 4-port selection does not
+exercise a T2 platform representatively. Every test case in this plan that lists **T2** as an
+applicable role must additionally be run once per placement variant below, selecting the rank
+ports (Topology 1) or leaf-facing ports (Topology 2) accordingly.
+
+| Variant | Description | Internal datapath exercised |
+|---|---|---|
+| **V1 – Intra-ASIC** | All test ports terminate on the same forwarding ASIC. | Local switching only; no fabric traversal. Baseline, comparable to a T0/T1 (pizzabox) result. |
+| **V2 – Inter-ASIC, same linecard** | Test ports span two (or more) forwarding ASICs that sit on the same linecard. | Local/on-linecard ASIC-to-ASIC interconnect, if present, without crossing to a fabric card. |
+| **V3 – Inter-linecard (cross-fabric)** | Test ports span forwarding ASICs on two different linecards. | Full fabric path: ingress ASIC → fabric card(s)/fabric ASIC → egress ASIC. This is the worst-case, most representative path for a disaggregated chassis and shall be treated as the mandatory minimum variant when time does not permit all three. |
+
+```
+                 +-------------------- T2 Chassis --------------------+
+                 |                                                    |
+                 |   Linecard 1              Linecard 2               |
+                 |  +---------+            +---------+                |
+                 |  | ASIC 1a |            | ASIC 2a |                |
+                 |  |  P1  P2 |            |  P5  P6 |                |
+                 |  +----+----+            +----+----+                |
+                 |       |     Fabric Card(s)   |                     |
+                 |  +----+----+   (fabric ASIC) +----+----+           |
+                 |  | ASIC 1b |<---------------->| ASIC 2b |          |
+                 |  |  P3  P4 |                  |  P7  P8 |          |
+                 |  +---------+                  +---------+          |
+                 +----------------------------------------------------+
+
+  V1: P1 <-> P2   (same ASIC, ASIC 1a)
+  V2: P1 <-> P3   (same linecard, ASIC 1a <-> ASIC 1b)
+  V3: P1 <-> P5   (different linecard, via fabric card)
+```
+
+### Applying this to Topology 1 (single-DUT, 4-port) test cases
+
+- Assign the four rank ports (rank 0–3) to satisfy the variant under test, e.g. for **V3**, put
+  ranks 0/1 on Linecard 1 and ranks 2/3 on Linecard 2 so every flow crosses the fabric.
+- Record which linecard and ASIC (e.g. via `show platform summary` and the DUT's port-to-ASIC
+  mapping) each rank port belongs to in the run record, alongside the usual results.
+
+### Applying this to Topology 2 (leaf/spine Clos) test cases
+
+- When either leaf, or the spine, is itself a T2 chassis, additionally vary which linecard/ASIC
+  the leaf-facing test ports and the leaf-to-spine uplinks land on, per the table above, instead
+  of only exercising the external leaf/spine relationship.
+
 ---
 
 ## Test Case 1 – Basic dataplane traffic testing without congestion
@@ -33,6 +82,9 @@
   - ECN marking on the switch
   - CNP/ACK behavior on the endpoints
 - Applicable roles: T0, T1, T2.
+- **T2 chassis:** repeat with rank ports placed per each variant (V1/V2/V3) in
+  [Port Placement for T2](#port-placement-for-t2-multi-asic--multi-linecard-chassis); V3
+  (inter-linecard) is mandatory at minimum.
 
 ### Topology
 
@@ -101,6 +153,9 @@
   - ECN marking on the switch
   - CNP/ACK behavior on the endpoints
 - Applicable roles: T0, T1, T2.
+- **T2 chassis:** repeat with rank ports placed per each variant (V1/V2/V3) in
+  [Port Placement for T2](#port-placement-for-t2-multi-asic--multi-linecard-chassis); V3
+  (inter-linecard) is mandatory at minimum.
 
 ### Topology
 
@@ -237,6 +292,9 @@ All messages shall complete successfully.
   - ECN marking on the switch
   - CNP/ACK behavior on the endpoints
 - Applicable roles: T0, T1, T2.
+- **T2 chassis:** repeat with rank ports placed per each variant (V1/V2/V3) in
+  [Port Placement for T2](#port-placement-for-t2-multi-asic--multi-linecard-chassis); V3
+  (inter-linecard) is mandatory at minimum.
 
 ### Topology
 
@@ -308,7 +366,9 @@ All messages shall complete successfully.
 7. Run traffic and validate statistics.
 8. Set ECN-CE bit value 11 
 9. Run traffic and validate statistics. 
-10. Increase endpoint per port to 4K for testing T2 
+10. Increase endpoint per port to 4K for testing T2, distributing the 4K endpoints across
+    linecards/ASICs per the V1/V2/V3 variants in
+    [Port Placement for T2](#port-placement-for-t2-multi-asic--multi-linecard-chassis) 
 
 ### Expected Results
 
@@ -356,6 +416,9 @@ All messages shall complete successfully.
 
 - Validate basic congestion control for RoCEv2/RDMA storage traffic using PFC and ECN/CNP.
 - Applicable roles: T0, T1, T2.
+- **T2 chassis:** repeat with rank ports placed per each variant (V1/V2/V3) in
+  [Port Placement for T2](#port-placement-for-t2-multi-asic--multi-linecard-chassis); V3
+  (inter-linecard) is mandatory at minimum.
 
 ### Topology
 
@@ -433,7 +496,9 @@ All messages shall complete successfully.
 9. Run traffic for 3 minutes and validate statistics.
 10. Enable **DCQCN**
 11. Run traffic for 3 minutes and validate statistics.
-12. Increase endpoint per port to 4K for testing T2 
+12. Increase endpoint per port to 4K for testing T2, distributing the 4K endpoints across
+    linecards/ASICs per the V1/V2/V3 variants in
+    [Port Placement for T2](#port-placement-for-t2-multi-asic--multi-linecard-chassis) 
 
 ### Expected Results  
 
@@ -473,6 +538,9 @@ All messages shall complete successfully.
 
 - Validate basic PFC propagation for RoCEv2/RDMA AI/storage traffic.
 - Applicable roles: T0, T1, T2.
+- **T2 chassis:** repeat with rank ports placed per each variant (V1/V2/V3) in
+  [Port Placement for T2](#port-placement-for-t2-multi-asic--multi-linecard-chassis); V3
+  (inter-linecard) is mandatory at minimum.
 
 ### Topology
 
@@ -518,7 +586,9 @@ All messages shall complete successfully.
 5. Run traffic for 30 seconds and validate statistics.
 6. Configure PFC generation on rank2 and 3 for 90% available bandwidth.
 7. Run traffic for 30 seconds and validate statistics.
-8. Increase endpoint per port to 4K for testing T2
+8. Increase endpoint per port to 4K for testing T2, distributing the 4K endpoints across
+   linecards/ASICs per the V1/V2/V3 variants in
+   [Port Placement for T2](#port-placement-for-t2-multi-asic--multi-linecard-chassis)
 
 ### Expected Results  
 
@@ -540,6 +610,10 @@ All messages shall complete successfully.
 ### Objective
 
 - Validate fairness between QPs under congestion controlled with DCQCN.
+- **T2 chassis:** repeat with the 3:1 incast rank ports placed per each variant (V1/V2/V3) in
+  [Port Placement for T2](#port-placement-for-t2-multi-asic--multi-linecard-chassis) — fairness
+  is most at risk in V3, where flows converge on a shared egress ASIC only after traversing
+  different fabric paths.
 
 ### Topology
 
@@ -642,11 +716,19 @@ All messages shall complete successfully.
 
 - Validate the DUT’s load-balancing and hashing behavior for distributing RoCEv2 traffic across multiple upstream links.
 - Focus on avoiding congestion while preserving flow ordering.
-- Applies primarily to T0 and T1; for T2 it may apply mainly to uplinks.
+- Applies to T0 and T1 uplinks. For **T2**, hashing is also exercised **internally** between
+  linecard ASICs and fabric cards, and this is not optional: whenever a rank pair's egress ASIC
+  differs from its ingress ASIC (variants V2/V3), the DUT must hash across the available
+  ASIC-to-fabric or fabric-to-ASIC links exactly as it would across external uplinks.
 
 ### Topology
 
-- Uses Test Topology 2 (leaf–spine Clos).
+- Uses Test Topology 2 (leaf–spine Clos) for the external-uplink scenarios.
+- For T2, additionally repeat the steps below using Test Topology 1 with rank ports placed to
+  force variant **V3** (inter-linecard) from
+  [Port Placement for T2](#port-placement-for-t2-multi-asic--multi-linecard-chassis), so that
+  "Leaf 1 egress statistics" below is read as the egress-linecard/ASIC fabric-facing statistics
+  rather than an external leaf uplink.
 
 <p float="left">
   <img src="Img/RoCEv2_Topology_2.png" width="350"  hspace="200"/>
@@ -697,6 +779,10 @@ All messages shall complete successfully.
 1.	Hashing algorithm maybe different for different HW if different switch chip is used. The hashing algorithm is typically secret sauce of switch chip.
 2.	Most of switch chip has dynamic hashing based on traffic load. In this case, the start time of various flows will impact hashing result.
 3.	This kind of p2p test reflects pipeline parallelism and expert parallelism in real AI world training and inferencing. It is a good reference of hash behavior of DUT. 
+4.	On a T2 chassis the ingress ASIC, the fabric ASIC, and the egress ASIC may each hash
+	independently. A flow that hashes evenly across fabric links from the ingress ASIC can still
+	land unevenly at the egress ASIC (or vice versa) — verify egress statistics at both the
+	fabric-facing and network-facing stages, not only at the final network egress port.
 
 ## Test Case 8 – Packet Spray
 
@@ -763,6 +849,11 @@ All messages shall complete successfully.
 
 - Validate that the DUT prioritizes RoCEv2 lossless traffic and guarantees bandwidth in the presence of competing best-effort traffic.
 - Particularly relevant for T2 with mixed lossless and lossy traffic.
+- **T2 chassis:** additionally place the background flows (Port 0-2 → Port 4-6) and the RoCEv2
+  rank pair (Rank 3 → Rank 7) so the contended egress is a shared **fabric** link (variant V3 in
+  [Port Placement for T2](#port-placement-for-t2-multi-asic--multi-linecard-chassis)) — the
+  scheduler that must prioritize lossless traffic sits on the fabric-facing egress of the
+  ingress ASIC, not only on the network-facing egress of the leaf.
 
 ### Topology
 
@@ -816,10 +907,17 @@ All messages shall complete successfully.
 ### Objective
 
 - Validate that RoCEv2 traffic continues without loss during link failover and recovery in a Clos fabric.
+- **T2 chassis:** validate the same for the *internal* redundant paths of a disaggregated
+  chassis — a fabric card failure/recovery and a linecard-to-fabric link failure/recovery —
+  not only an external network link.
 
 ### Topology
 
-- Uses Test Topology 2.
+- Uses Test Topology 2 for the external-link scenario.
+- For T2, additionally uses Test Topology 1 with rank ports placed for variant **V3**
+  (inter-linecard) from
+  [Port Placement for T2](#port-placement-for-t2-multi-asic--multi-linecard-chassis), so that
+  traffic between the ranks must cross the fabric over more than one fabric card/link.
 
 <p float="left">
   <img src="Img/RoCEv2_Topology_2_single_link_failover.png" width="350"  hspace="200"/>
@@ -829,6 +927,9 @@ All messages shall complete successfully.
 
 1. Configure the DUT with **Queue 3** as the lossless queue.
 2. Determine the DSCP value mapped to **Queue 3** from the DUT's `DSCP_TO_TC_MAP`. If multiple DSCP values are mapped to the queue, randomly select one.
+3. For the T2 internal-fabric scenario, identify at least two fabric cards/links available
+   between the linecards hosting the V3 rank ports, so that one can be failed while the other
+   continues to carry traffic.
 
 ### Test Steps
 
@@ -843,12 +944,17 @@ All messages shall complete successfully.
 3. Start the traffic and verify the tester statistics.
 4. Bring down one **Leaf 1** egress link carrying traffic and verify the tester statistics.
 5. Bring the egress link back up and verify the tester statistics.
+6. **T2 only:** repeat steps 1-5 using the V3 rank ports from the T2 topology above, failing and
+   recovering one fabric card (or linecard-to-fabric link) instead of the external egress link.
 
 ### Expected Results
 
 - Traffic shall be forwarded successfully before, during, and after the link failure.
 - Traffic shall be rerouted when the egress link is brought down, with no unexpected packet loss or protocol errors.
 - Traffic shall resume using the restored egress link after it is brought back up.
+- **T2 only:** traffic shall be forwarded successfully before, during, and after the fabric
+  card/link failure in step 6, rerouted across the remaining fabric card(s) with no unexpected
+  packet loss, and resume using the restored fabric card/link after recovery.
 - Tester statistics shall reflect the expected traffic redistribution during failover and recovery.
 - Average and maximum latency shall remain within the DUT specification.
 - Successful completion of the test indicates that the DUT correctly performs link failover and recovery while maintaining RoCEv2 traffic forwarding.
@@ -858,6 +964,11 @@ All messages shall complete successfully.
 ### Objective
 
 - Validate control plane timeout due to PFC mitigated by setting higher or other priority queue. This test applies to T0/T1/T2. 
+- **T2 chassis:** repeat with the incast/broadcast rank ports placed per each variant (V1/V2/V3)
+  in [Port Placement for T2](#port-placement-for-t2-multi-asic--multi-linecard-chassis); V3
+  (inter-linecard) is mandatory at minimum, since PFC-induced control-plane starvation is most
+  likely when control traffic and data traffic share a fabric-facing queue rather than only a
+  network-facing one.
 
 ### Topology
 
