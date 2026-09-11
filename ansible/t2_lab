@@ -155,6 +155,13 @@ sonic_nokia_sup:
     slot_num: 16
     num_asics: 16
     num_fabric_asics: 16
+    # num_fabric_cards: number of physically installed fabric cards (SFMs) on
+    # this chassis. Used by config_sonic_basedon_testbed.yml to statically
+    # compute fabric_links instead of querying "show chassis module status"
+    # live, which can race chassisd during deploy-mg and transiently read 0.
+    # Set this per-testbed to the actual installed card count; sample below
+    # matches a fully-populated 8-SFM Nokia IXR7250E chassis.
+    num_fabric_cards: 8
     switchids: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
     asics_host_ip: '20.0.0.1/32'
     asics_host_ipv6: 'FC00:20::1/128'
