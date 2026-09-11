@@ -35,7 +35,7 @@ def test_gnmi_capabilities_2038(duthosts, rand_one_dut_hostname, localhost, ptfh
     copy_certificate_to_dut(duthost)
     copy_certificate_to_ptf(ptfhost)
 
-    apply_cert_config(duthost)
+    apply_cert_config(duthost, localhost=localhost)
 
     # Verify certificate date on DUT
     check_cert_date_on_dut(duthost)

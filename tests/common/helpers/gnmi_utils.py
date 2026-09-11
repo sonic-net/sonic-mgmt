@@ -521,15 +521,27 @@ def verify_tcp_port(localhost, ip, port):
     logger.info("TCP: " + res['stdout'] + res['stderr'])
 
 
-def gnmi_capabilities(duthost, localhost):
+def gnmi_capabilities(duthost, localhost, vrf_name=None):
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     duthost_mgmt_info = duthost.get_mgmt_ip()
     ip = duthost_mgmt_info['mgmt_ip']
     addr = f"[{ip}]" if duthost_mgmt_info['version'] == 'v6' else f"{ip}"
 
     port = env.gnmi_port
-    # Run gnmi_cli in gnmi container as workaround
-    cmd = "docker exec %s gnmi_cli -client_types=gnmi -a %s:%s " % (env.gnmi_container, addr, port)
+    if vrf_name and vrf_name != "default":
+        # For a non-default VRF the gnmi container does not have `ip vrf exec` privileges, so run
+        # gnmi_cli on the DUT host in the target VRF instead (same approach as
+        # gnmi_subscribe_polling()). Stage the binary on the DUT host filesystem if needed, so this
+        # check is self-contained regardless of what other fixtures the caller relies on.
+        duthost.shell(
+            "test -x /tmp/gnmi_cli || (docker cp %s:/usr/sbin/gnmi_cli /tmp/gnmi_cli && chmod +x /tmp/gnmi_cli)"
+            % env.gnmi_container,
+            module_ignore_errors=True,
+        )
+        cmd = "sudo ip vrf exec %s /tmp/gnmi_cli -client_types=gnmi -a %s:%s " % (vrf_name, addr, port)
+    else:
+        # Run gnmi_cli in gnmi container as workaround
+        cmd = "docker exec %s gnmi_cli -client_types=gnmi -a %s:%s " % (env.gnmi_container, addr, port)
     cmd += "-client_crt /etc/sonic/telemetry/gnmiclient.crt "
     cmd += "-client_key /etc/sonic/telemetry/gnmiclient.key "
     cmd += "-ca_crt /etc/sonic/telemetry/gnmiCA.pem "
