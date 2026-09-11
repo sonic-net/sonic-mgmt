@@ -1,0 +1,36 @@
+{
+  "ACL_TABLE_TYPE": {
+    "CUSTOM_1_ARS": {
+      "MATCHES": [
+        "SRC_IP"
+      ],
+      "ACTIONS": [
+        "DISABLE_ARS_FORWARDING",
+        "COUNTER"
+      ],
+      "BIND_POINTS": [
+        "PORT"
+      ]
+    }
+  },
+  "ACL_TABLE": {
+    "MY_ACL_1": {
+      "policy_desc": "Disable ARS operation",
+      "type": "CUSTOM_1_ARS",
+      "ports": [
+        "PortChannel101",
+        "PortChannel102",
+        "PortChannel103",
+        "PortChannel104"
+      ],
+      "stage": "ingress"
+    }
+  },
+    "ACL_RULE": {
+    "MY_ACL_1|NO_ARS": {
+      "SRC_IP": "10.3.3.2/24",
+      "DISABLE_ARS_FORWARDING": "DROP",
+      "PRIORITY": "100"
+    }
+  }
+}
