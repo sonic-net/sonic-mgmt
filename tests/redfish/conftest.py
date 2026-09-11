@@ -253,7 +253,51 @@ def bmc_clock_in_sync(bmc_duthost):
 
 
 @pytest.fixture(scope="session")
-def bmc_tls_certs(bmc_duthost, bmc_ip, bmc_clock_in_sync, tmp_path_factory):
+def redfish_feature_enabled(bmc_duthost):
+    """Make sure the redfish feature is enabled and its container is running.
+
+    The image ships the redfish FEATURE row as "disabled" and expects it to be
+    turned on at runtime, so the suite cannot assume the container is already
+    up. Without this the first "docker exec redfish" in bmc_tls_certs fails with
+    "No such container: redfish", and because that fixture is session scoped the
+    whole suite errors instead of skipping.
+
+    Restores the original feature state at session end so the DUT is left as the
+    image shipped it.
+    """
+    features, ok = bmc_duthost.get_feature_status()
+    pyrequire(
+        ok and BMCWEB_CONTAINER in features,
+        "redfish FEATURE row not present on this DUT; the image was likely built "
+        "without the redfish docker (INCLUDE_REDFISH=n)",
+    )
+
+    was_enabled = features[BMCWEB_CONTAINER] == "enabled"
+    if not was_enabled:
+        logger.info("redfish feature is disabled, enabling it for this session")
+        bmc_duthost.shell(
+            "sudo config feature state {} enabled".format(BMCWEB_CONTAINER),
+            module_ignore_errors=False,
+        )
+
+    pyrequire(
+        wait_until(BMCWEB_READY_TIMEOUT, BMCWEB_READY_POLL, 0,
+                   bmc_duthost.is_service_fully_started, BMCWEB_CONTAINER),
+        "redfish container did not start within {}s of enabling the feature".format(
+            BMCWEB_READY_TIMEOUT),
+    )
+
+    yield
+
+    if not was_enabled:
+        logger.info("Restoring redfish feature to its shipped disabled state")
+        _safe(bmc_duthost.shell,
+              "sudo config feature state {} disabled".format(BMCWEB_CONTAINER),
+              module_ignore_errors=True)
+
+
+@pytest.fixture(scope="session")
+def bmc_tls_certs(bmc_duthost, bmc_ip, bmc_clock_in_sync, redfish_feature_enabled, tmp_path_factory):
     """Generate TLS certificates, install them on the BMC, and clean up at session end.
 
     What this fixture does:
