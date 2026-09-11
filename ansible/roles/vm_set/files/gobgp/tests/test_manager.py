@@ -516,6 +516,43 @@ def test_shim_program_carries_the_portmap_digest(tree):
             in read(tree.supervisor / "gobgpshim.conf"))
 
 
+def test_gobgpd_program_carries_the_neighbor_config_digest(tree):
+    mgr.setup_gobgp_conf(name="ARISTA01T1", router_id="10.10.246.254",
+                         local_ip="10.10.246.254", peer_ip="10.0.0.1",
+                         local_asn=65100, peer_asn=64600, port=5000)
+    expected = hashlib.sha256(
+        read(tree.conf / "ARISTA01T1.toml").encode("utf-8")).hexdigest()[:16]
+    assert ('GOBGP_CONF_DIGEST="%s"' % expected
+            in read(tree.supervisor / "gobgpd-ARISTA01T1.conf"))
+
+
+def test_rewriting_a_neighbor_restarts_its_daemon(tree):
+    """A kept neighbor whose session parameters changed must be restarted.
+
+    ``reset_fleet`` keeps a neighbor by name, so a redeploy against a live
+    container rewrites the TOML underneath a running gobgpd. The daemon reads
+    that file once at startup and ``supervisorctl update`` restarts only
+    programs whose *configuration* changed, so without a digest the program
+    block is identical and the daemon keeps the previous peer.
+    """
+    def conf_for(peer_ip, peer_asn):
+        mgr.setup_gobgp_conf(name="ARISTA01T1", router_id="10.10.246.254",
+                             local_ip="10.10.246.254", peer_ip=peer_ip,
+                             local_asn=65100, peer_asn=peer_asn, port=5000)
+        return read(tree.supervisor / "gobgpd-ARISTA01T1.conf")
+
+    first = conf_for("10.0.0.1", 64600)
+    assert conf_for("10.0.0.1", 64600) == first, \
+        "re-rendering an unchanged neighbor must not bounce its daemon"
+
+    assert conf_for("10.0.0.99", 64600) != first, \
+        "peer address change left the program config identical: " \
+        "supervisorctl update would not restart gobgpd"
+    assert conf_for("10.0.0.1", 64999) != first, \
+        "peer ASN change left the program config identical: " \
+        "supervisorctl update would not restart gobgpd"
+
+
 def test_absent_leaves_no_group_pointing_at_a_deleted_program(tree):
     """supervisord fails to load a group naming a section that is gone.
 
@@ -1033,6 +1070,40 @@ def test_the_speaker_default_is_taken_from_the_container():
     for marker in ('ptf_gobgp_installed', 'ptf_exabgp_installed'):
         assert marker in conditions, \
             "no guard covers a container already running the other speaker (%s)" % marker
+
+
+def test_an_unsupported_speaker_value_is_rejected_before_the_branches():
+    """Every configure and start task is gated on one of the two names.
+
+    An unsupported value therefore skips all of them silently and surfaces only
+    when the ungated readiness check gives up, one timeout per port.
+    """
+    guards = [task for task, _ in _announce_routes_tasks() if 'fail' in task]
+    conditions = " ".join(str(t.get('when', '')) for t in guards)
+    assert "ptf_bgp_speaker not in ['exabgp', 'gobgp']" in conditions, \
+        "nothing rejects an unsupported ptf_bgp_speaker, so a typo waits for " \
+        "the readiness timeout instead of failing immediately"
+
+
+def test_the_reset_keep_list_follows_the_family_gates():
+    """A neighbor kept for a disabled family is started anyway.
+
+    ``state: started`` resolves its groups from the rendered config rather than
+    from the family it is called for, so a v4 entry surviving into an IPv6-only
+    run is started by the v6 block.
+    """
+    for task, _ in _announce_routes_tasks():
+        args = task.get('gobgp', {})
+        if args.get('state') == 'reset':
+            keep = args['neighbors']
+            break
+    else:
+        raise AssertionError("no reset task found")
+
+    for flag in ('enable_ipv4_routes_generation', 'enable_ipv6_routes_generation'):
+        assert flag in keep, \
+            "the reset keep list ignores %s, so the disabled family's " \
+            "neighbors survive and are started by the other family" % flag
 
 
 @pytest.mark.parametrize("name,local_ip,peer_ip,port,group,state", [

@@ -189,11 +189,15 @@ gobgpd_config_template = '''\
 # supervisord program for one gobgpd. Both HTTP flags are required: pprof and
 # prometheus metrics share a single listener that starts unless both are off,
 # and its 127.0.0.1:6060 default is the v6 shim port at offset 60.
+# GOBGP_CONF_DIGEST makes a TOML content change a program *configuration*
+# change, so `supervisorctl update` restarts a daemon whose session parameters
+# were rewritten underneath it.
 gobgpd_supervisord_tmpl = '''\
 [program:gobgpd-{{ name }}]
 command={{ gobgpd }} -f {{ conf_dir }}/{{ name }}.toml -t toml \
 --api-hosts 127.0.0.1:{{ grpc_port }} --pprof-disable --metrics-path ""\
 {% if debug %} --log-level debug{% endif %}
+environment=GOBGP_CONF_DIGEST="{{ digest }}"
 stdout_logfile=/tmp/gobgpd-{{ name }}.out.log
 stderr_logfile=/tmp/gobgpd-{{ name }}.err.log
 stdout_logfile_maxbytes=10000000
@@ -427,7 +431,8 @@ def setup_gobgp_conf(name, router_id, local_ip, peer_ip, local_asn, peer_asn,
 
     block = jinja2.Template(gobgpd_supervisord_tmpl, autoescape=True).render(  # nosemgrep: direct-use-of-jinja2
         name=name, gobgpd=GOBGP_BIN, conf_dir=GOBGP_CONF_DIR,
-        grpc_port=grpc_port_for(port), debug=debug)
+        grpc_port=grpc_port_for(port), debug=debug,
+        digest=hashlib.sha256(data.encode("utf-8")).hexdigest()[:16])
     _write("%s/gobgpd-%s.conf" % (SUPERVISOR_CONF_DIR, name), block)
 
     # This neighbor's contribution to the topology-wide portmap.

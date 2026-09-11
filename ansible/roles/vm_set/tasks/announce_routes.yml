@@ -57,6 +57,16 @@
       ptf_bgp_speaker: "{{ 'gobgp' if ptf_gobgp_installed else 'exabgp' }}"
     when: ptf_bgp_speaker is not defined
 
+  # Every configure and start task is gated on one of the two names, so an
+  # unsupported value skips them all and surfaces only as a readiness timeout
+  # once `wait_for` gives up on the first port.
+  - name: Check that ptf_bgp_speaker names a supported speaker
+    fail:
+      msg: >-
+        ptf_bgp_speaker is {{ ptf_bgp_speaker }}. Supported values are
+        exabgp and gobgp.
+    when: ptf_bgp_speaker not in ['exabgp', 'gobgp']
+
   # Both speakers bind the same neighbor ports. Whichever loses the bind dies,
   # and the surviving one answers `wait_for`, so the mismatch is otherwise
   # reported 300s later as a generic readiness timeout.
@@ -104,12 +114,14 @@
     # `announce-routes` and an `add-topo` that reuses the container both land on
     # a spool that still names the previous fleet, and the spool is what starts
     # the daemons, so those entries would run alongside the new ones. Passing
-    # the topology's own neighbors makes this a no-op when nothing changed.
+    # the topology's own neighbors makes this a no-op when nothing changed, and
+    # following the family gates keeps a disabled family out of the spool.
     - name: Drop neighbors left by a previous topology
       gobgp:
         name: "fleet"
         state: "reset"
-        neighbors: "{{ (topo_vms.keys() | list) + (topo_vms.keys() | map('regex_replace', '^(.*)$', '\\1-v6') | list) }}"
+        neighbors: "{{ (topo_vms.keys() | list if configuration_properties.common.enable_ipv4_routes_generation | default(True) else []) +
+                       (topo_vms.keys() | map('regex_replace', '^(.*)$', '\\1-v6') | list if configuration_properties.common.enable_ipv6_routes_generation | default(True) else []) }}"
         pool_max: "{{ ptf_gobgp_pool_max | default(omit) }}"
       delegate_to: "{{ ptf_host }}"
 
