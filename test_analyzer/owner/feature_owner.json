@@ -134,28 +134,82 @@
         "scripts": [
             {
                 "scripts": [
-                    "bgp.test_bgp_allow_list",
-                    "bgp.test_bgp_allow_list_m0_olt",
-                    "bgp.test_bgp_bbr",
+                    "bgp.test_bgp_authentication",
                     "bgp.test_bgp_bounce",
-                    "bgp.test_bgp_dual_asn",
-                    "bgp.test_bgp_fact",
+                    "bgp.test_bgp_c0_scenarios",
                     "bgp.test_bgp_gr_helper",
-                    "bgp.test_bgp_multipath_relax",
+                    "bgp.test_bgp_gr_suppress_fib",
+                    "bgp.test_bgp_link_local",
+                    "bgp.test_bgp_peer_shutdown",
+                    "bgp.test_bgp_port_disable",
                     "bgp.test_bgp_queue",
-                    "bgp.test_bgp_sentinel",
+                    "bgp.test_bgp_router_id",
+                    "bgp.test_bgp_session",
                     "bgp.test_bgp_session_flap",
-                    "bgp.test_bgp_slb",
-                    "bgp.test_bgp_speaker",
+                    "bgp.test_bgp_stress_link_flap",
                     "bgp.test_bgp_suppress_fib",
+                    "bgp.test_bgp_update_replication",
                     "bgp.test_bgp_update_timer",
-                    "bgp.test_bgpmon",
-                    "bgp.test_bgpmon_v6",
-                    "bgp.test_traffic_shift",
-                    "bgp.test_traffic_shift_sup"
+                    "bgp.test_ipv6_bgp_scale",
+                    "bgp.test_ipv6_nlri_over_ipv4",
+                    "bgp.test_passive_peering"
                 ],
                 "owner": "Deepak Singhal",
                 "email": "deepsinghal@microsoft.com"
+            },
+            {
+                "scripts": [
+                    "bgp.test_4-byte_asn_community",
+                    "bgp.test_bgp_4-byte_as_trans",
+                    "bgp.test_bgp_aggregate_address",
+                    "bgp.test_bgp_aggregate_address_bbr_dynamics",
+                    "bgp.test_bgp_aggregate_address_config_crud",
+                    "bgp.test_bgp_aggregate_address_dual_stack",
+                    "bgp.test_bgp_aggregate_address_functional_params",
+                    "bgp.test_bgp_aggregate_address_link_failover",
+                    "bgp.test_bgp_aggregate_address_negative",
+                    "bgp.test_bgp_aggregate_address_resilience",
+                    "bgp.test_bgp_aggregate_address_route_withdrawal",
+                    "bgp.test_bgp_aggregate_address_scale_stress",
+                    "bgp.test_bgp_allow_list",
+                    "bgp.test_bgp_allow_list_m0_olt",
+                    "bgp.test_bgp_bbr",
+                    "bgp.test_bgp_confed_route_propagation",
+                    "bgp.test_bgp_max_route",
+                    "bgp.test_bgp_multipath_relax",
+                    "bgp.test_bgp_route_weight",
+                    "bgp.test_fairwater_bgp_multipath_relax",
+                    "bgp.test_frr_set_src_route_map",
+                    "bgp.test_prefix_list",
+                    "bgp.test_prefix_list_internal_only",
+                    "bgp.test_prefix_list_suppress"
+                ],
+                "owner": "Wenyi Zhang",
+                "email": "wenyizhang@microsoft.com"
+            },
+            {
+                "scripts": [
+                    "bgp.test_bgp_azng_migration",
+                    "bgp.test_bgp_command",
+                    "bgp.test_bgp_dual_asn",
+                    "bgp.test_bgp_fact",
+                    "bgp.test_bgp_operation_in_ro",
+                    "bgp.test_bgp_slb",
+                    "bgp.test_bgp_speaker",
+                    "bgp.test_bgp_vnet",
+                    "bgp.test_bgp_vnet_internal",
+                    "bgp.test_bgp_vnet_scale",
+                    "bgp.test_bgpmon",
+                    "bgp.test_frr_config_check",
+                    "bgp.test_ping_bgp_neighbor",
+                    "bgp.test_seq_idf_isolation",
+                    "bgp.test_startup_tsa_tsb_service",
+                    "bgp.test_traffic_shift",
+                    "bgp.test_traffic_shift_lc",
+                    "bgp.test_traffic_shift_sup"
+                ],
+                "owner": "Tejaswini Chadaga",
+                "email": "tchadaga@microsoft.com"
             },
             {
                 "scripts": [
@@ -172,6 +226,13 @@
                 ],
                 "owner": "Zhijian Li",
                 "email": "zhijianli@microsoft.com"
+            },
+            {
+                "scripts": [
+                    "bgp.test_bgp_sentinel"
+                ],
+                "owner": "Guangyao Zhao",
+                "email": "guangyaozhao@microsoft.com"
             }
         ]
     },
@@ -659,8 +720,8 @@
                     "generic_config_updater.test_bgp_speaker",
                     "generic_config_updater.test_bgpl"
                 ],
-                "owner": "Deepak Singhal",
-                "email": "deepsinghal@microsoft.com"
+                "owner": "Wenyi Zhang",
+                "email": "wenyizhang@microsoft.com"
             },
             {
                 "scripts": [
@@ -1104,8 +1165,8 @@
                 "scripts": [
                     "metadata-scripts.test_metadata_bgp"
                 ],
-                "owner": "Deepak Singhal",
-                "email": "deepsinghal@microsoft.com"
+                "owner": "Tejaswini Chadaga",
+                "email": "tchadaga@microsoft.com"
             },
             {
                 "scripts": [
