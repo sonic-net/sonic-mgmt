@@ -6,7 +6,7 @@ from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi
     snappi_api, snappi_dut_base_config, get_snappi_ports_for_rdma, cleanup_config, \
     snappi_testbed_config, get_snappi_ports_single_dut, snappi_port_selection, \
     get_snappi_ports, tgen_port_info, is_snappi_multidut, \
-    get_snappi_ports_multi_dut, clear_fabric_counters, check_fabric_counters, \
+    get_snappi_ports_multi_dut, get_fabric_counter_scope, \
     snappi_multi_base_config                                                                        # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_list, \
     lossy_prio_list, all_prio_list, disable_pfcwd                                                   # noqa: F401
@@ -124,8 +124,7 @@ def test_multiple_prio_diff_dist(snappi_api,                    # noqa: F811
     else:
         dut_list = [snappi_ports[0]['duthost'], snappi_ports[-1]['duthost']]
 
-    for dut in duthosts:
-        clear_fabric_counters(dut)
+    get_fabric_counter_scope(duthosts).clear()
 
     try:
         run_pfc_test(api=snappi_api,
@@ -142,8 +141,7 @@ def test_multiple_prio_diff_dist(snappi_api,                    # noqa: F811
                      test_def=test_def,
                      snappi_extra_params=snappi_extra_params)
 
-        for dut in duthosts:
-            check_fabric_counters(dut)
+        get_fabric_counter_scope(duthosts).check()
     finally:
         cleanup_config(dut_list, snappi_ports)
 
@@ -239,8 +237,7 @@ def test_multiple_prio_uni_dist(snappi_api,                     # noqa: F811
     else:
         dut_list = [snappi_ports[0]['duthost'], snappi_ports[-1]['duthost']]
 
-    for dut in duthosts:
-        clear_fabric_counters(dut)
+    get_fabric_counter_scope(duthosts).clear()
 
     try:
         run_pfc_test(api=snappi_api,
@@ -257,8 +254,7 @@ def test_multiple_prio_uni_dist(snappi_api,                     # noqa: F811
                      test_def=test_def,
                      snappi_extra_params=snappi_extra_params)
 
-        for dut in duthosts:
-            check_fabric_counters(dut)
+        get_fabric_counter_scope(duthosts).check()
     finally:
         cleanup_config(dut_list, snappi_ports)
 
@@ -355,8 +351,7 @@ def test_single_lossless_prio(snappi_api,                   # noqa: F811
     else:
         dut_list = [snappi_ports[0]['duthost'], snappi_ports[-1]['duthost']]
 
-    for dut in duthosts:
-        clear_fabric_counters(dut)
+    get_fabric_counter_scope(duthosts).clear()
 
     try:
         run_pfc_test(api=snappi_api,
@@ -373,7 +368,6 @@ def test_single_lossless_prio(snappi_api,                   # noqa: F811
                      test_def=test_def,
                      snappi_extra_params=snappi_extra_params)
 
-        for dut in duthosts:
-            check_fabric_counters(dut)
+        get_fabric_counter_scope(duthosts).check()
     finally:
         cleanup_config(dut_list, snappi_ports)
