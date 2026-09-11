@@ -112,9 +112,13 @@ str43-0101-0400-07c0,10.3.150.241,Cisco,ConsoleServer,ssh,
 str43-0101-0400-08c0,10.3.152.33,Cisco,ConsoleServer,ssh,
 str43-0101-0400-09c0,10.3.150.244,Cisco,ConsoleServer,ssh,
 str43-0101-0801-01c0,10.3.150.230,Cisco,ConsoleServer,ssh,
+str43-0101-0801-02c0,10.3.152.53,Cisco,ConsoleServer,ssh,
 str4-Nokia-7220-Th6p-1,10.3.157.14/27,Nokia-IXR7220-H6-O256,DevSonic,,sonic
 str4-Nokia-7220-Th6p-1-bmc,10.3.157.13/27,Nokia-BMC-H6-128,DevSonic,,sonic
 str4-Nokia-7220-Th6p-leaf-1,10.3.154.233/27,Nokia-IXR7220-H6-O256,FanoutLeafSonic,,sonic
+str4-Nokia-7220-Th6p-2,10.3.155.89/27,Nokia-IXR7220-H6-O256,DevSonic,,sonic
+str4-Nokia-7220-Th6p-2-bmc,10.3.155.91/27,Nokia-BMC-H6-128,DevSonic,,sonic
+str4-nokia-7220-leaf-2,10.3.155.90/27,Nokia-IXR7220-H6-O256,FanoutLeafSonic,,sonic
 str4-w6940-1,10.3.154.242/27,M2-W6940-64X1-FR4,DevSonic,,sonic
 str4-w6940-2,10.3.154.243/27,M2-W6940-64X1-FR4,DevSonic,,sonic
 str4-7060x6-cpo-fanout-1,10.3.154.239/27,Arista-7060X6-64PE-P64,FanoutLeafSonic,,sonic

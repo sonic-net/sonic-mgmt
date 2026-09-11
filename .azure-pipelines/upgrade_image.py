@@ -519,7 +519,7 @@ if __name__ == "__main__":
         const=1,
         default=0,
         help="Preserve the running base-OS /etc/shadow into the target image overlay before reboot, "
-             "so user credentials (e.g. admin) survive the upgrade. "
+             "so user credentials (e.g. admin) survive the upgrade. Only applies to '--type sonic'. "
              "May be passed as a bare flag (--preserve-shadow) or with an explicit "
              "value (--preserve-shadow true|false)."
     )

@@ -29,40 +29,95 @@ class SonicHosts(AnsibleHosts):
             return {}
 
 
-# Shell script that copies the running base-OS /etc/shadow into the freshly
-# installed target image's overlay so that user credentials (notably "admin")
-# are preserved across the upgrade reboot. Mirrors sonic-metadata's
-# update_firmware behavior. It never mutates the live /etc/shadow. Best effort:
-# any missing precondition logs a message and exits 0 instead of failing the
-# upgrade.
+# Copies the running base-OS /etc/shadow into the freshly installed target
+# image's overlay so user credentials (notably "admin") survive the upgrade
+# reboot. Best effort: a missing precondition logs and exits 0 rather than
+# failing the upgrade.
+#
+# /host/image-<ver>/rw/etc is the overlayfs upperdir backing the live rootfs, so
+# when the target image is the one already running, SRC_SHADOW and TARGET_SHADOW
+# address the same data. No identity check detects that reliably, because
+# overlayfs numbers the merged path differently depending on when the copy-up
+# happened -- which is how cp's (st_dev, st_ino) guard missed it and truncated
+# the source it was about to read, costing four DUTs every credential. So the
+# write is safe by construction, not by case analysis: the checks below are
+# defence in depth and none of them is load-bearing.
 _ROLLOVER_SHADOW_SCRIPT = r"""
-set -e
-TARGET_FW_VER=$(sonic-installer list | sed -n 's/^Next: *//p' | head -1)
+set -eu
+# A missing sonic-installer does not abort here: this is a pipeline, so the exit
+# status is head's and the empty result is caught by the -z test below.
+TARGET_FW_VER=$(sonic-installer list 2>/dev/null | sed -n 's/^Next: *//p' | head -1)
 TARGET_FW_VER=${TARGET_FW_VER#SONiC-OS-}
 if [ -z "$TARGET_FW_VER" ]; then
     echo "preserve-shadow: could not determine Next image version; skipping"
     exit 0
 fi
-SRC_SHADOW=/etc/shadow
-TARGET_DIR=/host/image-${TARGET_FW_VER}/rw/etc
-TARGET_SHADOW=${TARGET_DIR}/shadow
-if [ ! -f "$SRC_SHADOW" ]; then
-    echo "preserve-shadow: /etc/shadow not found in base OS; skipping"
+# The version is interpolated into a path, so reject anything that is not a
+# plain version string.
+case "$TARGET_FW_VER" in
+    *[!A-Za-z0-9._-]*|*..*)
+        echo "preserve-shadow: refusing unexpected Next image version '${TARGET_FW_VER}'; skipping"
+        exit 0
+        ;;
+esac
+CURRENT_FW_VER=$(sonic-installer list 2>/dev/null | sed -n 's/^Current: *//p' | head -1)
+CURRENT_FW_VER=${CURRENT_FW_VER#SONiC-OS-}
+# The clearest signal that the target is the live rootfs, but only available
+# when the two images carry different version names.
+if [ "$TARGET_FW_VER" = "$CURRENT_FW_VER" ]; then
+    echo "preserve-shadow: Next == Current (${TARGET_FW_VER}); target overlay is the live rootfs, nothing to roll over"
     exit 0
 fi
-echo "preserve-shadow: copying ${SRC_SHADOW} to ${TARGET_SHADOW}"
-mkdir -p "$TARGET_DIR"
-cp "$SRC_SHADOW" "$TARGET_SHADOW"
-# Keep the target shadow only when the base OS has an admin entry; otherwise
-# fall back to the new image's default credentials.
-if grep -q '^admin:' "$SRC_SHADOW"; then
-    echo "preserve-shadow: admin entry found; target admin credential will match base OS"
-    chown root:shadow "$TARGET_SHADOW"
-    chmod 0600 "$TARGET_SHADOW"
-else
-    echo "preserve-shadow: no admin entry in base OS; removing target shadow to use image default"
-    rm -f "$TARGET_SHADOW"
+SRC_SHADOW=/etc/shadow
+SRC_DIR=/etc
+TARGET_DIR=/host/image-${TARGET_FW_VER}/rw/etc
+TARGET_SHADOW=${TARGET_DIR}/shadow
+# -s, not -f: an empty shadow must never be propagated.
+if [ ! -s "$SRC_SHADOW" ]; then
+    echo "preserve-shadow: /etc/shadow is missing or empty in base OS; skipping"
+    exit 0
 fi
+# Inode only, not the (st_dev, st_ino) pair: overlayfs gives the merged and
+# upperdir paths different st_dev, so comparing the pair would never fire. This
+# catches a copy-up from an earlier boot and misses one from the current mount.
+if [ -d "$TARGET_DIR" ] && \
+   [ "$(stat -c %i "$SRC_DIR")" = "$(stat -c %i "$TARGET_DIR")" ]; then
+    echo "preserve-shadow: ${TARGET_DIR} is the live ${SRC_DIR}; skipping"
+    exit 0
+fi
+if [ -e "$TARGET_SHADOW" ] && \
+   [ "$(stat -c %i "$SRC_SHADOW")" = "$(stat -c %i "$TARGET_SHADOW")" ]; then
+    echo "preserve-shadow: ${SRC_SHADOW} and ${TARGET_SHADOW} are the same inode; skipping"
+    exit 0
+fi
+# Decided before anything is written. The old script copied first, then looked
+# for admin: in the source it had just truncated, and deleted the target.
+if ! grep -q '^admin:' "$SRC_SHADOW"; then
+    echo "preserve-shadow: no admin entry in base OS; leaving the target untouched to fall back to the image default"
+    exit 0
+fi
+write_shadow() {
+    mkdir -p "$TARGET_DIR" || return 1
+    # In TARGET_DIR so that mv is a same-filesystem rename, and therefore
+    # atomic; from /tmp it would degrade to copy-then-unlink.
+    TMP_SHADOW=$(mktemp "${TARGET_DIR}/.shadow.XXXXXX") || return 1
+    # After the assignment, so it is safe under set -u. Once mv succeeds the
+    # path is gone and the cleanup is a no-op.
+    trap 'rm -f "$TMP_SHADOW"' EXIT
+    # cat, never cp: the source is only ever opened for reading, so even a
+    # perfect alias cannot destroy it.
+    cat "$SRC_SHADOW" > "$TMP_SHADOW" || return 1
+    chown root:shadow "$TMP_SHADOW" || return 1
+    chmod 0600 "$TMP_SHADOW" || return 1
+    mv -f "$TMP_SHADOW" "$TARGET_SHADOW" || return 1
+}
+echo "preserve-shadow: copying ${SRC_SHADOW} to ${TARGET_SHADOW}"
+if write_shadow; then
+    echo "preserve-shadow: admin entry found; target admin credential will match base OS"
+else
+    echo "preserve-shadow: could not write ${TARGET_SHADOW}; target left untouched"
+fi
+exit 0
 """
 
 
@@ -73,8 +128,7 @@ def rollover_shadow_to_target_image(sonichosts, target_hosts):
     image overlay (/host/image-<ver>/rw/etc/shadow). Must run after the target
     image is installed (so the overlay exists) and before the reboot into it.
 
-    Best effort: failures are logged but do not fail the upgrade, matching the
-    semantics of sonic-metadata's update_firmware script.
+    Best effort: failures are logged but never fail the upgrade.
     """
     logger.info("preserve-shadow: rolling over /etc/shadow to target image on {}".format(target_hosts))
     try:
@@ -353,6 +407,9 @@ def upgrade_image(sonichosts, localhost, image_url, upgrade_type="sonic", disk_u
         upgrade_result = upgrade_by_sonic(sonichosts, localhost, image_url, disk_used_percent,
                                           preserve_shadow=preserve_shadow)
     elif upgrade_type == "onie":
+        if preserve_shadow:
+            logger.warning("preserve-shadow is not applicable to ONIE upgrades "
+                           "(no running base OS and no target overlay); ignoring")
         upgrade_result = upgrade_by_onie(sonichosts, localhost, image_url, onie_pause_time)
     if not upgrade_result:
         return False

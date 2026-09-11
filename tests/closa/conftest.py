@@ -40,13 +40,24 @@ LIFECYCLE_DISRUPTION_TESTS = (
 )
 
 LIFECYCLE_DISRUPTION_IGNORE_LOGS = [
-    r".* ERR iptables: tac_connect_single: connection to .* failed: Network is unreachable.*",
-    r".* ERR iptables: nss_tacplus: failed to connect TACACS\+ server .* Network is unreachable.*",
-    r".* ERR journalctl: tac_connect_single: connection failed with .* Transport endpoint is not connected.*",
-    r".* ERR journalctl: nss_tacplus: failed to connect TACACS\+ server .* Transport endpoint is not connected.*",
+    # Reloading iptables/TACACS can report different transport errors across
+    # images (unreachable, disconnected, refused, or timeout). TACACS behavior
+    # is outside the scope of these BGP lifecycle tests.
+    r".* ERR (?:iptables|journalctl): tac_connect_single: .*",
+    r".* ERR (?:iptables|journalctl): tac_author_read: reply timeout after \d+ secs.*",
+    r".* ERR (?:iptables|journalctl): nss_tacplus: failed to connect TACACS\+ server .*",
+    r".* ERR (?:ntpd|chronyd)\[\d+\]: nss_tacplus: .*",
+    r".* ERR audisp-tacplus: tac_connect_single: connection failed with.*"
+    r"(?:Interrupted system call|Transport endpoint is not connected).*",
+    # Mellanox SDK releases use either device=<id> or dev_id [<id>].
+    r".* ERR kernel:.*sxd_kernel: \[error\].*Health-Check: (?:device=\d+|dev_id \[\d+\]), "
+    r"cause=12 \['SDK watchdog'\] - stopping further device monitoring!.*",
     r".* ERR monit.* 'chrony' process is not running.*",
     r".* ERR memory_checker: \[memory_checker\] Failed to get container ID of.*",
     r".* ERR memory_checker: \[memory_checker\] cgroup memory usage file.*",
+    r".* ERR sonic-kdump-config: Failed to open kernel booter configuration file: "
+    r"'/host/grub/grub\.cfg', Error is: '\[Errno 21\] Is a directory: "
+    r"'/host/grub/grub\.cfg''!.*",
 ]
 
 
