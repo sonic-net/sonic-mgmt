@@ -112,8 +112,12 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list,
     if "6000" in dut.facts['hwsku']:
         interfaces_wait_time = MAX_WAIT_TIME_FOR_INTERFACES * 8
 
-    if dut.is_supervisor_node():
-        logging.info("skipping interfaces related check for supervisor")
+    skip_interface_check = dut.is_supervisor_node() or dut.is_bmc()
+    if skip_interface_check:
+        logging.info(
+            "Skipping interface and transceiver checks for %s",
+            "supervisor" if dut.is_supervisor_node() else "BMC",
+        )
     else:
         logging.info("Wait {} seconds for all the transceivers to be detected".format(
             interfaces_wait_time))
@@ -131,6 +135,8 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list,
             check_transceiver_basic(
                 dut, asic_index, interfaces_per_asic, xcvr_skip_list)
 
+    # Retain the existing PMON check for BMC, but not for supervisors.
+    if not dut.is_supervisor_node():
         logging.info("Check pmon daemon status")
         if dut.facts["platform"] == "x86_64-cel_e1031-r0":
             result = wait_until(300, 20, 0, check_pmon_daemon_status, dut)
