@@ -11,6 +11,8 @@ import subprocess
 import csv
 import json
 import os
+import yaml
+from ansible.utils.unsafe_proxy import AnsibleUnsafeText
 from copy import copy
 from tests.common.utilities import wait_until
 from tests.common.errors import RunAnsibleModuleFail
@@ -29,6 +31,7 @@ from tests.common.macsec.macsec_config_helper import set_macsec_profile, enable_
 from tests.common.snappi_tests.uhd.uhd_helpers import (NetworkConfigSettings, create_front_panel_ports,
                                                        create_connections, create_connections_pl, create_uhdIp_list,
                                                        create_arp_bypass, create_arp_bypass_pl, create_profiles)
+yaml.SafeDumper.add_representer(AnsibleUnsafeText, yaml.SafeDumper.represent_str)
 logger = logging.getLogger(__name__)
 _next_system_id = 1
 
