@@ -612,7 +612,8 @@ def create_linecard_console(supervisor, linecard_duthost, inv_files, creds):
         pytest.skip(f"Linecard console not supported: {str(e)}")
 
 
-def create_duthost_console(duthost, localhost, conn_graph_facts, creds, cancel_event=None):  # noqa: F811
+def create_duthost_console(duthost, localhost, conn_graph_facts, creds,
+                           cancel_event=None, timeout_s=100, connection_attempts=3):  # noqa: F811
     dut_hostname = duthost.hostname
     console_host = conn_graph_facts['device_console_info'][dut_hostname]['ManagementIp']
     if "/" in console_host:
@@ -648,22 +649,24 @@ def create_duthost_console(duthost, localhost, conn_graph_facts, creds, cancel_e
     if console_type in creds["console_password"]:
         sonic_password.extend(creds["console_password"][console_type])
 
-    # Move the DUT's actual current password to the front so the console login succeeds on the first attempt.
-    try:
-        current_passwd = get_dut_current_passwd(
-            duthost.mgmt_ip,
-            duthost.mgmt_ipv6,
-            creds["sonicadmin_user"],
-            [p for p in sonic_password if p],
-        )
-        if current_passwd and current_passwd in sonic_password:
-            sonic_password.remove(current_passwd)
-        if current_passwd:
-            sonic_password.insert(0, current_passwd)
-    except Exception as e:
-        logger.warning(
-            f"Could not resolve current DUT console password, using default "
-            f"order: {e}")
+    # creds_on_dut() already verifies sonicadmin_password over management SSH.
+    # Keep the probe for callers that supply credentials through another path.
+    if not creds.get("_sonicadmin_password_verified"):
+        try:
+            current_passwd = get_dut_current_passwd(
+                duthost.mgmt_ip,
+                duthost.mgmt_ipv6,
+                creds["sonicadmin_user"],
+                [p for p in sonic_password if p],
+            )
+            if current_passwd and current_passwd in sonic_password:
+                sonic_password.remove(current_passwd)
+            if current_passwd:
+                sonic_password.insert(0, current_passwd)
+        except Exception as e:
+            logger.warning(
+                f"Could not resolve current DUT console password, using default "
+                f"order: {e}")
 
     # Attempt to clear the console port
     try:
@@ -678,7 +681,7 @@ def create_duthost_console(duthost, localhost, conn_graph_facts, creds, cancel_e
         logger.warning(f"Issue trying to clear console port: {e}")
 
     # Set up console host
-    for attempt in range(1, 4):
+    for attempt in range(1, connection_attempts + 1):
         try:
             return ConsoleHost(
                 console_type=console_type,
@@ -690,11 +693,12 @@ def create_duthost_console(duthost, localhost, conn_graph_facts, creds, cancel_e
                 console_password=creds["console_password"][console_type],
                 console_device=console_device,
                 cancel_event=cancel_event,
+                timeout_s=timeout_s,
             )
         except Exception as e:
-            logger.warning(f"Attempt {attempt}/3 failed: {e}")
+            logger.warning(f"Attempt {attempt}/{connection_attempts} failed: {e}")
             # Back off so rapid retries do not trip the DUT serial-getty start limit.
-            if attempt < 3:
+            if attempt < connection_attempts:
                 time.sleep(CONSOLE_RECONNECT_BACKOFF_SECS)
             continue
     else:
@@ -776,6 +780,7 @@ def creds_on_dut(duthost):
         creds['sonicadmin_user'],
         passwords
     )
+    creds["_sonicadmin_password_verified"] = True
 
     for k, v in list(console_login_creds.items()):
         creds["console_user"][k] = v["user"]
