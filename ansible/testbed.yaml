@@ -6433,17 +6433,17 @@
   comment: yawenni
   tb_owner: yawenni
 
-- conf-name: vms93-dual-t0-7050-5
-  group-name: vms93-6
+- conf-name: vms98-dual-t0-7050-5
+  group-name: vms98-3
   topo: dualtor-aa
   neighbor_mode: prefix-route
   ptf_image_name: docker-ptf
-  ptf: vms93-6
+  ptf: vms98-3
   ptf_ip: 10.64.247.184/25
   ptf_ipv6: 2a01:111:e210:b000::a40:f7b8/121
   netns_mgmt_ip: 10.64.247.185/25
-  server: server_93
-  vm_base: VM93182
+  server: server_98
+  vm_base: VM98011
   dut:
   - str5-7050cx3-32c-f-acs-14
   - str5-7050cx3-32c-f-acs-15

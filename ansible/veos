@@ -26544,6 +26544,14 @@ vms_98:
       ansible_host: 172.16.144.19
     VM98010:
       ansible_host: 172.16.144.20
+    VM98011:
+      ansible_host: 172.16.144.21
+    VM98012:
+      ansible_host: 172.16.144.22
+    VM98013:
+      ansible_host: 172.16.144.23
+    VM98014:
+      ansible_host: 172.16.144.24
 vms_99:
   hosts:
     VM99000:
