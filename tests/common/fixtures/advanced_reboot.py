@@ -205,7 +205,9 @@ class AdvancedReboot:
                 self.duthost.host.options['variable_manager']._hostvars[self.vmhost.hostname]['vm_host_password']
 
         self.hostMaxLen = len(self.rebootData['arista_vms']) - 1
-        self.lagMemberCnt = len(list(self.mgFacts['minigraph_portchannels'].values())[0]['members'])
+        portchannels = self.mgFacts.get('minigraph_portchannels', {})
+        if portchannels:
+            self.lagMemberCnt = len(list(portchannels.values())[0]['members'])
         self.vlanMaxCnt = len(list(self.mgFacts['minigraph_vlans'].values())[0]['members']) - 1
 
         self.rebootData['dut_hostname'] = self.mgFacts['minigraph_mgmt_interface']['addr']
