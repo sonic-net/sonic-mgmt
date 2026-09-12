@@ -4,6 +4,7 @@ import ipaddress
 import binascii
 import os
 import logging
+import time
 
 # Packet Test Framework imports
 import ptf
@@ -330,6 +331,28 @@ class DHCPTest(DataplaneBaseTest):
             )
 
         return discover_packet
+
+    def add_dhcp_options_before_end(self, dhcp_packet, options):
+        dhcp_options = dhcp_packet[scapy.DHCP].options
+        try:
+            end_index = dhcp_options.index('end')
+        except ValueError:
+            end_index = len(dhcp_options)
+        dhcp_options[end_index:end_index] = options
+        return dhcp_packet
+
+    def add_dhcp_options_before_option(self, dhcp_packet, options, option_code):
+        dhcp_options = dhcp_packet[scapy.DHCP].options
+        try:
+            option_index = dhcp_options.index('end')
+        except ValueError:
+            option_index = len(dhcp_options)
+        for index, option in enumerate(dhcp_options):
+            if isinstance(option, tuple) and option[0] == option_code:
+                option_index = index
+                break
+        dhcp_options[option_index:option_index] = options
+        return dhcp_packet
 
     def create_dhcp_discover_relayed_packet(self):
         my_chaddr = binascii.unhexlify(self.client_mac.replace(':', ''))
@@ -1339,6 +1362,235 @@ class DHCPInvalidChecksumTest(DHCPTest):
         self.client_send_bootp()
         self.client_send_unknown(self.dest_mac_address, self.client_udp_src_port)
         self.server_send_unknown()
+
+
+class DHCPBootZOptionTest(DHCPTest):
+    """
+    Verify standard BootZ/PXE DHCPv4 option payloads survive relay forwarding
+    in both client-to-server and server-to-client directions.
+    """
+
+    DHCP_MAGIC_COOKIE = b'\x63\x82\x53\x63'
+    DHCP_MESSAGE_TYPES = {
+        "discover": 1,
+        "offer": 2,
+        "request": 3,
+        "ack": 5,
+    }
+    BOOTZ_VENDOR_CLASS_ID = b'PXEClient:Arch:00016:UNDI:003000'
+    BOOTZ_TFTP_SERVER_NAME = b'bootz-server.example.test'
+    BOOTZ_BOOTFILE_NAME = b'bootz/sonic-image.bin'
+    BOOTZ_CLIENT_ARCHITECTURE = b'\x00\x10'
+    BOOTZ_CLIENT_NETWORK_INTERFACE = b'\x01\x03\x00'
+    BOOTZ_CLIENT_MACHINE_IDENTIFIER = (
+        b'\x00' + b'\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\xaa\xbb\xcc\xdd\xee\xff'
+    )
+
+    def bootz_client_option_payloads(self):
+        return {
+            55: bytes([60, 66, 67, 93, 94, 97]),
+            60: self.BOOTZ_VENDOR_CLASS_ID,
+            93: self.BOOTZ_CLIENT_ARCHITECTURE,
+            94: self.BOOTZ_CLIENT_NETWORK_INTERFACE,
+            97: self.BOOTZ_CLIENT_MACHINE_IDENTIFIER,
+        }
+
+    def bootz_server_option_payloads(self):
+        return {
+            66: self.BOOTZ_TFTP_SERVER_NAME,
+            67: self.BOOTZ_BOOTFILE_NAME,
+            93: self.BOOTZ_CLIENT_ARCHITECTURE,
+            94: self.BOOTZ_CLIENT_NETWORK_INTERFACE,
+            97: self.BOOTZ_CLIENT_MACHINE_IDENTIFIER,
+        }
+
+    def bootz_client_options(self):
+        return [
+            (55, self.bootz_client_option_payloads()[55]),
+            (60, self.BOOTZ_VENDOR_CLASS_ID),
+            (93, self.BOOTZ_CLIENT_ARCHITECTURE),
+            (94, self.BOOTZ_CLIENT_NETWORK_INTERFACE),
+            (97, self.BOOTZ_CLIENT_MACHINE_IDENTIFIER),
+        ]
+
+    def bootz_server_options(self):
+        return [
+            (66, self.BOOTZ_TFTP_SERVER_NAME),
+            (67, self.BOOTZ_BOOTFILE_NAME),
+            (93, self.BOOTZ_CLIENT_ARCHITECTURE),
+            (94, self.BOOTZ_CLIENT_NETWORK_INTERFACE),
+            (97, self.BOOTZ_CLIENT_MACHINE_IDENTIFIER),
+        ]
+
+    def create_dhcp_discover_packet(self, dst_mac=DHCPTest.BROADCAST_MAC, src_port=DHCPTest.DHCP_CLIENT_PORT):
+        pkt = super().create_dhcp_discover_packet(dst_mac, src_port)
+        return self.add_dhcp_options_before_end(pkt, self.bootz_client_options())
+
+    def create_dhcp_discover_relayed_packet(self):
+        pkt = super().create_dhcp_discover_relayed_packet()
+        return self.add_dhcp_options_before_option(pkt, self.bootz_client_options(), 82)
+
+    def create_dhcp_request_packet(self, dst_mac=DHCPTest.BROADCAST_MAC, src_port=DHCPTest.DHCP_CLIENT_PORT):
+        pkt = super().create_dhcp_request_packet(dst_mac, src_port)
+        return self.add_dhcp_options_before_end(pkt, self.bootz_client_options())
+
+    def create_dhcp_request_relayed_packet(self):
+        pkt = super().create_dhcp_request_relayed_packet()
+        return self.add_dhcp_options_before_option(pkt, self.bootz_client_options(), 82)
+
+    def create_dhcp_offer_packet(self):
+        pkt = super().create_dhcp_offer_packet()
+        return self.add_dhcp_options_before_end(pkt, self.bootz_server_options())
+
+    def create_dhcp_offer_relayed_packet(self):
+        pkt = super().create_dhcp_offer_relayed_packet()
+        return self.add_dhcp_options_before_end(pkt, self.bootz_server_options())
+
+    def create_dhcp_ack_packet(self):
+        pkt = super().create_dhcp_ack_packet()
+        return self.add_dhcp_options_before_end(pkt, self.bootz_server_options())
+
+    def create_dhcp_ack_relayed_packet(self):
+        pkt = super().create_dhcp_ack_relayed_packet()
+        return self.add_dhcp_options_before_end(pkt, self.bootz_server_options())
+
+    def dhcp_option_payloads_by_code(self, pkt):
+        dhcp_packet = scapy.Ether(pkt) if isinstance(pkt, (bytes, bytearray)) else pkt
+        raw_options = bytes(dhcp_packet[scapy.DHCP])
+        if raw_options.startswith(self.DHCP_MAGIC_COOKIE):
+            raw_options = raw_options[len(self.DHCP_MAGIC_COOKIE):]
+
+        options = {}
+        index = 0
+        while index < len(raw_options):
+            option_code = raw_options[index]
+            index += 1
+            if option_code == 255:
+                break
+            if option_code == 0:
+                continue
+            self.assertTrue(index < len(raw_options),
+                            "Malformed DHCP option {} without length field".format(option_code))
+            option_len = raw_options[index]
+            index += 1
+            option_payload = raw_options[index:index + option_len]
+            self.assertTrue(len(option_payload) == option_len,
+                            "Malformed DHCP option {} expected {} bytes, got {}"
+                            .format(option_code, option_len, len(option_payload)))
+            options[option_code] = option_payload
+            index += option_len
+        return options
+
+    def is_expected_dhcp_message(self, pkt, message_type, server_side):
+        try:
+            dhcp_packet = scapy.Ether(pkt) if isinstance(pkt, (bytes, bytearray)) else pkt
+            received_options = self.dhcp_option_payloads_by_code(dhcp_packet)
+        except Exception as e:
+            logger.debug("Skipping non-DHCP packet while looking for %s: %s", message_type, e)
+            return False
+
+        if not (dhcp_packet.haslayer(scapy.IP) and dhcp_packet.haslayer(scapy.UDP) and
+                dhcp_packet.haslayer(scapy.BOOTP) and dhcp_packet.haslayer(scapy.DHCP)):
+            return False
+
+        expected_message_type = self.DHCP_MESSAGE_TYPES[message_type.lower()]
+        received_message_type = received_options.get(53, b'')
+        if received_message_type != bytes([expected_message_type]):
+            return False
+
+        client_chaddr = binascii.unhexlify(self.client_mac.replace(':', ''))
+        if bytes(dhcp_packet[scapy.BOOTP].chaddr[:6]) != client_chaddr:
+            return False
+
+        if server_side:
+            return (dhcp_packet[scapy.UDP].sport == self.DHCP_SERVER_PORT and
+                    dhcp_packet[scapy.UDP].dport == self.DHCP_SERVER_PORT and
+                    dhcp_packet[scapy.BOOTP].op == 1 and
+                    dhcp_packet[scapy.BOOTP].hops >= 1)
+
+        return (dhcp_packet[scapy.UDP].sport == self.DHCP_SERVER_PORT and
+                dhcp_packet[scapy.UDP].dport == self.DHCP_CLIENT_PORT and
+                dhcp_packet[scapy.BOOTP].op == 2)
+
+    def assert_bootz_dhcp_options(self, pkt, expected_options, direction):
+        received_options = self.dhcp_option_payloads_by_code(pkt)
+        for option_code, expected_payload in expected_options.items():
+            self.assertTrue(option_code in received_options,
+                            "BootZ option {} missing on {}".format(option_code, direction))
+            self.assertTrue(received_options[option_code] == expected_payload,
+                            "BootZ option {} corrupted on {}: expected {!r}, got {!r}"
+                            .format(option_code, direction, expected_payload, received_options[option_code]))
+
+    def collect_bootz_packets_on_ports(self, ports, packet_type, server_side, timeout=1):
+        matched_packets = []
+        last_matched_packet_time = time.time()
+        while True:
+            if (time.time() - last_matched_packet_time) > timeout:
+                break
+
+            result = testutils.dp_poll(self, device_number=0, timeout=timeout)
+            if isinstance(result, self.dataplane.PollSuccess):
+                if result.port in ports and self.is_expected_dhcp_message(result.packet, packet_type, server_side):
+                    matched_packets.append(result.packet)
+                    last_matched_packet_time = time.time()
+            else:
+                break
+
+        return matched_packets
+
+    def check_bootz_relayed_pkts_on_server_side(self, pkt, packet_type, expected_options):
+        logger.info("Expect receiving {} packets from port [{}]".format(packet_type, self.server_port_indices))
+        log_dhcp_packet_info(pkt)
+        matched_packets = self.collect_bootz_packets_on_ports(self.server_port_indices, packet_type, True)
+        self.assertTrue(len(matched_packets) == self.num_dhcp_servers,
+                        "Failed: %s packet counts are not equal %d != %d"
+                        % (packet_type, len(matched_packets), self.num_dhcp_servers))
+        for received_packet in matched_packets:
+            self.assert_bootz_dhcp_options(received_packet, expected_options,
+                                           "server-facing {}".format(packet_type))
+
+    def check_bootz_pkt_on_client_side(self, pkt, packet_type, expected_options):
+        logger.info("Expect receiving relayed {} packet from port {}".format(packet_type, self.client_port_index))
+        log_dhcp_packet_info(pkt)
+        matched_packets = self.collect_bootz_packets_on_ports([self.client_port_index], packet_type, False)
+        self.assertTrue(len(matched_packets) >= 1,
+                        "Failed: %s packet was not received on client port" % packet_type)
+        received_packet = matched_packets[0]
+        self.assert_bootz_dhcp_options(received_packet, expected_options,
+                                       "client-facing {}".format(packet_type))
+
+    def verify_relayed_discover(self):
+        dhcp_discover_relayed = self.create_dhcp_discover_relayed_packet()
+        self.check_bootz_relayed_pkts_on_server_side(dhcp_discover_relayed, "Discover",
+                                                     self.bootz_client_option_payloads())
+
+    def verify_offer_received(self):
+        dhcp_offer = self.create_dhcp_offer_relayed_packet()
+        self.check_bootz_pkt_on_client_side(dhcp_offer, "Offer",
+                                            self.bootz_server_option_payloads())
+
+    def verify_relayed_request(self):
+        dhcp_request_relayed = self.create_dhcp_request_relayed_packet()
+        self.check_bootz_relayed_pkts_on_server_side(dhcp_request_relayed, "Request",
+                                                     self.bootz_client_option_payloads())
+
+    def verify_ack_received(self):
+        dhcp_ack = self.create_dhcp_ack_relayed_packet()
+        self.check_bootz_pkt_on_client_side(dhcp_ack, "Ack",
+                                            self.bootz_server_option_payloads())
+
+    def runTest(self):
+        self.client_send_discover(self.dest_mac_address, self.client_udp_src_port)
+        self.verify_relayed_discover()
+
+        self.server_send_offer()
+        self.verify_offer_received()
+
+        self.client_send_request(self.dest_mac_address, self.client_udp_src_port)
+        self.verify_relayed_request()
+
+        self.server_send_ack()
+        self.verify_ack_received()
 
 
 class DHCPBroadcastNotFloodedTest(DHCPTest):

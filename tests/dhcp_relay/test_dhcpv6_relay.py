@@ -569,6 +569,34 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
         pytest_assert(wait_until(120, 5, 0, check_interface_status, duthost))
 
 
+def test_dhcpv6_relay_bootz_option_transparency(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist,
+                                                testing_config,
+                                                toggle_all_simulator_ports_to_rand_selected_tor_m,  # noqa F811
+                                                setup_active_active_as_active_standby):             # noqa F811
+    """Verify DHCPv6 network boot option payloads are retained across relay forwarding."""
+    _, duthost = testing_config
+
+    for dhcp_relay in dut_dhcp_relay_data:
+        ptf_runner(ptfhost,
+                   "ptftests",
+                   "dhcpv6_relay_test.DHCPBootZOptionTest",
+                   platform_dir="ptftests",
+                   params={"hostname": duthost.hostname,
+                           "client_port_index": dhcp_relay['client_iface']['port_idx'],
+                           "leaf_port_indices": repr(dhcp_relay['uplink_port_indices']),
+                           "num_dhcp_servers": len(dhcp_relay['downlink_vlan_iface']['dhcpv6_server_addrs']),
+                           "server_ip": str(dhcp_relay['downlink_vlan_iface']['dhcpv6_server_addrs'][0]),
+                           "relay_iface_ip": str(dhcp_relay['downlink_vlan_iface']['addr']),
+                           "relay_iface_mac": str(dhcp_relay['downlink_vlan_iface']['mac']),
+                           "relay_link_local": str(dhcp_relay['down_interface_link_local']),
+                           "vlan_ip": str(dhcp_relay['downlink_vlan_iface']['addr']),
+                           "uplink_mac": str(dhcp_relay['uplink_mac']),
+                           "loopback_ipv6": str(dhcp_relay['loopback_ipv6']),
+                           "is_dualtor": str(dhcp_relay['is_dualtor']),
+                           "kvm_support": True},
+                   log_file="/tmp/dhcpv6_relay_test.DHCPBootZOptionTest.log", is_python3=True)
+
+
 def test_dhcp_relay_after_link_flap(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config):
     """Test DHCP relay functionality on T0 topology after uplinks flap
        For each DHCP relay agent running on the DuT, with relay agent running, flap the uplinks,
