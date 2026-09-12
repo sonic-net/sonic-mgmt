@@ -239,3 +239,10 @@ x86_64-nokia_ixr7220_h6_128-r0:
     valid_timeout: 30
     greater_timeout: 170
     too_big_timeout: 350
+
+# H6-128 BMC (Aspeed watchdog; production default arm timeout is 180s)
+arm64-nokia_bmc_h6_128-r0:
+  default:
+    valid_timeout: 30
+    greater_timeout: 100
+    too_big_timeout: 350
