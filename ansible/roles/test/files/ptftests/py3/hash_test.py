@@ -39,6 +39,7 @@ class HashTest(BaseTest):
     # Class variables
     # ---------------------------------------------------------------------
     DEFAULT_BALANCING_RANGE = 0.25
+    MELLANOX_DEFAULT_BALANCING_RANGE = 0.3
     RELAXED_BALANCING_RANGE = 0.8
     RELAXED_BALANCING_RANGE_MAXTOPO = 1.5
     BALANCING_TEST_TIMES = 250
@@ -95,8 +96,14 @@ class HashTest(BaseTest):
         self.hash_keys = self.test_params.get(
             'hash_keys', ['src-ip', 'dst-ip', 'src-port', 'dst-port'])
         self.src_ports = [int(port) for port in self.ptf_test_port_map.keys()]
+        self.asic_type = self.test_params.get('asic_type', '')
+        default_balancing_range = (
+            self.MELLANOX_DEFAULT_BALANCING_RANGE
+            if self.asic_type == 'mellanox'
+            else self.DEFAULT_BALANCING_RANGE
+        )
         self.balancing_range = self.test_params.get(
-            'balancing_range', self.DEFAULT_BALANCING_RANGE)
+            'balancing_range', default_balancing_range)
         self.balancing_test_times = self.test_params.get(
             'balancing_test_times', self.BALANCING_TEST_TIMES)
         self.switch_type = self.test_params.get(
