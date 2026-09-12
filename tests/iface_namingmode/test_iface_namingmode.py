@@ -1,3 +1,4 @@
+import ast
 import logging
 import pytest
 import re
@@ -1389,6 +1390,33 @@ class TestConfigInterface():
             pytest.skip("Native speed is not 100G or 40G, it is {}".format(native_speed))
 
         target_speed = speeds_to_test[0] if native_speed == speeds_to_test[1] else speeds_to_test[1]
+
+        db_cli = duthost.asic_instance(asic_index).sonic_db_cli
+        application_advertisement = duthost.shell(
+            f'sudo {db_cli} STATE_DB HGET "TRANSCEIVER_INFO|{interface}" application_advertisement'
+        )['stdout'].strip()
+        if application_advertisement and application_advertisement != 'N/A':
+            try:
+                applications = ast.literal_eval(application_advertisement)
+            except (SyntaxError, ValueError):
+                applications = None
+
+            if isinstance(applications, dict):
+                host_applications = [
+                    application['host_electrical_interface_id'].strip().upper()
+                    for application in applications.values()
+                    if isinstance(application, dict)
+                    and isinstance(application.get('host_electrical_interface_id'), str)
+                    and application['host_electrical_interface_id'].strip()
+                ]
+                target_speed_g = f'{int(target_speed) // 1000}G'
+                if host_applications and not any(
+                        application.startswith(target_speed_g) for application in host_applications):
+                    pytest.skip(
+                        f"Transceiver on {interface} does not advertise a {target_speed_g} "
+                        f"host application: {host_applications}"
+                    )
+
         # Get supported speeds for interface
         supported_speeds_dut = duthost.get_supported_speeds(interface)
         if not supported_speeds_dut:
