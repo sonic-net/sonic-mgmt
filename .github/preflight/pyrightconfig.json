@@ -1,0 +1,38 @@
+{
+  "//mode": "'standard', not 'basic'. Measured on a real change: basic silently drops reportPossiblyUnboundVariable and reportCallIssue, which are two of the highest-value checks here.",
+  "typeCheckingMode": "standard",
+
+  "//pythonVersion": "Pinned to match the workflow's setup-python. pyright infers imports from whichever interpreter it finds, so an unpinned version makes results depend on the machine: the same commit yielded 46 errors under a bare interpreter and 37 when pytest happened to be installed. Pinning here plus the pinned pip installs in the workflow keeps CI reproducible.",
+  "pythonVersion": "3.11",
+
+  "//imports": "The sonic-mgmt test dependencies are not installed in the pre-flight job, so without this every file reports unresolved imports and the real findings are buried. Installing them would add minutes to a check that gates the merge queue.",
+  "reportMissingImports": "none",
+  "reportMissingModuleSource": "none",
+
+  "//attributes": "Untyped runtime objects (ansible facts, pytest fixtures, duthost proxies) make attribute access unknowable without stubs, so this rule is noise rather than signal in this repository.",
+  "reportAttributeAccessIssue": "none",
+
+  "//note": "Deliberately NOT setting reportGeneralTypeIssues to none. It is a catch-all that also suppresses reportCallIssue and reportOperatorIssue; measured on one real change, setting it dropped 12 findings to 10, losing a call with a nonexistent keyword argument.",
+
+  "//kept": "The high-signal set: None-safety, possibly-unbound names, and calls that do not match the callee signature. Rule names are exact; pyright silently ignores unknown keys, so a typo here disables a check without any warning.",
+  "reportPossiblyUnboundVariable": "error",
+  "reportOptionalSubscript": "error",
+  "reportOptionalIterable": "error",
+  "reportOptionalMemberAccess": "error",
+  "reportOptionalOperand": "error",
+  "reportOptionalCall": "error",
+  "reportCallIssue": "error",
+  "reportArgumentType": "error",
+  "reportOperatorIssue": "error",
+  "reportIndexIssue": "error",
+  "reportRedeclaration": "error",
+
+  "exclude": [
+    "**/node_modules",
+    "**/__pycache__",
+    "**/*_pb2.py",
+    "spytest",
+    "tests/gnmi/protos",
+    "sdn_tests"
+  ]
+}

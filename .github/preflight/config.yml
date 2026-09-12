@@ -1,0 +1,76 @@
+# Configuration for the pre-flight static analysis check
+# (.github/workflows/preflight.yml).
+#
+# Every tool below runs only against files the pull request touched, and every
+# finding is discarded unless it lands on a line the pull request actually
+# added or modified. Pre-existing problems in a touched file are never
+# reported. See .github/preflight/README.md for the rationale.
+#
+# blocking: true   -> a finding on a changed line fails the check
+# blocking: false  -> a finding is annotated as a warning but never fails
+#
+# To promote a tool from advisory to blocking, flip its `blocking` flag. That
+# is deliberately the only edit required.
+
+tools:
+
+  # Mirrors .pre-commit-config.yaml exactly, including the per-directory ignore
+  # lists, so this check can never disagree with what contributors run locally
+  # via `pre-commit`. Profiles are matched in order; the first match wins.
+  flake8:
+    blocking: true
+    include: ['*.py']
+    ok_exit_codes: [0, 1]
+    parser: colon
+    profiles:
+      - match: '^spytest/'
+        args: ['--max-line-length=120', '--ignore=E1,E2,E3,E5,E7,W5']
+      - match: '^tests/common2/'
+        args: ['--max-line-length=120', '--ignore=E1,E2,E3,E5,W1,W2,W3,W5']
+      - match: '.*'
+        args: ['--max-line-length=120']
+
+  # Catches the class of regression this check exists for: None-safety,
+  # possibly-unbound names, and calls that do not match the callee signature.
+  # Import resolution is disabled in pyrightconfig.json because the test
+  # dependencies are not installed in this job; without that, every file
+  # reports unresolved imports and the signal is lost.
+  pyright:
+    blocking: true
+    include: ['*.py']
+    ok_exit_codes: [0, 1]
+    parser: pyright_json
+    args: ['--outputjson', '--project', '.github/preflight/pyrightconfig.json']
+
+  # --- Advisory to start. No baseline exists for these, so they run in
+  # --- warning-only mode until the repository has seen real-world signal.
+
+  yamllint:
+    blocking: false
+    include: ['*.yml', '*.yaml']
+    ok_exit_codes: [0, 1, 2]
+    parser: colon
+    args: ['--format', 'parsable', '--config-file', '.github/preflight/yamllint.yml']
+
+  shellcheck:
+    blocking: false
+    include: ['*.sh', '*.bash']
+    ok_exit_codes: [0, 1]
+    parser: colon
+    args: ['--format', 'gcc', '--severity', 'warning']
+
+  ansible-lint:
+    blocking: false
+    include: ['ansible/**/*.yml', 'ansible/**/*.yaml']
+    ok_exit_codes: [0, 2]
+    parser: colon
+    args: ['--format', 'pep8', '--nocolor', '--offline']
+
+  codespell:
+    blocking: false
+    # Deliberately not limited to source files; typos in docs matter too.
+    include: ['*']
+    exclude: ['*.json', '*.svg', '*.min.js', '*_pb2.py', 'spytest/**']
+    ok_exit_codes: [0, 65]
+    parser: codespell
+    args: ['--ignore-words', '.github/preflight/codespell-ignore.txt']
