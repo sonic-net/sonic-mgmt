@@ -1708,7 +1708,7 @@ dut_console/test_console_chassis_conn.py::test_console_availability_serial_ports
     reason: "Skipping test because test is not supported on this hwsku"
     conditions_logical_operator: or
     conditions:
-      - "platform in ['x86_64-nokia_ixr7250e_36x400g-r0', 'x86_64-nokia_ixr7250_x3b-r0']"
+      - "platform in ['x86_64-nokia_ixr7250e_36x400g-r0', 'x86_64-nokia_ixr7250_x3b-r0', 'x86_64-nvidia_sn5640-r0']"
       - "'t2_single_node' in topo_name or topo_type in ['lrh', 'urh']"
 
 dut_console/test_console_stress.py:
