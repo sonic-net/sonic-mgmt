@@ -635,6 +635,11 @@ def test_dhcp_relay_with_non_default_vrf(
         # VRF config cleanup
         duthost.shell(f"sudo config route del prefix vrf {CLIENT_VRF_NAME} 0.0.0.0/0 nexthop"
                       f" vrf {CLIENT_VRF_NAME} {first_params['nexthop']}")
+        duthost.shell(
+            "AS=$(sonic-cfggen -d -v \"DEVICE_METADATA['localhost']['bgp_asn']\") && "
+            "sudo vtysh -c 'configure terminal' -c \"no router bgp ${AS} vrf %s\"" % CLIENT_VRF_NAME,
+            module_ignore_errors=True,
+        )
         duthost.shell(f"sudo config vrf del {CLIENT_VRF_NAME}")
 
         # Restore all interface CONFIG_DB entries (base entry, IPs, and attributes).
@@ -839,7 +844,16 @@ def test_dhcp_relay_with_different_non_default_vrf(
         # VRF config cleanup
         duthost.shell(f"sudo config route del prefix vrf {SERVER_VRF_NAME} 0.0.0.0/0 nexthop"
                       f" vrf {SERVER_VRF_NAME} {first_params['nexthop']}")
-
+        duthost.shell(
+            "AS=$(sonic-cfggen -d -v \"DEVICE_METADATA['localhost']['bgp_asn']\") && "
+            "sudo vtysh -c 'configure terminal' -c \"no router bgp ${AS} vrf %s\"" % CLIENT_VRF_NAME,
+            module_ignore_errors=True,
+        )
+        duthost.shell(
+            "AS=$(sonic-cfggen -d -v \"DEVICE_METADATA['localhost']['bgp_asn']\") && "
+            "sudo vtysh -c 'configure terminal' -c \"no router bgp ${AS} vrf %s\"" % SERVER_VRF_NAME,
+            module_ignore_errors=True,
+        )
         duthost.shell(f"sudo config vrf del {CLIENT_VRF_NAME}")
         duthost.shell(f"sudo config vrf del {SERVER_VRF_NAME}")
 
