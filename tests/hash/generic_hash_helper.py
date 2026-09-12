@@ -84,6 +84,106 @@ HASH_CAPABILITIES = {'mellanox': {'ecmp': MELLANOX_ECMP_HASH_FIELDS,
                      'marvell-teralynx': {'ecmp': MARVELL_TERALYNX_ECMP_HASH_FIELDS,
                                           'lag': MARVELL_TERALYNX_LAG_HASH_FIELDS}}
 
+# Packet-type capabilities per ASIC (ECMP/LAG), used by packet-type hash tests.
+DEFAULT_ECMP_PACKET_TYPES = ['ipv4', 'ipv6', 'ipnip']
+DEFAULT_LAG_PACKET_TYPES = ['ipv4', 'ipv6', 'ipnip']
+
+DEFAULT_PACKET_TYPE_CAPABILITIES = {
+    # For packet-type hash, treat "default" as no support. Platforms that
+    # support per-packet-type hash MUST advertise capabilities in
+    # STATE_DB (SWITCH_CAPABILITY|switch). Tests derive support from there,
+    # so this static default intentionally contains no packet types.
+    'ecmp': [],
+    'lag': [],
+}
+
+PACKET_TYPE_CAPABILITIES = {
+    # Static map is kept only as a fallback/type definition. Runtime
+    # capabilities are obtained from STATE_DB via
+    # get_runtime_packet_type_capabilities().
+    'default': DEFAULT_PACKET_TYPE_CAPABILITIES,
+}
+
+
+def _normalize_packet_type_token(token):
+    """Normalize packet-type tokens from SWITCH_CAPABILITY to canonical form.
+
+    RDMA packet types use underscores (``ipv4_rdma``, ``ipv6_rdma``); hyphen
+    spellings from older sources are mapped to those names. Other known types
+    are lowercased; remaining tokens pass through for forward compatibility.
+    """
+    if not token:
+        return None
+
+    t = token.strip().lower()
+    if not t or t == 'n/a':
+        return None
+
+    if t in ('ipv4', 'ipv6', 'ipnip'):
+        return t
+    if t in ('ipv4_rdma', 'ipv4-rdma'):
+        return 'ipv4_rdma'
+    if t in ('ipv6_rdma', 'ipv6-rdma'):
+        return 'ipv6_rdma'
+
+    # Fallback: return as-is for any future types
+    return t
+
+
+def get_runtime_packet_type_capabilities(duthost):
+    """Read packet-type hash capabilities from STATE_DB.
+
+    Returns a dict with keys 'ecmp' and 'lag', each a list of supported
+    packet types in canonical form (e.g. 'ipv4', 'ipv6', 'ipnip',
+    'ipv4_rdma', 'ipv6_rdma'). If capabilities are not present, both lists
+    are empty, which is treated as "no packet-type hash support".
+    """
+    capabilities = {
+        'ecmp': [],
+        'lag': [],
+    }
+
+    result = duthost.shell(
+        "redis-cli -n 6 HGETALL 'SWITCH_CAPABILITY|switch'",
+        module_ignore_errors=True
+    )
+
+    if result.get('rc', 1) != 0:
+        return capabilities
+
+    lines = result.get('stdout', '').strip().split('\n')
+    if not lines or lines == ['']:
+        return capabilities
+
+    cap_dict = {}
+    for i in range(0, len(lines), 2):
+        if i + 1 < len(lines):
+            cap_dict[lines[i]] = lines[i + 1]
+
+    ecmp_capable = cap_dict.get('ECMP_PKT_TYPE_HASH_CAPABLE', 'false') == 'true'
+    lag_capable = cap_dict.get('LAG_PKT_TYPE_HASH_CAPABLE', 'false') == 'true'
+
+    if ecmp_capable:
+        ecmp_types_raw = cap_dict.get('HASH|ECMP_PKT_TYPE_LIST', '')
+        ecmp_set = set()
+        for t in ecmp_types_raw.split(','):
+            canonical = _normalize_packet_type_token(t)
+            if canonical:
+                ecmp_set.add(canonical)
+        capabilities['ecmp'] = sorted(ecmp_set)
+
+    if lag_capable:
+        lag_types_raw = cap_dict.get('HASH|LAG_PKT_TYPE_LIST', '')
+        lag_set = set()
+        for t in lag_types_raw.split(','):
+            canonical = _normalize_packet_type_token(t)
+            if canonical:
+                lag_set.add(canonical)
+        capabilities['lag'] = sorted(lag_set)
+
+    return capabilities
+
+
 logger = logging.getLogger(__name__)
 vlan_member_to_restore = {}
 ip_interface_to_restore = []
@@ -162,9 +262,18 @@ def restore_init_hash_config(rand_selected_dut):
     init_ecmp_hash_fields, init_ecmp_hash_algo, init_lag_hash_fields, init_lag_hash_algo = \
         get_global_hash_config(rand_selected_dut)
     yield
-    if init_ecmp_hash_fields:
+    # Some platforms may report unconfigured hash fields as 'N/A'; do not attempt
+    # to restore such sentinel values via the CLI.
+    if init_ecmp_hash_fields and not (
+        isinstance(init_ecmp_hash_fields, str)
+        and init_ecmp_hash_fields.strip().upper() == 'N/A'
+    ):
         rand_selected_dut.set_switch_hash_global('ecmp', init_ecmp_hash_fields)
-    if init_lag_hash_fields:
+
+    if init_lag_hash_fields and not (
+        isinstance(init_lag_hash_fields, str)
+        and init_lag_hash_fields.strip().upper() == 'N/A'
+    ):
         rand_selected_dut.set_switch_hash_global('lag', init_lag_hash_fields)
     if init_ecmp_hash_algo and init_ecmp_hash_algo != 'N/A':
         rand_selected_dut.set_switch_hash_global_algorithm('ecmp', init_ecmp_hash_algo)
@@ -254,6 +363,19 @@ def global_hash_capabilities(rand_selected_dut):
     global_hash_capabilities = rand_selected_dut.get_switch_hash_capabilities()
     return {'ecmp': global_hash_capabilities['ecmp'], 'ecmp_algo': global_hash_capabilities['ecmp_algo'],
             'lag': global_hash_capabilities['lag'], 'lag_algo': global_hash_capabilities['lag_algo']}
+
+
+@pytest.fixture(scope='module')
+def global_packet_type_capabilities(rand_selected_dut):
+    """Get logical packet-type hash capabilities (ECMP/LAG) for this ASIC.
+
+    This reads capabilities from STATE_DB (SWITCH_CAPABILITY|switch) via
+    get_runtime_packet_type_capabilities. If the platform does not
+    advertise packet-type hash support, both ECMP and LAG lists will be
+    empty, which callers should interpret as "no packet-type hash
+    support".
+    """
+    return get_runtime_packet_type_capabilities(rand_selected_dut)
 
 
 @pytest.fixture()
@@ -596,11 +718,25 @@ def get_hash_fields_from_option(request, test_type, hash_field_option):
     Returns:
         a list of the hash fields to test
     """
-    asic_type = get_asic_type(request)
-    if asic_type in HASH_CAPABILITIES:
-        hash_fields = HASH_CAPABILITIES[asic_type][test_type]
-    else:
-        hash_fields = HASH_CAPABILITIES['default'][test_type]
+    # Prefer runtime hash capabilities (from STATE_DB via global_hash_capabilities)
+    # and fall back to static HASH_CAPABILITIES only if needed. This avoids
+    # hard-coding per-ASIC field lists; distinguish platforms by what they actually
+    # advertise (e.g. extended field sets) instead of by name only.
+    hash_fields = []
+    try:
+        caps = request.getfixturevalue("global_hash_capabilities")
+        # caps has keys: 'ecmp', 'ecmp_algo', 'lag', 'lag_algo'
+        hash_fields = caps.get(test_type) or []
+    except Exception:
+        # Fixture not available or failed; fall back to static table below.
+        hash_fields = []
+
+    if not hash_fields:
+        asic_type = get_asic_type(request)
+        if asic_type in HASH_CAPABILITIES:
+            hash_fields = HASH_CAPABILITIES[asic_type][test_type]
+        else:
+            hash_fields = HASH_CAPABILITIES['default'][test_type]
 
     if hash_field_option == "all":
         return hash_fields
@@ -612,6 +748,44 @@ def get_hash_fields_from_option(request, test_type, hash_field_option):
         return hash_field_option.split(',')
     else:
         pytest.fail("Invalid value of the '--hash_field' option.")
+
+
+def get_packet_types_from_option(request, test_type, packet_type_option):
+    """Generate packet types to test based on a pytest option.
+
+    Args:
+        request: pytest request
+        test_type: 'ecmp' or 'lag'
+        packet_type_option: value of a hypothetical "--packet_type" option.
+
+    Returns:
+        A list of packet types to test for the given test_type.
+    """
+    # Prefer runtime packet-type capabilities from STATE_DB and fall back
+    # to the static default (which is intentionally "no support").
+    packet_types = []
+    try:
+        caps = request.getfixturevalue("global_packet_type_capabilities")
+        packet_types = caps.get(test_type) or []
+    except Exception:
+        packet_types = []
+
+    if not packet_types:
+        # Static default: treat as no packet-type hash support.
+        packet_types = PACKET_TYPE_CAPABILITIES['default'].get(test_type, [])
+
+    if packet_type_option == 'all':
+        return packet_types
+    elif packet_type_option == 'random':
+        if not packet_types:
+            pytest.skip("No packet types supported on this platform")
+        return [random.choice(packet_types)]
+    elif packet_type_option in packet_types:
+        return [packet_type_option]
+    elif set(packet_type_option.split(',')).issubset(packet_types):
+        return packet_type_option.split(',')
+    else:
+        pytest.fail("Invalid value of the '--packet_type' option.")
 
 
 def get_hash_algorithm_from_option(request, hash_algorithm_identifier):
@@ -870,11 +1044,14 @@ def generate_test_params(duthost, tbinfo, mg_facts, hash_field, ipver, inner_ipv
                   "ecmp_hash": ecmp_hash,
                   "lag_hash": lag_hash,
                   "is_l2_test": is_l2_test}
+    # Always propagate encap_type when provided so the PTF test can build
+    # the correct outer tunnel when testing INNER_* hash fields.
+    if encap_type is not None:
+        ptf_params['encap_type'] = encap_type
     if "INNER" in hash_field:
         ptf_params['inner_ipver'] = inner_ipver
         ptf_params['inner_src_ip_range'] = ",".join(inner_src_ip_range)
         ptf_params['inner_dst_ip_range'] = ",".join(inner_dst_ip_range)
-        ptf_params['encap_type'] = encap_type
         if encap_type == 'vxlan':
             ptf_params['vxlan_port'] = random.choice(vxlan_port_list)
     if hash_field == "IN_PORT" and duthost.facts['asic_type'] == "mellanox":
