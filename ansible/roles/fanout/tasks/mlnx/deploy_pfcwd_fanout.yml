@@ -10,7 +10,8 @@
 
 - name: Define variables for deployment of pfcwd dockers on fanout
   set_fact:
-    pfcwd_dockers: "['roles/test/files/mlnx/docker-tests-pfcgen/pfc_storm.tgz']"
+    pfcwd_dockers:
+      - roles/test/files/mlnx/docker-tests-pfcgen/pfc_storm.tgz
     fanout_img_path: "/var/opt/tms/images/"
 
 - name: Build containers to save storm arguments and to run storm
@@ -32,7 +33,7 @@
 - name: Download pre-built pfcwd dockers if path specified
   include_tasks: download_copy_image_fanout.yml
   vars:
-    image_url: "{{ pfcwd_dockers_url }}/{{ item | basename }}"
+    image_url: "{{ pfcwd_dockers_url.rstrip('/') }}/{{ item | basename }}"
     fanout_dest: "{{ fanout_img_path }}/{{ item | basename }}"
   with_items: "{{ pfcwd_dockers }}"
   when: pfcwd_dockers_url is defined
