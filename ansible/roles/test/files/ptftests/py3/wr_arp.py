@@ -215,6 +215,7 @@ class ArpTest(BaseTest):
         return
 
     def generateErspanRequest(self, arp_request):
+        '''Generates the expected ERSPAN packet for an ARP request.'''
         payload = arp_request
         if self.asic_type == 'mellanox':
             payload = b'\x00' * 22 + bytes(arp_request)
@@ -486,14 +487,16 @@ class ArpTest(BaseTest):
                 self.log(f"Sleeping for {self.how_long - final_elapsed} seconds before next test")
                 time.sleep(self.how_long - final_elapsed)
             port = random.choice(test['acc_ports'])
-            thread_errors = []
+            thread_error = None
 
             def _run_non_broadcast_reply():
+                '''Runs non-broadcast ARP validation and captures any error.'''
+                nonlocal thread_error
                 try:
                     self.test_non_broadcast_reply_thr(port=port)
                 except Exception as e:
                     self.log("test_non_broadcast_reply_thr failed: {!r}".format(e))
-                    thread_errors.append(e)
+                    thread_error = e
 
             test_non_broadcast_reply_thread = threading.Thread(
                 target=_run_non_broadcast_reply)
@@ -514,10 +517,10 @@ class ArpTest(BaseTest):
                 self.assertTrue(
                     False, "Timed out waiting for test_non_broadcast_reply_thread")
 
-            if thread_errors:
+            if thread_error:
                 self.assertTrue(
                     False,
-                    "test_non_broadcast_reply_thr failed: {}".format(thread_errors[0]))
+                    "test_non_broadcast_reply_thr failed: {}".format(thread_error))
 
             uptime_after = self.get_uptime()
             if uptime_before == uptime_after:
@@ -572,27 +575,62 @@ class ArpTest(BaseTest):
 
             self.dataplane.flush()
             testutils.send_packet(self, port, pkt)
-            try:
-                self.log("Verifying mirrored ARP request in ERSPAN packet")
-                testutils.verify_packet_any_port(
-                    self, exp_erspan_pkt, ports=self.portchannel_ports)
-                # check arp reply should come from same port
-                # clean arp, test broadcast reply if needed
-                self.log("Verifying ARP reply on requester port {}".format(port))
-                testutils.verify_packet_any_port(self, exp_pkt, ports=[port])
-            except AssertionError:
-                # CPA may be disabled between the state check and ARP transmission.
-                # Recheck its state to determine whether verification overlapped teardown.
-                if reboot_downtime_observed:
-                    time.sleep(self.STATE_POLL_INTERVAL)
-                    if self.ping_dut() and self.get_cpa_state() is False:
-                        self.log("Packet verification overlapped CPA teardown; stopping test")
-                        return
-                raise
+
+            self.log("Polling for mirrored ARP request and ARP reply")
+            arp_reply_ports, erspan_request_ports = self.poll_erspan_and_arp_reply(
+                exp_pkt, exp_erspan_pkt)
+
+            # The ARP reply should always reach only the requester, including
+            # when CPA is being disabled and the DUT control plane has resumed.
+            self.assertTrue(
+                arp_reply_ports == {port},
+                "Expected ARP reply only on requester port {}, received on {}".format(
+                    port, sorted(arp_reply_ports)))
+
+            unexpected_erspan_ports = (erspan_request_ports - set(self.portchannel_ports))
+            self.assertTrue(
+                not unexpected_erspan_ports,
+                "Received mirrored ARP request on unexpected ports {}".format(
+                    sorted(unexpected_erspan_ports)))
+
+            if not erspan_request_ports:
+                time.sleep(self.STATE_POLL_INTERVAL)
+                if self.ping_dut() and self.get_cpa_state() is False:
+                    self.log("Packet verification overlapped CPA teardown; stopping test")
+                    return
+
+                self.assertTrue(
+                    False,
+                    "Expected mirrored ARP request on ports {}, received none".format(
+                        self.portchannel_ports))
 
         self.assertTrue(False, "Timed out waiting for CPA teardown")
 
+    def poll_erspan_and_arp_reply(self, exp_pkt, exp_erspan_pkt):
+        '''Polls each received packet once and matches both CPA packet types.'''
+        arp_reply_ports = set()
+        erspan_request_ports = set()
+        stop_at = time.time() + 2 * ptf.ptfutils.default_timeout
+
+        while not (arp_reply_ports and erspan_request_ports):
+            timeout = stop_at - time.time()
+            if timeout <= 0:
+                break
+
+            result = testutils.dp_poll(self, timeout=timeout)
+            if not isinstance(result, self.dataplane.PollSuccess):
+                break
+
+            if ptf.dataplane.match_exp_pkt(exp_pkt, result.packet):
+                arp_reply_ports.add(result.port)
+
+            if ptf.dataplane.match_exp_pkt(exp_erspan_pkt, result.packet):
+                erspan_request_ports.add(result.port)
+
+        return arp_reply_ports, erspan_request_ports
+
     def ping_dut(self):
+        '''Checks whether the DUT management interface is reachable.'''
         _, _, return_code = self.cmd([
             'ping', '-n', '-q', '-c', '1',
             '-W', str(self.PING_TIMEOUT), self.dut_ssh
@@ -600,6 +638,7 @@ class ArpTest(BaseTest):
         return return_code == 0
 
     def get_stable_ping_state(self, current_state):
+        '''Determines the DUT reachability state using consecutive pings.'''
         observed_state = self.ping_dut()
         if observed_state == current_state:
             return current_state
@@ -613,16 +652,18 @@ class ArpTest(BaseTest):
         return observed_state
 
     def get_cpa_state(self):
+        '''Determines whether all required CPA components are enabled.'''
         everflow_acl_state = self.get_everflow_acl_state()
         vxlan_state = self.check_neighbor_advertise_vxlan()
 
+        if everflow_acl_state is False or vxlan_state is False:
+            return False
         if everflow_acl_state is None or vxlan_state is None:
             return None
-        elif everflow_acl_state and vxlan_state:
-            return True
-        return False
+        return True
 
     def get_everflow_acl_state(self):
+        '''Checks whether the Everflow ARP rule is enabled on the DUT.'''
         try:
             output, _, return_code = self.dut_connection.execCommand(
                 'aclshow -a', timeout=3)
@@ -648,6 +689,7 @@ class ArpTest(BaseTest):
         return False
 
     def check_neighbor_advertise_vxlan(self):
+        '''Checks whether the neighbor advertisement VXLAN tunnel exists.'''
         try:
             output, _, return_code = self.dut_connection.execCommand(
                 'show vxlan name {}'.format(self.VXLAN_TUNNEL_NAME), timeout=3)
