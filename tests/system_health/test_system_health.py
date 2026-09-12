@@ -84,7 +84,7 @@ def check_image_version(duthosts, enum_rand_one_per_hwsku_hostname):
 def config_reload_after_tests(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     yield
-    config_reload(duthost)
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
 
 @pytest.fixture(scope="function")
