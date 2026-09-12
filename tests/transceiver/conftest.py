@@ -237,22 +237,26 @@ def port_attributes_dict(request, ansible_root, duthost):
 
 
 @pytest.fixture(scope='session')
-def port_attributes_by_dut(ansible_root, duthost, duthosts, port_attributes_dict):
-    """Return merged transceiver attributes keyed by DUT hostname.
+def port_attributes_for_dut(ansible_root, duthost, duthosts, port_attributes_dict):
+    """Return a cached loader for the selected DUT and any actually used peer DUT.
 
-    ``port_attributes_dict`` remains the canonical attributes for the selected
-    DUT.  Peer-aware tests also need attributes from other DUTs in the testbed;
-    load those from their own DUT inventory and platform/HWSKU context so an
-    identically named port on another DUT cannot resolve to local attributes.
+    Peer-aware tests resolve the connection graph before calling this loader.
+    That keeps missing inventory on an unrelated DUT from failing the entire
+    transceiver session, while preserving a clear error for a peer that is
+    actually needed by the test.
     """
     attributes_by_dut = {duthost.hostname: port_attributes_dict}
+    hosts_by_name = {host.hostname: host for host in duthosts}
+    hosts_by_name[duthost.hostname] = duthost
     loader = DutInfoLoader(ansible_root)
     attr_dir = os.path.join(ansible_root, REL_ATTR_DIR)
 
-    for host in duthosts:
-        if host.hostname in attributes_by_dut:
-            continue
-
+    def _load(hostname):
+        if hostname in attributes_by_dut:
+            return attributes_by_dut[hostname], None
+        host = hosts_by_name.get(hostname)
+        if host is None:
+            return None, "DUT host is unavailable"
         platform, hwsku = _load_platform_hwsku(host)
         try:
             base_dict = loader.build_base_port_attributes(host.hostname)
@@ -266,19 +270,15 @@ def port_attributes_by_dut(ansible_root, duthost, duthosts, port_attributes_dict
                 else base_dict
             )
         except (DutInfoError, AttributeMergeError) as error:
-            pytest.fail(
-                "Failed loading transceiver attributes for peer DUT '{}': {}".format(
-                    host.hostname,
-                    error,
-                )
-            )
+            return None, "failed loading transceiver attributes: {}".format(error)
 
         if not merged:
-            pytest.fail("No merged transceiver attributes found for peer DUT '{}'".format(host.hostname))
+            return None, "no merged transceiver attributes found"
         attributes_by_dut[host.hostname] = merged
         logger.info("Loaded transceiver attributes for peer DUT %s: %d port(s)", host.hostname, len(merged))
+        return merged, None
 
-    return attributes_by_dut
+    return _load
 
 
 # Ensure infra initialized before any test in this package
