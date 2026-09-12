@@ -7,30 +7,33 @@ from tests.transceiver.attribute_parser.attribute_keys import (
     DOM_ATTRIBUTES_KEY,
 )
 from tests.transceiver.common import scenario_ops
+from tests.transceiver.common.db_helpers import STATE_DB_UPDATE_TIME_FIELD
 from tests.transceiver.common.topology import resolve_remote_peer
-from tests.transceiver.dom.dom_helpers import (
-    active_lanes_from_group_mask,
-    build_dom_sensor_plan,
+from tests.transceiver.dom.advanced.helpers import (
     build_dom_deviation_checks,
-    dom_field_available,
-    dom_field_in_operational_range,
     dom_rx_power_flag_candidates,
     dom_tx_los_hostlane_candidates,
-    format_dom_port_failure,
-    max_system_wait,
-    parse_required_number,
-    parse_required_positive_int,
-    ports_for_primary,
     read_dom_interface_state_tables,
     validate_appl_port_down_time,
     validate_dom_baseline_flags,
     validate_dom_deviation_checks,
     validate_dom_flag_lifecycle,
-    validate_dom_plan_fields,
     validate_sensor_below_threshold,
     validate_sensor_freshness_after,
     validate_sensor_operational_fields,
     wait_for_dom_sensor_update,
+)
+from tests.transceiver.dom.dom_helpers import (
+    active_lanes_from_group_mask,
+    build_dom_sensor_plan,
+    dom_field_available,
+    dom_field_in_operational_range,
+    format_dom_port_failure,
+    max_system_wait,
+    parse_required_number,
+    parse_required_positive_int,
+    ports_for_primary,
+    validate_dom_plan_fields,
 )
 
 logger = logging.getLogger(__name__)
@@ -51,210 +54,100 @@ LOCAL_SHUTDOWN_OPERATIONAL_FIELDS = ("temperature", "voltage")
 DOM_UPDATE_MARGIN_SEC = 30
 
 
-def _validate_local_shutdown(context, baseline_tables, shutdown_tables, shutdown_time):
-    """Return failures for local DOM shutdown state."""
+def _validate_local(context, baseline_tables, phase_baseline_tables, current_tables, operation_time, phase):
+    """Return local DOM validation failures for one shutdown or startup phase."""
     local_port = context["local_port"]
-    sensor_data = shutdown_tables["sensor"].get(local_port)
+    sensor_data = current_tables["sensor"].get(local_port)
     plan = context["local_plan"]
     failures = []
+    label = "local {}".format(phase)
 
-    failures.extend(
-        validate_sensor_freshness_after(
-            context["duthost"],
-            local_port,
-            sensor_data,
-            plan.get("max_age_min"),
-            shutdown_time,
-            "local shutdown",
+    failures.extend(validate_sensor_freshness_after(
+        context["duthost"], local_port, sensor_data, plan.get("max_age_min"), operation_time, label
+    ))
+    if phase == "startup":
+        field_failures, _checked_fields, _checked_ports = validate_dom_plan_fields(
+            context["duthost"], [local_port], current_tables["sensor"], {local_port: plan},
+            dom_field_in_operational_range,
         )
-    )
-    if not isinstance(sensor_data, dict) or not sensor_data:
-        return failures
+        failures.extend(field_failures)
 
-    for lane in plan["active_media_lanes"]:
-        failures.extend(
-            validate_sensor_below_threshold(
-                local_port,
-                sensor_data,
-                "tx{}bias".format(lane),
-                context["shutdown_tx_bias_threshold"],
-                "local shutdown",
-            )
+    if phase == "shutdown":
+        if not isinstance(sensor_data, dict) or not sensor_data:
+            return failures
+        for lane in plan["active_media_lanes"]:
+            failures.extend(validate_sensor_below_threshold(
+                local_port, sensor_data, "tx{}bias".format(lane),
+                context["shutdown_tx_bias_threshold"], label,
+            ))
+            failures.extend(validate_sensor_below_threshold(
+                local_port, sensor_data, "tx{}power".format(lane),
+                context["shutdown_tx_power_threshold"], label,
+            ))
+        op_failures, _checked = validate_sensor_operational_fields(
+            local_port, sensor_data, plan.get("expected_fields", {}),
+            lambda field: field in LOCAL_SHUTDOWN_OPERATIONAL_FIELDS, label,
         )
-        failures.extend(
-            validate_sensor_below_threshold(
-                local_port,
-                sensor_data,
-                "tx{}power".format(lane),
-                context["shutdown_tx_power_threshold"],
-                "local shutdown",
-            )
-        )
-
-    op_failures, _checked = validate_sensor_operational_fields(
-        local_port,
-        sensor_data,
-        plan.get("expected_fields", {}),
-        lambda field: field in LOCAL_SHUTDOWN_OPERATIONAL_FIELDS,
-        "local shutdown",
-    )
-    failures.extend(op_failures)
+        failures.extend(op_failures)
 
     for lane in context["active_host_lanes"]:
-        failures.extend(
-            validate_dom_flag_lifecycle(
-                local_port,
-                dom_tx_los_hostlane_candidates(lane),
-                baseline_tables,
-                shutdown_tables,
-                "status",
-                True,
-                "set",
-                shutdown_time,
-                require_clear_time_unchanged=True,
-            )
-        )
-
-    baseline_appl = baseline_tables["appl_port"]
-    shutdown_appl = shutdown_tables["appl_port"]
-    for port in context["toggle_ports"]:
-        failures.extend(
-            validate_appl_port_down_time(
-                port,
-                baseline_appl.get(port),
-                shutdown_appl.get(port),
-                shutdown_time,
-            )
-        )
-
-    return failures
-
-
-def _validate_remote_shutdown(context, baseline_tables, shutdown_tables, shutdown_time):
-    """Return failures for remote DOM link-down state."""
-    remote_port = context["remote"].primary_port
-    sensor_data = shutdown_tables["sensor"].get(remote_port)
-    plan = context["remote_plan"]
-    failures = []
-
-    failures.extend(
-        validate_sensor_freshness_after(
-            context["remote"].host,
-            remote_port,
-            sensor_data,
-            plan.get("max_age_min"),
-            shutdown_time,
-            "remote shutdown",
-        )
-    )
-    if not isinstance(sensor_data, dict) or not sensor_data:
-        return failures
-
-    for lane in plan["active_media_lanes"]:
-        failures.extend(
-            validate_sensor_below_threshold(
-                remote_port,
-                sensor_data,
-                "rx{}power".format(lane),
-                context["shutdown_rx_power_threshold"],
-                "remote shutdown",
-            )
-        )
-        for suffix in ("LAlarm", "LWarn"):
-            failures.extend(
-                validate_dom_flag_lifecycle(
-                    remote_port,
-                    dom_rx_power_flag_candidates(lane, suffix),
-                    baseline_tables,
-                    shutdown_tables,
-                    "dom",
-                    True,
-                    "set",
-                    shutdown_time,
-                )
-            )
-
-    return failures
-
-
-def _validate_local_startup(context, baseline_tables, startup_tables, startup_time):
-    """Return failures for local DOM recovery after startup."""
-    local_port = context["local_port"]
-    sensor_data = startup_tables["sensor"].get(local_port)
-    plan = context["local_plan"]
-    failures = []
-
-    field_failures, _checked_fields, _checked_ports = validate_dom_plan_fields(
-        context["duthost"],
-        [local_port],
-        startup_tables["sensor"],
-        {local_port: plan},
-        dom_field_in_operational_range,
-    )
-    failures.extend(field_failures)
-    failures.extend(
-        validate_sensor_freshness_after(
-            context["duthost"],
+        failures.extend(validate_dom_flag_lifecycle(
             local_port,
-            sensor_data,
-            plan.get("max_age_min"),
-            startup_time,
-            "local startup",
-        )
-    )
+            dom_tx_los_hostlane_candidates(lane),
+            phase_baseline_tables,
+            current_tables,
+            "status",
+            phase == "shutdown",
+            "set" if phase == "shutdown" else "clear",
+            operation_time,
+            require_clear_time_unchanged=phase == "shutdown",
+        ))
 
-    for lane in context["active_host_lanes"]:
-        failures.extend(
-            validate_dom_flag_lifecycle(
-                local_port,
-                dom_tx_los_hostlane_candidates(lane),
-                baseline_tables,
-                startup_tables,
-                "status",
-                False,
-                "clear",
-                startup_time,
-            )
+    if phase == "shutdown":
+        baseline_appl = baseline_tables["appl_port"]
+        current_appl = current_tables["appl_port"]
+        for port in context["toggle_ports"]:
+            failures.extend(validate_appl_port_down_time(
+                port, baseline_appl.get(port), current_appl.get(port), operation_time
+            ))
+    else:
+        deviation_failures, checked_count = validate_dom_deviation_checks(
+            local_port,
+            baseline_tables["sensor"].get(local_port, {}),
+            sensor_data or {},
+            context["local_deviation_checks"],
+            label,
         )
-
-    deviation_failures, checked_count = validate_dom_deviation_checks(
-        local_port,
-        baseline_tables["sensor"].get(local_port, {}),
-        sensor_data or {},
-        context["local_deviation_checks"],
-        "local startup",
-    )
-    failures.extend(deviation_failures)
-    if checked_count:
-        logger.info("DOM interface-state local deviation checks passed for %s: %d field(s)",
-                    local_port, checked_count)
+        failures.extend(deviation_failures)
+        if checked_count:
+            logger.info("DOM interface-state local deviation checks passed for %s: %d field(s)",
+                        local_port, checked_count)
     return failures
 
 
-def _validate_remote_startup(context, baseline_tables, startup_tables, startup_time):
-    """Return failures for remote DOM recovery after startup."""
+def _validate_remote(context, baseline_tables, phase_baseline_tables, current_tables, operation_time, phase):
+    """Return remote DOM validation failures for one shutdown or startup phase."""
     remote_port = context["remote"].primary_port
-    sensor_data = startup_tables["sensor"].get(remote_port)
+    sensor_data = current_tables["sensor"].get(remote_port)
     plan = context["remote_plan"]
     failures = []
+    label = "remote {}".format(phase)
 
-    failures.extend(
-        validate_sensor_freshness_after(
-            context["remote"].host,
-            remote_port,
-            sensor_data,
-            plan.get("max_age_min"),
-            startup_time,
-            "remote startup",
-        )
-    )
-    if isinstance(sensor_data, dict) and sensor_data:
+    failures.extend(validate_sensor_freshness_after(
+        context["remote"].host, remote_port, sensor_data, plan.get("max_age_min"), operation_time, label
+    ))
+    if phase == "shutdown":
+        if not isinstance(sensor_data, dict) or not sensor_data:
+            return failures
+        for lane in plan["active_media_lanes"]:
+            failures.extend(validate_sensor_below_threshold(
+                remote_port, sensor_data, "rx{}power".format(lane),
+                context["shutdown_rx_power_threshold"], label,
+            ))
+    elif isinstance(sensor_data, dict) and sensor_data:
         op_failures, checked = validate_sensor_operational_fields(
-            remote_port,
-            sensor_data,
-            plan.get("expected_fields", {}),
-            lambda field: field.startswith("rx") and field.endswith("power"),
-            "remote startup",
+            remote_port, sensor_data, plan.get("expected_fields", {}),
+            lambda field: field.startswith("rx") and field.endswith("power"), label,
         )
         failures.extend(op_failures)
         if not checked:
@@ -262,30 +155,29 @@ def _validate_remote_startup(context, baseline_tables, startup_tables, startup_t
 
     for lane in plan["active_media_lanes"]:
         for suffix in ("LAlarm", "LWarn"):
-            failures.extend(
-                validate_dom_flag_lifecycle(
-                    remote_port,
-                    dom_rx_power_flag_candidates(lane, suffix),
-                    baseline_tables,
-                    startup_tables,
-                    "dom",
-                    False,
-                    "clear",
-                    startup_time,
-                )
-            )
+            failures.extend(validate_dom_flag_lifecycle(
+                remote_port,
+                dom_rx_power_flag_candidates(lane, suffix),
+                phase_baseline_tables,
+                current_tables,
+                "dom",
+                phase == "shutdown",
+                "set" if phase == "shutdown" else "clear",
+                operation_time,
+            ))
 
-    deviation_failures, checked_count = validate_dom_deviation_checks(
-        remote_port,
-        baseline_tables["sensor"].get(remote_port, {}),
-        sensor_data or {},
-        context["remote_deviation_checks"],
-        "remote startup",
-    )
-    failures.extend(deviation_failures)
-    if checked_count:
-        logger.info("DOM interface-state remote deviation checks passed for %s: %d field(s)",
-                    remote_port, checked_count)
+    if phase == "startup":
+        deviation_failures, checked_count = validate_dom_deviation_checks(
+            remote_port,
+            baseline_tables["sensor"].get(remote_port, {}),
+            sensor_data or {},
+            context["remote_deviation_checks"],
+            label,
+        )
+        failures.extend(deviation_failures)
+        if checked_count:
+            logger.info("DOM interface-state remote deviation checks passed for %s: %d field(s)",
+                        remote_port, checked_count)
     return failures
 
 
@@ -355,15 +247,17 @@ def _operation_context(
     duthosts,
     conn_graph_facts,
     local_port,
-    port_attributes_by_dut,
+    port_attributes_for_dut,
     lport_to_first_subport_mapping_by_dut,
 ):
     """Return ``(context, errors)`` for one local primary port under test."""
     errors = []
-    local_port_attributes = port_attributes_by_dut.get(duthost.hostname)
+    local_port_attributes, local_attr_error = port_attributes_for_dut(duthost.hostname)
     local_port_mapping = lport_to_first_subport_mapping_by_dut.get(duthost.hostname)
     if local_port_attributes is None or local_port_mapping is None:
-        return None, ["{} has no transceiver attribute/mapping context".format(duthost.hostname)]
+        return None, ["{} has no transceiver attribute/mapping context: {}".format(
+            duthost.hostname, local_attr_error or "mapping is unavailable"
+        )]
 
     remote, error = resolve_remote_peer(
         duthost,
@@ -375,12 +269,13 @@ def _operation_context(
     if error:
         return None, [error]
 
-    remote_port_attributes = port_attributes_by_dut.get(remote.device)
+    remote_port_attributes, remote_attr_error = port_attributes_for_dut(remote.device)
     remote_port_mapping = lport_to_first_subport_mapping_by_dut.get(remote.device)
     if remote_port_attributes is None or remote_port_mapping is None:
-        return None, ["{} peer DUT {} has no transceiver attribute/mapping context".format(
+        return None, ["{} peer DUT {} has no transceiver attribute/mapping context: {}".format(
             local_port,
             remote.device,
+            remote_attr_error or "mapping is unavailable",
         )]
     if remote.primary_port not in remote_port_attributes:
         return None, [
@@ -558,14 +453,20 @@ def _read_batch_tables(contexts, include_local_appl_port):
     return tables_by_host, failures
 
 
-def _wait_for_batch_sensor_updates(contexts, operation_time, timeout_sec, label):
+def _wait_for_batch_sensor_updates(contexts, baseline_tables_by_host, operation_time, timeout_sec, label):
     """Wait once per host for all local and remote primary-port DOM updates."""
     sensor_by_host = {}
     failures = []
     for hostname, entry in _batch_ports_by_host(contexts, include_toggle_ports=False).items():
+        baseline_update_times = {
+            port: sensor_data.get(STATE_DB_UPDATE_TIME_FIELD)
+            for port, sensor_data in baseline_tables_by_host[hostname]["sensor"].items()
+            if isinstance(sensor_data, dict)
+        }
         sensor_by_port, update_failures = wait_for_dom_sensor_update(
             entry["host"],
             entry["ports"],
+            baseline_update_times,
             operation_time,
             timeout_sec,
             "{} {}".format(hostname, label),
@@ -618,6 +519,7 @@ def _exercise_batch(contexts, baseline_tables_by_host):
         )
         shutdown_sensor_by_host, update_failures = _wait_for_batch_sensor_updates(
             contexts,
+            baseline_tables_by_host,
             shutdown_time,
             dom_update_wait,
             "shutdown",
@@ -633,19 +535,23 @@ def _exercise_batch(contexts, baseline_tables_by_host):
         for context in contexts:
             local_port = context["local_port"]
             failures_by_port[local_port].extend(
-                _validate_local_shutdown(
+                _validate_local(
                     context,
+                    baseline_tables_by_host[duthost.hostname],
                     baseline_tables_by_host[duthost.hostname],
                     shutdown_tables_by_host[duthost.hostname],
                     shutdown_time,
+                    "shutdown",
                 )
             )
             failures_by_port[local_port].extend(
-                _validate_remote_shutdown(
+                _validate_remote(
                     context,
+                    baseline_tables_by_host[context["remote"].device],
                     baseline_tables_by_host[context["remote"].device],
                     shutdown_tables_by_host[context["remote"].device],
                     shutdown_time,
+                    "shutdown",
                 )
             )
 
@@ -655,6 +561,7 @@ def _exercise_batch(contexts, baseline_tables_by_host):
         )
         startup_sensor_by_host, update_failures = _wait_for_batch_sensor_updates(
             contexts,
+            shutdown_tables_by_host,
             startup_time,
             dom_update_wait,
             "startup",
@@ -670,19 +577,23 @@ def _exercise_batch(contexts, baseline_tables_by_host):
         for context in contexts:
             local_port = context["local_port"]
             failures_by_port[local_port].extend(
-                _validate_local_startup(
+                _validate_local(
                     context,
                     baseline_tables_by_host[duthost.hostname],
+                    shutdown_tables_by_host[duthost.hostname],
                     startup_tables_by_host[duthost.hostname],
                     startup_time,
+                    "startup",
                 )
             )
             failures_by_port[local_port].extend(
-                _validate_remote_startup(
+                _validate_remote(
                     context,
                     baseline_tables_by_host[context["remote"].device],
+                    shutdown_tables_by_host[context["remote"].device],
                     startup_tables_by_host[context["remote"].device],
                     startup_time,
+                    "startup",
                 )
             )
     finally:
@@ -705,7 +616,7 @@ def test_dom_data_during_interface_state_changes(
     duthosts,
     conn_graph_facts,
     dom_primary_ports,
-    port_attributes_by_dut,
+    port_attributes_for_dut,
     lport_to_first_subport_mapping_by_dut,
 ):
     """Verify local and remote DOM state transitions across shut/no-shut."""
@@ -719,7 +630,7 @@ def test_dom_data_during_interface_state_changes(
             duthosts,
             conn_graph_facts,
             local_port,
-            port_attributes_by_dut,
+            port_attributes_for_dut,
             lport_to_first_subport_mapping_by_dut,
         )
         if config_errors:
