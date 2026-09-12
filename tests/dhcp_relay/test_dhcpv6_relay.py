@@ -278,9 +278,21 @@ def setup_and_teardown_no_servers_vlan(duthosts, rand_one_dut_hostname):
 
     yield new_vlan_id
 
-    duthost.shell("sudo config interface ip remove Vlan{} {}".format(new_vlan_id, new_vlan_ipv6))
-    duthost.shell("sudo config vlan del {}".format(new_vlan_id))
-    restart_dhcp_relay_and_check_dhcp6relay(duthost)
+    vlan_name = "Vlan{}".format(new_vlan_id)
+    rif_removed = False
+    try:
+        duthost.shell("sudo config interface ip remove Vlan{} {}".format(new_vlan_id, new_vlan_ipv6))
+        # Wait for IntfsOrch to finish removing the RIF before PortsOrch removes the VLAN;
+        # without this, vlan del races the async RIF teardown and logs removeVlan ref count ERR.
+        rif_removed = wait_until(30, 1, 0, lambda: duthost.shell(
+            'sonic-db-cli STATE_DB exists "INTERFACE_TABLE|{}"'.format(vlan_name),
+            module_ignore_errors=True)['stdout'].strip() == '0')
+    finally:
+        if rif_removed:
+            duthost.shell("sudo config vlan del {}".format(new_vlan_id))
+            restart_dhcp_relay_and_check_dhcp6relay(duthost)
+
+    pytest_assert(rif_removed, "RIF for {} was not removed from STATE_DB within timeout".format(vlan_name))
 
 
 def get_dhcptest_expected_counters(dhcp_server_num):
