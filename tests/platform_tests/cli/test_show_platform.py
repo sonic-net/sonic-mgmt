@@ -454,14 +454,23 @@ def verify_show_platform_fan_output(duthost, raw_output_lines):
     return fans
 
 
+def is_liquid_cooled(duthost):
+    output = duthost.shell(
+        "python3 -c 'from sonic_platform.chassis import Chassis; "
+        "print(Chassis().is_liquid_cooled())'",
+        module_ignore_errors=True
+    )
+    return output.get("stdout", "").strip() == "True"
+
+
 def check_fan_status(duthost, cmd):
     logging.info("Verifying output of '{}' on '{}' ...".format(cmd, duthost.hostname))
     fan_status_output_lines = duthost.command(cmd)["stdout_lines"]
     fans = verify_show_platform_fan_output(duthost, fan_status_output_lines)
 
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-    if not fans and (config_facts['DEVICE_METADATA']['localhost'].get('switch_type', '') == 'dpu'
-                     or duthost.is_bmc()):
+    is_dpu = config_facts['DEVICE_METADATA']['localhost'].get('switch_type', '') == 'dpu'
+    if not fans and (is_dpu or is_liquid_cooled(duthost)):
         return True
     if duthost.facts["asic_type"] == "vs":
         return True
