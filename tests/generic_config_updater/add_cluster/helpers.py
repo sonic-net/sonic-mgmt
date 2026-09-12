@@ -16,6 +16,8 @@ from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
+INTERNAL_PORT_PREFIXES = ("Ethernet-BP", "Ethernet-IB", "Ethernet-Rec")
+
 
 def format_sonic_interface_dict(interface_dict, single_entry=True):
     """
@@ -49,6 +51,227 @@ def format_sonic_buffer_pg_dict(buffer_pg_dict):
             for pg_num_key, value in values.items():
                 formatted_dict[f"{key}|{pg_num_key}"] = value
     return formatted_dict
+
+
+def is_internal_port(port, internal_port_prefixes=INTERNAL_PORT_PREFIXES):
+    """
+    Return True for non-front-panel internal/backplane port names.
+    """
+    return port.startswith(internal_port_prefixes)
+
+
+def iter_portchannel_members(config_facts):
+    """
+    Iterate PORTCHANNEL_MEMBER entries as (portchannel, member_port, value).
+
+    Supports both ansible config_facts nested form and raw CONFIG_DB key form.
+    """
+    for key, value in config_facts.get("PORTCHANNEL_MEMBER", {}).items():
+        if '|' in key:
+            portchannel, member_port = key.split('|', 1)
+            yield portchannel, member_port, value
+        else:
+            for member_port, member_value in value.items():
+                yield key, member_port, member_value
+
+
+def get_external_portchannel_members(
+    config_facts,
+    portchannel,
+    internal_port_prefixes=INTERNAL_PORT_PREFIXES,
+):
+    """
+    Return sorted external member ports for a PortChannel.
+    """
+    members = []
+    for pc_name, member_port, _member_value in iter_portchannel_members(
+        config_facts
+    ):
+        if pc_name != portchannel:
+            continue
+        if is_internal_port(member_port, internal_port_prefixes):
+            continue
+        members.append(member_port)
+    return sorted(members)
+
+
+def get_portchannel_member_value(config_facts, portchannel, port):
+    """
+    Return the original PORTCHANNEL_MEMBER value for one member port.
+    """
+    portchannel_members = config_facts.get("PORTCHANNEL_MEMBER", {})
+    if portchannel in portchannel_members:
+        return portchannel_members.get(portchannel, {}).get(port, {})
+    return portchannel_members.get(f"{portchannel}|{port}", {})
+
+
+def get_portchannel_config(config_facts, portchannel):
+    """
+    Return a PortChannel config dictionary without embedded member data.
+    """
+    portchannel_config = dict(
+        config_facts.get("PORTCHANNEL", {}).get(portchannel, {})
+    )
+    portchannel_config.pop("members", None)
+    return portchannel_config
+
+
+def get_portchannel_min_links(config_facts, portchannel):
+    """
+    Return configured min_links for a PortChannel, or None when absent.
+    """
+    portchannel_config = get_portchannel_config(config_facts, portchannel)
+    min_links = portchannel_config.get("min_links")
+    return str(min_links) if min_links is not None else None
+
+
+def get_asic_interface_status_map(duthost, asic_namespace=None):
+    """
+    Return parsed show interface status rows keyed by interface name.
+    """
+    if asic_namespace:
+        cmd = f"show interface status -n {asic_namespace}"
+    else:
+        cmd = "show interface status"
+    rows = duthost.show_and_parse(cmd)
+    return {
+        row['interface']: row
+        for row in rows
+        if row.get('interface')
+    }
+
+
+def filter_oper_up_ports(ports, status_map):
+    """
+    Return ports that are admin up and oper up.
+    """
+    oper_up_ports = []
+    for port in ports:
+        status = status_map.get(port)
+        if not status:
+            continue
+        admin_status = status.get('admin', '').lower()
+        oper_status = status.get('oper', '').lower()
+        if admin_status == 'up' and oper_status == 'up':
+            oper_up_ports.append(port)
+    return oper_up_ports
+
+
+def parse_portchannel_status_output(output, portchannels_to_check=None):
+    """
+    Parse ``show interfaces portchannel`` output into operational status.
+    """
+    status = {}
+    for line in output.splitlines():
+        for word in line.split():
+            if not word.startswith("PortChannel"):
+                continue
+            if portchannels_to_check is not None:
+                if word not in portchannels_to_check:
+                    break
+            if "LACP(A)(Up)" in line or "Up" in line.split():
+                status[word] = "up"
+            elif "LACP(A)(Dw)" in line or "Down" in line.split():
+                status[word] = "down"
+            break
+    return status
+
+
+def get_portchannel_status_map(duthost, asic_namespace=None,
+                               portchannels_to_check=None):
+    """
+    Return PortChannel operational status from ``show interfaces portchannel``.
+    """
+    if asic_namespace:
+        cmd = f"show interfaces portchannel -n {asic_namespace}"
+    else:
+        cmd = "show interfaces portchannel"
+    result = duthost.shell(cmd, module_ignore_errors=True)
+    if result["rc"] != 0:
+        logger.warning(
+            "Failed to query PortChannel status with %s: stdout=%s stderr=%s",
+            cmd,
+            result.get("stdout", ""),
+            result.get("stderr", ""),
+        )
+        return {}, result
+    return parse_portchannel_status_output(
+        result["stdout"],
+        portchannels_to_check=portchannels_to_check,
+    ), result
+
+
+def find_portchannels_by_member_speed(config_facts,
+                                      interface_status_map,
+                                      portchannel_status_map,
+                                      speed,
+                                      min_member_count=2,
+                                      require_min_links=True,
+                                      require_portchannel_up=True):
+    """
+    Return external PortChannels whose members all match the requested speed.
+
+    Args:
+        config_facts: Running config facts for one ASIC namespace.
+        interface_status_map: Output from get_asic_interface_status_map().
+        portchannel_status_map: Output from get_portchannel_status_map().
+        speed: Required member speed in Mbps, such as "400000" or "100000".
+        min_member_count: Minimum external members required on the PortChannel.
+        require_min_links: Require a configured min_links value when True.
+        require_portchannel_up: Require the PortChannel oper state to be up.
+
+    Returns:
+        list: Dictionaries with portchannel, members, and original_min_links.
+    """
+    matching_portchannels = []
+    required_speed = str(speed)
+
+    for portchannel in sorted(config_facts.get("PORTCHANNEL", {})):
+        original_min_links = get_portchannel_min_links(
+            config_facts,
+            portchannel,
+        )
+        if require_min_links and original_min_links is None:
+            continue
+
+        members = get_external_portchannel_members(config_facts, portchannel)
+        if len(members) < min_member_count:
+            continue
+
+        matching_members = []
+        for member in members:
+            port_config = config_facts.get("PORT", {}).get(member, {})
+            port_role = port_config.get("role")
+            if port_role and port_role != "Ext":
+                continue
+            if port_config.get("admin_status", "up") != "up":
+                continue
+            if str(port_config.get("speed", "")) != required_speed:
+                continue
+            matching_members.append(member)
+
+        if len(matching_members) != len(members):
+            continue
+
+        oper_up_members = filter_oper_up_ports(
+            matching_members,
+            interface_status_map,
+        )
+        if len(oper_up_members) != len(matching_members):
+            continue
+        if (
+            require_portchannel_up and
+            portchannel_status_map.get(portchannel) != "up"
+        ):
+            continue
+
+        matching_portchannels.append({
+            "portchannel": portchannel,
+            "members": matching_members,
+            "original_min_links": original_min_links,
+        })
+
+    return matching_portchannels
 
 
 # -----------------------------
@@ -405,6 +628,14 @@ def get_cacl_tables(duthost, ip_netns_namespace_prefix):
 # Data Traffic Helper Functions
 # -----------------------------
 
+def clear_traffic_counters(duthost, asic_index):
+    """
+    Clear traffic counters on the selected DUT ASIC.
+    """
+    namespace = None if asic_index is None else 'asic{}'.format(asic_index)
+    clear_counters(duthost, namespace=namespace)
+
+
 def send_and_verify_traffic(
         tbinfo,
         src_duthost,
@@ -423,8 +654,9 @@ def send_and_verify_traffic(
         dport=0x50,
         flags=0x10,
         verify=True,
-        expect_error=False
-        ):
+        expect_error=False,
+        clear_stats=True
+):
     """
     Helper function to send and verify data traffic via PTF framework.
     """
@@ -436,7 +668,7 @@ def send_and_verify_traffic(
     dst_mg_facts = dst_duthost.get_extended_minigraph_facts(tbinfo, dst_asic_namespace)
 
     # port from ptf
-    if not ptf_sport:
+    if ptf_sport is None:
         ptf_src_ports = list(src_mg_facts["minigraph_ptf_indices"].values())
         ptf_sport = random.choice(ptf_src_ports)
     if not ptf_dst_ports:
@@ -445,7 +677,8 @@ def send_and_verify_traffic(
         ptf_dst_interfaces = list(set(dst_mg_facts["minigraph_ptf_indices"].keys()))
 
     # clear counters
-    clear_counters(dst_duthost, namespace=dst_asic_namespace)
+    if clear_stats:
+        clear_counters(dst_duthost, namespace=dst_asic_namespace)
 
     # Create pkt
     pkt = testutils.simple_tcp_packet(
