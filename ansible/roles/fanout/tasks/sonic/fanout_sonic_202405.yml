@@ -52,8 +52,9 @@
     - name: Skip transceiver cmis manager
       lineinfile:
         path: /usr/share/sonic/device/{{ fanout_platform }}/{{ fanout_hwsku }}/pmon_daemon_control.json
-        regexp: '"skip_xcvrd_cmis_mgr": false'
-        line: '    "skip_xcvrd_cmis_mgr": true'
+        regexp: '^(\s*"skip_xcvrd_cmis_mgr"\s*:\s*)(?:true|false)(,?)\s*$'
+        line: '\1true\2'
+        backrefs: yes
       when: pmon_daemon_control_json.stat.exists
 
     - name: Remove media setting file
