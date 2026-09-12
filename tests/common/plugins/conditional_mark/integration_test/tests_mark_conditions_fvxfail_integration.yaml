@@ -1,0 +1,161 @@
+# Mark conditions for Failure-Validated xfail integration tests.
+# This file is copied to the real mark conditions directory at test startup
+# and removed after tests complete.
+
+# TC18: AI disabled fallback
+common/plugins/conditional_mark/integration_test/test_fvxfail_mock.py::test_ai_disabled_fallback:
+  xfail:
+    reason: "Integration test: https://github.com/sonic-net/sonic-mgmt/issues/990099003"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/990099003"
+
+# TC16: AI error 500
+common/plugins/conditional_mark/integration_test/test_fvxfail_mock.py::test_ai_error_500:
+  xfail:
+    reason: "Integration test: https://github.com/sonic-net/sonic-mgmt/issues/990099003"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/990099003"
+
+# TC17: AI malformed response
+common/plugins/conditional_mark/integration_test/test_fvxfail_mock.py::test_ai_malformed_response:
+  xfail:
+    reason: "Integration test: https://github.com/sonic-net/sonic-mgmt/issues/990099003"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/990099003"
+
+# TC14: AI returns different_issue
+common/plugins/conditional_mark/integration_test/test_fvxfail_mock.py::test_ai_returns_different_issue:
+  xfail:
+    reason: "Integration test: https://github.com/sonic-net/sonic-mgmt/issues/990099003"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/990099003"
+
+# TC13: AI returns same_issue
+common/plugins/conditional_mark/integration_test/test_fvxfail_mock.py::test_ai_returns_same_issue:
+  xfail:
+    reason: "Integration test: https://github.com/sonic-net/sonic-mgmt/issues/990099003"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/990099003"
+
+# TC15: AI timeout
+common/plugins/conditional_mark/integration_test/test_fvxfail_mock.py::test_ai_timeout:
+  xfail:
+    reason: "Integration test: https://github.com/sonic-net/sonic-mgmt/issues/990099003"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/990099003"
+
+# TC5: Custom high threshold
+common/plugins/conditional_mark/integration_test/test_fvxfail_mock.py::test_custom_high_threshold:
+  xfail:
+    reason: "Integration test: https://github.com/sonic-net/sonic-mgmt/issues/990099005"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/990099005"
+
+# TC6: Custom low threshold
+common/plugins/conditional_mark/integration_test/test_fvxfail_mock.py::test_custom_low_threshold:
+  xfail:
+    reason: "Integration test: https://github.com/sonic-net/sonic-mgmt/issues/990099006"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/990099006"
+
+# TC7: Custom weights
+common/plugins/conditional_mark/integration_test/test_fvxfail_mock.py::test_custom_weights:
+  xfail:
+    reason: "Integration test: https://github.com/sonic-net/sonic-mgmt/issues/990099007"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/990099007"
+
+# TC2: Different failure -> failed
+common/plugins/conditional_mark/integration_test/test_fvxfail_mock.py::test_different_failure_low_similarity:
+  xfail:
+    reason: "Integration test: https://github.com/sonic-net/sonic-mgmt/issues/990099002"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/990099002"
+
+# TC10: Missing mandatory field -> static xfail with note
+common/plugins/conditional_mark/integration_test/test_fvxfail_mock.py::test_missing_mandatory_field_static_xfail_with_note:
+  xfail:
+    reason: "Integration test: https://github.com/sonic-net/sonic-mgmt/issues/990099004"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/990099004"
+
+# TC21: Multi-issue AI all error
+common/plugins/conditional_mark/integration_test/test_fvxfail_mock.py::test_multi_issue_ai_all_error:
+  xfail:
+    reason: "Integration test: multi-issue AI"
+    conditions_logical_operator: or
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/990099012"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/990099013"
+
+# TC20: Multi-issue AI none match
+common/plugins/conditional_mark/integration_test/test_fvxfail_mock.py::test_multi_issue_ai_none_match:
+  xfail:
+    reason: "Integration test: multi-issue AI"
+    conditions_logical_operator: or
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/990099012"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/990099013"
+
+# TC19: Multi-issue AI one match
+common/plugins/conditional_mark/integration_test/test_fvxfail_mock.py::test_multi_issue_ai_one_match:
+  xfail:
+    reason: "Integration test: multi-issue AI"
+    conditions_logical_operator: or
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/990099012"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/990099013"
+
+# TC12: Multi-issue all below low
+common/plugins/conditional_mark/integration_test/test_fvxfail_mock.py::test_multi_issue_all_below_low:
+  xfail:
+    reason: "Integration test: multi-issue"
+    conditions_logical_operator: or
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/990099010"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/990099011"
+
+# TC11: Multi-issue clear winner
+common/plugins/conditional_mark/integration_test/test_fvxfail_mock.py::test_multi_issue_clear_winner:
+  xfail:
+    reason: "Integration test: multi-issue"
+    conditions_logical_operator: or
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/990099010"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/990099011"
+
+# TC1: High similarity -> xfail
+common/plugins/conditional_mark/integration_test/test_fvxfail_mock.py::test_same_failure_high_similarity:
+  xfail:
+    reason: "Integration test: https://github.com/sonic-net/sonic-mgmt/issues/990099001"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/990099001"
+
+# TC8a: Setup failure
+common/plugins/conditional_mark/integration_test/test_fvxfail_mock.py::test_setup_failure_same_issue:
+  xfail:
+    reason: "Integration test: https://github.com/sonic-net/sonic-mgmt/issues/990099008"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/990099008"
+
+# TC8b: Teardown failure
+common/plugins/conditional_mark/integration_test/test_fvxfail_mock.py::test_teardown_failure_same_issue:
+  xfail:
+    reason: "Integration test: https://github.com/sonic-net/sonic-mgmt/issues/990099008"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/990099008"
+
+# Real AI tests
+common/plugins/conditional_mark/integration_test/test_fvxfail_real_ai.py::test_real_ai_multi_issue:
+  xfail:
+    reason: "Integration test: multi-issue AI"
+    conditions_logical_operator: or
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/990099012"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/990099013"
+
+common/plugins/conditional_mark/integration_test/test_fvxfail_real_ai.py::test_real_ai_same_issue:
+  xfail:
+    reason: "Integration test: https://github.com/sonic-net/sonic-mgmt/issues/990099003"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/990099003"
