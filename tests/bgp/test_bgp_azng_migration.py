@@ -12,7 +12,7 @@ pytestmark = [
 ]
 
 
-def test_bgp_azng_migration(duthosts, enum_upstream_dut_hostname):
+def test_bgp_azng_migration(skip_t2_isolated_topo, duthosts, enum_upstream_dut_hostname):
 
     duthost = duthosts[enum_upstream_dut_hostname]
 

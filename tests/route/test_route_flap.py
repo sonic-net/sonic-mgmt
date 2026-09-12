@@ -386,7 +386,7 @@ def get_dev_port_and_route(duthost, asichost, dst_prefix_set):
     return dev_port, route_to_ping
 
 
-def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
+def test_route_flap(skip_t2_isolated_topo, duthosts, tbinfo, ptfhost, ptfadapter,
                     get_function_completeness_level, announce_default_routes,
                     enum_rand_one_per_hwsku_frontend_hostname,
                     enum_upstream_dut_hostname, enum_rand_one_frontend_asic_index,
