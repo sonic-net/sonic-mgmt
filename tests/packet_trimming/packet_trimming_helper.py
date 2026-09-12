@@ -1798,6 +1798,35 @@ def set_buffer_profile_for_trim_queue(duthost, interfaces, trim_queue_id=None, t
             raise
 
 
+def unset_buffer_profile_for_trim_queue(duthost, interfaces, trim_queue_id=None):
+    """
+    Remove the trim queue buffer profile reference from the BUFFER_QUEUE entries of interfaces.
+    Args:
+        duthost: DUT host object
+        interfaces (list or str): Port names to clean up, can be a list or single string
+        trim_queue_id (int): Queue index used for packet trimming (default: trim queue from packet_trimming_config)
+    """
+    # Convert the queue index to string for the Redis command
+    trim_queue_id = str(trim_queue_id) if trim_queue_id else str(PacketTrimmingConfig.get_trim_queue(duthost))
+
+    if isinstance(interfaces, str):
+        interfaces = [interfaces]
+
+    for interface in interfaces:
+        try:
+            trim_cmd = f"redis-cli -n 4 del 'BUFFER_QUEUE|{interface}|{trim_queue_id}'"
+            duthost.shell(trim_cmd)
+
+            logger.info(
+                f"Removed interface {interface} trimming queue {trim_queue_id} buffer profile reference")
+
+        except Exception as e:
+            if not isinstance(e, RuntimeError):
+                raise RuntimeError(
+                    f"Exception while cleaning up interface {interface} trimming queue: {str(e)}") from e
+            raise
+
+
 def prepare_service_port(duthost, service_port):
     """
     Prepare service port for packet trimming tests by checking existence,
