@@ -157,6 +157,26 @@ def verify_static_eeprom_unchanged(duthost, port_attributes_dict, ports, lport_t
     return [f"static EEPROM check failed after firmware operation: {failure}" for failure in failures]
 
 
+def verify_dom_thresholds_after_operation(duthost, port_attributes_dict, ports):
+    """Validate configured STATE_DB thresholds once, independently of DOM polling."""
+    threshold_plan_by_port = dom_helpers.build_dom_threshold_plan(port_attributes_dict, ports)
+    threshold_ports = [
+        port for port in ports
+        if dom_helpers.has_dom_threshold_range_attributes({port: threshold_plan_by_port[port]})
+    ]
+    if not threshold_ports:
+        logger.info("DOM threshold check skipped: no *_threshold_range attributes configured")
+        return []
+
+    threshold_table_by_port, read_errors = dom_helpers.read_dom_threshold_data(duthost, threshold_ports)
+    threshold_failures, _, _, _, _ = dom_helpers.validate_dom_threshold_ranges(
+        threshold_ports, threshold_table_by_port, threshold_plan_by_port,
+    )
+    return [
+        f"DOM threshold read error after firmware operation: {read_error}" for read_error in read_errors
+    ] + threshold_failures
+
+
 def verify_dom_recovered_after_operation(duthost, port_attributes_dict, ports,
                                          lport_to_first_subport_mapping):
     """Re-enable DOM polling and verify DOM values recovered after a firmware operation.
@@ -534,8 +554,8 @@ def execute_on_ports(duthost, port_attributes_dict, qualifying_ports, lport_to_p
     loop and its result is exposed as ``port_context["prefetched"]``.
 
     ``verify_post_operation`` runs the checks once every port is done: static
-    EEPROM unchanged, then DOM polling re-enabled and in operational range. It
-    requires ``lport_to_first_subport_mapping``.
+    EEPROM unchanged and configured thresholds valid, then DOM polling re-enabled
+    and sensors in operational range. It requires ``lport_to_first_subport_mapping``.
 
     Returns ``(all_failures, num_ports)``, the caller ``pytest.fail``s or logs.
     """
@@ -565,6 +585,9 @@ def execute_on_ports(duthost, port_attributes_dict, qualifying_ports, lport_to_p
     if verify_post_operation and qualifying_ports and not all_failures:
         all_failures += verify_static_eeprom_unchanged(
             duthost, port_attributes_dict, qualifying_ports, lport_to_first_subport_mapping,
+        )
+        all_failures += verify_dom_thresholds_after_operation(
+            duthost, port_attributes_dict, qualifying_ports,
         )
         all_failures += verify_dom_recovered_after_operation(
             duthost, port_attributes_dict, qualifying_ports, lport_to_first_subport_mapping,
