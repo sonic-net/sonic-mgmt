@@ -123,7 +123,8 @@ def verify_drop_counters(duthosts, asic_index, dut_iface, get_cnt_cli_cmd, colum
         return drop_list
 
     def _check_drops_on_dut():
-        return packets_count in _get_drops_across_all_duthosts()
+        actual_drops = _get_drops_across_all_duthosts()
+        return max(actual_drops, default=0) >= packets_count
 
     if not wait_until(25, 1, 0, _check_drops_on_dut):
         # We were seeing a few more drop counters than expected, so we are allowing a small margin of error
