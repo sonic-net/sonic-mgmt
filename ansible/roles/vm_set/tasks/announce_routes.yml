@@ -69,6 +69,11 @@
         state: present  # present contains `supervisorctl reread` and `supervisorctl add`
       delegate_to: "{{ ptf_host }}"
 
+    - name: Update exabgpv4 supervisor processes to apply config changes
+      when: "{{ topo_vms | length > 0 }}"
+      shell: supervisorctl reread && supervisorctl update exabgpv4
+      delegate_to: "{{ ptf_host }}"
+
     - name: Verify that exabgp processes for IPv4 are started
       wait_for:
         host: "{{ ptf_host_ip }}"
@@ -129,6 +134,11 @@
       supervisorctl:
         name: "exabgpv6:"
         state: present  # present contains `supervisorctl reread` and `supervisorctl add`
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Update exabgpv6 supervisor processes to apply config changes
+      when: "{{ topo_vms | length > 0 }}"
+      shell: supervisorctl reread && supervisorctl update exabgpv6
       delegate_to: "{{ ptf_host }}"
 
     - name: Verify that exabgp processes for IPv6 are started
