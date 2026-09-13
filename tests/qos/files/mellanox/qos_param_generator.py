@@ -302,7 +302,15 @@ class QosParamMellanox(object):
                     else:
                         qos_params_dict[sub_qos_config_key] = sub_qos_config_value
 
-        if int(self.asic_type.split('spc')[1]) >= 4:
+        asic_generation = int(self.asic_type.split('spc')[1])
+        lower_bound_margin_ratio = 0.001
+        if asic_generation >= 3:
+            self.qos_params_mlnx['wm_pg_shared_lossy']['pkts_num_margin_lower_bound'] = max(
+                self.qos_params_mlnx['wm_pg_shared_lossy'].get('pkts_num_margin_lower_bound', 0),
+                int(self.qos_params_mlnx['wm_pg_shared_lossy']['pkts_num_trig_egr_drp']
+                    * lower_bound_margin_ratio))
+
+        if asic_generation >= 4:
             margin_ratio = 0.02
             self.qos_params_mlnx['lossy_queue_1']['pkts_num_margin'] = int(
                 self.qos_params_mlnx['lossy_queue_1']['pkts_num_trig_egr_drp'] * margin_ratio)
