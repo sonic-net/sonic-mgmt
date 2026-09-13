@@ -162,8 +162,18 @@ class MemoryMonitor:
                 normalized_thresholds = self._normalize_thresholds(thresholds)
                 logger.debug("Normalized thresholds: {}".format(normalized_thresholds))
 
-                current_value = round(float(current_values.get(name, {}).get(mem_item, 0)), 1)
-                previous_value = round(float(previous_values.get(name, {}).get(mem_item, 0)), 1)
+                current_collected = current_values.get(name, {})
+                previous_collected = previous_values.get(name, {})
+
+                # A missing key means the container/daemon isn't running on this DUT
+                # (e.g. snmp/lldp/radv/teamd on a SmartSwitch DPU). That's expected, so skip
+                # quietly instead of emitting a warning for something that legitimately doesn't exist.
+                if mem_item not in current_collected or mem_item not in previous_collected:
+                    logger.debug("Skipping memory check for {}-{}: not present on this DUT".format(name, mem_item))
+                    continue
+
+                current_value = round(float(current_collected.get(mem_item, 0)), 1)
+                previous_value = round(float(previous_collected.get(mem_item, 0)), 1)
 
                 if current_value == 0 or previous_value == 0:
                     logger.warning("Skipping memory check for {}-{} due to zero value".format(name, mem_item))
