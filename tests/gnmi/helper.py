@@ -3,10 +3,11 @@ import logging
 import pytest
 import json
 import ipaddress
+import base64
 from tests.common.utilities import wait_until
 from tests.common.platform.device_utils import get_dpu_ip, get_dpu_port
 from tests.common.helpers.gnmi_utils import GNMIEnvironment, add_gnmi_client_common_name, del_gnmi_client_common_name, \
-                                            dump_gnmi_log, dump_system_status
+                                             dump_system_status
 from tests.common.helpers.ntp_helper import NtpDaemon, get_ntp_daemon_in_use   # noqa: F401
 from tests.common.helpers.dut_utils import check_container_state
 
@@ -17,6 +18,16 @@ GNMI_PROGRAM_NAME = ''
 GNMI_PORT = 0
 # Base wait unit (seconds) for GNMI server startup; the listening-port poll allows up to 2x this
 GNMI_SERVER_START_WAIT_TIME = 15
+
+
+def dump_gnmi_log(duthost):
+    """Read the scratch log written by the test-launched gNMI server."""
+    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+    command = "docker exec %s tail -n 500 /root/gnmi.log | base64 -w 0" % env.gnmi_container
+    result = duthost.shell(command, module_ignore_errors=True)
+    output = base64.b64decode(result.get("stdout") or "").decode("utf-8", errors="replace")
+    logger.info("GNMI test log: " + output)
+    return output
 
 
 def is_mgmt_vrf_enabled(duthost):
