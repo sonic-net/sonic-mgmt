@@ -19,6 +19,7 @@ import pathlib
 import importlib
 import inspect
 import concurrent.futures.thread as cft
+import uuid
 
 from datetime import datetime
 from ipaddress import ip_interface, IPv4Interface
@@ -53,6 +54,12 @@ from tests.common.helpers.constants import (
 from tests.common.helpers.custom_msg_utils import add_custom_msg
 from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.helpers.dut_utils import encode_dut_and_container_name
+from tests.common.latency_metrics import close_latency_metric_file
+from tests.common.latency_metrics import configure_latency_metric_file
+from tests.common.latency_metrics import DEFAULT_LATENCY_METRIC_FILE
+from tests.common.latency_metrics import DEFAULT_LATENCY_METRIC_THRESHOLD_MS
+from tests.common.latency_metrics import log_latency_metric
+from tests.common.latency_metrics import set_latency_metric_threshold
 from tests.common.helpers.parallel_utils import ParallelCoordinator, ParallelStatus, ParallelRunContext
 from tests.common.helpers.pfcwd_helper import TrafficPorts, select_test_ports, set_pfc_timers, \
     is_pfcwd_hw_recovery_enabled
@@ -141,6 +148,19 @@ fix_logging_handler_fork_lock()
 def pytest_addoption(parser):
     parser.addoption("--testbed", action="store", default=None, help="testbed name")
     parser.addoption("--testbed_file", action="store", default=None, help="testbed file name")
+    parser.addoption(
+        "--latency-metric-threshold-ms",
+        action="store",
+        default=DEFAULT_LATENCY_METRIC_THRESHOLD_MS,
+        type=int,
+        help="Log successful framework operations at or above this duration in milliseconds"
+    )
+    parser.addoption(
+        "--latency-metric-file",
+        action="store",
+        default=DEFAULT_LATENCY_METRIC_FILE,
+        help="Write framework latency records to this JSONL file"
+    )
     parser.addoption("--ipv6_only_mgmt", action="store_true", default=False,
                      help="Use IPv6-only management network. DUT mgmt_ip will be set to IPv6 address.")
     parser.addoption("--uhd_config", action="store", help="Enable UHD config mode")
@@ -435,6 +455,22 @@ def pytest_addoption(parser):
 
 
 def pytest_configure(config):
+    try:
+        set_latency_metric_threshold(config.getoption("latency_metric_threshold_ms"))
+        worker_input = getattr(config, "workerinput", None)
+        worker_id = worker_input.get("workerid") if worker_input else os.environ.get("PYTEST_XDIST_WORKER")
+        run_id = worker_input.get("latency_metric_run_id") if worker_input else uuid.uuid4().hex[:12]
+        config.latency_metric_run_id = run_id
+        is_xdist_controller = bool(getattr(config.option, "numprocesses", None)) and worker_id is None
+        if not is_xdist_controller:
+            metric_file = configure_latency_metric_file(
+                config.getoption("latency_metric_file"),
+                run_id=run_id,
+                worker_id=worker_id
+            )
+            logger.info("Framework latency metrics will be written to %s", metric_file)
+    except (OSError, ValueError) as error:
+        raise pytest.UsageError(str(error))
     if config.getoption("enable_macsec"):
         topo = config.getoption("topology")
         if topo is not None and "t2" in topo:
@@ -442,6 +478,15 @@ def pytest_configure(config):
         else:
             config.pluginmanager.register(MacsecPluginT0())
     converge_topo_if_needed(config)
+
+
+@pytest.hookimpl(optionalhook=True)
+def pytest_configure_node(node):
+    node.workerinput["latency_metric_run_id"] = node.config.latency_metric_run_id
+
+
+def pytest_unconfigure(config):
+    close_latency_metric_file()
 
 
 def _load_testbed_config(tbfile, tbname):
@@ -1550,6 +1595,25 @@ def log_custom_msg(item):
         item.user_properties.append(('CustomMsg', json.dumps(custom_msg)))
 
 
+@pytest.hookimpl(hookwrapper=True)
+def pytest_fixture_setup(fixturedef, request):
+    start_time = time.monotonic()
+    outcome = yield
+    excinfo = outcome.excinfo
+    skipped = excinfo is not None and issubclass(excinfo[0], pytest.skip.Exception)
+    xfailed = excinfo is not None and issubclass(excinfo[0], pytest.xfail.Exception)
+    log_latency_metric(
+        "pytest_fixture",
+        (time.monotonic() - start_time) * 1000,
+        success=excinfo is None or skipped or xfailed,
+        nodeid=getattr(request.node, "nodeid", repr(request.node)),
+        fixture=fixturedef.argname,
+        scope=fixturedef.scope,
+        outcome="skipped" if skipped else "xfailed" if xfailed else "failed" if excinfo else "passed",
+        testbed=request.config.getoption("testbed")
+    )
+
+
 # This function is a pytest hook implementation that is called to create a test report.
 # By placing the call to log_custom_msg in the 'teardown' phase, we ensure that it is executed
 # at the end of each test, after all other fixture teardowns. This guarantees that any custom
@@ -1570,6 +1634,15 @@ def pytest_runtest_makereport(item, call):
     # execute all other hooks to obtain the report object
     outcome = yield
     rep = outcome.get_result()
+    log_latency_metric(
+        "pytest_phase",
+        rep.duration * 1000,
+        success=not rep.failed,
+        nodeid=item.nodeid,
+        phase=rep.when,
+        outcome=rep.outcome,
+        testbed=item.config.getoption("testbed")
+    )
 
     # set a report attribute for each phase of a call, which can
     # be "setup", "call", "teardown"

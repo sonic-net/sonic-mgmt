@@ -139,6 +139,25 @@ The "stdout" section mainly contains ansible debug messages for establishing con
 
 The code for removing these sections is added to hook function tests/conftest.py::pytest_runtest_makereport
 
+## Structured latency metrics
+
+The framework writes slow and failed operations as JSON Lines records to
+`logs/framework_latency_metrics_<run-id>.jsonl`. They do not propagate to the standard pytest logger or `test.log`.
+The run ID prevents stale artifacts and concurrent pytest sessions from overwriting each other. When pytest-xdist
+is used, each worker writes a separate file such as `logs/framework_latency_metrics_<run-id>_gw0.jsonl`. Forked
+framework processes write temporary PID-suffixed files that are merged into their pytest worker's file at shutdown.
+These records identify latency outside simulator processes without including command arguments or credentials:
+
+* `ansible_module`: Ansible module duration, target host, caller, return code, and synchronous/asynchronous mode.
+* `framework_wait`, `framework_wait_until`, and `framework_async_wait_until`: explicit waits, convergence conditions,
+  attempts, and timeouts.
+* `pytest_fixture`: individual fixture setup duration.
+* `pytest_phase`: total setup, call, and teardown duration for each test.
+
+Successful operations are logged when they take at least 5000 milliseconds. Failed operations are always logged.
+Use `--latency-metric-threshold-ms <milliseconds>` to change the threshold, or set it to `0` to log every operation.
+Use `--latency-metric-file <path>` to change the artifact path.
+
 # Logging tips
 
 ## Use logger instead of `print` in scripts
