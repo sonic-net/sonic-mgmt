@@ -709,7 +709,7 @@ def stage(request, duthosts, rand_one_dut_hostname, tbinfo, is_macsec_enabled_fo
     duthost = duthosts[rand_one_dut_hostname]
     pytest_require(
         request.param == "ingress" or duthost.facts.get("platform_asic") == "broadcom-dnx"
-        or duthost.facts["asic_type"] not in ("broadcom"),
+        or duthost.get_asic_name() == "th5" or duthost.facts["asic_type"] not in ("broadcom"),
         "Egress ACLs are not currently supported on \"{}\" ASICs".format(duthost.facts["asic_type"])
     )
 
