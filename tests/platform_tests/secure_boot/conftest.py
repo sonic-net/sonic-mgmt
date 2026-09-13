@@ -8,3 +8,12 @@ def pytest_addoption(parser):
             "rejection and DB enrollment tests."
         ),
     )
+    parser.addoption(
+        "--secure_boot_unauthorized_image_url",
+        action="store",
+        default=None,
+        help=(
+            "URL of a signed image whose DB.auth is authorized by a KEK that "
+            "is not enrolled on the DUT."
+        ),
+    )
