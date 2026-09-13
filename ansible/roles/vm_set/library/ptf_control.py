@@ -24,7 +24,7 @@ Parameters:
 '''
 
 EXAMPLES = '''
-- name: Kill exabgp and ptf_nn_agent processes in PTF container
+- name: Kill speaker and ptf_nn_agent processes in PTF container
   ptf_control:
     ctn_name: "ptf_vms6-1"
     command: kill
@@ -101,6 +101,8 @@ class PtfControl(object):
             for pattern in [
                 "/usr/share/exabgp/http_api.py",
                 "/usr/local/bin/exabgp",
+                "/usr/local/bin/gobgpd",
+                "gobgp.shim",
                 "ptf_nn_agent.py"
             ]:
                 logging.info("=== Kill process %s ===" % pattern)

@@ -25,10 +25,10 @@ description:
       provides. In front of them sits a pool of HTTP shim processes
       (ansible/roles/vm_set/files/gobgp) that accept the ExaBGP HTTP grammar and
       translate it into gobgpd gRPC AddPath/DeletePath.
-    - The shim pool is sized min(cores, ports), each member owning a disjoint
-      shard of the neighbor ports per gobgp.shardmap. That module is imported
-      rather than reimplemented, so the manager and the shims cannot disagree
-      about which shim owns which port.
+    - The shim pool is sized min(cores, ports, pool_max), each member owning a
+      disjoint shard of the neighbor ports per gobgp.shardmap. That module is
+      imported rather than reimplemented, so the manager and the shims cannot
+      disagree about which shim owns which port.
     - Configuration is two-phase, because the pool spans the whole topology.
       state=configure runs once per neighbor and only writes files, then
       state=pool (or started) runs once to merge every neighbor's contribution
@@ -44,9 +44,9 @@ options:
     state:
         description:
             - configure, present, absent and status act on one neighbor.
-            - pool, started, restarted and stopped act on the whole speaker.
+            - pool, started, restarted, stopped and reset act on the whole speaker.
         required: true
-        choices: [configure, pool, started, restarted, stopped, present, absent, status]
+        choices: [configure, pool, started, restarted, stopped, present, absent, reset, status]
     router_id:
         description:
             - BGP router id for this neighbor's daemon.
@@ -73,6 +73,18 @@ options:
               gRPC port.
         required: false
         default: 5000
+    neighbors:
+        description:
+            - Neighbors the topology still has, for state=reset. Every spooled
+              neighbor outside this list is dropped.
+        required: false
+        default: []
+    pool_max:
+        description:
+            - Ceiling on the shim process pool, defaulting to 8. Raise it on a
+              dedicated server whose cores are not shared with other PTF
+              containers.
+        required: false
     passive:
         description:
             - Accepted for exabgp parity and rejected. gobgpd listens only when
@@ -177,11 +189,15 @@ gobgpd_config_template = '''\
 # supervisord program for one gobgpd. Both HTTP flags are required: pprof and
 # prometheus metrics share a single listener that starts unless both are off,
 # and its 127.0.0.1:6060 default is the v6 shim port at offset 60.
+# GOBGP_CONF_DIGEST makes a TOML content change a program *configuration*
+# change, so `supervisorctl update` restarts a daemon whose session parameters
+# were rewritten underneath it.
 gobgpd_supervisord_tmpl = '''\
 [program:gobgpd-{{ name }}]
 command={{ gobgpd }} -f {{ conf_dir }}/{{ name }}.toml -t toml \
 --api-hosts 127.0.0.1:{{ grpc_port }} --pprof-disable --metrics-path ""\
 {% if debug %} --log-level debug{% endif %}
+environment=GOBGP_CONF_DIGEST="{{ digest }}"
 stdout_logfile=/tmp/gobgpd-{{ name }}.out.log
 stderr_logfile=/tmp/gobgpd-{{ name }}.err.log
 stdout_logfile_maxbytes=10000000
@@ -296,13 +312,26 @@ def _remove(path):
         pass  # teardown is idempotent, so an already-deleted path is expected
 
 
-def refresh_supervisord(module):
-    exec_command(module, cmd="supervisorctl reread", ignore_error=True)
-    exec_command(module, cmd="supervisorctl update", ignore_error=True)
+def refresh_supervisord(module, strict=True):
+    """Reload supervisord's view of the config files this module writes.
+
+    ``reread`` only parses the config directory, so its failure means a rendered
+    block is unparseable and is worth reporting on every path.
+
+    ``update`` applies the result to running groups, where a teardown races a
+    group already going away. ``strict`` covers that step alone.
+    """
+    exec_command(module, cmd="supervisorctl reread")
+    exec_command(module, cmd="supervisorctl update", ignore_error=not strict)
 
 
 def _status_lines(output):
-    """``supervisorctl status`` output -> {program: state}."""
+    """``supervisorctl status`` output -> {namespec: state}.
+
+    Each line is labelled with the namespec supervisord itself prints, which is
+    ``group:program`` for a grouped process and the bare name for an ungrouped
+    one, so callers key the reply the same way they phrased the query.
+    """
     states = {}
     for line in output.splitlines():
         m = re.match(r'^(\S+)\s+(\w+)', line.strip())
@@ -311,10 +340,43 @@ def _status_lines(output):
     return states
 
 
+def spooled_neighbors():
+    """Every neighbor the spool names, in rendering order."""
+    return [os.path.basename(path)[:-len(".json")]
+            for path in sorted(glob.glob("%s/*.json" % PORTMAP_SPOOL_DIR))]
+
+
+def neighbor_namespec(name):
+    """Address one neighbor's daemon the way supervisord names it.
+
+    supervisord resolves an unqualified name as a *group*:
+    ``split_namespec("gobgpd-X")`` yields group and process both ``gobgpd-X``,
+    which matches no loaded group and fails with BAD_NAME. Qualify with the
+    group.
+    """
+    return "%s:gobgpd-%s" % (neighbor_group(name), name)
+
+
+def neighbor_group(name):
+    """The group a neighbor's daemon belongs to, read from its spool entry."""
+    try:
+        with open("%s/%s.json" % (PORTMAP_SPOOL_DIR, name)) as f:
+            spec = next(iter(json.load(f).values()))
+    except (IOError, OSError, ValueError, StopIteration):
+        return V4_GROUP
+    return V6_GROUP if spec.get("family") == "v6" else V4_GROUP
+
+
 def get_gobgp_status(module, name):
-    output = exec_command(module, cmd="supervisorctl status gobgpd-%s" % name,
+    """One neighbor's process state, as supervisord reports it.
+
+    ``supervisorctl status`` labels each line with the namespec, so the reply
+    is keyed the same way the query was.
+    """
+    namespec = neighbor_namespec(name)
+    output = exec_command(module, cmd="supervisorctl status %s" % namespec,
                           ignore_error=True)
-    return _status_lines(output).get("gobgpd-%s" % name, "UNKNOWN")
+    return _status_lines(output).get(namespec, "UNKNOWN")
 
 
 def wait_groups_running(module, groups, timeout=300):
@@ -369,7 +431,8 @@ def setup_gobgp_conf(name, router_id, local_ip, peer_ip, local_asn, peer_asn,
 
     block = jinja2.Template(gobgpd_supervisord_tmpl, autoescape=True).render(  # nosemgrep: direct-use-of-jinja2
         name=name, gobgpd=GOBGP_BIN, conf_dir=GOBGP_CONF_DIR,
-        grpc_port=grpc_port_for(port), debug=debug)
+        grpc_port=grpc_port_for(port), debug=debug,
+        digest=hashlib.sha256(data.encode("utf-8")).hexdigest()[:16])
     _write("%s/gobgpd-%s.conf" % (SUPERVISOR_CONF_DIR, name), block)
 
     # This neighbor's contribution to the topology-wide portmap.
@@ -394,7 +457,7 @@ def collect_portmap():
     return portmap
 
 
-def render_pool(portmap, core_count=None, debug=False):
+def render_pool(portmap, core_count=None, debug=False, pool_max=None):
     """Phase 2: render the portmap, the shim shard programs and the groups.
 
     Returns the rendered shard count. Idempotent -- every file it owns is
@@ -413,7 +476,9 @@ def render_pool(portmap, core_count=None, debug=False):
 
     if core_count is None:
         core_count = multiprocessing.cpu_count()
-    k = shardmap.num_shards(core_count, len(portmap))
+    if pool_max is None:
+        pool_max = shardmap.DEFAULT_POOL_MAX
+    k = shardmap.num_shards(core_count, len(portmap), pool_max=pool_max)
     # num_shards caps at the port count, but partition() additionally clamps to
     # a non-empty split; render exactly what it yields, or a shim launched with
     # an out-of-range index would exit on IndexError.
@@ -457,10 +522,13 @@ def start_gobgp(module, groups):
     Ordering is deliberate: the shims dial the gRPC endpoints, and starting them
     second means a shard's first request does not race a daemon that has not yet
     opened its API socket.
+
+    Failures propagate. ``supervisorctl start`` already exits 0 for an
+    already-running group, so a non-zero exit means a missing group or a process
+    that could not spawn.
     """
     for group in groups:
-        exec_command(module, cmd="supervisorctl start %s:" % group,
-                     ignore_error=True)
+        exec_command(module, cmd="supervisorctl start %s:" % group)
     wait_groups_running(module, groups)
 
 
@@ -478,19 +546,50 @@ def remove_gobgp_conf(name):
         _remove(path)
 
 
-def remove_neighbor(module, name, debug=False):
+def reset_fleet(module, keep=(), debug=False, pool_max=None):
+    """Reduce the fleet to the neighbors in ``keep``.
+
+    The spool is the only record of fleet membership — ``render_pool`` builds
+    each group's ``programs=`` from it — so a neighbor survives until its spool
+    entry goes. Against a live container the previous topology's daemons would
+    otherwise start alongside the new ones and hold up readiness.
+
+    Reconciling against ``keep`` leaves an unchanged topology untouched, so a
+    repeat announce rewrites no file and drops no session.
+    """
+    keep = set(keep)
+    stale = [name for name in spooled_neighbors() if name not in keep]
+    if not stale:
+        return []
+
+    for name in stale:
+        exec_command(module, cmd="supervisorctl stop %s" % neighbor_namespec(name),
+                     ignore_error=True)
+        remove_gobgp_conf(name)
+    # Rebuild rather than delete the group files: `programs=` has to lose the
+    # stale members, and a container left without a rendered pool reads as one
+    # that never ran gobgp.
+    render_pool(collect_portmap(), debug=debug, pool_max=pool_max)
+    # Strict, where teardown is tolerant: reset opens a deploy against a fleet
+    # the caller expects to be healthy, so a group that refuses to go is a
+    # result the deploy needs before it starts binding ports.
+    refresh_supervisord(module)
+    return stale
+
+
+def remove_neighbor(module, name, debug=False, pool_max=None):
     """Drop one neighbor and reconverge the pool around it.
 
     Only this neighbor's daemon is stopped; the rest of the fleet keeps serving.
     """
-    exec_command(module, cmd="supervisorctl stop gobgpd-%s" % name,
+    exec_command(module, cmd="supervisorctl stop %s" % neighbor_namespec(name),
                  ignore_error=True)
     remove_gobgp_conf(name)
     # The group files still name this neighbor's program, and supervisord fails
     # to load a group whose `programs=` references a missing section, wedging
     # the family rather than the one neighbor.
-    render_pool(collect_portmap(), debug=debug)
-    refresh_supervisord(module)
+    render_pool(collect_portmap(), debug=debug, pool_max=pool_max)
+    refresh_supervisord(module, strict=False)
 
 
 def fail_with_traceback(module, exc):
@@ -508,13 +607,16 @@ def main():
             name=dict(required=True, type='str'),
             state=dict(required=True, choices=[
                 'configure', 'pool', 'started', 'restarted', 'stopped',
-                'present', 'absent', 'status'], type='str'),
+                'present', 'absent', 'reset', 'status'], type='str'),
             router_id=dict(required=False, type='str'),
             local_ip=dict(required=False, type='str'),
             peer_ip=dict(required=False, type='str'),
             local_asn=dict(required=False, type='int'),
             peer_asn=dict(required=False, type='int'),
             port=dict(required=False, type='int', default=5000),
+            pool_max=dict(required=False, type='int'),
+            neighbors=dict(required=False, type='list', elements='str',
+                           default=[]),
             passive=dict(required=False, type='bool', default=False),
             debug=dict(required=False, type='bool', default=False),
         ),
@@ -534,7 +636,8 @@ def main():
                 refresh_supervisord(module)
         elif state in ('pool', 'started', 'restarted'):
             portmap = collect_portmap()
-            shards = render_pool(portmap, debug=p['debug'])
+            shards = render_pool(portmap, debug=p['debug'],
+                                 pool_max=p['pool_max'])
             result = {'shards': shards, 'ports': len(portmap)}
             refresh_supervisord(module)
             groups = existing_groups()
@@ -544,8 +647,13 @@ def main():
                 start_gobgp(module, groups)
         elif state == 'stopped':
             stop_gobgp(module, existing_groups())
+        elif state == 'reset':
+            result = {'removed': reset_fleet(module, keep=p['neighbors'],
+                                             debug=p['debug'],
+                                             pool_max=p['pool_max'])}
         elif state == 'absent':
-            remove_neighbor(module, name, debug=p['debug'])
+            remove_neighbor(module, name, debug=p['debug'],
+                            pool_max=p['pool_max'])
         elif state == 'status':
             result = {'status': get_gobgp_status(module, name)}
     except Exception as exc:

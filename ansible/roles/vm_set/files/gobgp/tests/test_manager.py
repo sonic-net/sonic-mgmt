@@ -66,10 +66,12 @@ mgr = _load_manager()
 class FakeModule(object):
     """Records ``supervisorctl`` invocations and replays canned status output."""
 
-    def __init__(self, statuses=None):
+    def __init__(self, statuses=None, failing=()):
         self.commands = []
         # {group: [output, output, ...]} consumed in order, last one repeats.
         self.statuses = statuses or {}
+        # command prefixes that exit non-zero, e.g. "supervisorctl reread".
+        self.failing = tuple(failing)
         self.failed = None
         self.fail_kwargs = {}
         self.logs = []
@@ -79,6 +81,9 @@ class FakeModule(object):
 
     def run_command(self, cmd):
         self.commands.append(cmd)
+        for prefix in self.failing:
+            if cmd.startswith(prefix):
+                return 1, "", "%s: ERROR" % prefix
         if cmd.startswith("supervisorctl status "):
             target = cmd.split()[-1].rstrip(':')
             outputs = self.statuses.get(target)
@@ -269,11 +274,13 @@ def test_fleet_pool_is_sized_by_cores_not_sessions(tree):
             }
     assert len(portmap) == 288
 
-    k = mgr.render_pool(portmap, core_count=16)
-    assert k == 16
+    # The bounds are kept apart so a pool that ignored core_count and tracked
+    # only the ceiling would show up here.
+    k = mgr.render_pool(portmap, core_count=12, pool_max=16)
+    assert k == 12
 
     conf = read(tree.supervisor / "gobgpshim.conf")
-    assert conf.count("[program:gobgp-shim-") == 16
+    assert conf.count("[program:gobgp-shim-") == 12
 
     # Every port still served, exactly once, by some shard.
     served = {}
@@ -480,12 +487,14 @@ def test_growing_the_portmap_restarts_the_pool_even_when_k_is_saturated(tree):
 
     conf = tree.supervisor / "gobgpshim.conf"
 
+    cap = shardmap.DEFAULT_POOL_MAX
+
     v4_only = portmap_for([(5000, "v4")])
-    assert mgr.render_pool(v4_only, core_count=16) == 16
+    assert mgr.render_pool(v4_only, core_count=16) == cap
     first = read(conf)
 
     both = portmap_for([(5000, "v4"), (6000, "v6")])
-    assert mgr.render_pool(both, core_count=16) == 16      # k is saturated
+    assert mgr.render_pool(both, core_count=16) == cap     # k is saturated
     second = read(conf)
 
     assert first != second, \
@@ -505,6 +514,43 @@ def test_shim_program_carries_the_portmap_digest(tree):
         read(tree.conf / "portmap.json").encode("utf-8")).hexdigest()[:16]
     assert ('GOBGP_PORTMAP_DIGEST="%s"' % expected
             in read(tree.supervisor / "gobgpshim.conf"))
+
+
+def test_gobgpd_program_carries_the_neighbor_config_digest(tree):
+    mgr.setup_gobgp_conf(name="ARISTA01T1", router_id="10.10.246.254",
+                         local_ip="10.10.246.254", peer_ip="10.0.0.1",
+                         local_asn=65100, peer_asn=64600, port=5000)
+    expected = hashlib.sha256(
+        read(tree.conf / "ARISTA01T1.toml").encode("utf-8")).hexdigest()[:16]
+    assert ('GOBGP_CONF_DIGEST="%s"' % expected
+            in read(tree.supervisor / "gobgpd-ARISTA01T1.conf"))
+
+
+def test_rewriting_a_neighbor_restarts_its_daemon(tree):
+    """A kept neighbor whose session parameters changed must be restarted.
+
+    ``reset_fleet`` keeps a neighbor by name, so a redeploy against a live
+    container rewrites the TOML underneath a running gobgpd. The daemon reads
+    that file once at startup and ``supervisorctl update`` restarts only
+    programs whose *configuration* changed, so without a digest the program
+    block is identical and the daemon keeps the previous peer.
+    """
+    def conf_for(peer_ip, peer_asn):
+        mgr.setup_gobgp_conf(name="ARISTA01T1", router_id="10.10.246.254",
+                             local_ip="10.10.246.254", peer_ip=peer_ip,
+                             local_asn=65100, peer_asn=peer_asn, port=5000)
+        return read(tree.supervisor / "gobgpd-ARISTA01T1.conf")
+
+    first = conf_for("10.0.0.1", 64600)
+    assert conf_for("10.0.0.1", 64600) == first, \
+        "re-rendering an unchanged neighbor must not bounce its daemon"
+
+    assert conf_for("10.0.0.99", 64600) != first, \
+        "peer address change left the program config identical: " \
+        "supervisorctl update would not restart gobgpd"
+    assert conf_for("10.0.0.1", 64999) != first, \
+        "peer ASN change left the program config identical: " \
+        "supervisorctl update would not restart gobgpd"
 
 
 def test_absent_leaves_no_group_pointing_at_a_deleted_program(tree):
@@ -631,7 +677,9 @@ def test_absent_stops_only_the_removed_neighbor(tree):
 
     stops = [c for c in module.supervisor_actions
              if c.startswith("supervisorctl stop")]
-    assert stops == ["supervisorctl stop gobgpd-ARISTA02T1"]
+    # Group-qualified: supervisord reads a bare `gobgpd-X` as a *group* of that
+    # name, finds none loaded, and fails with BAD_NAME having stopped nothing.
+    assert stops == ["supervisorctl stop gobgpv4:gobgpd-ARISTA02T1"]
     assert set(mgr.collect_portmap()) == {"5000", "5002"}
     groups = read(tree.supervisor / "gobgpv4.conf")
     assert "gobgpd-ARISTA02T1" not in groups
@@ -679,3 +727,397 @@ def test_documentation_is_valid_ansible_yaml():
 def test_examples_are_valid_yaml():
     tasks = yaml.safe_load(mgr.EXAMPLES)
     assert isinstance(tasks, list) and tasks
+
+
+# --- pool ceiling -----------------------------------------------------------
+
+def test_the_smallest_of_cores_sessions_and_the_cap_sizes_the_pool():
+    """cpu_count() reports the host, not this container's share of it.
+
+    A PTF container sits alongside other containers and other testbeds' PTFs, so
+    a pool sized purely by host cores oversubscribes a busy server. The cap
+    bounds that without displacing the two bounds that were already there.
+    """
+    assert shardmap.num_shards(64, 512) == shardmap.DEFAULT_POOL_MAX  # cap wins
+    assert shardmap.num_shards(2, 512) == 2                           # cores win
+    assert shardmap.num_shards(64, 3) == 3                            # sessions win
+
+
+def test_pool_max_override_widens_and_narrows_the_pool():
+    assert shardmap.num_shards(64, 512, pool_max=32) == 32
+    assert shardmap.num_shards(64, 512, pool_max=1) == 1
+
+
+def test_pool_max_never_yields_an_empty_pool():
+    assert shardmap.num_shards(64, 512, pool_max=0) == 1
+
+
+def test_render_pool_passes_the_operator_pool_max_through(tree):
+    portmap = {
+        str(5000 + off): {
+            "grpc": "127.0.0.1:%d" % mgr.grpc_port_for(5000 + off),
+            "family": "v4", "name": "ARISTA%02dT1" % off,
+        }
+        for off in range(64)
+    }
+
+    assert mgr.render_pool(portmap, core_count=64) == shardmap.DEFAULT_POOL_MAX
+    assert mgr.render_pool(portmap, core_count=64, pool_max=20) == 20
+
+    conf = read(tree.supervisor / "gobgpshim.conf")
+    assert conf.count("[program:gobgp-shim-") == 20
+
+
+# --- supervisorctl error propagation ----------------------------------------
+
+def test_a_failed_reread_is_reported(tree):
+    """A rejected shim block means the pool was never installed.
+
+    Swallowed here it reappears 300s later as a readiness timeout, with
+    supervisord's own diagnosis discarded.
+    """
+    module = FakeModule(failing=["supervisorctl reread"])
+    with pytest.raises(AssertionError):
+        mgr.refresh_supervisord(module)
+    assert "supervisorctl reread" in module.failed
+
+
+def test_a_failed_update_is_reported(tree):
+    module = FakeModule(failing=["supervisorctl update"])
+    with pytest.raises(AssertionError):
+        mgr.refresh_supervisord(module)
+
+
+def test_teardown_tolerates_a_failed_update(tree):
+    """`update` applies the parsed result to running groups, so a teardown can
+    legitimately race a group that is already going away.
+    """
+    module = FakeModule(failing=["supervisorctl update"])
+    mgr.refresh_supervisord(module, strict=False)
+    assert module.failed is None
+
+
+def test_teardown_still_reports_a_failed_reread(tree):
+    """`reread` parses the files this module just wrote and says nothing about
+    group state, so a rejection there is a malformed render on every path.
+    """
+    module = FakeModule(failing=["supervisorctl reread"])
+    with pytest.raises(AssertionError):
+        mgr.refresh_supervisord(module, strict=False)
+
+
+def test_a_failed_start_is_reported(tree):
+    """`supervisorctl start` exits 0 for an already-running group, so a non-zero
+    exit means a missing group or a process that could not spawn.
+    """
+    module = FakeModule(failing=["supervisorctl start"])
+    with pytest.raises(AssertionError):
+        mgr.start_gobgp(module, ["gobgpv4"])
+    assert "supervisorctl start" in module.failed
+
+
+def test_remove_neighbor_tolerates_a_failed_update_and_stop(tree):
+    """Teardown races a group supervisord may already be tearing down, so both
+    the per-neighbor stop and the reload that follows it stay tolerant.
+    """
+    mgr.setup_gobgp_conf("ARISTA01T1", "10.0.0.0", "10.0.0.0", "10.0.0.1",
+                         65534, 65535, 5000)
+    module = FakeModule(failing=["supervisorctl update", "supervisorctl stop"])
+    mgr.remove_neighbor(module, "ARISTA01T1")
+    assert module.failed is None
+
+
+def test_stop_still_tolerates_a_missing_group(tree):
+    module = FakeModule(failing=["supervisorctl stop"])
+    mgr.stop_gobgp(module, ["gobgpv4"])
+    assert module.failed is None
+
+
+# --- fleet reset ------------------------------------------------------------
+
+def _spool_neighbors(names):
+    for i, name in enumerate(names):
+        mgr.setup_gobgp_conf(name, "10.0.0.0", "10.0.0.0", "10.0.0.1",
+                             65534, 65535, 5000 + i)
+    return list(names)
+
+
+def test_reset_drops_the_neighbors_the_topology_no_longer_has(tree):
+    """The spool is the only record of group membership, so a redeploy into a
+    container that already served a topology would otherwise start the previous
+    numbering's daemons alongside the new one.
+    """
+    _spool_neighbors(["ARISTA01T1", "ARISTA02T1", "ARISTA03T1"])
+    mgr.render_pool(mgr.collect_portmap())
+
+    module = FakeModule()
+    removed = mgr.reset_fleet(module, keep=["ARISTA02T1"])
+
+    assert removed == ["ARISTA01T1", "ARISTA03T1"]
+    assert set(mgr.collect_portmap()) == {"5001"}
+    conf = read(tree.supervisor / "gobgpv4.conf")
+    assert "gobgpd-ARISTA02T1" in conf
+    for stale in ("ARISTA01T1", "ARISTA03T1"):
+        assert "gobgpd-%s" % stale not in conf
+
+
+@pytest.mark.parametrize("name,local_ip,peer_ip,port,group", [
+    ("ARISTA01T1", "10.0.0.0", "10.0.0.1", 5000, "gobgpv4"),
+    ("ARISTA01T1-v6", "fc0a::ff", "fc0a::1", 6000, "gobgpv6"),
+])
+def test_reset_stops_each_stale_daemon_through_its_own_group(
+        tree, name, local_ip, peer_ip, port, group):
+    """supervisord resolves an unqualified name as a group of that name, so an
+    unqualified stop matches nothing and reports BAD_NAME having done nothing.
+    """
+    mgr.setup_gobgp_conf(name, "10.0.0.0", local_ip, peer_ip, 65534, 65535, port)
+    mgr.render_pool(mgr.collect_portmap())
+
+    module = FakeModule()
+    mgr.reset_fleet(module)
+
+    stops = [c for c in module.commands if c.startswith("supervisorctl stop")]
+    assert stops == ["supervisorctl stop %s:gobgpd-%s" % (group, name)]
+
+
+def test_reset_is_idempotent_on_a_container_that_never_ran_gobgp(tree):
+    module = FakeModule()
+    assert mgr.reset_fleet(module) == []
+    assert module.failed is None
+
+
+def test_reset_touches_nothing_when_the_topology_is_unchanged(tree):
+    """A repeat announce re-enters this path against a live fleet. Rewriting
+    the pool there would drop and re-establish every BGP session.
+    """
+    names = _spool_neighbors(["ARISTA01T1", "ARISTA02T1"])
+    mgr.render_pool(mgr.collect_portmap())
+    before = read(tree.supervisor / "gobgpshim.conf")
+
+    module = FakeModule()
+    assert mgr.reset_fleet(module, keep=names) == []
+
+    assert read(tree.supervisor / "gobgpshim.conf") == before
+    assert module.supervisor_actions == []
+
+
+def test_reset_leaves_the_container_marked_as_running_gobgp(tree):
+    """The playbook reads the shim group's conf to decide which speaker a
+    container runs, so a reset that removed it would revert the next run to
+    ExaBGP.
+    """
+    _spool_neighbors(["ARISTA01T1", "ARISTA02T1"])
+    mgr.render_pool(mgr.collect_portmap())
+
+    mgr.reset_fleet(FakeModule(), keep=["ARISTA01T1"])
+
+    assert (tree.supervisor / "gobgpshim.conf").exists()
+
+
+# --- pool_max reaches every re-render ---------------------------------------
+
+def test_removing_a_neighbor_keeps_the_operator_pool_max(tree, monkeypatch):
+    """`partition` is round-robin over the sorted port list, so a changed k
+    reassigns every port and bounces the whole front end. Dropping one neighbor
+    holds the ceiling it was deployed with.
+
+    `core_count` needs no such care: every render reads it from the same host.
+    """
+    monkeypatch.setattr(mgr.multiprocessing, "cpu_count", lambda: 64)
+    _spool_neighbors(["ARISTA%02dT1" % i for i in range(1, 41)])
+    mgr.render_pool(mgr.collect_portmap(), pool_max=32)
+    before = read(tree.supervisor / "gobgpshim.conf")
+    assert before.count("[program:gobgp-shim-") == 32
+
+    module = FakeModule()
+    mgr.remove_neighbor(module, "ARISTA40T1", pool_max=32)
+
+    after = read(tree.supervisor / "gobgpshim.conf")
+    assert after.count("[program:gobgp-shim-") == 32
+
+
+# --- the playbook branch ----------------------------------------------------
+
+def _announce_routes_tasks():
+    """Every task in announce_routes.yml, flattened out of its blocks."""
+    here = os.path.dirname(os.path.abspath(__file__))
+    path = os.path.abspath(os.path.join(
+        here, os.pardir, os.pardir, os.pardir, 'tasks', 'announce_routes.yml'))
+    if not os.path.exists(path):
+        pytest.skip("announce_routes.yml not found at %s" % path)
+
+    with open(path) as f:
+        tree = yaml.safe_load(f)
+
+    def walk(tasks, inherited, scope):
+        for task in tasks:
+            own = task.get('when', [])
+            own = [own] if isinstance(own, str) else list(own)
+            conditions = inherited + own
+            if 'block' in task:
+                nested = dict(scope)
+                nested.update(task.get('vars') or {})
+                for found in walk(task['block'], conditions, nested):
+                    yield found
+            else:
+                yield task, conditions, scope
+
+    return [(task, conditions) for task, conditions, _ in walk(tree, [], {})]
+
+
+def _announce_routes_tasks_with_vars():
+    """Every task paired with the vars its enclosing blocks put in scope."""
+    here = os.path.dirname(os.path.abspath(__file__))
+    path = os.path.abspath(os.path.join(
+        here, os.pardir, os.pardir, os.pardir, 'tasks', 'announce_routes.yml'))
+    if not os.path.exists(path):
+        pytest.skip("announce_routes.yml not found at %s" % path)
+
+    with open(path) as f:
+        tree = yaml.safe_load(f)
+
+    def walk(tasks, scope):
+        for task in tasks:
+            if 'block' in task:
+                nested = dict(scope)
+                nested.update(task.get('vars') or {})
+                for found in walk(task['block'], nested):
+                    yield found
+            else:
+                yield task, scope
+
+    return list(walk(tree, {}))
+
+
+SPEAKER_MODULES = ('exabgp', 'gobgp')
+
+
+def test_every_speaker_task_is_guarded_by_the_speaker_it_drives():
+    """The branch is the whole point of the wiring: an unguarded speaker task
+    runs both speakers against the same neighbor ports.
+    """
+    seen = {'exabgp': 0, 'gobgp': 0}
+    for task, conditions in _announce_routes_tasks():
+        for speaker in SPEAKER_MODULES:
+            if speaker not in task:
+                continue
+            seen[speaker] += 1
+            guard = "ptf_bgp_speaker == '%s'" % speaker
+            assert any(guard in c.replace('"', "'") for c in conditions), \
+                "task %r invokes %s without %s" % (
+                    task.get('name'), speaker, guard)
+
+    assert seen['exabgp'] >= 2, seen
+    assert seen['gobgp'] >= 2, seen
+
+
+# Parameters one manager accepts and the other rejects. `gobgp` raises on
+# `passive` because gobgpd listens only when the global port is positive, and it
+# is fixed at -1 there.
+SPEAKER_ONLY_PARAMS = {'exabgp': {'passive'}, 'gobgp': {'pool_max'}}
+
+
+def _resolve_speaker_args(args, scope):
+    """Module args as a dict, following a ``"{{ var }}"`` reference into scope."""
+    if isinstance(args, dict):
+        return args
+    if isinstance(args, str):
+        name = args.strip().strip('{} ').strip()
+        resolved = scope.get(name)
+        if isinstance(resolved, dict):
+            return resolved
+    return None
+
+
+def test_the_exabgp_and_gobgp_branches_cover_the_same_neighbor_parameters():
+    """The manager is an API drop-in, so a parameter added to one branch and
+    missed on the other silently changes the session the shim opens.
+    """
+    by_speaker = {'exabgp': [], 'gobgp': []}
+    for task, scope in _announce_routes_tasks_with_vars():
+        for speaker in SPEAKER_MODULES:
+            if speaker not in task:
+                continue
+            args = _resolve_speaker_args(task[speaker], scope)
+            assert args is not None, \
+                "task %r passes %s args this test cannot resolve" % (
+                    task.get('name'), speaker)
+            if args.get('state') == 'configure':
+                by_speaker[speaker].append(args)
+
+    assert len(by_speaker['exabgp']) == len(by_speaker['gobgp']) == 2
+    exempt = SPEAKER_ONLY_PARAMS['exabgp'] | SPEAKER_ONLY_PARAMS['gobgp']
+    for exa, go in zip(by_speaker['exabgp'], by_speaker['gobgp']):
+        for key in (set(exa) | set(go)) - exempt:
+            assert exa.get(key) == go.get(key), \
+                "configure parameter %r diverges: %r vs %r" % (
+                    key, exa.get(key), go.get(key))
+
+
+def test_the_speaker_default_is_taken_from_the_container():
+    """A re-entry that omits the extra-var must not start the other speaker."""
+    for task, _ in _announce_routes_tasks():
+        fact = task.get('set_fact', {})
+        if 'ptf_bgp_speaker' in fact:
+            assert task.get('when') == 'ptf_bgp_speaker is not defined'
+            assert 'ptf_gobgp_installed' in fact['ptf_bgp_speaker']
+            break
+    else:
+        raise AssertionError("nothing defaults ptf_bgp_speaker")
+
+    guards = [task for task, _ in _announce_routes_tasks() if 'fail' in task]
+    conditions = " ".join(str(t.get('when', '')) for t in guards)
+    for marker in ('ptf_gobgp_installed', 'ptf_exabgp_installed'):
+        assert marker in conditions, \
+            "no guard covers a container already running the other speaker (%s)" % marker
+
+
+def test_an_unsupported_speaker_value_is_rejected_before_the_branches():
+    """Every configure and start task is gated on one of the two names.
+
+    An unsupported value therefore has no task to run, so the playbook rejects
+    it up front.
+    """
+    guards = [task for task, _ in _announce_routes_tasks() if 'fail' in task]
+    conditions = " ".join(str(t.get('when', '')) for t in guards)
+    assert "ptf_bgp_speaker not in ['exabgp', 'gobgp']" in conditions, \
+        "nothing rejects an unsupported ptf_bgp_speaker, so a typo waits for " \
+        "the readiness timeout instead of failing immediately"
+
+
+def test_the_reset_keep_list_follows_the_family_gates():
+    """A neighbor kept for a disabled family is started anyway.
+
+    ``state: started`` resolves its groups from the rendered config rather than
+    from the family it is called for, so a v4 entry surviving into an IPv6-only
+    run is started by the v6 block.
+    """
+    for task, _ in _announce_routes_tasks():
+        args = task.get('gobgp', {})
+        if args.get('state') == 'reset':
+            keep = args['neighbors']
+            break
+    else:
+        raise AssertionError("no reset task found")
+
+    for flag in ('enable_ipv4_routes_generation', 'enable_ipv6_routes_generation'):
+        assert flag in keep, \
+            "the reset keep list ignores %s, so the disabled family's " \
+            "neighbors survive and are started by the other family" % flag
+
+
+@pytest.mark.parametrize("name,local_ip,peer_ip,port,group,state", [
+    ("ARISTA01T1", "10.0.0.0", "10.0.0.1", 5000, "gobgpv4", "RUNNING"),
+    ("ARISTA01T1-v6", "fc0a::ff", "fc0a::1", 6000, "gobgpv6", "FATAL"),
+])
+def test_status_reads_the_namespec_supervisord_prints(
+        tree, name, local_ip, peer_ip, port, group, state):
+    """supervisorctl labels a grouped process `group:program`, so the reply is
+    keyed the way the query was phrased.
+    """
+    mgr.setup_gobgp_conf(name, "10.0.0.0", local_ip, peer_ip, 65534, 65535, port)
+    namespec = "%s:gobgpd-%s" % (group, name)
+    module = FakeModule(statuses={namespec: ["%s  %s  pid 42" % (namespec, state)]})
+
+    assert mgr.get_gobgp_status(module, name) == state
+    assert module.commands == ["supervisorctl status %s" % namespec]

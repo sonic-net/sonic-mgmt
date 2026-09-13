@@ -53,7 +53,7 @@
       - ptf_existing_python_major.stdout != "2"
     ignore_errors: yes
 
-  - name: Kill exabgp and ptf_nn_agent processes in PTF container
+  - name: Kill speaker and ptf_nn_agent processes in PTF container
     ptf_control:
       ctn_name: "ptf_{{ vm_set_name }}"
       command: kill
