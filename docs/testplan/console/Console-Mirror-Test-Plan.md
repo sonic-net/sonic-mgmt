@@ -30,9 +30,9 @@ This plan verifies:
 - **Test Server**: Runs `sonic-mgmt`.
 - **Lab ToR**: Provides the VLAN path used by `sonic-mgmt` to access the DUT.
 - **DUT**: Runs `consutil`, the per-line console proxies, Console Mirror, STATE_DB, and local recording storage.
-- **Serial wiring**: Select one eligible console link from the testbed's `*_serial_links.csv`. The DUT endpoint is `mirror_line A`; the opposite endpoint is `mirror_line B`.
+- **Serial wiring**: Select one console line from the testbed's `*_serial_links.csv`. In accordance with `c0-lo`, that console port is fitted with an RJ45 loopback module that connects its TX pins back to its RX pins.
 
-The initial automation targets a `c0-lo`-style physical serial path. The Lab ToR is only the management path and is not part of the serial traffic path.
+The initial automation targets the `c0-lo` topology defined by the [Standalone SONiC Console Server Test Plan](standalone_sonic_console_server_test_plan.md).
 
 ```mermaid
 flowchart LR
@@ -47,41 +47,38 @@ flowchart LR
     subgraph DUT["DUT / Console Switch"]
         cli["consutil mirror"]
 
-        proxyA["console-monitor-proxy@A"]
-        proxyB["console-monitor-proxy@B"]
-        portA["Console Port A"]
-        portB["Console Port B"]
+        proxy["console-monitor-proxy@line"]
+        port["Console Port"]
+        loopback["RJ45 loopback module<br/>TX to RX"]
 
-        cli --> proxyA
-        cli --> proxyB
-        proxyA <--> portA
-        proxyB <--> portB
+        cli --> proxy
+        proxy <--> port
+        port <--> loopback
     end
 
     mgmt <-->|"SSH / test control"| vlan
     vlan <--> cli
-    portA <-->|"Physical crossover cable"| portB
 ```
 
-For a mirror session on `mirror_line A`:
+For a mirror session on the selected line:
 
-| Test traffic | Direction recorded on `mirror_line A` |
+| Test traffic leg | Direction recorded on the selected line |
 |---|---|
-| Send from the `mirror_line A` console session to `mirror_line B` | TX |
-| Send from the `mirror_line B` console session to `mirror_line A` | RX |
+| Data sent from the reverse-SSH console session to the physical port | TX |
+| The same data returned by the RJ45 loopback module | RX |
 
 ## 4 Test Cases
 
-Use a function-scoped teardown fixture for every test case. The fixture stops any active mirror, waits for `consutil mirror show` and `CONSOLE_MIRROR|<mirror_line A>` in STATE_DB to report `idle`, verifies that all active-session fields are cleared and no recording file for the stopped session remains open by the target proxy, and releases both console sessions. A teardown verification failure fails the test.
+Use a function-scoped teardown fixture for every test case. The fixture stops any active mirror, waits for `consutil mirror show` and `CONSOLE_MIRROR|<line>` in STATE_DB to report `idle`, verifies that all active-session fields are cleared and no recording file for the stopped session remains open by the target proxy, and releases the console session. A teardown verification failure fails the test.
 
 ### 4.1 Functionality Test
 
 | Case | Objective | Test Steps | Expected Result |
 |-|-|-|-|
-| CLI and State | Verify CLI control and runtime state | Start, show, check `STATE_DB`, update timeout, check `STATE_DB`, and stop mirroring on `mirror_line A` | Operations return correct state and metadata; the timeout update resets the remaining time. |
-| Traffic Recording | Verify direction filtering, data integrity, escaping, and non-interference | 1. Parameterize `rx`, `tx`, and `both`<br />2. Exchange unique printable and control-byte payloads between `mirror_line A` and `mirror_line B` while mirroring and both console sessions remain active | Only selected directions are fully recorded with correct labels and escaping. `mirror_line B` receives exactly the string sent, without loss, duplication or other changes. |
+| CLI and State | Verify CLI control and runtime state | Start, show, check `STATE_DB`, update timeout, check `STATE_DB`, and stop mirroring on the selected line | Operations return correct state and metadata; the timeout update resets the remaining time. |
+| Traffic Recording | Verify direction filtering, data integrity, escaping, and non-interference | 1. Parameterize `rx`, `tx`, and `both`<br />2. Send a unique printable and control-byte payload through one reverse-SSH session and receive it back through the selected port's loopback module | Only selected directions are fully recorded with correct labels and escaping. The console session receives exactly the string sent, without loss, duplication, or other changes. In `both` mode the same frame appears once as TX and once as RX. |
 | Recording Files | Verify file format, rotation, retention, and permissions | Start with a small file-size limit, generate enough traffic to rotate the recording, stop without archiving, and inspect the log parts, ownership, and permissions | SCM-Text format and rotation are correct; all unarchived log parts remain; directories are `0700` and log files are `0600`, owned by `root:root` |
-| Archive Success | Verify successful ZIP packaging | Start with a small file-size limit, generate multiple log parts, stop with `--archive`, and inspect the resulting ZIP file and its contents | The ZIP is created successfully with mode `0600` and ownership `root:root`, contains every log part from the session, and the source log parts are removed |
+| Archive Success | Verify successful ZIP packaging | Start with a small file-size limit, generate multiple log parts, preserve hard links to their inodes, stop with `--archive`, and compare each ZIP entry with its source log | The ZIP is created successfully with mode `0600` and ownership `root:root`; its entry names, sizes, and SHA-256 digests match the source logs exactly; the original source paths are removed |
 
 ### 4.2 Lifecycle Test
 
@@ -93,7 +90,7 @@ Use a function-scoped teardown fixture for every test case. The fixture stops an
 
 | Case | Objective | Test Steps | Expected Result |
 |-|-|-|-|
-| Single-Line Maximum-Rate Resource Usage | Measure peak memory and CPU usage while one line is mirrored at its maximum serial rate | 1. Select `mirror_line A` and read its configured baud rate from the selected `*_serial_links.csv` entry<br />2. Record the target proxy service's idle memory and CPU baseline<br />3. Start bidirectional mirroring only on `mirror_line A`<br />4. Send continuous console traffic from `mirror_line A` to `mirror_line B` at the maximum throughput supported by the configured baud rate while sampling the proxy's memory and CPU usage<br />5. Stop mirroring and record the peaks and post-stop memory usage | Report peak memory and CPU usage; traffic reaches `mirror_line B` intact at the expected baud-limited rate; memory remains bounded and returns near the idle baseline after teardown. |
+| Single-Line Maximum-Rate Resource Usage | Measure peak memory and CPU usage while one line is mirrored at its maximum serial rate | 1. Select one console line and read its configured baud rate<br />2. Record the target proxy service's idle memory and CPU baseline<br />3. Start bidirectional mirroring on the selected line<br />4. Send continuous console traffic through its reverse-SSH session and receive it back through the RJ45 loopback module at the maximum throughput supported by the configured baud rate while sampling the proxy's memory and CPU usage<br />5. Stop mirroring and record the peaks and post-stop memory usage | Report peak memory and CPU usage; looped-back traffic remains intact at the expected baud-limited rate; memory remains bounded and returns near the idle baseline after teardown. |
 
 ## 5 Future Work
 

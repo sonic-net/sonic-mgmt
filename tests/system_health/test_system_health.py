@@ -72,15 +72,17 @@ DEFAULT_LED_CONFIG = {
 
 
 @pytest.fixture(autouse=True, scope="module")
-def check_image_version(duthost):
+def check_image_version(duthosts, enum_rand_one_per_hwsku_hostname):
     """Skip the test for unsupported images."""
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     pytest_require(parse_version(duthost.kernel_version) > parse_version('4.9.0'),
                    "Test not supported for 201911 images. Skipping the test")
     yield
 
 
 @pytest.fixture(autouse=True, scope='module')
-def config_reload_after_tests(duthost):
+def config_reload_after_tests(duthosts, enum_rand_one_per_hwsku_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     yield
     config_reload(duthost)
 
@@ -519,6 +521,14 @@ def _fetch_led_and_status(duthost):
 
 
 def check_system_health_led_info(duthost):
+    # BMC platforms do not implement the system status LED chassis APIs, so
+    # 'show system-health summary' fails on them. Skip the LED check there.
+    if duthost.is_bmc():
+        logger.warning(
+            "Skipping system status LED check: BMC platform '%s' does not implement "
+            "the system status LED APIs.", duthost.facts.get('platform'))
+        return True
+
     led_cfg = get_system_health_config(duthost, "led_color", DEFAULT_LED_CONFIG)
     expected_normal = led_cfg["normal"].lower()
     not_normal = {color.lower() for key, color in led_cfg.items() if key != "normal"}

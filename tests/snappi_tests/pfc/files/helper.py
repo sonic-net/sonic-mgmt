@@ -205,11 +205,11 @@ def run_pfc_test(api,
         # PFC pause frame capture is not requested
         valid_pfc_frame_test = False
 
-    if valid_pfc_frame_test and not is_cisco_device(egress_duthost):
-        snappi_extra_params.traffic_flow_config.pause_flow_config["flow_dur_sec"] = DATA_FLOW_DURATION_SEC + \
-            data_flow_delay_sec + SNAPPI_POLL_DELAY_SEC + PAUSE_FLOW_DUR_BASE_SEC
-        snappi_extra_params.traffic_flow_config.pause_flow_config["flow_traffic_type"] = \
-            traffic_flow_mode.FIXED_DURATION
+    # A paused test flow is backpressured by the continuous pause storm and never reaches
+    # 'stopped' on its own, so run_traffic must stop the data flows explicitly. Cisco's
+    # valid-PFC-frame path is excluded to keep its existing behavior unchanged.
+    if test_traffic_pause and not (valid_pfc_frame_test and is_cisco_device(egress_duthost)):
+        snappi_extra_params.stop_data_flows_before_final_stats = True
 
     no_of_streams = 1
     if egress_duthost.facts['asic_type'] == "cisco-8000":

@@ -26,6 +26,7 @@ __all__ = [
     # ── Public parsers ──────────────────────────────────────────────────────
     "parse_fwversion",
     "parse_hexdump",
+    "parse_lpmode",
     "parse_presence",
     "parse_read_eeprom",
 ]
@@ -208,6 +209,27 @@ def parse_presence(output_lines):
             port = match.group(1)
             presence = match.group(2).strip()
             res[port] = presence
+    return res
+
+
+_LPMODE_LINE_RE = re.compile(r"^(Ethernet\d+(?:/\d+)?)\s+(On|Off|N/A|Not Present)\s*$")
+
+
+def parse_lpmode(output_lines):
+    """Parse ``sfputil show lpmode`` output into a ``{port: low_power_mode}`` map.
+
+    Args:
+        output_lines: command stdout as a list of lines.
+
+    Returns:
+        dict mapping port name to its ``Low-power Mode`` column value, e.g.
+        ``{"Ethernet0": "On", "Ethernet8": "Off"}``.
+    """
+    res = {}
+    for line in output_lines:
+        match = _LPMODE_LINE_RE.match(line.strip())
+        if match:
+            res[match.group(1)] = match.group(2)
     return res
 
 

@@ -283,7 +283,8 @@ def verify_config_rate_limit_fail(duthost, service_name):
     pytest_assert('Error' in output, 'Error: config syslog rate limit for {}: {}'.format(service_name, output))
 
 
-def _wait_expected_logs_forwarded(duthost, start_marker, expect_log_regex, expect_log_matches, additional_files):
+def _wait_expected_logs_forwarded(duthost, start_marker, expect_log_regex, expect_log_matches, additional_files,
+                                  presence_log_regex=None):
     """Wait until every expected message has been forwarded into the host log files for
     this LogAnalyzer window before the window is closed.
 
@@ -319,6 +320,8 @@ def _wait_expected_logs_forwarded(duthost, start_marker, expect_log_regex, expec
                     return False
             elif not re.search(regex, captured):
                 return False
+        if presence_log_regex and not all(re.search(regex, captured) for regex in presence_log_regex):
+            return False
         return True
 
     return wait_until(SYSLOG_FORWARD_TIMEOUT, SYSLOG_FORWARD_INTERVAL, 0, _all_expected_present)
@@ -369,7 +372,7 @@ def verify_rate_limit_with_log_generator(duthost, service_name, log_marker, expe
         # and verifies the window, instead of racing that forwarding with a fixed sleep.
         # LogAnalyzer itself asserts the messages on exit, so this is only a wait.
         _wait_expected_logs_forwarded(duthost, loganalyzer._markers[-1], expect_log_regex,
-                                      expect_log_matches, additional_files)
+                                      expect_log_matches, additional_files, presence_log_regex)
 
     if presence_log_regex:
         presence_analyzer.analyze(presence_marker)
