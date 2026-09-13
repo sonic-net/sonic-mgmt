@@ -722,6 +722,7 @@ class AdvancedReboot:
 
         test_results = []
 
+        post_reboot_analysis = None
         for hop_index, _ in enumerate(upgrade_path_urls[1:], start=1):
             upgrade_path_str = "{from_image} -> {to_image} (hop {hop_index})".format(
                 hop_index=hop_index, from_image=upgrade_path_urls[hop_index-1], to_image=upgrade_path_urls[hop_index])
