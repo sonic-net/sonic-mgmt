@@ -135,6 +135,12 @@ class AnsibleHostBase(object):
             return super().default(obj)
 
     def __init__(self, ansible_adhoc, hostname, *args, **kwargs):
+        # Set hostname first. Everything below can raise (missing inventory entry,
+        # unreachable host, ansible errors). If hostname were assigned last, a
+        # partially constructed host would lack it, and the @cached decorator's
+        # _get_default_zone() would then raise a misleading
+        # "Failed to get attribute 'hostname'" ValueError that masks the real error.
+        self.hostname = hostname
         if hostname == 'localhost':
             self.host = ansible_adhoc(connection='local', host_pattern=hostname)[hostname]
         else:
@@ -161,7 +167,6 @@ class AnsibleHostBase(object):
             else:
                 self.mgmt_ip = ansible_host
                 self.mgmt_ipv6 = ansible_hostv6
-        self.hostname = hostname
 
     def __getattr__(self, module_name):
         with _ansible_module_resolution_lock:
