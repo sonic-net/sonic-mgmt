@@ -744,12 +744,28 @@ bgp/test_startup_tsa_tsb_service.py::test_user_init_tsb_on_sup_while_service_run
     conditions:
       - "'t2_single_node' in topo_name or topo_type in ['lrh', 'urh']"
 
+bgp/test_traffic_shift.py::test_TSA_B_C_with_no_neighbors:
+  xfail:
+    reason: "restore_bgp_neighbors() hits ARG_MAX/E2BIG on scale topo https://github.com/sonic-net/sonic-mgmt/issues/27503"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/27503 and 't1-isolated-d448u15-lag' in topo_name"
+
+bgp/test_traffic_shift.py::test_TSA_TSB_with_config_reload:
+  xfail:
+    reason: "Cascade after unrestored BGP neighbors on scale topo https://github.com/sonic-net/sonic-mgmt/issues/27503"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/27503 and 't1-isolated-d448u15-lag' in topo_name"
+
 bgp/test_traffic_shift.py::test_load_minigraph_with_traffic_shift_away:
   skip:
     reason: "Test is flaky and causing PR test to fail unnecessarily"
     conditions:
       - "asic_type in ['vs']"
       - https://github.com/sonic-net/sonic-mgmt/issues/6471
+  xfail:
+    reason: "xfail on scale topo due to https://github.com/sonic-net/sonic-mgmt/issues/27503"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/27503 and 't1-isolated-d448u15-lag' in topo_name"
 
 bgp/test_traffic_shift_lc.py:
   skip:
