@@ -31,7 +31,8 @@ mellanox_spc4_hwskus: [ 'ACS-SN5600' , 'Mellanox-SN5600-V256', 'Mellanox-SN5600-
                         'Mellanox-SN5610N-C256S2', 'Mellanox-SN5610N-C224O8']
 mellanox_spc5_hwskus: [ 'Mellanox-SN5640-C512S2', 'Mellanox-SN5640-C448O16', 'Mellanox-SN5640-C508O1X2',
                         'Mellanox-SN5640-O128X2', 'Mellanox-SN5640-C512X2']
-mellanox_hwskus: "{{ mellanox_spc1_hwskus + mellanox_spc2_hwskus + mellanox_spc3_hwskus + mellanox_spc4_hwskus + mellanox_spc5_hwskus }}"
+mellanox_spc6_hwskus: [ 'ACS-SN6600','ACS-SN6600_LD', "ACS-SN6810_LD", "Mellanox-SN6600_LD-P64O128C2", "Mellanox-SN6600_LD-P128C2"]
+mellanox_hwskus: "{{ mellanox_spc1_hwskus + mellanox_spc2_hwskus + mellanox_spc3_hwskus + mellanox_spc4_hwskus + mellanox_spc5_hwskus + mellanox_spc6_hwskus }}"
 mellanox_dualtor_hwskus: [ 'Mellanox-SN4700-V64' ]
 
 cavium_hwskus: [ "AS7512", "XP-SIM" ]
