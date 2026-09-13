@@ -519,8 +519,11 @@ def restore_module_to_original(duthost, port, port_context, metadata_map):
                 target_version=orig_inactive, expect_link_up=False,
             )
 
-    failures += scenario_ops.perform_ports_startup(
-        duthost, port_context["subports"], system_attrs["port_startup_wait_sec"],
+    failures += scenario_ops.perform_sfputil_reset(
+        duthost, [port], port_context["subports"],
+        system_attrs["port_shutdown_wait_sec"],
+        system_attrs["port_startup_wait_sec"],
+        recover_wait_sec=system_attrs["transceiver_reset_i2c_recover_sec"],
     )
     return failures
 
