@@ -5,7 +5,7 @@ import random
 import os
 from ipaddress import ip_address
 
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert as py_assert
 
 logger = logging.getLogger(__name__)
 
@@ -89,10 +89,10 @@ def setup(duthost, tbinfo, ptfadapter):
     logger.info('spine_ports: {}'.format(spine_ports))
     logger.info('tor_addr: {}'.format(tor_addr))
 
-    pytest_assert(tor_ports,
-                  'No active IPv4 interface toward configured T0 peers; check interface state and peer connectivity')
-    pytest_assert(spine_ports,
-                  'No active IPv4 interface toward configured T2 peers; check interface state and peer connectivity')
+    py_assert(tor_ports,
+              'No active IPv4 interface toward configured T0 peers; check interface state and peer connectivity')
+    py_assert(spine_ports,
+              'No active IPv4 interface toward configured T2 peers; check interface state and peer connectivity')
 
     for dut_port in tor_ports:
         tor_ports_ids[dut_port] = _resolve_ptf_port_ids(dut_port, mg_facts)
