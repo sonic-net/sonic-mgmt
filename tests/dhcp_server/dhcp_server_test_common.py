@@ -7,6 +7,7 @@ import pytest
 import ptf.packet as scapy
 import ptf.testutils as testutils
 from tests.common.utilities import capture_and_check_packet_on_dut, wait_until
+from tests.common import dhcp_relay_utils
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 
 
@@ -37,6 +38,18 @@ DHCP_SERVER_SUPPORTED_OPTION_ID = (
 )
 
 
+def get_expected_dhcp_server_relay_type(relay_agent, relay_configured):
+    """Return the relay mode explicitly selected by the test and config phase."""
+    if relay_agent == 'sonic-relay-agent':
+        return 'sonic'
+    return 'isc-internal' if relay_configured else 'isc-internal-idle'
+
+
+def _wait_dhcp_server_relay_ready(duthost, relay_agent, relay_configured):
+    relay_type = get_expected_dhcp_server_relay_type(relay_agent, relay_configured)
+    dhcp_relay_utils.wait_dhcp_relay_ready(duthost, [relay_type])
+
+
 def vlan_i2n(vlan_id):
     """
         Convert vlan id to vlan name
@@ -59,7 +72,7 @@ def ping_dut_refresh_fdb(ptfhost, interface):
     ptfhost.shell("timeout 1 ping -c 1 -w 1 -I {} 255.255.255.255 -b".format(interface), module_ignore_errors=True)
 
 
-def clean_dhcp_server_config(duthost):
+def clean_dhcp_server_config(duthost, relay_agent):
     keys = duthost.shell("sonic-db-cli CONFIG_DB KEYS DHCP_SERVER_IPV4*")
     clean_order = [
         "DHCP_SERVER_IPV4_CUSTOMIZED_OPTIONS",
@@ -71,6 +84,7 @@ def clean_dhcp_server_config(duthost):
         for line in keys['stdout_lines']:
             if line.startswith(key + '|'):
                 duthost.shell("sonic-db-cli CONFIG_DB DEL '{}'".format(line))
+    _wait_dhcp_server_relay_ready(duthost, relay_agent, False)
 
 
 def verify_lease(duthost, dhcp_interface, client_mac, exp_ip, exp_lease_time):
@@ -102,25 +116,26 @@ def verify_lease(duthost, dhcp_interface, client_mac, exp_ip, exp_lease_time):
 
 
 @contextlib.contextmanager
-def dhcp_server_config(duthost, config_tool, config_to_apply):
-    clean_dhcp_server_config(duthost)
+def dhcp_server_config(duthost, config_tool, config_to_apply, relay_agent):
+    clean_dhcp_server_config(duthost, relay_agent)
     if config_tool == DHCP_SERVER_CONFIG_TOOL_GCU:
-        apply_dhcp_server_config_gcu(duthost, config_to_apply)
+        apply_dhcp_server_config_gcu(duthost, config_to_apply, relay_agent)
     elif config_tool == DHCP_SERVER_CONFIG_TOOL_CLI:
-        apply_dhcp_server_config_cli(duthost, config_to_apply)
+        apply_dhcp_server_config_cli(duthost, config_to_apply, relay_agent)
 
     yield
 
-    clean_dhcp_server_config(duthost)
+    clean_dhcp_server_config(duthost, relay_agent)
 
 
-def apply_dhcp_server_config_cli(duthost, config_commands):
+def apply_dhcp_server_config_cli(duthost, config_commands, relay_agent):
     logging.info("The dhcp_server_config: %s" % config_commands)
     for cmd in config_commands:
         duthost.shell(cmd)
+    _wait_dhcp_server_relay_ready(duthost, relay_agent, True)
 
 
-def apply_dhcp_server_config_gcu(duthost, config_to_apply):
+def apply_dhcp_server_config_gcu(duthost, config_to_apply, relay_agent, relay_configured=True):
     logging.info("The dhcp_server_config: %s" % config_to_apply)
     tmpfile = duthost.shell('mktemp')['stdout']
     try:
@@ -133,6 +148,7 @@ def apply_dhcp_server_config_gcu(duthost, config_to_apply):
         )
     finally:
         duthost.file(path=tmpfile, state='absent')
+    _wait_dhcp_server_relay_ready(duthost, relay_agent, relay_configured)
 
 
 def create_common_config_patch(vlan_name, gateway, net_mask, dut_ports, ip_ranges, customized_options=None):
