@@ -179,6 +179,7 @@ def test_po_update(duthosts, nbrhosts, enum_rand_one_per_hwsku_frontend_hostname
     # Initialize flags
     remove_portchannel_members = False
     remove_portchannel_ip = False
+    change_peer_lacp_mode = False
     create_tmp_portchannel = False
     add_tmp_portchannel_members = False
     add_tmp_portchannel_ip = False
@@ -188,7 +189,8 @@ def test_po_update(duthosts, nbrhosts, enum_rand_one_per_hwsku_frontend_hostname
     logging.info("portchannel_members=%s" % portchannel_members)
     logging.info("is_ipv6=%s" % is_ipv6)
 
-    (vm_host, vm_member_interfaces, vm_lag_id) = get_vm_peer_for_dut_intf(nbrhosts, tbinfo, mg_facts, portchannel_members[0])
+    (vm_host, vm_member_interfaces, vm_lag_id) = get_vm_peer_for_dut_intf(nbrhosts, tbinfo, mg_facts,
+                                                                          portchannel_members[0])
 
     try:
         # Step 1: Remove portchannel members from portchannel
@@ -215,13 +217,22 @@ def test_po_update(duthosts, nbrhosts, enum_rand_one_per_hwsku_frontend_hostname
                     "no channel-group"
                     ]
 
-            for vm_member_interface in vm_member_interfaces:
+            for vm_member_interface in sorted(vm_member_interfaces, key=lambda k: int(k[len("Ethernet"):])):
                 eos_commands += [
                     f"interface {vm_member_interface}",
                     f"channel-group {vm_lag_id} mode on"
                     ]
+                # This is a little bit of hardcoding in the case that fallback-single is chosen. The current selection
+                # criteria for which port should be usable goes down to choosing the lower-numbered port. To make sure
+                # that that is being done, and to make sure that the peer side doesn't respond on a different port, only
+                # one port should be functionally usable on the other side. This means that determining which port is
+                # the lowest-numbered port and enabling only that port. This is likely to be the first port, so break
+                # after enabling that one port.
+                if portchannel_type == "fallback-single":
+                    break
 
             vm_host.eos_command(commands=eos_commands)
+        change_peer_lacp_mode = True
 
         # Step 3: Create tmp portchannel
         if portchannel_type == "normal":
@@ -296,8 +307,8 @@ def test_po_update(duthosts, nbrhosts, enum_rand_one_per_hwsku_frontend_hostname
             time.sleep(5)
         if add_tmp_portchannel_ip:
             asichost.config_ip_intf(tmp_portchannel, portchannel_ip + "/" + prefix_len, "remove")
+            wait_until(10, 2, 2, _check_ip_removed, asichost, tmp_portchannel, is_ipv6)
 
-        wait_until(10, 2, 2, _check_ip_removed, asichost, tmp_portchannel, is_ipv6)
         if add_tmp_portchannel_members:
             for member in portchannel_members:
                 asichost.config_portchannel_member(tmp_portchannel, member, "del")
@@ -306,21 +317,22 @@ def test_po_update(duthosts, nbrhosts, enum_rand_one_per_hwsku_frontend_hostname
         if create_tmp_portchannel:
             asichost.config_portchannel(tmp_portchannel, "del")
 
-        if portchannel_type != "normal":
-            eos_commands = ["config"]
-            for vm_member_interface in vm_member_interfaces:
-                eos_commands += [
-                    f"interface {vm_member_interface}",
-                    "no channel-group"
-                    ]
+        if change_peer_lacp_mode:
+            if portchannel_type != "normal":
+                eos_commands = ["config"]
+                for vm_member_interface in vm_member_interfaces:
+                    eos_commands += [
+                        f"interface {vm_member_interface}",
+                        "no channel-group"
+                        ]
 
-            for vm_member_interface in vm_member_interfaces:
-                eos_commands += [
-                    f"interface {vm_member_interface}",
-                    f"channel-group {vm_lag_id} mode active"
-                    ]
+                for vm_member_interface in vm_member_interfaces:
+                    eos_commands += [
+                        f"interface {vm_member_interface}",
+                        f"channel-group {vm_lag_id} mode active"
+                        ]
 
-            vm_host.eos_command(commands=eos_commands)
+                vm_host.eos_command(commands=eos_commands)
 
         if remove_portchannel_ip:
             asichost.config_ip_intf(portchannel, portchannel_ip + "/" + prefix_len, "add")
