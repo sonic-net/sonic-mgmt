@@ -1,12 +1,12 @@
 """
 BMC Watchdog Daemon Tests
 
-Tests for the BMC watchdog service that manages hardware watchdog petting
-and logging.
+Tests for the BMC watchdog service (hw-watchdog-mgrd) that manages hardware
+watchdog arming/keepalive and logging.
 
 Validates:
-- Watchdog service status and petting mechanism
-- Watchdog timeout configuration (180s armed, 60s pet interval)
+- Watchdog service status and keepalive mechanism
+- Watchdog timeout configuration (180s armed, 60s keepalive interval)
 - Watchdog logs stored in /host/bmc/ directory (persistent storage)
 - Differentiation between user-issued reboot and watchdog reset
 - State DB consistency for watchdog status
@@ -67,35 +67,49 @@ class TestBmcWatchdog:
         """
         Verify BMC watchdog: arm/disarm via `watchdogutil` round-trips correctly
         AND `/host/bmc/watchdog.log` is the persistent log sink for the Aspeed
-        `watchdog-keepalive.sh` daemon.
+        `hw-watchdog-mgrd` daemon.
 
-        The keepalive script:
-          - Creates /host/bmc/ if missing, writes lifecycle and keepalive lines
-            to /host/bmc/watchdog.log
-          - Arms the watchdog with `watchdogutil arm -s 180` on start
-          - Kicks /dev/watchdog0 every 60s independently of `watchdogutil disarm`
-            — so this test is safe to run on a live BMC.
+        The hw-watchdog-mgrd daemon:
+          - Is the sole owner of /dev/watchdog0 and sends keepalives every 60s
+            while armed — so this test is safe to run on a live BMC.
+          - Arms at boot per platform policy (boot_arm/shutdown_protect in
+            platform.json) rather than a fixed `watchdogutil arm -s 180`.
+          - Emits lifecycle log lines via syslog (ident 'hw-watchdog-mgrd').
+            An rsyslog drop-in (10-hw-watchdog-mgrd.conf) routes those messages
+            to /host/bmc/watchdog.log (persistent eMMC) and stops them from
+            reaching tmpfs /var/log.
 
         Pre-test arm state is restored in `finally`.
         """
         # --- /host/bmc/watchdog.log presence and content ---
-        # Asserts the BMC log-routing contract: persistent watchdog log lives
-        # in /host/bmc/, not /var/log/.
+        # Asserts the BMC log-routing contract: the persistent watchdog log lives
+        # in /host/bmc/, populated via syslog -> rsyslog drop-in, not /var/log/.
         r = self.duthost.shell("test -f /host/bmc/watchdog.log && echo yes || echo no",
                                module_ignore_errors=True)
         pytest_assert(r.get('stdout', '').strip() == 'yes',
-                      "Expected /host/bmc/watchdog.log to exist (Aspeed "
-                      "watchdog-keepalive.sh persistent log sink)")
+                      "Expected /host/bmc/watchdog.log to exist (hw-watchdog-mgrd "
+                      "persistent log sink via rsyslog drop-in)")
 
-        r = self.duthost.shell("wc -l < /host/bmc/watchdog.log", module_ignore_errors=True)
+        # The daemon logs a lifecycle marker at startup ("Hardware watchdog manager
+        # starting") which the rsyslog drop-in routes to this file. Assert that a
+        # real hw-watchdog-mgrd lifecycle entry is present rather than a blind
+        # line-count, which ties the check to the actual daemon and tolerates
+        # logrotate's `notifempty` behaviour.
+        lifecycle_re = (r"Hardware watchdog manager (starting|stopping|stopped)"
+                        r"|Loaded watchdog policy"
+                        r"|Hardware watchdog .*(armed|disarmed|keepalive)")
+        r = self.duthost.shell(
+            f"grep -E '{lifecycle_re}' /host/bmc/watchdog.log | wc -l",
+            module_ignore_errors=True)
         try:
-            lines = int((r.get('stdout', '') or '0').strip())
+            marker_lines = int((r.get('stdout', '') or '0').strip())
         except ValueError:
-            lines = 0
-        pytest_assert(lines > 0,
-                      "/host/bmc/watchdog.log exists but is empty — keepalive "
-                      "daemon did not write any lifecycle entries")
-        logger.info(f"/host/bmc/watchdog.log has {lines} line(s)")
+            marker_lines = 0
+        pytest_assert(marker_lines > 0,
+                      "/host/bmc/watchdog.log has no hw-watchdog-mgrd lifecycle "
+                      "entries — daemon did not log via the rsyslog drop-in")
+        logger.info(f"/host/bmc/watchdog.log has {marker_lines} hw-watchdog-mgrd "
+                    "lifecycle entrie(s)")
 
         # Negative: /var/log/watchdog* must NOT exist — that location violates
         # the BMC persistent-log convention.
