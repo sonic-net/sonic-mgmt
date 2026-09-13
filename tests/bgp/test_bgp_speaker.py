@@ -2,11 +2,11 @@ import pytest
 from netaddr import IPNetwork, IPAddress
 import time
 import logging
-import requests
 import ipaddress
 import json
 
 from tests.common import constants
+from tests.common2.routing.bgp.bgp_route_control import announce_route, withdraw_route
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa:F401
 from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode   # noqa:F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # noqa:F401
@@ -47,23 +47,6 @@ def generate_ips(num, prefix, exclude_ips):
         raise Exception("Not enough available IPs")
 
     return generated_ips
-
-
-def announce_route(ptfip, neighbor, route, nexthop, port):
-    change_route("announce", ptfip, neighbor, route, nexthop, port)
-
-
-def withdraw_route(ptfip, neighbor, route, nexthop, port):
-    change_route("withdraw", ptfip, neighbor, route, nexthop, port)
-
-
-def change_route(operation, ptfip, neighbor, route, nexthop, port):
-    url = "http://%s:%d" % (ptfip, port)
-    data = {"command": "neighbor %s %s route %s next-hop %s" % (neighbor, operation, route, nexthop)}
-    r = requests.post(url, data=data, proxies={"http": None, "https": None})
-    assert r.status_code == 200, (
-        "Request failed with status code {}. Expected 200. "
-    ).format(r.status_code)
 
 
 @pytest.fixture(scope="module", autouse=True)
