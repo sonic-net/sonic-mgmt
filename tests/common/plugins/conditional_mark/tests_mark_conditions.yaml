@@ -3808,11 +3808,19 @@ metadata-scripts/test_metadata_bgp.py:
 #######################################
 mpls:
   skip:
-    reason: "MPLS feature is not enabled with image version, skipped on lossy topologies"
+    reason: "MPLS tests are currently enabled only for VPP; skipped on lossy topologies"
     conditions_logical_operator: or
     conditions:
-      - "'mpls' not in feature_status"
+      - "asic_type not in ['vpp']"
       - *lossyTopos
+
+mpls/test_mpls.py::TestBasicMpls::test_push_label:
+  skip:
+    reason: >
+            MPLS push forwarding is not working; tracked by
+            https://github.com/sonic-net/sonic-mgmt/issues/27874.
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/27874"
 
 #######################################
 #####           mvrf              #####
