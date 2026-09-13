@@ -7,8 +7,10 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.gu_utils import apply_patch, expect_op_success, expect_op_failure
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.common.gu_utils import format_json_patch_for_multiasic
-from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
+from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback, rollback_or_reload
 from tests.common.utilities import wait_until
+from tests.common.platform.device_utils import list_dut_fanout_connections
+from tests.common.platform.interface_utils import get_physical_port_indices, get_physical_to_logical_port_mapping
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -245,6 +247,94 @@ def get_port_speeds_for_test(duthost, port):
     if invalid_speed_state_db:
         speeds_to_test.append(invalid_speed_state_db)
     return speeds_to_test
+
+
+def is_dac_port(duthost, port, namespace=None):
+    """
+    Returns True if the transceiver plugged into the given port is a passive
+    copper (DAC) cable, based on STATE_DB TRANSCEIVER_INFO specification_compliance.
+
+    DAC cables advertise CMIS applications (e.g. 100GBASE-CR4) at the same host
+    lane grouping used by higher speeds (e.g. 400GBASE-CR4), so a breakout
+    sub-port's speed can be lowered without a lane/breakout remap. Optical
+    modules (AOC/optics) commonly only advertise lower speeds at a reduced lane
+    count (e.g. single-lane 100G), so a speed-only change cannot bring them up.
+
+    Args:
+        duthost: DUT host object under test
+        port: Port name to check
+        namespace: DUT asic namespace
+    """
+    namespace_prefix = '' if namespace is None else '-n ' + namespace
+    read_spec_compliance_cli = 'sonic-db-cli {} STATE_DB hget "TRANSCEIVER_INFO|{}" specification_compliance'.format(
+        namespace_prefix, port)
+    spec_compliance = duthost.shell(read_spec_compliance_cli)['stdout'].strip()
+    if not spec_compliance:
+        return False
+    # specification_compliance is reported differently across platforms/transceivers:
+    # e.g. "passive_copper_media_interface", "Passive Copper Cable", or a dict-formatted
+    # string embedding a similar identifier. Match case-insensitively on known DAC markers
+    # instead of requiring an exact string match.
+    spec_compliance_lower = spec_compliance.lower()
+    dac_identifiers = ["passive_copper_media_interface", "passive copper"]
+    return any(identifier in spec_compliance_lower for identifier in dac_identifiers)
+
+
+def get_2way_breakout_subports_at_speed(duthost, speed, namespace=None):
+    """
+    Find a pair of logical sub-ports that share the same physical port index (i.e. a
+    2-way breakout group), are both currently configured at the given speed, and are
+    both connected via a passive copper (DAC) cable.
+
+    DAC is required (rather than optics/AOC) because the test needs to lower the
+    sub-port speed without changing the breakout/lane configuration: DAC cables
+    typically advertise the lower speed at the same host lane count already in use,
+    while optical modules often only support the lower speed at a reduced lane
+    count, which a plain speed change cannot achieve.
+
+    Args:
+        duthost: DUT host object
+        speed: The speed (SONiC style, e.g. "400000") the breakout sub-ports must
+            currently be configured at.
+        namespace: DUT asic namespace
+
+    Returns:
+        A sorted list of the 2 sub-port names (e.g. ["Ethernet0", "Ethernet1"]),
+        or an empty list if no such DAC-connected breakout group is found.
+    """
+    config_facts = duthost.config_facts(
+        host=duthost.hostname, source="running", verbose=False, namespace=namespace
+    )['ansible_facts']
+    ports = config_facts.get('PORT', {})
+
+    physical_port_indices = get_physical_port_indices(duthost)
+    pport_to_lports = get_physical_to_logical_port_mapping(physical_port_indices)
+
+    for pport, lports in pport_to_lports.items():
+        # Ports whose physical index could not be determined are grouped under the
+        # None key; they are not a real breakout group, so skip them explicitly to
+        # avoid pairing up unrelated logical ports.
+        if pport is None:
+            continue
+        # Only consider sub-ports that belong to the requested asic namespace.
+        lports_in_namespace = [p for p in lports if p in ports]
+        if len(lports_in_namespace) != 2:
+            continue
+        lports_sorted = sorted(lports_in_namespace, key=lambda x: int(x.replace("Ethernet", "")))
+        speeds = [ports.get(p, {}).get('speed') for p in lports_sorted]
+        if not all(s == speed for s in speeds):
+            continue
+        # Only consider sub-ports that are admin-up: list_dut_fanout_connections() (used
+        # later to map to the leaf fanout) excludes admin-down ports, and an admin-down
+        # candidate would also fail the post-change oper-up checks regardless.
+        admin_statuses = [ports.get(p, {}).get('admin_status', 'up') for p in lports_sorted]
+        if not all(status == 'up' for status in admin_statuses):
+            continue
+        if not all(is_dac_port(duthost, p, namespace=namespace) for p in lports_sorted):
+            logger.info("Skipping breakout group {} - not DAC connected".format(lports_sorted))
+            continue
+        return lports_sorted
+    return []
 
 
 def get_fec_oper(duthost, interface):
@@ -758,3 +848,151 @@ def test_port_speed_change_oper_status(duthosts, enum_rand_one_per_hwsku_fronten
         )
     finally:
         delete_tmpfile(duthost, tmpfile)
+
+
+def get_fanout_port_map(duthost, fanouthosts):
+    """
+    Build a mapping of DUT port name to (fanout host object, fanout port name)
+    for every DUT port directly connected to a leaf fanout switch.
+
+    Args:
+        duthost: DUT host object
+        fanouthosts: Dict of fanout host objects (fixture)
+
+    Returns:
+        dict: {dut_port: (fanout, fanout_port)}
+    """
+    return {
+        dut_port: (fanout, fanout_port)
+        for dut_port, fanout, fanout_port in list_dut_fanout_connections(duthost, fanouthosts)
+    }
+
+
+@pytest.mark.topology('lt2')
+def test_port_speed_change_400g_breakout_to_100g(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readiness,
+                                                 enum_rand_one_frontend_asic_index, fanouthosts, loganalyzer):
+    """
+    Test that verifies the gap described in GH issue sonic-net/sonic-mgmt#26589:
+    "Test Gap: support 2*100Gb port speed on 2*400Gb breakout mode"
+
+    A port broken out into 2 sub-ports of 400G each must also be able to run at
+    2x100G on LT2 topology: the DUT must not crash when the speed is lowered, both
+    sub-ports must come up at the new speed once the leaf fanout side is changed to
+    match, and both sub-ports must recover correctly once the speed change is rolled
+    back.
+
+    Steps:
+    1. Find a 2-way breakout group (2 logical sub-ports sharing one physical port)
+       currently configured at 400G on both sub-ports.
+    2. Set the speed of both sub-ports to 100G in a single GCU apply-patch call.
+    3. Set the corresponding sub-ports on the leaf fanout to 100G.
+    4. Verify no crash happened on the DUT (critical services still running) and
+       both sub-ports come up.
+    5. Recover the leaf fanout sub-ports speed to 400G.
+    6. Roll back the DUT port speed change to 400G.
+    7. Verify both sub-ports are up again.
+    """
+    duthost = duthosts[rand_one_dut_front_end_hostname]
+    asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
+        'asic{}'.format(enum_rand_one_frontend_asic_index)
+
+    breakout_speed = "400000"
+    target_speed = "100000"
+
+    subports = get_2way_breakout_subports_at_speed(duthost, breakout_speed, namespace=asic_namespace)
+    if not subports:
+        pytest.skip("No 2x400G breakout port group found on this DUT/ASIC namespace")
+
+    fanout_port_map = get_fanout_port_map(duthost, fanouthosts)
+    fanout_subports = [fanout_port_map.get(p) for p in subports]
+    if not all(fanout_subports):
+        pytest.skip("Could not find leaf fanout connection for breakout sub-ports {}".format(subports))
+
+    if loganalyzer:
+        # Speed change in ASIC involves remove + readd of the port, which may produce
+        # transient warnings that are not indicative of a real failure.
+        loganalyzer[duthost.hostname].ignore_regex.extend([
+            r".*ERR swss[0-9]*#orchagent.*doPortTask: Unsupported port.*speed",
+        ])
+
+    def _wait_ports_oper_up(ports):
+        return wait_until(
+            60, 5, 0,
+            lambda: all(check_interface_status(duthost, "Oper", p) == "up" for p in ports)
+        )
+
+    # Step 2: change DUT sub-ports speed to 100G in a single GCU patch.
+    json_patch = [
+        {
+            "op": "replace",
+            "path": "/PORT/{}/speed".format(port),
+            "value": target_speed
+        }
+        for port in subports
+    ]
+    json_patch = format_json_patch_for_multiasic(
+        duthost=duthost, json_data=json_patch,
+        # Only pass a specific namespace list when one was actually resolved; if
+        # asic_namespace is None (e.g. non-multi-asic device or unexpected fixture
+        # behavior), fall back to letting format_json_patch_for_multiasic target all
+        # ASIC namespaces instead of generating a broken "/None/..." patch path.
+        is_asic_specific=True, asic_namespaces=[asic_namespace] if asic_namespace else None
+    )
+
+    tmpfile = generate_tmpfile(duthost)
+    logger.info("tmpfile {}".format(tmpfile))
+
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+
+        # Step 3: set the corresponding leaf fanout sub-ports to 100G.
+        for fanout, fanout_port in fanout_subports:
+            success = fanout.set_speed(fanout_port, target_speed)
+            pytest_assert(success, "Failed to set speed {} on fanout {}:{}".format(
+                target_speed, fanout.hostname, fanout_port))
+
+        # Step 4: verify no crash happened on the DUT and both sub-ports come up.
+        pytest_assert(duthost.critical_services_fully_started(),
+                      "Critical services are not fully started after 400G->100G breakout speed change")
+        for port in subports:
+            current_status_speed = check_interface_status(duthost, "Speed", port).replace("G", "000")
+            current_status_speed = current_status_speed.replace("M", "")
+            pytest_assert(current_status_speed == target_speed,
+                          "Failed to configure sub-port {} speed to {}".format(port, target_speed))
+        pytest_assert(_wait_ports_oper_up(subports),
+                      "Sub-ports {} did not come up after changing speed to {}".format(subports, target_speed))
+    finally:
+        # Step 5: recover the leaf fanout sub-ports speed.
+        fanout_restore_failures = []
+        for fanout, fanout_port in fanout_subports:
+            if not fanout.set_speed(fanout_port, breakout_speed):
+                fanout_restore_failures.append("{}:{}".format(fanout.hostname, fanout_port))
+
+        # Step 6: roll back the DUT port speed change. Use a plain rollback (rather than
+        # rollback_or_reload) here: the autouse ensure_dut_readiness fixture already runs
+        # rollback_or_reload() as a safety net during its own teardown, so also falling
+        # back to a full config_reload from within the test body would be redundant,
+        # slow, and could interleave two reloads. Assert success explicitly below
+        # instead, leaving rollback_or_reload() in the fixture as the final safety net.
+        delete_tmpfile(duthost, tmpfile)
+        rollback_output = rollback(duthost)
+
+    # Fail loudly (rather than silently ignoring) if restoring the fanout speed did not
+    # succeed, since a left-over speed mismatch would impact subsequent test runs on
+    # these ports. Include the fanout hostname alongside the port name since testbeds
+    # can have multiple fanout switches.
+    pytest_assert(not fanout_restore_failures,
+                  "Failed to restore fanout port(s) {} speed back to {}".format(
+                      fanout_restore_failures, breakout_speed))
+
+    pytest_assert(
+        not rollback_output.get('rc', 1) and
+        "Config rolled back successfully" in rollback_output.get('stdout', ''),
+        "Failed to roll back DUT port speed change: {}".format(rollback_output)
+    )
+
+    # Step 7: verify both sub-ports are up again after rolling back to 400G breakout.
+    pytest_assert(_wait_ports_oper_up(subports),
+                  "Sub-ports {} did not come back up after rolling back speed to {}".format(
+                      subports, breakout_speed))
