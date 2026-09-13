@@ -895,7 +895,12 @@ def extract_techsupport_tarball_file(duthost, tarball_name):
 
 
 def is_enabled_nat_for_dpu(duthost, request):
-    if request.config.cache.get(NAT_ENABLE_KEY.format(duthost.hostname), False):
+    cache_key = NAT_ENABLE_KEY.format(duthost.hostname)
+    if request.config.cache.get(cache_key, False):
+        if not is_nat_rule_present(duthost):
+            logger.warning("Cached NAT state is stale on %s; live DNAT rules are missing", duthost.hostname)
+            request.config.cache.set(cache_key, False)
+            return False
         logger.info("NAT is enabled")
         return True
     else:
@@ -930,11 +935,15 @@ def get_dpu_names_and_ssh_ports(duthost, dpuhost_names, ansible_adhoc):
     return dpu_name_ssh_port_dict
 
 
-def check_nat_is_enabled_and_set_cache(duthost, request):
+def is_nat_rule_present(duthost):
     get_nat_iptable_output = 'sudo iptables -t nat -L'
     nat_iptable_output = duthost.shell(get_nat_iptable_output)['stdout']
     pattern_nat_result = '.*DNAT.*tcp.*anywhere.*anywhere.*tcp dpt:.* to:169.254.200.*22.*'
-    if re.search(pattern_nat_result, nat_iptable_output):
+    return re.search(pattern_nat_result, nat_iptable_output) is not None
+
+
+def check_nat_is_enabled_and_set_cache(duthost, request):
+    if is_nat_rule_present(duthost):
         logger.info('NAT is enabled successfully')
         request.config.cache.set(NAT_ENABLE_KEY.format(duthost.hostname), True)
         return True
