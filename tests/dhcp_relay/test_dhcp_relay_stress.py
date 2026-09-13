@@ -20,6 +20,8 @@ pytestmark = [
 BROADCAST_MAC = 'ff:ff:ff:ff:ff:ff'
 DEFAULT_DHCP_CLIENT_PORT = 68
 DEFAULT_DHCP_SERVER_PORT = 67
+DEFAULT_PACKET_RATE_PER_SEC = 10000
+VPP_KVM_PACKET_RATE_PER_SEC = 25
 
 
 def test_dhcp_relay_restart_with_stress(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist,
@@ -121,7 +123,7 @@ def test_dhcp_relay_stress(ptfhost, ptfadapter, dut_dhcp_relay_data, validate_du
     testing_mode, duthost = testing_config
     packets_send_duration = 120
     is_vpp_kvm = duthost.facts.get("asic_type") == "vpp" and "kvm" in duthost.facts.get("platform", "")
-    client_packets_per_sec = 1000 if is_vpp_kvm else 10000
+    client_packets_per_sec = VPP_KVM_PACKET_RATE_PER_SEC if is_vpp_kvm else DEFAULT_PACKET_RATE_PER_SEC
 
     for dhcp_relay in dut_dhcp_relay_data:
         client_port_name = str(dhcp_relay['client_iface']['name'])
