@@ -486,11 +486,39 @@ def test_show_platform_fan(duthosts, rand_one_dut_hostname, is_support_fan):  # 
                   " No Fans are displayed with OK status on '{}'".format(duthost.hostname))
 
 
+def _get_offline_dpu_names(duthost):
+    """
+    @summary: Return the set of DPU module names (e.g. {'DPU0', 'DPU3'}) that are
+              not operationally online, as reported by 'show chassis modules status'.
+
+              On a SmartSwitch, a powered-off DPU (e.g. dark mode) drives its
+              voltage/current rails to 0, which the platform legitimately reports
+              with Warning=True. Such rails must be excluded from the sensor
+              Warning check.
+
+              On non-SmartSwitch platforms the command reports no DPU modules, so
+              an empty set is returned and sensor validation is unchanged.
+    """
+    offline_dpus = set()
+    rows = duthost.show_and_parse("show chassis modules status", module_ignore_errors=True)
+    for row in rows:
+        name = row.get("name", "")
+        if not re.match(r"^DPU\d+$", name):
+            continue
+        oper_status = row.get("oper-status", "").strip().lower()
+        if oper_status != "online":
+            offline_dpus.add(name.upper())
+    return offline_dpus
+
+
 def check_show_platform_sensor_output(cmd, duthost):
     """
     @summary: Run and verify output of `show platform [voltage|current]`. Expected output
               is "Sensor not detected" or a table of sensor status data with 8 columns.
               Verify that the `Warning` column only shows `False`.
+
+              On a SmartSwitch, rails belonging to a powered-off DPU read 0 and are
+              legitimately reported with Warning=True, so they are excluded from the check.
     """
     num_expected_cols = 8
 
@@ -523,6 +551,8 @@ def check_show_platform_sensor_output(cmd, duthost):
                       "Output is missing the 'Warning' column on '{}' (header: {})".
                       format(duthost.hostname, header_fields))
 
+        offline_dpus = _get_offline_dpu_names(duthost)
+
         for line in raw_output_lines[2:]:
             if not line.strip():
                 continue
@@ -531,6 +561,19 @@ def check_show_platform_sensor_output(cmd, duthost):
                           "Unexpected number of fields in output row on '{}' (row: {})".
                           format(duthost.hostname, row_fields))
 
+            sensor_name = row_fields[0]
+            if isinstance(sensor_name, bytes):
+                sensor_name = sensor_name.decode('utf-8', errors='ignore')
+            sensor_name = str(sensor_name).strip()
+
+            dpu_match = re.search(r"DPU\d+", sensor_name, re.IGNORECASE)
+            if dpu_match and dpu_match.group(0).upper() in offline_dpus:
+                logging.info(
+                    "Skipping Warning check for sensor '%s' on '%s': %s is offline; "
+                    "its rails read 0 and legitimately report Warning=True",
+                    sensor_name, duthost.hostname, dpu_match.group(0).upper())
+                continue
+
             warning_value = row_fields[warning_col_idx]
             if isinstance(warning_value, bytes):
                 warning_value = warning_value.decode('utf-8', errors='ignore')
@@ -538,7 +581,7 @@ def check_show_platform_sensor_output(cmd, duthost):
 
             pytest_assert(warning_value.lower() == "false",
                           "Expected Warning to be False for sensor '{}' on '{}', got '{}' (cmd: '{}')".
-                          format(row_fields[0], duthost.hostname, warning_value, cmd))
+                          format(sensor_name, duthost.hostname, warning_value, cmd))
 
 
 def test_show_platform_voltage(duthosts, enum_rand_one_per_hwsku_hostname):

@@ -1,7 +1,7 @@
 import time
 import logging
 
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.snappi_tests.snappi_helpers import get_dut_port_id
 from tests.common.snappi_tests.port import select_ports, select_tx_port
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp
@@ -61,8 +61,8 @@ def run_ipip_packet_reorder_test(api,
                               conn_data=conn_data,
                               fanout_data=fanout_data)
 
-    pytest_assert(port_id is not None,
-                  'Fail to get ID for port {}'.format(dut_port))
+    pytest_require(port_id is not None,
+                   'Port {} is not connected to the snappi chassis, skipping'.format(dut_port))
 
     flow_rate_percent = int(FLOW_AGGR_RATE_PERCENT / len(flow_prio_list))
 

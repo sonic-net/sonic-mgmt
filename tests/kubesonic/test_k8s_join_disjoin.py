@@ -186,39 +186,27 @@ def remove_minikube_vip_dns(duthost, vmhost):
     logger.info("Minikube vip dns is removed")
 
 
-def is_the_sku_need_to_remove_node_ip_param(duthost):
-    hwsku = duthost.facts.get("hwsku") if hasattr(duthost, "facts") else None
-    if not hwsku:
-        # Fallback query (ignore errors gracefully)
-        result = duthost.shell("sonic-cfggen -d -v DEVICE_METADATA.localhost.hwsku", module_ignore_errors=True)
-        hwsku = result.get("stdout", "").strip()
-    return hwsku in (
-        "Arista-7060X6-16PE-384C-B-O128S2",
-        "Arista-7060CX-32S-C32",
-        "Arista-7060X6-64PE-B-C512S2",
-        "Mellanox-SN5640-C512S2",
-        "Mellanox-SN5640-C448O16"
-    )
-
-
 def remove_node_ip_param(duthost):
-    """Remove '--node-ip=::' from kubelet config.
+    """Pin kubelet's node IP to the DUT's IPv4 management IP.
+
+    The kubelet default config ships '--node-ip=::' (auto-detect, prefer IPv6). The minikube control
+    plane created by this test is IPv4-only (see setup_k8s_master: --listen-address=0.0.0.0, IPv4
+    apiserver IPs/hosts and 'config kube server ip', MINIKUBE_DEFAULT_IP=192.168.49.2). When the DUT
+    eth0 has a usable global IPv6, kubelet registers an IPv6 InternalIP that the IPv4 master cannot
+    reach, so the join times out. To stay consistent with the IPv4-only master, force the node IP to
+    the DUT IPv4 management address for every SKU.
+
     Creates a backup of the original file once (if not already present) so it can be restored.
-    A series of sed patterns is used to safely eliminate the token with or without surrounding spaces.
     """
-    if not is_the_sku_need_to_remove_node_ip_param(duthost):
-        return
-    logger.info("Detected SKU which requires removal of '--node-ip=::' from kubelet config")
+    logger.info("Forcing kubelet '--node-ip' to the DUT IPv4 management IP to match the IPv4-only minikube master")
     duthost.shell(f"sudo cp {KUBELET_DEFAULT_CONFIG} {KUBELET_DEFAULT_CONFIG_BAK}", module_ignore_errors=True)
     duthost.shell(f"sudo sed -i 's/--node-ip=::/--node-ip={duthost.mgmt_ip}/g' {KUBELET_DEFAULT_CONFIG}")
     duthost.shell("sudo systemctl daemon-reload")
-    logger.info("Kubelet config '--node-ip=::' parameter removed")
+    logger.info("Kubelet config '--node-ip' pinned to IPv4")
 
 
 def restore_node_ip_param(duthost):
-    """Restore kubelet config from backup."""
-    if not is_the_sku_need_to_remove_node_ip_param(duthost):
-        return
+    """Restore kubelet config from backup if one was taken."""
     logger.info("Restoring kubelet config to original state if backup exists")
     restore_cmd = (
         f"if [ -f {KUBELET_DEFAULT_CONFIG_BAK} ]; then "

@@ -86,6 +86,39 @@ def create_patch(src_dir, dst_dir, patch_dir, hack_apply=False):
                 (not re.search(rm_pattern, e["path"]))):
             jpatch.append(e)
 
+    # For ports being decommissioned (T0 removal), explicitly include
+    # admin_status=down in the patch. Without this, GCU's patch sorter
+    # injects a temporary admin_status=down (for YANG dependency ordering
+    # when removing buffers) followed by a restore to admin_status=up,
+    # leaving the port up in CONFIG_DB. The patch should specify the
+    # desired final state — GCU should not need to invent operations.
+    decommissioned_ports = set()
+    for link in tor_data.get("links", []):
+        port_name = link.get("local", {}).get("sonic_name", "")
+        if port_name:
+            decommissioned_ports.add(port_name)
+
+    if decommissioned_ports:
+        admin_status_paths = set()
+        for e in jpatch:
+            if re.match(r"^/PORT/Ethernet[0-9]+/admin_status$", e["path"]):
+                admin_status_paths.add(e["path"])
+
+        for port_name in decommissioned_ports:
+            path = "/PORT/{}/admin_status".format(port_name)
+            if path not in admin_status_paths:
+                # Only inject admin_status=down for removal patches (port
+                # exists in source but is being removed in destination).
+                # Skip for add patches where the port is being restored.
+                src_port = src_json.get("PORT", {}).get(port_name, {})
+                dst_port = dst_json.get("PORT", {}).get(port_name, {})
+                if src_port and not dst_port and src_port.get("admin_status", "up") != "down":
+                    jpatch.append({
+                        "op": "replace",
+                        "path": path,
+                        "value": "down"
+                    })
+
     if not hack_apply:
         patch_file = os.path.join(patch_dir, "patch_0_all.json")
         with open(patch_file, "w") as s:
