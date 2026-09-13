@@ -246,13 +246,6 @@ def check_interface_status(duthost):
     return False
 
 
-def restart_dhcp_relay_and_check_dhcp6relay(duthost):
-    duthost.shell("sudo systemctl reset-failed dhcp_relay")
-    duthost.shell("sudo systemctl restart dhcp_relay")
-    wait_until(60, 3, 0, lambda: ("RUNNING" in duthost.shell("docker exec dhcp_relay supervisorctl status " +
-                                                             "dhcp-relay:dhcp6relay | awk '{print $2}'")["stdout"]))
-
-
 def ensure_client_reachability(duthost, vlan_name):
     """
     Ensure the DHCP client's link-local address is reachable from the relay agent.
@@ -272,15 +265,24 @@ def setup_and_teardown_no_servers_vlan(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     new_vlan_id = 4001
     new_vlan_ipv6 = "fc01:5000::1/64"
-    duthost.shell("sudo config vlan add {}".format(new_vlan_id))
-    duthost.shell("sudo config interface ip add Vlan{} {}".format(new_vlan_id, new_vlan_ipv6))
-    restart_dhcp_relay_and_check_dhcp6relay(duthost)
+    vlan_created = False
+    vlan_ipv6_assigned = False
 
-    yield new_vlan_id
+    try:
+        duthost.shell("sudo config vlan add {}".format(new_vlan_id))
+        vlan_created = True
+        duthost.shell("sudo config interface ip add Vlan{} {}".format(new_vlan_id, new_vlan_ipv6))
+        vlan_ipv6_assigned = True
+        restart_dhcp_service(duthost, ['v6'])
 
-    duthost.shell("sudo config interface ip remove Vlan{} {}".format(new_vlan_id, new_vlan_ipv6))
-    duthost.shell("sudo config vlan del {}".format(new_vlan_id))
-    restart_dhcp_relay_and_check_dhcp6relay(duthost)
+        yield new_vlan_id
+    finally:
+        if vlan_ipv6_assigned:
+            duthost.shell("sudo config interface ip remove Vlan{} {}".format(new_vlan_id, new_vlan_ipv6),
+                          module_ignore_errors=True)
+        if vlan_created:
+            duthost.shell("sudo config vlan del {}".format(new_vlan_id), module_ignore_errors=True)
+            restart_dhcp_service(duthost, ['v6'])
 
 
 def get_dhcptest_expected_counters(dhcp_server_num):
@@ -578,19 +580,19 @@ def test_dhcp_relay_after_link_flap(ptfhost, dut_dhcp_relay_data, validate_dut_r
 
     try:
         for dhcp_relay in dut_dhcp_relay_data:
-            # Bring all uplink interfaces down
-            for iface in dhcp_relay['uplink_interfaces']:
-                duthost.shell('ifconfig {} down'.format(iface))
+            uplink_interfaces = dhcp_relay['uplink_interfaces']
 
-            # Sleep a bit to ensure uplinks are down
-            time.sleep(20)
+            try:
+                # Bring all uplink interfaces down
+                for iface in uplink_interfaces:
+                    duthost.shell('ifconfig {} down'.format(iface))
 
-            # Bring all uplink interfaces back up
-            for iface in dhcp_relay['uplink_interfaces']:
-                duthost.shell('ifconfig {} up'.format(iface))
-
-            # Sleep a bit to ensure uplinks are up
-            wait_all_bgp_up(duthost)
+                # Sleep a bit to ensure uplinks are down
+                time.sleep(20)
+            finally:
+                for iface in uplink_interfaces:
+                    duthost.shell('ifconfig {} up'.format(iface), module_ignore_errors=True)
+                wait_all_bgp_up(duthost)
 
             dhcp_server_num = len(dhcp_relay['downlink_vlan_iface']['dhcpv6_server_addrs'])
             restart_dhcpmon_in_debug(duthost)
@@ -647,29 +649,21 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
 
     try:
         for dhcp_relay in dut_dhcp_relay_data:
-            # Bring all uplink interfaces down
-            for iface in dhcp_relay['uplink_interfaces']:
-                duthost.shell('ifconfig {} down'.format(iface))
+            uplink_interfaces = dhcp_relay['uplink_interfaces']
 
-            # Sleep a bit to ensure uplinks are down
-            time.sleep(20)
+            try:
+                # Bring all uplink interfaces down
+                for iface in uplink_interfaces:
+                    duthost.shell('ifconfig {} down'.format(iface))
 
-            # Restart DHCP relay service on DUT
-            # dhcp_relay service has 3 times restart limit in 20 mins, for 4 vlans config it will hit the maximum limit
-            # reset-failed before restart service
-            cmds = ['systemctl reset-failed dhcp_relay', 'systemctl restart dhcp_relay']
-            duthost.shell_cmds(cmds=cmds)
+                # Sleep a bit to ensure uplinks are down
+                time.sleep(20)
 
-            # Sleep to give the DHCP relay container time to start up and
-            # allow the relay agent to begin listening on the down interfaces
-            time.sleep(40)
-
-            # Bring all uplink interfaces back up
-            for iface in dhcp_relay['uplink_interfaces']:
-                duthost.shell('ifconfig {} up'.format(iface))
-
-            # Sleep a bit to ensure uplinks are up
-            wait_all_bgp_up(duthost)
+                restart_dhcp_service(duthost, ['v6'])
+            finally:
+                for iface in uplink_interfaces:
+                    duthost.shell('ifconfig {} up'.format(iface), module_ignore_errors=True)
+                wait_all_bgp_up(duthost)
 
             dhcp_server_num = len(dhcp_relay['downlink_vlan_iface']['dhcpv6_server_addrs'])
             restart_dhcpmon_in_debug(duthost)
