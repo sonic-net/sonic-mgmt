@@ -40,9 +40,29 @@ class PsuData(object):
         power_status_file = PsuData.PSU_POWER_STATUS_FILE.format(index)
         out = self.helper.dut.stat(path=power_status_file)
         if out['stat']['exists']:
-            self.power_on = True
+            self.power_on = self.helper.read_value(power_status_file) == '1'
         else:
             self.power_on = False
+
+    def get_temperature_file(self):
+        hw_mgmt_version = get_hw_management_version(self.helper.dut)
+        if parse_version(hw_mgmt_version) < parse_version(HW_MANAGE_VER):
+            return PsuData.PSU_TEMPERATURE_FILE.format(self.index)
+        return PsuData.PSU_TEMPERATURE_FILE_NEW.format(self.index)
+
+    def get_temperature_threshold_file(self):
+        hw_mgmt_version = get_hw_management_version(self.helper.dut)
+        if parse_version(hw_mgmt_version) < parse_version(HW_MANAGE_VER):
+            return PsuData.PSU_TEMP_THRESHOLD_FILE.format(self.index)
+        return PsuData.PSU_TEMP_THRESHOLD_FILE_NEW.format(self.index)
+
+    def is_temperature_supported(self):
+        temperature_file = self.get_temperature_file()
+        threshold_file = self.get_temperature_threshold_file()
+        temperature_stat = self.helper.dut.stat(path=temperature_file)
+        threshold_stat = self.helper.dut.stat(path=threshold_file)
+        return temperature_stat['stat']['exists'] and \
+            threshold_stat['stat']['exists']
 
     def mock_presence(self, status):
         value = 1 if status else 0
@@ -55,25 +75,16 @@ class PsuData(object):
         self.helper.mock_value(power_status_file, str(value))
 
     def mock_temperature(self, value):
-        hw_mgmt_version = get_hw_management_version(self.helper.dut)
-        temperature_file = PsuData.PSU_TEMPERATURE_FILE_NEW.format(self.index)
-        if parse_version(hw_mgmt_version) < parse_version(HW_MANAGE_VER):
-            temperature_file = PsuData.PSU_TEMPERATURE_FILE.format(self.index)
-        self.helper.mock_value(temperature_file, str(value))
+        self.helper.mock_value(self.get_temperature_file(), str(value))
 
     def get_psu_temperature_threshold(self):
-        hw_mgmt_version = get_hw_management_version(self.helper.dut)
-        threshold_file = PsuData.PSU_TEMP_THRESHOLD_FILE_NEW.format(self.index)
-        if parse_version(hw_mgmt_version) < parse_version(HW_MANAGE_VER):
-            threshold_file = PsuData.PSU_TEMP_THRESHOLD_FILE.format(self.index)
-        value = self.helper.read_value(threshold_file)
+        value = self.helper.read_value(self.get_temperature_threshold_file())
         return int(value)
 
 
 class MellanoxDeviceMocker(DeviceMocker):
     TARGET_SPEED_VALUE = 60
     SPEED_TOLERANCE = 50
-    PSU_NUM = 2
 
     def __init__(self, dut):
         self.mock_helper = MockerHelper(dut)
@@ -82,10 +93,17 @@ class MellanoxDeviceMocker(DeviceMocker):
         self.fan_drawer_data = FanDrawerData(self.mock_helper, naming_rule, 1)
         self.fan_data = FanData(self.mock_helper, naming_rule, 1)
 
-        for i in range(MellanoxDeviceMocker.PSU_NUM):
-            self.psu_data = PsuData(self.mock_helper, i + 1)
-            if self.psu_data.power_on:
+        platform_data = get_platform_data(dut)
+        self.psu_data = None
+        for i in range(platform_data['psus']['number']):
+            psu_data = PsuData(self.mock_helper, i + 1)
+            if psu_data.power_on and self.psu_data is None:
+                self.psu_data = psu_data
+            if psu_data.power_on and psu_data.is_temperature_supported():
+                self.psu_data = psu_data
                 break
+        if self.psu_data is None:
+            raise RuntimeError('No powered PSU found for system health mocking')
 
     def deinit(self):
         self.mock_helper.deinit()
