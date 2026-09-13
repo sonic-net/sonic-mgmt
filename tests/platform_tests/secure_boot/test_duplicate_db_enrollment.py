@@ -252,6 +252,13 @@ def _run_db_pruning(duthost):
     )
 
 
+def _get_db_pruning_plan(duthost):
+    return duthost.command(
+        "sudo {} --plan".format(shlex.quote(REMOVE_STALE_DB_CERTS_SCRIPT)),
+        module_ignore_errors=True,
+    )
+
+
 def _create_invalid_remove_all_db_auth(duthost):
     trusted_auth_exists = duthost.command(
         "test -s {}".format(shlex.quote(TRUSTED_DB_AUTH_PATH)),
@@ -491,6 +498,141 @@ def test_db_pruning_preserves_retained_image_signers(duthost):
     pytest_assert(
         _get_persisted_db_auth_state(duthost) == persisted_auth_before,
         "DB pruning changed persisted signer authentication files",
+    )
+    pytest_assert(
+        duthost.get_image_info()["current"] == original_image,
+        "DB pruning changed the running SONiC image",
+    )
+
+
+def test_db_pruning_removes_last_unused_signer(duthost):
+    """Verify pruning removes a signer after its final image is removed."""
+    require_secure_boot(duthost)
+    _require_db_pruning_script(duthost)
+
+    remove_all_exists = duthost.command(
+        "sudo test -s {}".format(shlex.quote(REMOVE_ALL_DB_AUTH_PATH)),
+        module_ignore_errors=True,
+    )
+    if remove_all_exists["rc"] != 0:
+        pytest.skip("A valid remove-all-db.auth is required for DB pruning")
+
+    image_info = duthost.get_image_info()
+    original_image = image_info["current"]
+    installed_images_before = image_info["installed_list"]
+    if len(installed_images_before) < 2:
+        pytest.skip("At least two installed images are required")
+
+    image_fingerprints = {}
+    for image in installed_images_before:
+        auth_path = _get_image_db_auth_path(image)
+        auth_exists = duthost.command(
+            "sudo test -s {}".format(shlex.quote(auth_path)),
+            module_ignore_errors=True,
+        )
+        if auth_exists["rc"] != 0:
+            pytest.skip("Installed image {} does not contain DB.auth".format(image))
+        image_fingerprints[image] = _get_db_auth_fingerprints(duthost, auth_path)
+
+    removable_image = None
+    removable_fingerprints = set()
+    for image in installed_images_before:
+        if image == original_image:
+            continue
+        retained_fingerprints = set().union(
+            *(
+                fingerprints
+                for retained_image, fingerprints in image_fingerprints.items()
+                if retained_image != image
+            )
+        )
+        image_only_fingerprints = image_fingerprints[image] - retained_fingerprints
+        if image_only_fingerprints:
+            removable_image = image
+            removable_fingerprints = image_only_fingerprints
+            break
+
+    if not removable_image:
+        pytest.skip("No inactive image has a distinct DB signer")
+
+    retained_fingerprints = set().union(
+        *(
+            fingerprints
+            for image, fingerprints in image_fingerprints.items()
+            if image != removable_image
+        )
+    )
+    firmware_fingerprints_before = _get_firmware_db_fingerprint_set(duthost)
+    required_before = retained_fingerprints.union(removable_fingerprints)
+    missing_before = required_before - firmware_fingerprints_before
+    pytest_assert(
+        not missing_before,
+        "Required DB signers are not enrolled before image removal: {}".format(
+            sorted(missing_before)
+        ),
+    )
+
+    set_default_and_next_image(duthost, original_image)
+    restore_active_efi_bundle(duthost, original_image)
+    remove_result = duthost.command(
+        "sudo sonic-installer remove {} -y".format(shlex.quote(removable_image)),
+        module_ignore_errors=True,
+    )
+    pytest_assert(
+        remove_result["rc"] == 0,
+        "Failed to remove image {}: {}".format(
+            removable_image,
+            _get_command_output(remove_result),
+        ),
+    )
+    pytest_assert(
+        removable_image not in duthost.get_image_info()["installed_list"],
+        "Removed image {} remains installed".format(removable_image),
+    )
+
+    prune_plan = _get_db_pruning_plan(duthost)
+    pytest_assert(
+        prune_plan["rc"] == 0,
+        "Failed to calculate the DB pruning plan: {}".format(
+            _get_command_output(prune_plan)
+        ),
+    )
+    prune_plan_output = _get_command_output(prune_plan)
+    _, separator, dropped_section = prune_plan_output.partition(
+        "db certificates that sign no installed image and will be dropped"
+    )
+    pytest_assert(separator, "DB pruning plan does not contain a dropped-signer section")
+    dropped_section = dropped_section.partition("prune_plan ")[0].replace(":", "")
+    missing_from_plan = {
+        fingerprint
+        for fingerprint in removable_fingerprints
+        if fingerprint not in dropped_section
+    }
+    pytest_assert(
+        not missing_from_plan,
+        "Removed image signer is still required by another image or the active EFI bundle: {}".format(
+            sorted(missing_from_plan)
+        ),
+    )
+
+    prune_result = _run_db_pruning(duthost)
+    pytest_assert(
+        prune_result["rc"] == 0,
+        "DB pruning failed: {}".format(_get_command_output(prune_result)),
+    )
+
+    firmware_fingerprints_after = _get_firmware_db_fingerprint_set(duthost)
+    retained_unused = removable_fingerprints.intersection(firmware_fingerprints_after)
+    pytest_assert(
+        not retained_unused,
+        "DB pruning retained the unused signer: {}".format(sorted(retained_unused)),
+    )
+    missing_retained = retained_fingerprints - firmware_fingerprints_after
+    pytest_assert(
+        not missing_retained,
+        "DB pruning removed a retained image signer: {}".format(
+            sorted(missing_retained)
+        ),
     )
     pytest_assert(
         duthost.get_image_info()["current"] == original_image,
