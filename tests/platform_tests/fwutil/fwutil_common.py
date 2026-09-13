@@ -40,6 +40,19 @@ def find_pattern(lines, pattern):
     return False
 
 
+def _dpu_admin_oper_aligned(duthost):
+    """True when each DPU's oper-status matches admin-status (down/offline or up/online)."""
+    for module_status in duthost.show_and_parse("show chassis module status"):
+        if "DPU" not in module_status.get("name", "").upper():
+            continue
+        admin = module_status.get("admin-status", "").lower()
+        oper = module_status.get("oper-status", "").lower()
+        if (admin == "down" and oper != "offline") or (admin != "down" and oper != "online"):
+            logger.info("DPU %s not aligned: admin=%s oper=%s", module_status.get("name"), admin, oper)
+            return False
+    return True
+
+
 def get_hw_revision(duthost):
     out = duthost.command("show platform summary")
     rev_line = out["stdout"].splitlines()[6]
@@ -233,6 +246,11 @@ def validate_versions(final, config, chassis, boot):
 
 def call_fwutil(request, duthost, localhost, pdu_ctrl, fw_pkg,
                 component=None, next_image=None, boot=None, basepath=None):
+    # Wait for DPU admin/oper states to be aligned before FPGA update
+    if component and "FPGA" in component:
+        pytest_assert(wait_until(360, 10, 0, _dpu_admin_oper_aligned, duthost),
+                      "DPU admin/oper states not aligned before FPGA update")
+
     allure.step("Collect firmware versions")
     logger.info("Calling fwutil with component: {} | next_image: {} | boot: {} | basepath: {}".format(component,
                                                                                                       next_image,
