@@ -13,6 +13,9 @@ from tests.common.helpers.monit import check_monit_expected_container_logging
 
 logger = logging.getLogger(__name__)
 
+MONIT_HOST_CONFIG = "/etc/monit/conf.d/sonic-host"
+INODE_USAGE_ALERT = "if inode usage > 85% for 10 times within 20 cycles then alert repeat every 1 cycles"
+
 pytestmark = [
     pytest.mark.topology('any', 't1-multi-asic'),
     pytest.mark.disable_loganalyzer
@@ -101,6 +104,32 @@ def test_monit_status(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
                   "Monit is either not running or not configured correctly")
 
     logger.info("Checking the running status of Monit was done!")
+
+
+@pytest.mark.parametrize("filesystem_name, filesystem_path", [
+    ("root-overlay", "/"),
+    ("var-log", "/var/log"),
+    ("host-inodes", "/host"),
+])
+def test_monit_inode_usage_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                                  filesystem_name, filesystem_path):
+    """Verify that Monit checks inode usage for each host filesystem."""
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    config_result = duthost.command("sudo cat {}".format(MONIT_HOST_CONFIG))
+    config_lines = [line.strip() for line in config_result["stdout_lines"] if line.strip()]
+    filesystem_header = "check filesystem {} with path {}".format(filesystem_name, filesystem_path)
+
+    pytest_assert(filesystem_header in config_lines,
+                  "Monit configuration is missing '{}'".format(filesystem_header))
+
+    block_start = config_lines.index(filesystem_header)
+    block_end = next((index for index, line in enumerate(config_lines[block_start + 1:], block_start + 1)
+                      if line.startswith("check ")), len(config_lines))
+    filesystem_config = config_lines[block_start:block_end]
+
+    pytest_assert(filesystem_config.count(INODE_USAGE_ALERT) == 1,
+                  "Monit filesystem '{}' must contain exactly one '{}' condition".format(
+                      filesystem_name, INODE_USAGE_ALERT))
 
 
 def test_monit_reporting_message(duthosts, enum_rand_one_per_hwsku_frontend_hostname, stop_and_start_lldpmgrd):
