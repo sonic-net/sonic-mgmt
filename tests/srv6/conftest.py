@@ -12,7 +12,7 @@ from tests.common.helpers.srv6_helper import SRv6Packets, create_srv6_locator, d
     del_srv6_sid
 from tests.srv6.srv6_utils import MyLocators, MySIDs, get_srv6_mysid_entry_usage, \
     enable_srv6_counterpoll, disable_srv6_counterpoll, set_srv6_counterpoll_interval, verify_srv6_counterpoll_status, \
-    verify_srv6_crm_status, ROUTE_BASE
+    verify_srv6_crm_status, ROUTE_BASE, get_ptf_src_port_and_dut_port_and_neighbor, verify_asic_db_sid_entry_exist
 
 logger = logging.getLogger(__name__)
 
@@ -139,6 +139,90 @@ def config_setup(request, rand_selected_dut, srv6_crm_total_sids, upstream_links
     rand_selected_dut.shell('sudo config save -y')
 
 
+@pytest.fixture()
+def setup_uN(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, tbinfo):
+    duthost = duthosts[enum_frontend_dut_hostname]
+    asic_index = enum_frontend_asic_index
+
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    ptf_port_ids = []
+    for interface in list(mg_facts["minigraph_ptf_indices"].keys()):
+        port_id = mg_facts["minigraph_ptf_indices"][interface]
+        ptf_port_ids.append(port_id)
+
+    if duthost.is_multi_asic:
+        cli_options = " -n " + duthost.get_namespace_from_asic_id(asic_index)
+        dut_asic = duthost.asic_instance(asic_index)
+        dut_mac = dut_asic.get_router_mac()
+        dut_port, ptf_src_ports, neighbor = get_ptf_src_port_and_dut_port_and_neighbor(dut_asic, tbinfo)
+    else:
+        cli_options = ''
+        dut_mac = duthost.facts["router_mac"]
+        dut_port, ptf_src_ports, neighbor = get_ptf_src_port_and_dut_port_and_neighbor(duthost, tbinfo)
+
+    logger.info("Doing test on DUT port {} | PTF ports {}".format(dut_port, ptf_src_ports))
+
+    neighbor_ip = None
+    # get neighbor IP
+    lines = duthost.command("show ipv6 bgp sum")['stdout'].split("\n")
+    for line in lines:
+        if neighbor in line:
+            neighbor_ip = line.split()[0]
+    assert neighbor_ip, "Unable to find neighbor {} IP".format(neighbor)
+
+    # use DUT portchannel if applicable
+    pc_info = duthost.command("show int portchannel")['stdout']
+    if dut_port in pc_info:
+        lines = pc_info.split("\n")
+        for line in lines:
+            if dut_port in line:
+                dut_port = line.split()[1]
+                logger.info("Using portchannel interface: {}".format(dut_port))
+                break
+
+    sonic_db_cli = "sonic-db-cli" + cli_options
+
+    # add a locator configuration entry
+    duthost.command(sonic_db_cli + " CONFIG_DB HSET SRV6_MY_LOCATORS\\|loc1 prefix fcbb:bbbb:1:: func_len 0")
+    # add a uN sid configuration entry
+    duthost.command(sonic_db_cli +
+                    " CONFIG_DB HSET SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1::/48 action uN decap_dscp_mode pipe")
+    random.seed(time.time())
+    # add the static route for IPv6 forwarding towards PTF's uSID and the blackhole route in a random order
+    if random.randint(0, 1) == 0:
+        duthost.command(sonic_db_cli + " CONFIG_DB HSET STATIC_ROUTE\\|default\\|fcbb:bbbb:2::/48 nexthop {} ifname {}"
+                        .format(neighbor_ip, dut_port))
+        duthost.command(sonic_db_cli + " CONFIG_DB HSET STATIC_ROUTE\\|default\\|fcbb:bbbb::/32 blackhole true")
+    else:
+        duthost.command(sonic_db_cli + " CONFIG_DB HSET STATIC_ROUTE\\|default\\|fcbb:bbbb::/32 blackhole true")
+        duthost.command(sonic_db_cli + " CONFIG_DB HSET STATIC_ROUTE\\|default\\|fcbb:bbbb:2::/48 nexthop {} ifname {}"
+                        .format(neighbor_ip, dut_port))
+    duthost.command("config save -y")
+    # Verify that the ASIC DB has the SRv6 SID entries
+    assert wait_until(20, 5, 0, verify_asic_db_sid_entry_exist, duthost, sonic_db_cli), \
+        "ASIC_STATE:SAI_OBJECT_TYPE_MY_SID_ENTRY entries are missing in ASIC_DB"
+
+    setup_info = {
+        "asic_index": asic_index,
+        "duthost": duthost,
+        "dut_mac": dut_mac,
+        "dut_port": dut_port,
+        "ptf_src_ports": ptf_src_ports,
+        "neighbor_ip": neighbor_ip,
+        "cli_options": cli_options,
+        "ptf_port_ids": ptf_port_ids
+    }
+
+    yield setup_info
+
+    # delete the SRv6 configuration
+    duthost.command(sonic_db_cli + " CONFIG_DB DEL SRV6_MY_LOCATORS\\|loc1")
+    duthost.command(sonic_db_cli + " CONFIG_DB DEL SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1::/48")
+    duthost.command(sonic_db_cli + " CONFIG_DB DEL STATIC_ROUTE\\|default\\|fcbb:bbbb:2::/48")
+    duthost.command(sonic_db_cli + " CONFIG_DB DEL STATIC_ROUTE\\|default\\|fcbb:bbbb::/32")
+    duthost.command("config save -y")
+
+
 def pytest_addoption(parser):
     """
     Adds options to pytest that are used by the srv6 reboot tests.
@@ -157,6 +241,51 @@ def pytest_addoption(parser):
         action="store",
         default="srh,no_srh",
         help="SRv6 test parameters, comma separated values, default: srh,no_srh"
+    )
+
+    parser.addoption(
+        "--srv6_warmboot_send_interval",
+        action="store",
+        type=float,
+        default=0.01,
+        help="Interval in seconds between two SRv6 packets sent during the warm reboot test. "
+             "It drives the resolution of the disruption measurement, default: 0.01 (100 pps)"
+    )
+
+    parser.addoption(
+        "--srv6_warmboot_max_duration",
+        action="store",
+        type=int,
+        default=1200,
+        help="Upper bound, in seconds, of the traffic sending phase of the warm reboot test"
+    )
+
+    parser.addoption(
+        "--srv6_warmboot_settle_time",
+        action="store",
+        type=int,
+        default=60,
+        help="Time, in seconds, during which the traffic keeps running after the warm boot "
+             "finalizer completed. The SRv6 SID entries are reconciled after the device is "
+             "reachable again, so the traffic has to cover that window too"
+    )
+
+    parser.addoption(
+        "--srv6_warmboot_allowed_disruption",
+        action="store",
+        type=float,
+        default=0.0,
+        help="Data plane disruption, in seconds, tolerated over a warm reboot. It defaults to 0 "
+             "because a warm reboot is expected to be hitless, which is also the limit used by "
+             "the advanced reboot test"
+    )
+
+    parser.addoption(
+        "--srv6_warmboot_allowed_duplication",
+        action="store",
+        type=int,
+        default=0,
+        help="Number of duplicated packets tolerated over a warm reboot"
     )
 
 
