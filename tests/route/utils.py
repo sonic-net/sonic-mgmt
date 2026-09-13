@@ -1,4 +1,8 @@
 import json
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 
 def generate_intf_neigh(asichost, num_neigh, ip_version, mg_facts=None, is_backend_topology=False):
@@ -114,8 +118,24 @@ def prepare_dut(asichost, intf_neighs):
 def cleanup_dut(asichost, intf_neighs):
     for intf_neigh in intf_neighs:
         # Delete neighbor
-        asichost.run_ip_neigh_cmd(
-            "del " + intf_neigh["neighbor"] + " dev " + intf_neigh["interface"]
-        )
+        try:
+            asichost.run_ip_neigh_cmd(
+                "del " + intf_neigh["neighbor"] + " dev " + intf_neigh["interface"]
+            )
+        except Exception as err:
+            logger.warning(
+                "Failed to delete neighbor %s on %s during cleanup: %s",
+                intf_neigh["neighbor"],
+                intf_neigh["interface"],
+                err
+            )
         # remove interface
-        asichost.config_ip_intf(intf_neigh["interface"], intf_neigh["ip"], "remove")
+        try:
+            asichost.config_ip_intf(intf_neigh["interface"], intf_neigh["ip"], "remove")
+        except Exception as err:
+            logger.warning(
+                "Failed to remove IP %s from %s during cleanup: %s",
+                intf_neigh["ip"],
+                intf_neigh["interface"],
+                err
+            )
