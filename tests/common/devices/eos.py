@@ -739,12 +739,11 @@ class EosHost(AnsibleHostBase):
 
     def get_speed(self, interface_name):
         output = self.eos_command(commands=['show interfaces %s transceiver properties' % interface_name])
-        found_txt = re.search(r'Operational Speed: (\S+)', output['stdout'][0])
+        found_txt = re.search(r'Operational speed:\s*(\d+)\s*G\b', output['stdout'][0], re.IGNORECASE)
         if found_txt is None:
             _raise_err('Not able to extract interface %s speed from output: %s' % (interface_name, output['stdout']))
 
-        v = found_txt.groups()[0]
-        return v[:-1] + '000'
+        return found_txt.group(1) + '000'
 
     def _has_cli_cmd_failed(self, cmd_output_obj):
         err_out = False
