@@ -85,12 +85,18 @@ def run_pfcwd_basic_test(api,
 
     orig_poll_interval_ms = {}
     try:
-        for duthost, asic_value in ((egress_duthost, rx_port['asic_value']),
-                                    (ingress_duthost, tx_port['asic_value'])):
+        dut_asic_pairs = ((egress_duthost, rx_port['asic_value']),
+                          (ingress_duthost, tx_port['asic_value']))
+        for duthost, asic_value in dut_asic_pairs:
             # Disable packet aging only on Nexthop (VOQ/DNX) DUTs; others keep it enabled.
             packet_aging = disable_packet_aging if is_nexthop_device(duthost) else enable_packet_aging
             packet_aging(duthost, asic_value)
             start_pfcwd(duthost, asic_value)
+
+        # Apply the poll-interval override only after every start_pfcwd call: on a single-DUT
+        # testbed egress==ingress, so a second start_pfcwd (start_default) would otherwise reset
+        # the poll interval back to the platform default and drop the override.
+        for duthost, asic_value in dut_asic_pairs:
             if is_nexthop_device(duthost) and duthost not in orig_poll_interval_ms:
                 # `pfcwd interval` is host-global: once per DUT, else a repeat DUT re-reads our own override.
                 orig_poll_interval_ms[duthost] = get_pfcwd_poll_interval(duthost, asic_value)
