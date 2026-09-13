@@ -128,7 +128,8 @@ def pc_active(asichost, portchannel):
 
 
 @pytest.mark.parametrize("portchannel_type", ["normal", "fallback-single", "fallback-static"])
-def test_po_update(duthosts, nbrhosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, tbinfo, portchannel_type):
+def test_po_update(duthosts, nbrhosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index,
+                   tbinfo, portchannel_type):
     """
     test port channel add/deletion as well ip address configuration
     """
@@ -378,7 +379,8 @@ def run_traffic_test_during_po_change(duthost, duthosts, asichost, ptfadapter, i
         pytest_assert(wait_until(30, 5, 5, _check_pc_link, asichost, out_pc.name, False),
                       "Portchannel {} link did not go down".format(out_pc.name))
         pytest_assert(
-            has_bgp_neighbors(duthost, out_pc.name) and wait_until(120, 10, 0, asichost.check_bgp_statistic, 'ipv4_idle', 1)
+            has_bgp_neighbors(duthost, out_pc.name) and wait_until(120, 10, 0, asichost.check_bgp_statistic,
+                                                                   'ipv4_idle', 1)
             or not wait_until(10, 10, 0, pc_active, asichost, out_pc.name))
 
         # Step 3: Create tmp port channel
@@ -492,7 +494,8 @@ def run_traffic_test_during_po_change(duthost, duthosts, asichost, ptfadapter, i
 
         wait_until(30, 5, 5, _check_pc_link, asichost, out_pc.name, True)
         pytest_assert(
-            has_bgp_neighbors(duthost, out_pc.name) and wait_until(120, 10, 0, asichost.check_bgp_statistic, 'ipv4_idle', 0)
+            has_bgp_neighbors(duthost, out_pc.name) and wait_until(120, 10, 0, asichost.check_bgp_statistic,
+                                                                   'ipv4_idle', 0)
             or wait_until(10, 10, 0, pc_active, asichost, out_pc.name))
 
 
@@ -556,7 +559,8 @@ def test_po_update_io_no_loss(
     # all ports in out_pc will be output/forward ports
     in_ptf_index = dut_mg_facts["minigraph_ptf_indices"][in_pc.ports[0]]
     out_ptf_indices = [mg_facts["minigraph_ptf_indices"][port] for port in out_pc.ports]
-    logging.info(f"in_pc is {in_pc}, out_pc is {out_pc}, in_ptf_index is {in_ptf_index}, out_ptf_indices is {out_ptf_indices}")
+    logging.info(f"in_pc is {in_pc}, out_pc is {out_pc}, "
+                 f"in_ptf_index is {in_ptf_index}, out_ptf_indices is {out_ptf_indices}")
 
     def del_add_members(asichost, pc_name, sending_flag, finished_flag):
         # wait for packets sending started, then starts to update pc members
@@ -602,7 +606,8 @@ def test_po_update_io_no_loss_with_fallback(
     # all ports in out_pc will be output/forward ports
     in_ptf_index = dut_mg_facts["minigraph_ptf_indices"][in_pc.ports[0]]
     out_ptf_indices = [mg_facts["minigraph_ptf_indices"][port] for port in out_pc.ports]
-    logging.info(f"in_pc is {in_pc}, out_pc is {out_pc}, in_ptf_index is {in_ptf_index}, out_ptf_indices is {out_ptf_indices}")
+    logging.info(f"in_pc is {in_pc}, out_pc is {out_pc}, "
+                 f"in_ptf_index is {in_ptf_index}, out_ptf_indices is {out_ptf_indices}")
 
     (vm_host, vm_member_interfaces, vm_lag_id) = get_vm_peer_for_dut_intf(nbrhosts, tbinfo, mg_facts, out_pc.ports[0])
 
