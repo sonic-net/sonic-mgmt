@@ -396,6 +396,25 @@ def test_check_sfputil_error_status(duthosts, enum_rand_one_per_hwsku_frontend_h
     physical_port_index_map = get_physical_port_indices(duthost, conn_graph_facts["device_conn"][duthost.hostname])
     admin_up_port_set = set(duthost.get_admin_up_ports())
 
+    # When the DB-backed variant ('sudo sfputil show error-status', without --fetch-from-hardware)
+    # returns no per-port rows, the command read an empty STATE_DB TRANSCEIVER_STATUS table.
+    # Fail loudly with actionable diagnostics so the failure is not misread as a per-interface bug.
+    # The hardware-direct variant ('--fetch-from-hardware') bypasses STATE_DB so the same check
+    # does not apply to it.
+    if cmd_sfp_error_status == "sudo sfputil show error-status" and not parsed_presence:
+        assert False, (
+            "'{}' returned no per-port rows: STATE_DB 'TRANSCEIVER_STATUS|*' table appears to be "
+            "empty (key count: {}). Raw command output: {!r}. "
+            "This typically indicates xcvrd/pmon has not populated the TRANSCEIVER_STATUS table "
+            "on this DUT. Try '{} --fetch-from-hardware' to bypass STATE_DB and confirm the SFP "
+            "hardware is reachable; if that succeeds, investigate xcvrd on the DUT."
+        ).format(
+            cmd_sfp_error_status,
+            len(state_db_ports_list),
+            sfp_error_status.get('stdout', ''),
+            cmd_sfp_error_status,
+        )
+
     for intf in dev_conn:
         if intf not in xcvr_skip_list[duthost.hostname]:
             expected_state = 'OK'
@@ -411,7 +430,16 @@ def test_check_sfputil_error_status(duthosts, enum_rand_one_per_hwsku_frontend_h
                                "not supported on this port)".format(intf))
                 continue
             assert intf in parsed_presence, (
-                "Interface '{}' is not in parsed_presence.".format(intf)
+                "Interface '{}' is missing from parsed output of '{}'. "
+                "Parsed ports ({}): {}. STATE_DB 'TRANSCEIVER_STATUS|*' key count: {}. "
+                "Raw command output: {!r}."
+            ).format(
+                intf,
+                cmd_sfp_error_status,
+                len(parsed_presence),
+                sorted(parsed_presence.keys()),
+                len(state_db_ports_list),
+                sfp_error_status.get('stdout', ''),
             )
             assert parsed_presence[intf] == expected_state, (
                 "Interface '{}' error status check failed. "
