@@ -30,9 +30,23 @@ pytestmark = [
 ]
 
 PACKET_COUNT = 1000
+NEIGHBOR_RESOLUTION_TIMEOUT = 30
 # It's normal to see the mem usage increased a little bit
 # set threshold buffer to 5%
 MEM_THRESHOLD_BUFFER = 0.05
+
+
+@pytest.fixture(params=["ipv4", "ipv6"])
+def ip_version(request):
+    """Traffic IP version to test."""
+    return request.param
+
+
+@pytest.fixture
+def setup_arp_responder(ip_version, request):
+    """Configure the PTF responder for the selected server IP version."""
+    fixture_name = "run_arp_responder_ipv6" if ip_version == "ipv6" else "run_arp_responder"
+    request.getfixturevalue(fixture_name)
 
 
 def validate_neighbor_entry_exist(duthost, neighbor_addr):
@@ -117,7 +131,8 @@ def check_memory_leak(duthost, target_mem_usage, delay=10, timeout=15, interval=
 
 
 def test_tunnel_memory_leak(toggle_all_simulator_ports_to_upper_tor, upper_tor_host, lower_tor_host,    # noqa: F811
-                            ptfhost, ptfadapter, conn_graph_facts, tbinfo, vmhost, run_arp_responder):  # noqa: F811
+                            ptfhost, ptfadapter, conn_graph_facts, tbinfo, vmhost, ip_version,
+                            setup_arp_responder):  # noqa: F811
     """
     Test if there is memory leak for service tunnel_packet_handler.
     Send ip packets from standby TOR T1 to Server, standby TOR will
@@ -151,6 +166,7 @@ def test_tunnel_memory_leak(toggle_all_simulator_ports_to_upper_tor, upper_tor_h
     ptf_t1_intf = random.choice(get_t1_ptf_ports(lower_tor_host, tbinfo))
 
     all_servers_ips = mux_cable_server_ip(upper_tor_host)
+    server_ip_key = "server_{}".format(ip_version)
     unexpected_count = 0
     expected_count = 0
     asic_type = upper_tor_host.facts["asic_type"]
@@ -158,19 +174,19 @@ def test_tunnel_memory_leak(toggle_all_simulator_ports_to_upper_tor, upper_tor_h
     with prepare_services(ptfhost):
         # Delete the neighbors
         for iface, server_ips in list(all_servers_ips.items()):
-            server_ipv4 = server_ips["server_ipv4"].split("/")[0]
-            pytest_assert(wait_until(10, 1, 0, delete_neighbor, upper_tor_host, server_ipv4),
-                          "server ip {} hasn't been deleted from neighbor table.".format(server_ipv4))
+            server_ip = server_ips[server_ip_key].split("/")[0]
+            pytest_assert(wait_until(10, 1, 0, delete_neighbor, upper_tor_host, server_ip),
+                          "server ip {} hasn't been deleted from neighbor table.".format(server_ip))
         # sleep 10s to wait memory usage stable
         time.sleep(10)
         # Get the original memory usage before test
         origin_mem_usage = get_tunnel_packet_handler_memory_usage(upper_tor_host)
         logging.info("tunnel_packet_handler.py original MEM USAGE:{}".format(origin_mem_usage))
         for iface, server_ips in list(all_servers_ips.items()):
-            server_ipv4 = server_ips["server_ipv4"].split("/")[0]
-            logging.info("Select DUT interface {} and server IP {} to test.".format(iface, server_ipv4))
+            server_ip = server_ips[server_ip_key].split("/")[0]
+            logging.info("Select DUT interface {} and server IP {} to test.".format(iface, server_ip))
 
-            pkt, exp_pkt = build_packet_to_server(lower_tor_host, ptfadapter, server_ipv4)
+            pkt, exp_pkt = build_packet_to_server(lower_tor_host, ptfadapter, server_ip)
 
             if asic_type == "vs":
                 logging.info("ServerTrafficMonitor do not support on KVM dualtor, skip following steps.")
@@ -189,18 +205,24 @@ def test_tunnel_memory_leak(toggle_all_simulator_ports_to_upper_tor, upper_tor_h
                     mem_usage = get_tunnel_packet_handler_memory_usage(upper_tor_host)
                     logging.info(
                         "tunnel_packet_handler MEM USAGE:{}".format(mem_usage))
-                    pytest_assert(validate_neighbor_entry_exist(upper_tor_host, server_ipv4),
+                    pytest_assert(wait_until(NEIGHBOR_RESOLUTION_TIMEOUT, 1, 0,
+                                             validate_neighbor_entry_exist, upper_tor_host, server_ip),
                                   "The server ip {} doesn't exist in neighbor table on dut {}. \
-                                  tunnel_packet_handler isn't triggered.".format(server_ipv4, upper_tor_host.hostname))
+                                  tunnel_packet_handler isn't triggered.".format(server_ip, upper_tor_host.hostname))
+                    # The initial burst triggers neighbor resolution. Send additional packets
+                    # after resolution so the downstream traffic monitor can validate forwarding.
+                    testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), pkt, count=10)
             except Exception as e:
                 logging.error("Capture exception {}, continue the process.".format(repr(e)))
             if len(server_traffic_monitor.matched_packets) == 0:
-                logging.error("Didn't receive any expected packets for server {}.".format(server_ipv4))
+                logging.error("Didn't receive any expected packets for server {}.".format(server_ip))
                 unexpected_count += 1
             else:
                 expected_count += 1
         logging.info("The amount of expected scenarios: {}, the amount of unexpected scenarios: {}."
                      .format(expected_count, unexpected_count))
+        pytest_assert(expected_count > 0,
+                      "Didn't receive any expected {} packets for any server.".format(ip_version))
         # sleep 10s to wait memory usage stable, check if there is memory leak
         time.sleep(10)
         check_result = check_memory_leak(upper_tor_host, float(origin_mem_usage) * (1 + MEM_THRESHOLD_BUFFER))
