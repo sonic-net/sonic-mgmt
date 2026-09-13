@@ -840,16 +840,9 @@
 
       - name: Adjust BCM DNX soc properties to set STAN_ALN mode correctly
         block:
-          - name: Get active fabric links
-            block:
-            - name: Get online fabric cards
-              shell: show chassis module status | grep "FABRIC-CARD" | grep "Online" | wc -l
-              register: active_fabric_cards
-
-            - name: Set fabric links based on active fabric cards
-              set_fact:
-                fabric_links: "{{ active_fabric_cards.stdout | int * 24 }}"
-
+          - name: Set fabric links based on statically configured num_fabric_cards
+            set_fact:
+              fabric_links: "{{ (hostvars[sup_dut]['num_fabric_cards'] | int) * 24 }}"
             when: inventory_hostname == sup_dut
 
           - name: Adjust SOC properties if appl_param_active_links_thr_high is greater than fabric links
@@ -876,7 +869,7 @@
                 # Needs to be followed by config reload to take affect
 
             when: inventory_hostname != sup_dut
-        when: ("t2" in topo) and (switch_type is defined and (switch_type == "voq" or switch_type == "fabric")) and (hwsku is defined and 'Nokia-IXR7250' in hwsku)
+        when: ("t2" in topo) and (switch_type is defined and (switch_type == "voq" or switch_type == "fabric")) and (hwsku is defined and 'Nokia-IXR7250' in hwsku) and (hostvars[sup_dut]['num_fabric_cards'] is defined)
         rescue:
           - debug: msg="SOC properties may not be defined in the device config file. Skipping adjustment of SOC properties."
 
