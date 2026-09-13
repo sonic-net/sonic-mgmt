@@ -406,7 +406,20 @@ def is_hiting_start_limit(duthost, service_name):
     @summary: Determine whether the service can not be restarted is due to
               start-limit-hit or not
     """
-    service_status = duthost.shell("sudo systemctl status {}.service | grep 'Active'".format(service_name))
+    # Not every FEATURE row has a systemd service behind it. SONiC has features
+    # that are pure config flags with no container (for example mpls), and for
+    # those `systemctl status <name>.service` exits non-zero with
+    # "Unit <name>.service could not be found". Asking whether such a service
+    # hit its start limit is a legitimate question with the answer "no", so
+    # tolerate the failure instead of raising and failing the calling test.
+    service_status = duthost.shell(
+        "sudo systemctl status {}.service | grep 'Active'".format(service_name),
+        module_ignore_errors=True)
+    if service_status["rc"] != 0:
+        logger.debug("Skipping start-limit check for '{}': no active systemd service ({})"
+                     .format(service_name, service_status.get("stderr", "").strip()))
+        return False
+
     for line in service_status["stdout_lines"]:
         if "start-limit-hit" in line:
             return True
