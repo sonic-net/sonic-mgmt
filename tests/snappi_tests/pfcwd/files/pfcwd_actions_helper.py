@@ -309,7 +309,14 @@ def run_pfc_test(api,
         # Check for loss packets on IXIA and DUT.
         if (test_def['enable_pfcwd_drop'] or test_def['enable_credit_wd']):
             pytest_assert(test_stats['tgen_loss_pkts'] == 0, 'Loss seen on TGEN')
-        pytest_assert(test_stats['dut_loss_pkts'] == 0, 'Loss seen on DUT')
+        # dut_loss_pkts is a sum of generic interface RX/TX error+drop counters
+        # across all monitored ports, not scoped to the Snappi test flows, so it
+        # is diagnostic only (see #27403). Actual test-flow loss is verified by
+        # the TGEN and DUT queue-counter checks below.
+        if test_stats['dut_loss_pkts'] > 0:
+            logger.warning("Non-zero DUT interface error/drop counters seen ({} pkts). These are "
+                           "generic interface counters, not scoped to the Snappi test flows, and "
+                           "do not by themselves indicate test-flow loss.".format(test_stats['dut_loss_pkts']))
 
         # Check for Tx and Rx packets on IXIA for lossless and lossy streams.
         if (test_def['enable_pfcwd_drop'] or test_def['enable_credit_wd']):
