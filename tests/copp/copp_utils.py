@@ -245,22 +245,27 @@ def _install_nano_bookworm(dut, creds, syncd_docker_name):
     if output["stdout"] == "copp":
         http_proxy = creds.get('proxy_env', {}).get('http_proxy', '')
         https_proxy = creds.get('proxy_env', {}).get('https_proxy', '')
+        # Skip libssl-dev on FIPS trixie images, where it conflicts with the pre-installed "+fips" libssl3t64.
+        libssl3_fips = dut.command(
+            "docker exec {} bash -c \"dpkg -s libssl3t64 2>/dev/null | grep -q '+fips' && echo fips || echo plain\""
+            .format(syncd_docker_name))["stdout"].strip() == "fips"
+        ssl_pkgs = "" if libssl3_fips else "libssl-dev "
         # Change the permission of /tmp to 1777 to workaround issue sonic-net/sonic-buildimage#16034
         cmd = '''docker exec -e http_proxy={0} -e https_proxy={1} {2} bash -c " \
                 mkdir -p /var/tmp_build \
                 && rm -rf /var/lib/apt/lists/* \
                 && apt-get update \
-                && apt-get install -y python3-pip build-essential libssl-dev libffi-dev \
+                && apt-get install -y python3-pip build-essential {5}libffi-dev \
                 python3-dev python3-setuptools wget libnanomsg-dev python-is-python3 \
                 && TMPDIR=/var/tmp_build pip3 install --no-cache-dir cffi \
                 && TMPDIR=/var/tmp_build pip3 install --no-cache-dir nnpy \
                 && rm -rf /var/tmp_build \
                 && mkdir -p /opt && cd /opt && wget {3} \
                 && mkdir ptf && cd ptf && wget {4} && touch __init__.py \
-                && apt-get -y purge build-essential libssl-dev libffi-dev python3-dev \
+                && apt-get -y purge build-essential {5}libffi-dev python3-dev \
                 python3-setuptools wget \
                 " '''.format(http_proxy, https_proxy, syncd_docker_name,
-                             _PTF_NN_AGENT_URL, _PTF_AFPACKET_URL)
+                             _PTF_NN_AGENT_URL, _PTF_AFPACKET_URL, ssl_pkgs)
         dut.command(cmd)
 
 
