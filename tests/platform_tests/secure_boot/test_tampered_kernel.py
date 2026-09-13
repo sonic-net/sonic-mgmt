@@ -1,13 +1,16 @@
 import logging
+import os
 import re
 import shlex
 import time
 
+import pexpect
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.secure_boot import (
     require_secure_boot,
+    restore_active_efi_bundle,
 )
 from tests.common.helpers.upgrade_helpers import (
     get_inactive_images,
@@ -23,6 +26,7 @@ pytestmark = [
 ]
 
 CONSOLE_CAPTURE_TIMEOUT = 180
+CONSOLE_CONNECT_TIMEOUT = 15
 RECOVERY_TIMEOUT = 300
 KERNEL_REJECTION_MESSAGES = (
     "bad shim signature",
@@ -36,6 +40,78 @@ KEY_UP = "\x1b[A"
 KEY_DOWN = "\x1b[B"
 
 logger = logging.getLogger(__name__)
+
+
+class KvmSerialConsole:
+    RETURN = "\r"
+
+    def __init__(self, vm_host, vm_user, serial_port):
+        self._session = pexpect.spawn(
+            "ssh",
+            [
+                "-q",
+                "-tt",
+                "-o",
+                "BatchMode=yes",
+                "-o",
+                "StrictHostKeyChecking=no",
+                "-o",
+                "UserKnownHostsFile=/dev/null",
+                "{}@{}".format(vm_user, vm_host),
+                "telnet 127.0.0.1 {}".format(serial_port),
+            ],
+            encoding="utf-8",
+            codec_errors="ignore",
+            echo=False,
+            timeout=CONSOLE_CAPTURE_TIMEOUT,
+        )
+        self._session.expect(
+            r"Connected to (?:127\.0\.0\.1|localhost)",
+            timeout=CONSOLE_CONNECT_TIMEOUT,
+        )
+
+    def read_until_pattern(self, pattern, read_timeout):
+        self._session.expect(pattern, timeout=read_timeout)
+        return self._session.before + self._session.after
+
+    def write_channel(self, data):
+        self._session.send(data)
+
+    def disconnect(self):
+        if self._session.isalive():
+            self._session.close(force=True)
+
+
+def _get_inventory_vars(host):
+    inventory_manager = host.host.options["inventory_manager"]
+    variable_manager = host.host.options["variable_manager"]
+    inventory_host = inventory_manager.get_host(host.hostname)
+    return variable_manager.get_vars(host=inventory_host)
+
+
+@pytest.fixture
+def kvm_serial_console(duthost, vmhost):
+    """Connect to the KVM serial socket through the VM host."""
+    dut_vars = _get_inventory_vars(duthost)
+    vmhost_vars = _get_inventory_vars(vmhost)
+    serial_port = dut_vars.get("serial_port")
+    pytest_assert(serial_port, "serial_port is not defined for {}".format(duthost.hostname))
+
+    vm_host = vmhost_vars.get("ansible_host")
+    vm_user = os.getenv("SONIC_MGMT_VM_HOST_USER")
+    if not vm_user:
+        vm_user = vmhost_vars.get("ansible_user") or vmhost_vars.get("ansible_ssh_user")
+    pytest_assert(
+        vm_user and "{{" not in str(vm_user),
+        "Set SONIC_MGMT_VM_HOST_USER to the VM host SSH username",
+    )
+    pytest_assert(vm_host and vm_user, "VM host SSH connection details are unavailable")
+
+    console = KvmSerialConsole(vm_host, vm_user, serial_port)
+    try:
+        yield console
+    finally:
+        console.disconnect()
 
 
 # Select the configured second image URL or fall back to an inactive image already on the DUT.
@@ -209,7 +285,7 @@ def _recover_kvm(vmhost, duthost, localhost):
 # Verify that GRUB refuses to boot a kernel whose signed payload was modified.
 def test_tampered_kernel_is_rejected(
     duthost,
-    duthost_console,
+    kvm_serial_console,
     localhost,
     vmhost,
     request,
@@ -256,7 +332,7 @@ def test_tampered_kernel_is_rejected(
         reboot_attempted = True
         duthost.shell("sudo nohup sh -c 'sleep 2; reboot' >/dev/null 2>&1 &")
         console_output = _run_console_boot_sequence(
-            duthost_console,
+            kvm_serial_console,
             target_index,
             original_index,
             original_image,
@@ -300,6 +376,7 @@ def test_tampered_kernel_is_rejected(
         set_default_and_next_image(duthost, original_image)
 
         if target_version and installed_by_test:
+            restore_active_efi_bundle(duthost, original_image)
             remove_result = duthost.command(
                 "sudo sonic-installer remove {} -y".format(shlex.quote(target_version)),
                 module_ignore_errors=True,
