@@ -119,8 +119,11 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list,
             interfaces_wait_time))
         result = wait_until(interfaces_wait_time, 20, 0, check_all_interface_information, dut, interfaces,
                             xcvr_skip_list)
-        assert result, "Not all transceivers are detected or interfaces are up in {} seconds".format(
-            interfaces_wait_time)
+        assert result, (
+            "Post-reboot readiness check failed after {} seconds: either some transceivers were not detected, "
+            "or one or more interfaces were not in their expected admin/oper state. See the preceding "
+            "'transceiver_utils'/'interface_utils' log lines for the specific interface(s) and the reason."
+            .format(interfaces_wait_time))
 
         logging.info("Check transceiver status")
         for asic_index in dut.get_frontend_asic_ids():
