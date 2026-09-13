@@ -164,6 +164,15 @@ class CiscoHost(AnsibleHostBase):
         return 'line protocol is up' in show_int_result['stdout_lines'][0]
 
     @adapt_interface_name
+    def get_interface_lacp_rate_mode(self, interface_name):
+        """Returns the current LACP period mode ('fast' or 'normal') from running config."""
+        out = self.commands(commands=['show running-config interface %s' % interface_name])
+        if out.get('failed', False):
+            raise Exception("Failed to get LACP rate mode for interface [%s]" % interface_name)
+        config = (out.get("stdout") or [""])[0]
+        return "fast" if "lacp period short" in config else "normal"
+
+    @adapt_interface_name
     def set_interface_lacp_rate_mode(self, interface_name, mode):
         if mode == 'fast':
             command = 'lacp period short'
