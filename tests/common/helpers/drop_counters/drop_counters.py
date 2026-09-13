@@ -23,6 +23,10 @@ COMBINED_L2L3_DROP_COUNTER = False
 COMBINED_ACL_DROP_COUNTER = False
 
 
+def _parse_counter_value(value):
+    return int(str(value).replace(",", ""))
+
+
 def get_pkt_drops(duthost, cli_cmd, asic_index=None):
     """
     @summary: Parse output of "portstat" or "intfstat" commands and convert it to the dictionary.
@@ -66,7 +70,7 @@ def ensure_no_l3_drops(duthost, packets_count):
     unexpected_drops = {}
     for iface, value in list(intf_l3_counters.items()):
         try:
-            rx_err_value = int(value[RX_ERR])
+            rx_err_value = _parse_counter_value(value[RX_ERR])
         except ValueError as err:
             logger.info("Unable to verify L3 drops on iface {}, L3 counters may not be supported on this platform\n{}"
                         .format(iface, err))
@@ -83,7 +87,7 @@ def ensure_no_l2_drops(duthost, packets_count):
     unexpected_drops = {}
     for iface, value in list(intf_l2_counters.items()):
         try:
-            rx_drp_value = int(value[RX_DRP])
+            rx_drp_value = _parse_counter_value(value[RX_DRP])
         except ValueError as err:
             logger.warning("Unable to verify L2 drops on iface {}\n{}".format(iface, err))
             continue
@@ -109,21 +113,30 @@ def verify_drop_counters(duthosts, asic_index, dut_iface, get_cnt_cli_cmd, colum
     """ Verify drop counter incremented on specific interface """
     def _get_drops_across_all_duthosts():
         drop_list = []
+        unavailable_list = []
         for duthost in duthosts.frontend_nodes:
             pkt_drops = get_pkt_drops(duthost, get_cnt_cli_cmd)
             # we cannot assume the iface name will be same on all the devices for SONiC chassis
             # if the dut_iface is not found ignore this device
             if dut_iface not in pkt_drops:
                 continue
+            raw_value = pkt_drops[dut_iface][column_key]
             try:
-                drop_list.append(int(pkt_drops[dut_iface][column_key].replace(",", "")))
-            except ValueError:
-                # Catch error invalid literal for int() with base 10: 'N/A'
-                drop_list.append(0)
-        return drop_list
+                drop_list.append(_parse_counter_value(raw_value))
+            except ValueError as err:
+                unavailable_list.append({
+                    "host": duthost.hostname,
+                    "value": raw_value,
+                    "error": str(err),
+                })
+        return drop_list, unavailable_list
 
     def _check_drops_on_dut():
-        return packets_count in _get_drops_across_all_duthosts()
+        drop_list, unavailable_list = _get_drops_across_all_duthosts()
+        if packets_count in drop_list and unavailable_list:
+            logger.warning("Expected drops were observed, but some counter readings were unavailable: {}".format(
+                unavailable_list))
+        return packets_count in drop_list
 
     if not wait_until(25, 1, 0, _check_drops_on_dut):
         # We were seeing a few more drop counters than expected, so we are allowing a small margin of error
@@ -138,13 +151,14 @@ def verify_drop_counters(duthosts, asic_index, dut_iface, get_cnt_cli_cmd, colum
             if config_facts['DEVICE_METADATA']['localhost'].get('subtype', '') == 'DualToR':
                 DROP_MARGIN *= 2
         logger.info(f"The DROP_MARGIN is {DROP_MARGIN}")
-        actual_drop = _get_drops_across_all_duthosts()
+        actual_drop, unavailable_drop = _get_drops_across_all_duthosts()
         for drop in actual_drop:
             if drop >= packets_count and drop <= packets_count + DROP_MARGIN:
                 logger.warning("Actual drops {} exceeded expected drops {} on iface {}\n".format(
                     actual_drop, packets_count, dut_iface))
                 break
         else:
-            fail_msg = "'{}' drop counter was not incremented on iface {}. DUT {} == {}; Sent == {}".format(
-                column_key, dut_iface, column_key, actual_drop, packets_count)
+            fail_msg = "'{}' drop counter was not incremented on iface {}. DUT {} == {}; " \
+                       "unavailable readings == {}; Sent == {}".format(
+                           column_key, dut_iface, column_key, actual_drop, unavailable_drop, packets_count)
             pytest.fail(fail_msg)
