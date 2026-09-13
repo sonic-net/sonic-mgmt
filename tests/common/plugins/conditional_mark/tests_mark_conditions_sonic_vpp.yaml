@@ -117,17 +117,6 @@ container_checker/test_container_checker.py::test_container_checker_telemetry:
       - "asic_type in ['vpp']"
 
 #######################################
-#####           COPP              #####
-#######################################
-copp:
-  skip:
-    reason: >
-            Unsupported
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-#######################################
 #####           Decap             #####
 #######################################
 decap/test_subnet_decap.py:
