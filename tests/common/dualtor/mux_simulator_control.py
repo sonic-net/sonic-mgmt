@@ -51,6 +51,21 @@ logger = logging.getLogger(__name__)
 TOGGLE_SIDES = [UPPER_TOR, LOWER_TOR, TOGGLE, RANDOM]
 
 
+def _log_http_metric(method, server_url, request_id, start_time, status_code=None, error=None):
+    metric = {
+        "metric": "mux_client_request",
+        "method": method,
+        "url": server_url,
+        "request_id": request_id,
+        "status_code": status_code,
+        "success": error is None and status_code == 200,
+        "duration_ms": round((time.time() - start_time) * 1000, 3)
+    }
+    if error is not None:
+        metric["error"] = repr(error)
+    logger.info("METRIC %s", json.dumps(metric, sort_keys=True))
+
+
 @pytest.fixture(scope='session')
 def mux_server_info(request, tbinfo):
     """Fixture for getting ip, port  and vmset_name of mux simulator server
@@ -162,16 +177,32 @@ def _get(server_url):
         dict: A dict decoded from server's response.
         None: Returns None if request failed.
     """
+    request_id = str(uuid.uuid4())
+    request_url = '{}{}reqId={}'.format(
+        server_url,
+        '&' if '?' in server_url else '?',
+        request_id
+    )
+    start_time = time.time()
+    status_code = None
+    error = None
     try:
-        logger.debug('GET {}'.format(server_url))
+        logger.debug('GET {}'.format(request_url))
         headers = {'Accept': 'application/json'}
-        resp = requests.get(server_url, headers=headers)
+        resp = requests.get(request_url, headers=headers)
+        status_code = resp.status_code
         if resp.status_code == 200:
             return resp.json()
         else:
-            logger.warning("GET {} failed with {}".format(server_url, resp.text))
+            logger.warning("GET {} failed with {}".format(request_url, resp.text))
     except Exception as e:
-        logger.warning("GET {} failed with {}".format(server_url, repr(e)))
+        error = e
+        logger.warning("GET {} failed with {}".format(request_url, repr(e)))
+    finally:
+        _log_http_metric(
+            "GET", server_url, request_id, start_time,
+            status_code=status_code, error=error
+        )
 
     return None
 
@@ -186,6 +217,15 @@ def _post(server_url, data):
     Returns:
         True if succeed. False otherwise
     """
+    request_id = str(uuid.uuid4())
+    request_url = '{}{}reqId={}'.format(
+        server_url,
+        '&' if '?' in server_url else '?',
+        request_id
+    )
+    start_time = time.time()
+    status_code = None
+    error = None
     try:
         session = Session()
         if "allowed_methods" in inspect.signature(Retry).parameters:
@@ -198,14 +238,20 @@ def _post(server_url, data):
                           status_forcelist=[x for x in requests.status_codes._codes if x != 200])
 
         session.mount('http://', HTTPAdapter(max_retries=retry))
-        server_url = '{}?reqId={}'.format(server_url, uuid.uuid4())  # Add query string param reqId for debugging
-        logger.debug('POST {} with {}'.format(server_url, data))
+        logger.debug('POST {} with {}'.format(request_url, data))
         headers = {'Accept': 'application/json', 'Content-Type': 'application/json'}
-        resp = session.post(server_url, json=data, headers=headers, timeout=(3.5, 30))
+        resp = session.post(request_url, json=data, headers=headers, timeout=(3.5, 30))
+        status_code = resp.status_code
         logger.debug('Received response {}/{} with content {}'.format(resp.status_code, resp.reason, resp.text))
         return resp.status_code == 200
     except Exception as e:
-        logger.warning("POST {} with data {} failed, err: {}".format(server_url, data, repr(e)))
+        error = e
+        logger.warning("POST {} with data {} failed, err: {}".format(request_url, data, repr(e)))
+    finally:
+        _log_http_metric(
+            "POST", server_url, request_id, start_time,
+            status_code=status_code, error=error
+        )
 
     return False
 
