@@ -57,7 +57,9 @@ def get_default_route_upstream_neigh_type(tb):
 
 def get_default_route_all_upstream_neigh_type(tb):
     if tb["topo"]["name"] in ["t1-isolated-d128", "t1-isolated-d32"]:
-        return "T0"
+        return ["T0"]
+    if tb["topo"]["name"].startswith("t2-isolated"):
+        return ["PT1"]
     return get_all_upstream_neigh_type(tb["topo"]["type"])
 
 
