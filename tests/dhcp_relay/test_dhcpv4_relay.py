@@ -685,6 +685,9 @@ def test_dhcp_relay_with_different_non_default_vrf(
             (including unbinding the Loopback from SERVER_VRF_NAME).
 
     Expected Results:
+        - Relay requests contain VSS Suboption 151 followed by zero-length VSS-Control Suboption 152.
+        - Replies retaining Suboption 152 are not forwarded to the client.
+        - Replies with matching Suboption 151 and no Suboption 152 are forwarded normally.
         - DHCP Discover, Offer, Request, and ACK messages are relayed successfully across different VRFs.
         - Relay behavior matches the expected counters/logs (if enabled).
 
