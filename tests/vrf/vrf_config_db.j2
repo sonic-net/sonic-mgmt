@@ -2,20 +2,21 @@
 {% for k in cfg_t0 %}
 {%     if k == 'BGP_NEIGHBOR' %}
     "BGP_NEIGHBOR": {
+{%         set ns = namespace(names=[]) %}
+{%         for neigh in cfg_t0['BGP_NEIGHBOR'] %}
+{%             set name = cfg_t0['BGP_NEIGHBOR'][neigh]['name'] %}
+{%             if name not in ns.names %}
+{%                 set ns.names = ns.names + [name] %}
+{%             endif %}
+{%         endfor %}
+{%         set sorted_names = ns.names | sort %}
+{%         set half = (sorted_names | length + 1) // 2 %}
+{%         set vrf1_names = sorted_names[:half] %}
 {%         for neigh in cfg_t0['BGP_NEIGHBOR'] | sort %}
-{#     to detect number of pcs, used multiplier 2, because each neigh have ipv4 and ipv6 key #}
-{%             if cfg_t0['BGP_NEIGHBOR'] | length == 8  %}
-{%                 if cfg_t0['BGP_NEIGHBOR'][neigh]['name'] in ['ARISTA01T1', 'ARISTA02T1'] %}
+{%             if cfg_t0['BGP_NEIGHBOR'][neigh]['name'] in vrf1_names %}
         "Vrf1|{{ neigh }}": {{ cfg_t0['BGP_NEIGHBOR'][neigh] | to_nice_json | indent(width=8) }}
-{%-                else %}
-        "Vrf2|{{ neigh }}": {{ cfg_t0['BGP_NEIGHBOR'][neigh] | to_nice_json | indent(width=8) }}
-{%-                endif %}
 {%-            else %}
-{%                 if cfg_t0['BGP_NEIGHBOR'][neigh]['name'] in ['ARISTA01T1', 'ARISTA02T1', 'ARISTA03T1', 'ARISTA04T1'] %}
-        "Vrf1|{{ neigh }}": {{ cfg_t0['BGP_NEIGHBOR'][neigh] | to_nice_json | indent(width=8) }}
-{%-                else %}
         "Vrf2|{{ neigh }}": {{ cfg_t0['BGP_NEIGHBOR'][neigh] | to_nice_json | indent(width=8) }}
-{%-                endif %}
 {%-            endif %}
 {%-            if not loop.last %},{%endif %}
 
@@ -56,6 +57,18 @@
         "Loopback0|FC00:1::32/128": {},
         "Loopback2|10.1.0.32/32": {},
         "Loopback2|FC00:1::32/128": {}
+    },
+{%     elif k == 'INTERFACE' %}
+    "INTERFACE": {
+{%         for intf in cfg_t0['INTERFACE'] | sort %}
+{%             if '|' not in intf %}
+        "{{ intf }}": {"vrf_name": "{{ intf_vrf_map[intf] }}"}
+{%-            else %}
+        "{{ intf }}": {}
+{%-            endif %}
+{%-            if not loop.last %},{% endif %}
+
+{%         endfor %}
     },
 {%     elif k == 'PORTCHANNEL_INTERFACE' %}
     "PORTCHANNEL_INTERFACE": {
