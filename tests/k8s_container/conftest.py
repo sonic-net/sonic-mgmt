@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+import pytest
+
 
 _SUITE_DIRECTORY = Path(__file__).resolve().parent
 
@@ -54,7 +56,8 @@ def pytest_ignore_collect(collection_path, config):
 def pytest_collection_modifyitems(config, items):
     if config.getoption("--k8s-container-test"):
         return
-    deselected = [item for item in items if _is_suite_test(item.path)]
-    if deselected:
-        items[:] = [item for item in items if item not in deselected]
-        config.hook.pytest_deselected(items=deselected)
+    # Explicit file selections bypass pytest_ignore_collect; keep a skipped result
+    # instead of an empty session with exit code 5.
+    for item in items:
+        if _is_suite_test(item.path):
+            item.add_marker(pytest.mark.skip(reason="Requires explicit --k8s-container-test opt-in"))
