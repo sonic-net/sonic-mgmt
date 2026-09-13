@@ -364,6 +364,13 @@ class TestSfpApi(PlatformApiTestBase):
             return 0.3
         return 0
 
+    def should_skip_lpmode_check(self, xcvr_info_dict):
+        return any(
+            xcvr_info_dict.get("manufacturer", "").strip() == xcvr_to_skip["manufacturer"] and
+            xcvr_info_dict.get("model", "").strip() == xcvr_to_skip["model"]
+            for xcvr_to_skip in self.LPMODE_SKIP_LIST
+        )
+
     def is_xcvr_support_lpmode(self, xcvr_info_dict, port_index=None):
         """Returns True if transceiver is support low power mode, False if not supported"""
         xcvr_type = xcvr_info_dict["type"]
@@ -379,12 +386,10 @@ class TestSfpApi(PlatformApiTestBase):
             return False
 
         # Temporarily add this logic to skip lpmode test for some transceivers with known issue
-        for xcvr_to_skip in self.LPMODE_SKIP_LIST:
-            if (xcvr_info_dict["manufacturer"].strip() == xcvr_to_skip["manufacturer"] and
-                    xcvr_info_dict["model"].strip() == xcvr_to_skip["model"]):
-                logger.info("Temporarily skipping {} - {} due to known issue".format(
-                    xcvr_info_dict["manufacturer"], xcvr_info_dict["model"]))
-                return False
+        if self.should_skip_lpmode_check(xcvr_info_dict):
+            logger.info("Temporarily skipping {} - {} due to known issue".format(
+                xcvr_info_dict["manufacturer"], xcvr_info_dict["model"]))
+            return False
 
         return True
 
@@ -413,7 +418,10 @@ class TestSfpApi(PlatformApiTestBase):
                 continue
 
             info_dict = port_index_to_info_dict[sfp_port_idx]
-            if self.is_xcvr_support_lpmode(info_dict, sfp_port_idx):
+            if (
+                self.is_xcvr_support_lpmode(info_dict, sfp_port_idx)
+                or self.should_skip_lpmode_check(info_dict)
+            ):
                 logger.info("Flapping interface {} - xcvr supports lpmode and needs to be flapped".format(intf))
                 interfaces_to_flap.append(intf)
         return interfaces_to_flap
