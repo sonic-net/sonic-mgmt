@@ -17,7 +17,7 @@ def get_required_firmware_metadata_for_all_transceivers(
     transceiver_firmware_info,
     qualifying_ports,
 ):
-    """Return exact manifest metadata for each qualifying port's firmware_versions."""
+    """Return manifest metadata for each qualifying port's required firmware versions."""
     if not port_attributes_dict:
         pytest.skip("No port attributes available, skipping test.")
     if not qualifying_ports:
@@ -62,6 +62,16 @@ def get_required_firmware_metadata_for_all_transceivers(
                     f"{port}: inactive_firmware_version '{inactive_firmware_version}' must be the "
                     f"second to last entry in firmware_versions {firmware_versions}"
                 )
+
+        required_versions = list(firmware_versions)
+        old_gold_firmware_version = cdb_attrs.get("old_gold_firmware_version")
+        if old_gold_firmware_version:
+            if old_gold_firmware_version == gold_firmware_version:
+                failures.append(
+                    f"{port}: old_gold_firmware_version must differ from gold_firmware_version"
+                )
+            if old_gold_firmware_version not in required_versions:
+                required_versions.append(old_gold_firmware_version)
         if transceiver_key in firmware_metadata_by_transceiver_type:
             continue
 
@@ -77,7 +87,7 @@ def get_required_firmware_metadata_for_all_transceivers(
                 metadata_by_version[version] = firmware_metadata
 
         missing_versions = [
-            version for version in firmware_versions if version not in metadata_by_version
+            version for version in required_versions if version not in metadata_by_version
         ]
         if missing_versions:
             failures.append(
@@ -86,7 +96,7 @@ def get_required_firmware_metadata_for_all_transceivers(
             )
             continue
 
-        selected_firmware = [metadata_by_version[version] for version in firmware_versions]
+        selected_firmware = [metadata_by_version[version] for version in required_versions]
         incomplete_versions = [
             fw.get("version") for fw in selected_firmware
             if not fw.get("binary") or not fw.get("md5sum")
