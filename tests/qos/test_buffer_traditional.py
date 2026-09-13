@@ -390,6 +390,11 @@ def test_buffer_pg(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
 
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     dut_asic = duthost.asic_instance(enum_frontend_asic_index)
+    config_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
+    dpc_ports = {
+        port for port, attrs in config_facts.get("PORT", {}).items()
+        if attrs.get("role", "").lower() == "dpc"
+    }
 
     # Check whether the COUNTERS_PG_NAME_MAP exists. Skip ASIC_DB checking if it isn't
     pg_name_map = make_dict_from_output_lines(dut_asic.run_redis_cmd(
@@ -412,7 +417,7 @@ def test_buffer_pg(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
         should_check_buffer = False
         expected_profile = None
 
-        if is_port_up:
+        if is_port_up and port not in dpc_ports:
             # Always check buffer configuration for admin-up ports
             should_check_buffer = True
             # Filter out special ports (recirculation, inband, backplane) that don't have buffer profiles
