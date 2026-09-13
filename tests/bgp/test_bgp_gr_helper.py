@@ -169,6 +169,22 @@ def test_bgp_gr_helper_routes_perserved(duthosts, rand_one_dut_hostname, nbrhost
     logging.info("Select neighbor %s to verify that all bgp routes are preserved during graceful restart",
                  test_neighbor_name)
 
+    # Wait for neighbor routes to stabilize before snapshotting the baseline
+    _prev_learned_routes = {}
+
+    def _neighbor_routes_stable(bgp_neighbor):
+        cur = set(_get_learned_bgp_routes_from_neighbor(duthost, bgp_neighbor).keys())
+        stable = bool(cur) and cur == _prev_learned_routes.get(bgp_neighbor)
+        _prev_learned_routes[bgp_neighbor] = cur
+        return stable
+
+    for test_bgp_neighbor in test_bgp_neighbors:
+        pytest_assert(
+            wait_until(180, 10, 0, _neighbor_routes_stable, test_bgp_neighbor),
+            "routes learned from neighbor %s did not stabilize before graceful restart"
+            % test_bgp_neighbor,
+        )
+
     # get all routes received from neighbor before GR
     all_neighbor_routes_before_gr = {}
     for test_bgp_neighbor in test_bgp_neighbors:
