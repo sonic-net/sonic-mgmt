@@ -71,6 +71,7 @@ SFPUTIL_SHOW_LPMODE = "sfputil show lpmode"
 SFPUTIL_LPMODE = "sfputil lpmode"
 SHOW_TRANSCEIVER_INFO = "show interfaces transceiver info"
 SHOW_TRANSCEIVER_PRESENCE = "show interfaces transceiver presence"
+SHOW_TRANSCEIVER_EEPROM = "show interfaces transceiver eeprom"
 SFPUTIL_FIRMWARE_DOWNLOAD = "sfputil firmware download"
 SFPUTIL_FIRMWARE_RUN = "sfputil firmware run"
 SFPUTIL_FIRMWARE_COMMIT = "sfputil firmware commit"
@@ -193,6 +194,17 @@ def show_interfaces_transceiver_info_cmd(port=None, namespace=None):
 def show_interfaces_transceiver_presence_cmd(port=None, namespace=None):
     """Return ``show interfaces transceiver presence [-n <ns>] [<port>]``."""
     cmd = SHOW_TRANSCEIVER_PRESENCE + _ns_flag(namespace)
+    if port:
+        cmd += f" {port}"
+    return cmd
+
+
+def show_interfaces_transceiver_eeprom_cmd(port=None, namespace=None, dom=False):
+    """Return ``show interfaces transceiver eeprom [-d] [-n <ns>] [<port>]``.
+
+    DOM has no subcommand of its own; it is dumped by the eeprom ``-d`` flag.
+    """
+    cmd = SHOW_TRANSCEIVER_EEPROM + (" -d" if dom else "") + _ns_flag(namespace)
     if port:
         cmd += f" {port}"
     return cmd
