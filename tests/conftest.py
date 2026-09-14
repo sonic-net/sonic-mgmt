@@ -2114,14 +2114,16 @@ def generate_dut_feature_list(request, duts_selected, asics_selected):
                 # Create tuple of dut and asic index
                 if "features" in meta[a_dut]:
                     for a_feature in list(meta[a_dut]["features"].keys()):
-                        if a_feature not in skip_feature_list:
+                        if a_feature not in skip_feature_list \
+                                and "disabled" not in meta[a_dut]["features"][a_feature]:
                             tuple_list.append((a_dut, a_asic, a_feature))
                 else:
                     tuple_list.append((a_dut, a_asic, None))
         else:
             if "features" in meta[a_dut]:
                 for a_feature in list(meta[a_dut]["features"].keys()):
-                    if a_feature not in skip_feature_list:
+                    if a_feature not in skip_feature_list \
+                            and "disabled" not in meta[a_dut]["features"][a_feature]:
                         tuple_list.append((a_dut, None, a_feature))
             else:
                 tuple_list.append((a_dut, None, None))
