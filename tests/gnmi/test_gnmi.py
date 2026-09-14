@@ -8,11 +8,11 @@ import time
 
 import pytest
 
+from tests.common.helpers import gnmi_cli_helpers as helper
 from tests.common.helpers.gnmi_utils import GNMIEnvironment, gnmi_capabilities
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 from tests.common.utilities import wait_until
 
-from . import cli_helpers as helper
 from .helper import (
     apply_cert_config,
     dump_gnmi_log,

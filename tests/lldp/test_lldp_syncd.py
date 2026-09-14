@@ -587,6 +587,17 @@ def test_lldp_entry_table_after_all_batched_flap(
     # Single wait_until call checking all interfaces together
     _verify_interface_lldp_recovery(db_instance, testable_interfaces, lldpctl_lookup_map, delay=10)
 
+    # Bulk flapping every port tears down and re-establishes BGP on all of them at
+    # once, which makes orchagent/swss churn heavily while routes are reprogrammed.
+    # Wait for the BGP sessions to reconverge so that swss reclaims the transient
+    # memory before the memory_utilization fixture takes its teardown snapshot,
+    # avoiding a docker:swss memory-alarm false positive from an unsettled reading.
+    bgp_neighbors = list(duthost.get_bgp_neighbors().keys())
+    pytest_assert(
+        wait_until(300, 10, 30, duthost.check_bgp_session_state, bgp_neighbors),
+        "BGP sessions did not re-establish after batched interface flap",
+    )
+
 
 # Test case 5: Verify LLDP_ENTRY_TABLE after system reboot
 def test_lldp_entry_table_after_lldp_restart(

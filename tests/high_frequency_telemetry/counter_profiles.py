@@ -1,8 +1,8 @@
 """High frequency telemetry counter configuration keyed by platform and object type.
 
-The counters listed here are supported on Spectrum-4 (SN5600 / SPC4) and above.
-``_QUEUE_COUNTERS_SPC6_EXTRA`` are the queue counters that are additionally
-supported only on Spectrum-6 (SN6600 / SPC6) and above.
+The base counters are the release-independent subset supported on target
+Spectrum-4 images. ``_QUEUE_COUNTERS_SPC6_EXTRA`` contains additional queue
+counters supported only on Spectrum-6 (SN6600 / SPC6) and above.
 
 Each entry in ``SUPPORTED_STATS`` lists exactly the counters that platform
 supports for each object type.
@@ -25,14 +25,11 @@ class CounterObjectType(Enum):
 
 _DEFAULT_PLATFORM = "default"
 
-# Counters supported on Spectrum-4 (SN5600 / SPC4) and above
+# Counters supported across target Spectrum-4 releases
 _PORT_COUNTERS = (
     "IF_IN_OCTETS",
     "IF_IN_DISCARDS",
     "IF_OUT_OCTETS",
-    "IF_IN_UCAST_PKTS",
-    "IF_OUT_ERRORS",
-    "IF_OUT_UCAST_PKTS",
 )
 
 _QUEUE_COUNTERS = (
@@ -40,20 +37,14 @@ _QUEUE_COUNTERS = (
     "CURR_OCCUPANCY_CELLS",
     "WATERMARK_CELLS",
     "WRED_ECN_MARKED_PACKETS",
-    "PACKETS",
 )
 
 _INGRESS_PRIORITY_GROUP_COUNTERS = (
     "CURR_OCCUPANCY_CELLS",
     "WATERMARK_CELLS",
-    "PACKETS",
-    "BYTES",
 )
 
-_BUFFER_POOL_COUNTERS = (
-    "CURR_OCCUPANCY_CELLS",
-    "WATERMARK_CELLS",
-)
+_BUFFER_POOL_COUNTERS = ()
 
 # Queue counters supported only on Spectrum-6 (SN6600 / SPC6) and above
 _QUEUE_COUNTERS_SPC6_EXTRA = (
