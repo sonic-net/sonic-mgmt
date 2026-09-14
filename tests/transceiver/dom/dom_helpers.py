@@ -214,6 +214,22 @@ def format_optional_float(value):
     return "{:.2f}".format(value) if value is not None else "not-available"
 
 
+def check_dom_field_has_finite_value(field, _mapped_field, raw_value):
+    """Validate one expected DOM field is present with a finite numeric value.
+
+    The ``field_check`` callback shared by every "DOM data is published" caller
+    (the DOM availability test and post-OIR recovery verification), so both
+    agree on what a valid published sensor value is.
+    """
+    value = parse_numeric(raw_value)
+    if value is None or not math.isfinite(value):
+        return "expected DOM field {} has no valid finite value (got {!r})".format(
+            field,
+            raw_value,
+        )
+    return None
+
+
 def format_dom_port_failure(port, active_lanes, expected_fields, field_failures):
     """Prefix a port's failure block with its expected shape."""
     return "{} [{} expected field(s), lanes {}]:\n  {}".format(

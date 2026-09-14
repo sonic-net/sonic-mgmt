@@ -11,10 +11,7 @@ import logging
 
 import pytest
 
-from tests.transceiver.attribute_parser.attribute_keys import (
-    PHYSICAL_OIR_ATTRIBUTES_KEY,
-    SYSTEM_ATTRIBUTES_KEY,
-)
+from tests.transceiver.attribute_parser.attribute_keys import PHYSICAL_OIR_ATTRIBUTES_KEY
 from tests.transceiver.oir import oir_helpers
 
 logger = logging.getLogger(__name__)
@@ -35,8 +32,14 @@ def _oir_session_prerequisites(presence_verified, links_verified):
 
 
 @pytest.fixture(scope="session")
-def physical_oir_attributes(port_attributes_dict):
-    """Resolved ``PHYSICAL_OIR_ATTRIBUTES`` shard for each logical port."""
+def physical_oir_dut_attributes(port_attributes_dict):
+    """DUT/platform-scoped physical OIR settings, identical across port shards.
+
+    Per-transceiver settings stay in ``port_attributes_dict`` and are read from
+    each port's ``PHYSICAL_OIR_ATTRIBUTES`` shard by the tests; only the
+    DUT-scoped settings are hoisted here, where their presence and consistency
+    across every configured port is validated once per session.
+    """
     attrs_by_port = {
         port: attrs[PHYSICAL_OIR_ATTRIBUTES_KEY]
         for port, attrs in port_attributes_dict.items()
@@ -44,13 +47,8 @@ def physical_oir_attributes(port_attributes_dict):
     }
     if not attrs_by_port:
         pytest.skip("No PHYSICAL_OIR_ATTRIBUTES configured for this DUT")
-    return attrs_by_port
 
-
-@pytest.fixture(scope="session")
-def physical_oir_dut_attributes(physical_oir_attributes):
-    """DUT/platform-scoped physical OIR settings, identical across port shards."""
-    reference_port, reference_attrs = next(iter(physical_oir_attributes.items()))
+    reference_port, reference_attrs = next(iter(attrs_by_port.items()))
     missing = [key for key in _DUT_SCOPED_OIR_ATTRIBUTES if key not in reference_attrs]
     if missing:
         pytest.fail(
@@ -60,18 +58,12 @@ def physical_oir_dut_attributes(physical_oir_attributes):
     dut_attrs = {key: reference_attrs[key] for key in _DUT_SCOPED_OIR_ATTRIBUTES}
     inconsistent = {
         port: [key for key, value in dut_attrs.items() if attrs.get(key) != value]
-        for port, attrs in physical_oir_attributes.items()
+        for port, attrs in attrs_by_port.items()
     }
     inconsistent = {port: keys for port, keys in inconsistent.items() if keys}
     if inconsistent:
         pytest.fail(f"DUT-scoped PHYSICAL_OIR_ATTRIBUTES differ by port: {inconsistent}")
     return dut_attrs
-
-
-@pytest.fixture(scope="session")
-def oir_system_attributes(port_attributes_dict):
-    """Representative ``SYSTEM_ATTRIBUTES`` shard, for the port settle budgets."""
-    return next(iter(port_attributes_dict.values()))[SYSTEM_ATTRIBUTES_KEY]
 
 
 @pytest.fixture(autouse=True, scope="package")

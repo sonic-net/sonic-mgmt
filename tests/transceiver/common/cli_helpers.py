@@ -68,7 +68,6 @@ SFPUTIL_SHOW_PRESENCE = "sfputil show presence"
 SFPUTIL_RESET = "sfputil reset"
 SHOW_TRANSCEIVER_INFO = "show interfaces transceiver info"
 SHOW_TRANSCEIVER_PRESENCE = "show interfaces transceiver presence"
-SHOW_TRANSCEIVER_EEPROM = "show interfaces transceiver eeprom"
 SFPUTIL_FIRMWARE_DOWNLOAD = "sfputil firmware download"
 SFPUTIL_FIRMWARE_RUN = "sfputil firmware run"
 SFPUTIL_FIRMWARE_COMMIT = "sfputil firmware commit"
@@ -131,9 +130,14 @@ def _as_decimal_int(value):
 # ──────────────────────────────────────────────────────────────────────
 
 
-def sfputil_show_eeprom_cmd(port=None):
-    """Return ``sfputil show eeprom`` (all ports) or ``... -p <port>``."""
-    return f"{SFPUTIL_SHOW_EEPROM} -p {port}" if port else SFPUTIL_SHOW_EEPROM
+def sfputil_show_eeprom_cmd(port=None, dom=False):
+    """Return ``sfputil show eeprom [-d]`` (all ports) or ``... -p <port>``.
+
+    DOM has no CLI subcommand of its own; ``-d/--dom`` appends the Digital
+    Optical Monitoring values to the EEPROM dump.
+    """
+    cmd = SFPUTIL_SHOW_EEPROM + (" -d" if dom else "")
+    return f"{cmd} -p {port}" if port else cmd
 
 
 def sfputil_show_eeprom_hexdump_cmd(port, page=None):
@@ -190,17 +194,6 @@ def show_interfaces_transceiver_info_cmd(port=None, namespace=None):
 def show_interfaces_transceiver_presence_cmd(port=None, namespace=None):
     """Return ``show interfaces transceiver presence [-n <ns>] [<port>]``."""
     cmd = SHOW_TRANSCEIVER_PRESENCE + _ns_flag(namespace)
-    if port:
-        cmd += f" {port}"
-    return cmd
-
-
-def show_interfaces_transceiver_eeprom_cmd(port=None, namespace=None, dom=False):
-    """Return ``show interfaces transceiver eeprom [-d] [-n <ns>] [<port>]``.
-
-    DOM has no subcommand of its own; it is dumped by the eeprom ``-d`` flag.
-    """
-    cmd = SHOW_TRANSCEIVER_EEPROM + (" -d" if dom else "") + _ns_flag(namespace)
     if port:
         cmd += f" {port}"
     return cmd

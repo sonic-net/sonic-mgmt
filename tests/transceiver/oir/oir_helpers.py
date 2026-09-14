@@ -23,11 +23,26 @@ from tests.common.platform.interface_utils import (
     get_pport_presence_data,
 )
 from tests.common.utilities import wait_until
+from tests.transceiver.attribute_parser.attribute_keys import DOM_ATTRIBUTES_KEY
 from tests.transceiver.common import cli_helpers, db_helpers, dmesg_helpers
-from tests.transceiver.common.cli_parser_helper import parse_presence, RC_FAILURE
+from tests.transceiver.common.cli_parser_helper import (
+    ABSENT_MSG_CLI_INFO,
+    ABSENT_MSG_SFPUTIL,
+    parse_presence,
+    PRESENCE_ABSENT,
+    PRESENCE_PRESENT,
+    RC_FAILURE,
+    reduce_eeprom_status,
+)
+from tests.transceiver.common.port_selectors import select_attribute_ports
 from tests.transceiver.common.scenario_ops import poll_ports_recovered
 from tests.transceiver.common.verification import assert_no_flap_since, capture_flap_sentinels
-from tests.transceiver.utils.cli_parser_helper import parse_eeprom
+from tests.transceiver.dom.dom_helpers import (
+    build_dom_availability_plan,
+    check_dom_field_has_finite_value,
+    read_dom_sensor_data,
+    validate_dom_plan_fields,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -41,12 +56,6 @@ KERNEL_ERROR_PATTERN = r"i2c|sfp|xcvr|transceiver|eeprom|optoe"
 PRESENCE_SETTLE_SEC = 30
 POLL_INTERVAL_SEC = 2
 
-PRESENCE_PRESENT = "Present"
-PRESENCE_ABSENT = "Not present"
-# Case-sensitive and deliberately different per command family.
-ABSENT_MSG_SFPUTIL = "SFP EEPROM not detected"
-ABSENT_MSG_CLI_INFO = "SFP EEPROM Not detected"
-
 TRANSCEIVER_STATUS_SW = "TRANSCEIVER_STATUS_SW"
 # The only transceiver state table that survives a removal.
 STATUS_SW_REMOVED = {"cmis_state": "REMOVED", "status": "0", "error": "N/A"}
@@ -57,33 +66,26 @@ STATUS_SW_READY = {"cmis_state": "READY", "status": "1", "error": "N/A"}
 INSERTED_TABLES = ("TRANSCEIVER_INFO", "TRANSCEIVER_STATUS")
 
 
-def _reduce_eeprom(output_lines):
-    """Reduce an ``... eeprom`` / ``... info`` dump to ``{port: status_line}``."""
-    return {port: fields.get("status") for port, fields in parse_eeprom(output_lines).items()}
-
-
-def _show_eeprom_dom_cmd(port=None, namespace=None):
-    """Return the eeprom dump with DOM data included."""
-    return cli_helpers.show_interfaces_transceiver_eeprom_cmd(
-        port=port, namespace=namespace, dom=True)
+def _sfputil_show_eeprom_dom_cmd(port=None):
+    """Return the sfputil EEPROM dump with DOM values appended."""
+    return cli_helpers.sfputil_show_eeprom_cmd(port=port, dom=True)
 
 
 # (label, command builder, lines->{port: status} reducer, empty-cage status,
 #  seated status or ``None`` for "anything but the empty-cage status",
 #  asic_scoped).  Only the DB-backed ``show`` family takes ``-n <ns>``; sfputil
 #  resolves the ASIC from the port name (see cli_helpers' namespace note).
+# ``sfputil show eeprom -d`` covers both the EEPROM dump and TC1 step 3's "DOM
+# values read back empty", so the empty cage is proven without a second dump.
 _STATUS_CLIS = (
     ("sfputil show presence", cli_helpers.sfputil_show_presence_cmd,
      parse_presence, PRESENCE_ABSENT, PRESENCE_PRESENT, False),
     ("show interfaces transceiver presence", cli_helpers.show_interfaces_transceiver_presence_cmd,
      parse_presence, PRESENCE_ABSENT, PRESENCE_PRESENT, True),
-    ("sfputil show eeprom", cli_helpers.sfputil_show_eeprom_cmd,
-     _reduce_eeprom, ABSENT_MSG_SFPUTIL, None, False),
+    ("sfputil show eeprom -d", _sfputil_show_eeprom_dom_cmd,
+     reduce_eeprom_status, ABSENT_MSG_SFPUTIL, None, False),
     ("show interfaces transceiver info", cli_helpers.show_interfaces_transceiver_info_cmd,
-     _reduce_eeprom, ABSENT_MSG_CLI_INFO, None, True),
-    # TC1 step 3: DOM values must read back empty once the cage is empty.
-    ("show interfaces transceiver eeprom -d", _show_eeprom_dom_cmd,
-     _reduce_eeprom, ABSENT_MSG_CLI_INFO, None, True),
+     reduce_eeprom_status, ABSENT_MSG_CLI_INFO, None, True),
 )
 
 
@@ -307,6 +309,45 @@ def verify_state_tables_present(duthost, lports, parents, wait_sec, baseline_tab
         return failures
 
     return poll_ports_recovered(_check, wait_sec, POLL_INTERVAL_SEC, "STATE_DB insertion")
+
+
+def verify_dom_data_recovered(duthost, port_attributes_dict, lport_to_first_subport_mapping,
+                              lports, wait_sec):
+    """Verify DOM sensor data is republished with fresh, valid values after insertion.
+
+    Only ports whose inventory declares ``DOM_ATTRIBUTES`` are checked (the test
+    plan's "if applicable"): a DAC publishes no DOM data at all.  The expected
+    field set, the active media lanes and the freshness budget all come from the
+    same plan the DOM availability test uses, so both categories agree on what a
+    healthy module must publish.
+    """
+    dom_ports = select_attribute_ports(
+        port_attributes_dict,
+        DOM_ATTRIBUTES_KEY,
+        lport_to_first_subport_mapping,
+        explicit_ports=lports,
+    ).primary_ports
+    if not dom_ports:
+        logger.info("No DOM-capable port under test; skipping DOM data verification")
+        return []
+
+    plan_by_port = build_dom_availability_plan(
+        port_attributes_dict, dom_ports, lport_to_first_subport_mapping)
+
+    def _check():
+        sensor_by_port, read_errors = read_dom_sensor_data(duthost, dom_ports)
+        failures = [f"TRANSCEIVER_DOM_SENSOR read: {error}" for error in read_errors]
+        port_failures, _, _ = validate_dom_plan_fields(
+            duthost,
+            dom_ports,
+            sensor_by_port,
+            plan_by_port,
+            check_dom_field_has_finite_value,
+            include_freshness_only=True,
+        )
+        return failures + port_failures
+
+    return poll_ports_recovered(_check, wait_sec, POLL_INTERVAL_SEC, "DOM sensor data")
 
 
 def get_flap_counts(duthost, lports):
