@@ -139,6 +139,30 @@ def get_psu(conn, index):
     return chassis_api(conn, 'get_psu', [index])
 
 
+def get_num_voltage_sensors(conn):
+    return chassis_api(conn, 'get_num_voltage_sensors')
+
+
+def get_all_voltage_sensors(conn):
+    return chassis_api(conn, 'get_all_voltage_sensors')
+
+
+def get_voltage_sensor(conn, index):
+    return chassis_api(conn, 'get_voltage_sensors', [index])
+
+
+def get_num_current_sensors(conn):
+    return chassis_api(conn, 'get_num_current_sensors')
+
+
+def get_all_current_sensors(conn):
+    return chassis_api(conn, 'get_all_current_sensors')
+
+
+def get_current_sensor(conn, index):
+    return chassis_api(conn, 'get_current_sensors', [index])
+
+
 def get_num_thermals(conn):
     return chassis_api(conn, 'get_num_thermals')
 
