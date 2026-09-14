@@ -304,10 +304,17 @@ def setup_downstream_relay_responder(duthost, ptfhost, downlink_vlan, client_ptf
     """Configure PTF's ndp responder + host route for the simulated downstream relay
     agent (Relay A, DOWNSTREAM_RELAY_IP). Its GUA is outside the DUT VLAN prefix, so a
     host route is installed and PTF answers NDP for it, letting DUT Relay B forward the
-    RFC 8415 nested Relay-Reply back to it. Returns the responder pairs for teardown."""
+    RFC 8415 nested Relay-Reply back to it.
+
+    Because setup_ptf_ip_responder() clears the DUT NDP cache, we must re-establish
+    client reachability afterwards so the DUT can resolve the client link-local
+    address when relaying DHCPv6 Advertise/Reply back to the client.
+
+    Returns the responder pairs for teardown."""
     downstream_relay_responder = [(DOWNSTREAM_RELAY_IP, downlink_vlan, client_ptf_index)]
     setup_ptf_ip_responder(
         duthost, ptfhost, DHCPV6_RELAY_ARP_RESPONDER_CONF, downstream_relay_responder, route=True)
+    ensure_client_reachability(duthost, downlink_vlan)
     return downstream_relay_responder
 
 

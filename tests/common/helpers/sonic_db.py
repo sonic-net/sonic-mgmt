@@ -222,20 +222,29 @@ CONFIG_DB = 'CONFIG_DB'
 STATE_DB = 'STATE_DB'
 
 
+def _run_sonic_db_cli(duthost, command):
+    """Run sonic-db-cli in the host's ASIC namespace without raising on failure"""
+    cli = duthost.sonic_db_cli if isinstance(duthost, SonicAsic) else 'sonic-db-cli'
+    return duthost.shell(
+        "{} {}".format(cli, command),
+        module_ignore_errors=True
+    )
+
+
 def redis_hget(duthost, db, key, field):
     """Return HGET value (stripped str) or '' if absent."""
-    r = duthost.shell(
-        "sonic-db-cli {db} HGET '{key}' {field}".format(db=db, key=key, field=field),
-        module_ignore_errors=True
+    r = _run_sonic_db_cli(
+        duthost,
+        "{db} HGET '{key}' {field}".format(db=db, key=key, field=field)
     )
     return (r.get('stdout', '') or '').strip()
 
 
 def redis_hgetall(duthost, db, key):
     """Return HGETALL as dict; empty dict on miss."""
-    r = duthost.shell(
-        "sonic-db-cli {db} HGETALL '{key}'".format(db=db, key=key),
-        module_ignore_errors=True
+    r = _run_sonic_db_cli(
+        duthost,
+        "{db} HGETALL '{key}'".format(db=db, key=key)
     )
     out = (r.get('stdout', '') or '').strip()
     if not out:
@@ -266,13 +275,13 @@ def redis_hset(duthost, db, key, **fields):
         )
         for field_name, field_value in fields.items()
     )
-    return duthost.shell(
-        "sonic-db-cli {db} -- HSET {key} {parts}".format(
+    return _run_sonic_db_cli(
+        duthost,
+        "{db} -- HSET {key} {parts}".format(
             db=db,
             key=shlex.quote(str(key)),
             parts=parts,
         ),
-        module_ignore_errors=True
     )
 
 
@@ -280,13 +289,13 @@ def redis_hdel(duthost, db, key, *fields):
     """HDEL one or more fields from a hash."""
     if not fields:
         return None
-    return duthost.shell(
-        "sonic-db-cli {db} -- HDEL {key} {fields}".format(
+    return _run_sonic_db_cli(
+        duthost,
+        "{db} -- HDEL {key} {fields}".format(
             db=db,
             key=shlex.quote(str(key)),
             fields=' '.join(shlex.quote(str(field)) for field in fields),
         ),
-        module_ignore_errors=True
     )
 
 
@@ -295,12 +304,12 @@ def redis_del(duthost, db, *keys):
     results = []
     for k in keys:
         results.append(
-            duthost.shell(
-                "sonic-db-cli {db} -- DEL {key}".format(
+            _run_sonic_db_cli(
+                duthost,
+                "{db} -- DEL {key}".format(
                     db=db,
                     key=shlex.quote(str(k)),
                 ),
-                module_ignore_errors=True,
             )
         )
     return results
@@ -308,9 +317,9 @@ def redis_del(duthost, db, *keys):
 
 def redis_keys(duthost, db, pattern):
     """KEYS pattern → list of key names."""
-    r = duthost.shell(
-        "sonic-db-cli {db} KEYS '{pattern}'".format(db=db, pattern=pattern),
-        module_ignore_errors=True
+    r = _run_sonic_db_cli(
+        duthost,
+        "{db} KEYS '{pattern}'".format(db=db, pattern=pattern)
     )
     out = (r.get('stdout', '') or '').strip()
     return out.split('\n') if out else []
