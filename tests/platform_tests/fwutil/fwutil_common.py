@@ -51,6 +51,16 @@ def power_cycle(duthost=None, pdu_ctrl=None, delay_time=60):
 
     all_outlets = pdu_ctrl.get_outlet_status()
 
+    # If the controller supports a native power_cycle (e.g. BMC Redfish PowerCycle),
+    # use it so the device performs a full power cycle in one operation instead of
+    # a separate ForceOff/On which does not fully power-cycle the whole device and
+    # can cause failures like the fwutil CPLD test. Power cycle is a whole-device
+    # operation and is not tied to any particular outlet.
+    if hasattr(pdu_ctrl, "power_cycle"):
+        logger.info("Power-cycling the device via controller power_cycle().")
+        pdu_ctrl.power_cycle()
+        return
+
     logger.info("Powering off the PDU outlets.")
     for outlet in all_outlets:
         pdu_ctrl.turn_off_outlet(outlet)
