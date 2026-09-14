@@ -15,27 +15,46 @@ present both before and after the test. It is never administratively flapped.
 Use the configured host and ASIC LLDP instances and their corresponding APPL_DBs,
 including the host instance that owns management LLDP on multi-ASIC devices.
 
-Before any disruptive action, require the configured interface set to be
-present and consistent across all sources. A missing port is a
-configuration/environment readiness failure; agreeing on an incomplete set
-does not pass. Preserve all additional ports observed in the successful
-pre-test sample as recovery requirements too.
+The module-scoped autouse fixture `capture_and_validate_baseline` calls the
+shared convergence helper to validate these configuration requirements once.
+Additional learned interfaces are permitted during this initial capture and
+included in the returned `frozenset`. All tests use that same immutable port
+baseline before and after their action. Subsequent checks require exact
+membership: neither missing nor unexpected ports are accepted, and no test
+rebuilds or expands the baseline. Only interface names are frozen, not neighbor
+content or elapsed ages.
 
-`lldp_syncd` periodically copies `lldpd` state into APPL_DB. A single comparison
-can therefore observe a new or aged-out neighbor before the DB catches up.
-Each comparison attempt reads LLDP, dumps the DB tables, reads the CLI, and
-reads LLDP again. The advertised chassis and port information must be unchanged
-between the two LLDP reads; elapsed age, local record IDs and neighbor ordering
-are not compared. This brackets the sample but is not an atomic transaction.
-Interface sets and all checked content must then agree, including `eth0`.
+`wait_for_lldp_convergence` reuses the existing collection/assertion helpers
+and `wait_until` in two phases:
 
-Retry the entire sample for up to 90 seconds, or 300 seconds after disruptive
-events. A persistent missing/extra management or front-panel interface, content
-mismatch, or continuously changing neighbor state fails with diagnostics.
-Never reuse pre-restart LLDP data or accumulate successful ports across retries.
-After the event, require the entire pre-test set, including `eth0`, to recover.
-Missing ports are reported as recovery failures even if they disappeared from
-all three sources. Retries tolerate synchronization delay, not permanent loss.
+1. **LLDP readiness:** require the expected ports and the same advertised
+   chassis/port signature in three consecutive samples. Collection failures
+   and signature changes break the streak. Age, local record IDs and neighbor
+   enumeration order do not affect stability.
+2. **APPL_DB convergence:** each attempt reads LLDP, dumps the DB tables, reads
+   the CLI, and reads LLDP again. Reject a sample if the advertised neighbor
+   content changed between LLDP reads. Then require all source interface sets
+   to match the baseline and the DB fields to match the current LLDP data.
+   Do not compare against a frozen phase-one neighbor-content snapshot.
+
+Each phase starts its polling budget once. A source change during phase two
+invalidates that sample and retries within the remaining DB-phase budget; it
+does not restart phase one or either timeout. Diagnostics identify the phase
+and the last observed collection, membership, stability or content failure.
+Timeouts and the five-second polling interval are named module constants:
+
+| Call site | Neighbor readiness budget | DB convergence budget |
+|---|---|---|
+| Initial baseline | 250 seconds | 90 seconds |
+| Before each test; after a single-port flap | 90 seconds | 90 seconds |
+| After swss/LLDP restart, batched flap or reboot | 300 seconds | 90 seconds |
+
+These are polling budgets; command/transport timeouts and each action's existing
+SSH/service/BGP readiness checks are separate. The two LLDP reads bracket an
+observation window, not an atomic transaction or a synchronization watermark.
+Persistent missing/extra ports, including `eth0`, fail even if all three
+sources agree on the same incomplete or expanded set. Never accumulate
+successful ports across attempts. Retries tolerate delay, not permanent loss.
 Deduplicate interface membership, but retain all fanout neighbors and match
 the DB's recorded system name, chassis ID and remote port ID for content checks.
 
@@ -80,7 +99,7 @@ the DB's recorded system name, chassis ID and remote port ID for content checks.
 ## Test Data
 - **APPL_DB Commands**: `sonic-db-cli APPL_DB keys`, `sonic-db-cli APPL_DB hgetall`
 - **LLDP Command**: `lldpctl -f json`
-- **Interfaces**: Persistent `DEVICE_NEIGHBOR` ports plus `eth0`; also retain all additional pre-test LLDP ports.
+- **Interfaces**: One immutable module baseline, captured after validating persistent `DEVICE_NEIGHBOR` ports and `eth0`.
 
 ## Conclusion
 This test plan outlines the steps required to verify that the `LLDP_ENTRY_TABLE` in SONiC's `APPL_DB` is correctly populated, updated, and persistent under various conditions. The expected outcomes should confirm that the `LLDP_ENTRY_TABLE` is in sync with the LLDP information reported by the `lldpctl` command.
