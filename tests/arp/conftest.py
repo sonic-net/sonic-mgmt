@@ -365,6 +365,12 @@ def packets_for_test(request, ptfadapter, duthost, config_facts, tbinfo, ip_and_
         break
 
     if ip_version == 'v4':
+        # VPP software dataplane does not pad ARP replies to Ethernet minimum frame size
+        # and in kvm there is no hardware NIC to pad either
+        platform_name = duthost.facts.get('platform', '')
+        no_padding = duthost.facts.get('asic_type') == 'vpp' and 'kvm' in platform_name
+        exp_pktlen = 42 if no_padding else 60
+
         tgt_addr = increment_ipv4_addr(src_addr_v4)
         out_pkt = testutils.simple_arp_packet(
                                 eth_dst='ff:ff:ff:ff:ff:ff',
@@ -375,6 +381,7 @@ def packets_for_test(request, ptfadapter, duthost, config_facts, tbinfo, ip_and_
                                 hw_snd=ptf_intf_mac
                             )
         exp_pkt = testutils.simple_arp_packet(
+                                pktlen=exp_pktlen,
                                 eth_dst=ptf_intf_mac,
                                 eth_src=dut_mac,
                                 ip_snd=tgt_addr,
