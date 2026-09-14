@@ -1193,7 +1193,20 @@ def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname,
         duthost.command('docker exec -i pmon supervisorctl reread')
         duthost.command('docker exec -i pmon supervisorctl update')
 
-        res = localhost.wait_for(host=dut_ip, port=SERVER_PORT, state='started', delay=1, timeout=10)
+        # Wait for supervisor to report the service as RUNNING before checking the port
+        def _platform_api_server_running():
+            res = duthost.command(
+                'docker exec -i pmon supervisorctl status platform_api_server',
+                module_ignore_errors=True
+            )
+            return 'RUNNING' in res.get('stdout', '')
+
+        pytest_assert(
+            wait_until(30, 1, 0, _platform_api_server_running),
+            "platform_api_server did not reach RUNNING state in supervisor after 30s"
+        )
+
+        res = localhost.wait_for(host=dut_ip, port=SERVER_PORT, state='started', delay=1, timeout=30)
         assert res['failed'] is False
 
 
