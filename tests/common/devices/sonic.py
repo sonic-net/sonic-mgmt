@@ -13,6 +13,11 @@ from datetime import datetime, timedelta
 
 from ansible import constants as ansible_constants
 from ansible.plugins.loader import connection_loader
+try:
+    from ansible.template import trust_as_template
+except ImportError:
+    def trust_as_template(data):
+        return data
 
 from tests.common.devices.base import AnsibleHostBase
 from tests.common.devices.constants import ACL_COUNTERS_UPDATE_INTERVAL_IN_SEC
@@ -109,8 +114,8 @@ class SonicHost(AnsibleHostBase):
 
         if ssh_user and ssh_passwd:
             evars = {
-                'ansible_ssh_user': ssh_user,
-                'ansible_ssh_pass': ssh_passwd,
+                'ansible_ssh_user': trust_as_template(ssh_user),
+                'ansible_ssh_pass': trust_as_template(ssh_passwd),
             }
             self.host.options['variable_manager'].extra_vars.update(evars)
 
