@@ -35,7 +35,7 @@ def ignore_expected_loganalyzer_exceptions(duthosts, loganalyzer):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def wait_for_lldp_appl_db(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+def wait_for_lldp_appl_db(duthosts, enum_rand_one_per_hwsku_frontend_hostname, expected_lldp_interfaces):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     appl_db = get_lldp_db_instances(duthost)
 
@@ -60,9 +60,23 @@ def wait_for_lldp_appl_db(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         "lldpctl did not stabilize within 250s. Last successful interface set: {}".format(sorted(prev)),
     )
 
-    # A management neighbor may change after the initial stabilization wait.
-    # Refresh both sources instead of waiting against a frozen interface set.
-    verify_all_interfaces_lldp_content(duthost, appl_db)
+    verify_all_interfaces_lldp_content(
+        duthost, appl_db, expected_lldp_interfaces, phase="Before tests: configuration/environment readiness")
+
+
+@pytest.fixture(scope="module")
+def expected_lldp_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    """Determine required ports from configuration, independently of learned LLDP."""
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    interfaces = {"eth0"}
+    for asic_id in duthost.get_frontend_asic_ids():
+        config = duthost.asic_instance(asic_id).config_facts(
+            host=duthost.hostname, source="persistent")["ansible_facts"]
+        # DEVICE_NEIGHBOR identifies topology links expected to advertise LLDP;
+        # unused physical ports need not have neighbors. Never filter by oper state.
+        interfaces.update(config.get("DEVICE_NEIGHBOR", {}))
+    logger.info("Expected LLDP interfaces from persistent configuration: %s", sorted(interfaces))
+    return frozenset(interfaces)
 
 
 @pytest.fixture(autouse="True")
@@ -313,8 +327,9 @@ def verify_each_interface_lldp_content(interface, entry_content, neighbors):
 
 
 def verify_all_interfaces_lldp_content(
-        duthost, db_instance, timeout=90, interval=5, delay=0, required_interfaces=()):
+        duthost, db_instance, required_interfaces, timeout=90, interval=5, delay=0, phase="LLDP consistency"):
     """Wait for a fresh, stable LLDP sample to agree with the DB, including eth0."""
+    required_interfaces = frozenset(required_interfaces)
     last_error = "No LLDP sample collected"
     matched_entries = {}
 
@@ -332,8 +347,8 @@ def verify_all_interfaces_lldp_content(
             )
             pytest_assert(entries, "No LLDP_ENTRY_TABLE entries populated")
             assert_lldp_interfaces(entries, cli_interfaces, after)
-            missing = set(required_interfaces) - set(entries)
-            pytest_assert(not missing, "LLDP interfaces have not recovered: {}".format(sorted(missing)))
+            missing = required_interfaces - set(entries)
+            pytest_assert(not missing, "Missing required LLDP interfaces: {}".format(sorted(missing)))
             neighbors = _build_lldpctl_lookup_map(after)
             for interface, entry_content in entries.items():
                 verify_each_interface_lldp_content(interface, entry_content, neighbors[interface])
@@ -346,17 +361,18 @@ def verify_all_interfaces_lldp_content(
 
     # A failed comparison retries the entire sample, not just the DB read.
     result = wait_until(timeout, interval, delay, check_lldp_snapshot)
-    pytest_assert(result, "LLDP data did not converge within {}s: {}".format(timeout, last_error))
+    pytest_assert(result, "{}: LLDP data did not converge within {}s: {}".format(phase, timeout, last_error))
     return matched_entries
 
 
 # Test case 1: Verify LLDP_ENTRY_TABLE content against lldpctl output
 def test_lldp_entry_table_content(
-    duthosts, enum_rand_one_per_hwsku_frontend_hostname, db_instance
+    duthosts, enum_rand_one_per_hwsku_frontend_hostname, db_instance, expected_lldp_interfaces
 ):
     """Verify eventual LLDP membership and content consistency, including eth0."""
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    verify_all_interfaces_lldp_content(duthost, db_instance)
+    verify_all_interfaces_lldp_content(
+        duthost, db_instance, expected_lldp_interfaces, phase="Before test: configuration/environment readiness")
 
 
 # Test case 2: Verify LLDP_ENTRY_TABLE after restart syncd and orchagent
@@ -367,14 +383,15 @@ def test_lldp_entry_table_content(
 @pytest.mark.disable_loganalyzer
 @pytest.mark.disable_memory_utilization
 def test_lldp_entry_table_after_syncd_orchagent(
-    duthosts, enum_rand_one_per_hwsku_frontend_hostname, db_instance
+    duthosts, enum_rand_one_per_hwsku_frontend_hostname, db_instance, expected_lldp_interfaces
 ):
-    """Verify fresh LLDP data and front-panel recovery after restarting swss."""
+    """Verify all required LLDP ports, including eth0, recover after restarting swss."""
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     if duthost.facts['asic_type'] == "vs":
         pytest.skip("Skip this test case for virtual testbed")
-    initial_entries = verify_all_interfaces_lldp_content(duthost, db_instance)
-    required_interfaces = [name for name in initial_entries if name != "eth0"]
+    initial_entries = verify_all_interfaces_lldp_content(
+        duthost, db_instance, expected_lldp_interfaces, phase="Before test: configuration/environment readiness")
+    required_interfaces = expected_lldp_interfaces | set(initial_entries)
 
     logging.info("Stop and start swss and syncd on DUT")
     # It's found that restart swss container could cause swss service to go down. In most of OC tests
@@ -398,7 +415,7 @@ def test_lldp_entry_table_after_syncd_orchagent(
         "BGP sessions did not reach Established state after swss restart",
     )
     verify_all_interfaces_lldp_content(
-        duthost, db_instance, timeout=300, required_interfaces=required_interfaces)
+        duthost, db_instance, required_interfaces, timeout=300, phase="After swss restart: recovery")
 
 
 # Test case 3: Verify LLDP_ENTRY_TABLE after sequential interface flap
@@ -406,12 +423,15 @@ def test_lldp_entry_table_after_cont_flap(
     duthosts,
     enum_rand_one_per_hwsku_frontend_hostname,
     db_instance,
+    expected_lldp_interfaces,
     ignore_expected_loganalyzer_exceptions,
 ):
     """Verify LLDP convergence after each selected front-panel interface flap."""
     max_test_interfaces = 32
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    lldp_entry_keys = verify_all_interfaces_lldp_content(duthost, db_instance)
+    lldp_entry_keys = verify_all_interfaces_lldp_content(
+        duthost, db_instance, expected_lldp_interfaces, phase="Before test: configuration/environment readiness")
+    required_interfaces = expected_lldp_interfaces | set(lldp_entry_keys)
     testable_interfaces = [iface for iface in lldp_entry_keys if iface != "eth0"]
     if len(testable_interfaces) > max_test_interfaces:
         testable_interfaces = get_day_of_week_distributed_ports_from_buckets(
@@ -423,7 +443,8 @@ def test_lldp_entry_table_after_cont_flap(
         for interface in asic_interfaces:
             _shutdown_startup_interface(duthost, interface, asic_str)
             verify_all_interfaces_lldp_content(
-                duthost, db_instance, timeout=300, delay=10, required_interfaces=[interface])
+                duthost, db_instance, required_interfaces, timeout=300, delay=10,
+                phase="After {} flap: recovery".format(interface))
 
 
 # Test case 4: Verify LLDP_ENTRY_TABLE after all batched interface flap
@@ -431,11 +452,14 @@ def test_lldp_entry_table_after_all_batched_flap(
     duthosts,
     enum_rand_one_per_hwsku_frontend_hostname,
     db_instance,
+    expected_lldp_interfaces,
     ignore_expected_loganalyzer_exceptions,
 ):
     """Require all flapped ports to recover while retaining management checks."""
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    lldp_entry_keys = verify_all_interfaces_lldp_content(duthost, db_instance)
+    lldp_entry_keys = verify_all_interfaces_lldp_content(
+        duthost, db_instance, expected_lldp_interfaces, phase="Before test: configuration/environment readiness")
+    required_interfaces = expected_lldp_interfaces | set(lldp_entry_keys)
     testable_interfaces = [iface for iface in lldp_entry_keys if iface != "eth0"]
     logger.info("Using bulk interface flap for {} interfaces".format(len(testable_interfaces)))
     asic_interface_map = group_interfaces_by_asic(duthost, testable_interfaces)
@@ -446,7 +470,7 @@ def test_lldp_entry_table_after_all_batched_flap(
             _shutdown_startup_interface(duthost, interface, asic_str)
     # Single wait_until call checking all interfaces together
     verify_all_interfaces_lldp_content(
-        duthost, db_instance, timeout=300, delay=10, required_interfaces=testable_interfaces)
+        duthost, db_instance, required_interfaces, timeout=300, delay=10, phase="After batched flap: recovery")
 
     # Bulk flapping every port tears down and re-establishes BGP on all of them at
     # once, which makes orchagent/swss churn heavily while routes are reprogrammed.
@@ -462,12 +486,14 @@ def test_lldp_entry_table_after_all_batched_flap(
 
 # Test case 5: Verify LLDP_ENTRY_TABLE after LLDP service restart
 def test_lldp_entry_table_after_lldp_restart(
-    duthosts, enum_rand_one_per_hwsku_frontend_hostname, db_instance, ignore_expected_loganalyzer_exceptions,
+    duthosts, enum_rand_one_per_hwsku_frontend_hostname, db_instance, expected_lldp_interfaces,
+    ignore_expected_loganalyzer_exceptions,
 ):
     """Verify fresh LLDP data after restarting configured host and ASIC services."""
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    initial_entries = verify_all_interfaces_lldp_content(duthost, db_instance)
-    required_interfaces = [name for name in initial_entries if name != "eth0"]
+    initial_entries = verify_all_interfaces_lldp_content(
+        duthost, db_instance, expected_lldp_interfaces, phase="Before test: configuration/environment readiness")
+    required_interfaces = expected_lldp_interfaces | set(initial_entries)
 
     # Restart the LLDP service
     services = [
@@ -489,18 +515,19 @@ def test_lldp_entry_table_after_lldp_restart(
             "LLDP service is not running",
         )
     verify_all_interfaces_lldp_content(
-        duthost, db_instance, timeout=300, required_interfaces=required_interfaces)
+        duthost, db_instance, required_interfaces, timeout=300, phase="After LLDP restart: recovery")
 
 
 # Test case 6: Verify LLDP_ENTRY_TABLE after reboot
 @pytest.mark.disable_loganalyzer
 def test_lldp_entry_table_after_reboot(
-    localhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname, db_instance
+    localhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname, db_instance, expected_lldp_interfaces
 ):
-    """Verify LLDP convergence and front-panel recovery after a cold reboot."""
+    """Verify all required LLDP ports, including eth0, recover after a cold reboot."""
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    initial_entries = verify_all_interfaces_lldp_content(duthost, db_instance)
-    required_interfaces = [name for name in initial_entries if name != "eth0"]
+    initial_entries = verify_all_interfaces_lldp_content(
+        duthost, db_instance, expected_lldp_interfaces, phase="Before test: configuration/environment readiness")
+    required_interfaces = expected_lldp_interfaces | set(initial_entries)
 
     # reboot
     logging.info("Run cold reboot on DUT")
@@ -517,4 +544,4 @@ def test_lldp_entry_table_after_reboot(
     # Wait till we have all lldp entries in the DB after reboot. It's found in scaling
     # setup this may take some time to happen.
     verify_all_interfaces_lldp_content(
-        duthost, db_instance, timeout=300, required_interfaces=required_interfaces)
+        duthost, db_instance, required_interfaces, timeout=300, phase="After cold reboot: recovery")

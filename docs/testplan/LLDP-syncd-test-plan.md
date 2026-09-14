@@ -6,11 +6,20 @@ To verify that the `LLDP_ENTRY_TABLE` entries in the SONiC `APPL_DB` correctly r
 
 ## Asynchronous comparison
 
-The management interface `eth0` is included whenever it has an LLDP neighbor.
-It is not required to have a neighbor on management networks that do not
-advertise LLDP, and it is never administratively flapped by these tests.
+The required interface set is determined independently of learned LLDP state:
+all topology-neighbor ports in the frontend ASICs' persistent `DEVICE_NEIGHBOR`
+configuration, plus `eth0`. Unused physical ports without a configured neighbor
+are not required to advertise LLDP. Do not filter this set by current link state.
+This test requires an LLDP-speaking management neighbor, and `eth0` must be
+present both before and after the test. It is never administratively flapped.
 Use the configured host and ASIC LLDP instances and their corresponding APPL_DBs,
 including the host instance that owns management LLDP on multi-ASIC devices.
+
+Before any disruptive action, require the configured interface set to be
+present and consistent across all sources. A missing port is a
+configuration/environment readiness failure; agreeing on an incomplete set
+does not pass. Preserve all additional ports observed in the successful
+pre-test sample as recovery requirements too.
 
 `lldp_syncd` periodically copies `lldpd` state into APPL_DB. A single comparison
 can therefore observe a new or aged-out neighbor before the DB catches up.
@@ -24,19 +33,20 @@ Retry the entire sample for up to 90 seconds, or 300 seconds after disruptive
 events. A persistent missing/extra management or front-panel interface, content
 mismatch, or continuously changing neighbor state fails with diagnostics.
 Never reuse pre-restart LLDP data or accumulate successful ports across retries.
-Record the pre-event front-panel interface set and require those interfaces to
-recover, so an intact management neighbor cannot mask missing ASIC neighbors.
+After the event, require the entire pre-test set, including `eth0`, to recover.
+Missing ports are reported as recovery failures even if they disappeared from
+all three sources. Retries tolerate synchronization delay, not permanent loss.
 Deduplicate interface membership, but retain all fanout neighbors and match
 the DB's recorded system name, chassis ID and remote port ID for content checks.
 
 ## Test Scenarios
 
 ### 1. Verify Presence of All Interfaces in `LLDP_ENTRY_TABLE`
-- **Objective**: Ensure that all interfaces present in the system have corresponding entries in the `LLDP_ENTRY_TABLE`.
+- **Objective**: Ensure that all configured topology-neighbor ports and `eth0` have entries in `LLDP_ENTRY_TABLE`.
 - **Steps**:
   1. Execute the command `sonic-db-cli APPL_DB keys 'LLDP_ENTRY_TABLE:*'`.
-  2. Compare the list of interfaces in `LLDP_ENTRY_TABLE` with the expected list of system interfaces.
-- **Expected Result**: Every active interface in the system should have a corresponding entry in the `LLDP_ENTRY_TABLE`.
+  2. Compare with persistent `DEVICE_NEIGHBOR` ports plus `eth0`, not just the currently observed LLDP interfaces.
+- **Expected Result**: Every required interface has an entry, and all sources agree on membership and content.
 
 ### 2. Verify `LLDP_ENTRY_TABLE` Content Against `lldpctl` Output
 - **Objective**: Ensure that the content of each interface's `LLDP_ENTRY_TABLE` entry matches the output of `lldpctl -f json`.
@@ -70,7 +80,7 @@ the DB's recorded system name, chassis ID and remote port ID for content checks.
 ## Test Data
 - **APPL_DB Commands**: `sonic-db-cli APPL_DB keys`, `sonic-db-cli APPL_DB hgetall`
 - **LLDP Command**: `lldpctl -f json`
-- **Interfaces**: List of interfaces to be tested, retrieved dynamically from the device.
+- **Interfaces**: Persistent `DEVICE_NEIGHBOR` ports plus `eth0`; also retain all additional pre-test LLDP ports.
 
 ## Conclusion
 This test plan outlines the steps required to verify that the `LLDP_ENTRY_TABLE` in SONiC's `APPL_DB` is correctly populated, updated, and persistent under various conditions. The expected outcomes should confirm that the `LLDP_ENTRY_TABLE` is in sync with the LLDP information reported by the `lldpctl` command.
