@@ -4,6 +4,39 @@
 To verify that the `LLDP_ENTRY_TABLE` entries in the SONiC `APPL_DB` correctly reflect the LLDP information for all interfaces and are consistent with the output of `lldpctl -f json` under various conditions.
 `LLDP_ENTRY_TABLE` will be used for SONiC SNMP, the data accuracy is important.
 
+## Asynchronous comparison
+
+The management interface `eth0` is included whenever it has an LLDP neighbor.
+It is not required to have a neighbor on management networks that do not
+advertise LLDP, and it is never administratively flapped by these tests.
+Use the configured host and ASIC LLDP instances and their corresponding APPL_DBs,
+including the host instance that owns management LLDP on multi-ASIC devices.
+
+`lldp_syncd` periodically copies `lldpd` state into APPL_DB. A single comparison
+can therefore observe a new or aged-out neighbor before the DB catches up.
+Each comparison attempt reads LLDP, dumps the DB tables, reads the CLI, and
+reads LLDP again. The advertised chassis and port information must be unchanged
+between the two LLDP reads; elapsed age, local record IDs and neighbor ordering
+are not compared. This brackets the sample but is not an atomic transaction.
+Interface sets and all checked content must then agree, including `eth0`.
+
+Retry the entire sample for up to 90 seconds, or 300 seconds after disruptive
+events. A persistent missing/extra management or front-panel interface, content
+mismatch, or continuously changing neighbor state fails with diagnostics.
+Never reuse pre-restart LLDP data or accumulate successful ports across retries.
+Record the pre-event front-panel interface set and require those interfaces to
+recover, so an intact management neighbor cannot mask missing ASIC neighbors.
+Deduplicate interface membership, but retain all fanout neighbors and match
+the DB's recorded system name, chassis ID and remote port ID for content checks.
+
+Offline regression coverage for convergence, timeout, fanout and namespace
+selection can be run without a testbed:
+
+```bash
+python3 -m pytest --noconftest --confcutdir=tests/common/unit_tests \
+  tests/common/unit_tests/unit_test_lldp_syncd.py -v
+```
+
 ## Test Scenarios
 
 ### 1. Verify Presence of All Interfaces in `LLDP_ENTRY_TABLE`

@@ -2,7 +2,6 @@
 # Test plan in docs/testplan/LLDP-syncd-test-plan.md
 import pytest
 import json
-import time
 from tests.common.helpers.sonic_db import SonicDbCli
 import logging
 from tests.common.reboot import reboot, REBOOT_TYPE_COLD
@@ -38,92 +37,65 @@ def ignore_expected_loganalyzer_exceptions(duthosts, loganalyzer):
 @pytest.fixture(scope="module", autouse=True)
 def wait_for_lldp_appl_db(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    appl_db = []
-    for asic in duthost.asics:
-        appl_db.append(SonicDbCli(asic, APPL_DB))
-    is_chassis = duthost.get_facts().get("modular_chassis")
-    if duthost.facts['switch_type'] == "voq" and (not is_chassis and len(duthost.asics) > 1):
-        appl_db.append(SonicDbCli(duthost, APPL_DB))
+    appl_db = get_lldp_db_instances(duthost)
 
-    def lldpctl_ifaces():
-        try:
-            ifaces = get_lldpctl_output(duthost)["lldp"]["interface"]
-            names = list(ifaces.keys()) if isinstance(ifaces, dict) else [list(i.keys())[0] for i in ifaces]
-            return set(n for n in names if "Ethernet-BP" not in n and "Ethernet-IB" not in n)
-        except Exception:
-            return set()
-
-    # Wait for lldpctl output to stabilize (same set across 2 consecutive polls = all active neighbors learned)
-    # Using deterministic polling: max 25 retries with 10s interval
-    max_lldpctl_retries = 25
-    poll_interval = 10
     prev, stable_count = set(), 0
-    for retry in range(max_lldpctl_retries):
-        current = lldpctl_ifaces()
+
+    def lldpctl_stable():
+        nonlocal prev, stable_count
+        previous_count = stable_count
+        # A failed read must break the streak, too. wait_until logs collection
+        # errors and retries without allowing one failure to abort module setup.
+        stable_count = 0
+        ifaces = get_lldpctl_output(duthost)["lldp"]["interface"]
+        current = set(_build_lldpctl_lookup_map(ifaces))
         if current and current == prev:
-            stable_count += 1
-            logger.info("lldpctl stable ({}/2): {} interfaces (retry {}/{})".format(
-                stable_count, len(current), retry + 1, max_lldpctl_retries))
-            if stable_count > 2:
-                break
-        else:
-            logger.info("lldpctl: {} interfaces (changed or empty), retry {}/{}".format(
-                len(current), retry + 1, max_lldpctl_retries))
-            stable_count = 0
+            stable_count = previous_count + 1
         prev = current
-        time.sleep(poll_interval)
-    else:
-        pytest.fail("lldpctl did not stabilize after {} retries. Last seen: {}".format(
-            max_lldpctl_retries, sorted(prev)))
+        logger.info("lldpctl: %s interfaces, %s consecutive unchanged polls", len(current), stable_count)
+        return stable_count >= 3
 
-    expected = prev
-    logger.info("lldpd stable with {} active neighbors: {}".format(len(expected), sorted(expected)))
+    pytest_assert(
+        wait_until(250, 10, 0, lldpctl_stable),
+        "lldpctl did not stabilize within 250s. Last successful interface set: {}".format(sorted(prev)),
+    )
 
-    # Wait for APPL_DB convergence: max 10 retries with 3s interval
-    max_appl_db_retries = 10
-    appl_db_poll_interval = 3
-    for retry in range(max_appl_db_retries):
-        if expected <= set(get_lldp_entry_keys(appl_db)):
-            logger.info("All {} interfaces converged in APPL_DB (retry {}/{})".format(
-                len(expected), retry + 1, max_appl_db_retries))
-            return
-        time.sleep(appl_db_poll_interval)
-    pytest.fail("APPL_DB did not converge after {} retries. Missing: {}".format(
-        max_appl_db_retries, sorted(expected - set(get_lldp_entry_keys(appl_db)))))
+    # A management neighbor may change after the initial stabilization wait.
+    # Refresh both sources instead of waiting against a frozen interface set.
+    verify_all_interfaces_lldp_content(duthost, appl_db)
 
 
 @pytest.fixture(autouse="True")
 def db_instance(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    appl_db = []
-    for asic in duthost.asics:
-        appl_db.append(SonicDbCli(asic, APPL_DB))
-    duthost.facts['switch_type'] == "voq"
-    is_chassis = duthost.get_facts().get("modular_chassis")
-    # For single ASIC fixed system, APPL_DB is already added above. so skip here
-    if duthost.facts['switch_type'] == "voq" and (not is_chassis and len(duthost.asics) > 1):
-        appl_db.append(SonicDbCli(duthost, APPL_DB))
-    # Cleanup code here
-    return appl_db
+    return get_lldp_db_instances(duthost)
 
 
-# Helper function to get the LLDP_ENTRY_TABLE keys
-def get_lldp_entry_keys(dbs):
-    lldp_entries = []
+def get_lldp_namespace_ids(duthost):
+    namespace_ids, succeeded = duthost.get_namespace_ids("lldp")
+    pytest_assert(succeeded and namespace_ids, "Failed to determine LLDP namespaces from FEATURE configuration")
+    asic_ids = duthost.get_asic_ids()
+    namespace_ids = [ns for ns in namespace_ids if ns is None or int(ns) in asic_ids]
+    pytest_assert(namespace_ids, "No configured LLDP namespaces are present on the DUT")
+    return namespace_ids
+
+
+def get_lldp_db_instances(duthost):
+    # eth0 belongs to the host LLDP instance, not an indexed ASIC instance.
+    return [
+        SonicDbCli(duthost if ns is None else duthost.asic_instance(int(ns)), APPL_DB)
+        for ns in get_lldp_namespace_ids(duthost)
+    ]
+
+
+def get_lldp_entries(dbs):
+    entries = {}
     for db in dbs:
-        items = db.get_keys("LLDP_ENTRY_TABLE*")
-        lldp_entries.extend([key.split(":")[1] for key in items])
-    logger.debug("lldp entry keys: {}".format(lldp_entries))
-    return lldp_entries
-
-
-# Helper function to get LLDP_ENTRY_TABLE content
-def get_lldp_entry_content(dbs, interface):
-    lldp_content = {}
-    for db in dbs:
-        lldp_content.update(db.hget_all("LLDP_ENTRY_TABLE:{}".format(interface)))
-    logger.debug("lldp entry content: {}".format(lldp_content))
-    return lldp_content
+        # One dump per namespace avoids hundreds of remote HGETALL calls on
+        # high-radix systems and keeps each comparison's sampling window short.
+        for key, entry in db.dump("LLDP_ENTRY_TABLE:").items():
+            entries[key.split(":", 1)[1]] = entry["value"]
+    return entries
 
 
 # Helper function to get lldptcl output
@@ -136,65 +108,24 @@ def get_lldpctl_facts_output(duthost, enum_frontend_asic_index):
 
 
 def get_lldpctl_output(duthost):
-    if duthost.is_multi_asic:
-        resultDict = {}
-        for asic in duthost.asics:
-            result = duthost.shell(
-                "docker exec lldp{} /usr/sbin/lldpctl -f json".format(asic.asic_index)
-            )["stdout"]
-            if not resultDict:
-                resultDict = json.loads(result)
-            else:
-                resultDict["lldp"]["interface"].extend(
-                    json.loads(result)["lldp"]["interface"]
-                )
-        is_chassis = duthost.get_facts().get("modular_chassis")
-        if duthost.facts['switch_type'] == "voq" and not is_chassis:
-            result = duthost.shell(
-                "docker exec lldp /usr/sbin/lldpctl -f json")["stdout"]
-            resultDict["lldp"]["interface"].extend([
-                json.loads(result)["lldp"]["interface"]]
-            )
-    else:
-        result = duthost.shell("docker exec lldp /usr/sbin/lldpctl -f json")["stdout"]
-        resultDict = json.loads(result)
-    return resultDict
-
-
-def exclude_mgmt_interfaces(interfaces):
-    # The management interface (e.g. eth0) can pick up a transient LLDP neighbor
-    # on the mgmt network that ages in and out independently in LLDP_ENTRY_TABLE,
-    # `show lldp table`, and lldpctl. Leaving it in makes the cross-source
-    # membership comparison flap, so drop the management interface(s) rather than
-    # assuming every front-panel port is named "Ethernet*".
-    return [name for name in interfaces if not name.startswith("eth")]
+    interfaces = []
+    for ns in get_lldp_namespace_ids(duthost):
+        container = "lldp{}".format("" if ns is None else ns)
+        result = duthost.shell("docker exec {} /usr/sbin/lldpctl -f json".format(container))["stdout"]
+        current = json.loads(result)["lldp"].get("interface", [])
+        for name, neighbors in _build_lldpctl_lookup_map(current).items():
+            interfaces.extend({name: neighbor} for neighbor in neighbors)
+    return {"lldp": {"interface": interfaces}}
 
 
 # Helper function to get show lldp table output
 def get_show_lldp_table_output(duthost):
     lines = duthost.shell("show lldp table")["stdout"].split("\n")[3:-2]
     interface_list = [line.split()[0] for line in lines]
-    interface_list = exclude_mgmt_interfaces(interface_list)
     # Deduplicate: in dualtor / physical fanout topologies, an uplink port may
     # have multiple LLDP neighbors (T1 switch + fanout), causing duplicate
     # interface entries.
     return list(dict.fromkeys(interface_list))
-
-
-def get_lldp_data(duthost, db_instance):
-    # Fetch interfaces from LLDP_ENTRY_TABLE
-    lldp_entry_keys = get_lldp_entry_keys(db_instance)
-    show_lldp_table_int_list = get_show_lldp_table_output(duthost)
-    lldpctl_output = get_lldpctl_output(duthost)
-    return lldp_entry_keys, show_lldp_table_int_list, lldpctl_output
-
-
-def check_lldp_table_keys(duthost, db_instance):
-    # Check if LLDP_ENTRY_TABLE keys match show lldp table output
-    lldp_entry_keys = get_lldp_entry_keys(db_instance)
-    show_lldp_table_int_list = get_show_lldp_table_output(duthost)
-    db_front_panel = set(exclude_mgmt_interfaces(lldp_entry_keys))
-    return db_front_panel == set(show_lldp_table_int_list)
 
 
 def _shutdown_startup_interface(duthost, interface, asic_str=""):
@@ -204,57 +135,26 @@ def _shutdown_startup_interface(duthost, interface, asic_str=""):
 
 
 def _build_lldpctl_lookup_map(lldpctl_interfaces):
-    """
-    Build a lookup map from lldpctl interfaces for O(1) access.
-    """
+    """Group all neighbors by interface without dropping fanout duplicates."""
     if isinstance(lldpctl_interfaces, dict):
-        return lldpctl_interfaces
+        lldpctl_interfaces = [{name: neighbor} for name, neighbor in lldpctl_interfaces.items()]
+    if not isinstance(lldpctl_interfaces, list):
+        raise TypeError("Unexpected type for lldpctl interfaces: {}".format(type(lldpctl_interfaces)))
     lldpctl_map = {}
-    if isinstance(lldpctl_interfaces, list):
-        for iface in lldpctl_interfaces:
-            key = list(iface.keys())[0]
-            lldpctl_map[key.lower()] = iface.get(key)
+    for iface in lldpctl_interfaces:
+        for name, neighbor in iface.items():
+            lldpctl_map.setdefault(name, []).append(neighbor)
     return lldpctl_map
 
 
-def _verify_interface_lldp_recovery(db_instance, interfaces, lldpctl_lookup_map, timeout=300, interval=2, delay=0):
-    """
-    Verify LLDP entry recovers for interface(s) after flap.
-    Supports both single interface (str) and multiple interfaces (list).
-    """
-    if isinstance(interfaces, str):
-        interfaces = [interfaces]
-    pending_interfaces = set(interfaces)
-    entry_content_dict = {}
-
-    def _verify_lldp_entry_with_cache(db_instance, interfaces: list):
-        nonlocal entry_content_dict, pending_interfaces
-
-        for interface in interfaces:
-            # If content is populated for an interface, skip it in subsequent retries to save time.
-            if interface in entry_content_dict:
-                continue
-            entry_content = get_lldp_entry_content(db_instance, interface)
-            # Check if LLDP entry content is populated for an interface else return false to trigger wait_until retry
-            if len(entry_content) <= 1:
-                logger.debug("Interface {} LLDP entry not yet recovered".format(interface))
-                return False
-            # Store the content in dict and move to the next interface
-            entry_content_dict[interface] = entry_content
-            pending_interfaces.remove(interface)
-
-        return True
-
-    result = wait_until(timeout, interval, delay, _verify_lldp_entry_with_cache, db_instance, interfaces)
-    pytest_assert(
-        result,
-        "After interface flap, LLDP_ENTRY_TABLE entries not recovered for: {}".format(
-            ", ".join(pending_interfaces)
-        ),
-    )
-
-    for interface in interfaces:
-        assert_lldp_entry_content(interface, entry_content_dict[interface], lldpctl_lookup_map.get(interface.lower()))
+def _lldp_neighbor_signature(interfaces):
+    # Neighbor age changes continuously; list order and local record IDs are
+    # not neighbor content either. Compare the advertised chassis and port.
+    return {
+        name: sorted(json.dumps({"chassis": neighbor["chassis"], "port": neighbor["port"]}, sort_keys=True)
+                     for neighbor in neighbors)
+        for name, neighbors in _build_lldpctl_lookup_map(interfaces).items()
+    }
 
 
 def assert_lldp_interfaces(
@@ -263,13 +163,8 @@ def assert_lldp_interfaces(
     """
     Assert that LLDP_ENTRY_TABLE keys match show lldp table output and lldpctl output
     """
-    # The management interface (e.g. eth0) can show up in both `show lldp table`
-    # and lldpctl whenever the mgmt network has an LLDP-speaking neighbor, but it
-    # is not written to LLDP_ENTRY_TABLE by design. Drop the management interface
-    # from every source so a transient mgmt-port neighbor does not make the test
-    # flap.
-    db_set = set(exclude_mgmt_interfaces(lldp_entry_keys))
-    cli_set = set(exclude_mgmt_interfaces(show_lldp_table_int_list))
+    db_set = set(lldp_entry_keys)
+    cli_set = set(show_lldp_table_int_list)
     pytest_assert(
         db_set == cli_set,
         "LLDP_ENTRY_TABLE keys do not match 'show lldp table' output. "
@@ -278,33 +173,15 @@ def assert_lldp_interfaces(
         ),
     )
 
-    # Verify LLDP_ENTRY_TABLE keys match lldpctl interface indexes
-    # Handle cases where lldpctl_output["lldp"]["interface"] might be a list or dict
-    if isinstance(lldpctl_interface, dict):
-        lldpctl_interfaces = [interface for interface in lldpctl_interface.keys()]
-    elif isinstance(lldpctl_interface, list):
-        lldpctl_interfaces = [
-            list(interface.keys())[0] for interface in lldpctl_interface
-        ]
-    else:
-        raise TypeError(
-            "Unexpected type for lldpctl interfaces: {}".format(type(lldpctl_interface))
-        )
-
-    # lldpctl reports LLDP on the management interface (e.g. eth0) and, on
-    # physical fanout testbeds, lists a front-panel port once per neighbor it
-    # sees (the emulated topology peer AND the physical fanout switch), so the
-    # same interface name can appear multiple times. LLDP_ENTRY_TABLE is keyed
-    # per front-panel interface (one entry per port), so drop the management
-    # interface and compare sets rather than the raw, possibly-duplicated list.
-    lldpctl_front_panel_ports = set(exclude_mgmt_interfaces(lldpctl_interfaces))
-    db_port_set = set(exclude_mgmt_interfaces(lldp_entry_keys))
+    # The DB has one entry per interface, including eth0, while lldpctl can
+    # report multiple neighbors for the same interface.
+    lldpctl_ports = set(_build_lldpctl_lookup_map(lldpctl_interface))
     pytest_assert(
-        db_port_set == lldpctl_front_panel_ports,
+        db_set == lldpctl_ports,
         "LLDP_ENTRY_TABLE keys do not match lldpctl interface indexes. "
         "In DB but not in lldpctl: {}. In lldpctl but not in DB: {}".format(
-            db_port_set - lldpctl_front_panel_ports,
-            lldpctl_front_panel_ports - db_port_set,
+            db_set - lldpctl_ports,
+            lldpctl_ports - db_set,
         ),
     )
 
@@ -318,6 +195,19 @@ def assert_lldp_entry_content(interface, entry_content, lldpctl_interface):
         "No LLDP data found for {} in lldpctl output".format(interface),
     )
 
+    required_fields = {
+        "lldp_rem_sys_name", "lldp_rem_chassis_id", "lldp_rem_port_id",
+        "lldp_rem_sys_desc", "lldp_rem_port_desc", "lldp_rem_man_addr",
+        "lldp_rem_sys_cap_supported", "lldp_rem_sys_cap_enabled",
+    }
+    pytest_assert(
+        required_fields <= set(entry_content),
+        "Incomplete LLDP_ENTRY_TABLE entry for {}: missing {}".format(interface, required_fields - set(entry_content)),
+    )
+    pytest_assert(
+        entry_content["lldp_rem_sys_name"] in lldpctl_interface["chassis"],
+        "lldp_rem_sys_name does not match for {}".format(interface),
+    )
     chassis_info = lldpctl_interface["chassis"][entry_content["lldp_rem_sys_name"]]
     port_info = lldpctl_interface["port"]
 
@@ -366,7 +256,7 @@ def assert_lldp_entry_content(interface, entry_content, lldpctl_interface):
     if interface == "eth0":
         expected_sys_cap_supported_result = (
             entry_content["lldp_rem_sys_cap_supported"] == "28 00"
-            or entry_content["lldp_rem_sys_cap_supported"] == "20 00",
+            or entry_content["lldp_rem_sys_cap_supported"] == "20 00"
         )
     else:
         expected_sys_cap_supported_result = (
@@ -380,7 +270,7 @@ def assert_lldp_entry_content(interface, entry_content, lldpctl_interface):
     if interface == "eth0":
         expected_sys_cap_enable_result = (
             entry_content["lldp_rem_sys_cap_enabled"] == "28 00"
-            or entry_content["lldp_rem_sys_cap_enabled"] == "20 00",
+            or entry_content["lldp_rem_sys_cap_enabled"] == "20 00"
         )
     else:
         expected_sys_cap_enable_result = (
@@ -392,15 +282,6 @@ def assert_lldp_entry_content(interface, entry_content, lldpctl_interface):
     )
 
 
-def verify_lldp_entry(db_instance, interfaces: list):
-    for interface in interfaces:
-        entry_content = get_lldp_entry_content(db_instance, interface)
-        if len(entry_content) <= 1:
-            logger.debug("Interface {} LLDP entry not yet recovered".format(interface))
-            return False
-    return True
-
-
 def verify_lldp_table(duthost):
     output = duthost.shell("show lldp table")["stdout"]
     if "Total entries displayed" in output:
@@ -409,79 +290,73 @@ def verify_lldp_table(duthost):
         return False
 
 
-def verify_each_interface_lldp_content(db_instance, interface, lldpctl_interfaces):
-    def get_lldp_entry_content_with_retry():
-        nonlocal entry_content
-        entry_content = get_lldp_entry_content(db_instance, interface)
-        return len(entry_content) > 0
-
-    entry_content = ''
-
-    wait_until(30, 1, 0, get_lldp_entry_content_with_retry)
-
+def verify_each_interface_lldp_content(interface, entry_content, neighbors):
     logger.debug("Interface {}, entry_content:{}".format(interface, entry_content))
-    # On physical fanout testbeds lldpctl can report more than one neighbor for
-    # the same front-panel port (the emulated topology peer AND the physical
-    # fanout switch). LLDP_ENTRY_TABLE stores a single neighbor per port, so
-    # pick the lldpctl entry whose chassis matches the neighbor system name the
-    # DB actually recorded; fall back to the first match for the single-neighbor
-    # case (or when the DB name is unavailable).
+    # Match the full neighbor identity, including when a fanout advertises the
+    # same system name on multiple remote ports.
     lldpctl_interface = None
-    db_sys_name = entry_content.get("lldp_rem_sys_name") if isinstance(entry_content, dict) else None
-    if isinstance(lldpctl_interfaces, dict):
-        lldpctl_interface = lldpctl_interfaces.get(interface)
-    elif isinstance(lldpctl_interfaces, list):
-        matching_ifaces = [
-            iface.get(list(iface.keys())[0])
-            for iface in lldpctl_interfaces
-            if list(iface.keys())[0].lower() == interface.lower()
-        ]
-        for candidate in matching_ifaces:
-            if not isinstance(candidate, dict):
-                continue
-            if db_sys_name is not None and db_sys_name in candidate.get("chassis", {}):
-                lldpctl_interface = candidate
-                break
-        if lldpctl_interface is None:
-            lldpctl_interface = next((c for c in matching_ifaces if isinstance(c, dict)), None)
+    db_sys_name = entry_content.get("lldp_rem_sys_name")
+    for candidate in neighbors:
+        if not isinstance(candidate, dict):
+            continue
+        chassis = candidate.get("chassis", {}).get(db_sys_name, {})
+        if (chassis.get("id", {}).get("value") == entry_content.get("lldp_rem_chassis_id")
+                and candidate.get("port", {}).get("id", {}).get("value") == entry_content.get("lldp_rem_port_id")
+                and db_sys_name in candidate.get("chassis", {})):
+            lldpctl_interface = candidate
+            break
+    pytest_assert(
+        lldpctl_interface is not None,
+        "No matching LLDP neighbor for {}: DB entry {}".format(interface, entry_content),
+    )
     assert_lldp_entry_content(interface, entry_content, lldpctl_interface)
 
 
-def verify_all_interfaces_lldp_content(db_instance, lldp_entry_keys, lldpctl_output, show_lldp_table_int_list):
-    """
-    Verify LLDP_ENTRY_TABLE content against lldpctl output for interfaces
-    """
-    lldpctl_interfaces = lldpctl_output["lldp"]["interface"]
-    assert_lldp_interfaces(
-        lldp_entry_keys, show_lldp_table_int_list, lldpctl_interfaces
-    )
-    for interface in get_lldp_entry_keys(db_instance):
-        verify_each_interface_lldp_content(db_instance, interface, lldpctl_interfaces)
+def verify_all_interfaces_lldp_content(
+        duthost, db_instance, timeout=90, interval=5, delay=0, required_interfaces=()):
+    """Wait for a fresh, stable LLDP sample to agree with the DB, including eth0."""
+    last_error = "No LLDP sample collected"
+    matched_entries = {}
 
+    def check_lldp_snapshot():
+        nonlocal last_error, matched_entries
+        last_error = "Failed to collect fresh LLDP/DB data; see the polling error log"
+        before = get_lldpctl_output(duthost)["lldp"]["interface"]
+        entries = get_lldp_entries(db_instance)
+        cli_interfaces = get_show_lldp_table_output(duthost)
+        after = get_lldpctl_output(duthost)["lldp"]["interface"]
+        try:
+            pytest_assert(
+                _lldp_neighbor_signature(before) == _lldp_neighbor_signature(after),
+                "LLDP neighbors changed while sampling the DB and CLI",
+            )
+            pytest_assert(entries, "No LLDP_ENTRY_TABLE entries populated")
+            assert_lldp_interfaces(entries, cli_interfaces, after)
+            missing = set(required_interfaces) - set(entries)
+            pytest_assert(not missing, "LLDP interfaces have not recovered: {}".format(sorted(missing)))
+            neighbors = _build_lldpctl_lookup_map(after)
+            for interface, entry_content in entries.items():
+                verify_each_interface_lldp_content(interface, entry_content, neighbors[interface])
+        except pytest.fail.Exception as error:
+            last_error = str(error)
+            logger.info("LLDP snapshot has not converged: %s", last_error)
+            return False
+        matched_entries = entries
+        return True
 
-def wait_until_lldp_populated(duthost, db_instance, after_event_str):
-    keys_match = wait_until(90, 2, 0, check_lldp_table_keys, duthost, db_instance)
-    pytest_assert(keys_match, "LLDP_ENTRY_TABLE keys do not match 'show lldp table' output")
-    lldp_entry_keys = get_lldp_entry_keys(db_instance)
-    # Wait until all interfaces are up and lldp entries are populated
-    result = wait_until(300, 2, 0, verify_lldp_entry, db_instance, lldp_entry_keys)
-    if not result:
-        failed_entries = {}
-        for interface in lldp_entry_keys:
-            if not verify_lldp_entry(db_instance, [interface]):
-                failed_entries[interface] = get_lldp_entry_content(db_instance, interface)
-        msg = (f"After {after_event_str}, not all LLDP_ENTRY_TABLE entries are not correct: {failed_entries}")
-        pytest_assert(False, msg)
+    # A failed comparison retries the entire sample, not just the DB read.
+    result = wait_until(timeout, interval, delay, check_lldp_snapshot)
+    pytest_assert(result, "LLDP data did not converge within {}s: {}".format(timeout, last_error))
+    return matched_entries
 
 
 # Test case 1: Verify LLDP_ENTRY_TABLE content against lldpctl output
 def test_lldp_entry_table_content(
     duthosts, enum_rand_one_per_hwsku_frontend_hostname, db_instance
 ):
+    """Verify eventual LLDP membership and content consistency, including eth0."""
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    lldp_entry_keys, show_lldp_table_int_list, lldpctl_output = get_lldp_data(duthost, db_instance)
-
-    verify_all_interfaces_lldp_content(db_instance, lldp_entry_keys, lldpctl_output, show_lldp_table_int_list)
+    verify_all_interfaces_lldp_content(duthost, db_instance)
 
 
 # Test case 2: Verify LLDP_ENTRY_TABLE after restart syncd and orchagent
@@ -494,15 +369,12 @@ def test_lldp_entry_table_content(
 def test_lldp_entry_table_after_syncd_orchagent(
     duthosts, enum_rand_one_per_hwsku_frontend_hostname, db_instance
 ):
+    """Verify fresh LLDP data and front-panel recovery after restarting swss."""
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     if duthost.facts['asic_type'] == "vs":
         pytest.skip("Skip this test case for virtual testbed")
-    # Verify LLDP_ENTRY_TABLE keys match show lldp table output at the start of test
-    keys_match = wait_until(30, 5, 0, check_lldp_table_keys, duthost, db_instance)
-    if not keys_match:
-        assert keys_match, "LLDP_ENTRY_TABLE keys do not match 'show lldp table' output"
-    # Get the ldap keys before restart syncd and swss
-    lldp_entry_keys = get_lldp_entry_keys(db_instance)
+    initial_entries = verify_all_interfaces_lldp_content(duthost, db_instance)
+    required_interfaces = [name for name in initial_entries if name != "eth0"]
 
     logging.info("Stop and start swss and syncd on DUT")
     # It's found that restart swss container could cause swss service to go down. In most of OC tests
@@ -525,12 +397,8 @@ def test_lldp_entry_table_after_syncd_orchagent(
         wait_until(300, 10, 30, duthost.check_bgp_session_state, bgp_neighbors),
         "BGP sessions did not reach Established state after swss restart",
     )
-    wait_until_lldp_populated(duthost, db_instance, "restart swss and syncd")
-
-    # To get lldp entry keys again after all interfaces are up
-    lldp_entry_keys, show_lldp_table_int_list, lldpctl_output = get_lldp_data(duthost, db_instance)
-
-    verify_all_interfaces_lldp_content(db_instance, lldp_entry_keys, lldpctl_output, show_lldp_table_int_list)
+    verify_all_interfaces_lldp_content(
+        duthost, db_instance, timeout=300, required_interfaces=required_interfaces)
 
 
 # Test case 3: Verify LLDP_ENTRY_TABLE after sequential interface flap
@@ -540,14 +408,10 @@ def test_lldp_entry_table_after_cont_flap(
     db_instance,
     ignore_expected_loganalyzer_exceptions,
 ):
+    """Verify LLDP convergence after each selected front-panel interface flap."""
     max_test_interfaces = 32
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    # Fetch interfaces from LLDP_ENTRY_TABLE
-    lldp_entry_keys, show_lldp_table_int_list, lldpctl_output = get_lldp_data(duthost, db_instance)
-    lldpctl_interfaces = lldpctl_output["lldp"]["interface"]
-    assert_lldp_interfaces(
-        lldp_entry_keys, show_lldp_table_int_list, lldpctl_interfaces
-    )
+    lldp_entry_keys = verify_all_interfaces_lldp_content(duthost, db_instance)
     testable_interfaces = [iface for iface in lldp_entry_keys if iface != "eth0"]
     if len(testable_interfaces) > max_test_interfaces:
         testable_interfaces = get_day_of_week_distributed_ports_from_buckets(
@@ -555,11 +419,11 @@ def test_lldp_entry_table_after_cont_flap(
         )
     logger.info("Using sequential flapping interfaces: {}".format(testable_interfaces))
     asic_interface_map = group_interfaces_by_asic(duthost, testable_interfaces)
-    lldpctl_lookup_map = _build_lldpctl_lookup_map(lldpctl_interfaces)
     for asic_str, asic_interfaces in asic_interface_map.items():
         for interface in asic_interfaces:
             _shutdown_startup_interface(duthost, interface, asic_str)
-            _verify_interface_lldp_recovery(db_instance, interface, lldpctl_lookup_map, delay=10)
+            verify_all_interfaces_lldp_content(
+                duthost, db_instance, timeout=300, delay=10, required_interfaces=[interface])
 
 
 # Test case 4: Verify LLDP_ENTRY_TABLE after all batched interface flap
@@ -569,23 +433,20 @@ def test_lldp_entry_table_after_all_batched_flap(
     db_instance,
     ignore_expected_loganalyzer_exceptions,
 ):
+    """Require all flapped ports to recover while retaining management checks."""
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    lldp_entry_keys, show_lldp_table_int_list, lldpctl_output = get_lldp_data(duthost, db_instance)
-    lldpctl_interfaces = lldpctl_output["lldp"]["interface"]
-    assert_lldp_interfaces(
-        lldp_entry_keys, show_lldp_table_int_list, lldpctl_interfaces
-    )
+    lldp_entry_keys = verify_all_interfaces_lldp_content(duthost, db_instance)
     testable_interfaces = [iface for iface in lldp_entry_keys if iface != "eth0"]
     logger.info("Using bulk interface flap for {} interfaces".format(len(testable_interfaces)))
     asic_interface_map = group_interfaces_by_asic(duthost, testable_interfaces)
-    lldpctl_lookup_map = _build_lldpctl_lookup_map(lldpctl_interfaces)
     for asic_str, asic_interfaces in asic_interface_map.items():
         logger.info("Flapping interfaces: {}".format(asic_interfaces))
         # Interface range shutdown/startup is not supported in multi-asic platforms.
         for interface in asic_interfaces:
             _shutdown_startup_interface(duthost, interface, asic_str)
     # Single wait_until call checking all interfaces together
-    _verify_interface_lldp_recovery(db_instance, testable_interfaces, lldpctl_lookup_map, delay=10)
+    verify_all_interfaces_lldp_content(
+        duthost, db_instance, timeout=300, delay=10, required_interfaces=testable_interfaces)
 
     # Bulk flapping every port tears down and re-establishes BGP on all of them at
     # once, which makes orchagent/swss churn heavily while routes are reprogrammed.
@@ -599,30 +460,36 @@ def test_lldp_entry_table_after_all_batched_flap(
     )
 
 
-# Test case 5: Verify LLDP_ENTRY_TABLE after system reboot
+# Test case 5: Verify LLDP_ENTRY_TABLE after LLDP service restart
 def test_lldp_entry_table_after_lldp_restart(
     duthosts, enum_rand_one_per_hwsku_frontend_hostname, db_instance, ignore_expected_loganalyzer_exceptions,
 ):
+    """Verify fresh LLDP data after restarting configured host and ASIC services."""
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    lldp_entry_keys, show_lldp_table_int_list, lldpctl_output = get_lldp_data(duthost, db_instance)
+    initial_entries = verify_all_interfaces_lldp_content(duthost, db_instance)
+    required_interfaces = [name for name in initial_entries if name != "eth0"]
 
     # Restart the LLDP service
-    for asic in duthost.asics:
-        duthost.shell("sudo systemctl restart {}".format(asic.get_service_name("lldp")))
+    services = [
+        "lldp" if ns is None else duthost.asic_instance(int(ns)).get_service_name("lldp")
+        for ns in get_lldp_namespace_ids(duthost)
+    ]
+    for service in services:
+        duthost.shell("sudo systemctl restart {}".format(service))
     result = wait_until(
         60, 2, 20, verify_lldp_table, duthost
     )  # Adjust based on LLDP service restart time
     pytest_assert(result, "no output for show lldp table after restarting lldp")
-    for asic in duthost.asics:
+    for service in services:
         result = duthost.shell(
-            "sudo systemctl status {}".format(asic.get_service_name("lldp"))
+            "sudo systemctl status {}".format(service)
         )["stdout"]
         pytest_assert(
             "active (running)" in result,
             "LLDP service is not running",
         )
-    wait_until_lldp_populated(duthost, db_instance, "lldp restart")
-    verify_all_interfaces_lldp_content(db_instance, lldp_entry_keys, lldpctl_output, show_lldp_table_int_list)
+    verify_all_interfaces_lldp_content(
+        duthost, db_instance, timeout=300, required_interfaces=required_interfaces)
 
 
 # Test case 6: Verify LLDP_ENTRY_TABLE after reboot
@@ -630,7 +497,10 @@ def test_lldp_entry_table_after_lldp_restart(
 def test_lldp_entry_table_after_reboot(
     localhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname, db_instance
 ):
+    """Verify LLDP convergence and front-panel recovery after a cold reboot."""
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    initial_entries = verify_all_interfaces_lldp_content(duthost, db_instance)
+    required_interfaces = [name for name in initial_entries if name != "eth0"]
 
     # reboot
     logging.info("Run cold reboot on DUT")
@@ -646,6 +516,5 @@ def test_lldp_entry_table_after_reboot(
 
     # Wait till we have all lldp entries in the DB after reboot. It's found in scaling
     # setup this may take some time to happen.
-    wait_until_lldp_populated(duthost, db_instance, "cold reboot")
-    lldp_entry_keys, show_lldp_table_int_list, lldpctl_output = get_lldp_data(duthost, db_instance)
-    verify_all_interfaces_lldp_content(db_instance, lldp_entry_keys, lldpctl_output, show_lldp_table_int_list)
+    verify_all_interfaces_lldp_content(
+        duthost, db_instance, timeout=300, required_interfaces=required_interfaces)
