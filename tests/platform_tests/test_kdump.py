@@ -6,6 +6,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.reboot import reboot, SONIC_SSH_PORT, SONIC_SSH_REGEX, wait_for_startup, \
     REBOOT_TYPE_COLD, REBOOT_TYPE_KERNEL_PANIC, REBOOT_TYPE_SUPERVISOR_HEARTBEAT_LOSS
+from tests.common.utilities import power_cycle
 from tests.platform_tests.test_reboot import check_interfaces_and_services
 
 pytestmark = [
@@ -41,18 +42,18 @@ class TestKernelPanic:
 
     @pytest.fixture(autouse=True)
     def tearDown(self, duthosts, enum_rand_one_per_hwsku_hostname,
-                 localhost, pdu_controller, conn_graph_facts, xcvr_skip_list):
+                 localhost, power_controller, conn_graph_facts, xcvr_skip_list):
         yield
         # If the SSH connection is not established, or any critical process is exited,
-        # try to recover the DUT by PDU reboot.
+        # try to recover the DUT by external power cycle.
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         dut_ip = duthost.mgmt_ip
         hostname = duthost.hostname
         if not self.check_ssh_state(localhost, dut_ip, SSH_STATE_STARTED):
-            if pdu_controller is None:
-                logging.error("No PDU controller for {}, failed to recover DUT!".format(hostname))
+            if power_controller is None:
+                logging.error("No power controller for {}, failed to recover DUT!".format(hostname))
                 return
-            self.pdu_reboot(pdu_controller)
+            power_cycle(power_controller)
             # Waiting for SSH connection startup
             pytest_assert(self.check_ssh_state(localhost, dut_ip, SSH_STATE_STARTED, SSH_STARTUP_TIMEOUT),
                           'Recover {} by PDU reboot failed'.format(hostname))
@@ -94,12 +95,3 @@ class TestKernelPanic:
                                  timeout=timeout,
                                  module_ignore_errors=True)
         return not res.is_failed and 'Timeout' not in res.get('msg', '')
-
-    def pdu_reboot(self, pdu_controller):
-        hostname = pdu_controller.dut_hostname
-        if not pdu_controller.turn_off_outlet():
-            logging.error("Turn off the PDU outlets of {} failed".format(hostname))
-            return
-        time.sleep(10)  # sleep 10 second to ensure there is gap between power off and on
-        if not pdu_controller.turn_on_outlet():
-            logging.error("Turn on the PDU outlets of {} failed".format(hostname))
