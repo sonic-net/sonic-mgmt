@@ -4568,7 +4568,7 @@
   topo: lt2-p32o64
   ptf_image_name: docker-ptf
   ptf: vms13-1
-  ptf_ip: 10.64.247.153/26
+  ptf_ip: 10.64.247.153/25
   ptf_ipv6: 2a01:111:e210:b000::a40:f799/122
   server: server_13
   vm_base: VM13000
@@ -4584,7 +4584,7 @@
   topo: lt2-o256-u32d224
   ptf_image_name: docker-ptf
   ptf: vms13-6
-  ptf_ip: 10.64.247.183/26
+  ptf_ip: 10.64.247.183/25
   ptf_ipv6: 2a01:111:e210:b000::a40:f7b7/122
   server: server_13
   vm_base: VM13364
@@ -4618,7 +4618,7 @@
   topo: lt2-u32d128
   ptf_image_name: docker-ptf
   ptf: vms13-7
-  ptf_ip: 10.64.247.144/26
+  ptf_ip: 10.64.247.144/25
   ptf_ipv6: 2a01:111:e210:b000::a40:f790/122
   server: server_13
   vm_base: VM13096
