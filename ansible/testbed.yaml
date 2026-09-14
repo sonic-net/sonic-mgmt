@@ -4596,6 +4596,23 @@
   tb_owner: bingwang
   use_converged_peers: true
 
+- conf-name: vms13-lt2-nokia-th6-2
+  group-name: vms13-9
+  topo: lt2-o256-u32d224
+  ptf_image_name: docker-ptf
+  ptf: vms13-9
+  ptf_ip: 10.64.247.209/25
+  ptf_ipv6:
+  server: server_13
+  vm_base: VM13616
+  dut:
+  - str4-Nokia-7220-Th6p-2
+  inv_name: str4
+  auto_recover: 'True'
+  comment: bingwang
+  tb_owner: bingwang
+  use_converged_peers: true
+
 - conf-name: vms13-lt2-nh4210-1
   group-name: vms13-7
   topo: lt2-u32d128
