@@ -108,6 +108,20 @@ class BmcPduController(PduControllerBase):
         """
         return self._send_reset("On")
 
+    def power_cycle(self):
+        """
+        Power-cycle the system via Redfish PowerCycle.
+
+        Uses ResetType=PowerCycle to trigger a full power cycle of the whole device
+        in a single Redfish request, instead of separate ForceOff / On calls.
+
+        BMC controls the whole system, not individual outlets, so this method
+        takes no outlet argument.
+
+        @return: True if the command succeeded, False otherwise.
+        """
+        return self._send_reset("PowerCycle")
+
     def get_outlet_status(self, outlet=None, hostname=None):
         """
         Query the BMC for the current PowerState and return a synthetic outlet list.
