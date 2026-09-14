@@ -20,7 +20,7 @@ from tests.common.utilities import wait_until, get_intf_by_sub_intf, is_ipv6_onl
 from tests.common.utilities import get_neighbor_ptf_port_list
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
-from tests.common.helpers.constants import ARP_RESPONDER_DEFAULT_CONFIG, UPSTREAM_NEIGHBOR_MAP
+from tests.common.helpers.constants import ARP_RESPONDER_DEFAULT_CONFIG, ARP_RESPONDER_READY_FLAG, UPSTREAM_NEIGHBOR_MAP
 from tests.common import config_reload
 from tests.common.reboot import reboot
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
@@ -92,7 +92,28 @@ def add_ipaddr(ptfadapter, ptfhost, nexthop_addrs, prefix_len, nexthop_interface
         ptfhost.template(src="templates/arp_responder.conf.j2", dest="/etc/supervisor/conf.d/arp_responder.conf")
 
         ptfhost.shell('supervisorctl reread && supervisorctl update')
+        ptfhost.file(path=ARP_RESPONDER_READY_FLAG, state="absent")
         ptfhost.shell('supervisorctl restart arp_responder')
+        wait_for_arp_responder_ready(ptfhost)
+
+
+def wait_for_arp_responder_ready(ptfhost, timeout=60):
+    """Wait until arp_responder is able to answer, not merely running.
+
+    supervisorctl returns as soon as the process exists, but the responder first
+    spends 10-15s reinitializing scapy for libpcap. It touches
+    ARP_RESPONDER_READY_FLAG once every capture socket is bound.
+    """
+    def _ready():
+        return ptfhost.shell(
+            "test -f {}".format(ARP_RESPONDER_READY_FLAG), module_ignore_errors=True
+        )["rc"] == 0
+
+    pytest_assert(
+        wait_until(timeout, 2, 0, _ready),
+        "arp_responder did not become ready within {}s, check /tmp/arp_responder.out.log and "
+        "/tmp/arp_responder.err.log on the PTF".format(timeout)
+    )
 
 
 def del_ipaddr(ptfhost, nexthop_addrs, prefix_len, nexthop_devs, ipv6=False):
@@ -110,6 +131,10 @@ def del_ipaddr(ptfhost, nexthop_addrs, prefix_len, nexthop_devs, ipv6=False):
         # cannot be picked up by a later test invoking arp_responder with its
         # default config path.
         ptfhost.file(path=ARP_RESPONDER_DEFAULT_CONFIG, state="absent")
+        # SIGTERM from supervisorctl stop skips the responder's own cleanup, so
+        # drop the readiness flag here as well; a stale one would let the next
+        # caller proceed before the responder can answer.
+        ptfhost.file(path=ARP_RESPONDER_READY_FLAG, state="absent")
 
 
 def clear_arp_ndp(duthost, ipv6=False):
