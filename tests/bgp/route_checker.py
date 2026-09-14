@@ -251,18 +251,15 @@ def verify_only_loopback_routes_are_announced_to_neighs(dut_hosts, duthost, neig
 
 
 def assert_only_loopback_routes_announced_to_neighs(dut_hosts, duthost, neigh_hosts, community,
-                                                    error_msg="", is_v6_topo=False, timeout=None):
+                                                    error_msg="", is_v6_topo=False, timeout=180):
     if not error_msg:
         error_msg = "Failed to verify only loopback routes are announced to neighbours"
 
-    # `timeout` defaults to a value scaled by the number of BGP neighbors (see
-    # scaled_route_convergence_timeout) rather than a flat constant. On large topologies (e.g.
-    # lt2-o256 with 250+ downlink/uplink BGP neighbors) parsing routes on all neighbors alone can
-    # take well over a minute per attempt, leaving little to no room for the withdrawal to actually
-    # propagate/converge within a flat 180s window. Callers can still pass an explicit timeout to
-    # override this.
-    if timeout is None:
-        timeout = scaled_route_convergence_timeout(neigh_hosts)
+    # `timeout` keeps its previous flat default (180s) so existing callers are unaffected. On
+    # large topologies (e.g. lt2-o256 with 250+ downlink/uplink BGP neighbors) parsing routes on
+    # all neighbors alone can take well over a minute per attempt, leaving little to no room for
+    # the withdrawal to actually propagate/converge within a flat 180s window. Callers on such
+    # topologies should pass an explicit `timeout=scaled_route_convergence_timeout(neigh_hosts)`.
     pytest_assert(
         wait_until(timeout, 10, 5, verify_only_loopback_routes_are_announced_to_neighs,
                    dut_hosts, duthost, neigh_hosts, community, is_v6_topo),
