@@ -17,8 +17,21 @@ FRAME_SIZE_STEP = 64
 START_FRAME = 64
 END_FRAME = 9100
 
+# Known-good no-loss minimum frame size (bytes). The binary search returns the
+# SMALLEST frame that passes with zero loss:
+#   - result >  baseline  -> regression (e.g. baseline 192B, now needs 256B) -> FAIL
+#   - result <= baseline  -> healthy; result < baseline is a HW improvement (logged)
+#
+# DEFAULT_NO_LOSS_MIN_FRAME applies to every hwsku, so new hardware is regression-
+# checked without any test change. Add an entry to EXPECTED_NO_LOSS_MIN_FRAME only
+# when a specific hwsku/ip_version legitimately differs from the default.
+DEFAULT_NO_LOSS_MIN_FRAME = 192
+EXPECTED_NO_LOSS_MIN_FRAME = {
+    # "Force10-S6100": {"IPv4": 512, "IPv6": 512},
+}
 
-@pytest.mark.parametrize("ip_version", ["IPv4", "IPv6"])
+
+@pytest.mark.parametrize("ip_version", ["IPv6", "IPv4"])
 @pytest.mark.parametrize("rfc2889_enabled", [True, False])
 def test_min_frame_size_no_loss(
     request,
@@ -87,7 +100,6 @@ def test_min_frame_size_no_loss(
 
     snappi_config, snappi_obj_handles = create_snappi_config(snappi_extra_params)
     frame_sizes = list(range(START_FRAME, END_FRAME + 1, FRAME_SIZE_STEP))
-
     snappi_extra_params.traffic_flow_config = [
         {
             "line_rate": LINE_RATE_PERCENT,
@@ -194,6 +206,26 @@ def test_min_frame_size_no_loss(
             {"=" * 100}
             """
             logger.info(summary.strip())
+
+        # Regression gate: a larger min frame at zero loss is a regression; a smaller
+        # one is a HW improvement. Uses the per-hwsku override if defined, else the
+        # global default, so even a brand-new hwsku is still checked.
+        hwskus = {port["duthost"].facts["hwsku"] for port in snappi_ports}
+        hwsku = next(iter(hwskus)) if len(hwskus) == 1 else None
+        baseline = EXPECTED_NO_LOSS_MIN_FRAME.get(hwsku, {}).get(ip_version, DEFAULT_NO_LOSS_MIN_FRAME)
+
+        if best_frame_size < baseline:
+            logger.info(
+                "No-loss minimum frame size improved for hwsku=%s ip_version=%s: %d bytes "
+                "(baseline %d bytes). Consider tightening the baseline.",
+                hwsku, ip_version, best_frame_size, baseline,
+            )
+        pytest_assert(
+            best_frame_size <= baseline,
+            f"No-loss minimum frame size {best_frame_size} bytes for hwsku={hwsku} "
+            f"ip_version={ip_version} (FrameOrderingMode={frame_ordering_mode}) exceeds the "
+            f"known-good baseline of {baseline} bytes - regression.",
+        )
 
     finally:
         start_stop(snappi_api, operation="stop", op_type="traffic")
