@@ -21,7 +21,9 @@ def skip_on_simx(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     platform = duthost.facts["platform"]
     hwsku = duthost.facts['hwsku']
-    support_platform_simx_hwsku_list = ['ACS-MSN4700', 'ACS-SN4280', 'ACS-SN5640', 'ACS-SN6600', 'ACS-SN6600_LD']
+    support_platform_simx_hwsku_list = ['ACS-MSN4700', 'ACS-SN4280', 'ACS-SN5640', 'ACS-SN6600',
+                                        'ACS-SN6600_LD', 'ACS-SN6810_LD', 'Mellanox-SN6600_LD-P128C2',
+                                        'Mellanox-SN6600_LD-P64O128C2']
     if "simx" in platform and hwsku not in support_platform_simx_hwsku_list:
         pytest.skip('skipped on this platform: {}'.format(platform))
 
