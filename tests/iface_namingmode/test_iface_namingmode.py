@@ -1303,6 +1303,10 @@ class TestConfigInterface():
         cli_ns_option = sample_intf['cli_ns_option']
         asic_index = sample_intf['asic_index']
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        
+        if "x86_64-micas_m2-w6940-128x1-fr4-r0" in duthost.facts['platform']:
+            pytest.skip(f"Platform {duthost.facts['platform']} does not support interface speed configuration. Skip the test")
+            
         # Get supported speeds for interface
         supported_speeds = duthost.get_supported_speeds(interface)
         # Remove native_speed from supported speeds to pick a different speed to test with.
