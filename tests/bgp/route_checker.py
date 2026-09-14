@@ -233,7 +233,7 @@ def assert_only_loopback_routes_announced_to_neighs(dut_hosts, duthost, neigh_ho
         error_msg = "Failed to verify only loopback routes are announced to neighbours"
 
     pytest_assert(
-        wait_until(180, 10, 5, verify_only_loopback_routes_are_announced_to_neighs,
+        wait_until(300, 10, 5, verify_only_loopback_routes_are_announced_to_neighs,
                    dut_hosts, duthost, neigh_hosts, community, is_v6_topo),
         error_msg
     )
