@@ -8,6 +8,7 @@ from tests.common.helpers.constants import DEFAULT_ASIC_ID
 from tests.common.utilities import wait_until
 from route_checker import assert_only_loopback_routes_announced_to_neighs, parse_routes_on_neighbors
 from route_checker import verify_current_routes_announced_to_neighs, check_and_log_routes_diff
+from route_checker import scaled_route_convergence_timeout
 
 pytestmark = [
     pytest.mark.topology('t2', 'lrh', 'urh', 'lt2')
@@ -164,6 +165,10 @@ def test_idf_isolated_withdraw_all(duthosts, rand_one_downlink_duthost,
         # Verify DUT is in isolated-withdraw-all state.
         pytest_assert(IDF_ISOLATED_WITHDRAW_ALL == get_idf_isolation_state(duthost),
                       "DUT is not in isolated_withdraw_all state")
+        # NOTE: assert_only_loopback_routes_announced_to_neighs scales its default wait_until timeout
+        # by the number of BGP neighbors (see scaled_route_convergence_timeout), since on large
+        # topologies (e.g. lt2-o256 with 250+ downlink/uplink neighbors) route withdrawal convergence
+        # can take much longer than a flat 180s.
         assert_only_loopback_routes_announced_to_neighs(duthosts, duthost, nbrs, traffic_shift_community,
                                                         "Failed to verify only loopback route \
                                                             in isolated_withdraw_all state")
@@ -215,13 +220,18 @@ def test_idf_isolation_no_export_with_config_reload(rand_one_downlink_duthost,
         exp_community = ["no-export", traffic_shift_community]
         cur_v4_routes = {}
         cur_v6_routes = {}
-        # Verify that all routes advertised to neighbor at the start of the test
-        if not wait_until(600, 3, 0, verify_current_routes_announced_to_neighs,
+        # Verify that all routes advertised to neighbor at the start of the test.
+        # Timeout is scaled by the number of BGP neighbors (see scaled_route_convergence_timeout)
+        # since a full route re-advertisement to every peer after config_reload can take much
+        # longer than a flat 600s on large topologies (e.g. lt2-o256 with 250+ downlink/uplink
+        # neighbors).
+        route_convergence_timeout = scaled_route_convergence_timeout(nbrs)
+        if not wait_until(route_convergence_timeout, 3, 0, verify_current_routes_announced_to_neighs,
                           duthost, nbrs, orig_v4_routes, cur_v4_routes, 4, exp_community):
             if not check_and_log_routes_diff(duthost, nbrs, orig_v4_routes, cur_v4_routes, 4):
                 pytest.fail("Not all ipv4 routes are announced to neighbors")
 
-        if not wait_until(600, 3, 0, verify_current_routes_announced_to_neighs,
+        if not wait_until(route_convergence_timeout, 3, 0, verify_current_routes_announced_to_neighs,
                           duthost, nbrs, orig_v6_routes, cur_v6_routes, 6, exp_community):
             if not check_and_log_routes_diff(duthost, nbrs, orig_v6_routes, cur_v6_routes, 6):
                 pytest.fail("Not all ipv6 routes are announced to neighbors")
@@ -278,6 +288,10 @@ def test_idf_isolation_withdraw_all_with_config_reload(duthosts, rand_one_downli
         # Verify DUT is in isolated-withdraw-all state.
         pytest_assert(IDF_ISOLATED_WITHDRAW_ALL == get_idf_isolation_state(duthost),
                       "DUT is not isolated_no_export state")
+        # NOTE: assert_only_loopback_routes_announced_to_neighs scales its default wait_until timeout
+        # by the number of BGP neighbors (see scaled_route_convergence_timeout), since on large
+        # topologies (e.g. lt2-o256 with 250+ downlink/uplink neighbors) route withdrawal convergence
+        # can take much longer than a flat 180s.
         assert_only_loopback_routes_announced_to_neighs(duthosts, duthost, nbrs, traffic_shift_community,
                                                         "Failed to verify only loopback route in \
                                                             isolated_withdraw_all state")

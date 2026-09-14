@@ -10,6 +10,29 @@ from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
+# Base wait_until timeout (in seconds) for route-convergence checks on small topologies, plus how
+# many extra seconds to budget per BGP neighbor. On large topologies (e.g. lt2-o256 with 250+
+# downlink/uplink neighbors), parsing and re-converging routes on every neighbor takes noticeably
+# longer than on a handful of neighbors, so a single flat timeout either wastes time on small
+# topologies or is too short on large ones. Values are conservative estimates calibrated against a
+# 252-neighbor lt2-o256 topology, where convergence took ~1000-1200s; adjust if a different topology
+# scale shows the coefficient needs tuning.
+ROUTE_CONVERGENCE_BASE_TIMEOUT = 180
+ROUTE_CONVERGENCE_TIMEOUT_PER_NEIGHBOR = 5
+ROUTE_CONVERGENCE_MAX_TIMEOUT = 1800
+
+
+def scaled_route_convergence_timeout(neigh_hosts, base=ROUTE_CONVERGENCE_BASE_TIMEOUT,
+                                     per_neighbor=ROUTE_CONVERGENCE_TIMEOUT_PER_NEIGHBOR,
+                                     maximum=ROUTE_CONVERGENCE_MAX_TIMEOUT):
+    """
+    Compute a wait_until timeout scaled by the number of BGP neighbors, so route-convergence
+    checks have enough time on large topologies without unnecessarily inflating the timeout for
+    small ones. Result is clamped to `maximum` to avoid unbounded waits if convergence never
+    completes.
+    """
+    return min(maximum, base + per_neighbor * len(neigh_hosts))
+
 
 def verify_loopback_route_with_community(dut_hosts, duthost, neigh_hosts, ip_ver, community):
     logger.info("Verifying only loopback routes are announced to bgp neighbors")
@@ -228,12 +251,20 @@ def verify_only_loopback_routes_are_announced_to_neighs(dut_hosts, duthost, neig
 
 
 def assert_only_loopback_routes_announced_to_neighs(dut_hosts, duthost, neigh_hosts, community,
-                                                    error_msg="", is_v6_topo=False):
+                                                    error_msg="", is_v6_topo=False, timeout=None):
     if not error_msg:
         error_msg = "Failed to verify only loopback routes are announced to neighbours"
 
+    # `timeout` defaults to a value scaled by the number of BGP neighbors (see
+    # scaled_route_convergence_timeout) rather than a flat constant. On large topologies (e.g.
+    # lt2-o256 with 250+ downlink/uplink BGP neighbors) parsing routes on all neighbors alone can
+    # take well over a minute per attempt, leaving little to no room for the withdrawal to actually
+    # propagate/converge within a flat 180s window. Callers can still pass an explicit timeout to
+    # override this.
+    if timeout is None:
+        timeout = scaled_route_convergence_timeout(neigh_hosts)
     pytest_assert(
-        wait_until(180, 10, 5, verify_only_loopback_routes_are_announced_to_neighs,
+        wait_until(timeout, 10, 5, verify_only_loopback_routes_are_announced_to_neighs,
                    dut_hosts, duthost, neigh_hosts, community, is_v6_topo),
         error_msg
     )
