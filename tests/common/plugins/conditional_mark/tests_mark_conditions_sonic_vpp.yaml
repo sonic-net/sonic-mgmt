@@ -470,18 +470,6 @@ override_config_table/test_override_config_table.py::test_load_minigraph_with_go
       - "asic_type in ['vpp']"
 
 #######################################
-#####          PC                 #####
-#######################################
-pc/test_po_cleanup.py::test_po_cleanup_after_reload:
-  disable_memory_utilization:
-    reason: >
-            config_reload with CPU stress transiently raises monit memory_usage past the
-            10% increase threshold on the low-RAM sonic-vpp KVM VM; the test body passes.
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-#######################################
 #####        PFCWD                #####
 #######################################
 pfcwd:
@@ -570,86 +558,6 @@ stress/test_stress_routes.py::test_announce_withdraw_route:
 #######################################
 #####        Subport Interfaces   #####
 #######################################
-sub_port_interfaces/test_show_subinterface.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-sub_port_interfaces/test_sub_port_interfaces.py::TestSubPortStress::test_max_numbers_of_sub_ports:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_admin_status_down_disables_forwarding:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_balancing_sub_ports:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_packet_routed_with_valid_vlan:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_routing_between_sub_ports:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_routing_between_sub_ports_and_port:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_routing_between_sub_ports_unaffected_by_sub_ports_removal:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_tunneling_between_sub_ports:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_vlan_config_impact:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
 sub_port_interfaces/test_sub_port_l2_forwarding.py:
   skip:
     reason: >
