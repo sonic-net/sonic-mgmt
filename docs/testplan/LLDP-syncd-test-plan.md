@@ -29,14 +29,6 @@ recover, so an intact management neighbor cannot mask missing ASIC neighbors.
 Deduplicate interface membership, but retain all fanout neighbors and match
 the DB's recorded system name, chassis ID and remote port ID for content checks.
 
-Offline regression coverage for convergence, timeout, fanout and namespace
-selection can be run without a testbed:
-
-```bash
-python3 -m pytest --noconftest --confcutdir=tests/common/unit_tests \
-  tests/common/unit_tests/unit_test_lldp_syncd.py -v
-```
-
 ## Test Scenarios
 
 ### 1. Verify Presence of All Interfaces in `LLDP_ENTRY_TABLE`
