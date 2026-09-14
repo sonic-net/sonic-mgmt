@@ -59,6 +59,7 @@ import pytest
 import copy
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa: F401
+from tests.common.utilities import is_ipv6_only_topology
 from tests.ptf_runner import ptf_runner
 from tests.common.vxlan_ecmp_utils import Ecmp_Utils
 
@@ -195,6 +196,9 @@ def fixture_setUp(duthosts,
     platform = duthosts[rand_one_dut_hostname].facts['platform']
     if platform in ['x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0'] and encap_type in ['v4_in_v6', 'v6_in_v6']:
         pytest.skip("Skipping test. v6 underlay is not supported on Mlnx 2700")
+
+    if is_ipv6_only_topology(tbinfo) and ecmp_utils.get_outer_layer_version(encap_type) == 'v4':
+        pytest.skip("Skipping test with IPv4 encap type. IPv4 underlay/BGP peers are not available on v6-only topology")
 
     # Should I keep the temporary files copied to DUT?
     ecmp_utils.Constants['KEEP_TEMP_FILES'] = \
