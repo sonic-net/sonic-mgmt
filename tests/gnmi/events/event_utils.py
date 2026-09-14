@@ -1,4 +1,6 @@
+import json
 import logging
+import re
 import pytest
 
 import ptf.packet as scapy
@@ -6,16 +8,66 @@ import ptf.testutils as testutils
 
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.gnmi_utils import GNMIEnvironment
 
 logger = logging.getLogger(__name__)
 
 EVENT_COUNTER_KEYS = ["missed_to_cache", "published"]
 PUBLISHED = 1
+EVENT_REGEX = "json_ietf_val: \"(.*)\""
+
+
+def fetch_json_ptf_output(regex, output, match_no):
+    match = re.findall(regex, output)
+    assert len(match) > match_no, "Not able to parse json from output"
+    return match[:match_no + 1]
+
+
+def listen_for_events(duthost, gnxi_path, ptfhost, filter_event_regex, op_file, timeout, update_count=1,
+                      match_number=0):
+    """Subscribe to the EVENTS target on the gnmi container and write matched events to op_file.
+
+    Uses the GNMI_MODE environment and the gnmi client certs.
+    """
+    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+    ip = duthost.mgmt_ip
+    port = env.gnmi_port
+    cmd = '/root/env-python3/bin/python /root/gnxi/gnmi_cli_py/py_gnmicli.py '
+    cmd += '-t %s -p %u ' % (ip, port)
+    cmd += '-rcert /root/gnmiCA.pem -pkey /root/gnmiclient.key -cchain /root/gnmiclient.crt '
+    cmd += '-m subscribe -x "all[heartbeat=2]" -xt EVENTS '
+    cmd += '--subscribe_mode 0 --submode 1 --interval 0 --update_count %d --create_connections 1 ' % update_count
+    if filter_event_regex:
+        cmd += '--filter_event_regex %s ' % filter_event_regex
+    if timeout > 0:
+        cmd += '--timeout %d' % timeout
+    result = ptfhost.shell(cmd)
+    assert result["rc"] == 0, "PTF command failed with non zero return code"
+    output = result["stdout"]
+    assert len(output) != 0, "No output from PTF docker, thread timed out after {} seconds".format(timeout)
+    event_strs = fetch_json_ptf_output(EVENT_REGEX, output, match_number)
+    with open(op_file, "w") as f:
+        f.write("[\n")
+        for i in range(0, len(event_strs)):
+            event_str = event_strs[i].replace('\\', '')
+            event_json = json.loads(event_str)
+            json.dump(event_json, f, indent=4)
+            if i < match_number:
+                f.write(",")
+        f.write("\n]")
+
+
+def trigger_logger(duthost, log, process, container="", priority="local0.notice", repeat=5):
+    tag = process
+    if container != "":
+        tag = container + "#" + process
+    for r in range(repeat):
+        duthost.shell("logger -p {} -t {} {} {}".format(priority, tag, log, r))
 
 
 def add_test_watchdog_timeout_service(duthost):
     logger.info("Adding mock watchdog.service to systemd")
-    duthost.copy(src="telemetry/events/events_data/test-watchdog-timeout.service", dest="/etc/systemd/system/")
+    duthost.copy(src="gnmi/events/events_data/test-watchdog-timeout.service", dest="/etc/systemd/system/")
     duthost.shell("systemctl daemon-reload")
     duthost.shell("systemctl start test-watchdog-timeout.service")
 

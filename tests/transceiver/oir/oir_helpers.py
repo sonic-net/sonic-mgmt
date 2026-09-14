@@ -38,8 +38,8 @@ from tests.transceiver.common.port_selectors import select_attribute_ports
 from tests.transceiver.common.scenario_ops import poll_ports_recovered
 from tests.transceiver.common.verification import assert_no_flap_since, capture_flap_sentinels
 from tests.transceiver.dom.dom_helpers import (
-    build_dom_availability_plan,
-    check_dom_field_has_finite_value,
+    build_dom_sensor_plan,
+    dom_field_available,
     read_dom_sensor_data,
     validate_dom_plan_fields,
 )
@@ -331,7 +331,7 @@ def verify_dom_data_recovered(duthost, port_attributes_dict, lport_to_first_subp
         logger.info("No DOM-capable port under test; skipping DOM data verification")
         return []
 
-    plan_by_port = build_dom_availability_plan(
+    plan_by_port = build_dom_sensor_plan(
         port_attributes_dict, dom_ports, lport_to_first_subport_mapping)
 
     def _check():
@@ -342,7 +342,7 @@ def verify_dom_data_recovered(duthost, port_attributes_dict, lport_to_first_subp
             dom_ports,
             sensor_by_port,
             plan_by_port,
-            check_dom_field_has_finite_value,
+            dom_field_available,
             include_freshness_only=True,
         )
         return failures + port_failures
