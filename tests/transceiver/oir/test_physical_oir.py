@@ -17,18 +17,13 @@ import pytest
 
 from tests.common.platform.interface_utils import wait_ports_oper_status
 from tests.transceiver.attribute_parser.attribute_keys import (
-    DOM_ATTRIBUTES_KEY,
     PHYSICAL_OIR_ATTRIBUTES_KEY,
     SYSTEM_ATTRIBUTES_KEY,
 )
 from tests.transceiver.common import scenario_ops
 from tests.transceiver.common.health_checks import capture_baseline
 from tests.transceiver.common.verification import standard_port_recovery_and_verification
-from tests.transceiver.eeprom import datapath
-from tests.transceiver.eeprom.eeprom_content import (
-    verify_eeprom_static_recovered,
-    verify_firmware_info_recovered,
-)
+from tests.transceiver.eeprom import recovery
 from tests.transceiver.oir import oir_helpers
 
 logger = logging.getLogger(__name__)
@@ -75,40 +70,7 @@ def _dom_recover_wait(port_attributes_dict, lports, wait_sec):
     ``TRANSCEIVER_DOM_SENSOR`` / ``TRANSCEIVER_FIRMWARE_INFO`` are republished on
     xcvrd's delayed DOM cycle, so both need the settle budget plus that cycle.
     """
-    return wait_sec + max(
-        (port_attributes_dict[port].get(DOM_ATTRIBUTES_KEY, {}).get("dom_info_recover_sec", 0)
-         for port in lports), default=0)
-
-
-def _verify_eeprom_recovered(duthost, port_attributes_dict, lport_to_first_subport_mapping,
-                             lports, wait_sec):
-    """TC2 EEPROM results: inventory content, CMIS DataPath fields and firmware."""
-    target_attributes = {port: port_attributes_dict[port] for port in lports}
-    failures = []
-
-    static_failures = verify_eeprom_static_recovered(
-        duthost, port_attributes_dict, lport_to_first_subport_mapping, wait_sec,
-        ports=lports,
-        # The module was just re-seated, so the first I2C read is legitimately slow.
-        enforce_timeout=False,
-    )
-    if static_failures:
-        failures.append("static EEPROM content:\n  " + "\n  ".join(static_failures))
-
-    datapath_failures = datapath.verify_datapath_recovered(
-        duthost, port_attributes_dict, wait_sec,
-        ports=datapath.cmis_active_optical_ports(target_attributes),
-    )
-    if datapath_failures:
-        failures.append("DataPath fields:\n  " + "\n  ".join(datapath_failures))
-
-    firmware_failures = verify_firmware_info_recovered(
-        duthost, port_attributes_dict,
-        _dom_recover_wait(port_attributes_dict, lports, wait_sec), ports=lports)
-    if firmware_failures:
-        failures.append("firmware versions:\n  " + "\n  ".join(firmware_failures))
-
-    return failures
+    return recovery.dom_republish_wait(port_attributes_dict, wait_sec, lports)
 
 
 def _capture_table_baseline(duthost, lports):
@@ -137,14 +99,14 @@ def _verify_insertion(duthost, port_attributes_dict, lport_to_first_subport_mapp
         duthost, lports, _parents_of(lports, lport_to_first_subport_mapping), wait_sec,
         baseline_tables=baseline_tables)
 
-    recovery = standard_port_recovery_and_verification(
+    port_recovery = standard_port_recovery_and_verification(
         duthost, lports, {port: port_attributes_dict[port] for port in lports},
         link_up_timeout_sec=wait_sec,
         health_baseline=health_baseline,
         lport_to_first_subport_mapping=lport_to_first_subport_mapping,
     )
-    if not recovery["passed"]:
-        failures.append(recovery["details"])
+    if not port_recovery["passed"]:
+        failures.append(port_recovery["details"])
 
     # TC2 step 8: the local port must come up without flapping across the
     # insertion itself, which a post-recovery sentinel alone cannot see.
@@ -152,8 +114,13 @@ def _verify_insertion(duthost, port_attributes_dict, lport_to_first_subport_mapp
         failures += oir_helpers.verify_flap_count_increment(
             duthost, lports, insert_flap_baseline, expected_increment=expected_flap_increment)
 
-    failures += _verify_eeprom_recovered(
-        duthost, port_attributes_dict, lport_to_first_subport_mapping, lports, wait_sec)
+    failures += recovery.verify_transceiver_recovery(
+        duthost, port_attributes_dict, lport_to_first_subport_mapping, wait_sec,
+        "after insertion", ports=lports,
+        # The module was just re-seated, so its EEPROM is physically re-read;
+        # always take the live-I2C confirmation pass even on a zero settle.
+        live_i2c_confirm=True,
+    )
 
     # TC2 step 3: DOM data must be republished with valid, fresh values once the
     # module is back (VDM / PM re-publication is covered by the STATE_DB table

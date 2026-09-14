@@ -14,9 +14,13 @@ Static content is scored by ``verify_eeprom_static_recovered`` (link-independent
 the dynamic DataPath fields (CMIS active-optical) by ``verify_datapath_recovered``;
 and the firmware versions by ``verify_firmware_info_recovered`` (republished by
 xcvrd's DOM thread on a slower, delayed cycle) as a separate line item.
+
+S2-S7 drive those three verifiers through the shared
+``eeprom/recovery.py::verify_transceiver_recovery`` orchestration, which the
+physical OIR and firmware suites reuse; S1 and the S7 post-reset checks call the
+individual verifiers directly because they score a different subset.
 """
 import logging
-import time
 
 import pytest
 
@@ -24,7 +28,7 @@ from tests.common.platform.interface_utils import is_first_subport
 from tests.transceiver.attribute_parser.attribute_keys import DOM_ATTRIBUTES_KEY, SYSTEM_ATTRIBUTES_KEY
 from tests.transceiver.common import scenario_ops
 from tests.transceiver.common.health_checks import DEFAULT_MONITORED_PROCESSES
-from tests.transceiver.eeprom import datapath
+from tests.transceiver.eeprom import datapath, recovery
 from tests.transceiver.eeprom.eeprom_content import (
     verify_eeprom_static_recovered,
     verify_firmware_info_recovered,
@@ -57,16 +61,6 @@ def _system_attribute(port_attributes_dict, attribute):
     return _representative_attribute(port_attributes_dict, SYSTEM_ATTRIBUTES_KEY, attribute)
 
 
-def _log_item_result(scenario, label, item_failures, elapsed):
-    """Log a recovery line item's outcome + timing so a failure names which item
-    (static / DataPath / firmware) failed and how long each took."""
-    if item_failures:
-        logger.info("EEPROM recovery (%s): %s FAILED after %.1fs (%d port(s))",
-                    scenario, label, elapsed, len(item_failures))
-    else:
-        logger.info("EEPROM recovery (%s): %s verified in %.1fs", scenario, label, elapsed)
-
-
 def _verify_recovery(
     duthost,
     port_attributes_dict,
@@ -76,64 +70,26 @@ def _verify_recovery(
 ):
     """Verify EEPROM static content + CMIS active-optical DataPath + firmware recovery.
 
-    Scores the link-independent static content, the link-dependent DataPath
-    fields, and the firmware versions as separate line items and aggregates into
-    one ``pytest.fail``. ``scenario`` is a human-readable label for the failure
-    message.
+    Thin scenario-suite wrapper over the shared
+    :func:`tests.transceiver.eeprom.recovery.verify_transceiver_recovery`
+    orchestration, aggregating its line-item failures into one ``pytest.fail``.
     """
-    logger.info("Verifying EEPROM recovery (%s): static + DataPath + firmware, wait=%ss, %d port(s)",
-                scenario, wait_sec, len(port_attributes_dict))
-    start = time.monotonic()
-    failures = []
-    item_start = time.monotonic()
-    # Pre-check (wait_sec == 0) uses the cheap STATE_DB baseline; the post-op
-    # check adds the live-I2C sfputil pass (physical re-readability proof).
-    static_failures = verify_eeprom_static_recovered(
+    failures = recovery.verify_transceiver_recovery(
         duthost,
         port_attributes_dict,
         lport_to_first_subport_mapping,
         wait_sec,
-        live_i2c_confirm=wait_sec > 0,
-        # Reboot / config reload / daemon restart reload the driver, so the first
-        # I2C read is legitimately slow — don't enforce the dump-latency SLA.
-        enforce_timeout=False,
+        scenario,
+        # The scenario suite sizes the firmware budget from a representative
+        # port because these disruptions are DUT-wide and every port shares the
+        # same settle characteristics.
+        firmware_wait_sec=wait_sec + _representative_attribute(
+            port_attributes_dict, DOM_ATTRIBUTES_KEY, "dom_info_recover_sec"),
     )
-    _log_item_result(scenario, "static content", static_failures, time.monotonic() - item_start)
-    if static_failures:
-        failures.append("Static EEPROM content:\n  " + "\n  ".join(static_failures))
-
-    # Dynamic DataPath fields (CMIS active-optical only) recover once links are
-    # back up; scored as a separate line item from the link-independent static
-    # content, sized with the same settle budget.
-    item_start = time.monotonic()
-    active_optical_ports = datapath.cmis_active_optical_ports(port_attributes_dict)
-    datapath_failures = datapath.verify_datapath_recovered(
-        duthost, port_attributes_dict, wait_sec, ports=active_optical_ports,
-    )
-    _log_item_result(scenario, "DataPath fields", datapath_failures, time.monotonic() - item_start)
-    if datapath_failures:
-        failures.append("DataPath fields:\n  " + "\n  ".join(datapath_failures))
-
-    # TRANSCEIVER_FIRMWARE_INFO is republished by xcvrd's DOM thread on a delayed
-    # cycle, so give firmware the scenario settle plus the DOM recovery budget.
-    item_start = time.monotonic()
-    firmware_wait = wait_sec + _representative_attribute(
-        port_attributes_dict, DOM_ATTRIBUTES_KEY, "dom_info_recover_sec")
-    firmware_failures = verify_firmware_info_recovered(
-        duthost, port_attributes_dict, firmware_wait,
-    )
-    _log_item_result(scenario, "firmware versions", firmware_failures, time.monotonic() - item_start)
-    if firmware_failures:
-        failures.append("Firmware versions:\n  " + "\n  ".join(firmware_failures))
-
-    elapsed = time.monotonic() - start
     if failures:
         pytest.fail(
-            "EEPROM recovery verification failed {} (after {:.1f}s):\n{}".format(
-                scenario, elapsed, "\n".join(failures)
-            )
+            "EEPROM recovery verification failed {}:\n{}".format(scenario, "\n".join(failures))
         )
-    logger.info("EEPROM recovery (%s) verified in %.1fs", scenario, elapsed)
 
 
 def test_datapath_clear_restore_on_shut_noshut(duthost, port_attributes_dict):
