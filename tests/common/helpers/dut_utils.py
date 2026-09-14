@@ -14,7 +14,7 @@ from tests.common.errors import RunAnsibleModuleFail
 from collections import defaultdict
 from tests.common.connections.console_host import ConsoleHost, CONSOLE_LINECARD
 from tests.common.connections.linecard_console_conn import UnsupportedPlatformError
-from tests.common.utilities import get_dut_current_passwd, update_console_creds
+from tests.common.utilities import get_dut_current_passwd, update_console_creds, create_proxy_from_ssh_args
 from tests.common.connections.base_console_conn import (
     CONSOLE_SSH_CISCO_CONFIG,
     CONSOLE_SSH_DIGI_CONFIG,
@@ -770,11 +770,16 @@ def creds_on_dut(duthost):
         creds["ansible_altpasswords"].append(hostvars["ansible_altpassword"])
 
     passwords = creds["ansible_altpasswords"] + [creds["sonicadmin_password"]]
+    port = hostvars.get("ansible_port", 22)
+    ssh_common_args = hostvars.get("ansible_ssh_common_args", "")
+    proxy_sock = create_proxy_from_ssh_args(ssh_common_args, duthost.mgmt_ip, port)
     creds['sonicadmin_password'] = get_dut_current_passwd(
         duthost.mgmt_ip,
         duthost.mgmt_ipv6,
         creds['sonicadmin_user'],
-        passwords
+        passwords,
+        port=port,
+        sock=proxy_sock
     )
 
     for k, v in list(console_login_creds.items()):
