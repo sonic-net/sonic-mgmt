@@ -37,8 +37,7 @@ RECOVER_METHODS = {
         'recover_wait': 120
     },
     "load_minigraph": {
-        "cmd": "bash -c 'if [ -f /etc/sonic/golden_config_db.json ]; then "
-               "config load_minigraph -y -o &>/dev/null; else config load_minigraph -y &>/dev/null; fi'",
+        "cmd": "bash -c 'config load_minigraph -y &>/dev/null'",
         "reload": False,
         "reboot": False,
         "adaptive": False,

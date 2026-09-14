@@ -1,3 +1,4 @@
+import json
 import time
 import logging
 import os
@@ -8,6 +9,7 @@ from tests.common.helpers.parallel_utils import synchronized_config_reload
 from tests.common.plugins.loganalyzer.utils import support_ignore_loganalyzer
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import wait_until
+from tests.common.constants import GOLDEN_CONFIG_DB_PATH_ORI
 from tests.common.configlet.utils import chk_for_pfc_wd
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
 from tests.common.helpers.dut_utils import ignore_t2_syslog_msgs
@@ -204,6 +206,57 @@ def config_reload_minigraph_with_rendered_golden_config_override(
                   safe_reload_ignored_dockers=safe_reload_ignored_dockers)
 
 
+def _golden_config_link_training(sonic_host, golden_config_path):
+    """Return {port: 'on'|'off'} for PORT entries with link_training in the golden config.
+
+    Reads golden_config_db.json.origin.backup first, then golden_config_path. Returns {}
+    when neither file is readable or the first readable one has no such entries.
+    """
+    candidates = [GOLDEN_CONFIG_DB_PATH_ORI]
+    if golden_config_path and golden_config_path not in candidates:
+        candidates.append(golden_config_path)
+    for path in candidates:
+        res = sonic_host.shell('cat {}'.format(path), module_ignore_errors=True)
+        if res.get('rc') != 0:
+            continue
+        try:
+            config = json.loads(res['stdout'])
+        except ValueError as e:
+            logger.warning("Malformed golden config %s (%s); not a link_training source", path, e)
+            continue
+        ports = config.get('PORT', {}) if isinstance(config, dict) else {}
+        return {
+            port: attrs.get('link_training') for port, attrs in ports.items()
+            if isinstance(attrs, dict) and attrs.get('link_training') in ('on', 'off')
+        }
+    return {}
+
+
+def _reapply_golden_link_training(sonic_host, golden_config_path):
+    """Set PORT.<intf>.link_training in CONFIG_DB from the golden config's PORT table.
+
+    Single-asic only. Ports absent from CONFIG_DB are skipped with a warning.
+    """
+    if getattr(sonic_host, 'is_multi_asic', False):
+        return
+    lt_ports = _golden_config_link_training(sonic_host, golden_config_path)
+    if not lt_ports:
+        return
+    keys = sonic_host.shell('sonic-db-cli CONFIG_DB keys "PORT|*"', module_ignore_errors=True)
+    present = {line.split('|', 1)[1] for line in keys.get('stdout_lines', []) if '|' in line}
+    cmds = []
+    for port in sorted(lt_ports):
+        if port not in present:
+            logger.warning("Golden config sets link_training=%s on %s, which is not in the reloaded "
+                           "PORT table; skipping", lt_ports[port], port)
+            continue
+        cmds.append('sonic-db-cli CONFIG_DB hset "PORT|{}" link_training {}'.format(port, lt_ports[port]))
+    if not cmds:
+        return
+    logger.info("Re-applying link_training from golden config on %d ports after minigraph reload", len(cmds))
+    sonic_host.shell(' && '.join(cmds), executable="/bin/bash")
+
+
 def pfcwd_feature_enabled(duthost):
     device_metadata = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']['DEVICE_METADATA']
     pfc_status = device_metadata['localhost']["default_pfcwd_status"]
@@ -311,15 +364,8 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         cmd = 'config load_minigraph -y'
         if traffic_shift_away:
             cmd += ' -t'
-        lt_override = False
-        if is_dut and not override_config:
-            lt_check = sonic_host.shell(
-                'grep -q link_training {}'.format(golden_config_path or DEFAULT_GOLDEN_CONFIG_PATH),
-                module_ignore_errors=True)
-            lt_override = lt_check.get('rc') == 0
-            if lt_override:
-                logger.info("Golden config carries link_training; adding -o to preserve it")
-        if override_config or macsec_en or lt_override:
+        golden_override = override_config or macsec_en
+        if golden_override:
             cmd += ' -o'
         if golden_config_path:
             cmd += ' -p {} '.format(golden_config_path)
@@ -333,6 +379,8 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
             sonic_host.shell(
                 'sonic-db-cli CONFIG_DB hset "DEVICE_METADATA|localhost" zebra_nexthop {}'.format(zebra_nexthop)
             )
+        if is_dut and not golden_override:
+            _reapply_golden_link_training(sonic_host, golden_config_path)
         time.sleep(60)
         if start_bgp:
             sonic_host.shell('config bgp startup all')
