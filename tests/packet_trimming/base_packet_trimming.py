@@ -1,5 +1,6 @@
 import logging
 import random
+import time
 
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 from tests.common.helpers.assertions import pytest_assert
@@ -7,7 +8,9 @@ from tests.common.utilities import wait_until, configure_packet_aging
 from tests.common.mellanox_data import is_mellanox_device
 from tests.packet_trimming.constants import (
     DEFAULT_PACKET_SIZE, DEFAULT_DSCP, MIN_PACKET_SIZE, CONFIG_TOGGLE_COUNT,
-    JUMBO_PACKET_SIZE, PORT_TOGGLE_COUNT, TRIMMING_COUNTER_INTERVAL)
+    JUMBO_PACKET_SIZE, PORT_TOGGLE_COUNT, TRIMMING_COUNTER_INTERVAL,
+    WARM_REBOOT_TRAFFIC_DURATION, WARM_REBOOT_STEADY_STATE_WAIT,
+    WARM_REBOOT_MIN_PACKET_RATE, WARM_REBOOT_MAX_CONTIGUOUS_LOSS)
 from tests.packet_trimming.packet_trimming_config import PacketTrimmingConfig
 from tests.packet_trimming.packet_trimming_helper import (
     configure_trimming_action, configure_trimming_acl, verify_srv6_packet_with_trimming, cleanup_trimming_acl,
@@ -16,7 +19,8 @@ from tests.packet_trimming.packet_trimming_helper import (
     verify_queue_and_port_trim_counter_consistency, get_queue_trim_counters_json, compare_counters,
     has_non_zero_trim_counters, configure_port_mirror_session, remove_port_mirror_session,
     verify_queue_and_port_trim_sent_counter_consistency, verify_queue_and_port_trim_drop_counter_consistency,
-    compute_buffer_threshold, fill_egress_buffer)
+    compute_buffer_threshold, fill_egress_buffer, ConfigTrimming, start_warm_reboot_traffic,
+    start_warm_reboot_capture, collect_warm_reboot_loss_report)
 
 logger = logging.getLogger(__name__)
 
@@ -343,6 +347,56 @@ class BasePacketTrimming:
                                              has_non_zero_trim_counters, duthost, port),
                                   f"port level trim counters are zero for {port}")
                     verify_queue_and_port_trim_counter_consistency(duthost, port)
+
+    def test_trimming_during_warm_reboot(self, duthost, ptfadapter, ptfhost, test_params, localhost,
+                                         clean_warm_reboot_traffic):
+        """
+        Test Case: Verify Trimming Is Not Disrupted During Warm Reboot
+
+        This test verifies that the trimmed packets keep being forwarded while the system goes
+        through a warm reboot. A sequence numbered stream is sent into a blocked egress queue, so
+        that every packet is trimmed, and the trimmed copies received on the PTF host are checked
+        for sequence gaps. A contiguous gap of trimmed packets means the trimming dataplane was
+        disrupted while syncd was applying the restored view.
+        """
+        with allure.step(f"Configure packet trimming in global level for {self.trimming_mode} mode"):
+            self.configure_trimming_global_by_mode(duthost)
+
+        with allure.step("Enable trimming in buffer profile"):
+            for buffer_profile in test_params['trim_buffer_profiles']:
+                configure_trimming_action(duthost, test_params['trim_buffer_profiles'][buffer_profile], "on")
+
+        egress_port = test_params['egress_ports'][0]
+        # The egress queue is blocked for the whole measurement, so that the packets keep being
+        # trimmed during the warm reboot. It is released before the trimming is verified again,
+        # because verify_trimmed_packet blocks the same queue by itself.
+        with ConfigTrimming(duthost, egress_port['dut_members'], test_params['block_queue']):
+            with allure.step("Start sequence numbered traffic and wait for the egress queue to fill up"):
+                start_warm_reboot_traffic(ptfhost, test_params['ingress_port'], egress_port,
+                                          duthost.facts["router_mac"], WARM_REBOOT_TRAFFIC_DURATION)
+                time.sleep(WARM_REBOOT_STEADY_STATE_WAIT)
+
+            with allure.step("Start capturing the trimmed packets on the PTF host"):
+                start_warm_reboot_capture(ptfhost, egress_port)
+
+            with allure.step("Perform warm reboot while the trimmed traffic is running"):
+                reboot_dut(duthost, localhost, reboot_type="warm")
+
+            with allure.step("Verify trimmed packets were not lost during warm reboot"):
+                loss_report = collect_warm_reboot_loss_report(ptfhost)
+                pytest_assert(loss_report['rate'] >= WARM_REBOOT_MIN_PACKET_RATE,
+                              f"Trimmed packets were received at only {loss_report['rate']} pps, which is too "
+                              f"slow to detect a short disruption, loss report: {loss_report}")
+                pytest_assert(loss_report['max_contiguous_loss'] <= WARM_REBOOT_MAX_CONTIGUOUS_LOSS,
+                              f"Trimmed packets were lost during warm reboot, loss report: {loss_report}")
+
+        if is_mellanox_device(duthost):
+            with allure.step("Disable packet aging for mellanox device after warm reboot"):
+                configure_packet_aging(duthost, disabled=True)
+
+        with allure.step(f"Verify trimming function in {self.trimming_mode} mode after warm reboot"):
+            kwargs = self.get_verify_trimmed_packet_kwargs(duthost, ptfadapter, {**test_params})
+            verify_trimmed_packet(**kwargs)
 
     def test_trimming_counters(self, duthost, ptfadapter, test_params, trim_counter_params,
                                queue_level_trim_supported):
