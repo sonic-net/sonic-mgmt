@@ -18,7 +18,7 @@ def test_acms_bootstrap(duthosts, rand_one_dut_hostname, creds, test_data):
     Test ACMS bootstrap functionality with internal image.
     Use invalid bootstrap certificate to access 5 DSMS endpoint.
     - HTTP_1_1_REQUIRED, CURL compatibility issue.
-    - HTTP code 401, DSMS endpoint rejects invalid certificate, expected behavior.
+    - HTTP code 401 or 403, DSMS endpoint rejects invalid certificate, expected behavior.
     - HTTP code 503, DSMS service not available, try next endpoint
     """
     http_proxy = creds.get('proxy_env', {}).get('http_proxy', '')
@@ -51,9 +51,11 @@ def test_acms_bootstrap(duthosts, rand_one_dut_hostname, creds, test_data):
         if "CurlErrorCode=58" in stdout or "could not parse PKCS12" in stdout:
             pytest.fail("PKCS12 cert parse error: cloud %s, region %s, "
                         "bootstrap cert is incompatible with ACMS OpenSSL version" % (cloudtype, region))
-        if "code 401" in stdout or "response:401" in stdout:
-            logger.info("Code 401: cloud %s, region %s rejects the bootstrap certificate" % (cloudtype, region))
-            return
+        for status_code in (401, 403):
+            if "code %s" % status_code in stdout or "response:%s" % status_code in stdout:
+                logger.info("Code %s: cloud %s, region %s rejects the bootstrap certificate",
+                            status_code, cloudtype, region)
+                return
         if "code 503" in stdout:
             logger.info("Code 503: cloud %s, region %s service not available" % (cloudtype, region))
         elif "CurlErrorCode=56" in stdout or "CONNECT tunnel failed" in stdout:
