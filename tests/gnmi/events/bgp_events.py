@@ -1,10 +1,11 @@
 #! /usr/bin/env python3
 
+import ipaddress
 import logging
 import time
-import ipaddress
 
 from run_events_test import run_test
+
 from tests.common.utilities import is_ipv6_only_topology
 
 logger = logging.getLogger(__name__)
@@ -12,10 +13,30 @@ tag = "sonic-events-bgp"
 
 
 def test_event(duthost, tbinfo, gnxi_path, ptfhost, ptfadapter, data_dir, validate_yang):
-    run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, drop_tcp_packets,
-             "bgp_notification.json", "sonic-events-bgp:notification", tag)
-    run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, shutdown_bgp_neighbors,
-             "bgp_state.json", "sonic-events-bgp:bgp-state", tag)
+    run_test(
+        duthost,
+        tbinfo,
+        gnxi_path,
+        ptfhost,
+        data_dir,
+        validate_yang,
+        drop_tcp_packets,
+        "bgp_notification.json",
+        "sonic-events-bgp:notification",
+        tag,
+    )
+    run_test(
+        duthost,
+        tbinfo,
+        gnxi_path,
+        ptfhost,
+        data_dir,
+        validate_yang,
+        shutdown_bgp_neighbors,
+        "bgp_state.json",
+        "sonic-events-bgp:bgp-state",
+        tag,
+    )
 
 
 def drop_tcp_packets(duthost, tbinfo):
@@ -35,10 +56,7 @@ def drop_tcp_packets(duthost, tbinfo):
         if bgp_neighbor is None:
             raise Exception("No IPv6 BGP neighbors found for IPv6-only topo")
         iptables_cmd = "ip6tables"
-        logger.info(
-            "Using IPv6 BGP neighbor %s and ip6tables for IPv6-only topo",
-            bgp_neighbor
-        )
+        logger.info("Using IPv6 BGP neighbor %s and ip6tables for IPv6-only topo", bgp_neighbor)
     else:
         # Find an IPv4 BGP neighbor (or just use the first one)
         for neighbor_ip in all_bgp_neighbors.keys():
