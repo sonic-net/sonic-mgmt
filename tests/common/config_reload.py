@@ -350,6 +350,7 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
 
     # Retrieve the enable_macsec passed by user for this test run
     # If macsec is enabled, use the override option to get macsec profile from golden config
+    macsec_en = False
     request = sonic_host.duthosts.request
     if request:
         macsec_en = request.config.getoption("--enable_macsec", default=False)
