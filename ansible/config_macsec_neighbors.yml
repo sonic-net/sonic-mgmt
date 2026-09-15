@@ -248,7 +248,8 @@
 
     # ---- cEOS neighbor configuration (topology-driven) ----------------------
     # One eos_config per neighbor for the profile (cipher/key/priority/rekey/sci),
-    # one per port for the bind + MTU.
+    # one per port for the bind + MTU, one per Port-Channel for its MTU
+    # (the LAG's MTU governs the member's effective MTU, as on vSONiC).
     - name: Configure MACsec profile on cEOS neighbor
       delegate_to: "{{ item.ip }}"
       become: true
@@ -288,3 +289,18 @@
       loop_control:
         label: "{{ item.vm }}:{{ item.port }}"
       when: nbr_vm_type == 'ceos'
+
+    - name: Set MTU on cEOS Port-Channel
+      delegate_to: "{{ item.ip }}"
+      become: true
+      become_method: enable
+      vars: *eos_cli
+      arista.eos.eos_config:
+        lines:
+          - "mtu {{ macsec_mtu }}"
+        parents:
+          - "interface Port-Channel{{ item.lacp }}"
+      loop: "{{ macsec_nbr }}"
+      loop_control:
+        label: "{{ item.vm }}: Port-Channel{{ item.lacp }}"
+      when: nbr_vm_type == 'ceos' and item.lacp != 0
