@@ -18,7 +18,18 @@ except ImportError:
     # PhysicalOir class does not exist, skip the test
     # To run these tests, please implement the API defined in
     # docs/testplan/transceiver_onboarding/optics_insertion_removal_testplan.md#physical-oir-api .
-    pytest.skip("physical_oir.py does not exist. Skipping all the SFP OIR tests.", allow_module_level=True)
+    PhysicalOir = None
+
+# Use a module-level skipif marker instead of pytest.skip(..., allow_module_level=True).
+# A module-level collection skip aborts collection and emits only a synthetic pseudo-test-case
+# that is missing the "line" attribute required by the nightly JUnit XML parser
+# (test_reporting/junit_xml_parser.py). That makes the parser reject the whole XML file and the
+# run is reported as "Test failed and no xml file created". With a skipif marker the real test
+# functions are still collected and reported as proper skipped test cases with all required
+# attributes, so the run is correctly recorded as skipped.
+pytestmark = pytest.mark.skipif(
+    PhysicalOir is None,
+    reason="physical_oir.py does not exist. Skipping all the SFP OIR tests.")
 
 logger = logging.getLogger(__name__)
 
