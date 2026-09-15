@@ -5,11 +5,15 @@ import types
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 
 MODULE_PATH = Path(__file__).resolve().parents[1] / "success_criteria.py"
 START_MARK = "create: request switch create with context 0"
 END_MARK = "main: Create a switch, id:"
 BASE = datetime.datetime(1900, 9, 15, 12, 0, 0)
+
+pytestmark = [pytest.mark.topology("any")]
 
 
 def _load_success_criteria():
