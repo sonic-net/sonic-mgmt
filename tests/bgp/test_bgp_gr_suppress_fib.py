@@ -257,6 +257,11 @@ def _get_gr_restart_timer(duthost, bgp_neighbor_ips):
     return default_timer
 
 
+# This case flaps the whole BGP RIB (module fixture's "clear bgp *" on all neighbors, plus
+# "systemctl restart bgp"), so frr_bgp before/after snapshots are meaningless: freed routes
+# stay on glibc's free list, making the pre-test uordblks read low and tripping a false
+# frr_bgp increase alarm (RSS is flat, no real leak). See sonic-net/sonic-mgmt#25085.
+@pytest.mark.disable_memory_utilization
 def test_bgp_gr_with_suppress_fib(duthosts, rand_one_dut_hostname, nbrhosts,
                                   setup_bgp_graceful_restart, enable_suppress_fib, tbinfo):
     """
