@@ -1033,6 +1033,7 @@ sonic_nexthop_nh4210:
       model: NH-4210-F
       serial: NH-NHQ26150001
       base_mac: E8:E4:9D:13:1F:E8
+      console_baudrate: 115200
       syseeprom_info:
         "0x21": "NH-4210-F"
         "0x22": "950-00013-01"
