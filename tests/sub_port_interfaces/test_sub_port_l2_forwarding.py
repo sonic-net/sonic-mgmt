@@ -32,11 +32,24 @@ def testbed_params(define_sub_ports_configuration, duthosts, rand_one_dut_hostna
     testbed_params = define_sub_ports_configuration["sub_ports"].copy()
     duthost = duthosts[rand_one_dut_hostname]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    portchannel_members = cfg_facts.get('PORTCHANNEL_MEMBER', {})
     for sub_port, config in list(testbed_params.items()):
         port, vlanid = sub_port.split(constants.VLAN_SUB_INTERFACE_SEPARATOR)
         config["port"] = port
         config["vlanid"] = vlanid
-        config["neighbor_ptf_index"] = mg_facts["minigraph_ptf_indices"][port]
+        # Convert abbreviated name to full interface name for minigraph lookup
+        full_port = port
+        if full_port.startswith('Eth'):
+            full_port = 'Ethernet' + full_port[3:]
+        elif full_port.startswith('Po'):
+            full_port = 'PortChannel' + full_port[2:]
+        # For PortChannel, look up the member port's PTF index
+        if full_port.startswith('PortChannel'):
+            members = list(portchannel_members.get(full_port, {}).keys())
+            config["neighbor_ptf_index"] = mg_facts["minigraph_ptf_indices"][members[0]]
+        else:
+            config["neighbor_ptf_index"] = mg_facts["minigraph_ptf_indices"][full_port]
     return testbed_params
 
 
@@ -79,8 +92,8 @@ def generate_eth_packets(test_sub_port, testbed_params, ptfadapter):
     return packets
 
 
-def test_sub_port_l2_forwarding(apply_config_on_the_dut, duthosts, rand_one_dut_hostname, test_sub_port,
-                                generate_eth_packets, testbed_params, ptfadapter):
+def test_sub_port_l2_forwarding(apply_config_on_the_dut, reload_ptf_config, duthosts, rand_one_dut_hostname,
+                                test_sub_port, generate_eth_packets, testbed_params, ptfadapter):
     """Verify sub port doesn't have L2 forwarding capability."""
 
     @contextlib.contextmanager
