@@ -128,8 +128,14 @@ def vxlan_setup_with_sport_range(duthost, ptfhost, tbinfo, cfg_facts,
         'redis-cli -n 0 hgetall "SWITCH_TABLE:switch"')["stdout"]
     logger.info(f"SWITCH_TABLE:switch after config:\n{switch_table}")
 
+    tunnel_entry = {"src_ip": dut_vtep}
+    # On cisco-8000, base topology IP-in-IP decap tunnels may already use pipe TTL mode.
+    # Set VXLAN decap ttl_mode to pipe so orchagent passes DECAP_TTL_MODE consistently.
+    if duthost.facts.get("asic_type") == "cisco-8000":
+        tunnel_entry["ttl_mode"] = "pipe"
+
     apply_chunk(duthost,
-                {"VXLAN_TUNNEL": {TUNNEL_NAME: {"src_ip": dut_vtep}}},
+                {"VXLAN_TUNNEL": {TUNNEL_NAME: tunnel_entry}},
                 "vxlan_tunnel")
     apply_chunk(duthost,
                 {"VNET": {VNET_NAME: {"vni": str(VNI),
