@@ -63,7 +63,9 @@
    frrcfgd: vrf-scoped "default|<ip>" keys plus BGP_NEIGHBOR_AF, ROUTE_MAP and
    BGP_GLOBALS rows; it ignores single-key BGP_NEIGHBOR rows and renders no
    `router bgp` without BGP_GLOBALS. bgpcfgd (default when the key is absent):
-   the flat single-key shape, unchanged. nhopself has no frrcfgd equivalent. #}
+   the flat single-key shape, unchanged. nhopself has no frrcfgd equivalent, and
+   rrclient is a BGP_NEIGHBOR_AF attribute in the frrcfgd schema -- the
+   BGP_NEIGHBOR_LIST yang has no such leaf, so it is left out of those rows. #}
 {% set use_frrcfgd = vsonic_frr_mgmt_config | default(false) | string | lower == 'true' %}
     "BGP_NEIGHBOR": {
 {% set nbr_af = [] %}
@@ -96,7 +98,6 @@
             "name": "{{ duts_name }}",
 {% if use_frrcfgd %}
             "neighbor": "{{ peer | lower }}",
-            "rrclient": "0",
             "vrf_name": "default"
 {% else %}
             "nhopself": "0",
@@ -115,7 +116,6 @@
             "name": "exabgp",
 {% if use_frrcfgd %}
             "neighbor": "{{ configuration_properties['common']['nhipv4'] }}",
-            "rrclient": "0",
             "vrf_name": "default"
 {% else %}
             "nhopself": "0",
@@ -132,7 +132,6 @@
             "name": "exabgp",
 {% if use_frrcfgd %}
             "neighbor": "{{ configuration_properties['common']['nhipv6'] | lower }}",
-            "rrclient": "0",
             "vrf_name": "default"
 {% else %}
             "nhopself": "0",
