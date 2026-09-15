@@ -139,7 +139,7 @@ def get_appl_db(host, host_port_name, peer, peer_port_name):
     if isinstance(peer, EosHost):
         re_match = re.search(r'\d+', peer_port_name)
         peer_port_identifer = int(re_match.group())
-        peer_sci = get_sci(peer.get_dut_iface_mac(peer_port_name), peer_port_identifer)
+        peer_sci = get_sci(peer.get_bridge_mac(peer_port_name), peer_port_identifer)
     else:
         peer_sci = get_sci(peer.get_dut_iface_mac(peer_port_name))
     egress_sc_table = sonic_db_cli(
