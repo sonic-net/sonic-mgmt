@@ -1002,7 +1002,19 @@ def shutdown_lag_members(duthost, selected_port, tbinfo, nbrhosts, ports):
             for member in po_config['activePorts']:
                 if member == peer_port:
                     neigh_port_channel = po_name
-                    min_links = len(po_config['activePorts'])
+                    # Save the peer LAG's *configured* min-links threshold so
+                    # teardown can restore the exact original value. Do NOT use
+                    # len(activePorts) here: the active-member count is not the
+                    # configured threshold, and writing it back on cleanup leaves
+                    # the cEOS LAG dirty (e.g. min-links=2 when it was 1). A later
+                    # test that selects the same LAG and removes a member then
+                    # keeps only one active member while the peer still requires
+                    # two, so the LAG never comes up.
+                    min_links = po_config.get('minLinks', 1)
+                    logger.info(
+                        "Peer LAG %s: activePorts=%s, configured minLinks=%s, saved min_links=%s",
+                        neigh_port_channel, po_config['activePorts'],
+                        po_config.get('minLinks'), min_links)
                     break
         vm_host.eos_config(lines=['port-channel min-links 1'],
                            parents=[f'int {neigh_port_channel}'])
