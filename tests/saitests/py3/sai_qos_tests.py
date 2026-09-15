@@ -4857,8 +4857,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
                                                port_list['dst'][dst_port_id], TRANSMITTED_PKTS,
                                                xmit_counters_base, self, src_port_id, pkt, 10)
 
-            if 'hwsku' in self.test_params and 'Arista-7060X6' in self.test_params['hwsku']:
-
+            if 'dut_asic' in self.test_params and self.test_params['dut_asic'] in ('th5', 'th6'):
                 n_prio = [int(n / sum(q_pkt_cnt) * pkts_num_egr_mem) for n in q_pkt_cnt]
                 for i in range(pkts_num_egr_mem - sum(n_prio)):
                     n_prio[i] += 1
@@ -6486,7 +6485,7 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 assert (q_wm_res[queue] <= (margin + 1) * cell_size)
             elif pkts_num_fill_min:
                 assert (q_wm_res[queue] == 0)
-            elif 'cisco-8000' in asic_type or "SN56" in hwsku or "SN5400" in hwsku:
+            elif 'cisco-8000' in asic_type or "SN5" in hwsku or "SN6" in hwsku:
                 assert (q_wm_res[queue] <= (margin + 1) * cell_size)
             else:
                 if platform_asic and platform_asic == "broadcom-dnx":
