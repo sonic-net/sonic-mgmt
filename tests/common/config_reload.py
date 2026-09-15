@@ -12,6 +12,8 @@ from tests.common.configlet.utils import chk_for_pfc_wd
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
 from tests.common.helpers.dut_utils import ignore_t2_syslog_msgs
 from tests.common.vs_data import is_vs_device
+from ansible.errors import AnsibleConnectionFailure
+from pytest_ansible.errors import AnsibleConnectionFailure as PytestAnsibleConnectionFailure
 
 logger = logging.getLogger(__name__)
 
@@ -277,10 +279,17 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
     :return:
     """
     def _config_reload_cmd_wrapper(cmd, executable):
-        out = sonic_host.shell(cmd, executable=executable)
-        if out['rc'] == 0:
+        try:
+            out = sonic_host.shell(cmd, executable=executable, module_ignore_errors=True)
+            if out['rc'] == 0:
+                return True
+            else:
+                return False
+        except (AnsibleConnectionFailure, PytestAnsibleConnectionFailure) as conn_err:
+            logger.info("Connection lost during config reload: {}".format(str(conn_err)))
             return True
-        else:
+        except Exception as e:
+            logger.info("Config reload try failed with exception: {}".format(str(e)))
             return False
 
     if config_source not in config_sources:
