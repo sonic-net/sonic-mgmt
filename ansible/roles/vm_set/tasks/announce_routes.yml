@@ -131,65 +131,69 @@
     - set_fact:
         ptf_local_ipv4: "{{ configuration_properties.common.nhipv4|default('10.10.246.254') }}"
 
-    - name: Configure exabgp processes for IPv4 on PTF
-      exabgp:
-        name: "{{ vm_item.key }}"
-        state: "configure"
-        router_id: "{{ vm_item.key|get_exabgp_router_id(convergence_data|default({}))|default(ptf_local_ipv4, true) }}"
-        local_ip: "{{ vm_item.key|get_exabgp_local_ip_v4(convergence_data|default({}))|default(ptf_local_ipv4, true) }}"
-        peer_ip: "{{ vm_item.key|get_exabgp_peer_v4(convergence_data|default({}))|default(configuration[vm_item.key].bp_interface.ipv4.split('/')[0], true) }}"
-        local_asn: "{{ configuration[vm_item.key].bgp.asn }}"
-        peer_asn: "{{ configuration[vm_item.key].bgp.asn }}"
-        port: "{{ vm_item.key|get_exabgp_v4_port(topology, vm_offsets|default({}))|int }}"
-      loop: "{{ topo_vms|dict2items }}"
-      loop_control:
-        loop_var: vm_item
-      delegate_to: "{{ ptf_host }}"
+    - name: Configure and start exabgp for IPv4 on PTF
       when: ptf_bgp_speaker == 'exabgp'
+      block:
 
-    - name: Configure gobgp processes for IPV4 on PTF
-      gobgp:
-        name: "{{ vm_item.key }}"
-        state: "configure"
-        router_id: "{{ vm_item.key|get_exabgp_router_id(convergence_data|default({}))|default(ptf_local_ipv4, true) }}"
-        local_ip: "{{ vm_item.key|get_exabgp_local_ip_v4(convergence_data|default({}))|default(ptf_local_ipv4, true) }}"
-        peer_ip: "{{ vm_item.key|get_exabgp_peer_v4(convergence_data|default({}))|default(configuration[vm_item.key].bp_interface.ipv4.split('/')[0], true) }}"
-        local_asn: "{{ configuration[vm_item.key].bgp.asn }}"
-        peer_asn: "{{ configuration[vm_item.key].bgp.asn }}"
-        port: "{{ vm_item.key|get_exabgp_v4_port(topology, vm_offsets|default({}))|int }}"
-      loop: "{{ topo_vms|dict2items }}"
-      loop_control:
-        loop_var: vm_item
-      delegate_to: "{{ ptf_host }}"
+      - name: Configure exabgp processes for IPv4 on PTF
+        exabgp:
+          name: "{{ vm_item.key }}"
+          state: "configure"
+          router_id: "{{ vm_item.key|get_exabgp_router_id(convergence_data|default({}))|default(ptf_local_ipv4, true) }}"
+          local_ip: "{{ vm_item.key|get_exabgp_local_ip_v4(convergence_data|default({}))|default(ptf_local_ipv4, true) }}"
+          peer_ip: "{{ vm_item.key|get_exabgp_peer_v4(convergence_data|default({}))|default(configuration[vm_item.key].bp_interface.ipv4.split('/')[0], true) }}"
+          local_asn: "{{ configuration[vm_item.key].bgp.asn }}"
+          peer_asn: "{{ configuration[vm_item.key].bgp.asn }}"
+          port: "{{ vm_item.key|get_exabgp_v4_port(topology, vm_offsets|default({}))|int }}"
+        loop: "{{ topo_vms|dict2items }}"
+        loop_control:
+          loop_var: vm_item
+        delegate_to: "{{ ptf_host }}"
+
+      - name: Gather exabgp v4 programs
+        set_fact:
+          program_group_name: "exabgpv4"
+          program_group_programs: "{{ topo_vms.keys() | map('regex_replace', '^(.*)$', 'exabgp-\\1') | join(',')}}"
+
+      - name: Configure exabgpv4 group
+        template:
+          src: "roles/vm_set/templates/exabgp.conf.j2"
+          dest: "/etc/supervisor/conf.d/exabgpv4.conf"
+        delegate_to: "{{ ptf_host }}"
+
+      - name: Add exabgpv4 supervisor config and start related processes
+        when: topo_vms | length > 0
+        supervisorctl:
+          name: "exabgpv4:"
+          state: present  # present contains `supervisorctl reread` and `supervisorctl add`
+        delegate_to: "{{ ptf_host }}"
+
+    - name: Configure and start gobgp for IPv4 on PTF
       when: ptf_bgp_speaker == 'gobgp'
+      block:
 
-    - name: Gather exabgp v4 programs
-      when: ptf_bgp_speaker == 'exabgp'
-      set_fact:
-        program_group_name: "exabgpv4"
-        program_group_programs: "{{ topo_vms.keys() | map('regex_replace', '^(.*)$', 'exabgp-\\1') | join(',')}}"
+      - name: Configure gobgp processes for IPV4 on PTF
+        gobgp:
+          name: "{{ vm_item.key }}"
+          state: "configure"
+          router_id: "{{ vm_item.key|get_exabgp_router_id(convergence_data|default({}))|default(ptf_local_ipv4, true) }}"
+          local_ip: "{{ vm_item.key|get_exabgp_local_ip_v4(convergence_data|default({}))|default(ptf_local_ipv4, true) }}"
+          peer_ip: "{{ vm_item.key|get_exabgp_peer_v4(convergence_data|default({}))|default(configuration[vm_item.key].bp_interface.ipv4.split('/')[0], true) }}"
+          local_asn: "{{ configuration[vm_item.key].bgp.asn }}"
+          peer_asn: "{{ configuration[vm_item.key].bgp.asn }}"
+          port: "{{ vm_item.key|get_exabgp_v4_port(topology, vm_offsets|default({}))|int }}"
+        loop: "{{ topo_vms|dict2items }}"
+        loop_control:
+          loop_var: vm_item
+        delegate_to: "{{ ptf_host }}"
 
-    - name: Configure exabgpv4 group
-      when: ptf_bgp_speaker == 'exabgp'
-      template:
-        src: "roles/vm_set/templates/exabgp.conf.j2"
-        dest: "/etc/supervisor/conf.d/exabgpv4.conf"
-      delegate_to: "{{ ptf_host }}"
-
-    - name: Add exabgpv4 supervisor config and start related processes
-      when: ptf_bgp_speaker == 'exabgp' and topo_vms | length > 0
-      supervisorctl:
-        name: "exabgpv4:"
-        state: present  # present contains `supervisorctl reread` and `supervisorctl add`
-      delegate_to: "{{ ptf_host }}"
-
-    - name: Start the gobgp v4 speakers and the shim pool
-      gobgp:
-        name: "gobgpv4"
-        state: "started"
-        pool_max: "{{ ptf_gobgp_pool_max | default(omit) }}"
-      delegate_to: "{{ ptf_host }}"
-      when: ptf_bgp_speaker == 'gobgp' and topo_vms | length > 0
+      - name: Start the gobgp v4 speakers and the shim pool
+        when: topo_vms | length > 0
+        gobgp:
+          name: "gobgpv4"
+          state: "started"
+          pool_max: "{{ ptf_gobgp_pool_max | default(omit) }}"
+        delegate_to: "{{ ptf_host }}"
 
     - name: Verify that the IPv4 BGP speakers are listening
       wait_for:
@@ -220,65 +224,69 @@
     - set_fact:
         ptf_router_id: "{{ configuration_properties.common.nhipv4|default('10.10.246.254') }}"
 
-    - name: configure exabgp processes for IPv6 on PTF
-      exabgp:
-        name: "{{ vm_item.key }}-v6"
-        state: "configure"
-        router_id: "{{ vm_item.key|get_exabgp_router_id(convergence_data|default({}))|default(ptf_router_id, true) }}"
-        local_ip: "{{ vm_item.key|get_exabgp_local_ip_v6(convergence_data|default({}))|default(ptf_local_ipv6, true) }}"
-        peer_ip: "{{ vm_item.key | get_exabgp_peer_v6(convergence_data|default({})) | default(configuration[vm_item.key].bp_interface.ipv6.split('/')[0], true) }}"
-        local_asn: "{{ configuration[vm_item.key].bgp.asn }}"
-        peer_asn: "{{ configuration[vm_item.key].bgp.asn }}"
-        port: "{{ vm_item.key|get_exabgp_v6_port(topology, vm_offsets|default({}))|int }}"
-      loop: "{{ topo_vms|dict2items }}"
-      loop_control:
-        loop_var: vm_item
-      delegate_to: "{{ ptf_host }}"
+    - name: Configure and start exabgp for IPv6 on PTF
       when: ptf_bgp_speaker == 'exabgp'
+      block:
 
-    - name: Configure gobgp processes for IPV6 on PTF
-      gobgp:
-        name: "{{ vm_item.key }}-v6"
-        state: "configure"
-        router_id: "{{ vm_item.key|get_exabgp_router_id(convergence_data|default({}))|default(ptf_router_id, true) }}"
-        local_ip: "{{ vm_item.key|get_exabgp_local_ip_v6(convergence_data|default({}))|default(ptf_local_ipv6, true) }}"
-        peer_ip: "{{ vm_item.key | get_exabgp_peer_v6(convergence_data|default({})) | default(configuration[vm_item.key].bp_interface.ipv6.split('/')[0], true) }}"
-        local_asn: "{{ configuration[vm_item.key].bgp.asn }}"
-        peer_asn: "{{ configuration[vm_item.key].bgp.asn }}"
-        port: "{{ vm_item.key|get_exabgp_v6_port(topology, vm_offsets|default({}))|int }}"
-      loop: "{{ topo_vms|dict2items }}"
-      loop_control:
-        loop_var: vm_item
-      delegate_to: "{{ ptf_host }}"
+      - name: configure exabgp processes for IPv6 on PTF
+        exabgp:
+          name: "{{ vm_item.key }}-v6"
+          state: "configure"
+          router_id: "{{ vm_item.key|get_exabgp_router_id(convergence_data|default({}))|default(ptf_router_id, true) }}"
+          local_ip: "{{ vm_item.key|get_exabgp_local_ip_v6(convergence_data|default({}))|default(ptf_local_ipv6, true) }}"
+          peer_ip: "{{ vm_item.key | get_exabgp_peer_v6(convergence_data|default({})) | default(configuration[vm_item.key].bp_interface.ipv6.split('/')[0], true) }}"
+          local_asn: "{{ configuration[vm_item.key].bgp.asn }}"
+          peer_asn: "{{ configuration[vm_item.key].bgp.asn }}"
+          port: "{{ vm_item.key|get_exabgp_v6_port(topology, vm_offsets|default({}))|int }}"
+        loop: "{{ topo_vms|dict2items }}"
+        loop_control:
+          loop_var: vm_item
+        delegate_to: "{{ ptf_host }}"
+
+      - name: Gather exabgp v6 programs
+        set_fact:
+          program_group_name: "exabgpv6"
+          program_group_programs: "{{ topo_vms.keys() | map('regex_replace', '^(.*)$', 'exabgp-\\1-v6') | join(',')}}"
+
+      - name: Configure exabgpv6 group
+        template:
+          src: "roles/vm_set/templates/exabgp.conf.j2"
+          dest: "/etc/supervisor/conf.d/exabgpv6.conf"
+        delegate_to: "{{ ptf_host }}"
+
+      - name: Add exabgpv6 supervisor config and start related processes
+        when: topo_vms | length > 0
+        supervisorctl:
+          name: "exabgpv6:"
+          state: present  # present contains `supervisorctl reread` and `supervisorctl add`
+        delegate_to: "{{ ptf_host }}"
+
+    - name: Configure and start gobgp for IPv6 on PTF
       when: ptf_bgp_speaker == 'gobgp'
+      block:
 
-    - name: Gather exabgp v6 programs
-      when: ptf_bgp_speaker == 'exabgp'
-      set_fact:
-        program_group_name: "exabgpv6"
-        program_group_programs: "{{ topo_vms.keys() | map('regex_replace', '^(.*)$', 'exabgp-\\1-v6') | join(',')}}"
+      - name: Configure gobgp processes for IPV6 on PTF
+        gobgp:
+          name: "{{ vm_item.key }}-v6"
+          state: "configure"
+          router_id: "{{ vm_item.key|get_exabgp_router_id(convergence_data|default({}))|default(ptf_router_id, true) }}"
+          local_ip: "{{ vm_item.key|get_exabgp_local_ip_v6(convergence_data|default({}))|default(ptf_local_ipv6, true) }}"
+          peer_ip: "{{ vm_item.key | get_exabgp_peer_v6(convergence_data|default({})) | default(configuration[vm_item.key].bp_interface.ipv6.split('/')[0], true) }}"
+          local_asn: "{{ configuration[vm_item.key].bgp.asn }}"
+          peer_asn: "{{ configuration[vm_item.key].bgp.asn }}"
+          port: "{{ vm_item.key|get_exabgp_v6_port(topology, vm_offsets|default({}))|int }}"
+        loop: "{{ topo_vms|dict2items }}"
+        loop_control:
+          loop_var: vm_item
+        delegate_to: "{{ ptf_host }}"
 
-    - name: Configure exabgpv6 group
-      when: ptf_bgp_speaker == 'exabgp'
-      template:
-        src: "roles/vm_set/templates/exabgp.conf.j2"
-        dest: "/etc/supervisor/conf.d/exabgpv6.conf"
-      delegate_to: "{{ ptf_host }}"
-
-    - name: Add exabgpv6 supervisor config and start related processes
-      when: ptf_bgp_speaker == 'exabgp' and topo_vms | length > 0
-      supervisorctl:
-        name: "exabgpv6:"
-        state: present  # present contains `supervisorctl reread` and `supervisorctl add`
-      delegate_to: "{{ ptf_host }}"
-
-    - name: Start the gobgp v6 speakers and the shim pool
-      gobgp:
-        name: "gobgpv6"
-        state: "started"
-        pool_max: "{{ ptf_gobgp_pool_max | default(omit) }}"
-      delegate_to: "{{ ptf_host }}"
-      when: ptf_bgp_speaker == 'gobgp' and topo_vms | length > 0
+      - name: Start the gobgp v6 speakers and the shim pool
+        when: topo_vms | length > 0
+        gobgp:
+          name: "gobgpv6"
+          state: "started"
+          pool_max: "{{ ptf_gobgp_pool_max | default(omit) }}"
+        delegate_to: "{{ ptf_host }}"
 
     - name: Verify that the IPv6 BGP speakers are listening
       wait_for:

@@ -66,10 +66,12 @@ mgr = _load_manager()
 class FakeModule(object):
     """Records ``supervisorctl`` invocations and replays canned status output."""
 
-    def __init__(self, statuses=None, failing=()):
+    def __init__(self, statuses=None, failing=(), loaded=None):
         self.commands = []
         # {group: [output, output, ...]} consumed in order, last one repeats.
         self.statuses = statuses or {}
+        # {namespec: state} answering a bare `supervisorctl status`.
+        self.loaded = loaded or {}
         # command prefixes that exit non-zero, e.g. "supervisorctl reread".
         self.failing = tuple(failing)
         self.failed = None
@@ -84,6 +86,9 @@ class FakeModule(object):
         for prefix in self.failing:
             if cmd.startswith(prefix):
                 return 1, "", "%s: ERROR" % prefix
+        if cmd == "supervisorctl status":
+            return 0, "\n".join("%s   %s   pid 42, uptime 0:00:05" % item
+                                for item in sorted(self.loaded.items())), ""
         if cmd.startswith("supervisorctl status "):
             target = cmd.split()[-1].rstrip(':')
             outputs = self.statuses.get(target)
@@ -671,7 +676,8 @@ def test_absent_stops_only_the_removed_neighbor(tree):
     """
     names = configure(3)
     mgr.render_pool(mgr.collect_portmap(), core_count=2)
-    module = FakeModule()
+    module = FakeModule(loaded={"gobgpv4:gobgpd-%s" % n: "RUNNING"
+                                for n in names})
 
     mgr.remove_neighbor(module, names[1])
 
@@ -873,11 +879,12 @@ def test_reset_stops_each_stale_daemon_through_its_own_group(
     mgr.setup_gobgp_conf(name, "10.0.0.0", local_ip, peer_ip, 65534, 65535, port)
     mgr.render_pool(mgr.collect_portmap())
 
-    module = FakeModule()
+    namespec = "%s:gobgpd-%s" % (group, name)
+    module = FakeModule(loaded={namespec: "RUNNING"})
     mgr.reset_fleet(module)
 
     stops = [c for c in module.commands if c.startswith("supervisorctl stop")]
-    assert stops == ["supervisorctl stop %s:gobgpd-%s" % (group, name)]
+    assert stops == ["supervisorctl stop %s" % namespec]
 
 
 def test_reset_is_idempotent_on_a_container_that_never_ran_gobgp(tree):
@@ -1112,12 +1119,54 @@ def test_the_reset_keep_list_follows_the_family_gates():
 ])
 def test_status_reads_the_namespec_supervisord_prints(
         tree, name, local_ip, peer_ip, port, group, state):
-    """supervisorctl labels a grouped process `group:program`, so the reply is
-    keyed the way the query was phrased.
+    """supervisorctl labels a grouped process `group:program`, so the group a
+    neighbor's daemon belongs to comes from supervisord's own reply.
     """
     mgr.setup_gobgp_conf(name, "10.0.0.0", local_ip, peer_ip, 65534, 65535, port)
     namespec = "%s:gobgpd-%s" % (group, name)
-    module = FakeModule(statuses={namespec: ["%s  %s  pid 42" % (namespec, state)]})
+    module = FakeModule(loaded={namespec: state})
 
     assert mgr.get_gobgp_status(module, name) == state
-    assert module.commands == ["supervisorctl status %s" % namespec]
+    assert module.commands == ["supervisorctl status"]
+
+
+def test_status_of_a_neighbor_supervisord_never_loaded_is_unknown(tree):
+    """A spool entry alone does not make a process addressable."""
+    mgr.setup_gobgp_conf("ARISTA01T1", "10.0.0.0", "10.0.0.0", "10.0.0.1",
+                         65534, 65535, 5000)
+    module = FakeModule(loaded={"gobgpshim:gobgp-shim-0": "RUNNING"})
+
+    assert mgr.get_gobgp_status(module, "ARISTA01T1") == "UNKNOWN"
+
+
+@pytest.mark.parametrize("corruption", [
+    '{"6000": {"fam',                                   # truncated write
+    '{"6000": {"grpc": "127.0.0.1:61001"}}',            # entry without `family`
+    '{}',                                               # empty object
+])
+def test_namespec_survives_an_unusable_spool_entry(tree, corruption):
+    """The group comes from supervisord, so a damaged spool entry cannot
+    misdirect a stop into the wrong family's group.
+    """
+    name = "ARISTA01T1-v6"
+    mgr.setup_gobgp_conf(name, "10.0.0.0", "fc0a::ff", "fc0a::1",
+                         65534, 65535, 6000)
+    with open("%s/%s.json" % (mgr.PORTMAP_SPOOL_DIR, name), "w") as f:
+        f.write(corruption)
+
+    module = FakeModule(loaded={"gobgpv6:gobgpd-%s" % name: "RUNNING"})
+
+    assert mgr.neighbor_namespec(module, name) == "gobgpv6:gobgpd-%s" % name
+
+
+def test_reset_skips_the_stop_for_a_daemon_supervisord_never_loaded(tree):
+    """A deploy that ended before ``supervisorctl update`` leaves nothing to
+    stop. Commanding it anyway returns BAD_NAME on a call carrying
+    ``ignore_error``, where a real failure reads the same.
+    """
+    mgr.setup_gobgp_conf("ARISTA01T1", "10.0.0.0", "10.0.0.0", "10.0.0.1",
+                         65534, 65535, 5000)
+    module = FakeModule(loaded={"gobgpshim:gobgp-shim-0": "RUNNING"})
+
+    assert mgr.reset_fleet(module, keep=[]) == ["ARISTA01T1"]
+    assert [c for c in module.commands if c.startswith("supervisorctl stop")] == []

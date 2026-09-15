@@ -346,37 +346,44 @@ def spooled_neighbors():
             for path in sorted(glob.glob("%s/*.json" % PORTMAP_SPOOL_DIR))]
 
 
-def neighbor_namespec(name):
-    """Address one neighbor's daemon the way supervisord names it.
+def loaded_namespecs(module):
+    """Every process supervisord has loaded, keyed by program name.
 
-    supervisord resolves an unqualified name as a *group*:
-    ``split_namespec("gobgpd-X")`` yields group and process both ``gobgpd-X``,
-    which matches no loaded group and fails with BAD_NAME. Qualify with the
-    group.
+    supervisord owns group membership, so its own status is the only source
+    that agrees with the namespec a command has to use.
     """
-    return "%s:gobgpd-%s" % (neighbor_group(name), name)
+    output = exec_command(module, cmd="supervisorctl status",
+                          ignore_error=True)
+    return {namespec.split(":")[-1]: namespec
+            for namespec in _status_lines(output)}
 
 
-def neighbor_group(name):
-    """The group a neighbor's daemon belongs to, read from its spool entry."""
-    try:
-        with open("%s/%s.json" % (PORTMAP_SPOOL_DIR, name)) as f:
-            spec = next(iter(json.load(f).values()))
-    except (IOError, OSError, ValueError, StopIteration):
-        return V4_GROUP
-    return V6_GROUP if spec.get("family") == "v6" else V4_GROUP
+def neighbor_namespec(module, name, loaded=None):
+    """One neighbor's daemon as ``group:program``, or None when unloaded.
+
+    supervisord reads an unqualified ``gobgpd-X`` as a *group* of that name,
+    matches no loaded group, and fails with BAD_NAME. Qualify with the group
+    it reports for the program.
+
+    Pass ``loaded`` to resolve a whole fleet from a single status call.
+    """
+    if loaded is None:
+        loaded = loaded_namespecs(module)
+    return loaded.get("gobgpd-%s" % name)
 
 
 def get_gobgp_status(module, name):
     """One neighbor's process state, as supervisord reports it.
 
-    ``supervisorctl status`` labels each line with the namespec, so the reply
-    is keyed the same way the query was.
+    A neighbor supervisord never loaded reports UNKNOWN.
     """
-    namespec = neighbor_namespec(name)
-    output = exec_command(module, cmd="supervisorctl status %s" % namespec,
+    output = exec_command(module, cmd="supervisorctl status",
                           ignore_error=True)
-    return _status_lines(output).get(namespec, "UNKNOWN")
+    states = _status_lines(output)
+    namespec = neighbor_namespec(
+        module, name,
+        loaded={spec.split(":")[-1]: spec for spec in states})
+    return states.get(namespec, "UNKNOWN")
 
 
 def wait_groups_running(module, groups, timeout=300):
@@ -562,9 +569,14 @@ def reset_fleet(module, keep=(), debug=False, pool_max=None):
     if not stale:
         return []
 
+    # A daemon supervisord never loaded has nothing to stop, so skip it and
+    # leave `ignore_error` covering the teardown race alone.
+    loaded = loaded_namespecs(module)
     for name in stale:
-        exec_command(module, cmd="supervisorctl stop %s" % neighbor_namespec(name),
-                     ignore_error=True)
+        namespec = neighbor_namespec(module, name, loaded)
+        if namespec:
+            exec_command(module, cmd="supervisorctl stop %s" % namespec,
+                         ignore_error=True)
         remove_gobgp_conf(name)
     # Rebuild rather than delete the group files: `programs=` has to lose the
     # stale members, and a container left without a rendered pool reads as one
@@ -582,8 +594,10 @@ def remove_neighbor(module, name, debug=False, pool_max=None):
 
     Only this neighbor's daemon is stopped; the rest of the fleet keeps serving.
     """
-    exec_command(module, cmd="supervisorctl stop %s" % neighbor_namespec(name),
-                 ignore_error=True)
+    namespec = neighbor_namespec(module, name)
+    if namespec:
+        exec_command(module, cmd="supervisorctl stop %s" % namespec,
+                     ignore_error=True)
     remove_gobgp_conf(name)
     # The group files still name this neighbor's program, and supervisord fails
     # to load a group whose `programs=` references a missing section, wedging
