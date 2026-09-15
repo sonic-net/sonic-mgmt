@@ -67,6 +67,14 @@ incomplete or expanded set. Never accumulate
 successful ports across attempts. Retries tolerate delay, not permanent loss.
 Deduplicate interface membership, but retain all fanout neighbors and match
 the DB's recorded system name, chassis ID and remote port ID for content checks.
+Derive supported capabilities from all capability entries in that selected
+neighbor's advertisement, and enabled capabilities only from entries marked
+enabled. Use the same bitmap conversion for management and data ports:
+router-only `08 00` and mixed supported/enabled values such as `28 00` / `08 00`
+are valid when they match the advertisement. An absent capability advertisement
+corresponds to the daemon's empty-string fields, not a fixed capability default.
+Bitmap conversion and field assertions are separate helpers; the convergence
+function only orchestrates collection, retries and phase budgets.
 
 ## Test Scenarios
 

@@ -23,6 +23,28 @@ LLDP_DB_TIMEOUT = 90
 LLDP_POLL_INTERVAL = 5
 LLDP_STABLE_POLLS = 3
 
+# LLDP-MIB BITS numbers capability zero from the most significant bit.
+LLDP_CAPABILITY_BIT_POSITIONS = {
+    "other": 0,
+    "repeater": 1,
+    "bridge": 2,
+    "wlan": 3,
+    "wlanaccesspoint": 3,
+    "router": 4,
+    "tel": 5,
+    "telephone": 5,
+    "docsis": 6,
+    "docsiscabledevice": 6,
+    "station": 7,
+    "stationonly": 7,
+    "cvlan": 8,
+    "cvlancomponent": 8,
+    "svlan": 9,
+    "svlancomponent": 9,
+    "tpmr": 10,
+    "twoportmacrelay": 10,
+}
+
 pytestmark = [
     pytest.mark.topology("any"),
 ]
@@ -177,6 +199,37 @@ def assert_lldp_interfaces(
     )
 
 
+def get_lldp_capability_bitmaps(capabilities):
+    """Convert a neighbor's advertisement to supported and enabled LLDP-MIB bits."""
+    if capabilities is None:
+        # lldp_syncd uses an empty string when no capabilities are advertised.
+        return "", ""
+    if isinstance(capabilities, dict):
+        capabilities = [capabilities]
+    if not isinstance(capabilities, list):
+        raise ValueError("Expected LLDP capabilities as a list or dictionary")
+    if not capabilities:
+        return "", ""
+
+    supported = enabled = 0
+    for capability in capabilities:
+        if not isinstance(capability, dict):
+            raise ValueError("Invalid LLDP capability entry: {}".format(capability))
+        capability_type = capability.get("type")
+        if not isinstance(capability_type, str) or capability_type.lower() not in LLDP_CAPABILITY_BIT_POSITIONS:
+            raise ValueError("Unsupported LLDP system capability: {}".format(capability_type))
+        if not isinstance(capability.get("enabled"), bool):
+            raise ValueError("Invalid enabled flag for LLDP capability: {}".format(capability))
+        bit = 1 << (15 - LLDP_CAPABILITY_BIT_POSITIONS[capability_type.lower()])
+        supported |= bit
+        if capability["enabled"]:
+            enabled |= bit
+    return (
+        "{:02X} {:02X}".format(supported >> 8, supported & 0xff),
+        "{:02X} {:02X}".format(enabled >> 8, enabled & 0xff),
+    )
+
+
 def assert_lldp_entry_content(interface, entry_content, lldpctl_interface):
     """
     Assert that LLDP_ENTRY_TABLE content matches lldpctl output
@@ -244,33 +297,15 @@ def assert_lldp_entry_content(interface, entry_content, lldpctl_interface):
             ),
         )
 
-    if interface == "eth0":
-        expected_sys_cap_supported_result = (
-            entry_content["lldp_rem_sys_cap_supported"] == "28 00"
-            or entry_content["lldp_rem_sys_cap_supported"] == "20 00"
+    supported, enabled = get_lldp_capability_bitmaps(chassis_info.get("capability"))
+    for field, expected in (
+            ("lldp_rem_sys_cap_supported", supported),
+            ("lldp_rem_sys_cap_enabled", enabled)):
+        pytest_assert(
+            entry_content[field] == expected,
+            "{} does not match for {}: DB={!r}, LLDP={!r}".format(
+                field, interface, entry_content[field], expected),
         )
-    else:
-        expected_sys_cap_supported_result = (
-            entry_content["lldp_rem_sys_cap_supported"] == "28 00"
-        )
-    pytest_assert(
-        expected_sys_cap_supported_result,
-        "lldp_rem_sys_cap_supported does not match for {}".format(interface),
-    )
-
-    if interface == "eth0":
-        expected_sys_cap_enable_result = (
-            entry_content["lldp_rem_sys_cap_enabled"] == "28 00"
-            or entry_content["lldp_rem_sys_cap_enabled"] == "20 00"
-        )
-    else:
-        expected_sys_cap_enable_result = (
-            entry_content["lldp_rem_sys_cap_enabled"] == "28 00"
-        )
-    pytest_assert(
-        expected_sys_cap_enable_result,
-        "lldp_rem_sys_cap_enabled does not match for {}".format(interface),
-    )
 
 
 def verify_lldp_table(duthost):
