@@ -1074,7 +1074,7 @@ def ptfhosts(enhance_inventory, ansible_adhoc, tbinfo, duthost, duthosts, reques
     # native mode on any topology. PTFHost.create_macsec_info falls back to the
     # monkeypatch when the PTF image carries no codec.
     _topo_macsec = bool(tbinfo["topo"].get("properties", {}).get("macsec_links"))
-    _macsec_native = request.config.option.macsec_ptf_native or _topo_macsec
+    _macsec_native = (request.config.option.macsec_ptf_native or _topo_macsec) if _macsec_enabled else False
     if _macsec_enabled:
         logger.info("PTF MACsec mode: %s (%s)",
                     "native codec" if _macsec_native else "monkeypatch",
@@ -1110,7 +1110,7 @@ def auto_populate_macsec_info(duthosts, tbinfo):
     Only ports with a live MKA session (present in STATE_DB MACSEC_PORT_TABLE)
     are included so that the SAK is guaranteed to be available in APP_DB.
     """
-    from tests.common.macsec.macsec_helper import MACSEC_INFO, get_macsec_attr
+    from tests.common.macsec.macsec_helper import MACSEC_INFO, prepare_ptf_macsec, remove_ptf_ingress_sas
     _logger = logging.getLogger(__name__)
     for duthost in duthosts:
         # Only state=ok ports: the SAK must already be present in APP_DB.
@@ -1125,15 +1125,26 @@ def auto_populate_macsec_info(duthosts, tbinfo):
                 continue
             ptf_id = ptf_indices[port]
             try:
-                MACSEC_INFO[ptf_id] = get_macsec_attr(duthost, port)
+                # Reads the attributes and installs the DUT ingress SA PTF will
+                # transmit on (registered in macsec_helper; removed at teardown).
+                MACSEC_INFO[ptf_id] = prepare_ptf_macsec(duthost, port)
                 active_ports += 1
             except Exception:
-                _logger.warning("get_macsec_attr failed for %s on %s",
+                _logger.warning("prepare_ptf_macsec failed for %s on %s",
                                 port, duthost.hostname, exc_info=True)
         if active_ports:
             _logger.info(
                 "MACsec auto-detected: populated MACSEC_INFO for %d port(s) on %s",
                 active_ports, duthost.hostname)
+    yield
+    # Covers every programming path in this process (this fixture, ptf_runner's
+    # create_macsec_info, the macsec suite's load_all_macsec_info), since all
+    # of them register their key in macsec_helper.
+    for duthost in duthosts:
+        try:
+            remove_ptf_ingress_sas(duthost)
+        except Exception:
+            _logger.warning("remove_ptf_ingress_sas failed on %s", duthost.hostname, exc_info=True)
 
 
 @pytest.fixture(scope="module")
