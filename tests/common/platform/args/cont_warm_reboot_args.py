@@ -38,3 +38,12 @@ def add_cont_warm_reboot_args(parser):
         default="current",
         help="Comma separated list of images to be installed during continuous reboot test",
     )
+
+    parser.addoption(
+        "--neighbor_miss_copp_pps",
+        action="store",
+        type=int,
+        default=2000,
+        help="neighbor_miss CoPP rate (pps) applied before each reboot so the warm-up's bulk "
+             "ARP resolution isn't throttled below the data-plane readiness threshold",
+    )
