@@ -16,6 +16,7 @@
     "platform_tests/api/test_thermal.py": "FULL_PARALLEL",
     "platform_tests/cli/test_show_chassis_module.py": "FULL_PARALLEL",
     "platform_tests/link_flap/test_cont_link_flap.py": "FULL_PARALLEL",
+    "platform_tests/secure_boot/test_tampered_kernel.py": "RP_FIRST",
     "platform_tests/sfp/test_sfputil.py": "FULL_PARALLEL",
     "platform_tests/test_memory_exhaustion.py": "RP_FIRST",
     "platform_tests/test_reboot.py": "RP_FIRST",
