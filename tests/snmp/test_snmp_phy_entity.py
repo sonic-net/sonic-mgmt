@@ -1133,15 +1133,17 @@ def test_thermal_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_
             )
 
 
-def test_transceiver_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_entity_and_sensor_info):
+def test_transceiver_info(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_all_duts):
     """
     Verify transceiver information in physical entity mib with redis database
     :param duthost: DUT host object
     :param snmp_physical_entity_info: Physical entity information from snmp fact
     :return:
     """
-    snmp_physical_entity_info = snmp_physical_entity_and_sensor_info["entity_mib"]
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    snmp_physical_entity_and_sensor_info = get_entity_and_sensor_mib(
+        duthost, localhost, creds_all_duts)
+    snmp_physical_entity_info = snmp_physical_entity_and_sensor_info["entity_mib"]
     keys = redis_get_keys(duthost, STATE_DB, XCVR_KEY_TEMPLATE.format('*'))
     # Ignore the test if the platform does not have interfaces (e.g Supervisor)
     if not keys:
