@@ -40,6 +40,7 @@ try:
     import os
     parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     sys.path.insert(0, os.path.join(parent_dir, 'py3'))
+    from sai_qos_tests import dynamically_compensate_leakout, check_leackout_compensation_support, TRANSMITTED_PKTS
     try:
         from sai_qos_tests import PORT_TX_CTRL_DELAY, PFC_TRIGGER_DELAY
     except ImportError:
@@ -197,6 +198,10 @@ class PfcXoffProbingExecutor:
                         send_count = max(0, value + pkts_num_leak_out - 1)
 
                 # ===== Step 2: Baseline measurement =====
+                xmit_counters_base, _ = sai_thrift_read_port_counters(
+                    self.ptftest.dst_client,
+                    self.ptftest.asic_type,
+                    port_list['dst'][dst_port])
                 sport_cnt_base, _ = sai_thrift_read_port_counters(
                     self.ptftest.src_client,
                     self.ptftest.asic_type,
@@ -204,13 +209,22 @@ class PfcXoffProbingExecutor:
                 )
 
                 # ===== Step 3: Traffic injection =====
+                pkt = None
                 if send_count > 0:
-                    self.ptftest.buffer_ctrl.send_traffic(src_port, dst_port, send_count, **traffic_keys)
+                    pkt = self.ptftest.buffer_ctrl.send_traffic(src_port, dst_port, send_count, **traffic_keys)
 
                 # ===== Step 4: Wait for counter refresh =====
                 time.sleep(PFC_TRIGGER_DELAY)
 
-                # ===== Step 5: PFC Xoff detection =====
+                # ===== Step 5: Check for leakout packets =====
+                if check_leackout_compensation_support(self.ptftest.asic_type, self.ptftest.hwsku) and pkt:
+                    dynamically_compensate_leakout(self.ptftest.dst_client, self.ptftest.asic_type, sai_thrift_read_port_counters,
+                                                   port_list['dst'][dst_port], TRANSMITTED_PKTS,
+                                                   xmit_counters_base, self.ptftest, src_port, pkt, 10)
+                    # ===== Step 5.1: Wait for counter refresh =====
+                    time.sleep(PFC_TRIGGER_DELAY)
+
+                # ===== Step 6: PFC Xoff detection =====
                 sport_cnt_curr, _ = sai_thrift_read_port_counters(
                     self.ptftest.src_client,
                     self.ptftest.asic_type,

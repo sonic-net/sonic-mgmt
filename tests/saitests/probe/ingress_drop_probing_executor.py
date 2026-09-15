@@ -46,6 +46,7 @@ try:
     import os
     parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     sys.path.insert(0, os.path.join(parent_dir, 'py3'))
+    from sai_qos_tests import dynamically_compensate_leakout, check_leackout_compensation_support, TRANSMITTED_PKTS
     try:
         from sai_qos_tests import PORT_TX_CTRL_DELAY, PFC_TRIGGER_DELAY, INGRESS_DROP, INGRESS_PORT_BUFFER_DROP
     except ImportError:
@@ -179,6 +180,10 @@ class IngressDropProbingExecutor:
                     time.sleep(PORT_TX_CTRL_DELAY)
 
                 # ===== Step 2: Baseline measurement =====
+                xmit_counters_base, _ = sai_thrift_read_port_counters(
+                    self.ptftest.dst_client,
+                    self.ptftest.asic_type,
+                    port_list['dst'][dst_port])
                 if self.counter_mode == 'pg_drop':
                     # Level 1: Per-PG drop counter via sai_thrift_read_pg_drop_counters
                     # Reads PG-specific drop count; noise-immune, most precise
@@ -209,13 +214,22 @@ class IngressDropProbingExecutor:
 
                 # ===== Step 3: Traffic injection =====
                 # Send 'value' packets (currently 64-byte = 1 cell each)
+                pkt = None
                 if value > 0:
-                    self.ptftest.buffer_ctrl.send_traffic(src_port, dst_port, value, **traffic_keys)
+                    pkt = self.ptftest.buffer_ctrl.send_traffic(src_port, dst_port, value, **traffic_keys)
 
                 # ===== Step 4: Wait for counter refresh =====
                 time.sleep(PFC_TRIGGER_DELAY)
 
-                # ===== Step 5: Ingress Drop detection =====
+                # ===== Step 5: Check for leakout packets =====
+                if check_leackout_compensation_support(self.ptftest.asic_type, self.ptftest.hwsku) and pkt:
+                    dynamically_compensate_leakout(self.ptftest.dst_client, self.ptftest.asic_type, sai_thrift_read_port_counters,
+                                                   port_list['dst'][dst_port], TRANSMITTED_PKTS,
+                                                   xmit_counters_base, self.ptftest, src_port, pkt, 10)
+                    # ===== Step 5.1: Wait for counter refresh =====
+                    time.sleep(PFC_TRIGGER_DELAY)
+
+                # ===== Step 6: Ingress Drop detection =====
                 if self.counter_mode == 'pg_drop':
                     # Level 1: sai_thrift_read_pg_drop_counters (per-PG, noise-immune)
                     pg_drop_curr = sai_thrift_read_pg_drop_counters(
