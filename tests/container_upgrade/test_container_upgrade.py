@@ -64,7 +64,8 @@ def test_container_upgrade(localhost, duthosts, rand_one_dut_hostname, tbinfo,
                       --testbed_file={tb_file} --host-pattern={hostname} --log-cli-level=warning \
                       --log-file-level=debug --kube_master=unset --showlocals \
                       --assert=plain --show-capture=no -rav --allow_recover \
-                      --skip_sanity --disable_loganalyzer --container_test=true \
+                      --skip_sanity --disable_loganalyzer --disable_memory_utilization \
+                      --container_test=true \
                       --log-file={log_file} --junit-xml={log_xml}"
 
             output = None

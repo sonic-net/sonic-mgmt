@@ -9,10 +9,9 @@ from tests.common.helpers.tacacs.tacacs_helper import ssh_remote_run
 pytestmark = [
     pytest.mark.disable_loganalyzer,
     pytest.mark.topology('any'),
-    pytest.mark.device_type('vs')
+    pytest.mark.device_type('vs'),
 ]
 
-RULES_DIR = "/etc/audit/rules.d/"
 NSENTER_CMD = "nsenter --target 1 --pid --mount --uts --ipc --net"
 DOCKER_EXEC_CMD = "docker exec {} bash -c "
 AUDITD_CMD = DOCKER_EXEC_CMD.format("auditd") + "'{} {}'"
@@ -20,6 +19,35 @@ AUDITD_WATCHDOG_CMD = DOCKER_EXEC_CMD.format("auditd_watchdog") + "'{} {}'"
 CURL_HTTP_CODE_CMD = "curl -s -o /dev/null -w \%\{http_code\} http://localhost:50058"   # noqa: W605
 CURL_CMD = "curl http://localhost:50058"    # noqa: W605
 logger = logging.getLogger(__name__)
+
+# Expected runtime rules hashes (from auditctl -l output), keyed by
+# (bitness, auditctl major.minor version).
+RUNTIME_RULES_HASHES = {
+    ("64bit", "3.0"): "9060be8e75e980e4319f713ef507a49dc407f063",  # Debian bookworm, audit 3.0.9
+    ("64bit", "4.0"): "25d0bcf6a3b9dc4d3ebe44f5f69c8fdddb493027",  # Debian trixie, audit 4.0.2
+    ("32bit", "3.0"): "4151cb8c16f360c99e65f1b162c21352a86b46f7",  # Debian bookworm, audit 3.0.9
+    ("32bit", "4.0"): "745d743d736824e4431c156fd6b5a6020e4221bc",  # Debian trixie, audit 4.0.2
+}
+
+
+def get_bitness_key(duthost):
+    """Get the userspace bitness key ('32bit' or '64bit') of the DUT."""
+    output = duthost.command("file -L /bin/sh")["stdout"]
+
+    if "32-bit" in output:
+        return "32bit"
+    if "64-bit" in output:
+        return "64bit"
+
+    pytest.fail("Failed to determine bitness from 'file -L /bin/sh' output: {}".format(output.strip()))
+
+
+def get_audit_version_key(duthost):
+    """Get the auditctl major.minor version running on the DUT."""
+    output = duthost.command("sudo auditctl -v")["stdout"]
+    match = re.search(r"auditctl version (\d+)\.(\d+)", output)
+    pytest_assert(match, "Failed to parse auditctl version from: {}".format(output.strip()))
+    return "{}.{}".format(match.group(1), match.group(2))
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -318,15 +346,24 @@ def test_auditd_functionality(duthosts,
                               verify_auditd_containers_running):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     duthost.command("sudo systemctl start auditd")
-    output = duthost.command("file -L /bin/sh")["stdout"]
-    if "32-bit" in output:
-        rule_checksum = "ac45b13d45de02f08e12918e38b4122206859555"
-    elif "64-bit" in output:
-        rule_checksum = "1c532e73fdd3f7366d9c516eb712102d3063bd5a"
+    duthost.command("sudo augenrules --load")
+    debug_log(duthost)
+    bitness = get_bitness_key(duthost)
+    version = get_audit_version_key(duthost)
+    rule_checksum = RUNTIME_RULES_HASHES.get((bitness, version))
+    if rule_checksum is None:
+        pytest.fail(
+            "No expected runtime rules hash for bitness={}, auditctl version={} (known: {}). "
+            "Measure it with 'sudo sh -c \"auditctl -l 2>/dev/null | sha1sum\"' (the value is also "
+            "logged above by debug_log) and add it to RUNTIME_RULES_HASHES.".format(
+                bitness, version, sorted(RUNTIME_RULES_HASHES)))
 
-    cmd = "sudo sh -c \"find {} -name *.rules -type f | sort | xargs cat 2>/dev/null | sha1sum\"".format(RULES_DIR)
+    cmd = "sudo sh -c \"auditctl -l 2>/dev/null | sha1sum\""
     output = duthost.command(cmd)["stdout"]
-    pytest_assert(rule_checksum in output, "Rule files checksum is not as expected")
+    pytest_assert(rule_checksum in output,
+                  "Runtime rules checksum is not as expected: got '{}', expected '{}' "
+                  "(bitness={}, auditctl version={})".format(
+                      output.strip(), rule_checksum, bitness, version))
 
     cmd = "cat /etc/audit/auditd.conf | sha1sum"
     output = duthost.command(AUDITD_CMD.format(NSENTER_CMD, cmd))["stdout"]
@@ -356,6 +393,7 @@ def test_auditd_watchdog_functionality(duthosts,
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     duthost.command("sudo systemctl start auditd")
 
+    debug_log(duthost)
     output = duthost.command(AUDITD_WATCHDOG_CMD.format(NSENTER_CMD, CURL_HTTP_CODE_CMD),
                              module_ignore_errors=True)["stdout"]
     pytest_assert(output == "200", "Auditd watchdog reports auditd container is unhealthy")
@@ -372,7 +410,8 @@ def test_auditd_watchdog_functionality(duthosts,
         "syslog_conf",
         "auditd_rules",
         "auditd_service",
-        "auditd_active"
+        "auditd_active",
+        "rate_limit"
     ]
 
     # Check if all expected keys exist and have the value "OK"
@@ -416,9 +455,9 @@ def test_32bit_failure(duthosts,
                        verify_auditd_containers_running):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
-    hwsku = duthost.facts["hwsku"]
-    if "Nokia-7215" not in hwsku and "Nokia-7215-M0" not in hwsku:
-        pytest.skip("This test is only for Nokia-7215 and Nokia-7215-M0")
+    output = duthost.command("file -L /bin/sh")["stdout"]
+    if "32-bit" not in output:
+        pytest.skip("This test is only for 32-bit platforms")
 
     output = duthost.command(AUDITD_WATCHDOG_CMD.format(NSENTER_CMD, CURL_HTTP_CODE_CMD),
                              module_ignore_errors=True)["stdout"]
@@ -431,6 +470,16 @@ def test_32bit_failure(duthosts,
 def debug_log(duthost):
     content = duthost.command(r"sudo cat /etc/audit/rules.d/audit.rules", module_ignore_errors=True)["stdout"]
     logger.warning("Content of /etc/audit/rules.d/audit.rules: {}".format(content))
+
+    audit_version = duthost.command(r"sudo auditctl -v", module_ignore_errors=True)["stdout"]
+    logger.warning("Auditctl version: {}".format(audit_version))
+
+    active_rules = duthost.command(r"sudo auditctl -l", module_ignore_errors=True)["stdout"]
+    logger.warning("Active auditd rules (auditctl -l):\n{}".format(active_rules))
+
+    rules_hash = duthost.command(r'sudo sh -c "auditctl -l 2>/dev/null | sha1sum"',
+                                 module_ignore_errors=True)["stdout"]
+    logger.warning("Active auditd rules checksum (auditctl -l | sha1sum): {}".format(rules_hash))
 
     running_config = duthost.command(r"sudo auditctl -s", module_ignore_errors=True)["stdout"]
     logger.warning("Auditd running config: {}".format(running_config))
