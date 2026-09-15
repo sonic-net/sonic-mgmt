@@ -631,7 +631,7 @@ def compare_crm_facts(left, right):
         }
 
     right_acl_group = {}
-    for ag in left['acl_group']:
+    for ag in right['acl_group']:
         key = '{}|{}|{}'.format(ag['resource name'], ag['bind point'], ag['stage'])
         right_acl_group[key] = {
             'available': ag['available count'],
