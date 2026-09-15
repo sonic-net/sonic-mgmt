@@ -5,12 +5,15 @@ import collections
 import os
 import signal
 import threading
+import time
 from contextlib import contextmanager
 from multiprocessing.pool import ThreadPool
 import ansible
 from pytest_ansible.results import AdHocResult, ModuleResult
 
 from tests.common.errors import RunAnsibleModuleFail
+from tests.common.latency_metrics import format_caller
+from tests.common.latency_metrics import log_latency_metric
 
 
 # Patch load_extra_vars to return a copy instead of the shared cached dict.
@@ -181,7 +184,10 @@ class AnsibleHostBase(object):
     def _run(self, module_name, *module_args, **complex_args):
 
         previous_frame = inspect.currentframe().f_back
+        if previous_frame.f_code.co_name == "_run_wrapper" and previous_frame.f_back is not None:
+            previous_frame = previous_frame.f_back
         filename, line_number, function_name, lines, index = inspect.getframeinfo(previous_frame)
+        caller = format_caller(filename, function_name, line_number)
 
         verbose = complex_args.pop('verbose', True)
         module = self._get_ansible_module(module_name)
@@ -210,11 +216,42 @@ class AnsibleHostBase(object):
 
         module_ignore_errors = complex_args.pop('module_ignore_errors', False)
         module_async = complex_args.pop('module_async', False)
+        operation_start = time.monotonic()
+
+        def log_module_metric(success, is_async, return_code=None, result_failed=False):
+            log_latency_metric(
+                "ansible_module",
+                (time.monotonic() - operation_start) * 1000,
+                success=success,
+                host=self.hostname,
+                module=module_name,
+                caller=caller,
+                test=os.environ.get("PYTEST_CURRENT_TEST"),
+                is_async=is_async,
+                ignore_errors=module_ignore_errors,
+                return_code=return_code,
+                result_failed=result_failed
+            )
 
         if module_async:
             def run_module(module_args, complex_args):
-                with suppress_signal_registration_for_non_main_thread():
-                    return module(*module_args, **complex_args)[self.hostname]
+                operation_success = False
+                return_code = None
+                result_failed = False
+                try:
+                    with suppress_signal_registration_for_non_main_thread():
+                        result = module(*module_args, **complex_args)[self.hostname]
+                    return_code = result.get('rc', None)
+                    result_failed = getattr(result, "is_failed", False) or 'exception' in result
+                    operation_success = not result_failed
+                    return result
+                finally:
+                    log_module_metric(
+                        operation_success,
+                        True,
+                        return_code,
+                        result_failed=result_failed
+                    )
             pool = ThreadPool()
             result = pool.apply_async(run_module, (module_args, complex_args))
             return pool, result
@@ -222,52 +259,69 @@ class AnsibleHostBase(object):
         module_args = json.loads(json.dumps(module_args, cls=AnsibleHostBase.CustomEncoder))
         complex_args = json.loads(json.dumps(complex_args, cls=AnsibleHostBase.CustomEncoder))
 
-        with suppress_signal_registration_for_non_main_thread():
-            adhoc_res: AdHocResult = module(*module_args, **complex_args)
+        metric_logged = False
+        try:
+            with suppress_signal_registration_for_non_main_thread():
+                adhoc_res: AdHocResult = module(*module_args, **complex_args)
 
-        if module_name == "meta":
-            # The meta module is special in Ansible - it doesn't execute on remote hosts, it controls Ansible's behavior
-            # There are no per-host ModuleResults contained within it
-            return
+            if module_name == "meta":
+                # The meta module controls Ansible itself and has no per-host result.
+                log_module_metric(True, False)
+                metric_logged = True
+                return
 
-        hostname_res: ModuleResult = adhoc_res[self.hostname]
-        hostname_res.encoder = AnsibleHostBase.CustomEncoder
+            hostname_res: ModuleResult = adhoc_res[self.hostname]
+            hostname_res.encoder = AnsibleHostBase.CustomEncoder
+            return_code = hostname_res.get('rc', None)
+            result_failed = hostname_res.is_failed or 'exception' in hostname_res
 
-        if verbose:
-            logger.debug(
-                "{}::{}#{}: [{}] AnsibleModule::{} Result => {}".format(
-                    filename,
-                    function_name,
-                    line_number,
-                    self.hostname,
-                    module_name, json.dumps(hostname_res, cls=AnsibleHostBase.CustomEncoder)
+            if verbose:
+                logger.debug(
+                    "{}::{}#{}: [{}] AnsibleModule::{} Result => {}".format(
+                        filename,
+                        function_name,
+                        line_number,
+                        self.hostname,
+                        module_name, json.dumps(hostname_res, cls=AnsibleHostBase.CustomEncoder)
+                    )
                 )
-            )
-        else:
-            logger.debug(
-                "{}::{}#{}: [{}] AnsibleModule::{} done, is_failed={}, rc={}".format(
-                    filename,
-                    function_name,
-                    line_number,
-                    self.hostname,
-                    module_name,
-                    hostname_res.is_failed,
-                    hostname_res.get('rc', None)
+            else:
+                logger.debug(
+                    "{}::{}#{}: [{}] AnsibleModule::{} done, is_failed={}, rc={}".format(
+                        filename,
+                        function_name,
+                        line_number,
+                        self.hostname,
+                        module_name,
+                        hostname_res.is_failed,
+                        return_code
+                    )
                 )
+
+            if result_failed and not module_ignore_errors:
+                log_module_metric(False, False, return_code, result_failed=True)
+                metric_logged = True
+                raise RunAnsibleModuleFail("run module {} failed".format(module_name), hostname_res)
+
+            # Ensure 'failed' key is always present for backward compatibility with code that
+            # accesses rc['failed'] directly. The _IGNORE hack above is no longer effective in
+            # ansible-core >= 2.21 where the post-processing behavior changed so that 'failed'
+            # is absent from successful command results. Normalizing here is a single robust fix
+            # that covers all call sites without requiring per-file changes.
+            if 'failed' not in hostname_res:
+                hostname_res['failed'] = hostname_res.is_failed
+
+            log_module_metric(
+                not result_failed,
+                False,
+                return_code,
+                result_failed=result_failed
             )
-
-        if (hostname_res.is_failed or 'exception' in hostname_res) and not module_ignore_errors:
-            raise RunAnsibleModuleFail("run module {} failed".format(module_name), hostname_res)
-
-        # Ensure 'failed' key is always present for backward compatibility with code that
-        # accesses rc['failed'] directly. The _IGNORE hack above is no longer effective in
-        # ansible-core >= 2.21 where the post-processing behavior changed so that 'failed'
-        # is absent from successful command results. Normalizing here is a single robust fix
-        # that covers all call sites without requiring per-file changes.
-        if 'failed' not in hostname_res:
-            hostname_res['failed'] = hostname_res.is_failed
-
-        return hostname_res
+            metric_logged = True
+            return hostname_res
+        finally:
+            if not metric_logged:
+                log_module_metric(False, False)
 
 
 class NeighborDevice(dict):
