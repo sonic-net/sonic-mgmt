@@ -38,24 +38,30 @@ class PTFHost(AnsibleHostBase):
         self.script(RESTART_INTERFACE_SCRIPT)
 
     def create_macsec_info(self):
-        # One STATE_DB query per namespace to find active MACsec ports — avoids
-        # O(N_ports) SSH calls that would otherwise saturate DUT management CPU
-        # and starve wpa_supplicant.
+        # One STATE_DB query per namespace to find ports whose MKA is up
+        # (state=ok, so the SAK is in APP_DB) — avoids O(N_ports) SSH calls
+        # that would otherwise saturate DUT management CPU and starve
+        # wpa_supplicant.
         namespaces = ['']
         try:
             if self.duthost.is_multi_asic:
                 namespaces += self.duthost.get_asic_namespace_list()
         except Exception:
-            pass
+            # Namespace discovery is best effort; the host namespace alone is
+            # still probed below.
+            logger.debug("asic namespace discovery failed on %s; probing host namespace only",
+                         self.duthost.hostname, exc_info=True)
         active_macsec_ports = set()
         for ns in namespaces:
+            ns_opt = "-n {} ".format(ns) if ns else ""
             result = self.duthost.shell(
-                "sonic-db-cli {}STATE_DB KEYS 'MACSEC_PORT_TABLE|*'".format(
-                    "-n {} ".format(ns) if ns else ""),
+                "for k in $(sonic-db-cli {ns}STATE_DB KEYS 'MACSEC_PORT_TABLE|*'); do "
+                "echo \"${{k#MACSEC_PORT_TABLE|}}=$(sonic-db-cli {ns}STATE_DB HGET \"$k\" state)\"; "
+                "done; true".format(ns=ns_opt),
                 module_ignore_errors=True)
-            for entry in result.get("stdout", "").strip().splitlines():
-                if "|" in entry:
-                    active_macsec_ports.add(entry.split("|", 1)[1])
+            for line in result.get("stdout", "").strip().splitlines():
+                if line.endswith("=ok"):
+                    active_macsec_ports.add(line.split("=", 1)[0])
 
         macsec_info = {}
         ptf_indices = self.duthost.get_extended_minigraph_facts(self.tbinfo)["minigraph_ptf_indices"]
@@ -67,7 +73,7 @@ class PTFHost(AnsibleHostBase):
                     self.duthost, port_name, force_reload=True)
             except KeyError:
                 logging.info(
-                    "MACsec isn't enabled on the port {}".format(port_name))
+                    "No MACsec SA material in APP_DB for {}; skipping".format(port_name))
                 continue
         tf = tempfile.NamedTemporaryFile(delete=True)
         pickle.dump(macsec_info, tf)

@@ -1,3 +1,5 @@
+import ast
+import base64
 import binascii
 import re
 import json
@@ -27,6 +29,10 @@ __all__ = [
     'create_exp_pkt',
     'get_appl_db',
     'get_macsec_attr',
+    'prepare_ptf_macsec',
+    'program_ptf_ingress_sa',
+    'remove_ptf_ingress_sa',
+    'remove_ptf_ingress_sas',
     'get_mka_session',
     'get_macsec_sa_name',
     'get_macsec_counters',
@@ -37,6 +43,14 @@ __all__ = [
 
 logger = logging.getLogger(__name__)
 process_queue = []
+
+# APPL_DB field marking an ingress SA the test harness programmed for PTF.
+PTF_SA_TAG = "ptf_sa"
+# (hostname, port) -> (APPL_DB key, sak hex) of the PTF ingress SA this process
+# programmed. Ownership is decided by this registry; the tag alone is not
+# reliable because ProducerStateTable SETs merge into an existing row, so a
+# live MKA SA that later lands on the same AN inherits the tag.
+_PTF_SA_KEYS = {}
 
 
 def submit_async_task(target, args):
@@ -85,14 +99,17 @@ QUERY_MACSEC_INGRESS_SA = "sonic-db-cli {} APPL_DB HGETALL 'MACSEC_INGRESS_SA_TA
 QUERY_MACSEC_EGRESS_SA = "sonic-db-cli {} APPL_DB HGETALL 'MACSEC_EGRESS_SA_TABLE:{}:{}:{}'"
 
 
-def getns_prefix(host, intf):
-    ns_prefix = " "
+def _port_namespace(host, intf):
+    """asic namespace owning ``intf`` ('' on single-ASIC DUTs)."""
     if host.is_multi_asic:
         asic = host.get_port_asic_instance(intf)
-        ns = host.get_namespace_from_asic_id(asic.asic_index)
-        ns_prefix = "-n {}".format(ns)
+        return host.get_namespace_from_asic_id(asic.asic_index)
+    return ""
 
-    return ns_prefix
+
+def getns_prefix(host, intf):
+    ns = _port_namespace(host, intf)
+    return "-n {}".format(ns) if ns else " "
 
 
 def get_ipnetns_prefix(host, intf):
@@ -126,13 +143,20 @@ def get_macsec_sa_name(sonic_asic, port_name, egress=True):
 
     cmd = "APPL_DB KEYS '{}:{}:*'".format(table, port_name)
     names = sonic_asic.run_sonic_db_cli_cmd(cmd)['stdout_lines']
-    if not egress:
-        # Skip PTF-injected SAs (tagged ptf_sa=true by get_macsec_attr): after a
-        # rekey their AN can sort before the live MKA SA and must never be
-        # mistaken for the peer SA.
-        names = [n for n in names
-                 if sonic_asic.run_sonic_db_cli_cmd(
-                     "APPL_DB HGET '{}' ptf_sa".format(n))['stdout'].strip() != 'true']
+    if not egress and names:
+        # Never return the PTF SA this process programmed (see _PTF_SA_KEYS); a
+        # PTF AN can sort before the live MKA AN. Rows merely tagged ptf_sa are
+        # skipped only while an untagged row exists: MKA may have rekeyed onto
+        # a PTF AN and inherited the tag, in which case the tagged row IS live.
+        owned = _PTF_SA_KEYS.get((sonic_asic.sonichost.hostname, port_name), (None,))[0]
+        names = [n for n in names if n != "{}:{}".format(table, owned)]
+        ns = "-n {}".format(sonic_asic.namespace) if sonic_asic.namespace else ""
+        tags = sonic_asic.sonichost.shell(
+            "for k in {}; do echo \"$k=$(sonic-db-cli {} APPL_DB HGET $k {})\"; done; true".format(
+                " ".join(names), ns, PTF_SA_TAG), module_ignore_errors=True)["stdout"]
+        tagged = {ln.split("=", 1)[0] for ln in tags.splitlines() if ln.endswith("=true")}
+        untagged = [n for n in names if n not in tagged]
+        names = untagged or names
     if names:
         names.sort()
         return ':'.join(names[0].split(':')[1:])
@@ -397,104 +421,200 @@ def create_exp_pkt(pkt, ttl):
     return exp_pkt
 
 
-def get_macsec_attr(host, port):
+def _ingress_sa_rows(host, port):
+    """{'<port>:<sci>:<an>': fields} for every APPL_DB ingress SA on ``port`` (one round trip)."""
+    ns = getns_prefix(host, port)
+    out = host.shell(
+        "for k in $(sonic-db-cli {ns} APPL_DB KEYS 'MACSEC_INGRESS_SA_TABLE:{port}:*'); do "
+        "echo \"$k\t$(sonic-db-cli {ns} APPL_DB HGETALL $k)\"; done; true".format(ns=ns, port=port),
+        module_ignore_errors=True)["stdout"]
+    rows = {}
+    for line in out.splitlines():
+        if not line.startswith("MACSEC_INGRESS_SA_TABLE:") or "\t" not in line:
+            continue
+        key, fields = line.split("\t", 1)
+        try:
+            rows[key.split(":", 1)[1]] = ast.literal_eval(fields.strip())
+        except (ValueError, SyntaxError):
+            continue
+    return rows
+
+
+def _read_macsec_attrs(host, port):
+    """Read the live MACsec state of ``port`` from APPL_DB. No side effects."""
     eth_src = host.get_dut_iface_mac(port)
     macsec_port = sonic_db_cli(host, QUERY_MACSEC_PORT.format(getns_prefix(host, port), port))
-    if macsec_port["enable_encrypt"] == "true":
-        encrypt = 1
-    else:
-        encrypt = 0
-    if macsec_port["send_sci"] == "true":
-        send_sci = 1
-    else:
-        send_sci = 0
+    encrypt = 1 if macsec_port["enable_encrypt"] == "true" else 0
+    send_sci = 1 if macsec_port["send_sci"] == "true" else 0
     xpn_en = "XPN" in macsec_port["cipher_suite"]
-    sci = get_sci(eth_src)
+    sci_hex = get_sci(eth_src)
     macsec_sc = sonic_db_cli(
-        host, QUERY_MACSEC_EGRESS_SC.format(getns_prefix(host, port), port, sci))
+        host, QUERY_MACSEC_EGRESS_SC.format(getns_prefix(host, port), port, sci_hex))
     an = int(macsec_sc["encoding_an"])
     macsec_sa = sonic_db_cli(
-        host, QUERY_MACSEC_EGRESS_SA.format(getns_prefix(host, port), port, sci, an))
-    sak = binascii.unhexlify(macsec_sa["sak"])
-    sci = int(get_sci(eth_src), 16)
+        host, QUERY_MACSEC_EGRESS_SA.format(getns_prefix(host, port), port, sci_hex, an))
+    sak_hex = macsec_sa["sak"]
+    sak = binascii.unhexlify(sak_hex)
+    # The salt is a per-SAK value shared by every SA of the CA, so the egress SA
+    # is the authoritative source for what PTF encrypts with AND for the PTF
+    # ingress SA programmed below; the ingress row only contributes the peer's
+    # ssci / auth_key.
+    salt_hex = macsec_sa.get("salt", "000000000000000000000000")
     if xpn_en:
         ssci = int(macsec_sa["ssci"])
-        salt = binascii.unhexlify(macsec_sa["salt"])
+        salt = binascii.unhexlify(salt_hex)
     else:
         ssci = None
         salt = None
 
-    # Get the peer sci and an from the ingress macsec SA name
-    asic = host.get_port_asic_instance(port)
-    macsec_ingress_sa_name = get_macsec_sa_name(asic, port, False)
-    peer_sci = macsec_ingress_sa_name.split(':')[1]
-    peer_an = macsec_ingress_sa_name.split(':')[2]
+    # Live peer SA: an ingress row that is not the PTF SA this process owns,
+    # preferring rows carrying the current SAK (a stale PTF row from an earlier
+    # session still holds the pre-rekey SAK) and rows without the PTF tag (a
+    # tagged row is still live if MKA rekeyed onto that AN and inherited it).
+    rows = _ingress_sa_rows(host, port)
+    owned = _PTF_SA_KEYS.get((host.hostname, port), (None,))[0]
+    candidates = [(k, r) for k, r in rows.items() if k != owned]
+    same_sak = [c for c in candidates if c[1].get("sak") == sak_hex] or candidates
+    untagged = [c for c in same_sak if c[1].get(PTF_SA_TAG) != "true"] or same_sak
+    if not untagged:
+        raise KeyError("no live MACsec ingress SA for {} on {}".format(port, host.hostname))
+    live_key, live_row = sorted(untagged)[0]
+    _, peer_sci, peer_an = live_key.split(":")
+    peer_an = int(peer_an)
+    peer_ssci = int(live_row["ssci"]) if xpn_en else None
 
-    # Get the ingress macsec sa
-    macsec_ingress_sa = sonic_db_cli(
-        host, QUERY_MACSEC_INGRESS_SA.format(getns_prefix(host, port), port, peer_sci, peer_an))
-    if xpn_en:
-        peer_ssci = int(macsec_ingress_sa["ssci"])
-    else:
-        peer_ssci = None
+    # PTF transmits on its own AN, (mka_an + 2) % 4: the MKA AN shares its XPN
+    # counter with live peer traffic, so by the time PTF sends, the ASIC's
+    # highest PN is already past the pickle value and PTF frames would be
+    # dropped as late. A separate AN starts from PN=0 with no competing sender
+    # and leaves the MKA SA untouched.
+    ptf_an = (peer_an + 2) % 4
+    return {
+        "encrypt": encrypt, "send_sci": send_sci, "xpn_en": xpn_en,
+        "sci": int(sci_hex, 16), "an": an, "sak": sak, "ssci": ssci, "salt": salt,
+        "peer_sci": peer_sci, "peer_an": peer_an, "peer_ssci": peer_ssci, "ptf_an": ptf_an,
+        "sak_hex": sak_hex, "salt_hex": salt_hex,
+        "ssci_str": live_row.get("ssci", "0"), "auth_key": live_row.get("auth_key", sak_hex),
+        "live_key": live_key, "clear_tag": live_row.get(PTF_SA_TAG) == "true",
+    }
 
-    # Configure a PTF-specific ingress SA using a separate AN to avoid XPN staleness.
-    # The MKA-negotiated AN shares its XPN counter with live peer traffic. By the time
-    # PTF sends its first packet, background traffic has advanced the ASIC XPN past the
-    # pickle value, making PTF's PN stale → IN_PKTS_LATE → dropped.
-    # Using ptf_an = (mka_an + 2) % 4 starts from XPN=0 with no competing traffic.
-    # PTF sends PN=1,2,3... from a clean slate; the MKA SA is completely unaffected.
-    import base64
-    sak_hex = binascii.hexlify(sak).decode()
-    auth_key = macsec_ingress_sa.get("auth_key", sak_hex)
-    # XPN cipher suites derive the AES-GCM IV from (ssci || PN) XOR salt, so the
-    # injected SA must carry the same salt/ssci PTF will encrypt with (returned
-    # below); zeros would make every injected frame fail ICV verification.
-    salt_hex = macsec_ingress_sa.get("salt", "000000000000000000000000")
-    ssci_val = macsec_ingress_sa.get("ssci", "0")
-    ptf_an = (int(peer_an) + 2) % 4
-    # sonic-db-cli HSET writes the data but does NOT trigger orchagent's ConsumerStateTable
-    # (it bypasses ProducerStateTable). Use swsscommon.ProducerStateTable on the DUT to
-    # properly notify orchagent so it programs the SA in ASIC.
-    # Target the port's APPL_DB instance: on multi-ASIC DUTs the port's
-    # orchagent consumes from its asic namespace, not the host namespace.
-    ns = ""
-    if host.is_multi_asic:
-        asic = host.get_port_asic_instance(port)
-        ns = host.get_namespace_from_asic_id(asic.asic_index)
-    script = (
-        "from swsscommon.swsscommon import ProducerStateTable, DBConnector, Table\n"
-        "db = DBConnector('APPL_DB', 0, True, '{ns}')\n"
-        "tbl = ProducerStateTable(db, 'MACSEC_INGRESS_SA_TABLE')\n"
-        "key = '{port}:{peer_sci}:{ptf_an}'\n"
-        # Remove any PTF SA injected by an earlier run at a different AN
-        # (MKA may have rekeyed since), so orphans never accumulate and can
-        # never collide with a future MKA AN.
-        "rt = Table(db, 'MACSEC_INGRESS_SA_TABLE')\n"
+
+def _attr_tuple(a):
+    return (a["encrypt"], a["send_sci"], a["xpn_en"], a["sci"], a["an"], a["sak"],
+            a["ssci"], a["salt"], int(a["peer_sci"], 16), a["ptf_an"], a["peer_ssci"], 0)
+
+
+def get_macsec_attr(host, port):
+    """MACsec attributes of ``port`` as the MACSEC_INFO tuple. Read-only: use
+    prepare_ptf_macsec() when PTF is going to transmit on the port."""
+    return _attr_tuple(_read_macsec_attrs(host, port))
+
+
+_SWSS_PREAMBLE = (
+    "from swsscommon.swsscommon import SonicDBConfig, DBConnector, ProducerStateTable, Table\n"
+    "ns = '{ns}'\n"
+    # Namespaced redis is reached via unix socket and needs the global db config;
+    # the default namespace keeps the plain TCP connection.
+    "if ns and not SonicDBConfig.isGlobalInit():\n"
+    "    SonicDBConfig.load_sonic_global_db_config()\n"
+    "db = DBConnector('APPL_DB', 0, False, ns) if ns else DBConnector('APPL_DB', 0, True)\n"
+    "tbl = ProducerStateTable(db, 'MACSEC_INGRESS_SA_TABLE')\n"
+    "rt = Table(db, 'MACSEC_INGRESS_SA_TABLE')\n"
+)
+
+
+def _run_swss_script(host, ns, body, **shell_kwargs):
+    """Run ``body`` on the DUT after _SWSS_PREAMBLE (sonic-db-cli HSET would
+    write the row without notifying orchagent; ProducerStateTable does)."""
+    script = _SWSS_PREAMBLE.format(ns=ns) + body
+    b64 = base64.b64encode(script.encode()).decode()
+    return host.shell("echo '{}' | base64 -d | sudo python3".format(b64), **shell_kwargs)
+
+
+def program_ptf_ingress_sa(host, port, attrs):
+    """Install the DUT ingress SA that accepts PTF's frames on ``port``.
+
+    ``attrs`` is the dict from _read_macsec_attrs(). The SA is keyed on the
+    peer SCI at PTF's AN, tagged ptf_sa=true, and carries the SAK's salt plus
+    the peer's ssci / auth_key: XPN cipher suites derive the AES-GCM IV from
+    (ssci || PN) XOR salt, so mismatched values would fail every ICV check.
+    The key is recorded in _PTF_SA_KEYS so later reads and the teardown
+    recognise it by identity rather than by tag.
+    """
+    key = "{}:{}:{}".format(port, attrs["peer_sci"], attrs["ptf_an"])
+    prev = _PTF_SA_KEYS.get((host.hostname, port), (None,))[0]
+    body = (
+        "key, live, prev = '{key}', '{live}', '{prev}'\n"
+        # A live MKA row that inherited the tag by landing on an old PTF AN.
+        "if {clear_tag}:\n"
+        "    rt.hdel(live, '{tag}')\n"
+        # Our previous key (MKA rekeyed since) and cross-session tagged orphans
+        # on this port; never the live SA, never the key being (re)programmed.
+        "victims = set()\n"
+        "if prev and prev not in (key, live):\n"
+        "    victims.add(prev)\n"
         "for k in rt.getKeys():\n"
-        "    if k.startswith('{port}:') and k != key:\n"
-        "        ok, fvs_old = rt.get(k)\n"
-        "        if ok and dict(fvs_old).get('ptf_sa') == 'true':\n"
-        "            tbl.delete(k)\n"
-        # DEL before SET: stock MACsecOrch treats SET on an existing SA as an
-        # attribute update and does not recreate the SAI SA, so its
-        # highest-received-PN would persist across runs and drop the fresh
-        # PN=1.. sequence as late. Deleting first forces a clean SA.
-        "tbl.delete(key)\n"
+        "    if k.startswith('{port}:') and k not in (key, live):\n"
+        "        ok, fvs = rt.get(k)\n"
+        "        if ok and dict(fvs).get('{tag}') == 'true':\n"
+        "            victims.add(k)\n"
+        "for k in victims:\n"
+        "    tbl.delete(k)\n"
+        # A SET on an existing SA reaches orchagent as one SET (ConsumerStateTable
+        # folds a preceding DEL into it); MACsecOrch recreates the SAI SA when
+        # the SET carries 'sak', which resets its highest-received PN for the
+        # fresh PN=1.. sequence PTF starts with.
         "fvs = [('active','true'),('sak','{sak}'),('auth_key','{auth}'),"
-        "('lowest_acceptable_pn','1'),('ssci','{ssci}'),('salt','{salt}'),"
-        "('ptf_sa','true')]\n"
+        "('lowest_acceptable_pn','1'),('ssci','{ssci}'),('salt','{salt}'),('{tag}','true')]\n"
         "tbl.set(key, fvs)\n"
-        "print('PTF SA added:', key)\n"
-    ).format(
-        port=port, peer_sci=peer_sci, ptf_an=ptf_an,
-        sak=sak_hex, auth=auth_key, salt=salt_hex, ssci=ssci_val, ns=ns
-    )
-    b64_script = base64.b64encode(script.encode()).decode()
-    host.shell("echo '{}' | base64 -d | sudo python3".format(b64_script))
-    time.sleep(2)  # Allow orchagent to program the SA in ASIC
+        "print('PTF SA set:', key, 'removed:', sorted(victims))\n"
+    ).format(key=key, live=attrs["live_key"], prev=prev or "", clear_tag=attrs["clear_tag"],
+             port=port, tag=PTF_SA_TAG, sak=attrs["sak_hex"], auth=attrs["auth_key"],
+             ssci=attrs["ssci_str"], salt=attrs["salt_hex"])
+    _run_swss_script(host, _port_namespace(host, port), body)
+    _PTF_SA_KEYS[(host.hostname, port)] = (key, attrs["sak_hex"])
+    time.sleep(2)  # let orchagent program the SA in the ASIC
 
-    return encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt, int(peer_sci, 16), ptf_an, peer_ssci, 0
+
+def remove_ptf_ingress_sas(host, ports=None):
+    """Delete the PTF ingress SAs this process programmed on ``host`` (all
+    ports, or only ``ports``). A registered key is left alone when its row no
+    longer holds the SAK we wrote or is the only SA on the port: both mean MKA
+    has taken that AN over and the row is the live peer SA."""
+    owned = {p: v for (h, p), v in _PTF_SA_KEYS.items()
+             if h == host.hostname and (ports is None or p in ports)}
+    by_ns = {}
+    for port, (key, sak_hex) in owned.items():
+        by_ns.setdefault(_port_namespace(host, port), []).append((port, key, sak_hex))
+    for ns, entries in by_ns.items():
+        body = "entries = {!r}\n".format(entries) + (
+            "for port, key, sak in entries:\n"
+            "    ok, fvs = rt.get(key)\n"
+            "    if not ok:\n"
+            "        continue\n"
+            "    others = [k for k in rt.getKeys() if k.startswith(port + ':') and k != key]\n"
+            "    if dict(fvs).get('sak') != sak or not others:\n"
+            "        print('PTF SA now live, kept:', key)\n"
+            "        continue\n"
+            "    tbl.delete(key)\n"
+            "    print('PTF SA removed:', key)\n"
+        )
+        _run_swss_script(host, ns, body, module_ignore_errors=True)
+    for port in owned:
+        _PTF_SA_KEYS.pop((host.hostname, port), None)
+
+
+def remove_ptf_ingress_sa(host, port):
+    """Delete the PTF ingress SA this process programmed on one ``port``."""
+    remove_ptf_ingress_sas(host, ports=[port])
+
+
+def prepare_ptf_macsec(host, port):
+    """Read ``port``'s MACsec attributes and program the DUT ingress SA PTF
+    will transmit on. Returns the MACSEC_INFO tuple."""
+    attrs = _read_macsec_attrs(host, port)
+    program_ptf_ingress_sa(host, port, attrs)
+    return _attr_tuple(attrs)
 
 
 def encap_macsec_pkt(macsec_pkt, sci, an, sak, encrypt, send_sci, pn, xpn_en=False, ssci=None, salt=None):
@@ -552,13 +672,13 @@ def find_portname_from_ptf_id(mg_facts, ptf_id):
 
 def load_macsec_info(duthost, port, force_reload=None):
     if force_reload or port not in __macsec_infos:
-        __macsec_infos[port] = get_macsec_attr(duthost, port)
+        __macsec_infos[port] = prepare_ptf_macsec(duthost, port)
     return __macsec_infos[port]
 
 
 def load_macsec_info_for_ptf_id(duthost, ptf_id, port, force_reload=None):
     if force_reload:
-        MACSEC_INFO[ptf_id] = get_macsec_attr(duthost, port)
+        MACSEC_INFO[ptf_id] = prepare_ptf_macsec(duthost, port)
 
 
 # This API load the macsec session details from all ctrl links
@@ -566,7 +686,7 @@ def load_all_macsec_info(duthost, ctrl_links, tbinfo):
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     for port, nbr in ctrl_links.items():
         ptf_id = mg_facts["minigraph_ptf_indices"][port]
-        MACSEC_INFO[ptf_id] = get_macsec_attr(duthost, port)
+        MACSEC_INFO[ptf_id] = prepare_ptf_macsec(duthost, port)
 
 
 def macsec_send(test, port_id, pkt, count=1):
