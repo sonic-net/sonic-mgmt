@@ -79,6 +79,7 @@ SINGLE_TOR_MODE = 'single'
 CLIENT_VRF_NAME = "Vrf01"   # Global macro for Client VRF
 MAX_HOP_COUNT = 16
 CONFIG_HOP_COUNT = 2
+DOWNSTREAM_RELAY_IP = '192.0.2.1'  # TEST-NET-1; synthetic downstream relay
 
 logger = logging.getLogger(__name__)
 
@@ -422,6 +423,7 @@ def test_dhcp_relay_agent_mode(
                     "kvm_support": True,
                     "relay_agent": relay_agent,
                     "agent_relay_mode": test_mode,
+                    "client_giaddr": DOWNSTREAM_RELAY_IP,
                     "downlink_vlan_iface_name": str(dhcp_relay['downlink_vlan_iface']['name']),
                 },
                 log_file="/tmp/test_dhcp_relay_agent_mode.log",
@@ -435,6 +437,66 @@ def test_dhcp_relay_agent_mode(
         # Restore the baseline DHCPV4_RELAY row shape that
         # enable_sonic_dhcpv4_relay_agent set up (dhcpv4_servers only,
         # no agent_relay_mode), by reusing the same helpers.
+        sonic_dhcp_relay_unconfig(duthost, dut_dhcp_relay_data)
+        sonic_dhcp_relay_config(duthost, dut_dhcp_relay_data)
+
+
+def test_dhcp_relay_local_giaddr_dropped(
+        ptfhost,
+        dut_dhcp_relay_data,
+        validate_dut_routes_exist,
+        testing_config,
+        setup_standby_ports_on_rand_unselected_tor,
+        rand_unselected_dut,
+        toggle_all_simulator_ports_to_rand_selected_tor_m,  # noqa: F811
+        relay_agent  # noqa: F811
+):
+    """Verify native relay rejects a chained request spoofing its local giaddr."""
+    testing_mode, duthost = testing_config
+
+    try:
+        for dhcp_relay in dut_dhcp_relay_data:
+            vlan = str(dhcp_relay['downlink_vlan_iface']['name'])
+            dhcp_servers = ",".join(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'])
+            duthost.shell(f'config dhcpv4_relay del {vlan}')
+            duthost.shell(f'config dhcpv4_relay add --dhcpv4-servers {dhcp_servers}'
+                          f' --agent-relay-mode forward {vlan}')
+
+            ptf_runner(
+                ptfhost,
+                "ptftests",
+                "dhcp_relay_test.DHCPTest",
+                platform_dir="ptftests",
+                params={
+                    "hostname": duthost.hostname,
+                    "client_port_index": dhcp_relay['client_iface']['port_idx'],
+                    "other_client_port": repr(dhcp_relay['other_client_ports']),
+                    "client_iface_alias": str(dhcp_relay['client_iface']['alias']),
+                    "leaf_port_indices": repr(dhcp_relay['uplink_port_indices']),
+                    "num_dhcp_servers": len(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs']),
+                    "server_ip": dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'],
+                    "relay_iface_ip": str(dhcp_relay['downlink_vlan_iface']['addr']),
+                    "relay_iface_mac": str(dhcp_relay['downlink_vlan_iface']['mac']),
+                    "relay_iface_netmask": str(dhcp_relay['downlink_vlan_iface']['mask']),
+                    "dest_mac_address": BROADCAST_MAC,
+                    "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
+                    "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
+                    "uplink_mac": str(dhcp_relay['uplink_mac']),
+                    "testing_mode": testing_mode,
+                    "kvm_support": True,
+                    "relay_agent": relay_agent,
+                    "agent_relay_mode": "forward",
+                    "client_giaddr": dhcp_relay['switch_loopback_ip'],
+                    "expected_forward": False,
+                    "downlink_vlan_iface_name": str(dhcp_relay['downlink_vlan_iface']['name']),
+                },
+                log_file="/tmp/test_dhcp_relay_local_giaddr.log",
+                is_python3=True
+            )
+    except LogAnalyzerError as err:
+        logger.error("Unable to find expected log in syslog")
+        raise err
+    finally:
         sonic_dhcp_relay_unconfig(duthost, dut_dhcp_relay_data)
         sonic_dhcp_relay_config(duthost, dut_dhcp_relay_data)
 
