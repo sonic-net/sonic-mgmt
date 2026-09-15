@@ -95,6 +95,71 @@ def test_get_installed_images_normalizes_leading_slash():
         True, "SONiC-OS-20251110.34", "SONiC-OS-20251110.34")
 
 
+def test_install_image_uses_larger_temporary_swap_when_supported(monkeypatch):
+    """Supported installers should create 3 GiB swap on DPUs below 8 GiB memory."""
+    upgrade = make_upgrade()
+    commands = []
+    upgrade.disk_used_pcent = 90
+    upgrade.connect_to_dpu = lambda *_: object()
+    upgrade.scp_image_to_dpu = lambda *_: True
+    upgrade.get_installed_images = lambda *_: (
+        True, "SONiC-OS-20251110.34", "SONiC-OS-20260510.10")
+    upgrade.get_host_path_size_mb = lambda *_: 4000
+    upgrade.get_host_avail_mb = lambda *_: 10000
+
+    def execute_command(_, __, command, **kwargs):
+        commands.append(command)
+        if command == "sudo sonic-installer install --help":
+            return True, "--skip-package-migration --total-mem-threshold --swap-mem-size", ""
+        if command == "sudo sonic-installer list":
+            return True, "Current: SONiC-OS-20251110.34\nNext: SONiC-OS-20260510.10", ""
+        if command.startswith("sudo sh -c 'stat"):
+            return True, str(upgrade_module.DPU_MIN_INITRD_BYTES), ""
+        return True, "", ""
+
+    upgrade.execute_command = execute_command
+    upgrade.prepare_image_for_reboot = lambda *_: True
+    monkeypatch.setattr(upgrade_module.os.path, "getsize", lambda _: 1024)
+
+    assert upgrade.install_image_on_dpu(object(), "169.254.200.1") is True
+    assert (
+        "sudo sonic-installer install /tmp/downloaded-sonic-image "
+        "--skip-package-migration --total-mem-threshold 8192 --swap-mem-size 3072 -y"
+    ) in commands
+
+
+def test_install_image_omits_swap_options_when_unsupported(monkeypatch):
+    """Older installers should continue upgrading without unsupported swap options."""
+    upgrade = make_upgrade()
+    commands = []
+    upgrade.connect_to_dpu = lambda *_: object()
+    upgrade.scp_image_to_dpu = lambda *_: True
+    upgrade.get_installed_images = lambda *_: (
+        True, "SONiC-OS-20251110.34", "SONiC-OS-20260510.10")
+    upgrade.get_host_path_size_mb = lambda *_: 4000
+    upgrade.get_host_avail_mb = lambda *_: 10000
+
+    def execute_command(_, __, command, **kwargs):
+        commands.append(command)
+        if command == "sudo sonic-installer install --help":
+            return True, "--skip-package-migration", ""
+        if command == "sudo sonic-installer list":
+            return True, "Current: SONiC-OS-20251110.34\nNext: SONiC-OS-20260510.10", ""
+        if command.startswith("sudo sh -c 'stat"):
+            return True, str(upgrade_module.DPU_MIN_INITRD_BYTES), ""
+        return True, "", ""
+
+    upgrade.execute_command = execute_command
+    upgrade.prepare_image_for_reboot = lambda *_: True
+    monkeypatch.setattr(upgrade_module.os.path, "getsize", lambda _: 1024)
+
+    assert upgrade.install_image_on_dpu(object(), "169.254.200.1") is True
+    assert (
+        "sudo sonic-installer install /tmp/downloaded-sonic-image "
+        "--skip-package-migration -y"
+    ) in commands
+
+
 def test_prepare_image_for_reboot_maps_uboot_image_to_physical_slot():
     """U-Boot selection must use the physical slot rather than the compact image list."""
     upgrade = make_upgrade()

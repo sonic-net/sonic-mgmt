@@ -79,6 +79,9 @@ REBOOT_TIMEOUT = 600
 REBOOT_POLL_INTERVAL = 30
 # Extra /host headroom (MB) required beyond the image size before a DPU install
 DPU_INSTALL_MARGIN_MB = 500
+# Use a 3 GiB temporary swap file when the DPU has less than 8 GiB of memory.
+DPU_TOTAL_MEM_THRESHOLD_MB = 8192
+DPU_SWAP_MEM_SIZE_MB = 3072
 # Minimum plausible initrd size (bytes); anything smaller means a corrupt image
 DPU_MIN_INITRD_BYTES = 1024 * 1024
 # Max wait for a chassis-module state transition to clear (startup/shutdown no-op while set)
@@ -464,19 +467,29 @@ class UpgradeDpuSonicImageModule(object):
             return False
         self.log("[DPU {}] /host free {}M >= required {}M".format(dpu_ip, avail_mb, required_mb))
 
-        # Check for --skip-package-migration support
-        skip_param = ""
+        # Use optional installer features only when the running image supports them.
+        install_options = []
         ok, help_out, _ = self.execute_command(ssh, dpu_ip, "sudo sonic-installer install --help")
         if "skip-package-migration" in help_out:
-            skip_param = "--skip-package-migration"
+            install_options.append("--skip-package-migration")
             self.log("[DPU {}] Using --skip-package-migration".format(dpu_ip))
+        if "total-mem-threshold" in help_out and "swap-mem-size" in help_out:
+            install_options.extend([
+                "--total-mem-threshold", str(DPU_TOTAL_MEM_THRESHOLD_MB),
+                "--swap-mem-size", str(DPU_SWAP_MEM_SIZE_MB),
+            ])
+            self.log("[DPU {}] Using {} MiB temporary swap below {} MiB total memory".format(
+                dpu_ip, DPU_SWAP_MEM_SIZE_MB, DPU_TOTAL_MEM_THRESHOLD_MB))
+        else:
+            self.log("[DPU {}] Installer does not support configurable temporary swap".format(dpu_ip))
 
         # Install the image
         self.log("[DPU {}] Running sonic-installer install (timeout={}s)".format(
             dpu_ip, LONG_CMD_TIMEOUT))
         ok, out, err = self.execute_command(
             ssh, dpu_ip,
-            "sudo sonic-installer install {} {} -y".format(DPU_IMAGE_PATH, skip_param),
+            "sudo sonic-installer install {} {} -y".format(
+                DPU_IMAGE_PATH, " ".join(install_options)),
             timeout=LONG_CMD_TIMEOUT,
             get_pty=True
         )
