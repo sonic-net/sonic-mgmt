@@ -150,90 +150,245 @@ def _load_platform_hwsku(duthost):
     return None, None
 
 
+def _validate_port_attribute_templates(
+    request,
+    ansible_root,
+    dut_name,
+    merged,
+):
+    """Return a template-validation error for *merged*, or ``None``."""
+    templates_path = os.path.join(ansible_root, REL_DEPLOYMENT_TEMPLATES_FILE)
+    skip_validation = request.config.getoption(
+        '--skip_transceiver_template_validation'
+    )
+    if skip_validation or not os.path.isfile(templates_path):
+        return None
+
+    logger.info(
+        "Validating transceiver attributes for DUT %s against templates in %s",
+        dut_name,
+        templates_path,
+    )
+    validator = TemplateValidator(ansible_root)
+    try:
+        compliance_dict = validator.validate(merged)
+    except TemplateValidationError as error:
+        return "template validation failed: {}".format(error)
+
+    results = compliance_dict.get('results', [])
+    fail_messages = []
+    full_count = 0
+    partial_count = 0
+    fail_count = 0
+    for result in results:
+        status = result.get('status')
+        port = result.get('port')
+        deployment = result.get('deployment')
+        if status == STATUS_FULLY:
+            full_count += 1
+            logger.info("PASS: %s (%s) - %s", port, deployment, status)
+        elif status == STATUS_PARTIAL:
+            partial_count += 1
+            missing_optional = ', '.join(result.get('missing_optional', []))
+            warnings.warn(
+                "PARTIAL: {} missing optional: {}".format(
+                    port,
+                    missing_optional,
+                )
+            )
+        else:
+            fail_count += 1
+            missing_required = ', '.join(result.get('missing_required', []))
+            fail_messages.append(
+                "{} missing required: {}".format(port, missing_required)
+            )
+
+    total_ports = compliance_dict.get('total_ports', len(results))
+    logger.info(
+        "Template validation summary for DUT %s: "
+        "total=%d full=%d partial=%d fail=%d",
+        dut_name,
+        total_ports,
+        full_count,
+        partial_count,
+        fail_count,
+    )
+    if fail_messages:
+        return "template validation failures:\n{}".format(
+            "\n".join(fail_messages)
+        )
+    return None
+
+
+def _load_port_attributes(request, ansible_root, duthost):
+    """Return ``(attributes, error, skippable)`` for one DUT.
+
+    The selected-DUT and peer-DUT fixtures intentionally share this complete
+    load, merge, and validation sequence. Their only difference is how the
+    returned error is surfaced to the caller.
+    """
+    dut_name = duthost.hostname
+    if not dut_name:
+        return (
+            None,
+            "no DUT name available for transceiver attribute initialization",
+            True,
+        )
+
+    platform, hwsku = _load_platform_hwsku(duthost)
+    logger.info(
+        "Transceiver infra context resolved: dut_name=%s platform=%s hwsku=%s",
+        dut_name,
+        platform,
+        hwsku,
+    )
+    if not platform or not hwsku:
+        logger.warning(
+            "Platform/HWSKU not determined for DUT %s; "
+            "platform/hwsku specific overrides may not apply",
+            dut_name,
+        )
+
+    logger.info(
+        "Building transceiver base port attributes for DUT '%s'",
+        dut_name,
+    )
+    try:
+        base_dict = DutInfoLoader(ansible_root).build_base_port_attributes(
+            dut_name,
+        )
+    except DutInfoError as error:
+        return (
+            None,
+            "failed loading base port attributes: {}".format(error),
+            False,
+        )
+
+    if not base_dict:
+        return (
+            None,
+            "no ports found for DUT '{}' in dut_info.json".format(dut_name),
+            True,
+        )
+
+    attr_dir = os.path.join(ansible_root, REL_ATTR_DIR)
+    if not os.path.isdir(attr_dir):
+        return None, "attributes directory {} is absent".format(attr_dir), True
+
+    logger.info(
+        "Merging category attributes for DUT %s from %s",
+        dut_name,
+        attr_dir,
+    )
+    try:
+        merged = AttributeManager(
+            ansible_root,
+            base_dict,
+        ).build_port_attributes(
+            dut_name, platform or '', hwsku or ''
+        )
+    except AttributeMergeError as error:
+        return (
+            None,
+            "category attribute merging failed: {}".format(error),
+            False,
+        )
+
+    if not merged:
+        return (
+            None,
+            "no merged attributes found for DUT '{}'".format(dut_name),
+            True,
+        )
+
+    validation_error = _validate_port_attribute_templates(
+        request,
+        ansible_root,
+        dut_name,
+        merged,
+    )
+    if validation_error:
+        return None, validation_error, False
+    return merged, None, False
+
+
 @pytest.fixture(scope='session')
 def port_attributes_dict(request, ansible_root, duthost):
     """Session-scoped merged port attributes (BASE + category).
 
-    Loads dut_info.json via DutInfoLoader and merges category attribute files via AttributeManager.
-    Optionally validates templates. Failure scenarios abort early to avoid invalid test runs.
-    Logs compliance summary (if performed) before returning the merged attributes dict.
+    Loads base and category data through the shared canonical loader. It then
+    applies optional template validation and selected-DUT fail/skip behavior.
     """
-    dut_name = duthost.hostname
-    if not dut_name:
-        pytest.skip("No DUT name available for transceiver attribute initialization")
-
-    platform, hwsku = _load_platform_hwsku(duthost)
-    logger.info(
-        "Transceiver infra context resolved: dut_name=%s platform=%s hwsku=%s", dut_name, platform, hwsku
+    attributes, error, skippable = _load_port_attributes(
+        request,
+        ansible_root,
+        duthost,
     )
-    if not platform or not hwsku:
-        logger.warning("Platform/HWSKU not determined; platform/hwsku specific overrides may not apply")
+    if error:
+        if skippable:
+            pytest.skip(error)
+        pytest.fail(error)
+    return attributes
 
-    logger.info("Building transceiver base port attributes for DUT '%s'", dut_name)
-    loader = DutInfoLoader(ansible_root)
-    try:
-        base_dict = loader.build_base_port_attributes(dut_name)
-    except DutInfoError as e:
-        pytest.fail(f"Failed loading base port attributes: {e}")
 
-    if not base_dict:
-        pytest.skip(f"No ports found for DUT '{dut_name}' in dut_info.json")
+def _build_port_attributes_loader(
+    request,
+    ansible_root,
+    duthost,
+    duthosts,
+    port_attributes_dict,
+):
+    """Build the cached per-DUT attribute loader used by the fixture."""
+    attributes_by_dut = {duthost.hostname: port_attributes_dict}
+    hosts_by_name = {host.hostname: host for host in duthosts}
+    hosts_by_name[duthost.hostname] = duthost
 
-    attr_dir = os.path.join(ansible_root, REL_ATTR_DIR)
-    if not os.path.isdir(attr_dir):
-        pytest.skip(f"Attributes directory {attr_dir} absent - returning base attributes only")
+    def _load(hostname):
+        if hostname in attributes_by_dut:
+            return attributes_by_dut[hostname], None
+        host = hosts_by_name.get(hostname)
+        if host is None:
+            return None, "DUT host is unavailable"
+        attributes, error, _skippable = _load_port_attributes(
+            request,
+            ansible_root,
+            host,
+        )
+        if error:
+            return None, error
+        attributes_by_dut[host.hostname] = attributes
+        logger.info(
+            "Loaded transceiver attributes for peer DUT %s: %d port(s)",
+            host.hostname,
+            len(attributes),
+        )
+        return attributes, None
 
-    logger.info("Merging category attributes from %s", attr_dir)
-    mgr = AttributeManager(ansible_root, base_dict)
-    try:
-        merged = mgr.build_port_attributes(dut_name, platform or '', hwsku or '')
-    except AttributeMergeError as e:
-        pytest.fail(f"Category attribute merging failed: {e}")
-    if not merged:
-        pytest.skip(f"No merged attributes found for DUT '{dut_name}'")
+    return _load
 
-    # Run compliance validation (validator handles detailed logging and raises on required misses)
-    templates_path = os.path.join(ansible_root, REL_DEPLOYMENT_TEMPLATES_FILE)
-    if not request.config.getoption('--skip_transceiver_template_validation') and os.path.isfile(templates_path):
-        logger.info("Validating transceiver attributes against templates in %s", templates_path)
-        validator = TemplateValidator(ansible_root)
-        try:
-            # Validate merged attributes; raises on missing required attributes (partials only warn)
-            compliance_dict = validator.validate(merged)
-            results = compliance_dict.get('results', [])
-            fail_messages = []
-            full_count = 0
-            partial_count = 0
-            fail_count = 0
-            for r in results:
-                status = r.get('status')
-                port = r.get('port')
-                deployment = r.get('deployment')
-                if status == STATUS_FULLY:
-                    full_count += 1
-                    logger.info("PASS: %s (%s) - %s", port, deployment, status)
-                elif status == STATUS_PARTIAL:
-                    partial_count += 1
-                    missing_opt = ', '.join(r.get('missing_optional', []))
-                    warnings.warn(f"PARTIAL: {port} missing optional: {missing_opt}")
-                else:
-                    fail_count += 1
-                    missing_req = ', '.join(r.get('missing_required', []))
-                    fail_messages.append(f"{port} missing required: {missing_req}")
-            total_ports = compliance_dict.get('total_ports', len(results))
-            logger.info(
-                "Template validation summary: total=%d full=%d partial=%d fail=%d",
-                total_ports,
-                full_count,
-                partial_count,
-                fail_count,
-            )
-            if fail_messages:
-                pytest.fail("Template validation failures:\n" + "\n".join(fail_messages))
-        except TemplateValidationError as e:
-            pytest.fail(f"Template validation failed: {e}")
 
-    return merged
+@pytest.fixture(scope='session')
+def port_attributes_for_dut(
+    request,
+    ansible_root,
+    duthost,
+    duthosts,
+    port_attributes_dict,
+):
+    """Return a cached loader for the selected DUT and an actually used peer.
+
+    Peer-aware tests resolve the connection graph before calling this loader.
+    That keeps missing inventory on an unrelated DUT from failing the entire
+    transceiver session, while preserving a clear error for a peer that is
+    actually needed by the test.
+    """
+    return _build_port_attributes_loader(
+        request,
+        ansible_root,
+        duthost,
+        duthosts,
+        port_attributes_dict,
+    )
 
 
 # Ensure infra initialized before any test in this package
@@ -271,6 +426,53 @@ def lport_to_first_subport_mapping(duthost):
     ``interface_utils.is_first_subport``.
     """
     return get_lport_to_first_subport_mapping(duthost)
+
+
+def _build_lport_mapping_loader(
+    duthost,
+    duthosts,
+    lport_to_first_subport_mapping,
+):
+    """Build the cached per-DUT logical-to-primary-subport loader."""
+    mappings_by_dut = {duthost.hostname: lport_to_first_subport_mapping}
+    hosts_by_name = {host.hostname: host for host in duthosts}
+    hosts_by_name[duthost.hostname] = duthost
+
+    def _load(hostname):
+        if hostname in mappings_by_dut:
+            return mappings_by_dut[hostname], None
+        host = hosts_by_name.get(hostname)
+        if host is None:
+            return None, "DUT host is unavailable"
+        try:
+            mapping = get_lport_to_first_subport_mapping(host)
+        except Exception as error:
+            return None, "failed loading logical-port mapping: {}".format(error)
+        if mapping is None:
+            return None, "logical-port mapping is unavailable"
+        mappings_by_dut[hostname] = mapping
+        logger.info(
+            "Loaded logical-port mapping for peer DUT %s: %d port(s)",
+            hostname,
+            len(mapping),
+        )
+        return mapping, None
+
+    return _load
+
+
+@pytest.fixture(scope="session")
+def lport_to_first_subport_mapping_for_dut(
+    duthost,
+    duthosts,
+    lport_to_first_subport_mapping,
+):
+    """Return a cached loader for an actually used DUT's port mapping."""
+    return _build_lport_mapping_loader(
+        duthost,
+        duthosts,
+        lport_to_first_subport_mapping,
+    )
 
 
 # ──────────────────────────────────────────────────────────────────────
