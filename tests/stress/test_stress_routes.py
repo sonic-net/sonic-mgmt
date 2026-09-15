@@ -6,7 +6,13 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
-from utils import get_crm_resource_status, check_queue_status, sleep_to_wait, LOOP_TIMES_LEVEL_MAP
+from utils import (
+    get_crm_resource_status,
+    check_queue_status,
+    sleep_to_wait,
+    LOOP_TIMES_LEVEL_MAP,
+    crm_route_counts_near_baseline,
+)
 
 ALLOW_ROUTES_CHANGE_NUMS = 5
 CRM_POLLING_INTERVAL = 1
@@ -83,17 +89,43 @@ def test_announce_withdraw_route(duthosts, localhost, tbinfo, get_function_compl
         announce_withdraw_routes(duthost, namespace, localhost, ptf_ip, topo_name)
         loop_times -= 1
 
-    sleep_to_wait(CRM_POLLING_INTERVAL * 120)
+    # BGP InQ/OutQ can be 0 while CRM/orch still reflects bulk route churn (e.g common on lt2 TH6 topo).
+    crm_settle_timeout = 600 if str(topo_name).startswith("lt2") else 120
+    crm_settle_interval = 10
+    logger.info(
+        "Waiting up to {}s (poll every {}s) for CRM ipv4/ipv6 route used to match baseline ±{}".format(
+            crm_settle_timeout, crm_settle_interval, ALLOW_ROUTES_CHANGE_NUMS)
+    )
+    crm_ok = wait_until(
+        crm_settle_timeout,
+        crm_settle_interval,
+        0,
+        crm_route_counts_near_baseline,
+        duthost,
+        namespace,
+        ipv4_route_used_before,
+        ipv6_route_used_before,
+        ALLOW_ROUTES_CHANGE_NUMS,
+    )
 
     ipv4_route_used_after = get_crm_resource_status(duthost, "ipv4_route", "used", namespace)
     ipv6_route_used_after = get_crm_resource_status(duthost, "ipv6_route", "used", namespace)
 
     # Do not check route used for vs tests because vs testbed do not have real asic
     if asic_type != "vs":
-        pytest_assert(abs(ipv4_route_used_after - ipv4_route_used_before) < ALLOW_ROUTES_CHANGE_NUMS,
-                      "ipv4 route used after is not equal to it used before")
-        pytest_assert(abs(ipv6_route_used_after - ipv6_route_used_before) < ALLOW_ROUTES_CHANGE_NUMS,
-                      "ipv6 route used after is not equal to it used before")
+        pytest_assert(
+            crm_ok,
+            "CRM route counts did not return to baseline within {}s (ipv4 before={}, after={}, "
+            "ipv6 before={}, after={}; expected abs(delta) < {} for both)".format(
+                crm_settle_timeout,
+                ipv4_route_used_before,
+                ipv4_route_used_after,
+                ipv6_route_used_before,
+                ipv6_route_used_after,
+                ALLOW_ROUTES_CHANGE_NUMS,
+            ),
+        )
+
     end_time_frr_daemon_memory = get_frr_daemon_memory_usage(duthost, frr_demons_to_check, namespace)
     logging.info(f"memory usage at end: {end_time_frr_daemon_memory}")
     check_memory_usage_is_expected(duthost, frr_demons_to_check, start_time_frr_daemon_memory,
