@@ -26,7 +26,7 @@ check-conditional-mark-sort = 'pre_commit_hooks.check_conditional_mark_sort:main
 
 [tool.black]
 line-length = 120
-include = '^tests/common2/.*\.py$'
+include = '^(tests/common2|tests/gnmi)/.*\.py$'
 extend-exclude = '''
 (
   \.git
@@ -41,3 +41,10 @@ extend-exclude = '''
 [tool.mypy]
 ignore_missing_imports = true
 strict = true
+follow_imports = "silent"
+
+[[tool.mypy.overrides]]
+module = "tests.gnmi.*"
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+disallow_untyped_calls = false
