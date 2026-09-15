@@ -576,13 +576,21 @@ class SonicAsic(object):
                                             intf=interface_name,
                                             ip=ip_address))
 
-    def config_portchannel(self, pc_name, op, fast_mode=False, fallback=False, min_links=1):
+    def config_portchannel(self, pc_name, op, fast_mode=False, fallback=False, fallback_mode="single", min_links=1):
         if op == "add":
-            return self.sonichost.command(f"sudo config portchannel {self.cli_ns_option} {op} "
-                                          f"--fast-rate {"true" if fast_mode else "false"} "
-                                          f"{"--fallback true" if fallback else ""} "
-                                          f"--min-links {min_links} "
-                                          f"{pc_name}")
+            pc_args = ["sudo", "config", "portchannel"]
+            if self.cli_ns_option:
+                pc_args += [self.cli_ns_option]
+            pc_args += ["add"]
+            if fast_mode:
+                pc_args += ["--fast-rate", "true"]
+            if fallback:
+                pc_args += ["--fallback", "true"]
+                if fallback_mode != "single":
+                    pc_args += ["--fallback-mode", fallback_mode]
+            pc_args += ["--min-links", min_links]
+            pc_args += [pc_name]
+            return self.sonichost.command(argv=pc_args)
         else:
             return self.sonichost.command(f"sudo config portchannel {self.cli_ns_option} {op} {pc_name}")
 
