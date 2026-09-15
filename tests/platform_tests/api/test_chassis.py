@@ -278,6 +278,15 @@ class TestChassisApi(PlatformApiTestBase):
         pytest_assert(re.match(REGEX_SERIAL_NUMBER, serial), "Serial number appears to be incorrect")
         host_vars = get_host_visible_vars(self.inv_files, duthost.hostname)
         expected_syseeprom_info_dict = host_vars.get('syseeprom_info')
+        # The comparison below against inventory-provided values is optional: it only runs when the
+        # host defines a 'syseeprom_info' block. When it is absent, host_vars.get() returns None and the
+        # EEPROM read from the device has already been fully validated above, so skip the comparison
+        # instead of raising AttributeError on None.
+        if expected_syseeprom_info_dict is None:
+            logger.info("No 'syseeprom_info' reference data is defined in the inventory for host '{}'; "
+                        "skipping comparison of EEPROM contents against expected values."
+                        .format(duthost.hostname))
+            return
         # Ignore case of keys in syseeprom_info
         expected_syseeprom_info_dict = {k.lower(): v for k, v in list(expected_syseeprom_info_dict.items())}
 
