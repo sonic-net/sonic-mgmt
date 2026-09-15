@@ -408,15 +408,18 @@ def check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True):
     other_vms = setup['other_vms']
     bgp_neighbors = json.loads(duthost.shell("sonic-cfggen -d --var-json 'BGP_NEIGHBOR'")['stdout'])
 
+    bgp_timeout = max(120, len(bgp_neighbors) * 3)
+    logger.info(f"BGP route propagation timeout: {bgp_timeout}s (neighbors: {len(bgp_neighbors)})")
+
     # check tor1
     pytest_assert(wait_until(60, 5, 0, check_tor1, nbrhosts, setup, route), 'tor1 check failed')
 
     # check DUT
-    pytest_assert(wait_until(120, 5, 0, check_dut, duthost, list(dict.fromkeys(other_vms)),
+    pytest_assert(wait_until(bgp_timeout, 5, 0, check_dut, duthost, list(dict.fromkeys(other_vms)),
                   bgp_neighbors, setup, route, accepted=accepted), 'DUT check failed')
 
     results = parallel_run(check_other_vms, (nbrhosts, setup, route), {'accepted': accepted},
-                           other_vms, timeout=120, concurrent_tasks=6)
+                           other_vms, timeout=bgp_timeout, concurrent_tasks=6)
 
     failed_results = {}
     for node, result in list(results.items()):
