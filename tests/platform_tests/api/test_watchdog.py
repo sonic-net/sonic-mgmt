@@ -67,6 +67,7 @@ class TestWatchdogApi(PlatformApiTestBase):
         and disables it after the test ends'''
 
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        bmc_was_armed = False
         if (
             duthost.facts['platform'] == 'armhf-nokia_ixs7215_52x-r0'
             or duthost.facts['platform'] == 'arm64-nokia_ixs7215_52xb-r0'
@@ -78,10 +79,12 @@ class TestWatchdogApi(PlatformApiTestBase):
             duthost.shell("systemctl disable watchdog.timer --now")
             duthost.shell("watchdogutil disarm")
         elif duthost.is_bmc():
-            # BMC platforms (e.g. Aspeed) arm the hardware watchdog at every boot
-            # via the hw-watchdog-mgrd daemon, so disarm it first to satisfy the
-            # not-armed precondition below.  The daemon honors and persists the
-            # disarm for the current boot session.
+            # BMC platforms (e.g. Aspeed) may arm the hardware watchdog at boot via
+            # the hw-watchdog-mgrd daemon, but that is driven by the platform.json
+            # "boot_arm" policy and can be disabled per platform.  Capture the actual
+            # pre-test state so teardown can restore it, then disarm to satisfy the
+            # not-armed precondition below.
+            bmc_was_armed = watchdog.is_armed(platform_api_conn)
             duthost.shell("watchdogutil disarm")
 
         assert not watchdog.is_armed(platform_api_conn)
@@ -98,8 +101,10 @@ class TestWatchdogApi(PlatformApiTestBase):
             elif duthost.facts["platform"].startswith("x86_64-nexthop_"):
                 duthost.shell("systemctl enable watchdog.timer --now")
             elif duthost.is_bmc():
-                # Restore the boot-time armed state expected on a BMC.
-                duthost.shell("watchdogutil arm -s 180")
+                # Restore the pre-test arm state (driven by the daemon's boot_arm
+                # policy) rather than assuming the watchdog should be armed.
+                if bmc_was_armed:
+                    duthost.shell("watchdogutil arm -s 180")
 
             if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_dpu"):
                 duthost.shell("watchdogutil arm")
