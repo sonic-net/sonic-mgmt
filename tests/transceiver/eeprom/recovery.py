@@ -78,15 +78,17 @@ def verify_transceiver_recovery(
     """Verify EEPROM static content + CMIS DataPath + firmware recovered.
 
     Args:
-        wait_sec: settle budget for the static-content and DataPath items;
-            ``<= 0`` does a single snapshot check (the steady-state pre-check).
+        wait_sec: total settle budget shared by the static-content and DataPath
+            items; ``<= 0`` does a single snapshot check (the steady-state
+            pre-check).
         scenario: human-readable label for the logs and failure blocks, e.g.
             ``"after cold reboot"``.
         ports: optional subset of ``port_attributes_dict`` to verify. ``None``
             verifies every port in the dict.
-        firmware_wait_sec: explicit firmware budget. Defaults to ``wait_sec``
-            plus the slowest target port's ``dom_info_recover_sec``, since
-            firmware rides xcvrd's delayed DOM cycle.
+        firmware_wait_sec: total firmware budget measured from the start of
+            recovery verification. Defaults to ``wait_sec`` plus the slowest
+            target port's ``dom_info_recover_sec``, since firmware rides
+            xcvrd's delayed DOM cycle.
         live_i2c_confirm: run the live-I2C ``sfputil`` confirmation pass after
             the STATE_DB read. Defaults to ``wait_sec > 0`` so the cheap
             pre-check snapshot skips it and the post-op check performs it.
@@ -113,6 +115,8 @@ def verify_transceiver_recovery(
                 "wait=%ss firmware_wait=%ss, %d port(s)",
                 scenario, wait_sec, firmware_wait_sec, len(target_ports))
     start = time.monotonic()
+    settle_deadline = start + wait_sec
+    firmware_deadline = start + firmware_wait_sec
     failures = []
 
     # Link-independent static content: recovers first and is the cheapest signal,
@@ -122,7 +126,7 @@ def verify_transceiver_recovery(
         duthost,
         port_attributes_dict,
         lport_to_first_subport_mapping,
-        wait_sec,
+        max(0, settle_deadline - time.monotonic()),
         ports=target_ports,
         live_i2c_confirm=live_i2c_confirm,
         enforce_timeout=enforce_timeout,
@@ -140,7 +144,7 @@ def verify_transceiver_recovery(
     datapath_failures = datapath.verify_datapath_recovered(
         duthost,
         port_attributes_dict,
-        wait_sec,
+        max(0, settle_deadline - time.monotonic()),
         ports=datapath.cmis_active_optical_ports(target_attributes),
     )
     _log_item_result(scenario, "DataPath fields", datapath_failures, time.monotonic() - item_start)
@@ -151,7 +155,7 @@ def verify_transceiver_recovery(
     firmware_failures = verify_firmware_info_recovered(
         duthost,
         port_attributes_dict,
-        firmware_wait_sec,
+        max(0, firmware_deadline - time.monotonic()),
         ports=target_ports,
         expected_active=expected_active,
         expected_inactive=expected_inactive,

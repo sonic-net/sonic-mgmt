@@ -21,6 +21,7 @@ physical OIR and firmware suites reuse; S1 and the S7 post-reset checks call the
 individual verifiers directly because they score a different subset.
 """
 import logging
+import time
 
 import pytest
 
@@ -40,15 +41,6 @@ logger = logging.getLogger(__name__)
 # Full-system disruptions (reboot / config reload) may restart every
 # framework-monitored process, so their PID changes are all expected.
 _ALL_MONITORED_PROCESSES = set(DEFAULT_MONITORED_PROCESSES)
-_DAEMON_EXPECTED_PID_CHANGES = {
-    # xcvrd (supervisor process) and its pmon container restart xcvrd only.
-    "xcvrd": {"xcvrd"},
-    "pmon": {"xcvrd"},
-    # swss/syncd are tightly coupled. The platform attribute separately
-    # controls whether xcvrd is also expected to restart inside pmon.
-    "swss": {"syncd", "orchagent"},
-    "syncd": {"syncd", "orchagent"},
-}
 
 
 def _representative_attribute(port_attributes_dict, scope_key, attribute):
@@ -67,6 +59,7 @@ def _verify_recovery(
     lport_to_first_subport_mapping,
     wait_sec,
     scenario,
+    live_i2c_confirm=False,
 ):
     """Verify EEPROM static content + CMIS active-optical DataPath + firmware recovery.
 
@@ -74,21 +67,26 @@ def _verify_recovery(
     :func:`tests.transceiver.eeprom.recovery.verify_transceiver_recovery`
     orchestration, aggregating its line-item failures into one ``pytest.fail``.
     """
+    start = time.monotonic()
     failures = recovery.verify_transceiver_recovery(
         duthost,
         port_attributes_dict,
         lport_to_first_subport_mapping,
         wait_sec,
         scenario,
+        live_i2c_confirm=live_i2c_confirm,
         # The scenario suite sizes the firmware budget from a representative
         # port because these disruptions are DUT-wide and every port shares the
         # same settle characteristics.
         firmware_wait_sec=wait_sec + _representative_attribute(
             port_attributes_dict, DOM_ATTRIBUTES_KEY, "dom_info_recover_sec"),
     )
+    elapsed = time.monotonic() - start
     if failures:
         pytest.fail(
-            "EEPROM recovery verification failed {}:\n{}".format(scenario, "\n".join(failures))
+            "EEPROM recovery verification failed {} (after {:.1f}s):\n{}".format(
+                scenario, elapsed, "\n".join(failures)
+            )
         )
 
 
@@ -188,6 +186,7 @@ def test_eeprom_recovery_after_reboot(
         lport_to_first_subport_mapping,
         _system_attribute(port_attributes_dict, "{}_reboot_settle_sec".format(reboot_type)),
         "after {} reboot".format(reboot_type),
+        live_i2c_confirm=True,
     )
 
 
@@ -220,6 +219,7 @@ def test_eeprom_recovery_after_config_reload(
         lport_to_first_subport_mapping,
         _system_attribute(port_attributes_dict, "config_reload_settle_sec"),
         "after config reload",
+        live_i2c_confirm=True,
     )
 
 
@@ -251,21 +251,32 @@ def test_eeprom_recovery_after_daemon_restart(
         "before {} restart".format(daemon),
     )
 
-    expected_pid_changes.update(_DAEMON_EXPECTED_PID_CHANGES[daemon])
+    affected_processes = set(scenario_ops.DAEMON_READY_PROCESSES[daemon])
     if daemon in ("swss", "syncd") and _system_attribute(
         port_attributes_dict, "expect_xcvrd_restart_with_swss_or_syncd"
     ):
-        expected_pid_changes.add("xcvrd")
-    scenario_ops.perform_daemon_restart(duthost, daemon)
+        affected_processes.add("xcvrd")
+    expected_pid_changes.update(affected_processes)
+    if daemon in ("swss", "syncd"):
+        restart_settle_sec = max(
+            _system_attribute(port_attributes_dict, "swss_restart_settle_sec"),
+            _system_attribute(port_attributes_dict, "syncd_restart_settle_sec"),
+        )
+    else:
+        restart_settle_sec = _system_attribute(
+            port_attributes_dict, "{}_restart_settle_sec".format(daemon)
+        )
+    remaining_settle_sec = scenario_ops.perform_daemon_restart(
+        duthost, daemon, restart_settle_sec, affected_processes=affected_processes
+    )
 
     _verify_recovery(
         duthost,
         port_attributes_dict,
         lport_to_first_subport_mapping,
-        _system_attribute(
-            port_attributes_dict, "{}_restart_settle_sec".format(daemon)
-        ),
+        remaining_settle_sec,
         "after {} restart".format(daemon),
+        live_i2c_confirm=True,
     )
 
 
