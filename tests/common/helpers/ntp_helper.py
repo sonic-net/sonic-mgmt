@@ -1,9 +1,12 @@
+import logging
 from enum import Enum
 import pytest
 import time
 from contextlib import contextmanager
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
+
+logger = logging.getLogger(__name__)
 
 
 class NtpDaemon(Enum):
@@ -126,6 +129,19 @@ def setup_ntp_context(ptfhost, duthost, ptf_use_ipv6):
     duthost.command("config ntp del %s" % (ptfhost.mgmt_ipv6 if ptf_use_ipv6 else ptfhost.mgmt_ip))
     for ntp_server in ntp_servers:
         duthost.command("config ntp add %s %s" % ("--iburst" if ntp_add_iburst_present else "", ntp_server))
+
+    # Earlier in this fixture, run_ntp() force-stepped the DUT's clock to match the PTF
+    # container's local, undisciplined reference clock (server 127.127.1.0 prefer), which
+    # can leave the DUT's clock off from real time by a large margin (seconds to minutes).
+    # Restoring the real NTP server config above is not enough to fix this: the ordinary
+    # NTP/chrony daemon only slews the clock during normal operation, which can take a very
+    # long time to correct a large offset -- or may never happen in a reasonable time frame
+    # on platforms where clock stepping (e.g. chrony's "makestep") is disabled. That stale,
+    # drifted clock can then linger and cause unrelated failures in later test cases (e.g.
+    # reboot tests that compare timestamps across the reboot boundary). So force a corrective
+    # step sync back to the real NTP servers now, instead of relying on slow slewing.
+    force_ntp_resync(duthost, ntp_daemon_type)
+
     # The time jump leads to exception in lldp_syncd. The exception has been handled by lldp_syncd,
     # but it will leave error messages in syslog, which will cause subsequent test cases to fail.
     # So we need to wait for a while to make sure the error messages are flushed.
@@ -181,9 +197,11 @@ def check_max_root_dispersion(host, max_dispersion, ntp_daemon_in_use):
         return False
 
 
-def run_ntp(duthost, ntp_daemon_in_use):
-    """ Verify that DUT is synchronized with configured NTP server """
-
+def _force_clock_step(duthost, ntp_daemon_in_use):
+    """One-shot, forced step sync of the DUT's clock against its currently configured
+    NTP server(s). Unlike normal daemon operation (which typically only slews the
+    clock), this can jump the clock by an arbitrary amount in a single step.
+    """
     if ntp_daemon_in_use == NtpDaemon.NTPSEC:
         duthost.service(name='ntp', state='stopped')
         duthost.command("timeout 20 ntpd -gq -u ntpsec:ntpsec")
@@ -197,5 +215,33 @@ def run_ntp(duthost, ntp_daemon_in_use):
         duthost.service(name='chrony', state='stopped')
         duthost.command("timeout 20 chronyd -q -F 1")
         duthost.service(name='chrony', state='restarted')
+
+
+def run_ntp(duthost, ntp_daemon_in_use):
+    """ Verify that DUT is synchronized with configured NTP server """
+
+    _force_clock_step(duthost, ntp_daemon_in_use)
     pytest_assert(wait_until(720, 10, 0, check_ntp_status, duthost, ntp_daemon_in_use),
                   "NTP not in sync")
+
+
+def force_ntp_resync(duthost, ntp_daemon_in_use):
+    """Force the DUT's clock to immediately step back in sync with its currently
+    configured NTP server(s), instead of waiting for the NTP daemon to slowly slew
+    it (which can take a very long time for large offsets, or may never converge
+    in a reasonable time frame on platforms where clock stepping, e.g. chrony's
+    "makestep", is disabled).
+
+    This is intended as a best-effort corrective action (e.g. in test teardown,
+    after the DUT's clock was intentionally forced to an arbitrary value earlier
+    in the test via run_ntp()/setup_ntp_context()), so failures here are logged
+    but not treated as fatal.
+    """
+    try:
+        _force_clock_step(duthost, ntp_daemon_in_use)
+        if not wait_until(60, 5, 0, check_ntp_status, duthost, ntp_daemon_in_use):
+            logger.warning(
+                "DUT %s did not report NTP sync within 60s after forced clock resync; "
+                "its clock may still be drifted for subsequent test cases", duthost.hostname)
+    except Exception as e:
+        logger.warning("Failed to force NTP resync on DUT %s: %s", duthost.hostname, e)
