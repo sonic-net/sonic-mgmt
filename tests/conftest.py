@@ -4305,3 +4305,98 @@ def ansible_root(request):
     else:
         tbfile = request.config.getoption("testbed_file")
         return pathlib.Path(tbfile).parent
+
+
+# ---------------------------------------------------------------------------
+# CoPP LLDP policer adjustment for large-scale (converged) topologies
+# ---------------------------------------------------------------------------
+@pytest.fixture(scope="module", autouse=False)
+def adjust_lldp_copp_policer(duthosts, tbinfo):
+    """Temporarily raise the CoPP LLDP policer CIR/CBS for large topologies.
+
+    On converged topologies a single cEOS container drives up to 127
+    Ethernet interfaces whose lldpd sends LLDP frames in a near-simultaneous
+    burst every tx-interval (default 30 s).  The default CoPP CIR/CBS for
+    the LLDP trap group is 100 pps, which cannot absorb a 127-packet burst
+    and causes random LLDP neighbor age-outs.
+
+    This fixture detects when the expected LLDP neighbor count exceeds the
+    default CIR and temporarily raises CIR/CBS so the full burst passes.
+    The injected CONFIG_DB entry is removed at teardown so the DB returns
+    to its pre-test state.
+
+    Usage: request this fixture explicitly in test modules that depend on
+    stable LLDP neighbor presence (e.g. LLDP syncd tests, SNMP LLDP tests).
+    """
+
+    def get_lldp_copp_info(duthost):
+        """Query the CoPP trap group name and current CIR for LLDP."""
+        result = duthost.shell(
+            "python3 -c \"import json; "
+            "d=json.load(open('/etc/sonic/copp_cfg.json')); "
+            "grp=d.get('COPP_TRAP',{}).get('lldp',{}).get('trap_group',''); "
+            "cir=d.get('COPP_GROUP',{}).get(grp,{}).get('cir','') if grp else ''; "
+            "print(grp + ',' + cir)\"",
+        )
+        parts = result["stdout"].strip().split(",", 1)
+        group = parts[0] if len(parts) >= 1 else ""
+        cir = parts[1] if len(parts) >= 2 else ""
+        if not group:
+            logger.warning("Could not determine LLDP CoPP trap group from DUT, skipping adjustment")
+        return group, cir
+
+    def apply_copp_rate(duthost, json_path, group_name, rate):
+        """Read the full CoPP group config, override cir/cbs, and merge back.
+
+        Writing only cir/cbs would create an incomplete CONFIG_DB entry
+        that fails YANG validation (missing mandatory fields like trap_action).
+        """
+        result = duthost.shell(
+            f"python3 -c \"import json; "
+            f"d=json.load(open('/etc/sonic/copp_cfg.json')); "
+            f"print(json.dumps(d.get('COPP_GROUP',{{}}).get('{group_name}',{{}})))\"",
+        )
+        try:
+            group_cfg = json.loads(result["stdout"].strip())
+        except (json.JSONDecodeError, KeyError):
+            logger.warning(f"Could not read full CoPP group config for {group_name}, skipping")
+            return
+        group_cfg["cir"] = rate
+        group_cfg["cbs"] = rate
+        copp_cfg = json.dumps({"COPP_GROUP": {group_name: group_cfg}})
+        duthost.shell(f"echo \'{copp_cfg}\' > {json_path}")
+        duthost.command(f"sudo config load {json_path} -y")
+
+    adjusted_hosts = []
+    copp_json = "/tmp/copp_lldp_adjust.json"
+
+    for duthost in duthosts.frontend_nodes:
+        copp_group, current_cir = get_lldp_copp_info(duthost)
+        if not copp_group or not current_cir:
+            continue
+
+        mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+        num_neighbors = len([
+            k for k, v in mg_facts.get("minigraph_neighbors", {}).items()
+            if "server" not in v.get("name", "").lower()
+        ])
+
+        if num_neighbors <= int(current_cir):
+            logger.info(f"[{duthost.hostname}] LLDP neighbors ({num_neighbors}) within "
+                         f"CoPP CIR ({current_cir}), no adjustment needed")
+            continue
+
+        new_rate = str(num_neighbors * 2)
+        logger.info(f"[{duthost.hostname}] Raising LLDP CoPP {copp_group} CIR/CBS "
+                     f"from {current_cir} to {new_rate} for {num_neighbors} neighbors")
+        apply_copp_rate(duthost, copp_json, copp_group, new_rate)
+        adjusted_hosts.append((duthost, copp_group))
+
+    yield
+
+    for duthost, copp_group in adjusted_hosts:
+        logger.info(f"[{duthost.hostname}] Removing LLDP CoPP {copp_group} entry from CONFIG_DB")
+        duthost.shell(
+            f"sonic-db-cli CONFIG_DB DEL 'COPP_GROUP|{copp_group}'",
+        )
+        duthost.shell(f"rm -f {copp_json}")
