@@ -81,35 +81,30 @@ class TestBmcWatchdog:
 
         Pre-test arm state is restored in `finally`.
         """
-        # --- /host/bmc/watchdog.log presence and content ---
+        # --- /host/bmc/watchdog.log presence ---
         # Asserts the BMC log-routing contract: the persistent watchdog log lives
         # in /host/bmc/, populated via syslog -> rsyslog drop-in, not /var/log/.
+        # Fresh-content routing is verified later, anchored to the arm/disarm round-trip.
         r = self.duthost.shell("test -f /host/bmc/watchdog.log && echo yes || echo no",
                                module_ignore_errors=True)
         pytest_assert(r.get('stdout', '').strip() == 'yes',
                       "Expected /host/bmc/watchdog.log to exist (hw-watchdog-mgrd "
                       "persistent log sink via rsyslog drop-in)")
 
-        # The daemon logs a lifecycle marker at startup ("Hardware watchdog manager
-        # starting") which the rsyslog drop-in routes to this file. Assert that a
-        # real hw-watchdog-mgrd lifecycle entry is present rather than a blind
-        # line-count, which ties the check to the actual daemon and tolerates
-        # logrotate's `notifempty` behaviour.
-        lifecycle_re = (r"Hardware watchdog manager (starting|stopping|stopped)"
-                        r"|Loaded watchdog policy"
-                        r"|Hardware watchdog .*(armed|disarmed|keepalive)")
-        r = self.duthost.shell(
-            f"grep -E '{lifecycle_re}' /host/bmc/watchdog.log | wc -l",
-            module_ignore_errors=True)
+        # Record the current size of the persistent log so the routing check below
+        # inspects ONLY the bytes this test appends. Counting pre-existing lifecycle
+        # lines is unsafe: rotated/stale entries from prior boots would mask a
+        # currently broken daemon, and the DUT wall clock could be unreliable if the
+        # RTC was stale at boot and was later stepped by NTP, so it's better not to
+        # trust timestamp-based recency. A byte offset is monotonic regardless of
+        # clock steps or rotation.
+        r = self.duthost.shell("wc -c < /host/bmc/watchdog.log",
+                               module_ignore_errors=True)
         try:
-            marker_lines = int((r.get('stdout', '') or '0').strip())
+            log_offset = int((r.get('stdout', '') or '0').strip())
         except ValueError:
-            marker_lines = 0
-        pytest_assert(marker_lines > 0,
-                      "/host/bmc/watchdog.log has no hw-watchdog-mgrd lifecycle "
-                      "entries — daemon did not log via the rsyslog drop-in")
-        logger.info(f"/host/bmc/watchdog.log has {marker_lines} hw-watchdog-mgrd "
-                    "lifecycle entrie(s)")
+            log_offset = 0
+        logger.info(f"/host/bmc/watchdog.log baseline size: {log_offset} bytes")
 
         # Negative: /var/log/watchdog* must NOT exist — that location violates
         # the BMC persistent-log convention.
@@ -155,6 +150,33 @@ class TestBmcWatchdog:
                 wait_until(15, 2, 0, lambda: self._read_watchdog_status()[0] == 'Armed'),
                 "watchdogutil status did not report Armed after `watchdogutil arm -s 180`"
             )
+
+            # --- Persistent-log routing contract (recency-anchored) ---
+            # The disarm/arm round-trip above makes hw-watchdog-mgrd emit fresh
+            # transition lines. Confirm they land in /host/bmc/watchdog.log by
+            # scanning ONLY the bytes appended since log_offset — this proves the
+            # daemon -> syslog -> rsyslog drop-in -> persistent eMMC path works
+            # right now and cannot match stale entries from an earlier run/boot.
+            marker_re = r"Hardware watchdog .*armed"
+
+            def _appended_markers():
+                res = self.duthost.shell(
+                    f"tail -c +{log_offset + 1} /host/bmc/watchdog.log | "
+                    f"grep -E '{marker_re}' | wc -l",
+                    module_ignore_errors=True)
+                try:
+                    return int((res.get('stdout', '') or '0').strip())
+                except ValueError:
+                    return 0
+
+            pytest_assert(
+                wait_until(15, 2, 0, lambda: _appended_markers() > 0),
+                "No fresh hw-watchdog-mgrd arm/disarm entries appeared in "
+                "/host/bmc/watchdog.log after the watchdogutil round-trip — the "
+                "daemon -> rsyslog drop-in -> persistent-log path is not working")
+            logger.info("Fresh hw-watchdog-mgrd transition entrie(s) confirmed in "
+                        "/host/bmc/watchdog.log after arm/disarm round-trip")
+
             state, remaining = self._read_watchdog_status()
             # Validate timeout when armed
             if state == 'Armed':
