@@ -1,7 +1,27 @@
 import xml.etree.ElementTree as ET
 import os
 import logging
+import ipaddress
 logger = logging.getLogger(__name__)
+
+
+def _is_ip_address(text):
+    try:
+        ipaddress.ip_address(text.split('/')[0])
+        return True
+    except ValueError:
+        return False
+
+
+def _text_matches(search_text, elem_text):
+    """Match element text; use case-insensitive compare for IP addresses."""
+    if not elem_text:
+        return False
+    if search_text in elem_text:
+        return True
+    if _is_ip_address(search_text):
+        return search_text.lower() in elem_text.lower()
+    return False
 
 
 def remove_xml_entries(file_path, text_to_remove, element_tag_to_check=None, remove_parent_if_matched=True):
@@ -41,7 +61,7 @@ def remove_xml_entries(file_path, text_to_remove, element_tag_to_check=None, rem
         tag_matches_criteria = (element_tag_to_check is None) or (elem.tag == element_tag_to_check)
 
         # Check if the element's text contains the string to remove
-        if tag_matches_criteria and elem.text and text_to_remove in elem.text:
+        if tag_matches_criteria and _text_matches(text_to_remove, elem.text):
             if elem == root:
                 # Special handling for root: we can't remove the root itself from a parent.
                 # If root matches and we're not removing its parent, we'll clear its content.
@@ -93,7 +113,7 @@ def remove_xml_entries(file_path, text_to_remove, element_tag_to_check=None, rem
     return removed_count
 
 
-def modify_minigraph(minigraph_file, minigraph_data, rsb_mode):
+def modify_minigraph(minigraph_file, minigraph_data, rsb_mode, platform_asic=None):
     if "minigraph_interfaces" not in minigraph_data:
         raise RuntimeError("Couldnot find any interface data in minigraph_data")
 
@@ -113,52 +133,113 @@ def modify_minigraph(minigraph_file, minigraph_data, rsb_mode):
             interfaces_not_to_remove = [all_active_fp_ports[0]]
 
     remove_count = 0
-    for entry in interfaces_to_remove:
-        remove_count += remove_xml_entries(
-            minigraph_file,
-            text_to_remove=entry,
-            element_tag_to_check=None,
-            remove_parent_if_matched=True)
-        remove_count += remove_xml_entries(
-            minigraph_file,
-            text_to_remove=minigraph_data['minigraph_port_name_to_alias_map'][entry],
-            element_tag_to_check=None,
-            remove_parent_if_matched=True)
+    is_broadcom_dnx = platform_asic == "broadcom-dnx"
+    if not is_broadcom_dnx:
+        for entry in interfaces_to_remove:
+            remove_count += remove_xml_entries(
+                minigraph_file,
+                text_to_remove=entry,
+                element_tag_to_check=None,
+                remove_parent_if_matched=True)
+            remove_count += remove_xml_entries(
+                minigraph_file,
+                text_to_remove=minigraph_data['minigraph_port_name_to_alias_map'][entry],
+                element_tag_to_check=None,
+                remove_parent_if_matched=True)
 
-        # TODO: take care of vlan members
+            # TODO: take care of vlan members
 
-        for pc, data in minigraph_data['minigraph_portchannels'].items():
-            for member in data['members']:
-                if "-BP" not in member and member not in interfaces_not_to_remove:
+            for pc, data in minigraph_data['minigraph_portchannels'].items():
+                for member in data['members']:
+                    if "-BP" not in member and member not in interfaces_not_to_remove:
+                        remove_count += remove_xml_entries(
+                            minigraph_file,
+                            text_to_remove=member,
+                            element_tag_to_check=None,
+                            remove_parent_if_matched=False)
+
+            for entry in minigraph_data['minigraph_neighbors']:
+                if "-BP" not in entry and entry not in interfaces_not_to_remove:
                     remove_count += remove_xml_entries(
                         minigraph_file,
-                        text_to_remove=member,
+                        text_to_remove=entry,
                         element_tag_to_check=None,
-                        remove_parent_if_matched=False)
+                        remove_parent_if_matched=True)
 
-        for entry in minigraph_data['minigraph_neighbors']:
-            if "-BP" not in entry and entry not in interfaces_not_to_remove:
-                remove_count += remove_xml_entries(
-                    minigraph_file,
-                    text_to_remove=entry,
-                    element_tag_to_check=None,
-                    remove_parent_if_matched=True)
+            for entry, value in minigraph_data['minigraph_ports'].items():
+                if "-BP" not in entry and entry not in interfaces_not_to_remove:
+                    remove_count += remove_xml_entries(
+                        minigraph_file,
+                        text_to_remove=value['name'],
+                        element_tag_to_check=None,
+                        remove_parent_if_matched=True)
+                    remove_count += remove_xml_entries(
+                        minigraph_file,
+                        text_to_remove=value['alias'],
+                        element_tag_to_check=None,
+                        remove_parent_if_matched=True)
+                    remove_count += remove_xml_entries(
+                        minigraph_file,
+                        text_to_remove=minigraph_data['minigraph_port_name_to_alias_map'][entry],
+                        element_tag_to_check=None,
+                        remove_parent_if_matched=True)
+    else:
+        for pc, data in minigraph_data['minigraph_portchannels'].items():
+            for member in data['members']:
+                if (member in interfaces_to_remove):
+                    remove_count += remove_xml_entries(
+                        minigraph_file,
+                        text_to_remove=pc,
+                        element_tag_to_check=None,
+                        remove_parent_if_matched=True)
 
-        for entry, value in minigraph_data['minigraph_ports'].items():
-            if "-BP" not in entry and entry not in interfaces_not_to_remove:
+        bgp_peer_not_to_remove = ''
+        bgp_peer_to_remove = []
+        for key, value in minigraph_data['minigraph_neighbors'].items():
+            if key in interfaces_to_remove:
+                logger.info('To remove BGP neighbor:{}'.format(value['name']))
+                bgp_peer_to_remove.append(value['name'])
                 remove_count += remove_xml_entries(
                     minigraph_file,
                     text_to_remove=value['name'],
                     element_tag_to_check=None,
                     remove_parent_if_matched=True)
-                remove_count += remove_xml_entries(
-                    minigraph_file,
-                    text_to_remove=value['alias'],
-                    element_tag_to_check=None,
-                    remove_parent_if_matched=True)
-                remove_count += remove_xml_entries(
-                    minigraph_file,
-                    text_to_remove=minigraph_data['minigraph_port_name_to_alias_map'][entry],
-                    element_tag_to_check=None,
-                    remove_parent_if_matched=True)
+            else:
+                bgp_peer_not_to_remove = value['name']
+                logger.info('BGP peer that will not be removed in test:{}'.format(bgp_peer_not_to_remove))
+
+        bgp_peers = [
+            x for x in minigraph_data['minigraph_bgp']
+            if (
+                ("ASIC" not in x['name'])
+                and (x['name'] != bgp_peer_not_to_remove)
+                and (x['name'] in bgp_peer_to_remove)
+            )
+        ]
+
+        addr_list = []
+        peer_list = []
+        for peer in bgp_peers:
+            addr_list.append(peer['addr'])
+            peer_list.append(peer['peer_addr'])
+
+        addr_list = list(set(addr_list))
+        peer_list = list(set(peer_list))
+
+        for addr in addr_list:
+            logger.info('To remove addr:{} from minigraph'.format(addr))
+            remove_count += remove_xml_entries(
+                minigraph_file,
+                text_to_remove=addr,
+                element_tag_to_check=None,
+                remove_parent_if_matched=True)
+
+        for peer in peer_list:
+            logger.info('To remove peer addr:{} from minigraph'.format(peer))
+            remove_count += remove_xml_entries(
+                minigraph_file,
+                text_to_remove=peer,
+                element_tag_to_check=None,
+                remove_parent_if_matched=True)
+
     return remove_count
