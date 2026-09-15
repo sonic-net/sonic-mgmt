@@ -34,19 +34,11 @@ def _parents_of(lports, lport_to_first_subport_mapping):
     return sorted({lport_to_first_subport_mapping.get(port, port) for port in lports})
 
 
-def _all_ports(oir_pport_to_lports, port_attributes_dict):
-    """Return physical ports, logical ports, and each port's OIR attribute shard."""
+def _all_ports(oir_pport_to_lports):
+    """Return the configured physical ports and all of their logical subports."""
     pports = list(oir_pport_to_lports)
     lports = [port for ports in oir_pport_to_lports.values() for port in ports]
-    unconfigured = [
-        port for port in lports
-        if not port_attributes_dict.get(port, {}).get(PHYSICAL_OIR_ATTRIBUTES_KEY)
-    ]
-    if unconfigured:
-        pytest.fail(f"port(s) under test without PHYSICAL_OIR_ATTRIBUTES: {unconfigured}")
-    return pports, lports, {
-        port: port_attributes_dict[port][PHYSICAL_OIR_ATTRIBUTES_KEY] for port in lports
-    }
+    return pports, lports
 
 
 def _bulk_waits(port_attributes_dict, lports):
@@ -91,7 +83,7 @@ def _verify_removal(duthost, port_attributes_dict, lports, flap_baseline, waterm
 
 
 def _verify_insertion(duthost, port_attributes_dict, lport_to_first_subport_mapping,
-                      oir_attrs_by_port, lports, health_baseline, watermark, wait_sec,
+                      lports, health_baseline, watermark, wait_sec,
                       baseline_tables=None, insert_flap_baseline=None, expected_flap_increment=1):
     """TC2 expected results for the ports whose module was just inserted."""
     failures = oir_helpers.verify_presence_clis(duthost, lports, present=True)
@@ -131,23 +123,25 @@ def _verify_insertion(duthost, port_attributes_dict, lport_to_first_subport_mapp
     if dom_failures:
         failures.append("DOM sensor data:\n  " + "\n  ".join(dom_failures))
 
-    failures += oir_helpers.verify_no_link_flap(duthost, oir_attrs_by_port)
+    failures += oir_helpers.verify_no_link_flap(duthost, port_attributes_dict, lports)
     failures += oir_helpers.verify_no_kernel_errors(duthost, watermark)
     return failures
 
 
 def test_physical_oir_removal(
-    request, duthost, port_attributes_dict, physical_oir_dut_attributes, oir_pport_to_lports,
+    request, duthost, port_attributes_dict, oir_pport_to_lports,
 ):
     """TC1: verify DUT state after every module under test is physically removed."""
-    pports, lports, oir_attrs_by_port = _all_ports(oir_pport_to_lports, port_attributes_dict)
+    pports, lports = _all_ports(oir_pport_to_lports)
+    oir_attrs = port_attributes_dict[lports[0]][PHYSICAL_OIR_ATTRIBUTES_KEY]
     shutdown_wait, startup_wait = _bulk_waits(port_attributes_dict, lports)
 
     flap_baseline = oir_helpers.get_flap_counts(duthost, lports)
-    watermark = oir_helpers.capture_kernel_error_watermark(duthost, oir_attrs_by_port)
+    watermark = oir_helpers.capture_kernel_error_watermark(
+        duthost, port_attributes_dict, lports)
 
     all_failures = oir_helpers.perform_oir(
-        request, duthost, physical_oir_dut_attributes, pports, present=False,
+        request, duthost, oir_attrs, pports, present=False,
         action="REMOVE the transceiver from every port listed below")
     if not all_failures:
         all_failures = _verify_removal(
@@ -155,7 +149,7 @@ def test_physical_oir_removal(
 
     # Re-seat so the next test starts from a fully linked-up switch.
     all_failures += oir_helpers.perform_oir(
-        request, duthost, physical_oir_dut_attributes, pports, present=True,
+        request, duthost, oir_attrs, pports, present=True,
         action="INSERT the transceiver back into every port listed below")
     all_failures += wait_ports_oper_status(duthost, lports, "up", startup_wait)
 
@@ -164,11 +158,11 @@ def test_physical_oir_removal(
 
 
 def test_physical_oir_insertion(
-    request, duthost, port_attributes_dict, physical_oir_dut_attributes, oir_pport_to_lports,
-    lport_to_first_subport_mapping,
+    request, duthost, port_attributes_dict, oir_pport_to_lports, lport_to_first_subport_mapping,
 ):
     """TC2: verify DUT state after every module under test is physically inserted."""
-    pports, lports, oir_attrs_by_port = _all_ports(oir_pport_to_lports, port_attributes_dict)
+    pports, lports = _all_ports(oir_pport_to_lports)
+    oir_attrs = port_attributes_dict[lports[0]][PHYSICAL_OIR_ATTRIBUTES_KEY]
     shutdown_wait, startup_wait = _bulk_waits(port_attributes_dict, lports)
 
     # Snapshot while the modules are still seated: it defines which module
@@ -177,22 +171,23 @@ def test_physical_oir_insertion(
 
     # Setup: every cage has to be empty before the insertion under test.
     setup_failures += oir_helpers.perform_oir(
-        request, duthost, physical_oir_dut_attributes, pports, present=False,
+        request, duthost, oir_attrs, pports, present=False,
         action="REMOVE the transceiver from every port listed below")
     setup_failures += wait_ports_oper_status(duthost, lports, "down", shutdown_wait)
     if setup_failures:
         pytest.fail("Physical OIR insertion (TC2) setup failures:\n  - " + "\n  - ".join(setup_failures))
 
     health_baseline = capture_baseline(duthost)
-    watermark = oir_helpers.capture_kernel_error_watermark(duthost, oir_attrs_by_port)
+    watermark = oir_helpers.capture_kernel_error_watermark(
+        duthost, port_attributes_dict, lports)
     insert_flap_baseline = oir_helpers.get_flap_counts(duthost, lports)
     all_failures = oir_helpers.perform_oir(
-        request, duthost, physical_oir_dut_attributes, pports, present=True,
+        request, duthost, oir_attrs, pports, present=True,
         action="INSERT the transceiver into every port listed below")
     if not all_failures:
         all_failures = _verify_insertion(
             duthost, port_attributes_dict, lport_to_first_subport_mapping,
-            oir_attrs_by_port, lports, health_baseline, watermark, startup_wait,
+            lports, health_baseline, watermark, startup_wait,
             baseline_tables=baseline_tables, insert_flap_baseline=insert_flap_baseline)
 
     if all_failures:
@@ -200,35 +195,36 @@ def test_physical_oir_insertion(
 
 
 def test_physical_oir_simultaneous(
-    request, duthost, port_attributes_dict, physical_oir_dut_attributes, oir_pport_to_lports,
-    lport_to_first_subport_mapping,
+    request, duthost, port_attributes_dict, oir_pport_to_lports, lport_to_first_subport_mapping,
 ):
     """TC3: remove and re-insert every module under test simultaneously."""
-    if not physical_oir_dut_attributes["simultaneous_oir"]:
+    pports, lports = _all_ports(oir_pport_to_lports)
+    oir_attrs = port_attributes_dict[lports[0]][PHYSICAL_OIR_ATTRIBUTES_KEY]
+    if not oir_attrs["simultaneous_oir"]:
         pytest.skip("simultaneous_oir is False")
-
-    pports, lports, oir_attrs_by_port = _all_ports(oir_pport_to_lports, port_attributes_dict)
     shutdown_wait, startup_wait = _bulk_waits(port_attributes_dict, lports)
 
     baseline_tables, all_failures = _capture_table_baseline(duthost, lports)
     flap_baseline = oir_helpers.get_flap_counts(duthost, lports)
-    watermark = oir_helpers.capture_kernel_error_watermark(duthost, oir_attrs_by_port)
+    watermark = oir_helpers.capture_kernel_error_watermark(
+        duthost, port_attributes_dict, lports)
     all_failures += oir_helpers.perform_oir(
-        request, duthost, physical_oir_dut_attributes, pports, present=False,
+        request, duthost, oir_attrs, pports, present=False,
         action="REMOVE ALL the transceivers simultaneously")
     if not all_failures:
         all_failures = _verify_removal(
             duthost, port_attributes_dict, lports, flap_baseline, watermark, shutdown_wait)
 
     health_baseline = capture_baseline(duthost)
-    watermark = oir_helpers.capture_kernel_error_watermark(duthost, oir_attrs_by_port)
+    watermark = oir_helpers.capture_kernel_error_watermark(
+        duthost, port_attributes_dict, lports)
     insert_flap_baseline = oir_helpers.get_flap_counts(duthost, lports)
     insert_failures = oir_helpers.perform_oir(
-        request, duthost, physical_oir_dut_attributes, pports, present=True,
+        request, duthost, oir_attrs, pports, present=True,
         action="INSERT ALL the transceivers simultaneously")
     all_failures += insert_failures or _verify_insertion(
         duthost, port_attributes_dict, lport_to_first_subport_mapping,
-        oir_attrs_by_port, lports, health_baseline, watermark, startup_wait,
+        lports, health_baseline, watermark, startup_wait,
         baseline_tables=baseline_tables, insert_flap_baseline=insert_flap_baseline)
 
     if all_failures:
@@ -236,12 +232,12 @@ def test_physical_oir_simultaneous(
 
 
 def test_physical_oir_stress(
-    request, duthost, port_attributes_dict, physical_oir_dut_attributes, oir_pport_to_lports,
-    lport_to_first_subport_mapping,
+    request, duthost, port_attributes_dict, oir_pport_to_lports, lport_to_first_subport_mapping,
 ):
     """TC4: OIR every module repeatedly and verify recovery after the last insertion."""
-    pports, lports, oir_attrs_by_port = _all_ports(oir_pport_to_lports, port_attributes_dict)
-    iterations = physical_oir_dut_attributes["physical_oir_stress_iteration"]
+    pports, lports = _all_ports(oir_pport_to_lports)
+    oir_attrs = port_attributes_dict[lports[0]][PHYSICAL_OIR_ATTRIBUTES_KEY]
+    iterations = oir_attrs["physical_oir_stress_iteration"]
     if not isinstance(iterations, int) or iterations < 1:
         pytest.fail(
             "physical_oir_stress_iteration must be a positive integer to exercise a stress "
@@ -253,7 +249,8 @@ def test_physical_oir_stress(
     if baseline_failures:
         pytest.fail("Physical OIR stress (TC4) setup failures:\n  - " + "\n  - ".join(baseline_failures))
     health_baseline = capture_baseline(duthost)
-    watermark = oir_helpers.capture_kernel_error_watermark(duthost, oir_attrs_by_port)
+    watermark = oir_helpers.capture_kernel_error_watermark(
+        duthost, port_attributes_dict, lports)
     insert_flap_baseline = None
     # Only the last insertion is verified; the earlier cycles just have to
     # complete and be observed by the DUT.
@@ -261,15 +258,16 @@ def test_physical_oir_stress(
         logger.info("Physical OIR stress iteration %d/%d on %d module(s)",
                     iteration, iterations, len(pports))
         all_failures = oir_helpers.perform_oir(
-            request, duthost, physical_oir_dut_attributes, pports, present=False,
+            request, duthost, oir_attrs, pports, present=False,
             action=f"REMOVE ALL the transceivers (stress iteration {iteration}/{iterations})")
         if all_failures:
             break
         health_baseline = capture_baseline(duthost)
-        watermark = oir_helpers.capture_kernel_error_watermark(duthost, oir_attrs_by_port)
+        watermark = oir_helpers.capture_kernel_error_watermark(
+            duthost, port_attributes_dict, lports)
         insert_flap_baseline = oir_helpers.get_flap_counts(duthost, lports)
         all_failures = oir_helpers.perform_oir(
-            request, duthost, physical_oir_dut_attributes, pports, present=True,
+            request, duthost, oir_attrs, pports, present=True,
             action=f"INSERT ALL the transceivers (stress iteration {iteration}/{iterations})")
         if all_failures:
             break
@@ -277,7 +275,7 @@ def test_physical_oir_stress(
     if not all_failures:
         all_failures = _verify_insertion(
             duthost, port_attributes_dict, lport_to_first_subport_mapping,
-            oir_attrs_by_port, lports, health_baseline, watermark, startup_wait,
+            lports, health_baseline, watermark, startup_wait,
             baseline_tables=baseline_tables, insert_flap_baseline=insert_flap_baseline)
 
     if all_failures:

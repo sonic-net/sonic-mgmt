@@ -22,8 +22,10 @@ from tests.common.platform.interface_utils import (
     get_physical_to_logical_port_mapping,
     get_pport_presence_data,
 )
-from tests.common.utilities import wait_until
-from tests.transceiver.attribute_parser.attribute_keys import DOM_ATTRIBUTES_KEY
+from tests.transceiver.attribute_parser.attribute_keys import (
+    DOM_ATTRIBUTES_KEY,
+    PHYSICAL_OIR_ATTRIBUTES_KEY,
+)
 from tests.transceiver.common import cli_helpers, db_helpers, dmesg_helpers
 from tests.transceiver.common.cli_parser_helper import (
     ABSENT_MSG_CLI_INFO,
@@ -139,33 +141,28 @@ def prompt_operator(request, action, pports, timeout_min):
     return None
 
 
-def get_pport_presence_all_asics(duthost):
-    """Return ``{physical index: present}`` merged across every frontend ASIC.
-
-    ``get_pport_presence_data`` reads a single namespace, so a multi-ASIC DUT's
-    non-default-ASIC ports are absent from a bare call.
-    """
-    presence = {}
-    for asic_index in duthost.get_frontend_asic_ids():
-        presence.update(get_pport_presence_data(duthost, asic_index))
-    return presence
-
-
 def wait_pport_presence(duthost, pports, present):
     """Poll until every physical port in ``pports`` reports ``present``."""
-    latest = {}
+    def _check():
+        presence = get_pport_presence_data(duthost)
+        failures = []
+        for pport in pports:
+            if pport not in presence:
+                failures.append(
+                    f"physical port {pport}: missing from presence output, expected {present}"
+                )
+            elif presence[pport] != present:
+                failures.append(
+                    f"physical port {pport}: presence {presence[pport]}, expected {present}"
+                )
+        return failures
 
-    def _settled():
-        latest.update(get_pport_presence_all_asics(duthost))
-        return all(pport in latest and latest[pport] == present for pport in pports)
-
-    if wait_until(PRESENCE_SETTLE_SEC, POLL_INTERVAL_SEC, 0, _settled):
-        return []
-    return [
-        f"physical port {pport}: presence {latest.get(pport)}, expected {present} "
-        f"{PRESENCE_SETTLE_SEC}s after the OIR action"
-        for pport in pports if latest.get(pport) != present
-    ]
+    return poll_ports_recovered(
+        _check,
+        PRESENCE_SETTLE_SEC,
+        POLL_INTERVAL_SEC,
+        "physical port presence",
+    )
 
 
 def perform_oir(request, duthost, oir_attrs, pports, present, action=None):
@@ -368,13 +365,13 @@ def verify_flap_count_increment(duthost, lports, baseline, expected_increment=1)
     return failures
 
 
-def verify_no_link_flap(duthost, oir_attrs_by_port):
+def verify_no_link_flap(duthost, port_attributes_dict, lports):
     """Verify each port stays stable for its configured observation window."""
     lports_by_timeout = defaultdict(list)
-    for port, attrs in oir_attrs_by_port.items():
+    for port in lports:
+        attrs = port_attributes_dict[port][PHYSICAL_OIR_ATTRIBUTES_KEY]
         lports_by_timeout[attrs["link_flap_monitor_timeout_sec"]].append(port)
 
-    lports = list(oir_attrs_by_port)
     sentinels = capture_flap_sentinels(duthost, lports)
     failures = []
     elapsed_sec = 0
@@ -399,13 +396,16 @@ def verify_other_ports_up(duthost, port_attributes_dict, affected_lports):
     ]
 
 
-def capture_kernel_error_watermark(duthost, oir_attrs_by_port):
+def capture_kernel_error_watermark(duthost, port_attributes_dict, lports):
     """Return ``(watermark, err)`` when any affected port enables monitoring, else ``None``.
 
     The capture error is preserved rather than collapsed into ``None`` so a
     requested kernel check cannot silently pass without ever running.
     """
-    if not any(attrs["monitor_kernel_errors"] for attrs in oir_attrs_by_port.values()):
+    if not any(
+        port_attributes_dict[port][PHYSICAL_OIR_ATTRIBUTES_KEY]["monitor_kernel_errors"]
+        for port in lports
+    ):
         return None
     watermark, err = dmesg_helpers.capture_dmesg_uptime_watermark(duthost)
     if err:
