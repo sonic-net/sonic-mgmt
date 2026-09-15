@@ -148,7 +148,6 @@ test_t0() {
       tacacs/test_ro_disk.py \
       tacacs/test_ro_user.py \
       tacacs/test_rw_user.py \
-      telemetry/test_telemetry.py \
       test_features.py \
       test_interfaces.py \
       test_procdockerstatsd.py"

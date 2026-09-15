@@ -345,8 +345,20 @@ class GenerateGoldenConfigDBModule(object):
         return json.dumps(golden_config_db, indent=4)
 
     def check_version_for_bmp(self):
-        # disable bmp feature table first
-        return False
+        output_version = device_info.get_sonic_version_info()
+        build_version = output_version['build_version']
+
+        if re.match(r'^(\d{6})', build_version):
+            version_number = int(re.findall(r'\d{6}', build_version)[0])
+            if version_number < 202411:
+                return False
+        elif re.match(r'^internal-(\d{6})', build_version):
+            internal_version_number = int(re.findall(r'\d{6}', build_version)[0])
+            if internal_version_number < 202411:
+                return False
+        else:
+            return True
+        return True
 
     def is_bmc_device(self):
         return device_info.get_localhost_info('type') == 'NetworkBmc'
@@ -911,6 +923,10 @@ class GenerateGoldenConfigDBModule(object):
                 "main_dpu_ids": self._format_dpu_key(hostname_1, idx)
             }
 
+        vxlan_tunnel_entry = {"src_ip": vxlan_src_ip}
+        if (device_info.get_sonic_version_info() or {}).get("asic_type") == "cisco-8000":
+            vxlan_tunnel_entry["ttl_mode"] = "pipe"
+
         ha_config = {
             "REMOTE_DPU": remote_dpu_table,
             "VDPU": vdpu_table,
@@ -956,7 +972,7 @@ class GenerateGoldenConfigDBModule(object):
                 }
             },
             "VXLAN_TUNNEL": {
-                "t4": {"src_ip": vxlan_src_ip}
+                "t4": vxlan_tunnel_entry
             }
         }
 
