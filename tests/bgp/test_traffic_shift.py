@@ -5,6 +5,7 @@ from tests.common.devices.eos import EosHost
 from tests.bgp.bgp_helpers import get_routes_not_announced_to_bgpmon, remove_bgp_neighbors, restore_bgp_neighbors, \
     initial_tsa_check_before_and_after_test
 from tests.common import config_reload
+from tests.common.config_reload import DEFAULT_GOLDEN_CONFIG_PATH
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.constants import DEFAULT_ASIC_ID
 from tests.common.platform.processes_utils import wait_critical_processes
@@ -16,9 +17,10 @@ from tests.bgp.route_checker import assert_only_loopback_routes_announced_to_nei
 from tests.bgp.traffic_checker import get_traffic_shift_state, check_tsa_persistence_support, \
     verify_traffic_shift_per_asic
 from tests.bgp.constants import TS_NORMAL, TS_MAINTENANCE, TS_NO_NEIGHBORS
+from tests.bgp.traffic_shift_golden import temporary_dma_maintenance_golden
 
 pytestmark = [
-    pytest.mark.topology('t1', 'm1', 'c0')
+    pytest.mark.topology('t1', 'm1', 'c0', 'uma', 'lma')
 ]
 
 logger = logging.getLogger(__name__)
@@ -339,11 +341,16 @@ def test_load_minigraph_with_traffic_shift_away(duthosts, enum_rand_one_per_hwsk
             orig_v4_routes = parse_routes_on_neighbors(duthost, nbrhosts, 4)
         orig_v6_routes = parse_routes_on_neighbors(duthost, nbrhosts, 6)
 
-        is_override_config = True if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get(
-            "is_smartswitch") else False
+        topology = tbinfo['topo']['type']
+        is_smartswitch = bool(
+            duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch")
+        )
+        is_override_config = is_smartswitch or topology in ("uma", "lma")
 
-        config_reload(duthost, config_source='minigraph', safe_reload=True, check_intf_up_ports=True,
-                      traffic_shift_away=True, override_config=is_override_config)
+        with temporary_dma_maintenance_golden(
+                duthost, topology, DEFAULT_GOLDEN_CONFIG_PATH) as golden_config:
+            config_reload(duthost, config_source='minigraph', safe_reload=True, check_intf_up_ports=True,
+                          traffic_shift_away=True, override_config=is_override_config, **golden_config)
 
         # Verify DUT is in maintenance state.
         pytest_assert(wait_until(30, 5, 0, lambda: TS_MAINTENANCE == get_traffic_shift_state(duthost, "TSC no-stats")),
