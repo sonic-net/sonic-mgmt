@@ -349,14 +349,27 @@ def do_test(duthosts, weak_server):
             skip_counter_check = True
 
         asic_index = ports_info["asic_index"]
-        base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, ports_info, tx_dut_ports,
-                          skip_counter_check=skip_counter_check, drop_information=drop_information,
-                          weak_server=weak_server)
+        counter_failure = None
+        try:
+            base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, ports_info, tx_dut_ports,
+                              skip_counter_check=skip_counter_check, drop_information=drop_information,
+                              weak_server=weak_server)
+        # SafeThreadPoolExecutor wraps worker failures in RuntimeError.
+        except (RuntimeError, pytest.fail.Exception) as err:
+            counter_failure = err
 
         # Verify packets were not egresed the DUT
         if discard_group != "NO_DROPS":
             exp_pkt = expected_packet_mask(pkt, ip_ver=ip_ver)
-            testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=sniff_ports)
+            try:
+                testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=sniff_ports)
+            except (AssertionError, pytest.fail.Exception) as err:
+                if counter_failure is not None:
+                    pytest.fail("{}; packet was also observed at egress: {}".format(counter_failure, err))
+                raise
+
+        if counter_failure is not None:
+            raise counter_failure
 
     return do_counters_test
 
