@@ -812,12 +812,18 @@ def test_dhcp_server_config_vlan_intf_change(
     # can interfere with the DHCP server's subnet matching after IP swap/restore.
     # Temporarily remove them so the test operates with a single unambiguous subnet.
     vlan_brief = duthost.get_vlan_brief()
+    vlan_intf_cfg = duthost.get_running_config_facts().get('VLAN_INTERFACE', {}).get(vlan_name_1, {})
     all_vlan_ipv4_prefixes = vlan_brief[vlan_name_1].get('interface_ipv4', [])
-    extra_ipv4_prefixes = [prefix for prefix in all_vlan_ipv4_prefixes if prefix != vlan_ipv4_1]
+    extra_ipv4_prefixes = []
+    for prefix in all_vlan_ipv4_prefixes:
+        if prefix == vlan_ipv4_1:
+            continue
+        was_secondary = vlan_intf_cfg.get(prefix, {}).get('secondary') == 'true'
+        extra_ipv4_prefixes.append((prefix, was_secondary))
     if extra_ipv4_prefixes:
         logging.info("Temporarily removing extra IPv4 prefixes from %s: %s" %
-                     (vlan_name_1, extra_ipv4_prefixes))
-        for extra_ip in extra_ipv4_prefixes:
+                     (vlan_name_1, [p for p, _ in extra_ipv4_prefixes]))
+        for extra_ip, _ in extra_ipv4_prefixes:
             duthost.remove_ip_addr_from_vlan(vlan_name_1, extra_ip)
 
     try:
@@ -863,5 +869,9 @@ def test_dhcp_server_config_vlan_intf_change(
             net_mask=net_mask_1
         )
     finally:
-        for extra_ip in extra_ipv4_prefixes:
-            duthost.add_ip_addr_to_vlan(vlan_name_1, extra_ip)
+        for extra_ip, was_secondary in extra_ipv4_prefixes:
+            if was_secondary:
+                duthost.command("config interface ip add {} {} --secondary".format(
+                    vlan_name_1, extra_ip))
+            else:
+                duthost.add_ip_addr_to_vlan(vlan_name_1, extra_ip)
