@@ -322,7 +322,18 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         cmd = 'config load_minigraph -y'
         if traffic_shift_away:
             cmd += ' -t'
-        if override_config or macsec_en:
+        # Always-on MACsec beds bind PORT.macsec / MACSEC_PROFILE / FEATURE.macsec
+        # only through golden config and run without --enable_macsec, so a
+        # minigraph reload needs -o or MACsec silently disappears mid-run.
+        # Covers the case where CONFIG_DB has already lost the bindings.
+        macsec_override = False
+        if is_dut and not (override_config or macsec_en):
+            gcp = golden_config_path or DEFAULT_GOLDEN_CONFIG_PATH
+            if sonic_host.shell('grep -q MACSEC_PROFILE {}'.format(gcp),
+                                module_ignore_errors=True).get('rc') == 0:
+                macsec_override = True
+                logger.info("Golden config carries MACSEC_PROFILE; adding -o to restore MACsec")
+        if override_config or macsec_en or macsec_override:
             cmd += ' -o'
         if golden_config_path:
             cmd += ' -p {} '.format(golden_config_path)

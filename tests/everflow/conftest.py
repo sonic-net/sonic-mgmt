@@ -17,4 +17,4 @@ def skip_egress_acl_everflow_on_dnx_macsec(request, duthosts, rand_one_dut_hostn
     fn = getattr(inst, "acl_stage", None)
     if callable(fn) and fn() == "egress":
         pytest.skip("Egress ACL everflow tests not supported with MACSEC on "
-                    "\"{}\" ASICs".format(duthost.facts.get("asic_type")))
+                    "\"{}\" ASICs".format(duthost.facts.get("platform_asic")))

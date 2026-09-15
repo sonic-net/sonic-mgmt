@@ -51,10 +51,10 @@ DST_IPV6_RANGE = ['20D0:A800:0:01::', '20D0:FFFF:0:01::FFFF']
 
 # T2: outer IPs in the default-route space (8.x/9.x, 20D0:*) so both the exported FIB
 # and the ASIC LPM lookup consistently hit 0.0.0.0/0 [T3-ports] / ::/0 for outer headers.
-T2_VXLAN_OUTER_SRC_IPV4 = '8.0.0.1'
-T2_VXLAN_OUTER_DST_IPV4 = '9.0.0.1'
-T2_VXLAN_OUTER_SRC_IPV6 = '20D0:A800:0:00::1'
-T2_VXLAN_OUTER_DST_IPV6 = '20D0:A800:0:01::1'
+T2_OUTER_SRC_IPV4 = '8.0.0.1'
+T2_OUTER_DST_IPV4 = '9.0.0.1'
+T2_OUTER_SRC_IPV6 = '20D0:A800:0:00::1'
+T2_OUTER_DST_IPV6 = '20D0:A800:0:01::1'
 VLANIDS = list(range(1032, 1279))
 VLANIP = '192.168.{}.1/24'
 PTF_QLEN = 20000
@@ -699,11 +699,11 @@ def test_ipinip_hash_negative(add_default_route_to_dut, duthosts,           # no
     if tbinfo['topo']['type'] == 't2':
         # IPinIPHashTest picks the OUTER header version from is_v6_topo, not ipver.
         if is_ipv6_only_topology(tbinfo):
-            ptf_params["outer_src_ip"] = T2_VXLAN_OUTER_SRC_IPV6
-            ptf_params["outer_dst_ip"] = T2_VXLAN_OUTER_DST_IPV6
+            ptf_params["outer_src_ip"] = T2_OUTER_SRC_IPV6
+            ptf_params["outer_dst_ip"] = T2_OUTER_DST_IPV6
         else:
-            ptf_params["outer_src_ip"] = T2_VXLAN_OUTER_SRC_IPV4
-            ptf_params["outer_dst_ip"] = T2_VXLAN_OUTER_DST_IPV4
+            ptf_params["outer_src_ip"] = T2_OUTER_SRC_IPV4
+            ptf_params["outer_dst_ip"] = T2_OUTER_DST_IPV4
     ptf_runner(ptfhost,
                "ptftests",
                "hash_test.IPinIPHashTest",
@@ -769,11 +769,11 @@ def test_vxlan_hash(add_default_route_to_dut, duthost, duthosts,                
     }
     if tbinfo['topo']['type'] == 't2':
         if vxlan_ipver in ("ipv4-ipv4", "ipv4-ipv6"):
-            vxlan_params["outer_src_ip"] = T2_VXLAN_OUTER_SRC_IPV4
-            vxlan_params["outer_dst_ip"] = T2_VXLAN_OUTER_DST_IPV4
+            vxlan_params["outer_src_ip"] = T2_OUTER_SRC_IPV4
+            vxlan_params["outer_dst_ip"] = T2_OUTER_DST_IPV4
         else:
-            vxlan_params["outer_src_ip"] = T2_VXLAN_OUTER_SRC_IPV6
-            vxlan_params["outer_dst_ip"] = T2_VXLAN_OUTER_DST_IPV6
+            vxlan_params["outer_src_ip"] = T2_OUTER_SRC_IPV6
+            vxlan_params["outer_dst_ip"] = T2_OUTER_DST_IPV6
     ptf_runner(ptfhost,
                "ptftests",
                "hash_test.VxlanHashTest",
