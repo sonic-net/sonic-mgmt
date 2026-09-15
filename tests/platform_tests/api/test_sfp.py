@@ -125,7 +125,20 @@ class TestSfpApi(PlatformApiTestBase):
 
     EXPECTED_XCVR_NEW_CMIS_FIRMWARE_INFO_KEYS = ['active_firmware',
                                                  'inactive_firmware']
-
+    EXPECTED_CPO_XCVR_INFO_KEYS = [
+        'els_laser_count',
+        'els_vendor_rev',
+        'els_max_power',
+        'els_date_code',
+        'els_vendor_oui',
+        'els_revision',
+        'els_vendor_sn',
+        'rlm_laser_wavelength_grid',
+        'els_vendor_pn',
+        'els_vendor_name',
+        'els_identifier',
+        'rlm_laser_lpmode_control'
+    ]
     # These are fields which have been added in the common parsers
     # in sonic-platform-common/sonic_sfp, but since some vendors are
     # using their own custom parsers, they do not yet provide these
@@ -270,7 +283,24 @@ class TestSfpApi(PlatformApiTestBase):
         'supported_min_tx_power',
         'supported_max_tx_power'
     ]
-
+    
+    EXPECTED_CPO_XCVR_THRESHOLD_INFO_KEYS = [
+        'els_txbiashighwarning',
+        'els_txpowerlowalarm',
+        'els_temphighwarning',
+        'els_txpowerlowwarning',
+        'els_txbiashighalarm',
+        'els_txpowerhighalarm',
+        'els_templowwarning',
+        'els_templowalarm',
+        'els_temphighalarm',
+        'els_vcclowalarm',
+        'els_vcclowwarning',
+        'els_vcchighalarm',
+        'els_vcchighwarning',
+        'els_txpowerhighwarning'
+    ]
+    
     # xcvr to be skipped for lpmode test due to known issue
     LPMODE_SKIP_LIST = [
         {'manufacturer': 'Cloud Light', 'model': '7123-G37-01'},
@@ -530,6 +560,10 @@ class TestSfpApi(PlatformApiTestBase):
                             if sfp.is_coherent_module(platform_api_conn, i):
                                 UPDATED_EXPECTED_XCVR_INFO_KEYS = UPDATED_EXPECTED_XCVR_INFO_KEYS + \
                                                                   self.QSFPZR_EXPECTED_XCVR_INFO_KEYS
+                            # CPO module: identifier contains "CPO"
+                            type = info_dict.get("type", "")
+                            if "CPO" in type:
+                                UPDATED_EXPECTED_XCVR_INFO_KEYS = UPDATED_EXPECTED_XCVR_INFO_KEYS + self.EXPECTED_CPO_XCVR_INFO_KEYS
                         else:
                             UPDATED_EXPECTED_XCVR_INFO_KEYS = self.EXPECTED_XCVR_INFO_KEYS
                     missing_keys = set(UPDATED_EXPECTED_XCVR_INFO_KEYS) - set(actual_keys)
@@ -602,7 +636,13 @@ class TestSfpApi(PlatformApiTestBase):
 
                     expected_keys = list(self.EXPECTED_XCVR_COMMON_THRESHOLD_INFO_KEYS)
                     if info_dict["type_abbrv_name"] in ["QSFP-DD", "OSFP-8X", "QSFP+C"]:
-                        expected_keys += self.QSFPDD_EXPECTED_XCVR_THRESHOLD_INFO_KEYS
+                        type = info_dict.get("type", "")
+                        if "CPO" in type:
+                            # CPO module: skip standard QSFP-DD threshold keys, use CPO specific threshold keys
+                            expected_keys += self.EXPECTED_CPO_XCVR_THRESHOLD_INFO_KEYS
+                        else:
+                            # Normal QSFP-DD / OSFP / QSFP+C module
+                            expected_keys += self.QSFPDD_EXPECTED_XCVR_THRESHOLD_INFO_KEYS
                         if sfp.is_coherent_module(platform_api_conn, i):
                             if 'INPHI CORP' in info_dict['manufacturer'] and 'IN-Q3JZ1-TC' in info_dict['model']:
                                 logger.info("INPHI CORP Transceiver is not populating the associated threshold fields \
