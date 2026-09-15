@@ -25,7 +25,6 @@ power_on_event = threading.Event()
 # SSH defines
 SONIC_SSH_PORT = 22
 SONIC_SSH_REGEX = 'OpenSSH_[\\w\\.]+ Debian'
-ANSIBLE_READY_TIMEOUT = 90
 ANSIBLE_READY_INTERVAL = 10
 
 REBOOT_TYPE_WARM = "warm"
@@ -245,7 +244,7 @@ def wait_for_startup(duthost, localhost, delay, timeout, port=SONIC_SSH_PORT,
         result = duthost.command("true", module_ignore_errors=True)
         return result.is_successful
 
-    if not wait_until(ANSIBLE_READY_TIMEOUT, ANSIBLE_READY_INTERVAL, 0, is_ansible_ready):
+    if not wait_until(timeout, ANSIBLE_READY_INTERVAL, 0, is_ansible_ready):
         raise Exception(
             "DUT {} did not become ready for Ansible commands after SSH startup".format(hostname)
         )
