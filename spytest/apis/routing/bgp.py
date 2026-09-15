@@ -4505,7 +4505,7 @@ def config_bgp(dut, **kwargs):
         if 'bgp_bestpath_selection' in bgp_router_kwargs:
             # This option hasn't been used in scripts.
             bgp_router_kwargs['best_path_cmd'] = bgp_router_kwargs.pop('bgp_bestpath_selection')
-            if ('med missing-as-worst confed' or 'med missing-as-worst') in bgp_bestpath_selection:
+            if any(cmd in bgp_bestpath_selection for cmd in ('med missing-as-worst confed', 'med missing-as-worst')):
                 bgp_router_kwargs['best_path_cmd'] = 'med confed missing-as-worst'
 
         if 'import-check' in config_type_list:
@@ -5888,7 +5888,7 @@ def config_bgp(dut, **kwargs):
                             if not delete_rest(dut, rest_url=url):
                                 st.error("failed to unconfig med confed")
 
-                    if ('med missing-as-worst confed' or 'med missing-as-worst') in bgp_bestpath_selection:
+                    if any(cmd in bgp_bestpath_selection for cmd in ('med missing-as-worst confed', 'med missing-as-worst')):
                         if config_cmd != 'no':
                             global_data["openconfig-network-instance:bgp"]["global"]["route-selection-options"]["config"].update({"openconfig-bgp-ext:med-missing-as-worst": True})
                         else:

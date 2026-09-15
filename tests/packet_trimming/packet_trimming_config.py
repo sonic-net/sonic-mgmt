@@ -102,3 +102,12 @@ class PacketTrimmingConfig:
             return th5_queue.get(duthost.facts['hwsku'], 0)
 
         return PacketTrimmingConfig.COUNTER_DSCP
+
+    @staticmethod
+    def get_verify_packet_count(duthost):
+        if duthost.get_asic_name() == 'th5':
+            # Broadcom shaper will always leak some packets
+            # More verification packets are required to see trimming
+            return 1000
+        else:
+            return 100

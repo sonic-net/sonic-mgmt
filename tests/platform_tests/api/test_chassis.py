@@ -35,6 +35,25 @@ pytestmark = [
 REGEX_MAC_ADDRESS = r'^([0-9A-Fa-f]{2}:){5}([0-9A-Fa-f]{2})$'
 REGEX_SERIAL_NUMBER = r'^[A-Za-z0-9\-]+$'
 
+# Chassis API tests that are not available/applicable on BMC topologies
+BMC_SKIPPED_CHASSIS_TESTS = {
+    "test_get_presence",
+    "test_get_model",
+    "test_get_revision",
+    "test_get_status",
+    "test_get_position_in_parent",
+    "test_is_replaceable",
+    "test_fans",
+    "test_fan_drawers",
+    "test_psus",
+    "test_thermals",
+    "test_sfps",
+    "test_status_led",
+    "test_get_thermal_manager",
+    "test_get_supervisor_slot",
+    "test_get_my_slot",
+}
+
 # Valid OCP ONIE TlvInfo EEPROM type codes as defined here:
 # https://opencomputeproject.github.io/onie/design-spec/hw_requirements.html
 ONIE_TLVINFO_TYPE_CODE_PRODUCT_NAME = '0x21'    # Product Name
@@ -83,6 +102,16 @@ class TestChassisApi(PlatformApiTestBase):
     """Platform API test cases for the Chassis class"""
     inv_files = None
 
+    @pytest.fixture(autouse=True)
+    def skip_bmc_blocklisted_tests(self, request, tbinfo):
+        topo_type = (tbinfo.get("topo", {}).get("type") or "").lower()
+        if "bmc" not in topo_type:
+            return
+
+        test_name = request.function.__name__
+        if test_name in BMC_SKIPPED_CHASSIS_TESTS:
+            pytest.skip("Skipped on BMC: {} is in BMC skip list".format(test_name))
+
     #
     # Helper functions
     #
@@ -108,6 +137,7 @@ class TestChassisApi(PlatformApiTestBase):
         pytest_assert(expected_value is not None,
                       "Unable to get expected value for '{}' from inventory file".format(key))
 
+        expected_value = str(expected_value).strip()
         if case_sensitive:
             pytest_assert(value == expected_value,
                           "'{}' value is incorrect. Got '{}', expected '{}'".format(key, value, expected_value))
@@ -416,6 +446,47 @@ class TestChassisApi(PlatformApiTestBase):
         for i in range(num_psus):
             psu = chassis.get_psu(platform_api_conn, i)
             self.expect(psu and psu == psu_list[i], "PSU {} is incorrect".format(i))
+        self.assert_expectations()
+
+    def test_pdbs(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa: F811
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        platform_expects_pdbs = (duthost.facts.get("chassis") and
+                                 duthost.facts["chassis"].get("pdbs"))
+        num_pdbs = None
+        try:
+            num_pdbs_raw = chassis.get_num_pdbs(platform_api_conn)
+            if num_pdbs_raw is None:
+                if platform_expects_pdbs:
+                    pytest.fail("get_num_pdbs returned None but platform.json has pdbs defined")
+                pytest.skip("get_num_pdbs API not supported on this platform")
+            num_pdbs = int(num_pdbs_raw)
+        except Exception:
+            if platform_expects_pdbs:
+                pytest.fail("num_pdbs is not an integer")
+            pytest.skip("get_num_pdbs API not supported on this platform")
+
+        if num_pdbs is None:
+            pytest.fail("num_pdbs should have been initialized")
+
+        if duthost.facts.get("chassis") and duthost.facts["chassis"].get("pdbs"):
+            expected_num_pdbs = len(duthost.facts["chassis"]["pdbs"])
+            pytest_assert(num_pdbs == expected_num_pdbs,
+                          f"Number of PDBs ({num_pdbs}) does not match expected number "
+                          f"({expected_num_pdbs})")
+        else:
+            pytest_assert(num_pdbs == 0,
+                          f"platform.json has no pdbs array but get_num_pdbs() returned {num_pdbs}")
+
+        if num_pdbs == 0:
+            pytest.skip("No PDBs found on device (PSU platform)")
+
+        pdb_list = chassis.get_all_pdbs(platform_api_conn)
+        pytest_assert(pdb_list is not None, "Failed to retrieve PDBs")
+        pytest_assert(isinstance(pdb_list, list) and len(pdb_list) == num_pdbs, "PDBs appear to be incorrect")
+
+        for i in range(num_pdbs):
+            single_pdb = chassis.get_pdb(platform_api_conn, i)
+            self.expect(single_pdb and single_pdb == pdb_list[i], f"PDB {i} is incorrect")
         self.assert_expectations()
 
     def test_thermals(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):    # noqa: F811
