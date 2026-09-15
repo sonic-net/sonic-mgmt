@@ -1,6 +1,7 @@
 import json
 import logging
 import re
+from typing import Any
 
 import ptf.packet as scapy
 import ptf.testutils as testutils
@@ -201,7 +202,7 @@ def find_test_vlan(duthost):
 
 def find_test_client_port_and_mac(ptfadapter, duthost, members, count):
     # Will return up to count many up ports with their port index and mac address of ptf
-    results = []
+    results: list[list[Any]] = []
     interf_status = duthost.show_interface(command="status")["ansible_facts"]["int_status"]
     for member_interface in members:
         if len(results) == count:
