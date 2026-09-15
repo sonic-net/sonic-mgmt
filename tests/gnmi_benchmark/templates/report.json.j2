@@ -1,0 +1,52 @@
+{
+  "record_type": "gnmi_benchmark",
+  "schema_version": {{ 4 if operation == "get-set" else 3 }},
+  "cid": {{ cid | tojson }},
+  "started_ts": {{ started_ts | tojson }},
+  "finished_ts": {{ finished_ts | tojson }},
+  "device": {{ device | tojson }},
+  "benchmark": {
+    "client": {{ client | tojson }},
+    "operation": {{ operation | tojson }},
+    "protocol": "gnmi",
+    "connection_type": {{ connection_type | tojson }},
+    "auth_mode": {{ auth_mode | tojson }},
+    "connections": 1,
+    "connection_policy": "single_persistent_channel",
+    "connection_setup": {{ connection_setup | tojson }},
+    "workload_model": "closed",
+    "latency_measurement": {
+      "source": "python_perf_counter_ns",
+      "boundary": {{ ("get_set_workflow" if operation == "get-set" else "client_call") | tojson }},
+      "start": "before_client_admission_bookkeeping_and_stub_call",
+      "end": {{ ("set_return_or_first_rpc_error_after_protobuf_decoding" if operation == "get-set" else "stub_return_or_rpc_error_after_protobuf_decoding") | tojson }},
+      "excludes_response_error_inspection": true,
+      "transport_timestamps_available": false
+    },
+    "payload_profile": {{ payload_profile | tojson }},
+    "bypass_requested": {{ bypass_requested | tojson }},
+    "backend_path": {{ backend_path | tojson }},
+    "backend_evidence": {{ backend_evidence | tojson }},
+    "response_validation": {{ ("grpc_status_and_explicit_response_errors" if operation in ("set", "get-set") else "grpc_status_only") | tojson }},
+    {% if operation == "get-set" %}
+    "workflow": {
+      "sequence": ["get", "set"],
+      "get_request": "empty",
+      "set_policy": "always_after_successful_get",
+      "rpc_latency_boundary": "stub_call_to_return_or_error",
+      "rpc_timeout_scope": "per_rpc",
+      "group_latency_includes_inter_rpc_bookkeeping": true
+    },
+    {% endif %}
+    "histogram_profile": "grpc_a66_latency_ms_v1"
+  },
+  "load": {{ load | tojson }},
+  "metrics": {{ metrics | tojson }},
+  "execution": {{ execution | tojson }},
+  "resources": {{ resources | tojson }},
+  "sampling": {
+    "method": "boundary_snapshots",
+    "sample_positions": ["before_benchmark", "after_benchmark"],
+    "measurement_window_sampled": false
+  }
+}

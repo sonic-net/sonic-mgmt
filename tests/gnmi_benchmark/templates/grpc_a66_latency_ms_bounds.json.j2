@@ -1,0 +1,25 @@
+{#
+  gRFC A66 default latency histogram boundaries, expressed here in milliseconds.
+  Source: https://github.com/grpc/proposal/blob/master/A66-otel-stats.md#units
+
+  Unit multiplier: seconds * 1000 = milliseconds (ms).
+  Examples: 0.00001 s * 1000 = 0.01 ms; 0.001 s * 1000 = 1 ms;
+            1 s * 1000 = 1000 ms; 100 s * 1000 = 100000 ms.
+  The literal values below are already converted; do not multiply them again.
+  A66 uses nonuniform spacing, not one constant multiplier between neighbors.
+
+  41 explicit upper bounds produce 42 mutually exclusive bucket counters:
+    index 0: exactly 0 ms (negative latencies are rejected)
+    index i=1..40: (bounds[i-1], bounds[i]]
+    index 41: (100000 ms, +Inf); infinity is implicit, not a JSON value.
+  E.g. 20 ms belongs to (16, 20], while 20.001 ms belongs to (20, 25].
+  Bucket percentage = count * 100 / successful_samples, when samples > 0.
+  These are histogram boundaries, not timeout limits or pass/fail thresholds.
+  Keep these values stable for grpc_a66_latency_ms_v1; changing them requires
+  a new histogram profile. Jinja comments are removed before JSON parsing.
+#}
+[
+  0, 0.01, 0.05, 0.1, 0.3, 0.6, 0.8, 1, 2, 3, 4, 5, 6, 8, 10,
+  13, 16, 20, 25, 30, 40, 50, 65, 80, 100, 130, 160, 200, 250, 300,
+  400, 500, 650, 800, 1000, 2000, 5000, 10000, 20000, 50000, 100000
+]
