@@ -21,7 +21,9 @@ The test:
 """
 import ipaddress
 import logging
+import socket
 
+import paramiko
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
@@ -31,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
-    pytest.mark.topology('any'),
+    pytest.mark.topology('t0', 't0-*'),
     pytest.mark.device_type('vs'),
 ]
 
@@ -86,13 +88,13 @@ def _get_sshd_listen_bindings(duthost):
     return bindings
 
 
-def _wait_for_sshd_bindings(duthost, expected_addrs, port="22"):
-    def _bindings_match():
-        bindings = _get_sshd_listen_bindings(duthost)
-        bound_addrs = {addr for addr, p in bindings if p == port}
-        return bound_addrs == set(expected_addrs)
-
-    return wait_until(HOSTCFGD_APPLY_TIMEOUT, HOSTCFGD_APPLY_INTERVAL, 0, _bindings_match)
+def _sshd_bindings_match(duthost, expected_addrs, port="22"):
+    """ Return True if sshd is currently bound to exactly expected_addrs on
+        port. Callers are responsible for polling this via wait_until — this
+        function itself does not wait. """
+    bindings = _get_sshd_listen_bindings(duthost)
+    bound_addrs = {addr for addr, p in bindings if p == port}
+    return bound_addrs == set(expected_addrs)
 
 
 def _pick_assigned_addresses(duthost):
@@ -140,13 +142,21 @@ def restore_ssh_server_policies(duthosts, rand_one_dut_hostname):
     finally:
         if original_listen_addresses is not None:
             _set_listen_addresses(duthost, original_listen_addresses.split(','))
+            expected_addrs = original_listen_addresses.split(',')
         else:
             _delete_listen_addresses(duthost)
-        # Give hostcfgd time to re-apply the restored/removed configuration
-        # and confirm the wildcard listeners are back before finishing.
-        wait_until(HOSTCFGD_APPLY_TIMEOUT, HOSTCFGD_APPLY_INTERVAL, 0,
-                   lambda: _wait_for_sshd_bindings(duthost, ["0.0.0.0", "::"]) or
-                   original_listen_addresses is not None)
+            expected_addrs = ["0.0.0.0", "::"]
+        # Give hostcfgd time to re-apply the restored/removed configuration.
+        # This is best-effort: we log rather than raise/assert here so a slow
+        # convergence during teardown never masks an assertion failure raised
+        # by the test body itself.
+        restored = wait_until(HOSTCFGD_APPLY_TIMEOUT, HOSTCFGD_APPLY_INTERVAL, 0,
+                              _sshd_bindings_match, duthost, expected_addrs)
+        if not restored:
+            logger.warning(
+                "sshd did not converge to the restored listen_addresses %s within %ss",
+                expected_addrs, HOSTCFGD_APPLY_TIMEOUT
+            )
 
 
 def test_ssh_listen_addresses(duthosts, rand_one_dut_hostname, creds, restore_ssh_server_policies):
@@ -176,7 +186,7 @@ def test_ssh_listen_addresses(duthosts, rand_one_dut_hostname, creds, restore_ss
 
     pytest_assert(
         wait_until(HOSTCFGD_APPLY_TIMEOUT, HOSTCFGD_APPLY_INTERVAL, 0,
-                   lambda: _wait_for_sshd_bindings(duthost, keep_addresses)),
+                   _sshd_bindings_match, duthost, keep_addresses),
         "sshd did not converge to listening only on the configured addresses {}".format(keep_addresses)
     )
 
@@ -199,7 +209,7 @@ def test_ssh_listen_addresses(duthosts, rand_one_dut_hostname, creds, restore_ss
     pytest_assert(omit_address not in bound_addrs,
                   "sshd is unexpectedly still bound to the omitted VLAN address {}".format(omit_address))
 
-    with pytest.raises(Exception):
+    with pytest.raises((paramiko.ssh_exception.NoValidConnectionsError, socket.timeout, OSError)):
         ssh = paramiko_ssh(omit_address, dutuser, [dutpass] + creds.get("ansible_altpasswords", []))
         ssh.close()
 
@@ -208,7 +218,7 @@ def test_ssh_listen_addresses(duthosts, rand_one_dut_hostname, creds, restore_ss
     _delete_listen_addresses(duthost)
     pytest_assert(
         wait_until(HOSTCFGD_APPLY_TIMEOUT, HOSTCFGD_APPLY_INTERVAL, 0,
-                   lambda: _wait_for_sshd_bindings(duthost, ["0.0.0.0", "::"])),
+                   _sshd_bindings_match, duthost, ["0.0.0.0", "::"]),
         "sshd did not restore the IPv4/IPv6 wildcard listeners after removing listen_addresses"
     )
 
