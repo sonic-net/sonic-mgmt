@@ -387,15 +387,6 @@ def verify_lldp_table(duthost, intf_status_output, test_name=""):
     logger.info("LLDP table interfaces{}: {}".format(context, sorted(lldp_table_interfaces)))
     logger.info("LLDP table interfaces in total: {}".format(len(lldp_table_interfaces)))
 
-    # On virtual/KVM testbeds, eth0 has no LLDP neighbor so it won't appear in the LLDP table
-    if is_virtual_platform(duthost):
-        if 'eth0' not in lldp_table_interfaces:
-            logger.info("eth0 not in LLDP table (expected on virtual/KVM testbed){}"
-                        .format(context))
-    else:
-        pytest_assert('eth0' in lldp_table_interfaces,
-                      "eth0 is missing from LLDP table{}".format(context))
-
     # For LLDP table comparison: exclude eth0 from lldp_table, exclude PortChannels and admin down from intf_status
     lldp_table_interfaces_no_eth0 = lldp_table_interfaces - {'eth0'}
 
@@ -464,15 +455,6 @@ def verify_lldpcli_interfaces(duthost, asic, intf_status_output, test_name=""):
 
     logger.info("lldpcli interfaces{}: {}".format(context, sorted(lldpcli_interfaces)))
     logger.info("lldpcli interfaces in total: {}".format(len(lldpcli_interfaces)))
-
-    # On virtual/KVM testbeds, eth0 may not appear in lldpcli
-    if is_virtual_platform(duthost):
-        if 'eth0' not in lldpcli_interfaces:
-            logger.info("eth0 not in lldpcli interfaces (expected on virtual/KVM testbed){}"
-                        .format(context))
-    else:
-        pytest_assert('eth0' in lldpcli_interfaces,
-                      "eth0 is missing from lldpcli interfaces{}".format(context))
 
     # For lldpcli comparison: exclude eth0 from lldpcli, exclude only PortChannels from intf_status
     lldpcli_interfaces_no_eth0 = lldpcli_interfaces - {'eth0'}
@@ -543,15 +525,6 @@ def verify_lldpctl_facts(duthost, enum_frontend_asic_index, intf_status_output, 
         skip_interface_pattern_list=["Ethernet-BP", "Ethernet-IB"] + internal_port_list
     )['ansible_facts']
 
-    # Verify eth0 is in lldpctl_facts (only on physical testbeds)
-    if is_virtual_platform(duthost):
-        if 'eth0' not in lldpctl_facts.get('lldpctl', {}):
-            logger.info("eth0 not in lldpctl_facts (expected on virtual/KVM testbed){}"
-                        .format(context))
-    else:
-        pytest_assert('eth0' in lldpctl_facts.get('lldpctl', {}),
-                      "eth0 is missing from lldpctl_facts{}".format(context))
-
     # Get interfaces from lldpctl_facts (excluding eth0)
     lldpctl_facts_interfaces = set(lldpctl_facts.get('lldpctl', {}).keys()) - {'eth0'}
     logger.info("lldpctl_facts interfaces (excluding eth0){}: {}".format(
@@ -596,6 +569,63 @@ def verify_lldpctl_facts(duthost, enum_frontend_asic_index, intf_status_output, 
                           interface, context))
 
     return lldpctl_facts
+
+
+def verify_eth0_interface(duthosts, duthost, test_name=""):
+    """
+    Verify eth0 is present in lldp table, lldpcli, and lldpctl on the
+    appropriate host.
+
+    On modular chassis, eth0 lives on the supervisor node rather than the
+    frontend linecard, so the check targets the supervisor instead.
+
+    On multi-asic, eth0 lives in the main container (lldp) instead of the
+    indexed ones (lldp0, lldp1, etc.)
+
+    Args:
+        duthosts: All DUT hosts
+        duthost: current DUT host object
+        test_name: Optional test context name for logging
+    """
+    context = " {}".format(test_name) if test_name else ""
+    logger.info("Verifying eth0 interface for lldp{}".format(context))
+
+    dut = duthost
+
+    # On modular chassis, check for eth0 interface on the supervisor
+    if dut.get_facts().get("modular_chassis"):
+        dut = duthosts.supervisor_nodes[0] if len(duthosts.supervisor_nodes) > 0 else None
+        pytest_assert(dut, "Failed to verify eth0 in{}. No supervisor node".format(context))
+
+    # Check eth0 presence in lldp table
+    lldp_table_output = dut.show_and_parse("show lldp table")
+    eth0_in_lldp_table = bool(next((port for port in lldp_table_output if port.get("localport") == 'eth0'), None))
+
+    # Check eth0 presence in lldpcli
+    lldpcli_output = dut.shell("docker exec lldp lldpcli show interfaces")['stdout']
+    eth0_in_lldpcli = bool(re.search(r'^Interface:\s+eth0\b', lldpcli_output, re.MULTILINE))
+
+    # Check eth0 presence in lldpctl (neighbor data)
+    lldpctl_interfaces = dut.lldpctl_facts()['ansible_facts'].get('lldpctl', {})
+    eth0_in_lldpctl = 'eth0' in lldpctl_interfaces
+
+    logger.info("eth0 presence{} - lldpcli: {}, lldpctl: {}, lldp_table: {}".format(
+        context, eth0_in_lldpcli, eth0_in_lldpctl, eth0_in_lldp_table))
+
+    if is_virtual_platform(dut):
+        if not eth0_in_lldp_table:
+            logger.info("eth0 not in lldp table (expected on virtual/KVM testbed){}".format(context))
+        if not eth0_in_lldpcli:
+            logger.info("eth0 not in lldpcli (expected on virtual/KVM testbed){}".format(context))
+        if not eth0_in_lldpctl:
+            logger.info("eth0 not in lldpctl (expected on virtual/KVM testbed){}".format(context))
+    else:
+        pytest_assert(eth0_in_lldp_table,
+                      "eth0 is missing from lldp table{}".format(context))
+        pytest_assert(eth0_in_lldpcli,
+                      "eth0 is missing from lldpcli{}".format(context))
+        pytest_assert(eth0_in_lldpctl,
+                      "eth0 is missing from lldpctl{}".format(context))
 
 
 def verify_chassis_info(duthost, asic, expected_chassis_mac, test_name=""):
@@ -657,8 +687,9 @@ def test_lldp_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     2. Verify LLDP table matches recorded interfaces
     3. Verify lldpcli interfaces match recorded interfaces
     4. Verify lldpctl_facts interfaces match recorded interfaces
-    5. Verify chassis ID and capabilities
-    6. Check syslog for LLDP errors using loganalyzer
+    5. Verify eth0 interface
+    6. Verify chassis ID and capabilities
+    7. Check syslog for LLDP errors using loganalyzer
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asic = duthost.asic_instance(enum_frontend_asic_index)
@@ -696,7 +727,10 @@ def test_lldp_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         # Step 4: Verify lldpctl_facts
         verify_lldpctl_facts(duthost, enum_frontend_asic_index, intf_status_output, lldpcli_interfaces)
 
-        # Step 5: Verify chassis ID and capabilities
+        # Step 5: Verify eth0 interface
+        verify_eth0_interface(duthosts, duthost)
+
+        # Step 6: Verify chassis ID and capabilities
         verify_chassis_info(duthost, asic, expected_chassis_mac)
 
     logger.info("Test completed successfully. All LLDP checks passed.")
@@ -714,8 +748,9 @@ def test_lldp_interfaces_config_reload(duthosts, enum_rand_one_per_hwsku_fronten
     3. Verify LLDP table matches recorded interfaces
     4. Verify lldpcli interfaces match recorded interfaces
     5. Verify lldpctl_facts interfaces match recorded interfaces
-    6. Verify chassis ID and capabilities
-    7. Check syslog for LLDP errors using loganalyzer
+    6. Verify eth0 interface
+    7. Verify chassis ID and capabilities
+    8. Check syslog for LLDP errors using loganalyzer
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asic = duthost.asic_instance(enum_frontend_asic_index)
@@ -754,10 +789,21 @@ def test_lldp_interfaces_config_reload(duthosts, enum_rand_one_per_hwsku_fronten
         logger.info("Step 2: Performing config reload")
         config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
+        # On modular chassis, also reload the config of the supervisor as the
+        # eth0 will be verified there
+        if duthost.get_facts().get("modular_chassis"):
+            sup = duthosts.supervisor_nodes[0] if len(duthosts.supervisor_nodes) > 0 else None
+            config_reload(sup, safe_reload=True)
+        else:
+            sup = None
+
         logger.info("Step 3: Waiting for system to stabilize after config reload")
         # Wait for LLDP to converge
         assert wait_until(300, 10, 0, duthost.critical_services_fully_started), \
             "Not all critical services are fully started after config reload"
+        if sup:
+            assert wait_until(300, 10, 0, sup.critical_services_fully_started), \
+                "Not all critical services are fully started after config reload on the supervisor"
 
         # Wait for all LLDP neighbors to be re-discovered using pre-reload count as baseline
         pytest_assert(
@@ -777,7 +823,10 @@ def test_lldp_interfaces_config_reload(duthosts, enum_rand_one_per_hwsku_fronten
         verify_lldpctl_facts(duthost, enum_frontend_asic_index, intf_status_output,
                              lldpcli_interfaces, "after config reload")
 
-        # Step 7: Verify chassis ID and capabilities after config reload
+        # Step 7: Verify eth0 interface
+        verify_eth0_interface(duthosts, duthost, test_name="after config reload")
+
+        # Step 8: Verify chassis ID and capabilities after config reload
         verify_chassis_info(duthost, asic, expected_chassis_mac, "after config reload")
 
     logger.info("Test completed successfully. All LLDP checks passed after config reload.")
