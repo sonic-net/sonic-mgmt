@@ -53,13 +53,18 @@ import time
 
 import ptf
 import ptf.packet as scapy
+# macsec must be imported BEFORE any `from ptf.testutils import ...` that pulls
+# in send_packet/dp_poll: it monkeypatches those functions in ptf.testutils to
+# MACsec-encrypt injected frames / decrypt sniffed frames on macsec-enabled
+# ports. A from-import binds the original object if it runs first. (A module
+# alias like `testutils` resolves at call time and is order-insensitive; it is
+# kept below only for consistency with the other ptftests.)
+import macsec  # noqa F401
 import ptf.testutils as testutils
 from ptf.testutils import simple_ip_only_packet, simple_tcpv6_packet, simple_ipv4ip_packet, simple_ipv6ip_packet
 from ptf.testutils import send_packet, verify_packet_any_port
 from ptf.mask import Mask
 from ptf.base_tests import BaseTest
-
-import macsec  # noqa F401
 
 
 class DecapPacketTest(BaseTest):

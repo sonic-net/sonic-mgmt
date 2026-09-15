@@ -4,8 +4,12 @@ import logging
 import random
 from ptf.base_tests import BaseTest
 import time
-from ptf.testutils import test_params_get, simple_udp_packet, simple_udpv6_packet, send_packet
+# macsec must be imported BEFORE any `from ptf.testutils import ...` that pulls
+# in send_packet/dp_poll: it monkeypatches those functions in ptf.testutils to
+# MACsec-encrypt injected frames / decrypt sniffed frames on macsec-enabled
+# ports. A from-import binds the original object if it runs first.
 import macsec  # noqa F401
+from ptf.testutils import test_params_get, simple_udp_packet, simple_udpv6_packet, send_packet
 
 
 class PfcWdBackgroundTrafficTest(BaseTest):

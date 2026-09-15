@@ -413,6 +413,7 @@ def load_basic_facts(dut_name, session):
 
     results['topo_type'] = tbinfo['topo']['type']
     results['topo_name'] = tbinfo['topo']['name']
+    results['macsec_topo'] = bool(tbinfo['topo'].get('properties', {}).get('macsec_links'))
     results['testbed'] = testbed_name
     if session.config.option.customize_inventory_file:
         inv_name = session.config.option.customize_inventory_file
