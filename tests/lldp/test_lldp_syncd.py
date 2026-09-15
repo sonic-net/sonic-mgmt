@@ -36,7 +36,7 @@ def ignore_expected_loganalyzer_exceptions(duthosts, loganalyzer):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def wait_for_lldp_appl_db(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+def wait_for_lldp_appl_db(duthosts, enum_rand_one_per_hwsku_frontend_hostname, adjust_lldp_copp_policer):  # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     appl_db = []
     for asic in duthost.asics:
