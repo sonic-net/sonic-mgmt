@@ -155,7 +155,7 @@ interface {{ name }}
 {% endif %}
 {% if iface['lacp'] is defined %}
  channel-group {{ iface['lacp'] }} mode active
- lacp rate normal
+ lacp timer normal
 {% endif %}
  no shutdown
 !
