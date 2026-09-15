@@ -288,23 +288,22 @@ def get_acl_counter(duthost, table_name, rule_name, timeout=ACL_COUNTERS_UPDATE_
         wait_until(timeout, 2, 0, _check_acl_counter_updated, duthost, table_name, rule_name, prev_count)
     result = duthost.show_and_parse('aclshow -a')
 
-    if not result:
-        pytest.fail("Failed to retrieve ACL counter for {}|{}".format(table_name, rule_name))
+    pytest_assert(result, "Failed to retrieve ACL counter for {}|{}".format(table_name, rule_name))
 
-    for rule in result:
-        if table_name == rule.get('table name') and rule_name == rule.get('rule name'):
-            pkt_count = rule.get('packets count', '0')
-            if pkt_count == 'N/A':
-                return 0
-            try:
-                return int(pkt_count)
-            except ValueError:
-                logger.warning(
-                    f"ACL counter for {table_name}|{rule_name} has unexpected value: '{pkt_count}', returning 0"
-                )
-                return 0
+    matched = next((rule for rule in result
+                    if table_name == rule.get('table name') and rule_name == rule.get('rule name')), None)
+    pytest_assert(matched, "ACL rule {} not found in table {}".format(rule_name, table_name))
 
-    pytest.fail("ACL rule {} not found in table {}".format(rule_name, table_name))
+    pkt_count = matched.get('packets count', '0')
+    if pkt_count == 'N/A':
+        return 0
+    try:
+        return int(pkt_count)
+    except ValueError:
+        logger.warning(
+            f"ACL counter for {table_name}|{rule_name} has unexpected value: '{pkt_count}', returning 0"
+        )
+        return 0
 
 
 def setup_acl_table_type(duthost, acl_type_name=ACL_TABLE_TYPE):
