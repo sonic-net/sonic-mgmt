@@ -579,10 +579,11 @@ def validate_mirror_session_up(duthost, session_name):
     """
     Check if a mirror session is up.
     """
-    cmd = f'sonic-db-cli STATE_DB HGET \"MIRROR_SESSION_TABLE|{session_name}\" status'
-    mirror_status = duthost.command(cmd)['stdout']
-    if 'active' in mirror_status:
-        return True
+    for namespace in duthost.get_frontend_asic_namespace_list():
+        cmd = f'sonic-db-cli STATE_DB HGET \"MIRROR_SESSION_TABLE|{session_name}\" status'
+        cmd = duthost.get_cli_cmd_for_namespace(cmd, namespace)
+        if 'active' in duthost.command(cmd)['stdout']:
+            return True
     return False
 
 
