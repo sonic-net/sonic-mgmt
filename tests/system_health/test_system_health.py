@@ -592,6 +592,14 @@ def _fetch_led_and_status(duthost):
     return led_status, status_dict
 
 
+def is_chassis_status_led_controllable(duthost):
+    """Return whether the chassis status LED can be controlled via platform API."""
+    status_led = (duthost.facts.get("chassis") or {}).get("status_led")
+    if not status_led:
+        return False
+    return status_led.get("controllable", True)
+
+
 def check_system_health_led_info(duthost):
     # BMC platforms do not implement the system status LED chassis APIs, so
     # 'show system-health summary' fails on them. Skip the LED check there.
@@ -629,6 +637,10 @@ def check_system_health_led_info(duthost):
     status_dict = consistent_snapshot.get('status_dict', last_observed.get('status_dict', {}))
     logger.info(f"System status LED is {system_led_status}")
     logger.info(f"Status dict is {status_dict}")
+
+    if duthost.is_bmc() or not is_chassis_status_led_controllable(duthost):
+        logger.info("Skipping system status LED color check: chassis status LED is not controllable on this platform")
+        return True
 
     if all(status == "OK" for status in status_dict.values()):
         assert result and system_led_status == expected_normal, \
