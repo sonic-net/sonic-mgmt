@@ -18,6 +18,7 @@ from tests.common.helpers.bgp import (
     get_db_cli_prefix,
     get_db_cli_prefix_for_namespace,
     get_asic_namespace,
+    get_exabgp_url,
     namespace_cli_arg,
 )
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
@@ -357,7 +358,7 @@ def update_routes(action, ptfip, port, route):
     if 'community' in route:
         msg += ' community {}'.format(route['community'])
 
-    url = 'http://%s:%d' % (ptfip, port)
+    url = get_exabgp_url(ptfip, port)
     data = {'commands': msg}
     logging.info('Post url={}, data={}'.format(url, data))
     r = requests.post(url, data=data, proxies={"http": None, "https": None})
