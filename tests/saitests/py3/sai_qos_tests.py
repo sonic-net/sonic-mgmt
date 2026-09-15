@@ -7382,13 +7382,16 @@ class QWatermarkAllPortTest(sai_base_test.ThriftInterfaceDataPlane):
                         })
 
                         if ignore_upper_bound:
-                            msg = "Port {}, Queue {}: lower {} {} = queue_wm {}, upper ignored (attempt {}/{}, {:.1f}ms)".format(
-                                dst_port, queue, lower, offset_text(qwm - lower), qwm,
-                                attempt, MAX_RETRIES, elapsed_ms)
+                            msg = ("Port {}, Queue {}: lower {} {} = queue_wm {}, "
+                                   "upper ignored (attempt {}/{}, {:.1f}ms)".format(
+                                       dst_port, queue, lower, offset_text(qwm - lower),
+                                       qwm, attempt, MAX_RETRIES, elapsed_ms))
                         else:
-                            msg = "Port {}, Queue {}: lower {} {} = queue_wm {} = upper {} {} (attempt {}/{}, {:.1f}ms)".format(
-                                dst_port, queue, lower, offset_text(qwm - lower), qwm, upper,
-                                offset_text(qwm - upper), attempt, MAX_RETRIES, elapsed_ms)
+                            msg = ("Port {}, Queue {}: lower {} {} = queue_wm {} = "
+                                   "upper {} {} (attempt {}/{}, {:.1f}ms)".format(
+                                       dst_port, queue, lower, offset_text(qwm - lower),
+                                       qwm, upper, offset_text(qwm - upper), attempt,
+                                       MAX_RETRIES, elapsed_ms))
                         log_message(msg, to_stderr=True)
 
                         if passed:
@@ -7437,8 +7440,9 @@ class QWatermarkAllPortTest(sai_base_test.ThriftInterfaceDataPlane):
 
                 # Retry summary
                 if retry_successes:
-                    log_message("Retry summary: {} measurements passed on retry (proves background traffic interference)".format(
-                        len(retry_successes)), to_stderr=True)
+                    log_message("Retry summary: {} measurements passed on retry "
+                                "(proves background traffic interference)".format(
+                                    len(retry_successes)), to_stderr=True)
                     for port, queue, attempt in retry_successes:
                         log_message("  Port {}, Queue {}: passed on attempt {}".format(
                             port, queue, attempt), to_stderr=True)
