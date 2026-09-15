@@ -1421,5 +1421,6 @@ qos_params:
         topo-t0-standalone-256: *topo-t0-standalone
         topo-t0-standalone-32:  *topo-t0-standalone
         topo-lt2-min:  *topo-t0-standalone
+        topo-lt2-u32d128: *topo-t0-standalone
         topo-any:  *topo-t0-standalone
         topo-t1-8:  *topo-t0-standalone
