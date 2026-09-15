@@ -1,9 +1,24 @@
 import logging
+import os
+import re
 import pytest
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 from tests.common.gu_utils import restore_backup_test_config, save_backup_test_config
 
 logger = logging.getLogger(__name__)
+
+
+def pytest_configure(config):
+    """Register custom markers used by the Add-MOR scaling tests."""
+    config.addinivalue_line(
+        "markers",
+        "gcu_scaling_nightly: Add-MOR scaling — runs in nightly pipeline")
+    config.addinivalue_line(
+        "markers",
+        "gcu_scaling_weekly: Add-MOR scaling — runs weekly / on-demand")
+    config.addinivalue_line(
+        "markers",
+        "gcu_scaling_sanity: Add-MOR scaling — one-time test-validation only")
 
 
 # -----------------------------
@@ -12,6 +27,25 @@ logger = logging.getLogger(__name__)
 
 @pytest.fixture(scope="module")
 def enum_rand_one_asic_namespace(enum_rand_one_frontend_asic_index):
+    # Optional deterministic override for scaling runs on testbeds where
+    # only one asic has enough external PortChannels for the requested N.
+    # Set GCU_FORCE_ASIC="asic1" (or "asic0", or "host" for None) in the
+    # test environment to skip the random pick.  Nightly on production
+    # testbeds should leave this unset.  The value is normalised (stripped
+    # and lower-cased) and validated up front so a typo fails immediately
+    # rather than silently targeting a namespace that does not exist.
+    raw_forced = os.environ.get("GCU_FORCE_ASIC")
+    if raw_forced:
+        forced = raw_forced.strip().lower()
+        if forced == "host":
+            logger.info("GCU_FORCE_ASIC=host -> using None (localhost)")
+            return None
+        if not re.match(r"^asic\d+$", forced):
+            pytest.fail(
+                "GCU_FORCE_ASIC must be 'host' or 'asic<N>' (e.g. 'asic0'), "
+                "got {!r}".format(raw_forced))
+        logger.info("GCU_FORCE_ASIC=%s -> overriding random asic pick", forced)
+        return forced
     return None if enum_rand_one_frontend_asic_index is None else 'asic{}'.format(enum_rand_one_frontend_asic_index)
 
 
