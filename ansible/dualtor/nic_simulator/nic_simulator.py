@@ -418,6 +418,7 @@ class OVSBridge(object):
         "groups",
         "upstream_ecmp_flow",
         "upstream_ecmp_group",
+        "upstream_group_dirty",
         "states_getter",
         "states_setter",
         "downstream_flows",
@@ -451,6 +452,7 @@ class OVSBridge(object):
         self.groups = []
         self._init_ports()
         self._init_flows(duplicate_nic_upstream)
+        self.upstream_group_dirty = False
         self.states_getter = {
             1: self.upstream_ecmp_flow.get_upper_tor_forwarding_state,
             0: self.upstream_ecmp_flow.get_lower_tor_forwarding_state
@@ -635,10 +637,18 @@ class OVSBridge(object):
             for portid, state in zip(portids, states):
                 logging.info("Set bridge %s port %s forwarding state: %s",
                              self.bridge_name, portid, ForwardingState.STATE_LABELS[state])
-                self.flap_counter[portid] += self.states_setter[portid](state)
-            OVSCommand.ovs_ofctl_mod_groups(
-                self.bridge_name, self.upstream_ecmp_group)
+                port_changed = self.states_setter[portid](state)
+                self.flap_counter[portid] += port_changed
+                self.upstream_group_dirty |= port_changed
+            if self.upstream_group_dirty:
+                self._update_upstream_group()
             return self.query_forwarding_state(portids)
+
+    def _update_upstream_group(self):
+        # A failed write must still be retried even when the requested state is unchanged.
+        self.upstream_group_dirty = True
+        OVSCommand.ovs_ofctl_mod_groups(self.bridge_name, self.upstream_ecmp_group)
+        self.upstream_group_dirty = False
 
     def query_forwarding_state(self, portids):
         """Query forwarding state."""
@@ -719,8 +729,8 @@ class OVSBridge(object):
                     forwarding_state = forwarding_state_getter()
                     if forwarding_state == ForwardingState.STANDBY:
                         forwarding_state_setter(ForwardingState.ACTIVE)
-                        OVSCommand.ovs_ofctl_mod_groups(
-                            self.bridge_name, self.upstream_ecmp_group)
+                    if self.upstream_group_dirty or forwarding_state == ForwardingState.STANDBY:
+                        self._update_upstream_group()
                 else:
                     if direction == 0:
                         # downstream
@@ -775,8 +785,8 @@ class OVSBridge(object):
                         # use set forwarding state to standby to simulator link drop
                         if forwarding_state == ForwardingState.ACTIVE:
                             forwarding_state_setter(ForwardingState.STANDBY)
-                            OVSCommand.ovs_ofctl_mod_groups(
-                                self.bridge_name, self.upstream_ecmp_group)
+                        if self.upstream_group_dirty or forwarding_state == ForwardingState.ACTIVE:
+                            self._update_upstream_group()
                     else:
                         raise ValueError("Invalid direction %s, please use 0 for downstream and 1 for upstream"
                                          % (direction))
