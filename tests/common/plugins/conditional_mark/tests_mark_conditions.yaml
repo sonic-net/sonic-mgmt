@@ -744,6 +744,12 @@ bgp/test_startup_tsa_tsb_service.py::test_user_init_tsb_on_sup_while_service_run
     conditions:
       - "'t2_single_node' in topo_name or topo_type in ['lrh', 'urh']"
 
+bgp/test_traffic_shift.py:
+  skip:
+    reason: "test_traffic_shift is explicitly disabled on chassis T2"
+    conditions:
+      - "topo_type in ['t2'] and is_chassis==True"
+
 bgp/test_traffic_shift.py::test_load_minigraph_with_traffic_shift_away:
   skip:
     reason: "Test is flaky and causing PR test to fail unnecessarily"
