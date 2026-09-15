@@ -212,11 +212,29 @@ class HashTest(BaseTest):
                 hit_count_map[matched_port] = hit_count_map.get(
                     matched_port, 0) + 1
             logging.info("hit count map: {}".format(hit_count_map))
-            # if the packet from the ingress port could go to both ToRs(active-active dualtor), we should
-            # expect that the packets go to the same ToR has same egress port, so there should be two entries
-            # in the hit count map.
-            assert len(hit_count_map.keys()) == len(
-                self.ptf_test_port_map[str(ingress_port)]["target_dut"])
+            # On a multi-core VOQ ASIC the same fixed 5-tuple can resolve to a
+            # different -- but still valid -- ECMP member depending on which
+            # ingress core the packet arrives on, so the same flow injected from
+            # different ingress ports may egress different ports. This mirrors
+            # the existing multi-ASIC handling, where 'ingress-port' is excluded
+            # from the hash keys for the same reason. Every packet is already
+            # validated to land on a valid ECMP member (verify_packet_any_port),
+            # and this negative subtest only runs on ECMP routes (each
+            # exp_port_list is asserted to have >1 nexthop above), so relaxing
+            # the single-global-egress check does not mask a single-next-hop
+            # route that should have one deterministic egress.
+            is_ecmp_route = all(len(exp_ports) > 1 for exp_ports in exp_port_lists)
+            if self.switch_type == 'voq' and is_ecmp_route:
+                logging.info(
+                    "switch_type is voq and route is ECMP: skipping the "
+                    "single-egress-port assertion for 'ingress-port' (the ingress "
+                    "core may select a different but valid ECMP member)")
+            else:
+                # if the packet from the ingress port could go to both ToRs(active-active dualtor), we
+                # should expect that the packets go to the same ToR has same egress port, so there should
+                # be two entries in the hit count map.
+                assert len(hit_count_map.keys()) == len(
+                    self.ptf_test_port_map[str(ingress_port)]["target_dut"])
         else:
             for _ in range(0, self.balancing_test_times * len(list(itertools.chain(*exp_port_lists)))):
                 logging.info('Checking hash key {}, src_port={}, exp_ports={}, dst_ip={}'
