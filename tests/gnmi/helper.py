@@ -142,7 +142,9 @@ def recover_cert_config(duthost, stopped_programs=None):
 
     # Restart telemetry container if it was stopped during cert config change
     # apply_cert_config may trigger ctrmgrd to stop the telemetry container
-    if not check_container_state(duthost, "telemetry", should_be_running=True):
+    telemetry_enabled = duthost.shell('sonic-db-cli CONFIG_DB HGET "FEATURE|telemetry" state',
+                                      module_ignore_errors=True)['stdout'].strip() == "enabled"
+    if telemetry_enabled and not check_container_state(duthost, "telemetry", should_be_running=True):
         logger.info("Telemetry container is not running after cert config recovery, restarting it")
         duthost.shell("sudo systemctl restart telemetry", module_ignore_errors=True)
 
