@@ -357,7 +357,7 @@ def test_subscribe_closes_receiver_without_unhandled_exception(monkeypatch, stat
     channel_closed = threading.Event()
     unhandled = []
 
-    class ExpectedShutdownError(grpc.RpcError):
+    class ExpectedShutdownError(grpc.RpcError):  # type: ignore[misc]
         def code(self):
             return status
 
