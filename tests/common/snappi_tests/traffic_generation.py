@@ -44,6 +44,7 @@ CONTINUOUS_MODE = -5
 ANSIBLE_POLL_DELAY_SEC = 4
 UDP_PORT_START = 5000
 ECN_CAPABLE_TRANSPORT_1 = 1
+MACSEC_FLOW_STOPPED_RATE_THRESHOLD = 1
 
 
 def setup_base_traffic_config(testbed_config,
@@ -754,6 +755,20 @@ def _log_in_flight_macsec_flow_stats(in_flight_flow_metrics, data_flow_names, sn
     )
 
 
+def _are_macsec_flows_stopped(transmit_states):
+    """
+    Whether every sampled MACsec flow Tx Frame Rate is at (or near) zero.
+
+    IxNetwork's Flow Statistics view reports a sampled Tx Frame Rate for MACsec
+    flows rather than a reliable OTG transmit-state enum, so a small residual
+    sampled rate is tolerated instead of requiring an exact 0.
+    """
+    return (
+        bool(transmit_states)
+        and max(transmit_states) <= MACSEC_FLOW_STOPPED_RATE_THRESHOLD
+    )
+
+
 def run_traffic(duthost,
                 api,
                 config,
@@ -948,7 +963,7 @@ def run_traffic(duthost,
                 if int(metric['PGID']) in snappi_extra_params.flow_name_prio_map.values()
                 and metric['Tx Port'] == snappi_extra_params.base_flow_config["tx_port_name"]
             ]
-            if list(set(transmit_states)) == [0]:   # Issue encountered, workaround is != instead of ==
+            if _are_macsec_flows_stopped(transmit_states):
                 logger.info("All test and background traffic flows stopped")
                 time.sleep(SNAPPI_POLL_DELAY_SEC)
                 break
