@@ -49,9 +49,11 @@ def get_docker_started_at(duthost, name):
 
 
 # Runs on the DUT to avoid clock skew; uses State.StartedAt (not `docker ps` text) for precision.
+# Trimming the zone name makes podman's "... +0000 UTC" parse; docker's RFC3339 is unaffected.
 _PMON_UPTIME_SECONDS_CMD = (
     'if [ "$(docker inspect -f \\{\\{.State.Running\\}\\} pmon 2>/dev/null)" = "true" ]; then '
-    'echo $(( $(date -u +%s) - $(date -u -d "$(docker inspect -f \\{\\{.State.StartedAt\\}\\} pmon)" +%s) )); '
+    'started=$(docker inspect -f \\{\\{.State.StartedAt\\}\\} pmon); '
+    'echo $(( $(date -u +%s) - $(date -u -d "${started% *}" +%s) )); '
     'fi'
 )
 
