@@ -207,7 +207,7 @@ def test_ha_npu_reboot(
             return
 
         logger.info(f"Reboot {dut.hostname}, pkt sent {send_count}")
-        reboot_res, _ = reboot_smartswitch(dut, pool)
+        reboot_res = reboot_smartswitch(dut, pool)
         logger.info(f"After {dut.hostname} reboot, pkt sent {send_count}, reboot result {reboot_res}")
 
     t = threading.Thread(target=npu_ha_action, name="npu_ha_action_thread")

@@ -101,7 +101,7 @@ def check_default_route_from_fib_info(ptfhost, file_path):
 
 def get_all_ptf_port_indices_from_mg_facts(mg_facts):
     """
-    Retrieve all ptf port indices from the minigraph facts.
+    Retrieve all front end ptf port indices from the minigraph facts.
 
     Args:
         mg_facts: The minigraph facts containing ASIC information.
@@ -118,6 +118,9 @@ def get_all_ptf_port_indices_from_mg_facts(mg_facts):
 
         # Store (port_index: (asic_id, port_name)) in the dictionary
         for port_name, port_index in minigraph_indices.items():
+            if port_name.startswith(("Ethernet-Rec", "Ethernet-IB", "Ethernet-BP")):
+                logger.debug("Skipping special port {} in ptf port indecies".format(port_name))
+                continue
             all_port_indices[port_index] = (asic_id, port_name)
 
     return all_port_indices

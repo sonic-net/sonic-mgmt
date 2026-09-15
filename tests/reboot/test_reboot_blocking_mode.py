@@ -8,7 +8,14 @@ pytestmark = [
     pytest.mark.topology('any'),
 ]
 
+# Matches EXIT_TIMEOUT returned by sonic-utilities/scripts/reboot
+# when blocking mode reaches its configured timeout.
+REBOOT_EXIT_TIMEOUT_RC = 2
 COMMAND_TIMEOUT = 90  # seconds
+
+# Must be well within COMMAND_TIMEOUT so the script exits on its own deadline rather than being
+# killed. The blocking loop checks every 10s, so a correct script exits at roughly 31s.
+BLOCKING_TIMEOUT = 30  # seconds
 
 
 def check_if_platform_reboot_enabled(duthost) -> bool:
@@ -52,7 +59,7 @@ def mock_reboot_config_file(duthost):
         "echo -e \"blocking_mode=true\\nshow_timer=true\" > /etc/sonic/reboot.conf")
 
 
-def mock_reboot_config_file_with_0_timeout(duthost):
+def mock_reboot_config_file_with_timeout(duthost, timeout_in_seconds=0):
     if (
         check_if_dut_file_exist(duthost, "/etc/sonic/reboot.conf")
         and not check_if_dut_file_exist(duthost, "/etc/sonic/reboot.conf.bak")
@@ -60,7 +67,8 @@ def mock_reboot_config_file_with_0_timeout(duthost):
         execute_command(duthost, "sudo mv /etc/sonic/reboot.conf /etc/sonic/reboot.conf.bak")
     execute_command(
         duthost,
-        "echo -e \"blocking_mode=true\\nblocking_mode_timeout=0\\nshow_timer=true\" > /etc/sonic/reboot.conf")
+        "echo -e \"blocking_mode=true\\nblocking_mode_timeout={}\\nshow_timer=true\" > /etc/sonic/reboot.conf".format(
+            timeout_in_seconds))
 
 
 def restore_reboot_config_file(duthost):
@@ -153,8 +161,29 @@ class TestRebootBlockingModeConfigFile:
         enum_rand_one_per_hwsku_hostname
     ):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-        mock_reboot_config_file_with_0_timeout(duthost)
+        mock_reboot_config_file_with_timeout(duthost)
         result = get_command_result(
             duthost,
             f"sudo timeout {COMMAND_TIMEOUT}s bash -c 'sudo reboot; echo \"ExpectedFinished\"'")
         pytest_assert("ExpectedFinished" in result, "Reboot didn't exited as expected.")
+
+    def test_reboot_blocks_until_configured_timeout(
+        self,
+        duthosts,
+        enum_rand_one_per_hwsku_hostname
+    ):
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        mock_reboot_config_file_with_timeout(duthost, BLOCKING_TIMEOUT)
+        result = get_command_result(
+            duthost,
+            f"sudo timeout {COMMAND_TIMEOUT}s bash -c "
+            f"'SECONDS=0; sudo reboot; echo \"$?\"; echo \"$SECONDS\"'")
+        result_lines = result.splitlines()
+        reboot_rc, blocked_for = int(result_lines[-2]), int(result_lines[-1])
+        pytest_assert(
+            reboot_rc == REBOOT_EXIT_TIMEOUT_RC,
+            "Reboot exited with an unexpected rc. Output: {}".format(result))
+        pytest_assert(
+            blocked_for >= BLOCKING_TIMEOUT,
+            "Reboot blocked for {}s, expected at least the configured {}s. Output: {}".format(
+                blocked_for, BLOCKING_TIMEOUT, result))
