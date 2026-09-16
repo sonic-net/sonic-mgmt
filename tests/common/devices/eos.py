@@ -811,9 +811,10 @@ class EosHost(AnsibleHostBase):
             return re.match(r'\d+', v.strip()).group() + '000'
         return list(map(extract_speed_only, speed_list))
 
-    def get_dut_iface_mac(self, interface_name):
+    def get_dut_iface_mac(self, interface_name, use_bridge_mac=False):
         """
         Gets the MAC address of specified interface.
+        If use_bridge_mac is true, get the bridge MAC instead of the routed MAC
 
         Returns:
             str: The MAC address of the specified interface, or None if it is not found.
@@ -822,7 +823,7 @@ class EosHost(AnsibleHostBase):
             command = 'show interfaces {} | json'.format(interface_name)
             output = self.eos_command(commands=[command])['stdout'][0]
             forwardingModel = output["interfaces"][interface_name]["forwardingModel"]
-            if forwardingModel == "routed":
+            if use_bridge_mac and forwardingModel == "routed":
                 self.eos_config(
                     lines=['switchport'],
                     parents=['interface {}'.format(interface_name)])
