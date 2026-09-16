@@ -298,6 +298,7 @@ t0:
   - tacacs/test_ro_disk.py
   - tacacs/test_ro_user.py
   - tacacs/test_rw_user.py
+  - tacacs/test_secret_masking.py
   - gnmi/test_events.py
   - test_features.py
   - test_interfaces.py
@@ -612,6 +613,7 @@ t1-lag:
   - tacacs/test_ro_disk.py
   - tacacs/test_ro_user.py
   - tacacs/test_rw_user.py
+  - tacacs/test_secret_masking.py
   - gnmi/test_events.py
   - test_features.py
   - test_interfaces.py
@@ -631,6 +633,7 @@ t1-lag:
 
 t1-lag-vpp:
   - acl/test_acl.py
+  - arp/test_arp_l3_no_rx_drop.py
   - arp/test_arpall.py
   - arp/test_neighbor_mac.py
   - arp/test_neighbor_mac_aging.py
@@ -745,10 +748,13 @@ t1-lag-vpp:
 
 t0-vpp:
   - acl/test_acl.py
+  - arp/test_arp_extended.py
+  - arp/test_arp_l3_no_rx_drop.py
   - arp/test_arp_update.py
   - arp/test_neighbor_mac_aging.py
   - arp/test_neighbor_mac_noptf.py
   - arp/test_tagged_arp.py
+  - arp/test_unknown_mac.py
   - autorestart/test_container_autorestart.py
   - bgp/test_bgp_command.py
   - bgp/test_bgp_dual_asn.py
@@ -809,6 +815,11 @@ t0-vpp:
   - ipfwd/test_dip_sip.py
   - lldp/test_lldp.py
   - lldp/test_lldp_syncd.py
+  - pc/test_lag_2.py
+  - pc/test_lag_member.py
+  - pc/test_lag_member_forwarding.py
+  - pc/test_po_cleanup.py
+  - pc/test_po_update.py
   - span/test_port_mirroring.py
 
 
@@ -837,6 +848,7 @@ multi-asic-t1-lag:
   - tacacs/test_jit_user.py
   - tacacs/test_ro_user.py
   - tacacs/test_rw_user.py
+  - tacacs/test_secret_masking.py
   - test_interfaces.py
 
 dpu:

@@ -10,10 +10,21 @@
     ptf_imagetag: "latest"
   when: ptf_imagetag is not defined
 
-- name: Enable ptf_use_docker_network for BMC topology
+- name: Check whether a docker network named "{{ mgmt_bridge }}" exists
+  command: docker network inspect {{ mgmt_bridge }}
+  register: ptf_mgmt_docker_network
+  failed_when: false
+  changed_when: false
+  become: yes
+  when: "'bmc' in topo and ptf_use_docker_network is not defined"
+
+- name: Enable ptf_use_docker_network for BMC topology when that docker network exists
   set_fact:
     ptf_use_docker_network: true
-  when: "'bmc' in topo"
+  when:
+    - "'bmc' in topo"
+    - ptf_use_docker_network is not defined
+    - ptf_mgmt_docker_network.rc | default(1) == 0
 
 - name: set "PTF" container type, by default
   set_fact:

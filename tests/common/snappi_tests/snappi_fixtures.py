@@ -11,6 +11,8 @@ import subprocess
 import csv
 import json
 import os
+import yaml
+from ansible.utils.unsafe_proxy import AnsibleUnsafeText
 from copy import copy
 from tests.common.utilities import wait_until
 from tests.common.errors import RunAnsibleModuleFail
@@ -29,6 +31,7 @@ from tests.common.macsec.macsec_config_helper import set_macsec_profile, enable_
 from tests.common.snappi_tests.uhd.uhd_helpers import (NetworkConfigSettings, create_front_panel_ports,
                                                        create_connections, create_connections_pl, create_uhdIp_list,
                                                        create_arp_bypass, create_arp_bypass_pl, create_profiles)
+yaml.SafeDumper.add_representer(AnsibleUnsafeText, yaml.SafeDumper.represent_str)
 logger = logging.getLogger(__name__)
 _next_system_id = 1
 
@@ -2031,11 +2034,11 @@ def get_snappi_ports_multi_dut(duthosts,  # noqa: F811
 def is_snappi_multidut(duthosts):
     if duthosts is None or len(duthosts) == 0:
         return False
-    if not duthosts[0].get_facts().get("modular_chassis") and len(duthosts) == 1:
-        return False
-    if not duthosts[0].get_facts().get("modular_chassis") and len(duthosts) > 1:
+    if len(duthosts) > 1:
         return True
-    return duthosts[0].get_facts().get("modular_chassis")
+    # Single entry: treat as multi-DUT only for Cisco modular chassis,
+    # where one linecard is passed but the chassis spans multiple cards.
+    return bool(duthosts[0].get_facts().get("modular_chassis"))
 
 
 @pytest.fixture(scope="module")
