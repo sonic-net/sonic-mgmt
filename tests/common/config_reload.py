@@ -335,13 +335,23 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
     elif config_source == 'config_db':
         cmd = 'config reload -y'
         reloading = False
+        force_reload = False
         if config_force_option_supported(sonic_host):
             if wait_before_force_reload:
-                reloading = wait_until(wait_before_force_reload, 10, 0, _config_reload_cmd_wrapper, cmd, "/bin/bash")
+                reloading = wait_until(
+                    wait_before_force_reload, 10, 0,
+                    _config_reload_cmd_wrapper, cmd, "/bin/bash")
             cmd = 'config reload -y -f'
+            force_reload = True
         if not reloading:
             time.sleep(30)
-            sonic_host.shell(cmd, executable="/bin/bash")
+            if force_reload and wait_before_force_reload:
+                reloading = wait_until(
+                    wait_before_force_reload, 10, 0,
+                    _config_reload_cmd_wrapper, cmd, "/bin/bash")
+                pytest_assert(reloading, "Failed to run forced config reload")
+            else:
+                sonic_host.shell(cmd, executable="/bin/bash")
 
     elif config_source == 'running_golden_config':
         golden_path = '/etc/sonic/running_golden_config.json'
