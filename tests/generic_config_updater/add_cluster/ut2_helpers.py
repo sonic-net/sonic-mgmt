@@ -25,7 +25,6 @@ from tests.generic_config_updater.add_cluster.helpers import (
     format_sonic_buffer_pg_dict,
     format_sonic_interface_dict,
     get_cfg_info_from_dut,
-    send_and_verify_traffic,
 )
 
 logger = logging.getLogger(__name__)
@@ -62,20 +61,39 @@ def get_local_asn(config_facts, mg_facts):
     return None
 
 
-def bgp_neighbor_table(config_facts):
+def flatten_vrf_table(config_facts, table_name):
     """
-    BGP_NEIGHBOR rows keyed exactly as in CONFIG_DB. Newer images qualify the key with the
-    VRF ("default|10.0.0.1"), and config_facts nests such keys as {vrf: {ip: row}}, so
-    flatten them back; older images keep plain "10.0.0.1" keys, which pass through.
+    Rows of a BGP table keyed exactly as in CONFIG_DB. Newer images qualify the key with the
+    VRF ("default|10.0.0.1", "default|10.0.0.1|ipv4_unicast"), and config_facts nests such
+    keys as {vrf: {rest: row}}, so flatten them back; plain keys pass through.
     """
     flat = {}
-    for key, value in (config_facts.get("BGP_NEIGHBOR", {}) or {}).items():
+    for key, value in (config_facts.get(table_name, {}) or {}).items():
         if isinstance(value, dict) and value and all(isinstance(row, dict) for row in value.values()):
-            for ip, row in value.items():
-                flat[f"{key}|{ip}"] = row
+            for rest, row in value.items():
+                flat[f"{key}|{rest}"] = row
         else:
             flat[key] = value
     return flat
+
+
+def bgp_neighbor_table(config_facts):
+    return flatten_vrf_table(config_facts, "BGP_NEIGHBOR")
+
+
+def bgp_neighbor_af_rows(config_facts, neighbor_ips):
+    """
+    BGP_NEIGHBOR_AF rows ("<vrf>|<ip>|<afi_safi>") of the given neighbor IPs. Present on
+    images running the FRR management framework; they reference BGP_NEIGHBOR through a YANG
+    leafref, so they must travel with the neighbor in every GCU patch.
+    """
+    ips = set(neighbor_ips)
+    rows = {}
+    for key, row in flatten_vrf_table(config_facts, "BGP_NEIGHBOR_AF").items():
+        parts = key.split("|")
+        if len(parts) >= 2 and parts[-2] in ips:
+            rows[key] = row
+    return rows
 
 
 def bgp_key_ip(key):
@@ -165,6 +183,10 @@ def pick_target_neighbor(config_facts, config_facts_localhost, mg_facts, scenari
     localhost_keys_by_ip = {bgp_key_ip(key): key for key in bgp_neighbor_table(config_facts_localhost)}
     selected["localhost_neighbor_ips"] = [ip for ip in selected["neighbor_ips"] if ip in localhost_keys_by_ip]
     selected["localhost_bgp_keys"] = {ip: localhost_keys_by_ip[ip] for ip in selected["localhost_neighbor_ips"]}
+    selected["bgp_af_keys"] = sorted(bgp_neighbor_af_rows(config_facts, selected["neighbor_ips"]))
+    selected["localhost_bgp_af_keys"] = sorted(
+        bgp_neighbor_af_rows(config_facts_localhost, selected["localhost_neighbor_ips"])
+    )
     logger.info("Selected neighbor context for %s: %s", scenario["id"], selected)
     return selected
 
@@ -174,214 +196,192 @@ def get_bgp_routes(duthost, asic_index, ip_version):
     return run_json_cmd(duthost, vtysh_cmd(asic_index, cmd))
 
 
-def prefix_has_nexthop(route_body, neighbor_ips):
-    for path in route_body or []:
-        for nh in path.get("nexthops", []) or []:
-            ip = nh.get("ip")
-            if ip and ip in neighbor_ips:
-                return True
-    return False
+def get_received_prefixes(duthost, asic_index, neighbor_ip, ip_version):
+    """
+    Prefixes the DUT holds in its BGP table from ``neighbor_ip``. Empty when the neighbor
+    does not exist (e.g. after the remove patch) or announces nothing.
+    """
+    afi = "ipv4" if ip_version == 4 else "ipv6"
+    out = duthost.shell(vtysh_cmd(asic_index, f"show bgp {afi} unicast neighbors {neighbor_ip} routes json"),
+                        module_ignore_errors=True)
+    try:
+        data = json.loads(out["stdout"].strip() or "{}")
+    except json.JSONDecodeError:
+        return set()
+    return set((data.get("routes") or {}).keys()) if isinstance(data, dict) else set()
 
 
-def prefix_only_via_neighbor(route_body, neighbor_ips):
-    seen = False
+def forwarding_nexthops(route_body):
+    """
+    Next-hop IPs the FIB actually uses. Recursive entries (a third-party BGP next hop that is
+    itself resolved through other neighbors) are skipped; their resolver entries are kept.
+    """
+    result = set()
     for path in route_body or []:
         for nh in path.get("nexthops", []) or []:
-            ip = nh.get("ip")
-            if not ip:
+            if nh.get("recursive"):
                 continue
-            if ip not in neighbor_ips:
-                return False
-            seen = True
-    return seen
+            ip = nh.get("ip")
+            if ip:
+                result.add(ip)
+    return result
 
 
 def pick_prefix_for_neighbor(duthost, asic_index, neighbor_ctx, ip_version):
     """
-    Selects an IPv4 or IPv6 prefix for route verification.
-    1. First, attempts to find an ambient prefix learned EXCLUSIVELY via this neighbor.
-    2. In ECMP environments, falls back to selecting an ECMP prefix that contains
-       this neighbor as one of its active next-hops.
-    IPv4 is mandatory and fails the test when nothing qualifies; IPv6 is best-effort
-    and returns (None, None, False) so the caller can skip the IPv6 checks.
-    Returns:
-    tuple: (prefix, dst_ip, ecmp_path) where:
-    - prefix (str): The route prefix (e.g., '10.0.0.0/24')
-    - dst_ip (str): The destination host IP for traffic
-    - ecmp_path (bool): True if shared ECMP path, False if exclusive path
+    Select a prefix for route and forwarding checks. Returns None when nothing qualifies
+    (callers treat IPv4 as mandatory and IPv6 as best-effort), otherwise a dict:
+      prefix, dst_ip                 - the route and a host address inside it for probes
+      ecmp                           - True when other neighbors share the forwarding path
+      forwards_via_neighbor          - True when the FIB sends traffic out via this neighbor
+    Preference: a prefix forwarded exclusively via the neighbor, then an ECMP prefix that
+    includes it, then a prefix merely received from it. The last case happens when the
+    neighbor announces a third-party next hop that the DUT resolves through other links
+    (typical for a LowerSpineRouter on the single-node T2 topology): route presence is then
+    checked in the BGP table and the dataplane check is skipped.
     """
-    routes = get_bgp_routes(duthost, asic_index, ip_version)
-    neighbor_ips = set(neighbor_ctx["neighbor_ips"])
+    neighbor_ips = {ip for ip in neighbor_ctx["neighbor_ips"] if ipaddress.ip_address(ip).version == ip_version}
     too_narrow_prefixlen = 31 if ip_version == 4 else 127
-    candidates_exclusive = []
-    candidates_ecmp = []
-    for prefix, route_body in routes.items():
+
+    def usable(prefix):
         try:
             network = ipaddress.ip_network(prefix, strict=False)
         except ValueError:
-            continue
+            return None
         if network.version != ip_version or network.prefixlen >= too_narrow_prefixlen or network.prefixlen == 0:
+            return None
+        return network
+
+    exclusive, ecmp = [], []
+    for prefix, route_body in get_bgp_routes(duthost, asic_index, ip_version).items():
+        network = usable(prefix)
+        if network is None:
             continue
-        dst_ip = str(next(network.hosts()))
-        if prefix_only_via_neighbor(route_body, neighbor_ips):
-            candidates_exclusive.append((network.prefixlen, prefix, dst_ip))
-        elif prefix_has_nexthop(route_body, neighbor_ips):
-            candidates_ecmp.append((network.prefixlen, prefix, dst_ip))
-    if candidates_exclusive:
-        candidates_exclusive.sort(key=lambda item: item[0])
-        _prefixlen, prefix, dst_ip = candidates_exclusive[0]
-        logger.info("Using exclusive prefix %s via neighbor %s", prefix, neighbor_ctx["neighbor_name"])
-        return prefix, dst_ip, False
-    if candidates_ecmp:
-        candidates_ecmp.sort(key=lambda item: item[0])
-        _prefixlen, prefix, dst_ip = candidates_ecmp[0]
-        logger.info("Falling back to ECMP prefix %s via neighbor %s", prefix, neighbor_ctx["neighbor_name"])
-        return prefix, dst_ip, True
-    msg = (
-        f"No IPv{ip_version} BGP prefix learned via neighbor "
-        f"{neighbor_ctx['neighbor_name']} ({sorted(neighbor_ips)})"
-    )
-    if ip_version == 6:
-        logger.warning("%s - skipping best-effort IPv6 checks.", msg)
-        return None, None, False
-    raise AssertionError(msg)
+        nexthops = forwarding_nexthops(route_body)
+        if not nexthops or not (nexthops & neighbor_ips):
+            continue
+        (exclusive if nexthops <= neighbor_ips else ecmp).append((network.prefixlen, prefix, network))
+    for candidates, is_ecmp in ((exclusive, False), (ecmp, True)):
+        if candidates:
+            _, prefix, network = sorted(candidates)[0]
+            logger.info("Using %s prefix %s forwarded via neighbor %s",
+                        "ECMP" if is_ecmp else "exclusive", prefix, neighbor_ctx["neighbor_name"])
+            return {"prefix": prefix, "dst_ip": str(next(network.hosts())), "ecmp": is_ecmp,
+                    "forwards_via_neighbor": True}
+
+    received = []
+    for ip in sorted(neighbor_ips):
+        for prefix in get_received_prefixes(duthost, asic_index, ip, ip_version):
+            network = usable(prefix)
+            if network is not None:
+                received.append((network.prefixlen, prefix, network))
+    if received:
+        _, prefix, network = sorted(received)[0]
+        logger.warning(
+            "No IPv%d prefix is forwarded via neighbor %s; using received prefix %s for BGP-table "
+            "checks only, dataplane checks for this family are skipped.",
+            ip_version, neighbor_ctx["neighbor_name"], prefix,
+        )
+        return {"prefix": prefix, "dst_ip": str(next(network.hosts())), "ecmp": False,
+                "forwards_via_neighbor": False}
+    logger.warning("No IPv%d BGP prefix learned via neighbor %s (%s)",
+                   ip_version, neighbor_ctx["neighbor_name"], sorted(neighbor_ips))
+    return None
 
 
-def verify_prefix_present(duthost, asic_index, prefix, neighbor_ctx, should_exist=True, ecmp_path=False):
+def verify_prefix_present(duthost, asic_index, target, neighbor_ctx, should_exist=True):
     """
-    Verifies routing table state for the prefix.
-    * For exclusive prefixes (ecmp_path=False):
-        - If should_exist is True: verifies the prefix exists and target neighbor is the next-hop.
-        - If should_exist is False: verifies the prefix is completely withdrawn from the routing table.
-    * For ECMP prefixes (ecmp_path=True):
-        - If should_exist is True: verifies the prefix exists and target neighbor is in the next-hops list.
-        - If should_exist is False: verifies that the target neighbor is removed from the next-hops list.
+    Route-level check for a target from pick_prefix_for_neighbor.
+    * forwarded via the neighbor: the FIB path must include the neighbor (should_exist) or
+      no longer include it (ECMP) / be gone entirely (exclusive) when not should_exist;
+    * merely received: the prefix must be present in / absent from the BGP table entries
+      received from the neighbor.
     """
-    ip_version = ipaddress.ip_network(prefix, strict=False).version
-    routes = get_bgp_routes(duthost, asic_index, ip_version)
-    route_body = routes.get(prefix)
-
+    ip_version = ipaddress.ip_network(target["prefix"], strict=False).version
+    neighbor_ips = {ip for ip in neighbor_ctx["neighbor_ips"] if ipaddress.ip_address(ip).version == ip_version}
+    if not target["forwards_via_neighbor"]:
+        present = any(target["prefix"] in get_received_prefixes(duthost, asic_index, ip, ip_version)
+                      for ip in neighbor_ips)
+        return present == should_exist
+    route_body = get_bgp_routes(duthost, asic_index, ip_version).get(target["prefix"])
+    via_neighbor = bool(route_body) and bool(forwarding_nexthops(route_body) & neighbor_ips)
     if should_exist:
-        # For both exclusive and ECMP routes, the route must exist and point to the neighbor
-        return bool(route_body and prefix_has_nexthop(route_body, set(neighbor_ctx["neighbor_ips"])))
-    else:
-        if ecmp_path:
-            # For ECMP routes, route can exist, but target neighbor must not be a next-hop
-            return not bool(route_body and prefix_has_nexthop(route_body, set(neighbor_ctx["neighbor_ips"])))
-        else:
-            # For exclusive routes, the entire route must be withdrawn from the routing table
-            return not bool(route_body)
+        return via_neighbor
+    return not via_neighbor if target["ecmp"] else not route_body
 
 
-def send_v6_and_verify(tbinfo, src_duthost, src_asic_index, ptfadapter,
-                       ptf_dst_ports, dst_ip, count=100, expect_error=False):
-    src_ns = None if src_asic_index is None else "asic{}".format(src_asic_index)
-    router_mac = src_duthost.asic_instance(src_asic_index).get_router_mac()
-    src_mg_facts = src_duthost.get_extended_minigraph_facts(tbinfo, src_ns)
-    # Lowest PTF index keeps the source port deterministic across runs.
-    ptf_sport = min(src_mg_facts["minigraph_ptf_indices"].values())
-    logger.info("Sending IPv6 probe from PTF port %s to %s", ptf_sport, dst_ip)
-    pkt = testutils.simple_tcpv6_packet(
-        eth_src=ptfadapter.dataplane.get_mac(0, ptf_sport),
-        eth_dst=router_mac,
-        ipv6_src="2001:db8::1",
-        ipv6_dst=dst_ip,
-        ipv6_hlim=64,
-    )
-    exp_pkt = mask.Mask(pkt.copy())
+PROBE_FLOWS = 64
+
+
+def verify_forwarding(tbinfo, duthost_up, src_asic_index, ptfadapter, neighbor_ctx, ptf_dst_ports, dst_ip,
+                      expect_traffic, timeout=30):
+    """
+    Send PROBE_FLOWS distinct TCP flows towards dst_ip from a PTF port of the upstream DUT that
+    is not one of the neighbor's links, and count arrivals on the neighbor's PTF ports.
+    With expect_traffic at least one flow must egress via the neighbor: the prefix may be ECMP
+    across several neighbors, so a single flow could legitimately hash elsewhere (64 flows over
+    a 3-way ECMP miss the neighbor with probability (2/3)^64). Flows differ in source IP and
+    TCP source port so they spread under both L3-only and L4 hashing, and carry TTL 2 so the
+    neighbor cannot forward them back into the DUT (test prefixes are often reachable from the
+    neighbor via the DUT itself, which would loop each probe and inflate the count). Without
+    expect_traffic no flow may egress via the neighbor. Retried with wait_until so the ASIC has
+    time to program.
+    """
+    ip_version = ipaddress.ip_address(dst_ip).version
+    src_ns = None if src_asic_index is None else f"asic{src_asic_index}"
+    router_mac = duthost_up.asic_instance(src_asic_index).get_router_mac()
+    ptf_indices = duthost_up.get_extended_minigraph_facts(tbinfo, src_ns)["minigraph_ptf_indices"]
+    excluded = set(neighbor_ctx["member_ports"])
+    sources = sorted(idx for port, idx in ptf_indices.items() if port not in excluded and idx not in ptf_dst_ports)
+    pytest_assert(sources, f"No PTF source port outside the links of neighbor {neighbor_ctx['neighbor_name']}")
+    ptf_sport = sources[0]
+    src_mac = ptfadapter.dataplane.get_mac(0, ptf_sport)
+
+    def build(flow):
+        if ip_version == 4:
+            src_ip = str(ipaddress.ip_address("30.0.0.10") + flow)
+            return testutils.simple_tcp_packet(eth_src=src_mac, eth_dst=router_mac, ip_src=src_ip,
+                                               ip_dst=dst_ip, ip_ttl=2, tcp_sport=10000 + flow, tcp_dport=80)
+        src_ip = str(ipaddress.ip_address("2001:db8::1") + flow)
+        return testutils.simple_tcpv6_packet(eth_src=src_mac, eth_dst=router_mac, ipv6_src=src_ip,
+                                             ipv6_dst=dst_ip, ipv6_hlim=2, tcp_sport=10000 + flow, tcp_dport=80)
+
+    exp_pkt = mask.Mask(build(0))
     exp_pkt.set_do_not_care_scapy(packet.Ether, "dst")
     exp_pkt.set_do_not_care_scapy(packet.Ether, "src")
-    exp_pkt.set_do_not_care_scapy(packet.IPv6, "hlim")
-    ptfadapter.dataplane.flush()
-    testutils.send(ptfadapter, ptf_sport, pkt, count=count)
-    if expect_error:
-        with pytest.raises(AssertionError):
-            testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=ptf_dst_ports)
+    if ip_version == 4:
+        exp_pkt.set_do_not_care_scapy(packet.IP, "src")
+        exp_pkt.set_do_not_care_scapy(packet.IP, "ttl")
+        exp_pkt.set_do_not_care_scapy(packet.IP, "chksum")
     else:
-        testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=ptf_dst_ports)
+        exp_pkt.set_do_not_care_scapy(packet.IPv6, "src")
+        exp_pkt.set_do_not_care_scapy(packet.IPv6, "hlim")
+    exp_pkt.set_do_not_care_scapy(packet.TCP, "sport")
+    exp_pkt.set_do_not_care_scapy(packet.TCP, "chksum")
 
-# -----------------------------
-# Dataplane Verification Retry Wrappers
-# -----------------------------
-
-
-def send_and_verify_traffic_with_retry(
-    tbinfo,
-    duthost_up,
-    duthost,
-    src_asic_on_upstream,
-    dst_asic,
-    ptfadapter,
-    ptf_dst_ports,
-    ptf_dst_interfaces,
-    dst_ip,
-    expect_error=False,
-):
-    """
-    Wraps send_and_verify_traffic with a retry loop using wait_until.
-    Allows time for control-plane changes to program into the ASIC hardware dataplane.
-    """
-    def _verify():
-        try:
-            send_and_verify_traffic(
-                tbinfo,
-                duthost_up,
-                duthost,
-                src_asic_on_upstream,
-                dst_asic,
-                ptfadapter,
-                ptf_sport=None,
-                ptf_dst_ports=ptf_dst_ports,
-                ptf_dst_interfaces=ptf_dst_interfaces,
-                dst_ip=dst_ip,
-                count=100,
-                expect_error=expect_error,
-                verify=True,
-            )
-            return True
-        except AssertionError as e:
-            logger.info("Traffic verification failed, retrying... Error: %s", e)
-            return False
+    def probe():
+        ptfadapter.dataplane.flush()
+        for flow in range(PROBE_FLOWS):
+            testutils.send(ptfadapter, ptf_sport, build(flow), count=1)
+        # Poll with exp_pkt rather than count_matched_packets_all_ports: the sonic-mgmt ptfadapter
+        # stamps a per-test payload into every sent packet and applies the same stamp to exp_pkt
+        # inside dp_poll, so a comparison made outside dp_poll never matches.
+        received = 0
+        while True:
+            result = testutils.dp_poll(ptfadapter, device_number=0, timeout=2, exp_pkt=exp_pkt)
+            if not isinstance(result, ptfadapter.dataplane.PollSuccess):
+                break
+            if result.port in ptf_dst_ports:
+                received += 1
+        logger.info("%d/%d flows to %s egressed via neighbor %s (PTF ports %s, from PTF port %s)",
+                    received, PROBE_FLOWS, dst_ip, neighbor_ctx["neighbor_name"], ptf_dst_ports, ptf_sport)
+        return received > 0 if expect_traffic else received == 0
 
     pytest_assert(
-        wait_until(30, 5, 0, _verify),
-        f"Dataplane traffic {'withdrawal' if expect_error else 'recovery'} verification failed after timeout"
-    )
-
-
-def send_v6_and_verify_with_retry(
-    tbinfo,
-    duthost_up,
-    src_asic_on_upstream,
-    ptfadapter,
-    ptf_dst_ports,
-    dst_ip_v6,
-    expect_error=False,
-):
-    """
-    Wraps send_v6_and_verify with a retry loop using wait_until.
-    Allows time for IPv6 route updates to program into the ASIC hardware dataplane.
-    """
-    def _verify():
-        try:
-            send_v6_and_verify(
-                tbinfo,
-                duthost_up,
-                src_asic_on_upstream,
-                ptfadapter,
-                ptf_dst_ports,
-                dst_ip_v6,
-                count=100,
-                expect_error=expect_error,
-            )
-            return True
-        except AssertionError as e:
-            logger.info("IPv6 traffic verification failed, retrying... Error: %s", e)
-            return False
-
-    pytest_assert(
-        wait_until(30, 5, 0, _verify),
-        f"IPv6 dataplane traffic {'withdrawal' if expect_error else 'recovery'} verification failed after timeout"
+        wait_until(timeout, 5, 0, probe),
+        "Expected {} traffic to {} via neighbor {} on PTF ports {}".format(
+            "some" if expect_traffic else "no", dst_ip, neighbor_ctx["neighbor_name"], ptf_dst_ports,
+        ),
     )
 
 
@@ -573,6 +573,9 @@ def build_add_expectations(config_facts, neighbor_ctx):
     }
     if bgp:
         expected_present["BGP_NEIGHBOR"] = bgp
+    bgp_af = bgp_neighbor_af_rows(config_facts, neighbor_ctx["neighbor_ips"])
+    if bgp_af:
+        expected_present["BGP_NEIGHBOR_AF"] = copy.deepcopy(bgp_af)
     device_neighbor = {
         p: copy.deepcopy(config_facts["DEVICE_NEIGHBOR"][p])
         for p in neighbor_ctx["neighbor_ports"]
@@ -629,6 +632,8 @@ def build_remove_expectations(config_facts, neighbor_ctx):
     bgp_keys = {key for key in neighbor_ctx["bgp_keys"].values() if key in bgp_table}
     if bgp_keys:
         expected_absent["BGP_NEIGHBOR"] = bgp_keys
+    if neighbor_ctx["bgp_af_keys"]:
+        expected_absent["BGP_NEIGHBOR_AF"] = set(neighbor_ctx["bgp_af_keys"])
     device_neighbor_keys = {p for p in neighbor_ctx["neighbor_ports"] if p in config_facts.get("DEVICE_NEIGHBOR", {})}
     if device_neighbor_keys:
         expected_absent["DEVICE_NEIGHBOR"] = device_neighbor_keys
@@ -735,10 +740,14 @@ def build_remove_patch(config_facts, config_facts_localhost, mg_facts, namespace
     emit_localhost = namespace is not None
     patch_main = []
     patch_extra = []
+    for key in neighbor_ctx["bgp_af_keys"]:
+        patch_main.append({"op": "remove", "path": f"{json_namespace}/BGP_NEIGHBOR_AF/{key}"})
     bgp_table = bgp_neighbor_table(config_facts)
     for key in neighbor_ctx["bgp_keys"].values():
         append_remove_if_present(patch_main, f"{json_namespace}/BGP_NEIGHBOR/", bgp_table, key)
     if emit_localhost:
+        for key in neighbor_ctx["localhost_bgp_af_keys"]:
+            patch_main.append({"op": "remove", "path": f"/localhost/BGP_NEIGHBOR_AF/{key}"})
         localhost_bgp_table = bgp_neighbor_table(config_facts_localhost)
         for key in neighbor_ctx["localhost_bgp_keys"].values():
             append_remove_if_present(patch_main, "/localhost/BGP_NEIGHBOR/", localhost_bgp_table, key)
@@ -914,6 +923,8 @@ def build_add_patches(config_facts, config_facts_localhost, mg_facts, namespace,
                 "path": f"{json_namespace}/BGP_NEIGHBOR/{key}",
                 "value": bgp_table[key],
             })
+    for key, row in bgp_neighbor_af_rows(config_facts, neighbor_ctx["neighbor_ips"]).items():
+        patch_rest.append({"op": "add", "path": f"{json_namespace}/BGP_NEIGHBOR_AF/{key}", "value": row})
     if emit_localhost:
         localhost_bgp_table = bgp_neighbor_table(config_facts_localhost)
         for key in neighbor_ctx["localhost_bgp_keys"].values():
@@ -922,6 +933,8 @@ def build_add_patches(config_facts, config_facts_localhost, mg_facts, namespace,
                 "path": f"/localhost/BGP_NEIGHBOR/{key}",
                 "value": localhost_bgp_table[key],
             })
+        for key, row in bgp_neighbor_af_rows(config_facts_localhost, neighbor_ctx["localhost_neighbor_ips"]).items():
+            patch_rest.append({"op": "add", "path": f"/localhost/BGP_NEIGHBOR_AF/{key}", "value": row})
     neigh_name = neighbor_ctx["neighbor_name"]
     if neigh_name in config_facts.get("DEVICE_NEIGHBOR_METADATA", {}):
         patch_rest.append({
@@ -1190,12 +1203,30 @@ def run_remove_and_readd_cycle(
         src_asic_on_upstream, duthost.hostname, dst_asic,
     )
 
-    prefix, dst_ip, ecmp_path = pick_prefix_for_neighbor(duthost, dst_asic, neighbor_ctx, ip_version=4)
-    prefix_v6, dst_ip_v6, ecmp_path_v6 = pick_prefix_for_neighbor(duthost, dst_asic, neighbor_ctx, ip_version=6)
-    ptf_dst_ports, ptf_dst_interfaces = compute_egress_ptf_ports(mg_facts, neighbor_ctx)
+    target_v4 = pick_prefix_for_neighbor(duthost, dst_asic, neighbor_ctx, ip_version=4)
+    pytest_assert(target_v4, f"No IPv4 BGP prefix learned via neighbor {neighbor_ctx['neighbor_name']}")
+    target_v6 = pick_prefix_for_neighbor(duthost, dst_asic, neighbor_ctx, ip_version=6)
+    targets = [t for t in (target_v4, target_v6) if t]
+    forwarded = [t for t in targets if t["forwards_via_neighbor"]]
+    ptf_dst_ports, _ = compute_egress_ptf_ports(mg_facts, neighbor_ctx)
 
     expected_add_state = build_add_expectations(config_facts, neighbor_ctx)
     expected_remove_present, expected_remove_absent = build_remove_expectations(config_facts, neighbor_ctx)
+
+    def check_routes(should_exist, timeout, phase):
+        for target in targets:
+            pytest_assert(
+                wait_until(timeout, 5, 0, verify_prefix_present, duthost, dst_asic, target, neighbor_ctx, should_exist),
+                "Prefix {} via neighbor {} {} {}".format(
+                    target["prefix"], neighbor_ctx["neighbor_name"],
+                    "missing" if should_exist else "still present", phase,
+                ),
+            )
+
+    def check_forwarding(expect_traffic):
+        for target in forwarded:
+            verify_forwarding(tbinfo, duthost_up, src_asic_on_upstream, ptfadapter, neighbor_ctx,
+                              ptf_dst_ports, target["dst_ip"], expect_traffic)
 
     with allure.step(
         f"[{scenario['id']}] Verify selected {neighbor_ctx['neighbor_role']} "
@@ -1214,44 +1245,18 @@ def run_remove_and_readd_cycle(
             {},
             "pre-remove baseline",
         )
-        if prefix:
-            pytest_assert(
-                verify_prefix_present(duthost, dst_asic, prefix, neighbor_ctx, should_exist=True, ecmp_path=ecmp_path),
-                f"Expected learned IPv4 prefix {prefix} from neighbor {neighbor_ctx['neighbor_name']} before removal",
-            )
-        if prefix_v6:
-            pytest_assert(
-                verify_prefix_present(
-                    duthost, dst_asic, prefix_v6, neighbor_ctx,
-                    should_exist=True, ecmp_path=ecmp_path_v6,
-                ),
-                f"Expected learned IPv6 prefix {prefix_v6} from neighbor "
-                f"{neighbor_ctx['neighbor_name']} before removal",
-            )
-        send_and_verify_traffic_with_retry(
-            tbinfo,
-            duthost_up,
-            duthost,
-            src_asic_on_upstream,
-            dst_asic,
-            ptfadapter,
-            ptf_dst_ports=ptf_dst_ports,
-            ptf_dst_interfaces=ptf_dst_interfaces,
-            dst_ip=dst_ip,
-            expect_error=False,
-        )
-        if prefix_v6:
-            send_v6_and_verify_with_retry(
-                tbinfo, duthost_up, src_asic_on_upstream, ptfadapter,
-                ptf_dst_ports, dst_ip_v6, expect_error=False,
-            )
+        check_routes(True, 30, "before removal")
+        check_forwarding(True)
 
     la_entry = loganalyzer[duthost.hostname] if loganalyzer else None
     if la_entry:
-        # Expected, benign errors while a port/LAG is torn down and re-created via GCU.
+        # Expected, benign errors while a port/LAG is torn down and re-created via GCU. On VoQ
+        # (DNX) platforms syncd logs at ERR while the TC-to-VOQ map of a re-created port is not
+        # programmed yet.
         la_entry.ignore_regex.extend([
             r"querySwitchLagHashAttrCapabilities",
             r"SRV6.*unsupported",
+            r"brcm_sai_dnx_get_tc_to_voqid.*No voq map for port",
         ])
     try:
         with allure.step(
@@ -1275,38 +1280,8 @@ def run_remove_and_readd_cycle(
                 expected_remove_absent,
                 "post-remove",
             )
-            if prefix:
-                pytest_assert(
-                    wait_until(60, 5, 0, verify_prefix_present, duthost,
-                               dst_asic, prefix, neighbor_ctx, False, ecmp_path),
-                    f"IPv4 prefix {prefix} still present after removing neighbor {neighbor_ctx['neighbor_name']}",
-                )
-            if prefix_v6:
-                pytest_assert(
-                    wait_until(
-                        60, 5, 0, verify_prefix_present,
-                        duthost, dst_asic, prefix_v6, neighbor_ctx, False, ecmp_path_v6,
-                    ),
-                    f"IPv6 prefix {prefix_v6} still present after removing neighbor {neighbor_ctx['neighbor_name']}",
-                )
-
-            send_and_verify_traffic_with_retry(
-                tbinfo,
-                duthost_up,
-                duthost,
-                src_asic_on_upstream,
-                dst_asic,
-                ptfadapter,
-                ptf_dst_ports=ptf_dst_ports,
-                ptf_dst_interfaces=ptf_dst_interfaces,
-                dst_ip=dst_ip,
-                expect_error=True,
-            )
-            if prefix_v6:
-                send_v6_and_verify_with_retry(
-                    tbinfo, duthost_up, src_asic_on_upstream, ptfadapter,
-                    ptf_dst_ports, dst_ip_v6, expect_error=True,
-                )
+            check_routes(False, 60, "after removing the neighbor")
+            check_forwarding(False)
 
         with allure.step(
             f"[{scenario['id']}] Add selected cluster peer back via GCU and validate route / traffic recovery"
@@ -1341,39 +1316,8 @@ def run_remove_and_readd_cycle(
                 bgp_up,
                 f"BGP sessions with neighbors {neighbor_ctx['neighbor_ips']} failed to establish after re-add",
             )
-
-            if prefix:
-                pytest_assert(
-                    wait_until(120, 5, 0, verify_prefix_present, duthost,
-                               dst_asic, prefix, neighbor_ctx, True, ecmp_path),
-                    f"IPv4 prefix {prefix} did not return after re-adding neighbor {neighbor_ctx['neighbor_name']}",
-                )
-            if prefix_v6:
-                pytest_assert(
-                    wait_until(
-                        120, 5, 0, verify_prefix_present,
-                        duthost, dst_asic, prefix_v6, neighbor_ctx, True, ecmp_path_v6,
-                    ),
-                    f"IPv6 prefix {prefix_v6} did not return after re-adding neighbor {neighbor_ctx['neighbor_name']}",
-                )
-
-            send_and_verify_traffic_with_retry(
-                tbinfo,
-                duthost_up,
-                duthost,
-                src_asic_on_upstream,
-                dst_asic,
-                ptfadapter,
-                ptf_dst_ports=ptf_dst_ports,
-                ptf_dst_interfaces=ptf_dst_interfaces,
-                dst_ip=dst_ip,
-                expect_error=False,
-            )
-            if prefix_v6:
-                send_v6_and_verify_with_retry(
-                    tbinfo, duthost_up, src_asic_on_upstream, ptfadapter,
-                    ptf_dst_ports, dst_ip_v6, expect_error=False,
-                )
+            check_routes(True, 120, "after re-adding the neighbor")
+            check_forwarding(True)
 
         with allure.step(f"[{scenario['id']}] Persist the restored configuration"):
             duthost.shell("config save -y")
