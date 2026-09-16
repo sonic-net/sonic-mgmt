@@ -24,6 +24,10 @@ ACTIVE_GRUB_PATHS = (
     "/boot/efi/EFI/SONiC-OS/grubx64.efi",
     "/boot/efi/EFI/BOOT/grubx64.efi",
 )
+ACTIVE_SHIM_PATHS = (
+    "/boot/efi/EFI/SONiC-OS/shimx64.efi",
+    "/boot/efi/EFI/BOOT/BOOTX64.EFI",
+)
 BACKUP_SUFFIX = ".secure_boot_test_backup"
 EFI_PARTITION = "/dev/vda1"
 
@@ -478,4 +482,17 @@ def test_unsigned_grub_is_rejected(duthost, kvm_serial_console, localhost, vmhos
         ACTIVE_GRUB_PATHS,
         _remove_pe_signature,
         "unsigned GRUB",
+    )
+
+
+def test_tampered_shim_is_rejected(duthost, kvm_serial_console, localhost, vmhost):
+    """Verify that firmware rejects a shim binary modified after signing."""
+    _verify_efi_component_is_rejected(
+        duthost,
+        kvm_serial_console,
+        localhost,
+        vmhost,
+        ACTIVE_SHIM_PATHS,
+        _tamper_pe_payload,
+        "tampered shim",
     )
