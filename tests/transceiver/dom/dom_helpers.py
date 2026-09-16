@@ -924,6 +924,24 @@ def read_dom_threshold_data(duthost, ports):
     return _read_dom_table_data(duthost, ports, STATE_DB_THRESHOLD_TABLE)
 
 
+def verify_dom_thresholds_after_operation(duthost, port_attributes_dict, ports):
+    """Return threshold validation failures from one read, independently of DOM polling."""
+    threshold_plan_by_port = build_dom_threshold_plan(port_attributes_dict, ports)
+    threshold_ports = [
+        port for port in ports
+        if _threshold_plan_has_checks(threshold_plan_by_port[port])
+    ]
+    if not threshold_ports:
+        logger.info("DOM threshold check skipped: no *_threshold_range attributes configured")
+        return []
+
+    threshold_table_by_port, read_errors = read_dom_threshold_data(duthost, threshold_ports)
+    threshold_failures, _, _, _, _ = validate_dom_threshold_ranges(
+        threshold_ports, threshold_table_by_port, threshold_plan_by_port,
+    )
+    return [f"DOM threshold read error: {read_error}" for read_error in read_errors] + threshold_failures
+
+
 def check_dom_sensor_freshness(sensor_data, max_age_min, now_utc):
     """Return DOM freshness failures plus the parsed age for one sensor read."""
     return check_entry_freshness(
