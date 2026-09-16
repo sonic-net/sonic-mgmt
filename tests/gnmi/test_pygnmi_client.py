@@ -162,6 +162,17 @@ def test_pygnmi_get_empty_paths_raises(gnmi_tls):  # noqa: F811
 
 def test_pygnmi_subscribe_sample_queue_counters(gnmi_tls):  # noqa: F811
     """Test subscribe() STREAM+SAMPLE collects COUNTERS_DB queue stats."""
+    duthost = gnmi_tls.duthost
+    device_type = duthost.shell(
+        "sonic-db-cli CONFIG_DB hget 'DEVICE_METADATA|localhost' type"
+    )["stdout"].strip()
+    if device_type in ("BmcMgmtToRRouter", "MgmtToRRouter", "MgmtTsToR"):
+        queue_status = duthost.shell(
+            "sonic-db-cli CONFIG_DB hget 'FLEX_COUNTER_TABLE|QUEUE' FLEX_COUNTER_STATUS"
+        )["stdout"].strip()
+        if queue_status == "disable":
+            pytest.skip(f"QUEUE flex counters are intentionally disabled on {device_type}")
+
     result = list(gnmi_tls.pygnmi_client.subscribe(
         "COUNTERS/Ethernet0/Queues",
         target="COUNTERS_DB",
