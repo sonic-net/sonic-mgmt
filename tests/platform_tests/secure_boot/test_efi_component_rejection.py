@@ -138,6 +138,62 @@ PY
     duthost.shell(command)
 
 
+def _remove_pe_signature(duthost, component_path):
+    command = r"""
+sudo python3 - {path} <<'PY'
+import os
+import struct
+import sys
+
+path = sys.argv[1]
+file_size = os.path.getsize(path)
+
+with open(path, "r+b") as binary:
+    dos_header = binary.read(64)
+    if len(dos_header) != 64 or dos_header[:2] != b"MZ":
+        raise RuntimeError("EFI component is not a PE/COFF image")
+
+    pe_offset = struct.unpack_from("<I", dos_header, 0x3c)[0]
+    binary.seek(pe_offset)
+    if binary.read(4) != b"PE\x00\x00":
+        raise RuntimeError("EFI component has an invalid PE signature")
+
+    optional_header_offset = pe_offset + 24
+    binary.seek(optional_header_offset)
+    optional_magic_data = binary.read(2)
+    if len(optional_magic_data) != 2:
+        raise RuntimeError("EFI component has a truncated PE optional header")
+
+    optional_magic = struct.unpack("<H", optional_magic_data)[0]
+    if optional_magic == 0x20b:
+        data_directory_offset = optional_header_offset + 112
+    elif optional_magic == 0x10b:
+        data_directory_offset = optional_header_offset + 96
+    else:
+        raise RuntimeError("EFI component has an unsupported PE optional header")
+
+    certificate_entry_offset = data_directory_offset + (4 * 8)
+    binary.seek(certificate_entry_offset)
+    certificate_entry = binary.read(8)
+    if len(certificate_entry) != 8:
+        raise RuntimeError("EFI component has a truncated certificate table entry")
+
+    certificate_offset, certificate_size = struct.unpack("<II", certificate_entry)
+    certificate_end = certificate_offset + certificate_size
+    if certificate_offset == 0 or certificate_size == 0:
+        raise RuntimeError("EFI component does not contain an Authenticode signature")
+    if certificate_end > file_size:
+        raise RuntimeError("EFI component certificate table extends beyond the file")
+
+    binary.seek(certificate_entry_offset)
+    binary.write(b"\x00" * 8)
+    if certificate_end == file_size:
+        binary.truncate(certificate_offset)
+PY
+""".format(path=shlex.quote(component_path))
+    duthost.shell(command)
+
+
 def _restore_efi_components_and_restart(
     vmhost,
     duthost,
@@ -409,4 +465,17 @@ def test_tampered_grub_is_rejected(duthost, kvm_serial_console, localhost, vmhos
         ACTIVE_GRUB_PATHS,
         _tamper_pe_payload,
         "tampered GRUB",
+    )
+
+
+def test_unsigned_grub_is_rejected(duthost, kvm_serial_console, localhost, vmhost):
+    """Verify that shim rejects a GRUB binary with no Authenticode signature."""
+    _verify_efi_component_is_rejected(
+        duthost,
+        kvm_serial_console,
+        localhost,
+        vmhost,
+        ACTIVE_GRUB_PATHS,
+        _remove_pe_signature,
+        "unsigned GRUB",
     )
