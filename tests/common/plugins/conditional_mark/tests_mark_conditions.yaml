@@ -2347,6 +2347,12 @@ fdb/test_fdb_mac_learning.py::TestFdbMacLearning::testFdbMacLearning:
     conditions:
       - "'dualtor-aa' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/16110"
 
+fdb/test_fdb_mac_move.py:
+  skip:
+    reason: "FDB tests require switching ASIC, not available on BMC"
+    conditions:
+      - "'bmc' in topo_type"
+
 fdb/test_fdb_mac_move.py::test_fdb_mac_move_guard_disable_mac_learning:
   skip:
     reason: "Currently not supported on virtual switch."
@@ -4490,6 +4496,9 @@ qos/test_qos_probe.py:
       - "hwsku in ['Mellanox-SN2700'] and https://github.com/sonic-net/sonic-mgmt/issues/22607"
       # Mellanox SPC3 (Spectrum 3)
       - "hwsku in ['Mellanox-SN4600C-C64'] and https://github.com/sonic-net/sonic-mgmt/issues/22608"
+      # Broadcom-DNX - Test provides duplicate coverage to test_qos_sai.py so disabling on DNX to avoid longer runtimes
+      # If we do want to run this on DNX SKUs we'll need https://github.com/sonic-net/sonic-mgmt/issues/27076 fixed
+      - "asic_subtype in ['broadcom-dnx']"
 
 qos/test_qos_probe.py::TestQosProbe::testQosHeadroomPoolProbe:
   xfail:
@@ -4758,6 +4767,16 @@ qos/test_voq_watchdog.py:
     reason: "These tests only apply to cisco 8000 platforms."
     conditions:
       - "asic_type not in ['cisco-8000']"
+
+#######################################
+#####          radius            #####
+#######################################
+
+radius/:
+  skip:
+    reason: 'RADIUS tests require routing and switch CLI, not available on BMC'
+    conditions:
+      - "'bmc' in topo_type"
 
 #######################################
 #####           radv             #####
