@@ -5658,6 +5658,12 @@ tacacs/test_authorization.py::test_authorization_tacacs_only:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/21571 and 't0-isolated-d256u256s2' in topo_name"
 
+tacacs/test_authorization.py::test_fallback_to_local_authorization_with_config_reload:
+  xfail:
+    reason: "The SN5640 port scale raises zebra memory usage during config reload above the test threshold while allocator-free memory remains resident; tracked by https://github.com/sonic-net/sonic-buildimage/issues/29443"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/29443 and platform in ['x86_64-nvidia_sn5640-r0']"
+
 tacacs/test_ro_disk.py:
   skip:
     reason: "Testcase skip due to Github issue: https://github.com/sonic-net/sonic-mgmt/issues/20787"
