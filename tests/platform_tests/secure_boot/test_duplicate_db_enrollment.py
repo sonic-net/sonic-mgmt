@@ -1,0 +1,824 @@
+import ipaddress
+import logging
+import shlex
+
+import pytest
+
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.secure_boot import (
+    get_current_image,
+    get_inactive_image,
+    get_installed_images,
+    require_secure_boot,
+    restore_active_efi_bundle,
+    restore_image_selection,
+)
+
+
+pytestmark = [
+    pytest.mark.topology("t0"),
+    pytest.mark.disable_loganalyzer,
+    pytest.mark.skip_check_dut_health,
+]
+
+DOWNLOADED_IMAGE_PATH = "/host/secure_boot_duplicate_db_test_image"
+EXTRACTED_DB_AUTH_PATH = "/tmp/secure_boot_duplicate_db_test.auth"
+REMOVE_ALL_DB_AUTH_PATH = "/host/db-auth/remove-all-db.auth"
+REMOVE_ALL_DB_AUTH_BACKUP_PATH = "/host/db-auth/remove-all-db.auth.secure_boot_test_backup"
+REMOVE_STALE_DB_CERTS_SCRIPT = "/usr/local/bin/remove_stale_db_certs.sh"
+TRUSTED_DB_AUTH_PATH = "/boot/DB.auth"
+logger = logging.getLogger(__name__)
+
+
+def _get_image_db_auth_path(image_name):
+    version = image_name[len("SONiC-OS-"):] if image_name.startswith("SONiC-OS-") else image_name
+    return "/host/image-{}/boot/DB.auth".format(version)
+
+
+def _download_image(duthost, image_url, tbinfo):
+    mgmt_gateway = duthost.get_extended_minigraph_facts(tbinfo).get(
+        "minigraph_mgmt_interface", {}
+    ).get("gwaddr")
+    pytest_assert(mgmt_gateway, "The DUT does not have a management gateway")
+
+    mgmt_gateway = ipaddress.IPv4Address(mgmt_gateway)
+    route_info = duthost.get_ip_route_info(ipaddress.ip_network("0.0.0.0/0"))
+    route_added = not any(mgmt_gateway == nexthop[0] for nexthop in route_info["nexthops"])
+
+    try:
+        if route_added:
+            duthost.command("sudo ip route replace default via {}".format(mgmt_gateway))
+        duthost.command(
+            "sudo curl --fail --location --output {} {}".format(
+                shlex.quote(DOWNLOADED_IMAGE_PATH),
+                shlex.quote(image_url),
+            )
+        )
+    finally:
+        if route_added:
+            duthost.command(
+                "sudo ip route del default via {}".format(mgmt_gateway),
+                module_ignore_errors=True,
+            )
+
+
+def _extract_db_auth(duthost):
+    command = r"""
+set -eu
+image={image}
+output={output}
+tmp_dir=$(mktemp -d /host/secure_boot_db_auth.XXXXXX)
+trap 'rm -rf "$tmp_dir"' EXIT
+header_size=$(sed '/^exit_marker$/q' "$image" | wc -c)
+tail -c +$((header_size + 1)) "$image" |
+    tar --occurrence=1 -xO installer/fs.zip 2>/dev/null > "$tmp_dir/fs.zip"
+unzip -p "$tmp_dir/fs.zip" boot/DB.auth > "$output"
+test -s "$output"
+""".format(
+        image=shlex.quote(DOWNLOADED_IMAGE_PATH),
+        output=shlex.quote(EXTRACTED_DB_AUTH_PATH),
+    )
+    duthost.shell(command)
+
+
+def _get_firmware_db_fingerprints(duthost):
+    command = r"""
+set -eu
+work=$(mktemp -d)
+trap 'sudo rm -rf "$work"' EXIT
+sudo efi-readvar -v db -o "$work/db.esl" >/dev/null
+sudo sig-list-to-certs "$work/db.esl" "$work/db" >/dev/null
+for cert in "$work"/db-*.der; do
+    [ -e "$cert" ] || continue
+    sudo openssl x509 -inform DER -in "$cert" -noout -fingerprint -sha256 |
+        sed 's/^.*=//; s/://g' |
+        tr '[:upper:]' '[:lower:]'
+done
+"""
+    result = duthost.shell(command, module_ignore_errors=True)
+    pytest_assert(
+        result["rc"] == 0,
+        "Failed to read UEFI db fingerprints: {}".format(result["stderr"]),
+    )
+    return sorted(result["stdout_lines"])
+
+
+def _get_firmware_db_fingerprint_set(duthost):
+    return set(_get_firmware_db_fingerprints(duthost))
+
+
+def _get_firmware_db_state(duthost):
+    result = duthost.command("sudo efi-readvar -v db", module_ignore_errors=True)
+    pytest_assert(
+        result["rc"] == 0,
+        "Failed to read the UEFI db variable: {}".format(result["stderr"]),
+    )
+    return result["stdout"].strip()
+
+
+def _get_firmware_authority_fingerprints(duthost):
+    command = r"""
+set -eu
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+for variable in PK KEK; do
+    sudo efi-readvar -v "$variable" -o "$work/$variable.esl" >/dev/null
+    sig-list-to-certs "$work/$variable.esl" "$work/$variable" >/dev/null
+    for cert in "$work"/"$variable"-*.der; do
+        [ -e "$cert" ] || continue
+        openssl x509 -inform DER -in "$cert" -noout -fingerprint -sha256 |
+            sed 's/^.*=//; s/://g' |
+            tr '[:upper:]' '[:lower:]'
+    done
+done | sort -u
+"""
+    result = duthost.shell(command, module_ignore_errors=True)
+    pytest_assert(
+        result["rc"] == 0,
+        "Failed to read UEFI PK/KEK fingerprints: {}".format(
+            _get_command_output(result)
+        ),
+    )
+    return set(result["stdout_lines"])
+
+
+def _get_db_auth_signer_fingerprints(duthost, auth_path):
+    command = r"""
+set -eu
+auth={auth}
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+python3 - "$auth" "$work/auth.p7b" <<'PY'
+import sys
+
+
+def der_length(length):
+    if length < 128:
+        return bytes([length])
+    encoded = length.to_bytes((length.bit_length() + 7) // 8, "big")
+    return bytes([0x80 | len(encoded)]) + encoded
+
+
+auth = open(sys.argv[1], "rb").read()
+if len(auth) < 40:
+    raise SystemExit("authenticated update header is truncated")
+certificate_length = int.from_bytes(auth[16:20], "little")
+signed_data = auth[40:16 + certificate_length]
+if not signed_data:
+    raise SystemExit("authenticated update has no PKCS#7 signed data")
+signed_data_oid = bytes.fromhex("06092a864886f70d010702")
+
+
+def der_value_offset(value):
+    if len(value) < 2 or value[0] != 0x30:
+        return None
+    length_size = value[1] & 0x7f
+    if value[1] < 0x80:
+        return 2
+    if not length_size or len(value) < 2 + length_size:
+        return None
+    return 2 + length_size
+
+
+value_offset = der_value_offset(signed_data)
+if value_offset is not None and signed_data[value_offset:].startswith(signed_data_oid):
+    content_info = signed_data
+else:
+    explicit_signed_data = b"\xa0" + der_length(len(signed_data)) + signed_data
+    content = signed_data_oid + explicit_signed_data
+    content_info = b"\x30" + der_length(len(content)) + content
+open(sys.argv[2], "wb").write(content_info)
+PY
+openssl pkcs7 -inform DER -in "$work/auth.p7b" -print_certs -out "$work/certs.pem"
+awk '
+    /-----BEGIN CERTIFICATE-----/ {{ output=sprintf("%s/cert-%d.pem", dir, ++count) }}
+    output {{ print > output }}
+    /-----END CERTIFICATE-----/ {{ close(output); output="" }}
+' dir="$work" "$work/certs.pem"
+for cert in "$work"/cert-*.pem; do
+    [ -e "$cert" ] || continue
+    openssl x509 -in "$cert" -noout -fingerprint -sha256 |
+        sed 's/^.*=//; s/://g' |
+        tr '[:upper:]' '[:lower:]'
+done | sort -u
+""".format(auth=shlex.quote(auth_path))
+    result = duthost.shell(command, module_ignore_errors=True)
+    pytest_assert(
+        result["rc"] == 0,
+        "Failed to read DB.auth signer fingerprints from {}: {}".format(
+            auth_path,
+            _get_command_output(result),
+        ),
+    )
+    if not result["stdout_lines"]:
+        pytest.skip(
+            "Cannot safely validate DB.auth authorization because it contains "
+            "no embedded signer certificates"
+        )
+    return set(result["stdout_lines"])
+
+
+def _db_auth_cert_chains_to_firmware_authority(duthost, auth_path):
+    command = r"""
+set -eu
+auth={auth}
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+for variable in PK KEK; do
+    sudo efi-readvar -v "$variable" -o "$work/$variable.esl" >/dev/null
+    sig-list-to-certs "$work/$variable.esl" "$work/$variable" >/dev/null
+    for cert in "$work"/"$variable"-*.der; do
+        [ -e "$cert" ] || continue
+        openssl x509 -inform DER -in "$cert" >> "$work/trusted.pem"
+    done
+done
+test -s "$work/trusted.pem"
+python3 - "$auth" "$work/auth.p7b" <<'PY'
+import sys
+
+
+def der_length(length):
+    if length < 128:
+        return bytes([length])
+    encoded = length.to_bytes((length.bit_length() + 7) // 8, "big")
+    return bytes([0x80 | len(encoded)]) + encoded
+
+
+def der_value_offset(value):
+    if len(value) < 2 or value[0] != 0x30:
+        return None
+    length_size = value[1] & 0x7f
+    if value[1] < 0x80:
+        return 2
+    if not length_size or len(value) < 2 + length_size:
+        return None
+    return 2 + length_size
+
+
+auth = open(sys.argv[1], "rb").read()
+if len(auth) < 40:
+    raise SystemExit("authenticated update header is truncated")
+certificate_length = int.from_bytes(auth[16:20], "little")
+signed_data = auth[40:16 + certificate_length]
+if not signed_data:
+    raise SystemExit("authenticated update has no PKCS#7 signed data")
+signed_data_oid = bytes.fromhex("06092a864886f70d010702")
+value_offset = der_value_offset(signed_data)
+if value_offset is not None and signed_data[value_offset:].startswith(signed_data_oid):
+    content_info = signed_data
+else:
+    explicit_signed_data = b"\xa0" + der_length(len(signed_data)) + signed_data
+    content = signed_data_oid + explicit_signed_data
+    content_info = b"\x30" + der_length(len(content)) + content
+open(sys.argv[2], "wb").write(content_info)
+PY
+openssl pkcs7 -inform DER -in "$work/auth.p7b" -print_certs -out "$work/certs.pem"
+awk '
+    /-----BEGIN CERTIFICATE-----/ {{ output=sprintf("%s/cert-%d.pem", dir, ++count) }}
+    output {{ print > output }}
+    /-----END CERTIFICATE-----/ {{ close(output); output="" }}
+' dir="$work" "$work/certs.pem"
+found=false
+for cert in "$work"/cert-*.pem; do
+    [ -e "$cert" ] || continue
+    found=true
+    if openssl verify -purpose any -partial_chain \
+        -CAfile "$work/trusted.pem" -untrusted "$work/certs.pem" \
+        "$cert" >/dev/null 2>&1; then
+        echo authorized
+        exit 0
+    fi
+done
+$found
+echo unauthorized
+""".format(auth=shlex.quote(auth_path))
+    result = duthost.shell(command, module_ignore_errors=True)
+    pytest_assert(
+        result["rc"] == 0,
+        "Failed to validate DB.auth certificate chain from {}: {}".format(
+            auth_path,
+            _get_command_output(result),
+        ),
+    )
+    return "authorized" in result["stdout_lines"]
+
+
+def _get_db_auth_fingerprints(duthost, auth_path):
+    command = r"""
+set -eu
+auth={auth}
+work=$(mktemp -d)
+trap 'sudo rm -rf "$work"' EXIT
+set -- $(sudo dd if="$auth" bs=1 skip=16 count=4 2>/dev/null | od -An -tu1)
+[ "$#" -eq 4 ]
+header_length=$((16 + $1 + ($2 * 256) + ($3 * 65536) + ($4 * 16777216)))
+sudo dd if="$auth" of="$work/db.esl" bs=1 skip="$header_length" 2>/dev/null
+test -s "$work/db.esl"
+sudo sig-list-to-certs "$work/db.esl" "$work/db" >/dev/null
+for cert in "$work"/db-*.der; do
+    [ -e "$cert" ] || continue
+    sudo openssl x509 -inform DER -in "$cert" -noout -fingerprint -sha256 |
+        sed 's/^.*=//; s/://g' |
+        tr '[:upper:]' '[:lower:]'
+done | sort -u
+""".format(auth=shlex.quote(auth_path))
+    result = duthost.shell(command, module_ignore_errors=True)
+    pytest_assert(
+        result["rc"] == 0,
+        "Failed to read DB.auth fingerprints from {}: {}".format(
+            auth_path,
+            _get_command_output(result),
+        ),
+    )
+    return set(result["stdout_lines"])
+
+
+def _get_persisted_db_auth_state(duthost):
+    command = (
+        "sudo find /host/db-auth -maxdepth 1 -type f -name 'DB-*.auth' "
+        "-exec sha256sum {} + | sort"
+    )
+    return duthost.shell(command)["stdout"].strip()
+
+
+def _get_matching_persisted_db_auth(duthost, db_auth_path):
+    command = r"""
+for persisted_auth in /host/db-auth/DB-*.auth; do
+    [ -e "$persisted_auth" ] || continue
+    if sudo cmp -s {db_auth} "$persisted_auth"; then
+        printf '%s\n' "$persisted_auth"
+    fi
+done
+""".format(
+        db_auth=shlex.quote(db_auth_path),
+    )
+    return duthost.shell(command)["stdout_lines"]
+
+
+def _assert_db_certificate_is_not_duplicated(duthost, db_auth_path):
+    target_fingerprints = _get_db_auth_fingerprints(duthost, db_auth_path)
+    pytest_assert(target_fingerprints, "DB.auth does not contain an X.509 certificate")
+
+    firmware_fingerprints = _get_firmware_db_fingerprints(duthost)
+    duplicate_fingerprints = {
+        fingerprint: firmware_fingerprints.count(fingerprint)
+        for fingerprint in target_fingerprints
+        if firmware_fingerprints.count(fingerprint) != 1
+    }
+    pytest_assert(
+        not duplicate_fingerprints,
+        "DB certificate is missing or duplicated in UEFI db: {}".format(
+            duplicate_fingerprints
+        ),
+    )
+
+    persisted_matches = _get_matching_persisted_db_auth(duthost, db_auth_path)
+    pytest_assert(
+        len(persisted_matches) == 1,
+        "Expected one persisted copy of DB.auth, found {}: {}".format(
+            len(persisted_matches),
+            persisted_matches,
+        ),
+    )
+
+
+def _require_db_pruning_script(duthost):
+    script_exists = duthost.command(
+        "test -x {}".format(shlex.quote(REMOVE_STALE_DB_CERTS_SCRIPT)),
+        module_ignore_errors=True,
+    )
+    if script_exists["rc"] != 0:
+        pytest.skip("{} is unavailable".format(REMOVE_STALE_DB_CERTS_SCRIPT))
+
+
+def _backup_remove_all_db_auth(duthost):
+    backup_exists = duthost.command(
+        "sudo test -e {}".format(shlex.quote(REMOVE_ALL_DB_AUTH_BACKUP_PATH)),
+        module_ignore_errors=True,
+    )
+    pytest_assert(
+        backup_exists["rc"] != 0,
+        "Stale Secure Boot test backup exists at {}".format(REMOVE_ALL_DB_AUTH_BACKUP_PATH),
+    )
+
+    remove_all_exists = duthost.command(
+        "sudo test -e {}".format(shlex.quote(REMOVE_ALL_DB_AUTH_PATH)),
+        module_ignore_errors=True,
+    )
+    if remove_all_exists["rc"] != 0:
+        return False
+
+    duthost.command(
+        "sudo mv {} {}".format(
+            shlex.quote(REMOVE_ALL_DB_AUTH_PATH),
+            shlex.quote(REMOVE_ALL_DB_AUTH_BACKUP_PATH),
+        )
+    )
+    return True
+
+
+def _restore_remove_all_db_auth(duthost, remove_all_was_present):
+    duthost.command(
+        "sudo rm -f {}".format(shlex.quote(REMOVE_ALL_DB_AUTH_PATH)),
+        module_ignore_errors=True,
+    )
+    if remove_all_was_present:
+        duthost.command(
+            "sudo mv {} {}".format(
+                shlex.quote(REMOVE_ALL_DB_AUTH_BACKUP_PATH),
+                shlex.quote(REMOVE_ALL_DB_AUTH_PATH),
+            ),
+            module_ignore_errors=True,
+        )
+
+
+def _run_db_pruning(duthost):
+    return duthost.command(
+        "sudo {} --commit".format(shlex.quote(REMOVE_STALE_DB_CERTS_SCRIPT)),
+        module_ignore_errors=True,
+    )
+
+
+def _create_invalid_remove_all_db_auth(duthost):
+    trusted_auth_exists = duthost.command(
+        "test -s {}".format(shlex.quote(TRUSTED_DB_AUTH_PATH)),
+        module_ignore_errors=True,
+    )
+    if trusted_auth_exists["rc"] != 0:
+        pytest.skip("{} is unavailable".format(TRUSTED_DB_AUTH_PATH))
+
+    duthost.command(
+        "sudo cp {} {}".format(
+            shlex.quote(TRUSTED_DB_AUTH_PATH),
+            shlex.quote(REMOVE_ALL_DB_AUTH_PATH),
+        )
+    )
+
+
+def _get_command_output(result):
+    return "{}\n{}".format(result["stdout"], result["stderr"]).lower()
+
+
+def _assert_db_state_unchanged(duthost, firmware_db_before, persisted_auth_before, scenario):
+    pytest_assert(
+        _get_firmware_db_state(duthost) == firmware_db_before,
+        "{} changed the UEFI db variable".format(scenario),
+    )
+    pytest_assert(
+        _get_persisted_db_auth_state(duthost) == persisted_auth_before,
+        "{} changed persisted signer files".format(scenario),
+    )
+
+
+def test_reinstall_identical_db_certificate(duthost, request, tbinfo):
+    """Verify that reinstalling an identical DB certificate creates no duplicate."""
+    require_secure_boot(duthost)
+
+    image_url = request.config.getoption("secure_boot_second_image_url")
+    original_image = get_current_image(duthost)
+    original_db_auth = _get_image_db_auth_path(original_image)
+    installed_images_before = get_installed_images(duthost)
+    target_version = None
+    target_db_auth = None
+
+    try:
+        if image_url:
+            _download_image(duthost, image_url, tbinfo)
+            _extract_db_auth(duthost)
+            target_db_auth = EXTRACTED_DB_AUTH_PATH
+            target_version = duthost.command(
+                "sonic-installer binary_version {}".format(shlex.quote(DOWNLOADED_IMAGE_PATH))
+            )["stdout"].strip()
+            if target_version in installed_images_before:
+                pytest.skip("The second image version is already installed")
+        else:
+            target_version = get_inactive_image(installed_images_before, original_image)
+            target_db_auth = _get_image_db_auth_path(target_version)
+
+        same_certificate = duthost.command(
+            "sudo cmp -s {} {}".format(
+                shlex.quote(target_db_auth),
+                shlex.quote(original_db_auth),
+            ),
+            module_ignore_errors=True,
+        )
+        if same_certificate["rc"] != 0:
+            pytest.skip("The second image does not contain the same DB.auth as the running image")
+
+        firmware_db_before = _get_firmware_db_fingerprints(duthost)
+        persisted_auth_before = _get_persisted_db_auth_state(duthost)
+        _assert_db_certificate_is_not_duplicated(duthost, target_db_auth)
+
+        if image_url:
+            install_result = duthost.reduce_and_add_sonic_images(save_as=DOWNLOADED_IMAGE_PATH)
+            installed_version = install_result["ansible_facts"]["downloaded_image_version"]
+            pytest_assert(
+                installed_version == target_version,
+                "Installed image {} does not match downloaded image {}".format(
+                    installed_version,
+                    target_version,
+                ),
+            )
+
+        pytest_assert(
+            _get_firmware_db_fingerprints(duthost) == firmware_db_before,
+            "Reinstalling an identical DB certificate changed the UEFI db variable",
+        )
+        pytest_assert(
+            _get_persisted_db_auth_state(duthost) == persisted_auth_before,
+            "Reinstalling an identical DB certificate changed /host/db-auth",
+        )
+        _assert_db_certificate_is_not_duplicated(duthost, target_db_auth)
+    finally:
+        duthost.command(
+            "sudo rm -f {} {}".format(
+                shlex.quote(DOWNLOADED_IMAGE_PATH),
+                shlex.quote(EXTRACTED_DB_AUTH_PATH),
+            ),
+            module_ignore_errors=True,
+        )
+        restore_image_selection(duthost, original_image)
+
+        if image_url and target_version and target_version not in installed_images_before:
+            restore_active_efi_bundle(duthost, original_image)
+            duthost.command(
+                "sudo sonic-installer remove {} -y".format(shlex.quote(target_version)),
+                module_ignore_errors=True,
+            )
+
+
+def test_unauthorized_db_auth_is_rejected(duthost, request, tbinfo):
+    """Verify an image with DB.auth authorized by an unknown KEK is rejected."""
+    require_secure_boot(duthost)
+
+    image_url = request.config.getoption("secure_boot_unauthorized_image_url")
+    if not image_url:
+        pytest.skip("--secure_boot_unauthorized_image_url is required")
+
+    original_image = get_current_image(duthost)
+    installed_images_before = get_installed_images(duthost)
+    firmware_db_before = _get_firmware_db_state(duthost)
+    firmware_fingerprints_before = _get_firmware_db_fingerprints(duthost)
+    authority_fingerprints = _get_firmware_authority_fingerprints(duthost)
+    target_version = None
+    target_persisted_auth = None
+    target_auth_was_persisted = False
+
+    try:
+        _download_image(duthost, image_url, tbinfo)
+        _extract_db_auth(duthost)
+        target_auth_hash = duthost.command(
+            "sha256sum {}".format(shlex.quote(EXTRACTED_DB_AUTH_PATH))
+        )["stdout"].split()[0]
+        target_persisted_auth = "/host/db-auth/DB-{}.auth".format(
+            target_auth_hash
+        )
+        target_auth_was_persisted = duthost.command(
+            "sudo test -e {}".format(shlex.quote(target_persisted_auth)),
+            module_ignore_errors=True,
+        )["rc"] == 0
+
+        target_version = duthost.command(
+            "sonic-installer binary_version {}".format(shlex.quote(DOWNLOADED_IMAGE_PATH))
+        )["stdout"].strip()
+        pytest_assert(target_version, "Failed to read the unauthorized image version")
+        if target_version in installed_images_before:
+            pytest.skip("The unauthorized image version is already installed")
+
+        target_fingerprints = _get_db_auth_fingerprints(
+            duthost,
+            EXTRACTED_DB_AUTH_PATH,
+        )
+        already_enrolled = target_fingerprints.intersection(
+            firmware_fingerprints_before
+        )
+        if already_enrolled:
+            pytest.skip(
+                "The test image DB signer is already enrolled: {}".format(
+                    sorted(already_enrolled)
+                )
+            )
+
+        auth_signer_fingerprints = _get_db_auth_signer_fingerprints(
+            duthost,
+            EXTRACTED_DB_AUTH_PATH,
+        )
+        trusted_auth_signers = auth_signer_fingerprints.intersection(
+            authority_fingerprints
+        )
+        if trusted_auth_signers:
+            pytest.skip(
+                "The test image DB.auth contains an enrolled PK/KEK: {}".format(
+                    sorted(trusted_auth_signers)
+                )
+            )
+        if _db_auth_cert_chains_to_firmware_authority(
+            duthost,
+            EXTRACTED_DB_AUTH_PATH,
+        ):
+            pytest.skip(
+                "The test image DB.auth contains a certificate that chains "
+                "to an enrolled PK/KEK"
+            )
+
+        install_result = duthost.command(
+            "sudo sonic-installer install {} -y".format(
+                shlex.quote(DOWNLOADED_IMAGE_PATH)
+            ),
+            module_ignore_errors=True,
+        )
+        install_output = _get_command_output(install_result)
+        installed_images_after = get_installed_images(duthost)
+        firmware_db_after = _get_firmware_db_state(duthost)
+
+        pytest_assert(
+            install_result["rc"] != 0,
+            "Installation unexpectedly succeeded with unauthorized DB.auth",
+        )
+        pytest_assert(
+            "failed to enroll db certificate" in install_output,
+            "Installation did not report rejected DB enrollment: {}".format(
+                install_output
+            ),
+        )
+        pytest_assert(
+            "failed verify image signature" in install_output,
+            "Installation did not abort on image signature verification: {}".format(
+                install_output
+            ),
+        )
+        pytest_assert(
+            firmware_db_after == firmware_db_before,
+            "Rejected DB.auth changed the UEFI db variable",
+        )
+        pytest_assert(
+            installed_images_after == installed_images_before,
+            "Rejected image changed the installed image set",
+        )
+        pytest_assert(
+            get_current_image(duthost) == original_image,
+            "Rejected image changed the running SONiC image",
+        )
+    finally:
+        duthost.command(
+            "sudo rm -f {} {}".format(
+                shlex.quote(DOWNLOADED_IMAGE_PATH),
+                shlex.quote(EXTRACTED_DB_AUTH_PATH),
+            ),
+            module_ignore_errors=True,
+        )
+        restore_image_selection(duthost, original_image)
+
+        if target_version and target_version not in installed_images_before:
+            installed_images_after = get_installed_images(duthost)
+            if target_version in installed_images_after:
+                restore_active_efi_bundle(duthost, original_image)
+                remove_result = duthost.command(
+                    "sudo sonic-installer remove {} -y".format(
+                        shlex.quote(target_version)
+                    ),
+                    module_ignore_errors=True,
+                )
+                pytest_assert(
+                    remove_result["rc"] == 0,
+                    "Failed to remove the unexpectedly installed unauthorized image",
+                )
+
+        if target_persisted_auth and not target_auth_was_persisted:
+            duthost.command(
+                "sudo rm -f -- {}".format(shlex.quote(target_persisted_auth)),
+                module_ignore_errors=True,
+            )
+
+
+def test_db_pruning_without_remove_all_auth(duthost):
+    """Verify missing remove-all-db.auth prevents pruning without changing UEFI db."""
+    require_secure_boot(duthost)
+    _require_db_pruning_script(duthost)
+
+    firmware_db_before = _get_firmware_db_state(duthost)
+    persisted_auth_before = _get_persisted_db_auth_state(duthost)
+    remove_all_was_present = _backup_remove_all_db_auth(duthost)
+
+    try:
+        prune_result = _run_db_pruning(duthost)
+        prune_output = _get_command_output(prune_result)
+
+        pytest_assert(
+            prune_result["rc"] != 0,
+            "DB pruning succeeded without remove-all-db.auth",
+        )
+        pytest_assert(
+            "remove-all .auth not found" in prune_output,
+            "DB pruning did not report the missing remove-all-db.auth: {}".format(
+                prune_output
+            ),
+        )
+        _assert_db_state_unchanged(
+            duthost,
+            firmware_db_before,
+            persisted_auth_before,
+            "DB pruning without remove-all-db.auth",
+        )
+    finally:
+        _restore_remove_all_db_auth(duthost, remove_all_was_present)
+
+
+def test_db_pruning_with_invalid_remove_all_auth(duthost):
+    """Verify malformed remove-all-db.auth fails without changing UEFI db."""
+    require_secure_boot(duthost)
+    _require_db_pruning_script(duthost)
+
+    firmware_db_before = _get_firmware_db_state(duthost)
+    persisted_auth_before = _get_persisted_db_auth_state(duthost)
+    remove_all_was_present = _backup_remove_all_db_auth(duthost)
+
+    try:
+        _create_invalid_remove_all_db_auth(duthost)
+
+        prune_result = _run_db_pruning(duthost)
+        prune_output = _get_command_output(prune_result)
+
+        pytest_assert(
+            prune_result["rc"] != 0,
+            "DB pruning succeeded with invalid remove-all-db.auth",
+        )
+        pytest_assert(
+            "remove-all .auth must contain an empty signature-list payload" in prune_output,
+            "DB pruning did not report invalid remove-all-db.auth: {}".format(
+                prune_output
+            ),
+        )
+        _assert_db_state_unchanged(
+            duthost,
+            firmware_db_before,
+            persisted_auth_before,
+            "DB pruning with invalid remove-all-db.auth",
+        )
+    finally:
+        _restore_remove_all_db_auth(duthost, remove_all_was_present)
+
+
+def test_db_pruning_preserves_retained_image_signers(duthost):
+    """Verify pruning preserves every DB signer required by retained images."""
+    require_secure_boot(duthost)
+    _require_db_pruning_script(duthost)
+
+    original_image = get_current_image(duthost)
+    installed_images = get_installed_images(duthost)
+    if len(installed_images) < 2:
+        pytest.skip("At least two retained images are required for DB signer preservation")
+
+    required_fingerprints = set()
+    for image in installed_images:
+        auth_path = _get_image_db_auth_path(image)
+        auth_exists = duthost.command(
+            "sudo test -s {}".format(shlex.quote(auth_path)),
+            module_ignore_errors=True,
+        )
+        if auth_exists["rc"] != 0:
+            pytest.skip("Retained image {} does not contain DB.auth".format(image))
+        required_fingerprints.update(_get_db_auth_fingerprints(duthost, auth_path))
+
+    if len(required_fingerprints) < 2:
+        pytest.skip("Retained images must use at least two distinct DB signers")
+
+    remove_all_exists = duthost.command(
+        "sudo test -s {}".format(shlex.quote(REMOVE_ALL_DB_AUTH_PATH)),
+        module_ignore_errors=True,
+    )
+    if remove_all_exists["rc"] != 0:
+        pytest.skip("A valid remove-all-db.auth is required for DB pruning")
+
+    firmware_fingerprints_before = _get_firmware_db_fingerprint_set(duthost)
+    missing_before = required_fingerprints - firmware_fingerprints_before
+    pytest_assert(
+        not missing_before,
+        "Required retained-image DB signers are not enrolled before pruning: {}".format(
+            sorted(missing_before)
+        ),
+    )
+    persisted_auth_before = _get_persisted_db_auth_state(duthost)
+
+    prune_result = _run_db_pruning(duthost)
+    pytest_assert(
+        prune_result["rc"] == 0,
+        "DB pruning failed: {}".format(_get_command_output(prune_result)),
+    )
+
+    firmware_fingerprints_after = _get_firmware_db_fingerprint_set(duthost)
+    missing_after = required_fingerprints - firmware_fingerprints_after
+    pytest_assert(
+        not missing_after,
+        "DB pruning removed signers required by retained images: {}".format(
+            sorted(missing_after)
+        ),
+    )
+    pytest_assert(
+        _get_persisted_db_auth_state(duthost) == persisted_auth_before,
+        "DB pruning changed persisted signer authentication files",
+    )
+    pytest_assert(
+        get_current_image(duthost) == original_image,
+        "DB pruning changed the running SONiC image",
+    )
