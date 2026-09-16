@@ -1470,7 +1470,9 @@ class GenerateGoldenConfigDBModule(object):
             })
 
         # BMC runs only these services. Disable any other feature present in the image.
-        if self.is_bmc_device():
+        # DEVICE_METADATA may still be "not-provisioned" before the first
+        # minigraph load, so also identify BMC from the requested topology.
+        if self.is_bmc_device() or "bmc" in self.topo_name.lower():
             bmc_enabled_features = [
                 "database", "gnmi", "lldp", "pmon", "redfish", "sysmgr",
                 "telemetry", "acms"
