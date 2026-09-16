@@ -1,11 +1,12 @@
 """
-Shared helpers for the UT2 / non-chassis T2 add-cluster GCU tests.
+Shared helpers for the disaggregated-T2 (UT2 / LT2, non-chassis) GCU neighbor tests.
 
 Everything here is neighbor-centric: a ``neighbor_ctx`` (built by
-``pick_target_neighbor``) describes one existing BGP cluster peer, and the
-builders derive per-peer GCU patches, expected CONFIG_DB state, route and
-traffic checks from it. The test files under this directory keep only the
-scenario definitions, fixtures and the test flow.
+``pick_target_neighbor``) describes one existing BGP neighbor, and the builders
+derive per-neighbor GCU patches, expected CONFIG_DB state, route and traffic
+checks from it. ``run_remove_and_readd_cycle`` is the flow shared by the uplink
+(``test_add_t3.py``) and downstream (``test_add_downstream.py``) tests, which keep
+only their scenario selection and fixtures.
 """
 import copy
 import ipaddress
@@ -15,8 +16,10 @@ import ptf.mask as mask
 import ptf.packet as packet
 import ptf.testutils as testutils
 import pytest
+from tests.common.config_reload import config_reload
 from tests.common.gu_utils import apply_patch, delete_tmpfile, expect_op_success, generate_tmpfile
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 from tests.common.utilities import wait_until
 from tests.generic_config_updater.add_cluster.helpers import (
     format_sonic_buffer_pg_dict,
@@ -26,6 +29,7 @@ from tests.generic_config_updater.add_cluster.helpers import (
 )
 
 logger = logging.getLogger(__name__)
+allure.logger = logger
 
 
 def json_namespace_prefix(namespace):
@@ -1073,3 +1077,285 @@ def apply_patch_or_assert(duthost, patch):
         expect_op_success(duthost, output)
     finally:
         delete_tmpfile(duthost, tmpfile)
+
+
+# -----------------------------
+# Scenarios and shared test flow
+# -----------------------------
+
+# Uplink (T3) neighbors of a UT2. AZNGHub and RegionalHub differ in PFC, cable length and
+# MACsec, so they are separate scenarios; each skips when the testbed has no such neighbor.
+T3_SCENARIOS = [
+    {"id": "ah", "neighbor_role": "AH", "device_types": ["AZNGHub"], "expect_ebgp": True},
+    {"id": "rh", "neighbor_role": "RH", "device_types": ["RegionalHub"], "expect_ebgp": True},
+]
+
+# Downstream neighbors: the LowerSpineRouter when the DUT is a UT2, the T1 LeafRouter when
+# the DUT is an LT2 (the non-chassis counterpart of the chassis add-cluster test).
+DOWNSTREAM_SCENARIOS = [
+    {"id": "lt2", "neighbor_role": "LT2", "device_types": ["LowerSpineRouter"], "expect_ebgp": True},
+    {"id": "t1", "neighbor_role": "T1", "device_types": ["LeafRouter"], "expect_ebgp": True},
+]
+
+
+def run_remove_and_readd_cycle(
+    tbinfo,
+    duthosts,
+    ptfadapter,
+    loganalyzer,
+    dut_hostname,
+    upstream_dut_hostname,
+    asic_index,
+    namespace,
+    mg_facts,
+    config_facts,
+    config_facts_localhost,
+    scenario,
+    neighbor_ctx,
+):
+    """
+    Remove one existing BGP neighbor via GCU and add it back, verifying CONFIG_DB, routes and
+    forwarding through the cycle. Shared by the uplink (T3) and downstream tests.
+
+      1. Find one IPv4 prefix reachable through the neighbor (mandatory) and one IPv6
+         prefix (best-effort: when none qualifies the IPv6 checks are skipped).
+      2. Baseline: BGP established, expected CONFIG_DB state, prefixes present, traffic
+         forwarded towards them.
+      3. Remove the neighbor via a two-stage GCU JSON patch; assert: neighbor config removed
+         from all relevant tables, PORT/CABLE_LENGTH reflect the reduced state, the prefixes
+         are withdrawn and traffic towards them is dropped.
+      4. Re-add the same neighbor via GCU; assert: config restored across the same tables,
+         the prefixes are relearned and traffic recovers.
+      5. ``config save`` on success; ``config_reload`` always runs in ``finally`` so a
+         mid-test failure never leaves the DUT with the neighbor removed.
+    """
+    duthost = duthosts[dut_hostname]
+    dut_basic_facts = duthost.dut_basic_facts()["ansible_facts"]["dut_basic_facts"]
+    if dut_basic_facts.get("is_chassis"):
+        pytest.skip("Disaggregated-T2 neighbor remove/re-add workflow is skipped on chassis systems")
+    duthost_up = duthosts[upstream_dut_hostname]
+    dst_asic = asic_index
+    pytest_assert(
+        neighbor_ctx["device_type"] in scenario["device_types"],
+        "Scenario {} expected device_type in {}, got {} for neighbor {}".format(
+            scenario["id"],
+            scenario["device_types"],
+            neighbor_ctx["device_type"],
+            neighbor_ctx["neighbor_name"],
+        ),
+    )
+    logger.info(
+        "scenario=%s role=%s: GCU remove-and-readd of cluster peer %s "
+        "(device_type=%s, ebgp=%s, ports=%s)",
+        scenario["id"],
+        scenario["neighbor_role"],
+        neighbor_ctx["neighbor_name"],
+        neighbor_ctx["device_type"],
+        neighbor_ctx["ebgp"],
+        neighbor_ctx["neighbor_ports"],
+    )
+    src_asic_on_upstream = pick_upstream_src_asic(duthost_up, duthost, dst_asic)
+    logger.info(
+        "Ingress ASIC on upstream DUT %s for peer path to %s: %s "
+        "(dst DUT=%s asic=%s)",
+        duthost_up.hostname, neighbor_ctx["neighbor_name"],
+        src_asic_on_upstream, duthost.hostname, dst_asic,
+    )
+
+    prefix, dst_ip, ecmp_path = pick_prefix_for_neighbor(duthost, dst_asic, neighbor_ctx, ip_version=4)
+    prefix_v6, dst_ip_v6, ecmp_path_v6 = pick_prefix_for_neighbor(duthost, dst_asic, neighbor_ctx, ip_version=6)
+    ptf_dst_ports, ptf_dst_interfaces = compute_egress_ptf_ports(mg_facts, neighbor_ctx)
+
+    expected_add_state = build_add_expectations(config_facts, neighbor_ctx)
+    expected_remove_present, expected_remove_absent = build_remove_expectations(config_facts, neighbor_ctx)
+
+    with allure.step(
+        f"[{scenario['id']}] Verify selected {neighbor_ctx['neighbor_role']} "
+        f"neighbor and learned prefix before removal"
+    ):
+        # Control-plane gate: Wait for BGP sessions to establish
+        logger.info("Waiting for BGP neighbor sessions to establish")
+        bgp_ok = wait_until(120, 10, 0, duthost.check_bgp_session_state, neighbor_ctx["neighbor_ips"])
+        pytest_assert(bgp_ok, f"BGP sessions with neighbors {neighbor_ctx['neighbor_ips']} failed to establish")
+
+        assert_peer_config_state(
+            duthost,
+            namespace,
+            neighbor_ctx,
+            expected_add_state,
+            {},
+            "pre-remove baseline",
+        )
+        if prefix:
+            pytest_assert(
+                verify_prefix_present(duthost, dst_asic, prefix, neighbor_ctx, should_exist=True, ecmp_path=ecmp_path),
+                f"Expected learned IPv4 prefix {prefix} from neighbor {neighbor_ctx['neighbor_name']} before removal",
+            )
+        if prefix_v6:
+            pytest_assert(
+                verify_prefix_present(
+                    duthost, dst_asic, prefix_v6, neighbor_ctx,
+                    should_exist=True, ecmp_path=ecmp_path_v6,
+                ),
+                f"Expected learned IPv6 prefix {prefix_v6} from neighbor "
+                f"{neighbor_ctx['neighbor_name']} before removal",
+            )
+        send_and_verify_traffic_with_retry(
+            tbinfo,
+            duthost_up,
+            duthost,
+            src_asic_on_upstream,
+            dst_asic,
+            ptfadapter,
+            ptf_dst_ports=ptf_dst_ports,
+            ptf_dst_interfaces=ptf_dst_interfaces,
+            dst_ip=dst_ip,
+            expect_error=False,
+        )
+        if prefix_v6:
+            send_v6_and_verify_with_retry(
+                tbinfo, duthost_up, src_asic_on_upstream, ptfadapter,
+                ptf_dst_ports, dst_ip_v6, expect_error=False,
+            )
+
+    la_entry = loganalyzer[duthost.hostname] if loganalyzer else None
+    if la_entry:
+        # Expected, benign errors while a port/LAG is torn down and re-created via GCU.
+        la_entry.ignore_regex.extend([
+            r"querySwitchLagHashAttrCapabilities",
+            r"SRV6.*unsupported",
+        ])
+    try:
+        with allure.step(
+            f"[{scenario['id']}] Remove selected cluster peer via GCU and validate route withdrawal / traffic loss"
+        ):
+            remove_patch_main, remove_patch_extra = build_remove_patch(
+                config_facts,
+                config_facts_localhost,
+                mg_facts,
+                namespace,
+                neighbor_ctx,
+            )
+            apply_patch_or_assert(duthost, remove_patch_main)
+            if remove_patch_extra:
+                apply_patch_or_assert(duthost, remove_patch_extra)
+            assert_peer_config_state(
+                duthost,
+                namespace,
+                neighbor_ctx,
+                expected_remove_present,
+                expected_remove_absent,
+                "post-remove",
+            )
+            if prefix:
+                pytest_assert(
+                    wait_until(60, 5, 0, verify_prefix_present, duthost,
+                               dst_asic, prefix, neighbor_ctx, False, ecmp_path),
+                    f"IPv4 prefix {prefix} still present after removing neighbor {neighbor_ctx['neighbor_name']}",
+                )
+            if prefix_v6:
+                pytest_assert(
+                    wait_until(
+                        60, 5, 0, verify_prefix_present,
+                        duthost, dst_asic, prefix_v6, neighbor_ctx, False, ecmp_path_v6,
+                    ),
+                    f"IPv6 prefix {prefix_v6} still present after removing neighbor {neighbor_ctx['neighbor_name']}",
+                )
+
+            send_and_verify_traffic_with_retry(
+                tbinfo,
+                duthost_up,
+                duthost,
+                src_asic_on_upstream,
+                dst_asic,
+                ptfadapter,
+                ptf_dst_ports=ptf_dst_ports,
+                ptf_dst_interfaces=ptf_dst_interfaces,
+                dst_ip=dst_ip,
+                expect_error=True,
+            )
+            if prefix_v6:
+                send_v6_and_verify_with_retry(
+                    tbinfo, duthost_up, src_asic_on_upstream, ptfadapter,
+                    ptf_dst_ports, dst_ip_v6, expect_error=True,
+                )
+
+        with allure.step(
+            f"[{scenario['id']}] Add selected cluster peer back via GCU and validate route / traffic recovery"
+        ):
+            patch_pc, patch_rest = build_add_patches(
+                config_facts,
+                config_facts_localhost,
+                mg_facts,
+                namespace,
+                neighbor_ctx,
+            )
+            if patch_pc:
+                apply_patch_or_assert(duthost, patch_pc)
+            apply_patch_or_assert(duthost, patch_rest)
+            assert_peer_config_state(
+                duthost,
+                namespace,
+                neighbor_ctx,
+                expected_add_state,
+                {},
+                "post-add",
+            )
+
+            # Control-plane gate: Wait for BGP sessions to establish
+            logger.info("Waiting for BGP neighbor sessions to establish after re-add")
+            bgp_up = wait_until(
+                120, 10, 0,
+                duthost.check_bgp_session_state,
+                neighbor_ctx["neighbor_ips"],
+            )
+            pytest_assert(
+                bgp_up,
+                f"BGP sessions with neighbors {neighbor_ctx['neighbor_ips']} failed to establish after re-add",
+            )
+
+            if prefix:
+                pytest_assert(
+                    wait_until(120, 5, 0, verify_prefix_present, duthost,
+                               dst_asic, prefix, neighbor_ctx, True, ecmp_path),
+                    f"IPv4 prefix {prefix} did not return after re-adding neighbor {neighbor_ctx['neighbor_name']}",
+                )
+            if prefix_v6:
+                pytest_assert(
+                    wait_until(
+                        120, 5, 0, verify_prefix_present,
+                        duthost, dst_asic, prefix_v6, neighbor_ctx, True, ecmp_path_v6,
+                    ),
+                    f"IPv6 prefix {prefix_v6} did not return after re-adding neighbor {neighbor_ctx['neighbor_name']}",
+                )
+
+            send_and_verify_traffic_with_retry(
+                tbinfo,
+                duthost_up,
+                duthost,
+                src_asic_on_upstream,
+                dst_asic,
+                ptfadapter,
+                ptf_dst_ports=ptf_dst_ports,
+                ptf_dst_interfaces=ptf_dst_interfaces,
+                dst_ip=dst_ip,
+                expect_error=False,
+            )
+            if prefix_v6:
+                send_v6_and_verify_with_retry(
+                    tbinfo, duthost_up, src_asic_on_upstream, ptfadapter,
+                    ptf_dst_ports, dst_ip_v6, expect_error=False,
+                )
+
+        with allure.step(f"[{scenario['id']}] Persist the restored configuration"):
+            duthost.shell("config save -y")
+    finally:
+        # Reload the last persisted configuration even when a validation fails after the
+        # peer has been removed. Only the reload window is hidden from the loganalyzer.
+        if la_entry:
+            la_entry.add_start_ignore_mark()
+        try:
+            config_reload(duthost, config_source="config_db", safe_reload=True)
+        finally:
+            if la_entry:
+                la_entry.add_end_ignore_mark()
