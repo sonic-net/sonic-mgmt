@@ -89,7 +89,9 @@ def get_dut_psu_line_pattern(dut):
     elif dut.facts['platform'] == "x86_64-dellemc_z9332f_d1508-r0":
         psu_line_pattern = re.compile(r"PSU\s+(\d+).*?(OK|NOT OK|NOT PRESENT|WARNING)\s+(N/A)")
     elif dut.facts["asic_type"] in ["mellanox"]:
-        psu_line_pattern = re.compile(r"PSU\s+(\d+).*?(OK|NOT OK|NOT PRESENT|WARNING)\s+(green|amber|red|off|N/A)")
+        psu_line_pattern = re.compile(
+            r"(?:PSU|PDB)\s+(\d+).*?(OK|NOT OK|NOT PRESENT|WARNING)\s+(green|amber|red|off|N/A)"
+        )
     else:
         # Changed the pattern to match different PSU name formats and status patterns.
         # Supports various PSU naming conventions:
@@ -102,9 +104,10 @@ def get_dut_psu_line_pattern(dut):
         #     psutray0.psu1  N/A      N/A               12.01           4.12        49.50  OK        green
         # example 3:
         #     PSU 9  PSU6.3KW-20A-HV  DTM273501QU      1.00  55.052         11.359         626.386      OK        green
-        #
+        # Supports PSU and PDB naming conventions:
+        #   PSU 1, PSU 9, PDB 1, PDB 2, psu1, etc.
         psu_line_pattern = re.compile(
-            r"^(PSU\s+\d+|\S+)\s+.*?(OK|NOT OK|NOT PRESENT|WARNING)\s+(green|amber|red|off|N/A)")
+            r"^(PSU\s+\d+|PDB\s+\d+|\S+)\s+.*?(OK|NOT OK|NOT PRESENT|WARNING)\s+(green|amber|red|off|N/A)")
     return psu_line_pattern
 
 
@@ -456,14 +459,20 @@ def verify_yang(duthost):
         raise RebootHealthError("Yang validation failed")
 
 
-@pytest.fixture
-def verify_dut_health(request, duthosts, rand_one_dut_hostname, tbinfo):
+def _verify_dut_health_for_host(request, duthost, tbinfo):
     """
-    Performs health check on single DUT defined by rand_one_dut_hostname before and after a test
+    Perform health checks on a DUT before and after a test.
+
+    Args:
+        request: Pytest request object.
+        duthost: DUT host to check.
+        tbinfo: Testbed information.
+
+    Returns:
+        Iterator that performs post-test checks during fixture teardown.
     """
     global test_report
     test_report = {}
-    duthost = duthosts[rand_one_dut_hostname]
     check_services(duthost)
     check_interfaces_and_transceivers(duthost, request)
     check_neighbors(duthost, tbinfo)
@@ -486,6 +495,46 @@ def verify_dut_health(request, duthosts, rand_one_dut_hostname, tbinfo):
     check_all = all([check is True for check in list(test_report.values())])
     pytest_assert(check_all, "Health check failed after reboot: {}"
                   .format(test_report))
+
+
+@pytest.fixture
+def verify_dut_health(request, duthosts, rand_one_dut_hostname, tbinfo):
+    """
+    Perform health checks on the randomly selected DUT.
+
+    Args:
+        request: Pytest request object.
+        duthosts: Available DUT hosts.
+        rand_one_dut_hostname: Randomly selected DUT hostname.
+        tbinfo: Testbed information.
+
+    Returns:
+        Iterator that performs post-test checks during fixture teardown.
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    yield from _verify_dut_health_for_host(request, duthost, tbinfo)
+
+
+@pytest.fixture
+def verify_dut_health_enum_frontend(
+        request, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+        tbinfo, setup_dualtor_mux_ports):
+    """
+    Perform health checks on the enumerated frontend DUT.
+
+    Args:
+        request: Pytest request object.
+        duthosts: Available DUT hosts.
+        enum_rand_one_per_hwsku_frontend_hostname: Enumerated frontend DUT hostname.
+        tbinfo: Testbed information.
+        setup_dualtor_mux_ports: Keeps the dual-ToR mux setup active
+            throughout the health checks.
+
+    Returns:
+        Iterator that performs post-test checks during fixture teardown.
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    yield from _verify_dut_health_for_host(request, duthost, tbinfo)
 
 
 @pytest.fixture
