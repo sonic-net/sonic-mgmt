@@ -91,6 +91,13 @@ def rand_one_downlink_duthost(duthosts, tbinfo):
         return dut[0]
 
 
+@pytest.fixture(scope="module", autouse=True)
+def skip_if_idf_isolation_not_supported(rand_one_downlink_duthost):
+    dut_type = rand_one_downlink_duthost.facts.get('router_type')
+    if dut_type == 'BackEndSpineRouter':
+        pytest.skip(f"IDF isolation not applicable for dut type {dut_type}")
+
+
 def test_idf_isolated_no_export(rand_one_downlink_duthost,
                                 nbrhosts, traffic_shift_community):
     """
