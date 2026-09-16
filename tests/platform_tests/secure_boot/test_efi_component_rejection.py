@@ -496,3 +496,16 @@ def test_tampered_shim_is_rejected(duthost, kvm_serial_console, localhost, vmhos
         _tamper_pe_payload,
         "tampered shim",
     )
+
+
+def test_unsigned_shim_is_rejected(duthost, kvm_serial_console, localhost, vmhost):
+    """Verify that firmware rejects a shim binary with no Authenticode signature."""
+    _verify_efi_component_is_rejected(
+        duthost,
+        kvm_serial_console,
+        localhost,
+        vmhost,
+        ACTIVE_SHIM_PATHS,
+        _remove_pe_signature,
+        "unsigned shim",
+    )
