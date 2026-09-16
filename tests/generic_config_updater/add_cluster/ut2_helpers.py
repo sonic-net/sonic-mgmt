@@ -62,6 +62,27 @@ def get_local_asn(config_facts, mg_facts):
     return None
 
 
+def bgp_neighbor_table(config_facts):
+    """
+    BGP_NEIGHBOR rows keyed exactly as in CONFIG_DB. Newer images qualify the key with the
+    VRF ("default|10.0.0.1"), and config_facts nests such keys as {vrf: {ip: row}}, so
+    flatten them back; older images keep plain "10.0.0.1" keys, which pass through.
+    """
+    flat = {}
+    for key, value in (config_facts.get("BGP_NEIGHBOR", {}) or {}).items():
+        if isinstance(value, dict) and value and all(isinstance(row, dict) for row in value.values()):
+            for ip, row in value.items():
+                flat[f"{key}|{ip}"] = row
+        else:
+            flat[key] = value
+    return flat
+
+
+def bgp_key_ip(key):
+    """Neighbor IP from a BGP_NEIGHBOR key, with or without a VRF prefix."""
+    return key.rsplit("|", 1)[-1]
+
+
 def find_neighbor_ports(config_facts, neighbor_name):
     ports = []
     for port, info in config_facts.get("DEVICE_NEIGHBOR", {}).items():
@@ -73,15 +94,17 @@ def find_neighbor_ports(config_facts, neighbor_name):
 def pick_target_neighbor(config_facts, config_facts_localhost, mg_facts, scenario):
     local_asn = get_local_asn(config_facts, mg_facts)
     expected_types = set(scenario["device_types"])
-    bgp_neighbors = config_facts.get("BGP_NEIGHBOR", {})
+    bgp_neighbors = bgp_neighbor_table(config_facts)
+    keys_by_ip = {bgp_key_ip(key): key for key in bgp_neighbors}
     alias_map = mg_facts["minigraph_port_name_to_alias_map"]
     ips_by_name = {}
-    for ip, cfg in bgp_neighbors.items():
+    for key, cfg in bgp_neighbors.items():
         name = cfg.get("name")
         if name:
-            ips_by_name.setdefault(name, []).append(ip)
+            ips_by_name.setdefault(name, []).append(bgp_key_ip(key))
     candidates = []
-    for neigh_ip, neigh_cfg in bgp_neighbors.items():
+    for neigh_key, neigh_cfg in bgp_neighbors.items():
+        neigh_ip = bgp_key_ip(neigh_key)
         neigh_name = neigh_cfg.get("name")
         if not neigh_name:
             continue
@@ -137,8 +160,11 @@ def pick_target_neighbor(config_facts, config_facts_localhost, mg_facts, scenari
     selected["neighbor_ports"] = neighbor_ports
     selected["neighbor_ports_localhost"] = neighbor_ports_localhost
     selected["is_portchannel"] = is_portchannel
-    localhost_bgp = config_facts_localhost.get("BGP_NEIGHBOR", {})
-    selected["localhost_neighbor_ips"] = [ip for ip in selected["neighbor_ips"] if ip in localhost_bgp]
+    # CONFIG_DB keys per neighbor IP, for expectations and GCU patch paths.
+    selected["bgp_keys"] = {ip: keys_by_ip[ip] for ip in selected["neighbor_ips"]}
+    localhost_keys_by_ip = {bgp_key_ip(key): key for key in bgp_neighbor_table(config_facts_localhost)}
+    selected["localhost_neighbor_ips"] = [ip for ip in selected["neighbor_ips"] if ip in localhost_keys_by_ip]
+    selected["localhost_bgp_keys"] = {ip: localhost_keys_by_ip[ip] for ip in selected["localhost_neighbor_ips"]}
     logger.info("Selected neighbor context for %s: %s", scenario["id"], selected)
     return selected
 
@@ -539,10 +565,11 @@ def collect_pfc_wd_entries(config_facts, neighbor_ctx):
 
 def build_add_expectations(config_facts, neighbor_ctx):
     expected_present = {}
+    bgp_table = bgp_neighbor_table(config_facts)
     bgp = {
-        ip: copy.deepcopy(config_facts["BGP_NEIGHBOR"][ip])
-        for ip in neighbor_ctx["neighbor_ips"]
-        if ip in config_facts.get("BGP_NEIGHBOR", {})
+        key: copy.deepcopy(bgp_table[key])
+        for key in neighbor_ctx["bgp_keys"].values()
+        if key in bgp_table
     }
     if bgp:
         expected_present["BGP_NEIGHBOR"] = bgp
@@ -598,7 +625,8 @@ def build_add_expectations(config_facts, neighbor_ctx):
 def build_remove_expectations(config_facts, neighbor_ctx):
     expected_present = {}
     expected_absent = {}
-    bgp_keys = {ip for ip in neighbor_ctx["neighbor_ips"] if ip in config_facts.get("BGP_NEIGHBOR", {})}
+    bgp_table = bgp_neighbor_table(config_facts)
+    bgp_keys = {key for key in neighbor_ctx["bgp_keys"].values() if key in bgp_table}
     if bgp_keys:
         expected_absent["BGP_NEIGHBOR"] = bgp_keys
     device_neighbor_keys = {p for p in neighbor_ctx["neighbor_ports"] if p in config_facts.get("DEVICE_NEIGHBOR", {})}
@@ -707,15 +735,13 @@ def build_remove_patch(config_facts, config_facts_localhost, mg_facts, namespace
     emit_localhost = namespace is not None
     patch_main = []
     patch_extra = []
-    for neigh_ip in neighbor_ctx["neighbor_ips"]:
-        append_remove_if_present(
-            patch_main, f"{json_namespace}/BGP_NEIGHBOR/", config_facts.get("BGP_NEIGHBOR", {}), neigh_ip,
-        )
+    bgp_table = bgp_neighbor_table(config_facts)
+    for key in neighbor_ctx["bgp_keys"].values():
+        append_remove_if_present(patch_main, f"{json_namespace}/BGP_NEIGHBOR/", bgp_table, key)
     if emit_localhost:
-        for neigh_ip in neighbor_ctx["localhost_neighbor_ips"]:
-            append_remove_if_present(
-                patch_main, "/localhost/BGP_NEIGHBOR/", config_facts_localhost.get("BGP_NEIGHBOR", {}), neigh_ip,
-            )
+        localhost_bgp_table = bgp_neighbor_table(config_facts_localhost)
+        for key in neighbor_ctx["localhost_bgp_keys"].values():
+            append_remove_if_present(patch_main, "/localhost/BGP_NEIGHBOR/", localhost_bgp_table, key)
     neigh_name = neighbor_ctx["neighbor_name"]
     append_remove_if_present(
         patch_main,
@@ -880,19 +906,21 @@ def build_add_patches(config_facts, config_facts_localhost, mg_facts, namespace,
                 "path": f"/localhost/PORTCHANNEL/{neighbor_ctx['port_localhost']}",
                 "value": localhost_pc_value,
             })
-    for neigh_ip in neighbor_ctx["neighbor_ips"]:
-        if neigh_ip in config_facts.get("BGP_NEIGHBOR", {}):
+    bgp_table = bgp_neighbor_table(config_facts)
+    for key in neighbor_ctx["bgp_keys"].values():
+        if key in bgp_table:
             patch_rest.append({
                 "op": "add",
-                "path": f"{json_namespace}/BGP_NEIGHBOR/{neigh_ip}",
-                "value": config_facts["BGP_NEIGHBOR"][neigh_ip],
+                "path": f"{json_namespace}/BGP_NEIGHBOR/{key}",
+                "value": bgp_table[key],
             })
     if emit_localhost:
-        for neigh_ip in neighbor_ctx["localhost_neighbor_ips"]:
+        localhost_bgp_table = bgp_neighbor_table(config_facts_localhost)
+        for key in neighbor_ctx["localhost_bgp_keys"].values():
             patch_rest.append({
                 "op": "add",
-                "path": f"/localhost/BGP_NEIGHBOR/{neigh_ip}",
-                "value": config_facts_localhost["BGP_NEIGHBOR"][neigh_ip],
+                "path": f"/localhost/BGP_NEIGHBOR/{key}",
+                "value": localhost_bgp_table[key],
             })
     neigh_name = neighbor_ctx["neighbor_name"]
     if neigh_name in config_facts.get("DEVICE_NEIGHBOR_METADATA", {}):
