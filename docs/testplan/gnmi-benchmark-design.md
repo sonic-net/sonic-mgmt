@@ -82,20 +82,80 @@ Templates: [report](../../tests/gnmi_benchmark/templates/report.json.j2),
 
 ## Load generator and supported parameters
 
+### Traffic generation design — closed loop
+
+```mermaid
+flowchart TD
+    Load["Common load controls<br/>workers / count or duration / warmup / timeout"] --> Runner["Runner"]
+    Profile["Selected workload<br/>request data / preparation / cleanup"] --> Request["Build reusable request objects"]
+    Request --> Runner
+    Runner --> Channel["One shared TLS channel and stub"]
+    Channel --> Warmup["Optional readiness and warmup<br/>same pool / channel / requests, then drain"]
+    Warmup --> Phase["Fresh measurement counters<br/>common worker start barrier"]
+    Phase --> Admit{"Each worker:<br/>count left or admission time left?"}
+    Admit -->|Yes| Call["Issue one RPC or Get-Set group"]
+    Call --> Wait["Wait for response or error<br/>finish response checks and record result"]
+    Wait --> Admit
+    Admit -->|No| Collect["Join workers after admitted work finishes"]
+    Collect --> Report["Aggregate measurements and write report"]
+```
+
+Each worker permits one outstanding RPC at a time. In `get-set`, it issues Set
+only after Get succeeds and starts the next group after the current group ends.
+Workers are independent: a worker waits for its own call, not for the whole
+server queue to drain. Count mode assigns each worker a fixed share; duration
+mode shares an admission deadline and then drains admitted work.
+
+**The offered load is self-throttling.** If server processing or queueing slows
+responses, workers issue fewer new requests per second. Concurrency is controlled;
+arrival rate is an outcome. This measures a bounded population of sequential
+clients, not what happens when new traffic keeps arriving faster than the server
+can handle. Increasing concurrency changes that population; it does not turn this
+runner into a fixed-rate generator.
+
+Implementation: [worker/phase runner](../../tests/gnmi_benchmark/benchmark_runner.py)
+and [workload selection/preparation](../../tests/gnmi_benchmark/test_gnmi_benchmark.py).
+
+### Open-loop runner — future work
+
+**Placeholder: not implemented; no open-loop or target-RPS flag is available.**
+An open-loop runner would schedule arrivals independently of response completion,
+using an explicit rate/pattern. It should record scheduled versus actual starts,
+offered/achieved rate, scheduling delay, missed arrivals and bounded in-flight
+capacity. Overload handling must be explicit so client saturation does not silently
+turn the test back into closed-loop behavior. Retain separate measurement profiles
+for the two load models; do not reinterpret current results as open-loop capacity.
+
+References: [gRPC load models](https://github.com/grpc/grpc/blob/master/src/proto/grpc/testing/control.proto)
+and [open versus closed load models](https://grafana.com/docs/k6/latest/using-k6/scenarios/concepts/open-vs-closed/).
+
+### Common execution versus workload-specific traffic
+
+| Layer | Responsibility | Current support |
+|---|---|---|
+| Common gNMI execution | Load scheduling, TLS channel, deadlines, timing, errors and aggregation | Get, Set and Get-Set with closed-loop workers |
+| Request workload | Choose paths/values and any prerequisite lifecycle | Empty Get, PORT-description Set, VNET route batches |
+| VNET-specific settings | Route count, VNET/VXLAN preparation, file payload and eligible validation bypass | Applied only to `vnet-route-tunnel`, not generic gNMI requirements |
+
+The common controls are reusable across workloads. Arbitrary gNMI paths, schemas
+or workflows are not yet configurable: a new workload needs request construction
+and any required preparation/cleanup support. A payload file currently supplies
+VNET table entries, not arbitrary gNMI requests. Workload selection does not change
+the traffic scheduler.
+
+### Common options
+
 Invoke `gnmi_benchmark/test_gnmi_benchmark.py` using the normal sonic-mgmt runner
-and an appropriate inventory/testbed. Example additional pytest arguments:
+and an appropriate inventory/testbed. A basic Get example:
 
 ```text
---run-stress-tests --benchmark-operation get-set --benchmark-workload vnet-route-tunnel
---benchmark-workload-params '{"entry_count":10,"prepare":true}'
+--run-stress-tests --benchmark-operation get --benchmark-workload empty
 --benchmark-concurrency 2 --benchmark-logical-requests 1000
 --benchmark-duration 0 --benchmark-warmup 60 --benchmark-timeout 120
 ```
 
-This executes 1,000 measured groups, or 2,000 RPCs if all succeed. Change operation
-to `set` for 1,000 Set RPCs. A default `get` sends an empty request; it is not a
-configured subtree retrieval. Match all workload settings for comparisons and
-add `--benchmark-bypass` only to the bypass-requested run.
+This executes 1,000 measured empty Get RPCs; it is not a configured subtree
+retrieval. For `get-set`, logical request count means groups rather than RPCs.
 
 | Parameter | Default | Meaning |
 |---|---|---|
@@ -107,8 +167,21 @@ add `--benchmark-bypass` only to the bypass-requested run.
 | `--benchmark-duration` | 0 | Positive seconds overrides count; stop admission and drain admitted work |
 | `--benchmark-warmup` | 0 | Same-channel time-based warmup, excluded from measurement |
 | `--benchmark-timeout` | 120 | Positive integer seconds per RPC |
-| `--benchmark-bypass` | Off | Request validation bypass for VNET Set; not authentication bypass |
 | `--benchmark-output-dir` | `/tmp/gnmi-benchmark` | JSON report destination |
+
+### VNET-specific workload
+
+```text
+--run-stress-tests --benchmark-operation get-set --benchmark-workload vnet-route-tunnel
+--benchmark-workload-params '{"entry_count":10,"prepare":true}'
+--benchmark-concurrency 2 --benchmark-logical-requests 1000
+--benchmark-duration 0 --benchmark-warmup 60 --benchmark-timeout 120
+```
+
+This produces 1,000 Get-Set groups (2,000 RPCs if all succeed), with 10 entries in
+each Set. Use `set` for Set-only traffic. Match workload and load settings between
+Regular/bypass runs; add `--benchmark-bypass` only to request VNET Set validation
+bypass. It is off by default and is not authentication bypass.
 
 VNET parameters: `entry_count` (integer 1–20,000), `prepare` (boolean, default
 false), or `payload_file` (JSON entry/field map, instead of `entry_count`).

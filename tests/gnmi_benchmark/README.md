@@ -34,7 +34,17 @@ execution windows and resource snapshots.
 
 ## Usage
 
-### Combined Get → Set, 1,000 groups
+**Current load model: closed loop.** Each worker waits for its own RPC/group to
+finish before issuing the next one. Slower responses lower the offered rate;
+this is not a fixed-RPS capacity test. See the
+[traffic generation diagram](../../docs/testplan/gnmi-benchmark-design.md#traffic-generation-design--closed-loop)
+and [open-loop future-work placeholder](../../docs/testplan/gnmi-benchmark-design.md#open-loop-runner--future-work).
+
+Common scheduling/timing controls are separate from workload-specific request
+data and preparation. The existing workloads do not yet accept arbitrary gNMI
+paths; VNET options apply only to VNET traffic.
+
+### VNET example: combined Get → Set, 1,000 groups
 
 Use the same single-ASIC DUT/image and these parameters for both runs:
 
