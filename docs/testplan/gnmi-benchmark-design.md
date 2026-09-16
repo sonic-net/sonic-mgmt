@@ -32,7 +32,7 @@ conditions; requesting it does not prove that it executed. See the public
 | Work | Included in per-RPC duration? |
 |---|---|
 | Call bookkeeping, protobuf serialization, transport, server work and response decoding | Yes |
-| Channel handshake or reconnect during a call | Yes; explicit readiness before warmup is excluded |
+| Channel handshake or reconnect during a call | Yes; explicit readiness before warmup/open-loop load is excluded |
 | Payload generation, fixture setup/teardown, warmup and resource/report collection | No |
 | Explicit response-error inspection | No; it still affects closed-loop throughput |
 | Post-response forwarding convergence | Not awaited or measured |
@@ -60,6 +60,39 @@ One `<cid>-report.json` is written to the configured directory and emitted throu
 the existing log/CustomMsg mechanisms. Schema 3 describes Get-only or Set-only;
 schema 4 describes Get→Set workflows.
 
+Schema 5 describes open-loop runs or configured scenarios. Existing closed-loop
+built-in operations retain schemas 3/4. `metrics.counts` always counts started
+RPCs/groups/iterations, not unsent arrivals; open-loop `execution.scheduling`
+separately accounts for every scheduled arrival.
+
+| Open-loop field | Meaning |
+|---|---|
+| `scheduled`, `started` | Total intended iterations and actual started iterations |
+| `dropped_capacity`, `dropped_late` | Unsent arrivals due to in-flight capacity or missed clock slots; not fabricated RPC errors |
+| `target_rate`, `actual_start_rate` | Intended iterations/s and starts within the admission window divided by actual admission elapsed time |
+| `start_delay_ms` | Distribution from scheduled arrival to actual executor start for started iterations |
+| `max_inflight_iterations` | Bound on admitted queued-plus-running iterations |
+
+`scheduled = started + dropped_capacity + dropped_late`. Client drops make the
+test fail even if all sent RPCs succeed. RPC/group latency excludes scheduling
+delay; neither metric includes synthetic samples for unsent arrivals. Throughput
+still uses elapsed time including drain. Warmup uses the chosen pattern, drains,
+then resets; warmup RPC failures or dropped arrivals prevent measurement.
+For open-loop reports, `load.logical_requests` counts started iterations and
+`load.scheduled_iterations` records intended arrivals, including drops.
+
+An actual start is entry into the client executor, not a wire-send timestamp.
+Subsequent gRPC/HTTP2 queueing remains inside client-call duration. The reported
+`max_inflight_iterations` is the configured admission limit; observed executing
+concurrency is reported separately as `execution.peak_client_inflight`.
+
+Configured scenario reports identify `benchmark.scenario.name`, request-definition
+digest and step names/methods. Top-level metrics count `scenario_iteration` and
+`metrics.operations.<step>` records each step's RPC metrics and skipped count.
+All-success iterations run all steps; first failure skips remaining steps. Step
+RPC timers exclude explicit response checks; iteration time includes intermediate
+checks/bookkeeping but excludes the final check. This is not an atomic Get/Set transaction.
+
 | Section | Contents |
 |---|---|
 | `device`, `benchmark`, `load` | Device identity, operation, timing boundary and effective workload parameters |
@@ -82,22 +115,23 @@ Templates: [report](../../tests/gnmi_benchmark/templates/report.json.j2),
 
 ## Load generator and supported parameters
 
-### Traffic generation design — closed loop
+### Traffic generation design
 
 ```mermaid
 flowchart TD
-    Load["Common load controls<br/>workers / count or duration / warmup / timeout"] --> Runner["Runner"]
-    Profile["Selected workload<br/>request data / preparation / cleanup"] --> Request["Build reusable request objects"]
-    Request --> Runner
-    Runner --> Channel["One shared TLS channel and stub"]
-    Channel --> Warmup["Optional readiness and warmup<br/>same pool / channel / requests, then drain"]
-    Warmup --> Phase["Fresh measurement counters<br/>common worker start barrier"]
-    Phase --> Admit{"Each worker:<br/>count left or admission time left?"}
-    Admit -->|Yes| Call["Issue one RPC or Get-Set group"]
-    Call --> Wait["Wait for response or error<br/>finish response checks and record result"]
-    Wait --> Admit
-    Admit -->|No| Collect["Join workers after admitted work finishes"]
-    Collect --> Report["Aggregate measurements and write report"]
+    Profile["Built-in workload OR scenario JSON<br/>named steps / methods / paths / values"] --> Requests["Prepared request variants"]
+    Load["Traffic controls<br/>count or duration / concurrency / rate"] --> Coordinator["Coordinator<br/>TLS readiness / warmup / measurement"]
+    Coordinator --> Closed["Closed loop<br/>each worker refills after completion"]
+    Coordinator --> Open["Uniform open loop<br/>absolute arrival clock / nonblocking capacity"]
+    Open -->|No capacity or missed slot| Drops["Record unsent arrivals"]
+    Closed --> Executor["RPC executor<br/>invoke steps / deadline / response checks"]
+    Open -->|Admitted| Executor
+    Requests --> Executor
+    Executor --> Channel["Shared TLS channel / DUT"]
+    Channel --> Results["Per-step and iteration results"]
+    Results -->|Closed-loop feedback only| Closed
+    Results --> Report["Drain / aggregate / JSON report"]
+    Drops --> Report
 ```
 
 Each worker permits one outstanding RPC at a time. In `get-set`, it issues Set
@@ -113,18 +147,29 @@ clients, not what happens when new traffic keeps arriving faster than the server
 can handle. Increasing concurrency changes that population; it does not turn this
 runner into a fixed-rate generator.
 
-Implementation: [worker/phase runner](../../tests/gnmi_benchmark/benchmark_runner.py)
-and [workload selection/preparation](../../tests/gnmi_benchmark/test_gnmi_benchmark.py).
+Implementation: [coordinator](../../tests/gnmi_benchmark/benchmark_runner.py),
+[traffic policies](../../tests/gnmi_benchmark/traffic.py),
+[scenario/RPC executor](../../tests/gnmi_benchmark/scenarios.py),
+[workload preparation](../../tests/gnmi_benchmark/test_gnmi_benchmark.py).
 
-### Open-loop runner — future work
+### Uniform open-loop runner
 
-**Placeholder: not implemented; no open-loop or target-RPS flag is available.**
-An open-loop runner would schedule arrivals independently of response completion,
-using an explicit rate/pattern. It should record scheduled versus actual starts,
-offered/achieved rate, scheduling delay, missed arrivals and bounded in-flight
-capacity. Overload handling must be explicit so client saturation does not silently
-turn the test back into closed-loop behavior. Retain separate measurement profiles
-for the two load models; do not reinterpret current results as open-loop capacity.
+Use `--benchmark-traffic open-loop --benchmark-rate 500` to schedule one iteration
+every 2 ms, independently of responses. Rate means RPC/s only for single-step
+workloads; a Get-Set scenario at 500 iterations/s intends up to 1,000 RPC/s.
+`--benchmark-concurrency` bounds admitted iterations, not the arrival clock.
+
+**Overload policy: drop, never wait or catch up.** No free capacity drops that
+arrival; a delayed scheduler skips expired slots rather than sending a burst.
+The bounded executor may add start delay, which is measured separately. No
+unbounded pending queue is created. At the end, admitted work drains under
+per-RPC deadlines; a multi-step iteration can exceed one RPC timeout in total.
+
+Count mode schedules N slots over N/rate seconds. Duration mode schedules slots
+whose planned times are before the deadline. TLS readiness always precedes
+open-loop admission, including when warmup is zero. Timing accuracy and achieved
+rate are observed outcomes, not a hard real-time guarantee. Closed-loop results
+must not be relabeled as open-loop capacity.
 
 References: [gRPC load models](https://github.com/grpc/grpc/blob/master/src/proto/grpc/testing/control.proto)
 and [open versus closed load models](https://grafana.com/docs/k6/latest/using-k6/scenarios/concepts/open-vs-closed/).
@@ -133,15 +178,50 @@ and [open versus closed load models](https://grafana.com/docs/k6/latest/using-k6
 
 | Layer | Responsibility | Current support |
 |---|---|---|
-| Common gNMI execution | Load scheduling, TLS channel, deadlines, timing, errors and aggregation | Get, Set and Get-Set with closed-loop workers |
-| Request workload | Choose paths/values and any prerequisite lifecycle | Empty Get, PORT-description Set, VNET route batches |
+| Traffic policy | When to admit an iteration; capacity and stopping | Closed-loop workers or uniform open-loop clock |
+| Common gNMI execution | TLS channel, per-step deadlines, timing and response checks | Get/Set sequences independent of traffic policy |
+| Request workload | Choose paths/values and any prerequisite lifecycle | Built-in workloads or named protobuf-JSON scenario steps |
 | VNET-specific settings | Route count, VNET/VXLAN preparation, file payload and eligible validation bypass | Applied only to `vnet-route-tunnel`, not generic gNMI requirements |
 
-The common controls are reusable across workloads. Arbitrary gNMI paths, schemas
-or workflows are not yet configurable: a new workload needs request construction
-and any required preparation/cleanup support. A payload file currently supplies
-VNET table entries, not arbitrary gNMI requests. Workload selection does not change
-the traffic scheduler.
+For supported Get/Set methods, add scenario configuration to change paths, values
+or sequencing, then choose either traffic policy. Specialized prerequisite/cleanup
+logic still requires a workload helper. The VNET `payload_file` remains a table
+payload, separate from a generic scenario file.
+
+### Named scenarios and path variants
+
+Use `--benchmark-scenario <file.json>` instead of operation/workload/bypass flags.
+The scenario name is its report marker; no customer-specific pytest marker is
+needed. Example [interface-status scenario](../../tests/gnmi_benchmark/scenarios/interface-status.json):
+
+```text
+--run-stress-tests --benchmark-scenario gnmi_benchmark/scenarios/interface-status.json
+--benchmark-traffic open-loop --benchmark-rate 500 --benchmark-concurrency 20
+--benchmark-logical-requests 1000 --benchmark-timeout 120
+```
+
+The same file with `--benchmark-traffic closed-loop` and no rate runs up to 20
+outstanding iterations as fast as responses permit. The interface name and model
+must be supported by the DUT; edit example paths to match the environment.
+
+Each JSON document has `name` and 1–20 `steps`. Each step specifies a unique
+`name`, `method` (`get` or `set`), a nonempty `requests` list in standard gNMI
+protobuf JSON, and optional text `metadata`. Paths support origin/target and keyed
+PathElem structures. The request for iteration i is `requests[i % len(requests)]`;
+all steps use that same scheduled iteration index. Warmup and measurement each
+restart their index at zero. No executable templates or hidden random generation.
+
+See [interface Get→Set](../../tests/gnmi_benchmark/scenarios/interface-get-set.json)
+for method composition. Add request variants to target other interfaces/values.
+A final Get step is a read, not an automatic value assertion. Scenarios fail fast
+on a step error and do not retry. Scenario writes must be repeatable and run on a
+reserved disposable test configuration: callers manage scenario-specific setup
+and persistence restoration; the generic loader does not infer cleanup commands.
+
+Metadata applies only to its step; the public examples contain no credentials.
+Reports expose metadata keys, not values. The request digest excludes metadata
+values, so it is not a complete execution-config identity: retain a non-secret
+scenario version and distinguish different metadata configurations externally.
 
 ### Common options
 
@@ -160,10 +240,13 @@ retrieval. For `get-set`, logical request count means groups rather than RPCs.
 | Parameter | Default | Meaning |
 |---|---|---|
 | `--benchmark-operation` | `get` | `get`, `set`, `get-set` |
+| `--benchmark-scenario` | None | Named Get/Set sequence file; replaces built-in operation/workload configuration |
+| `--benchmark-traffic` | `closed-loop` | `closed-loop` or `open-loop` |
+| `--benchmark-rate` | 0 | Required for open-loop: finite iterations/s in (0, 1,000,000]; forbidden for closed-loop |
 | `--benchmark-workload` | Operation-dependent | `empty` for Get; `port-description` for writes; explicit `vnet-route-tunnel` for batches |
 | `--benchmark-workload-params` | `{}` | Workload-specific typed JSON; unknown keys rejected |
-| `--benchmark-concurrency` | 4 | 1–500 workers sharing one TLS channel/stub |
-| `--benchmark-logical-requests` | 100 | 1–1,000,000 RPCs or groups; count mode caps workers to this count |
+| `--benchmark-concurrency` | 4 | 1–500 workers sharing one channel; open-loop bounds admitted iterations |
+| `--benchmark-logical-requests` | 100 | 1–1,000,000 iterations (single RPC, Get-Set group or scenario); open-loop counts scheduled arrivals including drops |
 | `--benchmark-duration` | 0 | Positive seconds overrides count; stop admission and drain admitted work |
 | `--benchmark-warmup` | 0 | Same-channel time-based warmup, excluded from measurement |
 | `--benchmark-timeout` | 120 | Positive integer seconds per RPC |

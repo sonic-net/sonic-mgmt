@@ -26,7 +26,8 @@ response-level checks, not forwarding verification.
 
 ## JSON reports
 
-`<cid>-report.json` uses schema 3 for single operations and schema 4 for Get→Set,
+`<cid>-report.json` uses schema 3/4 for built-in closed-loop operations and
+schema 5 for open-loop or configured scenarios,
 and is also emitted to logs and CustomMsg.
 It contains device/workload identity, counts/statuses, latency, throughput,
 execution windows and resource snapshots.
@@ -34,15 +35,28 @@ execution windows and resource snapshots.
 
 ## Usage
 
-**Current load model: closed loop.** Each worker waits for its own RPC/group to
-finish before issuing the next one. Slower responses lower the offered rate;
-this is not a fixed-RPS capacity test. See the
-[traffic generation diagram](../../docs/testplan/gnmi-benchmark-design.md#traffic-generation-design--closed-loop)
-and [open-loop future-work placeholder](../../docs/testplan/gnmi-benchmark-design.md#open-loop-runner--future-work).
+**Choose traffic independently of scenario.** Closed-loop workers refill after
+completion; open-loop schedules uniform arrivals and records capacity/late drops.
+See the [traffic diagram](../../docs/testplan/gnmi-benchmark-design.md#traffic-generation-design)
+and [open-loop behavior](../../docs/testplan/gnmi-benchmark-design.md#uniform-open-loop-runner).
 
-Common scheduling/timing controls are separate from workload-specific request
-data and preparation. The existing workloads do not yet accept arbitrary gNMI
-paths; VNET options apply only to VNET traffic.
+Common scheduling/timing controls are separate from request data and preparation.
+Use a [named scenario](../../docs/testplan/gnmi-benchmark-design.md#named-scenarios-and-path-variants)
+to supply gNMI protobuf-JSON paths, values, per-step metadata and Get/Set sequences.
+VNET-specific preparation stays in its workload helper.
+
+### Interface Get: open-loop 500 iterations/s
+
+```text
+--run-stress-tests --benchmark-scenario gnmi_benchmark/scenarios/interface-status.json
+--benchmark-traffic open-loop --benchmark-rate 500 --benchmark-concurrency 20
+--benchmark-logical-requests 1000 --benchmark-timeout 120
+```
+
+For closed-loop depth 20, keep the scenario/concurrency and omit traffic/rate.
+Edit interface paths for the DUT. Drops fail the test; check scheduled/started/drop
+counts and start-delay distribution, not just latency of calls that were sent.
+For sequences, rate/count apply to iterations; each iteration can issue multiple RPCs.
 
 ### VNET example: combined Get → Set, 1,000 groups
 

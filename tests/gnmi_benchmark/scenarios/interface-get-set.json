@@ -1,0 +1,38 @@
+{
+  "name": "interface-get-set",
+  "steps": [
+    {
+      "name": "read_status",
+      "method": "get",
+      "requests": [
+        {
+          "type": "STATE",
+          "encoding": "JSON_IETF",
+          "path": [{"origin": "openconfig", "elem": [
+            {"name": "interfaces"},
+            {"name": "interface", "key": {"name": "Ethernet0"}},
+            {"name": "state"},
+            {"name": "oper-status"}
+          ]}]
+        }
+      ]
+    },
+    {
+      "name": "write_description",
+      "method": "set",
+      "requests": [
+        {
+          "update": [{
+            "path": {"origin": "openconfig", "elem": [
+              {"name": "interfaces"},
+              {"name": "interface", "key": {"name": "Ethernet0"}},
+              {"name": "config"},
+              {"name": "description"}
+            ]},
+            "val": {"stringVal": "gnmi-benchmark"}
+          }]
+        }
+      ]
+    }
+  ]
+}

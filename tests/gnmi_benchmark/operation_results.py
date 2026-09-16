@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 
 from tests.gnmi_benchmark.helpers import render_json_template
 
-OPERATIONS = ("get", "set", "get-set")
+OPERATIONS = ("get", "set", "get-set", "scenario")
 
 # gRFC A66 latency bounds converted from seconds to milliseconds. The final
 # bucket_count element is the implicit (100000 ms, +Inf) bucket.
@@ -245,13 +245,15 @@ def build_benchmark_report(cid, client, operation, connection_type, auth_mode,
     metrics = build_operation_metrics(
         load, result["counts"], result["successful_latencies_ms"],
         result["grpc_status_counts"], measurement["elapsed_seconds"],
+        allow_idle_workers=result.get("traffic_pattern") == "open-loop",
     )
-    if operation == "get-set":
-        metrics["count_unit"] = "get_set_workflow"
+    if operation in ("get-set", "scenario"):
+        metrics["count_unit"] = "scenario_iteration" if operation == "scenario" else "get_set_workflow"
         metrics["workflow_status_counts"] = metrics.pop("grpc_status_counts")
-        metrics["latency_ms"]["sample_population"] = "successful_get_set_workflows"
+        metrics["latency_ms"]["sample_population"] = (
+            "successful_scenario_iterations" if operation == "scenario" else "successful_get_set_workflows")
         metrics["operations"] = {}
-        for name in ("get", "set"):
+        for name in result["operations"]:
             raw = result["operations"][name]
             statuses = raw["grpc_status_counts"]
             completed = sum(statuses.values())
@@ -264,10 +266,25 @@ def build_benchmark_report(cid, client, operation, connection_type, auth_mode,
             metrics["operations"][name] = build_operation_metrics(
                 rpc_load, rpc_counts, raw["successful_latencies_ms"], statuses, measurement["elapsed_seconds"],
                 allow_idle_workers=True)
-        metrics["set_skipped_after_get_failure"] = (
-            metrics["operations"]["get"]["counts"]["completed"] -
-            metrics["operations"]["set"]["counts"]["completed"])
-    return render_json_template("report.json.j2", {
+            if operation == "scenario":
+                metrics["operations"][name]["method"] = raw["method"]
+                metrics["operations"][name]["skipped"] = result["counts"]["started"] - completed
+        if operation == "get-set":
+            metrics["set_skipped_after_get_failure"] = (
+                metrics["operations"]["get"]["counts"]["completed"] -
+                metrics["operations"]["set"]["counts"]["completed"])
+    execution = dict(result.get("execution", {}))
+    if "scheduling" in execution:
+        scheduling = dict(execution["scheduling"])
+        delays = scheduling.pop("scheduling_delays_ms")
+        scheduling["start_delay_ms"] = grpc_a66_latency_histogram(delays)
+        scheduling["start_delay_ms"]["sample_population"] = "started_iterations"
+        if (scheduling["scheduled"] != scheduling["started"] + scheduling["dropped_capacity"] +
+                scheduling["dropped_late"] or scheduling["started"] != result["counts"]["started"]
+                or len(delays) != scheduling["started"]):
+            raise ValueError("Inconsistent open-loop scheduling counts")
+        execution["scheduling"] = scheduling
+    report = render_json_template("report.json.j2", {
         "cid": str(cid),
         "started_ts": started_ts,
         "finished_ts": finished_ts,
@@ -283,7 +300,22 @@ def build_benchmark_report(cid, client, operation, connection_type, auth_mode,
         "auth_mode": auth_mode,
         "load": dict(load),
         "metrics": metrics,
-        "execution": result.get("execution", {}),
+        "execution": execution,
         "connection_setup": result.get("connection_setup", "included_in_first_rpc"),
         "resources": build_resource_metrics(monit_results, container_samples),
     })
+    if result.get("traffic_pattern") == "open-loop" or operation == "scenario":
+        report["schema_version"] = 5
+        report["benchmark"]["workload_model"] = (
+            "open" if result.get("traffic_pattern") == "open-loop" else "closed")
+        if operation == "scenario":
+            report["benchmark"]["scenario"] = result["scenario"]
+            report["benchmark"]["latency_measurement"]["boundary"] = "scenario_iteration"
+            report["benchmark"]["latency_measurement"]["end"] = "last_step_return_or_first_error"
+            report["benchmark"]["latency_measurement"]["excludes_response_error_inspection"] = False
+            report["benchmark"]["latency_measurement"]["inspection_scope"] = (
+                "intermediate_step_checks_included_final_step_check_excluded")
+            report["benchmark"]["response_validation"] = "per_step_grpc_status_and_set_response_errors"
+            report["benchmark"]["rpc_timeout_scope"] = "per_step"
+            report["benchmark"]["rpc_latency_boundary"] = "stub_call_to_return_or_error"
+    return report

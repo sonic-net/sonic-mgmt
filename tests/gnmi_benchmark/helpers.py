@@ -10,6 +10,10 @@ def add_benchmark_options(parser):
     """Register the options exposed by the benchmark's pytest entry point."""
     group = parser.getgroup("gNMI benchmark options")
     group.addoption("--benchmark-operation", choices=("get", "set", "get-set"), default="get")
+    group.addoption("--benchmark-scenario", help="JSON file defining a named sequence of gNMI Get/Set requests")
+    group.addoption("--benchmark-traffic", choices=("closed-loop", "open-loop"), default="closed-loop")
+    group.addoption("--benchmark-rate", type=float, default=0,
+                    help="Open-loop iterations/s (RPCs/s for single-step scenarios); requires open-loop")
     group.addoption("--benchmark-concurrency", type=int, default=4)
     group.addoption("--benchmark-logical-requests", type=int, default=100)
     group.addoption("--benchmark-timeout", type=int, default=120)

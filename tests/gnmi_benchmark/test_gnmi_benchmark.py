@@ -10,7 +10,9 @@ import uuid
 from dataclasses import dataclass
 
 import pytest
+from google.protobuf.json_format import ParseError
 
+from tests.gnmi_benchmark.scenarios import load_scenario
 from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
 from tests.common.helpers.custom_msg_utils import add_custom_msg
 from tests.gnmi_benchmark.benchmark_runner import (
@@ -48,9 +50,13 @@ class BenchmarkOptions:
     duration_seconds: float
     warmup_seconds: float
     output_dir: str
+    traffic_pattern: str = "closed-loop"
+    rate: float = 0
+    scenario_file: str = None
 
     @classmethod
     def from_pytest(cls, config, is_multi_asic):
+        scenario_file = config.getoption("--benchmark-scenario")
         operation = config.getoption("--benchmark-operation")
         workload_name = config.getoption("--benchmark-workload") or (
             "empty" if operation == "get" else "port-description")
@@ -59,23 +65,30 @@ class BenchmarkOptions:
         except (ValueError, TypeError) as error:
             raise pytest.UsageError("benchmark workload-params must be a valid JSON object") from error
         options = cls(
-            operation=operation,
+            operation="scenario" if scenario_file else operation,
             concurrency=config.getoption("--benchmark-concurrency"),
             logical_requests=config.getoption("--benchmark-logical-requests"),
             timeout_seconds=config.getoption("--benchmark-timeout"),
             bypass_requested=config.getoption("--benchmark-bypass"),
-            workload_name=workload_name,
+            workload_name="scenario" if scenario_file else workload_name,
             workload_params=workload_params,
             duration_seconds=config.getoption("--benchmark-duration"),
             warmup_seconds=config.getoption("--benchmark-warmup"),
             output_dir=os.path.abspath(config.getoption("--benchmark-output-dir")),
+            traffic_pattern=config.getoption("--benchmark-traffic"),
+            rate=config.getoption("--benchmark-rate"),
+            scenario_file=scenario_file,
         )
+        if scenario_file and (config.getoption("--benchmark-workload") or workload_params
+                              or config.getoption("--benchmark-bypass") or operation != "get"):
+            raise pytest.UsageError("scenario defines methods, requests and metadata; do not combine workload flags")
         options.validate(is_multi_asic)
         return options
 
     @property
     def workers(self):
-        return self.concurrency if self.duration_seconds else min(self.concurrency, self.logical_requests)
+        return (self.concurrency if self.duration_seconds or self.traffic_pattern == "open-loop"
+                else min(self.concurrency, self.logical_requests))
 
     def validate(self, is_multi_asic):
         # Keep input errors explicit: assertions can be disabled with python -O.
@@ -92,6 +105,12 @@ class BenchmarkOptions:
         for valid, message in rules:
             if not valid:
                 raise pytest.UsageError(message)
+        if self.traffic_pattern not in ("closed-loop", "open-loop"):
+            raise pytest.UsageError("Unknown benchmark traffic pattern")
+        if not math.isfinite(self.rate) or (self.traffic_pattern == "open-loop" and not 0 < self.rate <= 1_000_000):
+            raise pytest.UsageError("open-loop requires a finite rate in (0, 1000000]")
+        if self.traffic_pattern == "closed-loop" and self.rate:
+            raise pytest.UsageError("benchmark-rate requires open-loop")
         _validate_workload(self, is_multi_asic)
 
 
@@ -100,6 +119,10 @@ def _validate_workload(options, is_multi_asic):
     name, params = options.workload_name, options.workload_params
     if not isinstance(params, dict):
         raise pytest.UsageError("benchmark workload-params must be a JSON object")
+    if name == "scenario":
+        if options.operation != "scenario" or not options.scenario_file or params or options.bypass_requested:
+            raise pytest.UsageError("scenario requires a file and cannot be combined with workload parameters")
+        return
     if name not in ("empty", "port-description", "vnet-route-tunnel"):
         raise pytest.UsageError("Unknown benchmark workload: {}".format(name))
     if options.operation not in ("get", "set", "get-set"):
@@ -133,6 +156,12 @@ def _validate_workload(options, is_multi_asic):
 
 def _prepare_workload(duthost, request, options):
     """Keep workload-specific preparation separate from RPC execution."""
+    if options.workload_name == "scenario":
+        try:
+            steps, descriptor = load_scenario(options.scenario_file)
+        except (ValueError, OSError, ParseError) as error:
+            raise pytest.UsageError("Invalid benchmark scenario: {}".format(error)) from error
+        return {"steps": steps, "scenario": descriptor}
     if options.workload_name == "empty":
         return None
     if options.workload_name == "port-description":
@@ -155,6 +184,8 @@ def _workload_load(options, workload):
     if options.workload_name == "vnet-route-tunnel":
         params.setdefault("prepare", False)
     load = {"workload": {"type": options.workload_name, "params": params}}
+    if options.workload_name == "scenario":
+        load["workload"] = {"type": "scenario", "scenario": workload["scenario"]}
     if workload and "payload" in workload:
         # Retain legacy VNET fields for existing report consumers.
         load["routes_per_rpc"] = len(workload["payload"])
@@ -299,6 +330,8 @@ def test_gnmi_benchmark(
         bypass_requested=bypass_requested,
         duration_seconds=duration_seconds,
         warmup_seconds=warmup_seconds,
+        traffic_pattern=options.traffic_pattern,
+        rate=options.rate,
     )
     after_monit, after_container = _resource_snapshot(duthost)
     before_monit, before_container = boundary_samples["before"]
@@ -308,6 +341,8 @@ def test_gnmi_benchmark(
     if duration_seconds:
         load["duration_seconds"] = duration_seconds
     load["warmup_seconds"] = warmup_seconds
+    if options.traffic_pattern == "open-loop":
+        load["scheduled_iterations"] = result["execution"]["scheduling"]["scheduled"]
     load.update(_workload_load(options, workload))
     report = build_benchmark_report(
         cid=cid,
@@ -335,7 +370,11 @@ def test_gnmi_benchmark(
     logger.info("gNMI benchmark report: %s", path)
 
     counts = result["counts"]
-    if counts["successful"] != counts["planned"] or counts["failed"] or counts["unfinished"]:
+    scheduling = result["execution"].get("scheduling", {})
+    if (counts["successful"] != counts["planned"] or counts["failed"] or counts["unfinished"]
+            or scheduling.get("dropped_capacity", 0) or scheduling.get("dropped_late", 0)):
         pytest.fail(
-            "gNMI benchmark request failures: counts={}, statuses={}".format(counts, result["grpc_status_counts"])
+            "gNMI benchmark failures: counts={}, statuses={}, dropped_capacity={}, dropped_late={}".format(
+                counts, result["grpc_status_counts"], scheduling.get("dropped_capacity", 0),
+                scheduling.get("dropped_late", 0))
         )

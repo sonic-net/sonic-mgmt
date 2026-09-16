@@ -1,0 +1,26 @@
+{
+  "name": "interface-status",
+  "steps": [
+    {
+      "name": "read_status",
+      "method": "get",
+      "requests": [
+        {
+          "type": "STATE",
+          "encoding": "JSON_IETF",
+          "path": [
+            {
+              "origin": "openconfig",
+              "elem": [
+                {"name": "interfaces"},
+                {"name": "interface", "key": {"name": "Ethernet0"}},
+                {"name": "state"},
+                {"name": "oper-status"}
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
