@@ -5,7 +5,7 @@ import time
 import socket
 import logging
 
-import telnetlib
+import telnetlib  # nosemgrep: telnetlib
 try:
     from time import monotonic as _time
 except Exception:
@@ -826,7 +826,7 @@ class TelnetConnection(BaseConnection):
 
     def connect(self, username=None, password=None):
         # nosemgrep-next-line
-        self.__telnet = telnetlib.Telnet(self.ip_addr, self.port, self.timeout)
+        self.__telnet = telnetlib.Telnet(self.ip_addr, self.port, self.timeout)  # nosemgrep: telnetlib
         self._is_connected = True
         # self.__telnet.set_debuglevel(10)
 

@@ -39,7 +39,7 @@ def run_ha_test(duthosts, localhost, tbinfo, ha_test_case, config_npu_dpu, confi
 
         # Traffic Starts
         if ha_test_case == 'cps':
-            api = run_cps_search(api, file_name, initial_cps_value, passing_dpus)
+            api = run_cps_search(api, config_snappi_l47, file_name, initial_cps_value, passing_dpus)
             logger.info("Test Ending")
         elif ha_test_case == 'planned_switchover':
             api = run_planned_switchover(duthosts, tbinfo, file_name, api, initial_cps_value)
@@ -500,19 +500,22 @@ def analyze_tcp_retries_resets(stats_client_result, stats_server_result):
     return retries_resets
 
 
-def run_cps_search(api, file_name, initial_cps_value, passing_dpus):
+def run_cps_search(api, config_snappi_l47, file_name, initial_cps_value, passing_dpus):
 
     error_threshold = 0.01  # noqa: F841
-    MAX_CPS = 30000000
+    MAX_CPS_PER_CARD = 4500000
+    MAX_CPS = len(config_snappi_l47['ports_list']['Traffic1@Network1']) * MAX_CPS_PER_CARD
     MIN_CPS = 0
     threshold = 1000000
     test_iteration = 1
     test_value = initial_cps_value
+    num_test_cards = len(config_snappi_l47['ports_list']['Traffic1@Network1'])
     activityList_url = "ixload/test/activeTest/communityList/0"
     constraint_url = "ixload/test/activeTest/communityList/0/activityList/0"
     releaseConfig_url = "ixload/test/operations/abortAndReleaseConfigWaitFinish"
     testRuns = []
 
+    # Find MAX CPS, track errors
     while ((MAX_CPS - MIN_CPS) > threshold):
 
         collector = ContinuousMetricsCollector(collection_interval=1)
@@ -618,20 +621,26 @@ def run_cps_search(api, file_name, initial_cps_value, passing_dpus):
             logger.info('Test Iteration Pass')
             test_result = "Pass"
             MIN_CPS = test_value
-            test_value = (MAX_CPS + MIN_CPS) / 2
+            test_value = int(MAX_CPS + MIN_CPS / 2)
+            if test_value > int(num_test_cards * MAX_CPS_PER_CARD):
+                # limit the max CPS setting to 4.5M cps per card
+                test_value = int(num_test_cards * MAX_CPS_PER_CARD)
         else:
             logger.info('Test Iteration Fail')
             test_result = "Fail"
             MAX_CPS = test_value
-            test_value = (MAX_CPS + MIN_CPS) / 2
+            test_value = int((MAX_CPS + MIN_CPS) / 2)
 
         if len(passing_dpus) == 0:
             passing_dpus = 0
 
-        columns = ['#Run', 'CPS Objective', 'Max CPS', f'{err_maxname}', 'Number of DPUs (Indexes)', 'Test Result']
+        columns = ['#Run', 'CPS Test Objective', 'Max CPS', f'{err_maxname}', 'Number of DPUs (Indexes)', 'Test Result']
         testRuns.append([test_iteration, cps_objective_value, cps_max, err_maxvalue, passing_dpus, test_result])
         table = tabulate(testRuns, headers=columns, tablefmt='psql')
         logger.info(table)
+
+        max_cps_testruns = max(run[2] for run in testRuns)
+        logger.info(f"The max CPS from all test runs is {max_cps_testruns}")
 
         logger.info("Iteration Ended...")
         logger.info('MIN_CPS = %d' % MIN_CPS)
@@ -652,6 +661,10 @@ def run_cps_search(api, file_name, initial_cps_value, passing_dpus):
         logger.info("Changing app state to stop")
         cs.app.state = 'stop'  # cs.app.state.START
         api.set_control_state(cs)
+
+    logger.info("Test Iteration Complete:")
+    logger.info(table)
+    logger.info(f"Final max CPS from all test runs is {max_cps_testruns}")
 
     return api
 

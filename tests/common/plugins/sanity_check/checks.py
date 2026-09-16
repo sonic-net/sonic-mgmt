@@ -22,6 +22,7 @@ from tests.common.errors import RunAnsibleModuleFail
 
 logger = logging.getLogger(__name__)
 SYSTEM_STABILIZE_MAX_TIME = 300
+MIN_PROCESS_CHECK_TIMEOUT = 180
 MONIT_STABILIZE_MAX_TIME = 500
 OMEM_THRESHOLD_BYTES = 10485760     # 10MB
 cache = FactsCache()
@@ -40,7 +41,8 @@ CHECK_ITEMS = [
     'check_mux_simulator',
     'check_orchagent_usage',
     'check_bfd_up_count',
-    'check_mac_entry_count']
+    'check_mac_entry_count',
+    'check_disk_usage']
 
 __all__ = CHECK_ITEMS
 
@@ -114,7 +116,7 @@ def check_interfaces(duthosts, tbinfo):
         logger.info("Checking interfaces status on %s..." % dut.hostname)
 
         networking_uptime = dut.get_networking_uptime().seconds
-        timeout = max((SYSTEM_STABILIZE_MAX_TIME - networking_uptime), 0)
+        timeout = max((SYSTEM_STABILIZE_MAX_TIME - networking_uptime), MIN_PROCESS_CHECK_TIMEOUT)
         if dut.get_facts().get("modular_chassis"):
             timeout = max(timeout, 600)
         interval = 20
@@ -218,6 +220,15 @@ def check_bgp(duthosts, tbinfo):
 
         def _check_bgp_status_helper():
             asic_check_results = []
+
+            def _bgp_facts_ready():
+                try:
+                    return len(dut.bgp_facts(asic_index='all')) > 0
+                except Exception:
+                    return False
+
+            wait_until(120, 10, 0, _bgp_facts_ready)
+
             try:
                 bgp_facts = dut.bgp_facts(asic_index='all')
             except Exception as e:
@@ -313,7 +324,7 @@ def check_bgp(duthosts, tbinfo):
         if (check_result['failed']):
             # try restart bgp and verify again
             _restart_bgp(dut)
-            wait_until(60, interval, 0, _check_bgp_status_helper)
+            wait_until(300, interval, 0, _check_bgp_status_helper)
             if (check_result['failed']):
                 for a_result in list(check_result.keys()):
                     if a_result != 'failed':
@@ -914,7 +925,7 @@ def check_processes(duthosts):
         logger.info("Checking process status on %s..." % dut.hostname)
 
         networking_uptime = dut.get_networking_uptime().seconds
-        timeout = max((SYSTEM_STABILIZE_MAX_TIME - networking_uptime), 0)
+        timeout = max((SYSTEM_STABILIZE_MAX_TIME - networking_uptime), MIN_PROCESS_CHECK_TIMEOUT)
         interval = 20
         logger.info("networking_uptime=%d seconds, timeout=%d seconds, interval=%d seconds" %
                     (networking_uptime, timeout, interval))
@@ -1363,6 +1374,97 @@ def check_mac_entry_count(duthosts):
                 executor.submit(_check_mac_entry_count_on_asic, asic, dut, check_result)
 
         logger.info("Done checking MAC entry count on {}".format(dut.hostname))
+        results[dut.hostname] = check_result
+
+    return _check
+
+
+@pytest.fixture(scope="module")
+def check_disk_usage(duthosts):
+    """Check disk usage on DUT. Fails if any partition is above the threshold (default 90%).
+
+    Why 90%: monit monitors disk usage and raises ERR syslog when usage exceeds 90%:
+        ERR monit[1722]: 'var-log' space usage 99.4% matches resource limit [space usage > 90.0%]
+    This monit error will cause loganalyzer to fail ALL subsequent test cases anyway.
+    By catching high disk usage in sanity check, we can:
+    1. Identify which test case increased disk usage
+    2. Kick unhealthy testbeds out of the testplan early
+
+    This is a quick checker (completes in <1s) and does not impact overall sanity check time.
+    """
+
+    DISK_USAGE_THRESHOLD = 90  # percentage - aligned with monit resource limit
+
+    # Pseudo/virtual filesystems are not backed by real storage, are not
+    # monitored by monit, and routinely report misleading usage. For example
+    # efivarfs (mounted at /sys/firmware/efi/efivars) exposes a tiny UEFI
+    # variable store that frequently sits at ~99% and is unrelated to disk
+    # health. Skip these filesystem types to avoid false-positive failures.
+    SKIP_FSTYPES = frozenset([
+        "efivarfs", "tmpfs", "devtmpfs", "devpts", "sysfs", "proc",
+        "cgroup", "cgroup2", "overlay", "squashfs", "ramfs", "debugfs",
+        "tracefs", "securityfs", "pstore", "mqueue", "hugetlbfs",
+        "configfs", "fusectl", "bpf", "autofs", "binfmt_misc",
+    ])
+
+    def _check(*args, **kwargs):
+        init_result = {"failed": False, "check_item": "disk_usage"}
+        result = parallel_run(_check_disk_usage_on_dut, args, kwargs, duthosts,
+                              timeout=600, init_result=init_result)
+        return list(result.values())
+
+    @reset_ansible_local_tmp
+    def _check_disk_usage_on_dut(*args, **kwargs):
+        dut = kwargs['node']
+        results = kwargs['results']
+        logger.info("Checking disk usage on %s..." % dut.hostname)
+        check_result = {"failed": False, "check_item": "disk_usage", "host": dut.hostname}
+
+        res = dut.shell("df --output=pcent,target,source,fstype", module_ignore_errors=True)
+        if res["rc"] != 0:
+            logger.error("Failed to get disk usage on %s: %s" % (dut.hostname, res.get("stderr", "")))
+            check_result["failed"] = True
+            results[dut.hostname] = check_result
+            return
+
+        over_threshold = []
+        for line in res["stdout_lines"][1:]:  # Skip header
+            line = line.strip()
+            if not line:
+                continue
+            # Format: "Use% Mounted on Filesystem Type" e.g. " 92% /     /dev/sda3 ext4"
+            parts = line.split(None, 3)
+            if len(parts) < 3:
+                continue
+            usage_str = parts[0].rstrip('%')
+            try:
+                usage_pct = int(usage_str)
+            except ValueError:
+                continue
+            mount_point = parts[1]
+            filesystem = parts[2]
+            fstype = parts[3] if len(parts) > 3 else ""
+            # Skip pseudo/virtual filesystems (e.g. efivarfs, tmpfs) that are
+            # not real storage and would otherwise cause false positives.
+            if fstype in SKIP_FSTYPES:
+                continue
+            if usage_pct >= DISK_USAGE_THRESHOLD:
+                over_threshold.append({
+                    "mount": mount_point,
+                    "use_pct": usage_pct,
+                    "filesystem": filesystem
+                })
+
+        if over_threshold:
+            check_result["failed"] = True
+            check_result["over_threshold"] = over_threshold
+            logger.error("Disk usage over %d%% on %s: %s" % (
+                DISK_USAGE_THRESHOLD, dut.hostname,
+                ", ".join(["{} at {}%".format(p["mount"], p["use_pct"]) for p in over_threshold])))
+        else:
+            logger.info("Disk usage OK on %s" % dut.hostname)
+
+        logger.info("Done checking disk usage on %s" % dut.hostname)
         results[dut.hostname] = check_result
 
     return _check

@@ -7,6 +7,7 @@ import os
 import sys
 
 import yaml
+from natsort import natsorted
 
 _self_dir = os.path.dirname(os.path.abspath(__file__))
 base_path = os.path.realpath(os.path.join(_self_dir, ".."))
@@ -51,14 +52,25 @@ def get_duts_version(sonichosts, output=None):
     """
     Collect version information from DUTs via `show version`.
 
+    For SmartSwitch testbeds, if a DPU host is unreachable, enables NAT on its
+    NPU host and retries the command.
+
     Returns:
         dict: Parsed version info per DUT, structured with general fields and Docker images.
     """
     try:
         ret = {}
-        duts_version = sonichosts.command("show version")
+        duts_version = sonichosts.command("show version", module_ignore_errors=True)
 
         for dut, version in duts_version.items():
+            # If a DPU host is unreachable, try enabling NAT and retry
+            if version.get("unreachable") or (version.get("failed") and not version.get("stdout_lines")):
+                if "dpu" in dut.lower():
+                    version = _retry_dpu_with_nat(sonichosts, dut)
+                if version is None:
+                    logger.warning("Skipping unreachable or failed host: %s", dut)
+                    continue
+
             dut_info = {}
             dut_version = version.get("stdout_lines", [])
             in_docker_section = False
@@ -104,6 +116,12 @@ def get_duts_version(sonichosts, output=None):
 
             ret[dut] = dut_info
 
+        # Sort keys so that each NPU is followed by its DPUs in natural order
+        # (e.g. dpu-0, dpu-1, ..., dpu-10 instead of dpu-0, dpu-1, dpu-10, dpu-2).
+        # NPU hostnames are a strict prefix of their DPU hostnames, so natural
+        # sort groups each NPU with its DPUs automatically.
+        ret = {hostname: ret[hostname] for hostname in natsorted(ret)}
+
         # ---- Output handling ----
         if output:
             with open(output, "w", encoding="utf-8") as f:
@@ -130,6 +148,34 @@ def validate_args(args):
         level=_log_level_map[args.log_level],
         format="%(asctime)s %(filename)s#%(lineno)d %(levelname)s - %(message)s"
     )
+
+
+def _retry_dpu_with_nat(sonichosts, dpu_hostname):
+    """Enable NAT for a single DPU host and retry 'show version'.
+
+    Returns the retried command result dict on success, or None.
+    """
+    try:
+        from devutil.devices.dpu_utils import enable_nat_for_dpuhosts
+    except ImportError:
+        logger.warning("dpu_utils not available, skipping NAT enablement for %s", dpu_hostname)
+        return None
+
+    npu_hosts = [h for h in sonichosts if "dpu" not in h.hostname.lower()]
+    try:
+        logger.info("Enabling NAT for DPU host: %s", dpu_hostname)
+        enable_nat_for_dpuhosts(npu_hosts, sonichosts.inventories, [dpu_hostname])
+
+        # Retry the command on the now-reachable DPU
+        retry_result = sonichosts.command("show version", module_ignore_errors=True)
+        version = retry_result.get(dpu_hostname)
+        if version and not version.get("unreachable") and version.get("stdout_lines"):
+            return version
+        logger.warning("DPU host %s still unreachable after enabling NAT", dpu_hostname)
+    except Exception as e:
+        logger.warning("Failed to enable NAT for %s: %s", dpu_hostname, repr(e))
+
+    return None
 
 
 def main(args):

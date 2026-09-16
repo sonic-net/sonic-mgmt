@@ -26,7 +26,8 @@ class FilterModule(object):
             'first_n_elements': first_n_elements,
             'expand_properties': expand_properties,
             'first_ip_of_subnet': first_ip_of_subnet,
-            'path_join': path_join
+            'path_join': path_join,
+            'network_in_usable': network_in_usable
         }
 
 
@@ -222,6 +223,26 @@ def first_ip_of_subnet(value):
 def path_join(paths):
     """Join path strings."""
     return os.path.join(*paths)
+
+
+def network_in_usable(value, test):
+    """Check if an IP address (value) is in the same network as test address.
+
+    Both value and test can be in CIDR notation (e.g., '10.0.0.1/24').
+    Returns True if both addresses are in the same subnet (based on value's prefix).
+    This is a replacement for the ansible.utils ipaddr filter 'network_in_usable'.
+    """
+    try:
+        # Parse value as an interface address (with prefix)
+        val_iface = ipaddress.ip_interface(str(value).strip())
+        val_network = val_iface.network
+
+        # Parse test as an IP address (strip prefix if present)
+        test_addr = ipaddress.ip_address(str(test).strip().split('/')[0])
+
+        return test_addr in val_network
+    except (ValueError, TypeError):
+        return False
 
 
 class MultiServersUtils:

@@ -101,7 +101,7 @@ def check_default_route_from_fib_info(ptfhost, file_path):
 
 def get_all_ptf_port_indices_from_mg_facts(mg_facts):
     """
-    Retrieve all ptf port indices from the minigraph facts.
+    Retrieve all front end ptf port indices from the minigraph facts.
 
     Args:
         mg_facts: The minigraph facts containing ASIC information.
@@ -118,6 +118,9 @@ def get_all_ptf_port_indices_from_mg_facts(mg_facts):
 
         # Store (port_index: (asic_id, port_name)) in the dictionary
         for port_name, port_index in minigraph_indices.items():
+            if port_name.startswith(("Ethernet-Rec", "Ethernet-IB", "Ethernet-BP")):
+                logger.debug("Skipping special port {} in ptf port indecies".format(port_name))
+                continue
             all_port_indices[port_index] = (asic_id, port_name)
 
     return all_port_indices
@@ -145,7 +148,7 @@ def map_ptf_ports_to_dut_port(ptf_ports, all_dut_port_indices):
     return ethernet_ports_with_asic
 
 
-def filter_ports(all_port_indices, tbinfo):
+def filter_ports(all_port_indices, tbinfo, is_chassis):
     """
     Filter PTF ports that need to be skipped while picking up src_port for ptf traffic test.
 
@@ -161,7 +164,7 @@ def filter_ports(all_port_indices, tbinfo):
     # Note: this filteration is useful for multilinecard DUTs to make sure incoming traffic is
     # landing on a different linecard; NA for pizza boxes
 
-    if tbinfo['topo']['type'] != 't2' or 't2_single_node' in tbinfo['topo']['name']:
+    if tbinfo['topo']['type'] != 't2' or not is_chassis:
         return []
 
     # Collect all port indices (keys) from all_port_indices
@@ -171,7 +174,7 @@ def filter_ports(all_port_indices, tbinfo):
 
 
 def get_port_and_portchannel_members(port_name, all_port_indices, duts_minigraph_facts,
-                                     upstream_lc, tbinfo):
+                                     upstream_lc, tbinfo, is_chassis):
     """
     Get PTF port indices for a port and all its port channel members (if applicable).
 
@@ -186,7 +189,7 @@ def get_port_and_portchannel_members(port_name, all_port_indices, duts_minigraph
     """
 
     # for T2(except UT2) topologies, no need to append, as we are already filtering out the whole upstream lc ports
-    if tbinfo['topo']['type'] == 't2' and 't2_single_node' not in tbinfo['topo']['name']:
+    if (tbinfo['topo']['type'] == 't2') and is_chassis:
         return []
 
     # Search all ASICs for port channel information
@@ -412,6 +415,11 @@ def hash_keys(duthost, tbinfo):
     if 'ft2' in tbinfo['topo']['name']:
         #  Remove ip-proto from hash_keys for FT2 as there is not enough entropy in ip-proto
         #  to ensure packets are evenly distributed to all 64 egress ports
+        if 'ip-proto' in hash_keys:
+            hash_keys.remove('ip-proto')
+    if tbinfo['topo']['name'] in ['t2_single_node_max_64p', 't2_single_node_max_64p_v2']:
+        # Remove ip-proto on topos that have 64 ports as there isn't enough entropy in
+        # the ip-proto field (8-bits) to get a good distribution across that many ports
         if 'ip-proto' in hash_keys:
             hash_keys.remove('ip-proto')
     # remove the ingress port from multi asic platform
@@ -722,6 +730,7 @@ def test_vxlan_hash(add_default_route_to_dut, duthost, duthosts,                
     else:
         src_ip_range = SRC_IPV6_RANGE
         dst_ip_range = DST_IPV6_RANGE
+    switch_type = duthosts[0].facts.get('switch_type')
     ptf_runner(ptfhost,
                "ptftests",
                "hash_test.VxlanHashTest",
@@ -738,6 +747,7 @@ def test_vxlan_hash(add_default_route_to_dut, duthost, duthosts,                
                        "vlan_ids": VLANIDS,
                        "ignore_ttl": ignore_ttl,
                        "single_fib_for_duts": single_fib_for_duts,
+                       "switch_type": switch_type,
                        "ipver": vxlan_ipver,
                        "topo_name": tbinfo['topo']['name'],
                        "topo_type": tbinfo['topo']['type'],
@@ -776,6 +786,9 @@ def test_nvgre_hash(add_default_route_to_dut, duthost, duthosts,                
     if duthost.facts['asic_type'] in ["marvell-teralynx"]:
         logging.info("Marvell-Teralynx: hash-key is src-ip, dst-ip")
         hash_keys = ['src-ip', 'dst-ip']
+    if duthost.facts['asic_type'] in ["vpp"]:
+        logging.info("VPP: hash-keys are src-ip, dst-ip, src-port, dst-port")
+        hash_keys = ['src-ip', 'dst-ip', 'src-port', 'dst-port']
 
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
     log_file = "/tmp/hash_test.NvgreHashTest.{}.{}.log".format(
@@ -787,6 +800,7 @@ def test_nvgre_hash(add_default_route_to_dut, duthost, duthosts,                
     else:
         src_ip_range = SRC_IPV6_RANGE
         dst_ip_range = DST_IPV6_RANGE
+    switch_type = duthosts[0].facts.get('switch_type')
     ptf_runner(ptfhost,
                "ptftests",
                "hash_test.NvgreHashTest",
@@ -802,6 +816,7 @@ def test_nvgre_hash(add_default_route_to_dut, duthost, duthosts,                
                        "vlan_ids": VLANIDS,
                        "ignore_ttl": ignore_ttl,
                        "single_fib_for_duts": single_fib_for_duts,
+                       "switch_type": switch_type,
                        "ipver": nvgre_ipver,
                        "topo_name": tbinfo['topo']['name'],
                        "topo_type": tbinfo['topo']['type'],
@@ -839,6 +854,11 @@ def test_ecmp_group_member_flap(
     else:
         test_balancing = True
 
+    convergence_wait = 60
+    if asic_type == "vpp":
+        # VPP can be slower to drop the flapped port's nexthop from the ECMP group.
+        convergence_wait = 120
+
     # --- Load initial FIB files ---
     fib_files = fib_info_files_per_function(
         duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts, tbinfo, request
@@ -856,7 +876,8 @@ def test_ecmp_group_member_flap(
 
     all_port_indices = get_all_ptf_port_indices_from_mg_facts(duts_minigraph_facts[upstream_lc])
     nh_dut_ports = map_ptf_ports_to_dut_port(nh_ptf_ports, all_port_indices)
-    filtered_ports = filter_ports(all_port_indices, tbinfo)
+    is_chassis = duthosts[0].get_facts().get("modular_chassis")
+    filtered_ports = filter_ports(all_port_indices, tbinfo, is_chassis)
 
     logging.info("nh_dut_ports: {}".format(nh_dut_ports))
     logging.info("filtered_ports: {}".format(filtered_ports))
@@ -888,7 +909,9 @@ def test_ecmp_group_member_flap(
             "single_fib_for_duts": single_fib_for_duts,
             "switch_type": switch_type,
             "asic_type": asic_type,
-            "skip_src_ports": filtered_ports
+            "skip_src_ports": filtered_ports,
+            "topo_name": updated_tbinfo['topo']['name'],
+            "topo_type": updated_tbinfo['topo']['type'],
         },
         log_file=log_file,
         qlen=PTF_QLEN,
@@ -906,11 +929,11 @@ def test_ecmp_group_member_flap(
     logging.info("Shutting down port {}".format(nh_dut_ports[port_index_to_shut][1]))
     duthosts[0].shell("sudo config interface {} shutdown {}".format(asic_ns, nh_dut_ports[port_index_to_shut][1]))
 
-    time.sleep(60)  # Allow time for the state to stabilize
+    time.sleep(convergence_wait)  # Allow time for the state to stabilize
 
     # Get all PTF ports for the port and its port channel members (if applicable)
     ptf_ports_to_filter = get_port_and_portchannel_members(
-        nh_dut_ports[port_index_to_shut][1], all_port_indices, duts_minigraph_facts, upstream_lc, tbinfo)
+        nh_dut_ports[port_index_to_shut][1], all_port_indices, duts_minigraph_facts, upstream_lc, tbinfo, is_chassis)
 
     # Add them to filtered_ports
     filtered_ports.extend(ptf_ports_to_filter)
@@ -944,7 +967,9 @@ def test_ecmp_group_member_flap(
             "single_fib_for_duts": single_fib_for_duts,
             "switch_type": switch_type,
             "asic_type": asic_type,
-            "skip_src_ports": filtered_ports
+            "skip_src_ports": filtered_ports,
+            "topo_name": updated_tbinfo['topo']['name'],
+            "topo_type": updated_tbinfo['topo']['type'],
         },
         log_file=member_down_log_file,
         qlen=PTF_QLEN,
@@ -963,7 +988,7 @@ def test_ecmp_group_member_flap(
         if ptf_port in filtered_ports:
             filtered_ports.remove(ptf_port)
 
-    time.sleep(60)  # Allow time for the state to stabilize
+    time.sleep(convergence_wait)  # Allow time for the state to stabilize
 
     # --- Re-run the PTF test after member is back up ---
     logging.info("Re-verifying ECMP behavior after member up.")
@@ -994,7 +1019,9 @@ def test_ecmp_group_member_flap(
             "single_fib_for_duts": single_fib_for_duts,
             "switch_type": switch_type,
             "asic_type": asic_type,
-            "skip_src_ports": filtered_ports
+            "skip_src_ports": filtered_ports,
+            "topo_name": updated_tbinfo['topo']['name'],
+            "topo_type": updated_tbinfo['topo']['type'],
         },
         log_file=member_up_log_file,
         qlen=PTF_QLEN,

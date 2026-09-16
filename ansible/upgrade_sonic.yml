@@ -1,11 +1,16 @@
 # Example usage:
 #
-# upgrade via sonic2sonic upgrade:
+# upgrade via sonic2sonic image-url upgrade:
 #   ansible-playbook upgrade_sonic.yml -i lab -l devicename -e "upgrade_type=sonic" -e "image_url='http://8.8.8.8/sonic-broadcom.bin'"
+# upgrade via sonic2sonic scp (copy local file to device):
+#   ansible-playbook upgrade_sonic.yml -i lab -l devicename -e "upgrade_type=sonic" -e "image_path='/path/to/sonic-broadcom.bin'"
+#   Note: image_path must be an absolute path. Tilde (~) is not expanded by Ansible's copy module.
+#   The file must be accessible from the Ansible controller (e.g. if running inside a sonic-mgmt container,
+#   ensure the path is mounted into the container).
 # upgrade via onie:
 #   ansible-playbook upgrade_sonic.yml -i lab -l devicename -e "upgrade_type=onie" -e "image_url='http://8.8.8.8/sonic-broadcom.bin'"
 # upgrade DUTs listed in testbed
-#   ansible-playbook upgrade-sonic.yaml -i lab -e "testbed_name=vms1-1" -e "testbed_file=testbed.csv" -e "upgrade_type=onie" -e "image_url='http://8.8.8.8/sonic-broadcom.bin'"
+#   ansible-playbook upgrade-sonic.yaml -i lab -e "testbed_name=vms1-1" -e "testbed_file=testbed.yaml" -e "upgrade_type=onie" -e "image_url='http://8.8.8.8/sonic-broadcom.bin'"
 - hosts: all
   gather_facts: no
   tasks:
@@ -98,8 +103,16 @@
       shell: sed -i "s/^ClientAliveInterval [0-9].*/ClientAliveInterval 900/g" /etc/ssh/sshd_config && systemctl restart sshd
 
     - block:
-        - fail: msg="image_url is not defined"
-          when: image_url is not defined
+        - fail: msg="Either image_url or image_path must be defined, not both"
+          when: (image_url is not defined and image_path is not defined) or
+                (image_url is defined and image_path is defined)
+
+        - name: Copy local image to device via SCP
+          become: true
+          copy:
+            src: '{{ image_path }}'
+            dest: '/host/downloaded-sonic-image'
+          when: image_path is defined
 
         - name: Remove some old sonic image(s) and install new image
           reduce_and_add_sonic_images:
@@ -110,8 +123,9 @@
           until: result is not failed
           args:
             disk_used_pcent: '{{disk_used_pcent}}'
-            new_image_url: '{{ image_url }}'
-            required_space: '{{ 1500 if "slim" in image_url or "2018" in image_url or "2019" in image_url else 1600 }}'
+            new_image_url: '{{ image_url | default(omit) }}'
+            save_as: '{{ "/host/downloaded-sonic-image" if image_path is defined else omit }}'
+            required_space: '{{ 1500 if "slim" in (image_url | default(image_path)) or "2018" in (image_url | default(image_path)) or "2019" in (image_url | default(image_path)) else 1600 }}'
 
         # Reboot may need some time to update firmware firstly.
         # Increasing the async time to 300 seconds to avoid reboot being interrupted.

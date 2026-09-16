@@ -40,15 +40,6 @@ def skip_non_mellanox(rand_selected_dut):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def skip_unsupported_image(rand_selected_dut):
-    """
-    The test would skip master image due to its ecn mode is not stable and no need to test
-    """
-    if rand_selected_dut.sonichost.sonic_release == MASTER_BRANCH:
-        pytest.skip("Skip test because the ecn_mode at master branch is not stable and no need to test")
-
-
-@pytest.fixture(scope="module", autouse=True)
 def restore_image(localhost, rand_selected_dut, request, tbinfo):
     restore_to_image = request.config.getoption('restore_to_image')
 
@@ -191,7 +182,7 @@ class TestECNMode:
             self.send_verify_ipinip_packet(ptfadapter=ptfadapter,
                                            pkt=pkt,
                                            exp_pkt=exp_pkt,
-                                           ptf_src_port_id=self.params['ptf_downlink_port'],
+                                           ptf_src_port_id=self.params['ptf_src_port'],
                                            ptf_dst_port_ids=self.params['ptf_uplink_ports'])
 
     def _check_bgp_route(self, duthost):
@@ -235,13 +226,11 @@ class TestECNMode:
             current_branch = rand_selected_dut.command(RELEASE_CMD)['stdout_lines'][0].strip()
 
         if current_branch:
-            if current_branch != "none" and current_branch != MASTER_BRANCH:
-                with allure.step("Verify ECN mode"):
-                    if current_branch < ECN_MODE_CHANGE_VERSION:
-                        self.verify_ecn_mode(rand_selected_dut, ptfadapter, self.ECN_MODE_STANDARD)
-                    else:
-                        self.verify_ecn_mode(rand_selected_dut, ptfadapter, self.ECN_MODE_COPY_FROM_OUTER)
-            else:
-                pytest.skip("Skip test because the ecn_mode at master branch is not stable and no need to test")
+            with allure.step("Verify ECN mode"):
+                if current_branch < ECN_MODE_CHANGE_VERSION:
+                    self.verify_ecn_mode(rand_selected_dut, ptfadapter, self.ECN_MODE_STANDARD)
+                else:
+                    self.verify_ecn_mode(rand_selected_dut, ptfadapter, self.ECN_MODE_COPY_FROM_OUTER)
+
         else:
             raise ValueError(f"Failed to get SONiC branch : {current_branch}")

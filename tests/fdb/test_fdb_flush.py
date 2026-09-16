@@ -264,7 +264,9 @@ class TestFdbFlush:
             self.curr_exist_cores = existing_core_dumps
 
     def create_fdb_oper_files(self, duthost):
-        mac_addresses = ["00-11-22-33-55-66", "00-11-22-33-55-67", "00-11-22-33-55-68"]
+        # Keep static MACs on 00:11:22:33:44:XX to avoid collision with PTF dynamic MACs (00:11:22:33:55:XX).
+        # Use 44 in the 5th octet; dynamic FDB MACs use 55 and can collide on larger testbeds.
+        mac_addresses = ["00-11-22-33-44-66", "00-11-22-33-44-67", "00-11-22-33-44-68"]
         vlan_id = 1000
         fdb_static_set = []
         fdb_static_del = []

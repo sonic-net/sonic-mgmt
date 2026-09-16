@@ -62,9 +62,6 @@ def duthost_bgp_config(duthost,
         tgen_ports (pytest fixture): Ports mapping info of T0 testbed
         port_count: total number of ports used in test
     """
-    duthost.command("sudo config save -y")
-    duthost.command("sudo cp {} {}".format(
-        "/etc/sonic/config_db.json", "/etc/sonic/config_db_backup.json"))
     global temp_tg_port
     temp_tg_port = tgen_ports
     for i in range(0, port_count):
@@ -335,12 +332,12 @@ def get_lacp_add_remove_link_from_dut(snappi_api,
                 'Simulating Link Failure on {} from dut side '.format(port_name))
             duthost.shell(
                 "sudo config portchannel member del PortChannel2 %s\n" % (dut_port_name))
-            wait(TIMEOUT-20, "For Link to go down and traffic to stabilize")
+            wait(TIMEOUT, "For Link to go down and traffic to stabilize")
             flows = get_flow_stats(snappi_api)
             for flow in flows:
                 tx_frate.append(flow.frames_tx_rate)
                 rx_frate.append(flow.frames_tx_rate)
-            assert sum(tx_frate) == sum(rx_frate),\
+            assert sum(tx_frate) == sum(rx_frate), \
                 "Traffic has not converged after link flap: TxFrameRate:{},RxFrameRate:{}"\
                 .format(sum(tx_frate), sum(rx_frate))
             logger.info("Traffic has converged after link flap with no loss")
@@ -351,7 +348,20 @@ def get_lacp_add_remove_link_from_dut(snappi_api,
                 dut_port_name, i+1))
             duthost.shell(
                 "sudo config portchannel member add PortChannel2 %s\n" % (dut_port_name))
+            wait(TIMEOUT, "For Link to go up")
+            # Stopping Traffic
+            logger.info('Stopping Traffic')
+            cs = snappi_api.control_state()
+            cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.STOP
+            snappi_api.set_control_state(cs)
+            wait(TIMEOUT-10, "For Traffic To STOP")
 
+        # Stopping all protocols
+        logger.info('Stopping all protocols')
+        cs = snappi_api.control_state()
+        cs.protocol.all.state = cs.protocol.all.STOP
+        snappi_api.set_control_state(cs)
+        wait(TIMEOUT-10, "For Protocols To STOP")
         table.append('%s Link Failure' % dut_port_name)
         table.append(number_of_routes)
         table.append(iteration)

@@ -32,7 +32,7 @@ import re
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t2'),
+    pytest.mark.topology('t2', 'lrh', 'urh'),
     pytest.mark.sanity_check(check_items=["-monit"], allow_recover=False),
     pytest.mark.disable_loganalyzer
 ]
@@ -757,6 +757,9 @@ class TestVoqIPFwd(object):
         logger.info("Pinging neighbor interfaces for ip: {ipv}, ttl: {ttl}, size: {size}".format(ipv=version, ttl=ttl,
 
                                                                                                  size=size))
+        if 'portC' not in ports or 'portD' not in ports:
+            pytest.skip("Did not find ports in the DUTs (linecards) connected to T3 VM's")
+
         remote_port = 'portD'
         if 'portC' in ports:
             remote_port = 'portC'

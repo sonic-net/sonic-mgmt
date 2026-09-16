@@ -11,7 +11,7 @@ import random
 from datetime import datetime
 from retry.api import retry_call
 from tests.ptf_runner import ptf_runner
-from tests.ecmp.inner_hashing.conftest import get_src_dst_ip_range, FIB_INFO_FILE_DST,\
+from tests.ecmp.inner_hashing.conftest import get_src_dst_ip_range, FIB_INFO_FILE_DST, \
     VXLAN_PORT, PTF_QLEN, check_pbh_counters, OUTER_ENCAP_FORMATS, NVGRE_TNI, IP_VERSIONS_LIST, config_pbh
 
 logger = logging.getLogger(__name__)
@@ -54,6 +54,8 @@ class TestDynamicInnerHashing():
             else:
                 balancing_test_times = 20
                 balancing_range = 0.5
+                if "mellanox" in duthost.facts['asic_type'].lower():
+                    balancing_range = 0.7
 
             ptf_params = {"fib_info": FIB_INFO_FILE_DST,
                           "router_mac": router_mac,

@@ -4,6 +4,7 @@ import shlex
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import check_output
 from tests.common.helpers.tacacs.tacacs_helper import ssh_remote_run, ssh_remote_run_retry, check_tacacs  # noqa: F401
+from tests.common.plugins.sanity_check.constants import SUPERVISOR_REXEC_COMMAND_PATTERNS
 
 import logging
 
@@ -98,11 +99,19 @@ def test_ro_user_allowed_command(localhost, duthosts, enum_rand_one_per_hwsku_ho
         "brctl": ["sudo brctl show"],
         "docker": [
             "sudo docker exec snmp cat /etc/snmp/snmpd.conf",
+            "sudo docker exec swss md5sum /usr/bin/arp_update",
             'sudo docker images --format "table {% raw %}{{.Repository}}\\t{{.Tag}}\\t{{.ID}}\\t{{.Size}}{% endraw %}"',
             "sudo docker ps",
             "sudo docker ps -a",
         ],
+        "TSC": ["sudo TSC"],
+        "chage": ["sudo /usr/bin/chage -l admin"],
+        "dmidecode": ["sudo dmidecode -s system-product-name"],
         "lldpctl": ["sudo lldpctl"],
+        "systemctl": [
+            "sudo systemctl status",
+            "sudo systemctl status swss.service",
+        ],
         "vtysh": ['sudo vtysh -c "show version"', 'sudo vtysh -c "show bgp ipv4 summary json"',
                   'sudo vtysh -c "show bgp ipv6 summary json"'],
         "rvtysh": ['sudo rvtysh -c "show ip bgp su"', 'sudo rvtysh -n 0 -c "show ip bgp su"'],
@@ -143,6 +152,11 @@ def test_ro_user_allowed_command(localhost, duthosts, enum_rand_one_per_hwsku_ho
         if does_command_exist(localhost, dutip, tacacs_creds['tacacs_ro_user'],
                               tacacs_creds['tacacs_ro_user_passwd'], command):
             for subcommand in commands[command]:
+                # Skip commands that trigger rexec on supervisor
+                if duthost.is_supervisor_node() and any(p.search(subcommand)
+                                                        for p in SUPERVISOR_REXEC_COMMAND_PATTERNS):
+                    logger.info("Skipping '{}' on supervisor node — triggers rexec".format(subcommand))
+                    continue
                 allowed = ssh_remote_allow_run(localhost, dutip, tacacs_creds['tacacs_ro_user'],
                                                tacacs_creds['tacacs_ro_user_passwd'], subcommand)
                 pytest_assert(allowed, "command '{}' not authorized".format(subcommand))
@@ -162,6 +176,26 @@ def test_ro_user_allowed_command(localhost, duthosts, enum_rand_one_per_hwsku_ho
                                           " 'sudo sonic-installer list' is banned")
 
 
+def test_ro_user_dmesg_command(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds,
+                               check_tacacs):  # noqa: F811
+    """Verify RO users can disable console messages without leaking test state."""
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    dutip = duthost.mgmt_ip
+    username = tacacs_creds['tacacs_ro_user']
+    password = tacacs_creds['tacacs_ro_user_passwd']
+
+    if not does_command_exist(localhost, dutip, username, password, "dmesg"):
+        pytest.skip('"dmesg" not found on DUT')
+
+    try:
+        allowed = ssh_remote_allow_run(
+            localhost, dutip, username, password, "sudo dmesg -D"
+        )
+        pytest_assert(allowed, "command 'sudo dmesg -D' not authorized")
+    finally:
+        duthost.shell("sudo dmesg -E")
+
+
 def test_ro_user_banned_by_sudoers_command(localhost, duthosts, enum_rand_one_per_hwsku_hostname,
                                            tacacs_creds, check_tacacs):  # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -173,7 +207,18 @@ def test_ro_user_banned_by_sudoers_command(localhost, duthosts, enum_rand_one_pe
             "sudo cat /etc/hosts",
             "sudo cat /var/log/syslog /etc/hosts",
             "sudo cat /var/log/syslog.1 /etc/hosts"
-        ]
+        ],
+        "TSC": ["sudo TSC no-stats"],
+        "chage": [
+            "sudo /usr/bin/chage -l admin extra",
+            "sudo /usr/bin/chage -M invalid admin",
+        ],
+        "dmidecode": ["sudo dmidecode -s system-serial-number"],
+        "docker": [
+            "sudo docker exec swss md5sum /usr/bin/other",
+            "sudo docker exec swss md5sum /usr/bin/arp_update extra",
+        ],
+        "systemctl": ["sudo systemctl show swss.service"],
     }
 
     for command in commands:

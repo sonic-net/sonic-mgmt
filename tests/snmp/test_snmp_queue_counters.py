@@ -58,31 +58,19 @@ def get_redis_queue_count_with_types(duthost, interface, asic=None):
     Returns:
         Dictionary with 'total', 'unicast', and 'multicast' queue counts
     """
-    # Build the redis-cli commands with namespace support for multi-ASIC
-    if asic is not None and duthost.sonichost.is_multi_asic:
-        name_map_cmd = (
-            "sonic-db-cli -n {} COUNTERS_DB HGETALL COUNTERS_QUEUE_NAME_MAP"
-            .format(asic.namespace))
-        type_map_cmd = (
-            "sonic-db-cli -n {} COUNTERS_DB HGETALL COUNTERS_QUEUE_TYPE_MAP"
-            .format(asic.namespace))
-    else:
-        name_map_cmd = "redis-cli -n 2 HGETALL COUNTERS_QUEUE_NAME_MAP"
-        type_map_cmd = "redis-cli -n 2 HGETALL COUNTERS_QUEUE_TYPE_MAP"
+    if asic is None:
+        asic = duthost.asic_instance()
 
-    # Get queue name map (interface:queue -> SAI OID)
-    name_map_result = duthost.shell(name_map_cmd)['stdout_lines']
-
-    # Get queue type map (SAI OID -> queue type)
-    type_map_result = duthost.shell(type_map_cmd)['stdout_lines']
+    name_map_result = asic.run_redis_cmd(
+        argv=["redis-cli", "-n", 2, "HGETALL", "COUNTERS_QUEUE_NAME_MAP"])
+    type_map_result = asic.run_redis_cmd(
+        argv=["redis-cli", "-n", 2, "HGETALL", "COUNTERS_QUEUE_TYPE_MAP"])
 
     # Build type map dictionary (SAI OID -> type string)
     type_map = {}
     for i in range(0, len(type_map_result), 2):
         if i + 1 < len(type_map_result):
-            sai_oid = type_map_result[i]
-            queue_type = type_map_result[i + 1]
-            type_map[sai_oid] = queue_type
+            type_map[type_map_result[i]] = type_map_result[i + 1]
 
     # Count queues for the interface
     queue_count = {'total': 0, 'unicast': 0, 'multicast': 0}
@@ -215,8 +203,19 @@ def test_snmp_queue_counters(duthosts,
             r".* ERR memory_checker: \[memory_checker\] "
             r"Failed to get container ID of.*",
             r".* ERR memory_checker: \[memory_checker\] "
-            r"cgroup memory usage file.*"
+            r"cgroup memory usage file.*",
         ]
+        # This test triggers multiple config_reload calls (including one
+        # in the module teardown that is not wrapped by
+        # ignore_loganalyzer). On platforms with a large port count,
+        # syncd may log this benign FlexCounter cleanup message when a
+        # port's counters are still being polled right after the port
+        # object was removed/recreated. The port is simply dropped from
+        # the active counter poll list; no functional impact.
+        ignore_regex_list.append(
+            r".* ERR syncd\d*#syncd: :- processFlexCounterEvent: port VID oid:0x[0-9a-fA-F]+, "
+            r"was not found \(probably port was removed/splitted\) and will remove from counters now.*"
+        )
         if duthost.sonichost.facts['platform_asic'] == 'broadcom':
             ignore_regex_list.append(
                 r".* ERR swss#orchagent:\s*.*\s*"
@@ -342,7 +341,7 @@ def test_snmp_queue_counters(duthosts,
     # cannot be modified dynamically. Hence, make sure the queue counters
     # before deletion and after deletion are same for broadcom-dnx voq chassis
     platform_asic = duthost.facts.get("platform_asic")
-    if platform_asic == "broadcom-dnx" and duthost.sonichost.is_multi_asic:
+    if platform_asic == "broadcom-dnx":
         pytest_assert(
             (queue_counters_cnt_pre == queue_counters_cnt_post),
             "Queue counters actual count {} differs from expected values {}"

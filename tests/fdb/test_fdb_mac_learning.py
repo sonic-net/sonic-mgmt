@@ -22,7 +22,8 @@ def ignore_expected_loganalyzer_exception(loganalyzer, duthosts):
 
     ignore_errors = [
         r".*ERR swss#orchagent: .*update: Failed to get port by bridge port ID.*",
-        r".* ERR swss#tunnel_packet_handler.py: All portchannels failed to come up within \d+ minutes, exiting.*"
+        r".* ERR swss#tunnel_packet_handler.py: All portchannels failed to come up within \d+ minutes, exiting.*",
+        r".*ERR swss#orchagent: .*meta_sai_validate_route_entry: object key SAI_OBJECT_TYPE_ROUTE_ENTRY:.* doesn't exist.*",  # noqa: E501
         ]
     if loganalyzer:
         for duthost in duthosts:

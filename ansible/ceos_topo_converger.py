@@ -12,6 +12,7 @@ import sys
 
 CEOSLAB_INTF_LIMIT = 127  # 128, minus one for backplane interface
 BASE_VLAN_ID = 2000
+DEFAULT_MAX_FP_NUM = 4
 
 
 class ListIndentDumper(yaml.Dumper):
@@ -147,6 +148,12 @@ class SonicTopoConverger:
             intf_counter_base = 1
             eth_intf_index = 1
             offset = 0
+            # Per-prime allocator for any *additional* Port-Channels (see below).
+            # Primary Port-Channels consume channel ids in [intf_counter_base,
+            # intf_counter_base + len(peer_list) - 1] (one per VRF), so start the
+            # extra-channel counter just above that range to keep every
+            # channel-group id globally unique on the prime.
+            next_extra_po = len(peer_list) + intf_counter_base
             for i, peer_name in enumerate(peer_list):
                 #  For simplicity, VRFs are just peer names.
                 vlan_id = BASE_VLAN_ID + offset_mapping[peer_name]
@@ -158,22 +165,47 @@ class SonicTopoConverger:
                 intf_index = i + intf_counter_base
                 vrf = {f"Vlan{vlan_id}": {}}
 
+                # A peer may attach to more than one Port-Channel (e.g. dualtor
+                # T1s peer with BOTH ToRs via two separate single-member LAGs).
+                # Allocate a globally-unique converged channel-group id per
+                # original Port-Channel: the primary (lowest-numbered) keeps
+                # ``intf_index`` so single-Port-Channel topologies
+                # (t0/t1/t2/dpu/...) render byte-identically, while any extra
+                # Port-Channel gets a fresh id from ``next_extra_po`` (outside the
+                # per-VRF primary range) so it never collides with another VRF's
+                # primary channel. ``lacp_remap`` maps each original channel-group
+                # number to its converged id so member Ethernets stay bundled with
+                # the correct Port-Channel.
+                po_names = sorted(
+                    (name for name in peer_intfs if name.startswith("Port-Channel")),
+                    key=lambda name: int(name[len("Port-Channel"):]),
+                )
+                lacp_remap = {}
+                for po_name in po_names:
+                    orig_ch = int(po_name[len("Port-Channel"):])
+                    if not lacp_remap:
+                        lacp_remap[orig_ch] = intf_index
+                    else:
+                        lacp_remap[orig_ch] = next_extra_po
+                        next_extra_po += 1
+
                 for intf, config in peer_intfs.items():
                     if "Ethernet" not in intf:
                         continue
                     eth_intf = f"Ethernet{eth_intf_index}"
                     vrf[eth_intf] = deepcopy(peer_intfs[intf])
                     # Update lacp channel-group to match the new Port-Channel index
-                    if "lacp" in vrf[eth_intf] and "Port-Channel1" in peer_intfs:
-                        vrf[eth_intf]["lacp"] = intf_index
+                    if "lacp" in vrf[eth_intf] and lacp_remap:
+                        vrf[eth_intf]["lacp"] = lacp_remap.get(
+                                peer_intfs[intf]["lacp"], intf_index)
                     orig_intf_map[intf] = eth_intf
                     eth_intf_index += 1
 
-                if "Port-Channel1" in peer_intfs:
-                    po_intf = f"Port-Channel{intf_index}"
-                    orig_intf_map["Port-Channel1"] = po_intf
-                    vrf[po_intf] = deepcopy(
-                            peer_intfs["Port-Channel1"])
+                for po_name in po_names:
+                    orig_ch = int(po_name[len("Port-Channel"):])
+                    po_intf = f"Port-Channel{lacp_remap[orig_ch]}"
+                    orig_intf_map[po_name] = po_intf
+                    vrf[po_intf] = deepcopy(peer_intfs[po_name])
                 if "Loopback0" in peer_intfs:
                     lo_intf = f"Loopback{intf_index}"
                     orig_intf_map["Loopback0"] = lo_intf
@@ -226,10 +258,13 @@ class SonicTopoConverger:
 
         # We don't need to change the host_interfaces portion of the passed topo, so
         # copy
-        # it over as is.
-        key = "host_interfaces"
-        if key in old_topo:
-            new_topo[key] = old_topo[key].copy()
+        # it over as is.  The same applies to disabled_host_interfaces, which must be
+        # preserved so the DUT minigraph keeps those ports admin-down; dropping it
+        # turns previously-disabled host interfaces into active ports and breaks
+        # buffer/qos deployment checks (e.g. qos/test_buffer.py).
+        for key in ("host_interfaces", "disabled_host_interfaces"):
+            if key in old_topo:
+                new_topo[key] = old_topo[key].copy()
 
         key = "VMs"
         # Save off which vm had which interface index as we will need this later
@@ -247,6 +282,18 @@ class SonicTopoConverger:
         if key in old_topo:
             new_topo[key] = old_topo[key].copy()
 
+        # Preserve top-level topology metadata that minigraph generation reads
+        # directly off the topology dict (ansible/library/topo_facts.py).
+        # dut_num in particular sizes the per-DUT interface_indexes lists:
+        # multi-linecard chassis topologies (t2 variants carry dut_num 3-6)
+        # have VM vlans with dut_index > 0, so dropping dut_num makes
+        # topo_facts default it to 1 and raise "IndexError: list index out of
+        # range" during deploy-mg. Single-DUT topos omit dut_num (defaults to
+        # 1), so this is a no-op for them.
+        for key in ("dut_num", "topo_type"):
+            if key in old_topo:
+                new_topo[key] = old_topo[key]
+
         new_topo = self.converged_topo
         old_topo = self.topo
         key = "configuration_properties"
@@ -256,6 +303,31 @@ class SonicTopoConverger:
         key = "configuration"
         new_topo[key] = old_topo[key].copy()
         new_topo["convergence_data"] = self.converge_peers(interface_indexes, offsets)
+
+        # After convergence, each prime cEOSLab peer needs one front-panel
+        # interface per merged sub-peer (each connects to one DUT FP port via
+        # one ``br-<vmname>-N`` OVS bridge). The default ``max_fp_num`` of 4
+        # works for stock topologies, but converged primes routinely hold many
+        # more (e.g. 16 on a t1-lag spine prime, 32 on a t2 T3 prime). Without
+        # bumping max_fp_num, ``create_bridges`` / ``ceos_network`` create only
+        # 4 br-VM-N bridges + 4 veth pairs into the cEOS container, and the
+        # subsequent ``vm_topology bind`` fails with "Too many vlans".
+        #
+        # Surface the required count as ``max_fp_num_provided`` at the topo
+        # root so the vm_set role bumps max_fp_num for the whole vm_set. The
+        # override is applied in ``roles/vm_set/tasks/main.yml`` (common to
+        # every action, including ``add_topo`` which actually creates the
+        # br-VM-N bridges) and ``roles/vm_set/tasks/start.yml``. Cap at
+        # CEOSLAB_INTF_LIMIT to stay within cEOSLab's per-container interface
+        # ceiling, and never go below the default so single-vlan converged
+        # topologies (e.g. dpu) keep the existing minimum.
+        max_prime_vlans = max(
+            (len(vm.get("vlans", [])) for vm in new_topo["topology"]["VMs"].values()),
+            default=0,
+        )
+        required_fp_num = max(DEFAULT_MAX_FP_NUM, min(max_prime_vlans, CEOSLAB_INTF_LIMIT))
+        if required_fp_num > DEFAULT_MAX_FP_NUM:
+            self.converged_topo["max_fp_num_provided"] = required_fp_num
 
     def run(self) -> None:
         self.parse_properties()

@@ -1,4 +1,3 @@
-import tarfile
 import json
 import pytest
 import os
@@ -9,9 +8,9 @@ from tests.common.mellanox_data import is_mellanox_device
 from .args.counterpoll_cpu_usage_args import add_counterpoll_cpu_usage_args
 from tests.common.helpers.mellanox_thermal_control_test_helper import suspend_hw_tc_service, resume_hw_tc_service
 from tests.common.platform.device_utils import MGFX_HWSKU, MGFX_XCVR_INTF
-from tests.common.platform.transceiver_utils import get_ports_with_flat_memory, \
-    get_passive_cable_port_list, get_cmis_cable_ports_and_ver
-from tests.common.helpers.firmware_helper import PLATFORM_COMP_PATH_TEMPLATE
+from tests.common.platform.transceiver_utils import get_passive_cable_port_list, get_cmis_cable_ports_and_ver
+from tests.common.helpers.firmware_helper import PLATFORM_COMP_PATH_TEMPLATE, extract_fw_data
+from tests.common.platform.interface_utils import get_ports_with_flat_memory
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +70,10 @@ def xcvr_skip_list(duthosts, dpu_npu_port_list, tbinfo):
                 'Ethernet88', 'Ethernet96', 'Ethernet104', 'Ethernet112',
                 'Ethernet216', 'Ethernet224', 'Ethernet232', 'Ethernet240'
                 ])
+        # For lt2-o256-u32d224 topo, skip Ethernet1008/Ethernet1012 as these ports are not
+        # populated with transceivers by design on this testbed
+        elif tbinfo['topo']['name'] == "lt2-o256-u32d224":
+            intf_skip_list[dut.hostname].extend(['Ethernet1008', 'Ethernet1012'])
 
     return intf_skip_list
 
@@ -183,8 +186,9 @@ def check_pmon_uptime_minutes(duthost, minimal_runtime=6):
 
 def pytest_generate_tests(metafunc):
     val = metafunc.config.getoption('--fw-pkg')
-    if 'fw_pkg_name' in metafunc.fixturenames and val:
-        metafunc.parametrize('fw_pkg_name', val.split(','), scope="module")
+    if 'fw_pkg_name' in metafunc.fixturenames:
+        param_values = val.split(',') if val else [None]
+        metafunc.parametrize('fw_pkg_name', param_values, scope="module")
 
     if 'power_off_delay' in metafunc.fixturenames:
         delays = metafunc.config.getoption('power_off_delay')
@@ -244,10 +248,10 @@ def dpu_npu_port_list(duthosts):
 
 
 @pytest.fixture(scope="module")
-def port_list_with_flat_memory(duthosts):
+def port_list_with_flat_memory(duthosts, conn_graph_facts):
     ports_with_flat_memory = {}
     for dut in duthosts:
-        ports_with_flat_memory.update({dut.hostname: get_ports_with_flat_memory(dut)})
+        ports_with_flat_memory.update({dut.hostname: get_ports_with_flat_memory(dut, conn_graph_facts)})
     logging.info(f"port list with flat memory: {ports_with_flat_memory}")
     return ports_with_flat_memory
 
@@ -307,26 +311,3 @@ def backup_platform_file(duthost):
     logger.info("Remove 'platform_components.json' backup from localhost: path={}".format(backup_path))
     os.remove(current_backup_path)
     os.rmdir(backup_path)
-
-
-def extract_fw_data(fw_pkg_path):
-    """
-    Extract fw data from updated-fw.tar.gz file or firmware.json file
-    :param fw_pkg_path: the path to tar.gz file or firmware.json file
-    :return: fw_data in dictionary
-    """
-    if tarfile.is_tarfile(fw_pkg_path):
-        path = "/tmp/firmware"
-        isExist = os.path.exists(path)
-        if not isExist:
-            os.mkdir(path)
-        with tarfile.open(fw_pkg_path, "r:gz") as f:
-            f.extractall(path)
-            json_file = os.path.join(path, "firmware.json")
-            with open(json_file, 'r') as fw:
-                fw_data = json.load(fw)
-    else:
-        with open(fw_pkg_path, 'r') as fw:
-            fw_data = json.load(fw)
-
-    return fw_data
