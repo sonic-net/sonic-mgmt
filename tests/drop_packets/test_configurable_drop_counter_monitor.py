@@ -13,6 +13,7 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m  # noqa: F401
 
 from . import configurable_drop_counters as cdc
 from .configurable_drop_counters import (
@@ -35,6 +36,7 @@ from .test_configurable_drop_counters import (   # noqa: F401
     generate_dropped_packet,
     send_dropped_traffic,
     add_default_route_to_dut,
+    ignore_expected_loganalyzer_exception,
 )
 
 
@@ -152,6 +154,8 @@ def test_counter_monitor_enable_disable(duthosts, rand_one_dut_hostname, drop_co
 
 
 def test_monitor_window(testbed_params, setup_counters, duthosts, rand_one_dut_hostname,  # noqa: F811
+                        toggle_all_simulator_ports_to_rand_selected_tor_m,   # noqa: F811
+                        setup_standby_ports_on_rand_unselected_tor,          # noqa: F811
                         send_dropped_traffic, generate_dropped_packet,       # noqa: F811
                         add_default_route_to_dut):                          # noqa: F811
     """
@@ -208,6 +212,8 @@ def test_monitor_window(testbed_params, setup_counters, duthosts, rand_one_dut_h
 
 @pytest.mark.parametrize("drop_reason", ["DIP_LINK_LOCAL"])
 def test_drop_count_threshold(testbed_params, setup_counters, duthosts, rand_one_dut_hostname,  # noqa: F811
+                              toggle_all_simulator_ports_to_rand_selected_tor_m,  # noqa: F811
+                              setup_standby_ports_on_rand_unselected_tor,         # noqa: F811
                               send_dropped_traffic, drop_reason, generate_dropped_packet,  # noqa: F811
                               add_default_route_to_dut):                                  # noqa: F811
     """
@@ -254,6 +260,8 @@ def test_drop_count_threshold(testbed_params, setup_counters, duthosts, rand_one
 @pytest.mark.parametrize("drop_reason", ["DIP_LINK_LOCAL"])
 def test_incident_detection_threshold(testbed_params, setup_counters, duthosts,  # noqa: F811
                                       rand_one_dut_hostname,
+                                      toggle_all_simulator_ports_to_rand_selected_tor_m,  # noqa: F811
+                                      setup_standby_ports_on_rand_unselected_tor,         # noqa: F811
                                       send_dropped_traffic, drop_reason, generate_dropped_packet,  # noqa: F811
                                       add_default_route_to_dut):                                   # noqa: F811
     """

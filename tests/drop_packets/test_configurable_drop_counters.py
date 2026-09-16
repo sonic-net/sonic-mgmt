@@ -35,8 +35,19 @@ from tests.common import config_reload
 
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('t0')
 ]
+
+
+@pytest.fixture(autouse=True, scope="module")
+def _require_t0_topology(tbinfo):
+    """
+    Unconditional guard (independent of the --topology CLI flag) since this module's
+    fixtures (arp_responder, mock_server) assume a VLAN exists, which only T0 provides.
+    """
+    if tbinfo["topo"]["type"] != "t0":
+        pytest.skip("Unsupported topology {}".format(tbinfo["topo"]["name"]))
+
 
 PACKET_COUNT = 1000
 
@@ -78,7 +89,9 @@ def ignore_expected_loganalyzer_exception(duthosts, rand_one_dut_hostname, logan
             ".*ERR syncd[0-9]*#syncd.*SAI_API_DEBUG_COUNTER:_brcm_sai_debug_counter_value_get."
             "*No debug_counter at index.*found.*",
             ".*ERR syncd[0-9]*#syncd.*collectPortDebugCounters: Failed to get stats of port.*",
-            ".* ERR syncd#syncd: :- collectData: Failed to get stats of Port Debug Counter.*"
+            ".* ERR syncd#syncd: :- collectData: Failed to get stats of Port Debug Counter.*",
+            ".*ERR syncd[0-9]*#syncd.*removeCounter: Object type for removal not supported, "
+            "SAI_OBJECT_TYPE_NULL.*"
 
         ]
         duthost = duthosts[rand_one_dut_hostname]
@@ -319,8 +332,6 @@ def testbed_params(duthosts, rand_one_dut_hostname, tbinfo):
     Returns: A Dictionary with the following information:
     """
     duthost = duthosts[rand_one_dut_hostname]
-    if tbinfo["topo"]["type"] != "t0":
-        pytest.skip("Unsupported topology {}".format(tbinfo["topo"]["name"]))
 
     mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
 
@@ -329,12 +340,16 @@ def testbed_params(duthosts, rand_one_dut_hostname, tbinfo):
                          in list(mgFacts["minigraph_ptf_indices"].items())
                          if k in list(mgFacts["minigraph_ports"].keys())}  # Trim inactive ports
 
-    vlan_ports = [mgFacts["minigraph_ptf_indices"][ifname]
-                  for ifname
-                  in list(mgFacts["minigraph_vlans"].values())[VLAN_INDEX]["members"]]
+    # T1/T2 fabric ports are pure L3 and have no VLAN, unlike T0.
+    vlan_ports = []
+    vlan_interface = {}
+    if mgFacts.get("minigraph_vlans"):
+        vlan_ports = [mgFacts["minigraph_ptf_indices"][ifname]
+                      for ifname
+                      in list(mgFacts["minigraph_vlans"].values())[VLAN_INDEX]["members"]]
 
-    vlan_interface = mgFacts["minigraph_vlan_interfaces"][VLAN_INDEX].copy()
-    vlan_interface["type"] = list(mgFacts["minigraph_vlans"].values())[VLAN_INDEX].get("type", "untagged").lower()
+        vlan_interface = mgFacts["minigraph_vlan_interfaces"][VLAN_INDEX].copy()
+        vlan_interface["type"] = list(mgFacts["minigraph_vlans"].values())[VLAN_INDEX].get("type", "untagged").lower()
 
     return {"physical_port_map": physical_port_map,
             "vlan_ports": vlan_ports,
