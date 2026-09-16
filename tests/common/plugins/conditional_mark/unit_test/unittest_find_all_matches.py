@@ -292,6 +292,95 @@ class TestFindAllMatches(unittest.TestCase):
         self.assertEqual(len(marks_found), 1)
         self.assertIn('xfail', marks_found)
 
+    # Regression coverage for https://github.com/sonic-net/sonic-mgmt/issues/26793:
+    # pytest 9 changed the join order of independently parametrized fixtures in
+    # generated node IDs (e.g. "ipv6-erspan_ipv4" under pytest <=8 becomes
+    # "erspan_ipv4-ipv6" under pytest 9). A plain nodeid.startswith() prefix rule
+    # written against one order silently stops matching under the other. These
+    # cases exercise a regex:true rule (mirroring the production fix in
+    # tests_mark_conditions.yaml) that matches both orders.
+    def test_reorder_regex_old_order_erspan_ipv4(self):
+        conditions, session_mock = load_test_conditions()
+        nodeid = "test_everflow_reorder_mark.py::test_everflow_reorder_mark[ipv6-erspan_ipv4-default]"
+
+        marks_found = []
+        matches = find_all_matches(nodeid, conditions, session_mock, DYNAMIC_UPDATE_SKIP_REASON, CUSTOM_BASIC_FACTS)
+
+        for match in matches:
+            for mark_name, mark_details in list(list(match.values())[0].items()):
+                marks_found.append(mark_name)
+
+                if mark_name == "skip":
+                    self.assertEqual(
+                        mark_details.get("reason"),
+                        "Skip test_everflow_reorder_mark.py::test_everflow_reorder_mark")
+
+        self.assertEqual(len(marks_found), 1)
+        self.assertIn('skip', marks_found)
+
+    def test_reorder_regex_old_order_erspan_ipv6(self):
+        conditions, session_mock = load_test_conditions()
+        nodeid = "test_everflow_reorder_mark.py::test_everflow_reorder_mark[ipv6-erspan_ipv6-default]"
+
+        marks_found = []
+        matches = find_all_matches(nodeid, conditions, session_mock, DYNAMIC_UPDATE_SKIP_REASON, CUSTOM_BASIC_FACTS)
+
+        for match in matches:
+            for mark_name, mark_details in list(list(match.values())[0].items()):
+                marks_found.append(mark_name)
+
+        self.assertEqual(len(marks_found), 1)
+        self.assertIn('skip', marks_found)
+
+    def test_reorder_regex_pytest9_order_erspan_ipv4(self):
+        conditions, session_mock = load_test_conditions()
+        nodeid = "test_everflow_reorder_mark.py::test_everflow_reorder_mark[erspan_ipv4-ipv6-default]"
+
+        marks_found = []
+        matches = find_all_matches(nodeid, conditions, session_mock, DYNAMIC_UPDATE_SKIP_REASON, CUSTOM_BASIC_FACTS)
+
+        for match in matches:
+            for mark_name, mark_details in list(list(match.values())[0].items()):
+                marks_found.append(mark_name)
+
+        self.assertEqual(len(marks_found), 1)
+        self.assertIn('skip', marks_found)
+
+    def test_reorder_regex_pytest9_order_erspan_ipv6(self):
+        conditions, session_mock = load_test_conditions()
+        nodeid = "test_everflow_reorder_mark.py::test_everflow_reorder_mark[erspan_ipv6-ipv6-default]"
+
+        marks_found = []
+        matches = find_all_matches(nodeid, conditions, session_mock, DYNAMIC_UPDATE_SKIP_REASON, CUSTOM_BASIC_FACTS)
+
+        for match in matches:
+            for mark_name, mark_details in list(list(match.values())[0].items()):
+                marks_found.append(mark_name)
+
+        self.assertEqual(len(marks_found), 1)
+        self.assertIn('skip', marks_found)
+
+    def test_reorder_regex_does_not_match_ipv4(self):
+        conditions, session_mock = load_test_conditions()
+
+        for nodeid in (
+            "test_everflow_reorder_mark.py::test_everflow_reorder_mark[ipv4-erspan_ipv4-default]",
+            "test_everflow_reorder_mark.py::test_everflow_reorder_mark[erspan_ipv4-ipv4-default]",
+        ):
+            matches = find_all_matches(nodeid, conditions, session_mock, DYNAMIC_UPDATE_SKIP_REASON,
+                                       CUSTOM_BASIC_FACTS)
+            self.assertFalse(matches, "unexpected match for {}".format(nodeid))
+
+    def test_reorder_regex_does_not_match_other_function(self):
+        conditions, session_mock = load_test_conditions()
+        # Same file, a function name that has test_everflow_reorder_mark as a
+        # prefix -- must not match, proving the rule is anchored to the exact
+        # test function rather than just searching for the tokens anywhere.
+        nodeid = "test_everflow_reorder_mark.py::test_everflow_reorder_mark_extra[ipv6-erspan_ipv4-default]"
+
+        matches = find_all_matches(nodeid, conditions, session_mock, DYNAMIC_UPDATE_SKIP_REASON, CUSTOM_BASIC_FACTS)
+        self.assertFalse(matches)
+
 
 if __name__ == "__main__":
     unittest.main()
