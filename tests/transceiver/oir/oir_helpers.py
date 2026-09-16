@@ -74,20 +74,19 @@ def _sfputil_show_eeprom_dom_cmd(port=None):
 
 
 # (label, command builder, lines->{port: status} reducer, empty-cage status,
-#  seated status or ``None`` for "anything but the empty-cage status",
-#  asic_scoped).  Only the DB-backed ``show`` family takes ``-n <ns>``; sfputil
-#  resolves the ASIC from the port name (see cli_helpers' namespace note).
+#  seated status or ``None`` for "anything but the empty-cage status").
+# These whole-switch commands return all frontend ASICs when unqualified.
 # ``sfputil show eeprom -d`` covers both the EEPROM dump and TC1 step 3's "DOM
 # values read back empty", so the empty cage is proven without a second dump.
 _STATUS_CLIS = (
     ("sfputil show presence", cli_helpers.sfputil_show_presence_cmd,
-     parse_presence, PRESENCE_ABSENT, PRESENCE_PRESENT, False),
+     parse_presence, PRESENCE_ABSENT, PRESENCE_PRESENT),
     ("show interfaces transceiver presence", cli_helpers.show_interfaces_transceiver_presence_cmd,
-     parse_presence, PRESENCE_ABSENT, PRESENCE_PRESENT, True),
+     parse_presence, PRESENCE_ABSENT, PRESENCE_PRESENT),
     ("sfputil show eeprom -d", _sfputil_show_eeprom_dom_cmd,
-     reduce_eeprom_status, ABSENT_MSG_SFPUTIL, None, False),
+     reduce_eeprom_status, ABSENT_MSG_SFPUTIL, None),
     ("show interfaces transceiver info", cli_helpers.show_interfaces_transceiver_info_cmd,
-     reduce_eeprom_status, ABSENT_MSG_CLI_INFO, None, True),
+     reduce_eeprom_status, ABSENT_MSG_CLI_INFO, None),
 )
 
 
@@ -183,27 +182,17 @@ def verify_presence_clis(duthost, lports, present):
     """Verify the presence / EEPROM / DOM CLIs all agree with the expected seated state.
 
     Each CLI is run without a port argument (whole-switch dump) and must exit 0;
-    the ASIC-scoped ``show`` family is run once per namespace and merged so
-    non-default-ASIC ports are covered on a multi-ASIC DUT.  The per-port status
-    line is then matched against the expected token.
+    the unqualified commands return all frontend ASICs. The per-port status line
+    is then matched against the expected token.
     """
     failures = []
-    namespaces = duthost.get_asic_namespace_list()
-    for label, build_cmd, reduce_output, absent_status, present_status, asic_scoped in _STATUS_CLIS:
-        status_by_port = {}
-        cli_failed = False
-        for namespace in (namespaces if asic_scoped else [None]):
-            cmd = build_cmd(namespace=namespace) if asic_scoped else build_cmd()
-            result = duthost.command(cmd, module_ignore_errors=True)
-            if result.get("rc", RC_FAILURE) != 0:
-                failures.append(
-                    f"[{label}] (namespace {namespace or 'default'}) "
-                    f"exited rc={result.get('rc')}, expected 0")
-                cli_failed = True
-                continue
-            status_by_port.update(reduce_output(result.get("stdout_lines", [])))
-        if cli_failed:
+    for label, build_cmd, reduce_output, absent_status, present_status in _STATUS_CLIS:
+        result = duthost.command(build_cmd(), module_ignore_errors=True)
+        if result.get("rc", RC_FAILURE) != 0:
+            failures.append(
+                f"[{label}] exited rc={result.get('rc')}, expected 0")
             continue
+        status_by_port = reduce_output(result.get("stdout_lines", []))
         for port in lports:
             actual = status_by_port.get(port)
             if not present:
