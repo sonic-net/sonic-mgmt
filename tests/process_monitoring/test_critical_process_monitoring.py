@@ -635,6 +635,7 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
     # Check if database container is being tested
     is_testing_database = "database" not in skip_containers
     uptime_before_recovery = None
+    pdu_reboot_reported_success = None
     if is_testing_database and not is_vs_device(duthost):
         uptime_before_recovery = duthost.get_up_time()
 
@@ -722,7 +723,7 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
             if uptime_after_recovery <= uptime_before_recovery:
                 pytest.fail("PDU reboot failed for {}: DUT boot time did not change (before: {}, after: {})"
                             .format(duthost.hostname, uptime_before_recovery, uptime_after_recovery))
-            if not pdu_reboot_reported_success:
+            if pdu_reboot_reported_success is False:
                 logger.error("PDU reboot reported failure for {}, but the DUT rebooted successfully "
                              "(boot time changed from {} to {}); continuing recovery"
                              .format(duthost.hostname, uptime_before_recovery, uptime_after_recovery))
