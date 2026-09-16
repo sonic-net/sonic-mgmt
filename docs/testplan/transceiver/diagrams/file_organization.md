@@ -138,10 +138,7 @@ tests/transceiver/
 │   │                                        #   baseline parse_eeprom remains in utils/cli_parser_helper.py
 │   ├── cmis_helper.py                       # CMIS page decode: page 11h DataPath state, page 01h CDB capability
 │   ├── eeprom_decode.py                     # SFF-8024 family classify + per-family vendor-field offsets + stem/DAC helpers
-│   ├── topology.py                          # ASIC-scoped same-DUT/cross-DUT peer resolution
-│   └── unit_tests/
-│       ├── __init__.py
-│       └── test_topology.py                 # Mocked peer resolution and lazy per-DUT loader coverage
+│   └── topology.py                          # ASIC-scoped same-DUT/cross-DUT peer resolution
 │
 ├── eeprom/
 │   ├── __init__.py
