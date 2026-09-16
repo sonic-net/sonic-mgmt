@@ -1,0 +1,15 @@
+Value protocol (\S+)
+Value src_ip (\d+.\d+.\d+.\d+|---)
+Value src_ip_port (\d+| )
+Value dst_ip (\d+.\d+.\d+.\d+|---)
+Value dst_ip_port (\d+| )
+Value packets (\d+)
+Value bytes (\d+)
+
+Start
+  ^\s*Protocol\s+Source\s+Destination\s+Packets\s+Bytes\s*$$
+  ^(-+\s*)*$$
+  ^\s*${protocol}\s+${src_ip}:${src_ip_port}\s+${dst_ip}:${dst_ip_port}\s+${packets}\s+${bytes}\s*$$ -> Record
+  ^\s*${protocol}\s+${src_ip}\s+${dst_ip}:${dst_ip_port}\s+${packets}\s+${bytes}\s*$$ -> Record
+  ^\s*${protocol}\s+${src_ip}:${src_ip_port}\s+${dst_ip}\s+${packets}\s+${bytes}\s*$$ -> Record
+  ^\s*${protocol}\s+${src_ip}\s+${dst_ip}\s+${packets}\s+${bytes}\s*$$ -> Record

@@ -1,0 +1,11 @@
+ixia_api_server:
+    user: admin
+    password: admin
+    rest_port: 443
+    session_id: none
+
+snappi_api_server:
+    user: admin
+    password: admin
+    rest_port: 443
+    session_id: none

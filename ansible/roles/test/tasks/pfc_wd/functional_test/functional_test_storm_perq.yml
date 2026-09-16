@@ -1,0 +1,99 @@
+#------------------------------------
+# Test the PFC storm action
+# 1. Verify storm is detected via syslog entry analysis on the dut
+# 2. Verify the drop action in place on both ingress and egress via ptf dataplane traffic test
+#
+# Storm will not be stopped on exiting the yml if test success
+#------------------------------------
+
+- block:
+    - set_fact:
+          pfc_gen_file: pfc_gen.py
+
+    - name: Deploy pfc packet generater file to fanout switch
+      include_tasks: roles/test/tasks/pfc_wd/functional_test/deploy_pfc_pktgen.yml
+
+    - name: copy the test to ptf container
+      copy: src=roles/test/files/ptftests dest=/root
+      delegate_to: "{{ptf_host}}"
+
+    # 1. Verify storm is detected via syslog entry analysis on the dut
+    - set_fact:
+        test_expect_file: "expect_pfc_wd_detect"
+        test_ignore_file: "ignore_pfc_wd_messages"
+
+    - name: Initialize loganalyzer
+      include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
+      vars:
+        testname_unique_gen: true
+
+    - name: Allow enough time for the start marker to flow into the syslog
+      pause:
+        seconds: 5
+
+    - name: Generate PFC storm on fanout switch
+      action: apswitch template="{{pfc_wd_storm_template}}"
+      args:
+        host: "{{peer_mgmt}}"
+        login: "{{peer_login}}"
+      connection: switch
+      when: start_storm is not defined or start_storm == true
+
+    - name: Allow enough time for the PFC storm detection to flow into the syslog
+      pause:
+        seconds: 15
+
+    - name: Check if logs contain message that PFC WD detected storm
+      include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
+
+    - name: Check if logs contain message that PFC WD detected storm
+      include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
+
+    # 2. Verify the drop action in place on both ingress and egress via ptf dataplane traffic test
+    - name: "check egress drop, tx port {{pfc_wd_test_port}}"
+      include_tasks: roles/test/tasks/ptf_runner.yml
+      vars:
+        ptf_test_name: PFC WD test
+        ptf_test_dir: ptftests
+        ptf_test_path: pfc_wd.PfcWdTest
+        ptf_platform: remote
+        ptf_platform_dir: ptftests
+        ptf_test_params:
+          - testbed_type='{{testbed_type}}'
+          - router_mac='{{ansible_ethernet0_mac_addr}}'
+          - queue_index='{{pfc_queue_index}}'
+          - pkt_count='{{pfc_wd_test_pkt_count}}'
+          - port_src='{{pfc_wd_rx_port_id[0]}}'
+          - port_dst='[{{pfc_wd_test_port_id}}]'
+          - ip_dst='{{pfc_wd_test_neighbor_addr}}'
+          - port_type='{{port_type}}'
+          - wd_action='drop'
+        ptf_extra_options: "--relax --debug info --log-file /tmp/pfc_wd.PfcWdTest.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log "
+
+    - name: "Check ingress drop, rx port {{pfc_wd_test_port}}"
+      include_tasks: roles/test/tasks/ptf_runner.yml
+      vars:
+        ptf_test_name: PFC WD test
+        ptf_test_dir: ptftests
+        ptf_test_path: pfc_wd.PfcWdTest
+        ptf_platform: remote
+        ptf_platform_dir: ptftests
+        ptf_test_params:
+          - testbed_type='{{testbed_type}}'
+          - router_mac='{{ansible_ethernet0_mac_addr}}'
+          - queue_index='{{pfc_queue_index}}'
+          - pkt_count='{{pfc_wd_test_pkt_count}}'
+          - port_src='{{pfc_wd_test_port_id}}'
+          - port_dst='[{{pfc_wd_rx_port_id | join(' ')}}]'
+          - ip_dst='{{pfc_wd_rx_neighbor_addr}}'
+          - port_type='{{port_type}}'
+          - wd_action='drop'
+        ptf_extra_options: "--relax --debug info --log-file /tmp/pfc_wd.PfcWdTest.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log "
+
+  rescue:
+    - name: Stop PFC storm on fanout switch
+      action: apswitch template="{{pfc_wd_storm_stop_template}}"
+      args:
+        host: "{{peer_mgmt}}"
+        login: "{{peer_login}}"
+      connection: switch

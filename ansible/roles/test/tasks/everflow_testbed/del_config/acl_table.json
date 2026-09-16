@@ -1,0 +1,7 @@
+[
+    {
+        "ACL_TABLE:acl_table_mirror": {
+        },
+        "OP": "DEL"
+    }
+]

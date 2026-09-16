@@ -1,0 +1,205 @@
+import logging
+
+from ..device_mocker import DeviceMocker
+from pkg_resources import parse_version
+from tests.common.mellanox_data import get_platform_data, get_hw_management_version
+from tests.common.helpers.pdb_mocker import PdbData
+from tests.common.helpers.mellanox_thermal_control_test_helper import MockerHelper, FanDrawerData, FanData, \
+    FAN_NAMING_RULE
+
+HW_MANAGE_VER = '7.0030.2003'
+logger = logging.getLogger(__name__)
+
+
+class AsicData(object):
+    TEMPERATURE_FILE = '/run/hw-management/thermal/asic'
+
+    def __init__(self, mock_helper):
+        self.helper = mock_helper
+
+    def mock_asic_temperature(self, value):
+        self.helper.mock_value(AsicData.TEMPERATURE_FILE, str(value))
+
+    def get_asic_temperature_threshold(self):
+        threshold_file = '/run/hw-management/thermal/asic_temp_emergency'
+        hw_mgmt_version = get_hw_management_version(self.helper.dut)
+        if parse_version(hw_mgmt_version) < parse_version(HW_MANAGE_VER):
+            threshold_file = '/run/hw-management/thermal/mlxsw/temp_trip_hot'
+        value = self.helper.read_value(threshold_file)
+        return int(value)
+
+
+class PsuData(object):
+    PSU_STATUS_FILE = '/run/hw-management/thermal/psu{}_status'
+    PSU_POWER_STATUS_FILE = '/run/hw-management/thermal/psu{}_pwr_status'
+    PSU_TEMPERATURE_FILE = '/run/hw-management/thermal/psu{}_temp'
+    PSU_TEMP_THRESHOLD_FILE = '/run/hw-management/thermal/psu{}_temp_max'
+    PSU_TEMPERATURE_FILE_NEW = '/run/hw-management/thermal/psu{}_temp1'
+    PSU_TEMP_THRESHOLD_FILE_NEW = '/run/hw-management/thermal/psu{}_temp1_max'
+
+    def __init__(self, mock_helper, index):
+        self.helper = mock_helper
+        self.index = index
+        self.name = f'PSU {self.index}'
+        power_status_file = PsuData.PSU_POWER_STATUS_FILE.format(index)
+        out = self.helper.dut.stat(path=power_status_file)
+        if out['stat']['exists']:
+            self.power_on = True
+        else:
+            self.power_on = False
+
+    def mock_presence(self, status):
+        value = 1 if status else 0
+        presence_file = PsuData.PSU_STATUS_FILE.format(self.index)
+        self.helper.mock_value(presence_file, str(value))
+
+    def mock_status(self, status):
+        value = 1 if status else 0
+        power_status_file = PsuData.PSU_POWER_STATUS_FILE.format(self.index)
+        self.helper.mock_value(power_status_file, str(value))
+
+    def mock_temperature(self, value):
+        hw_mgmt_version = get_hw_management_version(self.helper.dut)
+        temperature_file = PsuData.PSU_TEMPERATURE_FILE_NEW.format(self.index)
+        if parse_version(hw_mgmt_version) < parse_version(HW_MANAGE_VER):
+            temperature_file = PsuData.PSU_TEMPERATURE_FILE.format(self.index)
+        self.helper.mock_value(temperature_file, str(value))
+
+    def get_psu_temperature_threshold(self):
+        hw_mgmt_version = get_hw_management_version(self.helper.dut)
+        threshold_file = PsuData.PSU_TEMP_THRESHOLD_FILE_NEW.format(self.index)
+        if parse_version(hw_mgmt_version) < parse_version(HW_MANAGE_VER):
+            threshold_file = PsuData.PSU_TEMP_THRESHOLD_FILE.format(self.index)
+        value = self.helper.read_value(threshold_file)
+        return int(value)
+
+
+class MellanoxDeviceMocker(DeviceMocker):
+    TARGET_SPEED_VALUE = 60
+    SPEED_TOLERANCE = 50
+    PSU_NUM = 2
+
+    def __init__(self, dut):
+        self.mock_helper = MockerHelper(dut)
+        self.asic_data = AsicData(self.mock_helper)
+        naming_rule = FAN_NAMING_RULE['fan']
+        self.fan_drawer_data = FanDrawerData(self.mock_helper, naming_rule, 1)
+        self.fan_data = FanData(self.mock_helper, naming_rule, 1)
+
+        for i in range(MellanoxDeviceMocker.PSU_NUM):
+            self.psu_data = PsuData(self.mock_helper, i + 1)
+            if self.psu_data.power_on:
+                break
+
+        self.pdb_data = self._init_pdb_data()
+
+    def _init_pdb_data(self):
+        for i in range(1, 5):
+            pdb_file = f'/run/hw-management/system/pdb{i}_pwr_status'
+            out = self.mock_helper.dut.stat(path=pdb_file)
+            if out['stat']['exists']:
+                return PdbData(self.mock_helper, i)
+        return None
+
+    def deinit(self):
+        self.mock_helper.deinit()
+
+    def mock_fan_presence(self, status):
+        platform_data = get_platform_data(self.mock_helper.dut)
+        always_present = not platform_data['fans']['hot_swappable']
+        if always_present:
+            return False, None
+
+        value = 1 if status else 0
+        self.fan_drawer_data.mock_presence(value)
+        return True, self.fan_data.name
+
+    def mock_fan_status(self, status):
+        value = 0 if status else 1
+        self.fan_data.mock_status(value)
+        return True, self.fan_data.name
+
+    def mock_fan_speed(self, good):
+        if good:
+            actual_speed = MellanoxDeviceMocker.TARGET_SPEED_VALUE
+        else:
+            actual_speed = \
+                MellanoxDeviceMocker.TARGET_SPEED_VALUE * (100 - MellanoxDeviceMocker.SPEED_TOLERANCE) / 100 - 10
+        self.fan_data.mock_target_speed(MellanoxDeviceMocker.TARGET_SPEED_VALUE)
+        self.fan_data.mock_speed(actual_speed)
+        return True, self.fan_data.name
+
+    def mock_asic_temperature(self, good):
+        threshold = self.asic_data.get_asic_temperature_threshold()
+        if good:
+            value = threshold - 1000
+        else:
+            value = threshold + 1000
+        self.asic_data.mock_asic_temperature(value)
+        return True
+
+    def mock_psu_presence(self, status):
+        platform_data = get_platform_data(self.mock_helper.dut)
+        always_present = not platform_data['psus']['hot_swappable']
+        if always_present:
+            return False, None
+
+        self.psu_data.mock_presence(1 if status else 0)
+        return True, self.psu_data.name
+
+    def mock_psu_status(self, status):
+        self.psu_data.mock_status(1 if status else 0)
+        return True, self.psu_data.name
+
+    def mock_psu_temperature(self, good):
+        platform_data = get_platform_data(self.mock_helper.dut)
+        always_present = not platform_data['psus']['hot_swappable']
+        if always_present:
+            return False, None
+
+        threshold = self.psu_data.get_psu_temperature_threshold()
+        if good:
+            value = threshold - 1000
+        else:
+            value = threshold + 1000
+        self.psu_data.mock_temperature(value)
+        return True, self.psu_data.name
+
+    def mock_psu_voltage(self, good):
+        # Not Supported for now
+        return False, None
+
+    def mock_pdb_status(self, status):
+        if self.pdb_data is None:
+            logger.warning("Unable to mock PDB power status: no PDB data discovered on '%s'",
+                           self.mock_helper.dut.hostname)
+            return False, None
+        self.pdb_data.mock_status(status)
+        logger.info("Mocked PDB power status for %s to '%s'", self.pdb_data.name, status)
+        return True, self.pdb_data.name
+
+    def mock_pdb_presence(self, status):
+        if self.pdb_data is None:
+            logger.warning("Unable to mock PDB presence: no PDB data discovered on '%s'",
+                           self.mock_helper.dut.hostname)
+            return False, None
+
+        mock_result = self.pdb_data.mock_presence(status)
+        if not mock_result:
+            logger.warning("PDB presence mock is not supported for %s on '%s'",
+                           self.pdb_data.name, self.mock_helper.dut.hostname)
+            return False, self.pdb_data.name
+
+        logger.info("Mocked PDB presence for %s to '%s'", self.pdb_data.name, status)
+        return True, self.pdb_data.name
+
+    def mock_fan_direction(self, good):
+        platform_data = get_platform_data(self.mock_helper.dut)
+        drawer_num = platform_data['fans']['number']
+        if drawer_num < 2:
+            return False, None
+
+        fan_name = self.fan_drawer_data.mock_fan_direction_status(good, drawer_num)
+        if not fan_name:
+            return False, None
+        return True, fan_name

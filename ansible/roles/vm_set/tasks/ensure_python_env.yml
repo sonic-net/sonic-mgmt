@@ -1,0 +1,50 @@
+# Ensure uv is installed, venv exists at {{ sonic_testbed_venv }},
+# and required Python packages are present. Idempotent: tasks here
+# detect existing state and skip work that is not needed.
+
+- name: Check if uv is installed
+  command: uv --version
+  register: uv_check
+  ignore_errors: yes
+  changed_when: false
+
+- name: Install uv
+  shell: curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin INSTALLER_NO_MODIFY_PATH=1 sh
+  become: yes
+  environment: "{{ proxy_env | default({}) }}"
+  when: uv_check.rc != 0
+
+- name: Ensure sonic-testbed directory exists
+  file:
+    path: "{{ sonic_testbed_venv | dirname }}"
+    state: directory
+    mode: '0755'
+  become: yes
+
+- name: Check if venv exists
+  stat:
+    path: "{{ sonic_testbed_venv }}/bin/python"
+  register: venv_stat
+
+- name: Create Python venv with system site-packages
+  command: uv venv --python /usr/bin/python3 --system-site-packages {{ sonic_testbed_venv }}
+  become: yes
+  when: not venv_stat.stat.exists
+
+- name: Check installed versions of pinned Python packages
+  command: >-
+    {{ sonic_testbed_venv }}/bin/python -c
+    "import requests, docker, telnetlib3; print(requests.__version__); print(docker.__version__); print(telnetlib3.__version__)"
+  register: pkg_versions
+  changed_when: false
+  failed_when: false
+
+- name: Install Python packages in venv
+  command: >-
+    uv pip install
+    --python {{ sonic_testbed_venv }}/bin/python
+    requests==2.33.1 docker==7.1.0 telnetlib3==4.0.2 six
+  become: yes
+  environment: "{{ proxy_env | default({}) }}"
+  when: pkg_versions.rc != 0
+        or pkg_versions.stdout_lines != ['2.33.1', '7.1.0', '4.0.2']

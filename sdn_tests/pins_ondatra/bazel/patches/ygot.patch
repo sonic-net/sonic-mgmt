@@ -1,0 +1,85 @@
+diff --git a/proto/yext/BUILD.bazel b/proto/yext/BUILD.bazel
+index 4ebd593..cd1f209 100644
+--- a/proto/yext/BUILD.bazel
++++ b/proto/yext/BUILD.bazel
+@@ -1,5 +1,13 @@
+ load("@io_bazel_rules_go//go:def.bzl", "go_library")
+ 
++proto_library(
++    name = "yext_proto",
++    srcs = ["yext.proto"],
++    visibility = ["//visibility:public"],
++    import_prefix = "github.com/openconfig/ygot",
++    deps = ["@com_google_protobuf//:descriptor_proto"],
++)
++
+ go_library(
+     name = "yext",
+     srcs = [
+@@ -20,3 +28,4 @@ alias(
+     actual = ":yext",
+     visibility = ["//visibility:public"],
+ )
++
+diff --git a/proto/ywrapper/BUILD.bazel b/proto/ywrapper/BUILD.bazel
+index 4537c63..51fb410 100644
+--- a/proto/ywrapper/BUILD.bazel
++++ b/proto/ywrapper/BUILD.bazel
+@@ -1,5 +1,12 @@
+ load("@io_bazel_rules_go//go:def.bzl", "go_library")
+ 
++proto_library(
++    name = "ywrapper_proto",
++    srcs = ["ywrapper.proto"],
++    visibility = ["//visibility:public"],
++    import_prefix = "github.com/openconfig/ygot",
++)
++
+ go_library(
+     name = "ywrapper",
+     srcs = [
+@@ -19,3 +26,4 @@ alias(
+     actual = ":ywrapper",
+     visibility = ["//visibility:public"],
+ )
++
+
+diff --git a/util/BUILD.bazel b/util/BUILD.bazel
+index af907f2..8b45361 100644
+--- a/util/BUILD.bazel
++++ b/util/BUILD.bazel
+@@ -18,7 +18,7 @@ go_library(
+         "//internal/yreflect",
+         "@com_github_golang_glog//:go_default_library",
+         "@com_github_kylelemons_godebug//pretty:go_default_library",
+-        "@com_github_openconfig_gnmi//proto/gnmi:go_default_library",
++        "@com_github_openconfig_gnmi//proto/gnmi:gnmi_go_proto",
+         "@com_github_openconfig_goyang//pkg/yang:go_default_library",
+         "@org_golang_google_protobuf//proto:go_default_library",
+     ],
+diff --git a/ygot/BUILD.bazel b/ygot/BUILD.bazel
+index 96d93c2..7023807 100644
+--- a/ygot/BUILD.bazel
++++ b/ygot/BUILD.bazel
+@@ -20,7 +20,7 @@ go_library(
+         "//util",
+         "@com_github_kylelemons_godebug//pretty:go_default_library",
+         "@com_github_openconfig_gnmi//errlist:go_default_library",
+-        "@com_github_openconfig_gnmi//proto/gnmi:go_default_library",
++        "@com_github_openconfig_gnmi//proto/gnmi:gnmi_go_proto",
+         "@com_github_openconfig_gnmi//value:go_default_library",
+         "@com_github_openconfig_goyang//pkg/yang:go_default_library",
+         "@org_golang_google_protobuf//encoding/prototext:go_default_library",
+diff --git a/ytypes/BUILD.bazel b/ytypes/BUILD.bazel
+index d468783..99d604c 100644
+--- a/ytypes/BUILD.bazel
++++ b/ytypes/BUILD.bazel
+@@ -35,7 +35,7 @@ go_library(
+         "//ygot",
+         "@com_github_golang_glog//:go_default_library",
+         "@com_github_kylelemons_godebug//pretty:go_default_library",
+-        "@com_github_openconfig_gnmi//proto/gnmi:go_default_library",
++        "@com_github_openconfig_gnmi//proto/gnmi:gnmi_go_proto",
+         "@com_github_openconfig_goyang//pkg/yang:go_default_library",
+         "@org_golang_google_grpc//codes:go_default_library",
+         "@org_golang_google_grpc//status:go_default_library",

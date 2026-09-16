@@ -1,0 +1,58 @@
+{#
+  Converged backplane stock-compat shim.
+
+  Rendered ONLY for converged topologies (topo_is_multi_vrf=true) and only
+  for peer cEOS hosts that have a bp_interface defined. Appended to the
+  cEOS startup-config AFTER the main role template renders.
+
+  Purpose: stock tests (e.g. bgp.test_bgp_stress_link_flap monitor) reach
+  the DUT from PTF via the legacy untagged backplane path
+    PTF backplane (10.10.246.254/22) -> bp_bridge -> cEOS -> DUT
+  In converged mode the per-VRF VLAN sub-interface model leaves untagged
+  ingress unresolved.  This shim restores that path by:
+
+    1. Allowing untagged frames (VLAN 1) on the trunk backplane port.
+    2. Adding an interface Vlan1 SVI in the prime peer's own VRF carrying
+       the original bp_interface IP (matches what stock kvm-t0 advertises).
+    3. Advertising the bp_interface subnet from the same prime VRF's BGP
+       process so DUT learns the return path to PTF .254.
+
+  EOS startup-config semantics MERGE successive blocks targeting the same
+  interface / router bgp instance, so the additions below stack onto the
+  earlier per-VRF config emitted by the main template without conflict.
+#}
+{% set host = configuration[hostname] %}
+{% set conv_config = convergence_data["converged_peers"][hostname] %}
+!
+! ===== converged-vrf stock-compat backplane shim =====
+!
+interface {{ bp_ifname }}
+ switchport trunk allowed vlan add 1
+!
+interface Vlan1
+ description {{ hostname }} legacy backplane
+ vrf {{ hostname }}
+{% if host['bp_interface']['ipv4'] is defined %}
+ ip address {{ host['bp_interface']['ipv4'] }}
+{% endif %}
+{% if host['bp_interface']['ipv6'] is defined %}
+ ipv6 enable
+ ipv6 address {{ host['bp_interface']['ipv6'] }}
+ ipv6 nd ra suppress
+{% endif %}
+ no shutdown
+!
+router bgp {{ conv_config['bgp']['asn'] }}
+ vrf {{ hostname }}
+  address-family ipv4
+{% if host['bp_interface']['ipv4'] is defined %}
+   network {{ host['bp_interface']['ipv4'] | ansible.utils.ipaddr('subnet') }}
+{% endif %}
+  exit
+  address-family ipv6
+{% if host['bp_interface']['ipv6'] is defined %}
+   network {{ host['bp_interface']['ipv6'] | ansible.utils.ipaddr('subnet') }}
+{% endif %}
+  exit
+ exit
+!

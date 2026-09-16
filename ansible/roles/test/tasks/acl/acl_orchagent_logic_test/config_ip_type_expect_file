@@ -1,0 +1,2 @@
+r, ".*Failed to create.*rule. Rule configuration is invalid"
+r, ".*Failed to create entry.*"

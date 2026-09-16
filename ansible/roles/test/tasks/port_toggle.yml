@@ -1,0 +1,40 @@
+- name: build shell command string
+  debug: msg="PORTS={{minigraph_ports.keys() | join(' ')}}; for port in $PORTS; do config interface shutdown $port; done"
+
+- name: turn off all ports on device
+  shell: PORTS="{{minigraph_ports.keys() | join(' ')}}"; for port in $PORTS; do config interface shutdown $port; done
+  become: yes
+
+- name: wait 20 seconds for ports to down
+  pause: seconds=20
+
+- name: Get interface facts
+  interface_facts: up_ports={{minigraph_ports}}
+
+- name: Verify interfaces are all down
+  assert: { that: "{{ ansible_interface_link_down_ports | length }} == {{ minigraph_ports | length }}" }
+
+- name: Get interface status from show interface status
+  show_interface: up_ports={{minigraph_ports}} command=status
+
+- name: Verify interfaces with command output
+  assert: { that: "{{ ansible_interface_link_down_ports | length }} == {{ minigraph_ports | length }}" }
+
+- block:
+    - name: build shell command string
+      debug: msg="PORTS={{minigraph_ports.keys() | join(' ')}}; for port in $PORTS; do config interface startup $port; done"
+
+    - name: turn on all ports on device
+      shell: PORTS="{{minigraph_ports.keys() | join(' ')}}"; for port in $PORTS; do config interface startup $port; done
+      become: yes
+
+    - name: wait 1 minute for ports to come up
+      pause: seconds=60
+
+    - name: Get interface facts
+      interface_facts: up_ports={{minigraph_ports}}
+
+    - name: Verify interfaces are up correctly
+      assert: { that: "{{ ansible_interface_link_down_ports | length }} == 0" }
+  tags:
+  - always

@@ -1,0 +1,31 @@
+name: Semgrep
+
+on:
+  pull_request: {}
+  merge_group:
+    types: [checks_requested]
+  push:
+    branches:
+      - master
+      - '201[7-9][0-1][0-9]'
+      - '202[0-9][0-1][0-9]'
+
+jobs:
+  semgrep:
+    if: github.repository_owner == 'sonic-net'
+    name: Semgrep
+    runs-on: ubuntu-latest
+    container:
+      image: returntocorp/semgrep
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - run: |
+          if [ "$GITHUB_EVENT_NAME" = "merge_group" ]; then
+            export SEMGREP_BASELINE_COMMIT="$MERGE_GROUP_BASE_SHA"
+          fi
+          semgrep ci
+        env:
+          MERGE_GROUP_BASE_SHA: ${{ github.event.merge_group.base_sha }}
+          SEMGREP_RULES: p/default

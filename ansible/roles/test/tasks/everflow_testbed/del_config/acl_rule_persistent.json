@@ -1,0 +1,52 @@
+[
+    {
+        "ACL_RULE_TABLE:acl_table_mirror:rule_1": {
+        },
+        "OP": "DEL"
+    },
+    {
+        "ACL_RULE_TABLE:acl_table_mirror:rule_2": {
+        },
+        "OP": "DEL"
+    },
+    {
+        "ACL_RULE_TABLE:acl_table_mirror:rule_3": {
+        },
+        "OP": "DEL"
+    },
+    {
+        "ACL_RULE_TABLE:acl_table_mirror:rule_4": {
+        },
+        "OP": "DEL"
+    },
+    {
+        "ACL_RULE_TABLE:acl_table_mirror:rule_5": {
+        },
+        "OP": "DEL"
+    },
+    {
+        "ACL_RULE_TABLE:acl_table_mirror:rule_6": {
+        },
+        "OP": "DEL"
+    },
+    {
+        "ACL_RULE_TABLE:acl_table_mirror:rule_7": {
+        },
+        "OP": "DEL"
+    },
+    {
+        "ACL_RULE_TABLE:acl_table_mirror:rule_8": {
+        },
+        "OP": "DEL"
+    },
+    {
+        "ACL_RULE_TABLE:acl_table_mirror:rule_9": {
+        },
+        "OP": "DEL"
+    },
+    {
+        "ACL_RULE_TABLE:acl_table_mirror:rule_10": {
+        },
+        "OP": "DEL"
+    }
+]

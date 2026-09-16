@@ -1,0 +1,17 @@
+---
+
+testname: acl_port_bind_test
+
+config_bind_unknown_port: config_bind_unknown_port.json
+config_bind_unknown_port_expect: config_bind_unknown_port_expect_file
+config_bind_duplicate_port: config_bind_duplicate_port.json
+config_bind_duplicate_port_expect: config_bind_duplicate_port_expect_file
+config_bind_valid_port: config_bind_valid_port.json
+config_unbind_port: config_unbind_port.json
+config_empty_expect: config_empty_expect_file
+
+config_files:
+      - "{{ config_bind_unknown_port }}"
+      - "{{ config_bind_duplicate_port }}"
+      - "{{ config_bind_valid_port }}"
+      - "{{ config_unbind_port }}"

@@ -1,0 +1,57 @@
+## KDUMP UT
+ut_kdump_init_pass : kdump UT initialization passed
+ut_kdump_init_fail : kdump UT initialization failed
+ut_kdump_disabled_pass : Check if kdump is disabled passed
+ut_kdump_disabled_fail : Check if kdump is disabled failed
+ut_kdump_no_core_file_pass : Check if there is no core kdump file passed
+ut_kdump_no_core_file_fail : Check if there is no core kdump file failed
+ut_kdump_set_things_pass : Check setting values passed
+ut_kdump_set_things_fail : Check setting values failed
+ut_kdump_enabled_pass : Check if kdump is enabled passed
+ut_kdump_enabled_fail : Check if kdump is enabled failed
+ut_kdump_ready_pass : Check if kdump is ready passed
+ut_kdump_ready_fail : Check if kdump is ready failed
+ut_kdump_extract_memory_pass : Check if kdump memory extract passed
+ut_kdump_extract_memory_fail : Check if kdump memory extract failed
+ut_kdump_cmdline_pass : Check if kdump kernel cmdline passed
+ut_kdump_cmdline_fail : Check if kdump kernel cmdline failed
+ut_kdump_ready_after_crash_pass : Check if kdump is ready after kernel crash passed
+ut_kdump_ready_after_crash_fail : Check if kdump is ready after kernel crash failed
+ut_kdump_one_crash_file_pass : Check if kdump one crash file available passed
+ut_kdump_one_crash_file_fail : Check if kdump one crash file available failed
+ut_kdump_check_core_file_pass : Check if kdump core file is valid passed
+ut_kdump_check_core_file_fail : Check if kdump core file is valid failed
+ut_kdump_max_core_files_pass : Check if kdump max number of saved core files passed
+ut_kdump_max_core_files_fail : Check if kdump max number of saved core files failed
+ut_kdump_nb_core_files_pass : Check if kdump number of saved core files passed
+ut_kdump_nb_core_files_fail : Check if kdump number of saved core files failed
+ut_kdump_change_memory_pass : Check if kdump memory changed passed
+ut_kdump_change_memory_fail : Check if kdump memory changed failed
+ut_kdump_memory_settings_pass : Check if kdump memory settings passed
+ut_kdump_memory_settings_fail : Check if kdump memory settings failed
+ut_kdump_ready_after_2nd_crash_pass : Check if kdump is ready after 2nd kernel crash passed
+ut_kdump_ready_after_2nd_crash_fail : Check if kdump is ready after 2nd kernel crash failed
+ut_kdump_cmdline_512M_pass : Check if kdump kernel cmdline memory is set to 512M passed
+ut_kdump_cmdline_512M_fail : Check if kdump kernel cmdline memory is set to 512M failed
+ut_kdump_two_crash_files_pass : Check if kdump two crash files available passed
+ut_kdump_two_crash_files_fail : Check if kdump two crash files available failed
+ut_kdump_check_core_files_pass : Check if kdump core files is valid passed
+ut_kdump_check_core_files_fail : Check if kdump core files is valid failed
+ut_kdump_ready_after_3rd_crash_pass : Check if kdump is ready after 3rd kernel crash passed
+ut_kdump_ready_after_3rd_crash_fail : Check if kdump is ready after 3rd kernel crash failed
+ut_kdump_still_two_crash_files_pass : Check if kdump still two crash files available passed
+ut_kdump_still_two_crash_files_fail : Check if kdump still two crash files available failed
+ut_kdump_check_core_new_files_pass : Check if kdump new core files is valid passed
+ut_kdump_check_core_new_files_fail : Check if kdump new core files is valid failed
+ut_kdump_current_img_pass : Check if kdump show current SONiC image passed
+ut_kdump_current_img_fail : Check if kdump show current SONiC image failed
+ut_kdump_install_new_img_pass : Check if kdump new SONiC image installation passed
+ut_kdump_install_new_img_fail : Check if kdump new SONiC image installation failed
+ut_kdump_check_two_img_pass : Check if two images have kdump enabled passed
+ut_kdump_check_two_img_fail : Check if two images have kdump enabled failed
+ut_kdump_remove_new_img_pass : Check if removing last SONiC image passed
+ut_kdump_remove_new_img_fail : Check if removing last SONiC image failed
+ut_kdump_check_log_pass : Check displaying the kernel log file passed
+ut_kdump_check_log_fail : Check displaying the kernel log file failed
+ut_kdump_disable_check_warning_pass : Check the warning message after we disable kdump
+ut_kdump_disable_check_warning_fail : Check the warning message after we disable kdump

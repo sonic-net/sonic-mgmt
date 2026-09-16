@@ -1,0 +1,16 @@
+###############################################################
+# the file extension determines how to apply the file
+# .bcm is applied as config.bcm
+# .ini is applied as port_config.ini
+# .json is applied as config_db.json
+# .copp is applied as swss copp config
+# .frr is applied as frr.conf
+# .sh is applied as shell script
+# .xml is applied as minigraph.xml
+# __reboot__ to reboot the device
+###############################################################
+
+#current: [ [current.bcm, current.ini, current.frr, current.json, current.copp], current.xml, current.cmds, current.sh]
+#restore: [ [restore.bcm, restore.ini, restore.frr, restore.json, restore.copp], restore.xml, restore.cmds, restore.sh]
+current: [ ]
+restore: [ ]

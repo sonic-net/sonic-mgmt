@@ -1,0 +1,6 @@
+[
+    {
+        "op": "remove",
+        "path": "/ACL_TABLE/DYNAMIC_ACL_TABLE_BAD"
+    }
+]

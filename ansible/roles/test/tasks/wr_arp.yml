@@ -1,0 +1,134 @@
+- fail: msg="Please set ptf_host variable"
+  when: ptf_host is not defined
+
+- name: Remove existing ip from ptf host
+  script: roles/test/files/helpers/remove_ip.sh
+  delegate_to: "{{ ptf_host }}"
+
+- name: Make all mac addresses in ptf unique - should be done in vm_set
+  script: roles/test/files/helpers/change_mac.sh
+  delegate_to: "{{ ptf_host }}"
+
+- name: set ptf_host_ip
+  set_fact:
+    ptf_host_ip: "{{ hostvars[ptf_host]['ansible_host'] }}"
+
+- name: Remove old keys
+  file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - /root/.ssh/id_rsa
+    - /root/.ssh/id_rsa.pub
+  delegate_to: "{{ ptf_host }}"
+
+- name: Check that file /root/.ssh/known_hosts exists
+  stat: path=/root/.ssh/known_hosts
+  delegate_to: "{{ ptf_host }}"
+  register: known_hosts
+
+- name: Remove old entry about DUT
+  shell: ssh-keygen -f /root/.ssh/known_hosts -R {{ ansible_host }}
+  delegate_to: "{{ ptf_host }}"
+  when: known_hosts.stat.exists
+
+- name: Generate public key for ptf host
+  shell: ssh-keygen -b 2048 -t rsa -f /root/.ssh/id_rsa -q -N ""
+  args:
+    creates: /root/.ssh/id_rsa
+  delegate_to: "{{ ptf_host }}"
+
+- name: read authorized key from ptf host
+  fetch:
+    src: '/root/.ssh/id_rsa.pub'
+    dest: /tmp/
+    flat: yes
+  delegate_to: "{{ ptf_host }}"
+
+- name: set authorized key taken from file
+  authorized_key:
+    user: "{{ ansible_ssh_user }}"
+    state: present
+    key: "{{ lookup('file', '/tmp/id_rsa.pub') }}"
+
+- name: Restart DUT. Wait 240 seconds after SONiC started ssh
+  include_tasks: reboot.yml
+  vars:
+    ready_timeout: 240
+
+- name: Find appropriate VXLAN sender
+  shell: ip route show type unicast | sed -e '/proto 186\|proto zebra/!d' -e '/default/d' -ne '/0\//p' | head -n 1 | sed -ne 's/0\/.*$/1/p'
+  register: dip_output
+
+- name: Check that VXLAN DIP was found
+  fail: msg="We didn't find DIP ip"
+  when: dip_output.stdout | length == 0
+
+- name: Check if the DUT has access to our ptf host
+  command: ip route get {{ ptf_host_ip }}
+  register: route_output
+
+- name: Find the gateway for management port
+  shell: ip route show table default | sed -n 's/default //p'
+  register: gw_output
+
+- name: Check gw
+  fail: msg="We didn't find gw for ptf"
+  when: gw_output.stdout | length == 0
+
+- name: Install explicit route through eth0 (mgmt) interface, when we don't have correct route to ptf
+  command: ip route add {{ ptf_host_ip }}/32 {{ gw_output.stdout }}
+  become: yes
+  when: "'PortChannel' in route_output.stdout"
+
+- name: Copy tests to the PTF container
+  copy: src=roles/test/files/ptftests dest=/root
+  delegate_to: "{{ ptf_host }}"
+
+- name: Copy Ferret to the PTF container
+  copy: src=roles/test/files/helpers/ferret.py dest=/opt
+  delegate_to: "{{ ptf_host }}"
+
+- name: Copy Ferret supervisor configuration to the PTF container
+  template: src=ferret.conf.j2 dest=/etc/supervisor/conf.d/ferret.conf
+  vars:
+    - ferret_args: '-f /tmp/vxlan_decap.json -s {{ dip_output.stdout }}'
+  delegate_to: "{{ ptf_host }}"
+
+- name: Render DUT parameters to json file for the test
+  template: src=vxlan_decap.json.j2 dest=/tmp/vxlan_decap.json
+  delegate_to: "{{ ptf_host }}"
+
+- name: Generate pem and key files for ssl
+  command: openssl req -new -x509 -keyout test.key -out test.pem -days 365 -nodes -subj "/C=10/ST=Test/L=Test/O=Test/OU=Test/CN=test.com"
+  args:
+    chdir: /opt
+  delegate_to: "{{ ptf_host }}"
+
+- name: Update supervisor configuration
+  include_tasks: "roles/test/tasks/common_tasks/update_supervisor.yml"
+  vars:
+    supervisor_host: "{{ ptf_host }}"
+
+- name: Dump debug info. DUT ip
+  debug: var=ansible_eth0.ipv4.address
+
+- name: Dump debug info. DUT gw
+  debug: var=gw_output.stdout
+
+- name: Dump debug info. DIP
+  debug: var=dip_output.stdout
+
+- include_tasks: ptf_runner.yml
+  vars:
+    ptf_test_name: Warm-Reboot Control-Plane assist feature
+    ptf_test_dir: ptftests
+    ptf_test_path: wr_arp.ArpTest
+    ptf_platform: remote
+    ptf_platform_dir: ptftests
+    ptf_qlen: 1000
+    ptf_test_params:
+    - ferret_ip='{{ ptf_host_ip }}'
+    - dut_ssh='{{ ansible_eth0.ipv4.address }}'
+    - config_file='/tmp/vxlan_decap.json'
+    - how_long=370

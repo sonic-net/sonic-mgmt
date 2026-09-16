@@ -1,0 +1,11 @@
+{ "op": "add", "path": "/VLAN_MEMBER", "value": {} },
+{% for port, port_vlan in port_vlans.items() %}
+{% for vlan_id in port_vlan.vlanlist %}
+{ "op": "add", "path": "/VLAN_MEMBER/Vlan{{ vlan_id }}|{{ port }}", "value": {} },
+{% if port_vlan.mode == "Access" %}
+{ "op": "add", "path": "/VLAN_MEMBER/Vlan{{ vlan_id }}|{{ port }}/tagging_mode", "value": "untagged" },
+{% else %}
+{ "op": "add", "path": "/VLAN_MEMBER/Vlan{{ vlan_id }}|{{ port }}/tagging_mode", "value": "tagged" },
+{% endif %}
+{% endfor %}
+{% endfor %}

@@ -1,0 +1,4 @@
+mgmt_bridge_k8s: br1
+mgmt_prefixlen_k8s: use_own_value
+mgmt_gw_k8s: use_own_value
+# dns_server_ip: use_own_value

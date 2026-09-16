@@ -1,0 +1,11 @@
+#Platform: x86_64-accton_as5712_54x-r0
+#HwSKU: Accton-AS5712-54X
+#ASIC: broadcom
+Value Platform (\S+)
+Value HwSKU (\S+)
+Value ASIC (\S+)
+
+Start
+  ^Platform:\s+${Platform} -> Continue
+  ^HwSKU:\s+${HwSKU} -> Continue
+  ^ASIC:\s+${ASIC}

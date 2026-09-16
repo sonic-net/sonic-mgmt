@@ -1,0 +1,35 @@
+# Gather facts with SNMP version 2
+- name: Gathering basic snmp facts about the device
+  snmp_facts: host={{ ansible_host }} version=v2c community={{ snmp_rocommunity }}
+  delegate_to: localhost
+
+# Test SNMP is working with sysdesc
+- name: Validating SNMP was successful and Hostname is what is expected
+  assert: { that: "ansible_sysname == '{{ inventory_hostname }}'" }
+
+- block:
+    - name: include snmp interfaces test
+      include_tasks: roles/test/tasks/snmp/interfaces.yml
+
+    - name: include snmp pfc counter test
+      include_tasks: roles/test/tasks/snmp/pfc_counters.yml
+
+    - name: include snmp queues test
+      include_tasks: roles/test/tasks/snmp/queues.yml
+
+    - name: include snmp lldp test
+      include_tasks: roles/test/tasks/snmp/lldp.yml
+  when: testcase_name is defined
+
+- block:
+    - name: include snmp cpu test
+      include_tasks: roles/test/tasks/snmp/cpu.yml
+
+    - name: inlcude snmp physical table test
+      include_tasks: roles/test/tasks/snmp/phys_table.yml
+
+    - name: include snmp PSU test
+      include_tasks: roles/test/tasks/snmp/psu.yml
+  when:
+   - testcase_name is defined
+   - (hostvars[ansible_hostname]['type'] is not defined) or (hostvars[ansible_hostname]['type'] != 'simx')

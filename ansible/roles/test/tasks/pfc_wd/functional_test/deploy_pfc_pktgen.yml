@@ -1,0 +1,22 @@
+- block:
+  - name: Ensure destination directory exists on fanout
+    file:
+      path: "/mnt/flash/"
+      state: directory
+    delegate_to: "{{peer_mgmt}}"
+    become: true
+
+  - name: Create pfc generator file in case it doesn't exist.
+    file:
+      path: "/mnt/flash/{{pfc_gen_file}}"
+      state: touch
+    delegate_to: "{{peer_mgmt}}"
+    become: true
+
+  - name: Deploy PFC generator to the fanout switch
+    copy:
+      src: "roles/test/files/helpers/{{pfc_gen_file}}"
+      dest: "/mnt/flash"
+    delegate_to: "{{peer_mgmt}}"
+    become: true
+  when: peer_hwsku | search("Arista") or peer_hwsku | search("arista")

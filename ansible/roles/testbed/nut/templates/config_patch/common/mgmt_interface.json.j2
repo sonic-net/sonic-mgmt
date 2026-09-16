@@ -1,0 +1,30 @@
+{ "op": "add", "path": "/MGMT_PORT", "value": {} },
+{
+  "op": "add",
+  "path": "/MGMT_PORT/eth0",
+  "value": {
+      "admin_status": "up",
+      "alias": "eth0"
+  }
+},
+{ "op": "add", "path": "/MGMT_INTERFACE", "value": {} },
+{%- if info.ManagementIp %}
+{
+  "op": "add",
+  "path": "/MGMT_INTERFACE/eth0|{{ info.ManagementIp | replace("/","~1") }}",
+  "value": {
+      "gwaddr": "{{ info.ManagementGw }}",
+      "forced_mgmt_routes": {{ info.ManagementRoutes | tojson }}
+  }
+},
+{% endif %}
+{%- if 'ManagementIpV6' in info %}
+{
+  "op": "add",
+  "path": "/MGMT_INTERFACE/eth0|{{ info.ManagementIpV6 | replace("/","~1") }}",
+  "value": {
+      "gwaddr": "{{ info.ManagementGwV6 }}",
+      "forced_mgmt_routes": {{ info.ManagementRoutesV6 | tojson }}
+  }
+},
+{% endif %}

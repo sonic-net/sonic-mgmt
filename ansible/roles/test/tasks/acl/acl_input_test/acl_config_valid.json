@@ -1,0 +1,19 @@
+[
+    {
+        "ACL_TABLE:555555739a2cc107": {
+            "policy_desc" : "Permit_some_traffic_from_10.0.0.1",
+            "type" : "L3",
+            "ports" : "Ethernet0"
+        },
+        "OP": "SET"
+    },
+    {
+        "ACL_RULE_TABLE:555555739a2cc107:3f8a10ff": {
+	    "priority" : "55",
+            "SRC_IP" : "10.0.0.1/24",
+            "DST_IP" : "10.0.0.3/24",
+            "PACKET_ACTION" : "FORWARD"
+        },
+        "OP": "SET"
+    }
+]

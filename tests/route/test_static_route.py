@@ -1,0 +1,1048 @@
+import pytest
+import json
+import ipaddress
+import time
+import logging
+import natsort
+import random
+import six
+import re
+from collections import defaultdict
+from contextlib import contextmanager
+
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses, copy_arp_responder_py # noqa F811
+from tests.common.fixtures.ptfhost_utils import remove_ip_addresses # noqa F811
+from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
+from tests.common.dualtor.mux_simulator_control import mux_server_url # noqa F811
+from tests.common.dualtor.dual_tor_utils import show_muxcable_status
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m # noqa F811
+from tests.common.utilities import wait_until, get_intf_by_sub_intf, is_ipv6_only_topology
+from tests.common.utilities import get_neighbor_ptf_port_list
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_require
+from tests.common.helpers.constants import ARP_RESPONDER_DEFAULT_CONFIG, UPSTREAM_NEIGHBOR_MAP
+from tests.common import config_reload
+from tests.common.reboot import reboot
+from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
+import ptf.testutils as testutils
+import ptf.mask as mask
+import ptf.packet as packet
+from tests.common import constants
+from tests.common.flow_counter.flow_counter_utils import RouteFlowCounterTestContext, is_route_flow_counter_supported # noqa F811
+from tests.common.helpers.dut_ports import get_vlan_interface_list, get_vlan_interface_info
+
+
+# packet count for traffic test
+COUNT = 10
+
+pytestmark = [
+    pytest.mark.topology('t0', 'm0', 'mx'),
+    pytest.mark.device_type('vs')
+]
+
+logger = logging.getLogger(__name__)
+allure.logger = logger
+
+added_routes = set()
+
+
+@pytest.fixture(scope='function', autouse=False)
+def clear_static_route(rand_selected_dut):
+    """Clear route configuration
+
+    Args:
+        rand_selected_dut (object): DUT object
+    """
+    try:
+        yield
+    finally:
+        for route in added_routes:
+            rand_selected_dut.shell('config route del prefix {} nexthop {}'.format(
+                route[0], route[1]), module_ignore_errors=True)
+        added_routes.clear()
+
+
+def is_dualtor(tbinfo):
+    """Check if the testbed is dualtor."""
+    return "dualtor" in tbinfo["topo"]["name"]
+
+
+def add_ipaddr(ptfadapter, ptfhost, nexthop_addrs, prefix_len, nexthop_interfaces, ipv6=False):
+    if ipv6:
+        for idx in range(len(nexthop_addrs)):
+            ptfhost.shell("ip -6 addr add {}/{} dev eth{}".format(
+                nexthop_addrs[idx], prefix_len, nexthop_interfaces[idx]), module_ignore_errors=True
+            )
+    else:
+        vlan_host_map = defaultdict(dict)
+        for idx in range(len(nexthop_addrs)):
+            mac = ptfadapter.dataplane.get_mac(
+                0, int(get_intf_by_sub_intf(nexthop_interfaces[idx]))
+            ).decode().replace(":", "")
+            vlan_host_map[nexthop_interfaces[idx]][nexthop_addrs[idx]] = mac
+
+        arp_responder_conf = {}
+        for port in vlan_host_map:
+            arp_responder_conf['eth{}'.format(port)] = vlan_host_map[port]
+
+        with open(ARP_RESPONDER_DEFAULT_CONFIG, "w") as ar_config:
+            json.dump(arp_responder_conf, ar_config)
+        ptfhost.copy(src=ARP_RESPONDER_DEFAULT_CONFIG, dest=ARP_RESPONDER_DEFAULT_CONFIG)
+        ptfhost.host.options["variable_manager"].extra_vars.update({"arp_responder_args": "-e"})
+        ptfhost.template(src="templates/arp_responder.conf.j2", dest="/etc/supervisor/conf.d/arp_responder.conf")
+
+        ptfhost.shell('supervisorctl reread && supervisorctl update')
+        ptfhost.shell('supervisorctl restart arp_responder')
+
+
+def del_ipaddr(ptfhost, nexthop_addrs, prefix_len, nexthop_devs, ipv6=False):
+    if ipv6:
+        for idx in range(len(nexthop_addrs)):
+            ptfhost.shell(
+                "ip -6 addr del {}/{} dev eth{}".format(
+                    nexthop_addrs[idx], prefix_len, nexthop_devs[idx]
+                ),
+                module_ignore_errors=True
+            )
+    else:
+        ptfhost.shell('supervisorctl stop arp_responder', module_ignore_errors=True)
+        # Remove the arp_responder config that add_ipaddr() wrote earlier so it
+        # cannot be picked up by a later test invoking arp_responder with its
+        # default config path.
+        ptfhost.file(path=ARP_RESPONDER_DEFAULT_CONFIG, state="absent")
+
+
+def clear_arp_ndp(duthost, ipv6=False):
+    if ipv6:
+        duthost.shell("sonic-clear ndp")
+    else:
+        duthost.shell("sonic-clear arp")
+
+
+def generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, expected_ports, ipv6=False):
+    if ipv6:
+        pkt = testutils.simple_tcpv6_packet(
+            eth_dst=duthost.facts["router_mac"],
+            eth_src=ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0]),
+            ipv6_src='2001:db8:85a3::8a2e:370:7334',
+            ipv6_dst=ip_dst,
+            ipv6_hlim=64,
+            tcp_sport=1234,
+            tcp_dport=4321)
+    else:
+        pkt = testutils.simple_tcp_packet(
+            eth_dst=duthost.facts["router_mac"],
+            eth_src=ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0]),
+            ip_src='1.1.1.1',
+            ip_dst=ip_dst,
+            ip_ttl=64,
+            tcp_sport=1234,
+            tcp_dport=4321)
+
+    exp_pkt = pkt.copy()
+    exp_pkt = mask.Mask(exp_pkt)
+    exp_pkt.set_do_not_care_scapy(packet.Ether, 'dst')
+    exp_pkt.set_do_not_care_scapy(packet.Ether, 'src')
+    if ipv6:
+        exp_pkt.set_do_not_care_scapy(packet.IPv6, 'hlim')
+    else:
+        exp_pkt.set_do_not_care_scapy(packet.IP, 'ttl')
+        exp_pkt.set_do_not_care_scapy(packet.IP, 'chksum')
+
+    topo_type = tbinfo["topo"]["type"]
+    pytest_require(topo_type in UPSTREAM_NEIGHBOR_MAP, "Unsupported topo: {}".format(topo_type))
+    upstream_name = UPSTREAM_NEIGHBOR_MAP[topo_type]
+    ptf_upstream_intf = random.choice(get_neighbor_ptf_port_list(duthost, upstream_name, tbinfo))
+    ptfadapter.dataplane.flush()
+    testutils.send(ptfadapter, ptf_upstream_intf, pkt, count=COUNT)
+    testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=expected_ports)
+
+
+def wait_all_bgp_up(duthost):
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
+    if not wait_until(300, 10, 0, duthost.check_bgp_session_state, list(bgp_neighbors.keys())):
+        pytest.fail("not all bgp sessions are up after config reload")
+
+
+def check_route_redistribution(duthost, prefix, ipv6, removed=False):
+    if ipv6:
+        SHOW_BGP_SUMMARY_CMD = "show ipv6 bgp summary"
+        SHOW_BGP_ADV_ROUTES_CMD_TEMPLATE = "show ipv6 bgp neighbor {} advertised-routes"
+    else:
+        SHOW_BGP_SUMMARY_CMD = "show ip bgp summary"
+        SHOW_BGP_ADV_ROUTES_CMD_TEMPLATE = "show ip bgp neighbor {} advertised-routes"
+
+    bgp_summary = duthost.show_and_parse(SHOW_BGP_SUMMARY_CMD)
+
+    # Collect neighbors, excluding those with 'PT0' in the neighbor name
+    bgp_neighbors = [
+        entry["neighbhor"]
+        for entry in bgp_summary
+        if "PT0" not in entry.get("neighborname", "")
+    ]
+
+    if not bgp_neighbors:
+        pytest.fail("No valid BGP neighbors found (excluding PT0).")
+
+    def _check_routes():
+        for neighbor in bgp_neighbors:
+            adv_routes = duthost.shell(SHOW_BGP_ADV_ROUTES_CMD_TEMPLATE.format(neighbor))["stdout"]
+            if removed and prefix in adv_routes:
+                logging.info(f"Route {prefix} is still advertised by {neighbor} (expected removed).")
+                return False
+            if not removed and prefix not in adv_routes:
+                logging.info(f"Route {prefix} is NOT advertised by {neighbor} (expected present).")
+                return False
+        return True
+
+    pytest_assert(
+        wait_until(60, 15, 0, _check_routes),
+        f"Route {prefix} advertisement state does not match expected 'removed={removed}' on all neighbors"
+    )
+
+
+# output example of ip [-6] route show
+# ip route show 1.1.1.0/24
+# 1.1.1.0/24 proto 196 metric 20
+#        nexthop via 192.168.0.2 dev Vlan1000 weight 1
+#        nexthop via 192.168.0.3 dev Vlan1000 weight 1
+#        nexthop via 192.168.0.4 dev Vlan1000 weight 1
+# ip -6 route show 20c0:afa8::/64
+# 20c0:afa8::/64 proto bgp src fc00:1::32 metric 20
+#        nexthop via fc00::22 dev PortChannel101 weight 1
+#        nexthop via fc00::26 dev PortChannel102 weight 1
+#        nexthop via fc00::2a dev PortChannel103 weight 1
+#        nexthop via fc00::2e dev PortChannel104 weight 1 pref medium
+def check_static_route(duthost, prefix, nexthop_addrs, ipv6):
+    if ipv6:
+        SHOW_STATIC_ROUTE_CMD = "show ipv6 route {}".format(prefix)
+    else:
+        SHOW_STATIC_ROUTE_CMD = "show ip route {}".format(prefix)
+    output = duthost.shell(SHOW_STATIC_ROUTE_CMD, module_ignore_errors=True)["stdout"].split("\n")
+
+    def _check_nh_in_output(nexthop):
+        for line in output:
+            if nexthop in line:
+                return True
+        return False
+
+    check_result = True
+    for nh in nexthop_addrs:
+        if not _check_nh_in_output(nh):
+            check_result = False
+
+    assert check_result, "config static route: {} nexthop {}\nreal:\n{}".format(
+        prefix, ",".join(nexthop_addrs), output
+    )
+
+
+def check_mux_status(duthost, expected_status):
+    show_mux_status_ret = show_muxcable_status(duthost)
+    status_values = set([intf_status['status'] for intf_status in show_mux_status_ret.values()])
+    return status_values == {expected_status}
+
+
+def apply_static_route_config(duthost, unselected_duthost, prefix, nexthop_addrs=None, op="add"):
+    """Apply static route configuration (add/delete) to CONFIG_DB on one or both ToRs.
+
+    Args:
+        duthost: Primary DUT host object
+        unselected_duthost: Secondary DUT host object (for dual-ToR), can be None
+        prefix: Static route prefix
+        nexthop_addrs: List of nexthop addresses (required for op="add")
+        op: Operation type - "add" or "del"
+    """
+    cmd_op = "hmset" if op == "add" else "del"
+    cmd_suffix = " nexthop {}".format(",".join(nexthop_addrs)) if op == "add" else ""
+
+    cmd = "sonic-db-cli CONFIG_DB {} 'STATIC_ROUTE|{}'{}".format(cmd_op, prefix, cmd_suffix)
+
+    duthost.shell(cmd, module_ignore_errors=True)
+
+    if unselected_duthost:
+        unselected_duthost.shell(cmd, module_ignore_errors=True)
+
+
+@contextmanager
+def static_route_context(duthost, unselected_duthost, ptfadapter, ptfhost, tbinfo,
+                         prefix, nexthop_count, is_route_flow_counter_supported_flag, ipv6=False):
+    """
+    Context manager for static route testing that handles setup, verification, and cleanup.
+
+    Args:
+        duthost: DUT host object
+        unselected_duthost: Unselected DUT host object (for dual-TOR)
+        ptfadapter: PTF adapter
+        ptfhost: PTF host
+        tbinfo: Testbed info
+        prefix: Static route prefix to test
+        nexthop_count: Number of nexthops for ECMP
+        is_route_flow_counter_supported: Flow counter support flag
+        ipv6: IPv6 flag
+
+    Yields:
+        dict: Context with nexthop_addrs, nexthop_devs, and ip_dst for traffic testing
+    """
+    is_dual_tor = 'dualtor' in tbinfo['topo']['name'] and unselected_duthost is not None
+    prefix_len, nexthop_addrs, nexthop_devs, nexthop_interfaces = get_nexthops(
+        duthost, tbinfo, ipv6=ipv6, count=nexthop_count
+    )
+
+    # Setup: Clean up ARP/NDP
+    clear_arp_ndp(duthost, ipv6=ipv6)
+    if is_dual_tor:
+        clear_arp_ndp(unselected_duthost, ipv6=ipv6)
+
+    # Setup: Add IP addresses in PTF
+    add_ipaddr(ptfadapter, ptfhost, nexthop_addrs, prefix_len, nexthop_interfaces, ipv6=ipv6)
+
+    try:
+        # Configure static route
+        apply_static_route_config(duthost, unselected_duthost if is_dual_tor else None,
+                                  prefix, nexthop_addrs, op="add")
+
+        time.sleep(5)
+
+        # Verify static route in kernel
+        check_static_route(duthost, prefix, nexthop_addrs, ipv6=ipv6)
+
+        # Verify traffic forwarding
+        ip_dst = str(ipaddress.ip_network(six.text_type(prefix))[1])
+        ping_cmd = "timeout 1 ping{} -c 1 -w 1 {}".format(
+            " -6" if ipv6 else "", "{}"
+        )
+        for nexthop_addr in nexthop_addrs:
+            duthost.shell(ping_cmd.format(nexthop_addr), module_ignore_errors=True)
+
+        with RouteFlowCounterTestContext(
+            is_route_flow_counter_supported_flag,
+            duthost,
+            [prefix],
+            {prefix: {'packets': COUNT}}
+        ):
+            generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, nexthop_devs, ipv6=ipv6)
+
+        # Check route is advertised
+        check_route_redistribution(duthost, prefix, ipv6=ipv6)
+
+        # Yield context for test-specific operations (warmboot, config reload, etc.)
+        yield {
+            'nexthop_addrs': nexthop_addrs,
+            'nexthop_devs': nexthop_devs,
+            'ip_dst': ip_dst,
+            'is_dual_tor': is_dual_tor
+        }
+
+        # Post-operation verification: Check route persistence
+        check_static_route(duthost, prefix, nexthop_addrs, ipv6=ipv6)
+
+        # Wait for BGP convergence
+        wait_all_bgp_up(duthost)
+
+        # Refresh ARP/NDP entries
+        for nexthop_addr in nexthop_addrs:
+            duthost.shell(ping_cmd.format(nexthop_addr), module_ignore_errors=True)
+
+        # Verify traffic forwarding after operation
+        with RouteFlowCounterTestContext(
+            is_route_flow_counter_supported_flag,
+            duthost,
+            [prefix],
+            {prefix: {'packets': COUNT}}
+        ):
+            generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, nexthop_devs, ipv6=ipv6)
+
+        # Verify route is still advertised
+        check_route_redistribution(duthost, prefix, ipv6=ipv6)
+
+    finally:
+        # Cleanup: Remove static route
+        apply_static_route_config(duthost, unselected_duthost if is_dual_tor else None,
+                                  prefix, op="del")
+
+        # Cleanup: Delete IP addresses in PTF
+        del_ipaddr(ptfhost, nexthop_addrs, prefix_len, nexthop_devs, ipv6=ipv6)
+
+        # Verify route is removed from BGP advertisements
+        time.sleep(5)
+        check_route_redistribution(duthost, prefix, ipv6=ipv6, removed=True)
+
+        # Save config to persist cleanup
+        duthost.shell('config save -y')
+
+        # Cleanup: Clear ARP/NDP
+        clear_arp_ndp(duthost, ipv6=ipv6)
+        if is_dual_tor:
+            clear_arp_ndp(unselected_duthost, ipv6=ipv6)
+
+
+def run_static_route_test(duthost, unselected_duthost, ptfadapter, ptfhost, tbinfo,
+                          prefix, nexthop_addrs, prefix_len, nexthop_devs, nexthop_interfaces,
+                          is_route_flow_counter_supported, ipv6=False, config_reload_test=False): # noqa F811
+    is_dual_tor = False
+    if 'dualtor' in tbinfo['topo']['name'] and unselected_duthost is not None:
+        is_dual_tor = True
+
+    # Clean up arp or ndp
+    clear_arp_ndp(duthost, ipv6=ipv6)
+    if is_dual_tor:
+        clear_arp_ndp(unselected_duthost, ipv6=ipv6)
+
+    # Add ipaddresses in ptf
+    add_ipaddr(ptfadapter, ptfhost, nexthop_addrs, prefix_len, nexthop_interfaces, ipv6=ipv6)
+
+    try:
+        # Add static route
+        apply_static_route_config(duthost, unselected_duthost if is_dual_tor else None,
+                                  prefix, nexthop_addrs, op="add")
+
+        time.sleep(5)
+
+        # check if the static route in kernel is what we expect
+        check_static_route(duthost, prefix, nexthop_addrs, ipv6=ipv6)
+
+        # Check traffic get forwarded to the nexthop
+        ip_dst = str(ipaddress.ip_network(six.text_type(prefix))[1])
+        # try to refresh arp entry before traffic testing to improve stability
+        for nexthop_addr in nexthop_addrs:
+            duthost.shell("timeout 1 ping -c 1 -w 1 {}".format(nexthop_addr), module_ignore_errors=True)
+
+        # show neighbor and check neighbor consistency on dualtor
+        duthost.shell("show arp" if not ipv6 else "show ndp")
+        if is_dual_tor:
+            duthost.shell("dualtor_neighbor_check.py")
+
+        with RouteFlowCounterTestContext(is_route_flow_counter_supported,
+                                         duthost, [prefix], {prefix: {'packets': COUNT}}):
+            generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, nexthop_devs, ipv6=ipv6)
+
+        # Check the route is advertised to the neighbors
+        check_route_redistribution(duthost, prefix, ipv6)
+
+        # Config save and reload if specified
+        if config_reload_test:
+            # config reload on active tor
+            duthost.shell('config save -y')
+            if duthost.facts["platform"] == "x86_64-cel_e1031-r0":
+                config_reload(duthost, wait=500)
+            else:
+                config_reload(duthost, wait=450)
+            # On dualtor, config_reload can result in a switchover (active tor can become standby and viceversa).
+            # So we need to make sure rand_selected_dut is in active state before verifying traffic.
+            if is_dual_tor:
+                duthost.shell("config mux mode active all")
+                unselected_duthost.shell("config mux mode standby all")
+                pytest_assert(wait_until(60, 5, 0, check_mux_status, duthost, 'active'),
+                              "Could not config ports to active ")
+                pytest_assert(wait_until(60, 5, 0, check_mux_status, unselected_duthost, 'standby'),
+                              "Could not config ports to standby ")
+            # FIXME: We saw re-establishing BGP sessions can takes around 7 minutes
+            # on some devices (like 4600) after config reload, so we need below patch
+            wait_all_bgp_up(duthost)
+            for nexthop_addr in nexthop_addrs:
+                duthost.shell("timeout 1 ping -c 1 -w 1 {}".format(nexthop_addr), module_ignore_errors=True)
+            with RouteFlowCounterTestContext(is_route_flow_counter_supported, duthost,
+                                             [prefix], {prefix: {'packets': COUNT}}):
+                generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, nexthop_devs, ipv6=ipv6)
+            check_route_redistribution(duthost, prefix, ipv6)
+
+    finally:
+        # Remove static route
+        apply_static_route_config(duthost, unselected_duthost if is_dual_tor else None,
+                                  prefix, op="del")
+
+        # Delete ipaddresses in ptf
+        del_ipaddr(ptfhost, nexthop_addrs, prefix_len, nexthop_devs, ipv6=ipv6)
+
+        # Check the advertised route get removed
+        time.sleep(5)
+        check_route_redistribution(duthost, prefix, ipv6, removed=True)
+
+        # Config save if the saved config_db was updated
+        if config_reload_test:
+            duthost.shell('config save -y')
+            if is_dual_tor:
+                duthost.shell('config mux mode auto all')
+                unselected_duthost.shell('config mux mode auto all')
+                unselected_duthost.shell('config save -y')
+
+        # Clean up arp or ndp
+        clear_arp_ndp(duthost, ipv6=ipv6)
+        if is_dual_tor:
+            clear_arp_ndp(unselected_duthost, ipv6=ipv6)
+
+
+def get_nexthops(duthost, tbinfo, ipv6=False, count=1):
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+
+    # Filter VLANs with one interface inside only(PortChannel interface in case of t0-56-po2vlan topo)
+    unexpected_vlans = []
+    for vlan, vlan_data in list(mg_facts['minigraph_vlans'].items()):
+        if len(vlan_data['members']) < 2:
+            unexpected_vlans.append(vlan)
+
+    # Update minigraph_vlan_interfaces with only expected VLAN interfaces
+    expected_vlan_ifaces = []
+    for vlan in unexpected_vlans:
+        for mg_vl_iface in mg_facts['minigraph_vlan_interfaces']:
+            if vlan != mg_vl_iface['attachto']:
+                expected_vlan_ifaces.append(mg_vl_iface)
+    if expected_vlan_ifaces:
+        mg_facts['minigraph_vlan_interfaces'] = expected_vlan_ifaces
+
+    vlan_interfaces = get_vlan_interface_list(duthost)
+    # pick up the first vlan to test
+    vlan_if_name = vlan_interfaces[0]
+    if ipv6:
+        vlan_intf = get_vlan_interface_info(duthost, tbinfo, vlan_if_name, "ipv6")
+    else:
+        vlan_intf = get_vlan_interface_info(duthost, tbinfo, vlan_if_name, "ipv4")
+
+    # Check if the requested IP version is available (e.g., IPv6-only topology has no IPv4)
+    if not vlan_intf or 'prefixlen' not in vlan_intf:
+        return None, None, None, None
+
+    prefix_len = vlan_intf['prefixlen']
+
+    is_backend_topology = mg_facts.get(constants.IS_BACKEND_TOPOLOGY_KEY, False)
+    if is_dualtor(tbinfo):
+        server_ips = mux_cable_server_ip(duthost)
+        vlan_intfs = natsort.natsorted(list(server_ips.keys()))
+        nexthop_devs = [mg_facts["minigraph_ptf_indices"][_] for _ in vlan_intfs]
+        server_ip_key = "server_ipv6" if ipv6 else "server_ipv4"
+        nexthop_addrs = [server_ips[_][server_ip_key].split("/")[0] for _ in vlan_intfs]
+        nexthop_interfaces = nexthop_devs
+    else:
+        vlan_subnet = ipaddress.ip_network(vlan_intf['subnet'])
+        vlan = mg_facts['minigraph_vlans'][vlan_if_name]
+        vlan_ports = vlan['members']
+        vlan_id = vlan['vlanid']
+        vlan_ptf_ports = [mg_facts['minigraph_ptf_indices'][port] for port in vlan_ports if 'PortChannel' not in port]
+        nexthop_devs = vlan_ptf_ports
+        # backend topology use ethx.x(e.g. eth30.1000) during servers and T0 in ptf
+        # in other topology use ethx(e.g. eth30)
+        if is_backend_topology:
+            nexthop_interfaces = [str(dev) + constants.VLAN_SUB_INTERFACE_SEPARATOR +
+                                  str(vlan_id) for dev in nexthop_devs]
+        else:
+            nexthop_interfaces = nexthop_devs
+        nexthop_addrs = [str(vlan_subnet[i + 2]) for i in range(len(nexthop_devs))]
+    count = min(count, len(nexthop_devs))
+    indices = random.sample(list(range(len(nexthop_devs))), k=count)
+    return (
+        prefix_len,
+        [nexthop_addrs[_] for _ in indices],
+        [nexthop_devs[_] for _ in indices],
+        [nexthop_interfaces[_] for _ in indices],
+    )
+
+
+def test_static_route(rand_selected_dut, rand_unselected_dut, ptfadapter, ptfhost, tbinfo,
+                      setup_standby_ports_on_rand_unselected_tor, # noqa F811
+                      toggle_all_simulator_ports_to_rand_selected_tor_m, is_route_flow_counter_supported): # noqa F811
+    duthost = rand_selected_dut
+    unselected_duthost = rand_unselected_dut
+    ipv6 = is_ipv6_only_topology(tbinfo)
+    prefix = "2000:1::/64" if ipv6 else "1.1.1.0/24"
+    prefix_len, nexthop_addrs, nexthop_devs, nexthop_interfaces = get_nexthops(duthost, tbinfo, ipv6=ipv6)
+    run_static_route_test(duthost, unselected_duthost, ptfadapter, ptfhost, tbinfo, prefix,
+                          nexthop_addrs, prefix_len, nexthop_devs, nexthop_interfaces,
+                          is_route_flow_counter_supported, ipv6=ipv6)
+
+
+@pytest.mark.disable_loganalyzer
+def test_static_route_ecmp(rand_selected_dut, rand_unselected_dut, ptfadapter, ptfhost, tbinfo,
+                           setup_standby_ports_on_rand_unselected_tor, # noqa F811
+                           toggle_all_simulator_ports_to_rand_selected_tor_m, is_route_flow_counter_supported): # noqa F811
+    duthost = rand_selected_dut
+    unselected_duthost = rand_unselected_dut
+    ipv6 = is_ipv6_only_topology(tbinfo)
+    prefix = "2000:2::/64" if ipv6 else "2.2.2.0/24"
+    prefix_len, nexthop_addrs, nexthop_devs, nexthop_interfaces = get_nexthops(duthost, tbinfo, ipv6=ipv6, count=3)
+    run_static_route_test(duthost, unselected_duthost, ptfadapter, ptfhost, tbinfo, prefix,
+                          nexthop_addrs, prefix_len, nexthop_devs, nexthop_interfaces,
+                          is_route_flow_counter_supported, ipv6=ipv6, config_reload_test=True)
+
+
+def test_static_route_ipv6(rand_selected_dut, rand_unselected_dut, ptfadapter, ptfhost, tbinfo,
+                           setup_standby_ports_on_rand_unselected_tor, # noqa F811
+                           toggle_all_simulator_ports_to_rand_selected_tor_m, is_route_flow_counter_supported): # noqa F811
+    duthost = rand_selected_dut
+    unselected_duthost = rand_unselected_dut
+    prefix_len, nexthop_addrs, nexthop_devs, nexthop_interfaces = get_nexthops(duthost, tbinfo, ipv6=True)
+    run_static_route_test(duthost, unselected_duthost, ptfadapter, ptfhost, tbinfo, "2000:1::/64",
+                          nexthop_addrs, prefix_len, nexthop_devs, nexthop_interfaces,
+                          is_route_flow_counter_supported, ipv6=True)
+
+
+@pytest.mark.disable_loganalyzer
+def test_static_route_ecmp_ipv6(rand_selected_dut, rand_unselected_dut, ptfadapter, ptfhost, tbinfo,
+                                setup_standby_ports_on_rand_unselected_tor, # noqa F811
+                                toggle_all_simulator_ports_to_rand_selected_tor_m, is_route_flow_counter_supported): # noqa F811
+    duthost = rand_selected_dut
+    unselected_duthost = rand_unselected_dut
+    prefix_len, nexthop_addrs, nexthop_devs, nexthop_interfaces = get_nexthops(duthost, tbinfo, ipv6=True, count=3)
+    run_static_route_test(duthost, unselected_duthost, ptfadapter, ptfhost, tbinfo, "2000:2::/64",
+                          nexthop_addrs, prefix_len, nexthop_devs, nexthop_interfaces,
+                          is_route_flow_counter_supported, ipv6=True, config_reload_test=True)
+
+
+@pytest.mark.disable_loganalyzer
+def test_static_route_warmboot(localhost, rand_selected_dut, rand_unselected_dut, ptfadapter, ptfhost, tbinfo,
+                               setup_standby_ports_on_rand_unselected_tor, # noqa F811
+                               toggle_all_simulator_ports_to_rand_selected_tor_m, is_route_flow_counter_supported): # noqa F811
+    """
+    Test static route persistence and traffic forwarding during warmboot.
+    This test validates that:
+    1. Static routes are properly configured and traffic is forwarded correctly before warmboot
+    2. Static routes persist through warmboot and remain in the routing table
+    3. Traffic continues to be forwarded correctly after warmboot completes
+    4. Routes are properly advertised to BGP neighbors after warmboot
+    Addresses issue: https://github.com/sonic-net/sonic-buildimage/issues/21423
+    """
+    duthost = rand_selected_dut
+    unselected_duthost = rand_unselected_dut
+    prefix = "3.3.3.0/24"
+
+    with static_route_context(duthost, unselected_duthost, ptfadapter, ptfhost, tbinfo,
+                              prefix, nexthop_count=1,
+                              is_route_flow_counter_supported_flag=is_route_flow_counter_supported,
+                              ipv6=False):
+        # Save config and perform warmboot
+        duthost.shell('config save -y')
+        reboot(duthost, localhost, reboot_type='warm', wait_warmboot_finalizer=True, safe_reboot=True)
+
+
+@pytest.mark.disable_loganalyzer
+def test_static_route_ecmp_warmboot(localhost, rand_selected_dut, rand_unselected_dut, ptfadapter, ptfhost, tbinfo,
+                                   setup_standby_ports_on_rand_unselected_tor, # noqa F811
+                                   toggle_all_simulator_ports_to_rand_selected_tor_m, is_route_flow_counter_supported): # noqa F811
+    """
+    Test static route with ECMP persistence and traffic forwarding during warmboot.
+    This test validates that:
+    1. Static routes with multiple nexthops (ECMP) are properly configured
+    2. Traffic is load-balanced across all nexthops before warmboot
+    3. All ECMP paths persist through warmboot
+    4. Traffic continues to be forwarded across all paths after warmboot
+    """
+    duthost = rand_selected_dut
+    unselected_duthost = rand_unselected_dut
+    prefix = "4.4.4.0/24"
+
+    with static_route_context(duthost, unselected_duthost, ptfadapter, ptfhost, tbinfo,
+                              prefix, nexthop_count=3,
+                              is_route_flow_counter_supported_flag=is_route_flow_counter_supported,
+                              ipv6=False):
+        # Save config and perform warmboot
+        duthost.shell('config save -y')
+        reboot(duthost, localhost, reboot_type='warm', wait_warmboot_finalizer=True, safe_reboot=True)
+
+
+@pytest.mark.disable_loganalyzer
+def test_static_route_ipv6_warmboot(localhost, rand_selected_dut, rand_unselected_dut, ptfadapter, ptfhost, tbinfo,
+                                   setup_standby_ports_on_rand_unselected_tor, # noqa F811
+                                   toggle_all_simulator_ports_to_rand_selected_tor_m, is_route_flow_counter_supported): # noqa F811
+    """
+    Test IPv6 static route persistence and traffic forwarding during warmboot.
+
+    This test validates that IPv6 static routes:
+    1. Are properly configured and traffic is forwarded before warmboot
+    2. Persist through warmboot and remain in the routing table
+    3. Continue to forward traffic correctly after warmboot completes
+    """
+    duthost = rand_selected_dut
+    unselected_duthost = rand_unselected_dut
+    prefix = "2000:3::/64"
+
+    with static_route_context(duthost, unselected_duthost, ptfadapter, ptfhost, tbinfo,
+                              prefix, nexthop_count=1,
+                              is_route_flow_counter_supported_flag=is_route_flow_counter_supported,
+                              ipv6=True):
+        # Perform warmboot
+        duthost.shell('config save -y')
+        reboot(duthost, localhost, reboot_type='warm', wait_warmboot_finalizer=True, safe_reboot=True)
+
+
+@pytest.mark.disable_loganalyzer
+def test_static_route_config_reload_with_traffic(rand_selected_dut, rand_unselected_dut, ptfadapter, ptfhost, tbinfo,
+                                                 setup_standby_ports_on_rand_unselected_tor, # noqa F811
+                                                 toggle_all_simulator_ports_to_rand_selected_tor_m, is_route_flow_counter_supported): # noqa F811
+    """
+    Test static route persistence through config reload with comprehensive traffic validation.
+    This test validates that:
+    1. Static routes are configured and traffic flows correctly
+    2. Routes persist through config reload
+    3. Traffic resumes correctly after config reload
+    4. BGP route advertisement is restored properly
+    """
+    duthost = rand_selected_dut
+    unselected_duthost = rand_unselected_dut
+    is_dual_tor = 'dualtor' in tbinfo['topo']['name'] and unselected_duthost is not None
+    prefix = "5.5.5.0/24"
+
+    with static_route_context(duthost, unselected_duthost, ptfadapter, ptfhost, tbinfo,
+                              prefix, nexthop_count=2,
+                              is_route_flow_counter_supported_flag=is_route_flow_counter_supported,
+                              ipv6=False):
+        # Perform config reload
+        duthost.shell('config save -y')
+        if duthost.facts["platform"] == "x86_64-cel_e1031-r0":
+            config_reload(duthost, wait=500)
+        else:
+            config_reload(duthost, wait=450)
+
+        # Handle potential mux state change on dualtor
+        if is_dual_tor:
+            duthost.shell("config mux mode active all")
+            unselected_duthost.shell("config mux mode standby all")
+            pytest_assert(wait_until(60, 5, 0, check_mux_status, duthost, 'active'),
+                          "Could not config ports to active")
+            pytest_assert(wait_until(60, 5, 0, check_mux_status, unselected_duthost, 'standby'),
+                          "Could not config ports to standby")
+
+        # Additional dualtor cleanup
+        if is_dual_tor:
+            duthost.shell('config mux mode auto all')
+            unselected_duthost.shell('config mux mode auto all')
+            unselected_duthost.shell('config save -y')
+
+
+def check_static_route_removed(duthost, prefix, ipv6):
+    """Verify that a static route is no longer present in the routing table.
+
+    Args:
+        duthost: DUT host object
+        prefix: Route prefix to check
+        ipv6: Whether this is an IPv6 route
+
+    Returns:
+        bool: True if route is removed (not found), False if still present
+    """
+    if ipv6:
+        cmd = "show ipv6 route {}".format(prefix)
+    else:
+        cmd = "show ip route {}".format(prefix)
+    output = duthost.shell(cmd, module_ignore_errors=True)["stdout"]
+    # Route should not appear with "S" (static) protocol marker
+    return prefix not in output or "Network not in table" in output
+
+
+@pytest.mark.disable_loganalyzer
+def test_static_route_removal_after_config_reload(rand_selected_dut, rand_unselected_dut, ptfadapter, ptfhost, tbinfo,
+                                                  setup_standby_ports_on_rand_unselected_tor,  # noqa F811
+                                                  toggle_all_simulator_ports_to_rand_selected_tor_m,  # noqa F811
+                                                  is_route_flow_counter_supported):  # noqa F811
+    """
+    Test that removing a static route from CONFIG_DB and performing config reload
+    actually clears the route from kernel/FIB.
+
+    Addresses: https://github.com/sonic-net/sonic-buildimage/issues/21423
+    Addresses: https://github.com/sonic-net/sonic-mgmt/issues/18882
+
+    This test validates that:
+    1. A static route is added and persisted (config save)
+    2. The route is removed from CONFIG_DB
+    3. After config reload, the route is no longer in the kernel routing table
+    4. The route is no longer advertised to BGP neighbors
+    """
+    duthost = rand_selected_dut
+    unselected_duthost = rand_unselected_dut
+    is_dual_tor = 'dualtor' in tbinfo['topo']['name'] and unselected_duthost is not None
+    prefix = "6.6.6.0/24"
+
+    prefix_len, nexthop_addrs, nexthop_devs, nexthop_interfaces = get_nexthops(
+        duthost, tbinfo, ipv6=False, count=1
+    )
+
+    # Setup: Add IP addresses on PTF
+    add_ipaddr(ptfadapter, ptfhost, nexthop_addrs, prefix_len, nexthop_interfaces, ipv6=False)
+
+    try:
+        # Step 1: Add static route and save config
+        apply_static_route_config(duthost, unselected_duthost if is_dual_tor else None,
+                                  prefix, nexthop_addrs, op="add")
+        time.sleep(5)
+        check_static_route(duthost, prefix, nexthop_addrs, ipv6=False)
+        duthost.shell('config save -y')
+
+        # Step 2: Remove static route from CONFIG_DB (without saving yet)
+        apply_static_route_config(duthost, unselected_duthost if is_dual_tor else None,
+                                  prefix, op="del")
+        # Save config so the removal is persisted
+        duthost.shell('config save -y')
+
+        # Step 3: Config reload
+        config_reload(duthost, wait=450)
+
+        # Wait for system to stabilize
+        wait_all_bgp_up(duthost)
+
+        # Step 4: Verify route is removed from kernel
+        pytest_assert(
+            wait_until(60, 10, 0, check_static_route_removed, duthost, prefix, False),
+            "Static route {} still present in kernel after removal and config reload".format(prefix)
+        )
+
+        # Step 5: Verify route is no longer advertised via BGP
+        check_route_redistribution(duthost, prefix, ipv6=False, removed=True)
+
+    finally:
+        # Cleanup: Ensure route is removed
+        apply_static_route_config(duthost, unselected_duthost if is_dual_tor else None,
+                                  prefix, op="del")
+        del_ipaddr(ptfhost, nexthop_addrs, prefix_len, nexthop_devs, ipv6=False)
+        duthost.shell('config save -y')
+        clear_arp_ndp(duthost, ipv6=False)
+        if is_dual_tor:
+            clear_arp_ndp(unselected_duthost, ipv6=False)
+
+
+@pytest.mark.disable_loganalyzer
+def test_static_route_removal_after_config_reload_ipv6(rand_selected_dut, rand_unselected_dut, ptfadapter, ptfhost,
+                                                       tbinfo,
+                                                       setup_standby_ports_on_rand_unselected_tor,  # noqa F811
+                                                       toggle_all_simulator_ports_to_rand_selected_tor_m,  # noqa F811
+                                                       is_route_flow_counter_supported):  # noqa F811
+    """
+    Test that removing an IPv6 static route from CONFIG_DB and performing config reload
+    actually clears the route from kernel/FIB.
+
+    Addresses: https://github.com/sonic-net/sonic-buildimage/issues/21423
+    Addresses: https://github.com/sonic-net/sonic-mgmt/issues/18882
+
+    This test validates the same removal-after-config-reload scenario for IPv6 routes.
+    """
+    duthost = rand_selected_dut
+    unselected_duthost = rand_unselected_dut
+    is_dual_tor = 'dualtor' in tbinfo['topo']['name'] and unselected_duthost is not None
+    prefix = "2000:6::/64"
+
+    prefix_len, nexthop_addrs, nexthop_devs, nexthop_interfaces = get_nexthops(
+        duthost, tbinfo, ipv6=True, count=1
+    )
+
+    # Setup: Add IP addresses on PTF
+    add_ipaddr(ptfadapter, ptfhost, nexthop_addrs, prefix_len, nexthop_interfaces, ipv6=True)
+
+    try:
+        # Step 1: Add static route and save config
+        apply_static_route_config(duthost, unselected_duthost if is_dual_tor else None,
+                                  prefix, nexthop_addrs, op="add")
+        time.sleep(5)
+        check_static_route(duthost, prefix, nexthop_addrs, ipv6=True)
+        duthost.shell('config save -y')
+
+        # Step 2: Remove static route and save
+        apply_static_route_config(duthost, unselected_duthost if is_dual_tor else None,
+                                  prefix, op="del")
+        duthost.shell('config save -y')
+
+        # Step 3: Config reload
+        config_reload(duthost, wait=450)
+
+        # Wait for system to stabilize
+        wait_all_bgp_up(duthost)
+
+        # Step 4: Verify route is removed from kernel
+        pytest_assert(
+            wait_until(60, 10, 0, check_static_route_removed, duthost, prefix, True),
+            "IPv6 static route {} still present in kernel after removal and config reload".format(prefix)
+        )
+
+        # Step 5: Verify route is no longer advertised via BGP
+        check_route_redistribution(duthost, prefix, ipv6=True, removed=True)
+
+    finally:
+        # Cleanup
+        apply_static_route_config(duthost, unselected_duthost if is_dual_tor else None,
+                                  prefix, op="del")
+        del_ipaddr(ptfhost, nexthop_addrs, prefix_len, nexthop_devs, ipv6=True)
+        duthost.shell('config save -y')
+        clear_arp_ndp(duthost, ipv6=True)
+        if is_dual_tor:
+            clear_arp_ndp(unselected_duthost, ipv6=True)
+
+
+@pytest.mark.disable_loganalyzer
+def test_static_route_blackhole_removal_after_config_reload(rand_selected_dut, rand_unselected_dut, tbinfo):
+    """
+    Test that removing a blackhole static route from CONFIG_DB and performing config reload
+    actually clears the route from kernel/FIB.
+
+    This is the exact scenario reported in:
+    https://github.com/sonic-net/sonic-buildimage/issues/21423
+    https://github.com/sonic-net/sonic-mgmt/issues/18882
+
+    The bug: when a blackhole static route in config_db.json is removed and config reload
+    is performed, the route still exists in the kernel because no daemon clears it.
+
+    This test validates both IPv4 and IPv6 blackhole routes.
+    """
+    duthost = rand_selected_dut
+    unselected_duthost = rand_unselected_dut
+    is_dual_tor = 'dualtor' in tbinfo['topo']['name'] and unselected_duthost is not None
+
+    ipv4_prefix = "7.7.7.0/24"
+    ipv6_prefix = "1000::/120"
+
+    def add_blackhole_route(prefix, ipv6=False):
+        """Add a blackhole static route via CONFIG_DB."""
+        duthost.shell(
+            'sonic-db-cli CONFIG_DB hmset "STATIC_ROUTE|{}" '
+            'blackhole true distance 0 ifname "" nexthop blackhole nexthop-vrf ""'.format(prefix)
+        )
+        if is_dual_tor and unselected_duthost:
+            unselected_duthost.shell(
+                'sonic-db-cli CONFIG_DB hmset "STATIC_ROUTE|{}" '
+                'blackhole true distance 0 ifname "" nexthop blackhole nexthop-vrf ""'.format(prefix)
+            )
+
+    def remove_blackhole_route(prefix):
+        """Remove a blackhole static route from CONFIG_DB."""
+        duthost.shell(
+            'sonic-db-cli CONFIG_DB del "STATIC_ROUTE|{}"'.format(prefix)
+        )
+        if is_dual_tor and unselected_duthost:
+            unselected_duthost.shell(
+                'sonic-db-cli CONFIG_DB del "STATIC_ROUTE|{}"'.format(prefix)
+            )
+
+    def check_blackhole_route_present(prefix, ipv6=False):
+        """Verify blackhole route is present in the routing table."""
+        if ipv6:
+            cmd = "show ipv6 route {}".format(prefix)
+        else:
+            cmd = "show ip route {}".format(prefix)
+        output = duthost.shell(cmd, module_ignore_errors=True)["stdout"]
+        return prefix in output
+
+    try:
+        # Step 1: Add blackhole routes and save config
+        add_blackhole_route(ipv4_prefix, ipv6=False)
+        add_blackhole_route(ipv6_prefix, ipv6=True)
+        time.sleep(5)
+
+        # Verify routes are present
+        pytest_assert(
+            wait_until(30, 5, 0, check_blackhole_route_present, ipv4_prefix, False),
+            "IPv4 blackhole route {} not found after adding".format(ipv4_prefix)
+        )
+        pytest_assert(
+            wait_until(30, 5, 0, check_blackhole_route_present, ipv6_prefix, True),
+            "IPv6 blackhole route {} not found after adding".format(ipv6_prefix)
+        )
+
+        duthost.shell('config save -y')
+
+        # Step 2: Remove blackhole routes and save
+        remove_blackhole_route(ipv4_prefix)
+        remove_blackhole_route(ipv6_prefix)
+        duthost.shell('config save -y')
+
+        # Step 3: Config reload
+        config_reload(duthost, wait=450)
+
+        # Wait for system to stabilize
+        wait_all_bgp_up(duthost)
+
+        # Step 4: Verify routes are removed from kernel
+        pytest_assert(
+            wait_until(60, 10, 0, check_static_route_removed, duthost, ipv4_prefix, False),
+            "IPv4 blackhole route {} still present in kernel after removal and config reload "
+            "(see sonic-buildimage#21423)".format(ipv4_prefix)
+        )
+        pytest_assert(
+            wait_until(60, 10, 0, check_static_route_removed, duthost, ipv6_prefix, True),
+            "IPv6 blackhole route {} still present in kernel after removal and config reload "
+            "(see sonic-buildimage#21423)".format(ipv6_prefix)
+        )
+
+        # Step 5: Verify routes are not advertised
+        check_route_redistribution(duthost, ipv4_prefix, ipv6=False, removed=True)
+        check_route_redistribution(duthost, ipv6_prefix, ipv6=True, removed=True)
+
+    finally:
+        # Cleanup: Ensure routes are removed
+        remove_blackhole_route(ipv4_prefix)
+        remove_blackhole_route(ipv6_prefix)
+        duthost.shell('config save -y')
+
+
+@pytest.mark.parametrize("ipv6", [False, True], ids=["ipv4", "ipv6"])
+def test_static_route_no_bgp_churn(rand_selected_dut, clear_static_route, tbinfo, ipv6):
+
+    def _get_bgp_neighbor_ip(duthost, ipv6):
+        """Get next hop from BGP neighbors
+
+        Args:
+            duthost (object): DUT object
+            ipv6 (bool): True if getting IPv6 nexthop
+
+        Returns:
+            str: Nexthop IP
+        """
+        if ipv6:
+            cmd = 'show ipv6 bgp summary'
+        else:
+            cmd = 'show ip bgp summary'
+        parse_result = duthost.show_and_parse(cmd)
+        if not parse_result:
+            return None
+        if 'neighbor' in parse_result[0]:
+            return parse_result[0]['neighbor']
+        else:
+            return parse_result[0]['neighbhor']
+
+    def _add_route(duthost, prefix, nexthop):
+        """Add static route
+
+        Args:
+            duthost (object): DUT object
+            prefix (str): Route prefix
+            nexthop (str): Route nexthop
+        """
+        duthost.shell(
+            'config route add prefix {} nexthop {}'.format(prefix, nexthop))
+        added_routes.add((prefix, nexthop))
+
+    def _routes_from_swss_delta(delta):
+        """ROUTE_TABLE:<prefix> segments in delta order."""
+        return re.findall(r"ROUTE_TABLE:([^|]+)", delta)
+
+    """When adding N static routes, swss.rec delta must be exactly N non-empty lines of
+    ROUTE_TABLE|SET matching prefixes."""
+    if not ipv6 and is_ipv6_only_topology(tbinfo):
+        pytest.skip("Will not program IPv4 static route on IPv6-only topology")
+
+    duthost = rand_selected_dut
+    if ipv6:
+        prefixes = [f"2000:1:{i}::/64" for i in range(1, 3)]  # noqa: E231
+    else:
+        prefixes = [f"1.1.{i}.0/24" for i in range(1, 3)]
+    nexthop = _get_bgp_neighbor_ip(duthost, ipv6)
+    if not nexthop:
+        pytest.fail("No valid BGP neighbors found")
+    wait_time = 3
+
+    with allure.step("Record swss.rec baseline then add static routes {}".format(prefixes)):
+        mark = int(duthost.shell("sudo stat -c %s /var/log/swss/swss.rec")["stdout"].strip())
+        for p in prefixes:
+            _add_route(duthost, p, nexthop)
+
+    tail_offset = mark + 1
+    with allure.step("Wait then dump swss.rec incremental content"):
+        time.sleep(wait_time)
+        delta = duthost.shell(
+            f"sudo tail -c +{tail_offset} /var/log/swss/swss.rec")["stdout"]
+
+        non_empty_lines = [ln for ln in delta.splitlines() if ln.strip() and 'eth0' not in ln]
+        logger.info(
+            f"swss.rec new content after static routes: {len(non_empty_lines)} non-empty line(s)")
+
+        routes = _routes_from_swss_delta(delta)
+        pytest_assert(
+            set(routes) == set(prefixes),
+            f"Routes from swss delta {routes} do not match expected prefixes {prefixes}")
+        logger.info(f"swss.rec ROUTE_TABLE prefixes: {routes}")
+        logger.info(f"swss.rec delta raw:\n{delta}")  # noqa: E231

@@ -1,0 +1,4 @@
+- name: Run PFC Asymmetric pytest test case
+  include_tasks: roles/test/tasks/pytest_runner.yml
+  vars:
+    test_node: pfc_asym/test_pfc_asym.py

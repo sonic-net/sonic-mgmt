@@ -1,0 +1,15 @@
+Value Filldown ROUTER_ID (\d+\.\d+\.\d+\.\d+)
+Value Filldown LOCAL_PREF (\d+)
+Value Filldown LOCAL_AS (\d+)
+Value STATUS_CODE1 (\*|>)
+Value STATUS_CODE2 (d|S|s|h)
+Value Required NETWORK (\d+\.\d+\.\d+\.\d+/\d+)
+Value FROM_NEIGH (\d+\.\d+\.\d+\.\d+)
+Value REUSE (\d+:\d+:\d+)
+Value PATH (\d+)
+Value ORIGIN_CODE (i|e|\?)
+
+Start
+  ^\s*BGP local router ID is ${ROUTER_ID}
+  ^\s*Default local pref ${LOCAL_PREF}, local AS ${LOCAL_AS}
+  ^\s*${STATUS_CODE1}${STATUS_CODE2}\s+${NETWORK}\s+${FROM_NEIGH}\s+${REUSE}\s+${PATH}\s+${ORIGIN_CODE} -> Continue.Record

@@ -1,0 +1,88 @@
+Template, Hostname, Platform, Command
+show_image_list.tmpl, .*, sonic, show image list
+docker_ps.tmpl, .*, sonic, docker ps
+show_storm_control.tmpl, .*, sonic, show storm-control .*
+show_system_status.tmpl, .*, sonic, (show system status|sudo show system status)
+show_vlan_count.tmpl, .*, sonic, show vlan count
+route_n.tmpl, .*, sonic, sudo route -n
+show_platform_summary.tmpl, .*, sonic, show platform summary
+show_sflow.tmpl, .*, sonic, show sflow$
+show_ip_bgp_summary.tmpl, .*, sonic, show bgp ipv(4|6) (unicast\s+)?(vrf .*\s+)?summary
+show_ip_bgp_summary.tmpl, .*, sonic, show (ip\s+|ipv6\s+)?bgp (vrf .*\s+)?summary
+show_qos_map_tc_queue.tmpl, .*, sonic, show qos map tc-queue
+free.tmpl, .*, sonic, free
+show_acl_rule_qa.tmpl, .*, sonic, show acl rule
+show_mac_aging_time.tmpl, .*, sonic, show mac aging-time
+show_ip_interfaces.tmpl, .*, sonic, show (ip|ipv6) interface
+show_qos_map_tc_dscp.tmpl, .*, sonic, show qos map tc-dscp
+show_vxlan_tunnel.tmpl, .*, sonic, show vxlan (tunnel|remotevtep)
+show_mac_address_table.tmpl, .*, sonic, show mac address-table
+linux/ip_route_list_dev.tmpl, .*,sonic, /sbin/ip route list dev eth0
+linux/ip_route_list_dev.tmpl, .*,sonic, ip route list dev eth0
+show_version.tmpl, .*, sonic, show version
+show_psample_stats.tmpl, .*, sonic, sudo cat /proc/bcm/knet-cb/psample/stats
+show_interfaces_status_qa.tmpl, .*, sonic, show interfaces status
+show_lldp_table.tmpl, .*, sonic, show lldp table
+show_lldp_statistics.tmpl, .*, sonic, show lldp statistics
+show_lldp_statistics.tmpl, .*, sonic, docker exec -it lldp lldpcli show statistics ports
+show_clock.tmpl, .*, sonic, show clock
+show_interfaces_counters_detailed.tmpl, .*, sonic, show (interfaces|interface) counters (detailed|Ethernet\d+|Eth\d+\/\d+\/\d+|Eth\d+\/\d+)
+show_qos_map_tc_pg.tmpl, .*, sonic, show qos map tc-pg
+show_qos_map_pfc_priority_queue.tmpl, .*, sonic, show qos map pfc-priority-queue
+sonic_snmp_yml.tmpl, .*, sonic, cat /etc/sonic/snmp.yml
+show_uptime.tmpl, .*, sonic, show uptime
+show_acl_table_qa.tmpl, .*, sonic, show acl table
+show_ip_vrf.tmpl, .*, sonic, show ip vrf$
+show_vrf_verbose.tmpl,.*,sonic,show vrf --verbose
+show_bgp_ipv4_unicast_vrf_dampened_paths.tmpl, .*,  sonic, show bgp ipv4 unicast (vrf .*\s+)?dampening dampened-paths
+show_ip_arp.tmpl, .*, sonic, show ip arp.*
+unix_ifcfg.tmpl, .*,sonic, /sbin/ifconfig
+unix_ifcfg.tmpl, .*, sonic, /sbin/ifconfig .*
+show_tacacs.tmpl, .*, sonic, show tacacs
+show_interfaces_counters.tmpl, .*, sonic, (sudo )?show interfaces counters( -a| -i)?
+show_ip_route.tmpl, .*, sonic, show (ip|ipv6) route(\s+vrf .*)?(\s+ospf)?
+show_mac_aging_time_klish.tmpl, .*, sonic, show mac address-table aging-time
+show_ndp.tmpl, .*, sonic, show ndp
+show_intf_portchannel.tmpl, .*, sonic, show interface (P|p)ort(C|c)hannel(\s*|\s+\d+)
+show_intf_portchannel.tmpl, .*, sonic, show interface PortChannel(\s*|\s+\d+)
+show_interface_counters_rif.tmpl, .*, sonic, (sudo )?show (interfaces|interface) counters rif
+show_lldp_neighbor.tmpl, .*, sonic, show lldp neighbor
+show_qos_map_tc_dot1p.tmpl, .*, sonic, show qos map tc-dot1p
+show_ntpstat.tmpl, .*, sonic, ntpstat
+show_ntpstat.tmpl, .*, sonic, sudo cgexec -g l3mdev:mgmt ntpstat
+show_ntpstat.tmpl, .*, sonic, sudo ip vrf exec mgmt ntpstat
+show_bgp_ipv4v6uni_prefix.tmpl, .*, sonic, show bgp ipv(4|6) unicast\s+(vrf \w+\s+)?\d+
+show_portchannel_summary.tmpl, .*, sonic, show (p|P)ort(c|C)hannel summary.*
+show_vrf.tmpl,.*,sonic,show vrf
+show_bgp_nexthop.tmpl, .*, sonic, show bgp nexthop
+show_vlan_brief.tmpl, .*, sonic, show vlan brief
+show_qos_map_dot1p_tc.tmpl, .*, sonic, show qos map dot1p-tc
+show_qos_map_dscp_tc.tmpl, .*, sonic, show qos map dscp-tc
+show_interface_counters.tmpl, .*, sonic, (sudo )?show interface counters( -i)?
+show_Vlan.tmpl, .*, sonic, show (v|V)lan.*
+sudo_sonic_installer_list.tmpl, .*, sonic, (sudo sonic_installer|show image) list
+show_system_reserved_vlan.tmpl, .*, sonic, show system vlan reserved
+show_bgp_ipv4_prefix.tmpl, .*, sonic, show bgp ipv4\s*([\d\.\/]+)
+show_interfaces_portchannel_qa.tmpl, .*, sonic, show interfaces portchannel
+top.tmpl, .*, sonic, top
+show_mac.tmpl, .*, sonic, show mac
+show_ipv6_neighbors.tmpl, .*, sonic, show ipv6 neighbors
+show_lldp_neighbors.tmpl, .*, sonic, show (lldp\s+)?neighbors
+show_ip_bgp.tmpl, .*, sonic, show bgp ipv(4|6) unicast\s+(vrf .*\s+)?route-map
+show_ip_bgp.tmpl, .*, sonic, show bgp ipv(4|6) unicast\s+vrf .*
+show_ip_bgp.tmpl, .*, sonic, show ip bgp
+show_ip_bgp.tmpl, .*, sonic, show bgp ipv4(\s+unicast)?
+show_ip_bgp.tmpl, .*, sonic, show bgp ipv6(\s+unicast)?
+show_interface_status.tmpl, .*, sonic, show interface status
+show_ip_access_lists.tmpl, .*, sonic, show (ip|ipv6|mac){1} access-lists
+show_nat_translations.tmpl, .*, sonic, show nat translations
+show_bgp_neighbor.tmpl, .*,  sonic, show bgp ipv(4|6) unicast (vrf .*\s+)?neighbor
+show_bgp_neighbor.tmpl, .*,  sonic, show bgp all (vrf .*\s+)?neighbors
+show_bgp_neighbor.tmpl, .*,  sonic, show ip bgp (vrf .*\s+)?(ipv4\s+|ipv6\s+)?(unicast\s+)?neighbor
+show_bgp_neighbor.tmpl, .*,  sonic, show bgp (vrf .*\s+)?(ipv4\s+|ipv6\s+)?(unicast\s+)?neighbor
+show_arp.tmpl, .*, sonic, show arp
+show_watermark_telemetry_interval.tmpl, .*,  sonic, show watermark telemetry interval
+show_nat_statistics.tmpl, .*, sonic, show nat statistics
+show_tacacs_server.tmpl, .*, sonic, show tacacs-server.*
+show_vlan_config.tmpl, .*, sonic, show vlan config
+show_ntp.tmpl, .*, sonic, show ntp.*

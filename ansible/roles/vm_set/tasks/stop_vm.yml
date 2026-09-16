@@ -1,0 +1,31 @@
+- set_fact:
+    disk_image_name: "{{ vm_type }}_{{ vm_name }}_hdd.vmdk"
+  when: (vm_type | lower) == "veos"
+
+- set_fact:
+    disk_image_name: "{{ vm_type }}_{{ vm_name }}.img"
+  when: (vm_type | lower) == "vsonic"
+
+- set_fact:
+    disk_image_name: "{{ vm_type }}_{{ vm_name }}.img"
+  when: (vm_type | lower) == "vcisco"
+
+- set_fact:
+    disk_image: "{{ disk_image_dir }}/{{ disk_image_name }}"
+
+- name: Destroy VM {{ vm_name }}
+  virt: name={{ vm_name }}
+        state=destroyed
+        uri=qemu:///system
+  when: vm_name in vm_list_running.list_vms
+  become: yes
+
+- name: Undefine VM {{ vm_name }}
+  virt: name={{ vm_name }}
+        command=undefine
+        uri=qemu:///system
+  when: vm_name in vm_list_defined.list_vms
+  become: yes
+
+- name: Remove {{ vm_type }} disk image for {{ vm_name }}
+  file: path={{ disk_image }} state=absent
