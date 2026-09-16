@@ -56,6 +56,14 @@ def _reset_dpu_recovery_state(duthost, dpuhosts, testable_dpus):
                         "(non-fatal): %s", e)
 
 
+def _get_dpu_admin_status(duthost, dpu_name):
+    """Return the CONFIG_DB CHASSIS_MODULE admin_status for a DPU (lower-cased),
+    or "" if the entry/field is absent (an unconfigured DPU)."""
+    return duthost.shell(
+        f"sonic-db-cli CONFIG_DB hget 'CHASSIS_MODULE|{dpu_name}' admin_status",
+        module_ignore_errors=True).get("stdout", "").strip().lower()
+
+
 @pytest.fixture()
 def prepare_testable_dpus(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname,
                           platform_api_conn, num_dpu_modules):  # noqa: F811
@@ -102,11 +110,17 @@ def prepare_testable_dpus(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname,
     original_auto_recovery = get_dpu_auto_recovery(duthost)
     set_dpu_auto_recovery(duthost, DPU_AUTO_RECOVERY_ENABLE)
 
+    # Track the DPUs this fixture starts and their original admin state so the
+    # teardown can restore it. Defined before the try so the finally always sees
+    # them, even if setup raises midway.
+    dpus_brought_up = []
+    original_admin_status = {}
+
     try:
-        # Bring up any admin-down DPUs
-        dpus_brought_up = []
+        # Bring up any offline DPUs, remembering each one's original admin state.
         for dpu_name in testable_dpus:
             if check_dpu_module_status(duthost, "off", dpu_name):
+                original_admin_status[dpu_name] = _get_dpu_admin_status(duthost, dpu_name)
                 logging.info("%s is admin down, bringing it admin up", dpu_name)
                 duthost.shell(f"sudo config chassis modules startup {dpu_name}")
                 dpus_brought_up.append(dpu_name)
@@ -150,9 +164,27 @@ def prepare_testable_dpus(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname,
 
         yield duthost, testable_dpus, testable_ips
     finally:
-        # Teardown: reset chassisd DPU recovery state so tests are order-independent;
-        # runs even if setup or the test body raised. Best-effort (see helper).
-        _reset_dpu_recovery_state(duthost, dpuhosts, testable_dpus)
+        # Restore admin state: shut down any DPU this fixture started that was not
+        # originally admin-up, so subsequent tests do not inherit DPUs it enabled.
+        # Runs on both success and failure; best-effort per DPU.
+        dpus_to_restore_down = [
+            dpu for dpu in dpus_brought_up
+            if original_admin_status.get(dpu, "") != "up"
+        ]
+        for dpu_name in dpus_to_restore_down:
+            try:
+                logging.info("Restoring %s to admin-down (started by fixture)", dpu_name)
+                duthost.shell(f"sudo config chassis modules shutdown {dpu_name}")
+            except Exception as e:
+                logging.warning(
+                    "Failed to restore %s to admin-down in teardown (non-fatal): %s",
+                    dpu_name, e)
+
+        # Reset chassisd DPU recovery state for DPUs that remain administratively up,
+        # so tests are order-independent; runs even if setup or the test body raised.
+        dpus_remaining_up = [dpu for dpu in testable_dpus
+                             if dpu not in dpus_to_restore_down]
+        _reset_dpu_recovery_state(duthost, dpuhosts, dpus_remaining_up)
 
         # Restore auto-recovery exactly: re-apply the original value, or delete the
         # field if it was unset before the fixture enabled it. Tolerate failures so a
@@ -177,24 +209,20 @@ def ensure_all_dpus_ready(duthosts,
     Teardown safety net: after each test case, restore only DPUs that were
     administratively up before the test but are offline afterwards.
 
-    DPUs that were admin-down at setup (e.g. dark mode, or an individually
-    shut DPU) are never powered on, so a skipped or DPU-untouched test cannot
-    defeat dark-mode protection or start DPUs whose images are not installed.
+    DPUs that were not explicitly admin-up at setup (e.g. dark mode, an
+    individually shut DPU, or an unconfigured DPU with no admin_status) are
+    never powered on, so a skipped or DPU-untouched test cannot defeat
+    dark-mode protection or start DPUs whose images are not installed.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dpu_names = ["DPU{}".format(i) for i in range(num_dpu_modules)]
 
     def _admin_up_dpus():
-        """DPUs not explicitly admin-down in CONFIG_DB. An absent admin_status
-        is treated as up, matching is_dark_mode_enabled's convention."""
-        up = []
-        for dpu in dpu_names:
-            admin_status = duthost.shell(
-                f"sonic-db-cli CONFIG_DB hget 'CHASSIS_MODULE|{dpu}' admin_status",
-                module_ignore_errors=True).get("stdout", "").strip().lower()
-            if admin_status != "down":
-                up.append(dpu)
-        return up
+        """DPUs explicitly admin-up in CONFIG_DB. A missing/empty admin_status
+        (an unconfigured DPU) is treated as NOT up, so teardown never powers on
+        a DPU that was never configured up."""
+        return [dpu for dpu in dpu_names
+                if _get_dpu_admin_status(duthost, dpu) == "up"]
 
     # Capture the original admin state before the test mutates anything.
     original_admin_up = _admin_up_dpus()

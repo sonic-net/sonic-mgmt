@@ -28,6 +28,7 @@ from tests.smartswitch.common.device_utils_dpu import (
     get_dpuhost_for_dpu,
     get_dpu_pci_bus_info,
     get_dpu_state_from_chassis_state_db,
+    get_dpu_reset_count,
     sonic_db_hgetall,
     check_dpu_ready_state, check_dpu_not_ready_state,
     assert_dpu_db_state_ready,
@@ -478,18 +479,36 @@ class TestAutoRecoveryDisabled:
             f"State: {get_dpu_state_from_chassis_state_db(duthost, target_dpu)}"
         )
 
-        logging.info("Waiting %ds to confirm chassisd does NOT auto-recover %s",
-                     self.NO_RECOVERY_WAIT, target_dpu)
+        # Baseline reset_count so we can prove chassisd issues no power-cycle.
+        # ready_status=false alone is insufficient: with auto-recovery *enabled* a
+        # DPU also reads not-ready while chassisd waits out its boot timeout before
+        # resetting. A stable reset_count is the signal that no reset/reboot was
+        # attempted while auto-recovery is disabled.
+        reset_count_before = get_dpu_reset_count(duthost, target_dpu)
+
+        logging.info("Waiting %ds to confirm chassisd does NOT auto-recover %s "
+                     "(baseline reset_count=%d)",
+                     self.NO_RECOVERY_WAIT, target_dpu, reset_count_before)
         time.sleep(self.NO_RECOVERY_WAIT)
 
-        # DPU should still be not-ready (no power-cycle issued)
+        # DPU should still be not-ready AND untouched: no power-cycle => reset_count
+        # unchanged. Checking reset_count is what distinguishes "recovery disabled"
+        # from "recovery enabled but still within the boot timeout".
         state = get_dpu_state_from_chassis_state_db(duthost, target_dpu)
+        reset_count_after = get_dpu_reset_count(duthost, target_dpu)
         pytest_assert(
             state.get("ready_status", "").lower() == "false",
             f"{target_dpu}: DPU unexpectedly recovered while auto-recovery "
             f"was disabled. State: {state}"
         )
-        logging.info("%s confirmed: still not-ready (no auto-recovery)", target_dpu)
+        pytest_assert(
+            reset_count_after == reset_count_before,
+            f"{target_dpu}: reset_count changed from {reset_count_before} to "
+            f"{reset_count_after} while auto-recovery was disabled - chassisd "
+            f"issued an unexpected reset/power-cycle. State: {state}"
+        )
+        logging.info("%s confirmed: still not-ready, reset_count stable at %d "
+                     "(no auto-recovery)", target_dpu, reset_count_after)
 
         logging.info("Re-enabling dpu_auto_recovery")
         set_dpu_auto_recovery(duthost, DPU_AUTO_RECOVERY_ENABLE)

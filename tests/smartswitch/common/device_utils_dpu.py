@@ -1022,6 +1022,18 @@ def is_dpu_db_state_supported(duthost, dpu_name):
     return "ready_status" in get_dpu_state_from_chassis_state_db(duthost, dpu_name)
 
 
+def get_dpu_reset_count(duthost, dpu_name):
+    """Return the DPU_STATE 'reset_count' from CHASSIS_STATE_DB as an int
+    (0 when the field is absent or non-numeric). chassisd increments this each
+    time it resets/power-cycles a DPU, so a stable value across a window proves
+    no reset/reboot was issued."""
+    raw = get_dpu_state_from_chassis_state_db(duthost, dpu_name).get("reset_count", "")
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return 0
+
+
 def check_dpu_ready_state(duthost, dpu_name):
     """
     Verify DPU is in the fully-ready state in CHASSIS_STATE_DB:
