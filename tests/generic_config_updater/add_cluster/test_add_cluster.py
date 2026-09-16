@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 import time
 import pytest
 from tests.common.helpers.assertions import pytest_assert
@@ -14,6 +15,7 @@ from tests.common.gu_utils import (
     delete_tmpfile,
     expect_op_success,
     generate_tmpfile,
+    get_gcu_timeout,
     rollback_or_reload,
 )
 from tests.generic_config_updater.add_cluster.helpers import add_static_route, \
@@ -1940,29 +1942,247 @@ SANITY_MOR_COUNTS = [1]
 # FIXED absolute ceiling — the operational 1-hour target.
 DEFAULT_TIME_BUDGET_S = 3600
 
-# nightly/weekly/sanity use a per-N budget: catches per-MOR perf regressions
-# instead of only flagging when total elapsed exceeds the 1-hour target.
-# Measured on a modular-chassis line card: elapsed/N was ~1.47 s per
-# change at ~34 changes/MOR, i.e. ~50 s/MOR.  60 s/MOR gives ~20% headroom
-# over that baseline; small-N runs are covered by BUDGET_FLOOR_S, which
-# pays for the fixed apply-patch overhead that is visible even at N=1
-# (~50 s measured).
-# GCU_TIME_BUDGET_S env var overrides to an absolute budget (useful for
-# local debugging / capacity experiments).
+# ---------------------------------------------------------------------------
+# Time budget
+# ---------------------------------------------------------------------------
+# The budget is DERIVED FROM THE PLATFORM, not hard-coded.  GCU's cost model is
+#
+#     elapsed ~= fixed_overhead + moves * loads_per_move * loadData_cost
+#
+# because the sorter validates every move by re-loading the whole config into
+# YANG (FullConfigMoveValidator + NoDependencyMoveValidator => 2 loads/move).
+# loadData_cost is a property of the box and of how big its config is, so a
+# constant "N seconds per MOR" calibrated on one line card is wrong everywhere
+# else and drifts as the config grows.  We therefore measure loadData on the
+# DUT and predict, in the same spirit as test_apply_patch_perf.py.
+#
+# ``expected_moves`` is approximated by the number of ops in the add-patch.
+# For an ADD-dominated patch like ours the sorter emits at most one move per
+# added key, so op-count is an UPPER bound on moves -- it already carries
+# slack, which is why SCALING_SAFETY_MULTIPLIER is 2 here rather than the 5
+# used by test_apply_patch_perf.py (that test computes exact move counts).
+#
+# Caveat, deliberately recorded: with the loadData caching fix (upstream
+# #4476) loads no longer scale per-move -- they collapse to ~2 for the whole
+# patch.  Against fixed GCU this budget is therefore generous, and acts as a
+# catastrophic-regression gate rather than a tight one.  Asserting on sorter
+# move count directly is the hardware-independent successor to this; tracked
+# separately.
+SCALING_LOADS_PER_MOVE = 2
+SCALING_SAFETY_MULTIPLIER = 2
+# Fixed per-invocation cost (CLI startup, YANG init, ConfigDB write, SSH)
+# that is present even for a 1-op patch.  Floor only; never scaled by N.
+SCALING_MIN_OVERHEAD_S = 60
+# Used only if the on-DUT loadData measurement fails.  Deliberately generous.
+FALLBACK_LOADDATA_TIME_S = 1.0
+
+# A loadData() that "took" less than this did not really run (the helper
+# swallows internal exceptions and the shell still exits 0), so the reading is
+# discarded in favour of the fallback rather than used to build a tiny budget.
+MIN_PLAUSIBLE_LOADDATA_S = 0.05
+# Keep the budget strictly below apply_patch()'s own timeout, so that
+# "exceeded budget" is always reachable and is never pre-empted by the fuse.
+FUSE_MARGIN_S = 120
+
+# Legacy constants, retained ONLY as the fallback path when calibration is
+# unavailable.  Measured on a modular-chassis line card: ~1.47 s per change at
+# ~34 changes/MOR, i.e. ~50 s/MOR.
 PER_MOR_BUDGET_S = 60
 BUDGET_FLOOR_S = 300
 
 
-def _time_budget_for(n_mors):
-    """Per-N time budget for the scaling assertion.
+def _measure_loaddata_baseline(duthost, namespace=None):
+    """Measure the cost of one SonicYang.loadData() call on this DUT.
 
-    Returns max(BUDGET_FLOOR_S, PER_MOR_BUDGET_S * n_mors) unless
-    GCU_TIME_BUDGET_S is set, in which case that absolute value wins.
+    Read-only: loads the on-disk config into YANG in a throwaway interpreter.
+    It does not touch CONFIG_DB and does not mutate the device, so it is safe
+    to run before the measurement without disturbing what we are timing.
+
+    Returns seconds as a float, or None if the measurement could not be made.
+    """
+    cfg_path = ("/etc/sonic/config_db.json" if namespace is None
+                else "/etc/sonic/config_db{}.json".format(
+                    namespace.replace("asic", "")))
+    script = r"""
+import json, time, sonic_yang
+sy = sonic_yang.SonicYang('/usr/local/yang-models', print_log_enabled=False)
+sy.loadYangModel()
+with open('%s') as f:
+    config = json.load(f)
+try:
+    sy.loadData(config)          # warm up caches / lazy imports
+except Exception:
+    pass
+sy2 = sonic_yang.SonicYang('/usr/local/yang-models', print_log_enabled=False)
+sy2.loadYangModel()
+start = time.time()
+try:
+    sy2.loadData(config)
+except Exception:
+    pass
+print("LOADDATA_TIME={:.6f}".format(time.time() - start))
+""" % cfg_path
+    out = duthost.shell("python3 -c '{}'".format(script.replace("'", "'\\''")),
+                        module_ignore_errors=True)
+    if out["rc"] != 0:
+        logger.warning("loadData baseline measurement failed (rc=%s): %s",
+                       out["rc"], out.get("stderr", ""))
+        return None
+    for line in out["stdout"].splitlines():
+        if line.startswith("LOADDATA_TIME="):
+            measured = float(line.split("=")[1])
+            logger.info("Measured single loadData() cost: %.3fs", measured)
+            return measured
+    logger.warning("loadData baseline produced no LOADDATA_TIME line")
+    return None
+
+
+def _predicted_elapsed_s(n_ops, loaddata_time):
+    """Expected apply-patch wall time for a patch of *n_ops* ops, no safety."""
+    return (SCALING_MIN_OVERHEAD_S +
+            n_ops * SCALING_LOADS_PER_MOVE * loaddata_time)
+
+
+def _time_budget_for(n_mors, n_ops=None, loaddata_time=None, fuse_s=None):
+    """Time budget for the scaling assertion.
+
+    Precedence:
+      1. GCU_TIME_BUDGET_S -- absolute override, used verbatim (debugging).
+      2. Platform-derived, when we have both an op count and a loadData
+         measurement:  overhead + n_ops * 2 * loadData * safety.
+      3. Fallback to the legacy per-MOR constant.
+
+    The result is always clamped below the apply-patch fuse (when known) so
+    the budget assertion can actually fire instead of being pre-empted by a
+    TimeoutError.
     """
     override = os.environ.get("GCU_TIME_BUDGET_S")
     if override is not None:
         return int(override)
-    return max(BUDGET_FLOOR_S, PER_MOR_BUDGET_S * int(n_mors))
+
+    if n_ops and loaddata_time:
+        # Mirrors test_apply_patch_perf.py:216-217 -- the safety multiplier
+        # scales the per-move work only; fixed overhead is added un-scaled.
+        budget = int(SCALING_MIN_OVERHEAD_S +
+                     n_ops * SCALING_LOADS_PER_MOVE * loaddata_time *
+                     SCALING_SAFETY_MULTIPLIER)
+        basis = "platform-derived ({} ops, {:.3f}s/load)".format(
+            n_ops, loaddata_time)
+    else:
+        budget = max(BUDGET_FLOOR_S, PER_MOR_BUDGET_S * int(n_mors))
+        basis = "legacy per-MOR constant (calibration unavailable)"
+
+    if fuse_s:
+        capped = min(budget, int(fuse_s) - FUSE_MARGIN_S)
+        if capped < budget:
+            logger.info("Budget %ds capped to %ds to stay under the "
+                        "apply-patch fuse (%ds)", budget, capped, fuse_s)
+        budget = capped
+
+    logger.info("Time budget for N=%s: %ds [%s]", n_mors, budget, basis)
+    return budget
+
+
+# loadData cost is a property of (device, namespace) and is stable across a
+# run, so measure it once rather than per parametrization.
+_LOADDATA_CACHE = {}
+
+
+def _get_loaddata_time(duthost, namespace):
+    """Memoised _measure_loaddata_baseline, falling back when unmeasurable."""
+    key = (duthost.hostname, namespace)
+    if key not in _LOADDATA_CACHE:
+        measured = _measure_loaddata_baseline(duthost, namespace)
+        if measured is None:
+            measured = FALLBACK_LOADDATA_TIME_S
+            logger.warning("Using fallback loadData cost %.1fs for %s",
+                           measured, key)
+        elif measured < MIN_PLAUSIBLE_LOADDATA_S:
+            # loadData() raising internally still exits the shell 0, so a
+            # near-zero reading means "it did not really run", not "it is
+            # fast".  Trusting it would produce a tiny budget and false
+            # failures on a healthy apply.
+            logger.warning(
+                "loadData baseline %.4fs is implausibly small (<%.2fs); "
+                "treating as a failed measurement and using fallback %.1fs",
+                measured, MIN_PLAUSIBLE_LOADDATA_S, FALLBACK_LOADDATA_TIME_S)
+            measured = FALLBACK_LOADDATA_TIME_S
+        _LOADDATA_CACHE[key] = measured
+    return _LOADDATA_CACHE[key]
+
+
+def _is_transport_drop(exc):
+    """True only for a transport / hardware-proxy drop, never a GCU rejection.
+
+    Deliberately narrow.  Classifying on free-form exception text is fragile,
+    so a failed assertion -- which is what expect_op_success raises when GCU
+    ran and reported failure -- is never treated as a transport drop,
+    regardless of wording.  Note that expect_op_success goes through
+    pytest_assert, so the exception is pytest's ``Failed``, not AssertionError;
+    both are excluded.  Anything unrecognised defaults to a real failure.
+    """
+    if isinstance(exc, (AssertionError, pytest.fail.Exception)):
+        return False
+    lowered = repr(exc).lower()
+    return ("connectiondroppedbydevice" in lowered or
+            "hardware proxy" in lowered or
+            "hwproxy" in lowered)
+
+
+def _dut_side_elapsed_s(output):
+    """Exact DUT-side duration of the apply-patch command, or None.
+
+    gu_utils.apply_patch() runs 'config apply-patch' via Ansible with
+    module_async=True and polls async_result.ready() on a 10-second interval.
+    A wall-clock measurement taken around that call is therefore quantised to
+    ~10s, which is coarser than the whole per-MOR cost we are trying to
+    measure: a real slope of ~0.4s/MOR is completely invisible between N=1 and
+    N=5.  Ansible's command/shell module reports the command's own duration in
+    'delta' (verified present in the async result, accurate to ~5ms), so use
+    that as the measurement and keep wall clock only as a fallback.
+
+    Note the result is a pytest_ansible ModuleResult, which is mapping-like but
+    is NOT a dict subclass -- hence duck typing rather than isinstance().
+    """
+    try:
+        delta = output["delta"]
+    except (TypeError, KeyError, IndexError):
+        return None
+    if not delta:
+        return None
+    try:
+        hours, minutes, seconds = str(delta).split(":")
+        return int(hours) * 3600 + int(minutes) * 60 + float(seconds)
+    except (ValueError, TypeError):
+        logger.warning("could not parse apply-patch delta %r", delta)
+        return None
+
+
+# GCU prints the sorter's verdict on stdout, e.g.
+#   "Patch Applier: The asic0 patch was converted into 26 changes:"
+# Note the terminator: generic_updater.py uses ':' when the count is non-zero
+# (it introduces the list of changes) and '.' only when it is zero.
+# The change count is the hardware-independent measure of how much work the
+# patch actually costs: the GCU performance work this test guards collapses
+# the change count rather than making each change cheaper, so a regression
+# shows up here even on a box whose absolute timings differ.
+_CHANGES_RE = re.compile(
+    r"The (\S+) patch was converted into (\d+) changes?[.:]")
+
+
+def _sorter_change_counts(output):
+    """Map namespace -> number of changes the sorter emitted, from stdout."""
+    try:
+        stdout = output["stdout"]
+    except (TypeError, KeyError, IndexError):
+        return {}
+    if not stdout:
+        return {}
+    counts = {ns: int(count) for ns, count in _CHANGES_RE.findall(str(stdout))}
+    if not counts:
+        logger.debug("no sorter change counts in apply-patch stdout: %s",
+                     str(stdout)[:4000])
+    return counts
 
 
 SCALING_CHECKPOINT = "gcu_scaling"
@@ -2031,33 +2251,52 @@ def _select_n_mors(config_facts, n):
     }
 
 
-def _verify_bgp_up_scaling(duthost, bgp_neigh_ips, timeout=180):
-    """Poll ``show ip bgp summary`` until every peer in *bgp_neigh_ips* is Established.
+def _verify_bgp_up_scaling(duthost, namespace, bgp_neigh_ips, timeout=180):
+    """Poll until every peer in *bgp_neigh_ips* reports state ``established``.
 
-    SONiC reports an Established session by printing the received-prefix count in
-    the ``State/PfxRcd`` column -- the literal word "Established" is never shown
-    (it only prints state strings such as ``Idle (Admin)``, ``Active`` or
-    ``Connect`` for sessions that are *not* up).  A substring match on "Estab"
-    therefore never succeeds and the poll always burns its full timeout while
-    reporting the peers as down.  Test whether ``State/PfxRcd`` is numeric
-    instead.  Returns True on success; caller decides whether to fail or just
-    log a warning.
+    Address-family agnostic.  ``_select_n_mors`` picks BGP_NEIGHBOR entries by
+    neighbour *name*, which on a dual-stack T2 returns BOTH the IPv4 and the
+    IPv6 peer for each neighbour.  An earlier implementation parsed only
+    ``show ip bgp summary``; IPv6 peers can never appear there, so they stayed
+    permanently un-established and the poll burned its full timeout on every
+    healthy run.
+
+    ``bgp_facts`` drives ``show ip bgp neighbors``, whose ``BGP neighbor is
+    <addr>`` blocks cover every peer regardless of family (see
+    ansible/library/bgp_facts.py -- it matches both regex_ipv4 and regex_ipv6),
+    and reports a lower-cased ``state`` per peer.  One call, both families.
+
+    Returns True on success; the caller decides whether to fail or just warn.
+
+    Both sides are lower-cased before comparison: CONFIG_DB preserves the
+    minigraph's spelling of an IPv6 neighbour (often upper-case hex, e.g.
+    ``FC00::72``) while bgp_facts lower-cases every key it emits, so an exact
+    match would never succeed on such a testbed and the poll would burn its
+    full timeout while reporting healthy peers as down.  The repo's own
+    helpers normalise for the same reason (see sonic_asic.py, multi_asic.py).
     """
-    wanted = set(bgp_neigh_ips)
+    wanted = {ip.lower() for ip in bgp_neigh_ips}
+    if not wanted:
+        # Nothing to verify.  Callers must not treat this as "converged".
+        return True
+
+    asic = duthost.asic_instance_from_namespace(namespace)
 
     def _all_established():
-        out = duthost.shell("show ip bgp summary",
-                            module_ignore_errors=True)["stdout"]
-        established = set()
-        for line in out.splitlines():
-            fields = line.split()
-            # <neighbor> <V> <AS> <MsgRcvd> <MsgSent> <TblVer> <InQ> <OutQ>
-            #     <Up/Down> <State/PfxRcd> <NeighborName>
-            if len(fields) < 10 or fields[0] not in wanted:
-                continue
-            if fields[-2].isdigit():
-                established.add(fields[0])
-        return established == wanted
+        try:
+            neighbors = asic.bgp_facts()["ansible_facts"]["bgp_neighbors"]
+        except Exception as exc:
+            # bgp_facts fails the module if vtysh is briefly unavailable
+            # (e.g. bgp container still restarting).  Retry within timeout.
+            logger.warning("bgp_facts unavailable, retrying: %r", exc)
+            return False
+        neighbors = {str(k).lower(): v for k, v in neighbors.items()}
+        established = {ip for ip in wanted
+                       if neighbors.get(ip, {}).get("state") == "established"}
+        missing = wanted - established
+        if missing:
+            logger.debug("BGP not yet established: %s", sorted(missing))
+        return not missing
 
     return wait_until(timeout, 10, 0, _all_established)
 
@@ -2126,10 +2365,24 @@ def _cli_remove_selected_mors(duthost, selection, namespace):
     (including a partially-removed MOR if a command errors) is undone.
     """
     ns_flag = "" if namespace is None else "-n {}".format(namespace)
+    failures = []
 
     def run(where, cmd, desc):
+        """Run a delete and surface (but do not raise on) a non-zero rc.
+
+        rc alone cannot prove a delete happened -- ``del`` of an absent key
+        still returns 0, and the ``keys | xargs del`` pipelines return xargs'
+        rc -- so failures collected here are advisory.  The authoritative gate
+        is _verify_selected_mors_removed(), which checks the keys are actually
+        gone before the timer starts.
+        """
         logger.info("[%s] %s: %s", where, desc, cmd)
-        duthost.shell(cmd, module_ignore_errors=True)
+        res = duthost.shell(cmd, module_ignore_errors=True)
+        if res["rc"] != 0:
+            logger.warning("[%s] delete returned rc=%s: %s\nstdout: %s\nstderr: %s",
+                           where, res["rc"], cmd, res["stdout"], res["stderr"])
+            failures.append((where, desc, res["rc"]))
+        return res["rc"] == 0
 
     for ip in selection["bgp_neigh_ips"]:
         run("asic", "sudo sonic-db-cli {} CONFIG_DB del 'BGP_NEIGHBOR|{}'"
@@ -2200,6 +2453,80 @@ def _cli_remove_selected_mors(duthost, selection, namespace):
         run("asic",
             "sudo sonic-db-cli {} CONFIG_DB hset 'PORT|{}' admin_status down"
             .format(ns_flag, port), "admin_status down " + port)
+
+    if failures:
+        logger.warning("%d delete command(s) returned non-zero rc; "
+                       "_verify_selected_mors_removed() will decide whether "
+                       "this actually mattered: %s", len(failures), failures)
+    return failures
+
+
+def _verify_selected_mors_removed(duthost, selection, namespace):
+    """Assert the selected MORs are really gone from the ASIC CONFIG_DB.
+
+    This runs AFTER _cli_remove_selected_mors and BEFORE the timer starts, and
+    it is the precondition the whole measurement rests on.
+
+    Why it is required: the restore patch uses RFC 6902 ``add``, and ``add`` on
+    an already-present member is a replace/no-op rather than an error.  So if a
+    delete silently failed, that part of the timed patch does no work and the
+    run reports an artificially FAST time -- a wrong number, published as if it
+    were valid.  Checking the keys are absent is the only sound gate: a
+    ``del`` of a missing key still exits 0, and the ``keys | xargs del``
+    pipelines report xargs' rc, so return codes prove nothing.
+
+    Only the ASIC namespace is checked, and only the tables whose size scales
+    with N (they are what the timed patch actually rebuilds).  localhost
+    entries are deliberately not gated -- they legitimately may not exist.
+
+    Returns a list of leftover keys (empty when the removal was clean).
+    """
+    ns_flag = "" if namespace is None else "-n {}".format(namespace)
+
+    def _keys(pattern):
+        out = duthost.shell(
+            "sudo sonic-db-cli {} CONFIG_DB keys '{}'".format(ns_flag, pattern),
+            module_ignore_errors=True)
+        if out["rc"] != 0:
+            # Treat an unreadable DB as a hard problem rather than "clean".
+            raise RuntimeError(
+                "could not list CONFIG_DB keys '{}' (rc={}): {}".format(
+                    pattern, out["rc"], out.get("stderr", "")))
+        return {k.strip() for k in out["stdout"].splitlines() if k.strip()}
+
+    leftovers = []
+
+    bgp_keys = _keys("BGP_NEIGHBOR|*")
+    for ip in selection["bgp_neigh_ips"]:
+        key = "BGP_NEIGHBOR|{}".format(ip)
+        if key in bgp_keys:
+            leftovers.append(key)
+
+    dn_keys = _keys("DEVICE_NEIGHBOR|*")
+    for port in selection["member_ports"]:
+        key = "DEVICE_NEIGHBOR|{}".format(port)
+        if key in dn_keys:
+            leftovers.append(key)
+
+    pc_keys = _keys("PORTCHANNEL|*")
+    pcm_keys = _keys("PORTCHANNEL_MEMBER|*")
+    pci_keys = _keys("PORTCHANNEL_INTERFACE|*")
+    for pc in selection["portchannels"]:
+        if "PORTCHANNEL|{}".format(pc) in pc_keys:
+            leftovers.append("PORTCHANNEL|{}".format(pc))
+        leftovers.extend(k for k in pcm_keys
+                         if k.startswith("PORTCHANNEL_MEMBER|{}|".format(pc)))
+        leftovers.extend(k for k in pci_keys
+                         if k == "PORTCHANNEL_INTERFACE|{}".format(pc) or
+                         k.startswith("PORTCHANNEL_INTERFACE|{}|".format(pc)))
+
+    if leftovers:
+        logger.error("Removal incomplete -- %d key(s) still present: %s",
+                     len(leftovers), sorted(leftovers))
+    else:
+        logger.info("Removal verified: all selected MOR keys absent from "
+                    "the ASIC CONFIG_DB")
+    return leftovers
 
 
 def _probe_parent_tables_present(duthost, namespace):
@@ -2565,6 +2892,18 @@ def _run_scaling_measurement(duthost, tbinfo, config_facts, config_facts_localho
                     [(r["scope"], r["table"], r["key"]) for r in pc_refs])
         _cli_remove_pc_references(duthost, pc_refs, enum_rand_one_asic_namespace)
 
+    # Precondition for a valid measurement: what we are about to time the
+    # re-add of must actually be gone.  If a delete silently failed, the
+    # corresponding RFC 6902 ``add`` becomes a no-op and the run reports an
+    # artificially fast time.  See _verify_selected_mors_removed.
+    leftovers = _verify_selected_mors_removed(
+        duthost, selection, enum_rand_one_asic_namespace)
+    pytest_assert(
+        not leftovers,
+        "Setup incomplete: {} selected key(s) survived removal, so part of "
+        "the timed patch would be a no-op and the measurement would be "
+        "invalid. Leftovers: {}".format(len(leftovers), sorted(leftovers)))
+
     # Empty-parent guard: snapshot which parent hashes survived the CLI
     # removal.  If a parent (CABLE_LENGTH|AZURE, PORT_QOS_MAP|*,
     # BUFFER_PG|*) is empty post-removal, Redis has auto-deleted it and an
@@ -2580,45 +2919,122 @@ def _run_scaling_measurement(duthost, tbinfo, config_facts, config_facts_localho
                                          enum_rand_one_asic_namespace,
                                          pc_refs=pc_refs,
                                          parents_present=parents_present)
+    n_ops = len(add_patch)
     logger.info("Scaling add patch: %d ops for n=%d",
-                len(add_patch), len(selection["portchannels"]))
+                n_ops, len(selection["portchannels"]))
+
+    # apply_patch() fuses on a per-platform timeout (gu_utils.get_gcu_timeout).
+    # If this patch cannot finish inside the fuse the run cannot yield a valid
+    # number: it would abort mid-apply and -- before this change -- was
+    # silently reported as a pass.  Skip explicitly, naming the reason.
+    #
+    # The feasibility estimate deliberately does NOT reuse the op-count model
+    # used for the budget.  That model treats every patch op as a sorter move
+    # needing its own validation loads, which is a safe OVER-estimate for a
+    # ceiling but far too pessimistic as a gate: it would skip N values that
+    # are known to complete (e.g. N=14 measured at ~840s would be predicted at
+    # ~2300s and skipped).  Feasibility therefore uses the per-MOR cost
+    # observed on real runs; the op-count model stays where over-estimating is
+    # harmless.
+    fuse_s = get_gcu_timeout(duthost)
+    loaddata_time = _get_loaddata_time(duthost, enum_rand_one_asic_namespace)
+    predicted_s = _predicted_elapsed_s(n_ops, loaddata_time)
+    feasibility_s = max(BUDGET_FLOOR_S, PER_MOR_BUDGET_S * int(n_mors))
+    logger.info("N=%s: %d ops, loadData %.3fs -> budget model ~%.0fs; "
+                "empirical feasibility estimate ~%ds; platform fuse %ds",
+                n_mors, n_ops, loaddata_time, predicted_s, feasibility_s,
+                fuse_s)
+    if feasibility_s > fuse_s - FUSE_MARGIN_S:
+        pytest.skip(
+            "N={} is not measurable on {}: needs ~{}s (observed {}s/MOR) but "
+            "apply-patch fuses at {}s".format(
+                n_mors, duthost.facts.get("platform"), feasibility_s,
+                PER_MOR_BUDGET_S, fuse_s))
 
     tmpfile = generate_tmpfile(duthost)
     apply_start = time.time()
     success = False
     hwproxy_to = False
+    fuse_tripped = False
+    failure_repr = None
+    output = None
     try:
         output = apply_patch(duthost, json_data=add_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
         success = True
-    except TimeoutError:
-        hwproxy_to = True
-        logger.warning("apply_patch fuse fired — treating as HWProxy timeout")
-    except Exception as exc:
-        lowered = repr(exc).lower()
-        if "hardware" in lowered or "connectiondroppedbydevice" in lowered:
+    except TimeoutError as exc:
+        # apply_patch's own fuse.  This is NOT a transport problem: it means
+        # GCU did not finish within what this platform allows, which is
+        # precisely the regression this test exists to catch.  It must never
+        # be reported as a pass.
+        fuse_tripped = True
+        failure_repr = repr(exc)
+        logger.error("apply_patch fuse fired after ~%ds: %r", fuse_s, exc)
+    except (Exception, pytest.fail.Exception) as exc:
+        # pytest.fail.Exception (Failed) derives from BaseException, not
+        # Exception, so it must be named explicitly: expect_op_success reports
+        # a GCU rejection via pytest_assert, and without this the most common
+        # real failure would bypass this handler entirely, leaving success and
+        # failure_repr unset and skipping every record_property below.
+        # pytest.skip.Exception is deliberately NOT caught.
+        failure_repr = repr(exc)
+        if _is_transport_drop(exc):
             hwproxy_to = True
         logger.error("add_cluster failed: %r", exc)
     finally:
         # Stop the clock before cleanup: removing the temp file is a separate
         # SSH round-trip and is not part of what apply-patch costs.
-        apply_elapsed_s = time.time() - apply_start
+        apply_wall_elapsed_s = time.time() - apply_start
         delete_tmpfile(duthost, tmpfile)
 
-    # ---- BGP convergence check counts toward e2e wall clock ----
+    # Prefer the DUT-reported duration: the wall-clock figure also contains the
+    # patch-file copy and is rounded up to apply_patch()'s 10s poll interval.
+    dut_elapsed_s = _dut_side_elapsed_s(output)
+    if dut_elapsed_s is None:
+        apply_elapsed_s = apply_wall_elapsed_s
+        timing_source = "wall_clock"
+    else:
+        apply_elapsed_s = dut_elapsed_s
+        timing_source = "dut_delta"
+    change_counts = _sorter_change_counts(output)
+    n_changes = sum(change_counts.values()) if change_counts else None
+    logger.info(
+        "apply-patch timing: source=%s dut=%s wall=%.3fs changes=%s",
+        timing_source,
+        "n/a" if dut_elapsed_s is None else "{:.3f}s".format(dut_elapsed_s),
+        apply_wall_elapsed_s,
+        change_counts or "n/a")
+
+    # ---- BGP convergence: recorded for information, never gates the budget.
+    # The budget is calibrated on apply-patch cost, so gating on a number that
+    # also contains convergence time would not be comparing like with like.
     bgp_up = False
-    if success and selection["bgp_neigh_ips"]:
-        bgp_up = _verify_bgp_up_scaling(duthost, selection["bgp_neigh_ips"])
+    bgp_checked = bool(success and selection["bgp_neigh_ips"])
+    if bgp_checked:
+        bgp_up = _verify_bgp_up_scaling(
+            duthost, enum_rand_one_asic_namespace, selection["bgp_neigh_ips"])
     e2e_elapsed_s = time.time() - apply_start
 
     return {
         "selection": selection,
         "ns_label": ns_label,
         "apply_elapsed_s": apply_elapsed_s,
+        "apply_wall_elapsed_s": apply_wall_elapsed_s,
+        "timing_source": timing_source,
+        "change_counts": change_counts,
+        "n_changes": n_changes,
         "e2e_elapsed_s": e2e_elapsed_s,
         "success": success,
         "hwproxy_to": hwproxy_to,
+        "fuse_tripped": fuse_tripped,
+        "failure_repr": failure_repr,
         "bgp_up": bgp_up,
+        "bgp_checked": bgp_checked,
+        "n_ops": n_ops,
+        "loaddata_time": loaddata_time,
+        "predicted_s": predicted_s,
+        "feasibility_s": feasibility_s,
+        "fuse_s": fuse_s,
     }
 
 
@@ -2669,54 +3085,88 @@ def _run_and_publish(duthost, tbinfo, config_facts, config_facts_localhost,
     """Shared runner: measure, publish metrics, apply pass/fail policy.
 
     Policy:
-      - HWProxy timeout is recorded but does NOT fail the test.  The
-        underlying SSH chattiness is a separate issue; failing on it would
-        block nightly signal on something this test does not measure.
+      - A transport / hardware-proxy drop is recorded but does NOT fail the
+        test.  The underlying SSH chattiness is a separate issue; failing on
+        it would block nightly signal on something this test does not measure.
+      - apply_patch's own timeout ("fuse") DOES fail the test.  It means GCU
+        did not finish inside what this platform allows, which is exactly the
+        regression this test exists to detect.  It was previously misfiled as
+        a hardware-proxy timeout and silently passed.
       - Real GCU failures DO fail the test.
-      - Elapsed exceeding the time budget fails the test (that IS the metric).
-      - BGP check is soft — logged only.
+      - Apply time exceeding the budget fails the test (that IS the metric).
+        e2e is published for information but never gated, because the budget
+        is calibrated on apply-patch cost and e2e also contains BGP
+        convergence -- gating on it would not compare like with like.
+      - BGP check is soft -- logged only.
     """
     result = _run_scaling_measurement(
         duthost, tbinfo, config_facts, config_facts_localhost,
         mg_facts, namespace, n_mors, record_property)
 
-    budget = _time_budget_for(n_mors)
+    budget = _time_budget_for(n_mors,
+                              n_ops=result["n_ops"],
+                              loaddata_time=result["loaddata_time"],
+                              fuse_s=result["fuse_s"])
 
     record_property("gcu_tier", tier)
     record_property("gcu_n_mors", n_mors)
     record_property("gcu_apply_elapsed_s", round(result["apply_elapsed_s"], 3))
+    record_property("gcu_apply_wall_elapsed_s",
+                    round(result["apply_wall_elapsed_s"], 3))
+    record_property("gcu_timing_source", result["timing_source"])
+    if result["n_changes"] is not None:
+        record_property("gcu_sorter_changes", result["n_changes"])
+        record_property("gcu_sorter_changes_by_ns",
+                        ",".join("{}={}".format(ns, c) for ns, c
+                                 in sorted(result["change_counts"].items())))
     record_property("gcu_e2e_elapsed_s", round(result["e2e_elapsed_s"], 3))
     record_property("gcu_success", result["success"])
     record_property("gcu_hwproxy_to", result["hwproxy_to"])
+    record_property("gcu_fuse_tripped", result["fuse_tripped"])
     record_property("gcu_ns", result["ns_label"])
     record_property("gcu_pcs", ",".join(result["selection"]["portchannels"]))
     record_property("gcu_bgp_up", result["bgp_up"])
+    record_property("gcu_bgp_checked", result["bgp_checked"])
+    record_property("gcu_patch_ops", result["n_ops"])
+    record_property("gcu_loaddata_s", round(result["loaddata_time"], 4))
+    record_property("gcu_predicted_s", round(result["predicted_s"], 1))
     record_property("gcu_time_budget_s", budget)
 
     logger.info(
-        "SCALING RESULT tier=%s n=%d ns=%s apply=%.2fs e2e=%.2fs "
-        "success=%s hwproxy_to=%s bgp_up=%s budget=%ds",
-        tier, n_mors, result["ns_label"],
+        "SCALING RESULT tier=%s n=%d ns=%s ops=%d apply=%.2fs e2e=%.2fs "
+        "success=%s hwproxy_to=%s fuse_tripped=%s bgp_up=%s budget=%ds",
+        tier, n_mors, result["ns_label"], result["n_ops"],
         result["apply_elapsed_s"], result["e2e_elapsed_s"],
-        result["success"], result["hwproxy_to"], result["bgp_up"], budget)
+        result["success"], result["hwproxy_to"], result["fuse_tripped"],
+        result["bgp_up"], budget)
+
+    pytest_assert(
+        not result["fuse_tripped"],
+        "Add-MOR N={} did not complete within the apply-patch timeout "
+        "({}s) on {}. GCU took longer than this platform allows -- this is a "
+        "performance failure, not an infrastructure one.".format(
+            n_mors, result["fuse_s"], duthost.facts.get("platform")))
 
     if result["hwproxy_to"] and not result["success"]:
         logger.warning(
-            "HWProxy-style timeout observed (N=%d). Recording data point; "
-            "not failing (ANP SSH-chatty rollout owns this).", n_mors)
-        # Skip the elapsed-budget check when we hit the timeout — the number
-        # would be meaningless.
+            "Transport/hardware-proxy drop observed (N=%d): %s. Recording "
+            "data point; not failing (ANP SSH-chatty rollout owns this).",
+            n_mors, result["failure_repr"])
+        # The elapsed number is meaningless when the session dropped part-way.
         return
 
     pytest_assert(
         result["success"],
-        "apply-patch failed during Add-MOR scaling (N={})".format(n_mors))
+        "apply-patch failed during Add-MOR scaling (N={}): {}".format(
+            n_mors, result["failure_repr"]))
     pytest_assert(
-        result["e2e_elapsed_s"] <= budget,
-        "Add-MOR N={} exceeded time budget: {:.1f}s > {}s".format(
-            n_mors, result["e2e_elapsed_s"], budget))
+        result["apply_elapsed_s"] <= budget,
+        "Add-MOR N={} exceeded apply-time budget: {:.1f}s > {}s "
+        "({} ops, {:.3f}s/loadData)".format(
+            n_mors, result["apply_elapsed_s"], budget,
+            result["n_ops"], result["loaddata_time"]))
 
-    if not result["bgp_up"] and result["selection"]["bgp_neigh_ips"]:
+    if result["bgp_checked"] and not result["bgp_up"]:
         logger.warning(
             "BGP peers did not all reach Established: %s",
             result["selection"]["bgp_neigh_ips"])
@@ -2736,10 +3186,29 @@ def test_max_mors_under_budget(
     """
     duthost = duthosts[enum_downstream_dut_hostname]
     budget = int(os.environ.get("GCU_TIME_BUDGET_S", DEFAULT_TIME_BUDGET_S))
+    # The operational hour is only meaningful if apply-patch is even allowed to
+    # run that long.  On a platform whose fuse is below the budget, an apply can
+    # never legitimately reach it -- the fuse trips first -- so "budget
+    # exceeded" would be unreachable and the sweep could only ever end on a
+    # failure reason.  Clamp so the capacity boundary can actually be observed.
+    sweep_fuse_s = get_gcu_timeout(duthost)
+    if budget > sweep_fuse_s - FUSE_MARGIN_S:
+        clamped = sweep_fuse_s - FUSE_MARGIN_S
+        logger.info("Sweep budget %ds clamped to %ds (platform fuse %ds)",
+                    budget, clamped, sweep_fuse_s)
+        budget = clamped
+    # Ceiling is bounded by the PortChannels a line card actually has; if the
+    # sweep runs to the end, the real maximum is ">= 33", not "== 33", and
+    # gcu_max_n_stop_reason says so.
     sweep = [1, 5, 10, 20, 24, 30, 33]
     max_n = 0
     max_ports = 0
     last_elapsed = 0.0
+    # Why the sweep stopped.  Only budget_exceeded and sweep_exhausted mean
+    # "this is the capacity"; everything else means the number is incomplete
+    # and must not be read as a platform maximum.
+    stop_reason = "sweep_exhausted"
+    fatal = None
 
     for n in sweep:
         try:
@@ -2755,31 +3224,80 @@ def test_max_mors_under_budget(
                 # which would report this as a failure.  Matches how the
                 # tiered scaling tests behave.
                 pytest.skip(str(exc))
+            stop_reason = "not_measurable_at_n{}".format(n)
             break
-        # Best-effort rollback between iterations so the next iteration
-        # starts from the same pre-state (module-scoped config_facts is
-        # the reference; rollback restores CONFIG_DB to it).
+
+        # Roll back between iterations so the next one starts from the same
+        # pre-state.  A rollback failure is NOT a capacity boundary: it means
+        # the DUT is no longer in a known state, so every later reading would
+        # be untrustworthy.  Restore has already been attempted inside
+        # rollback_or_reload (which falls back to config_reload); we record the
+        # failure and re-raise it after publishing, rather than silently
+        # reporting the partial sweep as the platform maximum.
         try:
             rollback_or_reload(duthost, cp=SCALING_CHECKPOINT)
-        except Exception:
-            logger.warning("rollback between N iterations failed at N=%d", n)
+        except (Exception, pytest.fail.Exception) as exc:
+            # rollback_or_reload signals failure with pytest.fail, which is a
+            # BaseException subclass; without naming it here the sweep would
+            # abort before publishing stop_reason and the partial result.
+            logger.error("rollback between N iterations failed at N=%d: %r",
+                         n, exc)
+            stop_reason = "rollback_failed"
+            fatal = ("Rollback failed after N={}, so the sweep is incomplete "
+                     "and the result below is not a platform maximum: "
+                     "{!r}".format(n, exc))
             break
 
-        logger.info("[max-N sweep] N=%d elapsed=%.1fs success=%s",
-                    n, result["e2e_elapsed_s"], result["success"])
-        if not result["success"] or result["e2e_elapsed_s"] > budget:
+        logger.info("[max-N sweep] N=%d apply=%.1fs (%s, wall=%.1fs) "
+                    "e2e=%.1fs success=%s",
+                    n, result["apply_elapsed_s"], result["timing_source"],
+                    result["apply_wall_elapsed_s"], result["e2e_elapsed_s"],
+                    result["success"])
+
+        if result["fuse_tripped"]:
+            stop_reason = "fuse_tripped"
+            fatal = ("apply-patch did not complete within the platform "
+                     "timeout ({}s) at N={}. That is a performance failure, "
+                     "not the capacity boundary.".format(result["fuse_s"], n))
             break
+        if not result["success"]:
+            if result["hwproxy_to"]:
+                # Transport drop: same policy as the tiered tests -- recorded,
+                # not failed, but explicitly not a capacity result either.
+                stop_reason = "transport_drop"
+                logger.warning("Transport drop at N=%d: %s",
+                               n, result["failure_repr"])
+                break
+            stop_reason = "apply_failed"
+            fatal = ("apply-patch failed at N={} ({}). A failure is not a "
+                     "capacity boundary.".format(n, result["failure_repr"]))
+            break
+        if result["apply_elapsed_s"] > budget:
+            stop_reason = "budget_exceeded"
+            break
+
         max_n = n
         max_ports = len(result["selection"]["member_ports"])
-        last_elapsed = result["e2e_elapsed_s"]
+        last_elapsed = result["apply_elapsed_s"]
 
+    complete = stop_reason in ("budget_exceeded", "sweep_exhausted")
     record_property("gcu_max_mors_under_budget", max_n)
     record_property("gcu_max_ports_under_budget", max_ports)
     record_property("gcu_max_n_last_elapsed_s", round(last_elapsed, 3))
+    record_property("gcu_max_n_stop_reason", stop_reason)
+    record_property("gcu_max_n_result_complete", complete)
+    record_property("gcu_max_n_budget_s", budget)
+    # Kept for continuity: existing dashboards key this test's budget off
+    # gcu_time_budget_s, the same name the tiered tests emit.  Dropping it
+    # would silently empty those series.
     record_property("gcu_time_budget_s", budget)
     logger.info(
-        "MAX MORs under %ds budget: %d MORs (=%d ports, last elapsed=%.1fs)",
-        budget, max_n, max_ports, last_elapsed)
+        "MAX MORs under %ds apply-time budget: %d MORs (=%d ports, last "
+        "apply=%.1fs, stop_reason=%s, complete=%s)",
+        budget, max_n, max_ports, last_elapsed, stop_reason, complete)
+
+    if fatal:
+        pytest.fail(fatal)
     pytest_assert(
         max_n > 0,
         "Could not add even N=1 MOR within budget {}s".format(budget))
