@@ -1,6 +1,7 @@
 
 """Utilities for interacting with configurable drop counters."""
 
+import logging
 from collections import namedtuple
 
 PORT_INGRESS_COUNTER_TYPE = "PORT_INGRESS_DROPS"
@@ -34,6 +35,14 @@ _CONFIG_DB_GLOBAL_MONITOR_STATUS = (
 )
 _CONFIG_DB_COUNTER_FIELD = (
     "sonic-db-cli CONFIG_DB HGET 'DEBUG_COUNTER|{}' {}"
+)
+_DROP_MONITOR_CLI_PROBE = "config dropcounters enable-monitor --help"
+_FLEX_COUNTER_DB_MONITOR_PLUGIN = (
+    "sonic-db-cli FLEX_COUNTER_DB HGET"
+    " 'FLEX_COUNTER_GROUP_TABLE:DEBUG_MONITOR_COUNTER' PORT_PLUGIN_LIST"
+)
+_COUNTERS_DB_MONITOR_STAT_KEYS = (
+    "sonic-db-cli COUNTERS_DB KEYS 'DEBUG_DROP_MONITOR_STATS|{}|*'"
 )
 _COUNTERS_DB_INCIDENT_COUNT = (
     "sonic-db-cli COUNTERS_DB LLEN 'DEBUG_DROP_MONITOR_STATS|{}|{}|incidents'"
@@ -153,7 +162,16 @@ def get_drop_counts(dut, counter_type, counter_name, interface):
     output = dut.command("show dropcounters counts -t {}".format(counter_type))["stdout_lines"]
     counts = _parse_drop_counts(counter_type, output)
 
-    return int(counts[bind_point.upper()].get(counter_name))
+    # A counter only shows up in the output once it has been installed in hardware.
+    # Return None (as this function documents) instead of raising TypeError, so callers
+    # can retry and then fail with a meaningful message.
+    count = counts.get(bind_point.upper(), {}).get(counter_name)
+    if count is None:
+        logging.warning("Counter %s not found for %s in '%s' counts: %s",
+                        counter_name, bind_point.upper(), counter_type, counts)
+        return None
+
+    return int(count)
 
 
 def enable_global_monitor(dut):
@@ -209,6 +227,49 @@ def get_incident_count(dut, counter_name, port):
     output = dut.command(_COUNTERS_DB_INCIDENT_COUNT.format(counter_name, port),
                          module_ignore_errors=True)
     return int(output["stdout"].strip() or 0)
+
+
+def is_drop_monitor_supported(dut):
+    """
+    Check whether the DUT supports the configurable drop counter monitor feature.
+
+    Two independent things have to be in place, and either can be missing on an image
+    that predates the feature or on a platform that does not build it in:
+
+    1. The `config dropcounters enable-monitor` CLI, provided by sonic-utilities.
+    2. The monitor plugin itself: orchagent loads drop_monitor.lua at start up and
+       registers its SHA as PORT_PLUGIN_LIST on the DEBUG_MONITOR_COUNTER flex
+       counter group.
+
+    Returns:
+        A (supported, reason) tuple. `reason` is an empty string when supported, and
+        otherwise explains which part is missing, for use as a skip message.
+    """
+    cli = dut.command(_DROP_MONITOR_CLI_PROBE, module_ignore_errors=True)
+    if cli["rc"] != 0:
+        return False, "the 'config dropcounters enable-monitor' CLI is not available"
+
+    plugin = dut.command(_FLEX_COUNTER_DB_MONITOR_PLUGIN, module_ignore_errors=True)
+    if plugin["rc"] != 0 or not plugin["stdout"].strip():
+        return False, ("orchagent did not register the drop monitor plugin "
+                       "(DEBUG_MONITOR_COUNTER has no PORT_PLUGIN_LIST)")
+
+    return True, ""
+
+
+def get_monitored_ports(dut, counter_name):
+    """
+    Get the set of DUT ports that the drop monitor is actually polling.
+    """
+    output = dut.command(_COUNTERS_DB_MONITOR_STAT_KEYS.format(counter_name),
+                         module_ignore_errors=True)
+    ports = set()
+    for key in output.get("stdout_lines", []):
+        fields = key.strip().split("|")
+        # Skip the per-port incident lists: <table>|<counter>|<port>|incidents
+        if len(fields) == 3:
+            ports.add(fields[2])
+    return ports
 
 
 def _parse_drop_counts(counter_type, counts_output):
