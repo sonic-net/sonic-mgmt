@@ -3032,6 +3032,12 @@ gnmi/test_pygnmi_client.py:
       - "is_multi_asic==True"
       - "switch_type=='voq'"
 
+gnmi/test_pygnmi_client.py::test_pygnmi_subscribe_sample_queue_counters:
+  skip:
+    reason: "Queue flex counters are intentionally disabled on management devices (sonic-buildimage#16937)"
+    conditions:
+      - "type in ['BmcMgmtToRRouter', 'MgmtToRRouter', 'MgmtTsToR']"
+
 ###############################################
 #####       golden_config_infra           #####
 ###############################################
