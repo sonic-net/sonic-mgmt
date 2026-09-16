@@ -423,11 +423,11 @@ def send_dropped_traffic(duthosts, rand_one_dut_hostname, ptfadapter, testbed_pa
     """
     duthost = duthosts[rand_one_dut_hostname]
 
-    def _runner(counter_type, pkt, rx_port):
+    def _runner(counter_type, pkt, rx_port, count=PACKET_COUNT):
         duthost.command("sonic-clear dropcounters")
 
         logging.info("Sending traffic from ptf on port %s", rx_port)
-        _send_packets(duthost, ptfadapter, pkt, rx_port)
+        _send_packets(duthost, ptfadapter, pkt, rx_port, count)
 
         def _check_drops():
             dst_port = testbed_params["physical_port_map"][rx_port]
@@ -436,10 +436,10 @@ def send_dropped_traffic(duthosts, rand_one_dut_hostname, ptfadapter, testbed_pa
                                              "TEST",
                                              dst_port)
             logging.info("Received %s drops on port %s, expected %s",
-                         recv_count, dst_port, PACKET_COUNT)
-            return recv_count == PACKET_COUNT
+                         recv_count, dst_port, count)
+            return recv_count == count
 
-        pytest_assert(wait_until(10, 2, 0, _check_drops), "Expected {} drops".format(PACKET_COUNT))
+        pytest_assert(wait_until(10, 2, 0, _check_drops), "Expected {} drops".format(count))
 
     return _runner
 
@@ -597,7 +597,7 @@ def _generate_vlan_servers(vlan_network, vlan_ports):
 
 
 def _send_packets(duthost, ptfadapter, pkt, ptf_tx_port_id,
-                  count=PACKET_COUNT):
+                  count):
     duthost.command("sonic-clear dropcounters")
 
     ptfadapter.dataplane.flush()
