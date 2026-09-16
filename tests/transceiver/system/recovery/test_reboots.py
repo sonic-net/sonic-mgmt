@@ -77,6 +77,7 @@ def _config_reload_link_recovery(
     # A config reload restarts every monitored process; tell the autouse
     # per-test health check to expect it rather than flag it as a regression.
     expected_pid_changes.update(DEFAULT_MONITORED_PROCESSES)
+    health_baseline = capture_baseline(duthost)
 
     reload_wait = system_attributes.get("config_reload_settle_sec", 300)
 
@@ -89,13 +90,13 @@ def _config_reload_link_recovery(
     scenario_ops.perform_config_reload(duthost)
 
     # capture a fresh post-reload baseline for the health step below.
-    health_baseline = capture_baseline(duthost)
 
     logger.info("Running Standard Port Recovery and Verification for %d port(s)", len(ports))
     result = standard_port_recovery_and_verification(
         duthost, ports, port_attributes_dict,
         link_up_timeout_sec=reload_wait,
         health_baseline=health_baseline,
+        expected_pid_changes=expected_pid_changes,
         lport_to_first_subport_mapping=lport_to_first_subport_mapping,
     )
 
@@ -155,6 +156,7 @@ def _reboot_link_recovery(
     # A reboot restarts every monitored process; tell the autouse per-test
     # health check to expect it rather than flag it as a regression.
     expected_pid_changes.update(DEFAULT_MONITORED_PROCESSES)
+    health_baseline = capture_baseline(duthost)
 
     default_wait = 400 if reboot_type == 'cold' else 300
     reboot_wait = system_attributes.get(f"{reboot_type}_reboot_settle_sec", default_wait)
@@ -168,15 +170,12 @@ def _reboot_link_recovery(
     operation = getattr(scenario_ops, f"perform_{reboot_type}_reboot")
     operation(duthost, localhost)
 
-    # PID/log baselines are invalidated by the reboot (system_test_plan.md);
-    # capture a fresh post-reboot baseline for the health step below.
-    health_baseline = capture_baseline(duthost)
-
     logger.info("Running Standard Port Recovery and Verification for %d port(s)", len(ports))
     result = standard_port_recovery_and_verification(
         duthost, ports, port_attributes_dict,
         link_up_timeout_sec=reboot_wait,
         health_baseline=health_baseline,
+        expected_pid_changes=expected_pid_changes,
         lport_to_first_subport_mapping=lport_to_first_subport_mapping,
     )
 
