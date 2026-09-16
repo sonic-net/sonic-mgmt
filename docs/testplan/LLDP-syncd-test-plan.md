@@ -67,14 +67,21 @@ incomplete or expanded set. Never accumulate
 successful ports across attempts. Retries tolerate delay, not permanent loss.
 Deduplicate interface membership, but retain all fanout neighbors and match
 the DB's recorded system name, chassis ID and remote port ID for content checks.
-Derive supported capabilities from all capability entries in that selected
-neighbor's advertisement, and enabled capabilities only from entries marked
-enabled. Use the same bitmap conversion for management and data ports:
+Derive capability expectations from that selected neighbor's advertisement
+using the current producer's serialization contract: its exact eight Enum
+member names, lowercased lookup, `128 >> position` and `XX 00` output format.
+Unsupported names, including additional capability bits and unrecognized
+short-form aliases, are logged and ignored as they are by `lldp_syncd`.
+Do not normalize the Enum names or enable second-byte bits only in the test.
+Supported bits include every recognized advertisement; enabled bits include
+only recognized entries marked enabled. Use the same conversion for both port types:
 router-only `08 00` and mixed supported/enabled values such as `28 00` / `08 00`
 are valid when they match the advertisement. An absent capability advertisement
 corresponds to the daemon's empty-string fields, not a fixed capability default.
 Bitmap conversion and field assertions are separate helpers; the convergence
 function only orchestrates collection, retries and phase budgets.
+Expectations are computed independently of DB values. Expanding the producer's
+capability support is a separate product change, not part of this synchronization test.
 
 ## Test Scenarios
 

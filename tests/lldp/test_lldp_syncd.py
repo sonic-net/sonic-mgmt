@@ -23,26 +23,17 @@ LLDP_DB_TIMEOUT = 90
 LLDP_POLL_INTERVAL = 5
 LLDP_STABLE_POLLS = 3
 
-# LLDP-MIB BITS numbers capability zero from the most significant bit.
+# Keep lldp_syncd's case-sensitive Enum names: it lowercases only the lookup.
+# Do not add aliases or capability bits that the producer does not serialize.
 LLDP_CAPABILITY_BIT_POSITIONS = {
     "other": 0,
     "repeater": 1,
     "bridge": 2,
-    "wlan": 3,
-    "wlanaccesspoint": 3,
+    "wlanAccessPoint": 3,
     "router": 4,
-    "tel": 5,
     "telephone": 5,
-    "docsis": 6,
-    "docsiscabledevice": 6,
-    "station": 7,
-    "stationonly": 7,
-    "cvlan": 8,
-    "cvlancomponent": 8,
-    "svlan": 9,
-    "svlancomponent": 9,
-    "tpmr": 10,
-    "twoportmacrelay": 10,
+    "docsisCableDevice": 6,
+    "stationOnly": 7,
 }
 
 pytestmark = [
@@ -200,7 +191,7 @@ def assert_lldp_interfaces(
 
 
 def get_lldp_capability_bitmaps(capabilities):
-    """Convert a neighbor's advertisement to supported and enabled LLDP-MIB bits."""
+    """Model the supported/enabled fields currently serialized by lldp_syncd."""
     if capabilities is None:
         # lldp_syncd uses an empty string when no capabilities are advertised.
         return "", ""
@@ -216,18 +207,19 @@ def get_lldp_capability_bitmaps(capabilities):
         if not isinstance(capability, dict):
             raise ValueError("Invalid LLDP capability entry: {}".format(capability))
         capability_type = capability.get("type")
-        if not isinstance(capability_type, str) or capability_type.lower() not in LLDP_CAPABILITY_BIT_POSITIONS:
-            raise ValueError("Unsupported LLDP system capability: {}".format(capability_type))
+        if not isinstance(capability_type, str):
+            raise ValueError("Invalid LLDP system capability type: {}".format(capability_type))
+        position = LLDP_CAPABILITY_BIT_POSITIONS.get(capability_type.lower())
+        if position is None:
+            logger.debug("Ignoring LLDP capability %r unsupported by lldp_syncd", capability_type)
+            continue
         if not isinstance(capability.get("enabled"), bool):
             raise ValueError("Invalid enabled flag for LLDP capability: {}".format(capability))
-        bit = 1 << (15 - LLDP_CAPABILITY_BIT_POSITIONS[capability_type.lower()])
+        bit = 128 >> position
         supported |= bit
         if capability["enabled"]:
             enabled |= bit
-    return (
-        "{:02X} {:02X}".format(supported >> 8, supported & 0xff),
-        "{:02X} {:02X}".format(enabled >> 8, enabled & 0xff),
-    )
+    return "{:02X} 00".format(supported), "{:02X} 00".format(enabled)
 
 
 def assert_lldp_entry_content(interface, entry_content, lldpctl_interface):
