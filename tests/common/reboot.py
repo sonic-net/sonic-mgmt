@@ -830,7 +830,10 @@ def ssh_connection_with_retry(localhost, host_ip, port, delay, timeout):
     short_timeout = 40
     short_delay = 10
     params_to_update_list = [{}, {'search_regex': None, 'timeout': short_timeout, 'delay': short_delay}]
-    for num_try, params_to_update in enumerate(params_to_update_list):
+    is_ssh_connected = False
+    ssh_retry_res = None
+    num_tries = 0
+    for num_tries, params_to_update in enumerate(params_to_update_list, start=1):
         iter_connection_params = default_connection_params.copy()
         iter_connection_params.update(params_to_update)
         logger.info(f"Checking ssh connection using the following params: {iter_connection_params}")
@@ -848,7 +851,6 @@ def ssh_connection_with_retry(localhost, host_ip, port, delay, timeout):
             logger.info("Ping to dut was successful")
         else:
             logger.info("Ping to dut failed")
-    num_tries = num_try + 1
     return is_ssh_connected, ssh_retry_res, num_tries
 
 
