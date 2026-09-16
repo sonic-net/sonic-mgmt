@@ -296,6 +296,37 @@ def get_dpu_npu_ports_from_hwsku(duthost):
     return dpu_npu_port_list
 
 
+def get_fec_candidate_interfaces(duthost):
+    """Return operationally-up, SFP-present interfaces and their live speeds."""
+    logging.info("Get output of 'show interface status'")
+    intf_status = duthost.show_and_parse("show interface status")
+    logging.info("Interface status: {intf_status}")
+
+    logging.info("Get output of 'sudo sfpshow presence'")
+    sfp_presence_output = duthost.show_and_parse("sudo sfpshow presence")
+    logging.info("SFP presence: {sfp_presence_output}")
+
+    sfp_presence_dict = {entry['port']: entry.get('presence', '').lower() for entry in sfp_presence_output}
+
+    interfaces = {}
+    for intf in intf_status:
+        intf_name = intf['interface']
+        presence = sfp_presence_dict.get(intf_name, '')
+
+        if presence != "present":
+            continue
+
+        oper = intf.get('oper', '').lower()
+        speed = intf.get('speed', '')
+
+        if oper == "up" and speed:
+            interfaces[intf_name] = speed
+        else:
+            logging.info(f"Skip for {intf_name}: oper_state: {oper} speed: {speed}")
+
+    return interfaces
+
+
 def get_fec_eligible_interfaces(duthost, supported_speeds):
     """
     Get interfaces that are operationally up, SFP present and have supported speeds.
