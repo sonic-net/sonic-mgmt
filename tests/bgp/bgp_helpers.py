@@ -1021,9 +1021,14 @@ def fetch_and_delete_pcap_file(bgp_pcap, log_dir, duthost, request):
 
 def get_tsa_chassisdb_config(duthost):
     """
-    @summary: Returns the dut's CHASSIS_APP_DB value for BGP_DEVICE_GLOBAL.STATE.tsa_enabled flag
+    @summary: Returns the dut's BGP_DEVICE_GLOBAL.STATE.tsa_enabled flag.
+              On modular chassis, reads from CHASSIS_APP_DB.
+              On fixed platforms, falls back to CONFIG_DB since CHASSIS_APP_DB does not exist.
     """
-    tsa_conf = duthost.shell('sonic-db-cli CHASSIS_APP_DB HGET \'BGP_DEVICE_GLOBAL|STATE\' tsa_enabled')['stdout']
+    if duthost.get_facts().get("modular_chassis"):
+        tsa_conf = duthost.shell('sonic-db-cli CHASSIS_APP_DB HGET \'BGP_DEVICE_GLOBAL|STATE\' tsa_enabled')['stdout']
+    else:
+        tsa_conf = duthost.shell('sonic-db-cli CONFIG_DB HGET \'BGP_DEVICE_GLOBAL|STATE\' tsa_enabled')['stdout']
     return tsa_conf
 
 

@@ -18,7 +18,7 @@ from tests.bgp.traffic_checker import get_traffic_shift_state, check_tsa_persist
 from tests.bgp.constants import TS_NORMAL, TS_MAINTENANCE, TS_NO_NEIGHBORS
 
 pytestmark = [
-    pytest.mark.topology('t1', 'm1', 'c0')
+    pytest.mark.topology('t1', 'm1', 'c0', 't2')
 ]
 
 logger = logging.getLogger(__name__)
@@ -85,8 +85,9 @@ def test_TSA(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost,
         # For T2 - TSA command sets up policies where only loopback address on the iBGP peers on the same linecard
         # are exchanged between the asics. Also, since bgpmon is iBGP as well, routes learnt from other asics on other
         # linecards are also not going to be advertised to bgpmon.
-        # So, cannot validate all routes are send to bgpmon on T2.
-        if tbinfo['topo']['type'] != 't2':
+        # So, cannot validate all routes are send to bgpmon on modular chassis T2.
+        # Fixed UpperT2 platforms are not modular chassis, bgpmon is eBGP so all routes should be visible.
+        if not (tbinfo['topo']['type'] == 't2' and duthost.facts.get('modular_chassis')):
             pytest_assert(get_routes_not_announced_to_bgpmon(duthost, ptfhost,
                                                              bgpmon_setup_teardown['namespace']) == [],
                           "Not all routes are announced to bgpmon")
@@ -146,7 +147,7 @@ def test_TSB(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, nbrho
     # Verify DUT is in normal state.
     pytest_assert(wait_until(30, 5, 0, lambda: TS_NORMAL == get_traffic_shift_state(duthost, "TSC no-stats")),
                   "DUT is not in normal state")
-    if tbinfo['topo']['type'] != 't2':
+    if not (tbinfo['topo']['type'] == 't2' and duthost.facts.get('modular_chassis')):
         pytest_assert(get_routes_not_announced_to_bgpmon(duthost, ptfhost, bgpmon_setup_teardown['namespace']) == [],
                       "Not all routes are announced to bgpmon")
 
@@ -272,7 +273,7 @@ def test_TSA_TSB_with_config_reload(duthosts, enum_rand_one_per_hwsku_frontend_h
         # Verify DUT is in maintenance state.
         pytest_assert(wait_until(30, 5, 0, lambda: TS_MAINTENANCE == get_traffic_shift_state(duthost, "TSC no-stats")),
                       "DUT is not in maintenance state")
-        if tbinfo['topo']['type'] != 't2':
+        if not (tbinfo['topo']['type'] == 't2' and duthost.facts.get('modular_chassis')):
             pytest_assert(get_routes_not_announced_to_bgpmon(duthost, ptfhost,
                                                              bgpmon_setup_teardown['namespace']) == [],
                           "Not all routes are announced to bgpmon")
@@ -348,7 +349,7 @@ def test_load_minigraph_with_traffic_shift_away(duthosts, enum_rand_one_per_hwsk
         # Verify DUT is in maintenance state.
         pytest_assert(wait_until(30, 5, 0, lambda: TS_MAINTENANCE == get_traffic_shift_state(duthost, "TSC no-stats")),
                       "DUT is not in maintenance state")
-        if tbinfo['topo']['type'] != 't2':
+        if not (tbinfo['topo']['type'] == 't2' and duthost.facts.get('modular_chassis')):
             pytest_assert(get_routes_not_announced_to_bgpmon(duthost, ptfhost,
                                                              bgpmon_setup_teardown['namespace']) == [],
                           "Not all routes are announced to bgpmon")
