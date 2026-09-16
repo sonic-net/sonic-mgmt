@@ -1,4 +1,5 @@
 import datetime
+import json
 import logging
 import pytest
 import time
@@ -22,6 +23,30 @@ pytestmark = [
 ]
 
 logger = logging.getLogger(__name__)
+
+PFCWD_POLL_INTERVAL = 600
+
+
+def _read_pfcwd_config(duthost):
+    """Return the complete PFC_WD CONFIG_DB table."""
+    output = duthost.command('redis-dump -d 4 --pretty -k "PFC_WD|*"')
+    config = json.loads(output['stdout'])
+    return {key: entry.get('value', {}) for key, entry in config.items()}
+
+
+@pytest.fixture
+def restore_pfcwd_poll_interval(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    """Restore the polling interval before stop_pfcwd restarts defaults."""
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    result = duthost.command('sonic-db-cli CONFIG_DB hget "PFC_WD|GLOBAL" POLL_INTERVAL')
+    original_interval = result['stdout'].strip()
+    yield duthost
+
+    duthost.command("pfcwd stop")
+    if original_interval:
+        duthost.command("pfcwd interval {}".format(original_interval))
+    else:
+        duthost.command('sonic-db-cli CONFIG_DB hdel "PFC_WD|GLOBAL" POLL_INTERVAL')
 
 
 @pytest.fixture(autouse=True)
@@ -553,3 +578,32 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                 # Reset global ARP settings modified by resolve_arp
                 self.ptf.command("sysctl -w net.ipv4.conf.all.arp_ignore=0",
                                  module_ignore_errors=True)
+
+
+@pytest.mark.parametrize(
+    "detection_time,restoration_time,error_field",
+    [
+        (PFCWD_POLL_INTERVAL - 1, PFCWD_POLL_INTERVAL, "detection"),
+        (PFCWD_POLL_INTERVAL, PFCWD_POLL_INTERVAL - 1, "restoration"),
+        (PFCWD_POLL_INTERVAL, PFCWD_POLL_INTERVAL, None),
+    ],
+)
+def test_pfcwd_start_timer_validation(restore_pfcwd_poll_interval, detection_time, restoration_time, error_field):
+    """Verify pfcwd start enforces the configured polling interval."""
+    duthost = restore_pfcwd_poll_interval
+    duthost.command("pfcwd interval {}".format(PFCWD_POLL_INTERVAL))
+    original_config = _read_pfcwd_config(duthost)
+
+    command = "pfcwd start --action drop --restoration-time {} all {}".format(restoration_time, detection_time)
+    result = duthost.command(command, module_ignore_errors=True)
+
+    if error_field:
+        pytest_assert(result['rc'] != 0, "PFCWD accepted {} time below polling interval".format(error_field))
+        expected_error = "{} time {}ms is smaller than the configured polling interval {}ms".format(
+            error_field, PFCWD_POLL_INTERVAL - 1, PFCWD_POLL_INTERVAL)
+        pytest_assert(expected_error in result['stdout'] + result['stderr'],
+                      "Expected validation error was not reported")
+        pytest_assert(_read_pfcwd_config(duthost) == original_config, "Rejected PFCWD start changed CONFIG_DB")
+        return
+
+    pytest_assert(not result['rc'], "PFCWD rejected timers equal to polling interval")
