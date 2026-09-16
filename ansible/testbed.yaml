@@ -3965,6 +3965,40 @@
   comment: ediwibowo
   tb_owner: ediwibowo
 
+- conf-name: sc02-bmc-7060xe7-j02-u17
+  group-name: sc02-k07-u17-1
+  topo: bmc-dual-mgmt
+  ptf_image_name: docker-ptf
+  ptf: sc02-k07-u17-1
+  ptf_ip: 10.212.74.243/26
+  ptf_ipv6:
+  server: server_sc02a_k07_u17
+  vm_base:
+  dut:
+  - sc02-7060xe7-64prs-j02-u17-bmc
+  bmc_host: sc02-7060xe7-64prs-j02-u17
+  inv_name: sc02a
+  auto_recover: 'True'
+  comment: SC02 Lab
+  tb_owner: ediwibowo
+
+- conf-name: sc02-bmc-7060xe7-j05-u13
+  group-name: sc02-k06-u19-1
+  topo: bmc-dual-mgmt
+  ptf_image_name: docker-ptf
+  ptf: sc02-k06-u19-1
+  ptf_ip: 10.212.74.116/26
+  ptf_ipv6:
+  server: server_sc02a_k06_u19
+  vm_base:
+  dut:
+  - sc02-7060xe7-64prs-j05-u13-bmc
+  bmc_host: sc02-7060xe7-64prs-j05-u13
+  inv_name: sc02a
+  auto_recover: 'True'
+  comment: SC02 Lab
+  tb_owner: ediwibowo
+
 - conf-name: vms12-t1-smartswitch-4280-01
   group-name: vms12-4
   topo: t1-48-lag

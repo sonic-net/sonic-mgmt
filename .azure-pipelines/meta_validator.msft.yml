@@ -42,6 +42,9 @@ validators:
       # Remove "-api-serv" suffix from device names for ixia
       - from: "^(.+)-api-serv$"
         to: "\\1"
+    exclude_ipv4_ipv6_mismatch_groups:
+      # SC02 uses independently allocated IPv4 and IPv6 management addresses.
+      - ^sc02a$
     exclude_devices:
       # Devices that current causing IP conflicts
       - vlab-c-01.*

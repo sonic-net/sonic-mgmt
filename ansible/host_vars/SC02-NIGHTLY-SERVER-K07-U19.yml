@@ -1,0 +1,14 @@
+mgmt_bridge: br1
+mgmt_prefixlen: 17
+mgmt_intf_name: eno8303
+mgmt_gw: 10.212.74.193
+mgmt_gw_v6: 2603:10e2:140:3002::141
+vm_mgmt_gw: 172.16.128.1
+external_port: ens4f1
+mgmt_bridge_addresses:
+ - "172.16.233.5/17"
+
+proxy_env:
+  http_proxy: "http://10.1.3.5:8080"
+  https_proxy: "http://10.1.3.5:8080"
+  no_proxy: "localhost,127.0.0.0,127.0.1.1,127.0.1.1"

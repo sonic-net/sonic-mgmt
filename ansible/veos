@@ -101,6 +101,10 @@ all:
         vm_bjw3_host_7:
         vm_bjw3_host_8:
         vm_bjw3_host_9:
+        vm_sc02_host_k06_u17:
+        vm_sc02_host_k07_u17:
+        vm_sc02_host_k06_u19:
+        vm_sc02_host_k07_u19:
     eos:
       children:
         vms_1:
@@ -199,6 +203,10 @@ all:
         vms_bjw3_7:
         vms_bjw3_8:
         vms_bjw3_9:
+        vms_sc02_k06_u17:
+        vms_sc02_k07_u17:
+        vms_sc02_k06_u19:
+        vms_sc02_k07_u19:
     servers:
       children:
         server_1:
@@ -287,6 +295,10 @@ all:
         server_bjw3_7:
         server_bjw3_8:
         server_bjw3_9:
+        server_sc02a_k06_u17:
+        server_sc02a_k07_u17:
+        server_sc02a_k06_u19:
+        server_sc02a_k07_u19:
         server_tk5_3:
         server_tk5_4:
         server_tk5_5:
@@ -820,6 +832,22 @@ vm_bjw3_host_9:
   hosts:
     BJW3-CAN-SERV-9:
       ansible_host: 10.150.238.24
+vm_sc02_host_k06_u17:
+  hosts:
+    SC02-NIGHTLY-SERVER-K06-U17:
+      ansible_host: 10.212.74.111
+vm_sc02_host_k07_u17:
+  hosts:
+    SC02-NIGHTLY-SERVER-K07-U17:
+      ansible_host: 10.212.74.239
+vm_sc02_host_k06_u19:
+  hosts:
+    SC02-NIGHTLY-SERVER-K06-U19:
+      ansible_host: 10.212.74.114
+vm_sc02_host_k07_u19:
+  hosts:
+    SC02-NIGHTLY-SERVER-K07-U19:
+      ansible_host: 10.212.74.242
 vms_1:
   hosts:
     VM01000:
@@ -28946,6 +28974,94 @@ vms_bjw3_9:
       ansible_host: 172.16.222.105
     VM04094:
       ansible_host: 172.16.222.106
+vms_sc02_k06_u17:
+  hosts:
+    VM04100:
+      ansible_host: 172.16.230.10
+    VM04101:
+      ansible_host: 172.16.230.11
+    VM04102:
+      ansible_host: 172.16.230.12
+    VM04103:
+      ansible_host: 172.16.230.13
+    VM04104:
+      ansible_host: 172.16.230.14
+    VM04105:
+      ansible_host: 172.16.230.15
+    VM04106:
+      ansible_host: 172.16.230.16
+    VM04107:
+      ansible_host: 172.16.230.17
+    VM04108:
+      ansible_host: 172.16.230.18
+    VM04109:
+      ansible_host: 172.16.230.19
+vms_sc02_k07_u17:
+  hosts:
+    VM04200:
+      ansible_host: 172.16.231.10
+    VM04201:
+      ansible_host: 172.16.231.11
+    VM04202:
+      ansible_host: 172.16.231.12
+    VM04203:
+      ansible_host: 172.16.231.13
+    VM04204:
+      ansible_host: 172.16.231.14
+    VM04205:
+      ansible_host: 172.16.231.15
+    VM04206:
+      ansible_host: 172.16.231.16
+    VM04207:
+      ansible_host: 172.16.231.17
+    VM04208:
+      ansible_host: 172.16.231.18
+    VM04209:
+      ansible_host: 172.16.231.19
+vms_sc02_k06_u19:
+  hosts:
+    VM04300:
+      ansible_host: 172.16.232.10
+    VM04301:
+      ansible_host: 172.16.232.11
+    VM04302:
+      ansible_host: 172.16.232.12
+    VM04303:
+      ansible_host: 172.16.232.13
+    VM04304:
+      ansible_host: 172.16.232.14
+    VM04305:
+      ansible_host: 172.16.232.15
+    VM04306:
+      ansible_host: 172.16.232.16
+    VM04307:
+      ansible_host: 172.16.232.17
+    VM04308:
+      ansible_host: 172.16.232.18
+    VM04309:
+      ansible_host: 172.16.232.19
+vms_sc02_k07_u19:
+  hosts:
+    VM04400:
+      ansible_host: 172.16.233.10
+    VM04401:
+      ansible_host: 172.16.233.11
+    VM04402:
+      ansible_host: 172.16.233.12
+    VM04403:
+      ansible_host: 172.16.233.13
+    VM04404:
+      ansible_host: 172.16.233.14
+    VM04405:
+      ansible_host: 172.16.233.15
+    VM04406:
+      ansible_host: 172.16.233.16
+    VM04407:
+      ansible_host: 172.16.233.17
+    VM04408:
+      ansible_host: 172.16.233.18
+    VM04409:
+      ansible_host: 172.16.233.19
 server_1:
   vars:
     host_var_file: host_vars/STR-ACS-SERV-01.yml
@@ -29527,3 +29643,27 @@ server_bjw3_9:
   children:
     vm_bjw3_host_9:
     vms_bjw3_9:
+server_sc02a_k06_u17:
+  vars:
+    host_var_file: host_vars/SC02-NIGHTLY-SERVER-K06-U17.yml
+  children:
+    vm_sc02_host_k06_u17:
+    vms_sc02_k06_u17:
+server_sc02a_k07_u17:
+  vars:
+    host_var_file: host_vars/SC02-NIGHTLY-SERVER-K07-U17.yml
+  children:
+    vm_sc02_host_k07_u17:
+    vms_sc02_k07_u17:
+server_sc02a_k06_u19:
+  vars:
+    host_var_file: host_vars/SC02-NIGHTLY-SERVER-K06-U19.yml
+  children:
+    vm_sc02_host_k06_u19:
+    vms_sc02_k06_u19:
+server_sc02a_k07_u19:
+  vars:
+    host_var_file: host_vars/SC02-NIGHTLY-SERVER-K07-U19.yml
+  children:
+    vm_sc02_host_k07_u19:
+    vms_sc02_k07_u19:
