@@ -709,7 +709,16 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
         wait_for_startup(duthost, localhost, delay=10, timeout=timeout)
 
         if not is_vs_device(duthost):
-            uptime_after_recovery = duthost.get_up_time()
+            uptime_after_recovery = []
+
+            def _get_uptime_after_recovery():
+                uptime_after_recovery.append(duthost.get_up_time())
+                return True
+
+            pytest_assert(wait_until(wait_time, 5, 0, _get_uptime_after_recovery),
+                          "DUT did not become reachable within {} seconds after PDU reboot"
+                          .format(wait_time))
+            uptime_after_recovery = uptime_after_recovery[0]
             if uptime_after_recovery <= uptime_before_recovery:
                 pytest.fail("PDU reboot failed for {}: DUT boot time did not change (before: {}, after: {})"
                             .format(duthost.hostname, uptime_before_recovery, uptime_after_recovery))
