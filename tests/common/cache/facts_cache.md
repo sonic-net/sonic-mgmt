@@ -4,7 +4,7 @@ To run test scripts, we frequently need to gather facts from various devices aga
 
 # Cache Design
 
-To simplify the design, we use local (sonic-mgmt container) pickle files to cache information. Although reading from local file is slower than reading from memory, it is still much faster than running commands on remote host through SSH connection and parsing the output. Only the first reading of cached information needs to load from file. Subsequent reading are from a runtime dictionary, the performance is equivalent to reading from memory. A dedicated folder (by default `tests/_cache`) is used to store the cached pickle files. The pickle files are grouped into sub-folders by zone (usually hostname, but the zone name can also be something else that unique, like testbed name). For example, file `tests/_cache/vlab-01/basic_facts.pickle` caches some basic facts of host `vlab-01`.
+To simplify the design, we use local (sonic-mgmt container) pickle files to cache information. Although reading from local file is slower than reading from memory, it is still much faster than running commands on remote host through SSH connection and parsing the output. Only the first reading of cached information needs to load from file. Subsequent reading are from a runtime dictionary, the performance is equivalent to reading from memory. A dedicated folder (by default `tests/_cache`) is used to store the cached pickle files. The pickle files are grouped into sub-folders by zone (usually hostname, but the zone name can also be something else that unique, like testbed name). For example, file `tests/_cache/vlab-01/sonic_basic_facts.pickle` caches some basic facts of host `vlab-01`.
 
 The cache function is mainly implemented in below file:
 ```
@@ -52,7 +52,7 @@ class SonicHost(AnsibleHostBase):
 
     ...
 
-    @cached(name='basic_facts')
+    @cached(name='sonic_basic_facts')
     def _gather_facts(self):
 
     ...
@@ -96,7 +96,7 @@ class SonicHost(AnsibleHostBase):
 
     ...
 
-    @cached(name='basic_facts')
+    @cached(name='sonic_basic_facts')
     def _gather_facts(self):
 ```
 2. have custome zone getter function to retrieve zone from the argument `hostname` defined in the decorated function.
@@ -137,7 +137,7 @@ class SonicHost(AnsibleHostBase):
 
     ...
 
-    @cached(name='basic_facts', after_read=validate_datetime_after_read, before_write=add_datetime_before_write)
+    @cached(name='sonic_basic_facts', after_read=validate_datetime_after_read, before_write=add_datetime_before_write)
     def _gather_facts(self):
 ```
 
