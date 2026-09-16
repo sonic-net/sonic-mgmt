@@ -9,16 +9,14 @@ from tests.common.platform.interface_utils import (
     get_lport_to_first_subport_mapping,
 )
 
-# Import attribute parser components
-from tests.transceiver.attribute_parser.dut_info_loader import DutInfoLoader
-from tests.transceiver.attribute_parser.attribute_manager import AttributeManager
+# Import common port attributes builder (reusable across test packages)
+from tests.common.port_attributes import build_port_attributes_dict
+
 from tests.transceiver.attribute_parser.template_validator import STATUS_FULLY, STATUS_PARTIAL, TemplateValidator
 from tests.transceiver.attribute_parser.exceptions import DutInfoError, AttributeMergeError, TemplateValidationError
 from tests.transceiver.attribute_parser.utils import format_kv_block
 from tests.transceiver.attribute_parser.paths import (
-    REL_ATTR_DIR,
     REL_DEPLOYMENT_TEMPLATES_FILE,
-    get_repo_root,
 )
 
 # Shared prerequisite + health-check primitives (also called from reportable test cases).
@@ -37,8 +35,6 @@ from tests.transceiver.common.health_checks import (
 )
 
 logger = logging.getLogger(__name__)
-
-REPO_ROOT = get_repo_root()
 
 # Session-wide health-check event log, consumed by pytest_terminal_summary.
 # Category conftest files import this list and pass it to
@@ -154,9 +150,8 @@ def _load_platform_hwsku(duthost):
 def port_attributes_dict(request, ansible_root, duthost):
     """Session-scoped merged port attributes (BASE + category).
 
-    Loads dut_info.json via DutInfoLoader and merges category attribute files via AttributeManager.
-    Optionally validates templates. Failure scenarios abort early to avoid invalid test runs.
-    Logs compliance summary (if performed) before returning the merged attributes dict.
+    Delegates loading and merging to the common port-attribute builder while
+    retaining transceiver template validation and reporting in this package.
     """
     dut_name = duthost.hostname
     if not dut_name:
@@ -169,32 +164,24 @@ def port_attributes_dict(request, ansible_root, duthost):
     if not platform or not hwsku:
         logger.warning("Platform/HWSKU not determined; platform/hwsku specific overrides may not apply")
 
-    logger.info("Building transceiver base port attributes for DUT '%s'", dut_name)
-    loader = DutInfoLoader(ansible_root)
     try:
-        base_dict = loader.build_base_port_attributes(dut_name)
-    except DutInfoError as e:
-        pytest.fail(f"Failed loading base port attributes: {e}")
+        merged = build_port_attributes_dict(
+            ansible_root,
+            duthost,
+            validate_templates=False,
+            categories=None,
+            missing_category_ok=False,
+        )
+    except (DutInfoError, AttributeMergeError) as e:
+        pytest.fail(f"Port attributes inventory is invalid: {e}")
 
-    if not base_dict:
-        pytest.skip(f"No ports found for DUT '{dut_name}' in dut_info.json")
-
-    attr_dir = os.path.join(ansible_root, REL_ATTR_DIR)
-    if not os.path.isdir(attr_dir):
-        pytest.skip(f"Attributes directory {attr_dir} absent - returning base attributes only")
-
-    logger.info("Merging category attributes from %s", attr_dir)
-    mgr = AttributeManager(ansible_root, base_dict)
-    try:
-        merged = mgr.build_port_attributes(dut_name, platform or '', hwsku or '')
-    except AttributeMergeError as e:
-        pytest.fail(f"Category attribute merging failed: {e}")
     if not merged:
-        pytest.skip(f"No merged attributes found for DUT '{dut_name}'")
+        pytest.skip(f"No transceiver attribute categories found for DUT '{dut_name}'")
 
     # Run compliance validation (validator handles detailed logging and raises on required misses)
     templates_path = os.path.join(ansible_root, REL_DEPLOYMENT_TEMPLATES_FILE)
-    if not request.config.getoption('--skip_transceiver_template_validation') and os.path.isfile(templates_path):
+    skip_validation = request.config.getoption('--skip_transceiver_template_validation', False)
+    if not skip_validation and os.path.isfile(templates_path):
         logger.info("Validating transceiver attributes against templates in %s", templates_path)
         validator = TemplateValidator(ansible_root)
         try:
