@@ -17,6 +17,7 @@ from collections import defaultdict
 
 from natsort import natsorted
 
+from tests.common.helpers.sonic_db import SonicDbCli
 from tests.common.platform.interface_utils import (
     get_dut_interfaces_status,
     get_physical_to_logical_port_mapping,
@@ -207,29 +208,25 @@ def verify_presence_clis(duthost, lports, present):
 
 
 def _transceiver_state_tables(duthost, lports):
-    """Return ``({port: {table name}}, errors)`` for the ``TRANSCEIVER_*`` STATE_DB keys.
+    """Return ``({port: {table name}}, errors)`` for the ``TRANSCEIVER_*`` STATE_DB keys."""
+    asics_by_index = {}
+    for port in lports:
+        asic = duthost.get_port_asic_instance(port)
+        asics_by_index[asic.asic_index] = asic
 
-    Scans each ASIC's STATE_DB that owns a port under test.  A failed scan is
-    returned as an error rather than an empty map, so a negative assertion
-    ("the tables are gone") cannot pass on a database that was never read.
-    """
-    namespaces = sorted(
-        {db_helpers.resolve_port_namespace(duthost, port) or "" for port in lports})
     tables_by_port = defaultdict(set)
     errors = []
-    for namespace in namespaces:
-        ns_flag = f" -n {namespace}" if namespace else ""
-        out = duthost.shell(
-            f"sonic-db-cli{ns_flag} STATE_DB KEYS 'TRANSCEIVER_*'", module_ignore_errors=True)
-        if out.get("rc", RC_FAILURE) != 0:
-            errors.append(
-                f"STATE_DB TRANSCEIVER_* key scan failed in namespace "
-                f"{namespace or 'default'} (rc={out.get('rc')}) - table state not verified")
-            continue
-        for key in out.get("stdout_lines", []):
-            table, _, port = key.partition("|")
-            if port:
-                tables_by_port[port].add(table)
+    for asic in asics_by_index.values():
+        try:
+            state_db_cli = SonicDbCli(asic, "STATE_DB")
+            keys = state_db_cli.get_keys("TRANSCEIVER_*")
+            for key in keys:
+                table, _, port = key.partition("|")
+                if port:
+                    tables_by_port[port].add(table)
+        except Exception as exc:
+            errors.append(f"Failed to scan STATE_DB for ASIC {asic}: {exc}")
+
     return tables_by_port, errors
 
 
