@@ -656,16 +656,23 @@ def check_dom_sensor_freshness(sensor_data, max_age_min, now_utc):
 
 
 def verify_dom_recovered(duthost, port_attributes_dict, ports,
-                         lport_to_first_subport_mapping, baseline_sensor_data):
+                         lport_to_first_subport_mapping, baseline_sensor_data,
+                         wait_sec=None):
     """Confirm DOM data recovered after a disruptive operation. Polls until the sensor
     entry is republished and every configured field is readable, then asserts each field
     is within its operational range.
+
+    ``wait_sec`` overrides the inventory recovery budget when a caller is
+    coordinating this check against a shared deadline. When omitted, the
+    existing ``dom_info_recover_sec`` behavior is preserved.
 
     Returns a list of failure strings (empty on success).
     """
     dom_attrs = port_attributes_dict[ports[0]].get(DOM_ATTRIBUTES_KEY, {})
     if dom_attrs.get("data_max_age_min") is None:
         return [f"{ports[0]}: {DOM_ATTRIBUTES_KEY} is missing data_max_age_min"]
+    if wait_sec is None:
+        wait_sec = dom_attrs["dom_info_recover_sec"]
 
     plan_by_port = build_dom_sensor_plan(
         port_attributes_dict, ports, lport_to_first_subport_mapping,
@@ -687,7 +694,7 @@ def verify_dom_recovered(duthost, port_attributes_dict, ports,
         return failures + port_failures
 
     failures = scenario_ops.poll_ports_recovered(
-        _check_republished, dom_attrs["dom_info_recover_sec"],
+        _check_republished, wait_sec,
         DOM_RECOVERY_POLL_INTERVAL_SEC, "DOM recovery",
     )
     if failures:

@@ -12,6 +12,7 @@ in a single pass.  Per-port failures are aggregated into a single
 ``pytest.fail`` so one run surfaces every issue across every port under test.
 """
 import logging
+import time
 
 import pytest
 
@@ -65,10 +66,20 @@ def _dom_recover_wait(port_attributes_dict, lports, wait_sec):
     return recovery.dom_republish_wait(port_attributes_dict, wait_sec, lports)
 
 
-def _capture_table_baseline(duthost, lports):
-    """Snapshot the seated modules' STATE_DB tables, plus any scan failures."""
+def _remaining_wait(deadline):
+    """Return the non-negative time remaining before ``deadline``."""
+    return max(0, deadline - time.monotonic())
+
+
+def _capture_recovery_baseline(duthost, port_attributes_dict,
+                               lport_to_first_subport_mapping, lports):
+    """Snapshot seated-module STATE_DB tables and applicable DOM sensor data."""
     baseline_tables, errors = oir_helpers.capture_state_tables(duthost, lports)
-    return baseline_tables, [f"STATE_DB baseline: {error}" for error in errors]
+    baseline_sensor_data, dom_errors = oir_helpers.capture_dom_sensor_baseline(
+        duthost, port_attributes_dict, lport_to_first_subport_mapping, lports)
+    failures = [f"STATE_DB baseline: {error}" for error in errors]
+    failures += [f"DOM sensor baseline: {error}" for error in dom_errors]
+    return baseline_tables, baseline_sensor_data, failures
 
 
 def _verify_removal(duthost, port_attributes_dict, lports, flap_baseline, watermark, wait_sec):
@@ -84,21 +95,32 @@ def _verify_removal(duthost, port_attributes_dict, lports, flap_baseline, waterm
 
 def _verify_insertion(duthost, port_attributes_dict, lport_to_first_subport_mapping,
                       lports, health_baseline, watermark, wait_sec,
-                      baseline_tables=None, insert_flap_baseline=None, expected_flap_increment=1):
+                      baseline_tables=None, baseline_sensor_data=None,
+                      insert_flap_baseline=None, expected_flap_increment=1):
     """TC2 expected results for the ports whose module was just inserted."""
-    failures = oir_helpers.verify_presence_clis(duthost, lports, present=True)
-    failures += oir_helpers.verify_state_tables_present(
-        duthost, lports, _parents_of(lports, lport_to_first_subport_mapping), wait_sec,
-        baseline_tables=baseline_tables)
+    recovery_start = time.monotonic()
+    startup_deadline = recovery_start + wait_sec
+    publication_deadline = recovery_start + _dom_recover_wait(
+        port_attributes_dict, lports, wait_sec)
 
     port_recovery = standard_port_recovery_and_verification(
         duthost, lports, {port: port_attributes_dict[port] for port in lports},
-        link_up_timeout_sec=wait_sec,
+        link_up_timeout_sec=_remaining_wait(startup_deadline),
         health_baseline=health_baseline,
         lport_to_first_subport_mapping=lport_to_first_subport_mapping,
     )
+    failures = []
     if not port_recovery["passed"]:
         failures.append(port_recovery["details"])
+
+    failures += oir_helpers.verify_presence_clis(duthost, lports, present=True)
+    failures += oir_helpers.verify_state_tables_present(
+        duthost,
+        lports,
+        _parents_of(lports, lport_to_first_subport_mapping),
+        _remaining_wait(publication_deadline),
+        baseline_tables=baseline_tables,
+    )
 
     # TC2 step 8: the local port must come up without flapping across the
     # insertion itself, which a post-recovery sentinel alone cannot see.
@@ -107,8 +129,13 @@ def _verify_insertion(duthost, port_attributes_dict, lport_to_first_subport_mapp
             duthost, lports, insert_flap_baseline, expected_increment=expected_flap_increment)
 
     failures += recovery.verify_transceiver_recovery(
-        duthost, port_attributes_dict, lport_to_first_subport_mapping, wait_sec,
-        "after insertion", ports=lports,
+        duthost,
+        port_attributes_dict,
+        lport_to_first_subport_mapping,
+        _remaining_wait(startup_deadline),
+        "after insertion",
+        ports=lports,
+        firmware_wait_sec=_remaining_wait(publication_deadline),
         # The module was just re-seated, so its EEPROM is physically re-read;
         # always take the live-I2C confirmation pass even on a zero settle.
         live_i2c_confirm=True,
@@ -118,12 +145,23 @@ def _verify_insertion(duthost, port_attributes_dict, lport_to_first_subport_mapp
     # module is back (VDM / PM re-publication is covered by the STATE_DB table
     # check above, which is driven by the pre-removal baseline).
     dom_failures = oir_helpers.verify_dom_data_recovered(
-        duthost, port_attributes_dict, lport_to_first_subport_mapping, lports,
-        _dom_recover_wait(port_attributes_dict, lports, wait_sec))
+        duthost,
+        port_attributes_dict,
+        lport_to_first_subport_mapping,
+        lports,
+        baseline_sensor_data or {},
+        _remaining_wait(publication_deadline),
+    )
     if dom_failures:
         failures.append("DOM sensor data:\n  " + "\n  ".join(dom_failures))
 
-    failures += oir_helpers.verify_no_link_flap(duthost, port_attributes_dict, lports)
+    failures += oir_helpers.verify_no_link_flap(
+        duthost,
+        port_attributes_dict,
+        lports,
+        sentinels=port_recovery["post_recovery_sentinels"],
+        observation_start=port_recovery["post_recovery_started_at"],
+    )
     failures += oir_helpers.verify_no_kernel_errors(duthost, watermark)
     return failures
 
@@ -167,7 +205,8 @@ def test_physical_oir_insertion(
 
     # Snapshot while the modules are still seated: it defines which module
     # dependent tables (flag / VDM / PM) must be republished after insertion.
-    baseline_tables, setup_failures = _capture_table_baseline(duthost, lports)
+    baseline_tables, baseline_sensor_data, setup_failures = _capture_recovery_baseline(
+        duthost, port_attributes_dict, lport_to_first_subport_mapping, lports)
 
     # Setup: every cage has to be empty before the insertion under test.
     setup_failures += oir_helpers.perform_oir(
@@ -188,7 +227,9 @@ def test_physical_oir_insertion(
         all_failures = _verify_insertion(
             duthost, port_attributes_dict, lport_to_first_subport_mapping,
             lports, health_baseline, watermark, startup_wait,
-            baseline_tables=baseline_tables, insert_flap_baseline=insert_flap_baseline)
+            baseline_tables=baseline_tables,
+            baseline_sensor_data=baseline_sensor_data,
+            insert_flap_baseline=insert_flap_baseline)
 
     if all_failures:
         pytest.fail("Physical OIR insertion (TC2) failures:\n  - " + "\n  - ".join(all_failures))
@@ -204,7 +245,8 @@ def test_physical_oir_simultaneous(
         pytest.skip("simultaneous_oir is False")
     shutdown_wait, startup_wait = _bulk_waits(port_attributes_dict, lports)
 
-    baseline_tables, all_failures = _capture_table_baseline(duthost, lports)
+    baseline_tables, baseline_sensor_data, all_failures = _capture_recovery_baseline(
+        duthost, port_attributes_dict, lport_to_first_subport_mapping, lports)
     flap_baseline = oir_helpers.get_flap_counts(duthost, lports)
     watermark = oir_helpers.capture_kernel_error_watermark(
         duthost, port_attributes_dict, lports)
@@ -225,7 +267,9 @@ def test_physical_oir_simultaneous(
     all_failures += insert_failures or _verify_insertion(
         duthost, port_attributes_dict, lport_to_first_subport_mapping,
         lports, health_baseline, watermark, startup_wait,
-        baseline_tables=baseline_tables, insert_flap_baseline=insert_flap_baseline)
+        baseline_tables=baseline_tables,
+        baseline_sensor_data=baseline_sensor_data,
+        insert_flap_baseline=insert_flap_baseline)
 
     if all_failures:
         pytest.fail("Simultaneous physical OIR (TC3) failures:\n  - " + "\n  - ".join(all_failures))
@@ -245,7 +289,8 @@ def test_physical_oir_stress(
     _, startup_wait = _bulk_waits(port_attributes_dict, lports)
 
     all_failures = []
-    baseline_tables, baseline_failures = _capture_table_baseline(duthost, lports)
+    baseline_tables, baseline_sensor_data, baseline_failures = _capture_recovery_baseline(
+        duthost, port_attributes_dict, lport_to_first_subport_mapping, lports)
     if baseline_failures:
         pytest.fail("Physical OIR stress (TC4) setup failures:\n  - " + "\n  - ".join(baseline_failures))
     health_baseline = capture_baseline(duthost)
@@ -276,7 +321,9 @@ def test_physical_oir_stress(
         all_failures = _verify_insertion(
             duthost, port_attributes_dict, lport_to_first_subport_mapping,
             lports, health_baseline, watermark, startup_wait,
-            baseline_tables=baseline_tables, insert_flap_baseline=insert_flap_baseline)
+            baseline_tables=baseline_tables,
+            baseline_sensor_data=baseline_sensor_data,
+            insert_flap_baseline=insert_flap_baseline)
 
     if all_failures:
         pytest.fail("Physical OIR stress (TC4) failures:\n  - " + "\n  - ".join(all_failures))

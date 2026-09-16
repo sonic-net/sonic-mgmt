@@ -41,10 +41,8 @@ from tests.transceiver.common.port_selectors import select_attribute_ports
 from tests.transceiver.common.scenario_ops import poll_ports_recovered
 from tests.transceiver.common.verification import assert_no_flap_since, capture_flap_sentinels
 from tests.transceiver.dom.dom_helpers import (
-    build_dom_sensor_plan,
-    dom_field_available,
     read_dom_sensor_data,
-    validate_dom_plan_fields,
+    verify_dom_recovered,
 )
 
 logger = logging.getLogger(__name__)
@@ -294,43 +292,43 @@ def verify_state_tables_present(duthost, lports, parents, wait_sec, baseline_tab
     return poll_ports_recovered(_check, wait_sec, POLL_INTERVAL_SEC, "STATE_DB insertion")
 
 
-def verify_dom_data_recovered(duthost, port_attributes_dict, lport_to_first_subport_mapping,
-                              lports, wait_sec):
-    """Verify DOM sensor data is republished with fresh, valid values after insertion.
-
-    Only ports whose inventory declares ``DOM_ATTRIBUTES`` are checked (the test
-    plan's "if applicable"): a DAC publishes no DOM data at all.  The expected
-    field set, the active media lanes and the freshness budget all come from the
-    same plan the DOM availability test uses, so both categories agree on what a
-    healthy module must publish.
-    """
-    dom_ports = select_attribute_ports(
+def _select_dom_ports(port_attributes_dict, lport_to_first_subport_mapping, lports):
+    """Return DOM-capable primary ports from the OIR target set."""
+    return select_attribute_ports(
         port_attributes_dict,
         DOM_ATTRIBUTES_KEY,
         lport_to_first_subport_mapping,
         explicit_ports=lports,
     ).primary_ports
+
+
+def capture_dom_sensor_baseline(duthost, port_attributes_dict,
+                                lport_to_first_subport_mapping, lports):
+    """Capture pre-removal DOM sensor data for applicable OIR ports."""
+    dom_ports = _select_dom_ports(
+        port_attributes_dict, lport_to_first_subport_mapping, lports)
+    if not dom_ports:
+        return {}, []
+    return read_dom_sensor_data(duthost, dom_ports)
+
+
+def verify_dom_data_recovered(duthost, port_attributes_dict, lport_to_first_subport_mapping,
+                              lports, baseline_sensor_data, wait_sec):
+    """Verify applicable OIR DOM data using the shared recovery orchestration."""
+    dom_ports = _select_dom_ports(
+        port_attributes_dict, lport_to_first_subport_mapping, lports)
     if not dom_ports:
         logger.info("No DOM-capable port under test; skipping DOM data verification")
         return []
 
-    plan_by_port = build_dom_sensor_plan(
-        port_attributes_dict, dom_ports, lport_to_first_subport_mapping)
-
-    def _check():
-        sensor_by_port, read_errors = read_dom_sensor_data(duthost, dom_ports)
-        failures = [f"TRANSCEIVER_DOM_SENSOR read: {error}" for error in read_errors]
-        port_failures, _, _ = validate_dom_plan_fields(
-            duthost,
-            dom_ports,
-            sensor_by_port,
-            plan_by_port,
-            dom_field_available,
-            include_freshness_only=True,
-        )
-        return failures + port_failures
-
-    return poll_ports_recovered(_check, wait_sec, POLL_INTERVAL_SEC, "DOM sensor data")
+    return verify_dom_recovered(
+        duthost,
+        port_attributes_dict,
+        dom_ports,
+        lport_to_first_subport_mapping,
+        baseline_sensor_data,
+        wait_sec=wait_sec,
+    )
 
 
 def get_flap_counts(duthost, lports):
@@ -351,23 +349,27 @@ def verify_flap_count_increment(duthost, lports, baseline, expected_increment=1)
     return failures
 
 
-def verify_no_link_flap(duthost, port_attributes_dict, lports):
+def verify_no_link_flap(duthost, port_attributes_dict, lports,
+                        sentinels=None, observation_start=None):
     """Verify each port stays stable for its configured observation window."""
     lports_by_timeout = defaultdict(list)
     for port in lports:
         attrs = port_attributes_dict[port][PHYSICAL_OIR_ATTRIBUTES_KEY]
         lports_by_timeout[attrs["link_flap_monitor_timeout_sec"]].append(port)
 
-    sentinels = capture_flap_sentinels(duthost, lports)
+    if sentinels is None:
+        sentinels = capture_flap_sentinels(duthost, lports)
+    if observation_start is None:
+        observation_start = time.monotonic()
+
     failures = []
-    elapsed_sec = 0
     for monitor_sec in sorted(lports_by_timeout):
-        time.sleep(monitor_sec - elapsed_sec)
+        elapsed_sec = time.monotonic() - observation_start
+        time.sleep(max(0, monitor_sec - elapsed_sec))
         monitored_lports = lports_by_timeout[monitor_sec]
         results = assert_no_flap_since(
             duthost, monitored_lports, sentinels, elapsed_sec=monitor_sec)
         failures += [result["details"] for result in results.values() if not result["passed"]]
-        elapsed_sec = monitor_sec
     return failures
 
 
