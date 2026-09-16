@@ -30,6 +30,7 @@ def render_json_template(template_name, context):
     environment = Environment(
         loader=FileSystemLoader(str(Path(__file__).parent / "templates")),
         undefined=StrictUndefined,
-        autoescape=False,
+        # Dynamic JSON values use tojson, which remains valid with autoescaping.
+        autoescape=True,
     )
     return json.loads(environment.get_template(template_name).render(**context))
