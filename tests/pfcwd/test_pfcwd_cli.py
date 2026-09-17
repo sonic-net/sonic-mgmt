@@ -28,25 +28,29 @@ PFCWD_POLL_INTERVAL = 600
 
 
 def _read_pfcwd_config(duthost):
-    """Return the complete PFC_WD CONFIG_DB table."""
-    output = duthost.command('redis-dump -d 4 --pretty -k "PFC_WD|*"')
-    config = json.loads(output['stdout'])
-    return {key: entry.get('value', {}) for key, entry in config.items()}
+    """Return the complete PFC_WD CONFIG_DB table for each ASIC namespace."""
+    config = {}
+    for asic in duthost.asics:
+        output = asic.command('redis-dump -d 4 --pretty -k "PFC_WD|*"')
+        table = json.loads(output['stdout'])
+        config[asic.namespace] = {key: entry.get('value', {}) for key, entry in table.items()}
+    return config
 
 
 @pytest.fixture
 def restore_pfcwd_poll_interval(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """Restore the polling interval before stop_pfcwd restarts defaults."""
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    result = duthost.command('sonic-db-cli CONFIG_DB hget "PFC_WD|GLOBAL" POLL_INTERVAL')
-    original_interval = result['stdout'].strip()
+    original_config = _read_pfcwd_config(duthost)
     yield duthost
 
     duthost.command("pfcwd stop")
-    if original_interval:
-        duthost.command("pfcwd interval {}".format(original_interval))
-    else:
-        duthost.command('sonic-db-cli CONFIG_DB hdel "PFC_WD|GLOBAL" POLL_INTERVAL')
+    for asic in duthost.asics:
+        original_interval = original_config[asic.namespace].get('PFC_WD|GLOBAL', {}).get('POLL_INTERVAL')
+        if original_interval:
+            asic.run_sonic_db_cli_cmd('CONFIG_DB hset "PFC_WD|GLOBAL" POLL_INTERVAL {}'.format(original_interval))
+        else:
+            asic.run_sonic_db_cli_cmd('CONFIG_DB hdel "PFC_WD|GLOBAL" POLL_INTERVAL')
 
 
 @pytest.fixture(autouse=True)
