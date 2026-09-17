@@ -17,6 +17,7 @@ import subprocess
 import tempfile
 
 from tests.common.config_reload import config_reload
+from tests.common.utilities import wait_until
 
 DEFAULT_NN_TARGET_PORT = 3
 
@@ -221,6 +222,8 @@ def configure_syncd(dut, nn_target_port, nn_target_interface, nn_target_namespac
 
     dut.command("docker exec {} supervisorctl reread".format(syncd_docker_name))
     dut.command("docker exec {} supervisorctl update".format(syncd_docker_name))
+
+    wait_until(300, 10, 10, is_ptf_nn_agent_running, dut, nn_target_namespace)
 
 
 def is_ptf_nn_agent_running(dut, nn_target_namespace):
