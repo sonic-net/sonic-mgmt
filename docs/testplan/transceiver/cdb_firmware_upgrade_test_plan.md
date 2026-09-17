@@ -11,7 +11,7 @@ The scope of this test plan includes the following:
 - Firmware download, run, and commit validation
 - Firmware version verification against expected gold and inactive versions
 - Firmware download interruption and CDB abort handling
-- EEPROM static and dynamic fields integrity during firmware operations
+- Static and dynamic EEPROM field integrity during firmware operations
 - Firmware download, activation, and read stress testing
 - Firmware upgrade across firmware versions differing in minor and point numbers
 - Validating invalid firmware binary rejection
