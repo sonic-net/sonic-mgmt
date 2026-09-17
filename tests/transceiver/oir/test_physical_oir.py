@@ -24,6 +24,7 @@ from tests.transceiver.attribute_parser.attribute_keys import (
 from tests.transceiver.common import scenario_ops
 from tests.transceiver.common.health_checks import capture_baseline
 from tests.transceiver.common.verification import standard_port_recovery_and_verification
+from tests.transceiver.dom import dom_helpers
 from tests.transceiver.eeprom import recovery
 from tests.transceiver.oir import oir_helpers
 
@@ -141,6 +142,10 @@ def _verify_insertion(duthost, port_attributes_dict, lport_to_first_subport_mapp
         live_i2c_confirm=True,
     )
 
+    failures += dom_helpers.verify_dom_thresholds_after_operation(
+        duthost, port_attributes_dict, _parents_of(lports, lport_to_first_subport_mapping),
+    )
+
     # TC2 step 3: DOM data must be republished with valid, fresh values once the
     # module is back (VDM / PM re-publication is covered by the STATE_DB table
     # check above, which is driven by the pre-removal baseline).
@@ -167,7 +172,7 @@ def _verify_insertion(duthost, port_attributes_dict, lport_to_first_subport_mapp
 
 
 def test_physical_oir_removal(
-    request, duthost, port_attributes_dict, oir_pport_to_lports,
+    request, duthost, port_attributes_dict, oir_pport_to_lports, lport_to_first_subport_mapping,
 ):
     """TC1: verify DUT state after every module under test is physically removed."""
     pports, lports = _all_ports(oir_pport_to_lports)
@@ -190,6 +195,9 @@ def test_physical_oir_removal(
         request, duthost, oir_attrs, pports, present=True,
         action="INSERT the transceiver back into every port listed below")
     all_failures += wait_ports_oper_status(duthost, lports, "up", startup_wait)
+    all_failures += dom_helpers.verify_dom_thresholds_after_operation(
+        duthost, port_attributes_dict, _parents_of(lports, lport_to_first_subport_mapping),
+    )
 
     if all_failures:
         pytest.fail("Physical OIR removal (TC1) failures:\n  - " + "\n  - ".join(all_failures))
