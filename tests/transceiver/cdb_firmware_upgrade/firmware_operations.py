@@ -620,6 +620,9 @@ def execute_on_ports(duthost, port_attributes_dict, qualifying_ports, lport_to_p
         all_failures += verify_static_eeprom_unchanged(
             duthost, port_attributes_dict, qualifying_ports, lport_to_first_subport_mapping,
         )
+        all_failures += dom_helpers.verify_dom_thresholds_after_operation(
+            duthost, port_attributes_dict, qualifying_ports,
+        )
         all_failures += verify_dom_recovered_after_operation(
             duthost, port_attributes_dict, qualifying_ports, lport_to_first_subport_mapping,
         )
