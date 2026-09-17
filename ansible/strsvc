@@ -894,10 +894,12 @@ sonic_arista_7800_sup:
         - LINE-CARD6
         - LINE-CARD7
         'psus':
-        - psu5
-        - psu6
-        - psu11
-        - psu12
+        - psu1
+        - psu2
+        - psu3
+        - psu7
+        - psu8
+        - psu9
 
 sonic_arista_7800_lc_400G:
   vars:
