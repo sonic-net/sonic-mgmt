@@ -109,9 +109,9 @@ pdu-k09-a,14,str4-nh4210-leaf-01,PSU1
 pdu-k09-a,15,str4-nh4210-leaf-01,PSU2
 pdu-k09-b,14,str4-nh4210-leaf-01,PSU3
 pdu-k09-b,15,str4-nh4210-leaf-01,PSU4
-pdu-85,21,str4-sn5640-2,PSU1
-pdu-85,20,str4-sn5640-2,PSU2
-pdu-86,5,str4-sn5640-2,PSU3
-pdu-86,7,str4-sn5640-2,PSU4
+pdu-85,13,str4-sn5640-2,PSU1
+pdu-85,12,str4-sn5640-2,PSU2
+pdu-86,13,str4-sn5640-2,PSU3
+pdu-86,12,str4-sn5640-2,PSU4
 pdu-81,6,str4-sn5640-6,PSU2
 pdu-81,17,str4-sn5640-6,PSU4
