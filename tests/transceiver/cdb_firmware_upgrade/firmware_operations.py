@@ -301,12 +301,14 @@ def perform_firmware_download(duthost, port, port_context, metadata_map,
     failures = []
     with thermalctld_stopped_if_required(duthost, cdb_attrs, failures):
         if not failures and cdb_attrs.get("firmware_download_cdb_abort_support", True):
-            _, abort_err = cli_helpers.issue_cdb_fw_abort(duthost, physical_index)
+            status, abort_err = cli_helpers.issue_cdb_fw_abort(duthost, physical_index)
             if abort_err:
                 logger.warning(
                     "Port %s: pre-download CDB abort failed (proceeding): %s",
                     port, abort_err,
                 )
+            else:
+                logger.info("Port %s: pre-download CDB abort status=%s", port, status)
 
         if not failures:
             dmesg_start_uptime, dmesg_start_err = dmesg_helpers.capture_dmesg_uptime_watermark(duthost)
@@ -566,8 +568,8 @@ def _download_invalid_binary_op(duthost, port, port_context, metadata_map,
 
     physical_index = port_context["physical_index"]
     download_attempted = False
-    try:
-        with thermalctld_stopped_if_required(duthost, cdb_attrs, failures):
+    with thermalctld_stopped_if_required(duthost, cdb_attrs, failures):
+        try:
             if not failures:
                 _, abort_err = cli_helpers.issue_cdb_fw_abort(
                     duthost, physical_index
@@ -586,24 +588,26 @@ def _download_invalid_binary_op(duthost, port, port_context, metadata_map,
                     "Port %s: invalid firmware download took %ss (rc=%s, %s)",
                     port, elapsed, rc, err,
                 )
-                if rc == 0:
+                if rc == cli_helpers.TIMEOUT_RC:
+                    failures.append(err)
+                elif rc == 0:
                     failures.append("invalid firmware download unexpectedly returned rc=0")
 
-        if not failures:
-            failures += verify_firmware_state_unchanged(
-                duthost, port, before_banks,
-                cdb_attrs.get("dual_bank_supported", True),
-                expect_inactive_invalid,
-            )
-    finally:
-        if download_attempted:
-            cleanup_status, cleanup_err = cli_helpers.issue_cdb_fw_abort(
-                duthost, physical_index
-            )
-            if cleanup_err:
-                failures.append(f"CDB cleanup abort failed: {cleanup_err}")
-            elif cleanup_status != "True":
-                failures.append(f"CDB cleanup abort returned {cleanup_status or 'empty output'}")
+            if not failures:
+                failures += verify_firmware_state_unchanged(
+                    duthost, port, before_banks,
+                    cdb_attrs.get("dual_bank_supported", True),
+                    expect_inactive_invalid,
+                )
+        finally:
+            if download_attempted:
+                cleanup_status, cleanup_err = cli_helpers.issue_cdb_fw_abort(
+                    duthost, physical_index
+                )
+                if cleanup_err:
+                    failures.append(f"CDB cleanup abort failed: {cleanup_err}")
+                elif cleanup_status != "True":
+                    failures.append(f"CDB cleanup abort returned {cleanup_status or 'empty output'}")
     return failures
 
 
@@ -638,26 +642,24 @@ def _interrupt_download(duthost, port, port_context, metadata_map, percentage):
     if err:
         return [err]
 
+    _, abort_err = cli_helpers.issue_cdb_fw_abort(
+        duthost, port_context["physical_index"]
+    )
+    if abort_err:
+        logger.warning(
+            "Port %s: pre-download CDB abort failed (proceeding): %s",
+            port, abort_err,
+        )
+    timeout_sec = cdb_attrs["firmware_download_timeout_minutes"] * 60
+    reached, elapsed, err = cli_helpers.sfputil_firmware_download_interrupted(
+        duthost, port, fwfile, percentage, timeout_sec,
+        cdb_attrs["firmware_download_interrupt_method"],
+    )
     failures = []
-    with thermalctld_stopped_if_required(duthost, cdb_attrs, failures):
-        if not failures:
-            _, abort_err = cli_helpers.issue_cdb_fw_abort(
-                duthost, port_context["physical_index"]
-            )
-            if abort_err:
-                logger.warning(
-                    "Port %s: pre-download CDB abort failed (proceeding): %s",
-                    port, abort_err,
-                )
-            timeout_sec = cdb_attrs["firmware_download_timeout_minutes"] * 60
-            reached, elapsed, err = cli_helpers.sfputil_firmware_download_interrupted(
-                duthost, port, fwfile, percentage, timeout_sec,
-                cdb_attrs["firmware_download_interrupt_method"],
-            )
-            if err:
-                failures.append(err)
-            else:
-                logger.info("Port %s: download interrupted at %s%% after %ss", port, reached, elapsed)
+    if err:
+        failures.append(err)
+    else:
+        logger.info("Port %s: download interrupted at %s%% after %ss", port, reached, elapsed)
 
     if not failures:
         failures += verify_firmware_state_unchanged(
@@ -676,27 +678,43 @@ def download_interruption_op(duthost, port, port_context, metadata_map):
     cleanup_required = False
     try:
         for percentage in cdb_attrs["firmware_download_interrupt_percentage"]:
-            cleanup_required = True
-            failures = _interrupt_download(duthost, port, port_context, metadata_map, percentage)
-            if failures:
-                result_failures = [
-                    f"interrupted at {percentage}%: {failure}"
-                    for failure in failures
-                ]
-                break
+            with thermalctld_stopped_if_required(duthost, cdb_attrs, result_failures):
+                if not result_failures:
+                    cleanup_required = True
+                    failures = _interrupt_download(duthost, port, port_context, metadata_map, percentage)
+                    if failures:
+                        result_failures.extend(
+                            f"interrupted at {percentage}%: {failure}"
+                            for failure in failures
+                        )
+                    else:
+                        abort_status, abort_err = cli_helpers.issue_cdb_fw_abort(
+                            duthost, physical_index
+                        )
+                        if not abort_err and abort_status != "True":
+                            abort_err = f"CDB abort returned {abort_status or 'empty output'}"
+                        if abort_err:
+                            result_failures.append(
+                                f"interrupted at {percentage}%: "
+                                f"CDB abort failed: {abort_err}"
+                            )
+                        else:
+                            cleanup_required = False
 
-            abort_status, abort_err = cli_helpers.issue_cdb_fw_abort(
-                duthost, physical_index
-            )
-            if not abort_err and abort_status != "True":
-                abort_err = f"CDB abort returned {abort_status or 'empty output'}"
-            if abort_err:
-                result_failures = [
-                    f"interrupted at {percentage}%: "
-                    f"CDB abort failed: {abort_err}"
-                ]
+                    if cleanup_required:
+                        cleanup_required = False
+                        cleanup_status, cleanup_err = cli_helpers.issue_cdb_fw_abort(
+                            duthost, physical_index
+                        )
+                        if cleanup_err:
+                            result_failures.append(f"CDB cleanup abort failed: {cleanup_err}")
+                        elif cleanup_status != "True":
+                            result_failures.append(
+                                f"CDB cleanup abort returned {cleanup_status or 'empty output'}"
+                            )
+
+            if result_failures:
                 break
-            cleanup_required = False
 
             cleanup_required = True
             failures = perform_firmware_download(
@@ -712,17 +730,18 @@ def download_interruption_op(duthost, port, port_context, metadata_map):
             cleanup_required = False
     finally:
         if cleanup_required:
-            cleanup_status, cleanup_err = cli_helpers.issue_cdb_fw_abort(
-                duthost, physical_index
-            )
-            if cleanup_err:
-                result_failures.append(
-                    f"CDB cleanup abort failed: {cleanup_err}"
+            with thermalctld_stopped_if_required(duthost, cdb_attrs, result_failures):
+                cleanup_status, cleanup_err = cli_helpers.issue_cdb_fw_abort(
+                    duthost, physical_index
                 )
-            elif cleanup_status != "True":
-                result_failures.append(
-                    f"CDB cleanup abort returned {cleanup_status or 'empty output'}"
-                )
+                if cleanup_err:
+                    result_failures.append(
+                        f"CDB cleanup abort failed: {cleanup_err}"
+                    )
+                elif cleanup_status != "True":
+                    result_failures.append(
+                        f"CDB cleanup abort returned {cleanup_status or 'empty output'}"
+                    )
     return result_failures
 
 

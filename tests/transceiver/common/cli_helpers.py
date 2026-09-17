@@ -33,7 +33,6 @@ transceiver test aggregates per-port failures into a single
 ``pytest.fail`` at the end, and an exception inside the loop would
 short-circuit that pattern.
 """
-import base64
 import time
 
 from tests.transceiver.common.cli_parser_helper import (
@@ -546,10 +545,9 @@ def sfputil_firmware_download_interrupted(
         percentage=percentage,
         signum=signum,
     )
-    payload = base64.b64encode(pycode.encode("utf-8")).decode("ascii")
     start = time.time()
     result = duthost.shell(
-        'python3 -c "import base64;exec(base64.b64decode(\'{}\'))"'.format(payload),
+        'python3 -c "{}"'.format(pycode),
         module_ignore_errors=True,
     )
     elapsed = round(time.time() - start, 1)
