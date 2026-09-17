@@ -280,6 +280,13 @@ scopes override them only for a demonstrated hardware difference.
 | `fec_histogram_stale_error_wait_sec` | Integer | `600` | Hardware-specific aging wait when an initial histogram contains stale errors. |
 | `critical_histogram_bins` | List of integers | `[7, 8, 9, 10, 11, 12, 13, 14, 15]` | Histogram indices to inspect; the pass/fail threshold remains fixed in code. |
 
+Schema validation requires `supported_speeds` and `critical_histogram_bins` to
+be non-empty and contain no duplicates. Each speed must use the canonical
+positive `<N>G` form (for example, `100G`), and each histogram bin must be a
+non-negative integer. `fec_mode_restore_timeout_sec` must be at least `1`;
+`clear_counters_wait_sec` and `fec_histogram_stale_error_wait_sec` must be
+non-negative.
+
 When one DUT-wide operation covers several eligible ports, the test uses the
 maximum resolved wait. Per-port operations use that port's resolved value.
 
