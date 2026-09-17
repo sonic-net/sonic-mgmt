@@ -102,6 +102,15 @@ def bgp_key_ip(key):
     return key.rsplit("|", 1)[-1]
 
 
+def portchannel_of(config_facts, ports):
+    """Name of the PortChannel whose members include every port in ``ports``, or None."""
+    for pc, members in (config_facts.get("PORTCHANNEL_MEMBER", {}) or {}).items():
+        member_set = set(members.keys()) if isinstance(members, dict) else set(members or [])
+        if member_set and set(ports) <= member_set:
+            return pc
+    return None
+
+
 def find_neighbor_ports(config_facts, neighbor_name):
     ports = []
     for port, info in config_facts.get("DEVICE_NEIGHBOR", {}).items():
@@ -142,6 +151,12 @@ def pick_target_neighbor(config_facts, config_facts_localhost, mg_facts, scenari
             continue
         ports_sorted = sorted(ports)
         port = ports_sorted[0]
+        if not port.startswith("PortChannel"):
+            # DEVICE_NEIGHBOR is keyed by physical ports; the neighbor is a LAG neighbor when
+            # those ports are members of one PortChannel.
+            lag = portchannel_of(config_facts, ports_sorted)
+            if lag:
+                port = lag
         port_localhost = port if port.startswith("PortChannel") else alias_map.get(port, port)
         candidates.append({
             "neighbor_ip": neigh_ip,
@@ -179,6 +194,9 @@ def pick_target_neighbor(config_facts, config_facts_localhost, mg_facts, scenari
     selected["neighbor_ports"] = neighbor_ports
     selected["neighbor_ports_localhost"] = neighbor_ports_localhost
     selected["is_portchannel"] = is_portchannel
+    # DEVICE_NEIGHBOR rows are keyed by the physical links even for a LAG neighbor.
+    selected["device_neighbor_ports"] = list(selected["all_ports"])
+    selected["device_neighbor_ports_localhost"] = [alias_map.get(p, p) for p in selected["all_ports"]]
     # CONFIG_DB keys per neighbor IP, for expectations and GCU patch paths.
     selected["bgp_keys"] = {ip: keys_by_ip[ip] for ip in selected["neighbor_ips"]}
     localhost_keys_by_ip = {bgp_key_ip(key): key for key in bgp_neighbor_table(config_facts_localhost)}
@@ -579,7 +597,7 @@ def build_add_expectations(config_facts, neighbor_ctx):
         expected_present["BGP_NEIGHBOR_AF"] = copy.deepcopy(bgp_af)
     device_neighbor = {
         p: copy.deepcopy(config_facts["DEVICE_NEIGHBOR"][p])
-        for p in neighbor_ctx["neighbor_ports"]
+        for p in neighbor_ctx["device_neighbor_ports"]
         if p in config_facts.get("DEVICE_NEIGHBOR", {})
     }
     if device_neighbor:
@@ -635,7 +653,9 @@ def build_remove_expectations(config_facts, neighbor_ctx):
         expected_absent["BGP_NEIGHBOR"] = bgp_keys
     if neighbor_ctx["bgp_af_keys"]:
         expected_absent["BGP_NEIGHBOR_AF"] = set(neighbor_ctx["bgp_af_keys"])
-    device_neighbor_keys = {p for p in neighbor_ctx["neighbor_ports"] if p in config_facts.get("DEVICE_NEIGHBOR", {})}
+    device_neighbor_keys = {
+        p for p in neighbor_ctx["device_neighbor_ports"] if p in config_facts.get("DEVICE_NEIGHBOR", {})
+    }
     if device_neighbor_keys:
         expected_absent["DEVICE_NEIGHBOR"] = device_neighbor_keys
     neigh_name = neighbor_ctx["neighbor_name"]
@@ -781,7 +801,7 @@ def build_remove_patch(config_facts, config_facts_localhost, mg_facts, namespace
                 "path": f"{json_namespace}/ACL_TABLE/{acl_name}/ports",
                 "value": filtered_acl_entry["ports"],
             })
-    for p in neighbor_ctx["neighbor_ports"]:
+    for p in neighbor_ctx["device_neighbor_ports"]:
         append_remove_if_present(
             patch_main,
             f"{json_namespace}/DEVICE_NEIGHBOR/",
@@ -789,7 +809,7 @@ def build_remove_patch(config_facts, config_facts_localhost, mg_facts, namespace
             p.replace("/", "~1"),
         )
     if emit_localhost:
-        for p in neighbor_ctx["neighbor_ports_localhost"]:
+        for p in neighbor_ctx["device_neighbor_ports_localhost"]:
             append_remove_if_present(
                 patch_main,
                 "/localhost/DEVICE_NEIGHBOR/",
@@ -949,7 +969,7 @@ def build_add_patches(config_facts, config_facts_localhost, mg_facts, namespace,
             "path": f"/localhost/DEVICE_NEIGHBOR_METADATA/{neigh_name}",
             "value": config_facts_localhost["DEVICE_NEIGHBOR_METADATA"][neigh_name],
         })
-    for p in neighbor_ctx["neighbor_ports"]:
+    for p in neighbor_ctx["device_neighbor_ports"]:
         if p in config_facts.get("DEVICE_NEIGHBOR", {}):
             patch_rest.append({
                 "op": "add",
@@ -957,7 +977,7 @@ def build_add_patches(config_facts, config_facts_localhost, mg_facts, namespace,
                 "value": config_facts["DEVICE_NEIGHBOR"][p],
             })
     if emit_localhost:
-        for p in neighbor_ctx["neighbor_ports_localhost"]:
+        for p in neighbor_ctx["device_neighbor_ports_localhost"]:
             if p in config_facts_localhost.get("DEVICE_NEIGHBOR", {}):
                 patch_rest.append({
                     "op": "add",
