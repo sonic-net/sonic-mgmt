@@ -94,7 +94,7 @@ Run the following command to execute the pretest:
 - python3 -m pytest --inventory ../ansible/snappi-sonic --host-pattern sonic-s6100-dut1 --testbed vms-snappi-sonic --testbed_file ../ansible/testbed.yaml --show-capture=stdout --log-cli-level info --showlocals -ra --allow_recover --skip_sanity --disable_memory_utilization --disable_loganalyzer --topology tgen,any test_pretest.py
 
 ⚠️ **Note:** In above command host-pattern is used for single dut. If all the dut's specified under `~/sonic-mgmt/ansible/files/sonic_snappi-sonic_devices.csv` needs to be used, then pass the host-pattern as "all"
-  
+
 ## Step 10: Verify Pretest Output
 
 **File:** `~/sonic-mgmt/tests/metadata/vms-snappi-sonic.json`
@@ -168,7 +168,7 @@ Make sure the DUT is properly configured using the `minigraph.xml` file:
   - **Old Format:** `CardX/PortY`
   - **New Format:** `PortX.Y`
 
-📌 Ensure your testbed and configuration files reflect this naming convention if you're using the fanout mode. 
+📌 Ensure your testbed and configuration files reflect this naming convention if you're using the fanout mode.
 
 ## Step 14: Custom Ixia API Server Credentials
 
