@@ -16,7 +16,8 @@ from tests.common.snappi_tests.common_helpers import config_capture_settings, ge
     traffic_flow_mode, get_pfc_count, clear_counters, get_interface_stats, get_queue_count_all_prio, \
     get_pfcwd_stats, get_interface_counters_detailed
 from tests.common.snappi_tests.port import select_ports, select_tx_port
-from tests.common.snappi_tests.snappi_helpers import wait_for_arp, fetch_snappi_flow_metrics
+from tests.common.snappi_tests.snappi_helpers import wait_for_arp, fetch_snappi_flow_metrics, \
+    set_flow_transmit_state, are_flows_stopped
 from .variables import pfcQueueGroupSize, pfcQueueValueDict
 from tests.common.snappi_tests.snappi_fixtures import gen_data_flow_dest_ip
 from tests.common.cisco_data import is_cisco_device
@@ -638,9 +639,7 @@ def run_traffic(duthost,
         clear_dut_pfc_counters(host)
 
     logger.info("Starting transmit on all flows ...")
-    cs = api.control_state()
-    cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START
-    api.set_control_state(cs)
+    set_flow_transmit_state(api, "start")
     if snappi_extra_params.reboot_type:
         logger.info(f"Issuing a {snappi_extra_params.reboot_type} reboot on the dut {duthost.hostname}")
         # The following reboot command waits until the DUT is accessible by SSH. It does not wait for
@@ -687,17 +686,19 @@ def run_traffic(duthost,
         in_flight_flow_metrics = fetch_snappi_flow_metrics(api, all_flow_names)  # fetch in-flight metrics from TGEN
         time.sleep(exp_dur_sec*(3/5))
 
+    # A flow held under PFC flow control never transitions to 'stopped' on its own, so stop
+    # transmit here. Only the data flows: the pause storm must keep DUT egress paused.
+    if snappi_extra_params.stop_data_flows_before_final_stats:
+        logger.info("Stopping transmit on data flows after in-flight stats collection")
+        set_flow_transmit_state(api, "stop", flow_names=data_flow_names)
+
     attempts = 0
     max_attempts = 20
 
     while attempts < max_attempts:
         logger.info("Checking if all flows have stopped. Attempt #{}".format(attempts + 1))
-        flow_metrics = fetch_snappi_flow_metrics(api, data_flow_names)
-
         # If all the data flows have stopped
-        transmit_states = [metric.transmit for metric in flow_metrics]
-        if len(flow_metrics) == len(data_flow_names) and\
-           list(set(transmit_states)) == ['stopped']:
+        if are_flows_stopped(api, data_flow_names):
             logger.info("All test and background traffic flows stopped")
             time.sleep(SNAPPI_POLL_DELAY_SEC)
             break
@@ -707,6 +708,18 @@ def run_traffic(duthost,
 
     pytest_assert(attempts < max_attempts,
                   "Flows do not stop in {} seconds".format(max_attempts))
+
+    # Capture stop + retrieval is slow enough to outlast the pause storm, which would let the
+    # DUT drain buffered frames and push a paused flow's rx_frames above 0. Read metrics first.
+    read_stats_before_capture_stop = (
+        snappi_extra_params.stop_data_flows_before_final_stats
+        and pcap_type != packet_capture.NO_CAPTURE
+    )
+
+    flow_metrics = None
+    if read_stats_before_capture_stop:
+        logger.info("Dumping per-flow statistics")
+        flow_metrics = fetch_snappi_flow_metrics(api, all_flow_names)
 
     if pcap_type != packet_capture.NO_CAPTURE:
         logger.info("Stopping packet capture ...")
@@ -720,13 +733,12 @@ def run_traffic(duthost,
         with open(snappi_extra_params.packet_capture_file + ".pcapng", 'wb') as fid:
             fid.write(pcap_bytes.getvalue())
 
-    # Dump per-flow statistics
-    logger.info("Dumping per-flow statistics")
-    flow_metrics = fetch_snappi_flow_metrics(api, all_flow_names)
+    # Dump per-flow statistics (unless already collected above before capture teardown)
+    if flow_metrics is None:
+        logger.info("Dumping per-flow statistics")
+        flow_metrics = fetch_snappi_flow_metrics(api, all_flow_names)
     logger.info("Stopping transmit on all remaining flows")
-    cs = api.control_state()
-    cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.STOP
-    api.set_control_state(cs)
+    set_flow_transmit_state(api, "stop")
     check_for_crc_errors(api, snappi_extra_params)
     return flow_metrics, switch_device_results, in_flight_flow_metrics
 
