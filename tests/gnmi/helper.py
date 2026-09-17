@@ -109,12 +109,13 @@ def _check_monit_container_checker(duthost):
     container status. This function checks if container_checker has
     returned to a healthy state (OK or Status ok).
 
-    Trigger a focused container_checker refresh before reading the cached
-    monit status. This avoids failing post-test sanity on stale monit state
-    after telemetry was restarted by cert recovery.
+    Trigger a monit check cycle before reading the cached monit status, so
+    post-test sanity does not fail on stale monit state after telemetry was
+    restarted by cert recovery. `monit validate` takes no service argument,
+    it re-evaluates every service in the control file.
     """
     duthost.shell("sudo /usr/bin/container_checker", module_ignore_errors=True)
-    duthost.shell("sudo monit validate container_checker", module_ignore_errors=True)
+    duthost.shell("sudo monit validate", module_ignore_errors=True)
     monit_services = duthost.get_monit_services_status()
     if not monit_services:
         return False
