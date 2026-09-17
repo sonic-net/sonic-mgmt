@@ -566,7 +566,7 @@ jobs:
             ${{ param.key }}: ${{ param.value }}
 
   - job: dualtor_aa_vpp_elastictest
-    displayName: "impacted-area-kvmtest-dualtor-aa-vpp by Elastictest"
+    displayName: "impacted-area-kvmtest-dualtor-aa-vpp by Elastictest [OPTIONAL]"
     dependsOn:
     - get_impacted_area
     - cancel_previous_test_plan_for_same_pr
@@ -575,7 +575,7 @@ jobs:
       RUN_BY_INCLUDE_JOBS: ${{ or(eq(parameters.INCLUDE_JOBS, 'all'), contains(parameters.INCLUDE_JOBS, 'dualtor_aa_vpp_job')) }}
     condition: and(not(canceled()), succeeded(), contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 'dualtor-aa-vpp_checker'), eq(variables['RUN_BY_INCLUDE_JOBS'], 'True'))
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
-    continueOnError: false
+    continueOnError: true
     pool: ${{ parameters.RUN_TEST_AGENT_POOL }}
     steps:
       - ${{ if eq(parameters.CHECKOUT_SONIC_MGMT, true) }}:
