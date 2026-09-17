@@ -73,7 +73,6 @@ from tests.common.cache import FactsCache
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from pytest_ansible.errors import AnsibleConnectionFailure
-from ansible.errors import AnsibleConnectionFailure as AnsibleCoreConnectionFailure
 from tests.common.helpers.inventory_utils import trim_inventory
 from tests.common.helpers.host_failure_utils import (
     is_testbed_unreachable_exception, stop_on_testbed_unreachable,
@@ -108,7 +107,6 @@ cache = FactsCache()
 HOST_FIXTURE_FAILED_RC = 15
 CONNECTION_FAILURE_TYPES = (
     AnsibleConnectionFailure,
-    AnsibleCoreConnectionFailure,
 )
 CUSTOM_MSG_PREFIX = "sonic_custom_msg"
 GOLDEN_CONFIG_DB_PATH = "/etc/sonic/golden_config_db.json"

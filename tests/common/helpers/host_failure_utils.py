@@ -96,9 +96,8 @@ def _get_message(exc):
 
 
 def _is_unreachable_failure(exc, connection_failure_types):
-    # A connection failure is only conclusive when it names the hosts that were
-    # unreachable. ansible-core raises the same exception type for connection
-    # errors that do not mean the testbed became unusable.
+    # A connection-failure type alone is not conclusive: require the unreachable
+    # hosts that pytest-ansible supplies in its "dark" attribute.
     if (connection_failure_types and
             isinstance(exc, connection_failure_types) and
             _get_dark_hosts(exc)):
