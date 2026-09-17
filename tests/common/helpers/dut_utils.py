@@ -579,11 +579,23 @@ def create_linecard_console(supervisor, linecard_duthost, inv_files, creds):
         pytest.skip(f"Linecard console not supported: {str(e)}")
 
 
+class ConsoleNotConfiguredError(Exception):
+    """Raised when the connection graph carries no console server metadata for a DUT.
+
+    This is a plain Exception (not pytest.skip) on purpose: best-effort callers such as
+    tests/common/reboot.py::try_create_dut_console catch `Exception` to degrade
+    gracefully, and pytest.skip raises a BaseException that would escape those handlers
+    and skip an unrelated test mid-run. Console-dependent fixtures translate it into a
+    skip instead.
+    """
+
+
 def create_duthost_console(duthost, localhost, conn_graph_facts, creds):  # noqa: F811
     dut_hostname = duthost.hostname
     console_info = conn_graph_facts.get('device_console_info', {}).get(dut_hostname, {})
     if 'ManagementIp' not in console_info:
-        pytest.skip("Console port does not exist in console_links.csv file. Skipping {}".format(dut_hostname))
+        raise ConsoleNotConfiguredError(
+            "Console port does not exist in console_links.csv file. Skipping {}".format(dut_hostname))
     console_host = console_info['ManagementIp']
     if "/" in console_host:
         console_host = console_host.split("/")[0]
