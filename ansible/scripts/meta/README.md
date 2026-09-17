@@ -623,10 +623,11 @@ validators:
 - `switch-temp` → Excluded from all IP validation
 - `mgmt-server-lab1` → Excluded from all IP validation
 
-**Exclude IPv4/IPv6 Mismatch Groups Configuration:**
+**Exclude IPv4/IPv6 Mismatch Configuration:**
 
-The `exclude_ipv4_ipv6_mismatch_groups` option skips only the IPv4/IPv6
-relationship check for groups whose address families are allocated
+The `exclude_ipv4_ipv6_mismatch_groups` and
+`exclude_ipv4_ipv6_mismatch_devices` options skip only the IPv4/IPv6
+relationship check for groups or devices whose address families are allocated
 independently. Other IP validation, including conflict and consistency checks,
 continues to run.
 
@@ -637,6 +638,8 @@ validators:
     config:
       exclude_ipv4_ipv6_mismatch_groups:
         - "^sc02a$"
+      exclude_ipv4_ipv6_mismatch_devices:
+        - "^switch-with-independent-addresses$"
 ```
 
 **Validation Rules:**

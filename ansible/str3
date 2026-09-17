@@ -276,24 +276,24 @@ fanout:
       ansible_host: 10.3.146.152
       ansible_hostv6:
     str3-7260cx3-acs-fan-03:
-      ansible_host: 10.3.146.32
-      ansible_hostv6: 2a01:111:e210:3000::a03:9220
+      ansible_host: 10.3.144.71
+      ansible_hostv6: 2a01:111:e210:b7::7
     str3-7260cx3-acs-fan-04:
       ansible_host: 10.3.146.10
       ansible_hostv6: 2a01:111:e210:3000::a03:920a
     str3-7260cx3-acs-fan-05:
-      ansible_host: 10.3.146.115
-      ansible_hostv6: 2a01:111:e210:3000::a03:9273
+      ansible_host: 10.3.144.72
+      ansible_hostv6: 2a01:111:e210:b7::8
     str3-7260cx3-acs-fan-06:
-      ansible_host: 10.3.146.116
-      ansible_hostv6: 2a01:111:e210:3000::a03:9274
+      ansible_host: 10.3.144.73
+      ansible_hostv6: 2a01:111:e210:b7::9
     str3-7260cx3-acs-fan-07:
-      ansible_host: 10.3.146.86
-      ansible_hostv6: 2a01:111:e210:3000::a03:9256
+      ansible_host: 10.3.144.74
+      ansible_hostv6: 2a01:111:e210:b7::a
       os: sonic
     str3-7260cx3-acs-fan-08:
-      ansible_host: 10.3.146.117
-      ansible_hostv6: 2a01:111:e210:3000::a03:9275
+      ansible_host: 10.3.144.75
+      ansible_hostv6: 2a01:111:e210:b7::b
     str3-7260cx3-acs-fan-09:
       ansible_host: 10.3.146.196
       ansible_hostv6: 2a01:111:e210:3000::a03:92c4
@@ -310,8 +310,8 @@ fanout:
       ansible_host: 10.3.146.55
       ansible_hostv6: 2a01:111:e210:3000::a03:9237
     str3-z9332f-02:
-      ansible_host: 10.3.146.118
-      ansible_hostv6: 2a01:111:e210:3000::a03:9276
+      ansible_host: 10.3.144.91
+      ansible_hostv6: 2a01:111:e210:b7::1b
       os: sonic
     str3-z9332f-06:
       ansible_host: 10.3.146.7
@@ -322,20 +322,20 @@ fanout:
       ansible_hostv6:
       os: sonic
     str3-8101-fanout-01:
-      ansible_host: 10.3.146.195
-      ansible_hostv6: 2a01:111:e210:3000::a03:92c3
+      ansible_host: 10.3.144.81
+      ansible_hostv6: 2a01:111:e210:b7::11
       os: sonic
     str3-8101-fanout-02:
-      ansible_host: 10.3.146.193
-      ansible_hostv6: 2a01:111:e210:3000::a03:92c1
+      ansible_host: 10.3.144.82
+      ansible_hostv6: 2a01:111:e210:b7::12
       os: sonic
     str3-8101-fanout-03:
-      ansible_host: 10.3.146.192
-      ansible_hostv6: 2a01:111:e210:3000::a03:92c0
+      ansible_host: 10.3.144.83
+      ansible_hostv6: 2a01:111:e210:b7::13
       os: sonic
     str3-8101-fanout-04:
-      ansible_host: 10.3.146.219
-      ansible_hostv6: 2a01:111:e210:3000::a03:92db
+      ansible_host: 10.3.144.84
+      ansible_hostv6: 2a01:111:e210:b7::14
       os: sonic
     str3-8101-fanout-05:
       ansible_host: 10.3.146.177
@@ -346,12 +346,12 @@ fanout:
       ansible_hostv6: 2a01:111:e210:3000::a03:92b2
       os: sonic
     str3-8101-fanout-07:
-      ansible_host: 10.3.146.186
-      ansible_hostv6: 2a01:111:e210:3000::a03:92ba
+      ansible_host: 10.3.144.85
+      ansible_hostv6: 2a01:111:e210:b7::15
       os: sonic
     str3-8101-fanout-08:
-      ansible_host: 10.3.146.208
-      ansible_hostv6: 2a01:111:e210:3000::a03:92d0
+      ansible_host: 10.3.144.86
+      ansible_hostv6: 2a01:111:e210:b7::16
       os: sonic
     str3-8101-fanout-10:
       ansible_host: 10.64.247.59
@@ -392,12 +392,12 @@ fanout:
       ansible_hostv6: 2a01:111:e210:3000::a03:9257
       os: sonic
     str3-8101-fanout-27:
-      ansible_host: 10.3.146.33
-      ansible_hostv6: 2a01:111:e210:3000::a03:9221
+      ansible_host: 10.3.144.87
+      ansible_hostv6: 2a01:111:e210:b7::17
       os: sonic
     str3-8101-fanout-28:
-      ansible_host: 10.3.146.78
-      ansible_hostv6: 2a01:111:e210:3000::a03:924e
+      ansible_host: 10.3.144.88
+      ansible_hostv6: 2a01:111:e210:b7::18
       os: sonic
     str3-7060-acs-fan-01:
       ansible_host: 10.3.146.241
@@ -431,8 +431,8 @@ fanout:
       ansible_hostv6: 2a01:111:e210:3000::a03:9283
       os: sonic
     str3-msn4700-fanout-10:
-      ansible_host: 10.3.146.175
-      ansible_hostv6: 2a01:111:e210:3000::a03:92af
+      ansible_host: 10.3.144.90
+      ansible_hostv6: 2a01:111:e210:b7::1a
       os: sonic
     str3-8122-fanout-02:
       ansible_host: 10.3.146.132
@@ -1110,9 +1110,9 @@ sonic_cisco_8101_O8C48:
     iface_speed: 100000
   hosts:
     str3-8101-01:
-      ansible_host: 10.3.146.194
-      ansible_hostv6: 2a01:111:e210:3000::a03:92c2
-      mgmt_subnet_mask_length: 24
+      ansible_host: 10.3.144.77
+      ansible_hostv6: 2a01:111:e210:b7::d
+      mgmt_subnet_mask_length: 27
       model: 8101-32FH-O
       serial: FLM263405R6
       base_mac: DC:05:39:C2:94:00
@@ -1145,9 +1145,9 @@ sonic_cisco_8101_O8C48:
           timeout: 600
           wait: 600
     str3-8101-03:
-      ansible_host: 10.3.146.121
-      ansible_hostv6: 2a01:111:e210:3000::a03:9279
-      mgmt_subnet_mask_length: 24
+      ansible_host: 10.3.144.79
+      ansible_hostv6: 2a01:111:e210:b7::f
+      mgmt_subnet_mask_length: 27
       model: 8101-32FH-O
       serial: FLM29060K68
       base_mac: 50:00:E0:F9:E2:00
@@ -1186,9 +1186,9 @@ sonic_cisco_8101_O8V48:
     iface_speed: 100000
   hosts:
     str3-8101-02:
-      ansible_host: 10.3.146.191
-      ansible_hostv6: 2a01:111:e210:3000::a03:92bf
-      mgmt_subnet_mask_length: 24
+      ansible_host: 10.3.144.78
+      ansible_hostv6: 2a01:111:e210:b7::e
+      mgmt_subnet_mask_length: 27
       model: 8101-32FH-O
       serial: FLM26400HE3
       base_mac: 98:A2:C0:26:EA:00
@@ -1221,9 +1221,9 @@ sonic_cisco_8101_O8V48:
           timeout: 600
           wait: 600
     str3-8101-04:
-      ansible_host: 10.3.146.35
-      ansible_hostv6: 2a01:111:e210:3000::a03:9223
-      mgmt_subnet_mask_length: 24
+      ansible_host: 10.3.144.80
+      ansible_hostv6: 2a01:111:e210:b7::10
+      mgmt_subnet_mask_length: 27
       chassis_id: str3-8101-04
       model: 8101-32FH-O
       serial: FLM290805S2
@@ -1862,9 +1862,9 @@ sonic_arista_7800_sup:
         wait: 60
   hosts:
     str3-7808-sup-1:
-      ansible_host: 10.3.146.111
-      ansible_hostv6: 2a01:111:e210:3000::a03:926f
-      mgmt_subnet_mask_length: 24
+      ansible_host: 10.3.144.76
+      ansible_hostv6: 2a01:111:e210:b7::c
+      mgmt_subnet_mask_length: 27
       hwsku: Arista-7808R3A-FM
       model: 'DCS-7800-SUP1A'
       serial: SGD22140009
@@ -2548,9 +2548,9 @@ sonic_mlnx_4700:
 sonic_arista_400:
   hosts:
     str3-a7060dx5-acs-1:
-      ansible_host: 10.3.146.162
-      ansible_hostv6: 2a01:111:e210:3000::a03:92a2
-      mgmt_subnet_mask_length: 24
+      ansible_host: 10.3.144.89
+      ansible_hostv6: 2a01:111:e210:b7::19
+      mgmt_subnet_mask_length: 27
       hwsku: Arista-7060DX5-32
       model: DCS-7050-DX4-32
       serial: JAS22510008

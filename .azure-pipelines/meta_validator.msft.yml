@@ -45,6 +45,34 @@ validators:
     exclude_ipv4_ipv6_mismatch_groups:
       # SC02 uses independently allocated IPv4 and IPv6 management addresses.
       - ^sc02a$
+    exclude_ipv4_ipv6_mismatch_devices:
+      # These STR43 management addresses do not embed the IPv4 address in IPv6.
+      - ^STR-8111-C14-U18$
+      - ^str2-7050cx3-acs-12$
+      - ^str2-7260cx3-acs-fan-36$
+      - ^str2-8101-06$
+      - ^str2-8101-fanout-20$
+      - ^str3-7260cx3-acs-fan-03$
+      - ^str3-7260cx3-acs-fan-05$
+      - ^str3-7260cx3-acs-fan-06$
+      - ^str3-7260cx3-acs-fan-07$
+      - ^str3-7260cx3-acs-fan-08$
+      - ^str3-7808-sup-1$
+      - ^str3-8101-01$
+      - ^str3-8101-02$
+      - ^str3-8101-03$
+      - ^str3-8101-04$
+      - ^str3-8101-fanout-01$
+      - ^str3-8101-fanout-02$
+      - ^str3-8101-fanout-03$
+      - ^str3-8101-fanout-04$
+      - ^str3-8101-fanout-07$
+      - ^str3-8101-fanout-08$
+      - ^str3-8101-fanout-27$
+      - ^str3-8101-fanout-28$
+      - ^str3-a7060dx5-acs-1$
+      - ^str3-msn4700-fanout-10$
+      - ^str3-z9332f-02$
     exclude_devices:
       # Devices that current causing IP conflicts
       - vlab-c-01.*
