@@ -1125,6 +1125,15 @@ def apply_patch_or_assert(duthost, patch):
 # Scenarios and shared test flow
 # -----------------------------
 
+# Expected, benign syslog errors while a neighbor's ports / LAG are torn down and re-created
+# via GCU. On VoQ (DNX) platforms syncd logs at ERR while the TC-to-VOQ map of a re-created
+# port is not programmed yet. Shared by every test in this directory.
+LOGANALYZER_IGNORE_REGEX = [
+    r"querySwitchLagHashAttrCapabilities",
+    r"SRV6.*unsupported",
+    r"brcm_sai_dnx_get_tc_to_voqid.*No voq map for port",
+]
+
 # Uplink (T3) neighbors of a UT2. AZNGHub and RegionalHub differ in PFC, cable length and
 # MACsec, so they are separate scenarios; each skips when the testbed has no such neighbor.
 T3_SCENARIOS = [
@@ -1251,14 +1260,7 @@ def run_remove_and_readd_cycle(
 
     la_entry = loganalyzer[duthost.hostname] if loganalyzer else None
     if la_entry:
-        # Expected, benign errors while a port/LAG is torn down and re-created via GCU. On VoQ
-        # (DNX) platforms syncd logs at ERR while the TC-to-VOQ map of a re-created port is not
-        # programmed yet.
-        la_entry.ignore_regex.extend([
-            r"querySwitchLagHashAttrCapabilities",
-            r"SRV6.*unsupported",
-            r"brcm_sai_dnx_get_tc_to_voqid.*No voq map for port",
-        ])
+        la_entry.ignore_regex.extend(LOGANALYZER_IGNORE_REGEX)
     try:
         with allure.step(
             f"[{scenario['id']}] Remove selected cluster peer via GCU and validate route withdrawal / traffic loss"
