@@ -8,12 +8,15 @@ import logging
 import math
 from collections import defaultdict, namedtuple
 
+from tests.common.utilities import wait_until
 from tests.transceiver.attribute_parser.attribute_keys import (
     BASE_ATTRIBUTES_KEY,
     DOM_ATTRIBUTES_KEY,
+    SYSTEM_ATTRIBUTES_KEY,
 )
 from tests.transceiver.common import scenario_ops
 from tests.transceiver.common.db_helpers import (
+    STATE_DB_UPDATE_TIME_FIELD,
     check_entry_freshness,
     get_config_db_port_table,
     get_state_db_table,
@@ -29,6 +32,7 @@ STATE_DB_THRESHOLD_TABLE = "TRANSCEIVER_DOM_THRESHOLD"
 OPERATIONAL_SUFFIX = "_operational_range"
 THRESHOLD_SUFFIX = "_threshold_range"
 CONSISTENCY_SUFFIX = "_consistency_variation_threshold"
+DEVIATION_SUFFIX = "_deviation_range"
 CONSISTENCY_MODE_ABSOLUTE = "absolute"
 CONSISTENCY_MODE_PERCENT = "percent"
 LANE_NUM_PLACEHOLDER = "LANE_NUM"
@@ -37,7 +41,14 @@ DomMappedField = namedtuple("DomMappedField", ("source_attr", "attr_value"))
 DomThresholdMappedField = namedtuple("DomThresholdMappedField", ("source_attr", "attr_value", "threshold_key"))
 DomQuantitySpec = namedtuple(
     "DomQuantitySpec",
-    ("threshold_db_prefix", "sensor_field_template", "operational_attr", "consistency_unit", "consistency_mode"),
+    (
+        "threshold_db_prefix",
+        "sensor_field_template",
+        "operational_attr",
+        "consistency_unit",
+        "consistency_mode",
+        "deviation_unit",
+    ),
 )
 
 THRESHOLD_FIELD_SUFFIXES = ("lowalarm", "lowwarning", "highwarning", "highalarm")
@@ -48,14 +59,23 @@ DOM_QUANTITY_REGISTRY = {
         "temperature_operational_range",
         "C",
         CONSISTENCY_MODE_ABSOLUTE,
+        "C",
     ),
-    "voltage": DomQuantitySpec("vcc", "voltage", "voltage_operational_range", "V", CONSISTENCY_MODE_ABSOLUTE),
+    "voltage": DomQuantitySpec(
+        "vcc",
+        "voltage",
+        "voltage_operational_range",
+        "V",
+        CONSISTENCY_MODE_ABSOLUTE,
+        "V",
+    ),
     "laser_temperature": DomQuantitySpec(
         "lasertemp",
         "laser_temperature",
         "laser_temperature_operational_range",
         "C",
         CONSISTENCY_MODE_ABSOLUTE,
+        "C",
     ),
     "tx_power": DomQuantitySpec(
         "txpower",
@@ -63,6 +83,7 @@ DOM_QUANTITY_REGISTRY = {
         "txLANE_NUMpower_operational_range",
         "dB",
         CONSISTENCY_MODE_ABSOLUTE,
+        "dB",
     ),
     "rx_power": DomQuantitySpec(
         "rxpower",
@@ -70,6 +91,7 @@ DOM_QUANTITY_REGISTRY = {
         "rxLANE_NUMpower_operational_range",
         "dB",
         CONSISTENCY_MODE_ABSOLUTE,
+        "dB",
     ),
     "tx_bias": DomQuantitySpec(
         "txbias",
@@ -77,29 +99,10 @@ DOM_QUANTITY_REGISTRY = {
         "txLANE_NUMbias_operational_range",
         "%",
         CONSISTENCY_MODE_PERCENT,
+        "mA",
     ),
 }
-THRESHOLD_FIELD_PREFIXES = {
-    base_name: spec.threshold_db_prefix
-    for base_name, spec in DOM_QUANTITY_REGISTRY.items()
-}
-THRESHOLD_TO_OPERATIONAL_ATTR = {
-    base_name: spec.operational_attr
-    for base_name, spec in DOM_QUANTITY_REGISTRY.items()
-}
 THRESHOLD_VALUE_TOLERANCE = 0.01
-CONSISTENCY_FIELD_TEMPLATES_BY_BASE = {
-    base_name: spec.sensor_field_template
-    for base_name, spec in DOM_QUANTITY_REGISTRY.items()
-}
-CONSISTENCY_UNITS_BY_BASE = {
-    base_name: spec.consistency_unit
-    for base_name, spec in DOM_QUANTITY_REGISTRY.items()
-}
-CONSISTENCY_MODES_BY_BASE = {
-    base_name: spec.consistency_mode
-    for base_name, spec in DOM_QUANTITY_REGISTRY.items()
-}
 
 DOM_POLLING_ENABLED_VALUES = ("", "enabled")
 DOM_POLLING_DISABLED_VALUE = "disabled"
@@ -185,13 +188,12 @@ def _map_operational_attribute_to_fields(attr_name, attr_value, active_media_lan
 
 def _map_threshold_attribute_to_fields(attr_name, attr_value, _active_media_lanes=None):
     """Return ``({field: DomThresholdMappedField(...)}, errors)`` for one threshold range."""
-    base_name = attr_name[:-len(THRESHOLD_SUFFIX)]
-    prefix = THRESHOLD_FIELD_PREFIXES.get(base_name)
-    if prefix is None:
+    spec = spec_for_attr(attr_name, THRESHOLD_SUFFIX)
+    if spec is None:
         return {}, ["{} has no DOM threshold field mapping".format(attr_name)]
 
     return {
-        "{}{}".format(prefix, suffix): DomThresholdMappedField(
+        "{}{}".format(spec.threshold_db_prefix, suffix): DomThresholdMappedField(
             attr_name,
             attr_value,
             suffix,
@@ -223,32 +225,31 @@ def map_dom_attribute_to_fields(attr_name, attr_value, active_media_lanes):
 
 def _operational_attr_for_threshold(attr_name):
     """Return the configured operational-range attribute paired with a threshold attribute."""
-    base_name = attr_name[:-len(THRESHOLD_SUFFIX)]
-    return THRESHOLD_TO_OPERATIONAL_ATTR.get(base_name)
+    spec = spec_for_attr(attr_name, THRESHOLD_SUFFIX)
+    return spec.operational_attr if spec is not None else None
 
 
-def consistency_field_template_for_attr(attr_name):
-    """Return the STATE_DB sensor field template for a consistency attribute."""
-    if not attr_name.endswith(CONSISTENCY_SUFFIX):
+def _quantity_base_name_for_attr(attr_name, suffix):
+    """Return the DOM quantity registry key for an attribute name."""
+    if not attr_name.endswith(suffix):
         return None
-    base_name = attr_name[:-len(CONSISTENCY_SUFFIX)]
-    return CONSISTENCY_FIELD_TEMPLATES_BY_BASE.get(base_name)
+
+    attr_base_name = attr_name[:-len(suffix)]
+    if attr_base_name in DOM_QUANTITY_REGISTRY:
+        return attr_base_name
+
+    for base_name, spec in DOM_QUANTITY_REGISTRY.items():
+        operational_base_name = spec.operational_attr[:-len(OPERATIONAL_SUFFIX)]
+        if attr_base_name == operational_base_name:
+            return base_name
+
+    return None
 
 
-def consistency_unit_for_attr(attr_name):
-    """Return the output unit for a configured consistency attribute."""
-    if not attr_name.endswith(CONSISTENCY_SUFFIX):
-        return None
-    base_name = attr_name[:-len(CONSISTENCY_SUFFIX)]
-    return CONSISTENCY_UNITS_BY_BASE.get(base_name)
-
-
-def consistency_mode_for_attr(attr_name):
-    """Return the validation mode for a configured consistency attribute."""
-    if not attr_name.endswith(CONSISTENCY_SUFFIX):
-        return None
-    base_name = attr_name[:-len(CONSISTENCY_SUFFIX)]
-    return CONSISTENCY_MODES_BY_BASE.get(base_name)
+def spec_for_attr(attr_name, suffix):
+    """Return the DOM quantity specification for a configured attribute name."""
+    base_name = _quantity_base_name_for_attr(attr_name, suffix)
+    return DOM_QUANTITY_REGISTRY.get(base_name)
 
 
 def dom_consistency_attributes():
@@ -406,6 +407,72 @@ def build_dom_polling_failures(duthost, dom_primary_ports):
 
 def format_optional_float(value):
     return "{:.2f}".format(value) if value is not None else "not-available"
+
+
+def ports_for_primary(primary_port, port_attributes_dict, lport_to_first_subport_mapping):
+    """Return logical subports that share ``primary_port`` as their first subport."""
+    mapping = lport_to_first_subport_mapping or {}
+    return sorted(
+        port
+        for port in port_attributes_dict
+        if mapping.get(port, port) == primary_port
+    ) or [primary_port]
+
+
+def active_lanes_from_group_mask(primary_port, port_attributes_dict, lport_to_first_subport_mapping, mask_key):
+    """Return ``(lanes, errors)`` from the union of a breakout group's lane masks."""
+    mask_union = 0
+    errors = []
+    for port in ports_for_primary(primary_port, port_attributes_dict, lport_to_first_subport_mapping):
+        base_attrs = port_attributes_dict.get(port, {}).get(BASE_ATTRIBUTES_KEY, {})
+        raw_mask = base_attrs.get(mask_key)
+        if raw_mask is None:
+            errors.append("{} missing {} in {}".format(port, mask_key, BASE_ATTRIBUTES_KEY))
+            continue
+        try:
+            mask_union |= int(str(raw_mask), 16)
+        except (TypeError, ValueError):
+            errors.append("{} has unparsable {}={!r}".format(port, mask_key, raw_mask))
+
+    return [bit + 1 for bit in range(mask_union.bit_length()) if mask_union & (1 << bit)], errors
+
+
+def parse_required_number(attrs, attr_name, category_name=DOM_ATTRIBUTES_KEY):
+    """Return ``(value, error)`` for a required finite numeric attribute."""
+    raw_value = attrs.get(attr_name)
+    value = parse_numeric(raw_value)
+    if value is None or not math.isfinite(value):
+        return None, "{} must be configured as a finite number in {} (got {!r})".format(
+            attr_name,
+            category_name,
+            raw_value,
+        )
+    return value, None
+
+
+def parse_required_positive_int(attrs, attr_name, minimum=1):
+    """Return ``(value, error)`` for a required integer attribute."""
+    raw_value = attrs.get(attr_name)
+    value = parse_numeric(raw_value)
+    if value is None or not math.isfinite(value) or int(value) != value or value < minimum:
+        return None, "{} must be an integer >= {} (got {!r})".format(attr_name, minimum, raw_value)
+    return int(value), None
+
+
+def max_system_wait(port_attributes_dict, ports, attr_name):
+    """Return ``(wait_sec, errors)`` for a system timing attribute across ports."""
+    values = []
+    errors = []
+    for port in ports:
+        system_attrs = port_attributes_dict.get(port, {}).get(SYSTEM_ATTRIBUTES_KEY, {})
+        value, error = parse_required_positive_int(system_attrs, attr_name, minimum=0)
+        if error:
+            errors.append("{} {}".format(port, error))
+        else:
+            values.append(value)
+    return (max(values) if values else None), errors
+
+
 
 
 def format_dom_port_failure(
@@ -643,6 +710,7 @@ def read_dom_sensor_data(duthost, ports):
 def read_dom_threshold_data(duthost, ports):
     """Return ``({port: data_or_None}, errors)`` for current DOM threshold data."""
     return _read_dom_table_data(duthost, ports, STATE_DB_THRESHOLD_TABLE)
+
 
 
 def check_dom_sensor_freshness(sensor_data, max_age_min, now_utc):
