@@ -1,4 +1,6 @@
+import contextlib
 import logging
+import posixpath
 import re
 import pytest
 from tests.common.devices.eos import EosHost
@@ -17,13 +19,54 @@ from tests.bgp.route_checker import assert_only_loopback_routes_announced_to_nei
 from tests.bgp.traffic_checker import get_traffic_shift_state, check_tsa_persistence_support, \
     verify_traffic_shift_per_asic
 from tests.bgp.constants import TS_NORMAL, TS_MAINTENANCE, TS_NO_NEIGHBORS
-from tests.bgp.traffic_shift_golden import temporary_dma_maintenance_golden
 
 pytestmark = [
     pytest.mark.topology('t1', 'm1', 'c0', 'uma', 'lma')
 ]
 
 logger = logging.getLogger(__name__)
+
+
+@contextlib.contextmanager
+def _temporary_dma_maintenance_golden(duthost, topology, source_path):
+    """Yield reload kwargs for DMA-only golden maintenance config."""
+    if topology not in ("uma", "lma"):
+        yield {}
+        return
+
+    temporary_path = None
+    remote_program = (
+        "import json, sys\n"
+        "from pathlib import Path\n"
+        "path = Path(sys.argv[1])\n"
+        "with path.open() as source:\n"
+        "    config = json.load(source)\n"
+        "if not isinstance(config, dict):\n"
+        '    raise ValueError("Golden configuration must be a dictionary")\n'
+        'bgp_device_global = config.get("BGP_DEVICE_GLOBAL")\n'
+        'if not isinstance(bgp_device_global, dict):\n'
+        '    raise ValueError("Golden configuration must contain BGP_DEVICE_GLOBAL")\n'
+        'state = bgp_device_global.get("STATE")\n'
+        'if not isinstance(state, dict) or "tsa_enabled" not in state:\n'
+        '    raise ValueError("Golden BGP_DEVICE_GLOBAL.STATE must contain tsa_enabled")\n'
+        'state["tsa_enabled"] = "true"\n'
+        "with path.open('w') as destination:\n"
+        "    json.dump(config, destination, indent=4)\n"
+    )
+    try:
+        temporary_path = duthost.tempfile(
+            state="file",
+            path=posixpath.dirname(source_path),
+            prefix="traffic_shift_golden_",
+            suffix=".json",
+            verbose=False
+        )["path"]
+        duthost.copy(src=source_path, dest=temporary_path, remote_src=True, mode="0600", verbose=False)
+        duthost.command(argv=["python3", "-c", remote_program, temporary_path], verbose=False)
+        yield {"golden_config_path": temporary_path}
+    finally:
+        if temporary_path is not None:
+            duthost.file(path=temporary_path, state="absent", verbose=False)
 
 
 @pytest.fixture(scope="module")
@@ -322,6 +365,7 @@ def test_load_minigraph_with_traffic_shift_away(duthosts, enum_rand_one_per_hwsk
                                                 traffic_shift_community, tbinfo):
     """
     Test load_minigraph --traffic-shift-away
+    This covers the combined minigraph+golden maintenance path on DMA, not a -t override conflict check.
     Verify all routes are announced to bgp monitor, and only loopback routes are announced to neighs
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
@@ -347,7 +391,7 @@ def test_load_minigraph_with_traffic_shift_away(duthosts, enum_rand_one_per_hwsk
         )
         is_override_config = is_smartswitch or topology in ("uma", "lma")
 
-        with temporary_dma_maintenance_golden(
+        with _temporary_dma_maintenance_golden(
                 duthost, topology, DEFAULT_GOLDEN_CONFIG_PATH) as golden_config:
             config_reload(duthost, config_source='minigraph', safe_reload=True, check_intf_up_ports=True,
                           traffic_shift_away=True, override_config=is_override_config, **golden_config)
