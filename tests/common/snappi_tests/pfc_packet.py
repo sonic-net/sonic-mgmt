@@ -88,7 +88,9 @@ class PFCPacket():
         """
         Check if class pause times are valid. Both conditions must be met:
         1) class pause times are between 0x0 and 0xFFFF
-        2) class pause times are 0 if the corresponding bit in the class enable vector is 0, and vice versa
+        2) class pause times are 0 if the corresponding bit in the class enable vector is 0
+
+        Note: CEV=1 with time=0 is a valid IEEE 802.1Qbb resume (XON) frame, so it is allowed.
 
         Args:
 
@@ -99,8 +101,6 @@ class PFCPacket():
             if self.class_pause_times[i] < 0x0 and self.class_pause_times[i] > 0xFFFF:
                 return False
             elif self.class_pause_times[i] > 0x0 and self.class_enable_vec[PRIO_DEFAULT_LEN - i - 1] == "0":
-                return False
-            elif self.class_pause_times[i] == 0x0 and self.class_enable_vec[PRIO_DEFAULT_LEN - i - 1] == "1":
                 return False
 
         return True
