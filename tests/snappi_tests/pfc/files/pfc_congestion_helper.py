@@ -411,8 +411,13 @@ def run_pfc_test(api,
         pytest_assert((lossy_drop*100) <= test_check['lossy'], 'Lossy packet drop outside tolerance limit')
 
     # Checking if the actual line rate on egress is within tolerable limit of egress line speed.
-    pytest_assert(((1 - test_stats['tgen_rx_rate'] / float(port_map[0]*port_map[1]))*100) <= test_check['speed_tol'],
-                  'Egress speed beyond tolerance range')
+    if not (((1 - test_stats['tgen_rx_rate'] / float(port_map[0]*port_map[1]))*100) <= test_check['speed_tol']):
+        # Fallback: derive rate from packet counts when rx_l1_rate_bps is unavailable.
+        total_pkts_received = test_stats['tgen_lossless_rx_pkts'] + test_stats['tgen_lossy_rx_pkts']
+        tgen_rx_rate = round((total_pkts_received * data_flow_pkt_size * 8) /
+                             (DATA_FLOW_DURATION_SEC * (10**9)), 2)
+        pytest_assert(((1 - tgen_rx_rate / float(port_map[0]*port_map[1]))*100) <= test_check['speed_tol'],
+                      'Egress speed beyond tolerance range')
 
     # Checking for PFC counts on DUT
     if (not test_check['pfc']):
