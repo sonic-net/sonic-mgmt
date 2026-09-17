@@ -472,10 +472,18 @@ def matching_pfc_wd_keys(config_facts, neighbor_ctx):
 def normalize_table_data(table_name, raw_table):
     if not isinstance(raw_table, dict):
         return {}
-    if table_name in ("INTERFACE", "PORTCHANNEL_INTERFACE", "PORTCHANNEL_MEMBER"):
-        return format_sonic_interface_dict(
-            raw_table, single_entry=(table_name != "PORTCHANNEL_MEMBER"),
-        )
+    if table_name in ("INTERFACE", "PORTCHANNEL_INTERFACE"):
+        return format_sonic_interface_dict(raw_table)
+    if table_name == "PORTCHANNEL_MEMBER":
+        # Running config keys rows flat ("PortChannel101|Ethernet12"); config_facts nests them.
+        normalized = {}
+        for key, value in raw_table.items():
+            if "|" in key:
+                normalized[key] = {}
+            elif isinstance(value, dict):
+                for member in value:
+                    normalized[f"{key}|{member}"] = {}
+        return normalized
     if table_name == "ACL_TABLE":
         normalized = {}
         for key, value in raw_table.items():
@@ -496,6 +504,9 @@ def normalize_expected_value(table_name, value):
         if "ports" in entry:
             entry["ports"] = normalize_acl_ports(entry["ports"])
         return entry
+    if table_name == "PORTCHANNEL" and isinstance(value, dict):
+        # config_facts synthesizes a "members" list that CONFIG_DB does not carry.
+        return {k: copy.deepcopy(v) for k, v in value.items() if k != "members"}
     return copy.deepcopy(value)
 
 
