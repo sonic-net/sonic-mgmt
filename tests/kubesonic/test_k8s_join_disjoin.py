@@ -253,6 +253,7 @@ spec:
       containers:
       - image: {DUT_PAUSE_IMAGE}
         name: {DAEMONSET_CONTAINER_NAME}
+        imagePullPolicy: Never
     '''
 
     vmhost.shell(f"echo -n '{daemonset_content}' > {daemonset_yaml}")
