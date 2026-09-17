@@ -4,12 +4,12 @@ GCU coverage for the uplink (T3) neighbors of a disaggregated-T2 upper tier (UT2
 Per scenario (AZNGHub, RegionalHub) the test removes the existing T3 neighbor via GCU
 and adds it back, verifying CONFIG_DB, BGP routes and forwarding through the cycle.
 Uplink counterpart of test_add_downstream.py; both run
-ut2_helpers.run_remove_and_readd_cycle.
+dt2_helpers.run_remove_and_readd_cycle.
 """
 import logging
 import pytest
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
-from tests.generic_config_updater.add_cluster.ut2_helpers import (
+from tests.generic_config_updater.dt2.dt2_helpers import (
     T3_SCENARIOS,
     pick_target_neighbor,
     run_remove_and_readd_cycle,

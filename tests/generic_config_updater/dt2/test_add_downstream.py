@@ -5,12 +5,12 @@ On a UT2 the downstream neighbor is the LowerSpineRouter; on an LT2 it is the T1
 LeafRouter, which is the non-chassis counterpart of the chassis add-cluster test.
 Per scenario the test removes the existing downstream neighbor via GCU and adds it
 back, verifying CONFIG_DB, BGP routes and forwarding through the cycle. Downstream
-counterpart of test_add_t3.py; both run ut2_helpers.run_remove_and_readd_cycle.
+counterpart of test_add_t3.py; both run dt2_helpers.run_remove_and_readd_cycle.
 """
 import logging
 import pytest
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
-from tests.generic_config_updater.add_cluster.ut2_helpers import (
+from tests.generic_config_updater.dt2.dt2_helpers import (
     DOWNSTREAM_SCENARIOS,
     pick_target_neighbor,
     run_remove_and_readd_cycle,

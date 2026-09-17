@@ -6,7 +6,8 @@ Everything here is neighbor-centric: a ``neighbor_ctx`` (built by
 derive per-neighbor GCU patches, expected CONFIG_DB state, route and traffic
 checks from it. ``run_remove_and_readd_cycle`` is the flow shared by the uplink
 (``test_add_t3.py``) and downstream (``test_add_downstream.py``) tests, which keep
-only their scenario selection and fixtures.
+only their scenario selection and fixtures. The generic CONFIG_DB formatting helpers
+are imported from the chassis add-cluster suite rather than duplicated.
 """
 import copy
 import ipaddress
