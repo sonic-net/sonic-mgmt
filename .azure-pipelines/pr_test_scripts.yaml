@@ -784,6 +784,7 @@ t0-vpp:
   - dhcp_relay/test_dhcp_relay_stress.py
   - disk/test_disk_exhaustion.py
   - dns/test_dns_resolv_conf.py
+  - drop_packets/test_drop_counters.py
   - fdb/test_fdb_flush.py
   - fib/test_fib.py
   - fips/test_fips.py
