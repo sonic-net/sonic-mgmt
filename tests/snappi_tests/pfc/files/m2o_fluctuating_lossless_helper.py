@@ -585,6 +585,12 @@ def __gen_data_flow(testbed_config,
         eth.dst.value = rx_mac
         eth.pfc_queue.value = fp
         snappi_extra_params.flow_name_prio_map[flow.name] = fp
+        # index is the rx endpoint device slot, which IxNetwork reports as this flow's PGID.
+        snappi_extra_params.flow_name_stats_identity_map[flow.name] = (
+            testbed_config.ports[src_port_id].name,
+            testbed_config.ports[dst_port_id].name,
+            index,
+        )
     else:
         flow.tx_rx.port.tx_name = testbed_config.ports[src_port_id].name
         flow.tx_rx.port.rx_name = testbed_config.ports[dst_port_id].name
@@ -618,7 +624,6 @@ def __gen_data_flow(testbed_config,
             eth.pfc_queue.value = pfcQueueValueDict[flow_prio[1]]
 
     ipv4.priority.choice = ipv4.priority.DSCP
-    flow_prio = sorted(flow_prio)
     if '1 Background Flow 1 -> 0' in flow.name:
         ipv4.priority.dscp.phb.values = prio_dscp_map[flow_prio[0]]
     elif '2 Background Flow 2 -> 0' in flow.name:
@@ -628,12 +633,17 @@ def __gen_data_flow(testbed_config,
     elif '4 Background Flow 2 -> 0' in flow.name:
         ipv4.priority.dscp.phb.values = prio_dscp_map[flow_prio[3]]
     elif 'Test Flow 1 -> 0' in flow.name:
-        ipv4.priority.dscp.phb.values = prio_dscp_map[flow_prio[0]]
+        if ptype:
+            ipv4.priority.dscp.phb.values = prio_dscp_map[flow_prio[0]]
+        else:
+            ipv4.priority.dscp.phb.values = [flow_prio[0]]
     elif 'Test Flow 2 -> 0' in flow.name:
-        ipv4.priority.dscp.phb.values = prio_dscp_map[flow_prio[1]]
-    if len(ipv4.priority.dscp.phb.values) > 1:
+        if ptype:
+            ipv4.priority.dscp.phb.values = prio_dscp_map[flow_prio[1]]
+        else:
+            ipv4.priority.dscp.phb.values = [flow_prio[1]]
+    if ptype and len(ipv4.priority.dscp.phb.values) > 1:
         ipv4.priority.dscp.phb.values = ipv4.priority.dscp.phb.values[:1]
-    logger.info('{} {} {}'.format(flow.name, flow_prio, ipv4.priority.dscp.phb.values))
     ipv4.priority.dscp.ecn.value = ipv4.priority.dscp.ecn.CAPABLE_TRANSPORT_1
     flow.size.fixed = data_pkt_size
     flow.rate.percentage = flow_rate_percent
@@ -662,37 +672,55 @@ def verify_m2o_fluctuating_lossless_result(rows,
     """
     ptype = "--snappi_macsec" in sys.argv
     if ptype:
-        test_prios = {
-            int(prio)
-            for name, prio in snappi_extra_params.flow_name_prio_map.items()
+        test_row_keys = {
+            identity
+            for name, identity in snappi_extra_params.flow_name_stats_identity_map.items()
             if 'Test Flow' in name
         }
-        bg_prios = {
-            int(prio)
-            for name, prio in snappi_extra_params.flow_name_prio_map.items()
+        bg_row_keys = {
+            identity
+            for name, identity in snappi_extra_params.flow_name_stats_identity_map.items()
             if 'Background Flow' in name
         }
+        pytest_assert(
+            test_row_keys.isdisjoint(bg_row_keys),
+            "FAIL: Test and Background Flows share a MACsec statistics identity")
 
-        rx_port_name = snappi_extra_params.base_flow_config["rx_port_name"]
+        expected_row_keys = test_row_keys | bg_row_keys
+        seen_row_keys = set()
         background_loss = 0
         background_flow_count = 0
 
         for row in rows:
-            tx_frames = int(row['Tx Frames'])
-            if tx_frames == 0 or row['Rx Port'] != rx_port_name:
+            pgid = int(row['PGID'])
+            row_key = (row['Tx Port'], row['Rx Port'], pgid)
+            if row_key not in expected_row_keys:
                 continue
 
+            tx_frames = int(row['Tx Frames'])
+            if tx_frames == 0:
+                continue
+            seen_row_keys.add(row_key)
+
             # MACsec PGIDs use blocks of 7 per Tx port; modulo recovers the original priority.
-            prio = int(row['PGID']) % 7
+            prio = pgid % 7
             rx_frames = int(row['Rx Frames'])
             loss = 100.0 * (tx_frames - rx_frames) / tx_frames
 
-            if prio in test_prios:
-                pytest_assert(int(loss) == 0,
-                              "FAIL: Test Flow priority {} must have 0% loss".format(prio))
-            elif prio in bg_prios:
+            if row_key in test_row_keys:
+                pytest_assert(
+                    tx_frames == rx_frames,
+                    "FAIL: Test Flow priority {} lost {} frames".format(
+                        prio, tx_frames - rx_frames))
+            elif row_key in bg_row_keys:
                 background_flow_count += 1
                 background_loss += loss
+
+        missing_test_rows = test_row_keys - seen_row_keys
+        pytest_assert(
+            not missing_test_rows,
+            "FAIL: No transmitting MACsec statistics rows for Test Flows {}".format(
+                sorted(missing_test_rows)))
 
         pytest_assert(background_flow_count > 0,
                       "FAIL: No Background Flow rows found in MACsec traffic stats")
