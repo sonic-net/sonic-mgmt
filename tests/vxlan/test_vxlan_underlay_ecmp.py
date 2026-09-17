@@ -15,7 +15,6 @@ Logger = logging.getLogger(__name__)
 
 # On VS/KVM (PR tests), reduce test scope to speed up execution.
 # Full scope is preserved on physical hardware (nightly tests).
-VS_MAX_T2_INTFS = 3
 VS_PACKET_COUNT = 4000
 VS_MAX_ENDPOINTS = 2
 DEFAULT_PACKET_COUNT = 10000
@@ -64,13 +63,10 @@ class Test_VxLAN_underlay_ecmp(Test_VxLAN):
                 "pls check the testbed, aborting.")
 
         duthost = self.vxlan_test_setup['duthost']
-        vs_device = is_vs_device(duthost)
-        if vs_device and len(all_t2_intfs) > VS_MAX_T2_INTFS:
-            Logger.info("VS device: limiting T2 interfaces from %d to %d",
-                        len(all_t2_intfs), VS_MAX_T2_INTFS)
-            all_t2_intfs = all_t2_intfs[:VS_MAX_T2_INTFS]
-
-        packet_count = VS_PACKET_COUNT if vs_device else DEFAULT_PACKET_COUNT
+        # Only the packet count is reduced on VS. all_t2_intfs must stay complete: the second
+        # half of this test brings down every T2 interface except the selected ones and then
+        # verifies that traffic is received on the selected interfaces only.
+        packet_count = VS_PACKET_COUNT if is_vs_device(duthost) else DEFAULT_PACKET_COUNT
 
         # Keep a copy of the internal housekeeping list of t2 ports.
         # This is the full list of DUT ports connected to T2 neighbors.
@@ -244,13 +240,10 @@ class Test_VxLAN_underlay_ecmp(Test_VxLAN):
                 "Pls check the testbed, aborting.")
 
         duthost = self.vxlan_test_setup['duthost']
-        vs_device = is_vs_device(duthost)
-        if vs_device and len(all_t2_intfs) > VS_MAX_T2_INTFS:
-            Logger.info("VS device: limiting T2 interfaces from %d to %d",
-                        len(all_t2_intfs), VS_MAX_T2_INTFS)
-            all_t2_intfs = all_t2_intfs[:VS_MAX_T2_INTFS]
-
-        packet_count = VS_PACKET_COUNT if vs_device else DEFAULT_PACKET_COUNT
+        # Only the packet count is reduced on VS. tc13 shuts down *all* T2 interfaces to remove
+        # the underlay default route and then verifies that nothing is encapsulated, so trimming
+        # all_t2_intfs would leave the default route in place and invalidate the check.
+        packet_count = VS_PACKET_COUNT if is_vs_device(duthost) else DEFAULT_PACKET_COUNT
 
         try:
             Logger.info("Bring down the T2 interfaces.")
