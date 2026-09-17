@@ -511,10 +511,10 @@ jobs:
           MIN_WORKER: $(INSTANCE_NUMBER)
           MAX_WORKER: $(INSTANCE_NUMBER)
           KVM_IMAGE_BRANCH: ${{ parameters.KVM_IMAGE_BRANCH }}
-          KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
+          KVM_BUILD_ID: "1218839"
           MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
           ASIC_TYPE: "vpp"
-          KVM_IMAGE_BUILD_PIPELINE_ID: "2818"
+          KVM_IMAGE_BUILD_PIPELINE_ID: "1"
           COMMON_EXTRA_PARAMS: "--disable_sai_validation --disable_loganalyzer"
           ${{ each param in parameters.OVERRIDE_PARAMS }}:
             ${{ param.key }}: ${{ param.value }}
@@ -557,10 +557,10 @@ jobs:
           MIN_WORKER: $(INSTANCE_NUMBER)
           MAX_WORKER: $(INSTANCE_NUMBER)
           KVM_IMAGE_BRANCH: ${{ parameters.KVM_IMAGE_BRANCH }}
-          KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
+          KVM_BUILD_ID: "1218839"
           MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
           ASIC_TYPE: "vpp"
-          KVM_IMAGE_BUILD_PIPELINE_ID: "2818"
+          KVM_IMAGE_BUILD_PIPELINE_ID: "1"
           COMMON_EXTRA_PARAMS: "--disable_sai_validation --disable_loganalyzer"
           ${{ each param in parameters.OVERRIDE_PARAMS }}:
             ${{ param.key }}: ${{ param.value }}
@@ -603,10 +603,10 @@ jobs:
           MIN_WORKER: $(INSTANCE_NUMBER)
           MAX_WORKER: $(INSTANCE_NUMBER)
           KVM_IMAGE_BRANCH: ${{ parameters.KVM_IMAGE_BRANCH }}
-          KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
+          KVM_BUILD_ID: "1218839"
           MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
           ASIC_TYPE: "vpp"
-          KVM_IMAGE_BUILD_PIPELINE_ID: "2818"
+          KVM_IMAGE_BUILD_PIPELINE_ID: "1"
           COMMON_EXTRA_PARAMS: "--disable_sai_validation --disable_loganalyzer"
           ${{ each param in parameters.OVERRIDE_PARAMS }}:
             ${{ param.key }}: ${{ param.value }}
