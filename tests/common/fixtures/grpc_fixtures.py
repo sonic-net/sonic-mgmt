@@ -103,7 +103,7 @@ def _ensure_grpcurl_on_dut(duthost):
         pytest.skip(f"Unsupported DUT architecture for grpcurl: {dut_arch}")
 
     tarball = f"grpcurl_{GRPCURL_VERSION}_{grpcurl_arch}.tar.gz"
-    url = "https://github.com/fullstorydev/grpcurl/releases/download/v{}/{}".format(GRPCURL_VERSION, tarball)
+    url = f"https://github.com/fullstorydev/grpcurl/releases/download/v{GRPCURL_VERSION}/{tarball}"  # noqa: E231
 
     logger.info("Downloading grpcurl %s for %s from %s", GRPCURL_VERSION, dut_arch, url)
 
@@ -169,8 +169,6 @@ class GnmiFixture:
     pygnmi_client: Optional[PygnmiClient]   # None for UDS transport
     transport: str = 'tls'      # 'tls', 'plaintext' or 'uds'
     _duthost: object = None  # Fixture-selected DUT (post-reboot reconfig, DB cross-checks)
-    _ptfhost: object = None  # For post-upgrade cert redistribution
-    _cert_dir: Optional[str] = None  # Local cert dir used during setup
 
     @property
     def duthost(self):
@@ -271,7 +269,7 @@ def gnmi_tls(request, duthosts, ptfhost):
         # Build coupled client with the exact config we just set up
         host = duthost.mgmt_ip
         port = grpc_config.DEFAULT_TLS_PORT
-        target = "[{}]:{}".format(host, port)
+        target = f"[{host}]:{port}"  # noqa: E231
 
         ptf_cert_paths = grpc_config.get_ptf_cert_paths()
         cert_paths = CertPaths(
@@ -364,7 +362,7 @@ def gnmi_plaintext(request, duthosts, ptfhost):
 
     host = duthost.mgmt_ip
     port = grpc_config.DEFAULT_PLAINTEXT_PORT
-    target = "{}:{}".format(host, port)
+    target = f"{host}:{port}"  # noqa: E231
 
     client = PtfGrpc(ptfhost, target, plaintext=True)
     gnoi_client = PtfGnoi(client)
@@ -606,7 +604,7 @@ def _verify_gnoi_tls_connectivity(duthost, ptfhost):
     logger.info("Verifying gNOI TLS connectivity")
 
     cacert_arg, cert_arg, key_arg = grpc_config.get_grpcurl_cert_args()
-    target = "[{}]:{}".format(duthost.mgmt_ip, grpc_config.DEFAULT_TLS_PORT)
+    target = f"[{duthost.mgmt_ip}]:{grpc_config.DEFAULT_TLS_PORT}"  # noqa: E231
 
     # -connect-timeout bounds the TCP/TLS handshake portion; -max-time bounds
     # the whole call. Both keep a single retry attempt from hanging if packets

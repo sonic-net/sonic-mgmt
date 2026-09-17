@@ -270,6 +270,7 @@ r, ".*kdump-tools\[[0-9]+\]: no crashkernel= parameter in the kernel cmdline.*"
 
 # https://msazure.visualstudio.com/One/_workitems/edit/25833053
 r, ".* ERR dualtor_neighbor_check.py: .*"
+r, ".* ERR monit\[\d+\]: 'dualtorNeighborCheck' status failed \(1\) -- no output.*"
 
 # https://github.com/sonic-net/sonic-buildimage/issues/17683
 r, ".*ERR kernel: \[.*\] ccp.*firmware: failed to load amd\/amd_sev_.*.sbin .*"
@@ -374,6 +375,11 @@ r, ".* ERR audisp-tacplus: tac_connect_single: connection failed with.*Transport
 # Errors for syncd shutdown on mellanox platform
 r, ".* ERR kernel:.*sxd_kernel: \[error\] SDK main monitor thread does not respond"
 r, ".* ERR kernel:.*sxd_kernel: \[error\] Health-Check: device=1, cause=10 \['SDK thread issue'\] - stopping further device monitoring"
+# Newer SDK versions log the same syncd shutdown health check in a different format:
+# a dev_id=<N> prefix and dev_id [<N>] in place of device=<N> - raised as either
+# cause=10 (SDK thread issue) or cause=12 (SDK watchdog).
+r, ".* ERR kernel:.*sxd_kernel: \[error\] dev_id=\d+: Health check: dev_id \[\d+\], SDK thread \[.*\] TID \[.*\] does not respond.*"
+r, ".* ERR kernel:.*sxd_kernel: \[error\] dev_id=\d+: Health-Check: dev_id \[\d+\], cause=\d+ \['(?:SDK thread issue|SDK watchdog)'\] - stopping further device monitoring.*"
 
 # Ignore gbsynd error for 720DT
 r, ".*ERR gbsyncd#syncd: :- collectData: Failed to get stats of Port Counter.*"
@@ -488,7 +494,7 @@ r, ".*ERR syncd#SDK: \[SAI_PORT.ERR\] .*mlnx_sai_port.c\[.*\]- mlnx_port_samplep
 
 # Ignore the error when the sysfs was accessed too soon, before sys creation has been completed.
 r, ".*ERR sfputil: Failed to read from file /sys/module/sx_core/asic\d+/module\d+/present - FileNotFoundError.*"
-
+r, ".*ERR sfputil.*message repeated \d+ times.*Failed to read from file \/sys\/module\/sx_core\/asic\d+\/module\d+\/present.*FileNotFoundError.*"
 # This is a deprecation warning not a functional error, which matches the regex "kernel:.*allocation", not an err.
 r, ".*kernel.*gpio.*Static allocation of GPIO base is deprecated.*"
 
@@ -521,3 +527,8 @@ r, ".* ERR auditd.*: auditd queue full reporting limit reached - ending dropped 
 # ctrmgrd k8s join warnings (old k8s version incompatibility with Docker 28.x)
 r, ".* ERR ctrmgrd\.py: Refer file .* for troubleshooting tips.*"
 r, ".* ERR ctrmgrd\.py:.*\[WARNING SystemVerification\]:.*Docker version is not on the list of validated versions.*"
+
+# ignore journalctl tac_connect_single and nss_tacplus errors during config reload
+# TACACS+ is temporarily unreachable while the SONiC network stack restarts
+r, ".* ERR journalctl: tac_connect_single: connection failed with .*Transport endpoint is not connected"
+r, ".* ERR journalctl: nss_tacplus: failed to connect TACACS\+ server .*Transport endpoint is not connected"
