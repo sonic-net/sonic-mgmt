@@ -32,8 +32,12 @@ from tests.common.snappi_tests.uhd.uhd_helpers import (NetworkConfigSettings, cr
                                                        create_connections, create_connections_pl, create_uhdIp_list,
                                                        create_arp_bypass, create_arp_bypass_pl, create_profiles)
 yaml.SafeDumper.add_representer(AnsibleUnsafeText, yaml.SafeDumper.represent_str)
+from tests.common.devices.duthosts import DutHosts
+from tests.common.devices.multi_asic import MultiAsicSonicHost
+
 logger = logging.getLogger(__name__)
 _next_system_id = 1
+_fabric_capable_cache = {}
 
 macsec_enabled_port = {}
 macsec_profile_name = ""
@@ -2096,45 +2100,6 @@ def get_snappi_ports_for_rdma(snappi_port_list, rdma_ports, tx_port_count, rx_po
     return multidut_snappi_ports
 
 
-def clear_fabric_counters(duthost):
-    """
-    Clears the fabric counters for the duthost based on broadcom-DNX platform.
-    Args:
-        duthost(obj): dut host object
-    Returns:
-        None
-    """
-    if "platform_asic" in duthost.facts and duthost.facts["platform_asic"] == "broadcom-dnx":
-        logger.info('Clearing fabric counters for DUT:{}'.format(duthost.hostname))
-        duthost.shell('sonic-clear fabriccountersport \n')
-        time.sleep(1)
-
-
-def check_fabric_counters(duthost):
-    """
-    Check for the fabric counters for the duthost based on broadcom-DNX platform.
-    Test assert if the value of CRC, and FEC_UNCORRECTABLE.
-    Args:
-        duthost(obj): dut host object
-    Returns:
-        None
-    """
-    if "platform_asic" in duthost.facts and duthost.facts["platform_asic"] == "broadcom-dnx":
-        raw_out = duthost.shell("show fabric counters port | grep -Ev 'ASIC|---|down'")['stdout']
-        logger.info('Verifying fabric counters for DUT:{}'.format(duthost.hostname))
-        for line in raw_out.split('\n'):
-            # Checking if the port is UP.
-            if 'up' in line:
-                val_list = line.split()
-                crc_errors = int(val_list[7].replace(',', ''))
-                fec_uncor_err = int(val_list[9].replace(',', ''))
-                # Assert if CRC or FEC uncorrected errors are non-zero.
-                pytest_assert(crc_errors == 0, 'CRC errors:{} for DUT:{}, ASIC:{}, Port:{}'.
-                              format(crc_errors, duthost.hostname, val_list[0], val_list[1]))
-                pytest_assert(fec_uncor_err == 0, 'Forward Uncorrectable errors:{} for DUT:{}, ASIC:{}, Port:{}'.
-                              format(fec_uncor_err, duthost.hostname, val_list[0], val_list[1]))
-
-
 def setup_config_uhd_connect(request, tbinfo, ha_test_case=None):
     """
     Standalone function for UHD connect configuration that can be called in threads
@@ -2584,3 +2549,290 @@ def flatten_list(lst):
         else:
             flattened.append(item)
     return flattened
+
+
+class FabricCounterContext(object):
+    """Session-scoped fabric-counter discovery and endpoint attribution."""
+
+    def __init__(self, hosts, selected_hostnames, selected_module_ids, peer_module_by_port):
+        self.hosts = hosts
+        self.selected_hostnames = selected_hostnames
+        self.selected_module_ids = selected_module_ids
+        self.peer_module_by_port = peer_module_by_port
+
+
+def _contains_fabric_port_rows(stdout_lines):
+    """Return True when the fabric-counter table contains a port row."""
+    for line in stdout_lines:
+        fields = line.split()
+        if fields and fields[0].isdigit():
+            return True
+    return False
+
+
+def _has_fabric_links(duthost):
+    """Return True for Broadcom-DNX hosts that expose fabric ports."""
+    if duthost.hostname in _fabric_capable_cache:
+        return _fabric_capable_cache[duthost.hostname]
+
+    if duthost.facts.get("platform_asic") != "broadcom-dnx":
+        _fabric_capable_cache[duthost.hostname] = False
+        return False
+
+    result = duthost.shell("show fabric counters port", module_ignore_errors=True)
+    if result.get("rc", 1) != 0:
+        logger.warning("Unable to determine fabric capability for DUT {}: {}".format(
+            duthost.hostname, result.get("stderr") or result.get("msg")))
+        return False
+
+    capable = _contains_fabric_port_rows(result.get("stdout_lines", []))
+    _fabric_capable_cache[duthost.hostname] = capable
+    if not capable:
+        logger.info("Skipping fabric counters for DUT {}: no fabric ports found".format(
+            duthost.hostname))
+    return capable
+
+
+def _get_switch_id(duthost, asic):
+    """Return the CONFIG_DB switch_id for an ASIC, or None."""
+    result = duthost.shell(
+        '{} CONFIG_DB HGET "DEVICE_METADATA|localhost" "switch_id"'.format(asic.sonic_db_cli),
+        module_ignore_errors=True)
+    if result.get("rc", 1) != 0:
+        return None
+    return result.get("stdout", "").strip() or None
+
+
+def _get_peer_module_map(duthost):
+    """Map (hostname, asic, local_port) to remote module from fabric reachability."""
+    peer_modules = {}
+    for asic in duthost.asics:
+        command = "show fabric reachability"
+        if asic.cli_ns_option:
+            command = "{} {}".format(command, asic.cli_ns_option)
+        result = duthost.shell(command, module_ignore_errors=True)
+        if result.get("rc", 1) != 0:
+            logger.warning("Unable to read fabric reachability from DUT {} ASIC {}: {}".format(
+                duthost.hostname, asic.asic_index, result.get("stderr") or result.get("msg")))
+            continue
+        for line in result.get("stdout_lines", []):
+            fields = line.split()
+            # local port, remote module, remote port, status
+            if len(fields) < 4 or not fields[0].isdigit():
+                continue
+            peer_modules[(duthost.hostname, str(asic.asic_index), fields[0])] = fields[1]
+    return peer_modules
+
+
+def _build_fabric_counter_context(fabric_hosts, duthosts):
+    selected_hostnames = {dut.hostname for dut in duthosts}
+    selected_module_ids = set()
+    peer_module_by_port = {}
+
+    for host in fabric_hosts:
+        if host.hostname in selected_hostnames:
+            for asic in host.asics:
+                try:
+                    switch_id = _get_switch_id(host, asic)
+                except Exception as exc:
+                    logger.warning("Unable to read switch_id for selected DUT {} ASIC {}: {!r}".format(
+                        host.hostname, asic.asic_index, exc))
+                    continue
+                if switch_id:
+                    selected_module_ids.add(switch_id)
+                else:
+                    logger.warning(
+                        "Unable to read switch_id for selected DUT {} ASIC {}; "
+                        "SUP ports facing this ASIC cannot be attributed".format(
+                            host.hostname, asic.asic_index))
+
+        try:
+            peer_module_by_port.update(_get_peer_module_map(host))
+        except Exception as exc:
+            logger.warning("Unable to read fabric reachability from DUT {}: {!r}".format(
+                host.hostname, exc))
+
+    logger.info("Fabric-counter DUTs: {}".format([host.hostname for host in fabric_hosts]))
+    return FabricCounterContext(
+        hosts=fabric_hosts,
+        selected_hostnames=selected_hostnames,
+        selected_module_ids=selected_module_ids,
+        peer_module_by_port=peer_module_by_port)
+
+
+@pytest.fixture(scope="session")
+def fabric_counter_context(duthosts, ansible_adhoc, tbinfo):
+    """Discover reachable Broadcom-DNX hosts with fabric ports.
+
+    Includes cards listed in tbinfo['duts'] even when they are omitted from
+    --host-pattern. Unreachable out-of-pattern cards are skipped with a warning.
+    """
+    hosts = {dut.hostname: dut for dut in duthosts}
+    selected_hostnames = set(hosts)
+    for hostname in tbinfo.get("duts", []):
+        if hostname in hosts:
+            continue
+        try:
+            hosts[hostname] = MultiAsicSonicHost(
+                ansible_adhoc, hostname, duthosts, tbinfo["topo"]["type"])
+        except Exception as exc:
+            logger.warning("Skipping fabric counters for out-of-pattern DUT {}: {!r}".format(
+                hostname, exc))
+
+    fabric_hosts = []
+    for host in hosts.values():
+        try:
+            if _has_fabric_links(host):
+                fabric_hosts.append(host)
+        except Exception as exc:
+            if host.hostname in selected_hostnames:
+                raise
+            logger.warning("Skipping fabric counters for out-of-pattern DUT {}: {!r}".format(
+                host.hostname, exc))
+
+    return _build_fabric_counter_context(fabric_hosts, duthosts)
+
+
+def _resolve_fabric_hosts(duthost_or_hosts):
+    """Return (context_or_None, host_list) for clear/check helpers."""
+    if isinstance(duthost_or_hosts, FabricCounterContext):
+        return duthost_or_hosts, list(duthost_or_hosts.hosts)
+    if isinstance(duthost_or_hosts, (list, tuple, set, DutHosts)):
+        hosts = list(duthost_or_hosts)
+    else:
+        hosts = [duthost_or_hosts]
+    return None, [host for host in hosts if _has_fabric_links(host)]
+
+
+def _parse_fabric_counter_rows(stdout_lines):
+    """Parse active fabric-port rows using column names from the header.
+
+    The ASIC column is absent on some single-ASIC platforms, so it is optional
+    and defaults to asic 0 to stay consistent with SonicAsic.asic_index.
+    """
+    header = None
+    for line in stdout_lines:
+        fields = line.split()
+        if "CRC" in fields and "PORT" in fields:
+            header = {name: index for index, name in enumerate(fields)}
+            break
+
+    state_column = None
+    if header is not None:
+        state_column = "STATE" if "STATE" in header else "STATUS" if "STATUS" in header else None
+
+    required_columns = {"PORT", "CRC", "FEC_UNCORRECTABLE"}
+    if header is None or state_column is None or not required_columns.issubset(header):
+        raise ValueError("Fabric-counter output is missing required columns: {}".format(
+            sorted(required_columns | {"STATE"})))
+
+    used_columns = required_columns | {state_column}
+    if "ASIC" in header:
+        used_columns.add("ASIC")
+    highest_index = max(header[name] for name in used_columns)
+
+    for line in stdout_lines:
+        fields = line.split()
+        if not fields or not fields[0].isdigit():
+            continue
+        if len(fields) <= highest_index:
+            raise ValueError("Malformed fabric-counter row: {}".format(line))
+        yield {
+            "asic": fields[header["ASIC"]] if "ASIC" in header else "0",
+            "port": fields[header["PORT"]],
+            "state": fields[header[state_column]].lower(),
+            "crc": int(fields[header["CRC"]].replace(",", "")),
+            "fec_uncorrectable": int(fields[header["FEC_UNCORRECTABLE"]].replace(",", "")),
+        }
+
+
+def _is_selected_fabric_link(context, duthost, row):
+    """Return (is_selected, peer_module) for a fabric-counter row."""
+    if context is None:
+        return True, None
+
+    peer_module = context.peer_module_by_port.get(
+        (duthost.hostname, row["asic"], row["port"]))
+    if duthost.hostname in context.selected_hostnames:
+        return True, peer_module
+    return peer_module in context.selected_module_ids, peer_module
+
+
+def clear_fabric_counters(duthost_or_hosts):
+    """Clear fabric counters on reachable fabric-capable hosts.
+
+    Args:
+        duthost_or_hosts: FabricCounterContext, host list, DutHosts, or a single host.
+    """
+    _, hosts = _resolve_fabric_hosts(duthost_or_hosts)
+    cleared_any = False
+    for duthost in hosts:
+        try:
+            result = duthost.shell("sonic-clear fabriccountersport", module_ignore_errors=True)
+        except Exception as exc:
+            logger.warning("Unable to clear fabric counters on DUT {}: {!r}".format(
+                duthost.hostname, exc))
+            continue
+        if result.get("rc", 1) != 0:
+            logger.warning("Unable to clear fabric counters on DUT {}: {}".format(
+                duthost.hostname, result.get("stderr") or result.get("msg")))
+            continue
+        logger.info("Cleared fabric counters on DUT:{}".format(duthost.hostname))
+        cleared_any = True
+    if cleared_any:
+        time.sleep(1)
+
+
+def check_fabric_counters(duthost_or_hosts):
+    """Check CRC and uncorrectable FEC counters on fabric-capable hosts.
+
+    Errors on a selected DUT, or on an unselected DUT whose peer belongs to a
+    selected DUT, fail the test. Unrelated chassis-link errors are warnings.
+
+    Args:
+        duthost_or_hosts: FabricCounterContext, host list, DutHosts, or a single host.
+    """
+    context, hosts = _resolve_fabric_hosts(duthost_or_hosts)
+    failures = []
+    for duthost in hosts:
+        try:
+            result = duthost.shell("show fabric counters port", module_ignore_errors=True)
+        except Exception as exc:
+            logger.warning("Unable to check fabric counters on DUT {}: {!r}".format(
+                duthost.hostname, exc))
+            continue
+        if result.get("rc", 1) != 0:
+            logger.warning("Unable to check fabric counters on DUT {}: {}".format(
+                duthost.hostname, result.get("stderr") or result.get("msg")))
+            continue
+
+        logger.info("Verifying fabric counters for DUT:{}".format(duthost.hostname))
+        try:
+            rows = list(_parse_fabric_counter_rows(result.get("stdout_lines", [])))
+        except (TypeError, ValueError) as exc:
+            message = "Unable to parse fabric counters for DUT {}: {}".format(duthost.hostname, exc)
+            # A card outside --host-pattern must never fail an unrelated traffic test.
+            if context is None or duthost.hostname in context.selected_hostnames:
+                failures.append(message)
+            else:
+                logger.warning(message)
+            continue
+
+        for row in rows:
+            if row["state"] != "up":
+                continue
+            if row["crc"] == 0 and row["fec_uncorrectable"] == 0:
+                continue
+
+            is_selected_link, peer_module = _is_selected_fabric_link(context, duthost, row)
+            message = (
+                "Fabric errors on DUT:{}, ASIC:{}, Port:{}, Peer-Module:{}, "
+                "CRC:{}, FEC-Uncorrectable:{}".format(
+                    duthost.hostname, row["asic"], row["port"],
+                    peer_module or "unknown", row["crc"], row["fec_uncorrectable"]))
+            if is_selected_link:
+                failures.append(message)
+            else:
+                logger.warning(message)
+
+    pytest_assert(not failures, "Fabric counter errors:\n{}".format("\n".join(failures)))
