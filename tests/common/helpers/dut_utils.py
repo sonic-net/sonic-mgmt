@@ -38,6 +38,17 @@ BASI_PATH = os.path.dirname(os.path.abspath(__file__))
 logger = logging.getLogger(__name__)
 
 
+class ConsoleNotConfiguredError(Exception):
+    """Raised when the connection graph carries no console server metadata for a DUT.
+
+    This is a plain Exception (not pytest.skip) on purpose: best-effort callers such as
+    tests/common/reboot.py::try_create_dut_console catch `Exception` to degrade
+    gracefully, and pytest.skip raises a BaseException that would escape those handlers
+    and skip an unrelated test mid-run. Console-dependent fixtures translate it into a
+    skip instead.
+    """
+
+
 def is_supervisor_node(inv_files, hostname):
     """Check if the current node is a supervisor node in case of multi-DUT.
      @param inv_files: List of inventory file paths, In tests,
@@ -577,17 +588,6 @@ def create_linecard_console(supervisor, linecard_duthost, inv_files, creds):
         )
     except UnsupportedPlatformError as e:
         pytest.skip(f"Linecard console not supported: {str(e)}")
-
-
-class ConsoleNotConfiguredError(Exception):
-    """Raised when the connection graph carries no console server metadata for a DUT.
-
-    This is a plain Exception (not pytest.skip) on purpose: best-effort callers such as
-    tests/common/reboot.py::try_create_dut_console catch `Exception` to degrade
-    gracefully, and pytest.skip raises a BaseException that would escape those handlers
-    and skip an unrelated test mid-run. Console-dependent fixtures translate it into a
-    skip instead.
-    """
 
 
 def create_duthost_console(duthost, localhost, conn_graph_facts, creds):  # noqa: F811
