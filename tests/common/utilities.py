@@ -1553,6 +1553,14 @@ def reload_minigraph_with_golden_config(duthost, json_data, safe_reload=True):
     for multi-asic/single-asic devices, we only have 1 golden_config_db.json
     """
     from tests.common.config_reload import config_reload
+    if duthost.is_bmc():
+        # load_minigraph rebuilds FEATURE from init config; preserve running BMC
+        # feature states so disabled services (e.g. swss/syncd) stay disabled.
+        feature_output = duthost.shell("sonic-cfggen -d --var-json FEATURE")
+        feature_json = feature_output.get('stdout', '').strip()
+        if feature_json:
+            json_data = dict(json_data)
+            json_data['FEATURE'] = json.loads(feature_json)
     golden_config = "/etc/sonic/golden_config_db.json"
     duthost.copy(content=json.dumps(json_data, indent=4), dest=golden_config)
     try:

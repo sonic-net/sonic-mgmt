@@ -642,12 +642,40 @@ def test_fallback_to_local_authorization_with_config_reload(
     try:
         reload_minigraph_with_golden_config(duthost, override_config)
 
+        if duthost.is_bmc():
+            # Minigraph reload drops existing SSH sessions on BMC; open a new one while TACACS is
+            # still up (authentication is tacacs+ only in override_config).
+            ssh_client = None
+
+            def connect_ssh_after_reload():
+                nonlocal ssh_client
+                ssh_client = ssh_connect_remote_retry(
+                    duthost.mgmt_ip,
+                    tacacs_creds['tacacs_rw_user'],
+                    tacacs_creds['tacacs_rw_user_passwd'],
+                    duthost,
+                )
+                return ssh_client is not None
+
+            pytest_assert(
+                wait_until(120, 5, 0, connect_ssh_after_reload),
+                "Failed to establish SSH session after config reload")
+            rw_ssh_client = ssh_client
+            close_rw_ssh_client = True
+        else:
+            rw_ssh_client = remote_rw_user_client
+            close_rw_ssh_client = False
+
         # Shutdown tacacs server to simulate network unreachable because BGP shutdown
         stop_tacacs_server(ptfhost)
 
         # Test "sudo config save -y" can success after reload minigraph
-        exit_code, stdout, stderr = ssh_run_command(remote_rw_user_client, "sudo config save -y",
-                                                    expect_exit_code=0, verify=True)
+        try:
+            ssh_run_command(rw_ssh_client, "sudo config save -y",
+                            expect_exit_code=0, verify=True)
+        finally:
+            if close_rw_ssh_client:
+                rw_ssh_client.close()
 
         #  Cleanup UT.
         start_tacacs_server(ptfhost)
