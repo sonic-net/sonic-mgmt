@@ -97,8 +97,15 @@ def has_chassisdb_conf(duthost):
 
 
 def prefix_list_cli_skips_on_supervisor(duthost):
-    """Return True if ``prefix_list`` would no-op on this DUT as supervisor."""
-    if duthost.is_supervisor_node() or has_chassisdb_conf(duthost):
+    """Return True if ``prefix_list`` would no-op on this DUT as supervisor.
+
+    ``skip_chassis_supervisor`` in the ``prefix_list`` CLI keys the no-op on
+    ``supervisor=1`` in the platform's ``platform_env.conf`` only. Do not key it
+    on ``/etc/sonic/chassisdb.conf``: that file is also present on multi-ASIC
+    DT2 line cards, SmartSwitch and disaggregated-chassis frontends where the
+    CLI runs normally, and excluding them would silently drop coverage.
+    """
+    if duthost.is_supervisor_node():
         return True
     cmd = (
         'PLATFORM=$(sonic-cfggen -d -v DEVICE_METADATA.localhost.platform '
