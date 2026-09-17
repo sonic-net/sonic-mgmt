@@ -12,6 +12,7 @@ import pytest
 import datetime
 import six
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.dut_utils import creds_on_dut
 from . import passw_hardening_utils
 
 pytestmark = [
@@ -169,6 +170,20 @@ def review_one_policy_with_user(duthost, passw_hardening_ob, passw_test, passw_b
                       .format(passw_hardening_utils.USERNAME_ONE_POLICY, passw_bad_test, passw_exp_error))
 
 
+def get_dut_login_user(duthost):
+    """ Resolve the non-root admin account used to log in to the DUT.
+
+        Most inventories only declare the admin account through the group level
+        'sonicadmin_user' variable, so fall back to it when the host does not define
+        its own 'ansible_user'.
+    """
+    host = duthost.host.options['inventory_manager'].get_host(duthost.hostname)
+    login_user = host.vars.get('ansible_user') if host else None
+    if not login_user:
+        login_user = creds_on_dut(duthost).get('sonicadmin_user')
+    return login_user
+
+
 def verify_age_flow(duthost, passw_hardening_ob, expected_login_error):
     login_response = ''
 
@@ -191,10 +206,10 @@ def verify_age_flow(duthost, passw_hardening_ob, expected_login_error):
     compare_passw_age_in_pam_dir(duthost, passw_hardening_ob, passw_hardening_utils.USERNAME_AGE)
 
     # Run su from the non-root SSH login user so PAM authenticates the test user.
-    host_vars = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars
-    login_user = host_vars.get('ansible_user')
+    login_user = get_dut_login_user(duthost)
     pytest_assert(login_user and login_user != 'root',
-                  "Password-aging validation requires a non-root ansible_user")
+                  "Password-aging validation requires a non-root login user, but neither a host level "
+                  "'ansible_user' nor a group level 'sonicadmin_user' resolved to one")
     su_cmd = "printf '%s\\n' {} | timeout 10 su -c true {}".format(
         shlex.quote(passw_test),
         shlex.quote(passw_hardening_utils.USERNAME_AGE)
