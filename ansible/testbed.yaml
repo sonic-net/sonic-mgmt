@@ -3965,6 +3965,40 @@
   comment: ediwibowo
   tb_owner: ediwibowo
 
+- conf-name: sc02-bmc-7060xe7-j02-u17
+  group-name: sc02-k07-u17-1
+  topo: bmc-dual-mgmt
+  ptf_image_name: docker-ptf
+  ptf: sc02-k07-u17-1
+  ptf_ip: 10.212.74.243/26
+  ptf_ipv6:
+  server: server_sc02a_k07_u17
+  vm_base:
+  dut:
+  - sc02-7060xe7-64prs-j02-u17-bmc
+  bmc_host: sc02-7060xe7-64prs-j02-u17
+  inv_name: sc02a
+  auto_recover: 'True'
+  comment: SC02 Lab
+  tb_owner: ediwibowo
+
+- conf-name: sc02-bmc-7060xe7-j05-u13
+  group-name: sc02-k06-u19-1
+  topo: bmc-dual-mgmt
+  ptf_image_name: docker-ptf
+  ptf: sc02-k06-u19-1
+  ptf_ip: 10.212.74.116/26
+  ptf_ipv6:
+  server: server_sc02a_k06_u19
+  vm_base:
+  dut:
+  - sc02-7060xe7-64prs-j05-u13-bmc
+  bmc_host: sc02-7060xe7-64prs-j05-u13
+  inv_name: sc02a
+  auto_recover: 'True'
+  comment: SC02 Lab
+  tb_owner: ediwibowo
+
 - conf-name: vms12-t1-smartswitch-4280-01
   group-name: vms12-4
   topo: t1-48-lag
@@ -4568,7 +4602,7 @@
   topo: lt2-p32o64
   ptf_image_name: docker-ptf
   ptf: vms13-1
-  ptf_ip: 10.64.247.153/26
+  ptf_ip: 10.64.247.153/25
   ptf_ipv6: 2a01:111:e210:b000::a40:f799/122
   server: server_13
   vm_base: VM13000
@@ -4584,7 +4618,7 @@
   topo: lt2-o256-u32d224
   ptf_image_name: docker-ptf
   ptf: vms13-6
-  ptf_ip: 10.64.247.183/26
+  ptf_ip: 10.64.247.183/25
   ptf_ipv6: 2a01:111:e210:b000::a40:f7b7/122
   server: server_13
   vm_base: VM13364
@@ -4596,12 +4630,29 @@
   tb_owner: bingwang
   use_converged_peers: true
 
+- conf-name: vms13-lt2-nokia-th6-2
+  group-name: vms13-9
+  topo: lt2-o256-u32d224
+  ptf_image_name: docker-ptf
+  ptf: vms13-9
+  ptf_ip: 10.64.247.209/25
+  ptf_ipv6:
+  server: server_13
+  vm_base: VM13616
+  dut:
+  - str4-Nokia-7220-Th6p-2
+  inv_name: str4
+  auto_recover: 'True'
+  comment: bingwang
+  tb_owner: bingwang
+  use_converged_peers: true
+
 - conf-name: vms13-lt2-nh4210-1
   group-name: vms13-7
   topo: lt2-u32d128
   ptf_image_name: docker-ptf
   ptf: vms13-7
-  ptf_ip: 10.64.247.144/26
+  ptf_ip: 10.64.247.144/25
   ptf_ipv6: 2a01:111:e210:b000::a40:f790/122
   server: server_13
   vm_base: VM13096

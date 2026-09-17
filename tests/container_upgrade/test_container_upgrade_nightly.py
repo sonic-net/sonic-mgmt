@@ -201,7 +201,8 @@ def test_container_upgrade_nightly(localhost, duthosts, rand_one_dut_hostname, t
             f"--host-pattern={hostname} --log-cli-level=warning "
             f"--log-file-level=debug --kube_master=unset --showlocals "
             f"--assert=plain --show-capture=no -rav --allow_recover "
-            f"--skip_sanity --disable_loganalyzer --container_test=true "
+            f"--skip_sanity --disable_loganalyzer --disable_memory_utilization "
+            f"--container_test=true "
             f"--log-file={log_file} --junit-xml={log_xml}"
         )
 

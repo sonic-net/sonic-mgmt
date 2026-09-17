@@ -141,7 +141,9 @@ pdu:
 sonic_str_cisco_8111_O32:
   hosts:
     STR-8111-C14-U18:
-      ansible_host: 10.3.146.161
+      ansible_host: 10.3.144.66
+      ansible_hostv6: 2a01:111:e210:b7::2
+      mgmt_subnet_mask_length: 27
   vars:
     hwsku: Cisco-8111-O32
     iface_speed: 400000
@@ -878,9 +880,9 @@ sonic_cisco_8101_O8V48:
     iface_speed: 100000
   hosts:
     str3-8101-04:
-      ansible_host: 10.3.146.35
-      ansible_hostv6: 2a01:111:e210:3000::a03:9223
-      mgmt_subnet_mask_length: 24
+      ansible_host: 10.3.144.80
+      ansible_hostv6: 2a01:111:e210:b7::10
+      mgmt_subnet_mask_length: 27
       chassis_id: str3-8101-04
       model: 8101-32FH-O
       serial: FLM290805S2

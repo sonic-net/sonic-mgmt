@@ -1,5 +1,3 @@
 {
-	"testcases": [
-		"auditd/test_auditd.py"
-	]
+    "auditd/test_auditd.py": 0
 }

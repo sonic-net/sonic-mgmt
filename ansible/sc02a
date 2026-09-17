@@ -1,0 +1,1361 @@
+all:
+  children:
+    docker_registry:
+      hosts:
+        acs-devrepo.corp.microsoft.com:
+    sc02a:
+      children:
+        sonic:
+        fanout:
+        server:
+        pdu:
+    ptf:
+      vars:
+        ansible_ssh_user: root
+        ansible_ssh_pass: root
+      hosts:
+        sc02-k07-u17-1:
+          ansible_host: 10.212.74.243
+        sc02-k06-u19-1:
+          ansible_host: 10.212.74.116
+
+    pdu:
+      hosts:
+        sc02-j04-ps-1:
+          ansible_host: 10.212.74.74
+          protocol: snmp
+        sc02-j04-ps-2:
+          ansible_host: 10.212.74.75
+          protocol: snmp
+        sc02-j07-ps-1:
+          ansible_host: 10.212.74.138
+          protocol: snmp
+        sc02-j07-ps-2:
+          ansible_host: 10.212.74.139
+          protocol: snmp
+        sc02-k02-pdu-1:
+          ansible_host: 10.212.73.200
+          protocol: snmp
+        sc02-k02-pdu-2:
+          ansible_host: 10.212.73.194
+          protocol: snmp
+        sc02-k03-pdu-1:
+          ansible_host: 10.212.74.6
+          protocol: snmp
+        sc02-k03-pdu-2:
+          ansible_host: 10.212.74.2
+          protocol: snmp
+        sc02-k03-ps-1:
+          ansible_host: 10.212.74.7
+          protocol: snmp
+        sc02-k03-ps-2:
+          ansible_host: 10.212.74.8
+          protocol: snmp
+        sc02-k04-pdu-1:
+          ansible_host: 10.212.74.9
+          protocol: snmp
+        sc02-k04-pdu-2:
+          ansible_host: 10.212.74.3
+          protocol: snmp
+        sc02-k04-ps-1:
+          ansible_host: 10.212.74.10
+          protocol: snmp
+        sc02-k04-ps-2:
+          ansible_host: 10.212.74.11
+          protocol: snmp
+        sc02-k05-pdu-1:
+          ansible_host: 10.212.74.76
+          protocol: snmp
+        sc02-k05-pdu-2:
+          ansible_host: 10.212.74.66
+          protocol: snmp
+        sc02-k06-pdu-1:
+          ansible_host: 10.212.74.77
+          protocol: snmp
+        sc02-k06-pdu-2:
+          ansible_host: 10.212.74.67
+          protocol: snmp
+        sc02-k07-pdu-1:
+          ansible_host: 10.212.74.78
+          protocol: snmp
+        sc02-k07-pdu-2:
+          ansible_host: 10.212.74.68
+          protocol: snmp
+        sc02-k08-pdu-1:
+          ansible_host: 10.212.74.140
+          protocol: snmp
+        sc02-k08-pdu-2:
+          ansible_host: 10.212.74.130
+          protocol: snmp
+        sc02-k09-pdu-1:
+          ansible_host: 10.212.74.204
+          protocol: snmp
+        sc02-k09-pdu-2:
+          ansible_host: 10.212.74.194
+          protocol: snmp
+
+fanout:
+  hosts:
+    sc02-7050cx3-root-k02-u27:
+      ansible_host: 10.212.73.208
+      ansible_hostv6: 2603:10e2:140:3002::50
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7050CX3-32S-C32
+    sc02-7050cx3-root-k03-u27:
+      ansible_host: 10.212.74.25
+      ansible_hostv6: 2603:10e2:140:3002::99
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7050CX3-32S-C32
+    sc02-7050cx3-root-k04-u27:
+      ansible_host: 10.212.74.27
+      ansible_hostv6: 2603:10e2:140:3002::9b
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7050CX3-32S-C32
+    sc02-7050cx3-root-k05-u27:
+      ansible_host: 10.212.74.98
+      ansible_hostv6: 2603:10e2:140:3002::e2
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7050CX3-32S-C32
+    sc02-7050cx3-root-k06-u27:
+      ansible_host: 10.212.74.100
+      ansible_hostv6: 2603:10e2:140:3002::e4
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7050CX3-32S-C32
+    sc02-7050cx3-root-k07-u27:
+      ansible_host: 10.212.74.102
+      ansible_hostv6: 2603:10e2:140:3002::e6
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7050CX3-32S-C32
+    sc02-7050cx3-fan-share-k02-u29:
+      ansible_host: 10.212.73.207
+      ansible_hostv6: 2603:10e2:140:3002::4f
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Arista-7050CX3-32S-C32
+    sc02-7050cx3-fan-share-k03-u29:
+      ansible_host: 10.212.74.24
+      ansible_hostv6: 2603:10e2:140:3002::98
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Arista-7050CX3-32S-C32
+    sc02-7050cx3-fan-share-k04-u29:
+      ansible_host: 10.212.74.26
+      ansible_hostv6: 2603:10e2:140:3002::9a
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Arista-7050CX3-32S-C32
+    sc02-7050cx3-fan-share-k05-u29:
+      ansible_host: 10.212.74.97
+      ansible_hostv6: 2603:10e2:140:3002::e1
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Arista-7050CX3-32S-C32
+    sc02-7050cx3-fan-share-k06-u29:
+      ansible_host: 10.212.74.99
+      ansible_hostv6: 2603:10e2:140:3002::e3
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Arista-7050CX3-32S-C32
+    sc02-7050cx3-fan-share-k07-u29:
+      ansible_host: 10.212.74.101
+      ansible_hostv6: 2603:10e2:140:3002::e5
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Arista-7050CX3-32S-C32
+    sc02-7060x6-optics-ft2-fan-k02-u02:
+      ansible_host: 10.212.73.195
+      ansible_hostv6: 2603:10e2:140:3002::43
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Arista-7060X6-64-200G
+    sc02-7060x6-optics-ft2-fan-k03-u02:
+      ansible_host: 10.212.74.4
+      ansible_hostv6: 2603:10e2:140:3002::84
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Arista-7060X6-64-200G
+    sc02-7060xe7-64prs-fan-j02-u07:
+      ansible_host: 10.212.73.143
+      ansible_hostv6: 2603:10e2:140:3002::f
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Arista-7060XE7-64PRS-P128X4
+    sc02-7060xe7-64prs-fan-j02-u11:
+      ansible_host: 10.212.73.141
+      ansible_hostv6: 2603:10e2:140:3002::d
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Arista-7060XE7-64PRS-P128X4
+    sc02-7060xe7-64prs-fan-j02-u15:
+      ansible_host: 10.212.73.142
+      ansible_hostv6: 2603:10e2:140:3002::e
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Arista-7060XE7-64PRS-P64O128X4
+    sc02-7060xe7-64prs-fan-j05-u07:
+      ansible_host: 10.212.75.15
+      ansible_hostv6: 2603:10e2:140:3002::18f
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Arista-7060XE7-64PRS-P128X4
+    sc02-7060xe7-64prs-fan-j05-u11:
+      ansible_host: 10.212.75.13
+      ansible_hostv6: 2603:10e2:140:3002::18d
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Arista-7060XE7-64PRS-P128X4
+    sc02-7060xe7-64prs-fan-j05-u15:
+      ansible_host: 10.212.75.14
+      ansible_hostv6: 2603:10e2:140:3002::18e
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Arista-7060XE7-64PRS-P64O128X4
+    sc02-7060xe7-64prs-fan-j05-u31:
+      ansible_host: 10.212.75.3
+      ansible_hostv6: 2603:10e2:140:3002::183
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Arista-7060XE7-64PRS-P64O128X4
+    sc02-8101-ld-fan-j02-u02:
+      ansible_host: 10.212.73.145
+      ansible_hostv6: 2603:10e2:140:3002::11
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Cisco-8101-DC-V56X16
+    sc02-8101-ld-fan-j02-u35:
+      ansible_host: 10.212.75.5
+      ansible_hostv6: 2603:10e2:140:3002::185
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Cisco-8101-DC-V56X16
+    sc02-sn4700-ld-fan-j02-u04:
+      ansible_host: 10.212.73.147
+      ansible_hostv6: 2603:10e2:140:3002::13
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Mellanox-SN4700-DC-V56X16
+    sc02-sn4700-ld-fan-j02-u37:
+      ansible_host: 10.212.75.7
+      ansible_hostv6: 2603:10e2:140:3002::187
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Mellanox-SN4700-DC-V56X16
+    sc02-sn5640-fan-k08-u21:
+      ansible_host: 10.212.74.152
+      ansible_hostv6: 2603:10e2:140:3002::118
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Mellanox-SN5640-C512S2
+    sc02-sn5640-fan-k08-u25:
+      ansible_host: 10.212.74.150
+      ansible_hostv6: 2603:10e2:140:3002::116
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Mellanox-SN5640-C512S2
+    sc02-sn5640-fan-k09-u21:
+      ansible_host: 10.212.74.216
+      ansible_hostv6: 2603:10e2:140:3002::158
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Mellanox-SN5640-C512S2
+    sc02-sn5640-fan-k09-u25:
+      ansible_host: 10.212.74.214
+      ansible_hostv6: 2603:10e2:140:3002::156
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Mellanox-SN5640-C512S2
+    sc02-sn6600-ld-fan-j02-u19:
+      ansible_host: 10.212.73.136
+      ansible_hostv6: 2603:10e2:140:3002::8
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Mellanox-SN6600-LD-P128C2
+    sc02-sn6600-ld-fan-j02-u23:
+      ansible_host: 10.212.73.137
+      ansible_hostv6: 2603:10e2:140:3002::9
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Mellanox-SN6600-LD-P128C2
+    sc02-sn6600-ld-fan-j02-u27:
+      ansible_host: 10.212.73.138
+      ansible_hostv6: 2603:10e2:140:3002::a
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Mellanox-SN6600-LD-P64O128C2
+    sc02-sn6600-ld-fan-j02-u31:
+      ansible_host: 10.212.73.139
+      ansible_hostv6: 2603:10e2:140:3002::b
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Mellanox-SN6600-LD-P64O128C2
+    sc02-sn6600-ld-fan-j05-u19:
+      ansible_host: 10.212.75.17
+      ansible_hostv6: 2603:10e2:140:3002::191
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Mellanox-SN6600-LD-P128C2
+    sc02-sn6600-ld-fan-j05-u23:
+      ansible_host: 10.212.75.18
+      ansible_hostv6: 2603:10e2:140:3002::192
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Mellanox-SN6600-LD-P128C2
+    sc02-sn6600-ld-fan-j05-u27:
+      ansible_host: 10.212.75.19
+      ansible_hostv6: 2603:10e2:140:3002::193
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Mellanox-SN6600-LD-P64O128C2
+    sc02-ocs-k02-u35:
+      ansible_host: 10.212.73.203
+      ansible_hostv6: 2603:10e2:140:3002::4b
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Coherent-DLXA64B64-OCS
+    sc02-ocs-k02-u37:
+      ansible_host: 10.212.73.204
+      ansible_hostv6: 2603:10e2:140:3002::4c
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Coherent-DLXA64B64-OCS
+    sc02-ocs-k02-u39:
+      ansible_host: 10.212.73.205
+      ansible_hostv6: 2603:10e2:140:3002::4d
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Coherent-DLXA64B64-OCS
+    sc02-ocs-k02-u41:
+      ansible_host: 10.212.73.206
+      ansible_hostv6: 2603:10e2:140:3002::4e
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Coherent-DLXA64B64-OCS
+    sc02-ocs-k03-u35:
+      ansible_host: 10.212.74.16
+      ansible_hostv6: 2603:10e2:140:3002::90
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Coherent-DLXA64B64-OCS
+    sc02-ocs-k03-u37:
+      ansible_host: 10.212.74.17
+      ansible_hostv6: 2603:10e2:140:3002::91
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Coherent-DLXA64B64-OCS
+    sc02-ocs-k03-u39:
+      ansible_host: 10.212.74.18
+      ansible_hostv6: 2603:10e2:140:3002::92
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Coherent-DLXA64B64-OCS
+    sc02-ocs-k03-u41:
+      ansible_host: 10.212.74.19
+      ansible_hostv6: 2603:10e2:140:3002::93
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Coherent-DLXA64B64-OCS
+    sc02-ocs-k04-u35:
+      ansible_host: 10.212.74.20
+      ansible_hostv6: 2603:10e2:140:3002::94
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Coherent-DLXA64B64-OCS
+    sc02-ocs-k04-u37:
+      ansible_host: 10.212.74.21
+      ansible_hostv6: 2603:10e2:140:3002::95
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Coherent-DLXA64B64-OCS
+    sc02-ocs-k04-u39:
+      ansible_host: 10.212.74.22
+      ansible_hostv6: 2603:10e2:140:3002::96
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Coherent-DLXA64B64-OCS
+    sc02-ocs-k04-u41:
+      ansible_host: 10.212.74.23
+      ansible_hostv6: 2603:10e2:140:3002::97
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Coherent-DLXA64B64-OCS
+    sc02-ocs-k05-u35:
+      ansible_host: 10.212.74.85
+      ansible_hostv6: 2603:10e2:140:3002::d5
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Coherent-DLXA64B64-OCS
+    sc02-ocs-k05-u37:
+      ansible_host: 10.212.74.86
+      ansible_hostv6: 2603:10e2:140:3002::d6
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Coherent-DLXA64B64-OCS
+    sc02-ocs-k05-u39:
+      ansible_host: 10.212.74.87
+      ansible_hostv6: 2603:10e2:140:3002::d7
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Coherent-DLXA64B64-OCS
+    sc02-ocs-k05-u41:
+      ansible_host: 10.212.74.88
+      ansible_hostv6: 2603:10e2:140:3002::d8
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Coherent-DLXA64B64-OCS
+    sc02-ocs-k06-u35:
+      ansible_host: 10.212.74.89
+      ansible_hostv6: 2603:10e2:140:3002::d9
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Coherent-DLXA64B64-OCS
+    sc02-ocs-k06-u37:
+      ansible_host: 10.212.74.90
+      ansible_hostv6: 2603:10e2:140:3002::da
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Coherent-DLXA64B64-OCS
+    sc02-ocs-k06-u39:
+      ansible_host: 10.212.74.91
+      ansible_hostv6: 2603:10e2:140:3002::db
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Coherent-DLXA64B64-OCS
+    sc02-ocs-k06-u41:
+      ansible_host: 10.212.74.92
+      ansible_hostv6: 2603:10e2:140:3002::dc
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Coherent-DLXA64B64-OCS
+    sc02-ocs-k07-u35:
+      ansible_host: 10.212.74.93
+      ansible_hostv6: 2603:10e2:140:3002::dd
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Coherent-DLXA64B64-OCS
+    sc02-ocs-k07-u37:
+      ansible_host: 10.212.74.94
+      ansible_hostv6: 2603:10e2:140:3002::de
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Coherent-DLXA64B64-OCS
+    sc02-ocs-k07-u39:
+      ansible_host: 10.212.74.95
+      ansible_hostv6: 2603:10e2:140:3002::df
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Coherent-DLXA64B64-OCS
+    sc02-ocs-k07-u41:
+      ansible_host: 10.212.74.96
+      ansible_hostv6: 2603:10e2:140:3002::e0
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Coherent-DLXA64B64-OCS
+    sc02-ocs-k08-u35:
+      ansible_host: 10.212.74.143
+      ansible_hostv6: 2603:10e2:140:3002::10f
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Coherent-DLXA64B64-OCS
+    sc02-ocs-k08-u37:
+      ansible_host: 10.212.74.144
+      ansible_hostv6: 2603:10e2:140:3002::110
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Coherent-DLXA64B64-OCS
+    sc02-ocs-k08-u39:
+      ansible_host: 10.212.74.145
+      ansible_hostv6: 2603:10e2:140:3002::111
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Coherent-DLXA64B64-OCS
+    sc02-ocs-k08-u41:
+      ansible_host: 10.212.74.146
+      ansible_hostv6: 2603:10e2:140:3002::112
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Coherent-DLXA64B64-OCS
+    sc02-ocs-k09-u35:
+      ansible_host: 10.212.74.207
+      ansible_hostv6: 2603:10e2:140:3002::14f
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Coherent-DLXA64B64-OCS
+    sc02-ocs-k09-u37:
+      ansible_host: 10.212.74.208
+      ansible_hostv6: 2603:10e2:140:3002::150
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Coherent-DLXA64B64-OCS
+    sc02-ocs-k09-u39:
+      ansible_host: 10.212.74.209
+      ansible_hostv6: 2603:10e2:140:3002::151
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Coherent-DLXA64B64-OCS
+    sc02-ocs-k09-u41:
+      ansible_host: 10.212.74.210
+      ansible_hostv6: 2603:10e2:140:3002::152
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      os: sonic
+      hwsku: Coherent-DLXA64B64-OCS
+
+sonic:
+  vars:
+    mgmt_subnet_mask_length: 26
+    mgmt_subnet_v6_mask_length: 122
+  hosts:
+    sc02-7060x6-optics-ft2-k02-u04:
+      ansible_host: 10.212.73.196
+      ansible_hostv6: 2603:10e2:140:3002::44
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7060X6-64-200G
+    sc02-7060x6-optics-ft2-k03-u04:
+      ansible_host: 10.212.74.5
+      ansible_hostv6: 2603:10e2:140:3002::85
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7060X6-64-200G
+    sc02-7060xe7-64prs-fan-j02-u07-bmc:
+      ansible_host: 10.212.73.148
+      ansible_hostv6: 2603:10e2:140:3002::14
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7060XE7-64PRS-BMC
+    sc02-7060xe7-64prs-fan-j02-u11-bmc:
+      ansible_host: 10.212.73.149
+      ansible_hostv6: 2603:10e2:140:3002::15
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7060XE7-64PRS-BMC
+    sc02-7060xe7-64prs-fan-j02-u15-bmc:
+      ansible_host: 10.212.73.150
+      ansible_hostv6: 2603:10e2:140:3002::16
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7060XE7-64PRS-BMC
+    sc02-7060xe7-64prs-fan-j05-u07-bmc:
+      ansible_host: 10.212.75.20
+      ansible_hostv6: 2603:10e2:140:3002::194
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7060XE7-64PRS-BMC
+    sc02-7060xe7-64prs-fan-j05-u11-bmc:
+      ansible_host: 10.212.75.21
+      ansible_hostv6: 2603:10e2:140:3002::195
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7060XE7-64PRS-BMC
+    sc02-7060xe7-64prs-fan-j05-u15-bmc:
+      ansible_host: 10.212.75.22
+      ansible_hostv6: 2603:10e2:140:3002::196
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7060XE7-64PRS-BMC
+    sc02-7060xe7-64prs-fan-j05-u31-bmc:
+      ansible_host: 10.212.75.23
+      ansible_hostv6: 2603:10e2:140:3002::197
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7060XE7-64PRS-BMC
+    sc02-7060xe7-64prs-j02-u09:
+      ansible_host: 10.212.73.140
+      ansible_hostv6: 2603:10e2:140:3002::c
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7060XE7-64PRS-P128X4
+    sc02-7060xe7-64prs-j02-u09-bmc:
+      ansible_host: 10.212.73.151
+      ansible_hostv6: 2603:10e2:140:3002::17
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7060XE7-64PRS-BMC
+    sc02-7060xe7-64prs-j02-u13:
+      ansible_host: 10.212.73.130
+      ansible_hostv6: 2603:10e2:140:3002::2
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7060XE7-64PRS-P128X4
+    sc02-7060xe7-64prs-j02-u13-bmc:
+      ansible_host: 10.212.73.152
+      ansible_hostv6: 2603:10e2:140:3002::18
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7060XE7-64PRS-BMC
+    sc02-7060xe7-64prs-j02-u17:
+      ansible_host: 10.212.73.131
+      ansible_hostv6: 2603:10e2:140:3002::3
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7060XE7-64PRS-P64O128X4
+    sc02-7060xe7-64prs-j02-u17-bmc:
+      ansible_host: 10.212.73.153
+      ansible_hostv6: 2603:10e2:140:3002::19
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7060XE7-64PRS-BMC
+    sc02-7060xe7-64prs-j05-u09:
+      ansible_host: 10.212.75.12
+      ansible_hostv6: 2603:10e2:140:3002::18c
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7060XE7-64PRS-P128X4
+    sc02-7060xe7-64prs-j05-u09-bmc:
+      ansible_host: 10.212.75.24
+      ansible_hostv6: 2603:10e2:140:3002::198
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7060XE7-64PRS-BMC
+    sc02-7060xe7-64prs-j05-u13:
+      ansible_host: 10.212.75.10
+      ansible_hostv6: 2603:10e2:140:3002::18a
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7060XE7-64PRS-P128X4
+    sc02-7060xe7-64prs-j05-u13-bmc:
+      ansible_host: 10.212.75.25
+      ansible_hostv6: 2603:10e2:140:3002::199
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7060XE7-64PRS-BMC
+    sc02-7060xe7-64prs-j05-u17:
+      ansible_host: 10.212.75.11
+      ansible_hostv6: 2603:10e2:140:3002::18b
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7060XE7-64PRS-P64O128X4
+    sc02-7060xe7-64prs-j05-u17-bmc:
+      ansible_host: 10.212.75.26
+      ansible_hostv6: 2603:10e2:140:3002::19a
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7060XE7-64PRS-BMC
+    sc02-7060xe7-64prs-j05-u33:
+      ansible_host: 10.212.75.2
+      ansible_hostv6: 2603:10e2:140:3002::182
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7060XE7-64PRS-P64O128X4
+    sc02-7060xe7-64prs-j05-u33-bmc:
+      ansible_host: 10.212.75.27
+      ansible_hostv6: 2603:10e2:140:3002::19b
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7060XE7-64PRS-BMC
+    sc02-8101-ld-j02-u03:
+      ansible_host: 10.212.73.144
+      ansible_hostv6: 2603:10e2:140:3002::10
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Cisco-8101-DC-V56X16
+    sc02-8101-ld-j02-u36:
+      ansible_host: 10.212.75.4
+      ansible_hostv6: 2603:10e2:140:3002::184
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Cisco-8101-DC-V56X16
+    sc02-interop-bt0-7060xe7-64prs-k13-u23:
+      ansible_host: 10.212.74.195
+      ansible_hostv6: 2603:10e2:140:3002::143
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7060XE7-64PRS-P128X4
+    sc02-interop-bt0-7060xe7-64prs-k13-u23-bmc:
+      ansible_host: 10.212.74.222
+      ansible_hostv6: 2603:10e2:140:3002::15e
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7060XE7-64PRS-BMC
+    sc02-interop-bt0-7060xe7-64prs-k13-u25:
+      ansible_host: 10.212.74.196
+      ansible_hostv6: 2603:10e2:140:3002::144
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7060XE7-64PRS-P128X4
+    sc02-interop-bt0-7060xe7-64prs-k13-u25-bmc:
+      ansible_host: 10.212.74.223
+      ansible_hostv6: 2603:10e2:140:3002::15f
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7060XE7-64PRS-BMC
+    sc02-interop-bt0-sn6600-ld-k13-u31:
+      ansible_host: 10.212.74.197
+      ansible_hostv6: 2603:10e2:140:3002::145
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Mellanox-SN6600-LD-P64O128C2
+    sc02-interop-bt0-sn6600-ld-k13-u31-bmc:
+      ansible_host: 10.212.74.224
+      ansible_hostv6: 2603:10e2:140:3002::160
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Mellanox-SN6600-LD-BMC
+    sc02-interop-bt0-sn6600-ld-k13-u33:
+      ansible_host: 10.212.74.198
+      ansible_hostv6: 2603:10e2:140:3002::146
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Mellanox-SN6600-LD-P64O128C2
+    sc02-interop-bt0-sn6600-ld-k13-u33-bmc:
+      ansible_host: 10.212.74.225
+      ansible_hostv6: 2603:10e2:140:3002::161
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Mellanox-SN6600-LD-BMC
+    sc02-interop-bt1-7060xe7-64prs-k13-u21:
+      ansible_host: 10.212.74.199
+      ansible_hostv6: 2603:10e2:140:3002::147
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7060XE7-64PRS-P128X4
+    sc02-interop-bt1-7060xe7-64prs-k13-u21-bmc:
+      ansible_host: 10.212.74.226
+      ansible_hostv6: 2603:10e2:140:3002::162
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7060XE7-64PRS-BMC
+    sc02-interop-bt1-sn6600-ld-k13-u29:
+      ansible_host: 10.212.74.200
+      ansible_hostv6: 2603:10e2:140:3002::148
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Mellanox-SN6600-LD-P128C2
+    sc02-interop-bt1-sn6600-ld-k13-u29-bmc:
+      ansible_host: 10.212.74.227
+      ansible_hostv6: 2603:10e2:140:3002::163
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Mellanox-SN6600-LD-BMC
+    sc02-interop-bt2-7060xe7-64prs-k13-u19:
+      ansible_host: 10.212.74.201
+      ansible_hostv6: 2603:10e2:140:3002::149
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7060XE7-64PRS-P128X4
+    sc02-interop-bt2-7060xe7-64prs-k13-u19-bmc:
+      ansible_host: 10.212.74.228
+      ansible_hostv6: 2603:10e2:140:3002::164
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7060XE7-64PRS-BMC
+    sc02-interop-bt2-sn6600-ld-k13-u27:
+      ansible_host: 10.212.74.202
+      ansible_hostv6: 2603:10e2:140:3002::14a
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Mellanox-SN6600-LD-P128C2
+    sc02-interop-bt2-sn6600-ld-k13-u27-bmc:
+      ansible_host: 10.212.74.229
+      ansible_hostv6: 2603:10e2:140:3002::165
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Mellanox-SN6600-LD-BMC
+    sc02-interop-dt2-7050cx3-k06-u04:
+      ansible_host: 10.212.74.69
+      ansible_hostv6: 2603:10e2:140:3002::c5
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7050CX3-32S-C32
+    sc02-interop-dt2-7060x6-k08-u02:
+      ansible_host: 10.212.74.131
+      ansible_hostv6: 2603:10e2:140:3002::103
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7060X6-64-200G
+    sc02-interop-dt2-7060x6-k08-u04:
+      ansible_host: 10.212.74.132
+      ansible_hostv6: 2603:10e2:140:3002::104
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7060X6-64-200G
+    sc02-interop-dt2-8101-k07-u02:
+      ansible_host: 10.212.74.70
+      ansible_hostv6: 2603:10e2:140:3002::c6
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Cisco-8101-C64
+    sc02-interop-dt2-8102-k07-u04:
+      ansible_host: 10.212.74.71
+      ansible_hostv6: 2603:10e2:140:3002::c7
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Cisco-8102-C64
+    sc02-interop-dt2-sn2700-k06-u02:
+      ansible_host: 10.212.74.72
+      ansible_hostv6: 2603:10e2:140:3002::c8
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Mellanox-SN2700
+    sc02-interop-ft0-8101-k13-u37:
+      ansible_host: 10.212.74.203
+      ansible_hostv6: 2603:10e2:140:3002::14b
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Cisco-8101-DC-V56X16
+    sc02-interop-ft0-sn6600-ld-k13-u35:
+      ansible_host: 10.212.74.217
+      ansible_hostv6: 2603:10e2:140:3002::159
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Mellanox-SN6600-LD-P64O128C2
+    sc02-interop-ft0-sn6600-ld-k13-u35-bmc:
+      ansible_host: 10.212.74.230
+      ansible_hostv6: 2603:10e2:140:3002::166
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Mellanox-SN6600-LD-BMC
+    sc02-interop-fw2-bt1-7060x6-k09-u02:
+      ansible_host: 10.212.74.218
+      ansible_hostv6: 2603:10e2:140:3002::15a
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7060X6-64-200G
+    sc02-interop-fw2-bt1-sn5640-k09-u04:
+      ansible_host: 10.212.74.219
+      ansible_hostv6: 2603:10e2:140:3002::15b
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Mellanox-SN5640-C512S2
+    sc02-rdma-7060x6-k04-u04:
+      ansible_host: 10.212.74.35
+      ansible_hostv6: 2603:10e2:140:3002::a3
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7060X6-64-200G
+    sc02-rdma-7060xe7-64prs-k13-u15:
+      ansible_host: 10.212.74.220
+      ansible_hostv6: 2603:10e2:140:3002::15c
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7060XE7-64PRS-P64O128X4
+    sc02-rdma-7060xe7-64prs-k13-u15-bmc:
+      ansible_host: 10.212.74.231
+      ansible_hostv6: 2603:10e2:140:3002::167
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7060XE7-64PRS-BMC
+    sc02-rdma-sn5640-k05-u04:
+      ansible_host: 10.212.74.73
+      ansible_hostv6: 2603:10e2:140:3002::c9
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Mellanox-SN5640-C512S2
+    sc02-rdma-sn6600-lds-k13-u17:
+      ansible_host: 10.212.74.221
+      ansible_hostv6: 2603:10e2:140:3002::15d
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Mellanox-SN6600-LD-P128C2
+    sc02-rdma-sn6600-lds-k13-u17-bmc:
+      ansible_host: 10.212.74.232
+      ansible_hostv6: 2603:10e2:140:3002::168
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Mellanox-SN6600-LD-BMC
+    sc02-sn4700-ld-j02-u05:
+      ansible_host: 10.212.73.146
+      ansible_hostv6: 2603:10e2:140:3002::12
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Mellanox-SN4700-DC-V56X16
+    sc02-sn4700-ld-j02-u38:
+      ansible_host: 10.212.75.6
+      ansible_hostv6: 2603:10e2:140:3002::186
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Mellanox-SN4700-DC-V56X16
+    sc02-sn5640-k08-u23:
+      ansible_host: 10.212.74.151
+      ansible_hostv6: 2603:10e2:140:3002::117
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Mellanox-SN5640-C512S2
+    sc02-sn5640-k08-u27:
+      ansible_host: 10.212.74.149
+      ansible_hostv6: 2603:10e2:140:3002::115
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Mellanox-SN5640-C512S2
+    sc02-sn5640-k09-u23:
+      ansible_host: 10.212.74.215
+      ansible_hostv6: 2603:10e2:140:3002::157
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Mellanox-SN5640-C512S2
+    sc02-sn5640-k09-u27:
+      ansible_host: 10.212.74.213
+      ansible_hostv6: 2603:10e2:140:3002::155
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Mellanox-SN5640-C512S2
+    sc02-sn6600-ld-fan-j02-u19-bmc:
+      ansible_host: 10.212.73.154
+      ansible_hostv6: 2603:10e2:140:3002::1a
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Mellanox-SN6600-LD-BMC
+    sc02-sn6600-ld-fan-j02-u23-bmc:
+      ansible_host: 10.212.73.155
+      ansible_hostv6: 2603:10e2:140:3002::1b
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Mellanox-SN6600-LD-BMC
+    sc02-sn6600-ld-fan-j02-u27-bmc:
+      ansible_host: 10.212.73.156
+      ansible_hostv6: 2603:10e2:140:3002::1c
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Mellanox-SN6600-LD-BMC
+    sc02-sn6600-ld-fan-j02-u31-bmc:
+      ansible_host: 10.212.73.157
+      ansible_hostv6: 2603:10e2:140:3002::1d
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Mellanox-SN6600-LD-BMC
+    sc02-sn6600-ld-fan-j05-u19-bmc:
+      ansible_host: 10.212.75.28
+      ansible_hostv6: 2603:10e2:140:3002::19c
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Mellanox-SN6600-LD-BMC
+    sc02-sn6600-ld-fan-j05-u23-bmc:
+      ansible_host: 10.212.75.29
+      ansible_hostv6: 2603:10e2:140:3002::19d
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Mellanox-SN6600-LD-BMC
+    sc02-sn6600-ld-fan-j05-u27-bmc:
+      ansible_host: 10.212.75.30
+      ansible_hostv6: 2603:10e2:140:3002::19e
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Mellanox-SN6600-LD-BMC
+    sc02-sn6600-ld-j02-u21:
+      ansible_host: 10.212.73.132
+      ansible_hostv6: 2603:10e2:140:3002::4
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Mellanox-SN6600-LD-P128C2
+    sc02-sn6600-ld-j02-u21-bmc:
+      ansible_host: 10.212.73.158
+      ansible_hostv6: 2603:10e2:140:3002::1e
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Mellanox-SN6600-LD-BMC
+    sc02-sn6600-ld-j02-u25:
+      ansible_host: 10.212.73.133
+      ansible_hostv6: 2603:10e2:140:3002::5
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Mellanox-SN6600-LD-P128C2
+    sc02-sn6600-ld-j02-u25-bmc:
+      ansible_host: 10.212.73.159
+      ansible_hostv6: 2603:10e2:140:3002::1f
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Mellanox-SN6600-LD-BMC
+    sc02-sn6600-ld-j02-u29:
+      ansible_host: 10.212.73.134
+      ansible_hostv6: 2603:10e2:140:3002::6
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Mellanox-SN6600-LD-P64O128C2
+    sc02-sn6600-ld-j02-u29-bmc:
+      ansible_host: 10.212.73.160
+      ansible_hostv6: 2603:10e2:140:3002::20
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Mellanox-SN6600-LD-BMC
+    sc02-sn6600-ld-j02-u33:
+      ansible_host: 10.212.73.135
+      ansible_hostv6: 2603:10e2:140:3002::7
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Mellanox-SN6600-LD-P64O128C2
+    sc02-sn6600-ld-j02-u33-bmc:
+      ansible_host: 10.212.73.161
+      ansible_hostv6: 2603:10e2:140:3002::21
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Mellanox-SN6600-LD-BMC
+    sc02-sn6600-ld-j05-u21:
+      ansible_host: 10.212.75.8
+      ansible_hostv6: 2603:10e2:140:3002::188
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Mellanox-SN6600-LD-P128C2
+    sc02-sn6600-ld-j05-u21-bmc:
+      ansible_host: 10.212.75.31
+      ansible_hostv6: 2603:10e2:140:3002::19f
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Mellanox-SN6600-LD-BMC
+    sc02-sn6600-ld-j05-u25:
+      ansible_host: 10.212.75.9
+      ansible_hostv6: 2603:10e2:140:3002::189
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Mellanox-SN6600-LD-P128C2
+    sc02-sn6600-ld-j05-u25-bmc:
+      ansible_host: 10.212.75.32
+      ansible_hostv6: 2603:10e2:140:3002::1a0
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Mellanox-SN6600-LD-BMC
+    sc02-sn6600-ld-j05-u29:
+      ansible_host: 10.212.75.16
+      ansible_hostv6: 2603:10e2:140:3002::190
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Mellanox-SN6600-LD-P64O128C2
+    sc02-sn6600-ld-j05-u29-bmc:
+      ansible_host: 10.212.75.33
+      ansible_hostv6: 2603:10e2:140:3002::1a1
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Mellanox-SN6600-LD-BMC
+    sc02-stress-7060xe7-64prs-t0-k10-u15:
+      ansible_host: 10.212.74.133
+      ansible_hostv6: 2603:10e2:140:3002::105
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7060XE7-64PRS-P64O128X4
+    sc02-stress-7060xe7-64prs-t0-k10-u15-bmc:
+      ansible_host: 10.212.74.160
+      ansible_hostv6: 2603:10e2:140:3002::120
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7060XE7-64PRS-BMC
+    sc02-stress-7060xe7-64prs-t0-k10-u17:
+      ansible_host: 10.212.74.134
+      ansible_hostv6: 2603:10e2:140:3002::106
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7060XE7-64PRS-P64O128X4
+    sc02-stress-7060xe7-64prs-t0-k10-u17-bmc:
+      ansible_host: 10.212.74.161
+      ansible_hostv6: 2603:10e2:140:3002::121
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7060XE7-64PRS-BMC
+    sc02-stress-7060xe7-64prs-t0-k10-u23:
+      ansible_host: 10.212.74.135
+      ansible_hostv6: 2603:10e2:140:3002::107
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7060XE7-64PRS-P64O128X4
+    sc02-stress-7060xe7-64prs-t0-k10-u23-bmc:
+      ansible_host: 10.212.74.162
+      ansible_hostv6: 2603:10e2:140:3002::122
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7060XE7-64PRS-BMC
+    sc02-stress-7060xe7-64prs-t0-k10-u25:
+      ansible_host: 10.212.74.136
+      ansible_hostv6: 2603:10e2:140:3002::108
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7060XE7-64PRS-P64O128X4
+    sc02-stress-7060xe7-64prs-t0-k10-u25-bmc:
+      ansible_host: 10.212.74.163
+      ansible_hostv6: 2603:10e2:140:3002::123
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7060XE7-64PRS-BMC
+    sc02-stress-7060xe7-64prs-t1-k10-u19:
+      ansible_host: 10.212.74.137
+      ansible_hostv6: 2603:10e2:140:3002::109
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7060XE7-64PRS-P128X4
+    sc02-stress-7060xe7-64prs-t1-k10-u19-bmc:
+      ansible_host: 10.212.74.164
+      ansible_hostv6: 2603:10e2:140:3002::124
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7060XE7-64PRS-BMC
+    sc02-stress-7060xe7-64prs-t1-k10-u21:
+      ansible_host: 10.212.74.153
+      ansible_hostv6: 2603:10e2:140:3002::119
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7060XE7-64PRS-P128X4
+    sc02-stress-7060xe7-64prs-t1-k10-u21-bmc:
+      ansible_host: 10.212.74.165
+      ansible_hostv6: 2603:10e2:140:3002::125
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7060XE7-64PRS-BMC
+    sc02-stress-sn6600-ld-t0-k10-u27:
+      ansible_host: 10.212.74.154
+      ansible_hostv6: 2603:10e2:140:3002::11a
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Mellanox-SN6600-LD-P64O128C2
+    sc02-stress-sn6600-ld-t0-k10-u27-bmc:
+      ansible_host: 10.212.74.166
+      ansible_hostv6: 2603:10e2:140:3002::126
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Mellanox-SN6600-LD-BMC
+    sc02-stress-sn6600-ld-t0-k10-u29:
+      ansible_host: 10.212.74.155
+      ansible_hostv6: 2603:10e2:140:3002::11b
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Mellanox-SN6600-LD-P64O128C2
+    sc02-stress-sn6600-ld-t0-k10-u29-bmc:
+      ansible_host: 10.212.74.167
+      ansible_hostv6: 2603:10e2:140:3002::127
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Mellanox-SN6600-LD-BMC
+    sc02-stress-sn6600-ld-t0-k10-u35:
+      ansible_host: 10.212.74.156
+      ansible_hostv6: 2603:10e2:140:3002::11c
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Mellanox-SN6600-LD-P64O128C2
+    sc02-stress-sn6600-ld-t0-k10-u35-bmc:
+      ansible_host: 10.212.74.168
+      ansible_hostv6: 2603:10e2:140:3002::128
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Mellanox-SN6600-LD-BMC
+    sc02-stress-sn6600-ld-t0-k10-u37:
+      ansible_host: 10.212.74.157
+      ansible_hostv6: 2603:10e2:140:3002::11d
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Mellanox-SN6600-LD-P64O128C2
+    sc02-stress-sn6600-ld-t0-k10-u37-bmc:
+      ansible_host: 10.212.74.169
+      ansible_hostv6: 2603:10e2:140:3002::129
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Mellanox-SN6600-LD-BMC
+    sc02-stress-sn6600-ld-t1-k10-u31:
+      ansible_host: 10.212.74.158
+      ansible_hostv6: 2603:10e2:140:3002::11e
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Mellanox-SN6600-LD-P128C2
+    sc02-stress-sn6600-ld-t1-k10-u31-bmc:
+      ansible_host: 10.212.74.170
+      ansible_hostv6: 2603:10e2:140:3002::12a
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Mellanox-SN6600-LD-BMC
+    sc02-stress-sn6600-ld-t1-k10-u33:
+      ansible_host: 10.212.74.159
+      ansible_hostv6: 2603:10e2:140:3002::11f
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Mellanox-SN6600-LD-P128C2
+    sc02-stress-sn6600-ld-t1-k10-u33-bmc:
+      ansible_host: 10.212.74.171
+      ansible_hostv6: 2603:10e2:140:3002::12b
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Mellanox-SN6600-LD-BMC
+
+server:
+  hosts:
+    sc02-interop-server-k06-u15:
+      ansible_host: 10.212.74.103
+      ansible_hostv6: 2603:10e2:140:3002::e7
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+    sc02-interop-server-k07-u15:
+      ansible_host: 10.212.74.104
+      ansible_hostv6: 2603:10e2:140:3002::e8
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+    sc02-interop-server-k08-u15:
+      ansible_host: 10.212.74.147
+      ansible_hostv6: 2603:10e2:140:3002::113
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+    sc02-interop-server-k09-u15:
+      ansible_host: 10.212.74.211
+      ansible_hostv6: 2603:10e2:140:3002::153
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+    sc02-ixia-server-k02-u13:
+      ansible_host: 10.212.73.209
+      ansible_hostv6: 2603:10e2:140:3002::51
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+    sc02-ixia-server-k03-u13:
+      ansible_host: 10.212.74.28
+      ansible_hostv6: 2603:10e2:140:3002::9c
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+    sc02-ixia-server-k04-u13:
+      ansible_host: 10.212.74.29
+      ansible_hostv6: 2603:10e2:140:3002::9d
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+    sc02-ixia-server-k05-u13:
+      ansible_host: 10.212.74.105
+      ansible_hostv6: 2603:10e2:140:3002::e9
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+    sc02-ixia-server-k06-u13:
+      ansible_host: 10.212.74.106
+      ansible_hostv6: 2603:10e2:140:3002::ea
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+    sc02-ixia-server-k07-u13:
+      ansible_host: 10.212.74.107
+      ansible_hostv6: 2603:10e2:140:3002::eb
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+    sc02-ixia-server-k08-u13:
+      ansible_host: 10.212.74.148
+      ansible_hostv6: 2603:10e2:140:3002::114
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+    sc02-ixia-server-k09-u13:
+      ansible_host: 10.212.74.212
+      ansible_hostv6: 2603:10e2:140:3002::154
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+    sc02-nightly-server-k02-u15:
+      ansible_host: 10.212.73.212
+      ansible_hostv6: 2603:10e2:140:3002::54
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+    sc02-nightly-server-k02-u17:
+      ansible_host: 10.212.73.211
+      ansible_hostv6: 2603:10e2:140:3002::53
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+    sc02-nightly-server-k02-u19:
+      ansible_host: 10.212.73.210
+      ansible_hostv6: 2603:10e2:140:3002::52
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+    sc02-nightly-server-k03-u15:
+      ansible_host: 10.212.74.32
+      ansible_hostv6: 2603:10e2:140:3002::a0
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+    sc02-nightly-server-k03-u17:
+      ansible_host: 10.212.74.31
+      ansible_hostv6: 2603:10e2:140:3002::9f
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+    sc02-nightly-server-k03-u19:
+      ansible_host: 10.212.74.30
+      ansible_hostv6: 2603:10e2:140:3002::9e
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+    sc02-nightly-server-k04-u17:
+      ansible_host: 10.212.74.34
+      ansible_hostv6: 2603:10e2:140:3002::a2
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+    sc02-nightly-server-k04-u19:
+      ansible_host: 10.212.74.33
+      ansible_hostv6: 2603:10e2:140:3002::a1
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+    sc02-nightly-server-k05-u17:
+      ansible_host: 10.212.74.108
+      ansible_hostv6: 2603:10e2:140:3002::ec
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+    sc02-nightly-server-k05-u19:
+      ansible_host: 10.212.74.109
+      ansible_hostv6: 2603:10e2:140:3002::ed
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+    sc02-nightly-server-k06-u17:
+      ansible_host: 10.212.74.111
+      ansible_hostv6: 2603:10e2:140:3002::ef
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+    sc02-nightly-server-k06-u19:
+      ansible_host: 10.212.74.114
+      ansible_hostv6: 2603:10e2:140:3002::f2
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+    sc02-nightly-server-k07-u17:
+      ansible_host: 10.212.74.239
+      ansible_hostv6: 2603:10e2:140:3002::16f
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+    sc02-nightly-server-k07-u19:
+      ansible_host: 10.212.74.242
+      ansible_hostv6: 2603:10e2:140:3002::172
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122

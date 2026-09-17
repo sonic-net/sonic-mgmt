@@ -23,8 +23,17 @@ class IpAddressValidator(GlobalValidator):
         self.allow_conflict_list = self.config.get('allow_conflict_list', [])
         # Configuration for excluding devices from validation
         self.exclude_devices = self.config.get('exclude_devices', [])
+        # Groups whose IPv4 and IPv6 addresses use independent allocation schemes
+        self.exclude_ipv4_ipv6_mismatch_groups = self.config.get(
+            'exclude_ipv4_ipv6_mismatch_groups', []
+        )
+        # Devices whose IPv4 and IPv6 addresses use independent allocation schemes
+        self.exclude_ipv4_ipv6_mismatch_devices = self.config.get(
+            'exclude_ipv4_ipv6_mismatch_devices', []
+        )
         self._compile_conflict_patterns()
         self._compile_exclude_patterns()
+        self._compile_ipv4_ipv6_mismatch_exclude_patterns()
 
     def _compile_conflict_patterns(self):
         """
@@ -57,6 +66,26 @@ class IpAddressValidator(GlobalValidator):
                 self.compiled_exclude_patterns.append(compiled_pattern)
             except re.error as e:
                 self.logger.warning(f"Invalid regex pattern '{pattern}' in exclude_devices: {e}")
+
+    def _compile_ipv4_ipv6_mismatch_exclude_patterns(self):
+        """Compile patterns excluded only from IPv4/IPv6 relationship validation."""
+        self.compiled_ipv4_ipv6_mismatch_exclude_patterns = []
+        for pattern in self.exclude_ipv4_ipv6_mismatch_groups:
+            try:
+                self.compiled_ipv4_ipv6_mismatch_exclude_patterns.append(re.compile(pattern))
+            except re.error as e:
+                self.logger.warning(
+                    f"Invalid regex pattern '{pattern}' in exclude_ipv4_ipv6_mismatch_groups: {e}"
+                )
+
+        self.compiled_ipv4_ipv6_mismatch_device_patterns = []
+        for pattern in self.exclude_ipv4_ipv6_mismatch_devices:
+            try:
+                self.compiled_ipv4_ipv6_mismatch_device_patterns.append(re.compile(pattern))
+            except re.error as e:
+                self.logger.warning(
+                    f"Invalid regex pattern '{pattern}' in exclude_ipv4_ipv6_mismatch_devices: {e}"
+                )
 
     def _validate(self, context: ValidatorContext) -> None:
         """
@@ -446,6 +475,20 @@ class IpAddressValidator(GlobalValidator):
 
         return False
 
+    def _should_exclude_ipv4_ipv6_mismatch_group(self, group_name):
+        """Return whether a group should skip only IPv4/IPv6 relationship validation."""
+        return any(
+            pattern.match(group_name)
+            for pattern in self.compiled_ipv4_ipv6_mismatch_exclude_patterns
+        )
+
+    def _should_exclude_ipv4_ipv6_mismatch_device(self, device_name):
+        """Return whether a device should skip only IPv4/IPv6 relationship validation."""
+        return any(
+            pattern.search(device_name)
+            for pattern in self.compiled_ipv4_ipv6_mismatch_device_patterns
+        )
+
     def _validate_collected_ip_addresses(self, ip_addresses, device_ips):
         """
         Validate properties of collected IP addresses
@@ -575,7 +618,11 @@ class IpAddressValidator(GlobalValidator):
                         ipv4_addr = inventory_source["ipv4"]
                         ipv6_addr = inventory_source["ipv6"]
 
-                        if not self._check_ipv4_ipv6_relationship(ipv4_addr, ipv6_addr):
+                        if (
+                            not self._should_exclude_ipv4_ipv6_mismatch_group(group_name)
+                            and not self._should_exclude_ipv4_ipv6_mismatch_device(device_name)
+                            and not self._check_ipv4_ipv6_relationship(ipv4_addr, ipv6_addr)
+                        ):
                             self.result.add_issue(
                                 'E2005',
                                 {

@@ -400,8 +400,8 @@ fanout:
       ansible_host: 10.3.146.145
       ansible_hostv6: 2a01:111:e210:3000::a03:9291
     str2-7260cx3-acs-fan-36:
-      ansible_host: 10.3.146.23
-      ansible_hostv6: 2a01:111:e210:3000::a03:9217
+      ansible_host: 10.3.144.68
+      ansible_hostv6: 2a01:111:e210:b7::4
     str2-7260cx3-acs-fan-37:
       ansible_host: 10.3.150.165
       ansible_hostv6: 2a01:111:e210:3000::a03:96A5
@@ -458,8 +458,8 @@ fanout:
       ansible_hostv6: 2a01:111:e210:3000::a03:92a8
       os: sonic
     str2-8101-fanout-20:
-      ansible_host: 10.3.146.209
-      ansible_hostv6: 2a01:111:e210:3000::a03:92d1
+      ansible_host: 10.3.144.70
+      ansible_hostv6: 2a01:111:e210:b7::6
       os: sonic
     str2-8101-fanout-21:
       ansible_host: 10.3.146.24
@@ -1047,9 +1047,9 @@ sonic_arista:
         "0x2F": "HBG24350094"
       msft_an_enabled: True
     str2-7050cx3-acs-12:
-      ansible_host: 10.3.146.13
-      ansible_hostv6: 2a01:111:e210:3000::a03:920d
-      mgmt_subnet_mask_length: 24
+      ansible_host: 10.3.144.67
+      ansible_hostv6: 2a01:111:e210:b7::3
+      mgmt_subnet_mask_length: 27
       hwsku: Arista-7050CX3-32S-C32
       model: DCS-7050CX3-32S
       serial: FGN221201J7
@@ -2692,9 +2692,9 @@ sonic_cisco_8101:
           timeout: 600
           wait: 600
     str2-8101-06:
-      ansible_host: 10.3.146.184
-      ansible_hostv6: 2a01:111:e210:3000::a03:92b8
-      mgmt_subnet_mask_length: 24
+      ansible_host: 10.3.144.69
+      ansible_hostv6: 2a01:111:e210:b7::5
+      mgmt_subnet_mask_length: 27
       model: 8101-32FH-O
       serial: FLM264101ZL
       base_mac: DC:05:39:E1:1A:00

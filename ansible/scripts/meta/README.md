@@ -623,6 +623,25 @@ validators:
 - `switch-temp` → Excluded from all IP validation
 - `mgmt-server-lab1` → Excluded from all IP validation
 
+**Exclude IPv4/IPv6 Mismatch Configuration:**
+
+The `exclude_ipv4_ipv6_mismatch_groups` and
+`exclude_ipv4_ipv6_mismatch_devices` options skip only the IPv4/IPv6
+relationship check for groups or devices whose address families are allocated
+independently. Other IP validation, including conflict and consistency checks,
+continues to run.
+
+```yaml
+validators:
+  - name: ip_address
+    enabled: true
+    config:
+      exclude_ipv4_ipv6_mismatch_groups:
+        - "^sc02a$"
+      exclude_ipv4_ipv6_mismatch_devices:
+        - "^switch-with-independent-addresses$"
+```
+
 **Validation Rules:**
 
 - Ensures no IP conflicts between device management IPs and testbed PTF IPs across all groups
