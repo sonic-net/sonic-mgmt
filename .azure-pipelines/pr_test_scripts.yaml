@@ -824,6 +824,12 @@ t0-vpp:
   - pc/test_po_cleanup.py
   - pc/test_po_update.py
   - span/test_port_mirroring.py
+  - vxlan/test_scale_ecmp.py
+  - vxlan/test_vnet_decap.py
+  - vxlan/test_vxlan_decap.py
+  - vxlan/test_vxlan_decap_ttl.py
+  - vxlan/test_vxlan_tunnel_route_scale.py
+  - vxlan/test_vxlan_vnet_bgp_subintf.py
 
 
 multi-asic-t1-lag:
