@@ -152,10 +152,11 @@ def parse_combined_counters(duthosts, enum_rand_one_per_hwsku_frontend_hostname)
 
 
 @pytest.fixture(scope='module', autouse=True)
-def handle_backend_acl(duthost, tbinfo):
+def handle_backend_acl(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
     """
     Cleanup/Recreate all the existing DATAACL rules
     """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     if "t0-backend" in tbinfo["topo"]["name"]:
         duthost.shell('acl-loader delete DATAACL')
 
