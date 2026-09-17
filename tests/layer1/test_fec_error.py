@@ -131,6 +131,8 @@ def test_verify_fec_stats_counters(
 
     for intf in intf_status:
         intf_name = intf['iface']
+        if intf_name not in interfaces:
+            continue
         speed = duthost.get_speed(intf_name)
         # Speed is a empty string if the port isn't up
         if speed == '':
