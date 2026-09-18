@@ -262,7 +262,10 @@ def setup_bgp_peers(
 
 def _get_injector_pfx_count(duthost, is_ipv6, injector_ip):
     """Return the accepted-prefix count (pfxRcd) for *injector_ip* from the BGP summary."""
-    cmd = "vtysh -c 'show {} bgp summary json'".format('ipv6' if is_ipv6 else 'ip')
+    if is_ipv6:
+        cmd = "vtysh -c 'show bgp ipv6 summary json'"
+    else:
+        cmd = "vtysh -c 'show ip bgp summary json'"
     output = duthost.shell(cmd, module_ignore_errors=True)['stdout']
     try:
         data = json.loads(output)
