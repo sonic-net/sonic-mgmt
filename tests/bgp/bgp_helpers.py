@@ -235,6 +235,7 @@ def remove_bgp_neighbors(duthost, asic_index):
     duthost.shell(cmd)
 
     # Restart BGP instance on that asic
+    duthost.asic_instance(asic_index).reset_service("bgp")
     duthost.restart_service_on_asic("bgp", asic_index)
     pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started_per_asic_or_host, "bgp"), "BGP not started.")
 
@@ -254,6 +255,7 @@ def restore_bgp_neighbors(duthost, asic_index, bgp_neighbors):
     duthost.shell("sudo sonic-cfggen {} -a '{}' --write-to-db".format(namespace_prefix, bgp_neigh_json))
 
     # Restart BGP instance on that asic
+    duthost.asic_instance(asic_index).reset_service("bgp")
     duthost.restart_service_on_asic("bgp", asic_index)
     pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started_per_asic_or_host, "bgp"), "BGP not started.")
 

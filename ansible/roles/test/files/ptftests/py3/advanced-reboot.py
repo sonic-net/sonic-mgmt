@@ -672,8 +672,10 @@ class ReloadTest(BaseTest):
     def setUp(self):
         self.fails['dut'] = set()
         self.fails['infrastructure'] = set()
-        self.dut_mac = self.test_params['dut_mac']
-        self.vlan_mac = self.test_params['vlan_mac']
+        # scapy renders Ether.src/dst in lowercase, so the packet comparisons
+        # below would never match an uppercase MAC from CONFIG_DB.
+        self.dut_mac = self.test_params['dut_mac'].lower()
+        self.vlan_mac = self.test_params['vlan_mac'].lower()
         self.lo_prefix = self.test_params['lo_prefix']
         if self.vlan_mac != self.dut_mac:
             self.is_dualtor = True

@@ -3,8 +3,10 @@
 import json
 import logging
 import os
+import time
 from typing import Dict
 from tests.common.db_comparison import DBType, SnapshotDiff
+from tests.common.helpers.dut_utils import wait_for_container_running
 from tests.common.platform.device_utils import check_neighbors, check_services, get_current_sonic_version, \
     verify_no_coredumps
 
@@ -29,9 +31,19 @@ def run_presnapshot_checks(duthost, tbinfo):
         - Core dump detection (expecting zero core dumps)
     """
 
-    check_services(duthost)
+    check_services(duthost)  # NOTE: Only checks critical services
     check_neighbors(duthost, tbinfo)
     verify_no_coredumps(duthost, 0)
+    # Telemetry container is typically the last container to start, so waiting for it is a good proxy for
+    # all containers being up
+    wait_for_container_running(duthost, "telemetry", timeout=300)
+
+    # NOTE: There are some late running processes such as xcvrd that may still be starting up and causing
+    # Redis keys to be changing in the background. FIXME: We should replace this with a clear finish
+    # signal. For now, we will just take a blunt approach and sleep for a bit to let the system settle
+    # before taking the snapshot.
+    settle_seconds = 300
+    time.sleep(settle_seconds)
 
 
 def record_diff(pytest_request, diff: Dict[DBType, SnapshotDiff], base_dir: str, diff_name: str):
@@ -105,7 +117,7 @@ def backup_device_logs(duthost, backup_dir: str, fetch_logs_before_reboot=False)
     def fetch_logs_from_path(source_path: str, dest_dir: str):
         """Fetch log files from a specific path on the DUT to a local directory."""
         log_files_cmd = (f"sudo find {source_path} -type f -regex "
-                         "'.*/\(syslog.*\|sairedis.rec.*\|swss.rec.*\)'")  # noqa F401
+                         r"'.*/\(syslog.*\|sairedis.rec.*\|swss.rec.*\)'")  # noqa F401
         log_files = duthost.shell(log_files_cmd)["stdout_lines"]
         os.makedirs(dest_dir, exist_ok=True)
         for log_file in log_files:

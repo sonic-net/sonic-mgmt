@@ -560,7 +560,7 @@ def _prepare_background_traffic_params(duthost, queues, selected_test_ports, tes
     dst_ips = []
     for selected_test_port in selected_test_ports:
         selected_test_port_info = test_ports_info[selected_test_port]
-        if type(selected_test_port_info["rx_port_id"]) == list:
+        if isinstance(selected_test_port_info["rx_port_id"], list):
             src_ports.append(selected_test_port_info["rx_port_id"][0])
         else:
             src_ports.append(selected_test_port_info["rx_port_id"])
@@ -638,7 +638,7 @@ def verify_pfc_storm_in_expected_state(dut, port, queue, expected_state):
     if dut.facts['asic_type'] == 'vs':
         return True
     if not pfcwd_stat:
-        logger.info(f'Port {port} Storm verification : no watchdog stats')
+        logger.info("Port {} Storm verification: no watchdog stats".format(port))
         return False
     if expected_state == "storm":
         if ("storm" in pfcwd_stat[0]['status']) and \
@@ -695,7 +695,7 @@ def _get_storm_test_ports(storm_hndle):
 
 def verify_all_ports_pfc_storm_in_expected_state(dut, storm_hndle, expected_state, selected_test_ports,
                                                  baseline_counters=None, threshold_percentage=100,
-                                                 stormed_ports_list=None):
+                                                 stormed_ports_list=None, test_ports_info=None):
     """Verify if threshold percentage of ports reached expected PFC storm state."""
     if dut.facts['asic_type'] == 'vs':
         return True
@@ -717,6 +717,9 @@ def verify_all_ports_pfc_storm_in_expected_state(dut, storm_hndle, expected_stat
 
     # Verify each port
     ports_in_expected_state = 0
+    # Track per-port result so the duplicate-neighbor grouping below can recompute
+    # both the numerator and denominator consistently.
+    port_results = {}
     for test_port, queue_idx in ports_to_check:
         port_stats = pfcwd_stats_dict.get((test_port, queue_idx))
 
@@ -743,21 +746,72 @@ def verify_all_ports_pfc_storm_in_expected_state(dut, storm_hndle, expected_stat
             if ("storm" not in current_status) and (current_detect_count == current_restored_count):
                 is_in_expected_state = True
 
+        port_results[test_port] = port_results.get(test_port, False) or is_in_expected_state
+
         if is_in_expected_state:
             ports_in_expected_state += 1
             if expected_state == "storm" and stormed_ports_list is not None and test_port not in stormed_ports_list:
                 stormed_ports_list.append(test_port)
         else:
-            logger.debug(f"Port {test_port}:{queue_idx} not in {expected_state} state")
+            logger.debug("Port {}:{} not in {} state".format(test_port, queue_idx, expected_state))
 
     total_ports = len(ports_to_check)
     if total_ports == 0:
         logger.warning("No ports found to verify")
         return False
 
+    # Some port types are assigned a single shared neighbor IP by design, so only one
+    # of the ports sharing that IP can actually receive the routed PTF background
+    # traffic and build the egress queue occupancy that PFCWD needs to declare a storm:
+    #   * VLAN ports - on non-dualtor t0, setup_pfc_test assigns self.vlan_nw to every
+    #     VLAN port and the DUT does a single ND/ARP lookup for it.
+    #   * PortChannel members - parse_pc_list assigns the PortChannel's single BGP peer
+    #     address to every member, so the DUT LAG-hashes the flow onto one member.
+    # Counting each of those ports individually inflates the denominator and causes
+    # false failures even though the fanout is pausing every physical link.
+    #
+    # To keep the numerator and denominator consistent, group ports of those types that
+    # share a test_neighbor_addr and treat each group as one "effective" port (success =
+    # any member reached the expected state). Routed interfaces get a unique neighbor
+    # address each, so they always form single-port groups and are counted individually.
+    # This adjustment only applies to the storm phase.
+    if expected_state == "storm" and test_ports_info:
+        shared_ip_types = ('vlan', 'portchannel')
+        shared_ip_groups = {}
+        standalone_ports = []
+        seen_ports = set()
+        for port, _queue_idx in ports_to_check:
+            if port in seen_ports:
+                continue
+            seen_ports.add(port)
+            info = test_ports_info.get(port, {}) or {}
+            ip = info.get('test_neighbor_addr')
+            port_type = info.get('test_port_type')
+            if port_type in shared_ip_types and ip:
+                shared_ip_groups.setdefault((port_type, ip), []).append(port)
+            else:
+                standalone_ports.append(port)
+
+        # Only adjust when ports actually share a neighbor IP.
+        if any(len(ports) > 1 for ports in shared_ip_groups.values()):
+            effective_total = len(shared_ip_groups) + len(standalone_ports)
+            effective_success = 0
+            for _group_key, ports in shared_ip_groups.items():
+                if any(port_results.get(p, False) for p in ports):
+                    effective_success += 1
+            for port in standalone_ports:
+                if port_results.get(port, False):
+                    effective_success += 1
+            logger.info(
+                "Adjusting for duplicate neighbor IPs: ports_in_expected_state %d->%d, "
+                "total_ports %d->%d",
+                ports_in_expected_state, effective_success, total_ports, effective_total)
+            ports_in_expected_state = effective_success
+            total_ports = effective_total
+
     success_percentage = (ports_in_expected_state / total_ports) * 100
-    logger.info(f"{ports_in_expected_state}/{total_ports} ports ({success_percentage:.1f}%) "
-                f"in '{expected_state}' state (threshold: {threshold_percentage}%)")
+    logger.info("{}/{} ports ({:.1f}%) in '{}' state (threshold: {}%)".format(
+                ports_in_expected_state, total_ports, success_percentage, expected_state, threshold_percentage))
 
     return success_percentage >= threshold_percentage
 
@@ -774,7 +828,7 @@ def get_pfc_storm_baseline_counters(dut, storm_hndle):
     for test_port, queue_idx in ports_to_check:
         port_stats = stats_dict.get((test_port, queue_idx))
         baseline[test_port] = port_stats['storm_detect_count'] if port_stats else 0
-        logger.debug(f"Baseline {test_port}:{queue_idx} = {baseline[test_port]}")
+        logger.debug("Baseline {}:{} = {}".format(test_port, queue_idx, baseline[test_port]))
 
     return baseline
 
