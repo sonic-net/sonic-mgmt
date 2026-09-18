@@ -2,11 +2,16 @@ import logging
 
 import pytest
 import re
-import time
 
 from tests.common.helpers.constants import DEFAULT_ASIC_ID
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
-from tests.common.utilities import get_mgmt_ipv6, check_output, run_show_features
+from tests.common.utilities import (
+    get_mgmt_ipv6,
+    check_output,
+    run_show_features,
+    wait_tcp_connection,
+    wait_until,
+)
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.bgp import run_bgp_facts
 from tests.common.helpers.tacacs.tacacs_helper import ssh_remote_run_retry, tacacs_v6_context
@@ -233,30 +238,46 @@ def test_telemetry_output_ipv6_only(request, duthosts_ipv6_mgmt_only, localhost,
     log_eth0_interface_info(duthosts_ipv6_mgmt_only)
 
     def verify_telemetry_output_ipv6_only(dut):
-        # Wait 15 seconds after starting GNMI server
-        GNMI_SERVER_START_WAIT_TIME = 15
-        with setup_streaming_telemetry_context(True, dut, localhost, ptfhost, gnxi_path):
-            env = GNMIEnvironment(dut, GNMIEnvironment.TELEMETRY_MODE)
-            # Set up telemetry server
-            dut.shell('sonic-db-cli CONFIG_DB hset "%s|gnmi" user_auth none' % (env.gnmi_config_table),
-                      module_ignore_errors=False)
-            dut.shell('docker exec %s supervisorctl reload' % (env.gnmi_container),
-                      module_ignore_errors=False)
-            time.sleep(GNMI_SERVER_START_WAIT_TIME)
-            dut_ip = get_mgmt_ipv6(dut)
-            port = "Ethernet0"
-            if dut.facts['platform'] in ['arm64-c8220tg_48a_o-r0']:
-                port = "Ethernet1"
-            cmd = f"~/gnmi_get -xpath_target COUNTERS_DB -xpath COUNTERS/{port} -target_addr \
-                [{dut_ip}]:{env.gnmi_port} -logtostderr -insecure"
+        env = GNMIEnvironment(dut, GNMIEnvironment.TELEMETRY_MODE)
+        user_auth_cmd = 'sonic-db-cli CONFIG_DB HGET "%s|gnmi" user_auth' % (env.gnmi_config_table)
+        default_user_auth = dut.shell(user_auth_cmd, module_ignore_errors=False)['stdout']
 
-            show_gnmi_out = dut.shell(cmd)['stdout']
-            result = str(show_gnmi_out)
-            dut.shell('sonic-db-cli CONFIG_DB hdel "%s|gnmi" user_auth' % (env.gnmi_config_table),
-                      module_ignore_errors=False)
-            inerrors_match = re.search("SAI_PORT_STAT_IF_IN_ERRORS", result)
-            pytest_assert(inerrors_match is not None,
-                          "SAI_PORT_STAT_IF_IN_ERRORS not found in gnmi output")
+        try:
+            with setup_streaming_telemetry_context(True, dut, localhost, ptfhost, gnxi_path):
+                dut.shell('sonic-db-cli CONFIG_DB HSET "%s|gnmi" user_auth none'
+                          % (env.gnmi_config_table), module_ignore_errors=False)
+                dut.shell("systemctl reset-failed %s" % (env.gnmi_container))
+                dut.service(name=env.gnmi_container, state="restarted")
+                pytest_assert(
+                    wait_until(100, 10, 0, dut.is_service_fully_started, env.gnmi_container),
+                    "%s not started." % (env.gnmi_container)
+                )
+
+                dut_ip = get_mgmt_ipv6(dut)
+                wait_tcp_connection(localhost, dut_ip, env.gnmi_port, timeout_s=60)
+                port = "Ethernet0"
+                if dut.facts['platform'] in ['arm64-c8220tg_48a_o-r0']:
+                    port = "Ethernet1"
+                cmd = f"~/gnmi_get -xpath_target COUNTERS_DB -xpath COUNTERS/{port} -target_addr \
+                    [{dut_ip}]:{env.gnmi_port} -logtostderr -insecure"
+
+                result = str(dut.shell(cmd)['stdout'])
+                inerrors_match = re.search("SAI_PORT_STAT_IF_IN_ERRORS", result)
+                pytest_assert(inerrors_match is not None,
+                              "SAI_PORT_STAT_IF_IN_ERRORS not found in gnmi output")
+        finally:
+            if default_user_auth:
+                dut.shell('sonic-db-cli CONFIG_DB HSET "%s|gnmi" user_auth %s'
+                          % (env.gnmi_config_table, default_user_auth), module_ignore_errors=False)
+            else:
+                dut.shell('sonic-db-cli CONFIG_DB HDEL "%s|gnmi" user_auth'
+                          % (env.gnmi_config_table), module_ignore_errors=False)
+            dut.shell("systemctl reset-failed %s" % (env.gnmi_container))
+            dut.service(name=env.gnmi_container, state="restarted")
+            pytest_assert(
+                wait_until(100, 10, 0, dut.is_service_fully_started, env.gnmi_container),
+                "%s not started after restoring user authentication." % (env.gnmi_container)
+            )
 
     nodes_per_hwsku = get_nodes_per_hwsku(duthosts_ipv6_mgmt_only, request)
     with SafeThreadPoolExecutor(max_workers=8) as executor:
