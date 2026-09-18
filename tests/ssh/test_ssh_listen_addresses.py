@@ -91,13 +91,16 @@ def _get_sshd_listen_bindings(duthost):
     return bindings
 
 
+def _sshd_bound_addrs(duthost, port="22"):
+    """ Return the set of addresses sshd is currently bound to on port. """
+    return {addr for addr, p in _get_sshd_listen_bindings(duthost) if p == port}
+
+
 def _sshd_bindings_match(duthost, expected_addrs, port="22"):
     """ Return True if sshd is currently bound to exactly expected_addrs on
         port. Callers are responsible for polling this via wait_until — this
         function itself does not wait. """
-    bindings = _get_sshd_listen_bindings(duthost)
-    bound_addrs = {addr for addr, p in bindings if p == port}
-    return bound_addrs == set(expected_addrs)
+    return _sshd_bound_addrs(duthost, port) == set(expected_addrs)
 
 
 def _pick_assigned_addresses(duthost):
@@ -211,8 +214,7 @@ def test_ssh_listen_addresses(duthosts, rand_one_dut_hostname, creds, restore_ss
     # VLAN/data-plane addresses in kvmtest topologies, so attempting to
     # connect there would fail for an unrelated reason regardless of sshd's
     # actual bind state.
-    bindings = _get_sshd_listen_bindings(duthost)
-    bound_addrs = {addr for addr, port in bindings}
+    bound_addrs = _sshd_bound_addrs(duthost)
     pytest_assert(omit_address not in bound_addrs,
                   "sshd is unexpectedly still bound to the omitted VLAN address {}".format(omit_address))
 
@@ -229,7 +231,6 @@ def test_ssh_listen_addresses(duthosts, rand_one_dut_hostname, creds, restore_ss
     # that it's back to wildcard listening (proves the earlier check
     # reflected sshd's bind state, not a routing/ACL artifact) - again via
     # `ss`, not a live connection attempt (see comment above).
-    bindings = _get_sshd_listen_bindings(duthost)
-    bound_addrs = {addr for addr, port in bindings}
+    bound_addrs = _sshd_bound_addrs(duthost)
     pytest_assert(omit_address in bound_addrs,
                   "sshd is unexpectedly not bound to {} after restoring wildcard listeners".format(omit_address))
