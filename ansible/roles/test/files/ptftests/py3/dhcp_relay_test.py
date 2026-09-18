@@ -158,6 +158,10 @@ class DHCPTest(DataplaneBaseTest):
             0, self.server_port_indices[0])
 
         self.relay_iface_ip = self.test_params['relay_iface_ip']
+        # The VLAN interface may have more than one configured IPv4 address (primary +
+        # secondary). The DUT kernel can source a relayed reply from any of them, so
+        # client-side verification accepts any address in this list as a valid IP.src.
+        self.relay_iface_ip_list = self.test_params.get('relay_iface_ip_list', None) or [self.relay_iface_ip]
         self.relay_iface_mac = self.test_params.get('relay_iface_mac', '')
 
         self.client_iface_alias = self.test_params.get('client_iface_alias', '')
@@ -955,11 +959,7 @@ class DHCPTest(DataplaneBaseTest):
     def verify_offer_received(self):
         dhcp_offer = self.create_dhcp_offer_relayed_packet()
 
-        masked_offer = Mask(dhcp_offer)
-
-        self.set_common_ignored_mask_fields(masked_offer)
-
-        self.check_pkt_on_client_side(masked_offer, dhcp_offer, "Offer")
+        self.check_pkt_on_client_side(dhcp_offer, "Offer")
 
     # Simulate our client sending a DHCPREQUEST message
     def client_send_request(self, dst_mac=BROADCAST_MAC, src_port=DHCP_CLIENT_PORT):
@@ -993,9 +993,7 @@ class DHCPTest(DataplaneBaseTest):
     # Verify that the DHCPACK would be received by our simulated client
     def verify_ack_received(self):
         dhcp_ack = self.create_dhcp_ack_relayed_packet()
-        masked_ack = Mask(dhcp_ack)
-        self.set_common_ignored_mask_fields(masked_ack)
-        self.check_pkt_on_client_side(masked_ack, dhcp_ack, "Ack")
+        self.check_pkt_on_client_side(dhcp_ack, "Ack")
 
     def verify_dhcp_relay_pkt_on_other_client_port_with_no_padding(self, dst_mac=BROADCAST_MAC,
                                                                    src_port=DHCP_CLIENT_PORT):
@@ -1117,10 +1115,8 @@ class DHCPTest(DataplaneBaseTest):
         dhcp_offer = self.create_dhcp_offer_relayed_packet()
         dhcp_offer[scapy.DHCP] = scapy.DHCP(options=[('message-type', 11), ('end')])
         dhcp_offer = self.pad_relayed_reply_after_option82_removal(dhcp_offer)
-        masked_offer = Mask(dhcp_offer)
-        self.set_common_ignored_mask_fields(masked_offer)
 
-        self.check_pkt_on_client_side(masked_offer, dhcp_offer, "Unknown")
+        self.check_pkt_on_client_side(dhcp_offer, "Unknown")
 
     def client_send_decline(self, dst_mac=BROADCAST_MAC, src_port=DHCP_CLIENT_PORT):
         dhcp_decline = self.create_dhcp_request_packet(dst_mac, src_port)
@@ -1153,9 +1149,8 @@ class DHCPTest(DataplaneBaseTest):
         dhcp_nak = self.create_dhcp_ack_relayed_packet()
         dhcp_nak[scapy.DHCP] = scapy.DHCP(options=[('message-type', 'nak'), ('server_id', self.server_ip[0]), ('end')])
         dhcp_nak = self.pad_relayed_reply_after_option82_removal(dhcp_nak)
-        masked_ack = Mask(dhcp_nak)
-        self.set_common_ignored_mask_fields(masked_ack)
-        self.check_pkt_on_client_side(masked_ack, dhcp_nak, "Nak")
+
+        self.check_pkt_on_client_side(dhcp_nak, "Nak")
 
     def client_send_release(self, dst_mac=BROADCAST_MAC, src_port=DHCP_CLIENT_PORT):
         dhcp_release = testutils.dhcp_release_packet(self.client_mac, self.client_ip, self.server_ip[0])
@@ -1209,10 +1204,26 @@ class DHCPTest(DataplaneBaseTest):
                         "Failed: %s packet counts are not equal %d != %d"
                         % (packet_type, captured_count, num_expected_packets))
 
-    def check_pkt_on_client_side(self, mask, pkt, packet_type):
+    def check_pkt_on_client_side(self, pkt, packet_type):
+        # The DUT can source a relayed reply from any IPv4 address configured on the
+        # VLAN interface (kernel source-address selection), while BOOTP giaddr and every
+        # other field stay fixed. Build one masked candidate per configured address and
+        # accept a match against any of them, so IP.src is still checked, not ignored.
         logger.info("Expect receiving relayed {} packet from port {}".format(packet_type, self.client_port_index))
         log_dhcp_packet_info(pkt)
-        testutils.verify_packet(self, mask, self.client_port_index)
+
+        candidate_masks = []
+        for candidate_src_ip in self.relay_iface_ip_list:
+            candidate_pkt = pkt.copy()
+            candidate_pkt[scapy.IP].src = candidate_src_ip
+            candidate_mask = Mask(candidate_pkt)
+            self.set_common_ignored_mask_fields(candidate_mask)
+            candidate_masks.append(candidate_mask)
+
+        if len(candidate_masks) == 1:
+            testutils.verify_packet(self, candidate_masks[0], self.client_port_index)
+        else:
+            testutils.verify_any_packet_any_port(self, candidate_masks, [self.client_port_index])
 
     def set_common_ignored_mask_fields(self, mask):
         mask.set_do_not_care_scapy(scapy.IP, "version")
