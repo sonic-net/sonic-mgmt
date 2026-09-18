@@ -57,7 +57,18 @@
 {% endif %}
 {% endif %}
     },
+{# bgpcfgd and frrcfgd read different CONFIG_DB schemas, so the BGP tables are
+   written in the shape of the daemon this neighbour will run. vsonic.yml
+   detects the mode from the image's init_cfg.json (vsonic_frr_mgmt_config).
+   frrcfgd: vrf-scoped "default|<ip>" keys plus BGP_NEIGHBOR_AF, ROUTE_MAP and
+   BGP_GLOBALS rows; it ignores single-key BGP_NEIGHBOR rows and renders no
+   `router bgp` without BGP_GLOBALS. bgpcfgd (default when the key is absent):
+   the flat single-key shape, unchanged. nhopself has no frrcfgd equivalent, and
+   rrclient is a BGP_NEIGHBOR_AF attribute in the frrcfgd schema -- the
+   BGP_NEIGHBOR_LIST yang has no such leaf, so it is left out of those rows. #}
+{% set use_frrcfgd = vsonic_frr_mgmt_config | default(false) | string | lower == 'true' %}
     "BGP_NEIGHBOR": {
+{% set nbr_af = [] %}
 {% set local_ip_addrs = [] %}
 {% for name, iface in host['interfaces'].items() %}
 {% if not name.startswith('Loopback') and iface['lacp'] is not defined %}
@@ -69,10 +80,12 @@
 {% endif %}
 {% endif %}
 {% endfor %}
-{% for peer in host['bgp']['peers'][configuration_properties['common']['dut_asn']] %}
-        "{{ peer | lower }}": {
+{% for asn, remote_ips in host['bgp']['peers'].items() %}
+{% for peer in remote_ips %}
+{% set _ = nbr_af.append(peer | lower) %}
+        "{{ 'default|' if use_frrcfgd }}{{ peer | lower }}": {
             "admin_status": "up",
-            "asn": "{{ configuration_properties['common']['dut_asn'] }}",
+            "asn": "{{ asn }}",
             "holdtime": "10",
             "keepalive": "3",
 {% set usable_local_ip_addrs = [] %}
@@ -83,31 +96,119 @@
 {% endfor %}
             "local_addr": "{{ usable_local_ip_addrs[0].split('/')[0] | lower }}",
             "name": "{{ duts_name }}",
+{% if use_frrcfgd %}
+            "neighbor": "{{ peer | lower }}",
+            "vrf_name": "default"
+{% else %}
             "nhopself": "0",
             "rrclient": "0"
+{% endif %}
         },
 {% endfor %}
-        "{{ configuration_properties['common']['nhipv4'] }}": {
+{% endfor %}
+{% set _ = nbr_af.append(configuration_properties['common']['nhipv4']) %}
+        "{{ 'default|' if use_frrcfgd }}{{ configuration_properties['common']['nhipv4'] }}": {
             "admin_status": "up",
             "asn": "{{ host['bgp']['asn'] }}",
             "holdtime": "10",
             "keepalive": "3",
             "local_addr": "{{ host['bp_interface']['ipv4'].split('/')[0] }}",
             "name": "exabgp",
+{% if use_frrcfgd %}
+            "neighbor": "{{ configuration_properties['common']['nhipv4'] }}",
+            "vrf_name": "default"
+{% else %}
             "nhopself": "0",
             "rrclient": "0"
+{% endif %}
         },
-        "{{ configuration_properties['common']['nhipv6'] | lower }}": {
+{% set _ = nbr_af.append(configuration_properties['common']['nhipv6'] | lower) %}
+        "{{ 'default|' if use_frrcfgd }}{{ configuration_properties['common']['nhipv6'] | lower }}": {
             "admin_status": "up",
             "asn": "{{ host['bgp']['asn'] }}",
             "holdtime": "10",
             "keepalive": "3",
             "local_addr": "{{ host['bp_interface']['ipv6'].split('/')[0] | lower }}",
             "name": "exabgp",
+{% if use_frrcfgd %}
+            "neighbor": "{{ configuration_properties['common']['nhipv6'] | lower }}",
+            "vrf_name": "default"
+{% else %}
             "nhopself": "0",
             "rrclient": "0"
+{% endif %}
         }
     },
+{# frrcfgd only activates a neighbour through BGP_NEIGHBOR_AF. The route-maps
+   are needed because FRR's `bgp ebgp-requires-policy` is on by default and the
+   frrcfgd templates do not turn it off, so an eBGP peer without policy would
+   establish but exchange no prefixes. #}
+{% if use_frrcfgd %}
+    "BGP_NEIGHBOR_AF": {
+{% set separator = joiner(",") %}
+{% for nbr in nbr_af %}
+{% set af = 'ipv6_unicast' if ':' in nbr else 'ipv4_unicast' %}
+{% set fam = 'V6' if ':' in nbr else 'V4' %}
+{{ separator() }}
+        "default|{{ nbr }}|{{ af }}": {
+            "admin_status": "up",
+            "afi_safi": "{{ af }}",
+            "neighbor": "{{ nbr }}",
+            "route_map_in": ["FROM_BGP_PEER_{{ fam }}"],
+            "route_map_out": ["TO_BGP_PEER_{{ fam }}"],
+            "vrf_name": "default"
+        }
+{% endfor %}
+    },
+{# Permit-all maps referenced above, named like the ones bgpcfgd renders.
+   bgpcfgd does not read ROUTE_MAP, so they are inert on that path. #}
+    "ROUTE_MAP_SET": {
+        "FROM_BGP_PEER_V4": {},
+        "TO_BGP_PEER_V4": {},
+        "FROM_BGP_PEER_V6": {},
+        "TO_BGP_PEER_V6": {}
+    },
+    "ROUTE_MAP": {
+        "FROM_BGP_PEER_V4|10": {"route_operation": "permit"},
+        "TO_BGP_PEER_V4|10": {"route_operation": "permit"},
+        "FROM_BGP_PEER_V6|10": {"route_operation": "permit"},
+        "TO_BGP_PEER_V6|10": {"route_operation": "permit"}
+    },
+{% endif %}
+{# Confederation members get both shapes: BGP_DEVICE_GLOBAL.CONFED for bgpcfgd
+   and BGP_GLOBALS confed_id/confed_peers for frrcfgd, matching what
+   generate_golden_config_db.py writes for the DUT. #}
+{% set is_confed = host['bgp']['confed_asn'] is defined and host['bgp']['confed_peers'] is defined
+      and host['bgp']['confed_asn'] and host['bgp']['confed_peers'] %}
+{% if is_confed %}
+    "BGP_DEVICE_GLOBAL": {
+        "CONFED": {
+            "asn": "{{ host['bgp']['confed_asn'] }}",
+            "peers": "{{ host['bgp']['confed_peers'] | replace(' ', ';') }}"
+        }
+    },
+    "BGP_GLOBALS": {
+        "default": {
+            "local_asn": "{{ host['bgp']['asn'] }}",
+{% if host['interfaces']['Loopback0'] is defined and host['interfaces']['Loopback0']['ipv4'] is defined %}
+            "router_id": "{{ host['interfaces']['Loopback0']['ipv4'] | ansible.utils.ipaddr('address') }}",
+{% endif %}
+            "confed_id": "{{ host['bgp']['confed_asn'] }}",
+            "confed_peers": [{% for peer in (host['bgp']['confed_peers'] | string).split() %}{% if not loop.first %}, {% endif %}"{{ peer }}"{% endfor %}]
+        }
+    },
+{% elif use_frrcfgd %}
+{# A non-confed neighbour still needs BGP_GLOBALS under frrcfgd, since
+   bgpd.conf.db.j2 gates the whole router-bgp block on it. #}
+    "BGP_GLOBALS": {
+        "default": {
+            "local_asn": "{{ host['bgp']['asn'] }}"
+{% if host['interfaces']['Loopback0'] is defined and host['interfaces']['Loopback0']['ipv4'] is defined %}
+            ,"router_id": "{{ host['interfaces']['Loopback0']['ipv4'] | ansible.utils.ipaddr('address') }}"
+{% endif %}
+        }
+    },
+{% endif %}
     "DEVICE_NEIGHBOR_METADATA": {
 {% set separator = joiner(",") %}
 {% for dut_name in duts_name.split(',') %}
