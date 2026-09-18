@@ -33,17 +33,14 @@ class ClockConsts:
     CMD_SHOW_CLOCK_TIMEZONES = "show clock timezones"
     CMD_CONFIG_CLOCK_TIMEZONE = "config clock timezone"
     CMD_CONFIG_CLOCK_DATE = "config clock date"
-    CMD_NTP_STOP = 'service ntp stop'
-    CMD_NTP_START = 'service ntp start'
-    CMD_NTPDATE = 'ntpdate'
 
     # expected outputs
     OUTPUT_CMD_SUCCESS = ''
 
     # expected errors
     ERR_BAD_TIMEZONE = 'Timezone {} does not conform format'
-    ERR_MISSING_DATE = 'Error: Missing argument "<YYYY-MM-DD>"'
-    ERR_MISSING_TIME = 'Error: Missing argument "<HH:MM:SS>"'
+    ERR_MISSING_DATE = "Error: Missing argument '<YYYY-MM-DD>'"
+    ERR_MISSING_TIME = "Error: Missing argument '<HH:MM:SS>'"
     ERR_BAD_DATE = 'Date {} does not conform format YYYY-MM-DD'
     ERR_BAD_TIME = 'Time {} does not conform format HH:MM:SS'
 
@@ -54,18 +51,10 @@ class ClockConsts:
     MIN_SYSTEM_DATE = "1970-01-01"
     MAX_SYSTEM_DATE = "2106-02-06"
 
-    # ntp
-    CMD_SHOW_NTP = "show ntp"
-    CMD_CONFIG_NTP_ADD = "config ntp add"
-    CMD_CONFIG_NTP_DEL = "config ntp del"
-    OUTPUT_CMD_NTP_ADD_SUCCESS = 'NTP server {} added to configuration\nRestarting ntp-config service...'
-    OUTPUT_CMD_NTP_DEL_SUCCESS = 'NTP server {} removed from configuration\nRestarting ntp-config service...'
-    REGEX_NTP_POLLING_TIME = r'polling server every (\d+)'
-
 
 class ClockUtils:
     @staticmethod
-    def run_cmd(duthosts, cmd, param='', raise_err=False):
+    def run_cmd(duthosts, cmd, param=''):
         """
         @summary:
             Run a given command and return its output.
@@ -82,12 +71,12 @@ class ClockUtils:
             try:
                 cmd_output = duthosts.command(cmd_to_run)[dut_hostname]["stdout"]
             except RunAnsibleModuleFail as cmd_err:
-                output = cmd_err.results["stdout"]
-                err = cmd_err.results["stderr"]
-                cmd_output = output if output else err
+                results = cmd_err.results
+                # Some failures (e.g. a missing binary) leave stdout/stderr empty and
+                # only populate the ansible "msg" field. Fall back to it so the real
+                # error is surfaced rather than being reported as an empty string.
+                cmd_output = results.get("stdout") or results.get("stderr") or results.get("msg") or str(cmd_err)
                 logging.info(f'Command Error!\nError message: "{cmd_output}"')
-                if raise_err:
-                    raise Exception(cmd_output)
 
             cmd_output = str(cmd_output)
             logging.info(f'Output: {cmd_output}')
