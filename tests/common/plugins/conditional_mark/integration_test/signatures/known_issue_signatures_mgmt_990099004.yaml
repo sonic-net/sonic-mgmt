@@ -1,0 +1,9 @@
+signatures:
+  - name: missing_message_field
+    exception_type: Failed
+    stack_trace: |-
+      tests/some/test.py:10: in test_something
+          pytest.fail("oops")
+    failure_matching_rule: >-
+      This signature is intentionally missing the message field to test
+      the mandatory field validation.

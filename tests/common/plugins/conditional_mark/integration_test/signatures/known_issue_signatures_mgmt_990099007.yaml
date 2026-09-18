@@ -1,0 +1,15 @@
+signatures:
+  - name: custom_weights_type_heavy
+    exception_type: KeyError
+    message: |-
+      KeyError: 'some_completely_different_message_that_wont_match'
+    stack_trace: |-
+      tests/some/test.py:50: in test_something
+          data['missing_key']
+    failure_matching_rule: >-
+      If the exception type is KeyError, it is the same issue.
+    xfail_similarity_high_th: "0.45"
+    xfail_similarity_low_th: "0.20"
+    w_type: "0.50"
+    w_message: "0.30"
+    w_trace: "0.20"

@@ -1,0 +1,15 @@
+signatures:
+  - name: warm_reboot_timeout
+    exception_type: Failed
+    message: |-
+      Failed: DUT did not come back up after warm reboot. Timeout waiting for SSH connection. Expected device to be reachable within 300 seconds but it took 450 seconds. Control plane downtime exceeded threshold: allowed=90s, actual=185s.
+    stack_trace: |-
+      tests/upgrade_path/test_upgrade_path.py:245: in test_upgrade_path
+          advanced_reboot(reboot_type="warm")
+      tests/common/reboot.py:189: in advanced_reboot
+          pytest.fail(failure_summary)
+    failure_matching_rule: >-
+      If the failure mentions warm reboot timeout and SSH connection failure,
+      it is the same issue.
+    xfail_similarity_high_th: "0.55"
+    xfail_similarity_low_th: "0.30"
