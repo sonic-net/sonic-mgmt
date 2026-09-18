@@ -1311,10 +1311,10 @@ def run_remove_and_readd_cycle(
                 ),
             )
 
-    def check_forwarding(expect_traffic):
+    def check_forwarding(expect_traffic, timeout):
         for target in forwarded:
             verify_forwarding(tbinfo, duthost_up, src_asic_on_upstream, ptfadapter, neighbor_ctx,
-                              ptf_dst_ports, target["dst_ip"], expect_traffic)
+                              ptf_dst_ports, target["dst_ip"], expect_traffic, timeout=timeout)
 
     with allure.step(
         f"[{scenario['id']}] Verify selected {neighbor_ctx['neighbor_role']} "
@@ -1329,7 +1329,9 @@ def run_remove_and_readd_cycle(
             "pre-remove baseline",
         )
         check_routes(True, 30, "before removal")
-        check_forwarding(True)
+        # The previous parametrization ended with a config_reload; dataplane programming (IPv6
+        # over a LAG in particular) can lag BGP and NDP by more than a minute.
+        check_forwarding(True, timeout=120)
 
     la_entry = loganalyzer[duthost.hostname] if loganalyzer else None
     if la_entry:
@@ -1357,7 +1359,7 @@ def run_remove_and_readd_cycle(
                 "post-remove",
             )
             check_routes(False, 60, "after removing the neighbor")
-            check_forwarding(False)
+            check_forwarding(False, timeout=60)
 
         with allure.step(
             f"[{scenario['id']}] Add selected cluster peer back via GCU and validate route / traffic recovery"
@@ -1393,7 +1395,7 @@ def run_remove_and_readd_cycle(
                 f"BGP sessions with neighbors {neighbor_ctx['neighbor_ips']} failed to establish after re-add",
             )
             check_routes(True, 120, "after re-adding the neighbor")
-            check_forwarding(True)
+            check_forwarding(True, timeout=120)
 
         with allure.step(f"[{scenario['id']}] Persist the restored configuration"):
             duthost.shell("config save -y")
