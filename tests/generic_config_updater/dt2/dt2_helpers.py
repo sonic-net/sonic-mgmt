@@ -433,12 +433,19 @@ def normalize_acl_ports(ports):
     return [ports]
 
 
-def peer_port_targets(neighbor_ctx):
+def peer_port_targets(neighbor_ctx, localhost=False):
+    """
+    Ports that identify the neighbor in ACL_TABLE port lists: its interface(s) plus its physical
+    links. With ``localhost`` the names are those of the multi-ASIC localhost view (PortChannel
+    names unchanged, physical ports by alias).
+    """
+    if localhost:
+        return set(neighbor_ctx["neighbor_ports_localhost"]) | set(neighbor_ctx["device_neighbor_ports_localhost"])
     return set(neighbor_ctx["neighbor_ports"]) | set(neighbor_ctx["member_ports"])
 
 
-def matching_acl_tables(config_facts, neighbor_ctx):
-    target_ports = peer_port_targets(neighbor_ctx)
+def matching_acl_tables(config_facts, neighbor_ctx, localhost=False):
+    target_ports = peer_port_targets(neighbor_ctx, localhost)
     matching = {}
     for acl_name, acl_entry in config_facts.get("ACL_TABLE", {}).items():
         if not isinstance(acl_entry, dict):
@@ -452,11 +459,11 @@ def matching_acl_tables(config_facts, neighbor_ctx):
     return matching
 
 
-def filter_acl_entry_for_neighbor(acl_entry, neighbor_ctx):
+def filter_acl_entry_for_neighbor(acl_entry, neighbor_ctx, localhost=False):
     filtered = copy.deepcopy(acl_entry)
     remaining_ports = [
         p for p in normalize_acl_ports(filtered.get("ports"))
-        if p not in peer_port_targets(neighbor_ctx)
+        if p not in peer_port_targets(neighbor_ctx, localhost)
     ]
     if not remaining_ports:
         return None
@@ -812,6 +819,21 @@ def build_remove_patch(config_facts, config_facts_localhost, mg_facts, namespace
                 "path": f"{json_namespace}/ACL_TABLE/{acl_name}/ports",
                 "value": filtered_acl_entry["ports"],
             })
+    if emit_localhost:
+        # The localhost view keeps its own ACL_TABLE; its port lists must stop referencing the
+        # neighbor's PortChannel / ports before /localhost/PORTCHANNEL is removed.
+        for acl_name, acl_entry in matching_acl_tables(config_facts_localhost, neighbor_ctx, localhost=True).items():
+            filtered_acl_entry = filter_acl_entry_for_neighbor(acl_entry, neighbor_ctx, localhost=True)
+            if filtered_acl_entry is None:
+                append_remove_if_present(
+                    patch_main, "/localhost/ACL_TABLE/", config_facts_localhost.get("ACL_TABLE", {}), acl_name,
+                )
+            else:
+                patch_main.append({
+                    "op": "add",
+                    "path": f"/localhost/ACL_TABLE/{acl_name}/ports",
+                    "value": filtered_acl_entry["ports"],
+                })
     for p in neighbor_ctx["device_neighbor_ports"]:
         append_remove_if_present(
             patch_main,
@@ -1107,6 +1129,13 @@ def build_add_patches(config_facts, config_facts_localhost, mg_facts, namespace,
             "path": f"{json_namespace}/ACL_TABLE/{acl_name}",
             "value": acl_entry,
         })
+    if emit_localhost:
+        for acl_name, acl_entry in matching_acl_tables(config_facts_localhost, neighbor_ctx, localhost=True).items():
+            patch_rest.append({
+                "op": "add",
+                "path": f"/localhost/ACL_TABLE/{acl_name}",
+                "value": acl_entry,
+            })
     return patch_pc, patch_rest
 
 
@@ -1244,8 +1273,26 @@ def run_remove_and_readd_cycle(
         src_asic_on_upstream, duthost.hostname, dst_asic,
     )
 
-    target_v4 = pick_prefix_for_neighbor(duthost, dst_asic, neighbor_ctx, ip_version=4)
-    pytest_assert(target_v4, f"No IPv4 BGP prefix learned via neighbor {neighbor_ctx['neighbor_name']}")
+    # Control-plane gate first: the previous parametrization ends with a config_reload that does
+    # not wait for BGP, so sessions and routes may still be converging when this test starts.
+    logger.info("Waiting for BGP neighbor sessions to establish")
+    pytest_assert(
+        wait_until(120, 10, 0, duthost.check_bgp_session_state, neighbor_ctx["neighbor_ips"]),
+        f"BGP sessions with neighbors {neighbor_ctx['neighbor_ips']} failed to establish",
+    )
+    # Route installation lags session establishment, so poll for a usable IPv4 prefix.
+    picked = {}
+
+    def ipv4_prefix_available():
+        picked["v4"] = pick_prefix_for_neighbor(duthost, dst_asic, neighbor_ctx, ip_version=4)
+        return picked["v4"] is not None
+
+    pytest_assert(
+        wait_until(120, 10, 0, ipv4_prefix_available),
+        f"No IPv4 BGP prefix learned via neighbor {neighbor_ctx['neighbor_name']} "
+        "within 120s of its BGP session establishing",
+    )
+    target_v4 = picked["v4"]
     target_v6 = pick_prefix_for_neighbor(duthost, dst_asic, neighbor_ctx, ip_version=6)
     targets = [t for t in (target_v4, target_v6) if t]
     forwarded = [t for t in targets if t["forwards_via_neighbor"]]
@@ -1273,11 +1320,6 @@ def run_remove_and_readd_cycle(
         f"[{scenario['id']}] Verify selected {neighbor_ctx['neighbor_role']} "
         f"neighbor and learned prefix before removal"
     ):
-        # Control-plane gate: Wait for BGP sessions to establish
-        logger.info("Waiting for BGP neighbor sessions to establish")
-        bgp_ok = wait_until(120, 10, 0, duthost.check_bgp_session_state, neighbor_ctx["neighbor_ips"])
-        pytest_assert(bgp_ok, f"BGP sessions with neighbors {neighbor_ctx['neighbor_ips']} failed to establish")
-
         assert_peer_config_state(
             duthost,
             namespace,
