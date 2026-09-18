@@ -20,6 +20,8 @@ import pytest
 from tests.common.config_reload import config_reload
 from tests.common.gu_utils import apply_patch, delete_tmpfile, expect_op_success, generate_tmpfile
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.macsec.macsec_helper import get_mka_session
+from tests.common.macsec.macsec_platform_helper import get_macsec_ifname, get_platform
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 from tests.common.utilities import wait_until
 from tests.generic_config_updater.add_cluster.helpers import (
@@ -1182,6 +1184,78 @@ def apply_patch_or_assert(duthost, patch):
 
 
 # -----------------------------
+# MACsec validation
+# -----------------------------
+
+
+def get_macsec_validation_context(duthost, neighbor_ctx):
+    """
+    Return a MACsec validation context for the selected neighbor, or None when none of its
+    DUT member ports has an established MACsec session.
+
+    Detection reads STATE_DB MACSEC_PORT_TABLE, so the test adapts to whatever the testbed
+    has configured (for example through --enable_macsec) without extra options. MKA session
+    inspection via ``ip macsec show`` only exists on the virtual switch, so it is enabled on
+    KVM platforms only; physical platforms are validated through the oper-state alone.
+    """
+    protected_ports = [p for p in neighbor_ctx["member_ports"] if duthost.iface_macsec_ok(p)]
+    if not protected_ports:
+        logger.info(
+            "Neighbor %s has no member port with MACsec established; plaintext validation only.",
+            neighbor_ctx["neighbor_name"],
+        )
+        return None
+    supports_mka_session = "x86_64-kvm_x86_64" in get_platform(duthost)
+    macsec_ifnames = {}
+    if supports_mka_session:
+        macsec_ifnames = {port: get_macsec_ifname(duthost, port) for port in protected_ports}
+    ctx = {
+        "ports": protected_ports,
+        "supports_mka_session": supports_mka_session,
+        "macsec_ifnames": macsec_ifnames,
+    }
+    logger.info("MACsec validation context for neighbor %s: %s", neighbor_ctx["neighbor_name"], ctx)
+    return ctx
+
+
+def verify_dut_macsec_oper_state(duthost, ports, should_exist=True):
+    observed = {port: duthost.iface_macsec_ok(port) for port in ports}
+    logger.info("Observed DUT MACsec oper state: %s", observed)
+    return all(state == should_exist for state in observed.values())
+
+
+def verify_dut_mka_session_state(duthost, macsec_ifnames, should_exist=True):
+    if not macsec_ifnames:
+        return True
+    sessions = set(get_mka_session(duthost).keys())
+    logger.info("Observed DUT MKA session interfaces: %s", sorted(sessions))
+    present = [ifname in sessions for ifname in macsec_ifnames.values()]
+    return all(present) if should_exist else not any(present)
+
+
+def assert_macsec_state(duthost, macsec_ctx, should_exist, phase, timeout=120):
+    """
+    Wait for the MACsec oper-state (and, on KVM, the MKA sessions) of the protected ports to
+    reach the expected state and assert unconditionally. There is deliberately no platform
+    or admin-status carve-out: a session that lingers after the neighbor's ports were
+    removed is a teardown failure wherever it happens.
+    """
+    expected = "up" if should_exist else "down"
+    pytest_assert(
+        wait_until(timeout, 5, 0, verify_dut_macsec_oper_state, duthost, macsec_ctx["ports"], should_exist),
+        f"DUT MACsec oper-state not {expected} {phase} on ports {macsec_ctx['ports']}",
+    )
+    if macsec_ctx["supports_mka_session"]:
+        pytest_assert(
+            wait_until(
+                timeout, 5, 0, verify_dut_mka_session_state, duthost, macsec_ctx["macsec_ifnames"], should_exist,
+            ),
+            f"DUT MKA sessions not {expected} {phase} on interfaces "
+            f"{sorted(macsec_ctx['macsec_ifnames'].values())}",
+        )
+
+
+# -----------------------------
 # Scenarios and shared test flow
 # -----------------------------
 
@@ -1223,6 +1297,7 @@ def run_remove_and_readd_cycle(
     config_facts_localhost,
     scenario,
     neighbor_ctx,
+    validate_macsec=False,
 ):
     """
     Remove one existing BGP neighbor via GCU and add it back, verifying CONFIG_DB, routes and
@@ -1239,6 +1314,11 @@ def run_remove_and_readd_cycle(
          the prefixes are relearned and traffic recovers.
       5. ``config save`` on success; ``config_reload`` always runs in ``finally`` so a
          mid-test failure never leaves the DUT with the neighbor removed.
+
+    With ``validate_macsec`` (uplink tests), MACsec is detected on the neighbor's member
+    ports from STATE_DB. On MACsec links the PTF ports only see encrypted frames, so the
+    dataplane checks are replaced by MACsec oper-state checks (plus MKA session checks on
+    KVM): up before removal, down after the remove patch, up again after the re-add patch.
     """
     duthost = duthosts[dut_hostname]
     dut_basic_facts = duthost.dut_basic_facts()["ansible_facts"]["dut_basic_facts"]
@@ -1296,6 +1376,11 @@ def run_remove_and_readd_cycle(
     target_v6 = pick_prefix_for_neighbor(duthost, dst_asic, neighbor_ctx, ip_version=6)
     targets = [t for t in (target_v4, target_v6) if t]
     forwarded = [t for t in targets if t["forwards_via_neighbor"]]
+    # On MACsec links the PTF ports only see encrypted frames, so the dataplane checks are
+    # replaced by MACsec session checks. Detection is automatic; no test option is needed.
+    macsec_ctx = get_macsec_validation_context(duthost, neighbor_ctx) if validate_macsec else None
+    if macsec_ctx:
+        forwarded = []
     ptf_dst_ports, _ = compute_egress_ptf_ports(mg_facts, neighbor_ctx)
 
     expected_add_state = build_add_expectations(config_facts, neighbor_ctx)
@@ -1320,6 +1405,9 @@ def run_remove_and_readd_cycle(
         f"[{scenario['id']}] Verify selected {neighbor_ctx['neighbor_role']} "
         f"neighbor and learned prefix before removal"
     ):
+        if macsec_ctx:
+            assert_macsec_state(duthost, macsec_ctx, True, "before removal")
+
         assert_peer_config_state(
             duthost,
             namespace,
@@ -1360,6 +1448,8 @@ def run_remove_and_readd_cycle(
             )
             check_routes(False, 60, "after removing the neighbor")
             check_forwarding(False, timeout=60)
+            if macsec_ctx:
+                assert_macsec_state(duthost, macsec_ctx, False, "after removing the neighbor")
 
         with allure.step(
             f"[{scenario['id']}] Add selected cluster peer back via GCU and validate route / traffic recovery"
@@ -1395,6 +1485,8 @@ def run_remove_and_readd_cycle(
                 f"BGP sessions with neighbors {neighbor_ctx['neighbor_ips']} failed to establish after re-add",
             )
             check_routes(True, 120, "after re-adding the neighbor")
+            if macsec_ctx:
+                assert_macsec_state(duthost, macsec_ctx, True, "after re-adding the neighbor")
             check_forwarding(True, timeout=120)
 
         with allure.step(f"[{scenario['id']}] Persist the restored configuration"):
