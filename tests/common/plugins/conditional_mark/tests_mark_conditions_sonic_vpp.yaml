@@ -525,6 +525,23 @@ read_mac/test_read_mac_metadata.py::ReadMACMetadata:
       - "asic_type in ['vpp']"
 
 #######################################
+#####           sFlow             #####
+#######################################
+sflow/test_sflow.py::TestReboot::testFastreboot:
+  skip:
+    reason: "sonic-vpp doesn't support fast or warm reboot with the current architecture"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/27229 and asic_type in ['vpp']"
+
+
+sflow/test_sflow.py::TestReboot::testWarmreboot:
+  skip:
+    reason: "sonic-vpp doesn't support fast or warm reboot with the current architecture"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/27229 and asic_type in ['vpp']"
+
+
+#######################################
 #####           SNMP              #####
 #######################################
 
