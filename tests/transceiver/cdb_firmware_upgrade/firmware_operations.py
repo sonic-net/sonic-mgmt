@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 
 I2C_ERROR_PATTERN = r"i2c.*(error|fail|timeout|nack)|(error|fail).*i2c"
 THERMALCTLD = "thermalctld"
-INVALID_FIRMWARE_VERSIONS = ("N/A", "0.0.0")
+INVALID_FIRMWARE_VERSION = "N/A"
 
 
 def select_target_version(firmware_versions, banks):
@@ -176,7 +176,7 @@ def verify_firmware_state_unchanged(duthost, port, before_banks, dual_bank_suppo
     if dual_bank_supported:
         inactive = after_banks.get(FW_INACTIVE)
         if expect_inactive_invalid:
-            if inactive not in INVALID_FIRMWARE_VERSIONS:
+            if inactive != INVALID_FIRMWARE_VERSION:
                 failures.append(f"inactive firmware {inactive} is still valid after a failed download")
         elif inactive != before_banks.get(FW_INACTIVE):
             failures.append(
@@ -620,15 +620,22 @@ def download_zero_filled_binary_op(duthost, port, port_context, metadata_map):
 
 
 def download_corrupted_binary_op(duthost, port, port_context, metadata_map):
-    """TC6b per-port op: an image with a corrupted payload is rejected."""
-    return _download_invalid_binary_op(
-        duthost, port, port_context, metadata_map,
-        create_corrupted_binary, expect_inactive_invalid=True,
-    )
+    """TC6b per-port op: reject a corrupted image, then restore a valid target image."""
+    failures = []
+    try:
+        failures = _download_invalid_binary_op(
+            duthost, port, port_context, metadata_map,
+            create_corrupted_binary, expect_inactive_invalid=True,
+        )
+    finally:
+        failures += perform_firmware_download(
+            duthost, port, port_context, metadata_map,
+        )
+    return failures
 
 
 def _interrupt_download(duthost, port, port_context, metadata_map, percentage):
-    """Kill a firmware download at ``percentage`` progress and verify the banks are untouched."""
+    """Interrupt a download and verify active/running/committed are unchanged and inactive is invalid."""
     cdb_attrs = port_context["cdb_attrs"]
 
     before_banks, err = cli_helpers.sfputil_show_fwversion(duthost, port)

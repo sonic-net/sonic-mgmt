@@ -431,7 +431,7 @@ _CDB_FW_ABORT_PYCODE = (
 
 
 def _run_firmware_cmd(duthost, cmd, timeout_sec, success_marker):
-    """Run ``cmd`` under a hard ``timeout``; returns ``(elapsed_sec, err)``.
+    """Run ``cmd`` under a hard ``timeout``; returns ``(elapsed_sec, rc, err)``.
 
     ``err`` is ``None`` only when rc is 0 AND ``success_marker`` is in stdout.
     """
@@ -441,16 +441,16 @@ def _run_firmware_cmd(duthost, cmd, timeout_sec, success_marker):
     elapsed = round(time.time() - start, 1)
     rc = result.get("rc", RC_FAILURE)
     if rc == TIMEOUT_RC:
-        return elapsed, f"{cmd} timed out after {timeout_sec}s"
+        return elapsed, rc, f"{cmd} timed out after {timeout_sec}s"
     if rc != 0:
-        return elapsed, f"{cmd} failed with rc={rc} ({_error_detail(result)})"
+        return elapsed, rc, f"{cmd} failed with rc={rc} ({_error_detail(result)})"
     stdout = "\n".join(result.get("stdout_lines") or [])
     if success_marker and success_marker not in stdout:
-        return elapsed, (
+        return elapsed, rc, (
             f"{cmd} did not report success ('{success_marker}' absent; "
             f"{_error_detail(result)})"
         )
-    return elapsed, None
+    return elapsed, rc, None
 
 
 def sfputil_firmware_download(duthost, port, fwfile, timeout_sec):
@@ -459,41 +459,23 @@ def sfputil_firmware_download(duthost, port, fwfile, timeout_sec):
     Returns ``(elapsed_sec, rc, err)``.
     """
     cmd = f'{SFPUTIL_FIRMWARE_DOWNLOAD} {port} "{fwfile}"'
-    start = time.time()
-    result = duthost.command(
-        f"timeout {timeout_sec} {cmd}", module_ignore_errors=True
-    )
-    elapsed = round(time.time() - start, 1)
-    rc = result.get("rc", RC_FAILURE)
-    if rc == TIMEOUT_RC:
-        err = f"{cmd} timed out after {timeout_sec}s"
-    elif rc != 0:
-        err = f"{cmd} failed with rc={rc} ({_error_detail(result)})"
-    elif FW_DOWNLOAD_SUCCESS_MARKER not in "\n".join(result.get("stdout_lines") or []):
-        err = (
-            f"{cmd} did not report success ('{FW_DOWNLOAD_SUCCESS_MARKER}' absent; "
-            f"{_error_detail(result)})"
-        )
-    else:
-        err = None
-    return elapsed, rc, err
+    return _run_firmware_cmd(duthost, cmd, timeout_sec, FW_DOWNLOAD_SUCCESS_MARKER)
 
 
 _FW_DOWNLOAD_INTERRUPT_PYCODE = (
-    "import errno, os, pty, re, select, subprocess, time\n"
-    "master_fd, slave_fd = pty.openpty()\n"
-    "proc = subprocess.Popen({argv}, stdin=slave_fd, stdout=slave_fd, stderr=slave_fd, close_fds=True)\n"
-    "os.close(slave_fd)\n"
+    "import errno, os, pty, re, select, time\n"
+    "argv = {argv}\n"
+    "pid, master_fd = pty.fork()\n"
+    "if pid == 0:\n"
+    "    os.execvp(argv[0], argv)\n"
     "deadline = time.time() + {timeout_sec}\n"
     "tail = ''\n"
     "reached = 0\n"
-    "outcome = 'COMPLETED'\n"
-    "returncode = None\n"
+    "outcome = 'RUNNING'\n"
     "try:\n"
-    "    while proc.poll() is None:\n"
-    "        remaining = max(0, deadline - time.time())\n"
-    "        if remaining == 0:\n"
-    "            proc.kill()\n"
+    "    while True:\n"
+    "        remaining = deadline - time.time()\n"
+    "        if remaining <= 0:\n"
     "            outcome = 'TIMEOUT'\n"
     "            break\n"
     "        ready, _, _ = select.select([master_fd], [], [], remaining)\n"
@@ -502,27 +484,31 @@ _FW_DOWNLOAD_INTERRUPT_PYCODE = (
     "        try:\n"
     "            chunk = os.read(master_fd, 4096)\n"
     "        except OSError as exc:\n"
-    "            if exc.errno != errno.EIO:\n"
-    "                raise\n"
-    "            chunk = b''\n"
+    "            if exc.errno == errno.EIO:\n"
+    "                outcome = 'COMPLETED'\n"
+    "                break\n"
+    "            raise\n"
     "        if not chunk:\n"
-    "            continue\n"
+    "            outcome = 'COMPLETED'\n"
+    "            break\n"
     "        tail = (tail + chunk.decode(errors='replace'))[-4096:]\n"
     "        percentages = [int(value) for value in re.findall(r'(\\d{{1,3}})%', tail)]\n"
     "        if percentages:\n"
     "            reached = max(reached, max(percentages))\n"
     "        if reached >= {percentage}:\n"
-    "            os.kill(proc.pid, {signum})\n"
     "            outcome = 'INTERRUPTED'\n"
     "            break\n"
     "finally:\n"
-    "    if proc.poll() is None:\n"
-    "        proc.kill()\n"
-    "    returncode = proc.wait()\n"
     "    try:\n"
+    "        if outcome != 'COMPLETED':\n"
+    "            try:\n"
+    "                os.kill(pid, {signum} if outcome == 'INTERRUPTED' else 9)\n"
+    "            except ProcessLookupError:\n"
+    "                pass\n"
+    "        _, status = os.waitpid(pid, 0)\n"
+    "    finally:\n"
     "        os.close(master_fd)\n"
-    "    except OSError:\n"
-    "        pass\n"
+    "returncode = -os.WTERMSIG(status) if os.WIFSIGNALED(status) else os.WEXITSTATUS(status)\n"
     "print('RESULT|%s|%d|%d' % (outcome, reached, returncode))\n"
 )
 
@@ -535,9 +521,7 @@ def sfputil_firmware_download_interrupted(
     Returns ``(reached_percentage, elapsed_sec, err)``; ``err`` is set when the
     download could not be interrupted at the requested progress point.
     """
-    signum = FW_DOWNLOAD_INTERRUPT_SIGNALS.get(method)
-    if signum is None:
-        return None, 0, f"unsupported firmware_download_interrupt_method '{method}'"
+    signum = FW_DOWNLOAD_INTERRUPT_SIGNALS[method]
 
     pycode = _FW_DOWNLOAD_INTERRUPT_PYCODE.format(
         argv=SFPUTIL_FIRMWARE_DOWNLOAD.split() + [port, fwfile],
@@ -589,19 +573,22 @@ def sfputil_firmware_download_interrupted(
 def sfputil_firmware_run(duthost, port, timeout_sec):
     """Run ``sfputil firmware run --delay <delay_sec> <port>`` returns ``(elapsed_sec, err)``."""
     cmd = f"{SFPUTIL_FIRMWARE_RUN} --delay {FW_RUN_DELAY_SEC} {port}"
-    return _run_firmware_cmd(duthost, cmd, timeout_sec, FW_RUN_SUCCESS_MARKER)
+    elapsed, _, err = _run_firmware_cmd(duthost, cmd, timeout_sec, FW_RUN_SUCCESS_MARKER)
+    return elapsed, err
 
 
 def sfputil_firmware_commit(duthost, port, timeout_sec):
     """Run ``sfputil firmware commit <port>`` returns ``(elapsed_sec, err)``."""
     cmd = f"{SFPUTIL_FIRMWARE_COMMIT} {port}"
-    return _run_firmware_cmd(duthost, cmd, timeout_sec, FW_COMMIT_SUCCESS_MARKER)
+    elapsed, _, err = _run_firmware_cmd(duthost, cmd, timeout_sec, FW_COMMIT_SUCCESS_MARKER)
+    return elapsed, err
 
 
 def sfputil_reset(duthost, port, timeout_sec=60):
     """Run ``sfputil reset <port>`` returns ``(elapsed_sec, err)``."""
     cmd = f"{SFPUTIL_RESET} {port}"
-    return _run_firmware_cmd(duthost, cmd, timeout_sec, SFPUTIL_RESET_SUCCESS_MARKER)
+    elapsed, _, err = _run_firmware_cmd(duthost, cmd, timeout_sec, SFPUTIL_RESET_SUCCESS_MARKER)
+    return elapsed, err
 
 
 def sfputil_show_lpmode(duthost, port=None):
@@ -615,7 +602,8 @@ def sfputil_show_lpmode(duthost, port=None):
 def sfputil_set_lpmode(duthost, port, low_power, timeout_sec=60):
     """Run ``sfputil lpmode on|off <port>`` returns ``(elapsed_sec, err)``."""
     cmd = f"{SFPUTIL_LPMODE} {'on' if low_power else 'off'} {port}"
-    return _run_firmware_cmd(duthost, cmd, timeout_sec, SFPUTIL_LPMODE_SUCCESS_MARKER)
+    elapsed, _, err = _run_firmware_cmd(duthost, cmd, timeout_sec, SFPUTIL_LPMODE_SUCCESS_MARKER)
+    return elapsed, err
 
 
 def issue_cdb_fw_abort(duthost, physical_index):
