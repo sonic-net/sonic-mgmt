@@ -9,6 +9,7 @@ RUN apt -y update \
     && apt -y install git \
     && apt -y install wget \
     && apt -y install python3 \
+    && apt -y install python-is-python3 \
     && apt -y install python3-setuptools \
     && apt -y install python3-pip \
     && apt -y install python3-tk \
@@ -25,13 +26,13 @@ WORKDIR /keysight
 
 RUN pip install --no-cache-dir -r ./spytest.txt
 
-# https://downloads.ixiacom.com/support/downloads_and_updates/public/ixnetwork/9.30/IxNetworkAPI9.30.2212.7Linux64.bin.tgz
-RUN bash ./IxNetworkAPI9.30.2212.7Linux64.bin -i silent \
-    && pip install --no-cache-dir -r /opt/ixia/ixnetwork/9.30.2212.7/lib/PythonApi/requirements.txt
+# https://downloads.ixiacom.com/support/downloads_and_updates/public/IxNetwork/10.00/10.00.2312.4/IxNetworkAPI10.00.2312.4Linux64.bin.tgz
+RUN bash ./IxNetworkAPI10.00.2312.4Linux64.bin -i silent \
+	&& pip install --no-cache-dir -r /opt/ixia/ixnetwork/10.00.2312.4/lib/PythonApi/requirements.txt
 ENV SCID_TGEN_PATH=/opt
 ENV SCID_TCL85_BIN=/opt
-ENV IXNETWORK_VERSION=9.30.2212.7
-ENV HLAPI_VERSION=9.30.2212.6
+ENV IXNETWORK_VERSION=10.00.2312.4
+ENV HLAPI_VERSION=10.00.2312.5
 
 LABEL author="Mircea Dan Gheorghe"
 LABEL version="1.0"
