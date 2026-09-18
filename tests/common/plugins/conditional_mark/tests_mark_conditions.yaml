@@ -5631,6 +5631,12 @@ system_health/test_system_health.py:
     conditions:
       - "asic_type in ['vs']"
 
+system_health/test_system_health.py::test_device_fan_speed_checker:
+  skip:
+    reason: "Aspeed BMC platforms are fanless, so there is no fan speed to mock/check"
+    conditions:
+      - "'bmc' in topo_type"
+
 system_health/test_system_health.py::test_service_checker_with_process_exit:
   xfail:
     strict: True

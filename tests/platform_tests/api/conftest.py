@@ -55,6 +55,14 @@ def stop_platform_api_service(duthosts):
 def check_not_implemented_warnings(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
+    # The BMC runs a minimal sonic_platform plugin, so the "API not implemented"
+    # pmon warning scan is not meaningful. Skipping the LogAnalyzer init/analyze
+    # also avoids a per-test ansible copy to the DUT, which stalls the whole api
+    # suite if the BMC mgmt channel becomes unreachable mid-run.
+    if duthost.is_bmc():
+        yield
+        return
+
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="platformapi_test")
     marker = loganalyzer.init()
     yield
