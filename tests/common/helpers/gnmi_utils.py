@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 GNMI_CERT_NAME = "test.client.gnmi.sonic"
 REVOKED_GNMICERT_NAME = "test.client.revoked.gnmi.sonic"
 TELEMETRY_CONTAINER = "telemetry"
+cert_extension = None
 
 # Backdate notBefore on test certs to absorb clock skew between the
 # sonic-mgmt runner, the DUT, and the PTF docker. Without this, even a
@@ -64,6 +65,7 @@ class GNMIEnvironment(object):
     GNMI_MODE = 1
 
     def __init__(self, duthost, mode):
+        self.cert_extension(duthost)
         logger.info(f"Initializing GNMIEnvironment with mode {mode}")
         if mode == self.TELEMETRY_MODE:
             ret = self.generate_telemetry_config(duthost)
@@ -83,11 +85,26 @@ class GNMIEnvironment(object):
             if ret:
                 logger.info("Successfully generated telemetry config")
                 return
+
         # If no container found, use default configuration
         logger.warning("No GNMI/Telemetry container found, using default configuration")
         self._set_default_config()
         self._configure_connection_params(duthost)
-
+        pytest.fail("Can't generate GNMI/TELEMETRY configuration, mode %d" % mode)
+    
+    def cert_extension(self, duthost):
+        global cert_extension
+        if cert_extension is not None:
+            return
+        gnmi_config = duthost.shell(
+            "show runningconfiguration all | jq '.GNMI.certs'",
+            module_ignore_errors=True
+            )
+        if "gnmiclient.cer" in gnmi_config.get("stdout", ""):
+            cert_extension = "cer"
+        else:
+            cert_extension = "crt"
+        
     def generate_gnmi_config(self, duthost):
         cmd = "docker images | grep -w sonic-gnmi"
         if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
@@ -249,6 +266,17 @@ def create_revoked_cert_and_crl(localhost, ptfhost, duthost=None):
     ptf_ip = get_ptf_crl_server_ip(duthost, ptfhost) if duthost else ptfhost.mgmt_ip
     crl_url = "http://{}:1234/crl".format(ptf_ip)
     create_ca_conf(crl_url, "crlext.cnf")
+    local_command = "openssl x509 \
+                        -req \
+                        -in gnmiclient.revoked.csr \
+                        -CA gnmiCA.pem \
+                        -CAkey gnmiCA.key \
+                        -CAcreateserial \
+                        -out gnmiclient.revoked.{} \
+                        -days 825 \
+                        -sha256 \
+                        -extensions req_ext -extfile crlext.cnf".format(cert_extension)
+    localhost.shell(local_command)
     sign_client_certificate(localhost, revoke=True, extension_file="crlext.cnf")
 
     # create crl config file
@@ -264,10 +292,10 @@ def create_revoked_cert_and_crl(localhost, ptfhost, duthost=None):
 
     # revoke cert CRL
     local_command = "openssl ca \
-                        -revoke gnmiclient.revoked.crt \
+                        -revoke gnmiclient.revoked.{} \
                         -keyfile gnmiCA.key \
                         -cert gnmiCA.pem \
-                        -config gnmi/crl/crl.cnf"
+                        -config gnmi/crl/crl.cnf".format(cert_extension)
 
     localhost.shell(local_command)
 
@@ -282,7 +310,7 @@ def create_revoked_cert_and_crl(localhost, ptfhost, duthost=None):
     localhost.shell(local_command)
 
     # copy to PTF for test
-    ptfhost.copy(src='gnmiclient.revoked.crt', dest='/root/')
+    ptfhost.copy(src='gnmiclient.revoked.{}'.format(cert_extension), dest='/root/')
     ptfhost.copy(src='gnmiclient.revoked.key', dest='/root/')
     ptfhost.copy(src='sonic.crl.pem', dest='/root/')
     ptfhost.copy(src='gnmi/crl/crl_server.py', dest='/root/')
@@ -369,6 +397,19 @@ def create_server_csr(localhost):
                             -out gnmiserver.csr"
     localhost.shell(local_command)
 
+    # Sign server certificate
+    create_ext_conf(duthost.mgmt_ip, "extfile.cnf")
+    local_command = "openssl x509 \
+                        -req \
+                        -in gnmiserver.csr \
+                        -CA gnmiCA.pem \
+                        -CAkey gnmiCA.key \
+                        -CAcreateserial \
+                        -out gnmiserver.{} \
+                        -days 825 \
+                        -sha256 \
+                        -extensions req_ext -extfile extfile.cnf".format(cert_extension)
+    localhost.shell(local_command)
 
 def sign_server_certificate(duthost, localhost, days):
     """Sign gnmiserver.csr with the CA, backdated, with SAN (hostname.com + DUT mgmt IP)."""
@@ -419,6 +460,17 @@ def create_client_csr(localhost, revoke=False):
                             -out gnmiclient.{}csr".format(revoke_suffix, cn, revoke_suffix)
     localhost.shell(local_command)
 
+    # Sign client certificate
+    local_command = "openssl x509 \
+                        -req \
+                        -in gnmiclient.csr \
+                        -CA gnmiCA.pem \
+                        -CAkey gnmiCA.key \
+                        -CAcreateserial \
+                        -out gnmiclient.{} \
+                        -days 825 \
+                        -sha256".format(cert_extension)
+    localhost.shell(local_command)
 
 def sign_client_certificate(localhost, days="825", revoke=False, extension_file=None):
     """Sign a (regular or revoked) client CSR with the CA, backdated.
@@ -464,16 +516,16 @@ def sign_client_certificate(localhost, days="825", revoke=False, extension_file=
 def copy_certificate_to_dut(duthost):
     # Copy CA certificate, server certificate and client certificate over to the DUT
     duthost.copy(src='gnmiCA.pem', dest='/etc/sonic/telemetry/')
-    duthost.copy(src='gnmiserver.crt', dest='/etc/sonic/telemetry/')
+    duthost.copy(src='gnmiserver.{}'.format(cert_extension), dest='/etc/sonic/telemetry/')
     duthost.copy(src='gnmiserver.key', dest='/etc/sonic/telemetry/')
-    duthost.copy(src='gnmiclient.crt', dest='/etc/sonic/telemetry/')
+    duthost.copy(src='gnmiclient.{}'.format(cert_extension), dest='/etc/sonic/telemetry/')
     duthost.copy(src='gnmiclient.key', dest='/etc/sonic/telemetry/')
 
 
 def copy_certificate_to_ptf(ptfhost):
     # Copy CA certificate and client certificate over to the PTF
     ptfhost.copy(src='gnmiCA.pem', dest='/root/')
-    ptfhost.copy(src='gnmiclient.crt', dest='/root/')
+    ptfhost.copy(src='gnmiclient.{}'.format(cert_extension), dest='/root/')
     ptfhost.copy(src='gnmiclient.key', dest='/root/')
 
 
@@ -524,7 +576,7 @@ def gnmi_capabilities(duthost, localhost):
     port = env.gnmi_port
     # Run gnmi_cli in gnmi container as workaround
     cmd = "docker exec %s gnmi_cli -client_types=gnmi -a %s:%s " % (env.gnmi_container, addr, port)
-    cmd += "-client_crt /etc/sonic/telemetry/gnmiclient.crt "
+    cmd += "-client_crt /etc/sonic/telemetry/gnmiclient.{} ".format(cert_extension)
     cmd += "-client_key /etc/sonic/telemetry/gnmiclient.key "
     cmd += "-ca_crt /etc/sonic/telemetry/gnmiCA.pem "
     cmd += "-logtostderr -capabilities"
