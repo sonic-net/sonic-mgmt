@@ -46,37 +46,57 @@ except Exception as e:
     sys.exit(1)
 """
 
-
 def start_dshell_client():
     """
     Starts the dshell_client service inside the syncd container.
-    Exits the script if this fails.
+    Retries if the syncd container's supervisor is not ready yet.
+    Exits the script if it cannot start after all retries.
     """
     print("Attempting to start dshell_client service...")
     cmd = ["docker", "exec", "syncd", "supervisorctl", "start", "dshell_client"]
 
-    try:
-        # Run command with a timeout to prevent hanging
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+    max_retries = 18
+    retry_interval = 10
 
-        # Check return code
-        if result.returncode != 0:
+    for attempt in range(1, max_retries + 1):
+        try:
+            # Run command with a timeout to prevent hanging
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+
+            # Check return code
+            if result.returncode == 0:
+                print("dshell_client started successfully.")
+                return
+
             # Check if it failed because it is already running (supervisor specific)
             if "already started" in result.stdout or "already started" in result.stderr:
                 print("dshell_client is already running.")
                 return
 
+            # Supervisor socket not ready — transient error, retry
+            if "no such file" in result.stdout or "no such file" in result.stderr:
+                print(f"Attempt {attempt}/{max_retries}: syncd supervisor not ready yet. "
+                      f"Retrying in {retry_interval}s...")
+                time.sleep(retry_interval)
+                continue
+
+            # Unexpected error — fail immediately
             print(f"CRITICAL: Failed to start dshell_client. Return Code: {result.returncode}")
             print(f"Stdout: {result.stdout}")
             print(f"Stderr: {result.stderr}")
             sys.exit(1)
-        else:
-            print("dshell_client started successfully.")
 
-    except Exception as e:
-        print(f"CRITICAL: Execution error while starting dshell_client: {e}")
-        sys.exit(1)
+        except subprocess.TimeoutExpired:
+            print(f"Attempt {attempt}/{max_retries}: Command timed out. "
+                  f"Retrying in {retry_interval}s...")
+            time.sleep(retry_interval)
 
+        except Exception as e:
+            print(f"CRITICAL: Execution error while starting dshell_client: {e}")
+            sys.exit(1)
+
+    print("CRITICAL: Failed to start dshell_client after all retries.")
+    sys.exit(1)
 
 def attempt_trap_clear():
     # Strip empty lines and append quit()
@@ -105,11 +125,10 @@ def attempt_trap_clear():
         print(f"Execution error: {e}")
         return False
 
-
 def main():
     print("Starting Cisco 8102 Trap Clear Sequence...")
 
-    # 1. Start the service ONCE. Fail if it doesn't start.
+    # 1. Start dshell_client (retries until syncd supervisor is ready).
     start_dshell_client()
 
     # 2. Retry loop for SDK initialization (trap clearing)
@@ -125,7 +144,6 @@ def main():
 
     print("Timeout: Failed to clear traps after 10 minutes.")
     sys.exit(1)
-
 
 if __name__ == "__main__":
     main()
