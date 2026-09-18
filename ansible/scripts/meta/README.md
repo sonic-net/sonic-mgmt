@@ -637,7 +637,7 @@ validators:
     enabled: true
     config:
       exclude_ipv4_ipv6_mismatch_groups:
-        - "^sc02a$"
+        - "^lab_with_independent_ip_allocations$"
       exclude_ipv4_ipv6_mismatch_devices:
         - "^switch-with-independent-addresses$"
 ```
