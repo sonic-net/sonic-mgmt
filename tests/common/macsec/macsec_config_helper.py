@@ -4,7 +4,7 @@ import time
 from passlib.hash import cisco_type7
 
 from tests.common.macsec.macsec_helper import get_mka_session, getns_prefix, wait_all_complete, \
-     submit_async_task
+     submit_async_task, purge_ptf_ingress_sas
 from tests.common.macsec.macsec_platform_helper import global_cmd, find_portchannel_from_member, get_portchannel
 from tests.common.config_reload import config_reload
 from tests.common.devices.eos import EosHost
@@ -526,6 +526,15 @@ def wait_for_macsec_cleanup(host, interfaces, timeout=90):
         # EOS hosts don't use Redis databases
         logger.info("EOS host detected, skipping Redis cleanup verification")
         return True
+
+    # Harness PTF ingress SAs (ptf_sa == sak) have no daemon to clean them up:
+    # wpa_supplicant tears the secure channel down, orchagent drops the ASIC
+    # objects, and the APPL_DB rows would sit here until the timeout.
+    try:
+        purge_ptf_ingress_sas(host, interfaces)
+    except Exception:
+        logger.warning("purging PTF ingress SAs on %s failed", getattr(host, "hostname", host),
+                       exc_info=True)
 
     logger.info(f"Waiting for automatic MACsec cleanup (timeout: {timeout}s)")
 
