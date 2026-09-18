@@ -1,294 +1,354 @@
 # gNMI benchmark
 
-A configurable grpcio load generator for **client-observed latency, throughput
-and request outcomes**, using the existing SONiC TLS test fixture.
+## Three main components
 
-## What does the measured RTT consist of?
+1. [BenchmarkRunner](../../tests/gnmi_benchmark/benchmark_runner.py) manages the
+   connection, resource scopes, phase lifecycle and measurement handoff.
+2. [Blaster](../../tests/gnmi_benchmark/blaster.py) owns default load parameters,
+   open/closed-loop scheduling, thread pools, RPC execution, scenario identity and
+   `workload(session, prepared)`. RouteTableBlaster is the
+   VNET Get→Set scenario. It contains no device deletion/backup commands.
+3. [BenchmarkReport](../../tests/gnmi_benchmark/benchmark_report.py) generates the report from
+   completed measurement data; another object with `generate(**data)` can replace it.
 
-The retained metric is **client-call duration**, not pure network RTT. The timer
-starts before call bookkeeping and stops when the decoded response or RPC error
-returns. Explicit SetResponse error inspection follows the timer.
-
-```mermaid
-flowchart TD
-    Start["START timer"] --> Client["Serialize / queue / transport"]
-    Client --> Server["Server decode and backend selection"]
-    Server -->|Regular native Set| Regular["Checkpoint / JSON patch / GCU apply"]
-    Regular --> Save["Save config / delete checkpoint"]
-    Server -->|Validation bypass selected| Bypass["Parse JSON / direct CONFIG_DB writes"]
-    Save --> Response["Return and decode response"]
-    Bypass --> Response
-    Response --> Stop["STOP timer"]
-    Stop -.-> Check["Inspect response Error codes"]
-```
-
-The diagram describes native CONFIG_DB Set processing. Get has a separate read
-path. Bypass selection depends on the server's supported header, SKU and table
-conditions; requesting it does not prove that it executed. See the public
-[bypass implementation](https://github.com/sonic-net/sonic-gnmi/blob/master/pkg/bypass/bypass.go).
-
-## Timing summary and estimation limits
-
-| Work | Included in per-RPC duration? |
-|---|---|
-| Call bookkeeping, protobuf serialization, transport, server work and response decoding | Yes |
-| Channel handshake or reconnect during a call | Yes; explicit readiness before warmup/open-loop load is excluded |
-| Payload generation, fixture setup/teardown, warmup and resource/report collection | No |
-| Explicit response-error inspection | No; it still affects closed-loop throughput |
-| Post-response forwarding convergence | Not awaited or measured |
-
-Do not subtract estimated network or encoding cost. Internal stage durations and
-HTTP/2 waiting are not isolated. The histogram uses gRFC A66 boundaries converted
-to milliseconds; this is not native A66/OTel instrumentation.
-
-## Verification rules
-
-| Check | Rule |
-|---|---|
-| RPC success | gRPC `OK`; Set also requires no nonzero Error code in SetResponse or UpdateResult entries |
-| Latency population | Successful calls only; failures remain in status/error counts |
-| Combined workflow | Empty Get followed by Set after Get success; failed Get skips Set and fails the group |
-| Scope | No configuration readback, forwarding verification or bypass execution assertion |
-
-No successful samples produces null latency statistics, not zero latency. The
-test fails when any planned measured request/group fails or remains unfinished.
-Warmup errors prevent measurement; cleanup is assessed separately.
-
-## Report and evidence
-
-One `<cid>-report.json` is written to the configured directory and emitted through
-the existing log/CustomMsg mechanisms. Schema 3 describes Get-only or Set-only;
-schema 4 describes Get→Set workflows.
-
-Schema 5 describes open-loop runs or configured scenarios. Existing closed-loop
-built-in operations retain schemas 3/4. `metrics.counts` always counts started
-RPCs/groups/iterations, not unsent arrivals; open-loop `execution.scheduling`
-separately accounts for every scheduled arrival.
-
-| Open-loop field | Meaning |
-|---|---|
-| `scheduled`, `started` | Total intended iterations and actual started iterations |
-| `dropped_capacity`, `dropped_late` | Unsent arrivals due to in-flight capacity or missed clock slots; not fabricated RPC errors |
-| `target_rate`, `actual_start_rate` | Intended iterations/s and starts within the admission window divided by actual admission elapsed time |
-| `start_delay_ms` | Distribution from scheduled arrival to actual executor start for started iterations |
-| `max_inflight_iterations` | Bound on admitted queued-plus-running iterations |
-
-`scheduled = started + dropped_capacity + dropped_late`. Client drops make the
-test fail even if all sent RPCs succeed. RPC/group latency excludes scheduling
-delay; neither metric includes synthetic samples for unsent arrivals. Throughput
-still uses elapsed time including drain. Warmup uses the chosen pattern, drains,
-then resets; warmup RPC failures or dropped arrivals prevent measurement.
-For open-loop reports, `load.logical_requests` counts started iterations and
-`load.scheduled_iterations` records intended arrivals, including drops.
-
-An actual start is entry into the client executor, not a wire-send timestamp.
-Subsequent gRPC/HTTP2 queueing remains inside client-call duration. The reported
-`max_inflight_iterations` is the configured admission limit; observed executing
-concurrency is reported separately as `execution.peak_client_inflight`.
-
-Configured scenario reports identify `benchmark.scenario.name`, request-definition
-digest and step names/methods. Top-level metrics count `scenario_iteration` and
-`metrics.operations.<step>` records each step's RPC metrics and skipped count.
-All-success iterations run all steps; first failure skips remaining steps. Step
-RPC timers exclude explicit response checks; iteration time includes intermediate
-checks/bookkeeping but excludes the final check. This is not an atomic Get/Set transaction.
-
-| Section | Contents |
-|---|---|
-| `device`, `benchmark`, `load` | Device identity, operation, timing boundary and effective workload parameters |
-| `metrics` | Counts/statuses, successful latency mean/P50/P95/P99/max and 42 histogram buckets, throughput |
-| `execution` | Readiness, warmup, admission/drain and peak client in-flight work |
-| `resources`, `sampling` | Two boundary snapshots, not continuous measurements or a measured peak |
-
-Schema 4 top-level counts/latency describe groups. `metrics.operations.get` and
-`.set` describe individual RPCs, with throughput over the common measurement
-window. `set_skipped_after_get_failure` explains missing Set calls. A group timer
-includes inter-RPC bookkeeping; each RPC has its own timer and timeout.
-
-Percentiles use nearest rank on successful samples; do not average per-run P95s
-and call the result a pooled P95. Throughput includes measured drain. Raw samples
-remain in memory for aggregation and are not another published report.
-
-Templates: [report](../../tests/gnmi_benchmark/templates/report.json.j2),
-[latency](../../tests/gnmi_benchmark/templates/latency.json.j2),
-[A66 boundaries](../../tests/gnmi_benchmark/templates/grpc_a66_latency_ms_bounds.json.j2).
-
-## Load generator and supported parameters
-
-### Traffic generation design
+[helpers.py](../../tests/gnmi_benchmark/helpers.py) contains resource context
+managers, backup/restoration and request construction. Pytest calls the runner;
+there are no separate public scheduler, client, environment or workload layers.
 
 ```mermaid
 flowchart TD
-    Profile["Built-in workload OR scenario JSON<br/>named steps / methods / paths / values"] --> Requests["Prepared request variants"]
-    Load["Traffic controls<br/>count or duration / concurrency / rate"] --> Coordinator["Coordinator<br/>TLS readiness / warmup / measurement"]
-    Coordinator --> Closed["Closed loop<br/>each worker refills after completion"]
-    Coordinator --> Open["Uniform open loop<br/>absolute arrival clock / nonblocking capacity"]
-    Open -->|No capacity or missed slot| Drops["Record unsent arrivals"]
-    Closed --> Executor["RPC executor<br/>invoke steps / deadline / response checks"]
-    Open -->|Admitted| Executor
-    Requests --> Executor
-    Executor --> Channel["Shared TLS channel / DUT"]
-    Channel --> Results["Per-step and iteration results"]
-    Results -->|Closed-loop feedback only| Closed
-    Results --> Report["Drain / aggregate / JSON report"]
-    Drops --> Report
+    Entry["pytest / caller"] --> Runner["BenchmarkRunner.run"]
+    Blaster["RouteTableBlaster<br/>load defaults / marker / workload"] --> Runner
+    Runner --> Setup["Enter connection and blaster resource context<br/>prepare data / register restoration"]
+    Setup --> Warmup["Readiness and optional warmup<br/>drain / check / discard samples"]
+    Warmup --> Load["blaster.blast<br/>owns closed/open loop and workers"]
+    Load --> Work["blaster.workload<br/>Get then Set"]
+    Work --> Collect["Drain / return raw timestamps and samples"]
+    Collect --> Cleanup["Exit resource scopes<br/>remove keys / restore backup / close channel"]
+    Cleanup --> Report["result.generate<br/>aggregate / derive metrics / format report"]
 ```
 
-Each worker permits one outstanding RPC at a time. In `get-set`, it issues Set
-only after Get succeeds and starts the next group after the current group ends.
-Workers are independent: a worker waits for its own call, not for the whole
-server queue to drain. Count mode assigns each worker a fixed share; duration
-mode shares an admission deadline and then drains admitted work.
+## Blaster contract
 
-**The offered load is self-throttling.** If server processing or queueing slows
-responses, workers issue fewer new requests per second. Concurrency is controlled;
-arrival rate is an outcome. This measures a bounded population of sequential
-clients, not what happens when new traffic keeps arriving faster than the server
-can handle. Increasing concurrency changes that population; it does not turn this
-runner into a fixed-rate generator.
+The abstract `Blaster` holds concurrency, count/duration, warmup, per-RPC timeout,
+traffic pattern, rate and marker. Subclasses provide `name` and implement one
+iteration in `workload(session, prepared)`. `resources(host, stub)` returns a context
+manager; its default supplies no extra resources. Runner enters/exits it, including
+on errors. Resource-specific commands live in helpers rather than business actions.
 
-Implementation: [coordinator](../../tests/gnmi_benchmark/benchmark_runner.py),
-[traffic policies](../../tests/gnmi_benchmark/traffic.py),
-[scenario/RPC executor](../../tests/gnmi_benchmark/scenarios.py),
-[workload preparation](../../tests/gnmi_benchmark/test_gnmi_benchmark.py).
+`Blaster.blast(stub, prepared, duration=None)` runs one complete phase. Its base
+implementation selects the open/closed-loop policy and owns worker startup, RPC
+execution, admission accounting and drain. It returns a raw phase dictionary:
+per-worker statuses/latencies/timestamps plus observed admission counters and clock
+boundaries. It does not format measurement/execution report sections or calculate
+rates. No private phase object escapes to Runner. Warmup supplies
+an explicit duration; measurement uses the blaster's configured count/duration.
+The two phases have independent pools/counters and the same channel/requests.
+Runner retains readiness, warmup validation, boundary snapshots and cleanup.
 
-### Uniform open-loop runner
+Scheduling uses a small inheritance hierarchy inside the same `blaster.py`:
+abstract `LoadLoop` provides `run()` (pool ownership and drain), `_start()` (clock)
+and `invoke()` (in-flight accounting and sample completion). `ClosedLoop` and
+`OpenLoop` override only `_schedule()`: worker refill versus uniform arrival slots.
+This keeps shared lifecycle/error cleanup in one place without adding files or
+putting open/closed branches in the business workload.
 
-Use `--benchmark-traffic open-loop --benchmark-rate 500` to schedule one iteration
-every 2 ms, independently of responses. Rate means RPC/s only for single-step
-workloads; a Get-Set scenario at 500 iterations/s intends up to 1,000 RPC/s.
-`--benchmark-concurrency` bounds admitted iterations, not the arrival clock.
+`RouteTableBlaster` separates stored inventory (`route_distribution`) from request
+batch size (`routes_per_request`). It reads explicit keys in one Get, then issues
+one native Set for the same batch with validation bypass requested.
+The default inventory is 12 VNETs × 20,000 + 1 × 16,000 =
+**13 VNETs / 256,000 total routes**. This is a test profile, not a measured customer
+distribution. A 1,000-iteration successful run performs 1,000 Gets and 1,000 Sets,
+in addition to the excluded preload Sets. The same keys/values are rewritten;
+iterations do not add new routes. Only largest-size VNETs are measured: 240,000
+routes across 12 VNETs; the remaining 16,000 are background inventory. Request size
+must divide the largest VNET size exactly. Requests cycle through those VNETs,
+then advance to the next disjoint batch within each VNET. Consequently every batch
+size accesses the same eligible key set while total inventory and VNET structure
+remain fixed. Concurrency is global across selected VNETs.
+Short duration/count or dropped slots can leave some VNETs unvisited in measurement.
+Get failure skips Set and fails the iteration. This is not a read-modify-write
+transaction or value comparison. Get→Set is fixed in its `workload()`; there is
+no method/mode parameter or Set-only branch. Another scenario would define its own
+logical request in its own workload implementation.
 
-**Overload policy: drop, never wait or catch up.** No free capacity drops that
-arrival; a delayed scheduler skips expired slots rather than sending a burst.
-The bounded executor may add start delay, which is measured separately. No
-unbounded pending queue is created. At the end, admitted work drains under
-per-RPC deadlines; a multi-step iteration can exceed one RPC timeout in total.
+Prepared requests are built before load and shared read-only. The session provides
+Get/Set calls and the scheduled iteration `index` for variant selection. RPC errors
+and nonzero SetResponse/UpdateResult errors terminate the iteration. Unexpected
+Python errors fail execution and still drain workers and clean up resources.
+Each iteration must issue at least one RPC. Do not catch the internal RPC failure
+signal in a workload.
 
-Count mode schedules N slots over N/rate seconds. Duration mode schedules slots
-whose planned times are before the deadline. TLS readiness always precedes
-open-loop admission, including when warmup is zero. Timing accuracy and achieved
-rate are observed outcomes, not a hard real-time guarantee. Closed-loop results
-must not be relabeled as open-loop capacity.
+Marker is a label, not a code selector. It defaults to the blaster name and is
+published in start/warmup logs and reports. Request contents/metadata values are
+not published. A marker is not a complete payload fingerprint.
 
-References: [gRPC load models](https://github.com/grpc/grpc/blob/master/src/proto/grpc/testing/control.proto)
-and [open versus closed load models](https://grafana.com/docs/k6/latest/using-k6/scenarios/concepts/open-vs-closed/).
+## Environment and resource management
 
-### Common execution versus workload-specific traffic
+Runner enters a shared TLS channel, then the blaster's resource context. Workers
+finish before those scopes exit. Resource restoration completes before report
+generation. No report is presented as a completed run if cleanup fails.
 
-| Layer | Responsibility | Current support |
+Generated VNET resources require single-ASIC, GCU and Loopback0 IPv4. The helper
+checks existing route count plus requested total against **256,000**, backs up
+persistent CONFIG_DB, registers removal/restoration and creates all VNETs with
+unique VNIs sharing one test VXLAN tunnel. It preloads each VNET with one bypass Set
+and builds immutable measurement request pairs for its disjoint route batches.
+Preload transport or response errors prevent measurement. Preload RPCs are not
+warmup or measured RPCs. The full-capacity default requires zero existing routes.
+On exit it removes only this run's unique route/VNET namespace and tunnel and restores the backup. ExitStack
+attempts restoration even if key removal fails. Partial preparation failure also
+runs registered rollback, including after partial preload. No arbitrary payload
+file or Regular/bypass selector remains in this workload.
+
+Get requests contain one native path per compound `VNET|prefix` key belonging to
+the selected batch, with origin `sonic-db`, request type ALL and JSON_IETF encoding.
+SONiC's Get handler rejects type CONFIG; explicit paths still restrict reads to CONFIG_DB. The path
+shape is `/CONFIG_DB/localhost/VNET_ROUTE_TUNNEL/<VNET|prefix>`; the compound key is
+one PathElem. This follows `MixedDbClient.getDbtablePath` / `Get` in the public
+[native DB client](https://github.com/sonic-net/sonic-gnmi/blob/master/sonic_data_client/mixed_db_client.go).
+No wildcard or pseudo per-VNET table node is assumed. A 20k-route batch uses one
+Get containing 20k paths, which requires physical validation for size/performance.
+The native client may consult an existing CONFIG_DB checkpoint before live Redis;
+this benchmark does not claim read freshness or compare values for correctness.
+
+These are configuration-backup operations, not a new SONiC checkpoint API. Regular
+native Set may use checkpoints internally on the server. Shared `gnmi_tls` fixture
+behavior is unchanged; its rollback runs after the benchmark's scopes. Do not
+overlap configuration writers. Client drain does not prove timed-out server writes
+are quiescent; inspect restoration before device reuse.
+
+## Timing and success
+
+**Individual RPC requests** are measured. Get→Set remains the business sequence,
+but no combined latency is recorded or evaluated. Each timer surrounds its stub
+call; the end is captured before explicit SetResponse error inspection.
+The report publishes independent bodies such as `requests["get:20000"]` and
+`requests["set:20000"]`, grouped by method and route count.
+These include successful
+calls of each method independently: a Get can succeed in an iteration whose Set
+fails, while a failed Get prevents Set from being sent. RPC failures have counts
+but no successful-latency sample. Zero calls produces null latency statistics.
+Only request types actually executed appear. The requirement is **≤1,000 ms per
+request**, not an average/P95 threshold and not the sum of a Get/Set pair. Each body
+records successful requests within/exceeding the limit; transport/response failures
+are counted separately. Either RPC failures, over-limit successful requests or
+dropped arrivals fail the test after report emission. Per-RPC timeouts are separate
+from this latency requirement. No invented duration is assigned to an unsent RPC.
+
+```mermaid
+flowchart TD
+    Start["START Get timer"] --> Get["Get call / decoded response"]
+    Get --> GetStop["STOP Get timer / record Get outcome"]
+    GetStop --> Check["Successful Get permits Set"]
+    Check --> SetStart["START Set timer"]
+    SetStart --> Set["Set call / decoded response"]
+    Set --> Stop["STOP Set timer"]
+    Stop --> Inspect["Inspect SetResponse errors / record Set outcome"]
+```
+
+RPC success requires gRPC OK and no explicit SetResponse/UpdateResult error.
+Failed RPCs have no successful latency sample; zero successes produces null
+statistics. No post-Set readback comparison, forwarding convergence or bypass fast-path
+assertion is performed. `backend_path` remains `unverified`.
+
+Payload construction, setup, explicit readiness, warmup, resource collection and
+cleanup are outside measurement. Serialization, gRPC/HTTP2 waiting, transport,
+server work and decoding are included. Handshake/reconnect inside a call remains
+included. Do not subtract estimated costs or call this pure network RTT.
+
+## Load controls
+
+Closed loop refills a worker when its iteration completes. Slow responses reduce
+arrival rate. Count mode retains fixed worker quotas, so concurrency can fall at
+the tail. Duration mode stops admission at a shared deadline and drains.
+
+Uniform open loop uses absolute slots independent of responses. At 500 iterations/s,
+slots are 2 ms apart; Get→Set intends up to 1,000 RPCs/s. Queued-plus-running work
+is bounded by concurrency. Capacity-full slots drop immediately; expired clock
+slots are late drops, never catch-up bursts. N-count runs span N/rate seconds;
+duration runs schedule slots before the deadline. Admitted work drains under
+per-RPC deadlines, so a sequence can exceed one timeout in total.
+
+Readiness precedes all warmup and open-loop admission. Warmup uses the same model,
+drains and resets measurement state. Warmup error, zero success or drop prevents
+measurement. Executor start time is not a wire-send timestamp; rate precision is
+an observed outcome, not a real-time guarantee.
+
+## Configuration
+
+Use `gnmi_benchmark/test_gnmi_benchmark.py` with normal sonic-mgmt inventory/testbed
+arguments. Select `--benchmark-blaster route-table` and optionally
+`--benchmark-blaster-params '{"route_distribution":{"16000":1,"20000":12},"routes_per_request":20000}'`.
+Defaults live on Blaster,
+not in a second options class. Explicit CLI flags override JSON constructor values;
+omitted flags retain subclass defaults.
+
+| CLI option | Base default | Meaning |
 |---|---|---|
-| Traffic policy | When to admit an iteration; capacity and stopping | Closed-loop workers or uniform open-loop clock |
-| Common gNMI execution | TLS channel, per-step deadlines, timing and response checks | Get/Set sequences independent of traffic policy |
-| Request workload | Choose paths/values and any prerequisite lifecycle | Built-in workloads or named protobuf-JSON scenario steps |
-| VNET-specific settings | Route count, VNET/VXLAN preparation, file payload and eligible validation bypass | Applied only to `vnet-route-tunnel`, not generic gNMI requirements |
+| `--benchmark-concurrency` | 4 | 1–500 outstanding iterations |
+| `--benchmark-logical-requests` | 1,000 for RouteTableBlaster | 1–1,000,000 iterations / open-loop slots |
+| `--benchmark-duration` | 0 | Positive seconds overrides count |
+| `--benchmark-warmup` | 0 | Warmup admission seconds |
+| `--benchmark-timeout` | 120 | Positive seconds per RPC |
+| `--benchmark-traffic` | `closed-loop` | Closed or uniform open loop |
+| `--benchmark-rate` | 0 | Open-loop iterations/s, finite (0, 1,000,000] |
+| `--benchmark-marker` | Blaster name | Non-secret result label |
+| `--benchmark-output-dir` | `/tmp/gnmi-benchmark` | JSON destination |
 
-For supported Get/Set methods, add scenario configuration to change paths, values
-or sequencing, then choose either traffic policy. Specialized prerequisite/cleanup
-logic still requires a workload helper. The VNET `payload_file` remains a table
-payload, separate from a generic scenario file.
+`blaster.py` contains the abstract Blaster contract and one concrete scenario:
 
-### Named scenarios and path variants
+| Blaster / CLI name | Business parameters |
+|---|---|
+| RouteTableBlaster / `route-table` | `route_distribution={16000:1, 20000:12}`, `routes_per_request=20000`; Get→bypass Set for a batch |
 
-Use `--benchmark-scenario <file.json>` instead of operation/workload/bypass flags.
-The scenario name is its report marker; no customer-specific pytest marker is
-needed. Example [interface-status scenario](../../tests/gnmi_benchmark/scenarios/interface-status.json):
+Distribution maps routes per VNET (1–20,000) to a positive VNET count. JSON string
+keys are normalized to integers. The weighted sum cannot exceed 256,000, and setup
+includes existing DUT routes in that limit. Batch size must be a positive divisor
+of the largest VNET size. Every preload/measured Set carries
+the validation bypass header; this is not authentication bypass or proof of execution.
+There are no PORT, generic-request or empty-Get smoke-test blasters. CLI defaults
+to route-table; no choice of unrelated scenarios is required.
 
-```text
---run-stress-tests --benchmark-scenario gnmi_benchmark/scenarios/interface-status.json
---benchmark-traffic open-loop --benchmark-rate 500 --benchmark-concurrency 20
---benchmark-logical-requests 1000 --benchmark-timeout 120
-```
+## Result handoff
 
-The same file with `--benchmark-traffic closed-loop` and no rate runs up to 20
-outstanding iterations as fast as responses permit. The interface name and model
-must be supported by the DUT; edit example paths to match the environment.
+Runner calls only `result.generate(samples, warmup, connection_ready_seconds,
+resources, marker, blaster, profile)` using keyword arguments and returns its value unchanged.
+Samples and optional warmup data contain plain timestamps, statuses, explicit
+response-error counts, successful per-RPC latencies and scheduler counters.
+BenchmarkReport owns worker aggregation, timestamp formatting, elapsed/drain
+calculation, throughput, histogram construction and the measurement/execution
+report fields. Result never accesses a DUT or live worker/scheduler object.
+Runner checks raw warmup success/errors/drops to decide whether to proceed; report
+generation does not control the lifecycle. The raw dictionaries are not mutated,
+so different reports can consume the same captured phase.
+Custom reports can return a different format without changing runner or blaster.
+`benchmark.profile` records normalized distribution, VNET count, total routes,
+platform limit, measured/background route counts, measured VNET count, batch size,
+preload and selection policy, and bypass-requested status. Marker
+alone is not a substitute for this profile when comparing runs.
 
-Each JSON document has `name` and 1–20 `steps`. Each step specifies a unique
-`name`, `method` (`get` or `set`), a nonempty `requests` list in standard gNMI
-protobuf JSON, and optional text `metadata`. Paths support origin/target and keyed
-PathElem structures. The request for iteration i is `requests[i % len(requests)]`;
-all steps use that same scheduled iteration index. Warmup and measurement each
-restart their index at zero. No executable templates or hidden random generation.
+The standard BenchmarkReport exposes `to_dict()`, `write()` and `failed`. Schema
+**10** uses `requests`, containing one body per executed method/route-count pair.
+Each body owns counts, statuses, per-request timing and 1,000-ms
+requirement accounting. Top-level marker and benchmark.blaster
+identify the test. Warmup, readiness, resource boundary snapshots and scheduling
+evidence remain explicit. Offline runs without a DUT use sampling.method=none.
 
-See [interface Get→Set](../../tests/gnmi_benchmark/scenarios/interface-get-set.json)
-for method composition. Add request variants to target other interfaces/values.
-A final Get step is a read, not an automatic value assertion. Scenarios fail fast
-on a step error and do not retry. Scenario writes must be repeatable and run on a
-reserved disposable test configuration: callers manage scenario-specific setup
-and persistence restoration; the generic loader does not infer cleanup commands.
+`scheduled = started + dropped_capacity + dropped_late`. Drops fail the test but
+are not RPC errors or invented latency samples. `load.iterations` counts started
+iterations; load.scheduled_iterations includes drops. Start-delay histograms describe
+started iterations. The configured bound is max_inflight_iterations; observed
+executing concurrency is peak_client_inflight. Histograms retain the gRFC A66
+millisecond bounds; this is not native OpenTelemetry instrumentation.
 
-Metadata applies only to its step; the public examples contain no credentials.
-Reports expose metadata keys, not values. The request digest excludes metadata
-values, so it is not a complete execution-config identity: retain a non-secret
-scenario version and distinguish different metadata configurations externally.
-
-### Common options
-
-Invoke `gnmi_benchmark/test_gnmi_benchmark.py` using the normal sonic-mgmt runner
-and an appropriate inventory/testbed. A basic Get example:
-
-```text
---run-stress-tests --benchmark-operation get --benchmark-workload empty
---benchmark-concurrency 2 --benchmark-logical-requests 1000
---benchmark-duration 0 --benchmark-warmup 60 --benchmark-timeout 120
-```
-
-This executes 1,000 measured empty Get RPCs; it is not a configured subtree
-retrieval. For `get-set`, logical request count means groups rather than RPCs.
-
-| Parameter | Default | Meaning |
-|---|---|---|
-| `--benchmark-operation` | `get` | `get`, `set`, `get-set` |
-| `--benchmark-scenario` | None | Named Get/Set sequence file; replaces built-in operation/workload configuration |
-| `--benchmark-traffic` | `closed-loop` | `closed-loop` or `open-loop` |
-| `--benchmark-rate` | 0 | Required for open-loop: finite iterations/s in (0, 1,000,000]; forbidden for closed-loop |
-| `--benchmark-workload` | Operation-dependent | `empty` for Get; `port-description` for writes; explicit `vnet-route-tunnel` for batches |
-| `--benchmark-workload-params` | `{}` | Workload-specific typed JSON; unknown keys rejected |
-| `--benchmark-concurrency` | 4 | 1–500 workers sharing one channel; open-loop bounds admitted iterations |
-| `--benchmark-logical-requests` | 100 | 1–1,000,000 iterations (single RPC, Get-Set group or scenario); open-loop counts scheduled arrivals including drops |
-| `--benchmark-duration` | 0 | Positive seconds overrides count; stop admission and drain admitted work |
-| `--benchmark-warmup` | 0 | Same-channel time-based warmup, excluded from measurement |
-| `--benchmark-timeout` | 120 | Positive integer seconds per RPC |
-| `--benchmark-output-dir` | `/tmp/gnmi-benchmark` | JSON report destination |
-
-### VNET-specific workload
-
-```text
---run-stress-tests --benchmark-operation get-set --benchmark-workload vnet-route-tunnel
---benchmark-workload-params '{"entry_count":10,"prepare":true}'
---benchmark-concurrency 2 --benchmark-logical-requests 1000
---benchmark-duration 0 --benchmark-warmup 60 --benchmark-timeout 120
-```
-
-This produces 1,000 Get-Set groups (2,000 RPCs if all succeed), with 10 entries in
-each Set. Use `set` for Set-only traffic. Match workload and load settings between
-Regular/bypass runs; add `--benchmark-bypass` only to request VNET Set validation
-bypass. It is off by default and is not authentication bypass.
-
-VNET parameters: `entry_count` (integer 1–20,000), `prepare` (boolean, default
-false), or `payload_file` (JSON entry/field map, instead of `entry_count`).
-Generated entries require single-ASIC and either preparation or bypass requested.
-`prepare:true` creates isolated VNET/VXLAN prerequisites through GCU; it is not
-supported for external payload files. File payload configuration and cleanup are
-externally managed.
-
-Generated-workload cleanup removes its unique route namespace and, when prepared,
-VNET/tunnel keys; it restores the persistent config backup before the existing TLS
-fixture rolls back. Do not overlap other configuration writers. Timed-out server
-writes may outlive the client; inspect cleanup before reusing the device.
-
-## Prerequisites and limits
-
-- Use a sonic-mgmt environment with grpcio, pygnmi-generated protocol modules and
-  Jinja2, and a DUT supporting the required native gNMI operations.
-- Reuse the existing `gnmi_tls` fixture; this benchmark does not modify shared
-  fixture behavior. The client environment must reach the DUT TLS endpoint.
-- Generated prepared VNET traffic requires GCU support and a Loopback0 IPv4 address.
-  Bypass eligibility is reported separately from verified execution.
-- 500 workers and 20k entries are client configuration limits, not demonstrated
-  server capacity. Shared repeated writes are not distinct new routes each time.
+Input limits are not server capacity claims. Final local checks use controlled clocks,
+mocked RPCs and DUT lifecycle; physical results are documented separately below.
 
 References: [gRPC performance](https://grpc.io/docs/guides/performance/),
 [gNMI specification](https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification.md),
 [gRFC A66](https://github.com/grpc/proposal/blob/master/A66-otel-stats.md).
+
+## Controlled comparison matrix
+
+Keep inventory fixed at 256,000 routes (12×20k measured plus 16k background), one
+persistent TLS channel, the same server binary and transport, 60s admission, no
+warmup, and a 120s per-RPC timeout. Run both scheduling models at every point:
+
+| Experiment | Routes per RPC | Workers | Open-loop target |
+|---|---|---|---|
+| Worker sweep | 20,000 | 2, 5, 10, 50, 100, 500 | 500 iterations/s |
+| Batch sweep | 100, 500, 1,000, 2,000 | 100 | 500 iterations/s |
+
+This is 20 runs. Closed loop has no configured arrival rate; open loop keeps the
+arrival target fixed independently of workers and responses. Open 500/s is an
+overload probe, not an expected passing workload. Publish capacity and late drops
+alongside latency: latency samples alone exclude unsent work and can look better
+under heavy dropping. Count dropped slots once per iteration, not as failed RPCs.
+
+For each sweep, plot Get/Set mean and P95 latency against the independent variable,
+with a 1s requirement line. Pair this with completed iterations/s inside the 60s
+window and open-loop drop percentage. Show elapsed-with-drain throughput separately;
+do not confuse drain completions with sustained admission-window throughput. Retain
+sample counts, errors, timeout counts, start delay and drain time with each point.
+
+These plots measure scaling and batch sensitivity, not guaranteed linear growth
+or a product speedup. A throughput plateau with growing latency indicates that
+extra workers no longer improve this workload. Batch-size effects alone do not
+identify the internal bottleneck: serialization, transport, per-key work and
+contention can all vary. Internal diagnostics are separate evidence, not injected
+into the published benchmark. A performance improvement claim requires an old/new
+server comparison under identical profiles; repeat runs before treating small
+differences as significant. All requests must still meet 1s to pass.
+
+## Observed baseline (2026-09-17–18)
+
+These are measurements of the existing server, not a server optimization claim.
+The final benchmark implementation was overlaid on public sonic-mgmt release
+`202605` commit `72ffcc20e210411f54c7b500ef9a9f96267876ed`, using a single-ASIC
+Cisco-8102-C64 running SONiC `20260510.14`. The public-master fixture stack was not
+physically validated. Every run used the original image binary, without temporary
+server timing instrumentation, and a persistent TLS channel through SSH forwarding.
+Client latency includes that transport. The inventory, batching, durations and
+arrival target are those in the matrix above. Runs are single samples, not repeated
+trials or confidence intervals; the batch sweep resumed in a later device session.
+
+Of 20 attempted matrix points, 18 produced reports with zero RPC errors. All 18
+failed the strict per-request latency requirement (open-loop also dropped arrivals).
+Both 20k/500-worker runs lost management connectivity after load, preventing final
+sampling/cleanup and report emission. They are marked failed/missing rather than
+assigned zero latency, inferred timeout counts, or fabricated throughput. The
+available evidence does not establish the cause of the management failure.
+
+### Worker scaling at 20k routes per RPC
+
+![Worker scaling: latency, completion rate and dropped arrivals](gnmi-benchmark-results/workers.svg)
+
+Increasing workers does not produce linear throughput scaling in these runs.
+For closed loop, 2→100 workers increases mean Get latency from 3.43s to 59.45s
+and mean Set latency from 6.70s to 92.80s. At 50/100 workers, the first iterations
+take longer than the 60s admission window; most or all completions occur in drain.
+The near-zero window rate therefore does not mean zero eventual completions, and
+this short experiment does not estimate steady-state high-concurrency capacity.
+Open-loop drops 99.66–99.96% of its 500/s offered iterations at the reported points.
+Its admitted-call latency cannot be interpreted without those drops. Small sample
+counts (12–101 calls per method) also limit interpretation of tail percentiles.
+
+### Batch sensitivity at 100 workers
+
+![Batch sensitivity: latency, completion rate and dropped arrivals](gnmi-benchmark-results/batch-size.svg)
+
+| Routes/RPC | Closed Get/Set mean (ms) | Open Get/Set mean (ms) | Closed/open window iterations/s | Open dropped |
+|---:|---:|---:|---:|---:|
+|100|422 / 482|525 / 378|110.00 / 109.32|77.80%|
+|500|2461 / 1951|2251 / 1922|21.93 / 22.93|95.08%|
+|1000|3888 / 5012|3535 / 4805|10.05 / 10.60|97.55%|
+|2000|8613 / 8590|6745 / 8599|5.20 / 5.17|98.63%|
+
+Window completions multiplied by batch size are approximately 10,000–11,500
+route entries/s **per operation direction** (each iteration reads then writes the
+same entries). This plateau is consistent with route-dependent work limiting
+throughput; the plots alone cannot identify its internal cause. Even at 100
+routes/RPC, means and P95s below 1s do not satisfy the every-request requirement:
+closed Get/Set within-limit rates are 99.90%/98.55%, and open rates are 98.44%/99.61%.
+Reducing the request size is not a substitute for meeting the 20k request target.
+
+[Numeric results](gnmi-benchmark-results/results.csv) retain successful-call sample
+counts, mean/P95 latency, within-limit percentages, errors, scheduling drops,
+start delay, elapsed and drain time. The CSV contains the 18 reported points;
+the two missing 500-worker points are explicitly identified above and on the plot.
+Raw device logs remain local; no public physical-run URL is available.
+
+### Design references
+
+- [k6 lifecycle](https://grafana.com/docs/k6/latest/using-k6/test-lifecycle/): separate setup,
+  repeated scenario execution and teardown. Our ExitStack additionally handles partial setup failure.
+- [k6 open/closed models](https://grafana.com/docs/k6/latest/using-k6/scenarios/concepts/open-vs-closed/):
+  scheduling policy is independent of the business iteration. Housing both policies in Blaster is our file-layout choice.
+- [k6 custom summaries](https://grafana.com/docs/k6/latest/results-output/end-of-test/custom-summary/):
+  reporting transforms captured test data rather than executing workloads. We hand off raw phase data so reports own aggregation.
+- [Locust tasks](https://docs.locust.io/en/stable/writing-a-locustfile.html): one ordinary Python task can execute sequential
+  requests; small tests do not require many modules.
+- [JMeter Transaction Controller](https://jmeter.apache.org/usermanual/component_reference.html#Transaction_Controller):
+  multiple requests can form one measured unit that succeeds only if its subrequests succeed.
+  Our final-RPC-return timing boundary is explicit and is not identical to every framework's full-function timing.
