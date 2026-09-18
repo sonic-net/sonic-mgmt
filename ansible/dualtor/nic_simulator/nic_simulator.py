@@ -13,6 +13,7 @@ import argparse
 import contextlib
 import fcntl
 import grpc
+import ipaddress
 import json
 import logging
 import os
@@ -73,6 +74,87 @@ def get_ip_address(ifname):
     except OSError:
         addr = None
     return addr
+
+
+def get_ipv6_addresses(ifname):
+    """Return stable, usable global-scope IPv6 addresses (including ULA)."""
+    try:
+        result = subprocess.run(
+            ["ip", "-j", "-6", "addr", "show", "dev", ifname],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True,
+            text=True, shell=False
+        )
+        interfaces = json.loads(result.stdout)
+    except (OSError, subprocess.CalledProcessError, ValueError) as error:
+        # Missing IPv6 tooling must not break an existing IPv4 deployment.
+        logging.warning("Cannot discover IPv6 addresses on %s: %s", ifname, error)
+        return []
+
+    addresses = set()
+    excluded_flags = {"tentative", "dadfailed", "deprecated", "temporary"}
+    for interface in interfaces:
+        for info in interface.get("addr_info", []):
+            if info.get("family") != "inet6" or info.get("scope") != "global":
+                continue
+            if excluded_flags.intersection(info.get("flags", [])):
+                continue
+            if any(info.get(flag, False) for flag in excluded_flags):
+                continue
+            if str(info.get("preferred_life_time")) == "0" or str(info.get("valid_life_time")) == "0":
+                continue
+            try:
+                address = ipaddress.IPv6Address(info["local"])
+            except (KeyError, ValueError):
+                continue
+            if (address.is_link_local or address.is_loopback or address.is_multicast
+                    or address.is_unspecified or address.is_site_local or address.ipv4_mapped):
+                continue
+            addresses.add(address)
+    return [str(address) for address in sorted(addresses)]
+
+
+def validate_loopback_ips(addresses, version):
+    """Validate and normalize a Loopback2/upper Loopback3/lower Loopback3 triplet."""
+    if isinstance(addresses, str):
+        addresses = addresses.split(",")
+    if len(addresses) != 3:
+        raise ValueError("Expected exactly three IPv%s loopback addresses" % version)
+    result = []
+    for value in addresses:
+        address = ipaddress.ip_address(value.strip())
+        if address.version != version or "%" in value:
+            raise ValueError("Expected an IPv%s loopback address, got %s" % (version, value))
+        result.append(str(address))
+    return tuple(result)
+
+
+def grpc_target(address, port):
+    """Format an IP literal for a gRPC listener or channel."""
+    address = ipaddress.ip_address(address)
+    if address.version == 6:
+        return "[%s]:%s" % (address, port)
+    return "%s:%s" % (address, port)
+
+
+def bind_grpc_addresses(server, addresses, port):
+    """Bind every specific address to one server, failing on partial setup."""
+    try:
+        if not addresses:
+            raise ValueError("At least one specific gRPC binding address is required")
+        for address in dict.fromkeys(addresses):
+            if ipaddress.ip_address(address).is_unspecified:
+                raise ValueError("Wildcard gRPC listeners are not allowed: %s" % address)
+            target = grpc_target(address, port)
+            bound_port = server.add_insecure_port(target)
+            if not bound_port:
+                raise RuntimeError("Failed to bind gRPC listener %s" % target)
+            # Keep a single port across listeners even when requesting an ephemeral port.
+            if port == 0:
+                port = bound_port
+    except Exception:
+        server.stop(grace=None)
+        raise
+    return port
 
 
 def run_command(cmd, check=True):
@@ -408,6 +490,7 @@ class OVSBridge(object):
         "loopback2_ip",
         "upper_tor_loopback3_ip",
         "lower_tor_loopback3_ip",
+        "ipv6_loopback_ips",
         "ports",
         "lower_tor_port",
         "upper_tor_port",
@@ -434,7 +517,10 @@ class OVSBridge(object):
         "flap_counter"
     )
 
-    def __init__(self, bridge_name, loopback_ips, duplicate_nic_upstream=False):
+    def __init__(self, bridge_name, loopback_ips, duplicate_nic_upstream=False, ipv6_loopback_ips=None):
+        loopback_ips = validate_loopback_ips(loopback_ips, 4)
+        self.ipv6_loopback_ips = (validate_loopback_ips(ipv6_loopback_ips, 6)
+                                  if ipv6_loopback_ips is not None else None)
         self.bridge_name = bridge_name
         self.loopback2_ip = loopback_ips[0]
         self.upper_tor_loopback3_ip = loopback_ips[1]
@@ -560,6 +646,22 @@ class OVSBridge(object):
             priority=7,
             upstream=True
         )
+        if self.ipv6_loopback_ips is not None:
+            loopback2, upper_loopback3, lower_loopback3 = self.ipv6_loopback_ips
+            if not duplicate_nic_upstream:
+                for address, enabled in ((upper_loopback3, [False, True]),
+                                         (lower_loopback3, [True, False])):
+                    self._add_flow(
+                        self.server_nic, packet_filter="tcp6,ipv6_dst=%s" % address,
+                        output_ports=[self.lower_tor_port, self.upper_tor_port],
+                        priority=10, upstream=True, enable_output_ports=enabled
+                    )
+            for address, priority in ((loopback2, 8), (upper_loopback3, 7), (lower_loopback3, 7)):
+                self._add_flow(
+                    self.ptf_port, packet_filter="ipv6,ipv6_dst=%s" % address,
+                    output_ports=[self.lower_tor_port, self.upper_tor_port],
+                    priority=priority, upstream=True
+                )
         # upstream arp packet from ptf port should be duplicated to both ToRs
         self.upstream_arp_flow = self._add_flow(
             self.ptf_port, packet_filter="arp",
@@ -648,6 +750,15 @@ class OVSBridge(object):
                          self.bridge_name, portids, tuple(ForwardingState.STATE_LABELS[_] for _ in states))
             return states
 
+    def _set_upstream_drop(self, portid, recover):
+        """Apply link drop/recovery to both IP families and all duplicated traffic."""
+        for flow in self.flows:
+            if not isinstance(flow, OVSUpstreamFlow) or not flow.get_port_enable(portid):
+                continue
+            if flow.get_drop(portid) == recover:
+                flow.set_drop(portid=portid, recover=recover)
+                OVSCommand.ovs_ofctl_mod_flow(self.bridge_name, flow)
+
     def set_drop(self, portids, directions, recover):
         """Set drop on a link."""
         logging.info("Set drop on bridge %s: portids=%s, directions=%s, recover=%s"
@@ -666,55 +777,7 @@ class OVSBridge(object):
                         OVSCommand.ovs_ofctl_mod_flow(
                             self.bridge_name, downstream_flow)
 
-                    # recover upstream
-                    # recover upstream traffic from server NiC
-                    if self.upstream_upper_tor_nic_flow.get_port_enable(portid):
-                        if self.upstream_upper_tor_nic_flow.get_drop(portid):
-                            self.upstream_upper_tor_nic_flow.set_drop(
-                                portid=portid, recover=recover)
-                            OVSCommand.ovs_ofctl_mod_flow(
-                                self.bridge_name, self.upstream_upper_tor_nic_flow)
-                    if self.upstream_lower_tor_nic_flow.get_port_enable(portid):
-                        if self.upstream_lower_tor_nic_flow.get_drop(portid):
-                            self.upstream_lower_tor_nic_flow.set_drop(
-                                portid=portid, recover=recover)
-                            OVSCommand.ovs_ofctl_mod_flow(
-                                self.bridge_name, self.upstream_lower_tor_nic_flow)
-                    if self.upstream_nic_flow.get_drop(portid):
-                        self.upstream_nic_flow.set_drop(
-                            portid=portid, recover=recover)
-                        OVSCommand.ovs_ofctl_mod_flow(
-                            self.bridge_name, self.upstream_nic_flow)
-                    # recover upstream loopback2 traffic from ptf
-                    if self.upstream_loopback2_flow.get_drop(portid):
-                        self.upstream_loopback2_flow.set_drop(
-                            portid=portid, recover=recover)
-                        OVSCommand.ovs_ofctl_mod_flow(
-                            self.bridge_name, self.upstream_loopback2_flow)
-                    # recover upstream upper ToR loopback3 traffic from ptf
-                    if self.upstream_upper_tor_loopback3_flow.get_drop(portid):
-                        self.upstream_upper_tor_loopback3_flow.set_drop(
-                            portid=portid, recover=recover)
-                        OVSCommand.ovs_ofctl_mod_flow(
-                            self.bridge_name, self.upstream_upper_tor_loopback3_flow)
-                    # recover upstream lower ToR loopback3 traffic from ptf
-                    if self.upstream_lower_tor_loopback3_flow.get_drop(portid):
-                        self.upstream_lower_tor_loopback3_flow.set_drop(
-                            portid=portid, recover=recover)
-                        OVSCommand.ovs_ofctl_mod_flow(
-                            self.bridge_name, self.upstream_lower_tor_loopback3_flow)
-                    # recover upstream arp traffic from ptf
-                    if self.upstream_arp_flow.get_drop(portid):
-                        self.upstream_arp_flow.set_drop(
-                            portid=portid, recover=recover)
-                        OVSCommand.ovs_ofctl_mod_flow(
-                            self.bridge_name, self.upstream_arp_flow)
-                    # recover upstream icmpv6 traffic from ptf
-                    if self.upstream_icmpv6_flow.get_drop(portid):
-                        self.upstream_icmpv6_flow.set_drop(
-                            portid=portid, recover=recover)
-                        OVSCommand.ovs_ofctl_mod_flow(
-                            self.bridge_name, self.upstream_icmpv6_flow)
+                    self._set_upstream_drop(portid, recover=True)
 
                     forwarding_state = forwarding_state_getter()
                     if forwarding_state == ForwardingState.STANDBY:
@@ -730,46 +793,7 @@ class OVSBridge(object):
                                 self.bridge_name, downstream_flow)
                     elif direction == 1:
                         # upstream
-                        # drop upstream traffic from server NiC
-                        if self.upstream_upper_tor_nic_flow.get_port_enable(portid):
-                            if not self.upstream_upper_tor_nic_flow.get_drop(portid):
-                                self.upstream_upper_tor_nic_flow.set_drop(portid)
-                                OVSCommand.ovs_ofctl_mod_flow(
-                                    self.bridge_name, self.upstream_upper_tor_nic_flow)
-                        if self.upstream_lower_tor_nic_flow.get_port_enable(portid):
-                            if not self.upstream_lower_tor_nic_flow.get_drop(portid):
-                                self.upstream_lower_tor_nic_flow.set_drop(portid)
-                                OVSCommand.ovs_ofctl_mod_flow(
-                                    self.bridge_name, self.upstream_lower_tor_nic_flow)
-                        if not self.upstream_nic_flow.get_drop(portid):
-                            self.upstream_nic_flow.set_drop(portid)
-                            OVSCommand.ovs_ofctl_mod_flow(
-                                self.bridge_name, self.upstream_nic_flow)
-                        # drop upstream loopback2 traffic from ptf
-                        if not self.upstream_loopback2_flow.get_drop(portid):
-                            self.upstream_loopback2_flow.set_drop(portid)
-                            OVSCommand.ovs_ofctl_mod_flow(
-                                self.bridge_name, self.upstream_loopback2_flow)
-                        # drop upstream upper ToR loopback3 traffic from ptf
-                        if not self.upstream_upper_tor_loopback3_flow.get_drop(portid):
-                            self.upstream_upper_tor_loopback3_flow.set_drop(portid)
-                            OVSCommand.ovs_ofctl_mod_flow(
-                                self.bridge_name, self.upstream_upper_tor_loopback3_flow)
-                        # drop upstream lower ToR loopback3 traffic from ptf
-                        if not self.upstream_lower_tor_loopback3_flow.get_drop(portid):
-                            self.upstream_lower_tor_loopback3_flow.set_drop(portid)
-                            OVSCommand.ovs_ofctl_mod_flow(
-                                self.bridge_name, self.upstream_lower_tor_loopback3_flow)
-                        # drop upstream arp traffic from ptf
-                        if not self.upstream_arp_flow.get_drop(portid):
-                            self.upstream_arp_flow.set_drop(portid)
-                            OVSCommand.ovs_ofctl_mod_flow(
-                                self.bridge_name, self.upstream_arp_flow)
-                        # drop upstream icmpv6 traffic from ptf
-                        if not self.upstream_icmpv6_flow.get_drop(portid):
-                            self.upstream_icmpv6_flow.set_drop(portid)
-                            OVSCommand.ovs_ofctl_mod_flow(
-                                self.bridge_name, self.upstream_icmpv6_flow)
+                        self._set_upstream_drop(portid, recover=False)
 
                         forwarding_state = forwarding_state_getter()
                         # use set forwarding state to standby to simulator link drop
@@ -845,8 +869,9 @@ class InterruptableThread(threading.Thread):
 class NiCServer(nic_simulator_grpc_service_pb2_grpc.DualToRActiveServicer):
     """gRPC for a NiC."""
 
-    def __init__(self, nic_addr, ovs_bridge, binding_port):
+    def __init__(self, nic_addr, ovs_bridge, binding_port, nic_addresses=None):
         self.nic_addr = nic_addr
+        self.nic_addresses = tuple(dict.fromkeys([nic_addr] + list(nic_addresses or [])))
         self.ovs_bridge = ovs_bridge
         self.binding_port = binding_port
         self.server = None
@@ -925,8 +950,8 @@ class NiCServer(nic_simulator_grpc_service_pb2_grpc.DualToRActiveServicer):
                       context.peer(), self.nic_addr, response)
         return response
 
-    def _run_server(self, binding_port):
-        """Run the gRPC server."""
+    def _start_server(self, binding_port):
+        """Bind and start synchronously so startup failures reach the caller."""
         self.server = grpc.server(
             futures.ThreadPoolExecutor(
                 max_workers=THREAD_CONCURRENCY_PER_SERVER),
@@ -936,45 +961,51 @@ class NiCServer(nic_simulator_grpc_service_pb2_grpc.DualToRActiveServicer):
             self,
             self.server
         )
-        self.server.add_insecure_port("%s:%s" % (self.nic_addr, binding_port))
+        self.binding_port = bind_grpc_addresses(self.server, self.nic_addresses, binding_port)
         self.server.start()
-        self.server.wait_for_termination()
 
     def start(self):
         """Start the gRPC server thread."""
-        self.thread = InterruptableThread(
-            target=self._run_server, args=(self.binding_port,))
+        if self.started:
+            return
+        self._start_server(self.binding_port)
+        self.thread = InterruptableThread(target=self.server.wait_for_termination)
         self.thread.start()
         self.started = True
 
     def stop(self):
         """Stop the gRPC server thread."""
-        self.server.stop(grace=None)
+        if self.server is not None:
+            self.server.stop(grace=None)
         self.started = False
 
     def join(self, timeout=None, suppress_exception=False):
         """Wait the gRPC server thread termination."""
-        self.thread.join(
-            timeout=timeout, suppress_exception=suppress_exception)
+        if self.thread is not None:
+            self.thread.join(
+                timeout=timeout, suppress_exception=suppress_exception)
 
 
 class MgmtServer(nic_simulator_grpc_mgmt_service_pb2_grpc.DualTorMgmtServiceServicer):
     """Management gRPC server to interact with sonic-mgmt."""
 
-    def __init__(self, binding_address, binding_port, nic_servers):
+    def __init__(self, binding_address, binding_port, nic_servers, binding_addresses=None):
         self.binding_address = binding_address
+        self.binding_addresses = tuple(dict.fromkeys([binding_address] + list(binding_addresses or [])))
         self.binding_port = binding_port
         self.nic_servers = nic_servers
         self.client_stubs = {}
+        self.admin_lock = threading.Lock()
         self.server = None
 
     def _get_client_stub(self, nic_address):
+        nic_address = str(ipaddress.ip_address(nic_address))
         if nic_address in self.client_stubs:
             client_stub = self.client_stubs[nic_address]
         else:
             client_stub = nic_simulator_grpc_service_pb2_grpc.DualToRActiveStub(
                 grpc.insecure_channel(
-                    "%s:%s" % (nic_address, self.binding_port),
+                    grpc_target(nic_address, self.binding_port),
                     options=GRPC_CLIENT_OPTIONS
                 )
             )
@@ -1064,6 +1095,11 @@ class MgmtServer(nic_simulator_grpc_mgmt_service_pb2_grpc.DualTorMgmtServiceServ
         return response
 
     def SetNicServerAdminState(self, request, context):
+        # IPv4 and IPv6 callers may administer the same object concurrently.
+        with self.admin_lock:
+            return self._set_nic_server_admin_state(request, context)
+
+    def _set_nic_server_admin_state(self, request, context):
         nic_addresses = request.nic_addresses
         admin_states = request.admin_states
         logging.debug(
@@ -1071,7 +1107,7 @@ class MgmtServer(nic_simulator_grpc_mgmt_service_pb2_grpc.DualTorMgmtServiceServ
 
         successes = []
         for nic_address, admin_state in zip(nic_addresses, admin_states):
-            nic_server = self.nic_servers[nic_address]
+            nic_server = self.nic_servers[str(ipaddress.ip_address(nic_address))]
             success = True
             if admin_state:
                 if not nic_server.started:
@@ -1170,8 +1206,7 @@ class MgmtServer(nic_simulator_grpc_mgmt_service_pb2_grpc.DualTorMgmtServiceServ
         )
         nic_simulator_grpc_mgmt_service_pb2_grpc.add_DualTorMgmtServiceServicer_to_server(
             self, self.server)
-        self.server.add_insecure_port("%s:%s" % (
-            self.binding_address, self.binding_port))
+        self.binding_port = bind_grpc_addresses(self.server, self.binding_addresses, self.binding_port)
         self.server.start()
         self.server.wait_for_termination()
 
@@ -1179,14 +1214,26 @@ class MgmtServer(nic_simulator_grpc_mgmt_service_pb2_grpc.DualTorMgmtServiceServ
 class NiCSimulator(nic_simulator_grpc_service_pb2_grpc.DualToRActiveServicer):
     """NiC simulator class, define all the gRPC calls."""
 
-    def __init__(self, vm_set, mgmt_port, binding_port, loopback_ips, duplicate_nic_upstream=False):
+    def __init__(self, vm_set, mgmt_port, binding_port, loopback_ips, duplicate_nic_upstream=False,
+                 ipv6_loopback_ips=None):
+        loopback_ips = validate_loopback_ips(loopback_ips, 4)
+        if ipv6_loopback_ips is not None:
+            ipv6_loopback_ips = validate_loopback_ips(ipv6_loopback_ips, 6)
         self.vm_set = vm_set
         self.server_nics = self._find_all_server_nics()
         self.server_nic_addresses = {
             nic: get_ip_address(nic) for nic in self.server_nics}
+        self.server_nic_ipv6_addresses = {
+            nic: get_ipv6_addresses(nic) for nic in self.server_nics}
         self.mgmt_port = mgmt_port
         self.mgmt_port_address = get_ip_address(mgmt_port)
+        self.mgmt_port_addresses = ([self.mgmt_port_address] if self.mgmt_port_address else [])
+        self.mgmt_port_addresses.extend(get_ipv6_addresses(mgmt_port))
+        if not self.mgmt_port_addresses:
+            raise ValueError("No usable IPv4 or global IPv6 address on management interface %s" % mgmt_port)
+        self.mgmt_port_address = self.mgmt_port_addresses[0]
         self.ovs_bridges = {}
+        self.servers = {}
         self.binding_port = binding_port
         for bridge_name in self._find_all_bridges():
             index = bridge_name.split("-")[-1]
@@ -1194,17 +1241,20 @@ class NiCSimulator(nic_simulator_grpc_service_pb2_grpc.DualToRActiveServicer):
             # only manipulate active server nics
             if server_nic in self.server_nic_addresses:
                 server_nic_addr = self.server_nic_addresses[server_nic]
-                if server_nic_addr is not None:
-                    self.ovs_bridges[server_nic_addr] = OVSBridge(bridge_name, loopback_ips, duplicate_nic_upstream)
+                addresses = ([server_nic_addr] if server_nic_addr else [])
+                addresses.extend(self.server_nic_ipv6_addresses[server_nic])
+                if addresses:
+                    ovs_bridge = OVSBridge(bridge_name, loopback_ips, duplicate_nic_upstream, ipv6_loopback_ips)
+                    server = NiCServer(addresses[0], ovs_bridge, binding_port, addresses)
+                    for address in addresses:
+                        self.ovs_bridges[address] = ovs_bridge
+                        self.servers[address] = server
 
         logging.info("Starting NiC simulator to manipulate OVS bridges: %s",
                      json.dumps(list(self.ovs_bridges.keys()), indent=4))
 
-        self.servers = {}
-        self.servers = {nic_addr: NiCServer(nic_addr, ovs_bridge, binding_port)
-                        for nic_addr, ovs_bridge in self.ovs_bridges.items()}
         self.mgmt_server = MgmtServer(
-            self.mgmt_port_address, binding_port, self.servers)
+            self.mgmt_port_address, binding_port, self.servers, self.mgmt_port_addresses)
 
     def _find_all_server_nics(self):
         return [_ for _ in os.listdir('/sys/class/net') if re.search(NETNS_IFACE_PATTERN, _)]
@@ -1216,13 +1266,13 @@ class NiCSimulator(nic_simulator_grpc_service_pb2_grpc.DualToRActiveServicer):
         return bridges
 
     def start_nic_servers(self):
-        for nic_addr, server in self.servers.items():
-            logging.debug("Starting gRPC server on NiC %s", nic_addr)
+        for server in dict.fromkeys(self.servers.values()):
+            logging.debug("Starting gRPC server on NiC %s", server.nic_addr)
             server.start()
 
     def stop_nic_servers(self):
-        for nic_addr, server in self.servers.items():
-            logging.debug("Stopping gRPC server on NiC %s", nic_addr)
+        for server in dict.fromkeys(self.servers.values()):
+            logging.debug("Stopping gRPC server on NiC %s", server.nic_addr)
             server.stop()
             server.join()
 
@@ -1271,6 +1321,10 @@ def parse_args():
         dest="loopback_ips"
     )
     parser.add_argument(
+        "--ipv6-loopback-ips",
+        help="Optional IPv6 triplet: <Loopback2>,<upper ToR Loopback3>,<lower ToR Loopback3>"
+    )
+    parser.add_argument(
         "-n",
         "--duplicate_nic_upstream",
         default=False,
@@ -1278,6 +1332,12 @@ def parse_args():
         help="Duplicate NIC upstream traffic to both ToRs (default: False)",
     )
     args = parser.parse_args()
+    try:
+        validate_loopback_ips(args.loopback_ips, 4)
+        if args.ipv6_loopback_ips is not None:
+            validate_loopback_ips(args.ipv6_loopback_ips, 6)
+    except ValueError as error:
+        parser.error(str(error))
     return args
 
 
@@ -1326,14 +1386,17 @@ def main():
     config_env()
     config_logging(args.vm_set, args.log_level.upper(), args.stdout_log)
     OVSCommand.setup_openflow_version()
-    loopback_ips = args.loopback_ips.split(",")
-    if len(loopback_ips) != 3:
-        raise ValueError("Invalid loopback ips: {loopback_ips}".format(loopback_ips=loopback_ips))
-    nic_simulator = NiCSimulator(args.vm_set, "mgmt", args.port, loopback_ips, args.duplicate_nic_upstream)
-    nic_simulator.start_nic_servers()
+    loopback_ips = validate_loopback_ips(args.loopback_ips, 4)
+    nic_simulator = NiCSimulator(args.vm_set, "mgmt", args.port, loopback_ips, args.duplicate_nic_upstream,
+                                 args.ipv6_loopback_ips)
     try:
+        nic_simulator.start_nic_servers()
         nic_simulator.start_mgmt_server()
     except KeyboardInterrupt:
+        pass
+    finally:
+        if nic_simulator.mgmt_server.server is not None:
+            nic_simulator.mgmt_server.server.stop(grace=None)
         nic_simulator.stop_nic_servers()
 
 
