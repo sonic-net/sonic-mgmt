@@ -244,6 +244,9 @@ def test_telemetry_output_ipv6_only(request, duthosts_ipv6_mgmt_only, localhost,
 
         try:
             with setup_streaming_telemetry_context(True, dut, localhost, ptfhost, gnxi_path):
+                # Refresh the environment after the context has created any missing
+                # GNMI configuration so that connection parameters are current.
+                env = GNMIEnvironment(dut, GNMIEnvironment.TELEMETRY_MODE)
                 dut.shell('sonic-db-cli CONFIG_DB HSET "%s|gnmi" user_auth none'
                           % (env.gnmi_config_table), module_ignore_errors=False)
                 dut.shell("systemctl reset-failed %s" % (env.gnmi_container))
@@ -254,7 +257,11 @@ def test_telemetry_output_ipv6_only(request, duthosts_ipv6_mgmt_only, localhost,
                 )
 
                 dut_ip = get_mgmt_ipv6(dut)
-                wait_tcp_connection(localhost, dut_ip, env.gnmi_port, timeout_s=60)
+                pytest_assert(
+                    wait_tcp_connection(localhost, dut_ip, env.gnmi_port, timeout_s=60),
+                    "Failed to establish TCP connection to %s:%s"
+                    % (dut_ip, env.gnmi_port)
+                )
                 port = "Ethernet0"
                 if dut.facts['platform'] in ['arm64-c8220tg_48a_o-r0']:
                     port = "Ethernet1"
