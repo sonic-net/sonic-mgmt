@@ -775,6 +775,12 @@ bmp/test_docker_restart.py::test_restart_bmp_docker:
     conditions:
       - "topo_type in ['bmc']"
 
+bmp/test_docker_restart.py:
+  skip:
+    reason: "BMP docker/service is not available on BMC"
+    conditions:
+      - "'bmc' in topo_type"
+
 #######################################
 #####            cacl             #####
 #######################################
