@@ -9,10 +9,15 @@ The test:
   2. Applies `listen_addresses` restricted to the management/loopback
      addresses only.
   3. Confirms SSH still succeeds through every configured address.
-  4. Confirms SSH fails through the omitted VLAN address, and that this is
-     because sshd isn't listening there (not a routing/ACL failure).
+  4. Confirms sshd is no longer bound to the omitted VLAN address (checked
+     via `ss` on the DUT itself, not by opening a connection to it - the
+     sonic-mgmt test runner only has network reachability to the DUT's
+     management network in kvmtest topologies, not to VLAN/data-plane
+     addresses, so an actual SSH attempt to that address would fail for an
+     unrelated reason regardless of sshd's bind state).
   5. Removes `listen_addresses` and confirms both IPv4/IPv6 wildcard
-     listening is restored.
+     listening is restored, including the previously-omitted VLAN address
+     (again via `ss`, not a live connection attempt).
   6. Always restores the original SSH_SERVER configuration in a `finally`
      block, even if an assertion fails, so the DUT is never left
      inaccessible. The management address is always part of the configured
@@ -21,9 +26,7 @@ The test:
 """
 import ipaddress
 import logging
-import socket
 
-import paramiko
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
@@ -164,8 +167,8 @@ def test_ssh_listen_addresses(duthosts, rand_one_dut_hostname, creds, restore_ss
     Validate SSH_SERVER|POLICIES listen_addresses:
       - sshd only listens on the configured (assigned) addresses
       - SSH succeeds via the configured addresses
-      - SSH fails via an assigned-but-omitted VLAN gateway address, because
-        sshd isn't listening there (confirmed via ss, not routing/ACL)
+      - sshd is not bound to an assigned-but-omitted VLAN gateway address
+        (checked via `ss`, not a live connection - see module docstring)
       - removing listen_addresses restores both IPv4/IPv6 wildcards
     """
     duthost = duthosts[rand_one_dut_hostname]
@@ -201,17 +204,17 @@ def test_ssh_listen_addresses(duthosts, rand_one_dut_hostname, creds, restore_ss
             if ssh:
                 ssh.close()
 
-    # SSH must fail through the intentionally omitted VLAN gateway address,
-    # and it must fail because nothing is listening there (connection
-    # refused/timeout), not because of routing/ACL issues.
+    # sshd must no longer be bound to the intentionally omitted VLAN gateway
+    # address. Checked purely via `ss` on the DUT (over the already-open
+    # mgmt SSH/ansible connection) rather than by opening a new connection
+    # to that address: the sonic-mgmt test runner has no network route to
+    # VLAN/data-plane addresses in kvmtest topologies, so attempting to
+    # connect there would fail for an unrelated reason regardless of sshd's
+    # actual bind state.
     bindings = _get_sshd_listen_bindings(duthost)
     bound_addrs = {addr for addr, port in bindings}
     pytest_assert(omit_address not in bound_addrs,
                   "sshd is unexpectedly still bound to the omitted VLAN address {}".format(omit_address))
-
-    with pytest.raises((paramiko.ssh_exception.NoValidConnectionsError, socket.timeout, OSError)):
-        ssh = paramiko_ssh(omit_address, dutuser, [dutpass] + creds.get("ansible_altpasswords", []))
-        ssh.close()
 
     # Remove listen_addresses entirely and confirm both wildcards are restored.
     logger.info("Removing listen_addresses to confirm wildcard listeners are restored")
@@ -222,15 +225,11 @@ def test_ssh_listen_addresses(duthosts, rand_one_dut_hostname, creds, restore_ss
         "sshd did not restore the IPv4/IPv6 wildcard listeners after removing listen_addresses"
     )
 
-    # Confirm the previously omitted VLAN address is reachable again now
-    # that sshd is back to wildcard listening (proves the earlier failure
-    # was due to sshd not listening, not routing/ACL).
-    ssh = None
-    try:
-        ssh = paramiko_ssh(omit_address, dutuser, [dutpass] + creds.get("ansible_altpasswords", []))
-    except Exception as e:
-        pytest.fail("SSH via VLAN address {} failed after restoring wildcard listeners: {}".format(
-            omit_address, e))
-    finally:
-        if ssh:
-            ssh.close()
+    # Confirm sshd is bound to the previously omitted VLAN address again now
+    # that it's back to wildcard listening (proves the earlier check
+    # reflected sshd's bind state, not a routing/ACL artifact) - again via
+    # `ss`, not a live connection attempt (see comment above).
+    bindings = _get_sshd_listen_bindings(duthost)
+    bound_addrs = {addr for addr, port in bindings}
+    pytest_assert(omit_address in bound_addrs,
+                  "sshd is unexpectedly not bound to {} after restoring wildcard listeners".format(omit_address))
