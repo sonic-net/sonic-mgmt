@@ -107,7 +107,8 @@ CUSTOM_MSG_PREFIX = "sonic_custom_msg"
 GOLDEN_CONFIG_DB_PATH = constants.GOLDEN_CONFIG_DB_PATH
 GOLDEN_CONFIG_DB_PATH_ORI = constants.GOLDEN_CONFIG_DB_PATH_ORI
 
-pytest_plugins = ('tests.common.plugins.ptfadapter',
+pytest_plugins = ('tests.common.plugins.nasa_debug',
+                  'tests.common.plugins.ptfadapter',
                   'tests.common.plugins.ansible_fixtures',
                   'tests.common.plugins.dut_monitor',
                   'tests.common.plugins.loganalyzer',
