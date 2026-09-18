@@ -523,6 +523,28 @@ def download_admin_down_op(duthost, port, port_context, metadata_map):
     return failures
 
 
+def download_stress_op(duthost, port, port_context, metadata_map):
+    """TC12 per-port op: repeat firmware download, stopping at the first bad iteration."""
+    iterations = port_context["cdb_attrs"]["firmware_download_stress_iterations"]
+    for iteration in range(1, iterations + 1):
+        logger.info("Port %s: firmware download stress iteration %d/%d", port, iteration, iterations)
+        failures = perform_firmware_download(duthost, port, port_context, metadata_map)
+        if failures:
+            return [f"iteration {iteration}/{iterations}: {failure}" for failure in failures]
+    return []
+
+
+def activation_stress_op(duthost, port, port_context, metadata_map):
+    """TC13 per-port op: repeat firmware activation, stopping at the first bad iteration."""
+    iterations = port_context["cdb_attrs"]["firmware_activation_stress_iterations"]
+    for iteration in range(1, iterations + 1):
+        logger.info("Port %s: firmware activation stress iteration %d/%d", port, iteration, iterations)
+        failures = activation_op(duthost, port, port_context, metadata_map)
+        if failures:
+            return [f"iteration {iteration}/{iterations}: {failure}" for failure in failures]
+    return []
+
+
 def upgrade_stress_op(duthost, port, port_context, metadata_map):
     """TC14 per-port op: repeat the full upgrade, stopping at the first bad iteration."""
     iterations = port_context["cdb_attrs"]["firmware_upgrade_stress_iterations"]
