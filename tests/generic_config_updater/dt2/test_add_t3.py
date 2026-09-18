@@ -52,6 +52,9 @@ def test_add_t3(
     Add a T3 (AZNGHub / RegionalHub) neighbor on a UT2 via GCU. A test cannot create a new
     physical uplink, so it first removes the existing neighbor of that type via GCU and then
     performs the add against the reduced configuration; both halves are verified.
+
+    Uplinks may carry MACsec: when a session is established on the neighbor's member ports
+    the flow validates MACsec teardown and recovery instead of PTF traffic.
     """
     run_remove_and_readd_cycle(
         tbinfo,
@@ -67,4 +70,5 @@ def test_add_t3(
         config_facts_localhost,
         t3_scenario,
         selected_t3_neighbor,
+        validate_macsec=True,
     )
