@@ -431,6 +431,25 @@ def distinct_version_upgrade_op(duthost, port, port_context, metadata_map):
     )
 
 
+def old_gold_upgrade_op(duthost, port, port_context, metadata_map):
+    """TC15 per-port op: downgrade to old gold, then upgrade to current gold."""
+    cdb_attrs = port_context["cdb_attrs"]
+    old_gold = cdb_attrs["old_gold_firmware_version"]
+    gold = cdb_attrs["gold_firmware_version"]
+
+    logger.info("Port %s: downgrading to old gold firmware %s", port, old_gold)
+    failures = perform_firmware_upgrade(
+        duthost, port, port_context, metadata_map, target_version=old_gold,
+    )
+    if failures:
+        return failures
+
+    logger.info("Port %s: upgrading from old gold %s to gold %s", port, old_gold, gold)
+    return perform_firmware_upgrade(
+        duthost, port, port_context, metadata_map, target_version=gold,
+    )
+
+
 def download_post_reset_op(duthost, port, port_context, metadata_map):
     """TC9 per-port op: download, reset the module, then re-verify the download."""
     cdb_attrs = port_context["cdb_attrs"]
@@ -619,6 +638,9 @@ def execute_on_ports(duthost, port_attributes_dict, qualifying_ports, lport_to_p
     if verify_post_operation and qualifying_ports and not all_failures:
         all_failures += verify_static_eeprom_unchanged(
             duthost, port_attributes_dict, qualifying_ports, lport_to_first_subport_mapping,
+        )
+        all_failures += dom_helpers.verify_dom_thresholds_after_operation(
+            duthost, port_attributes_dict, qualifying_ports,
         )
         all_failures += verify_dom_recovered_after_operation(
             duthost, port_attributes_dict, qualifying_ports, lport_to_first_subport_mapping,

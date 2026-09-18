@@ -29,6 +29,8 @@ RESOLV_CONF_NAMESERVERS = {
     "microsoft": ["10.64.5.5", "2603:10e1:100:c0::5"]
 }
 KVM_PLATFORM = 'x86_64-kvm_x86_64-r0'
+GOLDEN_CONFIG_DB_PATH = "/etc/sonic/golden_config_db.json"
+GOLDEN_CONFIG_DB_PATH_ORI = "/etc/sonic/golden_config_db.json.origin.backup"
 
 
 class CounterpollConstants:
