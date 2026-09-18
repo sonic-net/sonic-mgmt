@@ -173,4 +173,11 @@ results and their transport limitations are recorded in the design document. Lim
 500 workers, 20k entries per VNET and 256,000 total routes are limits, not demonstrated capacity.
 Timed-out server writes may outlive the client; inspect cleanup before reuse.
 
+## Experimental results
+
+See the [single load-impact figure and conclusions](../../docs/testplan/gnmi-benchmark-design.md#observed-baseline-2026-09-1718)
+for the worker and batch-size sweeps. Both show increasing client-observed latency
+under greater load; open-loop drops and missing 500-worker results are stated next
+to the figure. Full metrics remain in one linked CSV.
+
 [Detailed design and reporting](../../docs/testplan/gnmi-benchmark-design.md)

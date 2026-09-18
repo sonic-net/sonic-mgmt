@@ -249,95 +249,60 @@ References: [gRPC performance](https://grpc.io/docs/guides/performance/),
 [gNMI specification](https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification.md),
 [gRFC A66](https://github.com/grpc/proposal/blob/master/A66-otel-stats.md).
 
-## Controlled comparison matrix
-
-Keep inventory fixed at 256,000 routes (12×20k measured plus 16k background), one
-persistent TLS channel, the same server binary and transport, 60s admission, no
-warmup, and a 120s per-RPC timeout. Run both scheduling models at every point:
-
-| Experiment | Routes per RPC | Workers | Open-loop target |
-|---|---|---|---|
-| Worker sweep | 20,000 | 2, 5, 10, 50, 100, 500 | 500 iterations/s |
-| Batch sweep | 100, 500, 1,000, 2,000 | 100 | 500 iterations/s |
-
-This is 20 runs. Closed loop has no configured arrival rate; open loop keeps the
-arrival target fixed independently of workers and responses. Open 500/s is an
-overload probe, not an expected passing workload. Publish capacity and late drops
-alongside latency: latency samples alone exclude unsent work and can look better
-under heavy dropping. Count dropped slots once per iteration, not as failed RPCs.
-
-For each sweep, plot Get/Set mean and P95 latency against the independent variable,
-with a 1s requirement line. Pair this with completed iterations/s inside the 60s
-window and open-loop drop percentage. Show elapsed-with-drain throughput separately;
-do not confuse drain completions with sustained admission-window throughput. Retain
-sample counts, errors, timeout counts, start delay and drain time with each point.
-
-These plots measure scaling and batch sensitivity, not guaranteed linear growth
-or a product speedup. A throughput plateau with growing latency indicates that
-extra workers no longer improve this workload. Batch-size effects alone do not
-identify the internal bottleneck: serialization, transport, per-key work and
-contention can all vary. Internal diagnostics are separate evidence, not injected
-into the published benchmark. A performance improvement claim requires an old/new
-server comparison under identical profiles; repeat runs before treating small
-differences as significant. All requests must still meet 1s to pass.
-
 ## Observed baseline (2026-09-17–18)
 
-These are measurements of the existing server, not a server optimization claim.
-The final benchmark implementation was overlaid on public sonic-mgmt release
-`202605` commit `72ffcc20e210411f54c7b500ef9a9f96267876ed`, using a single-ASIC
-Cisco-8102-C64 running SONiC `20260510.14`. The public-master fixture stack was not
-physically validated. Every run used the original image binary, without temporary
-server timing instrumentation, and a persistent TLS channel through SSH forwarding.
-Client latency includes that transport. The inventory, batching, durations and
-arrival target are those in the matrix above. Runs are single samples, not repeated
-trials or confidence intervals; the batch sweep resumed in a later device session.
+**The existing server's client-observed latency increases with concurrency and
+request size. Additional workers do not preserve response time under this load.**
+One figure summarizes both controlled sweeps; Get and Set remain separate RPCs.
 
-Of 20 attempted matrix points, 18 produced reports with zero RPC errors. All 18
-failed the strict per-request latency requirement (open-loop also dropped arrivals).
-Both 20k/500-worker runs lost management connectivity after load, preventing final
-sampling/cleanup and report emission. They are marked failed/missing rather than
-assigned zero latency, inferred timeout counts, or fabricated throughput. The
-available evidence does not establish the cause of the management failure.
+![Load impact: Get and Set mean latency increases with workers and batch size](gnmi-benchmark-results/load-impact.svg)
 
-### Worker scaling at 20k routes per RPC
+### What the results show
 
-![Worker scaling: latency, completion rate and dropped arrivals](gnmi-benchmark-results/workers.svg)
+1. **More concurrent work → slower requests.** At 20k routes/RPC, increasing closed-loop
+   workers from 2 to 100 raises mean Get latency **3.43→59.45s** and Set **6.70→92.80s**.
+   Open-loop admitted requests show the same overall trend.
+2. **Larger batches → fewer completed iterations.** At 100 workers, increasing batches
+   from 100 to 2,000 routes raises closed-loop mean Get **0.42→8.61s** and Set
+   **0.48→8.59s**. Window completions fall **110→5.2 Get→Set iterations/s**;
+   multiplying by batch size gives roughly 10k–11.5k route entries/s per direction
+   across both modes, consistent with a route-processing throughput limit.
+3. **Lower means do not establish compliance.** All 18 reported runs contain RPCs
+   exceeding the benchmark's 1s threshold, even the 100-route cases whose means
+   are below it. The threshold applies to every request, not the plotted mean.
 
-Increasing workers does not produce linear throughput scaling in these runs.
-For closed loop, 2→100 workers increases mean Get latency from 3.43s to 59.45s
-and mean Set latency from 6.70s to 92.80s. At 50/100 workers, the first iterations
-take longer than the 60s admission window; most or all completions occur in drain.
-The near-zero window rate therefore does not mean zero eventual completions, and
-this short experiment does not estimate steady-state high-concurrency capacity.
-Open-loop drops 99.66–99.96% of its 500/s offered iterations at the reported points.
-Its admitted-call latency cannot be interpreted without those drops. Small sample
-counts (12–101 calls per method) also limit interpretation of tail percentiles.
+Open loop offers **500 iterations/s**, irrespective of responses, and drops work
+when the client cannot admit it. Drops are **99.66–99.96%** in the worker sweep
+and **77.80–98.63%** in the batch sweep. The graph includes only successful, sent
+RPCs: similar open/closed latency does **not** mean open loop sustains 500/s.
+This is an overload probe; the final required arrival pattern remains to be agreed.
 
-### Batch sensitivity at 100 workers
+### Conditions and evidence
 
-![Batch sensitivity: latency, completion rate and dropped arrivals](gnmi-benchmark-results/batch-size.svg)
+| Fixed conditions | Sweep |
+|---|---|
+|256k stored routes: 12×20k measured + 16k background; 20k routes/RPC|Workers: 2, 5, 10, 50, 100, 500; both modes|
+|Same inventory and measured VNETs; 100 workers|Routes/RPC: 100, 500, 1k, 2k; both modes|
+|60s admission, no warmup, 120s timeout per RPC, one persistent TLS channel|Open: 500 Get→Set iterations/s; closed: refill after completion|
 
-| Routes/RPC | Closed Get/Set mean (ms) | Open Get/Set mean (ms) | Closed/open window iterations/s | Open dropped |
-|---:|---:|---:|---:|---:|
-|100|422 / 482|525 / 378|110.00 / 109.32|77.80%|
-|500|2461 / 1951|2251 / 1922|21.93 / 22.93|95.08%|
-|1000|3888 / 5012|3535 / 4805|10.05 / 10.60|97.55%|
-|2000|8613 / 8590|6745 / 8599|5.20 / 5.17|98.63%|
+Single-ASIC Cisco-8102-C64, original SONiC `20260510.14` binary, without server
+timing instrumentation. The benchmark was overlaid on public sonic-mgmt `202605`
+at `72ffcc20e210411f54c7b500ef9a9f96267876ed`; the public-master fixture stack was
+not physically validated. Latency includes client processing and TLS-over-SSH
+transport, not just server execution. Each point is one run; the batch sweep
+resumed in a later device session. These data demonstrate load sensitivity, not
+a proven internal cause or a speedup between server versions.
 
-Window completions multiplied by batch size are approximately 10,000–11,500
-route entries/s **per operation direction** (each iteration reads then writes the
-same entries). This plateau is consistent with route-dependent work limiting
-throughput; the plots alone cannot identify its internal cause. Even at 100
-routes/RPC, means and P95s below 1s do not satisfy the every-request requirement:
-closed Get/Set within-limit rates are 99.90%/98.55%, and open rates are 98.44%/99.61%.
-Reducing the request size is not a substitute for meeting the 20k request target.
+**18/20 attempted points produced reports with zero RPC errors.** Both 20k/500-worker
+runs lost management connectivity after load, preventing final sampling/cleanup
+and report emission. They have no plotted values; the cause is not established.
+At 20k and 50/100 workers, most or all iterations finish after the 60s admission
+window, so these runs do not estimate steady-state high-concurrency throughput.
 
-[Numeric results](gnmi-benchmark-results/results.csv) retain successful-call sample
-counts, mean/P95 latency, within-limit percentages, errors, scheduling drops,
-start delay, elapsed and drain time. The CSV contains the 18 reported points;
-the two missing 500-worker points are explicitly identified above and on the plot.
-Raw device logs remain local; no public physical-run URL is available.
+The unchanged [results CSV](gnmi-benchmark-results/results.csv) is the single source
+for all 18 points: sample counts, mean/P95, within-limit percentages, errors, drops,
+start delay, elapsed and drain. P95 and throughput details remain there rather than
+adding more plots. Raw logs remain local; no public physical-run URL is available.
 
 ### Design references
 
