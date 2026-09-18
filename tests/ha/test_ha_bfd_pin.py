@@ -3,8 +3,6 @@ import logging
 import ptf.testutils as testutils
 import pytest
 import time
-import threading
-import queue
 from constants import (
     LOCAL_PTF_INTF,
     REMOTE_PTF_RECV_INTF
@@ -12,12 +10,12 @@ from constants import (
 from ha_packets import outbound_pl_packets, bootstrap_pl_tcp_flow_outbound
 from tests.ha.conftest import apply_dash_pl_pipeline_config
 from tests.common.helpers.assertions import pytest_assert
-from ha_dash_flow_utils import compare_flow_tables
 from ha_utils import (
-    bfd_pin_primary,
-    bfd_unpin_primary,
-    bfd_pin_both_sides,
-    bfd_unpin_both_sides,
+    set_vdpu_bfd_probe_states,
+    set_dpu_bfd_admin_down,
+    wait_dpu_bfd_peers_down,
+    wait_dpu_bfd_peers_up,
+    verify_ha_state,
     parallel_config_reload_dpuhosts,
 )
 
@@ -28,7 +26,18 @@ pytestmark = [
     pytest.mark.skip_check_dut_health
 ]
 
-TRAFFIC_LOSS_THRESHOLD_PERCENTAGE = 1.0
+ENCAP_PROTO = "vxlan"
+RATE_PPS = 20
+SEND_COUNT = 100
+# Bounded so a lost packet costs ~0.2s instead of ptf's 2s default, keeping the
+# loss count meaningful.
+VERIFY_TIMEOUT = 0.2
+
+# pinned_vdpu_bfd_probe_states vectors. Index 0 = DPU1 (active/primary),
+# index 1 = DPU2 (standby); "none" removes the pin.
+PIN_DPU1_DOWN = ["down", "none"]
+PIN_DPU1_UP = ["up", "none"]
+UNPIN = ["none", "none"]
 
 
 @pytest.fixture(autouse=True, scope="function")
@@ -55,27 +64,54 @@ def common_setup_teardown(
 
 
 """
-We are testing 4 scenarios:
-1. BFD state UP pinned as DOWN(Pin DPU1 BFD probe state as DOWN) - traffic to active side
-   Verify: DPU1 remains active, DPU2 remains standby and T2 receives packets without disruption.
-2. BFD state UP pinned as DOWN(Pin DPU1 BFD probe state as DOWN) - traffic to standby side
-   Verify: DPU1 remains active, DPU2 remains standby and T2 receives packets without disruption.
-3. Both side pinned as DOWN (Pin DPU1 and DPU2 BFD probe state as DOWN) - traffic to active side
-   Verify: DPU1 remains active, DPU2 remains standby. T2 receives packets without disruption.
-4. Both side pinned as DOWN (Pin DPU1 and DPU2 BFD probe state as DOWN) - traffic to standby side
-   Verify: DPU1 remains active, DPU2 remains standby. T2 receives packets without disruption.
+Test plan: DASH HA "pinned BFD probe state". Two scenarios, each with traffic
+sent to the active or the standby side:
+
+1. BFD state UP pinned as DOWN: pin DPU1's (active) probe DOWN over a healthy
+   session. Traffic must egress via DUT2 while pinned and return to DUT1 after
+   the pin is removed. DPU1 stays active, DPU2 stays standby.
+2. BFD state DOWN pinned as UP: force DPU1's software BFD DOWN (admin-shut the
+   FRR peers on the DPU), then pin its probe UP. Traffic must egress via DUT1
+   while pinned and move to DUT2 after the pin is removed.
 """
 
 
-@pytest.mark.parametrize(
-    "both_sides_pinned", [True, False],
-    ids=["Both Sides Pinned", "Single Side Pinned"]
-)
+def _bfd_pin_scope_keys(dpuhosts):
+    return (
+        f"vdpu0_{dpuhosts[0].dpu_index}:haset0_0",
+        f"vdpu1_{dpuhosts[1].dpu_index}:haset0_0",
+    )
+
+
+def _send_outbound_pl_loss(ptfadapter, tx_intf, vm_to_dpu_pkt, exp_pkt, recv_ports, count=SEND_COUNT):
+    """Send ``count`` outbound PL packets; return how many were not received
+    (transformed) on ``recv_ports``."""
+    lost = 0
+    ptfadapter.dataplane.flush()
+    for _ in range(count):
+        testutils.send(ptfadapter, tx_intf, vm_to_dpu_pkt, 1)
+        try:
+            testutils.verify_packet_any_port(ptfadapter, exp_pkt, recv_ports, timeout=VERIFY_TIMEOUT)
+        except Exception:
+            lost += 1
+        time.sleep(1.0 / RATE_PPS)
+    return lost
+
+
+def _wait_bfd_pin_steady(duthosts, dpuhosts, active_key):
+    """Wait for DPU1 to be active with its software BFD up before probing the data
+    plane; a prior test can leave BFD/HA briefly re-converging after config reload."""
+    pytest_assert(wait_dpu_bfd_peers_up(dpuhosts[0]),
+                  "DPU1 software BFD did not reach 'up' at steady state")
+    pytest_assert(verify_ha_state(duthosts[0], active_key, "active"),
+                  "DPU1 did not reach 'active' at steady state")
+
+
 @pytest.mark.parametrize(
     "traffic_to_standby", [True, False],
     ids=["Standby Traffic", "Primary Traffic"]
 )
-def test_ha_bfd_pin(
+def test_ha_bfd_pin_up_as_down(
     localhost,
     ptfadapter,
     ptfhost,
@@ -83,97 +119,94 @@ def test_ha_bfd_pin(
     dpuhosts,
     activate_dash_ha_from_json,
     dash_pl_config,
-    both_sides_pinned,
     traffic_to_standby
 ):
-    traffic = "traffic to standby" if traffic_to_standby else "traffic to primary"
-    bfd_pin_type = "Both sides pinned" if both_sides_pinned else "Primary side pinned"
-    encap_proto = "vxlan"
-    rate_pps = 20  # packets per second
-    initial_send_count = 100
-    delay = 1.0 / rate_pps
-    rcv_outbound_pl_ports = dash_pl_config[0][REMOTE_PTF_RECV_INTF] + dash_pl_config[1][REMOTE_PTF_RECV_INTF]
+    """BFD state UP pinned as DOWN: pinning DPU1 down moves traffic to DUT2;
+    removing the pin returns it to DUT1, with no disruption and no failover."""
+    cfg = dash_pl_config[1] if traffic_to_standby else dash_pl_config[0]
+    vm_to_dpu_pkt, exp_pkt = outbound_pl_packets(cfg, ENCAP_PROTO)
+    tx_intf = cfg[LOCAL_PTF_INTF]
+    dut1_recv = dash_pl_config[0][REMOTE_PTF_RECV_INTF]
+    dut2_recv = dash_pl_config[1][REMOTE_PTF_RECV_INTF]
+    active_key, _ = _bfd_pin_scope_keys(dpuhosts)
 
-    if traffic_to_standby:
-        vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(dash_pl_config[1], encap_proto)
-    else:
-        vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(dash_pl_config[0], encap_proto)
+    # Wait for steady state (a prior test may have churned BFD/HA) before probing.
+    _wait_bfd_pin_steady(duthosts, dpuhosts, active_key)
 
-    # Bootstrap stateful TCP flow on the DPU so subsequent ACK packets match the established flow.
-    bootstrap_pl_tcp_flow_outbound(
-        ptfadapter, dash_pl_config[1] if traffic_to_standby else dash_pl_config[0], encap_proto,
-        recv_ports=rcv_outbound_pl_ports,
-    )
+    # Establish the stateful TCP flow (syncs to the standby) before pinning.
+    bootstrap_pl_tcp_flow_outbound(ptfadapter, cfg, ENCAP_PROTO, recv_ports=dut1_recv + dut2_recv)
 
-    packet_sending_flag = queue.Queue(1)
+    try:
+        # Pin DPU1 (active) probe DOWN -> traffic honors the pin, egresses via DUT2.
+        set_vdpu_bfd_probe_states(localhost, ptfhost, duthosts, PIN_DPU1_DOWN)
+        pytest_assert(verify_ha_state(duthosts[0], active_key, "active"),
+                      "DPU1 must remain active while its probe is pinned down")
+        lost = _send_outbound_pl_loss(ptfadapter, tx_intf, vm_to_dpu_pkt, exp_pkt, dut2_recv)
+        pytest_assert(lost == 0,
+                      f"UP-pinned-as-DOWN: {lost}/{SEND_COUNT} lost while pinned (expected egress on DUT2)")
 
-    send_count = 0
-    failed_count = 0
+        # Remove the pin -> probe follows the real (up) state, egress returns to DUT1.
+        set_vdpu_bfd_probe_states(localhost, ptfhost, duthosts, UNPIN)
+        pytest_assert(verify_ha_state(duthosts[0], active_key, "active"),
+                      "DPU1 must remain active after the pin is removed")
+        lost = _send_outbound_pl_loss(ptfadapter, tx_intf, vm_to_dpu_pkt, exp_pkt, dut1_recv)
+        pytest_assert(lost == 0,
+                      f"UP-pinned-as-DOWN: {lost}/{SEND_COUNT} lost after unpin (expected egress on DUT1)")
+    finally:
+        set_vdpu_bfd_probe_states(localhost, ptfhost, duthosts, UNPIN)
 
-    def pinning_ha_action():
-        # wait for packets sending started, then pin BFD state as DOWN
-        while packet_sending_flag.empty() or (not packet_sending_flag.get()):
-            time.sleep(0.2)
-        if both_sides_pinned:
-            logger.info(f"{bfd_pin_type}, pkt sent {send_count}")
-            bfd_pin_both_sides(localhost, ptfhost, duthosts)
-        else:
-            logger.info(f"{bfd_pin_type}, pkt sent {send_count}")
-            bfd_pin_primary(localhost, ptfhost, duthosts)
-        logger.info(f"After BFD pinning, pkt sent {send_count}")
 
-    t = threading.Thread(target=pinning_ha_action, name="pinning_ha_action_thread")
-    t.start()
-    t_max = time.time() + 60
-    reached_max_time = False
-    ptfadapter.dataplane.flush()
-    time.sleep(1)
-    while not reached_max_time:
-        # After we send initial_send_count packets, awake pinning_ha_action thread
-        if send_count == initial_send_count:
-            logger.info("Awake pinning HA action thread")
-            packet_sending_flag.put(True)
+@pytest.mark.parametrize(
+    "traffic_to_standby", [True, False],
+    ids=["Standby Traffic", "Primary Traffic"]
+)
+def test_ha_bfd_pin_down_as_up(
+    localhost,
+    ptfadapter,
+    ptfhost,
+    duthosts,
+    dpuhosts,
+    activate_dash_ha_from_json,
+    dash_pl_config,
+    traffic_to_standby
+):
+    """BFD state DOWN pinned as UP: with DPU1's software BFD forced down, pinning
+    its probe UP keeps traffic on DUT1; removing the pin lets the real down state
+    move traffic to DUT2."""
+    cfg = dash_pl_config[1] if traffic_to_standby else dash_pl_config[0]
+    vm_to_dpu_pkt, exp_pkt = outbound_pl_packets(cfg, ENCAP_PROTO)
+    tx_intf = cfg[LOCAL_PTF_INTF]
+    dut1_recv = dash_pl_config[0][REMOTE_PTF_RECV_INTF]
+    dut2_recv = dash_pl_config[1][REMOTE_PTF_RECV_INTF]
+    active_key, _ = _bfd_pin_scope_keys(dpuhosts)
 
-        try:
-            if traffic_to_standby:
-                if send_count == 0:
-                    logger.info("Send first packet to standby")
-                testutils.send(ptfadapter, dash_pl_config[1][LOCAL_PTF_INTF], vm_to_dpu_pkt, 1)
-                testutils.verify_packet_any_port(ptfadapter, exp_dpu_to_pe_pkt, rcv_outbound_pl_ports)
-                if send_count == 0:
-                    logger.info("First packet verified on standby - compare flows")
-                    flow_op = compare_flow_tables(dpuhosts[0], dpuhosts[1])
-                    pytest_assert(flow_op, "Expected identical flow tables on primary and standby")
+    # Wait for steady state (a prior test may have churned BFD/HA) before probing.
+    _wait_bfd_pin_steady(duthosts, dpuhosts, active_key)
 
-            else:
-                if send_count == 0:
-                    logger.info("Send first packet to primary")
-                testutils.send(ptfadapter, dash_pl_config[0][LOCAL_PTF_INTF], vm_to_dpu_pkt, 1)
-                testutils.verify_packet_any_port(ptfadapter, exp_dpu_to_pe_pkt, rcv_outbound_pl_ports)
-                if send_count == 0:
-                    logger.info("First packet verified on primary - compare flows")
-                    flow_op = compare_flow_tables(dpuhosts[0], dpuhosts[1])
-                    pytest_assert(flow_op, "Expected identical flow tables on primary and standby")
-        except Exception as e:
-            if failed_count == 0:
-                logger.info(f"pkt dropped after {send_count} pkts, exception {e}")
-                if send_count == 0:
-                    logger.error(f"pkt dropped exception {e}")
-                    pytest.fail(f"{bfd_pin_type} with {traffic} test error: no packets received")
-            failed_count += 1
+    bootstrap_pl_tcp_flow_outbound(ptfadapter, cfg, ENCAP_PROTO, recv_ports=dut1_recv + dut2_recv)
 
-        send_count += 1
-        time.sleep(delay)
-        reached_max_time = time.time() > t_max
+    try:
+        # Force DPU1's real software BFD DOWN by admin-shutting its FRR peers.
+        # BfdMgr dedupes, so hamgrd re-writes will not revert this.
+        set_dpu_bfd_admin_down(dpuhosts[0], shutdown=True)
+        pytest_assert(wait_dpu_bfd_peers_down(dpuhosts[0]),
+                      "DPU1 software BFD did not go down after admin shutdown")
 
-    t.join()
-    time.sleep(2)
-    if failed_count > 0:
-        pytest.fail(f"{bfd_pin_type} with {traffic} test failed: "
-                    f"sent: {send_count}, lost {failed_count}")
-    else:
-        logger.info(f"{bfd_pin_type} with {traffic} test passed. All {send_count} packets received.")
-    if both_sides_pinned:
-        bfd_unpin_both_sides(localhost, ptfhost, duthosts)
-    else:
-        bfd_unpin_primary(localhost, ptfhost, duthosts)
+        # Pin DPU1 probe UP -> masks the real down; traffic stays on DUT1.
+        set_vdpu_bfd_probe_states(localhost, ptfhost, duthosts, PIN_DPU1_UP)
+        pytest_assert(verify_ha_state(duthosts[0], active_key, "active"),
+                      "DPU1 must remain active while its probe is pinned up")
+        lost = _send_outbound_pl_loss(ptfadapter, tx_intf, vm_to_dpu_pkt, exp_pkt, dut1_recv)
+        pytest_assert(lost == 0,
+                      f"DOWN-pinned-as-UP: {lost}/{SEND_COUNT} lost while pinned (expected egress on DUT1)")
+
+        # Remove the pin -> the real (down) state governs; traffic moves to DUT2.
+        set_vdpu_bfd_probe_states(localhost, ptfhost, duthosts, UNPIN)
+        lost = _send_outbound_pl_loss(ptfadapter, tx_intf, vm_to_dpu_pkt, exp_pkt, dut2_recv)
+        pytest_assert(lost == 0,
+                      f"DOWN-pinned-as-UP: {lost}/{SEND_COUNT} lost after unpin (expected egress on DUT2)")
+    finally:
+        # Restore BFD before removing the pin so HA never sees a real-down and
+        # unpinned window (which would churn the active role).
+        set_dpu_bfd_admin_down(dpuhosts[0], shutdown=False)
+        set_vdpu_bfd_probe_states(localhost, ptfhost, duthosts, UNPIN)

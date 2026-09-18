@@ -6,13 +6,29 @@ from scapy.all import PcapReader
 from tests.common.snappi_tests.pfc_packet import PFCPacket
 from tests.common.snappi_tests.cisco_pfc_packet import CiscoPFCPacket
 
+PCAP_MAGIC_STANDARD = b'\xd4\xc3\xb2\xa1'   # little-endian standard pcap
+PCAP_MAGIC_STANDARD_BE = b'\xa1\xb2\xc3\xd4'  # big-endian standard pcap
+PCAP_MAGIC_NSEC = b'\x4d\x3c\xb2\xa1'         # little-endian nanosecond pcap
+PCAP_MAGIC_NSEC_BE = b'\xa1\xb2\x3c\x4d'      # big-endian nanosecond pcap
+
+
+def _open_pcap_reader(f):
+    """Return the appropriate dpkt reader for pcap or pcapng files."""
+    magic = f.read(4)
+    f.seek(0)
+    if magic in (PCAP_MAGIC_STANDARD, PCAP_MAGIC_STANDARD_BE,
+                 PCAP_MAGIC_NSEC, PCAP_MAGIC_NSEC_BE):
+        return dpkt.pcap.Reader(f)
+    return dpkt.pcapng.Reader(f)
+
+
 logger = logging.getLogger(__name__)
 
 PFC_MAC_CONTROL_CODE = 0x8808
 PFC_DEST_MAC = "01:80:c2:00:00:01"
 
 
-def validate_pfc_frame(pfc_pcap_file, SAMPLE_SIZE=15000, UTIL_THRESHOLD=0.8):
+def validate_pfc_frame(pfc_pcap_file, SAMPLE_SIZE=15000, UTIL_THRESHOLD=0.8, peer_mac_addr=None):
     """
     Validate PFC frame by checking the CBFC opcode, class enable vector and class pause times.
 
@@ -20,12 +36,15 @@ def validate_pfc_frame(pfc_pcap_file, SAMPLE_SIZE=15000, UTIL_THRESHOLD=0.8):
         pfc_cap: PFC pcap file
         SAMPLE_SIZE: number of packets to sample
         UTIL_THRESHOLD: threshold for PFC utilization to check if enough PFC frames were sent
+        peer_mac_addr: optional peer MAC address to validate source MAC
 
     Returns:
         True if valid PFC frame, False otherwise
     """
+    logger.info("Validating PFC frames in capture file '{}' (sample size {}, util threshold {})"
+                .format(pfc_pcap_file, SAMPLE_SIZE, UTIL_THRESHOLD))
     f = open(pfc_pcap_file, "rb")
-    pcap = dpkt.pcapng.Reader(f)
+    pcap = _open_pcap_reader(f)
     seen_non_zero_cev = False  # Flag for checking if any PFC frame has non-zero class enable vector
 
     curPktCount = 0
@@ -37,15 +56,33 @@ def validate_pfc_frame(pfc_pcap_file, SAMPLE_SIZE=15000, UTIL_THRESHOLD=0.8):
         if eth.type == PFC_MAC_CONTROL_CODE:
             dest_mac = mac_to_str(eth.dst)
             if dest_mac.lower() != PFC_DEST_MAC:
+                logger.info("PFC frame {} has destination MAC {}, expected {}"
+                            .format(curPktCount, dest_mac, PFC_DEST_MAC))
                 return False, "Destination MAC address is not 01:80:c2:00:00:01"
+            if peer_mac_addr:
+                src_mac = mac_to_str(eth.src)
+                if src_mac.lower() != peer_mac_addr.lower():
+                    return False, "Source MAC address is not the peer's mac address"
             pfc_packet = PFCPacket(pfc_frame_bytes=bytes(eth.data))
             if not pfc_packet.is_valid():
                 logger.info("PFC frame {} is not valid. Please check the capture file.".format(curPktCount))
                 return False, "PFC frame is not valid"
             cev = [int(i) for i in pfc_packet.class_enable_vec]
-            seen_non_zero_cev = True if sum(cev) > 0 else seen_non_zero_cev
+            cev_nonzero = sum(cev) > 0
+            # Per-frame detail at debug level so a 15k-packet sample does not flood the log.
+            logger.debug("PFC frame {} valid: dst_mac={}, cbfc_opcode={}, class_enable_vec={}, class_pause_times={}"
+                         .format(curPktCount, dest_mac, hex(pfc_packet.cbfc_opcode),
+                                 pfc_packet.class_enable_vec, pfc_packet.class_pause_times))
+            if cev_nonzero and not seen_non_zero_cev:
+                logger.info("First PFC frame with non-zero class enable vector at packet {}: "
+                            "class_enable_vec={}, class_pause_times={}"
+                            .format(curPktCount, pfc_packet.class_enable_vec, pfc_packet.class_pause_times))
+            seen_non_zero_cev = seen_non_zero_cev or cev_nonzero
             curPFCPktCount += 1
         curPktCount += 1
+
+    logger.info("Scanned {} packets, found {} valid PFC frame(s); non-zero class enable vector seen: {}"
+                .format(curPktCount, curPFCPktCount, seen_non_zero_cev))
 
     if not seen_non_zero_cev:
         logger.info("No PFC frames with non-zero class enable vector found in the capture file.")
@@ -58,9 +95,12 @@ def validate_pfc_frame(pfc_pcap_file, SAMPLE_SIZE=15000, UTIL_THRESHOLD=0.8):
         logger.info("No PFC frames found in the capture file.")
         return False, "No PFC frames found in the capture file"
     elif pfc_util < UTIL_THRESHOLD:
-        logger.info("PFC utilization is too low. Please check the capture file.")
+        logger.info("PFC utilization {:.2f} is below threshold {}. Please check the capture file."
+                    .format(pfc_util, UTIL_THRESHOLD))
         return False, "PFC utilization is too low"
 
+    logger.info("PFC frame validation passed: {} valid PFC frame(s), utilization {:.2f} (threshold {})"
+                .format(curPFCPktCount, pfc_util, UTIL_THRESHOLD))
     return True, None
 
 
