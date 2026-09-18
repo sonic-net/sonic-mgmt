@@ -106,17 +106,6 @@ configlet/test_add_rack.py::test_add_rack:
       - "asic_type in ['vpp']"
 
 #######################################
-#####       Container Checker     #####
-#######################################
-container_checker/test_container_checker.py::test_container_checker_telemetry:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-#######################################
 #####           COPP              #####
 #######################################
 copp:
