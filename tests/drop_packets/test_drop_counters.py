@@ -58,9 +58,13 @@ def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loga
         ".* ERR syncd.*#syncd.*logEventData:.*SAI_SWITCH_ATTR.*",
         ".* ERR syncd.*#syncd.*logEventData:.*SAI_OBJECT_TYPE_SWITCH.*"
     ]
-    # Ignore syslog error from xcvrd while using copper cables
-    CopperCableIgnoreRegex = [
-        ".* ERR pmon#xcvrd.*no suitable app for the port appl.*host_lane_count.*host_speed.*"
+    # Ignore the CMIS manager error raised when a transceiver advertises no application matching
+    # the port's host lane count and speed. Passive copper DACs never reach this code path (the
+    # CMIS state machine skips flat-memory modules), so this is driven by paged optics whose
+    # application advertisement does not cover the configured breakout. The CMIS manager logs
+    # under its own syslog identifier since it was split out of xcvrd, so match both identifiers.
+    CmisNoSuitableAppIgnoreRegex = [
+        ".* ERR pmon#(?:xcvrd|CmisManagerTask).*no suitable app for the port appl.*host_lane_count.*host_speed.*"
     ]
     # Ignore transient syncd error during config_reload when FlexCounter polls a port VID that was
     # briefly removed/re-created (e.g. after port split). syncd self-heals by removing the stale entry.
@@ -73,7 +77,7 @@ def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loga
         if duthost.facts["asic_type"] == "vs":
             loganalyzer[duthost.hostname].ignore_regex.extend(KVMIgnoreRegex)
         loganalyzer[duthost.hostname].ignore_regex.extend(SAISwitchIgnoreRegex)
-        loganalyzer[duthost.hostname].ignore_regex.extend(CopperCableIgnoreRegex)
+        loganalyzer[duthost.hostname].ignore_regex.extend(CmisNoSuitableAppIgnoreRegex)
         loganalyzer[duthost.hostname].ignore_regex.extend(FlexCounterPortNotFoundRegex)
         if duthost.sonichost.facts['platform_asic'] == 'broadcom':
             ignore_regex = r".* ERR swss#orchagent:\s*.*\s*queryAattributeEnumValuesCapability:\s*returned value " \
