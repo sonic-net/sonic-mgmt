@@ -634,6 +634,10 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
 
     # Check if database container is being tested
     is_testing_database = "database" not in skip_containers
+    uptime_before_recovery = None
+    pdu_reboot_reported_success = None
+    if is_testing_database and not is_vs_device(duthost):
+        uptime_before_recovery = duthost.get_up_time()
 
     # add log to indicate start of yield
     logger.info("Starting test to monitor critical processes...")
@@ -685,11 +689,10 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
 
                 # Perform PDU reboot (power cycle)
                 logger.info("Starting PDU reboot...")
-                if not pdu_reboot(pdu_ctrl):
-                    logger.error("PDU reboot failed for {}".format(duthost.hostname))
-                    pytest.fail("PDU reboot failed for {}".format(duthost.hostname))
-
-                logger.info("PDU reboot completed, waiting for DUT to boot up...")
+                pdu_reboot_reported_success = pdu_reboot(pdu_ctrl)
+                if not pdu_reboot_reported_success:
+                    logger.error("PDU reboot reported failure for {}; waiting to verify whether the DUT rebooted..."
+                                 .format(duthost.hostname))
             except Exception as e:
                 logger.error("Exception during PDU reboot: {}".format(str(e)))
                 raise
@@ -705,6 +708,26 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
 
         # Wait for SSH to come back up
         wait_for_startup(duthost, localhost, delay=10, timeout=timeout)
+
+        if not is_vs_device(duthost):
+            uptime_after_recovery = []
+
+            def _get_uptime_after_recovery():
+                uptime_after_recovery.append(duthost.get_up_time())
+                return True
+
+            pytest_assert(wait_until(wait_time, 5, 0, _get_uptime_after_recovery),
+                          "DUT did not become reachable within {} seconds after PDU reboot"
+                          .format(wait_time))
+            uptime_after_recovery = uptime_after_recovery[0]
+            if uptime_after_recovery <= uptime_before_recovery:
+                pytest.fail("PDU reboot failed for {}: DUT boot time did not change (before: {}, after: {})"
+                            .format(duthost.hostname, uptime_before_recovery, uptime_after_recovery))
+            if pdu_reboot_reported_success is False:
+                logger.error("PDU reboot reported failure for {}, but the DUT rebooted successfully "
+                             "(boot time changed from {} to {}); continuing recovery"
+                             .format(duthost.hostname, uptime_before_recovery, uptime_after_recovery))
+
         logger.info("SSH is up, waiting for critical processes to recover...")
 
         # After a dirty reboot (SysRq/PDU), /var/run/redis/sonic-db/database_config.json
