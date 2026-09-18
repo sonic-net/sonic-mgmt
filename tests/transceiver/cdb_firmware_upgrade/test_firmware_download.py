@@ -89,3 +89,22 @@ def test_firmware_download_admin_down(
     logger.info("Firmware download with admin-down port exercised %d port(s)", num_ports)
     if all_failures:
         pytest.fail("Firmware download with admin-down port failures:\n" + "\n".join(all_failures))
+
+
+def test_firmware_download_stress(
+    duthost, port_attributes_dict, cdb_firmware_qualifying_ports, get_lport_to_pport_mapping,
+    required_firmware_metadata_for_all_transceivers, lport_to_first_subport_mapping,
+    dom_polling_disabled,
+):
+    """Repeat firmware download and verify every iteration."""
+    all_failures, num_ports = firmware_operations.execute_on_ports(
+        duthost, port_attributes_dict, cdb_firmware_qualifying_ports,
+        get_lport_to_pport_mapping,
+        required_firmware_metadata_for_all_transceivers,
+        firmware_operations.download_stress_op,
+        lport_to_first_subport_mapping,
+        verify_post_operation=True,
+    )
+    logger.info("Firmware download stress exercised %d port(s)", num_ports)
+    if all_failures:
+        pytest.fail("Firmware download stress failures:\n" + "\n".join(all_failures))
