@@ -6,6 +6,7 @@ import json
 import logging
 import time
 from collections import defaultdict, deque
+from collections.abc import Mapping
 from multiprocessing import Process
 
 import cryptography.exceptions
@@ -33,6 +34,8 @@ __all__ = [
     'program_ptf_ingress_sa',
     'remove_ptf_ingress_sa',
     'remove_ptf_ingress_sas',
+    'purge_ptf_ingress_sas',
+    'is_ptf_row',
     'get_mka_session',
     'get_macsec_sa_name',
     'get_macsec_counters',
@@ -44,13 +47,21 @@ __all__ = [
 logger = logging.getLogger(__name__)
 process_queue = []
 
-# APPL_DB field marking an ingress SA the test harness programmed for PTF.
+# APPL_DB field marking an ingress SA the harness programmed for PTF. Its value
+# is the SAK the harness wrote, so ownership is decided from the row alone:
+# ours iff ptf_sa == sak. A ProducerStateTable SET merges into an existing row,
+# so when MKA later rekeys onto that AN it rewrites 'sak' and leaves 'ptf_sa'
+# stale; the mismatch marks the row as MKA's.
 PTF_SA_TAG = "ptf_sa"
 # (hostname, port) -> (APPL_DB key, sak hex) of the PTF ingress SA this process
-# programmed. Ownership is decided by this registry; the tag alone is not
-# reliable because ProducerStateTable SETs merge into an existing row, so a
-# live MKA SA that later lands on the same AN inherits the tag.
+# programmed, so teardown can target exactly what it created.
 _PTF_SA_KEYS = {}
+
+
+def is_ptf_row(row):
+    """True iff an APPL_DB ingress SA row is a harness-programmed PTF SA (ptf_sa == sak)."""
+    tag = (row.get(PTF_SA_TAG) or "").lower()
+    return bool(tag) and tag == (row.get("sak") or "").lower()
 
 
 def submit_async_task(target, args):
@@ -144,19 +155,23 @@ def get_macsec_sa_name(sonic_asic, port_name, egress=True):
     cmd = "APPL_DB KEYS '{}:{}:*'".format(table, port_name)
     names = sonic_asic.run_sonic_db_cli_cmd(cmd)['stdout_lines']
     if not egress and names:
-        # Never return the PTF SA this process programmed (see _PTF_SA_KEYS); a
-        # PTF AN can sort before the live MKA AN. Rows merely tagged ptf_sa are
-        # skipped only while an untagged row exists: MKA may have rekeyed onto
-        # a PTF AN and inherited the tag, in which case the tagged row IS live.
-        owned = _PTF_SA_KEYS.get((sonic_asic.sonichost.hostname, port_name), (None,))[0]
-        names = [n for n in names if n != "{}:{}".format(table, owned)]
+        # Skip harness PTF SAs (is_ptf_row): a PTF AN can sort before the live
+        # MKA AN. A row MKA rekeyed onto has a new sak, so it counts as live.
         ns = "-n {}".format(sonic_asic.namespace) if sonic_asic.namespace else ""
-        tags = sonic_asic.sonichost.shell(
-            "for k in {}; do echo \"$k=$(sonic-db-cli {} APPL_DB HGET $k {})\"; done; true".format(
-                " ".join(names), ns, PTF_SA_TAG), module_ignore_errors=True)["stdout"]
-        tagged = {ln.split("=", 1)[0] for ln in tags.splitlines() if ln.endswith("=true")}
-        untagged = [n for n in names if n not in tagged]
-        names = untagged or names
+        out = sonic_asic.sonichost.shell(
+            "for k in {}; do echo \"$k\t$(sonic-db-cli {} APPL_DB HGETALL $k)\"; done; true".format(
+                " ".join(names), ns), module_ignore_errors=True)["stdout"]
+        ours = set()
+        for ln in out.splitlines():
+            if "\t" not in ln:
+                continue
+            k, fields = ln.split("\t", 1)
+            try:
+                if is_ptf_row(ast.literal_eval(fields.strip())):
+                    ours.add(k)
+            except (ValueError, SyntaxError):
+                continue
+        names = [n for n in names if n not in ours] or names
     if names:
         names.sort()
         return ':'.join(names[0].split(':')[1:])
@@ -467,18 +482,19 @@ def _read_macsec_attrs(host, port):
         ssci = None
         salt = None
 
-    # Live peer SA: an ingress row that is not the PTF SA this process owns,
-    # preferring rows carrying the current SAK (a stale PTF row from an earlier
-    # session still holds the pre-rekey SAK) and rows without the PTF tag (a
-    # tagged row is still live if MKA rekeyed onto that AN and inherited it).
+    # Live peer SA: a non-PTF ingress row (is_ptf_row) carrying the current
+    # SAK. A row MKA rekeyed onto after we programmed it has a new sak and a
+    # stale ptf_sa, so it counts as live; program_ptf_ingress_sa clears the field.
     rows = _ingress_sa_rows(host, port)
-    owned = _PTF_SA_KEYS.get((host.hostname, port), (None,))[0]
-    candidates = [(k, r) for k, r in rows.items() if k != owned]
-    same_sak = [c for c in candidates if c[1].get("sak") == sak_hex] or candidates
-    untagged = [c for c in same_sak if c[1].get(PTF_SA_TAG) != "true"] or same_sak
-    if not untagged:
-        raise KeyError("no live MACsec ingress SA for {} on {}".format(port, host.hostname))
-    live_key, live_row = sorted(untagged)[0]
+    candidates = [(k, r) for k, r in rows.items() if not is_ptf_row(r)]
+    same_sak = [c for c in candidates if (c[1].get("sak") or "").lower() == sak_hex.lower()]
+    if not same_sak:
+        # No peer SA, or MKA is mid-rekey (ingress rows still carry the previous
+        # SAK). auth_key/ssci must come from a row keyed by the current SAK, so
+        # never mix material from a stale row; the caller retries once MKA settles.
+        raise KeyError("no live MACsec ingress SA carrying the current SAK for {} on {} (rows: {})".format(
+            port, host.hostname, sorted(candidates and dict(candidates).keys())))
+    live_key, live_row = sorted(same_sak)[0]
     _, peer_sci, peer_an = live_key.split(":")
     peer_an = int(peer_an)
     peer_ssci = int(live_row["ssci"]) if xpn_en else None
@@ -495,7 +511,7 @@ def _read_macsec_attrs(host, port):
         "peer_sci": peer_sci, "peer_an": peer_an, "peer_ssci": peer_ssci, "ptf_an": ptf_an,
         "sak_hex": sak_hex, "salt_hex": salt_hex,
         "ssci_str": live_row.get("ssci", "0"), "auth_key": live_row.get("auth_key", sak_hex),
-        "live_key": live_key, "clear_tag": live_row.get(PTF_SA_TAG) == "true",
+        "live_key": live_key, "clear_tag": PTF_SA_TAG in live_row,
     }
 
 
@@ -520,7 +536,23 @@ _SWSS_PREAMBLE = (
     "db = DBConnector('APPL_DB', 0, False, ns) if ns else DBConnector('APPL_DB', 0, True)\n"
     "tbl = ProducerStateTable(db, 'MACSEC_INGRESS_SA_TABLE')\n"
     "rt = Table(db, 'MACSEC_INGRESS_SA_TABLE')\n"
-)
+    # Mirrors is_ptf_row for scripts running on the DUT.
+    "def is_ptf(fvs):\n"
+    "    d = dict(fvs); t = (d.get('%s') or '').lower()\n"
+    "    return bool(t) and t == (d.get('sak') or '').lower()\n"
+) % PTF_SA_TAG
+
+
+def _log_swss_result(what, host, result):
+    """Surface DUT-side script failures; a silent failure would leave orphan
+    rows and reproduce the cleanup timeouts these helpers exist to prevent."""
+    if not isinstance(result, Mapping):  # pytest-ansible ModuleResult is a UserDict, not a dict
+        return
+    if result.get("rc", 0) != 0 or result.get("failed"):
+        logger.warning("PTF SA %s script failed on %s: rc=%s stderr=%s", what, host.hostname,
+                       result.get("rc"), (result.get("stderr") or "").strip()[-400:])
+    elif result.get("stdout", "").strip():
+        logger.info("PTF SA %s on %s: %s", what, host.hostname, result["stdout"].strip().replace("\n", "; "))
 
 
 def _run_swss_script(host, ns, body, **shell_kwargs):
@@ -535,28 +567,29 @@ def program_ptf_ingress_sa(host, port, attrs):
     """Install the DUT ingress SA that accepts PTF's frames on ``port``.
 
     ``attrs`` is the dict from _read_macsec_attrs(). The SA is keyed on the
-    peer SCI at PTF's AN, tagged ptf_sa=true, and carries the SAK's salt plus
+    peer SCI at PTF's AN, tagged ptf_sa=<sak>, and carries the SAK's salt plus
     the peer's ssci / auth_key: XPN cipher suites derive the AES-GCM IV from
     (ssci || PN) XOR salt, so mismatched values would fail every ICV check.
-    The key is recorded in _PTF_SA_KEYS so later reads and the teardown
-    recognise it by identity rather than by tag.
+    The key is recorded in _PTF_SA_KEYS so remove_ptf_ingress_sas can target
+    exactly what this process created.
     """
     key = "{}:{}:{}".format(port, attrs["peer_sci"], attrs["ptf_an"])
     prev = _PTF_SA_KEYS.get((host.hostname, port), (None,))[0]
     body = (
         "key, live, prev = '{key}', '{live}', '{prev}'\n"
-        # A live MKA row that inherited the tag by landing on an old PTF AN.
+        # A live MKA row that landed on an old PTF AN still carries our stale
+        # ptf_sa field (its sak moved on); drop the field.
         "if {clear_tag}:\n"
         "    rt.hdel(live, '{tag}')\n"
-        # Our previous key (MKA rekeyed since) and cross-session tagged orphans
-        # on this port; never the live SA, never the key being (re)programmed.
+        # Delete our previous key (MKA rekeyed since) and cross-session PTF
+        # orphans on this port; never the live SA or the key being (re)programmed.
         "victims = set()\n"
         "if prev and prev not in (key, live):\n"
         "    victims.add(prev)\n"
         "for k in rt.getKeys():\n"
         "    if k.startswith('{port}:') and k not in (key, live):\n"
         "        ok, fvs = rt.get(k)\n"
-        "        if ok and dict(fvs).get('{tag}') == 'true':\n"
+        "        if ok and is_ptf(fvs):\n"
         "            victims.add(k)\n"
         "for k in victims:\n"
         "    tbl.delete(k)\n"
@@ -565,13 +598,13 @@ def program_ptf_ingress_sa(host, port, attrs):
         # the SET carries 'sak', which resets its highest-received PN for the
         # fresh PN=1.. sequence PTF starts with.
         "fvs = [('active','true'),('sak','{sak}'),('auth_key','{auth}'),"
-        "('lowest_acceptable_pn','1'),('ssci','{ssci}'),('salt','{salt}'),('{tag}','true')]\n"
+        "('lowest_acceptable_pn','1'),('ssci','{ssci}'),('salt','{salt}'),('{tag}','{sak}')]\n"
         "tbl.set(key, fvs)\n"
         "print('PTF SA set:', key, 'removed:', sorted(victims))\n"
     ).format(key=key, live=attrs["live_key"], prev=prev or "", clear_tag=attrs["clear_tag"],
              port=port, tag=PTF_SA_TAG, sak=attrs["sak_hex"], auth=attrs["auth_key"],
              ssci=attrs["ssci_str"], salt=attrs["salt_hex"])
-    _run_swss_script(host, _port_namespace(host, port), body)
+    _log_swss_result("program", host, _run_swss_script(host, _port_namespace(host, port), body))
     _PTF_SA_KEYS[(host.hostname, port)] = (key, attrs["sak_hex"])
     time.sleep(2)  # let orchagent program the SA in the ASIC
 
@@ -579,8 +612,8 @@ def program_ptf_ingress_sa(host, port, attrs):
 def remove_ptf_ingress_sas(host, ports=None):
     """Delete the PTF ingress SAs this process programmed on ``host`` (all
     ports, or only ``ports``). A registered key is left alone when its row no
-    longer holds the SAK we wrote or is the only SA on the port: both mean MKA
-    has taken that AN over and the row is the live peer SA."""
+    longer holds the SAK we wrote: MKA has taken that AN over and the row is
+    the live peer SA."""
     owned = {p: v for (h, p), v in _PTF_SA_KEYS.items()
              if h == host.hostname and (ports is None or p in ports)}
     by_ns = {}
@@ -592,14 +625,15 @@ def remove_ptf_ingress_sas(host, ports=None):
             "    ok, fvs = rt.get(key)\n"
             "    if not ok:\n"
             "        continue\n"
-            "    others = [k for k in rt.getKeys() if k.startswith(port + ':') and k != key]\n"
-            "    if dict(fvs).get('sak') != sak or not others:\n"
+            # MKA adopting this AN rewrites 'sak'; an unchanged SAK means the row
+            # is still ours, even if it is the only SA left after an SC teardown.
+            "    if (dict(fvs).get('sak') or '').lower() != sak.lower():\n"
             "        print('PTF SA now live, kept:', key)\n"
             "        continue\n"
             "    tbl.delete(key)\n"
             "    print('PTF SA removed:', key)\n"
         )
-        _run_swss_script(host, ns, body, module_ignore_errors=True)
+        _log_swss_result("remove", host, _run_swss_script(host, ns, body, module_ignore_errors=True))
     for port in owned:
         _PTF_SA_KEYS.pop((host.hostname, port), None)
 
@@ -607,6 +641,45 @@ def remove_ptf_ingress_sas(host, ports=None):
 def remove_ptf_ingress_sa(host, port):
     """Delete the PTF ingress SA this process programmed on one ``port``."""
     remove_ptf_ingress_sas(host, ports=[port])
+
+
+def purge_ptf_ingress_sas(host, ports=None):
+    """Delete every harness PTF ingress SA row (``ptf_sa == sak``, see
+    is_ptf_row) on ``host`` (all ports, or only ``ports``), whoever
+    programmed it.
+
+    Unlike remove_ptf_ingress_sas this does not consult the registry: it is
+    for MACsec teardown paths and cross-session orphans. A row MKA has since
+    rekeyed onto carries a new sak next to the stale ptf_sa field and is
+    therefore never matched, so a live supplicant SA is never deleted. A PTF
+    row whose secure channel MKA has torn down has no ASIC object behind it,
+    yet stays in APPL_DB until deleted here.
+    """
+    if isinstance(host, EosHost):
+        return
+    namespaces = [""]
+    try:
+        if getattr(host, "is_multi_asic", False) and hasattr(host, "get_asic_namespace_list"):
+            namespaces += host.get_asic_namespace_list()
+    except Exception:
+        logger.debug("asic namespace discovery failed on %s; purging host namespace only",
+                     host.hostname, exc_info=True)
+    ports = sorted(ports) if ports is not None else None
+    ports_lit = repr(ports) if ports is not None else "None"
+    body = "ports = {}\n".format(ports_lit) + (
+        "for k in rt.getKeys():\n"
+        "    if ports is not None and k.split(':', 1)[0] not in ports:\n"
+        "        continue\n"
+        "    ok, fvs = rt.get(k)\n"
+        "    if ok and is_ptf(fvs):\n"
+        "        tbl.delete(k)\n"
+        "        print('PTF SA purged:', k)\n"
+    )
+    for ns in namespaces:
+        _log_swss_result("purge", host, _run_swss_script(host, ns, body, module_ignore_errors=True))
+    for key in [k for k in _PTF_SA_KEYS
+                if k[0] == host.hostname and (ports is None or k[1] in ports)]:
+        _PTF_SA_KEYS.pop(key, None)
 
 
 def prepare_ptf_macsec(host, port):
@@ -839,27 +912,28 @@ def _parse_show_macsec_counters(text):
             SAI_MACSEC_SA_STAT_OCTETS_PROTECTED      0
             ---------------------------------------  ----------------------------------------------------------------
     '''
-    out = {'egress': {}, 'ingress': {}}
-    stats = None
-    reg = re.compile(r'(SAI_MACSEC.*?) *(\d+)')
+    # One block per SA. A MACsec port carries two ingress SAs while a PTF SA is
+    # programmed (see program_ptf_ingress_sa); that block is skipped, otherwise
+    # its idle counters would overwrite the peer SA's. Blocks are recognised as
+    # PTF-owned by the same rule as is_ptf_row: ptf_sa == sak.
+    blocks = []
     for line in text.splitlines():
         line = line.strip()
-
-        # Found the egress header, following stats will be for egress
         if line.startswith("MACsec Egress SA"):
-            stats = 'egress'
-            continue
-        # Found the ingress header, following stats will be for ingress
+            blocks.append(('egress', {}))
         elif line.startswith("MACsec Ingress SA"):
-            stats = 'ingress'
-            continue
-        # No header yet, so no stats coming
-        if not stats:
-            continue
+            blocks.append(('ingress', {}))
+        elif blocks:
+            parts = line.split(None, 1)
+            if len(parts) == 2 and not line.startswith("-"):
+                blocks[-1][1][parts[0]] = parts[1].strip()
 
-        found = reg.match(line)
-        if found:
-            out[stats].update({found.group(1): int(found.group(2))})
+    out = {'egress': {}, 'ingress': {}}
+    for direction, fields in blocks:
+        if is_ptf_row(fields):
+            continue
+        out[direction].update({k: int(v) for k, v in fields.items()
+                               if k.startswith("SAI_MACSEC") and v.isdigit()})
     return out
 
 

@@ -892,7 +892,9 @@ def _macsec_port_states(duthost):
         if duthost.is_multi_asic:
             namespaces += duthost.get_asic_namespace_list()
     except Exception:
-        pass
+        # Namespace discovery is best effort; the host namespace is still probed.
+        logger.debug("asic namespace discovery failed on %s; probing host namespace only",
+                     duthost.hostname, exc_info=True)
     states = {}
     for ns in namespaces:
         ns_arg = "-n {} ".format(ns) if ns else ""
