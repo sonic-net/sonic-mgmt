@@ -735,6 +735,7 @@
           duts_list: "{{ testbed_facts['duts'] | default([]) }}"
           dut_loopbacks: "{{ topology.DUT.loopback | default({}) }}"
           console_ports: "{{ device_serial_link[inventory_hostname] | default(omit) if 'c0' in topo else omit }}"
+          device_conn: "{{ device_conn[inventory_hostname] | default({}) }}"
         become: true
 
       - name: Copy macsec profile json to dut
@@ -754,6 +755,7 @@
           topo_name: "{{ topo }}"
           macsec_profile: "{{ macsec_profile }}"
           num_asics: "{{ num_asics }}"
+          device_conn: "{{ device_conn[inventory_hostname] | default({}) }}"
         become: true
         when: "('t2' in topo) and (macsec_profile is defined)"
 

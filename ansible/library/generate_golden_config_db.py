@@ -63,7 +63,8 @@ class GenerateGoldenConfigDBModule(object):
                                     npu_index=dict(required=False, type='int', default=0),
                                     duts_list=dict(required=False, type='list', default=[]),
                                     dut_loopbacks=dict(required=False, type='dict', default={}),
-                                    console_ports=dict(required=False, type='dict', default=None)),
+                                    console_ports=dict(required=False, type='dict', default=None),
+                                    device_conn=dict(required=False, type='dict', default={})),
                                     supports_check_mode=True)
         self.topo_name = self.module.params['topo_name']
         self.port_index_map = self.module.params['port_index_map']
@@ -77,6 +78,7 @@ class GenerateGoldenConfigDBModule(object):
         self.duts_list = self.module.params['duts_list']
         self.dut_loopbacks = self.module.params['dut_loopbacks']
         self.console_ports = self.module.params['console_ports']
+        self.device_conn = self.module.params['device_conn'] or {}
 
     def generate_mgfx_golden_config_db(self):
         rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
@@ -806,6 +808,87 @@ class GenerateGoldenConfigDBModule(object):
 
         return json.dumps({'PORT': golden_config['PORT']}, indent=4)
 
+    def get_minigraph_port_table(self):
+        """
+        PORT table as `config load_minigraph` would render it. Without an
+        explicit -p, sonic-cfggen seeds PORT from the running CONFIG_DB when
+        it is reachable (portconfig.get_port_config), inheriting live state
+        such as admin_status=up on unused ports. load_minigraph renders
+        against a flushed CONFIG_DB and never sees that, so pass the
+        platform's port_config file explicitly to get the same pristine
+        render.
+        """
+        cmd = "sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data"
+        try:
+            port_config_path = device_info.get_path_to_port_config_file()
+        except Exception as e:
+            logger.warning("get_minigraph_port_table: failed to resolve port_config path, "
+                           "falling back to plain render: %s", e)
+            port_config_path = None
+        if port_config_path:
+            cmd += " -p {}".format(port_config_path)
+        rc, out, err = self.module.run_command(cmd)
+        if rc != 0:
+            logger.warning("get_minigraph_port_table: sonic-cfggen failed: %s", err)
+            return {}
+        try:
+            return json.loads(out).get('PORT', {})
+        except (TypeError, ValueError):
+            return {}
+
+    def apply_link_training_from_device_conn(self, config_str):
+        """
+        Inject per-port link_training values from device_conn (the LinkTraining
+        column of sonic_lab_links.csv) into the PORT table of the rendered
+        golden config. `config load_minigraph --override_config` replaces the
+        PORT table wholesale, so the emitted PORT table must contain every
+        port, not just the LT-tagged ones.
+        """
+        if not self.device_conn:
+            return config_str
+
+        if multi_asic.is_multi_asic():
+            logger.warning("apply_link_training_from_device_conn: multi-asic not supported, skipping")
+            return config_str
+
+        try:
+            config = json.loads(config_str) if config_str else {}
+        except (TypeError, ValueError):
+            return config_str
+
+        lt_updates = {}
+        for port_name, link in self.device_conn.items():
+            if not isinstance(link, dict):
+                continue
+            lt = link.get('linktraining')
+            if lt in ('on', 'off'):
+                lt_updates[port_name] = lt
+
+        if not lt_updates:
+            logger.info(
+                "apply_link_training_from_device_conn: no ports with "
+                "linktraining=on|off in device_conn; skipping"
+            )
+            return config_str
+
+        port_table = config.get('PORT')
+        if not port_table:
+            port_table = self.get_minigraph_port_table()
+
+        for port_name, lt in lt_updates.items():
+            if port_name in port_table:
+                port_table[port_name]['link_training'] = lt
+            else:
+                logger.warning(
+                    "apply_link_training_from_device_conn: port %s has "
+                    "linktraining=%s but is not in the PORT table; skipping", port_name, lt
+                )
+
+        if port_table:
+            config['PORT'] = port_table
+
+        return json.dumps(config, indent=4)
+
     def generate(self):
         module_msg = "Success to generate golden_config_db.json"
         # topo check
@@ -835,6 +918,8 @@ class GenerateGoldenConfigDBModule(object):
             config = self.generate_filterleaf_golden_config_db()
         else:
             config = "{}"
+
+        config = self.apply_link_training_from_device_conn(config)
 
         # update dns config
         config = self.update_dns_config(config)
