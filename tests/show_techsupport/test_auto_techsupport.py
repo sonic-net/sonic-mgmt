@@ -443,7 +443,8 @@ class TestAutoTechSupport:
             dummy_file_generator = create_techsupport_stub_file if test_mode == 'techsupport' else create_core_stub_file
             dummy_files_list = []
             for stub_file in range(num_of_dummy_files):
-                dummy_files_list.append(dummy_file_generator(self.duthost, size_in_mb=expected_file_size_in_mb))
+                dummy_files_list.append(dummy_file_generator(self.duthost, size_in_mb=expected_file_size_in_mb,
+                                                             index=stub_file))
 
         try:
             # Test techsupport command with --since option to limit the dump size
@@ -1189,35 +1190,37 @@ def get_used_space(duthost, path_to_file_folder):
     return used_by_folder_mb
 
 
-def create_techsupport_stub_file(duthost, size_in_mb):
+def create_techsupport_stub_file(duthost, size_in_mb, index=0):
     """
     Create stub file in /var/dump folder
     :param duthost: duthost object
     :param size_in_mb: size of file in mb
+    :param index: unique suffix, prevents name collisions between files created in the same second
     :return: name of file
     """
     with allure.step('Create stub techsupport file'):
         hostname = duthost.shell('hostname')['stdout']
         current_time = duthost.shell('date +%Y%m%d_%H%M%S')['stdout']
         dump_folder_path = '/var/dump/'
-        file_name = 'sonic_dump_{}_{}.tar.gz'.format(hostname, current_time)
+        file_name = 'sonic_dump_{}_{}_{}.tar.gz'.format(hostname, current_time, index)
         full_path_to_file = '{}{}'.format(dump_folder_path, file_name)
         create_stub_file(duthost, full_path_to_file, size_in_mb)
 
     return file_name
 
 
-def create_core_stub_file(duthost, size_in_mb):
+def create_core_stub_file(duthost, size_in_mb, index=0):
     """
     Create stub file in /var/core folder
     :param duthost: duthost object
     :param size_in_mb: size of file in mb
+    :param index: unique suffix, prevents name collisions between files created in the same second
     :return: name of file
     """
     with allure.step('Create stub .core file'):
         current_time = int(time.time())
         random_pid = random.choice(list(range(100, 20000)))  # Get random PID
-        file_name = 'bash.{}.{}.core.gz'.format(current_time, random_pid)
+        file_name = 'bash.{}.{}_{}.core.gz'.format(current_time, random_pid, index)
         core_folder_path = '/var/core/'
         full_path_to_file = '{}{}'.format(core_folder_path, file_name)
         create_stub_file(duthost, full_path_to_file, size_in_mb)
