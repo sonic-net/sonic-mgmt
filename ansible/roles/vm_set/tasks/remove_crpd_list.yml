@@ -1,0 +1,2 @@
+- include_tasks: remove_crpd.yml
+  with_items: "{{ VM_targets }}"
