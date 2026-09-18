@@ -432,17 +432,6 @@ memory_checker/test_memory_checker.py::test_monit_reset_counter_failure:
       - "asic_type in ['vpp']"
 
 #######################################
-#####           MPLS              #####
-#######################################
-mpls/test_mpls.py:
-  skip:
-    reason: >
-            Unsupported
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-#######################################
 #####           NTP               #####
 #######################################
 ntp/test_ntp.py::test_ntp:

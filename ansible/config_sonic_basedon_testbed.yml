@@ -942,6 +942,7 @@
           console_ports: "{{ device_serial_link[inventory_hostname] | default(omit) if 'c0' in topo else omit }}"
           enabled_dpu_indices: "{{ (testbed_facts.enabled_dpus[inventory_hostname] | map(attribute='dpu_index') | list) if (testbed_facts.enabled_dpus is defined and inventory_hostname in testbed_facts.enabled_dpus) else omit }}"
           lacp_fast_rate: "{{ lacp_fast_rate | default(false) }}"
+          device_conn: "{{ device_conn[inventory_hostname] | default({}) }}"
         become: true
         when: enable_macsec is not defined and init_cfg_profile is not defined
 
@@ -964,6 +965,7 @@
           num_asics: "{{ num_asics }}"
           bgp_confd_asn: "{{ bgp_confd_asn }}"
           bgp_confd_peers: "{{ bgp_confd_peers }}"
+          device_conn: "{{ device_conn[inventory_hostname] | default({}) }}"
         become: true
         when: "('t2' in topo) and (enable_macsec is defined)"
 
