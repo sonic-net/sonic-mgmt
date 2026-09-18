@@ -824,6 +824,16 @@ t0-vpp:
   - pc/test_lag_member_forwarding.py
   - pc/test_po_cleanup.py
   - pc/test_po_update.py
+  - route/test_default_route.py
+  - route/test_duplicate_route.py
+  - route/test_forced_mgmt_route.py
+  - route/test_route_bgp_ecmp.py
+  - route/test_route_consistency.py
+  - route/test_route_flap.py
+  - route/test_route_flow_counter.py
+  - route/test_route_map_check.py
+  - route/test_route_perf.py
+  - route/test_static_route.py
   - span/test_port_mirroring.py
   - vlan/test_autostate_disabled.py
   - vlan/test_host_vlan.py
