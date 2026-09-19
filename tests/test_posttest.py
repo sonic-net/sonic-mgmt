@@ -82,26 +82,36 @@ def test_collect_ptf_logs(ptfhost):
 
 def test_collect_dualtor_logs(request, vmhost, tbinfo, active_active_ports, active_standby_ports):
     """
-    Collect mux/nic simulator logs after test to local logs/server folder.
+    Collect mux/nic simulator logs after test to the local logs folder.
     """
     if 'dualtor' not in tbinfo['topo']['name']:
         return
-    if not os.path.exists("logs/server"):
-        os.makedirs("logs/server")
+    if not os.path.exists("logs"):
+        os.makedirs("logs")
 
-    log_name = None
+    log_names = []
     if active_standby_ports:
         server = tbinfo['server']
         tbname = tbinfo['conf-name']
         inv_files = utilities.get_inventory_files(request)
         http_port = utilities.get_group_visible_vars(inv_files, server).get('mux_simulator_http_port')[tbname]
-        log_name = '/tmp/mux_simulator_{}.log*'.format(http_port)
-    elif active_active_ports:
+        log_names.append('/tmp/mux_simulator_{}.log*'.format(http_port))
+    if active_active_ports:
         vm_set = tbinfo['group-name']
-        log_name = "/tmp/nic_simulator_{}.log*".format(vm_set)
+        log_names.append("/tmp/nic_simulator_{}.log*".format(vm_set))
 
-    if log_name:
-        log_files = vmhost.shell('ls {}'.format(log_name))['stdout'].split()
+    for log_name in log_names:
+        result = vmhost.shell('ls {}'.format(log_name), module_ignore_errors=True)
+        log_files = result.get('stdout', '').split()
         for log_file in log_files:
-            vmhost.fetch(src=log_file, dest="logs/server", fail_on_missing=False)
+            local_log_file = os.path.join(
+                "logs",
+                "dualtor_simulator_metrics_{}".format(os.path.basename(log_file))
+            )
+            vmhost.fetch(
+                src=log_file,
+                dest=local_log_file,
+                flat=True,
+                fail_on_missing=False
+            )
             vmhost.shell("rm -f {}".format(log_file))
