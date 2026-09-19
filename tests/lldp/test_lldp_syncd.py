@@ -581,9 +581,12 @@ def test_lldp_entry_table_after_all_batched_flap(
     lldpctl_lookup_map = _build_lldpctl_lookup_map(lldpctl_interfaces)
     for asic_str, asic_interfaces in asic_interface_map.items():
         logger.info("Flapping interfaces: {}".format(asic_interfaces))
-        # Interface range shutdown/startup is not supported in multi-asic platforms.
-        for interface in asic_interfaces:
-            _shutdown_startup_interface(duthost, interface, asic_str)
+        if duthost.is_multi_asic:
+            # Interface range shutdown/startup is not supported in multi-asic platforms.
+            for interface in asic_interfaces:
+                _shutdown_startup_interface(duthost, interface, asic_str)
+        else:
+            _shutdown_startup_interface(duthost, ",".join(asic_interfaces), asic_str)
     # Single wait_until call checking all interfaces together
     _verify_interface_lldp_recovery(db_instance, testable_interfaces, lldpctl_lookup_map, delay=10)
 
