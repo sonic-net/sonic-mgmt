@@ -240,14 +240,14 @@ def get_ptf_crl_server_ip(duthost, ptfhost):
         return ptfhost.mgmt_ip
 
 
-def create_revoked_cert_and_crl(localhost, ptfhost, duthost=None):
+def create_revoked_cert_and_crl(localhost, ptfhost, duthost):
     create_client_key(localhost, revoke=True)
 
     create_client_csr(localhost, revoke=True)
 
     # Sign client certificate
     # Get appropriate PTF IP address based on DUT management IP type
-    ptf_ip = get_ptf_crl_server_ip(duthost, ptfhost) if duthost else ptfhost.mgmt_ip
+    ptf_ip = get_ptf_crl_server_ip(duthost, ptfhost)
     crl_url = "http://{}:1234/crl".format(ptf_ip)
     create_ca_conf(crl_url, "crlext.cnf")
     sign_client_certificate(localhost, revoke=True, extension_file="crlext.cnf")
@@ -302,7 +302,7 @@ def create_gnmi_certs(duthost, localhost, ptfhost, dut_ip=None):
     prepare_root_cert(localhost)
     prepare_server_cert(duthost, localhost, dut_ip=dut_ip)
     prepare_client_cert(localhost)
-    create_revoked_cert_and_crl(localhost, ptfhost)
+    create_revoked_cert_and_crl(localhost, ptfhost, duthost)
     copy_certificate_to_dut(duthost)
     copy_certificate_to_ptf(ptfhost)
 
