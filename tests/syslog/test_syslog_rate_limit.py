@@ -34,7 +34,9 @@ LOG_EXPECT_LAST_MESSAGE = '.*{}rate-limit-test: This is a test log:.*'
 #   - "N messages lost due to rate-limiting (M allowed within K seconds)"  (logged as summary)
 # Both indicate that rate limiting is working. The exact form and frequency are
 # rsyslogd-version-dependent, so only a presence check is performed (not an exact count).
-LOG_EXPECT_SYSLOG_RATE_LIMIT_REACHED = r'.*(?:begin to drop messages|messages lost) due to rate-limiting.*'
+LOG_EXPECT_SYSLOG_RATE_LIMIT_REACHED = (
+    r'.*imuxsock.*name: python.*(?:begin to drop messages|messages lost) due to rate-limiting.*'
+)
 
 pytestmark = [
     pytest.mark.topology("any")
