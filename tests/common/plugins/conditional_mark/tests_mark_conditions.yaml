@@ -171,12 +171,6 @@ arp/:
     conditions:
       - "'bmc' in topo_type"
 
-arp/test_arp_dualtor.py::test_proxy_arp_for_standby_neighbor:
-  skip:
-    reason: "`accept_untracked_na` currently only available in 202012"
-    conditions:
-      - "release not in ['202012']"
-
 arp/test_arp_dualtor.py::test_standby_unsolicited_neigh_learning[IPv4-active-standby]:
   skip:
     reason: "This testcase has low passing rate in KVM PR test, skip with issue to unblock PR test."
