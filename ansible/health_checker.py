@@ -40,6 +40,58 @@ def get_testbeds_dict():
     return testbeds_dict
 
 
+def _get_admin_down_dpu_hostnames(tbinfo):
+    """Return the set of DPU hostnames administratively down for a testbed.
+
+    Mirrors ``tests.common.helpers.dut_utils.get_admin_down_dpu_hostnames`` but
+    kept self-contained so this ansible-side script has no dependency on the
+    pytest tree.
+
+    A DPU hostname has the form ``<npu_hostname>-dpu-<index>``. The testbed.yaml
+    ``enabled_dpus`` mapping lists the DPU indices that should be admin-up for
+    each NPU; any DPU index missing from that list is treated as admin-down.
+
+    If ``enabled_dpus`` is absent for the testbed, returns an empty set
+    (legacy behavior).
+    """
+    admin_down = set()
+    if not tbinfo:
+        return admin_down
+
+    enabled_dpus = tbinfo.get('enabled_dpus')
+    if not enabled_dpus:
+        return admin_down
+
+    duts = tbinfo.get('duts', []) or []
+    for npu_host, dpu_entries in enabled_dpus.items():
+        enabled_indices = set()
+        for entry in (dpu_entries or []):
+            if isinstance(entry, dict) and 'dpu_index' in entry:
+                try:
+                    enabled_indices.add(int(entry['dpu_index']))
+                except (TypeError, ValueError):
+                    continue
+            else:
+                try:
+                    enabled_indices.add(int(entry))
+                except (TypeError, ValueError):
+                    continue
+
+        prefix = "{}-dpu-".format(npu_host)
+        for dut in duts:
+            if not dut.startswith(prefix):
+                continue
+            suffix = dut[len(prefix):]
+            try:
+                idx = int(suffix)
+            except ValueError:
+                continue
+            if idx not in enabled_indices:
+                admin_down.add(dut)
+
+    return admin_down
+
+
 def get_server_host(inventory_files, server):
     if not has_ansible:
         raise Exception("Ansible is needed for this module")
@@ -79,7 +131,16 @@ def parse_ping_result(ping_dict, testbeds_dict, skip_testbeds):
     """
     final_results = []
     for testbed_name, tbinfo in testbeds_dict.items():
+        admin_down_dpus = _get_admin_down_dpu_hostnames(tbinfo)
         for duthost in tbinfo['duts']:
+            # Skip DPU hostnames that are administratively down per testbed.yaml
+            # `enabled_dpus` mapping. These DPUs are intentionally offline and
+            # should not affect testbed health reporting.
+            if duthost in admin_down_dpus:
+                logging.debug(
+                    "Skipping admin-down DPU %s in testbed %s",
+                    duthost, testbed_name)
+                continue
             device_result = {}
             # skip defined testbeds
             if skip_testbeds and skip_testbeds != '' and testbed_name in skip_testbeds:
