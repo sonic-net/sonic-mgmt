@@ -79,6 +79,7 @@ SINGLE_TOR_MODE = 'single'
 CLIENT_VRF_NAME = "Vrf01"   # Global macro for Client VRF
 MAX_HOP_COUNT = 16
 CONFIG_HOP_COUNT = 2
+DOWNSTREAM_RELAY_IP = '192.0.2.1'  # TEST-NET-1; synthetic downstream relay
 
 logger = logging.getLogger(__name__)
 
@@ -855,13 +856,21 @@ def test_dhcp_relay_with_different_non_default_vrf(
         duthost.shell("sudo config save -y")
 
 
-@pytest.mark.parametrize("max_hop_count", [CONFIG_HOP_COUNT, MAX_HOP_COUNT])
+@pytest.mark.parametrize(
+    "max_hop_count,incoming_hop_count,expected_forward",
+    [
+        (CONFIG_HOP_COUNT, 1, True),
+        (CONFIG_HOP_COUNT, CONFIG_HOP_COUNT, False),
+        (MAX_HOP_COUNT, MAX_HOP_COUNT - 1, True),
+        (MAX_HOP_COUNT, MAX_HOP_COUNT, False),
+    ]
+)
 def test_dhcp_max_hop_count(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
                             setup_standby_ports_on_rand_unselected_tor,
                             rand_unselected_dut,
                             toggle_all_simulator_ports_to_rand_selected_tor_m, relay_agent,    # noqa: F811
-                            max_hop_count):
-
+                            max_hop_count, incoming_hop_count, expected_forward):
+    """Verify configured hop limits distinguish forwarding from dropping."""
     testing_mode, duthost = testing_config
 
     try:
@@ -901,9 +910,12 @@ def test_dhcp_max_hop_count(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
                     "relay_agent": relay_agent,
                     "agent_relay_mode": "append",
                     "max_hop_count": max_hop_count,
+                    "incoming_hop_count": incoming_hop_count,
+                    "client_giaddr": DOWNSTREAM_RELAY_IP,
+                    "expected_forward": expected_forward,
                     "downlink_vlan_iface_name": str(dhcp_relay['downlink_vlan_iface']['name']),
                 },
-                log_file="/tmp/test_dhcp_relay_agent_mode.log",
+                log_file="/tmp/test_dhcp_max_hop_count.log",
                 is_python3=True
             )
 
