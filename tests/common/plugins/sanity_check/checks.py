@@ -853,7 +853,7 @@ def check_monit(duthosts):
 
         logger.info("Checking status of each Monit service...")
         networking_uptime = dut.get_networking_uptime().seconds
-        timeout = max((MONIT_STABILIZE_MAX_TIME - networking_uptime), 0)
+        timeout = max((MONIT_STABILIZE_MAX_TIME - networking_uptime), MIN_PROCESS_CHECK_TIMEOUT)
         interval = 20
         logger.info("networking_uptime = {} seconds, timeout = {} seconds, interval = {} seconds"
                     .format(networking_uptime, timeout, interval))
