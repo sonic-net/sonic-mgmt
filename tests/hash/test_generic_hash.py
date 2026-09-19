@@ -694,6 +694,21 @@ def test_reboot(rand_selected_dut, tbinfo, ptfhost, localhost, fine_params, mg_f
     """
     ecmp_algorithm, ecmp_test_hash_field, ipver, inner_ipver, encap_type = fine_params.split('-')
     skip_unsupported_field_for_ecmp_test(ecmp_test_hash_field, encap_type)
+    # Defensive fallback for VS/KVM. The primary guard is at the parametrization
+    # level in get_reboot_type_from_option(), which restricts VS to 'reload' so
+    # cold/warm/fast are never collected (see VS_SUPPORTED_REBOOT_TYPES and #23637).
+    # This inline check stays as a belt-and-suspenders safety net in case a
+    # cold/warm/fast parametrization ever reaches this test on VS (e.g. a future
+    # refactor of the reboot-type selection): on VS/KVM those reboots take 5-8
+    # minutes each and, combined with hash configuration and two PTF traffic runs,
+    # easily exceed the 20-minute per-module timeout enforced by Elastictest.
+    # Config reload exercises the CONFIG_DB save/restore path that hash persistence
+    # depends on, but not SAI warm-restart semantics; that's acceptable on VS
+    # because the virtual switch does not model hardware warm-boot anyway. On real
+    # hardware all reboot types (cold/warm/fast/reload) still run as before.
+    if rand_selected_dut.facts['asic_type'] == 'vs' and reboot_type != 'reload':
+        pytest.skip("Skipping {} reboot on VS/KVM to avoid module timeout; "
+                    "config reload covers hash persistence validation.".format(reboot_type))
     with allure.step('Randomly select an ecmp hash field to test '
                      'and configure all supported fields to the global ecmp and lag hash'):
         config_all_hash_fields(rand_selected_dut, global_hash_capabilities)
