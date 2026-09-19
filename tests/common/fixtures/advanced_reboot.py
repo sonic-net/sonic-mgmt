@@ -723,6 +723,13 @@ class AdvancedReboot:
         test_results = []
 
         for hop_index, _ in enumerate(upgrade_path_urls[1:], start=1):
+            # The finally block below dereferences all three of these, but each is only assigned
+            # partway through the try block. Reset them per hop so an early failure (e.g. in
+            # pre_hop_setup) reports the real exception instead of an UnboundLocalError, and so a
+            # failed hop never reuses the previous hop's marker/counters.
+            post_reboot_analysis = None
+            marker = None
+            event_counters = None
             upgrade_path_str = "{from_image} -> {to_image} (hop {hop_index})".format(
                 hop_index=hop_index, from_image=upgrade_path_urls[hop_index-1], to_image=upgrade_path_urls[hop_index])
             try:
@@ -785,7 +792,7 @@ class AdvancedReboot:
                 log_dst_suffix = "{0}-hop{1}".format(rebootOper, hop_index) if rebootOper else "hop{}".format(hop_index)
                 log_dir = self.__fetchTestLogs(rebootOper, log_dst_suffix=log_dst_suffix)
                 self.print_test_logs_summary(log_dir)
-                if multihop_advanceboot_loganalyzer_factory and post_reboot_analysis:
+                if multihop_advanceboot_loganalyzer_factory and post_reboot_analysis and event_counters:
                     verification_errors = post_reboot_analysis(marker, event_counters=event_counters,
                                                                reboot_oper=rebootOper, log_dir=log_dir)
                     if verification_errors:
