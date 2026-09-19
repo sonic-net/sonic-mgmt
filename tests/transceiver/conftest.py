@@ -428,53 +428,6 @@ def lport_to_first_subport_mapping(duthost):
     return get_lport_to_first_subport_mapping(duthost)
 
 
-def _build_lport_mapping_loader(
-    duthost,
-    duthosts,
-    lport_to_first_subport_mapping,
-):
-    """Build the cached per-DUT logical-to-primary-subport loader."""
-    mappings_by_dut = {duthost.hostname: lport_to_first_subport_mapping}
-    hosts_by_name = {host.hostname: host for host in duthosts}
-    hosts_by_name[duthost.hostname] = duthost
-
-    def _load(hostname):
-        if hostname in mappings_by_dut:
-            return mappings_by_dut[hostname], None
-        host = hosts_by_name.get(hostname)
-        if host is None:
-            return None, "DUT host is unavailable"
-        try:
-            mapping = get_lport_to_first_subport_mapping(host)
-        except Exception as error:
-            return None, "failed loading logical-port mapping: {}".format(error)
-        if mapping is None:
-            return None, "logical-port mapping is unavailable"
-        mappings_by_dut[hostname] = mapping
-        logger.info(
-            "Loaded logical-port mapping for peer DUT %s: %d port(s)",
-            hostname,
-            len(mapping),
-        )
-        return mapping, None
-
-    return _load
-
-
-@pytest.fixture(scope="session")
-def lport_to_first_subport_mapping_for_dut(
-    duthost,
-    duthosts,
-    lport_to_first_subport_mapping,
-):
-    """Return a cached loader for an actually used DUT's port mapping."""
-    return _build_lport_mapping_loader(
-        duthost,
-        duthosts,
-        lport_to_first_subport_mapping,
-    )
-
-
 # ──────────────────────────────────────────────────────────────────────
 # Session-scoped prerequisite fixtures (gates).
 # These are session-scoped (computed once per session) but NOT autouse —

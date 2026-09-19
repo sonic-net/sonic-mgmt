@@ -3,7 +3,10 @@ from collections import namedtuple
 
 import pytest
 
-from tests.common.platform.interface_utils import get_dev_conn
+from tests.common.platform.interface_utils import (
+    get_dev_conn,
+    get_lport_to_first_subport_mapping,
+)
 
 
 PeerInfo = namedtuple("PeerInfo", ("host", "device", "port", "primary_port"))
@@ -14,7 +17,6 @@ def resolve_remote_peer(
     duthosts,
     conn_graph_facts,
     local_port,
-    lport_to_first_subport_mapping_for_dut,
 ):
     """Return ``(PeerInfo, error)`` for a port's connection-graph peer."""
     try:
@@ -64,15 +66,23 @@ def resolve_remote_peer(
                 )
             )
 
-    peer_mapping, mapping_error = lport_to_first_subport_mapping_for_dut(
-        peer_device,
-    )
-    if mapping_error:
+    try:
+        peer_mapping = get_lport_to_first_subport_mapping(peer_host)
+    except Exception as error:
         return None, "{} peer device {} mapping failed: {}".format(
             local_port,
             peer_device,
-            mapping_error,
+            error,
         )
-    peer_primary = peer_mapping.get(peer_port, peer_port)
+    if peer_port not in peer_mapping:
+        return None, (
+            "{} peer port {}:{} is missing from that DUT's logical-port "
+            "mapping".format(
+                local_port,
+                peer_device,
+                peer_port,
+            )
+        )
+    peer_primary = peer_mapping[peer_port]
 
     return PeerInfo(peer_host, peer_device, peer_port, peer_primary), None
