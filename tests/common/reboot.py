@@ -25,6 +25,7 @@ power_on_event = threading.Event()
 # SSH defines
 SONIC_SSH_PORT = 22
 SONIC_SSH_REGEX = 'OpenSSH_[\\w\\.]+ Debian'
+ANSIBLE_READY_INTERVAL = 10
 
 REBOOT_TYPE_WARM = "warm"
 REBOOT_TYPE_SAI_WARM = "sai-warm"
@@ -225,7 +226,8 @@ def wait_for_shutdown(duthost, localhost, delay, timeout, reboot_res=None):
         raise Exception('DUT {} did not shutdown'.format(hostname))
 
 
-def wait_for_startup(duthost, localhost, delay, timeout, port=SONIC_SSH_PORT):
+def wait_for_startup(duthost, localhost, delay, timeout, port=SONIC_SSH_PORT,
+                     wait_for_ansible=True):
     # TODO: add serial output during reboot for better debuggability
     #       This feature requires serial information to be present in
     #       testbed information
@@ -247,6 +249,25 @@ def wait_for_startup(duthost, localhost, delay, timeout, port=SONIC_SSH_PORT):
             raise Exception(f'DUT {hostname} did not startup at first try. res: {res}')
 
     logger.info('ssh has started up on {}'.format(hostname))
+
+    # The DUT may use a different Python interpreter after reboot.
+    # Clear cached Ansible facts before any subsequent module execution.
+    duthost.meta("clear_facts")
+
+    if not wait_for_ansible:
+        return
+
+    logger.info('waiting for Ansible commands to become ready on {}'.format(hostname))
+
+    def is_ansible_ready():
+        result = duthost.command("true", module_ignore_errors=True)
+        return result.is_successful
+
+    if not wait_until(timeout, ANSIBLE_READY_INTERVAL, 0, is_ansible_ready):
+        raise Exception(
+            "DUT {} did not become ready for Ansible commands after SSH startup".format(hostname)
+        )
+    logger.info('Ansible commands are ready on {}'.format(hostname))
 
 
 def perform_reboot(duthost, pool, reboot_command, reboot_helper=None, reboot_kwargs=None, reboot_type='cold',
@@ -463,20 +484,14 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
         return
 
     try:
-        wait_for_startup(duthost, localhost, delay, timeout)
+        wait_for_startup(
+            duthost, localhost, delay, timeout, wait_for_ansible=not return_after_reconnect)
     except Exception as err:
         if console_obj:
             console_obj.disconnect()
             logger.info('end: collect console log')
         pool.terminate()
         raise Exception(f"dut not start: {err}")
-
-    # NOTE: That once our device is back up it may be running a different version of SONiC/Debian
-    # than before which may include a different version of python. Therefore, to prevent python
-    # interpreter not found issues in subsequent Ansible modules as a result of using the
-    # pre-reboot cached interpreter value, we need to clear the cached facts so that they are
-    # re-gathered on next use.
-    duthost.meta("clear_facts")
 
     if return_after_reconnect:
         return
@@ -861,7 +876,10 @@ def ssh_connection_with_retry(localhost, host_ip, port, delay, timeout):
     short_timeout = 40
     short_delay = 10
     params_to_update_list = [{}, {'search_regex': None, 'timeout': short_timeout, 'delay': short_delay}]
-    for num_try, params_to_update in enumerate(params_to_update_list):
+    is_ssh_connected = False
+    ssh_retry_res = None
+    num_tries = 0
+    for num_tries, params_to_update in enumerate(params_to_update_list, start=1):
         iter_connection_params = default_connection_params.copy()
         iter_connection_params.update(params_to_update)
         logger.info(f"Checking ssh connection using the following params: {iter_connection_params}")
@@ -879,7 +897,6 @@ def ssh_connection_with_retry(localhost, host_ip, port, delay, timeout):
             logger.info("Ping to dut was successful")
         else:
             logger.info("Ping to dut failed")
-    num_tries = num_try + 1
     return is_ssh_connected, ssh_retry_res, num_tries
 
 
