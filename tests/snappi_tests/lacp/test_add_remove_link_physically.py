@@ -53,6 +53,7 @@ def test_lacp_add_remove_link_physically(snappi_api,                   # noqa: F
         lacpdu_timeout: LACP Timeout value (0 - Auto, 3 - Short, 90 - Long)
     """
     # port_count, number_of_routes ,iterations and port_speed parameters can be modified as per user preference
+    port_count = min(port_count, len(tgen_ports))
     run_lacp_add_remove_link_physically(snappi_api,
                                         duthost,
                                         tgen_ports,
