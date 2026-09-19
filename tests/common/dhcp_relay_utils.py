@@ -59,15 +59,18 @@ def _validate_relay_types(caller, relay_types):
     if not relay_types:
         raise ValueError("%s: relay_types must be a non-empty iterable" % caller)
     relay_types = list(relay_types)
-    valid = {'isc', 'isc-internal', 'sonic', 'v6', 'orchestrator'}
+    valid = {'isc', 'isc-internal', 'isc-internal-idle', 'sonic', 'v6'}
     bad = [t for t in relay_types if t not in valid]
     if bad:
         raise ValueError("%s: invalid relay_types %s; allowed %s"
                          % (caller, bad, sorted(valid)))
-    v4_modes = [t for t in relay_types if t in {'isc', 'isc-internal', 'sonic'}]
+    v4_modes = [
+        t for t in relay_types
+        if t in {'isc', 'isc-internal', 'isc-internal-idle', 'sonic'}
+    ]
     if len(v4_modes) > 1:
         raise ValueError(
-            "%s: at most one of {'isc', 'isc-internal', 'sonic'} "
+            "%s: at most one of {'isc', 'isc-internal', 'isc-internal-idle', 'sonic'} "
             "may be requested per call (mutually exclusive in the relay container); got %s"
             % (caller, v4_modes))
     return relay_types
@@ -85,6 +88,8 @@ def restart_dhcp_service(duthost, relay_types):
                             - every dhcpmon-<Vlan> supervisord entry (paired
                               1:1 with the isc helpers via
                               dhcp-relay.monitors.j2)
+                            - the supervisor-owned `dhcp4relay` entry is
+                              STOPPED or absent
                           Notes:
                             - The expected per-Vlan entries are read from
                               supervisord at poll time (parsed from
@@ -97,39 +102,45 @@ def restart_dhcp_service(duthost, relay_types):
                               we wait on.
                             - If no Vlan has v4 dhcp_servers defined, the
                               matching set of isc-dhcpv4-relay-<Vlan> /
-                              dhcpmon-<Vlan> entries is empty, the loops
-                              iterate over nothing, and the 'isc' check
-                              passes immediately. This is intentional:
-                              there is genuinely nothing to wait for.
+                              dhcpmon-<Vlan> entries is empty. Readiness then
+                              requires no stale `dhcrelay` process.
 
         'isc-internal' -> mx internal mode. dhcprelayd consolidates v4 relay
                           into a single `dhcrelay -iu docker0 ...` proc
                           (not a supervisord entry).
                           Required:
-                            - exactly one such dhcrelay proc
+                            - exactly one `dhcrelay` process, which includes
+                              -iu docker0
+                            - external ISC and supervisor-owned SONiC v4 relay
+                              entries are STOPPED or absent
                           Not checked:
-                            - isc-dhcpv4-relay-<Vlan> supervisord entries
-                              (stay STOPPED by design in this mode)
-                            - dhcpmon-<Vlan> supervisord entries (also stay
-                              STOPPED today: dhcpmon does not yet support
-                              the mx/isc-internal layout, so when dhcprelayd
-                              takes over the v4 relay it does not (re)spawn
-                              dhcpmon)
-                          TODO: extend this check once dhcpmon supports the
-                          mx/isc-internal layout (when a single dhcpmon can
-                          monitor the consolidated `dhcrelay -iu docker0`
-                          proc); at that point we should require dhcpmon
-                          RUNNING here too, mirroring the 'isc' check.
+                            - dhcpmon-<Vlan> entries; monitor lifecycle is
+                              orthogonal to the active IPv4 relay mode
+
+        'isc-internal-idle'
+                        -> mx internal ISC mode with no enabled local DHCP
+                           server interface. dhcprelayd stops the external ISC
+                           relay entries and starts no dynamic `dhcrelay`.
+                           Required:
+                             - no `dhcrelay` process exists
+                             - every `isc-dhcpv4-relay-*` supervisor entry is
+                               STOPPED or absent
+                             - the supervisor-owned `dhcp4relay` entry is
+                               STOPPED or absent
+                           Not checked:
+                             - dhcpmon-<Vlan> entries; monitor lifecycle is
+                               orthogonal to the idle IPv4 relay mode
 
         'sonic'        -> Consolidated v4 relay layout
                           (dockers/docker-dhcp-relay/dhcpv4-sonic-relay.agents.j2).
-                          One `/usr/sbin/dhcp4relay` proc handles all v4 VLANs.
-                          Required RUNNING:
-                            - the single `dhcp4relay` supervisord entry
+                          The SONiC DHCPv4 relay flag renders and starts the
+                          `dhcp4relay` supervisor program even when no
+                          DHCPV4_RELAY server configuration exists.
+                          Required:
+                            - the `dhcp4relay` supervisord entry is RUNNING
                           Not checked:
-                            - dhcpmon-<Vlan> supervisord entries (dhcp4relay
-                              publishes its own counters, so per-Vlan dhcpmon
-                              is not part of this layout)
+                            - dhcpmon-<Vlan> supervisord entries; monitor
+                              lifecycle is orthogonal to the active v4 relay
 
         'v6'           -> IPv6 relay.
                           Required RUNNING:
@@ -141,17 +152,12 @@ def restart_dhcp_service(duthost, relay_types):
                               dhcpmon-<Vlan> check above.
                           TODO: revisit when dhcpv6mon ships.
 
-        'orchestrator' -> Only the dhcprelayd orchestrator is required RUNNING.
-                          Use after dhcp_server teardown or when the relay
-                          container has no v4/v6 helper programs in supervisord
-                          (e.g. multi_vlan tests that reshape VLAN relay layout).
-
     The orchestrator (`dhcprelayd`) is always required RUNNING. There is intentionally
     no default; each caller must declare which agent(s) it expects to be active.
 
-    At most one of {'isc', 'isc-internal', 'sonic'} may appear in relay_types: the
-    container layout makes them mutually exclusive (driven by has_sonic_dhcpv4_relay
-    + mx internal mode), so any combination is unsatisfiable and is rejected up front.
+    At most one IPv4 mode may appear in relay_types: the container layout makes
+    them mutually exclusive, so any combination is unsatisfiable and is rejected
+    up front.
     """
     relay_types = _validate_relay_types('restart_dhcp_service', relay_types)
 
@@ -173,8 +179,6 @@ def wait_dhcp_relay_ready(duthost, relay_types):
     """
     relay_types = _validate_relay_types('wait_dhcp_relay_ready', relay_types)
 
-    last_state = {'states': {}, 'internal_procs': []}
-
     def _supervisor_status_map():
         # supervisorctl returns rc != 0 if ANY entry is not RUNNING (e.g. the one-shot
         # 'start' / 'dependent-startup' entries are EXITED by design). Ignore the rc and
@@ -191,11 +195,22 @@ def wait_dhcp_relay_ready(duthost, relay_types):
 
     def _is_dhcp_relay_ready():
         states = _supervisor_status_map()
-        last_state['states'] = states
         if states.get('dhcprelayd') != 'RUNNING':
             return False
         if 'v6' in relay_types and states.get('dhcp6relay') != 'RUNNING':
             return False
+        v4_modes = {'isc', 'isc-internal', 'isc-internal-idle', 'sonic'}
+        if any(mode in relay_types for mode in v4_modes):
+            isc_relay_processes = duthost.shell(
+                "docker exec dhcp_relay sh -c "
+                "'pgrep -a -x dhcrelay || [ $? -eq 1 ]'"
+            )['stdout_lines']
+
+        isc_supervisor_states = [
+            state for name, state in states.items()
+            if name.startswith('isc-dhcpv4-relay-')
+        ]
+
         if 'isc' in relay_types:
             # Drive from supervisord's actual layout: every isc-dhcpv4-relay-*
             # entry currently present must be RUNNING. If none are present,
@@ -207,29 +222,42 @@ def wait_dhcp_relay_ready(duthost, relay_types):
                     return False
             # Same layout-driven rule for dhcpmon-Vlan*: each entry is paired
             # 1:1 with isc-dhcpv4-relay-<Vlan> in the same supervisord conf
-            # and must be RUNNING. Intentionally NOT checked in 'isc-internal'
-            # / 'sonic' / 'v6' modes - see the docstring for the per-mode
-            # rationale (and the v6 TODO for the upcoming dhcpv6mon).
+            # and must be RUNNING. Intentionally NOT checked in internal,
+            # SONiC, or v6-only modes; see the per-mode docstrings.
             for name, state in states.items():
                 if name.startswith('dhcpmon-') and state != 'RUNNING':
                     return False
+            if not isc_supervisor_states and isc_relay_processes:
+                return False
+            if any('-iu docker0' in process for process in isc_relay_processes):
+                return False
+            if states.get('dhcp4relay') not in (None, 'STOPPED'):
+                return False
         if 'isc-internal' in relay_types:
-            internal = duthost.shell(
-                "docker exec dhcp_relay pgrep -af '/usr/sbin/dhcrelay.*-iu docker0' || true"
-            )['stdout_lines']
-            internal = [line for line in internal if line.strip()]
-            last_state['internal_procs'] = internal
-            if len(internal) != 1:
+            if len(isc_relay_processes) != 1 or '-iu docker0' not in isc_relay_processes[0]:
+                return False
+            if any(state != 'STOPPED' for state in isc_supervisor_states):
+                return False
+            if states.get('dhcp4relay') not in (None, 'STOPPED'):
+                return False
+        if 'isc-internal-idle' in relay_types:
+            if isc_relay_processes:
+                return False
+            if any(state != 'STOPPED' for state in isc_supervisor_states):
+                return False
+            if states.get('dhcp4relay') not in (None, 'STOPPED'):
                 return False
         if 'sonic' in relay_types:
+            if isc_relay_processes:
+                return False
             if states.get('dhcp4relay') != 'RUNNING':
                 return False
         return True
 
     pytest_assert(
-        wait_until(240, 5, 10, _is_dhcp_relay_ready),
-        "dhcp_relay is not ready (relay_types=%s last_supervisor_states=%s isc_internal_procs=%s)"
-        % (relay_types, last_state['states'], last_state['internal_procs']))
+        wait_until(240, 5, 0, _is_dhcp_relay_ready),
+        "dhcp_relay is not ready (relay_types=%s)" % relay_types
+    )
 
 
 def init_dhcpmon_counters(duthost, is_v6=False):
@@ -582,28 +610,9 @@ def merge_counters(source_counter, merge_counter, is_v6=False):
                                                                     merge_counter.get(dir, {}).get(dhcp_type, 0)
 
 
-def _dhcp_server_feature_enabled(duthost):
-    features_state, _ = duthost.get_feature_status()
-    return 'enabled' in features_state.get('dhcp_server', '')
-
-
-def _relay_types_after_sonic_disable(duthost):
+def sonic_dhcpv4_flag_config_and_unconfig(duthost, dhcpv4_config_flag, relay_type):
     """
-    Readiness contract after removing has_sonic_dhcpv4_relay.
-
-    When the dhcp_server feature is enabled, dhcprelayd keeps supervisord
-    isc-dhcpv4-relay-* / dhcpmon-* STOPPED and manages v4 relay itself (or
-    none at all once DHCP_SERVER_IPV4 config is cleaned). Waiting for
-    relay_types=['isc'] is unsatisfiable in that mode.
-    """
-    if _dhcp_server_feature_enabled(duthost):
-        return ['orchestrator']
-    return ['isc']
-
-
-def sonic_dhcpv4_flag_config_and_unconfig(duthost, dhcpv4_config_flag=False):
-    """
-    Enable or disable the SONiC DHCPv4 feature flag and restart the DHCP service on the DUT.
+    Set the SONiC DHCPv4 feature flag and restart for the caller's explicit relay mode.
     """
     if dhcpv4_config_flag:
         duthost.shell('sonic-db-cli CONFIG_DB hset "DEVICE_METADATA|localhost" "has_sonic_dhcpv4_relay" "True"',
@@ -614,11 +623,20 @@ def sonic_dhcpv4_flag_config_and_unconfig(duthost, dhcpv4_config_flag=False):
 
     # Save the config and restart DHCP relay service
     duthost.shell('sudo config save -y', module_ignore_errors=True)
-    if dhcpv4_config_flag:
-        relay_types = ['sonic']
-    else:
-        relay_types = _relay_types_after_sonic_disable(duthost)
-    restart_dhcp_service(duthost, relay_types)
+    restart_dhcp_service(duthost, [relay_type])
+
+
+def get_isc_relay_type(duthost):
+    """Return the external, active internal, or idle internal ISC layout."""
+    features_state, _ = duthost.get_feature_status()
+    if 'enabled' not in features_state.get('dhcp_server', ''):
+        return 'isc'
+
+    config_facts = duthost.config_facts(host=duthost.hostname, source='running')['ansible_facts']
+    dhcp_server_ipv4 = config_facts.get('DHCP_SERVER_IPV4', {})
+    if any(config.get('state') == 'enabled' for config in dhcp_server_ipv4.values()):
+        return 'isc-internal'
+    return 'isc-internal-idle'
 
 
 @pytest.fixture()
@@ -639,14 +657,15 @@ def enable_sonic_dhcpv4_relay_agent(rand_selected_dut, request):
 
     try:
         if request.getfixturevalue("relay_agent") == "sonic-relay-agent":
-            sonic_dhcpv4_flag_config_and_unconfig(duthost, True)
+            sonic_dhcpv4_flag_config_and_unconfig(duthost, True, 'sonic')
             sonic_dhcp_relay_config(duthost, dut_dhcp_relay_data, True)
         yield
     finally:
-        # Cleanup: disable the feature flag
         if request.getfixturevalue("relay_agent") == "sonic-relay-agent":
-            sonic_dhcpv4_flag_config_and_unconfig(duthost, False)
             sonic_dhcp_relay_unconfig(duthost, dut_dhcp_relay_data)
+            # Resolve live state so teardown is independent of DHCP-server cleanup fixture ordering.
+            target_relay_type = get_isc_relay_type(duthost)
+            sonic_dhcpv4_flag_config_and_unconfig(duthost, False, target_relay_type)
 
 
 def check_dhcpv4_socket_status(duthost, dut_dhcp_relay_data=None, process_and_socket_check=None):
