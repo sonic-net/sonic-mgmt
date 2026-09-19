@@ -656,7 +656,7 @@ class BGPTest(PolicyTest):
         if self.has_trap:
             self.log("Checking constraints (PolicyApplied):")
             self.log("Using content-matched rx_pps (%d) instead of raw NN counter rx_pps (%d) "
-                      "to avoid counting real background BGP traffic" % (effective_rx_pps, rx_pps))
+                     "to avoid counting real background BGP traffic" % (effective_rx_pps, rx_pps))
             self.log(
                 "PPS_LIMIT_MIN (%d) <= rx_pps (%d) <= PPS_LIMIT_MAX (%d): %s" %
                 (int(self.PPS_LIMIT_MIN),
@@ -681,7 +681,7 @@ class BGPTest(PolicyTest):
         else:
             self.log("Checking constraints (DefaultPolicyApplied):")
             self.log("Using content-matched rx_pps (%d) instead of raw NN counter rx_pps (%d) "
-                      "to avoid counting real background BGP traffic" % (effective_rx_pps, rx_pps))
+                     "to avoid counting real background BGP traffic" % (effective_rx_pps, rx_pps))
             self.log(
                 "PPS_LIMIT_MIN (%d) <= rx_pps (%d) <= PPS_LIMIT_MAX (%d): %s" %
                 (int(self.PPS_LIMIT_MIN),
