@@ -40,6 +40,17 @@ BASI_PATH = os.path.dirname(os.path.abspath(__file__))
 logger = logging.getLogger(__name__)
 
 
+class ConsoleNotConfiguredError(Exception):
+    """Raised when the connection graph carries no console server metadata for a DUT.
+
+    This is a plain Exception (not pytest.skip) on purpose: best-effort callers such as
+    tests/common/reboot.py::try_create_dut_console catch `Exception` to degrade
+    gracefully, and pytest.skip raises a BaseException that would escape those handlers
+    and skip an unrelated test mid-run. Console-dependent fixtures translate it into a
+    skip instead.
+    """
+
+
 def is_supervisor_node(inv_files, hostname):
     """Check if the current node is a supervisor node in case of multi-DUT.
      @param inv_files: List of inventory file paths, In tests,
@@ -614,7 +625,11 @@ def create_linecard_console(supervisor, linecard_duthost, inv_files, creds):
 
 def create_duthost_console(duthost, localhost, conn_graph_facts, creds, cancel_event=None):  # noqa: F811
     dut_hostname = duthost.hostname
-    console_host = conn_graph_facts['device_console_info'][dut_hostname]['ManagementIp']
+    console_info = conn_graph_facts.get('device_console_info', {}).get(dut_hostname, {})
+    if 'ManagementIp' not in console_info:
+        raise ConsoleNotConfiguredError(
+            "Console port does not exist in console_links.csv file. Skipping {}".format(dut_hostname))
+    console_host = console_info['ManagementIp']
     if "/" in console_host:
         console_host = console_host.split("/")[0]
     console_port = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['peerport']
