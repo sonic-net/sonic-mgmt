@@ -1,3 +1,4 @@
+import calendar
 import datetime
 import time
 import threading
@@ -258,7 +259,7 @@ class Sonic(host_device.HostDevice):
             log_time = datetime.datetime.strptime(str(current_year) + " " + m.group(1), "%Y %b %d %X")
             # Python 3 version (Python 2 doesn't have timestamp():
             # when, what, status = log_time.timestamp(), m.group(2), m.group(3)
-            when, what, status = time.mktime(log_time.timetuple()), m.group(2), m.group(3)
+            when, what, status = calendar.timegm(log_time.timetuple()), m.group(2), m.group(3)
             if min_timestamp and when >= min_timestamp:
                 result[what].insert(0, (when, status))
             else:
