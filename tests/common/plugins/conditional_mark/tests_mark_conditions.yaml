@@ -1161,6 +1161,12 @@ dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_after_link_flap[sonic-relay-agent
     conditions:
       - "release < '202511'"
 
+dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_bootz_option_transparency[sonic-relay-agent]:
+  skip:
+    reason: "Test skipped: sonic dhcpv4 is not supported in the DUT image version < 202511"
+    conditions:
+      - "release < '202511'"
+
 dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_counter:
   skip:
     reason: "Skip test_dhcp_relay_counter in old release version"
@@ -1324,6 +1330,12 @@ dhcp_relay/test_dhcpv6_relay.py::test_dhcp_relay_start_with_uplinks_down:
     conditions:
       - "release in ['201811', '201911', '202106']"
       - "'dualtor' in topo_name"
+
+dhcp_relay/test_dhcpv6_relay.py::test_dhcpv6_relay_bootz_option_transparency:
+  skip:
+    reason: "Skip test_dhcpv6_relay_bootz_option_transparency in old release version"
+    conditions:
+      - "release in ['201811', '201911', '202106']"
 
 dhcp_relay/test_dhcpv6_relay.py::test_dhcpv6_relay_counter:
   skip:

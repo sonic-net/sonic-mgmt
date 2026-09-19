@@ -2,6 +2,8 @@ import os
 import ast
 import socket
 import subprocess
+import struct
+import time
 import scapy
 # Packet Test Framework imports
 import ptf
@@ -10,7 +12,7 @@ import ptf.testutils as testutils
 from ptf import config
 from ptf.base_tests import BaseTest
 from ptf.mask import Mask
-from scapy.fields import MACField, ShortEnumField, FieldLenField, ShortField
+from scapy.fields import MACField, ShortEnumField, FieldLenField, ShortField, StrLenField
 from scapy.data import ETHER_ANY
 from scapy.layers.dhcp6 import _DHCP6OptGuessPayload
 
@@ -31,6 +33,9 @@ DHCP6OptIA_NA = scapy.layers.dhcp6.DHCP6OptIA_NA
 DUID_LL = scapy.layers.dhcp6.DUID_LL
 DHCP6OptIfaceId = scapy.layers.dhcp6.DHCP6OptIfaceId
 DHCP6OptServerId = scapy.layers.dhcp6.DHCP6OptServerId
+DHCP6OptBootFileUrl = scapy.layers.dhcp6.DHCP6OptBootFileUrl
+DHCP6OptClientArchType = scapy.layers.dhcp6.DHCP6OptClientArchType
+DHCP6OptClientNetworkInterId = scapy.layers.dhcp6.DHCP6OptClientNetworkInterId
 
 
 class DataplaneBaseTest(BaseTest):
@@ -72,7 +77,11 @@ class DataplaneBaseTest(BaseTest):
 
 """
 
-dhcp6opts = {79: "OPTION_CLIENT_LINKLAYER_ADDR",  # RFC6939
+dhcp6opts = {59: "OPT_BOOTFILE_URL",  # RFC5970
+             60: "OPT_BOOTFILE_PARAM",  # RFC5970
+             61: "OPTION_CLIENT_ARCH_TYPE",  # RFC5970
+             62: "OPTION_NII",  # RFC5970
+             79: "OPTION_CLIENT_LINKLAYER_ADDR",  # RFC6939
              }
 
 
@@ -90,6 +99,16 @@ class DHCP6OptClientLinkLayerAddr(_DHCP6OptGuessPayload):  # RFC6939
                                  adjust=lambda pkt, x: x + 2),
                    ShortField("lltype", 1),  # ethernet
                    _LLAddrField("clladdr", ETHER_ANY)]
+
+
+class DHCP6OptBootFileParam(_DHCP6OptGuessPayload):  # RFC5970
+    name = "DHCP6 Boot File Parameters Option"
+    fields_desc = [ShortEnumField("optcode", 60, dhcp6opts),
+                   FieldLenField("optlen", None, length_of="optdata", fmt="!H"),
+                   StrLenField("optdata", b"", length_from=lambda pkt: pkt.optlen)]
+
+
+scapy.layers.dhcp6.DHCP6OptBootFileParam = DHCP6OptBootFileParam
 
 
 class DHCPTest(DataplaneBaseTest):
@@ -549,3 +568,294 @@ class DHCPTest(DataplaneBaseTest):
         # we use the DUT this way.
         self.server_send_relay_relay_reply()
         self.verify_relay_relay_reply()
+
+
+class DHCPBootZOptionTest(DHCPTest):
+    """
+    Verify standard DHCPv6 network boot option payloads survive relay
+    forwarding in both client-to-server and server-to-client directions.
+    """
+
+    BOOTZ_BOOTFILE_URL = b'http://[2001:db8::1]/bootz/sonic-image.bin'
+    BOOTZ_BOOTFILE_PARAMETERS = [
+        b'console=ttyS0,115200n8',
+        b'bootz_config=https://bootz.example.test/config.json',
+    ]
+    BOOTZ_CLIENT_ARCHITECTURE = [16]
+    BOOTZ_NII_TYPE = 1
+    BOOTZ_NII_MAJOR = 3
+    BOOTZ_NII_MINOR = 0
+
+    def encoded_option_request(self, options):
+        return b''.join(struct.pack('!H', option) for option in options)
+
+    def encoded_client_architecture(self):
+        return b''.join(struct.pack('!H', architecture) for architecture in self.BOOTZ_CLIENT_ARCHITECTURE)
+
+    def encoded_network_interface_id(self):
+        return bytes([self.BOOTZ_NII_TYPE, self.BOOTZ_NII_MAJOR, self.BOOTZ_NII_MINOR])
+
+    def bootz_bootfile_parameter_data(self):
+        return b''.join(
+            struct.pack('!H', len(parameter)) + parameter
+            for parameter in self.BOOTZ_BOOTFILE_PARAMETERS
+        )
+
+    def bootz_client_option_payloads(self):
+        return {
+            6: self.encoded_option_request([23, 24, 29, 59, 60, 61, 62]),
+            61: self.encoded_client_architecture(),
+            62: self.encoded_network_interface_id(),
+        }
+
+    def bootz_server_option_payloads(self):
+        return {
+            59: self.BOOTZ_BOOTFILE_URL,
+            60: self.bootz_bootfile_parameter_data(),
+            61: self.encoded_client_architecture(),
+            62: self.encoded_network_interface_id(),
+        }
+
+    def bootz_client_options(self):
+        return (
+            DHCP6OptOptReq(reqopts=[23, 24, 29, 59, 60, 61, 62]) /
+            DHCP6OptClientArchType(archtypes=self.BOOTZ_CLIENT_ARCHITECTURE) /
+            DHCP6OptClientNetworkInterId(iitype=self.BOOTZ_NII_TYPE,
+                                         iimajor=self.BOOTZ_NII_MAJOR,
+                                         iiminor=self.BOOTZ_NII_MINOR)
+        )
+
+    def bootz_server_options(self):
+        return (
+            DHCP6OptBootFileUrl(optdata=self.BOOTZ_BOOTFILE_URL) /
+            DHCP6OptBootFileParam(optdata=self.bootz_bootfile_parameter_data()) /
+            DHCP6OptClientArchType(archtypes=self.BOOTZ_CLIENT_ARCHITECTURE) /
+            DHCP6OptClientNetworkInterId(iitype=self.BOOTZ_NII_TYPE,
+                                         iimajor=self.BOOTZ_NII_MAJOR,
+                                         iiminor=self.BOOTZ_NII_MINOR)
+        )
+
+    def create_dhcp_solicit_packet(self):
+        solicit_packet = packet.Ether(
+            src=self.client_mac, dst=self.BROADCAST_MAC)
+        solicit_packet /= IPv6(src=self.client_link_local,
+                               dst=self.BROADCAST_IP)
+        solicit_packet /= packet.UDP(sport=self.DHCP_CLIENT_PORT,
+                                     dport=self.DHCP_SERVER_PORT)
+        solicit_packet /= DHCP6_Solicit(trid=12345)
+        solicit_packet /= DHCP6OptClientId(
+            duid=DUID_LL(lladdr=self.client_mac))
+        solicit_packet /= DHCP6OptIA_NA()
+        solicit_packet /= self.bootz_client_options()
+        solicit_packet /= DHCP6OptElapsedTime(elapsedtime=0)
+
+        return solicit_packet
+
+    def create_dhcp_solicit_relay_forward_packet(self):
+        solicit_relay_forward_packet = packet.Ether(src=self.uplink_mac)
+        solicit_relay_forward_packet /= IPv6()
+        solicit_relay_forward_packet /= packet.UDP(
+            sport=self.DHCP_SERVER_PORT, dport=self.DHCP_SERVER_PORT)
+        solicit_relay_forward_packet /= DHCP6_RelayForward(msgtype=12, linkaddr=self.vlan_ip,
+                                                           peeraddr=self.client_link_local)
+        solicit_relay_forward_packet /= DHCP6OptRelayMsg(message=[DHCP6_Solicit(trid=12345) /
+                                                         DHCP6OptClientId(duid=DUID_LL(lladdr=self.client_mac)) /
+                                                         DHCP6OptIA_NA() / self.bootz_client_options() /
+                                                         DHCP6OptElapsedTime(elapsedtime=0)])
+        if self.is_dualtor:
+            solicit_relay_forward_packet /= DHCP6OptIfaceId(ifaceid=socket.inet_pton(socket.AF_INET6, self.vlan_ip))
+        solicit_relay_forward_packet /= DHCP6OptClientLinkLayerAddr()
+
+        return solicit_relay_forward_packet
+
+    def create_dhcp_advertise_packet(self):
+        advertise_packet = super().create_dhcp_advertise_packet()
+        advertise_packet /= self.bootz_server_options()
+        return advertise_packet
+
+    def create_dhcp_advertise_relay_reply_packet(self):
+        advertise_relay_reply_packet = packet.Ether(dst=self.uplink_mac)
+        if self.is_dualtor:
+            advertise_relay_reply_packet /= IPv6(src=self.server_ip, dst=self.loopback_ipv6)
+        else:
+            advertise_relay_reply_packet /= IPv6(src=self.server_ip, dst=self.relay_iface_ip)
+        advertise_relay_reply_packet /= packet.UDP(
+            sport=self.DHCP_SERVER_PORT, dport=self.DHCP_SERVER_PORT)
+        advertise_relay_reply_packet /= DHCP6_RelayReply(msgtype=13, linkaddr=self.vlan_ip,
+                                                         peeraddr=self.client_link_local)
+        advertise_relay_reply_packet /= DHCP6OptRelayMsg(
+            message=[DHCP6_Advertise(trid=12345) / self.bootz_server_options()])
+        return advertise_relay_reply_packet
+
+    def create_dhcp_request_packet(self):
+        request_packet = packet.Ether(
+            src=self.client_mac, dst=self.BROADCAST_MAC)
+        request_packet /= IPv6(src=self.client_link_local,
+                               dst=self.BROADCAST_IP)
+        request_packet /= packet.UDP(sport=self.DHCP_CLIENT_PORT,
+                                     dport=self.DHCP_SERVER_PORT)
+        request_packet /= DHCP6_Request(trid=12345)
+        request_packet /= self.bootz_client_options()
+
+        return request_packet
+
+    def create_dhcp_request_relay_forward_packet(self):
+        request_relay_forward_packet = packet.Ether(src=self.uplink_mac)
+        request_relay_forward_packet /= IPv6()
+        request_relay_forward_packet /= packet.UDP(
+            sport=self.DHCP_SERVER_PORT, dport=self.DHCP_SERVER_PORT)
+        request_relay_forward_packet /= DHCP6_RelayForward(msgtype=12, linkaddr=self.vlan_ip,
+                                                           peeraddr=self.client_link_local)
+        request_relay_forward_packet /= DHCP6OptRelayMsg(
+            message=[DHCP6_Request(trid=12345) / self.bootz_client_options()])
+        if self.is_dualtor:
+            request_relay_forward_packet /= DHCP6OptIfaceId(ifaceid=socket.inet_pton(socket.AF_INET6, self.vlan_ip))
+        request_relay_forward_packet /= DHCP6OptClientLinkLayerAddr()
+
+        return request_relay_forward_packet
+
+    def create_dhcp_reply_packet(self):
+        reply_packet = super().create_dhcp_reply_packet()
+        reply_packet /= self.bootz_server_options()
+        return reply_packet
+
+    def create_dhcp_reply_relay_reply_packet(self):
+        reply_relay_reply_packet = packet.Ether(dst=self.uplink_mac)
+        if self.is_dualtor:
+            reply_relay_reply_packet /= IPv6(src=self.server_ip, dst=self.loopback_ipv6)
+        else:
+            reply_relay_reply_packet /= IPv6(src=self.server_ip, dst=self.relay_iface_ip)
+        reply_relay_reply_packet /= packet.UDP(
+            sport=self.DHCP_SERVER_PORT, dport=self.DHCP_SERVER_PORT)
+        reply_relay_reply_packet /= DHCP6_RelayReply(msgtype=13, linkaddr=self.vlan_ip,
+                                                     peeraddr=self.client_link_local)
+        reply_relay_reply_packet /= DHCP6OptRelayMsg(
+            message=[DHCP6_Reply(trid=12345) / self.bootz_server_options()])
+
+        return reply_relay_reply_packet
+
+    def dhcp6_option_payloads_by_code(self, dhcp6_message):
+        raw_message = bytes(dhcp6_message)
+        options = {}
+        index = 4
+        while index < len(raw_message):
+            self.assertTrue(index + 4 <= len(raw_message),
+                            "Malformed DHCPv6 option header at byte {}".format(index))
+            option_code, option_len = struct.unpack('!HH', raw_message[index:index + 4])
+            index += 4
+            option_payload = raw_message[index:index + option_len]
+            self.assertTrue(len(option_payload) == option_len,
+                            "Malformed DHCPv6 option {} expected {} bytes, got {}"
+                            .format(option_code, option_len, len(option_payload)))
+            options[option_code] = option_payload
+            index += option_len
+        return options
+
+    def assert_bootz_dhcp6_options(self, dhcp6_message, expected_options, direction):
+        received_options = self.dhcp6_option_payloads_by_code(dhcp6_message)
+        for option_code, expected_payload in expected_options.items():
+            self.assertTrue(option_code in received_options,
+                            "BootZ DHCPv6 option {} missing on {}".format(option_code, direction))
+            self.assertTrue(received_options[option_code] == expected_payload,
+                            "BootZ DHCPv6 option {} corrupted on {}: expected {!r}, got {!r}"
+                            .format(option_code, direction, expected_payload, received_options[option_code]))
+
+    def relay_message_payload(self, received_packet):
+        relay_message = received_packet[DHCP6OptRelayMsg].message
+        if isinstance(relay_message, list):
+            relay_message = relay_message[0]
+        return relay_message
+
+    def masked_relay_forward_packet(self, relay_forward_packet):
+        masked_packet = Mask(relay_forward_packet)
+        masked_packet.set_do_not_care_scapy(packet.Ether, "dst")
+        masked_packet.set_do_not_care_scapy(IPv6, "src")
+        masked_packet.set_do_not_care_scapy(IPv6, "dst")
+        masked_packet.set_do_not_care_scapy(IPv6, "fl")
+        masked_packet.set_do_not_care_scapy(IPv6, "tc")
+        masked_packet.set_do_not_care_scapy(IPv6, "plen")
+        masked_packet.set_do_not_care_scapy(IPv6, "nh")
+        masked_packet.set_do_not_care_scapy(packet.UDP, "chksum")
+        masked_packet.set_do_not_care_scapy(packet.UDP, "len")
+        masked_packet.set_do_not_care_scapy(
+            DHCP6OptClientLinkLayerAddr, "clladdr")
+        return masked_packet
+
+    def collect_relay_forward_packets_on_server_ports(self, masked_packet, timeout=1):
+        matched_packets = []
+        last_matched_packet_time = time.time()
+        while True:
+            if (time.time() - last_matched_packet_time) > timeout:
+                break
+
+            result = testutils.dp_poll(self, device_number=0, timeout=timeout)
+            if isinstance(result, self.dataplane.PollSuccess):
+                if result.port in self.server_port_indices and masked_packet.pkt_match(result.packet):
+                    matched_packets.append(packet.Ether(result.packet))
+                    last_matched_packet_time = time.time()
+            else:
+                break
+
+        return matched_packets
+
+    def check_bootz_relay_forward_on_server_side(self, relay_forward_packet, packet_type, expected_options):
+        matched_packets = self.collect_relay_forward_packets_on_server_ports(
+            self.masked_relay_forward_packet(relay_forward_packet))
+        self.assertTrue(len(matched_packets) == self.num_dhcp_servers,
+                        "Failed: %s Relay-Forward packet counts are not equal %d != %d"
+                        % (packet_type, len(matched_packets), self.num_dhcp_servers))
+        for received_packet in matched_packets:
+            self.assert_bootz_dhcp6_options(self.relay_message_payload(received_packet),
+                                            expected_options,
+                                            "server-facing Relay-Forward/{}".format(packet_type))
+
+    def verify_relayed_solicit_relay_forward(self):
+        solicit_relay_forward_packet = self.create_dhcp_solicit_relay_forward_packet()
+        self.check_bootz_relay_forward_on_server_side(
+            solicit_relay_forward_packet, "Solicit", self.bootz_client_option_payloads())
+
+    def verify_relayed_advertise(self):
+        advertise_packet = self.create_dhcp_advertise_packet()
+
+        masked_packet = Mask(advertise_packet)
+        masked_packet.set_do_not_care_scapy(IPv6, "fl")
+        masked_packet.set_do_not_care_scapy(packet.UDP, "chksum")
+        masked_packet.set_do_not_care_scapy(packet.UDP, "len")
+
+        _, received_packet = testutils.verify_packet_any_port(self, masked_packet, [self.client_port_index])
+        received_packet = packet.Ether(received_packet)
+        self.assert_bootz_dhcp6_options(received_packet[DHCP6_Advertise],
+                                        self.bootz_server_option_payloads(),
+                                        "client-facing Advertise")
+
+    def verify_relayed_request_relay_forward(self):
+        request_relay_forward_packet = self.create_dhcp_request_relay_forward_packet()
+        self.check_bootz_relay_forward_on_server_side(
+            request_relay_forward_packet, "Request", self.bootz_client_option_payloads())
+
+    def verify_relayed_reply(self):
+        reply_packet = self.create_dhcp_reply_packet()
+
+        masked_packet = Mask(reply_packet)
+        masked_packet.set_do_not_care_scapy(IPv6, "fl")
+        masked_packet.set_do_not_care_scapy(packet.UDP, "chksum")
+        masked_packet.set_do_not_care_scapy(packet.UDP, "len")
+
+        _, received_packet = testutils.verify_packet_any_port(self, masked_packet, [self.client_port_index])
+        received_packet = packet.Ether(received_packet)
+        self.assert_bootz_dhcp6_options(received_packet[DHCP6_Reply],
+                                        self.bootz_server_option_payloads(),
+                                        "client-facing Reply")
+
+    def runTest(self):
+        self.client_send_solicit()
+        self.verify_relayed_solicit_relay_forward()
+
+        self.server_send_advertise_relay_reply()
+        self.verify_relayed_advertise()
+
+        self.client_send_request()
+        self.verify_relayed_request_relay_forward()
+
+        self.server_send_reply_relay_reply()
+        self.verify_relayed_reply()
