@@ -18,7 +18,11 @@ from tests.transceiver.common.verification import (
     capture_flap_sentinels,
     standard_port_recovery_and_verification,
 )
-from tests.transceiver.cdb_firmware_upgrade.utils.firmware_utils import resolve_binary_path
+from tests.transceiver.cdb_firmware_upgrade.utils.firmware_utils import (
+    create_corrupted_binary,
+    create_zero_filled_binary,
+    resolve_binary_path,
+)
 from tests.transceiver.dom import dom_helpers
 from tests.transceiver.eeprom import eeprom_content
 from tests.transceiver.common.cli_parser_helper import (
@@ -32,6 +36,7 @@ logger = logging.getLogger(__name__)
 
 I2C_ERROR_PATTERN = r"i2c.*(error|fail|timeout|nack)|(error|fail).*i2c"
 THERMALCTLD = "thermalctld"
+INVALID_FIRMWARE_VERSION = "N/A"
 
 
 def select_target_version(firmware_versions, banks):
@@ -151,6 +156,37 @@ def _scan_i2c_errors(duthost, dmesg_start_uptime, operation):
     return []
 
 
+def verify_firmware_state_unchanged(duthost, port, before_banks, dual_bank_supported,
+                                    expect_inactive_invalid):
+    """Firmware state after a failed or interrupted download is unchanged.
+
+    ``expect_inactive_invalid`` is False when the download was rejected before
+    anything was written to the inactive bank.
+    """
+    after_banks, err = cli_helpers.sfputil_show_fwversion(duthost, port)
+    if err:
+        return [err]
+
+    failures = []
+    if after_banks.get(FW_ACTIVE) != before_banks.get(FW_ACTIVE):
+        failures.append(
+            f"active firmware changed from {before_banks.get(FW_ACTIVE)} to "
+            f"{after_banks.get(FW_ACTIVE)} after a failed download"
+        )
+    if dual_bank_supported:
+        inactive = after_banks.get(FW_INACTIVE)
+        if expect_inactive_invalid:
+            if inactive != INVALID_FIRMWARE_VERSION:
+                failures.append(f"inactive firmware {inactive} is still valid after a failed download")
+        elif inactive != before_banks.get(FW_INACTIVE):
+            failures.append(
+                f"inactive firmware changed from {before_banks.get(FW_INACTIVE)} to "
+                f"{inactive} after a rejected download"
+            )
+    failures += _verify_running_committed_unchanged(after_banks, before_banks)
+    return failures
+
+
 def verify_static_eeprom_unchanged(duthost, port_attributes_dict, ports, lport_to_first_subport_mapping):
     """Static EEPROM content still matches inventory after a firmware operation."""
     failures = eeprom_content.verify_eeprom_static_recovered(
@@ -267,7 +303,10 @@ def perform_firmware_download(duthost, port, port_context, metadata_map,
         if not failures and cdb_attrs.get("firmware_download_cdb_abort_support", True):
             status, abort_err = cli_helpers.issue_cdb_fw_abort(duthost, physical_index)
             if abort_err:
-                logger.warning("Port %s: pre-download CDB abort failed (proceeding): %s", port, abort_err)
+                logger.warning(
+                    "Port %s: pre-download CDB abort failed (proceeding): %s",
+                    port, abort_err,
+                )
             else:
                 logger.info("Port %s: pre-download CDB abort status=%s", port, status)
 
@@ -278,7 +317,9 @@ def perform_firmware_download(duthost, port, port_context, metadata_map,
             else:
                 timeout_sec = cdb_attrs["firmware_download_timeout_minutes"] * 60
                 flap_sentinels = capture_flap_sentinels(duthost, subports) if expect_link_up else {}
-                elapsed, dl_err = cli_helpers.sfputil_firmware_download(duthost, port, fwfile, timeout_sec)
+                elapsed, _, dl_err = cli_helpers.sfputil_firmware_download(
+                    duthost, port, fwfile, timeout_sec
+                )
                 logger.info("Port %s: firmware download %s took %ss", port, target_version, elapsed)
 
                 failures += verify_firmware_downloaded(
@@ -521,6 +562,213 @@ def download_admin_down_op(duthost, port, port_context, metadata_map):
             duthost, subports, system_attrs["port_startup_wait_sec"],
         )
     return failures
+
+
+def _download_invalid_binary_op(duthost, port, port_context, metadata_map,
+                                create_invalid_binary, expect_inactive_invalid):
+    """Download a deliberately bad binary and confirm the module rejects it."""
+    cdb_attrs = port_context["cdb_attrs"]
+    failures = []
+
+    before_banks, err = cli_helpers.sfputil_show_fwversion(duthost, port)
+    if err:
+        return [err]
+
+    target_version = select_target_version(cdb_attrs.get("firmware_versions"), before_banks)
+    source_file, err = resolve_binary_path(
+        metadata_map, port_context["vendor"], port_context["pn"], target_version,
+    )
+    if err:
+        return [err]
+
+    invalid_file, err = create_invalid_binary(duthost, source_file)
+    if err:
+        return [err]
+
+    physical_index = port_context["physical_index"]
+    download_attempted = False
+    with thermalctld_stopped_if_required(duthost, cdb_attrs, failures):
+        try:
+            if not failures:
+                _, abort_err = cli_helpers.issue_cdb_fw_abort(
+                    duthost, physical_index
+                )
+                if abort_err:
+                    logger.warning(
+                        "Port %s: pre-download CDB abort failed "
+                        "(proceeding): %s", port, abort_err,
+                    )
+                timeout_sec = cdb_attrs["firmware_download_timeout_minutes"] * 60
+                download_attempted = True
+                elapsed, rc, err = cli_helpers.sfputil_firmware_download(
+                    duthost, port, invalid_file, timeout_sec,
+                )
+                logger.info(
+                    "Port %s: invalid firmware download took %ss (rc=%s, %s)",
+                    port, elapsed, rc, err,
+                )
+                if rc == cli_helpers.TIMEOUT_RC:
+                    failures.append(err)
+                elif rc == 0:
+                    failures.append("invalid firmware download unexpectedly returned rc=0")
+
+            if not failures:
+                failures += verify_firmware_state_unchanged(
+                    duthost, port, before_banks,
+                    cdb_attrs.get("dual_bank_supported", True),
+                    expect_inactive_invalid,
+                )
+        finally:
+            if download_attempted:
+                cleanup_status, cleanup_err = cli_helpers.issue_cdb_fw_abort(
+                    duthost, physical_index
+                )
+                if cleanup_err:
+                    failures.append(f"CDB cleanup abort failed: {cleanup_err}")
+                elif cleanup_status != "True":
+                    failures.append(f"CDB cleanup abort returned {cleanup_status or 'empty output'}")
+    return failures
+
+
+def download_zero_filled_binary_op(duthost, port, port_context, metadata_map):
+    """TC6a per-port op: a zero-filled image is rejected."""
+    return _download_invalid_binary_op(
+        duthost, port, port_context, metadata_map,
+        create_zero_filled_binary, expect_inactive_invalid=False,
+    )
+
+
+def download_corrupted_binary_op(duthost, port, port_context, metadata_map):
+    """TC6b per-port op: reject a corrupted image, then restore a valid target image."""
+    failures = []
+    try:
+        failures = _download_invalid_binary_op(
+            duthost, port, port_context, metadata_map,
+            create_corrupted_binary, expect_inactive_invalid=True,
+        )
+    finally:
+        failures += perform_firmware_download(
+            duthost, port, port_context, metadata_map,
+        )
+    return failures
+
+
+def _interrupt_download(duthost, port, port_context, metadata_map, percentage):
+    """Interrupt a download and verify active/running/committed are unchanged and inactive is invalid."""
+    cdb_attrs = port_context["cdb_attrs"]
+
+    before_banks, err = cli_helpers.sfputil_show_fwversion(duthost, port)
+    if err:
+        return [err]
+
+    target_version = select_target_version(cdb_attrs.get("firmware_versions"), before_banks)
+    fwfile, err = resolve_binary_path(
+        metadata_map, port_context["vendor"], port_context["pn"], target_version,
+    )
+    if err:
+        return [err]
+
+    _, abort_err = cli_helpers.issue_cdb_fw_abort(
+        duthost, port_context["physical_index"]
+    )
+    if abort_err:
+        logger.warning(
+            "Port %s: pre-download CDB abort failed (proceeding): %s",
+            port, abort_err,
+        )
+    timeout_sec = cdb_attrs["firmware_download_timeout_minutes"] * 60
+    reached, elapsed, err = cli_helpers.sfputil_firmware_download_interrupted(
+        duthost, port, fwfile, percentage, timeout_sec,
+        cdb_attrs["firmware_download_interrupt_method"],
+    )
+    failures = []
+    if err:
+        failures.append(err)
+    else:
+        logger.info("Port %s: download interrupted at %s%% after %ss", port, reached, elapsed)
+
+    if not failures:
+        failures += verify_firmware_state_unchanged(
+            duthost, port, before_banks, cdb_attrs.get("dual_bank_supported", True),
+            expect_inactive_invalid=True,
+        )
+    return failures
+
+
+def download_interruption_op(duthost, port, port_context, metadata_map):
+    """TC7/TC8: interrupt, abort, and download at every percentage of attribute list."""
+    cdb_attrs = port_context["cdb_attrs"]
+    physical_index = port_context["physical_index"]
+
+    result_failures = []
+    cleanup_required = False
+    try:
+        for percentage in cdb_attrs["firmware_download_interrupt_percentage"]:
+            with thermalctld_stopped_if_required(duthost, cdb_attrs, result_failures):
+                if not result_failures:
+                    cleanup_required = True
+                    failures = _interrupt_download(duthost, port, port_context, metadata_map, percentage)
+                    if failures:
+                        result_failures.extend(
+                            f"interrupted at {percentage}%: {failure}"
+                            for failure in failures
+                        )
+                    else:
+                        abort_status, abort_err = cli_helpers.issue_cdb_fw_abort(
+                            duthost, physical_index
+                        )
+                        if not abort_err and abort_status != "True":
+                            abort_err = f"CDB abort returned {abort_status or 'empty output'}"
+                        if abort_err:
+                            result_failures.append(
+                                f"interrupted at {percentage}%: "
+                                f"CDB abort failed: {abort_err}"
+                            )
+                        else:
+                            cleanup_required = False
+
+                    if cleanup_required:
+                        cleanup_required = False
+                        cleanup_status, cleanup_err = cli_helpers.issue_cdb_fw_abort(
+                            duthost, physical_index
+                        )
+                        if cleanup_err:
+                            result_failures.append(f"CDB cleanup abort failed: {cleanup_err}")
+                        elif cleanup_status != "True":
+                            result_failures.append(
+                                f"CDB cleanup abort returned {cleanup_status or 'empty output'}"
+                            )
+
+            if result_failures:
+                break
+
+            cleanup_required = True
+            failures = perform_firmware_download(
+                duthost, port, port_context, metadata_map
+            )
+            if failures:
+                result_failures = [
+                    f"recovery download after {percentage}% interruption: "
+                    f"{failure}"
+                    for failure in failures
+                ]
+                break
+            cleanup_required = False
+    finally:
+        if cleanup_required:
+            with thermalctld_stopped_if_required(duthost, cdb_attrs, result_failures):
+                cleanup_status, cleanup_err = cli_helpers.issue_cdb_fw_abort(
+                    duthost, physical_index
+                )
+                if cleanup_err:
+                    result_failures.append(
+                        f"CDB cleanup abort failed: {cleanup_err}"
+                    )
+                elif cleanup_status != "True":
+                    result_failures.append(
+                        f"CDB cleanup abort returned {cleanup_status or 'empty output'}"
+                    )
+    return result_failures
 
 
 def upgrade_stress_op(duthost, port, port_context, metadata_map):
