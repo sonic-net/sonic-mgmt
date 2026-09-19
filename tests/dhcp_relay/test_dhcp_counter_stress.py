@@ -83,6 +83,7 @@ def test_dhcpmon_relay_counters_stress(ptfhost, relay_agent, enable_sonic_dhcpv4
             "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
             "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
             "uplink_mac": str(dhcp_relay['uplink_mac']),
+            "host_mac": str(duthost.facts["router_mac"]),
             "packets_send_duration": packets_send_duration,
             "client_packets_per_sec": client_packets_per_sec,
             "testing_mode": testing_mode,
