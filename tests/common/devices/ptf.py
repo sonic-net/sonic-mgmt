@@ -20,8 +20,10 @@ class PTFHost(AnsibleHostBase):
     Instance of this class can run ansible modules on the PTF host.
     """
 
-    def __init__(self, ansible_adhoc, hostname, duthost, tbinfo, macsec_enabled=False,
+    def __init__(self, ansible_adhoc, hostname, duthost=None, tbinfo=None, macsec_enabled=False,
                  macsec_native=False):
+        # duthost/tbinfo are only dereferenced on the MACsec path (create_macsec_info),
+        # so callers that never enable MACsec may omit them.
         self.duthost = duthost
         self.tbinfo = tbinfo
         self.macsec_enabled = macsec_enabled
