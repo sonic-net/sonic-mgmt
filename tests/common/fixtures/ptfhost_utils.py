@@ -501,6 +501,40 @@ def pause_garp_service(ptfhost):
         ptfhost.shell("supervisorctl start garp_service")
 
 
+def _collapse_garp_addresses(values):
+    """Keep the single-value form so configs for single-subnet VLANs stay unchanged."""
+    if not values:
+        return ''
+    return values[0] if len(values) == 1 else values
+
+
+def _garp_subnet_targets(server_ip, vlan_intfs):
+    """Map a mux server address into every VLAN subnet of its own address family.
+
+    Returns (targets, gateways) index-paired for garp_service, so each announcement is
+    sent to the gateway of the subnet it belongs to.
+    """
+    anchor = next((intf for intf in vlan_intfs if server_ip and server_ip in intf.network), None)
+
+    if anchor is None:
+        # Server address sits outside every known VLAN subnet, announce it as-is.
+        targets = [str(server_ip)] if server_ip else []
+        gateways = [str(vlan_intfs[0].ip)] if vlan_intfs else []
+    else:
+        offset = int(server_ip) - int(anchor.network.network_address)
+        ordered = [anchor] + [intf for intf in vlan_intfs if intf.network != anchor.network]
+        targets, gateways = [], []
+        for intf in ordered:
+            candidate = intf.network.network_address + offset
+            # Subnets may differ in size, so the mapped host can fall outside a smaller one.
+            if candidate not in intf.network:
+                continue
+            targets.append(str(candidate))
+            gateways.append(str(intf.ip))
+
+    return _collapse_garp_addresses(targets), _collapse_garp_addresses(gateways)
+
+
 @pytest.fixture(scope='module', autouse=True)
 def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses, request):
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
@@ -516,16 +550,18 @@ def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses, request):
                 dut_mac = duthost.shell('sonic-cfggen -d -v \'DEVICE_METADATA.localhost.mac\'')["stdout_lines"][0]
             break
 
-        dst_ipv6 = ''
+        vlan_ipv4_intfs = []
+        vlan_ipv6_intfs = []
         for intf_details in list(vlan_intfs.values()):
             for key in list(intf_details.keys()):
                 try:
                     intf_ip = ip_interface(key)
-                    if intf_ip.version == 6:
-                        dst_ipv6 = intf_ip.ip
-                        break
                 except ValueError:
                     continue
+                if intf_ip.version == 6:
+                    vlan_ipv6_intfs.append(intf_ip)
+                else:
+                    vlan_ipv4_intfs.append(intf_ip)
             break
 
         ptf_indices = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_ptf_indices"]
@@ -553,12 +589,14 @@ def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses, request):
             ptf_port_index = ptf_indices[vlan_intf]
             server_ip = ip_interface(config['server_ipv4']).ip if config['server_ipv4'] else ''
             server_ipv6 = ip_interface(config['server_ipv6']).ip if config['server_ipv6'] else ''
+            target_ip, _ = _garp_subnet_targets(server_ip, vlan_ipv4_intfs)
+            target_ipv6, dst_ipv6 = _garp_subnet_targets(server_ipv6, vlan_ipv6_intfs)
 
             garp_config[ptf_port_index] = {
                                             'dut_mac': '{}'.format(dut_mac),
-                                            'dst_ipv6': '{}'.format(dst_ipv6),
-                                            'target_ip': '{}'.format(server_ip),
-                                            'target_ipv6': '{}'.format(server_ipv6)
+                                            'dst_ipv6': dst_ipv6,
+                                            'target_ip': target_ip,
+                                            'target_ipv6': target_ipv6
                                         }
 
         ptfhost.copy(src=os.path.join(SCRIPTS_SRC_DIR, GARP_SERVICE_PY), dest=OPT_DIR)

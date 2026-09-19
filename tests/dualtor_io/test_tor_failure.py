@@ -68,7 +68,7 @@ def test_active_tor_reboot_upstream(
     upper_tor_host, lower_tor_host, send_server_to_t1_with_action,      # noqa: F811
     toggle_all_simulator_ports_to_upper_tor, toggle_upper_tor_pdu,      # noqa: F811
     wait_for_device_reachable, wait_for_mux_container, cable_type,      # noqa: F811
-    wait_for_pmon_container, setup_loganalyzer                          # noqa: F811
+    wait_for_pmon_container, setup_loganalyzer, server_subnet           # noqa: F811
 ):
     """
     Send upstream traffic and reboot the active ToR. Confirm switchover
@@ -77,7 +77,8 @@ def test_active_tor_reboot_upstream(
     setup_loganalyzer(upper_tor_host, collect_only=True, collect_from_bootup=True)
     send_server_to_t1_with_action(
         upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-        action=toggle_upper_tor_pdu, stop_after=60
+        action=toggle_upper_tor_pdu, stop_after=60,
+        server_subnet=server_subnet
     )
     wait_for_device_reachable(upper_tor_host)
     wait_for_mux_container(upper_tor_host)
@@ -176,7 +177,7 @@ def test_active_tor_reboot_downstream(
     upper_tor_host, lower_tor_host, send_t1_to_server_with_action,      # noqa: F811
     toggle_upper_tor_pdu, wait_for_device_reachable, cable_type,        # noqa: F811
     tunnel_traffic_monitor, mux_status_from_nic_simulator,              # noqa: F811
-    wait_for_mux_container, wait_for_pmon_container                      # noqa: F811
+    wait_for_mux_container, wait_for_pmon_container, server_subnet      # noqa: F811
 ):
     def check_forwarding_state(upper_tor_forwarding_state, lower_tor_forwarding_state):
         mux_status = mux_status_from_nic_simulator()
@@ -226,4 +227,5 @@ def test_active_tor_reboot_downstream(
 
     # verify the server receives packets with no disrupts, no tunnel traffic
     with tunnel_traffic_monitor(upper_tor_host, existing=False):
-        send_t1_to_server_with_action(upper_tor_host, verify=True, stop_after=60)
+        send_t1_to_server_with_action(upper_tor_host, verify=True, stop_after=60,
+                                      server_subnet=server_subnet)

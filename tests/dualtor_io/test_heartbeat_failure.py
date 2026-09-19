@@ -64,7 +64,8 @@ def test_active_tor_heartbeat_failure_upstream(
 @pytest.mark.enable_active_active
 def test_active_tor_heartbeat_failure_downstream_active(
     toggle_all_simulator_ports_to_upper_tor, upper_tor_host, lower_tor_host,    # noqa: F811
-    send_t1_to_server_with_action, shutdown_tor_heartbeat, cable_type           # noqa: F811
+    send_t1_to_server_with_action, shutdown_tor_heartbeat, cable_type,          # noqa: F811
+    server_subnet                                                              # noqa: F811
 ):
     """
     Send downstream traffic from T1 to the active ToR and stop the LinkProber module on the active ToR.
@@ -72,7 +73,8 @@ def test_active_tor_heartbeat_failure_downstream_active(
     """
     send_t1_to_server_with_action(
         upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-        action=lambda: shutdown_tor_heartbeat(upper_tor_host)
+        action=lambda: shutdown_tor_heartbeat(upper_tor_host),
+        server_subnet=server_subnet
     )
 
     if cable_type == CableType.active_standby:
