@@ -439,6 +439,67 @@ def test_dhcp_relay_agent_mode(
         sonic_dhcp_relay_config(duthost, dut_dhcp_relay_data)
 
 
+def test_dhcp_relay_first_hop_option82_dropped(
+        ptfhost,
+        dut_dhcp_relay_data,
+        validate_dut_routes_exist,
+        testing_config,
+        setup_standby_ports_on_rand_unselected_tor,
+        rand_unselected_dut,
+        toggle_all_simulator_ports_to_rand_selected_tor_m,  # noqa: F811
+        relay_agent  # noqa: F811
+):
+    """Verify native relay drops first-hop requests that already contain Option 82."""
+    testing_mode, duthost = testing_config
+
+    try:
+        for dhcp_relay in dut_dhcp_relay_data:
+            vlan = str(dhcp_relay['downlink_vlan_iface']['name'])
+            dhcp_servers = ",".join(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'])
+            duthost.shell(f'config dhcpv4_relay del {vlan}')
+            duthost.shell(f'config dhcpv4_relay add --dhcpv4-servers {dhcp_servers}'
+                          f' --agent-relay-mode discard {vlan}')
+
+            ptf_runner(
+                ptfhost,
+                "ptftests",
+                "dhcp_relay_test.DHCPTest",
+                platform_dir="ptftests",
+                params={
+                    "hostname": duthost.hostname,
+                    "client_port_index": dhcp_relay['client_iface']['port_idx'],
+                    "other_client_port": repr(dhcp_relay['other_client_ports']),
+                    "client_iface_alias": str(dhcp_relay['client_iface']['alias']),
+                    "leaf_port_indices": repr(dhcp_relay['uplink_port_indices']),
+                    "num_dhcp_servers": len(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs']),
+                    "server_ip": dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'],
+                    "relay_iface_ip": str(dhcp_relay['downlink_vlan_iface']['addr']),
+                    "relay_iface_mac": str(dhcp_relay['downlink_vlan_iface']['mac']),
+                    "relay_iface_netmask": str(dhcp_relay['downlink_vlan_iface']['mask']),
+                    "dest_mac_address": BROADCAST_MAC,
+                    "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
+                    "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
+                    "uplink_mac": str(dhcp_relay['uplink_mac']),
+                    "testing_mode": testing_mode,
+                    "kvm_support": True,
+                    "relay_agent": relay_agent,
+                    "agent_relay_mode": "discard",
+                    "client_giaddr": "0.0.0.0",
+                    "incoming_hop_count": 0,
+                    "expected_forward": False,
+                    "downlink_vlan_iface_name": str(dhcp_relay['downlink_vlan_iface']['name']),
+                },
+                log_file="/tmp/test_dhcp_relay_first_hop_option82.log",
+                is_python3=True
+            )
+    except LogAnalyzerError as err:
+        logger.error("Unable to find expected log in syslog")
+        raise err
+    finally:
+        sonic_dhcp_relay_unconfig(duthost, dut_dhcp_relay_data)
+        sonic_dhcp_relay_config(duthost, dut_dhcp_relay_data)
+
+
 @pytest.mark.parametrize("testcase", ["vrf_selection", "source_intf", "server_id_override"])
 def test_dhcp_relay_with_non_default_vrf(
         ptfhost,
