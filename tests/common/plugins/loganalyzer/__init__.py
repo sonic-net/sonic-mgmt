@@ -7,6 +7,69 @@ from tests.common.helpers.parallel import parallel_run, reset_ansible_local_tmp
 from .bug_handler_helper import get_bughandler_instance
 
 
+VAR_LOG_CLEANUP_THRESHOLD = 85
+# Preserve enough room for the observed ~44 MiB per-test log growth on small filesystems.
+VAR_LOG_MIN_FREE_KB = 64 * 1024
+VAR_LOG_MAINTENANCE_FAILURE_RC = 90
+VAR_LOG_USAGE_CHECK_FAILURE_RC = 91
+
+LOGROTATE_AND_CLEANUP_CMD = f"""
+logrotate_failed=0
+if ! /usr/sbin/logrotate -f /etc/logrotate.conf > /dev/null 2>&1; then
+    logrotate_failed=1
+fi
+
+refresh_var_log_stats() {{
+    stats=$(df -Pk /var/log 2>/dev/null | awk 'END {{gsub(/%/, "", $5); print $5, $4}}')
+    set -- $stats
+    usage=$1
+    available_kb=$2
+
+    case "$usage" in
+        ''|*[!0-9]*)
+            return 1
+            ;;
+    esac
+    case "$available_kb" in
+        ''|*[!0-9]*)
+            return 1
+            ;;
+    esac
+}}
+
+var_log_is_unsafe() {{
+    [ "$usage" -ge {VAR_LOG_CLEANUP_THRESHOLD} ] || [ "$available_kb" -lt {VAR_LOG_MIN_FREE_KB} ]
+}}
+
+if ! refresh_var_log_stats; then
+    echo "Failed to determine /var/log usage and available space" >&2
+    exit {VAR_LOG_USAGE_CHECK_FAILURE_RC}
+fi
+
+if var_log_is_unsafe; then
+    echo "/var/log usage is ${{usage}}% with ${{available_kb}} KB available; deleting numbered rotated logs"
+    if ! find /var/log -xdev -regextype posix-extended -type f -regex '.*\\.[0-9]+\\.gz$' -delete; then
+        echo "Failed to delete compressed rotated logs under /var/log" >&2
+        exit {VAR_LOG_MAINTENANCE_FAILURE_RC}
+    fi
+
+    if ! refresh_var_log_stats; then
+        echo "Failed to determine /var/log usage and available space after cleanup" >&2
+        exit {VAR_LOG_USAGE_CHECK_FAILURE_RC}
+    fi
+    echo "/var/log usage after cleanup is ${{usage}}% with ${{available_kb}} KB available"
+
+    if var_log_is_unsafe; then
+        echo "/var/log remains above the safe limits after cleanup" >&2
+        du -kx /var/log 2>/dev/null | sort -nr | head -20 >&2
+        exit {VAR_LOG_MAINTENANCE_FAILURE_RC}
+    fi
+fi
+
+exit "$logrotate_failed"
+"""
+
+
 def _cleanup_orphaned_ansible_processes(timed_out_duts):
     """Kill orphaned ansible processes on DUTs whose analyze_logs did not complete.
 
@@ -59,12 +122,35 @@ def analyzer_logrotate(node=None, results=None):
     with DisableLogrotateCronContext(node):
         logging.info("logrotate called on {}".format(node.hostname))
         try:
-            node.shell("/usr/sbin/logrotate -f /etc/logrotate.conf > /dev/null 2>&1")
+            result = node.shell(LOGROTATE_AND_CLEANUP_CMD)
+            if result.get("stdout"):
+                logging.info(
+                    "Log maintenance on %s:\n%s",
+                    node.hostname,
+                    result["stdout"]
+                )
         except RunAnsibleModuleFail as e:
+            result = getattr(e, "results", {}) or {}
+            if result.get("rc") in [
+                VAR_LOG_MAINTENANCE_FAILURE_RC,
+                VAR_LOG_USAGE_CHECK_FAILURE_RC
+            ]:
+                raise RuntimeError(
+                    "Unable to ensure safe /var/log usage on {}:\n"
+                    "Stdout: {}\nStderr: {}".format(
+                        node.hostname,
+                        result.get("stdout", ""),
+                        result.get("stderr", "")
+                    )
+                )
             logging.warning("logrotate is failed. Command returned:\n"
                             "Stdout: {}\n"
                             "Stderr: {}\n"
-                            "Return code: {}".format(e.results["stdout"], e.results["stderr"], e.results["rc"]))
+                            "Return code: {}".format(
+                                result.get("stdout", ""),
+                                result.get("stderr", ""),
+                                result.get("rc", "")
+                            ))
 
 
 @reset_ansible_local_tmp
