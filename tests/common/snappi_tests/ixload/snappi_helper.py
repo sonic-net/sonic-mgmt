@@ -122,21 +122,6 @@ def wait_for_all_dpus_online(duthost, timeout=600, interval=5, allow_partial=Tru
     return wait_for_all_dpus_status(duthost, desired, timeout=timeout, interval=interval)
 
 
-def _telemetry_run_on_dut(duthost):
-
-    cmd = (
-        "docker exec -d gnmi "
-        "/usr/sbin/telemetry -logtostderr "
-        "--server_crt /etc/sonic/tls/server.crt "
-        "--server_key /etc/sonic/tls/server.key "
-        "--port 8080 --allow_no_client_auth -v=2 "
-        "-zmq_port=8100 --threshold 100 --idle_conn_duration 5"
-    )
-    logger.info(f"Running telemetry on the DUT {duthost.hostname}")
-    # Ignore errors if it is already running; let caller proceed
-    duthost.shell(cmd, module_ignore_errors=True)
-
-
 def _ensure_remote_dir_on_dut(duthost, remote_dir):
     logger.info("Make directory on DUT to store DPU config files:")
     duthost.shell(f"sudo mkdir -p {remote_dir}")
@@ -574,7 +559,6 @@ def load_dpu_configs_on_dut(
                                                 ha_test_case)
     remote_dir = f"{remote_dir}/dpu{dpu_index}"
     _ensure_remote_dir_on_dut(duthost, remote_dir)
-    # _telemetry_run_on_dut(duthost)
     _copy_files_to_dut(duthost, local_files, remote_dir)
 
     delay = initial_delay_sec
@@ -586,10 +570,9 @@ def load_dpu_configs_on_dut(
             out = res.get("stdout", "")
             err = res.get("stderr", "")
             if "Set failed: rpc error: code = Unavailable desc = connection err" in (out + err):
-                logger.info(f"RPC unavailable for {rb}; retrying after telemetry restart")  # noqa: E702
+                logger.info(f"RPC unavailable for {rb}; retrying after delay")  # noqa: E702
                 duthost.shell("docker ps --format '{{.Names}}' | grep -w gnmi || true", module_ignore_errors=True)
                 time.sleep(120)
-                # _telemetry_run_on_dut(duthost)
                 time.sleep(retry_delay_sec)
                 _docker_run_config_on_dut(duthost, remote_dir, dpu_index, rb)
 
