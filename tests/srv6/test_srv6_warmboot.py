@@ -226,6 +226,7 @@ def test_srv6_uN_hitless_warmboot(setup_uN, ptfadapter, ptfhost, localhost, requ
             duthost, ptfhost, ptfadapter,
             action=lambda: do_warm_reboot(duthost, localhost),
             ptf_src_port=ptf_src_port,
+            ptf_dst_ports=ptf_src_ports if isinstance(ptf_src_ports, list) else [ptf_src_ports],
             router_mac=dut_mac,
             sid_dst=UN_SID_TRAFFIC_DST,
             egress_dst=UN_EGRESS_DST,

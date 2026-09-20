@@ -7,7 +7,7 @@ data plane disruption experienced by SRv6 traffic while a disruptive operation
 
 The design follows `tests/common/dualtor/dual_tor_io.py`:
 
-* a sniffer runs on the PTF host under supervisor control and dumps a pcap
+* a sniffer runs on each ingress/egress PTF host under supervisor control and dumps a pcap
   (the sniffer script `tests/scripts/dual_tor_sniffer.py` is topology agnostic
   and is reused as is),
 * a sender thread runs on the test host and injects sequence numbered packets
@@ -29,6 +29,7 @@ import os
 import threading
 import time
 
+import pytest
 import scapy.all as scapyall
 import ptf.testutils as testutils
 
@@ -71,11 +72,12 @@ class SRv6IO(object):
     def __init__(self, duthost, ptfhost, ptfadapter, io_ready_event,
                  ptf_src_port, router_mac, sid_dst, egress_dst,
                  with_srh=False, send_interval=0.01,
-                 max_duration=1200, sniff_time_incr=60, src_ipv6="1000::1"):
+                 max_duration=1200, sniff_time_incr=60, src_ipv6="1000::1",
+                 ptf_dst_ports=None):
         """
         Args:
             duthost: DUT host object.
-            ptfhost: PTF host object, used to run the sniffer.
+            ptfhost: Legacy default PTF host; the adapter's port map selects capture hosts.
             ptfadapter: PTF adapter, used to inject the packets.
             io_ready_event: threading.Event set once sender and sniffer are up.
             ptf_src_port: PTF port index used to inject the traffic.
@@ -91,12 +93,17 @@ class SRv6IO(object):
             sniff_time_incr: extra time given to the sniffer on top of
                 `max_duration`.
             src_ipv6: source IPv6 address of the injected packets.
+            ptf_dst_ports: possible egress ports, including all members of an egress LAG.
+                Defaults to the injection port.
         """
         self.duthost = duthost
-        self.ptfhost = ptfhost
         self.ptfadapter = ptfadapter
         self.io_ready_event = io_ready_event
         self.ptf_src_port = ptf_src_port
+        self.ptf_src_device, _ = ptfadapter.dataplane.port_to_tuple(ptf_src_port)
+        capture_ports = [ptf_src_port] + (list(ptf_dst_ports) if ptf_dst_ports is not None else [])
+        devices = sorted({ptfadapter.dataplane.port_to_device(port) for port in capture_ports})
+        self.ptfhosts = {device: ptfadapter.ptfhosts[device] for device in devices}
         self.router_mac = router_mac
         self.sid_dst = sid_dst
         self.egress_dst = egress_dst
@@ -108,8 +115,11 @@ class SRv6IO(object):
 
         self.ptf_sniffer = PTF_SNIFFER_PATH
         self.capture_pcap = CAPTURE_PCAP
+        self.local_pcaps = {
+            device: "/tmp/srv6_capture_{}.pcap".format(device) for device in self.ptfhosts
+        }
         self.capture_log = CAPTURE_LOG
-        self.sniff_filter = None
+        self.sniff_filters = {}
         self.sniffer_start = None
 
         self.stop_early = False
@@ -156,17 +166,17 @@ class SRv6IO(object):
     #
     # Sniffer management
     #
-    def setup_ptf_sniffer(self):
+    def setup_ptf_sniffer(self, device, ptfhost):
         """Setup ptf sniffer supervisor config."""
         ptf_sniffer_args = '-f "%s" -p %s -l %s -t %s' % (
-            self.sniff_filter,
+            self.sniff_filters[device],
             self.capture_pcap,
             self.capture_log,
             self.sniff_timeout
         )
         supervisor_config = configparser.ConfigParser(interpolation=None)
         supervisor_config["program:{}".format(SRV6_SNIFFER_PROGRAM)] = {
-            "command": "{} {}".format(self.ptf_sniffer, ptf_sniffer_args),
+            "command": "/usr/bin/python3 {} {}".format(self.ptf_sniffer, ptf_sniffer_args),
             "process_name": SRV6_SNIFFER_PROGRAM,
             "stdout_logfile": "/tmp/srv6_sniffer.out.log",
             "stderr_logfile": "/tmp/srv6_sniffer.err.log",
@@ -181,26 +191,28 @@ class SRv6IO(object):
         with io.StringIO() as config_stream:
             supervisor_config.write(config_stream, space_around_delimiters=False)
             config_content = config_stream.getvalue()
-        self.ptfhost.copy(
+        ptfhost.copy(
             content=config_content,
             dest=os.path.join(SUPERVISOR_CONFIG_DIR, SRV6_SNIFFER_CONF)
         )
-        self.ptfhost.copy(src='scripts/dual_tor_sniffer.py', dest=self.ptf_sniffer)
-        self.ptfhost.shell("supervisorctl update")
+        ptfhost.copy(src='scripts/dual_tor_sniffer.py', dest=self.ptf_sniffer)
+        ptfhost.shell("supervisorctl update")
 
-    def start_ptf_sniffer(self):
-        self.ptfhost.shell("supervisorctl start {}".format(SRV6_SNIFFER_PROGRAM))
+    def start_ptf_sniffer(self, ptfhost):
+        ptfhost.shell("supervisorctl start {}".format(SRV6_SNIFFER_PROGRAM))
 
-    def stop_ptf_sniffer(self):
-        self.ptfhost.shell("supervisorctl stop {}".format(SRV6_SNIFFER_PROGRAM),
-                           module_ignore_errors=True)
+    def stop_ptf_sniffer(self, ptfhost):
+        ptfhost.shell("supervisorctl stop {}".format(SRV6_SNIFFER_PROGRAM),
+                      module_ignore_errors=True)
 
     def force_stop_ptf_sniffer(self):
         logger.info("Force stop the ptf sniffer process by sending SIGTERM")
-        self.ptfhost.command("pkill -SIGTERM -f %s" % self.ptf_sniffer, module_ignore_errors=True)
+        for ptfhost in self.ptfhosts.values():
+            ptfhost.command("supervisorctl signal TERM {}".format(SRV6_SNIFFER_PROGRAM),
+                            module_ignore_errors=True)
 
-    def _get_ptf_sniffer_status(self):
-        stdout_text = self.ptfhost.command(
+    def _get_ptf_sniffer_status(self, ptfhost):
+        stdout_text = ptfhost.command(
             "supervisorctl status {}".format(SRV6_SNIFFER_PROGRAM), module_ignore_errors=True
         )["stdout"]
         if "no such process" in stdout_text:
@@ -208,14 +220,13 @@ class SRv6IO(object):
         return stdout_text.split()[1]
 
     def _is_ptf_sniffer_running(self):
-        status = self._get_ptf_sniffer_status()
-        return (status is not None) and ("RUNNING" in status)
+        return all(self._get_ptf_sniffer_status(host) == "RUNNING" for host in self.ptfhosts.values())
 
     def _is_ptf_sniffer_stopped(self):
-        status = self._get_ptf_sniffer_status()
-        return (status is None) or ("EXITED" in status or "STOPPED" in status)
+        return all(self._get_ptf_sniffer_status(host) in (None, "EXITED", "STOPPED")
+                   for host in self.ptfhosts.values())
 
-    def _build_sniff_filter(self):
+    def _build_sniff_filter(self, ptfhost):
         """Capture both the injected and the forwarded copies of the flow."""
         addresses = [self.sid_dst, self.egress_dst]
         sniff_filter = "ip6 and ({})".format(
@@ -233,23 +244,22 @@ class SRv6IO(object):
         # the VMs, so packets sent by the DUT to the VMs are captured both on the
         # interface tapped to the VM and on the backplane interface. Filter the
         # backplane copies out to avoid reporting them as duplications.
-        output = self.ptfhost.shell('cat /sys/class/net/backplane/address',
-                                    module_ignore_errors=True)
+        output = ptfhost.shell('cat /sys/class/net/backplane/address', module_ignore_errors=True)
         if not output.get('failed', False):
             sniff_filter = '({}) and (not ether dst {})'.format(sniff_filter, output['stdout'])
         return sniff_filter
 
     def start_sniffer(self):
         self.sniffer_start = datetime.datetime.now()
-        self.sniff_filter = self._build_sniff_filter()
-        logger.info("Sniffer started at {}, filter: {}".format(self.sniffer_start, self.sniff_filter))
-
-        self.ptfhost.file(path=self.capture_pcap, state="absent")
-        if os.path.exists(self.capture_pcap):
-            os.unlink(self.capture_pcap)
-
-        self.setup_ptf_sniffer()
-        self.start_ptf_sniffer()
+        for device, ptfhost in self.ptfhosts.items():
+            self.sniff_filters[device] = self._build_sniff_filter(ptfhost)
+            logger.info("Sniffer on PTF device %s started at %s, filter: %s",
+                        device, self.sniffer_start, self.sniff_filters[device])
+            ptfhost.file(path=self.capture_pcap, state="absent")
+            if os.path.exists(self.local_pcaps[device]):
+                os.unlink(self.local_pcaps[device])
+            self.setup_ptf_sniffer(device, ptfhost)
+            self.start_ptf_sniffer(ptfhost)
 
         # Let the scapy sniffer initialize completely
         if not wait_until(20, 5, 10, self._is_ptf_sniffer_running):
@@ -257,8 +267,9 @@ class SRv6IO(object):
             raise RuntimeError("Could not start ptf sniffer.")
 
     def stop_sniffer(self):
-        if self._is_ptf_sniffer_running():
-            self.stop_ptf_sniffer()
+        for ptfhost in self.ptfhosts.values():
+            if self._get_ptf_sniffer_status(ptfhost) == "RUNNING":
+                self.stop_ptf_sniffer(ptfhost)
 
         # The pcap write might take some time, add some waiting here
         if not wait_until(30, 5, 0, self._is_ptf_sniffer_stopped):
@@ -268,8 +279,10 @@ class SRv6IO(object):
 
     def fetch_captured_packets(self):
         logger.info("Fetching pcap file from ptf")
-        self.ptfhost.fetch(src=self.capture_pcap, dest='/tmp/', flat=True, fail_on_missing=False)
-        self.all_packets = scapyall.rdpcap(self.capture_pcap)
+        self.all_packets = []
+        for device, ptfhost in self.ptfhosts.items():
+            ptfhost.fetch(src=self.capture_pcap, dest=self.local_pcaps[device], flat=True, fail_on_missing=True)
+            self.all_packets.extend(scapyall.rdpcap(self.local_pcaps[device]))
         logger.info("Number of all packets captured: {}".format(len(self.all_packets)))
 
     #
@@ -277,7 +290,7 @@ class SRv6IO(object):
     #
     def send_packets(self):
         """Inject one SRv6 packet every `send_interval` until asked to stop."""
-        src_mac = self.ptfadapter.dataplane.get_mac(0, self.ptf_src_port)
+        src_mac = self.ptfadapter.dataplane.get_mac(self.ptf_src_device, self.ptf_src_port)
         if isinstance(src_mac, bytes):
             src_mac = src_mac.decode()
 
@@ -289,7 +302,7 @@ class SRv6IO(object):
 
         seq = 0
         while seq < self.max_packets and not self.stop_early:
-            testutils.send_packet(self.ptfadapter, self.ptf_src_port,
+            testutils.send_packet(self.ptfadapter, (self.ptf_src_device, self.ptf_src_port),
                                   self._build_srv6_packet(src_mac, seq))
             self.packets_sent[SRV6_FLOW] += 1
             seq += 1
@@ -459,7 +472,10 @@ class SRv6IO(object):
             if previous is not None and seq - previous > 1:
                 lost = [lost_seq for lost_seq in range(previous + 1, seq) if lost_seq in sent]
                 if lost:
-                    end_time = sent.get(seq, received[seq])
+                    if seq not in sent:
+                        raise RuntimeError("Missing injected capture for sequence {}; cannot measure "
+                                           "a disruption using timestamps from different PTF hosts".format(seq))
+                    end_time = sent[seq]
                     disruptions.append(self._disruption(
                         previous, seq, sent[lost[0]], end_time, len(lost)))
                 else:
@@ -501,7 +517,7 @@ class SRv6IO(object):
 def run_srv6_io_test(duthost, ptfhost, ptfadapter, action, ptf_src_port, router_mac,
                      sid_dst, egress_dst, with_srh=False,
                      send_interval=0.01, max_duration=1200, settle_time=60,
-                     warm_up_time=15):
+                     warm_up_time=15, ptf_dst_ports=None):
     """
     Run a continuous SRv6 flow through the DUT while `action` is executed.
 
@@ -516,7 +532,7 @@ def run_srv6_io_test(duthost, ptfhost, ptfadapter, action, ptf_src_port, router_
     io_ready = threading.Event()
     srv6_io = SRv6IO(duthost, ptfhost, ptfadapter, io_ready, ptf_src_port, router_mac,
                      sid_dst, egress_dst, with_srh=with_srh,
-                     send_interval=send_interval, max_duration=max_duration)
+                     send_interval=send_interval, max_duration=max_duration, ptf_dst_ports=ptf_dst_ports)
 
     io_thread = InterruptableThread(target=srv6_io.start_io_test)
     io_thread.set_error_handler(lambda *args, **kwargs: io_ready.set())
@@ -540,7 +556,7 @@ def run_srv6_io_test(duthost, ptfhost, ptfadapter, action, ptf_src_port, router_
 
         logger.info("Action completed, keeping the traffic running for {}s".format(settle_time))
         time.sleep(settle_time)
-    except Exception:
+    except (Exception, pytest.fail.Exception):
         srv6_io.stop_early = True
         # Do not let a failure of the I/O thread mask the failure of the action
         io_thread.join(timeout=120, suppress_exception=True)

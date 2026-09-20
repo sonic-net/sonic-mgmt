@@ -4,13 +4,14 @@ import random
 import re
 import string
 import time
+from collections import defaultdict
 import pytest
 import requests
 import ptf.packet as scapy
 import ptf.testutils as testutils
 
 from ptf.mask import Mask
-from ptf.testutils import simple_ipv6_sr_packet, send_packet, verify_no_packet_any
+from ptf.testutils import simple_ipv6_sr_packet, verify_no_packet_any
 from scapy.all import Raw
 from scapy.layers.inet6 import IPv6, UDP
 from scapy.layers.l2 import Ether
@@ -222,11 +223,30 @@ def runSendReceive(pkt, src_port, exp_pkt, dst_ports, pkt_expected, ptfadapter):
     ptfadapter.dataplane.flush()
     ptfadapter.dataplane.set_qlen(1000000)
     # Send the packet and poll on destination ports
-    testutils.send(ptfadapter, src_port, pkt, 1)
+    testutils.send(ptfadapter, ptfadapter.dataplane.port_to_tuple(src_port), pkt, 1)
     logger.debug("Sent packet: " + pkt.summary())
 
     time.sleep(1)
-    (index, rcv_pkt) = testutils.verify_packet_any_port(ptfadapter, exp_pkt, dst_ports, timeout=60)
+    expected_ports = [ptfadapter.dataplane.port_to_tuple(port) for port in dst_ports]
+    devices = sorted({device for device, port in expected_ports})
+    pytest_assert(devices, "No destination PTF ports were supplied")
+    deadline = time.monotonic() + 60
+    while True:
+        for device in devices:
+            remaining = max(0, deadline - time.monotonic())
+            timeout = min(1, remaining) if len(devices) > 1 else remaining
+            result = testutils.dp_poll(ptfadapter, device_number=device, exp_pkt=exp_pkt, timeout=timeout)
+            if isinstance(result, ptfadapter.dataplane.PollSuccess):
+                break
+        if isinstance(result, ptfadapter.dataplane.PollSuccess) or time.monotonic() >= deadline:
+            break
+    if not isinstance(result, ptfadapter.dataplane.PollSuccess):
+        pytest_assert(False, "Did not receive the expected packet on {}:\n{}".format(dst_ports, result.format()))
+    pytest_assert((result.device, result.port) in expected_ports,
+                  "Received packet on {}, expected one of {}".format((result.device, result.port), expected_ports))
+    for device in devices:
+        testutils.verify_no_other_packets(ptfadapter, device_number=device)
+    index, rcv_pkt = expected_ports.index((result.device, result.port)), result.packet
     received = False
     if rcv_pkt:
         received = True
@@ -744,6 +764,9 @@ def run_srv6_traffic_test(duthost, dut_mac, ptf_src_ports, neighbor_ip, ptfadapt
 
     # Use the first port for sending packets
     ptf_src_port = ptf_src_ports_list[0]
+    device, port = ptfadapter.dataplane.port_to_tuple(ptf_src_port)
+    ptfhost = ptfadapter.ptfhosts[device]
+    src_mac = ptfadapter.dataplane.get_mac(device, port).decode()
 
     for i in range(0, 10):
         # generate a random payload
@@ -751,7 +774,7 @@ def run_srv6_traffic_test(duthost, dut_mac, ptf_src_ports, neighbor_ip, ptfadapt
         if with_srh:
             injected_pkt = simple_ipv6_sr_packet(
                 eth_dst=dut_mac,
-                eth_src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode(),
+                eth_src=src_mac,
                 ipv6_src=ptfhost.mgmt_ipv6 if ptfhost.mgmt_ipv6 else "1000::1",
                 ipv6_dst="fcbb:bbbb:1:2::",
                 srh_seg_left=1,
@@ -759,7 +782,7 @@ def run_srv6_traffic_test(duthost, dut_mac, ptf_src_ports, neighbor_ip, ptfadapt
                 inner_frame=IPv6() / UDP(dport=4791) / Raw(load=payload)
             )
         else:
-            injected_pkt = Ether(dst=dut_mac, src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode()) \
+            injected_pkt = Ether(dst=dut_mac, src=src_mac) \
                            / IPv6(src=ptfhost.mgmt_ipv6 if ptfhost.mgmt_ipv6 else "1000::1", dst="fcbb:bbbb:1:2::") \
                            / IPv6() / UDP(dport=4791) / Raw(load=payload)
 
@@ -948,6 +971,13 @@ def run_srv6_no_sid_blackhole_test(setup_uN, ptfadapter, ptfhost, with_srh):
 
     # Use the first port to send traffic
     first_ptf_port = ptf_src_ports[0] if isinstance(ptf_src_ports, list) else ptf_src_ports
+    device, port = ptfadapter.dataplane.port_to_tuple(first_ptf_port)
+    ptfhost = ptfadapter.ptfhosts[device]
+    src_mac = ptfadapter.dataplane.get_mac(device, port).decode()
+    ports_by_device = defaultdict(list)
+    for ptf_port in ptf_port_ids:
+        port_device, port_id = ptfadapter.dataplane.port_to_tuple(ptf_port)
+        ports_by_device[port_device].append(port_id)
 
     # Verify that the ASIC DB has the SRv6 SID entries
     sonic_db_cli = "sonic-db-cli" + setup_uN['cli_options']
@@ -970,7 +1000,7 @@ def run_srv6_no_sid_blackhole_test(setup_uN, ptfadapter, ptfhost, with_srh):
     if with_srh:
         injected_pkt = simple_ipv6_sr_packet(
             eth_dst=dut_mac,
-            eth_src=ptfadapter.dataplane.get_mac(0, first_ptf_port).decode(),
+            eth_src=src_mac,
             ipv6_src=ptfhost.mgmt_ipv6 if ptfhost.mgmt_ipv6 else "1000::1",
             ipv6_dst="fcbb:bbbb:3:2::",
             srh_seg_left=1,
@@ -979,7 +1009,7 @@ def run_srv6_no_sid_blackhole_test(setup_uN, ptfadapter, ptfhost, with_srh):
                 dport=4791) / Raw(load=payload)
         )
     else:
-        injected_pkt = Ether(dst=dut_mac, src=ptfadapter.dataplane.get_mac(0, first_ptf_port).decode()) \
+        injected_pkt = Ether(dst=dut_mac, src=src_mac) \
                        / IPv6(src=ptfhost.mgmt_ipv6 if ptfhost.mgmt_ipv6 else "1000::1", dst="fcbb:bbbb:3:2::") \
                        / IPv6(dst=neighbor_ip, src=ptfhost.mgmt_ipv6 if ptfhost.mgmt_ipv6 else "1000::1") \
                        / UDP(dport=4791) / Raw(load=payload)
@@ -992,8 +1022,9 @@ def run_srv6_no_sid_blackhole_test(setup_uN, ptfadapter, ptfhost, with_srh):
     expected_pkt = Mask(expected_pkt)
     expected_pkt.set_do_not_care_packet(Ether, "dst")
     expected_pkt.set_do_not_care_packet(Ether, "src")
-    send_packet(ptfadapter, first_ptf_port, injected_pkt, count=pkt_count)
-    verify_no_packet_any(ptfadapter, expected_pkt, ptf_port_ids, 0, 1)
+    testutils.send(ptfadapter, (device, port), injected_pkt, count=pkt_count)
+    for port_device, ports in ports_by_device.items():
+        verify_no_packet_any(ptfadapter, expected_pkt, ports, device_number=port_device, timeout=1)
 
     # verify that the RX_DROP counter is incremented
     if duthost.facts["asic_type"] == "broadcom":
