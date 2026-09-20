@@ -964,13 +964,9 @@ class TestSfpApi(PlatformApiTestBase):
         """This function tests both the get_power_override() and set_power_override() APIs"""
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx", "nokia"])
-        if is_mellanox_device(duthost):
-            port_indices_to_tested = self.get_port_indices_to_tested_for_mellanox_device(
-                duthost, is_sw_control_feature_enabled(duthost))
-        else:
-            port_indices_to_tested = self.sfp_setup["sfp_test_port_indices"]
+        mlnx_sw_control_enabled = is_mellanox_device(duthost) and is_sw_control_feature_enabled(duthost)
 
-        for i in port_indices_to_tested:
+        for i in self.sfp_setup["sfp_test_port_indices"]:
             info_dict = sfp.get_transceiver_info(platform_api_conn, i)
             if not self.expect(info_dict is not None, "Unable to retrieve transceiver {} info".format(i)):
                 continue
@@ -985,6 +981,13 @@ class TestSfpApi(PlatformApiTestBase):
                 platform_api_conn, i)
             self.expect(power_override_bit_value_pretest is not None,
                         "Unable to retrieve transceiver {} power override data".format(i))
+
+            if is_mellanox_device(duthost) and (
+                    not mlnx_sw_control_enabled or not is_sw_control_enabled(duthost, i)):
+                logger.warning(
+                    "test_power_override: Skipping set_power_override for Mellanox transceiver {} "
+                    "(software control is not enabled for the device or port)".format(i))
+                continue
 
             # Enable power override in both low-power and high-power modes
             for state in [True, False]:
