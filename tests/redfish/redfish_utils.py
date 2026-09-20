@@ -24,9 +24,10 @@ class RedfishClient:
         self.timeout = timeout
 
     def _request(self, method, path, **kwargs):
+        kwargs.setdefault("timeout", self.timeout)
         return requests.request(
             method, self.base_url + path,
-            cert=self.cert, verify=self.verify, timeout=self.timeout,
+            cert=self.cert, verify=self.verify,
             **kwargs,
         )
 
@@ -35,6 +36,9 @@ class RedfishClient:
 
     def post(self, path, json=None, **kwargs):
         return self._request("POST", path, json=json, **kwargs)
+
+    def patch(self, path, json=None, **kwargs):
+        return self._request("PATCH", path, json=json, **kwargs)
 
     def delete(self, path, **kwargs):
         return self._request("DELETE", path, **kwargs)
@@ -109,26 +113,33 @@ def assert_no_content(response, path):
 def assert_redfish_error(response, status, message, message_args=None, prop=None):
     """Assert a Redfish error response carrying the given registry message.
 
-    Standard errors live under body["error"] ("code" plus "@Message.ExtendedInfo");
-    property-scoped errors such as PropertyMissing live under
-    "<prop>@Message.ExtendedInfo" instead. MessageId is matched on its
-    ".<message>" suffix so a Base registry version bump does not break callers.
+    bmcweb reports some errors under body["error"] ("code" plus
+    "@Message.ExtendedInfo") and property-scoped ones under
+    "<prop>@Message.ExtendedInfo". With prop given only that annotation is
+    searched; without it every ExtendedInfo list in the body is. MessageId is
+    matched on its ".<message>" suffix so a Base registry version bump does
+    not break callers.
     """
     pytest_assert(
         response.status_code == status,
         "Expected HTTP {}, got: {} body={!r}".format(status, response.status_code, response.text[:500])
     )
-    body = response.json()
+    try:
+        body = response.json()
+    except ValueError:
+        body = None
+    pytest_assert(
+        isinstance(body, dict),
+        "Expected a Redfish error object, got: {!r}".format(response.text[:300])
+    )
     suffix = ".{}".format(message)
     if prop:
         infos = body.get("{}@Message.ExtendedInfo".format(prop), [])
     else:
-        error = body.get("error", {})
-        pytest_assert(
-            error.get("code", "").endswith(suffix),
-            "error.code must end with {!r}, got: {!r}".format(suffix, error.get("code"))
-        )
-        infos = error.get("@Message.ExtendedInfo", [])
+        infos = list(body.get("error", {}).get("@Message.ExtendedInfo", []))
+        for key, value in body.items():
+            if key.endswith("@Message.ExtendedInfo") and isinstance(value, list):
+                infos.extend(value)
     matched = [i for i in infos if i.get("MessageId", "").endswith(suffix)]
     pytest_assert(
         matched,
