@@ -9,10 +9,10 @@ The layout follows the design (https://github.com/sonic-net/sonic-mgmt/pull/2638
 -> "Daemon topology and the shim", "Memory consumption"):
 
 * one gobgpd per (neighbor, family) -- untouched here, that is the manager's job;
-* ``k = min(core_count, session_count)`` **shim** processes (the POOL config),
-  each owning a disjoint shard of the per-neighbor ports. This keeps shim memory
-  ``O(cores)`` instead of ``O(sessions)`` and avoids GIL-serializing the
-  CPU-bound protobuf build in a single process (the rejected CONS config).
+* ``k = min(core_count, session_count, pool_max)`` **shim** processes (the POOL
+  config), each owning a disjoint shard of the per-neighbor ports. This keeps
+  shim memory ``O(cores)`` instead of ``O(sessions)`` and avoids GIL-serializing
+  the CPU-bound protobuf build in a single process (the rejected CONS config).
 
 A "portmap" is the JSON object the manager renders::
 
@@ -28,19 +28,32 @@ perturbs that math.
 """
 from __future__ import division
 
+# Ceiling on the shim pool. Core count alone describes the host, not the share
+# of it this container may use: a server runs several PTF containers alongside
+# other workloads, and cgroup quota is invisible to cpu_count(). The cap keeps
+# the pool predictable on a shared server; a topology that needs a wider pool
+# raises it explicitly.
+DEFAULT_POOL_MAX = 8
 
-def num_shards(core_count, session_count):
-    """Number of shim processes in the pool: ``min(cores, sessions)``, >= 1.
+
+def num_shards(core_count, session_count, pool_max=DEFAULT_POOL_MAX):
+    """Number of shim processes in the pool: ``min(cores, sessions, pool_max)``, >= 1.
 
     ``session_count`` is the number of ports to serve (each (neighbor, family)
     port is one intake slot). Capping at the port count avoids spawning idle
     shims when there are fewer ports than cores.
+
+    ``pool_max`` bounds the pool independently of the host's core count. Pass a
+    larger value to widen it on a dedicated server.
     """
     core_count = int(core_count)
     session_count = int(session_count)
     if session_count <= 0:
         return 1
-    return max(1, min(max(core_count, 1), session_count))
+    k = min(max(core_count, 1), session_count)
+    if pool_max is not None:
+        k = min(k, max(int(pool_max), 1))
+    return max(1, k)
 
 
 def _sorted_ports(portmap):
