@@ -1498,8 +1498,8 @@
                     "platform_tests.test_xcvr_info_in_db",
                     "platform_tests.test_sfp_thermal_state_db"
                 ],
-                "owner": "Prince George",
-                "email": "prgeor@microsoft.com"
+                "owner": "Mihir Patel",
+                "email": "patelmi@microsoft.com"
             },
             {
                 "scripts": [
@@ -2032,8 +2032,8 @@
     },
     {
         "feature": "transceiver",
-        "owner": "Prince George",
-        "email": "prgeor@microsoft.com",
+        "owner": "Mihir Patel",
+        "email": "patelmi@microsoft.com",
         "scripts": [
             {
                 "scripts": [
@@ -2043,7 +2043,9 @@
                     "transceiver.cdb_firmware_upgrade.test_firmware_upgrade",
                     "transceiver.cli.show.test_transceiver_info_cli",
                     "transceiver.dom.test_dom_availability",
+                    "transceiver.dom.test_dom_consistency",
                     "transceiver.dom.test_dom_operational_range",
+                    "transceiver.dom.test_dom_threshold",
                     "transceiver.eeprom.cmis.test_cdb_background_mode",
                     "transceiver.eeprom.test_breakout_serial",
                     "transceiver.eeprom.test_eeprom_content",
@@ -2055,8 +2057,8 @@
                     "transceiver.oir.test_sfp_oir",
                     "transceiver.system.process_restart.test_processes_restart"
                 ],
-                "owner": "Prince George",
-                "email": "prgeor@microsoft.com"
+                "owner": "Mihir Patel",
+                "email": "patelmi@microsoft.com"
             }
         ]
     },
