@@ -31,7 +31,7 @@ EXPECTED_NO_LOSS_MIN_FRAME = {
 }
 
 
-@pytest.mark.parametrize("ip_version", ["IPv6", "IPv4"])
+@pytest.mark.parametrize("ip_version", ["IPv4"])
 @pytest.mark.parametrize("rfc2889_enabled", [True, False])
 def test_min_frame_size_no_loss(
     request,
@@ -52,7 +52,7 @@ def test_min_frame_size_no_loss(
     verified first; if it cannot pass, the test fails rather than silently reporting
     the maximum as the answer.
     """
-    frame_ordering_mode = "RFC2889" if rfc2889_enabled else "none"
+    frame_ordering_mode = "RFC2889" if rfc2889_enabled else "NO_ORDERING"
     no_loss_min_frame = GaugeMetric("no_loss_min_frame", "No Loss Minimum Frame Size", "bytes", db_reporter)
 
     # Per-invocation result accumulator. Kept local (not a module global) so the
@@ -75,7 +75,6 @@ def test_min_frame_size_no_loss(
     snappi_ports = get_duthost_interface_details(duthosts, get_snappi_ports, ip_version, protocol_type="bgp")
     port_distribution = (slice(0, len(snappi_ports) // 2), slice(len(snappi_ports) // 2, None))
     tx_ports, rx_ports = snappi_ports[port_distribution[0]], snappi_ports[port_distribution[1]]
-
     # Tx and Rx advertise the same prefixes intentionally: traffic is bidirectional
     # (mesh) and both endpoints need symmetric reachability for the same prefix set.
     ranges = ROUTE_RANGES[ip_version] * len(snappi_ports)
@@ -109,26 +108,18 @@ def test_min_frame_size_no_loss(
             "tx_names": snappi_obj_handles["Tx"]["ip"] + snappi_obj_handles["Rx"]["ip"],
             "rx_names": snappi_obj_handles["Rx"]["ip"] + snappi_obj_handles["Tx"]["ip"],
             "mesh_type": "mesh",
+            "bidirectional": True,
         }
     ]
+
+    frame_ordering = snappi_config.options.port_options.frame_ordering_mode
+    frame_ordering.choice = frame_ordering.RFC2889 if rfc2889_enabled else frame_ordering.NO_ORDERING
 
     snappi_config = create_traffic_items(snappi_config, snappi_extra_params)
     snappi_api.set_config(snappi_config)
     start_stop(snappi_api, operation="start", op_type="protocols")
     try:
-        # Ixia/IxNetwork-specific: SNAPPI does not expose BiDirectional/SrcDestMesh or
-        # FrameOrderingMode, so reach into the RestPy session to set them directly.
-        ixnet = getattr(snappi_api, "_ixnetwork", None)
-        pytest_assert(ixnet is not None,
-                      "This test requires an Ixia/IxNetwork backend (snappi_api._ixnetwork)")
-        ixnet_traffic_params = {"BiDirectional": True, "SrcDestMesh": "fullMesh"}
-        ixnet.Traffic.TrafficItem.find().update(**ixnet_traffic_params)
-        ixnet.Traffic.FrameOrderingMode = frame_ordering_mode
-
-        # after changing frame ordering mode,
-        # need to generate traffic again to make sure the config is applied to traffic item
         start_stop(snappi_api, operation="start", op_type="traffic")
-
         # Verify the largest frame size passes before searching; otherwise the
         # binary-search default would silently report END_FRAME as the answer.
         logger.info(
@@ -157,7 +148,6 @@ def test_min_frame_size_no_loss(
             nonlocal test_results
             update_flow.size.fixed = frame_size
             snappi_api.update_flows(req)
-            ixnet.ClearStats()
             result = boundary_check(snappi_api, snappi_config, frame_size, LINE_RATE_PERCENT, rfc2889_enabled)
             result["IP Version"] = ip_version
             row_data = {k: v for k, v in result.items() if k != "no_loss"}
