@@ -19,7 +19,10 @@ from tests.common.utilities import wait_until
 
 CLOCK_RECOVERY_TIMEOUT = 300
 CLOCK_RECOVERY_COMMAND_TIMEOUT = 120
+CLOCK_RECOVERY_LEASE = 1800
+CLOCK_RECOVERY_RETRY_INTERVAL = 60
 CLOCK_OFFSET_TOLERANCE = 5
+CLOCK_PTF_RECOVERY_TIMEOUT = 3600
 
 
 def pytest_addoption(parser):
@@ -68,20 +71,23 @@ def unpack_timestamp(packet, offset):
 address = socket.getaddrinfo(server, 123, type=socket.SOCK_DGRAM)[0]
 sock = socket.socket(address[0], address[1], address[2])
 sock.settimeout(5)
+sock.connect(address[4])
 request = bytearray(48)
 request[0] = 0x23
 sent_at = time.time()
 request[40:48] = pack_timestamp(sent_at)
-sock.sendto(request, address[4])
-response, _ = sock.recvfrom(512)
+sock.send(request)
+response = sock.recv(512)
 received_at = time.time()
 
 if len(response) < 48:
     raise RuntimeError("Short NTP response: {} bytes".format(len(response)))
-if response[0] & 0x7 not in (4, 5):
+if response[0] & 0x7 != 4:
     raise RuntimeError("Unexpected NTP response mode: {}".format(response[0] & 0x7))
 if not 1 <= response[1] <= 15:
     raise RuntimeError("Invalid NTP stratum: {}".format(response[1]))
+if response[24:32] != request[40:48]:
+    raise RuntimeError("NTP response originate timestamp does not match the request")
 
 server_received_at = unpack_timestamp(response, 32)
 server_sent_at = unpack_timestamp(response, 40)
@@ -99,14 +105,19 @@ PY""" % shlex.quote(ntp_server)
 
 
 @contextmanager
-def _clock_ntp_source(request, ptfhost):
+def _clock_ntp_source(request, ptfhost, recovery_state):
     configured_server = request.config.getoption("ntp_server")
     if configured_server:
         logging.info("Using NTP server from execution parameter: %s", configured_server)
         yield configured_server
         return
 
-    with setup_ntp_server_context(ptfhost, ptf_use_ipv6=False) as ntp_server:
+    with setup_ntp_server_context(
+        ptfhost,
+        ptf_use_ipv6=False,
+        recovery_timeout=CLOCK_PTF_RECOVERY_TIMEOUT,
+        recovery_state=recovery_state
+    ) as ntp_server:
         logging.info("Using temporary PTF NTP server: %s", ntp_server)
         yield ntp_server
 
@@ -116,6 +127,7 @@ def _install_clock_recovery(duthost, ntp_daemon, ntp_server, service_name,
     recovery_id = uuid.uuid4().hex
     unit_name = "sonic-mgmt-clock-recovery-{}".format(recovery_id)
     script_path = "/tmp/{}.sh".format(unit_name)
+    watchdog_path = "/tmp/{}-watchdog.sh".format(unit_name)
     ntp_conf_path = "/tmp/{}.conf".format(unit_name)
     lock_path = "/run/{}.lock".format(unit_name)
 
@@ -142,8 +154,20 @@ result=0
 exec 9>{lock_path}
 flock -x 9
 systemctl stop {service_name} || result=$?
-{sync_command} || result=$?
+sync_succeeded=0
+if {sync_command}; then
+    sync_succeeded=1
+else
+    result=$?
+fi
 timedatectl set-timezone {timezone} || result=$?
+if [ "$sync_succeeded" -eq 1 ] && command -v hwclock >/dev/null 2>&1; then
+    if hwclock --show >/dev/null 2>&1; then
+        hwclock --systohc || result=$?
+    else
+        echo "No accessible RTC; skipping RTC synchronization"
+    fi
+fi
 {service_restore_command} || result=$?
 exit $result
 """.format(
@@ -155,9 +179,32 @@ exit $result
     )
     duthost.copy(content=script, dest=script_path, mode=0o755)
 
+    watchdog = """#!/bin/bash
+deadline=$((SECONDS + {lease}))
+while true; do
+    if {script_path}; then
+        rm -f {script_path} {config_path} {lock_path} {watchdog_path}
+        exit 0
+    fi
+    if [ "$SECONDS" -ge "$deadline" ]; then
+        exit 1
+    fi
+    sleep {retry_interval}
+done
+""".format(
+        lease=CLOCK_RECOVERY_LEASE,
+        script_path=shlex.quote(script_path),
+        config_path=shlex.quote(ntp_conf_path),
+        lock_path=shlex.quote(lock_path),
+        watchdog_path=shlex.quote(watchdog_path),
+        retry_interval=CLOCK_RECOVERY_RETRY_INTERVAL
+    )
+    duthost.copy(content=watchdog, dest=watchdog_path, mode=0o755)
+
     return {
         "unit_name": unit_name,
         "script_path": script_path,
+        "watchdog_path": watchdog_path,
         "ntp_conf_path": ntp_conf_path,
         "lock_path": lock_path
     }
@@ -168,7 +215,7 @@ def _arm_clock_recovery(duthost, recovery):
         "systemd-run --unit={} --on-active={}s --timer-property=AccuracySec=1s {}".format(
             shlex.quote(recovery["unit_name"]),
             CLOCK_RECOVERY_TIMEOUT,
-            shlex.quote(recovery["script_path"])
+            shlex.quote(recovery["watchdog_path"])
         )
     )
 
@@ -192,9 +239,10 @@ def _remove_clock_recovery(duthost, recovery):
     duthost.shell(
         "systemctl stop {unit}.timer {unit}.service 2>/dev/null || true; "
         "systemctl reset-failed {unit}.service 2>/dev/null || true; "
-        "rm -f {script} {config} {lock}".format(
+        "rm -f {script} {watchdog} {config} {lock}".format(
             unit=shlex.quote(recovery["unit_name"]),
             script=shlex.quote(recovery["script_path"]),
+            watchdog=shlex.quote(recovery["watchdog_path"]),
             config=shlex.quote(recovery["ntp_conf_path"]),
             lock=shlex.quote(recovery["lock_path"])
         )
@@ -285,7 +333,8 @@ def restore_time(request, duthosts, ptfhost):
 
     duthost.shell("command -v systemd-run >/dev/null && command -v flock >/dev/null")
 
-    with _clock_ntp_source(request, ptfhost) as ntp_server:
+    ntp_source_state = {"defer_cleanup": False}
+    with _clock_ntp_source(request, ptfhost, ntp_source_state) as ntp_server:
         recovery = _install_clock_recovery(
             duthost,
             ntp_daemon,
@@ -315,6 +364,7 @@ def restore_time(request, duthosts, ptfhost):
 
             yield
         finally:
+            recovery_verified = False
             try:
                 if recovery_armed:
                     _rearm_clock_recovery(duthost, recovery)
@@ -330,5 +380,9 @@ def restore_time(request, duthosts, ptfhost):
                     original_service_active,
                     original_service_enabled
                 )
+                recovery_verified = True
             finally:
-                _remove_clock_recovery(duthost, recovery)
+                if recovery_verified:
+                    _remove_clock_recovery(duthost, recovery)
+                else:
+                    ntp_source_state["defer_cleanup"] = True

@@ -15,6 +15,9 @@ class NtpDaemon(Enum):
     CHRONY = 3
 
 
+NTP_SERVER_RECOVERY_TIMEOUT = 86400
+
+
 def get_ntp_service_name(ntp_daemon_type):
     if ntp_daemon_type == NtpDaemon.NTPSEC:
         return 'ntpsec'
@@ -57,6 +60,9 @@ def _configure_ntp_server(ptfhost, ntp_daemon_type, ntp_conf_path, ptf_use_ipv6)
                            regexp="^(server 127\\.127\\.1\\.0|refclock local)")
         ptfhost.lineinfile(path=ntp_conf_path, line="restrict 127.0.0.1")
         ptfhost.lineinfile(path=ntp_conf_path, line="restrict ::1")
+    elif ntp_daemon_type == NtpDaemon.CHRONY:
+        ptfhost.lineinfile(path=ntp_conf_path, line="local stratum 3", regexp="^local\\s+stratum\\s+")
+        ptfhost.lineinfile(path=ntp_conf_path, line="allow all", regexp="^allow\\s+")
     else:
         ptfhost.lineinfile(path=ntp_conf_path, line="server 127.127.1.0 prefer")
 
@@ -77,8 +83,178 @@ def _configure_ntp_server(ptfhost, ntp_daemon_type, ntp_conf_path, ptf_use_ipv6)
         path=ntp_conf_path, line="#tos minclock 4 minsane 3", regexp="^tos.*minclock.*minsane.*")
 
 
+def _install_ntp_server_recovery(ptfhost, ntp_service_name, ntp_conf_path,
+                                 ntp_conf_backup_path, ntp_service_was_active,
+                                 recovery_timeout=None):
+    recovery_id = uuid.uuid4().hex
+    script_path = "/tmp/sonic-mgmt-ntp-server-recovery-{}.sh".format(recovery_id)
+    pid_path = "/tmp/sonic-mgmt-ntp-server-recovery-{}.pid".format(recovery_id)
+    owner_path = "/tmp/sonic-mgmt-ntp-server-{}.owner".format(ntp_service_name)
+    owner_tmp_path = "{}.{}.tmp".format(owner_path, recovery_id)
+    lock_path = "/tmp/sonic-mgmt-ntp-server-{}.lock".format(ntp_service_name)
+
+    service_restore_command = (
+        "service {} restart".format(shlex.quote(ntp_service_name))
+        if ntp_service_was_active
+        else "service {} stop".format(shlex.quote(ntp_service_name))
+    )
+    script = """#!/bin/bash
+result=0
+if [ "${{SONIC_MGMT_NTP_LOCK_HELD:-0}}" -ne 1 ]; then
+    exec 9>{lock_path}
+    flock -x 9
+fi
+if [ ! -s {owner_path} ] || [ "$(cat {owner_path})" != {recovery_id} ]; then
+    exit 0
+fi
+if [ ! -e {backup_path} ]; then
+    echo "NTP configuration backup is missing: {backup_path}" >&2
+    exit 1
+fi
+service {service_name} stop || true
+cp -a {backup_path} {config_path} || result=$?
+{service_restore_command} || result=$?
+if [ "$result" -eq 0 ]; then
+    rm -f {owner_path}
+fi
+exit $result
+""".format(
+        lock_path=shlex.quote(lock_path),
+        owner_path=shlex.quote(owner_path),
+        recovery_id=shlex.quote(recovery_id),
+        service_name=shlex.quote(ntp_service_name),
+        backup_path=shlex.quote(ntp_conf_backup_path),
+        config_path=shlex.quote(ntp_conf_path),
+        service_restore_command=service_restore_command
+    )
+    try:
+        ptfhost.copy(content=script, dest=script_path, mode=0o755)
+        watchdog_command = (
+            "sleep {timeout}; "
+            "until {script}; do sleep 300; done; "
+            "rm -f {script} {pid} {backup} {owner_tmp}"
+        ).format(
+            timeout=recovery_timeout,
+            script=shlex.quote(script_path),
+            pid=shlex.quote(pid_path),
+            backup=shlex.quote(ntp_conf_backup_path),
+            owner_tmp=shlex.quote(owner_tmp_path)
+        )
+        ptfhost.shell(
+            "watchdog_started=0; "
+            "cleanup_install() {{ "
+            "if [ \"$watchdog_started\" -eq 0 ]; then "
+            "SONIC_MGMT_NTP_LOCK_HELD=1 {script} >/dev/null 2>&1 || true; "
+            "fi; "
+            "}}; "
+            "trap cleanup_install EXIT HUP INT TERM; "
+            "exec 9>{lock}; flock -x 9; "
+            "if [ -e {owner} ]; then "
+            "echo 'Another NTP server context owns {owner}' >&2; exit 1; fi; "
+            "cp -a {config} {backup} && "
+            "printf '%s\\n' {recovery_id} > {owner_tmp} && "
+            "mv -f {owner_tmp} {owner} || exit 1; "
+            "setsid sh -c {watchdog} 9>&- >/dev/null 2>&1 </dev/null & "
+            "watchdog_pid=$!; printf '%s\\n' \"$watchdog_pid\" > {pid} || exit 1; "
+            "kill -0 \"$watchdog_pid\" || exit 1; watchdog_started=1; "
+            "trap - EXIT HUP INT TERM".format(
+                watchdog=shlex.quote(watchdog_command),
+                script=shlex.quote(script_path),
+                lock=shlex.quote(lock_path),
+                owner=shlex.quote(owner_path),
+                config=shlex.quote(ntp_conf_path),
+                backup=shlex.quote(ntp_conf_backup_path),
+                recovery_id=shlex.quote(recovery_id),
+                owner_tmp=shlex.quote(owner_tmp_path),
+                pid=shlex.quote(pid_path)
+            )
+        )
+        ptfhost.command("test -s {}".format(shlex.quote(pid_path)))
+    except Exception:
+        restore_result = ptfhost.command(
+            shlex.quote(script_path),
+            module_ignore_errors=True
+        )
+        owns_context = ptfhost.shell(
+            "test -s {owner} && [ \"$(cat {owner})\" = {recovery_id} ]".format(
+                owner=shlex.quote(owner_path),
+                recovery_id=shlex.quote(recovery_id)
+            ),
+            module_ignore_errors=True
+        )["rc"] == 0
+        if restore_result["rc"] == 0 or not owns_context:
+            ptfhost.shell(
+                "if [ -s {pid} ]; then kill -- -$(cat {pid}) 2>/dev/null || true; fi; "
+                "rm -f {script} {pid} {backup} {owner_tmp}".format(
+                    script=shlex.quote(script_path),
+                    pid=shlex.quote(pid_path),
+                    backup=shlex.quote(ntp_conf_backup_path),
+                    owner_tmp=shlex.quote(owner_tmp_path)
+                )
+            )
+        raise
+
+    return {
+        "script_path": script_path,
+        "pid_path": pid_path,
+        "backup_path": ntp_conf_backup_path
+    }
+
+
+def _restore_ntp_server(ptfhost, recovery):
+    result = ptfhost.shell(
+        "if [ -x {script} ]; then {script}; "
+        "elif [ ! -e {backup} ]; then exit 0; "
+        "else exit 1; fi".format(
+            script=shlex.quote(recovery["script_path"]),
+            backup=shlex.quote(recovery["backup_path"])
+        ),
+        module_ignore_errors=True
+    )
+    if result["rc"] == 0:
+        ptfhost.shell(
+            "if [ -s {pid} ]; then kill -- -$(cat {pid}) 2>/dev/null || true; fi; "
+            "rm -f {script} {pid} {backup}".format(
+                script=shlex.quote(recovery["script_path"]),
+                pid=shlex.quote(recovery["pid_path"]),
+                backup=shlex.quote(recovery["backup_path"])
+            )
+        )
+
+    pytest_assert(
+        result["rc"] == 0,
+        "Failed to restore the PTF NTP server state: {}".format(result)
+    )
+
+
+def _check_chrony_server_ready(host, max_dispersion):
+    result = host.command("chronyc tracking", module_ignore_errors=True)
+    if result["rc"] != 0:
+        return False
+
+    values = {}
+    for line in result["stdout"].splitlines():
+        if ":" in line:
+            key, value = line.split(":", 1)
+            values[key.strip()] = value.strip()
+
+    try:
+        stratum = int(values["Stratum"])
+        root_dispersion = float(values["Root dispersion"].split()[0])
+    except (KeyError, ValueError, IndexError):
+        return False
+
+    return (
+        stratum > 0
+        and values.get("Leap status") == "Normal"
+        and root_dispersion < max_dispersion
+    )
+
+
 @contextmanager
-def setup_ntp_server_context(ptfhost, ptf_use_ipv6=False):
+def setup_ntp_server_context(ptfhost, ptf_use_ipv6=False,
+                             recovery_timeout=NTP_SERVER_RECOVERY_TIMEOUT,
+                             recovery_state=None):
     """Configure the PTF host as a temporary NTP server and restore it verbatim."""
     ntp_daemon_type = get_ntp_daemon_in_use(ptfhost)
     ntp_conf_path = get_ntp_config_path(ntp_daemon_type)
@@ -88,34 +264,40 @@ def setup_ntp_server_context(ptfhost, ptf_use_ipv6=False):
         module_ignore_errors=True
     )["rc"] == 0
     ntp_conf_backup_path = "{}.sonicmgmt.{}.bak".format(ntp_conf_path, uuid.uuid4().hex)
-    quoted_conf_path = shlex.quote(ntp_conf_path)
-    quoted_backup_path = shlex.quote(ntp_conf_backup_path)
 
-    ptfhost.command("cp -a {} {}".format(quoted_conf_path, quoted_backup_path))
+    ptfhost.command("command -v flock >/dev/null")
+    ptfhost.command("command -v setsid >/dev/null")
+    recovery = _install_ntp_server_recovery(
+        ptfhost,
+        ntp_service_name,
+        ntp_conf_path,
+        ntp_conf_backup_path,
+        ntp_service_was_active,
+        recovery_timeout
+    )
     try:
         _configure_ntp_server(ptfhost, ntp_daemon_type, ntp_conf_path, ptf_use_ipv6)
 
         # restart ntp server
         ntp_en_res = ptfhost.service(name=ntp_service_name, state="restarted")
 
-        pytest_assert(wait_until(120, 5, 0, check_ntp_status, ptfhost, ntp_daemon_type),
-                      "NTP server was not started in PTF container {}; NTP service start result {}"
-                      .format(ptfhost.hostname, ntp_en_res))
-
-        # Chrony clients reject sources whose root dispersion is too large.
-        pytest_assert(wait_until(180, 10, 0, check_max_root_dispersion, ptfhost, 3, ntp_daemon_type),
-                      "NTP timing hasn't converged enough in PTF container {}".format(ptfhost.hostname))
+        if ntp_daemon_type == NtpDaemon.CHRONY:
+            server_ready = wait_until(180, 10, 0, _check_chrony_server_ready, ptfhost, 3)
+        else:
+            server_ready = (
+                wait_until(120, 5, 0, check_ntp_status, ptfhost, ntp_daemon_type)
+                and wait_until(180, 10, 0, check_max_root_dispersion, ptfhost, 3, ntp_daemon_type)
+            )
+        pytest_assert(
+            server_ready,
+            "NTP server was not ready in PTF container {}; NTP service start result {}"
+            .format(ptfhost.hostname, ntp_en_res)
+        )
 
         yield ptfhost.mgmt_ipv6 if ptf_use_ipv6 else ptfhost.mgmt_ip
     finally:
-        try:
-            ptfhost.service(name=ntp_service_name, state="stopped")
-        finally:
-            try:
-                ptfhost.command("mv -f {} {}".format(quoted_backup_path, quoted_conf_path))
-            finally:
-                if ntp_service_was_active:
-                    ptfhost.service(name=ntp_service_name, state="restarted")
+        if not recovery_state or not recovery_state.get("defer_cleanup"):
+            _restore_ntp_server(ptfhost, recovery)
 
 
 def _ntp_add_command(ntp_server, ntp_server_options, ntp_add_iburst_present):
