@@ -8,13 +8,18 @@ The test:
      intentionally be left out of the configured list.
   2. Applies `listen_addresses` restricted to the management/loopback
      addresses only.
-  3. Confirms SSH still succeeds through every configured address.
+  3. Confirms SSH still succeeds through the management address (the only
+     configured address the sonic-mgmt test runner actually has a network
+     route to in kvmtest topologies - see point 4). Loopback addresses in
+     the configured set are validated via `ss` only, the same as the
+     omitted VLAN address below.
   4. Confirms sshd is no longer bound to the omitted VLAN address (checked
      via `ss` on the DUT itself, not by opening a connection to it - the
      sonic-mgmt test runner only has network reachability to the DUT's
-     management network in kvmtest topologies, not to VLAN/data-plane
-     addresses, so an actual SSH attempt to that address would fail for an
-     unrelated reason regardless of sshd's bind state).
+     management network in kvmtest topologies, not to VLAN/data-plane or
+     Loopback addresses, so an actual SSH/connection attempt to those
+     addresses would fail for an unrelated reason regardless of sshd's
+     bind state).
   5. Removes `listen_addresses` and confirms both IPv4/IPv6 wildcard
      listening is restored, including the previously-omitted VLAN address
      (again via `ss`, not a live connection attempt).
@@ -177,6 +182,7 @@ def test_ssh_listen_addresses(duthosts, rand_one_dut_hostname, creds, restore_ss
     duthost = duthosts[rand_one_dut_hostname]
     dutuser = creds['sonicadmin_user']
     dutpass = creds['sonicadmin_password']
+    mgmt_ip = str(ipaddress.ip_address(duthost.mgmt_ip)) if duthost.mgmt_ip else None
 
     keep_addresses, omit_address = _pick_assigned_addresses(duthost)
     pytest_assert(len(keep_addresses) > 0,
@@ -196,16 +202,22 @@ def test_ssh_listen_addresses(duthosts, rand_one_dut_hostname, creds, restore_ss
         "sshd did not converge to listening only on the configured addresses {}".format(keep_addresses)
     )
 
-    # SSH must succeed through every configured (kept) address.
-    for addr in keep_addresses:
-        ssh = None
-        try:
-            ssh = paramiko_ssh(addr, dutuser, [dutpass] + creds.get("ansible_altpasswords", []))
-        except Exception as e:
-            pytest.fail("SSH via configured listen address {} failed unexpectedly: {}".format(addr, e))
-        finally:
-            if ssh:
-                ssh.close()
+    # SSH must succeed through the management address. Other configured
+    # (kept) addresses - e.g. Loopback - are not routable from the
+    # sonic-mgmt test runner in kvmtest topologies, so they're validated via
+    # `ss` bind-state only (see module docstring), the same as the omitted
+    # VLAN address below.
+    pytest_assert(mgmt_ip in keep_addresses,
+                  "Management address {} unexpectedly missing from configured listen_addresses {}".format(
+                      mgmt_ip, keep_addresses))
+    ssh = None
+    try:
+        ssh = paramiko_ssh(mgmt_ip, dutuser, [dutpass] + creds.get("ansible_altpasswords", []))
+    except Exception as e:
+        pytest.fail("SSH via configured listen address {} failed unexpectedly: {}".format(mgmt_ip, e))
+    finally:
+        if ssh:
+            ssh.close()
 
     # sshd must no longer be bound to the intentionally omitted VLAN gateway
     # address. Checked purely via `ss` on the DUT (over the already-open
