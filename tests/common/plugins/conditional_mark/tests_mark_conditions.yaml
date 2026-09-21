@@ -691,9 +691,11 @@ bgp/test_bgp_suppress_fib.py::test_suppress_fib_stress:
 
 bgp/test_bgp_update_replication.py:
   xfail:
-    reason: "Testcase is not stable on dualtor-aa setup due to GH issue: https://github.com/sonic-net/sonic-mgmt/issues/21110"
+    reason: "Testcase is not stable due to GH issues"
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/21110 and 'dualtor-aa' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/28034 and topo_name in ['t1-isolated-d448u15-lag']"
 
 bgp/test_bgp_vnet.py:
   skip:
