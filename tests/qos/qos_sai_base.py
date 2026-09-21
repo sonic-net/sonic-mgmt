@@ -1753,11 +1753,68 @@ class QosSaiBase(QosBase):
                 a_asic.bgp_drop_rule(state="absent", **ipVersion)
 
     @pytest.fixture(scope='class')
+    def disable_mux_for_qos(
+        self, duthosts, get_mux_status, tbinfo, upper_tor_host, lower_tor_host,  # noqa: F811
+        toggle_all_simulator_ports, active_standby_ports  # noqa: F811
+    ):
+        """Keep dual-ToR mux ports stable during QoS tests.
+
+        Active-standby ports retain the existing QoS setup and are moved to the
+        lower ToR first. The mux service and write_standby.py remain untouched;
+        manual muxcable mode prevents linkmgrd from changing the port state
+        while the test is running.
+        """
+        is_dualtor = 'dualtor' in tbinfo['topo']['name']
+        if not is_dualtor:
+            yield
+            return
+
+        try:
+            # Recover from manual mode left by an interrupted previous run
+            # before establishing the forwarding state required by QoS tests.
+            duthosts.shell('sudo config muxcable mode auto all')
+
+            if active_standby_ports:
+                toggle_all_simulator_ports(LOWER_TOR, retries=3)
+                check_result = wait_until(
+                    120, 10, 10, check_mux_status, duthosts, LOWER_TOR)
+                validate_check_result(check_result, duthosts, get_mux_status)
+
+            # Do not stop mux or modify write_standby.py. Manual mode prevents
+            # automatic linkmgrd/heartbeat changes and preserves existing
+            # active-active state on mixed dual-ToR topologies.
+            duthosts.shell('sudo config muxcable mode manual all')
+            logger.info("Set mux ports to manual mode for dual-ToR QoS tests")
+
+            yield
+        finally:
+            cleanup_errors = []
+            for tor_host in (lower_tor_host, upper_tor_host):
+                try:
+                    tor_host.shell('sudo config muxcable mode auto all')
+                except Exception as e:
+                    cleanup_errors.append(
+                        "failed to restore mux ports to auto mode on {}: {}".format(
+                            tor_host.hostname, e))
+                try:
+                    tor_host.shell('sudo config save -y')
+                except Exception as e:
+                    cleanup_errors.append(
+                        "failed to save mux mode on {}: {}".format(
+                            tor_host.hostname, e))
+
+            if cleanup_errors:
+                raise RuntimeError("Dual-ToR QoS cleanup failed: {}".format(
+                    "; ".join(cleanup_errors)))
+
+            logger.info("Restored mux ports to auto mode after dual-ToR QoS tests")
+
+    @pytest.fixture(scope='class')
     def stopServices(
         self, duthosts, get_src_dst_asic_and_duts, dut_disable_ipv6,
-        swapSyncd_on_selected_duts,
-        enable_container_autorestart, disable_container_autorestart, get_mux_status,  # noqa: F811
-        tbinfo, upper_tor_host, lower_tor_host, toggle_all_simulator_ports, active_standby_ports  # noqa: F811
+        swapSyncd_on_selected_duts, disable_mux_for_qos,
+        enable_container_autorestart, disable_container_autorestart,
+        tbinfo, upper_tor_host  # noqa: F811
     ):
         """
             Stop services and dockers(lldp, bgpd, etc.) on DUT host prior to test start
@@ -1819,28 +1876,6 @@ class QosSaiBase(QosBase):
             logger.info("Changed feature {} state to {}".format(feature, state))
 
         is_dualtor = 'dualtor' in tbinfo['topo']['name']
-        is_dualtor_active_standby = is_dualtor and active_standby_ports
-        """ Stop mux container for dual ToR Active-Standby """
-        if is_dualtor:
-            if is_dualtor_active_standby:
-                toggle_all_simulator_ports(LOWER_TOR, retries=3)
-                check_result = wait_until(
-                    120, 10, 10, check_mux_status, duthosts, LOWER_TOR)
-                validate_check_result(check_result, duthosts, get_mux_status)
-
-            file = "/usr/local/bin/write_standby.py"
-            backup_file = "/usr/local/bin/write_standby.py.bkup"
-            try:
-                lower_tor_host.shell("ls %s" % file)
-                lower_tor_host.shell("sudo cp {} {}".format(file, backup_file))
-                lower_tor_host.shell("sudo rm {}".format(file))
-                lower_tor_host.shell("sudo touch {}".format(file))
-                lower_tor_host.shell("sudo chmod +x {}".format(file))
-            except Exception as e:
-                pytest.skip('file {} not found. Exception {}'.format(file, str(e)))
-
-            updateFeatureState(upper_tor_host, "mux", "disabled")
-            updateFeatureState(lower_tor_host, "mux", "disabled")
 
         src_services = [
             {"docker": src_asic.get_docker_name("radv"), "service": "radvd"},
@@ -1890,20 +1925,6 @@ class QosSaiBase(QosBase):
                     executor.submit(updateDockerService, dst_dut, action="start", **service)
 
             dst_dut.shell("sudo config bgp start all")
-
-        """ Start mux conatiner for dual ToR """
-        if is_dualtor:
-            try:
-                lower_tor_host.shell("ls %s" % backup_file)
-                lower_tor_host.shell("sudo cp {} {}".format(backup_file, file))
-                lower_tor_host.shell("sudo chmod +x {}".format(file))
-                lower_tor_host.shell("sudo rm {}".format(backup_file))
-            except Exception as e:
-                pytest.skip('file {} not found. Exception {}'.format(backup_file, str(e)))
-
-            updateFeatureState(upper_tor_host, "mux", "enabled")
-            updateFeatureState(lower_tor_host, "mux", "enabled")
-            logger.info("Start mux container for dual ToR testbed")
 
         enable_container_autorestart(src_dut, testcase="test_qos_sai", feature_list=feature_list)
         if src_asic != dst_asic:
