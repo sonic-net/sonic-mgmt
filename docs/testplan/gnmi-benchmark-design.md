@@ -68,10 +68,8 @@ A preparation or restoration failure prevents a completed benchmark report.
 
 ## Measurement
 
-Each request is timed independently around its client call. An iteration with
-multiple requests produces separate latency samples, not a combined latency.
-The same timing boundary applies to each issued request. The original diagram
-below illustrates it with the two native Set backend paths:
+Each request is timed independently, from the client call to its completion.
+The diagram illustrates this boundary using native Set's two backend paths:
 
 ```mermaid
 flowchart TD
@@ -86,47 +84,18 @@ flowchart TD
     Stop -.-> Check["Inspect response Error codes"]
 ```
 
-The timer covers the entire client call, including serialization, gRPC/HTTP2
-queueing, transport, applicable server processing and response decoding. Server
-processing includes any authentication/authorization, validation or bypass
-eligibility checks, and backend operations actually executed by the selected
-path. Backend details depend on the operation and server version; the diagram
-does not imply that every request follows these Set paths. Validation bypass
-changes the validation/write path; it is not an authentication-bypass option.
-
-These are **included costs, not separately measured stages**. The benchmark
-records end-to-end latency and does not infer which backend path ran. Connection
-setup performed before the call is excluded; a handshake or reconnect occurring
-inside the call is included. Request preparation, warmup, restoration and the
-client's post-call response-error inspection are outside the measured request
-interval. Failed calls are counted as errors rather than included in
-successful-request latency statistics. On an RPC error, the timer stops when
-the call raises; a normal decoded response is not required.
-
-Interpret results with these boundaries:
-
-- Read open-loop latency together with its drop rate. Fast admitted requests do
-  not show that the full offered rate was sustained.
-- Keep admission-window throughput separate from full-run averages that include
-  drain. Long-drain runs do not establish steady-state capacity.
-- RPC success establishes response-level success, not application correctness
-  or completion of downstream effects.
-- Compare versions using the same data, load, transport and repeated runs.
-  One run demonstrates observed behavior, not an internal cause or reliable speedup.
+- **Included:** client, transport and server work performed during the call,
+  including applicable auth and validation/bypass processing. This is one
+  end-to-end measurement, not a breakdown of internal stages.
+- **Excluded:** preparation, warmup, restoration and post-call response checks.
+  Failed requests are counted separately from successful-request latency.
+- **Interpretation:** read latency together with errors, drops and drain time.
+  Compare runs under matching conditions; RPC success alone does not establish
+  application correctness.
 
 ---
 
 ## Report
-
-`BenchmarkReport` is integrated into the Runner's lifecycle: the caller supplies
-the report object, and the Runner invokes it with the collected measurements
-after restoration. The Runner returns the generated report to the caller for
-writing and verdict handling. The report implementation is replaceable, but it
-does not run independently or control workload execution.
-
-The current pass criterion is **every measured request ≤1,000 ms**, with no
-RPC/response errors or dropped arrivals. The pytest entry point writes the report
-before applying the verdict. A mean or P95 below 1,000 ms does not establish a pass.
 
 ### Sample JSON
 
@@ -191,6 +160,9 @@ Abbreviated, **illustrative values only**; this is not a device result. The
 | Open-loop `execution.scheduling` | Scheduled/started/dropped **iterations**, arrival rates in **iterations/s**, start delay in **ms**. Drops are unsent work, not failed RPCs. |
 | `resources` / `sampling` | CPU in **%**, memory in **MiB**. Before/after snapshots do not establish the true resource peak during load. |
 
+Passing requires every measured request to complete within **1,000 ms**, with no
+RPC/response errors or dropped arrivals; an average or P95 below the limit is not sufficient.
+
 ### Histogram buckets
 
 `latency_ms.bucket_counts` contains **42 non-cumulative counts**, using the 41
@@ -222,11 +194,6 @@ define every histogram interval.
 
 ## Blaster
 
-The abstract `Blaster` defines one workload iteration and supplies reusable load
-generation. It supports closed/open loop, count/duration runs, optional warmup,
-per-RPC timeouts and a label for identifying the run. Subclasses define the
-request sequence and any preparation, rather than implementing scheduling again.
-
 ### Load modes
 
 | Load model | Behavior | Question it answers |
@@ -246,42 +213,18 @@ request sequence and any preparation, rather than implementing scheduling again.
 
 ### Threads and sessions
 
-Each phase uses a bounded thread pool. Warmup drains before measurement begins,
-and measured work drains before resource restoration. Open loop drops arrivals
-it cannot admit instead of building an unbounded queue or sending catch-up bursts.
+| Area | Behavior |
+|---|---|
+| Workers | Bounded pool per phase; warmup drains before measurement, and measurement drains before restoration. |
+| Connection | One persistent gRPC channel shared by workers and reused across phases. |
+| Session | Per-iteration request timing and outcome tracking; no new connection per iteration. |
+| Failures | A failed request ends the iteration; earlier successful requests retain their samples. |
 
-Workers share one persistent gRPC channel and prepared requests. Each iteration
-gets its own lightweight session for request timing and outcome tracking; it does
-not open a new connection. The current session supports Get and Set. A failed
-request ends that iteration, while successful requests retain their own samples.
-Warmup and measurement use separate pools and samples but reuse the connection.
+### Workloads
 
-### Included implementation: RouteTableBlaster
-
-This PR provides [RouteTableBlaster](../../tests/gnmi_benchmark/blaster.py), a
-bulk configuration workload. Each iteration performs **Get → Set** for existing
-VNET routes in CONFIG_DB: one Get reads explicit keys, and one table-level Set
-rewrites that batch with validation bypass requested. Set uses prepared values,
-not the Get response; a failed Get skips Set. Other workloads can supply a
-different request sequence while reusing the framework.
-
-The default inventory contains **256,000 routes across 13 VNETs**: 12 × 20,000
-measured routes plus 16,000 background routes. Requests cycle through disjoint
-batches across measured VNETs. Batch size divides the measured VNET size so every
-request carries the same number of routes. Varying batch size preserves inventory
-and eligible keys, separating request-size effects from database-size effects.
-Short runs may not visit every batch.
-
-The scenario requires a single-ASIC DUT with TLS, GCU and Loopback0 IPv4 support.
-Preparation checks route capacity, backs up configuration and preloads routes;
-restoration removes test resources and restores the backup. Runs need exclusive
-configuration access. Client drain does not prove timed-out server writes have
-stopped, so restoration must be checked before device reuse.
-
-Get and Set have separate latency distributions. A successful iteration contains
-two RPCs; its batch size converts iteration throughput to route entries/s per
-direction. The benchmark does not check readback or forwarding convergence, or
-assert that bypass was used. Get may read a CONFIG_DB checkpoint.
+| Blaster | One iteration | Main parameters | Prerequisites |
+|---|---|---|---|
+| [RouteTableBlaster](../../tests/gnmi_benchmark/blaster.py) (`route-table`) | Read explicit CONFIG_DB route keys, then rewrite the batch with prepared values and validation bypass requested. | Route distribution and routes per request; default inventory: 256k routes across 13 VNETs. | Single-ASIC DUT, TLS, GCU, Loopback0 IPv4 and exclusive configuration access. |
 
 For CLI examples and extension details, see the
 [benchmark README](../../tests/gnmi_benchmark/README.md).
