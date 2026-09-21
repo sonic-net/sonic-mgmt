@@ -289,16 +289,6 @@ def dldd_capabilities(duthosts, enum_rand_one_per_hwsku_hostname):
     golden_rules_path = "{}/dld_rules_golden.yaml".format(platform_dir)
     inbox_rules_path = "/var/lib/sonic/dldd/inbox/dld_rules.yaml"
     active_rules_path = "/var/lib/sonic/dldd/rules/dld_rules.active.yaml"
-    manifest = duthost.shell(
-        "sudo cat -- /var/lib/sonic/dldd/rules/activation.json",
-        module_ignore_errors=True,
-    )
-    try:
-        previous_rules_path = json.loads(manifest.get("stdout", "")).get(
-            "previous_active_generation_path"
-        )
-    except (AttributeError, TypeError, ValueError):
-        previous_rules_path = None
     dse_path = "{}/dld_dse.yaml".format(platform_dir)
     dse_present = duthost.stat(path=dse_path)["stat"].get("exists", False)
 
@@ -309,7 +299,6 @@ def dldd_capabilities(duthosts, enum_rand_one_per_hwsku_hostname):
         "rules_paths": (
             inbox_rules_path,
             active_rules_path,
-            previous_rules_path,
             rules_path,
             golden_rules_path,
         ),
@@ -393,20 +382,23 @@ def test_operator_commands_smoke(
         ),
         (
             "show dldd status",
-            "State|Heartbeat age|Activation|Rules source".split("|"),
-            ("Running schema", "Active rules checksum", "Reason"), 3,
+            "State|Heartbeat age|Rules|Faults|Rule errors|Source errors".split("|"),
+            ("Running schema", "Active rules checksum", "Reason"),
+            3,
         ),
         (
             "show dldd status --detail",
             "Heartbeat age|Running schema|Active rules checksum|Active rules source|"
-            "Activation result|Activation fallback used|Previous active rules checksum|"
-            "Local action default timeout".split("|"),
-            (), None,
+            "Activation result|Loaded rules|Active faults|Rule exceptions|"
+            "Source exceptions|Work in progress".split("|"),
+            ("Activation fallback used", "Previous active rules checksum"),
+            None,
         ),
         (
             "show dldd rules",
-            ("Rule ID", "Rule", "Component", "Health", "Active faults"),
-            ("Version", "Work items", "Last attempt", "Reason"), None,
+            ("Loaded rules",),
+            ("Work items", "Correlation key", "DLDD_RULE_DETAIL"),
+            None,
         ),
         (
             "show dldd faults",
@@ -437,6 +429,8 @@ def test_operator_commands_smoke(
                 command, result.get("stderr", ""),
             ),
         )
+
+
 def test_status_and_heartbeat(
     duthosts, enum_rand_one_per_hwsku_hostname, dldd_capabilities
 ):
@@ -453,8 +447,10 @@ def test_status_and_heartbeat(
     for field in (
         "active_rules_source",
         "activation_result",
-        "activation_fallback_used",
-        "previous_active_rules_checksum",
+        "rule_count",
+        "active_fault_count",
+        "rule_exception_count",
+        "source_exception_count",
     ):
         pytest_assert(field in status, "DLDD status is missing {!r}".format(field))
     running_schema = status.get("running_schema", "")
