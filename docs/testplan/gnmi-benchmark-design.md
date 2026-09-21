@@ -77,20 +77,44 @@ method or position in the workload:
 sequenceDiagram
     participant Client as Benchmark client
     participant DUT as gNMI server
+    participant Backend as Backend
     loop Each issued request · 1 ... N
         Note over Client: Start request timer
         activate Client
-        Client->>DUT: Request
+        Client->>Client: Serialize · gRPC queue
+        Client->>DUT: Request over transport / TLS
+        activate DUT
+        Note over DUT: Path-dependent processing:<br/>auth / authorization,<br/>validation or bypass selection
+        opt Request accepted
+            DUT->>Backend: Read / write / service operation
+            Backend-->>DUT: Result
+        end
+        DUT->>DUT: Build response
         DUT-->>Client: Response or RPC error
+        deactivate DUT
+        Client->>Client: Decode response
         Note over Client: Stop timer after decoded return or error
         deactivate Client
         Client->>Client: Check outcome · record sample or error
     end
 ```
 
-Latency includes serialization, transport, server work and response decoding.
-Preparation, warmup and restoration are outside the timer. Failed calls are
-counted as errors rather than included in successful-request latency statistics.
+The timer covers the entire client call, including serialization, gRPC/HTTP2
+queueing, transport, applicable server processing and response decoding. Server
+processing includes any authentication/authorization, validation or bypass
+eligibility checks, and backend operations actually executed by the selected
+path. The server note groups possible work, not a fixed ordering shared by every
+implementation. Validation bypass changes the validation/write path; it is not
+an authentication-bypass option.
+
+These are **included costs, not separately measured stages**. The benchmark
+records end-to-end latency and does not infer which backend path ran. Connection
+setup performed before the call is excluded; a handshake or reconnect occurring
+inside the call is included. Request preparation, warmup, restoration and the
+client's post-call response-error inspection are outside the measured request
+interval. Failed calls are counted as errors rather than included in
+successful-request latency statistics. On an RPC error, the timer stops when
+the call raises; a normal decoded response is not required.
 
 Interpret results with these boundaries:
 
