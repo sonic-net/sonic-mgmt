@@ -112,7 +112,7 @@ interface {{ if_name }}
  vrf {{ vrf }}
             {% if if_data['lacp'] is defined %}
  channel-group {{ if_data['lacp'] }} mode active
- lacp rate normal
+ lacp timer normal
             {% endif %}
             {% if if_data['ipv4'] is defined %}
  ip address {{ if_data['ipv4'] }}
