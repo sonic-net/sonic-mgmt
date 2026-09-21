@@ -3450,9 +3450,9 @@ iface_namingmode/test_iface_namingmode.py::TestConfigInterface:
 
 iface_namingmode/test_iface_namingmode.py::TestConfigInterface::test_config_interface_speed:
   skip:
-    reason: "Arista-7060X6 doesn't support speed change as it's ASIC limitation. Skipping this test."
+    reason: "Platform or hwsku doesn't support speed change. Skipping this test."
     conditions:
-      - "'Arista-7060X6' in hwsku"
+      - "'Arista-7060X6' in hwsku or platform in ['x86_64-micas_m2-w6940-128x1-fr4-r0']"
 
 iface_namingmode/test_iface_namingmode.py::TestShowIP::test_show_ip_route_v4:
   skip:
