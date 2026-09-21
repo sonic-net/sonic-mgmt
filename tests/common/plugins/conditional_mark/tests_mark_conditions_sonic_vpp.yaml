@@ -386,6 +386,16 @@ golden_config_infra/test_config_reload_with_rendered_golden_config.py::test_rend
       - "asic_type in ['vpp']"
 
 #######################################
+#####             IP              #####
+#######################################
+ip/test_mgmt_ipv6_only.py::test_telemetry_output_ipv6_only:
+  xfail:
+    reason: "gNMI rejects IPv6 telemetry requests as Unauthenticated despite user_auth=none"
+    strict: false
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/28017 and asic_type in ['vpp'] and release == 'master'"
+
+#######################################
 #####         Memory Checker      #####
 #######################################
 memory_checker/test_memory_checker.py::test_memory_checker:
