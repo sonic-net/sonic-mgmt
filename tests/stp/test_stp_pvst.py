@@ -281,6 +281,7 @@ class TestPvst(StpTestBase):
                     ptfhost, duthost, "validate_path_cost",
                     {"vlan_id": vlan_id, "capture_port": ptf_port_2,
                      "capture_duration": self.PKT_CAPTURE_DURATION,
+                     "expected_bridge_mac": d["dut_ports"]["mac"],
                      "expected_root_path_cost": default_port_cost},
                     "/tmp/pvst_path_cost_default.log")
 
@@ -294,6 +295,7 @@ class TestPvst(StpTestBase):
                     ptfhost, duthost, "validate_path_cost",
                     {"vlan_id": vlan_id, "capture_port": ptf_port_2,
                      "capture_duration": self.PKT_CAPTURE_DURATION,
+                     "expected_bridge_mac": d["dut_ports"]["mac"],
                      "expected_root_path_cost": self.PORT_COST},
                     "/tmp/pvst_path_cost_updated.log")
         finally:

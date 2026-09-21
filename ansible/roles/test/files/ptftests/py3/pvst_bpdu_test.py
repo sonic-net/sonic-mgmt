@@ -436,18 +436,24 @@ class PvstBpduTest(BaseTest):
             self.logger.info(f"Captured BPDU: {bpdu_data}")
             self.captured_bpdus.append(bpdu_data)
 
-    def start_bpdu_capture(self, interface, timeout=30):
+    def start_bpdu_capture(self, interface, timeout=30, exclude_src_mac=None):
         """
         @summary: Start capturing BPDU packets on specified interface
 
         @param interface: Interface name to capture on
         @param timeout: Capture timeout in seconds
+        @param exclude_src_mac: Drop packets with this source MAC (optional)
         """
         self.captured_bpdus = []
         self.capture_timeout = timeout
 
         # Create packet filter for PVST BPDUs
         bpdu_filter = f"ether dst {self.BPDU_DST_MAC}"
+        # The PVST destination MAC is not IEEE-reserved, so a BPDU this PTF
+        # injects on one port can be flooded back out of the capture port by the
+        # DUT. Those are not DUT-originated and must not spend the sniff budget.
+        if exclude_src_mac:
+            bpdu_filter += f" and not ether src {exclude_src_mac}"
 
         self.logger.info(f"Starting BPDU capture on {interface} for {timeout} seconds")
 
@@ -476,11 +482,12 @@ class PvstBpduTest(BaseTest):
             # Wait for capture thread to finish
             self.capture_thread.join(timeout=5)
 
-    def get_captured_bpdus(self, vlan_id=None, bpdu_type=None):
+    def get_captured_bpdus(self, vlan_id=None, bpdu_type=None, bridge_mac=None):
         """
         @summary: Get captured BPDU packets with optional filtering
         @param vlan_id: Filter by VLAN ID (optional)
         @param bpdu_type: Filter by BPDU type (optional)
+        @param bridge_mac: Keep only BPDUs originated by this bridge (optional)
         @return: List of filtered BPDU data dictionaries
         """
         filtered_bpdus = self.captured_bpdus.copy()
@@ -490,6 +497,11 @@ class PvstBpduTest(BaseTest):
 
         if bpdu_type is not None:
             filtered_bpdus = [bpdu for bpdu in filtered_bpdus if bpdu.get('bpdu_type') == bpdu_type]
+
+        if bridge_mac is not None:
+            bridge_mac = bridge_mac.lower()
+            filtered_bpdus = [bpdu for bpdu in filtered_bpdus
+                              if bpdu.get('bridge_mac', '').lower() == bridge_mac]
 
         return filtered_bpdus
 
@@ -751,13 +763,18 @@ class PvstBpduTest(BaseTest):
         capture_port = self.test_params.get('capture_port', 1)  # PTF port to capture on
         expected_root_path_cost = self.test_params.get('expected_root_path_cost', 0)
         capture_duration = self.test_params.get('capture_duration', 15)
+        # Bridge MAC of the DUT, when the caller knows it: the root path cost is
+        # a property of the BPDUs the DUT originates, so BPDUs from any other
+        # bridge seen on the capture port must be ignored rather than validated.
+        expected_bridge_mac = self.test_params.get('expected_bridge_mac', '')
 
         self.logger.info(f"Capturing BPDUs on port {capture_port} for VLAN {vlan_id}")
         self.logger.info(f"Expected root path cost: {expected_root_path_cost}")
 
         # Start packet capture
         capture_interface = f"eth{capture_port}"
-        self.start_bpdu_capture(capture_interface, timeout=capture_duration)
+        self.start_bpdu_capture(capture_interface, timeout=capture_duration,
+                                exclude_src_mac=self.BPDU_SRC_MAC)
 
         # Wait for BPDUs to be captured
         time.sleep(capture_duration)  # Extra time to ensure capture completes
@@ -772,6 +789,20 @@ class PvstBpduTest(BaseTest):
             error_msg = f'No Configuration BPDUs captured for VLAN {vlan_id}'
             self.logger.error(error_msg)
             raise AssertionError(error_msg)
+
+        if expected_bridge_mac:
+            dut_bpdus = self.get_captured_bpdus(vlan_id=vlan_id, bpdu_type=self.BPDU_TYPE_CONFIG,
+                                                bridge_mac=expected_bridge_mac)
+            if not dut_bpdus:
+                seen = sorted({bpdu.get('bridge_mac', 'N/A') for bpdu in config_bpdus})
+                error_msg = (f'No Configuration BPDUs from bridge {expected_bridge_mac} captured '
+                             f'for VLAN {vlan_id} (captured bridges: {seen})')
+                self.logger.error(error_msg)
+                raise AssertionError(error_msg)
+            if len(dut_bpdus) != len(config_bpdus):
+                self.logger.info(f"Ignoring {len(config_bpdus) - len(dut_bpdus)} Configuration "
+                                 f"BPDU(s) not originated by bridge {expected_bridge_mac}")
+            config_bpdus = dut_bpdus
 
         self.logger.info(f"Captured {len(config_bpdus)} Configuration BPDU(s) for validation")
 
