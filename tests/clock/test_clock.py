@@ -33,9 +33,6 @@ class ClockConsts:
     CMD_SHOW_CLOCK_TIMEZONES = "show clock timezones"
     CMD_CONFIG_CLOCK_TIMEZONE = "config clock timezone"
     CMD_CONFIG_CLOCK_DATE = "config clock date"
-    CMD_NTP_STOP = 'service ntp stop'
-    CMD_NTP_START = 'service ntp start'
-    CMD_NTPDATE = 'ntpdate'
 
     # expected outputs
     OUTPUT_CMD_SUCCESS = ''
@@ -49,19 +46,11 @@ class ClockConsts:
 
     # timedatectl
     CMD_TIMEDATECTL = "timedatectl"
+    CMD_GET_TIMEZONE = "timedatectl show --property=Timezone --value"
     TIME_ZONE = "Time zone"
 
     MIN_SYSTEM_DATE = "1970-01-01"
     MAX_SYSTEM_DATE = "2106-02-06"
-
-    # ntp
-    CMD_SHOW_NTP = "show ntp"
-    CMD_CONFIG_NTP_ADD = "config ntp add"
-    CMD_CONFIG_NTP_DEL = "config ntp del"
-    OUTPUT_CMD_NTP_ADD_SUCCESS = 'NTP server {} added to configuration\nRestarting ntp-config service...'
-    OUTPUT_CMD_NTP_DEL_SUCCESS = 'NTP server {} removed from configuration\nRestarting ntp-config service...'
-    REGEX_NTP_POLLING_TIME = r'polling server every (\d+)'
-
 
 class ClockUtils:
     @staticmethod
@@ -74,13 +63,13 @@ class ClockUtils:
         @return: commands output (str)
         """
         with allure.step(f'Run command: "{cmd}" with param "{param}"'):
-            dut_hostname = duthosts[0].hostname
+            duthost = duthosts[0]
 
             cmd_to_run = cmd if param == '' else cmd + ' ' + param
             logging.info(f'Actual command to run: "{cmd_to_run}"')
 
             try:
-                cmd_output = duthosts.command(cmd_to_run)[dut_hostname]["stdout"]
+                cmd_output = duthost.command(cmd_to_run)["stdout"]
             except RunAnsibleModuleFail as cmd_err:
                 output = cmd_err.results["stdout"]
                 err = cmd_err.results["stderr"]
@@ -93,6 +82,16 @@ class ClockUtils:
             logging.info(f'Output: {cmd_output}')
 
         return cmd_output
+
+    @staticmethod
+    def get_timezone_name(duthosts):
+        timezone = ClockUtils.run_cmd(
+            duthosts,
+            ClockConsts.CMD_GET_TIMEZONE,
+            raise_err=True
+        ).strip()
+        assert timezone, 'Current system timezone is empty'
+        return timezone
 
     @staticmethod
     def verify_and_parse_show_clock_output(show_clock_output):
@@ -324,8 +323,7 @@ def test_config_clock_timezone(duthosts, init_timezone):
         4. Verify timezone hasn't changed
     """
     valid_timezones = ClockUtils.get_valid_timezones(duthosts)
-    orig_timezone = ClockUtils.verify_and_parse_show_clock_output(
-        ClockUtils.run_cmd(duthosts, ClockConsts.CMD_SHOW_CLOCK))[ClockConsts.TIMEZONE]
+    orig_timezone = ClockUtils.get_timezone_name(duthosts)
 
     with allure.step('Select a random new valid timezone'):
         new_timezone = random.choice(valid_timezones)
@@ -339,7 +337,7 @@ def test_config_clock_timezone(duthosts, init_timezone):
                 f'Expected: "{output}" == "{ClockConsts.OUTPUT_CMD_SUCCESS}"'
 
     with allure.step(f'Verify timezone changed to "{new_timezone}"'):
-        wait_until(
+        assert wait_until(
             timeout=120,
             interval=5,
             delay=10,
@@ -347,7 +345,7 @@ def test_config_clock_timezone(duthosts, init_timezone):
                 duthosts,
                 expected_tz_name=new_timezone
             )
-        )
+        ), f'Timezone did not change to "{new_timezone}"'
 
     with allure.step('Select a random string as invalid timezone'):
         invalid_timezone = ''.join(random.choice(string.ascii_lowercase) for _ in range(random.randint(1, 10)))
@@ -369,7 +367,7 @@ def test_config_clock_timezone(duthosts, init_timezone):
         ClockUtils.verify_timezone_value(duthosts, expected_tz_name=new_timezone)
 
 
-def test_config_clock_date(duthosts, init_timezone, restore_time, tbinfo):
+def test_config_clock_date(duthosts, restore_time, tbinfo):
     """
     @summary:
         Check that 'config clock date' command works correctly
@@ -417,7 +415,7 @@ def test_config_clock_date(duthosts, init_timezone, restore_time, tbinfo):
             f'{rand_str} {rand_str}': f'{ClockConsts.ERR_BAD_DATE.format(rand_str)}\n'
                                       f'{ClockConsts.ERR_BAD_TIME.format(rand_str)}',
             f'{rand_str} {new_time}': ClockConsts.ERR_BAD_DATE.format(rand_str),
-            f'{new_date} {rand_str}': ClockConsts.ERR_BAD_TIME.format(rand_str)
+            f'{new_date.strftime("%Y-%m-%d")} {rand_str}': ClockConsts.ERR_BAD_TIME.format(rand_str)
         }
 
         for invalid_input, err_msg in errors.items():
@@ -433,7 +431,8 @@ def test_config_clock_date(duthosts, init_timezone, restore_time, tbinfo):
                 show_clock_output_after = ClockUtils.run_cmd(duthosts, ClockConsts.CMD_SHOW_CLOCK)
 
             with allure.step('Verify command failure'):
-                assert err_msg in output, \
+                normalized_output = output.replace("'", '"')
+                assert err_msg in normalized_output, \
                     f'Error: The given string does not contain the expected substring.\n' \
                     f'Expected substring: "{err_msg}"\n' \
                     f'Given (whole) string: "{output}"'
