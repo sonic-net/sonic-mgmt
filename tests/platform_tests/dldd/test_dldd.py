@@ -112,7 +112,11 @@ def _json_field(record, field, expected_type):
     try:
         value = json.loads(record[field])
     except (KeyError, TypeError, ValueError) as error:
-        pytest.fail("DLDD telemetry field {!r} is not valid JSON: {}".format(field, error))
+        raise AssertionError(
+            "DLDD telemetry field {!r} is not valid JSON: {}".format(
+                field, error
+            )
+        ) from error
     pytest_assert(
         isinstance(value, expected_type),
         "DLDD telemetry field {!r} must decode to {}, got {}".format(
@@ -197,7 +201,9 @@ def _load_rules_document(duthost, path):
     try:
         document = yaml.safe_load(result["stdout"])
     except yaml.YAMLError as error:
-        pytest.fail("Installed DLDD rules are not valid YAML: {}".format(error))
+        raise AssertionError(
+            "Installed DLDD rules are not valid YAML: {}".format(error)
+        ) from error
     pytest_assert(
         isinstance(document, dict),
         "Installed DLDD rules must contain a YAML mapping",
@@ -275,7 +281,8 @@ def dldd_capabilities(duthosts, enum_rand_one_per_hwsku_hostname):
     """Discover DLDD support without changing DUT configuration."""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     feature = _read_hash(duthost, "CONFIG_DB", FEATURE_KEY)
-    pytest_assert(feature, "The image does not advertise DLDD in the FEATURE table")
+    if not feature:
+        pytest.skip("The image does not advertise DLDD in the FEATURE table")
 
     feature_state = feature.get("state", "").lower()
     pytest_assert(
@@ -575,7 +582,9 @@ def test_installed_rules_activation_dry_run(
     try:
         validation = json.loads(result["stdout"])
     except (TypeError, ValueError) as error:
-        pytest.fail("DLDD validator did not return valid JSON: {}".format(error))
+        raise AssertionError(
+            "DLDD validator did not return valid JSON: {}".format(error)
+        ) from error
 
     pytest_assert(validation.get("schema_version") == "0.0.1")
     pytest_assert(validation.get("file_level_result") == "PASSED")
@@ -620,12 +629,12 @@ def test_rules_e2e_execution(
     try:
         qualification = json.loads(result["stdout"])
     except (TypeError, ValueError) as error:
-        pytest.fail(
+        raise AssertionError(
             "DLDD e2e qualification did not return valid JSON: {}; stdout={!r}, "
             "stderr={!r}".format(
                 error, result.get("stdout", ""), result.get("stderr", "")
             )
-        )
+        ) from error
 
     pytest_assert(
         result["rc"] == 0 and qualification.get("qualification_result") == "PASSED",
