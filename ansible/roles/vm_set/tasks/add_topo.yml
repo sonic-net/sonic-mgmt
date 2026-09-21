@@ -10,10 +10,21 @@
     ptf_imagetag: "latest"
   when: ptf_imagetag is not defined
 
-- name: Enable ptf_use_docker_network for BMC topology
+- name: Check whether a docker network named "{{ mgmt_bridge }}" exists
+  command: docker network inspect {{ mgmt_bridge }}
+  register: ptf_mgmt_docker_network
+  failed_when: false
+  changed_when: false
+  become: yes
+  when: "'bmc' in topo and ptf_use_docker_network is not defined"
+
+- name: Enable ptf_use_docker_network for BMC topology when that docker network exists
   set_fact:
     ptf_use_docker_network: true
-  when: "'bmc' in topo"
+  when:
+    - "'bmc' in topo"
+    - ptf_use_docker_network is not defined
+    - ptf_mgmt_docker_network.rc | default(1) == 0
 
 - name: set "PTF" container type, by default
   set_fact:
@@ -245,6 +256,13 @@
 
   - include_tasks: add_csonic_list.yml
     when: vm_type is defined and (vm_type == "csonic") and 'bmc' not in topo
+
+  # starting the simulator below is a no-op while a previous one still runs, so it would keep serving the old topology
+  - name: Stop nic simulator
+    include_tasks: control_nic_simulator.yml
+    vars:
+      nic_simulator_action: stop
+    when: topology.host_interfaces_active_active is defined and topology.host_interfaces_active_active|length > 0
 
   - name: Bind topology {{ topo }} to VMs. base vm = {{ VM_base }}
     vm_topology:
