@@ -70,42 +70,29 @@ A preparation or restoration failure prevents a completed benchmark report.
 
 Each request is timed independently around its client call. An iteration with
 multiple requests produces separate latency samples, not a combined latency.
-The same timing boundary applies to each issued request, regardless of its
-method or position in the workload:
+The same timing boundary applies to each issued request. The original diagram
+below illustrates it with the two native Set backend paths:
 
 ```mermaid
-sequenceDiagram
-    participant Client as Benchmark client
-    participant DUT as gNMI server
-    participant Backend as Backend
-    loop Each issued request · 1 ... N
-        Note over Client: Start request timer
-        activate Client
-        Client->>Client: Serialize · gRPC queue
-        Client->>DUT: Request over transport / TLS
-        activate DUT
-        Note over DUT: Path-dependent processing:<br/>auth / authorization,<br/>validation or bypass selection
-        opt Request accepted
-            DUT->>Backend: Read / write / service operation
-            Backend-->>DUT: Result
-        end
-        DUT->>DUT: Build response
-        DUT-->>Client: Response or RPC error
-        deactivate DUT
-        Client->>Client: Decode response
-        Note over Client: Stop timer after decoded return or error
-        deactivate Client
-        Client->>Client: Check outcome · record sample or error
-    end
+flowchart TD
+    Start["START timer"] --> Client["Serialize / queue / transport"]
+    Client --> Server["Server decode and backend selection"]
+    Server -->|Regular native Set| Regular["Checkpoint / JSON patch / GCU apply"]
+    Regular --> Save["Save config / delete checkpoint"]
+    Server -->|Validation bypass selected| Bypass["Parse JSON / direct CONFIG_DB writes"]
+    Save --> Response["Return and decode response"]
+    Bypass --> Response
+    Response --> Stop["STOP timer"]
+    Stop -.-> Check["Inspect response Error codes"]
 ```
 
 The timer covers the entire client call, including serialization, gRPC/HTTP2
 queueing, transport, applicable server processing and response decoding. Server
 processing includes any authentication/authorization, validation or bypass
 eligibility checks, and backend operations actually executed by the selected
-path. The server note groups possible work, not a fixed ordering shared by every
-implementation. Validation bypass changes the validation/write path; it is not
-an authentication-bypass option.
+path. Backend details depend on the operation and server version; the diagram
+does not imply that every request follows these Set paths. Validation bypass
+changes the validation/write path; it is not an authentication-bypass option.
 
 These are **included costs, not separately measured stages**. The benchmark
 records end-to-end latency and does not infer which backend path ran. Connection
