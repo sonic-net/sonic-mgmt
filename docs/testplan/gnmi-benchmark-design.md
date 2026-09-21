@@ -48,11 +48,12 @@ flowchart LR
 
 ### Component responsibilities
 
-| Component | Responsibility |
-|---|---|
-| [Runner](../../tests/gnmi_benchmark/benchmark_runner.py) | Prepare the environment, coordinate phases and restore resources. |
-| [Blaster](../../tests/gnmi_benchmark/blaster.py) | Define the workload, generate traffic and collect request measurements. |
-| [Report](../../tests/gnmi_benchmark/benchmark_report.py) | Summarize measurements and evaluate the result. |
+- **[Runner](../../tests/gnmi_benchmark/benchmark_runner.py):** prepare the environment,
+  coordinate phases and restore resources.
+- **[Blaster](../../tests/gnmi_benchmark/blaster.py):** define the workload, generate
+  traffic and collect request measurements.
+- **[Report](../../tests/gnmi_benchmark/benchmark_report.py):** summarize measurements
+  and evaluate the result.
 
 `BenchmarkRunner.run(host, fixture, blaster, result)` connects to the DUT, enters
 the blaster's resource scope and coordinates warmup and measurement. It collects
@@ -152,13 +153,19 @@ Abbreviated, **illustrative values only**; this is not a device result. The
 
 ### Reading the report
 
-| Area | Units and interpretation |
-|---|---|
-| `requests` | Counts are **RPCs**, latency is **ms**, rates are **RPC/s** over the full measurement interval, including drain. `get:1000` means 1,000 entries per request, not 1,000 RPCs. |
-| `latency_requirement` | Threshold in **ms**; within/over-limit counts include successful requests. Latency distributions exclude failed calls. |
-| `load` / `execution` | Counts are **iterations**, durations are **s**. `successful_window_rps` is **iterations/s** inside the admission window, despite its name; it is null in count mode. |
-| Open-loop `execution.scheduling` | Scheduled/started/dropped **iterations**, arrival rates in **iterations/s**, start delay in **ms**. Drops are unsent work, not failed RPCs. |
-| `resources` / `sampling` | CPU in **%**, memory in **MiB**. Before/after snapshots do not establish the true resource peak during load. |
+- **`requests`:** counts in RPCs, latency in ms, rates in RPC/s over the full
+  measurement interval, including drain. `get:1000` means 1,000 entries per
+  request, not 1,000 RPCs.
+- **`latency_requirement`:** threshold in ms; within/over-limit counts include
+  successful requests. Latency distributions exclude failed calls.
+- **`load` / `execution`:** counts in iterations, durations in seconds.
+  `successful_window_rps` is iterations/s inside the admission window, despite
+  its name; it is null in count mode.
+- **Open-loop `execution.scheduling`:** scheduled/started/dropped iterations,
+  arrival rates in iterations/s, start delay in ms. Drops are unsent work, not
+  failed RPCs.
+- **`resources` / `sampling`:** CPU in %, memory in MiB. Before/after snapshots
+  do not establish the true resource peak during load.
 
 Passing requires every measured request to complete within **1,000 ms**, with no
 RPC/response errors or dropped arrivals; an average or P95 below the limit is not sufficient.
@@ -203,26 +210,26 @@ define every histogram interval.
 
 ### Parameters
 
-| Control | Meaning |
-|---|---|
-| Warmup | Optional duration before measurement; uses the same workload but discards its latency samples. |
-| Load mode and rate | Closed or open loop; open-loop rate is in **iterations/s**, not RPC/s. |
-| Concurrency | Bound on outstanding workload iterations and the size of the worker pool. |
-| Duration or count | Stop admitting work after a time window or an iteration count; in open loop the count represents offered arrival slots. |
-| Request timeout | Deadline for each RPC, independent of the latency pass criterion. |
+- **Warmup:** optional duration before measurement; uses the same workload but
+  discards its latency samples.
+- **Load mode and rate:** closed or open loop; open-loop rate is in iterations/s,
+  not RPC/s.
+- **Concurrency:** bound on outstanding workload iterations and worker pool size.
+- **Duration or count:** stop admitting work after a time window or iteration
+  count; in open loop the count represents offered arrival slots.
+- **Request timeout:** deadline for each RPC, independent of the latency pass criterion.
 
 ### Threads and sessions
 
-| Area | Behavior |
-|---|---|
-| Workers | Bounded pool per phase; warmup drains before measurement, and measurement drains before restoration. |
-| Connection | One persistent gRPC channel shared by workers and reused across phases. |
-| Session | Per-iteration request timing and outcome tracking; no new connection per iteration. |
-| Failures | A failed request ends the iteration; earlier successful requests retain their samples. |
+Each phase uses a bounded worker pool: warmup drains before measurement, and
+measurement drains before restoration. Workers share one persistent gRPC channel
+across phases. Each iteration has its own session for request timing and outcome
+tracking, without opening a new connection. A failed request ends the iteration;
+earlier successful requests retain their samples.
 
 ### Workloads
 
-| Blaster | One iteration | Main parameters | Prerequisites |
+| Blaster | Behavior | Test profile | Requirements |
 |---|---|---|---|
 | [RouteTableBlaster](../../tests/gnmi_benchmark/blaster.py) (`route-table`) | Read explicit CONFIG_DB route keys, then rewrite the batch with prepared values and validation bypass requested. | Route distribution and routes per request; default inventory: 256k routes across 13 VNETs. | Single-ASIC DUT, TLS, GCU, Loopback0 IPv4 and exclusive configuration access. |
 
