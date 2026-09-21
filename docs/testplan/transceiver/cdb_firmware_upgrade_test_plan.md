@@ -308,8 +308,9 @@ Firmware state is unchanged after a failed or aborted operation, and the module,
 2. If `dual_bank_supported` is true, inactive firmware version is invalid (i.e. `N/A` or `0.0.0`).
 3. Committed Image remains unchanged.
 4. Running Image remains unchanged.
-5. After DOM monitoring is re-enabled, TC #1 and TC #2 from the [Basic DOM Functionality Tests](dom_test_plan.md#basic-dom-functionality-tests) must hold.
-6. Execute the [Standard Port Recovery and Verification Procedure](system_test_plan.md#standard-port-recovery-and-verification-procedure).
+5. TC #3 from the [Basic DOM Functionality Tests](dom_test_plan.md#basic-dom-functionality-tests) must hold for configured threshold attributes.
+6. After DOM monitoring is re-enabled, TC #1 and TC #2 from the [Basic DOM Functionality Tests](dom_test_plan.md#basic-dom-functionality-tests) must hold.
+7. Execute the [Standard Port Recovery and Verification Procedure](system_test_plan.md#standard-port-recovery-and-verification-procedure).
 
 #### Firmware Downloaded Verification
 
@@ -321,8 +322,9 @@ Firmware download succeeded, the inactive bank holds the new image, and the modu
 4. Running Image remains unchanged.
 5. Committed Image remains unchanged.
 6. Static EEPROM fields (vendor name, part number, hardware revision, etc.) remain unchanged.
-7. After DOM monitoring is re-enabled, TC #1 and TC #2 from the [Basic DOM Functionality Tests](dom_test_plan.md#basic-dom-functionality-tests) must hold.
-8. Execute the [Standard Port Recovery and Verification Procedure](system_test_plan.md#standard-port-recovery-and-verification-procedure).
+7. TC #3 from the [Basic DOM Functionality Tests](dom_test_plan.md#basic-dom-functionality-tests) must hold for configured threshold attributes.
+8. After DOM monitoring is re-enabled, TC #1 and TC #2 from the [Basic DOM Functionality Tests](dom_test_plan.md#basic-dom-functionality-tests) must hold.
+9. Execute the [Standard Port Recovery and Verification Procedure](system_test_plan.md#standard-port-recovery-and-verification-procedure).
 
 #### Firmware Activation Verification
 
@@ -337,8 +339,9 @@ Firmware run and commit succeeded, the bank swap took effect, the committed Imag
 7. `sfputil show fwversion <port>` CLI shows the "Running Image" as the current active bank.
 8. Link is up within `port_startup_wait_sec` seconds.
 9. Static EEPROM fields (vendor name, part number, hardware revision, etc.) remain unchanged.
-10. After DOM monitoring is re-enabled, TC #1 and TC #2 from the [Basic DOM Functionality Tests](dom_test_plan.md#basic-dom-functionality-tests) must hold.
-11. Execute the [Standard Port Recovery and Verification Procedure](system_test_plan.md#standard-port-recovery-and-verification-procedure).
+10. TC #3 from the [Basic DOM Functionality Tests](dom_test_plan.md#basic-dom-functionality-tests) must hold for configured threshold attributes.
+11. After DOM monitoring is re-enabled, TC #1 and TC #2 from the [Basic DOM Functionality Tests](dom_test_plan.md#basic-dom-functionality-tests) must hold.
+12. Execute the [Standard Port Recovery and Verification Procedure](system_test_plan.md#standard-port-recovery-and-verification-procedure).
 
 **Timing Requirements:**
 
