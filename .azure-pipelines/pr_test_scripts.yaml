@@ -824,6 +824,7 @@ t0-vpp:
   - pc/test_lag_member_forwarding.py
   - pc/test_po_cleanup.py
   - pc/test_po_update.py
+  - sflow/test_sflow.py
   - span/test_port_mirroring.py
   - vlan/test_autostate_disabled.py
   - vlan/test_host_vlan.py
