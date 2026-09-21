@@ -52,6 +52,7 @@ class ClockConsts:
     MIN_SYSTEM_DATE = "1970-01-01"
     MAX_SYSTEM_DATE = "2106-02-06"
 
+
 class ClockUtils:
     @staticmethod
     def run_cmd(duthosts, cmd, param='', raise_err=False):
