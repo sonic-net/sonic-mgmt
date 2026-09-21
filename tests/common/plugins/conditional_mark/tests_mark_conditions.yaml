@@ -1082,6 +1082,21 @@ decap/test_decap.py:
       - "https://github.com/sonic-net/sonic-mgmt/issues/20982 and asic_type in ['mellanox', 'nvidia']"
       - "platform in ['x86_64-nvidia_sn5640-r0']"
 
+decap/test_subnet_decap.py::test_subnet_decap_tunnel_scale:
+  skip:
+    reason: "Scale subnet decap: supported on t0/t1 with KVM or broadcom td3 or mellanox or cisco-8000 Q200, 202405+, skip dualtor, skip KVM until subnet_decap yang model added, skip t1-isolated-d32/128, skip cisco-8000 G200"
+    conditions_logical_operator: or
+    conditions:
+      - "topo_type not in ['t0', 't1']"
+      - "'dualtor' in topo_name"
+      - "asic_type not in ['vs', 'mellanox', 'cisco-8000'] and asic_gen not in ['td3']"
+      - "asic_type in ['cisco-8000'] and platform.startswith('x86_64-8122_')"
+      - "asic_type in ['cisco-8000'] and platform.startswith('x86_64-8111_')"
+      - "asic_type in ['cisco-8000'] and platform.startswith('x86_64-8223_')"
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-buildimage/issues/21090"
+      - "release in ['202012', '202205', '202305', '202311']"
+      - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
+
 decap/test_subnet_decap.py::test_vip_packet_decap:
   skip:
     reason: "Supported only on T0 topology with KVM or broadcom td3 asic or mellanox asic, and available for 202405 release and later. Broadcom TD3 rejects VIP subnet decap term when the VIP prefix overlaps an existing VLAN subnet decap term"
