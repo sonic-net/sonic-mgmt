@@ -106,17 +106,6 @@ configlet/test_add_rack.py::test_add_rack:
       - "asic_type in ['vpp']"
 
 #######################################
-#####       Container Checker     #####
-#######################################
-container_checker/test_container_checker.py::test_container_checker_telemetry:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-#######################################
 #####           COPP              #####
 #######################################
 copp:
@@ -397,6 +386,16 @@ golden_config_infra/test_config_reload_with_rendered_golden_config.py::test_rend
       - "asic_type in ['vpp']"
 
 #######################################
+#####             IP              #####
+#######################################
+ip/test_mgmt_ipv6_only.py::test_telemetry_output_ipv6_only:
+  xfail:
+    reason: "gNMI rejects IPv6 telemetry requests as Unauthenticated despite user_auth=none"
+    strict: false
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/28017 and asic_type in ['vpp'] and release == 'master'"
+
+#######################################
 #####         Memory Checker      #####
 #######################################
 memory_checker/test_memory_checker.py::test_memory_checker:
@@ -427,17 +426,6 @@ memory_checker/test_memory_checker.py::test_monit_reset_counter_failure:
   skip:
     reason: >
             Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-#######################################
-#####           MPLS              #####
-#######################################
-mpls/test_mpls.py:
-  skip:
-    reason: >
-            Unsupported
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -605,30 +593,6 @@ syslog/test_syslog_rate_limit.py:
       - "asic_type in ['vpp']"
 
 syslog/test_syslog_source_ip.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-vxlan/test_vxlan_ecmp.py::Test_VxLAN_ecmp_random_hash:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-vxlan/test_vxlan_ecmp.py::Test_VxLAN_entropy:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-vxlan/test_vxlan_underlay_ecmp.py::Test_VxLAN_underlay_ecmp:
   skip:
     reason: >
             Failed/Errored: To be included
