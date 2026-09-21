@@ -13,8 +13,9 @@ while scheduling controls iterations. The components below separate orchestratio
 
 ## Workflow
 
-The Runner coordinates three phases; the Report consumes their measurements
-after restoration. Arrows between groups show phase order.
+The Runner coordinates preparation, traffic, restoration and report generation.
+It passes the collected measurements to its supplied Report after restoration.
+Arrows between groups show phase order.
 
 ```mermaid
 flowchart LR
@@ -32,13 +33,12 @@ flowchart LR
             direction TB
             Cleanup["Clean up"] --> Restore["Restore state"]
         end
-        Preparation --> Blaster --> Restoration
+        subgraph Report["4 · Report"]
+            direction TB
+            Summarize["Summarize"] --> Evaluate["Evaluate"]
+        end
+        Preparation --> Blaster --> Restoration --> Report
     end
-    subgraph Report["4 · Report"]
-        direction TB
-        Summarize["Summarize"] --> Evaluate["Evaluate"]
-    end
-    Runner --> Report
     style Runner fill:#f8fafc,stroke:#64748b,color:#0f172a
     style Preparation fill:#eff6ff,stroke:#3b82f6,color:#1e3a8a
     style Blaster fill:#f0fdf4,stroke:#16a34a,color:#14532d
@@ -70,26 +70,21 @@ A preparation or restoration failure prevents a completed benchmark report.
 
 Each request is timed independently around its client call. An iteration with
 multiple requests produces separate latency samples, not a combined latency.
-The current two-request workload illustrates the timing boundaries:
+The same timing boundary applies to each issued request, regardless of its
+method or position in the workload:
 
 ```mermaid
 sequenceDiagram
     participant Client as Benchmark client
     participant DUT as gNMI server
-    Note over Client: Start Get timer
-    Client->>DUT: Get request
-    activate Client
-    DUT-->>Client: Response decoded by client
-    deactivate Client
-    Note over Client: Stop Get timer · record outcome
-    opt Get succeeded
-        Note over Client: Start Set timer
-        Client->>DUT: Set request
+    loop Each issued request · 1 ... N
+        Note over Client: Start request timer
         activate Client
-        DUT-->>Client: Response decoded by client
+        Client->>DUT: Request
+        DUT-->>Client: Response or RPC error
+        Note over Client: Stop timer after decoded return or error
         deactivate Client
-        Note over Client: Stop Set timer
-        Client->>Client: Inspect response · record outcome
+        Client->>Client: Check outcome · record sample or error
     end
 ```
 
@@ -112,9 +107,11 @@ Interpret results with these boundaries:
 
 ## Report
 
-`BenchmarkReport` converts raw measurements into a JSON report. It does not issue
-requests or manage the DUT. A different report implementation can consume the
-same measurements without changing the workload or Runner.
+`BenchmarkReport` is integrated into the Runner's lifecycle: the caller supplies
+the report object, and the Runner invokes it with the collected measurements
+after restoration. The Runner returns the generated report to the caller for
+writing and verdict handling. The report implementation is replaceable, but it
+does not run independently or control workload execution.
 
 The current pass criterion is **every measured request ≤1,000 ms**, with no
 RPC/response errors or dropped arrivals. The pytest entry point writes the report
@@ -129,7 +126,11 @@ Abbreviated, **illustrative values only**; this is not a device result. The
 {
   "schema_version": 10,
   "marker": "example",
-  "benchmark": {"blaster": "route-table", "workload_model": "closed"},
+  "benchmark": {
+    "blaster": "route-table",
+    "workload_model": "closed",
+    "histogram_profile": "grpc_a66_latency_ms_v1"
+  },
   "load": {"iterations": 100, "concurrency": 2, "duration_seconds": 10},
   "requests": {
     "get:1000": {
@@ -138,7 +139,24 @@ Abbreviated, **illustrative values only**; this is not a device result. The
       "counts": {"completed": 100, "successful": 100, "failed": 0},
       "measurement_elapsed_seconds": 10.5,
       "rates_per_second": {"successful": 9.5238},
-      "latency_ms": {"samples": 100, "average": 80, "p95": 120, "max": 150},
+      "latency_ms": {
+        "samples": 100,
+        "sum": 8000,
+        "average": 80,
+        "p50": 80,
+        "p95": 80,
+        "p99": 80,
+        "max": 80,
+        "percentile_method": "nearest_rank",
+        "bucket_semantics": "lower_exclusive_upper_inclusive",
+        "bucket_counts": [
+          0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+          0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+          0, 0, 0, 100, 0, 0, 0, 0, 0, 0,
+          0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+          0, 0
+        ]
+      },
       "latency_requirement": {"limit_ms": 1000, "within_limit": 100, "exceeded": 0, "passed": true}
     }
   },
@@ -162,12 +180,32 @@ Abbreviated, **illustrative values only**; this is not a device result. The
 | Open-loop `execution.scheduling` | Scheduled/started/dropped **iterations**, arrival rates in **iterations/s**, start delay in **ms**. Drops are unsent work, not failed RPCs. |
 | `resources` / `sampling` | CPU in **%**, memory in **MiB**. Before/after snapshots do not establish the true resource peak during load. |
 
-Run identity, transport details, workload profile and histogram buckets are
-omitted from the excerpt. Compare rates only with the same unit and time window.
+### Histogram buckets
+
+`latency_ms.bucket_counts` contains **42 non-cumulative counts**, using the 41
+upper bounds in the fixed `grpc_a66_latency_ms_v1` profile. Bounds are in **ms**;
+each count is the number of successful RPCs in that interval.
+
+| Bucket (zero-based) | Interval | Example count |
+|---|---|---|
+| `0` | Exactly 0 ms | 0 |
+| `1` through `40` | `(previous bound, current bound]` | All zero except bucket `23` |
+| `23` | `(65, 80]` ms | 100 |
+| `41` | Greater than 100,000 ms | 0 |
+
+The example deliberately assigns all 100 successful requests a latency of 80 ms:
+bucket `23` contains 100 and the counts sum to `samples`. To plot the histogram,
+use latency intervals on the horizontal axis and counts (or `count / samples × 100`
+percent) on the vertical axis. The report supplies these data, not a rendered chart.
+Percentiles are computed from original samples, not estimated from buckets.
+
+Run identity, transport details and workload profile are omitted from the
+excerpt. Compare rates only with the same unit and time window.
 
 The [report template](../../tests/gnmi_benchmark/templates/report.json.j2) and
-[latency template](../../tests/gnmi_benchmark/templates/latency.json.j2) contain
-the complete schema and histogram definitions.
+[latency template](../../tests/gnmi_benchmark/templates/latency.json.j2) describe
+the schema; the [bucket bounds](../../tests/gnmi_benchmark/templates/grpc_a66_latency_ms_bounds.json.j2)
+define every histogram interval.
 
 ---
 
