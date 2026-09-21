@@ -3,6 +3,7 @@ import os
 import six
 import yaml
 import copy
+import pathlib
 
 
 @pytest.fixture(scope="module")
@@ -74,8 +75,9 @@ def get_graph_facts(duthost, localhost, hostnames):
     duthost - pytest fixture
     hostnames - can be either a single DUT or a list of multiple DUTs
     """
-    base_path = os.path.dirname(os.path.realpath(__file__))
-    lab_conn_graph_path = os.path.join(base_path, "../../../ansible/files/")
+    ansible_config_path = pathlib.Path(os.getenv("ANSIBLE_CONFIG",
+                                                 pathlib.Path(__file__).resolve().parent.joinpath("../../ansible")))
+    lab_conn_graph_path = os.path.join(ansible_config_path, "files/")
 
     inv_files = duthost.host.options["inventory_manager"]._sources
     graph_groups_file = os.path.join(lab_conn_graph_path, "graph_groups.yml")

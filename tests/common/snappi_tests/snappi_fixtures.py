@@ -11,6 +11,8 @@ import subprocess
 import csv
 import json
 import os
+import yaml
+from ansible.utils.unsafe_proxy import AnsibleUnsafeText
 from copy import copy
 from tests.common.utilities import wait_until
 from tests.common.errors import RunAnsibleModuleFail
@@ -29,6 +31,7 @@ from tests.common.macsec.macsec_config_helper import set_macsec_profile, enable_
 from tests.common.snappi_tests.uhd.uhd_helpers import (NetworkConfigSettings, create_front_panel_ports,
                                                        create_connections, create_connections_pl, create_uhdIp_list,
                                                        create_arp_bypass, create_arp_bypass_pl, create_profiles)
+yaml.SafeDumper.add_representer(AnsibleUnsafeText, yaml.SafeDumper.represent_str)
 logger = logging.getLogger(__name__)
 _next_system_id = 1
 
@@ -507,6 +510,34 @@ def is_pfc_enabled(duthosts, rand_one_dut_front_end_hostname):
     return False
 
 
+@pytest.fixture(scope="module")
+def rand_one_dut_snappi_portname_oper_up(conn_graph_facts, fanout_graph_facts,  # noqa: F811
+                                         rand_one_dut_hostname):
+    """
+    Return a random operationally-up DUT port that is wired to the Snappi chassis,
+    in 'dut_hostname|port_name' format.  This prevents the generic
+    rand_one_dut_portname_oper_up fixture from accidentally picking a port that is
+    not connected to the traffic generator, which would silently skip every test.
+    """
+    snappi_fanout = get_peer_snappi_chassis(conn_data=conn_graph_facts,
+                                            dut_hostname=rand_one_dut_hostname)
+    pytest_assert(snappi_fanout is not None,
+                  'No Snappi chassis found for DUT {}'.format(rand_one_dut_hostname))
+
+    snappi_fanout_id = list(fanout_graph_facts.keys()).index(snappi_fanout)
+    snappi_fanout_list = SnappiFanoutManager(fanout_graph_facts)
+    snappi_fanout_list.get_fanout_device_details(device_number=snappi_fanout_id)
+
+    snappi_ports = snappi_fanout_list.get_ports(peer_device=rand_one_dut_hostname)
+    snappi_port_names = [p['peer_port'] for p in snappi_ports]
+
+    pytest_assert(len(snappi_port_names) > 0,
+                  'No ports on DUT {} are connected to the Snappi chassis'.format(rand_one_dut_hostname))
+
+    chosen = random.choice(snappi_port_names)
+    return '{}|{}'.format(rand_one_dut_hostname, chosen)
+
+
 def _config_pfc_classes(api, config, pfc):
     """Program the PFC class -> TX queue mapping using the queue-group size the
     tgen port honors (testbed override > detected from the port > default 8):
@@ -565,8 +596,8 @@ def snappi_testbed_config(conn_graph_facts, fanout_graph_facts,     # noqa: F811
         if port_speed is None:
             port_speed = int(snappi_ports[i]['speed'])
 
-        pytest_assert(port_speed == int(snappi_ports[i]['speed']),
-                      'Ports have different link speeds')
+        pytest_require(port_speed == int(snappi_ports[i]['speed']),
+                       'Ports have different link speeds')
 
     speed_gbps = int(port_speed/1000)
 
@@ -1197,7 +1228,7 @@ def snappi_dut_base_config(duthost_list,
 
     new_snappi_ports = [dict(list(sp.items()) + [('port_id', i)])
                         for i, sp in enumerate(snappi_ports) if sp['location'] in tgen_ports]
-    pytest_assert(len(set([sp['speed'] for sp in new_snappi_ports])) == 1, 'Ports have different link speeds')
+    pytest_require(len(set([sp['speed'] for sp in new_snappi_ports])) == 1, 'Ports have different link speeds')
     [config.ports.port(name='Port {}'.format(sp['port_id']), location=sp['location']) for sp in new_snappi_ports]
     speed_gbps = int(int(new_snappi_ports[0]['speed'])/1000)
 
@@ -1489,6 +1520,15 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
     Returns:
         True if we successfully configure the interfaces or False
     """
+    ports = []
+    for port in snappi_ports:
+        if port['peer_device'] == duthost.hostname:
+            ports.append(port)
+    if not setup:
+        for port in ports:
+            gen_data_flow_dest_ip(port['ipAddress'], duthost, port['peer_port'], port['asic_value'], setup)
+        return True
+
     global macsec_enabled_port, macsec_profile_name, reconfigure_port
     ptype = "--snappi_macsec" in sys.argv
     num_of_non_macsec_snappi_devices = 7
@@ -1503,7 +1543,7 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
             config_facts = facts['ansible_facts']
             int_addrs = list(config_facts['INTERFACE'][peer_port].keys())
             subnet = [ele for ele in int_addrs if "." in ele]
-            if port['port_id'] == 0 and int(subnet[0].split("/")[1]) > int(static_prefix_length):
+            if int(port['port_id']) == 0 and int(subnet[0].split("/")[1]) > int(static_prefix_length):
                 logger.info('Removing existing IP {} from interface {}'.format(subnet[0], port['peer_port']))
                 reconfigure_port = port
                 reconfigure_port['original_subnet'] = subnet[0]
@@ -1528,26 +1568,19 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
                 pytest_assert(False, "No IP address found for peer port {}".format(peer_port))
             port['ipGateway'], port['prefix'] = subnet[0].split("/")
             port['subnet'] = subnet[0]
-    ports = []
-    for port in snappi_ports:
-        if port['peer_device'] == duthost.hostname:
-            ports.append(port)
-    if ptype:
-        macsec_var_file = os.path.expanduser("../tests/snappi_tests/macsec_profile.json")
-        with open(macsec_var_file, "r") as f:
-            all_values = json.load(f)
+
+    macsec_var_file = os.path.expanduser("../tests/snappi_tests/macsec_profile.json")
+    with open(macsec_var_file, "r") as f:
+        all_values = json.load(f)
+
     for port in ports:
-        port_id = port['port_id']
+        port_id = int(port['port_id'])
         dutIp = port['ipGateway']
         tgenIp = port['ipAddress']
         prefix_length = int(port['prefix'])
         mac = __gen_mac(port_id+num_of_non_macsec_snappi_devices)
-        if not setup:
-            gen_data_flow_dest_ip(tgenIp, duthost, port['peer_port'], port['asic_value'], setup)
         if setup:
             gen_data_flow_dest_ip(tgenIp, duthost, port['peer_port'], port['asic_value'], setup)
-        if setup is False:
-            continue
         port['intf_config_changed'] = True
         if ptype and port_id == 1:
             device = config.devices.device(name='Device Port {}'.format(port_id))[-1]
@@ -1826,9 +1859,6 @@ def cleanup_config(duthost_list, snappi_ports):
                                 format(reconfigure_port['asic_value'], reconfigure_port['peer_port'],
                                        reconfigure_port['original_subnet'].split('/')[0],
                                        reconfigure_port['original_subnet'].split('/')[1]))
-            logger.info('Disabling MACsec on {} port {}'.
-                        format(macsec_enabled_port['duthost'].hostname,
-                               macsec_enabled_port['peer_port']))
         logger.info('Disabling MACsec on {} port {}'.
                     format(macsec_enabled_port['duthost'].hostname,
                            macsec_enabled_port['peer_port']))
@@ -2004,11 +2034,11 @@ def get_snappi_ports_multi_dut(duthosts,  # noqa: F811
 def is_snappi_multidut(duthosts):
     if duthosts is None or len(duthosts) == 0:
         return False
-    if not duthosts[0].get_facts().get("modular_chassis") and len(duthosts) == 1:
-        return False
-    if not duthosts[0].get_facts().get("modular_chassis") and len(duthosts) > 1:
+    if len(duthosts) > 1:
         return True
-    return duthosts[0].get_facts().get("modular_chassis")
+    # Single entry: treat as multi-DUT only for Cisco modular chassis,
+    # where one linecard is passed but the chassis spans multiple cards.
+    return bool(duthosts[0].get_facts().get("modular_chassis"))
 
 
 @pytest.fixture(scope="module")

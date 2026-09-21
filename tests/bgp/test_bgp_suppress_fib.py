@@ -170,7 +170,8 @@ def ignore_expected_loganalyzer_errors(duthosts, rand_one_dut_hostname, loganaly
             r".* ERR memory_checker: \[memory_checker\] Failed to get container ID of.*",
             r".* ERR memory_checker: \[memory_checker\] cgroup memory usage file.*",
             r".*ERR teamd#teamsyncd: :- readData: netlink reports an error=.*",
-            r".*ERR bgp#fpmsyncd: .*zmq send failed.*zmqerrno: 11:Resource temporarily unavailable.*"
+            r".*ERR bgp#fpmsyncd: .*zmq send failed.*zmqerrno: 11:Resource temporarily unavailable.*",
+            r".* ERR monit.*'chrony' process is not running.*"
         ]
         loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
 
@@ -675,6 +676,8 @@ def parse_time_stamp(bgp_packets, ipv4_route_list, ipv6_route_list):
                 layer = bgp_updates[i].getlayer(bgp.BGPPAMPReachNLRI, nb=layer_index)
                 if layer.nlri:
                     for route in layer.nlri:
+                        if not hasattr(route, 'prefix'):  # skip malformed/segmented routes
+                            continue
                         if route.prefix in ipv6_route_list:
                             update_time_stamp(announce_prefix_time_stamp, route.prefix, bgp_packets[i].time)
                 layer_index += 1
@@ -684,6 +687,8 @@ def parse_time_stamp(bgp_packets, ipv4_route_list, ipv6_route_list):
                 layer = bgp_updates[i].getlayer(bgp.BGPPAMPUnreachNLRI_IPv6, nb=layer_index)
                 if layer.withdrawn_routes:
                     for route in layer.withdrawn_routes:
+                        if not hasattr(route, 'prefix'):  # skip malformed/segmented routes
+                            continue
                         if route.prefix in ipv6_route_list:
                             update_time_stamp(withdraw_prefix_time_stamp, route.prefix, bgp_packets[i].time)
                 layer_index += 1

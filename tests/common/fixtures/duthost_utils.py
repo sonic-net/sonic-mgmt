@@ -702,6 +702,37 @@ def frontend_asic_index_with_portchannel(request, duthosts, tbinfo):
         return None
 
 
+def get_pdb_num(duthost):
+    """Return pdb_num from chassis_info in STATE_DB."""
+    command = 'sonic-db-cli STATE_DB HGET "CHASSIS_INFO|chassis 1" pdb_num'
+    result = duthost.shell(command, module_ignore_errors=True)
+    if result['rc'] != 0:
+        stderr = result.get('stderr', '').strip()
+        logger.warning("Failed to query pdb_num on '%s' via '%s': rc=%s, stderr=%s",
+                       duthost.hostname, command, result['rc'], stderr)
+        raise RuntimeError(
+            "Failed to query pdb_num from STATE_DB on '{}'".format(duthost.hostname)
+        )
+
+    pdb_num_str = result['stdout'].strip()
+    if pdb_num_str and pdb_num_str.isdigit():
+        return int(pdb_num_str)
+    return 0
+
+
+def check_pdb_support(duthost):
+    """Check if duthost has PDB by querying STATE_DB. Returns True if pdb_num > 0."""
+    return get_pdb_num(duthost) > 0
+
+
+@pytest.fixture(scope='module')
+def is_support_pdb(duthosts, rand_one_dut_hostname):
+    """
+    Check if dut has PDB (Power Distribution Board) by querying chassis_info in STATE_DB.
+    """
+    return check_pdb_support(duthosts[rand_one_dut_hostname])
+
+
 def separated_dscp_to_tc_map_on_uplink(dut_qos_maps_module):
     """
     A helper function to check if separated DSCP_TO_TC_MAP is applied to
@@ -789,17 +820,27 @@ def check_bgp_router_id(duthost, mgFacts):
         logger.error("Error loading BGP routerID - {}".format(e))
 
 
-def wait_bgp_sessions(duthost, timeout=120):
+def wait_bgp_sessions(duthost, timeout=120, asic_index=None):
     """
     A helper function to wait bgp sessions on DUT
     """
-    bgp_neighbors = duthost.get_bgp_neighbors_per_asic(state="all")
+    if asic_index is None:
+        bgp_neighbors = duthost.get_bgp_neighbors_per_asic(state="all")
+        check_bgp_session_state = duthost.check_bgp_session_state_all_asics
+    else:
+        asichost = duthost.asic_instance(asic_index)
+        bgp_neighbors = [
+            neighbor_ip.lower()
+            for neighbor_ip in asichost.bgp_facts()["ansible_facts"]["bgp_neighbors"].keys()
+        ]
+        check_bgp_session_state = asichost.check_bgp_session_state
+
     if duthost.get_facts().get("modular_chassis"):
         timeout = 900
     logging.info("Wait until all bgp sessions are up in {} sec"
                  .format(timeout))
     pt_assert(
-        wait_until(timeout, 10, 0, duthost.check_bgp_session_state_all_asics, bgp_neighbors),
+        wait_until(timeout, 10, 0, check_bgp_session_state, bgp_neighbors),
         "Not all bgp sessions are established after config reload",
     )
 
@@ -960,7 +1001,7 @@ def duthosts_ipv6_mgmt_only(duthosts, backup_and_restore_ansible_hosts, backup_a
         for duthost in duthosts.nodes:
             executor.submit(config_reload_if_modified, duthost)
 
-    duthosts.reset()
+    duthosts.meta("reset_connection")
     set_ansible_hosts(duthosts, ipv6_address)
 
     def wait_for_processes_and_bgp(dut):
