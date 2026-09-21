@@ -9,30 +9,33 @@ and reporting so different workloads can use the same measurement approach.
 A **request** is an individual RPC; an **iteration** is one execution of a
 workload and may contain multiple requests. Latency is measured per request,
 while scheduling controls iterations. The scenario included in this PR is
-described in [Current blaster: route-table](#current-blaster-route-table).
+described in [Example workload: VNET routes](#example-workload-vnet-routes).
 
 ## Workflow
 
 ```mermaid
-flowchart TB
-    subgraph Runner["Runner · lifecycle"]
+flowchart LR
+    subgraph Runner["Runner"]
         direction LR
         subgraph Preparation["Preparation"]
+            direction TB
             Connect["Connect"] --> Resources["Prepare data"]
         end
-        subgraph Blaster["Blaster · traffic"]
+        subgraph Blaster["Blaster"]
+            direction TB
             Warmup["Warm up (optional)"] --> Measure["Measure"] --> Drain["Drain"]
         end
         subgraph Restoration["Restoration"]
-            Cleanup["Release resources"]
+            direction TB
+            Cleanup["Remove test data"] --> Restore["Restore environment"]
         end
-        Resources --> Warmup
-        Drain --> Cleanup
+        Preparation --> Blaster --> Restoration
     end
-    subgraph Report["Report · results"]
+    subgraph Report["Report"]
+        direction TB
         Summarize["Summarize"] --> Evaluate["Evaluate"]
     end
-    Cleanup --> Summarize
+    Runner --> Report
 ```
 
 | Part | Responsibility |
@@ -67,10 +70,17 @@ admit rather than building an unbounded queue or sending catch-up bursts.
 
 Each request is timed independently around its client call. An iteration with
 multiple requests produces separate latency samples, not a combined latency.
+The current two-request workload illustrates the timing boundaries:
 
 ```mermaid
-flowchart LR
-    Start["Start timer"] --> Call["Request / response"] --> Stop["Stop timer"] --> Record["Record outcome"]
+flowchart TD
+    Start["START Get timer"] --> Get["Get call / decoded response"]
+    Get --> GetStop["STOP Get timer / record Get outcome"]
+    GetStop --> Check["Successful Get permits Set"]
+    Check --> SetStart["START Set timer"]
+    SetStart --> Set["Set call / decoded response"]
+    Set --> Stop["STOP Set timer"]
+    Stop --> Inspect["Inspect SetResponse errors / record Set outcome"]
 ```
 
 Latency includes serialization, transport, server work and response decoding.
@@ -107,18 +117,7 @@ Interpret results with these boundaries:
 For CLI examples, defaults and extension details, see the
 [benchmark README](../../tests/gnmi_benchmark/README.md).
 
-## References
-
-- [gRPC benchmarking](https://grpc.io/docs/guides/benchmarking/): a compact overview
-  organized around test design, scenarios and infrastructure.
-- [k6 test lifecycle](https://grafana.com/docs/k6/latest/using-k6/test-lifecycle/):
-  separate preparation, repeated workload and teardown.
-- [k6 open and closed models](https://grafana.com/docs/k6/latest/using-k6/scenarios/concepts/open-vs-closed/):
-  distinguish fixed concurrency from independent arrival rates.
-- [arc42 architecture canvas](https://arc42.org/canvas/): communicate goals,
-  structure and key constraints as a concise design overview.
-
-## Current blaster: route-table
+## Example workload: VNET routes
 
 This PR provides [RouteTableBlaster](../../tests/gnmi_benchmark/blaster.py), a
 bulk configuration workload. Each iteration performs **Get → Set** for existing
@@ -145,46 +144,13 @@ two RPCs; its batch size converts iteration throughput to route entries/s per
 direction. The benchmark does not check readback or forwarding convergence, or
 assert that bypass was used. Get may read a CONFIG_DB checkpoint.
 
-### Observed baseline (2026-09-17–18)
+## References
 
-**Latency increases with concurrency and request size. More workers do not
-preserve response time under this load.**
-
-![Load impact: Get and Set mean latency increases with workers and batch size](gnmi-benchmark-results/load-impact.svg)
-
-#### Experiment
-
-Both sweeps use 256,000 stored routes (12 × 20,000 measured + 16,000 background),
-60 s admission, no warmup, a 120 s per-RPC timeout and one persistent TLS channel.
-Open loop offers 500 iterations/s; closed loop refills workers after completion.
-
-| Sweep | Fixed | Varied |
-|---|---|---|
-| Concurrency | 20,000 routes/RPC | 2, 5, 10, 50, 100, 500 workers; both load models |
-| Batch size | 100 workers | 100, 500, 1,000, 2,000 routes/RPC; both load models |
-
-Tests used a single-ASIC Cisco-8102-C64 running original SONiC `20260510.14`,
-without server timing instrumentation, over TLS-over-SSH. The benchmark was
-overlaid on sonic-mgmt `202605` at `72ffcc20e210411f54c7b500ef9a9f96267876ed`;
-the public-master fixture stack was not physically validated. Each point is one
-run, and the batch sweep resumed in a later device session.
-
-#### Findings
-
-1. **Concurrency increases latency.** At 20k routes/RPC, closed-loop workers
-   2 → 100 raise mean Get **3.43 → 59.45 s** and Set **6.70 → 92.80 s**.
-2. **Larger batches reduce completed iterations.** At 100 workers, batches
-   100 → 2,000 raise mean Get **0.42 → 8.61 s** and Set **0.48 → 8.59 s**.
-   Across both load models, window throughput is roughly **10k–11.5k route
-   entries/s per direction** in this sweep.
-3. **No reported run meets the per-request threshold.** All 18 reports contain
-   requests above 1 s, despite zero RPC errors. Open-loop drops are
-   **77.80–98.63%** in the batch sweep and **99.66–99.96%** in the worker sweep.
-
-**18/20 attempted points produced reports.** Both 20k/500-worker runs lost
-management connectivity, preventing final sampling, cleanup and report emission;
-their cause is unconfirmed and they have no plotted values. At 20k with 50/100
-workers, most or all iterations finish after the admission window.
-
-The [results CSV](gnmi-benchmark-results/results.csv) contains all 18 reported
-points, including counts, mean/P95, errors, drops and drain. Raw logs remain local.
+- [gRPC benchmarking](https://grpc.io/docs/guides/benchmarking/): a compact overview
+  organized around test design, scenarios and infrastructure.
+- [k6 test lifecycle](https://grafana.com/docs/k6/latest/using-k6/test-lifecycle/):
+  separate preparation, repeated workload and teardown.
+- [k6 open and closed models](https://grafana.com/docs/k6/latest/using-k6/scenarios/concepts/open-vs-closed/):
+  distinguish fixed concurrency from independent arrival rates.
+- [arc42 architecture canvas](https://arc42.org/canvas/): communicate goals,
+  structure and key constraints as a concise design overview.
