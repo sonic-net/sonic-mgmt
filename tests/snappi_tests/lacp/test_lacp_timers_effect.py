@@ -59,6 +59,7 @@ def test_lacp_timers(snappi_api,                       # noqa: F811
     """
     # port_count, number_of_routes ,iterations, port_speed, lacpdu_interval_period,
     # lacpdu_timeout parameters can be modified as per user preference
+    port_count = min(port_count, len(tgen_ports))
     run_lacp_timers_effect(snappi_api,
                            duthost,
                            tgen_ports,
