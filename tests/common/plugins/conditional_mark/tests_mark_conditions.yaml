@@ -5158,9 +5158,11 @@ snappi_tests/ecn/test_red_accuracy_with_snappi:
 
 snappi_tests/gcu/test_gcu_port_speed_upgrade.py:
   skip:
-    reason: "Snappi GCU port speed upgrade test is supported only on T2 testbeds"
+    reason: "Snappi GCU port speed upgrade test is supported only on T2 chassis-packet testbeds"
+    conditions_logical_operator: or
     conditions:
       - "topo_type != 't2'"
+      - "switch_type != 'chassis-packet'"
 
 snappi_tests/lacp:
   skip:
