@@ -441,6 +441,12 @@ def apply_mux_cable_table_to_dut(cleanup_mocked_configs, rand_selected_dut,
         return out['stdout_lines'][0] == str(num_tor_mux_intfs)
     logger.info("Applying MUX_CABLE table")
     dut = rand_selected_dut
+    # Cisco 8000 Gibraltar host-route standby mixes a tunnel NH into an IP ECMP
+    # that SAI creates as L2, then rejects the tunnel member. Prefix-route
+    # avoids that sequence. Other ASICs keep the YANG default (host-route).
+    use_prefix_route = dut.facts.get('asic_type') == 'cisco-8000'
+    if use_prefix_route:
+        logger.info("Using MUX_CABLE neighbor_mode=prefix-route for cisco-8000")
 
     server_ipv4_base_addr, server_ipv6_base_addr = mock_server_base_ip_addr
 
@@ -448,15 +454,14 @@ def apply_mux_cable_table_to_dut(cleanup_mocked_configs, rand_selected_dut,
     for i, intf in enumerate(tor_mux_intfs):
         server_ipv4 = str(server_ipv4_base_addr + i)
         server_ipv6 = str(server_ipv6_base_addr + i)
-        mux_cable_params.update(
-            {
-                intf: {
-                    'server_ipv4': server_ipv4,
-                    'server_ipv6': server_ipv6,
-                    'state': 'auto',
-                    'neighbor_mode': 'prefix-route'
-                }
-            })
+        mux_entry = {
+            'server_ipv4': server_ipv4,
+            'server_ipv6': server_ipv6,
+            'state': 'auto'
+        }
+        if use_prefix_route:
+            mux_entry['neighbor_mode'] = 'prefix-route'
+        mux_cable_params.update({intf: mux_entry})
 
     mux_cable_params = {'MUX_CABLE': mux_cable_params}
     dut.copy(content=json.dumps(mux_cable_params, indent=2), dest="/tmp/mux_cable_params.json")
