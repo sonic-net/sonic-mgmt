@@ -10,6 +10,7 @@ from tests.common.utilities import kill_process_by_pid, wait_until
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
+    pytest.mark.preserve_dhcp_server_config,
     pytest.mark.topology("mx"),
 ]
 
