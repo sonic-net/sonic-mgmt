@@ -1107,7 +1107,35 @@ def tgen_ports(duthost, get_snappi_ports, conn_graph_facts, fanout_graph_facts, 
             port['link_training'] = link_training_value in ['on', 'true', 'yes', '1']
             port['speed'] = speed_type.get(str(port_speed), port['speed'])
             peer_port = port['peer_port']
-            entry = bool(config_facts.get('INTERFACE', {}).get(peer_port))
+            asic = duthost.get_port_asic_instance(peer_port)
+            asic_config_facts = asic.config_facts(
+                host=duthost.hostname,
+                source="running"
+            )['ansible_facts']
+            interface_facts = asic_config_facts.get('INTERFACE', {}).get(peer_port, {})
+            has_interface = bool(interface_facts)
+            if not has_interface:
+                portchannel = next(
+                    (key.split('|', 1)[0]
+                     for key in asic_config_facts.get('PORTCHANNEL_MEMBER', {})
+                     if key.endswith('|' + peer_port)),
+                    None)
+                if portchannel is None:
+                    portchannel = next(
+                        (name for name, info in asic_config_facts.get('PORTCHANNEL', {}).items()
+                         if peer_port in info.get('members', [])),
+                        None)
+                if portchannel:
+                    asic.config_portchannel_member(portchannel, peer_port, 'del')
+                    for key, value in asic_config_facts.get('PORTCHANNEL_INTERFACE', {}).items():
+                        if key == portchannel:
+                            ipaddrs = value.keys() if isinstance(value, dict) else value
+                        elif key.startswith(portchannel + '|'):
+                            ipaddrs = [key.split('|', 1)[1]]
+                        else:
+                            continue
+                        for ipaddr in ipaddrs:
+                            asic.config_ip_intf(portchannel, ipaddr, 'remove')
             for ipver, addr_type in (("ipv4", "IPv4"), ("ipv6", "IPv6")):
                 if ipver == "ipv4":
                     dut_list, tgen_list, mask = dutIps, tgenIps, prefix_length
@@ -1115,7 +1143,7 @@ def tgen_ports(duthost, get_snappi_ports, conn_graph_facts, fanout_graph_facts, 
                 else:
                     dut_list, tgen_list, mask = dutv6Ips, tgenv6Ips, v6_prefix_length
                     peer_ip_key, prefix_key, ip_key = "peer_ipv6", "ipv6_prefix", "ipv6"
-                if not entry:
+                if not has_interface:
                     # Assign and configure new IPs
                     port[peer_ip_key] = dut_list[port_id]
                     port[prefix_key] = mask
@@ -1125,19 +1153,19 @@ def tgen_ports(duthost, get_snappi_ports, conn_graph_facts, fanout_graph_facts, 
                             f"Pre-configuring {addr_type}: {duthost.hostname} "
                             f"port {peer_port} -> {dut_list[port_id]}/{mask}"
                         )
-                        duthost.command(
-                            f"sudo config interface ip add {peer_port} {dut_list[port_id]}/{mask}"
-                        )
+                        asic.config_ip_intf(peer_port, f"{dut_list[port_id]}/{mask}", 'add')
                     except Exception as e:
                         pytest.fail(
                             f"Unable to configure {addr_type} on {peer_port}: {e}",
                             pytrace=False,
                         )
                 else:
-                    int_addrs = list(config_facts['INTERFACE'][peer_port].keys())
-                    entry = next((a for a in int_addrs if (":" in a) == (ipver == "ipv6")), None)
-                    port[peer_ip_key], port[prefix_key] = entry.split("/")
-                    port[ip_key] = get_addrs_in_subnet(entry, 1, exclude_ips=[entry.split("/")[0]])[0]
+                    int_addrs = list(interface_facts.keys())
+                    interface_addr = next(
+                        (a for a in int_addrs if (":" in a) == (ipver == "ipv6")), None)
+                    port[peer_ip_key], port[prefix_key] = interface_addr.split("/")
+                    port[ip_key] = get_addrs_in_subnet(
+                        interface_addr, 1, exclude_ips=[interface_addr.split("/")[0]])[0]
     return snappi_ports
 
 
