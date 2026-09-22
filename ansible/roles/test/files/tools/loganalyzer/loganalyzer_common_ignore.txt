@@ -330,7 +330,7 @@ r, ".* WARNING kernel:.*pcieport.*device.*error.*status/mask=.*"
 # These are self-recovered by the PCIe link with no data loss and no impact to drive health/SMART status.
 r, ".* WARNING kernel:.*nvme.*device.*error.*status/mask=.*"
 r, ".* ERR syncd\d*#syncd:.* -E-HLD-0- Trap.* is not supported.*"
-r, ".* ERR pmon#xcvrd:.*CMIS:.*no suitable app for the port appl.*"
+r, ".* ERR pmon#(?:xcvrd|CmisManagerTask).*no suitable app for the port appl.*"
 r, ".* ERR kernel:.*ltc2497.*i2c transfer failed: -EFAULT"
 r, ".* ERR syncd\d*#syncd:.*get_sq_size_watermark_in_bytes API returned: status = Leaba_Err: Invalid parameter.*"
 
