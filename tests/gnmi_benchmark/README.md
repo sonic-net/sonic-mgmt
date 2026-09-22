@@ -9,8 +9,9 @@
 | [benchmark_report.py](benchmark_report.py) | `BenchmarkReport.generate`: statistics, JSON report and output |
 | [helpers.py](helpers.py) | Shared TLS, resource acquisition/restoration and request-building helpers |
 
-`test_gnmi_benchmark.py` is the thin pytest entrypoint; `conftest.py` registers CLI
-options. There are no separate client, environment, scheduler or workload packages.
+`test_gnmi_benchmark.py` is the shared pytest entrypoint; `conftest.py` registers CLI
+options and supplies workload, device, connection and Runner fixtures.
+There are no separate client, environment, scheduler or workload packages.
 
 ## Main entrypoint
 
@@ -67,7 +68,10 @@ checks warmup outcomes and decides whether to proceed; it implements no arrival
 clock, worker loop or concurrency policy.
 
 To add a scenario, subclass `Blaster` in `blaster.py` and implement
-`workload(session, prepared)`. Override `resources(host, stub)` only when preparation is
+`workload(session, prepared)` and register the class in `BLASTERS` by name.
+The CLI selects from this registry; the same pytest entrypoint runs every workload.
+Set the class's `hwsku_prefixes` when a workload requires particular hardware;
+the default empty tuple imposes no SKU restriction. Override `resources(host, stub)` only when preparation is
 needed; return a context manager from a resource helper. Do not put concurrency
 loops or cleanup commands inside `workload()`. Inherited defaults are 4 workers,
 100 iterations, 120-second per-RPC timeout, closed-loop traffic and no warmup.
@@ -134,6 +138,13 @@ Generated routes get isolated VNETs sharing one test VXLAN tunnel and persistent
 config backup/restoration. Setup issues one bypass Set per VNET, excluded from
 measurement. Every measured Set also requests bypass; there is no bypass toggle,
 Regular mode or arbitrary payload file option.
+The `benchmark_device` fixture reads HwSKU from CONFIG_DB and applies the selected
+blaster's `hwsku_prefixes` using sonic-mgmt's standard `pytest_require` helper.
+RouteTableBlaster permits `Cisco-8102`, `Cisco-8101` and `Cisco-8223` prefixes,
+matching sonic-gnmi's bypass allowlist. A failed or empty SKU read fails the test.
+`benchmark_connection` resolves the TLS fixture only after this check passes,
+before route preparation and preload. `benchmark_blaster` and `benchmark_runner`
+provide the workload and lifecycle implementation to the shared test entrypoint.
 This requests bypass, not authentication bypass or proof of server fast-path
 execution. The shared `gnmi_tls` fixture is unchanged.
 

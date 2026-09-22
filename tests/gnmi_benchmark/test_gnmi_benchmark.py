@@ -5,11 +5,8 @@ import logging
 
 import pytest
 
-from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
 from tests.common.helpers.custom_msg_utils import add_custom_msg
-from tests.gnmi_benchmark.benchmark_runner import BenchmarkRunner
 from tests.gnmi_benchmark.benchmark_report import BenchmarkReport
-from tests.gnmi_benchmark.blaster import RouteTableBlaster
 
 logger = logging.getLogger(__name__)
 pytestmark = [
@@ -21,24 +18,6 @@ pytestmark = [
 ]
 
 
-def _blaster_from_options(config):
-    try:
-        params = json.loads(config.getoption("--benchmark-blaster-params"))
-        if not isinstance(params, dict):
-            raise ValueError("blaster-params must be a JSON object")
-        option_names = (
-            ("concurrency", "concurrency"), ("logical_requests", "logical-requests"),
-            ("timeout_seconds", "timeout"), ("duration_seconds", "duration"),
-            ("warmup_seconds", "warmup"), ("traffic_pattern", "traffic"), ("rate", "rate"), ("marker", "marker"))
-        for key, flag in option_names:
-            value = config.getoption("--benchmark-" + flag)
-            if value is not None:
-                params[key] = value
-        return RouteTableBlaster(**params)
-    except (ValueError, TypeError) as error:
-        raise pytest.UsageError(str(error)) from error
-
-
 def _emit_report(request, report):
     key = "gnmi_benchmark.{}".format(report["cid"])
     if request.node is request.session.items[-1]:
@@ -48,23 +27,20 @@ def _emit_report(request, report):
 
 
 def test_gnmi_benchmark(
-    gnmi_tls,  # noqa: F811
+    benchmark_device,
+    benchmark_blaster,
+    benchmark_runner,
+    benchmark_connection,
     pytestconfig,
     request,
-    duthosts,
-    enum_rand_one_per_hwsku_frontend_hostname,
 ):
-    host = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    blaster = _blaster_from_options(pytestconfig)
-    if gnmi_tls.transport != "tls" or gnmi_tls.pygnmi_client is None:
-        pytest.skip("The benchmark requires the TLS transport")
-    device_sku = host.shell("sonic-db-cli CONFIG_DB HGET 'DEVICE_METADATA|localhost' hwsku")["stdout"].strip()
+    host, device_sku = benchmark_device
     report = BenchmarkReport(
-        connection_type=gnmi_tls.transport.upper(),
+        connection_type=benchmark_connection.transport.upper(),
         device=dict(hostname=host.hostname, os_version=host.os_version, sku=device_sku,
                     platform=host.facts.get("platform", "unknown"), asic_type=host.facts.get("asic_type", "unknown"),
                     asic_count=host.num_asics()))
-    result = BenchmarkRunner().run(host, gnmi_tls, blaster, report)
+    result = benchmark_runner.run(host, benchmark_connection, benchmark_blaster, report)
     path = result.write(pytestconfig.getoption("--benchmark-output-dir"))
     _emit_report(request, result.to_dict())
     logger.info("gNMI benchmark marker=%s report=%s", result.marker, path)

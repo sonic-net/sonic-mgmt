@@ -17,6 +17,7 @@ from tests.gnmi_benchmark.helpers import BYPASS_METADATA, route_resources
 
 @dataclass
 class Blaster(ABC):
+    hwsku_prefixes = ()
     concurrency: int = 4
     logical_requests: int = 100
     timeout_seconds: float = 120
@@ -98,6 +99,8 @@ class RouteTableBlaster(Blaster):
     """Round-robin VNET Get→Set, with all route batches preloaded using bypass."""
 
     name = "route-table"
+    # Match sonic-gnmi pkg/bypass/bypass.go AllowedSKUPrefixes.
+    hwsku_prefixes = ("Cisco-8102", "Cisco-8101", "Cisco-8223")
     logical_requests: int = 1000
     route_distribution: dict = field(default_factory=lambda: {16000: 1, 20000: 12})
     routes_per_request: int = 20000
@@ -144,6 +147,9 @@ class RouteTableBlaster(Blaster):
         entries = len(read.path)
         session.get(read, entry_count=entries)
         session.set(write, metadata=BYPASS_METADATA, entry_count=entries)
+
+
+BLASTERS = {RouteTableBlaster.name: RouteTableBlaster}
 
 
 @dataclass

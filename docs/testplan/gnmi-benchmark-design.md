@@ -231,7 +231,13 @@ earlier successful requests retain their samples.
 
 | Blaster | Behavior | Test profile | Requirements |
 |---|---|---|---|
-| [RouteTableBlaster](../../tests/gnmi_benchmark/blaster.py) (`route-table`) | Read explicit CONFIG_DB route keys, then rewrite the batch with prepared values and validation bypass requested. | Route distribution and routes per request; default inventory: 256k routes across 13 VNETs. | Single-ASIC DUT, TLS, GCU, Loopback0 IPv4 and exclusive configuration access. |
+| [RouteTableBlaster](../../tests/gnmi_benchmark/blaster.py) (`route-table`) | Read explicit CONFIG_DB route keys, then rewrite the batch with prepared values and validation bypass requested. | Route distribution and routes per request; default inventory: 256k routes across 13 VNETs. | Single-ASIC DUT with HwSKU prefix `Cisco-8102`, `Cisco-8101` or `Cisco-8223`; TLS, GCU, Loopback0 IPv4 and exclusive configuration access. |
+
+One pytest entrypoint runs the selected workload from the `BLASTERS` registry.
+Shared fixtures supply the Blaster, Runner and connection, checking the workload's
+HwSKU requirements before TLS setup. Unsupported devices are skipped using
+`pytest_require`. SKU eligibility is necessary for bypass, but does not by itself
+prove that the installed server executed the bypass path.
 
 For CLI examples and extension details, see the
 [benchmark README](../../tests/gnmi_benchmark/README.md).
