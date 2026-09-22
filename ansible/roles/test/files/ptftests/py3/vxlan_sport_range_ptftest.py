@@ -1,5 +1,4 @@
 import json
-import os
 import logging
 from collections import defaultdict
 
@@ -35,16 +34,12 @@ class VxlanSportRangeTest(BaseTest):
         self.src_ip = params["ptf_src_ip"]
         self.dut_vtep = params["dut_vtep"]
         self.router_mac = params["router_mac"]
+        self.vxlan_router_mac = params.get("vxlan_router_mac", "aa:bb:cc:dd:ee:ff")
         self.vxlan_port = int(params.get("vxlan_port", 4789))
         self.vni = int(params.get("vni", 10000))
         self.send_port = int(params.get("ptf_ingress_port", 0))
         self.num_flows = int(params.get("num_flows", 1000))
-
-        if "endpoints_file" in params and os.path.exists(params["endpoints_file"]):
-            with open(params["endpoints_file"], "r") as f:
-                self.endpoints = json.load(f)
-        else:
-            self.endpoints = params.get("endpoints", [])
+        self.endpoints = params.get("endpoints", [])
 
         self.source_port = int(params.get("source_port", 32768))
         self.source_port_mask = int(params.get("source_port_mask", 4))
@@ -75,24 +70,33 @@ class VxlanSportRangeTest(BaseTest):
     def tearDown(self):
         self.dataplane.flush()
 
-    def _generate_flow_packet(self, flow_index):
-        src_mac = self.dataplane.get_mac(0, self.send_port)
+    def _generate_flow_packet(self, flow_index, eth_src=None, pktlen=100, ip_ttl=64):
+        if eth_src is None:
+            eth_src = self.dataplane.get_mac(0, self.send_port)
         return simple_tcp_packet(
-            eth_src=src_mac,
+            eth_src=eth_src,
             eth_dst=self.router_mac,
             ip_dst=self.dst_ip,
             ip_src=self.src_ip,
             ip_id=105,
-            ip_ttl=64,
+            ip_ttl=ip_ttl,
             tcp_sport=10000 + flow_index,
             tcp_dport=20000 + flow_index,
-            pktlen=100,
+            pktlen=pktlen,
         )
 
-    def _build_masked_expected(self, inner_pkt):
-        inner_exp = inner_pkt.copy()
-        inner_exp[scapy.Ether].src = self.router_mac
-        inner_exp[scapy.IP].ttl = inner_exp[scapy.IP].ttl - 1
+    def _build_masked_expected(self, flow_index, pktlen=100, ip_ttl=64):
+        inner_exp = simple_tcp_packet(
+            eth_src=self.router_mac,
+            eth_dst=self.vxlan_router_mac,
+            ip_dst=self.dst_ip,
+            ip_src=self.src_ip,
+            ip_id=105,
+            ip_ttl=ip_ttl - 1,
+            tcp_sport=10000 + flow_index,
+            tcp_dport=20000 + flow_index,
+            pktlen=pktlen,
+        )
 
         encap = simple_vxlan_packet(
             eth_src=self.router_mac,
@@ -119,13 +123,6 @@ class VxlanSportRangeTest(BaseTest):
         m.set_do_not_care_scapy(scapy.IP, "chksum")
         m.set_do_not_care_scapy(scapy.UDP, "sport")
 
-        # outer Ether(14) + IP(20) + UDP(8) + VXLAN(8) = 50
-        INNER_START = 14 + 20 + 8 + 8  # = 50
-        # Inner Ether dst: 6 bytes at offset 50
-        m.set_do_not_care(INNER_START * 8, 6 * 8)
-        # Inner IP checksum: 2 bytes at offset 50 + Ether(14) + 10
-        m.set_do_not_care((INNER_START + 14 + 10) * 8, 2 * 8)
-
         return m
 
     def _send_and_capture(self, pkt, expected_mask):
@@ -146,7 +143,7 @@ class VxlanSportRangeTest(BaseTest):
 
         for i in range(self.num_flows):
             pkt = self._generate_flow_packet(i)
-            mask = self._build_masked_expected(pkt)
+            mask = self._build_masked_expected(i)
             outer_sport = self._send_and_capture(pkt, mask)
 
             assert self.range_lower <= outer_sport <= self.range_upper, (
@@ -172,10 +169,19 @@ class VxlanSportRangeTest(BaseTest):
 
         for flow_idx in check_indices:
             expected_sport = flow_to_sport[flow_idx]
-            pkt = self._generate_flow_packet(flow_idx)
-            mask = self._build_masked_expected(pkt)
 
             for repeat in range(HASH_CHECK_REPEATS):
+                eth_src = "00:11:22:33:44:%02x" % (repeat + 1)
+                pktlen = 100 + (repeat * 40)
+                ip_ttl = 64 + repeat
+                pkt = self._generate_flow_packet(
+                    flow_idx,
+                    eth_src=eth_src,
+                    pktlen=pktlen,
+                    ip_ttl=ip_ttl,
+                )
+                mask = self._build_masked_expected(flow_idx, pktlen=pktlen, ip_ttl=ip_ttl)
+
                 outer_sport = self._send_and_capture(pkt, mask)
                 assert outer_sport == expected_sport, (
                     f"Flow {flow_idx} repeat {repeat}: outer sport {outer_sport} "

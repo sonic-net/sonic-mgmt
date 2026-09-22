@@ -31,6 +31,7 @@ ENDPOINTS = ["100.0.1.10", "100.0.2.10"]
 DEFAULT_SOURCE_PORT = 32768
 SOURCE_PORT_MASK = 7
 NUM_FLOWS = 1000
+VXLAN_ROUTER_MAC = "aa:bb:cc:dd:ee:ff"
 
 
 def get_loopback_ip(cfg_facts):
@@ -87,7 +88,7 @@ def configure_vxlan_source_port_range(duthost, vxlan_port, source_port):
     switch_config = [{
         "SWITCH_TABLE:switch": {
             "vxlan_port": str(vxlan_port),
-            "vxlan_router_mac": "aa:bb:cc:dd:ee:ff",
+            "vxlan_router_mac": VXLAN_ROUTER_MAC,
             "vxlan_sport": str(source_port),
             "vxlan_mask": str(SOURCE_PORT_MASK),
         },
@@ -175,6 +176,7 @@ def vxlan_setup_with_sport_range(duthost, ptfhost, tbinfo, cfg_facts,
         "dst_ip": PREFIX.split("/")[0],
         "ptf_ingress_port": ptf_port_index,
         "router_mac": duthost.facts["router_mac"],
+        "vxlan_router_mac": VXLAN_ROUTER_MAC,
         "vxlan_port": vxlan_port,
         "vni": VNI,
         "source_port": source_port,
@@ -222,11 +224,8 @@ def sport_range_setup_teardown(
 
 
 def run_sport_ptf_test(ptfhost, params):
-    endpoints_file = "/tmp/ptf_sport_endpoints.json"
-    ptfhost.copy(content=json.dumps(ENDPOINTS), dest=endpoints_file)
-
     ptf_params = params.copy()
-    ptf_params["endpoints_file"] = endpoints_file
+    ptf_params["endpoints"] = ENDPOINTS
 
     params_path = "/tmp/ptf_sport_params.json"
     ptfhost.copy(content=json.dumps(ptf_params), dest=params_path)
