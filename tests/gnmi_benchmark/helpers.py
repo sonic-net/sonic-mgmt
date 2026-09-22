@@ -9,6 +9,8 @@ from contextlib import contextmanager, ExitStack
 import grpc
 from pygnmi.spec.v080 import gnmi_pb2, gnmi_pb2_grpc
 
+from tests.common.gcu_utils import apply_gcu_patch
+
 BYPASS_METADATA = (("x-sonic-ss-bypass-validation", "true"),)
 
 
@@ -26,12 +28,9 @@ def gnmi_connection(fixture):
     host = fixture.host
     if ":" in host and not host.startswith("["):
         host = "[{}]".format(host)
-    channel = grpc.secure_channel("{}:{}".format(host, fixture.port), credentials,
-                                  options=(("grpc.enable_retries", 0),))
-    try:
+    with grpc.secure_channel("{}:{}".format(host, fixture.port), credentials,
+                             options=(("grpc.enable_retries", 0),)) as channel:
         yield channel, gnmi_pb2_grpc.gNMIStub(channel)
-    finally:
-        channel.close()
 
 
 def build_native_set_request(parts, value):
@@ -73,7 +72,7 @@ def route_resources(host, distribution, routes_per_request, stub, timeout):
         raise RuntimeError("Unable to count existing VNET routes")
     if int(existing["stdout"].strip()) + total > 256000:
         raise ValueError("existing plus generated VNET_ROUTE_TUNNEL routes would exceed 256000")
-    facts = host.config_facts(host=host.hostname, source="running")["ansible_facts"]
+    facts = host.get_running_config_facts()
     loopbacks = facts.get("LOOPBACK_INTERFACE", {}).get("Loopback0", {})
     addresses = [str(ipaddress.ip_interface(address).ip) for address in loopbacks if ":" not in address]
     if not addresses:
@@ -96,9 +95,7 @@ def route_resources(host, distribution, routes_per_request, stub, timeout):
         for name, _ in vnets:
             patch.append({"op": "add", "path": "/VNET/" + name,
                           "value": {"vxlan_tunnel": tunnel, "vni": next(available_vnis)}})
-        setup = host.shell("config apply-patch /dev/stdin", stdin=json.dumps(patch), module_ignore_errors=True)
-        if setup.get("rc") != 0:
-            raise RuntimeError("VNET prerequisites failed: {}".format(setup))
+        apply_gcu_patch(host, patch)
         prepared = []
         # Prefixes may repeat across isolated VNETs; compound table keys remain unique.
         base = int(ipaddress.IPv4Address("198.18.0.0"))

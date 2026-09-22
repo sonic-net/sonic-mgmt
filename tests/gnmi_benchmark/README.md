@@ -142,10 +142,10 @@ Generated routes get isolated VNETs sharing one test VXLAN tunnel and persistent
 config backup/restoration. Setup issues one bypass Set per VNET, excluded from
 measurement. Every measured Set also requests bypass; there is no bypass toggle,
 Regular mode or arbitrary payload file option.
-The entrypoint checks the selected DUT's existing `host.facts["hwsku"]` against
+The entrypoint safely reads the selected DUT's existing HwSKU facts and checks them against
 the blaster's `hwsku_prefixes` using sonic-mgmt's standard `pytest_require` helper.
 RouteTableBlaster permits `Cisco-8102`, `Cisco-8101` and `Cisco-8223` prefixes,
-matching sonic-gnmi's bypass allowlist. Missing HwSKU facts fail the test. The
+matching sonic-gnmi's bypass allowlist. Missing, empty or unsupported HwSKU values skip the test. The
 entrypoint resolves the shared TLS fixture only after eligibility passes, before
 route preparation and preload. No extra Redis shell query is needed for selection.
 This requests bypass, not authentication bypass or proof of server fast-path

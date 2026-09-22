@@ -57,12 +57,10 @@ def test_gnmi_benchmark(
 ):
     host = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     blaster = blaster_factory()
-    device_sku = host.facts.get("hwsku", "")
-    if not device_sku:
-        pytest.fail("DUT facts do not contain HwSKU")
-    pytest_require(not blaster.hwsku_prefixes or device_sku.startswith(blaster.hwsku_prefixes),
-                   "{} requires HwSKU prefix {}; got {}".format(
-                       blaster.name, ", ".join(blaster.hwsku_prefixes), device_sku))
+    device_sku = host.facts.get("hwsku") or ""
+    pytest_require(device_sku, "DUT HwSKU is unavailable")
+    if blaster.hwsku_prefixes:
+        pytest_require(device_sku.startswith(blaster.hwsku_prefixes), "Unsupported HwSKU: " + device_sku)
     # Resolve TLS setup only after checking the selected device.
     connection = request.getfixturevalue("gnmi_tls")
     pytest_require(connection.transport == "tls" and connection.pygnmi_client is not None,
