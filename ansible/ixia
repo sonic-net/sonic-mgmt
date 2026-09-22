@@ -151,7 +151,9 @@ sonic_str_cisco_8111_O32:
 sonic_str_8102:
   hosts:
     STR-8102-C19-U24:
-      ansible_host: 10.3.146.252
+      ansible_host: 10.3.144.100
+      ansible_hostv6: 2a01:111:e210:b8::4
+      mgmt_subnet_mask_length: 27
       plt_reboot_dict:
         Kernel Panic:
           timeout: 600
@@ -163,7 +165,9 @@ sonic_str_8102:
 sonic_str_7050cx3:
   hosts:
     STR-7050CX3-C19-U37:
-      ansible_host: 10.3.146.227
+      ansible_host: 10.3.144.98
+      ansible_hostv6: 2a01:111:e210:b8::2
+      mgmt_subnet_mask_length: 27
   vars:
     hwsku: Arista-7050CX3-32S-C32
     iface_speed: 100000
@@ -171,7 +175,9 @@ sonic_str_7050cx3:
 sonic_str_7260cx3:
   hosts:
     STR-7260CX3-C19-U39:
-      ansible_host: 10.3.147.93
+      ansible_host: 10.3.144.99
+      ansible_hostv6: 2a01:111:e210:b8::3
+      mgmt_subnet_mask_length: 27
   vars:
     hwsku: Arista-7260CX3-C64
     iface_speed: 100000
@@ -771,7 +777,9 @@ sonic_str_mlnx_2700:
       ansible_host: 10.64.247.236
       mgmt_subnet_mask_length: 25
     STR-SN2700-C19-U38:
-      ansible_host: 10.3.146.190
+      ansible_host: 10.3.144.102
+      ansible_hostv6: 2a01:111:e210:b8::6
+      mgmt_subnet_mask_length: 27
   vars:
     hwsku: Mellanox-SN2700
     iface_speed: 100000

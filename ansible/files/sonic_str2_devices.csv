@@ -77,7 +77,7 @@ str2-msn4600c-acs-04,10.3.146.96/24,ACS-MSN4600C,DevSonic,,sonic
 str2-8101c1-01,10.3.146.250/24,Cisco-8101C01-C32,DevSonic,,sonic
 str2-8101c1-02,10.3.146.234/24,Cisco-8101C01-C32,DevSonic,,sonic
 str2-8101c1-03,10.3.146.231/24,Cisco-8101C01-C32,DevSonic,,sonic
-str2-8101c1-04,10.3.146.220/24,Cisco-8101C01-C32,DevSonic,,sonic
+str2-8101c1-04,10.3.144.107/27,Cisco-8101C01-C32,DevSonic,,sonic
 str2-8101c1-09,10.64.247.57/26,Cisco-8101C01-O8V48,DevSonic,,sonic
 str2-8101c1-12,10.3.155.76/27,Cisco-8101C01-C32,DevSonic,,sonic
 str2-8101c1-fanout-01,10.3.155.77/27,Cisco-8101C01-C32,FanoutLeafSonic,,sonic
@@ -88,10 +88,10 @@ str2-8101-fanout-14,10.3.146.251/24,Cisco-8101-O32,FanoutLeaf,,
 str2-8101-fanout-15,10.3.146.248/24,Cisco-8101-O32,FanoutLeaf,,
 str2-8101-fanout-16,10.3.146.226/24,Cisco-8101-O32,FanoutLeaf,,
 str2-8101-fanout-17,10.3.146.232/24,Cisco-8101-O32,FanoutLeaf,,
-str2-8101-fanout-18,10.3.146.169/24,Cisco-8101-O32,FanoutLeaf,,
+str2-8101-fanout-18,10.3.144.105/27,Cisco-8101-O32,FanoutLeaf,,
 str2-8101-fanout-19,10.3.146.168/24,Cisco-8101-O8C48,FanoutLeaf,,
 str2-8101-fanout-20,10.3.144.70/27,Cisco-8101-O8C48,FanoutLeaf,,
-str2-8101-fanout-21,10.3.146.24/24,Cisco-8101-O32,FanoutLeaf,,
+str2-8101-fanout-21,10.3.144.106/27,Cisco-8101-O32,FanoutLeaf,,
 str2-8101-fanout-22,10.3.146.229/24,Cisco-8101-O8C48,FanoutLeaf,,
 str2-8102-01,10.3.146.133/24,Cisco-8102-C64,DevSonic,,sonic
 str2-8102-02,10.3.146.68/24,Cisco-8102-C64,DevSonic,,sonic
@@ -216,6 +216,7 @@ str43-0101-0400-06c0,10.3.150.239,Cisco,ConsoleServer,ssh,
 str43-0101-0400-07c0,10.3.150.241,Cisco,ConsoleServer,ssh,
 str43-0101-0400-08c0,10.3.152.33,Cisco,ConsoleServer,ssh,
 str43-0101-0400-09c0,10.3.150.244,Cisco,ConsoleServer,ssh,
+str43-0101-0300-06c0,10.3.150.247,Cisco,ConsoleServer,ssh,
 str43-0101-0801-01c0,10.3.150.230,Cisco,ConsoleServer,ssh,
 str43-0101-0200-06c0,10.3.158.58,Cisco,ConsoleServer,ssh,
 str43-0101-0801-02c0,10.3.152.53,Cisco,ConsoleServer,ssh,
