@@ -80,7 +80,7 @@ def test_active_tor_remove_neighbor_downstream_active(
     @contextlib.contextmanager
     def remove_neighbor(ptfhost, duthost, server_ip, ip_version, neighbor_details):
         # restore ipv4 neighbor since it is statically configured
-        flush_neighbor_ct = flush_neighbor(duthost, server_ip, restore=ip_version == "ipv4" or "ipv6")
+        flush_neighbor_ct = flush_neighbor(duthost, server_ip, restore=ip_version in ("ipv4", "ipv6"))
         try:
             ptfhost.shell("supervisorctl stop arp_responder", module_ignore_errors=True)
             # stop garp_service since there is no equivalent in production

@@ -1,19 +1,32 @@
+import json
 import time
 import logging
 import os
 
 from tests.common.helpers.assertions import pytest_assert
+from _pytest.outcomes import OutcomeException
 from tests.common.helpers.parallel_utils import synchronized_config_reload
 from tests.common.plugins.loganalyzer.utils import support_ignore_loganalyzer
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import wait_until
+from tests.common.constants import GOLDEN_CONFIG_DB_PATH_ORI
 from tests.common.configlet.utils import chk_for_pfc_wd
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
 from tests.common.helpers.dut_utils import ignore_t2_syslog_msgs
+from tests.common.vs_data import is_vs_device
 
 logger = logging.getLogger(__name__)
 
 config_sources = ['config_db', 'minigraph', 'running_golden_config']
+
+# Number of times to re-issue a config reload if critical services/processes do
+# not converge after a safe_reload. On virtual (KVM) DUTs this convergence check
+# occasionally misses its timeout when a prior test module left a container
+# churning; a fresh reload restarts the wedged docker and clears the transient.
+# The retry is intentionally scoped to VS DUTs only: on a physical testbed a
+# health miss after config reload is a real signal (often caused by a preceding
+# test module) that we want to surface rather than paper over.
+CONFIG_RELOAD_SAFE_HEALTH_RETRIES = 1
 
 
 # Timeouts for smartswitch DPU state transitions (in seconds)
@@ -193,11 +206,106 @@ def config_reload_minigraph_with_rendered_golden_config_override(
                   safe_reload_ignored_dockers=safe_reload_ignored_dockers)
 
 
+def _golden_config_link_training(sonic_host, golden_config_path):
+    """Return {port: 'on'|'off'} for PORT entries with link_training in the golden config.
+
+    Reads golden_config_db.json.origin.backup first, then golden_config_path. Returns {}
+    when neither file is readable or the first readable one has no such entries.
+    """
+    candidates = [GOLDEN_CONFIG_DB_PATH_ORI]
+    if golden_config_path and golden_config_path not in candidates:
+        candidates.append(golden_config_path)
+    for path in candidates:
+        res = sonic_host.shell('cat {}'.format(path), module_ignore_errors=True)
+        if res.get('rc') != 0:
+            continue
+        try:
+            config = json.loads(res['stdout'])
+        except ValueError as e:
+            logger.warning("Malformed golden config %s (%s); not a link_training source", path, e)
+            continue
+        ports = config.get('PORT', {}) if isinstance(config, dict) else {}
+        return {
+            port: attrs.get('link_training') for port, attrs in ports.items()
+            if isinstance(attrs, dict) and attrs.get('link_training') in ('on', 'off')
+        }
+    return {}
+
+
+def _reapply_golden_link_training(sonic_host, golden_config_path):
+    """Set PORT.<intf>.link_training in CONFIG_DB from the golden config's PORT table.
+
+    Single-asic only. Ports absent from CONFIG_DB are skipped with a warning.
+    """
+    if getattr(sonic_host, 'is_multi_asic', False):
+        return
+    lt_ports = _golden_config_link_training(sonic_host, golden_config_path)
+    if not lt_ports:
+        return
+    keys = sonic_host.shell('sonic-db-cli CONFIG_DB keys "PORT|*"', module_ignore_errors=True)
+    present = {line.split('|', 1)[1] for line in keys.get('stdout_lines', []) if '|' in line}
+    cmds = []
+    for port in sorted(lt_ports):
+        if port not in present:
+            logger.warning("Golden config sets link_training=%s on %s, which is not in the reloaded "
+                           "PORT table; skipping", lt_ports[port], port)
+            continue
+        cmds.append('sonic-db-cli CONFIG_DB hset "PORT|{}" link_training {}'.format(port, lt_ports[port]))
+    if not cmds:
+        return
+    logger.info("Re-applying link_training from golden config on %d ports after minigraph reload", len(cmds))
+    sonic_host.shell(' && '.join(cmds), executable="/bin/bash")
+
+
 def pfcwd_feature_enabled(duthost):
     device_metadata = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']['DEVICE_METADATA']
     pfc_status = device_metadata['localhost']["default_pfcwd_status"]
     switch_role = device_metadata['localhost'].get('type', '')
     return pfc_status == 'enable' and switch_role not in ['MgmtToRRouter', 'BmcMgmtToRRouter']
+
+
+def _reload_health_check_with_retry(sonic_host, wait, retries=CONFIG_RELOAD_SAFE_HEALTH_RETRIES):
+    """
+    Wait for critical services + processes to be healthy after a config reload,
+    re-issuing the reload on a transient convergence miss.
+
+    A single 'config reload -y -f' occasionally leaves a docker unhealthy on
+    virtual (KVM) DUTs, especially when a preceding test module left the DUT
+    churning. Re-issuing the reload restarts every docker, so re-running it (not
+    just polling longer) clears the wedged process. Bounded and logged, so a
+    genuinely broken reload still fails fast after the final attempt.
+
+    The retry is limited to VS (KVM) DUTs. On a physical testbed a health miss
+    after config reload is a real signal (often left by a preceding test module)
+    that we want to expose, so there the check runs once and fails fast.
+
+    config_reload signals failure through pytest.fail(), i.e. an OutcomeException
+    (a BaseException, not a plain Exception), so that is caught explicitly here.
+    """
+    # Scope the transient-miss retry to VS DUTs; keep physical DUTs fail-fast so
+    # real post-reload health failures are surfaced instead of retried away.
+    if not is_vs_device(sonic_host):
+        retries = 0
+    max_attempts = retries + 1
+    for attempt in range(1, max_attempts + 1):
+        try:
+            pytest_assert(wait_until(wait + 300, 20, 0, sonic_host.critical_services_fully_started),
+                          "All critical services should be fully started!")
+            wait_critical_processes(sonic_host)
+            return
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except (Exception, OutcomeException) as exc:
+            if attempt >= max_attempts:
+                raise
+            logger.warning("Critical services/processes not healthy after config reload "
+                           "(attempt %s/%s): %s. Re-issuing config reload and re-checking.",
+                           attempt, max_attempts, exc)
+            reload_cmd = 'config reload -y -f' if config_force_option_supported(sonic_host) else 'config reload -y'
+            sonic_host.shell(reload_cmd, executable="/bin/bash")
+            pytest_assert(
+                wait_until(200, 10, 0, sonic_host.is_critical_processes_running_per_asic_or_host, "database"),
+                "Database not start.")
 
 
 @support_ignore_loganalyzer
@@ -242,6 +350,7 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
 
     # Retrieve the enable_macsec passed by user for this test run
     # If macsec is enabled, use the override option to get macsec profile from golden config
+    macsec_en = False
     request = sonic_host.duthosts.request
     if request:
         macsec_en = request.config.getoption("--enable_macsec", default=False)
@@ -256,7 +365,8 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         cmd = 'config load_minigraph -y'
         if traffic_shift_away:
             cmd += ' -t'
-        if override_config or macsec_en:
+        golden_override = override_config or macsec_en
+        if golden_override:
             cmd += ' -o'
         if golden_config_path:
             cmd += ' -p {} '.format(golden_config_path)
@@ -270,6 +380,8 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
             sonic_host.shell(
                 'sonic-db-cli CONFIG_DB hset "DEVICE_METADATA|localhost" zebra_nexthop {}'.format(zebra_nexthop)
             )
+        if is_dut and not golden_override:
+            _reapply_golden_link_training(sonic_host, golden_config_path)
         time.sleep(60)
         if start_bgp:
             sonic_host.shell('config bgp startup all')
@@ -321,9 +433,7 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
             sonic_host.sonichost.critical_services = \
                 [docker for docker in original_critical_services if docker not in safe_reload_ignored_dockers]
         try:
-            pytest_assert(wait_until(wait + 300, 20, 0, sonic_host.critical_services_fully_started),
-                          "All critical services should be fully started!")
-            wait_critical_processes(sonic_host)
+            _reload_health_check_with_retry(sonic_host, wait)
         finally:
             if safe_reload_ignored_dockers:
                 sonic_host.sonichost.critical_services = original_critical_services

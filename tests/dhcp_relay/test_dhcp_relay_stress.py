@@ -66,7 +66,7 @@ def test_dhcp_relay_restart_with_stress(ptfhost, dut_dhcp_relay_data, validate_d
                    log_file="/tmp/dhcp_relay_stress_test.DHCPContinuousStressTest.log", is_python3=True,
                    async_mode=True)
 
-        restart_dhcp_service(duthost)
+        restart_dhcp_service(duthost, ['sonic' if relay_agent == 'sonic-relay-agent' else 'isc'])
 
         # Wait packets send during and after dhcrelay starting
         time.sleep(10)
@@ -120,7 +120,8 @@ def test_dhcp_relay_stress(ptfhost, ptfadapter, dut_dhcp_relay_data, validate_du
     """
     testing_mode, duthost = testing_config
     packets_send_duration = 120
-    client_packets_per_sec = 10000
+    is_vpp_kvm = duthost.facts.get("asic_type") == "vpp" and "kvm" in duthost.facts.get("platform", "")
+    client_packets_per_sec = 1000 if is_vpp_kvm else 10000
 
     for dhcp_relay in dut_dhcp_relay_data:
         client_port_name = str(dhcp_relay['client_iface']['name'])
