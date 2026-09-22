@@ -515,21 +515,20 @@ class TestAutoTechSupport:
     @pytest.mark.disable_loganalyzer
     def test_sai_sdk_dump(self, tbinfo, global_rate_limit_zero, cleanup_list):
         """
-        Validate techsupport generation started in case when SAI call failed
-        and check that saidump available in techsupport dump
+        Validate that a SAI dump archive is written after the SAI call failure's trigger minute starts.
         Test logic is as follows:
-        - Set core/techsupport max limit to 0
+        - Record the DUT time rounded down to the minute
         - Trigger SAI call which will fail
-        - Check that techsupport started and new created core/techsupport files available
-        - Check that saidump available in techsupport file
+        - Wait for a SAI dump .tar.gz file modified after that time
         :param tbinfo: tbinfo fixture
-        :param global_rate_limit_zero: fixture which disable global rate limit
+        :param global_rate_limit_zero: fixture which disables the global rate limit
         :param cleanup_list: cleanup list
-        :return: exception in case of fail
+        :return: exception in case of failure
         """
         # TODO: Check if TEMP_VIEW is enabled. If not, skip the test
         minigraph_facts = self.duthost.get_extended_minigraph_facts(tbinfo)
         po_name = 'PortChannel1234'
+        dump_dir = '/var/log/sai_failure_dump'
 
         with allure.step('Getting test port - any random port which is not PortChannel member'):
             test_port = get_random_physical_port_non_po_member(minigraph_facts)
@@ -549,11 +548,14 @@ class TestAutoTechSupport:
             add_po_member(self.duthost, po_name, test_port, minigraph_facts)
 
         with allure.step('Apply config(which will cause SAI call failure) on DUT'):
+            trigger_time = self.duthost.command('date "+%Y-%m-%d %H:%M:00 %z"')['stdout'].strip()
             self.duthost.shell('sudo config load -y {}'.format(DUT_SAI_CALL_CONFIG_PATH))
 
-        with allure.step('Check that techsuport generated and expected saidump file exist in techsupport dump'):
-            validate_techsupport_generation(self.duthost, self.dut_cli, is_techsupport_expected=True,
-                                            is_sai_dump_expected=True, delay_before_validation=60)
+        with allure.step('Check that a SAI dump archive was modified after the trigger minute started'):
+            find_dump = ("find {} -maxdepth 1 -type f -name 'sai_sdk_dump_*.tar.gz' "
+                         "-newermt '{}' -print -quit").format(dump_dir, trigger_time)
+            assert wait_until(300, 10, 0, lambda: self.duthost.command(find_dump)['stdout'].strip()), \
+                'No SAI dump .tar.gz file modified after {} found in {}'.format(trigger_time, dump_dir)
 
 
 # Methods used by tests
