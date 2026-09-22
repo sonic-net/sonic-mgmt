@@ -1,0 +1,118 @@
+# Basic test of syslog functionality
+#
+#  - Configures DUT to send syslogs to ansible host.
+#  - Start Syslog Server on ansible host.
+#  - SSH to device and generate a syslog
+#  - Validate syslog was received
+#  - Clean up DUT
+#
+# Requires:  Ansible v2+
+#
+# Usage:
+#
+#  sudo ansible-playbook test.yml -i str --limit 10.3.147.142 --sudo --vault-password-file ~/password.txt --tags syslog
+#
+#
+
+- debug: msg="Starting Syslog Tests..."
+
+# Fetch the source IP of the ansible server
+- name: Get ptf host facts
+  setup:
+  delegate_to: "{{ ptf_host }}"
+  register: local_facts
+
+#- debug: var=local_facts.ansible_facts.ansible_mgmt.ipv4.address
+
+
+# Set variables for the test
+- name: Set variables for the test
+  set_fact:
+    local_srcip: "{{ local_facts.ansible_facts.ansible_mgmt.ipv4.address }}"
+    original_syslog_servers: "{{ syslog_servers }}"
+    syslog_port: "{{ 65535 | random(start=65000) }}"
+    test_message: "Basic Test Message"
+
+- debug: var=local_srcip
+
+- name: Add Rsyslog destination for testing
+  become: true
+  lineinfile:
+    line: "*.* @{{ local_srcip }}:{{ syslog_port }}"
+    dest: /etc/rsyslog.conf
+    state: present
+
+- name: Restart Syslog Daemon
+  become: true
+  service: name=rsyslog state=restarted
+
+# Start local ryslog Server
+
+- name: Load imudp module in local syslog
+  delegate_to: "{{ ptf_host }}"
+  lineinfile:
+    line: "module(load=\"imudp\")"
+    dest: /etc/rsyslog.conf
+    state: present
+
+- name: Remove imudp ports
+  delegate_to: "{{ ptf_host }}"
+  lineinfile:
+    regexp: "input\\(type=\"imudp\" port=\"\\d+\"\\)"
+    dest: /etc/rsyslog.conf
+    state: absent
+
+- name: Add imudp port {{ syslog_port }}
+  delegate_to: "{{ ptf_host }}"
+  lineinfile:
+    line: "input(type=\"imudp\" port=\"{{ syslog_port }}\")"
+    dest: /etc/rsyslog.conf
+    state: present
+
+- name: Stop Syslog Daemon
+  delegate_to: "{{ ptf_host }}"
+  shell: killall rsyslogd
+  ignore_errors: true
+
+- name: Remove local /var/log/syslog
+  delegate_to: "{{ ptf_host }}"
+  file:
+    path: /var/log/syslog
+    state: absent
+
+- name: Start Syslog Daemon
+  delegate_to: "{{ ptf_host }}"
+  shell: service rsyslog restart
+  ignore_errors: true
+
+- name: Wait a little bit for service to start
+  wait_for:
+    timeout: 30
+
+# SSH to device and generate a syslog
+- name: Send test syslog
+  become: yes
+  command: logger --priority INFO {{ test_message }}
+
+- name: Restore original /etc/rsyslog.conf
+  become: true
+  lineinfile:
+    regexp: "\\*\\.\\* @{{ local_srcip }}:{{ syslog_port }}"
+    dest: /etc/rsyslog.conf
+    state: absent
+
+- name: Restart Syslog Daemon
+  become: true
+  service: name=rsyslog state=restarted
+
+- name: Wait a little bit for service to start
+  wait_for:
+    timeout: 30
+
+# Check Messages
+- name: Check syslog messages for the test message
+  delegate_to: "{{ ptf_host }}"
+  shell: grep {{ inventory_hostname }} /var/log/syslog | grep "{{ test_message }}" | grep -v ansible
+  register: grep_result
+
+- debug: var=grep_result

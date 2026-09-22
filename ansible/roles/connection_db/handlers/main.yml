@@ -1,0 +1,19 @@
+---
+- name: Restart Redis
+  service:
+    name: "redis"
+    state: restarted
+    enabled: yes
+  delegate_to: "{{ connection_db_host }}"
+  become: True
+
+- name: Sleep
+  pause:
+    seconds: 10
+
+- name: Init connection db
+  debug:
+    msg: >
+      Run 'init_connection_db'
+      {{ lookup('servercfgd_client', 'init_connection_db', servercfgd_host=connection_db_host_ip) }}
+  ignore_errors: True

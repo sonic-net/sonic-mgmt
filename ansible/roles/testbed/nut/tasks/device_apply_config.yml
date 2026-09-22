@@ -1,0 +1,31 @@
+---
+- name: replace config_db.json with the new one
+  become: true
+  copy:
+    src: /tmp/config_db_new.json
+    dest: /etc/sonic/config_db.json
+    remote_src: true
+
+- name: reload config to pick up new config_db.json
+  command: config reload -yf
+  become: true
+
+- name: wait for switch to become reachable again
+  become: false
+  local_action: wait_for
+  args:
+    host: "{{ ansible_host }}"
+    port: 22
+    state: started
+    search_regex: "OpenSSH_[\\w\\.]+ Debian"
+    delay: 10
+    timeout: 600
+  changed_when: false
+
+- name: reload qos config
+  become: true
+  shell: config qos reload --no-dynamic-buffer
+
+- name: save the configuration
+  become: true
+  shell: config save -y

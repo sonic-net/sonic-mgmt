@@ -1,0 +1,11 @@
+Value num_rib (\d+)
+Value mem_rib (\d+)
+Value num_peers (\d+)
+Value mem_peers (\d+)
+Value num_group (\d+)
+Value mem_group (\d+)
+
+Start
+ ^RIB entries ${num_rib}, using ${mem_rib} bytes of memory
+ ^Peers ${num_peers}, using ${mem_peers} KiB of memory
+ ^Peer groups ${num_group}, using ${mem_group} bytes of memory

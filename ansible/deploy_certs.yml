@@ -1,0 +1,29 @@
+- name: Create directory
+  file:
+    path: "{{ dir_path }}"
+    state: directory
+    mode: '0755'
+  become: true
+
+- name: Generate server cert using openssl.
+  command: openssl req \
+      -x509 \
+      -sha256 \
+      -nodes \
+      -newkey rsa:2048 \
+      -keyout "{{ server_key }}"
+      -subj "/CN={{ cert_subject }}"
+      -out "{{ server_crt }}"
+  become: true
+
+- name: Generate dsmsroot cert using openssl.
+  command: openssl req \
+      -x509 \
+      -sha256 \
+      -nodes \
+      -newkey rsa:2048 \
+      -keyout "{{ dsmsroot_key }}"
+      -subj "/CN={{ root_subject }}"
+      -out "{{ dsmsroot_cer }}"
+  become: true
+  when: dsmsroot_cer is defined and dsmsroot_key is defined

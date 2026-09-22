@@ -1,0 +1,6 @@
+---
+app_user: "ubuntu"
+http_port: "80"
+ssl_port: "443"
+ssh_port: "22"
+k8s_port: "6443"

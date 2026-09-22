@@ -1,0 +1,61 @@
+- name: Check docker repository
+  find:
+    paths: /etc/apt/sources.list.d/
+    patterns: "*docker*"
+  register: docker_repo
+
+- name: Report docker repository exists
+  debug:
+    msg: "Docker repository already exists"
+  when: docker_repo.matched > 0
+
+- name: Report docker repository not exists
+  debug:
+    msg: "Docker repository does not exist"
+  when: docker_repo.matched == 0
+
+- name: Add docker repository
+  block:
+  - name: Add docker repository for Ubuntu
+    block:
+    - name: Add docker official GPG key
+      apt_key: url=https://download.docker.com/linux/ubuntu/gpg state=present
+      become: yes
+      environment: "{{ proxy_env | default({}) }}"
+
+    - name: Add docker repository for 22.04
+      apt_repository:
+        repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu jammy stable
+        state: present
+      become: yes
+      when: ansible_distribution_version == "22.04"
+
+    - name: Add docker repository for 24.04
+      apt_repository:
+        repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu noble stable
+        state: present
+      become: yes
+      when: ansible_distribution_version == "24.04"
+    when: ansible_distribution == "Ubuntu"
+
+  - name: Add docker repository for Debian
+    block:
+    - name: Add docker repository for Trixie
+      deb822_repository:
+        name: Docker
+        types: deb
+        uris: https://download.docker.com/linux/debian
+        suites: trixie
+        components: stable
+        signed_by: https://download.docker.com/linux/debian/gpg
+      become: yes
+      when: ansible_distribution_release == "trixie"
+    when: ansible_distribution == "Debian"
+  when: docker_repo.matched == 0
+
+- name: Install docker-ce
+  apt:
+    name: docker-ce
+    update_cache: yes
+  become: yes
+  environment: "{{ proxy_env | default({}) }}"

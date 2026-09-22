@@ -1,0 +1,201 @@
+# example:
+# ansible-playbook sonic-test.yml -i str --limit device_1 --become --vault-password-file ~/password  --tags fast_reboot -e "ptf_host=10.0.0.21" -e "vm_hosts=['10.0.0.200','10.0.0.201','10.0.0.202','10.0.0.203']"
+
+- block:
+    - name: figure out vm hosts
+      testbed_vm_info: base_vm={{ vm }} topo={{ testbed_type }}
+      delegate_to: localhost
+
+    - set_fact:
+        vm_hosts: "{{ neighbor_eosvm_mgmt.values() }}"
+  when: testbed_type is defined and vm is defined
+
+- block:
+    - fail: msg="Please set reboot_type variable"
+      when: reboot_type is not defined
+
+    - fail: msg="Please set ptf_host variable"
+      when: ptf_host is not defined
+
+    - fail: msg="Please set vm_hosts variable with a list of VMs"
+      when: vm_hosts is not defined
+
+    - name: Preboot-list initialization
+      set_fact: preboot_list={% if preboot_list is not defined %}[None]{% else %}{{ preboot_list }}{% endif %}
+
+    - name: Inboot-list initialization
+      set_fact:
+          inboot_list: "{% if inboot_list is not defined %}[None]{% else %}{{ inboot_list }}{% endif %}"
+          nexthop_ips: None
+
+    - include_vars: "vars/topo_{{testbed_type}}.yml"
+
+    - name: Set nexthop parameters for inboot operation
+      set_fact:
+        nexthop_ips:
+          - "{{ configuration_properties['common']['nhipv4'] }}"
+          - "{{ configuration_properties['common']['nhipv6'] }}"
+      when: None not in inboot_list
+
+    - name: Validate preboot and inboot list
+      include_tasks: roles/test/tasks/advanced_reboot/validate_sad_list.yml
+      with_items: "{{ preboot_list + inboot_list }}"
+      when: item and ':' in item
+
+    - name: Preboot files initialization
+      set_fact: preboot_files={% if preboot_files is not defined %}None{% else %}{{ preboot_files }}{% endif %}
+
+    - debug:
+        msg: "Preboot-list: {{ preboot_list }} Preboot-files: {{ preboot_files }} Inboot-list: {{ inboot_list }}"
+
+    - name: Set PTF test params
+      set_fact:
+        dut_mac: "{{ ansible_Ethernet0['macaddress'] }}"
+        vlan_ip_range: "{ '{{ minigraph_vlan_interfaces[0]['attachto'] }}': '{{ minigraph_vlan_interfaces[0]['subnet'] }}' }"
+        lo_v6_prefix: "{{ minigraph_lo_interfaces | map(attribute='addr') | ipv6 | first | ipsubnet(64) }}"
+
+    - name: Remove existing ip from ptf host
+      script: roles/test/files/helpers/remove_ip.sh
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Make all mac addresses in ptf unique - should be done in vm_set
+      script: roles/test/files/helpers/change_mac.sh
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Copy tests to the PTF container
+      copy: src=roles/test/files/ptftests dest=/root
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Remove old keys
+      file:
+        path: "{{ item }}"
+        state: absent
+      with_items:
+        - /root/.ssh/id_rsa
+        - /root/.ssh/id_rsa.pub
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Check that file /root/.ssh/known_hosts exists
+      stat: path=/root/.ssh/known_hosts
+      delegate_to: "{{ ptf_host }}"
+      register: known_hosts
+
+    - name: Remove old entry about DUT
+      shell: ssh-keygen -f /root/.ssh/known_hosts -R {{ ansible_host }}
+      delegate_to: "{{ ptf_host }}"
+      when: known_hosts.stat.exists
+
+    - name: Generate public key for ptf host
+      shell: ssh-keygen -b 2048 -t rsa -f /root/.ssh/id_rsa -q -N ""
+      args:
+        creates: /root/.ssh/id_rsa
+      delegate_to: "{{ ptf_host }}"
+
+    - name: read authorized key from ptf host
+      fetch:
+        src: '/root/.ssh/id_rsa.pub'
+        dest: /tmp/
+        flat: yes
+      delegate_to: "{{ ptf_host }}"
+
+    - name: set authorized key taken from file
+      authorized_key:
+        user: "{{ ansible_ssh_user }}"
+        state: present
+        key: "{{ lookup('file', '/tmp/id_rsa.pub') }}"
+
+    - name: Copy portchannels to ptf host
+      copy:
+        content: "{{ minigraph_portchannels | to_nice_json }}"
+        dest: /tmp/portchannel_interfaces.json
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Copy vlan_interfaces to ptf host
+      copy:
+        content: "{{ minigraph_vlans | to_nice_json }}"
+        dest: /tmp/vlan_interfaces.json
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Copy minigraph_ports to ptf host
+      copy:
+        content: "{{ minigraph_port_indices | to_nice_json }}"
+        dest: /tmp/ports.json
+      delegate_to: "{{ ptf_host }}"
+
+    - block:
+
+        - name: Copy peer device info to ptf host
+          copy:
+            content: "{{ minigraph_devices | to_nice_json }}"
+            dest: /tmp/peer_dev_info.json
+          delegate_to: "{{ ptf_host }}"
+
+        - name: Copy neighbor port info to ptf host
+          copy:
+            content: "{{ minigraph_neighbors | to_nice_json }}"
+            dest: /tmp/neigh_port_info.json
+          delegate_to: "{{ ptf_host }}"
+
+      when: (preboot_list|length > 1) or
+            (inboot_list|length > 0 and 'None' not in inboot_list)
+
+    - debug: msg="Defined new sonic image url is {{ new_sonic_image }}"
+      when: new_sonic_image is defined
+
+    - set_fact:
+        stay_in_target_image:       "{{ stay_in_target_image       | default('false') | bool }}"
+        cleanup_old_sonic_images:   "{{ cleanup_old_sonic_images   | default('false') | bool }}"
+        allow_vlan_flooding:        "{{ allow_vlan_flooding        | default('false') | bool }}"
+        sniff_time_incr:            "{{ sniff_time_incr            | default(60)       | int }}"
+
+    - include_tasks: advanced_reboot/reboot-image-handle.yml
+      when: new_sonic_image is defined
+
+    - include_tasks: advanced_reboot/upgrade_mlnx_fw.yml
+      when:
+        - new_sonic_image is defined
+        - reboot_type == "fast-reboot"
+        - minigraph_hwsku is defined and minigraph_hwsku in mellanox_hwskus
+
+    - name: populate sad list with inboot list
+      set_fact: sad_list="{{ inboot_list }}"
+      when: (inboot_list|length > 0) and (None not in inboot_list)
+
+    - name: populate sad list with preboot list
+      set_fact: sad_list="{{ preboot_list }}"
+      when: (preboot_list|length > 0) and (None not in preboot_list)
+
+    - name: populate sad list with preboot list
+      set_fact: sad_list="{{ preboot_list }}"
+      when: (None in preboot_list) and (None in inboot_list)
+
+    - include_tasks: ptf_runner_reboot.yml
+      with_items: "{{ sad_list }}"
+
+  always:
+    # When new image is defined, test removed /host/config_db.json
+    # before warm rebooting. So after the device boots up, it will
+    # miss /etc/sonic/config_db.json. It is not an issue for the
+    # device to stay up. But it will be an issue when device reboot
+    # again (cold or fast).
+    - name: Save configuration after warm rebooting into new image
+      shell: config save -y
+      become: yes
+      when:
+        - new_sonic_image is defined
+        - reboot_type == "warm-reboot"
+
+    - name: check /etc/sonic/config_db.json existence
+      stat:
+        path: /etc/sonic/config_db.json
+      register: stat_result
+
+    - fail: msg="/etc/sonic/config_db.json is missing"
+      when: not stat_result.stat.exists
+
+    - name: Remove existing ip from ptf host
+      script: roles/test/files/helpers/remove_ip.sh
+      delegate_to: "{{ ptf_host }}"
+
+    - name: make sure all handlers run
+      meta: flush_handlers

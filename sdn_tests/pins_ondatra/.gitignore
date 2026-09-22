@@ -1,0 +1,4 @@
+bazel-*
+*.pem
+*.cnf
+*.orig

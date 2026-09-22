@@ -1,0 +1,27 @@
+Value dcb_type (\d+)
+Value psample_cb (\d+)
+Value psample_module (\d+)
+Value psample (\d+)
+Value pass_through (\d+)
+Value drop_no_psample (\d+)
+Value drop_sampling (\d+)
+Value drop_no_skb (\d+)
+Value drop_psample_not_ready (\d+)
+Value drop_metadeta (\d+)
+Value invalid_src_port (\d+)
+Value invalid_dst_port (\d+)
+
+Start
+  ^\s*DCB\s+type\s+${dcb_type}\s*
+  ^\s*pkts\s+filter\s+psample\s+cb\s+${psample_cb}\s*
+  ^\s*pkts\s+sent\s+to\s+psample\s+module\s+${psample_module}\s*
+  ^\s*pkts\s+handled\s+by\s+psample\s+${psample}\s*
+  ^\s*pkts\s+pass\s+through\s+${pass_through}\s*
+  ^\s*pkts\s+drop\s+no\s+psample\s+group\s+${drop_no_psample}\s*
+  ^\s*pkts\s+drop\s+sampling\s+disabled\s+${drop_sampling}\s*
+  ^\s*pkts\s+drop\s+no\s+skb\s+${drop_no_skb}\s*
+  ^\s*pkts\s+drop\s+psample\s+not\s+ready\s+${drop_psample_not_ready}\s*
+  ^\s*pkts\s+drop\s+metadata\s+parse\s+error\s+${drop_metadeta}\s*
+  ^\s*pkts\s+with\s+invalid\s+src\s+port\s+${invalid_src_port}\s*
+  ^\s*pkts\s+with\s+invalid\s+dst\s+port\s+${invalid_dst_port}\s*
+  ^$$ -> Record

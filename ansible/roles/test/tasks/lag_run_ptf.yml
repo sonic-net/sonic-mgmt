@@ -1,0 +1,14 @@
+#-----------------------
+# Send traffic from PTF docker and verify all the packets arrived.
+#
+# Parameters:
+#   @ param: lag_ptf_test_name  -   name of PTf test located in lag_test.py.
+#   @ param: params         -   parameters for the PTF test (specific for each test).
+#   @ param: change_dir     -   directory inside of PTF docker, that contains lag_test.py.
+#-----------------------
+
+- name: Run lag_test.{{ lag_ptf_test_name }} on PTF docker.
+  shell: ptf --test-dir . --platform-dir /root/ptftests --platform remote lag_test.{{ lag_ptf_test_name }} -t "{{ params }}"
+  args:
+    chdir: "{{ change_dir }}"
+  delegate_to: "{{ ptf_host }}"

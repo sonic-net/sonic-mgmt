@@ -1,0 +1,101 @@
+# This is the link_flap.yml helper playbook. link_flap.yml passes the interface
+# to this playbook and in this playbook the neighbor of this interface is
+# flapped.
+
+- block:
+    - name: Set interface name
+      set_fact:
+        interface: "{{ item }}"
+
+    - name: Set default link timeout
+      set_fact:
+        link_timeout: 20
+      when: link_timeout is not defined
+
+    - name: Set default link delay
+      set_fact:
+        link_delay: 5
+
+    - set_fact:
+        peer_device: "{{neighbors[interface]['peerdevice']}}"
+        neighbor_interface: "{{neighbors[interface]['peerport']}}"
+
+    - conn_graph_facts: host={{ peer_device }}
+      delegate_to: localhost
+
+    - set_fact:
+        peer_host: "{{device_info['mgmtip']}}"
+        peer_hwsku: "{{device_info['HwSku']}}"
+        peer_type: "{{device_info['Type']}}"
+
+    - set_fact:
+        intfs_to_exclude: "{{interface}}"
+
+    - name: Shut down neighbor interface {{neighbor_interface}} on {{peer_host}}
+      action: apswitch template=neighbor_interface_shut_single.j2
+      args:
+        host: "{{peer_host}}"
+        login: "{{switch_login[hwsku_map[peer_hwsku]]}}"
+      connection: switch
+      when: peer_type == "FanoutLeaf"
+
+    - name: find interface name mapping
+      port_alias: hwsku="{{peer_hwsku}}"
+      delegate_to: "{{peer_host}}"
+      when: peer_type == "FanoutLeafSonic"
+
+    - name: Shutting down neighbor interface {{neighbor_interface}} on {{peer_host}}
+      become: true
+      shell: config interface shutdown {{port_alias_map[neighbor_interface]}}
+      delegate_to: "{{peer_host}}"
+      when: peer_type == "FanoutLeafSonic"
+
+    - name: Wait until interface {{ interface }} on {{ inventory_hostname }} is down
+      interface_facts: up_ports="[ '{{ interface }}' ]"
+      register: out
+      until: out.ansible_facts.ansible_interface_link_down_ports | length > 0
+      retries: "{{ ((link_timeout | int) / link_delay) | round(0, 'ceil') | int }}"
+      delay: "{{ link_delay }}"
+      when: "interface in minigraph_ports.keys()"
+
+    - interface_facts: up_ports={{minigraph_ports | difference(intfs_to_exclude)}}
+
+    - debug: msg="Found link down ports {{ansible_interface_link_down_ports}} "
+      when: ansible_interface_link_down_ports | length > 0
+
+    - name: Verify interfaces are up correctly
+      assert: { that: "ansible_interface_link_down_ports | length == 0" }
+
+    - name: Verify {{intfs_to_exclude}} is down correctly
+      assert: { that: "ansible_interface_facts[intfs_to_exclude]['active'] == False" }
+
+  always:
+    - name: Bring up neighbor interface {{neighbor_interface}} on {{peer_host}}
+      action: apswitch template=neighbor_interface_no_shut_single.j2
+      args:
+        host: "{{peer_host}}"
+        login: "{{switch_login[hwsku_map[peer_hwsku]]}}"
+      connection: switch
+      when: peer_type == "FanoutLeaf"
+
+    - name: Bring up neighbor interface {{neighbor_interface}} on {{peer_host}}
+      become: true
+      shell: config interface startup {{port_alias_map[neighbor_interface]}}
+      delegate_to: "{{peer_host}}"
+      when: peer_type == "FanoutLeafSonic"
+
+    - name: Wait until interface {{ interface }} on {{ inventory_hostname }} is up
+      interface_facts: up_ports="[ '{{ interface }}' ]"
+      register: out
+      until: out.ansible_facts.ansible_interface_link_down_ports | length == 0
+      retries: "{{ ((link_timeout | int) / link_delay) | round(0, 'ceil') | int }}"
+      delay: "{{ link_delay }}"
+      when: "interface in minigraph_ports.keys()"
+
+    - interface_facts: up_ports={{minigraph_ports}}
+
+    - debug: msg="Found link down ports {{ansible_interface_link_down_ports}} "
+      when: ansible_interface_link_down_ports | length > 0
+
+    - name: Verify all interfaces are up
+      assert: { that: "ansible_interface_link_down_ports | length == 0" }

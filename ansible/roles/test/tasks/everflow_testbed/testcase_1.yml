@@ -1,0 +1,61 @@
+# Test case 1 - Longer prefix route with resolved next hop.
+# Verify that session destination port and MAC address are changed after best match route insertion.
+
+- block:
+    - name: Create route with next hop on {{ dst_port_1 }}.
+      shell: vtysh -e "conf t" -e "ip route {{ session_prefix_1 }} {{ neighbor_info_1['addr'] }}"
+
+    - pause:
+        seconds: 3
+
+    - include_tasks: roles/test/tasks/everflow_testbed/everflow_ptf.yml
+      vars:
+        dst_port: "{{ dst_port_1 }}"
+        dst_port_ptf_id: "{{ dst_port_1_ptf_id }}"
+
+    - name: Create route with best match and unresolved next hop.
+      shell: vtysh -e "conf t" -e "ip route {{ session_prefix_2 }} {{ unresolved_nexthop }}"
+
+    - pause:
+        seconds: 3
+
+    - include_tasks: roles/test/tasks/everflow_testbed/everflow_ptf.yml
+      vars:
+        dst_port: "{{ dst_port_1 }}"
+        dst_port_ptf_id: "{{ dst_port_1_ptf_id }}"
+
+    - name: Create route with best match prefix and resolved next hop on destination port {{ dst_port_2 }}.
+      shell: vtysh -e "conf t" -e "no ip route {{ session_prefix_2 }} {{ unresolved_nexthop }}" -e "ip route {{ session_prefix_2 }} {{ neighbor_info_2['addr'] }}"
+
+    - pause:
+        seconds: 3
+
+    - include_tasks: roles/test/tasks/everflow_testbed/everflow_ptf.yml
+      vars:
+        dst_port: "{{ dst_port_2 }}"
+        dst_port_ptf_id: "{{ dst_port_2_ptf_id }}"
+
+    - name: Remove route with best match prefix and resolved next hop on destination port {{ dst_port_2 }}.
+      shell: vtysh -e "conf t" -e "no ip route {{ session_prefix_2 }} {{ neighbor_info_2['addr'] }}"
+
+    - pause:
+        seconds: 3
+
+    - include_tasks: roles/test/tasks/everflow_testbed/everflow_ptf.yml
+      vars:
+        dst_port: "{{ dst_port_1 }}"
+        dst_port_ptf_id: "{{ dst_port_1_ptf_id }}"
+
+  always:
+    - name: Remove route.
+      shell: vtysh -e "conf t" -e "no ip route {{ session_prefix_1 }} {{ neighbor_info_1['addr'] }}"
+      ignore_errors: yes
+
+    - name: Remove best match route.
+      shell: vtysh -e "conf t" -e "no ip route {{ session_prefix_2 }} {{ unresolved_nexthop }}"
+      ignore_errors: yes
+
+    - name: Remove best match route.
+      shell: vtysh -e "conf t" -e "no ip route {{ session_prefix_2 }} {{ neighbor_info_2['addr'] }}"
+      ignore_errors: yes
+  become: yes

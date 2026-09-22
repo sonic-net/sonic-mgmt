@@ -1,0 +1,22 @@
+---
+# Ad-hoc playbook to load extra DPU config for a single DPU.
+# Usage:
+#   ansible-playbook load_single_dpu_config.yml -i <inventory> -l <host> -e target_dpu_index=0 -vvv
+- name: Load extra DPU config for a single DPU
+  hosts: all
+  gather_facts: false
+  become: true
+  tasks:
+    - name: Copy smartswitch dpu config
+      copy:
+        src: golden_config_db/smartswitch_dpu_extra.json
+        dest: /tmp/dpu_extra.json
+
+    - name: Load DPU config (single DPU)
+      load_extra_dpu_config:
+        hwsku: "{{ hwsku }}"
+        hostname: "{{ inventory_hostname }}"
+        host_username: "{{ sonic_login }}"
+        host_passwords: "{{ sonic_default_passwords }}"
+        npu_index: "{{ dut_index | default(0) | int }}"
+        target_dpu_index: "{{ target_dpu_index | int }}"

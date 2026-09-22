@@ -1,0 +1,55 @@
+# Test case 3 -  ECMP route change (remove next hop not used by session).
+# Verify that after removal of next hop that was used by session from ECMP route session state is active.
+
+- block:
+    - name: Create ECMP route with next hops on {{ dst_port_1 }} and {{ dst_port_2 }}.
+      shell: vtysh -e "conf t" -e "ip route {{ session_prefix_1 }} {{ neighbor_info_1['addr'] }}" -e "ip route {{ session_prefix_1 }} {{ neighbor_info_2['addr'] }}"
+
+    - pause:
+        seconds: 3
+
+    - include_tasks: roles/test/tasks/everflow_testbed/everflow_ptf.yml
+      vars:
+        dst_port: "{{ dst_port_1 }}, {{ dst_port_2 }}"
+        dst_port_ptf_id: "{{ dst_port_1_ptf_id }}, {{ dst_port_2_ptf_id }}"
+
+    - name: Add next hop to ECMP route.
+      shell: vtysh -e "conf t" -e "ip route {{ session_prefix_1 }} {{ neighbor_info_3['addr'] }}"
+
+    - pause:
+        seconds: 3
+
+    - include_tasks: roles/test/tasks/everflow_testbed/everflow_ptf.yml
+      vars:
+        dst_port: "{{ dst_port_1 }}, {{ dst_port_2 }}"
+        dst_port_ptf_id: "{{ dst_port_1_ptf_id }}, {{ dst_port_2_ptf_id }}"
+
+    - include_tasks: roles/test/tasks/everflow_testbed/everflow_ptf.yml
+      vars:
+        dst_port: "{{ dst_port_3 }}"
+        dst_port_ptf_id: "{{ dst_port_3_ptf_id }}"
+        expect_received: False
+
+    - name: Delete next hop from ECMP route.
+      shell: vtysh -e "conf t" -e "no ip route {{ session_prefix_1 }} {{ neighbor_info_3['addr'] }}"
+
+    - pause:
+        seconds: 3
+
+    - include_tasks: roles/test/tasks/everflow_testbed/everflow_ptf.yml
+      vars:
+        dst_port: "{{ dst_port_1 }}, {{ dst_port_2 }}"
+        dst_port_ptf_id: "{{ dst_port_1_ptf_id }}, {{ dst_port_2_ptf_id }}"
+
+    - include_tasks: roles/test/tasks/everflow_testbed/everflow_ptf.yml
+      vars:
+        dst_port: "{{ dst_port_3 }}"
+        dst_port_ptf_id: "{{ dst_port_3_ptf_id }}"
+        expect_received: False
+  become: yes
+
+  always:
+    - name: Remove route
+      shell: vtysh -e "conf t" -e "no ip route {{ session_prefix_1 }} {{ neighbor_info_1['addr'] }}" -e "no ip route {{ session_prefix_1 }} {{ neighbor_info_2['addr'] }}" -e "no ip route {{ session_prefix_1 }} {{ neighbor_info_3['addr'] }}"
+      ignore_errors: yes
+      become: yes

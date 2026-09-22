@@ -1,0 +1,32 @@
+- block:
+    - name: set pfc storm templates based on fanout platform sku
+      include_tasks: roles/test/tasks/pfc_wd/functional_test/set_pfc_storm_templates.yml
+
+    - set_fact:
+        storm_defer_time: "{{120 | random()}}"
+
+    - name: Generate PFC storm on fanout switch with defer time {{pfc_storm_defer_time}}s
+      action: apswitch template="{{pfc_wd_storm_template}}"
+      args:
+        host: "{{peer_mgmt}}"
+        login: "{{peer_login}}"
+      connection: switch
+      vars:
+        pfc_storm_defer_time: "{{storm_defer_time}}"
+
+    - name: Stop PFC storm on fanout switch with defer time {{pfc_storm_stop_defer_time}}s
+      action: apswitch template="{{pfc_wd_storm_stop_template}}"
+      args:
+        host: "{{peer_mgmt}}"
+        login: "{{peer_login}}"
+      connection: switch
+      vars:
+        pfc_storm_stop_defer_time: "{{125 | random(start=(storm_defer_time | int + 5))}}"
+
+  rescue:
+    - name: Stop PFC storm on fanout switch
+      action: apswitch template="{{pfc_wd_storm_stop_template}}"
+      args:
+        host: "{{peer_mgmt}}"
+        login: "{{peer_login}}"
+      connection: switch

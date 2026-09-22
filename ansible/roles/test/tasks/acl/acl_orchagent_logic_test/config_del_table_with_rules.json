@@ -1,0 +1,10 @@
+[
+    {
+        "ACL_TABLE:acl_test_table": {
+            "policy_desc" : "Permit_some_traffic_from_10.0.0.1",
+            "type" : "L3",
+            "ports" : "Ethernet0"
+        },
+        "OP": "DEL"
+    }
+]

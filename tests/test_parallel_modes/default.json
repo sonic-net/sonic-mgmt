@@ -1,0 +1,5 @@
+{
+    "bgp/test_bgp_fact.py": "FULL_PARALLEL",
+    "lldp/test_lldp.py": "FULL_PARALLEL",
+    "snmp/test_snmp_interfaces.py": "FULL_PARALLEL"
+}

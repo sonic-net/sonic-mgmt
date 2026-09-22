@@ -1,0 +1,35 @@
+all:
+  children:
+    ocp:
+      children:
+        sonic_stable:
+        sonic_latest:
+    sonic:
+      children:
+        sonic_stable:
+        sonic_latest:
+
+sonic_latest:
+  hosts:
+    OCPSCH0104001MS:
+      ansible_host: 192.168.200.10
+      sonic_hwsku: AS7512
+    OCPSCH0104002MS:
+      ansible_host: 192.168.200.11
+      sonic_hwsku: ACS-MSN2700
+    OCPSCH01040AALF:
+      ansible_host: 192.168.200.12
+    OCPSCH01040BBLF:
+      ansible_host: 192.168.200.13
+    OCPSCH01040CCLF:
+      ansible_host: 192.168.200.14
+    OCPSCH01040DDLF:
+      ansible_host: 192.168.200.15
+    OCPSCH01040EELF:
+      ansible_host: 192.168.200.16
+    OCPSCH01040FFLF:
+      ansible_host: 192.168.200.17
+    OCPSCH01040GGLF:
+      ansible_host: 192.168.200.18
+    OCPSCH01040HHLF:
+      ansible_host: 192.168.200.19

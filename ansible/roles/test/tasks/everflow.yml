@@ -1,0 +1,29 @@
+#-----------------------------------------
+# Run all the everflow tests.
+#-----------------------------------------
+
+- set_fact:
+    run_dir: /home/admin/everflow_tests
+    out_dir: /home/admin/everflow_tests/results
+    docker_testdir: /tmp
+    tests_location: roles/test/tasks/everflow
+
+- name: Create run_dir
+  file: path="{{ run_dir }}" state=directory
+
+ #****************************************#
+ #           Start tests                  #
+ #****************************************#
+
+- block:
+    - name: Test Everflow configuration validation.
+      include_tasks: "roles/test/tasks/everflow/config_test/config_test.yml"
+
+    - name: Test Everflow session activation/deactivation logic.
+      include_tasks: "roles/test/tasks/everflow/logic_test/logic_test.yml"
+
+  always:
+    - name: General cleanup.
+      file: path="{{ item }}" state=absent
+      with_items:
+        - "{{ run_dir }}/loganalyzer.py"

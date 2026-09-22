@@ -1,0 +1,12 @@
+[Unit]
+Description=BGP container
+Requires=database.service
+After=database.service
+
+[Service]
+User={{ sonicadmin_user }}
+ExecStart=/usr/bin/docker start -a bgp
+ExecStop=/usr/bin/docker stop bgp
+
+[Install]
+WantedBy=multi-user.target
