@@ -18,7 +18,7 @@ from tests.common.utilities import wait_until
 from tests.common.cisco_data import is_cisco_device
 
 pytestmark = [
-    pytest.mark.topology("t0", "t1", "lt2", "ft2")
+    pytest.mark.topology("t0", "t1", "t2", "lt2", "ft2")
 ]
 
 logger = logging.getLogger(__name__)
