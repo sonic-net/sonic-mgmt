@@ -18,6 +18,41 @@ DHCP_SERVER_PROCESS_GROUP = "dhcp-server-ipv4"
 PROCESS_ALERT_WAIT_SECONDS = 70
 
 
+@pytest.fixture
+def disable_dhcp_server_autorestart(duthost):
+    autorestart_state = duthost.get_container_autorestart_states().get(
+        DHCP_SERVER_CONTAINER
+    )
+    pytest_assert(
+        autorestart_state in ("enabled", "disabled"),
+        "Failed to read dhcp_server autorestart state",
+    )
+
+    if autorestart_state == "enabled":
+        result = duthost.shell(
+            "sudo config feature autorestart {} disabled".format(
+                DHCP_SERVER_CONTAINER
+            )
+        )
+        pytest_assert(
+            result["rc"] == 0,
+            "Failed to disable dhcp_server autorestart",
+        )
+
+    yield
+
+    if autorestart_state == "enabled":
+        result = duthost.shell(
+            "sudo config feature autorestart {} enabled".format(
+                DHCP_SERVER_CONTAINER
+            )
+        )
+        pytest_assert(
+            result["rc"] == 0,
+            "Failed to restore dhcp_server autorestart",
+        )
+
+
 def _get_dhcp_server_processes(duthost):
     return get_group_program_info(
         duthost,
@@ -114,7 +149,10 @@ def _verify_dhcp_server_process_alerts(duthost, phase):
         _start_dhcp_server_processes(duthost, process_names)
 
 
-def test_dhcp_server_process_alerts_after_cacl_rebuild(duthost):
+def test_dhcp_server_process_alerts_after_cacl_rebuild(
+    duthost,
+    disable_dhcp_server_autorestart,
+):
     feature_status, succeeded = duthost.get_feature_status()
     pytest_assert(succeeded, "Failed to read FEATURE status")
     if feature_status.get(DHCP_SERVER_CONTAINER) != "enabled":
