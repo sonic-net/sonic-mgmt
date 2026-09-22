@@ -1068,16 +1068,16 @@
     },
     {
         "feature": "layer1",
-        "owner": "Prince George",
-        "email": "prgeor@microsoft.com",
+        "owner": "Mihir Patel",
+        "email": "patelmi@microsoft.com",
         "scripts": [
             {
                 "scripts": [
                     "layer1.test_fec_error",
                     "layer1.test_port_error"
                 ],
-                "owner": "Prince George",
-                "email": "prgeor@microsoft.com"
+                "owner": "Mihir Patel",
+                "email": "patelmi@microsoft.com"
             }
         ]
     },
