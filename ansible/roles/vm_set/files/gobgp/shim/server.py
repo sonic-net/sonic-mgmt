@@ -65,10 +65,18 @@ def _read_body():
     declared = request.content_length
     if declared is not None and declared > MAX_BODY_BYTES:
         return None
-    raw = request.stream.read(MAX_BODY_BYTES + 1)
+    limit = declared if declared is not None else MAX_BODY_BYTES + 1
+    raw = bytearray()
+    while len(raw) < limit:
+        chunk = request.stream.read(min(64 * 1024, limit - len(raw)))
+        if not chunk:
+            break
+        raw.extend(chunk)
     if len(raw) > MAX_BODY_BYTES:
         return None
-    return raw.decode("utf-8", "replace")
+    if declared is not None and len(raw) != declared:
+        raise ValueError("incomplete request body")
+    return bytes(raw).decode("utf-8", "replace")
 
 
 def make_app(client):
