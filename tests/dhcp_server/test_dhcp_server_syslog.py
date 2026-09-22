@@ -2,7 +2,6 @@ import time
 
 import pytest
 
-from tests.common.config_reload import config_reload
 from tests.common.helpers.dut_utils import get_group_program_info
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
@@ -33,6 +32,14 @@ def _dhcp_server_processes_running(duthost, expected_processes):
         process_info.get(process_name, [None])[0] == "RUNNING"
         for process_name in expected_processes
     )
+
+
+def _caclmgrd_is_running(duthost):
+    result = duthost.shell(
+        "systemctl is-active caclmgrd",
+        module_ignore_errors=True,
+    )
+    return result.get("stdout", "").strip() == "active"
 
 
 def _start_dhcp_server_processes(duthost, process_names):
@@ -115,11 +122,10 @@ def test_dhcp_server_process_alerts_after_cacl_rebuild(duthost):
 
     _verify_dhcp_server_process_alerts(duthost, "before_rebuild")
 
-    config_reload(
-        duthost,
-        safe_reload=True,
-        check_intf_up_ports=True,
-        wait_for_bgp=True,
+    duthost.command("sudo systemctl restart caclmgrd")
+    pytest_assert(
+        wait_until(60, 5, 0, _caclmgrd_is_running, duthost),
+        "caclmgrd did not recover after restart",
     )
 
     _verify_dhcp_server_process_alerts(duthost, "after_rebuild")
