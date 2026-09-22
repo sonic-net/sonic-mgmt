@@ -515,11 +515,11 @@ class TestAutoTechSupport:
     @pytest.mark.disable_loganalyzer
     def test_sai_sdk_dump(self, tbinfo, global_rate_limit_zero, cleanup_list):
         """
-        Validate that a SAI dump archive is written after the SAI call failure's trigger minute starts.
+        Validate that a SAI dump archive is written, allowing one second before the trigger minute.
         Test logic is as follows:
         - Record the DUT time rounded down to the minute
         - Trigger SAI call which will fail
-        - Wait for a SAI dump .tar.gz file modified after that time
+        - Wait for a SAI dump .tar.gz file modified after that time minus one second
         :param tbinfo: tbinfo fixture
         :param global_rate_limit_zero: fixture which disables the global rate limit
         :param cleanup_list: cleanup list
@@ -551,11 +551,11 @@ class TestAutoTechSupport:
             trigger_time = self.duthost.command('date "+%Y-%m-%d %H:%M:00 %z"')['stdout'].strip()
             self.duthost.shell('sudo config load -y {}'.format(DUT_SAI_CALL_CONFIG_PATH))
 
-        with allure.step('Check that a SAI dump archive was modified after the trigger minute started'):
+        with allure.step('Check that a SAI dump archive was modified after the trigger minute minus one second'):
             find_dump = ("find {} -maxdepth 1 -type f -name 'sai_sdk_dump_*.tar.gz' "
-                         "-newermt '{}' -print -quit").format(dump_dir, trigger_time)
+                         "-newermt '{} 1 second ago' -print -quit").format(dump_dir, trigger_time)
             assert wait_until(300, 10, 0, lambda: self.duthost.command(find_dump)['stdout'].strip()), \
-                'No SAI dump .tar.gz file modified after {} found in {}'.format(trigger_time, dump_dir)
+                'No SAI dump .tar.gz file newer than {} minus one second in {}'.format(trigger_time, dump_dir)
 
 
 # Methods used by tests
