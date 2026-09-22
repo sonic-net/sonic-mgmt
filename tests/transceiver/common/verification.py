@@ -11,6 +11,7 @@ import logging
 import re
 import time
 
+from tests.common.platform.interface_utils import clear_interface_counters_and_wait
 from tests.transceiver.common import db_helpers
 from tests.transceiver.common.prerequisites import (
     wait_until_health_ok, wait_until_links_up,
@@ -488,3 +489,116 @@ def standard_port_recovery_and_verification(
         "per_port": per_port,
         "details": "; ".join(per_port[port]["details"] for port in ports),
     }
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Pre-FEC BER Guard (Standard Port Recovery sub-check 8)
+# ──────────────────────────────────────────────────────────────────────
+
+_FEC_PRE_BER_NOT_AVAILABLE = "n/a"
+
+
+def read_prefec_ber(duthost, ports):
+    """Read ``fec_pre_ber`` for ``ports`` from ``show interfaces counters
+    fec-stats``.
+
+    Returns:
+        dict: ``{port: float}`` for ports with a numeric reading; a port
+        whose ``fec_pre_ber`` is ``N/A``, unparsable, or absent from the
+        CLI output is omitted from the result.
+    """
+    parsed = duthost.show_and_parse("show interfaces counters fec-stats")
+    by_port = {entry.get("iface"): entry for entry in parsed if entry.get("iface")}
+
+    readings = {}
+    for port in ports:
+        raw = (by_port.get(port) or {}).get("fec_pre_ber", "").strip()
+        if not raw or raw.lower() == _FEC_PRE_BER_NOT_AVAILABLE:
+            continue
+        try:
+            readings[port] = float(raw.replace(",", ""))
+        except ValueError:
+            logger.warning("%s: fec_pre_ber '%s' is not a valid float", port, raw)
+    return readings
+
+
+def capture_prefec_ber_baseline(duthost, ports, measure_sec):
+    """Clear counters, wait ``measure_sec``, then read ``fec_pre_ber`` per port.
+
+    Returns:
+        dict: ``{port: float}`` -- see :func:`read_prefec_ber`. Ports with no
+        numeric baseline (``N/A``) are omitted; callers exclude those ports
+        from the guard entirely.
+    """
+    clear_interface_counters_and_wait(duthost, wait_time=measure_sec)
+    return read_prefec_ber(duthost, ports)
+
+
+def check_prefec_ber_guard(
+    duthost, ports, baseline, measure_sec, prefec_ber_max, prefec_ber_degradation_factor,
+):
+    """Pre-FEC BER Guard: verify post-recovery Pre-FEC BER stays within
+    tolerance of ``baseline`` for every port that has one.
+
+    Args:
+        duthost: SONiC DUT host fixture.
+        ports: ports to measure. Only ports also present in ``baseline`` are
+            asserted on; the rest pass trivially (nothing to guard).
+        baseline: dict of ``{port: float}``, from
+            :func:`capture_prefec_ber_baseline`.
+        measure_sec: clear-and-wait window before reading (same helper /
+            window as the baseline capture, so the two are comparable).
+        prefec_ber_max: absolute Pre-FEC BER ceiling. Either a single float
+            shared across ``ports``, or a dict of ``{port: float}``.
+        prefec_ber_degradation_factor: max allowed ratio of post-recovery
+            reading to baseline (only applied when the baseline is non-zero).
+            Either a single float or a dict of ``{port: float}``.
+
+    Returns:
+        dict: ``{port: {'passed': bool, 'details': str}}``, one entry per
+        ``ports``.
+    """
+    def _for_port(value_or_map, port):
+        return value_or_map[port] if isinstance(value_or_map, dict) else value_or_map
+
+    clear_interface_counters_and_wait(duthost, wait_time=measure_sec)
+    readings = read_prefec_ber(duthost, ports)
+
+    per_port = {}
+    for port in ports:
+        if port not in baseline:
+            per_port[port] = {
+                "passed": True,
+                "details": f"{port}: no Pre-FEC BER baseline - guard skipped",
+            }
+            continue
+
+        base = baseline[port]
+        reading = readings.get(port)
+        max_allowed = _for_port(prefec_ber_max, port)
+        degradation_factor = _for_port(prefec_ber_degradation_factor, port)
+
+        if reading is None:
+            details = f"{port}: fec_pre_ber unavailable post-flap (baseline={base:.3g})"
+            logger.warning("Pre-FEC BER Guard FAILED: %s", details)
+            per_port[port] = {"passed": False, "details": details}
+        elif reading > max_allowed:
+            details = (
+                f"{port}: Pre-FEC BER {reading:.3g} exceeds ceiling "
+                f"{max_allowed:.3g} (baseline={base:.3g})"
+            )
+            logger.warning("Pre-FEC BER Guard FAILED: %s", details)
+            per_port[port] = {"passed": False, "details": details}
+        elif base > 0 and reading > base * degradation_factor:
+            details = (
+                f"{port}: Pre-FEC BER degraded to {reading:.3g} vs baseline "
+                f"{base:.3g} (ratio {reading / base:.1f}x > {degradation_factor}x)"
+            )
+            logger.warning("Pre-FEC BER Guard FAILED: %s", details)
+            per_port[port] = {"passed": False, "details": details}
+        else:
+            details = f"{port}: Pre-FEC BER {reading:.3g} within tolerance (baseline={base:.3g})"
+            logger.info("Pre-FEC BER Guard PASSED: %s", details)
+            per_port[port] = {"passed": True, "details": details}
+
+    return per_port
