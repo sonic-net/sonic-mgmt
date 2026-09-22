@@ -1,9 +1,11 @@
 import ipaddress
 import logging
 import shlex
+import sys
 
 import pytest
 
+from tests.common import reboot
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.secure_boot import (
     require_secure_boot,
@@ -22,7 +24,7 @@ pytestmark = [
 ]
 
 DOWNLOADED_IMAGE_PATH = "/host/secure_boot_duplicate_db_test_image"
-EXTRACTED_DB_AUTH_PATH = "/tmp/secure_boot_duplicate_db_test.auth"
+EXTRACTED_DB_AUTH_PATH = "/host/secure_boot_second_db_test.auth"
 REMOVE_ALL_DB_AUTH_PATH = "/host/db-auth/remove-all-db.auth"
 REMOVE_ALL_DB_AUTH_BACKUP_PATH = "/host/db-auth/remove-all-db.auth.secure_boot_test_backup"
 REMOVE_STALE_DB_CERTS_SCRIPT = "/usr/local/bin/remove_stale_db_certs.sh"
@@ -288,6 +290,394 @@ def _assert_db_state_unchanged(duthost, firmware_db_before, persisted_auth_befor
         _get_persisted_db_auth_state(duthost) == persisted_auth_before,
         "{} changed persisted signer files".format(scenario),
     )
+
+
+def _assert_image_booted_with_secure_boot(duthost, expected_image):
+    image_info = duthost.get_image_info()
+    pytest_assert(
+        image_info["current"] == expected_image,
+        "DUT booted {} instead of {}".format(
+            image_info["current"],
+            expected_image,
+        ),
+    )
+    secure_boot_state = duthost.command(
+        "mokutil --sb-state",
+        module_ignore_errors=True,
+    )
+    pytest_assert(
+        secure_boot_state["rc"] == 0
+        and "SecureBoot enabled" in secure_boot_state["stdout"],
+        "Secure Boot is not enabled after booting {}: {}".format(
+            expected_image,
+            _get_command_output(secure_boot_state),
+        ),
+    )
+
+
+def test_second_db_certificate_is_enrolled(duthost, localhost, request, tbinfo):
+    """Verify installing a second signer retains and boots both trusted images."""
+    require_secure_boot(duthost)
+    _require_db_pruning_script(duthost)
+
+    remove_all_exists = duthost.command(
+        "sudo test -s {}".format(shlex.quote(REMOVE_ALL_DB_AUTH_PATH)),
+        module_ignore_errors=True,
+    )
+    if remove_all_exists["rc"] != 0:
+        pytest.skip("A valid remove-all-db.auth is required for cleanup")
+
+    image_url = request.config.getoption("secure_boot_second_image_url")
+    if not image_url:
+        pytest.skip("--secure_boot_second_image_url is required")
+
+    image_info = duthost.get_image_info()
+    original_image = image_info["current"]
+    installed_images_before = image_info["installed_list"]
+    original_db_auth = _get_image_db_auth_path(original_image)
+    target_version = None
+    original_fingerprints = set()
+    new_fingerprints = set()
+    install_started = False
+    target_persisted_auth_paths = []
+
+    try:
+        _download_image(duthost, image_url, tbinfo)
+        _extract_db_auth(duthost)
+        target_version = duthost.command(
+            "sonic-installer binary_version {}".format(
+                shlex.quote(DOWNLOADED_IMAGE_PATH)
+            )
+        )["stdout"].strip()
+        pytest_assert(target_version, "The second image version is empty")
+        if target_version in installed_images_before:
+            pytest.skip("The second image version is already installed")
+
+        original_fingerprints = _get_db_auth_fingerprints(
+            duthost,
+            original_db_auth,
+        )
+        target_fingerprints = _get_db_auth_fingerprints(
+            duthost,
+            EXTRACTED_DB_AUTH_PATH,
+        )
+        pytest_assert(
+            original_fingerprints,
+            "The running image DB.auth contains no certificate",
+        )
+        pytest_assert(
+            target_fingerprints,
+            "The second image DB.auth contains no certificate",
+        )
+        new_fingerprints = target_fingerprints - original_fingerprints
+        if not new_fingerprints:
+            pytest.skip("The second image does not use a distinct DB signer")
+
+        firmware_fingerprints_before = _get_firmware_db_fingerprint_set(
+            duthost
+        )
+        missing_original = (
+            original_fingerprints - firmware_fingerprints_before
+        )
+        pytest_assert(
+            not missing_original,
+            "The running image signer is not enrolled before installation: "
+            "{}".format(sorted(missing_original)),
+        )
+        already_enrolled = new_fingerprints.intersection(
+            firmware_fingerprints_before
+        )
+        if already_enrolled:
+            pytest.skip(
+                "The second image signer is already enrolled: {}".format(
+                    sorted(already_enrolled)
+                )
+            )
+        if _get_matching_persisted_db_auth(
+            duthost,
+            EXTRACTED_DB_AUTH_PATH,
+        ):
+            pytest.skip("The second image DB.auth is already persisted")
+
+        install_started = True
+        install_result = duthost.reduce_and_add_sonic_images(
+            save_as=DOWNLOADED_IMAGE_PATH
+        )
+        installed_version = install_result["ansible_facts"][
+            "downloaded_image_version"
+        ]
+        pytest_assert(
+            installed_version == target_version,
+            "Installed image {} does not match downloaded image {}".format(
+                installed_version,
+                target_version,
+            ),
+        )
+
+        installed_images_after = duthost.get_image_info()["installed_list"]
+        pytest_assert(
+            original_image in installed_images_after
+            and target_version in installed_images_after,
+            "Both signed images were not retained after installation: "
+            "{}".format(installed_images_after),
+        )
+
+        firmware_fingerprints_after = _get_firmware_db_fingerprint_set(
+            duthost
+        )
+        missing_after = (
+            original_fingerprints.union(target_fingerprints)
+            - firmware_fingerprints_after
+        )
+        pytest_assert(
+            not missing_after,
+            "Required DB signers are missing after installation: {}".format(
+                sorted(missing_after)
+            ),
+        )
+        _assert_db_certificate_is_not_duplicated(
+            duthost,
+            original_db_auth,
+        )
+        _assert_db_certificate_is_not_duplicated(
+            duthost,
+            EXTRACTED_DB_AUTH_PATH,
+        )
+        target_persisted_auth_paths = _get_matching_persisted_db_auth(
+            duthost,
+            EXTRACTED_DB_AUTH_PATH,
+        )
+
+        set_default_and_next_image(duthost, target_version)
+        reboot(duthost, localhost, safe_reboot=True)
+        _assert_image_booted_with_secure_boot(duthost, target_version)
+
+        set_default_and_next_image(duthost, original_image)
+        reboot(duthost, localhost, safe_reboot=True)
+        _assert_image_booted_with_secure_boot(duthost, original_image)
+    finally:
+        body_failed = sys.exc_info()[0] is not None
+        cleanup_errors = []
+        try:
+            try:
+                set_default_and_next_image(duthost, original_image)
+            except Exception as error:
+                cleanup_errors.append(
+                    "failed to select the original image: {}".format(error)
+                )
+
+            cleanup_image_info = None
+            original_image_active = False
+            try:
+                cleanup_image_info = duthost.get_image_info()
+                if cleanup_image_info["current"] != original_image:
+                    reboot(duthost, localhost, safe_reboot=True)
+                    _assert_image_booted_with_secure_boot(
+                        duthost,
+                        original_image,
+                    )
+                    cleanup_image_info = duthost.get_image_info()
+                original_image_active = (
+                    cleanup_image_info["current"] == original_image
+                )
+            except Exception as error:
+                cleanup_errors.append(
+                    "failed to boot the original image: {}".format(error)
+                )
+
+            destructive_cleanup_allowed = (
+                install_started and original_image_active
+            )
+            if install_started and not destructive_cleanup_allowed:
+                cleanup_errors.append(
+                    "skipped removal of the second image and signer because "
+                    "the original image is not running"
+                )
+
+            if destructive_cleanup_allowed:
+                try:
+                    restore_active_efi_bundle(duthost, original_image)
+                except Exception as error:
+                    cleanup_errors.append(
+                        "failed to restore the original EFI bundle: "
+                        "{}".format(error)
+                    )
+
+            if (
+                destructive_cleanup_allowed
+                and target_version
+                and cleanup_image_info
+                and target_version in cleanup_image_info["installed_list"]
+            ):
+                try:
+                    remove_result = duthost.command(
+                        "sudo sonic-installer remove {} -y".format(
+                            shlex.quote(target_version)
+                        ),
+                        module_ignore_errors=True,
+                    )
+                    if remove_result["rc"] != 0:
+                        cleanup_errors.append(
+                            "failed to remove second image {}: {}".format(
+                                target_version,
+                                _get_command_output(remove_result),
+                            )
+                        )
+                except Exception as error:
+                    cleanup_errors.append(
+                        "failed to remove second image {}: {}".format(
+                            target_version,
+                            error,
+                        )
+                    )
+
+            if destructive_cleanup_allowed:
+                try:
+                    current_matches = _get_matching_persisted_db_auth(
+                        duthost,
+                        EXTRACTED_DB_AUTH_PATH,
+                    )
+                    target_persisted_auth_paths = sorted(
+                        set(target_persisted_auth_paths).union(
+                            current_matches
+                        )
+                    )
+                except Exception as error:
+                    cleanup_errors.append(
+                        "failed to locate persisted second-image DB.auth: "
+                        "{}".format(error)
+                    )
+
+                try:
+                    enrolled_new_fingerprints = (
+                        new_fingerprints.intersection(
+                            _get_firmware_db_fingerprint_set(duthost)
+                        )
+                    )
+                    if enrolled_new_fingerprints:
+                        prune_result = _run_db_pruning(duthost)
+                        if prune_result["rc"] != 0:
+                            cleanup_errors.append(
+                                "failed to restore DB signer state: "
+                                "{}".format(
+                                    _get_command_output(prune_result)
+                                )
+                            )
+                except Exception as error:
+                    cleanup_errors.append(
+                        "failed to prune the second image signer: {}".format(
+                            error
+                        )
+                    )
+
+                if target_persisted_auth_paths:
+                    try:
+                        remove_auth_result = duthost.command(
+                            "sudo rm -f -- {}".format(
+                                " ".join(
+                                    shlex.quote(path)
+                                    for path in target_persisted_auth_paths
+                                )
+                            ),
+                            module_ignore_errors=True,
+                        )
+                        if remove_auth_result["rc"] != 0:
+                            cleanup_errors.append(
+                                "failed to remove persisted second-image "
+                                "DB.auth files: {}".format(
+                                    _get_command_output(remove_auth_result)
+                                )
+                            )
+                    except Exception as error:
+                        cleanup_errors.append(
+                            "failed to remove persisted second-image "
+                            "DB.auth files: {}".format(error)
+                        )
+
+            try:
+                firmware_after_cleanup = (
+                    _get_firmware_db_fingerprint_set(duthost)
+                )
+                if destructive_cleanup_allowed:
+                    remaining_new_fingerprints = (
+                        new_fingerprints.intersection(
+                            firmware_after_cleanup
+                        )
+                    )
+                    if remaining_new_fingerprints:
+                        cleanup_errors.append(
+                            "second image signer remains enrolled: "
+                            "{}".format(
+                                sorted(remaining_new_fingerprints)
+                            )
+                        )
+                missing_original_after_cleanup = (
+                    original_fingerprints - firmware_after_cleanup
+                )
+                if missing_original_after_cleanup:
+                    cleanup_errors.append(
+                        "cleanup removed the original image signer: "
+                        "{}".format(
+                            sorted(missing_original_after_cleanup)
+                        )
+                    )
+            except Exception as error:
+                cleanup_errors.append(
+                    "failed to verify firmware DB cleanup: {}".format(error)
+                )
+
+            if destructive_cleanup_allowed:
+                for auth_path in target_persisted_auth_paths:
+                    try:
+                        auth_exists = duthost.command(
+                            "sudo test -e {}".format(
+                                shlex.quote(auth_path)
+                            ),
+                            module_ignore_errors=True,
+                        )
+                        if auth_exists["rc"] == 0:
+                            cleanup_errors.append(
+                                "persisted second-image DB.auth remains: "
+                                "{}".format(auth_path)
+                            )
+                    except Exception as error:
+                        cleanup_errors.append(
+                            "failed to verify removal of {}: {}".format(
+                                auth_path,
+                                error,
+                            )
+                        )
+        finally:
+            try:
+                remove_temp_result = duthost.command(
+                    "sudo rm -f {} {}".format(
+                        shlex.quote(DOWNLOADED_IMAGE_PATH),
+                        shlex.quote(EXTRACTED_DB_AUTH_PATH),
+                    ),
+                    module_ignore_errors=True,
+                )
+                if remove_temp_result["rc"] != 0:
+                    cleanup_errors.append(
+                        "failed to remove temporary test artifacts: "
+                        "{}".format(
+                            _get_command_output(remove_temp_result)
+                        )
+                    )
+            except Exception as error:
+                cleanup_errors.append(
+                    "failed to remove temporary test artifacts: {}".format(
+                        error
+                    )
+                )
+
+        if cleanup_errors:
+            cleanup_message = "Secure Boot cleanup failures: {}".format(
+                "; ".join(cleanup_errors)
+            )
+            if body_failed:
+                logger.error(cleanup_message)
+            else:
+                pytest_assert(False, cleanup_message)
 
 
 def test_reinstall_identical_db_certificate(duthost, request, tbinfo):
