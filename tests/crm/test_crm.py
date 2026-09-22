@@ -269,16 +269,24 @@ def disable_swss_syslog_rate_limit(duthost, asichost):
             "SWSS rsyslogd did not return to RUNNING state"
         )
 
-    check_cmd = (
-        r"docker exec {} grep -oE "
-        r"'SysSock\.RateLimit\.Interval=\"[0-9]+\"' {} | head -1"
-        .format(swss_container, config_file)
+    # Newer images configure imuxsock with RainerScript module() parameters,
+    # older ones (e.g. 202511) with the legacy $SystemLogRateLimitInterval directive.
+    rate_limit_syntaxes = [
+        (r'SysSock\.RateLimit\.Interval="([0-9]+)"',
+         r'SysSock\.RateLimit\.Interval=\"{}\"', r'SysSock.RateLimit.Interval=\"{}\"'),
+        (r'^\$SystemLogRateLimitInterval ([0-9]+)',
+         r'^\$SystemLogRateLimitInterval {}$', r'$SystemLogRateLimitInterval {}'),
+    ]
+
+    result = duthost.shell(
+        "docker exec {} cat {}".format(swss_container, config_file),
+        module_ignore_errors=True
     )
-    result = duthost.shell(check_cmd, module_ignore_errors=True)
-    interval_match = re.fullmatch(
-        r'SysSock\.RateLimit\.Interval="([0-9]+)"',
-        result.get("stdout", "").strip()
-    )
+    interval_match = None
+    for search_regex, sed_match, sed_replace in rate_limit_syntaxes:
+        interval_match = re.search(search_regex, result.get("stdout", ""), re.MULTILINE)
+        if interval_match:
+            break
     pytest_assert(
         result.get("rc") == 0 and interval_match is not None,
         "Failed to determine SWSS syslog rate-limit state"
@@ -290,28 +298,22 @@ def disable_swss_syslog_rate_limit(duthost, asichost):
         .format(original_interval, swss_container)
     )
 
+    def set_interval(current, new):
+        duthost.shell(
+            "docker exec {} sed -i 's/{}/{}/' {}".format(
+                swss_container, sed_match.format(current), sed_replace.format(new), config_file
+            )
+        )
+        restart_rsyslog()
+
     try:
         if rate_limit_enabled:
-            disable_cmd = (
-                r"docker exec {} sed -i "
-                r"'s/SysSock\.RateLimit\.Interval=\"{}\"/"
-                r"SysSock.RateLimit.Interval=\"0\"/g' {}"
-                .format(swss_container, original_interval, config_file)
-            )
-            duthost.shell(disable_cmd)
-            restart_rsyslog()
+            set_interval(original_interval, 0)
 
         yield
     finally:
         if rate_limit_enabled:
-            restore_cmd = (
-                r"docker exec {} sed -i "
-                r"'s/SysSock\.RateLimit\.Interval=\"0\"/"
-                r"SysSock.RateLimit.Interval=\"{}\"/g' {}"
-                .format(swss_container, original_interval, config_file)
-            )
-            duthost.shell(restore_cmd)
-            restart_rsyslog()
+            set_interval(0, original_interval)
 
 
 def wait_for_threshold_log(loganalyzer, duthost, asichost, cmd):
