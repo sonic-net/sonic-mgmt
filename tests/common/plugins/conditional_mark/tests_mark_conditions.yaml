@@ -1876,16 +1876,6 @@ everflow/test_everflow_per_interface.py:
       - "platform in ['x86_64-8800_lc_48h_o-r0', 'x86_64-8800_lc_48h-r0']"
       - "(is_multi_asic==True) and https://github.com/sonic-net/sonic-buildimage/issues/11776"
 
-everflow/test_everflow_per_interface.py::test_everflow_packet_format[ipv6-erspan:
-  skip:
-    reason: "Skip everflow packet integrity IPv6 test on unsupported platforms"
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['cisco-8000', 'marvell', 'mellanox', 'marvell-prestera'] or (asic_subtype in ['broadcom-dnx'] and https://github.com/sonic-net/sonic-swss/issues/2204)"
-      - "'dualtor' in topo_name"
-      - "platform in ['x86_64-8800_lc_48h_o-r0', 'x86_64-8800_lc_48h-r0']"
-      - "(is_multi_asic==True) and https://github.com/sonic-net/sonic-buildimage/issues/11776"
-
 everflow/test_everflow_per_interface.py::test_everflow_packet_format[ipv6-m0_l3_scenario]:
   skip:
     reason: "Skip m0 everflow packet integrity IPv6 test on unsupported platforms"
@@ -1906,22 +1896,10 @@ everflow/test_everflow_per_interface.py::test_everflow_packet_format[ipv6-m0_vla
       - "platform in ['x86_64-8800_lc_48h_o-r0', 'x86_64-8800_lc_48h-r0']"
       - "(is_multi_asic==True) and https://github.com/sonic-net/sonic-buildimage/issues/11776"
 
-everflow/test_everflow_per_interface.py::test_everflow_packet_format\[.*ipv4:
+everflow/test_everflow_per_interface.py::test_everflow_packet_format\[(ipv6-erspan_ipv[46]|erspan_ipv[46]-ipv6)-:
   regex: true
   skip:
-    reason: "Skip for IPv6-only topologies"
-    conditions:
-      - "'-v6-' in topo_name"
-
-everflow/test_everflow_per_interface.py::test_everflow_per_interface[ipv4-erspan_ipv4-default]:
-  xfail:
-    reason: "xfail for scale topology, PTF is not stable at the scale testbed"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/21571 and 't0-isolated-d256u256s2' in topo_name"
-
-everflow/test_everflow_per_interface.py::test_everflow_per_interface[ipv6-erspan:
-  skip:
-    reason: "Skip everflow per interface IPv6 test on unsupported platforms"
+    reason: "Skip everflow packet integrity IPv6 test on unsupported platforms"
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['cisco-8000', 'marvell', 'mellanox', 'marvell-prestera'] or (asic_subtype in ['broadcom-dnx'] and https://github.com/sonic-net/sonic-swss/issues/2204)"
@@ -1929,11 +1907,12 @@ everflow/test_everflow_per_interface.py::test_everflow_per_interface[ipv6-erspan
       - "platform in ['x86_64-8800_lc_48h_o-r0', 'x86_64-8800_lc_48h-r0']"
       - "(is_multi_asic==True) and https://github.com/sonic-net/sonic-buildimage/issues/11776"
 
-everflow/test_everflow_per_interface.py::test_everflow_per_interface[ipv6-erspan_ipv6-default]:
+everflow/test_everflow_per_interface.py::test_everflow_packet_format\[.*ipv4:
+  regex: true
   skip:
-    reason: "Skip everflow per interface IPv6 test on unsupported platforms x86_64-nvidia_sn5640-r0."
+    reason: "Skip for IPv6-only topologies"
     conditions:
-      - "platform in ['x86_64-nvidia_sn5640-r0']"
+      - "'-v6-' in topo_name"
 
 everflow/test_everflow_per_interface.py::test_everflow_per_interface[ipv6-m0_l3_scenario]:
   skip:
@@ -1951,6 +1930,31 @@ everflow/test_everflow_per_interface.py::test_everflow_per_interface[ipv6-m0_vla
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['marvell', 'marvell-prestera']"
+      - "'dualtor' in topo_name"
+      - "platform in ['x86_64-8800_lc_48h_o-r0', 'x86_64-8800_lc_48h-r0']"
+      - "(is_multi_asic==True) and https://github.com/sonic-net/sonic-buildimage/issues/11776"
+
+everflow/test_everflow_per_interface.py::test_everflow_per_interface\[(ipv4-erspan_ipv4|erspan_ipv4-ipv4)-default:
+  regex: true
+  xfail:
+    reason: "xfail for scale topology, PTF is not stable at the scale testbed"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/21571 and 't0-isolated-d256u256s2' in topo_name"
+
+everflow/test_everflow_per_interface.py::test_everflow_per_interface\[(ipv6-erspan_ipv6|erspan_ipv6-ipv6)-default:
+  regex: true
+  skip:
+    reason: "Skip everflow per interface IPv6 test on unsupported platforms x86_64-nvidia_sn5640-r0."
+    conditions:
+      - "platform in ['x86_64-nvidia_sn5640-r0']"
+
+everflow/test_everflow_per_interface.py::test_everflow_per_interface\[(ipv6-erspan_ipv[46]|erspan_ipv[46]-ipv6)-:
+  regex: true
+  skip:
+    reason: "Skip everflow per interface IPv6 test on unsupported platforms"
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['cisco-8000', 'marvell', 'mellanox', 'marvell-prestera'] or (asic_subtype in ['broadcom-dnx'] and https://github.com/sonic-net/sonic-swss/issues/2204)"
       - "'dualtor' in topo_name"
       - "platform in ['x86_64-8800_lc_48h_o-r0', 'x86_64-8800_lc_48h-r0']"
       - "(is_multi_asic==True) and https://github.com/sonic-net/sonic-buildimage/issues/11776"
