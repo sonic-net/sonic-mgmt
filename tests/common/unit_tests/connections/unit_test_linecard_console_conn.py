@@ -48,6 +48,9 @@ class FakeConsoleCli:
         self.timing_output = timing_output
         self.match = None
 
+    def send(self, command):
+        self.command = command
+
     def sendline(self, command):
         self.command = command
 
@@ -98,3 +101,21 @@ def test_send_command_timing_supports_large_input_check():
 
     assert connection.console_cli.command == "echo large-input | md5sum"
     assert "expected-md5" in output
+
+
+def test_write_channel_sends_raw_data_without_appending_newline():
+    """Match Netmiko write_channel semantics for bootloader key sequences."""
+    connection = make_connection()
+
+    connection.write_channel("\x1b[A")
+
+    assert connection.console_cli.command == "\x1b[A"
+
+
+def test_read_until_pattern_supports_netmiko_timeout_argument():
+    """Honor the timeout supplied by console helper callers."""
+    connection = make_connection()
+
+    connection.read_until_pattern("GRUB menu", read_timeout=180)
+
+    assert connection.console_cli.expect_args == ("GRUB menu", 180)

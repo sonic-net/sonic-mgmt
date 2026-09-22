@@ -68,10 +68,12 @@ class ConserverConsoleConn():
         return output.split(self.console_cli.linesep.decode(), 1)[1].strip()
 
     def write_channel(self, cmd):
-        self.console_cli.sendline(cmd)
+        self.console_cli.send(cmd)
 
-    def read_until_pattern(self, pattern):
-        timeout = self.default_timeout
+    def read_until_pattern(self, pattern, read_timeout=None):
+        timeout = (
+            read_timeout if read_timeout is not None else self.default_timeout
+        )
         self.console_cli.expect(pattern, timeout=timeout)
 
     def disconnect(self):
