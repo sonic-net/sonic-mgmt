@@ -22,6 +22,19 @@ the selected load mode supplies traffic/rate and the case name supplies the mark
 `BENCHMARK_CASES` expands these settings using native pytest parametrization.
 Direct Blaster construction still uses the class defaults in `blaster.py`.
 
+### Case and run identity
+
+- **Case ID / marker:** generated once as `<benchmark>-<profile>-<load-mode>` and
+  shared by pytest, logs and the report. For example,
+  `route-table-1000routes-100workers-open-loop` identifies the workload, batch,
+  concurrency and load mode without device names or timestamps.
+- **Run ID (`cid`):** a fresh UUID for each report. It distinguishes repeated runs
+  of the same case and names the output file `<cid>-report.json`. The completion
+  log includes both marker and cid.
+- **Comparison:** use marker to group the same case and cid to locate one run.
+  Marker is a readable label, not a complete parameter fingerprint; check the
+  report's workload profile, load settings and scheduling rate before comparison.
+
 ## Default automation matrix
 
 | Routes/RPC | Workers | Load modes |

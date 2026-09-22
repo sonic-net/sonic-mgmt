@@ -46,19 +46,15 @@ BENCHMARK_CONFIG = {
     },
 }
 
-BENCHMARK_CASES = [
-    pytest.param(
-        benchmark["runner"],
-        partial(benchmark["blaster"], **{
-            **BENCHMARK_CONFIG["parameters"], **benchmark["parameters"], **parameters,
-            "traffic_pattern": mode, "rate": rate, "marker": "{}-{}-{}".format(name, profile, mode),
-        }),
-        id="{}-{}-{}".format(name, profile, mode),
-    )
-    for name, benchmark in BENCHMARK_CONFIG["benchmarks"].items()
-    for profile, parameters in benchmark["profiles"].items()
-    for mode, rate in BENCHMARK_CONFIG["load_modes"].items()
-]
+BENCHMARK_CASES = []
+for name, benchmark in BENCHMARK_CONFIG["benchmarks"].items():
+    for profile, parameters in benchmark["profiles"].items():
+        for mode, rate in BENCHMARK_CONFIG["load_modes"].items():
+            case_id = "{}-{}-{}".format(name, profile, mode)
+            params = {**BENCHMARK_CONFIG["parameters"], **benchmark["parameters"], **parameters,
+                      "traffic_pattern": mode, "rate": rate, "marker": case_id}
+            BENCHMARK_CASES.append(pytest.param(
+                benchmark["runner"], partial(benchmark["blaster"], **params), id=case_id))
 
 
 def _emit_report(request, report):
@@ -95,7 +91,7 @@ def test_gnmi_benchmark(
     result = runner_factory().run(host, connection, blaster, report)
     path = result.write(BENCHMARK_CONFIG["output_dir"])
     _emit_report(request, result.to_dict())
-    logger.info("gNMI benchmark marker=%s report=%s", result.marker, path)
+    logger.info("gNMI benchmark marker=%s cid=%s report=%s", result.marker, result.cid, path)
     if result.failed:
         pytest.fail("gNMI benchmark marker={} has RPC failures, requests over 1000ms, or dropped arrivals".format(
             result.marker))
