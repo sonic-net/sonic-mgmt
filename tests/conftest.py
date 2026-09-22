@@ -3803,6 +3803,12 @@ def setup_pfc_test(
         test_ports = update_t1_test_ports(
             duthost, mg_facts, test_ports, tbinfo
         )
+    if not test_ports:
+        pytest.skip(
+            "setup_pfc_test: no test ports could be built on {} (topology {}, {}): the DUT needs "
+            "at least two routed interfaces or two Port-Channels carrying an {} address".format(
+                duthost.hostname, topo, ip_version, ip_version))
+
     # select a subset of ports from the generated port list
     selected_ports = select_test_ports(test_ports)
 
