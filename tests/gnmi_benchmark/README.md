@@ -13,6 +13,15 @@
 Runner and Blaster factories through native pytest parametrization. Every case
 gets fresh instances; there is no benchmark-specific `conftest.py` or CLI parser.
 
+Edit `BENCHMARK_CONFIG` at the top of the entrypoint to manage automation settings:
+`parameters` holds shared timing, `load_modes` maps each mode to its offered
+iterations/s, and `output_dir` sets the report destination. Each entry in
+`benchmarks` declares its Runner, Blaster, workload parameters and named profiles.
+Parameter precedence is shared defaults → benchmark parameters → profile parameters;
+the selected load mode supplies traffic/rate and the case name supplies the marker.
+`BENCHMARK_CASES` expands these settings using native pytest parametrization.
+Direct Blaster construction still uses the class defaults in `blaster.py`.
+
 ## Default automation matrix
 
 | Routes/RPC | Workers | Load modes |
@@ -24,7 +33,7 @@ gets fresh instances; there is no benchmark-specific `conftest.py` or CLI parser
 
 All eight cases use 60 seconds of warmup, 60 seconds of measured admission and
 a 120-second per-RPC timeout. Inventory stays at 256k routes across 13 VNETs.
-Open loop offers `OPEN_LOOP_RATE = 500` iterations/s as an overload probe; closed
+Open loop offers 500 iterations/s as an overload probe; closed
 loop is unpaced. This is not a sustainable-capacity claim. Warmup drops are
 recorded and allow measurement to proceed; no successful warmup iterations or
 any warmup RPC/response error prevents measurement.
@@ -38,8 +47,8 @@ Run the module with normal sonic-mgmt inventory/testbed arguments and
 
 Run cases sequentially on one selected DUT, without parallel pytest workers.
 Eight cases need at least 16 minutes plus setup, drain and restoration. Each case
-produces its own report in `OUTPUT_DIR` (default `/tmp/gnmi-benchmark`). Use the
-case table in `test_gnmi_benchmark.py` to change settings; `--benchmark-*` options
+produces its own report in `BENCHMARK_CONFIG["output_dir"]` (default `/tmp/gnmi-benchmark`).
+Change settings in `BENCHMARK_CONFIG`; `--benchmark-*` options
 are no longer supported. Existing per-request latency and measured-drop verdicts
 still apply; an overloaded baseline can produce reports and fail pytest.
 
@@ -97,10 +106,12 @@ pools and counters, but share the same connection and prepared requests. Runner
 checks warmup outcomes and decides whether to proceed; it implements no arrival
 clock, worker loop or concurrency policy.
 
-To add a scenario, subclass `Blaster` in `blaster.py` and implement
-`workload(session, prepared)`, then add a Runner factory and Blaster factory to
-`BENCHMARK_CASES` using `pytest.param(..., id=...)`. A class or `functools.partial`
-can serve as the factory. The same pytest entrypoint runs every case.
+To add a scenario, subclass `Blaster` and implement `workload(session, prepared)`,
+then add an entry to `BENCHMARK_CONFIG["benchmarks"]` with its `runner`, `blaster`,
+`parameters` and named `profiles`. Runner factories must produce an object with
+the existing `run(host, fixture, blaster, result)` contract; Blasters follow the
+existing workload interface. Classes or `functools.partial` can serve as factories.
+The case generator and test entrypoint need no workload-specific changes.
 Set the class's `hwsku_prefixes` when a workload requires particular hardware;
 the default empty tuple imposes no SKU restriction. Override `resources(host, stub)` only when preparation is
 needed; return a context manager from a resource helper. Do not put concurrency

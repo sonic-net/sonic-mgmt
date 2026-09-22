@@ -247,7 +247,10 @@ fresh Runner and Blaster instances. The default matrix has eight cases:
 Each case uses **60s warmup, 60s measurement admission and 120s per-RPC timeout**,
 with the same 256k-route inventory. Open loop offers **500 iterations/s** as an
 overload probe. Run sequentially on the same DUT; select subsets with pytest `-k`.
-Configure cases in the entrypoint rather than through `--benchmark-*` flags.
+`BENCHMARK_CONFIG` in the entrypoint centralizes shared timing, load-mode rates
+and output location. Its `benchmarks` entries each select a Runner, Blaster,
+workload parameters and named profiles; `BENCHMARK_CASES` expands the matrix.
+Each case retains its own TLS fixture setup and teardown.
 
 The entrypoint checks HwSKU from existing DUT facts before TLS setup and skips
 unsupported devices with `pytest_require`. SKU eligibility does not by itself

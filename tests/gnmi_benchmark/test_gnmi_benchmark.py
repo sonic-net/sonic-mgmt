@@ -22,20 +22,42 @@ pytestmark = [
     pytest.mark.skip_check_dut_health,
 ]
 
-OPEN_LOOP_RATE = 500  # Offered workload iterations/s, not RPC/s.
-OUTPUT_DIR = "/tmp/gnmi-benchmark"
+# Default automation settings. Blaster constructor defaults remain available to direct callers.
+BENCHMARK_CONFIG = {
+    "output_dir": "/tmp/gnmi-benchmark",
+    "parameters": {
+        "warmup_seconds": 60,
+        "duration_seconds": 60,
+        "timeout_seconds": 120,
+    },
+    "load_modes": {"closed-loop": 0, "open-loop": 500},  # Offered iterations/s; 0 means unpaced.
+    "benchmarks": {
+        "route-table": {
+            "runner": BenchmarkRunner,
+            "blaster": RouteTableBlaster,
+            "parameters": {"route_distribution": {16000: 1, 20000: 12}},
+            "profiles": {
+                "1000routes-10workers": {"routes_per_request": 1000, "concurrency": 10},
+                "1000routes-100workers": {"routes_per_request": 1000, "concurrency": 100},
+                "1000routes-200workers": {"routes_per_request": 1000, "concurrency": 200},
+                "20000routes-10workers": {"routes_per_request": 20000, "concurrency": 10},
+            },
+        },
+    },
+}
+
 BENCHMARK_CASES = [
     pytest.param(
-        BenchmarkRunner,
-        partial(RouteTableBlaster, routes_per_request=routes, concurrency=workers,
-                route_distribution={16000: 1, 20000: 12},
-                traffic_pattern=mode, rate=OPEN_LOOP_RATE if mode == "open-loop" else 0,
-                warmup_seconds=60, duration_seconds=60, timeout_seconds=120,
-                marker="route-table-{}routes-{}workers-{}".format(routes, workers, mode)),
-        id="{}routes-{}workers-{}".format(routes, workers, mode),
+        benchmark["runner"],
+        partial(benchmark["blaster"], **{
+            **BENCHMARK_CONFIG["parameters"], **benchmark["parameters"], **parameters,
+            "traffic_pattern": mode, "rate": rate, "marker": "{}-{}-{}".format(name, profile, mode),
+        }),
+        id="{}-{}-{}".format(name, profile, mode),
     )
-    for routes, workers in ((1000, 10), (1000, 100), (1000, 200), (20000, 10))
-    for mode in ("closed-loop", "open-loop")
+    for name, benchmark in BENCHMARK_CONFIG["benchmarks"].items()
+    for profile, parameters in benchmark["profiles"].items()
+    for mode, rate in BENCHMARK_CONFIG["load_modes"].items()
 ]
 
 
@@ -71,7 +93,7 @@ def test_gnmi_benchmark(
                     platform=host.facts.get("platform", "unknown"), asic_type=host.facts.get("asic_type", "unknown"),
                     asic_count=host.num_asics()))
     result = runner_factory().run(host, connection, blaster, report)
-    path = result.write(OUTPUT_DIR)
+    path = result.write(BENCHMARK_CONFIG["output_dir"])
     _emit_report(request, result.to_dict())
     logger.info("gNMI benchmark marker=%s report=%s", result.marker, path)
     if result.failed:
