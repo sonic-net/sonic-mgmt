@@ -545,7 +545,81 @@ def validate_scheduler_apply_to_queue_in_asic_db(duthost, scheduler_oid, expecte
         return False
 
 
-def disable_egress_data_plane(duthost, dut_port, queue):
+def get_current_scheduler(duthost, dut_port, queue):
+    """
+    Read the scheduler currently assigned to a queue, without modifying anything.
+
+    Args:
+        duthost: DUT host object
+        dut_port (str): DUT port name
+        queue (str/int): Queue index
+
+    Returns:
+        str: Current scheduler name for the queue
+    """
+    queue = str(queue)
+    cmd_get_scheduler = f"sonic-db-cli CONFIG_DB hget 'QUEUE|{dut_port}|{queue}' scheduler"
+    result = duthost.shell(cmd_get_scheduler)
+    return result["stdout"].strip()
+
+
+def resolve_original_scheduler(duthost, dut_port, queue):
+    """
+    Read the scheduler currently assigned to a queue, self-healing if it is found to
+    already be the blocking scheduler due to leaked state from a previous
+    interrupted test/run (e.g. process killed/timed-out mid-ConfigTrimming, so
+    __exit__ never got a chance to restore it).
+
+    Rather than failing the test, this auto-heals by restoring the queue to its
+    canonical default scheduler (DEFAULT_QUEUE_SCHEDULER_CONFIG) and logs a warning,
+    so a single leaked run doesn't cascade into failures for every later test that
+    touches the same queue.
+
+    Args:
+        duthost: DUT host object
+        dut_port (str): DUT port name
+        queue (str/int): Queue index
+
+    Returns:
+        str: A scheduler name that is safe to treat as "original" for this queue.
+    """
+    queue = str(queue)
+    current_scheduler = get_current_scheduler(duthost, dut_port, queue)
+
+    if current_scheduler != BLOCK_DATA_PLANE_SCHEDULER_NAME:
+        return current_scheduler
+
+    default_scheduler = DEFAULT_QUEUE_SCHEDULER_CONFIG.get(queue)
+    logger.warning(
+        f"Port {dut_port} queue {queue} scheduler was already set to "
+        f"'{BLOCK_DATA_PLANE_SCHEDULER_NAME}' before this test ran - this indicates "
+        f"leaked state from a previous test/run that was not restored. Auto-healing "
+        f"by restoring the canonical default scheduler '{default_scheduler}' instead "
+        f"of failing this test."
+    )
+
+    # Only a genuinely unmapped queue (not in DATA_PLANE_QUEUE_LIST) would have no
+    # known default. In that rare case we still can't safely guess, so fail loudly
+    # rather than silently leaving the queue blocked or restoring the wrong value.
+    pytest_assert(
+        default_scheduler,
+        f"Cannot auto-heal leaked blocking scheduler for port {dut_port} queue {queue}: "
+        f"no canonical default scheduler is known for this queue. Manual DUT cleanup required."
+    )
+
+    cmd_restore = f"sonic-db-cli CONFIG_DB hset 'QUEUE|{dut_port}|{queue}' scheduler {default_scheduler}"
+    duthost.shell(cmd_restore)
+
+    pytest_assert(
+        wait_until(60, 5, 0, validate_scheduler_configuration, duthost, dut_port, queue, default_scheduler),
+        f"Auto-heal failed: could not restore port {dut_port} queue {queue} to default scheduler "
+        f"'{default_scheduler}' after detecting leaked blocking state."
+    )
+
+    return default_scheduler
+
+
+def disable_egress_data_plane(duthost, dut_port, queue, original_scheduler=None):
     """
     Disable egress data plane for a specific queue on a specific port.
 
@@ -553,6 +627,11 @@ def disable_egress_data_plane(duthost, dut_port, queue):
         duthost: DUT host object
         dut_port (str): DUT port name
         queue (str/int): Queue index to disable
+        original_scheduler (str): Pre-fetched original/current scheduler for this queue
+            (e.g. from resolve_original_scheduler()), so the caller can capture it
+            *before* calling this function and still have it for restoration even if
+            this function raises partway through. If None, it is resolved here for
+            backward compatibility.
 
     Returns:
         str: Original scheduler name for later restoration
@@ -562,11 +641,8 @@ def disable_egress_data_plane(duthost, dut_port, queue):
 
     logger.info(f"Disabling egress data plane for port: {dut_port}, queue: {queue}")
 
-    # Get original scheduler name
-    cmd_get_scheduler = f"sonic-db-cli CONFIG_DB hget 'QUEUE|{dut_port}|{queue}' scheduler"
-    result = duthost.shell(cmd_get_scheduler)
-
-    original_scheduler = result["stdout"].strip()
+    if original_scheduler is None:
+        original_scheduler = resolve_original_scheduler(duthost, dut_port, queue)
 
     # Get the blocking scheduler OID from ASIC_DB
     scheduler_oid = get_scheduler_oid_by_attributes(duthost, type=SCHEDULER_TYPE,
@@ -1375,13 +1451,21 @@ class ConfigTrimming:
         try:
             for port in self.ports:
                 logger.info(f"Blocking egress port {port} queue {self.queue}")
-                original_scheduler = disable_egress_data_plane(self.duthost, port, self.queue)
+
+                # Resolve (and auto-heal if leaked) the original scheduler *before*
+                # attempting to block/validate it, so that if disable_egress_data_plane()
+                # raises partway through (e.g. an ASIC_DB validation timeout), __exit__
+                # can still restore this port using the value recorded here instead of
+                # leaving it permanently stuck.
+                original_scheduler = resolve_original_scheduler(self.duthost, port, self.queue)
 
                 if not original_scheduler:
-                    raise Exception(f"Failed to block egress port {port} queue {self.queue}")
+                    raise Exception(f"Failed to resolve current scheduler for port {port} queue {self.queue}")
 
-                # Save the original scheduler configuration
                 self.original_schedulers[port] = original_scheduler
+
+                disable_egress_data_plane(self.duthost, port, self.queue,
+                                           original_scheduler=original_scheduler)
                 logger.info(f"Successfully blocked port {port} (original scheduler: {original_scheduler})")
 
             return self
