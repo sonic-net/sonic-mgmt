@@ -8,7 +8,6 @@
 !
 {% block system_init %}
 hostname {{ DEVICE_METADATA['localhost']['hostname'] }}
-password zebra
 log syslog informational
 log facility local4
 ! enable password {# {{ en_passwd }} TODO: param needed #}
