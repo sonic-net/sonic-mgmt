@@ -453,7 +453,8 @@ def apply_mux_cable_table_to_dut(cleanup_mocked_configs, rand_selected_dut,
                 intf: {
                     'server_ipv4': server_ipv4,
                     'server_ipv6': server_ipv6,
-                    'state': 'auto'
+                    'state': 'auto',
+                    'neighbor_mode': 'prefix-route'
                 }
             })
 
