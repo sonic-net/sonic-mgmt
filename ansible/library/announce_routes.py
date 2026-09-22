@@ -83,6 +83,18 @@ BGP_SCALE_T1S = [
     't1-isolated-d254u2', 't1-isolated-d254u2s1', 't1-isolated-d254u2s2',
     't1-isolated-d510u2', 't1-isolated-d510u2s2'
 ]
+T1_ROUTER_TYPE_BY_PROPERTY = {
+    'spine': 'spine',
+    'leaf': 'leaf',
+    'tor': 'tor',
+    'bt0': 'tor',
+    'bt1': 'leaf',
+    'bt2': 'spine',
+}
+# Property groups that belong to the backend network plane. Their synthetic
+# routes must not collide with the frontend ones, otherwise the DUT builds a
+# single ECMP group spanning both frontend uplinks and backend ports.
+T1_BACKEND_PROPERTIES = frozenset(['bt0', 'bt1', 'bt2'])
 ROUTES_BATCH_SIZE = 200
 
 # Describe default number of COLOs
@@ -149,7 +161,7 @@ def get_change_routes_ports(vm, topo):
 
 def get_topo_type(topo_name):
     pattern = re.compile(
-        r'^(t0-mclag|t0|t1|ptf|fullmesh|dualtor|t2|mgmttor|m0|mc0|mx|m1|c0|dpu|smartswitch-t1|lt2|ft2|lrh|urh)')
+        r'^(t0-mclag|t0|t1|ptf|fullmesh|dualtor|t2|mgmttor|m0|mc0|mx|m1|c0|dpu|smartswitch-t1|lt2|ft2|lrh|urh|uma|lma)')
     match = pattern.match(topo_name)
     if not match:
         return "unsupported"
@@ -619,6 +631,78 @@ def fib_t0(topo, ptf_ip, no_default_route=False, action="announce", upstream_nei
             current_routes_offset += last_suffix
 
 
+def fib_lma(topo, ptf_ip, action="announce", topo_routes=None):
+    common_config = topo['configuration_properties'].get('common', {})
+    nhipv4 = common_config.get("nhipv4", NHIPV4)
+    nhipv6 = common_config.get("nhipv6", NHIPV6)
+    vms_config = topo['configuration']
+    for k, v in vms_config.items():
+        port, port6 = get_change_routes_ports(k, topo)
+        routes_v4 = []
+        routes_v6 = []
+        # The upstream UpperMgmtAggregator (UMA) neighbors originate the default
+        # route toward the LowerMgmtAggregator DUT. Downstream leaf(M2/M3)
+        # neighbors advertise only their own loopbacks via their own BGP.
+        if "core" in v["properties"]:
+            routes_v4 = [("0.0.0.0/0", nhipv4, None)]
+            routes_v6 = [("::/0", nhipv6, None)]
+        topo_routes[k] = {}
+        topo_routes[k][IPV4] = routes_v4
+        topo_routes[k][IPV6] = routes_v6
+        if action != GENERATE_WITHOUT_APPLY:
+            change_routes(action, ptf_ip, port, routes_v4)
+            change_routes(action, ptf_ip, port6, routes_v6)
+
+
+def fib_uma(topo, ptf_ip, action="announce", topo_routes={}):
+    common_config = topo['configuration_properties'].get('common', {})
+    nhipv4 = common_config.get("nhipv4", NHIPV4)
+    nhipv6 = common_config.get("nhipv6", NHIPV6)
+    vms_config = topo['configuration']
+    for k, v in vms_config.items():
+        port, port6 = get_change_routes_ports(k, topo)
+        routes_v4 = []
+        routes_v6 = []
+        # The upstream RegionalWANAggregator (RWA) and out-of-band neighbors
+        # originate the default route toward the UpperMgmtAggregator DUT.
+        # Downstream leaf (LMA/M1) neighbors advertise only their own loopbacks
+        # via their own BGP.
+        if "core" in v["properties"] or "oob" in v["properties"]:
+            routes_v4 = [("0.0.0.0/0", nhipv4, None)]
+            routes_v6 = [("::/0", nhipv6, None)]
+        topo_routes[k] = {}
+        topo_routes[k][IPV4] = routes_v4
+        topo_routes[k][IPV6] = routes_v6
+        if action != GENERATE_WITHOUT_APPLY:
+            change_routes(action, ptf_ip, port, routes_v4)
+            change_routes(action, ptf_ip, port6, routes_v6)
+
+
+def is_backend_neighbor(properties):
+    """Return True if the neighbor belongs to the backend network plane."""
+    return not T1_BACKEND_PROPERTIES.isdisjoint(properties)
+
+
+def get_backend_routes_offset(podset_number, tor_number, max_tor_subnet_number, tor_subnet_size):
+    """Offset that shifts backend routes past the whole frontend route space.
+
+    Frontend neighbors consume route suffixes in the range
+    [0, podset_number * tor_number * max_tor_subnet_number * tor_subnet_size).
+    Starting the backend plane right after that range guarantees the two planes
+    never share a prefix, so the DUT cannot build an ECMP group that mixes
+    frontend uplinks with backend ports.
+    """
+    return podset_number * tor_number * max_tor_subnet_number * tor_subnet_size
+
+
+def get_router_type(properties):
+    """Map topology property groups to the T1 synthetic route model."""
+    for property_name in properties:
+        if property_name in T1_ROUTER_TYPE_BY_PROPERTY:
+            return T1_ROUTER_TYPE_BY_PROPERTY[property_name]
+    return None
+
+
 def fib_t1_lag(topo, ptf_ip, topo_name, no_default_route=False, action="announce", tor_default_route=False,
                downstream_neighbor_groups=0, topo_routes={}):
     common_config = topo['configuration_properties'].get('common', {})
@@ -631,6 +715,7 @@ def fib_t1_lag(topo, ptf_ip, topo_name, no_default_route=False, action="announce
     tor_subnet_size = common_config.get("tor_subnet_size", TOR_SUBNET_SIZE)
     nhipv4 = common_config.get("nhipv4", NHIPV4)
     nhipv6 = common_config.get("nhipv6", NHIPV6)
+    spine_asn = common_config.get("spine_asn", SPINE_ASN)
     leaf_asn_start = common_config.get("leaf_asn_start", LEAF_ASN_START)
     tor_asn_start = common_config.get("tor_asn_start", TOR_ASN_START)
     ipv6_address_pattern = common_config.get("ipv6_address_pattern", IPV6_ADDRESS_PATTERN_DEFAULT_VALUE)
@@ -725,21 +810,30 @@ def fib_t1_lag(topo, ptf_ip, topo_name, no_default_route=False, action="announce
         aggregate_routes_v6 = get_ipv6_routes(aggregate_routes)
         if k not in topo_routes:
             topo_routes[k] = {}
-        router_type = None
-        if 'spine' in v['properties']:
-            router_type = 'spine'
-        elif 'tor' in v['properties']:
-            router_type = 'tor'
+        router_type = get_router_type(v['properties'])
         tornum = v.get('tornum', None)
         tor_index = tornum - 1 if tornum is not None else None
+        routes_offset = last_suffix
+        if is_backend_neighbor(v['properties']):
+            # Keep the backend route plane disjoint from the frontend one. Without
+            # this, BT2 announces exactly the same prefixes as the frontend T2
+            # neighbors, and the DUT ends up with a single ECMP group mixing
+            # frontend uplinks and backend ports (see issue #26577).
+            routes_offset += get_backend_routes_offset(podset_number, tor_number,
+                                                       max_tor_subnet_number, tor_subnet_size)
+            if tor_index is not None:
+                # The backend topology can have more BT0 peers than logical ToRs in
+                # the synthetic route space. Reuse indices so every peer announces
+                # routes instead of dropping peers whose index exceeds tor_number.
+                tor_index %= tor_number
         if router_type:
             if enable_ipv4_routes_generation:
                 routes_v4, _ = generate_routes("v4", podset_number, tor_number, tor_subnet_number,
-                                               None, leaf_asn_start, tor_asn_start,
+                                               spine_asn, leaf_asn_start, tor_asn_start,
                                                nhipv4, nhipv6, tor_subnet_size, max_tor_subnet_number, "t1",
                                                router_type=router_type, tor_index=tor_index,
                                                no_default_route=curr_no_default_route,
-                                               tor_default_route=tor_default_route, offset=last_suffix)
+                                               tor_default_route=tor_default_route, offset=routes_offset)
                 if aggregate_routes_v4:
                     filterout_subnet_ipv4(aggregate_routes, routes_v4)
                     routes_v4.extend(aggregate_routes_v4)
@@ -747,12 +841,12 @@ def fib_t1_lag(topo, ptf_ip, topo_name, no_default_route=False, action="announce
                 routes_to_change[port] += routes_v4
             if enable_ipv6_routes_generation:
                 routes_v6, _ = generate_routes("v6", podset_number, tor_number, tor_subnet_number,
-                                               None, leaf_asn_start, tor_asn_start,
+                                               spine_asn, leaf_asn_start, tor_asn_start,
                                                nhipv4, nhipv6, tor_subnet_size, max_tor_subnet_number, "t1",
                                                router_type=router_type, tor_index=tor_index,
                                                no_default_route=curr_no_default_route,
                                                ipv6_address_pattern=ipv6_address_pattern,
-                                               tor_default_route=tor_default_route, offset=last_suffix)
+                                               tor_default_route=tor_default_route, offset=routes_offset)
                 if aggregate_routes_v6:
                     filterout_subnet_ipv6(aggregate_routes, routes_v6)
                     routes_v6.extend(aggregate_routes_v6)
@@ -1863,6 +1957,12 @@ def main():
         elif topo_type == "ft2":
             fib_ft2_routes(topo, ptf_ip, action=action, topo_routes=topo_routes)
             module.exit_json(change=True, topo_routes=convert_routes_to_str(topo_routes))
+        elif topo_type == "lma":
+            fib_lma(topo, ptf_ip, action=action, topo_routes=topo_routes)
+            module.exit_json(changed=True, topo_routes=convert_routes_to_str(topo_routes))
+        elif topo_type == "uma":
+            fib_uma(topo, ptf_ip, action=action, topo_routes=topo_routes)
+            module.exit_json(changed=True, topo_routes=convert_routes_to_str(topo_routes))
         else:
             module.exit_json(
                 msg='Unsupported topology "{}" - skipping announcing routes'.format(topo_name))

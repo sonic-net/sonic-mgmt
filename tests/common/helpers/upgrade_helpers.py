@@ -44,7 +44,7 @@ class GnoiUpgradeConfig:
     upgrade_type: str
     protocol: str = "HTTP"
     allow_fail: bool = False
-    to_version: Optional[str] = None  # Optional expected version string to validate after upgrade
+    to_version: Optional[str] = None  # Expected version to validate; empty/None => derive from image
     ss_target_type: Optional[str] = None   # e.g. "dpu"
     ss_target_index: Optional[int] = None  # e.g. 3
     metadata: Optional[GrpcMetadata] = None
@@ -376,7 +376,9 @@ def perform_gnoi_upgrade(
     pytest_assert(res.get("rc", 1) == 0, f"Downloaded file not found or empty on DUT: {cfg.dut_image_path}")
 
     # ---- 2b) Extract target version from the image binary if not provided ----
-    if not cfg.to_version:
+    # Empty/None to_version means "always use the version extracted from the image".
+    target_version = cfg.to_version
+    if not target_version:
         ver_result = duthost.shell(
             "sonic_installer binary_version {} 2>&1".format(cfg.dut_image_path)
             + " | grep 'SONiC-OS-' | awk -F'SONiC-OS-' '{print $2}'",
@@ -389,13 +391,13 @@ def perform_gnoi_upgrade(
                 cfg.dut_image_path, ver_result.get("stderr", "")
             ),
         )
-        cfg.to_version = "SONiC-OS-{}".format(extracted_version)
-        logger.info("Extracted target version from image: %s", cfg.to_version)
+        target_version = "SONiC-OS-{}".format(extracted_version)
+        logger.info("Extracted target version from image: %s", target_version)
 
     # ---- 3) SetPackage (via wrapper) ----
     setpkg_resp = ptf_gnoi.system_set_package(
         local_path=cfg.dut_image_path,
-        version=cfg.to_version,
+        version=target_version,
         activate=True,
     )
     logger.info("SetPackage response: %s", setpkg_resp)
@@ -439,8 +441,8 @@ def perform_gnoi_upgrade(
     images = _get_images_from_sonic_installer_list(duthost)
     logger.info("sonic-installer list parsed: %s", images)
     pytest_assert(
-        images.get("current") == cfg.to_version,
-        f"Current image mismatch after reboot. current={images.get('current')} expected={cfg.to_version}. full={images}"
+        images.get("current") == target_version,
+        f"Current image mismatch after reboot. current={images.get('current')} expected={target_version}. full={images}"
     )
 
     return {"transfer_resp": transfer_resp, "setpkg_resp": setpkg_resp}

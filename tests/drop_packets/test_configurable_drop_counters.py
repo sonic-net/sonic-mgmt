@@ -515,8 +515,10 @@ def mock_server(fanouthosts, testbed_params, arp_responder, ptfadapter, duthosts
 
     def _check_arp_populated():
         if is_ipv4_address(server_dst_addr):
+            duthost.command("ping {} -c 1 -W 1".format(server_dst_addr), module_ignore_errors=True)
             result = duthost.command("show arp {}".format(server_dst_addr), module_ignore_errors=True)
         else:
+            duthost.command("ping6 {} -c 1 -W 1".format(server_dst_addr), module_ignore_errors=True)
             result = duthost.command("show ndp {}".format(server_dst_addr), module_ignore_errors=True)
         return server_dst_addr in result.get('stdout', '')
 

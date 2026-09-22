@@ -181,7 +181,7 @@
           </BGPPeer>
 {% endfor %}
 {% endif %}
-{% if 'tor' in vm_topo_config['dut_type'] | lower %}
+{% if is_tor_dut | bool %}
           <BGPPeer i:type="a:BGPPeerPassive">
             <ElementType>BGPPeer</ElementType>
             <Address>{{ lp_ipv4_addr }}</Address>

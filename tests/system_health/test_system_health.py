@@ -14,7 +14,13 @@ from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.helpers.thermal_control_test_helper import disable_thermal_policy     # noqa F401
 from .device_mocker import device_mocker_factory        # noqa F401
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.fixtures.duthost_utils import is_support_mock_asic, is_support_fan, is_support_psu    # noqa F401
+from tests.common.fixtures.duthost_utils import (  # noqa F401
+    check_pdb_support,
+    is_support_fan,
+    is_support_mock_asic,
+    is_support_pdb,
+    is_support_psu,
+)
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -63,6 +69,8 @@ EXPECT_PSU_MISSING = '{} is missing or not available'
 EXPECT_PSU_NO_POWER = '{} is out of power'
 EXPECT_PSU_HOT = '{} temperature is too hot'
 EXPECT_PSU_INVALID_VOLTAGE = '{} voltage is out of range'
+EXPECT_PDB_MISSING = '{} is missing or not available'
+EXPECT_PDB_NO_POWER = '{} is out of power'
 
 DEFAULT_LED_CONFIG = {
     'fault': 'red',
@@ -72,15 +80,17 @@ DEFAULT_LED_CONFIG = {
 
 
 @pytest.fixture(autouse=True, scope="module")
-def check_image_version(duthost):
+def check_image_version(duthosts, enum_rand_one_per_hwsku_hostname):
     """Skip the test for unsupported images."""
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     pytest_require(parse_version(duthost.kernel_version) > parse_version('4.9.0'),
                    "Test not supported for 201911 images. Skipping the test")
     yield
 
 
 @pytest.fixture(autouse=True, scope='module')
-def config_reload_after_tests(duthost):
+def config_reload_after_tests(duthosts, enum_rand_one_per_hwsku_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     yield
     config_reload(duthost)
 
@@ -125,8 +135,11 @@ def test_service_checker(duthosts, enum_rand_one_per_hwsku_hostname):
                     error, value)
 
         expect_summary = SUMMARY_OK if not expect_error_dict else SUMMARY_NOT_OK
+        polling_interval = get_system_health_config(
+            duthost, 'polling_interval', FAST_INTERVAL)
         result = wait_until(
-            WAIT_TIMEOUT, 10, 2, check_system_health_info, duthost, 'summary', expect_summary)
+            WAIT_TIMEOUT, min(polling_interval, 10), polling_interval,
+            check_system_health_info, duthost, 'summary', expect_summary)
         # Output the content of whole SYSTEM_HEALTH_INFO table for easy debug when test case failed.
         table_output = redis_get_system_health_info(
             duthost, STATE_DB, HEALTH_TABLE_NAME)
@@ -318,6 +331,70 @@ def test_device_checker(duthosts, enum_rand_one_per_hwsku_hostname,
             assert wait_until(FAST_INTERVAL, 5, 2,
                               check_health_field_not_contains, duthost, psu_name, expect_value), \
                 'Mock PSU good voltage, but it is still invalid'
+
+
+@pytest.mark.disable_loganalyzer
+def test_pdb_device_checker(duthosts, enum_rand_one_per_hwsku_hostname,
+                            device_mocker_factory, disable_thermal_policy):        # noqa F811
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    if not check_pdb_support(duthost):
+        pytest.skip("Device does not support PDB")
+    device_mocker = device_mocker_factory(duthost)
+    wait_system_health_boot_up(duthost)
+    with ConfigFileContext(duthost, os.path.join(FILES_DIR, DEVICE_CHECK_CONFIG_FILE)):
+        time.sleep(DEFAULT_INTERVAL)
+
+        pdb_mock_result, pdb_name = device_mocker.mock_pdb_presence(False)
+        pdb_expect_value = f'{pdb_name} is missing or not available'
+        if pdb_mock_result:
+            logger.info(f'Mocked PDB absence for {pdb_name}')
+            logger.info(f'Waiting {THERMAL_CHECK_INTERVAL} seconds for it to take effect')
+            time.sleep(THERMAL_CHECK_INTERVAL)
+            value = redis_get_field_value(duthost, STATE_DB, HEALTH_TABLE_NAME, pdb_name)
+            assert value and pdb_expect_value == value, \
+                f'Mock PDB absence, expect {pdb_expect_value}, but got {value}'
+        else:
+            logger.warning("Skipping PDB absence validation because presence mocking is unsupported for %s",
+                           pdb_name or "the detected PDB")
+
+        pdb_mock_result, pdb_name = device_mocker.mock_pdb_presence(True)
+        if pdb_mock_result:
+            logger.info(f'Mocked PDB presence for {pdb_name}')
+            logger.info(f'Waiting {THERMAL_CHECK_INTERVAL} seconds for it to take effect')
+            time.sleep(THERMAL_CHECK_INTERVAL)
+            value = redis_get_field_value(duthost, STATE_DB, HEALTH_TABLE_NAME, pdb_name)
+            assert not value or pdb_expect_value != value, \
+                'Mock PDB presence, but it is still absence'
+        else:
+            logger.warning("Skipping PDB presence recovery validation because presence mocking is unsupported for %s",
+                           pdb_name or "the detected PDB")
+
+        pdb_mock_result, pdb_name = device_mocker.mock_pdb_status(False)
+        pdb_expect_value = f'{pdb_name} is out of power'
+        if pdb_mock_result:
+            logger.info(f'Mocked PDB no power for {pdb_name}')
+            logger.info(f'Waiting {THERMAL_CHECK_INTERVAL} seconds for it to take effect')
+            time.sleep(THERMAL_CHECK_INTERVAL)
+            value = redis_get_field_value(duthost, STATE_DB, HEALTH_TABLE_NAME, pdb_name)
+            assert value and pdb_expect_value == value, \
+                f'Mock PDB no power, expect {pdb_expect_value}, but got {value}'
+
+        pdb_mock_result, pdb_name = device_mocker.mock_pdb_status(True)
+        if pdb_mock_result:
+            logger.info(f'Mocked PDB good power for {pdb_name}')
+            logger.info(f'Waiting {THERMAL_CHECK_INTERVAL} seconds for it to take effect')
+            time.sleep(THERMAL_CHECK_INTERVAL)
+            value = redis_get_field_value(duthost, STATE_DB, HEALTH_TABLE_NAME, pdb_name)
+            assert not value or pdb_expect_value != value, \
+                'Mock PDB power good, but it is still out of power'
+
+        health_detail = duthost.shell('show system-health detail')['stdout']
+        pdb_type_pattern = re.compile(r'PDB\s+\d+.*\bPDB\b', re.IGNORECASE)
+        pdb_type_lines = [line for line in health_detail.splitlines()
+                          if pdb_type_pattern.search(line)]
+        logger.info(f'PDB entries in system-health detail: {pdb_type_lines}')
+        assert len(pdb_type_lines) > 0, \
+            "Expected PDB entries with Type=PDB in 'show system-health detail' but found none"
 
 
 def test_external_checker(duthosts, enum_rand_one_per_hwsku_hostname):
@@ -516,6 +593,14 @@ def _fetch_led_and_status(duthost):
 
 
 def check_system_health_led_info(duthost):
+    # BMC platforms do not implement the system status LED chassis APIs, so
+    # 'show system-health summary' fails on them. Skip the LED check there.
+    if duthost.is_bmc():
+        logger.warning(
+            "Skipping system status LED check: BMC platform '%s' does not implement "
+            "the system status LED APIs.", duthost.facts.get('platform'))
+        return True
+
     led_cfg = get_system_health_config(duthost, "led_color", DEFAULT_LED_CONFIG)
     expected_normal = led_cfg["normal"].lower()
     not_normal = {color.lower() for key, color in led_cfg.items() if key != "normal"}

@@ -1,4 +1,5 @@
 import logging
+import pathlib
 import allure
 import os
 import jinja2
@@ -30,7 +31,8 @@ NAT_ENABLE_KEY = "nat_enabled_on_{}"
 CONSOLE_RECONNECT_BACKOFF_SECS = 12
 
 # Ansible config files
-LAB_CONNECTION_GRAPH_PATH = os.path.normpath((os.path.join(os.path.dirname(__file__), "../../../ansible/files")))
+LAB_CONNECTION_GRAPH_PATH = pathlib.Path(
+    os.getenv("ANSIBLE_CONFIG", pathlib.Path(__file__).resolve().parent.joinpath("../../ansible"))).joinpath("files")
 
 BASI_PATH = os.path.dirname(os.path.abspath(__file__))
 
@@ -97,6 +99,22 @@ def check_container_state(duthost, container_name, should_be_running):
     """
     is_running = is_container_running(duthost, container_name)
     return is_running == should_be_running
+
+
+def wait_for_container_running(duthost, container_name, timeout=120, check_interval=5):
+    """Wait until `container_name` is in the running state on `duthost`.
+
+    Polls `is_container_running` every `check_interval` seconds, up to
+    `timeout` seconds total. Raises an Exception if the container is still
+    not running when the timeout expires.
+    """
+    logger.info("Waiting for container %s to be running on %s", container_name, duthost.hostname)
+    if not wait_until(timeout, check_interval, 0, is_container_running, duthost, container_name):
+        raise TimeoutError(
+            "Container {} is not running on {} after {} seconds".format(
+                container_name, duthost.hostname, timeout
+            )
+        )
 
 
 def is_hitting_start_limit(duthost, container_name):
@@ -238,7 +256,9 @@ def get_group_program_info(duthost, container_name, group_name):
     return group_program_info
 
 
-def get_program_info(duthost, container_name, program_name):
+def get_program_info(
+    duthost, container_name, program_name, include_uptime=False
+):
     """Gets program running status and its pid by analyzing the command
        output of "docker exec <container_name> supervisorctl status"
 
@@ -246,26 +266,39 @@ def get_program_info(duthost, container_name, program_name):
         duthost: Hostname of DUT.
         container_name: A string shows container name.
         program_name: A string shows process name.
+        include_uptime: When True, also return the uptime field supervisorctl
+            reports for a RUNNING program (e.g. "0:12:34", or "37 days,
+            17:55:12" past the first day). Defaults to False so existing
+            callers keep unpacking a 2-tuple unchanged.
 
     Return:
-        Program running status and its pid.
+        Program running status and its pid. When include_uptime is True, a
+        third value (uptime string, or None if not RUNNING) is also returned.
     """
     program_status = None
     program_pid = -1
+    program_uptime = None
 
     program_list = duthost.shell("docker exec {} supervisorctl status"
                                  .format(container_name), module_ignore_errors=True)
     for program_info in program_list["stdout_lines"]:
         if program_info.find(program_name) != -1:
-            program_status = program_info.split()[1].strip()
+            fields = program_info.split()
+            program_status = fields[1].strip()
             if program_status == "RUNNING":
-                program_pid = int(program_info.split()[3].strip(','))
+                program_pid = int(fields[3].strip(','))
+                if "uptime" in fields:
+                    program_uptime = " ".join(
+                        fields[fields.index("uptime") + 1:]
+                    )
             break
 
     if program_pid != -1:
         logger.info("Found program '{}' in the '{}' state with pid {}"
                     .format(program_name, program_status, program_pid))
 
+    if include_uptime:
+        return program_status, program_pid, program_uptime
     return program_status, program_pid
 
 
@@ -579,7 +612,7 @@ def create_linecard_console(supervisor, linecard_duthost, inv_files, creds):
         pytest.skip(f"Linecard console not supported: {str(e)}")
 
 
-def create_duthost_console(duthost, localhost, conn_graph_facts, creds):  # noqa: F811
+def create_duthost_console(duthost, localhost, conn_graph_facts, creds, cancel_event=None):  # noqa: F811
     dut_hostname = duthost.hostname
     console_host = conn_graph_facts['device_console_info'][dut_hostname]['ManagementIp']
     if "/" in console_host:
@@ -656,6 +689,7 @@ def create_duthost_console(duthost, localhost, conn_graph_facts, creds):  # noqa
                 console_username=console_username,
                 console_password=creds["console_password"][console_type],
                 console_device=console_device,
+                cancel_event=cancel_event,
             )
         except Exception as e:
             logger.warning(f"Attempt {attempt}/3 failed: {e}")
