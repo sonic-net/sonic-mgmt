@@ -1059,8 +1059,9 @@ def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         RESTORE_CMDS["wait"] = SONIC_RES_CLEANUP_UPDATE_TIME
 
     # Verify thresholds for "IPv[4/6] nexthop" CRM resource
-    verify_thresholds(duthost, asichost, crm_cli_res="ipv{ip_ver} nexthop".format(ip_ver=ip_ver),
-                      crm_cmd=get_nexthop_stats)
+    with disable_swss_syslog_rate_limit(duthost, asichost):
+        verify_thresholds(duthost, asichost, crm_cli_res="ipv{ip_ver} nexthop".format(ip_ver=ip_ver),
+                          crm_cmd=get_nexthop_stats)
 
 
 @pytest.mark.parametrize("ip_ver,neighbor,host", [("4", "2.2.2.2", "2.2.2.1/8"), ("6", "2001::1", "2001::2/64")])
@@ -1150,8 +1151,9 @@ def test_crm_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         RESTORE_CMDS["wait"] = SONIC_RES_CLEANUP_UPDATE_TIME
 
     # Verify thresholds for "IPv[4/6] neighbor" CRM resource
-    verify_thresholds(duthost, asichost,  crm_cli_res="ipv{ip_ver} neighbor".format(ip_ver=ip_ver),
-                      crm_cmd=get_neighbor_stats)
+    with disable_swss_syslog_rate_limit(duthost, asichost):
+        verify_thresholds(duthost, asichost, crm_cli_res="ipv{ip_ver} neighbor".format(ip_ver=ip_ver),
+                          crm_cmd=get_neighbor_stats)
 
 
 @pytest.mark.usefixtures('disable_route_checker')
