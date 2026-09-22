@@ -1,0 +1,16 @@
+---
+
+- conf-name: single-dut-ocs-testbed-demo
+  group-name: ptf_2
+  topo: ocs
+  ptf_image_name: docker-ptf
+  ptf: ptf_2
+  ptf_ip: 10.250.0.189/24
+  ptf_ipv6: 2001:db8:1::189
+  mgmt_gw: 10.250.0.1
+  server: vm_host
+  dut:
+    - mgmt141
+  inv_name: ocs
+  vm_type: vsonic
+  comment: used to test ocs device

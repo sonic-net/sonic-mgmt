@@ -1,0 +1,16 @@
+{
+    "strict_priority_test": {
+        "queue": 0,
+        "cir_bytes_per_sec": 500000,
+        "pir_bytes_per_sec": 750000,
+        "traffic_duration": 120,
+        "low_traffic_bytes_per_sec": 500000,
+        "high_traffic_bytes_per_sec": 1500000,
+        "drop_threshold_low": 1000,
+        "drop_threshold_high": 10000,
+        "bandwidth_tolerance_min": 90,
+        "scheduler_policy": "strict_priority_rate_limit_policy",
+        "packet_size": 1000,
+        "dnx_credit_worth": 10000
+    }
+}

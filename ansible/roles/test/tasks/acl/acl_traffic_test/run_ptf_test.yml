@@ -1,0 +1,68 @@
+#-----------------------------------------
+# Send some TCP packets.
+#-----------------------------------------
+
+- name: Initialize some variables for loganalyzer
+  set_fact:
+    testname_unique: "{{ testname }}.{{ lookup('pipe','date +%Y-%m-%d-%H:%M:%S') }}"
+- set_fact:
+    test_out_dir: "{{ out_dir }}/{{ testname_unique }}"
+    summary_file: "summary.loganalysis.{{ testname_unique }}.log"
+    result_file: "result.loganalysis.{{ testname_unique }}.log"
+
+- block:
+    - name: Execute ping from host to switch to validate link
+      shell: ping {{ switch_ip1 }} -c 3
+      register: pingrc
+      failed_when: pingrc.rc != 0
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Execute ping from host2 to switch to validate link
+      shell: ping {{ switch_ip2 }} -c 3
+      register: pingrc
+      failed_when: pingrc.rc != 0
+      delegate_to: "{{ ptf_host2 }}"
+
+    - name: Add route on host1
+      shell: ip route add {{ subnet2 }} via {{ switch_ip1 }}
+      failed_when: false
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Add route on host2
+      shell: ip route add {{ subnet1 }} via {{ switch_ip2 }}
+      failed_when: false
+      delegate_to: "{{ ptf_host2 }}"
+
+    - name: Start log analyser
+      include_tasks: "{{ loganalyzer_init }}"
+
+    - name: Set ACL rules.
+      command: docker exec -i {{ orchagent }} swssconfig {{ docker_testdir }}/{{ config_file }}
+
+    - debug: msg="======================= PTF TEST =========================="
+
+    - name: Send some TCP packets
+      shell: ptf --test-dir acstests acl_tcp_test.SendTCP --interface 0@eth2
+      args:
+        chdir: "{{ host_testdir }}"
+      register: ptfrc
+      failed_when: (ptfrc.rc != 0 and errors_expected == false) or (ptfrc.rc == 0 and errors_expected == true)
+      delegate_to: "{{ ptf_host }}"
+
+    - debug: msg="======================= PTF END {{ ptfrc.rc }} ==========="
+
+  always:
+    - name: Stop log analyser
+      include_tasks: "{{ loganalyzer_analyze }}"
+
+    - name: Get the total number of error messages.
+      shell: grep "TOTAL MATCHES" "{{ test_out_dir }}/{{ summary_file }}" | sed -n "s/TOTAL MATCHES:[[:space:]]*//p"
+      register: errors_found
+
+    - name: Check the number of error messages (positive tests only).
+      fail: msg="{{ errors_found.stdout }} errors found while running {{ testname }} / {{ config_file }}. Please see {{ test_out_dir }}/{{ result_file }}"
+      when: errors_found.stdout != "0"
+
+    - name: Do configuration cleanup.
+      include_tasks: "{{ run_config_cleanup }}"
+      when: run_cleanup == true

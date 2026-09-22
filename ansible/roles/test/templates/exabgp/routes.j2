@@ -1,0 +1,6 @@
+{%set mux_ip_1 = item.mux_ip_1.split('/') %}
+{%set mux_ip_2 = item.mux_ip_2.split('/') %}
+{%set speaker_ip = item.speaker_ip.split('/') %}
+neighbor {{minigraph_lo_interfaces[0]['addr']}} announce route {{announce_prefix}} next-hop {{mux_ip_1[0]}};{{item.port_num_1}}
+neighbor {{minigraph_lo_interfaces[0]['addr']}} announce route {{announce_prefix}} next-hop {{mux_ip_2[0]}};{{item.port_num_2}}
+neighbor {{minigraph_lo_interfaces[0]['addr']}} announce route {{minigraph_bgp_peers_with_range[0]['ip_range'][0]}} next-hop {{speaker_ip[0]}};{{item.port_num_3}}

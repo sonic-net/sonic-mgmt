@@ -1,0 +1,10 @@
+[
+    {
+        "ACL_TABLE:acl_test_table_type_invalid_2": {
+		    "policy_desc" : "Permit_some_traffic_for_the_customer_#4",
+            "type" : "FORWARD",
+            "ports" : "Ethernet0"
+        },
+        "OP": "SET"
+    }
+]

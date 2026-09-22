@@ -1,0 +1,4 @@
+- name: run test
+  include_tasks: roles/test/tasks/pytest_runner.yml
+  vars:
+    test_node: crm/test_crm.py

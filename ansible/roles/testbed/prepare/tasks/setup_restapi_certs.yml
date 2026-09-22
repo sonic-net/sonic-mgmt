@@ -1,0 +1,35 @@
+---
+- name: init restapi keys
+  set_fact:
+    device_cert_restapi:
+      server_key: ""
+      server_cer: ""
+      dir_path: ""
+      subject: ""
+
+- name: read server key
+  set_fact:
+    device_cert_restapi: "{{ device_cert_restapi | combine({'server_key': restapi_certs['server_key']}) }}"
+  when: restapi_certs['server_key'] is defined
+
+- name: read server cer
+  set_fact:
+    device_cert_restapi: "{{ device_cert_restapi | combine({'server_cer': restapi_certs['server_crt']}) }}"
+  when: restapi_certs['server_crt'] is defined
+
+- name: read subject
+  set_fact:
+    device_cert_restapi: "{{ device_cert_restapi | combine({'subject': restapi_certs['subject']}) }}"
+  when: restapi_certs['subject'] is defined
+
+- name: read directory path
+  set_fact:
+    device_cert_restapi: "{{ device_cert_restapi | combine({'dir_path': restapi_certs['dir_path']}) }}"
+  when: restapi_certs['dir_path'] is defined
+
+- include_tasks: deploy_certs.yml
+  vars:
+    dir_path: "{{ device_cert_restapi.dir_path }}"
+    server_crt: "{{ device_cert_restapi.server_cer }}"
+    server_key: "{{ device_cert_restapi.server_key }}"
+    cert_subject: "{{ device_cert_restapi.subject }}"

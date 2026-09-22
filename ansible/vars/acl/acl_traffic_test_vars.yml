@@ -1,0 +1,42 @@
+---
+
+host1_ip :   10.0.0.1
+host2_ip :   10.0.0.3
+subnet1 :    10.0.0.0/31
+subnet2 :    10.0.0.2/31
+switch_ip1 : 10.0.0.0
+switch_ip2 : 10.0.0.2
+host_testdir: /tmp
+
+run_ping_test: "{{ tests_location }}/acl_traffic_test/run_ping_test.yml"
+run_ptf_test: "{{ tests_location }}/acl_traffic_test/run_ptf_test.yml"
+
+config_traffic_drop_ether_ip:    config_traffic_drop_ether_ip.json
+config_traffic_drop_src_ip:      config_traffic_drop_src_ip.json
+config_traffic_drop_dst_ip:      config_traffic_drop_dst_ip.json
+config_traffic_drop_l4_src_port: config_traffic_drop_l4_src_port.json
+config_traffic_drop_l4_dst_port: config_traffic_drop_l4_dst_port.json
+config_traffic_drop_ip_protocol: config_traffic_drop_ip_protocol.json
+config_traffic_drop_ip_type:     config_traffic_drop_ip_type.json
+config_traffic_drop_tcp_flags:   config_traffic_drop_tcp_flags.json
+config_traffic_drop_priority:    config_traffic_drop_priority.json
+config_empty_expect:             config_empty_expect_file
+
+match_file:                      loganalyzer_common_match.txt
+ignore_file:                     loganalyzer_common_ignore.txt
+
+loganalyzer_init:                roles/test/files/tools/loganalyzer/loganalyzer_init.yml
+loganalyzer_analyze:             roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
+
+testname:                        acl_traffic_test
+
+config_files:
+    - "{{ config_traffic_drop_ether_ip }}"
+    - "{{ config_traffic_drop_src_ip }}"
+    - "{{ config_traffic_drop_dst_ip }}"
+    - "{{ config_traffic_drop_l4_src_port }}"
+    - "{{ config_traffic_drop_l4_dst_port }}"
+    - "{{ config_traffic_drop_ip_protocol }}"
+    - "{{ config_traffic_drop_ip_type }}"
+    - "{{ config_traffic_drop_tcp_flags }}"
+    - "{{ config_traffic_drop_priority }}"

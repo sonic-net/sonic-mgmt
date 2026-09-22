@@ -1,0 +1,219 @@
+#-----------------------------------------
+# Run VNet test
+#-----------------------------------------
+
+- block:
+    - name: set ipv6 test mode for vxlan
+      set_fact:
+              ipv6_vxlan_test: false
+      when:
+         - ipv6_vxlan_test is not defined
+
+    - fail: msg="Please set ptf_host variable"
+      when: ptf_host is not defined
+
+    - name: Remove existing ip from ptf host
+      script: roles/test/files/helpers/remove_ip.sh
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Make all mac addresses in ptf unique - should be done in vm_set
+      script: roles/test/files/helpers/change_mac.sh
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Copy tests to the PTF container
+      copy: src=roles/test/files/ptftests dest=/root
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Copy arp responder to the PTF container
+      copy: src=roles/test/files/helpers/arp_responder.py dest=/opt
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Copy arp responder supervisor configuration to the PTF container
+      template: src=arp_responder.conf.j2 dest=/etc/supervisor/conf.d/arp_responder.conf
+      vars:
+        - arp_responder_args: '--conf /tmp/vnet_arpresponder.conf'
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Update supervisor configuration
+      include_tasks: "roles/test/tasks/common_tasks/update_supervisor.yml"
+      vars:
+        supervisor_host: "{{ ptf_host }}"
+
+    - name: Generate VNet configuration
+      template: src=roles/test/templates/vnet_config.j2
+                dest=/tmp/vnet_config.yml
+      delegate_to: localhost
+
+    - name: Load VNet info from file
+      include_vars: '/tmp/vnet_config.yml'
+
+    - debug: var=vnet_id_list
+    - debug: var=vlan_intf_list
+    - debug: var=vnet_route_list
+    - debug: var=vnet_nbr_list
+    - debug: var=vnet_peer_list
+
+    - name: Render DUT VNet parameters to json file for the test
+      template: src=vnet.j2 dest=/tmp/vnet.json
+      delegate_to: "{{ ptf_host }}"
+
+      #Execute the test with Vxlan enabled false
+    - include_tasks: roles/test/tasks/ptf_runner.yml
+      vars:
+        ptf_test_name: Vnet vxlan test
+        ptf_test_dir: ptftests
+        ptf_test_path: vnet_vxlan.VNET
+        ptf_platform: remote
+        ptf_platform_dir: ptftests
+        ptf_qlen: 1000
+        ptf_test_params:
+        - vxlan_enabled=False
+        - config_file='/tmp/vnet.json'
+
+    - name: Render DUT VNet Switch configuration
+      template: src=vnet_switch.j2 dest=/tmp/vnet.switch.json
+
+    - name: clear FDB table
+      command: sonic-clear fdb all
+
+    - name: Delete Vlan membership from config DB
+      shell: docker exec -i database redis-cli -n 4 del "VLAN_MEMBER|{{ minigraph_vlan_interfaces[0]['attachto'] }}|{{ item.1 }}"
+      with_indexed_items: "{{ minigraph_vlans[minigraph_vlan_interfaces[0]['attachto']]['members'] }}"
+      when: item.0 < 1
+      become: true
+
+    - name: Set config to True if not set
+      set_fact:
+          config: True
+      when: config is not defined
+    - debug: msg="config is {{ config|bool }}"
+
+    - block:
+        - name: Copy configuration to swss container
+          shell: docker cp /tmp/vnet.switch.json swss:/vnet.switch.json
+
+        - name: Apply switch json configuration
+          shell: docker exec swss sh -c "swssconfig /vnet.switch.json"
+          when: config|bool
+
+    - name: Render DUT VNet Vxlan configuration
+      template: src=vnet_vxlan.j2 dest=/tmp/vnet.conf.json
+
+    - name: Render DUT VNet interface configuration
+      template: src=vnet_interface.j2 dest=/tmp/vnet.intf.json
+
+    - name: Render DUT VNet neighbor configuration
+      template: src=vnet_nbr.j2 dest=/tmp/vnet.nbr.json
+
+    - set_fact: op="SET"
+
+    - name: Render DUT VNet route configuration
+      template: src=vnet_routes.j2 dest=/tmp/vnet.route.json
+
+    - name: Apply VNet Vxlan configuration
+      shell: sonic-cfggen -j /tmp/vnet.conf.json --write-to-db
+      when: config|bool
+
+    - name: sleep for some time
+      pause: seconds=3
+
+    - name: Apply VNet interface config
+      shell: sonic-cfggen -j /tmp/vnet.intf.json --write-to-db
+      when: config|bool
+
+    - name: sleep for some time
+      pause: seconds=3
+
+    - name: Apply VNet neighbor config
+      shell: sonic-cfggen -j /tmp/vnet.nbr.json --write-to-db
+      when: config|bool
+
+    - name: sleep for some time
+      pause: seconds=3
+
+    - block:
+        - name: Copy configuration to swss container
+          shell: docker cp /tmp/vnet.route.json swss:/vnet.route.json
+
+        - name: Apply route json configuration
+          shell: docker exec swss sh -c "swssconfig /vnet.route.json"
+          when: config|bool
+
+        - name: sleep for some time
+          pause: seconds=3
+
+    - include_tasks: roles/test/tasks/ptf_runner.yml
+      vars:
+        ptf_test_name: Vnet vxlan test
+        ptf_test_dir: ptftests
+        ptf_test_path: vnet_vxlan.VNET
+        ptf_platform: remote
+        ptf_platform_dir: ptftests
+        ptf_qlen: 1000
+        ptf_test_params:
+        - vxlan_enabled=True
+        - config_file='/tmp/vnet.json'
+        ptf_extra_options: "--relax --debug info --log-file /tmp/vnet_test.log"
+
+    - name: Set cleanup to True if not set
+      set_fact:
+          cleanup: True
+      when:
+          - cleanup is not defined
+
+    - debug: msg="cleanup is {{ cleanup|bool }}"
+
+    - block:
+
+        - debug: msg='Running cleanup test for VNet'
+
+        - set_fact: op="DEL"
+
+        - name: Render DUT VNet route configuration
+          template: src=vnet_routes.j2 dest=/tmp/vnet.route.json
+
+        - block:
+            - name: Copy configuration to swss container
+              shell: docker cp /tmp/vnet.route.json swss:/vnet.route.json
+
+            - name: Apply route json configuration
+              shell: docker exec swss sh -c "swssconfig /vnet.route.json"
+              when: cleanup|bool
+
+            - name: sleep for some time
+              pause: seconds=3
+
+        - name: Remove VNET interfaces addresses
+          command: docker exec -i database redis-cli -n 4 del "VLAN_INTERFACE|{{ item['ifname'] }}|{{ item['ip'] }}"
+          with_list: "{{ vlan_intf_list }}"
+          become: true
+          when: cleanup|bool
+
+        - name: Remove VNET interfaces
+          command: docker exec -i database redis-cli -n 4 del "VLAN_INTERFACE|{{ item['ifname'] }}"
+          with_list: "{{ vlan_intf_list }}"
+          become: true
+          when: cleanup|bool
+
+        - name: Remove VNETs
+          command: docker exec -i database redis-cli -n 4 del "VNET|{{ item }}"
+          with_list: "{{ vnet_id_list }}"
+          become: true
+          when: cleanup|bool
+
+        - include_tasks: roles/test/tasks/ptf_runner.yml
+          vars:
+            ptf_test_name: Vnet vxlan test
+            ptf_test_dir: ptftests
+            ptf_test_path: vnet_vxlan.VNET
+            ptf_platform: remote
+            ptf_platform_dir: ptftests
+            ptf_qlen: 1000
+            ptf_test_params:
+            - vxlan_enabled=True
+            - routes_removed=True
+            - config_file='/tmp/vnet.json'
+            ptf_extra_options: "--relax --debug info --log-file /tmp/vnet_test.log"
+          when: cleanup|bool
+
+      when: cleanup|bool

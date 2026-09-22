@@ -1,0 +1,27 @@
+#This playbook is trying to bring up one fanout switch port
+- block:
+    - set_fact:
+        interface: "{{item}}"
+
+    - debug: msg={{interface}}
+
+    - set_fact:
+        peer_device: "{{neighbors[interface]['peerdevice']}}"
+        neighbor_interface: "{{neighbors[interface]['peerport']}}"
+
+    - conn_graph_facts: host={{ peer_device }}
+      delegate_to: localhost
+
+    - set_fact:
+        peer_host: "{{device_info[peer_device]['mgmtip']}}"
+        peer_hwsku: "{{device_info[peer_device]['HwSku']}}"
+
+    - set_fact:
+        intfs_to_exclude: "{{interface}}"
+
+    - name: bring up neighbor interface {{neighbor_interface}} on {{peer_host}}
+      action: apswitch template=neighbor_interface_no_shut_single.j2
+      args:
+        host: "{{peer_host}}"
+        login: "{{switch_login[hwsku_map[peer_hwsku]]}}"
+      connection: switch

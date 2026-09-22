@@ -1,0 +1,15 @@
+Value snmp_rocommunity (\S+)
+Value snmp_rocommunity6 (\S+)
+Value snmp_location (\S+)
+Value v1_trap_dest ([\S+ ]+)
+Value v2_trap_dest ([\S+ ]+)
+Value v3_trap_dest ([\S+ ]+)
+
+
+Start
+  ^\s*snmp_rocommunity:\s+${snmp_rocommunity}\s*$$
+  ^\s*snmp_rocommunity6:\s+${snmp_rocommunity6}\s*$$
+  ^\s*snmp_location:\s+${snmp_location}\s*$$
+  ^\s*v1_trap_dest:\s+${v1_trap_dest}\s*$$
+  ^\s*v2_trap_dest:\s+${v2_trap_dest}\s*$$
+  ^\s*v3_trap_dest:\s+${v3_trap_dest}\s*$$

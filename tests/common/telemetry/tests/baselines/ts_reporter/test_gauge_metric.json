@@ -1,0 +1,66 @@
+[
+  {
+    "resource_metrics": [
+      {
+        "resource": {
+          "_attributes": {
+            "_dict": {
+              "service.name": "sonic-test-telemetry",
+              "service.version": "1.0.0",
+              "telemetry.sdk.language": "python",
+              "telemetry.sdk.name": "opentelemetry",
+              "telemetry.sdk.version": "1.33.1",
+              "test.file": "test_gauge_metric.py",
+              "test.job.id": "unknown",
+              "test.os.version": "unknown",
+              "test.testbed": "physical-testbed-01",
+              "test.testcase": "test_ts_reporter"
+            },
+            "_extended_attributes": false,
+            "_immutable": true,
+            "dropped": 0
+          },
+          "_schema_url": ""
+        },
+        "schema_url": "",
+        "scope_metrics": [
+          {
+            "metrics": [
+              {
+                "data": {
+                  "data_points": [
+                    {
+                      "attributes": {
+                        "device.id": "test-dut",
+                        "test.scenario": "gauge"
+                      },
+                      "exemplars": [],
+                      "start_time_unix_nano": 1234567890000000000,
+                      "time_unix_nano": 1234567890000000000,
+                      "value": 85.5
+                    }
+                  ]
+                },
+                "description": "CPU usage percentage",
+                "name": "test.cpu.usage",
+                "unit": "percent"
+              }
+            ],
+            "schema_url": "",
+            "scope": {
+              "_attributes": {
+                "_dict": {},
+                "_extended_attributes": false,
+                "_immutable": true,
+                "dropped": 0
+              },
+              "_name": "sonic-test-telemetry",
+              "_schema_url": "",
+              "_version": "1.0.0"
+            }
+          }
+        ]
+      }
+    ]
+  }
+]

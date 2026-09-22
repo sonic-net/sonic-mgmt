@@ -1,0 +1,64 @@
+---
+- name: Derive management subnet CIDR
+  set_fact:
+    mgmt_subnet_cidr: "{{ (mgmt_gw + '/' + mgmt_prefixlen | string) | ansible.utils.ipaddr('network/prefix') }}"
+
+- name: Find other bridges with conflicting IP on management subnet
+  shell: |
+    for br in $(ip -o addr show | grep ' {{ mgmt_gw }}/' | awk '{print $2}'); do
+      if [ "$br" != "{{ mgmt_bridge }}" ]; then
+        echo "$br"
+      fi
+    done
+  register: conflicting_bridges
+  changed_when: false
+
+- name: Remove conflicting bridges to avoid routing conflicts
+  shell: |
+    ip addr flush dev {{ item }}
+    ip link set {{ item }} down
+    ip link delete {{ item }} 2>/dev/null || true
+  loop: "{{ conflicting_bridges.stdout_lines }}"
+  when: conflicting_bridges.stdout_lines | length > 0
+
+- name: Check if management bridge exists
+  command: "ip link show {{ mgmt_bridge }}"
+  register: bridge_check
+  failed_when: false
+  changed_when: false
+
+- name: Create management bridge (if not already present)
+  vnut_network:
+    action: create_bridge
+    bridge_name: "{{ mgmt_bridge }}"
+    bridge_ip: "{{ mgmt_gw }}/{{ mgmt_prefixlen }}"
+  when: bridge_check.rc != 0
+
+- name: Enable IP forwarding
+  ansible.posix.sysctl:
+    name: net.ipv4.ip_forward
+    value: '1'
+    sysctl_set: yes
+    state: present
+
+- name: Check if NAT masquerade rule exists
+  shell: >
+    nsenter -t 1 -m -u -n -i -p -- iptables -t nat -C POSTROUTING -s {{ mgmt_subnet_cidr }} ! -d {{ mgmt_subnet_cidr }} -j MASQUERADE 2>/dev/null
+  register: nat_check
+  failed_when: false
+  changed_when: false
+
+- name: Set up NAT masquerade for management network
+  shell: >
+    nsenter -t 1 -m -u -n -i -p -- iptables -t nat -A POSTROUTING -s {{ mgmt_subnet_cidr }} ! -d {{ mgmt_subnet_cidr }} -j MASQUERADE
+  when: nat_check.rc != 0
+  changed_when: nat_check.rc != 0
+
+- name: Allow forwarding from management bridge
+  shell: |
+    changed=false
+    nsenter -t 1 -m -u -n -i -p -- iptables -C FORWARD -i {{ mgmt_bridge }} -j ACCEPT 2>/dev/null || { nsenter -t 1 -m -u -n -i -p -- iptables -I FORWARD -i {{ mgmt_bridge }} -j ACCEPT; changed=true; }
+    nsenter -t 1 -m -u -n -i -p -- iptables -C FORWARD -o {{ mgmt_bridge }} -m state --state RELATED,ESTABLISHED -j ACCEPT 2>/dev/null || { nsenter -t 1 -m -u -n -i -p -- iptables -I FORWARD -o {{ mgmt_bridge }} -m state --state RELATED,ESTABLISHED -j ACCEPT; changed=true; }
+    echo "changed=$changed"
+  register: fwd_result
+  changed_when: "'changed=true' in fwd_result.stdout"

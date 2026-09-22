@@ -1,0 +1,93 @@
+- name: Clean up old docker-bgp container
+  include_tasks: sonicdocker.yml
+  vars:
+    docker_container: docker-bgp
+    docker_image: "docker-bgp"
+    docker_privileged: yes
+    docker_state: absent
+
+- name: Clean up old bgp container
+  include_tasks: sonicdocker.yml
+  vars:
+    docker_container: bgp
+    docker_image: "docker-bgp"
+    docker_privileged: yes
+    docker_state: absent
+
+- name: Start the BGP docker container (Quagga)
+  include_tasks: sonicdocker.yml
+  vars:
+    docker_container: bgp
+    docker_image: "{{ image_id_fpm }}"
+    docker_privileged: yes
+    docker_state: reloaded
+    docker_volumes:
+    - /etc/sonic/:/etc/sonic/:ro
+    docker_volumes_from:
+    - database
+
+- include_tasks: add_container_to_inventory.yml
+  vars:
+    container_name: bgp
+
+- block:
+  - name: Copy Device Specific Quagga Zebra Configuration File.
+    become: true
+    template: src=quagga/zebra.conf.j2
+              dest=/etc/quagga/zebra.conf
+              owner=root
+              group=root
+              mode=0644
+    notify:
+      - Restart Quagga Daemon
+
+  - name: Copy Device Specific Quagga BGP Configuration File.
+    become: true
+    template: src=quagga/bgpd.conf.j2
+              dest=/etc/quagga/bgpd.conf
+              owner=quagga
+              group=quaggavty
+              mode=0644
+    notify:
+      - Restart Quagga Daemon
+
+  # TODO: already in container, remove this template after stable version updated
+  - name: Copy Device Specific Quagga Daemons Configuration File.
+    become: true
+    template: src=quagga/daemons
+              dest=/etc/quagga/daemons
+              owner=quagga
+              group=quaggavty
+              mode=0644
+    notify:
+      - Restart Quagga Daemon
+
+  # Force handler flush to trigger daemon restarts
+  - meta: flush_handlers
+
+  - name: Ensure Quagga Daemon running and enabled
+    become: true
+    service: name=quagga
+             state=running
+             enabled=yes
+
+  - name: Copy BGP Isolating Scripts
+    become: true
+    template: src=quagga/{{item}}.j2
+              dest=/usr/sbin/bgp-{{item}}
+              owner=root
+              group=root
+              mode=0755
+    with_items:
+    - isolate
+    - unisolate
+
+  delegate_to: "{{ ansible_host }}_bgp"
+
+- name: Copy vtysh helper script
+  become: true
+  copy: src=bin/vtysh
+        dest=/usr/bin/vtysh
+        owner=root
+        group=root
+        mode=0755

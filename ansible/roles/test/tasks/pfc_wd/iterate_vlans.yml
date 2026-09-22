@@ -1,0 +1,2 @@
+- set_fact:
+    test_ports: "{{ test_ports | combine( {item:{'test_neighbor_addr':generated_ips[0].split('/')[0], 'rx_port': pfc_wd_rx_port, 'rx_neighbor_addr': pfc_wd_rx_neighbor_addr, 'peer_device':neighbors[item]['peerdevice'], 'test_port_id': minigraph_port_indices[item], 'rx_port_id': pfc_wd_rx_port_id.split(' ') | list, 'test_port_type':'vlan' }})  }}"

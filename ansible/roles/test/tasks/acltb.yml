@@ -1,0 +1,100 @@
+# This script is for testing the ACL feature on SONiC switch. It covers ingress ACL and egress ACL testing.
+# For each type of ACL testing, it supports 3 scenarios:
+# * Basic ACL testing
+# * Toggle all ports and then test ACL
+# * Reboot DUT and then test ACL to verify that ACL configuration persists through reboot
+#
+# This script supports selecting which type of ACL and which scenarios to run by specifying different ansible variables.
+# * run_ingress: Specify whether to run the ingress ACL testing. Values: yes, no. Default: yes
+# * run_egress: Specify whether to run the egress ACL testing. Values: yes, no. Default: no
+# * test_basic: Specify whether to run the basic ACL testing scenario. Values: yes, no. Default: yes
+# * test_port_toggle: Specify whether to run the port toggle scenario. Values: yes, no. Default: no
+# * test_reboot: Specify whether to run the reboot scenario. Values: yes, no. Default: no
+#
+#                 +---------------------+---------------------+---------------------+
+#                 | Basic Acl Testing   |    Port Toggle      |       Reboot        |
+#                 |-- -------+----------+----------+----------+----------+----------+
+#                 |    Yes   |    No    |    Yes   |    No    |    Yes   |    No    |
+# +---------+-----+----------+----------+----------+----------+----------+----------+
+# |         | Yes |    Y     |    N     |    Y     |    N     |    Y     |    N     |
+# | Ingress +-----+----------+----------+----------+----------+----------+----------+
+# |         | No  |    N     |    N     |    N     |    N     |    N     |    N     |
+# +---------+-----+----------+----------+----------+----------+----------+----------+
+# |         | Yes |    Y     |    N     |    Y     |    N     |    Y     |    N     |
+# | Egress  +-----+----------+----------+----------+----------+----------+----------+
+# |         | No  |    N     |    N     |    N     |    N     |    N     |    N     |
+# +---------+-----+----------+----------+----------+----------+----------+----------+
+#
+# Example:
+# $ ansible-playbook test_sonic -i inventory -l dut-switch-t1 -e testbed_name=dut-switch-t1 -e testbed_type=t1
+#       -e testcase_name=acl -vvvv
+# This command will only run basic ACL testing for ingress ACL.
+#
+# $ ansible-playbook test_sonic -i inventory -l dut-switch-t1 -e testbed_name=dut-switch-t1 -e testbed_type=t1
+#       -e testcase_name=acl -e run_ingress=yes -e run_egress=yes -e test_basic=yes -e test_port_toggle=yes
+#       -e test_reboot=no -vvvv
+# This command will run ingress and egress ACL testing. The basic and port toggle scenarios will be tested.
+#
+# $ ansible-playbook test_sonic -i inventory -l dut-switch-t1 -e testbed_name=dut-switch-t1 -e testbed_type=t1
+#       -e testcase_name=acl -e run_egress=yes -e test_port_toggle=yes -e test_reboot=yes -vvvv
+# This command will run everything, including ingress&egress, and all the 3 scenarios.
+
+- name: set ingress test flag
+  set_fact:
+    run_ingress: yes
+  when: run_ingress is not defined
+
+- name: set egress test flag
+  set_fact:
+    run_egress: no
+  when: run_egress is not defined
+
+- name: set basic test flag
+  set_fact:
+    test_basic: yes
+  when: test_basic is not defined
+
+- name: set reboot test flag
+  set_fact:
+    test_reboot: no
+  when: test_reboot is not defined
+
+- name: set port toggle test flag
+  set_fact:
+    test_port_toggle: no
+  when: test_port_toggle is not defined
+
+- name: set test filter expression
+  set_fact:
+    filter_expr: 'acl'
+
+- name: append filter on ingress
+  set_fact:
+    filter_expr: '{{ filter_expr }} and not ingress'
+  when: not run_ingress
+
+- name: append filter on egress
+  set_fact:
+    filter_expr: '{{ filter_expr }} and not egress'
+  when: not run_egress
+
+- name: append filter on basic
+  set_fact:
+    filter_expr: '{{ filter_expr }} and not TestBasicAcl and not TestIncrementalAcl'
+  when: not test_basic
+
+- name: append filter on reboot
+  set_fact:
+    filter_expr: '{{ filter_expr }} and not reboot'
+  when: not test_reboot
+
+- name: append filter on port toggle
+  set_fact:
+    filter_expr: '{{ filter_expr }} and not port_toggle'
+  when: not test_port_toggle
+
+- name: run test
+  include_tasks: roles/test/tasks/pytest_runner.yml
+  vars:
+    test_node: acl
+    test_filter: '{{ filter_expr }}'

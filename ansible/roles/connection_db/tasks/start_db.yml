@@ -1,0 +1,85 @@
+---
+- name: Set servercfgd save path
+  set_fact:
+    servercfgd_path: "/etc/servercfgd"
+  when: servercfgd_path is not defined
+
+- name: Check if enforce provision servercfgd
+  set_fact:
+    enforce_provision_servercfgd: True
+  when: enforce_provision_servercfgd is not defined
+
+- name: Install Redis
+  apt:
+    name: redis-server
+    state: present
+
+- name: Ensure Redis is running
+  service:
+    name: redis-server
+    state: started
+    enabled: yes
+
+- name: Setup Redis Configuration
+  copy:
+    src: redis.conf
+    dest: /etc/redis/redis.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - Restart Redis
+    - Sleep
+    - Init connection db
+
+- name: Install pip3
+  apt:
+    name: python3-pip
+    state: present
+  become: yes
+
+- name: Install servercfgd required Python packages
+  pip:
+    name:
+      - redis
+    state: present
+    executable: "{{ pip_executable }}"
+  environment: "{{ proxy_env | default({}) }}"
+
+- name: Create servercfgd directory
+  file:
+    path: "{{ servercfgd_path }}"
+    state: directory
+    mode: "0755"
+
+- name: Copy servercfgd to connection db server
+  copy:
+    src: servercfgd.py
+    dest: "{{ servercfgd_path }}"
+    force: "{{ enforce_provision_servercfgd }}"
+    mode: u=rwx,g=rx,o=rx
+  register: copy_result
+
+- name: Generate server_cfgd service file
+  template:
+    src: servercfgd.service.j2
+    dest: /etc/systemd/system/servercfgd.service
+  when: copy_result.changed
+
+- name: Ensure servercfgd is running
+  systemd:
+    name: servercfgd
+    state: restarted
+  when: copy_result.changed
+
+- name: Get Lua scripts
+  set_fact:
+    db_scripts: "{{ db_scripts|default([]) + [ item ]}}"
+  with_fileglob:
+    - "*.lua"
+
+- name: Register scripts to connection_db
+  debug:
+    msg: >
+      Run 'register_script'
+      {{ lookup('servercfgd_client', 'register_scripts', servercfgd_host=connection_db_host_ip, scripts=db_scripts) }}
