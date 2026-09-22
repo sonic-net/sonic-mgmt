@@ -444,9 +444,11 @@ def apply_mux_cable_table_to_dut(cleanup_mocked_configs, rand_selected_dut,
     # Cisco 8000 Gibraltar host-route standby mixes a tunnel NH into an IP ECMP
     # that SAI creates as L2, then rejects the tunnel member. Prefix-route
     # avoids that sequence. Other ASICs keep the YANG default (host-route).
-    use_prefix_route = dut.facts.get('asic_type') == 'cisco-8000'
+    PREFIX_ROUTE_ASICS = {'cisco-8000'}
+    asic_type = dut.facts.get('asic_type')
+    use_prefix_route = asic_type in PREFIX_ROUTE_ASICS
     if use_prefix_route:
-        logger.info("Using MUX_CABLE neighbor_mode=prefix-route for cisco-8000")
+        logger.info("Using MUX_CABLE neighbor_mode=prefix-route for %s", asic_type)
 
     server_ipv4_base_addr, server_ipv6_base_addr = mock_server_base_ip_addr
 
