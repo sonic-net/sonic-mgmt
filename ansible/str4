@@ -961,8 +961,16 @@ sonic_nokia_ixr7220_th6p:
       mgmt_subnet_v6_mask_length: 64
       hwsku: Nokia-BMC-H6-128
       serial: NK261230208
-      base_mac: 88:18:f1:e4:27:60
+      base_mac: 88:18:F1:E4:27:60
       console_baudrate: 115200
+      syseeprom_info:
+        "0x21": "7220 IXR-H6-128"
+        "0x22": "3HE21649AA0101"
+        "0x23": "NK261230208"
+        "0x24": "88:18:F1:E4:27:60"
+        "0x25": "03/19/2026 18:30:00"
+        "0x28": "arm64-nokia_bmc_h6_128-r0"
+        "0x29": "2023.02-69-g3e0e658b-dirty-V01-dirty"
     str4-Nokia-7220-Th6p-2:
       ansible_host: 10.3.155.89
       ansible_hostv6: 2a01:111:e210:86::a03:9b59
@@ -971,18 +979,18 @@ sonic_nokia_ixr7220_th6p:
       mgmt_subnet_v6_mask_length: 64
       hwsku: Nokia-IXR7220-H6-O256
       model: 7220 IXR-H6-128
-      serial: TODO  # placeholder - fix with real serial
-      base_mac: "00:00:00:00:00:00"  # placeholder - fix with real base MAC
+      serial: NK262739201
+      base_mac: B8:D5:AD:A6:F1:AF
       syseeprom_info:
         "0x21": "7220 IXR-H6-128"
-        "0x22": "3HE21649AA0101"  # placeholder - copied from -1
-        "0x23": "NK261230208"  # placeholder - copied from -1
-        "0x24": "88:18:F1:E4:27:5F"  # placeholder - copied from -1
-        "0x25": "03/19/2026 18:30:00"  # placeholder - copied from -1
-        "0x27": "DEMO UNIT"
+        "0x22": "3HE21641AARA01"
+        "0x23": "NK262739201"
+        "0x24": "B8:D5:AD:A6:F1:AF"
+        "0x25": "07/15/2026 23:19:40"
         "0x28": "x86_64-nokia_ixr7220_h6_128-r0"
         "0x29": "2025.02-onie_version-nokia_ixrh6-128_v0.6"
-        "0x2A": "1024"
+        "0x2A": "2048"
+        "0x2F": "INMTB00ARA"
     str4-Nokia-7220-Th6p-2-bmc:
       ansible_host: 10.3.155.91
       ansible_hostv6: 2a01:111:e210:86::a03:9b5b
@@ -990,8 +998,18 @@ sonic_nokia_ixr7220_th6p:
       mgmt_subnet_v6_mask_length: 64
       hwsku: Nokia-BMC-H6-128
       serial: NK262739201
-      base_mac: b8:d5:ad:a6:f1:b1
+      base_mac: B8:D5:AD:A6:F1:B1
       console_baudrate: 115200
+      syseeprom_info:
+        "0x21": "7220 IXR-H6-128"
+        "0x22": "3HE21641AARA01"
+        "0x23": "NK262739201"
+        "0x24": "B8:D5:AD:A6:F1:B1"
+        "0x25": "07/21/2026 10:45:34"
+        "0x28": "arm64-nokia_bmc_h6_128-r0"
+        "0x29": "2023.02-74-g720879bb-V03"
+        "0x2A": "2048"
+        "0x2F": "INMTB00ARA"
     str4-Nokia-7220-Th6p-leaf-1:
       ansible_host: 10.3.154.233
       ansible_hostv6: 2a01:111:e210:95::a03:9ae9
