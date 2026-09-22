@@ -29,15 +29,17 @@ pytestmark = [pytest.mark.topology("t0")]
 
 
 @pytest.fixture(autouse=True, scope="module")
-def check_image_version(duthost):
+def check_image_version(duthosts, rand_one_dut_hostname):
     """Skips this test if the SONiC image installed on DUT is older than 202205
 
     Args:
-        duthost: Hostname of DUT.
+        duthosts: DUT host objects.
+        rand_one_dut_hostname: Hostname selected for this test module.
 
     Returns:
         None.
     """
+    duthost = duthosts[rand_one_dut_hostname]
     skip_release(duthost, ["201811", "201911", "202012", "202106", "202111"])
 
 
