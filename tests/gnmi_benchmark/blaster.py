@@ -149,9 +149,6 @@ class RouteTableBlaster(Blaster):
         session.set(write, metadata=BYPASS_METADATA, entry_count=entries)
 
 
-BLASTERS = {RouteTableBlaster.name: RouteTableBlaster}
-
-
 @dataclass
 class _Samples:
     started_ts: datetime = field(default_factory=lambda: datetime.now(timezone.utc))

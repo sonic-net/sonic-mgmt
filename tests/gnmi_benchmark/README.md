@@ -9,9 +9,39 @@
 | [benchmark_report.py](benchmark_report.py) | `BenchmarkReport.generate`: statistics, JSON report and output |
 | [helpers.py](helpers.py) | Shared TLS, resource acquisition/restoration and request-building helpers |
 
-`test_gnmi_benchmark.py` is the shared pytest entrypoint; `conftest.py` registers CLI
-options and supplies workload, device, connection and Runner fixtures.
-There are no separate client, environment, scheduler or workload packages.
+`test_gnmi_benchmark.py` is the single pytest entrypoint. `BENCHMARK_CASES` supplies
+Runner and Blaster factories through native pytest parametrization. Every case
+gets fresh instances; there is no benchmark-specific `conftest.py` or CLI parser.
+
+## Default automation matrix
+
+| Routes/RPC | Workers | Load modes |
+|---|---|---|
+| 1,000 | 10 | Closed and open loop |
+| 1,000 | 100 | Closed and open loop |
+| 1,000 | 200 | Closed and open loop |
+| 20,000 | 10 | Closed and open loop |
+
+All eight cases use 60 seconds of warmup, 60 seconds of measured admission and
+a 120-second per-RPC timeout. Inventory stays at 256k routes across 13 VNETs.
+Open loop offers `OPEN_LOOP_RATE = 500` iterations/s as an overload probe; closed
+loop is unpaced. This is not a sustainable-capacity claim. Warmup drops are
+recorded and allow measurement to proceed; no successful warmup iterations or
+any warmup RPC/response error prevents measurement.
+
+Run the module with normal sonic-mgmt inventory/testbed arguments and
+`--run-stress-tests`. Select a subset using pytest, for example:
+
+```text
+-k '1000routes and 100workers and closed-loop'
+```
+
+Run cases sequentially on one selected DUT, without parallel pytest workers.
+Eight cases need at least 16 minutes plus setup, drain and restoration. Each case
+produces its own report in `OUTPUT_DIR` (default `/tmp/gnmi-benchmark`). Use the
+case table in `test_gnmi_benchmark.py` to change settings; `--benchmark-*` options
+are no longer supported. Existing per-request latency and measured-drop verdicts
+still apply; an overloaded baseline can produce reports and fail pytest.
 
 ## Main entrypoint
 
@@ -68,14 +98,16 @@ checks warmup outcomes and decides whether to proceed; it implements no arrival
 clock, worker loop or concurrency policy.
 
 To add a scenario, subclass `Blaster` in `blaster.py` and implement
-`workload(session, prepared)` and register the class in `BLASTERS` by name.
-The CLI selects from this registry; the same pytest entrypoint runs every workload.
+`workload(session, prepared)`, then add a Runner factory and Blaster factory to
+`BENCHMARK_CASES` using `pytest.param(..., id=...)`. A class or `functools.partial`
+can serve as the factory. The same pytest entrypoint runs every case.
 Set the class's `hwsku_prefixes` when a workload requires particular hardware;
 the default empty tuple imposes no SKU restriction. Override `resources(host, stub)` only when preparation is
 needed; return a context manager from a resource helper. Do not put concurrency
 loops or cleanup commands inside `workload()`. Inherited defaults are 4 workers,
 100 iterations, 120-second per-RPC timeout, closed-loop traffic and no warmup.
-RouteTableBlaster defaults to 1,000 iterations; duration mode instead uses a time window.
+RouteTableBlaster defaults to 1,000 iterations when constructed directly; the
+automation matrix explicitly uses duration mode and overrides its load settings.
 
 To change reporting, pass an object implementing:
 
@@ -93,29 +125,7 @@ The report defines elapsed/drain time, throughput, sample populations and output
 fields. Runner checks raw warmup outcomes before deciding to start measurement;
 the report never makes that execution decision.
 
-## CLI examples
-
-Use the normal sonic-mgmt inventory/testbed arguments with
-`gnmi_benchmark/test_gnmi_benchmark.py`.
-
-```text
---run-stress-tests --benchmark-blaster route-table
---benchmark-blaster-params '{"route_distribution":{"16000":1,"20000":12},"routes_per_request":20000}'
---benchmark-marker routes-20k-total-256k
---benchmark-concurrency 20 --benchmark-logical-requests 1000
---benchmark-warmup 60 --benchmark-timeout 120
-```
-
-Uniform open-loop adds `--benchmark-traffic open-loop --benchmark-rate 500`.
-This means 500 Get→Set iterations/s, not 500 RPCs/s. Capacity/late drops are explicit
-and fail the test, without being fabricated RPC failures or latency samples.
-
-The quotes above are for direct shell invocation of pytest. When embedding the
-compact JSON inside `run_tests.sh -e "..."`, do not pass literal outer single
-quotes through to pytest; its JSON argument must start with `{`.
-
-There is one concrete scenario: `RouteTableBlaster`. The abstract `Blaster` only
-defines shared settings and the extension contract; it is not another test.
+## Route-table workload
 
 | Name | Scenario parameters | Workload |
 |---|---|---|
@@ -123,12 +133,6 @@ defines shared settings and the extension contract; it is not another test.
 
 There is no method/mode selector. The concrete blaster's `workload()` defines what
 one logical request does; RouteTableBlaster always uses Get→Set.
-
-It accepts inherited load settings and `marker`. JSON parameters initialize the
-blaster; explicitly provided CLI load flags override them. Omitted flags retain
-its defaults. `--benchmark-blaster route-table` is optional since it is the only
-supported scenario. The old `--benchmark-workload` and scenario flags
-are replaced by `--benchmark-blaster` / `--benchmark-blaster-params`.
 
 `routes_per_request` must be a positive divisor of the largest VNET size; no
 partial batches are measured. Distribution keys must be 1–20,000 and counts positive integers; their weighted
@@ -138,13 +142,12 @@ Generated routes get isolated VNETs sharing one test VXLAN tunnel and persistent
 config backup/restoration. Setup issues one bypass Set per VNET, excluded from
 measurement. Every measured Set also requests bypass; there is no bypass toggle,
 Regular mode or arbitrary payload file option.
-The `benchmark_device` fixture reads HwSKU from CONFIG_DB and applies the selected
-blaster's `hwsku_prefixes` using sonic-mgmt's standard `pytest_require` helper.
+The entrypoint checks the selected DUT's existing `host.facts["hwsku"]` against
+the blaster's `hwsku_prefixes` using sonic-mgmt's standard `pytest_require` helper.
 RouteTableBlaster permits `Cisco-8102`, `Cisco-8101` and `Cisco-8223` prefixes,
-matching sonic-gnmi's bypass allowlist. A failed or empty SKU read fails the test.
-`benchmark_connection` resolves the TLS fixture only after this check passes,
-before route preparation and preload. `benchmark_blaster` and `benchmark_runner`
-provide the workload and lifecycle implementation to the shared test entrypoint.
+matching sonic-gnmi's bypass allowlist. Missing HwSKU facts fail the test. The
+entrypoint resolves the shared TLS fixture only after eligibility passes, before
+route preparation and preload. No extra Redis shell query is needed for selection.
 This requests bypass, not authentication bypass or proof of server fast-path
 execution. The shared `gnmi_tls` fixture is unchanged.
 

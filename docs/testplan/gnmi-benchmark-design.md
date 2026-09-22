@@ -61,8 +61,9 @@ resource snapshots before and after measurement, releases resources, then calls
 `result.generate(...)` and returns its result.
 
 Warmup and measurement use the same workload, but warmup samples are excluded
-from results. The Runner decides whether warmup succeeded before starting
-measurement. The Report consumes measurements without controlling execution.
+from results. Warmup requires at least one successful iteration and no RPC/response
+errors; open-loop drops are recorded without preventing measurement.
+The Report consumes measurements without controlling execution.
 A preparation or restoration failure prevents a completed benchmark report.
 
 ---
@@ -233,13 +234,26 @@ earlier successful requests retain their samples.
 |---|---|---|---|
 | [RouteTableBlaster](../../tests/gnmi_benchmark/blaster.py) (`route-table`) | Read explicit CONFIG_DB route keys, then rewrite the batch with prepared values and validation bypass requested. | Route distribution and routes per request; default inventory: 256k routes across 13 VNETs. | Single-ASIC DUT with HwSKU prefix `Cisco-8102`, `Cisco-8101` or `Cisco-8223`; TLS, GCU, Loopback0 IPv4 and exclusive configuration access. |
 
-One pytest entrypoint runs the selected workload from the `BLASTERS` registry.
-Shared fixtures supply the Blaster, Runner and connection, checking the workload's
-HwSKU requirements before TLS setup. Unsupported devices are skipped using
-`pytest_require`. SKU eligibility is necessary for bypass, but does not by itself
-prove that the installed server executed the bypass path.
+### Default automation
 
-For CLI examples and extension details, see the
+One parametrized pytest entrypoint runs `BENCHMARK_CASES`; each case supplies
+fresh Runner and Blaster instances. The default matrix has eight cases:
+
+| Routes/RPC | Workers | Load modes |
+|---|---|---|
+| 1,000 | 10, 100, 200 | Closed and open loop |
+| 20,000 | 10 | Closed and open loop |
+
+Each case uses **60s warmup, 60s measurement admission and 120s per-RPC timeout**,
+with the same 256k-route inventory. Open loop offers **500 iterations/s** as an
+overload probe. Run sequentially on the same DUT; select subsets with pytest `-k`.
+Configure cases in the entrypoint rather than through `--benchmark-*` flags.
+
+The entrypoint checks HwSKU from existing DUT facts before TLS setup and skips
+unsupported devices with `pytest_require`. SKU eligibility does not by itself
+prove bypass execution. The existing per-request latency/drop verdict is retained.
+
+For usage and extension details, see the
 [benchmark README](../../tests/gnmi_benchmark/README.md).
 
 ## References

@@ -37,8 +37,8 @@ class BenchmarkRunner:
                 summary = dict(marker=blaster.marker, completed=sum(statuses.values()),
                                iteration_status_counts=statuses, response_errors=response_errors, dropped=dropped)
                 logger.info("GNMI_BENCHMARK_WARMUP_JSON %s", json.dumps(summary, sort_keys=True))
-                if (not statuses.get("OK") or any(k != "OK" for k in statuses)
-                        or response_errors or dropped):
+                # Open-loop overload drops are expected; retain them in the warmup summary.
+                if not statuses.get("OK") or any(k != "OK" for k in statuses) or response_errors:
                     raise RuntimeError("Warmup failed; measured phase not started: {}".format(summary))
             resources = collect_resource_snapshot(host)
             samples = blaster.blast(stub, prepared)
