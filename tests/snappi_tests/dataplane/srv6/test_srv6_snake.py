@@ -31,10 +31,11 @@ from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp
 
 from tests.snappi_tests.dataplane.srv6.files.srv6_telemetry import poll_srv6_perf_stats
-from tests.snappi_tests.dataplane.srv6.files.srv6_helper import config_snake_traffic_flows, snappi_port_name_mapper_snake, \
-    verify_dut_stat_counters_snake, clear_dut_stats, config_snake_vlan_mac_port, config_snake_vrf, \
-    config_snake_vrf_bindings, config_snake_sids, create_snake_tgen_sid_list, config_snake_static_routes, \
-    config_ip_neighbor_add_lladd_dev, add_details_to_snappi_ports
+from tests.snappi_tests.dataplane.srv6.files.srv6_helper import config_snake_traffic_flows, \
+    snappi_port_name_mapper_snake, verify_dut_stat_counters_snake, clear_dut_stats, \
+    config_snake_vlan_mac_port, config_snake_vrf, config_snake_vrf_bindings, config_snake_sids, \
+    create_snake_tgen_sid_list, config_snake_static_routes, config_ip_neighbor_add_lladd_dev, \
+    add_details_to_snappi_ports
 
 logger = logging.getLogger(__name__)
 
