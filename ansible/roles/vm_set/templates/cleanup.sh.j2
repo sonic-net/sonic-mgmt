@@ -8,8 +8,10 @@ test -z "$(virsh list --state-running --name)" || virsh list --state-running --n
 # stop paused VMs
 test -z "$(virsh list --state-paused --name)" || virsh list --state-paused --name | xargs -I % virsh destroy %
 
-# undefine all VMs
-test -z "$(virsh list --all --name)" || virsh list --all --name | xargs -I % virsh undefine %
+# undefine all VMs, including domains with managed NVRAM
+for domain in $(virsh list --all --name); do
+    virsh undefine --nvram "$domain" || virsh undefine "$domain"
+done
 
 # remove all VM disks
 rm -f {{ root_path }}/disks/*

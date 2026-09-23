@@ -322,6 +322,9 @@ t0:
   - wol/test_wol.py
   - zmq/test_gnmi_zmq.py
 
+t0-secureboot:
+  - platform_tests/secure_boot/test_secure_boot.py::test_unsigned_kernel_module_is_rejected
+
 t0-2vlans:
   - dhcp_relay/test_dhcpv6_relay.py
   - vlan/test_host_vlan.py
