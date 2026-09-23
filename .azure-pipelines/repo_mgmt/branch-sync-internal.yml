@@ -20,6 +20,10 @@ parameters:
         SOURCE_BRANCH: "internal-202412"
         TARGET_BRANCH: "internal-202503-chassis"
         PUSH_BRANCH: "internal-202503-chassis"
+      AZD_202511_internal:
+        SOURCE_BRANCH: "internal-202511"
+        TARGET_BRANCH: "internal-202511-azd"
+        PUSH_BRANCH: "internal-202511-azd"
     displayName: "Branches to sync and merge"
 
 stages:
