@@ -102,7 +102,7 @@ class SSHConsoleConn(BaseConsoleConn):
                 "Reboot started; aborting console write to keep bootloader autoboot intact")
         return super(SSHConsoleConn, self).write_channel(out)
 
-    def switch_to_host_console(self, selector="2"):
+    def switch_to_host_console(self, selector="1"):
         """Switch a multiplexed BMC serial session to the host and log in."""
         self.write_channel("\x15")
         time.sleep(1 * self.select_delay_factor(1))
