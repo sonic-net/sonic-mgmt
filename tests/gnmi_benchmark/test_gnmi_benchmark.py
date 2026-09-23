@@ -73,25 +73,30 @@ def test_gnmi_benchmark(
     enum_rand_one_per_hwsku_frontend_hostname,
     request,
 ):
-    host = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    blaster = blaster_factory()
-    device_sku = host.facts.get("hwsku") or ""
-    pytest_require(device_sku, "DUT HwSKU is unavailable")
-    if blaster.hwsku_prefixes:
-        pytest_require(device_sku.startswith(blaster.hwsku_prefixes), "Unsupported HwSKU: " + device_sku)
-    # Resolve TLS setup only after checking the selected device.
-    connection = request.getfixturevalue("gnmi_tls")
-    pytest_require(connection.transport == "tls" and connection.pygnmi_client is not None,
-                   "The benchmark requires the TLS transport")
-    report = BenchmarkReport(
-        connection_type=connection.transport.upper(),
-        device=dict(hostname=host.hostname, os_version=host.os_version, sku=device_sku,
-                    platform=host.facts.get("platform", "unknown"), asic_type=host.facts.get("asic_type", "unknown"),
-                    asic_count=host.num_asics()))
-    result = runner_factory().run(host, connection, blaster, report)
-    path = result.write(BENCHMARK_CONFIG["output_dir"])
-    _emit_report(request, result.to_dict())
-    logger.info("gNMI benchmark marker=%s cid=%s report=%s", result.marker, result.cid, path)
-    if result.failed:
-        pytest.fail("gNMI benchmark marker={} has RPC failures, requests over 1000ms, or dropped arrivals".format(
-            result.marker))
+    try:
+        host = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        blaster = blaster_factory()
+        device_sku = host.facts.get("hwsku") or ""
+        pytest_require(device_sku, "DUT HwSKU is unavailable")
+        if blaster.hwsku_prefixes:
+            pytest_require(device_sku.startswith(blaster.hwsku_prefixes), "Unsupported HwSKU: " + device_sku)
+        # Resolve TLS setup only after checking the selected device.
+        connection = request.getfixturevalue("gnmi_tls")
+        pytest_require(connection.transport == "tls" and connection.pygnmi_client is not None,
+                       "The benchmark requires the TLS transport")
+        report = BenchmarkReport(
+            connection_type=connection.transport.upper(),
+            device=dict(hostname=host.hostname, os_version=host.os_version, sku=device_sku,
+                        platform=host.facts.get("platform", "unknown"),
+                        asic_type=host.facts.get("asic_type", "unknown"),
+                        asic_count=host.num_asics()))
+        result = runner_factory().run(host, connection, blaster, report)
+        path = result.write(BENCHMARK_CONFIG["output_dir"])
+        _emit_report(request, result.to_dict())
+        logger.info("gNMI benchmark marker=%s cid=%s report=%s", result.marker, result.cid, path)
+        if result.failed:
+            logger.error("gNMI benchmark report-only marker=%s cid=%s has RPC failures, "
+                         "requests over 1000ms, or dropped arrivals", result.marker, result.cid)
+    except (Exception, pytest.fail.Exception):
+        # Runner context managers unwind before logging; skips/interrupts propagate.
+        logger.exception("gNMI benchmark report-only error node=%s", request.node.nodeid)

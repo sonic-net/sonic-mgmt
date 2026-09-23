@@ -1,213 +1,116 @@
 # gNMI benchmark
 
-**Three main files: runner, blaster, benchmark report.**
+An opt-in, **report-only** benchmark for VNET route Get→bypass Set requests.
+There is one pytest entrypoint: `test_gnmi_benchmark.py`. Configuration, SKU
+selection and error handling live there; no benchmark-specific `conftest.py`
+or `--benchmark-*` CLI options are needed.
 
-| File | Read this for |
-|---|---|
-| [benchmark_runner.py](benchmark_runner.py) | `BenchmarkRunner.run`: acquire resources, call warmup/measurement, clean up, hand measurements to the report |
-| [blaster.py](blaster.py) | Abstract `Blaster`, open/closed-loop scheduling, thread pools, RPC execution and `RouteTableBlaster.workload()` |
-| [benchmark_report.py](benchmark_report.py) | `BenchmarkReport.generate`: statistics, JSON report and output |
-| [helpers.py](helpers.py) | Shared TLS, resource acquisition/restoration and request-building helpers |
+## Run
 
-`test_gnmi_benchmark.py` is the single pytest entrypoint. `BENCHMARK_CASES` supplies
-Runner and Blaster factories through native pytest parametrization. Every case
-gets fresh instances; there is no benchmark-specific `conftest.py` or CLI parser.
-
-Edit `BENCHMARK_CONFIG` at the top of the entrypoint to manage automation settings:
-`parameters` holds shared timing, `load_modes` maps each mode to its offered
-iterations/s, and `output_dir` sets the report destination. Each entry in
-`benchmarks` declares its Runner, Blaster, workload parameters and named profiles.
-Parameter precedence is shared defaults → benchmark parameters → profile parameters;
-the selected load mode supplies traffic/rate and the case name supplies the marker.
-`BENCHMARK_CASES` expands these settings using native pytest parametrization.
-Direct Blaster construction still uses the class defaults in `blaster.py`.
-
-### Case and run identity
-
-- **Case ID / marker:** generated once as `<benchmark>-<profile>-<load-mode>` and
-  shared by pytest, logs and the report. For example,
-  `route-table-1000routes-100workers-open-loop` identifies the workload, batch,
-  concurrency and load mode without device names or timestamps.
-- **Run ID (`cid`):** a fresh UUID for each report. It distinguishes repeated runs
-  of the same case and names the output file `<cid>-report.json`. The completion
-  log includes both marker and cid.
-- **Comparison:** use marker to group the same case and cid to locate one run.
-  Marker is a readable label, not a complete parameter fingerprint; check the
-  report's workload profile, load settings and scheduling rate before comparison.
-
-## Default automation matrix
-
-| Routes/RPC | Workers | Load modes |
-|---|---|---|
-| 1,000 | 10 | Closed and open loop |
-| 1,000 | 100 | Closed and open loop |
-| 1,000 | 200 | Closed and open loop |
-| 20,000 | 10 | Closed and open loop |
-
-All eight cases use 60 seconds of warmup, 60 seconds of measured admission and
-a 120-second per-RPC timeout. Inventory stays at 256k routes across 13 VNETs.
-Open loop offers 500 iterations/s as an overload probe; closed
-loop is unpaced. This is not a sustainable-capacity claim. Warmup drops are
-recorded and allow measurement to proceed; no successful warmup iterations or
-any warmup RPC/response error prevents measurement.
-
-Run the module with normal sonic-mgmt inventory/testbed arguments and
-`--run-stress-tests`. Select a subset using pytest, for example:
+Run `gnmi_benchmark/test_gnmi_benchmark.py` with the normal sonic-mgmt
+inventory/testbed arguments and `--run-stress-tests`. Use pytest `-k` to select
+cases, for example:
 
 ```text
 -k '1000routes and 100workers and closed-loop'
 ```
 
-Run cases sequentially on one selected DUT, without parallel pytest workers.
-Eight cases need at least 16 minutes plus setup, drain and restoration. Each case
-produces its own report in `BENCHMARK_CONFIG["output_dir"]` (default `/tmp/gnmi-benchmark`).
-Change settings in `BENCHMARK_CONFIG`; `--benchmark-*` options
-are no longer supported. Existing per-request latency and measured-drop verdicts
-still apply; an overloaded baseline can produce reports and fail pytest.
+Run cases sequentially on one DUT. The route workload requires:
 
-## Main entrypoint
+- HwSKU beginning with **`Cisco-8102`**, **`Cisco-8101`** or **`Cisco-8223`**.
+  Missing or unsupported SKU skips before TLS setup.
+- A single-ASIC DUT with TLS, native CONFIG_DB Get/Set, validation-bypass support,
+  GCU and a Loopback0 IPv4 address.
+- Exclusive configuration access and enough room for the generated inventory.
+  Existing plus generated `VNET_ROUTE_TUNNEL` routes must not exceed 256,000.
 
-```python
-from tests.gnmi_benchmark.benchmark_runner import BenchmarkRunner
-from tests.gnmi_benchmark.blaster import RouteTableBlaster
-from tests.gnmi_benchmark.benchmark_report import BenchmarkReport
+## Configure
 
-blaster = RouteTableBlaster(
-    route_distribution={16000: 1, 20000: 12},
-    routes_per_request=20000,
-    concurrency=20,
-    logical_requests=1000,
-    marker="routes-20k-total-256k",
-)
-result = BenchmarkRunner().run(duthost, gnmi_tls, blaster, BenchmarkReport())
-result.write("/tmp/gnmi-benchmark")
-```
+Edit `BENCHMARK_CONFIG` in [test_gnmi_benchmark.py](test_gnmi_benchmark.py):
 
-`RouteTableBlaster.workload()` is the business action: select a VNET, **Get its
-route batch, then bypass Set the same batch**. The default inventory is
-12 VNETs × 20,000 + 1 × 16,000 = **13 VNETs / 256,000 routes**.
-It is a test profile, not a claim about a particular customer's actual distribution.
-All route batches are preloaded before warmup/measurement and reused read-only.
-Only the largest VNETs participate in measurement; smaller VNETs remain background
-inventory. `routes_per_request` divides each measured VNET into disjoint batches.
-Selection cycles through measured VNETs before advancing to their next batch.
-Short/dropped runs may not visit all batches; repeats rewrite
-the same keys rather than creating more routes.
-Count/rate/concurrency apply to complete iterations, not individual RPCs.
-Get failure skips Set. The report groups individual RPC durations by request type and route count,
-without adding Get and Set together. This is a response-level test, not an atomic transaction or
-forwarding convergence check.
+| Setting | Purpose |
+|---|---|
+| `output_dir` | JSON report directory; default `/tmp/gnmi-benchmark` |
+| `parameters` | Shared warmup, measurement duration and per-RPC timeout |
+| `load_modes` | Closed-loop or open-loop, with offered iterations/s |
+| `benchmarks` | Runner/Blaster factories, inventory and named load profiles |
 
-## Lifecycle and extension
+Parameters are merged in order: shared → workload → profile. The selected mode
+sets traffic/rate, and the generated case ID sets the marker. `BENCHMARK_CASES`
+expands this into eight pytest cases with fresh Runner and Blaster instances:
 
-The runner enters the connection context and `blaster.resources(host, stub)`, which
-returns prepared requests. It owns both contexts through an ExitStack. Resource
-helpers register rollback before mutations; workers drain before cleanup starts.
-Backup restoration is attempted even if route-key removal fails. Reporting occurs
-only after cleanup succeeds. No concrete blaster or report class is imported by
-the runner.
+| Routes per RPC | Workers | Modes |
+|---:|---|---|
+| 1,000 | 10, 100, 200 | Closed and open loop |
+| 20,000 | 10 | Closed and open loop |
 
-For each phase it calls `blaster.blast(stub, prepared, duration=...)`. Blaster
-selects the scheduling policy, owns its thread pool, drains admitted work and
-returns raw timestamps, counters and per-worker sample lists. It does not define
-report fields, throughput or histograms. BenchmarkReport derives those statistics.
-Inside `blaster.py`, abstract `LoadLoop` owns the pool lifecycle, common clock and
-in-flight/sample bookkeeping. `ClosedLoop` and `OpenLoop` inherit it and implement
-only `_schedule()`. Both reuse `run()` and `invoke()`, including drain on errors.
-Warmup and measurement use separate
-pools and counters, but share the same connection and prepared requests. Runner
-checks warmup outcomes and decides whether to proceed; it implements no arrival
-clock, worker loop or concurrency policy.
+Each case uses **60s warmup, 60s measured admission and 120s per-RPC timeout**.
+Closed loop starts the next iteration after the previous one completes. Open
+loop offers **500 iterations/s** independently of responses and drops arrivals
+when capacity is full or their scheduled slot has expired. This rate is an
+overload probe, not a demonstrated service capacity or agreed customer profile.
+Eight cases require at least 16 minutes plus preparation, drain and restoration.
 
-To add a scenario, subclass `Blaster` and implement `workload(session, prepared)`,
-then add an entry to `BENCHMARK_CONFIG["benchmarks"]` with its `runner`, `blaster`,
-`parameters` and named `profiles`. Runner factories must produce an object with
-the existing `run(host, fixture, blaster, result)` contract; Blasters follow the
-existing workload interface. Classes or `functools.partial` can serve as factories.
-The case generator and test entrypoint need no workload-specific changes.
-Set the class's `hwsku_prefixes` when a workload requires particular hardware;
-the default empty tuple imposes no SKU restriction. Override `resources(host, stub)` only when preparation is
-needed; return a context manager from a resource helper. Do not put concurrency
-loops or cleanup commands inside `workload()`. Inherited defaults are 4 workers,
-100 iterations, 120-second per-RPC timeout, closed-loop traffic and no warmup.
-RouteTableBlaster defaults to 1,000 iterations when constructed directly; the
-automation matrix explicitly uses duration mode and overrides its load settings.
+## Workload
 
-To change reporting, pass an object implementing:
+Inventory is fixed at **256k routes**: twelve 20k-route VNETs plus one 16k-route
+background VNET. `routes_per_request` controls batch size independently of this
+inventory and must divide the largest VNET size exactly. Measurement rotates
+through disjoint batches across the twelve largest VNETs; the smaller VNET stays
+as background inventory.
 
-```python
-class CountReport:
-    def generate(self, *, samples, warmup, connection_ready_seconds, resources, marker, blaster, profile):
-        completed = sum(sum(worker["statuses"].values()) for worker in samples["workers"])
-        return {"marker": marker, "completed": completed}
-```
+Each iteration sends one explicit-key Get, then one bypass Set for the same
+batch. A failed Get skips Set. Repeated iterations rewrite existing keys rather
+than adding routes. Preload and cleanup are outside measurement. The helper
+registers cleanup before mutation and restores the persistent configuration backup.
 
-The runner returns whatever `generate()` returns. The standard BenchmarkReport
-provides `to_dict()`, `write()` and `failed`; it does not control warmup or access
-the DUT. Measurement inputs are plain data, not runner/worker objects.
-The report defines elapsed/drain time, throughput, sample populations and output
-fields. Runner checks raw warmup outcomes before deciding to start measurement;
-the report never makes that execution decision.
+Get uses `ALL` and `JSON_IETF` with explicit CONFIG_DB paths. Set requests validation
+bypass; SKU eligibility alone does not prove the server selected that path.
+The benchmark checks RPC/response errors, not readback equality, forwarding
+convergence or atomicity. Input limits are not demonstrated capacity.
 
-## Route-table workload
+## Results and error handling
 
-| Name | Scenario parameters | Workload |
-|---|---|---|
-| `route-table` | `route_distribution`: inventory per VNET → VNET count; `routes_per_request`: batch size | Each iteration reads and bypass-writes one batch within a largest-size VNET |
+Each completed run writes `<cid>-report.json` and attaches its report to the test
+results. The marker is `<benchmark>-<profile>-<load-mode>`; `cid` distinguishes
+repeated runs. Logs include both. Compare actual profile/load settings as well as
+the marker.
 
-There is no method/mode selector. The concrete blaster's `workload()` defines what
-one logical request does; RouteTableBlaster always uses Get→Set.
+Schema 10 contains separate bodies such as `requests["get:1000"]` and
+`requests["set:1000"]`:
 
-`routes_per_request` must be a positive divisor of the largest VNET size; no
-partial batches are measured. Distribution keys must be 1–20,000 and counts positive integers; their weighted
-sum must not exceed **256,000**, including existing CONFIG_DB routes on the DUT.
-The default full-capacity profile therefore requires no pre-existing route entries.
-Generated routes get isolated VNETs sharing one test VXLAN tunnel and persistent
-config backup/restoration. Setup issues one bypass Set per VNET, excluded from
-measurement. Every measured Set also requests bypass; there is no bypass toggle,
-Regular mode or arbitrary payload file option.
-The entrypoint safely reads the selected DUT's existing HwSKU facts and checks them against
-the blaster's `hwsku_prefixes` using sonic-mgmt's standard `pytest_require` helper.
-RouteTableBlaster permits `Cisco-8102`, `Cisco-8101` and `Cisco-8223` prefixes,
-matching sonic-gnmi's bypass allowlist. Missing, empty or unsupported HwSKU values skip the test. The
-entrypoint resolves the shared TLS fixture only after eligibility passes, before
-route preparation and preload. No extra Redis shell query is needed for selection.
-This requests bypass, not authentication bypass or proof of server fast-path
-execution. The shared `gnmi_tls` fixture is unchanged.
+- Per-RPC outcome counts, successful-call latency in **ms**, percentiles and histogram.
+- **1,000ms per-request** evaluation. Slow requests, RPC/response errors and measured
+  drops produce an error log, without failing pytest. A low average/P95 is not a pass.
+- Scheduling in **iterations**: open-loop arrivals, drops, start delay and drain.
+  One iteration contains Get plus Set; it is not one RPC.
+- Resource snapshots before/after measurement, not peaks during load.
 
-Each Get contains explicit native CONFIG_DB paths for every compound route key
-of the selected batch; it is not an empty Get or a full-table query. A single Get
-with 20k paths may be expensive and requires device validation. No wildcard support
-is assumed. Responses are checked for RPC success, not compared against the payload.
+Request timing includes serialization, queueing, transport, server work and
+response decoding; explicit SetResponse error inspection is outside the timer.
+Failed calls have no successful-latency sample. Warmup data is excluded; warmup
+drops allow measurement, but warmup RPC/response errors stop the run.
 
-## Measurement limits
+The entrypoint logs ordinary exceptions and explicit `pytest.fail` outcomes from
+dynamic TLS setup, Runner execution/cleanup and report writing, without re-raising.
+Runner contexts unwind before logging. Skips and interrupts propagate normally.
+Collection and fixture setup/teardown outside the test body remain pytest-managed.
+No report is fabricated when execution or restoration prevents its generation.
+**A green pytest outcome is not evidence of performance compliance or restored
+device state.** Inspect errors and reports; timed-out server writes can outlive
+the client and require cleanup verification before reuse.
 
-Schema 10 reports per-request latency, outcome counts and throughput by request type and route count,
-plus scheduling evidence and resource boundary samples. Marker identifies the
-scenario; `benchmark.profile` records VNET count, route distribution, total routes,
-limit and selection policy. Raw request contents and credential metadata are never echoed.
+## Code layout
 
-`requests["get:20000"]` and `requests["set:20000"]` are independent report bodies, each with counts,
-statuses, latency histograms and `latency_requirement`. Only executed request types
-appear; an unsent Set is not a zero-latency success. Each RPC
-timer surrounds the stub call, including client queueing, transport and decoding,
-but excluding response-error inspection. Successful Gets remain in Get statistics
-even if their subsequent Set fails; failed Gets skip Set. Preload and warmup calls
-are excluded from all measured populations. No combined latency or sum of Get/Set
-percentiles is reported. The requirement is **at most 1,000 ms for each request**,
-not for the average or P95: `within_limit` / `exceeded` count successful calls on
-either side of that boundary. Failed RPCs are counted separately and also fail the
-test. A successful request over 1,000 ms makes the benchmark fail after writing its
-report. RPC timeout remains a separate setting so slow requests can be measured.
-`load.iterations` describes execution scheduling only; it is not an RPC count.
+| File | Responsibility |
+|---|---|
+| [benchmark_runner.py](benchmark_runner.py) | Connection/resources, warmup, measurement and cleanup |
+| [blaster.py](blaster.py) | Workload, open/closed scheduling and raw RPC measurements |
+| [benchmark_report.py](benchmark_report.py) | Aggregation, performance evaluation and JSON output |
+| [helpers.py](helpers.py) | TLS, request construction and device resource helpers |
 
-Each request timer starts immediately before its stub call and ends at the
-decoded return; SetResponse inspection is excluded.
-Setup, warmup and cleanup are excluded. Client/HTTP2 queueing, serialization,
-transport and server work remain included. This is not pure network RTT.
+To add a workload, implement `Blaster.workload()` and, if needed, its resource
+context, then register its factories and profiles in `BENCHMARK_CONFIG`.
+The shared TLS fixture is unchanged.
 
-The local behavioral checks use mocked RPCs and device lifecycle. Limits of
-500 workers, 20k entries per VNET and 256,000 total routes are limits, not demonstrated capacity.
-Timed-out server writes may outlive the client; inspect cleanup before reuse.
-
-[Detailed design and reporting](../../docs/testplan/gnmi-benchmark-design.md)
+[Design, timing boundary and report schema](../../docs/testplan/gnmi-benchmark-design.md)
