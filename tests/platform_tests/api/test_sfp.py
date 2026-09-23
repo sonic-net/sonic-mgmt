@@ -179,10 +179,13 @@ class TestSfpApi(PlatformApiTestBase):
         'lasertemphighalarm'
     ]
 
-    # To get all the keys supported by QSFP-ZR modules
-    # below list should be appended with
-    # EXPECTED_XCVR_COMMON_THRESHOLD_INFO_KEYS + QSFPDD_EXPECTED_XCVR_THRESHOLD_INFO_KEYS
-    QSFPZR_EXPECTED_XCVR_THRESHOLD_INFO_KEYS = [
+    # VDM based thresholds which used to be reported by the
+    # get_transceiver_threshold_info() platform API for coherent (C-CMIS) modules.
+    # They were moved out of that API into the dedicated
+    # get_transceiver_vdm_thresholds() API by sonic-platform-common PR #556, so they
+    # are treated as optional here: branches which still expose them keep passing,
+    # while branches which no longer do are not reported as missing fields.
+    QSFPZR_OPTIONAL_XCVR_THRESHOLD_INFO_KEYS = [
         'prefecberhighalarm',
         'prefecberlowalarm',
         'prefecberhighwarning',
@@ -590,6 +593,8 @@ class TestSfpApi(PlatformApiTestBase):
                     actual_keys = list(thold_info_dict.keys())
 
                     expected_keys = list(self.EXPECTED_XCVR_COMMON_THRESHOLD_INFO_KEYS)
+                    # Keys which are allowed to be reported, but are not required to be present
+                    optional_keys = []
                     if info_dict["type_abbrv_name"] in ["QSFP-DD", "OSFP-8X", "QSFP+C"]:
                         expected_keys += self.QSFPDD_EXPECTED_XCVR_THRESHOLD_INFO_KEYS
                         if sfp.is_coherent_module(platform_api_conn, i):
@@ -597,14 +602,14 @@ class TestSfpApi(PlatformApiTestBase):
                                 logger.info("INPHI CORP Transceiver is not populating the associated threshold fields \
                                              in redis TRANSCEIVER_DOM_THRESHOLD table. Skipping this transceiver")
                                 continue
-                            expected_keys += self.QSFPZR_EXPECTED_XCVR_THRESHOLD_INFO_KEYS
+                            optional_keys += self.QSFPZR_OPTIONAL_XCVR_THRESHOLD_INFO_KEYS
 
                     missing_keys = set(expected_keys) - set(actual_keys)
                     for key in missing_keys:
                         self.expect(
                             False, "Transceiver {} threshold info does not contain field: '{}'".format(i, key))
 
-                    unexpected_keys = set(actual_keys) - set(expected_keys)
+                    unexpected_keys = set(actual_keys) - set(expected_keys) - set(optional_keys)
                     for key in unexpected_keys:
                         self.expect(
                             False, "Transceiver {} threshold info contains unexpected field '{}'".format(i, key))
