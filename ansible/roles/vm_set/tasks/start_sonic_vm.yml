@@ -10,6 +10,7 @@
 
 - set_fact:
     disk_image: "{{ sonic_vm_storage_location }}/disks/sonic_{{ dut_name }}.img"
+    efi_vars: "{{ sonic_vm_storage_location }}/disks/sonic_{{ dut_name }}_vars.fd"
     mgmt_ip_address: " {{ hostvars[dut_name]['ansible_host'] }}"
     mgmt_gw: "{{ vm_mgmt_gw | default(mgmt_gw) }}"
     serial_port: "{{ hostvars[dut_name]['serial_port'] }}"
@@ -20,6 +21,7 @@
 
 - set_fact:
     src_disk_image: "{{ sonic_vm_storage_location }}/images/sonic-{{ 'vpp' if 'vpp' == asic_type else 'vs' }}.img"
+    src_disk_efi_vars: "{{ sonic_vm_storage_location }}/images/sonic-{{ 'vpp' if 'vpp' == asic_type else 'vs' }}_vars.fd"
 
 - name: Remove arp entry for {{ dut_name }}
   shell: arp -d {{ mgmt_ip_address }}
@@ -33,9 +35,43 @@
   stat: path={{ disk_image }}
   register: file_stat
 
+- name: Check sonic EFI vars for {{ dut_name }}
+  stat:
+    path: "{{ efi_vars }}"
+  register: efi_vars_stat
+  when: secure_boot_enabled | default(false) | bool
+
+- name: Check Secure Boot firmware for {{ dut_name }}
+  stat:
+    path: /usr/share/OVMF/OVMF_CODE_4M.secboot.fd
+  register: secure_boot_firmware_stat
+  when: secure_boot_enabled | default(false) | bool
+
+- name: Check source EFI vars for {{ dut_name }}
+  stat:
+    path: "{{ src_disk_efi_vars }}"
+  register: src_disk_efi_vars_stat
+  when: secure_boot_enabled | default(false) | bool
+
+- name: Validate Secure Boot artifacts for {{ dut_name }}
+  assert:
+    that:
+      - secure_boot_firmware_stat.stat.exists
+      - src_disk_efi_vars_stat.stat.exists
+    fail_msg: >-
+      Secure Boot requires /usr/share/OVMF/OVMF_CODE_4M.secboot.fd and
+      {{ src_disk_efi_vars }} on the VM host.
+  when: secure_boot_enabled | default(false) | bool
+
 - name: Copy sonic disk image for {{ dut_name }}
   copy: src={{ src_disk_image }} dest={{ disk_image }} remote_src=True
   when: not file_stat.stat.exists
+
+- name: Copy sonic EFI vars for {{ dut_name }}
+  copy: src={{ src_disk_efi_vars }} dest={{ efi_vars }} remote_src=True
+  when:
+    - secure_boot_enabled | default(false) | bool
+    - not efi_vars_stat.stat.exists
 
 - name: determine whether to include internal ports
   set_fact:

@@ -7,6 +7,10 @@ parameters:
     type: string
     default: ""
 
+  - name: CHECKER
+    type: string
+    default: ""
+
   - name: PREPARE_TIME
     default: 30
 
@@ -20,7 +24,11 @@ steps:
     echo "$TEST_SCRIPTS" > /tmp/ts.json
     echo "TEST_SCRIPTS value from file:"
     cat /tmp/ts.json
-    TEST_SCRIPTS=$(jq -r -c '."${{ parameters.TOPOLOGY }}_checker"' /tmp/ts.json)
+    CHECKER="${{ parameters.CHECKER }}"
+    if [[ -z "$CHECKER" ]]; then
+      CHECKER="${{ parameters.TOPOLOGY }}_checker"
+    fi
+    TEST_SCRIPTS=$(jq -r -c --arg checker "$CHECKER" '.[$checker]' /tmp/ts.json)
     rm /tmp/ts.json
     if [[ -z "$TEST_SCRIPTS" ]]; then
       echo "##vso[task.complete result=Failed;]Get test scripts of specfic topology fails."

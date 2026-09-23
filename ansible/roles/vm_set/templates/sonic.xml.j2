@@ -57,10 +57,19 @@
   <resource>
     <partition>/machine</partition>
   </resource>
+{% if secure_boot_enabled | default(false) | bool %}
+  <os firmware='efi'>
+    <type arch='x86_64' machine='q35'>hvm</type>
+    <boot dev='hd'/>
+    <loader readonly="yes" secure="yes" type="pflash" format="raw">/usr/share/OVMF/OVMF_CODE_4M.secboot.fd</loader>
+    <nvram template="/usr/share/OVMF/OVMF_VARS_4M.fd" templateFormat="raw" format="raw">{{ efi_vars }}</nvram>
+  </os>
+{% else %}
   <os>
     <type arch='x86_64' machine='q35'>hvm</type>
     <boot dev='hd'/>
   </os>
+{% endif %}
   <features>
     <acpi/>
     <apic/>

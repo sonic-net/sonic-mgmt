@@ -4,6 +4,12 @@
 
 - set_fact:
     disk_image: "{{ sonic_vm_storage_location }}/disks/sonic_{{ dut_name }}.img"
+    efi_vars: "{{ sonic_vm_storage_location }}/disks/sonic_{{ dut_name }}_vars.fd"
+
+- name: Check whether sonic EFI vars exist for {{ dut_name }}
+  stat:
+    path: "{{ efi_vars }}"
+  register: efi_vars_stat
 
 - name: Destroy vm {{ dut_name }}
   virt: name={{ dut_name }}
@@ -16,8 +22,29 @@
   virt: name={{ dut_name }}
         command=undefine
         uri=qemu:///system
-  when: dut_name in vm_list_defined.list_vms
+  when:
+    - dut_name in vm_list_defined.list_vms
+    - not efi_vars_stat.stat.exists
   become: yes
 
-- name: Remove sonic disk image for {{ dut_name }}
-  file: path={{ disk_image }} state=absent
+- name: Undefine UEFI vm {{ dut_name }}
+  command:
+    argv:
+      - virsh
+      - --connect
+      - qemu:///system
+      - undefine
+      - --nvram
+      - "{{ dut_name }}"
+  when:
+    - dut_name in vm_list_defined.list_vms
+    - efi_vars_stat.stat.exists
+  become: yes
+
+- name: Remove sonic disk image and EFI vars for {{ dut_name }}
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - "{{ disk_image }}"
+    - "{{ efi_vars }}"

@@ -42,6 +42,12 @@ def topo_name_to_topo_checker(topo_name):
 
 
 def distribute_scripts_to_PR_checkers(match, script_name, test_scripts_per_topology_checker):
+    if script_name.startswith("platform_tests/secure_boot/"):
+        test_scripts_per_topology_checker["secureboot_checker"].append(
+            script_name
+        )
+        return
+
     for topology in match.group(1).split(","):
         topology_mark = topology.strip().strip('"').strip("'")
         if topology_mark == "any":

@@ -3,11 +3,15 @@
 # - dualtor-t0
 # - multi-asic-t1-lag
 # - t0
+# - secureboot-t0
 # - t0-2vlans
 # - t0-sonic
 # - t1- lag
-PR_TOPOLOGY_TYPE = ["t0_checker", "t0-2vlans_checker", "t0-sonic_checker", "t1_checker",
-                    "t1-multi-asic_checker", "dpu_checker", "dualtor_checker", "t2_checker"]
+PR_TOPOLOGY_TYPE = [
+    "t0_checker", "secureboot_checker", "t0-2vlans_checker",
+    "t0-sonic_checker", "t1_checker", "t1-multi-asic_checker",
+    "dpu_checker", "dualtor_checker", "t2_checker"
+]
 
 EXCLUDE_TEST_SCRIPTS = [
     "test_posttest.py",
