@@ -622,15 +622,17 @@ def sonic_dhcpv4_flag_config_and_unconfig(duthost, dhcpv4_config_flag=False):
 
 
 @pytest.fixture()
-def enable_sonic_dhcpv4_relay_agent(rand_selected_dut, request):
+def enable_sonic_dhcpv4_relay_agent(rand_selected_dut, rand_unselected_dut, request):
     """
-    Fixture to enable the DHCP relay feature flag and restart the service.
+    Enable the requested DHCP relay implementation on the selected DUT and its dual-ToR peer.
     """
     if "skip_config_dhcpv4_relay_agent" in request.keywords:
         yield
         return
 
-    duthost = rand_selected_dut
+    relay_duthosts = [rand_selected_dut]
+    if rand_unselected_dut is not None:
+        relay_duthosts.append(rand_unselected_dut)
 
     if "dut_dhcp_relay_data" in request.fixturenames:
         dut_dhcp_relay_data = request.getfixturevalue("dut_dhcp_relay_data")
@@ -639,14 +641,16 @@ def enable_sonic_dhcpv4_relay_agent(rand_selected_dut, request):
 
     try:
         if request.getfixturevalue("relay_agent") == "sonic-relay-agent":
-            sonic_dhcpv4_flag_config_and_unconfig(duthost, True)
-            sonic_dhcp_relay_config(duthost, dut_dhcp_relay_data, True)
+            for duthost in relay_duthosts:
+                sonic_dhcpv4_flag_config_and_unconfig(duthost, True)
+                sonic_dhcp_relay_config(duthost, dut_dhcp_relay_data, True)
         yield
     finally:
         # Cleanup: disable the feature flag
         if request.getfixturevalue("relay_agent") == "sonic-relay-agent":
-            sonic_dhcpv4_flag_config_and_unconfig(duthost, False)
-            sonic_dhcp_relay_unconfig(duthost, dut_dhcp_relay_data)
+            for duthost in relay_duthosts:
+                sonic_dhcpv4_flag_config_and_unconfig(duthost, False)
+                sonic_dhcp_relay_unconfig(duthost, dut_dhcp_relay_data)
 
 
 def check_dhcpv4_socket_status(duthost, dut_dhcp_relay_data=None, process_and_socket_check=None):
