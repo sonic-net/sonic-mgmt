@@ -88,7 +88,13 @@ class SSHConsoleConn(BaseConsoleConn):
         elif self.console_type == CONSOLE_SSH_TO_PORT:
             # Login to the per-line SSH/TCP port
             kwargs["username"] = kwargs["console_username"]
-            kwargs["port"] = kwargs["direct_ssh_port"]
+            direct_ssh_port = kwargs.get("direct_ssh_port")
+            if not direct_ssh_port:
+                raise ValueError(
+                    "console_ssh_to_port requires direct_ssh_port to be set "
+                    "(console_host={})".format(kwargs.get("console_host"))
+                )
+            kwargs["port"] = direct_ssh_port
         elif self.console_type in (
             CONSOLE_SSH_DIGI_CONFIG,
             CONSOLE_SSH_RARITAN_CONFIG,
