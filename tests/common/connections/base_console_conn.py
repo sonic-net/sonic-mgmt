@@ -38,8 +38,6 @@ CONSOLE_SSH_SONIC_CONFIG = "console_ssh_sonic_config"
 CONSOLE_SSH_CISCO_CONFIG = "console_ssh_cisco_config"
 # Console login via conserver
 CONSOLE_CONSERVER = "console_conserver"
-# Console login via SSH to Lantronix
-CONSOLE_SSH_LANTRONIX_CONFIG = "console_ssh_to_port_lantronix_config"
 # Console login via SSH to Raritan
 CONSOLE_SSH_RARITAN_CONFIG = "console_ssh_to_port_raritan_config"
 

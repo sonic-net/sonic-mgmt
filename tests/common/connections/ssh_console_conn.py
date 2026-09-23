@@ -2,7 +2,6 @@ import time
 import re
 from .base_console_conn import (
     CONSOLE_SSH_DIGI_CONFIG,
-    CONSOLE_SSH_LANTRONIX_CONFIG,
     CONSOLE_SSH_RARITAN_CONFIG,
     BaseConsoleConn,
     CONSOLE_SSH,
@@ -92,7 +91,6 @@ class SSHConsoleConn(BaseConsoleConn):
             kwargs["port"] = kwargs["direct_ssh_port"]
         elif self.console_type in (
             CONSOLE_SSH_DIGI_CONFIG,
-            CONSOLE_SSH_LANTRONIX_CONFIG,
             CONSOLE_SSH_RARITAN_CONFIG,
             CONSOLE_SSH_SONIC_CONFIG,
             CONSOLE_SSH_CISCO_CONFIG,
@@ -318,7 +316,7 @@ class SSHConsoleConn(BaseConsoleConn):
         Helper function to handle final stages of session preparation.
         """
         # > as prompt terminator
-        if self.console_type in [CONSOLE_SSH_DIGI_CONFIG, CONSOLE_SSH_LANTRONIX_CONFIG, CONSOLE_SSH_RARITAN_CONFIG]:
+        if self.console_type in [CONSOLE_SSH_DIGI_CONFIG, CONSOLE_SSH_RARITAN_CONFIG]:
             self.set_base_prompt(">")
         else:
             self.set_base_prompt()

@@ -7,7 +7,6 @@ from .base_console_conn import (
     CONSOLE_SSH_DIGI_CONFIG,
     CONSOLE_SSH_SONIC_CONFIG,
     CONSOLE_CONSERVER,
-    CONSOLE_SSH_LANTRONIX_CONFIG,
     CONSOLE_SSH_RARITAN_CONFIG,
 )
 from .telnet_console_conn import TelnetConsoleConn
@@ -27,7 +26,6 @@ ConsoleTypeMapper = {
     CONSOLE_SSH_CISCO_CONFIG: SSHConsoleConn,
     CONSOLE_CONSERVER: ConserverConsoleConn,
     CONSOLE_LINECARD: LinecardConsoleConn,
-    CONSOLE_SSH_LANTRONIX_CONFIG: SSHConsoleConn,
     CONSOLE_SSH_RARITAN_CONFIG: SSHConsoleConn,
 }
 

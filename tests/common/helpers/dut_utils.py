@@ -18,7 +18,6 @@ from tests.common.utilities import get_dut_current_passwd, update_console_creds
 from tests.common.connections.base_console_conn import (
     CONSOLE_SSH_CISCO_CONFIG,
     CONSOLE_SSH_DIGI_CONFIG,
-    CONSOLE_SSH_LANTRONIX_CONFIG,
     CONSOLE_SSH_RARITAN_CONFIG,
     CONSOLE_SSH_SONIC_CONFIG
 )
@@ -841,12 +840,6 @@ def duthost_clear_console_port(
         CONSOLE_SSH_CISCO_CONFIG: [
             (f'clear line tty {console_port}', '[confirm]'),    # Clear DUT console port
             ('', '[OK]')                                        # Confirm selection
-        ],
-        CONSOLE_SSH_LANTRONIX_CONFIG: [
-            ('enable', None),
-            (f'tunnel {console_port}', 'tunnel:'),
-            ('accept', 'tunnel-accept:'),
-            ('kill connection', 'tunnel-accept:')
         ],
         CONSOLE_SSH_RARITAN_CONFIG: [
             ('maintenance', "Maintenance"),
