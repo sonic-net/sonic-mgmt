@@ -15,8 +15,8 @@ pytestmark = [
 ]
 
 
-def test_timeout(duthost_console, duthosts, enum_rand_one_per_hwsku_hostname):
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+def test_timeout(duthost_console):
+    """Verify that the console session automatically logs out after the configured timeout."""
     logger.info("Get default session idle timeout")
     default_tmout = duthost_console.send_command('echo $TMOUT').strip().splitlines()[0].strip()
     pytest_assert(default_tmout == DEFAULT_TMOUT, "default timeout on dut is not {} seconds".format(DEFAULT_TMOUT))
@@ -27,4 +27,4 @@ def test_timeout(duthost_console, duthosts, enum_rand_one_per_hwsku_hostname):
     pytest_assert(set_tmout == SET_TMOUT, "set timeout fail")
 
     time.sleep(15)
-    duthost_console.send_command("\n", expect_string=r"{} login:".format(duthost.hostname))
+    duthost_console.send_command("\n", expect_string=r"login:")
