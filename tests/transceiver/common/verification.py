@@ -400,7 +400,8 @@ def standard_port_recovery_and_verification(
 
     Returns:
         dict: ``{'passed': bool, 'per_port': {port: {'passed': bool,
-        'details': str}}, 'details': str}``
+        'details': str}}, 'details': str, 'post_recovery_sentinels':
+        {port: (flap_count, last_up_time)}, 'post_recovery_started_at': float}``
     """
     # ``None`` on single-ASIC -> no ``-n`` flag.
     namespaces = {
@@ -429,6 +430,7 @@ def standard_port_recovery_and_verification(
         capture_flap_sentinels(duthost, up_ports, namespaces=namespaces)
         if up_ports else {}
     )
+    post_recovery_sentinels_captured_at = time.monotonic()
 
     # 2a end-gate. Mandatory stability sub-check, only for up ports. Asserted
     # here (after steps 3/5) so the window overlaps that work instead of a
@@ -487,4 +489,6 @@ def standard_port_recovery_and_verification(
         "passed": overall_passed,
         "per_port": per_port,
         "details": "; ".join(per_port[port]["details"] for port in ports),
+        "post_recovery_sentinels": post_recovery_sentinels,
+        "post_recovery_started_at": post_recovery_sentinels_captured_at,
     }
