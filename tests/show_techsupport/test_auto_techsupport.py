@@ -515,11 +515,12 @@ class TestAutoTechSupport:
     @pytest.mark.disable_loganalyzer
     def test_sai_sdk_dump(self, tbinfo, global_rate_limit_zero, cleanup_list):
         """
-        Validate that a SAI dump archive is written, allowing one second before the trigger minute.
+        Validate that a new or updated SAI dump archive is written without deleting previous dumps.
         Test logic is as follows:
         - Record the DUT time rounded down to the minute
+        - Snapshot matching archive filenames and modification times
         - Trigger SAI call which will fail
-        - Wait for a SAI dump .tar.gz file modified after that time minus one second
+        - Wait for a new or updated SAI dump .tar.gz file modified after that time minus one second
         :param tbinfo: tbinfo fixture
         :param global_rate_limit_zero: fixture which disables the global rate limit
         :param cleanup_list: cleanup list
@@ -547,15 +548,20 @@ class TestAutoTechSupport:
         with allure.step('Add interface: {} to PortChannel: {}'.format(test_port, po_name)):
             add_po_member(self.duthost, po_name, test_port, minigraph_facts)
 
-        with allure.step('Apply config(which will cause SAI call failure) on DUT'):
+        with allure.step('Capture existing SAI dump archives on-device'):
             trigger_time = self.duthost.command('date "+%Y-%m-%d %H:%M:00 %z"')['stdout'].strip()
+            find_dumps_cmd = ("find {} -maxdepth 1 -type f -name 'sai_sdk_dump_*.tar.gz' "
+                              "-newermt '{} 1 second ago' -printf '%f %T@\\n'").format(dump_dir, trigger_time)
+            existing_dumps = set(self.duthost.command(find_dumps_cmd)['stdout_lines'])
+
+        with allure.step('Apply config(which will cause SAI call failure) on DUT'):
             self.duthost.shell('sudo config load -y {}'.format(DUT_SAI_CALL_CONFIG_PATH))
 
-        with allure.step('Check that a SAI dump archive was modified after the trigger minute minus one second'):
-            find_dump = ("find {} -maxdepth 1 -type f -name 'sai_sdk_dump_*.tar.gz' "
-                         "-newermt '{} 1 second ago' -print -quit").format(dump_dir, trigger_time)
-            assert wait_until(300, 10, 0, lambda: self.duthost.command(find_dump)['stdout'].strip()), \
-                'No SAI dump .tar.gz file newer than {} minus one second in {}'.format(trigger_time, dump_dir)
+        with allure.step('Check that a new or updated SAI dump archive was generated'):
+            assert wait_until(300, 10, 0, lambda: set(self.duthost.command(
+                find_dumps_cmd)['stdout_lines']) - existing_dumps), \
+                'No new or updated SAI dump .tar.gz file newer than {} minus one second in {}'.format(
+                    trigger_time, dump_dir)
 
 
 # Methods used by tests
