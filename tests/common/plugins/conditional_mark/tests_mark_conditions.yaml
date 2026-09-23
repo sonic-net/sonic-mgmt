@@ -5302,6 +5302,12 @@ snappi_tests/lacp:
     conditions:
       - "'2025' in release or '202605' in release or '202608' in release"
 
+snappi_tests/packet_trimming:
+  skip:
+    reason: "Snappi packet trimming tests are not supported on Mellanox SPC1-SPC3 platforms."
+    conditions:
+      - "asic_type == 'mellanox' and asic_gen in ['spc1', 'spc2', 'spc3']"
+
 snappi_tests/pfc/test_global_pause_with_snappi.py:
   skip:
     reason: "Global pause is not supported in cisco-8000. / Snappi test only support on physical tgen testbed"
