@@ -29,6 +29,7 @@ from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.constants import ARP_RESPONDER_DEFAULT_CONFIG
 from tests.common.helpers.dut_ports import encode_dut_port_name
+from tests.common.helpers.sonic_db import redis_hgetall
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR
 from tests.common.dualtor.nic_simulator_control import restart_nic_simulator                            # noqa: F401
 from tests.common.dualtor.nic_simulator_control import nic_simulator_flap_counter                       # noqa: F401
@@ -1773,7 +1774,7 @@ def wait_active_active_port_status(duthost, ports, status, timeout=60, interval=
         duthost, ports, status, mismatches=mismatches)
 
 
-def collect_active_active_mux_signal_snapshot(duthost, ports, max_ports=3):
+def collect_active_active_mux_signal_snapshot(duthost, ports, max_ports=3, budget_seconds=30):
     """Dump the DB entries that carry the active-active mux signalling handshake.
 
     For active-active ports the server-side state is not produced by linkmgrd
@@ -1791,9 +1792,11 @@ def collect_active_active_mux_signal_snapshot(duthost, ports, max_ports=3):
     answered, or it may have answered with the wrong state. Capturing these keys
     at failure time distinguishes those cases without reading syslog.
 
-    Read-only, and capped at `max_ports` ports so a 120-port topology cannot
-    flood the log. Any individual lookup that fails is reported inline rather
-    than raising, because this runs on an already-failing path.
+    Read-only, and capped both by `max_ports` and by `budget_seconds` so a
+    high port-count topology, or a DUT that has stopped answering, cannot turn
+    diagnostics into a second failure. Any individual lookup that fails is
+    reported inline rather than raising, because this runs on an already-failing
+    path.
     """
     lookups = [
         ("APPL_DB", "MUX_CABLE_TABLE:{}", "mux state requested by linkmgrd"),
@@ -1805,31 +1808,37 @@ def collect_active_active_mux_signal_snapshot(duthost, ports, max_ports=3):
         ("APPL_DB", "FORWARDING_STATE_RESPONSE:{}", "answer published by ycabled"),
     ]
 
+    deadline = time.time() + budget_seconds
     lines = []
     for port in list(ports)[:max_ports]:
+        if time.time() > deadline:
+            lines.append("--- collection budget of {}s exhausted, remaining ports skipped ---"
+                         .format(budget_seconds))
+            break
         lines.append("--- {} {} ---".format(duthost.hostname, port))
         for db_name, key_template, description in lookups:
             key = key_template.format(port)
+            if time.time() > deadline:
+                lines.append("  {}|{}: <skipped, collection budget exhausted>".format(db_name, key))
+                continue
             try:
-                result = duthost.shell(
-                    "sonic-db-cli {} HGETALL '{}'".format(db_name, key),
-                    module_ignore_errors=True
-                )
-                value = (result.get("stdout") or "").strip() or "<empty>"
+                # redis_hgetall handles the ASIC namespace and the response
+                # parsing, and returns {} rather than raising on a miss.
+                value = redis_hgetall(duthost, db_name, key) or "<empty>"
             except Exception as exc:  # noqa: BLE001 - never mask the real failure
                 value = "<lookup failed: {}>".format(exc)
-            lines.append("  {}|{} ({}): {}".format(
-                db_name, key, description, value.replace("\n", " ")))
+            lines.append("  {}|{} ({}): {}".format(db_name, key, description, value))
     return "\n".join(lines)
 
 
-def log_active_active_mux_signal_snapshot(duthost, ports, max_ports=3):
+def log_active_active_mux_signal_snapshot(duthost, ports, max_ports=3, budget_seconds=30):
     """Log the signalling snapshot, swallowing any error it hits."""
     try:
         logging.warning(
             "Active-active mux signalling snapshot on %s:\n%s",
             duthost.hostname,
-            collect_active_active_mux_signal_snapshot(duthost, ports, max_ports=max_ports))
+            collect_active_active_mux_signal_snapshot(
+                duthost, ports, max_ports=max_ports, budget_seconds=budget_seconds))
     except Exception as exc:  # noqa: BLE001 - diagnostics must not replace the real failure
         logging.warning("Could not collect active-active mux signalling snapshot: %s", exc)
 
