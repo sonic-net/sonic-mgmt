@@ -265,8 +265,8 @@ def setup_ntp_server_context(ptfhost, ptf_use_ipv6=False,
     )["rc"] == 0
     ntp_conf_backup_path = "{}.sonicmgmt.{}.bak".format(ntp_conf_path, uuid.uuid4().hex)
 
-    ptfhost.command("command -v flock >/dev/null")
-    ptfhost.command("command -v setsid >/dev/null")
+    ptfhost.shell("command -v flock >/dev/null")
+    ptfhost.shell("command -v setsid >/dev/null")
     recovery = _install_ntp_server_recovery(
         ptfhost,
         ntp_service_name,
