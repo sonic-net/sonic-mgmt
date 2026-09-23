@@ -16,7 +16,7 @@ from tests.snappi_tests.cisco.helper import disable_voq_watchdog                
 import logging
 logger = logging.getLogger(__name__)
 
-pytestmark = [pytest.mark.topology('multidut-tgen')]
+pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]
 
 
 @pytest.fixture(autouse=True, scope='module')

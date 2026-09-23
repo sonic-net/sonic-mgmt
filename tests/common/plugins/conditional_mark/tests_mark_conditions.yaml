@@ -1876,16 +1876,6 @@ everflow/test_everflow_per_interface.py:
       - "platform in ['x86_64-8800_lc_48h_o-r0', 'x86_64-8800_lc_48h-r0']"
       - "(is_multi_asic==True) and https://github.com/sonic-net/sonic-buildimage/issues/11776"
 
-everflow/test_everflow_per_interface.py::test_everflow_packet_format[ipv6-erspan:
-  skip:
-    reason: "Skip everflow packet integrity IPv6 test on unsupported platforms"
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['cisco-8000', 'marvell', 'mellanox', 'marvell-prestera'] or (asic_subtype in ['broadcom-dnx'] and https://github.com/sonic-net/sonic-swss/issues/2204)"
-      - "'dualtor' in topo_name"
-      - "platform in ['x86_64-8800_lc_48h_o-r0', 'x86_64-8800_lc_48h-r0']"
-      - "(is_multi_asic==True) and https://github.com/sonic-net/sonic-buildimage/issues/11776"
-
 everflow/test_everflow_per_interface.py::test_everflow_packet_format[ipv6-m0_l3_scenario]:
   skip:
     reason: "Skip m0 everflow packet integrity IPv6 test on unsupported platforms"
@@ -1906,22 +1896,10 @@ everflow/test_everflow_per_interface.py::test_everflow_packet_format[ipv6-m0_vla
       - "platform in ['x86_64-8800_lc_48h_o-r0', 'x86_64-8800_lc_48h-r0']"
       - "(is_multi_asic==True) and https://github.com/sonic-net/sonic-buildimage/issues/11776"
 
-everflow/test_everflow_per_interface.py::test_everflow_packet_format\[.*ipv4:
+everflow/test_everflow_per_interface.py::test_everflow_packet_format\[(ipv6-erspan_ipv[46]|erspan_ipv[46]-ipv6)-:
   regex: true
   skip:
-    reason: "Skip for IPv6-only topologies"
-    conditions:
-      - "'-v6-' in topo_name"
-
-everflow/test_everflow_per_interface.py::test_everflow_per_interface[ipv4-erspan_ipv4-default]:
-  xfail:
-    reason: "xfail for scale topology, PTF is not stable at the scale testbed"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/21571 and 't0-isolated-d256u256s2' in topo_name"
-
-everflow/test_everflow_per_interface.py::test_everflow_per_interface[ipv6-erspan:
-  skip:
-    reason: "Skip everflow per interface IPv6 test on unsupported platforms"
+    reason: "Skip everflow packet integrity IPv6 test on unsupported platforms"
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['cisco-8000', 'marvell', 'mellanox', 'marvell-prestera'] or (asic_subtype in ['broadcom-dnx'] and https://github.com/sonic-net/sonic-swss/issues/2204)"
@@ -1929,11 +1907,12 @@ everflow/test_everflow_per_interface.py::test_everflow_per_interface[ipv6-erspan
       - "platform in ['x86_64-8800_lc_48h_o-r0', 'x86_64-8800_lc_48h-r0']"
       - "(is_multi_asic==True) and https://github.com/sonic-net/sonic-buildimage/issues/11776"
 
-everflow/test_everflow_per_interface.py::test_everflow_per_interface[ipv6-erspan_ipv6-default]:
+everflow/test_everflow_per_interface.py::test_everflow_packet_format\[.*ipv4:
+  regex: true
   skip:
-    reason: "Skip everflow per interface IPv6 test on unsupported platforms x86_64-nvidia_sn5640-r0."
+    reason: "Skip for IPv6-only topologies"
     conditions:
-      - "platform in ['x86_64-nvidia_sn5640-r0']"
+      - "'-v6-' in topo_name"
 
 everflow/test_everflow_per_interface.py::test_everflow_per_interface[ipv6-m0_l3_scenario]:
   skip:
@@ -1951,6 +1930,31 @@ everflow/test_everflow_per_interface.py::test_everflow_per_interface[ipv6-m0_vla
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['marvell', 'marvell-prestera']"
+      - "'dualtor' in topo_name"
+      - "platform in ['x86_64-8800_lc_48h_o-r0', 'x86_64-8800_lc_48h-r0']"
+      - "(is_multi_asic==True) and https://github.com/sonic-net/sonic-buildimage/issues/11776"
+
+everflow/test_everflow_per_interface.py::test_everflow_per_interface\[(ipv4-erspan_ipv4|erspan_ipv4-ipv4)-default:
+  regex: true
+  xfail:
+    reason: "xfail for scale topology, PTF is not stable at the scale testbed"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/21571 and 't0-isolated-d256u256s2' in topo_name"
+
+everflow/test_everflow_per_interface.py::test_everflow_per_interface\[(ipv6-erspan_ipv6|erspan_ipv6-ipv6)-default:
+  regex: true
+  skip:
+    reason: "Skip everflow per interface IPv6 test on unsupported platforms x86_64-nvidia_sn5640-r0."
+    conditions:
+      - "platform in ['x86_64-nvidia_sn5640-r0']"
+
+everflow/test_everflow_per_interface.py::test_everflow_per_interface\[(ipv6-erspan_ipv[46]|erspan_ipv[46]-ipv6)-:
+  regex: true
+  skip:
+    reason: "Skip everflow per interface IPv6 test on unsupported platforms"
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['cisco-8000', 'marvell', 'mellanox', 'marvell-prestera'] or (asic_subtype in ['broadcom-dnx'] and https://github.com/sonic-net/sonic-swss/issues/2204)"
       - "'dualtor' in topo_name"
       - "platform in ['x86_64-8800_lc_48h_o-r0', 'x86_64-8800_lc_48h-r0']"
       - "(is_multi_asic==True) and https://github.com/sonic-net/sonic-buildimage/issues/11776"
@@ -2346,6 +2350,12 @@ fdb/test_fdb_mac_learning.py::TestFdbMacLearning::testFdbMacLearning:
     reason: "Skip at dualtor-aa topology due to github issue https://github.com/sonic-net/sonic-mgmt/issues/16110"
     conditions:
       - "'dualtor-aa' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/16110"
+
+fdb/test_fdb_mac_move.py:
+  skip:
+    reason: "FDB tests require switching ASIC, not available on BMC"
+    conditions:
+      - "'bmc' in topo_type"
 
 fdb/test_fdb_mac_move.py::test_fdb_mac_move_guard_disable_mac_learning:
   skip:
@@ -3026,6 +3036,12 @@ gnmi/test_pygnmi_client.py:
       - "is_multi_asic==True"
       - "switch_type=='voq'"
 
+gnmi/test_pygnmi_client.py::test_pygnmi_subscribe_sample_queue_counters:
+  skip:
+    reason: "Queue flex counters are intentionally disabled on management devices (sonic-buildimage#16937)"
+    conditions:
+      - "type in ['BmcMgmtToRRouter', 'MgmtToRRouter', 'MgmtTsToR']"
+
 ###############################################
 #####       golden_config_infra           #####
 ###############################################
@@ -3596,12 +3612,12 @@ ip/test_ip_packet.py::TestIPPacket::test_drop_l3_ip_packet_non_dut_mac:
 
 ip/test_ip_packet.py::TestIPPacket::test_forward_ip_packet_with_0xffff_chksum_drop:
   skip:
-    reason: "Broadcom, Cisco, Barefoot, VPP, and Marvell Asic/nokia-vs will tolorate IP packets with 0xffff checksum
+    reason: "Broadcom, Cisco, Barefoot, VPP, and Marvell Asic/nokia-vs/Micas-vs will tolorate IP packets with 0xffff checksum
             / Skipping ip packet test since can't provide enough interfaces"
     conditions_logical_operator: or
     conditions:
 
-      - "asic_type in ['broadcom', 'cisco-8000', 'marvell', 'barefoot', 'marvell-teralynx', 'marvell-prestera', 'vpp', 'nokia-vs'] and asic_subtype not in ['broadcom-dnx']"
+      - "asic_type in ['broadcom', 'cisco-8000', 'marvell', 'barefoot', 'marvell-teralynx', 'marvell-prestera', 'vpp', 'nokia-vs', 'micas-vs'] and asic_subtype not in ['broadcom-dnx']"
       - "len(minigraph_interfaces) < 2 and len(minigraph_portchannels) < 2"
       - "topo_name in ['t2_2lc_36p-masic', 't2_2lc_min_ports-masic', 't2_5lc-mixed-96']"
 
@@ -3868,11 +3884,19 @@ metadata-scripts/test_metadata_bgp.py:
 #######################################
 mpls:
   skip:
-    reason: "MPLS feature is not enabled with image version, skipped on lossy topologies"
+    reason: "MPLS tests are currently enabled only for VPP; skipped on lossy topologies"
     conditions_logical_operator: or
     conditions:
-      - "'mpls' not in feature_status"
+      - "asic_type not in ['vpp']"
       - *lossyTopos
+
+mpls/test_mpls.py::TestBasicMpls::test_push_label:
+  skip:
+    reason: >
+            MPLS push forwarding is not working; tracked by
+            https://github.com/sonic-net/sonic-mgmt/issues/27874.
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/27874"
 
 #######################################
 #####           mvrf              #####
@@ -4490,6 +4514,9 @@ qos/test_qos_probe.py:
       - "hwsku in ['Mellanox-SN2700'] and https://github.com/sonic-net/sonic-mgmt/issues/22607"
       # Mellanox SPC3 (Spectrum 3)
       - "hwsku in ['Mellanox-SN4600C-C64'] and https://github.com/sonic-net/sonic-mgmt/issues/22608"
+      # Broadcom-DNX - Test provides duplicate coverage to test_qos_sai.py so disabling on DNX to avoid longer runtimes
+      # If we do want to run this on DNX SKUs we'll need https://github.com/sonic-net/sonic-mgmt/issues/27076 fixed
+      - "asic_subtype in ['broadcom-dnx']"
 
 qos/test_qos_probe.py::TestQosProbe::testQosHeadroomPoolProbe:
   xfail:
@@ -4758,6 +4785,16 @@ qos/test_voq_watchdog.py:
     reason: "These tests only apply to cisco 8000 platforms."
     conditions:
       - "asic_type not in ['cisco-8000']"
+
+#######################################
+#####          radius            #####
+#######################################
+
+radius/:
+  skip:
+    reason: 'RADIUS tests require routing and switch CLI, not available on BMC'
+    conditions:
+      - "'bmc' in topo_type"
 
 #######################################
 #####           radv             #####
@@ -5604,6 +5641,12 @@ system_health/test_system_health.py:
     conditions:
       - "asic_type in ['vs']"
 
+system_health/test_system_health.py::test_device_fan_speed_checker:
+  skip:
+    reason: "Aspeed BMC platforms are fanless, so there is no fan speed to mock/check"
+    conditions:
+      - "'bmc' in topo_type"
+
 system_health/test_system_health.py::test_service_checker_with_process_exit:
   xfail:
     strict: True
@@ -6139,7 +6182,7 @@ vxlan/test_vxlan_multiple_tunnels.py:
   skip:
     reason: "VxLAN multi-tunnel test is not yet supported on multi-ASIC platform. Also this test cannot currently run on most platforms."
     conditions:
-      - "(is_multi_asic == True) or (platform not in ['x86_64-8101_32fh_o-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0'])"
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8101_32fh_o-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0'] and asic_type not in ['vpp'])"
 
 vxlan/test_vxlan_route_advertisement.py:
   skip:

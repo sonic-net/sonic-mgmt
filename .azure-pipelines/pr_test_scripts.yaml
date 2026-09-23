@@ -678,6 +678,9 @@ t1-lag-vpp:
   - bgp/test_bgp_vnet.py
   - bgp/test_bgpmon_v6.py
   - bgp/test_traffic_shift_sup.py
+  - cacl/test_cacl_application.py
+  - cacl/test_cacl_function.py
+  - cacl/test_ebtables_application.py
   - crm/test_crm.py
   - crm/test_crm_available.py
   - decap/test_decap.py
@@ -709,6 +712,7 @@ t1-lag-vpp:
   - lldp/test_lldp.py
   - lldp/test_lldp_syncd.py
   - log_fidelity/test_bgp_shutdown.py
+  - mpls/test_mpls.py
   - pc/test_po_voq.py
   - pc/test_lag_member.py
   - pc/test_po_update.py
@@ -744,6 +748,9 @@ t1-lag-vpp:
   - vxlan/test_vnet_route_leak.py
   - vxlan/test_vxlan_crm.py
   - vxlan/test_vxlan_multi_tunnel.py
+  - vxlan/test_vxlan_route_advertisement.py
+  - vxlan/test_vxlan_multiple_tunnels.py
+  - vxlan/test_vxlan_bfd_tsa.py
 
 
 t0-vpp:
@@ -821,6 +828,12 @@ t0-vpp:
   - pc/test_po_cleanup.py
   - pc/test_po_update.py
   - span/test_port_mirroring.py
+  - vlan/test_autostate_disabled.py
+  - vlan/test_host_vlan.py
+  - vlan/test_secondary_subnet.py
+  - vlan/test_vlan.py
+  - vlan/test_vlan_ping.py
+  - vlan/test_vlan_ports_down.py
 
 
 multi-asic-t1-lag:
