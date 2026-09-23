@@ -5268,6 +5268,12 @@ snappi_tests/dataplane:
     conditions:
       - "'2025' in release"
 
+snappi_tests/ecn:
+  skip:
+    reason: "Snappi ECN tests are not supported on lossy topologies."
+    conditions:
+      - *lossyTopos
+
 snappi_tests/ecn/test_bp_fabric_ecn_marking_with_snappi.py:
   skip:
     reason: "This test is written only for T2-cisco-8000."
@@ -5302,6 +5308,12 @@ snappi_tests/lacp:
     conditions:
       - "'2025' in release or '202605' in release or '202608' in release"
 
+snappi_tests/pfc:
+  skip:
+    reason: "Snappi PFC tests are not supported on lossy topologies."
+    conditions:
+      - *lossyTopos
+
 snappi_tests/pfc/test_global_pause_with_snappi.py:
   skip:
     reason: "Global pause is not supported in cisco-8000. / Snappi test only support on physical tgen testbed"
@@ -5316,6 +5328,12 @@ snappi_tests/pfc/warm_reboot/test_pfc_pause_lossless_warm_reboot.py:
     conditions:
       - "True"
 
+snappi_tests/pfcwd:
+  skip:
+    reason: "Snappi PFCWD tests are not supported on lossy topologies."
+    conditions:
+      - *lossyTopos
+
 snappi_tests/pfcwd/test_pfcwd_actions.py::test_pfcwd_frwd_90_10:
   skip:
     reason: "Forward action is not supported in cisco-8000."
@@ -5327,6 +5345,12 @@ snappi_tests/pfcwd/test_pfcwd_actions.py::test_pfcwd_frwd_over_subs_40_09:
     reason: "Forward action is not supported in cisco-8000."
     conditions:
       - "asic_type in ['cisco-8000']"
+
+snappi_tests/qos:
+  skip:
+    reason: "Snappi QoS tests are not supported on lossy topologies."
+    conditions:
+      - *lossyTopos
 
 snappi_tests/reboot:
   skip:
