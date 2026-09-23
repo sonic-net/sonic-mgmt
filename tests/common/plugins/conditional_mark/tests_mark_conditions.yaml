@@ -5336,6 +5336,12 @@ snappi_tests/reboot:
       - "'2025' in release"
       - "https://github.com/sonic-net/sonic-mgmt/issues/27415"
 
+snappi_tests/reboot/test_fast_reboot.py:
+  skip:
+    reason: "Fast reboot is not supported on Nvidia platforms SPC4 and above."
+    conditions:
+      - "asic_type in ['mellanox', 'nvidia'] and asic_gen not in ['spc1', 'spc2', 'spc3']"
+
 #######################################
 #####            snmp             #####
 #######################################
