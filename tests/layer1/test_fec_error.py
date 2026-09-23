@@ -83,14 +83,15 @@ def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_ho
         Expected format :
             * 0
             * 7.81e-10 (89%)
+            * 3.38e+00 (nan%)
         """
         # Pattern for just "0"
         if value_string == "0":
             return True
 
         # Pattern for scientific notation with required accuracy percentage
-        # e.g., "7.81e-10 (89%)"
-        pattern = r'^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)\s+\(\d+%\)$'
+        # e.g., "7.81e-10 (89%)" or "3.38e+00 (nan%)"
+        pattern = r'^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)\s+\((\d+|nan)%\)$'
         if re.match(pattern, value_string):
             return True
 

@@ -22,7 +22,14 @@ def get_t0_neigh(tbinfo, topo_config):
     get all t0 router names which has vips defined
     """
     dut_t0_neigh = []
-    for vm in list(tbinfo['topo']['properties']['topology']['VMs'].keys()):
+    # Enumerate from the topology ``configuration`` (which lists every logical
+    # neighbor) rather than ``topology.VMs``. On converged (multi-VRF) topologies
+    # ``topology.VMs`` only contains the collapsed prime devices (one per role),
+    # so merged sub-peers (e.g. ARISTA03T0) that also advertise the vips prefix
+    # are absent there, leaving fewer than 2 multipath sources. The per-neighbor
+    # ``configuration`` is preserved intact by the converger, so it carries every
+    # logical T0 and its ``vips`` on both stock and converged topologies.
+    for vm in list(topo_config.keys()):
         if 'T0' in vm:
             if 'vips' in topo_config[vm]:
                 dut_t0_neigh.append(vm)

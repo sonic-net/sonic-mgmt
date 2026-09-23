@@ -1,6 +1,7 @@
 from collections import Counter, deque
+import fnmatch
 import os
-from shutil import unregister_unpack_format
+import re
 import yaml
 
 from github import Auth, Github
@@ -14,6 +15,95 @@ NEEDED_REVIEWER_COUNT = int(os.environ.get("NEEDED_REVIEWER_COUNT", 3))
 INCLUDE_CONTRIBUTORS_TIES = os.environ.get(
     "INCLUDE_CONTRIBUTORS_TIES", "False"
 ).strip().lower() not in ("", "false", "f", "0", "no", "n", "off", "disabled")
+SKIP_EXPIRY_CONFIG_PATH = os.environ.get(
+    "SKIP_EXPIRY_CONFIG_PATH", ".github/SKIP_EXPIRY_CONFIG.yaml"
+)
+
+CONDITIONAL_MARK_GLOB_PATTERNS = (
+    "tests/common/plugins/conditional_mark/tests_mark_conditions*.yaml",
+    "tests/common/plugins/conditional_mark/tests_mark_conditions*.yml",
+)
+RELEASE_BRANCH_PATTERN = re.compile(r"^202\d{3}$")
+CONDITIONAL_MARK_NOTE_MARKER = "<!-- skip-expiry-conditional-mark-review-note -->"
+
+
+def is_master_or_release_branch(branch_name: str) -> bool:
+    return branch_name in {"master", "main"} or bool(
+        RELEASE_BRANCH_PATTERN.fullmatch(branch_name)
+    )
+
+
+def load_skip_expiry_maintainers(config_path: str) -> list[str]:
+    with open(config_path, "r", encoding="utf-8") as config_file:
+        config = yaml.safe_load(config_file) or {}
+
+    maintainers = config.get("maintainers", [])
+    if not isinstance(maintainers, list):
+        return []
+
+    return [
+        str(maintainer).strip().lstrip("@")
+        for maintainer in maintainers
+        if str(maintainer).strip()
+    ]
+
+
+def matches_conditional_mark_file(filename: str) -> bool:
+    return any(
+        fnmatch.fnmatch(filename, file_pattern)
+        for file_pattern in CONDITIONAL_MARK_GLOB_PATTERNS
+    )
+
+
+def tag_skip_maintainers_if_change_to_conditional_mark(
+    pull_request, changed_files: list[str]
+) -> None:
+    if not is_master_or_release_branch(pull_request.base.ref):
+        base_branch = pull_request.base.ref
+        print(
+            f"Skipping conditional-mark maintainer note: base branch '{base_branch}' "
+            "is not master/main/release"
+        )
+        return
+
+    has_conditional_mark_changes = any(
+        matches_conditional_mark_file(changed_file) for changed_file in changed_files
+    )
+    if not has_conditional_mark_changes:
+        print(
+            "Skipping conditional-mark maintainer note: "
+            "no conditional-mark files were changed"
+        )
+        return
+
+    try:
+        maintainers = load_skip_expiry_maintainers(SKIP_EXPIRY_CONFIG_PATH)
+    except Exception as error:
+        print(f"Failed to load skip-expiry maintainers from '{SKIP_EXPIRY_CONFIG_PATH}': {error}")
+        return
+
+    if not maintainers:
+        print("Skipping conditional-mark maintainer note: no maintainers found")
+        return
+
+    existing_comments = pull_request.get_issue_comments()
+    for comment in existing_comments:
+        if CONDITIONAL_MARK_NOTE_MARKER in comment.body:
+            print("Conditional-mark maintainer note already exists, skipping new comment")
+            return
+
+    maintainers_mentions = " ".join(f"@{maintainer}" for maintainer in maintainers)
+    note = (
+        f"{CONDITIONAL_MARK_NOTE_MARKER}\n"
+        f"{maintainers_mentions} A user wants to merge changes to "
+        f"the conditional mark files into `{pull_request.base.ref}`. "
+        "Please review."
+    )
+    pull_request.create_issue_comment(note)
+    print(
+        f"Posted conditional-mark maintainer note for PR #{pull_request.number} to: {maintainers}"
+    )
+
 
 # using an access token
 auth = Auth.Token(GITHUB_TOKEN)
@@ -38,11 +128,12 @@ seen_folders = set[str]()
 # Until the sufficient number of reviewers are found
 updated_folders = []
 reviewer_candidates = Counter[str, int]()
+changed_files = [changed_file.filename for changed_file in pr.get_files()]
 
 # First bring each changed path to where any reviwer exists
-for changed_file in pr.get_files():
+for changed_file in changed_files:
     # remove the filename, add "/" to the front
-    changed_path = os.path.join(os.sep, os.path.dirname(changed_file.filename))
+    changed_path = os.path.join(os.sep, os.path.dirname(changed_file))
     print(f"Processing changed path {changed_path}")
     while changed_path not in reviewer_index:
         if changed_path in seen_folders:
@@ -114,3 +205,5 @@ if reviewer_candidates:
 else:
     print("No reviewers found for this PR!")
 
+
+tag_skip_maintainers_if_change_to_conditional_mark(pr, changed_files)

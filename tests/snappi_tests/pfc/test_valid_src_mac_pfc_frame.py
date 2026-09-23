@@ -4,15 +4,14 @@ import pytest
 
 from tests.snappi_tests.pfc.files.valid_src_mac_pfc_frame_helper import run_pfc_valid_src_mac_test
 from tests.common.helpers.assertions import pytest_require
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts, \
     fanout_graph_facts  # noqa: F401
-from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port,\
+from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
     snappi_api, snappi_testbed_config, is_snappi_multidut, is_pfc_enabled  # noqa: F401
-from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, all_prio_list, lossless_prio_list,\
+from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, all_prio_list, lossless_prio_list, \
     lossy_prio_list, disable_pfcwd  # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.common_helpers import packet_capture
-from tests.common.cisco_data import is_cisco_device
 from tests.snappi_tests.cisco.helper import disable_voq_watchdog                  # noqa: F401
 
 logger = logging.getLogger(__name__)
@@ -70,9 +69,6 @@ def test_valid_pfc_frame_src_mac(
 
     testbed_config, port_config_list = snappi_testbed_config
     duthost = duthosts[rand_one_dut_hostname]
-
-    if not is_cisco_device(duthost):
-        pytest.skip("Test is supported on Cisco device only")
 
     if is_snappi_multidut(duthosts):
         pytest.skip("Test is not supported on multi-dut")

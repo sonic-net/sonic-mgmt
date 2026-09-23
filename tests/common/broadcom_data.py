@@ -2,6 +2,10 @@ def is_broadcom_device(dut):
     return dut.facts["asic_type"] == "broadcom"
 
 
+def is_broadcom_dnx_device(dut):
+    return dut.facts.get("platform_asic") == "broadcom-dnx"
+
+
 LOSSY_ONLY_HWSKUS = ['Arista-7060X6-64PE-C256S2', 'Arista-7060X6-64PE-C224O8',
                      'Arista-7060X6-64PE-B-C512S2', 'Arista-7060X6-64PE-B-C448O16']
 NO_QOS_HWSKUS = ['Arista-7050CX3-32C-C28S16', 'Arista-7050CX3-32C-S128',

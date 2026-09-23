@@ -165,7 +165,7 @@ def setup_and_cleanup_custom_acl_table(rand_selected_dut, rand_unselected_dut, t
         rand_unselected_dut.shell("sonic-db-cli CONFIG_DB del \'ACL_TABLE_TYPE|{}\'".format(table_type_name))
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope='function')
 def setup_custom_acl_table(rand_selected_dut, rand_unselected_dut, tbinfo):
     """Setup CUSTOM_TABLE with CUSTOM_TYPE for IPv4/IPv6 mix testing"""
     yield from setup_and_cleanup_custom_acl_table(
@@ -175,7 +175,7 @@ def setup_custom_acl_table(rand_selected_dut, rand_unselected_dut, tbinfo):
     )
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope='function')
 def setup_custom_acl_table_ipv6(rand_selected_dut, rand_unselected_dut, tbinfo):
     """Setup CUSTOM_IPV6_TABLE with CUSTOM_TYPE_IPV6 for IPv6-specific field testing"""
     yield from setup_and_cleanup_custom_acl_table(
@@ -224,7 +224,7 @@ def setup_and_cleanup_acl_rules(rand_selected_dut, rand_unselected_dut, tbinfo,
         rand_unselected_dut.shell(cmd_rm_rules)
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope='function')
 def setup_acl_rules(rand_selected_dut, rand_unselected_dut, tbinfo, setup_custom_acl_table):
     """Load ACL rules for CUSTOM_TABLE"""
     yield from setup_and_cleanup_acl_rules(
@@ -233,7 +233,7 @@ def setup_acl_rules(rand_selected_dut, rand_unselected_dut, tbinfo, setup_custom
     )
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope='function')
 def setup_acl_rules_ipv6(rand_selected_dut, rand_unselected_dut, tbinfo, setup_custom_acl_table_ipv6):
     """Load ACL rules for CUSTOM_IPV6_TABLE"""
     yield from setup_and_cleanup_acl_rules(

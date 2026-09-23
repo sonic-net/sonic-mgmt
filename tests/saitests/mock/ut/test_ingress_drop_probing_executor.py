@@ -42,8 +42,6 @@ class TestIngressDropProbingExecutor:
         self.mock_ptftest.src_client = MagicMock()
         self.mock_ptftest.asic_type = "broadcom"
         self.mock_ptftest.cnt_pg_idx = 5  # PG 3 + 2
-        # Ensure getattr fallback works for ingress_drop_counter_mode
-        del self.mock_ptftest.ingress_drop_counter_mode
 
     @pytest.mark.order(8800)
     def test_init_with_default_parameters(self):

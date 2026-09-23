@@ -69,28 +69,40 @@
   become: yes
   ignore_errors: yes
 
-- name: Copy cisco_fanout_traps_clear.py to the device
-  copy:
-    src: cisco/cisco_fanout_traps_clear.py
-    dest: /usr/local/bin/cisco_fanout_traps_clear.py
-    mode: 0755
+- name: Install Silicon One SDK trap-clear service
+  # The trap-clear service drives the Silicon One LA SDK via dshell_client
+  # inside syncd to clear default packet traps (LACP/ARP/DHCP/CDP/ISIS/...)
+  # so a SONiC fanout leaf transparently forwards control-plane frames
+  # instead of punting them to the CPU.
+  #
+  # Skip on Cisco VPP/Octeon platforms (e.g. the Cisco-C8220TG family),
+  # which have neither the LA SDK nor dshell_client, so the script cannot
+  # run and is not needed. Extend the substring list when new
+  # non-Silicon-One Cisco fanout hwsku families appear.
+  when: "'Cisco-C8220TG' not in local_hwsku"
+  block:
+    - name: Copy cisco_fanout_traps_clear.py to the device
+      copy:
+        src: cisco/cisco_fanout_traps_clear.py
+        dest: /usr/local/bin/cisco_fanout_traps_clear.py
+        mode: 0755
 
-- name: Copy cisco_fanout_traps_clear.service
-  copy:
-    src: cisco/cisco_fanout_traps_clear.service
-    dest: /etc/systemd/system/cisco_fanout_traps_clear.service
-    mode: 0644
+    - name: Copy cisco_fanout_traps_clear.service
+      copy:
+        src: cisco/cisco_fanout_traps_clear.service
+        dest: /etc/systemd/system/cisco_fanout_traps_clear.service
+        mode: 0644
 
-- name: Force disable cisco_fanout_traps_clear.service (to refresh Install targets)
-  systemd:
-    name: cisco_fanout_traps_clear
-    enabled: no
-    daemon_reload: yes
-  ignore_errors: yes
+    - name: Force disable cisco_fanout_traps_clear.service (to refresh Install targets)
+      systemd:
+        name: cisco_fanout_traps_clear
+        enabled: no
+        daemon_reload: yes
+      ignore_errors: yes
 
-- name: Enable and start cisco_fanout_traps_clear.service
-  systemd:
-    name: cisco_fanout_traps_clear
-    enabled: yes
-    state: restarted
-    daemon_reload: yes
+    - name: Enable and start cisco_fanout_traps_clear.service
+      systemd:
+        name: cisco_fanout_traps_clear
+        enabled: yes
+        state: restarted
+        daemon_reload: yes

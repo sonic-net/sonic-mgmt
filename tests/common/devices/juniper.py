@@ -239,7 +239,7 @@ class JuniperHost(AnsibleHostBase):
             nh_result = []
             command = "show route {} table {} active-path exact".format(prefix, table)
             json_output = self.commands(commands=[command], display="json")
-            if not json_output["failed"]:
+            if not json_output.get("failed", False):
                 prefix_info = json_output["stdout"][0]["route-information"][0]["route-table"][0]["rt"][0]
                 if prefix in prefix_info["rt-destination"][0]["data"]:
                     nh_info = {"nh_ip": None, "nh_interface": None, "nh_label_info": None, "nh_lsp_name": None}
@@ -298,7 +298,7 @@ class JuniperHost(AnsibleHostBase):
         command = "show chassis hardware | match fpc | except CPU"
         output = self.commands(session_type="network_cli", commands=[command], display="text")
         fpc_list = []
-        if not output["failed"]:
+        if not output.get("failed", False):
             for line in output["stdout_lines"][0]:
                 if "FPC" in line:
                     fpc_list.append(line.split()[1])
@@ -309,7 +309,7 @@ class JuniperHost(AnsibleHostBase):
             ipfix_export_data = {"count": 0}
             command = "show services accounting flow inline-jflow fpc-slot {}".format(fpc_no)
             output = self.commands(commands=[command], display="json")
-            if not output["failed"]:
+            if not output.get("failed", False):
                 ipfix_export_data["count"] = output["stdout"][0]["services-accounting-information"][0][
                     "inline-jflow-flow-information"
                 ][0]["inline-flows-exported"][0]["data"]
@@ -347,7 +347,7 @@ class JuniperHost(AnsibleHostBase):
             configs = []
             configs.append("set interfaces {} unit 0 family inet filter input {}".format(interface, filter_name))
             output = self.config(lines=configs, comment="push ipfix configs")
-            if not output["failed"]:
+            if not output.get("failed", False):
                 return True, output
             return False, output
         except Exception as e:
@@ -585,7 +585,7 @@ class JuniperHost(AnsibleHostBase):
             command = "show isis adjacency"
             json_output = self.commands(commands=[command], display="json")
             isis_adj_info = {}
-            if not json_output["failed"]:
+            if not json_output.get("failed", False):
                 for line in json_output["stdout"][0]["isis-adjacency-information"][0]["isis-adjacency"]:
                     isis_adj_info.update(
                         {
@@ -621,7 +621,7 @@ class JuniperHost(AnsibleHostBase):
             command = "show isis database"
             json_output = self.commands(commands=[command], display="json")
             lsp_entries = {}
-            if not json_output["failed"]:
+            if not json_output.get("failed", False):
                 for entry in json_output["stdout"][0]["isis-database-information"][0]["isis-database"][1][
                     "isis-database-entry"
                 ]:
@@ -740,7 +740,7 @@ class JuniperHost(AnsibleHostBase):
         try:
             command = "show lldp neighbors"
             output = self.commands(commands=[command], display="json")
-            if not output["failed"]:
+            if not output.get("failed", False):
                 for lines in output["stdout"][0]["lldp-neighbors-information"][0]["lldp-neighbor-information"]:
                     lldp_details.update(
                         {
@@ -794,7 +794,7 @@ class JuniperHost(AnsibleHostBase):
             command = "show interfaces {}".format(pc_name)
             success_criteria = "physical link is up"
             intf_status_output = self.commands(session_type="network_cli", commands=[command], display="text")
-            if not intf_status_output["failed"]:
+            if not intf_status_output.get("failed", False):
                 logger.info("Interface status check: {} sent to {}".format(command, self.hostname))
                 is_up = success_criteria in intf_status_output["stdout"][0].lower()
                 return is_up, intf_status_output["stdout"][0]
@@ -814,7 +814,7 @@ class JuniperHost(AnsibleHostBase):
         command = "show lacp interfaces {}".format(pc_name)
         try:
             json_output = self.commands(commands=[command], display="json")
-            if not json_output["failed"]:
+            if not json_output.get("failed", False):
                 interfaces_data = self.extract_val_from_json(json_output["stdout"][0], "lag-lacp-protocol")[0]
                 interfaces = [line["name"][0]["data"] for line in interfaces_data]
                 return interfaces
@@ -830,7 +830,7 @@ class JuniperHost(AnsibleHostBase):
         try:
             command = "show lldp neighbor interface {}".format(physical_port)
             json_output = self.commands(commands=[command], display="json")
-            if not json_output["failed"]:
+            if not json_output.get("failed", False):
                 return json_output["stdout"][0]
             return json_output
         except Exception as e:
@@ -844,7 +844,7 @@ class JuniperHost(AnsibleHostBase):
         command = "show lldp local-information"
         try:
             json_output = self.commands(commands=[command], display="json")
-            if not json_output["failed"]:
+            if not json_output.get("failed", False):
                 chassis_id = json_output["stdout"][0]["lldp-local-info"][0]["lldp-local-chassis-id"][0]["data"]
                 return chassis_id
             return "Failed to get chassis info due to {}".format(json_output)
@@ -860,7 +860,7 @@ class JuniperHost(AnsibleHostBase):
         try:
             command = "show lldp local-information"
             json_output = self.commands(commands=[command], display="json")
-            if not json_output["failed"]:
+            if not json_output.get("failed", False):
                 mgmt_ip = json_output["stdout"][0]["lldp-local-info"][0]["lldp-local-management-address-address"][0][
                     "data"
                 ]
@@ -876,7 +876,7 @@ class JuniperHost(AnsibleHostBase):
         try:
             command = "show lldp local-information"
             json_output = self.commands(commands=[command], display="json")
-            if not json_output["failed"]:
+            if not json_output.get("failed", False):
                 system_description = json_output["stdout"][0]["lldp-local-info"][0]["lldp-local-system-description"][
                     0
                 ]["data"]
@@ -894,7 +894,7 @@ class JuniperHost(AnsibleHostBase):
         try:
             command = "show version"
             json_output = self.commands(commands=[command], display="json")
-            if not json_output["failed"]:
+            if not json_output.get("failed", False):
                 version = json_output["stdout"][0]["software-information"][0]["junos-version"][0]["data"]
                 return version
             return "Failed to get version due to {}".format(json_output)
@@ -1034,7 +1034,7 @@ class JuniperHost(AnsibleHostBase):
                 last_count, log_type
             )
             output = self.commands(session_type="network_cli", commands=[command], display="text")
-            if not output["failed"]:
+            if not output.get("failed", False):
                 return len(output["stdout_lines"][0]) > 0, output["stdout"][0]
             return False, "Failed to get macsec status logs due to {}".format(output)
         except Exception as e:
@@ -1054,7 +1054,7 @@ class JuniperHost(AnsibleHostBase):
             example of output:
             set security macsec interfaces et-2/0/14 connectivity-association macsec-xpn-256-ae16
             """
-            if not output["failed"]:
+            if not output.get("failed", False):
                 return True, output["stdout"][0].split()[-1]
             return False, "Failed to get macsec profile due to {}".format(output)
         except Exception as e:
@@ -1090,7 +1090,7 @@ class JuniperHost(AnsibleHostBase):
                 test_msg = "Key type {} not supported".format(key_type)
                 output = {"failed": True, "msg": test_msg}
 
-            if not output["failed"]:
+            if not output.get("failed", False):
                 return True, str(output)
             return False, "Failed to set macsec key due to {}".format(output)
         except Exception as e:
@@ -1133,7 +1133,7 @@ class JuniperHost(AnsibleHostBase):
             ...
             Output trimmed
             """
-            if not json_output["failed"]:
+            if not json_output.get("failed", False):
                 sc_dict_out = json_output["stdout"][0]["macsec-statistics"][0]["secure-channel-received"][0]
                 validated_bytes = sc_dict_out["validated-bytes"][0]["data"]
                 decrypted_bytes = sc_dict_out["decrypted-bytes"][0]["data"]
@@ -1166,7 +1166,7 @@ class JuniperHost(AnsibleHostBase):
             commands.append("deactivate security macsec interfaces {}".format(interface))
         try:
             output = self.config(lines=commands, comment="deactivate macsec interface")
-            if not output["failed"]:
+            if not output.get("failed", False):
                 return True, output
             return False, "Failed to deactivate macsec interface due to {}".format(output)
         except Exception as e:
@@ -1182,7 +1182,7 @@ class JuniperHost(AnsibleHostBase):
             commands.append("activate security macsec interfaces {}".format(interface))
         try:
             output = self.config(lines=commands, comment="activate macsec interface")
-            if not output["failed"]:
+            if not output.get("failed", False):
                 return True, output
             return False, "Failed to activate macsec interface due to {}".format(output)
         except Exception as e:
@@ -1202,7 +1202,7 @@ class JuniperHost(AnsibleHostBase):
             example of output:
             set security macsec interfaces et-2/0/14 connectivity-association macsec-xpn-256-ae16
             """
-            if not output["failed"]:
+            if not output.get("failed", False):
                 # strip to remove extra /n with string
                 return True, output["stdout"][0].strip()
             return False, "Failed to get macsec config due to {}".format(output)
@@ -1216,7 +1216,7 @@ class JuniperHost(AnsibleHostBase):
         """
         output = self.config(lines=commands, comment="apply_macsec_interface_config")
         try:
-            if not output["failed"]:
+            if not output.get("failed", False):
                 return True, output
             return False, "Failed to apply macsec interface config due to {}".format(output)
         except Exception as e:
@@ -1230,7 +1230,7 @@ class JuniperHost(AnsibleHostBase):
         command = "delete security macsec interfaces {}".format(interface)
         try:
             output = self.config(lines=[command], comment="remove MACSEC from physical interface")
-            if not output["failed"]:
+            if not output.get("failed", False):
                 return True, output
             return False, "Failed to delete macsec interface config due to {}".format(output)
         except Exception as e:
@@ -1247,7 +1247,7 @@ class JuniperHost(AnsibleHostBase):
                 profile_name, rekey_period_value
             )
             output = self.config(lines=[command], comment="rekey macsec interval")
-            if not output["failed"]:
+            if not output.get("failed", False):
                 return True, output
             return False, "Failed to set rekey period due to {}".format(output)
         except Exception as e:
@@ -1265,7 +1265,7 @@ class JuniperHost(AnsibleHostBase):
         try:
             command = "set system location building microsoft"
             output = self.config(lines=[command], comment="test configure command")
-            if not output["failed"]:
+            if not output.get("failed", False):
                 rollback_command = "del system location building microsoft"
                 self.config(lines=[rollback_command], comment="rollback test configure command")
                 return True, output
@@ -1280,7 +1280,7 @@ class JuniperHost(AnsibleHostBase):
         try:
             command = "show configuration system tacplus-server | display set | match source-address"
             output = self.commands(session_type="network_cli", commands=[command], display="text")
-            if not output["failed"]:
+            if not output.get("failed", False):
                 for line in output["stdout_lines"][0]:
                     if "source-address" in line:
                         return line.split()[-1]
@@ -1369,7 +1369,7 @@ class JuniperHost(AnsibleHostBase):
         )
         try:
             output = self.config(lines=prod_configs, confirm=2)
-            if not output["failed"]:
+            if not output.get("failed", False):
                 return True, "prod configs pushed to lab router, will rollback by itself in 2 minutes"
             return False, "Failed to apply prod tacacs config due to {}".format(output)
         except Exception as e:
@@ -1410,7 +1410,7 @@ class JuniperHost(AnsibleHostBase):
         try:
             command = "show bgp summary"
             json_output = self.commands(commands=[command], display="json")
-            if not json_output["failed"]:
+            if not json_output.get("failed", False):
                 json_output_dict = json_output["stdout"][0]["bgp-information"][0]["bgp-peer"]
                 bgp_status = {}
                 for bgp_speak in json_output_dict:
@@ -1440,7 +1440,7 @@ class JuniperHost(AnsibleHostBase):
         """
         try:
             bgp_peer_details = self.get_bgp_session_details(peer_ip)
-            if not bgp_peer_details["failed"]:
+            if not bgp_peer_details.get("failed", False):
                 session_status = bgp_peer_details["stdout"][0]["bgp-information"][0]["bgp-peer"][0]["peer-state"][0][
                     "data"
                 ]
@@ -1458,7 +1458,7 @@ class JuniperHost(AnsibleHostBase):
             command = "show route protocol aggregate {} exact".format(agg_prefix)
             agg_route_gen_status = False
             output = self.commands(session_type="network_cli", commands=[command], display="text")
-            if not output["failed"]:
+            if not output.get("failed", False):
                 for line in output["stdout_lines"][0]:
                     if agg_prefix in line:
                         agg_route_gen_status = True
@@ -1477,7 +1477,7 @@ class JuniperHost(AnsibleHostBase):
             command = "show route advertising-protocol bgp {} {} exact".format(peer_ip, prefix)
             json_output = self.commands(commands=[command], display="json")
             prefix_adv_status = False
-            if not json_output["failed"]:
+            if not json_output.get("failed", False):
                 route_table = json_output["stdout"][0]["route-information"][0]["route-table"][0]["rt"]
                 for element in route_table:
                     if "rt-destination" in element:
@@ -1502,7 +1502,7 @@ class JuniperHost(AnsibleHostBase):
                 "deactivate protocols bgp group IPV6-ICR-SWAN",
             ]
             output = self.config(lines=commands, comment="deactivate bgp with ser")
-            if not output["failed"]:
+            if not output.get("failed", False):
                 return True
             return False
         except Exception as e:
@@ -1522,7 +1522,7 @@ class JuniperHost(AnsibleHostBase):
                 "activate protocols bgp group IPV6-ICR-SWAN",
             ]
             output = self.config(lines=commands, comment="activate bgp with ser")
-            if not output["failed"]:
+            if not output.get("failed", False):
                 return True
             return False
         except Exception as e:
@@ -1536,7 +1536,7 @@ class JuniperHost(AnsibleHostBase):
         """
         try:
             output = self.config(lines=["deactivate protocols rsvp"], comment="deactivate protocol rsvp")
-            if not output["failed"]:
+            if not output.get("failed", False):
                 return True, output
             return False, "Failed to deactivate rsvp protocol due to {}".format(output)
         except Exception as e:
@@ -1550,7 +1550,7 @@ class JuniperHost(AnsibleHostBase):
         """
         try:
             output = self.config(lines=["activate protocols rsvp"], comment="activate protocol rsvp")
-            if not output["failed"]:
+            if not output.get("failed", False):
                 return True, output
             else:
                 return False, "Failed to activate rsvp protocol due to {}".format(output)
@@ -1562,7 +1562,7 @@ class JuniperHost(AnsibleHostBase):
         try:
             command = "show route {} table {} active-path exact".format(prefix_with_mask, table)
             json_output = self.commands(commands=[command], display="json")
-            if not json_output["failed"]:
+            if not json_output.get("failed", False):
                 if "route-table" in json_output["stdout"][0]["route-information"][0]:
                     route_table = json_output["stdout"][0]["route-information"][0]["route-table"][0]
                     destination = route_table["rt"][0]["rt-destination"][0]["data"]
@@ -1585,7 +1585,7 @@ class JuniperHost(AnsibleHostBase):
                 "deactivate system extensions extension-service application file apcacertagent-junos",
             ]
             output = self.config(lines=commands, comment="deactivate swan agent")
-            if not output["failed"]:
+            if not output.get("failed", False):
                 return True, output
             return False, output
         except Exception as e:
@@ -1602,7 +1602,7 @@ class JuniperHost(AnsibleHostBase):
                 "activate system extensions extension-service application file apcacertagent-junos",
             ]
             output = self.config(lines=commands, comment="activate swan agent")
-            if not output["failed"]:
+            if not output.get("failed", False):
                 return True, output
             return False, output
         except Exception as e:
@@ -1662,7 +1662,7 @@ class JuniperHost(AnsibleHostBase):
                 ...
              Output trimmed
             """
-            if not json_output["failed"]:
+            if not json_output.get("failed", False):
                 rsvp_nbrs = json_output["stdout"][0]["rsvp-neighbor-information"][0]["rsvp-neighbor"]
                 for rsvp_nbr in rsvp_nbrs:
                     if str(rsvp_nbr["rsvp-neighbor-address"][0]["data"]) == str(neighbor):
@@ -1686,7 +1686,7 @@ class JuniperHost(AnsibleHostBase):
         command = "show configuration interfaces lo0"
         try:
             json_output = self.commands(commands=[command], display="json")["stdout"][0]
-            if not json_output["failed"]:
+            if not json_output.get("failed", False):
                 ipv4_addresses = json_output["configuration"]["interfaces"]["interface"][0]["unit"][0]["family"][
                     "inet"
                 ]["address"]
@@ -1710,7 +1710,7 @@ class JuniperHost(AnsibleHostBase):
         try:
             commands = ["deactivate interfaces {} gigether-options 802.3ad".format(interface)]
             output = self.config(lines=commands, comment="deactivate interface {} from ae {}".format(interface, pcnum))
-            if not output["failed"]:
+            if not output.get("failed", False):
                 return True, "Deactivated interface {} from ae{}".format(interface, pcnum)
             return False, "Failed to deactivate interface {} from ae{}".format(interface, pcnum)
         except Exception as e:
@@ -1726,7 +1726,7 @@ class JuniperHost(AnsibleHostBase):
         try:
             commands = ["activate interfaces {} gigether-options 802.3ad".format(interface)]
             output = self.config(lines=commands, comment="activate interface {} from ae {}".format(interface, pcnum))
-            if not output["failed"]:
+            if not output.get("failed", False):
                 return True, "Activated interface {} from ae{}".format(interface, pcnum)
             return False, "Failed to activate interface {} from ae{}".format(interface, pcnum)
         except Exception as e:
@@ -1736,7 +1736,7 @@ class JuniperHost(AnsibleHostBase):
         try:
             command = "request system reboot both-routing-engines"
             output = self.commands(commands=[command])
-            if not output["failed"]:
+            if not output.get("failed", False):
                 return True, output
             return False, output
         except Exception as e:

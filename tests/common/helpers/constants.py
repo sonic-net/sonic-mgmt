@@ -9,6 +9,7 @@ RANDOM_SEED = 'random_seed'
 CUSTOM_MSG_PREFIX = "sonic_custom_msg"
 DUT_CHECK_NAMESPACE = "dut_check_result"
 PTF_TIMEOUT = 60
+ERSPAN_GRE_TYPE = 0x8949
 
 # Canonical default config path for the PTF arp_responder helper
 # (ansible/roles/test/files/helpers/arp_responder.py and tests/scripts/arp_responder.py).
@@ -40,7 +41,13 @@ UPSTREAM_NEIGHBOR_MAP = {
     "lt2": "ut2",
     "t1-isolated-d128": "t0",
     "t1-isolated-d32": "t0",
-    "c0": "m1"
+    "c0": "m1",
+    "lrh": "urh",
+    "urh": "rwa",
+    # Neighbor names are matched by suffix, so use the full "uma"/"lma"/"rwa"
+    # strings here. A bare "ma" would also match the LMA neighbors on a UMA DUT.
+    "uma": "rwa",
+    "lma": "uma"
 }
 
 # Describe ALL upstream neighbor of dut in different topos
@@ -55,7 +62,11 @@ UPSTREAM_ALL_NEIGHBOR_MAP = {
     "m0_l3": ["m1"],
     'lt2': ['ut2'],
     "c0": ["m1"],
-    'ft2': ['lt2']
+    'ft2': ['lt2'],
+    'lrh': ["urh", "frh"],
+    'urh': ["rwa"],
+    "uma": ["rwa"],
+    "lma": ["uma"]
 }
 
 # Describe downstream neighbor of dut in different topos
@@ -69,7 +80,13 @@ DOWNSTREAM_NEIGHBOR_MAP = {
     "m0_vlan": "server",
     "m0_l3": "mx",
     "ft2": "lt2",
-    "lt2": "t1"
+    "lt2": "t1",
+    "lrh": "t2",
+    "urh": "lrh",
+    "uma": "lma",
+    # LMA has both M2 and M3 downstream; this map holds a single value, so it
+    # names the first tier. See DOWNSTREAM_ALL_NEIGHBOR_MAP for the full set.
+    "lma": "m2"
 }
 
 # Describe downstream neighbor of dut in different topos
@@ -83,5 +100,9 @@ DOWNSTREAM_ALL_NEIGHBOR_MAP = {
     "m0_vlan": ["mx", "server"],
     "m0_l3": ["mx", "server"],
     "ft2": ["lt2"],
-    "lt2": ["t1"]
+    "lt2": ["t1"],
+    "lrh": ["t2", "ut2"],
+    "urh": ["lrh"],
+    "uma": ["lma", "m1"],
+    "lma": ["m2", "m3"]
 }

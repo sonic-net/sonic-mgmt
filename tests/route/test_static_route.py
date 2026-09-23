@@ -6,6 +6,7 @@ import logging
 import natsort
 import random
 import six
+import re
 from collections import defaultdict
 from contextlib import contextmanager
 
@@ -22,6 +23,7 @@ from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.constants import ARP_RESPONDER_DEFAULT_CONFIG, UPSTREAM_NEIGHBOR_MAP
 from tests.common import config_reload
 from tests.common.reboot import reboot
+from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 import ptf.testutils as testutils
 import ptf.mask as mask
 import ptf.packet as packet
@@ -37,6 +39,27 @@ pytestmark = [
     pytest.mark.topology('t0', 'm0', 'mx'),
     pytest.mark.device_type('vs')
 ]
+
+logger = logging.getLogger(__name__)
+allure.logger = logger
+
+added_routes = set()
+
+
+@pytest.fixture(scope='function', autouse=False)
+def clear_static_route(rand_selected_dut):
+    """Clear route configuration
+
+    Args:
+        rand_selected_dut (object): DUT object
+    """
+    try:
+        yield
+    finally:
+        for route in added_routes:
+            rand_selected_dut.shell('config route del prefix {} nexthop {}'.format(
+                route[0], route[1]), module_ignore_errors=True)
+        added_routes.clear()
 
 
 def is_dualtor(tbinfo):
@@ -683,3 +706,343 @@ def test_static_route_config_reload_with_traffic(rand_selected_dut, rand_unselec
             duthost.shell('config mux mode auto all')
             unselected_duthost.shell('config mux mode auto all')
             unselected_duthost.shell('config save -y')
+
+
+def check_static_route_removed(duthost, prefix, ipv6):
+    """Verify that a static route is no longer present in the routing table.
+
+    Args:
+        duthost: DUT host object
+        prefix: Route prefix to check
+        ipv6: Whether this is an IPv6 route
+
+    Returns:
+        bool: True if route is removed (not found), False if still present
+    """
+    if ipv6:
+        cmd = "show ipv6 route {}".format(prefix)
+    else:
+        cmd = "show ip route {}".format(prefix)
+    output = duthost.shell(cmd, module_ignore_errors=True)["stdout"]
+    # Route should not appear with "S" (static) protocol marker
+    return prefix not in output or "Network not in table" in output
+
+
+@pytest.mark.disable_loganalyzer
+def test_static_route_removal_after_config_reload(rand_selected_dut, rand_unselected_dut, ptfadapter, ptfhost, tbinfo,
+                                                  setup_standby_ports_on_rand_unselected_tor,  # noqa F811
+                                                  toggle_all_simulator_ports_to_rand_selected_tor_m,  # noqa F811
+                                                  is_route_flow_counter_supported):  # noqa F811
+    """
+    Test that removing a static route from CONFIG_DB and performing config reload
+    actually clears the route from kernel/FIB.
+
+    Addresses: https://github.com/sonic-net/sonic-buildimage/issues/21423
+    Addresses: https://github.com/sonic-net/sonic-mgmt/issues/18882
+
+    This test validates that:
+    1. A static route is added and persisted (config save)
+    2. The route is removed from CONFIG_DB
+    3. After config reload, the route is no longer in the kernel routing table
+    4. The route is no longer advertised to BGP neighbors
+    """
+    duthost = rand_selected_dut
+    unselected_duthost = rand_unselected_dut
+    is_dual_tor = 'dualtor' in tbinfo['topo']['name'] and unselected_duthost is not None
+    prefix = "6.6.6.0/24"
+
+    prefix_len, nexthop_addrs, nexthop_devs, nexthop_interfaces = get_nexthops(
+        duthost, tbinfo, ipv6=False, count=1
+    )
+
+    # Setup: Add IP addresses on PTF
+    add_ipaddr(ptfadapter, ptfhost, nexthop_addrs, prefix_len, nexthop_interfaces, ipv6=False)
+
+    try:
+        # Step 1: Add static route and save config
+        apply_static_route_config(duthost, unselected_duthost if is_dual_tor else None,
+                                  prefix, nexthop_addrs, op="add")
+        time.sleep(5)
+        check_static_route(duthost, prefix, nexthop_addrs, ipv6=False)
+        duthost.shell('config save -y')
+
+        # Step 2: Remove static route from CONFIG_DB (without saving yet)
+        apply_static_route_config(duthost, unselected_duthost if is_dual_tor else None,
+                                  prefix, op="del")
+        # Save config so the removal is persisted
+        duthost.shell('config save -y')
+
+        # Step 3: Config reload
+        config_reload(duthost, wait=450)
+
+        # Wait for system to stabilize
+        wait_all_bgp_up(duthost)
+
+        # Step 4: Verify route is removed from kernel
+        pytest_assert(
+            wait_until(60, 10, 0, check_static_route_removed, duthost, prefix, False),
+            "Static route {} still present in kernel after removal and config reload".format(prefix)
+        )
+
+        # Step 5: Verify route is no longer advertised via BGP
+        check_route_redistribution(duthost, prefix, ipv6=False, removed=True)
+
+    finally:
+        # Cleanup: Ensure route is removed
+        apply_static_route_config(duthost, unselected_duthost if is_dual_tor else None,
+                                  prefix, op="del")
+        del_ipaddr(ptfhost, nexthop_addrs, prefix_len, nexthop_devs, ipv6=False)
+        duthost.shell('config save -y')
+        clear_arp_ndp(duthost, ipv6=False)
+        if is_dual_tor:
+            clear_arp_ndp(unselected_duthost, ipv6=False)
+
+
+@pytest.mark.disable_loganalyzer
+def test_static_route_removal_after_config_reload_ipv6(rand_selected_dut, rand_unselected_dut, ptfadapter, ptfhost,
+                                                       tbinfo,
+                                                       setup_standby_ports_on_rand_unselected_tor,  # noqa F811
+                                                       toggle_all_simulator_ports_to_rand_selected_tor_m,  # noqa F811
+                                                       is_route_flow_counter_supported):  # noqa F811
+    """
+    Test that removing an IPv6 static route from CONFIG_DB and performing config reload
+    actually clears the route from kernel/FIB.
+
+    Addresses: https://github.com/sonic-net/sonic-buildimage/issues/21423
+    Addresses: https://github.com/sonic-net/sonic-mgmt/issues/18882
+
+    This test validates the same removal-after-config-reload scenario for IPv6 routes.
+    """
+    duthost = rand_selected_dut
+    unselected_duthost = rand_unselected_dut
+    is_dual_tor = 'dualtor' in tbinfo['topo']['name'] and unselected_duthost is not None
+    prefix = "2000:6::/64"
+
+    prefix_len, nexthop_addrs, nexthop_devs, nexthop_interfaces = get_nexthops(
+        duthost, tbinfo, ipv6=True, count=1
+    )
+
+    # Setup: Add IP addresses on PTF
+    add_ipaddr(ptfadapter, ptfhost, nexthop_addrs, prefix_len, nexthop_interfaces, ipv6=True)
+
+    try:
+        # Step 1: Add static route and save config
+        apply_static_route_config(duthost, unselected_duthost if is_dual_tor else None,
+                                  prefix, nexthop_addrs, op="add")
+        time.sleep(5)
+        check_static_route(duthost, prefix, nexthop_addrs, ipv6=True)
+        duthost.shell('config save -y')
+
+        # Step 2: Remove static route and save
+        apply_static_route_config(duthost, unselected_duthost if is_dual_tor else None,
+                                  prefix, op="del")
+        duthost.shell('config save -y')
+
+        # Step 3: Config reload
+        config_reload(duthost, wait=450)
+
+        # Wait for system to stabilize
+        wait_all_bgp_up(duthost)
+
+        # Step 4: Verify route is removed from kernel
+        pytest_assert(
+            wait_until(60, 10, 0, check_static_route_removed, duthost, prefix, True),
+            "IPv6 static route {} still present in kernel after removal and config reload".format(prefix)
+        )
+
+        # Step 5: Verify route is no longer advertised via BGP
+        check_route_redistribution(duthost, prefix, ipv6=True, removed=True)
+
+    finally:
+        # Cleanup
+        apply_static_route_config(duthost, unselected_duthost if is_dual_tor else None,
+                                  prefix, op="del")
+        del_ipaddr(ptfhost, nexthop_addrs, prefix_len, nexthop_devs, ipv6=True)
+        duthost.shell('config save -y')
+        clear_arp_ndp(duthost, ipv6=True)
+        if is_dual_tor:
+            clear_arp_ndp(unselected_duthost, ipv6=True)
+
+
+@pytest.mark.disable_loganalyzer
+def test_static_route_blackhole_removal_after_config_reload(rand_selected_dut, rand_unselected_dut, tbinfo):
+    """
+    Test that removing a blackhole static route from CONFIG_DB and performing config reload
+    actually clears the route from kernel/FIB.
+
+    This is the exact scenario reported in:
+    https://github.com/sonic-net/sonic-buildimage/issues/21423
+    https://github.com/sonic-net/sonic-mgmt/issues/18882
+
+    The bug: when a blackhole static route in config_db.json is removed and config reload
+    is performed, the route still exists in the kernel because no daemon clears it.
+
+    This test validates both IPv4 and IPv6 blackhole routes.
+    """
+    duthost = rand_selected_dut
+    unselected_duthost = rand_unselected_dut
+    is_dual_tor = 'dualtor' in tbinfo['topo']['name'] and unselected_duthost is not None
+
+    ipv4_prefix = "7.7.7.0/24"
+    ipv6_prefix = "1000::/120"
+
+    def add_blackhole_route(prefix, ipv6=False):
+        """Add a blackhole static route via CONFIG_DB."""
+        duthost.shell(
+            'sonic-db-cli CONFIG_DB hmset "STATIC_ROUTE|{}" '
+            'blackhole true distance 0 ifname "" nexthop blackhole nexthop-vrf ""'.format(prefix)
+        )
+        if is_dual_tor and unselected_duthost:
+            unselected_duthost.shell(
+                'sonic-db-cli CONFIG_DB hmset "STATIC_ROUTE|{}" '
+                'blackhole true distance 0 ifname "" nexthop blackhole nexthop-vrf ""'.format(prefix)
+            )
+
+    def remove_blackhole_route(prefix):
+        """Remove a blackhole static route from CONFIG_DB."""
+        duthost.shell(
+            'sonic-db-cli CONFIG_DB del "STATIC_ROUTE|{}"'.format(prefix)
+        )
+        if is_dual_tor and unselected_duthost:
+            unselected_duthost.shell(
+                'sonic-db-cli CONFIG_DB del "STATIC_ROUTE|{}"'.format(prefix)
+            )
+
+    def check_blackhole_route_present(prefix, ipv6=False):
+        """Verify blackhole route is present in the routing table."""
+        if ipv6:
+            cmd = "show ipv6 route {}".format(prefix)
+        else:
+            cmd = "show ip route {}".format(prefix)
+        output = duthost.shell(cmd, module_ignore_errors=True)["stdout"]
+        return prefix in output
+
+    try:
+        # Step 1: Add blackhole routes and save config
+        add_blackhole_route(ipv4_prefix, ipv6=False)
+        add_blackhole_route(ipv6_prefix, ipv6=True)
+        time.sleep(5)
+
+        # Verify routes are present
+        pytest_assert(
+            wait_until(30, 5, 0, check_blackhole_route_present, ipv4_prefix, False),
+            "IPv4 blackhole route {} not found after adding".format(ipv4_prefix)
+        )
+        pytest_assert(
+            wait_until(30, 5, 0, check_blackhole_route_present, ipv6_prefix, True),
+            "IPv6 blackhole route {} not found after adding".format(ipv6_prefix)
+        )
+
+        duthost.shell('config save -y')
+
+        # Step 2: Remove blackhole routes and save
+        remove_blackhole_route(ipv4_prefix)
+        remove_blackhole_route(ipv6_prefix)
+        duthost.shell('config save -y')
+
+        # Step 3: Config reload
+        config_reload(duthost, wait=450)
+
+        # Wait for system to stabilize
+        wait_all_bgp_up(duthost)
+
+        # Step 4: Verify routes are removed from kernel
+        pytest_assert(
+            wait_until(60, 10, 0, check_static_route_removed, duthost, ipv4_prefix, False),
+            "IPv4 blackhole route {} still present in kernel after removal and config reload "
+            "(see sonic-buildimage#21423)".format(ipv4_prefix)
+        )
+        pytest_assert(
+            wait_until(60, 10, 0, check_static_route_removed, duthost, ipv6_prefix, True),
+            "IPv6 blackhole route {} still present in kernel after removal and config reload "
+            "(see sonic-buildimage#21423)".format(ipv6_prefix)
+        )
+
+        # Step 5: Verify routes are not advertised
+        check_route_redistribution(duthost, ipv4_prefix, ipv6=False, removed=True)
+        check_route_redistribution(duthost, ipv6_prefix, ipv6=True, removed=True)
+
+    finally:
+        # Cleanup: Ensure routes are removed
+        remove_blackhole_route(ipv4_prefix)
+        remove_blackhole_route(ipv6_prefix)
+        duthost.shell('config save -y')
+
+
+@pytest.mark.parametrize("ipv6", [False, True], ids=["ipv4", "ipv6"])
+def test_static_route_no_bgp_churn(rand_selected_dut, clear_static_route, tbinfo, ipv6):
+
+    def _get_bgp_neighbor_ip(duthost, ipv6):
+        """Get next hop from BGP neighbors
+
+        Args:
+            duthost (object): DUT object
+            ipv6 (bool): True if getting IPv6 nexthop
+
+        Returns:
+            str: Nexthop IP
+        """
+        if ipv6:
+            cmd = 'show ipv6 bgp summary'
+        else:
+            cmd = 'show ip bgp summary'
+        parse_result = duthost.show_and_parse(cmd)
+        if not parse_result:
+            return None
+        if 'neighbor' in parse_result[0]:
+            return parse_result[0]['neighbor']
+        else:
+            return parse_result[0]['neighbhor']
+
+    def _add_route(duthost, prefix, nexthop):
+        """Add static route
+
+        Args:
+            duthost (object): DUT object
+            prefix (str): Route prefix
+            nexthop (str): Route nexthop
+        """
+        duthost.shell(
+            'config route add prefix {} nexthop {}'.format(prefix, nexthop))
+        added_routes.add((prefix, nexthop))
+
+    def _routes_from_swss_delta(delta):
+        """ROUTE_TABLE:<prefix> segments in delta order."""
+        return re.findall(r"ROUTE_TABLE:([^|]+)", delta)
+
+    """When adding N static routes, swss.rec delta must be exactly N non-empty lines of
+    ROUTE_TABLE|SET matching prefixes."""
+    if not ipv6 and is_ipv6_only_topology(tbinfo):
+        pytest.skip("Will not program IPv4 static route on IPv6-only topology")
+
+    duthost = rand_selected_dut
+    if ipv6:
+        prefixes = [f"2000:1:{i}::/64" for i in range(1, 3)]  # noqa: E231
+    else:
+        prefixes = [f"1.1.{i}.0/24" for i in range(1, 3)]
+    nexthop = _get_bgp_neighbor_ip(duthost, ipv6)
+    if not nexthop:
+        pytest.fail("No valid BGP neighbors found")
+    wait_time = 3
+
+    with allure.step("Record swss.rec baseline then add static routes {}".format(prefixes)):
+        mark = int(duthost.shell("sudo stat -c %s /var/log/swss/swss.rec")["stdout"].strip())
+        for p in prefixes:
+            _add_route(duthost, p, nexthop)
+
+    tail_offset = mark + 1
+    with allure.step("Wait then dump swss.rec incremental content"):
+        time.sleep(wait_time)
+        delta = duthost.shell(
+            f"sudo tail -c +{tail_offset} /var/log/swss/swss.rec")["stdout"]
+
+        non_empty_lines = [ln for ln in delta.splitlines() if ln.strip() and 'eth0' not in ln]
+        logger.info(
+            f"swss.rec new content after static routes: {len(non_empty_lines)} non-empty line(s)")
+
+        routes = _routes_from_swss_delta(delta)
+        pytest_assert(
+            set(routes) == set(prefixes),
+            f"Routes from swss delta {routes} do not match expected prefixes {prefixes}")
+        logger.info(f"swss.rec ROUTE_TABLE prefixes: {routes}")
+        logger.info(f"swss.rec delta raw:\n{delta}")  # noqa: E231

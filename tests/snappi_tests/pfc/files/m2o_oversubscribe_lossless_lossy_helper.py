@@ -14,7 +14,8 @@ from tests.common.snappi_tests.port import select_ports                         
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.traffic_generation import run_traffic, \
      setup_base_traffic_config                      # noqa: F401
-from tests.common.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
+from tests.common.snappi_tests.variables import pfcQueueValueDict
+from tests.common.snappi_tests.common_helpers import pfc_queue_group_size
 from tests.common.portstat_utilities import parse_portstat                              # noqa: F401
 from tests.snappi_tests.files.helper import get_number_of_streams
 from tests.common.snappi_tests.snappi_fixtures import gen_data_flow_dest_ip
@@ -163,7 +164,8 @@ def run_pfc_m2o_oversubscribe_lossless_lossy_test(api,
         pkt_drop = get_interface_stats(egress_duthost, dut_tx_port)[egress_duthost.hostname][dut_tx_port]['tx_drp']
         drop_percentage = (100 * pkt_drop) / total_rx_pkts
 
-    pytest_assert(abs(drop_percentage - 5) < 1, 'FAIL: Drop packets must be around 5 percent')
+    pytest_assert(abs(drop_percentage - 5) < 1,
+                  'FAIL: Drop packets must be around 5 percent {}'.format(drop_percentage))
 
     """ Verify Results """
     verify_m2o_oversubscribe_lossless_lossy_result(flow_stats,
@@ -346,7 +348,7 @@ def __gen_data_flow(testbed_config,
     # else:
     #     eth.pfc_queue.value = 3
 
-    if pfcQueueGroupSize == 8:
+    if pfc_queue_group_size() == 8:
         if 'Background Flow' in flow.name:
             eth.pfc_queue.value = 1
         else:
@@ -404,10 +406,11 @@ def verify_m2o_oversubscribe_lossless_lossy_result(rows,
     """
     for row in rows:
         if 'Test Flow 1 -> 0' in row.name:
-            pytest_assert(int(row.loss) == 0, "{} must have 0% loss".format(row.name))
+            pytest_assert(int(row.loss) == 0, "{} must have 0% loss and having {}% loss".format(row.name, row.loss))
         elif 'Test Flow 2 -> 0' in row.name:
-            pytest_assert(int(row.loss) == 0, "{} must have 0% loss ".format(row.name))
+            pytest_assert(int(row.loss) == 0, "{} must have 0% loss and having {}% loss".format(row.name, row.loss))
         elif 'Background Flow 1 -> 0' in row.name:
-            pytest_assert(int(row.loss) == 0, "{} must have 0% loss ".format(row.name))
+            pytest_assert(int(row.loss) == 0, "{} must have 0% loss and having {}% loss".format(row.name, row.loss))
         elif 'Background Flow 2 -> 0' in row.name:
-            pytest_assert(int(row.loss) >= 10, "{} must have loss >= 10%".format(row.name))
+            pytest_assert(int(row.loss) >= 10,
+                          "{} must have loss >= 10% and having {}% loss".format(row.name, row.loss))

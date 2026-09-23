@@ -250,31 +250,48 @@ copy_config_cmds_no_qos = [
 ]
 
 broadcom_cmd_bcmcmd_xgs = [
-    'bcmcmd{} -t5 version',
-    'bcmcmd{} -t5 soc',
-    'bcmcmd{} -t5 ps',
-    'bcmcmd{} "l3 nat_ingress show"',
-    'bcmcmd{} "l3 nat_egress show"',
+    'bcmcmd{} -t 5 version',
+    'bcmcmd{} -t 5 ps',
     'bcmcmd{} "ipmc table show"',
     'bcmcmd{} "multicast show"',
-    'bcmcmd{} "conf show"',
     'bcmcmd{} "fp show"',
     'bcmcmd{} "pvlan show"',
     'bcmcmd{} "l2 show"',
     'bcmcmd{} "l3 intf show"',
-    'bcmcmd{} "l3 defip show"',
-    'bcmcmd{} "l3 l3table show"',
     'bcmcmd{} "l3 egress show"',
-    'bcmcmd{} "l3 ecmp egress show"',
-    'bcmcmd{} "l3 multipath show"',
-    'bcmcmd{} "l3 ip6host show"',
-    'bcmcmd{} "l3 ip6route show"',
     'bcmcmd{} "mc show"',
     'bcmcmd{} "cstat *"',
     'bcmcmd{} "mirror show"',
     'bcmcmd{} "mirror dest show"',
     'bcmcmd{} "port *"',
+]
+
+broadcom_cmd_bcmcmd_xgs_soc = [
+    'bcmcmd{} -t 5 soc',
+    'bcmcmd{} "conf show"',
+    'bcmcmd{} "l3 defip show"',
+    'bcmcmd{} "l3 l3table show"',
+    'bcmcmd{} "l3 ecmp egress show"',
+    'bcmcmd{} "l3 multipath show"',
+    'bcmcmd{} "l3 ip6host show"',
+    'bcmcmd{} "l3 ip6route show"',
     'bcmcmd{} "d chg my_station_tcam"',
+]
+
+broadcom_cmd_bcmcmd_xgs_th5 = [
+    'bcmcmd{} "show config lt raw"',
+    'bcmcmd{} "l3 route show v6=0"',
+    'bcmcmd{} "l3 host show v6=0"',
+    'bcmcmd{} "l3 ecmp show"',
+    'bcmcmd{} "l3 host show v6=1"',
+    'bcmcmd{} "l3 route show v6=1"',
+    'bcmcmd{} "l2 station show"',
+    'bcmcmd{} "bcmltshell -c \'pt dump -d my_station_tcam\'"',
+]
+
+broadcom_cmd_bcmcmd_xgs_nat = [
+    'bcmcmd{} "l3 nat_ingress show"',
+    'bcmcmd{} "l3 nat_egress show"',
 ]
 
 broadcom_cmd_bcmcmd_dnx = [

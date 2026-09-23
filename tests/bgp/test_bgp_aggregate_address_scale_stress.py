@@ -147,6 +147,43 @@ def _generate_contributing_route(aggregate_prefix):
 
 # ---- Fixtures ----
 
+@pytest.fixture(autouse=True)
+def ignore_disruption_loganalyzer_noise(duthosts, loganalyzer):
+    """Ignore transient ERR syslog noise during scale_stress teardown.
+
+    Direct CONFIG_DB writes and config reloads briefly break DUT->TACACS
+    reachability and bounce dockers. Three signatures result:
+      - `iptables: nss_tacplus: failed to connect TACACS+ server ...`:
+        the common-ignore entry at loganalyzer_common_ignore.txt:360
+        has an unescaped '+' (regex quantifier) so the literal text
+        never matches. Re-add with a properly-escaped `\\+`.
+      - `iptables: tac_connect_single: ... Network is unreachable`:
+        no common-ignore entry at all.
+      - `memory_checker: cgroup memory usage file ... does not exist`:
+        race where memory_checker reads a docker cgroup file after the
+        container has been bounced by config reload.
+
+    Tests in this module pick a random DUT via `rand_one_dut_hostname`,
+    so register the ignores on every DUT in the testbed rather than
+    just `duthosts[0]`.
+    """
+    if not loganalyzer:
+        yield
+        return
+    for dut in duthosts:
+        if dut.hostname in loganalyzer:
+            loganalyzer[dut.hostname].ignore_regex.extend([
+                r".* ERR iptables: nss_tacplus: failed to connect TACACS\+ server .*",
+                r".* ERR iptables: tac_connect_single: connection to .* failed: Network is unreachable.*",
+                (
+                    r".* ERR memory_checker: \[memory_checker\] cgroup memory usage file "
+                    r"'/sys/fs/cgroup/system\.slice/docker-[0-9a-f]+\.scope/memory\.current' "
+                    r"of container '[0-9a-f]+' does not exist on device.*"
+                ),
+            ])
+    yield
+
+
 @pytest.fixture(scope="module", autouse=True)
 def setup_teardown(duthost):
     """Module-level checkpoint / rollback + multi-ASIC guard."""
