@@ -644,11 +644,11 @@ def evaluate_conditions(dynamic_update_skip_reason, mark_details, conditions, ba
     if isinstance(conditions, list):
         # Apply 'AND' or 'OR' operation to list of conditions based on conditions_logical_operator(by default 'AND')
         if conditions_logical_operator == 'OR':
-            return any([evaluate_condition(dynamic_update_skip_reason, mark_details, c, basic_facts, session)
-                        for c in conditions])
+            return any(evaluate_condition(dynamic_update_skip_reason, mark_details, c, basic_facts, session)
+                       for c in conditions)
         else:
-            return all([evaluate_condition(dynamic_update_skip_reason, mark_details, c, basic_facts, session)
-                        for c in conditions])
+            return all(evaluate_condition(dynamic_update_skip_reason, mark_details, c, basic_facts, session)
+                       for c in conditions)
     else:
         if conditions is None or conditions.strip() == '':
             return True

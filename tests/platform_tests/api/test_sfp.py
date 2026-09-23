@@ -125,7 +125,20 @@ class TestSfpApi(PlatformApiTestBase):
 
     EXPECTED_XCVR_NEW_CMIS_FIRMWARE_INFO_KEYS = ['active_firmware',
                                                  'inactive_firmware']
-
+    EXPECTED_CPO_XCVR_INFO_KEYS = [
+        'els_laser_count',
+        'els_vendor_rev',
+        'els_max_power',
+        'els_date_code',
+        'els_vendor_oui',
+        'els_revision',
+        'els_vendor_sn',
+        'rlm_laser_wavelength_grid',
+        'els_vendor_pn',
+        'els_vendor_name',
+        'els_identifier',
+        'rlm_laser_lpmode_control'
+    ]
     # These are fields which have been added in the common parsers
     # in sonic-platform-common/sonic_sfp, but since some vendors are
     # using their own custom parsers, they do not yet provide these
@@ -181,10 +194,13 @@ class TestSfpApi(PlatformApiTestBase):
         'lasertemphighalarm'
     ]
 
-    # To get all the keys supported by QSFP-ZR modules
-    # below list should be appended with
-    # EXPECTED_XCVR_COMMON_THRESHOLD_INFO_KEYS + QSFPDD_EXPECTED_XCVR_THRESHOLD_INFO_KEYS
-    QSFPZR_EXPECTED_XCVR_THRESHOLD_INFO_KEYS = [
+    # VDM based thresholds which used to be reported by the
+    # get_transceiver_threshold_info() platform API for coherent (C-CMIS) modules.
+    # They were moved out of that API into the dedicated
+    # get_transceiver_vdm_thresholds() API by sonic-platform-common PR #556, so they
+    # are treated as optional here: branches which still expose them keep passing,
+    # while branches which no longer do are not reported as missing fields.
+    QSFPZR_OPTIONAL_XCVR_THRESHOLD_INFO_KEYS = [
         'prefecberhighalarm',
         'prefecberlowalarm',
         'prefecberhighwarning',
@@ -269,6 +285,23 @@ class TestSfpApi(PlatformApiTestBase):
         'supported_max_laser_freq',
         'supported_min_tx_power',
         'supported_max_tx_power'
+    ]
+
+    EXPECTED_CPO_XCVR_THRESHOLD_INFO_KEYS = [
+        'els_txbiashighwarning',
+        'els_txpowerlowalarm',
+        'els_temphighwarning',
+        'els_txpowerlowwarning',
+        'els_txbiashighalarm',
+        'els_txpowerhighalarm',
+        'els_templowwarning',
+        'els_templowalarm',
+        'els_temphighalarm',
+        'els_vcclowalarm',
+        'els_vcclowwarning',
+        'els_vcchighalarm',
+        'els_vcchighwarning',
+        'els_txpowerhighwarning'
     ]
 
     # xcvr to be skipped for lpmode test due to known issue
@@ -530,6 +563,11 @@ class TestSfpApi(PlatformApiTestBase):
                             if sfp.is_coherent_module(platform_api_conn, i):
                                 UPDATED_EXPECTED_XCVR_INFO_KEYS = UPDATED_EXPECTED_XCVR_INFO_KEYS + \
                                                                   self.QSFPZR_EXPECTED_XCVR_INFO_KEYS
+                            # CPO module: identifier contains "CPO"
+                            type = info_dict.get("type", "")
+                            if "CPO" in type:
+                                UPDATED_EXPECTED_XCVR_INFO_KEYS = UPDATED_EXPECTED_XCVR_INFO_KEYS + \
+                                                                  self.EXPECTED_CPO_XCVR_INFO_KEYS
                         else:
                             UPDATED_EXPECTED_XCVR_INFO_KEYS = self.EXPECTED_XCVR_INFO_KEYS
                     missing_keys = set(UPDATED_EXPECTED_XCVR_INFO_KEYS) - set(actual_keys)
@@ -601,21 +639,29 @@ class TestSfpApi(PlatformApiTestBase):
                     actual_keys = list(thold_info_dict.keys())
 
                     expected_keys = list(self.EXPECTED_XCVR_COMMON_THRESHOLD_INFO_KEYS)
+                    # Keys which are allowed to be reported, but are not required to be present
+                    optional_keys = []
                     if info_dict["type_abbrv_name"] in ["QSFP-DD", "OSFP-8X", "QSFP+C"]:
-                        expected_keys += self.QSFPDD_EXPECTED_XCVR_THRESHOLD_INFO_KEYS
+                        type = info_dict.get("type", "")
+                        if "CPO" in type:
+                            # CPO module: skip standard QSFP-DD threshold keys, use CPO specific threshold keys
+                            expected_keys += self.EXPECTED_CPO_XCVR_THRESHOLD_INFO_KEYS
+                        else:
+                            # Normal QSFP-DD / OSFP / QSFP+C module
+                            expected_keys += self.QSFPDD_EXPECTED_XCVR_THRESHOLD_INFO_KEYS
                         if sfp.is_coherent_module(platform_api_conn, i):
                             if 'INPHI CORP' in info_dict['manufacturer'] and 'IN-Q3JZ1-TC' in info_dict['model']:
                                 logger.info("INPHI CORP Transceiver is not populating the associated threshold fields \
                                              in redis TRANSCEIVER_DOM_THRESHOLD table. Skipping this transceiver")
                                 continue
-                            expected_keys += self.QSFPZR_EXPECTED_XCVR_THRESHOLD_INFO_KEYS
+                            optional_keys += self.QSFPZR_OPTIONAL_XCVR_THRESHOLD_INFO_KEYS
 
                     missing_keys = set(expected_keys) - set(actual_keys)
                     for key in missing_keys:
                         self.expect(
                             False, "Transceiver {} threshold info does not contain field: '{}'".format(i, key))
 
-                    unexpected_keys = set(actual_keys) - set(expected_keys)
+                    unexpected_keys = set(actual_keys) - set(expected_keys) - set(optional_keys)
                     for key in unexpected_keys:
                         self.expect(
                             False, "Transceiver {} threshold info contains unexpected field '{}'".format(i, key))
