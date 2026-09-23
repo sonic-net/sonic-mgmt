@@ -99,8 +99,6 @@ def capture_remote_syslog(dut, destination, vrf=None):
             wait_until(10, 1, 0, capture_started),
             "UDP/514 packet capture did not start",
         )
-        logger.info("UDP/514 capture ready: duration=%ss, file=%s",
-                    SYSLOG_CAPTURE_SECONDS, capture_file)
         yield capture_result, capture_file
     finally:
         if capture_pool is not None:
@@ -125,12 +123,6 @@ def read_syslog_payloads(dut, capture_result, capture_file):
         "UDP/514 packet capture did not finish",
     )
     capture_status = capture_result.get()
-    logger.info(
-        "UDP/514 capture finished: start=%s, end=%s, elapsed=%s, rc=%s, stderr=%s",
-        capture_status.get("start"), capture_status.get("end"),
-        capture_status.get("delta"), capture_status.get("rc"),
-        capture_status.get("stderr"),
-    )
     pcap_status = dut.shell(
         "sudo test -s {}".format(shlex.quote(capture_file)),
         module_ignore_errors=True,

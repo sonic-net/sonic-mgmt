@@ -251,17 +251,12 @@ def test_gnmi_audit_log_remote_forwarding(
     ) as (capture_result, capture_file):
         offset = get_audit_log_offset(duthost)
         with allure.step("Generate a {} audit record".format(method)):
-            operation_started = time.monotonic()
             operation(gnmi_tls.pygnmi_client)
-            logger.info("%s client operation completed in %.3fs",
-                        method, time.monotonic() - operation_started)
 
         with allure.step("Verify the remotely forwarded audit record"):
             local_records = wait_for_audit_record(
                 duthost, offset, method, CLIENT_PRINCIPAL
             )
-            logger.info("%s local audit duration_ms=%s", method,
-                        [record["duration_ms"] for record in local_records])
             forwarded_payloads = read_syslog_payloads(
                 duthost, capture_result, capture_file
             )
