@@ -21,6 +21,7 @@ from tests.common.utilities import wait_until
 from tests.common.utilities import get_upstream_neigh_type
 from tests.common.utilities import get_neighbor_port_list
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.dualtor import mux_simulator_control
 
 SFLOW_RATE_DEFAULT = 512
 GOLDEN_CONFIG_DB_PATH = "/etc/sonic/golden_config_db.json"
@@ -34,6 +35,7 @@ pytestmark = [
 ]
 
 logger = logging.getLogger(__name__)
+
 
 @pytest.fixture(scope='module')
 def restore_sflow_golden_config(rand_selected_dut):
@@ -52,6 +54,7 @@ def restore_sflow_golden_config(rand_selected_dut):
     logger.info("Golden config is ready on sFlow DUT %s", rand_selected_dut.hostname)
 
     yield
+
 
 @pytest.fixture(scope='module', autouse=True)
 def setup(rand_selected_dut, ptfhost, tbinfo, config_sflow_feature, restore_sflow_golden_config):
@@ -371,6 +374,55 @@ def verify_sflow_config_apply(duthost):
         if 'SAI_OBJECT_TYPE_SAMPLEPACKET' in sflow_sai_config:
             return True
     return False
+
+
+def are_mux_ports_initialized(duthost, interfaces):
+    """Check that linkmgrd has populated APPL_DB state for the required MUX ports."""
+    for intf in interfaces:
+        result = duthost.shell(
+            'redis-cli -n 0 HGET "MUX_CABLE_TABLE:{}" "state"'.format(intf),
+            module_ignore_errors=True
+        )
+        if result['rc'] != 0 or result['stdout'].strip() not in ('active', 'standby'):
+            return False
+    return True
+
+
+def are_mux_ports_active(duthost, interfaces):
+    """Check that all required MUX ports are fully active and consistent."""
+    result = duthost.shell('show muxcable status --json', module_ignore_errors=True)
+    if result['rc'] != 0:
+        return False
+
+    try:
+        mux_status = json.loads(result['stdout'])['MUX_CABLE']
+        return all(
+            mux_status[intf]['STATUS'] == 'active'
+            and mux_status[intf]['SERVER_STATUS'] == 'active'
+            and mux_status[intf]['HWSTATUS'] == 'consistent'
+            for intf in interfaces
+        )
+    except (KeyError, TypeError, ValueError):
+        return False
+
+
+def restore_mux_ports_after_reboot(duthost, duthosts, target_dut_hostname,
+                                   tbinfo, mux_server_url, interfaces):
+    """Restore and verify the dual-ToR MUX path to the rebooted DUT."""
+    if 'dualtor' not in tbinfo['topo']['name']:
+        return
+
+    pytest_assert(
+        wait_until(120, 5, 0, are_mux_ports_initialized, duthost, interfaces),
+        "Required MUX ports were not initialized after reboot: {}".format(interfaces)
+    )
+    mux_simulator_control._toggle_all_simulator_ports_to_target_dut(
+        target_dut_hostname, duthosts, mux_server_url, tbinfo
+    )
+    pytest_assert(
+        wait_until(120, 5, 0, are_mux_ports_active, duthost, interfaces),
+        "Required MUX ports did not become active after reboot: {}".format(interfaces)
+    )
 
 
 def verify_sflow_interfaces(duthost, intf, status, sampling_rate):
@@ -747,8 +799,8 @@ class TestAgentId():
 class TestReboot():
 
     def testRebootSflowEnable(self, sflowbase_config, config_sflow_agent,
-                              duthosts, rand_one_dut_hostname, force_active_tor,
-                              localhost, partial_ptf_runner, ptfhost):
+                              duthosts, rand_one_dut_hostname, localhost,
+                              partial_ptf_runner, ptfhost, tbinfo, mux_server_url):
         duthost = duthosts[rand_one_dut_hostname]
         duthost.command("config sflow polling-interval 80")
         verify_show_sflow(duthost, status='up', polling_int=80)
@@ -756,7 +808,10 @@ class TestReboot():
         reboot(duthost, localhost)
         assert wait_until(
             300, 20, 0, duthost.critical_services_fully_started), "Not all critical services are fully started"
-        force_active_tor(duthost, "all")
+        restore_mux_ports_after_reboot(
+            duthost, duthosts, rand_one_dut_hostname,
+            tbinfo, mux_server_url, var['test_ports']
+        )
         assert wait_until(60, 5, 0, verify_sflow_config_apply, duthost)
         verify_show_sflow(duthost, status='up', collector=[
                           'collector0', 'collector1'], polling_int=80)
@@ -776,7 +831,7 @@ class TestReboot():
             active_collectors="['collector0','collector1']")
 
     def testRebootSflowDisable(self, sflowbase_config, duthosts, rand_one_dut_hostname,
-                               force_active_tor, localhost, partial_ptf_runner, ptfhost):
+                               localhost, partial_ptf_runner, ptfhost, tbinfo, mux_server_url):
         duthost = duthosts[rand_one_dut_hostname]
         config_sflow(duthost, sflow_status='disable')
         verify_show_sflow(duthost, status='down')
@@ -787,7 +842,10 @@ class TestReboot():
         reboot(duthost, localhost)
         assert wait_until(
             300, 20, 0, duthost.critical_services_fully_started), "Not all critical services are fully started"
-        force_active_tor(duthost, "all")
+        restore_mux_ports_after_reboot(
+            duthost, duthosts, rand_one_dut_hostname,
+            tbinfo, mux_server_url, var['test_ports']
+        )
         verify_show_sflow(duthost, status='down')
         for intf in var['sflow_ports']:
             var['sflow_ports'][intf]['ifindex'] = get_ifindex(duthost, intf)
