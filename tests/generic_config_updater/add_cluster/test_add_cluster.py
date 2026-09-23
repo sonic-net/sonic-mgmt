@@ -2407,16 +2407,33 @@ def _cli_remove_selected_mors(duthost, selection, namespace):
             "del localhost DEVICE_NEIGHBOR_METADATA " + name)
 
     for pc in selection["portchannels"]:
-        # PORTCHANNEL_INTERFACE: both bare PC key and PC|ip compound keys.
+        # PORTCHANNEL_INTERFACE: both the bare PC key and the PC|ip compound
+        # keys.  These are two separate deletes on purpose.  A single
+        # 'PORTCHANNEL_INTERFACE|{pc}*' glob would be prefix-matched, not
+        # delimiter-matched, so selecting PortChannel1 would also wipe
+        # PortChannel10/PortChannel100's interface keys.  Those PCs are not in
+        # our selection, so the add-patch never restores them and the
+        # selected-only verifier never notices -- they would stay missing
+        # until the checkpoint rollback at teardown.  Bound both forms by the
+        # '|' delimiter instead: an exact key for the bare row, and a
+        # '{pc}|*' glob for the IP rows.
         run("asic",
-            "sudo sonic-db-cli {ns} CONFIG_DB keys 'PORTCHANNEL_INTERFACE|{pc}*' "
+            "sudo sonic-db-cli {ns} CONFIG_DB del 'PORTCHANNEL_INTERFACE|{pc}'"
+            .format(ns=ns_flag, pc=pc),
+            "del PORTCHANNEL_INTERFACE " + pc)
+        run("asic",
+            "sudo sonic-db-cli {ns} CONFIG_DB keys 'PORTCHANNEL_INTERFACE|{pc}|*' "
             "| xargs -r -n1 sudo sonic-db-cli {ns} CONFIG_DB del"
             .format(ns=ns_flag, pc=pc),
-            "del PORTCHANNEL_INTERFACE " + pc + "*")
+            "del PORTCHANNEL_INTERFACE " + pc + "|*")
         run("localhost",
-            "sudo sonic-db-cli CONFIG_DB keys 'PORTCHANNEL_INTERFACE|{pc}*' "
+            "sudo sonic-db-cli CONFIG_DB del 'PORTCHANNEL_INTERFACE|{pc}'"
+            .format(pc=pc),
+            "del localhost PORTCHANNEL_INTERFACE " + pc)
+        run("localhost",
+            "sudo sonic-db-cli CONFIG_DB keys 'PORTCHANNEL_INTERFACE|{pc}|*' "
             "| xargs -r -n1 sudo sonic-db-cli CONFIG_DB del".format(pc=pc),
-            "del localhost PORTCHANNEL_INTERFACE " + pc + "*")
+            "del localhost PORTCHANNEL_INTERFACE " + pc + "|*")
 
         # PORTCHANNEL_MEMBER: PC|Ethernet* keys.
         run("asic",
@@ -2461,8 +2478,10 @@ def _cli_remove_selected_mors(duthost, selection, namespace):
     return failures
 
 
-def _verify_selected_mors_removed(duthost, selection, namespace):
-    """Assert the selected MORs are really gone from the ASIC CONFIG_DB.
+def _verify_selected_mors_removed(duthost, selection, namespace,
+                                  config_facts, config_facts_localhost,
+                                  pc_refs=None):
+    """Assert the selected MORs are really gone from CONFIG_DB.
 
     This runs AFTER _cli_remove_selected_mors and BEFORE the timer starts, and
     it is the precondition the whole measurement rests on.
@@ -2475,57 +2494,205 @@ def _verify_selected_mors_removed(duthost, selection, namespace):
     ``del`` of a missing key still exits 0, and the ``keys | xargs del``
     pipelines report xargs' rc, so return codes prove nothing.
 
-    Only the ASIC namespace is checked, and only the tables whose size scales
-    with N (they are what the timed patch actually rebuilds).  localhost
-    entries are deliberately not gated -- they legitimately may not exist.
+    Every condition checked here is *derived from the pre-removal snapshot*
+    (``config_facts`` / ``config_facts_localhost``) rather than hardcoded, so
+    the gate covers exactly what ``_build_scaling_add_patch`` will re-add and
+    nothing more.  An entry that was already absent before setup ran is not
+    required to be absent now -- it contributes no op to the timed patch, so
+    it cannot understate the workload.
+
+    ``pc_refs`` is the list returned by ``_scan_pc_references`` (the rows whose
+    ``ports`` leaf-list references our PCs).  Those are restored by a
+    ``replace`` op rather than an ``add``, but the no-op hazard is identical:
+    replacing a list with the value it already holds costs nothing and silently
+    shrinks the measured workload.  Pass it so the gate covers them too.
 
     Returns a list of leftover keys (empty when the removal was clean).
     """
     ns_flag = "" if namespace is None else "-n {}".format(namespace)
 
-    def _keys(pattern):
-        out = duthost.shell(
-            "sudo sonic-db-cli {} CONFIG_DB keys '{}'".format(ns_flag, pattern),
-            module_ignore_errors=True)
+    def _run(cmd, what):
+        out = duthost.shell(cmd, module_ignore_errors=True)
         if out["rc"] != 0:
             # Treat an unreadable DB as a hard problem rather than "clean".
             raise RuntimeError(
-                "could not list CONFIG_DB keys '{}' (rc={}): {}".format(
-                    pattern, out["rc"], out.get("stderr", "")))
-        return {k.strip() for k in out["stdout"].splitlines() if k.strip()}
+                "could not read {} (rc={}): {}".format(
+                    what, out["rc"], out.get("stderr", "")))
+        return out["stdout"]
+
+    def _keys(pattern, scope="asic"):
+        flag = ns_flag if scope == "asic" else ""
+        out = _run("sudo sonic-db-cli {} CONFIG_DB keys '{}'".format(flag, pattern),
+                   "CONFIG_DB keys '{}' ({})".format(pattern, scope))
+        return {k.strip() for k in out.splitlines() if k.strip()}
 
     leftovers = []
 
+    def _flag(key, scope="asic"):
+        leftovers.append(key if scope == "asic" else "localhost:" + key)
+
+    ports = list(selection["member_ports"])
+    pcs = list(selection["portchannels"])
+    dev_names = list(selection["device_neigh_names"])
+    bgp_ips = list(selection["bgp_neigh_ips"])
+
+    # ---- ASIC scope ----
     bgp_keys = _keys("BGP_NEIGHBOR|*")
-    for ip in selection["bgp_neigh_ips"]:
+    for ip in bgp_ips:
         key = "BGP_NEIGHBOR|{}".format(ip)
         if key in bgp_keys:
-            leftovers.append(key)
+            _flag(key)
 
     dn_keys = _keys("DEVICE_NEIGHBOR|*")
-    for port in selection["member_ports"]:
+    for port in ports:
         key = "DEVICE_NEIGHBOR|{}".format(port)
         if key in dn_keys:
-            leftovers.append(key)
+            _flag(key)
+
+    # DEVICE_NEIGHBOR_METADATA is a parent the patch re-adds per neighbour.
+    dnm_keys = _keys("DEVICE_NEIGHBOR_METADATA|*")
+    dnm_snap = config_facts.get("DEVICE_NEIGHBOR_METADATA", {})
+    for name in dev_names:
+        key = "DEVICE_NEIGHBOR_METADATA|{}".format(name)
+        if name in dnm_snap and key in dnm_keys:
+            _flag(key)
 
     pc_keys = _keys("PORTCHANNEL|*")
     pcm_keys = _keys("PORTCHANNEL_MEMBER|*")
     pci_keys = _keys("PORTCHANNEL_INTERFACE|*")
-    for pc in selection["portchannels"]:
+    for pc in pcs:
         if "PORTCHANNEL|{}".format(pc) in pc_keys:
-            leftovers.append("PORTCHANNEL|{}".format(pc))
+            _flag("PORTCHANNEL|{}".format(pc))
         leftovers.extend(k for k in pcm_keys
                          if k.startswith("PORTCHANNEL_MEMBER|{}|".format(pc)))
         leftovers.extend(k for k in pci_keys
                          if k == "PORTCHANNEL_INTERFACE|{}".format(pc) or
                          k.startswith("PORTCHANNEL_INTERFACE|{}|".format(pc)))
 
+    # Per-port scalars.  These scale with N and are all re-added by the timed
+    # patch, so an un-removed one silently converts a timed add into a no-op.
+    qos_keys = _keys("PORT_QOS_MAP|*")
+    qos_snap = config_facts.get("PORT_QOS_MAP", {})
+    for port in ports:
+        key = "PORT_QOS_MAP|{}".format(port)
+        if port in qos_snap and key in qos_keys:
+            _flag(key)
+
+    buf_keys = _keys("BUFFER_PG|*")
+    buf_snap = config_facts.get("BUFFER_PG", {})
+    for port in ports:
+        for pg_range in buf_snap.get(port, {}):
+            key = "BUFFER_PG|{}|{}".format(port, pg_range)
+            if key in buf_keys:
+                _flag(key)
+
+    # CABLE_LENGTH is a single hash whose *fields* are per-port; Redis drops
+    # the hash entirely once the last field goes, so an empty read is clean.
+    cable_snap = config_facts.get("CABLE_LENGTH", {}).get("AZURE", {})
+    wanted_cable = [p for p in ports if p in cable_snap]
+    if wanted_cable:
+        cable_fields = {
+            f.strip() for f in _run(
+                "sudo sonic-db-cli {} CONFIG_DB hkeys 'CABLE_LENGTH|AZURE'"
+                .format(ns_flag), "CABLE_LENGTH|AZURE fields").splitlines()
+            if f.strip()}
+        for port in wanted_cable:
+            if port in cable_fields:
+                _flag("CABLE_LENGTH|AZURE:{}".format(port))
+
+    # PORT rows are never deleted -- admin_status is flipped down instead, and
+    # the patch flips it back up.  If the flip did not take, that op is a
+    # no-op, so the transition is part of the precondition.  One shell round
+    # trip for all N ports.
+    if ports:
+        admin_out = _run(
+            "for p in {ports}; do printf '%s=' \"$p\"; "
+            "sudo sonic-db-cli {ns} CONFIG_DB hget \"PORT|$p\" admin_status; "
+            "done".format(ports=" ".join(ports), ns=ns_flag),
+            "PORT admin_status")
+        admin = {}
+        for line in admin_out.splitlines():
+            if "=" in line:
+                name, _, val = line.partition("=")
+                admin[name.strip()] = val.strip()
+        for port in ports:
+            if admin.get(port) != "down":
+                _flag("PORT|{}:admin_status={}".format(
+                    port, admin.get(port) or "<unset>"))
+
+    # ---- localhost scope ----
+    # The patch re-adds localhost rows too (conditioned on the localhost
+    # snapshot), so the same no-op hazard applies there.  Gated on snapshot
+    # presence: entries that legitimately never existed are not required.
+    local = config_facts_localhost or {}
+    if local:
+        l_bgp = _keys("BGP_NEIGHBOR|*", scope="localhost")
+        for ip in bgp_ips:
+            key = "BGP_NEIGHBOR|{}".format(ip)
+            if ip in local.get("BGP_NEIGHBOR", {}) and key in l_bgp:
+                _flag(key, scope="localhost")
+
+        l_dn = _keys("DEVICE_NEIGHBOR|*", scope="localhost")
+        for port in ports:
+            key = "DEVICE_NEIGHBOR|{}".format(port)
+            if port in local.get("DEVICE_NEIGHBOR", {}) and key in l_dn:
+                _flag(key, scope="localhost")
+
+        l_dnm = _keys("DEVICE_NEIGHBOR_METADATA|*", scope="localhost")
+        for name in dev_names:
+            key = "DEVICE_NEIGHBOR_METADATA|{}".format(name)
+            if (name in local.get("DEVICE_NEIGHBOR_METADATA", {}) and
+                    key in l_dnm):
+                _flag(key, scope="localhost")
+
+    # localhost PortChannel tables are deleted unconditionally during setup
+    # and re-added unconditionally by the patch, so absence is required
+    # regardless of the snapshot.  A row that never existed is absent anyway,
+    # so this cannot produce a false positive.
+    l_pc = _keys("PORTCHANNEL|*", scope="localhost")
+    l_pcm = _keys("PORTCHANNEL_MEMBER|*", scope="localhost")
+    l_pci = _keys("PORTCHANNEL_INTERFACE|*", scope="localhost")
+    for pc in pcs:
+        if "PORTCHANNEL|{}".format(pc) in l_pc:
+            _flag("PORTCHANNEL|{}".format(pc), scope="localhost")
+        for k in l_pcm:
+            if k.startswith("PORTCHANNEL_MEMBER|{}|".format(pc)):
+                _flag(k, scope="localhost")
+        for k in l_pci:
+            if (k == "PORTCHANNEL_INTERFACE|{}".format(pc) or
+                    k.startswith("PORTCHANNEL_INTERFACE|{}|".format(pc))):
+                _flag(k, scope="localhost")
+
+    # ---- ports leaf-list referrers (ACL_TABLE / PBH_TABLE / MIRROR_SESSION) ----
+    # _cli_remove_pc_references strips our PCs out of each referring row's
+    # ``ports`` leaf-list, and _build_scaling_add_patch puts them back with a
+    # ``replace`` carrying the ORIGINAL list.  If a strip silently failed the
+    # replace rewrites the value that is already there, so that op is a no-op
+    # and the measurement is understated -- the same hazard the table checks
+    # above guard against.  The referrer count does not scale with N (it is a
+    # handful of fixed ACL rows), so at low N it is a large share of the ops:
+    # on a T2 LC it is 6 of the 36 ops at N=1.  Redis stores the leaf-list in
+    # the ``ports@`` field as a comma-separated string.
+    for ref in (pc_refs or []):
+        scope = ref["scope"]
+        flag = ns_flag if scope == "asic" else ""
+        rowkey = "{}|{}".format(ref["table"], ref["key"])
+        raw = _run(
+            "sudo sonic-db-cli {} CONFIG_DB hget '{}' 'ports@'".format(
+                flag, rowkey),
+            "{} ports@ ({})".format(rowkey, scope))
+        current = {p.strip() for p in raw.split(",") if p.strip()}
+        for pc in pcs:
+            if pc in current:
+                _flag("{}:ports@ still lists {}".format(rowkey, pc),
+                      scope=scope)
+
     if leftovers:
-        logger.error("Removal incomplete -- %d key(s) still present: %s",
+        logger.error("Removal incomplete -- %d condition(s) unmet: %s",
                      len(leftovers), sorted(leftovers))
     else:
-        logger.info("Removal verified: all selected MOR keys absent from "
-                    "the ASIC CONFIG_DB")
+        logger.info("Removal verified: every snapshot-derived precondition "
+                    "for the timed patch is satisfied")
     return leftovers
 
 
@@ -2879,7 +3046,8 @@ def _run_scaling_measurement(duthost, tbinfo, config_facts, config_facts_localho
     # object"); the existing remove_cluster_via_sonic_db_cli helper was
     # rejected because it wildcard-deletes the whole ASIC.  Our fixture
     # rolls back via `config rollback` regardless of intermediate state.
-    _cli_remove_selected_mors(duthost, selection, enum_rand_one_asic_namespace)
+    remove_failures = _cli_remove_selected_mors(
+        duthost, selection, enum_rand_one_asic_namespace)
 
     # Also strip our PCs from any referrer's ``ports`` leaf-list (ACL_TABLE,
     # PBH_TABLE, MIRROR_SESSION, etc.) so the incremental ADD patch below
@@ -2897,12 +3065,24 @@ def _run_scaling_measurement(duthost, tbinfo, config_facts, config_facts_localho
     # corresponding RFC 6902 ``add`` becomes a no-op and the run reports an
     # artificially fast time.  See _verify_selected_mors_removed.
     leftovers = _verify_selected_mors_removed(
-        duthost, selection, enum_rand_one_asic_namespace)
+        duthost, selection, enum_rand_one_asic_namespace,
+        config_facts, config_facts_localhost, pc_refs)
     pytest_assert(
         not leftovers,
-        "Setup incomplete: {} selected key(s) survived removal, so part of "
-        "the timed patch would be a no-op and the measurement would be "
-        "invalid. Leftovers: {}".format(len(leftovers), sorted(leftovers)))
+        "Setup incomplete: {} precondition(s) unmet, so part of the timed "
+        "patch would be a no-op and the measurement would be invalid. "
+        "Unmet: {}{}".format(
+            len(leftovers), sorted(leftovers),
+            "" if not remove_failures else
+            " | non-zero rc from {} removal command(s): {}".format(
+                len(remove_failures), remove_failures)))
+    if remove_failures:
+        # Verification passed, so these did not affect the measurement, but
+        # they are still worth surfacing rather than discarding.
+        logger.warning(
+            "%d removal command(s) returned non-zero rc yet every "
+            "precondition is satisfied; treating as benign: %s",
+            len(remove_failures), remove_failures)
 
     # Empty-parent guard: snapshot which parent hashes survived the CLI
     # removal.  If a parent (CABLE_LENGTH|AZURE, PORT_QOS_MAP|*,
