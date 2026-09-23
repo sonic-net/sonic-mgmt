@@ -76,25 +76,6 @@ bgp/test_traffic_shift.py:
       - "asic_type in ['vpp'] and (not platform.startswith('arm64-c8220tg_48a_o'))"
 
 #######################################
-#####            Cacl             #####
-#######################################
-cacl/test_cacl_application.py::test_cacl_scale_rules_ipv4:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-cacl/test_cacl_application.py::test_caclmgrd_syslog:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-#######################################
 #####           Configlet         #####
 #######################################
 configlet/test_add_rack.py::test_add_rack:
