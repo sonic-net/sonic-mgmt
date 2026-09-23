@@ -165,5 +165,6 @@ def test_credentials_dir_removed_from_show_techsupport(
     dump_extract_path = "./{0}".format(dump_file_name.replace(".tar.gz", ""))
 
     # check no files exist under etc/sonic/credentials/ in the dump
-    find_command = "find {0}/etc/sonic/credentials/ -type f 2>/dev/null".format(dump_extract_path)
+    find_command = "test ! -d {0}/etc/sonic/credentials/ || find {0}/etc/sonic/credentials/ -type f"\
+        .format(dump_extract_path)
     check_no_result(duthost, find_command)

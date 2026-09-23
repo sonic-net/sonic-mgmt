@@ -25,9 +25,9 @@ def create_ssh_client(ip, user, pwd):
     return client
 
 
-def ensure_console_session_up(client, line):
+def ensure_console_session_up(client, line, escape_char='a'):
     client.expect_exact('Successful connection to line [{}]'.format(line))
-    client.expect_exact('Press ^A ^X to disconnect')
+    client.expect_exact('Press ^{} ^X to disconnect'.format(escape_char.upper()))
 
 
 def get_target_lines(duthost):

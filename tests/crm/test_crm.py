@@ -6,11 +6,13 @@ import netaddr
 import copy
 import logging
 import os
+import re
 import tempfile
 
+from contextlib import contextmanager
 from jinja2 import Template
 from tests.common.cisco_data import is_cisco_device
-from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
+from tests.common.plugins.loganalyzer.loganalyzer import DisableLogrotateCronContext, LogAnalyzer
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.crm import get_used_percent, CRM_UPDATE_TIME, CRM_POLLING_INTERVAL, EXPECT_EXCEEDED, \
      EXPECT_CLEAR, THR_VERIFY_CMDS
@@ -34,6 +36,7 @@ FDB_CLEAR_TIMEOUT = 20
 ROUTE_COUNTER_POLL_TIMEOUT = 15
 CRM_COUNTER_TOLERANCE = 2
 ACL_TABLE_NAME = "DATAACL"
+CRM_THRESHOLD_LOG_TIMEOUT = CRM_UPDATE_TIME * 3
 
 RESTORE_CMDS = {"test_crm_route": [],
                 "test_crm_nexthop": [],
@@ -92,6 +95,30 @@ def handle_default_acl_rules(duthost, tbinfo):
         RESTORE_CMDS["test_acl_counter"].append({"data_acl": data_acl})
 
 
+def wait_for_acl_entry_count_stable(asichost, timeout=30, interval=3):
+    """
+    Wait until ASIC_DB ACL_ENTRY count stabilizes (two consecutive reads match).
+    This ensures orchagent has finished processing ACL deletions/additions.
+    """
+    cmd = "{} ASIC_DB KEYS \"*SAI_OBJECT_TYPE_ACL_ENTRY*\"".format(asichost.sonic_db_cli)
+    previous_count = None
+
+    def _count_stable():
+        nonlocal previous_count
+        keys = asichost.shell(cmd)["stdout"].split()
+        current_count = len(keys) if keys != [''] else 0
+
+        if previous_count is not None and current_count == previous_count:
+            logger.info(f"ACL entry count stabilized at {current_count}")
+            return True
+
+        logger.info(f"ACL entry count: {current_count} (previous: {previous_count})")
+        previous_count = current_count
+        return False
+
+    return wait_until(timeout, interval, 0, _count_stable)
+
+
 def apply_acl_config(duthost, asichost, test_name, collector, entry_num=1):
     """ Create acl rule defined in config file. Return ACL table key. """
     base_dir = os.path.dirname(os.path.realpath(__file__))
@@ -133,17 +160,23 @@ def apply_acl_config(duthost, asichost, test_name, collector, entry_num=1):
     # Wait for ACL configuration to propagate by polling for ACL table key
     logger.info("Waiting for ACL configuration to propagate...")
 
+    acl_tbl_key = None
+
     def _acl_config_applied():
+        nonlocal acl_tbl_key
         try:
-            get_acl_tbl_key(asichost)
+            acl_tbl_key = get_acl_tbl_key(asichost)
             return True
-        except Exception:
+        except BaseException:
+            acl_tbl_key = None
             return False
+
+    wait_for_acl_entry_count_stable(asichost, timeout=30, interval=3)
 
     pytest_assert(wait_until(CONFIG_UPDATE_TIME * 3, CRM_POLLING_INTERVAL, 0, _acl_config_applied),
                   "ACL configuration did not propagate within timeout")
 
-    collector["acl_tbl_key"] = get_acl_tbl_key(asichost)
+    collector["acl_tbl_key"] = acl_tbl_key
 
 
 def generate_mac(num):
@@ -226,28 +259,135 @@ def apply_fdb_config(duthost, test_name, vlan_id, iface, entry_num):
 
 
 def get_acl_tbl_key(asichost):
-    """ Get ACL entry keys """
-    cmd = "{} ASIC_DB KEYS \"*SAI_OBJECT_TYPE_ACL_ENTRY*\"".format(asichost.sonic_db_cli)
-    acl_tbl_keys = asichost.shell(cmd)["stdout"].split()
+    """ Get ACL entry keys.
+    """
+    db_cli = asichost.sonic_db_cli
+    cmd = (
+        'keys=$({db} ASIC_DB KEYS "*SAI_OBJECT_TYPE_ACL_ENTRY*"); '
+        'for k in $keys; do '
+        '  et=$({db} ASIC_DB HGET "$k" SAI_ACL_ENTRY_ATTR_FIELD_ETHER_TYPE); '
+        '  case "$et" in '
+        '    *2048*) '
+        '      tid=$({db} ASIC_DB HGET "$k" SAI_ACL_ENTRY_ATTR_TABLE_ID); '
+        '      if [ -n "$tid" ]; then echo "$tid"; exit 0; fi ;; '
+        '  esac; '
+        'done; '
+        'exit 1'
+    ).format(db=db_cli)
 
-    # Get ethertype for ACL entry and match ACL which was configured to ethertype value
-    cmd = "{db_cli} ASIC_DB HGET {item} \"SAI_ACL_ENTRY_ATTR_FIELD_ETHER_TYPE\""
-    for item in acl_tbl_keys:
-        out = asichost.shell(cmd.format(db_cli=asichost.sonic_db_cli, item=item))["stdout"]
-        logging.info(out)
-        if "2048" in out:
-            key = item
-            break
-    else:
-        pytest.fail("Ether type was not found in SAI ACL Entry table")
+    result = asichost.shell(cmd, module_ignore_errors=True)
+    oid = (result.get("stdout") or "").strip()
+    if result.get("rc", 1) != 0 or not oid:
+        pytest.fail("Valid ACL entry (EtherType=2048 with TABLE_ID) not found")
 
-    # Get ACL table key
-    cmd = "{db_cli} ASIC_DB HGET {key} \"SAI_ACL_ENTRY_ATTR_TABLE_ID\""
-    oid = asichost.shell(cmd.format(db_cli=asichost.sonic_db_cli, key=key))["stdout"]
     logging.info(oid)
-    acl_tbl_key = "CRM:ACL_TABLE_STATS:{0}".format(oid.replace("oid:", ""))
+    return "CRM:ACL_TABLE_STATS:{0}".format(oid.replace("oid:", ""))
 
-    return acl_tbl_key
+
+@contextmanager
+def disable_swss_syslog_rate_limit(duthost, asichost):
+    """Prevent SWSS threshold messages from being dropped during CRM verification."""
+    swss_container = asichost.get_docker_name("swss")
+    config_file = "/etc/rsyslog.conf"
+
+    def restart_rsyslog():
+        duthost.shell(
+            "docker exec {} supervisorctl restart rsyslogd".format(swss_container)
+        )
+
+        def is_rsyslog_running():
+            status = duthost.shell(
+                "docker exec {} supervisorctl status rsyslogd".format(swss_container),
+                module_ignore_errors=True
+            )
+            return status.get("rc") == 0 and "RUNNING" in status.get("stdout", "")
+
+        pytest_assert(
+            wait_until(10, 1, 0, is_rsyslog_running),
+            "SWSS rsyslogd did not return to RUNNING state"
+        )
+
+    check_cmd = (
+        r"docker exec {} grep -oE "
+        r"'SysSock\.RateLimit\.Interval=\"[0-9]+\"' {} | head -1"
+        .format(swss_container, config_file)
+    )
+    result = duthost.shell(check_cmd, module_ignore_errors=True)
+    interval_match = re.fullmatch(
+        r'SysSock\.RateLimit\.Interval="([0-9]+)"',
+        result.get("stdout", "").strip()
+    )
+    pytest_assert(
+        result.get("rc") == 0 and interval_match is not None,
+        "Failed to determine SWSS syslog rate-limit state"
+    )
+    original_interval = int(interval_match.group(1))
+    rate_limit_enabled = original_interval != 0
+    logger.info(
+        "SWSS syslog rate-limit interval is {} in container {}"
+        .format(original_interval, swss_container)
+    )
+
+    try:
+        if rate_limit_enabled:
+            disable_cmd = (
+                r"docker exec {} sed -i "
+                r"'s/SysSock\.RateLimit\.Interval=\"{}\"/"
+                r"SysSock.RateLimit.Interval=\"0\"/g' {}"
+                .format(swss_container, original_interval, config_file)
+            )
+            duthost.shell(disable_cmd)
+            restart_rsyslog()
+
+        yield
+    finally:
+        if rate_limit_enabled:
+            restore_cmd = (
+                r"docker exec {} sed -i "
+                r"'s/SysSock\.RateLimit\.Interval=\"0\"/"
+                r"SysSock.RateLimit.Interval=\"{}\"/g' {}"
+                .format(swss_container, original_interval, config_file)
+            )
+            duthost.shell(restore_cmd)
+            restart_rsyslog()
+
+
+def wait_for_threshold_log(loganalyzer, duthost, asichost, cmd):
+    """Apply CRM thresholds and wait for the expected syslog message."""
+    expect_regex = loganalyzer.expect_regex[0]
+
+    def has_expected_log(first_line):
+        result = duthost.shell(
+            "sudo tail -n +{} /var/log/syslog".format(first_line),
+            module_ignore_errors=True)
+        return re.search(expect_regex, result.get("stdout", "")) is not None
+
+    with DisableLogrotateCronContext(duthost):
+        marker = loganalyzer.init()
+        result = duthost.shell(
+            "sudo wc -l /var/log/syslog | awk '{print $1}'",
+            module_ignore_errors=True
+        )
+        pytest_assert(
+            result.get("rc", 1) == 0 and result.get("stdout", "").strip().isdigit(),
+            "Failed to determine the current syslog position"
+        )
+        first_line = int(result["stdout"].strip()) + 1
+        asichost.command(cmd)
+        observed = wait_until(
+            CRM_THRESHOLD_LOG_TIMEOUT,
+            CRM_POLLING_INTERVAL,
+            CRM_POLLING_INTERVAL,
+            has_expected_log,
+            first_line
+        )
+
+        if not observed:
+            logger.warning(
+                "CRM threshold message was not observed within {} seconds"
+                .format(CRM_THRESHOLD_LOG_TIMEOUT)
+            )
+        loganalyzer.analyze(marker, fail=True)
 
 
 def verify_thresholds(duthost, asichost, **kwargs):
@@ -304,10 +444,7 @@ def verify_thresholds(duthost, asichost, **kwargs):
         kwargs['crm_used'], kwargs['crm_avail'] = get_crm_stats(kwargs['crm_cmd'], duthost)
         cmd = template.render(**kwargs)
 
-        with loganalyzer:
-            asichost.command(cmd)
-            # Make sure CRM counters updated
-            wait_until(CRM_UPDATE_TIME, CRM_POLLING_INTERVAL, 0, lambda: True)
+        wait_for_threshold_log(loganalyzer, duthost, asichost, cmd)
 
 
 def get_crm_stats(cmd, duthost):
@@ -728,7 +865,7 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
 
     # Make sure CRM counters updated - use polling to wait for route counter to update
     logger.info(f"Waiting for route counters to update after adding {total_routes} routes...")
-    expected_min_used = crm_stats_route_used + total_routes - CRM_COUNTER_TOLERANCE
+    expected_min_used = crm_stats_route_used + max(1, total_routes - CRM_COUNTER_TOLERANCE)
 
     def check_route_added():
         return get_route_used() >= expected_min_used
@@ -771,7 +908,7 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
 
     # Make sure CRM counters updated - use polling to wait for route counter to update
     logger.info(f"Waiting for route counters to update after deleting {total_routes} routes...")
-    expected_max_used = crm_stats_route_used + CRM_COUNTER_TOLERANCE
+    expected_max_used = crm_stats_route_used + min(total_routes - 1, CRM_COUNTER_TOLERANCE)
 
     def check_route_deleted():
         return get_route_used() <= expected_max_used
@@ -859,7 +996,10 @@ def _get_interface_neighbor_and_port(duthost, tbinfo, dut_interface, nbrhosts):
     neighbor_name, neighbor_interface = neighbor_name['name'], neighbor_name['port']
     neighbor = nbrhosts[neighbor_name]
     lacp_num = neighbor['conf']['interfaces'][neighbor_interface].get('lacp')
-    neighbor_interface = f'po{lacp_num}' if lacp_num else neighbor_interface
+    if lacp_num:
+        neighbor_interface = f'po{lacp_num}'
+    elif neighbor_interface.startswith('Ethernet'):
+        neighbor_interface = f"eth{neighbor_interface.removeprefix('Ethernet')}"
     return neighbor['host'], neighbor_interface
 
 
@@ -985,7 +1125,7 @@ def test_crm_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                                         ip_ver=ip_ver)
     nexthop_used, nexthop_available = get_crm_stats(get_nexthop_stats, duthost)
     if is_cisco_device(duthost):
-        CISCO_8000_ADD_NEIGHBORS = nexthop_available
+        CISCO_8000_ADD_NEIGHBORS = min(2000, nexthop_available)
     asic_type = duthost.facts['asic_type']
     skip_stats_check = True if asic_type == "vs" else False
     RESTORE_CMDS["crm_threshold_name"] = "ipv{ip_ver}_neighbor".format(ip_ver=ip_ver)
@@ -1173,7 +1313,8 @@ def test_crm_nexthop_group(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
 
         RESTORE_CMDS["wait"] = SONIC_RES_CLEANUP_UPDATE_TIME
 
-    verify_thresholds(duthost, asichost, crm_cli_res=redis_threshold, crm_cmd=get_nexthop_group_stats)
+    with disable_swss_syslog_rate_limit(duthost, asichost):
+        verify_thresholds(duthost, asichost, crm_cli_res=redis_threshold, crm_cmd=get_nexthop_group_stats)
 
 
 def recreate_acl_table(duthost, ports):
@@ -1235,6 +1376,12 @@ def verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hos
     RESTORE_CMDS["crm_threshold_name"] = "acl_entry"
     crm_stats_acl_entry_used = 0
     crm_stats_acl_entry_available = 0
+
+    wait_for_crm_counter_update(
+        get_acl_entry_stats, duthost,
+        expected_used=crm_stats_acl_entry_used + 4,
+        oper_used=">=", timeout=60, interval=2,
+    )
 
     # Get new "crm_stats_acl_entry" used and available counter value
     new_crm_stats_acl_entry_used, new_crm_stats_acl_entry_available = get_crm_stats(get_acl_entry_stats, duthost)
@@ -1357,6 +1504,13 @@ def test_acl_counter(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_f
                                 crm_stats_acl_counter_available"\
                                     .format(db_cli=asichost.sonic_db_cli,
                                             acl_tbl_key=acl_tbl_key)
+
+    wait_for_crm_counter_update(
+        get_acl_counter_stats, duthost,
+        expected_used=crm_stats_acl_counter_used + 2,
+        oper_used=">=", timeout=60, interval=2,
+    )
+
     new_crm_stats_acl_counter_used, new_crm_stats_acl_counter_available = \
         get_crm_stats(get_acl_counter_stats, duthost)
 

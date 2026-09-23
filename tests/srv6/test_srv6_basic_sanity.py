@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 #
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # Disable automatic loganalyzer, since we use it for the test
-    pytest.mark.topology("ciscovs-7nodes"),
+    pytest.mark.topology("ciscovs-7nodes", "force10-7nodes"),
     pytest.mark.skip_check_dut_health
 ]
 
@@ -213,10 +213,9 @@ def test_check_routes(duthosts, rand_one_dut_hostname, nbrhosts):
 # Test Case : Traffic check in Normal Case
 #
 def test_traffic_check_normal(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, ptfadapter):
-    #
-    # Create a packet sending to 192.100.0.1
-    #
-    # establish_and_configure_bfd(nbrhosts)
+    if tbinfo["topo"]["name"] not in ["ciscovs-7nodes"]:
+        pytest.skip("SRv6 data plane only available on ciscovs topologies")
+
     tcp_pkt0 = simple_tcp_packet(
         ip_src="192.200.0.1",
         ip_dst="192.100.0.1",

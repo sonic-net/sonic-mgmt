@@ -13,16 +13,17 @@ from constants import (
     VXLAN_UDP_BASE_SRC_PORT,
     VXLAN_UDP_SRC_PORT_MASK,
 )
-from packets import outbound_pl_packets
+from ha_packets import outbound_pl_packets
 from tests.common.devices.duthosts import DutHosts
-from tests.common.config_reload import config_reload
 from tests.common.dash_utils import apply_swssconfig_file
 from tests.common.helpers.assertions import pytest_assert, pytest_require
+from tests.common.helpers.smartswitch_util import get_data_port_on_dpu, get_dpu_dataplane_port
 from tests.common.utilities import InterruptableThread
 from tests.conftest import get_specified_dpus, get_target_hostname, is_parallel_leader
 from tests.ha.conftest import apply_dash_pl_pipeline_config
 from ha_gnmi import apply_ha_messages, ha_scope_config, ha_set_config
 from ha_utils import (
+    parallel_config_reload_dpuhosts,
     program_eni_pl_on_dpu,
     set_dash_ha_scope,
     verify_ha_state,
@@ -115,6 +116,32 @@ def _select_replacement_dpuhost(requested_dpuhosts, duthost_to_replace):
     )
 
 
+def _correlate_repair_dpuhosts(duthost, dpuhosts):
+    """Populate dpu_index/dpu_dataplane_port/... on each dpuhost, matching the
+    session-scoped correlate_dpu_info_with_dpuhost fixture. This module overrides
+    the `dpuhosts` fixture and so bypasses that autouse enrichment."""
+    npu_ip_intf_facts = duthost.show_ip_interface()['ansible_facts']['ip_interfaces']
+    npu_lldp_info = duthost.show_and_parse("show lldp table")
+    for dpuhost in dpuhosts:
+        dpu_ip_intf_facts = dpuhost.show_ip_interface()['ansible_facts']['ip_interfaces']
+        dpuhost_ip = dpu_ip_intf_facts['eth0-midplane']['ipv4']
+        dpuhost.dpu_index = int(dpuhost_ip.split(".")[-1]) - 1
+        dpuhost.dpu_mgmt_ip = dpuhost_ip
+
+        data_port_on_npu = get_dpu_dataplane_port(duthost, dpuhost.dpu_index)
+        data_port_on_dpu = get_data_port_on_dpu(npu_lldp_info, data_port_on_npu)
+        dpuhost.npu_data_port_ip = npu_ip_intf_facts[data_port_on_npu]['ipv4'] \
+            if data_port_on_npu in npu_ip_intf_facts else ''
+        dpuhost.dpu_data_port_ip = dpu_ip_intf_facts[data_port_on_dpu]['ipv4'] \
+            if data_port_on_dpu in dpu_ip_intf_facts else ''
+        dpuhost.npu_dataplane_port = data_port_on_npu
+        dpuhost.dpu_dataplane_port = data_port_on_dpu
+        dpuhost.npu_dataplane_mac = duthost.get_dut_iface_mac(data_port_on_npu)
+        dpuhost.dpu_dataplane_mac = dpuhost.get_dut_iface_mac(data_port_on_dpu)
+        dpuhost.dataplane_mask_length = 31
+        dpuhost.name = f"dpu{dpuhost.dpu_index}"
+
+
 @pytest.fixture(scope="session")
 def dpuhosts(
     enhance_inventory,
@@ -123,6 +150,7 @@ def dpuhosts(
     request,
     enable_nat_for_dpuhosts,
     duthosts,
+    duthost,
 ):
     """Return all requested DPU hosts in CLI order for the repair test module."""
     del enhance_inventory, enable_nat_for_dpuhosts
@@ -148,6 +176,7 @@ def dpuhosts(
         _dpuhost_matches_duthost(requested_dpuhosts[1], duthosts[1]),
         "The second requested DPU host must belong to {}".format(duthosts[1].hostname),
     )
+    _correlate_repair_dpuhosts(duthost, requested_dpuhosts)
     return requested_dpuhosts
 
 
@@ -210,7 +239,9 @@ def _send_continuous_pl_traffic(ptfadapter, send_config, recv_ports, stop_event,
 
 
 def _verify_baseline_pl_traffic(ptfadapter, send_config, recv_ports):
-    send_pkt, exp_pkt = outbound_pl_packets(send_config, "vxlan")
+    # Send SYN so the DPU creates the stateful TCP flow; subsequent ACK traffic in the
+    # continuous-traffic thread then matches the established flow.
+    send_pkt, exp_pkt = outbound_pl_packets(send_config, "vxlan", tcp_flag_syn=True)
     ptfadapter.dataplane.flush()
     testutils.send(ptfadapter, send_config[LOCAL_PTF_INTF], send_pkt, count=1)
     testutils.verify_packet_any_port(
@@ -487,9 +518,7 @@ def common_setup_teardown(
                     set_db=False,
                 )
     finally:
-        for dpuhost in selected_dpuhosts:
-            logger.info(f"config reload on {dpuhost.hostname}")
-            config_reload(dpuhost, safe_reload=True, yang_validate=False)
+        parallel_config_reload_dpuhosts(selected_dpuhosts)
 
 
 def _update_ha_set_with_replacement_dpu(
@@ -683,7 +712,7 @@ def test_ha_repairing_dpu(
             repair_vdpu_key,
             "dead",
             ha_owner,
-            disabled=True,
+            disabled=False,
         )
 
         pytest_assert(

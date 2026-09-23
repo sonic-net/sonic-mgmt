@@ -85,13 +85,14 @@ def local_user_client():
 
 
 @pytest.fixture(scope="module", autouse=True)
-def check_image_version(duthost):
+def check_image_version(duthosts, enum_rand_one_per_hwsku_hostname):
     """Skips this test if the SONiC image installed on DUT is older than 202112
     Args:
-        duthost: Hostname of DUT.
+        duthosts: DUT hosts.
     Returns:
         None.
     """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     skip_release(duthost, per_command_authorization_skip_versions)
 
 

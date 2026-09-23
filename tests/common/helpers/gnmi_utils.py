@@ -295,12 +295,12 @@ def create_revoked_cert_and_crl(localhost, ptfhost, duthost=None):
     localhost.shell(local_command)
 
 
-def create_gnmi_certs(duthost, localhost, ptfhost):
+def create_gnmi_certs(duthost, localhost, ptfhost, dut_ip=None):
     '''
     Create GNMI client certificates
     '''
     prepare_root_cert(localhost)
-    prepare_server_cert(duthost, localhost)
+    prepare_server_cert(duthost, localhost, dut_ip=dut_ip)
     prepare_client_cert(localhost)
     create_revoked_cert_and_crl(localhost, ptfhost)
     copy_certificate_to_dut(duthost)
@@ -351,10 +351,10 @@ def create_root_cert(localhost, days):
     _write_pem_certificate("gnmiCA.pem", cert)
 
 
-def prepare_server_cert(duthost, localhost, days="825"):
+def prepare_server_cert(duthost, localhost, days="825", dut_ip=None):
     create_server_key(localhost)
     create_server_csr(localhost)
-    sign_server_certificate(duthost, localhost, days)
+    sign_server_certificate(duthost, localhost, days, dut_ip=dut_ip)
 
 
 def create_server_key(localhost):
@@ -371,15 +371,20 @@ def create_server_csr(localhost):
     localhost.shell(local_command)
 
 
-def sign_server_certificate(duthost, localhost, days):
-    """Sign gnmiserver.csr with the CA, backdated, with SAN (hostname.com + DUT mgmt IP)."""
+def sign_server_certificate(duthost, localhost, days, dut_ip=None):
+    """Sign gnmiserver.csr with the CA, backdated, with SAN (hostname.com + DUT mgmt IP).
+
+    When dut_ip is provided, it is used as the SAN IP address instead of
+    duthost.mgmt_ip. This lets callers bind the cert to the address the
+    gnmi server is actually reachable at (e.g. when bound to a non-default VRF).
+    """
     ca_cert = _load_pem_certificate("gnmiCA.pem")
     ca_key = _load_pem_private_key("gnmiCA.key")
     csr = _load_pem_csr("gnmiserver.csr")
     not_before, not_after = _cert_validity_period(days)
     san_entries = [
         x509.DNSName("hostname.com"),
-        x509.IPAddress(ipaddress.ip_address(duthost.mgmt_ip)),
+        x509.IPAddress(ipaddress.ip_address(dut_ip or duthost.mgmt_ip)),
     ]
     cert = (
         x509.CertificateBuilder()

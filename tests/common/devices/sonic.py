@@ -8,15 +8,21 @@ import time
 import sys
 
 from collections import defaultdict
+from collections.abc import Mapping
 from datetime import datetime, timedelta
 
 from ansible import constants as ansible_constants
 from ansible.plugins.loader import connection_loader
+try:
+    from ansible.template import trust_as_template
+except ImportError:
+    def trust_as_template(data):
+        return data
 
 from tests.common.devices.base import AnsibleHostBase
 from tests.common.devices.constants import ACL_COUNTERS_UPDATE_INTERVAL_IN_SEC
 from tests.common.helpers.dut_utils import is_supervisor_node, is_macsec_capable_node
-from tests.common.utilities import get_host_visible_vars
+from tests.common.utilities import get_host_visible_vars, wait_until
 from tests.common.cache import cached
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, DEFAULT_NAMESPACE
 from tests.common.helpers.platform_api.chassis import is_inband_port
@@ -108,8 +114,8 @@ class SonicHost(AnsibleHostBase):
 
         if ssh_user and ssh_passwd:
             evars = {
-                'ansible_ssh_user': ssh_user,
-                'ansible_ssh_pass': ssh_passwd,
+                'ansible_ssh_user': trust_as_template(ssh_user),
+                'ansible_ssh_pass': trust_as_template(ssh_passwd),
             }
             self.host.options['variable_manager'].extra_vars.update(evars)
 
@@ -472,15 +478,23 @@ class SonicHost(AnsibleHostBase):
         pattern = r"OCI runtime exec failed:.*(starting setns process|fork/exec /proc/self/fd)"
 
         def _is_oci(res):
-            if not (isinstance(res, dict) and res.get("rc") == 127):
+            if not (isinstance(res, Mapping) and res.get("rc") == 127):
                 return False
             output = (res.get("stdout") or "") + "\n" + (res.get("stderr") or "")
             return bool(re.search(pattern, output, flags=re.DOTALL))
 
         if not _is_oci(result):
             return result
+
+        retry = result
         for attempt in range(1, attempts + 1):
             time.sleep(delay)
+            logging.info(
+                "Executing OCI race retry attempt %d/%d for cmd: %s",
+                attempt,
+                attempts,
+                cmd,
+            )
             retry = self.shell(cmd, module_ignore_errors=True)
             if not _is_oci(retry):
                 logging.info(
@@ -488,7 +502,8 @@ class SonicHost(AnsibleHostBase):
                     attempt, cmd,
                 )
                 return retry
-        return result
+        # Return the final retried result
+        return retry
 
     def get_critical_group_and_process_lists(self, container_name):
         """
@@ -1821,13 +1836,14 @@ Totals               6450                 6449
     def _try_get_brcm_asic_name(self, output):
         search_sets = {
             "td2": {"b85", "BCM5685"},
-            "td3": {"b87", "BCM5687"},
+            "td3": {"b87", "BCM5687", "b274", "BCM56274"},
             "td4": {"b78", "BCM5678"},
             "th":  {"b96", "BCM5696"},
             "th2": {"b97", "BCM5697"},
             "th3": {"b98", "BCM5698"},
             "th4": {"b99", "BCM5699"},
             "th5": {"f90", "BCM7890"},
+            "th6": {"f91", "BCM7891"},
             "j2": {"Device 869"},
             "j2c+": {"Device 885"},
             "q3d": {"8870", "8872"},
@@ -2103,6 +2119,10 @@ Totals               6450                 6449
             section_id = 0
             for line in output:
                 if not_ready_prompt in line:
+                    logging.warning(
+                         "CRM counters are not ready yet, will retry after 10 seconds "
+                         "(if timeout not exceeded)"
+                    )
                     return False
                 if len(line.strip()) != 0:
                     if not in_section:
@@ -2137,14 +2157,7 @@ Totals               6450                 6449
             return True
         # Retry until crm resources are ready
         timeout = crm_facts['polling_interval'] + 10
-        while timeout >= 0:
-            ret = _show_and_parse_crm_resources()
-            if ret:
-                break
-            logging.warning("CRM counters are not ready yet, will retry after 10 seconds")
-            time.sleep(10)
-            timeout -= 10
-        assert (timeout >= 0), (
+        assert wait_until(timeout, 10, 0, lambda: _show_and_parse_crm_resources()), (
             "Timeout expired while waiting for CRM counters to become ready. "
             "CRM resource data was not available within the allotted time. "
             "- Timeout value: {}\n"

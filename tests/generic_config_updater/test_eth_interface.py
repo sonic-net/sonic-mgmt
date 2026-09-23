@@ -20,17 +20,17 @@ SHOW_FEC_OPER_CMD_TEMPLATE = "show interfaces fec status {}"
 
 
 @pytest.fixture(autouse=True)
-def ensure_dut_readiness(duthosts, rand_one_dut_front_end_hostname):
+def ensure_dut_readiness(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
     Setup/teardown fixture for each ethernet test
     rollback to check if it goes back to starting config
 
     Args:
         duthosts: list of DUTs
-        rand_one_dut_front_end_hostname: The fixture returns a randomly selected frontend DUT hostname
+        enum_rand_one_per_hwsku_frontend_hostname: The fixture returns a randomly selected frontend DUT hostname
     """
 
-    duthost = duthosts[rand_one_dut_front_end_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     create_checkpoint(duthost)
 
     yield
@@ -150,14 +150,11 @@ def get_ethernet_port_not_in_portchannel(duthost, namespace=None):
     port_name = ""
     ports = list(config_facts['PORT'].keys())
     port_channel_members = []
-    if 'PORTCHANNEL_MEMBER' not in config_facts:
-        if len(ports) > 0:
-            port_name = ports[0]
-        return port_name
-    port_channel_member_facts = config_facts['PORTCHANNEL_MEMBER']
-    for port_channel in list(port_channel_member_facts.keys()):
-        for member in list(port_channel_member_facts[port_channel].keys()):
-            port_channel_members.append(member)
+    if 'PORTCHANNEL_MEMBER' in config_facts:
+        port_channel_member_facts = config_facts['PORTCHANNEL_MEMBER']
+        for port_channel in list(port_channel_member_facts.keys()):
+            for member in list(port_channel_member_facts[port_channel].keys()):
+                port_channel_members.append(member)
     for port in ports:
         if port not in port_channel_members:
             port_role = config_facts['PORT'][port].get('role')
@@ -267,9 +264,9 @@ def get_fec_oper(duthost, interface):
     return fec_status[0].get("fec oper", "N/A")
 
 
-def test_remove_lanes(duthosts, rand_one_dut_front_end_hostname,
+def test_remove_lanes(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                       ensure_dut_readiness, enum_rand_one_frontend_asic_index):
-    duthost = duthosts[rand_one_dut_front_end_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
         'asic{}'.format(enum_rand_one_frontend_asic_index)
     port = get_test_port(duthost, namespace=asic_namespace)
@@ -294,9 +291,9 @@ def test_remove_lanes(duthosts, rand_one_dut_front_end_hostname,
 
 
 @pytest.mark.skip(reason="Bypass as it is blocking submodule update")
-def test_replace_lanes(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readiness,
+def test_replace_lanes(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ensure_dut_readiness,
                        enum_rand_one_frontend_asic_index):
-    duthost = duthosts[rand_one_dut_front_end_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
         'asic{}'.format(enum_rand_one_frontend_asic_index)
     port = get_test_port(duthost, namespace=asic_namespace)
@@ -327,9 +324,9 @@ def test_replace_lanes(duthosts, rand_one_dut_front_end_hostname, ensure_dut_rea
         delete_tmpfile(duthost, tmpfile)
 
 
-def test_replace_mtu(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readiness,
+def test_replace_mtu(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ensure_dut_readiness,
                      enum_rand_one_frontend_asic_index):
-    duthost = duthosts[rand_one_dut_front_end_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
         'asic{}'.format(enum_rand_one_frontend_asic_index)
 
@@ -365,9 +362,9 @@ def test_replace_mtu(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readi
 
 
 @pytest.mark.parametrize("pfc_asym", ["on", "off"])
-def test_toggle_pfc_asym(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readiness, pfc_asym,
+def test_toggle_pfc_asym(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ensure_dut_readiness, pfc_asym,
                          enum_rand_one_frontend_asic_index):
-    duthost = duthosts[rand_one_dut_front_end_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
         'asic{}'.format(enum_rand_one_frontend_asic_index)
     port = get_test_port(duthost, namespace=asic_namespace)
@@ -397,9 +394,9 @@ def test_toggle_pfc_asym(duthosts, rand_one_dut_front_end_hostname, ensure_dut_r
 
 @pytest.mark.device_type('physical')
 @pytest.mark.parametrize("fec", ["rs", "fc"])
-def test_replace_fec(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readiness, fec,
+def test_replace_fec(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ensure_dut_readiness, fec,
                      enum_rand_one_frontend_asic_index):
-    duthost = duthosts[rand_one_dut_front_end_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
         'asic{}'.format(enum_rand_one_frontend_asic_index)
     namespace_prefix = '' if asic_namespace is None else '-n ' + asic_namespace
@@ -443,9 +440,9 @@ def test_replace_fec(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readi
 
 
 @pytest.mark.skip(reason="Bypass as this is not a production scenario")
-def test_update_invalid_index(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readiness,
+def test_update_invalid_index(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ensure_dut_readiness,
                               enum_rand_one_frontend_asic_index):
-    duthost = duthosts[rand_one_dut_front_end_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
         'asic{}'.format(enum_rand_one_frontend_asic_index)
     port = get_test_port(duthost, namespace=asic_namespace)
@@ -471,9 +468,9 @@ def test_update_invalid_index(duthosts, rand_one_dut_front_end_hostname, ensure_
 
 
 @pytest.mark.skip(reason="Bypass as this is not a production scenario")
-def test_update_valid_index(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readiness,
+def test_update_valid_index(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ensure_dut_readiness,
                             enum_rand_one_frontend_asic_index, cli_namespace_prefix):
-    duthost = duthosts[rand_one_dut_front_end_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
         'asic{}'.format(enum_rand_one_frontend_asic_index)
     output = duthost.shell('sonic-db-cli {} CONFIG_DB keys "PORT|"\\*'.format(cli_namespace_prefix))["stdout"]
@@ -514,9 +511,9 @@ def test_update_valid_index(duthosts, rand_one_dut_front_end_hostname, ensure_du
         delete_tmpfile(duthost, tmpfile)
 
 
-def test_update_speed(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readiness,
+def test_update_speed(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ensure_dut_readiness,
                       enum_rand_one_frontend_asic_index):
-    duthost = duthosts[rand_one_dut_front_end_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
         'asic{}'.format(enum_rand_one_frontend_asic_index)
     port = get_test_port(duthost, namespace=asic_namespace)
@@ -550,9 +547,9 @@ def test_update_speed(duthosts, rand_one_dut_front_end_hostname, ensure_dut_read
             delete_tmpfile(duthost, tmpfile)
 
 
-def test_update_description(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readiness,
+def test_update_description(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ensure_dut_readiness,
                             enum_rand_one_frontend_asic_index):
-    duthost = duthosts[rand_one_dut_front_end_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
         'asic{}'.format(enum_rand_one_frontend_asic_index)
     port = get_test_port(duthost, namespace=asic_namespace)
@@ -578,9 +575,9 @@ def test_update_description(duthosts, rand_one_dut_front_end_hostname, ensure_du
 
 
 @pytest.mark.parametrize("admin_status", ["up", "down"])
-def test_eth_interface_admin_change(duthosts, rand_one_dut_front_end_hostname, admin_status,
+def test_eth_interface_admin_change(duthosts, enum_rand_one_per_hwsku_frontend_hostname, admin_status,
                                     enum_rand_one_frontend_asic_index):
-    duthost = duthosts[rand_one_dut_front_end_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
         'asic{}'.format(enum_rand_one_frontend_asic_index)
     port = get_test_port(duthost, namespace=asic_namespace)
@@ -608,7 +605,7 @@ def test_eth_interface_admin_change(duthosts, rand_one_dut_front_end_hostname, a
         delete_tmpfile(duthost, tmpfile)
 
 
-def test_port_speed_change_oper_status(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readiness,
+def test_port_speed_change_oper_status(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ensure_dut_readiness,
                                        enum_rand_one_frontend_asic_index, loganalyzer):
     """
     Test that applying a GCU patch to change port speed (and lanes) also results in the expected
@@ -631,7 +628,7 @@ def test_port_speed_change_oper_status(duthosts, rand_one_dut_front_end_hostname
        occurred during the speed change.
     7. Rollback is handled automatically by the ensure_dut_readiness fixture.
     """
-    duthost = duthosts[rand_one_dut_front_end_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
         'asic{}'.format(enum_rand_one_frontend_asic_index)
     namespace_prefix = '' if asic_namespace is None else '-n ' + asic_namespace

@@ -187,6 +187,15 @@ class GitHubApiClient:
         comments_path = f"{issue.api_path}/comments"
         return self._paginate(comments_path)
 
+    def list_repo_branches(self, owner: str, repo: str) -> List[str]:
+        branches = self._paginate(f"/repos/{owner}/{repo}/branches")
+        names: List[str] = []
+        for branch in branches:
+            branch_name = branch.get("name")
+            if isinstance(branch_name, str) and branch_name.strip():
+                names.append(branch_name.strip())
+        return names
+
     def add_label(self, issue: IssueRef, label: str) -> None:
         logger.info("Adding label %s to %s", label, issue.html_url)
         self._request("POST", f"{issue.api_path}/labels", json_body={"labels": [label]})
@@ -203,3 +212,7 @@ class GitHubApiClient:
     def create_comment(self, issue: IssueRef, body: str) -> None:
         logger.info("Creating comment on %s", issue.html_url)
         self._request("POST", f"{issue.api_path}/comments", json_body={"body": body})
+
+    def reopen_issue(self, issue: IssueRef) -> None:
+        logger.info("Reopening issue %s", issue.html_url)
+        self._request("PATCH", issue.api_path, json_body={"state": "open"})

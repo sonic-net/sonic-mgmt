@@ -18,7 +18,7 @@ PE_CA = "10.2.0.100"  # private endpoint customer address
 PE_CA_SUBNET = "10.2.0.0/16"
 PL_ENCODING_IP = "::d107:64:ff71:0:0"
 PL_ENCODING_MASK = "::ffff:ffff:ffff:0:0"
-PL_OVERLAY_SIP = "fd41:108:20:abc:abc::0"
+PL_OVERLAY_SIP = "fd40:108:20:abc:abc::0"
 PL_OVERLAY_SIP_MASK = "ffff:ffff:ffff:ffff:ffff:ffff::"
 PL_OVERLAY_DIP = "2603:10e1:100:2::3401:203"
 PL_OVERLAY_DIP_MASK = "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"
@@ -242,6 +242,21 @@ INBOUND_VNI_ROUTE_RULE_CONFIG = {
     f"DASH_ROUTE_RULE_TABLE:{ENI_ID}:{ENCAP_VNI}:{PE_PA}/32": {
         "action_type": ActionType.ACTION_TYPE_DECAP,
         "priority": 0
+    }
+}
+
+# Steer inbound GRE (ENCAP_VNI) traffic through tunnel-decap + PA validation so that an
+# inbound packet whose outer source PA is not a configured tunnel endpoint is dropped on
+# PA validation (incrementing SAI_ENI_STAT_PA_VALIDATION_FAIL_DROP_PACKETS) rather than
+# falling through to a generic routing/longest-prefix drop. The broad 0.0.0.0/0 source-PA
+# match catches the test packets, and ``pa_validation`` validates the outer source PA
+# against the mapping table of ``vnet`` (VNET1), which only permits the valid PE underlay.
+INBOUND_PA_VALIDATION_ROUTE_RULE_CONFIG = {
+    f"DASH_ROUTE_RULE_TABLE:{ENI_ID}:{ENCAP_VNI}:0.0.0.0/0": {
+        "action_type": ActionType.ACTION_TYPE_DECAP,
+        "priority": 0,
+        "pa_validation": True,
+        "vnet": VNET1,
     }
 }
 

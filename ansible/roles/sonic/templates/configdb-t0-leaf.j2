@@ -1,4 +1,10 @@
 {% set host = configuration[hostname] %}
+{# #25898 follow-up: exabgp iBGP injector must live in BGP_INTERNAL_NEIGHBOR    #}
+{# (separate INTERNAL_PEER_V4/V6 group), NOT BGP_NEIGHBOR, else it poisons      #}
+{# PEER_V4/V6 as internal and FRR rejects the eBGP DUT peer                     #}
+{# ("Peer-group members must be all internal or all external") -> 0 routes.     #}
+{% set exabgp_asn = host['bgp']['asn'] %}
+{% set _lo0 = host['interfaces'].get('Loopback0', {}) %}
 {
     "PORT": {
 {% set port_comma = joiner(",") %}
@@ -50,6 +56,18 @@
 {% endif %}
 {% endif %}
 {% endfor %}
+{# Synthetic Loopback4096 required by bgpcfgd's internal peer manager (used for #}
+{# the exabgp iBGP injector in BGP_INTERNAL_NEIGHBOR). Reuses Loopback0 addrs.  #}
+{{ loopback_comma() }}
+        "Loopback4096": {}
+{% if _lo0['ipv4'] is defined %}
+{{ loopback_comma() }}
+        "Loopback4096|{{ _lo0['ipv4'] }}": {}
+{% endif %}
+{% if _lo0['ipv6'] is defined %}
+{{ loopback_comma() }}
+        "Loopback4096|{{ _lo0['ipv6'] }}": {}
+{% endif %}
     },
 {% set has_portchannel = [] %}
 {% for name, iface in host['interfaces'].items() %}
@@ -131,6 +149,11 @@
 {% endif %}
 {% endif %}
     },
+    "SNMP_COMMUNITY": {
+        "{{ snmp_rocommunity | default('public') }}": {
+            "TYPE": "RO"
+        }
+    },
     "BGP_NEIGHBOR": {
 {% set bgp_comma = joiner(",") %}
 {% for asn, remote_ips in host['bgp']['peers'].items() %}
@@ -145,20 +168,33 @@
         }
 {% endfor %}
 {% endfor %}
-{{ bgp_comma() }}
+    },
+    "BGP_INTERNAL_NEIGHBOR": {
+{% set bgp_int_comma = joiner(",") %}
+{# exabgp route-injector as iBGP (own ASN) in the INTERNAL peer-group, so the   #}
+{# DUT never sees exabgp and PEER_V4/V6 stays uniformly eBGP. local_addr binds  #}
+{# the session to the neighbor's Loopback0 (fallback backplane) address.        #}
+{% if props.nhipv4 is defined and props.nhipv4 %}
+{{ bgp_int_comma() }}
         "{{ props.nhipv4 }}": {
-            "asn": "{{ host['bgp']['asn'] }}",
+            "asn": "{{ exabgp_asn }}",
             "name": "exabgp_v4",
-            "admin_status": "up",
-            "holdtime": "10",
-            "keepalive": "3"
-        },
-        "{{ props.nhipv6 }}": {
-            "asn": "{{ host['bgp']['asn'] }}",
-            "name": "exabgp_v6",
+            "local_addr": "{{ (_lo0['ipv4'] | default(host['bp_interface']['ipv4'], true)).split('/')[0] }}",
             "admin_status": "up",
             "holdtime": "10",
             "keepalive": "3"
         }
+{% endif %}
+{% if props.nhipv6 is defined and props.nhipv6 %}
+{{ bgp_int_comma() }}
+        "{{ props.nhipv6 }}": {
+            "asn": "{{ exabgp_asn }}",
+            "name": "exabgp_v6",
+            "local_addr": "{{ (_lo0['ipv6'] | default(host['bp_interface']['ipv6'], true)).split('/')[0] }}",
+            "admin_status": "up",
+            "holdtime": "10",
+            "keepalive": "3"
+        }
+{% endif %}
     }
 }

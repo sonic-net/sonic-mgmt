@@ -8,7 +8,8 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('any'),
-    pytest.mark.device_type('vs')
+    pytest.mark.device_type('vs'),
+    pytest.mark.device_type('vpp'),
 ]
 
 
@@ -20,6 +21,9 @@ def connect_with_specified_ciphers(duthosts, rand_one_dut_hostname, specified_ci
     sonic_admin_alt_passwords = creds["ansible_altpasswords"]
     dut_passwords = [dutpass, sonic_admin_alt_password] + sonic_admin_alt_passwords
     dutip = duthost.mgmt_ip
+
+    # Use actual system hostname for prompt matching (may differ from inventory name)
+    dut_hostname = duthost.shell("hostname", module_ignore_errors=True)["stdout"].strip() or duthost.hostname
 
     if typename == "enc":
         ssh_cipher_option = "-c {}".format(specified_cipher)
@@ -40,7 +44,7 @@ def connect_with_specified_ciphers(duthosts, rand_one_dut_hostname, specified_ci
             connect.sendline(dutpass)
 
             i = connect.expect(
-                '{}@{}:'.format(dutuser, duthost.hostname), timeout=10)
+                '{}@{}:'.format(dutuser, dut_hostname), timeout=10)
             pytest_assert(i == 0, "Failed to connect")
             return
         except Exception as e:
@@ -48,7 +52,7 @@ def connect_with_specified_ciphers(duthosts, rand_one_dut_hostname, specified_ci
             if "Permission denied" in output:
                 continue
             else:
-                pytest.fail(e)
+                pytest.fail(str(e))
     pytest.fail("Cannot connect to DUT host via SSH")
 
 
