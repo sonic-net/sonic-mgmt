@@ -515,7 +515,7 @@ def get_convergence_for_remote_link_failover(snappi_api,
             for flow in flows:
                 tx_frate.append(flow.frames_tx_rate)
                 rx_frate.append(flow.frames_rx_rate)
-            assert abs(sum(tx_frate) - sum(rx_frate)) / sum(rx_frate) < 0.00002,\
+            assert abs(sum(tx_frate) - sum(rx_frate)) / sum(rx_frate) < 0.00002, \
                 "Traffic has not converged after lroute withdraw TxFramerate:{},RxFrameRate:{}"\
                 .format(sum(tx_frate), sum(rx_frate))
             logger.info("Traffic has converged after route withdraw")
