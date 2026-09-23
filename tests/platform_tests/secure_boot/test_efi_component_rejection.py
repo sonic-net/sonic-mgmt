@@ -28,8 +28,16 @@ ACTIVE_SHIM_PATHS = (
     "/boot/efi/EFI/SONiC-OS/shimx64.efi",
     "/boot/efi/EFI/BOOT/BOOTX64.EFI",
 )
+ACTIVE_MOK_MANAGER_PATHS = (
+    "/boot/efi/EFI/SONiC-OS/mmx64.efi",
+    "/boot/efi/EFI/BOOT/mmx64.efi",
+)
 BACKUP_SUFFIX = ".secure_boot_test_backup"
 EFI_PARTITION = "/dev/vda1"
+MOK_TEST_KEY_PATH = "/tmp/secure_boot_mok_test.key"
+MOK_TEST_CERT_PATH = "/tmp/secure_boot_mok_test.crt"
+MOK_TEST_DER_PATH = "/tmp/secure_boot_mok_test.der"
+MOK_TEST_HASH_PATH = "/tmp/secure_boot_mok_test.hash"
 
 
 def _validate_offline_recovery(vmhost, duthost):
@@ -95,6 +103,37 @@ def _backup_efi_components(duthost, component_paths):
             "sudo sha256sum {}".format(quoted_path)
         )["stdout"].split()[0]
     return original_hashes
+
+
+def _restore_efi_components_online(duthost, component_paths, original_hashes):
+    cleanup_errors = []
+    for path in component_paths:
+        restore_result = duthost.shell(
+            "sudo cp {backup} {path} && sudo sync".format(
+                backup=shlex.quote("{}{}".format(path, BACKUP_SUFFIX)),
+                path=shlex.quote(path),
+            ),
+            module_ignore_errors=True,
+        )
+        if restore_result["rc"] != 0:
+            cleanup_errors.append(path)
+            continue
+
+        restored_hash = duthost.command(
+            "sudo sha256sum {}".format(shlex.quote(path))
+        )["stdout"].split()[0]
+        if restored_hash != original_hashes[path]:
+            cleanup_errors.append(path)
+            continue
+
+        duthost.command(
+            "sudo rm -f {}".format(shlex.quote("{}{}".format(path, BACKUP_SUFFIX)))
+        )
+
+    pytest_assert(
+        not cleanup_errors,
+        "Failed to restore active EFI components: {}".format(", ".join(cleanup_errors)),
+    )
 
 
 def _tamper_pe_payload(duthost, component_path):
@@ -196,6 +235,86 @@ with open(path, "r+b") as binary:
 PY
 """.format(path=shlex.quote(component_path))
     duthost.shell(command)
+
+
+def _queue_mok_import(duthost):
+    temporary_paths = (
+        MOK_TEST_KEY_PATH,
+        MOK_TEST_CERT_PATH,
+        MOK_TEST_DER_PATH,
+        MOK_TEST_HASH_PATH,
+    )
+    command = r"""
+set -eu
+command -v mokutil
+command -v openssl
+
+if sudo mokutil --list-new 2>/dev/null | grep -q .; then
+    echo "A MOK enrollment request is already pending" >&2
+    exit 1
+fi
+
+openssl req -new -x509 -newkey rsa:2048 -nodes -days 1 -sha256 \
+    -subj /CN=SONiC-Secure-Boot-MokManager-Test/ \
+    -keyout {key_path} \
+    -out {cert_path} >/dev/null 2>&1
+openssl x509 -in {cert_path} -outform DER -out {der_path}
+openssl rand -hex 12 | openssl passwd -6 -stdin > {hash_path}
+test -s {hash_path}
+
+sudo mokutil --import {der_path} --hash-file {hash_path}
+sudo mokutil --list-new | grep -q "SONiC-Secure-Boot-MokManager-Test"
+""".format(
+        key_path=shlex.quote(MOK_TEST_KEY_PATH),
+        cert_path=shlex.quote(MOK_TEST_CERT_PATH),
+        der_path=shlex.quote(MOK_TEST_DER_PATH),
+        hash_path=shlex.quote(MOK_TEST_HASH_PATH),
+    )
+    result = duthost.shell(command, module_ignore_errors=True)
+    if result["rc"] != 0:
+        duthost.command(
+            "rm -f {}".format(" ".join(shlex.quote(path) for path in temporary_paths)),
+            module_ignore_errors=True,
+        )
+    pytest_assert(
+        result["rc"] == 0,
+        "Failed to queue the MOK enrollment request: {}".format(
+            result.get("stderr", "")
+        ),
+    )
+
+
+def _clear_pending_mok_import(duthost):
+    list_result = duthost.command(
+        "sudo mokutil --list-new",
+        module_ignore_errors=True,
+    )
+    pytest_assert(
+        list_result["rc"] == 0,
+        "Failed to inspect the pending MOK enrollment request",
+    )
+
+    if list_result["stdout"].strip():
+        revoke_result = duthost.command(
+            "sudo mokutil --revoke-import",
+            module_ignore_errors=True,
+        )
+        pytest_assert(
+            revoke_result["rc"] == 0,
+            "Failed to revoke the pending MOK enrollment request",
+        )
+
+    temporary_paths = (
+        MOK_TEST_KEY_PATH,
+        MOK_TEST_CERT_PATH,
+        MOK_TEST_DER_PATH,
+        MOK_TEST_HASH_PATH,
+    )
+    cleanup_result = duthost.command(
+        "rm -f {}".format(" ".join(shlex.quote(path) for path in temporary_paths)),
+        module_ignore_errors=True,
+    )
+    pytest_assert(cleanup_result["rc"] == 0, "Failed to remove temporary MOK test files")
 
 
 def _restore_efi_components_and_restart(
@@ -418,31 +537,7 @@ def _verify_efi_component_is_rejected(
                 original_hashes,
             )
         else:
-            cleanup_errors = []
-            for path in component_paths:
-                restore_result = duthost.shell(
-                    "sudo cp {backup} {path} && sudo sync".format(
-                        backup=shlex.quote("{}{}".format(path, BACKUP_SUFFIX)),
-                        path=shlex.quote(path),
-                    ),
-                    module_ignore_errors=True,
-                )
-                if restore_result["rc"] != 0:
-                    cleanup_errors.append(path)
-                    continue
-                restored_hash = duthost.command(
-                    "sudo sha256sum {}".format(shlex.quote(path))
-                )["stdout"].split()[0]
-                if restored_hash != original_hashes[path]:
-                    cleanup_errors.append(path)
-                    continue
-                duthost.command(
-                    "sudo rm -f {}".format(shlex.quote("{}{}".format(path, BACKUP_SUFFIX)))
-                )
-            pytest_assert(
-                not cleanup_errors,
-                "Failed to restore active EFI components: {}".format(", ".join(cleanup_errors)),
-            )
+            _restore_efi_components_online(duthost, component_paths, original_hashes)
 
     for path, original_hash in original_hashes.items():
         restored_hash = duthost.command(
@@ -508,4 +603,97 @@ def test_unsigned_shim_is_rejected(duthost, kvm_serial_console, localhost, vmhos
         ACTIVE_SHIM_PATHS,
         _remove_pe_signature,
         "unsigned shim",
+    )
+
+
+def test_unsigned_mok_manager_is_rejected(
+    duthost,
+    kvm_serial_console,
+    localhost,
+    vmhost,
+):
+    """Verify that shim rejects unsigned MokManager when a MOK request invokes it."""
+    if duthost.facts["asic_type"] != "vs":
+        pytest.skip("The initial unsigned MokManager test supports KVM only")
+
+    require_secure_boot(duthost)
+    if not vmhost:
+        pytest.skip("The KVM host is unavailable")
+
+    pytest_assert(
+        duthost.critical_services_fully_started(),
+        "The DUT did not complete its normal boot before the MokManager test",
+    )
+    _validate_offline_recovery(vmhost, duthost)
+    _mount_efi_partition(duthost)
+
+    original_hashes = _backup_efi_components(duthost, ACTIVE_MOK_MANAGER_PATHS)
+    reboot_attempted = False
+    mok_request_queued = False
+    console_output = ""
+    rejection_seen = False
+    try:
+        _queue_mok_import(duthost)
+        mok_request_queued = True
+        for path in ACTIVE_MOK_MANAGER_PATHS:
+            _remove_pe_signature(duthost, path)
+            unsigned_hash = duthost.command(
+                "sudo sha256sum {}".format(shlex.quote(path))
+            )["stdout"].split()[0]
+            pytest_assert(
+                unsigned_hash != original_hashes[path],
+                "{} was not modified".format(path),
+            )
+        duthost.command("sync")
+
+        reboot_attempted = True
+        duthost.shell("sudo nohup sh -c 'sleep 2; reboot' >/dev/null 2>&1 &")
+        shutdown_result = localhost.wait_for(
+            host=duthost.mgmt_ip,
+            port=22,
+            state="stopped",
+            delay=5,
+            timeout=60,
+            module_ignore_errors=True,
+        )
+        pytest_assert(
+            not shutdown_result.is_failed,
+            "KVM did not shut down for the unsigned MokManager test",
+        )
+
+        console_output, rejection_seen = kvm_serial_console.read_until_pattern_or_timeout(
+            EFI_REJECTION_PATTERN,
+            CONSOLE_CAPTURE_TIMEOUT,
+        )
+    finally:
+        try:
+            if reboot_attempted:
+                _restore_efi_components_and_restart(
+                    vmhost,
+                    duthost,
+                    localhost,
+                    ACTIVE_MOK_MANAGER_PATHS,
+                    original_hashes,
+                )
+            else:
+                _restore_efi_components_online(
+                    duthost,
+                    ACTIVE_MOK_MANAGER_PATHS,
+                    original_hashes,
+                )
+        finally:
+            if mok_request_queued:
+                _clear_pending_mok_import(duthost)
+
+    for path, original_hash in original_hashes.items():
+        restored_hash = duthost.command(
+            "sudo sha256sum {}".format(shlex.quote(path))
+        )["stdout"].split()[0]
+        pytest_assert(restored_hash == original_hash, "Failed to restore {}".format(path))
+
+    pytest_assert(
+        rejection_seen,
+        "The serial console did not report rejection of unsigned MokManager:\n{}".format(
+            re.sub(r"[^\x09\x0a\x0d\x20-\x7e]", "", console_output),
+        ),
     )
