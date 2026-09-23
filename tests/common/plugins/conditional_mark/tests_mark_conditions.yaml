@@ -691,9 +691,9 @@ bgp/test_bgp_suppress_fib.py::test_suppress_fib_stress:
 
 bgp/test_bgp_update_replication.py:
   xfail:
-    reason: "Testcase is not stable on dualtor-aa setup due to GH issue: https://github.com/sonic-net/sonic-mgmt/issues/21110"
+    reason: "Large route batches are silently truncated on active-standby dualtor, see GH issue: https://github.com/sonic-net/sonic-mgmt/issues/28034"
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/21110 and 'dualtor-aa' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/28034 and topo_name in ['dualtor', 'dualtor-120']"
 
 bgp/test_bgp_vnet.py:
   skip:
