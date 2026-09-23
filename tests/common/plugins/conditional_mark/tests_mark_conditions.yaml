@@ -1281,21 +1281,21 @@ dhcp_relay/test_dhcpv4_relay.py:
 
 dhcp_relay/test_dhcpv4_relay.py::test_dhcp_max_hop_count[2-sonic-relay-agent]:
   xfail:
-    reason: "Temporary xfail due to GitHub issue https://github.com/sonic-net/sonic-buildimage/issues/29294"
+    reason: "Temporary xfail due to GitHub issue https://github.com/sonic-net/sonic-mgmt/issues/26283"
     conditions:
-      - "https://github.com/sonic-net/sonic-buildimage/issues/29294 and 'dualtor' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/26283 and 'dualtor' in topo_name"
 
 dhcp_relay/test_dhcpv4_relay.py::test_dhcp_relay_agent_mode[append-sonic-relay-agent]:
   xfail:
-    reason: "Temporary xfail due to GitHub issue https://github.com/sonic-net/sonic-buildimage/issues/29294"
+    reason: "Temporary xfail due to GitHub issue https://github.com/sonic-net/sonic-mgmt/issues/26283"
     conditions:
-      - "https://github.com/sonic-net/sonic-buildimage/issues/29294 and 'dualtor' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/26283 and 'dualtor' in topo_name"
 
 dhcp_relay/test_dhcpv4_relay.py::test_dhcp_relay_agent_mode[replace-sonic-relay-agent]:
   xfail:
-    reason: "Temporary xfail due to GitHub issue https://github.com/sonic-net/sonic-buildimage/issues/29294"
+    reason: "Temporary xfail due to GitHub issue https://github.com/sonic-net/sonic-mgmt/issues/26283"
     conditions:
-      - "https://github.com/sonic-net/sonic-buildimage/issues/29294 and 'dualtor' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/26283 and 'dualtor' in topo_name"
 
 dhcp_relay/test_dhcpv4_relay.py::test_dhcp_relay_option82_suboptions[server_id_override-sonic-relay-agent]:
   skip:
