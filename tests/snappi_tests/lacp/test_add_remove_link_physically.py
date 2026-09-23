@@ -1,15 +1,16 @@
 from tests.common.snappi_tests.snappi_fixtures import (                           # noqa: F401
     snappi_api, snappi_api_serv_ip, snappi_api_serv_port, tgen_ports,
     get_snappi_ports_single_dut, get_snappi_ports, setup_bgp_testbed)
-from tests.snappi_tests.lacp.files.lacp_physical_helper import run_lacp_add_remove_link_physically
+from tests.snappi_tests.lacp.files.lacp_helper import run_lacp_add_remove_link_physically  # noqa: F401
 from tests.common.fixtures.conn_graph_facts import (                # noqa: F401
     conn_graph_facts, fanout_graph_facts)
 import pytest
+from tests.common.helpers.assertions import pytest_assert  # noqa: F401
 
 pytestmark = [pytest.mark.topology('tgen')]
 
 
-@pytest.mark.parametrize('port_count', [4])
+@pytest.mark.parametrize('port_count', [3])
 @pytest.mark.parametrize('number_of_routes', [1000])
 @pytest.mark.parametrize('iterations', [1])
 def test_lacp_add_remove_link_physically(snappi_api,                   # noqa: F811
@@ -30,7 +31,7 @@ def test_lacp_add_remove_link_physically(snappi_api,                   # noqa: F
     1) Create BGP config on DUT and TGEN respectively
     2) Create a flow from LAG1 (TGEN1) to LAG2 ((N-1) TGEN ports)
     3) Send Traffic from LAG1 to LAG2
-    4) Simulate link failure by bringing down one of the LAG2 Ports
+    4) Simulate link failure by bringing down one of the LAG2 snappi port
     5) Ensure that packets are rerouted to rest of the LAG2 ports with no loss
     6) Measure the convergence time
     7) Clean up the BGP config on the dut
@@ -38,7 +39,7 @@ def test_lacp_add_remove_link_physically(snappi_api,                   # noqa: F
     Verification:
     1) Send traffic without flapping any link
        Result: Should not observe traffic loss
-    2) Flap one of the LAG2 Ports
+    2) Flap one of the LAG2 snappi port
         Result: The traffic must be routed via rest of the LAG2 ports
     Args:
         snappi_api (pytest fixture): Snappi API
@@ -53,6 +54,9 @@ def test_lacp_add_remove_link_physically(snappi_api,                   # noqa: F
         lacpdu_timeout: LACP Timeout value (0 - Auto, 3 - Short, 90 - Long)
     """
     # port_count, number_of_routes ,iterations and port_speed parameters can be modified as per user preference
+    pytest_assert(port_count >= 3, "Need minimum 3 ports to run the test")
+    pytest_assert(len(tgen_ports) >= port_count, "Not enough ports is defined in links.csv for the test \
+                  Reduce port_count or add more ports. ")
     run_lacp_add_remove_link_physically(snappi_api,
                                         duthost,
                                         tgen_ports,
