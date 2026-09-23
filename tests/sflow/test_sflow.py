@@ -23,6 +23,8 @@ from tests.common.utilities import get_neighbor_port_list
 from tests.common.helpers.assertions import pytest_assert
 
 SFLOW_RATE_DEFAULT = 512
+GOLDEN_CONFIG_DB_PATH = "/etc/sonic/golden_config_db.json"
+GOLDEN_CONFIG_DB_BACKUP_PATH = "/etc/sonic/golden_config_db.json.origin.backup"
 # Seconds to wait for hsflowd to quiesce counter polling after it is disabled.
 # See TestSflowPolling.testDisablePolling for the rationale.
 SFLOW_DISABLE_POLL_SETTLE_TIME = 40
@@ -33,10 +35,27 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
+@pytest.fixture(scope='module')
+def restore_sflow_golden_config(rand_selected_dut):
+    """Restore golden config on the same DUT selected for the sFlow tests."""
+    backup_exists = rand_selected_dut.stat(path=GOLDEN_CONFIG_DB_BACKUP_PATH)['stat']['exists']
+    if backup_exists:
+        rand_selected_dut.shell(
+            "cp {} {}".format(GOLDEN_CONFIG_DB_BACKUP_PATH, GOLDEN_CONFIG_DB_PATH)
+        )
+
+    golden_config_exists = rand_selected_dut.stat(path=GOLDEN_CONFIG_DB_PATH)['stat']['exists']
+    pytest_assert(
+        golden_config_exists,
+        "Golden config and its original backup are missing on DUT {}".format(rand_selected_dut.hostname)
+    )
+    logger.info("Golden config is ready on sFlow DUT %s", rand_selected_dut.hostname)
+
+    yield
 
 @pytest.fixture(scope='module', autouse=True)
-def setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, config_sflow_feature):
-    duthost = duthosts[rand_one_dut_hostname]
+def setup(rand_selected_dut, ptfhost, tbinfo, config_sflow_feature, restore_sflow_golden_config):
+    duthost = rand_selected_dut
     global var
     var = {}
 
