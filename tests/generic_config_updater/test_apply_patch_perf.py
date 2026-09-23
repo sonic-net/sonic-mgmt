@@ -684,9 +684,13 @@ def test_perf_port_mtu_replace(perf_ctx):
         cfg = duthost.config_facts(
             host=duthost.hostname, source="running",
             namespace=namespace)['ansible_facts']
+        # Exclude LAG members: a member's PORT.mtu must match its PortChannel's.
+        lag_members = set()
+        for members in cfg.get('PORTCHANNEL_MEMBER', {}).values():
+            lag_members.update(members.keys())
         asic_ports = sorted(
             [name for name, pcfg in cfg.get('PORT', {}).items()
-             if pcfg.get('admin_status', 'down') == 'up'],
+             if pcfg.get('admin_status', 'down') == 'up' and name not in lag_members],
             key=lambda p: int(''.join(filter(str.isdigit, p)) or 0)
         )
         ports_to_change = asic_ports[:min(8, len(asic_ports))]
