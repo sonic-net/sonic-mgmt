@@ -502,18 +502,46 @@ def read_prefec_ber(duthost, ports):
     """Read ``fec_pre_ber`` for ``ports`` from ``show interfaces counters
     fec-stats``.
 
+    Only ports the CLI reports as up (``state`` == ``U``) are measured -- a
+    down port never accumulates FEC codewords, corroborated by ``fec_corr``
+    always reading ``0`` for a down port (a mismatch is logged as a
+    warning). ``N/A`` is treated as missing, not a ``0.0`` reading.
+
     Returns:
-        dict: ``{port: float}`` for ports with a numeric reading; a port
-        whose ``fec_pre_ber`` is ``N/A``, unparsable, or absent from the
-        CLI output is omitted from the result.
+        dict: ``{port: float}``, one entry per requested port that's up
+        with a parseable, non-``N/A`` ``fec_pre_ber``; all others are
+        omitted (logged).
     """
     parsed = duthost.show_and_parse("show interfaces counters fec-stats")
     by_port = {entry.get("iface"): entry for entry in parsed if entry.get("iface")}
 
     readings = {}
     for port in ports:
-        raw = (by_port.get(port) or {}).get("fec_pre_ber", "").strip()
+        entry = by_port.get(port)
+        if entry is None:
+            logger.warning(
+                "%s: not present in 'show interfaces counters fec-stats' output", port
+            )
+            continue
+
+        state = entry.get("state", "").strip().lower()
+        if state != "u":
+            fec_corr = entry.get("fec_corr", "").strip().replace(",", "")
+            if fec_corr and fec_corr != "0":
+                logger.warning(
+                    "%s: state=%s but fec_corr=%s (expected 0 for a down port) "
+                    "- CLI output may be inconsistent",
+                    port, entry.get("state"), fec_corr,
+                )
+            logger.info(
+                "%s: state=%s (not up) - excluded from Pre-FEC BER measurement",
+                port, entry.get("state"),
+            )
+            continue
+
+        raw = entry.get("fec_pre_ber", "").strip()
         if not raw or raw.lower() == _FEC_PRE_BER_NOT_AVAILABLE:
+            logger.info("%s: fec_pre_ber is '%s' - excluded", port, raw or "<empty>")
             continue
         try:
             readings[port] = float(raw.replace(",", ""))
@@ -526,9 +554,7 @@ def capture_prefec_ber_baseline(duthost, ports, measure_sec):
     """Clear counters, wait ``measure_sec``, then read ``fec_pre_ber`` per port.
 
     Returns:
-        dict: ``{port: float}`` -- see :func:`read_prefec_ber`. Ports with no
-        numeric baseline (``N/A``) are omitted; callers exclude those ports
-        from the guard entirely.
+        dict: ``{port: float}`` -- see :func:`read_prefec_ber`.
     """
     clear_interface_counters_and_wait(duthost, wait_time=measure_sec)
     return read_prefec_ber(duthost, ports)

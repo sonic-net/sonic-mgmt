@@ -198,46 +198,57 @@ def test_system_prefec_ber_peer_side_flap(
     ports = sorted(baseline.keys())
     if not ports:
         pytest.skip(
-            "fec_pre_ber reads N/A for every candidate port - nothing to guard"
+            "fec_pre_ber is absent, N/A, or unparsable in 'show interfaces "
+            "counters fec-stats' for every candidate port - nothing to guard"
         )
 
     skipped_no_peer_or_baseline = sorted(set(candidate_ports) - set(ports))
     if skipped_no_peer_or_baseline:
         logger.info(
-            "Excluding from this run (no peer DUT or no Pre-FEC BER "
-            "baseline): %s", ", ".join(skipped_no_peer_or_baseline),
+            "Excluding from this run (no peer DUT, or fec_pre_ber absent/"
+            "N/A/unparsable in CLI output): %s", ", ".join(skipped_no_peer_or_baseline),
         )
 
     health_baseline = capture_baseline(duthost)
     failures = []  # collected across every (port, step) tuple
 
+    peer_ports_by_duthost = {}
     for port in ports:
         peer_duthost, peer_port = peers_by_port[port]
-        attrs = system_attrs[port]
-        shutdown_wait = attrs.get(
+        peer_ports_by_duthost.setdefault(peer_duthost, []).append(peer_port)
+
+    shutdown_wait = max(
+        system_attrs[port].get(
             "port_shutdown_wait_sec", _DEFAULT_PORT_SHUTDOWN_WAIT_SEC
         )
-        startup_wait = attrs.get(
+        for port in ports
+    )
+    startup_wait = max(
+        system_attrs[port].get(
             "port_startup_wait_sec", _DEFAULT_PORT_STARTUP_WAIT_SEC
         )
+        for port in ports
+    )
 
+    for peer_duthost, peer_ports in peer_ports_by_duthost.items():
         logger.info(
-            "Flapping peer %s:%s for DUT port %s (trigger only - DUT port "
-            "stays administratively up)", peer_duthost.hostname, peer_port, port,
+            "Flapping %d peer port(s) on %s", len(peer_ports), peer_duthost.hostname,
         )
         shutdown_failures = scenario_ops.perform_ports_shutdown(
-            peer_duthost, [peer_port], shutdown_wait
+            peer_duthost, peer_ports, shutdown_wait
         )
         for failure in shutdown_failures:
             logger.warning("peer %s: %s", peer_duthost.hostname, failure)
 
-        # Teardown contract: always attempt to restore the peer port, even
+        # Teardown contract: always attempt to restore the peer ports, even
         # if the shutdown above didn't fully settle.
         startup_failures = scenario_ops.perform_ports_startup(
-            peer_duthost, [peer_port], startup_wait
+            peer_duthost, peer_ports, startup_wait
         )
         if startup_failures:
-            failures.extend(f"{port}: {failure}" for failure in startup_failures)
+            failures.extend(
+                f"{peer_duthost.hostname}: {failure}" for failure in startup_failures
+            )
 
     settle_wait = max(
         system_attrs[port].get(
@@ -250,7 +261,7 @@ def test_system_prefec_ber_peer_side_flap(
         len(ports),
     )
     result = standard_port_recovery_and_verification(
-        duthost, ports, port_attributes_dict,
+        duthost, ports, {port: port_attributes_dict[port] for port in ports},
         link_up_timeout_sec=settle_wait,
         health_baseline=health_baseline,
         lport_to_first_subport_mapping=lport_to_first_subport_mapping,
