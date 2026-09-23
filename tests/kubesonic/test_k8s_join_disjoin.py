@@ -243,6 +243,7 @@ spec:
       hostNetwork: true
       containers:
       - image: {DUT_PAUSE_IMAGE}
+        imagePullPolicy: Never
         name: {DAEMONSET_CONTAINER_NAME}
     '''
 
