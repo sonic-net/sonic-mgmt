@@ -2864,12 +2864,11 @@ generic_config_updater/test_multiasic_linkcrc.py:
 
 generic_config_updater/test_pfcwd_interval.py:
   skip:
-    reason: "This test can only support mellanox platforms. This test is not run on this hwsku currently"
+    reason: "This test can only support mellanox platforms. This test is not run on full-lossy hwsku currently"
     conditions_logical_operator: or
     conditions:
       - "asic_type not in ['mellanox', 'cisco-8000']"
-      - hwsku in ['Mellanox-SN5600-C224O8', 'Mellanox-SN5600-C256S1', 'Mellanox-SN5640-C448O16', 'Mellanox-SN5640-C512S2', 'Mellanox-SN5640-C508O1X2',
-                   'Arista-7060X6-64PE-C256S2', 'Arista-7060X6-64PE-C224O8', 'Arista-7060X6-64PE-B-C512S2', 'Arista-7060X6-64PE-B-C448O16']
+      - "hwsku in constants['FULL_LOSSY_HWSKUS']"
       - "'bmc' in topo_type"
 
 generic_config_updater/test_pfcwd_status.py:
@@ -2880,8 +2879,7 @@ generic_config_updater/test_pfcwd_status.py:
       - "topo_type in ['bmc', 'm0', 'm1', 'mx']"
       - *lossyTopos
       - "release in ['202211']"
-      - hwsku in ['Mellanox-SN5600-C224O8', 'Mellanox-SN5600-C256S1', 'Mellanox-SN5640-C448O16', 'Mellanox-SN5640-C512S2',
-                   'Arista-7060X6-64PE-C256S2', 'Arista-7060X6-64PE-C224O8', 'Arista-7060X6-64PE-B-C512S2', 'Arista-7060X6-64PE-B-C448O16']
+      - "hwsku in constants['FULL_LOSSY_HWSKUS']"
 
 generic_config_updater/test_pg_headroom_update.py:
   skip:
@@ -4254,12 +4252,13 @@ pfc_asym/test_pfc_asym.py:
 #######################################
 pfcwd:
   skip:
-    reason: "Pfcwd tests skipped on M* and MA testbeds, and some isolated topologies and '202412' for now"
+    reason: "Pfcwd tests skipped on M* and MA testbeds, isolated topologies, full-lossy SKUs, and '202412' for now"
     conditions_logical_operator: or
     conditions:
       - "topo_type in ['bmc', 'm0', 'm1', 'mx', 'uma', 'lma']"
       - *lossyTopos
       - "release in ['202412']"
+      - "hwsku in constants['FULL_LOSSY_HWSKUS']"
 
 pfcwd/test_pfc_config.py::TestPfcConfig::test_forward_action_cfg:
    skip:

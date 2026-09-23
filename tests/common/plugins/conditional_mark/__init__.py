@@ -16,7 +16,7 @@ import pytest
 from tests.common.cache import FactsCache
 from tests.common.testbed import TestbedInfo
 from .issue import check_issues
-from tests.common.utilities import get_duts_from_host_pattern
+from tests.common.utilities import get_duts_from_host_pattern, FULL_LOSSY_HWSKUS
 from tests.common.cisco_data import (
     CISCO_8122_PREFIX,
     CISCO_8122_GR2_PREFIX,
@@ -49,7 +49,8 @@ MARK_CONDITIONS_CONSTANTS = {
                      't2_single_node_min_first_6ports',
                      't2_single_node_max_64p', 't2-single-node-max-64p', 't2_single_node_max_64p_v2',
                      'urh_min', 'lrh_min', 'lt2-min', 'lt2-o224', 'lt2-o32', 'lt2-o256-u32d224',
-                     'lt2-u32d128']
+                     'lt2-u32d128'],
+    "FULL_LOSSY_HWSKUS": FULL_LOSSY_HWSKUS,
 }
 
 

@@ -32,6 +32,7 @@ from ansible.inventory.manager import InventoryManager
 from ansible.vars.manager import VariableManager
 
 from tests.common import constants
+from tests.common import broadcom_data, mellanox_data
 from tests.common.cache import cached
 from tests.common.cache import FactsCache
 from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, UPSTREAM_ALL_NEIGHBOR_MAP
@@ -54,6 +55,8 @@ DEFAULT_VRF_NAME = "default"
 MGMT_VRF_NAME = "mgmt"
 
 NON_USER_CONFIG_TABLES = ["FLEX_COUNTER_TABLE", "ASIC_SENSORS", "LOGGER"]
+
+FULL_LOSSY_HWSKUS = mellanox_data.LOSSY_ONLY_HWSKUS + broadcom_data.LOSSY_ONLY_HWSKUS
 
 
 def check_skip_release(duthost, release_list):
