@@ -102,6 +102,33 @@ class SSHConsoleConn(BaseConsoleConn):
                 "Reboot started; aborting console write to keep bootloader autoboot intact")
         return super(SSHConsoleConn, self).write_channel(out)
 
+    def switch_to_host_console(self, selector="2"):
+        """Switch a multiplexed BMC serial session to the host and log in."""
+        self.write_channel("\x15")
+        time.sleep(1 * self.select_delay_factor(1))
+        self.logger.debug("Console selector output: %r", self.read_channel())
+        self.write_channel(str(selector) + self.RETURN)
+
+        for i, password in enumerate(self.sonic_password):
+            try:
+                output = self.login_stage_2(
+                    username=self.sonic_username,
+                    password=password,
+                    defer_on_bootloader=True,
+                )
+            except NetMikoAuthenticationException:
+                if i == len(self.sonic_password) - 1:
+                    raise
+                self._resync_to_login_prompt()
+            else:
+                if getattr(self, "_bootloader_deferred", False):
+                    raise RuntimeError(
+                        "Host console is in a bootloader/boot stage; "
+                        "login was deferred"
+                    )
+                self.session_preparation_finalise()
+                return output
+
     def _try_session_preparation(self, force_data=False):
         """Suppress netmiko's pre-session priming CR (bootloader-safe).
 

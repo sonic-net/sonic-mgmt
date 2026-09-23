@@ -2747,6 +2747,23 @@ def duthost_console(duthosts, enum_rand_one_per_hwsku_hostname, request, localho
         # SUPERVISOR or STANDALONE node - use standard console
         console = create_duthost_console(duthost, localhost, conn_graph_facts, creds)
 
+    if duthost.facts.get("hwsku") == "NH-4210-F-O256":
+        pt_assert(
+            hasattr(console, "switch_to_host_console"),
+            "NH-4210 console connection cannot switch from BMC to host",
+        )
+        console.switch_to_host_console()
+        expected_hostname = duthost.shell("hostname")["stdout"].strip()
+        console_hostname = (
+            console.send_command("hostname").strip().splitlines()[0].strip()
+        )
+        pt_assert(
+            console_hostname == expected_hostname,
+            "Console is connected to {!r}, expected host {!r}".format(
+                console_hostname, expected_hostname
+            ),
+        )
+
     yield console
 
     if console:
