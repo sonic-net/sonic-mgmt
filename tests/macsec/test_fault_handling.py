@@ -47,11 +47,10 @@ def read_lag_member_disable(duthost, ns, key):
     """Return (egress_disabled, ingress_disabled) for a cached ASIC_DB LAG-member key, or
     None if the key no longer exists (member deleted/recreated -> caller re-resolves).
 
-    This reflects what orchagent programmed into the hardware, independent of teamd's LACP
-    view. teamd keeps a member deselected whenever MACsec is down (LACP PDUs are dropped),
-    so teamd state cannot reveal whether orchagent wrongly re-enabled the member; ASIC_DB
-    can. The PORT_ID read doubles as a staleness check, since an absent disable attribute
-    and a deleted key both read as empty.
+    This is what orchagent programmed after teamsyncd published teamd's member state.
+    teamd is the one that drops the member (macsec_gate); ASIC_DB confirms the hardware
+    followed. The PORT_ID read doubles as a staleness check, since an absent disable
+    attribute and a deleted key both read as empty.
     """
     if not duthost.shell(
             "sonic-db-cli {} ASIC_DB HGET '{}' SAI_LAG_MEMBER_ATTR_PORT_ID".format(ns, key),
@@ -67,35 +66,15 @@ def read_lag_member_disable(duthost, ns, key):
 
 
 def appl_lag_member_status(duthost, pc_name, port_name):
-    """Return APPL_DB LAG_MEMBER_TABLE status for `pc_name`/`port_name`, or '' if absent."""
+    """Return APPL_DB LAG_MEMBER_TABLE status for `pc_name`/`port_name`, or '' if absent.
+
+    teamsyncd writes this from teamd. The test only reads it.
+    """
     ns = getns_prefix(duthost, port_name)
     return duthost.shell(
         "sonic-db-cli {} APPL_DB HGET 'LAG_MEMBER_TABLE:{}:{}' status".format(
             ns, pc_name, port_name),
         module_ignore_errors=True)["stdout"].strip()
-
-
-def push_lag_member_status(duthost, pc_name, port_name, status):
-    """Inject a LAG_MEMBER_TABLE status update into APPL_DB via swssconfig, mimicking a
-    teamsyncd refresh. Used to deterministically reproduce the teamsyncd re-enable race.
-
-    Asserts swssconfig succeeded and APPL_DB reflects the injected status so a silent
-    injection failure cannot make the subsequent ASIC race check vacuously pass.
-    """
-    asic_idx = ""
-    if duthost.is_multi_asic:
-        asic_idx = duthost.get_port_asic_instance(port_name).asic_index
-    cfg = [{"LAG_MEMBER_TABLE:{}:{}".format(pc_name, port_name): {"status": status}, "OP": "SET"}]
-    tmp = duthost.shell("mktemp")["stdout"].strip()
-    duthost.copy(content=json.dumps(cfg), dest=tmp, verbose=False)
-    result = duthost.docker_exec_swssconfig("/dev/stdin < {}".format(tmp), "swss", asic_idx)
-    assert result["rc"] == 0, (
-        "swssconfig failed to inject LAG_MEMBER_TABLE {}:{} status={}: rc={} stderr={!r}".format(
-            pc_name, port_name, status, result.get("rc"), result.get("stderr")))
-    assert wait_until(10, 1, 0, lambda: appl_lag_member_status(duthost, pc_name, port_name) == status), (
-        "APPL_DB LAG_MEMBER_TABLE {}:{} did not show status={!r} after swssconfig injection "
-        "(got {!r}). Race check would be vacuous without a successful injection.".format(
-            pc_name, port_name, status, appl_lag_member_status(duthost, pc_name, port_name)))
 
 
 def lag_member_disabled(duthost, port_name):
@@ -107,8 +86,11 @@ def lag_member_disabled(duthost, port_name):
     return read_lag_member_disable(duthost, ns, key)
 
 
-def teamd_member_selected(duthost, pc_name, port_name):
-    """teamd's view: is `port_name` currently a selected member of `pc_name`?
+def teamd_member_view(duthost, pc_name, port_name):
+    """Return (selected, lacp_state, link_up) for one teamd member, or None.
+
+    lacp_state stays "current" and link_up stays true while macsec_gate holds the
+    member out. A link flap or an LACP timeout would show up here.
 
     Uses the per-ASIC teamd docker (`teamd` or `teamdN`) so multi-ASIC platforms work;
     the shared SonicHost.get_port_channel_status helper hardcodes the `teamd` container.
@@ -118,11 +100,18 @@ def teamd_member_selected(duthost, pc_name, port_name):
         teamd = asic.get_docker_name("teamd")
         output = duthost.command(
             "docker exec -i {} teamdctl {} state dump".format(teamd, pc_name))
-        state = json.loads(output["stdout"])
-        return state["ports"][port_name]["runner"]["selected"]
+        port = json.loads(output["stdout"])["ports"][port_name]
+        runner = port["runner"]
+        return runner["selected"], runner["state"], bool(port["link"]["up"])
     except Exception as e:
         logger.debug("teamdctl read for %s/%s failed: %s", pc_name, port_name, e)
-        return False
+        return None
+
+
+def teamd_member_selected(duthost, pc_name, port_name):
+    """teamd's view: is `port_name` currently a selected member of `pc_name`?"""
+    view = teamd_member_view(duthost, pc_name, port_name)
+    return bool(view and view[0])
 
 
 def portchannel_status(duthost, port_name):
@@ -155,12 +144,14 @@ def bgp_session_established(duthost, port_name, upstream_links):
 
 
 def macsec_lag_disable_log_count(duthost, port_name):
-    """Count swss log lines where the fix disabled or flapped `port_name`'s LAG member
-    because MACsec went down. Secondary signal only -- log wording can differ by image;
-    ASIC_DB disable state is the primary assertion for rekey.
+    """Count teammgrd lines that moved `port_name`'s macsec_gate.
+
+    A healthy rekey must not add any. The gate closes only when the last ingress SA
+    is gone, and opens when an SA returns. ASIC_DB disable state sampled during the
+    rekey window is still the primary gate; this count is the matching log signal.
     """
     cmd = ("show logging | grep -E "
-           "'MACsec disabled LAG member {p}|Flapping host interface {p} .*MACsec down' | wc -l"
+           "'MACsec: member {p} pulled from|MACsec: member {p} returned to' | wc -l"
            .format(p=port_name))
     return int(duthost.shell(cmd, module_ignore_errors=True)["stdout"].strip() or 0)
 
@@ -213,6 +204,9 @@ def pick_ctrl_lag_port(ctrl_links, portchannels, want_single, duthost=None):
 class TestFaultHandling():
     MKA_TIMEOUT = 6
     LACP_TIMEOUT = 90
+    # One deadline for the whole recovery: ASIC re-enable, teamd selected, and
+    # the PortChannel Up. A second wait_until would start a new 15s window.
+    MEMBER_RECOVERY_TIMEOUT = 15
 
     @pytest.mark.disable_loganalyzer
     def test_link_flap(self, duthost, ctrl_links, wait_mka_establish):
@@ -338,14 +332,14 @@ class TestFaultHandling():
         ingress expires the MKA session within MKA_TIMEOUT (~6s) while the link stays
         physically up. The DUT can no longer receive peer MKA hellos, so its session times
         out without depending on the neighbor OS.
-        orchagent must then disable the LAG member's collection/distribution and flap the
-        host interface so teamd drops the member immediately -- instead of waiting for the
-        90s LACP timeout -- and must keep it down (a teamsyncd APP_LAG_MEMBER_TABLE refresh
-        must not silently re-enable it while MACsec is down). For a single-member LAG the
-        whole PortChannel goes down, which withdraws the BGP session over it. For a
-        multi-member LAG, PortChannel/BGP stay up only when remaining members still satisfy
-        CONFIG_DB PORTCHANNEL min_links; otherwise the LAG (and BGP over it) go down.
-        Removing the block lets MACsec recover so the member, LAG and BGP come back.
+        teammgrd closes teamd's macsec_gate, so teamd drops the member immediately
+        instead of waiting for the 90s LACP timeout. The physical link stays up and
+        LACP stays current, and teamsyncd keeps publishing status=disabled until the
+        session returns. For a single-member LAG the whole PortChannel goes down, which
+        withdraws the BGP session over it. For a multi-member LAG, PortChannel/BGP stay
+        up only when remaining members still satisfy CONFIG_DB PORTCHANNEL min_links;
+        otherwise the LAG (and BGP over it) go down. Removing the block lets MACsec
+        recover so the member, LAG and BGP come back.
         """
         assert ctrl_links, (
             "No control links found. Actual ctrl_links: {}".format(ctrl_links))
@@ -486,30 +480,45 @@ class TestFaultHandling():
                     "PortChannel {} did not go Down after MACsec expired "
                     "(members={}, min_links={}).".format(pc_name, member_count, min_links))
 
-            # (4) orchagent must disable the member's collection + distribution at the ASIC.
-            #     This is the hardware state that teamd cannot reveal -- teamd keeps the
-            #     member deselected whenever MACsec is down (LACP PDUs are dropped), so only
-            #     ASIC_DB tells us what orchagent actually programmed.
+            # (4) orchagent disables collection and distribution because teamsyncd
+            #     published teamd's deselected state. ASIC_DB is that hardware result.
             assert wait_until(2 * TestFaultHandling.MKA_TIMEOUT + 20, 1, 0,
                               lambda: asic_disable_state() == (True, True)), (
-                "orchagent did not disable LAG member {} at the ASIC (EGRESS/INGRESS_DISABLE) "
+                "LAG member {} was not disabled at the ASIC (EGRESS/INGRESS_DISABLE) "
                 "after the MACsec session expired. ASIC state: {}".format(
                     port_name, asic_disable_state()))
 
-            # (5) Race guard (the core of the fix): a teamsyncd APP_LAG_MEMBER_TABLE refresh
-            #     with status=enabled must NOT re-enable the member while MACsec is down.
-            #     teamd stays deselected regardless (LACP can't form), so we drive the race
-            #     directly: inject status=enabled and assert orchagent leaves the ASIC member
-            #     disabled (PortsOrch::doLagMemberTask suppresses the re-enable).
-            push_lag_member_status(duthost, pc_name, port_name, "enabled")
+            # (5) teamd holds the member out with the link up and LACP still current.
+            #     teamsyncd keeps status=disabled on its own. Do not inject APPL_DB:
+            #     orchagent follows that table, and a fake "enabled" is not the path
+            #     under test.
+            assert wait_until(15, 1, 0, lambda: appl_lag_member_status(
+                duthost, pc_name, port_name) == "disabled"), (
+                "APPL_DB LAG_MEMBER_TABLE {}:{} did not go status=disabled after teamd "
+                "deselected {} (got {!r}).".format(
+                    pc_name, port_name, port_name,
+                    appl_lag_member_status(duthost, pc_name, port_name)))
 
-            def member_reenabled_in_asic():
+            def held_out_cleanly():
+                view = teamd_member_view(duthost, pc_name, port_name)
+                return (view is not None and view[0] is False
+                        and view[1] == "current" and view[2] is True)
+            assert held_out_cleanly(), (
+                "LAG member {} is not held out with the link up and LACP current. "
+                "teamd view (selected, lacp_state, link_up): {}".format(
+                    port_name, teamd_member_view(duthost, pc_name, port_name)))
+
+            def member_left_hold():
                 st = asic_disable_state()
-                return st is not None and st != (True, True)
-            assert not wait_until(20, 2, 0, member_reenabled_in_asic), (
-                "orchagent re-enabled LAG member {} at the ASIC after a teamsyncd status=enabled "
-                "refresh while MACsec was down -- the re-enable race was not suppressed. "
-                "ASIC state: {}".format(port_name, asic_disable_state()))
+                asic_forwarding = st is not None and st != (True, True)
+                appl_enabled = appl_lag_member_status(duthost, pc_name, port_name) != "disabled"
+                return asic_forwarding or appl_enabled or not held_out_cleanly()
+            assert not wait_until(10, 2, 0, member_left_hold), (
+                "LAG member {} did not stay out while MACsec was down. "
+                "ASIC state: {}, APPL_DB status: {!r}, teamd view: {}".format(
+                    port_name, asic_disable_state(),
+                    appl_lag_member_status(duthost, pc_name, port_name),
+                    teamd_member_view(duthost, pc_name, port_name)))
 
             # (6) BGP behaviour depends on LAG cardinality and min_links:
             if check_bgp and (want_single or not lag_survives_one_member_down):
@@ -540,19 +549,21 @@ class TestFaultHandling():
             "MACsec session on {} did not recover after removing the EAPOL block.".format(port_name))
         logger.info("MACsec on %s recovered in %.1fs", port_name, time.time() - t0)
 
-        # orchagent must re-enable the member at the ASIC once both MACsec directions are up
-        # (this is what lets LACP re-form and the member rejoin the LAG).
+        # Opening the gate re-enables the member through teamsyncd. LACP never
+        # left current, so ASIC, teamd, and the PortChannel must all be back
+        # inside one window measured from MACsec recovery.
         t0 = time.time()
-        assert wait_until(TestFaultHandling.LACP_TIMEOUT, 2, 0,
-                          lambda: asic_disable_state() == (False, False)), (
-            "orchagent did not re-enable LAG member {} at the ASIC after MACsec recovered. "
-            "ASIC state: {}".format(port_name, asic_disable_state()))
-        logger.info("ASIC re-enabled %s in %.1fs", port_name, time.time() - t0)
 
-        t0 = time.time()
-        assert wait_until(TestFaultHandling.LACP_TIMEOUT, 2, 0,
-                          lambda: member_selected() and lag_status() == "Up"), (
-            "PortChannel {} member {} did not recover to Up/selected.".format(pc_name, port_name))
+        def member_recovered():
+            return (asic_disable_state() == (False, False)
+                    and member_selected()
+                    and lag_status() == "Up")
+
+        assert wait_until(TestFaultHandling.MEMBER_RECOVERY_TIMEOUT, 1, 0, member_recovered), (
+            "PortChannel {} member {} did not fully recover within {}s of MACsec recovery. "
+            "ASIC state: {}, selected: {}, LAG status: {}".format(
+                pc_name, port_name, TestFaultHandling.MEMBER_RECOVERY_TIMEOUT,
+                asic_disable_state(), member_selected(), lag_status()))
         logger.info("LAG member %s recovered in %.1fs", port_name, time.time() - t0)
 
         if check_bgp and (want_single or not lag_survives_one_member_down):
@@ -569,13 +580,13 @@ class TestFaultHandling():
     def test_macsec_rekey_keeps_lag_member_up(self, duthost, ctrl_links,
                                               upstream_links, rekey_period, wait_mka_establish):
         """A MACsec rekey rotates the SAs (new SA installed, then the old SA removed) while
-        the session stays up. orchagent disables the LAG member only when the *last* SA is
-        removed, so a rekey must NOT disable or flap the member. Verify that across a full
-        rekey period the member is never disabled/flapped, that a rekey actually happened,
+        the session stays up. teammgrd closes macsec_gate only when the last ingress SA
+        is gone, so a rekey must NOT disable the member. Verify that across a full
+        rekey period the member is never disabled, that a rekey actually happened,
         and that the member, LAG and BGP stay up.
 
-        Primary gate is ASIC_DB disable state; orchagent log-string counts are secondary
-        only (wording can differ by image/branch).
+        Primary gate is ASIC_DB disable state sampled during the window. The teammgrd
+        macsec_gate log count is checked as well.
         """
         if rekey_period == 0:
             pytest.skip("Rekey-by-period is not active for this profile (rekey_period == 0).")
@@ -612,7 +623,7 @@ class TestFaultHandling():
                               lambda: bgp_session_established(duthost, port_name, upstream_links)), (
                 "BGP over {} not Established before the test.".format(pc_name))
 
-        # Snapshot the SA tables (to confirm a rekey occurs) and optional disable-log count.
+        # Snapshot the SA tables (to confirm a rekey occurs) and the macsec_gate log count.
         _, _, _, egress_sa_before, ingress_sa_before = get_appl_db(
             duthost, port_name, nbr["host"], nbr["port"])
         disable_logs_before = macsec_lag_disable_log_count(duthost, port_name)
@@ -636,13 +647,13 @@ class TestFaultHandling():
             "No rekey observed within 2x rekey_period ({}s) on {}; the test did not exercise "
             "rekey.".format(2 * rekey_period, port_name))
 
-        # Secondary signal only: log wording can differ by image; do not hard-fail on it.
+        # A healthy rekey must not move macsec_gate. ASIC_DB sampling above is the
+        # primary gate; this count matches the teammgrd notices for the same event.
         disable_logs_after = macsec_lag_disable_log_count(duthost, port_name)
-        if disable_logs_after != disable_logs_before:
-            logger.warning(
-                "orchagent disable/flap log count for %s changed %s -> %s during rekey; "
-                "treating as secondary (ASIC_DB sampling is the primary gate).",
-                port_name, disable_logs_before, disable_logs_after)
+        assert disable_logs_after == disable_logs_before, (
+            "teammgrd moved macsec_gate for {} during a MACsec rekey (the session stayed "
+            "up). Gate log line count went {} -> {}.".format(
+                port_name, disable_logs_before, disable_logs_after))
 
         # End state: everything still up after the rekey.
         assert teamd_member_selected(duthost, pc_name, port_name), (
