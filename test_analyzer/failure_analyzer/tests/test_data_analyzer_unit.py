@@ -19,6 +19,7 @@ from helper import load_config  # noqa: E402
 current_file_path = os.path.abspath(__file__)
 current_folder = os.path.dirname(current_file_path)
 TEST_CONFIG = load_config('{}/configs/config_default.json'.format(current_folder))
+PRODUCTION_CONFIG = load_config('{}/../config.json'.format(current_folder))
 
 
 def make_analyzer():
@@ -615,6 +616,31 @@ class TestFilterTestcase(unittest.TestCase):
         self.assertIn('BranchNameName', result.columns)
         self.assertIn('TopologyName', result.columns)
         self.assertIn('AsicTypeName', result.columns)
+
+    @patch('data_analyzer.configuration', PRODUCTION_CONFIG)
+    def test_ptp_topology_retained(self):
+        """PTP results should remain eligible for failure analysis."""
+        df = pd.DataFrame({
+            'BranchName': ['internal'] * 3,
+            'OSVersion': ['internal.181428058-de3c90fd97'] * 3,
+            'HardwareSku': ['Arista-7060X6-64PE-B-C512S2'] * 3,
+            'AsicType': ['broadcom'] * 3,
+            'Topology': ['ptp-514', 'ptp-256', 'my-ptp-514'],
+            'Result': ['failure'] * 3,
+            'Feature': ['transceiver'] * 3,
+            'ModulePath': ['transceiver.system.process_restart.test_processes_restart'] * 3,
+            'TestCase': ['test_system_syncd_restart'] * 3,
+            'FullCaseName': [
+                'transceiver.system.process_restart.test_processes_restart.test_system_syncd_restart'
+            ] * 3,
+            'opTestCase': ['test_system_syncd_restart'] * 3,
+            'Summary': ['syncd restart recovery FAILED'] * 3
+        })
+
+        result = self.analyzer.filter_testcase(df)
+
+        self.assertEqual(result['Topology'].tolist(), ['ptp-514', 'ptp-256'])
+        self.assertEqual(result['TopologyName'].tolist(), ['PTP', 'PTP'])
 
     @patch('data_analyzer.configuration', TEST_CONFIG)
     def test_excluded_branch_filtered(self):

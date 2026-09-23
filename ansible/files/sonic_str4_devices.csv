@@ -22,8 +22,8 @@ str4-7060x6-512-11,10.64.247.62/26,Arista-7060X6-64PE-B-C448O16,DevSonic,,sonic
 str4-7060x6-512-fan-11,10.64.247.8/26,Arista-7060X6-64PE-B-C448O16,FanoutLeafSonic,,sonic
 str4-7060x6-512-10,10.64.247.15/26,Arista-7060X6-64PE-B-C512S2,DevSonic,,sonic
 str4-7060x6-512-fan-10,10.64.247.16/26,Arista-7060X6-64PE-B-C512S2,FanoutLeafSonic,,sonic
-str4-7060x6-512-14,10.3.146.138/24,Arista-7060X6-64PE-B-C448O16,DevSonic,,sonic
-str4-7060x6-512-fan-14,10.3.146.139/24,Arista-7060X6-64PE-B-C448O16,FanoutLeafSonic,,sonic
+str4-7060x6-512-14,10.3.144.117/27,Arista-7060X6-64PE-B-C448O16,DevSonic,,sonic
+str4-7060x6-64pe-fan-11,10.3.144.118/27,Arista-7060X6-64PE-B-C448O16,FanoutLeafSonic,,sonic
 str4-7060x6-512-2,10.64.247.124/26,Arista-7060X6-64PE-B-C448O16,DevSonic,,sonic
 str4-7060x6-512-fan-2,10.64.247.125/26,Arista-7060X6-64PE-B-C448O16,FanoutLeafSonic,,sonic
 str4-7060x6-512-8,10.64.247.180/25,Arista-7060X6-64PE-P32O64,DevSonic,,sonic
@@ -40,7 +40,6 @@ str4-sn5640-2,10.64.246.168/25,Mellanox-SN5640-C512S2,DevSonic,,sonic
 str4-sn5640-fan-2,10.64.246.122/25,Mellanox-SN5640-C512S2,FanoutLeafSonic,,sonic
 str4-sn5640-3,10.64.246.78/25,Mellanox-SN5640-C508O1X2,DevSonic,,sonic
 str4-sn5640-fan-3,10.64.246.123/25,Mellanox-SN5640-C508O1X2,FanoutLeafSonic,,sonic
-str4-sn5640-5,10.64.246.162/25,Mellanox-SN5640-C448O16,DevSonic,,sonic
 str4-sn5640-7,10.64.246.184/25,Mellanox-SN5640-C512S2,DevSonic,,sonic
 str4-sn5640-fan-7,10.64.246.167/25,Mellanox-SN5640-C512S2,FanoutLeafSonic,,sonic
 str4-7060x6-512-7,10.64.246.205/25,Arista-7060X6-64PE-B-C448O16,DevSonic,,sonic
@@ -111,6 +110,7 @@ str43-0101-0400-06c0,10.3.150.239,Cisco,ConsoleServer,ssh,
 str43-0101-0400-07c0,10.3.150.241,Cisco,ConsoleServer,ssh,
 str43-0101-0400-08c0,10.3.152.33,Cisco,ConsoleServer,ssh,
 str43-0101-0400-09c0,10.3.150.244,Cisco,ConsoleServer,ssh,
+str43-0101-0300-06c0,10.3.150.247,Cisco,ConsoleServer,ssh,
 str43-0101-0801-01c0,10.3.150.230,Cisco,ConsoleServer,ssh,
 str43-0101-0801-02c0,10.3.152.53,Cisco,ConsoleServer,ssh,
 str4-Nokia-7220-Th6p-1,10.3.157.14/27,Nokia-IXR7220-H6-O256,DevSonic,,sonic

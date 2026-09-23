@@ -73,6 +73,26 @@ validators:
       - ^str3-a7060dx5-acs-1$
       - ^str3-msn4700-fanout-10$
       - ^str3-z9332f-02$
+      # STR43 MGFX migration Phase 2.
+      - ^STR-7050CX3-C19-U37$
+      - ^STR-7260CX3-C19-U39$
+      - ^STR-8102-C19-U24$
+      - ^STR-SN2700-C19-U38$
+      - ^str-7050cx3-c17-u39$
+      - ^str2-8101-fanout-18$
+      - ^str2-8101-fanout-21$
+      - ^str2-8101c1-04$
+      - ^str3-7060-acs-2$
+      - ^str3-7260cx3-acs-1$
+      - ^str3-7260cx3-acs-2$
+      - ^str3-7260cx3-acs-fan-09$
+      - ^str3-7260cx3-acs-fan-10$
+      - ^str3-8102-smartswitch-02$
+      - ^str3-msn4600c-acs-05$
+      - ^str3-msn4600c-acs-06$
+      - ^str3-msn4700-fanout-04$
+      - ^str4-7060x6-512-14$
+      - ^str4-7060x6-64pe-fan-11$
     exclude_devices:
       # Devices that current causing IP conflicts
       - vlab-c-01.*

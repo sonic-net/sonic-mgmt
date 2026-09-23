@@ -246,6 +246,13 @@
                     "testbed_topology": ["ft2-64"],
                     "threshold": 51,
                     "included": true
+                },
+                {
+                    "id": "ptp",
+                    "name": "PTP",
+                    "testbed_topology": ["REG_^ptp-.*$"],
+                    "threshold": 51,
+                    "included": true
                 }
             ]
         },

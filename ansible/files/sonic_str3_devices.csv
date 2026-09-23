@@ -18,8 +18,8 @@ str3-7260cx3-acs-fan-05,10.3.144.72/27,Arista-7260CX3,FanoutLeaf,,
 str3-7260cx3-acs-fan-06,10.3.144.73/27,Arista-7260CX3,FanoutLeaf,,
 str3-7260cx3-acs-fan-07,10.3.144.74/27,Arista-7260CX3-C64,FanoutLeafSonic,,sonic
 str3-7260cx3-acs-fan-08,10.3.144.75/27,Arista-7260CX3,FanoutLeaf,,
-str3-7260cx3-acs-fan-09,10.3.146.196/24,Arista-7260CX3,FanoutLeaf,,
-str3-7260cx3-acs-fan-10,10.3.146.197/24,Arista-7260CX3,FanoutLeaf,,
+str3-7260cx3-acs-fan-09,10.3.144.111/27,Arista-7260CX3,FanoutLeaf,,
+str3-7260cx3-acs-fan-10,10.3.144.112/27,Arista-7260CX3,FanoutLeaf,,
 str3-7260cx3-acs-fan-23,10.3.146.114/24,Arista-7260CX3,FanoutLeaf,,
 str3-7260cx3-acs-fan-35,10.3.146.100/24,Arista-7260CX3,FanoutLeaf,,
 str3-7260cx3-acs-fan-39,10.3.146.55/24,Arista-7260CX3,FanoutLeaf,,
@@ -44,8 +44,8 @@ str3-8101-fanout-28,10.3.144.88/27,Cisco-8101-O8C48,FanoutLeaf,,
 str3-8101-fanout-29,10.3.146.130/24,Cisco-8101-O32,FanoutLeaf,,
 str3-a7060dx5-acs-1,10.3.144.89/27,Arista-7060DX5-32,DevSonic,,sonic
 str3-7260cx3-acs-14,10.3.146.94/24,Arista-7260CX3-C64,DevSonic,,sonic
-str3-msn4600c-acs-06,10.3.146.146/24,ACS-MSN4600C,FanoutLeaf,,sonic
-str3-msn4600c-acs-05,10.3.146.222/24,ACS-MSN4600C,DevSonic,,sonic
+str3-msn4600c-acs-06,10.3.144.115/27,ACS-MSN4600C,FanoutLeaf,,sonic
+str3-msn4600c-acs-05,10.3.144.114/27,ACS-MSN4600C,DevSonic,,sonic
 str3-8102-01,10.3.146.120/24,Cisco-8102-C64,DevSonic,,sonic
 str3-8101-01,10.3.144.77/27,Cisco-8101-O8C48,DevSonic,,sonic
 str3-8101-02,10.3.144.78/27,Cisco-8101-O8V48,DevSonic,,sonic
@@ -143,11 +143,11 @@ console-176,10.3.145.176,Cisco,ConsoleServer,ssh,,tacacs
 str3-z9332f-02,10.3.144.91/27,DellEMC-Z9332f-O32,FanoutLeafSonic,,sonic
 str3-z9332f-06,10.3.146.7/24,DellEMC-Z9332f-O32,FanoutLeafSonic,,sonic
 str3-7060-acs-1,10.3.146.240/24,Arista-7060CX-32S-D48C8,DevSonic,,sonic
-str3-7060-acs-2,10.3.146.242/24,Arista-7060CX-32S-D48C8,DevSonic,,sonic
+str3-7060-acs-2,10.3.144.108/27,Arista-7060CX-32S-D48C8,DevSonic,,sonic
 str3-7060-acs-3,10.3.146.243/24,Arista-7060CX-32S-C32,DevSonic,,sonic
 str3-7060-acs-fan-01,10.3.146.241/24,Arista-7060CX-32S,FanoutLeaf,,
-str3-7260cx3-acs-1,10.3.146.180/24,Arista-7260CX3-C64,DevSonic,,sonic
-str3-7260cx3-acs-2,10.3.146.181/24,Arista-7260CX3-C64,DevSonic,,sonic
+str3-7260cx3-acs-1,10.3.144.109/27,Arista-7260CX3-C64,DevSonic,,sonic
+str3-7260cx3-acs-2,10.3.144.110/27,Arista-7260CX3-C64,DevSonic,,sonic
 str3-dx010-acs-1,10.3.146.236/24,Celestica-DX010-C32,FanoutLeafSonic,,sonic
 str3-msn4700-01,10.3.146.207/24,Mellanox-SN4700-O8V48,DevSonic,,sonic
 str3-msn4700-fanout-01,10.3.146.218/24,Mellanox-SN4700-O8V48,FanoutLeafSonic,,sonic
@@ -155,7 +155,7 @@ str3-msn4700-02,10.3.146.149/24,Mellanox-SN4700-O8V48,DevSonic,,sonic
 str3-msn4700-fanout-02,10.3.146.153/24,Mellanox-SN4700-O8V48,FanoutLeafSonic,,sonic
 str3-msn4700-03,10.3.146.11/24,Mellanox-SN4700-O8V48,DevSonic,,sonic
 str3-8101-fanout-09,10.3.146.12/24,Cisco-8101-O8V48,FanoutLeafSonic,,sonic
-str3-msn4700-fanout-04,10.3.146.131/24,Mellanox-SN4700-O32,FanoutLeafSonic,,sonic
+str3-msn4700-fanout-04,10.3.144.116/27,Mellanox-SN4700-O32,FanoutLeafSonic,,sonic
 str3-msn4700-fanout-10,10.3.144.90/27,Mellanox-SN4700-O8C48,FanoutLeafSonic,,sonic
 str3-msn4280-01,10.3.146.202/24,Mellanox-SN4280-O8C40,DevSonic,,sonic
 str3-msn4280-02,10.3.152.109/24,Mellanox-SN4280-O28,DevSonic,,sonic
@@ -178,7 +178,7 @@ str3-8102-07-dpu-4,10.3.146.173/23,Cisco-8102-28FH-DPU-O,DevSonic,,sonic
 str3-8102-07-dpu-5,10.3.146.173/23,Cisco-8102-28FH-DPU-O,DevSonic,,sonic
 str3-8102-07-dpu-6,10.3.146.173/23,Cisco-8102-28FH-DPU-O,DevSonic,,sonic
 str3-8102-07-dpu-7,10.3.146.173/23,Cisco-8102-28FH-DPU-O,DevSonic,,sonic
-str3-8102-smartswitch-02,10.3.146.224/24,Cisco-8102-28FH-DPU-O,DevSonic,,sonic
+str3-8102-smartswitch-02,10.3.144.113/27,Cisco-8102-28FH-DPU-O,DevSonic,,sonic
 str3-8122-fanout-02,10.3.146.132/24,Cisco-8122-O64,FanoutLeafSonic,,sonic
 str3-msn4700-11,10.3.146.92/24,Mellanox-SN4700-V64,DevSonic,,sonic
 str3-d03u27-sn4700-01,10.64.246.195/25,Mellanox-SN4700-V64,DevSonic,,sonic
@@ -200,6 +200,7 @@ str43-0101-0400-06c0,10.3.150.239,Cisco,ConsoleServer,ssh,
 str43-0101-0400-07c0,10.3.150.241,Cisco,ConsoleServer,ssh,
 str43-0101-0400-08c0,10.3.152.33,Cisco,ConsoleServer,ssh,
 str43-0101-0400-09c0,10.3.150.244,Cisco,ConsoleServer,ssh,
+str43-0101-0300-06c0,10.3.150.247,Cisco,ConsoleServer,ssh,
 str43-0101-0501-02c0,10.3.152.39,Cisco,ConsoleServer,ssh,
 str43-0101-0400-10m0,10.3.152.32,Cisco,MgmtSwitch,ssh,
 str43-0101-0801-01c0,10.3.150.230,Cisco,ConsoleServer,ssh,

@@ -6,12 +6,16 @@
         "simultaneous_oir": false,
         "physical_oir_stress_iteration": 5,
         "monitor_kernel_errors": false,
-        "link_flap_monitor_timeout_sec": 10
+        "link_flap_monitor_timeout_sec": 10,
+        "hot_swap_ports_under_test": []
     },
     "dut": {
         "str43-3po-robot-7060": {
-            "ports_under_test": [9, 11, 13, 15, 17, 19, 21, 23],
-            "physical_oir_timeout_min": 5
+            "ports_under_test": [9, 11],
+            "physical_oir_timeout_min": 5,
+            "simultaneous_oir": true,
+            "physical_oir_stress_iteration": 2,
+            "hot_swap_ports_under_test": [[9, "CmisApi"], [11, "CmisApi"]]
         }
     }
 }

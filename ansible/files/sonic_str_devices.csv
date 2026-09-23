@@ -56,7 +56,7 @@ str43-ut2-nh5010-01,10.64.247.69/26,NH-5010-F-O64,DevSonic,,sonic
 str43-ut2-nh5010-02,10.64.247.72/26,NH-5010-F-O64,DevSonic,,sonic
 str43-3po-robot-7060,10.3.158.70/26,Arista-7060CX-32S-C32,DevSonic,,sonic
 str-8101-temp01,10.3.156.27/25,Cisco-8101-O8C48,DevSonic,,sonic
-str-7050cx3-c17-u39,10.3.146.211/24,Arista-7050CX3-32S-C32,DevSonic,,sonic
+str-7050cx3-c17-u39,10.3.144.103/27,Arista-7050CX3-32S-C32,DevSonic,,sonic
 3pos-sn2700-e11-34,10.3.150.206/27,Mellanox-SN2700,DevSonic,,sonic
 str43-dcs-7050cx3-32s-f-d04-u02,10.3.146.113/24,Arista-7050CX3-32S-C32,DevSonic,,sonic
 pdu-79,10.3.154.79,Sentry4,Pdu,snmp,
@@ -114,6 +114,7 @@ str43-0101-0400-07c0,10.3.150.241,Cisco,ConsoleServer,ssh,
 str-8101-d04-u36,10.64.246.197/25,Cisco-8101-O32,DevSonic,,sonic
 str43-0101-0400-08c0,10.3.152.33,Cisco,ConsoleServer,ssh,
 str43-0101-0400-09c0,10.3.150.244,Cisco,ConsoleServer,ssh,
+str43-0101-0300-06c0,10.3.150.247,Cisco,ConsoleServer,ssh,
 str43-0101-0400-01c0,10.3.158.19,Cisco,ConsoleServer,ssh,
 str43-0101-0801-01c0,10.3.150.230,Cisco,ConsoleServer,ssh,
 str43-0101-0400-02c0,10.3.158.34,Cisco,ConsoleServer,ssh,
