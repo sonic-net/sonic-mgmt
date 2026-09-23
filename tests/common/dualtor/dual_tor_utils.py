@@ -1728,9 +1728,14 @@ def collect_active_active_port_status_mismatches(duthost, ports, status):
     return mismatches
 
 
-def format_active_active_port_status_mismatches(duthost, ports, status, max_ports=8):
-    """Render mismatching ports as a single-line, greppable diagnostic string."""
-    mismatches = collect_active_active_port_status_mismatches(duthost, ports, status)
+def format_active_active_port_status_mismatches(duthost, ports, status, max_ports=8, mismatches=None):
+    """Render mismatching ports as a single-line, greppable diagnostic string.
+
+    Pass `mismatches` to reuse an already-collected result instead of querying
+    `show muxcable status` again.
+    """
+    if mismatches is None:
+        mismatches = collect_active_active_port_status_mismatches(duthost, ports, status)
     if not mismatches:
         return "all ports reached status={}".format(status)
 
@@ -1750,6 +1755,83 @@ def format_active_active_port_status_mismatches(duthost, ports, status, max_port
             status, len(mismatches), len(status_lagging), len(serverstatus_lagging), details
         )
     )
+
+
+def wait_active_active_port_status(duthost, ports, status, timeout=60, interval=5):
+    """Wait for active-active ports to reach `status`, returning a failure summary.
+
+    Returns None once every port converged. Otherwise returns the diagnostic
+    string for the assertion and logs the signalling snapshot. Nothing extra is
+    queried on the success path.
+    """
+    if wait_until(timeout, interval, 0, check_active_active_port_status, duthost, ports, status):
+        return None
+
+    mismatches = collect_active_active_port_status_mismatches(duthost, ports, status)
+    log_active_active_mux_signal_snapshot(duthost, [_p for _p, _s, _ss in mismatches])
+    return format_active_active_port_status_mismatches(
+        duthost, ports, status, mismatches=mismatches)
+
+
+def collect_active_active_mux_signal_snapshot(duthost, ports, max_ports=3):
+    """Dump the DB entries that carry the active-active mux signalling handshake.
+
+    For active-active ports the server-side state is not produced by linkmgrd
+    itself. linkmgrd publishes a request into APPL_DB, `ycabled` performs the
+    gRPC exchange with the NIC simulator and publishes the answer back, and only
+    then does linkmgrd update the state that `show muxcable status` reports as
+    `serverstatus`:
+
+        linkmgrd --(APPL_DB FORWARDING_STATE_COMMAND)--> ycabled --gRPC--> NIC sim
+        linkmgrd <-(APPL_DB FORWARDING_STATE_RESPONSE)-- ycabled <-gRPC-- NIC sim
+        linkmgrd --> STATE_DB MUX_CABLE_TABLE   (this is `serverstatus`)
+
+    A port stuck below `serverstatus` is therefore ambiguous from the test side:
+    the request may never have been published, `ycabled` may never have
+    answered, or it may have answered with the wrong state. Capturing these keys
+    at failure time distinguishes those cases without reading syslog.
+
+    Read-only, and capped at `max_ports` ports so a 120-port topology cannot
+    flood the log. Any individual lookup that fails is reported inline rather
+    than raising, because this runs on an already-failing path.
+    """
+    lookups = [
+        ("APPL_DB", "MUX_CABLE_TABLE:{}", "mux state requested by linkmgrd"),
+        ("STATE_DB", "MUX_CABLE_TABLE|{}", "server state (shown as serverstatus)"),
+        ("STATE_DB", "HW_MUX_CABLE_TABLE|{}", "hardware state"),
+        ("STATE_DB", "HW_MUX_CABLE_TABLE_PEER|{}", "peer hardware state"),
+        ("STATE_DB", "MUX_LINKMGR_TABLE|{}", "linkmgrd health"),
+        ("APPL_DB", "FORWARDING_STATE_COMMAND:{}", "request published to ycabled"),
+        ("APPL_DB", "FORWARDING_STATE_RESPONSE:{}", "answer published by ycabled"),
+    ]
+
+    lines = []
+    for port in list(ports)[:max_ports]:
+        lines.append("--- {} {} ---".format(duthost.hostname, port))
+        for db_name, key_template, description in lookups:
+            key = key_template.format(port)
+            try:
+                result = duthost.shell(
+                    "sonic-db-cli {} HGETALL '{}'".format(db_name, key),
+                    module_ignore_errors=True
+                )
+                value = (result.get("stdout") or "").strip() or "<empty>"
+            except Exception as exc:  # noqa: BLE001 - never mask the real failure
+                value = "<lookup failed: {}>".format(exc)
+            lines.append("  {}|{} ({}): {}".format(
+                db_name, key, description, value.replace("\n", " ")))
+    return "\n".join(lines)
+
+
+def log_active_active_mux_signal_snapshot(duthost, ports, max_ports=3):
+    """Log the signalling snapshot, swallowing any error it hits."""
+    try:
+        logging.warning(
+            "Active-active mux signalling snapshot on %s:\n%s",
+            duthost.hostname,
+            collect_active_active_mux_signal_snapshot(duthost, ports, max_ports=max_ports))
+    except Exception as exc:  # noqa: BLE001 - diagnostics must not replace the real failure
+        logging.warning("Could not collect active-active mux signalling snapshot: %s", exc)
 
 
 def check_active_active_port_status(duthost, ports, status):
@@ -1812,11 +1894,11 @@ def validate_active_active_dualtor_setup(
     duthosts.shell("systemctl restart mux.service")
     # verify both ToRs are active
     for duthost in duthosts:
+        failure = wait_active_active_port_status(
+            duthost, active_active_ports, "active", timeout=90, interval=20)
         pt_assert(
-            wait_until(90, 20, 0, check_active_active_port_status, duthost, active_active_ports, "active"),
-            "Not all active-active mux ports are active on device %s: %s" % (
-                duthost.hostname,
-                format_active_active_port_status_mismatches(duthost, active_active_ports, "active")))
+            failure is None,
+            "Not all active-active mux ports are active on device %s: %s" % (duthost.hostname, failure))
 
     return
 
@@ -1855,14 +1937,14 @@ def config_active_active_dualtor(active_tor, standby_tor, ports, unconditionally
             "Port was not present on mux cable after 90 seconds - '{}' failed".format(cmd)
         )
 
-    pt_assert(wait_until(60, 5, 0, check_active_active_port_status, active_tor, ports, 'active'),
+    active_failure = wait_active_active_port_status(active_tor, ports, 'active')
+    pt_assert(active_failure is None,
               "Could not config ports {} to active on {}: {}".format(
-                  ports, active_tor.hostname,
-                  format_active_active_port_status_mismatches(active_tor, ports, 'active')))
-    pt_assert(wait_until(60, 5, 0, check_active_active_port_status, standby_tor, ports, 'standby'),
+                  ports, active_tor.hostname, active_failure))
+    standby_failure = wait_active_active_port_status(standby_tor, ports, 'standby')
+    pt_assert(standby_failure is None,
               "Could not config ports {} to standby on {}: {}".format(
-                  ports, standby_tor.hostname,
-                  format_active_active_port_status_mismatches(standby_tor, ports, 'standby')))
+                  ports, standby_tor.hostname, standby_failure))
 
 
 def _check_docker_status(duthost):
