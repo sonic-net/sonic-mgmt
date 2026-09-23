@@ -5171,19 +5171,19 @@ show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_rate_limit_
     conditions:
       - "'bmc' in topo_type"
 
-show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_sai_sdk_dump:
-  skip:
-    reason: "Test supported only on Nvidia(Mellanox) devices / auto techsupport on multi asic platforms doesnt work"
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type not in ['mellanox']"
-      - "is_multi_asic==True"
-
 show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_sanity:
   skip:
     reason: "auto techsupport relies on the eventd service which is not available on BMC SONiC image"
     conditions:
       - "'bmc' in topo_type"
+
+show_techsupport/test_sai_sdk_dump.py::TestSaiSdkDump::test_sai_sdk_dump:
+  skip:
+    reason: "Test supported only on Nvidia(Mellanox) devices / SAI failure dump on multi asic platforms doesnt work"
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type not in ['mellanox']"
+      - "is_multi_asic==True"
 
 show_techsupport/test_techsupport.py::test_techsupport:
   xfail:
