@@ -45,6 +45,26 @@ COUNTERS_DB = 2
 # -- Fixtures ----------------------------------------------------------
 
 
+def _fanout_cleanup_ready(fanouthost):
+    fanouthost.shell(
+        "redis-cli PING | grep -qx PONG && "
+        "docker exec swss supervisorctl status neighsyncd | grep -q '^neighsyncd.*RUNNING' && "
+        "docker exec swss supervisorctl status orchagent | grep -q '^orchagent.*RUNNING' && "
+        "docker exec syncd supervisorctl status syncd | grep -q '^syncd.*RUNNING'"
+    )
+    return True
+
+
+def wait_for_fanout_cleanup(fanouthosts):
+    for fanouthost in filter(lambda fanouthost: fanouthost.os == "sonic", fanouthosts.values()):
+        pytest_assert(
+            wait_until(180, 5, 0, _fanout_cleanup_ready, fanouthost),
+            "Fanout {} did not become ready after FDB cleanup".format(
+                fanouthost.hostname
+            ),
+        )
+
+
 @pytest.fixture(scope="module", autouse=True)
 def require_notification_consumer_stats(duthosts, rand_one_dut_hostname):
     """
@@ -80,8 +100,10 @@ def clean_fdb(duthosts, rand_one_dut_hostname, fanouthosts):
     measured against a known starting point.
     """
     fdb_cleanup(duthosts, rand_one_dut_hostname, fanouthosts)
+    wait_for_fanout_cleanup(fanouthosts)
     yield
     fdb_cleanup(duthosts, rand_one_dut_hostname, fanouthosts)
+    wait_for_fanout_cleanup(fanouthosts)
 
 
 @pytest.fixture(scope="module")
