@@ -166,7 +166,7 @@ def __tgen_bgp_config(snappi_api,
     # Source
     config.devices.device(name='Tx')
     eth_1 = config.devices[0].ethernets.add()
-    eth_1.connection.port_name = lag0.name
+    eth_1.connection.lag_name = lag0.name
     eth_1.name = 'Ethernet 1'
     eth_1.mac = "00:14:0a:00:00:01"
     ipv4_1 = eth_1.ipv4_addresses.add()
@@ -183,7 +183,7 @@ def __tgen_bgp_config(snappi_api,
     # Destination
     config.devices.device(name="Rx")
     eth_2 = config.devices[1].ethernets.add()
-    eth_2.connection.port_name = lag1.name
+    eth_2.connection.lag_name = lag1.name
     eth_2.name = 'Ethernet 2'
     eth_2.mac = "00:14:01:00:00:01"
     ipv4_2 = eth_2.ipv4_addresses.add()

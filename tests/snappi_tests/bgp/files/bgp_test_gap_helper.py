@@ -211,7 +211,8 @@ def __tgen_bgp_config(snappi_api,
         dual_stack_flag: notation for dual or single stack
     """
     config = snappi_api.config()
-    snappi_api.enable_scaling(True)
+    if hasattr(snappi_api, 'enable_scaling'):
+        snappi_api.enable_scaling(True)
     p1, p2 = (
         config.ports.port(name="Source", location=temp_tg_port[0]['location'])
         .port(name="Destination", location=temp_tg_port[1]['location'])
@@ -242,7 +243,7 @@ def __tgen_bgp_config(snappi_api,
     # Source
     config.devices.device(name='Tx')
     eth_1 = config.devices[0].ethernets.add()
-    eth_1.connection.port_name = lag1.name
+    eth_1.connection.lag_name = lag1.name
     eth_1.name = 'Ethernet 1'
     eth_1.mac = "00:14:0a:00:00:01"
     ipv4_1 = eth_1.ipv4_addresses.add()
@@ -258,7 +259,7 @@ def __tgen_bgp_config(snappi_api,
     # Destination
     config.devices.device(name="Rx")
     eth_2 = config.devices[1].ethernets.add()
-    eth_2.connection.port_name = lag2.name
+    eth_2.connection.lag_name = lag2.name
     eth_2.name = 'Ethernet 2'
     eth_2.mac = "00:14:01:00:00:01"
     ipv4_2 = eth_2.ipv4_addresses.add()
@@ -379,7 +380,7 @@ def get_convergence_for_remote_link_failover(snappi_api,
 
         def create_v4_topo():
             eth = config.devices[0].ethernets.add()
-            eth.connection.port_name = config.lags[0].name
+            eth.connection.lag_name = config.lags[0].name
             eth.name = 'Ethernet 1'
             eth.mac = "00:00:00:00:00:01"
             ipv4 = eth.ipv4_addresses.add()
@@ -396,7 +397,7 @@ def get_convergence_for_remote_link_failover(snappi_api,
                     m = hex(i).split('0x')[1]
 
                 ethernet_stack = config.devices[i - 1].ethernets.add()
-                ethernet_stack.connection.port_name = config.lags[i - 1].name
+                ethernet_stack.connection.lag_name = config.lags[i - 1].name
                 ethernet_stack.name = 'Ethernet %d' % i
                 ethernet_stack.mac = "00:00:00:00:00:%s" % m
                 ipv4_stack = ethernet_stack.ipv4_addresses.add()
@@ -424,7 +425,7 @@ def get_convergence_for_remote_link_failover(snappi_api,
 
         def create_v6_topo():
             eth = config.devices[0].ethernets.add()
-            eth.connection.port_name = config.lags[0].name
+            eth.connection.lag_name = config.lags[0].name
             eth.name = 'Ethernet 1'
             eth.mac = "00:00:00:00:00:01"
             ipv6 = eth.ipv6_addresses.add()
@@ -440,7 +441,7 @@ def get_convergence_for_remote_link_failover(snappi_api,
                 else:
                     m = hex(i).split('0x')[1]
                 ethernet_stack = config.devices[i - 1].ethernets.add()
-                ethernet_stack.connection.port_name = config.lags[i - 1].name
+                ethernet_stack.connection.lag_name = config.lags[i - 1].name
                 ethernet_stack.name = 'Ethernet %d' % i
                 ethernet_stack.mac = "00:00:00:00:00:%s" % m
                 ipv6_stack = ethernet_stack.ipv6_addresses.add()
@@ -477,7 +478,7 @@ def get_convergence_for_remote_link_failover(snappi_api,
             flow = config.flows.flow(name='IPv6_Traffic_%d' % routes)[-1]
         else:
             raise Exception('Invalid route type given')
-        flow.tx_rx.device.tx_names = [config.devices[0].name]
+        flow.tx_rx.device.tx_names = [config.devices[0].ethernets[0].name]
         flow.tx_rx.device.rx_names = rx_flows
         flow.size.fixed = 1024
         flow.rate.percentage = 100
