@@ -2190,3 +2190,55 @@ def verify_dut_stat_counters_snake(Common_vars, tgen_stats):
             logger.warning(failure)
 
         pytest_assert(False, 'Snake stat counters came up short of the tgen tx counter')
+
+
+def remove_srv6_config(Common_vars):
+    # Remove IPv6 interfaces on DUT
+    for dut in Common_vars.dut_hosts:
+        for port in Common_vars.config_data[dut.hostname]['tgen_ports']:
+            cli_command = f'sudo config int ip remove {port["peer_port"]} {port["ipGateway"]}/{port["prefix"]}'
+            logger.info(f'Removing IPv6 int on DUT {dut.hostname}: {cli_command}')
+            dut.shell(cli_command)
+
+    # Remove SRv6 SIDs on DUT
+    for dut in Common_vars.dut_hosts:
+        count = 1
+        for sid in Common_vars.config_data[dut.hostname]['my_sids']:
+            logger.info(f'Removing SRv6 loc{count} sid {Common_vars.sid_prefix}:{sid}::/48 '    # E231
+                        f'and locator on {dut.hostname} ...')
+            dut.shell(f'sudo sonic-db-cli CONFIG_DB DEL "SRV6_MY_LOCATORS|loc{count}"')
+            dut.shell(f'sudo sonic-db-cli CONFIG_DB DEL '
+                      f'"SRV6_MY_SIDS|loc{count}|{Common_vars.sid_prefix}:{sid}::/48"')  # E231
+            count += 1
+
+    # Remove static routes on DUTs
+    for dut in Common_vars.dut_hosts:
+        for static_route in Common_vars.config_data[dut.hostname]['static_routes']:
+            logger.info(f'DUT:{dut.hostname} -> sudo {static_route.replace("hset", "del")}')  # E231
+
+            # Common_vars.dut_hosts[0].shell(f'sonic-db-cli CONFIG_DB del "STATIC_ROUTE|{route_lookup}"
+            # nexthop {nexthop} ifname {ifname}')
+            dut.shell(f'sudo {static_route.replace("hset", "del")}')
+
+    # Remove configured DUT links in between DUTs
+    for dut in Common_vars.dut_hosts:
+        # 'dut_link_ip_addresses': {
+        #     'switch-t1-1': ['5010::2/64', '5011::2/64', '5012::2/64', '5013::2/64',
+        #                     '5014::2/64', '5015::2/64', '5016::2/64', '5017::2/64'],
+        #     'switch-t1-2': ['5018::2/64', '5019::2/64', '501a::2/64', '501b::2/64',
+        #                     '501c::2/64', '501d::2/64', '501e::2/64', '501f::2/64']
+        # }
+        # 'dut_link_port_connections': {
+        #     'switch-t1-1': ['Ethernet128', 'Ethernet129', 'Ethernet130', 'Ethernet131',
+        #                     'Ethernet132', 'Ethernet133', 'Ethernet134', 'Ethernet135'],
+        #     'switch-t1-2': ['Ethernet100', 'Ethernet101', 'Ethernet102', 'Ethernet103',
+        #                     'Ethernet104', 'Ethernet105', 'Ethernet106', 'Ethernet107']
+        # }
+        for adjacent_dut, dut_ports in Common_vars.config_data[dut.hostname]['dut_link_port_connections'].items():
+            for index, port in enumerate(dut_ports):
+                ip_address = Common_vars.config_data[dut.hostname]['dut_link_ip_addresses'][adjacent_dut][index]
+
+                # {'dut': 'switch-t0-1', 'ip_address': '5010::1/64', 'local_dut_port': 'Ethernet128',
+                #  'port': 'Ethernet128'}
+                logger.info(f'DUT:{dut.hostname}: sudo config int ip remove {port} {ip_address}')  # E231
+                dut.shell(f'sudo config int ip remove {port} {ip_address}')
