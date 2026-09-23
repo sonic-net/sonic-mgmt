@@ -5336,6 +5336,17 @@ snappi_tests/reboot:
       - "'2025' in release"
       - "https://github.com/sonic-net/sonic-mgmt/issues/27415"
 
+snappi_tests/reboot/test_fast_reboot.py:
+  skip:
+    reason: "Fast reboot is not supported on SN6600 platforms."
+    conditions:
+      - "platform in ['x86_64-nvidia_sn6600-r0', 'x86_64-nvidia_sn6600_simx-r0', 'x86_64-nvidia_sn6600_ld-r0', 'x86_64-nvidia_sn6600_ld_simx-r0']"
+
+snappi_tests/reboot/test_warm_reboot.py:
+  skip:
+    reason: "Warm reboot is not supported on SN6600 platforms."
+    conditions:
+      - "platform in ['x86_64-nvidia_sn6600-r0', 'x86_64-nvidia_sn6600_simx-r0', 'x86_64-nvidia_sn6600_ld-r0', 'x86_64-nvidia_sn6600_ld_simx-r0']"
 #######################################
 #####            snmp             #####
 #######################################
