@@ -104,10 +104,10 @@ class SSHConsoleConn(BaseConsoleConn):
 
     def switch_to_host_console(self, selector="1"):
         """Switch a multiplexed BMC serial session to the host and log in."""
-        self.write_channel("\x15")
+        self.write_channel("\x15" + str(selector))
         time.sleep(1 * self.select_delay_factor(1))
         self.logger.debug("Console selector output: %r", self.read_channel())
-        self.write_channel(str(selector) + self.RETURN)
+        self.write_channel(self.RETURN)
 
         for i, password in enumerate(self.sonic_password):
             try:
