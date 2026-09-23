@@ -65,6 +65,8 @@ OPT_DIR = "/opt"
 
 EOS_RETRY_MAX = 3
 RETRY_TIMEOUT_SECONDS = 5
+# Placeholder reported when a port is missing from `show muxcable status`.
+MUX_STATUS_ABSENT = "<absent>"
 
 
 def get_tor_mux_intfs(duthost):
@@ -1697,18 +1699,72 @@ def run_mux_config_command(tor, cmd, expected_output=None, forbidden_output=None
     return True
 
 
+def collect_active_active_port_status_mismatches(duthost, ports, status):
+    """Return the active-active mux ports whose status does not match `status`.
+
+    Each entry is (port, actual_status, actual_serverstatus). A port missing
+    from `show muxcable status` is reported with MUX_STATUS_ABSENT for both
+    fields.
+
+    `status` is the DUT-local mux state driven by `config mux mode ...`, while
+    `serverstatus` is the server-side state that linkmgrd learns from the NIC
+    simulator over gRPC. Separating the two is what makes a convergence failure
+    actionable: if only `serverstatus` lags, the DUT applied the configuration
+    and the gap is in the linkmgrd/NIC-simulator path, not in the CLI.
+    """
+    show_mux_status_ret = show_muxcable_status(duthost)
+    if ports == "all":
+        ports = list(show_mux_status_ret.keys())
+
+    mismatches = []
+    for port in ports:
+        if port not in show_mux_status_ret:
+            mismatches.append((port, MUX_STATUS_ABSENT, MUX_STATUS_ABSENT))
+        elif (show_mux_status_ret[port]['status'] != status
+                or show_mux_status_ret[port]['serverstatus'] != status):
+            mismatches.append((port,
+                               show_mux_status_ret[port]['status'],
+                               show_mux_status_ret[port]['serverstatus']))
+    return mismatches
+
+
+def format_active_active_port_status_mismatches(duthost, ports, status, max_ports=8):
+    """Render mismatching ports as a single-line, greppable diagnostic string."""
+    mismatches = collect_active_active_port_status_mismatches(duthost, ports, status)
+    if not mismatches:
+        return "all ports reached status={}".format(status)
+
+    status_lagging = [_p for _p, _s, _ss in mismatches if _s != status]
+    serverstatus_lagging = [_p for _p, _s, _ss in mismatches if _s == status and _ss != status]
+
+    details = ", ".join(
+        "{}(status={}, serverstatus={})".format(_p, _s, _ss)
+        for _p, _s, _ss in mismatches[:max_ports]
+    )
+    if len(mismatches) > max_ports:
+        details += ", ... {} more".format(len(mismatches) - max_ports)
+
+    return (
+        "expected status={}; {} port(s) not converged "
+        "({} with status lagging, {} with only serverstatus lagging): {}".format(
+            status, len(mismatches), len(status_lagging), len(serverstatus_lagging), details
+        )
+    )
+
+
 def check_active_active_port_status(duthost, ports, status):
     """Validate the active-active mux ports status."""
     logging.debug("Check mux status for ports {} is {}".format(ports, status))
-    show_mux_status_ret = show_muxcable_status(duthost)
-    logging.debug("show_mux_status_ret: {}".format(json.dumps(show_mux_status_ret, indent=4)))
-    if ports == "all":
-        ports = list(show_mux_status_ret.keys())
-    for port in ports:
-        if port not in show_mux_status_ret:
-            return False
-        elif show_mux_status_ret[port]['status'] != status or show_mux_status_ret[port]['serverstatus'] != status:
-            return False
+    mismatches = collect_active_active_port_status_mismatches(duthost, ports, status)
+    if mismatches:
+        # Logged on every poll so the wait_until progression shows whether the
+        # ports are converging slowly or are stuck from the first sample.
+        logging.debug(
+            "MUX_STATUS_MISMATCH host=%s expected=%s not_converged=%d detail=%s",
+            duthost.hostname, status, len(mismatches),
+            ", ".join("{}({}/{})".format(_p, _s, _ss) for _p, _s, _ss in mismatches[:8])
+        )
+        return False
     return True
 
 
@@ -1758,7 +1814,9 @@ def validate_active_active_dualtor_setup(
     for duthost in duthosts:
         pt_assert(
             wait_until(90, 20, 0, check_active_active_port_status, duthost, active_active_ports, "active"),
-            "Not all active-active mux ports are active on device %s" % duthost.hostname)
+            "Not all active-active mux ports are active on device %s: %s" % (
+                duthost.hostname,
+                format_active_active_port_status_mismatches(duthost, active_active_ports, "active")))
 
     return
 
@@ -1798,9 +1856,13 @@ def config_active_active_dualtor(active_tor, standby_tor, ports, unconditionally
         )
 
     pt_assert(wait_until(60, 5, 0, check_active_active_port_status, active_tor, ports, 'active'),
-              "Could not config ports {} to active on {}".format(ports, active_tor.hostname))
+              "Could not config ports {} to active on {}: {}".format(
+                  ports, active_tor.hostname,
+                  format_active_active_port_status_mismatches(active_tor, ports, 'active')))
     pt_assert(wait_until(60, 5, 0, check_active_active_port_status, standby_tor, ports, 'standby'),
-              "Could not config ports {} to standby on {}".format(ports, standby_tor.hostname))
+              "Could not config ports {} to standby on {}: {}".format(
+                  ports, standby_tor.hostname,
+                  format_active_active_port_status_mismatches(standby_tor, ports, 'standby')))
 
 
 def _check_docker_status(duthost):
