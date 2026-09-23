@@ -249,6 +249,15 @@ def get_dut_stats(dut_tg_port_map):
                     # srv6_mysid (list-shaped) and None for the others.
                     result[duthostname][command_name] = [] if command_name == "srv6_mysid" else None
                     continue
+                if command_name == "portstat":
+                    # portstat -j can prepend a plain-text "Last cached time
+                    # was ..." line before the JSON table when a counters
+                    # cache from an earlier "portstat -c" run exists on the
+                    # DUT. Strip any such preamble so json.loads() sees only
+                    # the JSON object.
+                    json_start = raw_output.find("{")
+                    if json_start > 0:
+                        raw_output = raw_output[json_start:]
                 json_output = json.loads(raw_output)
 
                 # Per-command shape normalization.
