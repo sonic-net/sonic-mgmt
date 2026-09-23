@@ -155,6 +155,19 @@ def test_unexpected_error_stays_plain_text(serve, monkeypatch):
     assert "boom" not in body
 
 
+def test_server_bind_skips_fqdn(monkeypatch):
+    """Binding the wildcard address must not resolve the container hostname."""
+    monkeypatch.setattr(socket, "getfqdn",
+                        lambda _host: pytest.fail("unexpected FQDN lookup"))
+    srv = shim_server.make_server(
+        0, {"grpc": "127.0.0.1:50052", "family": "v4", "name": "N1"})
+    try:
+        assert srv.server_name == "0.0.0.0"
+        assert srv.server_port == srv.server_address[1]
+    finally:
+        srv.server_close()
+
+
 def test_bind_clash_fails_the_shard(tmp_path):
     """An unbindable port must fail the shard, not leave a dead serve thread."""
     from gobgp.shim.__main__ import main

@@ -14,12 +14,12 @@ semantics.
 """
 import json
 import logging
+import socketserver
 import time
 
 from flask import Flask, Response, request
 from werkzeug.exceptions import HTTPException
-from werkzeug.serving import WSGIRequestHandler
-from werkzeug.serving import make_server as _make_wsgi_server
+from werkzeug.serving import ThreadedWSGIServer, WSGIRequestHandler
 
 from . import parser
 from .translator import NeighborClient
@@ -50,6 +50,15 @@ class _RequestHandler(WSGIRequestHandler):
 
     def log(self, type_, message, *args):
         LOG.debug("%s %s", self.address_string(), _sanitize(message % args))
+
+
+class _ThreadedWSGIServer(ThreadedWSGIServer):
+    """Bind without resolving the wildcard address to a hostname."""
+
+    def server_bind(self):
+        socketserver.TCPServer.server_bind(self)
+        self.server_name = self.server_address[0]
+        self.server_port = self.server_address[1]
 
 
 def _read_body():
@@ -159,8 +168,8 @@ def make_server(port, spec):
     client = NeighborClient(spec["grpc"], spec["family"], spec.get("name", "?"),
                             spec.get("self_nexthop"))
     try:
-        return _make_wsgi_server("0.0.0.0", int(port), make_app(client),
-                                 threaded=True, request_handler=_RequestHandler)
+        return _ThreadedWSGIServer("0.0.0.0", int(port), make_app(client),
+                                   handler=_RequestHandler)
     except SystemExit as exc:
         # werkzeug exits the process itself when the socket will not bind;
         # surface it as an error the caller can attribute to this port.
