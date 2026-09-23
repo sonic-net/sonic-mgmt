@@ -27,7 +27,7 @@ class SRv6Packets():
     }
 
     @classmethod
-    def generate_srv6_packets(cls, my_locator_list, srv6_packet_type):
+    def generate_srv6_packets(cls, my_locator_list, srv6_packet_type, include_usd=True):
         """
         Generate SRv6 test packets based on the provided locator list.
         Each packet will have different configurations for comprehensive testing.
@@ -35,6 +35,7 @@ class SRv6Packets():
         Args:
             my_locator_list (list): List of locator entries
             srv6_packet_type (str): Type of SRv6 packet to generate
+            include_usd (bool): Whether to include USD flavor packet patterns
 
         Returns:
             list: List of SRv6 packet configurations
@@ -182,6 +183,8 @@ class SRv6Packets():
             packet for packet in base_packets
             if packet['srv6_packet_type'] == packet_type_map.get(srv6_packet_type, 'no_srh')
         ]
+        if not include_usd:
+            filtered_base_packets = [packet for packet in filtered_base_packets if not packet['validate_usd_flavor']]
         # Generate packets for each SID
         for i, sid_entry in enumerate(my_locator_list):
             # Select base packet type based on index
@@ -250,7 +253,7 @@ def create_srv6_packet(
         exp_dscp_pipe,
         exp_dscp_uniform,
         seg_left,
-        sef_list,
+        seg_list,
         inner_pkt_ver,
         dscp_mode,
         router_mac,
@@ -274,7 +277,7 @@ def create_srv6_packet(
         exp_dscp_pipe (int): Expected DSCP value in pipe mode
         exp_dscp_uniform (int): Expected DSCP value in uniform mode
         seg_left (int): Segment left value
-        sef_list (list): Segment list
+        seg_list (list): Segment list
         inner_pkt_ver (str): Inner packet version ('4' for IPv4, '6' for IPv6)
         dscp_mode (str): DSCP mode ('pipe' or 'uniform')
         router_mac (str): Router MAC address
@@ -282,6 +285,9 @@ def create_srv6_packet(
         inner_dst_ip (str): Inner destination IPv4 address
         inner_src_ipv6 (str): Inner source IPv6 address
         inner_dst_ipv6 (str): Inner destination IPv6 address
+        inner_ttl (int): TTL/hop limit value for inner packet (default: 64)
+        outer_hop_limit (int): Hop limit value for outer IPv6 packet (default: 64)
+        random_ttl (bool): Enable random TTL generation (default: True)
 
     Returns:
         tuple: (srv6_pkt, exp_pkt) - Created SRv6 packet and expected packet
@@ -326,7 +332,7 @@ def create_srv6_packet(
 
     if srv6_action == SRv6.uN:
         if exp_outer_dst_pkt_ip:
-            if seg_left or sef_list:
+            if seg_left or seg_list:
                 logger.info('Create SRv6 packets with SRH')
                 srv6_pkt = testutils.simple_ipv6_sr_packet(
                     eth_dst=outer_dst_mac,
@@ -334,7 +340,7 @@ def create_srv6_packet(
                     ipv6_src=outer_src_pkt_ip,
                     ipv6_dst=outer_dst_pkt_ip,
                     srh_seg_left=seg_left,
-                    srh_seg_list=sef_list,
+                    srh_seg_list=seg_list,
                     ipv6_tc=outer_dscp * 4 if outer_dscp else 0,
                     srh_nh=srv6_next_header[scapy_ver],
                     inner_frame=inner_pkt[scapy_ver],
@@ -345,7 +351,7 @@ def create_srv6_packet(
                     ipv6_src=outer_src_pkt_ip,
                     ipv6_dst=exp_outer_dst_pkt_ip,
                     srh_seg_left=exp_seg_left,
-                    srh_seg_list=sef_list,
+                    srh_seg_list=seg_list,
                     ipv6_tc=exp_dscp * 4 if exp_dscp else 0,
                     srh_nh=srv6_next_header[scapy_ver],
                     inner_frame=exp_inner_pkt[scapy_ver],
@@ -378,7 +384,7 @@ def create_srv6_packet(
             exp_pkt.set_do_not_care_packet(scapy.Ether, 'src')
 
         else:
-            if seg_left or sef_list:
+            if seg_left or seg_list:
                 logger.info('Create SRv6 packets with SRH for USD flavor validation')
                 srv6_pkt = testutils.simple_ipv6_sr_packet(
                     eth_dst=outer_dst_mac,
@@ -386,7 +392,7 @@ def create_srv6_packet(
                     ipv6_src=outer_src_pkt_ip,
                     ipv6_dst=outer_dst_pkt_ip,
                     srh_seg_left=seg_left,
-                    srh_seg_list=sef_list,
+                    srh_seg_list=seg_list,
                     ipv6_tc=outer_dscp * 4 if outer_dscp else 0,
                     srh_nh=srv6_next_header[scapy_ver],
                     inner_frame=inner_pkt[scapy_ver],
@@ -488,11 +494,14 @@ def create_srv6_sid(duthost,
                     decap_vrf='default',
                     decap_dscp_mode=SRv6.uniform_mode):
     logger.info(f'Configure sid: SRV6_MY_SIDS|{locator_name}|{ip_addr}/{SRv6.prefix_len}')
-    duthost.shell(
+    cmd = (
         f'sonic-db-cli CONFIG_DB HSET "SRV6_MY_SIDS|{locator_name}|{ip_addr}/{SRv6.prefix_len}" '
         f'"action" "{action}" '
-        f'"decap_vrf" "{decap_vrf}" '
-        f'"decap_dscp_mode" "{decap_dscp_mode}"')
+        f'"decap_vrf" "{decap_vrf}"'
+    )
+    if decap_dscp_mode is not None:
+        cmd += f' "decap_dscp_mode" "{decap_dscp_mode}"'
+    duthost.shell(cmd)
 
 
 def del_srv6_sid(duthost, locator_name, ip_addr):
