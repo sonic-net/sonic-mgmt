@@ -28,6 +28,21 @@ python3 -m pytest --noconftest \
 
 If your environment has the full sonic-mgmt test dependencies installed and you intentionally want global fixtures, you can remove `--noconftest`.
 
+### DHCP relay cleanup regression
+
+`unit_test_dhcp_relay_cleanup.py` exercises both DHCP relay cleanup blocks with
+independent selected/standby relay modes, single/dual-ToR topologies, and config,
+readiness, and socket failures. It extracts the cleanup code via `ast` to avoid
+testbed dependencies; physical packet forwarding still requires a dual-ToR run.
+
+```bash
+python3 -m pytest --noconftest --confcutdir=tests/common/unit_tests \
+  tests/common/unit_tests/unit_test_dhcp_relay_cleanup.py -v
+```
+
+The `--confcutdir` option also prevents collection of parent package setup that
+imports Linux-only testbed utilities.
+
 ## Requirements
 
 - Python 3

@@ -44,6 +44,7 @@ MARK_CONDITIONS_CONSTANTS = {
                      't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic',
                      'lt2-p32o64', 'lt2-o128', 'ft2-64', 'ft2-16', 't2_one_hwsku_min', 't2_one_hwsku_max',
                      't2-single-node-min', 't2_single_node_min', 't2_single_node_max',
+                     't2_single_node_min_first_6ports',
                      't2_single_node_max_64p', 't2-single-node-max-64p', 't2_single_node_max_64p_v2',
                      'urh_min', 'lrh_min', 'lt2-min', 'lt2-o224', 'lt2-o32', 'lt2-o256-u32d224']
 }
@@ -643,11 +644,11 @@ def evaluate_conditions(dynamic_update_skip_reason, mark_details, conditions, ba
     if isinstance(conditions, list):
         # Apply 'AND' or 'OR' operation to list of conditions based on conditions_logical_operator(by default 'AND')
         if conditions_logical_operator == 'OR':
-            return any([evaluate_condition(dynamic_update_skip_reason, mark_details, c, basic_facts, session)
-                        for c in conditions])
+            return any(evaluate_condition(dynamic_update_skip_reason, mark_details, c, basic_facts, session)
+                       for c in conditions)
         else:
-            return all([evaluate_condition(dynamic_update_skip_reason, mark_details, c, basic_facts, session)
-                        for c in conditions])
+            return all(evaluate_condition(dynamic_update_skip_reason, mark_details, c, basic_facts, session)
+                       for c in conditions)
     else:
         if conditions is None or conditions.strip() == '':
             return True

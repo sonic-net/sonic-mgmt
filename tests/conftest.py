@@ -56,6 +56,7 @@ from tests.common.helpers.dut_utils import encode_dut_and_container_name
 from tests.common.helpers.parallel_utils import ParallelCoordinator, ParallelStatus, ParallelRunContext
 from tests.common.helpers.pfcwd_helper import TrafficPorts, select_test_ports, set_pfc_timers, \
     is_pfcwd_hw_recovery_enabled
+from tests.common import constants
 from tests.common.system_utils import docker
 from tests.common.testbed import TestbedInfo
 from tests.common.utilities import get_inventory_files, wait_until
@@ -103,8 +104,8 @@ cache = FactsCache()
 
 HOST_FIXTURE_FAILED_RC = 15
 CUSTOM_MSG_PREFIX = "sonic_custom_msg"
-GOLDEN_CONFIG_DB_PATH = "/etc/sonic/golden_config_db.json"
-GOLDEN_CONFIG_DB_PATH_ORI = "/etc/sonic/golden_config_db.json.origin.backup"
+GOLDEN_CONFIG_DB_PATH = constants.GOLDEN_CONFIG_DB_PATH
+GOLDEN_CONFIG_DB_PATH_ORI = constants.GOLDEN_CONFIG_DB_PATH_ORI
 
 pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.ansible_fixtures',
@@ -1336,6 +1337,10 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
         logging.info("Nut topology has no fanout")
         return fanout_hosts
 
+    if tbinfo['topo']['name'].startswith('smartswitch'):
+        logging.info("SmartSwitch topology has no fanout")
+        return fanout_hosts
+
     # Process Ethernet connections
 
     dev_conn = conn_graph_facts.get('device_conn', {})
@@ -2110,14 +2115,16 @@ def generate_dut_feature_list(request, duts_selected, asics_selected):
                 # Create tuple of dut and asic index
                 if "features" in meta[a_dut]:
                     for a_feature in list(meta[a_dut]["features"].keys()):
-                        if a_feature not in skip_feature_list:
+                        if a_feature not in skip_feature_list \
+                                and "disabled" not in meta[a_dut]["features"][a_feature]:
                             tuple_list.append((a_dut, a_asic, a_feature))
                 else:
                     tuple_list.append((a_dut, a_asic, None))
         else:
             if "features" in meta[a_dut]:
                 for a_feature in list(meta[a_dut]["features"].keys()):
-                    if a_feature not in skip_feature_list:
+                    if a_feature not in skip_feature_list \
+                            and "disabled" not in meta[a_dut]["features"][a_feature]:
                         tuple_list.append((a_dut, None, a_feature))
             else:
                 tuple_list.append((a_dut, None, None))

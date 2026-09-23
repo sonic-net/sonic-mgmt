@@ -24,6 +24,10 @@ topology:
       vlans:
         - 5
       vm_offset: 5
+    VM07MB:
+      vlans:
+        - 6
+      vm_offset: 6
 
   DUT:
     loopback:
@@ -54,6 +58,9 @@ configuration_properties:
   m1:
     swrole: leaf
     device_type: MgmtLeafRouter          # VM06M1 (external downstream)
+  oob:
+    swrole: leaf
+    device_type: CoreTs                  # VM07MB (out-of-band upstream)
 
 configuration:
   VM01RWA:
@@ -191,3 +198,25 @@ configuration:
     bp_interface:
       ipv4: 10.10.246.73/24
       ipv6: fc0a::4a/64
+
+  VM07MB:
+    properties:
+    - common
+    - oob
+    bgp:
+      peer_in_bgp_confed: true
+      asn: 65400
+      peers:
+        64582:
+        - 10.0.0.146
+        - fc00::125
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.74/32
+        ipv6: 2064:100::4a/128
+      Ethernet1:
+        ipv4: 10.0.0.147/31
+        ipv6: fc00::126/126
+    bp_interface:
+      ipv4: 10.10.246.74/24
+      ipv6: fc0a::4b/64

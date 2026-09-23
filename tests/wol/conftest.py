@@ -74,11 +74,13 @@ def setup_ip_on_ptf(duthost, ptfhost, ip, intf_pairs):
     ptfhost.remove_ip_addresses()
     setup_ptf_ip_responder(
         duthost, ptfhost, ARP_RESPONDER_PATH,
-        [(ip, dut_intf, ptf_index) for dut_intf, ptf_index in intf_pairs])
+        ((ip, dut_intf, ptf_index) for dut_intf, ptf_index in intf_pairs))
 
 
-def remove_ip_on_ptf(duthost, ptfhost):
-    teardown_ptf_ip_responder(duthost, ptfhost, ARP_RESPONDER_PATH)
+def remove_ip_on_ptf(duthost, ptfhost, ip, intf_pairs):
+    teardown_ptf_ip_responder(
+        duthost, ptfhost, ARP_RESPONDER_PATH,
+        ((ip, dut_intf, ptf_index) for dut_intf, ptf_index in intf_pairs))
 
 
 @pytest.fixture(scope="class")
@@ -94,7 +96,7 @@ def dst_ip_intf(request, duthost, ptfhost, vlan_brief, random_vlan, random_intf_
     yield ip
 
     if ip and isinstance(ipaddress.ip_address(ip), ipaddress.IPv6Address):
-        remove_ip_on_ptf(duthost, ptfhost)
+        remove_ip_on_ptf(duthost, ptfhost, ip, [random_intf_pair_to_remove_under_vlan])
         duthost.shell("config interface ip remove {} {}".format(random_intf_pair_to_remove_under_vlan[0], vlan_intf))
 
 
@@ -117,7 +119,8 @@ def dst_ip_vlan(request, duthost, ptfhost, get_connected_dut_intf_to_ptf_index, 
     yield ip
 
     if ip and isinstance(ipaddress.ip_address(ip), ipaddress.IPv6Address):
-        remove_ip_on_ptf(duthost, ptfhost)
+        remove_ip_on_ptf(duthost, ptfhost, ip,
+                         filter(lambda item: item[0] in vlan_members, get_connected_dut_intf_to_ptf_index))
 
 
 @pytest.fixture(scope="function")
