@@ -102,11 +102,11 @@ class SSHConsoleConn(BaseConsoleConn):
                 "Reboot started; aborting console write to keep bootloader autoboot intact")
         return super(SSHConsoleConn, self).write_channel(out)
 
-    def switch_to_host_console(self, selector="1"):
-        """Switch a multiplexed BMC serial session to the host and log in."""
-        self.write_channel("\x15" + str(selector))
+    def switch_to_host_console(self, command="sudo consutil connect 0"):
+        """Connect from the BMC shell to the host CPU console and log in."""
+        self.write_channel(command + self.RETURN)
         time.sleep(1 * self.select_delay_factor(1))
-        self.logger.debug("Console selector output: %r", self.read_channel())
+        self.logger.debug("Host console command output: %r", self.read_channel())
         self.write_channel(self.RETURN)
 
         for i, password in enumerate(self.sonic_password):
