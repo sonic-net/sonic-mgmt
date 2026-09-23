@@ -25,6 +25,7 @@ power_on_event = threading.Event()
 # SSH defines
 SONIC_SSH_PORT = 22
 SONIC_SSH_REGEX = 'OpenSSH_[\\w\\.]+ Debian'
+ANSIBLE_READY_INTERVAL = 10
 
 REBOOT_TYPE_WARM = "warm"
 REBOOT_TYPE_SAI_WARM = "sai-warm"
@@ -74,7 +75,15 @@ reboot_ctrl_dict = {
         "wait": 90,
         "warmboot_finalizer_timeout": 180,
         "cause": "warm-reboot",
-        "test_reboot_cause_only": False
+        "test_reboot_cause_only": False,
+        "gnoi_api": {
+            "service": "gnoi.system.System",
+            "method": "Reboot",
+            "params": {
+                "method": 4,  # WARM Reboot
+                "message": "gNOI reboot test"
+            }
+        }
     },
     REBOOT_TYPE_WATCHDOG: {
         "command": "watchdogutil arm -s 5",
@@ -168,6 +177,12 @@ reboot_ss_ctrl_dict = {
         "wait": 120,
         "cause": "Watchdog",
         "test_reboot_cause_only": True
+    },
+    REBOOT_TYPE_POWEROFF: {
+        "timeout": 300,
+        "wait": 120,
+        "cause": "Power Loss",
+        "test_reboot_cause_only": True
     }
 }
 
@@ -206,7 +221,8 @@ def wait_for_shutdown(duthost, localhost, delay, timeout, reboot_res=None):
         raise Exception('DUT {} did not shutdown'.format(hostname))
 
 
-def wait_for_startup(duthost, localhost, delay, timeout, port=SONIC_SSH_PORT):
+def wait_for_startup(duthost, localhost, delay, timeout, port=SONIC_SSH_PORT,
+                     wait_for_ansible=True):
     # TODO: add serial output during reboot for better debuggability
     #       This feature requires serial information to be present in
     #       testbed information
@@ -228,6 +244,25 @@ def wait_for_startup(duthost, localhost, delay, timeout, port=SONIC_SSH_PORT):
             raise Exception(f'DUT {hostname} did not startup at first try. res: {res}')
 
     logger.info('ssh has started up on {}'.format(hostname))
+
+    # The DUT may use a different Python interpreter after reboot.
+    # Clear cached Ansible facts before any subsequent module execution.
+    duthost.meta("clear_facts")
+
+    if not wait_for_ansible:
+        return
+
+    logger.info('waiting for Ansible commands to become ready on {}'.format(hostname))
+
+    def is_ansible_ready():
+        result = duthost.command("true", module_ignore_errors=True)
+        return result.is_successful
+
+    if not wait_until(timeout, ANSIBLE_READY_INTERVAL, 0, is_ansible_ready):
+        raise Exception(
+            "DUT {} did not become ready for Ansible commands after SSH startup".format(hostname)
+        )
+    logger.info('Ansible commands are ready on {}'.format(hostname))
 
 
 def perform_reboot(duthost, pool, reboot_command, reboot_helper=None, reboot_kwargs=None, reboot_type='cold',
@@ -290,11 +325,13 @@ def execute_reboot_smartswitch_command(duthost, reboot_type, hostname):
 
 
 @support_ignore_loganalyzer
-def reboot_smartswitch(duthost, pool, reboot_type=REBOOT_TYPE_COLD):
+def reboot_smartswitch(duthost, pool, reboot_type=REBOOT_TYPE_COLD, reboot_helper=None, reboot_kwargs=None):
     """
     reboots SmartSwitch or a DPU
     :param duthost: DUT host object
     :param reboot_type: reboot type (cold)
+    :param reboot_helper: helper function to execute the power toggling (used for power off)
+    :param reboot_kwargs: arguments to pass to the reboot_helper
     """
 
     if reboot_type not in reboot_ss_ctrl_dict:
@@ -307,8 +344,14 @@ def reboot_smartswitch(duthost, pool, reboot_type=REBOOT_TYPE_COLD):
 
     logging.info("Rebooting the DUT {} with type {}".format(hostname, reboot_type))
 
-    reboot_res = pool.apply_async(execute_reboot_smartswitch_command,
-                                  (duthost, reboot_type, hostname))
+    if reboot_type == REBOOT_TYPE_POWEROFF:
+        # Power-off is driven by the PDU physically cutting power, not a DUT command,
+        # so dispatch it through the reboot_helper the same way perform_reboot() does.
+        assert reboot_helper is not None, "A reboot function must be provided for power off/on reboot"
+        reboot_res = pool.apply_async(reboot_helper, (reboot_kwargs, power_on_event))
+    else:
+        reboot_res = pool.apply_async(execute_reboot_smartswitch_command,
+                                      (duthost, reboot_type, hostname))
 
     return [reboot_res, dut_datetime]
 
@@ -412,7 +455,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     # Perform reboot
     if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch") \
             and invocation_type != "gnoi_based":
-        reboot_res, dut_datetime = reboot_smartswitch(duthost, pool, reboot_type)
+        reboot_res, dut_datetime = reboot_smartswitch(duthost, pool, reboot_type, reboot_helper, reboot_kwargs)
     else:
         reboot_res, dut_datetime = perform_reboot(duthost, pool, reboot_command, reboot_helper,
                                                   reboot_kwargs, reboot_type, invocation_type, localhost,
@@ -433,20 +476,14 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
         return
 
     try:
-        wait_for_startup(duthost, localhost, delay, timeout)
+        wait_for_startup(
+            duthost, localhost, delay, timeout, wait_for_ansible=not return_after_reconnect)
     except Exception as err:
         if console_obj:
             console_obj.disconnect()
             logger.info('end: collect console log')
         pool.terminate()
         raise Exception(f"dut not start: {err}")
-
-    # NOTE: That once our device is back up it may be running a different version of SONiC/Debian
-    # than before which may include a different version of python. Therefore, to prevent python
-    # interpreter not found issues in subsequent Ansible modules as a result of using the
-    # pre-reboot cached interpreter value, we need to clear the cached facts so that they are
-    # re-gathered on next use.
-    duthost.meta("clear_facts")
 
     if return_after_reconnect:
         return

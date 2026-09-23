@@ -27,12 +27,18 @@ DUMMY_FILL_IPV6 = "9000::2"
 DUMMY_MAC = "00:11:22:33:44:55"
 PACKET_COUNT = 1000
 BATCH_PACKET_COUNT = 10000
-SEND_MAX_RETRIES = 3
+SEND_MAX_RETRIES = 10
 ECN = 2   # ECN Capable Transport(0), ECT(0)
 PACKET_SIZE_MARGIN = 4
 
 # Buffer configuration constants
-TRIM_QUEUE_PROFILE = "egress_lossy_profile"
+# Dedicated buffer profile for the trim queue
+TRIM_QUEUE_PROFILE = "trim_queue_test_profile"
+TRIM_QUEUE_PROFILE_CONFIG = {
+    "pool": "egress_lossy_pool",
+    "dynamic_th": "-7",
+    "size": "0",
+}
 DYNAMIC_TH = "3"
 TRIMMING_CAPABILITY = "SAI_ADAPTIVE_ROUTING_CIRCULATION_PORT=257"
 STATIC_THRESHOLD_MULTIPLIER = 1.5   # Multiplier to ensure the buffer can be fully exhausted
@@ -155,6 +161,11 @@ COUNTER_TYPE = [
     ("switch", "SWITCH_STAT", TRIMMING_COUNTER_INTERVAL),
     ("port", "PORT_STAT", TRIMMING_COUNTER_INTERVAL),
     ("queue", "QUEUE_STAT", TRIMMING_COUNTER_INTERVAL),
+]
+
+# Platforms that support queue-level TrimSent / TrimDrop counters.
+QUEUE_LEVEL_TRIM_SENT_DROP_SUPPORTED_PLATFORMS = [
+    "nvidia_sn6",
 ]
 
 # Mirror session configuration
