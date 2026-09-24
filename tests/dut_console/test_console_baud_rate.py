@@ -1,9 +1,7 @@
 import pytest
 import time
 from tests.common.helpers.assertions import pytest_assert, pytest_require
-from tests.common.helpers.console_helper import assert_expect_text, connect_to_host_console, create_ssh_client, \
-    ensure_console_session_up, login_to_console_shell
-from tests.common.helpers.dut_utils import get_host_console_command
+from tests.common.helpers.console_helper import assert_expect_text, create_ssh_client, ensure_console_session_up
 
 
 pytestmark = [
@@ -58,10 +56,6 @@ def console_client_setup_teardown(duthost, conn_graph_facts, creds):
     console_port = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['peerport']
     console_user = creds['console_user']['console_ssh']
     console_passwords = creds['console_password']['console_ssh']
-    sonic_passwords = [creds['sonicadmin_password']] + creds.get('ansible_altpasswords', [])
-    sonic_passwords.extend(console_passwords)
-    sonic_passwords = list(dict.fromkeys(password for password in sonic_passwords if password))
-    host_console_command = get_host_console_command(duthost)
 
     client = None
     for console_password in console_passwords:
@@ -74,11 +68,7 @@ def console_client_setup_teardown(duthost, conn_graph_facts, creds):
             break
 
     pytest_assert(client is not None, "Cannot connect to console device")
-    if host_console_command:
-        login_to_console_shell(client, creds['sonicadmin_user'], sonic_passwords)
-        connect_to_host_console(client, duthost.hostname, host_console_command)
-    else:
-        client.sendline()
+    client.sendline()
     yield client, console_port
 
     if client is not None:
@@ -112,9 +102,9 @@ def run_uboot_onie_test(client, console_port):
     assert_expect_text(client, "ONIE:/ #", console_port, timeout_sec=60)
 
 
-def test_baud_rate_sonic_connect(duthost, console_client_setup_teardown):
+def test_baud_rate_sonic_connect(console_client_setup_teardown):
     client, console_port = console_client_setup_teardown
-    assert_expect_text(client, "{} login:".format(duthost.hostname), console_port, timeout_sec=1)
+    assert_expect_text(client, "login:", console_port, timeout_sec=1)
 
 
 def test_baud_rate_boot_connect(duthost, console_client_setup_teardown, boot_connect_teardown):

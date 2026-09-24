@@ -30,39 +30,6 @@ def ensure_console_session_up(client, line, escape_char='a'):
     client.expect_exact('Press ^{} ^X to disconnect'.format(escape_char.upper()))
 
 
-def login_to_console_shell(client, username, passwords):
-    client.sendline()
-    prompt = client.expect([r'login:\s*$', r'[\$#]\s*$'], timeout=10)
-    if prompt == 1:
-        return
-
-    for password in passwords:
-        client.sendline(username)
-        client.expect('[Pp]assword:')
-        client.sendline(password)
-        result = client.expect([r'[\$#]\s*$', r'Login incorrect'], timeout=30)
-        if result == 0:
-            return
-        client.expect(r'login:\s*$', timeout=10)
-
-    pytest.fail("Unable to authenticate to the initial console endpoint")
-
-
-def connect_to_host_console(client, hostname, command):
-    client.sendline(command)
-    target_login = r'{}\s+login:\s*$'.format(hostname)
-    result = client.expect([target_login, r'[\$#]\s*$'], timeout=30)
-
-    if result == 1:
-        client.sendline("hostname")
-        client.expect_exact(hostname, timeout=10)
-        client.expect(r'[\$#]\s*$', timeout=10)
-        client.sendline("exit")
-        client.expect(target_login, timeout=10)
-
-    client.sendline()
-
-
 def get_target_lines(duthost):
     """
     retrieve the indices of online line cards.
