@@ -1041,7 +1041,7 @@ class GenerateGoldenConfigDBModule(object):
 
         def safe_open_template(template_path):
             with open(template_path) as template_file:
-                return Template(template_file.read())
+                return Template(template_file.read(), autoescape=True)
 
         # Render the MACSEC_PROFILE block via Jinja2 template
         rendered_dict = json.loads(
