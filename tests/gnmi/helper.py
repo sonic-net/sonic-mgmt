@@ -33,7 +33,7 @@ def apply_cert_config(duthost, vrf_name=None):
     subtype = metadata.get('subtype', None)
     stopped_programs = []
     dut_command = "docker exec %s supervisorctl status %s" % (env.gnmi_container, env.gnmi_program)
-    if "RUNNING" in duthost.shell(dut_command)["stdout"]:
+    if "RUNNING" in duthost.shell(dut_command, module_ignore_errors=True)["stdout"]:
         duthost.shell(
             "docker exec %s supervisorctl stop %s" % (env.gnmi_container, env.gnmi_program)
         )
