@@ -2,38 +2,39 @@ import pytest
 import time
 import re
 import logging
-import random
 from tests.common.utilities import wait_until
-from tests.common.helpers.ptf_tests_helper import get_stream_ptf_ports
-from tests.common.helpers.ptf_tests_helper import select_random_link
-from tests.common.helpers.ptf_tests_helper import downstream_links, upstream_links  # noqa F401
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 from tests.common.helpers.srv6_helper import SRv6Packets, create_srv6_locator, del_srv6_locator, create_srv6_sid, \
     del_srv6_sid
 from tests.srv6.srv6_utils import MyLocators, MySIDs, get_srv6_mysid_entry_usage, \
     enable_srv6_counterpoll, disable_srv6_counterpoll, set_srv6_counterpoll_interval, verify_srv6_counterpoll_status, \
-    verify_srv6_crm_status, ROUTE_BASE
+    verify_srv6_crm_status, ROUTE_BASE, prepare_l3_ethernet_ports, cleanup_l3_ethernet_ports
 
 logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope='class')
-def prepare_param(rand_selected_dut, srv6_packet_type, downstream_links, upstream_links):  # noqa F811
+def l3_regular_ports(rand_selected_dut, ptfhost, tbinfo):
+    """Regular Ethernet L3 pair for all SRv6 dataplane tests (never PortChannel)."""
+    prepared = prepare_l3_ethernet_ports(rand_selected_dut, ptfhost, tbinfo, count=2)
+    yield prepared
+    cleanup_l3_ethernet_ports(rand_selected_dut, ptfhost, prepared)
+    rand_selected_dut.command("config save -y", module_ignore_errors=True)
+
+
+@pytest.fixture(scope='class')
+def prepare_param(rand_selected_dut, srv6_packet_type, l3_regular_ports):  # noqa F811
     prepare_param = {}
     prepare_param['packet_num'] = 100
     prepare_param['router_mac'] = rand_selected_dut.facts["router_mac"]
     prepare_param['srv6_packets'] = SRv6Packets.generate_srv6_packets(MyLocators.my_locator_list, srv6_packet_type)
     prepare_param['srv6_next_header'] = SRv6Packets.srv6_next_header
 
-    downlink = select_random_link(downstream_links)
-    uplink_ptf_ports = get_stream_ptf_ports(upstream_links)
-
-    assert downlink, "No downlink found"
-    assert uplink_ptf_ports, "No uplink found"
     assert prepare_param['router_mac'], "No router MAC found"
-
-    prepare_param['ptf_downlink_port'] = downlink.get("ptf_port_id")
-    prepare_param['ptf_uplink_ports'] = uplink_ptf_ports
+    # Send on one regular Ethernet, expect uN-shifted packets on the other
+    prepare_param['ptf_downlink_port'] = l3_regular_ports[1]['ptf_id']
+    prepare_param['ptf_uplink_ports'] = l3_regular_ports[0]['ptf_ids']
+    prepare_param['l3_regular_ports'] = l3_regular_ports
 
     return prepare_param
 
@@ -57,32 +58,15 @@ def srv6_crm_total_sids(rand_selected_dut):
     rand_selected_dut.command(f"crm config polling interval {original_crm_polling_interval}")
 
 
-def get_random_uplink_port(duthost, upstream_links, intf_infos):  # noqa F811
-    '''
-    Get a random uplink port that is used by the ipv6 interface info
-    '''
-    upstream_ports = set(upstream_links.keys())
-    random_port = random.choice(list(upstream_ports))
-    portchannels = duthost.show_and_parse('show int portchannel', start_line_index=2)
-    for pc in portchannels:
-        if random_port in pc['ports']:
-            random_port = pc['team dev']
-            break
-
-    logger.info(f"Selected uplink port: {random_port}")
-    intf_neighbor_map = {intf_info['interface']: intf_info['neighbor ip'] for intf_info in intf_infos}
-    return random_port, intf_neighbor_map[random_port]
-
-
 @pytest.fixture(scope="class", params=MySIDs.TUNNEL_MODE)
-def config_setup(request, rand_selected_dut, srv6_crm_total_sids, upstream_links):  # noqa F811
+def config_setup(request, rand_selected_dut, srv6_crm_total_sids, l3_regular_ports):  # noqa F811
     '''
     Configure 128 instances of SRV6_MY_SIDS
     '''
     with allure.step('Create static route for SRv6'):
-        ipv6_intf_info = rand_selected_dut.show_and_parse('show ipv6 interface')
-        ifname, nexthop = get_random_uplink_port(rand_selected_dut, upstream_links, ipv6_intf_info)
-        logger.info(f"Selected uplink interface and nexthop: {ifname}, nexthop: {nexthop}")
+        ifname = l3_regular_ports[0]['intf']
+        nexthop = l3_regular_ports[0]['nhip']
+        logger.info(f"Selected regular Ethernet outgoing interface and nexthop: {ifname}, nexthop: {nexthop}")
         rand_selected_dut.command(f"sonic-db-cli CONFIG_DB HSET STATIC_ROUTE\\|default\\|{ROUTE_BASE}::/16 "
                                   f"nexthop {nexthop} ifname {ifname}")
 

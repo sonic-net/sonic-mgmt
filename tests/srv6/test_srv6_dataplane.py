@@ -11,7 +11,8 @@ from ptf.testutils import simple_ipv6_sr_packet, send_packet, verify_no_packet_a
 from ptf.mask import Mask
 from tests.srv6.srv6_utils import MySIDs, runSendReceive, verify_appl_db_sid_entry_exist, SRv6, \
     validate_techsupport_generation, validate_srv6_counters, clear_srv6_counters, \
-    get_neighbor_mac, verify_asic_db_sid_entry_exist, ROUTE_BASE
+    get_neighbor_mac, verify_asic_db_sid_entry_exist, ROUTE_BASE, \
+    prepare_l3_ethernet_ports, cleanup_l3_ethernet_ports, restore_l3_neighbors
 from tests.common.reboot import reboot
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
@@ -31,157 +32,12 @@ pytestmark = [
 ]
 
 
-def get_ptf_src_port_and_dut_port_and_neighbor(dut, tbinfo):
-    """Get the PTF port mapping for the duthost or an asic of the duthost"""
-    dut_mg_facts = dut.get_extended_minigraph_facts(tbinfo)
-    ports_map = dut_mg_facts["minigraph_ptf_indices"]
-    if len(ports_map) == 0:
-        pytest.skip("No PTF ports found for {}".format(dut))
-
-    lldp_table = dut.command("show lldp table")['stdout'].split("\n")[3:]
-    neighbor_table = [line.split() for line in lldp_table]
-    for entry in neighbor_table:
-        intf = entry[0]
-        if intf in ports_map:
-            # Check if this interface is part of a portchannel
-            ptf_ports = [ports_map[intf]]
-
-            # Check if the interface is a member of any portchannel
-            if 'minigraph_portchannels' in dut_mg_facts:
-                for pc_name, pc_info in dut_mg_facts['minigraph_portchannels'].items():
-                    if intf in pc_info.get('members', []):
-                        # Found a portchannel - get PTF ports for all members
-                        logger.info("Interface {} is a member of portchannel {}".format(intf, pc_name))
-                        ptf_ports = []
-                        for member in pc_info['members']:
-                            if member in ports_map:
-                                ptf_ports.append(ports_map[member])
-                                logger.info("Added portchannel member {} with PTF port {}".format(
-                                    member, ports_map[member]))
-                        break
-
-            return intf, ptf_ports, entry[1]  # local intf, ptf_src_ports (list), neighbor hostname
-
-    pytest.skip("No active LLDP neighbor found for {}".format(dut))
-
-
-def get_ptf_src_port_and_dut_port_and_neighbor_uA(dut, tbinfo):
-    """Get the PTF port mapping for the duthost or an asic of the duthost
-
-    Returns:
-        tuple: (next_hop_ips, interface_names, port_id_lists)
-            - next_hop_ips: list of next hop IPv6 addresses
-            - interface_names: list of interface names (PortChannel or Ethernet)
-            - port_id_lists: list of PTF port ID lists, one list per interface
-    """
-    dut_mg_facts = dut.get_extended_minigraph_facts(tbinfo)
-    ports_map = dut_mg_facts["minigraph_ptf_indices"]
-    if len(ports_map) == 0:
-        pytest.skip("No PTF ports found for {}".format(dut))
-
-    # get the next hop to ptf information
-    # show ipv6 route ::/0 command output example:
-    # Routing entry for ::/0
-    #   Known via "bgp", distance 20, metric 0, best
-    #   Last update 00:52:51 ago
-    #   * fc00::72, via PortChannel101
-    #   * fc00::76, via PortChannel102
-    #   * fc00::7a, via PortChannel103
-    #   * fc00::7e, via PortChannel104
-
-    next_hop_output = dut.command("show ipv6 route ::/0")['stdout'].split("\n")[3:]
-    next_hop_table = [line.split() for line in next_hop_output if line.strip().startswith("*")]
-    logger.info("Doing test on DUT {} | next_hop_table {}".format(dut, next_hop_table))
-
-    # Step 1: Assert failure if no next hop available for default route
-    pytest_assert(len(next_hop_table) > 0, "No next hop available for default route ::/0 on {}".format(dut))
-
-    # Parse next hop IPs and interface names from entries like: ['*', 'fc00::72,', 'via', 'PortChannel101']
-    neighbor_ips = []
-    interface_names = []
-    for entry in next_hop_table:
-        if len(entry) >= 4:
-            # entry[1] is like 'fc00::72,' - remove trailing comma
-            next_hop_ip = entry[1].rstrip(',')
-            # entry[3] is the interface name like 'PortChannel101'
-            intf_name = entry[3]
-            neighbor_ips.append(next_hop_ip)
-            interface_names.append(intf_name)
-            logger.info("Next hop: ip {} via interface {}".format(next_hop_ip, intf_name))
-
-    # get the portchannel information
-    # show interface portchannel command output example:
-    # Flags: A - active, I - inactive, Up - up, Dw - Down, N/A - not available,
-    #         S - selected, D - deselected, * - not synced
-    # No.  Team Dev         Protocol     Ports
-    # -----  ---------------  -----------  ---------------------------
-    # 0001  PortChannel0001  LACP(A)(Up)  Ethernet112(S) Ethernet108(D)
-    # 0002  PortChannel0002  LACP(A)(Up)  Ethernet116(S)
-    # 0003  PortChannel0003  LACP(A)(Up)  Ethernet120(S)
-    portchannel_output = dut.command("show interface portchannel")['stdout'].split("\n")[4:]
-    pc_table = [line.split() for line in portchannel_output if line.strip()]
-    logger.info("PortChannel table: {}".format(pc_table))
-
-    # Build portchannel to member map
-    # entry format: ['0001', 'PortChannel0001', 'LACP(A)(Up)', 'Ethernet112(S)', 'Ethernet108(D)']
-    pc_to_members = {}
-    for entry in pc_table:
-        if len(entry) >= 4:
-            pc_name = entry[1]
-            # Members start from index 3, format like 'Ethernet112(S)'
-            # Only select members with flag (S) - selected
-            members = []
-            for member_str in entry[3:]:
-                if '(S)' in member_str:
-                    # Extract interface name by removing the status suffix like '(S)'
-                    member_name = member_str.split('(')[0]
-                    members.append(member_name)
-            pc_to_members[pc_name] = members
-            logger.info("PortChannel {} has members: {}".format(pc_name, members))
-
-    # Step 2: Generate interface to member list map
-    # If interface is PortChannel, use its members; otherwise, member list includes itself only
-    intf_to_members = {}
-    for intf_name in interface_names:
-        if intf_name.startswith("PortChannel"):
-            if intf_name in pc_to_members:
-                intf_to_members[intf_name] = pc_to_members[intf_name]
-            else:
-                logger.warning("PortChannel {} not found in portchannel table".format(intf_name))
-                intf_to_members[intf_name] = []
-        else:
-            # Non-PortChannel interface, member list includes itself only
-            intf_to_members[intf_name] = [intf_name]
-
-    # Step 3: Generate port_id list for each interface based on its members
-    port_id_lists = []
-    for intf_name in interface_names:
-        members = intf_to_members.get(intf_name, [])
-        port_ids = []
-        for member in members:
-            if member in ports_map:
-                port_ids.append(ports_map[member])
-            else:
-                logger.warning("Member {} not found in ports_map".format(member))
-        port_id_lists.append(port_ids)
-        logger.info("Interface {} -> members {} -> port_ids {}".format(intf_name, members, port_ids))
-
-    # Step 4: Return the list of next hop ip addresses, interface name list, port id list for each interface
-    return neighbor_ips, interface_names, port_id_lists
-
-
-def run_srv6_traffic_test(duthost, dut_mac, ptf_src_ports, neighbor_ip, ptfadapter, ptfhost, with_srh):
+def run_srv6_traffic_test(duthost, dut_mac, ptf_tx_port, ptf_rx_ports, neighbor_ip, ptfadapter, ptfhost, with_srh):
     if with_srh and duthost.facts["asic_type"] == "cisco-8000":
         pytest.skip("skip, cisco-8000 does not support srh")
 
-    # Convert single port to list for uniform handling
-    if isinstance(ptf_src_ports, int):
-        ptf_src_ports_list = [ptf_src_ports]
-    else:
-        ptf_src_ports_list = ptf_src_ports
-
-    # Use the first port for sending packets
-    ptf_src_port = ptf_src_ports_list[0]
+    if isinstance(ptf_rx_ports, int):
+        ptf_rx_ports = [ptf_rx_ports]
 
     for i in range(0, 10):
         # generate a random payload
@@ -189,7 +45,7 @@ def run_srv6_traffic_test(duthost, dut_mac, ptf_src_ports, neighbor_ip, ptfadapt
         if with_srh:
             injected_pkt = simple_ipv6_sr_packet(
                 eth_dst=dut_mac,
-                eth_src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode(),
+                eth_src=ptfadapter.dataplane.get_mac(0, ptf_tx_port).decode(),
                 ipv6_src=ptfhost.mgmt_ipv6 if ptfhost.mgmt_ipv6 else "1000::1",
                 ipv6_dst="fcbb:bbbb:1:2::",
                 srh_seg_left=1,
@@ -197,7 +53,7 @@ def run_srv6_traffic_test(duthost, dut_mac, ptf_src_ports, neighbor_ip, ptfadapt
                 inner_frame=IPv6() / UDP(dport=4791) / Raw(load=payload)
             )
         else:
-            injected_pkt = Ether(dst=dut_mac, src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode()) \
+            injected_pkt = Ether(dst=dut_mac, src=ptfadapter.dataplane.get_mac(0, ptf_tx_port).decode()) \
                            / IPv6(src=ptfhost.mgmt_ipv6 if ptfhost.mgmt_ipv6 else "1000::1", dst="fcbb:bbbb:1:2::") \
                            / IPv6() / UDP(dport=4791) / Raw(load=payload)
 
@@ -207,10 +63,11 @@ def run_srv6_traffic_test(duthost, dut_mac, ptf_src_ports, neighbor_ip, ptfadapt
         expected_pkt['IPv6'].dst = "fcbb:bbbb:2::"
         expected_pkt['IPv6'].hlim -= 1
         logger.debug("Expected packet #{}: {}".format(i, expected_pkt.summary()))
-        runSendReceive(injected_pkt, ptf_src_port, expected_pkt, ptf_src_ports_list, True, ptfadapter)
+        runSendReceive(injected_pkt, ptf_tx_port, expected_pkt, ptf_rx_ports, True, ptfadapter)
 
 
-def run_srv6_traffic_test_ua(duthost, dut_mac, ptf_port_ids, neighbor_ip, srv6_sid, ptfadapter, ptfhost, with_srh):
+def run_srv6_traffic_test_ua(duthost, dut_mac, ptf_tx_port, ptf_rx_ports, neighbor_ip,
+                             srv6_sid, ptfadapter, ptfhost, with_srh):
     if with_srh and duthost.facts["asic_type"] == "cisco-8000":
         pytest.skip("skip, cisco-8000 does not support srh")
 
@@ -221,7 +78,7 @@ def run_srv6_traffic_test_ua(duthost, dut_mac, ptf_port_ids, neighbor_ip, srv6_s
         if with_srh:
             injected_pkt = simple_ipv6_sr_packet(
                 eth_dst=dut_mac,
-                eth_src=ptfadapter.dataplane.get_mac(0, ptf_port_ids[0]).decode(),
+                eth_src=ptfadapter.dataplane.get_mac(0, ptf_tx_port).decode(),
                 ipv6_src=ptfhost.mgmt_ipv6 if ptfhost.mgmt_ipv6 else "1000::1",
                 ipv6_dst=dstip,
                 srh_seg_left=1,
@@ -229,7 +86,7 @@ def run_srv6_traffic_test_ua(duthost, dut_mac, ptf_port_ids, neighbor_ip, srv6_s
                 inner_frame=IPv6() / UDP(dport=4791) / Raw(load=payload)
             )
         else:
-            injected_pkt = Ether(dst=dut_mac, src=ptfadapter.dataplane.get_mac(0, ptf_port_ids[0]).decode()) \
+            injected_pkt = Ether(dst=dut_mac, src=ptfadapter.dataplane.get_mac(0, ptf_tx_port).decode()) \
                 / IPv6(src=ptfhost.mgmt_ipv6 if ptfhost.mgmt_ipv6 else "1000::1", dst=dstip) \
                 / IPv6() / UDP(dport=4791) / Raw(load=payload)
 
@@ -239,162 +96,134 @@ def run_srv6_traffic_test_ua(duthost, dut_mac, ptf_port_ids, neighbor_ip, srv6_s
         expected_pkt['IPv6'].dst = "fcbb:bbbb:2::"
         expected_pkt['IPv6'].hlim -= 1
         logger.debug("Expected packet #{}: {}".format(i, expected_pkt.summary()))
-        runSendReceive(injected_pkt, ptf_port_ids[0], expected_pkt, ptf_port_ids, True, ptfadapter)
+        runSendReceive(injected_pkt, ptf_tx_port, expected_pkt, ptf_rx_ports, True, ptfadapter)
 
 
 @pytest.fixture()
-def setup_uN(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, tbinfo):
+def setup_uN(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, tbinfo, ptfhost):
     duthost = duthosts[enum_frontend_dut_hostname]
     asic_index = enum_frontend_asic_index
-
-    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    ptf_port_ids = []
-    for interface in list(mg_facts["minigraph_ptf_indices"].keys()):
-        port_id = mg_facts["minigraph_ptf_indices"][interface]
-        ptf_port_ids.append(port_id)
 
     if duthost.is_multi_asic:
         cli_options = " -n " + duthost.get_namespace_from_asic_id(asic_index)
         dut_asic = duthost.asic_instance(asic_index)
         dut_mac = dut_asic.get_router_mac()
-        dut_port, ptf_src_ports, neighbor = get_ptf_src_port_and_dut_port_and_neighbor(dut_asic, tbinfo)
+        host_for_ports = dut_asic
     else:
         cli_options = ''
         dut_mac = duthost.facts["router_mac"]
-        dut_port, ptf_src_ports, neighbor = get_ptf_src_port_and_dut_port_and_neighbor(duthost, tbinfo)
-
-    logger.info("Doing test on DUT port {} | PTF ports {}".format(dut_port, ptf_src_ports))
-
-    neighbor_ip = None
-    # get neighbor IP
-    lines = duthost.command("show ipv6 bgp sum")['stdout'].split("\n")
-    for line in lines:
-        if neighbor in line:
-            neighbor_ip = line.split()[0]
-    assert neighbor_ip, "Unable to find neighbor {} IP".format(neighbor)
-
-    # use DUT portchannel if applicable
-    pc_info = duthost.command("show int portchannel")['stdout']
-    if dut_port in pc_info:
-        lines = pc_info.split("\n")
-        for line in lines:
-            if dut_port in line:
-                dut_port = line.split()[1]
-                logger.info("Using portchannel interface: {}".format(dut_port))
-                break
+        host_for_ports = duthost
 
     sonic_db_cli = "sonic-db-cli" + cli_options
+    prepared = prepare_l3_ethernet_ports(host_for_ports, ptfhost, tbinfo, count=2)
+    try:
+        dut_port = prepared[0]["intf"]
+        neighbor_ip = prepared[0]["nhip"]
+        ptf_rx_ports = prepared[0]["ptf_ids"]
+        ptf_tx_port = prepared[1]["ptf_id"]
+        logger.info("Doing uN test on regular Ethernet {} | tx ptf {} rx ptf {}".format(
+            dut_port, ptf_tx_port, ptf_rx_ports))
 
-    # add a locator configuration entry
-    duthost.command(sonic_db_cli + " CONFIG_DB HSET SRV6_MY_LOCATORS\\|loc1 prefix fcbb:bbbb:1:: func_len 0")
-    # add a uN sid configuration entry
-    duthost.command(sonic_db_cli +
-                    " CONFIG_DB HSET SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1::/48 action uN decap_dscp_mode pipe")
-    random.seed(time.time())
-    # add the static route for IPv6 forwarding towards PTF's uSID and the blackhole route in a random order
-    if random.randint(0, 1) == 0:
-        duthost.command(sonic_db_cli + " CONFIG_DB HSET STATIC_ROUTE\\|default\\|fcbb:bbbb:2::/48 nexthop {} ifname {}"
-                        .format(neighbor_ip, dut_port))
-        duthost.command(sonic_db_cli + " CONFIG_DB HSET STATIC_ROUTE\\|default\\|fcbb:bbbb::/32 blackhole true")
-    else:
-        duthost.command(sonic_db_cli + " CONFIG_DB HSET STATIC_ROUTE\\|default\\|fcbb:bbbb::/32 blackhole true")
-        duthost.command(sonic_db_cli + " CONFIG_DB HSET STATIC_ROUTE\\|default\\|fcbb:bbbb:2::/48 nexthop {} ifname {}"
-                        .format(neighbor_ip, dut_port))
-    duthost.command("config save -y")
-    # Verify that the ASIC DB has the SRv6 SID entries
-    assert wait_until(20, 5, 0, verify_asic_db_sid_entry_exist, duthost, sonic_db_cli), \
-        "ASIC_STATE:SAI_OBJECT_TYPE_MY_SID_ENTRY entries are missing in ASIC_DB"
+        duthost.command(sonic_db_cli + " CONFIG_DB HSET SRV6_MY_LOCATORS\\|loc1 prefix fcbb:bbbb:1:: func_len 0")
+        duthost.command(sonic_db_cli +
+                        " CONFIG_DB HSET SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1::/48 action uN decap_dscp_mode pipe")
+        random.seed(time.time())
+        if random.randint(0, 1) == 0:
+            duthost.command(sonic_db_cli +
+                            " CONFIG_DB HSET STATIC_ROUTE\\|default\\|fcbb:bbbb:2::/48 nexthop {} ifname {}"
+                            .format(neighbor_ip, dut_port))
+            duthost.command(sonic_db_cli + " CONFIG_DB HSET STATIC_ROUTE\\|default\\|fcbb:bbbb::/32 blackhole true")
+        else:
+            duthost.command(sonic_db_cli + " CONFIG_DB HSET STATIC_ROUTE\\|default\\|fcbb:bbbb::/32 blackhole true")
+            duthost.command(sonic_db_cli +
+                            " CONFIG_DB HSET STATIC_ROUTE\\|default\\|fcbb:bbbb:2::/48 nexthop {} ifname {}"
+                            .format(neighbor_ip, dut_port))
+        duthost.command("config save -y")
+        assert wait_until(20, 5, 0, verify_asic_db_sid_entry_exist, duthost, sonic_db_cli), \
+            "ASIC_STATE:SAI_OBJECT_TYPE_MY_SID_ENTRY entries are missing in ASIC_DB"
 
-    setup_info = {
-        "asic_index": asic_index,
-        "duthost": duthost,
-        "dut_mac": dut_mac,
-        "dut_port": dut_port,
-        "ptf_src_ports": ptf_src_ports,
-        "neighbor_ip": neighbor_ip,
-        "cli_options": cli_options,
-        "ptf_port_ids": ptf_port_ids
-    }
-
-    yield setup_info
-
-    # delete the SRv6 configuration
-    duthost.command(sonic_db_cli + " CONFIG_DB DEL SRV6_MY_LOCATORS\\|loc1")
-    duthost.command(sonic_db_cli + " CONFIG_DB DEL SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1::/48")
-    duthost.command(sonic_db_cli + " CONFIG_DB DEL STATIC_ROUTE\\|default\\|fcbb:bbbb:2::/48")
-    duthost.command(sonic_db_cli + " CONFIG_DB DEL STATIC_ROUTE\\|default\\|fcbb:bbbb::/32")
-    duthost.command("config save -y")
+        yield {
+            "asic_index": asic_index,
+            "duthost": duthost,
+            "dut_mac": dut_mac,
+            "dut_port": dut_port,
+            "ptf_tx_port": ptf_tx_port,
+            "ptf_src_ports": ptf_rx_ports,
+            "neighbor_ip": neighbor_ip,
+            "cli_options": cli_options,
+            "ptf_port_ids": [rec["ptf_id"] for rec in prepared],
+            "prepared": prepared
+        }
+    finally:
+        duthost.command(sonic_db_cli + " CONFIG_DB DEL SRV6_MY_LOCATORS\\|loc1", module_ignore_errors=True)
+        duthost.command(sonic_db_cli + " CONFIG_DB DEL SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1::/48",
+                        module_ignore_errors=True)
+        duthost.command(sonic_db_cli + " CONFIG_DB DEL STATIC_ROUTE\\|default\\|fcbb:bbbb:2::/48",
+                        module_ignore_errors=True)
+        duthost.command(sonic_db_cli + " CONFIG_DB DEL STATIC_ROUTE\\|default\\|fcbb:bbbb::/32",
+                        module_ignore_errors=True)
+        cleanup_l3_ethernet_ports(duthost, ptfhost, prepared)
+        duthost.command("config save -y", module_ignore_errors=True)
 
 
 @pytest.fixture()
-def setup_uA(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, tbinfo):
+def setup_uA(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, tbinfo, ptfhost):
     duthost = duthosts[enum_frontend_dut_hostname]
     asic_index = enum_frontend_asic_index
-
-    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    ptf_port_ids = []
-    for interface in list(mg_facts["minigraph_ptf_indices"].keys()):
-        port_id = mg_facts["minigraph_ptf_indices"][interface]
-        ptf_port_ids.append(port_id)
 
     if duthost.is_multi_asic:
         cli_options = " -n " + duthost.get_namespace_from_asic_id(asic_index)
         dut_asic = duthost.asic_instance(asic_index)
         dut_mac = dut_asic.get_router_mac()
-        neighbor_ips, interface_names, port_id_lists = get_ptf_src_port_and_dut_port_and_neighbor_uA(dut_asic, tbinfo)
+        host_for_ports = dut_asic
     else:
         cli_options = ''
         dut_mac = duthost.facts["router_mac"]
-        neighbor_ips, interface_names, port_id_lists = get_ptf_src_port_and_dut_port_and_neighbor_uA(duthost, tbinfo)
-
-    # Assert nexthops is not empty and all lists have the same length
-    pytest_assert(len(neighbor_ips) > 1, "uA test needs more than one nexthops")
-    pytest_assert(len(neighbor_ips) == len(interface_names) == len(port_id_lists),
-                  "Mismatch in lengths: nexthops={}, interface_names={}, port_id_lists={}".format(
-                      len(neighbor_ips), len(interface_names), len(port_id_lists)))
+        host_for_ports = duthost
 
     sonic_db_cli = "sonic-db-cli" + cli_options
-    # add a locator configuration entry
-    duthost.command(sonic_db_cli + " CONFIG_DB HSET SRV6_MY_LOCATORS\\|loc1 prefix fcbb:bbbb:1:: func_len 0")
-    # add a uA sid configuration entry
-    ua_sid_cmd_1 = (" CONFIG_DB HSET SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1:fe01::/64 action uA "
-                    "decap_dscp_mode pipe interface {} adj {}").format(interface_names[0], neighbor_ips[0])
-    duthost.command(sonic_db_cli + ua_sid_cmd_1)
-    ua_sid_cmd_2 = (" CONFIG_DB HSET SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1:fe02::/64 action uA "
-                    "decap_dscp_mode pipe interface {} adj {}").format(interface_names[1], neighbor_ips[1])
-    duthost.command(sonic_db_cli + ua_sid_cmd_2)
+    prepared = prepare_l3_ethernet_ports(host_for_ports, ptfhost, tbinfo, count=2)
+    try:
+        # /64 uA SIDs need 16 function bits; func_len 0 programs FRR only and never reaches ASIC_DB
+        duthost.command(sonic_db_cli + " CONFIG_DB HSET SRV6_MY_LOCATORS\\|loc1 prefix fcbb:bbbb:1:: func_len 16")
+        ua_sid_cmd_1 = (" CONFIG_DB HSET SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1:fe01::/64 action uA "
+                        "decap_dscp_mode pipe interface {} adj {}").format(prepared[0]["intf"], prepared[0]["nhip"])
+        duthost.command(sonic_db_cli + ua_sid_cmd_1)
+        ua_sid_cmd_2 = (" CONFIG_DB HSET SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1:fe02::/64 action uA "
+                        "decap_dscp_mode pipe interface {} adj {}").format(prepared[1]["intf"], prepared[1]["nhip"])
+        duthost.command(sonic_db_cli + ua_sid_cmd_2)
+        duthost.command(sonic_db_cli + " CONFIG_DB HSET STATIC_ROUTE\\|default\\|fcbb:bbbb::/32 blackhole true")
+        duthost.command("config save -y")
 
-    # add the blackhole route
-    duthost.command(sonic_db_cli + " CONFIG_DB HSET STATIC_ROUTE\\|default\\|fcbb:bbbb::/32 blackhole true")
+        assert wait_until(30, 2, 0, verify_asic_db_sid_entry_exist, duthost, sonic_db_cli), \
+            "ASIC_STATE:SAI_OBJECT_TYPE_MY_SID_ENTRY entries are missing in ASIC_DB"
 
-    duthost.command("config save -y")
-    # Verify that the ASIC DB has the SRv6 SID entries
-    assert wait_until(20, 5, 0, verify_asic_db_sid_entry_exist, duthost, sonic_db_cli), \
-        "ASIC_STATE:SAI_OBJECT_TYPE_MY_SID_ENTRY entries are missing in ASIC_DB"
-
-    setup_info = {
-        "asic_index": asic_index,
-        "duthost": duthost,
-        "dut_mac": dut_mac,
-        "dut_port_1": interface_names,
-        "ptf_port_ids_1": port_id_lists[0],
-        "neighbor_ip_1": neighbor_ips[0],
-        "srv6_sid_1": "1:fe01",
-        "dut_port_2": interface_names[1],
-        "ptf_port_ids_2": port_id_lists[1],
-        "neighbor_ip_2": neighbor_ips[1],
-        "srv6_sid_2": "1:fe02",
-        "cli_options": cli_options
-    }
-
-    yield setup_info
-
-    # delete the SRv6 configuration
-    duthost.command(sonic_db_cli + " CONFIG_DB DEL SRV6_MY_LOCATORS\\|loc1")
-    duthost.command(sonic_db_cli + " CONFIG_DB DEL SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1:fe01::/64")
-    duthost.command(sonic_db_cli + " CONFIG_DB DEL SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1:fe02::/64")
-    duthost.command(sonic_db_cli + " CONFIG_DB DEL STATIC_ROUTE\\|default\\|fcbb:bbbb::/32")
-    duthost.command("config save -y")
+        yield {
+            "asic_index": asic_index,
+            "duthost": duthost,
+            "dut_mac": dut_mac,
+            "dut_port_1": prepared[0]["intf"],
+            "ptf_port_ids_1": prepared[0]["ptf_ids"],
+            "neighbor_ip_1": prepared[0]["nhip"],
+            "ptf_mac_1": prepared[0]["ptf_mac"],
+            "srv6_sid_1": "1:fe01",
+            "dut_port_2": prepared[1]["intf"],
+            "ptf_port_ids_2": prepared[1]["ptf_ids"],
+            "neighbor_ip_2": prepared[1]["nhip"],
+            "ptf_mac_2": prepared[1]["ptf_mac"],
+            "srv6_sid_2": "1:fe02",
+            "cli_options": cli_options
+        }
+    finally:
+        duthost.command(sonic_db_cli + " CONFIG_DB DEL SRV6_MY_LOCATORS\\|loc1", module_ignore_errors=True)
+        duthost.command(sonic_db_cli + " CONFIG_DB DEL SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1:fe01::/64",
+                        module_ignore_errors=True)
+        duthost.command(sonic_db_cli + " CONFIG_DB DEL SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1:fe02::/64",
+                        module_ignore_errors=True)
+        duthost.command(sonic_db_cli + " CONFIG_DB DEL STATIC_ROUTE\\|default\\|fcbb:bbbb::/32",
+                        module_ignore_errors=True)
+        cleanup_l3_ethernet_ports(duthost, ptfhost, prepared)
+        duthost.command("config save -y", module_ignore_errors=True)
 
 
 class SRv6Base():
@@ -574,6 +403,7 @@ class TestSRv6DataPlaneBase(SRv6Base):
 def test_srv6_dataplane_after_config_reload(setup_uN, ptfadapter, ptfhost, with_srh):
     duthost = setup_uN['duthost']
     dut_mac = setup_uN['dut_mac']
+    ptf_tx_port = setup_uN['ptf_tx_port']
     ptf_src_ports = setup_uN['ptf_src_ports']
     neighbor_ip = setup_uN['neighbor_ip']
 
@@ -581,7 +411,7 @@ def test_srv6_dataplane_after_config_reload(setup_uN, ptfadapter, ptfhost, with_
         pytest.skip("skip, cisco-8000 does not support srh")
 
     # verify the forwarding works
-    run_srv6_traffic_test(duthost, dut_mac, ptf_src_ports, neighbor_ip, ptfadapter, ptfhost, with_srh)
+    run_srv6_traffic_test(duthost, dut_mac, ptf_tx_port, ptf_src_ports, neighbor_ip, ptfadapter, ptfhost, with_srh)
 
     # reload the config
     duthost.command("config reload -y -f")
@@ -591,6 +421,7 @@ def test_srv6_dataplane_after_config_reload(setup_uN, ptfadapter, ptfhost, with_
     # wait for the config to be reprogrammed
     assert wait_until(180, 2, 0, verify_appl_db_sid_entry_exist, duthost, sonic_db_cli,
                       "SRV6_MY_SID_TABLE:32:16:0:0:fcbb:bbbb:1::", True), "SID is missing in APPL_DB"
+    restore_l3_neighbors(duthost, setup_uN['prepared'])
     # Verify that the ASIC DB has the SRv6 SID entries
     assert wait_until(20, 5, 0, verify_asic_db_sid_entry_exist, duthost, sonic_db_cli), \
         "ASIC_STATE:SAI_OBJECT_TYPE_MY_SID_ENTRY entries are missing in ASIC_DB after config reload"
@@ -601,7 +432,7 @@ def test_srv6_dataplane_after_config_reload(setup_uN, ptfadapter, ptfhost, with_
                   "IP table not updating MAC for neighbour")
 
     # verify the forwarding works after config reload
-    run_srv6_traffic_test(duthost, dut_mac, ptf_src_ports, neighbor_ip, ptfadapter, ptfhost, with_srh)
+    run_srv6_traffic_test(duthost, dut_mac, ptf_tx_port, ptf_src_ports, neighbor_ip, ptfadapter, ptfhost, with_srh)
 
 
 @pytest.mark.parametrize("with_srh", [True, False])
@@ -618,9 +449,11 @@ def test_srv6_uA_dataplane_after_config_reload(setup_uA, ptfadapter, ptfhost, wi
     if with_srh and duthost.facts["asic_type"] == "cisco-8000":
         pytest.skip("skip, cisco-8000 does not support srh")
 
-    # verify the forwarding works
-    run_srv6_traffic_test_ua(duthost, dut_mac, ptf_port_ids_1, neighbor_ip_1, srv6_sid_1, ptfadapter, ptfhost, with_srh)
-    run_srv6_traffic_test_ua(duthost, dut_mac, ptf_port_ids_2, neighbor_ip_2, srv6_sid_2, ptfadapter, ptfhost, with_srh)
+    # Ingress on one regular Ethernet, uA egress on the other (avoid hairpin)
+    run_srv6_traffic_test_ua(duthost, dut_mac, ptf_port_ids_2[0], ptf_port_ids_1,
+                             neighbor_ip_1, srv6_sid_1, ptfadapter, ptfhost, with_srh)
+    run_srv6_traffic_test_ua(duthost, dut_mac, ptf_port_ids_1[0], ptf_port_ids_2,
+                             neighbor_ip_2, srv6_sid_2, ptfadapter, ptfhost, with_srh)
 
     # reload the config
     duthost.command("config reload -y -f")
@@ -628,29 +461,36 @@ def test_srv6_uA_dataplane_after_config_reload(setup_uA, ptfadapter, ptfhost, wi
 
     sonic_db_cli = "sonic-db-cli" + setup_uA['cli_options']
 
-    # wait for the config to be reprogrammed
     assert wait_until(180, 2, 0, verify_appl_db_sid_entry_exist, duthost, sonic_db_cli,
                       "SRV6_MY_SID_TABLE:32:16:16:0:fcbb:bbbb:1:fe01::", True), "SID is missing in APPL_DB"
-    # Verify that the ASIC DB has the SRv6 SID entries
-    assert wait_until(20, 5, 0, verify_asic_db_sid_entry_exist, duthost, sonic_db_cli), \
-        "ASIC_STATE:SAI_OBJECT_TYPE_MY_SID_ENTRY entries are missing in ASIC_DB after config reload"
 
     pytest_assert(wait_until(60, 5, 0, is_bgp_route_synced, duthost), "BGP route is not synced")
 
+    # Kernel neighbors do not survive config reload; orchagent holds uA pending until adj exists
+    duthost.shell("ip -6 neigh replace {} lladdr {} dev {}".format(
+        neighbor_ip_1, setup_uA["ptf_mac_1"], setup_uA["dut_port_1"]))
+    duthost.shell("ip -6 neigh replace {} lladdr {} dev {}".format(
+        neighbor_ip_2, setup_uA["ptf_mac_2"], setup_uA["dut_port_2"]))
     pytest_assert(wait_until(60, 5, 0, get_neighbor_mac, duthost, neighbor_ip_1),
                   "IP table not updating MAC for neighbour")
     pytest_assert(wait_until(60, 5, 0, get_neighbor_mac, duthost, neighbor_ip_2),
                   "IP table not updating MAC for neighbour")
 
+    assert wait_until(60, 5, 0, verify_asic_db_sid_entry_exist, duthost, sonic_db_cli), \
+        "ASIC_STATE:SAI_OBJECT_TYPE_MY_SID_ENTRY entries are missing in ASIC_DB after config reload"
+
     # verify the forwarding works after config reload
-    run_srv6_traffic_test_ua(duthost, dut_mac, ptf_port_ids_1, neighbor_ip_1, srv6_sid_1, ptfadapter, ptfhost, with_srh)
-    run_srv6_traffic_test_ua(duthost, dut_mac, ptf_port_ids_2, neighbor_ip_2, srv6_sid_2, ptfadapter, ptfhost, with_srh)
+    run_srv6_traffic_test_ua(duthost, dut_mac, ptf_port_ids_2[0], ptf_port_ids_1,
+                             neighbor_ip_1, srv6_sid_1, ptfadapter, ptfhost, with_srh)
+    run_srv6_traffic_test_ua(duthost, dut_mac, ptf_port_ids_1[0], ptf_port_ids_2,
+                             neighbor_ip_2, srv6_sid_2, ptfadapter, ptfhost, with_srh)
 
 
 @pytest.mark.parametrize("with_srh", [True, False])
 def test_srv6_dataplane_after_bgp_restart(setup_uN, ptfadapter, ptfhost, with_srh):
     duthost = setup_uN['duthost']
     dut_mac = setup_uN['dut_mac']
+    ptf_tx_port = setup_uN['ptf_tx_port']
     ptf_src_ports = setup_uN['ptf_src_ports']
     neighbor_ip = setup_uN['neighbor_ip']
 
@@ -658,7 +498,7 @@ def test_srv6_dataplane_after_bgp_restart(setup_uN, ptfadapter, ptfhost, with_sr
         pytest.skip("skip, cisco-8000 does not support srh")
 
     # verify the forwarding works
-    run_srv6_traffic_test(duthost, dut_mac, ptf_src_ports, neighbor_ip, ptfadapter, ptfhost, with_srh)
+    run_srv6_traffic_test(duthost, dut_mac, ptf_tx_port, ptf_src_ports, neighbor_ip, ptfadapter, ptfhost, with_srh)
 
     # restart BGP service, which will restart the BGP container
     if duthost.is_multi_asic:
@@ -676,14 +516,16 @@ def test_srv6_dataplane_after_bgp_restart(setup_uN, ptfadapter, ptfhost, with_sr
         "ASIC_STATE:SAI_OBJECT_TYPE_MY_SID_ENTRY entries are missing in ASIC_DB after BGP restart"
 
     pytest_assert(wait_until(60, 5, 0, is_bgp_route_synced, duthost), "BGP route is not synced")
+    restore_l3_neighbors(duthost, setup_uN['prepared'])
     # verify the forwarding works after BGP restart
-    run_srv6_traffic_test(duthost, dut_mac, ptf_src_ports, neighbor_ip, ptfadapter, ptfhost, with_srh)
+    run_srv6_traffic_test(duthost, dut_mac, ptf_tx_port, ptf_src_ports, neighbor_ip, ptfadapter, ptfhost, with_srh)
 
 
 @pytest.mark.parametrize("with_srh", [True, False])
 def test_srv6_dataplane_after_reboot(setup_uN, ptfadapter, ptfhost, localhost, with_srh, loganalyzer):
     duthost = setup_uN['duthost']
     dut_mac = setup_uN['dut_mac']
+    ptf_tx_port = setup_uN['ptf_tx_port']
     ptf_src_ports = setup_uN['ptf_src_ports']
     neighbor_ip = setup_uN['neighbor_ip']
 
@@ -700,7 +542,7 @@ def test_srv6_dataplane_after_reboot(setup_uN, ptfadapter, ptfhost, localhost, w
         ])
 
     # verify the forwarding works
-    run_srv6_traffic_test(duthost, dut_mac, ptf_src_ports, neighbor_ip, ptfadapter, ptfhost, with_srh)
+    run_srv6_traffic_test(duthost, dut_mac, ptf_tx_port, ptf_src_ports, neighbor_ip, ptfadapter, ptfhost, with_srh)
 
     # reboot DUT
     reboot(duthost, localhost, safe_reboot=True, check_intf_up_ports=True, wait_for_bgp=True)
@@ -709,13 +551,14 @@ def test_srv6_dataplane_after_reboot(setup_uN, ptfadapter, ptfhost, localhost, w
     # wait for the config to be reprogrammed
     assert wait_until(180, 2, 0, verify_appl_db_sid_entry_exist, duthost, sonic_db_cli,
                       "SRV6_MY_SID_TABLE:32:16:0:0:fcbb:bbbb:1::", True), "SID is missing in APPL_DB"
+    restore_l3_neighbors(duthost, setup_uN['prepared'])
     # Verify that the ASIC DB has the SRv6 SID entries
     assert wait_until(20, 5, 0, verify_asic_db_sid_entry_exist, duthost, sonic_db_cli), \
         "ASIC_STATE:SAI_OBJECT_TYPE_MY_SID_ENTRY entries are missing in ASIC_DB after reboot"
 
     pytest_assert(wait_until(60, 5, 0, is_bgp_route_synced, duthost), "BGP route is not synced")
     # verify the forwarding works after reboot
-    run_srv6_traffic_test(duthost, dut_mac, ptf_src_ports, neighbor_ip, ptfadapter, ptfhost, with_srh)
+    run_srv6_traffic_test(duthost, dut_mac, ptf_tx_port, ptf_src_ports, neighbor_ip, ptfadapter, ptfhost, with_srh)
 
 
 @pytest.mark.parametrize("with_srh", [True, False])
@@ -723,15 +566,13 @@ def test_srv6_no_sid_blackhole(setup_uN, ptfadapter, ptfhost, with_srh):
     duthost = setup_uN['duthost']
     dut_mac = setup_uN['dut_mac']
     dut_port = setup_uN['dut_port']
-    ptf_src_ports = setup_uN['ptf_src_ports']
     neighbor_ip = setup_uN['neighbor_ip']
     ptf_port_ids = setup_uN['ptf_port_ids']
 
     if with_srh and duthost.facts["asic_type"] == "cisco-8000":
         pytest.skip("skip, cisco-8000 does not support srh")
 
-    # Use the first port to send traffic
-    first_ptf_port = ptf_src_ports[0] if isinstance(ptf_src_ports, list) else ptf_src_ports
+    first_ptf_port = setup_uN['ptf_tx_port']
 
     # Verify that the ASIC DB has the SRv6 SID entries
     sonic_db_cli = "sonic-db-cli" + setup_uN['cli_options']

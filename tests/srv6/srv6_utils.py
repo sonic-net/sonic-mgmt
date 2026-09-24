@@ -1,5 +1,6 @@
 import logging
 import time
+import pytest
 import requests
 import ptf.packet as scapy
 import ptf.testutils as testutils
@@ -645,3 +646,123 @@ def verify_asic_db_sid_entry_exist(duthost, sonic_db_cli):
     asic_db_my_sids = duthost.command(sonic_db_cli +
                                       " ASIC_DB keys *ASIC_STATE:SAI_OBJECT_TYPE_MY_SID_ENTRY*")["stdout"]
     return len(asic_db_my_sids.strip()) > 0
+
+
+L3_ADJ_PREFIX = "fd00:1"
+
+
+def _portchannel_members(mg_facts):
+    members = set()
+    for pc in mg_facts.get("minigraph_portchannels", {}).values():
+        members.update(pc.get("members", []))
+    return members
+
+
+def _vlan_id_by_member(mg_facts):
+    mapping = {}
+    for vlan_name, vlan_info in mg_facts.get("minigraph_vlans", {}).items():
+        vlanid = str(vlan_info.get("vlanid") or vlan_name.replace("Vlan", ""))
+        for member in vlan_info.get("members", []):
+            mapping[member] = vlanid
+    return mapping
+
+
+def get_regular_ethernet_ports(dut, tbinfo, count=2):
+    """Select regular Ethernet ports (never PortChannel or LAG members)."""
+    mg_facts = dut.get_extended_minigraph_facts(tbinfo)
+    ports_map = mg_facts["minigraph_ptf_indices"]
+    if len(ports_map) == 0:
+        pytest.skip("No PTF ports found for {}".format(dut))
+
+    pc_members = _portchannel_members(mg_facts)
+    vlan_of = _vlan_id_by_member(mg_facts)
+    candidates = []
+    for intf, ptf_id in ports_map.items():
+        if not intf.startswith("Ethernet"):
+            continue
+        if intf in pc_members:
+            logger.info("Skip PortChannel member {} as outgoing interface".format(intf))
+            continue
+        if intf not in vlan_of:
+            logger.info("Skip {} (not a VLAN member; unused or not a PTF downlink)".format(intf))
+            continue
+        candidates.append({"intf": intf, "ptf_ids": [ptf_id], "vlanid": vlan_of[intf]})
+
+    def _eth_num(name):
+        return int(''.join(ch for ch in name if ch.isdigit()) or 0)
+
+    candidates.sort(key=lambda item: _eth_num(item["intf"]))
+    pytest_assert(len(candidates) >= count,
+                  "Need {} regular Ethernet interfaces, found {}".format(count, len(candidates)))
+    selected = candidates[:count]
+    for item in selected:
+        logger.info("Selected regular outgoing interface {} ptf {} vlan {}".format(
+            item["intf"], item["ptf_ids"], item["vlanid"]))
+    return selected
+
+
+def _ipv6_neighbor_ready(duthost, neighbor_ip):
+    try:
+        return bool(get_neighbor_mac(duthost, neighbor_ip))
+    except (IndexError, Exception):
+        return False
+
+
+def prepare_l3_ethernet_ports(duthost, ptfhost, tbinfo, count=2):
+    """Convert regular VLAN Ethernets to routed ports with PTF IPv6 adj."""
+    from tests.common.utilities import wait_until
+    selected = get_regular_ethernet_ports(duthost, tbinfo, count)
+    prepared = []
+    for idx, item in enumerate(selected, start=1):
+        intf = item["intf"]
+        dut_ip = "{}:{}::1".format(L3_ADJ_PREFIX, idx)
+        nhip = "{}:{}::2".format(L3_ADJ_PREFIX, idx)
+        ptf_id = item["ptf_ids"][0]
+        if item["vlanid"]:
+            duthost.command("config vlan member del {} {}".format(item["vlanid"], intf))
+        duthost.command("config interface ip add {} {}/64".format(intf, dut_ip))
+        ptfhost.shell("ip -6 addr add {}/64 dev eth{}".format(nhip, ptf_id), module_ignore_errors=True)
+        ptf_mac = ptfhost.shell("cat /sys/class/net/eth{}/address".format(ptf_id))["stdout"].strip()
+        prepared.append({
+            "intf": intf,
+            "dut_ip": dut_ip,
+            "nhip": nhip,
+            "ptf_ids": item["ptf_ids"],
+            "vlanid": item["vlanid"],
+            "ptf_id": ptf_id,
+            "ptf_mac": ptf_mac
+        })
+
+    for rec in prepared:
+        def _addr_ready(intf=rec["intf"], dut_ip=rec["dut_ip"]):
+            return dut_ip in duthost.command("ip -6 addr show {}".format(intf))["stdout"]
+
+        pytest_assert(wait_until(30, 2, 0, _addr_ready),
+                      "DUT IPv6 {} did not appear on {}".format(rec["dut_ip"], rec["intf"]))
+        duthost.shell("ip -6 neigh replace {} lladdr {} dev {}".format(
+            rec["nhip"], rec["ptf_mac"], rec["intf"]))
+
+        def _ready(neighbor_ip=rec["nhip"]):
+            duthost.shell("ping6 -c 1 -W 2 {}".format(neighbor_ip), module_ignore_errors=True)
+            return _ipv6_neighbor_ready(duthost, neighbor_ip)
+
+        pytest_assert(wait_until(60, 2, 1, _ready),
+                      "No IPv6 neighbor {} on {}".format(rec["nhip"], rec["intf"]))
+    return prepared
+
+
+def restore_l3_neighbors(duthost, prepared):
+    for rec in prepared:
+        duthost.shell("ip -6 neigh replace {} lladdr {} dev {}".format(
+            rec["nhip"], rec["ptf_mac"], rec["intf"]), module_ignore_errors=True)
+
+
+def cleanup_l3_ethernet_ports(duthost, ptfhost, prepared):
+    for rec in prepared:
+        duthost.command("config interface ip remove {} {}/64".format(rec["intf"], rec["dut_ip"]),
+                        module_ignore_errors=True)
+        if rec.get("vlanid"):
+            duthost.command("config vlan member add -u {} {}".format(rec["vlanid"], rec["intf"]),
+                            module_ignore_errors=True)
+        ptfhost.shell("ip -6 addr del {}/64 dev eth{}".format(rec["nhip"], rec["ptf_id"]),
+                      module_ignore_errors=True)
