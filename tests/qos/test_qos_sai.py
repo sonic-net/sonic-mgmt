@@ -48,7 +48,7 @@ from tests.common.helpers.ptf_tests_helper import (downstream_links, upstream_li
 from tests.common.utilities import get_ipv4_loopback_ip
 from tests.common.helpers.base_helper import read_logs
 from tests.common.mellanox_data import is_mellanox_device
-from tests.common.cisco_data import get_voq_quant_thresholds_cisco
+from tests.common.cisco_data import get_voq_quant_thresholds_cisco, get_device_property
 
 logger = logging.getLogger(__name__)
 
@@ -1387,11 +1387,15 @@ class TestQosSai(QosSaiBase):
         if not get_src_dst_asic_and_duts['single_asic_test']:
             pytest.skip("Lossy Queue Voq test is only supported on cisco-8000 single-asic")
         if "lossy_queue_voq_1" in LossyVoq:
-            if ('modular_chassis' in get_src_dst_asic_and_duts['src_dut'].facts and
-                    get_src_dst_asic_and_duts['src_dut'].facts["modular_chassis"]):
-                if get_src_dst_asic_and_duts['src_dut'].facts['platform'] != 'x86_64-88_lc0_36fh-r0':
-                    pytest.skip("LossyQueueVoq: This test is skipped since cisco-8000 T2 "
-                                "doesn't support split-voq.")
+            if dutTestParams["basicParams"]["sonic_asic_type"] == 'cisco-8000':
+                # lossy_queue_voq_1 is only valid in split-voq mode.
+                src_dut = get_src_dst_asic_and_duts['src_dut']
+                src_asic = src_dut.asic_instance()
+                asic_index = src_asic.asic_index if src_asic.get_asic_namespace() else None
+                voq_allocation_mode = get_device_property(src_dut, "voq_allocation_mode", asic_index)
+                if voq_allocation_mode != "src_port_flow_hash":
+                    pytest.skip("LossyQueueVoq: lossy_queue_voq_1 requires split-voq "
+                                "(voq_allocation_mode=src_port_flow_hash), found '{}'.".format(voq_allocation_mode))
         elif "lossy_queue_voq_2" in LossyVoq:
             if get_src_dst_asic_and_duts['src_dut'].facts['platform'] == 'x86_64-88_lc0_36fh-r0':
                 pytest.skip("LossyQueueVoq: lossy_queue_voq_2 test is not applicable "

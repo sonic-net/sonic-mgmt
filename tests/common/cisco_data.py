@@ -148,3 +148,28 @@ def get_voq_quant_thresholds_cisco(duthost, interface, traffic_class, asic_index
     port_oid = s1cli.get_port_oid(interface)
     queue_oid = s1cli.get_queue_oid(port_oid, traffic_class)
     return s1cli.get_queue_watermark_thresholds(queue_oid)
+
+
+def parse_device_property(output, property_name):
+    """
+    Parse a single property value from "show platform npu global" output.
+
+    Returns the raw string value, or None if the property is not present.
+    """
+    match = re.search(r"{}\s*:\s*(\S+)".format(re.escape(property_name)), output)
+    return match.group(1) if match else None
+
+
+def get_device_property(duthost, property_name, asic_index=None):
+    """
+    Retrieve a device property from "show platform npu global" on a Cisco 8000 DUT.
+
+    asic_index adds a "-n asic<index>" namespace option for multi-asic platforms.
+    Returns the raw string value, or None if the property is not present.
+    """
+    namespace_option = ""
+    if asic_index is not None:
+        namespace_option = " -n asic{}".format(asic_index)
+    show_command = "show platform npu global{}".format(namespace_option)
+    output = run_dshell_command(duthost, show_command)["stdout"]
+    return parse_device_property(output, property_name)
