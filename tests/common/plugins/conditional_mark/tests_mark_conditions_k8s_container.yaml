@@ -1,0 +1,5 @@
+k8s_container/test_gnmi.py:
+  skip:
+    reason: "Kubernetes gNMI qualification requires an internal SONiC image"
+    conditions:
+      - "branch in ['master']"

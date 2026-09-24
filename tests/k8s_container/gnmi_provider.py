@@ -13,7 +13,7 @@ import pytest
 
 from tests.common.system_utils.docker import load_docker_registry_info
 from tests.common.minikube import DEFAULT_PROFILE
-from tests.common.minikube import MinikubeError
+from tests.common.minikube import MinikubeLockHeldError
 from tests.common.helpers.dut_utils import creds_on_dut
 from tests.common.gu_utils import create_checkpoint
 from tests.common.gu_utils import delete_checkpoint
@@ -1112,10 +1112,10 @@ def kubernetes_gnmi_workload(request, minikube_duthost, localhost, ptfhost):
         pytest.skip("Kubernetes gNMI qualification requires exactly one associated test server")
     try:
         minikube_cluster = request.getfixturevalue("minikube_cluster")
-    except MinikubeError as error:
-        if "lock is already held" in str(error):
-            pytest.fail("Associated test server already runs another Minikube qualification")
-        raise
+    except MinikubeLockHeldError as error:
+        pytest.fail(
+            "Minikube setup cannot use the associated test server: {}".format(error)
+        )
     creds = creds_on_dut(minikube_duthost)
     spec = load_container_spec(SPEC_PATH)
     images = _selected_images(request, minikube_duthost, spec)

@@ -21,8 +21,9 @@ DEFAULT_API_PORT = 6443
 KUBELET_CLIENT_CA = "/etc/kubernetes/pki/ca.crt"
 JOIN_OWNER_LABEL = "sonic-mgmt.test/join-owner"
 BASELINE_ROOT = "/var/lib/sonic-mgmt-minikube/runs"
-CONTRACT_ROOT = "/var/lib/sonic-mgmt-minikube/profiles"
+LEGACY_CONTRACT_ROOT = "/var/lib/sonic-mgmt-minikube/profiles"
 LOCK_ROOT = "/run/lock/sonic-mgmt-minikube"
+KUBECONFIG_ROOT = "/var/tmp/sonic-mgmt-minikube-kubeconfigs"
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +47,10 @@ class MinikubeCleanupError(MinikubeError):
     def __init__(self, message: str, cleanup_errors: Sequence[str]):
         super().__init__(message)
         self.cleanup_errors = tuple(cleanup_errors)
+
+
+class MinikubeLockHeldError(MinikubeError):
+    """Raised when the selected Minikube profile lock is unavailable."""
 
 
 @dataclass(frozen=True)
@@ -84,17 +89,13 @@ class MinikubeSpec:
         if type(self.timeout_seconds) is not int or self.timeout_seconds <= 0:
             raise ValueError("timeout_seconds must be a positive integer")
 
-    def contract(self) -> Dict[str, Any]:
-        return {
-            "api_dns": self.api_dns,
-            "api_port": self.api_port,
-            "driver": self.driver,
-            "kubelet_client_ca": self.kubelet_client_ca,
-            "kubernetes_version": self.kubernetes_version,
-            "minikube_sha256": self.minikube_sha256,
-            "minikube_version": self.minikube_version,
-            "profile": self.profile,
-        }
+    @property
+    def kubeconfig_directory(self) -> str:
+        return "{}/{}".format(KUBECONFIG_ROOT, self.profile)
+
+    @property
+    def kubeconfig_path(self) -> str:
+        return "{}/config".format(self.kubeconfig_directory)
 
 
 @dataclass(frozen=True)
@@ -311,7 +312,7 @@ class AnsibleMinikubeRunner:
             private=True,
         )
         if result.rc != 0:
-            raise MinikubeError("Minikube profile lock is already held")
+            raise MinikubeLockHeldError("Minikube profile lock is unavailable")
 
     def release_lock(self, spec: MinikubeSpec, token: str) -> None:
         lock = "{}/{}.lock".format(LOCK_ROOT, spec.profile)
@@ -345,39 +346,87 @@ class AnsibleMinikubeRunner:
         if self.run(command, private=True).rc != 0:
             raise MinikubeError("Pinned Minikube download or checksum failed")
 
-    def read_contract(self, spec: MinikubeSpec) -> Optional[Dict[str, Any]]:
-        path = "{}/{}.json".format(CONTRACT_ROOT, spec.profile)
-        result = self.run("sudo cat {}".format(shlex.quote(path)), private=True)
-        if result.rc != 0:
-            if self.run("sudo test ! -e {}".format(shlex.quote(path)), private=True).rc == 0:
-                return None
-            raise MinikubeError("Minikube ownership contract is unreadable")
-        data = _json(result, "Minikube ownership contract")
-        if not isinstance(data, dict):
-            raise MinikubeError("Minikube ownership contract is invalid")
-        return data
-
-    def write_contract(self, spec: MinikubeSpec, contract: Mapping[str, Any]) -> None:
-        path = "{}/{}.json".format(CONTRACT_ROOT, spec.profile)
+    def prepare_kubeconfig(self, spec: MinikubeSpec) -> None:
         script = (
-            "install -d -m 0700 -o root -g root \"$1\"; "
-            "umask 077; cat > \"$2.tmp\"; chown root:root \"$2.tmp\"; "
-            "chmod 0600 \"$2.tmp\"; mv -fT \"$2.tmp\" \"$2\""
+            "set -eu; root=\"$1\"; path=\"$2\"; owner=\"$3\"; "
+            "if [ -e \"$root\" ] || [ -L \"$root\" ]; then "
+            "test -d \"$root\"; test ! -L \"$root\"; "
+            "test \"$(stat -c '%u:%g:%a' -- \"$root\")\" = '0:0:711'; "
+            "else install -d -m 0711 -o root -g root -- \"$root\"; fi; "
+            "test ! -e \"$path\"; test ! -L \"$path\"; "
+            "mkdir -m 0700 -- \"$path\"; chown -- \"$owner\" \"$path\""
         )
         result = self.run(
-            "sudo sh -c {} sh {} {}".format(
-                shlex.quote(script), shlex.quote(CONTRACT_ROOT), shlex.quote(path)
+            "sudo sh -c {} sh {} {} {}".format(
+                shlex.quote(script),
+                shlex.quote(KUBECONFIG_ROOT),
+                shlex.quote(spec.kubeconfig_directory),
+                shlex.quote(self.vmhost_user),
             ),
-            stdin=json.dumps(dict(contract), sort_keys=True, separators=(",", ":")),
             private=True,
         )
         if result.rc != 0:
-            raise MinikubeError("Minikube ownership contract could not be written")
+            raise MinikubeError("isolated Minikube kubeconfig could not be prepared")
 
-    def remove_contract(self, spec: MinikubeSpec) -> None:
-        path = "{}/{}.json".format(CONTRACT_ROOT, spec.profile)
-        if self.run("sudo rm -f -- {}".format(shlex.quote(path)), private=True).rc != 0:
-            raise MinikubeError("Minikube ownership contract could not be removed")
+    def reset_profile(self, spec: MinikubeSpec, environment: Mapping[str, str]) -> None:
+        legacy_environment = dict(environment)
+        legacy_environment.pop("KUBECONFIG", None)
+        for delete_environment in (environment, legacy_environment):
+            self.run(
+                self.minikube(spec, delete_environment, ("delete",)),
+                private=True,
+            )
+
+        script = r"""set -eu
+profile="$1"
+user="$2"
+kubeconfig_root="$3"
+kubeconfig="$4"
+legacy_contract="$5"
+home="$(getent passwd "$user" | cut -d: -f6)"
+test -n "$home"
+profile_containers="$(docker ps -aq --filter "label=name.minikube.sigs.k8s.io=$profile")"
+if [ -n "$profile_containers" ]; then
+    printf '%s\n' "$profile_containers" | xargs docker rm -f
+fi
+docker rm -f "$profile" >/dev/null 2>&1 || true
+docker network rm "$profile" >/dev/null 2>&1 || true
+docker volume rm -f "$profile" >/dev/null 2>&1 || true
+rm -rf -- "$home/.minikube/profiles/$profile" "$home/.minikube/machines/$profile"
+if [ -e "$kubeconfig_root" ] || [ -L "$kubeconfig_root" ]; then
+    test -d "$kubeconfig_root"
+    test ! -L "$kubeconfig_root"
+    test "$(stat -c '%u:%g:%a' -- "$kubeconfig_root")" = "0:0:711"
+    rm -rf -- "$kubeconfig"
+fi
+rm -f -- "$legacy_contract"
+profile_containers="$(docker ps -aq --filter "label=name.minikube.sigs.k8s.io=$profile")"
+named_containers="$(docker ps -aq --filter "name=^/${profile}$")"
+profile_networks="$(docker network ls -q --filter "name=^${profile}$")"
+profile_volumes="$(docker volume ls -q --filter "name=^${profile}$")"
+test -z "$profile_containers"
+test -z "$named_containers"
+test -z "$profile_networks"
+test -z "$profile_volumes"
+test ! -e "$home/.minikube/profiles/$profile"
+test ! -e "$home/.minikube/machines/$profile"
+test ! -e "$kubeconfig"
+test ! -e "$legacy_contract"
+"""
+        legacy_contract = "{}/{}.json".format(LEGACY_CONTRACT_ROOT, spec.profile)
+        result = self.run(
+            "sudo sh -c {} sh {} {} {} {} {}".format(
+                shlex.quote(script),
+                shlex.quote(spec.profile),
+                shlex.quote(self.vmhost_user),
+                shlex.quote(KUBECONFIG_ROOT),
+                shlex.quote(spec.kubeconfig_directory),
+                shlex.quote(legacy_contract),
+            ),
+            private=True,
+        )
+        if result.rc != 0:
+            raise MinikubeError("Minikube profile reset failed")
 
     @staticmethod
     def _not_found(result: HostResult) -> bool:
@@ -465,44 +514,6 @@ class AnsibleMinikubeRunner:
             api_dns_present="DNS:{}".format(spec.api_dns) in certificate.stdout.replace(" ", ""),
         )
 
-    def partial_profile_absent(self, spec: MinikubeSpec, environment: Mapping[str, str]) -> bool:
-        profiles = _json(
-            self.run(self.minikube(spec, environment, ("profile", "list", "--output=json")), private=True),
-            "Minikube profile list",
-        )
-        if not isinstance(profiles, dict) or set(profiles) != {"valid", "invalid"}:
-            raise MinikubeError("Minikube profile list has an invalid schema")
-        for group in (profiles["valid"], profiles["invalid"]):
-            if not isinstance(group, list) or any(
-                not isinstance(item, dict) or not isinstance(item.get("Name"), str) for item in group
-            ):
-                raise MinikubeError("Minikube profile list has an invalid schema")
-        if any(
-            item["Name"] == spec.profile
-            for group in (profiles["valid"], profiles["invalid"])
-            for item in group
-        ):
-            return False
-        commands = (
-            "sudo docker ps -aq --filter {}".format(
-                shlex.quote("label=name.minikube.sigs.k8s.io={}".format(spec.profile))
-            ),
-            "sudo docker network ls -q --filter {}".format(shlex.quote("name=^{}$".format(spec.profile))),
-            "sudo docker volume ls -q --filter {}".format(shlex.quote("name=^{}$".format(spec.profile))),
-            "sudo --user={} --set-home sh -c {}".format(
-                shlex.quote(self.vmhost_user),
-                shlex.quote(
-                    "test ! -e \"$HOME/.minikube/profiles/{0}\" -a "
-                    "! -e \"$HOME/.minikube/machines/{0}\"".format(spec.profile)
-                ),
-            ),
-        )
-        for command in commands:
-            result = self.run(command, private=True)
-            if result.rc != 0 or result.stdout.strip() or result.stderr.strip():
-                return False
-        return True
-
     def start_profile(self, spec: MinikubeSpec, environment: Mapping[str, str], vmhost_ip: str) -> str:
         args = (
             "start", "--driver=docker", "--listen-address=0.0.0.0", "--apiserver-port=6443",
@@ -558,20 +569,6 @@ class AnsibleMinikubeRunner:
                 self.sleep(min(5, remaining))
         if not patched:
             raise MinikubeError("kubelet ConfigMap update failed")
-
-    def delete_profile(self, spec: MinikubeSpec, environment: Mapping[str, str], identity: str) -> None:
-        try:
-            current_identity = self.profile_container_id(spec)
-        except MinikubeError as error:
-            if self.partial_profile_absent(spec, environment):
-                return
-            raise error
-        if current_identity != identity:
-            raise MinikubeError("refusing to delete a changed Minikube profile")
-        if self.run(self.minikube(spec, environment, ("delete",)), private=True).rc != 0:
-            raise MinikubeError("owned Minikube profile deletion failed")
-        if not self.partial_profile_absent(spec, environment):
-            raise MinikubeError("owned Minikube profile remains after deletion")
 
     def api_credentials(self, spec: MinikubeSpec) -> Tuple[str, str]:
         values = []
@@ -676,7 +673,6 @@ class MinikubeCluster:
         proxy_environment: Optional[Mapping[str, Any]] = None,
         vmhost_user: Optional[str] = None,
         runner: Optional[Any] = None,
-        allow_shared_profile: bool = False,
         ownership_token: Optional[str] = None,
     ):
         self.vmhost = vmhost
@@ -685,7 +681,6 @@ class MinikubeCluster:
             raise ValueError("MinikubeCluster requires the VM host user")
         self.runner = runner or AnsibleMinikubeRunner(vmhost, str(vmhost_user))
         self.vmhost_user = str(vmhost_user or getattr(self.runner, "vmhost_user", ""))
-        self.allow_shared_profile = allow_shared_profile
         self.ownership_token = ownership_token or str(uuid.uuid4())
         self.vmhost_ip = str(getattr(vmhost, "mgmt_ip", ""))
         ipaddress.ip_address(self.vmhost_ip)
@@ -693,11 +688,13 @@ class MinikubeCluster:
             proxy_environment,
             ("localhost", "127.0.0.1", self.vmhost_ip, "192.168.49.2", self.spec.api_dns),
         )
+        self.command_environment["KUBECONFIG"] = self.spec.kubeconfig_path
         self.created = False
         self.profile_identity = None
         self.api_port = None
         self._locked = False
         self._entered = False
+        self._binary_verified = False
         self._joined_duts = set()
 
     def __enter__(self) -> "MinikubeCluster":
@@ -705,90 +702,33 @@ class MinikubeCluster:
             self.runner.acquire_lock(self.spec, self.ownership_token)
             self._locked = True
             self.runner.ensure_binary(self.spec, self.command_environment)
-            try:
-                _, _, container_ip = self.runner.profile_container_network(self.spec)
-            except MinikubeError:
-                container_ip = None
-            if container_ip:
-                self.command_environment = merge_proxy_environment(
-                    self.command_environment,
-                    (container_ip,),
-                )
+            self._binary_verified = True
+            self.runner.reset_profile(self.spec, self.command_environment)
+            self.runner.prepare_kubeconfig(self.spec)
+            self.profile_identity = self.runner.start_profile(
+                self.spec, self.command_environment, self.vmhost_ip
+            )
+            self.created = True
+            identity, api_port, container_ip = self.runner.profile_container_network(self.spec)
+            if identity != self.profile_identity:
+                raise MinikubeError("created Minikube profile identity changed")
+            self.api_port = api_port
+            self.command_environment = merge_proxy_environment(
+                self.command_environment,
+                (container_ip,),
+            )
+            self.command_environment["KUBECONFIG"] = self.spec.kubeconfig_path
+            self.runner.configure_profile(self.spec, self.command_environment)
             state = self.runner.inspect_profile(self.spec, self.command_environment)
-            contract = self.runner.read_contract(self.spec)
             if state is None:
-                if contract is not None:
-                    raise MinikubeError("profile is absent but an ownership contract remains")
-                self.created = True
-                self.runner.write_contract(self.spec, {
-                    "created": True,
-                    "owner_token": self.ownership_token,
-                    "profile_identity": None,
-                    "spec": self.spec.contract(),
-                    "state": "creating",
-                })
-                identity = self.runner.start_profile(
-                    self.spec, self.command_environment, self.vmhost_ip
-                )
-                self.profile_identity = identity
-                self.runner.write_contract(self.spec, {
-                    "created": True,
-                    "owner_token": self.ownership_token,
-                    "profile_identity": identity,
-                    "spec": self.spec.contract(),
-                    "state": "creating",
-                })
-                identity, api_port, container_ip = self.runner.profile_container_network(self.spec)
-                if identity != self.profile_identity:
-                    raise MinikubeError("created Minikube profile identity changed")
-                self.api_port = api_port
-                self.command_environment = merge_proxy_environment(
-                    self.command_environment,
-                    (container_ip,),
-                )
-                self.runner.write_contract(self.spec, {
-                    "api_port": api_port,
-                    "created": True,
-                    "owner_token": self.ownership_token,
-                    "profile_identity": identity,
-                    "spec": self.spec.contract(),
-                    "state": "creating",
-                })
-                self.runner.configure_profile(self.spec, self.command_environment)
-                state = self.runner.inspect_profile(self.spec, self.command_environment)
-                if state is None:
-                    raise MinikubeError("created Minikube profile is absent")
-                if state.profile_identity != self.profile_identity or state.api_port != self.api_port:
-                    raise MinikubeError("created Minikube profile identity or API port changed")
-                errors = state.incompatibilities(self.spec)
-                if errors:
-                    raise MinikubeError("created Minikube profile is incompatible: {}".format("; ".join(errors)))
-                self.profile_identity = state.profile_identity
-                self.api_port = state.api_port
-                self.runner.write_contract(self.spec, {
-                    "api_port": state.api_port,
-                    "created": True,
-                    "owner_token": self.ownership_token,
-                    "profile_identity": state.profile_identity,
-                    "spec": self.spec.contract(),
-                    "state": "ready",
-                })
-            else:
-                errors = state.incompatibilities(self.spec)
-                if errors:
-                    raise MinikubeError("existing Minikube profile is incompatible: {}".format("; ".join(errors)))
-                if contract is None and not self.allow_shared_profile:
-                    raise MinikubeError("existing compatible profile is unowned; allow shared reuse explicitly")
-                if contract is not None and (
-                    contract.get("state") != "ready"
-                    or contract.get("api_port") != state.api_port
-                    or contract.get("spec") != self.spec.contract()
-                    or contract.get("profile_identity") != state.profile_identity
-                    or not isinstance(contract.get("owner_token"), str)
-                ):
-                    raise MinikubeError("existing profile ownership contract is incompatible")
-                self.profile_identity = state.profile_identity
-                self.api_port = state.api_port
+                raise MinikubeError("created Minikube profile is absent")
+            if state.profile_identity != self.profile_identity or state.api_port != self.api_port:
+                raise MinikubeError("created Minikube profile identity or API port changed")
+            errors = state.incompatibilities(self.spec)
+            if errors:
+                raise MinikubeError("created Minikube profile is incompatible: {}".format("; ".join(errors)))
+            self.profile_identity = state.profile_identity
+            self.api_port = state.api_port
             self._entered = True
             return self
         except BaseException as error:
@@ -807,48 +747,15 @@ class MinikubeCluster:
                 )
             )
             return errors
-        if self.created:
-            identity = self.profile_identity
-            contract = None
-            try:
-                contract = self.runner.read_contract(self.spec)
-            except Exception as error:
-                errors.append("read profile contract before cleanup: {}".format(error))
-            if contract is not None and contract.get("owner_token") != self.ownership_token:
-                errors.append("profile ownership token changed; preserving profile and contract")
-                return errors
-            if identity is None:
+        if self._locked:
+            if self._binary_verified:
                 try:
-                    state = self.runner.inspect_profile(self.spec, self.command_environment)
-                    if state is not None and contract is not None and contract.get("state") == "creating":
-                        identity = state.profile_identity
+                    self.runner.reset_profile(self.spec, self.command_environment)
+                    self.created = False
+                    self.profile_identity = None
+                    self.api_port = None
                 except Exception as error:
-                    owned_creating = contract is not None and contract.get("state") == "creating"
-                    absent = False
-                    if "host does not exist" in str(error) and owned_creating:
-                        try:
-                            absent = self.runner.partial_profile_absent(self.spec, self.command_environment)
-                        except Exception as probe_error:
-                            errors.append("verify partial profile absence: {}".format(probe_error))
-                    if not absent and not errors:
-                        errors.append("inspect partially created profile: {}".format(error))
-            if identity is None and not errors:
-                try:
-                    if not self.runner.partial_profile_absent(self.spec, self.command_environment):
-                        errors.append("partial Minikube profile remains without a verified identity")
-                except Exception as error:
-                    errors.append("verify partial profile absence: {}".format(error))
-            try:
-                if identity is not None:
-                    self.runner.delete_profile(self.spec, self.command_environment, identity)
-            except Exception as error:
-                errors.append("delete created profile: {}".format(error))
-            if not errors:
-                try:
-                    self.runner.remove_contract(self.spec)
-                except Exception as error:
-                    errors.append("remove profile contract: {}".format(error))
-        if self._locked and not errors:
+                    errors.append("reset Minikube profile: {}".format(error))
             try:
                 self.runner.release_lock(self.spec, self.ownership_token)
                 self._locked = False

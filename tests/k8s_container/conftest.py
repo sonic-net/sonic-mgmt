@@ -25,15 +25,14 @@ def pytest_addoption(parser):
         default=False,
         help="Run explicitly selected Kubernetes container infrastructure tests",
     )
-    group.addoption("--minikube-profile", default="sonic-mgmt-k8s", help="Explicit Minikube profile")
+    group.addoption(
+        "--minikube-profile",
+        default="sonic-mgmt-k8s",
+        help="Minikube profile reserved for this test suite. "
+        "The test deletes it before and after each run.",
+    )
     group.addoption("--minikube-vmhost", default=None, help="Exact associated server hostname")
     group.addoption("--minikube-dut", default=None, help="Exact DUT hostname")
-    group.addoption(
-        "--minikube-allow-shared-profile",
-        action="store_true",
-        default=False,
-        help="Allow compatible profile reuse without a framework ownership contract",
-    )
     group.addoption(
         "--k8s-gnmi-image",
         default=None,
