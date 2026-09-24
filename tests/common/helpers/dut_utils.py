@@ -30,6 +30,10 @@ NAT_ENABLE_KEY = "nat_enabled_on_{}"
 # Spacing between console reconnect retries; keep >= getty StartLimitIntervalSec to avoid tripping its start limit.
 CONSOLE_RECONNECT_BACKOFF_SECS = 12
 
+HOST_CONSOLE_COMMANDS_BY_HWSKU = {
+    "NH-4210-F-O256": "sudo consutil connect 0",
+}
+
 # Ansible config files
 LAB_CONNECTION_GRAPH_PATH = pathlib.Path(
     os.getenv("ANSIBLE_CONFIG", pathlib.Path(__file__).resolve().parent.joinpath("../../ansible"))).joinpath("files")
@@ -545,9 +549,8 @@ def is_mellanox_fanout(duthost, localhost):
 
 
 def get_host_console_command(duthost):
-    """Return the inventory-defined command used to reach the host console."""
-    hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
-    return hostvars.get("host_console_command")
+    """Return the HWSKU-specific command used to reach the host console."""
+    return HOST_CONSOLE_COMMANDS_BY_HWSKU.get(duthost.facts["hwsku"])
 
 
 def get_supervisor_for_linecard(duthost, duthosts, inv_files):
@@ -632,6 +635,8 @@ def create_duthost_console(duthost, localhost, conn_graph_facts, creds, cancel_e
 
     console_type = f"console_{console_type}"
     update_console_creds(creds, console_auth_type)
+    if not console_username:
+        console_username = creds["console_user"].get(console_type, "")
 
     if console_menu_type and console_menu_type.lower() != "n/a":
         console_menu_type = f"{console_type}_{console_menu_type}"
@@ -769,7 +774,7 @@ def creds_on_dut(duthost):
     creds["console_user"] = {}
     creds["console_password"] = {}
 
-    creds["ansible_altpasswords"] = []
+    creds["ansible_altpasswords"] = hostvars.get("ansible_altpasswords", [])
 
     # If ansible_altpasswords is empty, add ansible_altpassword to it
     if len(creds["ansible_altpasswords"]) == 0:
