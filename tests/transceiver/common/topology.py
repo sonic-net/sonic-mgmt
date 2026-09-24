@@ -10,6 +10,16 @@ from tests.common.platform.interface_utils import (
 
 
 PeerInfo = namedtuple("PeerInfo", ("host", "device", "port", "primary_port"))
+_LPORT_TO_FIRST_SUBPORT_MAPPING_BY_HOST = {}
+
+
+def _get_lport_to_first_subport_mapping(duthost):
+    """Return the cached logical-to-primary-subport mapping for one DUT."""
+    hostname = duthost.hostname
+    if hostname not in _LPORT_TO_FIRST_SUBPORT_MAPPING_BY_HOST:
+        mapping = get_lport_to_first_subport_mapping(duthost)
+        _LPORT_TO_FIRST_SUBPORT_MAPPING_BY_HOST[hostname] = mapping
+    return _LPORT_TO_FIRST_SUBPORT_MAPPING_BY_HOST[hostname]
 
 
 def resolve_remote_peer(
@@ -67,7 +77,7 @@ def resolve_remote_peer(
             )
 
     try:
-        peer_mapping = get_lport_to_first_subport_mapping(peer_host)
+        peer_mapping = _get_lport_to_first_subport_mapping(peer_host)
     except Exception as error:
         return None, "{} peer device {} mapping failed: {}".format(
             local_port,
