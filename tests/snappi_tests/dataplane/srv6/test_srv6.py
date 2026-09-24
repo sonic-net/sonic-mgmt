@@ -17,8 +17,8 @@ from tests.snappi_tests.dataplane.files.helper import set_primary_chassis, creat
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp
 
-from tests.snappi_tests.dataplane.srv6.files.srv6_telemetry import poll_srv6_perf_stats
-from tests.snappi_tests.dataplane.srv6.files.srv6_helper import Multi_Tier_Map, assign_sid_on_tgen_ports, \
+from tests.snappi_tests.srv6.files.srv6_telemetry import poll_srv6_perf_stats
+from tests.snappi_tests.srv6.files.srv6_helper import Multi_Tier_Map, assign_sid_on_tgen_ports, \
     assign_sid_to_duts, create_snappi_flows, get_dut_list, set_dut_tier_level, get_t0_duts, \
     config_dut_sids, construct_dut_to_dut_links, construct_static_route_dut_to_tgen, construct_dut_peer_connections, \
     config_dut_interface_ip, dut_ping_neighbor_links, configure_dut_static_routes, config_traffic_flows, \
@@ -96,24 +96,19 @@ def test_srv6_nut_topology(snappi_api,                 # noqa F811
                            db_reporter,
                            local_script_setup_and_teardown
                            ):
-    Common_vars.dut_hosts = duthosts
     snappi_extra_params = SnappiTestParams()
 
     snappi_ports = set_duthost_interface_details(duthosts, Common_vars, get_snappi_ports)
-    config_dut_ip_interface(snappi_ports)
 
     # ['switch-t0-1', 'switch-t0-2', 'switch-t1-1', 'switch-t1-2']
     get_dut_list(conn_graph_facts, Common_vars)
 
-    # In case snappi-sonic has more duts than links.csv
-    pop_list = []
-    for index, dut in enumerate(duthosts):
-        if dut.hostname not in Common_vars.dut_list:
-            pop_list.append(index)
-
-    # Pop in descending order so that earlier removals do not shift the remaining indexes
-    for index in reversed(pop_list):
-        duthosts.pop(index)
+    # In case snappi-sonic has more duts than links.csv. Build a local
+    # filtered list rather than mutating the shared, session-scoped
+    # duthosts fixture - popping from it would drop that DUT from every
+    # later test (and this test's own teardown) too.
+    duthosts = [dut for dut in duthosts if dut.hostname in Common_vars.dut_list]
+    Common_vars.dut_hosts = duthosts
 
     # Sort the snappi_port list in numerical natural order
     snappi_ports.sort(key=lambda p: [int(n) for n in re.findall(r'\d+', p['location'])])
@@ -121,6 +116,8 @@ def test_srv6_nut_topology(snappi_api,                 # noqa F811
     if len(snappi_ports) % 2 == 1:
         # If there are odd number of ports, then remove the last port
         del snappi_ports[-1]
+
+    config_dut_ip_interface(snappi_ports)
 
     # Split ports in half
     half_of_total_ports = len(snappi_ports) // 2
@@ -197,9 +194,6 @@ def test_srv6_nut_topology(snappi_api,                 # noqa F811
     logger.info('Wait for Arp to Resolve ...')
     if wait_for_arp(snappi_api, max_attempts=10, poll_interval_sec=2) != 0:
         pytest_assert(False, "ARP failed")
-
-    for flow in snappi_api._ixnetwork.Traffic.TrafficItem.find():
-        flow.Tracking.find()[0].TrackBy = ['trackingenabled0']
 
     if packet_size == 'mix':
         # Snappi doesn't support custom mix packet sizes yet

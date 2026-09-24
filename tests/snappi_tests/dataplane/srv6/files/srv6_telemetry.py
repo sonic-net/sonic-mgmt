@@ -12,7 +12,7 @@ WHY A LOCAL POLLER (instead of reusing test_switch_capacity.py's poll_stats)
 
 The neighboring ``test_switch_capacity.py`` has a private ``poll_stats``
 function that collects port/queue/PSU/temperature counters. The SRv6 test
-needs the same counters PLUS the new ``show srv6 stat --json`` data. To keep
+needs the same counters PLUS the new ``show srv6 stats`` data. To keep
 this test fully self-contained (per project requirement: only modify files
 under ``srv6/``) we re-implement the loop here and add the SRv6 MY_SID
 collection alongside.
@@ -34,7 +34,7 @@ Every ``interval_sec`` seconds, for each DUT in ``dut_tg_port_map``, we run:
     |   temperature --json  |                                            |
     | portstat -i <ports>   | port.rx/tx.bps/util/ok/err/drop/overrun    |
     |   -j                  |                                            |
-    | show srv6 stat --json | srv6.my_sid.rx.bytes / srv6.my_sid.rx.     |
+    | show srv6 stats       | srv6.my_sid.rx.bytes / srv6.my_sid.rx.     |
     |   (NEW per testplan)  |   packets, labelled with device.srv6.my_sid|
     +-----------------------+--------------------------------------------+
 
@@ -49,7 +49,7 @@ INTERNAL ARCHITECTURE
 
     poll_srv6_perf_stats(...)                  -- outer loop, sleeps interval_sec
         get_dut_stats(dut_tg_port_map)         -- runs all show commands per DUT
-            _flatten_srv6_mysid(raw)           -- normalize SRv6 JSON shape
+            _flatten_srv6_mysid(raw_output)    -- parse SRv6 stats table
         for each stat_type in configs:
             record_metrics(...)                -- generic label/field dispatcher
                 metric_obj.<method>.record(value, labels)
@@ -107,7 +107,7 @@ METRIC_NAME_SRV6_MY_SID_PACKETS = "srv6.my_sid.rx.packets"
 
 
 class DeviceSRv6Metrics(MetricCollection):
-    """Per-SID receive counters reported via ``show srv6 stat``.
+    """Per-SID receive counters reported via ``show srv6 stats``.
 
     Conforms to the same ``MetricCollection`` pattern as
     ``DevicePortMetrics`` / ``DevicePSUMetrics``: declare a class-level
@@ -169,40 +169,36 @@ def _psu_led_value(record):
 # ===========================================================================
 # Raw stats collection from DUTs
 # ===========================================================================
-def _flatten_srv6_mysid(raw):
-    """Normalize the output of ``show srv6 stat --json``.
+def _flatten_srv6_mysid(raw_output):
+    """Parse the output of ``show srv6 stats``.
 
-    SONiC's CLI sometimes returns this command's JSON as a dict (``{sid:
-    {packets, bytes}}``) and sometimes as a list of records. To keep
-    ``record_metrics`` simple, we flatten both forms into one canonical
-    list:
+    This command has no ``--json`` mode - it always prints a ``tabulate``
+    table (see sonic-utilities ``utilities_common/srv6stat.py``), e.g.::
+
+        MySID               Packets    Bytes
+        ----------------  ---------  -------
+        fcbb:bbbb:1::/48          2    10000
+
+    with just the header/separator and no data rows when no MY_SID entries
+    are configured. Returns one record per data row:
 
         ``[{"sid": <prefix>, "packets_count": <int>, "packets_bytes": <int>}, ...]``
-
-    Unknown keys are tolerated (``.get(<new>, .get(<old>, 0))``) so we still
-    emit something useful on future schema variations. Note the nested
-    default rather than an ``or`` chain: a legitimate counter value of 0
-    must be preserved, not treated as "key missing".
     """
     records = []
-    if isinstance(raw, dict):
-        for sid, stats in raw.items():
-            if not isinstance(stats, dict):
-                continue
+    lines = raw_output.strip().splitlines()
+    for line in lines[2:]:  # skip the header row and the "---" separator
+        fields = line.split()
+        if len(fields) != 3:
+            continue
+        sid, packets, num_bytes = fields
+        try:
             records.append({
                 "sid": sid,
-                "packets_count": stats.get("packets", stats.get("packets_count", 0)),
-                "packets_bytes": stats.get("bytes", stats.get("packets_bytes", 0)),
+                "packets_count": int(packets),
+                "packets_bytes": int(num_bytes),
             })
-    elif isinstance(raw, list):
-        for r in raw:
-            if not isinstance(r, dict):
-                continue
-            records.append({
-                "sid": r.get("sid") or r.get("my_sid") or "",
-                "packets_count": r.get("packets", r.get("packets_count", 0)),
-                "packets_bytes": r.get("bytes", r.get("packets_bytes", 0)),
-            })
+        except ValueError:
+            continue
     return records
 
 
@@ -225,8 +221,8 @@ def get_dut_stats(dut_tg_port_map):
         "queue":      "show queue watermark unicast --json",
         "psu":        "show platform psu --json",
         "temp":       "show platform temperature --json",
-        "portstat":   "portstat -i {} -j",   # {} is replaced per-DUT below
-        "srv6_mysid": "show srv6 stat --json",
+        "portstat":   "portstat -i {} -j",
+        "srv6_mysid": "show srv6 stats",
     }
 
     result = {}
@@ -248,6 +244,10 @@ def get_dut_stats(dut_tg_port_map):
                     # Empty output: treat as no-records-this-poll. Use [] for
                     # srv6_mysid (list-shaped) and None for the others.
                     result[duthostname][command_name] = [] if command_name == "srv6_mysid" else None
+                    continue
+                if command_name == "srv6_mysid":
+                    # Plain tabulate text, not JSON - parse it directly.
+                    result[duthostname][command_name] = _flatten_srv6_mysid(raw_output)
                     continue
                 if command_name == "portstat":
                     # portstat -j can prepend a plain-text "Last cached time
@@ -272,8 +272,6 @@ def get_dut_stats(dut_tg_port_map):
                         for key in d.keys()
                         if d["Port"] in interfaces.keys() and (key.startswith("UC") or key.startswith("MC"))
                     ]
-                elif command_name == "srv6_mysid":
-                    json_output = _flatten_srv6_mysid(json_output)
 
                 result[duthostname][command_name] = json_output
             except Exception as e:
@@ -352,8 +350,10 @@ def poll_srv6_perf_stats(dut_tg_port_map, duration_sec, interval_sec, db_reporte
         db_reporter:     telemetry sink that backs every metric object.
 
     Returns:
-        None. Metrics are appended to db_reporter throughout the run; the
-        caller is responsible for ``db_reporter.report()`` to flush them.
+        None. Each poll's metrics are flushed via ``db_reporter.report()``
+        before the next poll overwrites them (see the loop below) - gauges
+        only ever hold the latest value per label set, so without a report
+        per interval only the final sample would survive.
     """
     # ---- Static label templates per stat type ----
     # These set the *keys* that should appear on every record of each kind.
@@ -492,6 +492,13 @@ def poll_srv6_perf_stats(dut_tg_port_map, duration_sec, interval_sec, db_reporte
                     cfg["label_map"],
                     cfg["field_map"],
                 )
+
+        # Flush this poll's snapshot now, before the next iteration's
+        # record_metrics() overwrites the same gauge/label entries. Gauges
+        # only retain the latest value per label set, so deferring report()
+        # until after the loop would collapse the whole run into one final
+        # sample instead of a time series.
+        db_reporter.report()
 
         # Sleep the remainder of the interval - this guards against drift
         # when the poll itself takes a non-trivial amount of time. Cap the

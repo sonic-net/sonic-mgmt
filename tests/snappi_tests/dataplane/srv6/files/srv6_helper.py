@@ -148,6 +148,14 @@ class Multi_Tier_Map:
 
         tgens = self.tgens()
         if len(tgens) < 2:
+            if len(tgens) == 1:
+                # A single tgen *device name* can still fan out to multiple
+                # T0s (e.g. one snappi chassis wired into two T0s). Don't
+                # collapse that into a bare [tgen] path - trace the
+                # DUT-to-DUT hop those T0s actually share instead.
+                dut_path = self._dut_path_for_shared_tgen(tgens[0])
+                if dut_path:
+                    return [tgens[0]] + dut_path + [tgens[0]]
             return tgens[:]                     # 0 or 1 tgen: nothing to traverse
 
         if src is None:
@@ -162,6 +170,31 @@ class Multi_Tier_Map:
 
         # fallback: the longest path among all tgen pairs (most complete traversal)
         return self._longest_tgen_path()
+
+    def _dut_path_for_shared_tgen(self, tgen):
+        """
+        DUT-to-DUT path between two T0s that both connect to the same tgen
+        device name. Returns [] if `tgen` only touches one T0 (nothing to
+        trace). Raises if it touches 2+ T0s but none of them are linked to
+        each other - there is no route for path-based SRv6 verification to
+        trace in that topology, so we reject it explicitly rather than
+        silently returning a path through the tgen name.
+        """
+        attached_t0s = sorted(n for n in self.graph.get(tgen, {}) if self.tier_of(n) == 't0')
+        if len(attached_t0s) < 2:
+            return []
+
+        for i, a in enumerate(attached_t0s):
+            for b in attached_t0s[i + 1:]:
+                path = self.shortest_path(a, b)
+                if path:
+                    return path
+
+        raise ValueError(
+            f"Multi_Tier_Map.full_path(): tgen '{tgen}' connects to T0s {attached_t0s}, "
+            "but none of them are linked to each other - this topology is not "
+            "supported for SRv6 path verification."
+        )
 
     def _other_edge_tgen(self, src, tgens):
         """First tgen that hangs off a different t0 than `src` (so the path crosses the fabric)."""
@@ -762,6 +795,7 @@ def config_dut_sids(duthosts, Common_vars):
                                 f'action uN decap_dscp_mode pipe')
             count += 1
 
+        logger.info(f'Batch configuring SIDs on {dut.hostname}')
         dut.shell('\n'.join(cli_commands))
 
 
@@ -885,7 +919,21 @@ def construct_dut_peer_connections(dut_connection_parings, Common_vars):
             #                                           '5000::2/64', '5000::2/64', '5000::2/64', '5000::2/64']}
             for adjacent_dut, local_dut_ip_list in Common_vars.config_data[dut]['dut_link_port_connections'].items():
                 for index, each_ip in enumerate(local_dut_ip_list):
-                    adjacent_dut_sid = Common_vars.config_data[adjacent_dut]['my_sids'][index]
+                    if adjacent_dut == Common_vars.t1_dut and dut in Common_vars.t0_duts:
+                        # Route from a T0 toward the T1: use the T1 SID that
+                        # actually routes onward to the *other* T0, since
+                        # that's what get_complete_srv6_path() puts into the
+                        # flow's destination for a T0 -> T1 -> T0 path. T1's
+                        # flat my_sids list is ordered t0_duts[0]'s group
+                        # first regardless of which T0 dut is asking, so
+                        # indexing into it directly only happens to be right
+                        # for t0_duts[0].
+                        other_t0_dut = next(t for t in Common_vars.t0_duts if t != dut)
+                        adjacent_dut_sid = (
+                            Common_vars.config_data[adjacent_dut]['t1_sid_paths'][other_t0_dut][index]
+                        )
+                    else:
+                        adjacent_dut_sid = Common_vars.config_data[adjacent_dut]['my_sids'][index]
 
                     # 'dut_link_port_connections': {'switch-t0-1': ['Ethernet128', 'Ethernet129', 'Ethernet130',
                     # 'Ethernet131', 'Ethernet132', 'Ethernet133', 'Ethernet134', 'Ethernet135']}
@@ -932,11 +980,13 @@ def config_dut_interface_ip(duthosts, Common_vars):
                 logger.info(f'DUT:{dut.hostname}: sudo config int ip add {port} {ip_address}')
                 cli_commands.append(f'sudo config int ip add {port} {ip_address}')
 
+        logger.info(f'Batch configuring interface IPs on {dut.hostname} ...')
         dut.shell('\n'.join(cli_commands))
 
 
 def dut_ping_neighbor_links(duthosts, Common_vars):
     for dut in duthosts:
+        cli_commands = []
         for adjacent_dut, dut_ports in Common_vars.config_data[dut.hostname]['dut_link_port_connections'].items():
             for index, link in enumerate(dut_ports):
                 adjacent_dut_link_ip = (
@@ -946,7 +996,10 @@ def dut_ping_neighbor_links(duthosts, Common_vars):
                 logger.info((f'Ping adjacent DUT to learn ARP: {dut.hostname} -> {adjacent_dut}  '
                              f'pinging {adjacent_dut_link_ip}'))
 
-                dut.shell(f'ping {adjacent_dut_link_ip} -c 2')
+                cli_commands.append(f'ping {adjacent_dut_link_ip} -c 2')
+
+        logger.info(f'Batch pinging neighbor links on {dut.hostname}...')
+        dut.shell('\n'.join(cli_commands))
 
 
 def configure_dut_static_routes(duthosts, Common_vars):
@@ -959,6 +1012,7 @@ def configure_dut_static_routes(duthosts, Common_vars):
             logger.info(f'DUT:{dut.hostname} -> {static_route}')
             cli_commands.append(static_route)
 
+        logger.info(f'Batch configuring static routes on {dut.hostname} ...')
         dut.shell('\n'.join(cli_commands))
 
 
@@ -2195,30 +2249,44 @@ def verify_dut_stat_counters_snake(Common_vars, tgen_stats):
 def remove_srv6_config(Common_vars):
     # Remove IPv6 interfaces on DUT
     for dut in Common_vars.dut_hosts:
+        cli_commands = []
         for port in Common_vars.config_data[dut.hostname]['tgen_ports']:
             cli_command = f'sudo config int ip remove {port["peer_port"]} {port["ipGateway"]}/{port["prefix"]}'
             logger.info(f'Removing IPv6 int on DUT {dut.hostname}: {cli_command}')
-            dut.shell(cli_command)
+
+        logger.info(f'Batch removing IPv6 interfaces on DUT {dut.hostname}')
+        dut.shell('\n'.join(cli_commands))
 
     # Remove SRv6 SIDs on DUT
     for dut in Common_vars.dut_hosts:
         count = 1
+        cli_commands = []
         for sid in Common_vars.config_data[dut.hostname]['my_sids']:
             logger.info(f'Removing SRv6 loc{count} sid {Common_vars.sid_prefix}:{sid}::/48 '    # E231
                         f'and locator on {dut.hostname} ...')
-            dut.shell(f'sudo sonic-db-cli CONFIG_DB DEL "SRV6_MY_LOCATORS|loc{count}"')
-            dut.shell(f'sudo sonic-db-cli CONFIG_DB DEL '
-                      f'"SRV6_MY_SIDS|loc{count}|{Common_vars.sid_prefix}:{sid}::/48"')  # E231
+            # dut.shell(f'sudo sonic-db-cli CONFIG_DB DEL "SRV6_MY_LOCATORS|loc{count}"')
+            # dut.shell(f'sudo sonic-db-cli CONFIG_DB DEL '
+            #           f'"SRV6_MY_SIDS|loc{count}|{Common_vars.sid_prefix}:{sid}::/48"')  # E231
+            cli_commands.append(f'sudo sonic-db-cli CONFIG_DB DEL "SRV6_MY_LOCATORS|loc{count}"')
+            cli_commands.append(f'sudo sonic-db-cli CONFIG_DB DEL '
+                                f'"SRV6_MY_SIDS|loc{count}|{Common_vars.sid_prefix}:{sid}::/48"')  # E231
             count += 1
+
+        logger.info(f'Batch removing SRv6 SIDs on DUT {dut.hostname}')
+        dut.shell('\n'.join(cli_commands))
 
     # Remove static routes on DUTs
     for dut in Common_vars.dut_hosts:
+        cli_commands = []
         for static_route in Common_vars.config_data[dut.hostname]['static_routes']:
             logger.info(f'DUT:{dut.hostname} -> sudo {static_route.replace("hset", "del")}')  # E231
 
             # Common_vars.dut_hosts[0].shell(f'sonic-db-cli CONFIG_DB del "STATIC_ROUTE|{route_lookup}"
             # nexthop {nexthop} ifname {ifname}')
-            dut.shell(f'sudo {static_route.replace("hset", "del")}')
+            cli_commands.append(f'sudo {static_route.replace("hset", "del")}')
+
+        logger.info(f'Batch removing static routes on DUT {dut.hostname}')
+        dut.shell('\n'.join(cli_commands))
 
     # Remove configured DUT links in between DUTs
     for dut in Common_vars.dut_hosts:
@@ -2234,6 +2302,7 @@ def remove_srv6_config(Common_vars):
         #     'switch-t1-2': ['Ethernet100', 'Ethernet101', 'Ethernet102', 'Ethernet103',
         #                     'Ethernet104', 'Ethernet105', 'Ethernet106', 'Ethernet107']
         # }
+        cli_commands = []
         for adjacent_dut, dut_ports in Common_vars.config_data[dut.hostname]['dut_link_port_connections'].items():
             for index, port in enumerate(dut_ports):
                 ip_address = Common_vars.config_data[dut.hostname]['dut_link_ip_addresses'][adjacent_dut][index]
@@ -2241,4 +2310,7 @@ def remove_srv6_config(Common_vars):
                 # {'dut': 'switch-t0-1', 'ip_address': '5010::1/64', 'local_dut_port': 'Ethernet128',
                 #  'port': 'Ethernet128'}
                 logger.info(f'DUT:{dut.hostname}: sudo config int ip remove {port} {ip_address}')  # E231
-                dut.shell(f'sudo config int ip remove {port} {ip_address}')
+                cli_commands.append(f'sudo config int ip remove {port} {ip_address}')
+
+            logger.info(f'Batch removing configured DUT links on DUT {dut.hostname}')
+            dut.shell('\n'.join(cli_commands))
