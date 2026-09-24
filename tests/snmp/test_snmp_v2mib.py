@@ -25,8 +25,8 @@ def test_snmp_v2mib(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds
     debian_ver = duthost.shell('cat /etc/debian_version')['stdout']
     cmd = 'docker exec snmp grep "sysContact" /etc/snmp/snmpd.conf'
     sys_contact = " ".join(duthost.shell(cmd)['stdout'].split()[1:])
-    sys_location = duthost.shell(
-        "grep 'snmp_location' /etc/sonic/snmp.yml")['stdout'].split()[-1]
+    cmd = 'docker exec snmp grep "sysLocation" /etc/snmp/snmpd.conf'
+    sys_location = " ".join(duthost.shell(cmd)['stdout'].split()[1:])
 
     expected_res = {'kernel_version': dut_facts['ansible_kernel'],
                     'hwsku': duthost.facts['hwsku'],

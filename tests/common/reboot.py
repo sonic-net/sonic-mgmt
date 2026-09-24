@@ -25,6 +25,7 @@ power_on_event = threading.Event()
 # SSH defines
 SONIC_SSH_PORT = 22
 SONIC_SSH_REGEX = 'OpenSSH_[\\w\\.]+ Debian'
+ANSIBLE_READY_INTERVAL = 10
 
 REBOOT_TYPE_WARM = "warm"
 REBOOT_TYPE_SAI_WARM = "sai-warm"
@@ -40,6 +41,11 @@ REBOOT_TYPE_ASIC = "asic"
 REBOOT_TYPE_KERNEL_PANIC = "Kernel Panic"
 REBOOT_TYPE_SUPERVISOR = "Reboot from Supervisor"
 REBOOT_TYPE_SUPERVISOR_HEARTBEAT_LOSS = "Heartbeat with the Supervisor card lost"
+
+# Grace margin (seconds) added to the elapsed-time bound when validating post-reboot
+# /proc/uptime. Absorbs the delay between issuing the reboot command and the DUT
+# actually going down, plus minor clock resolution differences.
+REBOOT_UPTIME_GRACE_SECONDS = 60
 
 # Event to signal DUT activeness
 DUT_ACTIVE = threading.Event()
@@ -74,7 +80,15 @@ reboot_ctrl_dict = {
         "wait": 90,
         "warmboot_finalizer_timeout": 180,
         "cause": "warm-reboot",
-        "test_reboot_cause_only": False
+        "test_reboot_cause_only": False,
+        "gnoi_api": {
+            "service": "gnoi.system.System",
+            "method": "Reboot",
+            "params": {
+                "method": 4,  # WARM Reboot
+                "message": "gNOI reboot test"
+            }
+        }
     },
     REBOOT_TYPE_WATCHDOG: {
         "command": "watchdogutil arm -s 5",
@@ -168,6 +182,12 @@ reboot_ss_ctrl_dict = {
         "wait": 120,
         "cause": "Watchdog",
         "test_reboot_cause_only": True
+    },
+    REBOOT_TYPE_POWEROFF: {
+        "timeout": 300,
+        "wait": 120,
+        "cause": "Power Loss",
+        "test_reboot_cause_only": True
     }
 }
 
@@ -206,7 +226,8 @@ def wait_for_shutdown(duthost, localhost, delay, timeout, reboot_res=None):
         raise Exception('DUT {} did not shutdown'.format(hostname))
 
 
-def wait_for_startup(duthost, localhost, delay, timeout, port=SONIC_SSH_PORT):
+def wait_for_startup(duthost, localhost, delay, timeout, port=SONIC_SSH_PORT,
+                     wait_for_ansible=True):
     # TODO: add serial output during reboot for better debuggability
     #       This feature requires serial information to be present in
     #       testbed information
@@ -228,6 +249,25 @@ def wait_for_startup(duthost, localhost, delay, timeout, port=SONIC_SSH_PORT):
             raise Exception(f'DUT {hostname} did not startup at first try. res: {res}')
 
     logger.info('ssh has started up on {}'.format(hostname))
+
+    # The DUT may use a different Python interpreter after reboot.
+    # Clear cached Ansible facts before any subsequent module execution.
+    duthost.meta("clear_facts")
+
+    if not wait_for_ansible:
+        return
+
+    logger.info('waiting for Ansible commands to become ready on {}'.format(hostname))
+
+    def is_ansible_ready():
+        result = duthost.command("true", module_ignore_errors=True)
+        return result.is_successful
+
+    if not wait_until(timeout, ANSIBLE_READY_INTERVAL, 0, is_ansible_ready):
+        raise Exception(
+            "DUT {} did not become ready for Ansible commands after SSH startup".format(hostname)
+        )
+    logger.info('Ansible commands are ready on {}'.format(hostname))
 
 
 def perform_reboot(duthost, pool, reboot_command, reboot_helper=None, reboot_kwargs=None, reboot_type='cold',
@@ -266,7 +306,6 @@ def perform_reboot(duthost, pool, reboot_command, reboot_helper=None, reboot_kwa
         logger.info('rebooting {} with helper "{}"'.format(hostname, reboot_helper))
         return reboot_helper(reboot_kwargs, power_on_event)
 
-    dut_datetime = duthost.get_now_time(utc_timezone=True)
     DUT_ACTIVE.clear()
 
     # Extend ignore fabric port msgs for T2 chassis with DNX chipset on Linecards
@@ -277,10 +316,12 @@ def perform_reboot(duthost, pool, reboot_command, reboot_helper=None, reboot_kwa
             reboot_res = pool.apply_async(execute_reboot_command)
         elif invocation_type == "gnoi_based":
             reboot_res = pool.apply_async(execute_gnoi_reboot_command)
+        else:
+            raise ValueError("Unsupported invocation_type: {}".format(invocation_type))
     else:
         assert reboot_helper is not None, "A reboot function must be provided for power off/on reboot"
         reboot_res = pool.apply_async(execute_reboot_helper)
-    return [reboot_res, dut_datetime]
+    return reboot_res
 
 
 def execute_reboot_smartswitch_command(duthost, reboot_type, hostname):
@@ -290,11 +331,13 @@ def execute_reboot_smartswitch_command(duthost, reboot_type, hostname):
 
 
 @support_ignore_loganalyzer
-def reboot_smartswitch(duthost, pool, reboot_type=REBOOT_TYPE_COLD):
+def reboot_smartswitch(duthost, pool, reboot_type=REBOOT_TYPE_COLD, reboot_helper=None, reboot_kwargs=None):
     """
     reboots SmartSwitch or a DPU
     :param duthost: DUT host object
     :param reboot_type: reboot type (cold)
+    :param reboot_helper: helper function to execute the power toggling (used for power off)
+    :param reboot_kwargs: arguments to pass to the reboot_helper
     """
 
     if reboot_type not in reboot_ss_ctrl_dict:
@@ -303,14 +346,19 @@ def reboot_smartswitch(duthost, pool, reboot_type=REBOOT_TYPE_COLD):
         return
 
     hostname = duthost.hostname
-    dut_datetime = duthost.get_now_time(utc_timezone=True)
 
     logging.info("Rebooting the DUT {} with type {}".format(hostname, reboot_type))
 
-    reboot_res = pool.apply_async(execute_reboot_smartswitch_command,
-                                  (duthost, reboot_type, hostname))
+    if reboot_type == REBOOT_TYPE_POWEROFF:
+        # Power-off is driven by the PDU physically cutting power, not a DUT command,
+        # so dispatch it through the reboot_helper the same way perform_reboot() does.
+        assert reboot_helper is not None, "A reboot function must be provided for power off/on reboot"
+        reboot_res = pool.apply_async(reboot_helper, (reboot_kwargs, power_on_event))
+    else:
+        reboot_res = pool.apply_async(execute_reboot_smartswitch_command,
+                                      (duthost, reboot_type, hostname))
 
-    return [reboot_res, dut_datetime]
+    return reboot_res
 
 
 def check_dshell_ready(duthost):
@@ -386,8 +434,13 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
         prev_reboot_cause_history = duthost.show_and_parse("show reboot-cause history")
 
     console_obj = None
+    # Set right before the reboot to tell a still-running console worker to stop
+    # writing to the DUT serial line (see below): console_thread_res.get(timeout=)
+    # does NOT cancel the ThreadPool task, so the worker can outlive the timeout.
+    reboot_started_event = threading.Event()
     console_thread_res = pool.apply_async(
-        collect_console_log, args=(duthost, localhost))
+        collect_console_log, args=(duthost, localhost),
+        kwds={"cancel_event": reboot_started_event})
 
     # Block and wait for console to be ready before starting reboot
     console_wait_max_seconds = 10
@@ -398,14 +451,23 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
         logger.warning(f"Console connection timed out or failed: {e}, proceeding with reboot anyway")
         console_obj = None
 
+    # The reboot is about to start. Signal any console worker still running its
+    # session preparation (the get(timeout=) above did not cancel it) to stop
+    # writing to the DUT: a late login/wake-up CR must not land in the bootloader
+    # autoboot window and trap the DUT -- the exact race this fix guards against.
+    reboot_started_event.set()
+
+    # Capture a monotonic timestamp on the test host right before issuing the reboot.
+    reboot_start_time = time.monotonic()
+
     # Perform reboot
     if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch") \
             and invocation_type != "gnoi_based":
-        reboot_res, dut_datetime = reboot_smartswitch(duthost, pool, reboot_type)
+        reboot_res = reboot_smartswitch(duthost, pool, reboot_type, reboot_helper, reboot_kwargs)
     else:
-        reboot_res, dut_datetime = perform_reboot(duthost, pool, reboot_command, reboot_helper,
-                                                  reboot_kwargs, reboot_type, invocation_type, localhost,
-                                                  ptf_gnoi=ptf_gnoi)
+        reboot_res = perform_reboot(duthost, pool, reboot_command, reboot_helper,
+                                    reboot_kwargs, reboot_type, invocation_type, localhost,
+                                    ptf_gnoi=ptf_gnoi)
 
     is_dpu_reboot = (invocation_type == "gnoi_based"
                      and ptf_gnoi is not None
@@ -422,20 +484,14 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
         return
 
     try:
-        wait_for_startup(duthost, localhost, delay, timeout)
+        wait_for_startup(
+            duthost, localhost, delay, timeout, wait_for_ansible=not return_after_reconnect)
     except Exception as err:
         if console_obj:
             console_obj.disconnect()
             logger.info('end: collect console log')
         pool.terminate()
         raise Exception(f"dut not start: {err}")
-
-    # NOTE: That once our device is back up it may be running a different version of SONiC/Debian
-    # than before which may include a different version of python. Therefore, to prevent python
-    # interpreter not found issues in subsequent Ansible modules as a result of using the
-    # pre-reboot cached interpreter value, we need to clear the cached facts so that they are
-    # re-gathered on next use.
-    duthost.meta("clear_facts")
 
     if return_after_reconnect:
         return
@@ -502,14 +558,22 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
         curr_reboot_cause_history = duthost.show_and_parse("show reboot-cause history")
         pytest_assert(prev_reboot_cause_history != curr_reboot_cause_history, "No new input into history-queue")
     else:
-        if float(dut_uptime.strftime("%s")) < float(dut_datetime.strftime("%s")):
-            logger.info('DUT {} timestamp went backwards'.format(hostname))
-            wait_until(120, 5, 0, positive_uptime, duthost, dut_datetime)
-
-        dut_uptime = duthost.get_up_time()
-
-        assert float(dut_uptime.strftime("%s")) > float(dut_datetime.strftime("%s")), "Device {} did not reboot". \
-            format(hostname)
+        # Use /proc/uptime (monotonic, immune to RTC drift and NTP sync delays)
+        # to verify the device rebooted. A freshly-rebooted device must have an uptime
+        # less than the time we have spent since issuing the reboot (measured on the test
+        # host). Deriving the bound from the elapsed wall time keeps it correct across all
+        # post-reboot wait paths (safe_reboot, interface/dshell checks, warmboot-finalizer)
+        # instead of assuming a static timeout + wait budget. A grace margin absorbs the
+        # small delay between issuing the command and the DUT actually going down.
+        elapsed_since_reboot = time.monotonic() - reboot_start_time
+        max_expected_uptime = elapsed_since_reboot + REBOOT_UPTIME_GRACE_SECONDS
+        uptime_seconds = duthost.get_uptime().total_seconds()
+        logger.info('DUT {} uptime after reboot: {:.1f}s (max expected: {:.1f}s)'.format(
+            hostname, uptime_seconds, max_expected_uptime))
+        pytest_assert(
+            uptime_seconds < max_expected_uptime,
+            "Device {} did not reboot: uptime {:.0f}s exceeds max expected {:.0f}s".format(
+                hostname, uptime_seconds, max_expected_uptime))
 
     if wait_for_bgp:
         bgp_neighbors = duthost.get_bgp_neighbors_per_asic(state="all")
@@ -531,14 +595,6 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
             wait_until(wait + 300, 10, 0, duthost.check_bgp_session_state_all_asics, bgp_neighbors),
             "Not all bgp sessions are established after reboot",
         )
-
-
-def positive_uptime(duthost, dut_datetime):
-    dut_uptime = duthost.get_up_time()
-    if float(dut_uptime.strftime("%s")) < float(dut_datetime.strftime("%s")):
-        return False
-
-    return True
 
 
 def get_reboot_cause(dut):
@@ -746,17 +802,18 @@ def check_determine_reboot_cause_service(dut):
             Current sub-state: {sub_state}"
 
 
-def try_create_dut_console(duthost, localhost, conn_graph_facts, creds):
+def try_create_dut_console(duthost, localhost, conn_graph_facts, creds, cancel_event=None):
     try:
-        dut_sonsole = create_duthost_console(duthost, localhost, conn_graph_facts, creds)
+        dut_console = create_duthost_console(duthost, localhost, conn_graph_facts, creds,
+                                             cancel_event=cancel_event)
     except Exception as err:
         logger.warning(f"Fail to create dut console. Please check console config or if console works or not. {err}")
         return None
     logger.info("creating dut console succeeds")
-    return dut_sonsole
+    return dut_console
 
 
-def collect_console_log(duthost, localhost):
+def collect_console_log(duthost, localhost, cancel_event=None):
     """
     Collect console log during reboot.
 
@@ -766,13 +823,17 @@ def collect_console_log(duthost, localhost):
     Args:
         duthost: DUT host object
         localhost: localhost object
+        cancel_event: optional threading.Event the caller sets right before it
+            reboots the DUT. Once set, the console connection stops writing to the
+            DUT serial line so a late CR cannot interrupt bootloader autoboot.
 
     Returns:
         ConsoleHost object if successful, None otherwise
     """
     creds = creds_on_dut(duthost)
     conn_graph_facts = get_graph_facts(duthost, localhost, [duthost.hostname])
-    dut_console = try_create_dut_console(duthost, localhost, conn_graph_facts, creds)
+    dut_console = try_create_dut_console(duthost, localhost, conn_graph_facts, creds,
+                                         cancel_event=cancel_event)
     if dut_console:
         logger.info("Console connection established successfully")
     else:
@@ -848,6 +909,17 @@ def collect_mgmt_config_by_console(duthost, localhost):
     conn_graph_facts = get_graph_facts(duthost, localhost, [duthost.hostname])
     dut_console = try_create_dut_console(duthost, localhost, conn_graph_facts, creds)
     if dut_console:
+        # try_create_dut_console may hand back a console that deferred its
+        # session preparation because the DUT was still in the bootloader/boot
+        # stage. Such an object has no established prompt, so send_command would
+        # just time out (and, historically, could nudge the bootloader). Skip the
+        # console commands in that case rather than driving a half-initialized
+        # session.
+        if getattr(dut_console, "_bootloader_deferred", False):
+            logger.warning("DUT appears stuck in bootloader/boot stage; "
+                           "skipping console mgmt-config commands")
+            dut_console.disconnect()
+            return
         dut_console.send_command("ip a s eth0")
         dut_console.send_command("show ip int")
         dut_console.disconnect()

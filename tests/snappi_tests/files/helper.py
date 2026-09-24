@@ -4,9 +4,10 @@ import pytest
 import json
 from itertools import cycle
 from tests.common.broadcom_data import is_broadcom_device
-from tests.common.helpers.assertions import pytest_require
+from tests.common.helpers.assertions import pytest_require, pytest_assert
 from tests.common.cisco_data import is_cisco_device
 from tests.common.nokia_data import is_nokia_device
+from tests.common.nexthop_data import NexthopPlatform
 from tests.snappi_tests.variables import MULTIDUT_PORT_INFO, MULTIDUT_TESTBED
 from tests.common.config_reload import config_reload
 from tests.common.reboot import reboot
@@ -36,19 +37,27 @@ def skip_warm_reboot(duthost, reboot_type):
     """
     SKIP_LIST = ["td2", "jr2", "j2c+"]
     asic_type = duthost.get_asic_name()
-    reboot_case_supported = True
+    # Each branch states the check it actually applied, so the skip log points at
+    # the real gate instead of a generic vendor-wide claim.
+    skip_reason = None
     if (reboot_type == "fast") and asic_type in ["jr2", "j2c+"]:
-        reboot_case_supported = False
+        skip_reason = "Reboot type {} is not supported on {} asics".format(reboot_type, asic_type)
     elif (reboot_type == "warm" or reboot_type == "fast") and is_cisco_device(duthost):
-        reboot_case_supported = False
+        skip_reason = "Reboot type {} is not supported on Cisco switches".format(reboot_type)
     elif (reboot_type == "warm" or reboot_type == "fast") and is_nokia_device(duthost):
-        reboot_case_supported = False
+        skip_reason = "Reboot type {} is not supported on Nokia switches".format(reboot_type)
+    elif reboot_type in ("warm", "fast") and \
+            not NexthopPlatform(duthost).supports("{}_reboot".format(reboot_type)):
+        skip_reason = "Reboot type {} is not supported on hwsku {}".format(
+            reboot_type, duthost.facts['hwsku'])
     elif is_broadcom_device(duthost) and asic_type in SKIP_LIST and "warm" in reboot_type:
-        reboot_case_supported = False
-    msg = "Reboot type {} is {} supported on {} switches".format(
-            reboot_type, "" if reboot_case_supported else "not", duthost.facts['asic_type'])
-    logger.info(msg)
-    pytest_require(reboot_case_supported, msg)
+        skip_reason = "Reboot type {} is not supported on {} asics".format(reboot_type, asic_type)
+    if skip_reason is None:
+        logger.info("Reboot type %s is supported on %s (hwsku %s)",
+                    reboot_type, duthost.hostname, duthost.facts['hwsku'])
+    else:
+        logger.info(skip_reason)
+    pytest_require(skip_reason is None, skip_reason or "")
 
 
 def skip_ecn_tests(duthost):
@@ -446,6 +455,12 @@ def get_npu_voq_queue_counters(duthost, interface, priority, clear=False):
     return dict_output
 
 
+def _dut_can_reach(duthost, ip):
+    """Return True if DUT can ping the given IP (used to verify ASIC forwarding readiness)."""
+    result = duthost.shell("ping -c 1 -W 2 {}".format(ip), module_ignore_errors=True)
+    return result.get('rc', 1) == 0
+
+
 @pytest.fixture(params=['warm', 'cold', 'fast'])
 def reboot_duts_and_disable_wd(tgen_port_info, localhost, request):
     '''
@@ -470,6 +485,21 @@ def reboot_duts_and_disable_wd(tgen_port_info, localhost, request):
     # Convert the list of duthosts into a list of tuples as required for parallel func.
     args = set((snappi_ports[0]['duthost'], snappi_ports[1]['duthost']))
     parallel_run(save_config_and_reboot, {}, {}, list(args), timeout=900)
+
+    # Warm/fast reboot completes the control plane quickly, but the ASIC forwarding
+    # plane may still be initializing (orchagent syncing routes/ARP to ASIC).
+    # Verify that each DUT can actually reach the TGEN test IP before the test starts,
+    # so traffic doesn't begin before end-to-end forwarding is ready.
+    if reboot_type in ('warm', 'fast'):
+        logger.info("Verifying L3 forwarding plane is ready after {} reboot ...".format(reboot_type))
+        for port in snappi_ports:
+            tgen_ip = port['ip']
+            duthost = port['duthost']
+            pytest_assert(
+                wait_until(120, 5, 0, _dut_can_reach, duthost, tgen_ip),
+                "DUT {} cannot reach TGEN {} after {} reboot — "
+                "forwarding plane not ready".format(duthost.hostname, tgen_ip, reboot_type)
+            )
 
     pfcwd_value = {}
 

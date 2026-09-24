@@ -225,7 +225,7 @@ def _toggle_cmd(dut, intfs, state):
     toggled_intfs = []
 
     logger.info('Setting {} as {} for intfs {}'.format(dut, state, intfs))
-    if type(intfs) == str:
+    if isinstance(intfs, str):
         cmds = ["config muxcable mode {} {}; true".format(state, intfs)]
         toggled_intfs.append((dut, intfs))
     else:

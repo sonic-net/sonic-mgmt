@@ -82,6 +82,42 @@ sonic-db-cli CONFIG_DB hget 'PORT|<port_name>' dom_polling
 | 6 | DOM polling enabled validation in CONFIG_DB | 1. For each port in `port_attributes_dict`, determine whether it is the first subport of its breakout group (i.e., `host_lane_mask` in BASE_ATTRIBUTES indicates it owns the first host lane). Skip the port if it is not the first subport of a breakout group.<br>2. Query `sonic-db-cli CONFIG_DB hget 'PORT\|<port>' dom_polling` to retrieve the DOM polling setting.<br>3. If the field is absent, treat DOM polling as enabled (per SONiC default behaviour) and pass.<br>4. If the field is present and equals `"enabled"`, pass.<br>5. If the field is present and equals `"disabled"`, record a failure.<br>6. Aggregate all failures and report at the end. | 1. For all first subports of breakout groups (and non-breakout ports), the `dom_polling` field in CONFIG_DB PORT table is either absent or set to `"enabled"`.<br>2. Any port with `dom_polling` explicitly set to `"disabled"` is identified and logged as a misconfiguration — DOM data will not be populated in STATE_DB for that port, causing DOM tests to fail. |
 | 7 | Subport field validation in CONFIG_DB | 1. For each port in `port_attributes_dict`, determine its physical port index and group logical ports that share the same physical index.<br>2. For each physical port group:<br>   a. If the group contains exactly 1 logical port (non-breakout): verify that the `subport` field is either absent or set to `"0"`. If `subport` is present and set to any other value, record a failure.<br>   b. If the group contains more than 1 logical port (breakout): verify that the `subport` field is present for every logical port in the group. If `subport` is missing for any logical port, record a failure.<br>3. Aggregate all failures and report at the end. | 1. For non-breakout physical ports (1 logical port): `subport` is either absent or `"0"` in CONFIG_DB.<br>2. For breakout physical ports (>1 logical port): `subport` is present for every logical port in the group.<br>3. Any violations are identified and logged with the physical port index, logical port name, and the actual `subport` value (or its absence). |
 
+### Scenario Coverage Test Cases
+
+These validate that per-port configuration **persists** across disruptive operations, following the
+shared [Scenario Coverage Test-Case Template](scenario_test_template.md). The reusable verifier
+`verify_port_config_recovered(duthost, ports=None)` re-runs the CONFIG_DB comparisons from
+[Port Configuration and Status Validation](#port-configuration-and-status-validation) (admin status,
+speed, FEC, MTU, autoneg, DOM polling, subport) against their expected values from `BASE_ATTRIBUTES`
+/ `PORT_CONFIG_ATTRIBUTES` for every port under test, aggregating failures.
+
+Port configuration is **absolute** (expected values are known from the inventory, so no baseline
+capture is needed) and **link-independent** (all checks are read-only CONFIG_DB queries). Recovery
+therefore does **not** run the Standard Port Recovery and Verification Procedure — each scenario only
+polls (via `wait_until`) for the DUT and CONFIG_DB to return before verifying. Settle timers reuse the
+System plan's `*_settle_sec` attributes.
+
+**Applicability:** Only operations that reload configuration are in scope (a persistence check).
+Operations that leave stored config untouched are marked N/A.
+
+| Scenario | Applicable? | Scenario TC | Notes |
+|----------|:-----------:|:-----------:|-------|
+| Shut / no-shut | — | — | transient `admin_status` change at runtime, not a persistence concern |
+| Cold reboot | ✅ | S1 | |
+| Warm reboot | ✅ | S2 | gate on `warm_reboot_supported` |
+| Fast reboot | ✅ | S3 | gate on `fast_reboot_supported` |
+| Config reload | ✅ | S4 | reload from `config_db.json` — the primary persistence check |
+| Daemon/docker restart | — | — | swss/syncd restart re-reads and **re-applies** config _from_ CONFIG_DB (CONFIG_DB→APPL_DB→ASIC_DB) but does **not** modify CONFIG_DB itself, so the values this plan checks are unchanged; the runtime re-application/recovery is covered by [System Process/Service Restart TCs](system_test_plan.md#process-and-service-restart-test-cases) |
+| sfputil reset | — | — | a transceiver reset does not touch port configuration |
+| LPM toggle | — | — | low-power mode does not touch port configuration |
+
+| TC No. | Test | Steps | Expected Results |
+|--------|------|-------|------------------|
+| S1 | Port config persistence after cold reboot | 1. **Pre-check**: confirm a clean state with `verify_port_config_recovered(duthost)`.<br>2. **Operate**: `perform_cold_reboot(duthost)` (shared helper — not inlined).<br>3. **Recover**: poll (via `wait_until`) up to `cold_reboot_settle_sec` for the DUT to return and CONFIG_DB to be populated (no link-up wait — checks are read-only).<br>4. **Verify**: `verify_port_config_recovered(duthost)` — all configured ports still match their expected admin status, speed, FEC, MTU, autoneg, DOM polling, and subport values. Aggregate failures and report at the end. | After cold reboot every port's CONFIG_DB parameters still match the expected inventory values; no configuration is lost or altered. |
+| S2 | Port config persistence after warm reboot | Same as S1 using `perform_warm_reboot(duthost)` and `warm_reboot_settle_sec`. Skip if `warm_reboot_supported` is false. | Same expectations as S1, following a warm reboot. |
+| S3 | Port config persistence after fast reboot | Same as S1 using `perform_fast_reboot(duthost)` and `fast_reboot_settle_sec`. Skip if `fast_reboot_supported` is false. | Same expectations as S1, following a fast reboot. |
+| S4 | Port config persistence after config reload | Same as S1 using `perform_config_reload(duthost)` and `config_reload_settle_sec`. This is the primary persistence check — config is reloaded from `config_db.json`. | Same expectations as S1, following a config reload. |
+
 ## Cleanup and Post-Test Verification
 
 The following steps are performed once after **all test cases** in this plan have completed. The [Common Per-Test Health Checks](test_plan.md#common-per-test-health-checks) already cover ongoing health monitoring throughout the run.

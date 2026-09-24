@@ -285,7 +285,7 @@ steps:
       # Enable verbose debugging output for the creation call in test_plan.py
       set -x
 
-      python ./.azure-pipelines/test_plan.py create \
+      python3 ./.azure-pipelines/test_plan.py create \
       -t ${{ parameters.TOPOLOGY }} \
       -o new_test_plan_id.txt \
       --min-worker ${{ parameters.MIN_WORKER }} \
@@ -371,7 +371,7 @@ steps:
           echo -e "\033[33mfor detailed test plan progress \033[0m"
           # When "LOCK_TESTBED" finish, it changes into "PREPARE_TESTBED"
           echo "[test_plan.py] poll LOCK_TESTBED status"
-          python ./.azure-pipelines/test_plan.py poll -i $TEST_PLAN_ID --expected-state LOCK_TESTBED
+          python3 ./.azure-pipelines/test_plan.py poll -i $TEST_PLAN_ID --expected-state LOCK_TESTBED
           RET=$?
           if [ $RET -ne 0 ]; then
               ((failure_count++))
@@ -405,7 +405,7 @@ steps:
           echo -e "\033[33mfor detailed test plan progress \033[0m"
           # When "PREPARE_TESTBED" finish, it changes into "EXECUTING"
           echo "[test_plan.py] poll PREPARE_TESTBED status"
-          python ./.azure-pipelines/test_plan.py poll -i $TEST_PLAN_ID --expected-state PREPARE_TESTBED
+          python3 ./.azure-pipelines/test_plan.py poll -i $TEST_PLAN_ID --expected-state PREPARE_TESTBED
           RET=$?
           if [ $RET -ne 0 ]; then
               ((failure_count++))
@@ -438,7 +438,7 @@ steps:
           echo -e "\033[33mfor detailed test plan progress \033[0m"
           # When "EXECUTING" finish, it changes into "KVMDUMP", "FAILED", "CANCELLED" or "FINISHED"
           echo "[test_plan.py] poll EXECUTING status"
-          python ./.azure-pipelines/test_plan.py poll -i $TEST_PLAN_ID --expected-state EXECUTING --expected-result ${{ parameters.EXPECTED_RESULT }}
+          python3 ./.azure-pipelines/test_plan.py poll -i $TEST_PLAN_ID --expected-state EXECUTING --expected-result ${{ parameters.EXPECTED_RESULT }}
           RET=$?
           if [ $RET -ne 0 ]; then
               ((failure_count++))
@@ -462,7 +462,7 @@ steps:
       IFS=',' read -ra TEST_PLAN_ID_LIST <<< "$TEST_PLAN_ID_LIST_STRING"
       for TEST_PLAN_ID in "${TEST_PLAN_ID_LIST[@]}"
       do
-          python ./.azure-pipelines/test_plan.py cancel -i $TEST_PLAN_ID
+          python3 ./.azure-pipelines/test_plan.py cancel -i $TEST_PLAN_ID
       done
     condition: always()
     displayName: "Finalize Running Test Plan"

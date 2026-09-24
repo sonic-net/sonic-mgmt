@@ -685,7 +685,7 @@ def get_intf_by_sub_intf(sub_intf, vlan_id=None):
     Returns:
         str: interface name, e.g. Ethernet100
     """
-    if type(sub_intf) != str:
+    if not isinstance(sub_intf, str):
         sub_intf = str(sub_intf)
 
     if not vlan_id:
@@ -1553,14 +1553,17 @@ def reload_minigraph_with_golden_config(duthost, json_data, safe_reload=True):
     for multi-asic/single-asic devices, we only have 1 golden_config_db.json
     """
     from tests.common.config_reload import config_reload
-    golden_config = "/etc/sonic/golden_config_db.json"
+    golden_config = constants.GOLDEN_CONFIG_DB_PATH
     duthost.copy(content=json.dumps(json_data, indent=4), dest=golden_config)
     try:
         config_reload(duthost, config_source="minigraph", safe_reload=safe_reload, override_config=True,
                       wait_for_bgp=True)
     finally:
-        # Cleanup golden config because some other test or device recover may reload config with golden config
+        # Cleanup golden config because some other test or device recover may reload config with golden config,
+        # then restore the original golden config.
         duthost.command('mv {} {}_backup'.format(golden_config, golden_config))
+        if file_exists_on_dut(duthost, constants.GOLDEN_CONFIG_DB_PATH_ORI):
+            duthost.command('cp {} {}'.format(constants.GOLDEN_CONFIG_DB_PATH_ORI, golden_config))
 
 
 def file_exists_on_dut(duthost, filename):

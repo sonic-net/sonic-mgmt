@@ -20,8 +20,8 @@ from tests.common.utilities import wait_until, get_plt_reboot_ctrl
 from tests.common.utilities import wait_tcp_connection
 from tests.common.utilities import is_ipv6_only_topology
 from tests.common import config_reload
-from bgp_helpers import define_config, apply_default_bgp_config, DUT_TMP_DIR, TEMPLATE_DIR, BGP_PLAIN_TEMPLATE,\
-    BGP_NO_EXPORT_TEMPLATE, DUMP_FILE, CUSTOM_DUMP_SCRIPT, CUSTOM_DUMP_SCRIPT_DEST,\
+from bgp_helpers import define_config, apply_default_bgp_config, DUT_TMP_DIR, TEMPLATE_DIR, BGP_PLAIN_TEMPLATE, \
+    BGP_NO_EXPORT_TEMPLATE, DUMP_FILE, CUSTOM_DUMP_SCRIPT, CUSTOM_DUMP_SCRIPT_DEST, \
     BGPMON_TEMPLATE_FILE, BGPMON_CONFIG_FILE, BGP_MONITOR_NAME, BGP_MONITOR_PORT
 from tests.common.helpers.constants import ARP_RESPONDER_DEFAULT_CONFIG, DEFAULT_NAMESPACE
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
@@ -623,7 +623,7 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
         setup_func = _setup_interfaces_dualtor
     elif tbinfo["topo"]["type"] in ["t0", "mx"]:
         setup_func = _setup_interfaces_t0_or_mx
-    elif tbinfo["topo"]["type"] in set(["t1", "t2", "m1", "lt2", "ft2", "c0", "lrh", "urh"]):
+    elif tbinfo["topo"]["type"] in set(["t1", "t2", "m1", "lt2", "ft2", "c0", "lrh", "urh", "lma", "uma"]):
         setup_func = _setup_interfaces_t1_t2_drh
     elif tbinfo["topo"]["type"] == "m0":
         if topo_scenario == "m0_l3_scenario":
@@ -722,11 +722,19 @@ def bgpmon_setup_teardown(ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_ho
         'peer_name': BGP_MONITOR_NAME
     }
     bgpmon_template = Template(open(BGPMON_TEMPLATE_FILE).read())
+    asichost = duthost.asic_instance_from_namespace(connection['namespace'])
+    # Match bgpcfgd's same-AS monitor template.
+    monitor_asn = int(asichost.run_sonic_db_cli_cmd(
+        "CONFIG_DB HGET 'DEVICE_METADATA|localhost' bgp_asn"
+    )["stdout"])
+    pt_assert(
+        0 < monitor_asn <= 0xFFFFFFFF,
+        "DEVICE_METADATA|localhost bgp_asn must be a valid 32-bit ASN, got {}".format(monitor_asn)
+    )
     duthost.copy(content=bgpmon_template.render(**bgpmon_args),
                  dest=BGPMON_CONFIG_FILE)
     # Start bgpmon on DUT
     logger.info("Starting bgpmon on DUT")
-    asichost = duthost.asic_instance_from_namespace(connection['namespace'])
     asichost.write_to_config_db(BGPMON_CONFIG_FILE)
 
     logger.info("Starting bgp monitor session on PTF")
@@ -750,8 +758,8 @@ def bgpmon_setup_teardown(ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_ho
                    local_ip=peer_addr,
                    router_id=router_id,
                    peer_ip=dut_lo_addr,
-                   local_asn=asn,
-                   peer_asn=asn,
+                   local_asn=monitor_asn,
+                   peer_asn=monitor_asn,
                    port=BGP_MONITOR_PORT,
                    dump_script=CUSTOM_DUMP_SCRIPT_DEST)
 
@@ -851,6 +859,7 @@ def config_bgp_suppress_fib(duthosts, rand_one_dut_hostname, request):
         logger.info('Enable BGP suppress fib pending function')
         duthost.shell('sudo config suppress-fib-pending enabled')
         duthost.shell('sudo config save -y')
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
     yield
 
@@ -858,6 +867,7 @@ def config_bgp_suppress_fib(duthosts, rand_one_dut_hostname, request):
         logger.info('Disable BGP suppress fib pending function')
         duthost.shell('sudo config suppress-fib-pending disabled')
         duthost.shell('sudo config save -y')
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
 
 @pytest.fixture(scope="module")

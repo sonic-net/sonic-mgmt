@@ -93,6 +93,19 @@ def is_dac(eeprom_attrs):
     return isinstance(cable_type, str) and cable_type.strip().upper() == "DAC"
 
 
+def is_cmis_active_optical(eeprom_attrs):
+    """True if the module is CMIS **active optical** (``cmis_active_optical`` true).
+
+    CMIS active-optical modules publish the dynamic DataPath fields
+    (``active_apsel_hostlane*`` and lane counts) that passive-copper / flat-memory
+    and non-CMIS modules do not, so several tests scope to these ports. The
+    ``cmis_revision``-based :func:`classify` gate ensures a stray
+    ``cmis_active_optical`` on a non-CMIS entry does not qualify.
+    """
+    return (classify(eeprom_attrs) is ModuleFamily.CMIS
+            and bool(eeprom_attrs.get("cmis_active_optical")))
+
+
 def extract_ascii_field(page_data, start_addr, length):
     """Extract a fixed-width ASCII string from a hexdump page byte map.
 

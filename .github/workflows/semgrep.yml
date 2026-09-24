@@ -2,6 +2,8 @@ name: Semgrep
 
 on:
   pull_request: {}
+  merge_group:
+    types: [checks_requested]
   push:
     branches:
       - master
@@ -17,6 +19,13 @@ jobs:
       image: returntocorp/semgrep
     steps:
       - uses: actions/checkout@v3
-      - run: semgrep ci
+        with:
+          fetch-depth: 0
+      - run: |
+          if [ "$GITHUB_EVENT_NAME" = "merge_group" ]; then
+            export SEMGREP_BASELINE_COMMIT="$MERGE_GROUP_BASE_SHA"
+          fi
+          semgrep ci
         env:
-           SEMGREP_RULES: p/default
+          MERGE_GROUP_BASE_SHA: ${{ github.event.merge_group.base_sha }}
+          SEMGREP_RULES: p/default
