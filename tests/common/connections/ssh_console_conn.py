@@ -102,7 +102,7 @@ class SSHConsoleConn(BaseConsoleConn):
                 "Reboot started; aborting console write to keep bootloader autoboot intact")
         return super(SSHConsoleConn, self).write_channel(out)
 
-    def switch_to_host_console(self, command="sudo consutil connect 0"):
+    def switch_to_host_console(self, command):
         """Connect from the BMC shell to the host CPU console and log in."""
         self.write_channel(command + self.RETURN)
         time.sleep(1 * self.select_delay_factor(1))
