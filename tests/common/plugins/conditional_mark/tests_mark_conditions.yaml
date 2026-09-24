@@ -5383,6 +5383,11 @@ snmp/test_snmp_lldp.py::test_snmp_lldp:
     reason: "ipv6 mgmt ip is not supported"
     conditions:
       - "is_mgmt_ipv6_only==True"
+  xfail:
+    reason: "LLDP-MIB local data is intermittently absent in KVM t0 PR runs; tracked by https://dev.azure.com/msazure/One/_workitems/edit/39500051"
+    strict: false
+    conditions:
+      - "release == 'master' and topo_name == 't0' and asic_type == 'vs'"
 
 snmp/test_snmp_loopback.py::test_snmp_loopback:
   skip:
