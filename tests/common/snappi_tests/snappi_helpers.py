@@ -59,7 +59,7 @@ class SnappiFanoutManager():
                 u'ManagementGw': u'10.36.78.54',
                 u'ManagementIp': u'10.36.78.53/32',
                 u'Type': u'DevSnappiChassis',
-                u'mgmtip': u'10.36.78.53'
+                u'ManagementIp': u'10.36.78.53'
             },
             u'device_port_vlans': {
                 u'Card9/Port1': {
@@ -135,7 +135,7 @@ class SnappiFanoutManager():
             self.fanout_list[self.last_fanout_assessed]['device_linked_ports']
 
         # Chassis ip details
-        chassis_ip = self.fanout_list[self.last_fanout_assessed]['device_info']['mgmtip']
+        chassis_ip = self.fanout_list[self.last_fanout_assessed]['device_info']['ManagementIp']
         self.ip_address = ansible_stdout_to_str(chassis_ip)
 
         # List of chassis cards and ports
@@ -260,7 +260,7 @@ def get_dut_port_id(dut_hostname, dut_port, conn_data, fanout_data):
                                             dut_hostname=dut_hostname)
 
     if snappi_fanout is None:
-        return None
+        raise RuntimeError(f"Couldn't get a snappi fanout for dut: {dut_hostname}")
     snappi_fanout = snappi_fanout[0]
     snappi_fanout_id = list(fanout_data.keys()).index(snappi_fanout)
     snappi_fanout_list = SnappiFanoutManager(fanout_data)
@@ -272,7 +272,7 @@ def get_dut_port_id(dut_hostname, dut_port, conn_data, fanout_data):
         if snappi_ports[i]['peer_port'] == dut_port:
             return i
 
-    return None
+    raise RuntimeError(f"Couldn't find a dut_port_id for these arguments:{dut_hostname}, {dut_port}")
 
 
 def wait_for_arp(snappi_api, max_attempts=10, poll_interval_sec=1):

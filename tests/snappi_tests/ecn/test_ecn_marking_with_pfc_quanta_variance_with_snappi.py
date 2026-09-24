@@ -7,19 +7,91 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_grap
                 fanout_graph_facts_multidut         # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
     snappi_api, snappi_dut_base_config, get_snappi_ports, get_snappi_ports_for_rdma, cleanup_config, \
-    is_snappi_multidut, get_snappi_ports_multi_dut, get_snappi_ports_single_dut   # noqa: F401
+    is_snappi_multidut, get_snappi_ports_multi_dut, get_snappi_ports_single_dut, \
+    snappi_port_selection, tgen_port_info   # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, \
     lossless_prio_list, disable_pfcwd   # noqa: F401
-from tests.snappi_tests.files.helper import multidut_port_info, setup_ports_and_dut, enable_debug_shell  # noqa: F401
 from tests.snappi_tests.ecn.files.helper import run_ecn_marking_with_pfc_quanta_variance
+from tests.common.snappi_tests.common_helpers import config_wred, get_wred_profiles
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 logger = logging.getLogger(__name__)
 pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(autouse=True, scope='module')
 def number_of_tx_rx_ports():
     yield (1, 1)
+
+
+@pytest.fixture
+def restore_wred_ecn_config(tgen_port_info, snappi_api):    # noqa: F811
+    """
+    Capture the WRED/ECN profile thresholds before the test runs and restore
+    them after it completes.
+
+    The quanta variance test modifies the WRED/ECN profiles on the DUT. Without
+    restoring them, the DUT is left in a state that breaks subsequent ECN tests.
+    This fixture also resets the traffic generator config so no stale flows are
+    left transmitting on the tester.
+    """
+    _, _, snappi_ports = tgen_port_info
+    duthost = snappi_ports[0]['duthost']
+    dut_port = snappi_ports[0]['peer_port']
+
+    asic_namespace = None
+    if duthost.is_multi_asic:
+        asic = duthost.get_port_asic_instance(dut_port)
+        asic_namespace = asic.namespace
+
+    color = 'green'
+    if "platform_asic" in duthost.facts and duthost.facts["platform_asic"] == "broadcom-dnx":
+        color = 'red'
+
+    original_wred_profiles = get_wred_profiles(host_ans=duthost, asic_value=asic_namespace)
+
+    yield
+
+    # Restore the original WRED/ECN thresholds so that subsequent tests
+    # start from a clean DUT state.
+    if original_wred_profiles:
+        logger.info("Restoring original WRED/ECN thresholds")
+        for profile_name, profile in original_wred_profiles.items():
+            try:
+                kmin_old = int(profile['{}_min_threshold'.format(color)])
+                kmax_old = int(profile['{}_max_threshold'.format(color)])
+                kdrop_old = int(profile['{}_drop_probability'.format(color)])
+            except (KeyError, ValueError):
+                logger.warning("Could not parse original thresholds for WRED profile {}".format(profile_name))
+                continue
+
+            restore_result = config_wred(host_ans=duthost,
+                                         kmin=kmin_old,
+                                         kmax=kmax_old,
+                                         pmax=0,
+                                         kdrop=kdrop_old,
+                                         profile=profile_name,
+                                         asic_value=asic_namespace)
+            if restore_result is not True:
+                logger.warning("Failed to restore WRED profile {}".format(profile_name))
+
+    # Reset the traffic generator config so that no stale flows are left
+    # transmitting on the tester after this test completes. Explicitly stop
+    # transmission first: if the test aborted early the flows may still be
+    # running, and set_config() alone is not guaranteed to halt them before
+    # the tgen_port_info fixture removes the DUT static route/ARP entry for
+    # their destination, which would leave the tester sending to an
+    # unrouted destination.
+    try:
+        cs = snappi_api.control_state()
+        cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.STOP
+        snappi_api.set_control_state(cs)
+    except Exception as exc:
+        logger.error("Failed to stop traffic generator flows before cleanup: {}".format(exc))
+
+    try:
+        snappi_api.set_config(snappi_api.config())
+    except Exception as exc:
+        logger.warning("Failed to reset traffic generator config: {}".format(exc))
 
 
 # tuple of -gmin in MB, -gmax in MB and -gdrop in percentage
@@ -37,7 +109,8 @@ def test_ecn_marking_with_pfc_quanta_variance(
                                 tbinfo,      # noqa: F811
                                 test_ecn_config,
                                 prio_dscp_map,  # noqa: F811
-                                setup_ports_and_dut):                    # noqa: F811
+                                tgen_port_info,
+                                restore_wred_ecn_config):                    # noqa: F811
 
     """
     Verify ECN marking on lossless prio with varying XOFF quanta
@@ -56,7 +129,7 @@ def test_ecn_marking_with_pfc_quanta_variance(
         N/A
     """
 
-    testbed_config, port_config_list, snappi_ports = setup_ports_and_dut
+    testbed_config, port_config_list, snappi_ports = tgen_port_info
     log_file_path = request.config.getoption("--log-file", default=None)
 
     logger.info("Snappi Ports : {}".format(snappi_ports))

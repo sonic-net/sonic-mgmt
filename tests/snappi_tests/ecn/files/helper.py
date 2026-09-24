@@ -5,7 +5,7 @@ import os
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts             # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
-     snappi_api                                                                                     # noqa: F401
+     snappi_api, wait_for_static_routes_reinstall                                                   # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import get_dut_port_id
 from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector, config_wred, \
     enable_ecn, config_ingress_lossless_buffer_alpha, stop_pfcwd, disable_packet_aging,\
@@ -610,7 +610,7 @@ def run_ecn_marking_port_toggle_test(
     tx_port_1 = snappi_extra_params.multi_dut_params.multi_dut_ports[1]
     ingress_duthost_1 = tx_port_1['duthost']
 
-    tx_port_2 = snappi_extra_params.multi_dut_params.multi_dut_ports[1]
+    tx_port_2 = snappi_extra_params.multi_dut_params.multi_dut_ports[2]
     ingress_duthost_2 = tx_port_2['duthost']
 
     # Append the duthost here for run_traffic to clear its counters
@@ -688,6 +688,11 @@ def run_ecn_marking_port_toggle_test(
 
     # Toggle port state
     toggle_dut_port_state(api)
+
+    # The static routes to the test destinations are tied to the nexthop
+    # interface that was just bounced; wait for them to reinstall before
+    # sending traffic again, instead of racing the DUT's reconvergence.
+    wait_for_static_routes_reinstall()
 
     link_state_toggled = True
 
