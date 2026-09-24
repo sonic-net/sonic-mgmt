@@ -8,13 +8,11 @@ topology:
     - 5
     - 6
     - 7
-  VMs: {}
 
 configuration: {}
 
 configuration_properties:
   common:
     dut_type: SonicHost
-    dut_asn: 65100
     nhipv4: 10.10.1.254
     nhipv6: "fc00::ff"
