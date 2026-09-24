@@ -69,7 +69,7 @@ from tests.common.utilities import get_duts_from_host_pattern
 from tests.common.utilities import get_upstream_neigh_type, get_downstream_neigh_type, file_exists_on_dut
 from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node, create_duthost_console, creds_on_dut, \
     is_enabled_nat_for_dpu, get_dpu_names_and_ssh_ports, enable_nat_for_dpus, is_macsec_capable_node, \
-    get_supervisor_for_linecard, create_linecard_console
+    get_supervisor_for_linecard, create_linecard_console, get_host_console_command
 from tests.common.cache import FactsCache
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert as pt_assert
@@ -2747,12 +2747,13 @@ def duthost_console(duthosts, enum_rand_one_per_hwsku_hostname, request, localho
         # SUPERVISOR or STANDALONE node - use standard console
         console = create_duthost_console(duthost, localhost, conn_graph_facts, creds)
 
-    if duthost.facts.get("hwsku") == "NH-4210-F-O256":
+    host_console_command = get_host_console_command(duthost)
+    if host_console_command:
         pt_assert(
             hasattr(console, "switch_to_host_console"),
-            "NH-4210 console connection cannot switch from BMC to host",
+            "Console connection cannot switch from BMC to host",
         )
-        console.switch_to_host_console()
+        console.switch_to_host_console(host_console_command)
         expected_hostname = duthost.shell("hostname")["stdout"].strip()
         console_hostname = (
             console.send_command("hostname").strip().splitlines()[0].strip()

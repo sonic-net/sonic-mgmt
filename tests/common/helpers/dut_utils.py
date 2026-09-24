@@ -544,6 +544,12 @@ def is_mellanox_fanout(duthost, localhost):
     return True
 
 
+def get_host_console_command(duthost):
+    """Return the inventory-defined command used to reach the host console."""
+    hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
+    return hostvars.get("host_console_command")
+
+
 def get_supervisor_for_linecard(duthost, duthosts, inv_files):
     """
     Returns the supervisor duthost for a given linecard duthost.
