@@ -277,3 +277,10 @@ arm64-arista_goldfinch-r0:
     valid_timeout: 30
     greater_timeout: 60
     too_big_timeout: 301
+
+# w5000 watchdog
+x86_64-micas_m2-w5000-48con2sfp-r0:
+  default:
+    valid_timeout: 45
+    greater_timeout: 100
+    too_big_timeout: 66000
