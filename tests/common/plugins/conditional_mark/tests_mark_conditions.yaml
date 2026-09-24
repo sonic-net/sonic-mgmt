@@ -2986,12 +2986,9 @@ gnmi/test_gnmi_smartswitch.py:
 
 gnmi/test_gnmi_srv6.py:
   skip:
-    reason: "SRv6 is not supported on older ASICs (Broadcom TH/TH2/TD3; Mellanox SPC1-3). SRv6 telemetry tests require routing, not available on BMC"
-    conditions_logical_operator: or
+    reason: "Test only applied to backend topo"
     conditions:
-      - "asic_type == 'broadcom' and asic_gen not in ['th5', 'th6', 'q3d']"
-      - "asic_type == 'mellanox' and asic_gen in ['spc1', 'spc2', 'spc3']"
-      - "'bmc' in topo_type"
+      - "'backend' not in topo_name"
 
 gnmi/test_gnmi_srv6.py::test_poll_mode_srv6_sid_counters:
   skip:
