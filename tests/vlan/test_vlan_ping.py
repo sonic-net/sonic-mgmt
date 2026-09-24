@@ -7,7 +7,6 @@ import ptf.packet as scapy
 from ptf.mask import Mask
 import six
 from tests.common.helpers.assertions import pytest_assert as py_assert
-from tests.common.devices.eos import EosHost
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m   # noqa: F401
 from tests.common.dualtor.dual_tor_utils import lower_tor_host   # noqa: F401
 from tests.vlan.test_vlan import populate_mac_table   # noqa: F401
@@ -48,19 +47,6 @@ def static_neighbor_entry(duthost, dic, oper, ip_version="both"):
             logger.debug("unknown IP version")
 
 
-def _portchannel_netdev_name(nbr_host, index):
-    """Return the neighbor's PortChannel kernel netdev name for a given index.
-
-    EOS names the LAG netdev ``po<N>`` (e.g. ``po1``); SONiC/cSONiC teamd names
-    it ``PortChannel<N>`` (e.g. ``PortChannel1``). The topology config interface
-    is always ``Port-Channel<N>``; this maps it to the right netdev so commands
-    like ``ip addr show dev <name>`` work on the neighbor regardless of type.
-    """
-    if isinstance(nbr_host, EosHost):
-        return 'po{}'.format(index)
-    return 'PortChannel{}'.format(index)
-
-
 @pytest.fixture(scope='module')
 def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo, lower_tor_host):   # noqa: F811
     """
@@ -82,18 +68,14 @@ def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo, 
     # Determine which interface to use
     if topo_type == "mx":
         interface_name = 'Ethernet1'
-        dev_name = 'eth1'
     else:
         if 'Port-Channel1' in vm_info['conf']['interfaces']:
             interface_name = 'Port-Channel1'
-            dev_name = _portchannel_netdev_name(vm_info['host'], 1)
         else:
             interface_name = 'Ethernet1'
-            dev_name = 'eth1'
         # in case of lower tor host we need to use the next portchannel
         if "dualtor" in tbinfo["topo"]["name"] and rand_one_dut_hostname == lower_tor_host.hostname:
             interface_name = 'Port-Channel2'
-            dev_name = _portchannel_netdev_name(vm_info['host'], 2)
 
     # Get IPv4 and IPv6 addresses if available
     vm_interface = vm_info['conf']['interfaces'][interface_name]
@@ -105,8 +87,7 @@ def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo, 
     py_assert('ipv4' in vm_host_info or 'ipv6' in vm_host_info,
               "VM interface {} has neither IPv4 nor IPv6 address".format(interface_name))
 
-    output = vm_info['host'].command("ip addr show dev {}".format(dev_name))
-    vm_host_info["mac"] = output['stdout_lines'][1].split()[1]
+    vm_host_info["mac"] = vm_info['host'].get_dut_iface_mac(interface_name)
     duthost = duthosts[rand_one_dut_hostname]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     if "dualtor-aa" in tbinfo["topo"]["name"]:
