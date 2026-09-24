@@ -30,9 +30,8 @@ NAT_ENABLE_KEY = "nat_enabled_on_{}"
 # Spacing between console reconnect retries; keep >= getty StartLimitIntervalSec to avoid tripping its start limit.
 CONSOLE_RECONNECT_BACKOFF_SECS = 12
 
-HOST_CONSOLE_COMMANDS_BY_HWSKU = {
-    "NH-4210-F-O256": "sudo consutil connect 0",
-}
+# Temporary command used by NextHop BMCs to connect to the host CPU console.
+NEXTHOP_HOST_CONSOLE_COMMAND = "sudo consutil connect 0"
 
 # Ansible config files
 LAB_CONNECTION_GRAPH_PATH = pathlib.Path(
@@ -549,8 +548,11 @@ def is_mellanox_fanout(duthost, localhost):
 
 
 def get_host_console_command(duthost):
-    """Return the HWSKU-specific command used to reach the host console."""
-    return HOST_CONSOLE_COMMANDS_BY_HWSKU.get(duthost.facts["hwsku"])
+    """Return the temporary NextHop command when inventory marks the DUT as BMC-backed."""
+    hostvars = duthost.host.options['inventory_manager'].get_host(duthost.hostname).get_vars()
+    if not hostvars.get("has_bmc", False):
+        return None
+    return NEXTHOP_HOST_CONSOLE_COMMAND
 
 
 def get_supervisor_for_linecard(duthost, duthosts, inv_files):
