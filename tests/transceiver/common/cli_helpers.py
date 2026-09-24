@@ -134,9 +134,14 @@ def _as_decimal_int(value):
 # ──────────────────────────────────────────────────────────────────────
 
 
-def sfputil_show_eeprom_cmd(port=None):
-    """Return ``sfputil show eeprom`` (all ports) or ``... -p <port>``."""
-    return f"{SFPUTIL_SHOW_EEPROM} -p {port}" if port else SFPUTIL_SHOW_EEPROM
+def sfputil_show_eeprom_cmd(port=None, dom=False):
+    """Return ``sfputil show eeprom [-d]`` (all ports) or ``... -p <port>``.
+
+    DOM has no CLI subcommand of its own; ``-d/--dom`` appends the Digital
+    Optical Monitoring values to the EEPROM dump.
+    """
+    cmd = SFPUTIL_SHOW_EEPROM + (" -d" if dom else "")
+    return f"{cmd} -p {port}" if port else cmd
 
 
 def sfputil_show_eeprom_hexdump_cmd(port, page=None):

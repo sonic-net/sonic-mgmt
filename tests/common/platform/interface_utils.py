@@ -398,7 +398,8 @@ def is_first_subport(port, lport_to_first_subport):
 def get_xcvr_presence_data(duthost, asic_index=None):
     """
     @summary: Returns a dictionary of transceiver presence status for each interface.
-    @param asic_index: The ASIC index to query presence for. If None, queries the default namespace.
+    @param asic_index: The ASIC index to query presence for. If None, omits the namespace option so
+        the CLI queries all frontend ASIC namespaces.
     @return: A dictionary where keys are interface names and values are booleans indicating presence.
     """
     namespace = duthost.get_namespace_from_asic_id(asic_index)
@@ -414,7 +415,8 @@ def get_xcvr_presence_data(duthost, asic_index=None):
 def get_pport_presence_data(duthost, asic_index=None):
     """
     @summary: Returns a dictionary of physical port presence status for each physical port index.
-    @param asic_index: The ASIC index to query presence for. If None, queries the default namespace.
+    @param asic_index: The ASIC index to query presence for. If None, omits the namespace option so
+        the CLI queries all frontend ASIC namespaces.
     @return: A dictionary where keys are physical port indices and values are booleans indicating presence.
     """
     interface_presence_dict = get_xcvr_presence_data(duthost, asic_index)
