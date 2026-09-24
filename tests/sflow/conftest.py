@@ -7,9 +7,6 @@ import os
 
 import pytest
 import requests
-import urllib3
-
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -20,11 +17,10 @@ DROP_LIMIT_FIELD = "drop_monitor_limit"
 
 class RestconfClient:
 
-    def __init__(self, host, port=REST_PORT, cert=None, auth=None, verify=False):
+    def __init__(self, host, port=REST_PORT, cert=None, auth=None):
         self.base_url = f"https://{host}:{port}"
         self.cert = cert        # (client_cert_path, client_key_path) for mTLS
         self.auth = auth        # (user, password) for basic auth
-        self.verify = verify
         self.headers = {
             "Content-Type": "application/yang-data+json",
             "Accept": "application/yang-data+json",
@@ -40,7 +36,7 @@ class RestconfClient:
             data=data,
             cert=self.cert,
             auth=self.auth,
-            verify=self.verify,
+            verify=True,
             timeout=30,
         )
         LOGGER.info("RESTCONF <- %s %s", resp.status_code, resp.text)
