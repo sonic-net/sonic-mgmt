@@ -108,6 +108,26 @@ def test_power_off_reboot(duthosts, localhost, enum_supervisor_dut_hostname, con
     if pdu_ctrl is None:
         pytest.skip(
             "No PSU controller for %s, skip rest of the testing in this case" % duthost.hostname)
+    # Fail fast with a clear reason when a PDU is configured for one of the DUT's
+    # PSUs but the PDU could not be reached (typically an SNMP timeout). Without
+    # this check, the test would silently power-cycle only the reachable PSU and
+    # later fail with the misleading "DUT did not shutdown" message.
+    if hasattr(pdu_ctrl, "get_unreachable_psus"):
+        unreachable_psus = pdu_ctrl.get_unreachable_psus()
+        if unreachable_psus:
+            pytest.fail(
+                "PDU is not accessible for DUT {} PSU(s) {}. The configured peer "
+                "PDU(s) {} could not be initialized (most likely SNMP is not "
+                "reachable or the credentials are wrong). Power-off reboot cannot "
+                "guarantee a full power loss while any PSU remains powered, so "
+                "the test is failing early instead of reporting the misleading "
+                "'DUT did not shutdown' error. Please verify the PDU "
+                "reachability and re-run.".format(
+                    duthost.hostname,
+                    list(unreachable_psus.keys()),
+                    unreachable_psus,
+                )
+            )
     is_chassis = duthost.get_facts().get("modular_chassis")
     if is_chassis and duthost.is_supervisor_node():
         # Following is to accomodate for chassis, when no '--power_off_delay' option is given on pipeline run
