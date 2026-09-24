@@ -6,14 +6,14 @@ from contextlib import contextmanager
 import pytest
 import logging
 
-from tests.clock.test_clock import ClockConsts, ClockUtils
-from tests.common.helpers.ntp_helper import (
-    get_ntp_daemon_in_use,
+from tests.clock.ntp_utils import (
     get_ntp_one_shot_command,
     get_ntp_service_name,
     prepare_ntp_one_shot_config,
     setup_ntp_server_context
 )
+from tests.clock.test_clock import ClockConsts, ClockUtils
+from tests.common.helpers.ntp_helper import get_ntp_daemon_in_use
 from tests.common.utilities import wait_until
 
 
