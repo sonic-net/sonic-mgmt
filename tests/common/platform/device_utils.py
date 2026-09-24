@@ -379,8 +379,17 @@ def check_neighbors(duthost, tbinfo):
 
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
+    # Check if this topo includes confed peer
+    confed_peer_topo = False
+    for v in bgp_facts['bgp_neighbors'].values():
+        if v.get('confed_peer', False):
+            confed_peer_topo = True
+            break
+
     for value in list(bgp_facts['bgp_neighbors'].values()):
         # Verify locat ASNs in bgp sessions
+        if confed_peer_topo and (not value.get("confed_peer", False)):
+            continue
         if (value['local AS'] != mg_facts['minigraph_bgp_asn']):
             raise RebootHealthError("Local ASNs not found in BGP session.\
                 Minigraph: {}. Found {}".format(value['local AS'], mg_facts['minigraph_bgp_asn']))
@@ -1205,14 +1214,14 @@ def add_platform_api_server_port_nat_for_dpu(
         npu_host = create_npu_host_based_on_dpu_info(ansible_adhoc, tbinfo, request, duthost)
         npu_host.command(
             f'sudo iptables -t nat -A PREROUTING -i eth0 -p tcp --dport \
-            {SERVER_PORT} -j DNAT --to-destination {dpu_ip}:{SERVER_PORT}')
+            {SERVER_PORT} -j DNAT --to-destination {dpu_ip}:{SERVER_PORT}')  # noqa: E231
 
     yield
 
     if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_dpu"):
         npu_host.command(
             f'sudo iptables -t nat -D PREROUTING -i eth0 -p tcp --dport \
-                {SERVER_PORT} -j DNAT --to-destination {dpu_ip}:{SERVER_PORT}')
+                {SERVER_PORT} -j DNAT --to-destination {dpu_ip}:{SERVER_PORT}')  # noqa: E231
 
 
 def get_ansible_ssh_port(duthost, ansible_adhoc):  # noqa: F811
