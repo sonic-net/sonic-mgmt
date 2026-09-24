@@ -1,4 +1,4 @@
-"""Repository-wide fixtures for the shared Minikube lifecycle."""
+"""Fixtures for the disposable Minikube profile reserved for this test suite."""
 
 import os
 from contextlib import contextmanager
@@ -58,7 +58,6 @@ def minikube_cluster(request, vmhosts):
         spec=spec,
         proxy_environment=proxy_environment,
         vmhost_user=str(vmhost_user),
-        allow_shared_profile=_option(request, "--minikube-allow-shared-profile", False),
     ) as cluster:
         yield cluster
 
