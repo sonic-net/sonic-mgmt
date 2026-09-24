@@ -50,7 +50,7 @@ from tests.common.config_reload import config_reload as config_reload_func
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology("m1"),
+    pytest.mark.topology("m1", "uma", "lma"),
 ]
 
 # ---- Test data ----
