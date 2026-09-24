@@ -4,10 +4,14 @@ import requests
 import ipaddress
 
 from tests.common.utilities import wait_tcp_connection
+from tests.common.utilities import wait_until
 
 
 NEIGHBOR_SAVE_DEST_TMPL = "/tmp/neighbor_%s.j2"
 BGP_SAVE_DEST_TMPL = "/tmp/bgp_%s.j2"
+# How long to let exabgp put the teardown notification on the wire before the
+# process is stopped.
+TEARDOWN_NOTIFICATION_TIMEOUT = 30
 
 
 # ---------------------------------------------------------------------------
@@ -320,6 +324,14 @@ class BGPNeighbor(object):
 
         self.ptfhost.exabgp(name=self.name, state="absent")
 
+    def _is_session_torn_down(self):
+        """Check from the dut whether the session has left the established state."""
+        bgp_neighbors = self.duthost.bgp_facts(
+            num_npus=self.duthost.sonichost.num_asics()
+        )["ansible_facts"]["bgp_neighbors"]
+        neighbor = bgp_neighbors.get(self.ip)
+        return neighbor is None or neighbor["state"] != "established"
+
     def teardown_session(self):
         # error_subcode 3: Peer De-configured. References: RFC 4271
         msg = "neighbor {} teardown 3"
@@ -333,6 +345,17 @@ class BGPNeighbor(object):
         ).format(
             resp.status_code
         )
+
+        # exabgp sends the notification asynchronously after the api call returns.
+        # Wait for the dut to observe the session drop before stopping the process,
+        # otherwise exabgp is killed before the notification reaches the wire and
+        # callers waiting for it never see it.
+        if not wait_until(TEARDOWN_NOTIFICATION_TIMEOUT, 1, 0, self._is_session_torn_down):
+            logging.warning(
+                "session with %s is still established %ss after teardown was requested",
+                self.ip,
+                TEARDOWN_NOTIFICATION_TIMEOUT,
+            )
 
         self.ptfhost.exabgp(name=self.name, state="stopped")
 
