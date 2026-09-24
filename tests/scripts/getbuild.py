@@ -3,9 +3,12 @@
 import argparse
 import base64
 import json
+import os
+import shutil
 import sys
 import time
 
+from six.moves.urllib.error import HTTPError
 from six.moves.urllib.request import urlopen, urlretrieve, Request, build_opener, install_opener
 
 _start_time = None
@@ -161,6 +164,38 @@ def download_artifacts(url, content_type, platform, buildid, num_asic, access_to
                     sys.exit(1)
 
 
+def download_optional_artifact(url, filename, output_path, buildid,
+                               access_token, token):
+    """Download an optional file from the selected build artifact."""
+
+    file_url = url.replace('zip', 'file')
+    file_url += "&subPath=%2Ftarget%2F{}".format(filename)
+    opener = build_opener()
+    if token:
+        opener.addheaders = [("Authorization", "******")]
+    elif access_token:
+        opener.addheaders = [
+            (
+                'Authorization',
+                'Basic {}'.format(
+                    base64.b64encode(access_token.encode('utf-8')).decode('utf-8')
+                )
+            )
+        ]
+
+    try:
+        print("Downloading optional {} from build {}".format(filename, buildid))
+        with opener.open(file_url) as response, open(output_path, 'wb') as output:
+            shutil.copyfileobj(response, output)
+    except HTTPError as error:
+        if error.code == 404:
+            print("Optional artifact {} is not present".format(filename))
+            return
+        raise
+
+    print("Optional artifact {} downloaded".format(filename))
+
+
 def find_latest_build_id(branch, result_filter="succeeded", pipeline_id=None):
     """find latest successful build id for a branch"""
 
@@ -242,6 +277,22 @@ def main():
 
     download_artifacts(dl_url, args.content, args.platform,
                        buildid, args.num_asic, access_token=args.access_token, token=args.token)
+    if args.content == 'image' and args.platform == 'vs' and args.num_asic == 1:
+        companion_filename = 'sonic-vs_vars.fd'
+        companion_directory = os.path.join('sonic-vm', 'images')
+        companion_path = (
+            os.path.join(companion_directory, companion_filename)
+            if os.path.isdir(companion_directory)
+            else companion_filename
+        )
+        download_optional_artifact(
+            dl_url,
+            companion_filename,
+            companion_path,
+            buildid,
+            access_token=args.access_token,
+            token=args.token,
+        )
 
 
 if __name__ == '__main__':

@@ -67,6 +67,14 @@ parameters:
   type: string
   default: ""
 
+- name: SECURE_BOOT_KVM_BUILD_ID
+  type: string
+  default: ""
+
+- name: SECURE_BOOT_KVM_IMAGE_BUILD_PIPELINE_ID
+  type: string
+  default: ""
+
 - name: INCLUDE_JOBS
   type: string
   default: "t0_job,secureboot_t0_job,t1_job,t2_job,t0_2vlans_job,t0_sonic_job,dpu_job,t1_multi_asic_job,t1_lag_vpp_job"
@@ -148,7 +156,8 @@ jobs:
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
       RUN_BY_INCLUDE_JOBS: ${{ or(eq(parameters.INCLUDE_JOBS, 'all'), contains(parameters.INCLUDE_JOBS, 'secureboot_t0_job')) }}
-    condition: and(not(canceled()), succeeded(), contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 'secureboot_checker'), eq(variables['RUN_BY_INCLUDE_JOBS'], 'True'))
+      SECURE_BOOT_IMAGE_AVAILABLE: ${{ or(ne(parameters.SECURE_BOOT_KVM_BUILD_ID, ''), ne(parameters.SECURE_BOOT_KVM_IMAGE_BUILD_PIPELINE_ID, '')) }}
+    condition: and(not(canceled()), succeeded(), contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 'secureboot_checker'), eq(variables['RUN_BY_INCLUDE_JOBS'], 'True'), eq(variables['SECURE_BOOT_IMAGE_AVAILABLE'], 'True'))
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
     pool: ${{ parameters.RUN_TEST_AGENT_POOL }}
@@ -179,7 +188,8 @@ jobs:
           MIN_WORKER: $(INSTANCE_NUMBER)
           MAX_WORKER: $(INSTANCE_NUMBER)
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
-          KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
+          KVM_BUILD_ID: ${{ parameters.SECURE_BOOT_KVM_BUILD_ID }}
+          KVM_IMAGE_BUILD_PIPELINE_ID: ${{ parameters.SECURE_BOOT_KVM_IMAGE_BUILD_PIPELINE_ID }}
           MGMT_BRANCH: $(BUILD_BRANCH)
           ADD_TOPO_PARAMS: "-e secure_boot_enabled=true"
           SKIP_REMOVE_ADD_TOPO_FOR_NIGHTLY: "False"

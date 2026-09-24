@@ -38,6 +38,14 @@ parameters:
   type: string
   default: ""
 
+- name: SECURE_BOOT_KVM_BUILD_ID
+  type: string
+  default: ""
+
+- name: SECURE_BOOT_KVM_IMAGE_BUILD_PIPELINE_ID
+  type: string
+  default: ""
+
 - name: INCLUDE_JOBS
   type: string
   default: "all"
@@ -63,4 +71,6 @@ stages:
         TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
         MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
         KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
+        SECURE_BOOT_KVM_BUILD_ID: ${{ parameters.SECURE_BOOT_KVM_BUILD_ID }}
+        SECURE_BOOT_KVM_IMAGE_BUILD_PIPELINE_ID: ${{ parameters.SECURE_BOOT_KVM_IMAGE_BUILD_PIPELINE_ID }}
         INCLUDE_JOBS: ${{ parameters.INCLUDE_JOBS }}

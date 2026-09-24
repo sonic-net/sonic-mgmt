@@ -96,6 +96,27 @@ management, and DB certificates authorize boot components.
 - Restore the original image, boot order, keys, and Secure Boot state after
   each destructive test.
 
+### Secure Boot VS Artifact
+
+The Secure Boot VS build uses an ephemeral PK, KEK, and DB hierarchy for each
+build. The DB private key signs the image, `DB.auth` is embedded in the image,
+and a companion OVMF variable store is provisioned with the matching public
+PK, KEK, and DB certificates. The companion store is derived from the UEFI
+image build's variable store so it retains the `SONiC-OS` boot entry that
+loads the signed `EFI/SONiC-OS/shimx64.efi`.
+
+The build publishes both files in the `sonic-buildimage.vs` artifact:
+
+```text
+target/sonic-vs.img.gz
+target/sonic-vs_vars.fd
+```
+
+Elastictest must download both files from the same build. The image is expanded
+to `~/sonic-vm/images/sonic-vs.img`, while the variable store is copied to
+`~/sonic-vm/images/sonic-vs_vars.fd`. Each DUT receives its own writable copy
+of the variable store. Private PK, KEK, and DB keys must not be published.
+
 ## Automation Strategy
 
 Runtime tests should be implemented under `tests/platform_tests/secure_boot/`.
