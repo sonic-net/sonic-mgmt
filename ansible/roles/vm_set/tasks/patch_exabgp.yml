@@ -1,0 +1,62 @@
+---
+# ExaBGP's process-API reader consumes helper-process output with
+# proc.stdout.read(16384). proc.stdout is a BufferedReader whose internal buffer
+# can hold bytes that select.poll() cannot see, so at the tail of a large
+# command batch the buffered commands are never consumed and route
+# announcements or withdrawals are silently truncated while the HTTP API still
+# returns 200.
+#
+# Upstream issue: https://github.com/Exa-Networks/exabgp/issues/1421
+# Upstream fix:   https://github.com/Exa-Networks/exabgp/pull/1422
+# Tracking:       https://github.com/sonic-net/sonic-mgmt/issues/28034
+#
+# The upstream fix is not in any released exabgp version yet, so patch the
+# installed copy. This runs from every place that creates the PTF container,
+# because both add-topo and restart-ptf recreate it from the image and discard
+# the edit.
+#
+# Drop this task once the PTF image ships an exabgp containing the fix. It
+# no-ops in that case.
+
+- name: Patch exabgp process-API reader in ptf_{{ vm_set_name }}
+  shell: |
+    docker exec -i ptf_{{ vm_set_name }} python3 - <<'EXABGP_PATCH_EOF'
+    import importlib.util
+    import io
+    import sys
+
+    OLD = "str_ascii(proc.stdout.read(16384))"
+    NEW = "str_ascii(os.read(proc.stdout.fileno(), 16384))"
+    FIXED = "os.read(proc.stdout.fileno(), 16384)"
+
+    spec = importlib.util.find_spec("exabgp")
+    if spec is None or not spec.submodule_search_locations:
+        sys.stderr.write("exabgp is not installed in the PTF container\n")
+        sys.exit(1)
+    path = spec.submodule_search_locations[0] + "/reactor/api/processes.py"
+
+    with io.open(path, encoding="utf-8") as f:
+        src = f.read()
+
+    if FIXED in src:
+        print("exabgp already reads the process API with os.read()")
+        sys.exit(0)
+
+    if OLD not in src:
+        sys.stderr.write("unexpected exabgp source in %s, refresh this patch\n" % path)
+        sys.exit(1)
+
+    with io.open(path, "w", encoding="utf-8") as f:
+        f.write(src.replace(OLD, NEW))
+
+    with io.open(path, encoding="utf-8") as f:
+        src = f.read()
+    if FIXED not in src or OLD in src:
+        sys.stderr.write("exabgp patch did not apply cleanly to %s\n" % path)
+        sys.exit(1)
+
+    print("patched %s" % path)
+    EXABGP_PATCH_EOF
+  become: yes
+  register: exabgp_patch_result
+  changed_when: "'patched ' in exabgp_patch_result.stdout"
