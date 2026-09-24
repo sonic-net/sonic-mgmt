@@ -740,6 +740,7 @@ t1-lag-vpp:
   - sub_port_interfaces/test_sub_port_interfaces.py
   - vxlan/test_vxlan_ecmp.py
   - vxlan/test_vxlan_decap.py
+  - vxlan/test_vxlan_underlay_ecmp.py
   - vxlan/test_vnet_decap.py
   - vxlan/test_vnet_bgp_route_precedence.py
   - vxlan/test_vxlan_ecmp_switchover.py

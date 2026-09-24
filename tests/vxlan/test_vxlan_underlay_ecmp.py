@@ -18,6 +18,16 @@ pytestmark = [
 ]
 
 
+@pytest.fixture(autouse=True)
+def _ignore_vpp_hostif_link_churn(duthosts, rand_one_dut_hostname, loganalyzer):
+    """Ignore expected VPP hostif messages caused by underlay link churn."""
+    duthost = duthosts[rand_one_dut_hostname]
+    if loganalyzer and duthost.facts["asic_type"] == "vpp":
+        loganalyzer[rand_one_dut_hostname].ignore_regex.append(
+            r".*syncOnLinkMsg: skipping newlink for Ethernet[0-9]+, name not found in map.*"
+        )
+
+
 class Test_VxLAN_underlay_ecmp(Test_VxLAN):
     '''
         Class for all test cases that modify the underlay default route.
