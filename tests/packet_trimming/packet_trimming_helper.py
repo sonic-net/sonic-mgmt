@@ -545,7 +545,7 @@ def validate_scheduler_apply_to_queue_in_asic_db(duthost, scheduler_oid, expecte
         return False
 
 
-def disable_egress_data_plane(duthost, dut_port, queue, original_scheduler=None):
+def disable_egress_data_plane(duthost, dut_port, queue):
     """
     Disable egress data plane for a specific queue on a specific port.
 
@@ -553,11 +553,6 @@ def disable_egress_data_plane(duthost, dut_port, queue, original_scheduler=None)
         duthost: DUT host object
         dut_port (str): DUT port name
         queue (str/int): Queue index to disable
-        original_scheduler (str): Pre-fetched original/current scheduler for this queue
-            (e.g. from resolve_original_scheduler()), so the caller can capture it
-            *before* calling this function and still have it for restoration even if
-            this function raises partway through. If None, it is resolved here for
-            backward compatibility.
 
     Returns:
         str: Original scheduler name for later restoration
@@ -1409,8 +1404,7 @@ class ConfigTrimming:
                 # Save the original scheduler configuration
                 self.original_schedulers[port] = original_scheduler
 
-                disable_egress_data_plane(self.duthost, port, self.queue,
-                                           original_scheduler=original_scheduler)
+                disable_egress_data_plane(self.duthost, port, self.queue)
                 logger.info(f"Successfully blocked port {port} (original scheduler: {original_scheduler})")
 
             return self
