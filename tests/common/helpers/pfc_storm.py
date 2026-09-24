@@ -439,6 +439,7 @@ class PFCStorm(object):
         """
         Stops PFC storm on the fanout interfaces
         """
+        self._ensure_pfc_gen_deployed()
         self._prepare_stop_template()
         if self.asic_type == 'vs':
             return
