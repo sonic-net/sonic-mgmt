@@ -9,7 +9,6 @@ Usage:          Examples of how to use:
 
 import sys
 import time
-import datetime
 import logging
 
 import ptf
@@ -22,11 +21,56 @@ from ptf.mask import Mask
 logger = logging.getLogger('EverflowPolicerTest')
 
 
+def _send_packets_paced(send_batch, total_packets, batch_size, batch_interval, sleep=time.sleep):
+    """
+    @summary: Send total_packets by calling send_batch(count) repeatedly, capping
+    each call at batch_size and pacing calls by batch_interval. This avoids handing
+    PTF a single unpaced burst, which can create sustained bursts on the PTF/kernel
+    transmit path and intermittently lose packets (see sonic-net/sonic-mgmt#27708).
+    Used both for the original (non-mirrored) flow send and the CBS-absorption
+    burst in checkMirroredFlow().
+    """
+    remaining = total_packets
+    while remaining > 0:
+        count = min(batch_size, remaining)
+        send_batch(count)
+        remaining -= count
+        if remaining > 0:
+            sleep(batch_interval)
+
+
+def _send_packets_paced_for_duration(
+        send_batch, duration, batch_size, batch_interval, sleep=time.sleep, monotonic=time.monotonic):
+    """
+    @summary: Call send_batch(batch_size) repeatedly for approximately duration
+    seconds, pacing batches by batch_interval, instead of a tight single-packet
+    send loop. Pacing gives the PTF/kernel transmit path time to drain between
+    batches. Returns the exact number of packets requested through send_batch()
+    so callers can compute an accurate tx rate (see sonic-net/sonic-mgmt#27708).
+    """
+    end_time = monotonic() + duration
+    tx_pkts = 0
+    while monotonic() < end_time:
+        send_batch(batch_size)
+        tx_pkts += batch_size
+        remaining = end_time - monotonic()
+        if remaining > 0:
+            sleep(min(batch_interval, remaining))
+    return tx_pkts
+
+
 class EverflowPolicerTest(BaseTest):
 
     GRE_PROTOCOL_NUMBER = 47
     NUM_OF_TOTAL_PACKETS = 10000
     METER_TYPES = ['packets', 'bytes']
+    # Cap on packets sent per pacing batch, and the delay between batches, used to
+    # pace the original-flow send and both checkMirroredFlow() traffic-generation
+    # paths (CBS absorption and sustained transmission). This keeps offered traffic
+    # from bursting unpaced, while remaining far above the policer's configured
+    # rate limit (see sonic-net/sonic-mgmt#27708).
+    PACED_SEND_BATCH_SIZE = 60
+    PACED_SEND_BATCH_INTERVAL = 0.01
 
     def __init__(self):
         '''
@@ -180,7 +224,12 @@ class EverflowPolicerTest(BaseTest):
         self.dataplane.flush()
 
         count = 0
-        testutils.send_packet(self, self.src_port, self.base_pkt, count=self.NUM_OF_TOTAL_PACKETS)
+        _send_packets_paced(
+            lambda n: testutils.send_packet(self, self.src_port, self.base_pkt, count=n),
+            self.NUM_OF_TOTAL_PACKETS,
+            self.PACED_SEND_BATCH_SIZE,
+            self.PACED_SEND_BATCH_INTERVAL,
+        )
         for i in range(0, self.NUM_OF_TOTAL_PACKETS):
             (rcv_device, rcv_port, rcv_pkt, pkt_time) = testutils.dp_poll(self, timeout=0.1, exp_pkt=masked_exp_pkt)
             if rcv_pkt is not None:
@@ -302,15 +351,17 @@ class EverflowPolicerTest(BaseTest):
 
             return dataplane.match_exp_pkt(payload_mask, pkt)
 
+        def send_batch(count):
+            testutils.send_packet(self, self.src_port, self.base_pkt, count=count)
+
         # send some amount to absorb CBS capacity
-        testutils.send_packet(self, self.src_port, self.base_pkt, count=self.NUM_OF_TOTAL_PACKETS)
+        _send_packets_paced(
+            send_batch, self.NUM_OF_TOTAL_PACKETS,
+            self.PACED_SEND_BATCH_SIZE, self.PACED_SEND_BATCH_INTERVAL)
         self.dataplane.flush()
 
-        end_time = datetime.datetime.now() + datetime.timedelta(seconds=self.send_time)
-        tx_pkts = 0
-        while datetime.datetime.now() < end_time:
-            testutils.send_packet(self, self.src_port, self.base_pkt)
-            tx_pkts += 1
+        tx_pkts = _send_packets_paced_for_duration(
+            send_batch, self.send_time, self.PACED_SEND_BATCH_SIZE, self.PACED_SEND_BATCH_INTERVAL)
 
         rx_pkts = 0
         while True:
