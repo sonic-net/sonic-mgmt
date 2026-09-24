@@ -704,7 +704,7 @@ def get_regular_ethernet_ports(dut, tbinfo, count=2):
 def _ipv6_neighbor_ready(duthost, neighbor_ip):
     try:
         return bool(get_neighbor_mac(duthost, neighbor_ip))
-    except (IndexError, Exception):
+    except Exception:
         return False
 
 
@@ -713,48 +713,47 @@ def prepare_l3_ethernet_ports(duthost, ptfhost, tbinfo, count=2):
     from tests.common.utilities import wait_until
     selected = get_regular_ethernet_ports(duthost, tbinfo, count)
     prepared = []
-    for idx, item in enumerate(selected, start=1):
-        intf = item["intf"]
-        dut_ip = "{}:{}::1".format(L3_ADJ_PREFIX, idx)
-        nhip = "{}:{}::2".format(L3_ADJ_PREFIX, idx)
-        ptf_id = item["ptf_ids"][0]
-        if item["vlanid"]:
-            duthost.command("config vlan member del {} {}".format(item["vlanid"], intf))
-        duthost.command("config interface ip add {} {}/64".format(intf, dut_ip))
-        ptfhost.shell("ip -6 addr add {}/64 dev eth{}".format(nhip, ptf_id), module_ignore_errors=True)
-        ptf_mac = ptfhost.shell("cat /sys/class/net/eth{}/address".format(ptf_id))["stdout"].strip()
-        prepared.append({
-            "intf": intf,
-            "dut_ip": dut_ip,
-            "nhip": nhip,
-            "ptf_ids": item["ptf_ids"],
-            "vlanid": item["vlanid"],
-            "ptf_id": ptf_id,
-            "ptf_mac": ptf_mac
-        })
+    try:
+        for idx, item in enumerate(selected, start=1):
+            intf = item["intf"]
+            dut_ip = "{}:{}::1".format(L3_ADJ_PREFIX, idx)
+            nhip = "{}:{}::2".format(L3_ADJ_PREFIX, idx)
+            ptf_id = item["ptf_ids"][0]
+            rec = {
+                "intf": intf,
+                "dut_ip": dut_ip,
+                "nhip": nhip,
+                "ptf_ids": item["ptf_ids"],
+                "vlanid": item["vlanid"],
+                "ptf_id": ptf_id,
+                "ptf_mac": ""
+            }
+            # Track the port before mutating so a later failure can roll it back
+            prepared.append(rec)
+            if item["vlanid"]:
+                duthost.command("config vlan member del {} {}".format(item["vlanid"], intf))
+            duthost.command("config interface ip add {} {}/64".format(intf, dut_ip))
+            ptfhost.shell("ip -6 addr add {}/64 dev eth{}".format(nhip, ptf_id), module_ignore_errors=True)
+            rec["ptf_mac"] = ptfhost.shell("cat /sys/class/net/eth{}/address".format(ptf_id))["stdout"].strip()
 
-    for rec in prepared:
-        def _addr_ready(intf=rec["intf"], dut_ip=rec["dut_ip"]):
-            return dut_ip in duthost.command("ip -6 addr show {}".format(intf))["stdout"]
+            def _addr_ready(intf=rec["intf"], dut_ip=rec["dut_ip"]):
+                return dut_ip in duthost.command("ip -6 addr show {}".format(intf))["stdout"]
 
-        pytest_assert(wait_until(30, 2, 0, _addr_ready),
-                      "DUT IPv6 {} did not appear on {}".format(rec["dut_ip"], rec["intf"]))
-        duthost.shell("ip -6 neigh replace {} lladdr {} dev {}".format(
-            rec["nhip"], rec["ptf_mac"], rec["intf"]))
+            pytest_assert(wait_until(30, 2, 0, _addr_ready),
+                          "DUT IPv6 {} did not appear on {}".format(rec["dut_ip"], rec["intf"]))
+            duthost.shell("ip -6 neigh replace {} lladdr {} dev {}".format(
+                rec["nhip"], rec["ptf_mac"], rec["intf"]))
 
-        def _ready(neighbor_ip=rec["nhip"]):
-            duthost.shell("ping6 -c 1 -W 2 {}".format(neighbor_ip), module_ignore_errors=True)
-            return _ipv6_neighbor_ready(duthost, neighbor_ip)
+            def _ready(neighbor_ip=rec["nhip"]):
+                duthost.shell("ping6 -c 1 -W 2 {}".format(neighbor_ip), module_ignore_errors=True)
+                return _ipv6_neighbor_ready(duthost, neighbor_ip)
 
-        pytest_assert(wait_until(60, 2, 1, _ready),
-                      "No IPv6 neighbor {} on {}".format(rec["nhip"], rec["intf"]))
-    return prepared
-
-
-def restore_l3_neighbors(duthost, prepared):
-    for rec in prepared:
-        duthost.shell("ip -6 neigh replace {} lladdr {} dev {}".format(
-            rec["nhip"], rec["ptf_mac"], rec["intf"]), module_ignore_errors=True)
+            pytest_assert(wait_until(60, 2, 1, _ready),
+                          "No IPv6 neighbor {} on {}".format(rec["nhip"], rec["intf"]))
+        return prepared
+    except Exception:
+        cleanup_l3_ethernet_ports(duthost, ptfhost, prepared)
+        raise
 
 
 def cleanup_l3_ethernet_ports(duthost, ptfhost, prepared):

@@ -239,8 +239,9 @@ def setup_uA(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, tbi
         host_for_ports = duthost
 
     sonic_db_cli = "sonic-db-cli" + cli_options
-    prepared = prepare_l3_ethernet_ports(host_for_ports, ptfhost, tbinfo, count=2)
+    prepared = []
     try:
+        prepared = prepare_l3_ethernet_ports(host_for_ports, ptfhost, tbinfo, count=2)
         # /64 uA SIDs need 16 function bits; func_len 0 programs FRR only and never reaches ASIC_DB
         duthost.command(sonic_db_cli + " CONFIG_DB HSET SRV6_MY_LOCATORS\\|loc1 prefix fcbb:bbbb:1:: func_len 16")
         ua_sid_cmd_1 = (" CONFIG_DB HSET SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1:fe01::/64 action uA "
@@ -279,7 +280,7 @@ def setup_uA(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, tbi
                         module_ignore_errors=True)
         duthost.command(sonic_db_cli + " CONFIG_DB DEL STATIC_ROUTE\\|default\\|fcbb:bbbb::/32",
                         module_ignore_errors=True)
-        cleanup_l3_ethernet_ports(duthost, ptfhost, prepared)
+        cleanup_l3_ethernet_ports(host_for_ports, ptfhost, prepared)
         duthost.command("config save -y", module_ignore_errors=True)
 
 
@@ -587,7 +588,7 @@ def test_srv6_dataplane_after_reboot(setup_uN, ptfadapter, ptfhost, localhost, w
     # Reloading the configuration will restart eth0 and update the TACACS settings.
     # This change may introduce a delay, potentially causing temporary TACACS reporting errors.
 
-    if loganalyzer and loganalyzer[duthost.hostname]:
+    if loganalyzer and duthost.hostname in loganalyzer and loganalyzer[duthost.hostname]:
         loganalyzer[duthost.hostname].ignore_regex.extend([
             r".*tac_connect_single: .*",
             r".*nss_tacplus: .*",
