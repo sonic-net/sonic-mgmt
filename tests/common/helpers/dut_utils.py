@@ -317,23 +317,22 @@ def kill_process_by_pid(duthost, container_name, program_name, program_pid):
 
 
 def get_disabled_container_list(duthost):
-    """Gets the container/service names which are disabled.
+    """Gets disabled container/service names and features without containers.
 
     Args:
         duthost: Host DUT.
 
     Return:
-        A list includes the names of disabled containers/services
+        Names to exclude from container checks.
     """
-    disabled_containers = []
+    # frr_bmp controls BMP inside bgp; it never owns a Docker container.
+    disabled_containers = ["frr_bmp"]
 
     container_status, succeeded = duthost.get_feature_status()
     pytest_assert(succeeded, "Failed to get status ('enabled'|'disabled') of containers. Exiting...")
 
     for container_name, status in list(container_status.items()):
-        if "disabled" in status:
-            disabled_containers.append(container_name)
-        if "enabled" in status and container_name == "frr_bmp":
+        if "disabled" in status and container_name not in disabled_containers:
             disabled_containers.append(container_name)
     return disabled_containers
 

@@ -678,6 +678,9 @@ t1-lag-vpp:
   - bgp/test_bgp_vnet.py
   - bgp/test_bgpmon_v6.py
   - bgp/test_traffic_shift_sup.py
+  - cacl/test_cacl_application.py
+  - cacl/test_cacl_function.py
+  - cacl/test_ebtables_application.py
   - crm/test_crm.py
   - crm/test_crm_available.py
   - decap/test_decap.py
@@ -737,6 +740,7 @@ t1-lag-vpp:
   - sub_port_interfaces/test_sub_port_interfaces.py
   - vxlan/test_vxlan_ecmp.py
   - vxlan/test_vxlan_decap.py
+  - vxlan/test_vxlan_underlay_ecmp.py
   - vxlan/test_vnet_decap.py
   - vxlan/test_vnet_bgp_route_precedence.py
   - vxlan/test_vxlan_ecmp_switchover.py
@@ -834,6 +838,7 @@ t0-vpp:
   - route/test_route_map_check.py
   - route/test_route_perf.py
   - route/test_static_route.py
+  - sflow/test_sflow.py
   - span/test_port_mirroring.py
   - vlan/test_autostate_disabled.py
   - vlan/test_host_vlan.py

@@ -76,39 +76,9 @@ bgp/test_traffic_shift.py:
       - "asic_type in ['vpp'] and (not platform.startswith('arm64-c8220tg_48a_o'))"
 
 #######################################
-#####            Cacl             #####
-#######################################
-cacl/test_cacl_application.py::test_cacl_scale_rules_ipv4:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-cacl/test_cacl_application.py::test_caclmgrd_syslog:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-#######################################
 #####           Configlet         #####
 #######################################
 configlet/test_add_rack.py::test_add_rack:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-#######################################
-#####       Container Checker     #####
-#######################################
-container_checker/test_container_checker.py::test_container_checker_telemetry:
   skip:
     reason: >
             Failed/Errored: To be included
@@ -395,6 +365,16 @@ golden_config_infra/test_config_reload_with_rendered_golden_config.py::test_rend
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
+
+#######################################
+#####             IP              #####
+#######################################
+ip/test_mgmt_ipv6_only.py::test_telemetry_output_ipv6_only:
+  xfail:
+    reason: "gNMI rejects IPv6 telemetry requests as Unauthenticated despite user_auth=none"
+    strict: false
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/28017 and asic_type in ['vpp'] and release == 'master'"
 
 #######################################
 #####         Memory Checker      #####

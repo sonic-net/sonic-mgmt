@@ -113,9 +113,11 @@ set_voq_watchdog({})
     copy_dshell_script_cisco_8000(dut, asic, dshell_script, script_name="set_voq_watchdog.py")
 
 
-def check_dshell_ready(duthost):
-    show_command = "sudo show platform npu rx cgm_global"
-    err_msg = "debug shell server for asic 0 is not running"
+def check_dshell_ready(duthost, asic=None):
+    asic_arg = f" -n asic{asic}" if asic is not None else ""
+    asic_index = asic if asic is not None else 0
+    show_command = f"sudo show platform npu rx cgm_global{asic_arg}"
+    err_msg = f"debug shell server for asic {asic_index} is not running"
     output = duthost.command(show_command)['stdout']
     if err_msg in output:
         return False
