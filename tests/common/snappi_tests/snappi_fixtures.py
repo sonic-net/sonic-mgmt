@@ -19,11 +19,10 @@ from tests.common.snappi_tests.common_helpers import get_addrs_in_subnet, get_pe
     get_ipv6_addrs_in_subnet, parse_override
 from tests.common.snappi_tests.snappi_helpers import SnappiFanoutManager, get_snappi_port_location
 from tests.common.snappi_tests.port import SnappiPortConfig, SnappiPortType
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict, dut_ip_start, snappi_ip_start, \
     prefix_length, dut_ipv6_start, snappi_ipv6_start, v6_prefix_length
 from tests.common.snappi_tests.uhd.uhd_helpers import *  # noqa: F403, F401
-from tests.common.helpers.assertions import pytest_require
 logger = logging.getLogger(__name__)
 
 
@@ -473,7 +472,7 @@ def is_pfc_enabled(duthosts, rand_one_dut_front_end_hostname):
 
 @pytest.fixture(scope="function")
 def snappi_testbed_config(conn_graph_facts, fanout_graph_facts,     # noqa: F811
-                          duthosts, rand_one_dut_hostname, is_pfc_enabled,
+                          duthosts, rand_one_dut_front_end_hostname, is_pfc_enabled,
                           snappi_api):
     """
     Geenrate snappi API config and port config information for the testbed
@@ -494,7 +493,7 @@ def snappi_testbed_config(conn_graph_facts, fanout_graph_facts,     # noqa: F811
         return None, []
         '''
 
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[rand_one_dut_front_end_hostname]
 
     """ Generate L1 config """
     snappi_fanout = get_peer_snappi_chassis(conn_data=conn_graph_facts,
@@ -519,7 +518,7 @@ def snappi_testbed_config(conn_graph_facts, fanout_graph_facts,     # noqa: F811
         if port_speed is None:
             port_speed = int(snappi_ports[i]['speed'])
 
-        pytest_assert(port_speed == int(snappi_ports[i]['speed']),
+        pytest_require(port_speed == int(snappi_ports[i]['speed']),
                       'Ports have different link speeds')
 
     speed_gbps = int(port_speed/1000)
@@ -609,7 +608,9 @@ def snappi_testbed_config(conn_graph_facts, fanout_graph_facts,     # noqa: F811
                                      snappi_ports=snappi_ports)
     pytest_assert(config_result is True, 'Fail to configure L3 interfaces')
 
-    return config, port_config_list
+    yield config, port_config_list
+
+    cleanup_config([duthost], snappi_ports)
 
 
 @pytest.fixture(scope="module")
@@ -811,7 +812,7 @@ def snappi_dut_base_config(duthost_list,
 
     new_snappi_ports = [dict(list(sp.items()) + [('port_id', i)])
                         for i, sp in enumerate(snappi_ports) if sp['location'] in tgen_ports]
-    pytest_assert(len(set([sp['speed'] for sp in new_snappi_ports])) == 1, 'Ports have different link speeds')
+    pytest_require(len(set([sp['speed'] for sp in new_snappi_ports])) == 1, 'Ports have different link speeds')
     [config.ports.port(name='Port {}'.format(sp['port_id']), location=sp['location']) for sp in new_snappi_ports]
     speed_gbps = int(int(new_snappi_ports[0]['speed'])/1000)
 
@@ -1118,8 +1119,7 @@ def create_ip_list(value, count, mask=32, incr=0):
 
 def cleanup_config(duthost_list, snappi_ports):
 
-    if (duthost_list[0].facts['asic_type'] == "cisco-8000" and
-            duthost_list[0].get_facts().get("modular_chassis", None)):
+    if duthost_list[0].facts['asic_type'] == "cisco-8000":
         global DEST_TO_GATEWAY_MAP
         copy_DEST_TO_GATEWAY_MAP = copy(DEST_TO_GATEWAY_MAP)
         for addr in copy_DEST_TO_GATEWAY_MAP:
@@ -1136,7 +1136,7 @@ def cleanup_config(duthost_list, snappi_ports):
         port_count = len(snappi_ports)
         dutIps = create_ip_list(dut_ip_start, port_count, mask=prefix_length)
         for port in snappi_ports:
-            if port['peer_device'] == duthost.hostname and port['intf_config_changed']:
+            if port['peer_device'] == duthost.hostname and 'intf_config_changed' in port and port['intf_config_changed']:
                 port_id = port['port_id']
                 dutIp = dutIps[port_id]
                 logger.info('Removing Configuration on Dut: {} with port {} with ip :{}/{}'.format(
@@ -1554,6 +1554,7 @@ def gen_data_flow_dest_ip(addr, dut=None, intf=None, namespace=None, setup=True)
 
     if setup:
         if addr in DEST_TO_GATEWAY_MAP:
+            logger.info(f"Address:{addr} is already present in DEST_TO_GATEWAY_MAP:{DEST_TO_GATEWAY_MAP}")
             return DEST_TO_GATEWAY_MAP[addr]['dest']
 
     '''
@@ -1568,12 +1569,10 @@ def gen_data_flow_dest_ip(addr, dut=None, intf=None, namespace=None, setup=True)
 
     DEST_TO_GATEWAY_MAP[addr] = {}
     DEST_TO_GATEWAY_MAP[addr]['dest'] = str(ip_addr + 3*256*256*256)
-    DEST_TO_GATEWAY_MAP[addr]['intf'] = intf
+    if intf:
+        DEST_TO_GATEWAY_MAP[addr]['intf'] = intf
     DEST_TO_GATEWAY_MAP[addr]['dut'] = dut
     DEST_TO_GATEWAY_MAP[addr]['asic'] = namespace
-    cmd = "del"
-    if setup:
-        cmd = "add"
     asic_arg = ""
 
     if namespace is not None:
@@ -1586,30 +1585,60 @@ def gen_data_flow_dest_ip(addr, dut=None, intf=None, namespace=None, setup=True)
     else:
         arp_opt = f"-d {addr}"
 
-    try:
-        if setup:
-            dut.shell(f"sudo {asic_arg} arp {int_arg} {arp_opt}")
-            dut.shell(
-                f"{asic_arg} config route {cmd} prefix {DEST_TO_GATEWAY_MAP[addr]['dest']}/32 nexthop "
-                f"{addr} dev {DEST_TO_GATEWAY_MAP[addr]['intf']}"
-            )
-        else:
-            dut.shell(
-                f"{asic_arg} config route {cmd} prefix {DEST_TO_GATEWAY_MAP[addr]['dest']}/32 nexthop "
-                f"{addr} dev {DEST_TO_GATEWAY_MAP[addr]['intf']}"
-            )
-            dut.shell(f"sudo {asic_arg} arp {int_arg} {arp_opt}")
-    except RunAnsibleModuleFail:
-        if setup:
-            raise
-        else:
-            # Its already removed by reboot
-            pass
-
     if setup:
+        dut.shell(f"sudo {asic_arg} arp {int_arg} {arp_opt}")
+        dut.shell(
+            f"{asic_arg} config route add prefix {DEST_TO_GATEWAY_MAP[addr]['dest']}/32 nexthop "
+            f"{addr} dev {DEST_TO_GATEWAY_MAP[addr]['intf']}"
+        )
         return DEST_TO_GATEWAY_MAP[addr]['dest']
     else:
+        # Best-effort teardown: attempt both removals even if one fails, so a single
+        # failure (e.g. already removed by reboot) can't leave the other stale on the DUT,
+        # and always drop the map entry so subsequent setups don't see a stale cached dest.
+        try:
+            dut.shell(
+                f"{asic_arg} config route del prefix {DEST_TO_GATEWAY_MAP[addr]['dest']}/32"
+            )
+        except RunAnsibleModuleFail as exc:
+            logger.warning(f"Failed to delete static route for {addr}, it may already be removed: {exc}")
+        try:
+            dut.shell(f"sudo {asic_arg} arp {int_arg} {arp_opt}")
+        except RunAnsibleModuleFail as exc:
+            logger.warning(f"Failed to delete ARP entry for {addr}, it may already be removed: {exc}")
         del DEST_TO_GATEWAY_MAP[addr]
+
+
+def wait_for_static_routes_reinstall(timeout=10, poll_interval=1):
+    '''
+        The static routes created by gen_data_flow_dest_ip() are tied to the
+        reachability of their nexthop interface. After a physical link flap
+        (e.g. toggle_dut_port_state()), FRR/staticd can take a moment to
+        reinstall them once the interface comes back up. Poll each known
+        route until it shows up in the DUT's RIB instead of assuming it is
+        immediately ready, so traffic isn't sent to a destination that has
+        no route yet.
+    '''
+    global DEST_TO_GATEWAY_MAP
+    pending = {addr: info for addr, info in DEST_TO_GATEWAY_MAP.items() if info.get('dut') is not None}
+    if not pending:
+        return
+
+    deadline = time.time() + timeout
+    while pending and time.time() < deadline:
+        for addr in list(pending):
+            info = pending[addr]
+            asic_arg = f"ip netns exec {info['asic']}" if info.get('asic') else ""
+            result = info['dut'].shell(f"{asic_arg} ip route show {info['dest']}/32", module_ignore_errors=True)
+            if info['dest'] in result.get('stdout', ''):
+                del pending[addr]
+        if pending:
+            time.sleep(poll_interval)
+
+    if pending:
+        logger.warning(
+            f"Static route(s) for destination(s) {list(pending.keys())} did not reinstall within "
+            f"{timeout}s after a link toggle; traffic may be sent to a destination with no DUT route")
 
 
 @pytest.fixture(scope="module")
@@ -1874,3 +1903,103 @@ def flatten_list(lst):
         else:
             flattened.append(item)
     return flattened
+
+ 
+def _get_front_panel_route_targets(duthost, dut_fp_ports):
+    """
+    Resolve every front panel port of `duthost` present in `dut_fp_ports` to the
+    (dest_addr, l3_interface, asic_namespace) tuple needed by `gen_data_flow_dest_ip()`.
+    Covers routed (L3) physical interfaces, VLAN members and PortChannel members, so
+    that every front panel port ends up with a static route/ARP entry, not just the
+    directly-routed ones.
+    """
+    mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+    targets = []
+    seen_ports = set()
+
+    def asic_namespace(intf):
+        asic_inst = duthost.get_port_asic_instance(intf)
+        return duthost.get_namespace_from_asic_id(asic_inst.asic_index) if asic_inst else None
+
+    # Routed (L3) front panel interfaces.
+    for entry in mg_facts.get('minigraph_interfaces', []):
+        intf = entry['attachto']
+        peer = entry.get('peer_addr')
+        if intf not in dut_fp_ports or intf in seen_ports or not peer or not __valid_ipv4_addr(peer):
+            continue
+        targets.append((peer, intf, asic_namespace(intf)))
+        seen_ports.add(intf)
+
+    # VLAN member front panel interfaces route via the VLAN SVI.
+    vlan_facts = mg_facts.get('minigraph_vlans', {}) or {}
+    vlan_entries = {}
+    for entry in mg_facts.get('minigraph_vlan_interfaces', []):
+        vlan_entries.setdefault(entry['attachto'], []).append(entry)
+    for vlan, vinfo in vlan_facts.items():
+        v4_entry = next((e for e in vlan_entries.get(vlan, []) if __valid_ipv4_addr(e['addr'])), None)
+        if not v4_entry:
+            continue
+        members = [m for m in vinfo.get('members', []) if m in dut_fp_ports and m not in seen_ports]
+        if not members:
+            continue
+        gw4, pfx4 = v4_entry['addr'], v4_entry['prefixlen']
+        # Gateway IP itself is not assigned to any TGEN interface, so it is excluded.
+        member_ips = get_addrs_in_subnet(f"{gw4}/{pfx4}", len(members), exclude_ips=[gw4])
+        for phy, ip in zip(members, member_ips):
+            if not ip:
+                continue
+            targets.append((ip, vlan, asic_namespace(phy)))
+            seen_ports.add(phy)
+
+    # PortChannel member front panel interfaces route via the PortChannel itself.
+    pc_facts = mg_facts.get('minigraph_portchannels', {}) or {}
+    pc_entries = {}
+    for entry in mg_facts.get('minigraph_portchannel_interfaces', []):
+        pc_entries.setdefault(entry['attachto'], []).append(entry)
+    for pc, pinfo in pc_facts.items():
+        v4_entry = next((e for e in pc_entries.get(pc, []) if __valid_ipv4_addr(e['addr'])), None)
+        if not v4_entry or not v4_entry.get('peer_addr'):
+            continue
+        members = [m for m in pinfo.get('members', []) if m in dut_fp_ports and m not in seen_ports]
+        if not members:
+            continue
+        # A PortChannel has a single L3 address shared by all its members.
+        targets.append((v4_entry['peer_addr'], pc, asic_namespace(members[0])))
+        seen_ports.update(members)
+
+    return targets
+
+
+@pytest.fixture(scope="module", autouse=True)
+def gen_static_route_for_all_fp_ports(duthosts, get_snappi_ports):
+    """
+    Wrapper fixture around `gen_data_flow_dest_ip()` that guarantees every front panel
+    port of the DUT(s) connected to the snappi chassis - whether a routed (L3)
+    interface, a VLAN member, or a PortChannel member - has a corresponding static
+    route/ARP entry configured before a snappi test runs, and cleans them up
+    afterwards.
+
+    Individual tests/helpers can keep calling `gen_data_flow_dest_ip(addr)` (without a
+    `dut` argument) to look up the pre-configured destination for any front panel port.
+
+    Only cisco-8000 DUTs need this ARP/route workaround (see `gen_data_flow_dest_ip`),
+    so all other ASIC types are skipped.
+    """
+    configured = []
+    for duthost in duthosts:
+        if duthost.facts.get('asic_type') != "cisco-8000":
+            continue
+        dut_fp_ports = {sp['peer_port'] for sp in get_snappi_ports if sp['peer_device'] == duthost.hostname}
+        if not dut_fp_ports:
+            continue
+        for addr, intf, namespace in _get_front_panel_route_targets(duthost, dut_fp_ports):
+            gen_data_flow_dest_ip(addr, duthost, intf, namespace=namespace, setup=True)
+            configured.append((duthost, addr, intf, namespace))
+
+    yield
+
+    for duthost, addr, intf, namespace in reversed(configured):
+        gen_data_flow_dest_ip(addr, duthost, intf, namespace=namespace, setup=False)
+
+
+

@@ -4,9 +4,9 @@ import pytest
 from tests.snappi_tests.pfc.files.helper import run_pfc_test
 from tests.common.helpers.assertions import pytest_require
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
-    fanout_graph_facts  # noqa: F401
-from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port,\
-    snappi_api, snappi_testbed_config, is_pfc_enabled  # noqa: F401
+    fanout_graph_facts, fanout_graph_facts_multidut  # noqa: F401
+from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
+    snappi_api, snappi_testbed_config, is_pfc_enabled, get_snappi_ports, get_snappi_ports_multi_dut  # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, all_prio_list, lossless_prio_list,\
     lossy_prio_list, disable_pfcwd  # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
@@ -22,7 +22,7 @@ def test_pfc_zero_src_mac_single_lossless_prio(snappi_api,  # noqa: F811
                                                conn_graph_facts,  # noqa: F811
                                                fanout_graph_facts,  # noqa: F811
                                                duthosts,
-                                               rand_one_dut_hostname,
+                                               rand_one_dut_front_end_hostname,
                                                rand_one_dut_portname_oper_up,
                                                enum_dut_lossless_prio,
                                                all_prio_list,  # noqa: F811
@@ -38,7 +38,7 @@ def test_pfc_zero_src_mac_single_lossless_prio(snappi_api,  # noqa: F811
         conn_graph_facts (pytest fixture): connection graph
         fanout_graph_facts (pytest fixture): fanout graph
         duthosts (pytest fixture): list of DUTs
-        rand_one_dut_hostname (str): hostname of DUT
+        rand_one_dut_front_end_hostname (str): hostname of DUT
         rand_one_dut_portname_oper_up (str): port to test, e.g., 's6100-1|Ethernet0'
         enum_dut_lossless_prio (str): lossless priority to test, e.g., 's6100-1|3'
         all_prio_list (pytest fixture): list of all the priorities
@@ -50,11 +50,11 @@ def test_pfc_zero_src_mac_single_lossless_prio(snappi_api,  # noqa: F811
 
     dut_hostname, dut_port = rand_one_dut_portname_oper_up.split('|')
     dut_hostname2, lossless_prio = enum_dut_lossless_prio.split('|')
-    pytest_require(rand_one_dut_hostname == dut_hostname == dut_hostname2,
+    pytest_require(rand_one_dut_front_end_hostname == dut_hostname == dut_hostname2,
                    "Priority and port are not mapped to the expected DUT")
 
     testbed_config, port_config_list = snappi_testbed_config
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[rand_one_dut_front_end_hostname]
     lossless_prio = int(lossless_prio)
 
     pause_prio_list = [lossless_prio]
@@ -86,7 +86,7 @@ def test_pfc_zero_src_mac_multi_lossless_prio(snappi_api,  # noqa: F811
                                               conn_graph_facts,  # noqa: F811
                                               fanout_graph_facts,  # noqa: F811
                                               duthosts,
-                                              rand_one_dut_hostname,
+                                              rand_one_dut_front_end_hostname,
                                               rand_one_dut_portname_oper_up,
                                               lossless_prio_list,  # noqa: F811
                                               lossy_prio_list,  # noqa: F811
@@ -102,7 +102,7 @@ def test_pfc_zero_src_mac_multi_lossless_prio(snappi_api,  # noqa: F811
         conn_graph_facts (pytest fixture): connection graph
         fanout_graph_facts (pytest fixture): fanout graph
         duthosts (pytest fixture): list of DUTs
-        rand_one_dut_hostname (str): hostname of DUT
+        rand_one_dut_front_end_hostname (str): hostname of DUT
         rand_one_dut_portname_oper_up (str): port to test, e.g., 's6100-1|Ethernet0'
         lossless_prio_list (pytest fixture): list of all the lossless priorities
         lossy_prio_list (pytest fixture): list of all the lossy priorities
@@ -113,11 +113,11 @@ def test_pfc_zero_src_mac_multi_lossless_prio(snappi_api,  # noqa: F811
     """
 
     dut_hostname, dut_port = rand_one_dut_portname_oper_up.split('|')
-    pytest_require(rand_one_dut_hostname == dut_hostname,
+    pytest_require(rand_one_dut_front_end_hostname == dut_hostname,
                    "Port is not mapped to the expected DUT")
 
     testbed_config, port_config_list = snappi_testbed_config
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[rand_one_dut_front_end_hostname]
     pause_prio_list = lossless_prio_list
     test_prio_list = lossless_prio_list
     bg_prio_list = lossy_prio_list

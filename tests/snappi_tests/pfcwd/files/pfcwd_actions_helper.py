@@ -290,8 +290,8 @@ def run_pfc_test(api,
 
     """ Run traffic """
     tgen_flow_stats, switch_flow_stats, test_stats = \
-        run_traffic_and_collect_stats(rx_duthost=ingress_duthost,
-                                      tx_duthost=egress_duthost,
+        run_traffic_and_collect_stats(rx_duthost=egress_duthost,
+                                      tx_duthost=ingress_duthost,
                                       api=api,
                                       config=testbed_config,
                                       data_flow_names=data_flow_names,
