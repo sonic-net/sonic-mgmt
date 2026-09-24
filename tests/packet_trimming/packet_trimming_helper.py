@@ -1403,8 +1403,6 @@ class ConfigTrimming:
 
                 # Save the original scheduler configuration
                 self.original_schedulers[port] = original_scheduler
-
-                disable_egress_data_plane(self.duthost, port, self.queue)
                 logger.info(f"Successfully blocked port {port} (original scheduler: {original_scheduler})")
 
             return self
