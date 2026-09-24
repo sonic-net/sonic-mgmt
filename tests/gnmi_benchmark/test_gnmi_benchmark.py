@@ -35,7 +35,11 @@ BENCHMARK_CONFIG = {
         "route-table": {
             "runner": BenchmarkRunner,
             "blaster": RouteTableBlaster,
-            "parameters": {"route_distribution": {16000: 1, 20000: 12}},
+            "parameters": {
+                # Match sonic-gnmi pkg/bypass/bypass.go AllowedSKUPrefixes.
+                "hwsku_prefixes": ("Cisco-8102", "Cisco-8101", "Cisco-8223"),
+                "route_distribution": {16000: 1, 20000: 12},
+            },
             "profiles": {
                 "1000routes-10workers": {"routes_per_request": 1000, "concurrency": 10},
                 "1000routes-100workers": {"routes_per_request": 1000, "concurrency": 100},

@@ -33,7 +33,12 @@ Edit `BENCHMARK_CONFIG` in [test_gnmi_benchmark.py](test_gnmi_benchmark.py):
 | `output_dir` | JSON report directory; default `/tmp/gnmi-benchmark` |
 | `parameters` | Shared warmup, measurement duration and per-RPC timeout |
 | `load_modes` | Closed-loop or open-loop, with offered iterations/s |
-| `benchmarks` | Runner/Blaster factories, inventory and named load profiles |
+| `benchmarks` | Runner/Blaster factories, SKU prefixes, inventory and named load profiles |
+
+`benchmarks["route-table"]["parameters"]["hwsku_prefixes"]` defines the allowed
+SKU prefixes and is passed into the Blaster constructor alongside the inventory.
+The entrypoint checks it before TLS setup. Direct callers may supply their own
+`hwsku_prefixes` tuple; the base default `()` imposes no prefix restriction.
 
 Parameters are merged in order: shared → workload → profile. The selected mode
 sets traffic/rate, and the generated case ID sets the marker. `BENCHMARK_CASES`
