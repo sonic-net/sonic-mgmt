@@ -166,6 +166,11 @@ class FanoutPfcStorm():
     def startPfcStorm(self, intf):
         if intf in self.intfsEnabled:
             return
+        # Backpressure lives in the ASIC, so a generator that died without
+        # running its cleanup left this interface asserting PFC. Starting from
+        # that state emits nothing new and the watchdog never sees a storm
+        # begin, so drop it before asserting our own.
+        self._clearPfcBackpressure(intf)
         self.intfsEnabled.append(intf)
 
         mmuPort = self.intfToMmuPort[intf]
