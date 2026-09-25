@@ -1704,7 +1704,7 @@ def fib_lt2_routes(topo, ptf_ip, action="annouce", topo_routes=None):
                 ipv4_routes.append((str(subnetv4), vm_nhipv4, as_path))
                 ipv6_routes.append((str(subnetv6), vm_nhipv6, as_path))
 
-            ipv4_routes.append((str(next(extra_ipv4_t1)), vm_nhipv4, as_path))
+            ipv4_routes.append(("{}/32".format(next(extra_ipv4_t1)), vm_nhipv4, as_path))
 
             topo_routes[vm_name] = {}
             topo_routes[vm_name][IPV4] = ipv4_routes
