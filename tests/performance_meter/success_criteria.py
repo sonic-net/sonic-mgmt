@@ -222,16 +222,27 @@ def _appended_lines_command(syslog_path, inode, size, marks):
     grep_args = " ".join("-e {}".format(shlex.quote(pattern)) for pattern in patterns)
 
     return (
+        'filter_markers() {{ grep -F {grep_args} | grep -v ansible || true; }}; '
         'current_inode="$(stat -c %i {path} 2>/dev/null || true)"; '
         'current_size="$(stat -c %s {path} 2>/dev/null || echo 0)"; '
         'rotated_inode="$(stat -c %i {rotated} 2>/dev/null || true)"; '
         'if [ "$current_inode" = "{inode}" ] && [ "$current_size" -ge "{size}" ]; then '
-        'tail -c +{offset} {path}; '
+        'output="$(tail -c +{offset} {path} | filter_markers)"; '
+        'current_inode_after="$(stat -c %i {path} 2>/dev/null || true)"; '
+        'current_size_after="$(stat -c %s {path} 2>/dev/null || echo 0)"; '
+        'if [ "$current_inode_after" = "$current_inode" ] '
+        '&& [ "$current_size_after" -ge "$current_size" ]; then '
+        'printf "%s\\n" "$output"; '
+        'else printf "%s\\n" {boundary}; fi; '
         'elif [ "$rotated_inode" = "{inode}" ]; then '
-        'tail -c +{offset} {rotated}; cat {path}; '
-        'else printf "%s\\n" {boundary}; '
-        '[ ! -f {rotated} ] || cat {rotated}; cat {path}; fi '
-        '| grep -F {grep_args} | grep -v ansible || true'
+        'output="$({{ tail -c +{offset} {rotated}; cat {path}; }} | filter_markers)"; '
+        'current_inode_after="$(stat -c %i {path} 2>/dev/null || true)"; '
+        'rotated_inode_after="$(stat -c %i {rotated} 2>/dev/null || true)"; '
+        'if [ "$current_inode_after" = "$current_inode" ] '
+        '&& [ "$rotated_inode_after" = "$rotated_inode" ]; then '
+        'printf "%s\\n" "$output"; '
+        'else printf "%s\\n" {boundary}; fi; '
+        'else printf "%s\\n" {boundary}; fi'
     ).format(
         path=path,
         rotated=rotated,
@@ -273,6 +284,9 @@ def success_criteria_by_bounded_syslog(request, test_result, **kwargs):
     @suppress_exception
     def syslog_checker():
         nonlocal syslog_start, boundary_lost
+        if boundary_lost:
+            return False
+
         output = duthost.shell(command)["stdout"]
         if SYSLOG_BOUNDARY_LOST in output:
             boundary_lost = True
