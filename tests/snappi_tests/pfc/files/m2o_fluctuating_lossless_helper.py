@@ -304,9 +304,10 @@ def run_m2o_fluctuating_lossless_test(api,
         ingress_dut2, ingress_port2)[ingress_dut2.hostname][ingress_port2]
     total_rx_pkts = ingress_stats_1['rx_ok'] + ingress_stats_2['rx_ok']
 
-    if egress_duthost.facts['switch_type'] == "voq":
-        total_pkt_drop = ingress_stats_1['rx_drp'] + ingress_stats_2['rx_drp']
-    else:
+    # Lossy congestion drops may be counted at ingress (RX_DRP) or egress (TX_DRP)
+    # depending on the ASIC; a dropped packet is counted only once, so sum both.
+    total_pkt_drop = ingress_stats_1['rx_drp'] + ingress_stats_2['rx_drp']
+    if egress_duthost.facts['switch_type'] != "voq":
         egress_stats = get_interface_stats(
             egress_duthost, dut_tx_port)[egress_duthost.hostname][dut_tx_port]
         total_pkt_drop = egress_stats['tx_drp']
