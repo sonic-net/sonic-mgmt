@@ -296,7 +296,7 @@ class ClockUtils:
                 assert diff_seconds <= allowed_margin, f'Expected: {diff_seconds} <= {allowed_margin}'
 
 
-def test_show_clock(duthosts, init_timezone):
+def test_show_clock(duthosts):
     """
     @summary:
         Test that show clock output is correct

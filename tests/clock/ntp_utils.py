@@ -1,4 +1,5 @@
 import ipaddress
+import re
 import shlex
 import uuid
 from contextlib import contextmanager
@@ -14,6 +15,25 @@ from tests.common.utilities import wait_until
 
 
 NTP_SERVER_RECOVERY_TIMEOUT = 86400
+NTP_SERVER_RECOVERY_LEASE = 1800
+NTP_SERVER_RECOVERY_RETRY_INTERVAL = 60
+NTP_SERVER_RECOVERY_COMMAND_TIMEOUT = 120
+NTP_SERVER_LOCK_TIMEOUT = 30
+
+
+def normalize_ntp_server(ntp_server):
+    """Validate and normalize an NTP server IP address or hostname."""
+    ntp_server = str(ntp_server).strip()
+    if not ntp_server:
+        raise ValueError("NTP server must not be empty")
+
+    try:
+        return str(ipaddress.ip_address(ntp_server))
+    except ValueError:
+        if len(ntp_server) > 253 or not re.fullmatch(
+                r"[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?", ntp_server):
+            raise ValueError("Invalid NTP server: {}".format(ntp_server))
+        return ntp_server
 
 
 def get_ntp_service_name(ntp_daemon_type):
@@ -89,7 +109,7 @@ def _install_ntp_server_recovery(ptfhost, ntp_service_name, ntp_conf_path,
 result=0
 if [ "${{SONIC_MGMT_NTP_LOCK_HELD:-0}}" -ne 1 ]; then
     exec 9>{lock_path}
-    flock -x 9
+    flock -w {lock_timeout} -x 9 || exit 75
 fi
 if [ ! -s {owner_path} ] || [ "$(cat {owner_path})" != {recovery_id} ]; then
     exit 0
@@ -107,6 +127,7 @@ fi
 exit $result
 """.format(
         lock_path=shlex.quote(lock_path),
+        lock_timeout=NTP_SERVER_LOCK_TIMEOUT,
         owner_path=shlex.quote(owner_path),
         recovery_id=shlex.quote(recovery_id),
         service_name=shlex.quote(ntp_service_name),
@@ -116,16 +137,33 @@ exit $result
     )
     try:
         ptfhost.copy(content=script, dest=script_path, mode=0o755)
-        watchdog_command = (
-            "sleep {timeout}; "
-            "until {script}; do sleep 300; done; "
-            "rm -f {script} {pid} {backup} {owner_tmp}"
-        ).format(
+        watchdog_command = """\
+monotonic_seconds() {{
+    read -r uptime_seconds _ < /proc/uptime || return 1
+    printf '%s\\n' "${{uptime_seconds%%.*}}"
+}}
+sleep {timeout}
+deadline=$(( $(monotonic_seconds) + {lease} ))
+while true; do
+    if timeout --kill-after=10 {command_timeout} {script}; then
+        rm -f {script} {pid} {backup} {owner_tmp}
+        exit 0
+    fi
+    now=$(monotonic_seconds) || exit 1
+    if [ "$now" -ge "$deadline" ]; then
+        exit 1
+    fi
+    sleep {retry_interval}
+done
+""".format(
             timeout=recovery_timeout,
+            lease=NTP_SERVER_RECOVERY_LEASE,
+            command_timeout=NTP_SERVER_RECOVERY_COMMAND_TIMEOUT,
             script=shlex.quote(script_path),
             pid=shlex.quote(pid_path),
             backup=shlex.quote(ntp_conf_backup_path),
-            owner_tmp=shlex.quote(owner_tmp_path)
+            owner_tmp=shlex.quote(owner_tmp_path),
+            retry_interval=NTP_SERVER_RECOVERY_RETRY_INTERVAL
         )
         ptfhost.shell(
             "watchdog_started=0; "
@@ -135,7 +173,7 @@ exit $result
             "fi; "
             "}}; "
             "trap cleanup_install EXIT HUP INT TERM; "
-            "exec 9>{lock}; flock -x 9; "
+            "exec 9>{lock}; flock -w {lock_timeout} -x 9 || exit 75; "
             "if [ -e {owner} ]; then "
             "echo 'Another NTP server context owns {owner}' >&2; exit 1; fi; "
             "cp -a {config} {backup} && "
@@ -148,6 +186,7 @@ exit $result
                 watchdog=shlex.quote(watchdog_command),
                 script=shlex.quote(script_path),
                 lock=shlex.quote(lock_path),
+                lock_timeout=NTP_SERVER_LOCK_TIMEOUT,
                 owner=shlex.quote(owner_path),
                 config=shlex.quote(ntp_conf_path),
                 backup=shlex.quote(ntp_conf_backup_path),
@@ -159,7 +198,10 @@ exit $result
         ptfhost.command("test -s {}".format(shlex.quote(pid_path)))
     except Exception:
         restore_result = ptfhost.command(
-            shlex.quote(script_path),
+            "timeout --kill-after=10 {} {}".format(
+                NTP_SERVER_RECOVERY_COMMAND_TIMEOUT,
+                shlex.quote(script_path)
+            ),
             module_ignore_errors=True
         )
         owns_context = ptfhost.shell(
@@ -190,11 +232,12 @@ exit $result
 
 def _restore_ntp_server(ptfhost, recovery):
     result = ptfhost.shell(
-        "if [ -x {script} ]; then {script}; "
+        "if [ -x {script} ]; then timeout --kill-after=10 {command_timeout} {script}; "
         "elif [ ! -e {backup} ]; then exit 0; "
         "else exit 1; fi".format(
             script=shlex.quote(recovery["script_path"]),
-            backup=shlex.quote(recovery["backup_path"])
+            backup=shlex.quote(recovery["backup_path"]),
+            command_timeout=NTP_SERVER_RECOVERY_COMMAND_TIMEOUT
         ),
         module_ignore_errors=True
     )
@@ -254,6 +297,7 @@ def setup_ntp_server_context(ptfhost, ptf_use_ipv6=False,
 
     ptfhost.shell("command -v flock >/dev/null")
     ptfhost.shell("command -v setsid >/dev/null")
+    ptfhost.shell("command -v timeout >/dev/null")
     recovery = _install_ntp_server_recovery(
         ptfhost,
         ntp_service_name,
@@ -287,7 +331,7 @@ def setup_ntp_server_context(ptfhost, ptf_use_ipv6=False,
 
 def get_ntp_one_shot_command(duthost, ntp_daemon_type, ntp_server, ntp_conf_path=None):
     """Return a bounded command that synchronizes time from one explicit server."""
-    ntp_server = str(ipaddress.ip_address(ntp_server))
+    ntp_server = normalize_ntp_server(ntp_server)
     if ntp_daemon_type == NtpDaemon.CHRONY:
         directive = shlex.quote("server {} iburst".format(ntp_server))
         return "timeout 60 chronyd -q -t 30 -F 1 {}".format(directive)
@@ -313,7 +357,7 @@ def prepare_ntp_one_shot_config(duthost, ntp_daemon_type, ntp_server, ntp_conf_p
     if ntp_daemon_type == NtpDaemon.CHRONY:
         return
 
-    ntp_server = str(ipaddress.ip_address(ntp_server))
+    ntp_server = normalize_ntp_server(ntp_server)
     duthost.copy(
         content="server {} iburst\n".format(ntp_server),
         dest=ntp_conf_path,
