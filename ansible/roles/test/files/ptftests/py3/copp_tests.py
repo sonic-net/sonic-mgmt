@@ -191,26 +191,15 @@ class ControlPlaneBaseTest(BaseTest):
         self.log("Sent out %d packets in %ds" % (send_count, self.DEFAULT_SEND_INTERVAL_SEC))
         # Wait a little bit for all the packets to make it through
         time.sleep(self.DEFAULT_RECEIVE_WAIT_TIME)
-        # Capture the window end here, right after the fixed drain sleep -- NOT after the call
-        # below, since count_matched_packets_all_ports can itself run for up to its own timeout
-        # hunting for trailing packets; that measurement overhead is not part of the real traffic
-        # window and must not be counted in the PPS denominator.
+        # Capture the window end here, right after the fixed drain sleep
         window_end_time = datetime.datetime.now()
         recv_count = testutils.count_matched_packets_all_ports(
             self, packet, [recv_intf[1]], recv_intf[0], timeout=self.PTF_TIMEOUT)
         self.log("Received %d packets after sleep %ds" % (recv_count, self.DEFAULT_RECEIVE_WAIT_TIME))
 
-        # Content-matched PPS: recv_count only counts packets that byte-for-byte match the
-        # packet template we sent (via count_matched_packets_all_ports/match_exp_pkt), so unlike
-        # the raw NN interface counter below it is immune to unrelated real background traffic
-        # sharing the same port (e.g. real BGP keepalives on tcp/179 during BGPTest on testbeds
-        # with live BGP sessions). Measured over the actual wall-clock send+drain window (from
-        # start_time, when the send loop began, to window_end_time, right after the fixed
-        # post-send drain sleep) -- NOT a hardcoded constant, since the real send loop runs for
-        # DEFAULT_SEND_INTERVAL_SEC + 15s (see the while condition above), not just
-        # DEFAULT_SEND_INTERVAL_SEC, and NOT including the variable-duration
-        # count_matched_packets_all_ports quiescence-hunt call above, which is measurement
-        # overhead rather than part of the real traffic window.
+        # Content-matched PPS: recv_count only counts packets that match the packet template
+        # we sent, so unlike the raw NN interface counter it is immune to unrelated background
+        # traffic sharing the same port.
         content_matched_window_sec = (window_end_time - start_time).total_seconds()
         self.content_matched_rx_pps = int(recv_count / content_matched_window_sec)
         self.log("Content-matched RX PPS (recv_count/%.1fs): %d" % (
@@ -629,6 +618,7 @@ class BGPTest(PolicyTest):
 
     def construct_packet(self, port_number):
         dst_mac = self.peer_mac[port_number]
+        # Default unroutable source IP fails VPP's uRPF check and gets silently dropped
         src_ip = self.myip
         dst_ip = self.peerip
 
@@ -645,13 +635,11 @@ class BGPTest(PolicyTest):
 
     def check_constraints(self, send_count, recv_count, time_delta_ms, rx_pps):
         self.log("")
-        # BGPTest sends real BGP-protocol-shaped traffic (tcp/179, real router-interface dst
-        # IP) on testbeds that also run genuine live BGP sessions on the same port. The raw
-        # NN interface counter (rx_pps) counts that unrelated real background BGP traffic
-        # alongside our own synthetic packets, inflating the measured rate. Use the
-        # content-matched count (self.content_matched_rx_pps, derived from recv_count via exact
-        # packet-template matching in copp_test()) instead, which is immune to that
-        # contamination. See sonic-mgmt investigation, 2026-09-18.
+        # BGPTest sends real BGP traffic on testbeds that also run genuine live BGP
+        # sessions on the same port. The NN interface counter (rx_pps) counts that
+        # background BGP traffic alongside our own synthetic packets, inflating the
+        # measured rate. Use the content-matched count instead, which is immune to that
+        # contamination.
         effective_rx_pps = getattr(self, "content_matched_rx_pps", rx_pps)
         if self.has_trap:
             self.log("Checking constraints (PolicyApplied):")
@@ -726,6 +714,7 @@ class SNMPTest(PolicyTest):  # FIXME: trapped as ip2me. mellanox should add supp
     def construct_packet(self, port_number):
         src_mac = self.my_mac[port_number]
         dst_mac = self.peer_mac[port_number]
+        # Default unroutable source IP fails VPP's uRPF check and gets silently dropped
         src_ip = self.myip
         dst_ip = self.peerip
 
@@ -792,6 +781,7 @@ class IP2METest(PolicyTest):
     def construct_packet(self, port_number):
         src_mac = self.my_mac[port_number]
         dst_mac = self.peer_mac[port_number]
+        # Default unroutable source IP fails VPP's uRPF check and gets silently dropped
         src_ip = self.myip
         dst_ip = self.peerip
 
