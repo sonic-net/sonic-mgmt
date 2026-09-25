@@ -426,9 +426,10 @@ def hash_keys(duthost, tbinfo):
     # In multi asic platform each asic has different hash seed,
     # the same packet coming in different asic
     # could egress out of different port
-    # the hash_test condition for hash_key == ingress_port will fail
+    # the hash_test condition for hash_key == ingress_port will fail.
     if duthost.sonichost.is_multi_asic:
-        hash_keys.remove('ingress-port')
+        if 'ingress-port' in hash_keys:
+            hash_keys.remove('ingress-port')
 
     return hash_keys
 
