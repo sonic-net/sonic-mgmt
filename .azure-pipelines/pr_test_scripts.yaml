@@ -647,7 +647,6 @@ t1-lag-vpp:
   - bgp/test_bgp_session.py
   - bgp/test_bgp_operation_in_ro.py
   - bgp/test_bgp_queue.py
-  - copp/test_copp.py
   - bgp/test_bgp_session_flap.py
   - bgp/test_ipv6_nlri_over_ipv4.py
   - bgp/test_bgp_allow_list.py
@@ -682,6 +681,7 @@ t1-lag-vpp:
   - cacl/test_cacl_application.py
   - cacl/test_cacl_function.py
   - cacl/test_ebtables_application.py
+  - copp/test_copp.py
   - crm/test_crm.py
   - crm/test_crm_available.py
   - decap/test_decap.py
