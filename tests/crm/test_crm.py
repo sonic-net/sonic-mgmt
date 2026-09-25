@@ -311,6 +311,8 @@ def get_crm_polling_interval(duthost):
         logger.error("CRM threshold log check failed; expected regex: %s",
                      loganalyzer.expect_regex)
         raise
+
+
 @contextmanager
 def disable_swss_syslog_rate_limit(duthost, asichost):
     """Prevent SWSS threshold messages from being dropped during CRM verification."""
