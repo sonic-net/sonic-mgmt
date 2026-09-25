@@ -37,41 +37,39 @@ bfd/test_bfd_traffic.py:
 #######################################
 #####           BGP               #####
 #######################################
-bgp/test_bgp_bbr.py::test_bbr_enabled_dut_asn_in_aspath:
+bgp/test_bgp_suppress_fib.py::test_bgp_route_with_suppress[:
   skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
+    reason: "Suppress-FIB dataplane behavior has not been validated on VPP"
     conditions:
       - "asic_type in ['vpp']"
 
-bgp/test_bgp_bbr.py::test_bbr_status_consistent_after_reload[:
+bgp/test_bgp_suppress_fib.py::test_bgp_route_with_suppress_negative_operation:
   skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
+    reason: "Suppress-FIB dataplane behavior has not been validated on VPP"
     conditions:
       - "asic_type in ['vpp']"
 
-bgp/test_bgp_session.py::test_bgp_session_interface_down:
-  xfail:
-    reason: "VPP BGP sessions intermittently fail to establish during module setup"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/27487 and asic_type in ['vpp']"
-
-bgp/test_bgp_suppress_fib.py:
+bgp/test_bgp_suppress_fib.py::test_credit_loop:
   skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
+    reason: "Suppress-FIB credit-loop behavior has not been validated on VPP"
     conditions:
       - "asic_type in ['vpp']"
 
-bgp/test_traffic_shift.py:
+bgp/test_bgp_suppress_fib.py::test_suppress_fib_stress:
   skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
+    reason: "Suppress-FIB stress coverage has not been validated on VPP"
+    conditions:
+      - "asic_type in ['vpp']"
+
+bgp/test_bgp_suppress_fib.py::test_suppress_fib_performance:
+  skip:
+    reason: "Suppress-FIB performance coverage has not been validated on VPP"
+    conditions:
+      - "asic_type in ['vpp']"
+
+bgp/test_traffic_shift.py::test_load_minigraph_with_traffic_shift_away:
+  skip:
+    reason: "Loading minigraph during traffic shift has not been validated on VPP"
     conditions:
       - "asic_type in ['vpp'] and (not platform.startswith('arm64-c8220tg_48a_o'))"
 
