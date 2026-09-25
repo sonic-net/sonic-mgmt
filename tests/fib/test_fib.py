@@ -53,6 +53,15 @@ VLANIP = '192.168.{}.1/24'
 PTF_QLEN = 20000
 DEFAULT_MUX_SERVER_PORT = 8080
 
+# Inputs for the 'ingress-port' negative test. A single route only exercises the
+# ports outside its own next hop group, and a single 5-tuple can resolve to the
+# same ECMP member under two different hashes, so sweep several routes and several
+# flows. Set INGRESS_PORT_SRC_PORTS to pin the sweep to specific PTF ports (e.g.
+# only the LT2/T3 facing ones) instead of covering every eligible port.
+INGRESS_PORT_ROUTES = 3
+INGRESS_PORT_FLOWS = 3
+INGRESS_PORT_SRC_PORTS = []
+
 PTF_TEST_PORT_MAP = '/root/ptf_test_port_map.json'
 
 
@@ -101,7 +110,7 @@ def check_default_route_from_fib_info(ptfhost, file_path):
 
 def get_all_ptf_port_indices_from_mg_facts(mg_facts):
     """
-    Retrieve all front end ptf port indices from the minigraph facts.
+    Retrieve all ptf port indices from the minigraph facts.
 
     Args:
         mg_facts: The minigraph facts containing ASIC information.
@@ -118,9 +127,6 @@ def get_all_ptf_port_indices_from_mg_facts(mg_facts):
 
         # Store (port_index: (asic_id, port_name)) in the dictionary
         for port_name, port_index in minigraph_indices.items():
-            if port_name.startswith(("Ethernet-Rec", "Ethernet-IB", "Ethernet-BP")):
-                logger.debug("Skipping special port {} in ptf port indecies".format(port_name))
-                continue
             all_port_indices[port_index] = (asic_id, port_name)
 
     return all_port_indices
@@ -585,6 +591,9 @@ def test_hash(add_default_route_to_dut, duthosts, tbinfo, setup_vlan,      # noq
             "src_ip_range": ",".join(src_ip_range),
             "dst_ip_range": ",".join(dst_ip_range),
             "vlan_ids": VLANIDS,
+            "ingress_port_routes": INGRESS_PORT_ROUTES,
+            "ingress_port_flows": INGRESS_PORT_FLOWS,
+            "ingress_port_src_ports": INGRESS_PORT_SRC_PORTS,
             "ignore_ttl": ignore_ttl,
             "single_fib_for_duts": single_fib_for_duts,
             "switch_type": switch_type,
@@ -786,9 +795,6 @@ def test_nvgre_hash(add_default_route_to_dut, duthost, duthosts,                
     if duthost.facts['asic_type'] in ["marvell-teralynx"]:
         logging.info("Marvell-Teralynx: hash-key is src-ip, dst-ip")
         hash_keys = ['src-ip', 'dst-ip']
-    if duthost.facts['asic_type'] in ["vpp"]:
-        logging.info("VPP: hash-keys are src-ip, dst-ip, src-port, dst-port")
-        hash_keys = ['src-ip', 'dst-ip', 'src-port', 'dst-port']
 
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
     log_file = "/tmp/hash_test.NvgreHashTest.{}.{}.log".format(
@@ -853,11 +859,6 @@ def test_ecmp_group_member_flap(
         test_balancing = False
     else:
         test_balancing = True
-
-    convergence_wait = 60
-    if asic_type == "vpp":
-        # VPP can be slower to drop the flapped port's nexthop from the ECMP group.
-        convergence_wait = 120
 
     # --- Load initial FIB files ---
     fib_files = fib_info_files_per_function(
@@ -929,7 +930,7 @@ def test_ecmp_group_member_flap(
     logging.info("Shutting down port {}".format(nh_dut_ports[port_index_to_shut][1]))
     duthosts[0].shell("sudo config interface {} shutdown {}".format(asic_ns, nh_dut_ports[port_index_to_shut][1]))
 
-    time.sleep(convergence_wait)  # Allow time for the state to stabilize
+    time.sleep(60)  # Allow time for the state to stabilize
 
     # Get all PTF ports for the port and its port channel members (if applicable)
     ptf_ports_to_filter = get_port_and_portchannel_members(
@@ -988,7 +989,7 @@ def test_ecmp_group_member_flap(
         if ptf_port in filtered_ports:
             filtered_ports.remove(ptf_port)
 
-    time.sleep(convergence_wait)  # Allow time for the state to stabilize
+    time.sleep(60)  # Allow time for the state to stabilize
 
     # --- Re-run the PTF test after member is back up ---
     logging.info("Re-verifying ECMP behavior after member up.")
