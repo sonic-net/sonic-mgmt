@@ -264,7 +264,7 @@ def test_ntp_server_accepts_hostnames_and_rejects_directives():
     command = namespace["get_ntp_one_shot_command"](
         Mock(), daemon.CHRONY, "time.example.com"
     )
-    assert "time.example.com" in command
+    assert shlex.split(command)[-1] == "server time.example.com iburst"
 
     with pytest.raises(ValueError, match="Invalid NTP server"):
         namespace["normalize_ntp_server"]("time.example.com\nmakestep 1 -1")

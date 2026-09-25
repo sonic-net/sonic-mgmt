@@ -117,6 +117,7 @@ def _validate_ntp_source(duthost, ntp_server):
         offset = _get_clock_offset(duthost, ntp_server)
     except (RunAnsibleModuleFail, ValueError) as error:
         pytest.skip("NTP source {} is not reachable: {}".format(ntp_server, error))
+        return
 
     if abs(offset) > CLOCK_SOURCE_MAX_OFFSET:
         pytest.skip(
@@ -140,6 +141,13 @@ def _require_recovery_tools(duthost, test_name):
     )
     if result["rc"] != 0:
         pytest.skip("{} requires systemd-run, flock, and timeout".format(test_name))
+
+
+def _timezone_is_expected(duthosts, timezone):
+    return ClockUtils.verify_timezone_value(
+        duthosts,
+        expected_tz_name=timezone
+    )
 
 
 @contextmanager
@@ -468,10 +476,9 @@ def init_timezone(duthosts):
                 timeout=120,
                 interval=5,
                 delay=0,
-                condition=lambda: ClockUtils.verify_timezone_value(
-                    duthosts,
-                    expected_tz_name=original_timezone
-                )
+                condition=_timezone_is_expected,
+                duthosts=duthosts,
+                timezone=original_timezone
             ), f'Timezone did not restore to "{original_timezone}"'
             recovery_verified = True
         finally:
