@@ -310,7 +310,7 @@ def run_m2o_fluctuating_lossless_test(api,
     if egress_duthost.facts['switch_type'] != "voq":
         egress_stats = get_interface_stats(
             egress_duthost, dut_tx_port)[egress_duthost.hostname][dut_tx_port]
-        total_pkt_drop = egress_stats['tx_drp']
+        total_pkt_drop += egress_stats['tx_drp']
     drop_percentage = 100.0 * total_pkt_drop / total_rx_pkts
 
     expected_bg_loss_percent = get_expected_bg_loss_percent(
