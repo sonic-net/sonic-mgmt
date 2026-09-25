@@ -12,8 +12,8 @@ pdu-102,36,str-msn2700-02,PSU1
 pdu-103,36,str-msn2700-02,PSU2
 pdu-107,29,str-msn2700-20,PSU1
 pdu-108,29,str-msn2700-20,PSU2
-pdu-107,27,str-msn2700-22,PSU1
-pdu-108,27,str-msn2700-22,PSU2
+pdu-107,26,str-msn2700-22,PSU1
+pdu-108,26,str-msn2700-22,PSU2
 pdu-107,35,str-7060cx-32s-02,PSU1
 pdu-108,35,str-7060cx-32s-02,PSU2
 pdu-107,34,str-7060cx-32s-03,PSU1
