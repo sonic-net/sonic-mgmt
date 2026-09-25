@@ -172,11 +172,16 @@ def verify_transceiver_recovered_after_operation(
             continue
 
         cdb_attrs = port_attributes_dict[port].get(CDB_FIRMWARE_UPGRADE_ATTRIBUTES_KEY, {})
+        dual_bank_supported = cdb_attrs.get("dual_bank_supported", True)
         expected_inactive = (
             firmware_info.get(FW_INACTIVE)
-            if cdb_attrs.get("dual_bank_supported", True)
+            if dual_bank_supported
             else None
         )
+        if dual_bank_supported and not expected_inactive:
+            failures.append(f"{port}: Inactive Firmware is missing after firmware operation")
+            continue
+
         module_ports = [
             subport
             for subport in port_attributes_dict
