@@ -387,6 +387,7 @@ class TestPfcwdAllPortStorm(object):
                               action="storm",
                               stormed_ports_list=stormed_ports_list,
                               selected_test_ports=selected_test_ports,
+                              test_ports_info=setup_pfc_test['test_ports'],
                               tbinfo=tbinfo)
 
             logger.info(f"--- {len(stormed_ports_list)} ports entered storm state ---")

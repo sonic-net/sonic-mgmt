@@ -690,9 +690,9 @@ class VMTopology(object):
             VMTopology._generate_fingerprint(ext_if, MAX_INTF_LEN - len(int_if))
         logging.info('=== For veth pair, add %s to bridge %s, set %s to netns, tmp intf %s' % (
             ext_if, bridge, int_if, tmp_int_if))
-        if VMTopology.intf_not_exists(ext_if):
-            VMTopology.cmd("ip link add %s type veth peer name %s" %
-                           (ext_if, tmp_int_if))
+        VMTopology.cmd("ip link del dev %s" % ext_if, ignore_errors=True)
+        VMTopology.cmd("ip link add %s type veth peer name %s" %
+                       (ext_if, tmp_int_if))
 
         _, if_to_br = VMTopology.brctl_show(bridge)
         if ext_if not in if_to_br:
@@ -1447,7 +1447,8 @@ class VMTopology(object):
             if intf not in ports:
                 VMTopology.cmd('ovs-vsctl --may-exist add-port %s %s' % (br_name, intf))
 
-        bridge_ports = [upper_if, lower_if]
+        # get_ovs_port_bindings only retries for the interfaces listed here
+        bridge_ports = [host_if, upper_if, lower_if]
         if nic_if is not None:
             bridge_ports.append(nic_if)
         bindings = VMTopology.get_ovs_port_bindings(br_name, bridge_ports)
