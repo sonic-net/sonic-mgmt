@@ -194,14 +194,15 @@ class FanoutPfcStorm():
 
     def endAllPfcStorm(self):
         '''
-        Stop the storm on every interface.
+        Stop the storm on every interface. Idempotent.
 
         Backpressure is dropped everywhere first, then the config is restored, rather
         than doing both per interface.
         '''
-        for intf in self.intfsEnabled:
+        intfs, self.intfsEnabled = self.intfsEnabled, []
+        for intf in intfs:
             self._clearPfcBackpressure(intf)
-        for intf in self.intfsEnabled:
+        for intf in intfs:
             self._restorePfcConfig(intf)
 
 
@@ -248,15 +249,20 @@ def main():
     SignalCleanup(fs, 'PFC_STORM_END')
 
     logger.debug('PFC_STORM_DEBUG')
-    for intf in interfaces:
-        if options.os == 'eos':
-            intf = frontPanelIntfFromKernelIntfName(intf)
-        fs.startPfcStorm(intf)
-    logger.debug('PFC_STORM_START')
+    try:
+        for intf in interfaces:
+            if options.os == 'eos':
+                intf = frontPanelIntfFromKernelIntfName(intf)
+            fs.startPfcStorm(intf)
+        logger.debug('PFC_STORM_START')
 
-    # wait forever until stop
-    while True:
-        time.sleep(100)
+        # wait forever until stop
+        while True:
+            time.sleep(100)
+    finally:
+        # An interface missing from the portmap raises part way through the
+        # loop; without this the ones already started stay asserted.
+        fs.endAllPfcStorm()
 
 
 def frontPanelIntfFromKernelIntfName(intf):
