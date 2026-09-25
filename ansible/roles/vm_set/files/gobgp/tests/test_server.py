@@ -6,6 +6,7 @@ parser and translator tests already own: the body cap under both framings
 fail-fast binding.
 """
 import json
+import io
 import socket
 import threading
 
@@ -23,6 +24,13 @@ from gobgp.shim.translator import NeighborClient  # noqa: E402
 from gobgp.tests.fakes import FakeStub  # noqa: E402
 
 ANNOUNCE = b"command=announce route 100.0.0.0/24 next-hop 10.0.0.57"
+
+
+class ShortReadStream(io.BytesIO):
+    """Return a bounded fragment from every readinto call."""
+
+    def readinto(self, buffer):
+        return super().readinto(memoryview(buffer)[:7])
 
 
 @pytest.fixture
@@ -106,6 +114,20 @@ def test_body_within_cap_applies(serve):
     resp = _post_sized(serve(stub), ANNOUNCE, len(ANNOUNCE))
     assert "200" in resp.splitlines()[0]
     assert stub.total_paths == 1
+
+
+def test_body_reader_collects_short_reads():
+    stub = FakeStub()
+    client = NeighborClient("127.0.0.1:50052", "v4", "ARISTA01T1", stub=stub)
+    app = make_app(client)
+    environ = {
+        "wsgi.input": ShortReadStream(ANNOUNCE),
+        "CONTENT_LENGTH": str(len(ANNOUNCE)),
+        "CONTENT_TYPE": "application/x-www-form-urlencoded",
+    }
+
+    with app.test_request_context("/", method="POST", environ_overrides=environ):
+        assert shim_server._read_body().encode() == ANNOUNCE
 
 
 def test_chunked_body_applies(serve):
