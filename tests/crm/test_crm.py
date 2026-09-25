@@ -270,30 +270,18 @@ def get_crm_polling_interval(duthost):
     return int(parsed[0]) if parsed else None
 
 
-def wait_for_threshold_log(loganalyzer, asichost, cmd):
-    """
-    Apply a CRM threshold-config command and wait until the expected THRESHOLD_EXCEEDED /
-    THRESHOLD_CLEAR message appears in syslog.
+ def wait_for_threshold_log(loganalyzer, asichost, cmd):
+     marker = loganalyzer.init()
+     asichost.command(cmd)
 
-    orchagent emits these messages only on a CRM polling cycle, so relying on a single
-    fixed-window read (time.sleep + one analyze) can intermittently miss the message when
-    the poll lands just outside the window. Instead, add a start marker, run the command,
-    and poll loganalyzer until the expected message is present (or time out).
-    """
-    marker = loganalyzer.init()
-    asichost.command(cmd)
-
-    def _expected_log_present():
-        summary = loganalyzer.analyze(marker, fail=False)
-        return (summary["total"]["expected_missing_match"] == 0 and
-                summary["total"]["expected_match"] > 0)
-
-    if not wait_until(CRM_THRESHOLD_LOG_TIMEOUT, CRM_THRESHOLD_LOG_INTERVAL,
-                      CRM_POLLING_INTERVAL, _expected_log_present):
-        # Final strict analysis to raise LogAnalyzerError with full details if the
-        # expected message is still missing after the timeout.
+    logger.info("Waiting %ss for CRM threshold log", CRM_THRESHOLD_LOG_TIMEOUT)
+    time.sleep(CRM_THRESHOLD_LOG_TIMEOUT)
+    try:
         loganalyzer.analyze(marker, fail=True)
-
+    except LogAnalyzerError:
+        logger.error("CRM threshold log check failed; expected regex: %s",
+                     loganalyzer.expect_regex)
+        raise
 
 def verify_thresholds(duthost, asichost, **kwargs):
     """
