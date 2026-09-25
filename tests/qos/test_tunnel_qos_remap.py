@@ -56,7 +56,7 @@ PFC_PAUSE_TEST_RETRY_MAX = 5
 
 
 @pytest.fixture(scope='module', autouse=True)
-def check_running_condition(tbinfo, duthost):
+def check_running_condition(tbinfo, duthosts):
     """
     The test can only be running on tunnel_qos_remap enabled dualtor testbed
     """
@@ -65,8 +65,12 @@ def check_running_condition(tbinfo, duthost):
         "dualtor" in tbinfo["topo"]["name"], "Only run on dualtor testbed.", True)
 
     # Check tunnel_qos_remap is enabled
-    pytest_require(is_tunnel_qos_remap_enabled(duthost),
-                   "Only run when tunnel_qos_remap is enabled", True)
+    pytest_require(
+        all(is_tunnel_qos_remap_enabled(duthost)
+            for duthost in duthosts.frontend_nodes),
+        "Only run when tunnel_qos_remap is enabled on all frontend DUTs",
+        True
+    )
 
 
 @pytest.fixture(scope='module', autouse=True)
