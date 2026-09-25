@@ -8,6 +8,7 @@ verify the full path: config ingestion via redis keyspace events, the
 periodic/stream/once report types, multi-destination failover, and
 unconfiguration.
 """
+import json
 import logging
 import time
 
@@ -153,12 +154,20 @@ def test_dialout_stream(dialout_setup, telemetry_client_config, start_collector)
 
     # Payload check: the client publishes the path as requested — the
     # wildcard stays unexpanded (COUNTERS/Ethernet*) with a payload keyed
-    # by the DUT's real port names; a later on-change update can also
-    # arrive per port (COUNTERS/<port>). Either way the counters must be
-    # for ports this DUT actually has, and non-empty.
+    # by each port's vendor alias (CONFIG_DB PORT|<name> alias, falling
+    # back to the name when there is none); a later on-change update can
+    # also arrive per port (COUNTERS/<port>). Either way the counters must
+    # be for ports this DUT actually has, and non-empty.
     duthost = dialout_setup["duthost"]
     ports = {ln.strip() for ln in duthost.shell(
         "sonic-db-cli COUNTERS_DB HKEYS COUNTERS_PORT_NAME_MAP")["stdout_lines"] if ln.strip()}
+    port_table = json.loads(duthost.shell("sonic-cfggen -d --var-json PORT")["stdout"] or "{}")
+    alias_to_name = {cfg["alias"]: name for name, cfg in port_table.items()
+                     if cfg.get("alias") and name in ports}
+
+    def port_name(key):
+        return key if key in ports else alias_to_name.get(key)
+
     matched = 0
     for record in collector.records():
         for path, payload in record.get("updates", []):
@@ -167,8 +176,8 @@ def test_dialout_stream(dialout_setup, telemetry_client_config, start_collector)
             pytest_assert(isinstance(payload, dict) and payload,
                           "counters update %s carries no payload: %r" % (path, payload))
             tail = path.split("/", 1)[1]
-            per_port = {tail: payload} if tail in ports else payload
-            known = {p: c for p, c in per_port.items() if p in ports}
+            per_port = {tail: payload} if port_name(tail) else payload
+            known = {port_name(p): c for p, c in per_port.items() if port_name(p)}
             pytest_assert(known,
                           "update %s carries no data for any port this DUT has "
                           "(payload keys: %s)" % (path, sorted(per_port)[:5]))
