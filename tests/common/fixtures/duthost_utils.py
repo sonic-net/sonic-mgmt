@@ -295,18 +295,22 @@ def duthost_shutdown_ebgp(duthost):
     orch_cpu_threshold = 10
 
     orch_cpu_timeout = 60
+    routes_zero_timeout = 60
     # Get the original number of eBGP v4 and v6 routes on the DUT.
     sumv4, sumv6 = duthost.get_ip_route_summary()
     v4_routes_count = sumv4.get('ebgp', {'routes': 0})['routes']
     v6_routes_count = sumv6.get('ebgp', {'routes': 0})['routes']
     if v4_routes_count > 10000 or v6_routes_count > 10000:
         orch_cpu_timeout = 120
+        # We saw a 64-port T2 take ~90s for all bgp paths to go to zero routes.
+        # So use that as our timeout benchmark plus a buffer and take 2s per port (min 60s).
+        routes_zero_timeout = max(len(duthost.get_admin_up_ports()) * 2, routes_zero_timeout)
 
     # Shutdown all eBGP neighbors
     duthost.command("sudo config bgp shutdown all")
 
     # Verify that the total eBGP routes are 0.
-    pt_assert(wait_until(60, 2, 5, check_ebgp_routes, 0, 0, duthost),
+    pt_assert(wait_until(routes_zero_timeout, 2, 5, check_ebgp_routes, 0, 0, duthost),
               "eBGP routes are not 0 after shutting down all neighbors on {}".format(duthost))
     pt_assert(wait_until(orch_cpu_timeout, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
               "Orch CPU utilization {} > orch cpu threshold {} after shutdown all eBGP"
