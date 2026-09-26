@@ -4,6 +4,7 @@ import ipaddress
 import binascii
 import os
 import logging
+import time
 
 # Packet Test Framework imports
 import ptf
@@ -147,6 +148,10 @@ class DHCPTest(DataplaneBaseTest):
         # These are the interfaces we are injected into that link to out leaf switches
         self.server_port_indices = ast.literal_eval(
             self.test_params['leaf_port_indices'])
+        self.standby_server_port_indices = []
+        if 'standby_leaf_port_indices' in self.test_params:
+            self.standby_server_port_indices = ast.literal_eval(
+                self.test_params['standby_leaf_port_indices'])
         self.num_dhcp_servers = int(self.test_params['num_dhcp_servers'])
 
         self.assertTrue(self.num_dhcp_servers > 0,
@@ -1203,8 +1208,44 @@ class DHCPTest(DataplaneBaseTest):
         if self.agent_relay_mode == "discard" or self.dhcpv4_disable_flag or self.max_hop_count == self.MAX_HOP_COUNT:
             # Expected result: No packet sent
             num_expected_packets = 0
-        captured_count = testutils.count_matched_packets_all_ports(
-            self, mask, self.server_port_indices)
+        standby_mask = None
+        if self.standby_server_port_indices:
+            standby_mask = Mask(pkt)
+            self.set_common_ignored_mask_fields(standby_mask)
+            standby_mask.set_do_not_care_scapy(scapy.Ether, "src")
+            standby_mask.set_do_not_care_scapy(scapy.Ether, "dst")
+            standby_mask.set_do_not_care_scapy(scapy.IP, "src")
+            standby_mask.set_do_not_care_scapy(scapy.BOOTP, "giaddr")
+            if pkt.haslayer(scapy.DHCP):
+                standby_mask.set_do_not_care_scapy(scapy.DHCP, "options")
+
+        # Classify both port sets in a single drain: dp_poll consumes every packet it
+        # returns, so counting the active ports first would discard the standby copies
+        # this check exists to detect.
+        captured_count = 0
+        standby_count = 0
+        timeout = ptf.ptfutils.default_timeout
+        last_matched_packet_time = time.time()
+        while time.time() - last_matched_packet_time <= timeout:
+            result = testutils.dp_poll(self, device_number=0, timeout=timeout)
+            if not isinstance(result, self.dataplane.PollSuccess):
+                break
+
+            if (result.port in self.server_port_indices
+                    and ptf.dataplane.match_exp_pkt(mask, result.packet)):
+                captured_count += 1
+                last_matched_packet_time = time.time()
+            elif (standby_mask is not None
+                    and result.port in self.standby_server_port_indices
+                    and ptf.dataplane.match_exp_pkt(standby_mask, result.packet)):
+                standby_count += 1
+                last_matched_packet_time = time.time()
+
+        self.assertEqual(
+            standby_count,
+            0,
+            "Failed: standby ToR relayed {} matching {} packet(s)".format(
+                standby_count, packet_type))
         self.assertTrue(captured_count == num_expected_packets,
                         "Failed: %s packet counts are not equal %d != %d"
                         % (packet_type, captured_count, num_expected_packets))
