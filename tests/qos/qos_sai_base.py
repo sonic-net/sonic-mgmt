@@ -55,7 +55,7 @@ class QosBase:
         "t0-88-o8c80", "t0-f2-d40u8", "t0-f2-d40u8-po2vlan"
     ]
     SUPPORTED_T1_TOPOS = ["t1", "t1-lag", "t1-64-lag", "t1-56-lag", "t1-backend", "t1-28-lag", "t1-32-lag", "t1-48-lag",
-                          "t1-f2-d10u8", "t1-isolated-d32u1s2",
+                          "t1-f2-d10u8", "t1-isolated-d32u1s2", "t1-d96u4",
                           "t1-isolated-d28u1", "t1-isolated-v6-d28u1", "t1-isolated-d56u2", "t1-isolated-v6-d56u2",
                           "t1-isolated-d56u1-lag", "t1-isolated-v6-d56u1-lag", "t1-isolated-d128", "t1-isolated-d32",
                           "t1-isolated-d448u15-lag", "t1-isolated-v6-d448u15-lag"]
@@ -1058,6 +1058,17 @@ class QosSaiBase(QosBase):
         dst_dut_idx = get_src_dst_asic_and_duts['dst_dut_index']
         src_asic_idx = get_src_dst_asic_and_duts['src_asic_index']
         dst_asic_idx = get_src_dst_asic_and_duts['dst_asic_index']
+
+        # Unsupported or misconfigured topologies leave testPortIds empty. Fail with a
+        # clear assertion instead of StopIteration (RuntimeError under PEP 479 in
+        # generator fixtures), which previously masked the root cause on new topos
+        # such as t1-d96u4 before it was added to SUPPORTED_T1_TOPOS.
+        pytest_assert(
+            testPortIds,
+            "No QoS SAI test ports were selected. Ensure the topology is listed in "
+            "SUPPORTED_T0_TOPOS/SUPPORTED_T1_TOPOS (or is a supported T2 topology) "
+            "and that active L3 interfaces are available on the DUT."
+        )
 
         if src_dut_idx not in testPortIds:
             src_dut_idx = next(iter(testPortIds))
