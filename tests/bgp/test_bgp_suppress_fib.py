@@ -964,6 +964,21 @@ def do_and_wait_reboot(duthost, localhost, reboot_type):
         )
 
 
+def restart_ptf_exabgp(ptfhost):
+    """
+    Restart ExaBGP instances on the PTF so their BGP sessions to the DUT re-establish
+    cleanly after a DUT reboot/config reload.
+
+    A DUT config reload restarts the BGP container and tears down the ExaBGP peering.
+    ExaBGP's HTTP API stays reachable, but it may not re-advertise its routes on its own,
+    so a subsequent announce is accepted (HTTP 200) yet never reaches FRR. Restarting
+    ExaBGP mirrors sanity recovery's re_announce_routes().
+    """
+    logger.info("Restart ExaBGP on the PTF to re-establish sessions after DUT reboot/reload")
+    ptfhost.shell("supervisorctl restart exabgpv4:*", module_ignore_errors=True)
+    ptfhost.shell("supervisorctl restart exabgpv6:*", module_ignore_errors=True)
+
+
 def param_reboot(request, duthost, localhost, loganalyzer):
     """
     Read reboot_type from option bgp_suppress_fib_reboot_type
@@ -1189,7 +1204,7 @@ def upstream_verification(duthost_up, ipv4_route_list, ipv6_route_list, exabgp_p
 
 @pytest.mark.parametrize("vrf_type", VRF_TYPES)
 def test_bgp_route_with_suppress(duthosts, enum_downstream_dut_hostname, enum_upstream_dut_hostname, tbinfo, nbrhosts,
-                                 ptfadapter, localhost, restore_bgp_suppress_fib,
+                                 ptfadapter, ptfhost, localhost, restore_bgp_suppress_fib,
                                  prepare_param, vrf_type, continuous_boot_times, generate_route_and_traffic_data,
                                  request, loganalyzer):
     duthost = duthosts[enum_upstream_dut_hostname]
@@ -1233,6 +1248,19 @@ def test_bgp_route_with_suppress(duthosts, enum_downstream_dut_hostname, enum_up
                 if multi_dut:
                     param_reboot(request, duthost_up, localhost, loganalyzer)
                     logger.debug("dd")
+
+                # Restart ExaBGP on the PTF once, after all DUT reboots, so its sessions
+                # re-establish and it re-advertises routes. Then re-check every rebooted
+                # DUT's BGP neighbors before announcing, so a slower (e.g. downstream)
+                # session cannot race the HTTP announce.
+                restart_ptf_exabgp(ptfhost)
+                for reboot_duthost in [duthost_down, duthost_up] if multi_dut else [duthost_down]:
+                    bgp_neighbors = reboot_duthost.get_bgp_neighbors_per_asic(state="all")
+                    pytest_assert(
+                        wait_until(180, 10, 0, reboot_duthost.check_bgp_session_state_all_asics, bgp_neighbors),
+                        "Not all bgp sessions are established on {} after ExaBGP restart".format(
+                            reboot_duthost.hostname)
+                    )
 
             for exabgp_port, exabgp_port_v6, recv_port in zip(exabgp_port_list, exabgp_port_list_v6, recv_port_list):
                 try:
