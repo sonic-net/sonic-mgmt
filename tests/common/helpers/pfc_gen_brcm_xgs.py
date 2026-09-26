@@ -134,12 +134,11 @@ class FanoutPfcStorm():
 
         return intfToMmuPort, intfTolPort
 
-    def _endPfcStorm(self, intf):
+    def _clearPfcBackpressure(self, intf):
         '''
-        Intf format is Ethernet1/1
+        Drop the ASIC PFC assertion for one interface.
 
-        The users of this class are only expected to call
-        startPfcStorm and endAllPfcStorm
+        This alone stops the storm; _restorePfcConfig() afterwards is bookkeeping.
         '''
         mmuPort = self.intfToMmuPort[intf]
         port = self.intfToPort[intf]
@@ -148,18 +147,30 @@ class FanoutPfcStorm():
             self._bcmltshellCmd(f"pt MMU_INTFO_TO_XPORT_BKPr set BCMLT_PT_PORT={mmuPort} PAUSE_PFC_BKP=0")
         else:
             self._bcmshellCmd(f"setreg CHFC2PFC_STATE.{port} PRI_BKP=0")
+
+    def _restorePfcConfig(self, intf):
+        '''
+        Undo the PFC config startPfcStorm() applied to one interface.
+        '''
         if self.os == 'sonic':
             for prio in range(8):
-                self._shellCmd(f"config interface pfc priority {intf} {prio} off")
+                if (1 << prio) & self.priority:
+                    self._shellCmd(f"config interface pfc priority {intf} {prio} off")
             self._shellCmd(f"redis-cli -n 4 DEL \"PORT_QOS_MAP|{intf}\"")
         else:
             self._cliCmd(f"en\nconf\n\nint {intf}\nno priority-flow-control on")
             for prio in range(8):
-                self._cliCmd(f"en\nconf\n\nint {intf}\nno priority-flow-control priority {prio} no-drop")
+                if (1 << prio) & self.priority:
+                    self._cliCmd(f"en\nconf\n\nint {intf}\nno priority-flow-control priority {prio} no-drop")
 
     def startPfcStorm(self, intf):
         if intf in self.intfsEnabled:
             return
+        # Backpressure lives in the ASIC, so a generator that died without
+        # running its cleanup left this interface asserting PFC. Starting from
+        # that state emits nothing new and the watchdog never sees a storm
+        # begin, so drop it before asserting our own.
+        self._clearPfcBackpressure(intf)
         self.intfsEnabled.append(intf)
 
         mmuPort = self.intfToMmuPort[intf]
@@ -182,8 +193,17 @@ class FanoutPfcStorm():
             self._bcmshellCmd(f"setreg CHFC2PFC_STATE.{port} PRI_BKP={self.priority}")
 
     def endAllPfcStorm(self):
-        for intf in self.intfsEnabled:
-            self._endPfcStorm(intf)
+        '''
+        Stop the storm on every interface. Idempotent.
+
+        Backpressure is dropped everywhere first, then the config is restored, rather
+        than doing both per interface.
+        '''
+        intfs, self.intfsEnabled = self.intfsEnabled, []
+        for intf in intfs:
+            self._clearPfcBackpressure(intf)
+        for intf in intfs:
+            self._restorePfcConfig(intf)
 
 
 def main():
@@ -229,15 +249,20 @@ def main():
     SignalCleanup(fs, 'PFC_STORM_END')
 
     logger.debug('PFC_STORM_DEBUG')
-    for intf in interfaces:
-        if options.os == 'eos':
-            intf = frontPanelIntfFromKernelIntfName(intf)
-        fs.startPfcStorm(intf)
-    logger.debug('PFC_STORM_START')
+    try:
+        for intf in interfaces:
+            if options.os == 'eos':
+                intf = frontPanelIntfFromKernelIntfName(intf)
+            fs.startPfcStorm(intf)
+        logger.debug('PFC_STORM_START')
 
-    # wait forever until stop
-    while True:
-        time.sleep(100)
+        # wait forever until stop
+        while True:
+            time.sleep(100)
+    finally:
+        # An interface missing from the portmap raises part way through the
+        # loop; without this the ones already started stay asserted.
+        fs.endAllPfcStorm()
 
 
 def frontPanelIntfFromKernelIntfName(intf):
