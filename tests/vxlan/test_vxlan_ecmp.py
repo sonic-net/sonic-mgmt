@@ -542,7 +542,12 @@ class Test_VxLAN():
                    else "vxlan_traffic.VXLAN",
                    platform_dir="ptftests",
                    params=ptf_params,
-                   qlen=1000,
+                   # The PTF dataplane keeps a fixed-size receive queue per port, and silently
+                   # drops the oldest packet when it overflows. Give it generous headroom over
+                   # the largest packet_count used here (up to 2000 for VPP, see setUp) and over
+                   # vxlan_traffic.py's send/poll batch size, so bursts of replies on a single
+                   # port plus unrelated background traffic can't cause false packet loss.
+                   qlen=5000,
                    log_file="/tmp/vxlan-tests.{}.{}.{}.log".format(
                        tcname,
                        encap_type,
