@@ -1,12 +1,23 @@
 import logging
+import os
+import re
+import time
 import pytest
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
 from tests.common.config_reload import config_reload
-from tests.common.gu_utils import delete_tmpfile, expect_op_success, generate_tmpfile
-from tests.common.gu_utils import apply_patch
+from tests.common.gu_utils import (
+    apply_patch,
+    create_checkpoint,
+    delete_checkpoint,
+    delete_tmpfile,
+    expect_op_success,
+    generate_tmpfile,
+    get_gcu_timeout,
+    rollback_or_reload,
+)
 from tests.generic_config_updater.add_cluster.helpers import add_static_route, \
     clear_static_route, get_active_interfaces, get_cfg_info_from_dut, \
     get_exabgp_port_for_neighbor, remove_dataacl_table_single_dut, remove_static_route, \
@@ -1879,3 +1890,1594 @@ def test_add_cluster(tbinfo,
                                   else acl_counter["packets count"] == '0',
                                   "Acl rule {} statistics are not as expected. Found value {}"
                                   .format(acl_counter["rule name"], acl_counter["packets count"]))
+
+
+# ===========================================================================
+# GCU Add-MOR SCALING TEST
+# ===========================================================================
+#
+# Purpose
+# -------
+# Measure how ``config apply-patch`` elapsed time scales with the number of
+# MORs (T1 neighbors) re-added in a single patch.  The GCU patch sorter's
+# cost grows super-linearly with the number of moves in a patch, so this is
+# a baseline instrument for catching sorter regressions that a fixed-size
+# patch would miss.
+#
+# Design
+# ------
+# 1. Full cluster is present at test entry.
+# 2. Pick N external PortChannels (= N MORs) via ``_select_n_mors()``.
+# 3. Remove just those N MORs with targeted ``sonic-db-cli`` deletes in
+#    ``_cli_remove_selected_mors()`` (setup, untimed).  A GCU/JSON-patch
+#    remove was tried first but hit YANG cascade-delete edge cases, and the
+#    existing ``remove_cluster_via_sonic_db_cli()`` helper wildcard-deletes
+#    the whole ASIC, which is too coarse for a per-N measurement.
+# 4. Strip those PortChannels from any referring ``ports`` leaf-list via
+#    ``_scan_pc_references()`` / ``_cli_remove_pc_references()`` so the
+#    add-back patch does not trip leafref validation.
+# 5. Build one incremental JSON patch that re-adds exactly those N MORs
+#    (``_build_scaling_add_patch()``) and apply it in a single
+#    ``apply_patch()`` call — TIMED.
+# 6. Verify BGP peers on those N MORs come back up.
+# 7. record_property() the metric so CI can graph it.
+# 8. Teardown: ``config rollback`` restores full state.
+#
+# The ADD path deliberately builds its own patch instead of reusing
+# ``apply_patch_add_cluster*()``: those helpers rebuild the *entire* cluster
+# from ``config_facts``, so the measured time would not vary with N.  A
+# scaling measurement needs a patch whose size is a function of N alone.
+# ===========================================================================
+
+# Tiered N values:
+#   - Nightly: fast regression + one near-production data point.
+#   - Weekly:  full-scale capacity ("how many MORs in 1 hour" number).
+#   - Sanity:  validates the test itself; opt-in only.
+# Selected with -m markers; each pytest run instantiates one (n_mors, tier).
+NIGHTLY_MOR_COUNTS = [5, 20]
+WEEKLY_MOR_COUNTS = [24, 30]
+SANITY_MOR_COUNTS = [1]
+
+# test_max_mors_under_budget sweeps to find the largest N that fits under a
+# FIXED absolute ceiling — the operational 1-hour target.
+DEFAULT_TIME_BUDGET_S = 3600
+
+# ---------------------------------------------------------------------------
+# Time budget
+# ---------------------------------------------------------------------------
+# The budget is DERIVED FROM THE PLATFORM, not hard-coded.  GCU's cost model is
+#
+#     elapsed ~= fixed_overhead + moves * loads_per_move * loadData_cost
+#
+# because the sorter validates every move by re-loading the whole config into
+# YANG (FullConfigMoveValidator + NoDependencyMoveValidator => 2 loads/move).
+# loadData_cost is a property of the box and of how big its config is, so a
+# constant "N seconds per MOR" calibrated on one line card is wrong everywhere
+# else and drifts as the config grows.  We therefore measure loadData on the
+# DUT and predict, in the same spirit as test_apply_patch_perf.py.
+#
+# ``expected_moves`` is approximated by the number of ops in the add-patch.
+# For an ADD-dominated patch like ours the sorter emits at most one move per
+# added key, so op-count is an UPPER bound on moves -- it already carries
+# slack, which is why SCALING_SAFETY_MULTIPLIER is 2 here rather than the 5
+# used by test_apply_patch_perf.py (that test computes exact move counts).
+#
+# Caveat, deliberately recorded: with the loadData caching fix (upstream
+# #4476) loads no longer scale per-move -- they collapse to ~2 for the whole
+# patch.  Against fixed GCU this budget is therefore generous, and acts as a
+# catastrophic-regression gate rather than a tight one.  Asserting on sorter
+# move count directly is the hardware-independent successor to this; tracked
+# separately.
+SCALING_LOADS_PER_MOVE = 2
+SCALING_SAFETY_MULTIPLIER = 2
+# Fixed per-invocation cost (CLI startup, YANG init, ConfigDB write, SSH)
+# that is present even for a 1-op patch.  Floor only; never scaled by N.
+SCALING_MIN_OVERHEAD_S = 60
+# Used only if the on-DUT loadData measurement fails.  Deliberately generous.
+FALLBACK_LOADDATA_TIME_S = 1.0
+
+# A loadData() that "took" less than this did not really run (the helper
+# swallows internal exceptions and the shell still exits 0), so the reading is
+# discarded in favour of the fallback rather than used to build a tiny budget.
+MIN_PLAUSIBLE_LOADDATA_S = 0.05
+# Keep the budget strictly below apply_patch()'s own timeout, so that
+# "exceeded budget" is always reachable and is never pre-empted by the fuse.
+FUSE_MARGIN_S = 120
+
+# Legacy constants, retained ONLY as the fallback path when calibration is
+# unavailable.  Measured on a modular-chassis line card: ~1.47 s per change at
+# ~34 changes/MOR, i.e. ~50 s/MOR.
+PER_MOR_BUDGET_S = 60
+BUDGET_FLOOR_S = 300
+
+
+def _measure_loaddata_baseline(duthost, namespace=None):
+    """Measure the cost of one SonicYang.loadData() call on this DUT.
+
+    Read-only: loads the on-disk config into YANG in a throwaway interpreter.
+    It does not touch CONFIG_DB and does not mutate the device, so it is safe
+    to run before the measurement without disturbing what we are timing.
+
+    Returns seconds as a float, or None if the measurement could not be made.
+    """
+    cfg_path = ("/etc/sonic/config_db.json" if namespace is None
+                else "/etc/sonic/config_db{}.json".format(
+                    namespace.replace("asic", "")))
+    script = r"""
+import json, time, sonic_yang
+sy = sonic_yang.SonicYang('/usr/local/yang-models', print_log_enabled=False)
+sy.loadYangModel()
+with open('%s') as f:
+    config = json.load(f)
+try:
+    sy.loadData(config)          # warm up caches / lazy imports
+except Exception:
+    pass
+sy2 = sonic_yang.SonicYang('/usr/local/yang-models', print_log_enabled=False)
+sy2.loadYangModel()
+start = time.time()
+try:
+    sy2.loadData(config)
+except Exception:
+    pass
+print("LOADDATA_TIME={:.6f}".format(time.time() - start))
+""" % cfg_path
+    out = duthost.shell("python3 -c '{}'".format(script.replace("'", "'\\''")),
+                        module_ignore_errors=True)
+    if out["rc"] != 0:
+        logger.warning("loadData baseline measurement failed (rc=%s): %s",
+                       out["rc"], out.get("stderr", ""))
+        return None
+    for line in out["stdout"].splitlines():
+        if line.startswith("LOADDATA_TIME="):
+            measured = float(line.split("=")[1])
+            logger.info("Measured single loadData() cost: %.3fs", measured)
+            return measured
+    logger.warning("loadData baseline produced no LOADDATA_TIME line")
+    return None
+
+
+def _predicted_elapsed_s(n_ops, loaddata_time):
+    """Expected apply-patch wall time for a patch of *n_ops* ops, no safety."""
+    return (SCALING_MIN_OVERHEAD_S +
+            n_ops * SCALING_LOADS_PER_MOVE * loaddata_time)
+
+
+def _time_budget_for(n_mors, n_ops=None, loaddata_time=None, fuse_s=None):
+    """Time budget for the scaling assertion.
+
+    Precedence:
+      1. GCU_TIME_BUDGET_S -- absolute override, used verbatim (debugging).
+      2. Platform-derived, when we have both an op count and a loadData
+         measurement:  overhead + n_ops * 2 * loadData * safety.
+      3. Fallback to the legacy per-MOR constant.
+
+    The result is always clamped below the apply-patch fuse (when known) so
+    the budget assertion can actually fire instead of being pre-empted by a
+    TimeoutError.
+    """
+    override = os.environ.get("GCU_TIME_BUDGET_S")
+    if override is not None:
+        return int(override)
+
+    if n_ops and loaddata_time:
+        # Mirrors test_apply_patch_perf.py:216-217 -- the safety multiplier
+        # scales the per-move work only; fixed overhead is added un-scaled.
+        budget = int(SCALING_MIN_OVERHEAD_S +
+                     n_ops * SCALING_LOADS_PER_MOVE * loaddata_time *
+                     SCALING_SAFETY_MULTIPLIER)
+        basis = "platform-derived ({} ops, {:.3f}s/load)".format(
+            n_ops, loaddata_time)
+    else:
+        budget = max(BUDGET_FLOOR_S, PER_MOR_BUDGET_S * int(n_mors))
+        basis = "legacy per-MOR constant (calibration unavailable)"
+
+    if fuse_s:
+        capped = min(budget, int(fuse_s) - FUSE_MARGIN_S)
+        if capped < budget:
+            logger.info("Budget %ds capped to %ds to stay under the "
+                        "apply-patch fuse (%ds)", budget, capped, fuse_s)
+        budget = capped
+
+    logger.info("Time budget for N=%s: %ds [%s]", n_mors, budget, basis)
+    return budget
+
+
+# loadData cost is a property of (device, namespace) and is stable across a
+# run, so measure it once rather than per parametrization.
+_LOADDATA_CACHE = {}
+
+
+def _get_loaddata_time(duthost, namespace):
+    """Memoised _measure_loaddata_baseline, falling back when unmeasurable."""
+    key = (duthost.hostname, namespace)
+    if key not in _LOADDATA_CACHE:
+        measured = _measure_loaddata_baseline(duthost, namespace)
+        if measured is None:
+            measured = FALLBACK_LOADDATA_TIME_S
+            logger.warning("Using fallback loadData cost %.1fs for %s",
+                           measured, key)
+        elif measured < MIN_PLAUSIBLE_LOADDATA_S:
+            # loadData() raising internally still exits the shell 0, so a
+            # near-zero reading means "it did not really run", not "it is
+            # fast".  Trusting it would produce a tiny budget and false
+            # failures on a healthy apply.
+            logger.warning(
+                "loadData baseline %.4fs is implausibly small (<%.2fs); "
+                "treating as a failed measurement and using fallback %.1fs",
+                measured, MIN_PLAUSIBLE_LOADDATA_S, FALLBACK_LOADDATA_TIME_S)
+            measured = FALLBACK_LOADDATA_TIME_S
+        _LOADDATA_CACHE[key] = measured
+    return _LOADDATA_CACHE[key]
+
+
+def _is_transport_drop(exc):
+    """True only for a transport / hardware-proxy drop, never a GCU rejection.
+
+    Deliberately narrow.  Classifying on free-form exception text is fragile,
+    so a failed assertion -- which is what expect_op_success raises when GCU
+    ran and reported failure -- is never treated as a transport drop,
+    regardless of wording.  Note that expect_op_success goes through
+    pytest_assert, so the exception is pytest's ``Failed``, not AssertionError;
+    both are excluded.  Anything unrecognised defaults to a real failure.
+    """
+    if isinstance(exc, (AssertionError, pytest.fail.Exception)):
+        return False
+    lowered = repr(exc).lower()
+    return ("connectiondroppedbydevice" in lowered or
+            "hardware proxy" in lowered or
+            "hwproxy" in lowered)
+
+
+def _dut_side_elapsed_s(output):
+    """Exact DUT-side duration of the apply-patch command, or None.
+
+    gu_utils.apply_patch() runs 'config apply-patch' via Ansible with
+    module_async=True and polls async_result.ready() on a 10-second interval.
+    A wall-clock measurement taken around that call is therefore quantised to
+    ~10s, which is coarser than the whole per-MOR cost we are trying to
+    measure: a real slope of ~0.4s/MOR is completely invisible between N=1 and
+    N=5.  Ansible's command/shell module reports the command's own duration in
+    'delta' (verified present in the async result, accurate to ~5ms), so use
+    that as the measurement and keep wall clock only as a fallback.
+
+    Note the result is a pytest_ansible ModuleResult, which is mapping-like but
+    is NOT a dict subclass -- hence duck typing rather than isinstance().
+    """
+    try:
+        delta = output["delta"]
+    except (TypeError, KeyError, IndexError):
+        return None
+    if not delta:
+        return None
+    try:
+        hours, minutes, seconds = str(delta).split(":")
+        return int(hours) * 3600 + int(minutes) * 60 + float(seconds)
+    except (ValueError, TypeError):
+        logger.warning("could not parse apply-patch delta %r", delta)
+        return None
+
+
+# GCU prints the sorter's verdict on stdout, e.g.
+#   "Patch Applier: The asic0 patch was converted into 26 changes:"
+# Note the terminator: generic_updater.py uses ':' when the count is non-zero
+# (it introduces the list of changes) and '.' only when it is zero.
+# The change count is the hardware-independent measure of how much work the
+# patch actually costs: the GCU performance work this test guards collapses
+# the change count rather than making each change cheaper, so a regression
+# shows up here even on a box whose absolute timings differ.
+_CHANGES_RE = re.compile(
+    r"The (\S+) patch was converted into (\d+) changes?[.:]")
+
+
+def _sorter_change_counts(output):
+    """Map namespace -> number of changes the sorter emitted, from stdout."""
+    try:
+        stdout = output["stdout"]
+    except (TypeError, KeyError, IndexError):
+        return {}
+    if not stdout:
+        return {}
+    counts = {ns: int(count) for ns, count in _CHANGES_RE.findall(str(stdout))}
+    if not counts:
+        logger.debug("no sorter change counts in apply-patch stdout: %s",
+                     str(stdout)[:4000])
+    return counts
+
+
+SCALING_CHECKPOINT = "gcu_scaling"
+
+
+def _is_internal_port_scaling(port_name):
+    """Backplane/internal ports never make up a MOR."""
+    return (port_name.startswith("Ethernet-BP") or
+            port_name.startswith("Ethernet-IB") or
+            port_name.startswith("Ethernet-Rec"))
+
+
+def _select_n_mors(config_facts, n):
+    """Pick N external PortChannels from config_facts.
+
+    Returns a dict:
+        {
+          "portchannels": [pc_name, ...],
+          "member_ports": [ethernet_name, ...],
+          "bgp_neigh_ips": [ip_addr, ...],
+          "device_neigh_names": [neighbor_name, ...],
+        }
+
+    Deterministic (alphabetical) selection so runs are comparable across GCU
+    versions.  Raises ValueError if the ASIC has fewer than N external PCs.
+    """
+    pc_members = config_facts.get("PORTCHANNEL_MEMBER", {})
+    device_neighbors = config_facts.get("DEVICE_NEIGHBOR", {})
+    bgp_neighbors = config_facts.get("BGP_NEIGHBOR", {})
+
+    external_pcs = [
+        pc for pc, members in pc_members.items()
+        if all(not _is_internal_port_scaling(p) for p in members.keys())
+    ]
+    if len(external_pcs) < n:
+        raise ValueError(
+            "ASIC has only {} external PortChannels; requested {}".format(
+                len(external_pcs), n))
+
+    selected_pcs = sorted(external_pcs)[:n]
+    member_ports = []
+    for pc in selected_pcs:
+        member_ports.extend(pc_members[pc].keys())
+
+    # Dedupe: multiple member ports on the same PortChannel share one peer
+    # (e.g., Ethernet0+Ethernet8 -> ARISTA01T1). Emitting the same remove op
+    # twice trips GCU YANG validation ("can't remove a non-existent object").
+    seen = set()
+    device_neigh_names = []
+    for p in member_ports:
+        if p not in device_neighbors:
+            continue
+        name = device_neighbors[p].get("name")
+        if name and name not in seen:
+            seen.add(name)
+            device_neigh_names.append(name)
+    bgp_neigh_ips = [
+        ip for ip, cfg in bgp_neighbors.items()
+        if cfg.get("name") in device_neigh_names
+    ]
+    return {
+        "portchannels": selected_pcs,
+        "member_ports": member_ports,
+        "bgp_neigh_ips": bgp_neigh_ips,
+        "device_neigh_names": device_neigh_names,
+    }
+
+
+def _verify_bgp_up_scaling(duthost, namespace, bgp_neigh_ips, timeout=180):
+    """Poll until every peer in *bgp_neigh_ips* reports state ``established``.
+
+    Address-family agnostic.  ``_select_n_mors`` picks BGP_NEIGHBOR entries by
+    neighbour *name*, which on a dual-stack T2 returns BOTH the IPv4 and the
+    IPv6 peer for each neighbour.  An earlier implementation parsed only
+    ``show ip bgp summary``; IPv6 peers can never appear there, so they stayed
+    permanently un-established and the poll burned its full timeout on every
+    healthy run.
+
+    ``bgp_facts`` drives ``show ip bgp neighbors``, whose ``BGP neighbor is
+    <addr>`` blocks cover every peer regardless of family (see
+    ansible/library/bgp_facts.py -- it matches both regex_ipv4 and regex_ipv6),
+    and reports a lower-cased ``state`` per peer.  One call, both families.
+
+    Returns True on success; the caller decides whether to fail or just warn.
+
+    Both sides are lower-cased before comparison: CONFIG_DB preserves the
+    minigraph's spelling of an IPv6 neighbour (often upper-case hex, e.g.
+    ``FC00::72``) while bgp_facts lower-cases every key it emits, so an exact
+    match would never succeed on such a testbed and the poll would burn its
+    full timeout while reporting healthy peers as down.  The repo's own
+    helpers normalise for the same reason (see sonic_asic.py, multi_asic.py).
+    """
+    wanted = {ip.lower() for ip in bgp_neigh_ips}
+    if not wanted:
+        # Nothing to verify.  Callers must not treat this as "converged".
+        return True
+
+    asic = duthost.asic_instance_from_namespace(namespace)
+
+    def _all_established():
+        try:
+            neighbors = asic.bgp_facts()["ansible_facts"]["bgp_neighbors"]
+        except Exception as exc:
+            # bgp_facts fails the module if vtysh is briefly unavailable
+            # (e.g. bgp container still restarting).  Retry within timeout.
+            logger.warning("bgp_facts unavailable, retrying: %r", exc)
+            return False
+        neighbors = {str(k).lower(): v for k, v in neighbors.items()}
+        established = {ip for ip in wanted
+                       if neighbors.get(ip, {}).get("state") == "established"}
+        missing = wanted - established
+        if missing:
+            logger.debug("BGP not yet established: %s", sorted(missing))
+        return not missing
+
+    return wait_until(timeout, 10, 0, _all_established)
+
+
+@pytest.fixture(scope="function")
+def scaling_checkpoint(duthosts, enum_downstream_dut_hostname):
+    """Per-test checkpoint + rollback so each parametrization starts clean."""
+    duthost = duthosts[enum_downstream_dut_hostname]
+    create_checkpoint(duthost, cp=SCALING_CHECKPOINT)
+    yield SCALING_CHECKPOINT
+    try:
+        rollback_or_reload(duthost, cp=SCALING_CHECKPOINT)
+    finally:
+        delete_checkpoint(duthost, cp=SCALING_CHECKPOINT)
+
+
+def _record_platform_metadata(duthost, config_facts, selection, record_property):
+    """Emit per-run metadata so results can be sliced across platforms."""
+    facts = duthost.facts or {}
+    record_property("gcu_sonic_version",
+                    facts.get("asic_type", "") + "/" + str(facts.get("num_asic", "")))
+    try:
+        img = duthost.shell("sonic-cfggen -y /etc/sonic/sonic_version.yml -v build_version",
+                            module_ignore_errors=True)["stdout"].strip()
+        record_property("gcu_sonic_image", img)
+    except Exception:
+        # Best-effort metadata capture; a missing sonic_version.yml or
+        # shell error shouldn't fail the scaling measurement itself.
+        pass
+    record_property("gcu_hwsku", facts.get("hwsku", ""))
+    record_property("gcu_switch_type", facts.get("switch_type", ""))
+    record_property("gcu_platform", facts.get("platform", ""))
+    # PC composition: how many are single-port vs multi-port among selected.
+    pc_members = config_facts.get("PORTCHANNEL_MEMBER", {})
+    single = sum(1 for pc in selection["portchannels"]
+                 if len(pc_members.get(pc, {})) == 1)
+    multi = len(selection["portchannels"]) - single
+    record_property("gcu_pc_single_port", single)
+    record_property("gcu_pc_multi_port", multi)
+
+
+def _cli_remove_selected_mors(duthost, selection, namespace):
+    """Surgically delete ONLY the N selected MORs from CONFIG_DB via
+    ``sonic-db-cli del`` (no wildcards, no YANG-cascade risk, no reliance
+    on existing helpers).
+
+    Order matters: children (BGP_NEIGHBOR, DEVICE_NEIGHBOR) before parent
+    (DEVICE_NEIGHBOR_METADATA); PORTCHANNEL_INTERFACE and PORTCHANNEL_MEMBER
+    before PORTCHANNEL.  Both asic-namespace and localhost tables are cleaned.
+    ``module_ignore_errors=True`` because some entries may exist on only one
+    side (asic vs localhost) or may have been auto-removed by prior ops.
+
+    Scope note (INTERFACE table): this test targets ``PORTCHANNEL``-based
+    MORs on T2/lt2 topologies, where port members are grouped under
+    ``PORTCHANNEL_INTERFACE`` — not ``INTERFACE`` (which is used for
+    L3-on-port designs).  We therefore deliberately do not strip
+    ``INTERFACE|{port}`` entries.  The rollback fixture undoes any stray
+    state at teardown regardless.
+
+    Persistence note: we intentionally do NOT ``config save`` after the
+    CLI removals.  Persisting would defeat the ``config rollback`` in
+    ``scaling_checkpoint`` teardown, which is the primary cleanup path.
+
+    Safe by construction: our fixture takes a checkpoint before this runs
+    and calls ``config rollback`` in teardown, so any intermediate state
+    (including a partially-removed MOR if a command errors) is undone.
+    """
+    ns_flag = "" if namespace is None else "-n {}".format(namespace)
+    failures = []
+
+    def run(where, cmd, desc):
+        """Run a delete and surface (but do not raise on) a non-zero rc.
+
+        rc alone cannot prove a delete happened -- ``del`` of an absent key
+        still returns 0, and the ``keys | xargs del`` pipelines return xargs'
+        rc -- so failures collected here are advisory.  The authoritative gate
+        is _verify_selected_mors_removed(), which checks the keys are actually
+        gone before the timer starts.
+        """
+        logger.info("[%s] %s: %s", where, desc, cmd)
+        res = duthost.shell(cmd, module_ignore_errors=True)
+        if res["rc"] != 0:
+            logger.warning("[%s] delete returned rc=%s: %s\nstdout: %s\nstderr: %s",
+                           where, res["rc"], cmd, res["stdout"], res["stderr"])
+            failures.append((where, desc, res["rc"]))
+        return res["rc"] == 0
+
+    for ip in selection["bgp_neigh_ips"]:
+        run("asic", "sudo sonic-db-cli {} CONFIG_DB del 'BGP_NEIGHBOR|{}'"
+            .format(ns_flag, ip), "del BGP_NEIGHBOR " + ip)
+        run("localhost", "sudo sonic-db-cli CONFIG_DB del 'BGP_NEIGHBOR|{}'"
+            .format(ip), "del localhost BGP_NEIGHBOR " + ip)
+
+    for port in selection["member_ports"]:
+        run("asic", "sudo sonic-db-cli {} CONFIG_DB del 'DEVICE_NEIGHBOR|{}'"
+            .format(ns_flag, port), "del DEVICE_NEIGHBOR " + port)
+        run("localhost", "sudo sonic-db-cli CONFIG_DB del 'DEVICE_NEIGHBOR|{}'"
+            .format(port), "del localhost DEVICE_NEIGHBOR " + port)
+
+    for name in selection["device_neigh_names"]:
+        run("asic",
+            "sudo sonic-db-cli {} CONFIG_DB del 'DEVICE_NEIGHBOR_METADATA|{}'"
+            .format(ns_flag, name),
+            "del DEVICE_NEIGHBOR_METADATA " + name)
+        run("localhost",
+            "sudo sonic-db-cli CONFIG_DB del 'DEVICE_NEIGHBOR_METADATA|{}'"
+            .format(name),
+            "del localhost DEVICE_NEIGHBOR_METADATA " + name)
+
+    for pc in selection["portchannels"]:
+        # PORTCHANNEL_INTERFACE: both the bare PC key and the PC|ip compound
+        # keys.  These are two separate deletes on purpose.  A single
+        # 'PORTCHANNEL_INTERFACE|{pc}*' glob would be prefix-matched, not
+        # delimiter-matched, so selecting PortChannel1 would also wipe
+        # PortChannel10/PortChannel100's interface keys.  Those PCs are not in
+        # our selection, so the add-patch never restores them and the
+        # selected-only verifier never notices -- they would stay missing
+        # until the checkpoint rollback at teardown.  Bound both forms by the
+        # '|' delimiter instead: an exact key for the bare row, and a
+        # '{pc}|*' glob for the IP rows.
+        run("asic",
+            "sudo sonic-db-cli {ns} CONFIG_DB del 'PORTCHANNEL_INTERFACE|{pc}'"
+            .format(ns=ns_flag, pc=pc),
+            "del PORTCHANNEL_INTERFACE " + pc)
+        run("asic",
+            "sudo sonic-db-cli {ns} CONFIG_DB keys 'PORTCHANNEL_INTERFACE|{pc}|*' "
+            "| xargs -r -n1 sudo sonic-db-cli {ns} CONFIG_DB del"
+            .format(ns=ns_flag, pc=pc),
+            "del PORTCHANNEL_INTERFACE " + pc + "|*")
+        run("localhost",
+            "sudo sonic-db-cli CONFIG_DB del 'PORTCHANNEL_INTERFACE|{pc}'"
+            .format(pc=pc),
+            "del localhost PORTCHANNEL_INTERFACE " + pc)
+        run("localhost",
+            "sudo sonic-db-cli CONFIG_DB keys 'PORTCHANNEL_INTERFACE|{pc}|*' "
+            "| xargs -r -n1 sudo sonic-db-cli CONFIG_DB del".format(pc=pc),
+            "del localhost PORTCHANNEL_INTERFACE " + pc + "|*")
+
+        # PORTCHANNEL_MEMBER: PC|Ethernet* keys.
+        run("asic",
+            "sudo sonic-db-cli {ns} CONFIG_DB keys 'PORTCHANNEL_MEMBER|{pc}|*' "
+            "| xargs -r -n1 sudo sonic-db-cli {ns} CONFIG_DB del"
+            .format(ns=ns_flag, pc=pc),
+            "del PORTCHANNEL_MEMBER " + pc + "|*")
+        run("localhost",
+            "sudo sonic-db-cli CONFIG_DB keys 'PORTCHANNEL_MEMBER|{pc}|*' "
+            "| xargs -r -n1 sudo sonic-db-cli CONFIG_DB del".format(pc=pc),
+            "del localhost PORTCHANNEL_MEMBER " + pc + "|*")
+
+        # PORTCHANNEL parent last.
+        run("asic",
+            "sudo sonic-db-cli {} CONFIG_DB del 'PORTCHANNEL|{}'"
+            .format(ns_flag, pc), "del PORTCHANNEL " + pc)
+        run("localhost",
+            "sudo sonic-db-cli CONFIG_DB del 'PORTCHANNEL|{}'".format(pc),
+            "del localhost PORTCHANNEL " + pc)
+
+    # Per-port scalars (safe if absent). PORT stays — we do NOT delete PORT
+    # entries; admin_status flipped to down instead so add-back can re-enable.
+    for port in selection["member_ports"]:
+        run("asic",
+            "sudo sonic-db-cli {} CONFIG_DB del 'PORT_QOS_MAP|{}'"
+            .format(ns_flag, port), "del PORT_QOS_MAP " + port)
+        run("asic",
+            "sudo sonic-db-cli {} CONFIG_DB hdel 'CABLE_LENGTH|AZURE' {}"
+            .format(ns_flag, port), "hdel CABLE_LENGTH " + port)
+        run("asic",
+            "sudo sonic-db-cli {ns} CONFIG_DB keys 'BUFFER_PG|{p}|*' "
+            "| xargs -r -n1 sudo sonic-db-cli {ns} CONFIG_DB del"
+            .format(ns=ns_flag, p=port), "del BUFFER_PG " + port + "|*")
+        run("asic",
+            "sudo sonic-db-cli {} CONFIG_DB hset 'PORT|{}' admin_status down"
+            .format(ns_flag, port), "admin_status down " + port)
+
+    if failures:
+        logger.warning("%d delete command(s) returned non-zero rc; "
+                       "_verify_selected_mors_removed() will decide whether "
+                       "this actually mattered: %s", len(failures), failures)
+    return failures
+
+
+def _verify_selected_mors_removed(duthost, selection, namespace,
+                                  config_facts, config_facts_localhost,
+                                  pc_refs=None):
+    """Assert the selected MORs are really gone from CONFIG_DB.
+
+    This runs AFTER _cli_remove_selected_mors and BEFORE the timer starts, and
+    it is the precondition the whole measurement rests on.
+
+    Why it is required: the restore patch uses RFC 6902 ``add``, and ``add`` on
+    an already-present member is a replace/no-op rather than an error.  So if a
+    delete silently failed, that part of the timed patch does no work and the
+    run reports an artificially FAST time -- a wrong number, published as if it
+    were valid.  Checking the keys are absent is the only sound gate: a
+    ``del`` of a missing key still exits 0, and the ``keys | xargs del``
+    pipelines report xargs' rc, so return codes prove nothing.
+
+    Every condition checked here is *derived from the pre-removal snapshot*
+    (``config_facts`` / ``config_facts_localhost``) rather than hardcoded, so
+    the gate covers exactly what ``_build_scaling_add_patch`` will re-add and
+    nothing more.  An entry that was already absent before setup ran is not
+    required to be absent now -- it contributes no op to the timed patch, so
+    it cannot understate the workload.
+
+    ``pc_refs`` is the list returned by ``_scan_pc_references`` (the rows whose
+    ``ports`` leaf-list references our PCs).  Those are restored by a
+    ``replace`` op rather than an ``add``, but the no-op hazard is identical:
+    replacing a list with the value it already holds costs nothing and silently
+    shrinks the measured workload.  Pass it so the gate covers them too.
+
+    Returns a list of leftover keys (empty when the removal was clean).
+    """
+    ns_flag = "" if namespace is None else "-n {}".format(namespace)
+
+    def _run(cmd, what):
+        out = duthost.shell(cmd, module_ignore_errors=True)
+        if out["rc"] != 0:
+            # Treat an unreadable DB as a hard problem rather than "clean".
+            raise RuntimeError(
+                "could not read {} (rc={}): {}".format(
+                    what, out["rc"], out.get("stderr", "")))
+        return out["stdout"]
+
+    def _keys(pattern, scope="asic"):
+        flag = ns_flag if scope == "asic" else ""
+        out = _run("sudo sonic-db-cli {} CONFIG_DB keys '{}'".format(flag, pattern),
+                   "CONFIG_DB keys '{}' ({})".format(pattern, scope))
+        return {k.strip() for k in out.splitlines() if k.strip()}
+
+    leftovers = []
+
+    def _flag(key, scope="asic"):
+        leftovers.append(key if scope == "asic" else "localhost:" + key)
+
+    ports = list(selection["member_ports"])
+    pcs = list(selection["portchannels"])
+    dev_names = list(selection["device_neigh_names"])
+    bgp_ips = list(selection["bgp_neigh_ips"])
+
+    # ---- ASIC scope ----
+    bgp_keys = _keys("BGP_NEIGHBOR|*")
+    for ip in bgp_ips:
+        key = "BGP_NEIGHBOR|{}".format(ip)
+        if key in bgp_keys:
+            _flag(key)
+
+    dn_keys = _keys("DEVICE_NEIGHBOR|*")
+    for port in ports:
+        key = "DEVICE_NEIGHBOR|{}".format(port)
+        if key in dn_keys:
+            _flag(key)
+
+    # DEVICE_NEIGHBOR_METADATA is a parent the patch re-adds per neighbour.
+    dnm_keys = _keys("DEVICE_NEIGHBOR_METADATA|*")
+    dnm_snap = config_facts.get("DEVICE_NEIGHBOR_METADATA", {})
+    for name in dev_names:
+        key = "DEVICE_NEIGHBOR_METADATA|{}".format(name)
+        if name in dnm_snap and key in dnm_keys:
+            _flag(key)
+
+    pc_keys = _keys("PORTCHANNEL|*")
+    pcm_keys = _keys("PORTCHANNEL_MEMBER|*")
+    pci_keys = _keys("PORTCHANNEL_INTERFACE|*")
+    for pc in pcs:
+        if "PORTCHANNEL|{}".format(pc) in pc_keys:
+            _flag("PORTCHANNEL|{}".format(pc))
+        leftovers.extend(k for k in pcm_keys
+                         if k.startswith("PORTCHANNEL_MEMBER|{}|".format(pc)))
+        leftovers.extend(k for k in pci_keys
+                         if k == "PORTCHANNEL_INTERFACE|{}".format(pc) or
+                         k.startswith("PORTCHANNEL_INTERFACE|{}|".format(pc)))
+
+    # Per-port scalars.  These scale with N and are all re-added by the timed
+    # patch, so an un-removed one silently converts a timed add into a no-op.
+    qos_keys = _keys("PORT_QOS_MAP|*")
+    qos_snap = config_facts.get("PORT_QOS_MAP", {})
+    for port in ports:
+        key = "PORT_QOS_MAP|{}".format(port)
+        if port in qos_snap and key in qos_keys:
+            _flag(key)
+
+    buf_keys = _keys("BUFFER_PG|*")
+    buf_snap = config_facts.get("BUFFER_PG", {})
+    for port in ports:
+        for pg_range in buf_snap.get(port, {}):
+            key = "BUFFER_PG|{}|{}".format(port, pg_range)
+            if key in buf_keys:
+                _flag(key)
+
+    # CABLE_LENGTH is a single hash whose *fields* are per-port; Redis drops
+    # the hash entirely once the last field goes, so an empty read is clean.
+    cable_snap = config_facts.get("CABLE_LENGTH", {}).get("AZURE", {})
+    wanted_cable = [p for p in ports if p in cable_snap]
+    if wanted_cable:
+        cable_fields = {
+            f.strip() for f in _run(
+                "sudo sonic-db-cli {} CONFIG_DB hkeys 'CABLE_LENGTH|AZURE'"
+                .format(ns_flag), "CABLE_LENGTH|AZURE fields").splitlines()
+            if f.strip()}
+        for port in wanted_cable:
+            if port in cable_fields:
+                _flag("CABLE_LENGTH|AZURE:{}".format(port))
+
+    # PORT rows are never deleted -- admin_status is flipped down instead, and
+    # the patch flips it back up.  If the flip did not take, that op is a
+    # no-op, so the transition is part of the precondition.  One shell round
+    # trip for all N ports.
+    if ports:
+        admin_out = _run(
+            "for p in {ports}; do printf '%s=' \"$p\"; "
+            "sudo sonic-db-cli {ns} CONFIG_DB hget \"PORT|$p\" admin_status; "
+            "done".format(ports=" ".join(ports), ns=ns_flag),
+            "PORT admin_status")
+        admin = {}
+        for line in admin_out.splitlines():
+            if "=" in line:
+                name, _, val = line.partition("=")
+                admin[name.strip()] = val.strip()
+        for port in ports:
+            if admin.get(port) != "down":
+                _flag("PORT|{}:admin_status={}".format(
+                    port, admin.get(port) or "<unset>"))
+
+    # ---- localhost scope ----
+    # The patch re-adds localhost rows too (conditioned on the localhost
+    # snapshot), so the same no-op hazard applies there.  Gated on snapshot
+    # presence: entries that legitimately never existed are not required.
+    local = config_facts_localhost or {}
+    if local:
+        l_bgp = _keys("BGP_NEIGHBOR|*", scope="localhost")
+        for ip in bgp_ips:
+            key = "BGP_NEIGHBOR|{}".format(ip)
+            if ip in local.get("BGP_NEIGHBOR", {}) and key in l_bgp:
+                _flag(key, scope="localhost")
+
+        l_dn = _keys("DEVICE_NEIGHBOR|*", scope="localhost")
+        for port in ports:
+            key = "DEVICE_NEIGHBOR|{}".format(port)
+            if port in local.get("DEVICE_NEIGHBOR", {}) and key in l_dn:
+                _flag(key, scope="localhost")
+
+        l_dnm = _keys("DEVICE_NEIGHBOR_METADATA|*", scope="localhost")
+        for name in dev_names:
+            key = "DEVICE_NEIGHBOR_METADATA|{}".format(name)
+            if (name in local.get("DEVICE_NEIGHBOR_METADATA", {}) and
+                    key in l_dnm):
+                _flag(key, scope="localhost")
+
+    # localhost PortChannel tables are deleted unconditionally during setup
+    # and re-added unconditionally by the patch, so absence is required
+    # regardless of the snapshot.  A row that never existed is absent anyway,
+    # so this cannot produce a false positive.
+    l_pc = _keys("PORTCHANNEL|*", scope="localhost")
+    l_pcm = _keys("PORTCHANNEL_MEMBER|*", scope="localhost")
+    l_pci = _keys("PORTCHANNEL_INTERFACE|*", scope="localhost")
+    for pc in pcs:
+        if "PORTCHANNEL|{}".format(pc) in l_pc:
+            _flag("PORTCHANNEL|{}".format(pc), scope="localhost")
+        for k in l_pcm:
+            if k.startswith("PORTCHANNEL_MEMBER|{}|".format(pc)):
+                _flag(k, scope="localhost")
+        for k in l_pci:
+            if (k == "PORTCHANNEL_INTERFACE|{}".format(pc) or
+                    k.startswith("PORTCHANNEL_INTERFACE|{}|".format(pc))):
+                _flag(k, scope="localhost")
+
+    # ---- ports leaf-list referrers (ACL_TABLE / PBH_TABLE / MIRROR_SESSION) ----
+    # _cli_remove_pc_references strips our PCs out of each referring row's
+    # ``ports`` leaf-list, and _build_scaling_add_patch puts them back with a
+    # ``replace`` carrying the ORIGINAL list.  If a strip silently failed the
+    # replace rewrites the value that is already there, so that op is a no-op
+    # and the measurement is understated -- the same hazard the table checks
+    # above guard against.  The referrer count does not scale with N (it is a
+    # handful of fixed ACL rows), so at low N it is a large share of the ops:
+    # on a T2 LC it is 6 of the 36 ops at N=1.  Redis stores the leaf-list in
+    # the ``ports@`` field as a comma-separated string.
+    for ref in (pc_refs or []):
+        scope = ref["scope"]
+        flag = ns_flag if scope == "asic" else ""
+        rowkey = "{}|{}".format(ref["table"], ref["key"])
+        raw = _run(
+            "sudo sonic-db-cli {} CONFIG_DB hget '{}' 'ports@'".format(
+                flag, rowkey),
+            "{} ports@ ({})".format(rowkey, scope))
+        current = {p.strip() for p in raw.split(",") if p.strip()}
+        for pc in pcs:
+            if pc in current:
+                _flag("{}:ports@ still lists {}".format(rowkey, pc),
+                      scope=scope)
+
+    if leftovers:
+        logger.error("Removal incomplete -- %d condition(s) unmet: %s",
+                     len(leftovers), sorted(leftovers))
+    else:
+        logger.info("Removal verified: every snapshot-derived precondition "
+                    "for the timed patch is satisfied")
+    return leftovers
+
+
+def _probe_parent_tables_present(duthost, namespace):
+    """After ``_cli_remove_selected_mors`` runs, probe the DUT to see
+    whether the parent hashes we restore in ``_build_scaling_add_patch``
+    still exist on the asic namespace.
+
+    Redis auto-deletes a hash key when its last field is removed, so if
+    our per-port ``hdel``/``del`` cleared out every entry, the parent
+    key is gone.  ``jsonpatch`` (RFC 6902) refuses to path into a
+    missing intermediate — ``add /CABLE_LENGTH/AZURE/EthernetX`` on an
+    empty/missing ``CABLE_LENGTH`` raises ``member 'AZURE' not found
+    in {}``.  We use this snapshot to prepend defensive ``add
+    /parent = {}`` ops only when the parent is actually gone.
+
+    Returns a dict:
+        {"cable_azure": bool,  # CABLE_LENGTH|AZURE key exists
+         "port_qos_map": bool, # any PORT_QOS_MAP|* keys exist
+         "buffer_pg":    bool} # any BUFFER_PG|* keys exist
+    """
+    if namespace is None:
+        ns_flag = ""
+    else:
+        ns_flag = "-n " + namespace
+
+    def _exists(pattern):
+        cmd = ("sudo sonic-db-cli {} CONFIG_DB keys '{}' | head -n1"
+               .format(ns_flag, pattern))
+        out = duthost.shell(cmd, module_ignore_errors=True)["stdout"].strip()
+        return bool(out)
+
+    return {
+        "cable_azure":  _exists("CABLE_LENGTH|AZURE"),
+        "port_qos_map": _exists("PORT_QOS_MAP|*"),
+        "buffer_pg":    _exists("BUFFER_PG|*"),
+    }
+
+
+def _scan_pc_references(config_facts, config_facts_localhost, pcs):
+    """Scan config for tables whose entries carry a ``ports`` leaf-list
+    that references one or more of our selected PortChannels.
+
+    Real-world referrers: ACL_TABLE.ports (localhost, and sometimes
+    per-asic), PBH_TABLE.ports, MIRROR_SESSION.ports, etc.  YANG treats
+    those as leafrefs to PORTCHANNEL_LIST/PORT_LIST, so any entry that
+    still references a PC we've removed becomes dangling and blocks the
+    re-add patch with ``Invalid value "PortChannelXXX" in "ports"
+    element``.
+
+    Returns a list of dicts:
+        {"scope": "asic"|"localhost",
+         "table": "<TABLE_NAME>",
+         "key":   "<row_key>",
+         "orig":  [<full port list>],
+         "trimmed": [<same list minus our PCs>],
+         "removed": [<our PCs that were present>]}
+    """
+    pc_set = set(pcs)
+    refs = []
+    for scope, cf in (("asic", config_facts), ("localhost", config_facts_localhost)):
+        if not isinstance(cf, dict):
+            continue
+        for table, entries in cf.items():
+            if not isinstance(entries, dict):
+                continue
+            for key, val in entries.items():
+                if not isinstance(val, dict):
+                    continue
+                port_list = val.get("ports")
+                if not isinstance(port_list, list):
+                    continue
+                hit = [p for p in port_list if p in pc_set]
+                if not hit:
+                    continue
+                refs.append({
+                    "scope": scope,
+                    "table": table,
+                    "key": key,
+                    "orig": list(port_list),
+                    "trimmed": [p for p in port_list if p not in pc_set],
+                    "removed": hit,
+                })
+    return refs
+
+
+def _cli_remove_pc_references(duthost, refs, namespace):
+    """Strip our selected PCs from every ``ports@`` list captured by
+    ``_scan_pc_references``.  Uses ``sonic-db-cli hset`` with the redis
+    leaf-list encoding (``ports@`` = comma-joined values).
+
+    Untimed setup step; ``module_ignore_errors=True`` because the
+    checkpoint-based rollback in teardown covers any partial state.
+    """
+    ns_flag = "" if namespace is None else "-n {}".format(namespace)
+    for ref in refs:
+        scope_flag = ns_flag if ref["scope"] == "asic" else ""
+        joined = ",".join(ref["trimmed"])
+        redis_key = "{table}|{key}".format(table=ref["table"], key=ref["key"])
+        # Write the trimmed leaf-list back.  If trimmed is empty we still
+        # write empty string — YANG will accept an empty ports list on the
+        # referrer as long as its own presence constraints allow it.
+        cmd = ("sudo sonic-db-cli {scope} CONFIG_DB hset '{k}' 'ports@' '{v}'"
+               .format(scope=scope_flag, k=redis_key, v=joined))
+        logger.info("[%s] strip PC refs from %s|%s: removed=%s",
+                    ref["scope"], ref["table"], ref["key"], ref["removed"])
+        duthost.shell(cmd, module_ignore_errors=True)
+
+
+def _build_scaling_add_patch(config_facts, config_facts_localhost, mg_facts,
+                             selection, namespace, pc_refs=None,
+                             parents_present=None):
+    """Build an INCREMENTAL add patch that re-inserts our N selected MORs.
+
+    Uses per-key paths (``add /asic0/PORTCHANNEL/PortChannel121 {..}``)
+    rather than bulk table-level replace (``add /asic0/PORTCHANNEL {..}``)
+    so we don't accidentally clobber the other 20+ PortChannels already
+    in the ASIC config.  That bulk-replace pattern is what
+    ``apply_patch_add_cluster()`` does (it was designed for add-from-empty
+    in the reverse of test_add_cluster's teardown), and it triggered
+    leafref-validation failures on our incremental scenario.
+
+    Ordering: parents before children within each table family, and
+    tables ordered so leafref targets exist before referencing entries:
+        PORTCHANNEL -> PORTCHANNEL_MEMBER -> PORTCHANNEL_INTERFACE
+        port scalars restore (CABLE_LENGTH, PORT_QOS_MAP, BUFFER_PG,
+                              admin_status)
+        DEVICE_NEIGHBOR_METADATA -> DEVICE_NEIGHBOR -> BGP_NEIGHBOR
+    """
+    ns = "" if namespace is None else "/" + namespace
+    port_alias = mg_facts.get("minigraph_port_name_to_alias_map", {})
+
+    pcs = selection["portchannels"]
+    ports = selection["member_ports"]
+    bgp_ips = selection["bgp_neigh_ips"]
+    dev_names = selection["device_neigh_names"]
+
+    pc_table = config_facts.get("PORTCHANNEL", {})
+    pc_intf = config_facts.get("PORTCHANNEL_INTERFACE", {})
+    pc_members = config_facts.get("PORTCHANNEL_MEMBER", {})
+    dev_neigh = config_facts.get("DEVICE_NEIGHBOR", {})
+    dev_meta = config_facts.get("DEVICE_NEIGHBOR_METADATA", {})
+    bgp_neigh = config_facts.get("BGP_NEIGHBOR", {})
+    cable = config_facts.get("CABLE_LENGTH", {}).get("AZURE", {})
+    qos = config_facts.get("PORT_QOS_MAP", {})
+    buf_pg = config_facts.get("BUFFER_PG", {})
+
+    dev_meta_local = config_facts_localhost.get("DEVICE_NEIGHBOR_METADATA", {})
+    dev_neigh_local = config_facts_localhost.get("DEVICE_NEIGHBOR", {})
+    bgp_local = config_facts_localhost.get("BGP_NEIGHBOR", {})
+    pc_intf_local = config_facts_localhost.get("PORTCHANNEL_INTERFACE", {})
+
+    patch = []
+
+    # PORTCHANNEL (parent) per-key add
+    for pc in pcs:
+        val = pc_table.get(pc, {})
+        # PORTCHANNEL entries in config_facts include a "members" list we
+        # don't want on the wire (real config has it as a separate table).
+        clean = {k: v for k, v in val.items() if k != "members"}
+        patch.append({"op": "add",
+                      "path": f"{ns}/PORTCHANNEL/{pc}", "value": clean})
+        patch.append({"op": "add",
+                      "path": f"/localhost/PORTCHANNEL/{pc}", "value": clean})
+
+    # PORTCHANNEL_MEMBER (references PORTCHANNEL parent)
+    for pc in pcs:
+        for member, mval in pc_members.get(pc, {}).items():
+            alias = port_alias.get(member, member).replace("/", "~1")
+            patch.append({
+                "op": "add",
+                "path": f"{ns}/PORTCHANNEL_MEMBER/{pc}|{member}",
+                "value": mval if isinstance(mval, dict) else {},
+            })
+            patch.append({
+                "op": "add",
+                "path": f"/localhost/PORTCHANNEL_MEMBER/{pc}|{alias}",
+                "value": mval if isinstance(mval, dict) else {},
+            })
+
+    # PORTCHANNEL_INTERFACE (bare key first, then IP subkeys)
+    for pc in pcs:
+        entry = pc_intf.get(pc, {})
+        # bare key with empty value (or entry-level fields if any non-IP keys)
+        patch.append({"op": "add",
+                      "path": f"{ns}/PORTCHANNEL_INTERFACE/{pc}", "value": {}})
+        if pc in pc_intf_local or pc_intf.get(pc):
+            patch.append({"op": "add",
+                          "path": f"/localhost/PORTCHANNEL_INTERFACE/{pc}",
+                          "value": {}})
+        if isinstance(entry, dict):
+            for ip_key, ip_val in entry.items():
+                escaped = ip_key.replace("/", "~1")
+                patch.append({
+                    "op": "add",
+                    "path": f"{ns}/PORTCHANNEL_INTERFACE/{pc}|{escaped}",
+                    "value": ip_val if isinstance(ip_val, dict) else {},
+                })
+                patch.append({
+                    "op": "add",
+                    "path": f"/localhost/PORTCHANNEL_INTERFACE/{pc}|{escaped}",
+                    "value": ip_val if isinstance(ip_val, dict) else {},
+                })
+
+    # Restore per-port scalars removed by _cli_remove_selected_mors.
+    # These use "add" rather than "replace": the keys may or may not still
+    # exist, depending on whether the surgical remove actually deleted them
+    # (which is namespace-dependent).  RFC 6902 "replace" requires the
+    # target to already exist, whereas "add" overwrites it if present.
+    #
+    # Empty-parent guard: our per-port ``hdel``/``del`` in
+    # _cli_remove_selected_mors can empty the parent hash entirely
+    # (CABLE_LENGTH|AZURE, PORT_QOS_MAP|*, BUFFER_PG|*), in which case Redis
+    # auto-deletes the key and the parent path disappears from
+    # ``show runningconfiguration all``.  jsonpatch
+    # (RFC 6902) then refuses ``add /CABLE_LENGTH/AZURE/EthernetX`` with
+    # ``member 'AZURE' not found in {}``.  When ``parents_present`` tells
+    # us the parent is gone, prepend a defensive ``add /parent = {}`` op.
+    # We only emit these when actually missing — an ``add`` on an existing
+    # object member REPLACES it, which would clobber unrelated entries.
+    if parents_present is not None:
+        if not parents_present.get("cable_azure", True):
+            patch.append({"op": "add",
+                          "path": f"{ns}/CABLE_LENGTH",
+                          "value": {"AZURE": {}}})
+        if not parents_present.get("port_qos_map", True):
+            patch.append({"op": "add",
+                          "path": f"{ns}/PORT_QOS_MAP",
+                          "value": {}})
+        if not parents_present.get("buffer_pg", True):
+            patch.append({"op": "add",
+                          "path": f"{ns}/BUFFER_PG",
+                          "value": {}})
+
+    for port in ports:
+        if port in cable:
+            patch.append({
+                "op": "add",
+                "path": f"{ns}/CABLE_LENGTH/AZURE/{port}",
+                "value": cable[port],
+            })
+        if port in qos:
+            patch.append({
+                "op": "add",
+                "path": f"{ns}/PORT_QOS_MAP/{port}",
+                "value": qos[port],
+            })
+        for pg_range, pg_val in buf_pg.get(port, {}).items():
+            patch.append({
+                "op": "add",
+                "path": f"{ns}/BUFFER_PG/{port}|{pg_range}",
+                "value": pg_val if isinstance(pg_val, dict) else {},
+            })
+        # Flip admin_status back to up.
+        patch.append({"op": "replace",
+                      "path": f"{ns}/PORT/{port}/admin_status",
+                      "value": "up"})
+
+    # DEVICE_NEIGHBOR_METADATA (parent) - both asic and localhost.
+    for name in dev_names:
+        if name in dev_meta:
+            patch.append({
+                "op": "add",
+                "path": f"{ns}/DEVICE_NEIGHBOR_METADATA/{name}",
+                "value": dev_meta[name],
+            })
+        if name in dev_meta_local:
+            patch.append({
+                "op": "add",
+                "path": f"/localhost/DEVICE_NEIGHBOR_METADATA/{name}",
+                "value": dev_meta_local[name],
+            })
+
+    # DEVICE_NEIGHBOR (child references METADATA)
+    for port in ports:
+        if port in dev_neigh:
+            patch.append({
+                "op": "add",
+                "path": f"{ns}/DEVICE_NEIGHBOR/{port}",
+                "value": dev_neigh[port],
+            })
+        if port in dev_neigh_local:
+            patch.append({
+                "op": "add",
+                "path": f"/localhost/DEVICE_NEIGHBOR/{port}",
+                "value": dev_neigh_local[port],
+            })
+
+    # BGP_NEIGHBOR (child references METADATA)
+    for ip in bgp_ips:
+        if ip in bgp_neigh:
+            patch.append({"op": "add",
+                          "path": f"{ns}/BGP_NEIGHBOR/{ip}",
+                          "value": bgp_neigh[ip]})
+        if ip in bgp_local:
+            patch.append({"op": "add",
+                          "path": f"/localhost/BGP_NEIGHBOR/{ip}",
+                          "value": bgp_local[ip]})
+
+    # Restore referrer ``ports`` leaf-lists.  These were stripped in
+    # ``_cli_remove_pc_references`` during untimed setup so the surgical
+    # PORTCHANNEL remove wouldn't leave dangling leafrefs.  We now put
+    # our PCs back into every referring row so its ``ports`` list matches
+    # the pre-test state.  ``replace`` (not ``add``) because the row
+    # itself already exists.
+    for ref in (pc_refs or []):
+        scope_prefix = ns if ref["scope"] == "asic" else "/localhost"
+        patch.append({
+            "op": "replace",
+            "path": f"{scope_prefix}/{ref['table']}/{ref['key']}/ports",
+            "value": ref["orig"],
+        })
+
+    return patch
+
+
+def _run_scaling_measurement(duthost, tbinfo, config_facts, config_facts_localhost,
+                             mg_facts, enum_rand_one_asic_namespace, n_mors,
+                             record_property):
+    """Core measurement: remove N MORs, time the add-back, verify, cleanup.
+
+    Returns dict with keys:
+        selection, apply_elapsed_s, e2e_elapsed_s, success, hwproxy_to,
+        bgp_up, ns_label
+    Raises pytest.skip for unsupported topologies / insufficient PCs.
+    """
+    if not duthost.get_facts().get("modular_chassis"):
+        pytest.skip("Scaling test only runs on modular chassis")
+    if tbinfo["topo"]["type"] not in ("t2", "lt2"):
+        pytest.skip("Scaling test only runs on t2 / lt2 topology")
+    switch_type = duthost.facts.get("switch_type")
+    if switch_type not in ("voq", "chassis-packet"):
+        pytest.skip("Unsupported switch_type={}".format(switch_type))
+
+    selection = None
+    try:
+        selection = _select_n_mors(config_facts, n_mors)
+    except ValueError as exc:
+        pytest.skip(str(exc))
+
+    ns_label = enum_rand_one_asic_namespace or "host"
+    logger.info("Scaling: n=%d ns=%s pcs=%s",
+                n_mors, ns_label, selection["portchannels"])
+
+    _record_platform_metadata(duthost, config_facts, selection, record_property)
+
+    # ---- Setup: targeted remove of N MORs (untimed) ----
+    # Surgical CLI-based removal: only touches our N selected MORs, no
+    # wildcards on whole tables. GCU/JSON-patch remove was tried first but
+    # hit YANG cascade-delete edge cases ("can't remove a non-existent
+    # object"); the existing remove_cluster_via_sonic_db_cli helper was
+    # rejected because it wildcard-deletes the whole ASIC.  Our fixture
+    # rolls back via `config rollback` regardless of intermediate state.
+    remove_failures = _cli_remove_selected_mors(
+        duthost, selection, enum_rand_one_asic_namespace)
+
+    # Also strip our PCs from any referrer's ``ports`` leaf-list (ACL_TABLE,
+    # PBH_TABLE, MIRROR_SESSION, etc.) so the incremental ADD patch below
+    # doesn't hit ``Invalid value "PortChannelXXX" in "ports" element``.
+    pc_refs = _scan_pc_references(config_facts, config_facts_localhost,
+                                  selection["portchannels"])
+    if pc_refs:
+        logger.info("Found %d ports-referrer rows to strip: %s",
+                    len(pc_refs),
+                    [(r["scope"], r["table"], r["key"]) for r in pc_refs])
+        _cli_remove_pc_references(duthost, pc_refs, enum_rand_one_asic_namespace)
+
+    # Precondition for a valid measurement: what we are about to time the
+    # re-add of must actually be gone.  If a delete silently failed, the
+    # corresponding RFC 6902 ``add`` becomes a no-op and the run reports an
+    # artificially fast time.  See _verify_selected_mors_removed.
+    leftovers = _verify_selected_mors_removed(
+        duthost, selection, enum_rand_one_asic_namespace,
+        config_facts, config_facts_localhost, pc_refs)
+    pytest_assert(
+        not leftovers,
+        "Setup incomplete: {} precondition(s) unmet, so part of the timed "
+        "patch would be a no-op and the measurement would be invalid. "
+        "Unmet: {}{}".format(
+            len(leftovers), sorted(leftovers),
+            "" if not remove_failures else
+            " | non-zero rc from {} removal command(s): {}".format(
+                len(remove_failures), remove_failures)))
+    if remove_failures:
+        # Verification passed, so these did not affect the measurement, but
+        # they are still worth surfacing rather than discarding.
+        logger.warning(
+            "%d removal command(s) returned non-zero rc yet every "
+            "precondition is satisfied; treating as benign: %s",
+            len(remove_failures), remove_failures)
+
+    # Empty-parent guard: snapshot which parent hashes survived the CLI
+    # removal.  If a parent (CABLE_LENGTH|AZURE, PORT_QOS_MAP|*,
+    # BUFFER_PG|*) is empty post-removal, Redis has auto-deleted it and an
+    # RFC-6902 add into its child path will fail.  _build_scaling_add_patch
+    # uses this to prepend defensive parent-add ops only when needed.
+    parents_present = _probe_parent_tables_present(
+        duthost, enum_rand_one_asic_namespace)
+    logger.info("Scaling parent-table probe: %s", parents_present)
+
+    # ---- Timed: incremental add-patch built from selection ----
+    add_patch = _build_scaling_add_patch(config_facts, config_facts_localhost,
+                                         mg_facts, selection,
+                                         enum_rand_one_asic_namespace,
+                                         pc_refs=pc_refs,
+                                         parents_present=parents_present)
+    n_ops = len(add_patch)
+    logger.info("Scaling add patch: %d ops for n=%d",
+                n_ops, len(selection["portchannels"]))
+
+    # apply_patch() fuses on a per-platform timeout (gu_utils.get_gcu_timeout).
+    # If this patch cannot finish inside the fuse the run cannot yield a valid
+    # number: it would abort mid-apply and -- before this change -- was
+    # silently reported as a pass.  Skip explicitly, naming the reason.
+    #
+    # The feasibility estimate deliberately does NOT reuse the op-count model
+    # used for the budget.  That model treats every patch op as a sorter move
+    # needing its own validation loads, which is a safe OVER-estimate for a
+    # ceiling but far too pessimistic as a gate: it would skip N values that
+    # are known to complete (e.g. N=14 measured at ~840s would be predicted at
+    # ~2300s and skipped).  Feasibility therefore uses the per-MOR cost
+    # observed on real runs; the op-count model stays where over-estimating is
+    # harmless.
+    fuse_s = get_gcu_timeout(duthost)
+    loaddata_time = _get_loaddata_time(duthost, enum_rand_one_asic_namespace)
+    predicted_s = _predicted_elapsed_s(n_ops, loaddata_time)
+    feasibility_s = max(BUDGET_FLOOR_S, PER_MOR_BUDGET_S * int(n_mors))
+    logger.info("N=%s: %d ops, loadData %.3fs -> budget model ~%.0fs; "
+                "empirical feasibility estimate ~%ds; platform fuse %ds",
+                n_mors, n_ops, loaddata_time, predicted_s, feasibility_s,
+                fuse_s)
+    if feasibility_s > fuse_s - FUSE_MARGIN_S:
+        pytest.skip(
+            "N={} is not measurable on {}: needs ~{}s (observed {}s/MOR) but "
+            "apply-patch fuses at {}s".format(
+                n_mors, duthost.facts.get("platform"), feasibility_s,
+                PER_MOR_BUDGET_S, fuse_s))
+
+    tmpfile = generate_tmpfile(duthost)
+    apply_start = time.time()
+    success = False
+    hwproxy_to = False
+    fuse_tripped = False
+    failure_repr = None
+    output = None
+    try:
+        output = apply_patch(duthost, json_data=add_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+        success = True
+    except TimeoutError as exc:
+        # apply_patch's own fuse.  This is NOT a transport problem: it means
+        # GCU did not finish within what this platform allows, which is
+        # precisely the regression this test exists to catch.  It must never
+        # be reported as a pass.
+        fuse_tripped = True
+        failure_repr = repr(exc)
+        logger.error("apply_patch fuse fired after ~%ds: %r", fuse_s, exc)
+    except (Exception, pytest.fail.Exception) as exc:
+        # pytest.fail.Exception (Failed) derives from BaseException, not
+        # Exception, so it must be named explicitly: expect_op_success reports
+        # a GCU rejection via pytest_assert, and without this the most common
+        # real failure would bypass this handler entirely, leaving success and
+        # failure_repr unset and skipping every record_property below.
+        # pytest.skip.Exception is deliberately NOT caught.
+        failure_repr = repr(exc)
+        if _is_transport_drop(exc):
+            hwproxy_to = True
+        logger.error("add_cluster failed: %r", exc)
+    finally:
+        # Stop the clock before cleanup: removing the temp file is a separate
+        # SSH round-trip and is not part of what apply-patch costs.
+        apply_wall_elapsed_s = time.time() - apply_start
+        delete_tmpfile(duthost, tmpfile)
+
+    # Prefer the DUT-reported duration: the wall-clock figure also contains the
+    # patch-file copy and is rounded up to apply_patch()'s 10s poll interval.
+    dut_elapsed_s = _dut_side_elapsed_s(output)
+    if dut_elapsed_s is None:
+        apply_elapsed_s = apply_wall_elapsed_s
+        timing_source = "wall_clock"
+    else:
+        apply_elapsed_s = dut_elapsed_s
+        timing_source = "dut_delta"
+    change_counts = _sorter_change_counts(output)
+    n_changes = sum(change_counts.values()) if change_counts else None
+    logger.info(
+        "apply-patch timing: source=%s dut=%s wall=%.3fs changes=%s",
+        timing_source,
+        "n/a" if dut_elapsed_s is None else "{:.3f}s".format(dut_elapsed_s),
+        apply_wall_elapsed_s,
+        change_counts or "n/a")
+
+    # ---- BGP convergence: recorded for information, never gates the budget.
+    # The budget is calibrated on apply-patch cost, so gating on a number that
+    # also contains convergence time would not be comparing like with like.
+    bgp_up = False
+    bgp_checked = bool(success and selection["bgp_neigh_ips"])
+    if bgp_checked:
+        bgp_up = _verify_bgp_up_scaling(
+            duthost, enum_rand_one_asic_namespace, selection["bgp_neigh_ips"])
+    e2e_elapsed_s = time.time() - apply_start
+
+    return {
+        "selection": selection,
+        "ns_label": ns_label,
+        "apply_elapsed_s": apply_elapsed_s,
+        "apply_wall_elapsed_s": apply_wall_elapsed_s,
+        "timing_source": timing_source,
+        "change_counts": change_counts,
+        "n_changes": n_changes,
+        "e2e_elapsed_s": e2e_elapsed_s,
+        "success": success,
+        "hwproxy_to": hwproxy_to,
+        "fuse_tripped": fuse_tripped,
+        "failure_repr": failure_repr,
+        "bgp_up": bgp_up,
+        "bgp_checked": bgp_checked,
+        "n_ops": n_ops,
+        "loaddata_time": loaddata_time,
+        "predicted_s": predicted_s,
+        "feasibility_s": feasibility_s,
+        "fuse_s": fuse_s,
+    }
+
+
+@pytest.mark.gcu_scaling_nightly
+@pytest.mark.parametrize("n_mors", NIGHTLY_MOR_COUNTS)
+def test_add_mor_scaling_nightly(
+    tbinfo, duthosts, enum_downstream_dut_hostname,
+    enum_rand_one_asic_namespace, config_facts, config_facts_localhost,
+    mg_facts, scaling_checkpoint, record_property, n_mors,
+):
+    """Nightly Add-MOR scaling measurement. See NIGHTLY_MOR_COUNTS."""
+    duthost = duthosts[enum_downstream_dut_hostname]
+    _run_and_publish(duthost, tbinfo, config_facts, config_facts_localhost,
+                     mg_facts, enum_rand_one_asic_namespace, n_mors,
+                     "nightly", record_property)
+
+
+@pytest.mark.gcu_scaling_weekly
+@pytest.mark.parametrize("n_mors", WEEKLY_MOR_COUNTS)
+def test_add_mor_scaling_weekly(
+    tbinfo, duthosts, enum_downstream_dut_hostname,
+    enum_rand_one_asic_namespace, config_facts, config_facts_localhost,
+    mg_facts, scaling_checkpoint, record_property, n_mors,
+):
+    """Weekly full-scale Add-MOR capacity measurement. See WEEKLY_MOR_COUNTS."""
+    duthost = duthosts[enum_downstream_dut_hostname]
+    _run_and_publish(duthost, tbinfo, config_facts, config_facts_localhost,
+                     mg_facts, enum_rand_one_asic_namespace, n_mors,
+                     "weekly", record_property)
+
+
+@pytest.mark.gcu_scaling_sanity
+@pytest.mark.parametrize("n_mors", SANITY_MOR_COUNTS)
+def test_add_mor_scaling_sanity(
+    tbinfo, duthosts, enum_downstream_dut_hostname,
+    enum_rand_one_asic_namespace, config_facts, config_facts_localhost,
+    mg_facts, scaling_checkpoint, record_property, n_mors,
+):
+    """One-time sanity: validate the scaling test itself. Not for nightly."""
+    duthost = duthosts[enum_downstream_dut_hostname]
+    _run_and_publish(duthost, tbinfo, config_facts, config_facts_localhost,
+                     mg_facts, enum_rand_one_asic_namespace, n_mors,
+                     "sanity", record_property)
+
+
+def _run_and_publish(duthost, tbinfo, config_facts, config_facts_localhost,
+                     mg_facts, namespace, n_mors, tier, record_property):
+    """Shared runner: measure, publish metrics, apply pass/fail policy.
+
+    Policy:
+      - A transport / hardware-proxy drop is recorded but does NOT fail the
+        test.  The underlying SSH chattiness is a separate issue; failing on
+        it would block nightly signal on something this test does not measure.
+      - apply_patch's own timeout ("fuse") DOES fail the test.  It means GCU
+        did not finish inside what this platform allows, which is exactly the
+        regression this test exists to detect.  It was previously misfiled as
+        a hardware-proxy timeout and silently passed.
+      - Real GCU failures DO fail the test.
+      - Apply time exceeding the budget fails the test (that IS the metric).
+        e2e is published for information but never gated, because the budget
+        is calibrated on apply-patch cost and e2e also contains BGP
+        convergence -- gating on it would not compare like with like.
+      - BGP check is soft -- logged only.
+    """
+    result = _run_scaling_measurement(
+        duthost, tbinfo, config_facts, config_facts_localhost,
+        mg_facts, namespace, n_mors, record_property)
+
+    budget = _time_budget_for(n_mors,
+                              n_ops=result["n_ops"],
+                              loaddata_time=result["loaddata_time"],
+                              fuse_s=result["fuse_s"])
+
+    record_property("gcu_tier", tier)
+    record_property("gcu_n_mors", n_mors)
+    record_property("gcu_apply_elapsed_s", round(result["apply_elapsed_s"], 3))
+    record_property("gcu_apply_wall_elapsed_s",
+                    round(result["apply_wall_elapsed_s"], 3))
+    record_property("gcu_timing_source", result["timing_source"])
+    if result["n_changes"] is not None:
+        record_property("gcu_sorter_changes", result["n_changes"])
+        record_property("gcu_sorter_changes_by_ns",
+                        ",".join("{}={}".format(ns, c) for ns, c
+                                 in sorted(result["change_counts"].items())))
+    record_property("gcu_e2e_elapsed_s", round(result["e2e_elapsed_s"], 3))
+    record_property("gcu_success", result["success"])
+    record_property("gcu_hwproxy_to", result["hwproxy_to"])
+    record_property("gcu_fuse_tripped", result["fuse_tripped"])
+    record_property("gcu_ns", result["ns_label"])
+    record_property("gcu_pcs", ",".join(result["selection"]["portchannels"]))
+    record_property("gcu_bgp_up", result["bgp_up"])
+    record_property("gcu_bgp_checked", result["bgp_checked"])
+    record_property("gcu_patch_ops", result["n_ops"])
+    record_property("gcu_loaddata_s", round(result["loaddata_time"], 4))
+    record_property("gcu_predicted_s", round(result["predicted_s"], 1))
+    record_property("gcu_time_budget_s", budget)
+
+    logger.info(
+        "SCALING RESULT tier=%s n=%d ns=%s ops=%d apply=%.2fs e2e=%.2fs "
+        "success=%s hwproxy_to=%s fuse_tripped=%s bgp_up=%s budget=%ds",
+        tier, n_mors, result["ns_label"], result["n_ops"],
+        result["apply_elapsed_s"], result["e2e_elapsed_s"],
+        result["success"], result["hwproxy_to"], result["fuse_tripped"],
+        result["bgp_up"], budget)
+
+    pytest_assert(
+        not result["fuse_tripped"],
+        "Add-MOR N={} did not complete within the apply-patch timeout "
+        "({}s) on {}. GCU took longer than this platform allows -- this is a "
+        "performance failure, not an infrastructure one.".format(
+            n_mors, result["fuse_s"], duthost.facts.get("platform")))
+
+    if result["hwproxy_to"] and not result["success"]:
+        logger.warning(
+            "Transport/hardware-proxy drop observed (N=%d): %s. Recording "
+            "data point; not failing (ANP SSH-chatty rollout owns this).",
+            n_mors, result["failure_repr"])
+        # The elapsed number is meaningless when the session dropped part-way.
+        return
+
+    pytest_assert(
+        result["success"],
+        "apply-patch failed during Add-MOR scaling (N={}): {}".format(
+            n_mors, result["failure_repr"]))
+    pytest_assert(
+        result["apply_elapsed_s"] <= budget,
+        "Add-MOR N={} exceeded apply-time budget: {:.1f}s > {}s "
+        "({} ops, {:.3f}s/loadData)".format(
+            n_mors, result["apply_elapsed_s"], budget,
+            result["n_ops"], result["loaddata_time"]))
+
+    if result["bgp_checked"] and not result["bgp_up"]:
+        logger.warning(
+            "BGP peers did not all reach Established: %s",
+            result["selection"]["bgp_neigh_ips"])
+
+
+@pytest.mark.gcu_scaling_weekly
+def test_max_mors_under_budget(
+    tbinfo, duthosts, enum_downstream_dut_hostname,
+    enum_rand_one_asic_namespace, config_facts, config_facts_localhost,
+    mg_facts, scaling_checkpoint, record_property,
+):
+    """Find how many MORs fit inside the 1-hour operational budget.
+
+    Sweeps N ascending, stops at the first N that fails or exceeds budget.
+    Records ``gcu_max_mors_under_budget`` = the largest N that succeeded
+    within the time budget on this testbed.
+    """
+    duthost = duthosts[enum_downstream_dut_hostname]
+    budget = int(os.environ.get("GCU_TIME_BUDGET_S", DEFAULT_TIME_BUDGET_S))
+    # The operational hour is only meaningful if apply-patch is even allowed to
+    # run that long.  On a platform whose fuse is below the budget, an apply can
+    # never legitimately reach it -- the fuse trips first -- so "budget
+    # exceeded" would be unreachable and the sweep could only ever end on a
+    # failure reason.  Clamp so the capacity boundary can actually be observed.
+    sweep_fuse_s = get_gcu_timeout(duthost)
+    if budget > sweep_fuse_s - FUSE_MARGIN_S:
+        clamped = sweep_fuse_s - FUSE_MARGIN_S
+        logger.info("Sweep budget %ds clamped to %ds (platform fuse %ds)",
+                    budget, clamped, sweep_fuse_s)
+        budget = clamped
+    # Ceiling is bounded by the PortChannels a line card actually has; if the
+    # sweep runs to the end, the real maximum is ">= 33", not "== 33", and
+    # gcu_max_n_stop_reason says so.
+    sweep = [1, 5, 10, 20, 24, 30, 33]
+    max_n = 0
+    max_ports = 0
+    last_elapsed = 0.0
+    # Why the sweep stopped.  Only budget_exceeded and sweep_exhausted mean
+    # "this is the capacity"; everything else means the number is incomplete
+    # and must not be read as a platform maximum.
+    stop_reason = "sweep_exhausted"
+    fatal = None
+
+    for n in sweep:
+        try:
+            result = _run_scaling_measurement(
+                duthost, tbinfo, config_facts, config_facts_localhost,
+                mg_facts, enum_rand_one_asic_namespace, n, record_property)
+        except pytest.skip.Exception as exc:
+            logger.info("Skip at N=%d: %s", n, exc)
+            if max_n == 0:
+                # Nothing measured yet, so the skip is about the platform or
+                # testbed rather than the sweep running out of headroom.
+                # Propagate it instead of falling through to the assertion,
+                # which would report this as a failure.  Matches how the
+                # tiered scaling tests behave.
+                pytest.skip(str(exc))
+            stop_reason = "not_measurable_at_n{}".format(n)
+            break
+
+        # Roll back between iterations so the next one starts from the same
+        # pre-state.  A rollback failure is NOT a capacity boundary: it means
+        # the DUT is no longer in a known state, so every later reading would
+        # be untrustworthy.  Restore has already been attempted inside
+        # rollback_or_reload (which falls back to config_reload); we record the
+        # failure and re-raise it after publishing, rather than silently
+        # reporting the partial sweep as the platform maximum.
+        try:
+            rollback_or_reload(duthost, cp=SCALING_CHECKPOINT)
+        except (Exception, pytest.fail.Exception) as exc:
+            # rollback_or_reload signals failure with pytest.fail, which is a
+            # BaseException subclass; without naming it here the sweep would
+            # abort before publishing stop_reason and the partial result.
+            logger.error("rollback between N iterations failed at N=%d: %r",
+                         n, exc)
+            stop_reason = "rollback_failed"
+            fatal = ("Rollback failed after N={}, so the sweep is incomplete "
+                     "and the result below is not a platform maximum: "
+                     "{!r}".format(n, exc))
+            break
+
+        logger.info("[max-N sweep] N=%d apply=%.1fs (%s, wall=%.1fs) "
+                    "e2e=%.1fs success=%s",
+                    n, result["apply_elapsed_s"], result["timing_source"],
+                    result["apply_wall_elapsed_s"], result["e2e_elapsed_s"],
+                    result["success"])
+
+        if result["fuse_tripped"]:
+            stop_reason = "fuse_tripped"
+            fatal = ("apply-patch did not complete within the platform "
+                     "timeout ({}s) at N={}. That is a performance failure, "
+                     "not the capacity boundary.".format(result["fuse_s"], n))
+            break
+        if not result["success"]:
+            if result["hwproxy_to"]:
+                # Transport drop: same policy as the tiered tests -- recorded,
+                # not failed, but explicitly not a capacity result either.
+                stop_reason = "transport_drop"
+                logger.warning("Transport drop at N=%d: %s",
+                               n, result["failure_repr"])
+                break
+            stop_reason = "apply_failed"
+            fatal = ("apply-patch failed at N={} ({}). A failure is not a "
+                     "capacity boundary.".format(n, result["failure_repr"]))
+            break
+        if result["apply_elapsed_s"] > budget:
+            stop_reason = "budget_exceeded"
+            break
+
+        max_n = n
+        max_ports = len(result["selection"]["member_ports"])
+        last_elapsed = result["apply_elapsed_s"]
+
+    complete = stop_reason in ("budget_exceeded", "sweep_exhausted")
+    record_property("gcu_max_mors_under_budget", max_n)
+    record_property("gcu_max_ports_under_budget", max_ports)
+    record_property("gcu_max_n_last_elapsed_s", round(last_elapsed, 3))
+    record_property("gcu_max_n_stop_reason", stop_reason)
+    record_property("gcu_max_n_result_complete", complete)
+    record_property("gcu_max_n_budget_s", budget)
+    # Kept for continuity: existing dashboards key this test's budget off
+    # gcu_time_budget_s, the same name the tiered tests emit.  Dropping it
+    # would silently empty those series.
+    record_property("gcu_time_budget_s", budget)
+    logger.info(
+        "MAX MORs under %ds apply-time budget: %d MORs (=%d ports, last "
+        "apply=%.1fs, stop_reason=%s, complete=%s)",
+        budget, max_n, max_ports, last_elapsed, stop_reason, complete)
+
+    if fatal:
+        pytest.fail(fatal)
+    pytest_assert(
+        max_n > 0,
+        "Could not add even N=1 MOR within budget {}s".format(budget))
