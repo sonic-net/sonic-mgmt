@@ -10,8 +10,14 @@ pytestmark = [
 ]
 
 
-def test_frr_bmp_monit_log(duthosts, enum_frontend_dut_hostname, enum_asic_index):
+def test_frr_bmp_monit_log(duthosts, enum_frontend_dut_hostname, enum_asic_index, loganalyzer):
     duthost = duthosts[enum_frontend_dut_hostname]
+    if loganalyzer and duthost.hostname in loganalyzer:
+        loganalyzer[duthost.hostname].ignore_regex.extend([
+            r".* ERR memory_checker: \[memory_checker\] Failed to get container ID of 'bmp'! Exiting \.\.\.",
+            r".* ERR memory_checker: \[memory_checker\] cgroup memory usage file .* of container 'bmp'.*",
+        ])
+
     disable_bmp_feature(duthost)
 
     pytest_assert(wait_until(180, 60, 0, check_monit_expected_container_logging, duthost),
