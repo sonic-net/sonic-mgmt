@@ -14,6 +14,13 @@ pytestmark = [
     pytest.mark.topology('any'),
 ]
 
+# PSU power-reading consistency tolerance. Vendor PMBus accuracy is specified as
+# "X watts or Y percent, whichever is greater", so a purely relative tolerance is
+# unmeetable at low output where the absolute floor dominates. Mirror that shape:
+# the floor governs below ~15% load, the relative term above it.
+POWER_TOLERANCE_RATIO = 0.1
+POWER_TOLERANCE_FLOOR_RATIO_OF_RATED = 0.015
+
 STATUS_LED_COLOR_GREEN = "green"
 STATUS_LED_COLOR_AMBER = "amber"
 STATUS_LED_COLOR_RED = "red"
@@ -107,7 +114,7 @@ class TestPsuApi(TestPowerApi):
         ''' PSU power test '''
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012", "201911", "201811"], ["arista"])
-        voltage = current = power = None
+        voltage = current = power = max_power = None
         self.duthost = duthost
         psu_info = {
             "duthost": duthost,
@@ -128,7 +135,10 @@ class TestPsuApi(TestPowerApi):
                 logger.info("Skipping power value validation for Mellanox device")
                 return True
             if current and voltage and power:
-                is_within_tolerance = abs(power - (voltage*current)) < power*0.1
+                tolerance = power * POWER_TOLERANCE_RATIO
+                if max_power:
+                    tolerance = max(tolerance, max_power * POWER_TOLERANCE_FLOOR_RATIO_OF_RATED)
+                is_within_tolerance = abs(power - (voltage*current)) < tolerance
                 if not failure_occured and not is_within_tolerance:
                     return False
 
@@ -145,15 +155,17 @@ class TestPsuApi(TestPowerApi):
             if name in self.power_unit_skip_list:
                 logger.info(f"skipping check for {name}")
             else:
+                # This platform doesn't support this API.
+                if "arm64-c8220tg_48a_o" not in duthost.facts['platform']:
+                    max_power = self.get_psu_parameter(psu_info, "max_power", psu.get_maximum_supplied_power,
+                                                       "maximum supplied power")
+                else:
+                    max_power = None
+
                 check_result = wait_until(30, 10, 0, check_psu_power, failure_count)
                 self.expect(check_result,
                             f"PSU {psu_id} reading does not make sense "
                             f"(power:{power}, voltage:{voltage}, current:{current})")
-
-                # This platform doesn't support this API.
-                if "arm64-c8220tg_48a_o" not in duthost.facts['platform']:
-                    self.get_psu_parameter(psu_info, "max_power", psu.get_maximum_supplied_power,
-                                           "maximum supplied power")
 
                 powergood_status = psu.get_powergood_status(platform_api_conn, psu_id)
                 if self.expect(powergood_status is not None,
