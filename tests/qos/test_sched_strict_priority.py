@@ -11,8 +11,8 @@ Flow:
 4. Create packet that will go through chosen interface TX and target queue
 5. Send high speed traffic WITHOUT rate limiting - validate no drops
 6. Configure CIR and PIR rate limiting with STRICT priority scheduler
-7. Send low speed traffic WITH rate limiting - validate drops occur
-8. Send high speed traffic WITH rate limiting - validate drops occur
+7. Send low speed traffic WITH rate limiting - validate no drops and egress rate
+8. Send high speed traffic WITH rate limiting - validate egress rate
 9. Cleanup configuration
 
 Traffic is generated at specific bytes per second rates, automatically calculating
@@ -64,6 +64,8 @@ class StrictPriorityRateLimitingDriver:
         self.ptf_adapter = ptf_adapter
         self.testbed_info = testbed_info
         self.target_queue = TEST_CONFIG['queue']
+        self.last_traffic_duration_seconds = 0
+        self.last_traffic_egress_packets = None
 
         # Determine which drop counter to use based on ASIC (set once)
         asic_name = self.duthost.get_asic_name().lower()
@@ -158,6 +160,9 @@ class StrictPriorityRateLimitingDriver:
         Returns:
             int: Number of packets actually sent
         """
+        self.last_traffic_duration_seconds = 0
+        self.last_traffic_egress_packets = None
+
         if not self.ptf_adapter or self.ptf_port_index is None:
             logger.warning("PTF adapter or port index not available, skipping PTF traffic generation")
             return 0
@@ -178,6 +183,8 @@ class StrictPriorityRateLimitingDriver:
 
             # Flush any existing packets
             self.ptf_adapter.dataplane.flush()
+
+            initial_counters = self._retrieve_interface_counters()
 
             # Send continuous traffic at specified rate
             start_time = time.time()
@@ -214,6 +221,15 @@ class StrictPriorityRateLimitingDriver:
 
             end_time = time.time()
             actual_duration = end_time - start_time
+            final_counters = self._retrieve_interface_counters()
+            self.last_traffic_duration_seconds = actual_duration
+            if 'TX_OK' in initial_counters and 'TX_OK' in final_counters:
+                self.last_traffic_egress_packets = final_counters['TX_OK'] - initial_counters['TX_OK']
+                logger.info(f"Egress packets during traffic generation: {self.last_traffic_egress_packets}")
+            else:
+                self.last_traffic_egress_packets = None
+                logger.warning("Failed to measure TX_OK delta during traffic generation")
+
             actual_rate_pps = packets_sent / actual_duration if actual_duration > 0 else 0
             actual_rate_bytes_per_sec = actual_rate_pps * packet_size_bytes  # Convert to bytes per second
             actual_rate_mbps = (actual_rate_bytes_per_sec * 8) / 1000000     # Convert to Mbps for display
@@ -239,6 +255,37 @@ class StrictPriorityRateLimitingDriver:
 
         except Exception as e:
             logger.error(f"Error sending PTF traffic: {e}")
+            raise
+
+    def _validate_egress_rate(self, expected_egress_rate_bytes_per_sec):
+        try:
+            """Validate measured egress rate from the last traffic generation run."""
+            pytest_assert(self.last_traffic_egress_packets is not None,
+                        "Failed to measure TX_OK delta during traffic generation")
+            pytest_assert(self.last_traffic_duration_seconds > 0,
+                        "Failed to measure traffic duration during traffic generation")
+
+            egress_packets = self.last_traffic_egress_packets
+            egress_rate_bytes_per_sec = (
+                egress_packets * TEST_CONFIG['packet_size'] / self.last_traffic_duration_seconds
+            )
+            tolerance_percent = TEST_CONFIG['egress_rate_tolerance_percent']
+            min_expected_rate = expected_egress_rate_bytes_per_sec * (100 - tolerance_percent) / 100
+            max_expected_rate = expected_egress_rate_bytes_per_sec * (100 + tolerance_percent) / 100
+
+            logger.info(f"Egress packets: {egress_packets}")
+            logger.info(f"Egress rate: {egress_rate_bytes_per_sec: .0f} bytes/s "
+                        f"(expected: {expected_egress_rate_bytes_per_sec} bytes/s, "
+                        f"tolerance: {tolerance_percent}%)")
+
+            pytest_assert(
+                min_expected_rate <= egress_rate_bytes_per_sec <= max_expected_rate,
+                f"Egress rate {egress_rate_bytes_per_sec: .0f} bytes/s is outside expected range "
+                f"{min_expected_rate: .0f}-{max_expected_rate: .0f} bytes/s"
+            )
+
+        except Exception as e:
+            logger.error(f"Validate egress rate check failed: {e}")
             raise
 
     def execute_strict_priority_rate_limiting_test(self):
@@ -276,6 +323,9 @@ class StrictPriorityRateLimitingDriver:
 
             pytest_assert(actual_drops < TEST_CONFIG['drop_threshold_low'],
                           f"Baseline traffic had unexpected drops: {actual_drops}")
+            self._validate_egress_rate(
+                expected_egress_rate_bytes_per_sec=TEST_CONFIG['high_traffic_bytes_per_sec']
+            )
 
             # Configure CIR/PIR rate limiting
             logger.info("Configuring strict priority rate limiting...")
@@ -307,11 +357,13 @@ class StrictPriorityRateLimitingDriver:
 
             pytest_assert(actual_drops < TEST_CONFIG['drop_threshold_low'],
                           f"Low traffic had unexpected drops: {actual_drops}")
+            self._validate_egress_rate(
+                expected_egress_rate_bytes_per_sec=TEST_CONFIG['low_traffic_bytes_per_sec']
+            )
 
             # Clear counters and test high traffic
             self._reset_interface_counters()
             logger.info("Testing high traffic with rate limiting...")
-            initial_counters = self._retrieve_interface_counters()
 
             # Send high rate traffic for test duration
             packets_sent = self._generate_test_traffic(
@@ -319,36 +371,21 @@ class StrictPriorityRateLimitingDriver:
                 test_duration_seconds=TEST_CONFIG['traffic_duration']
             )
 
-            final_counters = self._retrieve_interface_counters()
-
-            # Validate drops for high traffic
-            pytest_assert(self.drop_counter in initial_counters, f"Failed to get initial {self.drop_counter} counter")
-            pytest_assert(self.drop_counter in final_counters, f"Failed to get final {self.drop_counter} counter")
-
-            initial_drops = initial_counters[self.drop_counter]
-            final_drops = final_counters[self.drop_counter]
-            actual_drops = final_drops - initial_drops
-
-            logger.info(f"High traffic drops: {actual_drops} (threshold: {TEST_CONFIG['drop_threshold_high']})")
+            # Validate egress rate for high traffic
+            expected_egress_rate = min(
+                TEST_CONFIG['high_traffic_bytes_per_sec'],
+                TEST_CONFIG['pir_bytes_per_sec']
+            )
             logger.info(f"Packets sent: {packets_sent}")
-
-            pytest_assert(actual_drops > TEST_CONFIG['drop_threshold_high'],
-                          f"High traffic had insufficient drops: {actual_drops}")
-
-            # Cleanup configuration
-            logger.info("Cleaning up...")
-            self._reload_configuration()
+            self._validate_egress_rate(
+                expected_egress_rate_bytes_per_sec=expected_egress_rate
+            )
 
             logger.info("Strict priority rate limiting test flow completed successfully")
             return True
 
         except Exception as e:
             logger.error(f"Strict priority rate limiting test flow failed: {e}")
-            # Attempt cleanup even if test failed
-            try:
-                self._reload_configuration()
-            except Exception as cleanup_error:
-                logger.error(f"Cleanup also failed: {cleanup_error}")
             return False
 
     def cleanup_configuration(self):
@@ -484,6 +521,7 @@ class StrictPriorityRateLimitingDriver:
                     tx_drp = 0
                     rx_drp = 0
                     rx_ok = 0
+                    tx_ok = 0
 
                     # Convert string values to integers, handling commas
                     if 'TX_DRP' in interface_counters:
@@ -492,11 +530,14 @@ class StrictPriorityRateLimitingDriver:
                         rx_drp = int(str(interface_counters['RX_DRP']).replace(',', ''))
                     if 'RX_OK' in interface_counters:
                         rx_ok = int(str(interface_counters['RX_OK']).replace(',', ''))
+                    if 'TX_OK' in interface_counters:
+                        tx_ok = int(str(interface_counters['TX_OK']).replace(',', ''))
 
                     return {
                         'TX_DRP': tx_drp,
                         'RX_DRP': rx_drp,
                         'RX_OK': rx_ok,
+                        'TX_OK': tx_ok,
                         'timestamp': time.time(),
                         'raw_data': interface_counters
                     }
