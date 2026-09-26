@@ -28,15 +28,16 @@ def pytest_addoption(parser):
 
 
 @pytest.fixture(scope="module")
-def is_sw_control_feature_enabled(duthost):
-    return sc_supported(duthost) and sc_ms_sku(duthost) and check_sc_sai_attribute_value(duthost)
+def is_sw_control_feature_enabled(rand_selected_dut):
+    return (sc_supported(rand_selected_dut) and sc_ms_sku(rand_selected_dut)
+            and check_sc_sai_attribute_value(rand_selected_dut))
 
 
 @pytest.fixture(scope="module")
-def get_sw_control_ports(duthost, is_sw_control_feature_enabled, conn_graph_facts):
-    if is_sw_control_feature_enabled:
-        sw_ports = get_ports_supporting_sc(duthost)
-        return sw_ports
+def get_sw_control_ports(rand_selected_dut, is_sw_control_feature_enabled, conn_graph_facts):
+    if not is_sw_control_feature_enabled:
+        return []
+    return get_ports_supporting_sc(rand_selected_dut)
 
 
 @pytest.fixture(scope="module")
