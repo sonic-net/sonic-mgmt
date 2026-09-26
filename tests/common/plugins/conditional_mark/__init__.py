@@ -603,7 +603,7 @@ def evaluate_condition(dynamic_update_skip_reason, mark_details, condition, basi
         safe_globals = {}
         safe_globals.update(safe_facts)
 
-        for var in ["asic_type", "platform", "hwsku", "asic_gen"]:
+        for var in ["asic_type", "platform", "hwsku", "asic_gen", "branch", "build_version", "release"]:
             if var not in safe_globals:
                 logger.warning("Variable %s not found in basic_facts, defaulting to None", var)
                 safe_globals[var] = None
