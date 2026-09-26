@@ -1150,6 +1150,15 @@ platform_tests/cli/test_show_platform.py::test_show_platform_voltage:
       - "'bmc' in topo_type"
 
 ###############################################
+##### cold_reboot_timing                  #####
+###############################################
+platform_tests/cold_reboot_timing/test_cold_reboot_timing.py:
+  skip:
+    reason: "Recovery time baseline is established only for the listed platforms. Other platforms should add their own baseline before enabling this test."
+    conditions:
+      - "platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0']"
+
+###############################################
 ## counterpoll/test_counterpoll_watermark.py ##
 ###############################################
 
