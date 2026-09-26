@@ -485,10 +485,20 @@ def get_sai_sdk_dump_file(duthost, dump_file_name):
     duthost.shell(cmd_gen_sdk_dump)
 
     compressed_dump_file = f"/tmp/{dump_file_name}.tar.gz"
-    duthost.archive(path=full_path_dump_file, dest=compressed_dump_file, format='gz')
+    duthost.archive(path=full_path_dump_file, dest=compressed_dump_file, format='gz', module_ignore_errors=True)
+    stat_result = duthost.stat(path=compressed_dump_file, module_ignore_errors=True)
+    if not stat_result.get("stat", {}).get("exists", False):
+        logger.warning("Skipping unavailable SDK dump file: %s", compressed_dump_file)
+        return
 
-    duthost.fetch(src=compressed_dump_file, dest="/tmp/", flat=True)
-    allure.attach.file(compressed_dump_file, dump_file_name, extension=".tar.gz")
+    fetch_result = duthost.fetch(src=compressed_dump_file, dest="/tmp/", flat=True,
+                                 fail_on_missing=False, module_ignore_errors=True)
+    if fetch_result.is_failed:
+        logger.warning("Failed to fetch SDK dump file %s: %s", compressed_dump_file, fetch_result)
+        return
+
+    if os.path.exists(compressed_dump_file):
+        allure.attach.file(compressed_dump_file, dump_file_name, extension=".tar.gz")
 
 
 def is_mellanox_devices(hwsku):
