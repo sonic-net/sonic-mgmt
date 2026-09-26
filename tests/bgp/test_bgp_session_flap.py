@@ -13,6 +13,8 @@ from tests.common.utilities import InterruptableThread
 import textfsm
 import traceback
 from tests.common.devices.sonic import SonicHost
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
 
 from natsort import natsorted
 
@@ -31,6 +33,20 @@ memSpike = 1.3
 pytestmark = [
     pytest.mark.topology('t1', 't2', 'lrh', 'urh', 'm1', 'lt2', 'ft2', 'c0', 'lma', 'uma')
 ]
+
+
+def get_external_bgp_session_states(duthost, asic_index):
+    bgp_facts = duthost.bgp_facts(instance_id=asic_index)['ansible_facts']
+    return {
+        ip: details
+        for ip, details in bgp_facts['bgp_neighbors'].items()
+        if "INTERNAL" not in details["peer group"] and "VOQ_CHASSIS" not in details["peer group"]
+    }
+
+
+def all_bgp_sessions_established(duthost, asic_index, neighbor_ips):
+    sessions = get_external_bgp_session_states(duthost, asic_index)
+    return all(sessions.get(ip, {}).get('state') == 'established' for ip in neighbor_ips)
 
 
 def get_cpu_stats(dut):
@@ -62,20 +78,32 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_
     asic_index = enum_rand_one_frontend_asic_index
     namespace = duthost.get_namespace_from_asic_id(asic_index)
 
-    bgp_facts = duthost.bgp_facts(instance_id=asic_index)['ansible_facts']
+    bgp_sessions = get_external_bgp_session_states(duthost, asic_index)
     neigh_keys = []
     tor_neighbors = dict()
     neigh_asn = dict()
-    for k, v in bgp_facts['bgp_neighbors'].items():
-        # Skip iBGP neighbors
-        if "INTERNAL" not in v["peer group"] and "VOQ_CHASSIS" not in v["peer group"]:
-            neigh_keys.append(v['description'])
-            neigh_asn[v['description']] = v['remote AS']
-            tor_neighbors[v['description']] = nbrhosts[v['description']]["host"]
-            assert v['state'] == 'established'
+    for details in bgp_sessions.values():
+        neigh_keys.append(details['description'])
+        neigh_asn[details['description']] = details['remote AS']
+        tor_neighbors[details['description']] = nbrhosts[details['description']]["host"]
 
     if not neigh_keys:
         pytest.skip("No BGP neighbors found on ASIC {} of DUT {}".format(asic_index, duthost.hostname))
+
+    neighbor_ips = list(bgp_sessions)
+    sessions_established = wait_until(
+        300, 10, 0, all_bgp_sessions_established, duthost, asic_index, neighbor_ips
+    )
+    if not sessions_established:
+        logger.error(
+            "BGP sessions did not establish on ASIC %s: %s",
+            asic_index,
+            get_external_bgp_session_states(duthost, asic_index)
+        )
+    pytest_assert(
+        sessions_established,
+        "Not all BGP sessions are established on DUT ASIC {}".format(asic_index)
+    )
 
     tor1 = natsorted(neigh_keys)[0]
 
@@ -128,12 +156,24 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_
 
     for neigh in tor_neighbors:
         tor_neighbors[neigh].start_bgpd()
-    time.sleep(30)
 
-    bgp_facts = duthost.bgp_facts(instance_id=asic_index)['ansible_facts']
-    for k, v in bgp_facts['bgp_neighbors'].items():
-        if v['description'].lower() not in skip_hosts:
-            assert v['state'] == 'established'
+    expected_neighbors = [
+        ip for ip, details in bgp_sessions.items()
+        if details['description'].lower() not in skip_hosts
+    ]
+    sessions_established = wait_until(
+        300, 10, 30, all_bgp_sessions_established, duthost, asic_index, expected_neighbors
+    )
+    if not sessions_established:
+        logger.error(
+            "BGP sessions did not recover on ASIC %s: %s",
+            asic_index,
+            get_external_bgp_session_states(duthost, asic_index)
+        )
+    pytest_assert(
+        sessions_established,
+        "Not all BGP sessions recovered on DUT ASIC {}".format(asic_index)
+    )
 
 
 def flap_neighbor_session(neigh):

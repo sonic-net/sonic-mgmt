@@ -676,7 +676,11 @@ t1-lag-vpp:
   - bgp/test_bgp_port_disable.py
   - bgp/test_bgp_gr_helper.py
   - bgp/test_bgp_vnet.py
-  - bgp/test_bgpmon_v6.py
+  - bgp/test_bgp_max_route.py
+  - bgp/test_bgp_route_weight.py
+  - bgp/test_frr_config_check.py
+  - bgp/test_frr_set_src_route_map.py
+  - bgp/test_prefix_list_suppress.py
   - bgp/test_traffic_shift_sup.py
   - cacl/test_cacl_application.py
   - cacl/test_cacl_function.py
