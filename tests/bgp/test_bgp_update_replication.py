@@ -330,18 +330,19 @@ def test_bgp_update_replication(
                     is_ipv6=is_ipv6
                 )
             )
-            wait_until(ROUTE_WAIT_TIMEOUT, 2, 0,
-                       _check_pfx_received, duthost, is_ipv6, injector_ip, NUM_ROUTES)
+            routes_received = wait_until(ROUTE_WAIT_TIMEOUT, 2, 0,
+                                         _check_pfx_received, duthost, is_ipv6, injector_ip, NUM_ROUTES)
 
             # Measure after injection
             results.append(measure_stats(duthost, is_ipv6))
 
             # Validate all routes have been received
-            curr_pfx = _get_injector_pfx_count(duthost, is_ipv6, injector_ip)
-            pytest_assert(
-                curr_pfx >= NUM_ROUTES,
-                f"All routes have not been received: pfxRcd '{curr_pfx}', expected: '{NUM_ROUTES}'"
-            )
+            if not routes_received:
+                curr_pfx = _get_injector_pfx_count(duthost, is_ipv6, injector_ip)
+                pytest_assert(
+                    False,
+                    f"All routes have not been received: pfxRcd '{curr_pfx}', expected: '{NUM_ROUTES}'"
+                )
 
             # Remove routes
             route_injector.withdraw_routes_batch(
@@ -350,18 +351,19 @@ def test_bgp_update_replication(
                     is_ipv6=is_ipv6
                 )
             )
-            wait_until(ROUTE_WAIT_TIMEOUT, 2, 0,
-                       _check_pfx_withdrawn, duthost, is_ipv6, injector_ip)
+            routes_withdrawn = wait_until(ROUTE_WAIT_TIMEOUT, 2, 0,
+                                          _check_pfx_withdrawn, duthost, is_ipv6, injector_ip)
 
             # Measure after removal
             results.append(measure_stats(duthost, is_ipv6))
 
             # Validate all routes have been withdrawn
-            curr_pfx = _get_injector_pfx_count(duthost, is_ipv6, injector_ip)
-            pytest_assert(
-                curr_pfx == 0,
-                f"All withdrawals have not been received: pfxRcd '{curr_pfx}', expected: '0'"
-            )
+            if not routes_withdrawn:
+                curr_pfx = _get_injector_pfx_count(duthost, is_ipv6, injector_ip)
+                pytest_assert(
+                    False,
+                    f"All withdrawals have not been received: pfxRcd '{curr_pfx}', expected: '0'"
+                )
 
     results.append(measure_stats(duthost, is_ipv6))
 
