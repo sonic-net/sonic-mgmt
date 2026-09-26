@@ -683,6 +683,7 @@ class Testbed(object):
         return True
 
     def expand_range(self, value, incr=1):
+        value = str(value)
         retval, prefix = [], "Ethernet"
         if "-" not in value or not value.startswith(prefix):
             return value.split(",")
@@ -1380,6 +1381,29 @@ class Testbed(object):
                         rv.ix_server = dinfo.properties.ix_server
                     if "ix_port" in dinfo.properties:
                         rv.ix_port = dinfo.properties.ix_port
+
+                    # STC only. MGJ: Adding support for TestCenter Lab Server.
+                    if "lab_server_ip" in dinfo.properties:
+                        rv.lab_server_ip = dinfo.properties.lab_server_ip
+                    if "lab_server_username" in dinfo.properties:
+                        rv.lab_server_username = dinfo.properties.lab_server_username
+                    if "lab_server_session_name" in dinfo.properties:
+                        rv.lab_server_session_name = dinfo.properties.lab_server_session_name
+                    if "lab_server_existing_session" in dinfo.properties:
+                        rv.lab_server_existing_session = dinfo.properties.lab_server_existing_session
+                    if "lab_server_cleanup_on_exit" in dinfo.properties:
+                        rv.lab_server_cleanup_on_exit = dinfo.properties.lab_server_cleanup_on_exit
+
+                    # Find the links for this TGEN and build a portname-location dictionary.
+                    # This will allow the user to remap ports in the TGEN configuration file to match the testbed YAML file.
+                    for link in profile.links.values():
+                        if link.from_type == "TG":
+                            if link.from_dut == dinfo.__name__ and "EndPortName" in link:
+                                if "port_mapping" not in rv:
+                                    rv.port_mapping = {}
+                                rv.port_mapping[link.EndPortName] = link.from_port
+
+                    # NOTE: Returning here means that only one TGEN per topology is supported.
                     return rv
         return None
 
@@ -1541,6 +1565,55 @@ class Testbed(object):
                     if pval:
                         retval.append("{}{}:{}".format(dname, pname.upper(), pval))
         return ",".join(retval) if retval else "D1"
+
+    def get_platform_type(self,dut1):
+        #for dut, dinfo in self.topology.devices.items():
+        for dut, dinfo in self.topologies[self.current_topo_index]['devices'].items():
+            if dut1 == dut:
+                return dinfo.platform_type
+        return None
+
+    def get_rp_ip_address(self,dut1):
+        for dut, dinfo in self.topologies[self.current_topo_index]['devices'].items():
+        #for dut, dinfo in self.topology.devices.items():
+            if dut1 == dut:
+                return dinfo.rpip
+        return None
+
+    def get_build_commit_hash(self,dut1):
+        #for dut, dinfo in self.topology.devices.items():
+        for dut, dinfo in self.topologies[self.current_topo_index]['devices'].items():
+            if dut1 == dut:
+                return dinfo.build_commit_hash
+        return None
+
+    def get_build_time(self,dut1):
+       # for dut, dinfo in self.topology.devices.items():
+        for dut, dinfo in self.topologies[self.current_topo_index]['devices'].items():
+            if dut1 == dut:
+                return dinfo.build_time
+        return None
+
+    def get_sdk_version(self,dut1):
+        #for dut, dinfo in self.topology.devices.items():
+        for dut, dinfo in self.topologies[self.current_topo_index]['devices'].items():
+            if dut1 == dut:
+                return dinfo.sdk_version
+        return None
+
+    def get_username(self,dut1):
+        #for dut, dinfo in self.topology.devices.items():
+        for dut, dinfo in self.topologies[self.current_topo_index]['devices'].items():
+            if dut1 == dut:
+                return dinfo.credentials.username
+        return None
+
+    def get_password(self,dut1):
+        #for dut, dinfo in self.topology.devices.items():
+        for dut, dinfo in self.topologies[self.current_topo_index]['devices'].items():
+            if dut1 == dut:
+                return dinfo.credentials.password
+        return None
 
     def _check_min_links(self, from_type, to_type, res, errs):
         from_dev = self.get_device_name("{}{}".format(from_type, res.group(1)))
