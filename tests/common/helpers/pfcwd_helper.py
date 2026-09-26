@@ -621,7 +621,7 @@ def _create_ptf_test_port_map(duthost, ptfhost, selected_test_ports, test_ports_
     for selected_test_port in selected_test_ports:
         selected_test_port_info = test_ports_info[selected_test_port]
         rx_port_id = selected_test_port_info["rx_port_id"]
-        if type(rx_port_id) == list:
+        if type(rx_port_id) is list:
             rx_port_id = rx_port_id[0]
         ports_map[str(rx_port_id)] = {
             'target_dest_mac': duthost.get_dut_iface_mac(selected_test_port_info["rx_port"][0])
