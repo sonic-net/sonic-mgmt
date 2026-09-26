@@ -735,7 +735,11 @@ class TestVrfCreateAndBind:
     def test_vrf_in_appl_db(self, duthosts, rand_one_dut_hostname, cfg_facts):
         duthost = duthosts[rand_one_dut_hostname]
         # verify vrf in app_db
-        for vrf in list(cfg_facts["VRF"].keys()):
+        # The 'default' VRF is the implicit/global routing instance. Newer SONiC
+        # builds ship a 'VRF|default' placeholder row in CONFIG_DB, so it shows
+        # up in cfg_facts['VRF'], but orchagent does not program a
+        # VRF_TABLE:default row in APPL_DB. Skip it here.
+        for vrf in (v for v in cfg_facts["VRF"].keys() if v != "default"):
             res = duthost.shell("redis-cli -n 0 keys VRF_TABLE:%s" % vrf)
             assert vrf in res["stdout"], "%s should be added in APPL_DB!" % vrf
 
@@ -747,8 +751,11 @@ class TestVrfCreateAndBind:
     def test_vrf_in_asic_db(self, duthosts, rand_one_dut_hostname, cfg_facts):
         duthost = duthosts[rand_one_dut_hostname]
         # verify vrf in asic_db
-        # plus default virtual router
-        vrf_count = len(list(cfg_facts["VRF"].keys())) + 1
+        # ASIC_DB always contains the implicit default virtual router. Older
+        # SONiC builds did not have a 'default' row in CONFIG_DB, so the test
+        # added '+1' for it. Newer builds include 'VRF|default' in CONFIG_DB
+        # which would double-count, so account for it here.
+        vrf_count = len(cfg_facts["VRF"]) + (0 if "default" in cfg_facts["VRF"] else 1)
         res = duthost.shell("redis-cli -n 1 keys *VIRTUAL_ROUTER*")
         assert len(res["stdout_lines"]) == vrf_count
 
