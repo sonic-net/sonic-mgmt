@@ -12,14 +12,27 @@ import base64
 # Constants
 CONFIG_INTERFACE_COMMAND_TEMPLATE = "sudo config interface {action} {target}"
 CONFIG_BGP_SESSIONS_COMMAND_TEMPLATE = "sudo config bgp {action} {target}"
+BGP_IPV6_ROUTES_SNAPSHOT = "/var/log/bgp_ipv6_routes_converged.json.gz"
 
 
 def get_bgp_ipv6_routes(module):
-    cmd = "docker exec bgp vtysh -c 'show ipv6 route bgp json'"
-    rc, out, err = module.run_command(cmd, executable='/bin/bash', use_unsafe_shell=True)
+    cmd = "set -o pipefail; docker exec bgp vtysh -c 'show ipv6 route bgp json' | gzip > {}".format(
+        BGP_IPV6_ROUTES_SNAPSHOT
+    )
+    rc, _, err = module.run_command(
+        cmd, executable='/bin/bash', use_unsafe_shell=True
+    )
     if rc != 0:
         module.fail_json(msg=f"Failed to get bgp routes: {err}")
-    return json.loads(out)
+    try:
+        with gzip.open(BGP_IPV6_ROUTES_SNAPSHOT, "rt") as routes_file:
+            return json.load(routes_file)
+    except (OSError, json.JSONDecodeError) as error:
+        module.fail_json(
+            msg="Failed to load BGP routes from {}: {}".format(
+                BGP_IPV6_ROUTES_SNAPSHOT, error
+            )
+        )
 
 
 def toggle_bgp_neighbors_in_parallel(module, ip_addrs, state, parallelism=100, redis_db=4):
