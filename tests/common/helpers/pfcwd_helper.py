@@ -1,7 +1,6 @@
 import datetime
 import ipaddress
 import sys
-import random
 import pytest
 import contextlib
 import time
