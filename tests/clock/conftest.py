@@ -49,6 +49,13 @@ def _get_ntp_config(duthost):
     return json.loads(output or "{}")
 
 
+def _get_configured_timezone(duthost):
+    result = duthost.command(
+        'sonic-db-cli CONFIG_DB hget "DEVICE_METADATA|localhost" "timezone"'
+    )
+    return result["stdout"].strip()
+
+
 def _get_clock_offset(duthost, ntp_server):
     query = r"""timeout 10 python3 - %s <<'PY'
 import socket
@@ -112,17 +119,17 @@ def _clock_offset_is_safe(duthost, ntp_server, tolerance=CLOCK_OFFSET_TOLERANCE)
     return abs(offset) <= tolerance
 
 
-def _validate_ntp_source(duthost, ntp_server):
+def _check_ntp_source(duthost, ntp_server):
     try:
         offset = _get_clock_offset(duthost, ntp_server)
     except (RunAnsibleModuleFail, ValueError) as error:
-        pytest.skip("NTP source {} is not reachable: {}".format(ntp_server, error))
-        return
+        logging.warning("NTP source %s is not reachable: %s", ntp_server, error)
+        return False, "NTP source {} is not reachable".format(ntp_server)
 
     if abs(offset) > CLOCK_SOURCE_MAX_OFFSET:
-        pytest.skip(
-            "NTP source {} differs from the DUT by {:.3f}s; refusing to change the DUT clock"
-            .format(ntp_server, offset)
+        return False, (
+            "NTP source {} differs from the DUT by {:.3f}s; "
+            "refusing to change the DUT clock".format(ntp_server, offset)
         )
 
     logging.info(
@@ -130,6 +137,13 @@ def _validate_ntp_source(duthost, ntp_server):
         ntp_server,
         offset
     )
+    return True, None
+
+
+def _validate_ntp_source(duthost, ntp_server):
+    source_is_safe, failure_reason = _check_ntp_source(duthost, ntp_server)
+    if not source_is_safe:
+        pytest.skip(failure_reason)
 
 
 def _require_recovery_tools(duthost, test_name):
@@ -143,10 +157,13 @@ def _require_recovery_tools(duthost, test_name):
         pytest.skip("{} requires systemd-run, flock, and timeout".format(test_name))
 
 
-def _timezone_is_expected(duthosts, timezone):
-    return ClockUtils.verify_timezone_value(
-        duthosts,
-        expected_tz_name=timezone
+def _timezone_is_expected(duthosts, duthost, timezone):
+    return (
+        ClockUtils.verify_timezone_value(
+            duthosts,
+            expected_tz_name=timezone
+        )
+        and _get_configured_timezone(duthost) == timezone
     )
 
 
@@ -155,17 +172,30 @@ def _clock_ntp_source(request, duthost, ptfhost, recovery_state):
     configured_server = request.config.getoption("ntp_server")
     if configured_server:
         logging.info("Using NTP server from execution parameter: %s", configured_server)
+        _validate_ntp_source(duthost, configured_server)
         yield configured_server
         return
 
+    configured_source_failures = []
     ntp_servers = _get_ntp_config(duthost)
-    if ntp_servers:
-        configured_server = next(iter(ntp_servers))
-        logging.info("Using NTP server from DUT configuration: %s", configured_server)
-        yield configured_server
-        return
+    for configured_server in ntp_servers:
+        source_is_safe, failure_reason = _check_ntp_source(duthost, configured_server)
+        if source_is_safe:
+            logging.info("Using NTP server from DUT configuration: %s", configured_server)
+            yield configured_server
+            return
+        configured_source_failures.append(failure_reason)
+        logging.warning(
+            "Configured DUT NTP server %s is unusable; trying the next recovery source",
+            configured_server
+        )
 
     if not ptfhost:
+        if configured_source_failures:
+            pytest.skip(
+                "No safe configured NTP server is available, and this testbed has no PTF host: {}"
+                .format("; ".join(configured_source_failures))
+            )
         pytest.skip("No NTP server was supplied or configured, and this testbed has no PTF host")
 
     dut_facts = duthost.dut_basic_facts()["ansible_facts"]["dut_basic_facts"]
@@ -184,6 +214,7 @@ def _clock_ntp_source(request, duthost, ptfhost, recovery_state):
             "IPv6" if ptf_use_ipv6 else "IPv4",
             ntp_server
         )
+        _validate_ntp_source(duthost, ntp_server)
         yield ntp_server
 
 
@@ -300,9 +331,12 @@ def _install_timezone_recovery(duthost, original_timezone):
     watchdog_path = "/tmp/{}-watchdog.sh".format(unit_name)
     lock_path = "/run/{}.lock".format(unit_name)
     script = """#!/bin/bash
+result=0
 exec 9>{lock_path}
 flock -w {lock_timeout} -x 9 || exit 75
-timedatectl set-timezone {timezone}
+config clock timezone {timezone} || result=$?
+timedatectl set-timezone {timezone} || result=$?
+exit $result
 """.format(
         lock_path=shlex.quote(lock_path),
         lock_timeout=CLOCK_RECOVERY_LOCK_TIMEOUT,
@@ -360,21 +394,6 @@ def _run_recovery(duthost, recovery):
             shlex.quote(recovery["script_path"])
         )
     )
-
-
-def _recovery_is_armed(duthost, recovery):
-    timer_unit = recovery["current_timer_unit"]
-    if not timer_unit:
-        return False
-
-    result = duthost.shell(
-        "systemctl is-active --quiet {unit}.timer || "
-        "systemctl is-active --quiet {unit}.service".format(
-            unit=shlex.quote(timer_unit)
-        ),
-        module_ignore_errors=True
-    )
-    return result["rc"] == 0
 
 
 def _remove_recovery(duthost, recovery):
@@ -478,6 +497,7 @@ def init_timezone(duthosts):
                 delay=0,
                 condition=_timezone_is_expected,
                 duthosts=duthosts,
+                duthost=duthost,
                 timezone=original_timezone
             ), f'Timezone did not restore to "{original_timezone}"'
             recovery_verified = True
@@ -501,7 +521,6 @@ def restore_time(request, duthosts, ptfhost):
 
     ntp_source_state = {"defer_cleanup": False}
     with _clock_ntp_source(request, duthost, ptfhost, ntp_source_state) as ntp_server:
-        _validate_ntp_source(duthost, ntp_server)
         recovery = _install_clock_recovery(
             duthost,
             ntp_daemon,
@@ -557,7 +576,4 @@ def restore_time(request, duthosts, ptfhost):
                 if recovery_verified:
                     _remove_recovery(duthost, recovery)
                 else:
-                    ntp_source_state["defer_cleanup"] = _recovery_is_armed(
-                        duthost,
-                        recovery
-                    )
+                    ntp_source_state["defer_cleanup"] = recovery_armed

@@ -53,6 +53,7 @@ def _clock_namespace(*function_names):
         "CLOCK_RECOVERY_COMMAND_TIMEOUT": 120,
         "CLOCK_RECOVERY_LEASE": 1800,
         "CLOCK_RECOVERY_RETRY_INTERVAL": 60,
+        "CLOCK_RECOVERY_LOCK_TIMEOUT": 30,
         "CLOCK_PTF_RECOVERY_TIMEOUT": 3600,
         "contextmanager": contextmanager,
         "json": json,
@@ -99,11 +100,13 @@ def _request(ntp_server=None):
 def test_clock_source_prefers_explicit_server():
     namespace = _clock_namespace("_get_ntp_config", "_clock_ntp_source")
     duthost = Mock()
+    namespace["_validate_ntp_source"] = Mock()
 
     with namespace["_clock_ntp_source"](
             _request("192.0.2.10"), duthost, None, {}) as ntp_server:
         assert ntp_server == "192.0.2.10"
 
+    namespace["_validate_ntp_source"].assert_called_once_with(duthost, "192.0.2.10")
     duthost.command.assert_not_called()
 
 
@@ -111,10 +114,36 @@ def test_clock_source_uses_configured_server_without_ptf():
     namespace = _clock_namespace("_get_ntp_config", "_clock_ntp_source")
     duthost = Mock()
     duthost.command.return_value = {"stdout": '{"time.example.com": {"iburst": true}}'}
+    namespace["_check_ntp_source"] = Mock(return_value=(True, None))
 
     with namespace["_clock_ntp_source"](
             _request(), duthost, None, {}) as ntp_server:
         assert ntp_server == "time.example.com"
+
+
+def test_clock_source_falls_back_to_ptf_when_configured_server_is_unreachable():
+    namespace = _clock_namespace("_get_ntp_config", "_clock_ntp_source")
+    duthost = Mock()
+    duthost.command.return_value = {"stdout": '{"10.11.0.1": {}}'}
+    duthost.dut_basic_facts.return_value = {
+        "ansible_facts": {"dut_basic_facts": {"is_mgmt_ipv6_only": False}}
+    }
+    namespace["_check_ntp_source"] = Mock(
+        return_value=(False, "NTP source 10.11.0.1 is not reachable")
+    )
+    namespace["_validate_ntp_source"] = Mock()
+    ptfhost = Mock(mgmt_ip="192.0.2.20", mgmt_ipv6=None)
+
+    @contextmanager
+    def setup_ntp_server_context(ptf, **kwargs):
+        yield ptf.mgmt_ip
+
+    namespace["setup_ntp_server_context"] = setup_ntp_server_context
+    with namespace["_clock_ntp_source"](
+            _request(), duthost, ptfhost, {}) as ntp_server:
+        assert ntp_server == "192.0.2.20"
+
+    namespace["_validate_ntp_source"].assert_called_once_with(duthost, "192.0.2.20")
 
 
 @pytest.mark.parametrize("ptfhost", [None, []])
@@ -137,6 +166,7 @@ def test_clock_source_uses_ptf_ipv6_for_ipv6_only_management():
     }
     ptfhost = Mock(mgmt_ipv6="2001:db8::10")
     calls = []
+    namespace["_validate_ntp_source"] = Mock()
 
     @contextmanager
     def setup_ntp_server_context(ptf, **kwargs):
@@ -152,7 +182,7 @@ def test_clock_source_uses_ptf_ipv6_for_ipv6_only_management():
 
 
 def test_source_is_rejected_before_mutation_when_clock_is_skewed():
-    namespace = _clock_namespace("_validate_ntp_source")
+    namespace = _clock_namespace("_check_ntp_source", "_validate_ntp_source")
     namespace["_get_clock_offset"] = Mock(return_value=61)
 
     with pytest.raises(pytest.skip.Exception, match="refusing to change"):
@@ -180,6 +210,39 @@ def test_recovery_is_armed_before_preflight_or_timezone_mutation():
     first_timezone_call = min(timezone_calls, key=lambda call: call[1])
     assert first_restore_call[0] == "_arm_recovery"
     assert first_timezone_call[0] == "_arm_recovery"
+
+
+def test_timezone_recovery_restores_config_db_and_system_timezone():
+    namespace = _clock_namespace(
+        "_install_retry_watchdog",
+        "_install_timezone_recovery"
+    )
+    duthost = Mock()
+
+    namespace["_install_timezone_recovery"](duthost, "Etc/UTC")
+
+    recovery_script = duthost.copy.call_args_list[0].kwargs["content"]
+    assert "config clock timezone Etc/UTC" in recovery_script
+    assert "timedatectl set-timezone Etc/UTC" in recovery_script
+    subprocess.run(["bash", "-n"], input=recovery_script, text=True, check=True)
+
+
+def test_timezone_restoration_requires_matching_config_db_state():
+    namespace = _clock_namespace("_timezone_is_expected")
+    namespace["ClockUtils"] = Mock()
+    namespace["ClockUtils"].verify_timezone_value.return_value = True
+    namespace["_get_configured_timezone"] = Mock(return_value="Pacific/Kiritimati")
+
+    assert not namespace["_timezone_is_expected"](
+        Mock(), Mock(), "Etc/UTC"
+    )
+
+
+def test_unverified_armed_recovery_always_defers_ptf_cleanup():
+    restore_time = ast.unparse(_function_node(CONFTEST_PATH, "restore_time"))
+
+    assert "ntp_source_state['defer_cleanup'] = recovery_armed" in restore_time
+    assert "_recovery_is_armed" not in restore_time
 
 
 def test_dut_watchdog_is_monotonic_and_bounded():
