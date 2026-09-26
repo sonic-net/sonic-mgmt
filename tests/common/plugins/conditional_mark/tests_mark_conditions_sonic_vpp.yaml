@@ -55,15 +55,15 @@ bgp/test_bgp_suppress_fib.py::test_credit_loop:
     conditions:
       - "asic_type in ['vpp']"
 
-bgp/test_bgp_suppress_fib.py::test_suppress_fib_stress:
-  skip:
-    reason: "Suppress-FIB stress coverage has not been validated on VPP"
-    conditions:
-      - "asic_type in ['vpp']"
-
 bgp/test_bgp_suppress_fib.py::test_suppress_fib_performance:
   skip:
     reason: "Suppress-FIB performance coverage has not been validated on VPP"
+    conditions:
+      - "asic_type in ['vpp']"
+
+bgp/test_bgp_suppress_fib.py::test_suppress_fib_stress:
+  skip:
+    reason: "Suppress-FIB stress coverage has not been validated on VPP"
     conditions:
       - "asic_type in ['vpp']"
 
