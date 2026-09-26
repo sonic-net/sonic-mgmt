@@ -70,27 +70,30 @@ def test_reload_configuration(duthosts, enum_rand_one_per_hwsku_hostname,
     logging.info("Wait until all critical services are fully started")
     wait_critical_processes(duthost)
 
-    logging.info("Wait some time for all the transceivers to be detected")
-    max_wait_time_for_transceivers = 300
-    if duthost.facts["platform"] in ["x86_64-cel_e1031-r0", "x86_64-88_lc0_36fh_m-r0"]:
-        max_wait_time_for_transceivers = 900
-    assert wait_until(max_wait_time_for_transceivers, 20, 0, check_all_interface_information,
-                      duthost, interfaces, xcvr_skip_list), (
-        "Not all transceivers detected in {timeout} seconds. "
-        "- Interfaces checked: {interfaces}\n"
-        "- Max wait time (seconds): {timeout}"
-    ).format(
-        timeout=max_wait_time_for_transceivers,
-        interfaces=list(interfaces.keys())
-    )
+    if duthost.is_bmc():
+        logging.info("Skipping interface and transceiver checks for BMC")
+    else:
+        logging.info("Wait some time for all the transceivers to be detected")
+        max_wait_time_for_transceivers = 300
+        if duthost.facts["platform"] in ["x86_64-cel_e1031-r0", "x86_64-88_lc0_36fh_m-r0"]:
+            max_wait_time_for_transceivers = 900
+        assert wait_until(max_wait_time_for_transceivers, 20, 0, check_all_interface_information,
+                          duthost, interfaces, xcvr_skip_list), (
+            "Not all transceivers detected in {timeout} seconds. "
+            "- Interfaces checked: {interfaces}\n"
+            "- Max wait time (seconds): {timeout}"
+        ).format(
+            timeout=max_wait_time_for_transceivers,
+            interfaces=list(interfaces.keys())
+        )
 
-    logging.info("Check transceiver status")
-    for asic_index in duthost.get_frontend_asic_ids():
-        # Get the interfaces pertaining to that asic
-        interface_list = get_port_map(duthost, asic_index)
-        interfaces_per_asic = {k: v for k, v in list(interface_list.items()) if k in interfaces}
-        check_transceiver_basic(duthost, asic_index,
-                                interfaces_per_asic, xcvr_skip_list)
+        logging.info("Check transceiver status")
+        for asic_index in duthost.get_frontend_asic_ids():
+            # Get the interfaces pertaining to that asic
+            interface_list = get_port_map(duthost, asic_index)
+            interfaces_per_asic = {k: v for k, v in list(interface_list.items()) if k in interfaces}
+            check_transceiver_basic(duthost, asic_index,
+                                    interfaces_per_asic, xcvr_skip_list)
 
     if asic_type in ["mellanox"]:
 
@@ -226,6 +229,17 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
         "The config reload command returned an unexpected 'Retry later' message or failed to execute successfully. "
         "Output: '{}'\n"
     ).format(stdout)
+
+    if duthost.is_bmc():
+        # BMC devices have no SWSS service. The checks below rely on SWSS being
+        # temporarily unready after reload, and later stop SWSS explicitly.
+        logging.info("Skipping SWSS-dependent config reload checks for BMC")
+        assert wait_until(360, 20, 0, config_system_checks_passed, duthost, delayed_services), (
+            "System checks did not pass within the allotted time after config reload on "
+            "Delayed services: {}"
+        ).format(delayed_services)
+        wait_critical_processes(duthost)
+        return
 
     # Immediately after one config reload command, another shouldn't execute and wait for system checks
     logging.info("Checking config reload after system is up")
