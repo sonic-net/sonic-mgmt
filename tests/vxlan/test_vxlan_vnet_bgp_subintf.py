@@ -358,11 +358,39 @@ def gnmi_set_update_config_db_json(duthost, ptfhost, path, value, filename="test
     temp_files.append(filename)
 
 
+def gnmi_set_update_config_db_entry(duthost, ptfhost, table, entries, filename, existing_entries):
+    """
+    Write CONFIG_DB entries without discarding pre-existing rows.
+
+    A table-level gNMI set-update is translated into an RFC-6902 "add" on
+    the table container, which replaces the whole table. If the table already
+    contains rows referenced by another table, replacing it can create dangling
+    references and fail YANG validation. Use a table-level write only when the
+    table is empty; otherwise write each entry at key scope.
+    """
+    if not existing_entries:
+        gnmi_set_update_config_db_json(duthost, ptfhost, f"{GNMI_PATH_PREFIX}/{table}",
+                                       entries, filename)
+        return
+
+    for idx, (key, value) in enumerate(entries.items()):
+        # '/' must be escaped as '~1' inside a path element.
+        escaped_key = key.replace('/', '~1')
+        gnmi_set_update_config_db_json(
+            duthost,
+            ptfhost,
+            f"{GNMI_PATH_PREFIX}/{table}/{escaped_key}",
+            value,
+            f"{filename}_{idx}")
+
+
 def setup_acl_config(duthost, ptfhost, ports, vnet_vnis):
     """
     Add a custom ACL table type definition to CONFIG_DB.
     """
-    gnmi_set_update_config_db_json(duthost, ptfhost, f"{GNMI_PATH_PREFIX}/ACL_TABLE_TYPE", {
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+
+    gnmi_set_update_config_db_entry(duthost, ptfhost, "ACL_TABLE_TYPE", {
         ACL_TYPE_NAME: {
             "BIND_POINTS": [
                 "PORT",
@@ -377,25 +405,25 @@ def setup_acl_config(duthost, ptfhost, ports, vnet_vnis):
                 "INNER_SRC_MAC_REWRITE_ACTION"
             ]
         }
-    }, "acl_type")
+    }, "acl_type", config_facts.get("ACL_TABLE_TYPE", {}))
 
-    gnmi_set_update_config_db_json(duthost, ptfhost, f"{GNMI_PATH_PREFIX}/ACL_TABLE", {
+    gnmi_set_update_config_db_entry(duthost, ptfhost, "ACL_TABLE", {
         ACL_TABLE_NAME: {
             "policy_desc": ACL_TABLE_NAME,
             "ports": ports,
             "stage": "egress",
             "type": ACL_TYPE_NAME
         }
-    }, "acl_table")
+    }, "acl_table", config_facts.get("ACL_TABLE", {}))
 
-    gnmi_set_update_config_db_json(duthost, ptfhost, f"{GNMI_PATH_PREFIX}/ACL_RULE", {
+    gnmi_set_update_config_db_entry(duthost, ptfhost, "ACL_RULE", {
         f"{ACL_TABLE_NAME}|rule_{vni}": {
             "INNER_SRC_IP": f"{INNER_SRC_IP}/32",
             "INNER_SRC_MAC_REWRITE_ACTION": INNER_SRC_MAC,
             "TUNNEL_VNI": f"{vni}",
             "PRIORITY": f"{vni}"
         } for vni in vnet_vnis
-    }, "acl_rule")
+    }, "acl_rule", config_facts.get("ACL_RULE", {}))
 
     # Check acl table and rules are set
     def _acl_table_and_rule_active(duthost):
@@ -418,11 +446,13 @@ def setup_acl_config(duthost, ptfhost, ports, vnet_vnis):
 
 
 def setup_vnet_routes(duthost, ptfhost, vnet_vnis):
-    gnmi_set_update_config_db_json(duthost, ptfhost, f"{GNMI_PATH_PREFIX}/VNET_ROUTE_TUNNEL", {
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+
+    gnmi_set_update_config_db_entry(duthost, ptfhost, "VNET_ROUTE_TUNNEL", {
         f"Vnet{vni}|0.0.0.0/0": {
             "endpoint": TUNNEL_ENDPOINT
         } for vni in vnet_vnis
-    }, "vnet_routes")
+    }, "vnet_routes", config_facts.get("VNET_ROUTE_TUNNEL", {}))
 
     # Check vnet routes are set
     time.sleep(5)
@@ -608,12 +638,14 @@ def setup_portchannels(duthost, ptfhost, config_facts, port_indexes, ptf_ports_a
 
 
 def setup_vnets(duthost, ptfhost, num_vnets, tunnel, base_vni):
-    gnmi_set_update_config_db_json(duthost, ptfhost, f"{GNMI_PATH_PREFIX}/VNET", {
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+
+    gnmi_set_update_config_db_entry(duthost, ptfhost, "VNET", {
         f"Vnet{base_vni + i}": {
             "vni": f"{base_vni + i}",
             "vxlan_tunnel": tunnel
         } for i in range(num_vnets)
-    }, "vnet")
+    }, "vnet", config_facts.get("VNET", {}))
 
     return [base_vni + i for i in range(num_vnets)]
 
@@ -624,9 +656,14 @@ def setup_vxlan_tunnel(duthost, ptfhost, name, src_ip):
     # Set VXLAN decap ttl_mode to pipe so orchagent passes DECAP_TTL_MODE consistently.
     if duthost.facts.get("asic_type") == "cisco-8000":
         tunnel_entry["ttl_mode"] = "pipe"
-    gnmi_set_update_config_db_json(duthost, ptfhost, f"{GNMI_PATH_PREFIX}/VXLAN_TUNNEL", {
-        name: tunnel_entry
-    }, "vxlan")
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    gnmi_set_update_config_db_entry(
+        duthost,
+        ptfhost,
+        "VXLAN_TUNNEL",
+        {name: tunnel_entry},
+        "vxlan",
+        config_facts.get("VXLAN_TUNNEL", {}))
 
 
 def setup_gnmi_server(duthost, localhost, ptfhost):
