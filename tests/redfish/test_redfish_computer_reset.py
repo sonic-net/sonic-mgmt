@@ -9,6 +9,13 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.platform_api import chassis, module as module_api
+from tests.common.helpers.sonic_db import STATE_DB, redis_hget
+from tests.common.platform.bmc_utils import (
+    rack_manager_command_keys,
+    wait_for_no_new_rack_manager_command,
+    wait_for_rack_manager_command,
+    wait_for_rack_manager_command_status,
+)
 from tests.common.platform.device_utils import (  # noqa: F401
     platform_api_conn,
     start_platform_api_service
@@ -33,6 +40,26 @@ POWER_CYCLE_OFF_POLL = 1
 SWITCH_HOST_MODULE_NAME = "SWITCH-HOST"
 MODULE_STATUS_ONLINE = "Online"
 MODULE_STATUS_OFFLINE = "Offline"
+
+# Confirmed bmcweb -> sonic-dbus-bridge mapping (see StateManager::transitionToScriptCommand):
+#   ResetType=On               -> RequestedHostTransition.On     -> POWER_ON
+#   ResetType=GracefulShutdown -> RequestedHostTransition.Off    -> POWER_OFF (not GRACEFUL_SHUT)
+#   ResetType=PowerCycle       -> RequestedHostTransition.Reboot -> POWER_CYCLE
+RACK_MGR_CMD_POWER_ON = "POWER_ON"
+RACK_MGR_CMD_POWER_OFF = "POWER_OFF"
+RACK_MGR_CMD_POWER_CYCLE = "POWER_CYCLE"
+RACK_MGR_STATUS_DONE = "DONE"
+
+# The bridge publishes the row asynchronously (~100ms) after the D-Bus
+# property set returns, so a short poll -- not an instant check -- is needed
+# even on the success path.
+RACK_MANAGER_COMMAND_APPEAR_TIMEOUT = 15
+# Bounded observation window for the negative (rejected request) case: no
+# row should ever appear, so this only needs to comfortably exceed the
+# bridge's normal publish latency, not the full appear-timeout above.
+RACK_MANAGER_COMMAND_ABSENCE_WINDOW = 5
+RACK_MANAGER_COMMAND_DONE_TIMEOUT = 60
+RACK_MANAGER_COMMAND_POLL_INTERVAL = 1
 
 
 @pytest.fixture(scope="function")
@@ -114,6 +141,38 @@ def _ensure_system_in_reset(redfish_client, cpu_running):
     )
 
 
+def _assert_rack_manager_command_done(bmc_duthost, pre_keys, expected_command):
+    """Assert a new RACK_MANAGER_COMMAND row with expected_command reached DONE.
+
+    `pre_keys` must be a snapshot (rack_manager_command_keys) taken
+    immediately before the POST expected to trigger the row, so rows from
+    unrelated activity (a previous test, a teardown restore POST) are never
+    attributed to this call.
+    """
+    key = wait_for_rack_manager_command(
+        bmc_duthost, pre_keys, expected_command,
+        timeout=RACK_MANAGER_COMMAND_APPEAR_TIMEOUT,
+        interval=RACK_MANAGER_COMMAND_POLL_INTERVAL,
+    )
+    pytest_assert(
+        key,
+        "No new RACK_MANAGER_COMMAND row with command={!r} observed within {}s".format(
+            expected_command, RACK_MANAGER_COMMAND_APPEAR_TIMEOUT)
+    )
+
+    done = wait_for_rack_manager_command_status(
+        bmc_duthost, key, RACK_MGR_STATUS_DONE,
+        timeout=RACK_MANAGER_COMMAND_DONE_TIMEOUT,
+        interval=RACK_MANAGER_COMMAND_POLL_INTERVAL,
+    )
+    pytest_assert(
+        done,
+        "{} did not reach status={!r} within {}s (last observed status={!r})".format(
+            key, RACK_MGR_STATUS_DONE, RACK_MANAGER_COMMAND_DONE_TIMEOUT,
+            redis_hget(bmc_duthost, STATE_DB, key, 'status'))
+    )
+
+
 class TestRedfishComputerReset:
 
     @pytest.fixture(autouse=True)
@@ -135,7 +194,7 @@ class TestRedfishComputerReset:
                           _cpu_state_matches, cpu_running, True):
             logger.error("Failed to restore x86 CPU to running state in teardown")
 
-    def test_reset_on_when_already_on(self, redfish_client, cpu_running):
+    def test_reset_on_when_already_on(self, redfish_client, cpu_running, bmc_duthost):
         """
         ResetType=On when the CPU is already running is a no-op.
 
@@ -144,6 +203,7 @@ class TestRedfishComputerReset:
         """
         _ensure_system_on(redfish_client, cpu_running)
 
+        pre_keys = rack_manager_command_keys(bmc_duthost)
         response = redfish_client.post(RESET_PATH, json={"ResetType": "On"})
         logger.info("POST {} ResetType=On -> {}".format(RESET_PATH, response.status_code))
 
@@ -157,7 +217,9 @@ class TestRedfishComputerReset:
             "x86 CPU should remain running after ResetType=On from a running state"
         )
 
-    def test_reset_on_when_in_reset(self, redfish_client, cpu_running):
+        _assert_rack_manager_command_done(bmc_duthost, pre_keys, RACK_MGR_CMD_POWER_ON)
+
+    def test_reset_on_when_in_reset(self, redfish_client, cpu_running, bmc_duthost):
         """
         ResetType=On brings the CPU out of reset.
 
@@ -166,6 +228,7 @@ class TestRedfishComputerReset:
         """
         _ensure_system_in_reset(redfish_client, cpu_running)
 
+        pre_keys = rack_manager_command_keys(bmc_duthost)
         response = redfish_client.post(RESET_PATH, json={"ResetType": "On"})
         logger.info("POST {} ResetType=On -> {}".format(RESET_PATH, response.status_code))
 
@@ -179,7 +242,9 @@ class TestRedfishComputerReset:
         pytest_assert(reached, "x86 CPU did not come out of reset within {}s".format(
             POWER_ON_TIMEOUT))
 
-    def test_reset_graceful_shutdown(self, redfish_client, cpu_running):
+        _assert_rack_manager_command_done(bmc_duthost, pre_keys, RACK_MGR_CMD_POWER_ON)
+
+    def test_reset_graceful_shutdown(self, redfish_client, cpu_running, bmc_duthost):
         """
         Reset with valid ResetType "GracefulShutdown".
 
@@ -188,6 +253,7 @@ class TestRedfishComputerReset:
         """
         _ensure_system_on(redfish_client, cpu_running)
 
+        pre_keys = rack_manager_command_keys(bmc_duthost)
         response = redfish_client.post(RESET_PATH, json={"ResetType": "GracefulShutdown"})
         logger.info("POST {} ResetType=GracefulShutdown -> {}".format(
             RESET_PATH, response.status_code))
@@ -202,9 +268,13 @@ class TestRedfishComputerReset:
         pytest_assert(reached, "x86 CPU was not held in reset within {}s".format(
             POWER_OFF_TIMEOUT))
 
+        # bmcweb maps GracefulShutdown to RequestedHostTransition.Off, which the
+        # bridge maps to POWER_OFF (there is no GRACEFUL_SHUT transition today).
+        _assert_rack_manager_command_done(bmc_duthost, pre_keys, RACK_MGR_CMD_POWER_OFF)
+
         _ensure_system_on(redfish_client, cpu_running)
 
-    def test_reset_power_cycle(self, redfish_client, cpu_running):
+    def test_reset_power_cycle(self, redfish_client, cpu_running, bmc_duthost):
         """
         Reset with valid ResetType "PowerCycle".
 
@@ -214,6 +284,7 @@ class TestRedfishComputerReset:
         """
         _ensure_system_on(redfish_client, cpu_running)
 
+        pre_keys = rack_manager_command_keys(bmc_duthost)
         response = redfish_client.post(RESET_PATH, json={"ResetType": "PowerCycle"})
         logger.info("POST {} ResetType=PowerCycle -> {}".format(RESET_PATH, response.status_code))
 
@@ -239,12 +310,16 @@ class TestRedfishComputerReset:
                       "x86 CPU did not return to OUT OF RESET after PowerCycle within {}s".format(
                           POWER_ON_TIMEOUT))
 
-    def test_reset_invalid_type(self, redfish_client):
+        _assert_rack_manager_command_done(bmc_duthost, pre_keys, RACK_MGR_CMD_POWER_CYCLE)
+
+    def test_reset_invalid_type(self, redfish_client, bmc_duthost):
         """
         Reset with invalid ResetType is rejected.
 
-        POST ResetType=InvalidType must return HTTP 400 with a Redfish error body.
+        POST ResetType=InvalidType must return HTTP 400 with a Redfish error body,
+        and must never reach the bridge -- no RACK_MANAGER_COMMAND row is published.
         """
+        pre_keys = rack_manager_command_keys(bmc_duthost)
         response = redfish_client.post(RESET_PATH, json={"ResetType": "InvalidType"})
         logger.info("POST {} ResetType=InvalidType -> {}".format(RESET_PATH, response.status_code))
 
@@ -272,4 +347,15 @@ class TestRedfishComputerReset:
         pytest_assert(
             "code" in (error or {}) and "message" in (error or {}),
             "Redfish error object must contain 'code' and 'message', got: {}".format(error)
+        )
+
+        no_new_row = wait_for_no_new_rack_manager_command(
+            bmc_duthost, pre_keys,
+            timeout=RACK_MANAGER_COMMAND_ABSENCE_WINDOW,
+            interval=RACK_MANAGER_COMMAND_POLL_INTERVAL,
+        )
+        pytest_assert(
+            no_new_row,
+            "A RACK_MANAGER_COMMAND row appeared after a rejected ResetType=InvalidType "
+            "POST; bmcweb must reject an unknown ResetType before it ever reaches the bridge"
         )
