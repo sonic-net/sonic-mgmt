@@ -110,6 +110,12 @@ interface {{ bp_ifname }}
 {% endif %}
  no shutdown
 !
+{% if host['bgp']['confed_asn'] is defined and host['bgp']['confed_peers'] is defined %}
+{# Prefer the leaf's own internal/iBGP routes over the same prefixes reflected back as confed-external via the DUT #}
+route-map PREFER_INTERNAL permit 10
+   set local-preference 200
+!
+{% endif %}
 router bgp {{ host['bgp']['asn'] }}
  vrf MGMT
   rd 1:1
@@ -138,10 +144,16 @@ router bgp {{ host['bgp']['asn'] }}
 {% endfor %}
  neighbor {{ props.nhipv4 }} remote-as {{ host['bgp']['asn'] }}
  neighbor {{ props.nhipv4 }} description exabgp_v4
+{% if host['bgp']['confed_asn'] is defined and host['bgp']['confed_peers'] is defined %}
+ neighbor {{ props.nhipv4 }} route-map PREFER_INTERNAL in
+{% endif %}
  neighbor {{ props.nhipv6 }} remote-as {{ host['bgp']['asn'] }}
  neighbor {{ props.nhipv6 }} description exabgp_v6
  address-family ipv6
   neighbor {{ props.nhipv6 }} activate
+{% if host['bgp']['confed_asn'] is defined and host['bgp']['confed_peers'] is defined %}
+  neighbor {{ props.nhipv6 }} route-map PREFER_INTERNAL in
+{% endif %}
  exit
  !
 {% for name, iface in host['interfaces'].items() if name.startswith('Loopback') %}
