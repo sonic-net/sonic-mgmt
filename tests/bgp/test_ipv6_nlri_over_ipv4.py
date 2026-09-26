@@ -114,10 +114,23 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, request):
 
     dut_namespace = " -n " + namespace if duthost.is_multi_asic else ""
     vtysh_ns = " -n {}".format(asic_index) if duthost.is_multi_asic else ""
-    cmd = "show ipv6 bgp neighbor {} received-routes {}".format(neigh_ip_v6, dut_namespace)
-    dut_received_routes = duthost.shell(cmd, module_ignore_errors=True)['stdout']
-    dut_nlri_routes = parse_dut_received_routes(dut_received_routes)
-    dut_nlri_route = dut_nlri_routes[2]
+    dut_recv_cmd = "show ipv6 bgp neighbor {} received-routes {}".format(neigh_ip_v6, dut_namespace)
+
+    def dut_routes_available(cmd):
+        dut_routes = parse_dut_received_routes(duthost.shell(cmd, module_ignore_errors=True)['stdout'])
+        return len([r for r in dut_routes if r != "::/0"]) >= 1
+
+    pytest_assert(
+        wait_until(180, 10, 0, dut_routes_available, dut_recv_cmd),
+        "DUT didn't receive a non-default IPv6 NLRI route within 180s",
+    )
+    dut_received_routes = duthost.shell(dut_recv_cmd, module_ignore_errors=True)['stdout']
+    # Pick a tracer route that is not default route
+    dut_nlri_routes = [r for r in parse_dut_received_routes(dut_received_routes) if r != "::/0"]
+    if not dut_nlri_routes:
+        pytest.skip("No non-default IPv6 NLRI routes received from {}; cannot pick a "
+                    "tracer route on this topology".format(neigh_name))
+    dut_nlri_route = dut_nlri_routes[0]
     logger.debug("DUT NLRI route: {}".format(dut_nlri_route))
 
     neigh_host = nbrhosts[neigh_name]["host"]
