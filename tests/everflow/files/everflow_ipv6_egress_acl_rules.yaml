@@ -1,0 +1,114 @@
+---
+# IPv6 Egress Everflow ACL Rules
+# These rules cover various SAI ACL table attributes for IPv6 traffic
+
+# Rule 1: Match source IPv6 address
+- name: "Rule_SRC_IPV6"
+  priority: 9999
+  ether_type: "0x86DD"
+  ip_protocol: 6
+  src_ipv6: "2001:db8:1::100/128"
+  packet_action: "forward"
+
+# Rule 2: Match destination IPv6 address  
+- name: "Rule_DST_IPV6"
+  priority: 9998
+  ether_type: "0x86DD"
+  ip_protocol: 6
+  dst_ipv6: "2001:db8:2::200/128"
+  packet_action: "forward"
+
+# Rule 3: Match L4 source port (TCP)
+- name: "Rule_L4_SRC_PORT"
+  priority: 9997
+  ether_type: "0x86DD"
+  ip_protocol: 6
+  l4_src_port: 8000
+  packet_action: "forward"
+
+# Rule 4: Match L4 destination port (TCP)
+- name: "Rule_L4_DST_PORT"
+  priority: 9996
+  ether_type: "0x86DD"
+  ip_protocol: 6
+  l4_dst_port: 443
+  packet_action: "forward"
+
+# Rule 5: Match L4 source port range
+- name: "Rule_L4_SRC_PORT_RANGE"
+  priority: 9995
+  ether_type: "0x86DD"
+  ip_protocol: 6
+  l4_src_port_range: "8000-9000"
+  packet_action: "forward"
+
+# Rule 6: Match L4 destination port range
+- name: "Rule_L4_DST_PORT_RANGE"
+  priority: 9994
+  ether_type: "0x86DD"
+  ip_protocol: 6
+  l4_dst_port_range: "1024-2048"
+  packet_action: "forward"
+
+# Rule 7: Match TCP flags - SYN
+- name: "Rule_TCP_FLAGS_SYN"
+  priority: 9993
+  ether_type: "0x86DD"
+  ip_protocol: 6
+  tcp_flags: "0x02/0x02"
+  packet_action: "forward"
+
+# Rule 8: Match TCP flags - FIN
+- name: "Rule_TCP_FLAGS_FIN"
+  priority: 9992
+  ether_type: "0x86DD"
+  ip_protocol: 6
+  tcp_flags: "0x01/0x01"
+  packet_action: "forward"
+
+# Rule 9: Match DSCP value
+- name: "Rule_DSCP"
+  priority: 9991
+  ether_type: "0x86DD"
+  ip_protocol: 6
+  dscp: 48     # EF (Expedited Forwarding)
+  packet_action: "forward"
+
+# Rule 10: Match ICMPv6 Type/Code - Echo Request
+- name: "Rule_ICMPV6_ECHO_REQUEST"
+  priority: 9990
+  ether_type: "0x86DD"
+  ip_protocol: 58
+  icmpv6_type: 128
+  icmpv6_code: 0
+  packet_action: "forward"
+
+# Rule 11: Match ICMPv6 Type/Code - Destination Unreachable
+- name: "Rule_ICMPV6_DEST_UNREACH"
+  priority: 9989
+  ether_type: "0x86DD"
+  ip_protocol: 58
+  icmpv6_type: 1
+  icmpv6_code: 3
+  packet_action: "forward"
+
+# Rule 12: Match IPv6 Next Header - UDP
+- name: "Rule_IPV6_NEXT_HEADER_UDP"
+  priority: 9988
+  ether_type: "0x86DD"
+  ip_protocol: 17
+  packet_action: "forward"
+
+# Rule 13: Match IPv6 IP Type (IPv6-only)
+- name: "Rule_ACL_IP_TYPE_IPV6"
+  priority: 9987
+  ether_type: "0x86DD"
+  acl_ip_type: "IPV6ANY"
+  packet_action: "forward"
+
+# Rule 14: Match Outer VLAN ID
+- name: "Rule_OUTER_VLAN_ID"
+  priority: 9986
+  ether_type: "0x86DD"
+  outer_vlan_id: 100
+  packet_action: "forward"
