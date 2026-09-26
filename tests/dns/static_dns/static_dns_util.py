@@ -181,3 +181,115 @@ def add_dns_nameserver(duthost, ip_addr, module_ignore_errors=False):
 
 def del_dns_nameserver(duthost, ip_addr, module_ignore_errors=False):
     return duthost.shell(f"config dns nameserver del {ip_addr}", module_ignore_errors=module_ignore_errors)
+
+
+# DNS_OPTIONS is the singleton table DNS_OPTIONS with a single well-known row GLOBAL
+# (i.e. ConfigDB key "DNS_OPTIONS|GLOBAL"). There is no `config dns` CLI for the
+# resolver options, so they are written directly to CONFIG_DB. The `search` leaf-list
+# is serialized by SONiC as the "search@" field with a comma-separated value.
+DNS_OPTIONS_TABLE = "DNS_OPTIONS"
+DNS_OPTIONS_KEY = f"{DNS_OPTIONS_TABLE}|GLOBAL"
+
+
+def apply_resolv_config(duthost):
+    """
+    Regenerate /etc/resolv.conf from the current CONFIG_DB without a full config reload.
+    The resolv-config service renders resolv.conf.j2 with sonic-cfggen and runs resolvconf.
+    :param duthost: DUT host object
+    """
+    duthost.shell("systemctl restart resolv-config.service")
+
+
+def set_dns_options(duthost, search=None, ndots=None, timeout=None, attempts=None):
+    """
+    Write DNS resolver options to CONFIG_DB at DNS_OPTIONS|GLOBAL.
+    :param duthost: DUT host object
+    :param search: list of search-domain suffixes (stored as the "search@" leaf-list field)
+    :param ndots: ndots threshold (0-15)
+    :param timeout: per-query timeout in seconds (1-30)
+    :param attempts: number of query attempts (1-5)
+    Only the arguments that are not None are written, so callers can set a subset of options.
+    """
+    if search is not None:
+        duthost.shell(f'sonic-db-cli CONFIG_DB hset "{DNS_OPTIONS_KEY}" "search@" "{",".join(search)}"')
+    for field, value in (("ndots", ndots), ("timeout", timeout), ("attempts", attempts)):
+        if value is not None:
+            duthost.shell(f'sonic-db-cli CONFIG_DB hset "{DNS_OPTIONS_KEY}" "{field}" "{value}"')
+
+
+def clear_dns_options(duthost):
+    """
+    Remove the DNS_OPTIONS|GLOBAL row from CONFIG_DB.
+    :param duthost: DUT host object
+    """
+    duthost.shell(f'sonic-db-cli CONFIG_DB del "{DNS_OPTIONS_KEY}"')
+
+
+def _read_resolvconf_lines(duthost, file_name=RESOLV_CONF_FILE, container=None):
+    if container:
+        resolv_conf = duthost.shell(f"docker exec -i {container} cat {file_name}", module_ignore_errors=True)
+    else:
+        resolv_conf = duthost.shell(f"cat {file_name}", module_ignore_errors=True)
+    assert resolv_conf["rc"] == 0, f"Failed to read {file_name}!"
+    return resolv_conf["stdout_lines"]
+
+
+def get_search_from_resolvconf(duthost, container=None):
+    """
+    Return the ordered search-domain list from the `search` line in resolv.conf ([] if absent).
+    :param duthost: DUT host object
+    :param container: container name to read from, else the host
+    """
+    for line in _read_resolvconf_lines(duthost, container=container):
+        if line.startswith("search"):
+            return line.split()[1:]
+    return []
+
+
+def get_options_from_resolvconf(duthost, container=None):
+    """
+    Return the resolver options from the `options` line in resolv.conf as a dict, e.g.
+    "options ndots:2 timeout:3 attempts:4" -> {"ndots": "2", "timeout": "3", "attempts": "4"} ({} if absent).
+    :param duthost: DUT host object
+    :param container: container name to read from, else the host
+    """
+    options = {}
+    for line in _read_resolvconf_lines(duthost, container=container):
+        if line.startswith("options"):
+            for token in line.split()[1:]:
+                if ":" in token:
+                    key, value = token.split(":", 1)
+                    options[key] = value
+    return options
+
+
+def verify_dns_options_in_conf_file(duthost, expected_search=None, expected_options=None):
+    """
+    Verify the DNS search list and/or resolver options in resolv.conf on the host and every
+    running container match expectations, retrying to allow the resolv-config service to settle.
+    :param duthost: DUT host object
+    :param expected_search: expected ordered search list (None skips the search check)
+    :param expected_options: expected options dict (None skips the options check)
+    """
+    assert wait_until(30, 5, 0, _verify_dns_options_in_conf_file, duthost, expected_search, expected_options), \
+        "The DNS options in the resolv.conf file are not as expected"
+
+
+def _verify_dns_options_in_conf_file(duthost, expected_search, expected_options):
+    expected_options_str = None if expected_options is None else {k: str(v) for k, v in expected_options.items()}
+    expected_search_list = None if expected_search is None else list(expected_search)
+    for container in [None] + list(duthost.get_running_containers()):
+        location = "host" if container is None else f"container {container}"
+        if expected_search_list is not None:
+            search = get_search_from_resolvconf(duthost, container=container)
+            if search != expected_search_list:
+                logging.info(f"The search list in the {location}'s {RESOLV_CONF_FILE} is: {search}, "
+                             f"expected is: {expected_search_list}")
+                return False
+        if expected_options_str is not None:
+            options = get_options_from_resolvconf(duthost, container=container)
+            if options != expected_options_str:
+                logging.info(f"The options in the {location}'s {RESOLV_CONF_FILE} are: {options}, "
+                             f"expected is: {expected_options_str}")
+                return False
+    return True
