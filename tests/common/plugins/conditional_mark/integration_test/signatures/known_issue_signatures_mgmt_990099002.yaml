@@ -1,0 +1,11 @@
+signatures:
+  - name: acl_rule_not_applied
+    exception_type: AssertionError
+    message: |-
+      AssertionError: ACL rule was not applied after config reload. Expected rule count 10, got 0.
+    stack_trace: |-
+      tests/acl/test_acl.py:180: in test_acl_rule_persistence
+          assert applied_rules == expected_rules
+    failure_matching_rule: >-
+      If the failure is about ACL rules not being applied after config reload,
+      it is the same issue.
