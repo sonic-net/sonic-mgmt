@@ -30,6 +30,9 @@ NAT_ENABLE_KEY = "nat_enabled_on_{}"
 # Spacing between console reconnect retries; keep >= getty StartLimitIntervalSec to avoid tripping its start limit.
 CONSOLE_RECONNECT_BACKOFF_SECS = 12
 
+# Temporary command used by NextHop BMCs to connect to the host CPU console.
+NEXTHOP_HOST_CONSOLE_COMMAND = "sudo consutil connect 0"
+
 # Ansible config files
 LAB_CONNECTION_GRAPH_PATH = pathlib.Path(
     os.getenv("ANSIBLE_CONFIG", pathlib.Path(__file__).resolve().parent.joinpath("../../ansible"))).joinpath("files")
@@ -543,6 +546,14 @@ def is_mellanox_fanout(duthost, localhost):
     return True
 
 
+def get_host_console_command(duthost):
+    """Return the temporary NextHop command when inventory marks the DUT as BMC-backed."""
+    hostvars = duthost.host.options['inventory_manager'].get_host(duthost.hostname).get_vars()
+    if not hostvars.get("has_bmc", False):
+        return None
+    return NEXTHOP_HOST_CONSOLE_COMMAND
+
+
 def get_supervisor_for_linecard(duthost, duthosts, inv_files):
     """
     Returns the supervisor duthost for a given linecard duthost.
@@ -625,6 +636,8 @@ def create_duthost_console(duthost, localhost, conn_graph_facts, creds, cancel_e
 
     console_type = f"console_{console_type}"
     update_console_creds(creds, console_auth_type)
+    if not console_username:
+        console_username = creds["console_user"].get(console_type, "")
 
     if console_menu_type and console_menu_type.lower() != "n/a":
         console_menu_type = f"{console_type}_{console_menu_type}"
@@ -762,7 +775,7 @@ def creds_on_dut(duthost):
     creds["console_user"] = {}
     creds["console_password"] = {}
 
-    creds["ansible_altpasswords"] = []
+    creds["ansible_altpasswords"] = hostvars.get("ansible_altpasswords", [])
 
     # If ansible_altpasswords is empty, add ansible_altpassword to it
     if len(creds["ansible_altpasswords"]) == 0:
