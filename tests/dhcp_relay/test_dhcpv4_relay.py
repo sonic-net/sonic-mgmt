@@ -256,7 +256,9 @@ def test_dhcpv4_relay_disabled_validation(ptfhost, dut_dhcp_relay_data, validate
                                "relay_agent": "sonic-relay-agent",
                                "downlink_vlan_iface_name": str(dhcp_relay['downlink_vlan_iface']['name'])
                                },
-                       log_file="/tmp/test_dhcpv4_relay_disabled_no_process_no_response.DHCPTest.log", is_python3=True)
+                       log_file=("/tmp/test_dhcpv4_relay_disabled_no_process_no_response.DHCPTest.{}.log"
+                                 .format(dhcp_relay['downlink_vlan_iface']['name'])),
+                       is_python3=True)
 
     except LogAnalyzerError as err:
         logger.error("Unable to find expected log in syslog")
@@ -344,7 +346,9 @@ def test_dhcp_relay_option82_suboptions(ptfhost, dut_dhcp_relay_data, validate_d
                                "link_selection_ip": str(dhcp_relay['downlink_vlan_iface']['link_selection_ip']),
                                "downlink_vlan_iface_name": str(dhcp_relay['downlink_vlan_iface']['name'])
                                },
-                       log_file="/tmp/test_dhcp_relay_option82_suboptions.DHCPTest.log", is_python3=True)
+                       log_file=("/tmp/test_dhcp_relay_option82_suboptions.DHCPTest.{}.{}.log"
+                                 .format(testcase, vlan)),
+                       is_python3=True)
     except LogAnalyzerError as err:
         logger.error("Unable to find expected log in syslog")
         raise err
@@ -424,7 +428,8 @@ def test_dhcp_relay_agent_mode(
                     "agent_relay_mode": test_mode,
                     "downlink_vlan_iface_name": str(dhcp_relay['downlink_vlan_iface']['name']),
                 },
-                log_file="/tmp/test_dhcp_relay_agent_mode.log",
+                log_file=("/tmp/test_dhcp_relay_agent_mode.DHCPTest.{}.{}.log"
+                          .format(test_mode, vlan)),
                 is_python3=True
             )
 
@@ -609,7 +614,9 @@ def test_dhcp_relay_with_non_default_vrf(
                                "link_selection_ip": str(dhcp_relay['downlink_vlan_iface']['link_selection_ip']),
                                "downlink_vlan_iface_name": str(dhcp_relay['downlink_vlan_iface']['name'])
                                },
-                       log_file="/tmp/test_dhcp_relay_with_non_default_vrf.DHCPTest.log", is_python3=True)
+                       log_file=("/tmp/test_dhcp_relay_with_non_default_vrf.DHCPTest.{}.{}.log"
+                                 .format(testcase, vlan_iface)),
+                       is_python3=True)
     except LogAnalyzerError as err:
         logger.error("Unable to find expected log in syslog")
         raise err
@@ -811,7 +818,9 @@ def test_dhcp_relay_with_different_non_default_vrf(
                                "link_selection": True,
                                "portchannels_ip_list": dhcp_relay['portchannels_ip_list'],
                                "downlink_vlan_iface_name": str(dhcp_relay['downlink_vlan_iface']['name'])},
-                       log_file="/tmp/test_dhcp_relay_with_different_non_default_vrf.DHCPTest.log", is_python3=True)
+                       log_file=("/tmp/test_dhcp_relay_with_different_non_default_vrf.DHCPTest.{}.log"
+                                 .format(vlan_iface)),
+                       is_python3=True)
 
     except LogAnalyzerError as err:
         logger.error("Unable to find expected log in syslog")
@@ -903,7 +912,8 @@ def test_dhcp_max_hop_count(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
                     "max_hop_count": max_hop_count,
                     "downlink_vlan_iface_name": str(dhcp_relay['downlink_vlan_iface']['name']),
                 },
-                log_file="/tmp/test_dhcp_relay_agent_mode.log",
+                log_file=("/tmp/test_dhcp_max_hop_count.DHCPTest.{}.{}.log"
+                          .format(max_hop_count, vlan)),
                 is_python3=True
             )
 
