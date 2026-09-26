@@ -837,7 +837,6 @@ t0-vpp:
   - vlan/test_vlan_ping.py
   - vlan/test_vlan_ports_down.py
 
-
 multi-asic-t1-lag:
   - bgp/test_bgp_bbr.py
   - bgp/test_bgp_fact.py
