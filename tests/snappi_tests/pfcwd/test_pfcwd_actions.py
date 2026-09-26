@@ -7,7 +7,7 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_grap
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
     snappi_api, snappi_multi_base_config, cleanup_config, get_snappi_ports_for_rdma, \
     get_snappi_ports, get_snappi_ports_multi_dut, clear_fabric_counters, check_fabric_counters, \
-    get_snappi_ports_single_dut      # noqa: F401
+    get_snappi_ports_single_dut, fabric_counter_context      # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_list, \
     lossy_prio_list, all_prio_list                                                                  # noqa: F401
 from tests.common.snappi_tests.common_helpers import get_pfcwd_stats
@@ -96,6 +96,7 @@ def test_pfcwd_drop_90_10(snappi_api,                  # noqa: F811
                           conn_graph_facts,             # noqa: F811
                           fanout_graph_facts_multidut,  # noqa: F811
                           duthosts,
+                          fabric_counter_context,       # noqa: F811
                           prio_dscp_map,                # noqa: F811
                           lossless_prio_list,           # noqa: F811
                           lossy_prio_list,              # noqa: F811
@@ -112,6 +113,7 @@ def test_pfcwd_drop_90_10(snappi_api,                  # noqa: F811
         conn_graph_facts (pytest fixture): connection graph
         fanout_graph_facts_multidut_multidut (pytest fixture): fanout graph
         duthosts (pytest fixture): list of DUTs
+        fabric_counter_context (pytest fixture): check fabric counters for DNX platforms.
         prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
         lossless_prio_list(list): list of lossless priorities
         lossy_prio_list(list): list of lossy priorities.
@@ -165,8 +167,7 @@ def test_pfcwd_drop_90_10(snappi_api,                  # noqa: F811
     else:
         dut_list = [snappi_ports[0]['duthost'], snappi_ports[-1]['duthost']]
 
-    for dut in duthosts:
-        clear_fabric_counters(dut)
+    clear_fabric_counters(fabric_counter_context)
 
     logger.info('PFC-WD stats at the start of the test:')
     for prio in test_prio_list:
@@ -214,8 +215,7 @@ def test_pfcwd_drop_90_10(snappi_api,                  # noqa: F811
                         logger.info('PFCWD Stats:for dut:{}, port:{},prio:{}, stats::{}'.
                                     format(dut.hostname, port['peer_port'], prio, pfcwd_stats))
 
-    for dut in duthosts:
-        check_fabric_counters(dut)
+    check_fabric_counters(fabric_counter_context)
 
 
 # This is a single-tx-single-rx test.
@@ -224,6 +224,7 @@ def test_pfcwd_drop_uni(snappi_api,                  # noqa: F811
                         conn_graph_facts,             # noqa: F811
                         fanout_graph_facts_multidut,  # noqa: F811
                         duthosts,
+                        fabric_counter_context,       # noqa: F811
                         prio_dscp_map,                # noqa: F811
                         lossless_prio_list,           # noqa: F811
                         lossy_prio_list,              # noqa: F811
@@ -240,6 +241,7 @@ def test_pfcwd_drop_uni(snappi_api,                  # noqa: F811
         conn_graph_facts (pytest fixture): connection graph
         fanout_graph_facts_multidut_multidut (pytest fixture): fanout graph
         duthosts (pytest fixture): list of DUTs
+        fabric_counter_context (pytest fixture): check fabric counters for DNX platforms.
         prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
         lossless_prio_list(list): list of lossless priorities
         lossy_prio_list(list): list of lossy priorities.
@@ -294,8 +296,7 @@ def test_pfcwd_drop_uni(snappi_api,                  # noqa: F811
     else:
         dut_list = [snappi_ports[0]['duthost'], snappi_ports[-1]['duthost']]
 
-    for dut in duthosts:
-        clear_fabric_counters(dut)
+    clear_fabric_counters(fabric_counter_context)
 
     logger.info('PFC-WD stats at the start of the test:')
     for prio in test_prio_list:
@@ -342,9 +343,7 @@ def test_pfcwd_drop_uni(snappi_api,                  # noqa: F811
                         pfcwd_stats = get_pfcwd_stats(dut, port['peer_port'], prio)
                         logger.info('PFCWD Stats:for dut:{}, port:{},prio:{}, stats::{}'.
                                     format(dut.hostname, port['peer_port'], prio, pfcwd_stats))
-
-    for dut in duthosts:
-        check_fabric_counters(dut)
+    check_fabric_counters(fabric_counter_context)
 
 
 @pytest.mark.parametrize('port_map', port_map)
@@ -354,6 +353,7 @@ def test_pfcwd_frwd_90_10(snappi_api,                  # noqa: F811
                           conn_graph_facts,             # noqa: F811
                           fanout_graph_facts_multidut,  # noqa: F811
                           duthosts,
+                          fabric_counter_context,       # noqa: F811
                           prio_dscp_map,                # noqa: F811
                           lossless_prio_list,           # noqa: F811
                           lossy_prio_list,              # noqa: F811
@@ -372,6 +372,7 @@ def test_pfcwd_frwd_90_10(snappi_api,                  # noqa: F811
         conn_graph_facts (pytest fixture): connection graph
         fanout_graph_facts_multidut (pytest fixture): fanout graph
         duthosts (pytest fixture): list of DUTs
+        fabric_counter_context (pytest fixture): check fabric counters for DNX platforms.
         prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
         lossless_prio_list(list): list of lossless priorities
         lossy_prio_list(list): list of lossy priorities.
@@ -467,8 +468,7 @@ def test_pfcwd_frwd_90_10(snappi_api,                  # noqa: F811
     else:
         dut_list = [snappi_ports[0]['duthost'], snappi_ports[-1]['duthost']]
 
-    for dut in duthosts:
-        clear_fabric_counters(dut)
+    clear_fabric_counters(fabric_counter_context)
 
     logger.info('PFC-WD stats at the start of the test:')
     for prio in test_prio_list:
@@ -516,8 +516,7 @@ def test_pfcwd_frwd_90_10(snappi_api,                  # noqa: F811
                         logger.info('PFCWD Stats:for dut:{}, port:{},prio:{}, stats::{}'.
                                     format(dut.hostname, port['peer_port'], prio, pfcwd_stats))
 
-    for dut in duthosts:
-        check_fabric_counters(dut)
+    check_fabric_counters(fabric_counter_context)
 
 
 # This is an oversubscribe-testcase.
@@ -526,6 +525,7 @@ def test_pfcwd_drop_over_subs_40_09(snappi_api,                  # noqa: F811
                                     conn_graph_facts,             # noqa: F811
                                     fanout_graph_facts_multidut,  # noqa: F811
                                     duthosts,
+                                    fabric_counter_context,       # noqa: F811
                                     prio_dscp_map,                # noqa: F811
                                     lossless_prio_list,           # noqa: F811
                                     lossy_prio_list,              # noqa: F811
@@ -543,6 +543,7 @@ def test_pfcwd_drop_over_subs_40_09(snappi_api,                  # noqa: F811
         conn_graph_facts (pytest fixture): connection graph
         fanout_graph_facts_multidut (pytest fixture): fanout graph
         duthosts (pytest fixture): list of DUTs
+        fabric_counter_context (pytest fixture): check fabric counters for DNX platforms.
         prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
         lossless_prio_list(list): list of lossless priorities
         lossy_prio_list(list): list of lossy priorities.
@@ -606,8 +607,7 @@ def test_pfcwd_drop_over_subs_40_09(snappi_api,                  # noqa: F811
     else:
         dut_list = [snappi_ports[0]['duthost'], snappi_ports[-1]['duthost']]
 
-    for dut in duthosts:
-        clear_fabric_counters(dut)
+    clear_fabric_counters(fabric_counter_context)
 
     logger.info('PFC-WD stats at the start of the test:')
     for prio in test_prio_list:
@@ -655,8 +655,7 @@ def test_pfcwd_drop_over_subs_40_09(snappi_api,                  # noqa: F811
                         logger.info('PFCWD Stats:for dut:{}, port:{},prio:{}, stats::{}'.
                                     format(dut.hostname, port['peer_port'], prio, pfcwd_stats))
 
-    for dut in duthosts:
-        check_fabric_counters(dut)
+    check_fabric_counters(fabric_counter_context)
 
 
 @pytest.mark.parametrize('port_map', over_subs_port_map)
@@ -666,6 +665,7 @@ def test_pfcwd_frwd_over_subs_40_09(snappi_api,                  # noqa: F811
                                     conn_graph_facts,             # noqa: F811
                                     fanout_graph_facts_multidut,  # noqa: F811
                                     duthosts,
+                                    fabric_counter_context,       # noqa: F811
                                     prio_dscp_map,                # noqa: F811
                                     lossless_prio_list,           # noqa: F811
                                     lossy_prio_list,              # noqa: F811
@@ -685,6 +685,7 @@ def test_pfcwd_frwd_over_subs_40_09(snappi_api,                  # noqa: F811
         conn_graph_facts (pytest fixture): connection graph
         fanout_graph_facts_multidut (pytest fixture): fanout graph
         duthosts (pytest fixture): list of DUTs
+        fabric_counter_context (pytest fixture): check fabric counters for DNX platforms.
         prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
         lossless_prio_list(list): list of lossless priorities
         lossy_prio_list(list): list of lossy priorities.
@@ -777,8 +778,7 @@ def test_pfcwd_frwd_over_subs_40_09(snappi_api,                  # noqa: F811
     else:
         dut_list = [snappi_ports[0]['duthost'], snappi_ports[-1]['duthost']]
 
-    for dut in duthosts:
-        clear_fabric_counters(dut)
+    clear_fabric_counters(fabric_counter_context)
 
     logger.info('PFC-WD stats at the start of the test:')
     for prio in test_prio_list:
@@ -825,8 +825,7 @@ def test_pfcwd_frwd_over_subs_40_09(snappi_api,                  # noqa: F811
                         pfcwd_stats = get_pfcwd_stats(dut, port['peer_port'], prio)
                         logger.info('PFCWD Stats:for dut:{}, port:{},prio:{}, stats::{}'.
                                     format(dut.hostname, port['peer_port'], prio, pfcwd_stats))
-    for dut in duthosts:
-        check_fabric_counters(dut)
+    check_fabric_counters(fabric_counter_context)
 
 
 # This is an non-oversubscribe-testcase.
@@ -835,6 +834,7 @@ def test_pfcwd_disable_pause_cngtn(snappi_api,                  # noqa: F811
                                    conn_graph_facts,             # noqa: F811
                                    fanout_graph_facts_multidut,  # noqa: F811
                                    duthosts,
+                                   fabric_counter_context,       # noqa: F811
                                    prio_dscp_map,                # noqa: F811
                                    lossless_prio_list,           # noqa: F811
                                    lossy_prio_list,              # noqa: F811
@@ -854,6 +854,7 @@ def test_pfcwd_disable_pause_cngtn(snappi_api,                  # noqa: F811
         conn_graph_facts (pytest fixture): connection graph
         fanout_graph_facts_multidut (pytest fixture): fanout graph
         duthosts (pytest fixture): list of DUTs
+        fabric_counter_context (pytest fixture): check fabric counters for DNX platforms.
         prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
         lossless_prio_list(list): list of lossless priorities
         lossy_prio_list(list): list of lossy priorities.
@@ -907,8 +908,8 @@ def test_pfcwd_disable_pause_cngtn(snappi_api,                  # noqa: F811
 
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
 
+    clear_fabric_counters(fabric_counter_context)
     for dut in duthosts:
-        clear_fabric_counters(dut)
         if dut.facts.get('asic_type') == "cisco-8000":
             modify_voq_watchdog_cisco_8000(dut, False)
 
@@ -926,5 +927,4 @@ def test_pfcwd_disable_pause_cngtn(snappi_api,                  # noqa: F811
                  test_def=test_def,
                  snappi_extra_params=snappi_extra_params)
 
-    for dut in duthosts:
-        check_fabric_counters(dut)
+    check_fabric_counters(fabric_counter_context)
