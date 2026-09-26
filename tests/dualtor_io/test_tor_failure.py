@@ -108,9 +108,16 @@ def test_active_tor_reboot_downstream_standby(
     Confirm switchover occurred and disruption lasts < 1 second
     """
     setup_loganalyzer(upper_tor_host, collect_only=True, collect_from_bootup=True)
+    # send_interval is the global inter-packet gap, so each server flow is only
+    # sampled every send_interval * number_of_flows seconds. With the 0.1s
+    # default a 56-port dualtor samples each server about every 5.6s, which
+    # quantizes the measured disruption and reports ~33.9s against the
+    # MUX_SIM_ALLOWED_DISRUPTION_SEC budget even when the mux converges in ~15s.
+    # 0.01s (the default used by the other traffic directions) keeps per-server
+    # sampling under a second without changing the allowed disruption.
     send_t1_to_server_with_action(
         lower_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-        action=toggle_upper_tor_pdu, stop_after=60
+        action=toggle_upper_tor_pdu, stop_after=60, send_interval=0.01
     )
     wait_for_device_reachable(upper_tor_host)
     wait_for_mux_container(upper_tor_host)
