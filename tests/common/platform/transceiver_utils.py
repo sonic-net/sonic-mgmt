@@ -6,6 +6,8 @@ This script contains re-usable functions for checking status of transceivers.
 import logging
 import re
 from copy import deepcopy
+from tests.common.utilities import wait_until
+from tests.common.helpers.sonic_db import redis_get_keys_all_asics
 
 I2C_WAIT_TIME_AFTER_SFP_RESET = 5  # in seconds
 
@@ -465,3 +467,32 @@ def is_sw_control_enabled(duthost, port_index):
             sw_control_enabled = True
     logging.info(f'The sw control enable of port index {port_index} is {sw_control_enabled}')
     return sw_control_enabled
+
+
+def are_transceiver_tables_in_sync(duthost):
+    """
+    Check if TRANSCEIVER_INFO and TRANSCEIVER_DOM_SENSOR tables are synchronized
+    """
+    try:
+        info_keys = redis_get_keys_all_asics(duthost, 'STATE_DB', 'TRANSCEIVER_INFO|*')
+        dom_keys = redis_get_keys_all_asics(duthost, 'STATE_DB', 'TRANSCEIVER_DOM_SENSOR|*')
+        tables_synced = len(info_keys) == len(dom_keys)
+        if not tables_synced:
+            logging.debug(f"TRANSCEIVER_INFO: {info_keys}, TRANSCEIVER_DOM_SENSOR: {dom_keys}, not in sync yet")
+        return tables_synced
+    except Exception as e:
+        logging.warning(f"Error checking transceiver table sync: {e}")
+        return False
+
+
+def wait_for_transceiver_tables_sync(duthost, timeout=120):
+    """
+    Wait for TRANSCEIVER_INFO and TRANSCEIVER_DOM_SENSOR tables to be synchronized
+    This ensures xcvrd has populated DOM sensor data as TRANSCEIVER_DOM_SENSOR table
+    takes additional time to get populated
+    """
+    # Wait for tables to sync, checking every 5 seconds
+    tables_synced = wait_until(timeout, 5, 0, are_transceiver_tables_in_sync, duthost)
+    if not tables_synced:
+        logging.warning(f"Timeout waiting for transceiver tables to sync after {timeout} seconds")
+    return tables_synced
