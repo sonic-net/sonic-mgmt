@@ -89,13 +89,12 @@ configlet/test_add_rack.py::test_add_rack:
 #######################################
 #####           COPP              #####
 #######################################
-copp:
-  skip:
-    reason: >
-            Unsupported
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
+# All copp/test_copp.py subtests now pass on vpp; nothing left to skip.
+# (test_policer_mtu[IP2ME/SNMP/SSH] used to fail here with zero packets
+# received due to a missing ip_src in the PTF test packets, defaulting to
+# an unroutable source that VPP's uRPF check silently dropped -- fixed by
+# setting ip_src=self.myip in IP2METest/SNMPTest, matching SSHTest's
+# existing pattern.)
 
 #######################################
 #####           Decap             #####
