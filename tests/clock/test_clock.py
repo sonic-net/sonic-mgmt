@@ -325,6 +325,7 @@ def test_config_clock_timezone(duthosts, init_timezone):
     """
     valid_timezones = ClockUtils.get_valid_timezones(duthosts)
     orig_timezone = ClockUtils.get_timezone_name(duthosts)
+    refresh_recovery = init_timezone
 
     with allure.step('Select a random new valid timezone'):
         new_timezone = random.choice(valid_timezones)
@@ -332,6 +333,7 @@ def test_config_clock_timezone(duthosts, init_timezone):
             new_timezone = random.choice(valid_timezones)
 
     with allure.step(f'Set the new timezone "{new_timezone}"'):
+        refresh_recovery()
         output = ClockUtils.run_cmd(duthosts, ClockConsts.CMD_CONFIG_CLOCK_TIMEZONE, new_timezone)
         with allure.step('Verify command success'):
             assert output == ClockConsts.OUTPUT_CMD_SUCCESS, \
@@ -355,6 +357,7 @@ def test_config_clock_timezone(duthosts, init_timezone):
         logging.info(f'Selected invalid timezone: "{invalid_timezone}"')
 
     with allure.step(f'Try to set the invalid timezone "{invalid_timezone}"'):
+        refresh_recovery()
         output = ClockUtils.run_cmd(duthosts, ClockConsts.CMD_CONFIG_CLOCK_TIMEZONE, invalid_timezone)
 
     with allure.step('Verify command failure'):
@@ -382,12 +385,14 @@ def test_config_clock_date(duthosts, restore_time, tbinfo):
     # add extra time margin for t2 topo
     is_modular_chassis = duthosts[0].get_facts().get("modular_chassis")
     time_margin = ClockConsts.TIME_MARGIN_MODULAR if is_modular_chassis else ClockConsts.TIME_MARGIN
+    refresh_recovery = restore_time
     with allure.step('Select valid date and time to set'):
         new_date = dt.datetime.today() + dt.timedelta(days=1)
         new_time = ClockUtils.select_random_time()
         new_datetime = new_date.strftime('%Y-%m-%d') + ' ' + new_time
 
     with allure.step(f'Set new date and time "{new_datetime}"'):
+        refresh_recovery()
         output = ClockUtils.run_cmd(duthosts, ClockConsts.CMD_CONFIG_CLOCK_DATE, new_datetime)
 
     with allure.step('Verify command success'):
@@ -421,6 +426,7 @@ def test_config_clock_date(duthosts, restore_time, tbinfo):
 
         for invalid_input, err_msg in errors.items():
             logging.info(f'Invalid input: "{invalid_input}"\nExpected error:\n{err_msg}')
+            refresh_recovery()
 
             with allure.step('Get show clock output before running the config command'):
                 show_clock_output_before = ClockUtils.run_cmd(duthosts, ClockConsts.CMD_SHOW_CLOCK)

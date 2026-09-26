@@ -1,5 +1,6 @@
 import json
 import shlex
+import time
 import uuid
 from contextlib import contextmanager
 
@@ -26,6 +27,7 @@ CLOCK_RECOVERY_LOCK_TIMEOUT = 30
 CLOCK_OFFSET_TOLERANCE = 5
 CLOCK_SOURCE_MAX_OFFSET = 60
 CLOCK_PTF_RECOVERY_TIMEOUT = 3600
+CLOCK_POST_RESTORE_SETTLE_TIME = 20
 
 
 def pytest_addoption(parser):
@@ -462,8 +464,11 @@ def init_timezone(duthosts):
     recovery = _install_timezone_recovery(duthost, original_timezone)
     recovery_verified = False
 
-    try:
+    def refresh_recovery():
         _arm_recovery(duthost, recovery)
+
+    try:
+        refresh_recovery()
         logging.info(f'Set timezone to {ClockConsts.TEST_TIMEZONE} before test')
         ClockUtils.run_cmd(
             duthosts,
@@ -481,8 +486,8 @@ def init_timezone(duthosts):
             )
         ), f'Timezone did not change to "{ClockConsts.TEST_TIMEZONE}"'
 
-        _arm_recovery(duthost, recovery)
-        yield
+        refresh_recovery()
+        yield refresh_recovery
     finally:
         try:
             try:
@@ -530,8 +535,12 @@ def restore_time(request, duthosts, ptfhost):
             original_service_active
         )
         recovery_armed = False
-        try:
+
+        def refresh_recovery():
             _arm_recovery(duthost, recovery)
+
+        try:
+            refresh_recovery()
             recovery_armed = True
 
             # Prove the exact recovery command before any date mutation.
@@ -547,10 +556,10 @@ def restore_time(request, duthosts, ptfhost):
                 original_service_enabled
             )
 
-            _arm_recovery(duthost, recovery)
+            refresh_recovery()
             duthost.service(name=service_name, state="stopped")
 
-            yield
+            yield refresh_recovery
         finally:
             recovery_verified = False
             try:
@@ -571,6 +580,7 @@ def restore_time(request, duthosts, ptfhost):
                     original_service_active,
                     original_service_enabled
                 )
+                time.sleep(CLOCK_POST_RESTORE_SETTLE_TIME)
                 recovery_verified = True
             finally:
                 if recovery_verified:

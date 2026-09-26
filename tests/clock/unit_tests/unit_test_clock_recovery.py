@@ -55,11 +55,13 @@ def _clock_namespace(*function_names):
         "CLOCK_RECOVERY_RETRY_INTERVAL": 60,
         "CLOCK_RECOVERY_LOCK_TIMEOUT": 30,
         "CLOCK_PTF_RECOVERY_TIMEOUT": 3600,
+        "CLOCK_POST_RESTORE_SETTLE_TIME": 20,
         "contextmanager": contextmanager,
         "json": json,
         "logging": Mock(),
         "pytest": pytest,
         "shlex": shlex,
+        "time": Mock(),
         "uuid": uuid,
         "RunAnsibleModuleFail": RuntimeError,
     }
@@ -210,6 +212,42 @@ def test_recovery_is_armed_before_preflight_or_timezone_mutation():
     first_timezone_call = min(timezone_calls, key=lambda call: call[1])
     assert first_restore_call[0] == "_arm_recovery"
     assert first_timezone_call[0] == "_arm_recovery"
+
+
+def test_fixtures_yield_recovery_refresh_callbacks():
+    restore_time = ast.unparse(_function_node(CONFTEST_PATH, "restore_time"))
+    init_timezone = ast.unparse(_function_node(CONFTEST_PATH, "init_timezone"))
+
+    assert "yield refresh_recovery" in restore_time
+    assert "yield refresh_recovery" in init_timezone
+
+
+def test_clock_tests_refresh_recovery_during_mutations():
+    tree = ast.parse((CLOCK_DIR / "test_clock.py").read_text())
+    tests = {
+        node.name: node
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef)
+    }
+
+    timezone_test = ast.unparse(tests["test_config_clock_timezone"])
+    date_test = ast.unparse(tests["test_config_clock_date"])
+
+    assert timezone_test.count("refresh_recovery()") >= 2
+    assert date_test.count("refresh_recovery()") >= 2
+
+
+def test_clock_recovery_waits_for_post_restore_errors_to_settle():
+    restore_time = ast.unparse(_function_node(CONFTEST_PATH, "restore_time"))
+
+    verify_index = restore_time.rindex("_verify_clock_restoration")
+    settle_index = restore_time.index(
+        "time.sleep(CLOCK_POST_RESTORE_SETTLE_TIME)",
+        verify_index
+    )
+    success_index = restore_time.index("recovery_verified = True", settle_index)
+
+    assert verify_index < settle_index < success_index
 
 
 def test_timezone_recovery_restores_config_db_and_system_timezone():
