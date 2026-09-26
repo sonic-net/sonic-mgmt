@@ -116,6 +116,12 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list,
     if dut.is_supervisor_node():
         logging.info("skipping interfaces related check for supervisor")
     else:
+        # Only check administratively up ports. Admin-down ports in conn_graph/minigraph
+        # are expected to stay down and should not fail interface status checks.
+        admin_up_ports = set(dut.get_admin_up_ports())
+        interfaces = {k: v for k, v in interfaces.items() if k in admin_up_ports}
+        logging.info("Admin-up interfaces to check: %s", list(interfaces))
+
         logging.info("Wait {} seconds for all the transceivers to be detected".format(
             interfaces_wait_time))
         result = wait_until(interfaces_wait_time, 20, 0, check_all_interface_information, dut, interfaces,

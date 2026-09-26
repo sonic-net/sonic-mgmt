@@ -46,6 +46,10 @@ def restart_service_and_check(localhost, dut, enum_frontend_asic_index, service,
     """
     Restart specified service and check platform status
     """
+    admin_up_ports = set(dut.get_admin_up_ports())
+    interfaces = {k: v for k, v in interfaces.items() if k in admin_up_ports}
+    logging.info("Admin-up interfaces to check: %s", list(interfaces))
+
     logging.info("Restart the %s service on asic %s" % (service, enum_frontend_asic_index))
 
     asichost = dut.asic_instance(enum_frontend_asic_index)
