@@ -462,7 +462,7 @@ class TestSfpApi(PlatformApiTestBase):
         except Exception as e:
             logger.error("Failed to shutdown interfaces: {}".format(e))
 
-        shutdown_wait_scale_factor = max(1, len(intf_list)*0.01)
+        shutdown_wait_scale_factor = max(1, len(intf_list)*0.1)
         time.sleep(WAIT_TIME_AFTER_INTF_SHUTDOWN*shutdown_wait_scale_factor)
         try:
             if duthost.is_multi_asic:
