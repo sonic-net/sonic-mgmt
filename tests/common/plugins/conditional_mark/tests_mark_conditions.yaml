@@ -1281,9 +1281,9 @@ dhcp_relay/test_dhcpv4_relay.py:
 
 dhcp_relay/test_dhcpv4_relay.py::test_dhcp_relay_option82_suboptions[server_id_override-sonic-relay-agent]:
   skip:
-    reason: "Test skipped: We are skipping this testcase for now"
+    reason: "Test skipped: We are skipping this testcase for now. Test supported only on marvell-teralynx"
     conditions:
-      - "True"
+      - "asic_type not in ['marvell-teralynx']"
 
 dhcp_relay/test_dhcpv6_relay.py:
   skip:
