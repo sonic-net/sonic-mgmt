@@ -1,5 +1,6 @@
 import logging
 import random
+import shlex
 import statistics
 import datetime
 import pandas as pd
@@ -202,6 +203,107 @@ def success_criteria_by_syslog(request, test_result, **kwargs):
     return syslog_checker
 
 
+DEFAULT_SYSLOG_PATH = "/var/log/syslog"
+SYSLOG_BOUNDARY_LOST = "__PERFORMANCE_METER_SYSLOG_BOUNDARY_LOST__"
+
+
+def _read_syslog_position(duthost, syslog_path):
+    """Inode and byte length of syslog, so later reads can skip what is already there."""
+    stat = duthost.shell("stat -c '%i %s' {}".format(shlex.quote(syslog_path)))["stdout"]
+    inode, size = stat.split()
+    return int(inode), int(size)
+
+
+def _appended_lines_command(syslog_path, inode, size, marks):
+    """Read marker lines after a captured byte boundary, following one rotation."""
+    path = shlex.quote(syslog_path)
+    rotated = shlex.quote(syslog_path + ".1")
+    patterns = marks + [SYSLOG_BOUNDARY_LOST]
+    grep_args = " ".join("-e {}".format(shlex.quote(pattern)) for pattern in patterns)
+
+    return (
+        'current_inode="$(stat -c %i {path} 2>/dev/null || true)"; '
+        'current_size="$(stat -c %s {path} 2>/dev/null || echo 0)"; '
+        'rotated_inode="$(stat -c %i {rotated} 2>/dev/null || true)"; '
+        'if [ "$current_inode" = "{inode}" ] && [ "$current_size" -ge "{size}" ]; then '
+        'tail -c +{offset} {path}; '
+        'elif [ "$rotated_inode" = "{inode}" ]; then '
+        'tail -c +{offset} {rotated}; cat {path}; '
+        'else printf "%s\\n" {boundary}; '
+        '[ ! -f {rotated} ] || cat {rotated}; cat {path}; fi '
+        '| grep -F {grep_args} | grep -v ansible || true'
+    ).format(
+        path=path,
+        rotated=rotated,
+        inode=inode,
+        size=size,
+        offset=size + 1,
+        boundary=shlex.quote(SYSLOG_BOUNDARY_LOST),
+        grep_args=grep_args,
+    )
+
+
+def _marker_timestamps(duthost, output, mark):
+    """Return parseable timestamps for a marker in log order."""
+    timestamps = []
+    for line in output.splitlines():
+        if mark not in line:
+            continue
+        try:
+            timestamp = _extract_timestamp(duthost, line)
+        except ValueError:
+            logging.debug("Skipping unparsable syslog line %s", line)
+            continue
+        timestamps.append(timestamp)
+    return timestamps
+
+
+def success_criteria_by_bounded_syslog(request, test_result, **kwargs):
+    """Use the existing marker semantics while avoiding full-log polling."""
+    duthost = request.getfixturevalue("duthost")
+    start_mark = kwargs["syslog_start_mark"]
+    end_mark = kwargs["syslog_end_mark"]
+    result_variable = kwargs["result_variable"]
+    syslog_path = DEFAULT_SYSLOG_PATH
+    inode, size = _read_syslog_position(duthost, syslog_path)
+    command = _appended_lines_command(syslog_path, inode, size, [start_mark, end_mark])
+    syslog_start = None
+    boundary_lost = False
+
+    @suppress_exception
+    def syslog_checker():
+        nonlocal syslog_start, boundary_lost
+        output = duthost.shell(command)["stdout"]
+        if SYSLOG_BOUNDARY_LOST in output:
+            boundary_lost = True
+            test_result[result_variable + "_error"] = "syslog boundary lost during measurement"
+
+        if boundary_lost:
+            return False
+
+        if syslog_start is None:
+            starts = _marker_timestamps(duthost, output, start_mark)
+            if starts:
+                # Match the existing `grep ... | tail -n 1` behavior on the first
+                # poll that observes a start marker.
+                syslog_start = starts[-1]
+
+        if syslog_start is None:
+            return False
+
+        ends = [
+            timestamp
+            for timestamp in _marker_timestamps(duthost, output, end_mark)
+            if timestamp > syslog_start
+        ]
+        if not ends:
+            return False
+
+        test_result[result_variable] = (ends[-1] - syslog_start).seconds
+        return True
+    return syslog_checker
+
+
 def swss_up(request, test_result, **kwargs):
     swss_start_cmd = "show logging | grep 'docker cmd: start for swss' | grep -v ansible | tail -n 1"
     swss_end_cmd = "show logging | grep 'Feature swss is enabled and started' | grep -v ansible | tail -n 1"
@@ -213,8 +315,14 @@ def swss_up(request, test_result, **kwargs):
 
 def swss_create_switch(request, test_result, **kwargs):
     start_mark = "create: request switch create with context 0"
-    start_cmd = "show logging | grep '{}' | grep -v ansible | tail -n 1".format(start_mark)
+    if kwargs.get("log_read_mode") == "bounded":
+        extra_vars = {"syslog_start_mark": start_mark,
+                      "syslog_end_mark": "main: Create a switch, id:",
+                      "result_variable": "swss_create_switch_start_time"}
+        return success_criteria_by_bounded_syslog(request, test_result, **{**kwargs, **extra_vars})
+
     end_mark = "main: Create a switch, id:"
+    start_cmd = "show logging | grep '{}' | grep -v ansible | tail -n 1".format(start_mark)
     end_cmd = "show logging | grep '{}' | grep -v ansible | tail -n 1".format(end_mark)
     extra_vars = {"syslog_start_cmd": start_cmd,
                   "syslog_end_cmd": end_cmd,
