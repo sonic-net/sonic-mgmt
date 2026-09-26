@@ -1,5 +1,6 @@
 import datetime
 import ipaddress
+import json
 import sys
 import random
 import pytest
@@ -12,6 +13,7 @@ from tests.common import constants
 from tests.common import config_reload
 from tests.common.cisco_data import is_cisco_device
 from tests.common.devices.eos import EosHost
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.mellanox_data import is_mellanox_device
 
 # If the version of the Python interpreter is greater or equal to 3, set the unicode variable to the str class.
@@ -32,6 +34,7 @@ PFCWD_DEFAULT_RESTORE_TIME = 200
 PFCWD_DEFAULT_POLL_INTERVAL = 200
 PFCWD_DEFAULT_PORT_NUM = 32
 PFCWD_MAX_POLL_INTERVAL = 1000
+BACKGROUND_TRAFFIC_PORT_MAP = '/root/pfc_wd_background_traffic_port_map.json'
 
 logger = logging.getLogger(__name__)
 
@@ -572,6 +575,7 @@ def send_background_traffic(duthost, ptfhost, storm_hndle, selected_test_ports, 
                                                                        selected_test_ports,
                                                                        test_ports_info,
                                                                        pkt_count)
+        _create_ptf_test_port_map(duthost, ptfhost, selected_test_ports, test_ports_info)
         background_traffic_log = _send_background_traffic(ptfhost, background_traffic_params)
         # Ensure the background traffic is running before moving on
         time.sleep(1)
@@ -581,6 +585,9 @@ def send_background_traffic(duthost, ptfhost, storm_hndle, selected_test_ports, 
 
 
 def _prepare_background_traffic_params(duthost, queues, selected_test_ports, test_ports_info, pkt_count):
+    pytest_assert(selected_test_ports,
+                  "No DUT port was selected for PFC watchdog background traffic: the fanout "
+                  "to DUT port mapping yielded no port present in setup_pfc_test['test_ports']")
     src_ports = []
     dst_ports = []
     src_ips = []
@@ -595,9 +602,9 @@ def _prepare_background_traffic_params(duthost, queues, selected_test_ports, tes
         dst_ips.append(selected_test_port_info["test_neighbor_addr"])
         src_ips.append(selected_test_port_info["rx_neighbor_addr"])
 
-    router_mac = duthost.get_dut_iface_mac(selected_test_ports[0])
-
-    ptf_params = {'router_mac': router_mac,
+    fallback_rx_port = test_ports_info[selected_test_ports[0]]["rx_port"][0]
+    ptf_params = {'ptf_test_port_map': BACKGROUND_TRAFFIC_PORT_MAP,
+                  'router_mac': duthost.get_dut_iface_mac(fallback_rx_port),
                   'src_ports': src_ports,
                   'dst_ports': dst_ports,
                   'src_ips': src_ips,
@@ -607,6 +614,20 @@ def _prepare_background_traffic_params(duthost, queues, selected_test_ports, tes
                   'pkt_count': pkt_count}
 
     return ptf_params
+
+
+def _create_ptf_test_port_map(duthost, ptfhost, selected_test_ports, test_ports_info):
+    ports_map = {}
+    for selected_test_port in selected_test_ports:
+        selected_test_port_info = test_ports_info[selected_test_port]
+        rx_port_id = selected_test_port_info["rx_port_id"]
+        if type(rx_port_id) == list:
+            rx_port_id = rx_port_id[0]
+        ports_map[str(rx_port_id)] = {
+            'target_dest_mac': duthost.get_dut_iface_mac(selected_test_port_info["rx_port"][0])
+        }
+
+    ptfhost.copy(content=json.dumps(ports_map), dest=BACKGROUND_TRAFFIC_PORT_MAP)
 
 
 def _send_background_traffic(ptfhost, ptf_params):
