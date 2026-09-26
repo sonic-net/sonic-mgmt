@@ -1,0 +1,26 @@
+[
+    {
+        "op": "add",
+        "path": "/ACL_RULE",
+        "value": {
+            "DYNAMIC_ACL_TABLE|NDP_RS_RULE": {
+                "IP_PROTOCOL": "58",
+                "ICMPV6_TYPE": "133",
+                "PRIORITY": "900",
+                "PACKET_ACTION": "FORWARD"
+            },
+            "DYNAMIC_ACL_TABLE|NDP_NS_RULE": {
+                "IP_PROTOCOL": "58",
+                "ICMPV6_TYPE": "135",
+                "PRIORITY": "899",
+                "PACKET_ACTION": "FORWARD"
+            },
+            "DYNAMIC_ACL_TABLE|NDP_NA_RULE": {
+                "IP_PROTOCOL": "58",
+                "ICMPV6_TYPE": "136",
+                "PRIORITY": "898",
+                "PACKET_ACTION": "FORWARD"
+            }
+        }
+    }
+]
