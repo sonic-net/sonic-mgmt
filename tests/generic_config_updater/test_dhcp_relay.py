@@ -2,12 +2,13 @@ import logging
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
 from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_orig, \
-    utils_vlan_intfs_dict_add, utils_create_test_vlans      # noqa: F401
+    utils_vlan_intfs_dict_add  # noqa: F401
 from tests.common.gu_utils import apply_patch, expect_op_success, expect_res_success, expect_op_failure
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.common.gu_utils import format_json_patch_for_multiasic
-from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload, rollback
+from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback
 from tests.common.dhcp_relay_utils import restart_dhcp_service, wait_dhcp_relay_ready
 
 
@@ -70,8 +71,51 @@ def create_test_vlans(duthost, cfg_facts, vlan_intfs_dict, first_avai_vlan_port)
         'pvid': 0
     }]
 
-    utils_create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict, delete_untagged_vlan=False)
+    l2_cmds = []
+    for vid, ent in list(vlan_intfs_dict.items()):
+        if ent['orig']:
+            continue
+        l2_cmds.append('config vlan add {}'.format(vid))
+
+    for vlan_port in vlan_ports_list:
+        for permit_vlanid in vlan_port['permit_vlanid']:
+            if vlan_intfs_dict[int(permit_vlanid)]['orig']:
+                continue
+            l2_cmds.append('config vlan member add {tagged} {id} {port}'.format(
+                tagged=('--untagged' if vlan_port['pvid'] == permit_vlanid else ''),
+                id=permit_vlanid,
+                port=vlan_port['dev']
+            ))
+
+    duthost.shell_cmds(cmds=l2_cmds)
+
+    # Assign SVI IPs one VLAN at a time (L2 before L3) and wait for each RIF/route
+    # so RouteOrch does not attempt connected routes before IntfOrch creates the RIF.
+    for vid, ent in list(vlan_intfs_dict.items()):
+        if ent['orig']:
+            continue
+        duthost.shell('config interface ip add Vlan{} {}'.format(vid, ent['ip'].upper()))
+        _wait_for_vlan_rif_and_route(duthost, vid, ent['ip'])
+
     logger.info("CREATE TEST VLANS DONE")
+
+
+def _wait_for_vlan_rif_and_route(duthost, vlan_id, ip):
+    """Wait until VLAN connected route is programmed in ASIC_DB."""
+    import ipaddress
+    intf = ipaddress.ip_interface(ip)
+    network = str(intf.network.network_address) + '/' + str(intf.network.prefixlen)
+    vlan_name = 'Vlan{}'.format(vlan_id)
+
+    def _check_ready():
+        route_cmd = 'sonic-db-cli ASIC_DB keys "ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY:*{}*"'.format(network)
+        result = duthost.shell(route_cmd, module_ignore_errors=True)
+        return bool(result['stdout'].strip())
+
+    pytest_assert(
+        wait_until(30, 2, 0, _check_ready),
+        "VLAN {} connected route {} not programmed in ASIC_DB within timeout".format(vlan_name, network)
+    )
 
 
 def default_setup(duthost, vlan_intfs_list):
@@ -130,14 +174,49 @@ def get_dhcp_relay_info_from_all_vlans(duthost):
     return dhcp_server_info['stdout']
 
 
-@pytest.fixture(autouse=True)
-def setup_vlan(duthosts, rand_one_dut_hostname, vlan_intfs_dict, first_avai_vlan_port, cfg_facts, vlan_intfs_list):
+def _delete_lab_vlans_cli(duthost, vlan_port, vlan_intfs_dict):
+    """Drop lab VLANs in dependency order (replaces second ``config rollback``).
+    Logs showed teardown ERR ``swss#orchagent: :- removeVlan: Failed to remove ref count 1 VLAN Vlan108``
+    when using bulk rollback: VLAN removal can run before SVI teardown. CLI ordering avoids that.
+    """
+    cmds = []
+    for vid, ent in vlan_intfs_dict.items():
+        if ent['orig']:
+            continue
+        cmds.append('config vlan member del {} {}'.format(vid, vlan_port))
+        cmds.append('config interface ip remove Vlan{} {}'.format(vid, ent['ip'].upper()))
+        cmds.append('config vlan del {}'.format(vid))
+    if cmds:
+        duthost.shell_cmds(cmds=cmds)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def lab_vlan_setup(duthosts, rand_one_dut_hostname, vlan_intfs_dict, first_avai_vlan_port, cfg_facts):
+    """Create lab VLANs once for the module, outside per-test loganalyzer markers."""
     duthost = duthosts[rand_one_dut_hostname]
     create_checkpoint(duthost)
 
     # --------------------- Setup -----------------------
     create_test_vlans(duthost, cfg_facts, vlan_intfs_dict, first_avai_vlan_port)
 
+    yield
+
+    try:
+        logger.info("Removing lab VLANs via CLI (member, IP, vlan)")
+        _delete_lab_vlans_cli(duthost, first_avai_vlan_port, vlan_intfs_dict)
+    finally:
+        output = rollback(duthost)
+        pytest_assert(
+            not output['rc'] and "Config rolled back successfull" in output['stdout'],
+            "Module teardown rollback to pre-lab checkpoint failed."
+        )
+        delete_checkpoint(duthost)
+
+
+@pytest.fixture(autouse=True)
+def setup_vlan(duthosts, rand_one_dut_hostname, vlan_intfs_list):
+    """Per-test DHCP baseline via checkpoint; VLANs are module-scoped in lab_vlan_setup."""
+    duthost = duthosts[rand_one_dut_hostname]
     default_setup(duthost, vlan_intfs_list)
 
     dhcp_relay_info_before_test = get_dhcp_relay_info_from_all_vlans(duthost)
@@ -146,8 +225,6 @@ def setup_vlan(duthosts, rand_one_dut_hostname, vlan_intfs_dict, first_avai_vlan
     yield
 
     # --------------------- Teardown -----------------------
-    # Rollback twice. First rollback to checkpoint just before 'yield'
-    # Second rollback is to back to original setup
     try:
         output = rollback(duthost, SETUP_ENV_CP)
         pytest_assert(
@@ -160,12 +237,8 @@ def setup_vlan(duthosts, rand_one_dut_hostname, vlan_intfs_dict, first_avai_vlan
             dhcp_relay_info_before_test == dhcp_relay_info_after_test,
             "dhcp relay info should be the same after rollback"
         )
-
-        logger.info("Rolled back to original checkpoint")
-        rollback_or_reload(duthost)
     finally:
         delete_checkpoint(duthost, SETUP_ENV_CP)
-        delete_checkpoint(duthost)
 
 
 @pytest.fixture(scope="module")
