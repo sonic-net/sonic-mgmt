@@ -2,6 +2,7 @@
 
 import logging
 import shlex
+import time
 
 from contextlib import contextmanager
 
@@ -28,6 +29,26 @@ BMC_INITIATED_REBOOT_CAUSES = (
     CAUSE_GRACEFUL_SHUTDOWN_FROM_BMC,
     CAUSE_POWER_LOSS,
 )
+
+MAX_BMC_CLOCK_SKEW_SECONDS = 60
+
+
+def assert_bmc_clock_in_sync(duthost, max_skew_seconds=MAX_BMC_CLOCK_SKEW_SECONDS):
+    """Fail if the BMC and sonic-mgmt container clocks are too far apart."""
+    container_now = int(time.time())
+    bmc_now = int(duthost.shell("date -u +%s")["stdout"].strip())
+    skew = container_now - bmc_now
+
+    pytest_assert(
+        abs(skew) <= max_skew_seconds,
+        "BMC clock is {}s {} sonic-mgmt container ({} vs {}). "
+        "Synchronize the clocks before running BMC tests.".format(
+            abs(skew),
+            "behind" if skew > 0 else "ahead of",
+            time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(container_now)),
+            time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(bmc_now)),
+        ),
+    )
 
 
 # --- pmon daemon helpers ---------------------------------------------------

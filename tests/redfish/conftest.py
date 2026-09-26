@@ -3,11 +3,11 @@ import logging
 import os
 import subprocess
 import textwrap
-import time
 
 import pytest
 
 from tests.common.helpers.assertions import pytest_require as pyrequire
+from tests.common.platform.bmc_utils import assert_bmc_clock_in_sync
 from tests.common.utilities import wait_until
 from tests.redfish.redfish_utils import BMC_TEST_CA_NAME, RedfishClient
 
@@ -230,26 +230,14 @@ def _generate_certs(cert_dir, bmc_ip, client_cn):
 
 @pytest.fixture(scope="session")
 def bmc_clock_in_sync(bmc_duthost):
-    """Skip cert tests early if BMC clock is skewed beyond the cert NotBefore window.
+    """Fail cert tests early if BMC clock is skewed beyond the cert NotBefore window.
 
     Generated certs use the sonic-mgmt container's current time as NotBefore.
     If the BMC is behind that time, bmcweb sees the cert as not-yet-valid and
     fails the TLS handshake with SSLV3_ALERT_BAD_CERTIFICATE — surfacing as an
     opaque "bad certificate" error far from the actual cause.
     """
-    container_now = int(time.time())
-    bmc_now = int(bmc_duthost.shell("date -u +%s")["stdout"].strip())
-    skew = container_now - bmc_now
-    pyrequire(
-        abs(skew) <= 60,
-        "BMC clock is {}s {} sonic-mgmt container ({} vs {}). "
-        "Sync clocks before running cert tests.".format(
-            abs(skew),
-            "behind" if skew > 0 else "ahead of",
-            time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(container_now)),
-            time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(bmc_now)),
-        ),
-    )
+    assert_bmc_clock_in_sync(bmc_duthost)
 
 
 @pytest.fixture(scope="session")
