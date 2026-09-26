@@ -5789,6 +5789,15 @@ upgrade_path/test_warmboot_data_consistency.py::test_warmboot_data_consistency:
       - "release in ['202605'] and https://github.com/sonic-net/sonic-mgmt/issues/27541"
 
 #######################################
+#####        upgrade_path         #####
+#######################################
+upgrade_path/test_upgrade_path.py::test_warm_upgrade_sad_path:
+  xfail:
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/13627
+      - "neighbor_type!='eos'"
+
+#######################################
 #####            vlan             #####
 #######################################
 
