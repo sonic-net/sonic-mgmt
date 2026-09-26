@@ -1306,6 +1306,24 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                 logger.info("--- Stop PFCWD ---")
                 self.dut.command("pfcwd stop")
 
+    def _assert_storm_detected(self, dut, port, queue, action):
+        """Fail naming the real condition when pfcwd never reports the storm."""
+        pytest_assert(
+            wait_until(30, 2, 5, verify_pfc_storm_in_expected_state, dut, port, queue, "storm"),
+            "PFC storm not detected on port {} queue {} within 30s (pfcwd action '{}')".format(
+                port, queue, action))
+
+    @staticmethod
+    def _pfcwd_counter(snap, port, queue, counter):
+        """Read one 'show pfcwd stats' counter, failing clearly when the row is absent.
+
+        The CLI omits all-zero rows, so an empty parse means pfcwd recorded nothing for
+        this queue. Indexing straight into it surfaces an opaque IndexError instead.
+        """
+        pytest_assert(snap, "No 'show pfcwd stats' entry for port {} queue {} - pfcwd recorded "
+                            "no counters for this queue".format(port, queue))
+        return int(snap[0][counter])
+
     def run_pfcwd_storm_with_active_traffic(self, dut, port, action):
         restore_time = self.timers['pfc_wd_restore_time_large']
         # Hardware PFCwd platforms (e.g., Broadcom DNX) cap pfcwd
@@ -1322,22 +1340,16 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             time.sleep(2)
             self.storm_hndle.start_storm()
             # Wait for storm detection
-            pytest_assert(
-                wait_until(30, 2, 5, verify_pfc_storm_in_expected_state,
-                           dut, port, queue, "storm"),
-                "PFC storm was not detected on port {} queue {}".format(port, queue))
-            # Ensure storm is active → wait full polling window → snap
+            self._assert_storm_detected(dut, port, queue, action)
+            # Ensure storm is active -> wait full polling window -> snap
             time.sleep(PFCWD_POLL_WINDOW_SEC)
-            wait_until(30, 2, 5, verify_pfc_storm_in_expected_state,
-                       dut, port, queue, "storm")
+            self._assert_storm_detected(dut, port, queue, action)
             snap1 = parser_show_pfcwd_stat(dut, port, queue)
 
-            # Again: confirm storm → wait poll window → snap
-            wait_until(30, 2, 5, verify_pfc_storm_in_expected_state,
-                       dut, port, queue, "storm")
+            # Again: confirm storm -> wait poll window -> snap
+            self._assert_storm_detected(dut, port, queue, action)
             time.sleep(PFCWD_POLL_WINDOW_SEC)
-            wait_until(30, 2, 5, verify_pfc_storm_in_expected_state,
-                       dut, port, queue, "storm")
+            self._assert_storm_detected(dut, port, queue, action)
             snap2 = parser_show_pfcwd_stat(dut, port, queue)
 
             if dut.facts['asic_type'] != 'vs':
@@ -1350,10 +1362,10 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                     counter = 'storm_detect_count'
                 else:
                     counter = 'tx_drop_count' if action == 'drop' else 'tx_ok_count'
-                val1 = int(snap1[0][counter])
-                val2 = int(snap2[0][counter])
+                val1 = self._pfcwd_counter(snap1, port, queue, counter)
+                val2 = self._pfcwd_counter(snap2, port, queue, counter)
                 logger.info("PFCWD storm traffic check: port={} queue={} counter={} snap1={} snap2={}".format(
-                            port, queue, counter, val1, val2))
+                    port, queue, counter, val1, val2))
                 pytest_assert(val1 > 0, "{} not incrementing after storm on port {} queue {}".format(
                     counter, port, queue))
                 pytest_assert(val2 >= val1, "{} regressed during storm on port {} queue {}".format(
@@ -1362,10 +1374,12 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         finally:
             self.ptf.shell("pkill -f 'pfc_wd.PfcWdTest'", module_ignore_errors=True)
             self.storm_hndle.stop_storm()
-            pytest_assert(
-                wait_until(30, 2, 5, verify_pfc_storm_in_expected_state,
-                           dut, port, queue, "restored"),
-                "PFC storm was not restored on port {} queue {}".format(port, queue))
+            # Warn rather than assert: raising here would mask any exception already
+            # propagating out of the try block above.
+            if not wait_until(30, 2, 5, verify_pfc_storm_in_expected_state,
+                              dut, port, queue, "restored"):
+                logger.warning("PFC storm on port %s queue %s did not restore within 30s "
+                               "after pfcwd action '%s'", port, queue, action)
 
     def test_pfcwd_storm_during_traffic(self, request, setup_pfc_test, manage_lag_config,    # noqa: F811
                                         setup_dut_test_params, enum_fanout_graph_facts, ptfhost,  # noqa: F811
