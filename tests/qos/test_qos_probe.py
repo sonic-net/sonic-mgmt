@@ -967,6 +967,12 @@ class TestQosProbe(QosSaiBase):
             # use all available test ports directly
             probing_port_ids = src_testPortIds
 
+        # dst port belongs at the end of the list, if src and dst are the same then move it, otherwise add it
+        dst_port_id = qosConfig["hdrm_pool_size"]["dst_port_id"]
+        if src_dut_index == dst_dut_index and src_asic_index == dst_asic_index:
+            probing_port_ids = [port for port in probing_port_ids if port != dst_port_id]
+        probing_port_ids = probing_port_ids + [dst_port_id]
+
         logger.info(
             f"probing_port_ids {probing_port_ids},\n"
             f"sonic_asic_type {sonic_asic_type},\n"

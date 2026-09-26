@@ -65,9 +65,10 @@ class ProbeConfig(NamedTuple):
     Subclasses must implement get_probe_config() to return this.
     This ensures consistent parameter naming across all probes.
     """
-    probing_port_ids: List[int]  # Port IDs to probe
-    thrift_client: object        # dst_client or src_client
-    asic_type: str               # ASIC type string
+    src_port_ids: List[int]  # Source port IDs
+    dst_port_ids: List[int]  # Destination port IDs controlled during probing
+    thrift_client: object    # Client for the destination ASIC
+    asic_type: str           # ASIC type string
 
 
 class ProbingBase(sai_base_test.ThriftInterfaceDataPlane):
@@ -178,7 +179,7 @@ class ProbingBase(sai_base_test.ThriftInterfaceDataPlane):
 
         Steps:
         1. Get standardized config from subclass
-        2. Enable TX on all probing ports
+        2. Enable TX on destination ports
         3. Setup traffic streams (subclass)
         4. Initialize BufferOccupancyController
         5. Execute probing logic (subclass)
@@ -192,10 +193,10 @@ class ProbingBase(sai_base_test.ThriftInterfaceDataPlane):
         # Step 1: Get config from subclass (ensures standardized param names)
         config = self.get_probe_config()
 
-        # Step 2: Enable TX on all probing ports
+        # Step 2: Ensure destination TX is enabled before probing
         self.sai_thrift_port_tx_enable(
             config.thrift_client, config.asic_type,
-            config.probing_port_ids, last_port=False
+            config.dst_port_ids, last_port=True
         )
 
         # Step 3: Setup traffic streams (abstract method)
@@ -226,8 +227,9 @@ class ProbingBase(sai_base_test.ThriftInterfaceDataPlane):
         Abstract method: Return standardized probe configuration.
 
         Must return ProbeConfig with:
-        - probing_port_ids: List of port IDs to probe
-        - thrift_client: self.dst_client or self.src_client
+        - src_port_ids: List of source port IDs
+        - dst_port_ids: List of destination port IDs
+        - thrift_client: self.dst_client
         - asic_type: self.asic_type
 
         Raises:
