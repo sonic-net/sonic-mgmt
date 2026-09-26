@@ -62,16 +62,30 @@ class TrafficPorts(object):
         self.config_facts = config_facts
         self.ip_version = ip_version
 
+    def _l3_addr_count(self, mg_facts_key):
+        """Number of entries under mg_facts_key carrying an address of self.ip_version"""
+        return sum(1 for item in self.mg_facts.get(mg_facts_key) or []
+                   if ipaddress.ip_address(str(item['addr'])).version == self.ip_version)
+
     def build_port_list(self):
         """
         Generate a list of ports to be used for the test
 
         For T0 topology, the port list is built parsing the portchannel and vlan info and for T1,
         port list is constructed from the interface info
+
+        Both parse_intf_list() and parse_pc_list() spend their first entry on the Rx port and
+        only emit test ports from the second entry on, so a source with a single entry of the
+        tested address family yields no test ports at all. All-LAG topologies (t2_single_node_min
+        and similar, where every neighbour but one is reached over a Port-Channel) leave too few
+        bare routed interfaces, so pick whichever source can actually form a pair instead of
+        preferring minigraph_interfaces unconditionally.
         """
-        if self.mg_facts['minigraph_interfaces']:
+        routed_intfs = self._l3_addr_count('minigraph_interfaces')
+        portchannel_intfs = self._l3_addr_count('minigraph_portchannel_interfaces')
+        if routed_intfs > 1:
             self.parse_intf_list()
-        elif self.mg_facts['minigraph_portchannels']:
+        elif portchannel_intfs > 1:
             self.parse_pc_list()
         elif 'minigraph_vlan_sub_interfaces' in self.mg_facts:
             self.parse_vlan_sub_interface_list()
@@ -398,7 +412,7 @@ def select_test_ports(test_ports):
         selected_ports = {p: pi for p, pi in list(selected_ports.items())
                           if p not in rx_ports}
     # if only 1 or 2 ports avail, take only one, as they are eachother's rx ports
-    if not selected_ports:
+    if not selected_ports and test_ports:
         random_port = list(test_ports.keys())[0]
         selected_ports[random_port] = test_ports[random_port]
 
