@@ -22,7 +22,8 @@ from .macsec_config_helper import generate_macsec_profile
 from .macsec_config_helper import setup_macsec_multi_profile_configuration
 from .macsec_config_helper import cleanup_macsec_multi_profile_configuration
 from .macsec_config_helper import enable_macsec_port
-from .macsec_helper import load_all_macsec_info, getns_prefix
+from .macsec_helper import load_all_macsec_info, getns_prefix, purge_ptf_ingress_sas, \
+    prepare_ptf_macsec, MACSEC_INFO
 
 # flake8: noqa: F401
 from tests.common.plugins.sanity_check import sanity_check
@@ -30,6 +31,16 @@ from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
+
+
+def _mka_ok_ports(duthost, ctrl_links):
+    """ctrl_links ports whose STATE_DB MACSEC_PORT_TABLE state is ok."""
+    out = duthost.shell(
+        "for k in $(sonic-db-cli STATE_DB KEYS 'MACSEC_PORT_TABLE|*'); do "
+        "echo \"${k#MACSEC_PORT_TABLE|}=$(sonic-db-cli STATE_DB HGET \"$k\" state)\"; done; true",
+        module_ignore_errors=True).get("stdout", "")
+    ok = {ln.split("=", 1)[0] for ln in out.splitlines() if ln.endswith("=ok")}
+    return [p for p in ctrl_links if p in ok]
 
 class MacsecPlugin(object):
     """
@@ -207,7 +218,7 @@ class MacsecPlugin(object):
         If MACsec is enabled and configured for this DUT/profile, wait for
         MKA establishment (APP/STATE DB populated with SC/SA, including SAK)
         before calling ``load_all_macsec_info``. This avoids races where
-        ``get_macsec_attr`` hits APP_DB before the egress SA row (and ``sak``)
+        ``prepare_ptf_macsec`` hits APP_DB before the egress SA row (and ``sak``)
         has been written by wpa_supplicant.
         """
 
@@ -218,6 +229,29 @@ class MacsecPlugin(object):
                 pass
 
             load_all_macsec_info(macsec_duthost, ctrl_links, tbinfo)
+        yield
+        # A MACsec container restart in this module tears the secure channel
+        # down: PTF ingress SAs lose their ASIC objects but keep their APPL_DB
+        # rows, which the recovery checks would flag as a stale-SAK mismatch and
+        # cleanup would wait on. Re-program ports whose MKA is up (this replaces
+        # their stale rows) so MACSEC_INFO stays valid for later modules; purge
+        # the rest.
+        live = _mka_ok_ports(macsec_duthost, ctrl_links)
+        if live:
+            try:
+                mg_facts = macsec_duthost.get_extended_minigraph_facts(tbinfo)
+                for port in live:
+                    MACSEC_INFO[mg_facts["minigraph_ptf_indices"][port]] = prepare_ptf_macsec(macsec_duthost, port)
+            except Exception:
+                logger.warning("re-programming PTF ingress SAs on %s failed; purging instead",
+                               macsec_duthost.hostname, exc_info=True)
+                live = []
+        stale = [p for p in ctrl_links if p not in live]
+        if stale:
+            try:
+                purge_ptf_ingress_sas(macsec_duthost, stale)
+            except Exception:
+                logger.warning("purging PTF ingress SAs on %s failed", macsec_duthost.hostname, exc_info=True)
 
     @pytest.fixture(scope="module")
     def macsec_nbrhosts(self, ctrl_links):
