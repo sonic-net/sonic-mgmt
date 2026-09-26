@@ -65,8 +65,14 @@ def recover_cert_config(duthost):
     config_reload(duthost)
 
 
-@pytest.fixture(scope="module", autouse=True)
-def setup_gnmi_server_e2e(duthosts, rand_one_dut_hostname, localhost, ptfhost):
+@pytest.fixture(autouse=True)
+def setup_gnmi_server_e2e(request):
+    if "gnmi_tls" not in request.fixturenames:
+        request.getfixturevalue("_legacy_gnmi_server_e2e")
+
+
+@pytest.fixture(scope="module")
+def _legacy_gnmi_server_e2e(duthosts, rand_one_dut_hostname, localhost, ptfhost):
     '''
     Create GNMI client certificates
     '''
