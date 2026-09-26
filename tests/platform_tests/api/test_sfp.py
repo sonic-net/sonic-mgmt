@@ -121,7 +121,8 @@ class TestSfpApi(PlatformApiTestBase):
                                         'media_lane_count',
                                         'cmis_rev',
                                         'media_interface_technology',
-                                        'vdm_supported']
+                                        'vdm_supported',
+                                        'cdb_supported']
 
     EXPECTED_XCVR_NEW_CMIS_FIRMWARE_INFO_KEYS = ['active_firmware',
                                                  'inactive_firmware']
