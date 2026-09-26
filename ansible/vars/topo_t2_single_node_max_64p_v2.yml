@@ -83,162 +83,98 @@ topology:
     ARISTA01LT2:
       vlans:
         - 16
+        - 17
       vm_offset: 16
 
     ARISTA02LT2:
       vlans:
-        - 17
+        - 18
+        - 19
       vm_offset: 17
 
     ARISTA03LT2:
       vlans:
-        - 18
+        - 20
+        - 21
       vm_offset: 18
 
     ARISTA04LT2:
       vlans:
-        - 19
+        - 22
+        - 23
       vm_offset: 19
 
     ARISTA05LT2:
       vlans:
-        - 20
+        - 24
+        - 25
       vm_offset: 20
 
     ARISTA06LT2:
       vlans:
-        - 21
+        - 26
+        - 27
       vm_offset: 21
 
     ARISTA07LT2:
       vlans:
-        - 22
+        - 28
+        - 29
       vm_offset: 22
 
     ARISTA08LT2:
       vlans:
-        - 23
+        - 30
+        - 31
       vm_offset: 23
 
     ARISTA09LT2:
       vlans:
-        - 24
+        - 32
+        - 33
       vm_offset: 24
 
     ARISTA10LT2:
       vlans:
-        - 25
+        - 34
+        - 35
       vm_offset: 25
 
     ARISTA11LT2:
       vlans:
-        - 26
+        - 36
+        - 37
       vm_offset: 26
 
     ARISTA12LT2:
       vlans:
-        - 27
+        - 38
+        - 39
       vm_offset: 27
 
     ARISTA13LT2:
       vlans:
-        - 28
+        - 40
+        - 41
       vm_offset: 28
 
     ARISTA14LT2:
       vlans:
-        - 29
+        - 42
+        - 43
       vm_offset: 29
 
     ARISTA15LT2:
       vlans:
-        - 30
+        - 44
+        - 45
       vm_offset: 30
 
     ARISTA16LT2:
       vlans:
-        - 31
-      vm_offset: 31
-
-    ARISTA17LT2:
-      vlans:
-        - 32
-      vm_offset: 32
-
-    ARISTA18LT2:
-      vlans:
-        - 33
-      vm_offset: 33
-
-    ARISTA19LT2:
-      vlans:
-        - 34
-      vm_offset: 34
-
-    ARISTA20LT2:
-      vlans:
-        - 35
-      vm_offset: 35
-
-    ARISTA21LT2:
-      vlans:
-        - 36
-      vm_offset: 36
-
-    ARISTA22LT2:
-      vlans:
-        - 37
-      vm_offset: 37
-
-    ARISTA23LT2:
-      vlans:
-        - 38
-      vm_offset: 38
-
-    ARISTA24LT2:
-      vlans:
-        - 39
-      vm_offset: 39
-
-    ARISTA25LT2:
-      vlans:
-        - 40
-      vm_offset: 40
-
-    ARISTA26LT2:
-      vlans:
-        - 41
-      vm_offset: 41
-
-    ARISTA27LT2:
-      vlans:
-        - 42
-      vm_offset: 42
-
-    ARISTA28LT2:
-      vlans:
-        - 43
-      vm_offset: 43
-
-    ARISTA29LT2:
-      vlans:
-        - 44
-      vm_offset: 44
-
-    ARISTA30LT2:
-      vlans:
-        - 45
-      vm_offset: 45
-
-    ARISTA31LT2:
-      vlans:
         - 46
-      vm_offset: 46
-
-    ARISTA32LT2:
-      vlans:
         - 47
-      vm_offset: 47
+      vm_offset: 31
 
     ARISTA17T3:
       vlans:
@@ -1130,37 +1066,18 @@ configuration:
       Loopback0:
         ipv4: 100.1.0.65/32
         ipv6: 2064:100::41/128
-      Ethernet1:
+      Port-Channel1:
         ipv4: 10.0.0.129/31
         ipv6: fc00::102/126
+      Ethernet1:
+        lacp: 1
+      Ethernet2:
+        lacp: 1
     bp_interface:
       ipv4: 10.10.246.65/24
       ipv6: fc0a::42/64
 
   ARISTA02LT2:
-    properties:
-    - common
-    - leaf
-    bgp:
-      asn: 65300
-      confed_asn: 65100
-      confed_peers: 66000
-      peers:
-        66000:
-        - 10.0.0.130
-        - fc00::105
-    interfaces:
-      Loopback0:
-        ipv4: 100.1.0.66/32
-        ipv6: 2064:100::42/128
-      Ethernet1:
-        ipv4: 10.0.0.131/31
-        ipv6: fc00::106/126
-    bp_interface:
-      ipv4: 10.10.246.66/24
-      ipv6: fc0a::43/64
-
-  ARISTA03LT2:
     properties:
     - common
     - leaf
@@ -1176,37 +1093,18 @@ configuration:
       Loopback0:
         ipv4: 100.1.0.67/32
         ipv6: 2064:100::43/128
-      Ethernet1:
+      Port-Channel1:
         ipv4: 10.0.0.133/31
         ipv6: fc00::10a/126
+      Ethernet1:
+        lacp: 1
+      Ethernet2:
+        lacp: 1
     bp_interface:
       ipv4: 10.10.246.67/24
       ipv6: fc0a::44/64
 
-  ARISTA04LT2:
-    properties:
-    - common
-    - leaf
-    bgp:
-      asn: 65300
-      confed_asn: 65100
-      confed_peers: 66000
-      peers:
-        66000:
-        - 10.0.0.134
-        - fc00::10d
-    interfaces:
-      Loopback0:
-        ipv4: 100.1.0.68/32
-        ipv6: 2064:100::44/128
-      Ethernet1:
-        ipv4: 10.0.0.135/31
-        ipv6: fc00::10e/126
-    bp_interface:
-      ipv4: 10.10.246.68/24
-      ipv6: fc0a::45/64
-
-  ARISTA05LT2:
+  ARISTA03LT2:
     properties:
     - common
     - leaf
@@ -1222,37 +1120,18 @@ configuration:
       Loopback0:
         ipv4: 100.1.0.69/32
         ipv6: 2064:100::45/128
-      Ethernet1:
+      Port-Channel1:
         ipv4: 10.0.0.137/31
         ipv6: fc00::112/126
+      Ethernet1:
+        lacp: 1
+      Ethernet2:
+        lacp: 1
     bp_interface:
       ipv4: 10.10.246.69/24
       ipv6: fc0a::46/64
 
-  ARISTA06LT2:
-    properties:
-    - common
-    - leaf
-    bgp:
-      asn: 65300
-      confed_asn: 65100
-      confed_peers: 66000
-      peers:
-        66000:
-        - 10.0.0.138
-        - fc00::115
-    interfaces:
-      Loopback0:
-        ipv4: 100.1.0.70/32
-        ipv6: 2064:100::46/128
-      Ethernet1:
-        ipv4: 10.0.0.139/31
-        ipv6: fc00::116/126
-    bp_interface:
-      ipv4: 10.10.246.70/24
-      ipv6: fc0a::47/64
-
-  ARISTA07LT2:
+  ARISTA04LT2:
     properties:
     - common
     - leaf
@@ -1268,37 +1147,18 @@ configuration:
       Loopback0:
         ipv4: 100.1.0.71/32
         ipv6: 2064:100::47/128
-      Ethernet1:
+      Port-Channel1:
         ipv4: 10.0.0.141/31
         ipv6: fc00::11a/126
+      Ethernet1:
+        lacp: 1
+      Ethernet2:
+        lacp: 1
     bp_interface:
       ipv4: 10.10.246.71/24
       ipv6: fc0a::48/64
 
-  ARISTA08LT2:
-    properties:
-    - common
-    - leaf
-    bgp:
-      asn: 65300
-      confed_asn: 65100
-      confed_peers: 66000
-      peers:
-        66000:
-        - 10.0.0.142
-        - fc00::11d
-    interfaces:
-      Loopback0:
-        ipv4: 100.1.0.72/32
-        ipv6: 2064:100::48/128
-      Ethernet1:
-        ipv4: 10.0.0.143/31
-        ipv6: fc00::11e/126
-    bp_interface:
-      ipv4: 10.10.246.72/24
-      ipv6: fc0a::49/64
-
-  ARISTA09LT2:
+  ARISTA05LT2:
     properties:
     - common
     - leaf
@@ -1314,37 +1174,18 @@ configuration:
       Loopback0:
         ipv4: 100.1.0.73/32
         ipv6: 2064:100::49/128
-      Ethernet1:
+      Port-Channel1:
         ipv4: 10.0.0.145/31
         ipv6: fc00::122/126
+      Ethernet1:
+        lacp: 1
+      Ethernet2:
+        lacp: 1
     bp_interface:
       ipv4: 10.10.246.73/24
       ipv6: fc0a::4a/64
 
-  ARISTA10LT2:
-    properties:
-    - common
-    - leaf
-    bgp:
-      asn: 65300
-      confed_asn: 65100
-      confed_peers: 66000
-      peers:
-        66000:
-        - 10.0.0.146
-        - fc00::125
-    interfaces:
-      Loopback0:
-        ipv4: 100.1.0.74/32
-        ipv6: 2064:100::4a/128
-      Ethernet1:
-        ipv4: 10.0.0.147/31
-        ipv6: fc00::126/126
-    bp_interface:
-      ipv4: 10.10.246.74/24
-      ipv6: fc0a::4b/64
-
-  ARISTA11LT2:
+  ARISTA06LT2:
     properties:
     - common
     - leaf
@@ -1360,37 +1201,18 @@ configuration:
       Loopback0:
         ipv4: 100.1.0.75/32
         ipv6: 2064:100::4b/128
-      Ethernet1:
+      Port-Channel1:
         ipv4: 10.0.0.149/31
         ipv6: fc00::12a/126
+      Ethernet1:
+        lacp: 1
+      Ethernet2:
+        lacp: 1
     bp_interface:
       ipv4: 10.10.246.75/24
       ipv6: fc0a::4c/64
 
-  ARISTA12LT2:
-    properties:
-    - common
-    - leaf
-    bgp:
-      asn: 65300
-      confed_asn: 65100
-      confed_peers: 66000
-      peers:
-        66000:
-        - 10.0.0.150
-        - fc00::12d
-    interfaces:
-      Loopback0:
-        ipv4: 100.1.0.76/32
-        ipv6: 2064:100::4c/128
-      Ethernet1:
-        ipv4: 10.0.0.151/31
-        ipv6: fc00::12e/126
-    bp_interface:
-      ipv4: 10.10.246.76/24
-      ipv6: fc0a::4d/64
-
-  ARISTA13LT2:
+  ARISTA07LT2:
     properties:
     - common
     - leaf
@@ -1406,37 +1228,18 @@ configuration:
       Loopback0:
         ipv4: 100.1.0.77/32
         ipv6: 2064:100::4d/128
-      Ethernet1:
+      Port-Channel1:
         ipv4: 10.0.0.153/31
         ipv6: fc00::132/126
+      Ethernet1:
+        lacp: 1
+      Ethernet2:
+        lacp: 1
     bp_interface:
       ipv4: 10.10.246.77/24
       ipv6: fc0a::4e/64
 
-  ARISTA14LT2:
-    properties:
-    - common
-    - leaf
-    bgp:
-      asn: 65300
-      confed_asn: 65100
-      confed_peers: 66000
-      peers:
-        66000:
-        - 10.0.0.154
-        - fc00::135
-    interfaces:
-      Loopback0:
-        ipv4: 100.1.0.78/32
-        ipv6: 2064:100::4e/128
-      Ethernet1:
-        ipv4: 10.0.0.155/31
-        ipv6: fc00::136/126
-    bp_interface:
-      ipv4: 10.10.246.78/24
-      ipv6: fc0a::4f/64
-
-  ARISTA15LT2:
+  ARISTA08LT2:
     properties:
     - common
     - leaf
@@ -1452,37 +1255,18 @@ configuration:
       Loopback0:
         ipv4: 100.1.0.79/32
         ipv6: 2064:100::4f/128
-      Ethernet1:
+      Port-Channel1:
         ipv4: 10.0.0.157/31
         ipv6: fc00::13a/126
+      Ethernet1:
+        lacp: 1
+      Ethernet2:
+        lacp: 1
     bp_interface:
       ipv4: 10.10.246.79/24
       ipv6: fc0a::50/64
 
-  ARISTA16LT2:
-    properties:
-    - common
-    - leaf
-    bgp:
-      asn: 65300
-      confed_asn: 65100
-      confed_peers: 66000
-      peers:
-        66000:
-        - 10.0.0.158
-        - fc00::13d
-    interfaces:
-      Loopback0:
-        ipv4: 100.1.0.80/32
-        ipv6: 2064:100::50/128
-      Ethernet1:
-        ipv4: 10.0.0.159/31
-        ipv6: fc00::13e/126
-    bp_interface:
-      ipv4: 10.10.246.80/24
-      ipv6: fc0a::51/64
-
-  ARISTA17LT2:
+  ARISTA09LT2:
     properties:
     - common
     - leaf
@@ -1498,37 +1282,18 @@ configuration:
       Loopback0:
         ipv4: 100.1.0.81/32
         ipv6: 2064:100::51/128
-      Ethernet1:
+      Port-Channel1:
         ipv4: 10.0.0.161/31
         ipv6: fc00::142/126
+      Ethernet1:
+        lacp: 1
+      Ethernet2:
+        lacp: 1
     bp_interface:
       ipv4: 10.10.246.81/24
       ipv6: fc0a::52/64
 
-  ARISTA18LT2:
-    properties:
-    - common
-    - leaf
-    bgp:
-      asn: 65300
-      confed_asn: 65100
-      confed_peers: 66000
-      peers:
-        66000:
-        - 10.0.0.162
-        - fc00::145
-    interfaces:
-      Loopback0:
-        ipv4: 100.1.0.82/32
-        ipv6: 2064:100::52/128
-      Ethernet1:
-        ipv4: 10.0.0.163/31
-        ipv6: fc00::146/126
-    bp_interface:
-      ipv4: 10.10.246.82/24
-      ipv6: fc0a::53/64
-
-  ARISTA19LT2:
+  ARISTA10LT2:
     properties:
     - common
     - leaf
@@ -1544,37 +1309,18 @@ configuration:
       Loopback0:
         ipv4: 100.1.0.83/32
         ipv6: 2064:100::53/128
-      Ethernet1:
+      Port-Channel1:
         ipv4: 10.0.0.165/31
         ipv6: fc00::14a/126
+      Ethernet1:
+        lacp: 1
+      Ethernet2:
+        lacp: 1
     bp_interface:
       ipv4: 10.10.246.83/24
       ipv6: fc0a::54/64
 
-  ARISTA20LT2:
-    properties:
-    - common
-    - leaf
-    bgp:
-      asn: 65300
-      confed_asn: 65100
-      confed_peers: 66000
-      peers:
-        66000:
-        - 10.0.0.166
-        - fc00::14d
-    interfaces:
-      Loopback0:
-        ipv4: 100.1.0.84/32
-        ipv6: 2064:100::54/128
-      Ethernet1:
-        ipv4: 10.0.0.167/31
-        ipv6: fc00::14e/126
-    bp_interface:
-      ipv4: 10.10.246.84/24
-      ipv6: fc0a::55/64
-
-  ARISTA21LT2:
+  ARISTA11LT2:
     properties:
     - common
     - leaf
@@ -1590,37 +1336,18 @@ configuration:
       Loopback0:
         ipv4: 100.1.0.85/32
         ipv6: 2064:100::55/128
-      Ethernet1:
+      Port-Channel1:
         ipv4: 10.0.0.169/31
         ipv6: fc00::152/126
+      Ethernet1:
+        lacp: 1
+      Ethernet2:
+        lacp: 1
     bp_interface:
       ipv4: 10.10.246.85/24
       ipv6: fc0a::56/64
 
-  ARISTA22LT2:
-    properties:
-    - common
-    - leaf
-    bgp:
-      asn: 65300
-      confed_asn: 65100
-      confed_peers: 66000
-      peers:
-        66000:
-        - 10.0.0.170
-        - fc00::155
-    interfaces:
-      Loopback0:
-        ipv4: 100.1.0.86/32
-        ipv6: 2064:100::56/128
-      Ethernet1:
-        ipv4: 10.0.0.171/31
-        ipv6: fc00::156/126
-    bp_interface:
-      ipv4: 10.10.246.86/24
-      ipv6: fc0a::57/64
-
-  ARISTA23LT2:
+  ARISTA12LT2:
     properties:
     - common
     - leaf
@@ -1636,37 +1363,18 @@ configuration:
       Loopback0:
         ipv4: 100.1.0.87/32
         ipv6: 2064:100::57/128
-      Ethernet1:
+      Port-Channel1:
         ipv4: 10.0.0.173/31
         ipv6: fc00::15a/126
+      Ethernet1:
+        lacp: 1
+      Ethernet2:
+        lacp: 1
     bp_interface:
       ipv4: 10.10.246.87/24
       ipv6: fc0a::58/64
 
-  ARISTA24LT2:
-    properties:
-    - common
-    - leaf
-    bgp:
-      asn: 65300
-      confed_asn: 65100
-      confed_peers: 66000
-      peers:
-        66000:
-        - 10.0.0.174
-        - fc00::15d
-    interfaces:
-      Loopback0:
-        ipv4: 100.1.0.88/32
-        ipv6: 2064:100::58/128
-      Ethernet1:
-        ipv4: 10.0.0.175/31
-        ipv6: fc00::15e/126
-    bp_interface:
-      ipv4: 10.10.246.88/24
-      ipv6: fc0a::59/64
-
-  ARISTA25LT2:
+  ARISTA13LT2:
     properties:
     - common
     - leaf
@@ -1682,37 +1390,18 @@ configuration:
       Loopback0:
         ipv4: 100.1.0.89/32
         ipv6: 2064:100::59/128
-      Ethernet1:
+      Port-Channel1:
         ipv4: 10.0.0.177/31
         ipv6: fc00::162/126
+      Ethernet1:
+        lacp: 1
+      Ethernet2:
+        lacp: 1
     bp_interface:
       ipv4: 10.10.246.89/24
       ipv6: fc0a::5a/64
 
-  ARISTA26LT2:
-    properties:
-    - common
-    - leaf
-    bgp:
-      asn: 65300
-      confed_asn: 65100
-      confed_peers: 66000
-      peers:
-        66000:
-        - 10.0.0.178
-        - fc00::165
-    interfaces:
-      Loopback0:
-        ipv4: 100.1.0.90/32
-        ipv6: 2064:100::5a/128
-      Ethernet1:
-        ipv4: 10.0.0.179/31
-        ipv6: fc00::166/126
-    bp_interface:
-      ipv4: 10.10.246.90/24
-      ipv6: fc0a::5b/64
-
-  ARISTA27LT2:
+  ARISTA14LT2:
     properties:
     - common
     - leaf
@@ -1728,37 +1417,18 @@ configuration:
       Loopback0:
         ipv4: 100.1.0.91/32
         ipv6: 2064:100::5b/128
-      Ethernet1:
+      Port-Channel1:
         ipv4: 10.0.0.181/31
         ipv6: fc00::16a/126
+      Ethernet1:
+        lacp: 1
+      Ethernet2:
+        lacp: 1
     bp_interface:
       ipv4: 10.10.246.91/24
       ipv6: fc0a::5c/64
 
-  ARISTA28LT2:
-    properties:
-    - common
-    - leaf
-    bgp:
-      asn: 65300
-      confed_asn: 65100
-      confed_peers: 66000
-      peers:
-        66000:
-        - 10.0.0.182
-        - fc00::16d
-    interfaces:
-      Loopback0:
-        ipv4: 100.1.0.92/32
-        ipv6: 2064:100::5c/128
-      Ethernet1:
-        ipv4: 10.0.0.183/31
-        ipv6: fc00::16e/126
-    bp_interface:
-      ipv4: 10.10.246.92/24
-      ipv6: fc0a::5d/64
-
-  ARISTA29LT2:
+  ARISTA15LT2:
     properties:
     - common
     - leaf
@@ -1774,37 +1444,18 @@ configuration:
       Loopback0:
         ipv4: 100.1.0.93/32
         ipv6: 2064:100::5d/128
-      Ethernet1:
+      Port-Channel1:
         ipv4: 10.0.0.185/31
         ipv6: fc00::172/126
+      Ethernet1:
+        lacp: 1
+      Ethernet2:
+        lacp: 1
     bp_interface:
       ipv4: 10.10.246.93/24
       ipv6: fc0a::5e/64
 
-  ARISTA30LT2:
-    properties:
-    - common
-    - leaf
-    bgp:
-      asn: 65300
-      confed_asn: 65100
-      confed_peers: 66000
-      peers:
-        66000:
-        - 10.0.0.186
-        - fc00::175
-    interfaces:
-      Loopback0:
-        ipv4: 100.1.0.94/32
-        ipv6: 2064:100::5e/128
-      Ethernet1:
-        ipv4: 10.0.0.187/31
-        ipv6: fc00::176/126
-    bp_interface:
-      ipv4: 10.10.246.94/24
-      ipv6: fc0a::5f/64
-
-  ARISTA31LT2:
+  ARISTA16LT2:
     properties:
     - common
     - leaf
@@ -1820,32 +1471,13 @@ configuration:
       Loopback0:
         ipv4: 100.1.0.95/32
         ipv6: 2064:100::5f/128
-      Ethernet1:
+      Port-Channel1:
         ipv4: 10.0.0.189/31
         ipv6: fc00::17a/126
+      Ethernet1:
+        lacp: 1
+      Ethernet2:
+        lacp: 1
     bp_interface:
       ipv4: 10.10.246.95/24
       ipv6: fc0a::60/64
-
-  ARISTA32LT2:
-    properties:
-    - common
-    - leaf
-    bgp:
-      asn: 65300
-      confed_asn: 65100
-      confed_peers: 66000
-      peers:
-        66000:
-        - 10.0.0.190
-        - fc00::17d
-    interfaces:
-      Loopback0:
-        ipv4: 100.1.0.96/32
-        ipv6: 2064:100::60/128
-      Ethernet1:
-        ipv4: 10.0.0.191/31
-        ipv6: fc00::17e/126
-    bp_interface:
-      ipv4: 10.10.246.96/24
-      ipv6: fc0a::61/64
