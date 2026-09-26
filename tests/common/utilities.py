@@ -920,6 +920,30 @@ def get_plt_wait_time(duthost, tc_name):
     return wait_dict
 
 
+def power_cycle(controller, delay=10):
+    """Power-cycle the DUT using a whole-device power controller.
+
+    Args:
+        controller: PowerControllerBase instance from the power_controller fixture.
+        delay: Seconds to wait between power off and power on.
+
+    Returns:
+        True if the power cycle succeeded, False otherwise.
+    """
+    if not controller:
+        logging.warning("controller is None, skip power cycle")
+        return False
+    hostname = controller.dut_hostname
+    if not controller.power_off():
+        logging.error("Power off for {} failed".format(hostname))
+        return False
+    time.sleep(delay)
+    if not controller.power_on():
+        logging.error("Power on for {} failed".format(hostname))
+        return False
+    return True
+
+
 def pdu_reboot(pdu_controller):
     """Power-cycle the DUT by turning off and on the PDU outlets.
 
