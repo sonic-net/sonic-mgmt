@@ -102,6 +102,7 @@ def test_dhcp_relay_restart_with_stress(ptfhost, dut_dhcp_relay_data, validate_d
                                 len(dut_dhcp_relay_data[0]['downlink_vlan_iface']['dhcp_server_addrs']),
                             "server_ip": dut_dhcp_relay_data[0]['downlink_vlan_iface']['dhcp_server_addrs'],
                             "relay_iface_ip": str(dut_dhcp_relay_data[0]['downlink_vlan_iface']['addr']),
+                            "relay_iface_ip_list": dut_dhcp_relay_data[0]['downlink_vlan_iface']['addr_list'],
                             "relay_iface_mac": str(dut_dhcp_relay_data[0]['downlink_vlan_iface']['mac']),
                             "relay_iface_netmask": str(dut_dhcp_relay_data[0]['downlink_vlan_iface']['mask']),
                             "dest_mac_address": BROADCAST_MAC,
