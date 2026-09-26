@@ -965,7 +965,11 @@ def get_random_reload_type(duthost):
     :return: a random reload type
     """
     reload_types = ["reload", "cold", "fast", "warm"]
-    if is_mellanox_device(duthost) and not is_issu_enabled(duthost):
+    if duthost.is_bmc():
+        # BMC does not support fast reboot and warm reboot
+        logger.info("BMC does not support fast reboot and warm reboot, keep only reload and cold")
+        reload_types = ["reload", "cold"]
+    elif is_mellanox_device(duthost) and not is_issu_enabled(duthost):
         logger.info("ISSU is not enabled on the Mellanox device, remove warm reboot from the list")
         reload_types.remove("warm")
     reboot_type = random.choice(reload_types)
