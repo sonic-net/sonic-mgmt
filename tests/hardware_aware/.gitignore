@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+generated/
+run_context*.json
+test_capabilities*.json
+generation_audit*.json
+candidate_target_files*.txt
+selector_scope*.json
+audit*.json
