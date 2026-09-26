@@ -143,6 +143,12 @@ jobs:
           PTF_MODIFIED: ${{ parameters.PTF_MODIFIED }}
           EXPECTED_RESULT: ${{ parameters.EXPECTED_RESULT }}
           TOPOLOGY: t0
+          # DIAGNOSTIC ONLY (draft branch, not for merge as-is): VM_TYPE: csonic
+          # added here -- on the SAME job/pool that already successfully serves
+          # plain t0 requests every day -- to test whether the scheduler's t0
+          # VM pool can honor a csonic neighbor-type request at all, versus
+          # needing a dedicated pool. See sonic-net/sonic-buildimage#29467.
+          VM_TYPE: csonic
           SCRIPTS: $(SCRIPTS)
           MIN_WORKER: $(INSTANCE_NUMBER)
           MAX_WORKER: $(INSTANCE_NUMBER)
