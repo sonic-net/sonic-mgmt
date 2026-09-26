@@ -7,6 +7,8 @@ import ipaddress
 import re
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.plugins.conditional_mark import get_basic_facts, get_dut_name, read_asic_name
+from tests.common.testbed import TestbedInfo
 from tests.common.utilities import wait_until
 from tests.common import config_reload
 from tests.conftest import get_testbed_metadata
@@ -25,6 +27,15 @@ PTF_QLEN = 20000
 VLAN_RANGE = [1032, 1060]
 ETHERTYPE_RANGE = [0x0801, 0x0900]
 ENCAPSULATION = ['ipinip', 'vxlan', 'nvgre']
+ECMP_UNSUPPORTED_HASH_FIELDS = {'DST_MAC', 'ETHERTYPE', 'VLAN_ID'}
+IPINIP_UNSUPPORTED_HASH_FIELDS = {'INNER_SRC_MAC', 'INNER_DST_MAC', 'INNER_ETHERTYPE'}
+ECMP_AND_LAG_HASH_TESTS = {
+    'test_ecmp_and_lag_hash',
+    'test_nexthop_flap',
+    'test_lag_member_flap',
+    'test_lag_member_remove_add',
+    'test_reboot',
+}
 MELLANOX_SUPPORTED_HASH_ALGORITHM = ['CRC', 'CRC_CCITT']
 CISCO_SUPPORTED_HASH_ALGORITHM = ['CRC', 'CRC_CCITT']
 VPP_SUPPORTED_HASH_ALGORITHM = ['CRC']
@@ -101,16 +112,19 @@ restore_vxlan = False
 @pytest.fixture(scope="module")
 def get_supported_hash_algorithms(request):
     asic_type = get_asic_type(request)
-    if asic_type in 'mellanox':
+    asic_gen = get_asic_gen(request)
+    if asic_type == 'mellanox':
         supported_hash_algorithm_list = MELLANOX_SUPPORTED_HASH_ALGORITHM[:]
-    elif asic_type in 'cisco-8000':
+    elif asic_type == 'cisco-8000':
         supported_hash_algorithm_list = CISCO_SUPPORTED_HASH_ALGORITHM[:]
-    elif asic_type in 'vpp':
+    elif asic_type == 'vpp':
         supported_hash_algorithm_list = VPP_SUPPORTED_HASH_ALGORITHM[:]
-    elif asic_type in 'marvell-teralynx':
+    elif asic_type == 'marvell-teralynx':
         supported_hash_algorithm_list = MARVELL_TERALYNX_HASH_ALGORITHM[:]
     else:
         supported_hash_algorithm_list = DEFAULT_SUPPORTED_HASH_ALGORITHM[:]
+    if asic_gen == 'spc1' and 'CRC_CCITT' in supported_hash_algorithm_list:
+        supported_hash_algorithm_list.remove('CRC_CCITT')
     return supported_hash_algorithm_list
 
 
@@ -126,26 +140,6 @@ def skip_lag_tests_on_no_lag_topos(request, rand_selected_dut):
     if "lag" in request.node.name and \
             "PORTCHANNEL" not in rand_selected_dut.get_running_config_facts():
         pytest.skip("The topology doesn't have portchannels, skip the lag test cases.")
-
-
-@pytest.fixture(scope="function", autouse=True)
-def skip_tests_on_isolated_topos(request, tbinfo):
-    if 'isolated' in tbinfo['topo']['name']:
-        uplink_count = re.search(r'u(\d+)', tbinfo['topo']['name'])
-        downlink_count = re.search(r'd(\d+)', tbinfo['topo']['name'])
-        if uplink_count:
-            uplink_count = int(uplink_count.group(1))
-        else:
-            pytest.skip("Isolated topologies with no uplinks is not supported by the test.")
-        if downlink_count:
-            downlink_count = int(downlink_count.group(1))
-        else:
-            pytest.skip("Isolated topologies with no downlinks is not supported by the test.")
-        if uplink_count > 32 and "IP_PROTOCOL" in request.node.name:
-            pytest.skip("IP_PROTOCOL hash field is not supported on topos with more than 32 uplinks.")
-        if downlink_count / uplink_count < 2 and "IN_PORT" in request.node.name:
-            pytest.skip("At least twice the number of downlinks compared"
-                        " to uplinks is required for IN_PORT hash test.")
 
 
 @pytest.fixture(scope="module")
@@ -336,7 +330,12 @@ def get_ip_route_nexthops(duthost, destination):
         nexthop_list.extend(route["nexthops"])
     nexthops = []
     for nexthop in nexthop_list:
-        nexthops.append(nexthop["interfaceName"])
+        ifname = nexthop.get("interfaceName")
+        if not ifname:
+            # FRR may report unresolved/inactive hops with only an IP and no interface.
+            logger.debug("Skip nexthop without interfaceName: %s", nexthop)
+            continue
+        nexthops.append(ifname)
     return nexthops
 
 
@@ -585,6 +584,169 @@ def get_asic_type(request):
     return asic_type
 
 
+def get_asic_gen(request):
+    try:
+        dut_name = get_dut_name(request)
+        cached_facts_name = f'BASIC_FACTS_{dut_name}'
+        basic_facts = request.config.cache.get(cached_facts_name, None)
+        if not basic_facts:
+            get_basic_facts(request)
+            basic_facts = request.config.cache.get(cached_facts_name, {})
+        hwsku = basic_facts.get('hwsku', '')
+        if not hwsku:
+            return ''
+        return read_asic_name(hwsku) or ''
+    except (AttributeError, IndexError, KeyError, TypeError, ValueError):
+        logger.warning(
+            "Failed to get ASIC generation during parameter collection; "
+            "SPC1 limitations will be handled by conditional marks."
+        )
+        return ''
+
+
+def get_topology_name(request):
+    testbed_name = request.config.getoption("--testbed")
+    testbed_file = request.config.getoption("--testbed_file")
+    if not testbed_name or not testbed_file:
+        return ''
+    try:
+        tbinfo = TestbedInfo(testbed_file).testbed_topo.get(testbed_name, {})
+        return tbinfo.get('topo', {}).get('name', '')
+    except (IOError, TypeError, ValueError):
+        logger.warning(
+            "Failed to get topology for testbed %s from %s; "
+            "unsupported parameters will be filtered at runtime.",
+            testbed_name,
+            testbed_file,
+        )
+        return ''
+
+
+def filter_hash_fields_for_environment(hash_fields, test_type, asic_type, topology_name):
+    filtered_hash_fields = list(hash_fields)
+    if test_type == 'ecmp':
+        filtered_hash_fields = [
+            field for field in filtered_hash_fields
+            if field not in ECMP_UNSUPPORTED_HASH_FIELDS
+        ]
+    if asic_type in {'broadcom', 'mellanox'} and 'INNER_IP_PROTOCOL' in filtered_hash_fields:
+        filtered_hash_fields.remove('INNER_IP_PROTOCOL')
+
+    if 'isolated' not in topology_name:
+        return filtered_hash_fields
+
+    uplink_match = re.search(r'u(\d+)', topology_name)
+    downlink_match = re.search(r'd(\d+)', topology_name)
+    if not uplink_match or not downlink_match:
+        return filtered_hash_fields
+
+    uplink_count = int(uplink_match.group(1))
+    downlink_count = int(downlink_match.group(1))
+    if uplink_count == 0:
+        return filtered_hash_fields
+    if uplink_count > 32 and 'IP_PROTOCOL' in filtered_hash_fields:
+        filtered_hash_fields.remove('IP_PROTOCOL')
+    if downlink_count / uplink_count < 2 and 'IN_PORT' in filtered_hash_fields:
+        filtered_hash_fields.remove('IN_PORT')
+    return filtered_hash_fields
+
+
+def is_hash_param_supported(param, asic_type, test_name):
+    hash_algorithm, hash_field, _, _, encap_type = param
+    if hash_field in IPINIP_UNSUPPORTED_HASH_FIELDS and encap_type == 'ipinip':
+        return False
+    # These tests send L3 ECMP+LAG traffic. L2-only fields need a single-uplink
+    # L2 topology, which cannot exercise ECMP.
+    if test_name in ECMP_AND_LAG_HASH_TESTS and hash_field in ECMP_UNSUPPORTED_HASH_FIELDS:
+        return False
+    if (
+        asic_type in {'broadcom', 'mellanox'}
+        and test_name in ECMP_AND_LAG_HASH_TESTS
+        and hash_algorithm == 'CRC_CCITT'
+        and hash_field == 'IN_PORT'
+    ):
+        return False
+    return True
+
+
+def filter_hash_params_for_collection(params_tuple, request, test_name):
+    """Drop combinations this test cannot run. Used at collection, not skip."""
+    asic_type = get_asic_type(request)
+    test_type = 'lag' if 'lag' in test_name else 'ecmp'
+    static_fields = HASH_CAPABILITIES.get(asic_type, HASH_CAPABILITIES['default'])[test_type]
+    static_fields = set(filter_hash_fields_for_environment(
+        static_fields, test_type, asic_type, get_topology_name(request)
+    ))
+    filtered = []
+    for param in params_tuple:
+        _, hash_field, _, _, _ = param
+        if hash_field not in static_fields:
+            continue
+        if not is_hash_param_supported(param, asic_type, test_name):
+            continue
+        filtered.append(param)
+    return filtered
+
+
+def generate_hash_param_tuples(hash_fields, hash_algorithms, outer_ip_versions,
+                               inner_ip_versions, encap_types):
+    """Build structural 5-D combinations. ASIC support is not filtered here."""
+    params_tuple = []
+    for field in hash_fields:
+        if 'IPV6_FLOW_LABEL' in field:
+            params_tuple.extend([(algorithm, field, 'ipv6', inner_ip_version, encap_type)
+                                 for algorithm in hash_algorithms
+                                 for inner_ip_version in inner_ip_versions
+                                 for encap_type in encap_types])
+        elif 'INNER' not in field:
+            params_tuple.extend([(algorithm, field, ip_version, 'None', 'None')
+                                 for algorithm in hash_algorithms
+                                 for ip_version in outer_ip_versions])
+        elif 'INNER_ETHERTYPE' in field:
+            params_tuple.extend([(algorithm, field, ip_version, 'None', encap_type)
+                                 for algorithm in hash_algorithms
+                                 for ip_version in outer_ip_versions
+                                 for encap_type in encap_types])
+        else:
+            params_tuple.extend([(algorithm, field, ip_version, inner_ip_version, encap_type)
+                                 for algorithm in hash_algorithms
+                                 for ip_version in outer_ip_versions
+                                 for inner_ip_version in inner_ip_versions
+                                 for encap_type in encap_types])
+    return params_tuple
+
+
+def skip_if_hash_param_unsupported(request, params, global_hash_capabilities):
+    """Skip combinations the current ASIC/DUT/topology cannot test."""
+    hash_algorithm, hash_field, ipver, inner_ipver, encap_type = params.split('-')
+    test_name = getattr(request.node, 'originalname', None) or request.node.name.split('[')[0]
+    asic_type = get_asic_type(request)
+    test_type = 'lag' if 'lag' in test_name else 'ecmp'
+    param = (hash_algorithm, hash_field, ipver, inner_ipver, encap_type)
+
+    supported_algorithms = set(global_hash_capabilities['ecmp_algo']).union(
+        set(global_hash_capabilities['lag_algo'])
+    )
+    if hash_algorithm not in supported_algorithms:
+        pytest.skip(f"{hash_algorithm} is not supported on current platform, "
+                    f"the supported algorithms: {supported_algorithms}")
+
+    dut_fields = global_hash_capabilities[test_type]
+    if hash_field not in dut_fields:
+        pytest.skip(f"{hash_field} is not in DUT {test_type} hash capabilities: {dut_fields}")
+
+    static_fields = HASH_CAPABILITIES.get(asic_type, HASH_CAPABILITIES['default'])[test_type]
+    static_fields = filter_hash_fields_for_environment(
+        static_fields, test_type, asic_type, get_topology_name(request)
+    )
+    if hash_field not in static_fields:
+        pytest.skip(f"{hash_field} is not in the {asic_type} {test_type} hash field list "
+                    f"for this topology: {static_fields}")
+
+    if not is_hash_param_supported(param, asic_type, test_name):
+        pytest.skip(f"Parameter {params} is not supported on {asic_type} for {test_name}")
+
+
 def get_hash_fields_from_option(request, test_type, hash_field_option):
     """
     Generate the hash fields to test based on the pytest option.
@@ -601,6 +763,12 @@ def get_hash_fields_from_option(request, test_type, hash_field_option):
         hash_fields = HASH_CAPABILITIES[asic_type][test_type]
     else:
         hash_fields = HASH_CAPABILITIES['default'][test_type]
+    hash_fields = filter_hash_fields_for_environment(
+        hash_fields,
+        test_type,
+        asic_type,
+        get_topology_name(request),
+    )
 
     if hash_field_option == "all":
         return hash_fields
@@ -623,13 +791,13 @@ def get_hash_algorithm_from_option(request, hash_algorithm_identifier):
         a list of the hash algorithm to test
     """
     asic_type = get_asic_type(request)
-    if asic_type in 'mellanox':
+    if asic_type == 'mellanox':
         supported_hash_algorithm_list = MELLANOX_SUPPORTED_HASH_ALGORITHM[:]
-    elif asic_type in 'cisco-8000':
+    elif asic_type == 'cisco-8000':
         supported_hash_algorithm_list = CISCO_SUPPORTED_HASH_ALGORITHM[:]
-    elif asic_type in 'vpp':
+    elif asic_type == 'vpp':
         supported_hash_algorithm_list = VPP_SUPPORTED_HASH_ALGORITHM[:]
-    elif asic_type in 'marvell-teralynx':
+    elif asic_type == 'marvell-teralynx':
         supported_hash_algorithm_list = MARVELL_TERALYNX_HASH_ALGORITHM[:]
     else:
         supported_hash_algorithm_list = DEFAULT_SUPPORTED_HASH_ALGORITHM[:]

@@ -3135,10 +3135,9 @@ hash/test_generic_hash.py:
       - "https://github.com/sonic-net/sonic-mgmt/issues/15340 and 'dualtor-aa' in topo_name"
       - "'-v6-' in topo_name"
   xfail:
-    reason: "This case is not supported on many platforms and often encounters issues. We can still run it, but we won’t rely on or validate the results. Or test case has issue on the t0-isolated-d256u256s2 topo."
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions_logical_operator: or
     conditions:
-      - "topo_type in ['t0', 't1']"
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 hash/test_generic_hash.py::test_algorithm_config:
@@ -3157,37 +3156,9 @@ hash/test_generic_hash.py::test_backend_error_messages:
 
 hash/test_generic_hash.py::test_ecmp_and_lag_hash:
   skip:
-    reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm. For broadcom, ECMP/LAG hash not supported in broadcom SAI and Cisco 8000. Marvell-Teralynx uses unified hash fields for ECMP and LAG.'
-    conditions_logical_operator: or
+    reason: 'For broadcom, ECMP/LAG hash not supported in broadcom SAI and Cisco 8000. Marvell-Teralynx uses unified hash fields for ECMP and LAG.'
     conditions:
-      - "asic_gen == 'spc1'"
       - "asic_type in ['broadcom', 'cisco-8000', 'marvell-teralynx']"
-
-hash/test_generic_hash.py::test_ecmp_and_lag_hash[CRC-INNER_IP_PROTOCOL:
-  skip:
-    reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field. For broadcom, ECMP/LAG hash not supported in broadcom SAI"
-    conditions:
-    - "asic_type in ['broadcom', 'mellanox']"
-  xfail:
-    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
-    conditions:
-      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
-
-hash/test_generic_hash.py::test_ecmp_and_lag_hash[CRC_CCITT-INNER_IP_PROTOCOL:
-  skip:
-    reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field. For broadcom, ECMP/LAG hash not supported in broadcom SAI"
-    conditions:
-    - "asic_type in ['broadcom', 'mellanox']"
-  xfail:
-    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
-    conditions:
-      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
-
-hash/test_generic_hash.py::test_ecmp_and_lag_hash[CRC_CCITT-IN_PORT:
-  skip:
-    reason: "On Mellanox platforms, due to HW limitation, when ecmp and lag hash at the same time, it would not support setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field. For broadcom, ECMP/LAG hash not supported in broadcom SAI"
-    conditions:
-    - "asic_type in ['broadcom', 'mellanox']"
 
 hash/test_generic_hash.py::test_ecmp_hash:
   skip:
@@ -3206,12 +3177,6 @@ hash/test_generic_hash.py::test_ecmp_hash[CRC-INNER_DST_MAC-ipv4-ipv4-vxlan]:
     reason: "Skip for IPv6-only topologies"
     conditions:
       - "'-v6-' in topo_name"
-
-hash/test_generic_hash.py::test_ecmp_hash[CRC-INNER_IP_PROTOCOL:
-  skip:
-    reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field. For broadcom, ECMP hash is not supported in broadcom SAI."
-    conditions:
-    - "asic_type in ['broadcom', 'mellanox']"
 
 hash/test_generic_hash.py::test_hash_capability:
   xfail:
@@ -3242,12 +3207,6 @@ hash/test_generic_hash.py::test_lag_hash[CRC-ETHERTYPE:
     conditions:
     - "https://github.com/sonic-net/sonic-buildimage/issues/22586 and asic_type in ['mellanox', 'nvidia']"
 
-hash/test_generic_hash.py::test_lag_hash[CRC-INNER_IP_PROTOCOL:
-  skip:
-    reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field. For broadcom, LAG hash is not supported in broadcom SAI."
-    conditions:
-    - "asic_type in ['broadcom', 'mellanox']"
-
 hash/test_generic_hash.py::test_lag_hash[CRC-VLAN_ID:
   xfail:
     reason: "Testcase ignored due to RM issue: https://github.com/sonic-net/sonic-buildimage/issues/22586"
@@ -3274,22 +3233,15 @@ hash/test_generic_hash.py::test_lag_hash[CRC_CCITT-VLAN_ID:
 
 hash/test_generic_hash.py::test_lag_member_flap:
   skip:
-    reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm. For broadcom, LAG hash not supported in broadcom SAI. Marvell-Teralynx uses unified hash fields for ECMP and LAG. For other platforms, skipping due to missing object in SonicHost'
+    reason: 'For broadcom, LAG hash not supported in broadcom SAI. Marvell-Teralynx uses unified hash fields for ECMP and LAG. For other platforms, skipping due to missing object in SonicHost'
     conditions_logical_operator: "OR"
     conditions:
-      - "asic_gen == 'spc1'"
       - "asic_type in ['broadcom', 'marvell-teralynx']"
       - https://github.com/sonic-net/sonic-mgmt/issues/13919
   xfail:
     reason: 'xfail for IPv6-only topologies, need to add support for IPv6-only - https://github.com/sonic-net/sonic-mgmt/issues/20733'
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/20733 and '-v6-' in topo_name"
-
-hash/test_generic_hash.py::test_lag_member_flap[CRC-INNER_IP_PROTOCOL:
-  skip:
-    reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field.  For broadcom, LAG hash not supported in broadcom SAI."
-    conditions:
-    - "asic_type in ['broadcom', 'mellanox']"
 
 hash/test_generic_hash.py::test_lag_member_flap[CRC-IN_PORT-ipv4-None-None]:
   skip:
@@ -3303,19 +3255,6 @@ hash/test_generic_hash.py::test_lag_member_flap[CRC-IP_PROTOCOL-ipv4:
     conditions:
       - "asic_type in ['cisco-8000']"
 
-hash/test_generic_hash.py::test_lag_member_flap[CRC_CCITT-INNER_IP_PROTOCOL:
-  skip:
-    reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field.  For broadcom, LAG hash not supported in broadcom SAI."
-    conditions:
-    - "asic_type in ['broadcom', 'mellanox']"
-
-hash/test_generic_hash.py::test_lag_member_flap[CRC_CCITT-IN_PORT:
-  skip:
-    reason: "On Mellanox platforms, due to HW limitation, when ecmp and lag hash at the same time, it would not support
-     setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field.  For broadcom, LAG hash not supported in broadcom SAI."
-    conditions:
-    - "asic_type in ['broadcom', 'mellanox']"
-
 hash/test_generic_hash.py::test_lag_member_flap[CRC_CCITT-IP_PROTOCOL-ipv4:
   skip:
     reason: "With IP Protocol alone, we don't have enough entropy to distribute the packets evenly"
@@ -3324,10 +3263,9 @@ hash/test_generic_hash.py::test_lag_member_flap[CRC_CCITT-IP_PROTOCOL-ipv4:
 
 hash/test_generic_hash.py::test_lag_member_remove_add:
   skip:
-    reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm. For broadcom, LAG hash not supported in broadcom SAI. Marvell-Teralynx uses unified hash fields for ECMP and LAG. For other platforms, skipping due to missing object in SonicHost'
+    reason: 'For broadcom, LAG hash not supported in broadcom SAI. Marvell-Teralynx uses unified hash fields for ECMP and LAG. For other platforms, skipping due to missing object in SonicHost'
     conditions_logical_operator: "OR"
     conditions:
-      - "asic_gen == 'spc1'"
       - "asic_type in ['broadcom', 'marvell-teralynx']"
       - https://github.com/sonic-net/sonic-mgmt/issues/13919
   xfail:
@@ -3335,36 +3273,17 @@ hash/test_generic_hash.py::test_lag_member_remove_add:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/20733 and '-v6-' in topo_name"
 
-hash/test_generic_hash.py::test_lag_member_remove_add[CRC-INNER_IP_PROTOCOL:
-  skip:
-    reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field. For broadcom, LAG hash not supported in broadcom SAI."
-    conditions:
-    - "asic_type in ['broadcom', 'mellanox']"
-
 hash/test_generic_hash.py::test_lag_member_remove_add[CRC-IP_PROTOCOL-ipv4:
   skip:
     reason: "With IP Protocol alone, we don't have enough entropy to distribute the packets evenly"
     conditions:
       - "asic_type in ['cisco-8000']"
 
-hash/test_generic_hash.py::test_lag_member_remove_add[CRC_CCITT-INNER_IP_PROTOCOL:
-  skip:
-    reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field. For broadcom, LAG hash not supported in broadcom SAI."
-    conditions:
-    - "asic_type in ['broadcom', 'mellanox']"
-
 hash/test_generic_hash.py::test_lag_member_remove_add[CRC_CCITT-INNER_SRC_MAC-ipv4-ipv4-nvgre]:
   skip:
     reason: "Skip for IPv6-only topologies"
     conditions:
       - "'-v6-' in topo_name"
-
-hash/test_generic_hash.py::test_lag_member_remove_add[CRC_CCITT-IN_PORT:
-  skip:
-    reason: "On Mellanox platforms, due to HW limitation, when ecmp and lag hash at the same time, it would not support
-     setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field. For broadcom, LAG hash not supported in broadcom SAI."
-    conditions:
-    - "asic_type in ['broadcom', 'mellanox']"
 
 hash/test_generic_hash.py::test_lag_member_remove_add[CRC_CCITT-IP_PROTOCOL-ipv4:
   skip:
@@ -3374,10 +3293,9 @@ hash/test_generic_hash.py::test_lag_member_remove_add[CRC_CCITT-IP_PROTOCOL-ipv4
 
 hash/test_generic_hash.py::test_nexthop_flap:
   skip:
-    reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm. For broadcom, ECMP/LAG hash not supported in broadcom SAI. Marvell-Teralynx uses unified hash fields for ECMP and LAG. For other platforms, skipping due to missing object in SonicHost'
+    reason: 'For broadcom, ECMP/LAG hash not supported in broadcom SAI. Marvell-Teralynx uses unified hash fields for ECMP and LAG. For other platforms, skipping due to missing object in SonicHost'
     conditions_logical_operator: "OR"
     conditions:
-      - "asic_gen == 'spc1'"
       - "asic_type in ['broadcom', 'marvell-teralynx']"
       - https://github.com/sonic-net/sonic-mgmt/issues/13919
   xfail:
@@ -3385,30 +3303,11 @@ hash/test_generic_hash.py::test_nexthop_flap:
     conditions:
       - "'isolated' in topo_name"
 
-hash/test_generic_hash.py::test_nexthop_flap[CRC-INNER_IP_PROTOCOL:
-  skip:
-    reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field. For broadcom, ECMP/LAG hash not supported in broadcom SAI. "
-    conditions:
-    - "asic_type in ['broadcom', 'mellanox']"
-
 hash/test_generic_hash.py::test_nexthop_flap[CRC-IP_PROTOCOL-ipv4-None-None]:
   skip:
     reason: "With IP Protocol alone, Cisco-8000 don't have enough entropy to distribute the packets evenly"
     conditions:
     - "asic_type in ['cisco-8000']"
-
-hash/test_generic_hash.py::test_nexthop_flap[CRC_CCITT-INNER_IP_PROTOCOL:
-  skip:
-    reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field. For broadcom, ECMP/LAG hash not supported in broadcom SAI. "
-    conditions:
-    - "asic_type in ['broadcom', 'mellanox']"
-
-hash/test_generic_hash.py::test_nexthop_flap[CRC_CCITT-IN_PORT:
-  skip:
-    reason: "On Mellanox platforms, due to HW limitation, when ecmp and lag hash at the same time, it would not support
-     setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field. For broadcom, ECMP/LAG hash not supported in broadcom SAI. "
-    conditions:
-    - "asic_type in ['broadcom', 'mellanox']"
 
 hash/test_generic_hash.py::test_nexthop_flap[CRC_CCITT-IP_PROTOCOL-ipv4-None-None]:
   skip:
@@ -3418,21 +3317,12 @@ hash/test_generic_hash.py::test_nexthop_flap[CRC_CCITT-IP_PROTOCOL-ipv4-None-Non
 
 hash/test_generic_hash.py::test_reboot:
   skip:
-    reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm. For broadcom, ECMP/LAG hash not supported in broadcom SAI. Marvell-Teralynx uses unified hash fields for ECMP and LAG. Warm reboot is not supported on x86_64-nvidia_sn5640-r0.'
-    conditions_logical_operator: or
+    reason: 'For broadcom, ECMP/LAG hash not supported in broadcom SAI. Marvell-Teralynx uses unified hash fields for ECMP and LAG.'
     conditions:
-      - "asic_gen == 'spc1'"
       - "asic_type in ['broadcom', 'marvell-teralynx']"
-      - "platform in ['x86_64-nvidia_sn5640-r0']"
-
-hash/test_generic_hash.py::test_reboot[CRC-INNER_IP_PROTOCOL:
-  skip:
-    reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field. For broadcom, ECMP/LAG hash not supported in broadcom SAI"
-    conditions:
-    - "asic_type in ['broadcom', 'mellanox']"
 
 hash/test_generic_hash.py::test_reboot[CRC-INNER_L4_SRC_PORT:
-   xfail:
+  xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
@@ -3442,19 +3332,6 @@ hash/test_generic_hash.py::test_reboot[CRC-IP_PROTOCOL-ipv4:
     reason: "With IP Protocol alone, we don't have enough entropy to distribute the packets evenly"
     conditions:
       - "asic_type in ['cisco-8000']"
-
-hash/test_generic_hash.py::test_reboot[CRC_CCITT-INNER_IP_PROTOCOL:
-  skip:
-    reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field. For broadcom, ECMP/LAG hash not supported in broadcom SAI"
-    conditions:
-    - "asic_type in ['broadcom', 'mellanox']"
-
-hash/test_generic_hash.py::test_reboot[CRC_CCITT-IN_PORT:
-  skip:
-    reason: "On Mellanox platforms, due to HW limitation, when ecmp and lag hash at the same time, it would not support
-     setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field. For broadcom, ECMP/LAG hash not supported in broadcom SAI"
-    conditions:
-    - "asic_type in ['broadcom', 'mellanox']"
 
 hash/test_generic_hash.py::test_reboot[CRC_CCITT-IP_PROTOCOL-ipv4:
   skip:
