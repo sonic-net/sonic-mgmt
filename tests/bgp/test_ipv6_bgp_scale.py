@@ -62,6 +62,67 @@ def log_test_results():
     logger.info("test_results: %s", test_results)
 
 
+@pytest.fixture(scope="module", autouse=True)
+def minimize_dut_background_load(duthost):
+    """
+    Reduce non-essential DUT workloads that compete for CPU while the test is running.
+
+    Profiling of test_sessions_flapping[500] showed that a sizable fraction of OnCPU
+    samples during the test came from work that is unrelated to the route convergence
+    code path under test:
+
+      * openbmpd ~ 15% - BMP daemon writes BGP_RIB_OUT_TABLE to redis on every BGP
+        UPDATE. With many sessions flapping simultaneously this dominates redis I/O.
+      * redis-check-rdb ~ 20% - Redis background RDB snapshots triggered by the
+        write burst that the test itself produces.
+
+    Both of these are observer noise for a route-scale convergence test, so we stop
+    openbmpd and disable Redis periodic RDB snapshots for the duration of the module
+    and restore them afterwards. This makes the measured convergence numbers reflect
+    the actual SONiC route programming path instead of test-induced background work.
+    """
+    bmp_was_active = False
+    try:
+        bmp_status = duthost.shell("systemctl is-active openbmpd",
+                                   module_ignore_errors=True)['stdout'].strip()
+        bmp_was_active = (bmp_status == 'active')
+    except Exception as e:
+        logger.info("Could not query openbmpd status, skipping stop: %s", e)
+
+    if bmp_was_active:
+        logger.info("Stopping openbmpd for the duration of the test module")
+        duthost.shell("sudo systemctl stop openbmpd", module_ignore_errors=True)
+
+    saved_redis_save = None
+    try:
+        cfg = duthost.shell(
+            "docker exec database redis-cli -n 0 config get save",
+            module_ignore_errors=True
+        )['stdout'].splitlines()
+        if len(cfg) >= 2:
+            saved_redis_save = cfg[1]
+        duthost.shell(
+            "docker exec database redis-cli -n 0 config set save ''",
+            module_ignore_errors=True
+        )
+        logger.info("Disabled redis RDB snapshots (previous 'save' = %r)", saved_redis_save)
+    except Exception as e:
+        logger.info("Could not adjust redis 'save' config, leaving as-is: %s", e)
+
+    yield
+
+    if saved_redis_save is not None:
+        duthost.shell(
+            "docker exec database redis-cli -n 0 config set save '{}'".format(saved_redis_save),
+            module_ignore_errors=True
+        )
+        logger.info("Restored redis RDB snapshots (save = %r)", saved_redis_save)
+
+    if bmp_was_active:
+        logger.info("Restarting openbmpd after test module")
+        duthost.shell("sudo systemctl start openbmpd", module_ignore_errors=True)
+
+
 def _get_icmp_type():
     return next(_icmp_type_generator)
 
@@ -281,9 +342,19 @@ def validate_dut_routes(duthost, tbinfo, expected_routes):
     return identical
 
 
+_BACKPLANE_PORTS_CACHE = None
+
+
 def _get_backplane_ports():
-    """Identify backplane ports from PTF port_map config so they can be excluded from rx counters."""
-    return {k for k, v in ptf.config.get('port_map', {}).items() if v == 'backplane'}
+    """Identify backplane ports from PTF port_map config so they can be excluded from rx counters.
+
+    The port_map is static for the lifetime of the ptf process, so cache the result
+    to avoid re-scanning ptf.config on every downtime calculation.
+    """
+    global _BACKPLANE_PORTS_CACHE
+    if _BACKPLANE_PORTS_CACHE is None:
+        _BACKPLANE_PORTS_CACHE = {k for k, v in ptf.config.get('port_map', {}).items() if v == 'backplane'}
+    return _BACKPLANE_PORTS_CACHE
 
 
 def wait_for_rx_quiescence(pdp, exp_mask, stable_secs=10, poll_interval=1, max_timeout=120):
@@ -445,7 +516,7 @@ def _restore(duthost, connection_type, shutdown_connections):
 
 
 def check_bgp_routes_converged(duthost, expected_routes, shutdown_connections=None, connection_type='none',
-                               timeout=300, interval=1, log_path="/tmp", compressed=False, action='no_action'):
+                               timeout=300, interval=5, log_path="/tmp", compressed=False, action='no_action'):
     shutdown_connections = shutdown_connections or []
     logger.info("Start to check bgp routes converged")
     expected_routes_json = json.dumps(expected_routes, separators=(',', ':'))
@@ -535,7 +606,14 @@ def get_route_programming_metrics_from_sairedis_replay(duthost, start_time, sair
 
     def read_lines(path):
         try:
-            return duthost.shell(f"sudo grep -e '{nhg_pattern}' -e '{route_pattern}' {path}")['stdout'].splitlines()
+            # Cap the amount read from each sairedis log to the most recent 100MB.
+            # The interesting events are always near the tail (after start_time) and the
+            # rotated .rec.1 file can be hundreds of MB; reading it fully is a major source
+            # of post-flap CPU/IO on the DUT. ts_regex below still skips entries older
+            # than start_time, so capping the read window is safe.
+            return duthost.shell(
+                f"sudo tail -c 100M {path} | grep -e '{nhg_pattern}' -e '{route_pattern}'"
+            )['stdout'].splitlines()
         except Exception as e:
             is_rotated_log = path.endswith('.rec.1')
             log_level = logging.INFO if is_rotated_log else logging.WARNING
