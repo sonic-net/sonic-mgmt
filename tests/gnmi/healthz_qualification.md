@@ -14,11 +14,11 @@ overlay, rather than an installed image. The trixie management-common and gNMI
 Debian packages and a direct host wheel built; the full SONiC host-wheel target
 is still pending. Real Redis and host D-Bus checks covered archive and
 archive-free fault transitions, overlap, repeated detection, acknowledgement,
-catalog restart and projection recovery. With the updated telemetry binary,
-standard gNOI Get/List returned retained events and default acknowledged
-filtering; repeated Acknowledge preserved the archive; Check with and without
-an event ID returned Unimplemented; Artifact returned a complete stream whose
-header SHA-256 matched the on-device archive. gNMI GET returned component
+catalog restart and projection recovery. With the Go 1.25.9 test-override
+telemetry binary, standard gNOI Get/List returned retained events and default
+acknowledged filtering; repeated Acknowledge preserved the archive; Check with
+and without an event ID returned Unimplemented; Artifact returned a complete
+stream whose header SHA-256 matched the on-device archive. gNMI GET returned component
 HEALTHY, count 2, last-unhealthy, and the existing fault subtree. A read-only
 STREAM ON_CHANGE subscriber synchronized before a fresh source change. Its
 first run received UNHEALTHY/count 3 but stopped at its configured
@@ -34,12 +34,27 @@ A scoped host-service restart afterward preserved checkpoint
 aggregate HEALTHY/count 4, and SQLite integrity; gNOI Get/List and gNMI GET
 remained consistent.
 
-These observations do not close the full procedure. Live
-authentication/read-only checks, full package installation, device reboot,
-inactive-only first publication, and a shared-stream gap remain pending.
+The repeated standard Go 1.26.5 Trixie gNMI package (SHA256
+`9511fba24c6651c4427200c9bb56e33904239819999c85a361b80b2b5e571f9f`)
+produced telemetry SHA256
+`c7ee2d5ba2a5b105f7812ab668581447f126408958fd936a20b9d216211f1d85`.
+That final binary passed a separate read-only DUT smoke after only `gnmi-native`
+restarted: Get retained the latest HEALTHY event, List returned all nine
+events when acknowledgement was included, Artifact returned a complete
+350-byte disk-matching stream, and gNMI GET returned HEALTHY/count 4 and the
+remaining INACTIVE fault row. The older fault row expired under normal
+retention. Original rules and source keys remained restored; services and
+system health matched their baseline. This smoke did not start a new
+ON_CHANGE subscription or inject a new fault.
+
+These observations do not close the full procedure. Live authorization checks,
+final-binary ON_CHANGE, full package
+installation, device reboot, inactive-only first publication, and a
+shared-stream gap remain pending.
 Record each of those as `UNRUN` until separately evidenced. The ON_CHANGE
 result above includes post-sync transition notifications, not only an initial
-snapshot. Public and whitebox image pins remain unchanged.
+snapshot. Public and whitebox image pins exist as local commits and have not
+been pushed.
 
 ## Inputs and transport
 
