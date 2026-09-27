@@ -81,6 +81,13 @@ def all_bgp_sessions_established(duthost, asic_index, neighbor_ips):
     )
 
 
+def get_unique_neighbor_hosts(neighbors):
+    unique_neighbors = {}
+    for neigh in neighbors:
+        unique_neighbors.setdefault(neigh.hostname, neigh)
+    return list(unique_neighbors.values())
+
+
 def restore_neighbor_bgp(neighbors):
     errors = []
     for neigh in neighbors:
@@ -225,6 +232,12 @@ def setup(
         tor_neighbors[details['description']] = (
             nbrhosts[details['description']]["host"]
         )
+    neighbor_hosts = get_unique_neighbor_hosts(tor_neighbors.values())
+    logger.info(
+        "Selected %d unique neighbor hosts for %d external BGP peers",
+        len(neighbor_hosts),
+        len(tor_neighbors)
+    )
 
     if not neigh_keys:
         pytest.skip(
@@ -262,7 +275,7 @@ def setup(
         'neighhost': tor_neighbors[tor1],
         'neigh_asn': neigh_asn[tor1],
         'asn_dict':  neigh_asn,
-        'neighbors': tor_neighbors,
+        'neighbors': neighbor_hosts,
         'namespace': namespace
     }
 
@@ -293,7 +306,7 @@ def setup(
 
     yield setup_info
 
-    restore_errors = restore_neighbor_bgp(tor_neighbors.values())
+    restore_errors = restore_neighbor_bgp(neighbor_hosts)
 
     sessions_established = wait_until(
         BGP_SESSION_TIMEOUT, BGP_POLL_INTERVAL, BGP_RECOVERY_DELAY,
@@ -369,7 +382,7 @@ def test_bgp_multiple_session_flaps(setup):
     stats.append(get_cpu_stats(setup['duthost']))
 
     # start threads to flap neighbor sessions
-    neighbors = list(setup['neighbors'].values())
+    neighbors = setup['neighbors']
     stop_event = threading.Event()
     workers = []
     test_exception = None

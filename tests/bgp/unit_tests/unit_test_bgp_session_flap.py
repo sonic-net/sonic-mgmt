@@ -31,6 +31,7 @@ HELPERS = {
     "get_bgp_session_groups",
     "get_external_bgp_session_states",
     "all_bgp_sessions_established",
+    "get_unique_neighbor_hosts",
     "restore_neighbor_bgp",
     "stop_flap_workers",
     "start_flap_worker",
@@ -67,7 +68,8 @@ class CapturingThread(threading.Thread):
 
 
 class FakeNeighbor:
-    def __init__(self, fail_kill=False, fail_start=False):
+    def __init__(self, hostname=None, fail_kill=False, fail_start=False):
+        self.hostname = hostname or "neighbor-{}".format(id(self))
         self.fail_kill = fail_kill
         self.fail_start = fail_start
         self.kill_count = 0
@@ -147,15 +149,90 @@ def test_multiple_workers_receive_neighbor_objects(flap_helpers):
     assert all(neighbor.kill_count >= 1 for neighbor in neighbors)
 
 
-def test_multiple_session_test_iterates_neighbor_values(flap_helpers):
+def test_neighbor_hosts_are_deduplicated_by_hostname(flap_helpers):
+    first_vm = FakeNeighbor(hostname="VM0104")
+    duplicate_vm = FakeNeighbor(hostname="VM0104")
+    second_vm = FakeNeighbor(hostname="VM0105")
+
+    neighbors = flap_helpers["get_unique_neighbor_hosts"]([
+        first_vm, duplicate_vm, second_vm
+    ])
+
+    assert neighbors == [first_vm, second_vm]
+
+
+def test_setup_selects_unique_physical_neighbor_hosts():
+    tree = ast.parse(MODULE_PATH.read_text())
+    setup_node = next(
+        node for node in tree.body
+        if isinstance(node, ast.FunctionDef) and node.name == "setup"
+    )
+    assignment = next(
+        node for node in setup_node.body
+        if (
+            isinstance(node, ast.Assign)
+            and any(
+                isinstance(target, ast.Name)
+                and target.id == "neighbor_hosts"
+                for target in node.targets
+            )
+        )
+    )
+
+    assert isinstance(assignment.value, ast.Call)
+    assert assignment.value.func.id == "get_unique_neighbor_hosts"
+    assert assignment.value.args[0].func.attr == "values"
+    assert assignment.value.args[0].func.value.id == "tor_neighbors"
+
+    setup_info_assignment = next(
+        node for node in setup_node.body
+        if (
+            isinstance(node, ast.Assign)
+            and any(
+                isinstance(target, ast.Name)
+                and target.id == "setup_info"
+                for target in node.targets
+            )
+        )
+    )
+    setup_info = {
+        key.value: value
+        for key, value in zip(
+            setup_info_assignment.value.keys,
+            setup_info_assignment.value.values
+        )
+    }
+    assert setup_info["neighbors"].id == "neighbor_hosts"
+
+    restore_assignment = next(
+        node for node in setup_node.body
+        if (
+            isinstance(node, ast.Assign)
+            and any(
+                isinstance(target, ast.Name)
+                and target.id == "restore_errors"
+                for target in node.targets
+            )
+        )
+    )
+    assert restore_assignment.value.func.id == "restore_neighbor_bgp"
+    assert restore_assignment.value.args[0].id == "neighbor_hosts"
+
+
+def test_multiple_session_test_passes_neighbor_objects(flap_helpers):
     neighbors = [FakeNeighbor(), FakeNeighbor()]
     received_neighbors = []
+    stopped_neighbors = []
 
     def record_worker(neighbor, stop_event):
         received_neighbors.append(neighbor)
         completed = threading.Event()
         completed.set()
         return CapturingThread(), completed
+
+    def record_stop(workers, stop_event, selected_neighbors):
+        stopped_neighbors.extend(selected_neighbors)
+        return []
 
     flap_helpers.update({
         "assert_flap_workers_succeeded": (
@@ -165,9 +242,7 @@ def test_multiple_session_test_iterates_neighbor_values(flap_helpers):
         ),
         "get_cpu_stats": lambda duthost: [0] * 9,
         "start_flap_worker": record_worker,
-        "stop_flap_workers": (
-            lambda workers, stop_event, selected_neighbors: []
-        ),
+        "stop_flap_workers": record_stop,
         "time": type(
             "NoWait", (), {"sleep": staticmethod(lambda seconds: None)}
         ),
@@ -175,10 +250,11 @@ def test_multiple_session_test_iterates_neighbor_values(flap_helpers):
 
     flap_helpers["test_bgp_multiple_session_flaps"]({
         "duthost": object(),
-        "neighbors": {"neighbor-a": neighbors[0], "neighbor-b": neighbors[1]},
+        "neighbors": neighbors,
     })
 
     assert received_neighbors == neighbors
+    assert stopped_neighbors == neighbors
 
 
 def test_partial_start_reports_primary_and_worker_failures(flap_helpers):
@@ -198,10 +274,7 @@ def test_partial_start_reports_primary_and_worker_failures(flap_helpers):
     with pytest.raises(AssertionError) as exc_info:
         flap_helpers["test_bgp_multiple_session_flaps"]({
             "duthost": object(),
-            "neighbors": {
-                "neighbor-a": neighbors[0],
-                "neighbor-b": neighbors[1],
-            },
+            "neighbors": neighbors,
         })
 
     message = str(exc_info.value)
