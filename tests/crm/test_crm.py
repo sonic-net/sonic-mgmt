@@ -1618,9 +1618,18 @@ def test_crm_fdb_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum
         )
     )
 
+    # FdbOrch can report used == 0 before CrmOrch refreshes available.
+    # Allow two polling intervals before capturing the baseline counters.
+    time.sleep(2 * CRM_POLLING_INTERVAL)
+
     # Get "crm_stats_fdb_entry" used and available counter value
-    crm_stats_fdb_entry_used = initial_fdb_clear_result['used']
-    crm_stats_fdb_entry_available = initial_fdb_clear_result['avail']
+    crm_stats_fdb_entry_used, crm_stats_fdb_entry_available = get_crm_stats(get_fdb_stats, duthost)
+    pytest_assert(
+        crm_stats_fdb_entry_used == 0,
+        "FDB usage changed while establishing the clean baseline. Used == {}, available == {}".format(
+            crm_stats_fdb_entry_used, crm_stats_fdb_entry_available
+        )
+    )
     # Generate FDB json file with one entry and apply it on DUT
     apply_fdb_config(duthost, "test_crm_fdb_entry", vlan_id, iface, 1)
 
