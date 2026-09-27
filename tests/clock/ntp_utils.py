@@ -19,6 +19,7 @@ NTP_SERVER_RECOVERY_LEASE = 1800
 NTP_SERVER_RECOVERY_RETRY_INTERVAL = 60
 NTP_SERVER_RECOVERY_COMMAND_TIMEOUT = 120
 NTP_SERVER_LOCK_TIMEOUT = 30
+NTP_SERVER_WATCHDOG_POLL_INTERVAL = 60
 
 
 def normalize_ntp_server(ntp_server):
@@ -96,6 +97,8 @@ def _install_ntp_server_recovery(ptfhost, ntp_service_name, ntp_conf_path,
     recovery_id = uuid.uuid4().hex
     script_path = "/tmp/sonic-mgmt-ntp-server-recovery-{}.sh".format(recovery_id)
     pid_path = "/tmp/sonic-mgmt-ntp-server-recovery-{}.pid".format(recovery_id)
+    deadline_path = "/tmp/sonic-mgmt-ntp-server-recovery-{}.deadline".format(recovery_id)
+    deadline_tmp_path = "{}.tmp".format(deadline_path)
     owner_path = "/tmp/sonic-mgmt-ntp-server-{}.owner".format(ntp_service_name)
     owner_tmp_path = "{}.{}.tmp".format(owner_path, recovery_id)
     lock_path = "/tmp/sonic-mgmt-ntp-server-{}.lock".format(ntp_service_name)
@@ -142,46 +145,79 @@ monotonic_seconds() {{
     read -r uptime_seconds _ < /proc/uptime || return 1
     printf '%s\\n' "${{uptime_seconds%%.*}}"
 }}
-sleep {timeout}
-deadline=$(( $(monotonic_seconds) + {lease} ))
+retry_deadline=0
 while true; do
-    if timeout --kill-after=10 {command_timeout} {script}; then
-        rm -f {script} {pid} {backup} {owner_tmp}
+    exec 9>{lock}
+    flock -w {lock_timeout} -x 9 || exit 75
+    deadline=$(cat {deadline}) || exit 1
+    now=$(monotonic_seconds) || exit 1
+    remaining=$(( deadline - now ))
+    if [ "$remaining" -gt 0 ]; then
+        retry_deadline=0
+        flock -u 9
+        exec 9>&-
+        if [ "$remaining" -gt {poll_interval} ]; then
+            remaining={poll_interval}
+        fi
+        sleep "$remaining"
+        continue
+    fi
+    if [ "$retry_deadline" -eq 0 ]; then
+        retry_deadline=$(( now + {lease} ))
+    fi
+    if SONIC_MGMT_NTP_LOCK_HELD=1 timeout --kill-after=10 {command_timeout} {script}; then
+        rm -f {script} {pid} {deadline} {backup} {owner_tmp}
         exit 0
     fi
+    flock -u 9
+    exec 9>&-
     now=$(monotonic_seconds) || exit 1
-    if [ "$now" -ge "$deadline" ]; then
+    if [ "$now" -ge "$retry_deadline" ]; then
         exit 1
     fi
     sleep {retry_interval}
 done
 """.format(
-            timeout=recovery_timeout,
             lease=NTP_SERVER_RECOVERY_LEASE,
             command_timeout=NTP_SERVER_RECOVERY_COMMAND_TIMEOUT,
             script=shlex.quote(script_path),
             pid=shlex.quote(pid_path),
+            deadline=shlex.quote(deadline_path),
             backup=shlex.quote(ntp_conf_backup_path),
             owner_tmp=shlex.quote(owner_tmp_path),
-            retry_interval=NTP_SERVER_RECOVERY_RETRY_INTERVAL
+            retry_interval=NTP_SERVER_RECOVERY_RETRY_INTERVAL,
+            lock=shlex.quote(lock_path),
+            lock_timeout=NTP_SERVER_LOCK_TIMEOUT,
+            poll_interval=NTP_SERVER_WATCHDOG_POLL_INTERVAL
         )
         ptfhost.shell(
-            "watchdog_started=0; "
+            "watchdog_started=0; watchdog_pid=''; "
             "cleanup_install() {{ "
             "if [ \"$watchdog_started\" -eq 0 ]; then "
+            "if [ -n \"$watchdog_pid\" ]; then kill -- -\"$watchdog_pid\" 2>/dev/null || true; fi; "
             "SONIC_MGMT_NTP_LOCK_HELD=1 {script} >/dev/null 2>&1 || true; "
+            "rm -f {pid} {deadline} {deadline_tmp}; "
             "fi; "
             "}}; "
-            "trap cleanup_install EXIT HUP INT TERM; "
+            "abort_install() {{ cleanup_install; trap - EXIT HUP INT TERM; exit 130; }}; "
+            "trap cleanup_install EXIT; trap abort_install HUP INT TERM; "
             "exec 9>{lock}; flock -w {lock_timeout} -x 9 || exit 75; "
             "if [ -e {owner} ]; then "
             "echo 'Another NTP server context owns {owner}' >&2; exit 1; fi; "
             "cp -a {config} {backup} && "
             "printf '%s\\n' {recovery_id} > {owner_tmp} && "
             "mv -f {owner_tmp} {owner} || exit 1; "
+            "read -r uptime_seconds _ < /proc/uptime || exit 1; "
+            "deadline=$(( ${{uptime_seconds%%.*}} + {recovery_timeout} )); "
+            "printf '%s\\n' \"$deadline\" > {deadline_tmp} && "
+            "mv -f {deadline_tmp} {deadline} || exit 1; "
             "setsid sh -c {watchdog} 9>&- >/dev/null 2>&1 </dev/null & "
             "watchdog_pid=$!; printf '%s\\n' \"$watchdog_pid\" > {pid} || exit 1; "
-            "kill -0 \"$watchdog_pid\" || exit 1; watchdog_started=1; "
+            "kill -0 \"$watchdog_pid\" || exit 1; "
+            "sleep 1; "
+            "ps -o stat= -p \"$watchdog_pid\" 2>/dev/null | "
+            "grep -Eq '^[[:space:]]*[^Z[:space:]]' || exit 1; "
+            "watchdog_started=1; "
             "trap - EXIT HUP INT TERM".format(
                 watchdog=shlex.quote(watchdog_command),
                 script=shlex.quote(script_path),
@@ -192,10 +228,18 @@ done
                 backup=shlex.quote(ntp_conf_backup_path),
                 recovery_id=shlex.quote(recovery_id),
                 owner_tmp=shlex.quote(owner_tmp_path),
-                pid=shlex.quote(pid_path)
+                pid=shlex.quote(pid_path),
+                deadline=shlex.quote(deadline_path),
+                deadline_tmp=shlex.quote(deadline_tmp_path),
+                recovery_timeout=recovery_timeout
             )
         )
-        ptfhost.command("test -s {}".format(shlex.quote(pid_path)))
+        ptfhost.command(
+            "test -s {pid} -a -s {deadline}".format(
+                pid=shlex.quote(pid_path),
+                deadline=shlex.quote(deadline_path)
+            )
+        )
     except Exception:
         restore_result = ptfhost.command(
             "timeout --kill-after=10 {} {}".format(
@@ -214,9 +258,11 @@ done
         if restore_result["rc"] == 0 or not owns_context:
             ptfhost.shell(
                 "if [ -s {pid} ]; then kill -- -$(cat {pid}) 2>/dev/null || true; fi; "
-                "rm -f {script} {pid} {backup} {owner_tmp}".format(
+                "rm -f {script} {pid} {deadline} {deadline_tmp} {backup} {owner_tmp}".format(
                     script=shlex.quote(script_path),
                     pid=shlex.quote(pid_path),
+                    deadline=shlex.quote(deadline_path),
+                    deadline_tmp=shlex.quote(deadline_tmp_path),
                     backup=shlex.quote(ntp_conf_backup_path),
                     owner_tmp=shlex.quote(owner_tmp_path)
                 )
@@ -226,8 +272,55 @@ done
     return {
         "script_path": script_path,
         "pid_path": pid_path,
-        "backup_path": ntp_conf_backup_path
+        "deadline_path": deadline_path,
+        "backup_path": ntp_conf_backup_path,
+        "owner_path": owner_path,
+        "recovery_id": recovery_id,
+        "lock_path": lock_path,
+        "watchdog_command": watchdog_command,
+        "recovery_timeout": recovery_timeout
     }
+
+
+def _refresh_ntp_server_recovery(ptfhost, recovery):
+    deadline_tmp_path = "{}.{}.tmp".format(
+        recovery["deadline_path"],
+        uuid.uuid4().hex
+    )
+    ptfhost.shell(
+        "refresh_complete=0; watchdog_pid=''; "
+        "watchdog_is_live() {{ "
+        "kill -0 \"$watchdog_pid\" 2>/dev/null || return 1; "
+        "ps -o stat= -p \"$watchdog_pid\" 2>/dev/null | "
+        "grep -Eq '^[[:space:]]*[^Z[:space:]]'; "
+        "}}; "
+        "cleanup_refresh() {{ "
+        "if [ \"$refresh_complete\" -eq 0 ]; then "
+        "rm -f {deadline_tmp}; "
+        "fi; "
+        "}}; "
+        "abort_refresh() {{ cleanup_refresh; trap - EXIT HUP INT TERM; exit 130; }}; "
+        "trap cleanup_refresh EXIT; trap abort_refresh HUP INT TERM; "
+        "exec 9>{lock}; flock -w {lock_timeout} -x 9 || exit 75; "
+        "test -s {owner} && [ \"$(cat {owner})\" = {recovery_id} ] || exit 1; "
+        "test -s {pid} || exit 1; watchdog_pid=$(cat {pid}); "
+        "watchdog_is_live || exit 1; "
+        "read -r uptime_seconds _ < /proc/uptime || exit 1; "
+        "deadline=$(( ${{uptime_seconds%%.*}} + {recovery_timeout} )); "
+        "printf '%s\\n' \"$deadline\" > {deadline_tmp} && "
+        "mv -f {deadline_tmp} {deadline} || exit 1; "
+        "sleep 1; watchdog_is_live || exit 1; "
+        "refresh_complete=1; trap - EXIT HUP INT TERM".format(
+            deadline_tmp=shlex.quote(deadline_tmp_path),
+            lock=shlex.quote(recovery["lock_path"]),
+            lock_timeout=NTP_SERVER_LOCK_TIMEOUT,
+            owner=shlex.quote(recovery["owner_path"]),
+            recovery_id=shlex.quote(recovery["recovery_id"]),
+            pid=shlex.quote(recovery["pid_path"]),
+            deadline=shlex.quote(recovery["deadline_path"]),
+            recovery_timeout=recovery["recovery_timeout"]
+        )
+    )
 
 
 def _restore_ntp_server(ptfhost, recovery):
@@ -244,9 +337,10 @@ def _restore_ntp_server(ptfhost, recovery):
     if result["rc"] == 0:
         ptfhost.shell(
             "if [ -s {pid} ]; then kill -- -$(cat {pid}) 2>/dev/null || true; fi; "
-            "rm -f {script} {pid} {backup}".format(
+            "rm -f {script} {pid} {deadline} {backup}".format(
                 script=shlex.quote(recovery["script_path"]),
                 pid=shlex.quote(recovery["pid_path"]),
+                deadline=shlex.quote(recovery["deadline_path"]),
                 backup=shlex.quote(recovery["backup_path"])
             )
         )
@@ -296,6 +390,7 @@ def setup_ntp_server_context(ptfhost, ptf_use_ipv6=False,
     ntp_conf_backup_path = "{}.sonicmgmt.{}.bak".format(ntp_conf_path, uuid.uuid4().hex)
 
     ptfhost.shell("command -v flock >/dev/null")
+    ptfhost.shell("command -v ps >/dev/null")
     ptfhost.shell("command -v setsid >/dev/null")
     ptfhost.shell("command -v timeout >/dev/null")
     recovery = _install_ntp_server_recovery(
@@ -306,6 +401,11 @@ def setup_ntp_server_context(ptfhost, ptf_use_ipv6=False,
         ntp_service_was_active,
         recovery_timeout
     )
+    if recovery_state is not None:
+        recovery_state["refresh"] = lambda: _refresh_ntp_server_recovery(
+            ptfhost,
+            recovery
+        )
     try:
         _configure_ntp_server(ptfhost, ntp_daemon_type, ntp_conf_path, ptf_use_ipv6)
         ntp_en_res = ptfhost.service(name=ntp_service_name, state="restarted")
@@ -325,8 +425,12 @@ def setup_ntp_server_context(ptfhost, ptf_use_ipv6=False,
 
         yield ptfhost.mgmt_ipv6 if ptf_use_ipv6 else ptfhost.mgmt_ip
     finally:
-        if not recovery_state or not recovery_state.get("defer_cleanup"):
-            _restore_ntp_server(ptfhost, recovery)
+        try:
+            if not recovery_state or not recovery_state.get("defer_cleanup"):
+                _restore_ntp_server(ptfhost, recovery)
+        finally:
+            if recovery_state is not None:
+                recovery_state.pop("refresh", None)
 
 
 def get_ntp_one_shot_command(duthost, ntp_daemon_type, ntp_server, ntp_conf_path=None):

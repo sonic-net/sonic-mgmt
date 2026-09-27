@@ -4,6 +4,7 @@ import string
 import pytest
 import time
 import datetime as dt
+from collections.abc import Mapping
 
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
@@ -72,12 +73,21 @@ class ClockUtils:
             try:
                 cmd_output = duthost.command(cmd_to_run)["stdout"]
             except RunAnsibleModuleFail as cmd_err:
-                output = cmd_err.results["stdout"]
-                err = cmd_err.results["stderr"]
-                cmd_output = output if output else err
+                results = cmd_err.results if isinstance(cmd_err.results, Mapping) else {}
+                fallback_message = (
+                    getattr(cmd_err, "message", None)
+                    or Exception.__str__(cmd_err)
+                    or cmd_err.__class__.__name__
+                )
+                cmd_output = (
+                    results.get("stdout")
+                    or results.get("stderr")
+                    or results.get("msg")
+                    or fallback_message
+                )
                 logging.info(f'Command Error!\nError message: "{cmd_output}"')
                 if raise_err:
-                    raise Exception(cmd_output)
+                    raise Exception(cmd_output) from cmd_err
 
             cmd_output = str(cmd_output)
             logging.info(f'Output: {cmd_output}')
