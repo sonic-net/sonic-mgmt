@@ -37,6 +37,12 @@ bfd/test_bfd_traffic.py:
 #######################################
 #####           BGP               #####
 #######################################
+bgp/test_bgp_session.py::test_bgp_session_interface_down:
+  xfail:
+    reason: "VPP BGP sessions intermittently fail to establish during module setup"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/27487 and asic_type in ['vpp']"
+
 bgp/test_bgp_suppress_fib.py::test_bgp_route_with_suppress[:
   skip:
     reason: "Suppress-FIB dataplane behavior has not been validated on VPP"
