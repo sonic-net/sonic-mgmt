@@ -86,8 +86,15 @@ def get_t2_fib_info(duthosts, duts_cfg_facts, duts_mg_facts, testname=None):
                     skip = False
 
                     prefix = k.split(':', 1)[1]
-                    ifnames = v['value']['ifname'].split(',')
-                    nh = v['value']['nexthop']
+                    route_fields = v.get('value', {})
+                    missing_fields = sorted({'ifname', 'nexthop'} - set(route_fields))
+                    pytest_assert(
+                        not missing_fields,
+                        "ROUTE_TABLE entry {} is missing required field(s) {}: {}"
+                        .format(k, missing_fields, route_fields)
+                    )
+                    ifnames = route_fields['ifname'].split(',')
+                    nh = route_fields['nexthop']
                     nh_ips = nh.split(',')
 
                     oports = []

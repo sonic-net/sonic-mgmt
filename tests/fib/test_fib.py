@@ -28,7 +28,12 @@ from tests.common.fixtures.fib_utils import (  # noqa: F401
     gen_fib_info_file,
     )
 from tests.common.utilities import wait
-from tests.common.helpers.assertions import pytest_require
+from tests.common.helpers.assertions import pytest_assert, pytest_require
+from tests.fib.fib_route_utils import (
+    DEFAULT_ROUTE_ECMP,
+    DEFAULT_ROUTE_SINGLE,
+    classify_default_route_output,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -57,63 +62,70 @@ PTF_TEST_PORT_MAP = '/root/ptf_test_port_map.json'
 
 
 # Helper Functions
-def check_default_route_from_fib_info(ptfhost, file_path):
+def get_default_route_info(ptfhost, file_path, ipver):
     """
-    Check for the default route (0.0.0.0/0) in the FIB information file
-    and return a list of next hop port indices.
+    Read and classify one address family's default route in a FIB information file.
 
     Args:
         ptfhost: The PTF host object.
         file_path: The path to the FIB info file.
+        ipver: Address family to inspect.
 
     Returns:
-        A list of next hop port indices or an empty list if not found.
+        DefaultRouteInfo with state, nexthops, and diagnostic detail.
     """
+    result = ptfhost.shell("cat {}".format(file_path), module_ignore_errors=True)
+    return classify_default_route_output(result, ipver)
 
-    # Attempt to read the FIB info file
-    result = ptfhost.shell("cat {}".format(file_path))
-    if result['rc'] != 0:
-        logger.error("Failed to read file {} from PTF host.".format(file_path))
+
+def check_default_route_from_fib_info(ptfhost, file_path):
+    """Return IPv4 ECMP ports, skip a single path, and fail invalid route state."""
+    info = get_default_route_info(ptfhost, file_path, "ipv4")
+    pytest_assert(
+        info.state in (DEFAULT_ROUTE_SINGLE, DEFAULT_ROUTE_ECMP),
+        "Cannot validate the IPv4 default route in {}: {} ({})"
+        .format(file_path, info.state, info.detail),
+    )
+    if info.state == DEFAULT_ROUTE_SINGLE:
         return []
-
-    lines = result['stdout_lines']
-
-    # Find the line containing the default route
-    default_route_line = next((line.strip() for line in lines if '0.0.0.0/0' in line), None)
-
-    if not default_route_line:
-        logger.info("No default route found. Returning an empty list.")
-        return []  # Return an empty list if no default route is found
-
-    # Count the number of next hops (each '[]' represents one nexthop)
-    nexthops_count = len(re.findall(r'\[.*?\]', default_route_line))
-
-    if nexthops_count <= 1:
-        logger.info("Number of nexthops is less than or equal to 1. Returning an empty list.")
-        return []  # Return empty list if only one or no nexthop
-
-    # Extract all numbers inside square brackets and convert them to integers
-    matches = re.findall(r'\[(\d+(?: \d+)*)\]', default_route_line)
-    ports = [int(num) for group in matches for num in group.split()]
-
-    return ports
+    return [port for nexthop in info.nexthops for port in nexthop]
 
 
-def skip_if_no_ecmp_to_hash_over(ptfhost, fib_file):
-    """Skip when the topology offers no ECMP set for the hash tests to work with.
+def skip_if_no_ecmp_to_hash_over(ptfhost, fib_files, ipver):
+    """Skip only when every DUT has one path; fail invalid or mixed route state."""
+    route_info = [
+        (fib_file, get_default_route_info(ptfhost, fib_file, ipver))
+        for fib_file in fib_files
+    ]
+    invalid = [
+        "{}: {} ({})".format(fib_file, info.state, info.detail)
+        for fib_file, info in route_info
+        if info.state not in (DEFAULT_ROUTE_SINGLE, DEFAULT_ROUTE_ECMP)
+    ]
+    pytest_assert(
+        not invalid,
+        "Cannot determine {} default-route ECMP applicability: {}"
+        .format(ipver, "; ".join(invalid)),
+    )
 
-    The hash tests send traffic to destinations reached via the default route and
-    check it is distributed across the nexthops. hash_test.py asserts outright if a
-    destination resolves to a single nexthop, which reports a failure for a topology
-    that simply has one path rather than for anything the device did wrong.
+    states = {info.state for _, info in route_info}
+    if states == {DEFAULT_ROUTE_SINGLE}:
+        pytest.skip(
+            "Hash tests require ECMP, but every {} default route has exactly one nexthop."
+            .format(ipver)
+        )
 
-    Checking the installed FIB rather than the topology name keeps this correct if a
-    topology gains or loses upstream links. This mirrors what test_ecmp_group_member_flap
-    already does with the same helper.
-    """
-    if not check_default_route_from_fib_info(ptfhost, fib_file):
-        pytest.skip("Hash tests need an ECMP set to hash across, and the default route on this "
-                    "topology resolves to fewer than two nexthops.")
+    pytest_assert(
+        states == {DEFAULT_ROUTE_ECMP},
+        "Hash tests require consistent {} ECMP state across DUTs: {}"
+        .format(
+            ipver,
+            ", ".join(
+                "{}={}".format(fib_file, info.state)
+                for fib_file, info in route_info
+            ),
+        ),
+    )
 
 
 def get_all_ptf_port_indices_from_mg_facts(mg_facts):
@@ -570,7 +582,7 @@ def test_hash(add_default_route_to_dut, duthosts, tbinfo, setup_vlan,      # noq
     fib_files = fib_info_files_per_function(duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts,
                                             tbinfo, request)
 
-    skip_if_no_ecmp_to_hash_over(ptfhost, fib_files[0])
+    skip_if_no_ecmp_to_hash_over(ptfhost, fib_files, ipver)
 
     is_active_active_dualtor = bool(active_active_ports)
     switch_type = duthosts[0].facts.get('switch_type')
@@ -681,7 +693,7 @@ def test_ipinip_hash_negative(add_default_route_to_dut, duthosts,           # no
     fib_files = fib_info_files_per_function(duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts,
                                             tbinfo, request)
 
-    skip_if_no_ecmp_to_hash_over(ptfhost, fib_files[0])
+    skip_if_no_ecmp_to_hash_over(ptfhost, fib_files, ipver)
 
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
     log_file = "/tmp/hash_test.IPinIPHashTest.{}.{}.log".format(
@@ -735,7 +747,8 @@ def test_vxlan_hash(add_default_route_to_dut, duthost, duthosts,                
     fib_files = fib_info_files_per_function(duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts,
                                             tbinfo, request)
 
-    skip_if_no_ecmp_to_hash_over(ptfhost, fib_files[0])
+    outer_ipver = vxlan_ipver.split('-', 1)[0]
+    skip_if_no_ecmp_to_hash_over(ptfhost, fib_files, outer_ipver)
 
     # Query the default VxLAN UDP port from switch's APPL_DB
     vxlan_dport_check = duthost.shell('redis-cli -n 0 hget "SWITCH_TABLE:switch" "vxlan_port"')
@@ -893,7 +906,7 @@ def test_ecmp_group_member_flap(
     nh_ptf_ports = check_default_route_from_fib_info(ptfhost, fib_files[0])
     logging.info("nh_ptf_ports: {}".format(nh_ptf_ports))
     if not nh_ptf_ports:
-        pytest.skip("Skipping test as default route is missing or has fewer than 2 nexthops.")
+        pytest.skip("Skipping test as the IPv4 default route has exactly one nexthop.")
 
     # --- Identify the DUT and ports from the minigraph facts ---
     upstream_lc = duthosts[0].hostname
