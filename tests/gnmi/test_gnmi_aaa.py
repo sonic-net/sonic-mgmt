@@ -1,7 +1,12 @@
 """gNMI audit, authentication, and authorization tests."""
 
+import base64
+import hashlib
+import json
 import logging
+import re
 import time
+import uuid
 
 import pytest
 from pygnmi.client import gNMIException
@@ -23,6 +28,7 @@ from tests.common.helpers.sonic_db import (
     redis_del,
     redis_hdel,
     redis_hget,
+    redis_hgetall,
     redis_hset,
     redis_keys,
 )
@@ -32,7 +38,9 @@ from tests.common.helpers.syslog_helpers import (
     read_syslog_payloads,
 )
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
+from tests.common.ptf_grpc import PtfGrpcError
 from tests.common.pygnmi_client import GetDataType, PygnmiClientError
+from tests.common.utilities import wait_until
 
 
 pytestmark = [
@@ -62,6 +70,9 @@ CONFIG_DB_GET_PATH = (
 CONFIG_DB_SET_PATH = "{}/cloudtype".format(CONFIG_DB_GET_PATH)
 AUDIT_GET_PATH = "/CONFIG_DB/localhost/DEVICE_METADATA/localhost"
 AUDIT_SET_PATH = "{}/cloudtype".format(AUDIT_GET_PATH)
+BYPASS_HEADER = {"x-sonic-ss-bypass-validation": "true"}
+BYPASS_SKUS = ("Cisco-8101", "Cisco-8102", "Cisco-8223")
+FILE_CONTENT = b"sonic-mgmt write authorization sentinel\n"
 
 
 def _set_configdb(client):
@@ -414,3 +425,184 @@ def test_cn_role_access(
             operation(gnmi_tls.pygnmi_client)
     finally:
         _set_client_cert_role(duthost, original_role)
+
+
+@pytest.fixture
+def authorization_env(gnmi_tls):  # noqa: F811
+    """Bound RPC deadlines and restore the certificate mapping after each case."""
+    duthost = gnmi_tls.duthost
+    role_key = "GNMI_CLIENT_CERT|{}".format(CLIENT_PRINCIPAL)
+    original = redis_hgetall(duthost, CONFIG_DB, role_key)
+    pytest_assert(original, "TLS fixture did not install a certificate mapping")
+    gnmi_tls.grpc.configure_max_time(30)
+    try:
+        yield gnmi_tls
+    finally:
+        for result in redis_del(duthost, CONFIG_DB, role_key):
+            pytest_assert(result["rc"] == 0, "Failed to remove test certificate role")
+        result = redis_hset(duthost, CONFIG_DB, role_key, **original)
+        pytest_assert(result["rc"] == 0, "Failed to restore certificate mapping")
+        pytest_assert(redis_hgetall(duthost, CONFIG_DB, role_key) == original,
+                      "Certificate mapping was not restored")
+
+
+def _assert_denied(call, role):
+    """Transport, request-validation and backend errors are not authz evidence."""
+    with pytest.raises(PtfGrpcError) as caught:
+        call()
+    message = str(caught.value)
+    if role is None:
+        pytest_assert(re.search(r"Code:\s*Unauthenticated\b", message), message)
+    else:
+        # checkRoleAccess currently returns a plain Go error (gRPC Unknown).
+        pytest_assert(re.search(r"Code:\s*(Unknown|PermissionDenied)\b", message), message)
+        pytest_assert("does not have access" in message and role in message, message)
+
+
+# Denied RPCs and the deliberately invalid writer probes log server errors.
+@pytest.mark.disable_loganalyzer
+@pytest.mark.parametrize("identity", ["readonly", "unmapped", "readwrite"])
+@pytest.mark.parametrize("rpc", ["TransferToRemote", "Put", "Remove", "Start", "Install"])
+def test_gnoi_write_authorization(authorization_env, identity, rpc):
+    """Regress sonic-gnmi PR 790: all five RPCs must reject non-writers.
+
+    File.Put/Remove exercise temporary files. TransferToRemote and OS.Install
+    use invalid requests to check authorization before request validation.
+    FactoryReset uses the host service's unsupported zero-fill request; its
+    writer control must return the explicit reset error, not perform a reset.
+    """
+    env = authorization_env
+    duthost = env.duthost
+    role = None if identity == "unmapped" else "gnoi_{}".format(identity)
+    directory = duthost.tempfile(state="directory", path="/tmp", prefix="gnoi_authz_")["path"]
+    path = directory + "/sentinel"
+    try:
+        duthost.copy(content=FILE_CONTENT.decode(), dest=path)
+        before = duthost.stat(path=path, get_checksum=True)["stat"]
+        _set_client_cert_role(duthost, role)
+
+        def invoke():
+            if rpc == "Put":
+                return env.grpc.call_client_streaming("gnoi.file.File", rpc, [
+                    {"open": {"remoteFile": path, "permissions": 420}},
+                    {"contents": base64.b64encode(b"authorized replacement\n").decode()},
+                    {"hash": {
+                        "method": "MD5",
+                        "hash": base64.b64encode(hashlib.md5(b"authorized replacement\n").digest()).decode(),
+                    }},
+                ])
+            if rpc == "Install":
+                # No TransferRequest: authenticated handler returns before any
+                # backend call, image creation or installation is possible.
+                return env.grpc.call_bidirectional_streaming("gnoi.os.OS", rpc, [{}])
+            if rpc == "Start":
+                return env.grpc.call_unary("gnoi.factory_reset.FactoryReset", rpc,
+                                           {"factoryOs": True, "zeroFill": True})
+            if rpc == "TransferToRemote":
+                # Missing remote_download: no network transfer can occur even
+                # on a vulnerable image that accepts the reader identity.
+                return env.grpc.call_unary("gnoi.file.File", rpc, {"localPath": path})
+            return env.grpc.call_unary("gnoi.file.File", rpc, {"remoteFile": path})
+
+        if identity != "readwrite":
+            _assert_denied(invoke, role)
+        elif rpc in ("TransferToRemote", "Install"):
+            detail = "remote_download cannot be nil" if rpc == "TransferToRemote" else "Expected TransferRequest"
+            with pytest.raises(PtfGrpcError) as caught:
+                invoke()
+            message = str(caught.value)
+            pytest_assert(re.search(r"Code:\s*InvalidArgument\b", message) and detail in message, message)
+        elif rpc == "Start":
+            response = invoke()
+            detail = response.get("resetError", {}).get("detail", "")
+            pytest_assert("zero_fill operation is currently unsupported" in detail, response)
+        else:
+            invoke()
+
+        after = duthost.stat(path=path, get_checksum=True)["stat"]
+        if identity == "readwrite" and rpc == "Remove":
+            pytest_assert(not after["exists"], "Authorized Remove did not remove the sentinel")
+        elif identity == "readwrite" and rpc == "Put":
+            content = duthost.slurp(src=path)["content"]
+            pytest_assert(base64.b64decode(content) == b"authorized replacement\n", "Put content mismatch")
+        else:
+            pytest_assert(after["exists"] and after["checksum"] == before["checksum"],
+                          "RPC modified the sentinel unexpectedly")
+        pytest_assert(not duthost.stat(path=path + ".tmp")["stat"]["exists"], "Put left a temporary file")
+    finally:
+        duthost.file(path=directory, state="absent")
+
+
+@pytest.mark.disable_loganalyzer
+@pytest.mark.parametrize("identity", ["readonly", "unmapped", "readwrite"])
+@pytest.mark.parametrize("wire_form", ["prefix-target", "database-in-path"])
+@pytest.mark.parametrize("operation", ["update", "replace", "delete"])
+def test_native_set_bypass_authorization(authorization_env, identity, wire_form, operation):
+    """Regress sonic-gnmi PR 791: bypass metadata must not grant write access.
+
+    Requires a bypass-enabled SKU and checks the fast-path log in addition to
+    CONFIG_DB state, so ordinary native Set success cannot mask a bypass skip.
+    """
+    env = authorization_env
+    duthost = env.duthost
+    hwsku = redis_hget(duthost, CONFIG_DB, "DEVICE_METADATA|localhost", "hwsku")
+    if not hwsku.startswith(BYPASS_SKUS):
+        pytest.skip("Native Set bypass requires Cisco-8101/8102/8223; DUT SKU is {}".format(hwsku))
+
+    # PrefixListMgr ignores keys without a '|' separated prefix. This isolated
+    # name exercises an allowed table without creating an FRR prefix-list or
+    # changing a live route. The log assertion below proves bypass selection.
+    name = "gnmi_authz_" + uuid.uuid4().hex[:12]
+    key = "PREFIX_LIST|" + name
+    original = {"action": "permit"}
+    updated = {"action": "deny"}
+    pytest_assert(not redis_hgetall(duthost, CONFIG_DB, key), "Test key already exists")
+    prefix = {"origin": "sonic-db"}
+    elements = ["PREFIX_LIST", name]
+    if wire_form == "prefix-target":
+        prefix["target"] = "CONFIG_DB"
+    else:
+        elements = ["CONFIG_DB", "localhost"] + elements
+    path = {"elem": [{"name": element} for element in elements]}
+    request = {"prefix": prefix}
+    if operation == "delete":
+        request[operation] = [path]
+    else:
+        value = json.dumps(updated).encode()
+        request[operation] = [{"path": path, "val": {"jsonIetfVal": base64.b64encode(value).decode()}}]
+
+    role = None if identity == "unmapped" else "gnmi_config_db_{}".format(identity)
+    try:
+        result = redis_hset(duthost, CONFIG_DB, key, **original)
+        pytest_assert(result["rc"] == 0 and redis_hgetall(duthost, CONFIG_DB, key) == original,
+                      "Failed to seed CONFIG_DB sentinel")
+        # Prove this exact request reaches the bypass before testing a denied
+        # identity, even when pytest selects only a single negative case.
+        _set_client_cert_role(duthost, CONFIG_DB_READWRITE_ROLE)
+        offset = get_audit_log_offset(duthost)
+
+        def invoke():
+            return env.grpc.call_unary("gnmi.gNMI", "Set", request, metadata=BYPASS_HEADER)
+
+        response = invoke()
+        pytest_assert(response.get("response"), "Set returned no operation results")
+        expected = {} if operation == "delete" else updated
+        pytest_assert(redis_hgetall(duthost, CONFIG_DB, key) == expected, "Authorized Set state mismatch")
+
+        def bypass_logged():
+            log = duthost.shell("sudo tail -c +{} /var/log/gnmi.log".format(offset + 1))["stdout"]
+            return "Bypass fast path: direct ConfigDB operations" in log
+
+        pytest_assert(wait_until(10, 1, 0, bypass_logged), "Set succeeded without exercising the bypass path")
+        if identity != "readwrite":
+            result = redis_hset(duthost, CONFIG_DB, key, **original)
+            pytest_assert(result["rc"] == 0 and redis_hgetall(duthost, CONFIG_DB, key) == original,
+                          "Failed to restore sentinel before denial check")
+            _set_client_cert_role(duthost, role)
+            _assert_denied(invoke, role)
+            pytest_assert(redis_hgetall(duthost, CONFIG_DB, key) == original,
+                          "Denied bypass Set changed CONFIG_DB")
+    finally:
+        result = redis_del(duthost, CONFIG_DB, key)[0]
+        pytest_assert(result["rc"] == 0, "Failed to remove CONFIG_DB sentinel")
+        pytest_assert(not redis_hgetall(duthost, CONFIG_DB, key), "CONFIG_DB sentinel still exists")
