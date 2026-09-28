@@ -81,8 +81,12 @@ class DataplaneBaseTest(BaseTest):
    (ptf --test-dir ptftests dhcp_relay_test.DHCPTest --platform remote -t "hostname=\"str-s6000-acs-12\";
     client_port_index=\"1\"; client_iface_alias=\"fortyGigE0/4\"; leaf_port_indices=\"[29, 31, 28, 30]\";
     num_dhcp_servers=\"48\"; server_ip=\"192.0.0.1\"; relay_iface_ip=\"192.168.0.1\";
-    relay_iface_mac=\"ec:f4:bb:fe:88:0a\"; relay_iface_netmask=\"255.255.255.224\""
+    relay_iface_mac=\"ec:f4:bb:fe:88:0a\"; relay_iface_netmask=\"255.255.255.224\";
+    host_mac=\"<DUT-router-MAC>\""
     --disable-vxlan --disable-geneve --disable-erspan --disable-mpls --disable-nvgre)
+
+ For sonic-relay-agent, host_mac is required. Replace <DUT-router-MAC> with the
+ DUT's DEVICE_METADATA|localhost mac value, not its VLAN-interface or uplink MAC.
 
  The above command is configured to test with the following configuration:
   - VLAN IP of DuT is 192.168.0.1, MAC address is ec:f4:bb:fe:88:0a
@@ -209,8 +213,8 @@ class DHCPTest(DataplaneBaseTest):
         #  Byte 0: Suboption number, always set to 2
         #  Byte 1: Length of suboption data in bytes
         #  Bytes 2+: Suboption data
-        # SONiC dual-ToR uses the switch base MAC; other paths use the receiving VLAN interface MAC.
-        # Our remote_id string simply consists of the MAC address of the port that received the request
+        # ISC uses the receiving VLAN-interface MAC; SONiC uses the configured
+        # host/base MAC in both single- and dual-ToR modes.
         remote_id_string = self.relay_iface_mac
         if self.relay_agent == "sonic-relay-agent":
             remote_id_string = self.host_mac
