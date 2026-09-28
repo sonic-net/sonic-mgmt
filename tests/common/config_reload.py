@@ -348,6 +348,13 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         # Extend ignore fabric port msgs for T2 chassis with DNX chipset on Linecards
         ignore_t2_syslog_msgs(sonic_host)
 
+    # This command fails if executed when config-reload is happening. So lets store
+    # this away before config reload and reuse the variable later.
+    is_smartswitch_host = False
+    if is_dut:
+        is_smartswitch_host = sonic_host.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get(
+            'is_smartswitch', False)
+
     # Retrieve the enable_macsec passed by user for this test run
     # If macsec is enabled, use the override option to get macsec profile from golden config
     macsec_en = False
@@ -416,7 +423,7 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
     # On smartswitch, wait for DPUs to reach expected state after config reload.
     # This prevents consecutive config reloads from triggering DPU admin state
     # changes before the previous transitions have completed.
-    if is_dut and sonic_host.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch"):
+    if is_dut and is_smartswitch_host:
         _wait_for_smartswitch_dpu_states(sonic_host)
 
     if safe_reload:

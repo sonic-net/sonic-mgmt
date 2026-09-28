@@ -36,6 +36,10 @@ LOG_EXPECT_LAST_MESSAGE = '.*{}rate-limit-test: This is a test log:.*'
 # rsyslogd-version-dependent, so only a presence check is performed (not an exact count).
 LOG_EXPECT_SYSLOG_RATE_LIMIT_REACHED = r'.*(?:begin to drop messages|messages lost) due to rate-limiting.*'
 
+# BMC syslog rate limit ignore container list
+# Bridge-network redfish on BMC does not forward container# logs to host /var/log/syslog
+BMC_SYSLOG_RATE_LIMIT_IGNORE_CONTAINERS = ['redfish']
+
 pytestmark = [
     pytest.mark.topology("any")
 ]
@@ -94,7 +98,8 @@ def test_syslog_rate_limit(rand_selected_dut):
     # Copy tests/syslog/log_generator.py to DUT
     rand_selected_dut.copy(src=LOCAL_LOG_GENERATOR_FILE, dest=REMOTE_LOG_GENERATOR_FILE)
 
-    verify_container_rate_limit(rand_selected_dut)
+    verify_container_rate_limit(
+        rand_selected_dut, ignore_containers=get_rate_limit_ignore_containers(rand_selected_dut))
     verify_host_rate_limit(rand_selected_dut)
 
     # Save configuration and reload, verify the configuration can be loaded
@@ -103,8 +108,20 @@ def test_syslog_rate_limit(rand_selected_dut):
     config_reload(rand_selected_dut, safe_reload=True)
 
     # database does not support syslog rate limit configuration persist
-    verify_container_rate_limit(rand_selected_dut, ignore_containers=['database'])
+    verify_container_rate_limit(
+        rand_selected_dut,
+        ignore_containers=get_rate_limit_ignore_containers(rand_selected_dut, extra_ignore=['database']))
     verify_host_rate_limit(rand_selected_dut)
+
+
+def get_rate_limit_ignore_containers(duthost, extra_ignore=None):
+    """Containers excluded from random rate-limit verification."""
+    ignore = list(extra_ignore or [])
+    if duthost.is_bmc():
+        for name in BMC_SYSLOG_RATE_LIMIT_IGNORE_CONTAINERS:
+            if name not in ignore:
+                ignore.append(name)
+    return ignore
 
 
 def verify_container_rate_limit(rand_selected_dut, ignore_containers=[]):
@@ -129,6 +146,7 @@ def verify_container_rate_limit(rand_selected_dut, ignore_containers=[]):
     for item in feature_data:
         service_name = item['feature']
         if service_name in ignore_containers:
+            logger.info('Skipping syslog rate limit test for container {} (in ignore list)'.format(service_name))
             continue
         container_name = service_name
         if rand_selected_dut.is_multi_asic:
