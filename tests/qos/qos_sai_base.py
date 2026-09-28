@@ -3454,7 +3454,7 @@ class QosSaiBase(QosBase):
                         fanout, fanout_name, fanout_port, acl_name,
                         fanout_restore_list, acl_created_fanouts,
                         sonic_acl_attempted, sonic_lldp_stopped,
-                        src_dut_conn)
+                        dev_conn)
                 else:
                     logger.warning(
                         "permit_only_test_traffic_on_fanout: "
@@ -3535,7 +3535,7 @@ class QosSaiBase(QosBase):
     def _apply_sonic_filter(self, fanout, fanout_name, fanout_port,
                             acl_name, fanout_restore_list,
                             acl_created_fanouts, sonic_acl_attempted,
-                            sonic_lldp_stopped, src_dut_conn):
+                            sonic_lldp_stopped, device_conn):
         """Apply ingress ETHER_TYPE ACL + LLDP stop on SONiC fanout.
 
         The ACL denies LLDP (0x88CC) and LACP (0x8809) while permitting
@@ -3592,8 +3592,13 @@ class QosSaiBase(QosBase):
                 all_ports = self._sonic_fanout_list_ports(
                     fanout, fanout_name)
                 dut_facing = {str(rec['peerport'])
-                              for rec in src_dut_conn.values()
+                              for dut_connections in device_conn.values()
+                              for rec in dut_connections.values()
                               if str(rec['peerdevice']) == fanout_name}
+                if fanout_port not in dut_facing:
+                    raise RuntimeError(
+                        "DUT-facing port {} was not found in connection "
+                        "graph for {}".format(fanout_port, fanout_name))
                 vm_facing = [port for port in all_ports
                              if port not in dut_facing]
                 if not vm_facing:
@@ -3732,12 +3737,10 @@ class QosSaiBase(QosBase):
                     "counter entries on SONiC %s — ACL may not have "
                     "been programmed to ASIC", acl_name, fanout_name)
             else:
-                header_lines = [line for line in stdout.split('\n')
-                                if line.startswith('RULE')]
                 logger.info(
                     "permit_only_test_traffic_on_fanout: ACL drop "
                     "counters on SONiC %s:\n%s",
-                    fanout_name, '\n'.join(header_lines + counter_lines))
+                    fanout_name, '\n'.join(counter_lines))
         except Exception as e:
             logger.warning(
                 "permit_only_test_traffic_on_fanout: failed to read ACL "
@@ -3788,12 +3791,6 @@ class QosSaiBase(QosBase):
                     "failed to restore %s %s: %s",
                     fanout_name, fanout_port, str(e))
 
-        # Log SONiC ACL counters before deleting the rules.
-        for fanout_name, fanout_os in acl_created_fanouts.items():
-            if fanout_os == 'sonic':
-                self._log_sonic_acl_counters(
-                    fanouthosts[fanout_name], fanout_name, acl_name)
-
         # Delete ACL definition once per fanout (dispatch by recorded os)
         for fanout_name, fanout_os in acl_created_fanouts.items():
             try:
@@ -3802,6 +3799,8 @@ class QosSaiBase(QosBase):
                     fanout.host.eos_config(
                         lines=['no mac access-list %s' % acl_name])
                 elif fanout_os == 'sonic':
+                    self._log_sonic_acl_counters(
+                        fanout, fanout_name, acl_name)
                     table_type = self._SONIC_ACL_TABLE_TYPE
                     for suffix, _, _ in self._SONIC_ACL_RULES:
                         rule_key = "ACL_RULE|{0}|{1}".format(
