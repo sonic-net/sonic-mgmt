@@ -186,7 +186,7 @@ def load_minigraph_with_golden_empty_table_removal(duthost, wait_for_bgp):
             "TELEMETRY": {}
         }
     }
-    reload_minigraph_with_golden_config(duthost, empty_table_removal, wait_for_bgp)
+    reload_minigraph_with_golden_config(duthost, empty_table_removal, wait_for_bgp=wait_for_bgp)
 
     host_current_config = get_running_config(duthost)
     pytest_assert(
