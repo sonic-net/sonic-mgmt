@@ -1268,9 +1268,12 @@ class BaseEverflowTest(object):
             table_name,
             session_name,
             config_method,
-            rules=EVERFLOW_V4_RULES
+            rules=EVERFLOW_V4_RULES,
+            rule_filter=None
     ):
         rules_config = load_acl_rules_config(table_name, os.path.join(FILE_DIR, rules))
+        if rule_filter:
+            rules_config["rules"] = list(filter(rule_filter, rules_config["rules"]))
         duthost.host.options["variable_manager"].extra_vars.update(rules_config)
 
         if config_method == CONFIG_MODE_CLI:
