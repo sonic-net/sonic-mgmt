@@ -1364,6 +1364,12 @@ disk/test_disk_exhaustion.py:
 #######################################
 #####             dns             #####
 #######################################
+dns/static_dns/test_static_dns.py::TestStaticMgmtPortIP::test_dynamic_dns_not_working_when_static_ip_configured:
+  xfail:
+    reason: "dhclient eth0 can replace the static mgmt IP on BMC platforms and render the DUT unreachable."
+    conditions:
+      - "'bmc' in topo_type and https://github.com/sonic-net/sonic-mgmt/issues/27308"
+
 dns/static_dns/test_static_dns.py::test_static_dns_basic:
   skip:
     reason: "Found regression issue on multi-asic platform, need to skip for multi-asic platform until the issue is fixed."
