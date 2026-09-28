@@ -621,16 +621,25 @@ class QosParamCisco(object):
         if self.should_autogen(["wm_pg_shared_lossy"]):
             lossy_params = common_params.copy()
             lossy_packet_size = self.lossy_packet_size
+            lossy_cell_size = self.lossy_buffer_size
             pkts_num_trig_egr_drp = self.lossy_drop_bytes // self.lossy_buffer_size
             if self.dutAsic == "gb" and self.lossy_use_hbm:
                 # PG watermark uses statistical accounting; send full 8156 packets for
                 # accurate counting. Each spans two HBM blocks, so halve the drop count.
                 lossy_packet_size = self.HBM_PACKET_SIZE
                 pkts_num_trig_egr_drp //= 2
+            elif self.dutAsic == "gb" and self.lossless_use_hbm:
+                # When only lossless is offloaded to HBM, the gb PG counter still uses HBM
+                # statistical accounting for lossy. Send full 8156 packets for accurate
+                # watermark and convert the SMS-cell drop threshold to a packet count.
+                lossy_packet_size = self.HBM_PACKET_SIZE
+                lossy_cell_size = self.HBM_BUFFER_SIZE
+                packet_buffs = self.get_buffer_occupancy(lossy_packet_size, self.sms_buffer_size)
+                pkts_num_trig_egr_drp = math.ceil(pkts_num_trig_egr_drp / packet_buffs)
             lossy_params.update({"dscp": self.dscp_queue0,
                                  "pg": 0,
                                  "packet_size": lossy_packet_size,
-                                 "cell_size": self.lossy_buffer_size,
+                                 "cell_size": lossy_cell_size,
                                  "pkts_num_trig_egr_drp": pkts_num_trig_egr_drp})
             if self.dutAsic in ["gr2", "gr2x"]:
                 lossy_params["pkts_num_margin"] = 14
@@ -649,7 +658,6 @@ class QosParamCisco(object):
                 # Watermark is 0 until the queue is evicted from SMS to HBM; before that
                 # packets occupy whole SMS cells, so size the fill count in SMS geometry.
                 lossless_packet_size = self.HBM_SINGLE_BLOCK_PACKET_SIZE
-                lossless_packet_buffs = self.get_buffer_occupancy(lossless_packet_size)
                 sms_bytes_per_packet = self.get_buffer_occupancy(lossless_packet_size, self.sms_buffer_size) \
                     * self.sms_buffer_size
                 pkts_num_fill_ingr_min = math.ceil(self.HBM_LOSSLESS_EVICTION_BYTES / sms_bytes_per_packet)
@@ -844,10 +852,12 @@ class QosParamCisco(object):
             cell_size = self.buffer_size
             margin = self.q_wmk_margin
             if self.dutAsic == "gb" and self.lossless_use_hbm:
-                # HBM queue watermark counts average cell utilization (6144) per buffer;
-                # send 8140 packets (one HBM block each). The watermark quantizes to a VOQ
-                # threshold level, so derive the margin from that quantization interval.
-                packet_size = self.HBM_SINGLE_BLOCK_PACKET_SIZE
+                # HBM queue watermark reports average cell utilization (6144) per HBM block,
+                # and each packet occupies exactly one block. Use 6144 as both packet and
+                # cell size so one packet counts as one cell (avoids double-counting an 8140
+                # packet as two cells). The watermark quantizes to a VOQ threshold level, so
+                # derive the margin from that quantization interval.
+                packet_size = self.HBM_Q_WMK_AVG_CELL_BYTES
                 packet_buffs = self.get_buffer_occupancy(packet_size)
                 cell_size = self.HBM_Q_WMK_AVG_CELL_BYTES
                 margin = self.hbm_voq_wmk_margin(lossy_lossless_action_thr // self.buffer_size)
