@@ -266,7 +266,8 @@ def test_dhcpv4_relay_disabled_validation(ptfhost, dut_dhcp_relay_data, validate
         sonic_dhcp_relay_unconfig(duthost, dut_dhcp_relay_data)
 
 
-@pytest.mark.parametrize("testcase", ["source_intf", "server_id_override"])
+@pytest.mark.parametrize("testcase", ["source_intf", "source_intf_without_link_selection",
+                                     "server_id_override"])
 def test_dhcp_relay_option82_suboptions(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
                                         setup_standby_ports_on_rand_unselected_tor,
                                         rand_unselected_dut,
@@ -289,6 +290,7 @@ def test_dhcp_relay_option82_suboptions(ptfhost, dut_dhcp_relay_data, validate_d
 
     Test Modes:
         - source_intf: Inserts 'source_interface' and 'link_selection' flags in relay config.
+        - source_intf_without_link_selection: Checks that source-interface selection still identifies the client VLAN.
         - server_id_override: Enables 'server_id_override' flag to override DHCP server IP in Option 82.
 
     """
@@ -308,6 +310,10 @@ def test_dhcp_relay_option82_suboptions(ptfhost, dut_dhcp_relay_data, validate_d
                 duthost.shell(f'config dhcpv4_relay add --dhcpv4-servers {dhcp_servers}'
                               f' --link-selection enable --source-interface {loopback_iface} {vlan}')
                 link_selection = True
+                source_intf = True
+            elif testcase == "source_intf_without_link_selection":
+                duthost.shell(f'config dhcpv4_relay add --dhcpv4-servers {dhcp_servers}'
+                              f' --source-interface {loopback_iface} {vlan}')
                 source_intf = True
             elif testcase == "server_id_override":
                 duthost.shell(f'config dhcpv4_relay add --dhcpv4-servers {dhcp_servers}'
@@ -339,6 +345,7 @@ def test_dhcp_relay_option82_suboptions(ptfhost, dut_dhcp_relay_data, validate_d
                                "kvm_support": True,
                                "link_selection": link_selection,
                                "source_interface": source_intf,
+                               "source_interface_ip": dhcp_relay['switch_loopback_ip'] if source_intf else None,
                                "server_id_override": server_id_override,
                                "relay_agent": relay_agent,
                                "link_selection_ip": str(dhcp_relay['downlink_vlan_iface']['link_selection_ip']),
@@ -601,6 +608,7 @@ def test_dhcp_relay_with_non_default_vrf(
                                "kvm_support": True,
                                "link_selection": link_selection,
                                "source_interface": source_intf,
+                               "source_interface_ip": dhcp_relay['switch_loopback_ip'] if source_intf else None,
                                "server_id_override": server_id_override,
                                "vrf_selection": True,
                                "relay_agent": relay_agent,
@@ -808,6 +816,7 @@ def test_dhcp_relay_with_different_non_default_vrf(
                                # the OFFER never matches any IP2ME entry on platforms that
                                # enforce strict per-VRF IP2ME (e.g. Broadcom Helix4).
                                "source_interface": True,
+                               "source_interface_ip": dhcp_relay['switch_loopback_ip'],
                                "link_selection": True,
                                "portchannels_ip_list": dhcp_relay['portchannels_ip_list'],
                                "downlink_vlan_iface_name": str(dhcp_relay['downlink_vlan_iface']['name'])},
