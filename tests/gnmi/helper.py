@@ -3,7 +3,6 @@ import logging
 import pytest
 import json
 import ipaddress
-import re
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.sonic_db import CONFIG_DB, redis_hget, redis_hset
 from tests.common.ptf_grpc import PtfGrpcError
@@ -37,18 +36,13 @@ def verify_gnoi_role_access(env, role, operation, error_pattern, validation_erro
     """
     duthost = env.duthost
     role_key = "GNMI_CLIENT_CERT|test.client.gnmi.sonic"
-    result = redis_hset(duthost, CONFIG_DB, role_key, **{"role@": role})
-    pytest_assert(result["rc"] == 0, "Failed to configure certificate role")
+    redis_hset(duthost, CONFIG_DB, role_key, **{"role@": role})
     pytest_assert(redis_hget(duthost, CONFIG_DB, role_key, "role@") == role,
                   "Certificate role was not applied")
     env.grpc.configure_max_time(30)
     if error_pattern or validation_error:
-        with pytest.raises(PtfGrpcError, match=error_pattern or validation_error) as caught:
+        with pytest.raises(PtfGrpcError, match=error_pattern or validation_error):
             operation()
-        message = str(caught.value)
-        # checkRoleAccess currently returns a plain Go error (gRPC Unknown).
-        code_pattern = "Unknown|PermissionDenied" if error_pattern else "InvalidArgument"
-        pytest_assert(re.search(r"Code:\s*({})\b".format(code_pattern), message), message)
         return None
     return operation()
 

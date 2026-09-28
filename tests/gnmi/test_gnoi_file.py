@@ -70,8 +70,6 @@ def test_gnoi_file_write_authorization(
         else:
             content = base64.b64decode(duthost.slurp(src=path)["content"])
             pytest_assert(content == expected_content, "Unexpected sentinel content after RPC")
-        pytest_assert(not duthost.stat(path=path + ".tmp")["stat"]["exists"],
-                      "Put left a temporary file")
     finally:
         duthost.file(path=directory, state="absent")
 

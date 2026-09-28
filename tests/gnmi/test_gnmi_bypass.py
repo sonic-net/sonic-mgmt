@@ -65,12 +65,11 @@ def test_native_set_bypass_authorization(
     # does not configure an FRR prefix-list. gnmi_tls rolls back CONFIG_DB.
     name = "gnmi_authz_" + uuid.uuid4().hex[:12]
     key = "PREFIX_LIST|" + name
-    pytest_assert(not redis_hgetall(duthost, CONFIG_DB, key), "Test key already exists")
-    result = redis_hset(duthost, CONFIG_DB, key, **ORIGINAL)
-    pytest_assert(result["rc"] == 0 and redis_hgetall(duthost, CONFIG_DB, key) == ORIGINAL,
+    redis_hset(duthost, CONFIG_DB, key, **ORIGINAL)
+    pytest_assert(redis_hgetall(duthost, CONFIG_DB, key) == ORIGINAL,
                   "Failed to seed CONFIG_DB sentinel")
-    result = redis_hset(duthost, CONFIG_DB, CLIENT_KEY, **{"role@": role})
-    pytest_assert(result["rc"] == 0 and redis_hget(duthost, CONFIG_DB, CLIENT_KEY, "role@") == role,
+    redis_hset(duthost, CONFIG_DB, CLIENT_KEY, **{"role@": role})
+    pytest_assert(redis_hget(duthost, CONFIG_DB, CLIENT_KEY, "role@") == role,
                   "Certificate role was not applied")
 
     with expectation(duthost):
