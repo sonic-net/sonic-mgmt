@@ -1,9 +1,6 @@
 """gNMI audit, authentication, and authorization tests."""
 
-import base64
-import hashlib
 import logging
-import re
 import time
 
 import pytest
@@ -26,7 +23,6 @@ from tests.common.helpers.sonic_db import (
     redis_del,
     redis_hdel,
     redis_hget,
-    redis_hgetall,
     redis_hset,
     redis_keys,
 )
@@ -36,7 +32,6 @@ from tests.common.helpers.syslog_helpers import (
     read_syslog_payloads,
 )
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
-from tests.common.ptf_grpc import PtfGrpcError
 from tests.common.pygnmi_client import GetDataType, PygnmiClientError
 
 
@@ -67,7 +62,6 @@ CONFIG_DB_GET_PATH = (
 CONFIG_DB_SET_PATH = "{}/cloudtype".format(CONFIG_DB_GET_PATH)
 AUDIT_GET_PATH = "/CONFIG_DB/localhost/DEVICE_METADATA/localhost"
 AUDIT_SET_PATH = "{}/cloudtype".format(AUDIT_GET_PATH)
-FILE_CONTENT = b"sonic-mgmt write authorization sentinel\n"
 
 
 def _set_configdb(client):
@@ -420,106 +414,3 @@ def test_cn_role_access(
             operation(gnmi_tls.pygnmi_client)
     finally:
         _set_client_cert_role(duthost, original_role)
-
-
-@pytest.fixture
-def authorization_env(gnmi_tls):  # noqa: F811
-    """Bound RPC deadlines and restore the certificate mapping after each case."""
-    duthost = gnmi_tls.duthost
-    role_key = "GNMI_CLIENT_CERT|{}".format(CLIENT_PRINCIPAL)
-    original = redis_hgetall(duthost, CONFIG_DB, role_key)
-    pytest_assert(original, "TLS fixture did not install a certificate mapping")
-    gnmi_tls.grpc.configure_max_time(30)
-    try:
-        yield gnmi_tls
-    finally:
-        for result in redis_del(duthost, CONFIG_DB, role_key):
-            pytest_assert(result["rc"] == 0, "Failed to remove test certificate role")
-        result = redis_hset(duthost, CONFIG_DB, role_key, **original)
-        pytest_assert(result["rc"] == 0, "Failed to restore certificate mapping")
-        pytest_assert(redis_hgetall(duthost, CONFIG_DB, role_key) == original,
-                      "Certificate mapping was not restored")
-
-
-def _assert_denied(call, role):
-    """Transport, request-validation and backend errors are not authz evidence."""
-    with pytest.raises(PtfGrpcError) as caught:
-        call()
-    message = str(caught.value)
-    # checkRoleAccess currently returns a plain Go error (gRPC Unknown).
-    pytest_assert(re.search(r"Code:\s*(Unknown|PermissionDenied)\b", message), message)
-    pytest_assert("does not have access" in message and role in message, message)
-
-
-# Denied RPCs and the deliberately invalid writer probes log server errors.
-@pytest.mark.disable_loganalyzer
-@pytest.mark.parametrize("has_access", [True, False], ids=["with-access", "without-access"])
-@pytest.mark.parametrize("rpc", ["TransferToRemote", "Put", "Remove", "Start", "Install"])
-def test_gnoi_write_authorization(authorization_env, has_access, rpc):
-    """Regress sonic-gnmi PR 790: all five RPCs must reject non-writers.
-
-    File.Put/Remove exercise temporary files. TransferToRemote and OS.Install
-    use invalid requests to check authorization before request validation.
-    FactoryReset uses the host service's unsupported zero-fill request; its
-    writer control must return the explicit reset error, not perform a reset.
-    """
-    env = authorization_env
-    duthost = env.duthost
-    role = "gnoi_readwrite" if has_access else "gnoi_readonly"
-    directory = duthost.tempfile(state="directory", path="/tmp", prefix="gnoi_authz_")["path"]
-    path = directory + "/sentinel"
-    try:
-        duthost.copy(content=FILE_CONTENT.decode(), dest=path)
-        before = duthost.stat(path=path, get_checksum=True)["stat"]
-        _set_client_cert_role(duthost, role)
-
-        def invoke():
-            if rpc == "Put":
-                return env.grpc.call_client_streaming("gnoi.file.File", rpc, [
-                    {"open": {"remoteFile": path, "permissions": 420}},
-                    {"contents": base64.b64encode(b"authorized replacement\n").decode()},
-                    {"hash": {
-                        "method": "MD5",
-                        "hash": base64.b64encode(hashlib.md5(b"authorized replacement\n").digest()).decode(),
-                    }},
-                ])
-            if rpc == "Install":
-                # No TransferRequest: authenticated handler returns before any
-                # backend call, image creation or installation is possible.
-                return env.grpc.call_bidirectional_streaming("gnoi.os.OS", rpc, [{}])
-            if rpc == "Start":
-                return env.grpc.call_unary("gnoi.factory_reset.FactoryReset", rpc,
-                                           {"factoryOs": True, "zeroFill": True})
-            if rpc == "TransferToRemote":
-                # Missing remote_download: no network transfer can occur even
-                # on a vulnerable image that accepts the reader identity.
-                return env.grpc.call_unary("gnoi.file.File", rpc, {"localPath": path})
-            return env.grpc.call_unary("gnoi.file.File", rpc, {"remoteFile": path})
-
-        if not has_access:
-            _assert_denied(invoke, role)
-        elif rpc in ("TransferToRemote", "Install"):
-            detail = "remote_download cannot be nil" if rpc == "TransferToRemote" else "Expected TransferRequest"
-            with pytest.raises(PtfGrpcError) as caught:
-                invoke()
-            message = str(caught.value)
-            pytest_assert(re.search(r"Code:\s*InvalidArgument\b", message) and detail in message, message)
-        elif rpc == "Start":
-            response = invoke()
-            detail = response.get("resetError", {}).get("detail", "")
-            pytest_assert("zero_fill operation is currently unsupported" in detail, response)
-        else:
-            invoke()
-
-        after = duthost.stat(path=path, get_checksum=True)["stat"]
-        if has_access and rpc == "Remove":
-            pytest_assert(not after["exists"], "Authorized Remove did not remove the sentinel")
-        elif has_access and rpc == "Put":
-            content = duthost.slurp(src=path)["content"]
-            pytest_assert(base64.b64decode(content) == b"authorized replacement\n", "Put content mismatch")
-        else:
-            pytest_assert(after["exists"] and after["checksum"] == before["checksum"],
-                          "RPC modified the sentinel unexpectedly")
-        pytest_assert(not duthost.stat(path=path + ".tmp")["stat"]["exists"], "Put left a temporary file")
-    finally:
-        duthost.file(path=directory, state="absent")

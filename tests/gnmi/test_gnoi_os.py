@@ -11,12 +11,25 @@ import pytest
 from tests.common.helpers.assertions import pytest_assert
 
 from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
+from tests.gnmi.helper import GNOI_ROLE_CASES, verify_gnoi_role_access
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology("any"),
 ]
+
+
+@pytest.mark.disable_loganalyzer
+@pytest.mark.parametrize("role,error_pattern", GNOI_ROLE_CASES)
+def test_gnoi_os_install_authorization(gnmi_tls, role, error_pattern):  # noqa: F811
+    """Install must deny readers and allow writers to reach request validation."""
+    # No TransferRequest: validation stops before backend/image installation.
+    verify_gnoi_role_access(
+        gnmi_tls, role,
+        lambda: gnmi_tls.grpc.call_bidirectional_streaming("gnoi.os.OS", "Install", [{}]),
+        error_pattern, validation_error="Expected TransferRequest",
+    )
 
 
 def test_gnoi_os_verify(duthosts, rand_one_dut_hostname, gnmi_tls):  # noqa: F811
