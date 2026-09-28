@@ -192,6 +192,7 @@ def test_command_uses_byte_boundary_and_detects_lost_boundary():
     assert '"$current_size" -ge "100"' in command
     assert '"$current_inode_after" = "$current_inode"' in command
     assert '"$rotated_inode_after" = "$rotated_inode"' in command
+    assert '"$rotated_size_after" -ge "$current_size"' in command
     assert SUCCESS_CRITERIA.SYSLOG_BOUNDARY_LOST in command
     assert command.count("grep -F") == 1
 
@@ -260,6 +261,53 @@ def test_lost_boundary_does_not_read_log_contents(tmp_path):
 
     assert not read_flag.exists()
     assert output.splitlines() == [SUCCESS_CRITERIA.SYSLOG_BOUNDARY_LOST]
+
+
+def test_retries_after_first_rotation_during_read(tmp_path):
+    """Discard one unstable poll, then read the captured boundary from syslog.1."""
+    syslog = tmp_path / "syslog"
+    syslog.write_text("existing log\n", encoding="utf-8")
+    captured_inode, captured_size = _shell_position(syslog)
+    with syslog.open("a", encoding="utf-8") as stream:
+        stream.write("{}\n{}\n".format(_line(1, START_MARK), _line(31, END_MARK)))
+
+    real_tail = shutil.which("tail")
+    assert real_tail is not None
+    tail_wrapper = tmp_path / "tail"
+    tail_wrapper.write_text(
+        "#!/bin/sh\n"
+        'output="$("$REAL_TAIL" "$@")"\n'
+        'if [ ! -e "$ROTATION_FLAG" ]; then\n'
+        '    mv "$SYSLOG_PATH" "$SYSLOG_PATH.1"\n'
+        '    printf "%s\\n" "$NEW_CURRENT_LINE" > "$SYSLOG_PATH"\n'
+        '    : > "$ROTATION_FLAG"\n'
+        "fi\n"
+        'printf "%s\\n" "$output"\n',
+        encoding="utf-8",
+    )
+    tail_wrapper.chmod(0o755)
+
+    command = SUCCESS_CRITERIA._appended_lines_command(
+        _shell_path(syslog), captured_inode, captured_size, [START_MARK, END_MARK]
+    )
+    command = command.replace(
+        "tail -c",
+        "sh {} -c".format(shlex.quote(_shell_path(tail_wrapper))),
+    )
+    env = os.environ.copy()
+    env.update({
+        "REAL_TAIL": _shell_path(real_tail),
+        "ROTATION_FLAG": _shell_path(tmp_path / "rotated"),
+        "SYSLOG_PATH": _shell_path(syslog),
+        "NEW_CURRENT_LINE": _line(60, "unrelated"),
+    })
+
+    first_output = _run_shell_command(command, env=env)
+    second_output = _run_shell_command(command, env=env)
+
+    assert (tmp_path / "rotated").exists()
+    assert first_output == ""
+    assert second_output.splitlines() == [_line(1, START_MARK), _line(31, END_MARK)]
 
 
 def test_rejects_second_rotation_during_read(tmp_path):
