@@ -199,6 +199,10 @@ class QosSaiBase(QosBase):
         testbed for QoS SAI test cases.
     """
 
+    # SONiC fanout ACL constants (used in create + teardown; keep in sync)
+    _SONIC_ACL_TABLE_TYPE = "QOS_NOISE_FILTER"
+    _SONIC_ACL_RULE_SUFFIXES = ["DENY_LLDP", "DENY_LACP"]
+
     def __computeBufferThreshold(self, dut_asic, bufferProfile):
         """
             Computes buffer threshold for dynamic threshold profiles
@@ -3261,9 +3265,8 @@ class QosSaiBase(QosBase):
         - on EOS via an egress MAC ACL whitelist (permit IP/IPv6/ARP, deny
           all other ethertypes incl. LLDP 0x88CC, LACP 0x8809) plus
           ``no lldp transmit/receive`` per interface;
-        - on SONiC via stopping the LLDP container only (partial coverage —
-          full L2 ACL filtering is tracked in #24236, see
-          ``_apply_sonic_filter`` for limitations).
+        - on SONiC via stopping the LLDP container and applying an ingress
+          ETHER_TYPE ACL to VM-facing ports.
 
         Steps:
         1. Stop DUT teamd lacpd (prevents LACP timeout detection)
@@ -3272,9 +3275,8 @@ class QosSaiBase(QosBase):
 
         Fanout dispatch:
         - EOS fanout: egress MAC ACL + ``no lldp transmit/receive`` per interface
-        - SONiC fanout: stop LLDP container only (LLDP-stop-only, partial
-          coverage — see ``_apply_sonic_filter`` for limitations and
-          tracked issue #24236)
+        - SONiC fanout: stop LLDP container and deny LLDP/LACP ingress on
+          VM-facing ports
 
         Note on change_lag_lacp_timer interaction: that fixture only activates
         for broadcom-dnx platforms and operates on dst_port LAGs. This fixture
@@ -3413,15 +3415,15 @@ class QosSaiBase(QosBase):
                 logger.info("permit_only_test_traffic_on_fanout: "
                             "no LAGs found, skipping LACP steps")
 
-            # --- Step 3: Per-fanout dispatch (LLDP suppression + ACL where supported) ---
+            # --- Step 3: Per-fanout dispatch (LLDP suppression + ACL) ---
             # EOS path: egress MAC ACL whitelist (permit IP 0x0800 / IPv6 0x86DD /
             # ARP 0x0806; deny all others including LLDP 0x88CC, LACP 0x8809) plus
             # `no lldp transmit/receive` per interface.
-            # SONiC path: stop LLDP container only — see _apply_sonic_filter for
-            # limitations and tracked issue #24236.
+            # SONiC path: stop LLDP container + ingress ETHER_TYPE ACL on
+            # VM-facing ports (deny LLDP/LACP, permit all else).
             # PFC (0x8808) is DUT-originated and travels DUT→fanout; the EOS
-            # egress ACL does not affect it. SONiC has no port-side filtering
-            # applied here, so PFC is naturally unaffected.
+            # egress ACL does not affect it. SONiC ingress ACL is on
+            # VM-facing ports (opposite direction), so PFC is unaffected.
             dev_conn = conn_graph_facts.get('device_conn', {})
             # Restrict to only the source DUT's connections to avoid touching
             # fanout ports of unrelated DUTs in multi-DUT topologies.
@@ -3445,8 +3447,9 @@ class QosSaiBase(QosBase):
                         fanout_restore_list, acl_created_fanouts)
                 elif fanout_os == 'sonic':
                     self._apply_sonic_filter(
-                        fanout, fanout_name, fanout_port,
-                        fanout_restore_list, sonic_lldp_stopped)
+                        fanout, fanout_name, fanout_port, acl_name,
+                        fanout_restore_list, acl_created_fanouts,
+                        sonic_lldp_stopped, src_dut_conn)
                 else:
                     logger.warning(
                         "permit_only_test_traffic_on_fanout: "
@@ -3466,11 +3469,13 @@ class QosSaiBase(QosBase):
 
         eos_count = sum(1 for e in fanout_restore_list if e[0] == 'eos')
         sonic_count = sum(1 for e in fanout_restore_list if e[0] == 'sonic')
+        sonic_acl_count = sum(1 for v in acl_created_fanouts.values()
+                              if v == 'sonic')
         logger.info(
             "permit_only_test_traffic_on_fanout: setup complete — "
             "EOS=%d ports (egress MAC ACL), SONiC=%d ports "
-            "(LLDP-stop on %d fanouts), %d LACP timers set",
-            eos_count, sonic_count, len(sonic_lldp_stopped),
+            "(LLDP-stop + ingress ACL on %d fanouts), %d LACP timers set",
+            eos_count, sonic_count, sonic_acl_count,
             len(eos_restore_list))
 
         yield
@@ -3523,30 +3528,15 @@ class QosSaiBase(QosBase):
                 fanout_name, fanout_port, str(e))
 
     def _apply_sonic_filter(self, fanout, fanout_name, fanout_port,
-                            fanout_restore_list, sonic_lldp_stopped):
-        """Apply partial filter on SONiC fanout: stop LLDP container only.
+                            acl_name, fanout_restore_list,
+                            acl_created_fanouts, sonic_lldp_stopped,
+                            src_dut_conn):
+        """Apply ingress ETHER_TYPE ACL + LLDP stop on SONiC fanout.
 
-        Why partial: Broadcom SONiC does not support egress ACL, so we
-        cannot replicate the EOS "egress on DUT-facing port" approach.
-        Applying ingress ACL on the DUT-facing port would filter the wrong
-        direction (DUT->fanout, blocking PFC). Applying ingress ACL on
-        VM-facing ports requires multi-tier topology discovery that is
-        out of scope for this PR.
-
-        What this DOES cover:
-        - Fanout-self originated LLDP, but only when the LLDP container is
-          running before the test. Fanouts where LLDP is already stopped
-          (e.g. Cisco 8101) are left untouched and are NOT restarted on
-          teardown, so the fixture never changes their LLDP state.
-
-        What this does NOT cover (limitation, tracked in #24236):
-        - VM-originated LLDP/LACP that transits through the SONiC fanout
-
-        Mitigations for the uncovered cases come from the existing
-        DUT-side defenses already applied by this fixture and stopServices:
-        - DUT teamd lacpd stopped (no LAG flap from blocked LACP)
-        - EOS neighbor LACP multiplier 600 (no EOS-side LAG flap)
-        - DUT LLDP/BGP/radvd stopped by stopServices fixture
+        The ACL denies LLDP (0x88CC) and LACP (0x8809) while permitting
+        other traffic. It is bound ingress on VM-facing ports because egress
+        ACL is unsupported on most SONiC platforms and ingress on DUT-facing
+        ports would block DUT-originated PFC (0x8808).
         """
         # Stop the LLDP container only when it is *currently running*, and
         # only restart in teardown the fanouts we actually stopped (tracked
@@ -3590,15 +3580,162 @@ class QosSaiBase(QosBase):
                     "failed to stop lldp on SONiC %s: %s",
                     fanout_name, str(e))
 
-        # Track this port for restore symmetry. The actual SONiC defense is
-        # one-shot per fanout (LLDP container stop above); this per-port
-        # entry is bookkeeping for log-symmetry with the EOS path.
+        # Create ACL once per fanout.
+        if fanout_name not in acl_created_fanouts:
+            try:
+                all_ports = self._sonic_fanout_list_ports(
+                    fanout, fanout_name)
+                dut_facing = {str(rec['peerport'])
+                              for rec in src_dut_conn.values()
+                              if str(rec['peerdevice']) == fanout_name}
+                vm_facing = [port for port in all_ports
+                             if port not in dut_facing]
+                if not vm_facing:
+                    logger.warning(
+                        "permit_only_test_traffic_on_fanout: "
+                        "no VM-facing ports on SONiC %s (all=%d, "
+                        "dut_facing=%d); skipping ACL",
+                        fanout_name, len(all_ports), len(dut_facing))
+                else:
+                    self._create_sonic_ethertype_acl(
+                        fanout, fanout_name, vm_facing, acl_name)
+                    acl_created_fanouts[fanout_name] = 'sonic'
+                    logger.info(
+                        "permit_only_test_traffic_on_fanout: "
+                        "ingress ACL applied to %d VM-facing ports on "
+                        "SONiC %s", len(vm_facing), fanout_name)
+            except Exception as e:
+                logger.warning(
+                    "permit_only_test_traffic_on_fanout: "
+                    "ACL config failed on SONiC %s: %s",
+                    fanout_name, str(e))
+
         fanout_restore_list.append(
             ('sonic', fanout, fanout_name, fanout_port))
-        logger.debug(
-            "permit_only_test_traffic_on_fanout: SONiC fanout %s associated "
-            "DUT port %s recorded; LLDP-stop already applied at fanout level",
-            fanout_name, fanout_port)
+
+    def _sonic_fanout_list_ports(self, fanout, fanout_name):
+        """Return SONiC fanout ports from the CONFIG_DB PORT table."""
+        try:
+            result = fanout.host.command(
+                "sonic-db-cli CONFIG_DB keys 'PORT|*'",
+                module_ignore_errors=True)
+            stdout = result.get('stdout', '') or ''
+            ports = []
+            for line in stdout.strip().split('\n'):
+                line = line.strip()
+                if line.startswith('PORT|'):
+                    ports.append(line.split('|', 1)[1])
+            return ports
+        except Exception as e:
+            logger.warning(
+                "permit_only_test_traffic_on_fanout: "
+                "failed to list ports on SONiC %s: %s",
+                fanout_name, str(e))
+            return []
+
+    def _create_sonic_ethertype_acl(self, fanout, fanout_name, ports,
+                                    acl_name):
+        """Write the SONiC fanout ETHER_TYPE ACL to CONFIG_DB."""
+        table_type = self._SONIC_ACL_TABLE_TYPE
+        config = {
+            "ACL_TABLE_TYPE": {
+                table_type: {
+                    "MATCHES": ["ETHER_TYPE"],
+                    "ACTIONS": ["PACKET_ACTION", "COUNTER"],
+                    "BIND_POINTS": ["PORT"],
+                }
+            },
+            "ACL_TABLE": {
+                acl_name: {
+                    "type": table_type,
+                    "stage": "ingress",
+                    "ports@": ",".join(ports),
+                    "policy_desc": "QoS test noise filter",
+                }
+            },
+            "ACL_RULE": {
+                "{}|DENY_LLDP".format(acl_name): {
+                    "ETHER_TYPE": "35020",
+                    "PACKET_ACTION": "DROP",
+                    "PRIORITY": "100",
+                },
+                "{}|DENY_LACP".format(acl_name): {
+                    "ETHER_TYPE": "34825",
+                    "PACKET_ACTION": "DROP",
+                    "PRIORITY": "99",
+                },
+            },
+        }
+        remote_path = "/tmp/{}.json".format(acl_name)
+        fanout.host.copy(content=json.dumps(config), dest=remote_path)
+        result = fanout.host.command(
+            "sonic-cfggen -j {} --write-to-db".format(remote_path),
+            module_ignore_errors=True)
+        if result.get('failed', False) or result.get('rc', 0) != 0:
+            fanout.host.command(
+                'rm -f {}'.format(remote_path),
+                module_ignore_errors=True)
+            raise RuntimeError(
+                "sonic-cfggen --write-to-db on {} failed: rc={} stderr={}".format(
+                    fanout_name, result.get('rc', '?'),
+                    result.get('stderr', '')))
+
+        self._wait_sonic_acl_ready(
+            fanout, fanout_name, acl_name, present=True)
+
+    def _wait_sonic_acl_ready(self, fanout, fanout_name, acl_name,
+                              present=True, timeout=10, poll_interval=1):
+        """Wait for the ACL table key to reach the requested CONFIG_DB state."""
+        deadline = time.time() + timeout
+        check_cmd = (
+            "sonic-db-cli CONFIG_DB exists 'ACL_TABLE|{}'".format(acl_name))
+        while time.time() < deadline:
+            try:
+                result = fanout.host.command(
+                    check_cmd, module_ignore_errors=True)
+                key_exists = (result.get('stdout', '') or '').strip() == '1'
+                if key_exists == present:
+                    return True
+            except Exception as e:
+                logger.debug(
+                    "permit_only_test_traffic_on_fanout: ACL readiness check "
+                    "for %s on %s failed transiently, will retry: %s",
+                    acl_name, fanout_name, e)
+            time.sleep(poll_interval)
+        logger.warning(
+            "permit_only_test_traffic_on_fanout: ACL %s on SONiC %s did "
+            "not converge to %s state within %ds; proceeding",
+            acl_name, fanout_name,
+            "present" if present else "absent", timeout)
+        return False
+
+    def _log_sonic_acl_counters(self, fanout, fanout_name, acl_name):
+        """Log SONiC fanout ACL counters before teardown."""
+        try:
+            result = fanout.host.command(
+                "aclshow -a", module_ignore_errors=True)
+            stdout = (result.get('stdout', '') or '').strip()
+            if not stdout:
+                logger.warning(
+                    "permit_only_test_traffic_on_fanout: aclshow returned "
+                    "empty output on SONiC %s", fanout_name)
+                return
+            lines = [line for line in stdout.split('\n')
+                     if line.startswith('RULE') or acl_name in line]
+            if len(lines) <= 1:
+                logger.warning(
+                    "permit_only_test_traffic_on_fanout: ACL %s has no "
+                    "counter entries on SONiC %s — ACL may not have "
+                    "been programmed to ASIC", acl_name, fanout_name)
+            else:
+                logger.info(
+                    "permit_only_test_traffic_on_fanout: ACL drop "
+                    "counters on SONiC %s:\n%s",
+                    fanout_name, '\n'.join(lines))
+        except Exception as e:
+            logger.warning(
+                "permit_only_test_traffic_on_fanout: failed to read ACL "
+                "counters on SONiC %s: %s", fanout_name, str(e))
 
     def _teardown_test_traffic_filter(
             self, src_dut, teamd_docker, lacpd_stopped,
@@ -3637,15 +3774,19 @@ class QosSaiBase(QosBase):
                                'no mac access-group %s out' % acl_name],
                         parents=['interface %s' % fanout_port])
                 elif fanout_os == 'sonic':
-                    # No per-port action: SONiC path only stops LLDP container
-                    # (see _apply_sonic_filter); LLDP container restart is
-                    # handled below per fanout, not per port.
+                    # SONiC ACL and LLDP are restored once per fanout below.
                     pass
             except Exception as e:
                 logger.warning(
                     "permit_only_test_traffic_on_fanout: "
                     "failed to restore %s %s: %s",
                     fanout_name, fanout_port, str(e))
+
+        # Log SONiC ACL counters before deleting the rules.
+        for fanout_name, fanout_os in acl_created_fanouts.items():
+            if fanout_os == 'sonic':
+                self._log_sonic_acl_counters(
+                    fanouthosts[fanout_name], fanout_name, acl_name)
 
         # Delete ACL definition once per fanout (dispatch by recorded os)
         for fanout_name, fanout_os in acl_created_fanouts.items():
@@ -3654,7 +3795,27 @@ class QosSaiBase(QosBase):
                 if fanout_os == 'eos':
                     fanout.host.eos_config(
                         lines=['no mac access-list %s' % acl_name])
-                # SONiC: no ACL was created in this version (see _apply_sonic_filter)
+                elif fanout_os == 'sonic':
+                    table_type = self._SONIC_ACL_TABLE_TYPE
+                    for suffix in self._SONIC_ACL_RULE_SUFFIXES:
+                        rule_key = "ACL_RULE|{0}|{1}".format(
+                            acl_name, suffix)
+                        fanout.host.command(
+                            'sonic-db-cli CONFIG_DB del "{}"'.format(rule_key),
+                            module_ignore_errors=True)
+                    fanout.host.command(
+                        'sonic-db-cli CONFIG_DB del "ACL_TABLE|{}"'.format(
+                            acl_name),
+                        module_ignore_errors=True)
+                    self._wait_sonic_acl_ready(
+                        fanout, fanout_name, acl_name, present=False)
+                    fanout.host.command(
+                        'sonic-db-cli CONFIG_DB del "ACL_TABLE_TYPE|{}"'.format(
+                            table_type),
+                        module_ignore_errors=True)
+                    fanout.host.command(
+                        'rm -f /tmp/{}.json'.format(acl_name),
+                        module_ignore_errors=True)
             except Exception as e:
                 logger.warning(
                     "permit_only_test_traffic_on_fanout: "
