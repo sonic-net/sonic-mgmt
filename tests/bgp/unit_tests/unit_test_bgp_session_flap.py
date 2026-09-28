@@ -32,6 +32,7 @@ HELPERS = {
     "get_external_bgp_session_states",
     "all_bgp_sessions_established",
     "get_unique_neighbor_hosts",
+    "validate_bgp_command_result",
     "restore_neighbor_bgp",
     "stop_flap_workers",
     "start_flap_worker",
@@ -68,10 +69,19 @@ class CapturingThread(threading.Thread):
 
 
 class FakeNeighbor:
-    def __init__(self, hostname=None, fail_kill=False, fail_start=False):
+    def __init__(
+        self,
+        hostname=None,
+        fail_kill=False,
+        fail_start=False,
+        kill_result=None,
+        start_result=None,
+    ):
         self.hostname = hostname or "neighbor-{}".format(id(self))
         self.fail_kill = fail_kill
         self.fail_start = fail_start
+        self.kill_result = kill_result
+        self.start_result = start_result
         self.kill_count = 0
         self.start_count = 0
 
@@ -80,12 +90,14 @@ class FakeNeighbor:
         if self.fail_kill:
             raise RuntimeError("kill failed")
         time.sleep(0.001)
+        return self.kill_result
 
     def start_bgpd(self):
         self.start_count += 1
         if self.fail_start:
             raise RuntimeError("start failed")
         time.sleep(0.001)
+        return self.start_result
 
 
 @pytest.fixture
@@ -299,6 +311,26 @@ def test_worker_exception_fails_after_neighbor_restore(flap_helpers):
         flap_helpers["assert_flap_workers_succeeded"]([worker], errors)
 
 
+def test_worker_returned_failure_fails_after_neighbor_restore(flap_helpers):
+    neighbor = FakeNeighbor(
+        kill_result={"rc": 1, "stderr": "supervisor stop failed"}
+    )
+    stop_event = threading.Event()
+    worker = flap_helpers["start_flap_worker"](neighbor, stop_event)
+    worker[0].join(timeout=1, suppress_exception=True)
+
+    errors = flap_helpers["stop_flap_workers"](
+        [worker], stop_event, [neighbor]
+    )
+
+    assert neighbor.start_count == 1
+    with pytest.raises(
+        AssertionError,
+        match="Failed to stop BGP.*supervisor stop failed"
+    ):
+        flap_helpers["assert_flap_workers_succeeded"]([worker], errors)
+
+
 def test_restore_attempts_every_neighbor_and_reports_failures(flap_helpers):
     failing_neighbor = FakeNeighbor(fail_start=True)
     healthy_neighbor = FakeNeighbor()
@@ -311,6 +343,18 @@ def test_restore_attempts_every_neighbor_and_reports_failures(flap_helpers):
     assert healthy_neighbor.start_count == 1
     assert len(errors) == 1
     assert "start failed" in errors[0]
+
+
+def test_restore_reports_returned_failure(flap_helpers):
+    failing_neighbor = FakeNeighbor(
+        start_result={"failed": True, "msg": "supervisor start failed"}
+    )
+
+    errors = flap_helpers["restore_neighbor_bgp"]([failing_neighbor])
+
+    assert failing_neighbor.start_count == 1
+    assert len(errors) == 1
+    assert "supervisor start failed" in errors[0]
 
 
 def test_session_groups_flap_external_and_recover_all_peers(flap_helpers):

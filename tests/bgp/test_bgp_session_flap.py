@@ -34,11 +34,7 @@ BGP_POLL_INTERVAL = 10
 BGP_RECOVERY_DELAY = 30
 FLAP_THREAD_STOP_TIMEOUT = 120
 
-pytestmark = [
-    pytest.mark.topology(
-        't1', 't2', 'lrh', 'urh', 'm1', 'lt2', 'ft2', 'c0', 'lma', 'uma'
-    )
-]
+pytestmark = [pytest.mark.topology('t1', 't2', 'lrh', 'urh', 'm1', 'lt2', 'ft2', 'c0', 'lma', 'uma')]
 
 
 def get_bgp_session_states(duthost, asic_index):
@@ -88,11 +84,24 @@ def get_unique_neighbor_hosts(neighbors):
     return list(unique_neighbors.values())
 
 
+def validate_bgp_command_result(neigh, action, result):
+    if (
+        isinstance(result, dict)
+        and (result.get('failed', False) or result.get('rc', 0) != 0)
+    ):
+        raise RuntimeError(
+            "Failed to {} BGP on neighbor {}: {}".format(
+                action, neigh, result
+            )
+        )
+
+
 def restore_neighbor_bgp(neighbors):
     errors = []
     for neigh in neighbors:
         try:
-            neigh.start_bgpd()
+            result = neigh.start_bgpd()
+            validate_bgp_command_result(neigh, "start", result)
         except Exception:
             errors.append(
                 "Failed to restore BGP on neighbor {}:\n{}".format(
@@ -335,8 +344,10 @@ def setup(
 
 def flap_neighbor_session(neigh, stop_event, flap_completed):
     while not stop_event.is_set():
-        neigh.kill_bgpd()
-        neigh.start_bgpd()
+        result = neigh.kill_bgpd()
+        validate_bgp_command_result(neigh, "stop", result)
+        result = neigh.start_bgpd()
+        validate_bgp_command_result(neigh, "start", result)
         flap_completed.set()
 
 
