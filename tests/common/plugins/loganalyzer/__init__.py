@@ -210,3 +210,25 @@ def ignore_port_phy_attr_errors_on_vs(duthosts, loganalyzer):
                         r"does not support.*attribute.*"
                     ]
                 )
+
+
+@pytest.fixture(autouse=True)
+def ignore_container_checker_errors_on_bmc(duthosts, loganalyzer):
+    """Ignore monit container_checker ERR for swss/syncd on BMC devices.
+
+    A BMC is a management-plane board with no ASIC/data plane, so the swss and
+    syncd containers are not part of the BMC image and never run. monit's
+    container_checker still expects them and logs an ERR every cycle, e.g.:
+      ERR monit[..]: 'container_checker' status failed (3) --
+          Expected containers not running: swss, syncd
+    This is expected on BMC and should not fail LogAnalyzer teardown.
+    """
+    if loganalyzer:
+        for duthost in duthosts:
+            if duthost.is_bmc():
+                loganalyzer[duthost.hostname].ignore_regex.extend(
+                    [
+                        r".*ERR monit.*'container_checker' status failed.*"
+                        r"Expected containers not running:.*(swss|syncd).*"
+                    ]
+                )
