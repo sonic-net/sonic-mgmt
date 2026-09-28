@@ -4262,6 +4262,18 @@ pfcwd/test_pfcwd_warm_reboot.py::TestPfcwdWb::test_pfcwd_wb[IPv6-async_storm:
 #####     platform_tests          #####
 #######################################
 
+platform_tests/cli/test_show_bmc.py::test_show_version_serial_numbers_bmc:
+  skip:
+    reason: "Chipmunk switch side has no real EEPROM hardware; Switch-Host Serial Number is not populated in show version. Physical limitation with no image fix."
+    conditions:
+      - "hwsku in ['NH-B27', 'NH-B27-BMC']"
+
+platform_tests/api/test_chassis.py::TestChassisApi::test_get_system_eeprom_info:
+  skip:
+    reason: "Chipmunk switch side has no real EEPROM hardware; chassis.get_system_eeprom_info() returns None. Physical limitation with no image fix."
+    conditions:
+      - "hwsku in ['NH-B27', 'NH-B27-BMC']"
+
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_transceiver_info:
   xfail:
     reason: "Testcase ignored on nvidia sn4700 and sn4280 due to github issue: https://github.com/sonic-net/sonic-buildimage/issues/23426"
