@@ -216,15 +216,15 @@ def test_system_prefec_ber_peer_side_flap(
     ports = sorted(baseline.keys())
     if not ports:
         pytest.skip(
-            "fec_pre_ber is absent, N/A, or unparsable in 'show interfaces "
-            "counters fec-stats' for every candidate port - nothing to guard"
+            "No candidate port is up with a parseable FEC_PRE_BER in "
+            "COUNTERS_DB RATES - nothing to guard"
         )
 
     skipped_no_peer_or_baseline = sorted(set(candidate_ports) - set(ports))
     if skipped_no_peer_or_baseline:
         logger.info(
-            "Excluding from this run (no peer DUT, or fec_pre_ber absent/"
-            "N/A/unparsable in CLI output): %s", ", ".join(skipped_no_peer_or_baseline),
+            "Excluding from this run (no peer DUT, port not up, or FEC_PRE_BER "
+            "absent/unparsable in COUNTERS_DB): %s", ", ".join(skipped_no_peer_or_baseline),
         )
 
     health_baseline = capture_baseline(duthost)

@@ -495,27 +495,66 @@ def standard_port_recovery_and_verification(
 # Pre-FEC BER Guard (Standard Port Recovery sub-check 8)
 # ──────────────────────────────────────────────────────────────────────
 
-_FEC_PRE_BER_NOT_AVAILABLE = "n/a"
+_COUNTERS_DB = "COUNTERS_DB"
+
+
+def _read_prefec_ber_from_db(duthost, ports):
+    """Read ``FEC_PRE_BER`` for ``ports`` from ``COUNTERS_DB`` ``RATES:<oid>``.
+
+    Reads the DB rather than the CLI's ``FEC_PRE_BER`` column: on some images
+    ``show interfaces counters fec-stats`` omits the BER columns when it diffs
+    against a ``sonic-clear counters`` snapshot. BER is a rate, so a counter
+    clear doesn't reset it.
+
+    Returns:
+        dict: ``{port: raw_value_or_None}`` -- ``None`` when the port has no
+        counter OID or its RATES entry has no ``FEC_PRE_BER`` field.
+    """
+    ports_by_ns = {}
+    for port in ports:
+        ports_by_ns.setdefault(db_helpers.resolve_port_namespace(duthost, port), []).append(port)
+
+    raw_by_port = {}
+    for namespace, ns_ports in ports_by_ns.items():
+        name_map = db_helpers.hgetall_dict(
+            duthost, _COUNTERS_DB, "COUNTERS_PORT_NAME_MAP", namespace=namespace
+        )
+        for port in ns_ports:
+            oid = name_map.get(port)
+            if not oid:
+                logger.warning("%s: no entry in COUNTERS_DB COUNTERS_PORT_NAME_MAP", port)
+                raw_by_port[port] = None
+                continue
+            value, err = db_helpers.get_db_hash_field(
+                duthost, _COUNTERS_DB, "RATES", oid, "FEC_PRE_BER",
+                namespace=namespace, sep=":",
+            )
+            if err:
+                logger.warning("%s: %s", port, err)
+            raw_by_port[port] = value
+    return raw_by_port
 
 
 def read_prefec_ber(duthost, ports):
-    """Read ``fec_pre_ber`` for ``ports`` from ``show interfaces counters
-    fec-stats``.
+    """Read Pre-FEC BER for ``ports``.
+
+    Port state comes from ``show interfaces counters fec-stats``; the BER
+    itself comes from ``COUNTERS_DB`` (see :func:`_read_prefec_ber_from_db`).
 
     Only ports the CLI reports as up (``state`` == ``U``) are measured -- a
     down port never accumulates FEC codewords, corroborated by ``fec_corr``
     always reading ``0`` for a down port (a mismatch is logged as a
-    warning). ``N/A`` is treated as missing, not a ``0.0`` reading.
+    warning). An absent or ``N/A`` BER is treated as missing, not a ``0.0``
+    reading.
 
     Returns:
         dict: ``{port: float}``, one entry per requested port that's up
-        with a parseable, non-``N/A`` ``fec_pre_ber``; all others are
-        omitted (logged).
+        with a parseable Pre-FEC BER; all others are omitted (logged).
     """
     parsed = duthost.show_and_parse("show interfaces counters fec-stats")
     by_port = {entry.get("iface"): entry for entry in parsed if entry.get("iface")}
 
-    readings = {}
+    up_ports = []
     for port in ports:
         entry = by_port.get(port)
         if entry is None:
@@ -538,15 +577,15 @@ def read_prefec_ber(duthost, ports):
                 port, entry.get("state"),
             )
             continue
+        up_ports.append(port)
 
-        raw = entry.get("fec_pre_ber", "").strip()
-        if not raw or raw.lower() == _FEC_PRE_BER_NOT_AVAILABLE:
-            logger.info("%s: fec_pre_ber is '%s' - excluded", port, raw or "<empty>")
+    readings = {}
+    for port, raw in _read_prefec_ber_from_db(duthost, up_ports).items():
+        value = db_helpers.parse_numeric(raw)
+        if value is None:
+            logger.info("%s: FEC_PRE_BER is '%s' in COUNTERS_DB - excluded", port, raw or "<absent>")
             continue
-        try:
-            readings[port] = float(raw.replace(",", ""))
-        except ValueError:
-            logger.warning("%s: fec_pre_ber '%s' is not a valid float", port, raw)
+        readings[port] = value
     return readings
 
 
