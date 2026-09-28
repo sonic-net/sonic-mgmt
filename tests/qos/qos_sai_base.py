@@ -201,7 +201,10 @@ class QosSaiBase(QosBase):
 
     # SONiC fanout ACL constants (used in create + teardown; keep in sync)
     _SONIC_ACL_TABLE_TYPE = "QOS_NOISE_FILTER"
-    _SONIC_ACL_RULE_SUFFIXES = ["DENY_LLDP", "DENY_LACP"]
+    _SONIC_ACL_RULES = [
+        ("DENY_LLDP", 0x88CC, "100"),
+        ("DENY_LACP", 0x8809, "99"),
+    ]
 
     def __computeBufferThreshold(self, dut_asic, bufferProfile):
         """
@@ -3361,6 +3364,7 @@ class QosSaiBase(QosBase):
         eos_restore_list = []
         fanout_restore_list = []
         acl_created_fanouts = {}  # fanout_name -> fanout_os (for cleanup dispatch)
+        sonic_acl_attempted = set()
         sonic_lldp_stopped = set()  # fanout names where we stopped lldp container
         lacpd_stopped = False
         acl_name = "QOS_TEST_WHITELIST"
@@ -3449,7 +3453,8 @@ class QosSaiBase(QosBase):
                     self._apply_sonic_filter(
                         fanout, fanout_name, fanout_port, acl_name,
                         fanout_restore_list, acl_created_fanouts,
-                        sonic_lldp_stopped, src_dut_conn)
+                        sonic_acl_attempted, sonic_lldp_stopped,
+                        src_dut_conn)
                 else:
                     logger.warning(
                         "permit_only_test_traffic_on_fanout: "
@@ -3529,8 +3534,8 @@ class QosSaiBase(QosBase):
 
     def _apply_sonic_filter(self, fanout, fanout_name, fanout_port,
                             acl_name, fanout_restore_list,
-                            acl_created_fanouts, sonic_lldp_stopped,
-                            src_dut_conn):
+                            acl_created_fanouts, sonic_acl_attempted,
+                            sonic_lldp_stopped, src_dut_conn):
         """Apply ingress ETHER_TYPE ACL + LLDP stop on SONiC fanout.
 
         The ACL denies LLDP (0x88CC) and LACP (0x8809) while permitting
@@ -3581,7 +3586,8 @@ class QosSaiBase(QosBase):
                     fanout_name, str(e))
 
         # Create ACL once per fanout.
-        if fanout_name not in acl_created_fanouts:
+        if fanout_name not in sonic_acl_attempted:
+            sonic_acl_attempted.add(fanout_name)
             try:
                 all_ports = self._sonic_fanout_list_ports(
                     fanout, fanout_name)
@@ -3619,6 +3625,10 @@ class QosSaiBase(QosBase):
             result = fanout.host.command(
                 "sonic-db-cli CONFIG_DB keys 'PORT|*'",
                 module_ignore_errors=True)
+            if result.get('failed', False) or result.get('rc', 0) != 0:
+                raise RuntimeError(
+                    "port query failed: rc={} stderr={}".format(
+                        result.get('rc', '?'), result.get('stderr', '')))
             stdout = result.get('stdout', '') or ''
             ports = []
             for line in stdout.strip().split('\n'):
@@ -3627,11 +3637,9 @@ class QosSaiBase(QosBase):
                     ports.append(line.split('|', 1)[1])
             return ports
         except Exception as e:
-            logger.warning(
-                "permit_only_test_traffic_on_fanout: "
-                "failed to list ports on SONiC %s: %s",
-                fanout_name, str(e))
-            return []
+            raise RuntimeError(
+                "failed to list ports on SONiC {}: {}".format(
+                    fanout_name, e)) from e
 
     def _create_sonic_ethertype_acl(self, fanout, fanout_name, ports,
                                     acl_name):
@@ -3654,16 +3662,12 @@ class QosSaiBase(QosBase):
                 }
             },
             "ACL_RULE": {
-                "{}|DENY_LLDP".format(acl_name): {
-                    "ETHER_TYPE": "35020",
+                "{}|{}".format(acl_name, suffix): {
+                    "ETHER_TYPE": str(ethertype),
                     "PACKET_ACTION": "DROP",
-                    "PRIORITY": "100",
-                },
-                "{}|DENY_LACP".format(acl_name): {
-                    "ETHER_TYPE": "34825",
-                    "PACKET_ACTION": "DROP",
-                    "PRIORITY": "99",
-                },
+                    "PRIORITY": priority,
+                }
+                for suffix, ethertype, priority in self._SONIC_ACL_RULES
             },
         }
         remote_path = "/tmp/{}.json".format(acl_name)
@@ -3720,18 +3724,20 @@ class QosSaiBase(QosBase):
                     "permit_only_test_traffic_on_fanout: aclshow returned "
                     "empty output on SONiC %s", fanout_name)
                 return
-            lines = [line for line in stdout.split('\n')
-                     if line.startswith('RULE') or acl_name in line]
-            if len(lines) <= 1:
+            counter_lines = [line for line in stdout.split('\n')
+                             if acl_name in line]
+            if not counter_lines:
                 logger.warning(
                     "permit_only_test_traffic_on_fanout: ACL %s has no "
                     "counter entries on SONiC %s — ACL may not have "
                     "been programmed to ASIC", acl_name, fanout_name)
             else:
+                header_lines = [line for line in stdout.split('\n')
+                                if line.startswith('RULE')]
                 logger.info(
                     "permit_only_test_traffic_on_fanout: ACL drop "
                     "counters on SONiC %s:\n%s",
-                    fanout_name, '\n'.join(lines))
+                    fanout_name, '\n'.join(header_lines + counter_lines))
         except Exception as e:
             logger.warning(
                 "permit_only_test_traffic_on_fanout: failed to read ACL "
@@ -3797,7 +3803,7 @@ class QosSaiBase(QosBase):
                         lines=['no mac access-list %s' % acl_name])
                 elif fanout_os == 'sonic':
                     table_type = self._SONIC_ACL_TABLE_TYPE
-                    for suffix in self._SONIC_ACL_RULE_SUFFIXES:
+                    for suffix, _, _ in self._SONIC_ACL_RULES:
                         rule_key = "ACL_RULE|{0}|{1}".format(
                             acl_name, suffix)
                         fanout.host.command(
