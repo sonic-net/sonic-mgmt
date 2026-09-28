@@ -744,6 +744,14 @@
         "tag": "Yes"
     },
     {
+        "hwsku": "Arista-7060X6-64PE-B-C512S2",
+        "topo": "ptp-514",
+        "owner": "Riff Jiang",
+        "email": "riffjiang@microsoft.com",
+        "new_platform": "Yes",
+        "tag": "Yes"
+    },
+    {
         "hwsku": "Arista-7060X6-64PE-B-C448O16",
         "topo": "t1",
         "owner": "Riff Jiang",
