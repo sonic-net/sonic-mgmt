@@ -101,7 +101,8 @@ all:
           - c0-lo
           - dpu-1
           - ft2-64
-          - ft2-16
+          - ft2-cpo-64
+          - ft2-cpo-16
           - lt2-p32o64
           - lt2-o128
           - urh
