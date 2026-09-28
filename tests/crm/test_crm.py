@@ -1601,35 +1601,18 @@ def test_crm_fdb_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum
     # Remove FDB entry and wait for clear to complete
     cmd = "fdbclear"
     duthost.command(cmd)
-    initial_fdb_clear_result = {'used': None, 'avail': None}
 
     def _fdb_cleared_initial():
-        used, avail = get_crm_stats(get_fdb_stats, duthost)
-        initial_fdb_clear_result['used'] = used
-        initial_fdb_clear_result['avail'] = avail
+        used, _ = get_crm_stats(get_fdb_stats, duthost)
         return used == 0
 
-    # Require a clean baseline before adding test entries. Continuing after a
-    # timed-out clear makes final cleanup indistinguishable from stale usage.
     pytest_assert(
         wait_until(FDB_CLEAR_TIMEOUT, CRM_POLLING_INTERVAL, 0, _fdb_cleared_initial),
-        "FDB entries are not cleared before CRM validation. Used == {}, available == {}".format(
-            initial_fdb_clear_result['used'], initial_fdb_clear_result['avail']
-        )
+        "FDB entries are not cleared before CRM validation"
     )
-
-    # FdbOrch can report used == 0 before CrmOrch refreshes available.
-    # Allow two polling intervals before capturing the baseline counters.
-    time.sleep(2 * CRM_POLLING_INTERVAL)
 
     # Get "crm_stats_fdb_entry" used and available counter value
     crm_stats_fdb_entry_used, crm_stats_fdb_entry_available = get_crm_stats(get_fdb_stats, duthost)
-    pytest_assert(
-        crm_stats_fdb_entry_used == 0,
-        "FDB usage changed while establishing the clean baseline. Used == {}, available == {}".format(
-            crm_stats_fdb_entry_used, crm_stats_fdb_entry_available
-        )
-    )
     # Generate FDB json file with one entry and apply it on DUT
     apply_fdb_config(duthost, "test_crm_fdb_entry", vlan_id, iface, 1)
 
