@@ -14,12 +14,52 @@ from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.platform.transceiver_utils import check_transceiver_basic
 from tests.common.platform.interface_utils import check_all_interface_information, get_port_map
 from tests.common.reboot import reboot
-from tests.common.config_reload import config_force_option_supported, config_system_checks_passed
+from tests.common.config_reload import (
+    config_force_option_supported,
+    config_system_checks_passed,
+    log_system_checks_state,
+)
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
     pytest.mark.topology('any')
 ]
+
+
+def _wait_config_system_checks(duthost, delayed_services=None, stage=""):
+    """Wait for system checks to pass and record how long it took.
+
+    BMC devices are slow to reach systemd is-system-running == running
+    after a fresh boot / config reload (observed intermittent failures
+    with the stock 360s window). Extend the window to 600s on BMC and
+    always log the actual elapsed time; warn when it exceeds 300s so we
+    can spot creeping ready-time regressions.
+    """
+    is_bmc = duthost.is_bmc()
+    timeout = 600 if is_bmc else 360
+    args = (duthost,) if delayed_services is None else (duthost, delayed_services)
+    stage_label = " ({})".format(stage) if stage else ""
+
+    start = time.time()
+    passed = wait_until(timeout, 20, 0, config_system_checks_passed, *args)
+    elapsed = time.time() - start
+
+    logging.info(
+        "config_system_checks_passed%s: passed=%s elapsed=%.1fs "
+        "(timeout=%ds, is_bmc=%s)",
+        stage_label, passed, elapsed, timeout, is_bmc,
+    )
+    if passed and elapsed > 300:
+        logging.warning(
+            "config_system_checks_passed%s took %.1fs to pass (>300s threshold); "
+            "system is slow to reach 'running' state",
+            stage_label, elapsed,
+        )
+    if not passed:
+        # One-shot diagnostic on timeout; helper decides what to collect.
+        log_system_checks_state(duthost, stage=stage)
+    return passed
+
 
 
 @pytest.fixture(scope="module")
@@ -60,7 +100,7 @@ def test_reload_configuration(duthosts, enum_rand_one_per_hwsku_hostname,
     asic_type = duthost.facts["asic_type"]
 
     if config_force_option_supported(duthost):
-        assert wait_until(360, 20, 0, config_system_checks_passed, duthost), (
+        assert _wait_config_system_checks(duthost, stage="before config reload"), (
             "System checks did not pass within the allotted time before config reload. "
         )
 
@@ -209,7 +249,7 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
         "Output: '{}'\n"
     ).format(stdout)
 
-    assert wait_until(360, 20, 0, config_system_checks_passed, duthost, delayed_services), (
+    assert _wait_config_system_checks(duthost, delayed_services, stage="after config reload"), (
         "System checks did not pass within the allotted time after config reload on  Delayed services: {}"
     ).format(delayed_services)
 
@@ -234,7 +274,7 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
         # BMC devices have no SWSS service. The checks below rely on SWSS being
         # temporarily unready after reload, and later stop SWSS explicitly.
         logging.info("Skipping SWSS-dependent config reload checks for BMC")
-        assert wait_until(360, 20, 0, config_system_checks_passed, duthost, delayed_services), (
+        assert _wait_config_system_checks(duthost, delayed_services, stage="after config reload (bmc)"), (
             "System checks did not pass within the allotted time after config reload on "
             "Delayed services: {}"
         ).format(delayed_services)
@@ -252,7 +292,7 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
         "Output: '{}'\n"
     ).format(stdout)
 
-    assert wait_until(360, 20, 0, config_system_checks_passed, duthost, delayed_services), (
+    assert _wait_config_system_checks(duthost, delayed_services, stage="after second config reload"), (
         "System checks did not pass within the allotted time after config reload on Delayed services: {}"
     ).format(delayed_services)
 
@@ -283,6 +323,6 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
         out['stdout']
     )
 
-    assert wait_until(360, 20, 0, config_system_checks_passed, duthost, delayed_services), (
+    assert _wait_config_system_checks(duthost, delayed_services, stage="after force config reload"), (
         "System checks did not pass within the allotted time after config reload on  Delayed services: {}"
     ).format(delayed_services)
