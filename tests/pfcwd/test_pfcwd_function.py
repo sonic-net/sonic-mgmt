@@ -63,6 +63,14 @@ def stop_pfcwd(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     duthost.command("pfcwd stop")
 
 
+@pytest.fixture(scope='function', autouse=True)
+def restore_ptf_arp_ignore(ptfhost):
+    """Reset global ARP settings modified by resolve_arp"""
+    yield
+    ptfhost.command("sysctl -w net.ipv4.conf.all.arp_ignore=0",
+                    module_ignore_errors=True)
+
+
 def is_static_profile(asic, profile):
     """
     Determine whether a buffer profile uses a static threshold.
@@ -470,6 +478,12 @@ class SetupPfcwdFunc(object):
             self.dut.command("ip neigh flush all")
             self.dut.command("ip -6 neigh flush all")
             if ip_version == "IPv4":
+                # Prevent ARP replies from PTF interfaces that don't own the target IP.
+                # All vlan member ports share the same neighbor IP (e.g. 192.168.0.2).
+                # Without arp_ignore=1, the PTF kernel responds to ARP on every interface
+                # (default arp_ignore=0), causing the DUT to associate the IP with whichever
+                # port's reply arrives last -- typically the wrong port.
+                self.ptf.command("sysctl -w net.ipv4.conf.all.arp_ignore=1")
                 self.ptf.command("ifconfig {} {}".format(ptf_port, self.pfc_wd['test_neighbor_addr']))
                 self.ptf.command("ping {} -c 10".format(vlan['addr']))
                 self.dut.command("docker exec -i swss arping {} -c 5".format(self.pfc_wd['test_neighbor_addr']),
