@@ -9,10 +9,18 @@ peers (fanout switches, servers reached via a Y-cable) are reported as
 unresolved so callers that need to issue config CLI on the peer (e.g. a
 peer-side link flap) can skip cleanly instead of guessing at a device they
 cannot control.
+
+A port with no (or an incomplete) connection graph entry is a testbed
+configuration error, not a topology limitation, and raises
+``PeerResolutionError`` so the caller can fail with a clear message.
 """
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+class PeerResolutionError(Exception):
+    """The connection graph has no usable peer entry for a port."""
 
 
 def resolve_peer_duthost_port(duthost, duthosts, conn_graph_facts, port):
@@ -28,24 +36,25 @@ def resolve_peer_duthost_port(duthost, duthosts, conn_graph_facts, port):
     Returns:
         tuple: ``(peer_duthost, peer_port)`` if the peer is a distinct
         SONiC DUT present in ``duthosts``, else ``(None, None)``.
+
+    Raises:
+        PeerResolutionError: ``port`` has no connection graph entry, or the
+            entry is missing ``peerdevice``/``peerport``.
     """
     dev_conn = conn_graph_facts.get("device_conn", {}).get(duthost.hostname, {})
     link = dev_conn.get(port)
     if not link:
-        logger.info(
-            "%s: no connection graph entry for this port - cannot resolve peer",
-            port,
+        raise PeerResolutionError(
+            f"{duthost.hostname}:{port} has no connection graph entry"
         )
-        return None, None
 
     peer_device = link.get("peerdevice")
     peer_port = link.get("peerport")
     if not peer_device or not peer_port:
-        logger.warning(
-            "%s: connection graph entry missing peerdevice/peerport: %s",
-            port, link,
+        raise PeerResolutionError(
+            f"{duthost.hostname}:{port} connection graph entry is missing "
+            f"peerdevice/peerport: {link}"
         )
-        return None, None
 
     if peer_device == duthost.hostname:
         logger.info(

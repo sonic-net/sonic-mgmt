@@ -18,8 +18,9 @@ Execution order::
          |- <body>: bulk startup all ports -> Standard Port Recovery and
                     Verification for all ports
     `- test_system_prefec_ber_peer_side_flap
-         |- <body>: skip unless a prefec_ber_check_supported port has a
-                    peer DUT resolvable in the connection graph
+         |- <body>: fail if any prefec_ber_check_supported port has no
+                    (or an incomplete) connection graph entry; skip
+                    unless at least one such port has a peer DUT
          `-         flap the peer end -> Standard Port Recovery and
                     Verification -> Pre-FEC BER Guard
   session end
@@ -41,7 +42,10 @@ from tests.transceiver.attribute_parser.attribute_keys import (
 )
 from tests.transceiver.common import scenario_ops
 from tests.transceiver.common.health_checks import capture_baseline
-from tests.transceiver.common.peer_resolution import resolve_peer_duthost_port
+from tests.transceiver.common.peer_resolution import (
+    PeerResolutionError,
+    resolve_peer_duthost_port,
+)
 from tests.transceiver.common.prerequisites import check_links_up
 from tests.transceiver.common.verification import (
     capture_prefec_ber_baseline,
@@ -157,7 +161,9 @@ def test_system_prefec_ber_peer_side_flap(
 
     Requires a peer SONiC device for at least one
     ``prefec_ber_check_supported`` port; self-loopback and non-DUT peers
-    are excluded, and the test is skipped if no port qualifies.
+    are excluded, and the test is skipped if no port qualifies. A port
+    with no (or an incomplete) connection graph entry fails the test up
+    front, before any port is touched.
     """
     candidate_ports = sorted(
         port for port, attrs in port_attributes_dict.items()
@@ -167,12 +173,24 @@ def test_system_prefec_ber_peer_side_flap(
         pytest.skip("prefec_ber_check_supported is False for every port - nothing to test")
 
     peers_by_port = {}
+    graph_errors = []
     for port in candidate_ports:
-        peer_duthost, peer_port = resolve_peer_duthost_port(
-            duthost, duthosts, conn_graph_facts, port
-        )
+        try:
+            peer_duthost, peer_port = resolve_peer_duthost_port(
+                duthost, duthosts, conn_graph_facts, port
+            )
+        except PeerResolutionError as e:
+            graph_errors.append(str(e))
+            continue
         if peer_duthost is not None:
             peers_by_port[port] = (peer_duthost, peer_port)
+
+    if graph_errors:
+        pytest.fail(
+            f"Connection graph misconfigured for {len(graph_errors)} "
+            "port(s) - fix the lab links file (sonic_<inv>_links.csv):\n  - "
+            + "\n  - ".join(graph_errors)
+        )
 
     if not peers_by_port:
         pytest.skip(

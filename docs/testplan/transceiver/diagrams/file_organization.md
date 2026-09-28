@@ -181,7 +181,8 @@ tests/transceiver/
 │   │
 │   ├── link_behavior/
 │   │   ├── __init__.py
-│   │   └── test_port_link_toggle.py         # TC 1-2: Port link toggle tests
+│   │   └── test_port_link_toggle.py         # TC 1-3: Port link toggle tests +
+│   │                                        #   Pre-FEC BER peer-side flap
 │   │
 │   ├── process_restart/
 │   │   ├── __init__.py
