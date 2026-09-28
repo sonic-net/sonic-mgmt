@@ -29,38 +29,28 @@ GNOI_ROLE_CASES = [
 
 
 def verify_gnoi_role_access(env, role, operation, error_pattern, validation_error=None):
-    """Invoke an RPC under the requested role, check its outcome, and restore the role.
+    """Invoke an RPC under the requested role and check its outcome.
 
     validation_error is only for non-mutating writer probes that intentionally
     stop at request validation. Transport/backend errors never count as denial.
+    The function-scoped gnmi_tls fixture owns checkpoint/rollback of CONFIG_DB.
     """
     duthost = env.duthost
     role_key = "GNMI_CLIENT_CERT|test.client.gnmi.sonic"
-    original_role = redis_hget(duthost, CONFIG_DB, role_key, "role@")
-    pytest_assert(original_role, "Client certificate role is not configured")
-
-    def set_role(value):
-        result = redis_hset(duthost, CONFIG_DB, role_key, **{"role@": value})
-        pytest_assert(result["rc"] == 0, "Failed to configure certificate role")
-        pytest_assert(redis_hget(duthost, CONFIG_DB, role_key, "role@") == value,
-                      "Certificate role was not applied")
-
-    original_max_time = env.grpc.max_time
+    result = redis_hset(duthost, CONFIG_DB, role_key, **{"role@": role})
+    pytest_assert(result["rc"] == 0, "Failed to configure certificate role")
+    pytest_assert(redis_hget(duthost, CONFIG_DB, role_key, "role@") == role,
+                  "Certificate role was not applied")
     env.grpc.configure_max_time(30)
-    try:
-        set_role(role)
-        if error_pattern or validation_error:
-            with pytest.raises(PtfGrpcError, match=error_pattern or validation_error) as caught:
-                operation()
-            message = str(caught.value)
-            # checkRoleAccess currently returns a plain Go error (gRPC Unknown).
-            code_pattern = "Unknown|PermissionDenied" if error_pattern else "InvalidArgument"
-            pytest_assert(re.search(r"Code:\s*({})\b".format(code_pattern), message), message)
-            return None
-        return operation()
-    finally:
-        env.grpc.max_time = original_max_time
-        set_role(original_role)
+    if error_pattern or validation_error:
+        with pytest.raises(PtfGrpcError, match=error_pattern or validation_error) as caught:
+            operation()
+        message = str(caught.value)
+        # checkRoleAccess currently returns a plain Go error (gRPC Unknown).
+        code_pattern = "Unknown|PermissionDenied" if error_pattern else "InvalidArgument"
+        pytest_assert(re.search(r"Code:\s*({})\b".format(code_pattern), message), message)
+        return None
+    return operation()
 
 
 def is_mgmt_vrf_enabled(duthost):
