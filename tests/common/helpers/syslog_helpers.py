@@ -275,8 +275,37 @@ def run_syslog(rand_selected_dut, dummy_syslog_server_ip_a, dummy_syslog_server_
     tcpdump_task, tcpdump_result = duthost.shell(
         "sudo timeout 20 tcpdump -y LINUX_SLL -i any -s0 -A -w {} \"udp and port 514\""
         .format(DUT_PCAP_FILEPATH), module_async=True)
-    # wait for starting tcpdump
-    time.sleep(5)
+
+    # Wait for tcpdump to actually attach and start capturing before we
+    # generate the syslog message. Historically we slept a flat 5s here, which
+    # occasionally lost the very first packet on slower/BMC platforms and
+    # produced flaky failures. tcpdump creates the -w output file as soon as it
+    # has opened its capture handle, so poll for that as a readiness signal.
+    tcpdump_ready = False
+    for _ in range(40):  # up to ~20s
+        rc = duthost.shell(
+            "test -s {}".format(DUT_PCAP_FILEPATH), module_ignore_errors=True
+        )["rc"]
+        if rc == 0:
+            tcpdump_ready = True
+            break
+        # Also break early if the async task already died (timeout/config error).
+        rc = duthost.shell(
+            "pgrep -f 'tcpdump.*{}' >/dev/null".format(DUT_PCAP_FILEPATH),
+            module_ignore_errors=True,
+        )["rc"]
+        if rc != 0:
+            break
+        time.sleep(0.5)
+    if not tcpdump_ready:
+        logger.warning(
+            "tcpdump did not appear ready within 20s; proceeding anyway "
+            "(pcap capture may miss the syslog packet)"
+        )
+    else:
+        # Small settling window: file exists, but give the BPF filter a moment
+        # to attach on all interfaces before emitting the log message.
+        time.sleep(1)
 
     logger.debug("Generating log message from DUT")
     # Generate a syslog from the DUT
