@@ -360,15 +360,11 @@ class TestCoppStats:
     """
     COPP Statistics end-to-end validation tests.
 
-    The gate is the DUT's runtime SAI capability, not a platform-substring
-    heuristic. swss/CoppOrch publishes
-    STATE_DB:SWITCH_CAPABILITY|switch:COPP_POLICER_STATS_CAPABLE after
-    probing sai_query_stats_capability(SAI_OBJECT_TYPE_POLICER); the
-    autouse fixture below skips the class on any DUT that reports false.
+    Skipped on DUTs that report
+    STATE_DB:SWITCH_CAPABILITY|switch:COPP_POLICER_STATS_CAPABLE false.
     """
 
-    # Stats these tests parse from `show copp stats`; checked against the
-    # SAI-advertised set in COPP_POLICER_STATS_SUPPORTED when published.
+    # Stats these tests parse; must be in COPP_POLICER_STATS_SUPPORTED when published.
     REQUIRED_POLICER_STATS = {"SAI_POLICER_STAT_RED_PACKETS"}
 
     @pytest.fixture(autouse=True)
@@ -389,12 +385,8 @@ class TestCoppStats:
                 .format(val or '<unset>')
             )
 
-        # A capable SAI may still advertise only a subset of policer stats
-        # (published as a comma-joined list); these tests parse the Red Pkts
-        # column, which coppstat renders as N/A for unadvertised stats. Skip
-        # rather than fail on int('N/A'). An absent field means an older
-        # orchagent that publishes only the boolean — keep boolean-only
-        # gating there.
+        # A capable SAI may advertise a subset; Red Pkts renders N/A when unadvertised.
+        # An absent list means an older orchagent, so gate on the boolean alone.
         result = duthost.shell(
             'redis-cli -n 6 HGET "SWITCH_CAPABILITY|switch" '
             '"COPP_POLICER_STATS_SUPPORTED"',
@@ -507,7 +499,6 @@ class TestCoppStats:
         _copp_runner(duthost, ptfhost, "ARP", copp_testbed, dut_type)
         time.sleep(15)
 
-        # Test each namespace
         for asic in duthost.asics:
             namespace = asic.namespace
             result = duthost.shell(f"show copp stats -n {namespace}")
