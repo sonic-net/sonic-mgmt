@@ -328,129 +328,314 @@ qos_params:
                     - 4
                     dst_port_id: 0
                     ecn: 1
-                    margin: 100
+                    # Needs 2 * margin > xoff - hdrm_partial (295) for the
+                    # partial/full bracket below to straddle the real pool size.
+                    margin: 500
                     pgs:
                     - 3
                     - 4
                     pgs_num: 2
-                    pkts_num_hdrm_full: 4494 # Actual Heardoom pool size - 1 (One packet is sent to detect the PFC)
-                    pkts_num_hdrm_partial: 4200 # Headroom Partial < Actual Heardoom pool size < Headroom Partial + 2 * margin + 1
-                    pkts_num_trig_pfc: 209000
+                    pkts_num_hdrm_full: 4494 # profile xoff (4495 cells) - 1
+                    pkts_num_hdrm_partial: 4200
+                    pkts_num_trig_pfc: 153448
                     pkts_num_trig_pfc_multi: # Max packets that can be sent without invoking PFC.
-                    - 209000
-                    - 104950
+                    - 153448
+                    - 76724
                     src_port_ids:
                     - 0
                 lossy_queue_1:
                     dscp: 8
                     ecn: 1
                     pg: 0
-                    pkts_num_margin: 500
-                    pkts_num_trig_egr_drp: 208650
+                    pkts_num_margin: 300
+                    pkts_num_trig_egr_drp: 153437
                 pkts_num_egr_mem: 0
                 pkts_num_leak_out: 0
+                wm_pg_shared_lossless:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_fill_min: 0
+                    pkts_num_trig_pfc: 153448
+                    packet_size: 64
+                    cell_size: 420
+                    pkts_num_margin: 2
+                wm_pg_shared_lossy:
+                    dscp: 8
+                    ecn: 1
+                    pg: 0
+                    pkts_num_fill_min: 0
+                    pkts_num_trig_egr_drp: 153437
+                    packet_size: 64
+                    cell_size: 420
+                    pkts_num_margin: 2
+                wm_q_shared_lossless:
+                    dscp: 3
+                    ecn: 1
+                    queue: 3
+                    pkts_num_fill_min: 0
+                    # xoff_1's trig_ingr_drp less the 296-cell drop offset
+                    # measured on this chip.
+                    pkts_num_trig_ingr_drp: 157647
+                    cell_size: 420
+                    pkts_num_margin: 2
+                    pkts_num_egr_mem: 374
+                wm_q_shared_lossy:
+                    dscp: 8
+                    ecn: 1
+                    queue: 0
+                    pkts_num_fill_min: 0
+                    pkts_num_trig_egr_drp: 153105
+                    cell_size: 420
+                    pkts_num_margin: 2
+                    pkts_num_egr_mem: 374
                 xoff_1:
                     dscp: 3
                     ecn: 1
                     pg: 3
-                    pkts_num_margin: 500
-                    pkts_num_trig_ingr_drp: 209519
-                    pkts_num_trig_pfc: 207822
+                    pkts_num_margin: 300
+                    pkts_num_trig_ingr_drp: 157943 # trig_pfc + profile xoff (4495 cells)
+                    pkts_num_trig_pfc: 153448
                 xoff_2:
                     dscp: 4
                     ecn: 1
                     pg: 4
-                    pkts_num_margin: 500
-                    pkts_num_trig_ingr_drp: 209519
-                    pkts_num_trig_pfc: 207822
+                    pkts_num_margin: 300
+                    pkts_num_trig_ingr_drp: 157943
+                    pkts_num_trig_pfc: 153448
+                # th6 xon is BLOCKED in the generator support matrix, so these
+                # values are what PFCXonTest actually runs with. The residual
+                # parked in step 2 (trig - dismiss = 153248) has to stay below
+                # the deassert point (share 153737 - xon_offset 8) or PFC never
+                # clears; the step-4 peak (trig) has to clear the assert point
+                # and stay under the measured 158021 ingress-drop point. dismiss is the
+                # deassert-side slack knob, not the chip resume offset -- at the
+                # raw offset (8) the residual has no room and the feedback retry
+                # cannot widen it.
                 xon_1:
                     dscp: 3
                     ecn: 1
                     pg: 3
-                    pkts_num_dismiss_pfc: 1100
+                    pkts_num_dismiss_pfc: 1600
                     pkts_num_margin: 500
-                    pkts_num_trig_pfc: 208922
+                    pkts_num_trig_pfc: 154848
                 xon_2:
                     dscp: 4
                     ecn: 1
                     pg: 4
-                    pkts_num_dismiss_pfc: 1100
+                    pkts_num_dismiss_pfc: 1600
                     pkts_num_margin: 500
-                    pkts_num_trig_pfc: 208922
+                    pkts_num_trig_pfc: 154848
             400000_300m:
+                hdrm_pool_size:
+                    dscps:
+                    - 3
+                    - 4
+                    dst_port_id: 0
+                    ecn: 1
+                    # Needs 2 * margin > xoff - hdrm_partial for the partial/full
+                    # bracket below to straddle the real pool size.
+                    margin: 500
+                    pgs:
+                    - 3
+                    - 4
+                    pgs_num: 2
+                    pkts_num_hdrm_full: 3304 # profile xoff (3305 cells) - 1
+                    pkts_num_hdrm_partial: 3050
+                    pkts_num_trig_pfc: 153448
+                    pkts_num_trig_pfc_multi: # Max packets that can be sent without invoking PFC.
+                    - 153448
+                    - 76724
+                    src_port_ids:
+                    - 0
                 lossy_queue_1:
                     dscp: 8
                     ecn: 1
                     pg: 0
-                    pkts_num_margin: 500
-                    pkts_num_trig_egr_drp: 210190
+                    pkts_num_margin: 300
+                    pkts_num_trig_egr_drp: 153437
                 pkts_num_egr_mem: 0
                 pkts_num_leak_out: 0
+                wm_pg_shared_lossless:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_fill_min: 0
+                    pkts_num_trig_pfc: 153448
+                    packet_size: 64
+                    cell_size: 420
+                    pkts_num_margin: 2
+                wm_pg_shared_lossy:
+                    dscp: 8
+                    ecn: 1
+                    pg: 0
+                    pkts_num_fill_min: 0
+                    pkts_num_trig_egr_drp: 153437
+                    packet_size: 64
+                    cell_size: 420
+                    pkts_num_margin: 2
+                wm_q_shared_lossless:
+                    dscp: 3
+                    ecn: 1
+                    queue: 3
+                    pkts_num_fill_min: 0
+                    # xoff_1's trig_ingr_drp less the 296-cell drop offset
+                    # measured on this chip.
+                    pkts_num_trig_ingr_drp: 156457
+                    cell_size: 420
+                    pkts_num_margin: 2
+                    pkts_num_egr_mem: 374
+                wm_q_shared_lossy:
+                    dscp: 8
+                    ecn: 1
+                    queue: 0
+                    pkts_num_fill_min: 0
+                    pkts_num_trig_egr_drp: 153105
+                    cell_size: 420
+                    pkts_num_margin: 2
+                    pkts_num_egr_mem: 374
                 xoff_1:
                     dscp: 3
                     ecn: 1
                     pg: 3
-                    pkts_num_margin: 500
-                    pkts_num_trig_ingr_drp: 213304
-                    pkts_num_trig_pfc: 210000
+                    pkts_num_margin: 300
+                    pkts_num_trig_ingr_drp: 156753 # trig_pfc + profile xoff (3305 cells)
+                    pkts_num_trig_pfc: 153448
                 xoff_2:
                     dscp: 4
                     ecn: 1
                     pg: 4
-                    pkts_num_margin: 500
-                    pkts_num_trig_ingr_drp: 213304
-                    pkts_num_trig_pfc: 210000
+                    pkts_num_margin: 300
+                    pkts_num_trig_ingr_drp: 156753
+                    pkts_num_trig_pfc: 153448
+                # th6 xon is BLOCKED in the generator support matrix, so these
+                # values are what PFCXonTest actually runs with. The residual
+                # parked in step 2 (trig - dismiss = 153248) has to stay below
+                # the deassert point (share 153737 - xon_offset 8) or PFC never
+                # clears; the step-4 peak (trig) has to clear the assert point
+                # and stay under the 156753 ingress-drop point. dismiss is the
+                # deassert-side slack knob, not the chip resume offset -- at the
+                # raw offset (8) the residual has no room and the feedback retry
+                # cannot widen it.
                 xon_1:
                     dscp: 3
                     ecn: 1
                     pg: 3
-                    pkts_num_dismiss_pfc: 1100
+                    pkts_num_dismiss_pfc: 1600
                     pkts_num_margin: 500
-                    pkts_num_trig_pfc: 211100
+                    pkts_num_trig_pfc: 154848
                 xon_2:
                     dscp: 4
                     ecn: 1
                     pg: 4
-                    pkts_num_dismiss_pfc: 1100
+                    pkts_num_dismiss_pfc: 1600
                     pkts_num_margin: 500
-                    pkts_num_trig_pfc: 211100
+                    pkts_num_trig_pfc: 154848
             400000_40m:
+                hdrm_pool_size:
+                    dscps:
+                    - 3
+                    - 4
+                    dst_port_id: 0
+                    ecn: 1
+                    # Needs 2 * margin > xoff - hdrm_partial for the partial/full
+                    # bracket below to straddle the real pool size.
+                    margin: 500
+                    pgs:
+                    - 3
+                    - 4
+                    pgs_num: 2
+                    pkts_num_hdrm_full: 1756 # profile xoff (1757 cells) - 1
+                    pkts_num_hdrm_partial: 1500
+                    pkts_num_trig_pfc: 153448
+                    pkts_num_trig_pfc_multi: # Max packets that can be sent without invoking PFC.
+                    - 153448
+                    - 76724
+                    src_port_ids:
+                    - 0
                 lossy_queue_1:
                     dscp: 8
                     ecn: 1
                     pg: 0
-                    pkts_num_margin: 500
-                    pkts_num_trig_egr_drp: 210190
+                    pkts_num_margin: 300
+                    pkts_num_trig_egr_drp: 153437
                 pkts_num_egr_mem: 0
                 pkts_num_leak_out: 0
+                wm_pg_shared_lossless:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_fill_min: 0
+                    pkts_num_trig_pfc: 153448
+                    packet_size: 64
+                    cell_size: 420
+                    pkts_num_margin: 2
+                wm_pg_shared_lossy:
+                    dscp: 8
+                    ecn: 1
+                    pg: 0
+                    pkts_num_fill_min: 0
+                    pkts_num_trig_egr_drp: 153437
+                    packet_size: 64
+                    cell_size: 420
+                    pkts_num_margin: 2
+                wm_q_shared_lossless:
+                    dscp: 3
+                    ecn: 1
+                    queue: 3
+                    pkts_num_fill_min: 0
+                    # xoff_1's trig_ingr_drp less the 296-cell drop offset
+                    # measured on this chip.
+                    pkts_num_trig_ingr_drp: 154909
+                    cell_size: 420
+                    pkts_num_margin: 2
+                    pkts_num_egr_mem: 374
+                wm_q_shared_lossy:
+                    dscp: 8
+                    ecn: 1
+                    queue: 0
+                    pkts_num_fill_min: 0
+                    pkts_num_trig_egr_drp: 153105
+                    cell_size: 420
+                    pkts_num_margin: 2
+                    pkts_num_egr_mem: 374
                 xoff_1:
                     dscp: 3
                     ecn: 1
                     pg: 3
-                    pkts_num_margin: 500
-                    pkts_num_trig_ingr_drp: 211757
-                    pkts_num_trig_pfc: 210000
+                    pkts_num_margin: 300
+                    pkts_num_trig_ingr_drp: 155205 # trig_pfc + profile xoff (1757 cells)
+                    pkts_num_trig_pfc: 153448
                 xoff_2:
                     dscp: 4
                     ecn: 1
                     pg: 4
-                    pkts_num_margin: 500
-                    pkts_num_trig_ingr_drp: 211757
-                    pkts_num_trig_pfc: 210000
+                    pkts_num_margin: 300
+                    pkts_num_trig_ingr_drp: 155205
+                    pkts_num_trig_pfc: 153448
+                # th6 xon is BLOCKED in the generator support matrix, so these
+                # values are what PFCXonTest actually runs with. The residual
+                # parked in step 2 (trig - dismiss = 153248) has to stay below
+                # the deassert point (share 153737 - xon_offset 8) or PFC never
+                # clears; the step-4 peak (trig) has to clear the assert point
+                # and stay under the 155205 ingress-drop point. dismiss is the
+                # deassert-side slack knob, not the chip resume offset -- at the
+                # raw offset (8) the residual has no room and the feedback retry
+                # cannot widen it.
                 xon_1:
                     dscp: 3
                     ecn: 1
                     pg: 3
-                    pkts_num_dismiss_pfc: 1100
+                    pkts_num_dismiss_pfc: 1600
                     pkts_num_margin: 500
-                    pkts_num_trig_pfc: 211100
+                    pkts_num_trig_pfc: 154848
                 xon_2:
                     dscp: 4
                     ecn: 1
                     pg: 4
-                    pkts_num_dismiss_pfc: 1100
+                    pkts_num_dismiss_pfc: 1600
                     pkts_num_margin: 500
-                    pkts_num_trig_pfc: 211100
+                    pkts_num_trig_pfc: 154848
             400000_30m:
                 hdrm_pool_size:
                     dscps:
@@ -475,38 +660,195 @@ qos_params:
                     dscp: 8
                     ecn: 1
                     pg: 0
-                    pkts_num_margin: 500
-                    pkts_num_trig_egr_drp: 208650
+                    pkts_num_margin: 300
+                    pkts_num_trig_egr_drp: 153437
                 pkts_num_egr_mem: 0
                 pkts_num_leak_out: 0
+                wm_pg_shared_lossless:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_fill_min: 0
+                    pkts_num_trig_pfc: 153448
+                    packet_size: 64
+                    cell_size: 420
+                    pkts_num_margin: 2
+                wm_pg_shared_lossy:
+                    dscp: 8
+                    ecn: 1
+                    pg: 0
+                    pkts_num_fill_min: 0
+                    pkts_num_trig_egr_drp: 153437
+                    packet_size: 64
+                    cell_size: 420
+                    pkts_num_margin: 2
+                wm_q_shared_lossless:
+                    dscp: 3
+                    ecn: 1
+                    queue: 3
+                    pkts_num_fill_min: 0
+                    # Measured: filling to 155144 held 154848 and dropped 296.
+                    pkts_num_trig_ingr_drp: 154849
+                    cell_size: 420
+                    pkts_num_margin: 2
+                    pkts_num_egr_mem: 374
+                wm_q_shared_lossy:
+                    dscp: 8
+                    ecn: 1
+                    queue: 0
+                    pkts_num_fill_min: 0
+                    # Measured: filling to 153436 held 153104 and dropped 333.
+                    pkts_num_trig_egr_drp: 153105
+                    cell_size: 420
+                    pkts_num_margin: 2
+                    pkts_num_egr_mem: 374
                 xoff_1:
                     dscp: 3
                     ecn: 1
                     pg: 3
-                    pkts_num_margin: 500
-                    pkts_num_trig_ingr_drp: 209519
-                    pkts_num_trig_pfc: 207822
+                    pkts_num_margin: 300
+                    pkts_num_trig_ingr_drp: 155145 # trig_pfc + chip headroom (12747)
+                    pkts_num_trig_pfc: 153448
                 xoff_2:
                     dscp: 4
                     ecn: 1
                     pg: 4
-                    pkts_num_margin: 500
-                    pkts_num_trig_ingr_drp: 209519
-                    pkts_num_trig_pfc: 207822
+                    pkts_num_margin: 300
+                    pkts_num_trig_ingr_drp: 155145
+                    pkts_num_trig_pfc: 153448
+                # th6 xon is BLOCKED in the generator support matrix, so these
+                # values are what PFCXonTest actually runs with. Anchored on the
+                # live buffer geometry of this profile: PFC asserts at 153748
+                # (the generator's xoff trigger) and the PG starts dropping at
+                # 155445 -- the sibling keys above still carry the pre-migration
+                # numbers and are only masked by the generator overriding them.
+                # Total fill (trig) sits between the highest assert point
+                # measured on this chip (share+570) and the drop point; the
+                # residual (trig - dismiss - margin) sits below the stable
+                # share+min-resume deassert point. dismiss is the deassert-side
+                # slack knob, not the chip resume offset -- at the raw offset (8)
+                # the residual has no room and the feedback retry cannot widen it.
                 xon_1:
                     dscp: 3
                     ecn: 1
                     pg: 3
-                    pkts_num_dismiss_pfc: 1100
+                    pkts_num_dismiss_pfc: 1600
                     pkts_num_margin: 500
-                    pkts_num_trig_pfc: 208922
+                    pkts_num_trig_pfc: 154848
                 xon_2:
                     dscp: 4
                     ecn: 1
                     pg: 4
-                    pkts_num_dismiss_pfc: 1100
+                    pkts_num_dismiss_pfc: 1600
                     pkts_num_margin: 500
-                    pkts_num_trig_pfc: 208922
+                    pkts_num_trig_pfc: 154848
+            400000_5m:
+                hdrm_pool_size:
+                    dscps:
+                    - 3
+                    - 4
+                    dst_port_id: 0
+                    ecn: 1
+                    # Needs 2 * margin > xoff - hdrm_partial for the partial/full
+                    # bracket below to straddle the real pool size.
+                    margin: 500
+                    pgs:
+                    - 3
+                    - 4
+                    pgs_num: 2
+                    pkts_num_hdrm_full: 1547 # profile xoff (1548 cells) - 1
+                    pkts_num_hdrm_partial: 1300
+                    pkts_num_trig_pfc: 153448
+                    pkts_num_trig_pfc_multi: # Max packets that can be sent without invoking PFC.
+                    - 153448
+                    - 76724
+                    src_port_ids:
+                    - 0
+                lossy_queue_1:
+                    dscp: 8
+                    ecn: 1
+                    pg: 0
+                    pkts_num_margin: 300
+                    pkts_num_trig_egr_drp: 153437
+                pkts_num_egr_mem: 0
+                pkts_num_leak_out: 0
+                wm_pg_shared_lossless:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_fill_min: 0
+                    pkts_num_trig_pfc: 153448
+                    packet_size: 64
+                    cell_size: 420
+                    pkts_num_margin: 2
+                wm_pg_shared_lossy:
+                    dscp: 8
+                    ecn: 1
+                    pg: 0
+                    pkts_num_fill_min: 0
+                    pkts_num_trig_egr_drp: 153437
+                    packet_size: 64
+                    cell_size: 420
+                    pkts_num_margin: 2
+                wm_q_shared_lossless:
+                    dscp: 3
+                    ecn: 1
+                    queue: 3
+                    pkts_num_fill_min: 0
+                    # xoff_1's trig_ingr_drp less the 296-cell drop offset
+                    # measured on this chip.
+                    pkts_num_trig_ingr_drp: 154700
+                    cell_size: 420
+                    pkts_num_margin: 2
+                    pkts_num_egr_mem: 374
+                wm_q_shared_lossy:
+                    dscp: 8
+                    ecn: 1
+                    queue: 0
+                    pkts_num_fill_min: 0
+                    pkts_num_trig_egr_drp: 153105
+                    cell_size: 420
+                    pkts_num_margin: 2
+                    pkts_num_egr_mem: 374
+                xoff_1:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_margin: 300
+                    pkts_num_trig_ingr_drp: 154996 # trig_pfc + profile xoff (1548 cells)
+                    pkts_num_trig_pfc: 153448
+                xoff_2:
+                    dscp: 4
+                    ecn: 1
+                    pg: 4
+                    pkts_num_margin: 300
+                    pkts_num_trig_ingr_drp: 154996
+                    pkts_num_trig_pfc: 153448
+                # th6 xon is BLOCKED in the generator support matrix, so these
+                # values are what PFCXonTest actually runs with. The residual
+                # parked in step 2 (trig - dismiss = 152700) has to stay below
+                # the deassert point (share 153737 - xon_offset 8) or PFC never
+                # clears; the step-4 peak (trig) has to clear the assert point
+                # and stay under the 154996 ingress-drop point. This is the
+                # shortest cable, so its headroom is the smallest and that upper
+                # bound is the binding one -- trig sits below the value the longer
+                # profiles share. dismiss is the deassert-side slack knob, not the
+                # chip resume offset -- at the raw offset (8) the residual has no
+                # room and the feedback retry cannot widen it.
+                xon_1:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_dismiss_pfc: 1600
+                    pkts_num_margin: 500
+                    pkts_num_trig_pfc: 154300
+                xon_2:
+                    dscp: 4
+                    ecn: 1
+                    pg: 4
+                    pkts_num_dismiss_pfc: 1600
+                    pkts_num_margin: 500
+                    pkts_num_trig_pfc: 154300
             200000_300m:
                 lossy_queue_1:
                     dscp: 8
@@ -1423,3 +1765,4 @@ qos_params:
         topo-lt2-min:  *topo-t0-standalone
         topo-any:  *topo-t0-standalone
         topo-t1-8:  *topo-t0-standalone
+        topo-lt2-u32d128:  *topo-t0-standalone
