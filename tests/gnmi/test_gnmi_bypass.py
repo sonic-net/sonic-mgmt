@@ -17,8 +17,8 @@ pytestmark = [pytest.mark.topology("any"), pytest.mark.disable_loganalyzer]
 BYPASS_METADATA = [("x-sonic-ss-bypass-validation", "true")]
 BYPASS_SKUS = ("Cisco-8101", "Cisco-8102", "Cisco-8223")
 CLIENT_KEY = "GNMI_CLIENT_CERT|test.client.gnmi.sonic"
-ORIGINAL = {"action": "permit"}
-UPDATED = {"action": "deny"}
+ORIGINAL = {"peer_asn": "65001"}
+UPDATED = {"peer_asn": "65002"}
 
 
 @contextmanager
@@ -61,10 +61,11 @@ def test_native_set_bypass_authorization(
     if not hwsku.startswith(BYPASS_SKUS):
         pytest.skip("Native Set bypass requires Cisco-8101/8102/8223; DUT SKU is {}".format(hwsku))
 
-    # PrefixListMgr ignores keys without a '|' separated prefix, so this entry
-    # does not configure an FRR prefix-list. gnmi_tls rolls back CONFIG_DB.
+    # A unique peer-range template without an ip_range cannot establish peers.
+    # Its fields are valid on release images as well as master, allowing the
+    # gnmi_tls checkpoint rollback to validate and remove the entry.
     name = "gnmi_authz_" + uuid.uuid4().hex[:12]
-    key = "PREFIX_LIST|" + name
+    key = "BGP_PEER_RANGE|" + name
     redis_hset(duthost, CONFIG_DB, key, **ORIGINAL)
     pytest_assert(redis_hgetall(duthost, CONFIG_DB, key) == ORIGINAL,
                   "Failed to seed CONFIG_DB sentinel")
@@ -75,7 +76,7 @@ def test_native_set_bypass_authorization(
     with expectation(duthost):
         gnmi_tls.pygnmi_client.set(
             prefix=prefix, target=target, metadata=BYPASS_METADATA,
-            **request_args("PREFIX_LIST/" + name),
+            **request_args("BGP_PEER_RANGE/" + name),
         )
     expected = {"original": ORIGINAL, "written": written_state}[expected_state]
     pytest_assert(redis_hgetall(duthost, CONFIG_DB, key) == expected,
