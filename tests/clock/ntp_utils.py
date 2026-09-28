@@ -148,7 +148,19 @@ monotonic_seconds() {{
 retry_deadline=0
 while true; do
     exec 9>{lock}
-    flock -w {lock_timeout} -x 9 || exit 75
+    if ! flock -w {lock_timeout} -x 9; then
+        exec 9>&-
+        deadline=$(cat {deadline}) || exit 1
+        now=$(monotonic_seconds) || exit 1
+        if [ "$now" -lt "$deadline" ]; then
+            retry_deadline=0
+        elif [ "$retry_deadline" -eq 0 ]; then
+            retry_deadline=$(( now + {lease} ))
+        elif [ "$now" -ge "$retry_deadline" ]; then
+            exit 1
+        fi
+        continue
+    fi
     deadline=$(cat {deadline}) || exit 1
     now=$(monotonic_seconds) || exit 1
     remaining=$(( deadline - now ))

@@ -936,6 +936,90 @@ def test_ptf_watchdog_and_lock_are_bounded():
     subprocess.run(["bash", "-n", "-c", install_command], check=True)
 
 
+def test_ptf_watchdog_retries_lock_contention_and_clears_owner(tmp_path):
+    namespace = _ntp_namespace("_install_ntp_server_recovery")
+    namespace["NTP_SERVER_RECOVERY_LEASE"] = 5
+    namespace["NTP_SERVER_RECOVERY_RETRY_INTERVAL"] = 1
+    namespace["NTP_SERVER_RECOVERY_COMMAND_TIMEOUT"] = 2
+    namespace["NTP_SERVER_LOCK_TIMEOUT"] = 1
+    namespace["NTP_SERVER_WATCHDOG_POLL_INTERVAL"] = 1
+    ptfhost = Mock()
+    ptfhost.shell.return_value = {"rc": 0}
+    ptfhost.command.return_value = {"rc": 0}
+    service_name = "clock-test-{}".format(uuid.uuid4().hex)
+    backup_path = tmp_path / "ntp.conf.backup"
+
+    recovery = namespace["_install_ntp_server_recovery"](
+        ptfhost,
+        service_name,
+        str(tmp_path / "ntp.conf"),
+        str(backup_path),
+        True,
+        1
+    )
+
+    script_path = Path(recovery["script_path"])
+    pid_path = Path(recovery["pid_path"])
+    deadline_path = Path(recovery["deadline_path"])
+    owner_path = Path(recovery["owner_path"])
+    lock_path = Path(recovery["lock_path"])
+    marker_path = tmp_path / "recovered"
+    ready_path = tmp_path / "lock-ready"
+    cleanup_paths = [
+        script_path,
+        pid_path,
+        deadline_path,
+        owner_path,
+        lock_path,
+    ]
+    holder = None
+    try:
+        script_path.write_text(
+            "#!/bin/bash\n"
+            "touch {}\n"
+            "rm -f {}\n".format(
+                shlex.quote(str(marker_path)),
+                shlex.quote(str(owner_path))
+            )
+        )
+        script_path.chmod(0o755)
+        backup_path.write_text("original\n")
+        deadline_path.write_text("0\n")
+        owner_path.write_text("{}\n".format(recovery["recovery_id"]))
+        holder = subprocess.Popen([
+            "bash",
+            "-c",
+            "exec 9>{}; flock -x 9; touch {}; sleep 3".format(
+                shlex.quote(str(lock_path)),
+                shlex.quote(str(ready_path))
+            )
+        ])
+        for _ in range(100):
+            if ready_path.exists():
+                break
+            time.sleep(0.02)
+        assert ready_path.exists()
+
+        result = subprocess.run(
+            ["bash", "-c", recovery["watchdog_command"]],
+            text=True,
+            capture_output=True,
+            timeout=10
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert marker_path.exists()
+        assert not owner_path.exists()
+    finally:
+        if holder is not None and holder.poll() is None:
+            os.kill(holder.pid, signal.SIGKILL)
+        if holder is not None:
+            holder.wait(timeout=5)
+        for path in cleanup_paths:
+            if path.exists():
+                path.unlink()
+
+
 def test_ptf_watchdog_refresh_updates_deadline_without_pid_replacement():
     namespace = _ntp_namespace("_refresh_ntp_server_recovery")
     ptfhost = Mock()
