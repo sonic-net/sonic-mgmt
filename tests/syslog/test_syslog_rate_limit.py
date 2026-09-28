@@ -34,7 +34,14 @@ LOG_EXPECT_LAST_MESSAGE = '.*{}rate-limit-test: This is a test log:.*'
 #   - "N messages lost due to rate-limiting (M allowed within K seconds)"  (logged as summary)
 # Both indicate that rate limiting is working. The exact form and frequency are
 # rsyslogd-version-dependent, so only a presence check is performed (not an exact count).
-LOG_EXPECT_SYSLOG_RATE_LIMIT_REACHED = r'.*(?:begin to drop messages|messages lost) due to rate-limiting.*'
+# Scope to log_generator.py (imuxsock name: python3). The limiter is per PID, so a
+# chatty daemon in the same container (e.g. /usr/bin/syncd SAI flood after
+# config_reload) can emit its own drop notice. An unscoped pattern would count
+# that extra line.
+LOG_EXPECT_SYSLOG_RATE_LIMIT_REACHED = (
+    r'.*imuxsock\[pid: \d+, name: python3\].*'
+    r'(?:begin to drop messages|messages lost) due to rate-limiting.*'
+)
 
 # BMC syslog rate limit ignore container list
 # Bridge-network redfish on BMC does not forward container# logs to host /var/log/syslog
