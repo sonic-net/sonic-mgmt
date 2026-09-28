@@ -6,7 +6,6 @@ This script contains re-usable functions for checking status of transceivers.
 import logging
 import re
 from copy import deepcopy
-from tests.common.utilities import wait_until
 from tests.common.helpers.sonic_db import redis_get_keys_all_asics
 
 I2C_WAIT_TIME_AFTER_SFP_RESET = 5  # in seconds
@@ -491,6 +490,10 @@ def wait_for_transceiver_tables_sync(duthost, timeout=120):
     This ensures xcvrd has populated DOM sensor data as TRANSCEIVER_DOM_SENSOR table
     takes additional time to get populated
     """
+    # Imported lazily to avoid a module-load import cycle
+    # (tests.common.utilities <-> tests.common.platform.transceiver_utils).
+    from tests.common.utilities import wait_until
+
     # Wait for tables to sync, checking every 5 seconds
     tables_synced = wait_until(timeout, 5, 0, are_transceiver_tables_in_sync, duthost)
     if not tables_synced:
