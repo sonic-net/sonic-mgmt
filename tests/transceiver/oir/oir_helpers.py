@@ -17,12 +17,14 @@ from collections import defaultdict
 
 from natsort import natsorted
 
+from tests.common.helpers.platform_api import sfp
 from tests.common.helpers.sonic_db import SonicDbCli
 from tests.common.platform.interface_utils import (
     get_dut_interfaces_status,
     get_physical_to_logical_port_mapping,
     get_pport_presence_data,
 )
+from tests.common.utilities import wait_until
 from tests.transceiver.attribute_parser.attribute_keys import (
     DOM_ATTRIBUTES_KEY,
     PHYSICAL_OIR_ATTRIBUTES_KEY,
@@ -265,8 +267,8 @@ def verify_state_tables_removed(duthost, lports, wait_sec):
     return poll_ports_recovered(_check, wait_sec, POLL_INTERVAL_SEC, "STATE_DB removal")
 
 
-def verify_state_tables_present(duthost, lports, parents, wait_sec, baseline_tables=None):
-    """The per-module tables are republished and ``TRANSCEIVER_STATUS_SW`` is READY.
+def verify_state_tables_present(duthost, lports, parents, wait_sec, baseline_tables=None, ready=True):
+    """The per-module tables are republished and, if ``ready``, ``TRANSCEIVER_STATUS_SW`` is READY.
 
     ``parents`` are the first sub-ports of the modules under test — the keys the
     per-module tables are published under.  ``baseline_tables`` is the
@@ -286,7 +288,8 @@ def verify_state_tables_present(duthost, lports, parents, wait_sec, baseline_tab
                 failures.append(
                     f"{port}: STATE_DB table(s) not republished after insertion: {', '.join(missing)}"
                 )
-            failures += _check_status_sw(duthost, port, STATUS_SW_READY)
+            if ready:
+                failures += _check_status_sw(duthost, port, STATUS_SW_READY)
         return failures
 
     return poll_ports_recovered(_check, wait_sec, POLL_INTERVAL_SEC, "STATE_DB insertion")
@@ -329,6 +332,19 @@ def verify_dom_data_recovered(duthost, port_attributes_dict, lport_to_first_subp
         baseline_sensor_data,
         wait_sec=wait_sec,
     )
+
+
+def read_xcvr_api(conn, pport, wait_sec=0):
+    """Return ``(xcvr_api, serial)`` of the module in ``pport`` via the platform API server.
+
+    ``xcvr_api`` is the server's ``{"__class__", "object_id", ...}`` view of the
+    module's XcvrApi object, or ``None`` if the platform builds none within
+    ``wait_sec``.  The server's long-lived Sfp objects cache their XcvrApi, so it
+    is dropped first, as xcvrd does when a module is removed.
+    """
+    sfp.sfp_api(conn, pport, "remove_xcvr_api")
+    wait_until(wait_sec, POLL_INTERVAL_SEC, 0, lambda: sfp.sfp_api(conn, pport, "get_xcvr_api") is not None)
+    return sfp.sfp_api(conn, pport, "get_xcvr_api"), sfp.get_serial(conn, pport)
 
 
 def get_flap_counts(duthost, lports):

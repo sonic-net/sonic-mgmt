@@ -7,10 +7,12 @@ and ``links_verified`` (every module under test must start seated and linked
 up); ``gold_fw_verified`` is intentionally NOT requested because OIR behaviour
 is firmware-version independent.
 """
+import http.client
 import logging
 
 import pytest
 
+from tests.common.platform.device_utils import SERVER_PORT, start_platform_api_server
 from tests.common.platform.interface_utils import get_pport_presence_data
 from tests.transceiver.attribute_parser.attribute_keys import PHYSICAL_OIR_ATTRIBUTES_KEY
 from tests.transceiver.common.port_selectors import select_attribute_ports
@@ -24,6 +26,7 @@ _DUT_SCOPED_OIR_ATTRIBUTES = (
     "physical_oir_timeout_min",
     "simultaneous_oir",
     "physical_oir_stress_iteration",
+    "hot_swap_ports_under_test",
 )
 
 
@@ -112,6 +115,30 @@ def oir_pport_to_lports(
 
     logger.info("Physical OIR ports under test: %s", mapping)
     return mapping
+
+
+@pytest.fixture(scope="session")
+def hot_swap_ports_under_test(port_attributes_dict, physical_oir_attribute_ports, oir_pport_to_lports):
+    """``[physical index, XcvrApi class name]`` pairs for the TC5/TC6 hot-swap tests."""
+    swaps = port_attributes_dict[
+        physical_oir_attribute_ports[0]
+    ][PHYSICAL_OIR_ATTRIBUTES_KEY]["hot_swap_ports_under_test"]
+    if not swaps:
+        pytest.skip("physical OIR 'hot_swap_ports_under_test' is empty")
+
+    unknown = [pport for pport, _ in swaps if pport not in oir_pport_to_lports]
+    if unknown:
+        pytest.fail(f"hot_swap_ports_under_test physical port(s) {unknown} are not in ports_under_test")
+    return swaps
+
+
+@pytest.fixture
+def oir_platform_api_conn(duthost, localhost):
+    """Platform API server connection; its Sfp objects outlive a hot swap, like xcvrd's."""
+    start_platform_api_server(duthost, localhost)
+    conn = http.client.HTTPConnection(duthost.get_mgmt_ip()["mgmt_ip"], SERVER_PORT)
+    yield conn
+    conn.close()
 
 
 @pytest.fixture(autouse=True)
