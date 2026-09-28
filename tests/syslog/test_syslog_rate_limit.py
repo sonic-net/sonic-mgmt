@@ -29,15 +29,13 @@ DOCKER_LOG_GENERATOR_FILE = '/log_generator.py'
 STP_LOG_FILE = '/var/log/stpd.log'
 # Log pattern for tests/syslog/log_generator.py
 LOG_EXPECT_LAST_MESSAGE = '.*{}rate-limit-test: This is a test log:.*'
-# rsyslogd emits one of two messages depending on version when rate-limiting kicks in:
-#   - "begin to drop messages due to rate-limiting"  (logged when drops start)
-#   - "N messages lost due to rate-limiting (M allowed within K seconds)"  (logged as summary)
-# Both indicate that rate limiting is working. The exact form and frequency are
-# rsyslogd-version-dependent, so only a presence check is performed (not an exact count).
 # Scope to log_generator.py (imuxsock name: python3). The limiter is per PID, so a
 # chatty daemon in the same container (e.g. /usr/bin/syncd SAI flood after
 # config_reload) can emit its own drop notice. An unscoped pattern would count
 # that extra line.
+#   INFO syncd#rate-limit-test: This is a test log: 100
+#   INFO syncd#rsyslogd: imuxsock[pid: 286, name: python3] from : begin to drop messages due to rate-limiting
+#   INFO syncd#rsyslogd: imuxsock[pid: 127, name: /usr/bin/syncd] from : begin to drop messages due to rate-limiting
 LOG_EXPECT_SYSLOG_RATE_LIMIT_REACHED = (
     r'.*imuxsock\[pid: \d+, name: python3\].*'
     r'(?:begin to drop messages|messages lost) due to rate-limiting.*'
