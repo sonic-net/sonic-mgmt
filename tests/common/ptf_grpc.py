@@ -12,6 +12,29 @@ from tests.common.grpc_config import grpc_config
 logger = logging.getLogger(__name__)
 
 
+def _parse_json_stream(text: str) -> List[Dict]:
+    """
+    Parse grpcurl output: zero or more JSON objects, each possibly spanning
+    several lines (grpcurl -format json pretty-prints every message).
+    Unparseable trailing output is logged and dropped.
+    """
+    decoder = json.JSONDecoder()
+    values = []
+    pos = 0
+    text = text.strip()
+    while pos < len(text):
+        try:
+            value, end = decoder.raw_decode(text, pos)
+        except json.JSONDecodeError as e:
+            logger.debug(f"Unparseable grpcurl output at offset {pos}: {e}")
+            break
+        values.append(value)
+        pos = end
+        while pos < len(text) and text[pos].isspace():
+            pos += 1
+    return values
+
+
 class PtfGrpcError(Exception):
     """Base exception for PtfGrpc operations"""
     pass
@@ -515,32 +538,9 @@ class PtfGrpc:
 
         result = self._execute_grpcurl(cmd, request_data)
 
-        # Parse streaming responses (handle both single-line and multi-line JSON)
-        responses = []
-        stdout_content = result['stdout'].strip()
-
-        # First try to parse entire output as a single JSON object (for unary calls)
-        try:
-            single_response = json.loads(stdout_content)
-            responses.append(single_response)
-            logger.debug(f"Parsed single JSON response from {service_method}: {single_response}")
-        except json.JSONDecodeError:
-            # If that fails, try parsing line by line for streaming responses
-            stdout_lines = stdout_content.split('\n')
-
-            for line in stdout_lines:
-                line = line.strip()
-                if not line:
-                    continue
-
-                try:
-                    response = json.loads(line)
-                    responses.append(response)
-                    logger.debug(f"Streaming response from {service_method}: {response}")
-                except json.JSONDecodeError as e:
-                    # Log the error but continue parsing other lines
-                    logger.debug(f"Failed to parse streaming response line '{line}': {e}")
-                    continue
+        responses = _parse_json_stream(result['stdout'])
+        for response in responses:
+            logger.debug(f"Streaming response from {service_method}: {response}")
 
         if not responses:
             raise GrpcCallError(f"No valid responses received from streaming call {service_method}")
@@ -625,31 +625,9 @@ class PtfGrpc:
 
         result = self._execute_grpcurl(cmd, request_data)
 
-        # Parse streaming responses (handle both single-line and multi-line JSON)
-        responses = []
-        stdout_content = result['stdout'].strip()
-
-        # First try to parse entire output as a single JSON object (for unary calls)
-        try:
-            single_response = json.loads(stdout_content)
-            responses.append(single_response)
-            logger.debug(f"Parsed single JSON response from bidirectional {service_method}: {single_response}")
-        except json.JSONDecodeError:
-            # If that fails, try parsing line by line for streaming responses
-            stdout_lines = stdout_content.split('\n')
-
-            for line in stdout_lines:
-                line = line.strip()
-                if not line:
-                    continue
-
-                try:
-                    response = json.loads(line)
-                    responses.append(response)
-                    logger.debug(f"Bidirectional streaming response from {service_method}: {response}")
-                except json.JSONDecodeError as e:
-                    logger.debug(f"Failed to parse bidirectional streaming response line '{line}': {e}")
-                    continue
+        responses = _parse_json_stream(result['stdout'])
+        for response in responses:
+            logger.debug(f"Bidirectional streaming response from {service_method}: {response}")
 
         if not responses:
             raise GrpcCallError(f"No valid responses received from bidirectional streaming call {service_method}")
