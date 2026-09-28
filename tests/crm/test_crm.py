@@ -1601,13 +1601,14 @@ def test_crm_fdb_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum
     # Remove FDB entry and wait for clear to complete
     cmd = "fdbclear"
     duthost.command(cmd)
+    fdb_clear_wait = 15 if is_cel_e1031_device(duthost) else 5
 
     def _fdb_cleared_initial():
         used, _ = get_crm_stats(get_fdb_stats, duthost)
         return used == 0
 
     pytest_assert(
-        wait_until(FDB_CLEAR_TIMEOUT, CRM_POLLING_INTERVAL, 0, _fdb_cleared_initial),
+        wait_until(fdb_clear_wait, CRM_POLLING_INTERVAL, 0, _fdb_cleared_initial),
         "FDB entries are not cleared before CRM validation"
     )
 
