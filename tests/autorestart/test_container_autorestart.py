@@ -531,7 +531,11 @@ def postcheck_critical_processes_status(duthost, feature_autorestart_states, up_
         check_all_critical_processes_status, duthost
     )
 
+    disabled_containers = get_disabled_container_list(duthost)
+
     for feature_name in list(feature_autorestart_states.keys()):
+        if feature_name in disabled_containers:
+            continue
         if feature_name in duthost.DEFAULT_ASIC_SERVICES:
             for asic in duthost.asics:
                 service_name = asic.get_service_name(feature_name)

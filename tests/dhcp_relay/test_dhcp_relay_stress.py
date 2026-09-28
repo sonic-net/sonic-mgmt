@@ -75,10 +75,16 @@ def test_dhcp_relay_restart_with_stress(ptfhost, dut_dhcp_relay_data, validate_d
                       module_ignore_errors=True)
 
         def _check_socket_buffer():
-            output = duthost.shell('ss -nlpu | grep Vlan | awk \'{print $2}\'',
-                                   module_ignore_errors=True)
-            return (not output['rc'] and output['stderr'] == '' and len(output['stdout_lines']) != 0 and
-                    all(element == '0' for element in output['stdout_lines']))
+            if relay_agent == 'sonic-relay-agent':
+                # SONiC receives DHCP on AF_PACKET; its UDP sockets are used for transmission.
+                command = 'ss -0 -a -n -p | awk \'$1 == "p_raw" && /"dhcp4relay"/ {print $3}\''
+            else:
+                command = 'ss -nlpu | grep Vlan | awk \'{print $2}\''
+            output = duthost.shell(command, module_ignore_errors=True)
+            if (output['rc'] or output['stderr'] or not output['stdout_lines'] or
+                    any(element != '0' for element in output['stdout_lines'])):
+                return False
+            return True
 
         # Make sure there are not packets left in socket buffer.
         pytest_assert(wait_until(30, 1, 0, _check_socket_buffer), "Socket buffer is not zero")

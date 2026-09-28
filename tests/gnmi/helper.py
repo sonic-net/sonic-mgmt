@@ -7,7 +7,7 @@ from tests.common.utilities import wait_until
 from tests.common.platform.device_utils import get_dpu_ip, get_dpu_port
 from tests.common.helpers.gnmi_utils import GNMIEnvironment, add_gnmi_client_common_name, del_gnmi_client_common_name, \
                                             dump_gnmi_log, dump_system_status
-from tests.common.helpers.ntp_helper import NtpDaemon, get_ntp_daemon_in_use   # noqa: F401
+from tests.common.helpers.ntp_helper import NtpDaemon, get_ntp_daemon_in_use, check_ntp_sync_status  # noqa: F401
 from tests.common.helpers.dut_utils import check_container_state
 
 
@@ -152,28 +152,6 @@ def recover_cert_config(duthost, stopped_programs=None):
     # "Status failed" from container_checker and fail the test on teardown.
     if not wait_until(120, 10, 30, _check_monit_container_checker, duthost):
         logger.warning("Monit container_checker did not recover to healthy status after cert config recovery")
-
-
-def check_ntp_sync_status(duthost):
-    """
-    Checks if the DUT's time is synchronized with the NTP server.
-    """
-
-    ntp_daemon = get_ntp_daemon_in_use(duthost)
-
-    if ntp_daemon == NtpDaemon.CHRONY:
-        ntp_status_cmd = "chronyc -c tracking"
-    else:
-        ntp_status_cmd = "ntpstat"
-
-    ntp_status = duthost.command(ntp_status_cmd, module_ignore_errors=True)
-    if (ntp_daemon == NtpDaemon.CHRONY and "Not synchronised" not in ntp_status["stdout"]) or \
-            (ntp_daemon != NtpDaemon.CHRONY and "unsynchronised" not in ntp_status["stdout"]):
-        logger.info("DUT %s is synchronized with NTP server.", duthost)
-        return True
-    else:
-        logger.info("DUT %s is NOT synchronized.", duthost)
-        return False
 
 
 def check_system_time_sync(duthost):
@@ -542,6 +520,33 @@ def gnmi_subscribe_streaming_onchange(duthost, ptfhost, path_list, count, ip=Non
     output = ptfhost.shell(cmd, module_ignore_errors=True)
     msg = output['stdout'].replace('\\', '')
     return msg, output['stderr']
+
+
+def gnmi_subscribe_stream_connections(duthost, ptfhost, path_list, target, create_connections,
+                                      update_count, namespace=None, ip=None):
+    """
+    STREAM subscribe via py_gnmicli opening create_connections channels, used to
+    exercise the gnmi server's channel handling.
+
+    Returns the ptfhost.shell result dict (rc / stdout / stderr).
+    """
+    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+    ip = ip or duthost.mgmt_ip
+    port = env.gnmi_port
+    ns = "/{}".format(namespace) if namespace else ""
+    cmd = '/root/env-python3/bin/python /root/gnxi/gnmi_cli_py/py_gnmicli.py '
+    cmd += '-t %s -p %u ' % (ip, port)
+    cmd += '-rcert /root/gnmiCA.pem '
+    cmd += '-pkey /root/gnmiclient.key '
+    cmd += '-cchain /root/gnmiclient.crt '
+    cmd += '-m subscribe '
+    cmd += '-x %s ' % " ".join('"{}"'.format(p) for p in path_list)
+    cmd += '-xt %s%s ' % (target, ns)
+    cmd += '--timeout 30 '
+    cmd += '--encoding 4 '
+    cmd += '--subscribe_mode 0 --submode 2 '  # STREAM / SAMPLE
+    cmd += '--create_connections %d --update_count %d' % (create_connections, update_count)
+    return ptfhost.shell(cmd, module_ignore_errors=True)
 
 
 def archive_gnmi_certs(duthost):

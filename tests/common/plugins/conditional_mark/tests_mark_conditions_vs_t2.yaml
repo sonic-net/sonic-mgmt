@@ -910,11 +910,6 @@ tacacs/test_ro_disk.py:
     conditions:
     - asic_type in ['vs'] and 't2' in topo_name
     reason: This test case either cannot pass or should be skipped on virtual chassis
-telemetry/test_telemetry_poll.py:
-  skip:
-    conditions:
-    - asic_type in ['vs'] and 't2' in topo_name
-    reason: This test case either cannot pass or should be skipped on virtual chassis
 test_pktgen.py:
   skip:
     conditions:
