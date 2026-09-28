@@ -540,6 +540,7 @@ numprocs=1
 @contextlib.contextmanager
 def send_background_traffic(duthost, ptfhost, storm_hndle, selected_test_ports, test_ports_info, pkt_count=100000):
     """Send background traffic, stop the background traffic when the context finish """
+    background_traffic_log = None
     if is_mellanox_device(duthost) or is_cisco_device(duthost):
         background_traffic_params = _prepare_background_traffic_params(duthost, storm_hndle,
                                                                        selected_test_ports,
@@ -548,9 +549,11 @@ def send_background_traffic(duthost, ptfhost, storm_hndle, selected_test_ports, 
         background_traffic_log = _send_background_traffic(ptfhost, background_traffic_params)
         # Ensure the background traffic is running before moving on
         time.sleep(1)
-    yield
-    if is_mellanox_device(duthost) or is_cisco_device(duthost):
-        _stop_background_traffic(ptfhost, background_traffic_log)
+    try:
+        yield
+    finally:
+        if background_traffic_log is not None:
+            _stop_background_traffic(ptfhost, background_traffic_log)
 
 
 def _prepare_background_traffic_params(duthost, queues, selected_test_ports, test_ports_info, pkt_count):
