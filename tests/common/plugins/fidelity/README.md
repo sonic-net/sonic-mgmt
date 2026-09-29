@@ -43,7 +43,21 @@ fails in a bare environment. These unit tests import by path:
 
 ```bash
 python3 tests/common/plugins/fidelity/unit_test/unit_test_tier_engine.py -v
+python3 tests/common/plugins/fidelity/unit_test/unit_test_sairedis_window.py -v
 ```
+
+## Logrotate / swss restart (inode windowing)
+
+The plugin does **not** rely on line count alone. Before each test it snapshots
+`(inode, size, line_count)` for each `sairedis.rec` path. After the test:
+
+| Window status | Meaning | Score |
+|---------------|---------|-------|
+| `OK` | Same inode; read new lines only | Normal |
+| `STITCHED` | File was renamed (e.g. to `.1`); residual + new file combined | Normal (summary shows `[stitched]`) |
+| `HISTORY_LOST` / `RECORDER_RESET` / `TRUNCATED` / … | Cannot rebuild the window | **`score=None`** + error reason — never a fake “no SAI activity” |
+
+True empty delta with `OK` still means “no SAI activity” (`score=None`).
 
 ## Run against a VS / KNE testbed
 
@@ -51,7 +65,8 @@ Plugin is **off by default**. Enable with `--sai-fidelity` (only scores when
 `duthost.facts["asic_type"] == "vs"`):
 
 ```bash
-./run_tests.sh -n <testbed> -d <dut> -u -e "--sai-fidelity --sai-fidelity-report logs/sai_fidelity.json"
+./run_tests.sh -n <testbed> -d <dut> -f vtestbed.yaml -i ../ansible/veos_vtb -u \
+  -e "--sai-fidelity --sai-fidelity-report logs/sai_fidelity.json"
 ```
 
 Optional:
@@ -60,14 +75,16 @@ Optional:
 - `@pytest.mark.sai_fidelity(enabled=False)` — opt a single test out
 
 Per-test values are also attached as JUnit `user_properties`:
-`sai_calls`, `sai_tier1`, `sai_tier2`, `sai_tier3`, `sai_fidelity_score`.
+`sai_calls`, `sai_tier1`, `sai_tier2`, `sai_tier3`, `sai_fidelity_score`,
+`sai_fidelity_window`.
 
 ## Reading the JSON report
 
 Default path: `logs/sai_fidelity.json`. Each test record includes:
 
-- `nodeid`, `outcome`, `total`, `n1`, `n2`, `n3`, `score`
+- `nodeid`, `outcome`, `total`, `n1`, `n2`, `n3`, `score`, `window_status`
 - `breakdown` — top object types (what dragged the score down)
+- `error` — set when the window could not be trusted
 
 **Warning:** A **PASSED** test with a **low** fidelity score means the test
 passed on VS but exercised stubbed or unenforced SAI paths. Treat that as
@@ -79,5 +96,6 @@ passed on VS but exercised stubbed or unenforced SAI paths. Treat that as
 |------|------|
 | `tier.yml` | Declarative tier mapping + weights |
 | `tier_engine.py` | Pure classify / score (no pytest, no DUT) |
+| `sairedis_window.py` | Inode snapshot + rotate stitch |
 | `__init__.py` | Pytest plugin hooks |
 | `unit_test/` | Standalone unit tests + sample `.rec` |

@@ -2,7 +2,8 @@
 Pytest plugin: SAI-level fidelity scoring for SONiC VS (libsaivs) testbeds.
 
 Opt-in via --sai-fidelity. For each test on a VS DUT, captures sairedis.rec
-deltas, classifies SAI ops into confidence tiers, and emits a per-test score.
+deltas (inode-aware, with .1 stitch on logrotate), classifies SAI ops into
+confidence tiers, and emits a per-test score.
 Never fails or errors a test because of this plugin.
 """
 
@@ -11,22 +12,27 @@ from __future__ import annotations
 import json
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Tuple
 
 import pytest
 
-from . import tier_engine
+from . import sairedis_window, tier_engine
+from .sairedis_window import (
+    UNRELIABLE_EMPTY,
+    DeltaResult,
+    RecSnapshot,
+)
 
 logger = logging.getLogger(__name__)
 
-# Ops fidelity cares about (notify is dropped inside tier_engine)
 FIDELITY_OPS = frozenset(
     ("create", "remove", "set", "get", "stats", "clearstats")
 )
 
-# Session-level accumulation for terminal summary / JSON
 _results: List[Dict[str, Any]] = []
+# nodeid -> record while fixture is in flight (for outcome stamping before append)
+_pending: Dict[str, Dict[str, Any]] = {}
 
 
 def pytest_addoption(parser):
@@ -79,7 +85,6 @@ def pytest_configure(config):
 
 @pytest.hookimpl(trylast=True)
 def pytest_collection_modifyitems(config, items):
-    """Attach the scoring fixture only when --sai-fidelity is set."""
     if not config.getoption("--sai-fidelity", default=False):
         return
     if getattr(config, "_sai_fidelity_table", None) is None:
@@ -90,7 +95,6 @@ def pytest_collection_modifyitems(config, items):
 
 
 def _marker_enabled(item) -> bool:
-    """Return False if the test opted out via @pytest.mark.sai_fidelity(enabled=False)."""
     marker = item.get_closest_marker("sai_fidelity")
     if marker is None:
         return True
@@ -102,7 +106,6 @@ def _marker_enabled(item) -> bool:
 
 
 def _resolve_vs_duthosts(request) -> List[Any]:
-    """Lazily resolve VS DUTs; never raise into the test."""
     hosts = []
     try:
         duthosts = request.getfixturevalue("duthosts")
@@ -134,10 +137,9 @@ def _resolve_vs_duthosts(request) -> List[Any]:
     return hosts
 
 
-def _snapshot_lines(hosts) -> Dict[Tuple[str, str], int]:
-    """Map (hostname, rec_path) -> line count at test start."""
-    # Import here so unit tests / non-DASH collection do not need dash package
-    from tests.dash.sairedis_utils import get_sairedis_line_count, sairedis_rec_paths
+def _snapshot_recs(hosts) -> Dict[Tuple[str, str], RecSnapshot]:
+    """Map (hostname, rec_path) -> RecSnapshot."""
+    from tests.dash.sairedis_utils import sairedis_rec_paths
 
     snaps = {}
     for host in hosts:
@@ -151,41 +153,95 @@ def _snapshot_lines(hosts) -> Dict[Tuple[str, str], int]:
             continue
         for path in paths:
             try:
-                snaps[(hostname, path)] = get_sairedis_line_count(host, rec_path=path)
+                snaps[(hostname, path)] = sairedis_window.snapshot_rec(host, path)
             except Exception as exc:
                 logger.warning(
-                    "SAI fidelity: wc -l failed for %s:%s: %s", hostname, path, exc
+                    "SAI fidelity: snapshot failed for %s:%s: %s",
+                    hostname,
+                    path,
+                    exc,
                 )
-                snaps[(hostname, path)] = 0
+                snaps[(hostname, path)] = RecSnapshot(path=path)
     return snaps
 
 
-def _parse_delta(hosts, snaps):
-    from tests.dash.sairedis_utils import (
-        iter_changes,
-        parse_sairedis_changes,
-    )
+def _collect_changes(hosts, snaps):
+    """
+    Collect deltas for all snapshots.
+
+    Returns (changes_list, window_meta) where window_meta has overall status
+    and reasons. If any path is UNRELIABLE and yields no usable text, overall
+    status reflects the worst unreliable reason.
+    """
+    from tests.dash.sairedis_utils import iter_changes, parse_sairedis_text
 
     all_changes = []
+    statuses = []
+    reasons = []
     host_by_name = {getattr(h, "hostname", str(h)): h for h in hosts}
 
-    for (hostname, path), start_line in snaps.items():
+    for (hostname, path), snap in snaps.items():
         host = host_by_name.get(hostname)
         if host is None:
             continue
         try:
-            changes = parse_sairedis_changes(
-                host,
-                start_line=start_line,
-                rec_path=path,
-                include_ops=FIDELITY_OPS,
-            )
-            all_changes.extend(iter_changes(changes))
+            delta = sairedis_window.collect_delta(host, snap)
         except Exception as exc:
-            logger.warning(
-                "SAI fidelity: parse failed for %s:%s: %s", hostname, path, exc
+            delta = DeltaResult(
+                sairedis_window.STATUS_ERROR,
+                reason="collect failed: {}".format(exc),
             )
-    return all_changes
+        statuses.append(delta.status)
+        if delta.reason:
+            reasons.append("{}:{}:{}".format(hostname, path, delta.reason))
+        logger.info(
+            "SAI fidelity window %s:%s status=%s reason=%s bytes=%s",
+            hostname,
+            path,
+            delta.status,
+            delta.reason,
+            delta.bytes_read,
+        )
+
+        if delta.status in UNRELIABLE_EMPTY and not delta.text.strip():
+            continue
+
+        if delta.text.strip():
+            try:
+                changes = parse_sairedis_text(delta.text, include_ops=FIDELITY_OPS)
+                all_changes.extend(iter_changes(changes))
+            except Exception as exc:
+                logger.warning(
+                    "SAI fidelity: parse failed for %s:%s: %s", hostname, path, exc
+                )
+                statuses.append(sairedis_window.STATUS_ERROR)
+                reasons.append("parse:{}".format(exc))
+
+    # Prefer explicit failure statuses over OK when mixed
+    priority = [
+        sairedis_window.STATUS_ERROR,
+        sairedis_window.STATUS_HISTORY_LOST,
+        sairedis_window.STATUS_RECORDER_RESET,
+        sairedis_window.STATUS_TRUNCATED,
+        sairedis_window.STATUS_TOO_LARGE,
+        sairedis_window.STATUS_MISSING,
+        sairedis_window.STATUS_STITCHED,
+        sairedis_window.STATUS_OK,
+    ]
+    overall = sairedis_window.STATUS_OK
+    for cand in priority:
+        if cand in statuses:
+            overall = cand
+            break
+    if not statuses:
+        overall = sairedis_window.STATUS_MISSING
+
+    meta = {
+        "status": overall,
+        "statuses": statuses,
+        "reasons": reasons,
+    }
+    return all_changes, meta
 
 
 @pytest.fixture
@@ -203,12 +259,15 @@ def _sai_fidelity_score(request):
         "breakdown": [],
         "summary": "skipped",
         "error": None,
+        "window_status": None,
     }
+    _pending[item.nodeid] = record
 
     if not _marker_enabled(item):
         record["summary"] = "opted out via sai_fidelity(enabled=False)"
         logger.info("SAI fidelity: %s — %s", item.nodeid, record["summary"])
         _results.append(record)
+        _pending.pop(item.nodeid, None)
         yield
         return
 
@@ -217,6 +276,7 @@ def _sai_fidelity_score(request):
         record["summary"] = "tier table unavailable"
         record["error"] = "tier table unavailable"
         _results.append(record)
+        _pending.pop(item.nodeid, None)
         yield
         return
 
@@ -227,38 +287,71 @@ def _sai_fidelity_score(request):
         logger.warning("SAI fidelity: %s — %s", item.nodeid, record["summary"])
         _attach_properties(item, record)
         _results.append(record)
+        _pending.pop(item.nodeid, None)
         yield
         return
 
     snaps = {}
     try:
-        snaps = _snapshot_lines(hosts)
+        snaps = _snapshot_recs(hosts)
     except Exception as exc:
         record["error"] = "snapshot failed: {}".format(exc)
         logger.warning("SAI fidelity: snapshot failed for %s: %s", item.nodeid, exc)
 
     yield
 
-    try:
-        changes = _parse_delta(hosts, snaps)
-        counts = tier_engine.count_tiers(changes, table)
-        n1, n2, n3 = counts.get(1, 0), counts.get(2, 0), counts.get(3, 0)
-        score = tier_engine.calc_score(n1, n2, n3, weights=table.weights)
-        summary = tier_engine.format_summary(n1, n2, n3, score)
-        breakdown = tier_engine.object_type_breakdown(changes, table, top_n=10)
+    # Pull outcome from call report if already stored on item
+    for when in ("call", "setup"):
+        rep = getattr(item, "rep_" + when, None)
+        if rep is not None and record.get("outcome") is None and when == "call":
+            record["outcome"] = rep.outcome
 
-        record.update(
-            {
-                "total": n1 + n2 + n3,
-                "n1": n1,
-                "n2": n2,
-                "n3": n3,
-                "score": score,
-                "breakdown": breakdown,
-                "summary": summary,
-            }
-        )
-        logger.info("SAI fidelity: %s — %s", item.nodeid, summary)
+    try:
+        changes, meta = _collect_changes(hosts, snaps)
+        record["window_status"] = meta.get("status")
+
+        unreliable = meta.get("status") in UNRELIABLE_EMPTY
+        if unreliable and not changes:
+            reason = "; ".join(meta.get("reasons") or []) or meta.get("status")
+            record["error"] = reason
+            record["summary"] = "window {}: score=None".format(meta.get("status"))
+            logger.warning(
+                "SAI fidelity: %s — %s (%s)",
+                item.nodeid,
+                record["summary"],
+                reason,
+            )
+        else:
+            counts = tier_engine.count_tiers(changes, table)
+            n1, n2, n3 = counts.get(1, 0), counts.get(2, 0), counts.get(3, 0)
+            score = tier_engine.calc_score(n1, n2, n3, weights=table.weights)
+            summary = tier_engine.format_summary(n1, n2, n3, score)
+            if meta.get("status") == sairedis_window.STATUS_STITCHED:
+                summary = summary + " [stitched]"
+            breakdown = tier_engine.object_type_breakdown(changes, table, top_n=10)
+            record.update(
+                {
+                    "total": n1 + n2 + n3,
+                    "n1": n1,
+                    "n2": n2,
+                    "n3": n3,
+                    "score": score,
+                    "breakdown": breakdown,
+                    "summary": summary,
+                }
+            )
+            if unreliable and changes:
+                # Partial recovery with a warning flag
+                record["error"] = "partial after {}; {}".format(
+                    meta.get("status"),
+                    "; ".join(meta.get("reasons") or []),
+                )
+            logger.info(
+                "SAI fidelity: %s — %s (window=%s)",
+                item.nodeid,
+                summary,
+                meta.get("status"),
+            )
     except Exception as exc:
         record["error"] = str(exc)
         record["summary"] = "scoring failed (score=None)"
@@ -268,6 +361,7 @@ def _sai_fidelity_score(request):
 
     _attach_properties(item, record)
     _results.append(record)
+    _pending.pop(item.nodeid, None)
 
 
 def _attach_properties(item, record):
@@ -280,6 +374,10 @@ def _attach_properties(item, record):
         item.user_properties.append(
             ("sai_fidelity_score", "" if score is None else score)
         )
+        if record.get("window_status"):
+            item.user_properties.append(
+                ("sai_fidelity_window", record["window_status"])
+            )
     except Exception as exc:
         logger.warning("SAI fidelity: failed to attach user_properties: %s", exc)
 
@@ -288,9 +386,13 @@ def _attach_properties(item, record):
 def pytest_runtest_makereport(item, call):
     outcome = yield
     rep = outcome.get_result()
+    setattr(item, "rep_" + rep.when, rep)
     if call.when != "call":
         return
-    # Stamp outcome onto the latest matching record
+    # Stamp pending record (fixture teardown may not have finished yet)
+    pending = _pending.get(item.nodeid)
+    if pending is not None and pending.get("outcome") is None:
+        pending["outcome"] = rep.outcome
     for record in reversed(_results):
         if record["nodeid"] == item.nodeid and record.get("outcome") is None:
             record["outcome"] = rep.outcome
@@ -325,11 +427,13 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
         score_s = (
             "None" if record["score"] is None else "{:.2f}".format(record["score"])
         )
+        win = record.get("window_status") or "-"
         terminalreporter.write_line(
-            "  {}  [{}]  {}  score={}".format(
+            "  {}  [{}]  {}  window={}  score={}".format(
                 record["nodeid"],
                 record.get("outcome") or "?",
                 record.get("summary") or "",
+                win,
                 score_s,
             )
         )
@@ -365,7 +469,7 @@ def _write_json_report(path, results, run_score, config):
         os.makedirs(directory, exist_ok=True)
 
     payload = {
-        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "generated_at": datetime.now(timezone.utc).isoformat(),
         "tier_file": getattr(config, "_sai_fidelity_tier_path", None),
         "run_score": run_score,
         "tests": [
@@ -377,6 +481,7 @@ def _write_json_report(path, results, run_score, config):
                 "n2": r["n2"],
                 "n3": r["n3"],
                 "score": r["score"],
+                "window_status": r.get("window_status"),
                 "breakdown": r.get("breakdown") or [],
                 "summary": r.get("summary"),
                 "error": r.get("error"),
