@@ -15,8 +15,13 @@ def _wait_for_occurrence(console, pattern, occurrence, timeout):
     if occurrence < 1:
         raise ValueError("Pattern occurrence must be at least 1")
 
+    output = ""
     for unused in range(occurrence):
-        console.read_until_pattern(pattern=pattern, read_timeout=timeout)
+        output += console.read_until_pattern(
+            pattern=pattern,
+            read_timeout=timeout,
+        ) or ""
+    return output
 
 
 def _write_raw(console, data):
@@ -38,8 +43,9 @@ def select_grub_entry(
     timeout=180,
 ):
     """Select a zero-based GRUB entry through an existing console."""
+    output = ""
     if wait_pattern:
-        _wait_for_occurrence(
+        output += _wait_for_occurrence(
             console,
             wait_pattern,
             wait_pattern_occurrence,
@@ -49,7 +55,7 @@ def select_grub_entry(
             time.sleep(1)
             _write_raw(console, ENTER)
 
-    _wait_for_occurrence(
+    output += _wait_for_occurrence(
         console,
         re.escape(menu_pattern),
         menu_occurrence,
@@ -63,6 +69,7 @@ def select_grub_entry(
         _write_raw(console, key)
     _write_raw(console, ENTER)
     time.sleep(1)
+    return output
 
 
 def start_grub_entry_selection(console, *args, **kwargs):
@@ -71,8 +78,8 @@ def start_grub_entry_selection(console, *args, **kwargs):
 
     def run():
         try:
-            select_grub_entry(console, *args, **kwargs)
-            future.set_result(None)
+            output = select_grub_entry(console, *args, **kwargs)
+            future.set_result(output)
         except Exception as error:
             future.set_exception(error)
 
