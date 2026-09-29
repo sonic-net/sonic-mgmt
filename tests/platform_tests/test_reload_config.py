@@ -20,6 +20,10 @@ from tests.common.config_reload import (
     log_system_checks_state,
 )
 
+BMC_SYSTEM_CHECK_TIMEOUT = 600
+SYSTEM_CHECK_TIMEOUT = 360
+SYSTEM_CHECK_WARN_THRESHOLD = 300
+
 pytestmark = [
     pytest.mark.disable_loganalyzer,
     pytest.mark.topology('any')
@@ -36,7 +40,7 @@ def _wait_config_system_checks(duthost, delayed_services=None, stage=""):
     can spot creeping ready-time regressions.
     """
     is_bmc = duthost.is_bmc()
-    timeout = 600 if is_bmc else 360
+    timeout = BMC_SYSTEM_CHECK_TIMEOUT if is_bmc else SYSTEM_CHECK_TIMEOUT
     args = (duthost,) if delayed_services is None else (duthost, delayed_services)
     stage_label = " ({})".format(stage) if stage else ""
 
@@ -49,11 +53,11 @@ def _wait_config_system_checks(duthost, delayed_services=None, stage=""):
         "(timeout=%ds, is_bmc=%s)",
         stage_label, passed, elapsed, timeout, is_bmc,
     )
-    if passed and elapsed > 300:
+    if passed and elapsed > SYSTEM_CHECK_WARN_THRESHOLD:
         logging.warning(
-            "config_system_checks_passed%s took %.1fs to pass (>300s threshold); "
+            "config_system_checks_passed%s took %.1fs to pass (>%ds threshold); "
             "system is slow to reach 'running' state",
-            stage_label, elapsed,
+            stage_label, elapsed, SYSTEM_CHECK_WARN_THRESHOLD,
         )
     if not passed:
         # One-shot diagnostic on timeout; helper decides what to collect.
