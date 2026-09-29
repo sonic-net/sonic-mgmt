@@ -1175,6 +1175,56 @@ def snappi_multi_base_config(duthost_list,
         snappi_ports=new_snappi_ports))
 
 
+def _snappi_port_link_training(duthost_list, snappi_ports):
+    legacy_default = not is_snappi_multidut(duthost_list)
+    duthosts_by_name = {duthost.hostname: duthost for duthost in duthost_list}
+    port_tables = {}
+    values = []
+
+    for port in snappi_ports:
+        peer_device = port.get('peer_device')
+        duthost = duthosts_by_name.get(peer_device)
+        if duthost is None and peer_device is None and len(duthost_list) == 1:
+            duthost = duthost_list[0]
+        if duthost is None:
+            logger.warning("No DUT found for snappi port %s; using legacy link training default",
+                           port.get('location'))
+            values.append(legacy_default)
+            continue
+
+        namespace = port.get('asic_value')
+        if namespace == 'None':
+            namespace = None
+        cache_key = (duthost.hostname, namespace)
+        if cache_key not in port_tables:
+            kwargs = {'host': duthost.hostname, 'source': 'running'}
+            if namespace:
+                kwargs['namespace'] = namespace
+            try:
+                run_facts = duthost.config_facts(**kwargs)['ansible_facts']
+                port_tables[cache_key] = run_facts.get('PORT', {})
+            except Exception as err:
+                logger.warning("Failed to read link training from %s (%s); using legacy default: %s",
+                               duthost.hostname, namespace, err)
+                port_tables[cache_key] = {}
+
+        peer_port = port['peer_port']
+        lt_val = port_tables[cache_key].get(peer_port, {}).get('link_training')
+        if lt_val is None:
+            values.append(legacy_default)
+            continue
+        normalized = str(lt_val).strip().lower()
+        if normalized in ('on', 'true', 'yes', '1'):
+            values.append(True)
+        elif normalized in ('off', 'false', 'no', '0'):
+            values.append(False)
+        else:
+            raise ValueError("Invalid link_training value {!r} for {}:{}".format(
+                lt_val, duthost.hostname, peer_port))
+
+    return values
+
+
 def snappi_dut_base_config(duthost_list,
                            snappi_ports,
                            snappi_api,
@@ -1202,40 +1252,25 @@ def snappi_dut_base_config(duthost_list,
     speed_gbps = int(int(new_snappi_ports[0]['speed'])/1000)
 
     config.options.port_options.location_preemption = True
-    l1_config = config.layer1.layer1()[-1]
-    l1_config.name = 'L1 config'
-    l1_config.port_names = [port.name for port in config.ports]
-    l1_config.speed = 'speed_{}_gbps'.format(speed_gbps)
-    l1_config.ieee_media_defaults = False
-    l1_config.auto_negotiate = False
+    link_training_groups = {}
+    link_training_values = _snappi_port_link_training(duthost_list, new_snappi_ports)
+    for port, link_training in zip(config.ports, link_training_values):
+        link_training_groups.setdefault(link_training, []).append(port.name)
 
-    # Derive link_training from DUT CONFIG_DB if available, otherwise use legacy defaults
-    lt_from_dut = None
-    try:
-        dut_for_lt = duthost_list[0] if duthost_list else None
-        if dut_for_lt:
-            run_facts = dut_for_lt.config_facts(host=dut_for_lt.hostname, source="running")['ansible_facts']
-            port_table = run_facts.get('PORT', {})
-            for sp in new_snappi_ports:
-                p = sp.get('peer_port')
-                lt_val = port_table.get(p, {}).get('link_training')
-                if lt_val is not None:
-                    lt_from_dut = str(lt_val).lower() in ['on', 'true', 'yes', '1']
-                    break
-    except Exception as err:
-        logger.warning("Failed to derive link training from DUT CONFIG_DB; using legacy default: %s", err)
+    for link_training, port_names in link_training_groups.items():
+        l1_config = config.layer1.layer1()[-1]
+        l1_config.name = ('L1 config' if len(link_training_groups) == 1
+                          else 'L1 config LT {}'.format('on' if link_training else 'off'))
+        l1_config.port_names = port_names
+        l1_config.speed = 'speed_{}_gbps'.format(speed_gbps)
+        l1_config.ieee_media_defaults = False
+        l1_config.auto_negotiate = False
+        l1_config.auto_negotiation.link_training = link_training
+        l1_config.auto_negotiation.rs_fec = True
 
-    if lt_from_dut is not None:
-        l1_config.auto_negotiation.link_training = lt_from_dut
-    elif is_snappi_multidut(duthost_list):
-        l1_config.auto_negotiation.link_training = False
-    else:
-        l1_config.auto_negotiation.link_training = True
-    l1_config.auto_negotiation.rs_fec = True
-
-    pfc = l1_config.flow_control.ieee_802_1qbb
-    pfc.pfc_delay = 0
-    _config_pfc_classes(snappi_api, config, pfc)
+        pfc = l1_config.flow_control.ieee_802_1qbb
+        pfc.pfc_delay = 0
+        _config_pfc_classes(snappi_api, config, pfc)
 
     port_config_list = []
 
