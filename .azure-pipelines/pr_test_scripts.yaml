@@ -738,6 +738,7 @@ t1-lag-vpp:
   - srv6/test_srv6_static_config.py
   - sub_port_interfaces/test_show_subinterface.py
   - sub_port_interfaces/test_sub_port_interfaces.py
+  - vpp/test_sonic_ext_feature_config.py
   - vxlan/test_vxlan_ecmp.py
   - vxlan/test_vxlan_decap.py
   - vxlan/test_vxlan_underlay_ecmp.py
@@ -836,6 +837,7 @@ t0-vpp:
   - vlan/test_vlan.py
   - vlan/test_vlan_ping.py
   - vlan/test_vlan_ports_down.py
+  - vpp/test_sonic_ext_feature_config.py
 
 
 multi-asic-t1-lag:
