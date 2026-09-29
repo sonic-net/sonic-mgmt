@@ -53,7 +53,9 @@ class KvmSerialConsole:
         except (pexpect.EOF, pexpect.TIMEOUT):
             return self._session.before, False
 
-    def write_channel(self, data):
+    def write_channel(self, data, add_newline=True):
+        if add_newline:
+            data += self.RETURN
         self._session.send(data)
 
     def disconnect(self):
