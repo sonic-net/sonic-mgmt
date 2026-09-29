@@ -315,6 +315,8 @@ class AnsibleHostsBase(object):
             self.vm = variable_manager
         else:
             self.vm = VariableManager(loader=self.loader, inventory=self.im)
+            # Per-host overrides must not modify Ansible's cached CLI variables.
+            self.vm._extra_vars = self.vm.extra_vars.copy()
 
         # Trigger ansible to load and render host variables
         # After this operation, self.vm._hostvars will be populated with content
