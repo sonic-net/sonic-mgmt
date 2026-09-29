@@ -2407,7 +2407,8 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
                 pkts_num_leak_out = 0
 
             # send packets short of triggering pfc
-            if hwsku in ('DellEMC-Z9332f-M-O16C64', 'DellEMC-Z9332f-O32') or 'Arista-7060X6' in hwsku:
+            if hwsku in ('DellEMC-Z9332f-M-O16C64', 'DellEMC-Z9332f-O32') or 'Arista-7060X6' in hwsku \
+                    or 'M2-W6940' in hwsku:
                 # send packets short of triggering pfc
                 send_packet(self, src_port_id, pkt, (pkts_num_egr_mem +
                                                      pkts_num_leak_out +
@@ -3277,7 +3278,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                 pkts_num_leak_out = 0
 
             if hwsku in ('DellEMC-Z9332f-M-O16C64', 'DellEMC-Z9332f-O32') or 'Arista-7060X6' in hwsku \
-                    or 'Nokia-IXR7220-H6' in hwsku:
+                    or 'Nokia-IXR7220-H6' in hwsku or 'M2-W6940' in hwsku:
                 send_packet(
                     self, src_port_id, pkt,
                     (pkts_num_egr_mem + pkts_num_leak_out + pkts_num_trig_pfc -
@@ -3320,7 +3321,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                 self.dst_client, asic_type, port_list['dst'][dst_port_2_id]
             )
             if hwsku in ('DellEMC-Z9332f-M-O16C64', 'DellEMC-Z9332f-O32') or 'Arista-7060X6' in hwsku \
-                    or 'Nokia-IXR7220-H6' in hwsku:
+                    or 'Nokia-IXR7220-H6' in hwsku or 'M2-W6940' in hwsku:
                 send_packet(
                     self, src_port_id, pkt2,
                     (pkts_num_egr_mem + pkts_num_leak_out + pkts_num_dismiss_pfc +
@@ -3372,7 +3373,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             xmit_3_counters_base, _ = sai_thrift_read_port_counters(
                 self.dst_client, asic_type, port_list['dst'][dst_port_3_id])
             if hwsku in ('DellEMC-Z9332f-M-O16C64', 'DellEMC-Z9332f-O32') or 'Arista-7060X6' in hwsku \
-                    or 'Nokia-IXR7220-H6' in hwsku:
+                    or 'Nokia-IXR7220-H6' in hwsku or 'M2-W6940' in hwsku:
                 send_packet(self, src_port_id, pkt3,
                             pkts_num_egr_mem + pkts_num_leak_out + 1)
             elif 'cisco-8000' in asic_type:
@@ -4069,7 +4070,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
             self.sai_thrift_port_tx_disable(self.dst_client, self.asic_type, [self.dst_port_id])
 
         def get_hdrm_pool_wm():
-            if 'Arista-7060X6' in hwsku:
+            if 'Arista-7060X6' in hwsku or 'M2-W6940' in hwsku:
                 return sai_thrift_read_headroom_pool_watermark(
                     self.src_client, self.buf_pool_roid) * self.cell_size
             else:
@@ -4087,7 +4088,8 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                                     ip_ttl=64)
 
             hwsku = self.test_params['hwsku']
-            if hwsku in ('DellEMC-Z9332f-M-O16C64', 'DellEMC-Z9332f-O32') or 'Arista-7060X6' in hwsku:
+            if hwsku in ('DellEMC-Z9332f-M-O16C64', 'DellEMC-Z9332f-O32') or 'Arista-7060X6' in hwsku \
+                    or 'M2-W6940' in hwsku:
                 send_packet(
                     self, self.src_port_ids[sidx], pkt, pkts_num_egr_mem + self.pkts_num_leak_out)
             else:
@@ -4205,7 +4207,8 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
             if ('Arista-7060X6' in hwsku
                     or (hwsku == 'Arista-7260CX3-D108C8' and self.testbed_type in ('t0-116', 'dualtor-120'))
                     or (hwsku == 'Arista-7260CX3-D108C10' and self.testbed_type in ('t0-118'))
-                    or (hwsku == 'Arista-7260CX3-C64' and self.testbed_type in ('dualtor-aa-56', 't1-64-lag'))):
+                    or (hwsku == 'Arista-7260CX3-C64' and self.testbed_type in ('dualtor-aa-56', 't1-64-lag'))
+                    or 'M2-W6940' in hwsku):
                 upper_bound = 2 * margin + self.pgs_num
             if self.wm_multiplier:
                 hdrm_pool_wm = get_hdrm_pool_wm()
@@ -5189,7 +5192,7 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
 
             # send packets short of triggering egress drop
             if hwsku in ('DellEMC-Z9332f-M-O16C64', 'DellEMC-Z9332f-O32') or 'Arista-7060X6' in hwsku \
-                    or 'Nokia-IXR7220-H6' in hwsku:
+                    or 'Nokia-IXR7220-H6' in hwsku or 'M2-W6940' in hwsku:
                 # send packets short of triggering egress drop
                 send_packet(self, src_port_id, pkt, pkts_num_egr_mem +
                             pkts_num_leak_out + pkts_num_trig_egr_drp - 1 - margin)
@@ -5772,7 +5775,7 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 pg_min_pkts_num = pkts_num_egr_mem + \
                     pkts_num_leak_out + pkts_num_fill_min + margin
                 send_packet(self, src_port_id, pkt, pg_min_pkts_num)
-            elif 'Arista-7060X6' in hwsku:
+            elif 'Arista-7060X6' in hwsku or 'M2-W6940' in hwsku:
                 pg_min_pkts_num = pkts_num_egr_mem + pkts_num_fill_min
                 send_packet(self, src_port_id, pkt, pg_min_pkts_num)
             elif 'cisco-8000' in asic_type:
@@ -5815,7 +5818,7 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                             ((pkts_num_leak_out + pkts_num_fill_min) * (packet_length + internal_hdr_size)))
                 elif platform_asic and platform_asic == "broadcom":
                     assert (pg_shared_wm_res[pg] <= margin * cell_size)
-                elif 'Arista-7060X6' in hwsku:
+                elif 'Arista-7060X6' in hwsku or 'M2-W6940' in hwsku:
                     assert (pg_shared_wm_res[pg] <= margin * cell_size)
                 else:
                     assert (pg_shared_wm_res[pg] == 0)
@@ -6037,7 +6040,7 @@ class PGHeadroomWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
 
             # send packets to trigger pfc but not trek into headroom
             if hwsku in ('DellEMC-Z9332f-M-O16C64', 'DellEMC-Z9332f-O32') or 'Arista-7060X6' in hwsku \
-                    or 'Nokia-IXR7220-H6' in hwsku:
+                    or 'Nokia-IXR7220-H6' in hwsku or 'M2-W6940' in hwsku:
                 send_packet(self, src_port_id, pkt, (pkts_num_egr_mem +
                                                      pkts_num_leak_out + pkts_num_trig_pfc) // cell_occupancy - margin)
             elif 'cisco-8000' in asic_type:
@@ -6449,7 +6452,7 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             # TH2 uses scheduler-based TX enable, this does not require sending packets
             # to leak out
             if hwsku in ('DellEMC-Z9332f-O32', 'DellEMC-Z9332f-M-O16C64') or 'Arista-7060X6' in hwsku \
-                    or 'Nokia-IXR7220-H6' in hwsku:
+                    or 'Nokia-IXR7220-H6' in hwsku or 'M2-W6940' in hwsku:
                 que_min_pkts_num = pkts_num_egr_mem + pkts_num_leak_out + pkts_num_fill_min
                 send_packet(self, src_port_id, pkt, que_min_pkts_num)
             else:
@@ -6481,7 +6484,7 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                             None, pg_cntrs, None, None, None,
                             None, None, pg_shared_wm_res, pg_headroom_wm_res, q_wm_res)
 
-            if 'Arista-7060X6' in hwsku:
+            if 'Arista-7060X6' in hwsku or 'M2-W6940' in hwsku:
                 assert (q_wm_res[queue] <= (margin + 1) * cell_size)
             elif pkts_num_fill_min:
                 assert (q_wm_res[queue] == 0)
@@ -6854,18 +6857,6 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         buf_pool_roid = int(self.test_params['buf_pool_roid'], 0)
         print("buf_pool_roid: 0x%lx" % (buf_pool_roid), file=sys.stderr)
 
-        buffer_pool_wm_base = 0
-        if 'cisco-8000' in asic_type:
-            # Some small amount of memory is always occupied
-            # We use dst client for cisco 8000.
-            client_to_use = self.dst_client
-            sai_thrift_clear_buffer_pool_watermark(client_to_use, buf_pool_roid)
-            buffer_pool_wm_base = sai_thrift_read_buffer_pool_watermark(
-                client_to_use, buf_pool_roid)
-        else:
-            client_to_use = self.src_client
-        print("Initial watermark: {}".format(buffer_pool_wm_base))
-
         # Prepare TCP packet data
         tos = dscp << 2
         tos |= ecn
@@ -6902,6 +6893,18 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                                     ip_dst=dst_port_ip,
                                     ip_tos=tos,
                                     ip_ttl=ttl)
+
+        buffer_pool_wm_base = 0
+        if 'cisco-8000' in asic_type:
+            # Some small amount of memory is always occupied
+            # We use dst client for cisco 8000.
+            client_to_use = self.dst_client
+            sai_thrift_clear_buffer_pool_watermark(client_to_use, buf_pool_roid)
+            buffer_pool_wm_base = sai_thrift_read_buffer_pool_watermark(
+                client_to_use, buf_pool_roid)
+        else:
+            client_to_use = self.src_client
+        print("Initial watermark: {}".format(buffer_pool_wm_base))
 
         # Add slight tolerance in threshold characterization to consider
         # the case that cpu puts packets in the egress queue after we pause the egress

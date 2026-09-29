@@ -9,6 +9,7 @@ function show_help_and_exit()
     echo "    -b <master_id> : specify name of k8s master group used in k8s inventory, format: k8s_vms{msetnumber}_{servernumber}"
     echo "    -B             : run BSL test suite"
     echo "    -c <testcases> : specify test cases to execute (default: none, executed all matched)"
+    echo "    -C <filter>    : specify test case name filter, e.g. 'garp or unicast' (default: none)"
     echo "    -d <dut name>  : specify comma-separated DUT names (default: DUT name associated with testbed in testbed file)"
     echo "    -e <parameters>: specify extra parameter(s) (default: none)"
     echo "    -E             : exit for any error (default: False)"
@@ -230,8 +231,11 @@ function setup_test_options()
         fi
     done
 
+    # The filter expression may contain spaces, e.g. "not garp". Keep it in an array so that it is
+    # passed to pytest as a single argument instead of being split into multiple words.
+    PYTEST_FILTER_OPTS=()
     if [[ ! -z $TEST_FILTER ]]; then
-        PYTEST_COMMON_OPTS="${PYTEST_COMMON_OPTS} -k ${TEST_FILTER}"
+        PYTEST_FILTER_OPTS=(-k "${TEST_FILTER}")
     fi
 
     if [[ -d ${LOG_PATH} ]]; then
@@ -334,22 +338,22 @@ function pre_post_extra_params()
 function prepare_dut()
 {
     echo "=== Preparing DUT for subsequent tests ==="
-    echo Running: ${PYTEST_EXEC} ${SCRIPT_PATH} ${PYTEST_UTIL_OPTS} ${PRET_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m pretest
-    ${PYTEST_EXEC} ${SCRIPT_PATH} ${PYTEST_UTIL_OPTS} ${PRET_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m pretest
+    echo Running: ${PYTEST_EXEC} ${SCRIPT_PATH} ${PYTEST_UTIL_OPTS} "${PYTEST_FILTER_OPTS[@]}" ${PRET_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m pretest
+    ${PYTEST_EXEC} ${SCRIPT_PATH} ${PYTEST_UTIL_OPTS} "${PYTEST_FILTER_OPTS[@]}" ${PRET_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m pretest
 }
 
 function cleanup_dut()
 {
     echo "=== Cleaning up DUT after tests ==="
-    echo Running: ${PYTEST_EXEC} ${SCRIPT_PATH} ${PYTEST_UTIL_OPTS} ${POST_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m posttest
-    ${PYTEST_EXEC} ${SCRIPT_PATH} ${PYTEST_UTIL_OPTS} ${POST_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m posttest
+    echo Running: ${PYTEST_EXEC} ${SCRIPT_PATH} ${PYTEST_UTIL_OPTS} "${PYTEST_FILTER_OPTS[@]}" ${POST_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m posttest
+    ${PYTEST_EXEC} ${SCRIPT_PATH} ${PYTEST_UTIL_OPTS} "${PYTEST_FILTER_OPTS[@]}" ${POST_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m posttest
 }
 
 function run_group_tests()
 {
     echo "=== Running tests in groups ==="
-    echo Running: ${PYTEST_EXEC} ${TEST_CASES} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS}
-    ${PYTEST_EXEC} ${TEST_CASES} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} --cache-clear
+    echo Running: ${PYTEST_EXEC} ${TEST_CASES} ${PYTEST_COMMON_OPTS} "${PYTEST_FILTER_OPTS[@]}" ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS}
+    ${PYTEST_EXEC} ${TEST_CASES} ${PYTEST_COMMON_OPTS} "${PYTEST_FILTER_OPTS[@]}" ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} --cache-clear
 }
 
 function run_individual_tests()
@@ -370,8 +374,8 @@ function run_individual_tests()
             TEST_LOGGING_OPTIONS="--log-file ${LOG_PATH}/${test_dir}/${test_name}.log --junitxml=${LOG_PATH}/${test_dir}/${test_name}.xml"
         fi
 
-        echo Running: python3 -m pytest ${test_script} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS}
-        python3 -m pytest ${test_script} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} ${CACHE_CLEAR}
+        echo Running: python3 -m pytest ${test_script} ${PYTEST_COMMON_OPTS} "${PYTEST_FILTER_OPTS[@]}" ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS}
+        python3 -m pytest ${test_script} ${PYTEST_COMMON_OPTS} "${PYTEST_FILTER_OPTS[@]}" ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} ${CACHE_CLEAR}
         ret_code=$?
 
         # Clear pytest cache for the first run
@@ -416,8 +420,8 @@ function run_individual_tests()
 function run_bsl_tests()
 {
     echo "=== Running BSL tests ==="
-    echo Running: python3 -m pytest ${SCRIPT_PATH} ${PYTEST_COMMON_OPTS} --skip_sanity --disable_loganalyzer --junit-xml=logs/bsl.xml --log-file logs/bsl.log -m bsl
-    python3 -m pytest ${SCRIPT_PATH} ${PYTEST_COMMON_OPTS} --skip_sanity --disable_loganalyzer --junit-xml=logs/bsl.xml --log-file logs/bsl.log -m bsl
+    echo Running: python3 -m pytest ${SCRIPT_PATH} ${PYTEST_COMMON_OPTS} "${PYTEST_FILTER_OPTS[@]}" --skip_sanity --disable_loganalyzer --junit-xml=logs/bsl.xml --log-file logs/bsl.log -m bsl
+    python3 -m pytest ${SCRIPT_PATH} ${PYTEST_COMMON_OPTS} "${PYTEST_FILTER_OPTS[@]}" --skip_sanity --disable_loganalyzer --junit-xml=logs/bsl.xml --log-file logs/bsl.log -m bsl
 }
 
 function run_mux_combo_tests()
@@ -452,8 +456,8 @@ function run_mux_combo_tests()
             COMBO_LOGGING=""
         fi
 
-        echo Running: ${PYTEST_EXEC} ${TEST_CASES} ${PYTEST_COMMON_OPTS} ${COMBO_LOGGING} ${TEST_TOPOLOGY_OPTIONS} ${COMBO_EXTRA} --cache-clear
-        ${PYTEST_EXEC} ${TEST_CASES} ${PYTEST_COMMON_OPTS} ${COMBO_LOGGING} ${TEST_TOPOLOGY_OPTIONS} ${COMBO_EXTRA} --cache-clear
+        echo Running: ${PYTEST_EXEC} ${TEST_CASES} ${PYTEST_COMMON_OPTS} "${PYTEST_FILTER_OPTS[@]}" ${COMBO_LOGGING} ${TEST_TOPOLOGY_OPTIONS} ${COMBO_EXTRA} --cache-clear
+        ${PYTEST_EXEC} ${TEST_CASES} ${PYTEST_COMMON_OPTS} "${PYTEST_FILTER_OPTS[@]}" ${COMBO_LOGGING} ${TEST_TOPOLOGY_OPTIONS} ${COMBO_EXTRA} --cache-clear
         ret_code=$?
 
         if [ ${ret_code} -ne 0 ]; then

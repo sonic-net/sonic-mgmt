@@ -257,6 +257,13 @@
   - include_tasks: add_csonic_list.yml
     when: vm_type is defined and (vm_type == "csonic") and 'bmc' not in topo
 
+  # starting the simulator below is a no-op while a previous one still runs, so it would keep serving the old topology
+  - name: Stop nic simulator
+    include_tasks: control_nic_simulator.yml
+    vars:
+      nic_simulator_action: stop
+    when: topology.host_interfaces_active_active is defined and topology.host_interfaces_active_active|length > 0
+
   - name: Bind topology {{ topo }} to VMs. base vm = {{ VM_base }}
     vm_topology:
       cmd: "bind"
