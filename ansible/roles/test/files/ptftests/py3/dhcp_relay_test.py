@@ -282,7 +282,7 @@ class DHCPTest(DataplaneBaseTest):
         """Derive giaddr from the incoming packet or configured return interface."""
         if self.agent_relay_mode:
             # A relay must preserve a nonzero giaddr supplied by an upstream relay.
-            return self.create_dhcp_discover_packet()[scapy.BOOTP].giaddr
+            return self.upstream_relay_giaddr
         if self.dual_tor:
             return self.switch_loopback_ip
         if self.source_interface:
