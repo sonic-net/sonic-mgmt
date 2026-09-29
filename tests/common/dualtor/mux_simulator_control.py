@@ -75,8 +75,8 @@ VMHOST_STATUS_CMDS = [
         # the mux simulator runs the OVS commands without timeout, so they hang if OVS is stuck
         'ps -eo pid,stat,etime,args -ww | grep -E "[o]vs-(ofctl|vsctl|appctl)" || echo none',
         # the recent OVS warnings/errors and high CPU usage, excluding the noise of the missing ports
-        'tail -n 5000 /var/log/openvswitch/ovs-vswitchd.log | grep -E "\\|(WARN|ERR|EMER)\\||CPU usage" '
-        '| grep -v "No such device" | tail -n 10 | cut -c 1-200',
+        ('tail -n 5000 /var/log/openvswitch/ovs-vswitchd.log | grep -E "\\|(WARN|ERR|EMER)\\||CPU usage" '
+         '| grep -v "No such device" | tail -n 10 | cut -c 1-200'),
     ]),
 ]
 
