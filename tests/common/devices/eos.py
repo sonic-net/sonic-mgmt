@@ -267,6 +267,7 @@ class EosHost(AnsibleHostBase):
         self.shell_user = shell_user
         self.shell_passwd = shell_passwd
         self.is_multi_asic = False
+        self._is_multiagent = None
         # VRF scoping for converged (multi-VRF) topologies. When set, BGP config
         # parents are transparently rewritten to be VRF-scoped in eos_config().
         # Left as None on stock topologies so behavior is byte-identical.
@@ -556,7 +557,7 @@ class EosHost(AnsibleHostBase):
         # management plane when many neighbors are flapped in parallel
         # (e.g. test_bgp_session_flap.test_bgp_multiple_session_flaps on T2),
         # which can lead to SSH "Authentication failed" errors.
-        if getattr(self, "_is_multiagent", None) is None:
+        if self._is_multiagent is None:
             out = self.eos_command(commands=["show ip route summary | json"])
             model = out["stdout"][0]["protoModelStatus"]["operatingProtoModel"]
             self._is_multiagent = (model == "multi-agent")
