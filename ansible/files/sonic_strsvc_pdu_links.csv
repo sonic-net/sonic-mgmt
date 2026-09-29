@@ -23,10 +23,10 @@ pdu-124,18,svcstr-7260cx3-acs-7,PSU1
 pdu-125,18,svcstr-7260cx3-acs-7,PSU2
 pdu-124,7,svcstr-7260cx3-acs-8,PSU1
 pdu-125,7,svcstr-7260cx3-acs-8,PSU2
-pdu-117,29,svcstr-7260cx3-acs-11,PSU1
-pdu-118,29,svcstr-7260cx3-acs-11,PSU2
-pdu-117,30,svcstr-7260cx3-acs-11,PSU1
-pdu-118,30,svcstr-7260cx3-acs-12,PSU2
+pdu-117,2,svcstr-7260cx3-acs-11,PSU1
+pdu-118,2,svcstr-7260cx3-acs-11,PSU2
+pdu-117,1,svcstr-7260cx3-acs-12,PSU1
+pdu-118,1,svcstr-7260cx3-acs-12,PSU2
 pdu-138,23,svcstr-7260cx3-acs-13,PSU1
 pdu-139,23,svcstr-7260cx3-acs-13,PSU2
 pdu-138,25,svcstr-7260cx3-acs-14,PSU1
