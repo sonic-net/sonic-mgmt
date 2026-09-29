@@ -14,7 +14,6 @@ import pytest
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m  # noqa: F401
 
 from . import configurable_drop_counters as cdc
 from .configurable_drop_counters import (
@@ -265,9 +264,9 @@ def test_counter_monitor_enable_disable(duthosts, rand_one_dut_hostname, drop_co
                   "Per-counter monitor was not disabled")
 
 
+@pytest.mark.dualtor_active_standby_toggle_to_random_tor
+@pytest.mark.dualtor_active_active_setup_standby_on_random_unselected_tor
 def test_monitor_window(testbed_params, setup_counters, duthosts, rand_one_dut_hostname,  # noqa: F811
-                        toggle_all_simulator_ports_to_rand_selected_tor_m,   # noqa: F811
-                        setup_standby_ports_on_rand_unselected_tor,
                         generate_dropped_packet, add_default_route_to_dut, ptfadapter):  # noqa: F811
     """
     Verifies that incidents older than the configured window are purged and no
@@ -319,10 +318,10 @@ def test_monitor_window(testbed_params, setup_counters, duthosts, rand_one_dut_h
         duthost.command("sonic-clear arp")
 
 
+@pytest.mark.dualtor_active_standby_toggle_to_random_tor
+@pytest.mark.dualtor_active_active_setup_standby_on_random_unselected_tor
 @pytest.mark.parametrize("drop_reason", ["DIP_LINK_LOCAL"])
 def test_drop_count_threshold(testbed_params, setup_counters, duthosts, rand_one_dut_hostname,  # noqa: F811
-                              toggle_all_simulator_ports_to_rand_selected_tor_m,  # noqa: F811
-                              setup_standby_ports_on_rand_unselected_tor,         # noqa: F811
                               ptfadapter, drop_reason, generate_dropped_packet,  # noqa: F811
                               add_default_route_to_dut):                                  # noqa: F811
     """
@@ -368,11 +367,11 @@ def test_drop_count_threshold(testbed_params, setup_counters, duthosts, rand_one
         duthost.command("sonic-clear arp")
 
 
+@pytest.mark.dualtor_active_standby_toggle_to_random_tor
+@pytest.mark.dualtor_active_active_setup_standby_on_random_unselected_tor
 @pytest.mark.parametrize("drop_reason", ["DIP_LINK_LOCAL"])
 def test_incident_detection_threshold(testbed_params, setup_counters, duthosts,  # noqa: F811
                                       rand_one_dut_hostname,
-                                      toggle_all_simulator_ports_to_rand_selected_tor_m,  # noqa: F811
-                                      setup_standby_ports_on_rand_unselected_tor,         # noqa: F811
                                       drop_reason, generate_dropped_packet,  # noqa: F811
                                       add_default_route_to_dut, ptfadapter):                       # noqa: F811
     """
