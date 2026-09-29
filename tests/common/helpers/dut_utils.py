@@ -1,10 +1,11 @@
 import logging
+import inspect
 import allure
 import os
 import jinja2
 import glob
 import re
-import yaml
+from ansible.parsing.dataloader import DataLoader
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import get_host_visible_vars
 from tests.common.utilities import wait_until
@@ -509,13 +510,17 @@ def creds_on_dut(duthost):
     ]
 
     creds = {}
+    # Preserve Ansible template trust for credentials reused as connection variables.
+    loader = DataLoader()
+    loader_kwargs = {}
+    if "trusted_as_template" in inspect.signature(loader.load_from_file).parameters:
+        loader_kwargs["trusted_as_template"] = True
     for f in filtered_files:
-        with open(f) as stream:
-            v = yaml.safe_load(stream)
-            if v is not None:
-                creds.update(v)
-            else:
-                logging.info("skip empty var file {}".format(f))
+        v = loader.load_from_file(f, **loader_kwargs)
+        if v is not None:
+            creds.update(v)
+        else:
+            logging.info("skip empty var file {}".format(f))
 
     cred_vars = [
         "sonicadmin_user",
