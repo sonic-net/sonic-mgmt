@@ -25,15 +25,16 @@ cSONiC neighbors run the same SONiC software stack as the DUT, configured via CO
 
 The cSONiC testbed uses the `docker-sonic-vs` image as neighbor devices.
 
-> **IMPORTANT - use an image built with the cSONiC feature composition.**
+> **IMPORTANT — the stock/upstream `docker-sonic-vs` image is NOT sufficient.**
 > A cSONiC neighbor must establish BGP and advertise LLDP exactly like a real
 > SONiC device. This requires a `docker-sonic-vs` image that composes the
-> control-plane features the neighbor depends on - at minimum **`bgpcfgd`**
+> control-plane features the neighbor depends on — at minimum **`bgpcfgd`**
 > (from `docker-fpm-frr`, so BGP_NEIGHBOR entries in CONFIG_DB are translated
-> into FRR config) and **`lldpd`/`lldpmgrd`** (from `docker-lldp`). Current
-> `master` images include this composition; older release branches may still
-> produce the original swss+syncd-only image without `bgpcfgd` and `lldpd`.
-> Symptoms of using an incompatible image:
+> into FRR config) and **`lldpd`/`lldpmgrd`** (from `docker-lldp`). The default
+> upstream `docker-sonic-vs` (a swss+syncd test image) ships **without**
+> `bgpcfgd` and `lldpd`, and its `start.sh` does not load `/var/sonic/config_db.json`
+> or auto-start services under supervisord — so neighbors come up with no BGP
+> sessions and no LLDP. Symptoms of using the wrong image:
 > `sonic-db-cli CONFIG_DB PING` returns *"Connection refused / Cannot assign
 > requested address"*, `start.sh` shows `FATAL Exited too quickly`, and
 > `vtysh -c "show running-config"` has no `router bgp` stanza.
@@ -48,11 +49,6 @@ The cSONiC testbed uses the `docker-sonic-vs` image as neighbor devices.
 1. Go to [SONiC Azure Pipelines](https://sonic-build.azurewebsites.net/ui/sonic/pipelines)
 2. Find a recent successful build of `Azure.sonic-buildimage.official.vs`
 3. Download the `sonic-vs.tar.gz` artifact
-
-The `getbuild.py` helper can download the cSONiC image directly:
-```bash
-python3 tests/scripts/getbuild.py --branch master --platform csonic
-```
 
 **Option 2: Build locally**
 ```bash
