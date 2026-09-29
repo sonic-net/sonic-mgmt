@@ -2,7 +2,6 @@ import pytest
 import logging
 
 from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
-from tests.common.helpers.gnmi_utils import gnmi_capabilities
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 from tests.common.pygnmi_client import PygnmiClientError
 
@@ -11,25 +10,22 @@ allure.logger = logger
 
 pytestmark = [
     pytest.mark.topology('any'),
-    pytest.mark.disable_loganalyzer
+    pytest.mark.disable_loganalyzer,
+    pytest.mark.usefixtures('rand_one_dut_hostname')
 ]
 
 
-def test_gnmi_authorize_passed_with_valid_cname(duthosts,
-                                                rand_one_dut_hostname,
-                                                localhost):
-    '''
-    Verify GNMI native write, incremental config for configDB
-    GNMI set request with invalid path
-    '''
-    duthost = duthosts[rand_one_dut_hostname]
-    ret, msg = gnmi_capabilities(duthost, localhost)
-    logger.debug("test_gnmi_authorize_passed_with_valid_cname: {}".format(msg))
-
-    assert "Unauthenticated" not in msg, (
-        "'Unauthenticated' error message found in GNMI response. "
-        "- Actual message: '{}'"
-    ).format(msg)
+def test_gnmi_authorize_passed_with_valid_cname(gnmi_tls):  # noqa: F811
+    """A CA-signed client with a mapped CN must return gNMI capabilities."""
+    result = gnmi_tls.pygnmi_client.capabilities()
+    assert isinstance(result, dict), "Expected a Capabilities response, got {!r}".format(result)
+    assert result.get("gnmi_version"), "Missing gNMI version in Capabilities response: {!r}".format(result)
+    assert result.get("supported_encodings"), \
+        "Missing supported encodings in Capabilities response: {!r}".format(result)
+    logger.info(
+        "Valid-CN authorization succeeded on %s: gnmi_version=%s, supported_encodings=%s",
+        gnmi_tls.duthost.hostname, result["gnmi_version"], result["supported_encodings"]
+    )
 
 
 def test_gnmi_authorize_failed_with_invalid_cname(gnmi_tls):  # noqa: F811
