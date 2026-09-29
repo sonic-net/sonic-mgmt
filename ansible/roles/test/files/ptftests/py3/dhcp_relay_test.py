@@ -165,6 +165,7 @@ class DHCPTest(DataplaneBaseTest):
         self.client_mac = self.dataplane.get_mac(0, self.client_port_index)
 
         self.switch_loopback_ip = self.test_params['switch_loopback_ip']
+        self.upstream_relay_giaddr = self.test_params.get('upstream_relay_giaddr', self.switch_loopback_ip)
         self.relay_agent = self.test_params['relay_agent']
         self.link_selection = self.test_params.get('link_selection', None)
         self.source_interface = self.test_params.get('source_interface', None)
@@ -278,10 +279,10 @@ class DHCPTest(DataplaneBaseTest):
         self.enable_source_port_ip_in_relay = self.test_params.get('enable_source_port_ip_in_relay', False)
 
     def expected_relay_giaddr(self):
-        """Derive the return address from the client ingress and configured interface."""
+        """Derive giaddr from the incoming packet or configured return interface."""
         if self.agent_relay_mode:
-            # The upstream relay already supplied this address in the client packet.
-            return self.switch_loopback_ip
+            # A relay must preserve a nonzero giaddr supplied by an upstream relay.
+            return self.create_dhcp_discover_packet()[scapy.BOOTP].giaddr
         if self.dual_tor:
             return self.switch_loopback_ip
         if self.source_interface:
@@ -368,7 +369,7 @@ class DHCPTest(DataplaneBaseTest):
             discover_packet[scapy.IP].src = self.client_ip
             discover_packet[scapy.IP].dst = self.switch_loopback_ip
             discover_packet[scapy.BOOTP].hops = self.max_hop_count if self.max_hop_count == self.MAX_HOP_COUNT else 1
-            discover_packet[scapy.BOOTP].giaddr = self.switch_loopback_ip
+            discover_packet[scapy.BOOTP].giaddr = self.upstream_relay_giaddr
             discover_packet[scapy.DHCP].options.insert(
                 discover_packet[scapy.DHCP].options.index("end"),
                 (82, relay_option82)
@@ -904,8 +905,10 @@ class DHCPTest(DataplaneBaseTest):
     def client_send_discover(self, dst_mac=BROADCAST_MAC, src_port=DHCP_CLIENT_PORT):
         # Form and send DHCPDISCOVER packet
         dhcp_discover = self.create_dhcp_discover_packet(dst_mac, src_port)
-        self.assertEqual(dhcp_discover[scapy.BOOTP].giaddr,
-                         self.switch_loopback_ip if self.agent_relay_mode else self.DEFAULT_ROUTE_IP)
+        if self.agent_relay_mode:
+            self.assertNotEqual(dhcp_discover[scapy.BOOTP].giaddr, self.DEFAULT_ROUTE_IP)
+        else:
+            self.assertEqual(dhcp_discover[scapy.BOOTP].giaddr, self.DEFAULT_ROUTE_IP)
         logger.info("Client send discover packet via interface: {}".format(self.client_port_index))
         log_dhcp_packet_info(dhcp_discover)
         sent = testutils.send_packet(self, self.client_port_index, dhcp_discover)
