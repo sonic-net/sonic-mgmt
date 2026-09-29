@@ -1,65 +1,111 @@
 import logging
+import re
+import shlex
+
+import grpc
 import pytest
 
-from .helper import gnmi_set, gnmi_get
+from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
+from tests.common.pygnmi_client import PygnmiClientCallError
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('any'),
     pytest.mark.disable_loganalyzer,
-    pytest.mark.usefixtures("setup_gnmi_ntp_client_server", "setup_gnmi_server",
-                            "setup_gnmi_rotated_server", "check_dut_timestamp")
+    pytest.mark.usefixtures("rand_one_dut_hostname"),
 ]
 
+PREFIX = "sonic-db:APPL_DB/localhost"
+TABLES = ("DASH_VNET_TABLE", "_DASH_VNET_TABLE")
+VNET = "Vnet1"
 
-def test_gnmi_appldb_01(duthosts, rand_one_dut_hostname, ptfhost):
-    '''
-    Verify GNMI native write with ApplDB
-    Update DASH_VNET_TABLE
-    '''
-    duthost = duthosts[rand_one_dut_hostname]
-    file_name = "vnet.txt"
-    text = "{\"Vnet1\": {\"vni\": \"1000\", \"guid\": \"559c6ce8-26ab-4193-b946-ccc6e8f930b2\"}}"
-    with open(file_name, 'w') as file:
-        file.write(text)
-    ptfhost.copy(src=file_name, dest='/root')
-    # Add DASH_VNET_TABLE
-    update_list = ["/sonic-db:APPL_DB/localhost/DASH_VNET_TABLE:@/root/%s" % (file_name)]
-    gnmi_set(duthost, ptfhost, [], update_list, [])
-    # Check gnmi_get result
-    path_list1 = ["/sonic-db:APPL_DB/localhost/DASH_VNET_TABLE/Vnet1/vni"]
-    path_list2 = ["/sonic-db:APPL_DB/localhost/_DASH_VNET_TABLE/Vnet1/vni"]
-    output = None
-    try:
-        msg_list1 = gnmi_get(duthost, ptfhost, path_list1)
-    except Exception as e:
-        logger.info("Failed to read path1: " + str(e))
-    else:
-        output = msg_list1[0]
-    try:
-        msg_list2 = gnmi_get(duthost, ptfhost, path_list2)
-    except Exception as e:
-        logger.info("Failed to read path2: " + str(e))
-    else:
-        output = msg_list2[0]
-    assert output == "\"1000\"", "Unexpected output: '{}'".format(output)
 
-    # Remove DASH_VNET_TABLE
-    delete_list = ["/sonic-db:APPL_DB/localhost/DASH_VNET_TABLE/Vnet1"]
-    gnmi_set(duthost, ptfhost, delete_list, [], [])
-    # Check gnmi_get result
-    path_list1 = ["/sonic-db:APPL_DB/localhost/DASH_VNET_TABLE/Vnet1/vni"]
-    path_list2 = ["/sonic-db:APPL_DB/localhost/_DASH_VNET_TABLE/Vnet1/vni"]
+def _vnet_exists(duthost):
+    result = duthost.shell(
+        "sonic-db-cli APPL_DB EXISTS {}".format(
+            " ".join("{}:{}".format(table, VNET) for table in TABLES)))
+    assert result["rc"] == 0, "Failed to check APPL_DB Vnet1"
+    count = result["stdout"].strip()
+    assert count in ("0", "1", "2"), "Unexpected Redis EXISTS result: {!r}".format(count)
+    return count != "0"
+
+
+def _read_vni(client, table):
+    path = "{}/{}/vni".format(table, VNET)
     try:
-        msg_list1 = gnmi_get(duthost, ptfhost, path_list1)
-    except Exception as e:
-        logger.info("Failed to read path1: " + str(e))
-    else:
-        pytest.fail("Remove DASH_VNET_TABLE failed: " + msg_list1[0])
+        response = client.get(path, prefix=PREFIX)
+    except PygnmiClientCallError as error:
+        # pygnmi wraps the original gRPC status; message matching alone is unsafe.
+        cause = error.__cause__
+        rpc_error = getattr(cause, "orig_exc", cause)
+        if isinstance(rpc_error, grpc.RpcError) and rpc_error.code() == grpc.StatusCode.NOT_FOUND:
+            details = rpc_error.details()
+            if (details.startswith("No valid entry found for path ")
+                    and re.findall(r'name:\s*"([^"]+)"', details) == [table, VNET, "vni"]):
+                return None
+        raise
+    assert isinstance(response, dict), "Invalid gNMI Get response: {!r}".format(response)
+    updates = [update for notification in response.get("notification", [])
+               for update in notification.get("update", [])]
+    if not updates:
+        return None
+    assert len(updates) == 1 and updates[0]["path"].strip("/") == path, \
+        "Unexpected gNMI updates for {}: {!r}".format(path, updates)
+    assert isinstance(updates[0]["val"], str), "Invalid VNI value: {!r}".format(updates[0])
+    return updates[0]["val"]
+
+
+def _vni_present(client):
+    values = [_read_vni(client, table) for table in TABLES]
+    assert all(value in (None, "1000") for value in values), "Unexpected VNI values: {!r}".format(values)
+    return "1000" in values
+
+
+def _vnet_absent(duthost):
+    return not _vnet_exists(duthost)
+
+
+def test_gnmi_appldb_01(gnmi_tls):  # noqa: F811
+    """Verify native APPL_DB Set/Get/Delete through managed TLS."""
+    duthost = gnmi_tls.duthost
+    client = gnmi_tls.pygnmi_client
+    # Do not overwrite an existing entry, including a staged ProducerStateTable write.
+    if _vnet_exists(duthost):
+        pytest.skip("Preserving pre-existing APPL_DB Vnet1")
+    for suffix in ("KEY_SET", "DEL_SET"):
+        result = duthost.shell("sonic-db-cli APPL_DB SISMEMBER DASH_VNET_TABLE_{} {}".format(suffix, VNET))
+        assert result["rc"] == 0 and result["stdout"].strip() in ("0", "1"), "Failed to check pending Vnet1"
+        if result["stdout"].strip() == "1":
+            pytest.skip("Preserving pending APPL_DB Vnet1 operation")
+
     try:
-        msg_list2 = gnmi_get(duthost, ptfhost, path_list2)
-    except Exception as e:
-        logger.info("Failed to read path2: " + str(e))
-    else:
-        pytest.fail("Remove DASH_VNET_TABLE failed: " + msg_list2[0])
+        client.set(update=[(TABLES[0], {VNET: {
+            "vni": "1000", "guid": "559c6ce8-26ab-4193-b946-ccc6e8f930b2",
+        }})], prefix=PREFIX)
+        assert wait_until(10, 1, 0, _vni_present, client), "Neither DASH VNET table returned VNI 1000"
+        assert _vnet_exists(duthost), "gNMI Vnet1 is missing from fixture-selected DUT APPL_DB"
+
+        client.set(delete=["{}/{}".format(TABLES[0], VNET)], prefix=PREFIX)
+        assert wait_until(10, 1, 0, _vnet_absent, duthost), "Vnet1 remains in APPL_DB after gNMI Delete"
+        for table in TABLES:
+            assert _read_vni(client, table) is None, "Vnet1 remains readable in {}".format(table)
+    finally:
+        # CONFIG_DB rollback cannot clean APPL_DB; use the producer even if TLS failed.
+        script = (
+            "from swsscommon import swsscommon; "
+            "db = swsscommon.DBConnector('APPL_DB', 0, True); "
+            "table = swsscommon.ProducerStateTable(db, 'DASH_VNET_TABLE'); "
+            "table._del('Vnet1')"
+        )
+        result = duthost.shell("sudo python3 -c {}".format(shlex.quote(script)))
+        assert result["rc"] == 0, "APPL_DB Vnet1 cleanup failed"
+        assert wait_until(10, 1, 0, _vnet_absent, duthost), "APPL_DB Vnet1 cleanup did not converge"
+        # A non-DASH DUT may have no consumer to drain the producer's tombstone.
+        for suffix in ("KEY_SET", "DEL_SET"):
+            result = duthost.shell("sonic-db-cli APPL_DB SREM DASH_VNET_TABLE_{} {}".format(suffix, VNET))
+            assert result["rc"] == 0 and result["stdout"].strip() in ("0", "1"), "Vnet1 pending cleanup failed"
+        logger.info("APPLDB_CLEANUP_VERIFIED dut=%s Vnet1 absent from both tables", duthost.hostname)
+
+    logger.info("APPLDB_MANAGED_TLS_VERIFIED dut=%s VNI=1000 Set/Get/Delete and cleanup verified", duthost.hostname)
