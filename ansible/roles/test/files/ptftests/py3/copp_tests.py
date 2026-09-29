@@ -606,7 +606,7 @@ class UDLDTest(PolicyTest):
         # standards-conformant 802.3 length-framed packet, matching
         # scapy's own encoding when it builds a real 802.3 frame.
         eth = scapy.Ether(dst='01:00:0c:cc:cc:cc', src=src_mac,
-                           type=pktlen - 14)
+                          type=pktlen - 14)
         llc = scapy.LLC(dsap=0xAA, ssap=0xAA, ctrl=0x03)
         snap = scapy.SNAP(OUI=0x00000C, code=0x0111)
         packet = eth / llc / snap
