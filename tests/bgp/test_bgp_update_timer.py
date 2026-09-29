@@ -92,11 +92,12 @@ def _apply_outbound_route_filter(duthost, dut_asn, neighbor_ips, is_v6, namespac
     if apply_inbound:
         # On BGP confederation topologies the DUT's inbound policy for the
         # confed peer-group (e.g. AZNGHub) tags routes with the no-export
-        # community, which stops the DUT from re-advertising the test routes
-        # to the second ExaBGP neighbor. Bind a permissive inbound route-map on
-        # these neighbors: it overrides the peer-group inbound policy, so the
-        # no-export community is never applied in the first place (the route-map
-        # does not strip communities).
+        # community via the FROM_BGP_PEER_V4/FROM_BGP_PEER_V6 route-maps, which
+        # stops the DUT from re-advertising the test routes to the second ExaBGP
+        # neighbor. Bind a permissive inbound route-map on these neighbors: it
+        # overrides the peer-group inbound policy, so the no-export community is
+        # never applied in the first place (the route-map does not strip
+        # communities).
         vtysh_cmds.append("route-map {}_IN permit 10".format(TEST_ROUTES_ROUTE_MAP))
         vtysh_cmds.append("exit")
     vtysh_cmds.append("router bgp {}".format(dut_asn))
@@ -108,8 +109,8 @@ def _apply_outbound_route_filter(duthost, dut_asn, neighbor_ips, is_v6, namespac
     vtysh_cmds.append("exit")  # exit address-family
     vtysh_cmds.append("exit")  # exit router bgp
 
-    ns_option = "-n {}".format(namespace) if namespace != DEFAULT_NAMESPACE else ""
-    cmd = "vtysh {} {}".format(ns_option, " ".join("-c '{}'".format(c) for c in vtysh_cmds))
+    cmd = "vtysh {}".format(" ".join("-c '{}'".format(c) for c in vtysh_cmds))
+    cmd = duthost.get_vtysh_cmd_for_namespace(cmd, namespace)
     duthost.shell(cmd)
 
     # Soft-reset outbound so the filter takes effect immediately.
@@ -118,21 +119,19 @@ def _apply_outbound_route_filter(duthost, dut_asn, neighbor_ips, is_v6, namespac
     #   v6: clear bgp ipv6 <neighbor> soft out  (word order is 'bgp ipv6', not 'ipv6 bgp')
     clear_af = "bgp ipv6" if is_v6 else "ip bgp"
     for ip in neighbor_ips:
-        duthost.shell("vtysh {} -c 'clear {} {} soft out'".format(
-            ns_option, clear_af, ip
-        ))
+        cmd = "vtysh -c 'clear {} {} soft out'".format(clear_af, ip)
+        cmd = duthost.get_vtysh_cmd_for_namespace(cmd, namespace)
+        duthost.shell(cmd)
         if apply_inbound:
-            duthost.shell("vtysh {} -c 'clear {} {} soft in'".format(
-                ns_option, clear_af, ip
-            ))
+            cmd = "vtysh -c 'clear {} {} soft in'".format(clear_af, ip)
+            cmd = duthost.get_vtysh_cmd_for_namespace(cmd, namespace)
+            duthost.shell(cmd)
 
 
 def _remove_outbound_route_filter(duthost, dut_asn, neighbor_ips, is_v6, namespace=DEFAULT_NAMESPACE,
                                   apply_inbound=False):
     """Remove the outbound route-map and prefix-list added by
     _apply_outbound_route_filter."""
-    ns_option = "-n {}".format(namespace) if namespace != DEFAULT_NAMESPACE else ""
-
     vtysh_cmds = [
         "configure terminal",
         "router bgp {}".format(dut_asn),
@@ -149,7 +148,8 @@ def _remove_outbound_route_filter(duthost, dut_asn, neighbor_ips, is_v6, namespa
         vtysh_cmds.append("no route-map {}_IN".format(TEST_ROUTES_ROUTE_MAP))
     vtysh_cmds.append("no {} prefix-list {}".format("ipv6" if is_v6 else "ip", TEST_ROUTES_PREFIX_LIST))
 
-    cmd = "vtysh {} {}".format(ns_option, " ".join("-c '{}'".format(c) for c in vtysh_cmds))
+    cmd = "vtysh {}".format(" ".join("-c '{}'".format(c) for c in vtysh_cmds))
+    cmd = duthost.get_vtysh_cmd_for_namespace(cmd, namespace)
     duthost.shell(cmd, module_ignore_errors=True)
 
 
