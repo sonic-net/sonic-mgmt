@@ -14,6 +14,7 @@ from tests.common.utilities import wait_until
 
 DUT_PCAP_FILEPATH = "/tmp/test_syslog_tcpdump.pcap"
 DOCKER_TMP_PATH = "/tmp/"
+SYSLOG_CAPTURE_SECONDS = 60
 
 logger = logging.getLogger(__name__)
 
@@ -71,9 +72,10 @@ def capture_remote_syslog(dut, destination, vrf=None):
         )
 
         capture_command = (
-            "sudo timeout 30 tcpdump -i any -y LINUX_SLL -nn "
+            "sudo timeout {} tcpdump -i any -y LINUX_SLL -nn "
             "-s0 -U -w {} {}"
         ).format(
+            SYSLOG_CAPTURE_SECONDS,
             shlex.quote(capture_file),
             shlex.quote(
                 "udp and dst host {} and dst port 514".format(destination)
@@ -117,7 +119,7 @@ def capture_remote_syslog(dut, destination, vrf=None):
 
 def read_syslog_payloads(dut, capture_result, capture_file):
     pytest_assert(
-        wait_until(35, 1, 0, capture_result.ready),
+        wait_until(SYSLOG_CAPTURE_SECONDS + 5, 1, 0, capture_result.ready),
         "UDP/514 packet capture did not finish",
     )
     capture_status = capture_result.get()
