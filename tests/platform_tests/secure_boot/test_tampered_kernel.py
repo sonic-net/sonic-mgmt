@@ -1,13 +1,12 @@
 import logging
 import os
-import re
 import shlex
-import time
 
 import pexpect
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.grub_console import select_grub_entry
 from tests.common.helpers.secure_boot import (
     require_secure_boot,
     restore_active_efi_bundle,
@@ -36,8 +35,6 @@ KERNEL_REJECTION_MESSAGES = (
     "prohibited by secure boot policy",
 )
 GRUB_CONTINUE_PATTERN = "(?i)press any key to continue"
-KEY_UP = "\x1b[A"
-KEY_DOWN = "\x1b[B"
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +71,9 @@ class KvmSerialConsole:
         self._session.expect(pattern, timeout=read_timeout)
         return self._session.before + self._session.after
 
-    def write_channel(self, data):
+    def write_channel(self, data, add_newline=True):
+        if add_newline:
+            data += self.RETURN
         self._session.send(data)
 
     def disconnect(self):
@@ -191,25 +190,6 @@ PY
     pytest_assert(original_hash != tampered_hash, "The target kernel was not modified")
 
 
-def _wait_for_console_pattern(duthost_console, pattern, occurrence=1):
-    output = ""
-    for unused in range(occurrence):
-        output += duthost_console.read_until_pattern(
-            pattern=pattern,
-            read_timeout=CONSOLE_CAPTURE_TIMEOUT,
-        )
-    return output
-
-
-def _select_grub_entry(duthost_console, current_index, target_index):
-    offset = target_index - current_index
-    key = KEY_DOWN if offset > 0 else KEY_UP
-    for unused in range(abs(offset)):
-        duthost_console.write_channel(key)
-    duthost_console.write_channel(duthost_console.RETURN)
-    time.sleep(1)
-
-
 # Select the tampered image, then the known-good image after Secure Boot rejects it.
 def _run_console_boot_sequence(
     duthost_console,
@@ -217,27 +197,24 @@ def _run_console_boot_sequence(
     original_index,
     original_image,
 ):
-    menu_pattern = re.escape(original_image)
-    console_output = _wait_for_console_pattern(
+    console_output = select_grub_entry(
         duthost_console,
-        menu_pattern,
-        occurrence=2,
+        current_index=original_index,
+        target_index=target_index,
+        menu_pattern=original_image,
+        menu_occurrence=2,
+        timeout=CONSOLE_CAPTURE_TIMEOUT,
     )
-    _select_grub_entry(duthost_console, original_index, target_index)
-
-    console_output += _wait_for_console_pattern(
+    console_output += select_grub_entry(
         duthost_console,
-        GRUB_CONTINUE_PATTERN,
+        current_index=original_index,
+        target_index=original_index,
+        menu_pattern=original_image,
+        menu_occurrence=2,
+        wait_pattern=GRUB_CONTINUE_PATTERN,
+        acknowledge_wait_pattern=True,
+        timeout=CONSOLE_CAPTURE_TIMEOUT,
     )
-    time.sleep(1)
-    duthost_console.write_channel(duthost_console.RETURN)
-
-    console_output += _wait_for_console_pattern(
-        duthost_console,
-        menu_pattern,
-        occurrence=2,
-    )
-    _select_grub_entry(duthost_console, original_index, original_index)
     return console_output
 
 

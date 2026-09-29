@@ -26,6 +26,7 @@ class FakeConsole:
 
     def read_until_pattern(self, pattern, read_timeout):
         self.reads.append((pattern, read_timeout))
+        return pattern
 
     def write_channel(self, data, add_newline=False):
         self.writes.append((data, add_newline))
@@ -47,7 +48,7 @@ def skip_delays(monkeypatch):
 def test_select_grub_entry_uses_console_connection():
     console = FakeConsole()
 
-    grub_console.select_grub_entry(
+    output = grub_console.select_grub_entry(
         console,
         current_index=1,
         target_index=3,
@@ -64,6 +65,7 @@ def test_select_grub_entry_uses_console_connection():
         (grub_console.KEY_DOWN, False),
         (grub_console.ENTER, False),
     ]
+    assert output == re.escape(grub_console.GRUB_MENU_READY) * 2
 
 
 def test_select_grub_entry_waits_and_acknowledges_prerequisite():
