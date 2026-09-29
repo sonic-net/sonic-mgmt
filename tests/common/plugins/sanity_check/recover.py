@@ -85,6 +85,16 @@ def _recover_interfaces(dut, fanouthosts, result, wait_time):
     return action
 
 
+def _recover_monit(dut, result):
+    services_status = result.get('services_status', {})
+    action = 'reboot'
+    if services_status.get('var-log') == 'Resource limit matched':
+        logging.warning("var-log filesystem full on %s, forcing logrotate", dut.hostname)
+        dut.shell("logrotate -f /etc/logrotate.conf", module_ignore_errors=True)
+        action = None
+    return action
+
+
 def _recover_services(dut, result):
     status = result['services_status']
     services = [x for x in status if not status[x]]
@@ -208,6 +218,33 @@ def re_announce_routes(ptfhost, localhost, topo_name, ptf_ip, neighbor_number):
     return None
 
 
+def _recover_bgp(ptfhost, dut, localhost, nbrhosts, tbinfo, result):
+    bgp_result = result.get('bgp')
+    if not bgp_result:
+        logging.warning(
+            "BGP status details unavailable on %s, using config reload",
+            dut.hostname
+        )
+        return 'config_reload'
+
+    default_route_failures = {
+        "no_v4_default_route",
+        "no_v6_default_route",
+    }
+    is_single_asic = dut.facts["num_asic"] == 1
+    is_default_route_only = set(bgp_result).issubset(default_route_failures)
+    if is_single_asic and is_default_route_only:
+        return re_announce_routes(
+            ptfhost,
+            localhost,
+            tbinfo["topo"]["name"],
+            tbinfo["ptf_ip"],
+            len(nbrhosts)
+        )
+
+    return neighbor_vm_restore(dut, nbrhosts, tbinfo, result)
+
+
 def adaptive_recover(ptfhost, dut, localhost, fanouthosts, nbrhosts, tbinfo, check_results, wait_time):
     outstanding_action = None
     for result in check_results:
@@ -217,19 +254,13 @@ def adaptive_recover(ptfhost, dut, localhost, fanouthosts, nbrhosts, tbinfo, che
             elif result['check_item'] == 'services':
                 action = _recover_services(dut, result)
             elif result['check_item'] == 'bgp':
-                # If there is only default route missing issue, only need to re-announce routes to recover
-                # Currently only support single asic
-                if (dut.facts["num_asic"] == 1 and
-                    ("no_v4_default_route" in result['bgp'] and len(result['bgp']) == 1 or
-                     "no_v6_default_route" in result['bgp'] and len(result['bgp']) == 1 or
-                    ("no_v4_default_route" in result['bgp'] and "no_v6_default_route" in result['bgp'] and
-                     len(result['bgp']) == 2))):
-                    action = re_announce_routes(ptfhost, localhost, tbinfo["topo"]["name"], tbinfo["ptf_ip"],
-                                                len(nbrhosts))
-                else:
-                    action = neighbor_vm_restore(dut, nbrhosts, tbinfo, result)
+                action = _recover_bgp(
+                    ptfhost, dut, localhost, nbrhosts, tbinfo, result
+                )
             elif result['check_item'] == "neighbor_macsec_empty":
                 action = neighbor_vm_restore(dut, nbrhosts, tbinfo, result)
+            elif result['check_item'] == 'monit':
+                action = _recover_monit(dut, result)
             elif result['check_item'] in ['processes', 'mux_simulator']:
                 action = 'config_reload'
             else:

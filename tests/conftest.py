@@ -44,7 +44,6 @@ from tests.common.fixtures.ptfhost_utils import ptf_test_port_map_active_active 
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder_session                  # noqa: F401
 from tests.common.dualtor.dual_tor_utils import disable_timed_oscillation_active_standby    # noqa: F401
 from tests.common.dualtor.dual_tor_utils import config_active_active_dualtor
-from tests.common.dualtor.dual_tor_common import active_active_ports                        # noqa: F401
 from tests.common.dualtor import mux_simulator_control                                      # noqa: F401
 
 from tests.common.helpers.constants import (
@@ -57,6 +56,7 @@ from tests.common.helpers.dut_utils import encode_dut_and_container_name
 from tests.common.helpers.parallel_utils import ParallelCoordinator, ParallelStatus, ParallelRunContext
 from tests.common.helpers.pfcwd_helper import TrafficPorts, select_test_ports, set_pfc_timers, \
     is_pfcwd_hw_recovery_enabled
+from tests.common import constants
 from tests.common.system_utils import docker
 from tests.common.testbed import TestbedInfo
 from tests.common.utilities import get_inventory_files, wait_until
@@ -104,8 +104,8 @@ cache = FactsCache()
 
 HOST_FIXTURE_FAILED_RC = 15
 CUSTOM_MSG_PREFIX = "sonic_custom_msg"
-GOLDEN_CONFIG_DB_PATH = "/etc/sonic/golden_config_db.json"
-GOLDEN_CONFIG_DB_PATH_ORI = "/etc/sonic/golden_config_db.json.origin.backup"
+GOLDEN_CONFIG_DB_PATH = constants.GOLDEN_CONFIG_DB_PATH
+GOLDEN_CONFIG_DB_PATH_ORI = constants.GOLDEN_CONFIG_DB_PATH_ORI
 
 pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.ansible_fixtures',
@@ -1052,7 +1052,7 @@ def ptfhosts(enhance_inventory, ansible_adhoc, tbinfo, duthost, request):
 
 
 @pytest.fixture(scope="module")
-def k8smasters(enhance_inventory, ansible_adhoc, request):
+def k8smasters(enhance_inventory, ansible_adhoc, request, ansible_root):
     """
     Shortcut fixture for getting Kubernetes master hosts
     """
@@ -1065,7 +1065,7 @@ def k8smasters(enhance_inventory, ansible_adhoc, request):
             k8s_inv_file = inv_file
     if not k8s_inv_file:
         pytest.skip("k8s inventory not found, skipping tests")
-    with open('../ansible/{}'.format(k8s_inv_file), 'r') as kinv:
+    with open(os.path.join(ansible_root, k8s_inv_file), 'r') as kinv:
         k8sinventory = yaml.safe_load(kinv)
         for hostname, attributes in list(k8sinventory[k8s_master_ansible_group]['hosts'].items()):
             if 'haproxy' in attributes:
@@ -1337,6 +1337,10 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
         logging.info("Nut topology has no fanout")
         return fanout_hosts
 
+    if tbinfo['topo']['name'].startswith('smartswitch'):
+        logging.info("SmartSwitch topology has no fanout")
+        return fanout_hosts
+
     # Process Ethernet connections
 
     dev_conn = conn_graph_facts.get('device_conn', {})
@@ -1461,9 +1465,9 @@ def sonic():
 
 
 @pytest.fixture(scope='session')
-def pdu():
+def pdu(ansible_root):
     """ read and yield pdu configuration """
-    with open('../ansible/group_vars/pdu/pdu.yml') as stream:
+    with open(ansible_root.joinpath("group_vars/pdu/pdu.yml")) as stream:
         pdu = yaml.safe_load(stream)
         return pdu
 
@@ -1474,7 +1478,7 @@ def creds(duthost):
 
 
 @pytest.fixture(scope="session")
-def topo_bgp_routes(localhost, ptfhosts, tbinfo):
+def topo_bgp_routes(localhost, ptfhosts, tbinfo, ansible_root):
     bgp_routes = {}
     topo_name = tbinfo['topo']['name']
     servers_dut_interfaces = None
@@ -1491,7 +1495,7 @@ def topo_bgp_routes(localhost, ptfhosts, tbinfo):
             topo_name=topo_name,
             ptf_ip=ptf_ip,
             action='generate',
-            path="../ansible/",
+            path=str(ansible_root),
             log_path=log_path,
             dut_interfaces=servers_dut_interfaces.get(ptf_ip, '') if servers_dut_interfaces else '',
             verbose=False
@@ -2111,14 +2115,16 @@ def generate_dut_feature_list(request, duts_selected, asics_selected):
                 # Create tuple of dut and asic index
                 if "features" in meta[a_dut]:
                     for a_feature in list(meta[a_dut]["features"].keys()):
-                        if a_feature not in skip_feature_list:
+                        if a_feature not in skip_feature_list \
+                                and "disabled" not in meta[a_dut]["features"][a_feature]:
                             tuple_list.append((a_dut, a_asic, a_feature))
                 else:
                     tuple_list.append((a_dut, a_asic, None))
         else:
             if "features" in meta[a_dut]:
                 for a_feature in list(meta[a_dut]["features"].keys()):
-                    if a_feature not in skip_feature_list:
+                    if a_feature not in skip_feature_list \
+                            and "disabled" not in meta[a_dut]["features"][a_feature]:
                         tuple_list.append((a_dut, None, a_feature))
             else:
                 tuple_list.append((a_dut, None, None))
@@ -4037,7 +4043,7 @@ class DualtorMuxPortSetupConfig(enum.Flag):
 
 
 @pytest.fixture(autouse=True)
-def setup_dualtor_mux_ports(active_active_ports, duthost, duthosts, tbinfo, request, mux_server_url):       # noqa:F811
+def setup_dualtor_mux_ports(duthost, duthosts, tbinfo, request, mux_server_url):       # noqa:F811
     """Setup dualtor mux ports."""
     def _get_enumerated_dut_hostname(request):
         for k, v in request.node.callspec.params.items():
@@ -4132,7 +4138,7 @@ def setup_dualtor_mux_ports(active_active_ports, duthost, duthosts, tbinfo, requ
             config_active_active_dualtor(
                 duthosts[active_dut_hostname],
                 duthosts[standby_dut_hostname],
-                active_active_ports,
+                "all",
                 dualtor_setup_config & DualtorMuxPortSetupConfig.DUALTOR_SETUP_MUX_PORT_MANUAL_MODE
             )
         else:
@@ -4286,3 +4292,16 @@ def restore_counter_poll(rand_selected_dut):
         parsed_counterpoll_before,
         parsed_counterpoll_after
     )
+
+
+@pytest.fixture(scope="session")
+def ansible_root(request):
+    """
+    Returns the ansible directory.
+    """
+    ansible_config_path = os.getenv("ANSIBLE_CONFIG", None)
+    if ansible_config_path:
+        return pathlib.Path(ansible_config_path)
+    else:
+        tbfile = request.config.getoption("testbed_file")
+        return pathlib.Path(tbfile).parent

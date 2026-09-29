@@ -243,6 +243,8 @@ def test_setup_and_cleanup(memory_checker_dut_and_container, request):
     backup_monit_config_files(duthost)
     customize_monit_config_files(duthost, container, *request.param)
     restart_monit_service(duthost)
+    logger.info("Ensuring Monit monitors %s", container.memory_service_name)
+    duthost.shell("sudo monit monitor {}".format(container.memory_service_name))
 
     yield
 
@@ -561,9 +563,9 @@ def consumes_memory_and_checks_container_restart(duthost, container):
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix=marker_prefix)
     loganalyzer.expect_regex = container.get_restart_expected_logre()
     with loganalyzer:
-        timeout_monit_fail = 360  # fails happens after timeout wait
         container.start_consume_memory()
-        container.wait_monit_mem_failed(timeout_monit_fail)
+        # Monit reports failure only after its multi-cycle threshold is reached.
+        container.wait_monit_mem_failed()
         logger.info("Container %s should now be restarting", container.name)
         container.wait_monit_mem_ok(CONTAINER_RESTART_THRESHOLD_SECS)
         # Wait until the service has started, then the loganalyzer will capture all the expected messages
