@@ -103,8 +103,7 @@ def select_lma_neighbor_roles(neighbor_metadata):
     assignments = {}
     for source_type, target_type in LMA_ROLE_ASSIGNMENTS:
         candidates = neighbors_by_type.get(source_type, [])
-        if not candidates:
-            raise ValueError("LMA topology has no remaining {} neighbor".format(source_type))
+        pytest_assert(candidates, "LMA topology has no remaining {} neighbor".format(source_type))
         assignments[candidates.pop(0)] = target_type
     return assignments
 
@@ -166,12 +165,9 @@ def test_lma_bgp_establish_combo(duthost):
         "Missing DEVICE_NEIGHBOR_METADATA for BGP neighbors: {}".format(missing_metadata),
     )
 
-    try:
-        role_assignments = select_lma_neighbor_roles(
-            {name: all_neighbor_metadata[name] for name in neighbor_names}
-        )
-    except ValueError as error:
-        pytest.fail(str(error))
+    role_assignments = select_lma_neighbor_roles(
+        {name: all_neighbor_metadata[name] for name in neighbor_names}
+    )
 
     json_patches = [
         {
