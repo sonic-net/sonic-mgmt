@@ -46,7 +46,7 @@ IP2ME_ACL_RULE = "RULE_1"
 IP2ME_ACL_SRC_IP = "10.99.99.1/32"
 
 SAIVPP_DISABLED_NOTICE_RE = r".*sonic-ext feature {} disabled in startup.conf.*"
-SAIVPP_QUERY_FAILED_RE = r".*sonic_ext_feature_get\(.*\) failed; assuming enabled.*"
+SAIVPP_QUERY_FAILED_RE = r".*sonic_ext_feature_get\(.*\) failed; treating as disabled.*"
 
 ARC_WAIT_TIMEOUT = 180
 ARC_WAIT_INTERVAL = 10
