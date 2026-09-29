@@ -7,7 +7,9 @@ Every insertion / removal is performed by a human: the test prints a prompt on
 the terminal (pytest capture suspended) and blocks until the operator confirms,
 then waits for the DUT to observe the new presence state before verifying it.
 TC1-TC4 prompt once for every port under test; the TC5/TC6 hot swaps go one
-port at a time.  Per-port failures are aggregated into a single
+port at a time.  The link flap count of every other inventory port must not
+change across a whole test (a whole hot swap for TC5/TC6), set-up and re-seat
+steps included.  Per-port failures are aggregated into a single
 ``pytest.fail`` so one run surfaces every issue across every port under test.
 """
 import logging
@@ -181,6 +183,7 @@ def test_physical_oir_removal(
     shutdown_wait, startup_wait = _bulk_waits(port_attributes_dict, lports)
 
     flap_baseline = oir_helpers.get_flap_counts(duthost, lports)
+    other_flap_baseline = oir_helpers.get_other_ports_flap_counts(duthost, port_attributes_dict, lports)
     watermark = oir_helpers.capture_kernel_error_watermark(
         duthost, port_attributes_dict, lports)
 
@@ -199,6 +202,7 @@ def test_physical_oir_removal(
     all_failures += dom_helpers.verify_dom_thresholds_after_operation(
         duthost, port_attributes_dict, _parents_of(lports, lport_to_first_subport_mapping),
     )
+    all_failures += oir_helpers.verify_other_ports_no_flap(duthost, other_flap_baseline)
 
     if all_failures:
         pytest.fail("Physical OIR removal (TC1) failures:\n  - " + "\n  - ".join(all_failures))
@@ -216,6 +220,7 @@ def test_physical_oir_insertion(
     # dependent tables (flag / VDM / PM) must be republished after insertion.
     baseline_tables, baseline_sensor_data, setup_failures = _capture_recovery_baseline(
         duthost, port_attributes_dict, lport_to_first_subport_mapping, lports)
+    other_flap_baseline = oir_helpers.get_other_ports_flap_counts(duthost, port_attributes_dict, lports)
 
     # Setup: every cage has to be empty before the insertion under test.
     setup_failures += oir_helpers.perform_oir(
@@ -239,6 +244,7 @@ def test_physical_oir_insertion(
             baseline_tables=baseline_tables,
             baseline_sensor_data=baseline_sensor_data,
             insert_flap_baseline=insert_flap_baseline)
+    all_failures += oir_helpers.verify_other_ports_no_flap(duthost, other_flap_baseline)
 
     if all_failures:
         pytest.fail("Physical OIR insertion (TC2) failures:\n  - " + "\n  - ".join(all_failures))
@@ -257,6 +263,7 @@ def test_physical_oir_simultaneous(
     baseline_tables, baseline_sensor_data, all_failures = _capture_recovery_baseline(
         duthost, port_attributes_dict, lport_to_first_subport_mapping, lports)
     flap_baseline = oir_helpers.get_flap_counts(duthost, lports)
+    other_flap_baseline = oir_helpers.get_other_ports_flap_counts(duthost, port_attributes_dict, lports)
     watermark = oir_helpers.capture_kernel_error_watermark(
         duthost, port_attributes_dict, lports)
     all_failures += oir_helpers.perform_oir(
@@ -279,6 +286,7 @@ def test_physical_oir_simultaneous(
         baseline_tables=baseline_tables,
         baseline_sensor_data=baseline_sensor_data,
         insert_flap_baseline=insert_flap_baseline)
+    all_failures += oir_helpers.verify_other_ports_no_flap(duthost, other_flap_baseline)
 
     if all_failures:
         pytest.fail("Simultaneous physical OIR (TC3) failures:\n  - " + "\n  - ".join(all_failures))
@@ -305,9 +313,11 @@ def test_physical_oir_stress(
     health_baseline = capture_baseline(duthost)
     watermark = oir_helpers.capture_kernel_error_watermark(
         duthost, port_attributes_dict, lports)
+    other_flap_baseline = oir_helpers.get_other_ports_flap_counts(duthost, port_attributes_dict, lports)
     insert_flap_baseline = None
     # Only the last insertion is verified; the earlier cycles just have to
-    # complete and be observed by the DUT.
+    # complete and be observed by the DUT.  The other ports' flap counts are
+    # the exception: they must hold across every cycle.
     for iteration in range(1, iterations + 1):
         logger.info("Physical OIR stress iteration %d/%d on %d module(s)",
                     iteration, iterations, len(pports))
@@ -333,6 +343,7 @@ def test_physical_oir_stress(
             baseline_tables=baseline_tables,
             baseline_sensor_data=baseline_sensor_data,
             insert_flap_baseline=insert_flap_baseline)
+    all_failures += oir_helpers.verify_other_ports_no_flap(duthost, other_flap_baseline)
 
     if all_failures:
         pytest.fail("Physical OIR stress (TC4) failures:\n  - " + "\n  - ".join(all_failures))
@@ -398,7 +409,8 @@ def _insert_swapped_module(request, duthost, port_attributes_dict, lport_to_firs
 def _hot_swap(request, duthost, port_attributes_dict, lport_to_first_subport_mapping,
               conn, pport, lports, xcvr_api_class=None):
     """TC5/TC6 on one port: swap its module for one of ``xcvr_api_class`` (default:
-    the original module's class), remove that one and restore the original."""
+    the original module's class), remove that one and restore the original.  No
+    other port may flap meanwhile, not even another port under test."""
     oir_attrs = port_attributes_dict[lports[0]][PHYSICAL_OIR_ATTRIBUTES_KEY]
     _, startup_wait = _bulk_waits(port_attributes_dict, lports)
     baseline_tables, baseline_sensor_data, failures = _capture_recovery_baseline(
@@ -411,6 +423,7 @@ def _hot_swap(request, duthost, port_attributes_dict, lport_to_first_subport_map
     if failures:
         return failures
 
+    other_flap_baseline = oir_helpers.get_other_ports_flap_counts(duthost, port_attributes_dict, lports)
     # Steps 1-3: remove the original, insert the swap-in module, remove it.
     failures = _remove_module(
         request, duthost, port_attributes_dict, pport, lports,
@@ -439,6 +452,7 @@ def _hot_swap(request, duthost, port_attributes_dict, lport_to_first_subport_map
     _, serial = oir_helpers.read_xcvr_api(conn, pport)
     if serial != original_serial:
         failures.append(f"serial number is {serial!r} after step 4, expected the original {original_serial!r}")
+    failures += oir_helpers.verify_other_ports_no_flap(duthost, other_flap_baseline)
     return failures
 
 

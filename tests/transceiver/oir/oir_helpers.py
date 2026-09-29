@@ -338,11 +338,10 @@ def read_xcvr_api(conn, pport, wait_sec=0):
     """Return ``(xcvr_api, serial)`` of the module in ``pport`` via the platform API server.
 
     ``xcvr_api`` is the server's ``{"__class__", "object_id", ...}`` view of the
-    module's XcvrApi object, or ``None`` if the platform builds none within
-    ``wait_sec``.  The server's long-lived Sfp objects cache their XcvrApi, so it
-    is dropped first, as xcvrd does when a module is removed.
+    XcvrApi cached by its long-lived Sfp object, or ``None`` if the platform builds
+    none within ``wait_sec``.  The cache is left alone, so across a hot swap the
+    XcvrApi only changes if the platform itself refreshes it.
     """
-    sfp.sfp_api(conn, pport, "remove_xcvr_api")
     wait_until(wait_sec, POLL_INTERVAL_SEC, 0, lambda: sfp.sfp_api(conn, pport, "get_xcvr_api") is not None)
     return sfp.sfp_api(conn, pport, "get_xcvr_api"), sfp.get_serial(conn, pport)
 
@@ -350,6 +349,16 @@ def read_xcvr_api(conn, pport, wait_sec=0):
 def get_flap_counts(duthost, lports):
     """Return ``{port: flap_count}`` (raw APPL_DB strings) for ``lports``."""
     return {port: sentinel[0] for port, sentinel in capture_flap_sentinels(duthost, lports).items()}
+
+
+def _other_ports(port_attributes_dict, affected_lports):
+    """Return the inventory ports whose transceiver is not under OIR."""
+    return natsorted(set(port_attributes_dict) - set(affected_lports))
+
+
+def get_other_ports_flap_counts(duthost, port_attributes_dict, affected_lports):
+    """Return :func:`get_flap_counts` for every inventory port not under OIR."""
+    return get_flap_counts(duthost, _other_ports(port_attributes_dict, affected_lports))
 
 
 def verify_flap_count_increment(duthost, lports, baseline, expected_increment=1):
@@ -395,9 +404,28 @@ def verify_other_ports_up(duthost, port_attributes_dict, affected_lports):
     return [
         f"{port}: oper {(intf_status.get(port) or {}).get('oper', 'missing')}, expected up "
         "while another port's transceiver was out of its cage"
-        for port in natsorted(set(port_attributes_dict) - set(affected_lports))
+        for port in _other_ports(port_attributes_dict, affected_lports)
         if (intf_status.get(port) or {}).get("oper") != "up"
     ]
+
+
+def verify_other_ports_no_flap(duthost, baseline):
+    """Verify no port in ``baseline`` flapped since it was captured.
+
+    ``baseline`` is :func:`get_other_ports_flap_counts`.  Those ports keep their
+    module seated throughout, so any ``flap_count`` change (a single down or up
+    transition included) means another port's OIR disturbed their link.
+    """
+    failures = []
+    current = get_flap_counts(duthost, list(baseline))
+    for port, before in baseline.items():
+        after = current.get(port)
+        if before is None or after is None:
+            failures.append(f"{port}: flap_count not published (before={before!r}, after={after!r})")
+        elif after != before:
+            failures.append(f"{port}: flap_count {before}->{after}, expected unchanged "
+                            "while another port's transceiver was inserted/removed")
+    return failures
 
 
 def capture_kernel_error_watermark(duthost, port_attributes_dict, lports):
