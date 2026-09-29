@@ -3,7 +3,7 @@ from contextlib import contextmanager
 import logging
 import os
 import shlex
-import time
+from time import monotonic
 import uuid
 
 import pytest
@@ -14,6 +14,8 @@ from tests.common.utilities import wait_until
 
 DUT_PCAP_FILEPATH = "/tmp/test_syslog_tcpdump.pcap"
 DOCKER_TMP_PATH = "/tmp/"
+TCPDUMP_START_TIMEOUT = 20
+TCPDUMP_CAPTURE_TIMEOUT = 40
 
 logger = logging.getLogger(__name__)
 
@@ -272,67 +274,61 @@ def run_syslog(rand_selected_dut, dummy_syslog_server_ip_a, dummy_syslog_server_
     # Scapy doesn't support LINUX_SLL2 (Linux cooked v2), and tcpdump on Bullseye
     # defaults to writing in that format when listening on any interface. Therefore,
     # have it use LINUX_SLL (Linux cooked) instead.
+    # Start the deadline before submitting the async task, including launch/SSH latency.
+    startup_deadline = monotonic() + TCPDUMP_START_TIMEOUT
     tcpdump_task, tcpdump_result = duthost.shell(
-        "sudo timeout 20 tcpdump -y LINUX_SLL -i any -s0 -A -w {} \"udp and port 514\""
-        .format(DUT_PCAP_FILEPATH), module_async=True)
+        "sudo timeout {} tcpdump -U -y LINUX_SLL -i any -s0 -A -w {} \"udp and port 514\""
+        .format(TCPDUMP_CAPTURE_TIMEOUT, DUT_PCAP_FILEPATH), module_async=True)
 
-    # Wait for tcpdump to actually attach and start capturing before we
-    # generate the syslog message. Historically we slept a flat 5s here, which
-    # occasionally lost the very first packet on slower/BMC platforms and
-    # produced flaky failures. tcpdump creates the -w output file as soon as it
-    # has opened its capture handle, so poll for that as a readiness signal.
-    tcpdump_ready = False
-    for _ in range(40):  # up to ~20s
-        rc = duthost.shell(
-            "test -s {}".format(DUT_PCAP_FILEPATH), module_ignore_errors=True
-        )["rc"]
-        if rc == 0:
-            tcpdump_ready = True
-            break
-        # Also break early if the async task already died (timeout/config error).
-        rc = duthost.shell(
-            "pgrep -f 'tcpdump.*{}' >/dev/null".format(DUT_PCAP_FILEPATH),
-            module_ignore_errors=True,
-        )["rc"]
-        if rc != 0:
-            break
-        time.sleep(0.5)
-    if not tcpdump_ready:
-        logger.warning(
-            "tcpdump did not appear ready within 20s; proceeding anyway "
-            "(pcap capture may miss the syslog packet)"
+    try:
+        def capture_started_or_exited():
+            # This is the owned AsyncResult, not a process-name search that can
+            # match a shell wrapper or mistake an async launch delay for exit.
+            if tcpdump_result.ready() or monotonic() >= startup_deadline:
+                return True
+            return duthost.shell(
+                "test -s {}".format(DUT_PCAP_FILEPATH), module_ignore_errors=True
+            )["rc"] == 0
+
+        # tcpdump installs its filter before opening the savefile; -U flushes
+        # the initial pcap header. No additional settling sleep is needed.
+        # Reserve 20s of the capture timeout for logger and packet delivery.
+        capture_ready = wait_until(TCPDUMP_START_TIMEOUT, 0.5, 0, capture_started_or_exited)
+        if tcpdump_result.ready():
+            pytest.fail("tcpdump exited before syslog generation: {}".format(tcpdump_result.get()))
+        pytest_assert(
+            capture_ready and monotonic() < startup_deadline,
+            "tcpdump did not become ready within {}s".format(TCPDUMP_START_TIMEOUT),
         )
-    else:
-        # Small settling window: file exists, but give the BPF filter a moment
-        # to attach on all interfaces before emitting the log message.
-        time.sleep(1)
 
-    logger.debug("Generating log message from DUT")
-    # Generate a syslog from the DUT
-    duthost.shell("logger --priority INFO {}".format(test_message))
+        logger.debug("Generating log message from DUT")
+        # Generate a syslog from the DUT
+        duthost.shell("logger --priority INFO {}".format(test_message))
+    finally:
+        # Wait for the bounded capture to finish even when readiness/logger fails.
+        # Terminating a ThreadPool does not stop the remote tcpdump command.
+        try:
+            tcpdump_task.close()
+            tcpdump_task.join()
+        finally:
+            # Remove the syslog configuration
+            if dummy_syslog_server_ip_a is not None:
+                duthost.shell("sudo config syslog del {}".format(dummy_syslog_server_ip_a))
+                if ":" not in dummy_syslog_server_ip_a:
+                    duthost.command(
+                        "sudo ip -4 rule del from all to {} pref 1 lookup default".format(dummy_syslog_server_ip_a))
+                else:
+                    duthost.command(
+                        "sudo ip -6 rule del from all to {} pref 1 lookup default".format(dummy_syslog_server_ip_a))
 
-    # wait for stoping tcpdump
-    tcpdump_task.close()
-    tcpdump_task.join()
-
-    # Remove the syslog configuration
-    if dummy_syslog_server_ip_a is not None:
-        duthost.shell("sudo config syslog del {}".format(dummy_syslog_server_ip_a))
-        if ":" not in dummy_syslog_server_ip_a:
-            duthost.command(
-                "sudo ip -4 rule del from all to {} pref 1 lookup default".format(dummy_syslog_server_ip_a))
-        else:
-            duthost.command(
-                "sudo ip -6 rule del from all to {} pref 1 lookup default".format(dummy_syslog_server_ip_a))
-
-    if dummy_syslog_server_ip_b is not None:
-        duthost.shell("sudo config syslog del {}".format(dummy_syslog_server_ip_b))
-        if ":" not in dummy_syslog_server_ip_b:
-            duthost.command(
-                "sudo ip -4 rule del from all to {} pref 2 lookup default".format(dummy_syslog_server_ip_b))
-        else:
-            duthost.command(
-                "sudo ip -6 rule del from all to {} pref 2 lookup default".format(dummy_syslog_server_ip_b))
+            if dummy_syslog_server_ip_b is not None:
+                duthost.shell("sudo config syslog del {}".format(dummy_syslog_server_ip_b))
+                if ":" not in dummy_syslog_server_ip_b:
+                    duthost.command(
+                        "sudo ip -4 rule del from all to {} pref 2 lookup default".format(dummy_syslog_server_ip_b))
+                else:
+                    duthost.command(
+                        "sudo ip -6 rule del from all to {} pref 2 lookup default".format(dummy_syslog_server_ip_b))
 
     duthost.fetch(src=DUT_PCAP_FILEPATH, dest=DOCKER_TMP_PATH)
     filepath = os.path.join(DOCKER_TMP_PATH, duthost.hostname, DUT_PCAP_FILEPATH.lstrip(os.path.sep))
