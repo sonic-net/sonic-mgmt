@@ -61,7 +61,6 @@ def _wait_config_system_checks(duthost, delayed_services=None, stage=""):
     return passed
 
 
-
 @pytest.fixture(scope="module")
 def delayed_services(duthosts, enum_rand_one_per_hwsku_hostname):
     """Return the delayed services."""
