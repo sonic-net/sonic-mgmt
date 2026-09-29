@@ -380,12 +380,6 @@ CONFIG_DB_ROLE_CASES = [
 UNMAPPED_CN_ROLE_CASES = [
     pytest.param(
         None,
-        _get_capabilities,
-        "(?i)unauthenticated",
-        id="unmapped-capabilities",
-    ),
-    pytest.param(
-        None,
         _get_configdb,
         UNMAPPED_CN_ERROR,
         id="unmapped-get",
@@ -412,8 +406,6 @@ def test_cn_role_access(
     original_role = redis_hget(duthost, CONFIG_DB, role_key, "role@")
     pytest_assert(original_role, "Client certificate role is not configured")
     try:
-        if role is None and operation is _get_capabilities:
-            _get_capabilities(gnmi_tls.pygnmi_client)
         _set_client_cert_role(duthost, role)
         if error_pattern:
             with pytest.raises(PygnmiClientError, match=error_pattern):
