@@ -9,7 +9,7 @@ import pytest
 
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.sonic_db import STATE_DB, redis_hget, redis_hgetall, redis_hset
+from tests.common.helpers.sonic_db import STATE_DB, redis_hget, redis_hgetall, redis_hset, redis_keys
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
@@ -304,6 +304,92 @@ def wait_host_off(duthost, host, timeout=180, interval=10, delay=30):
 def wait_host_on(host, timeout=420, interval=10, delay=30):
     """Wait until the Switch-Host's critical services are fully started."""
     return wait_until(timeout, interval, delay, lambda: host.critical_services_fully_started())
+
+
+# --- Rack Manager command (Redfish -> sonic-dbus-bridge) helpers ----------
+
+RACK_MANAGER_COMMAND_TABLE = 'RACK_MANAGER_COMMAND'
+
+
+def rack_manager_command_keys(duthost):
+    """Return the current RACK_MANAGER_COMMAND|* keys in STATE_DB as a set.
+
+    Callers snapshot this immediately before issuing a request that is
+    expected to make the bridge publish a new command row, then diff a later
+    snapshot against it to find only the row(s) created by that request.
+    The bridge generates its own key suffix (a counter-based command id);
+    this never assumes or parses that format, it only ever compares key sets.
+    """
+    return set(redis_keys(duthost, STATE_DB, f'{RACK_MANAGER_COMMAND_TABLE}|*'))
+
+
+def wait_for_rack_manager_command(duthost, pre_keys, expected_command,
+                                  timeout=15, interval=1):
+    """Poll for a new RACK_MANAGER_COMMAND row whose 'command' field matches.
+
+    `pre_keys` must be a snapshot taken (via rack_manager_command_keys)
+    immediately before the action expected to create the row, so stale rows
+    left over from unrelated activity are never mistaken for it.
+
+    On each poll every key not in pre_keys is inspected: if more than one new
+    row has appeared (e.g. a concurrent unrelated command), each is checked
+    and the one whose command field equals expected_command is returned; a
+    new row with a different command is simply not a match, not a failure.
+
+    Returns the matching key (e.g. 'RACK_MANAGER_COMMAND|CMD_...'), or None
+    if no matching row appeared within timeout.
+    """
+    result = {}
+
+    def _matching_new_row_present():
+        for key in rack_manager_command_keys(duthost) - pre_keys:
+            if redis_hget(duthost, STATE_DB, key, 'command') == expected_command:
+                result['key'] = key
+                return True
+        return False
+
+    wait_until(timeout, interval, 0, _matching_new_row_present)
+    return result.get('key')
+
+
+def wait_for_no_new_rack_manager_command(duthost, pre_keys, timeout=5, interval=1):
+    """Observe STATE_DB for `timeout` seconds and confirm no new
+    RACK_MANAGER_COMMAND|* row appears relative to pre_keys.
+
+    For negative cases (e.g. a Redfish request rejected before it ever
+    reaches the bridge) where only absence needs proving. The bridge's own
+    publish latency is on the order of ~100ms, so a short window of a few
+    seconds is enough -- this deliberately does not reuse the longer
+    positive-path timeouts, which would make a passing negative test slow
+    for no benefit.
+
+    Returns True if no new row appeared during the window, False if one did.
+    """
+    appeared = wait_until(
+        timeout, interval, 0,
+        lambda: bool(rack_manager_command_keys(duthost) - pre_keys),
+    )
+    return not appeared
+
+
+def wait_for_rack_manager_command_status(duthost, key, expected_status,
+                                         timeout=60, interval=2):
+    """Poll STATE_DB until RACK_MANAGER_COMMAND|<id> 'status' field matches.
+
+    `key` is a full key as returned by wait_for_rack_manager_command (it
+    already includes the table prefix). expected_status may be a single
+    status string or an iterable of acceptable statuses.
+
+    Bridge-generated rows are never deleted by callers of this helper: the
+    bmcctld daemon (not the bridge) owns advancing status past PENDING and
+    may still be acting on the row.
+    """
+    if isinstance(expected_status, str):
+        expected_status = (expected_status,)
+    return wait_until(
+        timeout, interval, 0,
+        lambda: redis_hget(duthost, STATE_DB, key, 'status') in expected_status,
+    )
 
 
 SWITCH_HOST_STARTUP_ACK = "Starting up chassis module SWITCH-HOST"
