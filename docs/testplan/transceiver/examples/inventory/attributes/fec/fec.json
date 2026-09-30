@@ -1,0 +1,9 @@
+{
+  "defaults": {
+    "supported_speeds": ["50G", "100G", "200G", "400G", "800G", "1600G"],
+    "fec_mode_restore_timeout_sec": 30,
+    "clear_counters_wait_sec": 60,
+    "fec_histogram_stale_error_wait_sec": 600,
+    "critical_histogram_bins": [7, 8, 9, 10, 11, 12, 13, 14, 15]
+  }
+}
