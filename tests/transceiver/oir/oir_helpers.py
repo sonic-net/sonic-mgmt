@@ -342,6 +342,7 @@ def read_xcvr_api(conn, pport, wait_sec=0):
     none within ``wait_sec``.  The cache is left alone, so across a hot swap the
     XcvrApi only changes if the platform itself refreshes it.
     """
+    sfp.sfp_api(conn, pport, "refresh_xcvr_api")
     wait_until(wait_sec, POLL_INTERVAL_SEC, 0, lambda: sfp.sfp_api(conn, pport, "get_xcvr_api") is not None)
     return sfp.sfp_api(conn, pport, "get_xcvr_api"), sfp.get_serial(conn, pport)
 
