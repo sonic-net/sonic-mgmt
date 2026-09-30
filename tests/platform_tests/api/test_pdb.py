@@ -5,7 +5,7 @@ from tests.common.helpers.platform_api import chassis, pdb
 from tests.common.utilities import wait_until
 from tests.common.fixtures.duthost_utils import check_pdb_support
 from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service    # noqa: F401
-from .power_api_test_base import TestPowerApi as PowerApiTestBase
+from .power_api_test_base import PowerApiTestBase
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +20,7 @@ class TestPdbApi(PowerApiTestBase):
     """Platform API test cases for the PDB class.
 
     Inherits shared power-unit tests (name, presence, model, serial, revision,
-    status, thermals) from TestPowerApi.
+    status, thermals) from PowerApiTestBase.
     Overrides PSU-specific tests and adds PDB-specific ones.
     """
 
