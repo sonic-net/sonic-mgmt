@@ -10,7 +10,6 @@ from scapy.contrib import bgp
 from scapy.layers.l2 import CookedLinux
 
 from tests.bgp.bgp_helpers import capture_bgp_packages_to_file, fetch_and_delete_pcap_file
-from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.bgp import BGPNeighbor
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.utilities import wait_until
@@ -25,6 +24,11 @@ BGP_DOWN_LOG_TMPL = "/tmp/bgp_down.pcap"
 WAIT_TIMEOUT = 120
 NEIGHBOR_ASN0 = 61000
 NEIGHBOR_PORT0 = 11000
+# How long after the teardown the peer's notification may arrive. The capture
+# is started before the teardown, so the pcap also holds notifications from
+# earlier resets of the same session; bounding the validated set to this window
+# is what keeps those out of it.
+NOTIFICATION_WINDOW = 30
 
 
 @pytest.fixture
@@ -157,37 +161,54 @@ def is_neighbor_session_established(duthost, neighbor):
             and bgp_neighbors[neighbor.ip]["state"] == "established")
 
 
-def bgp_notification_packets(pcap_file, is_v6_topo):
-    """Get incoming bgp notification packets from pcap file.
+def bgp_notification_packets(pcap_file, is_v6_topo, src_ip=None, dst_ip=None,
+                             start_time=None, end_time=None):
+    """Get the incoming bgp notification packets belonging to the teardown under test.
 
     When tcpdump captures on the 'any' interface with LINUX_SLL link type,
     each packet has a CookedLinux header with a pkttype field indicating
     direction. Filter out outgoing packets (pkttype == 4, 'sent-by-us')
     so only incoming notifications are validated.
+
+    The capture is started before the teardown is triggered, so the pcap can also
+    hold notifications from earlier resets of the same session and notifications
+    exchanged with the other bgp neighbors of the dut. ``src_ip``/``dst_ip`` and
+    ``start_time``/``end_time`` narrow the result to the notifications produced by
+    the operation under test. They default to None, which keeps the previous
+    unfiltered behaviour.
     """
     ip_ver = IPv6 if is_v6_topo else IP
-    packets = sniff(
-        offline=pcap_file,
-        lfilter=lambda p: (ip_ver in p and
-                           bgp.BGPHeader in p and
-                           p[bgp.BGPHeader].type == 3 and
-                           not (CookedLinux in p and p[CookedLinux].pkttype == 4)),
-    )
+
+    def _notification_under_test(p):
+        if not (ip_ver in p and bgp.BGPHeader in p and p[bgp.BGPHeader].type == 3):
+            return False
+        if CookedLinux in p and p[CookedLinux].pkttype == 4:
+            return False
+        if src_ip is not None and p[ip_ver].src != src_ip:
+            return False
+        if dst_ip is not None and p[ip_ver].dst != dst_ip:
+            return False
+        if start_time is not None and float(p.time) < start_time:
+            return False
+        if end_time is not None and float(p.time) > end_time:
+            return False
+        return True
+
+    packets = sniff(offline=pcap_file, lfilter=_notification_under_test)
     return packets
 
 
-def match_bgp_notification(packet, src_ip, dst_ip, action, bgp_session_down_time, is_v6_topo):
-    """Check if the bgp notification packet matches."""
-    ip_ver = IPv6 if is_v6_topo else IP
-    if not (packet[ip_ver].src == src_ip and packet[ip_ver].dst == dst_ip):
-        return False
+def match_bgp_notification(packet, action):
+    """Check if the bgp notification packet matches.
 
+    Only the notification content is checked here; which packets are relevant is
+    decided by bgp_notification_packets().
+    """
     bgp_fields = packet[bgp.BGPNotification].fields
     if action == "cease":
         # error_code 6: Cease, error_subcode 3: Peer De-configured. References: RFC 4271
         return (bgp_fields["error_code"] == 6 and
-                bgp_fields["error_subcode"] == 3 and
-                (bgp_session_down_time is None or float(packet.time) < bgp_session_down_time))
+                bgp_fields["error_subcode"] == 3)
     else:
         return False
 
@@ -202,32 +223,6 @@ def is_neighbor_session_down(duthost, neighbor):
 def _flush_route(duthost, neighbor, prefix):
     asichost = duthost.asic_instance_from_namespace(neighbor.namespace)
     asichost.shell("{} route flush {}".format(asichost.ip_cmd, prefix), module_ignore_errors=True)
-
-
-def get_bgp_down_timestamp(duthost, namespace, peer_ip, timestamp_before_teardown):
-    # get the bgp session down timestamp from syslog in the format of seconds (with ms precision) since the Unix Epoch
-    cmd = (
-        "grep \"[b]gp{}#bgpcfgd: Peer 'default|{}' admin state is set to 'down'\" /var/log/syslog | tail -1"
-    ).format(namespace.split("asic")[1] if namespace else "", peer_ip)
-
-    bgp_down_msg_list = duthost.shell(cmd)['stdout'].split()
-    if not bgp_down_msg_list:
-        pytest.fail("Could not find the BGP session down message in syslog")
-
-    try:
-        timestamp = " ".join(bgp_down_msg_list[1:4])
-        timestamp_in_sec = float(duthost.shell("date -d \"{}\" +%s.%6N".format(timestamp))['stdout'])
-    except RunAnsibleModuleFail:
-        timestamp = " ".join(bgp_down_msg_list[0:3])
-        timestamp_in_sec = float(duthost.shell("date -d \"{}\" +%s.%6N".format(timestamp))['stdout'])
-    except Exception as e:
-        logging.error("Error when parsing syslog message timestamp: {}".format(repr(e)))
-        pytest.fail("Failed to parse syslog message timestamp")
-
-    if timestamp_in_sec < timestamp_before_teardown:
-        pytest.fail("Could not find the BGP session down time")
-
-    return timestamp_in_sec
 
 
 def is_neighbor_removed(duthost, neighbor):
@@ -275,7 +270,7 @@ def test_bgp_peer_shutdown(
     tbinfo
 ):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    n0, use_vtysh = common_setup_teardown
+    n0, _ = common_setup_teardown
     is_v6_topo = is_ipv6_only_topology(tbinfo)
     announced_route = {"prefix": "fc00:10::/64", "nexthop": n0.ip} if is_v6_topo else \
                       {"prefix": "10.10.100.0/27", "nexthop": n0.ip}
@@ -299,10 +294,13 @@ def test_bgp_peer_shutdown(
             if not announced_route_on_dut_before_shutdown:
                 pytest.fail("announce route %s from n0 to dut failed" % announced_route["prefix"])
 
-            timestamp_before_teardown = float(duthost.shell("date +%s.%6N")['stdout'])
             # tear down BGP session on n0
             bgp_pcap = BGP_DOWN_LOG_TMPL
             with capture_bgp_packages_to_file(duthost, "any", bgp_pcap, n0.namespace):
+                # Taken inside the capture context: the context sleeps for
+                # TCPDUMP_WAIT_TIMEOUT before yielding, so an epoch read before it
+                # would sit well before the teardown and would not bound the pcap.
+                teardown_epoch = float(duthost.shell("date +%s.%6N")['stdout'])
                 n0.teardown_session()
                 if not wait_until(
                     WAIT_TIMEOUT,
@@ -313,9 +311,16 @@ def test_bgp_peer_shutdown(
                     pytest.fail("Could not tear down bgp session")
 
             local_pcap_filename = fetch_and_delete_pcap_file(bgp_pcap, constants.log_dir, duthost, request)
-            bpg_notifications = bgp_notification_packets(local_pcap_filename, is_v6_topo)
-            if not bpg_notifications:
-                pytest.fail("No BGP notification packets captured after session teardown")
+            bpg_notifications = bgp_notification_packets(
+                local_pcap_filename,
+                is_v6_topo,
+                src_ip=n0.ip,
+                dst_ip=n0.peer_ip,
+                start_time=teardown_epoch,
+                end_time=teardown_epoch + NOTIFICATION_WINDOW,
+            )
+
+            matched_notifications = []
             for bgp_packet in bpg_notifications:
                 logging.debug(
                     "bgp notification packet, capture time %s, packet details:\n%s",
@@ -323,14 +328,23 @@ def test_bgp_peer_shutdown(
                     bgp_packet.show(dump=True),
                 )
 
-                if not use_vtysh:
-                    bgp_session_down_time = get_bgp_down_timestamp(duthost, n0.namespace, n0.ip, timestamp_before_teardown)  # noqa: E501
+                if match_bgp_notification(bgp_packet, "cease"):
+                    matched_notifications.append(bgp_packet)
                 else:
-                    # There is no syslog if use vtysh to manage BGP neigh
-                    bgp_session_down_time = None
-                if not match_bgp_notification(bgp_packet, n0.ip, n0.peer_ip, "cease", bgp_session_down_time,
-                                              is_v6_topo):
-                    pytest.fail("BGP notification packet does not match expected values")
+                    # The peer may reset the session for its own reasons inside the
+                    # window; that is not the transition under test.
+                    logging.warning(
+                        "ignoring notification from %s at %s that is not cease/peer de-configured",
+                        n0.ip,
+                        bgp_packet.time,
+                    )
+
+            if not matched_notifications:
+                pytest.fail(
+                    "No cease/peer de-configured notification from %s in the %ds after the "
+                    "teardown at epoch %.6f; %d notification(s) from the test peer were in "
+                    "the window" % (n0.ip, NOTIFICATION_WINDOW, teardown_epoch, len(bpg_notifications))
+                )
 
             announced_route_on_dut_after_shutdown = duthost.get_route(announced_route["prefix"], n0.namespace)
             if announced_route_on_dut_after_shutdown:
