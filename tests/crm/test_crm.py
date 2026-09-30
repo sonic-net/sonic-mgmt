@@ -95,6 +95,30 @@ def handle_default_acl_rules(duthost, tbinfo):
         RESTORE_CMDS["test_acl_counter"].append({"data_acl": data_acl})
 
 
+def wait_for_acl_entry_count_stable(asichost, timeout=30, interval=3):
+    """
+    Wait until ASIC_DB ACL_ENTRY count stabilizes (two consecutive reads match).
+    This ensures orchagent has finished processing ACL deletions/additions.
+    """
+    cmd = "{} ASIC_DB KEYS \"*SAI_OBJECT_TYPE_ACL_ENTRY*\"".format(asichost.sonic_db_cli)
+    previous_count = None
+
+    def _count_stable():
+        nonlocal previous_count
+        keys = asichost.shell(cmd)["stdout"].split()
+        current_count = len(keys) if keys != [''] else 0
+
+        if previous_count is not None and current_count == previous_count:
+            logger.info(f"ACL entry count stabilized at {current_count}")
+            return True
+
+        logger.info(f"ACL entry count: {current_count} (previous: {previous_count})")
+        previous_count = current_count
+        return False
+
+    return wait_until(timeout, interval, 0, _count_stable)
+
+
 def apply_acl_config(duthost, asichost, test_name, collector, entry_num=1):
     """ Create acl rule defined in config file. Return ACL table key. """
     base_dir = os.path.dirname(os.path.realpath(__file__))
@@ -146,6 +170,8 @@ def apply_acl_config(duthost, asichost, test_name, collector, entry_num=1):
         except BaseException:
             acl_tbl_key = None
             return False
+
+    wait_for_acl_entry_count_stable(asichost, timeout=30, interval=3)
 
     pytest_assert(wait_until(CONFIG_UPDATE_TIME * 3, CRM_POLLING_INTERVAL, 0, _acl_config_applied),
                   "ACL configuration did not propagate within timeout")
@@ -1079,8 +1105,9 @@ def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         RESTORE_CMDS["wait"] = SONIC_RES_CLEANUP_UPDATE_TIME
 
     # Verify thresholds for "IPv[4/6] nexthop" CRM resource
-    verify_thresholds(duthost, asichost, crm_cli_res="ipv{ip_ver} nexthop".format(ip_ver=ip_ver),
-                      crm_cmd=get_nexthop_stats)
+    with disable_swss_syslog_rate_limit(duthost, asichost):
+        verify_thresholds(duthost, asichost, crm_cli_res="ipv{ip_ver} nexthop".format(ip_ver=ip_ver),
+                          crm_cmd=get_nexthop_stats)
 
 
 @pytest.mark.parametrize("ip_ver,neighbor,host", [("4", "2.2.2.2", "2.2.2.1/8"), ("6", "2001::1", "2001::2/64")])
@@ -1170,8 +1197,9 @@ def test_crm_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         RESTORE_CMDS["wait"] = SONIC_RES_CLEANUP_UPDATE_TIME
 
     # Verify thresholds for "IPv[4/6] neighbor" CRM resource
-    verify_thresholds(duthost, asichost,  crm_cli_res="ipv{ip_ver} neighbor".format(ip_ver=ip_ver),
-                      crm_cmd=get_neighbor_stats)
+    with disable_swss_syslog_rate_limit(duthost, asichost):
+        verify_thresholds(duthost, asichost, crm_cli_res="ipv{ip_ver} neighbor".format(ip_ver=ip_ver),
+                          crm_cmd=get_neighbor_stats)
 
 
 @pytest.mark.usefixtures('disable_route_checker')
@@ -1581,8 +1609,10 @@ def test_crm_fdb_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum
         used, _ = get_crm_stats(get_fdb_stats, duthost)
         return used == 0
 
-    # Wait for FDB clear; if it doesn't fully clear, proceed with current state
-    wait_until(fdb_clear_wait, CRM_POLLING_INTERVAL, 0, _fdb_cleared_initial)
+    pytest_assert(
+        wait_until(fdb_clear_wait, CRM_POLLING_INTERVAL, 0, _fdb_cleared_initial),
+        "FDB entries are not cleared before CRM validation"
+    )
 
     # Get "crm_stats_fdb_entry" used and available counter value
     crm_stats_fdb_entry_used, crm_stats_fdb_entry_available = get_crm_stats(get_fdb_stats, duthost)

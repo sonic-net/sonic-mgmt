@@ -137,7 +137,8 @@ tests/transceiver/
 │   ├── cli_parser_helper.py                 # CLI output parsers: presence / hexdump / read-eeprom (+ RC_FAILURE);
 │   │                                        #   baseline parse_eeprom remains in utils/cli_parser_helper.py
 │   ├── cmis_helper.py                       # CMIS page decode: page 11h DataPath state, page 01h CDB capability
-│   └── eeprom_decode.py                     # SFF-8024 family classify + per-family vendor-field offsets + stem/DAC helpers
+│   ├── eeprom_decode.py                     # SFF-8024 family classify + per-family vendor-field offsets + stem/DAC helpers
+│   └── topology.py                          # ASIC-scoped same-DUT/cross-DUT peer resolution
 │
 ├── eeprom/
 │   ├── __init__.py

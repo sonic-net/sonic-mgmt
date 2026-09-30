@@ -23,12 +23,13 @@ DPU_STATUS_INTERVAL = 30
 
 
 @pytest.fixture(scope="module", autouse=True)
-def set_max_time_for_interfaces(duthost):
+def set_max_time_for_interfaces(duthosts, enum_supervisor_dut_hostname):
     """
     For chassis testbeds, we need to specify plt_reboot_ctrl in inventory file,
     to let MAX_TIME_TO_REBOOT to be overwritten by specified timeout value
     """
     global INTERFACE_WAIT_TIME
+    duthost = duthosts[enum_supervisor_dut_hostname]
     plt_reboot_ctrl = get_plt_reboot_ctrl(duthost, 'test_reboot.py', 'cold')
     if plt_reboot_ctrl:
         INTERFACE_WAIT_TIME = plt_reboot_ctrl.get('timeout', 300)
