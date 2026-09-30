@@ -27,6 +27,8 @@ PFC_GEN_FILE_ABSOLUTE_PATH = r'/root/pfc_gen_cpu.py'
 PKT_COUNT = 10
 """ Number of switch priorities """
 PRIO_COUNT = 8
+PFC_COUNTER_POLL_TIMEOUT = 20
+PFC_COUNTER_POLL_INTERVAL = 1
 """ Name of the PFC storm container on MLNX-OS (Onyx) fanout switches """
 ONYX_PFC_CONTAINER_NAME = 'storm'
 """ Number of PFC frames sent per priority per port in the RX_OK isolation test """
@@ -142,7 +144,11 @@ def run_test(fanouthosts, duthost, conn_graph_facts, enum_fanout_graph_facts, le
                         int_status[intf]['oper_state'] == 'up' and
                         intf in conn_facts]
     only_lossless_rx_counters_hwskus = ["Cisco-8122", "Cisco-8223"]
-    only_lossless_rx_counters = any(sku in asic.sonichost.facts["hwsku"] for sku in only_lossless_rx_counters_hwskus)
+    hwsku = asic.sonichost.facts["hwsku"]
+    only_lossless_rx_counters = (
+        any(sku in hwsku for sku in only_lossless_rx_counters_hwskus)
+        and not hwsku.startswith("Cisco-8122X")
+    )
     no_xon_counters_hwskus = ["Cisco-8122", "Cisco-8223"]
     no_xon_counters = any(sku in asic.sonichost.facts["hwsku"] for sku in no_xon_counters_hwskus)
     if only_lossless_rx_counters and asic_type != 'vs':
@@ -175,31 +181,46 @@ def run_test(fanouthosts, duthost, conn_graph_facts, enum_fanout_graph_facts, le
                             PFC_GEN_FILE_DEST, peer_port_name, pause_time, PKT_COUNT)
                         peerdev_ans.host.command(cmd)
 
-        """ SONiC takes some time to update counters in database """
-        time.sleep(5)
-
-        """ Check results """
-        counter_facts = duthost.sonic_pfc_counters(method="get")[
-            'ansible_facts']
-        if only_lossless_rx_counters and asic_type != 'vs':
-            pfc_enabled_prios = [int(prio) for prio in config_facts["PORT_QOS_MAP"][intf]['pfc_enable'].split(',')]
-        failures = []
+        expected_prios_by_intf = {}
         for intf in active_phy_intfs:
             if is_pfc and (not no_xon_counters or pause_time != 0):
                 if only_lossless_rx_counters:
-                    expected_prios = [str(PKT_COUNT if prio in pfc_enabled_prios else 0) for prio in range(PRIO_COUNT)]
+                    pfc_enabled_prios = [
+                        int(prio) for prio in
+                        config_facts["PORT_QOS_MAP"][intf]['pfc_enable'].split(',')
+                    ]
+                    expected_prios = [
+                        str(PKT_COUNT if prio in pfc_enabled_prios else 0)
+                        for prio in range(PRIO_COUNT)
+                    ]
                 else:
                     expected_prios = [str(PKT_COUNT)] * PRIO_COUNT
             else:
                 # Expect 0 counters when "no_xon_counters and pause_time == 0", i.e. when
                 # device does not support XON counters and the frame is XON.
                 expected_prios = ['0'] * PRIO_COUNT
+            expected_prios_by_intf[intf] = expected_prios
+
+        """ SONiC updates counters asynchronously; poll until they settle """
+        time.sleep(5)
+        poll_deadline = time.monotonic() + PFC_COUNTER_POLL_TIMEOUT
+        while True:
+            counter_facts = duthost.sonic_pfc_counters(method="get")[
+                'ansible_facts']
+            failures = [
+                (intf, counter_facts[intf]['Rx'], expected_prios)
+                for intf, expected_prios in expected_prios_by_intf.items()
+                if counter_facts[intf]['Rx'] != expected_prios
+            ]
+            if not failures or time.monotonic() >= poll_deadline:
+                break
+            time.sleep(PFC_COUNTER_POLL_INTERVAL)
+
+        for intf, expected_prios in expected_prios_by_intf.items():
             logger.info("Verifying PFC RX count matches {}".format(expected_prios))
-            if counter_facts[intf]['Rx'] != expected_prios:
-                failures.append((counter_facts[intf]['Rx'], expected_prios))
         if asic_type != 'vs':
-            for failure in failures:
-                logger.error("Got {}, expected {}".format(*failure))
+            for intf, actual, expected in failures:
+                logger.error("{}: got {}, expected {}".format(intf, actual, expected))
             assert len(failures) == 0, (
                 "PFC RX counter increment not matching expected for above logged cases. "
                 "Number of failures: {}"
