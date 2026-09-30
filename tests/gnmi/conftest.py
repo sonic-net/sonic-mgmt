@@ -19,12 +19,11 @@ from tests.common.helpers.gnmi_utils import (
     prepare_root_cert,
     prepare_server_cert,
 )
-from tests.common.helpers.ntp_helper import setup_ntp_context
+from tests.common.helpers.ntp_helper import check_ntp_sync_status, setup_ntp_context
 from tests.common.utilities import wait_until
 from tests.gnmi.helper import (
     GNMI_SERVER_START_WAIT_TIME,
     apply_cert_config,
-    check_ntp_sync_status,
     recover_cert_config,
 )
 
