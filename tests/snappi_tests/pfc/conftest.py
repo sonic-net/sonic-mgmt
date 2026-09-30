@@ -40,4 +40,3 @@ def rand_one_dut_lossless_prio_for_pfc_test(rand_one_dut_front_end_hostname, req
         pytest.skip(f"No lossless priorities found for selected DUT: {rand_one_dut_front_end_hostname}")
 
     return random.choice(selected_dut_prios)
-

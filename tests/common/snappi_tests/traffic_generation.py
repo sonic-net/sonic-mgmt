@@ -101,8 +101,9 @@ def setup_base_traffic_config(testbed_config,
         tx_port_id_list, _ = select_ports(port_config_list=port_config_list,
                                           pattern="many to one",
                                           rx_port_id=rx_port_id)
-        pytest_require(len(tx_port_id_list) >= num_tx_ports,
-                      f"Cannot find enough TX ports. Need {num_tx_ports}, found {len(tx_port_id_list)}")
+        pytest_require(
+            len(tx_port_id_list) >= num_tx_ports,
+            f"Cannot find enough TX ports. Need {num_tx_ports}, found {len(tx_port_id_list)}")
         tx_port_id_list = select_tx_port(tx_port_id_list=tx_port_id_list,
                                          rx_port_id=rx_port_id,
                                          num_tx_ports=num_tx_ports)
@@ -1704,7 +1705,7 @@ def multi_base_traffic_config(testbed_config,
     dut_port_config = {"Tx": [], "Rx": []}
     tx_dict = {str(tx_port_config.peer_port): []}
     rx_dict = {str(rx_port_config.peer_port): []}
-    
+
     dut_port_config["Tx"].append(tx_dict)
     dut_port_config["Rx"].append(rx_dict)
     base_flow_config["dut_port_config"] = dut_port_config

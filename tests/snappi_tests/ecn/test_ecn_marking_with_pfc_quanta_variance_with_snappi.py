@@ -109,7 +109,7 @@ def test_ecn_marking_with_pfc_quanta_variance(
                                 tbinfo,      # noqa: F811
                                 test_ecn_config,
                                 prio_dscp_map,  # noqa: F811
-                                tgen_port_info,
+                                tgen_port_info,  # noqa: F811
                                 restore_wred_ecn_config):                    # noqa: F811
 
     """

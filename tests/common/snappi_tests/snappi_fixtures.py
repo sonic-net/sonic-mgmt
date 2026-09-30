@@ -518,8 +518,9 @@ def snappi_testbed_config(conn_graph_facts, fanout_graph_facts,     # noqa: F811
         if port_speed is None:
             port_speed = int(snappi_ports[i]['speed'])
 
-        pytest_require(port_speed == int(snappi_ports[i]['speed']),
-                      'Ports have different link speeds')
+        pytest_require(
+            port_speed == int(snappi_ports[i]['speed']),
+            'Ports have different link speeds')
 
     speed_gbps = int(port_speed/1000)
 
@@ -1136,7 +1137,8 @@ def cleanup_config(duthost_list, snappi_ports):
         port_count = len(snappi_ports)
         dutIps = create_ip_list(dut_ip_start, port_count, mask=prefix_length)
         for port in snappi_ports:
-            if port['peer_device'] == duthost.hostname and 'intf_config_changed' in port and port['intf_config_changed']:
+            if (port['peer_device'] == duthost.hostname and
+                    'intf_config_changed' in port and port['intf_config_changed']):
                 port_id = port['port_id']
                 dutIp = dutIps[port_id]
                 logger.info('Removing Configuration on Dut: {} with port {} with ip :{}/{}'.format(
@@ -1904,7 +1906,7 @@ def flatten_list(lst):
             flattened.append(item)
     return flattened
 
- 
+
 def _get_front_panel_route_targets(duthost, dut_fp_ports):
     """
     Resolve every front panel port of `duthost` present in `dut_fp_ports` to the
@@ -2000,6 +2002,3 @@ def gen_static_route_for_all_fp_ports(duthosts, get_snappi_ports):
 
     for duthost, addr, intf, namespace in reversed(configured):
         gen_data_flow_dest_ip(addr, duthost, intf, namespace=namespace, setup=False)
-
-
-
