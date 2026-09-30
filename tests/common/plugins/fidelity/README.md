@@ -4,6 +4,9 @@ Opt-in pytest plugin that scores each test from **observed** SAI operations in
 `/var/log/swss/sairedis.rec` (multi-ASIC: `sairedis.asic{N}.rec`). This is not
 a static per-testfile lookup table.
 
+**Full design (HLD):** [`docs/HLD.md`](docs/HLD.md) — purpose, architecture,
+what it does / does not do, caveats, how to use, futures.
+
 ## Why three tiers?
 
 On Virtual Switch (`libsaivs`), orchagent/syncd still issue SAI calls, but
