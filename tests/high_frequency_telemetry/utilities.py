@@ -18,17 +18,17 @@ from _pytest.outcomes import OutcomeException
 from natsort import natsorted
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.sai_ids import (
-    get_sai_object_type_id,
-    get_sai_stat_id,
-)
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
+# countersyncd names every OTEL gauge after the canonical SAI stat and tags each
+# data point with object_name / sai_type / sai_stat. The InfluxDB exporter turns
+# the gauge name into the measurement and the attributes into tags, so a series
+# is identified by the SAI names rather than by numeric SAI ids.
 HftSeries = namedtuple(
     "HftSeries",
-    ["measurement", "object_name", "type_id", "stat_id", "counter_name"],
+    ["measurement", "object_name", "sai_type", "sai_stat", "counter_name"],
 )
 
 
@@ -779,15 +779,13 @@ def parse_influxdb_json(json_text):
 def build_expected_series(counter_type, object_names, counter_names):
     """Build exact InfluxDB series expected for an HFT group."""
     sai_type_name = counter_type.name
-    type_id = get_sai_object_type_id(f"SAI_OBJECT_TYPE_{sai_type_name}")
+    sai_type = f"SAI_OBJECT_TYPE_{sai_type_name}"
     expected = []
     for counter_name in counter_names:
-        stat_id = get_sai_stat_id(
-            f"SAI_{sai_type_name}_STAT_{counter_name}"
-        )
-        measurement = f"sai_counter_type_{type_id}_stat_{stat_id}"
+        sai_stat = f"SAI_{sai_type_name}_STAT_{counter_name}"
+        # The measurement is the gauge name, which countersyncd sets to the stat name.
         expected.extend(
-            HftSeries(measurement, object_name, type_id, stat_id, counter_name)
+            HftSeries(sai_stat, object_name, sai_type, sai_stat, counter_name)
             for object_name in object_names
         )
     return expected
@@ -869,8 +867,8 @@ class InfluxDbSink:
             (
                 series.measurement,
                 series.object_name,
-                str(series.type_id),
-                str(series.stat_id),
+                series.sai_type,
+                series.sai_stat,
             ): series
             for series in expected_series
         }
@@ -888,21 +886,21 @@ class InfluxDbSink:
                 row = dict(zip(columns, raw_values))
                 row.update(tags)
                 object_name = row.get("object_name")
-                type_id = row.get("sai_type_id")
-                stat_id = row.get("sai_stat_id")
-                if object_name is None or type_id is None or stat_id is None:
+                sai_type = row.get("sai_type")
+                sai_stat = row.get("sai_stat")
+                if object_name is None or sai_type is None or sai_stat is None:
                     continue
                 key = (
                     measurement,
                     object_name,
-                    str(type_id),
-                    str(stat_id),
+                    sai_type,
+                    sai_stat,
                 )
                 values[key] = {
                     "time": row.get("time"),
                     "value": row.get(value_column),
-                    "type_id": str(type_id),
-                    "stat_id": str(stat_id),
+                    "sai_type": sai_type,
+                    "sai_stat": sai_stat,
                 }
         return values
 
@@ -914,7 +912,7 @@ class InfluxDbSink:
             (
                 f'SELECT {expression} AS "{value_column}" '
                 f'FROM "{measurement}"{where} '
-                'GROUP BY "object_name", "sai_type_id", "sai_stat_id"'
+                'GROUP BY "object_name", "sai_type", "sai_stat"'
             )
             for measurement in measurements
         ]
@@ -942,7 +940,7 @@ class InfluxDbSink:
                 statements.append(
                     f'SELECT {expression} AS "{value_column}" '
                     f'FROM "{measurement}"{where} '
-                    'GROUP BY "object_name", "sai_type_id", "sai_stat_id"'
+                    'GROUP BY "object_name", "sai_type", "sai_stat"'
                 )
                 statement_specs.append((measurement, value_column))
         body = self._query(";".join(statements))
@@ -1082,12 +1080,12 @@ class InfluxDbSink:
                     f"last={last_value}, minimum={minimum_value}"
                 )
                 continue
-            if counts[key]["type_id"] != str(series.type_id) \
-                    or counts[key]["stat_id"] != str(series.stat_id):
+            if counts[key]["sai_type"] != series.sai_type \
+                    or counts[key]["sai_stat"] != series.sai_stat:
                 violations.append(
                     f"{key}: type/stat tags are "
-                    f"{counts[key]['type_id']}/{counts[key]['stat_id']}, expected "
-                    f"{series.type_id}/{series.stat_id}"
+                    f"{counts[key]['sai_type']}/{counts[key]['sai_stat']}, expected "
+                    f"{series.sai_type}/{series.sai_stat}"
                 )
             try:
                 first_time = _parse_rfc3339_timestamp(first[key]["time"])
