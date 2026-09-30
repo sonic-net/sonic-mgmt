@@ -305,8 +305,8 @@ def perform_daemon_restart(duthost, daemon, settle_sec, affected_processes=None)
 
 
 def perform_sfputil_reset(duthost, reset_ports, toggle_ports, shutdown_wait_sec, startup_wait_sec,
-                          recover_wait_sec=0):
-    """Shut every toggle port, sfputil-reset each module, start them back up.
+                          recover_wait_sec=0, post_reset_check=None, skip_pre_reset_shutdown=False):
+    """sfputil-reset each module inside one shutdown/startup cycle of every toggle port.
 
     ``sfputil reset <port>`` resets a whole physical module, dropping every
     subport's datapath, so recovery toggles all of ``toggle_ports`` (every
@@ -316,17 +316,37 @@ def perform_sfputil_reset(duthost, reset_ports, toggle_ports, shutdown_wait_sec,
     owned by the feature verifier's poll, so this operation does not gate on
     presence.
 
+    Default sequence::
+
+        shutdown -> reset -> recover wait -> post_reset_check -> startup
+
+    With ``skip_pre_reset_shutdown=True`` the modules are reset while their
+    ports are still admin-up, so ``post_reset_check`` observes what the reset
+    alone did (link down, low power) and xcvrd has no in-flight admin-down to
+    race the reset; the ports are toggled afterwards::
+
+        reset -> recover wait -> post_reset_check -> shutdown -> startup
+
     Args:
         reset_ports: ports to issue ``sfputil reset`` on (one per module).
-        toggle_ports: every subport to shut before / start after the resets.
-        recover_wait_sec: settle time between the resets and the startup.
+        toggle_ports: every subport to shut / start around the resets.
+        recover_wait_sec: settle time between the resets and ``post_reset_check``.
+        post_reset_check: optional zero-arg callable run after
+            ``recover_wait_sec``, while the modules are still in their
+            post-reset state; returns a list of failure strings that are
+            aggregated with the operation failures.
+        skip_pre_reset_shutdown: opt in to resetting with ``toggle_ports``
+            admin-up, shutting them down only after ``post_reset_check``.
 
     Returns:
         list[str]: operation failures for the caller to aggregate.
     """
-    logger.info("sfputil reset of %d module(s), toggling %d port(s)",
-                len(reset_ports), len(toggle_ports))
-    failures = perform_ports_shutdown(duthost, toggle_ports, shutdown_wait_sec)
+    logger.info("sfputil reset of %d module(s), toggling %d port(s)%s",
+                len(reset_ports), len(toggle_ports),
+                ", ports admin-up during reset" if skip_pre_reset_shutdown else "")
+    failures = []
+    if not skip_pre_reset_shutdown:
+        failures += perform_ports_shutdown(duthost, toggle_ports, shutdown_wait_sec)
 
     try:
         for port in reset_ports:
@@ -337,6 +357,10 @@ def perform_sfputil_reset(duthost, reset_ports, toggle_ports, shutdown_wait_sec,
                 failures.append(err)
         if recover_wait_sec:
             time.sleep(recover_wait_sec)
+        if post_reset_check is not None:
+            failures += post_reset_check()
+        if skip_pre_reset_shutdown:
+            failures += perform_ports_shutdown(duthost, toggle_ports, shutdown_wait_sec)
     finally:
         failures += perform_ports_startup(duthost, toggle_ports, startup_wait_sec)
 
@@ -411,3 +435,42 @@ def perform_lpmode_set(duthost, port, low_power=True):
     if err:
         return [err]
     return verify_lpmode(duthost, port, low_power)
+
+
+def verify_ports_lpmode(duthost, ports, low_power):
+    """Batched :func:`verify_lpmode`: one ``sfputil show lpmode`` dump checked
+    against every port in ``ports``, rather than one CLI call per port.
+
+    Returns a list of per-port failure strings.
+    """
+    if not ports:
+        return []
+    expected = "On" if low_power else "Off"
+    lpmode, err = cli_helpers.sfputil_show_lpmode(duthost)
+    if err:
+        return [err]
+    failures = [
+        f"port {port} low-power mode is {lpmode.get(port) or 'unknown'}, expected {expected}"
+        for port in ports if lpmode.get(port) != expected
+    ]
+    logger.info("Low-power mode %s on %d/%d port(s)",
+                expected, len(ports) - len(failures), len(ports))
+    return failures
+
+
+def perform_ports_lpmode_set(duthost, ports, low_power=True):
+    """Move every port in ``ports`` into (``low_power=True``) or out of
+    low-power mode, then verify all of them with one batched read.
+
+    The ``sfputil lpmode`` writes are issued back-to-back with no settle in
+    between, so the caller can apply a single shared settle wait afterwards.
+
+    Returns a list of per-port failure strings.
+    """
+    failures = []
+    for port in ports:
+        elapsed, err = cli_helpers.sfputil_set_lpmode(duthost, port, low_power)
+        logger.info("Port %s: lpmode %s took %ss", port, "on" if low_power else "off", elapsed)
+        if err:
+            failures.append(err)
+    return failures + verify_ports_lpmode(duthost, ports, low_power)
