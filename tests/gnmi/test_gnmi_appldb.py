@@ -6,6 +6,7 @@ import grpc
 import pytest
 
 from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
+from tests.common.helpers.sonic_db import APPL_DB, redis_exists, redis_sismember, redis_srem
 from tests.common.pygnmi_client import PygnmiClientCallError
 from tests.common.utilities import wait_until
 
@@ -23,13 +24,7 @@ VNET = "Vnet1"
 
 
 def _vnet_exists(duthost):
-    result = duthost.shell(
-        "sonic-db-cli APPL_DB EXISTS {}".format(
-            " ".join("{}:{}".format(table, VNET) for table in TABLES)))
-    assert result["rc"] == 0, "Failed to check APPL_DB Vnet1"
-    count = result["stdout"].strip()
-    assert count in ("0", "1", "2"), "Unexpected Redis EXISTS result: {!r}".format(count)
-    return count != "0"
+    return bool(redis_exists(duthost, APPL_DB, *("{}:{}".format(table, VNET) for table in TABLES)))
 
 
 def _read_vni(client, table):
@@ -75,9 +70,7 @@ def test_gnmi_appldb_01(gnmi_tls):  # noqa: F811
     if _vnet_exists(duthost):
         pytest.skip("Preserving pre-existing APPL_DB Vnet1")
     for suffix in ("KEY_SET", "DEL_SET"):
-        result = duthost.shell("sonic-db-cli APPL_DB SISMEMBER DASH_VNET_TABLE_{} {}".format(suffix, VNET))
-        assert result["rc"] == 0 and result["stdout"].strip() in ("0", "1"), "Failed to check pending Vnet1"
-        if result["stdout"].strip() == "1":
+        if redis_sismember(duthost, APPL_DB, "DASH_VNET_TABLE_{}".format(suffix), VNET):
             pytest.skip("Preserving pending APPL_DB Vnet1 operation")
 
     try:
@@ -104,8 +97,7 @@ def test_gnmi_appldb_01(gnmi_tls):  # noqa: F811
         assert wait_until(10, 1, 0, _vnet_absent, duthost), "APPL_DB Vnet1 cleanup did not converge"
         # A non-DASH DUT may have no consumer to drain the producer's tombstone.
         for suffix in ("KEY_SET", "DEL_SET"):
-            result = duthost.shell("sonic-db-cli APPL_DB SREM DASH_VNET_TABLE_{} {}".format(suffix, VNET))
-            assert result["rc"] == 0 and result["stdout"].strip() in ("0", "1"), "Vnet1 pending cleanup failed"
+            redis_srem(duthost, APPL_DB, "DASH_VNET_TABLE_{}".format(suffix), VNET)
         logger.info("APPLDB_CLEANUP_VERIFIED dut=%s Vnet1 absent from both tables", duthost.hostname)
 
     logger.info("APPLDB_MANAGED_TLS_VERIFIED dut=%s VNI=1000 Set/Get/Delete and cleanup verified", duthost.hostname)
