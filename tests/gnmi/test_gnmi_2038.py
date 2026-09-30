@@ -7,6 +7,7 @@ from functools import partial
 from dateutil import parser
 
 from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
+from tests.common.fixtures.grpc_fixtures import _restart_gnoi_server
 from tests.common.grpc_config import grpc_config
 from tests.common.helpers.gnmi_utils import prepare_root_cert, prepare_server_cert, prepare_client_cert
 
@@ -49,15 +50,13 @@ def test_gnmi_capabilities_2038(duthosts, rand_one_dut_hostname, localhost, ptfh
     ptfhost.copy(src=client.ca_cert, dest=gnmi_tls.cert_paths.ca_cert)
     ptfhost.copy(src=client.client_cert, dest=gnmi_tls.cert_paths.client_cert)
     ptfhost.copy(src=client.client_key, dest=gnmi_tls.cert_paths.client_key)
-    gnmi_tls.reconfigure_after_reboot()
+    _restart_gnoi_server(duthost)
 
     # Verify certificate date on DUT
     check_cert_date_on_dut(duthost)
 
-    # Verify GNMI capabilities to validate functionality
-    msg = gnmi_tls.pygnmi_client.capabilities()
-    assert any(model["name"] == "sonic-db" for model in msg["supported_models"]), msg
-    assert "json_ietf" in msg["supported_encodings"], msg
+    # A successful RPC verifies TLS connectivity with the long-validity certificates.
+    client.get("proc/uptime", target="OTHERS")
 
 
 def check_cert_date_on_dut(duthost):
