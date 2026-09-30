@@ -27,13 +27,18 @@ score = (1.0*n1 + 0.5*n2 + 0.0*n3) / (n1 + n2 + n3)
 
 Weights are configurable under `weights:` in `tier.yml`.
 
-**Zero SAI calls → `score = None` ("no SAI activity").** Do not treat absence
-of calls as perfect fidelity (never report `1.0` for an empty delta).
+**Zero SAI calls + trusted window (`OK` / `STITCHED`) → `score = 1.0`**
+("hardware-equivalent"): the test did not exercise SAI, so VS matches hardware
+for what was checked.
 
-Example log line:
+**Zero SAI calls + untrusted window** (`HISTORY_LOST` / `RECORDER_RESET` / …)
+→ **`score = None`** — empty may mean wipe, not CP-only. Never award `1.0` then.
+
+Example log lines:
 
 ```
 47 SAI calls — 32 tier 1, 12 tier 2, 3 tier 3 (score 0.83)
+0 SAI calls — hardware-equivalent (score 1.00)
 ```
 
 ## Unit tests (no DUT, no scapy)
@@ -55,9 +60,9 @@ The plugin does **not** rely on line count alone. Before each test it snapshots
 |---------------|---------|-------|
 | `OK` | Same inode; read new lines only | Normal |
 | `STITCHED` | File was renamed (e.g. to `.1`); residual + new file combined | Normal (summary shows `[stitched]`) |
-| `HISTORY_LOST` / `RECORDER_RESET` / `TRUNCATED` / … | Cannot rebuild the window | **`score=None`** + error reason — never a fake “no SAI activity” |
+| `HISTORY_LOST` / `RECORDER_RESET` / `TRUNCATED` / … | Cannot rebuild the window | **`score=None`** + error reason — never a fake `1.0` |
 
-True empty delta with `OK` still means “no SAI activity” (`score=None`).
+True empty delta with `OK` / `STITCHED` → **`score=1.0`** (hardware-equivalent).
 
 ## Run against a VS / KNE testbed
 
@@ -89,6 +94,9 @@ Default path: `logs/sai_fidelity.json`. Each test record includes:
 **Warning:** A **PASSED** test with a **low** fidelity score means the test
 passed on VS but exercised stubbed or unenforced SAI paths. Treat that as
 "**verify on hardware**" — do not assume VS PASS ≡ ASIC PASS for those ops.
+
+Terminal / JSON summary also reports:
+`scored %` | `None(wipe) %` | `None(other) %` | `mean` score.
 
 ## Layout
 

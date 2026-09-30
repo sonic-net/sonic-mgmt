@@ -4,7 +4,7 @@ Inode-aware sairedis.rec windowing for SAI fidelity scoring.
 Handles logrotate rename (sairedis.rec -> sairedis.rec.1) by stitching the
 remainder of the old inode with the new active file. When history cannot be
 reconstructed, returns an explicit status so callers can set score=None
-instead of reporting a false "no SAI activity".
+instead of reporting a false hardware-equivalent score of 1.0.
 
 Statuses
 --------
@@ -40,7 +40,7 @@ STATUS_RECORDER_RESET = "RECORDER_RESET"
 STATUS_TOO_LARGE = "TOO_LARGE"
 STATUS_ERROR = "ERROR"
 
-# Statuses where scoring with empty/missing text must not claim "no SAI activity"
+# Statuses where empty/missing text must not get score=1.0 (hardware-equivalent)
 UNRELIABLE_EMPTY = frozenset(
     (
         STATUS_HISTORY_LOST,

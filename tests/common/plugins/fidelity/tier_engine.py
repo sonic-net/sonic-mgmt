@@ -14,8 +14,10 @@ Default weights (configurable in tier.yml)::
     w2 = 0.5   # Tier 2 — stored, not enforced
     w3 = 0.0   # Tier 3 — stubbed / missing
 
-When n1+n2+n3 == 0 the score is None ("no SAI activity"). Absence of SAI
-calls is not fidelity — do not report 1.0.
+When n1+n2+n3 == 0 the score is 1.0 ("hardware-equivalent"): the test did
+not exercise SAI, so on VS it is as close to hardware as a CP-only check.
+Callers must still refuse 1.0 when the observation window is untrusted
+(wipe/rotate with HISTORY_LOST, etc.) — that is handled by the pytest plugin.
 """
 
 from __future__ import annotations
@@ -263,15 +265,15 @@ def calc_score(
     weights: Optional[Dict[int, float]] = None,
 ) -> Optional[float]:
     """
-    Weighted mean fidelity score.
+    Weighted mean fidelity score (closeness to hardware on VS).
 
     score = (w1*n1 + w2*n2 + w3*n3) / (n1+n2+n3)
 
-    Returns None when there are zero SAI calls (not 1.0).
+    Zero SAI calls → 1.0 (hardware-equivalent / control-plane only).
     """
     total = n1 + n2 + n3
     if total == 0:
-        return None
+        return 1.0
     w = weights or DEFAULT_WEIGHTS
     numeric = (
         w.get(1, 1.0) * n1
@@ -291,12 +293,14 @@ def format_summary(
     total = n1 + n2 + n3
     if score is None:
         if total == 0:
-            return "0 SAI calls — no SAI activity"
+            return "0 SAI calls — score=None (untrusted window)"
         return (
             "{} SAI calls — {} tier 1, {} tier 2, {} tier 3 (score None)".format(
                 total, n1, n2, n3
             )
         )
+    if total == 0:
+        return "0 SAI calls — hardware-equivalent (score {:.2f})".format(score)
     return (
         "{} SAI calls — {} tier 1, {} tier 2, {} tier 3 (score {:.2f})".format(
             total, n1, n2, n3, score

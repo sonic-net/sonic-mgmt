@@ -407,21 +407,29 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
         return
 
     terminalreporter.write_sep("=", "SAI fidelity summary")
+    n_tests = len(_results)
     scored = [r for r in _results if r.get("score") is not None]
+    none_wipe = [
+        r
+        for r in _results
+        if r.get("score") is None
+        and r.get("window_status") in UNRELIABLE_EMPTY
+    ]
+    none_other = [
+        r
+        for r in _results
+        if r.get("score") is None
+        and r.get("window_status") not in UNRELIABLE_EMPTY
+    ]
     total_calls = sum(r["total"] for r in _results)
     sum_n1 = sum(r["n1"] for r in _results)
     sum_n2 = sum(r["n2"] for r in _results)
     sum_n3 = sum(r["n3"] for r in _results)
-    run_score = tier_engine.calc_score(
-        sum_n1,
-        sum_n2,
-        sum_n3,
-        weights=getattr(
-            getattr(config, "_sai_fidelity_table", None),
-            "weights",
-            None,
-        ),
+    # Mean of per-test scores (includes 1.0 for trusted empty / CP-only tests)
+    run_score = (
+        sum(r["score"] for r in scored) / float(len(scored)) if scored else None
     )
+    pct = lambda k: (100.0 * k / n_tests) if n_tests else 0.0
 
     for record in _results:
         score_s = (
@@ -440,21 +448,49 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
 
     terminalreporter.write_line("")
     terminalreporter.write_line(
-        "  run totals: {} tests, {} with score, {} SAI calls "
-        "(t1={}, t2={}, t3={})  run_score={}".format(
-            len(_results),
+        "  scored: {}/{} ({:.0f}%)  |  None(wipe): {}/{} ({:.0f}%)  |  "
+        "None(other): {}/{} ({:.0f}%)  |  mean={}".format(
             len(scored),
+            n_tests,
+            pct(len(scored)),
+            len(none_wipe),
+            n_tests,
+            pct(len(none_wipe)),
+            len(none_other),
+            n_tests,
+            pct(len(none_other)),
+            "None" if run_score is None else "{:.2f}".format(run_score),
+        )
+    )
+    terminalreporter.write_line(
+        "  run totals: {} tests, {} SAI calls "
+        "(t1={}, t2={}, t3={})".format(
+            n_tests,
             total_calls,
             sum_n1,
             sum_n2,
             sum_n3,
-            "None" if run_score is None else "{:.2f}".format(run_score),
         )
     )
 
     report_path = config.getoption("--sai-fidelity-report")
     try:
-        _write_json_report(report_path, _results, run_score, config)
+        _write_json_report(
+            report_path,
+            _results,
+            run_score,
+            config,
+            stats={
+                "n_tests": n_tests,
+                "n_scored": len(scored),
+                "pct_scored": pct(len(scored)),
+                "n_none_wipe": len(none_wipe),
+                "pct_none_wipe": pct(len(none_wipe)),
+                "n_none_other": len(none_other),
+                "pct_none_other": pct(len(none_other)),
+                "mean_score": run_score,
+            },
+        )
         terminalreporter.write_line("  JSON report: {}".format(report_path))
     except Exception as exc:
         logger.warning("SAI fidelity: failed to write JSON report: %s", exc)
@@ -463,7 +499,7 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
         )
 
 
-def _write_json_report(path, results, run_score, config):
+def _write_json_report(path, results, run_score, config, stats=None):
     directory = os.path.dirname(path)
     if directory and not os.path.isdir(directory):
         os.makedirs(directory, exist_ok=True)
@@ -472,6 +508,7 @@ def _write_json_report(path, results, run_score, config):
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "tier_file": getattr(config, "_sai_fidelity_tier_path", None),
         "run_score": run_score,
+        "stats": stats or {},
         "tests": [
             {
                 "nodeid": r["nodeid"],

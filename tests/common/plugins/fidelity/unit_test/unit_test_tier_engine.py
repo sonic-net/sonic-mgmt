@@ -194,10 +194,17 @@ class TestTierEngine(unittest.TestCase):
         self.assertIn("4 tier 3", summary)
         self.assertIn("score 0.55", summary)
 
-    def test_zero_calls_score_none(self):
-        self.assertIsNone(tier_engine.calc_score(0, 0, 0))
-        summary = tier_engine.format_summary(0, 0, 0, None)
-        self.assertIn("no SAI activity", summary)
+    def test_zero_calls_score_one(self):
+        score = tier_engine.calc_score(0, 0, 0)
+        self.assertEqual(score, 1.0)
+        summary = tier_engine.format_summary(0, 0, 0, score)
+        self.assertIn("hardware-equivalent", summary)
+        self.assertIn("score 1.00", summary)
+        # Untrusted empty window still summarized as score=None by callers
+        self.assertIn(
+            "untrusted window",
+            tier_engine.format_summary(0, 0, 0, None),
+        )
 
     def test_breakdown_includes_unknown(self):
         rows = tier_engine.object_type_breakdown(self.flat, self.table, top_n=20)
