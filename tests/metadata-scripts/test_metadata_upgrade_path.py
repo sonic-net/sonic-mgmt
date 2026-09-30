@@ -3,6 +3,7 @@ import logging
 import pytest
 from utilities import boot_into_base_image, boot_into_base_image_t2, cleanup_prev_images, sonic_update_firmware
 from postupgrade_helper import run_postupgrade_actions, run_bgp_neighbor
+from firmware_report_helper import find_metadata_actions_dir, verify_unmapped_update_firmware_failure_report
 from tests.common.helpers.dut_utils import patch_rsyslog
 from tests.common.reboot import REBOOT_TYPE_COLD
 from tests.common.helpers.upgrade_helpers import install_sonic, upgrade_test_helper, add_pfc_storm_table
@@ -175,6 +176,10 @@ def test_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost,
                         postboot_setup=upgrade_path_postboot_setup,
                         consistency_checker_provider=consistency_checker_provider,
                         enable_cpa=enable_cpa)
+
+    if metadata_process and request.config.getoption('upgrade_strategy') == 'script':
+        # Include reporting coverage in the existing A->B case after a successful upgrade.
+        verify_unmapped_update_firmware_failure_report(duthost, find_metadata_actions_dir())
 
 
 def test_upgrade_path_t2(localhost, duthosts, ptfhost, upgrade_path_lists,

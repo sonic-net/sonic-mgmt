@@ -1,6 +1,8 @@
 import logging
+
 import pytest
 from postupgrade_helper import run_postupgrade_actions, run_bgp_neighbor
+from firmware_report_helper import find_metadata_actions_dir, verify_unmapped_update_firmware_failure_report
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -8,6 +10,14 @@ pytestmark = [
     pytest.mark.skip_check_dut_health
 ]
 logger = logging.getLogger(__name__)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def metadata_actions_dir():
+    actions_dir = find_metadata_actions_dir()
+    if actions_dir is None:
+        pytest.skip("SONiC metadata checkout is not available in this test environment")
+    return actions_dir
 
 
 @pytest.fixture(autouse=True)
@@ -32,3 +42,15 @@ def test_postupgrade_actions(duthosts, localhost, rand_one_dut_hostname, tbinfo)
 def test_bgp_neighbors(duthosts, localhost, rand_one_dut_hostname, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
     run_bgp_neighbor(duthost, localhost, tbinfo, True, False)
+
+
+# This isolated reporting test does not exercise live routing services; their
+# pre-existing memory usage is outside the contract being validated here.
+@pytest.mark.disable_memory_utilization
+def test_unmapped_update_firmware_failure_report(
+    duthosts,
+    rand_one_dut_hostname,
+    metadata_actions_dir,
+):
+    """Run the real firmware entry point with a failing Redis query in an isolated filesystem."""
+    verify_unmapped_update_firmware_failure_report(duthosts[rand_one_dut_hostname], metadata_actions_dir)
