@@ -598,11 +598,12 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
                                            docker_network['bridge']['IPv6Address']))
 
         # Bridged containers forward rsyslog to the host over docker0 (tcp/2514);
-        # caclmgrd installs a per-feature INPUT ACCEPT while the feature is enabled,
-        # so generate the expectation from the same condition caclmgrd keys on.
-        feature_status, _ = duthost.get_feature_status()
+        # the per-feature INPUT ACCEPT is present whenever the container is actually
+        # running on the docker bridge, which can diverge from the FEATURE admin state
+        # (e.g. a container still up while the feature is marked disabled). Key the
+        # expectation off the running container so it matches what installs the rule.
         for feature in ("dhcp_server", "redfish"):
-            if feature_status.get(feature) == "enabled":
+            if feature in docker_network['container']:
                 iptables_rules.append(
                     "-A INPUT -i docker0 -p tcp -m tcp --dport 2514"
                     " -m comment --comment {}_syslog -j ACCEPT".format(feature))
