@@ -34,6 +34,9 @@ Breakout CLI COMMAND
 - 'sudo config interface breakout Ethernet0 4x200G[100G] -f'
 - 'sudo config interface breakout Ethernet0 8x100G[50G] -f'
 
+### Transceiver Breakout Capability / Host Lane Configuration
+- 'show interface transceiver info "interface_name"
+
 Ping Validation for IPv4 and IPv6 on DUT.
 ### Ping Validation for IPv4 and IPv6 on DUT
 
