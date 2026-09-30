@@ -325,36 +325,6 @@ def redis_keys(duthost, db, pattern):
     return out.split('\n') if out else []
 
 
-def _redis_count(duthost, db, operation, args, maximum):
-    """Run an integer-result command; errors must never look like absence."""
-    command = "{} -- {} {}".format(
-        shlex.quote(str(db)), operation,
-        ' '.join(shlex.quote(str(arg)) for arg in args))
-    result = _run_sonic_db_cli(duthost, command)
-    if result.get('rc') != 0:
-        raise RuntimeError("sonic-db-cli {} failed: {}".format(operation, result))
-    output = (result.get('stdout') or '').strip()
-    if not output.isascii() or not output.isdecimal() or not 0 <= int(output) <= maximum:
-        raise ValueError("Unexpected {} result: {!r}".format(operation, output))
-    return int(output)
-
-
-def redis_exists(duthost, db, key, *keys):
-    """Return the number of existing keys; raise on CLI failure or invalid output."""
-    keys = (key,) + keys
-    return _redis_count(duthost, db, 'EXISTS', keys, len(keys))
-
-
-def redis_sismember(duthost, db, key, member):
-    """Return membership as bool; raise on CLI failure or invalid output."""
-    return bool(_redis_count(duthost, db, 'SISMEMBER', (key, member), 1))
-
-
-def redis_srem(duthost, db, key, member):
-    """Remove one set member and return 0 or 1; raise on CLI failure or invalid output."""
-    return _redis_count(duthost, db, 'SREM', (key, member), 1)
-
-
 class AsicDbCli(SonicDbCli):
     """
     Class to interface with the ASICDB on a host.
