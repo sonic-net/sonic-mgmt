@@ -1219,9 +1219,9 @@ def test_bgp_route_with_suppress(duthosts, enum_downstream_dut_hostname, enum_up
                 traffic_data_ipv4_drop, traffic_data_ipv6_drop = generate_route_and_traffic_data[FUNCTION]
 
         with allure.step("Config bgp suppress-fib-pending function"):
-            config_bgp_suppress_fib(duthost_down)
+            config_bgp_suppress_fib(duthost_down, loganalyzer=loganalyzer)
             if multi_dut:
-                config_bgp_suppress_fib(duthost_up)
+                config_bgp_suppress_fib(duthost_up, loganalyzer=loganalyzer)
 
         for continous_boot_index in range(continuous_boot_times):
             if continuous_boot_times > 1:
