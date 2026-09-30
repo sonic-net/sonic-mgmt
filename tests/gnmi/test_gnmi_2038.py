@@ -37,9 +37,12 @@ def test_gnmi_capabilities_2038(duthosts, rand_one_dut_hostname, localhost, ptfh
         copy_certificate_to_dut(duthost)
         copy_certificate_to_ptf(ptfhost)
 
+        # CONFIG_DB's GNMI certificate schema requires .cer paths.
+        duthost.copy(src="gnmiCA.pem", dest="/etc/sonic/telemetry/gnmiCA.cer")
+        duthost.copy(src="gnmiserver.crt", dest="/etc/sonic/telemetry/gnmiserver.cer")
         duthost.shell('sonic-db-cli CONFIG_DB hset "GNMI|certs" '
-                      'ca_crt /etc/sonic/telemetry/gnmiCA.pem '
-                      'server_crt /etc/sonic/telemetry/gnmiserver.crt '
+                      'ca_crt /etc/sonic/telemetry/gnmiCA.cer '
+                      'server_crt /etc/sonic/telemetry/gnmiserver.cer '
                       'server_key /etc/sonic/telemetry/gnmiserver.key')
         _restart_gnoi_server(duthost)
 
@@ -56,7 +59,7 @@ def test_gnmi_capabilities_2038(duthosts, rand_one_dut_hostname, localhost, ptfh
 
 
 def check_cert_date_on_dut(duthost):
-    cmd = "openssl x509 -in /etc/sonic/telemetry/gnmiCA.pem -text"
+    cmd = "openssl x509 -in /etc/sonic/telemetry/gnmiCA.cer -text"
     output = duthost.shell(cmd, module_ignore_errors=True)
     not_after_line = re.search(r"Not After\s*:\s*(.*)", output['stdout'])
     if not_after_line:
