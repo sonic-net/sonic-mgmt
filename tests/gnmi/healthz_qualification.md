@@ -8,10 +8,10 @@ it does not create a fault or change a DLDD rule.
 
 ## Build and partial live evidence, 2026-09-26–28 UTC
 
-The observations in this section used the earlier DLDD-specific stream and
-DLDD-owned archives. They establish behavior of those installed candidates,
-not deployment of the corrected generic `HEALTHZ_TRANSITIONS` stream or
-Healthz-owned archive API described in the checks below.
+The first observations in this section used the earlier DLDD-specific stream
+and DLDD-owned archives. The later corrected-source observations identify
+their own package and container versions. Keep evidence from those versions
+separate when assessing the checks below.
 
 The manual run in [live validation](../../../../dldd-healthz-live-validation-20260926.md)
 used a reversible host Python overlay and an extracted trixie telemetry binary
@@ -184,7 +184,7 @@ archive with its disk-matching header SHA256, and gNMI GET remained
 `HEALTHY/count 9`. Original rules, absent synthetic keys, active services,
 zero failed units and clean error-priority journals were confirmed.
 
-Device reboot, an official corrected gNMI package and boot image, deployed TLS
+As of 2026-09-28, device reboot, an official corrected gNMI package and boot image, deployed TLS
 roles, independent producer, inactive-only first publication, and live
 Redis-loss handling remain unverified. The exact-source private Redis
 producer/worker/SQLite run passed 28/28 checks and reproduced strict
@@ -192,6 +192,52 @@ partial-`EXEC` atomicity failure; its log is under
 `vxr-slurm-255:/nobackup/grboudre/healthz/.codex-sonic-builds/redis-e2e-final-20260928-002/run.log`
 (SHA256 `ad9173fa7bf2fe66e6d063da843e6781204f525f8669d8e7ca79a19ad8a12036`).
 No such failure was induced on the DUT.
+
+## Installed package and live qualification, 2026-09-30 UTC
+
+The [follow-up run](../../../../evidence/healthz-fixes-20260930/PLAN.md)
+built and deployed an exact-source host wheel (SHA256
+`3f8da71233fc43364475c9a3e847d922022e8d761ee5d5cb2f86ee2ac32b8db0`)
+and a gNMI package using the repository's Debian packaging (SHA256
+`a911d6bce37f03b1358ea13a127d9dadfd239db328598661b0d4bcac93351c9e`).
+The running replacement gNMI image is
+`sha256:54d21902b191e3ea6076c13278c2bbb24cdf3a779b61d6f884aecde0baf9bb28`.
+The host suite passed 1052 tests with 13 deselected; the separate DLDD
+integration tier passed 13/13, focused tests passed 128/128, and Ruff and
+compileall passed. Focused Go Healthz and Artifact tests passed in both
+`gnmi_server` and `sonic_service_client`. The host wheel contents and gNMI
+binary were checked against the tested source and package.
+
+On the installed packages, a controlled DLDD fault received archive/event ID
+`healthz-e15162aadc5e45d5bced15ad33f870bc.tar.gz`, matching the first
+ArtifactHeader ID. The selected query and log were present in the archive.
+Get/List, default acknowledgement filtering, repeated Acknowledge, Artifact
+streaming, OpenConfig GET, and standard Check returning Unimplemented passed.
+Routine refresh and scoped DLDD/host restarts created no duplicate event.
+Recovery produced distinct opaque ID
+`hz-11dcae3a9dc746048f879eb75e45198b` with no artifact. The fault row
+retained only scalar `healthz_artifact_id` as Healthz-specific data. A raw
+`STATE_DB` gNMI GET of `/FAULT_INFO` returned that ID. A fresh
+ON_CHANGE subscriber synchronized before an independent source transition and
+received both UNHEALTHY/count 13 and HEALTHY/count 13 updates; see the
+[captured subscription](../../../../evidence/healthz-fixes-20260930/onchange-live-v2/result.txt).
+The [final DUT check](../../../../evidence/healthz-fixes-20260930/final-dut-status.txt)
+reported all three services active, zero failed units, SQLite `quick_check=ok`,
+53 retained events, 10 acknowledgements, no active sources or pending
+artifacts, and the original rule checksum restored. A 49 MiB archive submission
+completed while concurrent Get/List/Acknowledge calls each returned in about
+1.5 seconds. An isolated Redis 8 check confirmed startup detection of
+`XADD MAXLEN` trimming using `entries-added > length` when
+`max-deleted-entry-id` remains `0-0`.
+
+An isolated normal SONiC Make rebuild of the gNMI Debian target stopped at its
+`sonic_yang_mgmt` prerequisite because offline pip could not obtain
+`jsondiff==2.2.1`; the Make image target was not run. Full boot-image
+build/reboot, deployed TLS authorization, and SpyTest qualification remain
+unverified. Strict Redis row/stream atomicity under
+execution-time errors remains unresolved. The package pins and source commits
+are local; none were pushed. The earlier historical observations above describe
+their dated candidate versions and do not replace this installed-package result.
 
 ## Inputs and transport
 
@@ -215,8 +261,9 @@ The host `artifact_status` must progress from `PENDING` to `COMPLETED`, or an
 explicit failure must be reported through `fail_artifact`. An asserted sample
 of an already active source uses `kind=observation`, `producer`, `source_key`,
 `component`, and `observed_at`; it carries no new transition ID or event.
-Use distinct IDs for real active and inactive transitions; reuse an existing
-transition ID only for replay of that same state.
+Use a new transition ID for every real publication. DLDD does not reconstruct
+or replay a lost transition from `FAULT_INFO` after restart; duplicate delivery
+of an existing stream record must remain idempotent.
 
 Keep the ON_CHANGE subscription running before each controlled transition.
 Use the existing `gnmi_tls` fixture in
@@ -259,18 +306,51 @@ ack = gnmi_tls.grpc.call_unary(
 
 `Get` returns `component`; `List` returns `statuses`. Use the component name
 key exactly as published in OpenConfig platform data. Keep the complete RPC
-responses and timestamps as evidence. For each transition, start a bounded
-subscription before the external fixture changes the fault:
+responses and timestamps as evidence. For each transition, consume a bounded
+subscription on a separate client while the external fixture changes the
+fault. `subscribe()` returns a lazy generator; constructing it or collecting
+it with `list()` before triggering the fixture does not establish a concurrent
+subscriber. The fixture client can still make independent gNMI Get calls:
 
 ```python
-from tests.common.pygnmi_client import StreamMode
+from concurrent.futures import ThreadPoolExecutor
+from threading import Event
+from tests.common.pygnmi_client import PygnmiClient, StreamMode
 
-notifications = list(gnmi_tls.pygnmi_client.subscribe(
-    f"openconfig://components/component[name={component}]/healthz/state",
-    stream_mode=StreamMode.ON_CHANGE,
-    collect_seconds=60,
-))
+base = gnmi_tls.pygnmi_client
+subscriber = PygnmiClient(
+    base.host, base.port, plaintext=base.plaintext,
+    ca_cert=base.ca_cert, client_cert=base.client_cert,
+    client_key=base.client_key,
+)
+synced = Event()
+
+def collect():
+    messages = []
+    for message in subscriber.subscribe(
+        f"openconfig://components/component[name={component}]/healthz/state",
+        stream_mode=StreamMode.ON_CHANGE,
+        collect_seconds=60,
+    ):
+        messages.append(message)
+        if message.get("sync_response"):
+            synced.set()
+    return messages
+
+with ThreadPoolExecutor(max_workers=1) as pool:
+    pending = pool.submit(collect)
+    assert synced.wait(30), "Healthz ON_CHANGE did not synchronize"
+    trigger_controlled_transition()  # Replace with the approved external fixture.
+    notifications = pending.result(timeout=65)
+
+sync_index = next(i for i, message in enumerate(notifications)
+                  if message.get("sync_response"))
+post_sync = notifications[sync_index + 1:]
 ```
+
+Evaluate the expected update in `post_sync`, not in the initial snapshot.
+Use a fresh subscription for each transition or leave the same collector
+running while the fixture makes multiple changes.
 
 ## Checks
 
@@ -332,8 +412,8 @@ notifications = list(gnmi_tls.pygnmi_client.subscribe(
    GET/ON_CHANGE and gNOI Get/List report `UNHEALTHY`, then `HEALTHY`; count
    rises only on activation and `last-unhealthy` advances on the observation.
    Confirm the two transition IDs create distinct opaque events, while the
-   observation creates none. Replay the latest inactive transition with its
-   original ID and `replay=1`; it must not add an event or increment the count.
+   observation creates none. Deliver the same inactive transition again with
+   its original ID; it must not add an event or increment the count.
    Confirm an absent `FAULT_INFO` row does not clear an active source; publish the
    explicit inactive transition before removing the fixture. If no approved
    independent producer fixture is available, record this check as `UNRUN`.
