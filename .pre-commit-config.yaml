@@ -66,4 +66,4 @@ repos:
         types: [python]
         require_serial: true
         args: [--rcfile=pylintrc]
-        files: ^(tests/common2|tests/gnmi)/
+        files: ^tests/common2/
