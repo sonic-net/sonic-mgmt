@@ -937,7 +937,8 @@ def config_bgp_suppress_fib(duthost, enable=True, validate_result=False, loganal
 
     duthost.shell("sudo config suppress-fib-pending  {}".format(cmd_pstfix))
     duthost.shell('sudo config save -y')
-    config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True, ignore_loganalyzer=loganalyzer)
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True,
+                  ignore_loganalyzer=loganalyzer)
     if validate_result:
         validate_bgp_suppress_fib(duthost, enable)
 
