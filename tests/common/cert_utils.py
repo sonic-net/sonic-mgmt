@@ -67,9 +67,6 @@ class TlsCertificateGenerator:
         server_key_name: Optional[str] = None,
         client_cert_name: Optional[str] = None,
         client_key_name: Optional[str] = None,
-        ca_validity_days: Optional[int] = None,
-        server_validity_days: Optional[int] = None,
-        client_validity_days: Optional[int] = None,
     ):
         """
         Initialize the certificate generator.
@@ -89,15 +86,9 @@ class TlsCertificateGenerator:
             server_key_name: Filename for server private key
             client_cert_name: Filename for client certificate
             client_key_name: Filename for client private key
-            ca_validity_days: CA validity override; defaults to validity_days
-            server_validity_days: Server validity override; defaults to validity_days
-            client_validity_days: Client validity override; defaults to validity_days
         """
         self.server_ip = server_ip
         self.validity_days = validity_days
-        self.ca_validity_days = ca_validity_days
-        self.server_validity_days = server_validity_days
-        self.client_validity_days = client_validity_days
         self.backdate_days = backdate_days
         self.dns_names = dns_names or ["localhost"]
         self.key_size = key_size
@@ -130,17 +121,17 @@ class TlsCertificateGenerator:
             key_size=self.key_size,
         )
 
-    def _get_validity_period(self, validity_days=None) -> Tuple[datetime, datetime]:
+    def _get_validity_period(self) -> Tuple[datetime, datetime]:
         """Get certificate validity period with backdating for clock skew tolerance."""
         now = datetime.now(timezone.utc)
         not_valid_before = now - timedelta(days=self.backdate_days)
-        not_valid_after = now + timedelta(days=self.validity_days if validity_days is None else validity_days)
+        not_valid_after = now + timedelta(days=self.validity_days)
         return not_valid_before, not_valid_after
 
     def _generate_ca(self) -> Tuple[rsa.RSAPrivateKey, x509.Certificate]:
         """Generate CA certificate and key."""
         key = self._generate_key()
-        not_valid_before, not_valid_after = self._get_validity_period(self.ca_validity_days)
+        not_valid_before, not_valid_after = self._get_validity_period()
 
         subject = issuer = x509.Name([
             x509.NameAttribute(NameOID.COMMON_NAME, self.ca_cn),
@@ -189,7 +180,7 @@ class TlsCertificateGenerator:
     ) -> Tuple[rsa.RSAPrivateKey, x509.Certificate]:
         """Generate server certificate signed by CA."""
         key = self._generate_key()
-        not_valid_before, not_valid_after = self._get_validity_period(self.server_validity_days)
+        not_valid_before, not_valid_after = self._get_validity_period()
 
         subject = x509.Name([
             x509.NameAttribute(NameOID.COMMON_NAME, self.server_cn),
@@ -243,7 +234,7 @@ class TlsCertificateGenerator:
     ) -> Tuple[rsa.RSAPrivateKey, x509.Certificate]:
         """Generate client certificate signed by CA."""
         key = self._generate_key()
-        not_valid_before, not_valid_after = self._get_validity_period(self.client_validity_days)
+        not_valid_before, not_valid_after = self._get_validity_period()
 
         subject = x509.Name([
             x509.NameAttribute(NameOID.COMMON_NAME, self.client_cn),

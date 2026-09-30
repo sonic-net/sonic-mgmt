@@ -139,12 +139,6 @@ patch_ansible_worker_process()
 fix_logging_handler_fork_lock()
 
 
-@pytest.fixture
-def gnmi_cert_options():
-    """Certificate generator options; override locally for custom validity tests."""
-    return {}
-
-
 def pytest_addoption(parser):
     parser.addoption("--testbed", action="store", default=None, help="testbed name")
     parser.addoption("--testbed_file", action="store", default=None, help="testbed file name")

@@ -224,7 +224,7 @@ class GnmiFixture:
 
 
 @pytest.fixture(scope="function")
-def gnmi_tls(request, duthosts, ptfhost, gnmi_cert_options):
+def gnmi_tls(request, duthosts, ptfhost):
     """
     Set up gNMI/gNOI environment and yield a coupled GnmiFixture.
 
@@ -275,8 +275,7 @@ def gnmi_tls(request, duthosts, ptfhost, gnmi_cert_options):
     try:
         # 2-5. Generate/distribute certs, configure + restart server, verify handshake
         _establish_gnoi_tls_handshake(
-            duthost, ptfhost=ptfhost, cert_dir=cert_dir, regen_certs=True, verify=True,
-            cert_options=gnmi_cert_options,
+            duthost, ptfhost=ptfhost, cert_dir=cert_dir, regen_certs=True, verify=True
         )
 
         # Build coupled client with the exact config we just set up
@@ -483,7 +482,7 @@ def ptf_gnoi(ptf_grpc):
 # ---------------------------------------------------------------------------
 
 def _establish_gnoi_tls_handshake(duthost, ptfhost=None, cert_dir=None,
-                                  regen_certs=True, verify=False, cert_options=None):
+                                  regen_certs=True, verify=False):
     """
     Bring the gNOI TLS server into a state where the PTF client can connect.
     Single source of truth called at setup, after reboot, and after upgrade.
@@ -496,7 +495,7 @@ def _establish_gnoi_tls_handshake(duthost, ptfhost=None, cert_dir=None,
         if ptfhost is None or cert_dir is None:
             raise RuntimeError("regen_certs=True requires ptfhost and cert_dir")
         duthost.shell(f"mkdir -p {grpc_config.DUT_CERT_DIR}")  # ensure DUT cert dir exists
-        _create_gnoi_certs(duthost, ptfhost, cert_dir, cert_options)  # gen + copy to DUT/PTF
+        _create_gnoi_certs(duthost, ptfhost, cert_dir)         # gen + copy to DUT/PTF
 
     _configure_gnoi_tls_server(duthost)  # write TLS settings into CONFIG_DB
     _restart_gnoi_server(duthost)        # restart so server picks up new config
@@ -508,7 +507,7 @@ def _establish_gnoi_tls_handshake(duthost, ptfhost=None, cert_dir=None,
         _verify_gnoi_tls_connectivity(duthost, ptfhost)
 
 
-def _create_gnoi_certs(duthost, ptfhost, cert_dir, cert_options=None):
+def _create_gnoi_certs(duthost, ptfhost, cert_dir):
     """
     Generate and distribute gNOI TLS certificates.
 
@@ -522,7 +521,7 @@ def _create_gnoi_certs(duthost, ptfhost, cert_dir, cert_options=None):
     logger.info("Generating gNOI TLS certificates")
 
     # Generate certificates with 1-day backdating to handle clock skew
-    generator = create_gnmi_cert_generator(server_ip=duthost.mgmt_ip, **(cert_options or {}))
+    generator = create_gnmi_cert_generator(server_ip=duthost.mgmt_ip)
     generator.write_all(cert_dir)
 
     logger.info(f"Certificates generated in {cert_dir}")
