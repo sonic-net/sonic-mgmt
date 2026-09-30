@@ -4871,6 +4871,15 @@ reboot/test_reboot_blocking_mode.py:
       - "(is_multi_asic==True) and (asic_type in ['vs']) and https://github.com/sonic-net/sonic-mgmt/issues/23879"
 
 #######################################
+#####           redfish           #####
+#######################################
+redfish/test_redfish_service_root.py::TestRedfishServiceRoot::test_service_root_fields:
+  xfail:
+    reason: "Xfail due to GitHub issue https://github.com/sonic-net/sonic-buildimage/issues/29854. The service root Product field only carries the base-MAC suffix when bmcweb and sonic-dbus-bridge are built from sonic-redfish PR #31 or newer, and the BMC image still ships older binaries"
+    conditions:
+      - "('bmc' in topo_type) and https://github.com/sonic-net/sonic-buildimage/issues/29854"
+
+#######################################
 #####      reset_factory          #####
 #######################################
 reset_factory:
