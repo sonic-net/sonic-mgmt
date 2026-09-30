@@ -1,15 +1,14 @@
 import pytest
 import logging
 import re
-import shutil
 from datetime import datetime, timezone
-from functools import partial
 from dateutil import parser
 
-from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
 from tests.common.fixtures.grpc_fixtures import _restart_gnoi_server
-from tests.common.grpc_config import grpc_config
-from tests.common.helpers.gnmi_utils import prepare_root_cert, prepare_server_cert, prepare_client_cert
+from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
+from tests.common.helpers.gnmi_utils import prepare_root_cert, prepare_server_cert, prepare_client_cert, \
+    copy_certificate_to_dut, copy_certificate_to_ptf, delete_gnmi_certs
+from tests.common.pygnmi_client import PygnmiClient
 
 logger = logging.getLogger(__name__)
 
@@ -24,43 +23,40 @@ SERVER_CERT_DAYS = 4800
 CLIENT_CERT_DAYS = 4800
 
 
-def test_gnmi_capabilities_2038(duthosts, rand_one_dut_hostname, localhost, ptfhost,
-                                gnmi_tls, tmp_path, monkeypatch):  # noqa: F811
+def test_gnmi_capabilities_2038(duthosts, rand_one_dut_hostname, localhost, ptfhost, gnmi_tls):  # noqa: F811
     '''
     Verify certificate after 2038 year problem
     '''
     duthost = duthosts[rand_one_dut_hostname]
 
-    # Keep the legacy validity periods, but install into the managed TLS paths.
-    with monkeypatch.context() as patch:
-        patch.chdir(tmp_path)
-        patch.setattr(localhost, "shell", partial(localhost.shell, chdir=str(tmp_path)))
+    try:
         prepare_root_cert(localhost, days=ROOT_CERT_DAYS)
         prepare_server_cert(duthost, localhost, days=SERVER_CERT_DAYS)
         prepare_client_cert(localhost, days=CLIENT_CERT_DAYS)
 
-    client = gnmi_tls.pygnmi_client
-    shutil.copyfile(tmp_path / "gnmiCA.pem", client.ca_cert)
-    shutil.copyfile(tmp_path / "gnmiclient.crt", client.client_cert)
-    shutil.copyfile(tmp_path / "gnmiclient.key", client.client_key)
-    dut_cert_paths = grpc_config.get_dut_cert_paths()
-    duthost.copy(src=str(tmp_path / "gnmiCA.pem"), dest=dut_cert_paths['ca_cert'])
-    duthost.copy(src=str(tmp_path / "gnmiserver.crt"), dest=dut_cert_paths['server_cert'])
-    duthost.copy(src=str(tmp_path / "gnmiserver.key"), dest=dut_cert_paths['server_key'])
-    ptfhost.copy(src=client.ca_cert, dest=gnmi_tls.cert_paths.ca_cert)
-    ptfhost.copy(src=client.client_cert, dest=gnmi_tls.cert_paths.client_cert)
-    ptfhost.copy(src=client.client_key, dest=gnmi_tls.cert_paths.client_key)
-    _restart_gnoi_server(duthost)
+        copy_certificate_to_dut(duthost)
+        copy_certificate_to_ptf(ptfhost)
 
-    # Verify certificate date on DUT
-    check_cert_date_on_dut(duthost)
+        duthost.shell('sonic-db-cli CONFIG_DB hset "GNMI|certs" '
+                      'ca_crt /etc/sonic/telemetry/gnmiCA.pem '
+                      'server_crt /etc/sonic/telemetry/gnmiserver.crt '
+                      'server_key /etc/sonic/telemetry/gnmiserver.key')
+        _restart_gnoi_server(duthost)
 
-    # A successful RPC verifies TLS connectivity with the long-validity certificates.
-    client.get("proc/uptime", target="OTHERS")
+        # Verify certificate date on DUT
+        check_cert_date_on_dut(duthost)
+
+        # A successful RPC verifies TLS connectivity with the long-validity certificates.
+        client = PygnmiClient(gnmi_tls.host, gnmi_tls.port,
+                              ca_cert="gnmiCA.pem", client_cert="gnmiclient.crt",
+                              client_key="gnmiclient.key", connect=False)
+        client.get("proc/uptime", target="OTHERS")
+    finally:
+        delete_gnmi_certs(localhost)
 
 
 def check_cert_date_on_dut(duthost):
-    cmd = "openssl x509 -in /etc/sonic/telemetry/gnmiCA.cer -text"
+    cmd = "openssl x509 -in /etc/sonic/telemetry/gnmiCA.pem -text"
     output = duthost.shell(cmd, module_ignore_errors=True)
     not_after_line = re.search(r"Not After\s*:\s*(.*)", output['stdout'])
     if not_after_line:
