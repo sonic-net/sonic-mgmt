@@ -19,10 +19,9 @@ def test_gnmi_appldb_01(gnmi_tls):  # noqa: F811
     '''
     client = gnmi_tls.pygnmi_client
     prefix = "sonic-db:APPL_DB/localhost"
+    text = "{\"Vnet1\": {\"vni\": \"1000\", \"guid\": \"559c6ce8-26ab-4193-b946-ccc6e8f930b2\"}}"
     # Add DASH_VNET_TABLE
-    client.set(update=[("DASH_VNET_TABLE", {
-        "Vnet1": {"vni": "1000", "guid": "559c6ce8-26ab-4193-b946-ccc6e8f930b2"}
-    })], prefix=prefix)
+    client.set(update=[("DASH_VNET_TABLE", text)], prefix=prefix)
     # Check gnmi_get result
     path_list1 = ["DASH_VNET_TABLE/Vnet1/vni"]
     path_list2 = ["_DASH_VNET_TABLE/Vnet1/vni"]
