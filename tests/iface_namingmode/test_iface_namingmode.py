@@ -800,6 +800,10 @@ class TestShowQueue():
 
             configDbCli = SonicDbCli(asic, "CONFIG_DB")
             buffer_queue_keys = configDbCli.get_keys("BUFFER_QUEUE|*", raise_error_when_not_found=False)
+            if not buffer_queue_keys:
+                if tbinfo["topo"]["type"] in ("uma", "lma"):
+                    pytest.skip("Buffer queues are not configured on DMA topologies")
+                pytest.fail("No BUFFER_QUEUE entries found in CONFIG_DB")
             interfaces = set()
 
             for key in buffer_queue_keys:
