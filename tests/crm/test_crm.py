@@ -1493,8 +1493,10 @@ def test_crm_fdb_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum
         used, _ = get_crm_stats(get_fdb_stats, duthost)
         return used == 0
 
-    # Wait for FDB clear; if it doesn't fully clear, proceed with current state
-    wait_until(fdb_clear_wait, CRM_POLLING_INTERVAL, 0, _fdb_cleared_initial)
+    pytest_assert(
+        wait_until(fdb_clear_wait, CRM_POLLING_INTERVAL, 0, _fdb_cleared_initial),
+        "FDB entries are not cleared before CRM validation"
+    )
 
     # Get "crm_stats_fdb_entry" used and available counter value
     crm_stats_fdb_entry_used, crm_stats_fdb_entry_available = get_crm_stats(get_fdb_stats, duthost)
