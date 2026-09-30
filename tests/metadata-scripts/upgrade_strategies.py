@@ -5,10 +5,29 @@ This module provides different strategies for performing SONiC upgrade operation
 supporting both traditional script-based approaches and modern gNOI-based methods.
 """
 import logging
+import shlex
 from abc import ABC, abstractmethod
 from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
+
+
+def run_preload_firmware_script(
+        duthost, image_url, image_name, md5sum, event_guid=None,
+        module_ignore_errors=False):
+    """Run the staged preload_firmware script."""
+    arguments = [image_name, image_url, md5sum]
+    if event_guid:
+        arguments.extend(["-e", event_guid])
+
+    command = "/usr/bin/sudo /tmp/anpscripts/preload_firmware {}".format(
+        " ".join(shlex.quote(argument) for argument in arguments)
+    )
+    duthost.command("chmod +x /tmp/anpscripts/preload_firmware")
+    command_options = {}
+    if module_ignore_errors:
+        command_options["module_ignore_errors"] = True
+    return duthost.command(command, **command_options)
 
 
 class UpgradeStrategy(ABC):
@@ -48,13 +67,12 @@ class ScriptUpgradeStrategy(UpgradeStrategy):
         """Download firmware using traditional preload_firmware script."""
         logger.info(f"Using script-based upgrade strategy for {image_name}")
 
-        # Ensure the preload_firmware script is executable
-        duthost.command("chmod +x /tmp/anpscripts/preload_firmware")
-
-        # Execute preload_firmware script with required parameters
         logger.info(f"Executing preload_firmware {image_name} {image_url} {md5sum}")
-        result = duthost.command(
-            f"/usr/bin/sudo /tmp/anpscripts/preload_firmware {image_name} {image_url} {md5sum}"
+        result = run_preload_firmware_script(
+            duthost,
+            image_url,
+            image_name,
+            md5sum
         )
 
         if result['rc'] != 0:

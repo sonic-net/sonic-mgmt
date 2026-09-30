@@ -75,6 +75,7 @@ parameters:
   displayName: "Case to run"
   values:
   - test_upgrade_path
+  - test_preload_firmware_ehf_checksum_failure
   - test_upgrade_path_t2
   - test_upgrade_path_t2_delayed
   - test_warm_upgrade_sad_path

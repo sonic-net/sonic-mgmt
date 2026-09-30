@@ -151,7 +151,8 @@ def cleanup_prev_images(duthost):
     duthost.shell("sonic_installer cleanup -y", module_ignore_errors=True)
 
 
-def sonic_update_firmware(duthost, localhost, image_url, upgrade_type, upgrade_strategy):
+def stage_metadata_scripts(duthost, localhost):
+    """Copy the checked-out sonic-metadata scripts to the DUT."""
     base_path = os.path.dirname(__file__)
     metadata_scripts_path = os.path.join(base_path, "../../../sonic-metadata/scripts")
     upgrade_scripts_path = os.path.join(base_path, "../../../sonic-upgrade-scripts/sonic-upgrade-scripts")
@@ -161,7 +162,6 @@ def sonic_update_firmware(duthost, localhost, image_url, upgrade_type, upgrade_s
     pytest_assert(os.path.exists(upgrade_scripts_path),
                   "SONiC upgrade scripts not found in {}".format(upgrade_scripts_path))
 
-    cleanup_prev_images(duthost)
     logger.info("Step 1 Copy the scripts to the DUT")
     duthost.file(path=HOST_METADATA_ARCHIVE, state="absent")
     duthost.file(path=HOST_UPGRADE_SCRIPTS_ARCHIVE, state="absent")
@@ -182,6 +182,12 @@ def sonic_update_firmware(duthost, localhost, image_url, upgrade_type, upgrade_s
 
     logger.info("perform a purge based on manifest.json to make sure it is correct")
     duthost.command("python /tmp/anpscripts/tests/purge.py")
+
+
+def sonic_update_firmware(
+        duthost, localhost, image_url, upgrade_type, upgrade_strategy):
+    cleanup_prev_images(duthost)
+    stage_metadata_scripts(duthost, localhost)
 
     logger.info("Step 2 Download firmware image")
     image_name = image_url.split("/")[-1]
