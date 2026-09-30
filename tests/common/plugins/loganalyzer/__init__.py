@@ -137,7 +137,7 @@ def loganalyzer(duthosts, request, log_rotate_modular_chassis):
         analyzer = LogAnalyzer(ansible_host=duthost, marker_prefix=request.node.name, request=request)
         analyzer.load_common_config()
         analyzers[duthost.hostname] = analyzer
-    markers = parallel_run(analyzer_add_marker, [analyzers], {}, analyzer_hosts, timeout=120)
+    markers = parallel_run(analyzer_add_marker, [analyzers], {}, analyzer_hosts, timeout=180)
 
     yield analyzers
 

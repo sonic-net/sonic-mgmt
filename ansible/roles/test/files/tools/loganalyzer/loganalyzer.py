@@ -107,6 +107,7 @@ class AnsibleLogAnalyzer:
             try:
                 existing.close()
             except Exception:
+                # Keep logger setup working if a detached handler cannot close.
                 pass
         handler = logging.handlers.SysLogHandler(address='/dev/log')
         logger.addHandler(handler)
@@ -523,7 +524,7 @@ class AnsibleLogAnalyzer:
         return False
 
     def place_marker(self, log_file_list, marker, wait_for_marker=False,
-                     write_attempts=3, marker_timeout=60):
+                     write_attempts=3, marker_timeout=160):
         '''
         @summary: Place marker into '/dev/log' and each log file specified.
         @param log_file_list :   List of file paths, to be applied with marker.
@@ -541,12 +542,12 @@ class AnsibleLogAnalyzer:
                                  analyze_file() fail.
         @param marker_timeout:   Overall time budget (seconds) shared across all
                                  write attempts when wait_for_marker is True.
-                                 Callers run this under parallel_run(timeout=120)
+                                 Callers run this under parallel_run(timeout=180)
                                  (see analyzer_add_marker), so the per-attempt
-                                 wait is bounded to marker_timeout/write_attempts
-                                 to guarantee every attempt can be emitted before
-                                 the worker is killed. Must stay comfortably
-                                 below the caller's parallel_run timeout.
+                                 The first attempt waits up to 120 seconds, as
+                                 the previous single-write path did; remaining
+                                 time is shared across retries. Must stay below
+                                 the caller's parallel_run timeout.
         '''
 
         for log_file in log_file_list:
@@ -580,12 +581,22 @@ class AnsibleLogAnalyzer:
             syslog_start_identity = None
 
         attempts = max(1, write_attempts)
-        # Split the overall budget across attempts so all writes fit inside the
-        # caller's parallel_run timeout even if early datagrams are dropped.
-        per_attempt_timeout = max(10, marker_timeout // attempts)
-        polling_interval = min(5, per_attempt_timeout)
+        # Give the first write the legacy 120-second window before retrying:
+        # rsyslog may delay a datagram rather than drop it. Reserve retry time
+        # from the overall budget so retries still fit within parallel_run.
+        if attempts == 1:
+            attempt_timeouts = [marker_timeout]
+        else:
+            retry_timeout = max(
+                10, (marker_timeout - 120) // (attempts - 1))
+            first_timeout = min(
+                120, max(10, marker_timeout - retry_timeout * (attempts - 1)))
+            retry_timeout = max(
+                10, (marker_timeout - first_timeout) // (attempts - 1))
+            attempt_timeouts = [first_timeout] + [retry_timeout] * (attempts - 1)
+        polling_interval = min(5, min(attempt_timeouts))
 
-        for attempt in range(1, attempts + 1):
+        for attempt, attempt_timeout in enumerate(attempt_timeouts, start=1):
             # Flush rsyslog first, then re-check before (re-)emitting. A
             # datagram from a previous attempt may have been merely delayed
             # inside rsyslog rather than dropped; the flush can push it out to
@@ -604,7 +615,7 @@ class AnsibleLogAnalyzer:
                                         start_identity=syslog_start_identity):
                 return
             self.place_marker_to_syslog(marker, flush=False)
-            if self.wait_for_marker(marker, timeout=per_attempt_timeout,
+            if self.wait_for_marker(marker, timeout=attempt_timeout,
                                     polling_interval=polling_interval,
                                     start_pos=syslog_start_pos,
                                     start_identity=syslog_start_identity):
