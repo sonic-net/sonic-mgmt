@@ -27,7 +27,7 @@ from tests.common.fixtures.fib_utils import (  # noqa: F401
     get_t2_fib_info,
     gen_fib_info_file,
     )
-from tests.common.utilities import wait
+from tests.common.utilities import wait, wait_until
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 
 logger = logging.getLogger(__name__)
@@ -52,6 +52,8 @@ VLANIDS = list(range(1032, 1279))
 VLANIP = '192.168.{}.1/24'
 PTF_QLEN = 20000
 DEFAULT_MUX_SERVER_PORT = 8080
+ECMP_MEMBER_RECOVERY_TIMEOUT = 180
+ECMP_MEMBER_RECOVERY_INTERVAL = 5
 
 PTF_TEST_PORT_MAP = '/root/ptf_test_port_map.json'
 
@@ -1048,13 +1050,34 @@ def test_ecmp_group_member_flap(
         if ptf_port in filtered_ports:
             filtered_ports.remove(ptf_port)
 
-    time.sleep(convergence_wait)  # Allow time for the state to stabilize
+    member_up_state = {"fib_files": None, "nh_ptf_ports": []}
+
+    def _ecmp_member_restored():
+        candidate_fib_files = fib_info_files_per_function(
+            duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts, tbinfo, request
+        )
+        candidate_nh_ptf_ports = check_default_route_from_fib_info(ptfhost, candidate_fib_files[0])
+        member_up_state["nh_ptf_ports"] = candidate_nh_ptf_ports
+        logging.info(
+            "Waiting for ECMP next hops to recover: expected {}, observed {}".format(
+                nh_ptf_ports, candidate_nh_ptf_ports
+            )
+        )
+        if set(nh_ptf_ports).issubset(set(candidate_nh_ptf_ports)):
+            member_up_state["fib_files"] = candidate_fib_files
+            return True
+        return False
+
+    pytest_assert(
+        wait_until(ECMP_MEMBER_RECOVERY_TIMEOUT, ECMP_MEMBER_RECOVERY_INTERVAL, 0, _ecmp_member_restored),
+        "ECMP next hops did not recover after member up. Expected {}, observed {}".format(
+            nh_ptf_ports, member_up_state["nh_ptf_ports"]
+        )
+    )
 
     # --- Re-run the PTF test after member is back up ---
     logging.info("Re-verifying ECMP behavior after member up.")
-    new_fib_files2 = fib_info_files_per_function(
-        duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts, tbinfo, request
-    )
+    new_fib_files2 = member_up_state["fib_files"]
     member_up_log_file = "/tmp/fib_test.ecmp_member_flap.member_up.ipv4.{}.ipv6.{}.{}.log".format(
                           ipv4, ipv6, timestamp)
     logging.info("PTF log file: {}".format(member_up_log_file))
