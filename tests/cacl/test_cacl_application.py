@@ -597,12 +597,15 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
                                    .format(v['IPv6Address'],
                                            docker_network['bridge']['IPv6Address']))
 
-        # dhcp_server forwards rsyslog to the host over docker0 (tcp/2514); caclmgrd adds this ACCEPT when enabled
+        # Bridged containers forward rsyslog to the host over docker0 (tcp/2514);
+        # caclmgrd installs a per-feature INPUT ACCEPT while the feature is enabled,
+        # so generate the expectation from the same condition caclmgrd keys on.
         feature_status, _ = duthost.get_feature_status()
-        if feature_status.get("dhcp_server") == "enabled":
-            iptables_rules.append(
-                "-A INPUT -i docker0 -p tcp -m tcp --dport 2514"
-                " -m comment --comment dhcp_server_syslog -j ACCEPT")
+        for feature in ("dhcp_server", "redfish"):
+            if feature_status.get(feature) == "enabled":
+                iptables_rules.append(
+                    "-A INPUT -i docker0 -p tcp -m tcp --dport 2514"
+                    " -m comment --comment {}_syslog -j ACCEPT".format(feature))
 
     else:
         iptables_rules.append("-A INPUT -s {}/32 -d {}/32 -j ACCEPT".format(docker_network['container']['database'
