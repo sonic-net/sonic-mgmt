@@ -469,7 +469,7 @@ def cleanup_macsec_multi_profile_configuration(duthost, ctrl_links, port_profile
         ctrl_links: dict ``{dut_port: {name, host, port, ...}}``.
         port_profiles: dict ``{dut_port: profile_dict}``.
     """
-    devices = set()
+    devices = set([nbr["host"] for nbr in ctrl_links.values()])
     if duthost.facts["asic_type"] == "vs":
         devices.add(duthost)
 
@@ -478,19 +478,12 @@ def cleanup_macsec_multi_profile_configuration(duthost, ctrl_links, port_profile
         time.sleep(3)
         disable_macsec_port(duthost, dut_port)
         disable_macsec_port(nbr["host"], nbr["port"])
-        devices.add(nbr["host"])
 
     logger.info("Multi-profile cleanup step 2: delete per-port profiles")
-    deleted_profiles = set()
     for dut_port, nbr in list(ctrl_links.items()):
         profile_name = port_profiles[dut_port]["name"]
-        if profile_name not in deleted_profiles:
-            delete_macsec_profile(duthost, profile_name)
-            deleted_profiles.add(profile_name)
-
-    for d in devices:
-        for profile_name in deleted_profiles:
-            delete_macsec_profile(d, profile_name)
+        delete_macsec_profile(duthost, profile_name)
+        delete_macsec_profile(nbr["host"], profile_name)
 
     logger.info("Multi-profile cleanup step 3: wait for automatic cleanup")
 

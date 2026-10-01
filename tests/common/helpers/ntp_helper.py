@@ -1,4 +1,5 @@
 from enum import Enum
+import logging
 import pytest
 import time
 from contextlib import contextmanager
@@ -111,8 +112,18 @@ def setup_ntp_context(ptfhost, duthost, ptf_use_ipv6):
     duthost.command("config ntp add %s %s" % ("--iburst" if ntp_add_iburst_present else "",
                     ptfhost.mgmt_ipv6 if ptf_use_ipv6 else ptfhost.mgmt_ip))
 
-    yield
+    try:
+        yield
+    finally:
+        restore_ntp_context(
+            ptfhost, duthost, ptf_use_ipv6, ntp_conf_path, ntp_service_name,
+            ntp_servers, ntp_add_iburst_present, ntp_conf_backup_path)
 
+
+def restore_ntp_context(
+        ptfhost, duthost, ptf_use_ipv6, ntp_conf_path, ntp_service_name,
+        ntp_servers, ntp_add_iburst_present, ntp_conf_backup_path):
+    """Restore PTF and DUT NTP configuration after setup_ntp_context."""
     # stop ntp server
     ptfhost.service(name=ntp_service_name, state="stopped")
 
@@ -150,6 +161,41 @@ def get_ntp_daemon_in_use(host):
     if ntp_conf_stat["stat"]["exists"]:
         return NtpDaemon.NTP
     pytest.fail("Unable to determine NTP daemon in use")
+
+
+logger = logging.getLogger(__name__)
+
+
+def check_ntp_sync_status(duthost):
+    """Return True if the DUT is synchronized with its configured NTP server."""
+    ntp_daemon = get_ntp_daemon_in_use(duthost)
+
+    if ntp_daemon == NtpDaemon.CHRONY:
+        ntp_status_cmd = "chronyc -c tracking"
+    else:
+        ntp_status_cmd = "ntpstat"
+
+    ntp_status = duthost.command(ntp_status_cmd, module_ignore_errors=True)
+    stdout = (ntp_status.get("stdout") or "").strip()
+    stderr = (ntp_status.get("stderr") or "").strip()
+    rc = ntp_status.get("rc", 0)
+
+    if rc != 0 or not stdout:
+        logger.info(
+            "DUT %s NTP status check failed (cmd=%s, rc=%s, stdout=%r, stderr=%r).",
+            duthost, ntp_status_cmd, rc, stdout, stderr)
+        return False
+
+    if ntp_daemon == NtpDaemon.CHRONY:
+        if "Not synchronised" in stdout:
+            logger.info("DUT %s is NOT synchronized.", duthost)
+            return False
+    elif "unsynchronised" in stdout:
+        logger.info("DUT %s is NOT synchronized.", duthost)
+        return False
+
+    logger.info("DUT %s is synchronized with NTP server.", duthost)
+    return True
 
 
 @pytest.fixture(scope="module")
