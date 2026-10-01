@@ -5,6 +5,7 @@ import os
 import jinja2
 import glob
 import re
+import shlex
 import yaml
 import pytest
 from tests.common.helpers.assertions import pytest_assert
@@ -254,6 +255,34 @@ def get_group_program_info(duthost, container_name, group_name):
                             .format(program_name, program_status, program_pid))
 
     return group_program_info
+
+
+def get_container_processes(duthost, container_name, program_name):
+    """Return matching host PIDs and command lines from one container."""
+    result = duthost.shell("docker top {} -eo pid,args".format(container_name))
+    processes = []
+    for line in result["stdout_lines"][1:]:
+        pid, command = line.split(None, 1)
+        if os.path.basename(command.split()[0]) == program_name:
+            processes.append((int(pid), command))
+    return processes
+
+
+def kill_container_processes(duthost, processes):
+    """Kill exact host PIDs previously discovered through docker top."""
+    if processes:
+        pids = " ".join(str(pid) for pid, _ in processes)
+        duthost.shell("sudo kill -9 {} || true".format(pids))
+
+
+def start_container_process(duthost, container_name, command):
+    """Start one detached unmanaged process inside a container."""
+    duthost.shell(
+        "docker exec -d {} sh -c {}".format(
+            container_name,
+            shlex.quote(command),
+        )
+    )
 
 
 def get_program_info(
@@ -965,7 +994,11 @@ def get_random_reload_type(duthost):
     :return: a random reload type
     """
     reload_types = ["reload", "cold", "fast", "warm"]
-    if is_mellanox_device(duthost) and not is_issu_enabled(duthost):
+    if duthost.is_bmc():
+        # BMC does not support fast reboot and warm reboot
+        logger.info("BMC does not support fast reboot and warm reboot, keep only reload and cold")
+        reload_types = ["reload", "cold"]
+    elif is_mellanox_device(duthost) and not is_issu_enabled(duthost):
         logger.info("ISSU is not enabled on the Mellanox device, remove warm reboot from the list")
         reload_types.remove("warm")
     reboot_type = random.choice(reload_types)
