@@ -41,7 +41,8 @@ def collect_lldp_diagnostics(duthost):
 
 
 @pytest.fixture(scope="module", autouse="True")
-def lldp_setup(duthosts, enum_rand_one_per_hwsku_hostname, patch_lldpctl, unpatch_lldpctl, localhost):
+def lldp_setup(duthosts, enum_rand_one_per_hwsku_hostname, patch_lldpctl,
+               unpatch_lldpctl, localhost, adjust_lldp_copp_policer):  # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     if duthost.is_supervisor_node():
         pytest.skip("LLDP not supported on supervisor node")
