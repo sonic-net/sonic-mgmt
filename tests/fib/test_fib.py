@@ -52,8 +52,6 @@ VLANIDS = list(range(1032, 1279))
 VLANIP = '192.168.{}.1/24'
 PTF_QLEN = 20000
 DEFAULT_MUX_SERVER_PORT = 8080
-ECMP_MEMBER_RECOVERY_TIMEOUT = 180
-ECMP_MEMBER_RECOVERY_INTERVAL = 5
 
 PTF_TEST_PORT_MAP = '/root/ptf_test_port_map.json'
 
@@ -1069,7 +1067,7 @@ def test_ecmp_group_member_flap(
         return False
 
     pytest_assert(
-        wait_until(ECMP_MEMBER_RECOVERY_TIMEOUT, ECMP_MEMBER_RECOVERY_INTERVAL, 0, _ecmp_member_restored),
+        wait_until(180, 5, 0, _ecmp_member_restored),
         "ECMP next hops did not recover after member up. Expected {}, observed {}".format(
             nh_ptf_ports, member_up_state["nh_ptf_ports"]
         )
