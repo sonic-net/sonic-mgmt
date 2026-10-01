@@ -1,3 +1,5 @@
+from contextlib import ExitStack
+from functools import partial
 from typing import Dict, List
 
 import paramiko
@@ -292,6 +294,7 @@ def check_ebgp_routes(num_v4_routes, num_v6_routes, duthost):
 
 
 def duthost_shutdown_ebgp(duthost):
+    """Restore eBGP if shutdown or a readiness check fails."""
     orch_cpu_threshold = 10
 
     orch_cpu_timeout = 60
@@ -302,16 +305,24 @@ def duthost_shutdown_ebgp(duthost):
     if v4_routes_count > 10000 or v6_routes_count > 10000:
         orch_cpu_timeout = 120
 
-    # Shutdown all eBGP neighbors
-    duthost.command("sudo config bgp shutdown all")
+    try:
+        # Shutdown all eBGP neighbors
+        duthost.command("sudo config bgp shutdown all")
 
-    # Verify that the total eBGP routes are 0.
-    pt_assert(wait_until(60, 2, 5, check_ebgp_routes, 0, 0, duthost),
-              "eBGP routes are not 0 after shutting down all neighbors on {}".format(duthost))
-    pt_assert(wait_until(orch_cpu_timeout, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
-              "Orch CPU utilization {} > orch cpu threshold {} after shutdown all eBGP"
-              .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"],
-                      orch_cpu_threshold))
+        # Verify that the total eBGP routes are 0.
+        pt_assert(wait_until(60, 2, 5, check_ebgp_routes, 0, 0, duthost),
+                  "eBGP routes are not 0 after shutting down all neighbors on {}".format(duthost))
+        pt_assert(wait_until(orch_cpu_timeout, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
+                  "Orch CPU utilization {} > orch cpu threshold {} after shutdown all eBGP"
+                  .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"],
+                          orch_cpu_threshold))
+    except BaseException:
+        logger.exception("Failed to quiesce eBGP on %s; restoring the original route state", duthost.hostname)
+        try:
+            duthost_startup_ebgp(duthost, v4_routes_count, v6_routes_count)
+        except BaseException:
+            logger.exception("Failed to restore eBGP on %s after shutdown setup failed", duthost.hostname)
+        raise
 
     return v4_routes_count, v6_routes_count
 
@@ -333,18 +344,26 @@ def duthost_startup_ebgp(duthost, v4_routes_count, v6_routes_count):
                       orch_cpu_threshold))
 
 
+def restore_ebgp_on_exit(duthost, v4_routes_count, v6_routes_count, exc_type, exc, traceback):
+    """Restore eBGP without replacing an exception that is already in flight."""
+    try:
+        duthost_startup_ebgp(duthost, v4_routes_count, v6_routes_count)
+    except BaseException:
+        if exc_type is None:
+            raise
+        logger.exception("Failed to restore eBGP on %s while handling %s", duthost.hostname, exc_type.__name__)
+    return False
+
+
 @pytest.fixture(scope="module")
 def shutdown_ebgp(duthosts, rand_one_dut_hostname):
-    # To store the original number of eBGP v4 and v6 routes.
-    v4ebgps = {}
-    v6ebgps = {}
-    for duthost in duthosts.frontend_nodes:
-        v4ebgps[duthost.hostname], v6ebgps[duthost.hostname] = duthost_shutdown_ebgp(duthost)
+    """Restore every quiesced DUT even if a later DUT fails during setup."""
+    with ExitStack() as cleanup:
+        for duthost in duthosts.frontend_nodes:
+            v4_routes_count, v6_routes_count = duthost_shutdown_ebgp(duthost)
+            cleanup.push(partial(restore_ebgp_on_exit, duthost, v4_routes_count, v6_routes_count))
 
-    yield
-
-    for duthost in duthosts.frontend_nodes:
-        duthost_startup_ebgp(duthost, v4ebgps[duthost.hostname], v6ebgps[duthost.hostname])
+        yield
 
 
 @pytest.fixture(scope="module")
