@@ -317,13 +317,9 @@ class ReloadTest(BaseTest):
             self.check_param('service_data', None, required=True)
             self.service_data = self.test_params['service_data']
             for service_name in self.test_params['service_list']:
-                cmd = 'systemctl show -p ExecMainStartTimestamp {}'.format(
-                    service_name)
-                stdout, _, _ = self.dut_connection.execCommand(cmd)
                 if service_name not in self.service_data:
                     self.service_data[service_name] = {}
-                self.service_data[service_name]['service_start_time'] = str(
-                    stdout[0]).strip()
+                self.service_data[service_name]['service_start_time'] = self.get_service_start_time(service_name)
                 self.log("Service start time for {} is {}".format(
                     service_name, self.service_data[service_name]['service_start_time']))
         return
@@ -1157,6 +1153,21 @@ class ReloadTest(BaseTest):
         self.log("Dut reboots: control plane up at %s" %
                  str(self.no_control_stop))
 
+    def get_service_start_time(self, service_name, attempts=3):
+        # Each execCommand opens a fresh SSH session; the DUT may drop one under a burst of
+        # logins, which surfaces as empty stdout rather than an exception.
+        cmd = 'systemctl show -p ExecMainStartTimestamp {}'.format(service_name)
+        for attempt in range(1, attempts + 1):
+            stdout, stderr, rc = self.dut_connection.execCommand(cmd)
+            if rc == 0 and stdout:
+                return str(stdout[0]).strip()
+            self.log("Attempt {}/{} to read start time of {} failed. rc: {}, stderr: {}".format(
+                attempt, attempts, service_name, rc, str(stderr)))
+            if attempt < attempts:
+                time.sleep(2)
+        raise Exception("Error collecting start time of {} from DUT after {} attempts".format(
+            service_name, attempts))
+
     def wait_until_service_restart(self):
         self.log("Wait until sevice restart")
         self.reboot_start = datetime.datetime.now()
@@ -1166,10 +1177,7 @@ class ReloadTest(BaseTest):
             for service_name in self.test_params['service_list']:
                 if service_name not in service_set:
                     continue
-                cmd = 'systemctl show -p ExecMainStartTimestamp {}'.format(
-                    service_name)
-                stdout, _, _ = self.dut_connection.execCommand(cmd)
-                if self.service_data[service_name]['service_start_time'] != str(stdout[0]).strip():
+                if self.service_data[service_name]['service_start_time'] != self.get_service_start_time(service_name):
                     service_set.remove(service_name)
             if not service_set:
                 break
