@@ -135,28 +135,6 @@ def get_all_ptf_port_indices_from_mg_facts(mg_facts):
     return all_port_indices
 
 
-def map_ptf_ports_to_dut_port(ptf_ports, all_dut_port_indices):
-    """
-    Map PTF port indices to DUT port information.
-
-    Args:
-        ptf_ports: List of PTF port indices.
-        all_dut_port_indices: Dictionary of DUT port indices.
-
-    Returns:
-        A list of tuples containing (asic_id, port_name) for mapped ports.
-    """
-
-    ethernet_ports_with_asic = [
-        (asic_id, port_name)
-        for port in ptf_ports
-        if (port_info := all_dut_port_indices.get(port))
-        for asic_id, port_name in [port_info]
-    ]
-
-    return ethernet_ports_with_asic
-
-
 def filter_ports(all_port_indices, tbinfo, is_chassis):
     """
     Filter PTF ports that need to be skipped while picking up src_port for ptf traffic test.
@@ -899,11 +877,9 @@ def test_ecmp_group_member_flap(
     logging.info("upstream_lc: {}".format(upstream_lc))
 
     all_port_indices = get_all_ptf_port_indices_from_mg_facts(duts_minigraph_facts[upstream_lc])
-    nh_dut_ports = map_ptf_ports_to_dut_port(nh_ptf_ports, all_port_indices)
     is_chassis = duthosts[0].get_facts().get("modular_chassis")
     filtered_ports = filter_ports(all_port_indices, tbinfo, is_chassis)
 
-    logging.info("nh_dut_ports: {}".format(nh_dut_ports))
     logging.info("filtered_ports: {}".format(filtered_ports))
 
     # --- Prepare logging and timestamps ---
