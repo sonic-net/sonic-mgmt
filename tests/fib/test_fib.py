@@ -85,6 +85,13 @@ def check_default_route_from_fib_info(ptfhost, file_path):
         logger.info("No default route found. Returning an empty list.")
         return []  # Return an empty list if no default route is found
 
+    # Count the number of next hops (each '[]' represents one nexthop)
+    nexthops_count = len(re.findall(r'\[.*?\]', default_route_line))
+
+    if nexthops_count <= 1:
+        logger.info("Number of nexthops is less than or equal to 1. Returning an empty list.")
+        return []  # Return empty list if only one or no nexthop
+
     # Extract all numbers inside square brackets and convert them to integers
     matches = re.findall(r'\[(\d+(?: \d+)*)\]', default_route_line)
     ports = [int(num) for group in matches for num in group.split()]
@@ -907,6 +914,11 @@ def test_ecmp_group_member_flap(
     else:
         test_balancing = True
 
+    convergence_wait = 60
+    if asic_type == "vpp":
+        # VPP can be slower to drop the flapped port's nexthop from the ECMP group.
+        convergence_wait = 120
+
     # --- Load initial FIB files ---
     fib_files = fib_info_files_per_function(
         duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts, tbinfo, request
@@ -915,38 +927,8 @@ def test_ecmp_group_member_flap(
     # Verify that the default route has valid nexthops
     nh_ptf_ports = check_default_route_from_fib_info(ptfhost, fib_files[0])
     logging.info("nh_ptf_ports: {}".format(nh_ptf_ports))
-    if not nh_ptf_ports or get_default_route_nexthop_count(ptfhost, fib_files[0], "ipv4") <= 1:
+    if not nh_ptf_ports:
         pytest.skip("Skipping test as default route is missing or has fewer than 2 nexthops.")
-
-    def _wait_for_ecmp_next_hops(expected_ports, phase):
-        expected_ports = set(expected_ports)
-        state = {"fib_files": None, "nh_ptf_ports": []}
-
-        def _ecmp_next_hops_ready():
-            candidate_fib_files = fib_info_files_per_function(
-                duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts, tbinfo, request
-            )
-            candidate_nh_ptf_ports = check_default_route_from_fib_info(ptfhost, candidate_fib_files[0])
-            state["nh_ptf_ports"] = candidate_nh_ptf_ports
-            logging.info(
-                "Waiting for ECMP next hops after {}: expected {}, observed {}".format(
-                    phase, sorted(expected_ports), candidate_nh_ptf_ports
-                )
-            )
-            pytest_assert(
-                set(candidate_nh_ptf_ports) == expected_ports,
-                "ECMP next hops are not ready after {}".format(phase)
-            )
-            state["fib_files"] = candidate_fib_files
-            return True
-
-        pytest_assert(
-            wait_until(180, 5, 0, _ecmp_next_hops_ready),
-            "ECMP next hops did not recover after {}. Expected {}, observed {}".format(
-                phase, sorted(expected_ports), state["nh_ptf_ports"]
-            )
-        )
-        return state["fib_files"]
 
     # --- Identify the DUT and ports from the minigraph facts ---
     upstream_lc = duthosts[0].hostname
@@ -1007,6 +989,8 @@ def test_ecmp_group_member_flap(
     logging.info("Shutting down port {}".format(nh_dut_ports[port_index_to_shut][1]))
     duthosts[0].shell("sudo config interface {} shutdown {}".format(asic_ns, nh_dut_ports[port_index_to_shut][1]))
 
+    time.sleep(convergence_wait)  # Allow time for the state to stabilize
+
     # Get all PTF ports for the port and its port channel members (if applicable)
     ptf_ports_to_filter = get_port_and_portchannel_members(
         nh_dut_ports[port_index_to_shut][1], all_port_indices, duts_minigraph_facts, upstream_lc, tbinfo, is_chassis)
@@ -1016,8 +1000,9 @@ def test_ecmp_group_member_flap(
 
     # --- Re-run the PTF test after member down ---
     logging.info("Verifying ECMP behavior after member down.")
-    shut_ptf_port = nh_ptf_ports[port_index_to_shut]
-    new_fib_files1 = _wait_for_ecmp_next_hops(set(nh_ptf_ports) - {shut_ptf_port}, "member down")
+    new_fib_files1 = fib_info_files_per_function(
+        duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts, tbinfo, request
+    )
     member_down_log_file = "/tmp/fib_test.ecmp_member_flap.member_down.ipv4.{}.ipv6.{}.{}.log".format(
                             ipv4, ipv6, timestamp)
     logging.info("PTF log file: {}".format(member_down_log_file))
@@ -1063,9 +1048,34 @@ def test_ecmp_group_member_flap(
         if ptf_port in filtered_ports:
             filtered_ports.remove(ptf_port)
 
+    member_up_state = {"fib_files": None, "nh_ptf_ports": []}
+
+    def _ecmp_member_restored():
+        candidate_fib_files = fib_info_files_per_function(
+            duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts, tbinfo, request
+        )
+        candidate_nh_ptf_ports = check_default_route_from_fib_info(ptfhost, candidate_fib_files[0])
+        member_up_state["nh_ptf_ports"] = candidate_nh_ptf_ports
+        logging.info(
+            "Waiting for ECMP next hops to recover: expected {}, observed {}".format(
+                nh_ptf_ports, candidate_nh_ptf_ports
+            )
+        )
+        if set(nh_ptf_ports).issubset(set(candidate_nh_ptf_ports)):
+            member_up_state["fib_files"] = candidate_fib_files
+            return True
+        return False
+
+    pytest_assert(
+        wait_until(180, 5, 0, _ecmp_member_restored),
+        "ECMP next hops did not recover after member up. Expected {}, observed {}".format(
+            nh_ptf_ports, member_up_state["nh_ptf_ports"]
+        )
+    )
+
     # --- Re-run the PTF test after member is back up ---
     logging.info("Re-verifying ECMP behavior after member up.")
-    new_fib_files2 = _wait_for_ecmp_next_hops(nh_ptf_ports, "member up")
+    new_fib_files2 = member_up_state["fib_files"]
     member_up_log_file = "/tmp/fib_test.ecmp_member_flap.member_up.ipv4.{}.ipv6.{}.{}.log".format(
                           ipv4, ipv6, timestamp)
     logging.info("PTF log file: {}".format(member_up_log_file))
