@@ -722,11 +722,19 @@ def bgpmon_setup_teardown(ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_ho
         'peer_name': BGP_MONITOR_NAME
     }
     bgpmon_template = Template(open(BGPMON_TEMPLATE_FILE).read())
+    asichost = duthost.asic_instance_from_namespace(connection['namespace'])
+    # Match bgpcfgd's same-AS monitor template.
+    monitor_asn = int(asichost.run_sonic_db_cli_cmd(
+        "CONFIG_DB HGET 'DEVICE_METADATA|localhost' bgp_asn"
+    )["stdout"])
+    pt_assert(
+        0 < monitor_asn <= 0xFFFFFFFF,
+        "DEVICE_METADATA|localhost bgp_asn must be a valid 32-bit ASN, got {}".format(monitor_asn)
+    )
     duthost.copy(content=bgpmon_template.render(**bgpmon_args),
                  dest=BGPMON_CONFIG_FILE)
     # Start bgpmon on DUT
     logger.info("Starting bgpmon on DUT")
-    asichost = duthost.asic_instance_from_namespace(connection['namespace'])
     asichost.write_to_config_db(BGPMON_CONFIG_FILE)
 
     logger.info("Starting bgp monitor session on PTF")
@@ -750,8 +758,8 @@ def bgpmon_setup_teardown(ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_ho
                    local_ip=peer_addr,
                    router_id=router_id,
                    peer_ip=dut_lo_addr,
-                   local_asn=asn,
-                   peer_asn=asn,
+                   local_asn=monitor_asn,
+                   peer_asn=monitor_asn,
                    port=BGP_MONITOR_PORT,
                    dump_script=CUSTOM_DUMP_SCRIPT_DEST)
 

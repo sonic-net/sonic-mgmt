@@ -56,6 +56,7 @@ from tests.common.helpers.dut_utils import encode_dut_and_container_name
 from tests.common.helpers.parallel_utils import ParallelCoordinator, ParallelStatus, ParallelRunContext
 from tests.common.helpers.pfcwd_helper import TrafficPorts, select_test_ports, set_pfc_timers, \
     is_pfcwd_hw_recovery_enabled
+from tests.common import constants
 from tests.common.system_utils import docker
 from tests.common.testbed import TestbedInfo
 from tests.common.utilities import get_inventory_files, wait_until
@@ -103,8 +104,8 @@ cache = FactsCache()
 
 HOST_FIXTURE_FAILED_RC = 15
 CUSTOM_MSG_PREFIX = "sonic_custom_msg"
-GOLDEN_CONFIG_DB_PATH = "/etc/sonic/golden_config_db.json"
-GOLDEN_CONFIG_DB_PATH_ORI = "/etc/sonic/golden_config_db.json.origin.backup"
+GOLDEN_CONFIG_DB_PATH = constants.GOLDEN_CONFIG_DB_PATH
+GOLDEN_CONFIG_DB_PATH_ORI = constants.GOLDEN_CONFIG_DB_PATH_ORI
 
 pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.ansible_fixtures',
@@ -2114,14 +2115,16 @@ def generate_dut_feature_list(request, duts_selected, asics_selected):
                 # Create tuple of dut and asic index
                 if "features" in meta[a_dut]:
                     for a_feature in list(meta[a_dut]["features"].keys()):
-                        if a_feature not in skip_feature_list:
+                        if a_feature not in skip_feature_list \
+                                and "disabled" not in meta[a_dut]["features"][a_feature]:
                             tuple_list.append((a_dut, a_asic, a_feature))
                 else:
                     tuple_list.append((a_dut, a_asic, None))
         else:
             if "features" in meta[a_dut]:
                 for a_feature in list(meta[a_dut]["features"].keys()):
-                    if a_feature not in skip_feature_list:
+                    if a_feature not in skip_feature_list \
+                            and "disabled" not in meta[a_dut]["features"][a_feature]:
                         tuple_list.append((a_dut, None, a_feature))
             else:
                 tuple_list.append((a_dut, None, None))
@@ -4040,7 +4043,7 @@ class DualtorMuxPortSetupConfig(enum.Flag):
 
 
 @pytest.fixture(autouse=True)
-def setup_dualtor_mux_ports(duthost, duthosts, tbinfo, request, mux_server_url):       # noqa:F811
+def setup_dualtor_mux_ports(duthost, duthosts, tbinfo, request, mux_server_url, vmhost):       # noqa:F811
     """Setup dualtor mux ports."""
     def _get_enumerated_dut_hostname(request):
         for k, v in request.node.callspec.params.items():
@@ -4197,7 +4200,8 @@ def setup_dualtor_mux_ports(duthost, duthosts, tbinfo, request, mux_server_url):
         mux_simulator_control._toggle_all_simulator_ports_to_target_dut(target_dut_hostname,
                                                                         duthosts,
                                                                         mux_server_url,
-                                                                        tbinfo)
+                                                                        tbinfo,
+                                                                        vmhost)
 
     if dualtor_setup_config & DualtorMuxPortSetupConfig.DUALTOR_SETUP_MUX_PORT_MANUAL_MODE:
         logger.info("Set all mux ports to manual mode on all ToRs")

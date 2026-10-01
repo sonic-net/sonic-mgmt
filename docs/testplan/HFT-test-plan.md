@@ -35,7 +35,7 @@ HFT enables microsecond-level polling and streaming of network statistics (port 
 
 The test suite covers:
 - **Counter data collection**: Verifying that HFT correctly polls and reports PORT, QUEUE, INGRESS_PRIORITY_GROUP, and BUFFER_POOL counters.
-- **Platform-aware counter support**: Ensuring tests select a release-independent supported counter subset per platform using the `counter_profiles` module.
+- **Platform-aware counter support**: Ensuring tests cover the full supported counter set per platform using the `counter_profiles` module.
 - **Stream state management**: Testing dynamic enable/disable of HFT streams and verifying InfluxDB write watermarks stop and resume.
 - **Configuration lifecycle**: Validating create → delete → recreate of HFT profiles/groups while `countersyncd` runs continuously.
 - **Poll interval accuracy**: Verifying the measured message rate matches expected rate based on configured poll interval.
@@ -62,7 +62,7 @@ HFT Phase 1 supports key AI data center statistics across four object types:
 | **BUFFER_POOL** | `SAI_BUFFER_POOL_STAT_DROPPED_PACKETS`, `SAI_BUFFER_POOL_STAT_CURR_OCCUPANCY_BYTES`, `SAI_BUFFER_POOL_STAT_WATERMARK_BYTES`, `SAI_BUFFER_POOL_STAT_XOFF_ROOM_WATERMARK_BYTES` |
 | **INGRESS_PRIORITY_GROUP** | `SAI_INGRESS_PRIORITY_GROUP_STAT_PACKETS`, `SAI_INGRESS_PRIORITY_GROUP_STAT_BYTES`, `SAI_INGRESS_PRIORITY_GROUP_STAT_CURR_OCCUPANCY_BYTES`, `SAI_INGRESS_PRIORITY_GROUP_STAT_WATERMARK_BYTES`, `SAI_INGRESS_PRIORITY_GROUP_STAT_XOFF_ROOM_CURR_OCCUPANCY_BYTES`, `SAI_INGRESS_PRIORITY_GROUP_STAT_XOFF_ROOM_WATERMARK_BYTES`, `SAI_INGRESS_PRIORITY_GROUP_STAT_DROPPED_PACKETS` |
 
-> **Note**: Not all counters are supported on all platforms. The `counter_profiles.py` module provides conservative per-platform counter definitions that work across supported image releases. Tests skip when no counters are available.
+> **Note**: Not all counters are supported on all platforms. The `counter_profiles.py` module defines the full supported counter set for each platform. Tests skip when no counters are available.
 >
 > `SAI_PORT_STAT_TRIM_PACKETS` and `SAI_QUEUE_STAT_TRIM_PACKETS` have limited platform availability and are not currently enabled in `counter_profiles.py` for any tested platform.
 
@@ -94,7 +94,7 @@ HFT tests are conditionally skipped via `tests_mark_conditions.yaml` on unsuppor
 | `x86_64-arista_7060x6_64pe_b` | Supported (limited) |
 | All other platforms | Skipped |
 
-Per-platform supported counters are defined in `tests/high_frequency_telemetry/counter_profiles.py`. Definitions use counters known to work across supported releases rather than selecting behavior from a branch or release number. Tests skip if none are available.
+Per-platform supported counters are defined in `tests/high_frequency_telemetry/counter_profiles.py`. Spectrum-4 platforms cover six port counters, five queue counters, four ingress priority group counters, and two buffer pool counters. Spectrum-6 additionally covers the queue `DROPPED_PACKETS` counter. Tests skip if no counters are available for the platform and object type.
 
 ---
 
