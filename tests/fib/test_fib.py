@@ -255,7 +255,8 @@ def fib_info_files_per_function(duthosts, ptfhost, duts_running_config_facts, du
     return gen_fib_info_files_per_function(ptfhost, fib_infos, tbinfo, request)
 
 
-def get_default_route_port_groups(fib_infos):
+# Use grouped ports instead of the previous flattened list to preserve PortChannel membership.
+def get_ptf_ports_for_default_route(fib_infos):
     return [[int(port) for port in group] for group in fib_infos[0].get('0.0.0.0/0', [])]
 
 
@@ -346,7 +347,7 @@ def wait_for_ecmp_state(duthosts, ptfhost, duts_running_config_facts, duts_minig
         candidate_fib_infos = get_fib_info_per_function(
             duthosts, duts_running_config_facts, duts_minigraph_facts, tbinfo, request
         )
-        state["port_groups"] = {frozenset(group) for group in get_default_route_port_groups(candidate_fib_infos)}
+        state["port_groups"] = {frozenset(group) for group in get_ptf_ports_for_default_route(candidate_fib_infos)}
         logging.info(
             "Waiting for ECMP next hops after {}: expected {}, observed {}".format(
                 phase, format_port_groups(expected_groups), format_port_groups(state["port_groups"])
@@ -977,7 +978,7 @@ def test_ecmp_group_member_flap(
     fib_infos = get_fib_info_per_function(
         duthosts, duts_running_config_facts, duts_minigraph_facts, tbinfo, request
     )
-    nh_ptf_port_groups = get_default_route_port_groups(fib_infos)
+    nh_ptf_port_groups = get_ptf_ports_for_default_route(fib_infos)
     nh_ptf_ports = [port for group in nh_ptf_port_groups for port in group]
     logging.info("nh_ptf_ports: {}".format(nh_ptf_ports))
     if len(nh_ptf_port_groups) <= 1:
