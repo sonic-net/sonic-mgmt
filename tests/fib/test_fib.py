@@ -266,7 +266,7 @@ def select_ecmp_member_to_flap(duthost, nh_ptf_ports, all_port_indices):
     shut_asic_id = None
     shut_dut_port = None
     lag_name = None
-    for candidate_ptf_port in nh_ptf_ports:
+    for candidate_ptf_port in (port for ports in nh_ptf_ports for port in ports):
         if candidate_ptf_port not in all_port_indices:
             continue
         candidate_asic_id, candidate_dut_port = all_port_indices[candidate_ptf_port]
@@ -293,8 +293,8 @@ def select_ecmp_member_to_flap(duthost, nh_ptf_ports, all_port_indices):
     return lag_facts, shut_ptf_port, shut_asic_id, shut_dut_port, lag_name
 
 
-def get_expected_ecmp_port_groups(nh_ptf_port_groups, shut_ptf_port, lag_facts, lag_name, shut_dut_port):
-    initial_port_groups = {frozenset(group) for group in nh_ptf_port_groups}
+def get_expected_ecmp_port_groups(nh_ptf_ports, shut_ptf_port, lag_facts, lag_name, shut_dut_port):
+    initial_port_groups = {frozenset(group) for group in nh_ptf_ports}
     shut_port_group = next(group for group in initial_port_groups if shut_ptf_port in group)
 
     portchannel_stays_up = False
@@ -978,10 +978,9 @@ def test_ecmp_group_member_flap(
     fib_infos = get_fib_info_per_function(
         duthosts, duts_running_config_facts, duts_minigraph_facts, tbinfo, request
     )
-    nh_ptf_port_groups = get_ptf_ports_for_default_route(fib_infos)
-    nh_ptf_ports = [port for group in nh_ptf_port_groups for port in group]
+    nh_ptf_ports = get_ptf_ports_for_default_route(fib_infos)
     logging.info("nh_ptf_ports: {}".format(nh_ptf_ports))
-    if len(nh_ptf_port_groups) <= 1:
+    if len(nh_ptf_ports) <= 1:
         pytest.skip("Skipping test as default route is missing or has fewer than 2 nexthops.")
     fib_files = gen_fib_info_files_per_function(ptfhost, fib_infos, tbinfo, request)
 
@@ -1037,7 +1036,7 @@ def test_ecmp_group_member_flap(
         duthosts[0], nh_ptf_ports, all_port_indices
     )
     initial_port_groups, expected_down_groups, portchannel_stays_up = get_expected_ecmp_port_groups(
-        nh_ptf_port_groups, shut_ptf_port, lag_facts, lag_name, shut_dut_port
+        nh_ptf_ports, shut_ptf_port, lag_facts, lag_name, shut_dut_port
     )
 
     logging.info("Shutting down one uplink port.")
