@@ -13,6 +13,7 @@ from tests.transceiver.attribute_parser.attribute_keys import (
 )
 from tests.transceiver.common import cli_helpers, health_checks
 from tests.transceiver.common.cli_parser_helper import parse_presence
+from tests.transceiver.common.db_helpers import get_config_db_port_table
 
 logger = logging.getLogger(__name__)
 
@@ -303,6 +304,50 @@ def wait_until_links_up(
     for down_port in latest_result.get("down", []):
         logger.warning("%s", down_port)
     return latest_result
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Shared DOM/VDM polling check
+# ──────────────────────────────────────────────────────────────────────
+
+DOM_POLLING_ENABLED_VALUES = ("", "enabled")
+DOM_POLLING_DISABLED_VALUE = "disabled"
+
+
+def build_dom_polling_failures(duthost, primary_ports):
+    """Return shared DOM/VDM polling prerequisite failures."""
+    failures = []
+    port_table = get_config_db_port_table(duthost)
+
+    for port in primary_ports:
+        port_config = port_table.get(port)
+        if port_config is None:
+            failures.append("{} missing from CONFIG_DB PORT table".format(port))
+            continue
+        if not isinstance(port_config, dict):
+            failures.append(
+                "{} CONFIG_DB PORT entry has unexpected type {}".format(
+                    port,
+                    type(port_config).__name__,
+                )
+            )
+            continue
+
+        raw_value = port_config.get("dom_polling")
+        normalized = "" if raw_value is None else str(raw_value).strip().lower()
+        if normalized in DOM_POLLING_ENABLED_VALUES:
+            continue
+        if normalized == DOM_POLLING_DISABLED_VALUE:
+            failures.append("{} dom_polling is disabled".format(port))
+        else:
+            failures.append(
+                "{} dom_polling has unexpected value {!r}".format(
+                    port,
+                    raw_value,
+                )
+            )
+
+    return {"passed": not failures, "details": "; ".join(failures)}
 
 
 # ──────────────────────────────────────────────────────────────────────

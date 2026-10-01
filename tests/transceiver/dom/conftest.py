@@ -4,7 +4,7 @@ import pytest
 
 from tests.transceiver.attribute_parser.attribute_keys import DOM_ATTRIBUTES_KEY
 from tests.transceiver.common.port_selectors import select_attribute_ports
-from tests.transceiver.dom.dom_helpers import build_dom_polling_failures
+from tests.transceiver.common.prerequisites import build_dom_polling_failures
 
 logger = logging.getLogger(__name__)
 
@@ -44,8 +44,8 @@ def _dom_session_prerequisites(
     links_verified,
 ):
     """Opt DOM tests into shared prerequisite gates and DOM polling checks."""
-    failures = build_dom_polling_failures(duthost, dom_primary_ports)
-    if failures:
-        pytest.fail("dom polling prerequisite failed - " + "; ".join(failures))
+    result = build_dom_polling_failures(duthost, dom_primary_ports)
+    if not result["passed"]:
+        pytest.fail("dom polling prerequisite failed - " + result["details"])
 
     logger.info("DOM session prerequisites passed for %d port(s)", len(dom_primary_ports))
