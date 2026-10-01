@@ -11,7 +11,7 @@ The scope of this test plan includes the following:
 - Firmware download, run, and commit validation
 - Firmware version verification against expected gold and inactive versions
 - Firmware download interruption and CDB abort handling
-- EEPROM static field integrity during firmware operations
+- Static and dynamic EEPROM field integrity during firmware operations
 - Firmware download, activation, and read stress testing
 - Firmware upgrade across firmware versions differing in minor and point numbers
 - Validating invalid firmware binary rejection
@@ -322,9 +322,10 @@ Firmware download succeeded, the inactive bank holds the new image, and the modu
 4. Running Image remains unchanged.
 5. Committed Image remains unchanged.
 6. Static EEPROM fields (vendor name, part number, hardware revision, etc.) remain unchanged.
-7. TC #3 from the [Basic DOM Functionality Tests](dom_test_plan.md#basic-dom-functionality-tests) must hold for configured threshold attributes.
-8. After DOM monitoring is re-enabled, TC #1 and TC #2 from the [Basic DOM Functionality Tests](dom_test_plan.md#basic-dom-functionality-tests) must hold.
-9. Execute the [Standard Port Recovery and Verification Procedure](system_test_plan.md#standard-port-recovery-and-verification-procedure).
+7. Dynamic EEPROM DataPath fields (active application select, host/media lane counts etc.) remain unchanged.
+8. TC #3 from the [Basic DOM Functionality Tests](dom_test_plan.md#basic-dom-functionality-tests) must hold for configured threshold attributes.
+9. After DOM monitoring is re-enabled, TC #1 and TC #2 from the [Basic DOM Functionality Tests](dom_test_plan.md#basic-dom-functionality-tests) must hold.
+10. Execute the [Standard Port Recovery and Verification Procedure](system_test_plan.md#standard-port-recovery-and-verification-procedure).
 
 #### Firmware Activation Verification
 
@@ -339,9 +340,10 @@ Firmware run and commit succeeded, the bank swap took effect, the committed Imag
 7. `sfputil show fwversion <port>` CLI shows the "Running Image" as the current active bank.
 8. Link is up within `port_startup_wait_sec` seconds.
 9. Static EEPROM fields (vendor name, part number, hardware revision, etc.) remain unchanged.
-10. TC #3 from the [Basic DOM Functionality Tests](dom_test_plan.md#basic-dom-functionality-tests) must hold for configured threshold attributes.
-11. After DOM monitoring is re-enabled, TC #1 and TC #2 from the [Basic DOM Functionality Tests](dom_test_plan.md#basic-dom-functionality-tests) must hold.
-12. Execute the [Standard Port Recovery and Verification Procedure](system_test_plan.md#standard-port-recovery-and-verification-procedure).
+10. Dynamic EEPROM DataPath fields (active application select, host/media lane counts etc.) remain unchanged.
+11. TC #3 from the [Basic DOM Functionality Tests](dom_test_plan.md#basic-dom-functionality-tests) must hold for configured threshold attributes.
+12. After DOM monitoring is re-enabled, TC #1 and TC #2 from the [Basic DOM Functionality Tests](dom_test_plan.md#basic-dom-functionality-tests) must hold.
+13. Execute the [Standard Port Recovery and Verification Procedure](system_test_plan.md#standard-port-recovery-and-verification-procedure).
 
 **Timing Requirements:**
 
