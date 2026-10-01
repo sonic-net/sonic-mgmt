@@ -1,7 +1,8 @@
 import logging
 import math
 from tests.qos.qos_sai_base import QosSaiBase
-from tests.common.cisco_data import get_device_property
+from tests.common.cisco_data import get_device_property, get_voq_eviction_threshold_cisco, \
+    get_dram_max_pds_in_a_pack
 logger = logging.getLogger(__name__)
 
 
@@ -29,11 +30,6 @@ class QosParamCisco(object):
     HBM_PACKET_SIZE = 8156
     # gb HBM lossless drop threshold needs only one tuning packet to match measured hardware.
     HBM_LOSSLESS_DROP_TUNING_PKTS = 1
-    # gb HBM eviction thresholds: bytes a queue fills in SMS before it is evicted to HBM.
-    # The buffer pool watermark reads 0 until this fill level, so it seeds the buffer pool
-    # fill-min packet counts for the HBM case.
-    HBM_LOSSLESS_EVICTION_BYTES = 1179648
-    HBM_LOSSY_EVICTION_BYTES = 3145728
     # gb HBM VOQ drop threshold is quantized by hardware to these HBM-block levels;
     # the drop threshold is the largest level not exceeding the computed max VOQ size.
     HBM_VOQ_THRESH_BLOCKS = [100, 200, 250, 400, 450, 600, 800,
@@ -100,12 +96,17 @@ class QosParamCisco(object):
         # cards). Each offloaded direction uses the larger HBM geometry (queue depth,
         # buffer and packet sizes) while the other stays on SMS; applied per direction below.
         lossless_use_hbm = lossy_use_hbm = False
+        self.asic_index = None
+        self.dram_max_pds_in_a_pack = None
         if dutAsic == "gb":
             asic = self.duthost.asic_instance()
             asic_index = asic.asic_index if asic.get_asic_namespace() else None
+            self.asic_index = asic_index
             lossless_use_hbm = get_device_property(self.duthost, "lossless_use_hbm", asic_index) == "True"
             lossy_use_hbm = get_device_property(self.duthost, "lossy_use_hbm", asic_index) == "True"
             self.log("HBM usage: lossless={}, lossy={}".format(lossless_use_hbm, lossy_use_hbm))
+            if lossless_use_hbm or lossy_use_hbm:
+                self.dram_max_pds_in_a_pack = get_dram_max_pds_in_a_pack(self.duthost, asic_index)
         # topo-t2 autogen is only supported on gb; other asics fall back to qos.yaml.
         self.supports_autogen = dutAsic in asic_params and \
             (topo == "topo-any" or (topo == "topo-t2" and dutAsic == "gb"))
@@ -457,6 +458,13 @@ class QosParamCisco(object):
         return math.ceil(buffer_count * self.HBM_BUFFER_SIZE /
                          (packet_size + self.HBM_SQ_ACCOUNTING_OVERHEAD_BYTES))
 
+    def get_hbm_eviction_threshold_bytes(self, traffic_class):
+        # VoQ occupancy (bytes) at which the queue starts being evicted from SMS to HBM,
+        # read live from the queue's VoQ CGM profile on a representative front-panel port.
+        interface = list(self.config_facts['QUEUE'].keys())[0]
+        return get_voq_eviction_threshold_cisco(
+            self.duthost, interface, traffic_class, self.asic_index)
+
     def hbm_voq_wmk_margin(self, blocks):
         # The gb HBM queue watermark only reads a subset of HBM_VOQ_THRESH_BLOCKS: cgm
         # levels 8-14 map to odd indices (1, 3, ..., 13) and level 15 clamps to the last
@@ -660,7 +668,7 @@ class QosParamCisco(object):
                 lossless_packet_size = self.HBM_SINGLE_BLOCK_PACKET_SIZE
                 sms_bytes_per_packet = self.get_buffer_occupancy(lossless_packet_size, self.sms_buffer_size) \
                     * self.sms_buffer_size
-                pkts_num_fill_ingr_min = math.ceil(self.HBM_LOSSLESS_EVICTION_BYTES / sms_bytes_per_packet)
+                pkts_num_fill_ingr_min = math.ceil(self.get_hbm_eviction_threshold_bytes(3) / sms_bytes_per_packet)
                 trig_drop_buffers = self.lossless_drop_thr // self.buffer_size
                 trig_drop_packets = self.hbm_sq_trigger_count(trig_drop_buffers, lossless_packet_size)
             lossless_params = {"dscp": 3,
@@ -685,7 +693,7 @@ class QosParamCisco(object):
                 # packets occupy whole SMS cells, so size the fill count in SMS geometry.
                 sms_bytes_per_packet = self.get_buffer_occupancy(lossy_packet_size, self.sms_buffer_size) \
                     * self.sms_buffer_size
-                pkts_num_fill_egr_min = math.ceil(self.HBM_LOSSY_EVICTION_BYTES / sms_bytes_per_packet)
+                pkts_num_fill_egr_min = math.ceil(self.get_hbm_eviction_threshold_bytes(0) / sms_bytes_per_packet)
             lossy_packet_buffs = self.get_buffer_occupancy(lossy_packet_size, self.lossy_buffer_size)
             lossy_params = {"dscp": self.dscp_queue0,
                             "ecn": 1,
@@ -881,15 +889,39 @@ class QosParamCisco(object):
             self.write_params("wm_q_wm_all_ports", params)
 
     def __define_pg_drop(self):
+        pause_buffers = self.pause_thr // self.buffer_size
         drop_buffers = self.lossless_drop_thr // self.buffer_size
         margin = round(3 * (drop_buffers ** 0.5))
+        # PGDropTest sends fixed 64-byte packets; the pause/drop thresholds are SQ buffer counts.
+        packet_size = 64
+        pkts_num_trig_pfc = pause_buffers
+        pkts_num_trig_ingr_drp = drop_buffers
+        skip_reason = None
+        if self.dutAsic == "gb" and self.lossless_use_hbm:
+            # HBM SQ buffer counters increment statistically (prob (packet_size + 36) / 8192 per
+            # packet), so convert the pause/drop buffer counts and the margin into 64-byte packet
+            # counts needed to drive the counter to each threshold.
+            pkts_num_trig_pfc = self.hbm_sq_trigger_count(pause_buffers, packet_size)
+            pkts_num_trig_ingr_drp = self.hbm_sq_trigger_count(drop_buffers, packet_size)
+            margin = self.hbm_sq_trigger_count(margin, packet_size)
+            # Reaching the drop threshold would need more 64-byte packet descriptors than a
+            # single HBM VOQ can hold, so the ingress drop is unreachable and the test is skipped.
+            pd_limit_per_hbm_voq = self.HBM_VOQ_THRESH_BLOCKS[-1] * self.dram_max_pds_in_a_pack
+            if pkts_num_trig_ingr_drp > pd_limit_per_hbm_voq:
+                skip_reason = ("pg_drop needs {} packets to trigger ingress drop, exceeding the "
+                               "single HBM VOQ packet descriptor limit of {}".format(
+                                   pkts_num_trig_ingr_drp, pd_limit_per_hbm_voq))
         if self.should_autogen(["pg_drop"]):
+            if skip_reason is not None:
+                self.log(skip_reason)
+                self.write_params("pg_drop", {"skip": skip_reason})
+                return
             params = {"dscp": 3,
                       "ecn": 1,
                       "pg": 3,
                       "queue": 3,
-                      "pkts_num_trig_pfc": self.pause_thr // self.buffer_size,
-                      "pkts_num_trig_ingr_drp": drop_buffers,
+                      "pkts_num_trig_pfc": pkts_num_trig_pfc,
+                      "pkts_num_trig_ingr_drp": pkts_num_trig_ingr_drp,
                       "pkts_num_margin": margin,
                       "iterations": 100}
             self.write_params("pg_drop", params)
