@@ -256,10 +256,7 @@ def fib_info_files_per_function(duthosts, ptfhost, duts_running_config_facts, du
 
 
 def get_default_route_port_groups(fib_infos):
-    return [
-        [int(port) for port in group]
-        for group in fib_infos[0].get('0.0.0.0/0', [])
-    ]
+    return [[int(port) for port in group] for group in fib_infos[0].get('0.0.0.0/0', [])]
 
 
 def select_ecmp_member_to_flap(duthost, nh_ptf_ports, all_port_indices):
@@ -302,10 +299,8 @@ def get_expected_ecmp_port_groups(nh_ptf_port_groups, shut_ptf_port, lag_facts, 
     portchannel_stays_up = False
     if lag_name:
         lag = lag_facts['lags'][lag_name]
-        selected_members = [
-            member for member in lag['po_config']['ports']
-            if lag['po_stats']['ports'][member]['runner']['selected']
-        ]
+        selected_members = [member for member in lag['po_config']['ports']
+                            if lag['po_stats']['ports'][member]['runner']['selected']]
         min_ports = int(lag['po_config']['runner']['min_ports'])
         portchannel_stays_up = len(selected_members) - 1 >= min_ports
         logging.info(
@@ -323,27 +318,15 @@ def format_port_groups(port_groups):
     return sorted([sorted(group) for group in port_groups])
 
 
-def wait_for_ecmp_state(
-    duthosts,
-    ptfhost,
-    duts_running_config_facts,
-    duts_minigraph_facts,
-    tbinfo,
-    request,
-    lag_name,
-    shut_dut_port,
-    expected_groups,
-    expected_member_selected,
-    expected_lag_status,
-    phase
-):
+def wait_for_ecmp_state(duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts,
+                        tbinfo, request, lag_name, shut_dut_port, expected_groups,
+                        expected_member_selected, expected_lag_status, phase):
     state = {"fib_files": None, "port_groups": set(), "member_selected": None, "lag_status": None}
 
     def _ecmp_state_ready():
         if lag_name:
             current_lag_facts = duthosts[0].lag_facts(
-                host=duthosts[0].hostname
-            )['ansible_facts']['lag_facts']
+                host=duthosts[0].hostname)['ansible_facts']['lag_facts']
             current_lag = current_lag_facts['lags'][lag_name]
             port_info = current_lag['po_stats']['ports'][shut_dut_port]
             state["member_selected"] = port_info['runner']['selected']
@@ -363,9 +346,7 @@ def wait_for_ecmp_state(
         candidate_fib_infos = get_fib_info_per_function(
             duthosts, duts_running_config_facts, duts_minigraph_facts, tbinfo, request
         )
-        state["port_groups"] = {
-            frozenset(group) for group in get_default_route_port_groups(candidate_fib_infos)
-        }
+        state["port_groups"] = {frozenset(group) for group in get_default_route_port_groups(candidate_fib_infos)}
         logging.info(
             "Waiting for ECMP next hops after {}: expected {}, observed {}".format(
                 phase, format_port_groups(expected_groups), format_port_groups(state["port_groups"])
@@ -375,9 +356,7 @@ def wait_for_ecmp_state(
             state["port_groups"] == expected_groups,
             "ECMP next hops are not ready after {}".format(phase)
         )
-        state["fib_files"] = gen_fib_info_files_per_function(
-            ptfhost, candidate_fib_infos, tbinfo, request
-        )
+        state["fib_files"] = gen_fib_info_files_per_function(ptfhost, candidate_fib_infos, tbinfo, request)
         return True
 
     pytest_assert(
@@ -1082,18 +1061,9 @@ def test_ecmp_group_member_flap(
         # --- Re-run the PTF test after member down ---
         logging.info("Verifying ECMP behavior after member down.")
         new_fib_files1 = wait_for_ecmp_state(
-            duthosts,
-            ptfhost,
-            duts_running_config_facts,
-            duts_minigraph_facts,
-            tbinfo,
-            request,
-            lag_name,
-            shut_dut_port,
-            expected_down_groups,
-            False,
-            "Up" if portchannel_stays_up else "Down",
-            "member down"
+            duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts, tbinfo, request,
+            lag_name, shut_dut_port, expected_down_groups, False,
+            "Up" if portchannel_stays_up else "Down", "member down"
         )
         member_down_log_file = "/tmp/fib_test.ecmp_member_flap.member_down.ipv4.{}.ipv6.{}.{}.log".format(
                                 ipv4, ipv6, timestamp)
@@ -1140,18 +1110,8 @@ def test_ecmp_group_member_flap(
     # --- Re-run the PTF test after member is back up ---
     logging.info("Re-verifying ECMP behavior after member up.")
     new_fib_files2 = wait_for_ecmp_state(
-        duthosts,
-        ptfhost,
-        duts_running_config_facts,
-        duts_minigraph_facts,
-        tbinfo,
-        request,
-        lag_name,
-        shut_dut_port,
-        initial_port_groups,
-        True,
-        "Up",
-        "member up"
+        duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts, tbinfo, request,
+        lag_name, shut_dut_port, initial_port_groups, True, "Up", "member up"
     )
     member_up_log_file = "/tmp/fib_test.ecmp_member_flap.member_up.ipv4.{}.ipv6.{}.{}.log".format(
                           ipv4, ipv6, timestamp)
